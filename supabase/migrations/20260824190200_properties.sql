@@ -25,8 +25,6 @@ create table public.properties (
   updated_at    timestamptz not null default now()
 );
 
-create index properties_active_idx on public.properties (is_active) where is_active;
-
 create trigger properties_touch
   before update on public.properties
   for each row execute function public.touch_updated_at();
@@ -46,17 +44,17 @@ create index property_links_child_idx on public.property_links (child_id);
 
 -- RLS фильтрует строки, но базовую привилегию нужно выдать явно:
 -- без GRANT политики недостижимы и запрос падает с permission denied.
-grant select, insert, update, delete on public.properties to authenticated;
-grant select, insert, update, delete on public.property_links to authenticated;
+grant select, insert, update, delete on public.properties to authenticated, service_role;
+grant select, insert, update, delete on public.property_links to authenticated, service_role;
 
 alter table public.properties     enable row level security;
 alter table public.property_links enable row level security;
 
 -- Адрес объекта нужен любому исполнителю, чтобы доехать.
-create policy "authenticated read properties"
+create policy "active staff read properties"
   on public.properties for select
   to authenticated
-  using (true);
+  using (public.is_active_user());
 
 create policy "managers write properties"
   on public.properties for all
@@ -64,13 +62,35 @@ create policy "managers write properties"
   using (public.is_manager())
   with check (public.is_manager());
 
-create policy "authenticated read property links"
+create policy "active staff read property links"
   on public.property_links for select
   to authenticated
-  using (true);
+  using (public.is_active_user());
 
 create policy "managers write property links"
   on public.property_links for all
   to authenticated
   using (public.is_manager())
   with check (public.is_manager());
+
+-- Объект не может быть одновременно родителем и потомком: генератор задач в F4
+-- разворачивает родителя в потомков, и на цикле A->B + B->A он зациклится
+-- или выдаст задачу дважды.
+create or replace function public.guard_property_link_cycles()
+returns trigger
+language plpgsql
+as $$
+begin
+  if exists (select 1 from public.property_links where child_id = new.parent_id) then
+    raise exception 'Объект % уже является потомком — родителем быть не может', new.parent_id;
+  end if;
+  if exists (select 1 from public.property_links where parent_id = new.child_id) then
+    raise exception 'Объект % уже является родителем — потомком быть не может', new.child_id;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger property_links_guard_cycles
+  before insert or update on public.property_links
+  for each row execute function public.guard_property_link_cycles();

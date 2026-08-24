@@ -18,6 +18,8 @@ create index profiles_role_idx on public.profiles (role) where is_active;
 -- Роль текущего пользователя.
 -- SECURITY DEFINER обходит RLS на profiles — иначе политики, читающие profiles,
 -- рекурсивно вызывали бы сами себя.
+-- Деактивированный сотрудник роли не имеет: уволенный клинер не должен
+-- сохранять доступ до истечения токена.
 create or replace function public.auth_role()
 returns public.app_role
 language sql
@@ -25,7 +27,23 @@ stable
 security definer
 set search_path = ''
 as $$
-  select role from public.profiles where id = (select auth.uid())
+  select role from public.profiles
+  where id = (select auth.uid()) and is_active
+$$;
+
+-- Активен ли текущий пользователь. Используется в политиках операционных
+-- таблиц: снятие галочки is_active обязано немедленно закрывать доступ.
+create or replace function public.is_active_user()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = (select auth.uid()) and is_active
+  )
 $$;
 
 -- Менеджер или админ: полный доступ к операционным данным.
@@ -44,7 +62,11 @@ create trigger profiles_touch
   for each row execute function public.touch_updated_at();
 
 -- Профиль создаётся автоматически при регистрации.
--- Роль берётся из invite-метаданных, иначе cleaner — самая ограниченная.
+--
+-- Роль читается из raw_app_meta_data, а НЕ из raw_user_meta_data:
+-- user_metadata заполняется клиентом дословно из options.data при signup,
+-- поэтому {"data":{"role":"admin"}} выдал бы себе админа. app_metadata
+-- пишется только сервером через Admin API — туда её кладёт инвайт-флоу.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -57,13 +79,17 @@ begin
     new.id,
     nullif(new.raw_user_meta_data ->> 'full_name', ''),
     coalesce(
-      -- Неизвестное значение в метаданных не должно ронять регистрацию:
+      -- Неизвестное значение не должно ронять регистрацию:
       -- откатываемся на самую ограниченную роль.
       (select r from unnest(enum_range(null::public.app_role)) r
-        where r::text = new.raw_user_meta_data ->> 'role'),
+        where r::text = new.raw_app_meta_data ->> 'role'),
       'cleaner'
     )
-  );
+  )
+  -- Профиль мог быть создан заранее (инвайт из панели менеджера).
+  -- Без on conflict GoTrue вернул бы непрозрачную 500-ю ошибку.
+  on conflict (id) do update
+    set full_name = coalesce(excluded.full_name, public.profiles.full_name);
   return new;
 end;
 $$;
@@ -102,7 +128,9 @@ create trigger profiles_guard_privileges
 
 -- RLS фильтрует строки, но базовую привилегию нужно выдать явно:
 -- без GRANT политики недостижимы и запрос падает с permission denied.
-grant select, insert, update, delete on public.profiles to authenticated;
+-- service_role обходит RLS, но привилегии ему тоже нужны — на нём работают
+-- все Edge Functions (синхронизация Hostaway, генератор задач).
+grant select, insert, update, delete on public.profiles to authenticated, service_role;
 
 alter table public.profiles enable row level security;
 

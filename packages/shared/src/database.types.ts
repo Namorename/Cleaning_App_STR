@@ -280,6 +280,7 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      is_active_user: { Args: never; Returns: boolean }
       is_manager: { Args: never; Returns: boolean }
     }
     Enums: {

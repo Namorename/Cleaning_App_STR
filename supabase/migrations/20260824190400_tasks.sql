@@ -24,10 +24,12 @@ create table public.tasks (
   notes           text,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now(),
-  -- Исполнитель обязателен во всех рабочих статусах.
-  -- Исключения: ещё не назначена и уже отменена.
+  -- Исполнитель обязателен только в рабочих статусах.
+  -- 'done' в списке исключений намеренно: удаление пользователя каскадом
+  -- обнуляет assignee_id, и без этого послабления любого сотрудника с хотя бы
+  -- одной выполненной задачей стало бы невозможно удалить.
   constraint tasks_assigned_has_assignee
-    check (status in ('unassigned', 'cancelled') or assignee_id is not null)
+    check (status in ('unassigned', 'cancelled', 'done') or assignee_id is not null)
 );
 
 -- Главный экран клинера: «мои задачи на сегодня».
@@ -51,23 +53,62 @@ create trigger tasks_touch
   before update on public.tasks
   for each row execute function public.touch_updated_at();
 
--- RLS фильтрует строки, но базовую привилегию нужно выдать явно:
--- без GRANT политики недостижимы и запрос падает с permission denied.
-grant select, insert, update, delete on public.tasks to authenticated;
+-- Исполнитель ведёт ход работ, но не переписывает саму постановку задачи.
+-- Политика проверяет только владение; какие колонки разрешено менять —
+-- решается здесь. Иначе клинер сдвинул бы scheduled_date, чтобы исчезнуть
+-- из дневной очереди менеджера, или проставил completed_at, ни разу не начав
+-- работу, испортив статистику F12.
+create or replace function public.guard_task_fields()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  -- Серверный контекст (service_role, генератор задач) не ограничиваем.
+  if (select auth.uid()) is null then
+    return new;
+  end if;
+
+  if not public.is_manager() then
+    -- assignee_id намеренно НЕ откатывается здесь: смену владельца ловит
+    -- WITH CHECK политики и отдаёт явную ошибку. Молчаливый откат здесь
+    -- перехватил бы её до проверки, и клиент считал бы передачу успешной.
+    new.property_id    := old.property_id;
+    new.reservation_id := old.reservation_id;
+    new.type           := old.type;
+    new.priority       := old.priority;
+    new.scheduled_date := old.scheduled_date;
+    new.due_at         := old.due_at;
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger tasks_guard_fields
+  before update on public.tasks
+  for each row execute function public.guard_task_fields();
+
+-- RLS фильтрует строки, но базовую привилегию нужно выдать явно.
+-- service_role обходит RLS, однако привилегии ему тоже необходимы:
+-- на нём работает генератор задач из вебхуков Hostaway.
+grant select, insert, update, delete on public.tasks to authenticated, service_role;
 
 alter table public.tasks enable row level security;
 
 create policy "assignee reads own tasks"
   on public.tasks for select
   to authenticated
-  using (assignee_id = (select auth.uid()));
+  using (assignee_id = (select auth.uid()) and public.is_active_user());
 
 -- Исполнитель двигает статус и время своей задачи.
--- Переназначить её себе или другому он не может: assignee_id обязан остаться собой.
+-- Переназначить её он не может: assignee_id обязан остаться собой (политика),
+-- а прочие поля постановки откатывает триггер guard_task_fields.
 create policy "assignee updates own tasks"
   on public.tasks for update
   to authenticated
-  using (assignee_id = (select auth.uid()))
+  using (assignee_id = (select auth.uid()) and public.is_active_user())
   with check (assignee_id = (select auth.uid()));
 
 create policy "managers read all tasks"

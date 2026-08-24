@@ -3,6 +3,11 @@
 .env.*
 !.env.example
 *.raw
+# Приватные ключи — намеренно по всему дереву, а не только в apps/mobile:
+# случайно закоммиченный apns-auth.key или service-account.key дороже,
+# чем неудобство от тестовой фикстуры, которую придётся добавить через -f.
+*.key
+*.pem
 
 # --- dependencies ---
 node_modules/

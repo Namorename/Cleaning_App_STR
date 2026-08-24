@@ -19,7 +19,7 @@
     "db:types": "node scripts/gen-types.mjs",
     "fn:serve": "supabase functions serve",
     "fn:deploy": "supabase functions deploy",
-    "test:rls": "docker exec -i supabase_db_azpvpzqkseluzbtlnlkb psql -U postgres -d postgres -v ON_ERROR_STOP=1 -q < supabase/tests/rls_smoke.sql"
+    "test:rls": "node scripts/test-rls.mjs"
   },
   "devDependencies": {
     "supabase": "2.115.0"

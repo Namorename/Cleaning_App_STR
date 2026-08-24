@@ -23,7 +23,10 @@ create table public.reservations (
   synced_at       timestamptz,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now(),
-  constraint reservations_dates_ordered check (departure_date > arrival_date)
+  -- Зеркало чужого фида: Hostaway отдаёт нулевые интервалы для части блоков
+  -- и хозяйских заездов. Строгое > роняло бы весь батч синхронизации из-за
+  -- одной записи, поэтому допускаем равенство и отсеиваем такие брони в F4.
+  constraint reservations_dates_ordered check (departure_date >= arrival_date)
 );
 
 -- Основной запрос генератора задач: «кто выезжает в этот день».
@@ -40,7 +43,7 @@ create trigger reservations_touch
 
 -- RLS фильтрует строки, но базовую привилегию нужно выдать явно:
 -- без GRANT политики недостижимы и запрос падает с permission denied.
-grant select, insert, update, delete on public.reservations to authenticated;
+grant select, insert, update, delete on public.reservations to authenticated, service_role;
 
 alter table public.reservations enable row level security;
 
