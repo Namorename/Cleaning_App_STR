@@ -175,4 +175,34 @@ select pg_temp.check('деактивированный менеджер теря
   (select count(*)::int from public.reservations), 0);
 reset role;
 
+-- ---------- аноним отсекается на уровне привилегий, а не только RLS ----------
+-- На хостинге Supabase anon получал гранты автоматически, и единственной
+-- преградой оставались политики. Проверяем именно привилегию: отказ должен
+-- приходить до RLS, иначе забытое `to authenticated` открыло бы таблицу.
+set local role anon;
+do $$
+begin
+  perform 1 from public.properties limit 1;
+  raise exception 'FAIL anon добрался до properties';
+exception when insufficient_privilege then
+  raise notice 'ok  anon НЕ имеет привилегий на properties';
+end $$;
+
+do $$
+begin
+  perform 1 from public.tasks limit 1;
+  raise exception 'FAIL anon добрался до tasks';
+exception when insufficient_privilege then
+  raise notice 'ok  anon НЕ имеет привилегий на tasks';
+end $$;
+
+do $$
+begin
+  perform 1 from public.profiles limit 1;
+  raise exception 'FAIL anon добрался до profiles';
+exception when insufficient_privilege then
+  raise notice 'ok  anon НЕ имеет привилегий на profiles';
+end $$;
+reset role;
+
 rollback;
