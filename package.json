@@ -1,0 +1,26 @@
+{
+  "name": "str-ops",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Операционная система для STR-компании: уборки, обслуживание, синхронизация с Hostaway",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "db:diff": "supabase db diff -f",
+    "db:push": "supabase db push",
+    "db:types": "supabase gen types typescript --local > packages/shared/src/database.types.ts",
+    "fn:serve": "supabase functions serve",
+    "fn:deploy": "supabase functions deploy"
+  },
+  "devDependencies": {
+    "supabase": "^2.0.0"
+  }
+}

@@ -1,0 +1,51 @@
+# --- secrets ---
+.env
+.env.*
+!.env.example
+*.raw
+
+# --- dependencies ---
+node_modules/
+.pnp
+.pnp.js
+
+# --- builds ---
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# --- expo ---
+.expo/
+.expo-shared/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+ios/
+android/
+
+# --- supabase ---
+supabase/.branches/
+supabase/.temp/
+supabase/.env
+
+# --- tooling ---
+.turbo/
+coverage/
+*.log
+npm-debug.log*
+
+# --- os / editors ---
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# --- vendor docs (крупные бинарники держим локально) ---
+docs/vendor/*
+!docs/vendor/README.md
