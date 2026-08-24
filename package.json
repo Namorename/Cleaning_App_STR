@@ -18,7 +18,8 @@
     "db:push": "supabase db push",
     "db:types": "supabase gen types typescript --local > packages/shared/src/database.types.ts",
     "fn:serve": "supabase functions serve",
-    "fn:deploy": "supabase functions deploy"
+    "fn:deploy": "supabase functions deploy",
+    "test:rls": "docker exec -i supabase_db_azpvpzqkseluzbtlnlkb psql -U postgres -d postgres -v ON_ERROR_STOP=1 -q < supabase/tests/rls_smoke.sql"
   },
   "devDependencies": {
     "supabase": "^2.0.0"
