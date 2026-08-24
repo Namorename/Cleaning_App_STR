@@ -17,15 +17,17 @@ out/
 *.tsbuildinfo
 
 # --- expo ---
+# Паттерны привязаны к apps/mobile: без ведущего слэша `ios/` и `*.key`
+# срабатывают на любой глубине и молча выкидывают чужие файлы из коммита.
 .expo/
 .expo-shared/
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-ios/
-android/
+/apps/mobile/ios/
+/apps/mobile/android/
+/apps/mobile/**/*.jks
+/apps/mobile/**/*.p8
+/apps/mobile/**/*.p12
+/apps/mobile/**/*.keystore
+/apps/mobile/**/*.mobileprovision
 
 # --- supabase ---
 supabase/.branches/
@@ -49,3 +51,4 @@ desktop.ini
 # --- vendor docs (крупные бинарники держим локально) ---
 docs/vendor/*
 !docs/vendor/README.md
+
