@@ -1,5 +1,10 @@
 -- Дымовой тест RLS. Запуск: npm run test:rls
 -- Работает в транзакции и откатывается — базу не пачкает.
+--
+-- Идентификаторы фикстур лежат в диапазоне 9000000xx: рабочие id Hostaway
+-- (98352, 571441 и прочие) после F2 присутствуют в базе по-настоящему, и
+-- прежние фикстуры сталкивались с ними по первичному ключу. По той же причине
+-- все подсчёты ограничены этим диапазоном — таблицы больше не пусты.
 begin;
 
 -- ---------- фикстуры ----------
@@ -25,19 +30,19 @@ values
    '{"full_name":"Самозванец","role":"admin"}'::jsonb, '{}'::jsonb);
 
 insert into public.properties (id, name, timezone) values
-  (98352,'Тестовый объект','Europe/Prague'),
-  (566761,'Юнит A','Europe/Prague'),
-  (566769,'Юнит B','Europe/Prague'),
-  (571441,'Объединённый','Europe/Prague');
+  (900000001,'Тестовый объект','Europe/Prague'),
+  (900000002,'Юнит A','Europe/Prague'),
+  (900000003,'Юнит B','Europe/Prague'),
+  (900000004,'Объединённый','Europe/Prague');
 
 insert into public.reservations (id, property_id, arrival_date, departure_date, status, guest_name)
-values (700001, 98352, '2026-09-01','2026-09-05','new','Гость Гостевич');
+values (900000101, 900000001, '2026-09-01','2026-09-05','new','Гость Гостевич');
 
 insert into public.tasks (property_id, reservation_id, type, status, assignee_id, scheduled_date)
-values (98352, 700001, 'cleaning','assigned','11111111-1111-1111-1111-111111111111','2026-09-05');
+values (900000001, 900000101, 'cleaning','assigned','11111111-1111-1111-1111-111111111111','2026-09-05');
 
 insert into public.tasks (property_id, type, status, assignee_id, scheduled_date)
-values (98352, 'cleaning','assigned','22222222-2222-2222-2222-222222222222','2026-09-05');
+values (900000001, 'cleaning','assigned','22222222-2222-2222-2222-222222222222','2026-09-05');
 
 create or replace function pg_temp.check(label text, got anyelement, want anyelement)
 returns void language plpgsql as $$
@@ -50,7 +55,7 @@ end $$;
 
 -- ---------- регистрация и роли ----------
 select pg_temp.check('профили созданы триггером',
-  (select count(*)::int from public.profiles), 5);
+  (select count(*)::int from public.profiles where id in ('11111111-1111-1111-1111-111111111111','22222222-2222-2222-2222-222222222222','33333333-3333-3333-3333-333333333333','44444444-4444-4444-4444-444444444444','55555555-5555-5555-5555-555555555555')), 5);
 select pg_temp.check('роль из app_metadata применена',
   (select role::text from public.profiles where id='33333333-3333-3333-3333-333333333333'),
   'manager');
@@ -73,11 +78,11 @@ set local role authenticated;
 set local request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
 
 select pg_temp.check('клинер видит только свою задачу',
-  (select count(*)::int from public.tasks), 1);
+  (select count(*)::int from public.tasks where property_id between 900000001 and 900000999), 1);
 select pg_temp.check('клинер НЕ видит брони (PII гостя)',
-  (select count(*)::int from public.reservations), 0);
+  (select count(*)::int from public.reservations where id between 900000001 and 900000999), 0);
 select pg_temp.check('клинер видит объекты (нужен адрес)',
-  (select count(*)::int from public.properties), 4);
+  (select count(*)::int from public.properties where id between 900000001 and 900000999), 4);
 
 update public.profiles set role='admin' where id='11111111-1111-1111-1111-111111111111';
 select pg_temp.check('клинер НЕ может повысить себе роль',
@@ -117,25 +122,25 @@ set local role authenticated;
 set local request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
 
 select pg_temp.check('менеджер видит все задачи',
-  (select count(*)::int from public.tasks), 2);
+  (select count(*)::int from public.tasks where property_id between 900000001 and 900000999), 2);
 select pg_temp.check('менеджер видит брони',
-  (select count(*)::int from public.reservations), 1);
+  (select count(*)::int from public.reservations where id between 900000001 and 900000999), 1);
 reset role;
 
 -- ---------- целостность данных ----------
 do $$
 begin
   insert into public.tasks (property_id, reservation_id, type, status, assignee_id, scheduled_date)
-  values (98352, 700001, 'cleaning','assigned','22222222-2222-2222-2222-222222222222','2026-09-05');
+  values (900000001, 900000101, 'cleaning','assigned','22222222-2222-2222-2222-222222222222','2026-09-05');
   raise exception 'FAIL дубль уборки на одну бронь прошёл';
 exception when unique_violation then
   raise notice 'ok  дубль уборки на бронь отклонён';
 end $$;
 
-insert into public.property_links (parent_id, child_id) values (571441, 566761), (571441, 566769);
+insert into public.property_links (parent_id, child_id) values (900000004, 900000002), (900000004, 900000003);
 do $$
 begin
-  insert into public.property_links (parent_id, child_id) values (566761, 571441);
+  insert into public.property_links (parent_id, child_id) values (900000002, 900000004);
   raise exception 'FAIL цикл в связях объектов прошёл';
 exception when raise_exception then
   raise notice 'ok  цикл в связях объектов отклонён';
@@ -143,9 +148,9 @@ end $$;
 
 -- Нулевой интервал: Hostaway отдаёт такое для части блоков.
 insert into public.reservations (id, property_id, arrival_date, departure_date, status)
-values (700002, 98352, '2026-09-10','2026-09-10','new');
+values (900000102, 900000001, '2026-09-10','2026-09-10','new');
 select pg_temp.check('нулевой интервал брони принимается',
-  (select count(*)::int from public.reservations where id=700002), 1);
+  (select count(*)::int from public.reservations where id=900000102), 1);
 
 -- Удаление сотрудника с выполненной задачей.
 update public.tasks set status='done', completed_at=now()
@@ -163,16 +168,16 @@ update public.profiles set is_active=false where id='11111111-1111-1111-1111-111
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
 select pg_temp.check('деактивированный НЕ видит свои задачи',
-  (select count(*)::int from public.tasks), 0);
+  (select count(*)::int from public.tasks where property_id between 900000001 and 900000999), 0);
 select pg_temp.check('деактивированный НЕ видит объекты',
-  (select count(*)::int from public.properties), 0);
+  (select count(*)::int from public.properties where id between 900000001 and 900000999), 0);
 reset role;
 
 update public.profiles set is_active=false where id='33333333-3333-3333-3333-333333333333';
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
 select pg_temp.check('деактивированный менеджер теряет права',
-  (select count(*)::int from public.reservations), 0);
+  (select count(*)::int from public.reservations where id between 900000001 and 900000999), 0);
 reset role;
 
 -- ---------- аноним отсекается на уровне привилегий, а не только RLS ----------
