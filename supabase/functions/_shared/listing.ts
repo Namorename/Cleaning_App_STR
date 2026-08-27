@@ -6,6 +6,8 @@
  * Поэтому вход типизирован как unknown и сужается явно, а не приводится через as.
  */
 
+import { isRecord, toFiniteNumber, toTrimmedString } from "./coerce.ts";
+
 /** Схема БД требует timezone NOT NULL: дедлайны уборок считаются в локальном времени объекта. */
 const DEFAULT_TIMEZONE = "UTC";
 
@@ -20,42 +22,6 @@ export interface PropertyRow {
   bathrooms: number | null;
   max_guests: number | null;
   synced_at: string;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/** Пустая строка и строка из пробелов — это «значения нет», а не значение. */
-function toTrimmedString(value: unknown): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  return trimmed === "" ? null : trimmed;
-}
-
-/**
- * Приведение к числу без ловушек Number(): Number([]) === 0 и Number("") === 0
- * молча превратили бы «нет данных» в осмысленный ноль.
- */
-function toFiniteNumber(value: unknown): number | null {
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : null;
-  }
-
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  if (trimmed === "") {
-    return null;
-  }
-
-  const parsed = Number(trimmed);
-  return Number.isFinite(parsed) ? parsed : null;
 }
 
 /**
