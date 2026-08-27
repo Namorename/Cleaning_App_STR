@@ -412,3 +412,8 @@ enabled = true
 # declarative_schema_path = "./schemas"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+[functions.hostaway-webhook]
+# Hostaway не умеет присылать токен Supabase; защита — Basic Auth
+# внутри самой функции (supabase/functions/hostaway-webhook/handler.ts).
+verify_jwt = false

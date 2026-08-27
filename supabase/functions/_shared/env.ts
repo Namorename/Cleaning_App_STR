@@ -6,6 +6,7 @@
  * следующей забытой переменной.
  */
 
+import type { BasicCredentials } from "./basic-auth.ts";
 import type { HostawayCredentials } from "./hostaway.ts";
 
 export interface SyncConfig {
@@ -64,4 +65,27 @@ export function readConfig(env: EnvReader): SyncConfig {
       apiKey: apiKey as string,
     },
   };
+}
+
+/**
+ * Учётные данные вебхука Hostaway.
+ *
+ * Читаются отдельно от остальной конфигурации: приёмник вебхука не ходит
+ * ни в Hostaway API, ни за токеном, ему нужна только эта пара. Бросает
+ * ConfigError, если хотя бы одна переменная не задана — обработчик по этому
+ * отвечает 500, чтобы Hostaway повторил доставку.
+ */
+export function readWebhookCredentials(env: EnvReader): BasicCredentials {
+  const login = readNonEmpty(env, "HOSTAWAY_WEBHOOK_LOGIN");
+  const password = readNonEmpty(env, "HOSTAWAY_WEBHOOK_PASSWORD");
+
+  const missing: string[] = [];
+  if (login === null) missing.push("HOSTAWAY_WEBHOOK_LOGIN");
+  if (password === null) missing.push("HOSTAWAY_WEBHOOK_PASSWORD");
+
+  if (missing.length > 0) {
+    throw new ConfigError(`Не заданы переменные окружения: ${missing.join(", ")}`);
+  }
+
+  return { login: login as string, password: password as string };
 }
