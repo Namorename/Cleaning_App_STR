@@ -345,3 +345,81 @@ Deno.test("бросает ошибку, если result пришёл не мас
 
   await assertRejects(() => client.listAll("listings", 100), Error);
 });
+
+// ---------------------------------------------------------------------------
+//  Параметры запроса и выборка одного объекта
+// ---------------------------------------------------------------------------
+
+Deno.test("дополнительные параметры попадают в запрос", async () => {
+  // Суточная сверка берёт не всю историю (30 887 броней), а окно по выезду.
+  const harness = makeHarness([
+    tokenResponse("token"),
+    pageResponse(makeListings(1), 1),
+  ]);
+  const client = new HostawayClient(CREDENTIALS, harness);
+
+  await client.listAll("reservations", 100, {
+    departureStartDate: "2026-08-20",
+    departureEndDate: "2026-11-25",
+  });
+
+  const url = new URL(harness.requests.filter((r) => r.url.includes("/reservations"))[0].url);
+  assertEquals(url.searchParams.get("departureStartDate"), "2026-08-20");
+  assertEquals(url.searchParams.get("departureEndDate"), "2026-11-25");
+  assertEquals(url.searchParams.get("limit"), "100");
+  assertEquals(url.searchParams.get("offset"), "0");
+});
+
+Deno.test("параметры сохраняются на всех страницах", async () => {
+  const harness = makeHarness([
+    tokenResponse("token"),
+    pageResponse(makeListings(2, 1), 2),
+    pageResponse(makeListings(1, 3), 1),
+  ]);
+  const client = new HostawayClient(CREDENTIALS, harness);
+
+  await client.listAll("reservations", 2, { departureStartDate: "2026-08-20" });
+
+  const pages = harness.requests.filter((r) => r.url.includes("/reservations"));
+  assertEquals(pages.length, 2);
+  for (const page of pages) {
+    assertEquals(new URL(page.url).searchParams.get("departureStartDate"), "2026-08-20");
+  }
+});
+
+Deno.test("getObject возвращает один объект, а не массив", async () => {
+  const single = { id: 65289672, listingMapId: 495979, status: "modified" };
+  const harness = makeHarness([
+    tokenResponse("token"),
+    new Response(JSON.stringify({ status: "success", result: single }), { status: 200 }),
+  ]);
+  const client = new HostawayClient(CREDENTIALS, harness);
+
+  const result = await client.getObject("reservations/65289672");
+
+  assertEquals(result, single);
+});
+
+Deno.test("getObject тоже отступает при перегрузке", async () => {
+  const harness = makeHarness([
+    tokenResponse("token"),
+    errorResponse(429),
+    new Response(JSON.stringify({ status: "success", result: { id: 1 } }), { status: 200 }),
+  ]);
+  const client = new HostawayClient(CREDENTIALS, harness);
+
+  await client.getObject("reservations/1");
+
+  assertEquals(harness.sleeps.includes(RETRY_BASE_DELAY_MS), true);
+});
+
+Deno.test("getObject падает на status=fail", async () => {
+  const harness = makeHarness([
+    tokenResponse("token"),
+    new Response(JSON.stringify({ status: "fail", result: "Not found" }), { status: 200 }),
+  ]);
+  const client = new HostawayClient(CREDENTIALS, harness);
+
+  const error = await assertRejects(() => client.getObject("reservations/999"), Error);
+  assertStringIncludes(error.message, "Not found");
+});

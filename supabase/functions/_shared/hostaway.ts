@@ -81,13 +81,20 @@ export class HostawayClient {
    *
    * Для listings Hostaway работает через offset, а не через курсор afterId —
    * это выяснено практикой, а не документацией.
+   *
+   * params попадают в каждую страницу: суточная сверка берёт не всю историю
+   * (30 887 броней), а окно по дате выезда.
    */
-  async listAll(endpoint: string, pageSize: number = DEFAULT_PAGE_SIZE): Promise<unknown[]> {
+  async listAll(
+    endpoint: string,
+    pageSize: number = DEFAULT_PAGE_SIZE,
+    params: Readonly<Record<string, string>> = {},
+  ): Promise<unknown[]> {
     const collected: unknown[] = [];
     let offset = 0;
 
     while (true) {
-      const page = await this.#fetchPage(endpoint, pageSize, offset);
+      const page = await this.#fetchPage(endpoint, pageSize, offset, params);
       if (page.length === 0) {
         break;
       }
@@ -103,6 +110,24 @@ export class HostawayClient {
     }
 
     return collected;
+  }
+
+  /**
+   * Один объект по пути вида `reservations/65289672`.
+   *
+   * Разбор журнала вебхуков не доверяет телу уведомления и перезапрашивает
+   * бронь сам: подписи у Hostaway нет, поэтому подделать уведомление проще,
+   * чем подделать ответ API на наш собственный запрос.
+   */
+  async getObject(path: string): Promise<Record<string, unknown>> {
+    const body = await this.#request(`${this.#baseUrl}/${path}`, path);
+    const result = this.#unwrap(body, path);
+
+    if (Array.isArray(result) || typeof result !== "object" || result === null) {
+      throw new HostawayError(`Ответ ${path} не является объектом`);
+    }
+
+    return result as Record<string, unknown>;
   }
 
   /**
@@ -144,9 +169,7 @@ export class HostawayClient {
     });
 
     if (!response.ok) {
-      throw new HostawayError(
-        `Авторизация Hostaway не удалась: HTTP ${response.status}`,
-      );
+      throw new HostawayError(`Авторизация Hostaway не удалась: HTTP ${response.status}`);
     }
 
     const payload = await this.#readJson(response);
@@ -167,9 +190,13 @@ export class HostawayClient {
     }
   }
 
-  async #fetchPage(endpoint: string, limit: number, offset: number): Promise<unknown[]> {
-    const url = `${this.#baseUrl}/${endpoint}?limit=${limit}&offset=${offset}`;
-
+  /**
+   * Один запрос с обновлением токена и отступлением при перегрузке.
+   *
+   * Общий для постраничной выгрузки и выборки одного объекта: правила
+   * повторов у них одинаковые, дублировать их было бы источником расхождений.
+   */
+  async #request(url: string, label: string): Promise<unknown> {
     let attempt = 0;
     let tokenRefreshed = false;
 
@@ -194,7 +221,7 @@ export class HostawayClient {
       if (response.status === 401) {
         if (tokenRefreshed) {
           throw new HostawayError(
-            `Hostaway отвечает 401 даже с новым токеном (${endpoint}) — проверьте ключи и scope`,
+            `Hostaway отвечает 401 даже с новым токеном (${label}) — проверьте ключи и scope`,
           );
         }
 
@@ -207,7 +234,7 @@ export class HostawayClient {
         attempt += 1;
         if (attempt >= MAX_ATTEMPTS) {
           throw new HostawayError(
-            `Hostaway отвечает ${response.status} после ${attempt} попыток (${endpoint}, offset=${offset})`,
+            `Hostaway отвечает ${response.status} после ${attempt} попыток (${label})`,
           );
         }
 
@@ -216,30 +243,44 @@ export class HostawayClient {
       }
 
       if (!response.ok) {
-        throw new HostawayError(
-          `Hostaway вернул HTTP ${response.status} на ${endpoint} (offset=${offset})`,
-        );
+        throw new HostawayError(`Hostaway вернул HTTP ${response.status} на ${label}`);
       }
 
-      return this.#extractResult(await this.#readJson(response), endpoint);
+      return await this.#readJson(response);
     }
   }
 
+  async #fetchPage(
+    endpoint: string,
+    limit: number,
+    offset: number,
+    params: Readonly<Record<string, string>>,
+  ): Promise<unknown[]> {
+    const query = new URLSearchParams({
+      ...params,
+      limit: String(limit),
+      offset: String(offset),
+    });
+
+    const label = `${endpoint} (offset=${offset})`;
+    const result = this.#unwrap(await this.#request(`${this.#baseUrl}/${endpoint}?${query}`, label), label);
+
+    if (!Array.isArray(result)) {
+      throw new HostawayError(`Поле result в ответе ${label} не является массивом (${typeof result})`);
+    }
+
+    return result;
+  }
+
   /** Hostaway умеет отвечать HTTP 200 с телом об ошибке — проверяем поле status. */
-  #extractResult(payload: unknown, endpoint: string): unknown[] {
+  #unwrap(payload: unknown, label: string): unknown {
     if (typeof payload !== "object" || payload === null) {
-      throw new HostawayError(`Тело ответа ${endpoint} не является объектом`);
+      throw new HostawayError(`Тело ответа ${label} не является объектом`);
     }
 
     const body = payload as Record<string, unknown>;
     if (body.status === "fail") {
-      throw new HostawayError(`Hostaway отклонил запрос ${endpoint}: ${String(body.result)}`);
-    }
-
-    if (!Array.isArray(body.result)) {
-      throw new HostawayError(
-        `Поле result в ответе ${endpoint} не является массивом (${typeof body.result})`,
-      );
+      throw new HostawayError(`Hostaway отклонил запрос ${label}: ${String(body.result)}`);
     }
 
     return body.result;
