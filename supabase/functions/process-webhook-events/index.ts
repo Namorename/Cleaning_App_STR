@@ -41,6 +41,7 @@ interface ProcessSummary {
   skipped: number;
   failed: number;
   unknownPropertyIds: number[];
+  tasks: unknown;
   durationMs: number;
 }
 
@@ -93,6 +94,7 @@ async function processBatch(): Promise<ProcessSummary> {
     skipped: 0,
     failed: 0,
     unknownPropertyIds: [],
+    tasks: null,
     durationMs: 0,
   };
 
@@ -153,6 +155,16 @@ async function processBatch(): Promise<ProcessSummary> {
         `Reservations reference unknown properties: ${result.unknownPropertyIds.join(", ")}. ` +
           "Run sync-listings.",
       );
+    }
+
+    // Reconcile cleaning tasks for the departures this batch touched. The
+    // window comes from the data, not from a fixed horizon: a booking created
+    // today can depart a year out and would fall outside any fixed range.
+    if (result.departureRange) {
+      summary.tasks = await rpc("generate_cleaning_tasks", {
+        from_date: result.departureRange.from,
+        to_date: result.departureRange.to,
+      });
     }
 
     await markEvents(rpc, okEventIds, "processed");

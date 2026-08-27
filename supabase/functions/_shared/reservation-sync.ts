@@ -1,27 +1,34 @@
 /**
- * Запись пачки броней в базу.
+ * Write a batch of reservations to the database.
  *
- * Общее для суточной сверки и разбора журнала вебхуков: обе получают сырые
- * брони от Hostaway и кладут их в оба слоя одним вызовом RPC.
+ * Shared by the nightly reconciliation and the webhook journal processor:
+ * both receive raw reservations from Hostaway and put them into both layers
+ * through one RPC.
  */
 
 import { normalizeReservation, type ReservationRow } from "./reservation.ts";
 
-/** Узкий контракт вместо зависимости от типа клиента Supabase — так проще подменять в тестах. */
+/** A narrow contract instead of depending on the Supabase client type — easier to stub in tests. */
 export type RpcCaller = (fn: string, args: Record<string, unknown>) => Promise<unknown>;
 
 /**
- * Сколько броней уходит в базу за один вызов RPC.
+ * How many reservations go to the database per RPC call.
  *
- * Выяснено на живых данных: суточная сверка приносит около 1358 броней по 137
- * полей каждая — это порядка 11 МБ JSONB, и один такой вызов упирается в
- * statement timeout. Пачками по 200 та же выгрузка проходит спокойно.
+ * Established against live data: the nightly reconciliation brings about 1358
+ * reservations of 137 fields each — roughly 11 MB of JSONB — and a single call
+ * of that size hits the statement timeout. In batches of 200 the same load
+ * goes through comfortably.
  */
 export const DB_BATCH_SIZE = 200;
 
 export interface SkippedReservation {
   readonly position: number;
   readonly reason: string;
+}
+
+export interface DepartureRange {
+  readonly from: string;
+  readonly to: string;
 }
 
 export interface ReservationPushResult {
@@ -31,8 +38,16 @@ export interface ReservationPushResult {
   readonly rawUpserted: number;
   readonly inserted: number;
   readonly updated: number;
-  /** Объекты, которых нет в properties: значит, пора обновить листинги. */
+  /** Properties absent from the properties table: time to refresh the listings. */
   readonly unknownPropertyIds: number[];
+  /**
+   * Departure dates covered by this batch, or null when nothing was written.
+   *
+   * The caller reconciles cleaning tasks over exactly this window. A fixed
+   * window would miss a booking that departs far in the future — those arrive
+   * by webhook and can sit well beyond the reconciliation horizon.
+   */
+  readonly departureRange: DepartureRange | null;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -49,8 +64,8 @@ export async function pushReservations(
   const raws: Array<{ id: number; data: unknown; synced_at: string }> = [];
   const skipped: SkippedReservation[] = [];
 
-  // Одна кривая бронь не должна ронять всю пачку: непрошедшие нормализацию
-  // откладываются и возвращаются наружу, остальные доезжают до базы.
+  // One malformed reservation must not sink the batch: those that fail
+  // normalization are set aside and reported, the rest reach the database.
   reservations.forEach((raw, position) => {
     try {
       const row = normalizeReservation(raw, syncedAt);
@@ -72,6 +87,7 @@ export async function pushReservations(
       inserted: 0,
       updated: 0,
       unknownPropertyIds: [],
+      departureRange: null,
     };
   }
 
@@ -99,6 +115,9 @@ export async function pushReservations(
     }
   }
 
+  // ISO dates sort lexicographically, so plain string comparison is enough.
+  const departures = rows.map((row) => row.departure_date).sort();
+
   return {
     fetched: reservations.length,
     normalized: rows.length,
@@ -107,5 +126,6 @@ export async function pushReservations(
     inserted,
     updated,
     unknownPropertyIds: [...unknownPropertyIds],
+    departureRange: { from: departures[0], to: departures[departures.length - 1] },
   };
 }

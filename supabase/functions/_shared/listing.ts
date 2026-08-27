@@ -1,14 +1,15 @@
 /**
- * Нормализация листинга Hostaway в строку таблицы public.properties.
+ * Normalize a Hostaway listing into a public.properties row.
  *
- * Вход — чужой фид: 145 полей, часть из которых приходит строками вместо чисел,
- * пустыми строками вместо null и вовсе отсутствует у отдельных объектов.
- * Поэтому вход типизирован как unknown и сужается явно, а не приводится через as.
+ * The input is a foreign feed: 145 fields, some of which arrive as strings
+ * instead of numbers, as empty strings instead of null, or are missing
+ * entirely on individual listings. Hence `unknown` and explicit narrowing
+ * rather than a cast.
  */
 
 import { isRecord, toFiniteNumber, toTrimmedString } from "./coerce.ts";
 
-/** Схема БД требует timezone NOT NULL: дедлайны уборок считаются в локальном времени объекта. */
+/** The schema requires timezone NOT NULL: cleaning deadlines are computed in property-local time. */
 const DEFAULT_TIMEZONE = "UTC";
 
 export interface PropertyRow {
@@ -21,29 +22,46 @@ export interface PropertyRow {
   bedrooms: number | null;
   bathrooms: number | null;
   max_guests: number | null;
+  /** Earliest guest arrival, property-local. Cleaning must finish by then. */
+  check_in_time: string | null;
+  /** Guest departure, property-local. Cleaning can start from then. */
+  check_out_time: string | null;
   synced_at: string;
 }
 
 /**
- * Имя объекта для исполнителя.
+ * Hostaway reports these as whole hours (`10`, `15`), not as clock strings.
+ * Converted to `HH:MM:SS` so the column can hold a half-hour checkout later
+ * without a migration.
+ */
+function toTimeOfDay(value: unknown): string | null {
+  const hour = toFiniteNumber(value);
+  if (hour === null || !Number.isInteger(hour) || hour < 0 || hour > 23) {
+    return null;
+  }
+
+  return `${String(hour).padStart(2, "0")}:00:00`;
+}
+
+/**
+ * The name shown to the cleaner.
  *
- * internalListingName — рабочий код вида "CZ - Brehova old Apt 51 Fl.5 8G 6BR 2B",
- * name — маркетинговый заголовок объявления. В списке задач клинеру нужен первый.
+ * internalListingName is the working code, e.g. "CZ - Brehova old Apt 51 Fl.5
+ * 8G 6BR 2B"; name is the marketing headline from the listing. The task list
+ * needs the former.
  */
 function pickName(listing: Record<string, unknown>): string | null {
   return toTrimmedString(listing.internalListingName) ?? toTrimmedString(listing.name);
 }
 
 /**
- * Обратите внимание: is_active в результат НЕ попадает. Hostaway такого поля не
- * отдаёт, а перезапись значением по умолчанию затирала бы ручную деактивацию
- * объекта в панели менеджера при каждом прогоне синхронизации.
+ * Note that is_active is deliberately absent from the result. Hostaway does
+ * not report such a field, and writing a default would undo a manual
+ * deactivation in the manager panel on every sync run.
  */
 export function normalizeListing(raw: unknown, syncedAt: string): PropertyRow {
   if (!isRecord(raw)) {
-    throw new TypeError(
-      `Hostaway listing must be an object, got: ${typeof raw}`,
-    );
+    throw new TypeError(`Hostaway listing must be an object, got: ${typeof raw}`);
   }
 
   const id = toFiniteNumber(raw.id);
@@ -55,9 +73,7 @@ export function normalizeListing(raw: unknown, syncedAt: string): PropertyRow {
 
   const name = pickName(raw);
   if (name === null) {
-    throw new TypeError(
-      `Hostaway listing ${id} has neither internalListingName nor name`,
-    );
+    throw new TypeError(`Hostaway listing ${id} has neither internalListingName nor name`);
   }
 
   return {
@@ -70,6 +86,8 @@ export function normalizeListing(raw: unknown, syncedAt: string): PropertyRow {
     bedrooms: toFiniteNumber(raw.bedroomsNumber),
     bathrooms: toFiniteNumber(raw.bathroomsNumber),
     max_guests: toFiniteNumber(raw.personCapacity),
+    check_in_time: toTimeOfDay(raw.checkInTimeStart),
+    check_out_time: toTimeOfDay(raw.checkOutTime),
     synced_at: syncedAt,
   };
 }

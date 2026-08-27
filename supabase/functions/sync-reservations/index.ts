@@ -54,7 +54,7 @@ function getErrorMessage(error: unknown): string {
 
 async function runReconciliation(
   window: SyncWindow,
-): Promise<ReservationPushResult & { window: SyncWindow; durationMs: number }> {
+): Promise<ReservationPushResult & { tasks: unknown; window: SyncWindow; durationMs: number }> {
   const startedAt = Date.now();
   const config = readConfig(Deno.env);
   const syncedAt = new Date(startedAt).toISOString();
@@ -70,13 +70,15 @@ async function runReconciliation(
     auth: { persistSession: false },
   });
 
-  const result = await pushReservations(reservations, syncedAt, async (fn, args) => {
+  const rpc = async (fn: string, args: Record<string, unknown>): Promise<unknown> => {
     const { data, error } = await supabase.rpc(fn, args);
     if (error) {
       throw new Error(`RPC ${fn}: ${error.message}`);
     }
     return data;
-  });
+  };
+
+  const result = await pushReservations(reservations, syncedAt, rpc);
 
   if (result.unknownPropertyIds.length > 0) {
     console.error(
@@ -85,7 +87,15 @@ async function runReconciliation(
     );
   }
 
-  return { ...result, window, durationMs: Date.now() - startedAt };
+  // Reconcile cleaning tasks over exactly the departures we just wrote.
+  const tasks = result.departureRange
+    ? await rpc("generate_cleaning_tasks", {
+      from_date: result.departureRange.from,
+      to_date: result.departureRange.to,
+    })
+    : null;
+
+  return { ...result, tasks, window, durationMs: Date.now() - startedAt };
 }
 
 Deno.serve(async (request: Request) => {
