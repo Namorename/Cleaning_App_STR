@@ -19,9 +19,11 @@
     "db:types": "node scripts/gen-types.mjs",
     "fn:serve": "supabase functions serve",
     "fn:deploy": "supabase functions deploy",
-    "test:rls": "node scripts/test-rls.mjs"
+    "test:rls": "node scripts/test-rls.mjs",
+    "test:fn": "deno test --allow-read supabase/functions/"
   },
   "devDependencies": {
+    "deno": "2.9.5",
     "supabase": "2.115.0"
   }
 }
