@@ -210,4 +210,51 @@ exception when insufficient_privilege then
 end $$;
 reset role;
 
+-- ---------- webhook payload shapes ----------
+-- Production traffic uses a different shape from the documented example:
+-- the id lives at data.id, not at a flat objectId. Reading only objectId made
+-- every real reservation event look uninteresting, so it was skipped and the
+-- reservation was silently lost. Both shapes must keep working.
+--
+-- Each case runs in its own statement inside a DO block: a SELECT that calls
+-- the inserting function in its own WHERE clause reads a snapshot taken
+-- before the insert and would always see NULL.
+create or replace function pg_temp.check_event_id(label text, payload jsonb, want bigint)
+returns void language plpgsql as $$
+declare
+  v_event_id bigint;
+  v_object_id bigint;
+begin
+  v_event_id := public.record_webhook_event(payload);
+  select object_id into v_object_id from raw.webhook_events where id = v_event_id;
+
+  if v_object_id is distinct from want then
+    raise exception 'FAIL % — got %, expected %', label, v_object_id, want;
+  end if;
+  raise notice 'ok  %', label;
+end $$;
+
+select pg_temp.check_event_id(
+  'documented shape: objectId is read',
+  '{"object":"reservation","objectId":900000201,"event":"reservation.created"}'::jsonb,
+  900000201);
+
+select pg_temp.check_event_id(
+  'live shape: data.id is read',
+  '{"object":"reservation","event":"reservation.updated","accountId":37874,
+    "data":{"id":900000202,"guestName":"Test"}}'::jsonb,
+  900000202);
+
+select pg_temp.check_event_id(
+  'objectId wins when both are present',
+  '{"object":"reservation","objectId":900000203,"data":{"id":900000204}}'::jsonb,
+  900000203);
+
+-- A malformed id must not reject the delivery: Hostaway does not retry after
+-- a 4xx, so the notification has to be stored even if we cannot key it.
+select pg_temp.check_event_id(
+  'non-numeric id is stored as null, not rejected',
+  '{"object":"reservation","data":{"id":"not-a-number"}}'::jsonb,
+  null);
+
 rollback;
