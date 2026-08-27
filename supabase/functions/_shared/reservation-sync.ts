@@ -59,7 +59,7 @@ export async function pushReservations(
     } catch (error: unknown) {
       const reason = getErrorMessage(error);
       skipped.push({ position, reason });
-      console.error(`Бронь на позиции ${position} пропущена: ${reason}`);
+      console.error(`Reservation at position ${position} skipped: ${reason}`);
     }
   });
 

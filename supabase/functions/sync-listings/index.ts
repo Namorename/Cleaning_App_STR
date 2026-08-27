@@ -65,7 +65,7 @@ function normalizeAll(
     } catch (error: unknown) {
       const reason = getErrorMessage(error);
       skipped.push({ position, reason });
-      console.error(`Листинг на позиции ${position} пропущен: ${reason}`);
+      console.error(`Listing at position ${position} skipped: ${reason}`);
     }
   });
 
@@ -79,7 +79,7 @@ async function runSync(): Promise<SyncSummary> {
 
   const hostaway = new HostawayClient(config.hostaway);
   const listings = await hostaway.listAll(LISTINGS_ENDPOINT, PAGE_SIZE);
-  console.info(`Из Hostaway получено объектов: ${listings.length}`);
+  console.info(`Fetched listings from Hostaway: ${listings.length}`);
 
   const { properties, raws, skipped } = normalizeAll(listings, syncedAt);
 
@@ -93,7 +93,7 @@ async function runSync(): Promise<SyncSummary> {
   });
 
   if (error) {
-    throw new Error(`Запись в базу не удалась: ${error.message}`);
+    throw new Error(`Database write failed: ${error.message}`);
   }
 
   const counts = (data ?? {}) as Record<string, number>;
@@ -113,15 +113,15 @@ Deno.serve(async () => {
   try {
     const summary = await runSync();
     console.info(
-      `Синхронизация завершена за ${summary.durationMs} мс: ` +
-        `создано ${summary.propertiesInserted}, обновлено ${summary.propertiesUpdated}, ` +
-        `пропущено ${summary.skipped.length}`,
+      `Listing sync finished in ${summary.durationMs} ms: ` +
+        `inserted ${summary.propertiesInserted}, updated ${summary.propertiesUpdated}, ` +
+        `skipped ${summary.skipped.length}`,
     );
 
     return Response.json({ success: true, data: summary });
   } catch (error: unknown) {
     const message = getErrorMessage(error);
-    console.error(`Синхронизация объектов провалилась: ${message}`);
+    console.error(`Listing sync failed: ${message}`);
 
     // Нехватка настроек — вина развёртывания, а не запроса.
     const status = error instanceof ConfigError ? 500 : 502;

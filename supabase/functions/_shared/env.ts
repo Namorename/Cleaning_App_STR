@@ -54,7 +54,7 @@ export function readConfig(env: EnvReader): SyncConfig {
   if (apiKey === null) missing.push("HOSTAWAY_API_KEY");
 
   if (missing.length > 0) {
-    throw new ConfigError(`Не заданы переменные окружения: ${missing.join(", ")}`);
+    throw new ConfigError(`Missing environment variables: ${missing.join(", ")}`);
   }
 
   return {
@@ -84,7 +84,7 @@ export function readWebhookCredentials(env: EnvReader): BasicCredentials {
   if (password === null) missing.push("HOSTAWAY_WEBHOOK_PASSWORD");
 
   if (missing.length > 0) {
-    throw new ConfigError(`Не заданы переменные окружения: ${missing.join(", ")}`);
+    throw new ConfigError(`Missing environment variables: ${missing.join(", ")}`);
   }
 
   return { login: login as string, password: password as string };

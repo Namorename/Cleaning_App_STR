@@ -35,13 +35,13 @@ export interface ReservationRow {
 
 export function normalizeReservation(raw: unknown, syncedAt: string): ReservationRow {
   if (!isRecord(raw)) {
-    throw new TypeError(`Бронь Hostaway должна быть объектом, получено: ${typeof raw}`);
+    throw new TypeError(`Hostaway reservation must be an object, got: ${typeof raw}`);
   }
 
   const id = toFiniteNumber(raw.id);
   if (id === null) {
     throw new TypeError(
-      `Бронь Hostaway без пригодного id: получено ${JSON.stringify(raw.id) ?? "undefined"}`,
+      `Hostaway reservation has no usable id: got ${JSON.stringify(raw.id) ?? "undefined"}`,
     );
   }
 
@@ -49,12 +49,12 @@ export function normalizeReservation(raw: unknown, syncedAt: string): Reservatio
   // и внешний ключ всё равно отверг бы такую строку.
   const propertyId = toFiniteNumber(raw.listingMapId);
   if (propertyId === null) {
-    throw new TypeError(`Бронь ${id}: поле listingMapId отсутствует или нечитаемо`);
+    throw new TypeError(`Reservation ${id}: listingMapId is missing or unreadable`);
   }
 
   const status = toTrimmedString(raw.status);
   if (status === null) {
-    throw new TypeError(`Бронь ${id}: поле status пустое`);
+    throw new TypeError(`Reservation ${id}: status is empty`);
   }
 
   const arrivalDate = toIsoDate(raw.arrivalDate, "arrivalDate");
@@ -64,7 +64,7 @@ export function normalizeReservation(raw: unknown, syncedAt: string): Reservatio
   // одна такая строка уронила бы на констрейнте весь батч синхронизации.
   if (departureDate < arrivalDate) {
     throw new RangeError(
-      `Бронь ${id}: выезд ${departureDate} раньше заезда ${arrivalDate}`,
+      `Reservation ${id}: departure ${departureDate} precedes arrival ${arrivalDate}`,
     );
   }
 

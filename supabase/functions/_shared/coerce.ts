@@ -51,17 +51,17 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
  */
 export function toIsoDate(value: unknown, field: string): string {
   if (typeof value !== "string") {
-    throw new TypeError(`Поле ${field}: ожидалась строка даты, получено ${typeof value}`);
+    throw new TypeError(`Field ${field}: expected a date string, got ${typeof value}`);
   }
 
   const trimmed = value.trim();
   if (!ISO_DATE.test(trimmed)) {
-    throw new TypeError(`Поле ${field}: дата не в формате YYYY-MM-DD — ${JSON.stringify(value)}`);
+    throw new TypeError(`Field ${field}: date is not in YYYY-MM-DD format — ${JSON.stringify(value)}`);
   }
 
   const parsed = new Date(`${trimmed}T00:00:00Z`);
   if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== trimmed) {
-    throw new TypeError(`Поле ${field}: несуществующая дата — ${trimmed}`);
+    throw new TypeError(`Field ${field}: non-existent date — ${trimmed}`);
   }
 
   return trimmed;

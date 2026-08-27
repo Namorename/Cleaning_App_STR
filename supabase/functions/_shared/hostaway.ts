@@ -124,7 +124,7 @@ export class HostawayClient {
     const result = this.#unwrap(body, path);
 
     if (Array.isArray(result) || typeof result !== "object" || result === null) {
-      throw new HostawayError(`Ответ ${path} не является объектом`);
+      throw new HostawayError(`Response for ${path} is not an object`);
     }
 
     return result as Record<string, unknown>;
@@ -169,13 +169,13 @@ export class HostawayClient {
     });
 
     if (!response.ok) {
-      throw new HostawayError(`Авторизация Hostaway не удалась: HTTP ${response.status}`);
+      throw new HostawayError(`Hostaway authentication failed: HTTP ${response.status}`);
     }
 
     const payload = await this.#readJson(response);
     const token = (payload as Record<string, unknown>).access_token;
     if (typeof token !== "string" || token === "") {
-      throw new HostawayError("Ответ авторизации Hostaway без access_token");
+      throw new HostawayError("Hostaway auth response has no access_token");
     }
 
     this.#token = token;
@@ -186,7 +186,7 @@ export class HostawayClient {
     try {
       return await response.json();
     } catch (cause) {
-      throw new HostawayError(`Hostaway вернул не-JSON (HTTP ${response.status})`, { cause });
+      throw new HostawayError(`Hostaway returned non-JSON (HTTP ${response.status})`, { cause });
     }
   }
 
@@ -221,7 +221,7 @@ export class HostawayClient {
       if (response.status === 401) {
         if (tokenRefreshed) {
           throw new HostawayError(
-            `Hostaway отвечает 401 даже с новым токеном (${label}) — проверьте ключи и scope`,
+            `Hostaway still returns 401 with a fresh token (${label}) — check credentials and scope`,
           );
         }
 
@@ -234,7 +234,7 @@ export class HostawayClient {
         attempt += 1;
         if (attempt >= MAX_ATTEMPTS) {
           throw new HostawayError(
-            `Hostaway отвечает ${response.status} после ${attempt} попыток (${label})`,
+            `Hostaway returned ${response.status} after ${attempt} attempts (${label})`,
           );
         }
 
@@ -243,7 +243,7 @@ export class HostawayClient {
       }
 
       if (!response.ok) {
-        throw new HostawayError(`Hostaway вернул HTTP ${response.status} на ${label}`);
+        throw new HostawayError(`Hostaway returned HTTP ${response.status} for ${label}`);
       }
 
       return await this.#readJson(response);
@@ -266,7 +266,7 @@ export class HostawayClient {
     const result = this.#unwrap(await this.#request(`${this.#baseUrl}/${endpoint}?${query}`, label), label);
 
     if (!Array.isArray(result)) {
-      throw new HostawayError(`Поле result в ответе ${label} не является массивом (${typeof result})`);
+      throw new HostawayError(`Field result in the ${label} response is not an array (${typeof result})`);
     }
 
     return result;
@@ -275,12 +275,12 @@ export class HostawayClient {
   /** Hostaway умеет отвечать HTTP 200 с телом об ошибке — проверяем поле status. */
   #unwrap(payload: unknown, label: string): unknown {
     if (typeof payload !== "object" || payload === null) {
-      throw new HostawayError(`Тело ответа ${label} не является объектом`);
+      throw new HostawayError(`Response body for ${label} is not an object`);
     }
 
     const body = payload as Record<string, unknown>;
     if (body.status === "fail") {
-      throw new HostawayError(`Hostaway отклонил запрос ${label}: ${String(body.result)}`);
+      throw new HostawayError(`Hostaway rejected request ${label}: ${String(body.result)}`);
     }
 
     return body.result;

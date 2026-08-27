@@ -64,7 +64,7 @@ async function runReconciliation(
     departureStartDate: window.from,
     departureEndDate: window.to,
   });
-  console.info(`Из Hostaway получено броней: ${reservations.length} (${window.from}..${window.to})`);
+  console.info(`Fetched reservations from Hostaway: ${reservations.length} (${window.from}..${window.to})`);
 
   const supabase = createClient(config.supabaseUrl, config.supabaseSecretKey, {
     auth: { persistSession: false },
@@ -80,8 +80,8 @@ async function runReconciliation(
 
   if (result.unknownPropertyIds.length > 0) {
     console.error(
-      `Брони ссылаются на неизвестные объекты: ${result.unknownPropertyIds.join(", ")}. ` +
-        "Запустите sync-listings — вероятно, в Hostaway завели новый листинг.",
+      `Reservations reference unknown properties: ${result.unknownPropertyIds.join(", ")}. ` +
+        "Run sync-listings — a new listing was probably added in Hostaway.",
     );
   }
 
@@ -94,14 +94,14 @@ Deno.serve(async (request: Request) => {
     const summary = await runReconciliation(window);
 
     console.info(
-      `Сверка завершена за ${summary.durationMs} мс: создано ${summary.inserted}, ` +
-        `обновлено ${summary.updated}, пропущено ${summary.skipped.length}`,
+      `Reconciliation finished in ${summary.durationMs} ms: inserted ${summary.inserted}, ` +
+        `updated ${summary.updated}, skipped ${summary.skipped.length}`,
     );
 
     return Response.json({ success: true, data: summary });
   } catch (error: unknown) {
     const message = getErrorMessage(error);
-    console.error(`Сверка броней провалилась: ${message}`);
+    console.error(`Reservation reconciliation failed: ${message}`);
     return Response.json({ success: false, error: message }, { status: 502 });
   }
 });

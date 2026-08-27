@@ -42,21 +42,21 @@ function pickName(listing: Record<string, unknown>): string | null {
 export function normalizeListing(raw: unknown, syncedAt: string): PropertyRow {
   if (!isRecord(raw)) {
     throw new TypeError(
-      `Листинг Hostaway должен быть объектом, получено: ${typeof raw}`,
+      `Hostaway listing must be an object, got: ${typeof raw}`,
     );
   }
 
   const id = toFiniteNumber(raw.id);
   if (id === null) {
     throw new TypeError(
-      `Листинг Hostaway без пригодного id: получено ${JSON.stringify(raw.id) ?? "undefined"}`,
+      `Hostaway listing has no usable id: got ${JSON.stringify(raw.id) ?? "undefined"}`,
     );
   }
 
   const name = pickName(raw);
   if (name === null) {
     throw new TypeError(
-      `Листинг Hostaway ${id} не содержит ни internalListingName, ни name`,
+      `Hostaway listing ${id} has neither internalListingName nor name`,
     );
   }
 

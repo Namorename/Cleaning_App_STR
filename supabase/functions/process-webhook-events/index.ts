@@ -134,7 +134,7 @@ async function processBatch(): Promise<ProcessSummary> {
       // Одна недоступная бронь не должна ронять пачку: остальные доедут,
       // а эта останется в журнале с описанием ошибки.
       const message = getErrorMessage(error);
-      console.error(`Бронь ${reservationId} не получена: ${message}`);
+      console.error(`Reservation ${reservationId} could not be fetched: ${message}`);
       await markEvents(rpc, eventIds, "failed", message);
       summary.failed += eventIds.length;
     }
@@ -150,8 +150,8 @@ async function processBatch(): Promise<ProcessSummary> {
 
     if (result.unknownPropertyIds.length > 0) {
       console.error(
-        `Брони ссылаются на неизвестные объекты: ${result.unknownPropertyIds.join(", ")}. ` +
-          "Запустите sync-listings.",
+        `Reservations reference unknown properties: ${result.unknownPropertyIds.join(", ")}. ` +
+          "Run sync-listings.",
       );
     }
 
@@ -167,14 +167,14 @@ Deno.serve(async () => {
   try {
     const summary = await processBatch();
     console.info(
-      `Разбор журнала: взято ${summary.claimed}, броней ${summary.reservationsFetched}, ` +
-        `создано ${summary.inserted}, обновлено ${summary.updated}, ` +
-        `пропущено ${summary.skipped}, ошибок ${summary.failed}`,
+      `Journal processing: claimed ${summary.claimed}, reservations ${summary.reservationsFetched}, ` +
+        `inserted ${summary.inserted}, updated ${summary.updated}, ` +
+        `skipped ${summary.skipped}, failed ${summary.failed}`,
     );
     return Response.json({ success: true, data: summary });
   } catch (error: unknown) {
     const message = getErrorMessage(error);
-    console.error(`Разбор журнала провалился: ${message}`);
+    console.error(`Webhook journal processing failed: ${message}`);
     return Response.json({ success: false, error: message }, { status: 500 });
   }
 });

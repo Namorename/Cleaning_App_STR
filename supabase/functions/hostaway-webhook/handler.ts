@@ -69,7 +69,7 @@ async function readPayload(request: Request): Promise<unknown> {
 export function createWebhookHandler(deps: WebhookDeps): (request: Request) => Promise<Response> {
   return async function handleWebhook(request: Request): Promise<Response> {
     if (request.method !== "POST") {
-      return json({ error: "Ожидается POST" }, 405);
+      return json({ error: "POST expected" }, 405);
     }
 
     // 1. Конфигурация. Проверяется первой: её отсутствие — наша вина,
@@ -79,9 +79,9 @@ export function createWebhookHandler(deps: WebhookDeps): (request: Request) => P
       credentials = deps.loadCredentials();
     } catch (error: unknown) {
       const message = getErrorMessage(error);
-      console.error(`Вебхук не настроен, отвечаем 500 ради повтора доставки: ${message}`);
+      console.error(`Webhook is not configured; replying 500 so Hostaway retries: ${message}`);
       return json(
-        { error: error instanceof ConfigError ? "Функция не настроена" : "Внутренняя ошибка" },
+        { error: error instanceof ConfigError ? "Function is not configured" : "Internal error" },
         500,
       );
     }
@@ -93,13 +93,13 @@ export function createWebhookHandler(deps: WebhookDeps): (request: Request) => P
       // если это была настоящая доставка, бронь потеряна, и разбираться
       // придётся по этой записи и по суточной сверке.
       console.error(
-        `Вебхук отклонён (${auth.reason}). Повтора со стороны Hostaway не будет. ` +
+        `Webhook rejected (${auth.reason}). Hostaway will NOT retry. ` +
           (auth.reason === "missing"
-            ? "Похоже, вебхук зарегистрирован без логина и пароля."
-            : "Проверьте, совпадают ли учётные данные с указанными при регистрации."),
+            ? "The webhook was probably registered without a login and password."
+            : "Check that the credentials match the ones used at registration."),
       );
 
-      return json({ error: "Неверные учётные данные" }, 401, {
+      return json({ error: "Invalid credentials" }, 401, {
         "WWW-Authenticate": 'Basic realm="hostaway-webhook"',
       });
     }
@@ -114,9 +114,9 @@ export function createWebhookHandler(deps: WebhookDeps): (request: Request) => P
       return json({ accepted: true, eventId }, 200);
     } catch (error: unknown) {
       console.error(
-        `Не удалось записать уведомление, отвечаем 500 ради повтора: ${getErrorMessage(error)}`,
+        `Failed to record the notification; replying 500 so Hostaway retries: ${getErrorMessage(error)}`,
       );
-      return json({ error: "Не удалось принять уведомление" }, 500);
+      return json({ error: "Failed to accept the notification" }, 500);
     }
   };
 }

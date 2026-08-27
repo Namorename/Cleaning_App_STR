@@ -27,7 +27,7 @@ const supabase = (() => {
     });
   } catch (error: unknown) {
     console.error(
-      `Клиент Supabase не создан: ${error instanceof Error ? error.message : String(error)}`,
+      `Supabase client was not created: ${error instanceof Error ? error.message : String(error)}`,
     );
     return null;
   }
@@ -38,7 +38,7 @@ const handleWebhook = createWebhookHandler({
 
   recordEvent: async (payload: unknown): Promise<number> => {
     if (supabase === null) {
-      throw new Error("Клиент Supabase недоступен: проверьте переменные окружения");
+      throw new Error("Supabase client is unavailable: check the environment variables");
     }
 
     const { data, error } = await supabase.rpc("record_webhook_event", {
