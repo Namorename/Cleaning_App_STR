@@ -82,6 +82,6 @@ select pg_temp.check('finished work keeps its original deadline',
 select pg_temp.check('a third run reports no changes',
   (select public.generate_cleaning_tasks('2026-10-01', '2026-10-31')
      - 'window_from' - 'window_to'),
-  '{"created": 0, "rescheduled": 0, "cancelled": 0}'::jsonb);
+  '{"created": 0, "rescheduled": 0, "assigned": 0, "cancelled": 0}'::jsonb);
 
 rollback;

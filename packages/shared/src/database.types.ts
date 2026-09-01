@@ -118,6 +118,45 @@ export type Database = {
         }
         Relationships: []
       }
+      property_cleaners: {
+        Row: {
+          cleaner_id: string
+          created_at: string
+          mode: Database["public"]["Enums"]["assignment_mode"]
+          property_id: number
+          updated_at: string
+        }
+        Insert: {
+          cleaner_id: string
+          created_at?: string
+          mode?: Database["public"]["Enums"]["assignment_mode"]
+          property_id: number
+          updated_at?: string
+        }
+        Update: {
+          cleaner_id?: string
+          created_at?: string
+          mode?: Database["public"]["Enums"]["assignment_mode"]
+          property_id?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_cleaners_cleaner_id_fkey"
+            columns: ["cleaner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_cleaners_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       property_links: {
         Row: {
           child_id: number
@@ -293,6 +332,10 @@ export type Database = {
         Args: { batch_size?: number; max_attempts?: number }
         Returns: Json
       }
+      cleans_property: {
+        Args: { target_property_id: number }
+        Returns: boolean
+      }
       generate_cleaning_tasks: {
         Args: { from_date: string; to_date: string }
         Returns: Json
@@ -319,6 +362,7 @@ export type Database = {
     }
     Enums: {
       app_role: "cleaner" | "tech" | "manager" | "admin"
+      assignment_mode: "auto" | "claim"
       task_status:
         | "unassigned"
         | "assigned"
@@ -460,6 +504,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["cleaner", "tech", "manager", "admin"],
+      assignment_mode: ["auto", "claim"],
       task_status: [
         "unassigned",
         "assigned",

@@ -208,6 +208,14 @@ begin
 exception when insufficient_privilege then
   raise notice 'ok  anon НЕ имеет привилегий на profiles';
 end $$;
+
+do $$
+begin
+  perform 1 from public.property_cleaners limit 1;
+  raise exception 'FAIL anon добрался до property_cleaners';
+exception when insufficient_privilege then
+  raise notice 'ok  anon НЕ имеет привилегий на property_cleaners';
+end $$;
 reset role;
 
 -- ---------- webhook payload shapes ----------
