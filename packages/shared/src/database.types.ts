@@ -69,6 +69,8 @@ export type Database = {
           address: string | null
           bathrooms: number | null
           bedrooms: number | null
+          check_in_time: string | null
+          check_out_time: string | null
           city: string | null
           country_code: string | null
           created_at: string
@@ -84,6 +86,8 @@ export type Database = {
           address?: string | null
           bathrooms?: number | null
           bedrooms?: number | null
+          check_in_time?: string | null
+          check_out_time?: string | null
           city?: string | null
           country_code?: string | null
           created_at?: string
@@ -99,6 +103,8 @@ export type Database = {
           address?: string | null
           bathrooms?: number | null
           bedrooms?: number | null
+          check_in_time?: string | null
+          check_out_time?: string | null
           city?: string | null
           country_code?: string | null
           created_at?: string
@@ -158,6 +164,7 @@ export type Database = {
           property_id: number
           status: string
           synced_at: string | null
+          total_price: number | null
           updated_at: string
         }
         Insert: {
@@ -172,6 +179,7 @@ export type Database = {
           property_id: number
           status: string
           synced_at?: string | null
+          total_price?: number | null
           updated_at?: string
         }
         Update: {
@@ -186,6 +194,7 @@ export type Database = {
           property_id?: number
           status?: string
           synced_at?: string | null
+          total_price?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -280,8 +289,33 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      claim_webhook_events: {
+        Args: { batch_size?: number; max_attempts?: number }
+        Returns: Json
+      }
+      generate_cleaning_tasks: {
+        Args: { from_date: string; to_date: string }
+        Returns: Json
+      }
+      invoke_edge_function: { Args: { function_name: string }; Returns: number }
       is_active_user: { Args: never; Returns: boolean }
       is_manager: { Args: never; Returns: boolean }
+      mark_webhook_events: {
+        Args: { error_text?: string; event_ids: number[]; new_status: string }
+        Returns: number
+      }
+      record_webhook_event: {
+        Args: { event_payload: Json; event_source?: string }
+        Returns: number
+      }
+      sync_hostaway_listings: {
+        Args: { property_rows: Json; raw_rows: Json }
+        Returns: Json
+      }
+      sync_hostaway_reservations: {
+        Args: { raw_rows: Json; reservation_rows: Json }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "cleaner" | "tech" | "manager" | "admin"
