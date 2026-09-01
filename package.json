@@ -20,7 +20,10 @@
     "fn:serve": "supabase functions serve",
     "fn:deploy": "supabase functions deploy",
     "test:rls": "node scripts/test-rls.mjs",
-    "test:fn": "deno test --allow-read supabase/functions/"
+    "test:fn": "deno test --allow-read supabase/functions/",
+    "test:mobile": "npm run test -w @str-ops/mobile",
+    "typecheck:mobile": "npm run typecheck -w @str-ops/mobile",
+    "mobile": "npm run start -w @str-ops/mobile"
   },
   "devDependencies": {
     "deno": "2.9.5",

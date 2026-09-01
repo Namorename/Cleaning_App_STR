@@ -29,10 +29,9 @@
 
 ## Правила ECC
 
-Установлены выборочно: `common` (язык-агностик) и `typescript` (Edge
-Functions на Deno, будущая веб-панель на Next.js). Набор `react-native`
-подключим к F5, когда появится приложение на Expo, — чтобы не держать в
-контексте то, что пока не используется.
+Установлены выборочно: `common` (язык-агностик), `typescript` (Edge
+Functions на Deno, будущая веб-панель на Next.js) и `react-native`
+(приложение уборщицы на Expo, подключён в F5).
 
 @.claude/rules/ecc/common/coding-style.md
 @.claude/rules/ecc/common/patterns.md
@@ -50,3 +49,12 @@ Functions на Deno, будущая веб-панель на Next.js). Набо�
 @.claude/rules/ecc/typescript/security.md
 @.claude/rules/ecc/typescript/testing.md
 @.claude/rules/ecc/typescript/hooks.md
+
+@.claude/rules/ecc/react-native/coding-style.md
+@.claude/rules/ecc/react-native/patterns.md
+@.claude/rules/ecc/react-native/performance.md
+@.claude/rules/ecc/react-native/security.md
+@.claude/rules/ecc/react-native/testing.md
+@.claude/rules/ecc/react-native/accessibility.md
+@.claude/rules/ecc/react-native/hooks.md
+@.claude/rules/ecc/react-native/production-readiness.md
