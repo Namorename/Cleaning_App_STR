@@ -120,8 +120,7 @@ update public.tasks
 set assignee_id = 'ffffffff-ffff-ffff-ffff-ffffffffffff', status = 'assigned'
 where notes = 'on the last day of the horizon';
 
-reset role;
-
+reset role; reset request.jwt.claims;
 select pg_temp.check('a task one day past the horizon cannot be claimed',
   pg_temp.status('one day past the horizon'), 'unassigned');
 select pg_temp.check('a task a month out cannot be claimed',
@@ -140,6 +139,5 @@ select pg_temp.check('the manager sees the whole schedule, near and far',
   (select count(*)::int from public.tasks
    where property_id between 900000801 and 900000804), 9);
 
-reset role;
-
+reset role; reset request.jwt.claims;
 rollback;

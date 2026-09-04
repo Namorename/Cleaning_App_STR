@@ -54,8 +54,7 @@ where id = 'a1b2c3d4-1111-4111-8111-a1b2c3d40001';
 update public.profiles set preferred_language = 'ru'
 where id = 'a1b2c3d4-2222-4222-8222-a1b2c3d40002';
 
-reset role;
-
+reset role; reset request.jwt.claims;
 select pg_temp.check('a person sets her own language',
   pg_temp.language('a1b2c3d4-1111-4111-8111-a1b2c3d40001'), 'cs');
 select pg_temp.check('a person cannot set the language of someone else',

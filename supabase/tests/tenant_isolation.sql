@@ -101,7 +101,7 @@ update public.tasks
 set assignee_id = 'aa000000-0000-4000-8000-00000000aaaa', status = 'assigned'
 where notes = 'work of host B';
 
-reset role;
+reset role; reset request.jwt.claims;
 select pg_temp.check('клинер не может взять задачу чужой компании',
   (select assignee_id from public.tasks where notes = 'work of host B'), null::uuid);
 
@@ -127,8 +127,7 @@ exception when insufficient_privilege then
   raise notice 'ok  менеджер не может завести объект в чужом тенанте';
 end $$;
 
-reset role;
-
+reset role; reset request.jwt.claims;
 -- ---------- новые строки попадают в тенант сами ----------
 insert into public.properties (id, name, timezone) values (900001104, 'Defaulted', 'UTC');
 

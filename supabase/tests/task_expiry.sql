@@ -116,7 +116,7 @@ update public.tasks
 set assignee_id = 'dddddddd-dddd-dddd-dddd-dddddddddddd', status = 'assigned'
 where id = pg_temp.id('last week, nobody took it');
 
-reset role;
+reset role; reset request.jwt.claims;
 select pg_temp.check('a stale task cannot be claimed before the sweep runs',
   pg_temp.status('last week, nobody took it'), 'unassigned');
 select pg_temp.check('the refused claim left no assignee behind',
@@ -163,7 +163,7 @@ update public.tasks
 set assignee_id = 'dddddddd-dddd-dddd-dddd-dddddddddddd', status = 'assigned'
 where id = pg_temp.id('last week, nobody took it');
 
-reset role;
+reset role; reset request.jwt.claims;
 select pg_temp.check('an expired task cannot be claimed',
   pg_temp.status('last week, nobody took it'), 'expired');
 
@@ -179,10 +179,10 @@ begin
   update public.tasks set status = 'in_progress'
   where notes = 'last week, taken and never finished';
 
-  reset role;
+  reset role; reset request.jwt.claims;
   raise exception 'FAIL a cleaner reopened an expired task';
 exception when check_violation then
-  reset role;
+  reset role; reset request.jwt.claims;
   raise notice 'ok  a cleaner cannot reopen an expired task';
 end $$;
 
@@ -201,8 +201,7 @@ select pg_temp.check('the manager sees who was holding the unfinished cleaning',
   (select assignee_name from public.expired_tasks_review
    where task_notes = 'last week, taken and never finished'), 'Maria');
 
-reset role;
-
+reset role; reset request.jwt.claims;
 -- ---------- running it again changes nothing ----------
 select pg_temp.check('a second sweep finds nothing left to close',
   public.expire_stale_tasks(),

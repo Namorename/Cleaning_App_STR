@@ -39,18 +39,21 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          parallel_start_allowed: boolean
           updated_at: string
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
+          parallel_start_allowed?: boolean
           updated_at?: string
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
+          parallel_start_allowed?: boolean
           updated_at?: string
         }
         Relationships: []
@@ -315,9 +318,13 @@ export type Database = {
           completed_by: string | null
           created_at: string
           due_at: string | null
+          duration_override_min: number | null
           guests_count: number | null
           host_id: string
           id: string
+          is_parallel: boolean
+          is_short_measurement: boolean | null
+          measured_minutes: number | null
           notes: string | null
           priority: number
           property_id: number
@@ -336,9 +343,13 @@ export type Database = {
           completed_by?: string | null
           created_at?: string
           due_at?: string | null
+          duration_override_min?: number | null
           guests_count?: number | null
           host_id?: string
           id?: string
+          is_parallel?: boolean
+          is_short_measurement?: boolean | null
+          measured_minutes?: number | null
           notes?: string | null
           priority?: number
           property_id: number
@@ -357,9 +368,13 @@ export type Database = {
           completed_by?: string | null
           created_at?: string
           due_at?: string | null
+          duration_override_min?: number | null
           guests_count?: number | null
           host_id?: string
           id?: string
+          is_parallel?: boolean
+          is_short_measurement?: boolean | null
+          measured_minutes?: number | null
           notes?: string | null
           priority?: number
           property_id?: number
@@ -491,6 +506,7 @@ export type Database = {
           window_to: string
         }[]
       }
+      short_cleaning_threshold: { Args: never; Returns: string }
       sync_hostaway_listings: {
         Args: { property_rows: Json; raw_rows: Json }
         Returns: Json

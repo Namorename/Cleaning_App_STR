@@ -109,7 +109,7 @@ end $$;
 -- Подмена постановки задачи: сдвиг даты убрал бы задачу из дневной очереди.
 update public.tasks set scheduled_date='2026-12-31', priority=99
   where assignee_id='11111111-1111-1111-1111-111111111111';
-reset role;
+reset role; reset request.jwt.claims;
 select pg_temp.check('клинер НЕ может сдвинуть дату задачи',
   (select scheduled_date::text from public.tasks
    where assignee_id='11111111-1111-1111-1111-111111111111'), '2026-09-05');
@@ -125,8 +125,7 @@ select pg_temp.check('менеджер видит все задачи',
   (select count(*)::int from public.tasks where property_id between 900000001 and 900000999), 2);
 select pg_temp.check('менеджер видит брони',
   (select count(*)::int from public.reservations where id between 900000001 and 900000999), 1);
-reset role;
-
+reset role; reset request.jwt.claims;
 -- ---------- целостность данных ----------
 do $$
 begin
@@ -190,15 +189,13 @@ select pg_temp.check('деактивированный НЕ видит свои 
   (select count(*)::int from public.tasks where property_id between 900000001 and 900000999), 0);
 select pg_temp.check('деактивированный НЕ видит объекты',
   (select count(*)::int from public.properties where id between 900000001 and 900000999), 0);
-reset role;
-
+reset role; reset request.jwt.claims;
 update public.profiles set is_active=false where id='33333333-3333-3333-3333-333333333333';
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
 select pg_temp.check('деактивированный менеджер теряет права',
   (select count(*)::int from public.reservations where id between 900000001 and 900000999), 0);
-reset role;
-
+reset role; reset request.jwt.claims;
 -- ---------- аноним отсекается на уровне привилегий, а не только RLS ----------
 -- На хостинге Supabase anon получал гранты автоматически, и единственной
 -- преградой оставались политики. Проверяем именно привилегию: отказ должен
@@ -235,8 +232,7 @@ begin
 exception when insufficient_privilege then
   raise notice 'ok  anon НЕ имеет привилегий на property_cleaners';
 end $$;
-reset role;
-
+reset role; reset request.jwt.claims;
 -- ---------- webhook payload shapes ----------
 -- Production traffic uses a different shape from the documented example:
 -- the id lives at data.id, not at a flat objectId. Reading only objectId made

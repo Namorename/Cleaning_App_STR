@@ -114,7 +114,7 @@ update public.tasks set assignee_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
                         status = 'assigned'
 where reservation_id = 900000502 and status = 'unassigned';
 
-reset role;
+reset role; reset request.jwt.claims;
 select pg_temp.check('cleaner claims a free task on her listing',
   pg_temp.assignee(900000502), 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid);
 
@@ -130,7 +130,7 @@ update public.tasks set assignee_id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
                         status = 'assigned'
 where reservation_id = 900000503;
 
-reset role;
+reset role; reset request.jwt.claims;
 select pg_temp.check('a colleague cannot take work already claimed',
   pg_temp.assignee(900000502), 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid);
 select pg_temp.check('a cleaner cannot claim on a listing she is not linked to',
