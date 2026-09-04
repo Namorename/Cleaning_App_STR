@@ -22,3 +22,4 @@ export type TaskStatus = Enums<'task_status'>;
 export type TaskType = Enums<'task_type'>;
 export type AssignmentMode = Enums<'assignment_mode'>;
 export type AppRole = Enums<'app_role'>;
+export type AppLanguage = Enums<'app_language'>;

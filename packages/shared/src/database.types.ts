@@ -41,6 +41,7 @@ export type Database = {
           id: string
           is_active: boolean
           phone: string | null
+          preferred_language: Database["public"]["Enums"]["app_language"] | null
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string
         }
@@ -50,6 +51,9 @@ export type Database = {
           id: string
           is_active?: boolean
           phone?: string | null
+          preferred_language?:
+            | Database["public"]["Enums"]["app_language"]
+            | null
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
         }
@@ -59,6 +63,9 @@ export type Database = {
           id?: string
           is_active?: boolean
           phone?: string | null
+          preferred_language?:
+            | Database["public"]["Enums"]["app_language"]
+            | null
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
         }
@@ -398,12 +405,18 @@ export type Database = {
         Returns: Json
       }
       task_grace_days: { Args: never; Returns: number }
+      task_horizon_days: { Args: never; Returns: number }
+      task_is_beyond_horizon: {
+        Args: { target_property_id: number; target_scheduled_date: string }
+        Returns: boolean
+      }
       task_is_stale: {
         Args: { target_property_id: number; target_scheduled_date: string }
         Returns: boolean
       }
     }
     Enums: {
+      app_language: "en" | "ru" | "cs"
       app_role: "cleaner" | "tech" | "manager" | "admin"
       assignment_mode: "auto" | "claim"
       task_status:
@@ -547,6 +560,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      app_language: ["en", "ru", "cs"],
       app_role: ["cleaner", "tech", "manager", "admin"],
       assignment_mode: ["auto", "claim"],
       task_status: [
