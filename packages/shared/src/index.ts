@@ -13,6 +13,7 @@ export { Constants } from './database.types';
 
 import type { Tables, Enums } from './database.types';
 
+export type Host = Tables<'hosts'>;
 export type Task = Tables<'tasks'>;
 export type Property = Tables<'properties'>;
 export type Profile = Tables<'profiles'>;

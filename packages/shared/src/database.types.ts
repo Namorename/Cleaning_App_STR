@@ -34,10 +34,32 @@ export type Database = {
   }
   public: {
     Tables: {
+      hosts: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
           full_name: string | null
+          host_id: string
           id: string
           is_active: boolean
           phone: string | null
@@ -48,6 +70,7 @@ export type Database = {
         Insert: {
           created_at?: string
           full_name?: string | null
+          host_id?: string
           id: string
           is_active?: boolean
           phone?: string | null
@@ -60,6 +83,7 @@ export type Database = {
         Update: {
           created_at?: string
           full_name?: string | null
+          host_id?: string
           id?: string
           is_active?: boolean
           phone?: string | null
@@ -69,7 +93,15 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       properties: {
         Row: {
@@ -79,12 +111,16 @@ export type Database = {
           check_in_time: string | null
           check_out_time: string | null
           city: string | null
+          cleaner_notes: string | null
           country_code: string | null
           created_at: string
+          host_id: string
           id: number
+          internal_notes: string | null
           is_active: boolean
           max_guests: number | null
           name: string
+          parent_id: number | null
           synced_at: string | null
           timezone: string
           updated_at: string
@@ -96,12 +132,16 @@ export type Database = {
           check_in_time?: string | null
           check_out_time?: string | null
           city?: string | null
+          cleaner_notes?: string | null
           country_code?: string | null
           created_at?: string
+          host_id?: string
           id: number
+          internal_notes?: string | null
           is_active?: boolean
           max_guests?: number | null
           name: string
+          parent_id?: number | null
           synced_at?: string | null
           timezone?: string
           updated_at?: string
@@ -113,37 +153,62 @@ export type Database = {
           check_in_time?: string | null
           check_out_time?: string | null
           city?: string | null
+          cleaner_notes?: string | null
           country_code?: string | null
           created_at?: string
+          host_id?: string
           id?: number
+          internal_notes?: string | null
           is_active?: boolean
           max_guests?: number | null
           name?: string
+          parent_id?: number | null
           synced_at?: string | null
           timezone?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "properties_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "properties_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       property_cleaners: {
         Row: {
           cleaner_id: string
           created_at: string
+          host_id: string
           mode: Database["public"]["Enums"]["assignment_mode"]
+          priority: number
           property_id: number
           updated_at: string
         }
         Insert: {
           cleaner_id: string
           created_at?: string
+          host_id?: string
           mode?: Database["public"]["Enums"]["assignment_mode"]
+          priority?: number
           property_id: number
           updated_at?: string
         }
         Update: {
           cleaner_id?: string
           created_at?: string
+          host_id?: string
           mode?: Database["public"]["Enums"]["assignment_mode"]
+          priority?: number
           property_id?: number
           updated_at?: string
         }
@@ -156,41 +221,15 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "property_cleaners_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "property_cleaners_property_id_fkey"
             columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "properties"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      property_links: {
-        Row: {
-          child_id: number
-          created_at: string
-          parent_id: number
-        }
-        Insert: {
-          child_id: number
-          created_at?: string
-          parent_id: number
-        }
-        Update: {
-          child_id?: number
-          created_at?: string
-          parent_id?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "property_links_child_id_fkey"
-            columns: ["child_id"]
-            isOneToOne: false
-            referencedRelation: "properties"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "property_links_parent_id_fkey"
-            columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["id"]
@@ -201,10 +240,13 @@ export type Database = {
         Row: {
           arrival_date: string
           channel_id: number | null
+          check_in_time: string | null
+          check_out_time: string | null
           created_at: string
           departure_date: string
           guest_name: string | null
           guests_count: number | null
+          host_id: string
           id: number
           is_block: boolean
           property_id: number
@@ -216,10 +258,13 @@ export type Database = {
         Insert: {
           arrival_date: string
           channel_id?: number | null
+          check_in_time?: string | null
+          check_out_time?: string | null
           created_at?: string
           departure_date: string
           guest_name?: string | null
           guests_count?: number | null
+          host_id?: string
           id: number
           is_block?: boolean
           property_id: number
@@ -231,10 +276,13 @@ export type Database = {
         Update: {
           arrival_date?: string
           channel_id?: number | null
+          check_in_time?: string | null
+          check_out_time?: string | null
           created_at?: string
           departure_date?: string
           guest_name?: string | null
           guests_count?: number | null
+          host_id?: string
           id?: number
           is_block?: boolean
           property_id?: number
@@ -244,6 +292,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "reservations_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "reservations_property_id_fkey"
             columns: ["property_id"]
@@ -257,8 +312,11 @@ export type Database = {
         Row: {
           assignee_id: string | null
           completed_at: string | null
+          completed_by: string | null
           created_at: string
           due_at: string | null
+          guests_count: number | null
+          host_id: string
           id: string
           notes: string | null
           priority: number
@@ -267,14 +325,19 @@ export type Database = {
           scheduled_date: string
           started_at: string | null
           status: Database["public"]["Enums"]["task_status"]
+          time_from: string | null
+          time_to: string | null
           type: Database["public"]["Enums"]["task_type"]
           updated_at: string
         }
         Insert: {
           assignee_id?: string | null
           completed_at?: string | null
+          completed_by?: string | null
           created_at?: string
           due_at?: string | null
+          guests_count?: number | null
+          host_id?: string
           id?: string
           notes?: string | null
           priority?: number
@@ -283,14 +346,19 @@ export type Database = {
           scheduled_date: string
           started_at?: string | null
           status?: Database["public"]["Enums"]["task_status"]
+          time_from?: string | null
+          time_to?: string | null
           type: Database["public"]["Enums"]["task_type"]
           updated_at?: string
         }
         Update: {
           assignee_id?: string | null
           completed_at?: string | null
+          completed_by?: string | null
           created_at?: string
           due_at?: string | null
+          guests_count?: number | null
+          host_id?: string
           id?: string
           notes?: string | null
           priority?: number
@@ -299,6 +367,8 @@ export type Database = {
           scheduled_date?: string
           started_at?: string | null
           status?: Database["public"]["Enums"]["task_status"]
+          time_from?: string | null
+          time_to?: string | null
           type?: Database["public"]["Enums"]["task_type"]
           updated_at?: string
         }
@@ -308,6 +378,20 @@ export type Database = {
             columns: ["assignee_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
             referencedColumns: ["id"]
           },
           {
@@ -380,6 +464,8 @@ export type Database = {
         Args: { target_property_id: number }
         Returns: boolean
       }
+      current_host_id: { Args: never; Returns: string }
+      default_host_id: { Args: never; Returns: string }
       expire_stale_tasks: { Args: never; Returns: Json }
       generate_cleaning_tasks: {
         Args: { from_date: string; to_date: string }
@@ -395,6 +481,15 @@ export type Database = {
       record_webhook_event: {
         Args: { event_payload: Json; event_source?: string }
         Returns: number
+      }
+      reservation_cleaning_window: {
+        Args: { target_reservation_id: number }
+        Returns: {
+          guests_count: number
+          same_day_turnover: boolean
+          window_from: string
+          window_to: string
+        }[]
       }
       sync_hostaway_listings: {
         Args: { property_rows: Json; raw_rows: Json }
@@ -429,7 +524,7 @@ export type Database = {
         | "done"
         | "cancelled"
         | "expired"
-      task_type: "cleaning" | "maintenance" | "inspection"
+      task_type: "cleaning" | "maintenance" | "inspection" | "midstay"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -574,7 +669,7 @@ export const Constants = {
         "cancelled",
         "expired",
       ],
-      task_type: ["cleaning", "maintenance", "inspection"],
+      task_type: ["cleaning", "maintenance", "inspection", "midstay"],
     },
   },
 } as const
