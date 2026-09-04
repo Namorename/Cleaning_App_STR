@@ -71,7 +71,7 @@ select pg_temp.check('service_role имеет DML на всех операцио
   (select count(distinct table_name)::int from information_schema.role_table_grants
    where grantee='service_role' and table_schema='public'
      and privilege_type in ('SELECT','INSERT','UPDATE','DELETE')
-     and table_name in ('profiles','properties','property_links','reservations','tasks')), 5);
+     and table_name in ('profiles','properties','property_cleaners','reservations','tasks')), 5);
 
 -- ---------- клинер ----------
 set local role authenticated;
@@ -137,13 +137,32 @@ exception when unique_violation then
   raise notice 'ok  дубль уборки на бронь отклонён';
 end $$;
 
-insert into public.property_links (parent_id, child_id) values (900000004, 900000002), (900000004, 900000003);
+-- Иерархия объектов: юниты висят на родителе, ровно два уровня.
+update public.properties set parent_id = 900000004 where id in (900000002, 900000003);
+
 do $$
 begin
-  insert into public.property_links (parent_id, child_id) values (900000002, 900000004);
-  raise exception 'FAIL цикл в связях объектов прошёл';
-exception when raise_exception then
-  raise notice 'ok  цикл в связях объектов отклонён';
+  update public.properties set parent_id = 900000002 where id = 900000004;
+  raise exception 'FAIL цикл в иерархии объектов прошёл';
+exception when check_violation then
+  raise notice 'ok  цикл в иерархии объектов отклонён';
+end $$;
+
+-- Третий уровень: 900000002 сам юнит, значит родителем быть не может.
+do $$
+begin
+  update public.properties set parent_id = 900000002 where id = 900000001;
+  raise exception 'FAIL третий уровень иерархии прошёл';
+exception when check_violation then
+  raise notice 'ok  третий уровень иерархии отклонён';
+end $$;
+
+do $$
+begin
+  update public.properties set parent_id = 900000004 where id = 900000004;
+  raise exception 'FAIL объект стал юнитом самого себя';
+exception when check_violation then
+  raise notice 'ok  объект не может быть юнитом самого себя';
 end $$;
 
 -- Нулевой интервал: Hostaway отдаёт такое для части блоков.
