@@ -41,14 +41,14 @@ test('returns the claimed task when the update took the row', async () => {
   expect(claimed.status).toBe('assigned');
 });
 
-test('reports that the task is gone when a colleague claimed it first', async () => {
-  // Losing the race returns zero rows, not an error: the status filter simply
-  // matched nothing. Silently resolving here would show the cleaner a task
-  // that is not hers.
+test('reports that the task is gone when the update took no row', async () => {
+  // Zero rows, not an error: the filters simply matched nothing — a colleague
+  // was faster, or the server refused work past its day. Silently resolving
+  // here would show the cleaner a task that is not hers.
   mockResponse.data = [];
 
   await expect(claimTask(row.id, '7c9e6679-7425-40de-944b-e07fc1f90ae7')).rejects.toThrow(
-    'Задачу уже взял кто-то другой.',
+    'Задачу уже взяли, либо её срок истёк.',
   );
 });
 

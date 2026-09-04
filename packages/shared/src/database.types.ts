@@ -321,7 +321,44 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      expired_tasks_review: {
+        Row: {
+          assignee_id: string | null
+          assignee_name: string | null
+          due_at: string | null
+          expired_at: string | null
+          id: string | null
+          priority: number | null
+          property_id: number | null
+          property_name: string | null
+          reservation_id: number | null
+          scheduled_date: string | null
+          task_notes: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       auth_role: {
@@ -336,6 +373,7 @@ export type Database = {
         Args: { target_property_id: number }
         Returns: boolean
       }
+      expire_stale_tasks: { Args: never; Returns: Json }
       generate_cleaning_tasks: {
         Args: { from_date: string; to_date: string }
         Returns: Json
@@ -359,6 +397,11 @@ export type Database = {
         Args: { raw_rows: Json; reservation_rows: Json }
         Returns: Json
       }
+      task_grace_days: { Args: never; Returns: number }
+      task_is_stale: {
+        Args: { target_property_id: number; target_scheduled_date: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "cleaner" | "tech" | "manager" | "admin"
@@ -372,6 +415,7 @@ export type Database = {
         | "blocked"
         | "done"
         | "cancelled"
+        | "expired"
       task_type: "cleaning" | "maintenance" | "inspection"
     }
     CompositeTypes: {
@@ -514,6 +558,7 @@ export const Constants = {
         "blocked",
         "done",
         "cancelled",
+        "expired",
       ],
       task_type: ["cleaning", "maintenance", "inspection"],
     },

@@ -2,7 +2,7 @@ import type { TaskStatus } from '@str-ops/shared';
 
 import { supabase } from '@/lib/supabase';
 
-import { cleaningTaskListSchema, type CleaningTask } from './schema';
+import { cleaningTaskListSchema, earliestClaimableDate, type CleaningTask } from './schema';
 
 // The joined listing name is what the cleaner actually recognises; the numeric
 // id means nothing to her.
@@ -50,6 +50,11 @@ export async function fetchMyTasks(cleanerId: string): Promise<CleaningTask[]> {
  *
  * The link itself is enforced by row level security: an unassigned task on a
  * listing she does not clean is simply not in the result.
+ *
+ * The date filter is courtesy, not enforcement. Work past its grace period is
+ * refused by the server whatever this query asks for; the nightly sweep closes
+ * it as 'expired' a few hours later. Between the two, this keeps the queue
+ * from offering a card that cannot be taken.
  */
 export async function fetchFreeTasks(): Promise<CleaningTask[]> {
   const { data, error } = await supabase
@@ -58,6 +63,7 @@ export async function fetchFreeTasks(): Promise<CleaningTask[]> {
     .eq('type', 'cleaning')
     .eq('status', 'unassigned')
     .is('assignee_id', null)
+    .gte('scheduled_date', earliestClaimableDate())
     .order('scheduled_date', { ascending: true })
     .order('priority', { ascending: false });
 
@@ -74,6 +80,10 @@ export async function fetchFreeTasks(): Promise<CleaningTask[]> {
  * The `status` filter is what makes this safe against two cleaners tapping at
  * once: the second update matches no row and the caller is told the task is
  * gone, rather than silently overwriting the first claim.
+ *
+ * Zero rows has two causes and the response cannot tell them apart: a
+ * colleague was faster, or the task is past the day it could be done and the
+ * server refused it. The message covers both rather than guessing.
  */
 export async function claimTask(taskId: string, cleanerId: string): Promise<CleaningTask> {
   const { data, error } = await supabase
@@ -89,7 +99,7 @@ export async function claimTask(taskId: string, cleanerId: string): Promise<Clea
 
   const claimed = cleaningTaskListSchema.parse(data ?? []);
   if (claimed.length === 0) {
-    throw new Error('Задачу уже взял кто-то другой.');
+    throw new Error('Задачу уже взяли, либо её срок истёк.');
   }
 
   return claimed[0];
