@@ -1,4 +1,8 @@
 {
+  "common": {
+    "cancel": "Отмена",
+    "back": "Назад"
+  },
   "auth": {
     "heading": "Вход для клинеров",
     "email": "Почта",
@@ -6,7 +10,11 @@
     "submit": "Войти",
     "signingIn": "Входим…",
     "invalidCredentials": "Неверная почта или пароль.",
-    "signInFailed": "Не удалось войти."
+    "signInFailed": "Не удалось войти.",
+    "signOut": "Выйти",
+    "signOutTitle": "Выйти из аккаунта?",
+    "signOutQuestion": "Для входа снова понадобится пароль.",
+    "signOutFailed": "Не удалось выйти"
   },
   "tabs": {
     "myTasks": "Мои задачи",
@@ -19,15 +27,34 @@
     "emptyMine": "Пока нет назначенных уборок. Загляните во «Свободные» — там могут быть задачи на ваших объектах.",
     "emptyQueue": "Свободных уборок на ваших объектах нет.",
     "claim": "Взять",
+    "start": "Начать уборку",
+    "finish": "Завершить уборку",
     "claimAccessibility": "Взять уборку: {{property}}, {{date}}",
     "claimFailedTitle": "Не получилось взять задачу",
     "claimTaken": "Задачу уже взяли, либо её срок истёк.",
+    "startFailed": "Не удалось начать уборку — обновите список.",
+    "finishFailed": "Не удалось завершить уборку — обновите список.",
     "unnamedProperty": "Объект {{id}}",
     "cardAccessibility": "{{property}}. {{date}}. {{urgency}}",
+    "status": {
+      "inProgress": "В работе"
+    },
     "urgency": {
       "checkInAt": "В {{time}} заезд",
       "checkInSameDay": "В этот день заезд",
       "noCheckIn": "Заезда нет"
+    },
+    "detail": {
+      "window": "Окно уборки",
+      "guests": "Гостей заезжает",
+      "startedAt": "Начата",
+      "completedAt": "Завершена",
+      "notes": "Заметки по объекту",
+      "parallel": "Шла параллельно с другой уборкой",
+      "finished": "Уборка завершена",
+      "colleague": "Уборку выполняет коллега",
+      "closed": "Задача закрыта",
+      "notFound": "Задача не найдена или больше не ваша"
     }
   }
 }

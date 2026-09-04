@@ -1,4 +1,4 @@
-import { claimTask } from '../api';
+import { claimTask, finishTask, startTask } from '../api';
 
 const mockResponse: { data: unknown; error: unknown } = { data: null, error: null };
 
@@ -24,7 +24,13 @@ const row = {
   due_at: '2026-11-10T13:00:00+00:00',
   assignee_id: '7c9e6679-7425-40de-944b-e07fc1f90ae7',
   property_id: 412432,
-  property: { name: 'CZ - Nadrazni Apt 6' },
+  property: { name: 'CZ - Nadrazni Apt 6', cleaner_notes: null },
+  time_from: '10:00:00',
+  time_to: '15:00:00',
+  guests_count: null,
+  started_at: null,
+  completed_at: null,
+  is_parallel: false,
 };
 
 beforeEach(() => {
@@ -64,4 +70,41 @@ test('rejects a row that does not match the expected shape', async () => {
   mockResponse.data = [{ ...row, priority: 'urgent' }];
 
   await expect(claimTask(row.id, '7c9e6679-7425-40de-944b-e07fc1f90ae7')).rejects.toThrow();
+});
+
+describe('startTask', () => {
+  test('returns the task once it is in progress', async () => {
+    mockResponse.data = [{ ...row, status: 'in_progress', started_at: '2026-11-10T08:00:00+00:00' }];
+
+    const started = await startTask(row.id);
+
+    expect(started.status).toBe('in_progress');
+    expect(started.started_at).not.toBeNull();
+  });
+
+  test('explains when the task could not be started', async () => {
+    // Zero rows: the task is no longer assigned to her, or the server refused
+    // the move — a second start with parallel work switched off, for instance.
+    mockResponse.data = [];
+
+    await expect(startTask(row.id)).rejects.toThrow('Не удалось начать уборку — обновите список.');
+  });
+});
+
+describe('finishTask', () => {
+  test('returns the task once it is done', async () => {
+    mockResponse.data = [{ ...row, status: 'done', completed_at: '2026-11-10T10:00:00+00:00' }];
+
+    const finished = await finishTask(row.id);
+
+    expect(finished.status).toBe('done');
+  });
+
+  test('explains when the task could not be finished', async () => {
+    mockResponse.data = [];
+
+    await expect(finishTask(row.id)).rejects.toThrow(
+      'Не удалось завершить уборку — обновите список.',
+    );
+  });
 });

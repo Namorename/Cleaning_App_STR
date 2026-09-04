@@ -1,4 +1,8 @@
 {
+  "common": {
+    "cancel": "Cancel",
+    "back": "Back"
+  },
   "auth": {
     "heading": "Cleaner sign-in",
     "email": "Email",
@@ -6,7 +10,11 @@
     "submit": "Sign in",
     "signingIn": "Signing in…",
     "invalidCredentials": "Wrong email or password.",
-    "signInFailed": "Could not sign in."
+    "signInFailed": "Could not sign in.",
+    "signOut": "Sign out",
+    "signOutTitle": "Sign out?",
+    "signOutQuestion": "You will need your password to sign in again.",
+    "signOutFailed": "Could not sign out"
   },
   "tabs": {
     "myTasks": "My tasks",
@@ -19,15 +27,34 @@
     "emptyMine": "Nothing assigned to you yet. Look in “Available” — there may be work on your listings.",
     "emptyQueue": "No free cleanings on your listings.",
     "claim": "Take",
+    "start": "Start cleaning",
+    "finish": "Finish cleaning",
     "claimAccessibility": "Take cleaning: {{property}}, {{date}}",
     "claimFailedTitle": "Could not take the task",
     "claimTaken": "Someone already took it, or its day has passed.",
+    "startFailed": "Could not start the cleaning — refresh the list.",
+    "finishFailed": "Could not finish the cleaning — refresh the list.",
     "unnamedProperty": "Listing {{id}}",
     "cardAccessibility": "{{property}}. {{date}}. {{urgency}}",
+    "status": {
+      "inProgress": "In progress"
+    },
     "urgency": {
       "checkInAt": "Check-in at {{time}}",
       "checkInSameDay": "Check-in that day",
       "noCheckIn": "No check-in"
+    },
+    "detail": {
+      "window": "Cleaning window",
+      "guests": "Guests arriving",
+      "startedAt": "Started",
+      "completedAt": "Finished",
+      "notes": "Notes on the listing",
+      "parallel": "Ran alongside another cleaning",
+      "finished": "Cleaning finished",
+      "colleague": "A colleague is doing this cleaning",
+      "closed": "Task closed",
+      "notFound": "Task not found, or no longer yours"
     }
   }
 }

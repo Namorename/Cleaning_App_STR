@@ -1,4 +1,10 @@
-import { formatDeadlineTime, formatScheduledDate, propertyName, urgencyText } from '../format';
+import {
+  formatDeadlineTime,
+  formatScheduledDate,
+  formatWindow,
+  propertyName,
+  urgencyText,
+} from '../format';
 import type { CleaningTask } from '../schema';
 
 function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
@@ -10,7 +16,13 @@ function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
     due_at: null,
     assignee_id: null,
     property_id: 412432,
-    property: { name: 'CZ - Nadrazni Apt 6' },
+    property: { name: 'CZ - Nadrazni Apt 6', cleaner_notes: null },
+    time_from: '10:00:00',
+    time_to: '15:00:00',
+    guests_count: null,
+    started_at: null,
+    completed_at: null,
+    is_parallel: false,
     ...overrides,
   };
 }
@@ -72,5 +84,20 @@ describe('propertyName', () => {
 
   test('falls back to the id so a row is never nameless', () => {
     expect(propertyName(task({ property: null }))).toBe('Объект 412432');
+  });
+});
+
+describe('formatWindow', () => {
+  test('shows the window as two clock times', () => {
+    // Postgres serialises a time with seconds; the cleaner does not need them.
+    expect(formatWindow(task({ time_from: '10:00:00', time_to: '15:00:00' }))).toBe('10:00–15:00');
+  });
+
+  test('shows only the end when the start is unknown', () => {
+    expect(formatWindow(task({ time_from: null, time_to: '15:00:00' }))).toBe('–15:00');
+  });
+
+  test('returns null when there is no window at all', () => {
+    expect(formatWindow(task({ time_from: null, time_to: null }))).toBeNull();
   });
 });

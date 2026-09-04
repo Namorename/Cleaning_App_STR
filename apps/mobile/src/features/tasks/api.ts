@@ -6,9 +6,12 @@ import { supabase } from '@/lib/supabase';
 import { cleaningTaskListSchema, earliestClaimableDate, type CleaningTask } from './schema';
 
 // The joined listing name is what the cleaner actually recognises; the numeric
-// id means nothing to her.
+// id means nothing to her. Notes ride along: the code for the key box is the
+// first thing she needs at the door.
 const TASK_COLUMNS =
-  'id, status, priority, scheduled_date, due_at, assignee_id, property_id, property:properties(name)';
+  'id, status, priority, scheduled_date, due_at, assignee_id, property_id, ' +
+  'time_from, time_to, guests_count, started_at, completed_at, is_parallel, ' +
+  'property:properties(name, cleaner_notes)';
 
 // `satisfies` ties the list to the database enum: a status renamed in a
 // migration becomes a type error here instead of a filter that silently
@@ -79,33 +82,74 @@ export async function fetchFreeTasks(): Promise<CleaningTask[]> {
   return cleaningTaskListSchema.parse(data ?? []);
 }
 
+/** One task, for its own screen. Null when it is not hers to see any more. */
+export async function fetchTask(taskId: string): Promise<CleaningTask | null> {
+  const { data, error } = await supabase.from('tasks').select(TASK_COLUMNS).eq('id', taskId);
+
+  if (error) {
+    throw error;
+  }
+
+  const rows = cleaningTaskListSchema.parse(data ?? []);
+  return rows[0] ?? null;
+}
+
 /**
- * Take a free task.
+ * Move a task from one status to the next.
  *
- * The `status` filter is what makes this safe against two cleaners tapping at
- * once: the second update matches no row and the caller is told the task is
- * gone, rather than silently overwriting the first claim.
- *
- * Zero rows has two causes and the response cannot tell them apart: a
- * colleague was faster, or the task is past the day it could be done and the
- * server refused it. The message covers both rather than guessing.
+ * The `status` filter on the update is what makes every move safe against a
+ * stale screen and against two taps: an update that no longer matches the
+ * expected status touches no row, and the caller is told rather than left to
+ * believe it worked. The server refuses moves it disallows — a second start
+ * with parallel work switched off, a finish without a start — with an error
+ * that arrives as `error`, and stamps the clock itself: nothing about the
+ * time is sent from here.
  */
-export async function claimTask(taskId: string, cleanerId: string): Promise<CleaningTask> {
+async function moveTask(
+  taskId: string,
+  from: TaskStatus,
+  patch: { status: TaskStatus; assignee_id?: string },
+  failureKey: string,
+): Promise<CleaningTask> {
   const { data, error } = await supabase
     .from('tasks')
-    .update({ assignee_id: cleanerId, status: 'assigned' })
+    .update(patch)
     .eq('id', taskId)
-    .eq('status', 'unassigned')
+    .eq('status', from)
     .select(TASK_COLUMNS);
 
   if (error) {
     throw error;
   }
 
-  const claimed = cleaningTaskListSchema.parse(data ?? []);
-  if (claimed.length === 0) {
-    throw new Error(i18n.t('tasks.claimTaken'));
+  const moved = cleaningTaskListSchema.parse(data ?? []);
+  if (moved.length === 0) {
+    throw new Error(i18n.t(failureKey));
   }
 
-  return claimed[0];
+  return moved[0];
+}
+
+/**
+ * Take a free task.
+ *
+ * Zero rows has two causes and the response cannot tell them apart: a
+ * colleague was faster, or the task is past the day it could be done and the
+ * server refused it. The message covers both rather than guessing.
+ */
+export function claimTask(taskId: string, cleanerId: string): Promise<CleaningTask> {
+  return moveTask(
+    taskId,
+    'unassigned',
+    { assignee_id: cleanerId, status: 'assigned' },
+    'tasks.claimTaken',
+  );
+}
+
+export function startTask(taskId: string): Promise<CleaningTask> {
+  return moveTask(taskId, 'assigned', { status: 'in_progress' }, 'tasks.startFailed');
+}
+
+export function finishTask(taskId: string): Promise<CleaningTask> {
+  return moveTask(taskId, 'in_progress', { status: 'done' }, 'tasks.finishFailed');
 }

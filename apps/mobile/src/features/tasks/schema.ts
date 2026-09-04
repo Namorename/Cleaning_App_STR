@@ -28,7 +28,26 @@ export const cleaningTaskSchema = z.object({
   due_at: z.string().nullable(),
   assignee_id: z.string().uuid().nullable(),
   property_id: z.number(),
-  property: z.object({ name: z.string() }).nullable(),
+  property: z
+    .object({
+      name: z.string(),
+      // Access codes and quirks of the flat, written by the office for her.
+      cleaner_notes: z.string().nullable().default(null),
+    })
+    .nullable(),
+  // The window the cleaning has to fit into: when the departing guest actually
+  // leaves, and when the next one may arrive. Postgres serialises a time with
+  // seconds ("10:00:00"); it is kept as it comes and trimmed for display.
+  time_from: z.string().nullable(),
+  time_to: z.string().nullable(),
+  // Guests of the ARRIVING booking — how many sets of linen, in practice.
+  guests_count: z.number().int().nullable(),
+  // Stamped by the database when she starts and finishes; never sent by us.
+  started_at: z.string().nullable(),
+  completed_at: z.string().nullable(),
+  // Overlapped another of her cleanings. Shown so a long measurement is not
+  // mistaken for a slow one.
+  is_parallel: z.boolean(),
 });
 
 export type CleaningTask = z.infer<typeof cleaningTaskSchema>;
@@ -42,6 +61,54 @@ export function isSameDayTurnover(task: CleaningTask): boolean {
 
 export function isFree(task: CleaningTask): boolean {
   return task.status === 'unassigned' && task.assignee_id === null;
+}
+
+export function isRunning(task: CleaningTask): boolean {
+  return task.status === 'in_progress';
+}
+
+/** What the cleaner holding the phone may do with this task right now. */
+export type TaskAction = 'claim' | 'start' | 'finish';
+
+export function availableAction(task: CleaningTask, userId: string): TaskAction | null {
+  if (isFree(task)) {
+    return 'claim';
+  }
+  if (task.assignee_id !== userId) {
+    return null;
+  }
+  if (task.status === 'assigned') {
+    return 'start';
+  }
+  if (task.status === 'in_progress') {
+    return 'finish';
+  }
+  return null;
+}
+
+export type TaskGroupKey = 'running' | 'upcoming';
+
+export interface TaskGroup {
+  key: TaskGroupKey;
+  data: CleaningTask[];
+}
+
+/**
+ * The cleaner's own list, with everything under way first.
+ *
+ * Several cleanings run at once on a floor, and switching between them is the
+ * whole point of the list — so the running ones are a group of their own at
+ * the top, never one highlighted row. An empty group is left out: a heading
+ * with nothing under it reads as something missing.
+ */
+export function groupMyTasks(tasks: readonly CleaningTask[]): TaskGroup[] {
+  const running = tasks.filter(isRunning);
+  const upcoming = tasks.filter((task) => !isRunning(task));
+
+  return [
+    { key: 'running' as const, data: running },
+    { key: 'upcoming' as const, data: upcoming },
+  ].filter((group) => group.data.length > 0);
 }
 
 /**

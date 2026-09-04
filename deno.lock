@@ -27,8 +27,11 @@
         "packageJson": {
           "dependencies": [
             "npm:@expo/ui@~57.0.15",
+            "npm:@react-native-async-storage/async-storage@2.2.0",
             "npm:@str-ops/shared@0.1",
             "npm:@supabase/supabase-js@^2.112.4",
+            "npm:@tanstack/query-async-storage-persister@^5.102.8",
+            "npm:@tanstack/react-query-persist-client@^5.102.8",
             "npm:@tanstack/react-query@^5.102.8",
             "npm:@testing-library/react-native@^14.0.1",
             "npm:@types/jest@30",

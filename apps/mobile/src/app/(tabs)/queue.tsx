@@ -1,8 +1,9 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from 'react-native';
 
 import { TaskList } from '@/features/tasks/task-list';
+import type { TaskGroup } from '@/features/tasks/schema';
 import { useClaimTask, useFreeTasks } from '@/features/tasks/use-tasks';
 
 export default function FreeQueueScreen() {
@@ -10,6 +11,12 @@ export default function FreeQueueScreen() {
   const { data, isPending, error, refetch, isRefetching } = useFreeTasks();
   const claim = useClaimTask();
   const [claimingTaskId, setClaimingTaskId] = useState<string | null>(null);
+
+  // One unnamed group: the queue has no work under way by definition.
+  const sections = useMemo<TaskGroup[] | undefined>(
+    () => (data === undefined ? undefined : [{ key: 'upcoming', data }]),
+    [data],
+  );
 
   const onRefresh = useCallback(() => {
     void refetch();
@@ -33,7 +40,7 @@ export default function FreeQueueScreen() {
 
   return (
     <TaskList
-      tasks={data}
+      sections={sections}
       isLoading={isPending}
       error={error}
       onRefresh={onRefresh}

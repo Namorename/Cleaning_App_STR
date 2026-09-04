@@ -72,6 +72,35 @@ export function urgencyText(task: CleaningTask): string {
     : i18n.t('tasks.urgency.checkInAt', { time });
 }
 
+/** An instant — a start or a finish stamp — as a clock time on the phone. */
+export function formatClockTime(instant: string): string {
+  return formatterFor(timeFormatters, { hour: '2-digit', minute: '2-digit' }).format(
+    new Date(instant),
+  );
+}
+
+/** "10:00:00" as Postgres writes a time, shown as "10:00". */
+function clockTime(value: string): string {
+  return value.slice(0, 5);
+}
+
+/**
+ * The window as two clock times, or as much of it as is known.
+ *
+ * The window is planning information, not a deadline — the deadline is
+ * `urgencyText`. A missing start is shown as an open dash rather than hidden,
+ * because "–15:00" is still the one fact she has.
+ */
+export function formatWindow(task: CleaningTask): string | null {
+  if (task.time_from === null && task.time_to === null) {
+    return null;
+  }
+  const from = task.time_from === null ? '' : clockTime(task.time_from);
+  const to = task.time_to === null ? '' : clockTime(task.time_to);
+
+  return `${from}–${to}`;
+}
+
 export function propertyName(task: CleaningTask): string {
   return task.property?.name ?? i18n.t('tasks.unnamedProperty', { id: task.property_id });
 }

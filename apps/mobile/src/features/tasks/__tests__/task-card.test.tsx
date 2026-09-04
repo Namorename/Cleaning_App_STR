@@ -12,7 +12,13 @@ function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
     due_at: null,
     assignee_id: null,
     property_id: 412432,
-    property: { name: 'CZ - Nadrazni Apt 6' },
+    property: { name: 'CZ - Nadrazni Apt 6', cleaner_notes: null },
+    time_from: '10:00:00',
+    time_to: '15:00:00',
+    guests_count: null,
+    started_at: null,
+    completed_at: null,
+    is_parallel: false,
     ...overrides,
   };
 }
@@ -35,10 +41,13 @@ test('shows an ordinary cleaning as one with nobody arriving', async () => {
   expect(screen.getByText('Заезда нет')).toBeTruthy();
 });
 
-test('says the time once, in the line that gives it meaning', async () => {
+test('states the check-in once, in the line that gives it meaning', async () => {
   await render(<TaskCard task={task({ priority: 1, due_at: '2026-11-10T13:00:00+00:00' })} />);
 
-  expect(screen.getAllByText(/\d{2}:\d{2}/)).toHaveLength(1);
+  // The window line carries clock times of its own; the check-in is not one
+  // of them repeated, and the old "· до 15:00" tail is gone for good.
+  expect(screen.getAllByText(/заезд/)).toHaveLength(1);
+  expect(screen.queryByText(/ · до \d{2}:\d{2}/)).toBeNull();
 });
 
 test('offers no claim button in the list of tasks already assigned', async () => {
@@ -63,4 +72,25 @@ test('does not fire a second claim while the first is in flight', async () => {
   await fireEvent.press(screen.getByRole('button', { name: /Взять уборку/ }));
 
   expect(onClaim).not.toHaveBeenCalled();
+});
+
+test('shows the window the cleaning has to fit into', async () => {
+  await render(<TaskCard task={task({ time_from: '10:00:00', time_to: '15:00:00' })} />);
+
+  expect(screen.getByText(/10:00–15:00/)).toBeTruthy();
+});
+
+test('says in words that a cleaning is under way', async () => {
+  await render(<TaskCard task={task({ status: 'in_progress' })} />);
+
+  expect(screen.getByText('В работе')).toBeTruthy();
+});
+
+test('opens the task when the card is pressed', async () => {
+  const onPress = jest.fn();
+  await render(<TaskCard task={task()} onPress={onPress} />);
+
+  await fireEvent.press(screen.getByRole('button', { name: /CZ - Nadrazni Apt 6/ }));
+
+  expect(onPress).toHaveBeenCalledWith('3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b');
 });
