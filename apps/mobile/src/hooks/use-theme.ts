@@ -3,12 +3,19 @@
  * https://docs.expo.dev/guides/color-schemes/
  */
 
-import { Colors } from '@/constants/theme';
+import { Colors, type Theme } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-export function useTheme() {
+/**
+ * The active palette.
+ *
+ * Anything that is not explicitly dark is treated as light: the scheme comes
+ * back as null before hydration on web and as 'unspecified' on Android when
+ * the user has made no choice, and both must land on a readable default rather
+ * than on undefined.
+ */
+export function useTheme(): Theme {
   const scheme = useColorScheme();
-  const theme = scheme === 'unspecified' ? 'light' : scheme;
 
-  return Colors[theme];
+  return Colors[scheme === 'dark' ? 'dark' : 'light'];
 }

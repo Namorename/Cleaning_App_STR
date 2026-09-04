@@ -23,16 +23,24 @@ test('shows the listing name the cleaner would recognise', async () => {
   expect(screen.getByText('CZ - Nadrazni Apt 6')).toBeTruthy();
 });
 
-test('marks a same-day turnover in words, not only in colour', async () => {
-  await render(<TaskCard task={task({ priority: 1 })} />);
+test('explains a same-day turnover in words: the reason and the deadline', async () => {
+  await render(<TaskCard task={task({ priority: 1, due_at: '2026-11-10T13:00:00+00:00' })} />);
 
-  expect(screen.getByText('Срочно')).toBeTruthy();
+  expect(screen.getByText(/Срочно.*заезжает следующий гость.*успеть до \d{2}:\d{2}/)).toBeTruthy();
 });
 
-test('shows an ordinary cleaning as ordinary', async () => {
+test('shows an ordinary cleaning as one with nobody arriving', async () => {
   await render(<TaskCard task={task({ priority: 0 })} />);
 
-  expect(screen.getByText('Обычная')).toBeTruthy();
+  expect(screen.getByText(/Обычная уборка.*заезда нет/)).toBeTruthy();
+});
+
+test('does not repeat the deadline outside the urgency line', async () => {
+  await render(<TaskCard task={task({ priority: 1, due_at: '2026-11-10T13:00:00+00:00' })} />);
+
+  // One statement of the deadline, in the line that explains why it matters.
+  expect(screen.getAllByText(/успеть до \d{2}:\d{2}/)).toHaveLength(1);
+  expect(screen.queryByText(/ · до \d{2}:\d{2}/)).toBeNull();
 });
 
 test('offers no claim button in the list of tasks already assigned', async () => {

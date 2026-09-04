@@ -1,6 +1,13 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * The app's colour palette, defined once for both schemes.
+ *
+ * Every colour the app paints lives here. Nothing hardcodes a hex value in a
+ * StyleSheet: a value written into a component exists in one theme only, and
+ * the one that was missing from the other theme is exactly how the first build
+ * ended up printing black text on a black background.
+ *
+ * Contrast ratios are verified by `__tests__/theme.test.ts` — change a value
+ * here and the test says whether it is still readable.
  */
 
 import '@/global.css';
@@ -9,22 +16,43 @@ import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    background: '#F4F5F7',
+    card: '#FFFFFF',
+    text: '#11181C',
+    textSecondary: '#5B6169',
+    /** Outline of an input or other control the user has to find. */
+    border: '#7A828C',
+    /** Decorative edge of a card; deliberately quieter than `border`. */
+    divider: '#DDE1E6',
+    primary: '#0B62C4',
+    onPrimary: '#FFFFFF',
+    danger: '#B3261E',
+    urgentText: '#8C1D18',
+    urgentSurface: '#FBE9E7',
+    calmText: '#0F5132',
+    calmSurface: '#E4F2EA',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    background: '#0E1113',
+    card: '#1A1D21',
+    text: '#ECEDEE',
+    textSecondary: '#A3AAB3',
+    border: '#767D86',
+    divider: '#2B3038',
+    primary: '#4DA3FF',
+    // Dark ink on a light blue button: white on this blue is only 2.6:1.
+    onPrimary: '#082038',
+    danger: '#FF9E96',
+    urgentText: '#FFB4AB',
+    urgentSurface: '#3B1512',
+    calmText: '#7EE2A8',
+    calmSurface: '#12291C',
   },
 } as const;
 
+export type ThemeName = keyof typeof Colors;
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+export type Theme = (typeof Colors)[ThemeName];
 
 export const Fonts = Platform.select({
   ios: {
@@ -81,10 +109,3 @@ export const FontSize = {
 
 /** iOS asks for 44pt, Android for 48dp; take the larger and stop thinking. */
 export const MIN_TOUCH_TARGET = 48;
-
-export const StatusColors = {
-  urgent: '#B3261E',
-  urgentSurface: '#FCEEEE',
-  calm: '#1B6C3A',
-  calmSurface: '#E9F5EE',
-} as const;

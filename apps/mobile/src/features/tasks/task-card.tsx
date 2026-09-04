@@ -1,9 +1,10 @@
 import { memo } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, StatusColors } from '@/constants/theme';
+import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 
-import { formatDeadline, formatScheduledDate, propertyName } from './format';
+import { formatScheduledDate, propertyName, urgencyText } from './format';
 import { isSameDayTurnover, type CleaningTask } from './schema';
 
 interface TaskCardProps {
@@ -14,32 +15,27 @@ interface TaskCardProps {
 }
 
 function TaskCardComponent({ task, onClaim, isClaiming = false }: TaskCardProps) {
+  const styles = useThemedStyles(createStyles);
   const urgent = isSameDayTurnover(task);
-  const deadline = formatDeadline(task);
   const name = propertyName(task);
   const date = formatScheduledDate(task);
-
-  // Urgency is carried by the word "срочно" as well as the colour: a red chip
-  // alone says nothing to a colour-blind user or a screen reader.
-  const urgencyLabel = urgent ? 'Срочно: заезд в тот же день' : 'Обычная уборка';
+  // The whole reason in one sentence: what kind of cleaning, why, and by when.
+  // Colour repeats it; it never carries the meaning alone.
+  const urgency = urgencyText(task);
 
   return (
-    <View style={styles.card} accessible accessibilityLabel={`${name}. ${date}. ${urgencyLabel}${deadline ? `. ${deadline}` : ''}`}>
-      <View style={styles.header}>
-        <Text style={styles.name} numberOfLines={2}>
-          {name}
-        </Text>
-        <View style={[styles.chip, urgent ? styles.chipUrgent : styles.chipCalm]}>
-          <Text style={[styles.chipText, urgent ? styles.chipTextUrgent : styles.chipTextCalm]}>
-            {urgent ? 'Срочно' : 'Обычная'}
-          </Text>
-        </View>
-      </View>
-
-      <Text style={styles.meta}>
-        {date}
-        {deadline ? ` · ${deadline}` : ''}
+    <View style={styles.card} accessible accessibilityLabel={`${name}. ${date}. ${urgency}`}>
+      <Text style={styles.name} numberOfLines={2}>
+        {name}
       </Text>
+
+      <Text style={styles.meta}>{date}</Text>
+
+      <View style={[styles.banner, urgent ? styles.bannerUrgent : styles.bannerCalm]}>
+        <Text style={[styles.bannerText, urgent ? styles.bannerTextUrgent : styles.bannerTextCalm]}>
+          {urgency}
+        </Text>
+      </View>
 
       {onClaim ? (
         <Pressable
@@ -50,7 +46,11 @@ function TaskCardComponent({ task, onClaim, isClaiming = false }: TaskCardProps)
           onPress={() => onClaim(task.id)}
           style={({ pressed }) => [styles.claim, pressed && styles.claimPressed]}
         >
-          {isClaiming ? <ActivityIndicator /> : <Text style={styles.claimText}>Взять</Text>}
+          {isClaiming ? (
+            <ActivityIndicator color={styles.claimText.color} />
+          ) : (
+            <Text style={styles.claimText}>Взять</Text>
+          )}
         </Pressable>
       ) : null}
     </View>
@@ -59,50 +59,47 @@ function TaskCardComponent({ task, onClaim, isClaiming = false }: TaskCardProps)
 
 export const TaskCard = memo(TaskCardComponent);
 
-const styles = StyleSheet.create({
-  card: {
-    borderRadius: Radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#D6D8DE',
-    padding: Spacing.lg,
-    gap: Spacing.sm,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.sm,
-  },
-  name: {
-    flex: 1,
-    fontSize: FontSize.title,
-    fontWeight: '600',
-  },
-  chip: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: Radius.md,
-  },
-  chipUrgent: { backgroundColor: StatusColors.urgentSurface },
-  chipCalm: { backgroundColor: StatusColors.calmSurface },
-  chipText: { fontSize: FontSize.caption, fontWeight: '600' },
-  chipTextUrgent: { color: StatusColors.urgent },
-  chipTextCalm: { color: StatusColors.calm },
-  meta: {
-    fontSize: FontSize.body,
-    color: '#60646C',
-  },
-  claim: {
-    minHeight: MIN_TOUCH_TARGET,
-    borderRadius: Radius.md,
-    backgroundColor: '#208AEF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: Spacing.xs,
-  },
-  claimPressed: { opacity: 0.75 },
-  claimText: {
-    color: '#FFFFFF',
-    fontSize: FontSize.title,
-    fontWeight: '600',
-  },
-});
+const createStyles = (theme: Theme) =>
+  StyleSheet.create({
+    card: {
+      backgroundColor: theme.card,
+      borderRadius: Radius.lg,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.divider,
+      padding: Spacing.lg,
+      gap: Spacing.sm,
+    },
+    name: {
+      color: theme.text,
+      fontSize: FontSize.title,
+      fontWeight: '600',
+    },
+    meta: {
+      color: theme.textSecondary,
+      fontSize: FontSize.body,
+    },
+    banner: {
+      borderRadius: Radius.md,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm,
+    },
+    bannerUrgent: { backgroundColor: theme.urgentSurface },
+    bannerCalm: { backgroundColor: theme.calmSurface },
+    bannerText: { fontSize: FontSize.body, fontWeight: '600' },
+    bannerTextUrgent: { color: theme.urgentText },
+    bannerTextCalm: { color: theme.calmText },
+    claim: {
+      minHeight: MIN_TOUCH_TARGET,
+      borderRadius: Radius.md,
+      backgroundColor: theme.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: Spacing.xs,
+    },
+    claimPressed: { opacity: 0.75 },
+    claimText: {
+      color: theme.onPrimary,
+      fontSize: FontSize.title,
+      fontWeight: '600',
+    },
+  });

@@ -1,4 +1,4 @@
-import type { CleaningTask } from './schema';
+import { isSameDayTurnover, type CleaningTask } from './schema';
 
 const dateFormatter = new Intl.DateTimeFormat('ru-RU', {
   day: 'numeric',
@@ -30,6 +30,25 @@ export function formatDeadline(task: CleaningTask): string | null {
     return null;
   }
   return `до ${timeFormatter.format(new Date(task.due_at))}`;
+}
+
+/**
+ * Why this cleaning is urgent, in the words a cleaner would use herself.
+ *
+ * The first version showed a red chip reading "Срочно" and left the reason and
+ * the deadline to be inferred — the deadline sat in a separate line as
+ * "· до 15:00", with nothing tying the two together. Priority 1 has exactly
+ * one meaning in this system, so the card says it outright.
+ */
+export function urgencyText(task: CleaningTask): string {
+  if (!isSameDayTurnover(task)) {
+    return 'Обычная уборка: в этот день заезда нет';
+  }
+
+  const deadline = formatDeadline(task);
+  const reason = 'Срочно: в этот день заезжает следующий гость';
+
+  return deadline === null ? reason : `${reason} — успеть ${deadline}`;
 }
 
 export function propertyName(task: CleaningTask): string {

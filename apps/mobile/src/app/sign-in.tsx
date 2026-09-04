@@ -12,10 +12,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing } from '@/constants/theme';
+import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
 import { signIn, useSession } from '@/features/auth/session';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 export default function SignInScreen() {
+  const styles = useThemedStyles(createStyles);
   const { userId } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -61,6 +63,7 @@ export default function SignInScreen() {
             autoComplete="email"
             keyboardType="email-address"
             onChangeText={setEmail}
+            placeholderTextColor={styles.label.color}
             style={styles.input}
             textContentType="username"
             value={email}
@@ -101,36 +104,50 @@ export default function SignInScreen() {
             pressed && styles.buttonPressed,
           ]}
         >
-          {isSubmitting ? <ActivityIndicator /> : <Text style={styles.buttonText}>Войти</Text>}
+          {isSubmitting ? (
+            <ActivityIndicator color={styles.buttonText.color} />
+          ) : (
+            <Text style={styles.buttonText}>Войти</Text>
+          )}
         </Pressable>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  container: { flex: 1, justifyContent: 'center', padding: Spacing.xl, gap: Spacing.lg },
-  heading: { fontSize: FontSize.heading, fontWeight: '700', marginBottom: Spacing.sm },
-  field: { gap: Spacing.xs },
-  label: { fontSize: FontSize.body, color: '#60646C' },
-  input: {
-    minHeight: MIN_TOUCH_TARGET,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#D6D8DE',
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    fontSize: FontSize.title,
-  },
-  error: { color: '#B3261E', fontSize: FontSize.body },
-  button: {
-    minHeight: MIN_TOUCH_TARGET,
-    borderRadius: Radius.md,
-    backgroundColor: '#208AEF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonDisabled: { opacity: 0.5 },
-  buttonPressed: { opacity: 0.75 },
-  buttonText: { color: '#FFFFFF', fontSize: FontSize.title, fontWeight: '600' },
-});
+const createStyles = (theme: Theme) =>
+  StyleSheet.create({
+    safe: { flex: 1, backgroundColor: theme.background },
+    container: { flex: 1, justifyContent: 'center', padding: Spacing.xl, gap: Spacing.lg },
+    heading: {
+      fontSize: FontSize.heading,
+      fontWeight: '700',
+      color: theme.text,
+      marginBottom: Spacing.sm,
+    },
+    field: { gap: Spacing.xs },
+    label: { fontSize: FontSize.body, color: theme.textSecondary },
+    input: {
+      minHeight: MIN_TOUCH_TARGET,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+      borderRadius: Radius.md,
+      paddingHorizontal: Spacing.md,
+      fontSize: FontSize.title,
+      // Without this the typed text falls back to black and disappears into
+      // the dark input on the very screen the cleaner starts from.
+      color: theme.text,
+      backgroundColor: theme.card,
+    },
+    error: { color: theme.danger, fontSize: FontSize.body },
+    button: {
+      minHeight: MIN_TOUCH_TARGET,
+      borderRadius: Radius.md,
+      backgroundColor: theme.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    buttonDisabled: { opacity: 0.5 },
+    buttonPressed: { opacity: 0.75 },
+    buttonText: { color: theme.onPrimary, fontSize: FontSize.title, fontWeight: '600' },
+  });

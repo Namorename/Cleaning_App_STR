@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
-import { FontSize, Spacing } from '@/constants/theme';
+import { FontSize, Spacing, type Theme } from '@/constants/theme';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 import { TaskCard } from './task-card';
 import type { CleaningTask } from './schema';
@@ -33,6 +34,8 @@ export function TaskList({
   onClaim,
   claimingTaskId = null,
 }: TaskListProps) {
+  const styles = useThemedStyles(createStyles);
+
   const renderItem = useCallback(
     ({ item }: { item: CleaningTask }) => (
       <TaskCard task={item} onClaim={onClaim} isClaiming={claimingTaskId === item.id} />
@@ -44,8 +47,8 @@ export function TaskList({
 
   if (isLoading) {
     return (
-      <View style={styles.centered} accessibilityLiveRegion="polite">
-        <ActivityIndicator />
+      <View style={[styles.screen, styles.centered]} accessibilityLiveRegion="polite">
+        <ActivityIndicator color={styles.message.color} />
         <Text style={styles.message}>Загружаем задачи…</Text>
       </View>
     );
@@ -53,7 +56,7 @@ export function TaskList({
 
   if (error !== null) {
     return (
-      <View style={styles.centered} accessibilityLiveRegion="polite">
+      <View style={[styles.screen, styles.centered]} accessibilityLiveRegion="polite">
         <Text style={styles.errorTitle}>Не удалось загрузить задачи</Text>
         <Text style={styles.message}>{error.message}</Text>
         <Text style={styles.message}>Потяните список вниз, чтобы повторить.</Text>
@@ -66,9 +69,19 @@ export function TaskList({
       data={tasks ?? []}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
+      style={styles.screen}
       contentContainerStyle={styles.content}
       ItemSeparatorComponent={Separator}
-      refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
+      refreshControl={
+        // The spinner is drawn by the platform and defaults to a dark tick on
+        // iOS — invisible on the dark background without this.
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={onRefresh}
+          tintColor={styles.message.color}
+          colors={[styles.message.color]}
+        />
+      }
       ListEmptyComponent={
         <View style={styles.centered}>
           <Text style={styles.message}>{emptyMessage}</Text>
@@ -79,30 +92,40 @@ export function TaskList({
 }
 
 function Separator() {
-  return <View style={styles.separator} />;
+  return <View style={layout.separator} />;
 }
 
-const styles = StyleSheet.create({
-  content: {
-    padding: Spacing.lg,
-    flexGrow: 1,
-  },
+/** Sizes only: nothing here depends on the colour scheme. */
+const layout = StyleSheet.create({
   separator: { height: Spacing.md },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: Spacing.xl,
-    gap: Spacing.sm,
-  },
-  message: {
-    fontSize: FontSize.body,
-    color: '#60646C',
-    textAlign: 'center',
-  },
-  errorTitle: {
-    fontSize: FontSize.title,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
 });
+
+const createStyles = (theme: Theme) =>
+  StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    content: {
+      padding: Spacing.lg,
+      flexGrow: 1,
+    },
+    centered: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: Spacing.xl,
+      gap: Spacing.sm,
+    },
+    message: {
+      fontSize: FontSize.body,
+      color: theme.textSecondary,
+      textAlign: 'center',
+    },
+    errorTitle: {
+      fontSize: FontSize.title,
+      fontWeight: '600',
+      color: theme.text,
+      textAlign: 'center',
+    },
+  });
