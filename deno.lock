@@ -21,6 +21,49 @@
         "npm:deno@2.9.5",
         "npm:supabase@2.115.0"
       ]
+    },
+    "members": {
+      "apps/mobile": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@expo/ui@~57.0.15",
+            "npm:@str-ops/shared@0.1",
+            "npm:@supabase/supabase-js@^2.112.4",
+            "npm:@tanstack/react-query@^5.102.8",
+            "npm:@testing-library/react-native@^14.0.1",
+            "npm:@types/jest@30",
+            "npm:@types/react@~19.2.2",
+            "npm:expo-constants@~57.0.17",
+            "npm:expo-device@~57.0.1",
+            "npm:expo-font@~57.0.3",
+            "npm:expo-glass-effect@~57.0.1",
+            "npm:expo-image@~57.0.4",
+            "npm:expo-linking@~57.0.9",
+            "npm:expo-router@~57.0.18",
+            "npm:expo-secure-store@~57.0.3",
+            "npm:expo-splash-screen@~57.0.8",
+            "npm:expo-status-bar@~57.0.1",
+            "npm:expo-symbols@~57.0.2",
+            "npm:expo-system-ui@~57.0.3",
+            "npm:expo-web-browser@~57.0.2",
+            "npm:expo@~57.0.19",
+            "npm:jest-expo@^57.0.5",
+            "npm:jest@^29.7.0",
+            "npm:react-dom@19.2.3",
+            "npm:react-native-gesture-handler@2.32",
+            "npm:react-native-reanimated@4.5.1",
+            "npm:react-native-safe-area-context@5.7",
+            "npm:react-native-screens@4.26",
+            "npm:react-native-web@0.21",
+            "npm:react-native-worklets@0.10.1",
+            "npm:react-native@0.86.3",
+            "npm:react-test-renderer@^19.2.3",
+            "npm:react@19.2.3",
+            "npm:typescript@~6.0.3",
+            "npm:zod@^4.5.4"
+          ]
+        }
+      }
     }
   }
 }
