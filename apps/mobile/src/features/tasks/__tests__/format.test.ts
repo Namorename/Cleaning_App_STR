@@ -1,4 +1,4 @@
-import { formatDeadline, formatScheduledDate, propertyName, urgencyText } from '../format';
+import { formatDeadlineTime, formatScheduledDate, propertyName, urgencyText } from '../format';
 import type { CleaningTask } from '../schema';
 
 function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
@@ -30,45 +30,38 @@ describe('formatScheduledDate', () => {
   });
 });
 
-describe('formatDeadline', () => {
+describe('formatDeadlineTime', () => {
   test('returns null when the task has no deadline', () => {
-    expect(formatDeadline(task({ due_at: null }))).toBeNull();
+    expect(formatDeadlineTime(task({ due_at: null }))).toBeNull();
   });
 
-  test('renders a deadline as a time with a prefix', () => {
-    const formatted = formatDeadline(task({ due_at: '2026-11-10T13:00:00+00:00' }));
+  test('renders a deadline as a bare time', () => {
+    const formatted = formatDeadlineTime(task({ due_at: '2026-11-10T13:00:00+00:00' }));
 
-    expect(formatted).toMatch(/^до \d{2}:\d{2}$/);
+    expect(formatted).toMatch(/^\d{2}:\d{2}$/);
   });
 });
 
 describe('urgencyText', () => {
-  test('spells out why a same-day turnover is urgent and by when', () => {
+  test('gives the check-in time and nothing else for a same-day turnover', () => {
     // Arrange: the next guest arrives on the day of the cleaning, at 13:00 UTC.
     const urgent = task({ priority: 1, due_at: '2026-11-10T13:00:00+00:00' });
 
     // Act
     const text = urgencyText(urgent);
 
-    // Assert: the reason and the deadline, not an abstract badge.
-    expect(text).toContain('Срочно');
-    expect(text).toContain('заезжает следующий гость');
-    expect(text).toMatch(/успеть до \d{2}:\d{2}/);
+    // Assert: the time is the only thing she has to plan around.
+    expect(text).toMatch(/^В \d{2}:\d{2} заезд$/);
   });
 
-  test('states the reason even when the deadline is not known yet', () => {
+  test('still says there is a check-in when the time is not known yet', () => {
     const text = urgencyText(task({ priority: 1, due_at: null }));
 
-    expect(text).toContain('заезжает следующий гость');
-    expect(text).not.toContain('успеть');
+    expect(text).toBe('В этот день заезд');
   });
 
-  test('says plainly that an ordinary cleaning has nobody arriving', () => {
-    const text = urgencyText(task({ priority: 0, due_at: null }));
-
-    expect(text).toContain('Обычная уборка');
-    expect(text).toContain('заезда нет');
-    expect(text).not.toContain('Срочно');
+  test('says plainly that nobody is arriving', () => {
+    expect(urgencyText(task({ priority: 0, due_at: null }))).toBe('Заезда нет');
   });
 });
 

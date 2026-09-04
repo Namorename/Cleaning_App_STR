@@ -1,0 +1,33 @@
+{
+  "auth": {
+    "heading": "Přihlášení pro úklid",
+    "email": "E-mail",
+    "password": "Heslo",
+    "submit": "Přihlásit se",
+    "signingIn": "Přihlašujeme…",
+    "invalidCredentials": "Nesprávný e-mail nebo heslo.",
+    "signInFailed": "Přihlášení se nezdařilo."
+  },
+  "tabs": {
+    "myTasks": "Moje úklidy",
+    "queue": "Volné"
+  },
+  "tasks": {
+    "loading": "Načítáme úklidy…",
+    "loadFailed": "Úklidy se nepodařilo načíst",
+    "pullToRetry": "Přetažením dolů to zkuste znovu.",
+    "emptyMine": "Zatím vám není přidělený žádný úklid. Podívejte se do „Volné“ — na vašich objektech může být práce.",
+    "emptyQueue": "Na vašich objektech nejsou volné úklidy.",
+    "claim": "Vzít",
+    "claimAccessibility": "Vzít úklid: {{property}}, {{date}}",
+    "claimFailedTitle": "Úklid se nepodařilo vzít",
+    "claimTaken": "Úklid si už někdo vzal, nebo jeho den uplynul.",
+    "unnamedProperty": "Objekt {{id}}",
+    "cardAccessibility": "{{property}}. {{date}}. {{urgency}}",
+    "urgency": {
+      "checkInAt": "Příjezd v {{time}}",
+      "checkInSameDay": "Ten den je příjezd",
+      "noCheckIn": "Bez příjezdu"
+    }
+  }
+}

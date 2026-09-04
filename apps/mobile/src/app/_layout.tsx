@@ -3,6 +3,9 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+// Side-effect import: initialises i18next before any screen renders.
+import '@/i18n';
+
 import { Colors } from '@/constants/theme';
 import { SessionProvider } from '@/features/auth/session';
 import { useColorScheme } from '@/hooks/use-color-scheme';

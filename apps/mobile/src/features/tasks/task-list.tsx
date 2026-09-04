@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import { FontSize, Spacing, type Theme } from '@/constants/theme';
@@ -20,7 +21,7 @@ interface TaskListProps {
 
 /**
  * Loading, error and empty are three different answers and the cleaner needs
- * to tell them apart: "нет задач" and "не удалось загрузить" mean opposite
+ * to tell them apart: "nothing to do" and "could not load" mean opposite
  * things when she is standing in a doorway deciding where to go next. All
  * three are text a screen reader can reach, not just a spinner.
  */
@@ -34,6 +35,7 @@ export function TaskList({
   onClaim,
   claimingTaskId = null,
 }: TaskListProps) {
+  const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
 
   const renderItem = useCallback(
@@ -49,7 +51,7 @@ export function TaskList({
     return (
       <View style={[styles.screen, styles.centered]} accessibilityLiveRegion="polite">
         <ActivityIndicator color={styles.message.color} />
-        <Text style={styles.message}>Загружаем задачи…</Text>
+        <Text style={styles.message}>{t('tasks.loading')}</Text>
       </View>
     );
   }
@@ -57,9 +59,9 @@ export function TaskList({
   if (error !== null) {
     return (
       <View style={[styles.screen, styles.centered]} accessibilityLiveRegion="polite">
-        <Text style={styles.errorTitle}>Не удалось загрузить задачи</Text>
+        <Text style={styles.errorTitle}>{t('tasks.loadFailed')}</Text>
         <Text style={styles.message}>{error.message}</Text>
-        <Text style={styles.message}>Потяните список вниз, чтобы повторить.</Text>
+        <Text style={styles.message}>{t('tasks.pullToRetry')}</Text>
       </View>
     );
   }

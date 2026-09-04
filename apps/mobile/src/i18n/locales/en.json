@@ -1,0 +1,33 @@
+{
+  "auth": {
+    "heading": "Cleaner sign-in",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "signingIn": "Signing in…",
+    "invalidCredentials": "Wrong email or password.",
+    "signInFailed": "Could not sign in."
+  },
+  "tabs": {
+    "myTasks": "My tasks",
+    "queue": "Available"
+  },
+  "tasks": {
+    "loading": "Loading tasks…",
+    "loadFailed": "Could not load tasks",
+    "pullToRetry": "Pull down to try again.",
+    "emptyMine": "Nothing assigned to you yet. Look in “Available” — there may be work on your listings.",
+    "emptyQueue": "No free cleanings on your listings.",
+    "claim": "Take",
+    "claimAccessibility": "Take cleaning: {{property}}, {{date}}",
+    "claimFailedTitle": "Could not take the task",
+    "claimTaken": "Someone already took it, or its day has passed.",
+    "unnamedProperty": "Listing {{id}}",
+    "cardAccessibility": "{{property}}. {{date}}. {{urgency}}",
+    "urgency": {
+      "checkInAt": "Check-in at {{time}}",
+      "checkInSameDay": "Check-in that day",
+      "noCheckIn": "No check-in"
+    }
+  }
+}

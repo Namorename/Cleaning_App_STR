@@ -1,0 +1,33 @@
+{
+  "auth": {
+    "heading": "Вход для клинеров",
+    "email": "Почта",
+    "password": "Пароль",
+    "submit": "Войти",
+    "signingIn": "Входим…",
+    "invalidCredentials": "Неверная почта или пароль.",
+    "signInFailed": "Не удалось войти."
+  },
+  "tabs": {
+    "myTasks": "Мои задачи",
+    "queue": "Свободные"
+  },
+  "tasks": {
+    "loading": "Загружаем задачи…",
+    "loadFailed": "Не удалось загрузить задачи",
+    "pullToRetry": "Потяните список вниз, чтобы повторить.",
+    "emptyMine": "Пока нет назначенных уборок. Загляните во «Свободные» — там могут быть задачи на ваших объектах.",
+    "emptyQueue": "Свободных уборок на ваших объектах нет.",
+    "claim": "Взять",
+    "claimAccessibility": "Взять уборку: {{property}}, {{date}}",
+    "claimFailedTitle": "Не получилось взять задачу",
+    "claimTaken": "Задачу уже взяли, либо её срок истёк.",
+    "unnamedProperty": "Объект {{id}}",
+    "cardAccessibility": "{{property}}. {{date}}. {{urgency}}",
+    "urgency": {
+      "checkInAt": "В {{time}} заезд",
+      "checkInSameDay": "В этот день заезд",
+      "noCheckIn": "Заезда нет"
+    }
+  }
+}

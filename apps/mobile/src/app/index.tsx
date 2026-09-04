@@ -1,4 +1,5 @@
 import { Redirect } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { FontSize, Spacing, type Theme } from '@/constants/theme';
@@ -11,6 +12,7 @@ import { useThemedStyles } from '@/hooks/use-themed-styles';
  * login screen on every cold start.
  */
 export default function Index() {
+  const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const { userId, isLoading } = useSession();
 
@@ -18,7 +20,7 @@ export default function Index() {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={styles.message.color} />
-        <Text style={styles.message}>Входим…</Text>
+        <Text style={styles.message}>{t('auth.signingIn')}</Text>
       </View>
     );
   }

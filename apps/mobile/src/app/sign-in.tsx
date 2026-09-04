@@ -1,5 +1,6 @@
 import { Redirect } from 'expo-router';
 import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -17,6 +18,7 @@ import { signIn, useSession } from '@/features/auth/session';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 export default function SignInScreen() {
+  const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const { userId } = useSession();
   const [email, setEmail] = useState('');
@@ -32,11 +34,13 @@ export default function SignInScreen() {
     } catch (caught: unknown) {
       // The reason is never spelled out: telling an attacker which half was
       // wrong turns the login form into an account enumerator.
-      setError(caught instanceof Error ? 'Неверная почта или пароль.' : 'Не удалось войти.');
+      setError(
+        caught instanceof Error ? t('auth.invalidCredentials') : t('auth.signInFailed'),
+      );
     } finally {
       setIsSubmitting(false);
     }
-  }, [email, password]);
+  }, [email, password, t]);
 
   if (userId !== null) {
     return <Redirect href="/(tabs)" />;
@@ -50,15 +54,15 @@ export default function SignInScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.container}
       >
-        <Text style={styles.heading}>Вход для клинеров</Text>
+        <Text style={styles.heading}>{t('auth.heading')}</Text>
 
         <View style={styles.field}>
           <Text style={styles.label} nativeID="email-label">
-            Почта
+            {t('auth.email')}
           </Text>
           <TextInput
             accessibilityLabelledBy="email-label"
-            accessibilityLabel="Почта"
+            accessibilityLabel={t('auth.email')}
             autoCapitalize="none"
             autoComplete="email"
             keyboardType="email-address"
@@ -72,11 +76,11 @@ export default function SignInScreen() {
 
         <View style={styles.field}>
           <Text style={styles.label} nativeID="password-label">
-            Пароль
+            {t('auth.password')}
           </Text>
           <TextInput
             accessibilityLabelledBy="password-label"
-            accessibilityLabel="Пароль"
+            accessibilityLabel={t('auth.password')}
             autoCapitalize="none"
             onChangeText={setPassword}
             secureTextEntry
@@ -94,7 +98,7 @@ export default function SignInScreen() {
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Войти"
+          accessibilityLabel={t('auth.submit')}
           accessibilityState={{ disabled: !canSubmit, busy: isSubmitting }}
           disabled={!canSubmit}
           onPress={() => void onSubmit()}
@@ -107,7 +111,7 @@ export default function SignInScreen() {
           {isSubmitting ? (
             <ActivityIndicator color={styles.buttonText.color} />
           ) : (
-            <Text style={styles.buttonText}>Войти</Text>
+            <Text style={styles.buttonText}>{t('auth.submit')}</Text>
           )}
         </Pressable>
       </KeyboardAvoidingView>

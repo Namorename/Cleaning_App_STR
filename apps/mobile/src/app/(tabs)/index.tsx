@@ -1,9 +1,11 @@
 import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { TaskList } from '@/features/tasks/task-list';
 import { useMyTasks } from '@/features/tasks/use-tasks';
 
 export default function MyTasksScreen() {
+  const { t } = useTranslation();
   const { data, isPending, error, refetch, isRefetching } = useMyTasks();
   const onRefresh = useCallback(() => {
     void refetch();
@@ -16,7 +18,7 @@ export default function MyTasksScreen() {
       error={error}
       onRefresh={onRefresh}
       isRefreshing={isRefetching}
-      emptyMessage="Пока нет назначенных уборок. Загляните во «Свободные» — там могут быть задачи на ваших объектах."
+      emptyMessage={t('tasks.emptyMine')}
     />
   );
 }

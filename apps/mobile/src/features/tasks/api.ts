@@ -1,5 +1,6 @@
 import type { TaskStatus } from '@str-ops/shared';
 
+import { i18n } from '@/i18n';
 import { supabase } from '@/lib/supabase';
 
 import { cleaningTaskListSchema, earliestClaimableDate, type CleaningTask } from './schema';
@@ -55,6 +56,10 @@ export async function fetchMyTasks(cleanerId: string): Promise<CleaningTask[]> {
  * refused by the server whatever this query asks for; the nightly sweep closes
  * it as 'expired' a few hours later. Between the two, this keeps the queue
  * from offering a card that cannot be taken.
+ *
+ * There is deliberately no filter for the far end. The seven-day horizon lives
+ * in the row policies, so tasks beyond it never reach the client at all —
+ * mirroring the number here would only create something to drift.
  */
 export async function fetchFreeTasks(): Promise<CleaningTask[]> {
   const { data, error } = await supabase
@@ -99,7 +104,7 @@ export async function claimTask(taskId: string, cleanerId: string): Promise<Clea
 
   const claimed = cleaningTaskListSchema.parse(data ?? []);
   if (claimed.length === 0) {
-    throw new Error('Задачу уже взяли, либо её срок истёк.');
+    throw new Error(i18n.t('tasks.claimTaken'));
   }
 
   return claimed[0];

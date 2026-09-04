@@ -54,7 +54,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
 export function useSession(): SessionState {
   const value = useContext(SessionContext);
   if (value === null) {
-    throw new Error('useSession использован вне SessionProvider');
+    throw new Error('useSession was called outside SessionProvider');
   }
   return value;
 }

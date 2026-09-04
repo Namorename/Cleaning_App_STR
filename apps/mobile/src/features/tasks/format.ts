@@ -1,15 +1,28 @@
+import { INTL_LOCALES, currentLanguage, i18n } from '@/i18n';
+
 import { isSameDayTurnover, type CleaningTask } from './schema';
 
-const dateFormatter = new Intl.DateTimeFormat('ru-RU', {
-  day: 'numeric',
-  month: 'long',
-  weekday: 'short',
-});
+/**
+ * Formatters are built per language and kept: constructing an
+ * `Intl.DateTimeFormat` is not free and a list rebuilds every visible row.
+ */
+const dateFormatters = new Map<string, Intl.DateTimeFormat>();
+const timeFormatters = new Map<string, Intl.DateTimeFormat>();
 
-const timeFormatter = new Intl.DateTimeFormat('ru-RU', {
-  hour: '2-digit',
-  minute: '2-digit',
-});
+function formatterFor(
+  cache: Map<string, Intl.DateTimeFormat>,
+  options: Intl.DateTimeFormatOptions,
+): Intl.DateTimeFormat {
+  const locale = INTL_LOCALES[currentLanguage()];
+  const cached = cache.get(locale);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const formatter = new Intl.DateTimeFormat(locale, options);
+  cache.set(locale, formatter);
+  return formatter;
+}
 
 /**
  * `scheduled_date` is a calendar date, not an instant. Parsing it with the
@@ -18,39 +31,47 @@ const timeFormatter = new Intl.DateTimeFormat('ru-RU', {
  */
 export function formatScheduledDate(task: CleaningTask): string {
   const [year, month, day] = task.scheduled_date.split('-').map(Number);
-  return dateFormatter.format(new Date(year, month - 1, day));
+
+  return formatterFor(dateFormatters, {
+    day: 'numeric',
+    month: 'long',
+    weekday: 'short',
+  }).format(new Date(year, month - 1, day));
 }
 
 /**
  * The deadline is a real instant and is shown in the phone's timezone — which
  * is the cleaner's own, and therefore the listing's.
  */
-export function formatDeadline(task: CleaningTask): string | null {
+export function formatDeadlineTime(task: CleaningTask): string | null {
   if (task.due_at === null) {
     return null;
   }
-  return `до ${timeFormatter.format(new Date(task.due_at))}`;
+
+  return formatterFor(timeFormatters, { hour: '2-digit', minute: '2-digit' }).format(
+    new Date(task.due_at),
+  );
 }
 
 /**
- * Why this cleaning is urgent, in the words a cleaner would use herself.
+ * Why this cleaning matters, in as few words as it takes.
  *
- * The first version showed a red chip reading "Срочно" and left the reason and
- * the deadline to be inferred — the deadline sat in a separate line as
- * "· до 15:00", with nothing tying the two together. Priority 1 has exactly
- * one meaning in this system, so the card says it outright.
+ * Priority 1 has exactly one meaning in this system — the next guest arrives
+ * the same day — and the time is the only thing the cleaner has to plan
+ * around, so the line is the time and the reason and nothing else.
  */
 export function urgencyText(task: CleaningTask): string {
   if (!isSameDayTurnover(task)) {
-    return 'Обычная уборка: в этот день заезда нет';
+    return i18n.t('tasks.urgency.noCheckIn');
   }
 
-  const deadline = formatDeadline(task);
-  const reason = 'Срочно: в этот день заезжает следующий гость';
+  const time = formatDeadlineTime(task);
 
-  return deadline === null ? reason : `${reason} — успеть ${deadline}`;
+  return time === null
+    ? i18n.t('tasks.urgency.checkInSameDay')
+    : i18n.t('tasks.urgency.checkInAt', { time });
 }
 
 export function propertyName(task: CleaningTask): string {
-  return task.property?.name ?? `Объект ${task.property_id}`;
+  return task.property?.name ?? i18n.t('tasks.unnamedProperty', { id: task.property_id });
 }

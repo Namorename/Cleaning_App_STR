@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
@@ -15,16 +16,20 @@ interface TaskCardProps {
 }
 
 function TaskCardComponent({ task, onClaim, isClaiming = false }: TaskCardProps) {
+  const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const urgent = isSameDayTurnover(task);
   const name = propertyName(task);
   const date = formatScheduledDate(task);
-  // The whole reason in one sentence: what kind of cleaning, why, and by when.
-  // Colour repeats it; it never carries the meaning alone.
+  // Colour repeats what the line says; it never carries the meaning alone.
   const urgency = urgencyText(task);
 
   return (
-    <View style={styles.card} accessible accessibilityLabel={`${name}. ${date}. ${urgency}`}>
+    <View
+      style={styles.card}
+      accessible
+      accessibilityLabel={t('tasks.cardAccessibility', { property: name, date, urgency })}
+    >
       <Text style={styles.name} numberOfLines={2}>
         {name}
       </Text>
@@ -40,7 +45,7 @@ function TaskCardComponent({ task, onClaim, isClaiming = false }: TaskCardProps)
       {onClaim ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Взять уборку: ${name}, ${date}`}
+          accessibilityLabel={t('tasks.claimAccessibility', { property: name, date })}
           accessibilityState={{ disabled: isClaiming, busy: isClaiming }}
           disabled={isClaiming}
           onPress={() => onClaim(task.id)}
@@ -49,7 +54,7 @@ function TaskCardComponent({ task, onClaim, isClaiming = false }: TaskCardProps)
           {isClaiming ? (
             <ActivityIndicator color={styles.claimText.color} />
           ) : (
-            <Text style={styles.claimText}>Взять</Text>
+            <Text style={styles.claimText}>{t('tasks.claim')}</Text>
           )}
         </Pressable>
       ) : null}
