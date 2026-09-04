@@ -30,7 +30,30 @@ export interface ReservationRow {
   guests_count: number | null;
   total_price: number | null;
   is_block: boolean;
+  check_in_time: string | null;
+  check_out_time: string | null;
   synced_at: string;
+}
+
+/**
+ * Час брони Hostaway в значение колонки `time`.
+ *
+ * Hostaway отдаёт checkInTime / checkOutTime целыми часами (0-23) — проверено
+ * на 1704 живых бронях, минут не бывает ни разу. Всё, что не целый час суток,
+ * считается отсутствующим: окно тогда возьмётся у объекта.
+ *
+ * Ноль сохраняется как 00:00, а не выбрасывается. Он означает «канал времени
+ * не сообщил», но решение об этом принимает одна функция в базе
+ * (public.reservation_cleaning_window) — здесь записывается то, что прислал
+ * Hostaway, без трактовки.
+ */
+function toHourTime(value: unknown): string | null {
+  const hour = toFiniteNumber(value);
+  if (hour === null || !Number.isInteger(hour) || hour < 0 || hour > 23) {
+    return null;
+  }
+
+  return `${String(hour).padStart(2, "0")}:00`;
 }
 
 export function normalizeReservation(raw: unknown, syncedAt: string): ReservationRow {
@@ -79,6 +102,8 @@ export function normalizeReservation(raw: unknown, syncedAt: string): Reservatio
     guests_count: toFiniteNumber(raw.numberOfGuests),
     total_price: toFiniteNumber(raw.totalPrice),
     is_block: status === BLOCK_STATUS,
+    check_in_time: toHourTime(raw.checkInTime),
+    check_out_time: toHourTime(raw.checkOutTime),
     synced_at: syncedAt,
   };
 }

@@ -16,6 +16,8 @@ function makeReservation(overrides: Record<string, unknown> = {}): Record<string
     departureDate: "2026-08-31",
     numberOfGuests: 5,
     totalPrice: 6948.4,
+    checkInTime: 15,
+    checkOutTime: 10,
     isManuallyChecked: 0,
     ...overrides,
   };
@@ -35,8 +37,56 @@ Deno.test("нормализует полную бронь в строку reserv
     guests_count: 5,
     total_price: 6948.4,
     is_block: false,
+    check_in_time: "15:00",
+    check_out_time: "10:00",
     synced_at: SYNCED_AT,
   });
+});
+
+// Часы брони — не то же самое, что стандартное окно объекта: гость может
+// докупить поздний выезд. На живых данных 22 брони расходятся с листингом по
+// заезду и 2 по выезду. Hostaway отдаёт их целыми часами, без минут.
+Deno.test("часы брони становятся временем", () => {
+  const row = normalizeReservation(
+    makeReservation({ checkInTime: 16, checkOutTime: 12 }),
+    SYNCED_AT,
+  );
+
+  assertEquals(row.check_in_time, "16:00");
+  assertEquals(row.check_out_time, "12:00");
+});
+
+Deno.test("отсутствующие часы дают null — окно возьмётся у объекта", () => {
+  const raw = makeReservation();
+  delete raw.checkInTime;
+  delete raw.checkOutTime;
+
+  const row = normalizeReservation(raw, SYNCED_AT);
+
+  assertEquals(row.check_in_time, null);
+  assertEquals(row.check_out_time, null);
+});
+
+// Ноль приходит, когда канал времени не сообщил (видели на брони Airbnb для
+// объекта с заездом в 15:00). Здесь он сохраняется как есть: трактовка живёт
+// в одном месте — в public.reservation_cleaning_window.
+Deno.test("ноль сохраняется как полночь, а не выбрасывается", () => {
+  const row = normalizeReservation(makeReservation({ checkInTime: 0 }), SYNCED_AT);
+
+  assertEquals(row.check_in_time, "00:00");
+});
+
+Deno.test("час вне суток отбрасывается", () => {
+  for (const hour of [24, -1, 99]) {
+    const row = normalizeReservation(makeReservation({ checkInTime: hour }), SYNCED_AT);
+    assertEquals(row.check_in_time, null, `час ${hour}`);
+  }
+});
+
+Deno.test("дробный час отбрасывается — колонка хранит целые часы", () => {
+  const row = normalizeReservation(makeReservation({ checkOutTime: 12.5 }), SYNCED_AT);
+
+  assertEquals(row.check_out_time, null);
 });
 
 Deno.test("listingMapId становится property_id", () => {
