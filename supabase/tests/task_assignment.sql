@@ -38,12 +38,15 @@ insert into public.property_cleaners (property_id, cleaner_id, mode) values
   (900000404, 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'claim'),
   (900000405, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'auto');
 
+-- Departures sit inside the cleaner's seven-day horizon, and the dates are
+-- relative so they stay there: beyond it a task is invisible to her by policy,
+-- and every visibility check below would be answering a different question.
 insert into public.reservations (id, property_id, arrival_date, departure_date, status, guest_name) values
-  (900000501, 900000401, '2026-11-07', '2026-11-10', 'new', 'Guest A'),
-  (900000502, 900000402, '2026-11-08', '2026-11-11', 'new', 'Guest B'),
-  (900000503, 900000403, '2026-11-09', '2026-11-12', 'new', 'Guest C'),
-  (900000504, 900000404, '2026-11-10', '2026-11-13', 'new', 'Guest D'),
-  (900000505, 900000405, '2026-11-11', '2026-11-14', 'new', 'Guest E');
+  (900000501, 900000401, current_date, current_date + 2, 'new', 'Guest A'),
+  (900000502, 900000402, current_date, current_date + 3, 'new', 'Guest B'),
+  (900000503, 900000403, current_date, current_date + 4, 'new', 'Guest C'),
+  (900000504, 900000404, current_date, current_date + 5, 'new', 'Guest D'),
+  (900000505, 900000405, current_date, current_date + 6, 'new', 'Guest E');
 
 create or replace function pg_temp.check(label text, got anyelement, want anyelement)
 returns void language plpgsql as $$
@@ -70,10 +73,10 @@ $$;
 -- points at Anna. The generator must leave it alone.
 insert into public.tasks (property_id, reservation_id, type, status, assignee_id, scheduled_date)
 values (900000405, 900000505, 'cleaning', 'assigned',
-        'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '2026-11-14');
+        'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', current_date + 6);
 
 -- ---------- generation ----------
-select public.generate_cleaning_tasks('2026-11-01', '2026-11-30');
+select public.generate_cleaning_tasks(current_date - 1, current_date + 7);
 
 select pg_temp.check('auto link assigns the task on creation',
   pg_temp.assignee(900000501), 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid);
@@ -139,7 +142,7 @@ select pg_temp.check('a cleaner cannot claim on a listing she is not linked to',
 update public.property_cleaners set mode = 'auto'
 where property_id = 900000404 and cleaner_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 
-select public.generate_cleaning_tasks('2026-11-01', '2026-11-30');
+select public.generate_cleaning_tasks(current_date - 1, current_date + 7);
 
 select pg_temp.check('switching a link to auto assigns the waiting task',
   pg_temp.assignee(900000504), 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid);
