@@ -56,5 +56,41 @@
       "closed": "Úkol je uzavřen",
       "notFound": "Úkol nenalezen, nebo už není váš"
     }
+  },
+  "steps": {
+    "heading": "Kroky úklidu",
+    "required": "Povinný",
+    "remaining": "Zbývá povinných kroků: {{count}}",
+    "stepAccessibility": "{{index}}. {{title}}. {{state}}",
+    "state": {
+      "done": "Hotovo",
+      "skipped": "Přeskočeno",
+      "waived": "Prominuto manažerem",
+      "pending": "Nesplněno",
+      "unsupported": "V této verzi nedostupné"
+    },
+    "types": {
+      "photos_before": "Fotky před úklidem",
+      "checklist": "Checklist",
+      "inventory": "Inventář",
+      "special_requests": "Zvláštní přání",
+      "photos_after": "Fotky po úklidu",
+      "video": "Video",
+      "task_note": "Pokyny k úkolu",
+      "cleaner_comment": "Komentář",
+      "confirmation": "Potvrzení",
+      "unknown": "Krok"
+    },
+    "done": "Hotovo",
+    "save": "Uložit",
+    "skip": "Přeskočit",
+    "reopen": "Vrátit do práce",
+    "completedAt": "Splněno v {{time}}",
+    "waivedBy": "Prominuto manažerem: {{reason}}",
+    "commentPlaceholder": "Co by měla kancelář vědět o tomto úklidu…",
+    "noteHint": "Odškrtávejte řádky průběžně",
+    "unsupported": "Tento krok přijde v další verzi aplikace.",
+    "readOnly": "Kroky lze měnit jen během úklidu",
+    "notFound": "Krok nenalezen"
   }
 }

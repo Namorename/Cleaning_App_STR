@@ -311,6 +311,133 @@ export type Database = {
           },
         ]
       }
+      task_steps: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          config: Json
+          created_at: string
+          device_completed_at: string | null
+          host_id: string
+          id: string
+          instructions: string | null
+          max_photos: number | null
+          max_video_sec: number | null
+          min_photos: number | null
+          payload: Json
+          required: boolean
+          skip_reason: string | null
+          skipped_at: string | null
+          sort_order: number
+          started_at: string | null
+          task_id: string
+          template_step_id: string | null
+          title: string | null
+          type: Database["public"]["Enums"]["workflow_step_type"]
+          updated_at: string
+          waive_reason: string | null
+          waived_at: string | null
+          waived_by: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          config?: Json
+          created_at?: string
+          device_completed_at?: string | null
+          host_id?: string
+          id?: string
+          instructions?: string | null
+          max_photos?: number | null
+          max_video_sec?: number | null
+          min_photos?: number | null
+          payload?: Json
+          required: boolean
+          skip_reason?: string | null
+          skipped_at?: string | null
+          sort_order: number
+          started_at?: string | null
+          task_id: string
+          template_step_id?: string | null
+          title?: string | null
+          type: Database["public"]["Enums"]["workflow_step_type"]
+          updated_at?: string
+          waive_reason?: string | null
+          waived_at?: string | null
+          waived_by?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          config?: Json
+          created_at?: string
+          device_completed_at?: string | null
+          host_id?: string
+          id?: string
+          instructions?: string | null
+          max_photos?: number | null
+          max_video_sec?: number | null
+          min_photos?: number | null
+          payload?: Json
+          required?: boolean
+          skip_reason?: string | null
+          skipped_at?: string | null
+          sort_order?: number
+          started_at?: string | null
+          task_id?: string
+          template_step_id?: string | null
+          title?: string | null
+          type?: Database["public"]["Enums"]["workflow_step_type"]
+          updated_at?: string
+          waive_reason?: string | null
+          waived_at?: string | null
+          waived_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_steps_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_steps_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_steps_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "expired_tasks_review"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_steps_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_steps_template_step_id_fkey"
+            columns: ["template_step_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_steps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_steps_waived_by_fkey"
+            columns: ["waived_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           assignee_id: string | null
@@ -425,6 +552,136 @@ export type Database = {
           },
         ]
       }
+      workflow_steps: {
+        Row: {
+          applies_when: Json | null
+          config: Json
+          created_at: string
+          host_id: string
+          id: string
+          instructions: string | null
+          max_photos: number | null
+          max_video_sec: number | null
+          min_photos: number | null
+          required: boolean
+          sort_order: number
+          template_id: string
+          title: string | null
+          type: Database["public"]["Enums"]["workflow_step_type"]
+          updated_at: string
+        }
+        Insert: {
+          applies_when?: Json | null
+          config?: Json
+          created_at?: string
+          host_id?: string
+          id?: string
+          instructions?: string | null
+          max_photos?: number | null
+          max_video_sec?: number | null
+          min_photos?: number | null
+          required?: boolean
+          sort_order: number
+          template_id: string
+          title?: string | null
+          type: Database["public"]["Enums"]["workflow_step_type"]
+          updated_at?: string
+        }
+        Update: {
+          applies_when?: Json | null
+          config?: Json
+          created_at?: string
+          host_id?: string
+          id?: string
+          instructions?: string | null
+          max_photos?: number | null
+          max_video_sec?: number | null
+          min_photos?: number | null
+          required?: boolean
+          sort_order?: number
+          template_id?: string
+          title?: string | null
+          type?: Database["public"]["Enums"]["workflow_step_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_steps_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_steps_host_id_template_id_fkey"
+            columns: ["host_id", "template_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_templates"
+            referencedColumns: ["host_id", "id"]
+          },
+          {
+            foreignKeyName: "workflow_steps_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_templates: {
+        Row: {
+          created_at: string
+          enforce_order: boolean
+          host_id: string
+          id: string
+          is_active: boolean
+          name: string
+          property_id: number | null
+          scope: Database["public"]["Enums"]["workflow_scope"]
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          enforce_order?: boolean
+          host_id?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          property_id?: number | null
+          scope: Database["public"]["Enums"]["workflow_scope"]
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          enforce_order?: boolean
+          host_id?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          property_id?: number | null
+          scope?: Database["public"]["Enums"]["workflow_scope"]
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_templates_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_templates_host_id_property_id_fkey"
+            columns: ["host_id", "property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["host_id", "id"]
+          },
+        ]
+      }
     }
     Views: {
       expired_tasks_review: {
@@ -479,6 +736,46 @@ export type Database = {
         Args: { target_property_id: number }
         Returns: boolean
       }
+      complete_task_step: {
+        Args: {
+          p_device_completed_at?: string
+          p_payload?: Json
+          p_step_id: string
+        }
+        Returns: {
+          completed_at: string | null
+          completed_by: string | null
+          config: Json
+          created_at: string
+          device_completed_at: string | null
+          host_id: string
+          id: string
+          instructions: string | null
+          max_photos: number | null
+          max_video_sec: number | null
+          min_photos: number | null
+          payload: Json
+          required: boolean
+          skip_reason: string | null
+          skipped_at: string | null
+          sort_order: number
+          started_at: string | null
+          task_id: string
+          template_step_id: string | null
+          title: string | null
+          type: Database["public"]["Enums"]["workflow_step_type"]
+          updated_at: string
+          waive_reason: string | null
+          waived_at: string | null
+          waived_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "task_steps"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       current_host_id: { Args: never; Returns: string }
       default_host_id: { Args: never; Returns: string }
       expire_stale_tasks: { Args: never; Returns: Json }
@@ -493,9 +790,81 @@ export type Database = {
         Args: { error_text?: string; event_ids: number[]; new_status: string }
         Returns: number
       }
+      open_task_step: {
+        Args: { p_step_id: string }
+        Returns: {
+          completed_at: string | null
+          completed_by: string | null
+          config: Json
+          created_at: string
+          device_completed_at: string | null
+          host_id: string
+          id: string
+          instructions: string | null
+          max_photos: number | null
+          max_video_sec: number | null
+          min_photos: number | null
+          payload: Json
+          required: boolean
+          skip_reason: string | null
+          skipped_at: string | null
+          sort_order: number
+          started_at: string | null
+          task_id: string
+          template_step_id: string | null
+          title: string | null
+          type: Database["public"]["Enums"]["workflow_step_type"]
+          updated_at: string
+          waive_reason: string | null
+          waived_at: string | null
+          waived_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "task_steps"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       record_webhook_event: {
         Args: { event_payload: Json; event_source?: string }
         Returns: number
+      }
+      reopen_task_step: {
+        Args: { p_step_id: string }
+        Returns: {
+          completed_at: string | null
+          completed_by: string | null
+          config: Json
+          created_at: string
+          device_completed_at: string | null
+          host_id: string
+          id: string
+          instructions: string | null
+          max_photos: number | null
+          max_video_sec: number | null
+          min_photos: number | null
+          payload: Json
+          required: boolean
+          skip_reason: string | null
+          skipped_at: string | null
+          sort_order: number
+          started_at: string | null
+          task_id: string
+          template_step_id: string | null
+          title: string | null
+          type: Database["public"]["Enums"]["workflow_step_type"]
+          updated_at: string
+          waive_reason: string | null
+          waived_at: string | null
+          waived_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "task_steps"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       reservation_cleaning_window: {
         Args: { target_reservation_id: number }
@@ -506,7 +875,71 @@ export type Database = {
           window_to: string
         }[]
       }
+      resolve_workflow_template: {
+        Args: {
+          p_property_id: number
+          p_scope: Database["public"]["Enums"]["workflow_scope"]
+        }
+        Returns: string
+      }
+      save_workflow_template: {
+        Args: { p_template: Json }
+        Returns: {
+          created_at: string
+          enforce_order: boolean
+          host_id: string
+          id: string
+          is_active: boolean
+          name: string
+          property_id: number | null
+          scope: Database["public"]["Enums"]["workflow_scope"]
+          updated_at: string
+          version: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "workflow_templates"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       short_cleaning_threshold: { Args: never; Returns: string }
+      skip_task_step: {
+        Args: { p_reason?: string; p_step_id: string }
+        Returns: {
+          completed_at: string | null
+          completed_by: string | null
+          config: Json
+          created_at: string
+          device_completed_at: string | null
+          host_id: string
+          id: string
+          instructions: string | null
+          max_photos: number | null
+          max_video_sec: number | null
+          min_photos: number | null
+          payload: Json
+          required: boolean
+          skip_reason: string | null
+          skipped_at: string | null
+          sort_order: number
+          started_at: string | null
+          task_id: string
+          template_step_id: string | null
+          title: string | null
+          type: Database["public"]["Enums"]["workflow_step_type"]
+          updated_at: string
+          waive_reason: string | null
+          waived_at: string | null
+          waived_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "task_steps"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       sync_hostaway_listings: {
         Args: { property_rows: Json; raw_rows: Json }
         Returns: Json
@@ -525,6 +958,95 @@ export type Database = {
         Args: { target_property_id: number; target_scheduled_date: string }
         Returns: boolean
       }
+      task_note_line_count: { Args: { p_text: string }; Returns: number }
+      task_step_for_update: {
+        Args: { p_require_assignee: boolean; p_step_id: string }
+        Returns: {
+          completed_at: string | null
+          completed_by: string | null
+          config: Json
+          created_at: string
+          device_completed_at: string | null
+          host_id: string
+          id: string
+          instructions: string | null
+          max_photos: number | null
+          max_video_sec: number | null
+          min_photos: number | null
+          payload: Json
+          required: boolean
+          skip_reason: string | null
+          skipped_at: string | null
+          sort_order: number
+          started_at: string | null
+          task_id: string
+          template_step_id: string | null
+          title: string | null
+          type: Database["public"]["Enums"]["workflow_step_type"]
+          updated_at: string
+          waive_reason: string | null
+          waived_at: string | null
+          waived_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "task_steps"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      validate_task_step_payload: {
+        Args: {
+          p_instructions: string
+          p_payload: Json
+          p_type: Database["public"]["Enums"]["workflow_step_type"]
+        }
+        Returns: Json
+      }
+      waive_task_step: {
+        Args: { p_reason: string; p_step_id: string }
+        Returns: {
+          completed_at: string | null
+          completed_by: string | null
+          config: Json
+          created_at: string
+          device_completed_at: string | null
+          host_id: string
+          id: string
+          instructions: string | null
+          max_photos: number | null
+          max_video_sec: number | null
+          min_photos: number | null
+          payload: Json
+          required: boolean
+          skip_reason: string | null
+          skipped_at: string | null
+          sort_order: number
+          started_at: string | null
+          task_id: string
+          template_step_id: string | null
+          title: string | null
+          type: Database["public"]["Enums"]["workflow_step_type"]
+          updated_at: string
+          waive_reason: string | null
+          waived_at: string | null
+          waived_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "task_steps"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      workflow_scope_for: {
+        Args: { p_type: Database["public"]["Enums"]["task_type"] }
+        Returns: Database["public"]["Enums"]["workflow_scope"]
+      }
+      workflow_supported_step_types: {
+        Args: never
+        Returns: Database["public"]["Enums"]["workflow_step_type"][]
+      }
     }
     Enums: {
       app_language: "en" | "ru" | "cs"
@@ -541,6 +1063,17 @@ export type Database = {
         | "cancelled"
         | "expired"
       task_type: "cleaning" | "maintenance" | "inspection" | "midstay"
+      workflow_scope: "cleaning" | "midstay" | "problem" | "inspection"
+      workflow_step_type:
+        | "photos_before"
+        | "checklist"
+        | "inventory"
+        | "special_requests"
+        | "photos_after"
+        | "video"
+        | "task_note"
+        | "cleaner_comment"
+        | "confirmation"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -686,6 +1219,18 @@ export const Constants = {
         "expired",
       ],
       task_type: ["cleaning", "maintenance", "inspection", "midstay"],
+      workflow_scope: ["cleaning", "midstay", "problem", "inspection"],
+      workflow_step_type: [
+        "photos_before",
+        "checklist",
+        "inventory",
+        "special_requests",
+        "photos_after",
+        "video",
+        "task_note",
+        "cleaner_comment",
+        "confirmation",
+      ],
     },
   },
 } as const

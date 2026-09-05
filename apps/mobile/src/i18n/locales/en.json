@@ -56,5 +56,41 @@
       "closed": "Task closed",
       "notFound": "Task not found, or no longer yours"
     }
+  },
+  "steps": {
+    "heading": "Cleaning steps",
+    "required": "Required",
+    "remaining": "Required steps left: {{count}}",
+    "stepAccessibility": "{{index}}. {{title}}. {{state}}",
+    "state": {
+      "done": "Done",
+      "skipped": "Skipped",
+      "waived": "Waived by manager",
+      "pending": "Not done",
+      "unsupported": "Not available in this version"
+    },
+    "types": {
+      "photos_before": "Photos before",
+      "checklist": "Checklist",
+      "inventory": "Inventory",
+      "special_requests": "Special requests",
+      "photos_after": "Photos after",
+      "video": "Video",
+      "task_note": "Task instructions",
+      "cleaner_comment": "Comment",
+      "confirmation": "Confirmation",
+      "unknown": "Step"
+    },
+    "done": "Done",
+    "save": "Save",
+    "skip": "Skip",
+    "reopen": "Reopen",
+    "completedAt": "Done at {{time}}",
+    "waivedBy": "Waived by manager: {{reason}}",
+    "commentPlaceholder": "Anything the office should know about this cleaning…",
+    "noteHint": "Tick each line as you go",
+    "unsupported": "This step arrives in the next version of the app.",
+    "readOnly": "Steps can be changed only while the cleaning is in progress",
+    "notFound": "Step not found"
   }
 }

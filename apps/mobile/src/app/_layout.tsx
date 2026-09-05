@@ -71,7 +71,11 @@ export default function RootLayout() {
           >
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen
-                name="task/[id]"
+                name="task/[id]/index"
+                options={{ headerShown: true, headerBackTitle: t('common.back') }}
+              />
+              <Stack.Screen
+                name="task/[id]/step/[stepId]"
                 options={{ headerShown: true, headerBackTitle: t('common.back') }}
               />
             </Stack>

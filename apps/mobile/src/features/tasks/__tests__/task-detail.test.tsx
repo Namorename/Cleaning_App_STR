@@ -1,5 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
+import type { TaskStep } from '@/features/steps/schema';
+
 import { TaskDetail } from '../task-detail';
 import type { CleaningTask } from '../schema';
 
@@ -125,6 +127,98 @@ test('does not fire twice while an action is in flight', async () => {
   await fireEvent.press(screen.getByRole('button', { name: 'Начать уборку' }));
 
   expect(actions.onStart).not.toHaveBeenCalled();
+});
+
+describe('the process', () => {
+  const running = task({ status: 'in_progress', started_at: '2026-11-10T08:05:00+00:00' });
+
+  function step(overrides: Partial<TaskStep> = {}): TaskStep {
+    return {
+      id: 'b1c2d3e4-1111-4111-8111-b1c2d3e40001',
+      task_id: running.id,
+      sort_order: 1,
+      type: 'confirmation',
+      required: false,
+      title: 'Финальная проверка',
+      instructions: null,
+      started_at: null,
+      completed_at: null,
+      completed_by: null,
+      payload: {},
+      skipped_at: null,
+      skip_reason: null,
+      waived_at: null,
+      waive_reason: null,
+      ...overrides,
+    };
+  }
+
+  test('lists the steps of a task under way and opens the one pressed', async () => {
+    const onOpenStep = jest.fn();
+    await render(
+      <TaskDetail
+        task={running}
+        userId={ME}
+        isBusy={false}
+        error={null}
+        steps={[step()]}
+        onOpenStep={onOpenStep}
+        {...actions}
+      />,
+    );
+
+    await fireEvent.press(screen.getByRole('button', { name: /Финальная проверка/ }));
+
+    expect(onOpenStep).toHaveBeenCalledWith('b1c2d3e4-1111-4111-8111-b1c2d3e40001');
+  });
+
+  test('holds the finish while a required step is open, and says how many', async () => {
+    await render(
+      <TaskDetail
+        task={running}
+        userId={ME}
+        isBusy={false}
+        error={null}
+        steps={[step({ required: true }), step({ id: 'b1c2d3e4-2222-4222-8222-b1c2d3e40002' })]}
+        {...actions}
+      />,
+    );
+
+    const finish = screen.getByRole('button', { name: 'Завершить уборку' });
+    expect(finish).toBeDisabled();
+    expect(screen.getByText('Обязательных шагов осталось: 1')).toBeTruthy();
+
+    await fireEvent.press(finish);
+
+    expect(actions.onFinish).not.toHaveBeenCalled();
+  });
+
+  test('lets her finish once required steps are done or waived, optional ones untouched', async () => {
+    await render(
+      <TaskDetail
+        task={running}
+        userId={ME}
+        isBusy={false}
+        error={null}
+        steps={[
+          step({ required: true, completed_at: '2026-11-10T08:30:00+00:00' }),
+          step({
+            id: 'b1c2d3e4-2222-4222-8222-b1c2d3e40002',
+            required: true,
+            waived_at: '2026-11-10T08:31:00+00:00',
+            waive_reason: 'нет заметки',
+          }),
+          step({ id: 'b1c2d3e4-3333-4333-8333-b1c2d3e40003' }),
+        ]}
+        {...actions}
+      />,
+    );
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Завершить уборку' }));
+
+    expect(actions.onFinish).toHaveBeenCalledWith(running.id);
+    expect(screen.queryByText(/Обязательных шагов осталось/)).toBeNull();
+  });
 });
 
 test('shows the reason when the last action failed, and lets her retry', async () => {

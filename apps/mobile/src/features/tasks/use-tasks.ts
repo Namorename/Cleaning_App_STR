@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { useSession } from '@/features/auth/session';
+import { stepKeys } from '@/features/steps/keys';
 
 import { claimTask, fetchFreeTasks, fetchMyTasks, fetchTask, finishTask, startTask } from './api';
 import type { CleaningTask } from './schema';
@@ -25,7 +26,7 @@ export const taskMutationKeys = {
   finish: ['tasks', 'finish'] as const,
 };
 
-interface ClaimVariables {
+export interface ClaimVariables {
   taskId: string;
   cleanerId: string;
 }
@@ -87,11 +88,20 @@ export function useTask(taskId: string) {
   });
 }
 
+/**
+ * Refresh everything a move can have changed.
+ *
+ * The steps as well as the tasks: starting a task is the moment the server
+ * copies its process into task_steps, and a steps query fetched a moment
+ * earlier — empty, because there was nothing yet — would otherwise sit in the
+ * cache showing no steps until it happened to go stale.
+ */
 function useInvalidateTasks() {
   const queryClient = useQueryClient();
 
   return () => {
     void queryClient.invalidateQueries({ queryKey: taskKeys.all });
+    void queryClient.invalidateQueries({ queryKey: stepKeys.all });
   };
 }
 
@@ -103,12 +113,13 @@ function useInvalidateTasks() {
  * reads as a bug. The list refreshes once the server has decided.
  */
 export function useClaimTask() {
-  const { userId } = useSession();
   const invalidate = useInvalidateTasks();
 
-  return useMutation<CleaningTask, Error, string>({
+  // The variables are the same shape registerTaskMutations expects, so a
+  // claim paused without signal replays after a restart with both ids intact.
+  return useMutation<CleaningTask, Error, ClaimVariables>({
     mutationKey: taskMutationKeys.claim,
-    mutationFn: (taskId: string) => claimTask(taskId, userId as string),
+    mutationFn: ({ taskId, cleanerId }) => claimTask(taskId, cleanerId),
     onSuccess: invalidate,
   });
 }

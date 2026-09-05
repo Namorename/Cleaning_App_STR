@@ -2,6 +2,8 @@ import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import { remainingRequired, type TaskStep } from '@/features/steps/schema';
+import { StepList } from '@/features/steps/step-list';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 import {
@@ -19,9 +21,12 @@ interface TaskDetailProps {
   isBusy: boolean;
   /** The last action's failure, shown next to the button so she can retry. */
   error: Error | null;
+  /** The task's process, once it has started. Undefined while loading. */
+  steps?: readonly TaskStep[];
   onClaim: (taskId: string) => void;
   onStart: (taskId: string) => void;
   onFinish: (taskId: string) => void;
+  onOpenStep?: (stepId: string) => void;
 }
 
 /**
@@ -30,16 +35,20 @@ interface TaskDetailProps {
  * Presentational: the route wires the hooks in. Exactly one action is offered
  * at a time — take, start or finish — because the database allows exactly
  * one, and a screen with two buttons where one is going to be refused is a
- * screen that lies.
+ * screen that lies. Once the task has started its steps sit between the facts
+ * and the button; a required step still open disables the finish and says why,
+ * mirroring the refusal the server would give.
  */
 export function TaskDetail({
   task,
   userId,
   isBusy,
   error,
+  steps,
   onClaim,
   onStart,
   onFinish,
+  onOpenStep,
 }: TaskDetailProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
@@ -47,6 +56,12 @@ export function TaskDetail({
   const urgent = isSameDayTurnover(task);
   const window = formatWindow(task);
   const notes = task.property?.cleaner_notes ?? null;
+  const showSteps =
+    steps !== undefined &&
+    steps.length > 0 &&
+    (task.status === 'in_progress' || task.status === 'done');
+  const remaining = steps === undefined ? 0 : remainingRequired(steps);
+  const isFinishBlocked = action === 'finish' && remaining > 0;
 
   const actionLabel =
     action === 'claim'
@@ -58,7 +73,7 @@ export function TaskDetail({
           : null;
 
   const onAction = () => {
-    if (isBusy || action === null) {
+    if (isBusy || isFinishBlocked || action === null) {
       return;
     }
     if (action === 'claim') {
@@ -118,6 +133,8 @@ export function TaskDetail({
         </View>
       ) : null}
 
+      {showSteps ? <StepList steps={steps} onOpenStep={onOpenStep ?? noop} /> : null}
+
       {task.is_parallel ? <Text style={styles.hint}>{t('tasks.detail.parallel')}</Text> : null}
 
       {error !== null ? (
@@ -126,14 +143,24 @@ export function TaskDetail({
         </Text>
       ) : null}
 
+      {isFinishBlocked ? (
+        <Text accessibilityLiveRegion="polite" style={styles.hint}>
+          {t('steps.remaining', { count: remaining })}
+        </Text>
+      ) : null}
+
       {actionLabel !== null ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={actionLabel}
-          accessibilityState={{ disabled: isBusy, busy: isBusy }}
-          disabled={isBusy}
+          accessibilityState={{ disabled: isBusy || isFinishBlocked, busy: isBusy }}
+          disabled={isBusy || isFinishBlocked}
           onPress={onAction}
-          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+          style={({ pressed }) => [
+            styles.button,
+            isFinishBlocked && styles.buttonDisabled,
+            pressed && styles.buttonPressed,
+          ]}
         >
           {isBusy ? (
             <ActivityIndicator color={styles.buttonText.color} />
@@ -147,6 +174,8 @@ export function TaskDetail({
     </ScrollView>
   );
 }
+
+function noop(): void {}
 
 interface FactProps {
   label: string;
@@ -205,6 +234,7 @@ const createStyles = (theme: Theme) =>
       alignItems: 'center',
       justifyContent: 'center',
     },
+    buttonDisabled: { opacity: 0.5 },
     buttonPressed: { opacity: 0.75 },
     buttonText: { color: theme.onPrimary, fontSize: FontSize.title, fontWeight: '600' },
   });
