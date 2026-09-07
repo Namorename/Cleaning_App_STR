@@ -6,7 +6,7 @@ import { taskStepListSchema, taskStepSchema, type TaskStep } from './schema';
 
 const STEP_COLUMNS =
   'id, task_id, sort_order, type, required, title, title_i18n, instructions, ' +
-  'instructions_i18n, config, started_at, ' +
+  'instructions_i18n, config, min_photos, max_photos, max_video_sec, started_at, ' +
   'completed_at, completed_by, payload, skipped_at, skip_reason, waived_at, waive_reason';
 
 /**

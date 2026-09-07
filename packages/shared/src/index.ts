@@ -23,6 +23,7 @@ export type WorkflowStep = Tables<'workflow_steps'>;
 export type TaskStep = Tables<'task_steps'>;
 export type ChecklistModule = Tables<'checklist_modules'>;
 export type ChecklistItem = Tables<'checklist_items'>;
+export type TaskMedia = Tables<'task_media'>;
 
 export type TaskStatus = Enums<'task_status'>;
 export type TaskType = Enums<'task_type'>;
@@ -31,3 +32,4 @@ export type AppRole = Enums<'app_role'>;
 export type AppLanguage = Enums<'app_language'>;
 export type WorkflowScope = Enums<'workflow_scope'>;
 export type WorkflowStepType = Enums<'workflow_step_type'>;
+export type MediaKind = Enums<'media_kind'>;

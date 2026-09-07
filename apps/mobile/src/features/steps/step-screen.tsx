@@ -4,6 +4,13 @@ import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import {
+  canCompleteMediaStep,
+  mediaKindOfStep,
+  photoLimits,
+  videoLimitSec,
+  type MediaItemView,
+} from '@/features/media/schema';
 import { formatClockTime } from '@/features/tasks/format';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { serverErrorText } from '@/lib/server-error';
@@ -21,7 +28,10 @@ import {
 } from './schema';
 import { StepChecklist } from './step-checklist';
 import { StepComment } from './step-comment';
+import { StepMedia } from './step-media';
 import { StepTaskNote } from './step-task-note';
+
+const noop = () => undefined;
 
 interface StepScreenProps {
   step: TaskStep;
@@ -29,9 +39,17 @@ interface StepScreenProps {
   isEditable: boolean;
   isBusy: boolean;
   error: Error | null;
+  /** A sentence already in her language — the camera refused, say. */
+  notice?: string | null;
   onComplete: (payload: Json) => void;
   onReopen: () => void;
   onSkip: () => void;
+  /** The photos or video of a media step, and what can be done with them. */
+  media?: readonly MediaItemView[];
+  isCapturing?: boolean;
+  onCapture?: () => void;
+  onRemoveMedia?: (mediaId: string) => void;
+  onRetryMedia?: (mediaId: string) => void;
 }
 
 /**
@@ -48,9 +66,15 @@ export function StepScreen({
   isEditable,
   isBusy,
   error,
+  notice = null,
   onComplete,
   onReopen,
   onSkip,
+  media = [],
+  isCapturing = false,
+  onCapture = noop,
+  onRemoveMedia = noop,
+  onRetryMedia = noop,
 }: StepScreenProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
@@ -61,6 +85,8 @@ export function StepScreen({
   const [comment, setComment] = useState(() => commentText(step));
   const modules = useMemo(() => checklistModules(step), [step]);
   const [checkedItems, setCheckedItems] = useState<string[]>(() => checkedItemIds(step));
+  const mediaKind = mediaKindOfStep(step.type);
+  const limits = photoLimits(step);
 
   // Ticks that no longer match an item — the checklist changed under a queued
   // answer — count for nothing, here as on the server.
@@ -80,7 +106,8 @@ export function StepScreen({
     (step.type === 'confirmation' ||
       (step.type === 'task_note' && lines.every((_, index) => checked.includes(index))) ||
       (step.type === 'cleaner_comment' && comment.trim() !== '') ||
-      (step.type === 'checklist' && remainingChecklistItems(modules, checkedItems) === 0));
+      (step.type === 'checklist' && remainingChecklistItems(modules, checkedItems) === 0) ||
+      (mediaKind !== null && canCompleteMediaStep(mediaKind, media, limits)));
 
   const toggleLine = (index: number) => {
     setChecked((current) =>
@@ -158,14 +185,29 @@ export function StepScreen({
             disabled={!canAct || !isPending}
           />
         </>
+      ) : mediaKind !== null ? (
+        <>
+          {instructions !== null ? <Instructions text={instructions} styles={styles} /> : null}
+          <StepMedia
+            kind={mediaKind}
+            items={media}
+            limits={limits}
+            maxVideoSec={videoLimitSec(step)}
+            isCapturing={isCapturing}
+            disabled={!canAct || !isPending}
+            onCapture={onCapture}
+            onRemove={onRemoveMedia}
+            onRetry={onRetryMedia}
+          />
+        </>
       ) : instructions !== null ? (
-        <View style={styles.instructions}>
-          {noteLines(instructions).map((line, index) => (
-            <Text key={`${index}-${line}`} style={styles.instructionLine}>
-              {line}
-            </Text>
-          ))}
-        </View>
+        <Instructions text={instructions} styles={styles} />
+      ) : null}
+
+      {notice !== null ? (
+        <Text accessibilityLiveRegion="polite" style={styles.error}>
+          {notice}
+        </Text>
       ) : null}
 
       {failure !== null ? (
@@ -211,6 +253,24 @@ export function StepScreen({
         />
       ) : null}
     </ScrollView>
+  );
+}
+
+interface InstructionsProps {
+  text: string;
+  styles: ReturnType<typeof createStyles>;
+}
+
+/** The manager's wording, one line under another. */
+function Instructions({ text, styles }: InstructionsProps) {
+  return (
+    <View style={styles.instructions}>
+      {noteLines(text).map((line, index) => (
+        <Text key={`${index}-${line}`} style={styles.instructionLine}>
+          {line}
+        </Text>
+      ))}
+    </View>
   );
 }
 

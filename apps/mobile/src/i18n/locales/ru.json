@@ -95,7 +95,23 @@
     "checklistEmpty": "Чек-лист пуст",
     "unsupported": "Этот шаг появится в следующей версии приложения.",
     "readOnly": "Шаги можно менять только во время уборки",
-    "notFound": "Шаг не найден"
+    "notFound": "Шаг не найден",
+    "takePhoto": "Снять фото",
+    "recordVideo": "Записать видео",
+    "removeMedia": "Удалить",
+    "retryUpload": "Повторить загрузку",
+    "mediaUploaded": "Загружено",
+    "mediaUploading": "Загружается…",
+    "mediaFailed": "Не загрузилось",
+    "mediaEmpty": "Пока ничего не снято",
+    "photosHint": "Снимите камерой не меньше {{min}} фото",
+    "photosProgress": "Снято {{taken}} из {{max}}",
+    "videoHint": "Запишите одно видео до {{seconds}} с",
+    "videoLength": "Видео · {{seconds}} с",
+    "photoAccessibility": "Фото {{index}}. {{status}}",
+    "videoAccessibility": "Видео. {{status}}",
+    "cameraDenied": "Нет доступа к камере — разрешите его в настройках телефона",
+    "captureFailed": "Не удалось снять — попробуйте ещё раз"
   },
   "serverErrors": {
     "checklistCopySameProperty": "Источник и получатель — один и тот же апартамент",
@@ -124,6 +140,19 @@
     "transitionNotAllowed": "Такое изменение статуса недоступно",
     "translationsInvalid": "Переводы названий переданы в неверном виде",
     "unknown": "Не удалось выполнить действие. Попробуйте ещё раз.",
-    "waiveOptionalStep": "Снять обязательность можно только с обязательного шага"
+    "waiveOptionalStep": "Снять обязательность можно только с обязательного шага",
+    "mediaNotFound": "Фото или видео не найдено",
+    "stepCompleted": "Шаг уже выполнен — верните его в работу, чтобы изменить фото",
+    "mediaKindMismatch": "Этот шаг принимает другой тип файла",
+    "mediaTypeInvalid": "Такой тип файла не принимается",
+    "mediaTooLarge": "Файл больше {{limit_mb}} МБ",
+    "videoDurationMissing": "Длительность видео неизвестна",
+    "videoTooLong": "Видео длиннее {{limit}} секунд",
+    "mediaLimitReached": "Этот шаг принимает не больше {{limit}} файлов",
+    "mediaNotUploaded": "Файл ещё не дошёл до сервера",
+    "mediaUploadPending": "Файлов ещё загружается: {{count}}",
+    "photosMissing": "Снимите не меньше {{min}} фото",
+    "photosTooMany": "Этот шаг принимает не больше {{limit}} фото",
+    "videoMissing": "Сначала запишите видео"
   }
 }

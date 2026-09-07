@@ -28,6 +28,9 @@ function step(overrides: Partial<TaskStep> = {}): TaskStep {
     title_i18n: {},
     instructions_i18n: {},
     config: {},
+    min_photos: null,
+    max_photos: null,
+    max_video_sec: null,
     payload: {},
     skipped_at: null,
     skip_reason: null,
@@ -71,8 +74,8 @@ describe('stepState', () => {
   });
 
   test('a step of a type this build cannot complete reads as unsupported', () => {
-    expect(stepState(step({ type: 'photos_before' }))).toBe('unsupported');
-    expect(isSupportedStepType('photos_before')).toBe(false);
+    expect(stepState(step({ type: 'inventory' }))).toBe('unsupported');
+    expect(isSupportedStepType('inventory')).toBe(false);
   });
 
   test('otherwise the step is pending', () => {

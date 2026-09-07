@@ -14,6 +14,9 @@ export const SUPPORTED_STEP_TYPES = [
   'cleaner_comment',
   'confirmation',
   'checklist',
+  'photos_before',
+  'photos_after',
+  'video',
 ] as const satisfies readonly WorkflowStepType[];
 
 export type SupportedStepType = (typeof SUPPORTED_STEP_TYPES)[number];
@@ -40,6 +43,10 @@ export const taskStepSchema = z.object({
   instructions: z.string().nullable(),
   instructions_i18n: z.record(z.string(), z.string()).catch({}).default({}),
   config: z.record(z.string(), z.unknown()),
+  // Limits of a media step; null where the manager left the default.
+  min_photos: z.number().int().nullable(),
+  max_photos: z.number().int().nullable(),
+  max_video_sec: z.number().int().nullable(),
   started_at: z.string().nullable(),
   completed_at: z.string().nullable(),
   completed_by: z.string().uuid().nullable(),

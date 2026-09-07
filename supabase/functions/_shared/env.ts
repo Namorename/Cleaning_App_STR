@@ -34,6 +34,34 @@ function readNonEmpty(env: EnvReader, key: string): string | null {
   return trimmed === "" ? null : trimmed;
 }
 
+export interface SupabaseCredentials {
+  readonly supabaseUrl: string;
+  readonly supabaseSecretKey: string;
+}
+
+/**
+ * Only the Supabase pair, for a function that never talks to Hostaway.
+ *
+ * The secret key goes by two names: SUPABASE_SECRET_KEY is the current one,
+ * SUPABASE_SERVICE_ROLE_KEY the historical one the Edge runtime still sets.
+ */
+export function readSupabaseCredentials(env: EnvReader): SupabaseCredentials {
+  const supabaseUrl = readNonEmpty(env, "SUPABASE_URL");
+  const supabaseSecretKey = readNonEmpty(env, "SUPABASE_SECRET_KEY") ??
+    readNonEmpty(env, "SUPABASE_SERVICE_ROLE_KEY");
+
+  const missing: string[] = [];
+  if (supabaseUrl === null) missing.push("SUPABASE_URL");
+  if (supabaseSecretKey === null) {
+    missing.push("SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY)");
+  }
+  if (missing.length > 0) {
+    throw new ConfigError(`Missing environment variables: ${missing.join(", ")}`);
+  }
+
+  return { supabaseUrl: supabaseUrl as string, supabaseSecretKey: supabaseSecretKey as string };
+}
+
 export function readConfig(env: EnvReader): SyncConfig {
   const supabaseUrl = readNonEmpty(env, "SUPABASE_URL");
 

@@ -420,6 +420,102 @@ export type Database = {
           },
         ]
       }
+      task_media: {
+        Row: {
+          byte_size: number
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          device_taken_at: string | null
+          duration_sec: number | null
+          height: number | null
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["media_kind"]
+          mime_type: string
+          purged_at: string | null
+          step_id: string
+          storage_path: string
+          task_id: string
+          uploaded_at: string | null
+          width: number | null
+        }
+        Insert: {
+          byte_size: number
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          device_taken_at?: string | null
+          duration_sec?: number | null
+          height?: number | null
+          host_id: string
+          id?: string
+          kind: Database["public"]["Enums"]["media_kind"]
+          mime_type: string
+          purged_at?: string | null
+          step_id: string
+          storage_path: string
+          task_id: string
+          uploaded_at?: string | null
+          width?: number | null
+        }
+        Update: {
+          byte_size?: number
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          device_taken_at?: string | null
+          duration_sec?: number | null
+          height?: number | null
+          host_id?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["media_kind"]
+          mime_type?: string
+          purged_at?: string | null
+          step_id?: string
+          storage_path?: string
+          task_id?: string
+          uploaded_at?: string | null
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_media_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_media_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_media_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "task_steps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_media_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "expired_tasks_review"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_media_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_steps: {
         Row: {
           completed_at: string | null
@@ -845,10 +941,50 @@ export type Database = {
       }
     }
     Functions: {
+      add_task_media: {
+        Args: {
+          p_byte_size: number
+          p_device_taken_at?: string
+          p_duration_sec?: number
+          p_height?: number
+          p_id: string
+          p_kind: Database["public"]["Enums"]["media_kind"]
+          p_mime_type: string
+          p_step_id: string
+          p_width?: number
+        }
+        Returns: {
+          byte_size: number
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          device_taken_at: string | null
+          duration_sec: number | null
+          height: number | null
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["media_kind"]
+          mime_type: string
+          purged_at: string | null
+          step_id: string
+          storage_path: string
+          task_id: string
+          uploaded_at: string | null
+          width: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "task_media"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       auth_role: {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      can_read_task_media: { Args: { p_path: string }; Returns: boolean }
+      can_upload_task_media: { Args: { p_path: string }; Returns: boolean }
       claim_webhook_events: {
         Args: { batch_size?: number; max_attempts?: number }
         Returns: Json
@@ -899,6 +1035,34 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      confirm_task_media: {
+        Args: { p_id: string }
+        Returns: {
+          byte_size: number
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          device_taken_at: string | null
+          duration_sec: number | null
+          height: number | null
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["media_kind"]
+          mime_type: string
+          purged_at: string | null
+          step_id: string
+          storage_path: string
+          task_id: string
+          uploaded_at: string | null
+          width: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "task_media"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       copy_property_checklist: {
         Args: { p_source_property_id: number; p_target_property_id: number }
         Returns: Json
@@ -914,6 +1078,7 @@ export type Database = {
       is_active_user: { Args: never; Returns: boolean }
       is_localized_text: { Args: { p_value: Json }; Returns: boolean }
       is_manager: { Args: never; Returns: boolean }
+      mark_task_media_purged: { Args: { p_ids: string[] }; Returns: number }
       mark_webhook_events: {
         Args: { error_text?: string; event_ids: number[]; new_status: string }
         Returns: number
@@ -963,6 +1128,34 @@ export type Database = {
       record_webhook_event: {
         Args: { event_payload: Json; event_source?: string }
         Returns: number
+      }
+      remove_task_media: {
+        Args: { p_id: string }
+        Returns: {
+          byte_size: number
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          device_taken_at: string | null
+          duration_sec: number | null
+          height: number | null
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["media_kind"]
+          mime_type: string
+          purged_at: string | null
+          step_id: string
+          storage_path: string
+          task_id: string
+          uploaded_at: string | null
+          width: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "task_media"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       reopen_task_step: {
         Args: { p_step_id: string }
@@ -1104,6 +1297,42 @@ export type Database = {
         Args: { target_property_id: number; target_scheduled_date: string }
         Returns: boolean
       }
+      task_media_extension: { Args: { p_mime_type: string }; Returns: string }
+      task_media_max_bytes: {
+        Args: { p_kind: Database["public"]["Enums"]["media_kind"] }
+        Returns: number
+      }
+      task_media_max_photos: { Args: never; Returns: number }
+      task_media_max_video_sec: { Args: never; Returns: number }
+      task_media_retention_days: { Args: never; Returns: number }
+      task_media_to_purge: {
+        Args: { p_limit?: number }
+        Returns: {
+          byte_size: number
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          device_taken_at: string | null
+          duration_sec: number | null
+          height: number | null
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["media_kind"]
+          mime_type: string
+          purged_at: string | null
+          step_id: string
+          storage_path: string
+          task_id: string
+          uploaded_at: string | null
+          width: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "task_media"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       task_note_line_count: { Args: { p_text: string }; Returns: number }
       task_step_for_update: {
         Args: { p_require_assignee: boolean; p_step_id: string }
@@ -1203,6 +1432,7 @@ export type Database = {
       app_language: "en" | "ru" | "cs"
       app_role: "cleaner" | "tech" | "manager" | "admin"
       assignment_mode: "auto" | "claim"
+      media_kind: "photo" | "video"
       task_status:
         | "unassigned"
         | "assigned"
@@ -1358,6 +1588,7 @@ export const Constants = {
       app_language: ["en", "ru", "cs"],
       app_role: ["cleaner", "tech", "manager", "admin"],
       assignment_mode: ["auto", "claim"],
+      media_kind: ["photo", "video"],
       task_status: [
         "unassigned",
         "assigned",

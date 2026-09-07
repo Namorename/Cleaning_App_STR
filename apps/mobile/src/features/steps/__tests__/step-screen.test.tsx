@@ -18,6 +18,9 @@ function step(overrides: Partial<TaskStep> = {}): TaskStep {
     title_i18n: {},
     instructions_i18n: {},
     config: {},
+    min_photos: null,
+    max_photos: null,
+    max_video_sec: null,
     payload: {},
     skipped_at: null,
     skip_reason: null,
@@ -147,7 +150,7 @@ describe('a step this build cannot do', () => {
   test('explains itself and can only be skipped', async () => {
     await render(
       <StepScreen
-        step={step({ type: 'photos_before', title: null })}
+        step={step({ type: 'inventory', title: null })}
         isEditable
         isBusy={false}
         error={null}
@@ -307,5 +310,72 @@ describe('checklist', () => {
 
     expect(screen.getByText('Отмечено 2 из 3')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Готово' })).not.toBeDisabled();
+  });
+});
+
+describe('photos', () => {
+  const photos = step({ type: 'photos_before', title: null, instructions: null, min_photos: 1, max_photos: 2 });
+  const uploaded = { id: 'm1', kind: 'photo' as const, uri: null, status: 'uploaded' as const, durationSec: null };
+
+  test('keeps the done button off until every photo has arrived, then completes with nothing to add', async () => {
+    const { rerender } = await render(
+      <StepScreen
+        step={photos}
+        isEditable
+        isBusy={false}
+        error={null}
+        media={[{ ...uploaded, status: 'uploading' }]}
+        {...actions}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Готово' })).toBeDisabled();
+    expect(screen.getByLabelText('Фото 1. Загружается…')).toBeTruthy();
+
+    await rerender(
+      <StepScreen step={photos} isEditable isBusy={false} error={null} media={[uploaded]} {...actions} />,
+    );
+    await fireEvent.press(screen.getByRole('button', { name: 'Готово' }));
+
+    // The server answers from its own table; the phone has nothing to add.
+    expect(actions.onComplete).toHaveBeenCalledWith({});
+  });
+
+  test('hands the camera and the tiles to the route', async () => {
+    const onCapture = jest.fn();
+    const onRemoveMedia = jest.fn();
+    await render(
+      <StepScreen
+        step={photos}
+        isEditable
+        isBusy={false}
+        error={null}
+        media={[uploaded]}
+        onCapture={onCapture}
+        onRemoveMedia={onRemoveMedia}
+        {...actions}
+      />,
+    );
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Снять фото' }));
+    expect(onCapture).toHaveBeenCalled();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Удалить' }));
+    expect(onRemoveMedia).toHaveBeenCalledWith('m1');
+  });
+
+  test('shows what the camera said when it refused', async () => {
+    await render(
+      <StepScreen
+        step={photos}
+        isEditable
+        isBusy={false}
+        error={null}
+        notice="Нет доступа к камере — разрешите его в настройках телефона"
+        {...actions}
+      />,
+    );
+
+    expect(screen.getByText('Нет доступа к камере — разрешите его в настройках телефона')).toBeTruthy();
   });
 });

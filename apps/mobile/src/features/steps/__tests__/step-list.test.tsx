@@ -18,6 +18,9 @@ function step(overrides: Partial<TaskStep> = {}): TaskStep {
     title_i18n: {},
     instructions_i18n: {},
     config: {},
+    min_photos: null,
+    max_photos: null,
+    max_video_sec: null,
     payload: {},
     skipped_at: null,
     skip_reason: null,
@@ -51,7 +54,7 @@ test('marks a required step and says where each step stands', async () => {
           id: 'b1c2d3e4-2222-4222-8222-b1c2d3e40002',
           completed_at: '2026-09-05T10:00:00+00:00',
         }),
-        step({ id: 'b1c2d3e4-3333-4333-8333-b1c2d3e40003', type: 'photos_before' }),
+        step({ id: 'b1c2d3e4-3333-4333-8333-b1c2d3e40003', type: 'inventory' }),
       ]}
       onOpenStep={jest.fn()}
     />,

@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import { QueryClient } from '@tanstack/react-query';
 
+import { registerMediaMutations } from '@/features/media/use-media';
 import { registerStepMutations } from '@/features/steps/use-steps';
 import { registerTaskMutations } from '@/features/tasks/use-tasks';
 
@@ -42,6 +43,7 @@ export function createAppQueryClient(): QueryClient {
   // without its default has nothing to run.
   registerTaskMutations(queryClient);
   registerStepMutations(queryClient);
+  registerMediaMutations(queryClient);
 
   return queryClient;
 }
@@ -59,5 +61,5 @@ export const persistOptions = {
   maxAge: CACHE_LIFETIME,
   // A change to what a task looks like must not restore an older shape into
   // screens that expect the new one. Bump when the task schema changes.
-  buster: 'tasks-v3',
+  buster: 'tasks-v4',
 };

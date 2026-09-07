@@ -29,3 +29,9 @@ jest.mock('expo-secure-store', () => {
     }),
   };
 });
+
+// The key-value store behind the query cache and the media ledger has no
+// native module under Jest; the package ships an in-memory stand-in.
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);

@@ -95,7 +95,23 @@
     "checklistEmpty": "Kontrolní seznam je prázdný",
     "unsupported": "Tento krok přijde v další verzi aplikace.",
     "readOnly": "Kroky lze měnit jen během úklidu",
-    "notFound": "Krok nenalezen"
+    "notFound": "Krok nenalezen",
+    "takePhoto": "Vyfotit",
+    "recordVideo": "Natočit video",
+    "removeMedia": "Odstranit",
+    "retryUpload": "Zkusit nahrát znovu",
+    "mediaUploaded": "Nahráno",
+    "mediaUploading": "Nahrává se…",
+    "mediaFailed": "Nenahráno",
+    "mediaEmpty": "Zatím nic nevyfoceno",
+    "photosHint": "Vyfoťte fotoaparátem alespoň {{min}} foto",
+    "photosProgress": "Vyfoceno {{taken}} z {{max}}",
+    "videoHint": "Natočte jedno video do {{seconds}} s",
+    "videoLength": "Video · {{seconds}} s",
+    "photoAccessibility": "Foto {{index}}. {{status}}",
+    "videoAccessibility": "Video. {{status}}",
+    "cameraDenied": "Bez přístupu k fotoaparátu — povolte ho v nastavení telefonu",
+    "captureFailed": "Nepodařilo se vyfotit — zkuste to znovu"
   },
   "serverErrors": {
     "checklistCopySameProperty": "Zdroj a cíl jsou tentýž apartmán",
@@ -124,6 +140,19 @@
     "transitionNotAllowed": "Tato změna stavu není dostupná",
     "translationsInvalid": "Překlady byly odeslány ve špatném tvaru",
     "unknown": "Akci se nepodařilo provést. Zkuste to prosím znovu.",
-    "waiveOptionalStep": "Zrušit povinnost lze jen u povinného kroku"
+    "waiveOptionalStep": "Zrušit povinnost lze jen u povinného kroku",
+    "mediaNotFound": "Fotka nebo video nenalezeno",
+    "stepCompleted": "Krok je už hotový — vraťte ho do práce, abyste změnili fotky",
+    "mediaKindMismatch": "Tento krok přijímá jiný typ souboru",
+    "mediaTypeInvalid": "Tento typ souboru není přijímán",
+    "mediaTooLarge": "Soubor je větší než {{limit_mb}} MB",
+    "videoDurationMissing": "Délka videa není známa",
+    "videoTooLong": "Video je delší než {{limit}} sekund",
+    "mediaLimitReached": "Tento krok přijímá nejvýše {{limit}} souborů",
+    "mediaNotUploaded": "Soubor ještě nedorazil na server",
+    "mediaUploadPending": "Souborů se ještě nahrává: {{count}}",
+    "photosMissing": "Vyfoťte alespoň {{min}} foto",
+    "photosTooMany": "Tento krok přijímá nejvýše {{limit}} fotek",
+    "videoMissing": "Nejdřív natočte video"
   }
 }

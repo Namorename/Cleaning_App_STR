@@ -95,7 +95,23 @@
     "checklistEmpty": "The checklist is empty",
     "unsupported": "This step arrives in the next version of the app.",
     "readOnly": "Steps can be changed only while the cleaning is in progress",
-    "notFound": "Step not found"
+    "notFound": "Step not found",
+    "takePhoto": "Take a photo",
+    "recordVideo": "Record a video",
+    "removeMedia": "Remove",
+    "retryUpload": "Retry upload",
+    "mediaUploaded": "Uploaded",
+    "mediaUploading": "Uploading…",
+    "mediaFailed": "Not uploaded",
+    "mediaEmpty": "Nothing taken yet",
+    "photosHint": "Take at least {{min}} photo(s) with the camera",
+    "photosProgress": "Taken {{taken}} of {{max}}",
+    "videoHint": "Record one video of up to {{seconds}} s",
+    "videoLength": "Video · {{seconds}} s",
+    "photoAccessibility": "Photo {{index}}. {{status}}",
+    "videoAccessibility": "Video. {{status}}",
+    "cameraDenied": "No access to the camera — allow it in the phone settings",
+    "captureFailed": "Could not take it — please try again"
   },
   "serverErrors": {
     "checklistCopySameProperty": "Source and target are the same apartment",
@@ -124,6 +140,19 @@
     "transitionNotAllowed": "That change of status is not available",
     "translationsInvalid": "The translations were sent in the wrong shape",
     "unknown": "The action could not be completed. Please try again.",
-    "waiveOptionalStep": "Only a required step can be waived"
+    "waiveOptionalStep": "Only a required step can be waived",
+    "mediaNotFound": "The photo or video was not found",
+    "stepCompleted": "The step is already done — reopen it to change the photos",
+    "mediaKindMismatch": "This step takes a different kind of media",
+    "mediaTypeInvalid": "This file type is not accepted",
+    "mediaTooLarge": "The file is larger than {{limit_mb}} MB",
+    "videoDurationMissing": "The length of the video is unknown",
+    "videoTooLong": "The video is longer than {{limit}} seconds",
+    "mediaLimitReached": "This step takes at most {{limit}} file(s)",
+    "mediaNotUploaded": "The file has not reached the server yet",
+    "mediaUploadPending": "Files still uploading: {{count}}",
+    "photosMissing": "Take at least {{min}} photo(s)",
+    "photosTooMany": "This step takes at most {{limit}} photos",
+    "videoMissing": "Record a video first"
   }
 }

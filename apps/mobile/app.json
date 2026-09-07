@@ -34,7 +34,15 @@
         }
       ],
       "expo-secure-store",
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "The app uses the camera to photograph the flat before and after cleaning.",
+          "microphonePermission": "The app records sound with the video of the cleaning.",
+          "photosPermission": "The app does not read the photo library."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
