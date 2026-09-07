@@ -10,6 +10,13 @@ jest.mock('expo-localization', () => ({
   getLocales: () => [{ languageCode: 'ru' }],
 }));
 
+// Translations, once, for every suite. A component that reads a string
+// through useTranslation() renders it in the language above; without this it
+// renders an empty label and the failure points at the assertion instead of
+// at the missing i18next instance. The locale mock above is hoisted over this
+// import, so the language is already fixed when i18n initialises.
+import '@/i18n';
+
 jest.mock('expo-secure-store', () => {
   const store = new Map<string, string>();
   return {

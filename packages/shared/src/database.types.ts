@@ -34,9 +34,116 @@ export type Database = {
   }
   public: {
     Tables: {
+      checklist_items: {
+        Row: {
+          created_at: string
+          host_id: string
+          id: string
+          is_optional: boolean
+          module_id: string
+          sort_order: number
+          title: string
+          title_i18n: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          host_id?: string
+          id?: string
+          is_optional?: boolean
+          module_id: string
+          sort_order: number
+          title: string
+          title_i18n?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          host_id?: string
+          id?: string
+          is_optional?: boolean
+          module_id?: string
+          sort_order?: number
+          title?: string
+          title_i18n?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_items_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_items_host_id_module_id_fkey"
+            columns: ["host_id", "module_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_modules"
+            referencedColumns: ["host_id", "id"]
+          },
+          {
+            foreignKeyName: "checklist_items_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_modules: {
+        Row: {
+          created_at: string
+          host_id: string
+          id: string
+          property_id: number
+          sort_order: number
+          title: string
+          title_i18n: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          host_id?: string
+          id?: string
+          property_id: number
+          sort_order: number
+          title: string
+          title_i18n?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          host_id?: string
+          id?: string
+          property_id?: number
+          sort_order?: number
+          title?: string
+          title_i18n?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_modules_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_modules_host_id_property_id_fkey"
+            columns: ["host_id", "property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["host_id", "id"]
+          },
+        ]
+      }
       hosts: {
         Row: {
           created_at: string
+          default_language: Database["public"]["Enums"]["app_language"]
           id: string
           name: string
           parallel_start_allowed: boolean
@@ -44,6 +151,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          default_language?: Database["public"]["Enums"]["app_language"]
           id?: string
           name: string
           parallel_start_allowed?: boolean
@@ -51,6 +159,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          default_language?: Database["public"]["Enums"]["app_language"]
           id?: string
           name?: string
           parallel_start_allowed?: boolean
@@ -321,6 +430,7 @@ export type Database = {
           host_id: string
           id: string
           instructions: string | null
+          instructions_i18n: Json
           max_photos: number | null
           max_video_sec: number | null
           min_photos: number | null
@@ -333,6 +443,7 @@ export type Database = {
           task_id: string
           template_step_id: string | null
           title: string | null
+          title_i18n: Json
           type: Database["public"]["Enums"]["workflow_step_type"]
           updated_at: string
           waive_reason: string | null
@@ -348,6 +459,7 @@ export type Database = {
           host_id?: string
           id?: string
           instructions?: string | null
+          instructions_i18n?: Json
           max_photos?: number | null
           max_video_sec?: number | null
           min_photos?: number | null
@@ -360,6 +472,7 @@ export type Database = {
           task_id: string
           template_step_id?: string | null
           title?: string | null
+          title_i18n?: Json
           type: Database["public"]["Enums"]["workflow_step_type"]
           updated_at?: string
           waive_reason?: string | null
@@ -375,6 +488,7 @@ export type Database = {
           host_id?: string
           id?: string
           instructions?: string | null
+          instructions_i18n?: Json
           max_photos?: number | null
           max_video_sec?: number | null
           min_photos?: number | null
@@ -387,6 +501,7 @@ export type Database = {
           task_id?: string
           template_step_id?: string | null
           title?: string | null
+          title_i18n?: Json
           type?: Database["public"]["Enums"]["workflow_step_type"]
           updated_at?: string
           waive_reason?: string | null
@@ -560,6 +675,7 @@ export type Database = {
           host_id: string
           id: string
           instructions: string | null
+          instructions_i18n: Json
           max_photos: number | null
           max_video_sec: number | null
           min_photos: number | null
@@ -567,6 +683,7 @@ export type Database = {
           sort_order: number
           template_id: string
           title: string | null
+          title_i18n: Json
           type: Database["public"]["Enums"]["workflow_step_type"]
           updated_at: string
         }
@@ -577,6 +694,7 @@ export type Database = {
           host_id?: string
           id?: string
           instructions?: string | null
+          instructions_i18n?: Json
           max_photos?: number | null
           max_video_sec?: number | null
           min_photos?: number | null
@@ -584,6 +702,7 @@ export type Database = {
           sort_order: number
           template_id: string
           title?: string | null
+          title_i18n?: Json
           type: Database["public"]["Enums"]["workflow_step_type"]
           updated_at?: string
         }
@@ -594,6 +713,7 @@ export type Database = {
           host_id?: string
           id?: string
           instructions?: string | null
+          instructions_i18n?: Json
           max_photos?: number | null
           max_video_sec?: number | null
           min_photos?: number | null
@@ -601,6 +721,7 @@ export type Database = {
           sort_order?: number
           template_id?: string
           title?: string | null
+          title_i18n?: Json
           type?: Database["public"]["Enums"]["workflow_step_type"]
           updated_at?: string
         }
@@ -751,6 +872,7 @@ export type Database = {
           host_id: string
           id: string
           instructions: string | null
+          instructions_i18n: Json
           max_photos: number | null
           max_video_sec: number | null
           min_photos: number | null
@@ -763,6 +885,7 @@ export type Database = {
           task_id: string
           template_step_id: string | null
           title: string | null
+          title_i18n: Json
           type: Database["public"]["Enums"]["workflow_step_type"]
           updated_at: string
           waive_reason: string | null
@@ -776,6 +899,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      copy_property_checklist: {
+        Args: { p_source_property_id: number; p_target_property_id: number }
+        Returns: Json
+      }
       current_host_id: { Args: never; Returns: string }
       default_host_id: { Args: never; Returns: string }
       expire_stale_tasks: { Args: never; Returns: Json }
@@ -785,6 +912,7 @@ export type Database = {
       }
       invoke_edge_function: { Args: { function_name: string }; Returns: number }
       is_active_user: { Args: never; Returns: boolean }
+      is_localized_text: { Args: { p_value: Json }; Returns: boolean }
       is_manager: { Args: never; Returns: boolean }
       mark_webhook_events: {
         Args: { error_text?: string; event_ids: number[]; new_status: string }
@@ -801,6 +929,7 @@ export type Database = {
           host_id: string
           id: string
           instructions: string | null
+          instructions_i18n: Json
           max_photos: number | null
           max_video_sec: number | null
           min_photos: number | null
@@ -813,6 +942,7 @@ export type Database = {
           task_id: string
           template_step_id: string | null
           title: string | null
+          title_i18n: Json
           type: Database["public"]["Enums"]["workflow_step_type"]
           updated_at: string
           waive_reason: string | null
@@ -825,6 +955,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      property_checklist_snapshot: {
+        Args: { p_property_id: number }
+        Returns: Json
       }
       record_webhook_event: {
         Args: { event_payload: Json; event_source?: string }
@@ -841,6 +975,7 @@ export type Database = {
           host_id: string
           id: string
           instructions: string | null
+          instructions_i18n: Json
           max_photos: number | null
           max_video_sec: number | null
           min_photos: number | null
@@ -853,6 +988,7 @@ export type Database = {
           task_id: string
           template_step_id: string | null
           title: string | null
+          title_i18n: Json
           type: Database["public"]["Enums"]["workflow_step_type"]
           updated_at: string
           waive_reason: string | null
@@ -875,12 +1011,20 @@ export type Database = {
           window_to: string
         }[]
       }
+      resolve_checklist_property: {
+        Args: { p_property_id: number }
+        Returns: number
+      }
       resolve_workflow_template: {
         Args: {
           p_property_id: number
           p_scope: Database["public"]["Enums"]["workflow_scope"]
         }
         Returns: string
+      }
+      save_property_checklist: {
+        Args: { p_modules: Json; p_property_id: number }
+        Returns: Json
       }
       save_workflow_template: {
         Args: { p_template: Json }
@@ -915,6 +1059,7 @@ export type Database = {
           host_id: string
           id: string
           instructions: string | null
+          instructions_i18n: Json
           max_photos: number | null
           max_video_sec: number | null
           min_photos: number | null
@@ -927,6 +1072,7 @@ export type Database = {
           task_id: string
           template_step_id: string | null
           title: string | null
+          title_i18n: Json
           type: Database["public"]["Enums"]["workflow_step_type"]
           updated_at: string
           waive_reason: string | null
@@ -970,6 +1116,7 @@ export type Database = {
           host_id: string
           id: string
           instructions: string | null
+          instructions_i18n: Json
           max_photos: number | null
           max_video_sec: number | null
           min_photos: number | null
@@ -982,6 +1129,7 @@ export type Database = {
           task_id: string
           template_step_id: string | null
           title: string | null
+          title_i18n: Json
           type: Database["public"]["Enums"]["workflow_step_type"]
           updated_at: string
           waive_reason: string | null
@@ -997,6 +1145,7 @@ export type Database = {
       }
       validate_task_step_payload: {
         Args: {
+          p_config: Json
           p_instructions: string
           p_payload: Json
           p_type: Database["public"]["Enums"]["workflow_step_type"]
@@ -1014,6 +1163,7 @@ export type Database = {
           host_id: string
           id: string
           instructions: string | null
+          instructions_i18n: Json
           max_photos: number | null
           max_video_sec: number | null
           min_photos: number | null
@@ -1026,6 +1176,7 @@ export type Database = {
           task_id: string
           template_step_id: string | null
           title: string | null
+          title_i18n: Json
           type: Database["public"]["Enums"]["workflow_step_type"]
           updated_at: string
           waive_reason: string | null

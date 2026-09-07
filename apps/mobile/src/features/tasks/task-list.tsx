@@ -4,6 +4,7 @@ import { ActivityIndicator, RefreshControl, SectionList, StyleSheet, Text, View 
 
 import { FontSize, Spacing, type Theme } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { serverErrorText } from '@/lib/server-error';
 
 import { TaskCard } from './task-card';
 import type { CleaningTask, TaskGroup } from './schema';
@@ -75,10 +76,15 @@ export function TaskList({
   }
 
   if (error !== null) {
+    const failure = serverErrorText(error);
+
     return (
       <View style={[styles.screen, styles.centered]} accessibilityLiveRegion="polite">
         <Text style={styles.errorTitle}>{t('tasks.loadFailed')}</Text>
-        <Text style={styles.message}>{error.message}</Text>
+        <Text style={styles.message}>{failure.text}</Text>
+        {failure.detail !== null ? (
+          <Text style={styles.errorDetail}>{failure.detail}</Text>
+        ) : null}
         <Text style={styles.message}>{t('tasks.pullToRetry')}</Text>
       </View>
     );
@@ -152,6 +158,7 @@ const createStyles = (theme: Theme) =>
       color: theme.textSecondary,
       textAlign: 'center',
     },
+    errorDetail: { fontSize: FontSize.caption, color: theme.textSecondary, textAlign: 'center' },
     errorTitle: {
       fontSize: FontSize.title,
       fontWeight: '600',

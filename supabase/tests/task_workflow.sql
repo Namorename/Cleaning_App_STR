@@ -214,21 +214,27 @@ select pg_temp.check('from the same template step',
   'c4000000-0000-4000-8000-000000000011'::uuid);
 
 -- ---------- the gate ----------
+-- What the app is shown is a key and its parameters, never a sentence: the
+-- cleaner reads it in her own language (see 20260907120200).
 do $$
 declare
-  v_message text;
+  v_hint   text;
+  v_detail text;
 begin
   perform pg_temp.as_maria();
   update public.tasks set status = 'done' where id = (pg_temp.task(1)).id;
   reset role; reset request.jwt.claims;
   raise exception 'FAIL a task was finished with required steps open';
 exception when check_violation then
-  get stacked diagnostics v_message = message_text;
+  get stacked diagnostics v_hint = pg_exception_hint, v_detail = pg_exception_detail;
   reset role; reset request.jwt.claims;
-  if v_message not like '%: 2' then
-    raise exception 'FAIL the gate does not say how many steps remain: %', v_message;
+  if v_hint is distinct from 'serverErrors.requiredStepsLeft' then
+    raise exception 'FAIL the gate does not name its translation key: %', v_hint;
   end if;
-  raise notice 'ok  the finish is refused while two required steps are open, and says so';
+  if (v_detail::jsonb)->>'count' is distinct from '2' then
+    raise exception 'FAIL the gate does not say how many steps remain: %', v_detail;
+  end if;
+  raise notice 'ok  the finish is refused while two required steps are open, with a key and a count';
 end $$;
 select pg_temp.check('the refused task is still in progress',
   (pg_temp.task(1)).status::text, 'in_progress');
@@ -530,7 +536,7 @@ begin
   perform public.save_workflow_template(jsonb_build_object(
     'id', 'c4000000-0000-4000-8000-000000000001',
     'steps', jsonb_build_array(
-      jsonb_build_object('type', 'checklist', 'required', true))));
+      jsonb_build_object('type', 'inventory', 'required', true))));
   reset role; reset request.jwt.claims;
   raise exception 'FAIL a step the app cannot complete was made required';
 exception when check_violation then

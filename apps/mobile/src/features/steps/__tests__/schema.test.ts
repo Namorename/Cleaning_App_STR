@@ -1,8 +1,12 @@
 import {
+  checkedItemIds,
   checkedLines,
+  checklistModules,
   commentText,
+  localizedTitle,
   isSupportedStepType,
   noteLines,
+  remainingChecklistItems,
   remainingRequired,
   stepState,
   taskStepSchema,
@@ -21,6 +25,9 @@ function step(overrides: Partial<TaskStep> = {}): TaskStep {
     started_at: null,
     completed_at: null,
     completed_by: null,
+    title_i18n: {},
+    instructions_i18n: {},
+    config: {},
     payload: {},
     skipped_at: null,
     skip_reason: null,
@@ -104,6 +111,106 @@ describe('payload readers', () => {
   test('keeps the comment draft', () => {
     expect(commentText(step({ type: 'cleaner_comment', payload: { text: 'all good' } }))).toBe(
       'all good',
+    );
+  });
+});
+
+describe('checklist', () => {
+  const config = {
+    modules: [
+      {
+        id: 'm1',
+        title: 'Ванная',
+        items: [
+          { id: 'i1', title: 'Зеркало', is_optional: false },
+          { id: 'i2', title: 'Балкон', is_optional: true },
+        ],
+      },
+      {
+        id: 'm2',
+        title: 'Кухня',
+        items: [{ id: 'i3', title: 'Плита', is_optional: false }],
+      },
+    ],
+  };
+
+  const checklist = step({ type: 'checklist', config });
+
+  describe('localizedTitle', () => {
+    const item = { title: 'Koupelna', title_i18n: { ru: 'Ванная', en: 'Bathroom' } };
+
+    test('reads the title in the language asked for', () => {
+      expect(localizedTitle(item, 'ru')).toBe('Ванная');
+      expect(localizedTitle(item, 'en')).toBe('Bathroom');
+    });
+
+    test('falls back to what the manager wrote when there is no translation', () => {
+      expect(localizedTitle(item, 'cs')).toBe('Koupelna');
+      expect(localizedTitle({ title: 'Plain', title_i18n: {} }, 'ru')).toBe('Plain');
+    });
+
+    test('treats a blank translation as no translation', () => {
+      expect(localizedTitle({ title: 'Plain', title_i18n: { ru: '   ' } }, 'ru')).toBe('Plain');
+    });
+  });
+
+  test('a step read from the server without translations parses to empty bags', () => {
+    const parsed = checklistModules(
+      step({
+        type: 'checklist',
+        config: { modules: [{ id: 'm', title: 'Bathroom', items: [] }] },
+      }),
+    );
+
+    expect(parsed[0].title_i18n).toEqual({});
+  });
+
+  test('translations that are not a bag of strings are dropped, not fatal', () => {
+    const parsed = checklistModules(
+      step({
+        type: 'checklist',
+        config: { modules: [{ id: 'm', title: 'Bathroom', title_i18n: 'ru', items: [] }] },
+      }),
+    );
+
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].title_i18n).toEqual({});
+  });
+
+  test('reads the modules the task was started with', () => {
+    expect(checklistModules(checklist).map((module) => module.title)).toEqual([
+      'Ванная',
+      'Кухня',
+    ]);
+  });
+
+  test('a config it cannot read shows as no modules rather than a crash', () => {
+    expect(checklistModules(step({ type: 'checklist', config: { modules: 'all' } }))).toEqual([]);
+  });
+
+  test('counts only the items that are not optional as remaining', () => {
+    const modules = checklistModules(checklist);
+
+    expect(remainingChecklistItems(modules, [])).toBe(2);
+    expect(remainingChecklistItems(modules, ['i1'])).toBe(1);
+    expect(remainingChecklistItems(modules, ['i1', 'i3'])).toBe(0);
+  });
+
+  test('an optional item never holds the step', () => {
+    const modules = checklistModules(checklist);
+
+    expect(remainingChecklistItems(modules, ['i2'])).toBe(2);
+  });
+
+  test('reads the ticked ids back from the stored answer', () => {
+    expect(
+      checkedItemIds(step({ type: 'checklist', payload: { checked_item_ids: ['i1', 'i3'] } })),
+    ).toEqual(['i1', 'i3']);
+  });
+
+  test('reads an unreadable answer as nothing ticked', () => {
+    expect(checkedItemIds(step({ type: 'checklist', payload: { checked_item_ids: 3 } }))).toEqual(
+      [],
     );
   });
 });

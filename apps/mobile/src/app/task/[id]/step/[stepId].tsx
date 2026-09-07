@@ -18,6 +18,7 @@ import {
 } from '@/features/steps/use-steps';
 import { useTask } from '@/features/tasks/use-tasks';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { serverErrorText } from '@/lib/server-error';
 
 const Params = z.object({ id: z.string().uuid(), stepId: z.string().uuid() });
 
@@ -79,7 +80,8 @@ export default function StepRoute() {
   }
 
   if (steps.error) {
-    return <Message text={steps.error.message} styles={styles} />;
+    const failure = serverErrorText(steps.error);
+    return <Message text={failure.text} detail={failure.detail} styles={styles} />;
   }
 
   if (step === undefined) {
@@ -114,13 +116,16 @@ export default function StepRoute() {
 
 interface MessageProps {
   text: string;
+  /** The server's own words, when we had no translation for them. */
+  detail?: string | null;
   styles: ReturnType<typeof createStyles>;
 }
 
-function Message({ text, styles }: MessageProps) {
+function Message({ text, detail = null, styles }: MessageProps) {
   return (
     <View style={styles.centered}>
       <Text style={styles.message}>{text}</Text>
+      {detail !== null ? <Text style={styles.detail}>{detail}</Text> : null}
     </View>
   );
 }
@@ -136,4 +141,5 @@ const createStyles = (theme: Theme) =>
       backgroundColor: theme.background,
     },
     message: { fontSize: FontSize.body, color: theme.textSecondary, textAlign: 'center' },
+    detail: { fontSize: FontSize.caption, color: theme.textSecondary, textAlign: 'center' },
   });

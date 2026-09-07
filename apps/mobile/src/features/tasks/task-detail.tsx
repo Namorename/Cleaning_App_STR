@@ -5,6 +5,7 @@ import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/const
 import { remainingRequired, type TaskStep } from '@/features/steps/schema';
 import { StepList } from '@/features/steps/step-list';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { serverErrorText } from '@/lib/server-error';
 
 import {
   formatClockTime,
@@ -61,6 +62,7 @@ export function TaskDetail({
     steps.length > 0 &&
     (task.status === 'in_progress' || task.status === 'done');
   const remaining = steps === undefined ? 0 : remainingRequired(steps);
+  const failure = error === null ? null : serverErrorText(error);
   const isFinishBlocked = action === 'finish' && remaining > 0;
 
   const actionLabel =
@@ -137,10 +139,13 @@ export function TaskDetail({
 
       {task.is_parallel ? <Text style={styles.hint}>{t('tasks.detail.parallel')}</Text> : null}
 
-      {error !== null ? (
-        <Text accessibilityLiveRegion="polite" style={styles.error}>
-          {error.message}
-        </Text>
+      {failure !== null ? (
+        <View accessibilityLiveRegion="polite" style={styles.failure}>
+          <Text style={styles.error}>{failure.text}</Text>
+          {failure.detail !== null ? (
+            <Text style={styles.errorDetail}>{failure.detail}</Text>
+          ) : null}
+        </View>
       ) : null}
 
       {isFinishBlocked ? (
@@ -226,7 +231,9 @@ const createStyles = (theme: Theme) =>
     notesLabel: { color: theme.textSecondary, fontSize: FontSize.caption, fontWeight: '700' },
     notesText: { color: theme.text, fontSize: FontSize.body },
     hint: { color: theme.textSecondary, fontSize: FontSize.body, textAlign: 'center' },
+    failure: { gap: Spacing.xs },
     error: { color: theme.danger, fontSize: FontSize.body, textAlign: 'center' },
+    errorDetail: { color: theme.textSecondary, fontSize: FontSize.caption, textAlign: 'center' },
     button: {
       minHeight: MIN_TOUCH_TARGET,
       borderRadius: Radius.md,

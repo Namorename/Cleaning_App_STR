@@ -5,7 +5,8 @@ import { supabase } from '@/lib/supabase';
 import { taskStepListSchema, taskStepSchema, type TaskStep } from './schema';
 
 const STEP_COLUMNS =
-  'id, task_id, sort_order, type, required, title, instructions, started_at, ' +
+  'id, task_id, sort_order, type, required, title, title_i18n, instructions, ' +
+  'instructions_i18n, config, started_at, ' +
   'completed_at, completed_by, payload, skipped_at, skip_reason, waived_at, waive_reason';
 
 /**

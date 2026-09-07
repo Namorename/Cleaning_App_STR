@@ -21,6 +21,8 @@ export type PropertyCleaner = Tables<'property_cleaners'>;
 export type WorkflowTemplate = Tables<'workflow_templates'>;
 export type WorkflowStep = Tables<'workflow_steps'>;
 export type TaskStep = Tables<'task_steps'>;
+export type ChecklistModule = Tables<'checklist_modules'>;
+export type ChecklistItem = Tables<'checklist_items'>;
 
 export type TaskStatus = Enums<'task_status'>;
 export type TaskType = Enums<'task_type'>;

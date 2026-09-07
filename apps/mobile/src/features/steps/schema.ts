@@ -13,6 +13,7 @@ export const SUPPORTED_STEP_TYPES = [
   'task_note',
   'cleaner_comment',
   'confirmation',
+  'checklist',
 ] as const satisfies readonly WorkflowStepType[];
 
 export type SupportedStepType = (typeof SUPPORTED_STEP_TYPES)[number];
@@ -35,7 +36,10 @@ export const taskStepSchema = z.object({
   type: z.string(),
   required: z.boolean(),
   title: z.string().nullable(),
+  title_i18n: z.record(z.string(), z.string()).catch({}).default({}),
   instructions: z.string().nullable(),
+  instructions_i18n: z.record(z.string(), z.string()).catch({}).default({}),
+  config: z.record(z.string(), z.unknown()),
   started_at: z.string().nullable(),
   completed_at: z.string().nullable(),
   completed_by: z.string().uuid().nullable(),
@@ -115,4 +119,101 @@ export function checkedLines(step: TaskStep): number[] {
 export function commentText(step: TaskStep): string {
   const parsed = commentPayloadSchema.safeParse(step.payload);
   return parsed.success ? parsed.data.text : '';
+}
+
+/**
+ * The checklist a task took a copy of when it started.
+ *
+ * Mirrors `property_checklist_snapshot()` in the database: modules in order,
+ * each with the items inside it, each item saying whether it may be left
+ * unticked. The ids travel with the snapshot because the answer is made of
+ * them — and because an item renamed or deleted afterwards must not turn a
+ * finished checklist into a puzzle.
+ */
+/**
+ * A title with its translations.
+ *
+ * The manager writes a name once, in the company's own language, and F10 will
+ * let her add it in the others. Unreadable translations are dropped rather
+ * than thrown: one bad key must not cost the cleaner the whole checklist.
+ */
+const localizedTitleFields = {
+  title: z.string(),
+  title_i18n: z.record(z.string(), z.string()).catch({}).default({}),
+};
+
+export const checklistItemSchema = z.object({
+  id: z.string(),
+  ...localizedTitleFields,
+  is_optional: z.boolean(),
+});
+
+export const checklistModuleSchema = z.object({
+  id: z.string(),
+  ...localizedTitleFields,
+  items: z.array(checklistItemSchema),
+});
+
+export const checklistConfigSchema = z.object({
+  modules: z.array(checklistModuleSchema),
+});
+
+export type ChecklistItemView = z.infer<typeof checklistItemSchema>;
+export type ChecklistModuleView = z.infer<typeof checklistModuleSchema>;
+
+/** The modules of a checklist step; a config it cannot read shows as none. */
+export function checklistModules(step: TaskStep): ChecklistModuleView[] {
+  const parsed = checklistConfigSchema.safeParse(step.config);
+  return parsed.success ? parsed.data.modules : [];
+}
+
+/**
+ * Text in the language of whoever is reading it.
+ *
+ * No translation for her language means the manager's own words: a company
+ * that never translates anything reads exactly as it does today, and a half
+ * translated checklist shows the translated half. The pair is the shape the
+ * database stores everything a manager types in (see 20260907110000).
+ */
+export function localizedText(
+  text: string,
+  translations: Readonly<Record<string, string>>,
+  language: string,
+): string {
+  const translated = translations[language];
+  return translated !== undefined && translated.trim() !== '' ? translated : text;
+}
+
+/** The same, for a checklist module or item. */
+export function localizedTitle(
+  node: Pick<ChecklistItemView, 'title' | 'title_i18n'>,
+  language: string,
+): string {
+  return localizedText(node.title, node.title_i18n, language);
+}
+
+export const checklistPayloadSchema = z.object({
+  checked_item_ids: z.array(z.string()),
+});
+
+/** The items ticked so far, kept as a draft when the step is reopened. */
+export function checkedItemIds(step: TaskStep): string[] {
+  const parsed = checklistPayloadSchema.safeParse(step.payload);
+  return parsed.success ? parsed.data.checked_item_ids : [];
+}
+
+/**
+ * Items that still hold the step.
+ *
+ * The rule the database applies when it validates the answer: an item that is
+ * not optional has to be ticked. Optional ones never hold anything, which is
+ * what makes them optional.
+ */
+export function remainingChecklistItems(
+  modules: readonly ChecklistModuleView[],
+  checked: readonly string[],
+): number {
+  return modules
+    .flatMap((checklistModule) => checklistModule.items)
+    .filter((item) => !item.is_optional && !checked.includes(item.id)).length;
 }

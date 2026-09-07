@@ -1,14 +1,25 @@
 import type { Json } from '@str-ops/shared';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
 import { formatClockTime } from '@/features/tasks/format';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { serverErrorText } from '@/lib/server-error';
 
-import { stepStateText, stepTitle } from './format';
-import { checkedLines, commentText, noteLines, stepState, type TaskStep } from './schema';
+import { stepInstructions, stepStateText, stepTitle } from './format';
+import {
+  checkedItemIds,
+  checkedLines,
+  checklistModules,
+  commentText,
+  noteLines,
+  remainingChecklistItems,
+  stepState,
+  type TaskStep,
+} from './schema';
+import { StepChecklist } from './step-checklist';
 import { StepComment } from './step-comment';
 import { StepTaskNote } from './step-task-note';
 
@@ -44,9 +55,22 @@ export function StepScreen({
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const state = stepState(step);
-  const lines = noteLines(step.instructions);
+  const instructions = stepInstructions(step);
+  const lines = noteLines(instructions);
   const [checked, setChecked] = useState<number[]>(() => checkedLines(step));
   const [comment, setComment] = useState(() => commentText(step));
+  const modules = useMemo(() => checklistModules(step), [step]);
+  const [checkedItems, setCheckedItems] = useState<string[]>(() => checkedItemIds(step));
+
+  // Ticks that no longer match an item — the checklist changed under a queued
+  // answer — count for nothing, here as on the server.
+  const progress = useMemo(() => {
+    const items = modules.flatMap((checklistModule) => checklistModule.items);
+    return {
+      done: items.filter((item) => checkedItems.includes(item.id)).length,
+      total: items.length,
+    };
+  }, [modules, checkedItems]);
 
   const isPending = state === 'pending';
   const canAct = isEditable && !isBusy;
@@ -55,11 +79,18 @@ export function StepScreen({
     isPending &&
     (step.type === 'confirmation' ||
       (step.type === 'task_note' && lines.every((_, index) => checked.includes(index))) ||
-      (step.type === 'cleaner_comment' && comment.trim() !== ''));
+      (step.type === 'cleaner_comment' && comment.trim() !== '') ||
+      (step.type === 'checklist' && remainingChecklistItems(modules, checkedItems) === 0));
 
   const toggleLine = (index: number) => {
     setChecked((current) =>
       current.includes(index) ? current.filter((item) => item !== index) : [...current, index],
+    );
+  };
+
+  const toggleItem = (itemId: string) => {
+    setCheckedItems((current) =>
+      current.includes(itemId) ? current.filter((item) => item !== itemId) : [...current, itemId],
     );
   };
 
@@ -71,10 +102,14 @@ export function StepScreen({
       onComplete({ checked_lines: [...checked].sort((a, b) => a - b) });
     } else if (step.type === 'cleaner_comment') {
       onComplete({ text: comment.trim() });
+    } else if (step.type === 'checklist') {
+      onComplete({ checked_item_ids: [...checkedItems].sort() });
     } else {
       onComplete({});
     }
   };
+
+  const failure = error === null ? null : serverErrorText(error);
 
   const statusLine =
     state === 'done' && step.completed_at !== null
@@ -112,9 +147,20 @@ export function StepScreen({
           onChangeText={setComment}
           disabled={!canAct || !isPending}
         />
-      ) : step.instructions !== null && step.instructions.trim() !== '' ? (
+      ) : step.type === 'checklist' ? (
+        <>
+          <Text style={styles.hint}>{t('steps.checklistHint')}</Text>
+          <Text style={styles.progress}>{t('steps.checklistProgress', progress)}</Text>
+          <StepChecklist
+            modules={modules}
+            checked={checkedItems}
+            onToggle={toggleItem}
+            disabled={!canAct || !isPending}
+          />
+        </>
+      ) : instructions !== null ? (
         <View style={styles.instructions}>
-          {noteLines(step.instructions).map((line, index) => (
+          {noteLines(instructions).map((line, index) => (
             <Text key={`${index}-${line}`} style={styles.instructionLine}>
               {line}
             </Text>
@@ -122,10 +168,13 @@ export function StepScreen({
         </View>
       ) : null}
 
-      {error !== null ? (
-        <Text accessibilityLiveRegion="polite" style={styles.error}>
-          {error.message}
-        </Text>
+      {failure !== null ? (
+        <View accessibilityLiveRegion="polite" style={styles.failure}>
+          <Text style={styles.error}>{failure.text}</Text>
+          {failure.detail !== null ? (
+            <Text style={styles.errorDetail}>{failure.detail}</Text>
+          ) : null}
+        </View>
       ) : null}
 
       {!isEditable ? <Text style={styles.hint}>{t('steps.readOnly')}</Text> : null}
@@ -225,6 +274,7 @@ const createStyles = (theme: Theme) =>
     },
     status: { color: theme.calmText, fontSize: FontSize.body, fontWeight: '600' },
     hint: { color: theme.textSecondary, fontSize: FontSize.body },
+    progress: { color: theme.text, fontSize: FontSize.body, fontWeight: '600' },
     instructions: {
       backgroundColor: theme.card,
       borderRadius: Radius.lg,
@@ -234,7 +284,9 @@ const createStyles = (theme: Theme) =>
       gap: Spacing.sm,
     },
     instructionLine: { color: theme.text, fontSize: FontSize.title },
+    failure: { gap: Spacing.xs },
     error: { color: theme.danger, fontSize: FontSize.body, textAlign: 'center' },
+    errorDetail: { color: theme.textSecondary, fontSize: FontSize.caption, textAlign: 'center' },
     button: {
       minHeight: MIN_TOUCH_TARGET,
       borderRadius: Radius.md,

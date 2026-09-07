@@ -43,12 +43,13 @@ test('distinguishes a failure from an empty day', async () => {
       {...baseProps}
       sections={undefined}
       isLoading={false}
-      error={new Error('сеть недоступна')}
+      error={new Error('Network request failed')}
     />,
   );
 
   expect(screen.getByText('Не удалось загрузить задачи')).toBeTruthy();
-  expect(screen.getByText('сеть недоступна')).toBeTruthy();
+  expect(screen.getByText('Не удалось выполнить действие. Попробуйте ещё раз.')).toBeTruthy();
+  expect(screen.getByText('Network request failed')).toBeTruthy();
   expect(screen.queryByText('Свободных уборок нет.')).toBeNull();
 });
 

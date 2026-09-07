@@ -144,7 +144,10 @@ describe('the process', () => {
       started_at: null,
       completed_at: null,
       completed_by: null,
-      payload: {},
+      title_i18n: {},
+    instructions_i18n: {},
+    config: {},
+    payload: {},
       skipped_at: null,
       skip_reason: null,
       waived_at: null,
@@ -221,17 +224,38 @@ describe('the process', () => {
   });
 });
 
-test('shows the reason when the last action failed, and lets her retry', async () => {
+test('translates a refusal the server sent a key for, and lets her retry', async () => {
   await render(
     <TaskDetail
       task={task()}
       userId={ME}
       isBusy={false}
-      error={new Error('Нет соединения')}
+      error={Object.assign(new Error('Required steps are still open: 2'), {
+        hint: 'serverErrors.requiredStepsLeft',
+        details: '{"count":2}',
+      })}
       {...actions}
     />,
   );
 
-  expect(screen.getByText('Нет соединения')).toBeTruthy();
+  // The cleaner reads her own language, and never the server's English.
+  expect(screen.getByText('Обязательных шагов осталось: 2')).toBeTruthy();
+  expect(screen.queryByText('Required steps are still open: 2')).toBeNull();
   expect(screen.getByRole('button', { name: 'Начать уборку' })).toBeTruthy();
+});
+
+test('falls back to one sentence when there is no key, keeping the raw words', async () => {
+  await render(
+    <TaskDetail
+      task={task()}
+      userId={ME}
+      isBusy={false}
+      error={new Error('Network request failed')}
+      {...actions}
+    />,
+  );
+
+  expect(screen.getByText('Не удалось выполнить действие. Попробуйте ещё раз.')).toBeTruthy();
+  // Kept in small print: the cleaner can read it out to a manager.
+  expect(screen.getByText('Network request failed')).toBeTruthy();
 });
