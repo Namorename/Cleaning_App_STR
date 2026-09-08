@@ -461,8 +461,9 @@ select pg_temp.check('a task of the other company follows the other company temp
   'b4000000-0000-4000-8000-00000000000b'::uuid);
 
 select pg_temp.as_boss();
+-- Three: the seeded cleaning and problem templates plus the one made here.
 select pg_temp.check('a manager sees the templates of her own company only',
-  (select count(*)::int from public.workflow_templates), 2);
+  (select count(*)::int from public.workflow_templates), 3);
 reset role; reset request.jwt.claims;
 
 do $$
@@ -566,8 +567,9 @@ select pg_temp.check('and so does the unit under it',
   public.resolve_workflow_template(900001403, 'cleaning'), pg_temp.seed_template());
 
 -- ---------- a task of a kind without a process ----------
+-- Inspection: maintenance got a seeded process with F9.
 insert into public.tasks (id, property_id, type, status, assignee_id, scheduled_date) values
-  ('a4000001-0000-4000-8000-000000000009', 900001401, 'maintenance', 'assigned',
+  ('a4000001-0000-4000-8000-000000000009', 900001401, 'inspection', 'assigned',
    'd4000001-0000-4000-8000-0000000000d1', current_date);
 select pg_temp.as_maria();
 update public.tasks set status = 'in_progress' where id = (pg_temp.task(9)).id;

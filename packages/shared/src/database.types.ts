@@ -167,6 +167,93 @@ export type Database = {
         }
         Relationships: []
       }
+      problems: {
+        Row: {
+          cancel_reason: string | null
+          cancelled_at: string | null
+          created_at: string
+          description: string | null
+          host_id: string
+          id: string
+          priority: Database["public"]["Enums"]["problem_priority"]
+          property_id: number | null
+          reported_by: string
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["problem_status"]
+          task_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          description?: string | null
+          host_id?: string
+          id: string
+          priority?: Database["public"]["Enums"]["problem_priority"]
+          property_id?: number | null
+          reported_by: string
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["problem_status"]
+          task_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          description?: string | null
+          host_id?: string
+          id?: string
+          priority?: Database["public"]["Enums"]["problem_priority"]
+          property_id?: number | null
+          reported_by?: string
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["problem_status"]
+          task_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "problems_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "problems_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "problems_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "problems_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "expired_tasks_review"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "problems_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -420,6 +507,151 @@ export type Database = {
           },
         ]
       }
+      supply_request_items: {
+        Row: {
+          comment: string | null
+          host_id: string
+          id: string
+          name: string
+          quantity: number
+          request_id: string
+          sort_order: number
+          unit: Database["public"]["Enums"]["supply_unit"]
+        }
+        Insert: {
+          comment?: string | null
+          host_id: string
+          id?: string
+          name: string
+          quantity: number
+          request_id: string
+          sort_order: number
+          unit?: Database["public"]["Enums"]["supply_unit"]
+        }
+        Update: {
+          comment?: string | null
+          host_id?: string
+          id?: string
+          name?: string
+          quantity?: number
+          request_id?: string
+          sort_order?: number
+          unit?: Database["public"]["Enums"]["supply_unit"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supply_request_items_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supply_request_items_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "supply_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supply_requests: {
+        Row: {
+          created_at: string
+          fulfilled_at: string | null
+          host_id: string
+          id: string
+          needed_by: string | null
+          note: string | null
+          priority: Database["public"]["Enums"]["supply_priority"]
+          property_id: number | null
+          reject_reason: string | null
+          requested_by: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["supply_request_status"]
+          task_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          fulfilled_at?: string | null
+          host_id?: string
+          id: string
+          needed_by?: string | null
+          note?: string | null
+          priority?: Database["public"]["Enums"]["supply_priority"]
+          property_id?: number | null
+          reject_reason?: string | null
+          requested_by: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["supply_request_status"]
+          task_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          fulfilled_at?: string | null
+          host_id?: string
+          id?: string
+          needed_by?: string | null
+          note?: string | null
+          priority?: Database["public"]["Enums"]["supply_priority"]
+          property_id?: number | null
+          reject_reason?: string | null
+          requested_by?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["supply_request_status"]
+          task_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supply_requests_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supply_requests_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supply_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supply_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supply_requests_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "expired_tasks_review"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supply_requests_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_media: {
         Row: {
           byte_size: number
@@ -433,10 +665,11 @@ export type Database = {
           id: string
           kind: Database["public"]["Enums"]["media_kind"]
           mime_type: string
+          problem_id: string | null
           purged_at: string | null
-          step_id: string
+          step_id: string | null
           storage_path: string
-          task_id: string
+          task_id: string | null
           uploaded_at: string | null
           width: number | null
         }
@@ -452,10 +685,11 @@ export type Database = {
           id?: string
           kind: Database["public"]["Enums"]["media_kind"]
           mime_type: string
+          problem_id?: string | null
           purged_at?: string | null
-          step_id: string
+          step_id?: string | null
           storage_path: string
-          task_id: string
+          task_id?: string | null
           uploaded_at?: string | null
           width?: number | null
         }
@@ -471,10 +705,11 @@ export type Database = {
           id?: string
           kind?: Database["public"]["Enums"]["media_kind"]
           mime_type?: string
+          problem_id?: string | null
           purged_at?: string | null
-          step_id?: string
+          step_id?: string | null
           storage_path?: string
-          task_id?: string
+          task_id?: string | null
           uploaded_at?: string | null
           width?: number | null
         }
@@ -491,6 +726,13 @@ export type Database = {
             columns: ["host_id"]
             isOneToOne: false
             referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_media_problem_id_fkey"
+            columns: ["problem_id"]
+            isOneToOne: false
+            referencedRelation: "problems"
             referencedColumns: ["id"]
           },
           {
@@ -665,6 +907,7 @@ export type Database = {
           measured_minutes: number | null
           notes: string | null
           priority: number
+          problem_id: string | null
           property_id: number
           reservation_id: number | null
           scheduled_date: string
@@ -690,6 +933,7 @@ export type Database = {
           measured_minutes?: number | null
           notes?: string | null
           priority?: number
+          problem_id?: string | null
           property_id: number
           reservation_id?: number | null
           scheduled_date: string
@@ -715,6 +959,7 @@ export type Database = {
           measured_minutes?: number | null
           notes?: string | null
           priority?: number
+          problem_id?: string | null
           property_id?: number
           reservation_id?: number | null
           scheduled_date?: string
@@ -745,6 +990,13 @@ export type Database = {
             columns: ["host_id"]
             isOneToOne: false
             referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_problem_id_fkey"
+            columns: ["problem_id"]
+            isOneToOne: false
+            referencedRelation: "problems"
             referencedColumns: ["id"]
           },
           {
@@ -941,6 +1193,43 @@ export type Database = {
       }
     }
     Functions: {
+      add_problem_media: {
+        Args: {
+          p_byte_size: number
+          p_device_taken_at?: string
+          p_height?: number
+          p_id: string
+          p_mime_type: string
+          p_problem_id: string
+          p_width?: number
+        }
+        Returns: {
+          byte_size: number
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          device_taken_at: string | null
+          duration_sec: number | null
+          height: number | null
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["media_kind"]
+          mime_type: string
+          problem_id: string | null
+          purged_at: string | null
+          step_id: string | null
+          storage_path: string
+          task_id: string | null
+          uploaded_at: string | null
+          width: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "task_media"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       add_task_media: {
         Args: {
           p_byte_size: number
@@ -965,10 +1254,11 @@ export type Database = {
           id: string
           kind: Database["public"]["Enums"]["media_kind"]
           mime_type: string
+          problem_id: string | null
           purged_at: string | null
-          step_id: string
+          step_id: string | null
           storage_path: string
-          task_id: string
+          task_id: string | null
           uploaded_at: string | null
           width: number | null
         }
@@ -979,12 +1269,68 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      assign_problem: {
+        Args: {
+          p_assignee_id: string
+          p_id: string
+          p_scheduled_date?: string
+          p_time_from?: string
+          p_time_to?: string
+        }
+        Returns: {
+          cancel_reason: string | null
+          cancelled_at: string | null
+          created_at: string
+          description: string | null
+          host_id: string
+          id: string
+          priority: Database["public"]["Enums"]["problem_priority"]
+          property_id: number | null
+          reported_by: string
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["problem_status"]
+          task_id: string | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "problems"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       auth_role: {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
       }
       can_read_task_media: { Args: { p_path: string }; Returns: boolean }
       can_upload_task_media: { Args: { p_path: string }; Returns: boolean }
+      cancel_problem: {
+        Args: { p_id: string; p_reason?: string }
+        Returns: {
+          cancel_reason: string | null
+          cancelled_at: string | null
+          created_at: string
+          description: string | null
+          host_id: string
+          id: string
+          priority: Database["public"]["Enums"]["problem_priority"]
+          property_id: number | null
+          reported_by: string
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["problem_status"]
+          task_id: string | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "problems"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       claim_webhook_events: {
         Args: { batch_size?: number; max_attempts?: number }
         Returns: Json
@@ -1049,10 +1395,11 @@ export type Database = {
           id: string
           kind: Database["public"]["Enums"]["media_kind"]
           mime_type: string
+          problem_id: string | null
           purged_at: string | null
-          step_id: string
+          step_id: string | null
           storage_path: string
-          task_id: string
+          task_id: string | null
           uploaded_at: string | null
           width: number | null
         }
@@ -1069,6 +1416,7 @@ export type Database = {
       }
       current_host_id: { Args: never; Returns: string }
       default_host_id: { Args: never; Returns: string }
+      delete_supply_request: { Args: { p_id: string }; Returns: boolean }
       expire_stale_tasks: { Args: never; Returns: Json }
       generate_cleaning_tasks: {
         Args: { from_date: string; to_date: string }
@@ -1121,6 +1469,34 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      problem_description_max_length: { Args: never; Returns: number }
+      problem_for_manager: {
+        Args: { p_id: string }
+        Returns: {
+          cancel_reason: string | null
+          cancelled_at: string | null
+          created_at: string
+          description: string | null
+          host_id: string
+          id: string
+          priority: Database["public"]["Enums"]["problem_priority"]
+          property_id: number | null
+          reported_by: string
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["problem_status"]
+          task_id: string | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "problems"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      problem_max_photos: { Args: never; Returns: number }
+      problem_title_max_length: { Args: never; Returns: number }
       property_checklist_snapshot: {
         Args: { p_property_id: number }
         Returns: Json
@@ -1143,10 +1519,11 @@ export type Database = {
           id: string
           kind: Database["public"]["Enums"]["media_kind"]
           mime_type: string
+          problem_id: string | null
           purged_at: string | null
-          step_id: string
+          step_id: string | null
           storage_path: string
-          task_id: string
+          task_id: string | null
           uploaded_at: string | null
           width: number | null
         }
@@ -1195,6 +1572,38 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      report_problem: {
+        Args: {
+          p_description?: string
+          p_id: string
+          p_priority?: Database["public"]["Enums"]["problem_priority"]
+          p_property_id?: number
+          p_task_id?: string
+          p_title: string
+        }
+        Returns: {
+          cancel_reason: string | null
+          cancelled_at: string | null
+          created_at: string
+          description: string | null
+          host_id: string
+          id: string
+          priority: Database["public"]["Enums"]["problem_priority"]
+          property_id: number | null
+          reported_by: string
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["problem_status"]
+          task_id: string | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "problems"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       reservation_cleaning_window: {
         Args: { target_reservation_id: number }
         Returns: {
@@ -1208,6 +1617,35 @@ export type Database = {
         Args: { p_property_id: number }
         Returns: number
       }
+      resolve_problem: {
+        Args: { p_id: string }
+        Returns: {
+          cancel_reason: string | null
+          cancelled_at: string | null
+          created_at: string
+          description: string | null
+          host_id: string
+          id: string
+          priority: Database["public"]["Enums"]["problem_priority"]
+          property_id: number | null
+          reported_by: string
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["problem_status"]
+          task_id: string | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "problems"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      resolve_report_property: {
+        Args: { p_property_id: number; p_task_id: string }
+        Returns: number
+      }
       resolve_workflow_template: {
         Args: {
           p_property_id: number
@@ -1215,9 +1653,73 @@ export type Database = {
         }
         Returns: string
       }
+      review_supply_request: {
+        Args: {
+          p_id: string
+          p_reject_reason?: string
+          p_status: Database["public"]["Enums"]["supply_request_status"]
+        }
+        Returns: {
+          created_at: string
+          fulfilled_at: string | null
+          host_id: string
+          id: string
+          needed_by: string | null
+          note: string | null
+          priority: Database["public"]["Enums"]["supply_priority"]
+          property_id: number | null
+          reject_reason: string | null
+          requested_by: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["supply_request_status"]
+          task_id: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "supply_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       save_property_checklist: {
         Args: { p_modules: Json; p_property_id: number }
         Returns: Json
+      }
+      save_supply_request: {
+        Args: {
+          p_id: string
+          p_items: Json
+          p_needed_by?: string
+          p_note?: string
+          p_priority?: Database["public"]["Enums"]["supply_priority"]
+          p_property_id?: number
+          p_task_id?: string
+        }
+        Returns: {
+          created_at: string
+          fulfilled_at: string | null
+          host_id: string
+          id: string
+          needed_by: string | null
+          note: string | null
+          priority: Database["public"]["Enums"]["supply_priority"]
+          property_id: number | null
+          reject_reason: string | null
+          requested_by: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["supply_request_status"]
+          task_id: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "supply_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       save_workflow_template: {
         Args: { p_template: Json }
@@ -1279,6 +1781,8 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      supply_item_name_max_length: { Args: never; Returns: number }
+      supply_note_max_length: { Args: never; Returns: number }
       sync_hostaway_listings: {
         Args: { property_rows: Json; raw_rows: Json }
         Returns: Json
@@ -1319,10 +1823,11 @@ export type Database = {
           id: string
           kind: Database["public"]["Enums"]["media_kind"]
           mime_type: string
+          problem_id: string | null
           purged_at: string | null
-          step_id: string
+          step_id: string | null
           storage_path: string
-          task_id: string
+          task_id: string | null
           uploaded_at: string | null
           width: number | null
         }[]
@@ -1379,6 +1884,40 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      update_problem: {
+        Args: {
+          p_description?: string
+          p_id: string
+          p_priority?: Database["public"]["Enums"]["problem_priority"]
+          p_title: string
+        }
+        Returns: {
+          cancel_reason: string | null
+          cancelled_at: string | null
+          created_at: string
+          description: string | null
+          host_id: string
+          id: string
+          priority: Database["public"]["Enums"]["problem_priority"]
+          property_id: number | null
+          reported_by: string
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["problem_status"]
+          task_id: string | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "problems"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      validate_problem_text: {
+        Args: { p_description: string; p_title: string }
+        Returns: undefined
       }
       validate_task_step_payload: {
         Args: {
@@ -1441,6 +1980,21 @@ export type Database = {
       app_role: "cleaner" | "tech" | "manager" | "admin"
       assignment_mode: "auto" | "claim"
       media_kind: "photo" | "video"
+      problem_priority: "low" | "normal" | "high"
+      problem_status:
+        | "open"
+        | "assigned"
+        | "in_progress"
+        | "resolved"
+        | "cancelled"
+      supply_priority: "normal" | "urgent"
+      supply_request_status:
+        | "new"
+        | "accepted"
+        | "ordered"
+        | "fulfilled"
+        | "rejected"
+      supply_unit: "pcs" | "pack" | "l" | "kg" | "roll"
       task_status:
         | "unassigned"
         | "assigned"
@@ -1597,6 +2151,23 @@ export const Constants = {
       app_role: ["cleaner", "tech", "manager", "admin"],
       assignment_mode: ["auto", "claim"],
       media_kind: ["photo", "video"],
+      problem_priority: ["low", "normal", "high"],
+      problem_status: [
+        "open",
+        "assigned",
+        "in_progress",
+        "resolved",
+        "cancelled",
+      ],
+      supply_priority: ["normal", "urgent"],
+      supply_request_status: [
+        "new",
+        "accepted",
+        "ordered",
+        "fulfilled",
+        "rejected",
+      ],
+      supply_unit: ["pcs", "pack", "l", "kg", "roll"],
       task_status: [
         "unassigned",
         "assigned",

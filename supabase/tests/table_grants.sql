@@ -46,6 +46,9 @@ insert into wanted values
   ('checklist_modules',    'SELECT'),
   ('checklist_items',      'SELECT'),
   ('task_media',           'SELECT'),
+  ('problems',             'SELECT'),
+  ('supply_requests',      'SELECT'),
+  ('supply_request_items', 'SELECT'),
   ('expired_tasks_review', 'SELECT');
 
 create temp table actual as
