@@ -40,6 +40,17 @@ export const cleaningTaskSchema = z.object({
   // seconds ("10:00:00"); it is kept as it comes and trimmed for display.
   time_from: z.string().nullable(),
   time_to: z.string().nullable(),
+  // Defaulted so a row cached before F9 still parses.
+  type: z.enum(['cleaning', 'maintenance', 'inspection']).default('cleaning'),
+  // Set on a maintenance task: the report it fixes.
+  problem: z
+    .object({
+      id: z.string().uuid(),
+      title: z.string(),
+      priority: z.enum(['low', 'normal', 'high']),
+    })
+    .nullable()
+    .optional(),
   // Guests of the ARRIVING booking — how many sets of linen, in practice.
   guests_count: z.number().int().nullable(),
   // Stamped by the database when she starts and finishes; never sent by us.

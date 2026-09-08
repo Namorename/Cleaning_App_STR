@@ -3,6 +3,8 @@ import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persi
 import { QueryClient } from '@tanstack/react-query';
 
 import { registerMediaMutations } from '@/features/media/use-media';
+import { registerProblemMutations } from '@/features/problems/use-problems';
+import { registerSupplyMutations } from '@/features/supplies/use-supplies';
 import { registerStepMutations } from '@/features/steps/use-steps';
 import { registerTaskMutations } from '@/features/tasks/use-tasks';
 
@@ -44,6 +46,8 @@ export function createAppQueryClient(): QueryClient {
   registerTaskMutations(queryClient);
   registerStepMutations(queryClient);
   registerMediaMutations(queryClient);
+  registerProblemMutations(queryClient);
+  registerSupplyMutations(queryClient);
 
   return queryClient;
 }
@@ -61,5 +65,5 @@ export const persistOptions = {
   maxAge: CACHE_LIFETIME,
   // A change to what a task looks like must not restore an older shape into
   // screens that expect the new one. Bump when the task schema changes.
-  buster: 'tasks-v4',
+  buster: 'tasks-v5',
 };

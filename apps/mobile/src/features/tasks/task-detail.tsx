@@ -31,6 +31,11 @@ interface TaskDetailProps {
   onStart: (taskId: string) => void;
   onFinish: (taskId: string) => void;
   onOpenStep?: (stepId: string) => void;
+  /** Offered while the task is hers and open: something is broken, or running out. */
+  onReportProblem?: (taskId: string) => void;
+  onRequestSupplies?: (taskId: string) => void;
+  /** On a maintenance task: the report it fixes. */
+  onOpenProblem?: (problemId: string) => void;
 }
 
 /**
@@ -55,6 +60,9 @@ export function TaskDetail({
   onStart,
   onFinish,
   onOpenStep,
+  onReportProblem,
+  onRequestSupplies,
+  onOpenProblem,
 }: TaskDetailProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
@@ -71,6 +79,9 @@ export function TaskDetail({
   const isFinishBlocked = action === 'finish' && remaining > 0;
   const isStartBlocked = action === 'start' && !canStartNow(task, now);
   const isBlocked = isFinishBlocked || isStartBlocked;
+  // Hers and not finished: the moment a report or a request makes sense.
+  const canRaise = task.assignee_id === userId && (action === 'start' || action === 'finish');
+  const fix = task.type === 'maintenance' ? (task.problem ?? null) : null;
 
   const actionLabel =
     action === 'claim'
@@ -135,10 +146,53 @@ export function TaskDetail({
         ) : null}
       </View>
 
+      {fix !== null ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('tasks.detail.openProblem')}
+          disabled={onOpenProblem === undefined}
+          onPress={() => onOpenProblem?.(fix.id)}
+          style={({ pressed }) => [styles.notes, pressed && styles.buttonPressed]}
+        >
+          <Text style={styles.notesLabel}>{t('tasks.detail.problem')}</Text>
+          <Text style={styles.notesText}>{fix.title}</Text>
+          <Text style={styles.meta}>
+            {t('problems.priorityLine', { priority: t(`problems.priorities.${fix.priority}`) })}
+            {' · '}
+            {t('tasks.detail.openProblem')}
+          </Text>
+        </Pressable>
+      ) : null}
+
       {notes !== null && notes.trim() !== '' ? (
         <View style={styles.notes}>
           <Text style={styles.notesLabel}>{t('tasks.detail.notes')}</Text>
           <Text style={styles.notesText}>{notes}</Text>
+        </View>
+      ) : null}
+
+      {canRaise && (onReportProblem !== undefined || onRequestSupplies !== undefined) ? (
+        <View style={styles.raise}>
+          {onReportProblem !== undefined ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('tasks.detail.reportProblem')}
+              onPress={() => onReportProblem(task.id)}
+              style={({ pressed }) => [styles.secondary, pressed && styles.buttonPressed]}
+            >
+              <Text style={styles.secondaryText}>{t('tasks.detail.reportProblem')}</Text>
+            </Pressable>
+          ) : null}
+          {onRequestSupplies !== undefined ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('tasks.detail.requestSupplies')}
+              onPress={() => onRequestSupplies(task.id)}
+              style={({ pressed }) => [styles.secondary, pressed && styles.buttonPressed]}
+            >
+              <Text style={styles.secondaryText}>{t('tasks.detail.requestSupplies')}</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 
@@ -257,4 +311,14 @@ const createStyles = (theme: Theme) =>
     buttonDisabled: { opacity: 0.5 },
     buttonPressed: { opacity: 0.75 },
     buttonText: { color: theme.onPrimary, fontSize: FontSize.title, fontWeight: '600' },
+    raise: { gap: Spacing.sm },
+    secondary: {
+      minHeight: MIN_TOUCH_TARGET,
+      borderRadius: Radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    secondaryText: { color: theme.primary, fontSize: FontSize.title, fontWeight: '600' },
   });

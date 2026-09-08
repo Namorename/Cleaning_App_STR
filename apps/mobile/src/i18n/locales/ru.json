@@ -18,7 +18,9 @@
   },
   "tabs": {
     "myTasks": "Мои задачи",
-    "queue": "Свободные"
+    "queue": "Свободные",
+    "problems": "Проблемы",
+    "supplies": "Расходники"
   },
   "tasks": {
     "loading": "Загружаем задачи…",
@@ -55,6 +57,11 @@
       "colleague": "Уборку выполняет коллега",
       "closed": "Задача закрыта",
       "startsAt": "Начать можно не раньше {{time}}, {{date}}",
+      "reportProblem": "Сообщить о проблеме",
+      "requestSupplies": "Запросить расходники",
+      "problem": "Проблема",
+      "openProblem": "Открыть проблему",
+      "fixBanner": "{{property}} · срочность: {{priority}}",
       "notFound": "Задача не найдена или больше не ваша"
     }
   },
@@ -114,6 +121,109 @@
     "cameraDenied": "Нет доступа к камере — разрешите его в настройках телефона",
     "captureFailed": "Не удалось снять — попробуйте ещё раз"
   },
+  "problems": {
+    "report": "Сообщить о проблеме",
+    "new": "Новая проблема",
+    "one": "Проблема",
+    "edit": "Изменить",
+    "save": "Сохранить",
+    "submit": "Отправить",
+    "loading": "Загружаем проблемы…",
+    "emptyMine": "Проблем не заявлено",
+    "closedHeading": "Закрытые",
+    "notFound": "Проблема не найдена",
+    "notEditable": "Проблему уже взяли в работу — изменить её нельзя",
+    "titleLabel": "Что случилось",
+    "titlePlaceholder": "Например, течёт кран",
+    "descriptionLabel": "Подробности",
+    "descriptionPlaceholder": "Где именно, как давно — всё, что поможет технику",
+    "priorityLabel": "Срочность",
+    "priorityLine": "Срочность: {{priority}}",
+    "priorities": {
+      "low": "Низкая",
+      "normal": "Обычная",
+      "high": "Высокая"
+    },
+    "photosLabel": "Фото",
+    "photosHint": "До {{max}} фото, камерой",
+    "noPhotos": "Фото нет",
+    "statusLabel": "Статус",
+    "statuses": {
+      "open": "Открыта",
+      "assigned": "Назначена",
+      "in_progress": "В работе",
+      "resolved": "Решена",
+      "cancelled": "Отменена"
+    },
+    "noProperty": "Без объекта",
+    "cancelReason": "Причина отмены",
+    "openFixTask": "Открыть задачу по устранению",
+    "cardAccessibility": "{{title}}. {{place}}. {{status}}"
+  },
+  "supplies": {
+    "request": "Запросить расходники",
+    "new": "Новая заявка",
+    "one": "Заявка на расходники",
+    "edit": "Изменить",
+    "save": "Сохранить",
+    "submit": "Отправить заявку",
+    "delete": "Удалить заявку",
+    "deleteQuestion": "Заявка исчезнет у менеджера. Удалить?",
+    "loading": "Загружаем заявки…",
+    "emptyMine": "Заявок нет",
+    "closedHeading": "Закрытые",
+    "notFound": "Заявка не найдена",
+    "notEditable": "Заявку уже взяли в работу — изменить её нельзя",
+    "itemsLabel": "Позиции",
+    "itemNamePlaceholder": "Что нужно, например средство для стёкол",
+    "itemNameAccessibility": "Позиция {{index}}: название",
+    "quantityAccessibility": "Позиция {{index}}: количество",
+    "itemCommentPlaceholder": "Уточнение: марка, размер",
+    "itemCommentAccessibility": "Позиция {{index}}: уточнение",
+    "addItem": "+ Добавить позицию",
+    "removeItem": "Убрать позицию",
+    "itemInvalidHint": "У каждой позиции нужны название и количество больше нуля",
+    "units": {
+      "pcs": "шт",
+      "pack": "упак",
+      "l": "л",
+      "kg": "кг",
+      "roll": "рулон"
+    },
+    "priorityLabel": "Срочность",
+    "priorityHint": "Срочно — заканчивается сейчас, без этого не убрать",
+    "priorities": {
+      "normal": "Обычная",
+      "urgent": "Срочно"
+    },
+    "noteLabel": "Комментарий",
+    "notePlaceholder": "Что ещё важно знать",
+    "statusLabel": "Статус",
+    "statuses": {
+      "new": "Новая",
+      "accepted": "Принята",
+      "ordered": "Заказано",
+      "fulfilled": "Выполнена",
+      "rejected": "Отклонена"
+    },
+    "general": "Общая заявка",
+    "rejectReason": "Причина отказа",
+    "moreItems": "{{shown}} и ещё {{count}}",
+    "cardAccessibility": "{{place}}. {{summary}}. {{status}}"
+  },
+  "media": {
+    "takePhoto": "Снять фото",
+    "remove": "Удалить",
+    "retry": "Повторить загрузку",
+    "count": "{{taken}} из {{max}}",
+    "photoAccessibility": "Фото {{index}}. {{status}}",
+    "status": {
+      "uploaded": "Загружено",
+      "uploading": "Загружается",
+      "failed": "Не загрузилось",
+      "local": "Будет отправлено"
+    }
+  },
   "serverErrors": {
     "checklistCopySameProperty": "Источник и получатель — один и тот же апартамент",
     "checklistItemsLeft": "Отмечены не все обязательные пункты чек-листа",
@@ -133,6 +243,20 @@
     "requiredStepNotSkippable": "Обязательный шаг нельзя пропустить",
     "requiredStepsLeft": "Обязательных шагов осталось: {{count}}",
     "startTooEarly": "Уборку нельзя начать раньше {{time}} ({{date}})",
+    "problemNotFound": "Проблема не найдена",
+    "problemTitleRequired": "Напишите, что случилось",
+    "problemTitleTooLong": "Заголовок длиннее {{limit}} символов",
+    "problemDescriptionTooLong": "Описание длиннее {{limit}} символов",
+    "problemNotOpen": "Проблему уже взяли в работу — изменить её нельзя",
+    "problemNoProperty": "У проблемы нет объекта — назначить нельзя",
+    "problemAssigneeInvalid": "Исполнитель не найден среди активных сотрудников",
+    "taskNotFound": "Задача не найдена",
+    "supplyNotFound": "Заявка не найдена",
+    "supplyNotEditable": "Заявку уже взяли в работу — изменить её нельзя",
+    "supplyItemsRequired": "Добавьте хотя бы одну позицию",
+    "supplyItemInvalid": "Позиция {{index}} заполнена неверно",
+    "supplyNoteTooLong": "Комментарий длиннее {{limit}} символов",
+    "supplyTransitionInvalid": "Такое изменение статуса заявки недоступно",
     "stepNotFound": "Шаг не найден или уборка уже не в работе",
     "stepPayloadInvalid": "Приложение отправило данные шага в неверном виде",
     "stepTypeUnsupported": "Этот шаг появится в следующей версии приложения",

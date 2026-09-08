@@ -76,7 +76,8 @@ export function useTask(taskId: string) {
   return useQuery({
     queryKey: taskKeys.one(taskId),
     queryFn: () => fetchTask(taskId),
-    enabled: userId !== null,
+    // An empty id is "no task": a form opened from the list, not from a task.
+    enabled: userId !== null && taskId !== '',
     // The list already holds this task more often than not: show it at once
     // and let the fetch confirm, rather than a spinner over known data.
     initialData: () =>

@@ -12,8 +12,8 @@ import {
 } from './schema';
 
 const MEDIA_COLUMNS =
-  'id, task_id, step_id, kind, storage_path, mime_type, duration_sec, device_taken_at, ' +
-  'created_at, uploaded_at, deleted_at';
+  'id, task_id, step_id, problem_id, kind, storage_path, mime_type, duration_sec, ' +
+  'device_taken_at, created_at, uploaded_at, deleted_at';
 
 /** How long a signed link to a photo stays good. Under the query's own lifetime. */
 export const SIGNED_URL_SECONDS = 60 * 60;
@@ -39,7 +39,27 @@ export async function fetchTaskMedia(taskId: string): Promise<TaskMedia[]> {
   return taskMediaListSchema.parse(data ?? []);
 }
 
-type MediaFunction = 'add_task_media' | 'confirm_task_media' | 'remove_task_media';
+/** The photos of one problem report, taken back ones excluded. */
+export async function fetchProblemMedia(problemId: string): Promise<TaskMedia[]> {
+  const { data, error } = await supabase
+    .from('task_media')
+    .select(MEDIA_COLUMNS)
+    .eq('problem_id', problemId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return taskMediaListSchema.parse(data ?? []);
+}
+
+type MediaFunction =
+  | 'add_task_media'
+  | 'add_problem_media'
+  | 'confirm_task_media'
+  | 'remove_task_media';
 
 type MediaFunctionArgs<TName extends MediaFunction> =
   Database['public']['Functions'][TName]['Args'];
@@ -57,9 +77,19 @@ async function callMediaFunction<TName extends MediaFunction>(
   return taskMediaSchema.parse(data);
 }
 
-export interface AddMediaVariables {
+/**
+ * Who a file belongs to: a step of a task, or a problem report. The task id
+ * is what the caches are keyed by; the server needs only the step or the
+ * problem.
+ */
+export interface MediaOwnerRef {
+  taskId?: string;
+  stepId?: string;
+  problemId?: string;
+}
+
+export interface AddMediaVariables extends MediaOwnerRef {
   mediaId: string;
-  stepId: string;
   kind: MediaKind;
   mimeType: string;
   byteSize: number;
@@ -71,6 +101,21 @@ export interface AddMediaVariables {
 
 /** Register the file and learn where it has to go. Replayable by id. */
 export function addMedia(variables: AddMediaVariables): Promise<TaskMedia> {
+  if (variables.problemId !== undefined) {
+    return callMediaFunction('add_problem_media', {
+      p_id: variables.mediaId,
+      p_problem_id: variables.problemId,
+      p_mime_type: variables.mimeType,
+      p_byte_size: variables.byteSize,
+      p_width: variables.width ?? undefined,
+      p_height: variables.height ?? undefined,
+      p_device_taken_at: variables.takenAt,
+    });
+  }
+  if (variables.stepId === undefined) {
+    return Promise.reject(new Error('Media needs a step or a problem to belong to'));
+  }
+
   return callMediaFunction('add_task_media', {
     p_id: variables.mediaId,
     p_step_id: variables.stepId,

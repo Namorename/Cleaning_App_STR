@@ -13,11 +13,13 @@ import { stepKeys } from '@/features/steps/keys';
 import {
   addMedia,
   confirmMedia,
+  fetchProblemMedia,
   fetchTaskMedia,
   removeMedia,
   signedMediaUrls,
   uploadMediaFile,
   type AddMediaVariables,
+  type MediaOwnerRef,
 } from './api';
 import { discardFile } from './file';
 import { mediaKeys } from './keys';
@@ -42,15 +44,19 @@ const ATTACH_SCOPE = { id: 'media-attach' };
 const ATTACH_RETRIES = 3;
 
 export interface AttachMediaVariables extends AddMediaVariables {
-  /** Which task's caches to update; the server does not need it. */
-  taskId: string;
   /** The file on the phone. */
   uri: string;
 }
 
-export interface RemoveMediaVariables {
-  taskId: string;
+export interface RemoveMediaVariables extends MediaOwnerRef {
   mediaId: string;
+}
+
+/** The cache a file's owner reads its media from. */
+export function mediaOwnerKey(owner: MediaOwnerRef) {
+  return owner.problemId !== undefined
+    ? mediaKeys.byProblem(owner.problemId)
+    : mediaKeys.byTask(owner.taskId ?? '');
 }
 
 /**
@@ -89,6 +95,16 @@ export function useTaskMedia(taskId: string) {
   });
 }
 
+export function useProblemMedia(problemId: string) {
+  const { userId } = useSession();
+
+  return useQuery({
+    queryKey: mediaKeys.byProblem(problemId),
+    queryFn: () => fetchProblemMedia(problemId),
+    enabled: userId !== null && problemId !== '',
+  });
+}
+
 /** Signed links for the given paths, refreshed before they expire. */
 export function useMediaUrls(paths: readonly string[]) {
   const sorted = useMemo(() => [...paths].sort(), [paths]);
@@ -114,8 +130,9 @@ export function useLocalMedia() {
 function pendingRow(variables: AttachMediaVariables): TaskMedia {
   return {
     id: variables.mediaId,
-    task_id: variables.taskId,
-    step_id: variables.stepId,
+    task_id: variables.taskId ?? null,
+    step_id: variables.stepId ?? null,
+    problem_id: variables.problemId ?? null,
     kind: variables.kind,
     storage_path: '',
     mime_type: variables.mimeType,
@@ -136,7 +153,7 @@ export function useAttachMedia() {
     scope: ATTACH_SCOPE,
     retry: ATTACH_RETRIES,
     onMutate: async (variables) => {
-      const key = mediaKeys.byTask(variables.taskId);
+      const key = mediaOwnerKey(variables);
       await queryClient.cancelQueries({ queryKey: key });
       queryClient.setQueryData<TaskMedia[]>(key, (media = []) =>
         media.some((item) => item.id === variables.mediaId)
@@ -145,13 +162,15 @@ export function useAttachMedia() {
       );
     },
     onSuccess: (row, variables) => {
-      queryClient.setQueryData<TaskMedia[]>(mediaKeys.byTask(variables.taskId), (media = []) =>
+      queryClient.setQueryData<TaskMedia[]>(mediaOwnerKey(variables), (media = []) =>
         media.map((item) => (item.id === row.id ? row : item)),
       );
     },
     onSettled: (_row, _error, variables) => {
-      void queryClient.invalidateQueries({ queryKey: mediaKeys.byTask(variables.taskId) });
-      void queryClient.invalidateQueries({ queryKey: stepKeys.byTask(variables.taskId) });
+      void queryClient.invalidateQueries({ queryKey: mediaOwnerKey(variables) });
+      if (variables.taskId !== undefined) {
+        void queryClient.invalidateQueries({ queryKey: stepKeys.byTask(variables.taskId) });
+      }
     },
   });
 }
@@ -167,7 +186,7 @@ export function useRemoveMedia() {
     mutationKey: mediaMutationKeys.remove,
     mutationFn: ({ mediaId }) => removeMedia(mediaId),
     onMutate: async (variables) => {
-      const key = mediaKeys.byTask(variables.taskId);
+      const key = mediaOwnerKey(variables);
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<TaskMedia[]>(key);
       queryClient.setQueryData<TaskMedia[]>(key, (media = []) =>
@@ -177,7 +196,7 @@ export function useRemoveMedia() {
     },
     onError: (_error, variables, context) => {
       if (context?.previous !== undefined) {
-        queryClient.setQueryData(mediaKeys.byTask(variables.taskId), context.previous);
+        queryClient.setQueryData(mediaOwnerKey(variables), context.previous);
       }
     },
     onSuccess: async (_row, variables) => {
@@ -188,7 +207,7 @@ export function useRemoveMedia() {
       queryClient.setQueryData(mediaKeys.local, await forgetLocalMedia(variables.mediaId));
     },
     onSettled: (_row, _error, variables) => {
-      void queryClient.invalidateQueries({ queryKey: mediaKeys.byTask(variables.taskId) });
+      void queryClient.invalidateQueries({ queryKey: mediaOwnerKey(variables) });
     },
   });
 }

@@ -22,11 +22,19 @@ function TaskCardComponent({ task, onClaim, onPress, isClaiming = false }: TaskC
   const styles = useThemedStyles(createStyles);
   const urgent = isSameDayTurnover(task);
   const running = isRunning(task);
-  const name = propertyName(task);
+  const fix = task.type === 'maintenance' ? (task.problem ?? null) : null;
+  // A fix is named by what is broken; the flat is the second line.
+  const name = fix === null ? propertyName(task) : fix.title;
   const date = formatScheduledDate(task);
   const window = formatWindow(task);
   // Colour repeats what the line says; it never carries the meaning alone.
-  const urgency = urgencyText(task);
+  const urgency =
+    fix === null
+      ? urgencyText(task)
+      : t('tasks.detail.fixBanner', {
+          property: propertyName(task),
+          priority: t(`problems.priorities.${fix.priority}`),
+        });
 
   const body = (
     <>

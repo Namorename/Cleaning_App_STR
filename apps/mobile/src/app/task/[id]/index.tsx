@@ -77,6 +77,11 @@ export default function TaskScreen() {
         onOpenStep={(stepId) =>
           router.push({ pathname: '/task/[id]/step/[stepId]', params: { id: taskId, stepId } })
         }
+        onReportProblem={(id) => router.push({ pathname: '/problem/new', params: { taskId: id } })}
+        onRequestSupplies={(id) => router.push({ pathname: '/supply/new', params: { taskId: id } })}
+        onOpenProblem={(problemId) =>
+          router.push({ pathname: '/problem/[id]', params: { id: problemId } })
+        }
       />
     </>
   );

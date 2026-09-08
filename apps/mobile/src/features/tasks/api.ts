@@ -9,9 +9,12 @@ import { cleaningTaskListSchema, earliestClaimableDate, type CleaningTask } from
 // id means nothing to her. Notes ride along: the code for the key box is the
 // first thing she needs at the door.
 const TASK_COLUMNS =
-  'id, status, priority, scheduled_date, due_at, assignee_id, property_id, ' +
+  'id, type, status, priority, scheduled_date, due_at, assignee_id, property_id, ' +
   'time_from, time_to, guests_count, started_at, completed_at, is_parallel, ' +
-  'property:properties(name, cleaner_notes)';
+  'property:properties(name, cleaner_notes), problem:problems(id, title, priority)';
+
+// A technician's day is maintenance; a cleaner's is cleaning. Both are "mine".
+const MY_TASK_TYPES = ['cleaning', 'maintenance'] as const;
 
 // `satisfies` ties the list to the database enum: a status renamed in a
 // migration becomes a type error here instead of a filter that silently
@@ -36,7 +39,7 @@ export async function fetchMyTasks(cleanerId: string): Promise<CleaningTask[]> {
   const { data, error } = await supabase
     .from('tasks')
     .select(TASK_COLUMNS)
-    .eq('type', 'cleaning')
+    .in('type', MY_TASK_TYPES)
     .eq('assignee_id', cleanerId)
     .in('status', OPEN_STATUSES)
     .order('scheduled_date', { ascending: true })

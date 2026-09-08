@@ -26,6 +26,8 @@ export default function TabsLayout() {
     <Tabs screenOptions={{ headerShown: true, headerRight: SignOutButton }}>
       <Tabs.Screen name="index" options={{ title: t('tabs.myTasks') }} />
       <Tabs.Screen name="queue" options={{ title: t('tabs.queue') }} />
+      <Tabs.Screen name="problems" options={{ title: t('tabs.problems') }} />
+      <Tabs.Screen name="supplies" options={{ title: t('tabs.supplies') }} />
     </Tabs>
   );
 }

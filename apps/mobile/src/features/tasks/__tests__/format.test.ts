@@ -23,6 +23,7 @@ function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
     started_at: null,
     completed_at: null,
     is_parallel: false,
+    type: 'cleaning',
     ...overrides,
   };
 }

@@ -27,8 +27,10 @@ export const DEFAULT_MAX_VIDEO_SEC = 30;
  */
 export const taskMediaSchema = z.object({
   id: z.string().uuid(),
-  task_id: z.string().uuid(),
-  step_id: z.string().uuid(),
+  // Exactly one owner: a task step, or a problem report (F9).
+  task_id: z.string().uuid().nullable(),
+  step_id: z.string().uuid().nullable(),
+  problem_id: z.string().uuid().nullable().default(null),
   kind: z.enum(MEDIA_KINDS),
   storage_path: z.string(),
   mime_type: z.string(),
@@ -73,6 +75,18 @@ export function videoLimitSec(step: Pick<TaskStep, 'max_video_sec'>): number {
 }
 
 /** The media of one step that still count — taken and not taken back. */
+/** The photos of one problem report, taken back ones excluded, in the order taken. */
+export function mediaOfProblem(media: readonly TaskMedia[], problemId: string): TaskMedia[] {
+  return media
+    .filter((item) => item.problem_id === problemId && item.deleted_at === null)
+    .sort((a, b) => {
+      const byTaken = (a.device_taken_at ?? a.created_at).localeCompare(
+        b.device_taken_at ?? b.created_at,
+      );
+      return byTaken !== 0 ? byTaken : a.id.localeCompare(b.id);
+    });
+}
+
 export function mediaOfStep(media: readonly TaskMedia[], stepId: string): TaskMedia[] {
   return media
     .filter((item) => item.step_id === stepId && item.deleted_at === null)

@@ -18,7 +18,9 @@
   },
   "tabs": {
     "myTasks": "My tasks",
-    "queue": "Available"
+    "queue": "Available",
+    "problems": "Problems",
+    "supplies": "Supplies"
   },
   "tasks": {
     "loading": "Loading tasks…",
@@ -55,6 +57,11 @@
       "colleague": "A colleague is doing this cleaning",
       "closed": "Task closed",
       "startsAt": "Can start no earlier than {{time}}, {{date}}",
+      "reportProblem": "Report a problem",
+      "requestSupplies": "Request supplies",
+      "problem": "Problem",
+      "openProblem": "Open the problem",
+      "fixBanner": "{{property}} · priority: {{priority}}",
       "notFound": "Task not found, or no longer yours"
     }
   },
@@ -114,6 +121,109 @@
     "cameraDenied": "No access to the camera — allow it in the phone settings",
     "captureFailed": "Could not take it — please try again"
   },
+  "problems": {
+    "report": "Report a problem",
+    "new": "New problem",
+    "one": "Problem",
+    "edit": "Edit",
+    "save": "Save",
+    "submit": "Send",
+    "loading": "Loading problems…",
+    "emptyMine": "No problems reported",
+    "closedHeading": "Closed",
+    "notFound": "Problem not found",
+    "notEditable": "The problem has been picked up — it can no longer be changed",
+    "titleLabel": "What happened",
+    "titlePlaceholder": "For example, the tap is leaking",
+    "descriptionLabel": "Details",
+    "descriptionPlaceholder": "Where exactly, since when — anything that helps the technician",
+    "priorityLabel": "Priority",
+    "priorityLine": "Priority: {{priority}}",
+    "priorities": {
+      "low": "Low",
+      "normal": "Normal",
+      "high": "High"
+    },
+    "photosLabel": "Photos",
+    "photosHint": "Up to {{max}} photos, with the camera",
+    "noPhotos": "No photos",
+    "statusLabel": "Status",
+    "statuses": {
+      "open": "Open",
+      "assigned": "Assigned",
+      "in_progress": "In progress",
+      "resolved": "Resolved",
+      "cancelled": "Cancelled"
+    },
+    "noProperty": "No listing",
+    "cancelReason": "Reason for cancelling",
+    "openFixTask": "Open the fix task",
+    "cardAccessibility": "{{title}}. {{place}}. {{status}}"
+  },
+  "supplies": {
+    "request": "Request supplies",
+    "new": "New request",
+    "one": "Supply request",
+    "edit": "Edit",
+    "save": "Save",
+    "submit": "Send the request",
+    "delete": "Delete the request",
+    "deleteQuestion": "The manager will no longer see it. Delete?",
+    "loading": "Loading requests…",
+    "emptyMine": "No requests",
+    "closedHeading": "Closed",
+    "notFound": "Request not found",
+    "notEditable": "The request has been picked up — it can no longer be changed",
+    "itemsLabel": "Items",
+    "itemNamePlaceholder": "What you need, e.g. glass cleaner",
+    "itemNameAccessibility": "Item {{index}}: name",
+    "quantityAccessibility": "Item {{index}}: quantity",
+    "itemCommentPlaceholder": "Details: brand, size",
+    "itemCommentAccessibility": "Item {{index}}: details",
+    "addItem": "+ Add an item",
+    "removeItem": "Remove the item",
+    "itemInvalidHint": "Every item needs a name and a quantity above zero",
+    "units": {
+      "pcs": "pcs",
+      "pack": "pack",
+      "l": "l",
+      "kg": "kg",
+      "roll": "roll"
+    },
+    "priorityLabel": "Urgency",
+    "priorityHint": "Urgent — running out now, the cleaning cannot be done without it",
+    "priorities": {
+      "normal": "Normal",
+      "urgent": "Urgent"
+    },
+    "noteLabel": "Note",
+    "notePlaceholder": "Anything else worth knowing",
+    "statusLabel": "Status",
+    "statuses": {
+      "new": "New",
+      "accepted": "Accepted",
+      "ordered": "Ordered",
+      "fulfilled": "Fulfilled",
+      "rejected": "Rejected"
+    },
+    "general": "General request",
+    "rejectReason": "Reason for rejecting",
+    "moreItems": "{{shown}} and {{count}} more",
+    "cardAccessibility": "{{place}}. {{summary}}. {{status}}"
+  },
+  "media": {
+    "takePhoto": "Take a photo",
+    "remove": "Remove",
+    "retry": "Retry the upload",
+    "count": "{{taken}} of {{max}}",
+    "photoAccessibility": "Photo {{index}}. {{status}}",
+    "status": {
+      "uploaded": "Uploaded",
+      "uploading": "Uploading",
+      "failed": "Not uploaded",
+      "local": "Will be sent"
+    }
+  },
   "serverErrors": {
     "checklistCopySameProperty": "Source and target are the same apartment",
     "checklistItemsLeft": "Not every required checklist item is ticked",
@@ -133,6 +243,20 @@
     "requiredStepNotSkippable": "A required step cannot be skipped",
     "requiredStepsLeft": "Required steps left: {{count}}",
     "startTooEarly": "The cleaning cannot start before {{time}} ({{date}})",
+    "problemNotFound": "Problem not found",
+    "problemTitleRequired": "Write what happened",
+    "problemTitleTooLong": "The title is longer than {{limit}} characters",
+    "problemDescriptionTooLong": "The description is longer than {{limit}} characters",
+    "problemNotOpen": "The problem has been picked up — it can no longer be changed",
+    "problemNoProperty": "The problem has no listing — it cannot be assigned",
+    "problemAssigneeInvalid": "The assignee is not an active member of the team",
+    "taskNotFound": "Task not found",
+    "supplyNotFound": "Request not found",
+    "supplyNotEditable": "The request has been picked up — it can no longer be changed",
+    "supplyItemsRequired": "Add at least one item",
+    "supplyItemInvalid": "Item {{index}} is not filled in correctly",
+    "supplyNoteTooLong": "The note is longer than {{limit}} characters",
+    "supplyTransitionInvalid": "That change of the request's status is not available",
     "stepNotFound": "The step was not found, or the cleaning is no longer in progress",
     "stepPayloadInvalid": "The app sent the step data in the wrong shape",
     "stepTypeUnsupported": "This step arrives in the next version of the app",

@@ -31,6 +31,7 @@ function media(overrides: Partial<TaskMedia> = {}): TaskMedia {
     created_at: '2026-09-07T10:00:01+00:00',
     uploaded_at: '2026-09-07T10:00:05+00:00',
     deleted_at: null,
+    problem_id: null,
     ...overrides,
   };
 }

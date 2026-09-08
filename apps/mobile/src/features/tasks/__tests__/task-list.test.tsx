@@ -27,6 +27,7 @@ function task(): CleaningTask {
     started_at: null,
     completed_at: null,
     is_parallel: false,
+    type: 'cleaning',
   };
 }
 

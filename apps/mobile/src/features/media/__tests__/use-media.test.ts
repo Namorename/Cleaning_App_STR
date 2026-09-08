@@ -66,6 +66,7 @@ describe('mediaItemViews', () => {
     created_at: '2026-09-07T10:00:01+00:00',
     uploaded_at: null,
     deleted_at: null,
+    problem_id: null,
   };
 
   const local = {

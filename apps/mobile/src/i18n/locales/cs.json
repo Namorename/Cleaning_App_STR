@@ -18,7 +18,9 @@
   },
   "tabs": {
     "myTasks": "Moje úklidy",
-    "queue": "Volné"
+    "queue": "Volné",
+    "problems": "Problémy",
+    "supplies": "Materiál"
   },
   "tasks": {
     "loading": "Načítáme úklidy…",
@@ -55,6 +57,11 @@
       "colleague": "Úklid dělá kolegyně",
       "closed": "Úkol je uzavřen",
       "startsAt": "Začít lze nejdříve v {{time}}, {{date}}",
+      "reportProblem": "Nahlásit problém",
+      "requestSupplies": "Požádat o materiál",
+      "problem": "Problém",
+      "openProblem": "Otevřít problém",
+      "fixBanner": "{{property}} · priorita: {{priority}}",
       "notFound": "Úkol nenalezen, nebo už není váš"
     }
   },
@@ -114,6 +121,109 @@
     "cameraDenied": "Bez přístupu k fotoaparátu — povolte ho v nastavení telefonu",
     "captureFailed": "Nepodařilo se vyfotit — zkuste to znovu"
   },
+  "problems": {
+    "report": "Nahlásit problém",
+    "new": "Nový problém",
+    "one": "Problém",
+    "edit": "Upravit",
+    "save": "Uložit",
+    "submit": "Odeslat",
+    "loading": "Načítáme problémy…",
+    "emptyMine": "Žádné nahlášené problémy",
+    "closedHeading": "Uzavřené",
+    "notFound": "Problém nenalezen",
+    "notEditable": "Problém už někdo převzal — nelze ho změnit",
+    "titleLabel": "Co se stalo",
+    "titlePlaceholder": "Například teče kohoutek",
+    "descriptionLabel": "Podrobnosti",
+    "descriptionPlaceholder": "Kde přesně, jak dlouho — vše, co pomůže technikovi",
+    "priorityLabel": "Priorita",
+    "priorityLine": "Priorita: {{priority}}",
+    "priorities": {
+      "low": "Nízká",
+      "normal": "Běžná",
+      "high": "Vysoká"
+    },
+    "photosLabel": "Fotky",
+    "photosHint": "Až {{max}} fotky, fotoaparátem",
+    "noPhotos": "Bez fotek",
+    "statusLabel": "Stav",
+    "statuses": {
+      "open": "Otevřený",
+      "assigned": "Přidělený",
+      "in_progress": "Řeší se",
+      "resolved": "Vyřešený",
+      "cancelled": "Zrušený"
+    },
+    "noProperty": "Bez objektu",
+    "cancelReason": "Důvod zrušení",
+    "openFixTask": "Otevřít úkol opravy",
+    "cardAccessibility": "{{title}}. {{place}}. {{status}}"
+  },
+  "supplies": {
+    "request": "Požádat o materiál",
+    "new": "Nová žádost",
+    "one": "Žádost o materiál",
+    "edit": "Upravit",
+    "save": "Uložit",
+    "submit": "Odeslat žádost",
+    "delete": "Smazat žádost",
+    "deleteQuestion": "Manažer ji už neuvidí. Smazat?",
+    "loading": "Načítáme žádosti…",
+    "emptyMine": "Žádné žádosti",
+    "closedHeading": "Uzavřené",
+    "notFound": "Žádost nenalezena",
+    "notEditable": "Žádost už někdo převzal — nelze ji změnit",
+    "itemsLabel": "Položky",
+    "itemNamePlaceholder": "Co potřebujete, např. čistič na sklo",
+    "itemNameAccessibility": "Položka {{index}}: název",
+    "quantityAccessibility": "Položka {{index}}: množství",
+    "itemCommentPlaceholder": "Upřesnění: značka, velikost",
+    "itemCommentAccessibility": "Položka {{index}}: upřesnění",
+    "addItem": "+ Přidat položku",
+    "removeItem": "Odebrat položku",
+    "itemInvalidHint": "Každá položka potřebuje název a množství větší než nula",
+    "units": {
+      "pcs": "ks",
+      "pack": "bal",
+      "l": "l",
+      "kg": "kg",
+      "roll": "role"
+    },
+    "priorityLabel": "Naléhavost",
+    "priorityHint": "Naléhavé — dochází právě teď, bez toho nelze uklidit",
+    "priorities": {
+      "normal": "Běžná",
+      "urgent": "Naléhavé"
+    },
+    "noteLabel": "Poznámka",
+    "notePlaceholder": "Co dalšího je dobré vědět",
+    "statusLabel": "Stav",
+    "statuses": {
+      "new": "Nová",
+      "accepted": "Přijatá",
+      "ordered": "Objednáno",
+      "fulfilled": "Vyřízená",
+      "rejected": "Zamítnutá"
+    },
+    "general": "Obecná žádost",
+    "rejectReason": "Důvod zamítnutí",
+    "moreItems": "{{shown}} a ještě {{count}}",
+    "cardAccessibility": "{{place}}. {{summary}}. {{status}}"
+  },
+  "media": {
+    "takePhoto": "Vyfotit",
+    "remove": "Odstranit",
+    "retry": "Zkusit nahrát znovu",
+    "count": "{{taken}} z {{max}}",
+    "photoAccessibility": "Fotka {{index}}. {{status}}",
+    "status": {
+      "uploaded": "Nahráno",
+      "uploading": "Nahrává se",
+      "failed": "Nenahráno",
+      "local": "Bude odesláno"
+    }
+  },
   "serverErrors": {
     "checklistCopySameProperty": "Zdroj a cíl jsou tentýž apartmán",
     "checklistItemsLeft": "Nejsou odškrtnuty všechny povinné položky kontrolního seznamu",
@@ -133,6 +243,20 @@
     "requiredStepNotSkippable": "Povinný krok nelze přeskočit",
     "requiredStepsLeft": "Zbývá povinných kroků: {{count}}",
     "startTooEarly": "Úklid nelze začít dříve než v {{time}} ({{date}})",
+    "problemNotFound": "Problém nenalezen",
+    "problemTitleRequired": "Napište, co se stalo",
+    "problemTitleTooLong": "Název je delší než {{limit}} znaků",
+    "problemDescriptionTooLong": "Popis je delší než {{limit}} znaků",
+    "problemNotOpen": "Problém už někdo převzal — nelze ho změnit",
+    "problemNoProperty": "Problém nemá objekt — nelze ho přidělit",
+    "problemAssigneeInvalid": "Řešitel není mezi aktivními členy týmu",
+    "taskNotFound": "Úkol nenalezen",
+    "supplyNotFound": "Žádost nenalezena",
+    "supplyNotEditable": "Žádost už někdo převzal — nelze ji změnit",
+    "supplyItemsRequired": "Přidejte alespoň jednu položku",
+    "supplyItemInvalid": "Položka {{index}} není vyplněna správně",
+    "supplyNoteTooLong": "Poznámka je delší než {{limit}} znaků",
+    "supplyTransitionInvalid": "Tato změna stavu žádosti není dostupná",
     "stepNotFound": "Krok nebyl nalezen nebo úklid již neprobíhá",
     "stepPayloadInvalid": "Aplikace odeslala data kroku ve špatném tvaru",
     "stepTypeUnsupported": "Tento krok přijde v příští verzi aplikace",
