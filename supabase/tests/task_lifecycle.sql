@@ -185,4 +185,58 @@ exception when check_violation then
   raise notice 'ok  with parallel starts off, a second start is refused';
 end $$;
 
+-- ---------- not before the window ----------
+-- Found on 2026-09-08: a cleaner could start tomorrow's cleaning today. The
+-- start is held until the window opens — the scheduled date at the window's
+-- start time, or midnight of that date when the start is unknown — judged in
+-- the listing's own timezone. The refusal carries the date and time it is
+-- waiting for. A manager is not held: releasing work early is their call.
+--
+-- Parallel starts go back on: this section is about the window, not about
+-- what else Maria has running.
+update public.hosts set parallel_start_allowed = true;
+
+insert into public.tasks (property_id, type, status, assignee_id, scheduled_date, time_from, notes) values
+  (900001201, 'cleaning', 'assigned', 'd1000000-0000-4000-8000-0000000000d1', current_date + 1, null,       'tomorrow'),
+  (900001201, 'cleaning', 'assigned', 'd1000000-0000-4000-8000-0000000000d1', current_date,     '23:59:59', 'late today'),
+  (900001201, 'cleaning', 'assigned', 'd1000000-0000-4000-8000-0000000000d1', current_date,     '00:00',    'from midnight'),
+  (900001201, 'cleaning', 'assigned', 'd1000000-0000-4000-8000-0000000000d1', current_date - 1, '10:00',    'yesterday');
+
+create or replace function pg_temp.refusal(statement text)
+returns text language plpgsql as $$
+declare
+  v_hint   text;
+  v_detail text;
+begin
+  execute statement;
+  return 'no refusal';
+exception when check_violation then
+  get stacked diagnostics v_hint = pg_exception_hint, v_detail = pg_exception_detail;
+  return v_hint || coalesce(' ' || nullif(v_detail, ''), '');
+end $$;
+
+select pg_temp.as_maria();
+select pg_temp.check('tomorrow''s cleaning cannot be started today',
+  pg_temp.refusal($q$update public.tasks set status = 'in_progress' where notes = 'tomorrow'$q$),
+  'serverErrors.startTooEarly {"date": "' || (current_date + 1)::text || '", "time": "00:00"}');
+select pg_temp.check('a window that has not opened yet holds the start',
+  pg_temp.refusal($q$update public.tasks set status = 'in_progress' where notes = 'late today'$q$),
+  'serverErrors.startTooEarly {"date": "' || current_date::text || '", "time": "23:59"}');
+update public.tasks set status = 'in_progress' where notes = 'from midnight';
+update public.tasks set status = 'in_progress' where notes = 'yesterday';
+reset role; reset request.jwt.claims;
+
+select pg_temp.check('the held task is still waiting',
+  (pg_temp.task('tomorrow')).status::text, 'assigned');
+select pg_temp.check('a window that has opened lets the start through',
+  (pg_temp.task('from midnight')).status::text, 'in_progress');
+select pg_temp.check('a task from yesterday can still be started',
+  (pg_temp.task('yesterday')).status::text, 'in_progress');
+
+select pg_temp.as_boss();
+update public.tasks set status = 'in_progress' where notes = 'tomorrow';
+reset role; reset request.jwt.claims;
+select pg_temp.check('a manager may start a cleaning before its window',
+  (pg_temp.task('tomorrow')).status::text, 'in_progress');
+
 rollback;

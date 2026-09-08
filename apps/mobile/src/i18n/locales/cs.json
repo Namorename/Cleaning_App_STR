@@ -54,6 +54,7 @@
       "finished": "Úklid dokončen",
       "colleague": "Úklid dělá kolegyně",
       "closed": "Úkol je uzavřen",
+      "startsAt": "Začít lze nejdříve v {{time}}, {{date}}",
       "notFound": "Úkol nenalezen, nebo už není váš"
     }
   },
@@ -131,6 +132,7 @@
     "reasonRequired": "Uveďte důvod",
     "requiredStepNotSkippable": "Povinný krok nelze přeskočit",
     "requiredStepsLeft": "Zbývá povinných kroků: {{count}}",
+    "startTooEarly": "Úklid nelze začít dříve než v {{time}} ({{date}})",
     "stepNotFound": "Krok nebyl nalezen nebo úklid již neprobíhá",
     "stepPayloadInvalid": "Aplikace odeslala data kroku ve špatném tvaru",
     "stepTypeUnsupported": "Tento krok přijde v příští verzi aplikace",

@@ -10,15 +10,18 @@ import { serverErrorText } from '@/lib/server-error';
 import {
   formatClockTime,
   formatScheduledDate,
+  formatStartNotBefore,
   formatWindow,
   propertyName,
   urgencyText,
 } from './format';
-import { availableAction, isSameDayTurnover, type CleaningTask } from './schema';
+import { availableAction, canStartNow, isSameDayTurnover, type CleaningTask } from './schema';
 
 interface TaskDetailProps {
   task: CleaningTask;
   userId: string;
+  /** The clock the start button is judged against; ticks in the route. */
+  now: Date;
   isBusy: boolean;
   /** The last action's failure, shown next to the button so she can retry. */
   error: Error | null;
@@ -38,11 +41,13 @@ interface TaskDetailProps {
  * one, and a screen with two buttons where one is going to be refused is a
  * screen that lies. Once the task has started its steps sit between the facts
  * and the button; a required step still open disables the finish and says why,
- * mirroring the refusal the server would give.
+ * mirroring the refusal the server would give. The start is held the same way
+ * until the cleaning window opens.
  */
 export function TaskDetail({
   task,
   userId,
+  now,
   isBusy,
   error,
   steps,
@@ -64,6 +69,8 @@ export function TaskDetail({
   const remaining = steps === undefined ? 0 : remainingRequired(steps);
   const failure = error === null ? null : serverErrorText(error);
   const isFinishBlocked = action === 'finish' && remaining > 0;
+  const isStartBlocked = action === 'start' && !canStartNow(task, now);
+  const isBlocked = isFinishBlocked || isStartBlocked;
 
   const actionLabel =
     action === 'claim'
@@ -75,7 +82,7 @@ export function TaskDetail({
           : null;
 
   const onAction = () => {
-    if (isBusy || isFinishBlocked || action === null) {
+    if (isBusy || isBlocked || action === null) {
       return;
     }
     if (action === 'claim') {
@@ -154,16 +161,22 @@ export function TaskDetail({
         </Text>
       ) : null}
 
+      {isStartBlocked ? (
+        <Text accessibilityLiveRegion="polite" style={styles.hint}>
+          {formatStartNotBefore(task)}
+        </Text>
+      ) : null}
+
       {actionLabel !== null ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={actionLabel}
-          accessibilityState={{ disabled: isBusy || isFinishBlocked, busy: isBusy }}
-          disabled={isBusy || isFinishBlocked}
+          accessibilityState={{ disabled: isBusy || isBlocked, busy: isBusy }}
+          disabled={isBusy || isBlocked}
           onPress={onAction}
           style={({ pressed }) => [
             styles.button,
-            isFinishBlocked && styles.buttonDisabled,
+            isBlocked && styles.buttonDisabled,
             pressed && styles.buttonPressed,
           ]}
         >

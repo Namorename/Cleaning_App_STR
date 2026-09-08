@@ -1,11 +1,39 @@
 import {
+  canStartNow,
   cleaningTaskSchema,
   earliestClaimableDate,
   groupMyTasks,
   isFree,
   isRunning,
+  startNotBefore,
   type CleaningTask,
 } from '../schema';
+
+describe('canStartNow', () => {
+  test('opens at the window start on the scheduled day, in local time', () => {
+    // Arrange
+    const cleaning = task({ scheduled_date: '2026-11-10', time_from: '10:00:00' });
+
+    // Act & Assert
+    expect(startNotBefore(cleaning)).toEqual(new Date(2026, 10, 10, 10, 0));
+    expect(canStartNow(cleaning, new Date(2026, 10, 10, 9, 59))).toBe(false);
+    expect(canStartNow(cleaning, new Date(2026, 10, 10, 10, 0))).toBe(true);
+  });
+
+  test('tomorrow cannot start today, whatever the hour', () => {
+    const cleaning = task({ scheduled_date: '2026-11-11', time_from: '10:00:00' });
+
+    expect(canStartNow(cleaning, new Date(2026, 10, 10, 23, 59))).toBe(false);
+  });
+
+  test('a window with no start opens at midnight', () => {
+    const cleaning = task({ scheduled_date: '2026-11-10', time_from: null });
+
+    expect(startNotBefore(cleaning)).toEqual(new Date(2026, 10, 10, 0, 0));
+    expect(canStartNow(cleaning, new Date(2026, 10, 9, 23, 59))).toBe(false);
+    expect(canStartNow(cleaning, new Date(2026, 10, 10, 0, 0))).toBe(true);
+  });
+});
 
 describe('earliestClaimableDate', () => {
   test('allows yesterday, so a cleaning caught up in the morning is still takeable', () => {

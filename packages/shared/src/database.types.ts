@@ -1334,6 +1334,14 @@ export type Database = {
         }
       }
       task_note_line_count: { Args: { p_text: string }; Returns: number }
+      task_start_not_before: {
+        Args: {
+          target_property_id: number
+          target_scheduled_date: string
+          target_time_from: string
+        }
+        Returns: string
+      }
       task_step_for_update: {
         Args: { p_require_assignee: boolean; p_step_id: string }
         Returns: {

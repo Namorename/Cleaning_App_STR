@@ -9,6 +9,7 @@ import { useTaskSteps } from '@/features/steps/use-steps';
 import { propertyName } from '@/features/tasks/format';
 import { TaskDetail } from '@/features/tasks/task-detail';
 import { useClaimTask, useFinishTask, useStartTask, useTask } from '@/features/tasks/use-tasks';
+import { useNow } from '@/hooks/use-now';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { serverErrorText } from '@/lib/server-error';
 
@@ -33,6 +34,7 @@ export default function TaskScreen() {
   const claim = useClaimTask();
   const start = useStartTask();
   const finish = useFinishTask();
+  const now = useNow();
 
   const isBusy = claim.isPending || start.isPending || finish.isPending;
   const error = claim.error ?? start.error ?? finish.error;
@@ -65,6 +67,7 @@ export default function TaskScreen() {
       <TaskDetail
         task={query.data}
         userId={userId}
+        now={now}
         isBusy={isBusy}
         error={error}
         steps={steps.data}

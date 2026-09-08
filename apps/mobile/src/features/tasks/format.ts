@@ -1,6 +1,6 @@
 import { INTL_LOCALES, currentLanguage, i18n } from '@/i18n';
 
-import { isSameDayTurnover, type CleaningTask } from './schema';
+import { isSameDayTurnover, startNotBefore, type CleaningTask } from './schema';
 
 /**
  * Formatters are built per language and kept: constructing an
@@ -99,6 +99,25 @@ export function formatWindow(task: CleaningTask): string | null {
   const to = task.time_to === null ? '' : clockTime(task.time_to);
 
   return `${from}–${to}`;
+}
+
+/**
+ * When a cleaning that cannot start yet will open, as one sentence.
+ *
+ * The window is a local clock time and the date is a calendar date, so both
+ * are formatted from the local instant `startNotBefore` builds — never from
+ * a UTC parse, for the reason given at `formatScheduledDate`.
+ */
+export function formatStartNotBefore(task: CleaningTask): string {
+  const opensAt = startNotBefore(task);
+  const time = formatterFor(timeFormatters, { hour: '2-digit', minute: '2-digit' }).format(opensAt);
+  const date = formatterFor(dateFormatters, {
+    day: 'numeric',
+    month: 'long',
+    weekday: 'short',
+  }).format(opensAt);
+
+  return i18n.t('tasks.detail.startsAt', { time, date });
 }
 
 export function propertyName(task: CleaningTask): string {

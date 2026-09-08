@@ -135,3 +135,23 @@ export function earliestClaimableDate(now: Date = new Date()): string {
 
   return `${earliest.getFullYear()}-${month}-${day}`;
 }
+
+/**
+ * The moment the cleaning may start: the scheduled date at the window's start,
+ * or midnight of that date when the start is unknown.
+ *
+ * Built in the phone's local time, like `earliestClaimableDate`: the window is
+ * a clock time at the listing, and the phone is at the listing. The server
+ * judges the same rule in the listing's timezone and refuses an early start;
+ * this mirror only keeps the button honest.
+ */
+export function startNotBefore(task: CleaningTask): Date {
+  const [year, month, day] = task.scheduled_date.split('-').map(Number);
+  const [hours, minutes] = (task.time_from ?? '00:00').split(':').map(Number);
+
+  return new Date(year, month - 1, day, hours, minutes);
+}
+
+export function canStartNow(task: CleaningTask, now: Date): boolean {
+  return now.getTime() >= startNotBefore(task).getTime();
+}

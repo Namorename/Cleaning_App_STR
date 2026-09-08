@@ -84,4 +84,67 @@ select pg_temp.check('a third run reports no changes',
      - 'window_from' - 'window_to'),
   '{"created": 0, "rescheduled": 0, "assigned": 0, "cancelled": 0}'::jsonb);
 
+-- ---------- a booking is cancelled ----------
+-- The task is never deleted: it is a record that a cleaning was planned. A
+-- task nobody has touched is marked cancelled. A task somebody is working on,
+-- or has finished, is left exactly as it is — the hours were real whatever
+-- happened to the booking. A cancelled booking that comes back gets a fresh
+-- task next to the cancelled one, so the history reads as it happened.
+insert into public.properties (id, name, timezone, check_in_time, check_out_time) values
+  (900000204, 'Cancellations', 'Europe/Prague', '15:00', '10:00');
+
+insert into public.reservations (id, property_id, arrival_date, departure_date, status, guest_name) values
+  (900000307, 900000204, '2026-11-01', '2026-11-03', 'new', 'Cancels while untouched'),
+  (900000308, 900000204, '2026-11-05', '2026-11-07', 'new', 'Cancels while in progress'),
+  (900000309, 900000204, '2026-11-09', '2026-11-11', 'new', 'Cancels after the cleaning');
+
+create or replace function pg_temp.task_statuses(res_id bigint)
+returns text language sql as $$
+  select string_agg(status::text, ',' order by created_at)
+  from public.tasks where reservation_id = res_id and type = 'cleaning'
+$$;
+
+select pg_temp.check('three November tasks are created',
+  (select (public.generate_cleaning_tasks('2026-11-01', '2026-11-30') ->> 'created')::int), 3);
+
+-- The cleaner has started one and finished another before the guests cancel.
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        created_at, updated_at, raw_user_meta_data, raw_app_meta_data)
+values ('d7000000-0000-4000-8000-0000000000d7','00000000-0000-0000-0000-000000000000',
+        'authenticated','authenticated','maria.gen@test.local','x',now(),now(),
+        '{"full_name":"Maria"}'::jsonb, '{"role":"cleaner"}'::jsonb);
+
+update public.tasks
+set status = 'in_progress', assignee_id = 'd7000000-0000-4000-8000-0000000000d7',
+    started_at = now() - interval '1 hour'
+where reservation_id = 900000308;
+update public.tasks set status = 'done', started_at = now() - interval '3 hours',
+                        completed_at = now() - interval '1 hour'
+where reservation_id = 900000309;
+
+update public.reservations set status = 'cancelled'
+where id in (900000307, 900000308, 900000309);
+
+select pg_temp.check('the run reports one cancellation, the untouched task',
+  (select (public.generate_cleaning_tasks('2026-11-01', '2026-11-30') ->> 'cancelled')::int), 1);
+
+select pg_temp.check('an untouched task is marked cancelled, not deleted',
+  pg_temp.task_statuses(900000307), 'cancelled');
+select pg_temp.check('a task under way keeps running',
+  pg_temp.task_statuses(900000308), 'in_progress');
+select pg_temp.check('a task under way keeps its start stamp',
+  (select started_at is not null from public.tasks where reservation_id = 900000308), true);
+select pg_temp.check('a finished task stays done',
+  pg_temp.task_statuses(900000309), 'done');
+
+-- ---------- the booking comes back ----------
+update public.reservations set status = 'modified' where id in (900000307, 900000308);
+
+select pg_temp.check('a reinstated booking gets a task again',
+  (select (public.generate_cleaning_tasks('2026-11-01', '2026-11-30') ->> 'created')::int), 1);
+select pg_temp.check('the cancelled task stays as history next to the new one',
+  pg_temp.task_statuses(900000307), 'cancelled,unassigned');
+select pg_temp.check('a booking whose cleaning is under way does not get a second task',
+  pg_temp.task_statuses(900000308), 'in_progress');
+
 rollback;

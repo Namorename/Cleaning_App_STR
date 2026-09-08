@@ -6,6 +6,8 @@ import { TaskDetail } from '../task-detail';
 import type { CleaningTask } from '../schema';
 
 const ME = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
+/** Midday on the fixture's day: its window opened at ten. */
+const NOW = new Date(2026, 10, 10, 12, 0);
 
 function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
   return {
@@ -38,7 +40,7 @@ beforeEach(() => {
 });
 
 test('shows what the cleaner needs to plan by: window, guests, notes', async () => {
-  await render(<TaskDetail task={task()} userId={ME} isBusy={false} error={null} {...actions} />);
+  await render(<TaskDetail task={task()} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />);
 
   expect(screen.getByText(/10:00–15:00/)).toBeTruthy();
   expect(screen.getByText('4')).toBeTruthy();
@@ -46,7 +48,7 @@ test('shows what the cleaner needs to plan by: window, guests, notes', async () 
 });
 
 test('offers to start a task assigned to her', async () => {
-  await render(<TaskDetail task={task()} userId={ME} isBusy={false} error={null} {...actions} />);
+  await render(<TaskDetail task={task()} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />);
 
   await fireEvent.press(screen.getByRole('button', { name: 'Начать уборку' }));
 
@@ -59,6 +61,7 @@ test('offers to finish a task she has started', async () => {
     <TaskDetail
       task={task({ status: 'in_progress', started_at: '2026-11-10T08:05:00+00:00' })}
       userId={ME}
+      now={NOW}
       isBusy={false}
       error={null}
       {...actions}
@@ -76,6 +79,7 @@ test('offers to take a free task instead of starting it', async () => {
     <TaskDetail
       task={task({ status: 'unassigned', assignee_id: null })}
       userId={ME}
+      now={NOW}
       isBusy={false}
       error={null}
       {...actions}
@@ -92,6 +96,7 @@ test('offers nothing on a colleague task and says whose it is', async () => {
     <TaskDetail
       task={task({ assignee_id: 'a1b2c3d4-2222-4222-8222-a1b2c3d40002' })}
       userId={ME}
+      now={NOW}
       isBusy={false}
       error={null}
       {...actions}
@@ -111,6 +116,7 @@ test('says when a finished task is finished', async () => {
         completed_at: '2026-11-10T10:00:00+00:00',
       })}
       userId={ME}
+      now={NOW}
       isBusy={false}
       error={null}
       {...actions}
@@ -121,8 +127,97 @@ test('says when a finished task is finished', async () => {
   expect(screen.getByText('Уборка завершена')).toBeTruthy();
 });
 
+describe('the window', () => {
+  test('holds the start of tomorrow\'s cleaning and says when it opens', async () => {
+    await render(
+      <TaskDetail
+        task={task({ scheduled_date: '2026-11-11' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    const button = screen.getByRole('button', { name: 'Начать уборку' });
+    expect(button).toBeDisabled();
+    await fireEvent.press(button);
+
+    expect(actions.onStart).not.toHaveBeenCalled();
+    expect(screen.getByText(/Начать можно не раньше 10:00, .*11 ноября/)).toBeTruthy();
+  });
+
+  test('holds the start until the window opens on the day', async () => {
+    await render(
+      <TaskDetail
+        task={task()}
+        userId={ME}
+        now={new Date(2026, 10, 10, 9, 45)}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Начать уборку' })).toBeDisabled();
+    expect(screen.getByText(/Начать можно не раньше 10:00/)).toBeTruthy();
+  });
+
+  test('lets the start through the minute the window opens', async () => {
+    await render(
+      <TaskDetail
+        task={task()}
+        userId={ME}
+        now={new Date(2026, 10, 10, 10, 0)}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Начать уборку' }));
+
+    expect(actions.onStart).toHaveBeenCalledWith('3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b');
+    expect(screen.queryByText(/Начать можно не раньше/)).toBeNull();
+  });
+
+  test('a window with no start opens at midnight', async () => {
+    await render(
+      <TaskDetail
+        task={task({ time_from: null })}
+        userId={ME}
+        now={new Date(2026, 10, 10, 0, 0)}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Начать уборку' })).not.toBeDisabled();
+  });
+
+  test('translates the server refusing an early start', async () => {
+    await render(
+      <TaskDetail
+        task={task()}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={Object.assign(new Error('Cleaning cannot start before 2026-11-11 09:00:00+00'), {
+          hint: 'serverErrors.startTooEarly',
+          details: '{"date": "2026-11-11", "time": "10:00"}',
+        })}
+        {...actions}
+      />,
+    );
+
+    expect(screen.getByText('Уборку нельзя начать раньше 10:00 (2026-11-11)')).toBeTruthy();
+  });
+});
+
 test('does not fire twice while an action is in flight', async () => {
-  await render(<TaskDetail task={task()} userId={ME} isBusy error={null} {...actions} />);
+  await render(<TaskDetail task={task()} userId={ME} now={NOW} isBusy error={null} {...actions} />);
 
   await fireEvent.press(screen.getByRole('button', { name: 'Начать уборку' }));
 
@@ -165,6 +260,7 @@ describe('the process', () => {
       <TaskDetail
         task={running}
         userId={ME}
+        now={NOW}
         isBusy={false}
         error={null}
         steps={[step()]}
@@ -183,6 +279,7 @@ describe('the process', () => {
       <TaskDetail
         task={running}
         userId={ME}
+        now={NOW}
         isBusy={false}
         error={null}
         steps={[step({ required: true }), step({ id: 'b1c2d3e4-2222-4222-8222-b1c2d3e40002' })]}
@@ -204,6 +301,7 @@ describe('the process', () => {
       <TaskDetail
         task={running}
         userId={ME}
+        now={NOW}
         isBusy={false}
         error={null}
         steps={[
@@ -232,6 +330,7 @@ test('translates a refusal the server sent a key for, and lets her retry', async
     <TaskDetail
       task={task()}
       userId={ME}
+      now={NOW}
       isBusy={false}
       error={Object.assign(new Error('Required steps are still open: 2'), {
         hint: 'serverErrors.requiredStepsLeft',
@@ -252,6 +351,7 @@ test('falls back to one sentence when there is no key, keeping the raw words', a
     <TaskDetail
       task={task()}
       userId={ME}
+      now={NOW}
       isBusy={false}
       error={new Error('Network request failed')}
       {...actions}

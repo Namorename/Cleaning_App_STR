@@ -54,6 +54,7 @@
       "finished": "Cleaning finished",
       "colleague": "A colleague is doing this cleaning",
       "closed": "Task closed",
+      "startsAt": "Can start no earlier than {{time}}, {{date}}",
       "notFound": "Task not found, or no longer yours"
     }
   },
@@ -131,6 +132,7 @@
     "reasonRequired": "Please give a reason",
     "requiredStepNotSkippable": "A required step cannot be skipped",
     "requiredStepsLeft": "Required steps left: {{count}}",
+    "startTooEarly": "The cleaning cannot start before {{time}} ({{date}})",
     "stepNotFound": "The step was not found, or the cleaning is no longer in progress",
     "stepPayloadInvalid": "The app sent the step data in the wrong shape",
     "stepTypeUnsupported": "This step arrives in the next version of the app",
