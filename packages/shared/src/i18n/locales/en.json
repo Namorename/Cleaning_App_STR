@@ -44,6 +44,76 @@
     "dashboard": {
       "emptyTitle": "The panel is connected",
       "emptyHint": "Figures arrive with the sections. Start with problems and supply requests."
+    },
+    "problems": {
+      "title": "Problems",
+      "searchPlaceholder": "Search by title or listing",
+      "viewBoard": "Board",
+      "viewList": "List",
+      "empty": "No problems",
+      "emptyFiltered": "Nothing found",
+      "loading": "Loading problems…",
+      "loadError": "Could not load the problems",
+      "notFound": "Problem not found",
+      "columns": {
+        "title": "Problem",
+        "property": "Listing",
+        "priority": "Priority",
+        "status": "Status",
+        "assignee": "Technician",
+        "reported": "Reported",
+        "reporter": "Reported by"
+      },
+      "noAssignee": "Unassigned",
+      "unknownPerson": "Unknown",
+      "countInColumn": "{{count}}",
+      "detail": {
+        "back": "Back to problems",
+        "description": "Description",
+        "noDescription": "No description",
+        "photos": "Photos",
+        "noPhotos": "No photos",
+        "reportedBy": "Reported by {{name}}",
+        "reportedAt": "Reported {{date}}",
+        "fromTask": "Found during a cleaning",
+        "fixTask": "Fix task",
+        "noFixTask": "No technician assigned yet",
+        "schedule": "{{date}}, {{window}}",
+        "window": "{{from}}–{{to}}",
+        "windowFrom": "from {{from}}",
+        "windowTo": "until {{to}}",
+        "anyTime": "any time",
+        "steps": "Task steps",
+        "noSteps": "Steps appear once the technician starts the task",
+        "stepDone": "Done",
+        "stepSkipped": "Skipped",
+        "stepWaived": "Waived by manager",
+        "stepPending": "Not started",
+        "stepPhotos": "Step photos",
+        "resolvedAt": "Resolved {{date}}",
+        "cancelledAt": "Cancelled {{date}}",
+        "cancelReason": "Cancel reason",
+        "taskStatus": "Task status: {{status}}"
+      },
+      "assign": {
+        "title": "Assign a technician",
+        "assignee": "Technician",
+        "choose": "Choose a person",
+        "date": "Date",
+        "timeFrom": "From",
+        "timeTo": "Until",
+        "submit": "Assign",
+        "resubmit": "Reassign",
+        "noProperty": "The problem has no listing, so a task cannot be scheduled",
+        "done": "Technician assigned"
+      },
+      "actions": {
+        "resolve": "Mark as resolved",
+        "cancel": "Cancel the problem",
+        "cancelReason": "Cancel reason",
+        "cancelConfirm": "Confirm cancellation",
+        "cancelAbort": "Keep it open"
+      }
     }
   },
   "tabs": {

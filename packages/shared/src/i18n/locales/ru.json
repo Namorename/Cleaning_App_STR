@@ -44,6 +44,76 @@
     "dashboard": {
       "emptyTitle": "Панель подключена",
       "emptyHint": "Показатели появятся вместе с разделами. Начните с проблем и заявок."
+    },
+    "problems": {
+      "title": "Проблемы",
+      "searchPlaceholder": "Поиск по названию или объекту",
+      "viewBoard": "Доска",
+      "viewList": "Список",
+      "empty": "Проблем нет",
+      "emptyFiltered": "Ничего не найдено",
+      "loading": "Загружаем проблемы…",
+      "loadError": "Не удалось загрузить проблемы",
+      "notFound": "Проблема не найдена",
+      "columns": {
+        "title": "Проблема",
+        "property": "Объект",
+        "priority": "Срочность",
+        "status": "Статус",
+        "assignee": "Техник",
+        "reported": "Заявлена",
+        "reporter": "Сообщил"
+      },
+      "noAssignee": "Не назначен",
+      "unknownPerson": "Неизвестно",
+      "countInColumn": "{{count}}",
+      "detail": {
+        "back": "К списку проблем",
+        "description": "Описание",
+        "noDescription": "Без описания",
+        "photos": "Фото",
+        "noPhotos": "Фото нет",
+        "reportedBy": "Сообщил: {{name}}",
+        "reportedAt": "Заявлена {{date}}",
+        "fromTask": "Найдена во время уборки",
+        "fixTask": "Задача устранения",
+        "noFixTask": "Техник ещё не назначен",
+        "schedule": "{{date}}, {{window}}",
+        "window": "{{from}}–{{to}}",
+        "windowFrom": "с {{from}}",
+        "windowTo": "до {{to}}",
+        "anyTime": "в любое время",
+        "steps": "Шаги задачи",
+        "noSteps": "Шаги появятся, когда техник начнёт задачу",
+        "stepDone": "Выполнен",
+        "stepSkipped": "Пропущен",
+        "stepWaived": "Снят менеджером",
+        "stepPending": "Не начат",
+        "stepPhotos": "Фото шага",
+        "resolvedAt": "Решена {{date}}",
+        "cancelledAt": "Отменена {{date}}",
+        "cancelReason": "Причина отмены",
+        "taskStatus": "Статус задачи: {{status}}"
+      },
+      "assign": {
+        "title": "Назначить техника",
+        "assignee": "Техник",
+        "choose": "Выберите сотрудника",
+        "date": "Дата",
+        "timeFrom": "С",
+        "timeTo": "До",
+        "submit": "Назначить",
+        "resubmit": "Переназначить",
+        "noProperty": "У проблемы нет объекта, поэтому задачу назначить нельзя",
+        "done": "Техник назначен"
+      },
+      "actions": {
+        "resolve": "Отметить решённой",
+        "cancel": "Отменить проблему",
+        "cancelReason": "Причина отмены",
+        "cancelConfirm": "Подтвердить отмену",
+        "cancelAbort": "Не отменять"
+      }
     }
   },
   "tabs": {

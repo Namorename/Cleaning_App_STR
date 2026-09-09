@@ -44,6 +44,76 @@
     "dashboard": {
       "emptyTitle": "Panel je připojen",
       "emptyHint": "Čísla přijdou spolu se sekcemi. Začněte problémy a žádostmi o materiál."
+    },
+    "problems": {
+      "title": "Problémy",
+      "searchPlaceholder": "Hledat podle názvu nebo objektu",
+      "viewBoard": "Nástěnka",
+      "viewList": "Seznam",
+      "empty": "Žádné problémy",
+      "emptyFiltered": "Nic nenalezeno",
+      "loading": "Načítáme problémy…",
+      "loadError": "Problémy se nepodařilo načíst",
+      "notFound": "Problém nenalezen",
+      "columns": {
+        "title": "Problém",
+        "property": "Objekt",
+        "priority": "Naléhavost",
+        "status": "Stav",
+        "assignee": "Technik",
+        "reported": "Nahlášeno",
+        "reporter": "Nahlásil"
+      },
+      "noAssignee": "Nepřiřazeno",
+      "unknownPerson": "Neznámý",
+      "countInColumn": "{{count}}",
+      "detail": {
+        "back": "Zpět na problémy",
+        "description": "Popis",
+        "noDescription": "Bez popisu",
+        "photos": "Fotky",
+        "noPhotos": "Žádné fotky",
+        "reportedBy": "Nahlásil: {{name}}",
+        "reportedAt": "Nahlášeno {{date}}",
+        "fromTask": "Nalezeno během úklidu",
+        "fixTask": "Úkol opravy",
+        "noFixTask": "Technik zatím nepřiřazen",
+        "schedule": "{{date}}, {{window}}",
+        "window": "{{from}}–{{to}}",
+        "windowFrom": "od {{from}}",
+        "windowTo": "do {{to}}",
+        "anyTime": "kdykoli",
+        "steps": "Kroky úkolu",
+        "noSteps": "Kroky se objeví, až technik úkol zahájí",
+        "stepDone": "Hotovo",
+        "stepSkipped": "Přeskočeno",
+        "stepWaived": "Zrušeno manažerem",
+        "stepPending": "Nezahájeno",
+        "stepPhotos": "Fotky kroku",
+        "resolvedAt": "Vyřešeno {{date}}",
+        "cancelledAt": "Zrušeno {{date}}",
+        "cancelReason": "Důvod zrušení",
+        "taskStatus": "Stav úkolu: {{status}}"
+      },
+      "assign": {
+        "title": "Přiřadit technika",
+        "assignee": "Technik",
+        "choose": "Vyberte osobu",
+        "date": "Datum",
+        "timeFrom": "Od",
+        "timeTo": "Do",
+        "submit": "Přiřadit",
+        "resubmit": "Přiřadit znovu",
+        "noProperty": "Problém nemá objekt, úkol proto nelze naplánovat",
+        "done": "Technik přiřazen"
+      },
+      "actions": {
+        "resolve": "Označit jako vyřešený",
+        "cancel": "Zrušit problém",
+        "cancelReason": "Důvod zrušení",
+        "cancelConfirm": "Potvrdit zrušení",
+        "cancelAbort": "Nechat otevřený"
+      }
     }
   },
   "tabs": {
