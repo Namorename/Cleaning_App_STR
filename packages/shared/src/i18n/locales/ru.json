@@ -16,6 +16,168 @@
     "signOutQuestion": "Для входа снова понадобится пароль.",
     "signOutFailed": "Не удалось выйти"
   },
+  "panel": {
+    "title": "STR Ops",
+    "signOut": "Выйти",
+    "login": {
+      "subtitle": "Панель менеджера",
+      "email": "Эл. почта",
+      "password": "Пароль",
+      "submit": "Войти",
+      "issues": {
+        "missing": "Введите почту и пароль",
+        "invalid": "Неверная почта или пароль",
+        "notManager": "Эта учётная запись не менеджерская — панель ей недоступна"
+      }
+    },
+    "nav": {
+      "label": "Разделы",
+      "dashboard": "Дашборд",
+      "problems": "Проблемы",
+      "supplies": "Заявки",
+      "tasks": "Задания",
+      "team": "Команда",
+      "apartments": "Объекты",
+      "settings": "Настройки",
+      "calendar": "Календарь"
+    },
+    "dashboard": {
+      "emptyTitle": "Панель подключена",
+      "emptyHint": "Показатели появятся вместе с разделами. Начните с проблем и заявок."
+    },
+    "problems": {
+      "title": "Проблемы",
+      "searchPlaceholder": "Поиск по названию или объекту",
+      "viewBoard": "Доска",
+      "viewList": "Список",
+      "empty": "Проблем нет",
+      "emptyFiltered": "Ничего не найдено",
+      "loading": "Загружаем проблемы…",
+      "loadError": "Не удалось загрузить проблемы",
+      "notFound": "Проблема не найдена",
+      "columns": {
+        "title": "Проблема",
+        "property": "Объект",
+        "priority": "Срочность",
+        "status": "Статус",
+        "assignee": "Техник",
+        "reported": "Заявлена",
+        "reporter": "Сообщил"
+      },
+      "noAssignee": "Не назначен",
+      "unknownPerson": "Неизвестно",
+      "countInColumn": "{{count}}",
+      "detail": {
+        "back": "К списку проблем",
+        "description": "Описание",
+        "noDescription": "Без описания",
+        "photos": "Фото",
+        "noPhotos": "Фото нет",
+        "reportedBy": "Сообщил: {{name}}",
+        "reportedAt": "Заявлена {{date}}",
+        "fromTask": "Найдена во время уборки",
+        "fixTask": "Задача устранения",
+        "noFixTask": "Техник ещё не назначен",
+        "schedule": "{{date}}, {{window}}",
+        "window": "{{from}}–{{to}}",
+        "windowFrom": "с {{from}}",
+        "windowTo": "до {{to}}",
+        "anyTime": "в любое время",
+        "steps": "Шаги задачи",
+        "noSteps": "Шаги появятся, когда техник начнёт задачу",
+        "stepDone": "Выполнен",
+        "stepSkipped": "Пропущен",
+        "stepWaived": "Снят менеджером",
+        "stepPending": "Не начат",
+        "stepPhotos": "Фото шага",
+        "resolvedAt": "Решена {{date}}",
+        "cancelledAt": "Отменена {{date}}",
+        "cancelReason": "Причина отмены",
+        "taskStatus": "Статус задачи: {{status}}"
+      },
+      "assign": {
+        "title": "Назначить техника",
+        "assignee": "Техник",
+        "choose": "Выберите сотрудника",
+        "date": "Дата",
+        "timeFrom": "С",
+        "timeTo": "До",
+        "submit": "Назначить",
+        "resubmit": "Переназначить",
+        "noProperty": "У проблемы нет объекта, поэтому задачу назначить нельзя",
+        "done": "Техник назначен"
+      },
+      "actions": {
+        "resolve": "Отметить решённой",
+        "cancel": "Отменить проблему",
+        "cancelReason": "Причина отмены",
+        "cancelConfirm": "Подтвердить отмену",
+        "cancelAbort": "Не отменять"
+      },
+      "board": {
+        "dragHint": "Карточки можно перетаскивать между колонками",
+        "startOnPhone": "В работу проблему переводит техник, начав задачу в приложении",
+        "cannotMove": "Отсюда перенести сюда нельзя",
+        "unassigned": "Задача техника отменена, проблема снова открыта",
+        "resolveTitle": "Отметить решённой?",
+        "resolveText": "«{{title}}» закроется как решённая. Задача техника, если она есть, будет завершена.",
+        "resolveConfirm": "Да, решена",
+        "resolveAbort": "Нет",
+        "assignTitle": "Назначить техника"
+      }
+    },
+    "supplies": {
+      "title": "Заявки на расходники",
+      "tabs": {
+        "new": "Новые",
+        "inProgress": "В работе",
+        "fulfilled": "Выполненные",
+        "all": "Все"
+      },
+      "empty": "В этой вкладке заявок нет",
+      "loading": "Загружаем заявки…",
+      "loadError": "Не удалось загрузить заявки",
+      "unknownPerson": "Неизвестно",
+      "requester": "Запросил: {{name}}",
+      "createdAt": "Создана {{date}}",
+      "neededBy": "Нужно к {{date}}",
+      "reviewedAt": "Рассмотрена {{date}}",
+      "fulfilledAt": "Выполнена {{date}}",
+      "items": "Позиции: {{count}}",
+      "itemColumns": {
+        "name": "Название",
+        "quantity": "Кол-во",
+        "comment": "Уточнение"
+      },
+      "actions": {
+        "accept": "Принять",
+        "order": "Заказано",
+        "fulfill": "Выполнена",
+        "reject": "Отклонить",
+        "rejectConfirm": "Подтвердить отказ",
+        "rejectAbort": "Не отклонять",
+        "rejectReason": "Причина отказа"
+      },
+      "summary": {
+        "open": "Свести к закупке",
+        "title": "Сводка к закупке",
+        "description": "Одинаковые позиции из выбранных заявок сложены по названию и единице измерения.",
+        "scope": "Учитывать заявки",
+        "empty": "Нет позиций для закупки",
+        "columns": {
+          "name": "Название",
+          "unit": "Ед.",
+          "quantity": "Кол-во",
+          "properties": "Объекты",
+          "requests": "Заявок"
+        },
+        "general": "Общие",
+        "csv": "Скачать CSV",
+        "xlsx": "Скачать XLSX",
+        "sheet": "Закупка"
+      }
+    }
+  },
   "tabs": {
     "myTasks": "Мои задачи",
     "queue": "Свободные",

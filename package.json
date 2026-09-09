@@ -23,7 +23,11 @@
     "test:fn": "deno test --allow-read supabase/functions/",
     "test:mobile": "npm run test -w @str-ops/mobile",
     "typecheck:mobile": "npm run typecheck -w @str-ops/mobile",
-    "mobile": "npm run start -w @str-ops/mobile"
+    "mobile": "npm run start -w @str-ops/mobile",
+    "web": "npm run dev -w @str-ops/web",
+    "build:web": "npm run build -w @str-ops/web",
+    "test:web": "npm run test -w @str-ops/web",
+    "typecheck:web": "npm run typecheck -w @str-ops/web"
   },
   "devDependencies": {
     "deno": "2.9.5",

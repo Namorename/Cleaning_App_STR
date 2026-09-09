@@ -16,6 +16,168 @@
     "signOutQuestion": "K dalšímu přihlášení bude potřeba heslo.",
     "signOutFailed": "Odhlášení se nezdařilo"
   },
+  "panel": {
+    "title": "STR Ops",
+    "signOut": "Odhlásit se",
+    "login": {
+      "subtitle": "Panel manažera",
+      "email": "E-mail",
+      "password": "Heslo",
+      "submit": "Přihlásit se",
+      "issues": {
+        "missing": "Zadejte e-mail a heslo",
+        "invalid": "Nesprávný e-mail nebo heslo",
+        "notManager": "Tento účet není manažerský — panel pro něj není dostupný"
+      }
+    },
+    "nav": {
+      "label": "Sekce",
+      "dashboard": "Přehled",
+      "problems": "Problémy",
+      "supplies": "Žádosti o materiál",
+      "tasks": "Úkoly",
+      "team": "Tým",
+      "apartments": "Objekty",
+      "settings": "Nastavení",
+      "calendar": "Kalendář"
+    },
+    "dashboard": {
+      "emptyTitle": "Panel je připojen",
+      "emptyHint": "Čísla přijdou spolu se sekcemi. Začněte problémy a žádostmi o materiál."
+    },
+    "problems": {
+      "title": "Problémy",
+      "searchPlaceholder": "Hledat podle názvu nebo objektu",
+      "viewBoard": "Nástěnka",
+      "viewList": "Seznam",
+      "empty": "Žádné problémy",
+      "emptyFiltered": "Nic nenalezeno",
+      "loading": "Načítáme problémy…",
+      "loadError": "Problémy se nepodařilo načíst",
+      "notFound": "Problém nenalezen",
+      "columns": {
+        "title": "Problém",
+        "property": "Objekt",
+        "priority": "Naléhavost",
+        "status": "Stav",
+        "assignee": "Technik",
+        "reported": "Nahlášeno",
+        "reporter": "Nahlásil"
+      },
+      "noAssignee": "Nepřiřazeno",
+      "unknownPerson": "Neznámý",
+      "countInColumn": "{{count}}",
+      "detail": {
+        "back": "Zpět na problémy",
+        "description": "Popis",
+        "noDescription": "Bez popisu",
+        "photos": "Fotky",
+        "noPhotos": "Žádné fotky",
+        "reportedBy": "Nahlásil: {{name}}",
+        "reportedAt": "Nahlášeno {{date}}",
+        "fromTask": "Nalezeno během úklidu",
+        "fixTask": "Úkol opravy",
+        "noFixTask": "Technik zatím nepřiřazen",
+        "schedule": "{{date}}, {{window}}",
+        "window": "{{from}}–{{to}}",
+        "windowFrom": "od {{from}}",
+        "windowTo": "do {{to}}",
+        "anyTime": "kdykoli",
+        "steps": "Kroky úkolu",
+        "noSteps": "Kroky se objeví, až technik úkol zahájí",
+        "stepDone": "Hotovo",
+        "stepSkipped": "Přeskočeno",
+        "stepWaived": "Zrušeno manažerem",
+        "stepPending": "Nezahájeno",
+        "stepPhotos": "Fotky kroku",
+        "resolvedAt": "Vyřešeno {{date}}",
+        "cancelledAt": "Zrušeno {{date}}",
+        "cancelReason": "Důvod zrušení",
+        "taskStatus": "Stav úkolu: {{status}}"
+      },
+      "assign": {
+        "title": "Přiřadit technika",
+        "assignee": "Technik",
+        "choose": "Vyberte osobu",
+        "date": "Datum",
+        "timeFrom": "Od",
+        "timeTo": "Do",
+        "submit": "Přiřadit",
+        "resubmit": "Přiřadit znovu",
+        "noProperty": "Problém nemá objekt, úkol proto nelze naplánovat",
+        "done": "Technik přiřazen"
+      },
+      "actions": {
+        "resolve": "Označit jako vyřešený",
+        "cancel": "Zrušit problém",
+        "cancelReason": "Důvod zrušení",
+        "cancelConfirm": "Potvrdit zrušení",
+        "cancelAbort": "Nechat otevřený"
+      },
+      "board": {
+        "dragHint": "Karty lze přetahovat mezi sloupci",
+        "startOnPhone": "Do práce problém převádí technik, když úkol zahájí v aplikaci",
+        "cannotMove": "Odsud sem kartu přesunout nelze",
+        "unassigned": "Úkol technika je zrušen, problém je znovu otevřený",
+        "resolveTitle": "Označit jako vyřešený?",
+        "resolveText": "„{{title}}“ se uzavře jako vyřešený. Úkol technika, pokud existuje, bude dokončen.",
+        "resolveConfirm": "Ano, vyřešeno",
+        "resolveAbort": "Ne",
+        "assignTitle": "Přiřadit technika"
+      }
+    },
+    "supplies": {
+      "title": "Žádosti o spotřební materiál",
+      "tabs": {
+        "new": "Nové",
+        "inProgress": "V řešení",
+        "fulfilled": "Vyřízené",
+        "all": "Vše"
+      },
+      "empty": "V této záložce nejsou žádné žádosti",
+      "loading": "Načítáme žádosti…",
+      "loadError": "Žádosti se nepodařilo načíst",
+      "unknownPerson": "Neznámý",
+      "requester": "Požádal: {{name}}",
+      "createdAt": "Vytvořeno {{date}}",
+      "neededBy": "Potřeba do {{date}}",
+      "reviewedAt": "Posouzeno {{date}}",
+      "fulfilledAt": "Vyřízeno {{date}}",
+      "items": "Položky: {{count}}",
+      "itemColumns": {
+        "name": "Název",
+        "quantity": "Množství",
+        "comment": "Upřesnění"
+      },
+      "actions": {
+        "accept": "Přijmout",
+        "order": "Objednáno",
+        "fulfill": "Vyřízeno",
+        "reject": "Zamítnout",
+        "rejectConfirm": "Potvrdit zamítnutí",
+        "rejectAbort": "Nezamítat",
+        "rejectReason": "Důvod zamítnutí"
+      },
+      "summary": {
+        "open": "Souhrn k nákupu",
+        "title": "Souhrn k nákupu",
+        "description": "Stejné položky z vybraných žádostí jsou sečteny podle názvu a jednotky.",
+        "scope": "Zahrnout žádosti",
+        "empty": "Není co nakupovat",
+        "columns": {
+          "name": "Název",
+          "unit": "Jedn.",
+          "quantity": "Množství",
+          "properties": "Objekty",
+          "requests": "Žádostí"
+        },
+        "general": "Obecné",
+        "csv": "Stáhnout CSV",
+        "xlsx": "Stáhnout XLSX",
+        "sheet": "Nákup"
+      }
+    }
+  },
   "tabs": {
     "myTasks": "Moje úklidy",
     "queue": "Volné",

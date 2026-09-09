@@ -10,6 +10,16 @@ export type {
   CompositeTypes,
 } from './database.types';
 export { Constants } from './database.types';
+export {
+  FALLBACK_LANGUAGE,
+  INTL_LOCALES,
+  SUPPORTED_LANGUAGES,
+  isSupportedLanguage,
+  resolveLanguage,
+  translationResources,
+  translations,
+  type Language,
+} from './i18n';
 
 import type { Tables, Enums } from './database.types';
 

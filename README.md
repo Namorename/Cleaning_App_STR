@@ -27,6 +27,26 @@ npm install
 cp .env.example .env      # заполнить реальными ключами
 ```
 
+### Веб-панель менеджера
+
+```bash
+cp apps/web/.env.example apps/web/.env.local   # NEXT_PUBLIC_SUPABASE_URL и NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+npm run web                                    # http://localhost:3000
+npm run test:web && npm run typecheck:web
+```
+
+Вход только для ролей `manager` и `admin` (роль читается из `app_metadata`);
+остальных панель отправляет на `/login`. Переводы у панели и приложения
+общие: `packages/shared/src/i18n/locales`. Деплой — Vercel: Root Directory
+`apps/web`, те же две переменные `NEXT_PUBLIC_*` в настройках проекта, и
+включённый переключатель «Include source files outside of the Root Directory
+in the Build Step» — без него Vercel не видит `packages/shared` и корневой
+`package-lock.json`, установка идёт не из корня монорепо, и сборка падает на
+`module-not-found`. Install Command и Build Command оставить по умолчанию:
+Vercel сам находит корневой lock-файл с workspaces и ставит зависимости из
+корня. `@str-ops/shared` объявлен в зависимостях `apps/web` и перечислен в
+`transpilePackages` — пакет отдаётся сырым TypeScript.
+
 ### Привязка к облачному проекту
 
 Выполняется один раз и требует интерактивного входа:

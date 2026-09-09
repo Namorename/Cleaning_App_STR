@@ -16,6 +16,168 @@
     "signOutQuestion": "You will need your password to sign in again.",
     "signOutFailed": "Could not sign out"
   },
+  "panel": {
+    "title": "STR Ops",
+    "signOut": "Sign out",
+    "login": {
+      "subtitle": "Manager panel",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Sign in",
+      "issues": {
+        "missing": "Enter your email and password",
+        "invalid": "Wrong email or password",
+        "notManager": "This account is not a manager's — the panel is not available to it"
+      }
+    },
+    "nav": {
+      "label": "Sections",
+      "dashboard": "Dashboard",
+      "problems": "Problems",
+      "supplies": "Supply requests",
+      "tasks": "Tasks",
+      "team": "Team",
+      "apartments": "Listings",
+      "settings": "Settings",
+      "calendar": "Calendar"
+    },
+    "dashboard": {
+      "emptyTitle": "The panel is connected",
+      "emptyHint": "Figures arrive with the sections. Start with problems and supply requests."
+    },
+    "problems": {
+      "title": "Problems",
+      "searchPlaceholder": "Search by title or listing",
+      "viewBoard": "Board",
+      "viewList": "List",
+      "empty": "No problems",
+      "emptyFiltered": "Nothing found",
+      "loading": "Loading problems…",
+      "loadError": "Could not load the problems",
+      "notFound": "Problem not found",
+      "columns": {
+        "title": "Problem",
+        "property": "Listing",
+        "priority": "Priority",
+        "status": "Status",
+        "assignee": "Technician",
+        "reported": "Reported",
+        "reporter": "Reported by"
+      },
+      "noAssignee": "Unassigned",
+      "unknownPerson": "Unknown",
+      "countInColumn": "{{count}}",
+      "detail": {
+        "back": "Back to problems",
+        "description": "Description",
+        "noDescription": "No description",
+        "photos": "Photos",
+        "noPhotos": "No photos",
+        "reportedBy": "Reported by {{name}}",
+        "reportedAt": "Reported {{date}}",
+        "fromTask": "Found during a cleaning",
+        "fixTask": "Fix task",
+        "noFixTask": "No technician assigned yet",
+        "schedule": "{{date}}, {{window}}",
+        "window": "{{from}}–{{to}}",
+        "windowFrom": "from {{from}}",
+        "windowTo": "until {{to}}",
+        "anyTime": "any time",
+        "steps": "Task steps",
+        "noSteps": "Steps appear once the technician starts the task",
+        "stepDone": "Done",
+        "stepSkipped": "Skipped",
+        "stepWaived": "Waived by manager",
+        "stepPending": "Not started",
+        "stepPhotos": "Step photos",
+        "resolvedAt": "Resolved {{date}}",
+        "cancelledAt": "Cancelled {{date}}",
+        "cancelReason": "Cancel reason",
+        "taskStatus": "Task status: {{status}}"
+      },
+      "assign": {
+        "title": "Assign a technician",
+        "assignee": "Technician",
+        "choose": "Choose a person",
+        "date": "Date",
+        "timeFrom": "From",
+        "timeTo": "Until",
+        "submit": "Assign",
+        "resubmit": "Reassign",
+        "noProperty": "The problem has no listing, so a task cannot be scheduled",
+        "done": "Technician assigned"
+      },
+      "actions": {
+        "resolve": "Mark as resolved",
+        "cancel": "Cancel the problem",
+        "cancelReason": "Cancel reason",
+        "cancelConfirm": "Confirm cancellation",
+        "cancelAbort": "Keep it open"
+      },
+      "board": {
+        "dragHint": "Drag cards between the columns",
+        "startOnPhone": "Only the technician moves a problem into work, by starting the task in the app",
+        "cannotMove": "A card cannot be moved from here to there",
+        "unassigned": "The technician's task is cancelled, the problem is open again",
+        "resolveTitle": "Mark as resolved?",
+        "resolveText": "“{{title}}” will close as resolved. The technician's task, if any, will be finished.",
+        "resolveConfirm": "Yes, resolved",
+        "resolveAbort": "No",
+        "assignTitle": "Assign a technician"
+      }
+    },
+    "supplies": {
+      "title": "Supply requests",
+      "tabs": {
+        "new": "New",
+        "inProgress": "In progress",
+        "fulfilled": "Fulfilled",
+        "all": "All"
+      },
+      "empty": "No requests in this tab",
+      "loading": "Loading requests…",
+      "loadError": "Could not load the requests",
+      "unknownPerson": "Unknown",
+      "requester": "Requested by {{name}}",
+      "createdAt": "Created {{date}}",
+      "neededBy": "Needed by {{date}}",
+      "reviewedAt": "Reviewed {{date}}",
+      "fulfilledAt": "Fulfilled {{date}}",
+      "items": "Items: {{count}}",
+      "itemColumns": {
+        "name": "Item",
+        "quantity": "Qty",
+        "comment": "Note"
+      },
+      "actions": {
+        "accept": "Accept",
+        "order": "Ordered",
+        "fulfill": "Fulfilled",
+        "reject": "Reject",
+        "rejectConfirm": "Confirm rejection",
+        "rejectAbort": "Keep it",
+        "rejectReason": "Reject reason"
+      },
+      "summary": {
+        "open": "Purchase summary",
+        "title": "Purchase summary",
+        "description": "Identical items from the selected requests are added up by name and unit.",
+        "scope": "Include requests",
+        "empty": "Nothing to purchase",
+        "columns": {
+          "name": "Item",
+          "unit": "Unit",
+          "quantity": "Qty",
+          "properties": "Listings",
+          "requests": "Requests"
+        },
+        "general": "General",
+        "csv": "Download CSV",
+        "xlsx": "Download XLSX",
+        "sheet": "Purchase"
+      }
+    }
+  },
   "tabs": {
     "myTasks": "My tasks",
     "queue": "Available",
