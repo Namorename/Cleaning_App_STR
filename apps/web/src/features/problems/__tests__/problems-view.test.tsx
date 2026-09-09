@@ -52,7 +52,12 @@ const problems: Problem[] = [
 ];
 
 const useProblems = vi.fn();
-vi.mock('../use-problems', () => ({ useProblems: () => useProblems() }));
+const idle = { mutate: vi.fn(), isPending: false, isError: false, isSuccess: false, error: null };
+vi.mock('../use-problems', () => ({
+  useProblems: () => useProblems(),
+  useResolveProblem: () => idle,
+  useUnassignProblem: () => idle,
+}));
 
 import { ProblemsView } from '../problems-view';
 

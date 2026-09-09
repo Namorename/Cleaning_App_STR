@@ -108,6 +108,36 @@ export function matchesQuery(problem: Problem, query: string): boolean {
   return haystack.includes(needle);
 }
 
+/**
+ * What dropping a card into a column means.
+ *
+ * `assign` opens the technician form, `resolve` asks first, `unassign`
+ * cancels the technician's task so the problem is open again. `startOnPhone`
+ * is the column only the technician can fill. Null: nothing to do.
+ */
+export type BoardMove = 'assign' | 'resolve' | 'unassign' | 'startOnPhone' | null;
+
+export function boardMove(from: ProblemStatus, to: BoardStatus): BoardMove {
+  if (from === to || from === 'resolved' || from === 'cancelled') {
+    return null;
+  }
+  switch (to) {
+    case 'open':
+      return 'unassign';
+    case 'assigned':
+      return from === 'open' ? 'assign' : null;
+    case 'in_progress':
+      return 'startOnPhone';
+    case 'resolved':
+      return 'resolve';
+  }
+}
+
+/** A card the manager may pick up at all. */
+export function isDraggable(problem: Pick<Problem, 'status'>): boolean {
+  return !isProblemClosed(problem);
+}
+
 export type StepState = 'done' | 'skipped' | 'waived' | 'pending';
 
 export function stepState(

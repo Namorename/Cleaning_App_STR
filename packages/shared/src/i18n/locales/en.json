@@ -113,6 +113,17 @@
         "cancelReason": "Cancel reason",
         "cancelConfirm": "Confirm cancellation",
         "cancelAbort": "Keep it open"
+      },
+      "board": {
+        "dragHint": "Drag cards between the columns",
+        "startOnPhone": "Only the technician moves a problem into work, by starting the task in the app",
+        "cannotMove": "A card cannot be moved from here to there",
+        "unassigned": "The technician's task is cancelled, the problem is open again",
+        "resolveTitle": "Mark as resolved?",
+        "resolveText": "“{{title}}” will close as resolved. The technician's task, if any, will be finished.",
+        "resolveConfirm": "Yes, resolved",
+        "resolveAbort": "No",
+        "assignTitle": "Assign a technician"
       }
     }
   },

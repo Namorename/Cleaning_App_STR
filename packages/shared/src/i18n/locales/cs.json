@@ -113,6 +113,17 @@
         "cancelReason": "Důvod zrušení",
         "cancelConfirm": "Potvrdit zrušení",
         "cancelAbort": "Nechat otevřený"
+      },
+      "board": {
+        "dragHint": "Karty lze přetahovat mezi sloupci",
+        "startOnPhone": "Do práce problém převádí technik, když úkol zahájí v aplikaci",
+        "cannotMove": "Odsud sem kartu přesunout nelze",
+        "unassigned": "Úkol technika je zrušen, problém je znovu otevřený",
+        "resolveTitle": "Označit jako vyřešený?",
+        "resolveText": "„{{title}}“ se uzavře jako vyřešený. Úkol technika, pokud existuje, bude dokončen.",
+        "resolveConfirm": "Ano, vyřešeno",
+        "resolveAbort": "Ne",
+        "assignTitle": "Přiřadit technika"
       }
     }
   },

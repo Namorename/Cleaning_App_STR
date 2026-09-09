@@ -16,10 +16,12 @@ interface AssignFormProps {
   problem: Problem;
   /** The attempt being moved, if any; the form starts from its values. */
   fixTask: FixTask | null;
+  /** Called once the server has taken the assignment; a dialog closes on it. */
+  onAssigned?: () => void;
 }
 
 /** Who fixes it, when, and in what window. Native controls: the browser knows dates. */
-export function AssignForm({ problem, fixTask }: AssignFormProps) {
+export function AssignForm({ problem, fixTask, onAssigned }: AssignFormProps) {
   const { t } = useTranslation();
   const staff = useStaff();
   const assign = useAssignProblem();
@@ -41,13 +43,16 @@ export function AssignForm({ problem, fixTask }: AssignFormProps) {
     if (assigneeId === '') {
       return;
     }
-    assign.mutate({
-      problemId: problem.id,
-      assigneeId,
-      scheduledDate: date === '' ? null : date,
-      timeFrom: timeFrom === '' ? null : timeFrom,
-      timeTo: timeTo === '' ? null : timeTo,
-    });
+    assign.mutate(
+      {
+        problemId: problem.id,
+        assigneeId,
+        scheduledDate: date === '' ? null : date,
+        timeFrom: timeFrom === '' ? null : timeFrom,
+        timeTo: timeTo === '' ? null : timeTo,
+      },
+      { onSuccess: onAssigned },
+    );
   };
 
   const failure = assign.isError ? serverErrorText(assign.error) : null;

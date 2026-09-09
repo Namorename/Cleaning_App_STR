@@ -190,6 +190,18 @@ export async function cancelProblem(
   return problemSchema.parse(data);
 }
 
+/**
+ * Take the fix away from the technician: the live task is cancelled, and the
+ * database's mirror puts the problem back to 'open'. A manager writes tasks
+ * under row level security; there is no RPC for this on purpose.
+ */
+export async function unassignProblem(client: Client, taskId: string): Promise<void> {
+  const { error } = await client.from('tasks').update({ status: 'cancelled' }).eq('id', taskId);
+  if (error) {
+    throw error;
+  }
+}
+
 export async function resolveProblem(client: Client, problemId: string): Promise<Problem> {
   const { data, error } = await client.rpc('resolve_problem', { p_id: problemId });
   if (error) {

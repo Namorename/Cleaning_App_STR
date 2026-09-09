@@ -14,6 +14,7 @@ import {
   fetchProblems,
   fetchStaff,
   resolveProblem,
+  unassignProblem,
   type AssignProblemVariables,
   type Client,
 } from './api';
@@ -82,6 +83,15 @@ export function useCancelProblem() {
   return useMutation({
     mutationFn: ({ problemId, reason }: { problemId: string; reason: string }) =>
       cancelProblem(client, problemId, reason),
+    onSuccess: invalidate,
+  });
+}
+
+export function useUnassignProblem() {
+  const client = useSupabase();
+  const invalidate = useInvalidateProblems();
+  return useMutation({
+    mutationFn: (taskId: string) => unassignProblem(client, taskId),
     onSuccess: invalidate,
   });
 }

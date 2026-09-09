@@ -138,13 +138,16 @@ describe('ProblemDetail', () => {
     await userEvent.selectOptions(screen.getByLabelText('Техник'), 'Anna Test');
     await userEvent.click(screen.getByRole('button', { name: 'Переназначить' }));
 
-    expect(mutations.assign).toHaveBeenCalledWith({
-      problemId: PROBLEM_ID,
-      assigneeId: '99999999-9999-4999-8999-999999999999',
-      scheduledDate: '2026-09-10',
-      timeFrom: '09:00',
-      timeTo: '12:00',
-    });
+    expect(mutations.assign).toHaveBeenCalledWith(
+      {
+        problemId: PROBLEM_ID,
+        assigneeId: '99999999-9999-4999-8999-999999999999',
+        scheduledDate: '2026-09-10',
+        timeFrom: '09:00',
+        timeTo: '12:00',
+      },
+      expect.anything(),
+    );
   });
 
   test('resolves at once and cancels only after a confirmation with a reason', async () => {

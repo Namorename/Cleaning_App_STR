@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest';
 
 import {
+  boardMove,
+  isDraggable,
   isProblemClosed,
   liveFixTask,
   matchesQuery,
@@ -101,6 +103,29 @@ describe('stepState', () => {
     expect(stepState({ completed_at: null, skipped_at: at, waived_at: at })).toBe('waived');
     expect(stepState({ completed_at: null, skipped_at: at, waived_at: null })).toBe('skipped');
     expect(stepState({ completed_at: null, skipped_at: null, waived_at: null })).toBe('pending');
+  });
+});
+
+describe('boardMove', () => {
+  test('maps a drop to the one thing the server can do about it', () => {
+    expect(boardMove('open', 'assigned')).toBe('assign');
+    expect(boardMove('open', 'resolved')).toBe('resolve');
+    expect(boardMove('assigned', 'open')).toBe('unassign');
+    expect(boardMove('in_progress', 'open')).toBe('unassign');
+    expect(boardMove('in_progress', 'resolved')).toBe('resolve');
+  });
+
+  test('refuses what only the technician or nobody can do', () => {
+    expect(boardMove('open', 'in_progress')).toBe('startOnPhone');
+    expect(boardMove('in_progress', 'assigned')).toBeNull();
+    expect(boardMove('open', 'open')).toBeNull();
+    expect(boardMove('resolved', 'open')).toBeNull();
+    expect(boardMove('cancelled', 'resolved')).toBeNull();
+  });
+
+  test('closed problems cannot be picked up', () => {
+    expect(isDraggable({ status: 'open' })).toBe(true);
+    expect(isDraggable({ status: 'resolved' })).toBe(false);
   });
 });
 
