@@ -16,6 +16,36 @@
     "signOutQuestion": "You will need your password to sign in again.",
     "signOutFailed": "Could not sign out"
   },
+  "panel": {
+    "title": "STR Ops",
+    "signOut": "Sign out",
+    "login": {
+      "subtitle": "Manager panel",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Sign in",
+      "issues": {
+        "missing": "Enter your email and password",
+        "invalid": "Wrong email or password",
+        "notManager": "This account is not a manager's — the panel is not available to it"
+      }
+    },
+    "nav": {
+      "label": "Sections",
+      "dashboard": "Dashboard",
+      "problems": "Problems",
+      "supplies": "Supply requests",
+      "tasks": "Tasks",
+      "team": "Team",
+      "apartments": "Listings",
+      "settings": "Settings",
+      "calendar": "Calendar"
+    },
+    "dashboard": {
+      "emptyTitle": "The panel is connected",
+      "emptyHint": "Figures arrive with the sections. Start with problems and supply requests."
+    }
+  },
   "tabs": {
     "myTasks": "My tasks",
     "queue": "Available",

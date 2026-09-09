@@ -1,7 +1,8 @@
+import { translations } from '@str-ops/shared';
+
 import { FALLBACK_LANGUAGE, SUPPORTED_LANGUAGES, i18n, resolveLanguage } from '../index';
-import cs from '../locales/cs.json';
-import en from '../locales/en.json';
-import ru from '../locales/ru.json';
+
+const { cs, en, ru } = translations;
 
 type Dictionary = { [key: string]: string | Dictionary };
 

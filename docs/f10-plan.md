@@ -53,7 +53,7 @@ RLS `for all` у менеджера: `properties`, `tasks`, `reservations`,
 
 ## Чек-лист
 
-- [ ] 0. Каркас
+- [x] 0. Каркас — Next.js 16, shadcn/ui, `@supabase/ssr`, guard в `proxy.ts` и layout, вход, меню, дашборд-заглушка; переводы в `packages/shared`; учётка `manager.test@example.com` в облаке; Vercel — за владельцем (Root Directory `apps/web`, две переменные `NEXT_PUBLIC_*`)
 - [ ] 1. Проблемы
 - [ ] 2. Заявки
 - [ ] 3. Задания

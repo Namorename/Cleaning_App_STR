@@ -16,6 +16,36 @@
     "signOutQuestion": "K dalšímu přihlášení bude potřeba heslo.",
     "signOutFailed": "Odhlášení se nezdařilo"
   },
+  "panel": {
+    "title": "STR Ops",
+    "signOut": "Odhlásit se",
+    "login": {
+      "subtitle": "Panel manažera",
+      "email": "E-mail",
+      "password": "Heslo",
+      "submit": "Přihlásit se",
+      "issues": {
+        "missing": "Zadejte e-mail a heslo",
+        "invalid": "Nesprávný e-mail nebo heslo",
+        "notManager": "Tento účet není manažerský — panel pro něj není dostupný"
+      }
+    },
+    "nav": {
+      "label": "Sekce",
+      "dashboard": "Přehled",
+      "problems": "Problémy",
+      "supplies": "Žádosti o materiál",
+      "tasks": "Úkoly",
+      "team": "Tým",
+      "apartments": "Objekty",
+      "settings": "Nastavení",
+      "calendar": "Kalendář"
+    },
+    "dashboard": {
+      "emptyTitle": "Panel je připojen",
+      "emptyHint": "Čísla přijdou spolu se sekcemi. Začněte problémy a žádostmi o materiál."
+    }
+  },
   "tabs": {
     "myTasks": "Moje úklidy",
     "queue": "Volné",

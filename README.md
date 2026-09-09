@@ -27,6 +27,19 @@ npm install
 cp .env.example .env      # заполнить реальными ключами
 ```
 
+### Веб-панель менеджера
+
+```bash
+cp apps/web/.env.example apps/web/.env.local   # NEXT_PUBLIC_SUPABASE_URL и NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+npm run web                                    # http://localhost:3000
+npm run test:web && npm run typecheck:web
+```
+
+Вход только для ролей `manager` и `admin` (роль читается из `app_metadata`);
+остальных панель отправляет на `/login`. Переводы у панели и приложения
+общие: `packages/shared/src/i18n/locales`. Деплой — Vercel: Root Directory
+`apps/web`, те же две переменные `NEXT_PUBLIC_*` в настройках проекта.
+
 ### Привязка к облачному проекту
 
 Выполняется один раз и требует интерактивного входа:
