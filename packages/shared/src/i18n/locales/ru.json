@@ -125,6 +125,57 @@
         "resolveAbort": "Нет",
         "assignTitle": "Назначить техника"
       }
+    },
+    "supplies": {
+      "title": "Заявки на расходники",
+      "tabs": {
+        "new": "Новые",
+        "inProgress": "В работе",
+        "fulfilled": "Выполненные",
+        "all": "Все"
+      },
+      "empty": "В этой вкладке заявок нет",
+      "loading": "Загружаем заявки…",
+      "loadError": "Не удалось загрузить заявки",
+      "unknownPerson": "Неизвестно",
+      "requester": "Запросил: {{name}}",
+      "createdAt": "Создана {{date}}",
+      "neededBy": "Нужно к {{date}}",
+      "reviewedAt": "Рассмотрена {{date}}",
+      "fulfilledAt": "Выполнена {{date}}",
+      "items": "Позиции: {{count}}",
+      "itemColumns": {
+        "name": "Название",
+        "quantity": "Кол-во",
+        "comment": "Уточнение"
+      },
+      "actions": {
+        "accept": "Принять",
+        "order": "Заказано",
+        "fulfill": "Выполнена",
+        "reject": "Отклонить",
+        "rejectConfirm": "Подтвердить отказ",
+        "rejectAbort": "Не отклонять",
+        "rejectReason": "Причина отказа"
+      },
+      "summary": {
+        "open": "Свести к закупке",
+        "title": "Сводка к закупке",
+        "description": "Одинаковые позиции из выбранных заявок сложены по названию и единице измерения.",
+        "scope": "Учитывать заявки",
+        "empty": "Нет позиций для закупки",
+        "columns": {
+          "name": "Название",
+          "unit": "Ед.",
+          "quantity": "Кол-во",
+          "properties": "Объекты",
+          "requests": "Заявок"
+        },
+        "general": "Общие",
+        "csv": "Скачать CSV",
+        "xlsx": "Скачать XLSX",
+        "sheet": "Закупка"
+      }
     }
   },
   "tabs": {

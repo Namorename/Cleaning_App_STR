@@ -125,6 +125,57 @@
         "resolveAbort": "Ne",
         "assignTitle": "Přiřadit technika"
       }
+    },
+    "supplies": {
+      "title": "Žádosti o spotřební materiál",
+      "tabs": {
+        "new": "Nové",
+        "inProgress": "V řešení",
+        "fulfilled": "Vyřízené",
+        "all": "Vše"
+      },
+      "empty": "V této záložce nejsou žádné žádosti",
+      "loading": "Načítáme žádosti…",
+      "loadError": "Žádosti se nepodařilo načíst",
+      "unknownPerson": "Neznámý",
+      "requester": "Požádal: {{name}}",
+      "createdAt": "Vytvořeno {{date}}",
+      "neededBy": "Potřeba do {{date}}",
+      "reviewedAt": "Posouzeno {{date}}",
+      "fulfilledAt": "Vyřízeno {{date}}",
+      "items": "Položky: {{count}}",
+      "itemColumns": {
+        "name": "Název",
+        "quantity": "Množství",
+        "comment": "Upřesnění"
+      },
+      "actions": {
+        "accept": "Přijmout",
+        "order": "Objednáno",
+        "fulfill": "Vyřízeno",
+        "reject": "Zamítnout",
+        "rejectConfirm": "Potvrdit zamítnutí",
+        "rejectAbort": "Nezamítat",
+        "rejectReason": "Důvod zamítnutí"
+      },
+      "summary": {
+        "open": "Souhrn k nákupu",
+        "title": "Souhrn k nákupu",
+        "description": "Stejné položky z vybraných žádostí jsou sečteny podle názvu a jednotky.",
+        "scope": "Zahrnout žádosti",
+        "empty": "Není co nakupovat",
+        "columns": {
+          "name": "Název",
+          "unit": "Jedn.",
+          "quantity": "Množství",
+          "properties": "Objekty",
+          "requests": "Žádostí"
+        },
+        "general": "Obecné",
+        "csv": "Stáhnout CSV",
+        "xlsx": "Stáhnout XLSX",
+        "sheet": "Nákup"
+      }
     }
   },
   "tabs": {

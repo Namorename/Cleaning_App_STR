@@ -125,6 +125,57 @@
         "resolveAbort": "No",
         "assignTitle": "Assign a technician"
       }
+    },
+    "supplies": {
+      "title": "Supply requests",
+      "tabs": {
+        "new": "New",
+        "inProgress": "In progress",
+        "fulfilled": "Fulfilled",
+        "all": "All"
+      },
+      "empty": "No requests in this tab",
+      "loading": "Loading requests…",
+      "loadError": "Could not load the requests",
+      "unknownPerson": "Unknown",
+      "requester": "Requested by {{name}}",
+      "createdAt": "Created {{date}}",
+      "neededBy": "Needed by {{date}}",
+      "reviewedAt": "Reviewed {{date}}",
+      "fulfilledAt": "Fulfilled {{date}}",
+      "items": "Items: {{count}}",
+      "itemColumns": {
+        "name": "Item",
+        "quantity": "Qty",
+        "comment": "Note"
+      },
+      "actions": {
+        "accept": "Accept",
+        "order": "Ordered",
+        "fulfill": "Fulfilled",
+        "reject": "Reject",
+        "rejectConfirm": "Confirm rejection",
+        "rejectAbort": "Keep it",
+        "rejectReason": "Reject reason"
+      },
+      "summary": {
+        "open": "Purchase summary",
+        "title": "Purchase summary",
+        "description": "Identical items from the selected requests are added up by name and unit.",
+        "scope": "Include requests",
+        "empty": "Nothing to purchase",
+        "columns": {
+          "name": "Item",
+          "unit": "Unit",
+          "quantity": "Qty",
+          "properties": "Listings",
+          "requests": "Requests"
+        },
+        "general": "General",
+        "csv": "Download CSV",
+        "xlsx": "Download XLSX",
+        "sheet": "Purchase"
+      }
     }
   },
   "tabs": {
