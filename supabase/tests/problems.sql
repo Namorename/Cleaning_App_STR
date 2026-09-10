@@ -365,6 +365,14 @@ select pg_temp.check('a cancelled problem reopens without its reason',
   'open -');
 
 select pg_temp.as_boss();
+select public.assign_problem(pg_temp.pid(1), 'd8000003-0000-4000-8000-0000000000d3');
+reset role; reset request.jwt.claims;
+select pg_temp.check('a reopened problem is handed out again next to its finished task',
+  (select string_agg(status::text, ',' order by status::text) from public.tasks where problem_id = pg_temp.pid(1))
+  || ' ' || (pg_temp.problem(1)).status::text,
+  'assigned,done assigned');
+
+select pg_temp.as_boss();
 select public.archive_problem(pg_temp.pid(4));
 select public.archive_problem(pg_temp.pid(4));
 reset role; reset request.jwt.claims;
