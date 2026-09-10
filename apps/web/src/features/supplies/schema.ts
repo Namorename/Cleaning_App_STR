@@ -17,8 +17,49 @@ export const supplyItemSchema = z.object({
   unit: z.enum(SUPPLY_UNITS),
   comment: z.string().nullable(),
   sort_order: z.number(),
+  /** The catalogue entry the line was picked from; null when typed by hand. */
+  catalog_item_id: z.uuid().nullable().default(null),
 });
 export type SupplyItem = z.infer<typeof supplyItemSchema>;
+
+/** An entry of the company's catalogue: what the phone offers instead of a blank field. */
+export const catalogItemSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  name_i18n: z.record(z.string(), z.string()).catch({}).default({}),
+  unit: z.enum(SUPPLY_UNITS),
+  sort_order: z.number(),
+  archived_at: z.string().nullable(),
+});
+export type CatalogItem = z.infer<typeof catalogItemSchema>;
+export const catalogItemListSchema = z.array(catalogItemSchema);
+
+/** The entry's name for a reader: her language when translated, the company's words otherwise. */
+export function catalogItemName(item: Pick<CatalogItem, 'name' | 'name_i18n'>, language: string): string {
+  const translated = item.name_i18n[language];
+  return translated !== undefined && translated.trim() !== '' ? translated : item.name;
+}
+
+export function isCatalogItemArchived(item: Pick<CatalogItem, 'archived_at'>): boolean {
+  return item.archived_at !== null;
+}
+
+/** What the editor sends: the id is minted on the panel so a retry replays. */
+export interface CatalogItemDraft {
+  id: string;
+  name: string;
+  name_i18n: Record<string, string>;
+  unit: SupplyUnit;
+}
+
+/** Translations with the blanks dropped: the server refuses an empty text under a language code. */
+export function trimTranslations(translations: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(translations)
+      .map(([code, text]) => [code, text.trim()])
+      .filter(([, text]) => text !== ''),
+  );
+}
 
 const personSchema = z.object({ full_name: z.string().nullable() }).nullable();
 

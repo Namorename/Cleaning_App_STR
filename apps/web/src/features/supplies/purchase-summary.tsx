@@ -20,10 +20,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { toCsv, type CellValue } from '@/lib/csv';
-import { downloadFile } from '@/lib/download';
+import type { CellValue } from '@/lib/csv';
+import { downloadCsv, downloadXlsx } from '@/lib/export-table';
 import { todayIso } from '@/lib/format-date';
-import { XLSX_MIME, xlsxBytes } from '@/lib/xlsx';
 
 import {
   aggregatePurchase,
@@ -70,18 +69,9 @@ export function PurchaseSummary({ requests, open, onOpenChange }: PurchaseSummar
     ]),
   ];
 
-  const downloadCsv = () =>
-    downloadFile(
-      `purchase-${todayIso()}.csv`,
-      new Blob([toCsv(rows)], { type: 'text/csv;charset=utf-8' }),
-    );
-  const downloadXlsx = () =>
-    downloadFile(
-      `purchase-${todayIso()}.xlsx`,
-      new Blob([new Uint8Array(xlsxBytes(t('panel.supplies.summary.sheet'), rows))], {
-        type: XLSX_MIME,
-      }),
-    );
+  const exportCsv = () => downloadCsv(`purchase-${todayIso()}.csv`, rows);
+  const exportXlsx = () =>
+    downloadXlsx(`purchase-${todayIso()}.xlsx`, t('panel.supplies.summary.sheet'), rows);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -142,11 +132,11 @@ export function PurchaseSummary({ requests, open, onOpenChange }: PurchaseSummar
             type="button"
             variant="outline"
             disabled={lines.length === 0}
-            onClick={downloadCsv}
+            onClick={exportCsv}
           >
             {t('panel.supplies.summary.csv')}
           </Button>
-          <Button type="button" disabled={lines.length === 0} onClick={downloadXlsx}>
+          <Button type="button" disabled={lines.length === 0} onClick={exportXlsx}>
             {t('panel.supplies.summary.xlsx')}
           </Button>
         </DialogFooter>

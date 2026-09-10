@@ -59,16 +59,39 @@ const requests: SupplyRequest[] = [
   }),
 ];
 
+const rejected: SupplyRequest = supplyRequestSchema.parse({
+  ...base,
+  id: '66666666-6666-4666-8666-666666666666',
+  status: 'rejected',
+  reviewed_at: '2026-09-08T12:00:00+00:00',
+  reject_reason: 'Есть на складе',
+  items: [item('aaaaaaaa-aaaa-4aaa-8aaa-000000000005', 'Швабра', 1)],
+});
+
+const CATALOG_ID = '77777777-7777-4777-8777-777777777777';
+const catalog = [
+  {
+    id: CATALOG_ID,
+    name: 'Средство для стёкол',
+    name_i18n: { en: 'Glass cleaner' },
+    unit: 'l',
+    sort_order: 1,
+    archived_at: null,
+  },
+];
+
 const useSupplyRequests = vi.fn();
 const review = vi.fn();
+const saveCatalogItem = vi.fn();
+const archiveCatalogItem = vi.fn();
+const idle = { isPending: false, isError: false, error: null };
 vi.mock('../use-supplies', () => ({
   useSupplyRequests: () => useSupplyRequests(),
-  useReviewSupplyRequest: () => ({
-    mutate: review,
-    isPending: false,
-    isError: false,
-    error: null,
-  }),
+  useReviewSupplyRequest: () => ({ ...idle, mutate: review }),
+  useCatalog: () => ({ data: catalog, isPending: false, isError: false }),
+  useCompanyLanguage: () => ({ data: 'ru', isPending: false, isError: false }),
+  useSaveCatalogItem: () => ({ ...idle, mutate: saveCatalogItem }),
+  useArchiveCatalogItem: () => ({ ...idle, mutate: archiveCatalogItem }),
 }));
 
 const downloadFile = vi.fn();
@@ -121,6 +144,60 @@ describe('SuppliesView', () => {
       expect.anything(),
     );
   });
+
+  test('hands over one request as a CSV with its header and lines', async () => {
+    render(<SuppliesView />);
+    const card = screen.getByText('Karlín 3').closest('[data-slot="card"]') as HTMLElement;
+
+    await userEvent.click(within(card).getByRole('button', { name: 'Экспорт CSV' }));
+    await userEvent.click(within(card).getByRole('button', { name: 'Экспорт XLSX' }));
+
+    const names = downloadFile.mock.calls.map((call) => call[0]);
+    expect(names[0]).toMatch(/^request-\d{4}-\d{2}-\d{2}-55555555\.csv$/);
+    expect(names[1]).toMatch(/^request-\d{4}-\d{2}-\d{2}-55555555\.xlsx$/);
+    const csv = await readBlob(downloadFile.mock.calls[0]?.[1] as Blob);
+    expect(csv).toContain('Объект,Karlín 3');
+    expect(csv).toContain('Запросил,Maria Test');
+    expect(csv).toContain('Название,Кол-во,Ед.,Уточнение');
+    expect(csv).toContain('средство для стёкол,3,шт,');
+  });
+
+  test('a rejected request shows its reason and what the cleaner sees', async () => {
+    useSupplyRequests.mockReturnValue({
+      data: [...requests, rejected],
+      isPending: false,
+      isError: false,
+    });
+    render(<SuppliesView />);
+
+    await userEvent.click(screen.getByRole('tab', { name: /Все/ }));
+    const card = screen.getByText('Швабра').closest('[data-slot="card"]') as HTMLElement;
+    expect(card).toHaveTextContent('Причина отказа: Есть на складе');
+    expect(card).toHaveTextContent('Уборщица видит отказ и причину в приложении');
+    expect(within(card).queryByRole('button', { name: 'Принять' })).not.toBeInTheDocument();
+  });
+
+  test('the catalogue lists entries, adds a new one and takes one off the list', async () => {
+    render(<SuppliesView />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Каталог расходников' }));
+    const dialog = await screen.findByRole('dialog');
+    const row = within(dialog).getByText('Средство для стёкол').closest('tr') as HTMLElement;
+    expect(row).toHaveTextContent('en: Glass cleaner');
+    expect(row).toHaveTextContent('л');
+
+    await userEvent.type(within(dialog).getByLabelText(/Название \(русский\)/), 'Перчатки');
+    await userEvent.type(within(dialog).getByLabelText('Перевод: английский'), 'Gloves');
+    await userEvent.selectOptions(within(dialog).getByLabelText('Единица'), 'упак');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Добавить позицию' }));
+    expect(saveCatalogItem).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Перчатки', name_i18n: { en: 'Gloves' }, unit: 'pack' }),
+      expect.anything(),
+    );
+
+    await userEvent.click(within(row).getByRole('button', { name: 'Убрать из списка' }));
+    expect(archiveCatalogItem).toHaveBeenCalledWith({ itemId: CATALOG_ID, archived: true });
+  }, 15000);
 
   test('sums the same item across requests and hands over a CSV and an XLSX', async () => {
     render(<SuppliesView />);

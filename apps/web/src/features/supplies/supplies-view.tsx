@@ -6,16 +6,18 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+import { CatalogDialog } from './catalog-dialog';
 import { PurchaseSummary } from './purchase-summary';
 import { isInTab, SUPPLY_TABS, type SupplyTab } from './schema';
 import { SupplyCard } from './supply-card';
 import { useSupplyRequests } from './use-supplies';
 
-/** The section's page: tabs by stage, cards below, the purchase summary on top. */
+/** The section's page: tabs by stage, cards below, the catalogue and the purchase summary on top. */
 export function SuppliesView() {
   const { t } = useTranslation();
   const [tab, setTab] = useState<SupplyTab>('new');
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
+  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const { data, isPending, isError } = useSupplyRequests();
 
   const requests = data ?? [];
@@ -25,14 +27,19 @@ export function SuppliesView() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">{t('panel.supplies.title')}</h1>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={isPending || isError}
-          onClick={() => setIsSummaryOpen(true)}
-        >
-          {t('panel.supplies.summary.open')}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" onClick={() => setIsCatalogOpen(true)}>
+            {t('panel.supplies.catalog.open')}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isPending || isError}
+            onClick={() => setIsSummaryOpen(true)}
+          >
+            {t('panel.supplies.summary.open')}
+          </Button>
+        </div>
       </div>
 
       {isPending ? (
@@ -64,6 +71,7 @@ export function SuppliesView() {
       )}
 
       <PurchaseSummary requests={requests} open={isSummaryOpen} onOpenChange={setIsSummaryOpen} />
+      <CatalogDialog open={isCatalogOpen} onOpenChange={setIsCatalogOpen} />
     </div>
   );
 }

@@ -16,7 +16,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { formatDateTime, formatDay } from '@/lib/format-date';
+import type { CellValue } from '@/lib/csv';
+import { downloadCsv, downloadXlsx } from '@/lib/export-table';
+import { formatDateTime, formatDay, todayIso } from '@/lib/format-date';
 import { serverErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
 
@@ -60,6 +62,32 @@ export function SupplyCard({ request }: SupplyCardProps) {
       { requestId: request.id, status: 'rejected', rejectReason: reason },
       { onSuccess: () => setIsRejecting(false) },
     );
+
+  // The file a supplier or a warehouse takes: who asked, for where, and the lines.
+  const exportRows: CellValue[][] = [
+    [t('panel.supplies.export.property'), request.property?.name ?? t('supplies.general')],
+    [t('panel.supplies.export.requester'), requester],
+    [t('panel.supplies.export.status'), t(`supplies.statuses.${request.status}`)],
+    [t('panel.supplies.export.createdAt'), formatDateTime(request.created_at, language)],
+    [t('panel.supplies.export.note'), request.note ?? ''],
+    [],
+    [
+      t('panel.supplies.export.columns.name'),
+      t('panel.supplies.export.columns.quantity'),
+      t('panel.supplies.export.columns.unit'),
+      t('panel.supplies.export.columns.comment'),
+    ],
+    ...items.map((item) => [
+      item.name,
+      item.quantity,
+      t(`supplies.units.${item.unit}`),
+      item.comment ?? '',
+    ]),
+  ];
+  const exportName = `request-${todayIso()}-${request.id.slice(0, 8)}`;
+  const exportCsv = () => downloadCsv(`${exportName}.csv`, exportRows);
+  const exportXlsx = () =>
+    downloadXlsx(`${exportName}.xlsx`, t('panel.supplies.export.sheet'), exportRows);
 
   return (
     <Card>
@@ -116,9 +144,23 @@ export function SupplyCard({ request }: SupplyCardProps) {
           </Table>
         </details>
 
-        {request.status === 'rejected' && request.reject_reason !== null ? (
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="ghost" size="sm" onClick={exportCsv}>
+            {t('panel.supplies.export.csv')}
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={exportXlsx}>
+            {t('panel.supplies.export.xlsx')}
+          </Button>
+        </div>
+
+        {request.status === 'rejected' ? (
           <p className="text-muted-foreground">
-            {t('supplies.rejectReason')}: {request.reject_reason}
+            {request.reject_reason !== null ? (
+              <span className="block">
+                {t('supplies.rejectReason')}: {request.reject_reason}
+              </span>
+            ) : null}
+            <span className="block text-xs">{t('panel.supplies.rejectedHint')}</span>
           </p>
         ) : null}
         {request.fulfilled_at !== null ? (
