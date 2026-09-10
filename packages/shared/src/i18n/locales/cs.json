@@ -507,6 +507,11 @@
     "photosTooMany": "Tento krok přijímá nejvýše {{limit}} fotek",
     "videoMissing": "Nejdřív natočte video",
     "catalogItemDuplicate": "Tato položka v této jednotce už v katalogu je",
-    "catalogItemNotFound": "Položka katalogu nenalezena"
+    "catalogItemNotFound": "Položka katalogu nenalezena",
+    "taskTitleRequired": "Úkol musí mít název",
+    "taskTitleTooLong": "Název je delší než {{limit}} znaků",
+    "taskDateRequired": "Úkol musí mít den",
+    "taskAssigneeInvalid": "Tento člověk v této firmě nepracuje",
+    "taskDuplicate": "Tento byt už na {{date}} takový úkol má"
   }
 }

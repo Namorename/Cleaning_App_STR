@@ -954,6 +954,7 @@ export type Database = {
           completed_at: string | null
           completed_by: string | null
           created_at: string
+          created_by: string | null
           due_at: string | null
           duration_override_min: number | null
           guests_count: number | null
@@ -972,6 +973,8 @@ export type Database = {
           status: Database["public"]["Enums"]["task_status"]
           time_from: string | null
           time_to: string | null
+          title: string | null
+          title_i18n: Json
           type: Database["public"]["Enums"]["task_type"]
           updated_at: string
         }
@@ -980,6 +983,7 @@ export type Database = {
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
+          created_by?: string | null
           due_at?: string | null
           duration_override_min?: number | null
           guests_count?: number | null
@@ -998,6 +1002,8 @@ export type Database = {
           status?: Database["public"]["Enums"]["task_status"]
           time_from?: string | null
           time_to?: string | null
+          title?: string | null
+          title_i18n?: Json
           type: Database["public"]["Enums"]["task_type"]
           updated_at?: string
         }
@@ -1006,6 +1012,7 @@ export type Database = {
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
+          created_by?: string | null
           due_at?: string | null
           duration_override_min?: number | null
           guests_count?: number | null
@@ -1024,6 +1031,8 @@ export type Database = {
           status?: Database["public"]["Enums"]["task_status"]
           time_from?: string | null
           time_to?: string | null
+          title?: string | null
+          title_i18n?: Json
           type?: Database["public"]["Enums"]["task_type"]
           updated_at?: string
         }
@@ -1038,6 +1047,13 @@ export type Database = {
           {
             foreignKeyName: "tasks_completed_by_fkey"
             columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1881,6 +1897,57 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      save_task: {
+        Args: {
+          p_allow_duplicate?: boolean
+          p_assignee_id?: string
+          p_id: string
+          p_notes?: string
+          p_priority?: number
+          p_property_id: number
+          p_scheduled_date: string
+          p_time_from?: string
+          p_time_to?: string
+          p_title?: string
+          p_title_i18n?: Json
+          p_type: Database["public"]["Enums"]["task_type"]
+        }
+        Returns: {
+          assignee_id: string | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          created_by: string | null
+          due_at: string | null
+          duration_override_min: number | null
+          guests_count: number | null
+          host_id: string
+          id: string
+          is_parallel: boolean
+          is_short_measurement: boolean | null
+          measured_minutes: number | null
+          notes: string | null
+          priority: number
+          problem_id: string | null
+          property_id: number
+          reservation_id: number | null
+          scheduled_date: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["task_status"]
+          time_from: string | null
+          time_to: string | null
+          title: string | null
+          title_i18n: Json
+          type: Database["public"]["Enums"]["task_type"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       save_workflow_template: {
         Args: { p_template: Json }
         Returns: {
@@ -2045,6 +2112,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      task_title_max_length: { Args: never; Returns: number }
       unarchive_problem: {
         Args: { p_id: string }
         Returns: {

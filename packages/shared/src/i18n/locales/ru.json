@@ -507,6 +507,11 @@
     "photosTooMany": "Этот шаг принимает не больше {{limit}} фото",
     "videoMissing": "Сначала запишите видео",
     "catalogItemDuplicate": "Такая позиция в этой единице уже есть в каталоге",
-    "catalogItemNotFound": "Позиция каталога не найдена"
+    "catalogItemNotFound": "Позиция каталога не найдена",
+    "taskTitleRequired": "У задания должно быть название",
+    "taskTitleTooLong": "Название длиннее {{limit}} символов",
+    "taskDateRequired": "У задания должен быть день",
+    "taskAssigneeInvalid": "Исполнитель не работает в этой компании",
+    "taskDuplicate": "На {{date}} в этой квартире такое задание уже есть"
   }
 }

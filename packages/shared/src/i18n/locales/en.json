@@ -507,6 +507,11 @@
     "photosTooMany": "This step takes at most {{limit}} photos",
     "videoMissing": "Record a video first",
     "catalogItemDuplicate": "The catalogue already has this item in this unit",
-    "catalogItemNotFound": "Catalogue item not found"
+    "catalogItemNotFound": "Catalogue item not found",
+    "taskTitleRequired": "A task needs a title",
+    "taskTitleTooLong": "The title is longer than {{limit}} characters",
+    "taskDateRequired": "A task needs a day",
+    "taskAssigneeInvalid": "That person does not work at this company",
+    "taskDuplicate": "This flat already has such a task on {{date}}"
   }
 }
