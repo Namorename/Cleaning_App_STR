@@ -52,15 +52,6 @@ export interface CatalogItemDraft {
   unit: SupplyUnit;
 }
 
-/** Translations with the blanks dropped: the server refuses an empty text under a language code. */
-export function trimTranslations(translations: Record<string, string>): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(translations)
-      .map(([code, text]) => [code, text.trim()])
-      .filter(([, text]) => text !== ''),
-  );
-}
-
 const personSchema = z.object({ full_name: z.string().nullable() }).nullable();
 
 /** A request as the manager reads it: the row, its lines, and the names around it. */

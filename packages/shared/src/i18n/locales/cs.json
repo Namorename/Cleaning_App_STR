@@ -233,6 +233,127 @@
         "archived": "Odebráno ze seznamu",
         "fromCatalog": "z katalogu"
       }
+    },
+    "tasks": {
+      "title": "Úkoly",
+      "loading": "Načítáme úkoly…",
+      "loadError": "Úkoly se nepodařilo načíst",
+      "empty": "Zatím žádné úkoly",
+      "emptyFiltered": "Nic nenalezeno",
+      "tabs": {
+        "today": "Dnes",
+        "upcoming": "Nadcházející",
+        "closed": "Dokončené"
+      },
+      "groups": {
+        "morning": "Ráno",
+        "afternoon": "Odpoledne",
+        "evening": "Večer",
+        "anytime": "Kdykoli"
+      },
+      "types": {
+        "cleaning": "Úklid",
+        "midstay": "Úklid během pobytu",
+        "maintenance": "Údržba",
+        "inspection": "Kontrola"
+      },
+      "statuses": {
+        "unassigned": "Zatím nikdo",
+        "assigned": "Přiděleno",
+        "accepted": "Přijato",
+        "in_progress": "Probíhá",
+        "paused": "Pozastaveno",
+        "blocked": "Blokováno",
+        "done": "Hotovo",
+        "cancelled": "Zrušeno",
+        "expired": "Propadlo"
+      },
+      "filters": {
+        "search": "Hledat podle názvu, bytu nebo osoby",
+        "assignee": "Vykonavatel",
+        "anyAssignee": "Kdokoli",
+        "nobody": "Zatím nikdo",
+        "type": "Druh",
+        "anyType": "Jakýkoli druh"
+      },
+      "overdue": "Propadlo",
+      "noAssignee": "Zatím nikdo",
+      "noProperty": "Bez bytu",
+      "window": {
+        "from": "od {{time}}",
+        "until": "do {{time}}"
+      },
+      "origin": {
+        "booking": "Z rezervace",
+        "problem": "Z problému"
+      },
+      "author": "Zadal: {{name}}",
+      "actions": {
+        "new": "Nový úkol",
+        "edit": "Upravit",
+        "cancel": "Zrušit úkol",
+        "cancelConfirm": "Zrušit tento úkol? Zůstane v historii.",
+        "cancelConfirmYes": "Ano, zrušit",
+        "cancelConfirmNo": "Ne",
+        "openWork": "Jak úklid proběhl"
+      },
+      "form": {
+        "titleNew": "Nový úkol",
+        "titleEdit": "Upravit úkol",
+        "description": "Uklízečka uvidí název ve svém jazyce, pokud je vyplněn překlad; jinak v jazyce firmy.",
+        "property": "Byt",
+        "propertyPlaceholder": "Vyberte byt",
+        "type": "Druh úkolu",
+        "date": "Den",
+        "name": "Název ({{language}})",
+        "translation": "Překlad: {{language}}",
+        "languages": {
+          "ru": "ruština",
+          "en": "angličtina",
+          "cs": "čeština"
+        },
+        "assignee": "Vykonavatel",
+        "assigneeNobody": "Zatím nikdo",
+        "timeFrom": "Ne dříve než",
+        "timeTo": "Dokončit do",
+        "notes": "Poznámka pro vykonavatele",
+        "save": "Uložit",
+        "saving": "Ukládáme…",
+        "close": "Zrušit",
+        "duplicate": "Přesto vytvořit",
+        "generatedHint": "Úkol vznikl z rezervace nebo z problému: byt ani druh nelze změnit."
+      },
+      "work": {
+        "title": "Jak úklid proběhl",
+        "loading": "Načítáme průběh…",
+        "loadError": "Průběh se nepodařilo načíst",
+        "steps": "Kroky",
+        "noSteps": "Úkol neměl žádné kroky",
+        "stepStates": {
+          "done": "Hotovo",
+          "skipped": "Přeskočeno",
+          "waived": "Prominuto manažerem",
+          "pending": "Nedotčeno"
+        },
+        "photos": "Fotky: {{count}}",
+        "problems": "Problémy z tohoto úklidu",
+        "noProblems": "Žádné problémy nebyly nahlášeny",
+        "started": "Začátek",
+        "finished": "Konec",
+        "measured": "Naměřeno",
+        "corrected": "Započteno",
+        "duration": {
+          "hm": "{{hours}} h {{minutes}} min",
+          "m": "{{minutes}} min"
+        },
+        "correction": "Korekce, minut",
+        "correctionHint": "Měření zůstává beze změny — korekce žije vedle něj a počítá se do výkazu.",
+        "correctionSave": "Uložit",
+        "correctionReset": "Zpět na měření",
+        "short": "Podezřele krátký úklid",
+        "parallel": "Probíhal souběžně s jiným",
+        "close": "Zavřít"
+      }
     }
   },
   "tabs": {

@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@str-ops/shared';
 
+import { withSignedUrls } from '@/lib/media';
+
 import {
   mediaListSchema,
   problemListSchema,
@@ -14,10 +16,6 @@ import {
 } from './schema';
 
 export type Client = SupabaseClient<Database>;
-
-const MEDIA_BUCKET = 'task-media';
-/** How long a signed link to a photo stays good. Under the query's own lifetime. */
-export const SIGNED_URL_SECONDS = 60 * 60;
 
 const PROBLEM_COLUMNS =
   'id, property_id, task_id, reported_by, title, description, priority, status, ' +
@@ -55,27 +53,6 @@ export async function fetchProblem(client: Client, problemId: string): Promise<P
 export interface Photo extends Media {
   /** A signed link, or null when storage refused to sign this path. */
   url: string | null;
-}
-
-async function withSignedUrls(client: Client, media: Media[]): Promise<Photo[]> {
-  if (media.length === 0) {
-    return [];
-  }
-  const { data, error } = await client.storage
-    .from(MEDIA_BUCKET)
-    .createSignedUrls(
-      media.map((item) => item.storage_path),
-      SIGNED_URL_SECONDS,
-    );
-  if (error) {
-    throw error;
-  }
-  const urls = new Map(
-    (data ?? [])
-      .filter((entry) => entry.error === null && entry.path !== null)
-      .map((entry) => [entry.path as string, entry.signedUrl]),
-  );
-  return media.map((item) => ({ ...item, url: urls.get(item.storage_path) ?? null }));
 }
 
 /** The report's own photos, oldest first, with links to open them. */

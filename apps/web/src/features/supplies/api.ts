@@ -3,12 +3,13 @@ import type { Database } from '@str-ops/shared';
 
 import { FALLBACK_LANGUAGE, isSupportedLanguage, type Language } from '@str-ops/shared';
 
+import { trimTranslations } from '@/lib/translations';
+
 import {
   catalogItemListSchema,
   catalogItemSchema,
   supplyRequestListSchema,
   supplyRequestSchema,
-  trimTranslations,
   type CatalogItem,
   type CatalogItemDraft,
   type SupplyRequest,

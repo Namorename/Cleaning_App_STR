@@ -233,6 +233,127 @@
         "archived": "Removed from the list",
         "fromCatalog": "from the catalogue"
       }
+    },
+    "tasks": {
+      "title": "Tasks",
+      "loading": "Loading tasks…",
+      "loadError": "Could not load the tasks",
+      "empty": "No tasks yet",
+      "emptyFiltered": "Nothing found",
+      "tabs": {
+        "today": "Today",
+        "upcoming": "Upcoming",
+        "closed": "Finished"
+      },
+      "groups": {
+        "morning": "Morning",
+        "afternoon": "Afternoon",
+        "evening": "Evening",
+        "anytime": "Any time"
+      },
+      "types": {
+        "cleaning": "Cleaning",
+        "midstay": "Mid-stay cleaning",
+        "maintenance": "Maintenance",
+        "inspection": "Inspection"
+      },
+      "statuses": {
+        "unassigned": "Nobody yet",
+        "assigned": "Assigned",
+        "accepted": "Accepted",
+        "in_progress": "In progress",
+        "paused": "Paused",
+        "blocked": "Blocked",
+        "done": "Done",
+        "cancelled": "Cancelled",
+        "expired": "Expired"
+      },
+      "filters": {
+        "search": "Search by title, listing or person",
+        "assignee": "Executor",
+        "anyAssignee": "Anyone",
+        "nobody": "Nobody yet",
+        "type": "Kind",
+        "anyType": "Any kind"
+      },
+      "overdue": "Overdue",
+      "noAssignee": "Nobody yet",
+      "noProperty": "No listing",
+      "window": {
+        "from": "from {{time}}",
+        "until": "until {{time}}"
+      },
+      "origin": {
+        "booking": "From a booking",
+        "problem": "From a problem"
+      },
+      "author": "Asked by {{name}}",
+      "actions": {
+        "new": "New task",
+        "edit": "Edit",
+        "cancel": "Cancel the task",
+        "cancelConfirm": "Cancel this task? It stays as history.",
+        "cancelConfirmYes": "Yes, cancel it",
+        "cancelConfirmNo": "No",
+        "openWork": "How the cleaning went"
+      },
+      "form": {
+        "titleNew": "New task",
+        "titleEdit": "Edit the task",
+        "description": "The cleaner reads the title in her own language when a translation is filled in, and in the company language when it is not.",
+        "property": "Listing",
+        "propertyPlaceholder": "Pick a listing",
+        "type": "Kind of task",
+        "date": "Day",
+        "name": "Title ({{language}})",
+        "translation": "Translation: {{language}}",
+        "languages": {
+          "ru": "Russian",
+          "en": "English",
+          "cs": "Czech"
+        },
+        "assignee": "Executor",
+        "assigneeNobody": "Nobody yet",
+        "timeFrom": "Not before",
+        "timeTo": "Finish by",
+        "notes": "Note for the executor",
+        "save": "Save",
+        "saving": "Saving…",
+        "close": "Cancel",
+        "duplicate": "Create it anyway",
+        "generatedHint": "This task came from a booking or a problem: its listing and kind cannot be changed."
+      },
+      "work": {
+        "title": "How the cleaning went",
+        "loading": "Loading the work…",
+        "loadError": "Could not load the work",
+        "steps": "Steps",
+        "noSteps": "This task had no steps",
+        "stepStates": {
+          "done": "Done",
+          "skipped": "Skipped",
+          "waived": "Waived by a manager",
+          "pending": "Untouched"
+        },
+        "photos": "Photos: {{count}}",
+        "problems": "Problems from this cleaning",
+        "noProblems": "No problems were reported",
+        "started": "Started",
+        "finished": "Finished",
+        "measured": "Measured",
+        "corrected": "Counted as",
+        "duration": {
+          "hm": "{{hours}} h {{minutes}} min",
+          "m": "{{minutes}} min"
+        },
+        "correction": "Correction, minutes",
+        "correctionHint": "The measurement stays as it is — the correction lives beside it and is what the report counts.",
+        "correctionSave": "Save",
+        "correctionReset": "Back to the measurement",
+        "short": "Suspiciously short",
+        "parallel": "Overlapped another cleaning",
+        "close": "Close"
+      }
     }
   },
   "tabs": {
