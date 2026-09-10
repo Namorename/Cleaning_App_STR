@@ -30,6 +30,8 @@ import { useReopenProblem, useResolveProblem, useUnassignProblem } from './use-p
 
 interface ProblemsBoardProps {
   problems: Problem[];
+  /** True while a search narrows the board: an empty column then says "nothing found". */
+  isFiltered?: boolean;
 }
 
 /** A drop that needs the manager's word before anything is sent. */
@@ -47,7 +49,7 @@ interface PendingMove {
  * to "open" is reopened. "In progress" belongs to the technician's phone, so
  * a drop there only explains itself.
  */
-export function ProblemsBoard({ problems }: ProblemsBoardProps) {
+export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardProps) {
   const { t } = useTranslation();
   const resolve = useResolveProblem();
   const unassign = useUnassignProblem();
@@ -162,17 +164,25 @@ export function ProblemsBoard({ problems }: ProblemsBoardProps) {
                 <Badge variant={statusVariant(status)}>{heading}</Badge>
                 <span className="text-xs text-muted-foreground">{column.length}</span>
               </header>
-              {column.map((problem) => (
-                <ProblemCard
-                  key={problem.id}
-                  problem={problem}
-                  onDragStart={setDragging}
-                  onDragEnd={() => {
-                    setDragging(null);
-                    setOver(null);
-                  }}
-                />
-              ))}
+              {column.length === 0 ? (
+                <p className="flex flex-1 items-center justify-center py-6 text-center text-sm text-muted-foreground/60">
+                  {isFiltered
+                    ? t('panel.problems.board.columnEmptyFiltered')
+                    : t('panel.problems.board.columnEmpty')}
+                </p>
+              ) : (
+                column.map((problem) => (
+                  <ProblemCard
+                    key={problem.id}
+                    problem={problem}
+                    onDragStart={setDragging}
+                    onDragEnd={() => {
+                      setDragging(null);
+                      setOver(null);
+                    }}
+                  />
+                ))
+              )}
             </section>
           );
         })}

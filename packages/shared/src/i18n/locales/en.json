@@ -131,7 +131,9 @@
         "resolveConfirm": "Yes, resolved",
         "resolveAbort": "No",
         "assignTitle": "Assign a technician",
-        "reopened": "The problem is open again"
+        "reopened": "The problem is open again",
+        "columnEmpty": "✨ No problems yet",
+        "columnEmptyFiltered": "🔍 Nothing found"
       },
       "viewArchive": "Archive",
       "archive": {

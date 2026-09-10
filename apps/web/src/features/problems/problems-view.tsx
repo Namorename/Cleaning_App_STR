@@ -57,11 +57,7 @@ export function ProblemsView() {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="board">
-            {problems.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{emptyText}</p>
-            ) : (
-              <ProblemsBoard problems={problems} />
-            )}
+            <ProblemsBoard problems={problems} isFiltered={query.trim() !== ''} />
           </TabsContent>
           <TabsContent value="list">
             {problems.length === 0 ? (

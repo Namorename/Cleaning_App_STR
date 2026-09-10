@@ -107,10 +107,13 @@ describe('ProblemsView', () => {
     expect(screen.getByText('Сломан замок')).toBeInTheDocument();
   });
 
-  test('explains an empty section and a failed load', () => {
+  test('keeps the columns when there is nothing in them, and explains a failed load', async () => {
     useProblems.mockReturnValue({ data: [], isPending: false, isError: false });
     const { unmount } = render(<ProblemsView />);
-    expect(screen.getByText('Проблем нет')).toBeInTheDocument();
+    expect(screen.getAllByRole('region')).toHaveLength(4);
+    expect(screen.getAllByText('✨ Проблем пока нет')).toHaveLength(4);
+    await userEvent.type(screen.getByRole('searchbox'), 'x');
+    expect(screen.getAllByText('🔍 Ничего не найдено')).toHaveLength(4);
     unmount();
 
     useProblems.mockReturnValue({ data: undefined, isPending: false, isError: true });

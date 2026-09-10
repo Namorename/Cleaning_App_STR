@@ -131,7 +131,9 @@
         "resolveConfirm": "Ano, vyřešeno",
         "resolveAbort": "Ne",
         "assignTitle": "Přiřadit technika",
-        "reopened": "Problém je znovu otevřený"
+        "reopened": "Problém je znovu otevřený",
+        "columnEmpty": "✨ Zatím žádné problémy",
+        "columnEmptyFiltered": "🔍 Nic nenalezeno"
       },
       "viewArchive": "Archiv",
       "archive": {

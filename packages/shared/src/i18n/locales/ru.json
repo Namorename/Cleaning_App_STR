@@ -131,7 +131,9 @@
         "resolveConfirm": "Да, решена",
         "resolveAbort": "Нет",
         "assignTitle": "Назначить техника",
-        "reopened": "Проблема снова открыта"
+        "reopened": "Проблема снова открыта",
+        "columnEmpty": "✨ Проблем пока нет",
+        "columnEmptyFiltered": "🔍 Ничего не найдено"
       },
       "viewArchive": "Архив",
       "archive": {
