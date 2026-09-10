@@ -169,6 +169,7 @@ export type Database = {
       }
       problems: {
         Row: {
+          archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
           created_at: string
@@ -185,6 +186,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
           cancel_reason?: string | null
           cancelled_at?: string | null
           created_at?: string
@@ -201,6 +203,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
           cancel_reason?: string | null
           cancelled_at?: string | null
           created_at?: string
@@ -507,8 +510,53 @@ export type Database = {
           },
         ]
       }
+      supply_catalog_items: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          host_id: string
+          id: string
+          name: string
+          name_i18n: Json
+          sort_order: number
+          unit: Database["public"]["Enums"]["supply_unit"]
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          host_id?: string
+          id?: string
+          name: string
+          name_i18n?: Json
+          sort_order?: number
+          unit?: Database["public"]["Enums"]["supply_unit"]
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          host_id?: string
+          id?: string
+          name?: string
+          name_i18n?: Json
+          sort_order?: number
+          unit?: Database["public"]["Enums"]["supply_unit"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supply_catalog_items_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supply_request_items: {
         Row: {
+          catalog_item_id: string | null
           comment: string | null
           host_id: string
           id: string
@@ -519,6 +567,7 @@ export type Database = {
           unit: Database["public"]["Enums"]["supply_unit"]
         }
         Insert: {
+          catalog_item_id?: string | null
           comment?: string | null
           host_id: string
           id?: string
@@ -529,6 +578,7 @@ export type Database = {
           unit?: Database["public"]["Enums"]["supply_unit"]
         }
         Update: {
+          catalog_item_id?: string | null
           comment?: string | null
           host_id?: string
           id?: string
@@ -539,6 +589,13 @@ export type Database = {
           unit?: Database["public"]["Enums"]["supply_unit"]
         }
         Relationships: [
+          {
+            foreignKeyName: "supply_request_items_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "supply_catalog_items"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "supply_request_items_host_id_fkey"
             columns: ["host_id"]
@@ -1269,6 +1326,52 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      archive_problem: {
+        Args: { p_id: string }
+        Returns: {
+          archived_at: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          created_at: string
+          description: string | null
+          host_id: string
+          id: string
+          priority: Database["public"]["Enums"]["problem_priority"]
+          property_id: number | null
+          reported_by: string
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["problem_status"]
+          task_id: string | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "problems"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      archive_supply_catalog_item: {
+        Args: { p_archived?: boolean; p_id: string }
+        Returns: {
+          archived_at: string | null
+          created_at: string
+          host_id: string
+          id: string
+          name: string
+          name_i18n: Json
+          sort_order: number
+          unit: Database["public"]["Enums"]["supply_unit"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "supply_catalog_items"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       assign_problem: {
         Args: {
           p_assignee_id: string
@@ -1278,6 +1381,7 @@ export type Database = {
           p_time_to?: string
         }
         Returns: {
+          archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
           created_at: string
@@ -1309,6 +1413,7 @@ export type Database = {
       cancel_problem: {
         Args: { p_id: string; p_reason?: string }
         Returns: {
+          archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
           created_at: string
@@ -1473,6 +1578,7 @@ export type Database = {
       problem_for_manager: {
         Args: { p_id: string }
         Returns: {
+          archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
           created_at: string
@@ -1534,6 +1640,32 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      reopen_problem: {
+        Args: { p_id: string }
+        Returns: {
+          archived_at: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          created_at: string
+          description: string | null
+          host_id: string
+          id: string
+          priority: Database["public"]["Enums"]["problem_priority"]
+          property_id: number | null
+          reported_by: string
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["problem_status"]
+          task_id: string | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "problems"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       reopen_task_step: {
         Args: { p_step_id: string }
         Returns: {
@@ -1582,6 +1714,7 @@ export type Database = {
           p_title: string
         }
         Returns: {
+          archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
           created_at: string
@@ -1620,6 +1753,7 @@ export type Database = {
       resolve_problem: {
         Args: { p_id: string }
         Returns: {
+          archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
           created_at: string
@@ -1686,6 +1820,32 @@ export type Database = {
       save_property_checklist: {
         Args: { p_modules: Json; p_property_id: number }
         Returns: Json
+      }
+      save_supply_catalog_item: {
+        Args: {
+          p_id: string
+          p_name: string
+          p_name_i18n?: Json
+          p_sort_order?: number
+          p_unit?: Database["public"]["Enums"]["supply_unit"]
+        }
+        Returns: {
+          archived_at: string | null
+          created_at: string
+          host_id: string
+          id: string
+          name: string
+          name_i18n: Json
+          sort_order: number
+          unit: Database["public"]["Enums"]["supply_unit"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "supply_catalog_items"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       save_supply_request: {
         Args: {
@@ -1885,6 +2045,32 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      unarchive_problem: {
+        Args: { p_id: string }
+        Returns: {
+          archived_at: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          created_at: string
+          description: string | null
+          host_id: string
+          id: string
+          priority: Database["public"]["Enums"]["problem_priority"]
+          property_id: number | null
+          reported_by: string
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["problem_status"]
+          task_id: string | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "problems"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       update_problem: {
         Args: {
           p_description?: string
@@ -1893,6 +2079,7 @@ export type Database = {
           p_title: string
         }
         Returns: {
+          archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
           created_at: string

@@ -49,6 +49,7 @@ insert into wanted values
   ('problems',             'SELECT'),
   ('supply_requests',      'SELECT'),
   ('supply_request_items', 'SELECT'),
+  ('supply_catalog_items',  'SELECT'),
   ('expired_tasks_review', 'SELECT');
 
 create temp table actual as

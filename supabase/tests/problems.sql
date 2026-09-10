@@ -337,4 +337,59 @@ select pg_temp.check('photos of a freshly resolved problem wait, only the taken-
   (select array_agg(id) from public.task_media_to_purge(100) where problem_id = pg_temp.pid(1)),
   array[pg_temp.mid(4)]);
 
+-- ---------- back to the board, and out of sight ----------
+select pg_temp.as_maria();
+select pg_temp.check('a cleaner cannot reopen a problem',
+  pg_temp.refusal($q$select public.reopen_problem(pg_temp.pid(1))$q$),
+  'serverErrors.managerOnly');
+select pg_temp.check('nor archive one',
+  pg_temp.refusal($q$select public.archive_problem(pg_temp.pid(1))$q$),
+  'serverErrors.managerOnly');
+select pg_temp.check('the reporter sees all four of her reports',
+  (select count(*)::int from public.problems), 4);
+reset role; reset request.jwt.claims;
+
+select pg_temp.as_boss();
+select public.reopen_problem(pg_temp.pid(1));
+select public.reopen_problem(pg_temp.pid(1));
+select public.reopen_problem(pg_temp.pid(2));
+reset role; reset request.jwt.claims;
+select pg_temp.check('a resolved problem reopens without its stamp',
+  (pg_temp.problem(1)).status::text || ' ' || ((pg_temp.problem(1)).resolved_at is null)::text,
+  'open true');
+select pg_temp.check('the finished task stays as history, no attempt is live',
+  (select string_agg(status::text, ',' order by status::text) from public.tasks where problem_id = pg_temp.pid(1)),
+  'done');
+select pg_temp.check('a cancelled problem reopens without its reason',
+  (pg_temp.problem(2)).status::text || ' ' || coalesce((pg_temp.problem(2)).cancel_reason, '-'),
+  'open -');
+
+select pg_temp.as_boss();
+select public.archive_problem(pg_temp.pid(4));
+select public.archive_problem(pg_temp.pid(4));
+reset role; reset request.jwt.claims;
+select pg_temp.check('archiving stamps the problem once',
+  ((pg_temp.problem(4)).archived_at is not null), true);
+select pg_temp.check('and cancels the live fix task, so the problem reads open',
+  (select string_agg(status::text, ',' order by status::text) from public.tasks where problem_id = pg_temp.pid(4))
+  || ' ' || (pg_temp.problem(4)).status::text,
+  'cancelled,cancelled open');
+
+select pg_temp.as_maria();
+select pg_temp.check('the reporter no longer sees an archived problem',
+  (select count(*)::int from public.problems), 3);
+select pg_temp.as_anna();
+select pg_temp.check('nor does the technician it was handed to',
+  (select count(*)::int from public.problems where id = pg_temp.pid(4)), 0);
+select pg_temp.as_boss();
+select pg_temp.check('the manager still sees it',
+  (select count(*)::int from public.problems where id = pg_temp.pid(4)), 1);
+select public.unarchive_problem(pg_temp.pid(4));
+select pg_temp.as_maria();
+select pg_temp.check('restoring brings it back to the reporter',
+  (select count(*)::int from public.problems), 4);
+reset role; reset request.jwt.claims;
+select pg_temp.check('with the stamp gone',
+  ((pg_temp.problem(4)).archived_at is null), true);
+
 rollback;

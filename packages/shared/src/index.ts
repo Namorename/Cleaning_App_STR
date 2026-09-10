@@ -37,6 +37,7 @@ export type TaskMedia = Tables<'task_media'>;
 export type Problem = Tables<'problems'>;
 export type SupplyRequest = Tables<'supply_requests'>;
 export type SupplyRequestItem = Tables<'supply_request_items'>;
+export type SupplyCatalogItem = Tables<'supply_catalog_items'>;
 
 export type TaskStatus = Enums<'task_status'>;
 export type TaskType = Enums<'task_type'>;

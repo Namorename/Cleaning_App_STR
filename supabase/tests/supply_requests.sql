@@ -45,7 +45,7 @@ declare
 begin
   execute statement;
   return 'no refusal';
-exception when check_violation or insufficient_privilege then
+exception when check_violation or insufficient_privilege or invalid_parameter_value then
   get stacked diagnostics v_hint = pg_exception_hint, v_detail = pg_exception_detail;
   return v_hint || coalesce(' ' || nullif(v_detail, ''), '');
 end $$;
@@ -200,5 +200,85 @@ select pg_temp.check('a rejection keeps its reason for the author',
   'rejected Швабры есть на складе');
 select pg_temp.check('the needed-by date is kept',
   (pg_temp.request(3)).needed_by, current_date + 3);
+
+-- ---------- the catalogue ----------
+create or replace function pg_temp.cid(n integer) returns uuid language sql immutable as $$
+  select ('c9000002-0000-4000-8000-00000000000' || n::text)::uuid $$;
+create or replace function pg_temp.catalog(n integer) returns public.supply_catalog_items language sql as $$
+  select c.* from public.supply_catalog_items c where c.id = pg_temp.cid(n) $$;
+
+select pg_temp.as_maria();
+select pg_temp.check('a cleaner cannot write the catalogue',
+  pg_temp.refusal($q$select public.save_supply_catalog_item(pg_temp.cid(1), 'x')$q$),
+  'serverErrors.managerOnly');
+select pg_temp.check('nor archive an entry',
+  pg_temp.refusal($q$select public.archive_supply_catalog_item(pg_temp.cid(1))$q$),
+  'serverErrors.managerOnly');
+reset role; reset request.jwt.claims;
+
+select pg_temp.as_boss();
+select public.save_supply_catalog_item(pg_temp.cid(1), '  Средство для стёкол ',
+  '{"en": "Glass cleaner", "cs": "Čistič skel"}', 'l');
+select public.save_supply_catalog_item(pg_temp.cid(1), 'Средство для стёкол',
+  '{"en": "Glass cleaner"}', 'l');
+select public.save_supply_catalog_item(pg_temp.cid(2), 'Мешки для мусора', '{}', 'pack');
+select pg_temp.check('an entry needs a name',
+  pg_temp.refusal($q$select public.save_supply_catalog_item(pg_temp.cid(3), '  ')$q$),
+  'serverErrors.supplyItemInvalid {"index": 1}');
+select pg_temp.check('translations must be in languages the app speaks',
+  pg_temp.refusal($q$select public.save_supply_catalog_item(pg_temp.cid(3), 'x', '{"de": "x"}')$q$),
+  'serverErrors.translationsInvalid');
+select pg_temp.check('the same name in the same unit is one entry, whatever the case',
+  pg_temp.refusal($q$select public.save_supply_catalog_item(pg_temp.cid(3), 'мешки для мусора', '{}', 'pack')$q$),
+  'serverErrors.catalogItemDuplicate');
+select pg_temp.check('an unknown entry cannot be archived',
+  pg_temp.refusal($q$select public.archive_supply_catalog_item(pg_temp.cid(9))$q$),
+  'serverErrors.catalogItemNotFound');
+reset role; reset request.jwt.claims;
+select pg_temp.check('a replay by id rewrites the entry in place',
+  (select count(*)::int from public.supply_catalog_items) || ' '
+  || (pg_temp.catalog(1)).name || ' ' || (pg_temp.catalog(1)).name_i18n::text || ' ' || (pg_temp.catalog(1)).unit::text,
+  '2 Средство для стёкол {"en": "Glass cleaner"} l');
+select pg_temp.check('entries are numbered as they come',
+  (pg_temp.catalog(1)).sort_order::text || ',' || (pg_temp.catalog(2)).sort_order::text, '1,2');
+
+select pg_temp.as_maria();
+select pg_temp.check('a cleaner reads the catalogue',
+  (select count(*)::int from public.supply_catalog_items), 2);
+select public.save_supply_request(pg_temp.rid(4),
+  '[{"catalog_item_id": "c9000002-0000-4000-8000-000000000001", "quantity": 2, "name": "ignored", "unit": "kg"},
+    {"name": "Перчатки", "quantity": 1}]');
+select pg_temp.check('an unknown catalogue entry is refused by position',
+  pg_temp.refusal($q$select public.save_supply_request(pg_temp.rid(5),
+    '[{"name": "ok", "quantity": 1}, {"catalog_item_id": "c9000002-0000-4000-8000-000000000009", "quantity": 1}]')$q$),
+  'serverErrors.supplyItemInvalid {"index": 2}');
+reset role; reset request.jwt.claims;
+select pg_temp.check('a line picked from the catalogue takes its name and unit from there',
+  pg_temp.items(4), 'Средство для стёкол 2.00 l; Перчатки 1.00 pcs');
+select pg_temp.check('and remembers where it came from',
+  (select coalesce(string_agg(coalesce(catalog_item_id::text, '-'), ',' order by sort_order), '')
+   from public.supply_request_items where request_id = pg_temp.rid(4)),
+  'c9000002-0000-4000-8000-000000000001,-');
+
+select pg_temp.as_boss();
+select public.archive_supply_catalog_item(pg_temp.cid(1));
+select public.archive_supply_catalog_item(pg_temp.cid(1));
+select pg_temp.as_maria();
+select pg_temp.check('an archived entry can no longer be picked',
+  pg_temp.refusal($q$select public.save_supply_request(pg_temp.rid(5),
+    '[{"catalog_item_id": "c9000002-0000-4000-8000-000000000001", "quantity": 1}]')$q$),
+  'serverErrors.supplyItemInvalid {"index": 1}');
+reset role; reset request.jwt.claims;
+select pg_temp.check('but the old line still points at it',
+  (select catalog_item_id from public.supply_request_items
+   where request_id = pg_temp.rid(4) and sort_order = 1),
+  pg_temp.cid(1));
+select pg_temp.check('the entry is archived, not gone',
+  (select count(*)::int from public.supply_catalog_items where archived_at is not null), 1);
+select pg_temp.as_boss();
+select public.archive_supply_catalog_item(pg_temp.cid(1), false);
+reset role; reset request.jwt.claims;
+select pg_temp.check('restoring clears the stamp',
+  ((pg_temp.catalog(1)).archived_at is null), true);
 
 rollback;
