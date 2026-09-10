@@ -21,9 +21,9 @@ const PROBLEM_COLUMNS =
   'id, property_id, task_id, reported_by, title, description, priority, status, ' +
   'resolved_at, cancelled_at, cancel_reason, archived_at, created_at, ' +
   'property:properties(name), ' +
-  'reporter:profiles!problems_reported_by_fkey(full_name), ' +
+  'reporter:profiles!problems_reported_by_fkey(full_name, role), ' +
   'fix_tasks:tasks!tasks_problem_id_fkey(id, assignee_id, status, scheduled_date, time_from, time_to, ' +
-  'assignee:profiles!tasks_assignee_id_fkey(full_name))';
+  'assignee:profiles!tasks_assignee_id_fkey(full_name, role))';
 
 /** Every problem of the company, newest first. Row level security draws the line. */
 export async function fetchProblems(client: Client): Promise<Problem[]> {

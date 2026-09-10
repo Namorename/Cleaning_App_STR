@@ -2,6 +2,8 @@ import { describe, expect, test } from 'vitest';
 
 import {
   draftFromTask,
+  EMPTY_FILTERS,
+  hasFilters,
   groupTasks,
   isDraftReady,
   isManualTask,
@@ -154,16 +156,16 @@ describe('matchesFilters', () => {
     title: 'Генеральная уборка',
     assignee_id: maria,
     property: { name: 'Vinohrady 12' },
-    assignee: { full_name: 'Maria Test' },
+    assignee: { full_name: 'Maria Test', role: 'cleaner' },
   });
   const inspection = task({ id: id(2), type: 'inspection', title: 'Осмотр' });
 
   test('an empty filter keeps everything', () => {
-    expect(matchesFilters(cleaning, { query: '', assigneeId: 'all', type: 'all' })).toBe(true);
+    expect(matchesFilters(cleaning, EMPTY_FILTERS)).toBe(true);
   });
 
   test('the query reads the title, the listing and the person', () => {
-    const filters = { assigneeId: 'all', type: 'all' as const };
+    const filters = EMPTY_FILTERS;
     expect(matchesFilters(cleaning, { ...filters, query: 'генеральная' })).toBe(true);
     expect(matchesFilters(cleaning, { ...filters, query: 'vinohrady' })).toBe(true);
     expect(matchesFilters(cleaning, { ...filters, query: 'maria' })).toBe(true);
@@ -171,20 +173,40 @@ describe('matchesFilters', () => {
   });
 
   test('nobody keeps only the work still in the queue', () => {
-    expect(matchesFilters(cleaning, { query: '', assigneeId: 'nobody', type: 'all' })).toBe(false);
-    expect(matchesFilters(inspection, { query: '', assigneeId: 'nobody', type: 'all' })).toBe(true);
+    expect(matchesFilters(cleaning, { ...EMPTY_FILTERS, assigneeId: 'nobody' })).toBe(false);
+    expect(matchesFilters(inspection, { ...EMPTY_FILTERS, assigneeId: 'nobody' })).toBe(true);
   });
 
   test('a person keeps only their own work', () => {
-    expect(matchesFilters(cleaning, { query: '', assigneeId: maria, type: 'all' })).toBe(true);
-    expect(matchesFilters(inspection, { query: '', assigneeId: maria, type: 'all' })).toBe(false);
+    expect(matchesFilters(cleaning, { ...EMPTY_FILTERS, assigneeId: maria })).toBe(true);
+    expect(matchesFilters(inspection, { ...EMPTY_FILTERS, assigneeId: maria })).toBe(false);
+  });
+
+  test('the dates are inclusive at both ends, and either end may be left open', () => {
+    const onTheDay = task({ id: id(3), scheduled_date: '2026-09-11' });
+    const later = task({ id: id(4), scheduled_date: '2026-09-14' });
+
+    expect(matchesFilters(onTheDay, { ...EMPTY_FILTERS, dateFrom: '2026-09-11' })).toBe(true);
+    expect(matchesFilters(onTheDay, { ...EMPTY_FILTERS, dateTo: '2026-09-11' })).toBe(true);
+    expect(matchesFilters(onTheDay, { ...EMPTY_FILTERS, dateFrom: '2026-09-12' })).toBe(false);
+    expect(matchesFilters(later, { ...EMPTY_FILTERS, dateTo: '2026-09-12' })).toBe(false);
+    expect(
+      matchesFilters(later, { ...EMPTY_FILTERS, dateFrom: '2026-09-12', dateTo: '2026-09-15' }),
+    ).toBe(true);
+  });
+
+  test('hasFilters knows whether an empty list means "no work" or "nothing found"', () => {
+    expect(hasFilters(EMPTY_FILTERS)).toBe(false);
+    expect(hasFilters({ ...EMPTY_FILTERS, dateFrom: '2026-09-11' })).toBe(true);
+    expect(hasFilters({ ...EMPTY_FILTERS, query: '  ' })).toBe(false);
+    expect(hasFilters({ ...EMPTY_FILTERS, assigneeId: 'nobody' })).toBe(true);
   });
 
   test('the kind filters by kind', () => {
-    expect(matchesFilters(cleaning, { query: '', assigneeId: 'all', type: 'inspection' })).toBe(
+    expect(matchesFilters(cleaning, { ...EMPTY_FILTERS, type: 'inspection' })).toBe(
       false,
     );
-    expect(matchesFilters(inspection, { query: '', assigneeId: 'all', type: 'inspection' })).toBe(
+    expect(matchesFilters(inspection, { ...EMPTY_FILTERS, type: 'inspection' })).toBe(
       true,
     );
   });

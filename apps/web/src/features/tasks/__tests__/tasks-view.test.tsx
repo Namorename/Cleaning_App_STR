@@ -48,7 +48,7 @@ const morning = task({
   time_from: '09:00:00',
   time_to: '11:00:00',
   assignee_id: MARIA,
-  assignee: { full_name: 'Maria Test' },
+  assignee: { full_name: 'Maria Test', role: 'cleaner' },
 });
 const evening = task({
   id: id(2),
@@ -70,7 +70,7 @@ const finished = task({
   started_at: '2026-09-10T08:00:00+00:00',
   completed_at: '2026-09-10T09:35:00+00:00',
   measured_minutes: 95,
-  assignee: { full_name: 'Maria Test' },
+  assignee: { full_name: 'Maria Test', role: 'cleaner' },
 });
 
 const staff = [{ id: MARIA, full_name: 'Maria Test', role: 'cleaner' }];
@@ -165,6 +165,25 @@ describe('TasksView', () => {
     expect(screen.queryByText('Генеральная уборка')).not.toBeInTheDocument();
     expect(screen.getByText('Вечерний осмотр')).toBeInTheDocument();
   });
+
+  test('narrows the schedule to a day, and says who is on the job', async () => {
+    render(<TasksView />);
+
+    // The executor is named, with the icon of what she does beside her.
+    const card = screen.getByText('Генеральная уборка').closest('[data-slot="card"]') as HTMLElement;
+    expect(within(card).getByTitle('Уборщица')).toHaveTextContent('Maria Test');
+
+    await userEvent.click(screen.getByRole('tab', { name: /Ближайшие/ }));
+    expect(screen.getByText('Уборка завтра')).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText('Дата с'), TODAY);
+    await userEvent.type(screen.getByLabelText('Дата по'), TODAY);
+    expect(screen.queryByText('Уборка завтра')).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Ближайшие/ })).toHaveTextContent('0');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Сбросить фильтры' }));
+    expect(screen.getByText('Уборка завтра')).toBeInTheDocument();
+  }, 20000);
 
   test('says nothing was found rather than that there is no work', async () => {
     render(<TasksView />);

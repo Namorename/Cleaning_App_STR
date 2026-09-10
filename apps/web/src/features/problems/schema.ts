@@ -13,7 +13,9 @@ export type BoardStatus = (typeof BOARD_STATUSES)[number];
 /** Task statuses that no longer count as an attempt at the fix. */
 const CLOSED_TASK_STATUSES = ['done', 'cancelled', 'expired'] as const;
 
-const personSchema = z.object({ full_name: z.string().nullable() }).nullable();
+const personSchema = z
+  .object({ full_name: z.string().nullable(), role: z.string().nullable().default(null) })
+  .nullable();
 
 /** The fix task as the manager reads it, with the technician's name along. */
 export const fixTaskSchema = z.object({

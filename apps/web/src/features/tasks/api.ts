@@ -35,8 +35,8 @@ const TASK_COLUMNS =
   'measured_minutes, duration_override_min, is_parallel, is_short_measurement, ' +
   'notes, title, title_i18n, created_at, ' +
   'property:properties(name), ' +
-  'assignee:profiles!tasks_assignee_id_fkey(full_name), ' +
-  'author:profiles!tasks_created_by_fkey(full_name)';
+  'assignee:profiles!tasks_assignee_id_fkey(full_name, role), ' +
+  'author:profiles!tasks_created_by_fkey(full_name, role)';
 
 /** A calendar day `days` before today, as `YYYY-MM-DD`. */
 function daysAgo(days: number, now: Date = new Date()): string {

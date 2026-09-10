@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { DragEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Person } from '@/components/person';
 import { Badge } from '@/components/ui/badge';
 import { formatDay } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
@@ -58,7 +59,7 @@ export function ProblemCard({ problem, onDragStart, onDragEnd }: ProblemCardProp
       </span>
       {fixTask !== null ? (
         <span className="text-xs text-muted-foreground">
-          {assignee ?? t('panel.problems.unknownPerson')} ·{' '}
+          <Person name={assignee} role={fixTask.assignee?.role} fallback={t('panel.problems.unknownPerson')} /> ·{' '}
           {formatDay(fixTask.scheduled_date, language)}
         </span>
       ) : null}

@@ -27,7 +27,9 @@ const CLOSED_STATUSES: readonly TaskStatus[] = ['done', 'cancelled', 'expired'];
 export const TASK_TABS = ['today', 'upcoming', 'closed'] as const;
 export type TaskTab = (typeof TASK_TABS)[number];
 
-const personSchema = z.object({ full_name: z.string().nullable() }).nullable();
+const personSchema = z
+  .object({ full_name: z.string().nullable(), role: z.string().nullable().default(null) })
+  .nullable();
 
 /** A task as the panel reads it: the row plus the names it needs to show. */
 export const taskSchema = z.object({
@@ -118,9 +120,29 @@ export interface TaskFilters {
   /** A person's id, `all`, or `nobody` for the queue of unassigned work. */
   assigneeId: string;
   type: TaskType | 'all';
+  /** `YYYY-MM-DD`, both ends inclusive; an empty string is an open end. */
+  dateFrom: string;
+  dateTo: string;
 }
 
-export const EMPTY_FILTERS: TaskFilters = { query: '', assigneeId: 'all', type: 'all' };
+export const EMPTY_FILTERS: TaskFilters = {
+  query: '',
+  assigneeId: 'all',
+  type: 'all',
+  dateFrom: '',
+  dateTo: '',
+};
+
+/** Is any filter on? What an empty list should say depends on it. */
+export function hasFilters(filters: TaskFilters): boolean {
+  return (
+    filters.query.trim() !== '' ||
+    filters.assigneeId !== 'all' ||
+    filters.type !== 'all' ||
+    filters.dateFrom !== '' ||
+    filters.dateTo !== ''
+  );
+}
 
 /** Title, listing or executor contains the query; an empty query keeps everything. */
 export function matchesQuery(task: Task, query: string): boolean {
@@ -141,6 +163,13 @@ export function matchesQuery(task: Task, query: string): boolean {
 
 export function matchesFilters(task: Task, filters: TaskFilters): boolean {
   if (filters.type !== 'all' && task.type !== filters.type) {
+    return false;
+  }
+  // `YYYY-MM-DD` sorts as it reads, so a string compare is a date compare.
+  if (filters.dateFrom !== '' && task.scheduled_date < filters.dateFrom) {
+    return false;
+  }
+  if (filters.dateTo !== '' && task.scheduled_date > filters.dateTo) {
     return false;
   }
   if (filters.assigneeId === 'nobody' && task.assignee_id !== null) {

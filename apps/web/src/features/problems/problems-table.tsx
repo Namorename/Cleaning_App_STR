@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 
+import { Person } from '@/components/person';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -63,12 +64,22 @@ export function ProblemsTable({ problems }: ProblemsTableProps) {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  {fixTask === null
-                    ? t('panel.problems.noAssignee')
-                    : (fixTask.assignee?.full_name ?? t('panel.problems.unknownPerson'))}
+                  {fixTask === null ? (
+                    t('panel.problems.noAssignee')
+                  ) : (
+                    <Person
+                      name={fixTask.assignee?.full_name}
+                      role={fixTask.assignee?.role}
+                      fallback={t('panel.problems.unknownPerson')}
+                    />
+                  )}
                 </TableCell>
                 <TableCell>
-                  {problem.reporter?.full_name ?? t('panel.problems.unknownPerson')}
+                  <Person
+                    name={problem.reporter?.full_name}
+                    role={problem.reporter?.role}
+                    fallback={t('panel.problems.unknownPerson')}
+                  />
                 </TableCell>
                 <TableCell>{formatDateTime(problem.created_at, language)}</TableCell>
               </TableRow>

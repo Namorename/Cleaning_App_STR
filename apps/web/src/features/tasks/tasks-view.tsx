@@ -15,6 +15,7 @@ import { TaskForm } from './task-form';
 import {
   EMPTY_FILTERS,
   groupTasks,
+  hasFilters,
   matchesFilters,
   TASK_TABS,
   TASK_TYPES,
@@ -49,8 +50,7 @@ export function TasksView() {
   const tasks = (data ?? []).filter((task) => matchesFilters(task, filters));
   const inTab = (key: TaskTab) => tasks.filter((task) => tabOf(task, today) === key);
   const groups = groupTasks(inTab(tab), tab);
-  const isFiltered =
-    filters.query.trim() !== '' || filters.assigneeId !== 'all' || filters.type !== 'all';
+  const isFiltered = hasFilters(filters);
 
   const openNew = () => setEditing({ task: null });
   const openEdit = (task: Task) => setEditing({ task });
@@ -103,6 +103,30 @@ export function TasksView() {
             </option>
           ))}
         </select>
+        <Input
+          type="date"
+          className="w-40"
+          aria-label={t('panel.tasks.filters.dateFrom')}
+          value={filters.dateFrom}
+          onChange={(event) => setFilters({ ...filters, dateFrom: event.target.value })}
+        />
+        <Input
+          type="date"
+          className="w-40"
+          aria-label={t('panel.tasks.filters.dateTo')}
+          value={filters.dateTo}
+          onChange={(event) => setFilters({ ...filters, dateTo: event.target.value })}
+        />
+        {isFiltered ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setFilters(EMPTY_FILTERS)}
+          >
+            {t('panel.tasks.filters.reset')}
+          </Button>
+        ) : null}
       </div>
 
       {isPending ? (

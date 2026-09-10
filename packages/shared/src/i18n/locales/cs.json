@@ -94,7 +94,8 @@
         "cancelledAt": "Zrušeno {{date}}",
         "cancelReason": "Důvod zrušení",
         "taskStatus": "Stav úkolu: {{status}}",
-        "archivedAt": "V archivu od {{date}}"
+        "archivedAt": "V archivu od {{date}}",
+        "reporterLabel": "Nahlásil:"
       },
       "assign": {
         "title": "Přiřadit technika",
@@ -232,7 +233,13 @@
         "showArchived": "Zobrazit odebrané",
         "archived": "Odebráno ze seznamu",
         "fromCatalog": "z katalogu"
-      }
+      },
+      "filters": {
+        "dateFrom": "Datum od",
+        "dateTo": "Datum do",
+        "reset": "Zrušit filtry"
+      },
+      "requesterLabel": "Požádal:"
     },
     "tasks": {
       "title": "Úkoly",
@@ -274,7 +281,10 @@
         "anyAssignee": "Kdokoli",
         "nobody": "Zatím nikdo",
         "type": "Druh",
-        "anyType": "Jakýkoli druh"
+        "anyType": "Jakýkoli druh",
+        "dateFrom": "Datum od",
+        "dateTo": "Datum do",
+        "reset": "Zrušit filtry"
       },
       "overdue": "Propadlo",
       "noAssignee": "Zatím nikdo",
@@ -300,12 +310,12 @@
       "form": {
         "titleNew": "Nový úkol",
         "titleEdit": "Upravit úkol",
-        "description": "Bez názvu se úkol jmenuje podle svého druhu — „Úklid“, „Kontrola“. Název se píše v jazyce firmy.",
+        "description": "Volitelné: bez názvu se úkol jmenuje podle svého druhu — „Úklid“, „Kontrola“.",
         "property": "Byt",
         "propertyPlaceholder": "Vyberte byt",
         "type": "Druh úkolu",
         "date": "Den",
-        "name": "Název (volitelné)",
+        "name": "Název",
         "assignee": "Vykonavatel",
         "assigneeNobody": "Zatím nikdo",
         "timeFrom": "Ne dříve než",
@@ -347,7 +357,15 @@
         "short": "Podezřele krátký úklid",
         "parallel": "Probíhal souběžně s jiným",
         "close": "Zavřít"
-      }
+      },
+      "authorLabel": "Zadal:"
+    },
+    "roles": {
+      "cleaner": "Uklízečka",
+      "tech": "Technik",
+      "manager": "Manažer",
+      "admin": "Administrátor",
+      "unknown": "Zaměstnanec"
     }
   },
   "tabs": {

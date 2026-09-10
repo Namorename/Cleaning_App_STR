@@ -20,7 +20,7 @@ const base = {
   reject_reason: null,
   created_at: '2026-09-09T10:00:00+00:00',
   property: { name: 'Vinohrady 12' },
-  requester: { full_name: 'Maria Test' },
+  requester: { full_name: 'Maria Test', role: 'cleaner' },
 };
 
 const item = (id: string, name: string, quantity: number, unit = 'pcs', sort_order = 1) => ({
@@ -126,6 +126,21 @@ describe('SuppliesView', () => {
     expect(screen.getByText('Губки')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Принять' })).not.toBeInTheDocument();
   });
+
+  test('narrows the requests to a day, counters included, and says who asked', async () => {
+    render(<SuppliesView />);
+
+    const card = screen.getByText('Karlín 3').closest('[data-slot="card"]') as HTMLElement;
+    expect(within(card).getByTitle('Уборщица')).toHaveTextContent('Maria Test');
+
+    // Everything in the fixture was created on 2026-09-09.
+    await userEvent.type(screen.getByLabelText('Дата с'), '2026-09-10');
+    expect(screen.getByRole('tab', { name: /Новые/ })).toHaveTextContent('0');
+    expect(screen.queryByText('Средство для стёкол')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Сбросить фильтры' }));
+    expect(screen.getByRole('tab', { name: /Новые/ })).toHaveTextContent('2');
+  }, 20000);
 
   test('accepts at once and rejects only with a reason', async () => {
     render(<SuppliesView />);

@@ -3,10 +3,12 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Person } from '@/components/person';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { serverErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
+import { cn } from '@/lib/utils';
 
 import { formatWindow, statusVariant, typeVariant } from './format';
 import { isManualTask, isOverdue, isTaskClosed, localizedTitle, type Task } from './schema';
@@ -52,11 +54,21 @@ export function TaskCard({ task, today, onEdit, onOpenWork }: TaskCardProps) {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
         <span>{task.property?.name ?? t('panel.tasks.noProperty')}</span>
         {timeWindow === null ? null : <span>{timeWindow}</span>}
-        <span>{task.assignee?.full_name ?? t('panel.tasks.noAssignee')}</span>
+        {/* The person doing it is the thing a schedule is read for: it keeps
+            the foreground colour while the rest of the line stays quiet. */}
+        <Person
+          name={task.assignee?.full_name}
+          role={task.assignee?.role}
+          fallback={t('panel.tasks.noAssignee')}
+          className={cn(task.assignee?.full_name != null && 'font-medium text-foreground')}
+        />
         {task.reservation_id !== null ? <span>{t('panel.tasks.origin.booking')}</span> : null}
         {task.problem_id !== null ? <span>{t('panel.tasks.origin.problem')}</span> : null}
         {task.author?.full_name == null ? null : (
-          <span>{t('panel.tasks.author', { name: task.author.full_name })}</span>
+          <span className="inline-flex items-center gap-1">
+            {t('panel.tasks.authorLabel')}
+            <Person name={task.author.full_name} role={task.author.role} />
+          </span>
         )}
       </div>
 

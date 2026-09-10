@@ -6,9 +6,18 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+import { Input } from '@/components/ui/input';
+
 import { CatalogDialog } from './catalog-dialog';
 import { PurchaseSummary } from './purchase-summary';
-import { isInTab, SUPPLY_TABS, type SupplyTab } from './schema';
+import {
+  EMPTY_DATE_RANGE,
+  isInDateRange,
+  isInTab,
+  SUPPLY_TABS,
+  type DateRange,
+  type SupplyTab,
+} from './schema';
 import { SupplyCard } from './supply-card';
 import { useSupplyRequests } from './use-supplies';
 
@@ -18,10 +27,13 @@ export function SuppliesView() {
   const [tab, setTab] = useState<SupplyTab>('new');
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
+  const [dates, setDates] = useState<DateRange>(EMPTY_DATE_RANGE);
   const { data, isPending, isError } = useSupplyRequests();
 
-  const requests = data ?? [];
+  // The date narrows everything: the tab counts have to agree with the list.
+  const requests = (data ?? []).filter((request) => isInDateRange(request, dates));
   const shown = requests.filter((request) => isInTab(request, tab));
+  const hasDates = dates.from !== '' || dates.to !== '';
 
   return (
     <div className="flex flex-col gap-4">
@@ -40,6 +52,33 @@ export function SuppliesView() {
             {t('panel.supplies.summary.open')}
           </Button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          type="date"
+          className="w-40"
+          aria-label={t('panel.supplies.filters.dateFrom')}
+          value={dates.from}
+          onChange={(event) => setDates({ ...dates, from: event.target.value })}
+        />
+        <Input
+          type="date"
+          className="w-40"
+          aria-label={t('panel.supplies.filters.dateTo')}
+          value={dates.to}
+          onChange={(event) => setDates({ ...dates, to: event.target.value })}
+        />
+        {hasDates ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setDates(EMPTY_DATE_RANGE)}
+          >
+            {t('panel.supplies.filters.reset')}
+          </Button>
+        ) : null}
       </div>
 
       {isPending ? (

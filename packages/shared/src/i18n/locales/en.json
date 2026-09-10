@@ -94,7 +94,8 @@
         "cancelledAt": "Cancelled {{date}}",
         "cancelReason": "Cancel reason",
         "taskStatus": "Task status: {{status}}",
-        "archivedAt": "Archived {{date}}"
+        "archivedAt": "Archived {{date}}",
+        "reporterLabel": "Reported by"
       },
       "assign": {
         "title": "Assign a technician",
@@ -232,7 +233,13 @@
         "showArchived": "Show removed items",
         "archived": "Removed from the list",
         "fromCatalog": "from the catalogue"
-      }
+      },
+      "filters": {
+        "dateFrom": "From",
+        "dateTo": "Until",
+        "reset": "Clear the filters"
+      },
+      "requesterLabel": "Requested by"
     },
     "tasks": {
       "title": "Tasks",
@@ -274,7 +281,10 @@
         "anyAssignee": "Anyone",
         "nobody": "Nobody yet",
         "type": "Kind",
-        "anyType": "Any kind"
+        "anyType": "Any kind",
+        "dateFrom": "From",
+        "dateTo": "Until",
+        "reset": "Clear the filters"
       },
       "overdue": "Overdue",
       "noAssignee": "Nobody yet",
@@ -300,12 +310,12 @@
       "form": {
         "titleNew": "New task",
         "titleEdit": "Edit the task",
-        "description": "Without a title the task is called by its kind — \"Cleaning\", \"Inspection\". The title is written in the company language.",
+        "description": "Optional: without a title the task is called by its kind — \"Cleaning\", \"Inspection\".",
         "property": "Listing",
         "propertyPlaceholder": "Pick a listing",
         "type": "Kind of task",
         "date": "Day",
-        "name": "Title (optional)",
+        "name": "Title",
         "assignee": "Executor",
         "assigneeNobody": "Nobody yet",
         "timeFrom": "Not before",
@@ -347,7 +357,15 @@
         "short": "Suspiciously short",
         "parallel": "Overlapped another cleaning",
         "close": "Close"
-      }
+      },
+      "authorLabel": "Asked by"
+    },
+    "roles": {
+      "cleaner": "Cleaner",
+      "tech": "Technician",
+      "manager": "Manager",
+      "admin": "Administrator",
+      "unknown": "Staff"
     }
   },
   "tabs": {

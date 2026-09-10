@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Person } from '@/components/person';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -146,10 +147,13 @@ function ReportMeta({ problem }: { problem: Problem }) {
 
   return (
     <dl className="flex flex-col gap-1 text-muted-foreground">
-      <dd>
-        {t('panel.problems.detail.reportedBy', {
-          name: problem.reporter?.full_name ?? t('panel.problems.unknownPerson'),
-        })}
+      <dd className="inline-flex items-center gap-1">
+        {t('panel.problems.detail.reporterLabel')}
+        <Person
+          name={problem.reporter?.full_name}
+          role={problem.reporter?.role}
+          fallback={t('panel.problems.unknownPerson')}
+        />
       </dd>
       <dd>
         {t('panel.problems.detail.reportedAt', {
@@ -227,9 +231,12 @@ function FixTaskSummary({ fixTask }: { fixTask: FixTask }) {
 
   return (
     <div className="flex flex-col gap-1">
-      <span className="font-medium">
-        {fixTask.assignee?.full_name ?? t('panel.problems.unknownPerson')}
-      </span>
+      <Person
+        name={fixTask.assignee?.full_name}
+        role={fixTask.assignee?.role}
+        fallback={t('panel.problems.unknownPerson')}
+        className="font-medium"
+      />
       <span className="text-muted-foreground">
         {t('panel.problems.detail.schedule', {
           date: formatDay(fixTask.scheduled_date, language),

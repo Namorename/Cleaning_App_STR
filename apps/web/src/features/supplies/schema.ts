@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { todayIso } from '@/lib/format-date';
+
 export const SUPPLY_UNITS = ['pcs', 'pack', 'l', 'kg', 'roll'] as const;
 export type SupplyUnit = (typeof SUPPLY_UNITS)[number];
 
@@ -52,7 +54,9 @@ export interface CatalogItemDraft {
   unit: SupplyUnit;
 }
 
-const personSchema = z.object({ full_name: z.string().nullable() }).nullable();
+const personSchema = z
+  .object({ full_name: z.string().nullable(), role: z.string().nullable().default(null) })
+  .nullable();
 
 /** A request as the manager reads it: the row, its lines, and the names around it. */
 export const supplyRequestSchema = z.object({
@@ -74,6 +78,33 @@ export const supplyRequestSchema = z.object({
 });
 export type SupplyRequest = z.infer<typeof supplyRequestSchema>;
 export const supplyRequestListSchema = z.array(supplyRequestSchema);
+
+/**
+ * The day a request was made, as the manager reads it.
+ *
+ * `created_at` is an instant; the filter is a calendar day, and the day it
+ * belongs to is the reader's, not UTC's — otherwise a request made at half
+ * past midnight in Prague falls out of a search for that date.
+ */
+export function requestDay(request: Pick<SupplyRequest, 'created_at'>): string {
+  return todayIso(new Date(request.created_at));
+}
+
+/** `YYYY-MM-DD` at both ends, inclusive; an empty string is an open end. */
+export interface DateRange {
+  from: string;
+  to: string;
+}
+
+export const EMPTY_DATE_RANGE: DateRange = { from: '', to: '' };
+
+export function isInDateRange(request: Pick<SupplyRequest, 'created_at'>, range: DateRange): boolean {
+  const day = requestDay(request);
+  if (range.from !== '' && day < range.from) {
+    return false;
+  }
+  return range.to === '' || day <= range.to;
+}
 
 /** The page's tabs; "all" is the only one that shows rejected requests. */
 export const SUPPLY_TABS = ['new', 'inProgress', 'fulfilled', 'all'] as const;

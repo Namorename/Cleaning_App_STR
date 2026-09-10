@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Person } from '@/components/person';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -102,7 +103,14 @@ export function SupplyCard({ request }: SupplyCardProps) {
           </Badge>
         </div>
         <CardDescription className="flex flex-wrap gap-x-3">
-          <span>{t('panel.supplies.requester', { name: requester })}</span>
+          <span className="inline-flex items-center gap-1">
+            {t('panel.supplies.requesterLabel')}
+            <Person
+              name={request.requester?.full_name}
+              role={request.requester?.role}
+              fallback={requester}
+            />
+          </span>
           <span>
             {t('panel.supplies.createdAt', { date: formatDateTime(request.created_at, language) })}
           </span>
