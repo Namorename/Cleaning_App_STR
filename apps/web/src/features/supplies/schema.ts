@@ -96,7 +96,12 @@ export interface PurchaseLine {
   quantity: number;
   /** Listing names, distinct; null stands for a general request. */
   sources: (string | null)[];
+  /** Distinct requests that asked for this item, however many lines each had. */
   requestCount: number;
+}
+
+interface PurchaseAccumulator extends Omit<PurchaseLine, 'requestCount'> {
+  requestIds: string[];
 }
 
 function lineKey(name: string, unit: SupplyUnit): string {
@@ -119,7 +124,7 @@ export function aggregatePurchase(
   requests: readonly SupplyRequest[],
   statuses: readonly SupplyStatus[],
 ): PurchaseLine[] {
-  const lines = new Map<string, PurchaseLine>();
+  const lines = new Map<string, PurchaseAccumulator>();
   for (const request of requests) {
     if (!statuses.includes(request.status)) {
       continue;
@@ -135,7 +140,7 @@ export function aggregatePurchase(
           unit: item.unit,
           quantity: item.quantity,
           sources: [source],
-          requestCount: 1,
+          requestIds: [request.id],
         });
         continue;
       }
@@ -145,11 +150,17 @@ export function aggregatePurchase(
         sources: existing.sources.includes(source)
           ? existing.sources
           : [...existing.sources, source],
-        requestCount: existing.requestCount + 1,
+        requestIds: existing.requestIds.includes(request.id)
+          ? existing.requestIds
+          : [...existing.requestIds, request.id],
       });
     }
   }
   return [...lines.values()]
-    .map((line) => ({ ...line, quantity: roundQuantity(line.quantity) }))
+    .map(({ requestIds, ...line }) => ({
+      ...line,
+      quantity: roundQuantity(line.quantity),
+      requestCount: requestIds.length,
+    }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }

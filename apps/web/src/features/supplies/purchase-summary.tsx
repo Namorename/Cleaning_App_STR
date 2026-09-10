@@ -22,9 +22,9 @@ import {
 } from '@/components/ui/table';
 import { toCsv, type CellValue } from '@/lib/csv';
 import { downloadFile } from '@/lib/download';
+import { todayIso } from '@/lib/format-date';
 import { XLSX_MIME, xlsxBytes } from '@/lib/xlsx';
 
-import { fileStamp } from './format';
 import {
   aggregatePurchase,
   DEFAULT_PURCHASE_SCOPE,
@@ -72,12 +72,12 @@ export function PurchaseSummary({ requests, open, onOpenChange }: PurchaseSummar
 
   const downloadCsv = () =>
     downloadFile(
-      `purchase-${fileStamp()}.csv`,
+      `purchase-${todayIso()}.csv`,
       new Blob([toCsv(rows)], { type: 'text/csv;charset=utf-8' }),
     );
   const downloadXlsx = () =>
     downloadFile(
-      `purchase-${fileStamp()}.xlsx`,
+      `purchase-${todayIso()}.xlsx`,
       new Blob([new Uint8Array(xlsxBytes(t('panel.supplies.summary.sheet'), rows))], {
         type: XLSX_MIME,
       }),

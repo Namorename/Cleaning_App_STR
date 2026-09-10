@@ -42,6 +42,16 @@ describe('xlsxBytes', () => {
     expect(sheet).toContain('<c r="B2"><v>2.5</v></c>');
     expect(sheet).toContain('<row r="3"><c r="B3"><v>3</v></c></row>');
 
+    const hostile = strFromU8(
+      unzipSync(xlsxBytes('x', [['=HYPERLINK("https://evil.example")', -1]]))[
+        'xl/worksheets/sheet1.xml'
+      ],
+    );
+    expect(hostile).toContain(
+      '<t xml:space="preserve">\'=HYPERLINK(&quot;https://evil.example&quot;)</t>',
+    );
+    expect(hostile).toContain('<c r="B1"><v>-1</v></c>');
+
     const workbook = strFromU8(parts['xl/workbook.xml']);
     expect(workbook).toContain('<sheet name="Закупка  осень 2026" sheetId="1" r:id="rId1"/>');
   });

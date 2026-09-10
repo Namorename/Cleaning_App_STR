@@ -1,6 +1,6 @@
 import { strToU8, zipSync } from 'fflate';
 
-import type { CellValue } from './csv';
+import { safeCellText, type CellValue } from './csv';
 
 /**
  * A one-sheet workbook, written by hand.
@@ -48,7 +48,7 @@ function cellXml(value: CellValue, rowIndex: number, columnIndex: number): strin
   if (typeof value === 'number' && Number.isFinite(value)) {
     return `<c r="${ref}"><v>${value}</v></c>`;
   }
-  return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(String(value))}</t></is></c>`;
+  return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(safeCellText(String(value)))}</t></is></c>`;
 }
 
 function sheetXml(rows: readonly (readonly CellValue[])[]): string {

@@ -16,10 +16,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import { formatDateTime, formatDay } from '@/lib/format-date';
 import { serverErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
 
-import { formatDateTime, formatDay, statusVariant } from './format';
+import { statusVariant } from './format';
 import {
   canReject,
   nextStatuses,

@@ -102,6 +102,19 @@ describe('ProblemsBoard drag and drop', () => {
     expect(mutations.resolve).toHaveBeenCalledWith(OPEN_ID, expect.anything());
   });
 
+  test('the resolve dialog closes once the server has answered, refusal included', async () => {
+    mutations.resolve.mockImplementation(
+      (_id: string, options: { onSettled?: () => void }) => options.onSettled?.(),
+    );
+    render(<ProblemsBoard problems={problems} />);
+
+    dragTo('Течёт кран', 'Решена');
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Да, решена' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   test('dropping an open card on "assigned" opens the technician form', async () => {
     render(<ProblemsBoard problems={problems} />);
 

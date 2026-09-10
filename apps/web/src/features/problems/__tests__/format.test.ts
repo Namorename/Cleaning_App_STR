@@ -1,13 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { formatClock, formatDay, priorityVariant, statusVariant, stepTitle, todayIso } from '../format';
-
-describe('formatDay', () => {
-  test('reads a database day as a calendar day in the manager language', () => {
-    expect(formatDay('2026-09-10', 'en')).toBe('10 Sept 2026');
-    expect(formatDay('2026-09-10', 'ru')).toContain('2026');
-  });
-});
+import { formatClock, priorityVariant, statusVariant, stepTitle } from '../format';
 
 describe('formatClock', () => {
   test('drops the seconds', () => {
@@ -30,11 +23,5 @@ describe('badge variants', () => {
     expect(statusVariant('resolved')).toBe('secondary');
     expect(priorityVariant('high')).toBe('destructive');
     expect(priorityVariant('low')).toBe('outline');
-  });
-});
-
-describe('todayIso', () => {
-  test('pads month and day', () => {
-    expect(todayIso(new Date(2026, 0, 5))).toBe('2026-01-05');
   });
 });

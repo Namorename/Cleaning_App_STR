@@ -1,9 +1,8 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
 
-import { createClient } from '@/lib/supabase/client';
+import { useSupabase } from '@/lib/supabase/use-client';
 
 import {
   assignProblem,
@@ -16,15 +15,8 @@ import {
   resolveProblem,
   unassignProblem,
   type AssignProblemVariables,
-  type Client,
 } from './api';
 import { problemKeys } from './keys';
-
-/** One browser client per component tree; the cookie session is shared anyway. */
-export function useSupabase(): Client {
-  const [client] = useState(() => createClient());
-  return client;
-}
 
 export function useProblems() {
   const client = useSupabase();

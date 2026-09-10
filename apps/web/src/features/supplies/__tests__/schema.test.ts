@@ -91,6 +91,22 @@ describe('aggregatePurchase', () => {
     expect(lines[0]?.sources).toEqual(['Vinohrady 12', 'Karlín 3', null]);
   });
 
+  test('counts a request once however many lines of the same item it holds', () => {
+    const lines = aggregatePurchase(
+      [
+        request(A, 'new', 'Vinohrady 12', [
+          { name: 'Мешки 60 л', quantity: 2 },
+          { name: 'мешки  60 л', quantity: 1 },
+        ]),
+      ],
+      ['new'],
+    );
+    expect(lines).toHaveLength(1);
+    expect(lines[0]?.quantity).toBe(3);
+    expect(lines[0]?.requestCount).toBe(1);
+    expect(lines[0]?.sources).toEqual(['Vinohrady 12']);
+  });
+
   test('counts only the statuses in scope', () => {
     const lines = aggregatePurchase(
       [

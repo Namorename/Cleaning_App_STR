@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 
+import { safeNext } from '@/lib/safe-next';
 import { isPanelRole, roleOf } from '@/lib/session';
 import { createClient } from '@/lib/supabase/server';
 
@@ -9,12 +10,6 @@ export type SignInIssue = 'invalid' | 'notManager' | 'missing';
 
 export interface SignInState {
   issue: SignInIssue | null;
-}
-
-function safeNext(value: FormDataEntryValue | null): string {
-  return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//')
-    ? value
-    : '/dashboard';
 }
 
 /**

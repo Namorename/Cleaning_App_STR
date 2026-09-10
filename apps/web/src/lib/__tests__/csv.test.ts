@@ -1,8 +1,25 @@
 import { describe, expect, test } from 'vitest';
 
-import { toCsv } from '../csv';
+import { safeCellText, toCsv } from '../csv';
+
+describe('safeCellText', () => {
+  test('keeps a cell that a spreadsheet would run as a formula literal', () => {
+    expect(safeCellText('=HYPERLINK("https://evil.example")')).toBe(
+      "'=HYPERLINK(\"https://evil.example\")",
+    );
+    expect(safeCellText('+1')).toBe("'+1");
+    expect(safeCellText('-5 шт')).toBe("'-5 шт");
+    expect(safeCellText('@SUM(A1)')).toBe("'@SUM(A1)");
+    expect(safeCellText('\tтаб')).toBe("'\tтаб");
+    expect(safeCellText('Мешки')).toBe('Мешки');
+  });
+});
 
 describe('toCsv', () => {
+  test('neutralises formulas in text cells but leaves numbers as numbers', () => {
+    expect(toCsv([['=cmd|calc', -5]]).slice(1)).toBe("'=cmd|calc,-5\r\n");
+  });
+
   test('quotes what needs quoting, keeps numbers bare, marks the encoding', () => {
     const csv = toCsv([
       ['Название', 'Кол-во'],

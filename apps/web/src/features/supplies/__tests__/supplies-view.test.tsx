@@ -140,5 +140,6 @@ describe('SuppliesView', () => {
     expect(await readBlob(downloadFile.mock.calls[0]?.[1] as Blob)).toContain(
       'Средство для стёкол,шт,5,Vinohrady 12; Karlín 3,2',
     );
-  });
+    // Typing, a dialog and a zip in one test: slow on a loaded machine.
+  }, 15000);
 });

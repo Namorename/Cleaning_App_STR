@@ -6,9 +6,10 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { todayIso } from '@/lib/format-date';
 import { serverErrorText } from '@/lib/server-error';
 
-import { formatClock, todayIso } from './format';
+import { formatClock } from './format';
 import type { FixTask, Problem } from './schema';
 import { useAssignProblem, useStaff } from './use-problems';
 

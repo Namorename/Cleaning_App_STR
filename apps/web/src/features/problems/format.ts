@@ -1,4 +1,4 @@
-import { INTL_LOCALES, type Language } from '@str-ops/shared';
+import type { Language } from '@str-ops/shared';
 
 import type { ProblemPriority, ProblemStatus, TaskStep } from './schema';
 
@@ -30,22 +30,6 @@ export function priorityVariant(priority: ProblemPriority): BadgeVariant {
   }
 }
 
-/** An ISO timestamp as the manager reads it: "9 сент. 2026 г., 14:05". */
-export function formatDateTime(iso: string, language: Language): string {
-  return new Intl.DateTimeFormat(INTL_LOCALES[language], {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(iso));
-}
-
-/** A `YYYY-MM-DD` date, read as a calendar day rather than an instant. */
-export function formatDay(day: string, language: Language): string {
-  const [year, month, date] = day.split('-').map(Number);
-  return new Intl.DateTimeFormat(INTL_LOCALES[language], { dateStyle: 'medium' }).format(
-    new Date(year, month - 1, date),
-  );
-}
-
 /** `HH:MM:SS` from the database as `HH:MM`. */
 export function formatClock(time: string): string {
   return time.slice(0, 5);
@@ -57,10 +41,4 @@ export function stepTitle(
   language: Language,
 ): string | null {
   return step.title_i18n?.[language] ?? step.title;
-}
-
-/** Today's calendar day as the date input wants it. */
-export function todayIso(now: Date = new Date()): string {
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }

@@ -12,9 +12,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { formatDateTime } from '@/lib/format-date';
 import { useLanguage } from '@/lib/use-language';
 
-import { formatDateTime, priorityVariant, statusVariant } from './format';
+import { priorityVariant, statusVariant } from './format';
 import { liveFixTask, type Problem } from './schema';
 
 interface ProblemsTableProps {

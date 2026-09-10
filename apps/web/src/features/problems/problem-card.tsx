@@ -5,10 +5,11 @@ import type { DragEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Badge } from '@/components/ui/badge';
+import { formatDay } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/lib/use-language';
 
-import { formatDay, priorityVariant } from './format';
+import { priorityVariant } from './format';
 import { isDraggable, liveFixTask, type Problem } from './schema';
 
 interface ProblemCardProps {

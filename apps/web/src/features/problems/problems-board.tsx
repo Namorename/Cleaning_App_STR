@@ -123,11 +123,13 @@ export function ProblemsBoard({ problems }: ProblemsBoardProps) {
 
   const closePending = () => setPending(null);
 
+  // The dialog closes either way: a refusal is shown in the status line under
+  // the board, which the open dialog would otherwise cover.
   const confirmResolve = () => {
     if (pending === null) {
       return;
     }
-    resolve.mutate(pending.problem.id, { onSuccess: closePending });
+    resolve.mutate(pending.problem.id, { onSettled: closePending });
   };
 
   return (

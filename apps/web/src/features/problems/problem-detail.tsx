@@ -9,12 +9,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { formatDateTime, formatDay } from '@/lib/format-date';
 import { serverErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
 
 import { AssignForm } from './assign-form';
 import { FixTaskSteps } from './fix-task-steps';
-import { formatClock, formatDateTime, formatDay, priorityVariant, statusVariant } from './format';
+import { formatClock, priorityVariant, statusVariant } from './format';
 import { ProblemPhotos } from './problem-photos';
 import { isProblemClosed, liveFixTask, type FixTask, type Problem } from './schema';
 import {

@@ -1,22 +1,11 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
 
-import { createClient } from '@/lib/supabase/client';
+import { useSupabase } from '@/lib/supabase/use-client';
 
-import {
-  fetchSupplyRequests,
-  reviewSupplyRequest,
-  type Client,
-  type ReviewVariables,
-} from './api';
+import { fetchSupplyRequests, reviewSupplyRequest, type ReviewVariables } from './api';
 import { supplyKeys } from './keys';
-
-function useSupabase(): Client {
-  const [client] = useState(() => createClient());
-  return client;
-}
 
 export function useSupplyRequests() {
   const client = useSupabase();
