@@ -93,7 +93,8 @@
         "resolvedAt": "Vyřešeno {{date}}",
         "cancelledAt": "Zrušeno {{date}}",
         "cancelReason": "Důvod zrušení",
-        "taskStatus": "Stav úkolu: {{status}}"
+        "taskStatus": "Stav úkolu: {{status}}",
+        "archivedAt": "V archivu od {{date}}"
       },
       "assign": {
         "title": "Přiřadit technika",
@@ -112,7 +113,13 @@
         "cancel": "Zrušit problém",
         "cancelReason": "Důvod zrušení",
         "cancelConfirm": "Potvrdit zrušení",
-        "cancelAbort": "Nechat otevřený"
+        "cancelAbort": "Nechat otevřený",
+        "reopen": "Znovu otevřít",
+        "archive": "Smazat do archivu",
+        "archiveText": "Problém zmizí z nástěnky, ze seznamu i z aplikací zaměstnanců. Nic se nemaže: lze ho vrátit ze záložky Archiv.",
+        "archiveConfirm": "Ano, do archivu",
+        "archiveAbort": "Ponechat",
+        "unarchive": "Obnovit z archivu"
       },
       "board": {
         "dragHint": "Karty lze přetahovat mezi sloupci",
@@ -123,7 +130,13 @@
         "resolveText": "„{{title}}“ se uzavře jako vyřešený. Úkol technika, pokud existuje, bude dokončen.",
         "resolveConfirm": "Ano, vyřešeno",
         "resolveAbort": "Ne",
-        "assignTitle": "Přiřadit technika"
+        "assignTitle": "Přiřadit technika",
+        "reopened": "Problém je znovu otevřený"
+      },
+      "viewArchive": "Archiv",
+      "archive": {
+        "empty": "Archiv je prázdný",
+        "hint": "Archivované problémy zaměstnanci nevidí a na nástěnce nejsou. Obnovený problém se vrátí ve stejném stavu."
       }
     },
     "supplies": {
@@ -175,6 +188,48 @@
         "csv": "Stáhnout CSV",
         "xlsx": "Stáhnout XLSX",
         "sheet": "Nákup"
+      },
+      "rejectedHint": "Žádost je uzavřená. Uklízečka vidí zamítnutí i důvod v aplikaci.",
+      "export": {
+        "csv": "Export CSV",
+        "xlsx": "Export XLSX",
+        "sheet": "Žádost",
+        "columns": {
+          "name": "Položka",
+          "quantity": "Množství",
+          "unit": "Jedn.",
+          "comment": "Poznámka"
+        },
+        "property": "Objekt",
+        "requester": "Požádal(a)",
+        "status": "Stav",
+        "createdAt": "Vytvořeno",
+        "note": "Poznámka k žádosti"
+      },
+      "catalog": {
+        "open": "Katalog spotřebního materiálu",
+        "title": "Katalog spotřebního materiálu",
+        "description": "Z tohoto seznamu uklízečka vybírá položky žádosti a zadává jen množství. Název je v jazyce firmy, překlady jsou volitelné.",
+        "loading": "Načítáme katalog…",
+        "loadError": "Katalog se nepodařilo načíst",
+        "empty": "Katalog je prázdný: uklízečky zatím zadávají názvy ručně",
+        "name": "Název",
+        "translation": "Překlad: {{language}}",
+        "languages": {
+          "ru": "ruština",
+          "en": "angličtina",
+          "cs": "čeština"
+        },
+        "unit": "Jednotka",
+        "add": "Přidat položku",
+        "save": "Uložit",
+        "edit": "Upravit",
+        "cancelEdit": "Zrušit",
+        "archive": "Odebrat ze seznamu",
+        "restore": "Vrátit do seznamu",
+        "showArchived": "Zobrazit odebrané",
+        "archived": "Odebráno ze seznamu",
+        "fromCatalog": "z katalogu"
       }
     }
   },
@@ -371,7 +426,14 @@
     "general": "Obecná žádost",
     "rejectReason": "Důvod zamítnutí",
     "moreItems": "{{shown}} a ještě {{count}}",
-    "cardAccessibility": "{{place}}. {{summary}}. {{status}}"
+    "cardAccessibility": "{{place}}. {{summary}}. {{status}}",
+    "pickItem": "Vybrat ze seznamu",
+    "pickItemTitle": "Co potřebujete?",
+    "pickItemAccessibility": "Položka {{index}}: vybrat ze seznamu",
+    "searchCatalog": "Hledat v seznamu",
+    "catalogNoMatch": "Nic nenalezeno",
+    "manualEntry": "Není v seznamu — zadat ručně",
+    "backToCatalog": "Raději vybrat ze seznamu"
   },
   "media": {
     "takePhoto": "Vyfotit",
@@ -441,6 +503,8 @@
     "mediaUploadPending": "Souborů se ještě nahrává: {{count}}",
     "photosMissing": "Vyfoťte alespoň {{min}} foto",
     "photosTooMany": "Tento krok přijímá nejvýše {{limit}} fotek",
-    "videoMissing": "Nejdřív natočte video"
+    "videoMissing": "Nejdřív natočte video",
+    "catalogItemDuplicate": "Tato položka v této jednotce už v katalogu je",
+    "catalogItemNotFound": "Položka katalogu nenalezena"
   }
 }

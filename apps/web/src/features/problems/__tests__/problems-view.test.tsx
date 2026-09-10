@@ -51,17 +51,47 @@ const problems: Problem[] = [
   }),
 ];
 
+const archived: Problem = problemSchema.parse({
+  ...problems[0],
+  id: '66666666-6666-4666-8666-666666666666',
+  title: 'Тестовая заявка',
+  status: 'resolved',
+  resolved_at: '2026-09-08T12:00:00+00:00',
+  archived_at: '2026-09-09T12:00:00+00:00',
+});
+
 const useProblems = vi.fn();
+const unarchive = vi.fn();
 const idle = { mutate: vi.fn(), isPending: false, isError: false, isSuccess: false, error: null };
 vi.mock('../use-problems', () => ({
   useProblems: () => useProblems(),
   useResolveProblem: () => idle,
   useUnassignProblem: () => idle,
+  useReopenProblem: () => idle,
+  useUnarchiveProblem: () => ({ ...idle, mutate: unarchive }),
 }));
 
 import { ProblemsView } from '../problems-view';
 
 describe('ProblemsView', () => {
+  test('keeps archived problems off the board and restores them from the archive tab', async () => {
+    useProblems.mockReturnValue({
+      data: [...problems, archived],
+      isPending: false,
+      isError: false,
+    });
+    render(<ProblemsView />);
+
+    expect(screen.queryByText('Тестовая заявка')).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Архив/ })).toHaveTextContent('1');
+
+    await userEvent.click(screen.getByRole('tab', { name: /Архив/ }));
+    expect(screen.getByText('Тестовая заявка')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Восстановить из архива' }));
+    expect(unarchive).toHaveBeenCalledWith(archived.id);
+  });
+
   test('puts each problem into the column of its status and filters by search', async () => {
     useProblems.mockReturnValue({ data: problems, isPending: false, isError: false });
     render(<ProblemsView />);

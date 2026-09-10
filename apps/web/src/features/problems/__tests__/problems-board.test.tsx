@@ -44,13 +44,24 @@ const problems: Problem[] = [
   }),
 ];
 
-const mutations = { resolve: vi.fn(), unassign: vi.fn(), assign: vi.fn() };
+const RESOLVED_ID = '77777777-7777-4777-8777-777777777777';
+const resolved: Problem = problemSchema.parse({
+  ...base,
+  id: RESOLVED_ID,
+  title: 'Перегорела лампа',
+  status: 'resolved',
+  resolved_at: '2026-09-09T12:00:00+00:00',
+  fix_tasks: [],
+});
+
+const mutations = { resolve: vi.fn(), unassign: vi.fn(), assign: vi.fn(), reopen: vi.fn() };
 const idle = { isPending: false, isError: false, isSuccess: false, error: null };
 
 vi.mock('../use-problems', () => ({
   useResolveProblem: () => ({ ...idle, mutate: mutations.resolve }),
   useUnassignProblem: () => ({ ...idle, mutate: mutations.unassign }),
   useAssignProblem: () => ({ ...idle, mutate: mutations.assign }),
+  useReopenProblem: () => ({ ...idle, mutate: mutations.reopen }),
   useStaff: () => ({
     data: [{ id: TECH_ID, full_name: 'Petr Fixer', role: 'cleaner' }],
     isPending: false,
@@ -135,5 +146,17 @@ describe('ProblemsBoard drag and drop', () => {
     );
     expect(mutations.resolve).not.toHaveBeenCalled();
     expect(mutations.unassign).not.toHaveBeenCalled();
+  });
+
+  test('a resolved card dragged back to "open" is reopened, anywhere else it stays', () => {
+    render(<ProblemsBoard problems={[...problems, resolved]} />);
+    expect(card('Перегорела лампа')).toHaveAttribute('draggable', 'true');
+
+    dragTo('Перегорела лампа', 'Назначена');
+    expect(mutations.reopen).not.toHaveBeenCalled();
+    expect(screen.getByRole('status')).toHaveTextContent('Отсюда перенести сюда нельзя');
+
+    dragTo('Перегорела лампа', 'Открыта');
+    expect(mutations.reopen).toHaveBeenCalledWith(RESOLVED_ID, expect.anything());
   });
 });

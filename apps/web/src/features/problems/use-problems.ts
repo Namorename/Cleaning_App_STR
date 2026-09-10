@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSupabase } from '@/lib/supabase/use-client';
 
 import {
+  archiveProblem,
   assignProblem,
   cancelProblem,
   fetchFixTaskSteps,
@@ -12,7 +13,9 @@ import {
   fetchProblemPhotos,
   fetchProblems,
   fetchStaff,
+  reopenProblem,
   resolveProblem,
+  unarchiveProblem,
   unassignProblem,
   type AssignProblemVariables,
 } from './api';
@@ -93,6 +96,33 @@ export function useResolveProblem() {
   const invalidate = useInvalidateProblems();
   return useMutation({
     mutationFn: (problemId: string) => resolveProblem(client, problemId),
+    onSuccess: invalidate,
+  });
+}
+
+export function useReopenProblem() {
+  const client = useSupabase();
+  const invalidate = useInvalidateProblems();
+  return useMutation({
+    mutationFn: (problemId: string) => reopenProblem(client, problemId),
+    onSuccess: invalidate,
+  });
+}
+
+export function useArchiveProblem() {
+  const client = useSupabase();
+  const invalidate = useInvalidateProblems();
+  return useMutation({
+    mutationFn: (problemId: string) => archiveProblem(client, problemId),
+    onSuccess: invalidate,
+  });
+}
+
+export function useUnarchiveProblem() {
+  const client = useSupabase();
+  const invalidate = useInvalidateProblems();
+  return useMutation({
+    mutationFn: (problemId: string) => unarchiveProblem(client, problemId),
     onSuccess: invalidate,
   });
 }

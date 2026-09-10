@@ -6,21 +6,25 @@ import { useTranslation } from 'react-i18next';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+import { ProblemsArchive } from './problems-archive';
 import { ProblemsBoard } from './problems-board';
 import { ProblemsTable } from './problems-table';
-import { matchesQuery } from './schema';
+import { isProblemArchived, matchesQuery } from './schema';
 import { useProblems } from './use-problems';
 
-type View = 'board' | 'list';
+type View = 'board' | 'list' | 'archive';
 
-/** The section's front page: search, then the board or the list. */
+/** The section's front page: search, then the board, the list or the archive. */
 export function ProblemsView() {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [view, setView] = useState<View>('board');
   const { data, isPending, isError } = useProblems();
 
-  const problems = (data ?? []).filter((problem) => matchesQuery(problem, query));
+  const matching = (data ?? []).filter((problem) => matchesQuery(problem, query));
+  const problems = matching.filter((problem) => !isProblemArchived(problem));
+  const archived = matching.filter(isProblemArchived);
+  const emptyText = query.trim() === '' ? t('panel.problems.empty') : t('panel.problems.emptyFiltered');
 
   return (
     <div className="flex flex-col gap-4">
@@ -47,21 +51,28 @@ export function ProblemsView() {
           <TabsList>
             <TabsTrigger value="board">{t('panel.problems.viewBoard')}</TabsTrigger>
             <TabsTrigger value="list">{t('panel.problems.viewList')}</TabsTrigger>
+            <TabsTrigger value="archive">
+              {t('panel.problems.viewArchive')}
+              <span className="ml-1 text-xs text-muted-foreground">{archived.length}</span>
+            </TabsTrigger>
           </TabsList>
-          {problems.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {query.trim() === '' ? t('panel.problems.empty') : t('panel.problems.emptyFiltered')}
-            </p>
-          ) : (
-            <>
-              <TabsContent value="board">
-                <ProblemsBoard problems={problems} />
-              </TabsContent>
-              <TabsContent value="list">
-                <ProblemsTable problems={problems} />
-              </TabsContent>
-            </>
-          )}
+          <TabsContent value="board">
+            {problems.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{emptyText}</p>
+            ) : (
+              <ProblemsBoard problems={problems} />
+            )}
+          </TabsContent>
+          <TabsContent value="list">
+            {problems.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{emptyText}</p>
+            ) : (
+              <ProblemsTable problems={problems} />
+            )}
+          </TabsContent>
+          <TabsContent value="archive">
+            <ProblemsArchive problems={archived} />
+          </TabsContent>
         </Tabs>
       )}
     </div>

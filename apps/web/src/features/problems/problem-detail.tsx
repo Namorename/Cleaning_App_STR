@@ -17,12 +17,21 @@ import { AssignForm } from './assign-form';
 import { FixTaskSteps } from './fix-task-steps';
 import { formatClock, priorityVariant, statusVariant } from './format';
 import { ProblemPhotos } from './problem-photos';
-import { isProblemClosed, liveFixTask, type FixTask, type Problem } from './schema';
 import {
+  isProblemArchived,
+  isProblemClosed,
+  liveFixTask,
+  type FixTask,
+  type Problem,
+} from './schema';
+import {
+  useArchiveProblem,
   useCancelProblem,
   useProblem,
   useProblemPhotos,
+  useReopenProblem,
   useResolveProblem,
+  useUnarchiveProblem,
 } from './use-problems';
 
 interface ProblemDetailProps {
@@ -68,7 +77,8 @@ function BackLink() {
 function ProblemCard({ problem }: { problem: Problem }) {
   const { t } = useTranslation();
   const fixTask = liveFixTask(problem);
-  const isClosed = isProblemClosed(problem);
+  // Nothing to assign on a closed or archived problem; the levers below still apply.
+  const isClosed = isProblemClosed(problem) || isProblemArchived(problem);
 
   return (
     <div className="flex flex-col gap-4">
@@ -122,7 +132,7 @@ function ProblemCard({ problem }: { problem: Problem }) {
                 <FixTaskSteps taskId={fixTask.id} />
               </section>
             ) : null}
-            {isClosed ? null : <ManagerActions problem={problem} />}
+            <ManagerActions problem={problem} />
           </CardContent>
         </Card>
       </div>
@@ -164,6 +174,13 @@ function ReportMeta({ problem }: { problem: Problem }) {
               {t('panel.problems.detail.cancelReason')}: {problem.cancel_reason}
             </span>
           ) : null}
+        </dd>
+      ) : null}
+      {problem.archived_at !== null ? (
+        <dd className="text-destructive">
+          {t('panel.problems.detail.archivedAt', {
+            date: formatDateTime(problem.archived_at, language),
+          })}
         </dd>
       ) : null}
     </dl>
@@ -228,22 +245,43 @@ function FixTaskSummary({ fixTask }: { fixTask: FixTask }) {
   );
 }
 
+/** Which inline question, if any, is waiting for the manager's word. */
+type PendingAction = 'cancel' | 'archive' | null;
+
+/**
+ * The manager's levers, by where the problem is.
+ *
+ * Live: resolve, cancel, archive. Closed: reopen, archive. Archived: restore
+ * only — everything else waits until the problem is back. Cancelling asks
+ * for a reason, archiving asks for confirmation; both inline.
+ */
 function ManagerActions({ problem }: { problem: Problem }) {
   const { t } = useTranslation();
   const resolve = useResolveProblem();
   const cancel = useCancelProblem();
-  const [isCancelling, setIsCancelling] = useState(false);
+  const reopen = useReopenProblem();
+  const archive = useArchiveProblem();
+  const unarchive = useUnarchiveProblem();
+  const [pending, setPending] = useState<PendingAction>(null);
   const [reason, setReason] = useState('');
 
-  const failure = resolve.isError
-    ? serverErrorText(resolve.error)
-    : cancel.isError
-      ? serverErrorText(cancel.error)
-      : null;
+  const failed = [resolve, cancel, reopen, archive, unarchive].find((mutation) => mutation.isError);
+  const failure = failed === undefined ? null : serverErrorText(failed.error);
+  const isBusy = [resolve, cancel, reopen, archive, unarchive].some(
+    (mutation) => mutation.isPending,
+  );
+  const isArchived = isProblemArchived(problem);
+  const isClosed = isProblemClosed(problem);
+
+  const archiveButton = (
+    <Button type="button" variant="ghost" disabled={isBusy} onClick={() => setPending('archive')}>
+      {t('panel.problems.actions.archive')}
+    </Button>
+  );
 
   return (
     <div className="flex flex-col gap-3 border-t pt-4">
-      {isCancelling ? (
+      {pending === 'cancel' ? (
         <div className="flex flex-col gap-2">
           <Label htmlFor="cancelReason">{t('panel.problems.actions.cancelReason')}</Label>
           <Textarea
@@ -256,28 +294,55 @@ function ManagerActions({ problem }: { problem: Problem }) {
             <Button
               type="button"
               variant="destructive"
-              disabled={cancel.isPending}
+              disabled={isBusy}
               onClick={() => cancel.mutate({ problemId: problem.id, reason })}
             >
               {t('panel.problems.actions.cancelConfirm')}
             </Button>
-            <Button type="button" variant="outline" onClick={() => setIsCancelling(false)}>
+            <Button type="button" variant="outline" onClick={() => setPending(null)}>
               {t('panel.problems.actions.cancelAbort')}
             </Button>
           </div>
         </div>
-      ) : (
+      ) : pending === 'archive' ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-muted-foreground">{t('panel.problems.actions.archiveText')}</p>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isBusy}
+              onClick={() => archive.mutate(problem.id, { onSettled: () => setPending(null) })}
+            >
+              {t('panel.problems.actions.archiveConfirm')}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setPending(null)}>
+              {t('panel.problems.actions.archiveAbort')}
+            </Button>
+          </div>
+        </div>
+      ) : isArchived ? (
         <div className="flex gap-2">
-          <Button
-            type="button"
-            disabled={resolve.isPending}
-            onClick={() => resolve.mutate(problem.id)}
-          >
+          <Button type="button" disabled={isBusy} onClick={() => unarchive.mutate(problem.id)}>
+            {t('panel.problems.actions.unarchive')}
+          </Button>
+        </div>
+      ) : isClosed ? (
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" disabled={isBusy} onClick={() => reopen.mutate(problem.id)}>
+            {t('panel.problems.actions.reopen')}
+          </Button>
+          {archiveButton}
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" disabled={isBusy} onClick={() => resolve.mutate(problem.id)}>
             {t('panel.problems.actions.resolve')}
           </Button>
-          <Button type="button" variant="outline" onClick={() => setIsCancelling(true)}>
+          <Button type="button" variant="outline" onClick={() => setPending('cancel')}>
             {t('panel.problems.actions.cancel')}
           </Button>
+          {archiveButton}
         </div>
       )}
       {failure !== null ? (

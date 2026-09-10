@@ -43,6 +43,8 @@ export const problemSchema = z.object({
   resolved_at: z.string().nullable(),
   cancelled_at: z.string().nullable(),
   cancel_reason: z.string().nullable(),
+  /** Set when the manager put the problem away; it is then off the board and the list. */
+  archived_at: z.string().nullable().default(null),
   created_at: z.string(),
   property: z.object({ name: z.string() }).nullable().optional(),
   reporter: personSchema.optional(),
@@ -98,6 +100,10 @@ export function isProblemClosed(problem: Pick<Problem, 'status'>): boolean {
   return problem.status === 'resolved' || problem.status === 'cancelled';
 }
 
+export function isProblemArchived(problem: Pick<Problem, 'archived_at'>): boolean {
+  return problem.archived_at !== null;
+}
+
 /** Title or listing name contains the query, case-insensitively; an empty query keeps everything. */
 export function matchesQuery(problem: Problem, query: string): boolean {
   const needle = query.trim().toLocaleLowerCase();
@@ -112,14 +118,18 @@ export function matchesQuery(problem: Problem, query: string): boolean {
  * What dropping a card into a column means.
  *
  * `assign` opens the technician form, `resolve` asks first, `unassign`
- * cancels the technician's task so the problem is open again. `startOnPhone`
- * is the column only the technician can fill. Null: nothing to do.
+ * cancels the technician's task so the problem is open again, `reopen` takes
+ * a resolved problem back to "open". `startOnPhone` is the column only the
+ * technician can fill. Null: nothing to do.
  */
-export type BoardMove = 'assign' | 'resolve' | 'unassign' | 'startOnPhone' | null;
+export type BoardMove = 'assign' | 'resolve' | 'unassign' | 'reopen' | 'startOnPhone' | null;
 
 export function boardMove(from: ProblemStatus, to: BoardStatus): BoardMove {
-  if (from === to || from === 'resolved' || from === 'cancelled') {
+  if (from === to || from === 'cancelled') {
     return null;
+  }
+  if (from === 'resolved') {
+    return to === 'open' ? 'reopen' : null;
   }
   switch (to) {
     case 'open':
@@ -133,9 +143,9 @@ export function boardMove(from: ProblemStatus, to: BoardStatus): BoardMove {
   }
 }
 
-/** A card the manager may pick up at all. */
+/** A card the manager may pick up at all: a resolved one only to reopen it. */
 export function isDraggable(problem: Pick<Problem, 'status'>): boolean {
-  return !isProblemClosed(problem);
+  return problem.status !== 'cancelled';
 }
 
 export type StepState = 'done' | 'skipped' | 'waived' | 'pending';

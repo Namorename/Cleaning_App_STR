@@ -93,7 +93,8 @@
         "resolvedAt": "Resolved {{date}}",
         "cancelledAt": "Cancelled {{date}}",
         "cancelReason": "Cancel reason",
-        "taskStatus": "Task status: {{status}}"
+        "taskStatus": "Task status: {{status}}",
+        "archivedAt": "Archived {{date}}"
       },
       "assign": {
         "title": "Assign a technician",
@@ -112,7 +113,13 @@
         "cancel": "Cancel the problem",
         "cancelReason": "Cancel reason",
         "cancelConfirm": "Confirm cancellation",
-        "cancelAbort": "Keep it open"
+        "cancelAbort": "Keep it open",
+        "reopen": "Reopen",
+        "archive": "Delete to archive",
+        "archiveText": "The problem disappears from the board, the list and the staff apps. Nothing is deleted: it can be brought back from the Archive tab.",
+        "archiveConfirm": "Yes, archive it",
+        "archiveAbort": "Keep it",
+        "unarchive": "Restore from the archive"
       },
       "board": {
         "dragHint": "Drag cards between the columns",
@@ -123,7 +130,13 @@
         "resolveText": "“{{title}}” will close as resolved. The technician's task, if any, will be finished.",
         "resolveConfirm": "Yes, resolved",
         "resolveAbort": "No",
-        "assignTitle": "Assign a technician"
+        "assignTitle": "Assign a technician",
+        "reopened": "The problem is open again"
+      },
+      "viewArchive": "Archive",
+      "archive": {
+        "empty": "The archive is empty",
+        "hint": "Archived problems are hidden from the staff and stay off the board. A restored problem comes back in the status it had."
       }
     },
     "supplies": {
@@ -175,6 +188,48 @@
         "csv": "Download CSV",
         "xlsx": "Download XLSX",
         "sheet": "Purchase"
+      },
+      "rejectedHint": "The request is closed. The cleaner sees the refusal and its reason in the app.",
+      "export": {
+        "csv": "Export CSV",
+        "xlsx": "Export XLSX",
+        "sheet": "Request",
+        "columns": {
+          "name": "Item",
+          "quantity": "Quantity",
+          "unit": "Unit",
+          "comment": "Comment"
+        },
+        "property": "Listing",
+        "requester": "Requested by",
+        "status": "Status",
+        "createdAt": "Created",
+        "note": "Note"
+      },
+      "catalog": {
+        "open": "Supply catalogue",
+        "title": "Supply catalogue",
+        "description": "The cleaner picks request lines from this list and types only the quantity. The name is in the company language; translations are optional.",
+        "loading": "Loading the catalogue…",
+        "loadError": "Could not load the catalogue",
+        "empty": "The catalogue is empty: cleaners type names by hand for now",
+        "name": "Name",
+        "translation": "Translation: {{language}}",
+        "languages": {
+          "ru": "Russian",
+          "en": "English",
+          "cs": "Czech"
+        },
+        "unit": "Unit",
+        "add": "Add an item",
+        "save": "Save",
+        "edit": "Edit",
+        "cancelEdit": "Cancel",
+        "archive": "Remove from the list",
+        "restore": "Put back on the list",
+        "showArchived": "Show removed items",
+        "archived": "Removed from the list",
+        "fromCatalog": "from the catalogue"
       }
     }
   },
@@ -371,7 +426,14 @@
     "general": "General request",
     "rejectReason": "Reason for rejecting",
     "moreItems": "{{shown}} and {{count}} more",
-    "cardAccessibility": "{{place}}. {{summary}}. {{status}}"
+    "cardAccessibility": "{{place}}. {{summary}}. {{status}}",
+    "pickItem": "Pick from the list",
+    "pickItemTitle": "What do you need?",
+    "pickItemAccessibility": "Line {{index}}: pick from the list",
+    "searchCatalog": "Search the list",
+    "catalogNoMatch": "Nothing found",
+    "manualEntry": "Not on the list — type it in",
+    "backToCatalog": "Pick from the list instead"
   },
   "media": {
     "takePhoto": "Take a photo",
@@ -441,6 +503,8 @@
     "mediaUploadPending": "Files still uploading: {{count}}",
     "photosMissing": "Take at least {{min}} photo(s)",
     "photosTooMany": "This step takes at most {{limit}} photos",
-    "videoMissing": "Record a video first"
+    "videoMissing": "Record a video first",
+    "catalogItemDuplicate": "The catalogue already has this item in this unit",
+    "catalogItemNotFound": "Catalogue item not found"
   }
 }

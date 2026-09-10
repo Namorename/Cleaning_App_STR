@@ -26,7 +26,7 @@ import {
   type BoardStatus,
   type Problem,
 } from './schema';
-import { useResolveProblem, useUnassignProblem } from './use-problems';
+import { useReopenProblem, useResolveProblem, useUnassignProblem } from './use-problems';
 
 interface ProblemsBoardProps {
   problems: Problem[];
@@ -42,24 +42,23 @@ interface PendingMove {
  * Four columns, one per live status; cancelled problems are the list's business.
  *
  * Cards move by mouse. A drop is only a shortcut to what the card page
- * offers: assigning opens the same form, resolving asks first, and moving
- * back to "open" cancels the technician's task. "In progress" belongs to
- * the technician's phone, so a drop there only explains itself.
+ * offers: assigning opens the same form, resolving asks first, moving back
+ * to "open" cancels the technician's task, and a resolved card dragged back
+ * to "open" is reopened. "In progress" belongs to the technician's phone, so
+ * a drop there only explains itself.
  */
 export function ProblemsBoard({ problems }: ProblemsBoardProps) {
   const { t } = useTranslation();
   const resolve = useResolveProblem();
   const unassign = useUnassignProblem();
+  const reopen = useReopenProblem();
   const [dragging, setDragging] = useState<Problem | null>(null);
   const [over, setOver] = useState<BoardStatus | null>(null);
   const [pending, setPending] = useState<PendingMove | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const failure = resolve.isError
-    ? serverErrorText(resolve.error)
-    : unassign.isError
-      ? serverErrorText(unassign.error)
-      : null;
+  const failed = [resolve, unassign, reopen].find((mutation) => mutation.isError);
+  const failure = failed === undefined ? null : serverErrorText(failed.error);
 
   const canDrop = (status: BoardStatus) => {
     if (dragging === null) {
@@ -105,6 +104,12 @@ export function ProblemsBoard({ problems }: ProblemsBoardProps) {
         }
         return;
       }
+      case 'reopen':
+        setNotice(null);
+        reopen.mutate(problem.id, {
+          onSuccess: () => setNotice(t('panel.problems.board.reopened')),
+        });
+        return;
       case 'startOnPhone':
         setNotice(t('panel.problems.board.startOnPhone'));
         return;

@@ -119,13 +119,20 @@ describe('boardMove', () => {
     expect(boardMove('open', 'in_progress')).toBe('startOnPhone');
     expect(boardMove('in_progress', 'assigned')).toBeNull();
     expect(boardMove('open', 'open')).toBeNull();
-    expect(boardMove('resolved', 'open')).toBeNull();
     expect(boardMove('cancelled', 'resolved')).toBeNull();
+    expect(boardMove('cancelled', 'open')).toBeNull();
   });
 
-  test('closed problems cannot be picked up', () => {
+  test('a resolved problem goes back to open and nowhere else', () => {
+    expect(boardMove('resolved', 'open')).toBe('reopen');
+    expect(boardMove('resolved', 'assigned')).toBeNull();
+    expect(boardMove('resolved', 'in_progress')).toBeNull();
+  });
+
+  test('only cancelled problems cannot be picked up', () => {
     expect(isDraggable({ status: 'open' })).toBe(true);
-    expect(isDraggable({ status: 'resolved' })).toBe(false);
+    expect(isDraggable({ status: 'resolved' })).toBe(true);
+    expect(isDraggable({ status: 'cancelled' })).toBe(false);
   });
 });
 

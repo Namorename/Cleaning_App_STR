@@ -47,6 +47,9 @@ const mutations = {
   assign: vi.fn(),
   cancel: vi.fn(),
   resolve: vi.fn(),
+  reopen: vi.fn(),
+  archive: vi.fn(),
+  unarchive: vi.fn(),
 };
 const idle = { mutate: vi.fn(), isPending: false, isError: false, isSuccess: false, error: null };
 
@@ -58,6 +61,9 @@ vi.mock('../use-problems', () => ({
   useAssignProblem: () => ({ ...idle, mutate: mutations.assign }),
   useCancelProblem: () => ({ ...idle, mutate: mutations.cancel }),
   useResolveProblem: () => ({ ...idle, mutate: mutations.resolve }),
+  useReopenProblem: () => ({ ...idle, mutate: mutations.reopen }),
+  useArchiveProblem: () => ({ ...idle, mutate: mutations.archive }),
+  useUnarchiveProblem: () => ({ ...idle, mutate: mutations.unarchive }),
 }));
 
 import { ProblemDetail } from '../problem-detail';
@@ -163,17 +169,40 @@ describe('ProblemDetail', () => {
     expect(mutations.cancel).toHaveBeenCalledWith({ problemId: PROBLEM_ID, reason: 'Дубликат' });
   });
 
-  test('hides the levers on a closed problem and explains a missing one', () => {
+  test('offers to reopen a closed problem instead of the live levers, and explains a missing one', async () => {
     queries.problem.mockReturnValue(
       loaded({ ...assigned, status: 'resolved', resolved_at: '2026-09-10T12:00:00+00:00' }),
     );
     const { unmount } = render(<ProblemDetail problemId={PROBLEM_ID} />);
     expect(screen.queryByRole('button', { name: 'Отметить решённой' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Техник')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Вернуть в работу' }));
+    expect(mutations.reopen).toHaveBeenCalledWith(PROBLEM_ID);
     unmount();
 
     queries.problem.mockReturnValue(loaded(null));
     render(<ProblemDetail problemId={PROBLEM_ID} />);
     expect(screen.getByText('Проблема не найдена')).toBeInTheDocument();
+  });
+
+  test('archives only after a confirmation and restores an archived problem', async () => {
+    const { unmount } = render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Удалить в архив' }));
+    expect(mutations.archive).not.toHaveBeenCalled();
+    expect(screen.getByText(/Ничего не удаляется/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Да, в архив' }));
+    expect(mutations.archive).toHaveBeenCalledWith(PROBLEM_ID, expect.anything());
+    unmount();
+
+    queries.problem.mockReturnValue(
+      loaded({ ...assigned, status: 'open', fix_tasks: [], archived_at: '2026-09-10T12:00:00+00:00' }),
+    );
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+    expect(screen.getByText(/В архиве с/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Отметить решённой' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Техник')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Восстановить из архива' }));
+    expect(mutations.unarchive).toHaveBeenCalledWith(PROBLEM_ID);
   });
 });

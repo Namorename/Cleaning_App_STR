@@ -21,7 +21,7 @@ export const SIGNED_URL_SECONDS = 60 * 60;
 
 const PROBLEM_COLUMNS =
   'id, property_id, task_id, reported_by, title, description, priority, status, ' +
-  'resolved_at, cancelled_at, cancel_reason, created_at, ' +
+  'resolved_at, cancelled_at, cancel_reason, archived_at, created_at, ' +
   'property:properties(name), ' +
   'reporter:profiles!problems_reported_by_fkey(full_name), ' +
   'fix_tasks:tasks!tasks_problem_id_fkey(id, assignee_id, status, scheduled_date, time_from, time_to, ' +
@@ -204,6 +204,32 @@ export async function unassignProblem(client: Client, taskId: string): Promise<v
 
 export async function resolveProblem(client: Client, problemId: string): Promise<Problem> {
   const { data, error } = await client.rpc('resolve_problem', { p_id: problemId });
+  if (error) {
+    throw error;
+  }
+  return problemSchema.parse(data);
+}
+
+/** A resolved or cancelled problem goes back to "open"; its closed task stays as history. */
+export async function reopenProblem(client: Client, problemId: string): Promise<Problem> {
+  const { data, error } = await client.rpc('reopen_problem', { p_id: problemId });
+  if (error) {
+    throw error;
+  }
+  return problemSchema.parse(data);
+}
+
+/** Off every screen but the archive. Nothing is deleted; a live fix task is cancelled. */
+export async function archiveProblem(client: Client, problemId: string): Promise<Problem> {
+  const { data, error } = await client.rpc('archive_problem', { p_id: problemId });
+  if (error) {
+    throw error;
+  }
+  return problemSchema.parse(data);
+}
+
+export async function unarchiveProblem(client: Client, problemId: string): Promise<Problem> {
+  const { data, error } = await client.rpc('unarchive_problem', { p_id: problemId });
   if (error) {
     throw error;
   }
