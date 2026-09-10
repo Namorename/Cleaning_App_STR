@@ -1,9 +1,26 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import { emptySupplyDraft, type SupplyDraft } from '../schema';
+import { emptySupplyDraft, type CatalogItem, type SupplyDraft } from '../schema';
 import { SupplyForm } from '../supply-form';
 
-async function renderForm(draft: SupplyDraft) {
+const catalog: CatalogItem[] = [
+  {
+    id: 'c9000002-0000-4000-8000-000000000001',
+    name: 'Средство для стёкол',
+    name_i18n: { en: 'Glass cleaner' },
+    unit: 'l',
+    sort_order: 1,
+  },
+  {
+    id: 'c9000002-0000-4000-8000-000000000002',
+    name: 'Мешки для мусора',
+    name_i18n: {},
+    unit: 'pack',
+    sort_order: 2,
+  },
+];
+
+async function renderForm(draft: SupplyDraft, list: CatalogItem[] = []) {
   const onChange = jest.fn();
   const onSubmit = jest.fn();
   const onAddItem = jest.fn();
@@ -13,6 +30,7 @@ async function renderForm(draft: SupplyDraft) {
       onChange={onChange}
       onAddItem={onAddItem}
       place={null}
+      catalog={list}
       isSubmitting={false}
       submitLabel="Отправить заявку"
       onSubmit={onSubmit}
@@ -21,6 +39,59 @@ async function renderForm(draft: SupplyDraft) {
   );
   return { onChange, onSubmit, onAddItem };
 }
+
+test('with a catalogue a line is picked from the list and only the quantity is typed', async () => {
+  const draft = emptySupplyDraft('k1');
+  const { onChange } = await renderForm(draft, catalog);
+
+  expect(screen.queryByLabelText('Позиция 1: название')).toBeNull();
+  expect(screen.queryByRole('radio', { name: 'упак' })).toBeNull();
+
+  await fireEvent.press(screen.getByRole('button', { name: 'Позиция 1: выбрать из списка' }));
+  await fireEvent.changeText(screen.getByLabelText('Поиск по списку'), 'меш');
+  expect(screen.queryByRole('button', { name: 'Средство для стёкол, л' })).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: 'Мешки для мусора, упак' }));
+
+  expect(onChange).toHaveBeenCalledWith({
+    ...draft,
+    items: [
+      {
+        ...draft.items[0],
+        name: 'Мешки для мусора',
+        unit: 'pack',
+        catalogItemId: 'c9000002-0000-4000-8000-000000000002',
+      },
+    ],
+  });
+});
+
+test('a picked line shows its name and unit, and typing stays one tap away', async () => {
+  const draft = emptySupplyDraft('k1');
+  const picked = {
+    ...draft,
+    items: [
+      {
+        ...draft.items[0],
+        name: 'Средство для стёкол',
+        unit: 'l' as const,
+        catalogItemId: 'c9000002-0000-4000-8000-000000000001',
+      },
+    ],
+  };
+  const { onChange } = await renderForm(picked, catalog);
+
+  expect(screen.getByText('Средство для стёкол')).toBeTruthy();
+  expect(screen.getByText('л')).toBeTruthy();
+
+  await fireEvent.press(screen.getByRole('button', { name: 'Нет в списке — ввести вручную' }));
+
+  expect(onChange).toHaveBeenCalledWith({
+    ...picked,
+    items: [{ ...picked.items[0], name: '', catalogItemId: null }],
+  });
+  expect(screen.getByLabelText('Позиция 1: название')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Выбрать из списка вместо ввода' })).toBeTruthy();
+});
 
 test('keeps the button grey until a line is filled in', async () => {
   const { onSubmit } = await renderForm(emptySupplyDraft('k1'));

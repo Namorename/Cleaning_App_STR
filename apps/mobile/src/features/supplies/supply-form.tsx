@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -11,15 +12,20 @@ import {
 
 import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { currentLanguage } from '@/i18n';
 import { serverErrorText } from '@/lib/server-error';
 
+import { CatalogPicker } from './catalog-picker';
 import {
+  clearCatalogPick,
   MAX_SUPPLY_ITEM_COMMENT,
   MAX_SUPPLY_ITEM_NAME,
   MAX_SUPPLY_NOTE,
+  pickCatalogItem,
   SUPPLY_PRIORITIES,
   SUPPLY_UNITS,
   supplyDraftIssue,
+  type CatalogItem,
   type SupplyDraft,
   type SupplyItemDraft,
 } from './schema';
@@ -30,6 +36,8 @@ interface SupplyFormProps {
   onAddItem: () => void;
   /** Where the supplies are for, when known; the form does not let her change it. */
   place: string | null;
+  /** The company's list; empty means she types every name. */
+  catalog: readonly CatalogItem[];
   isSubmitting: boolean;
   submitLabel: string;
   onSubmit: () => void;
@@ -42,12 +50,17 @@ interface SupplyFormProps {
  * Presentational: the route owns the draft. At least one filled line is what
  * the server insists on; the button stays grey until it is there. Urgency is
  * explained in words, not only by colour.
+ *
+ * With a catalogue a line starts as a pick from the list, and only the
+ * quantity is typed; the unit comes with the entry. Typing stays one tap
+ * away, so an incomplete list never blocks her (§Д1.3).
  */
 export function SupplyForm({
   draft,
   onChange,
   onAddItem,
   place,
+  catalog,
   isSubmitting,
   submitLabel,
   onSubmit,
@@ -55,9 +68,18 @@ export function SupplyForm({
 }: SupplyFormProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const language = currentLanguage();
   const issue = supplyDraftIssue(draft);
   const canSubmit = issue === null && !isSubmitting;
   const failure = error === null ? null : serverErrorText(error);
+  /** Lines typed by hand although there is a list: chosen so, or loaded that way. */
+  const [manualKeys, setManualKeys] = useState<readonly string[]>(() =>
+    draft.items
+      .filter((item) => item.catalogItemId === null && item.name.trim() !== '')
+      .map((item) => item.key),
+  );
+  /** The line whose list is unfolded, if any. */
+  const [pickerKey, setPickerKey] = useState<string | null>(null);
 
   const updateItem = (key: string, patch: Partial<SupplyItemDraft>) =>
     onChange({
@@ -65,8 +87,28 @@ export function SupplyForm({
       items: draft.items.map((item) => (item.key === key ? { ...item, ...patch } : item)),
     });
 
+  const replaceItem = (line: SupplyItemDraft) =>
+    onChange({
+      ...draft,
+      items: draft.items.map((item) => (item.key === line.key ? line : item)),
+    });
+
   const removeItem = (key: string) =>
     onChange({ ...draft, items: draft.items.filter((item) => item.key !== key) });
+
+  const isPicked = (item: SupplyItemDraft) =>
+    catalog.length > 0 && !manualKeys.includes(item.key);
+
+  const switchToManual = (item: SupplyItemDraft) => {
+    setManualKeys([...manualKeys, item.key]);
+    setPickerKey((current) => (current === item.key ? null : current));
+    replaceItem(clearCatalogPick(item));
+  };
+
+  const switchToCatalog = (item: SupplyItemDraft) => {
+    setManualKeys(manualKeys.filter((key) => key !== item.key));
+    setPickerKey(item.key);
+  };
 
   return (
     <ScrollView
@@ -77,18 +119,45 @@ export function SupplyForm({
       {place !== null ? <Text style={styles.place}>{place}</Text> : null}
 
       <Text style={styles.label}>{t('supplies.itemsLabel')}</Text>
-      {draft.items.map((item, index) => (
+      {draft.items.map((item, index) => {
+        const picked = isPicked(item);
+        return (
         <View key={item.key} style={styles.item}>
-          <TextInput
-            accessibilityLabel={t('supplies.itemNameAccessibility', { index: index + 1 })}
-            editable={!isSubmitting}
-            maxLength={MAX_SUPPLY_ITEM_NAME}
-            onChangeText={(name) => updateItem(item.key, { name })}
-            placeholder={t('supplies.itemNamePlaceholder')}
-            placeholderTextColor={styles.hint.color}
-            style={styles.input}
-            value={item.name}
-          />
+          {picked ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('supplies.pickItemAccessibility', { index: index + 1 })}
+              accessibilityState={{ expanded: pickerKey === item.key, disabled: isSubmitting }}
+              disabled={isSubmitting}
+              onPress={() => setPickerKey((current) => (current === item.key ? null : item.key))}
+              style={[styles.input, styles.pick]}
+            >
+              <Text style={item.catalogItemId === null ? styles.hint : styles.pickText}>
+                {item.catalogItemId === null ? t('supplies.pickItem') : item.name}
+              </Text>
+            </Pressable>
+          ) : (
+            <TextInput
+              accessibilityLabel={t('supplies.itemNameAccessibility', { index: index + 1 })}
+              editable={!isSubmitting}
+              maxLength={MAX_SUPPLY_ITEM_NAME}
+              onChangeText={(name) => updateItem(item.key, { name })}
+              placeholder={t('supplies.itemNamePlaceholder')}
+              placeholderTextColor={styles.hint.color}
+              style={styles.input}
+              value={item.name}
+            />
+          )}
+          {picked && pickerKey === item.key ? (
+            <CatalogPicker
+              catalog={catalog}
+              language={language}
+              onPick={(entry) => {
+                replaceItem(pickCatalogItem(item, entry, language));
+                setPickerKey(null);
+              }}
+            />
+          ) : null}
           <View style={styles.quantityRow}>
             <TextInput
               accessibilityLabel={t('supplies.quantityAccessibility', { index: index + 1 })}
@@ -98,28 +167,47 @@ export function SupplyForm({
               style={[styles.input, styles.quantity]}
               value={item.quantity}
             />
-            <View style={styles.units} accessibilityRole="radiogroup">
-              {SUPPLY_UNITS.map((unit) => {
-                const selected = item.unit === unit;
-                const label = t(`supplies.units.${unit}`);
-                return (
-                  <Pressable
-                    key={unit}
-                    accessibilityRole="radio"
-                    accessibilityLabel={label}
-                    accessibilityState={{ selected, checked: selected, disabled: isSubmitting }}
-                    disabled={isSubmitting}
-                    onPress={() => updateItem(item.key, { unit })}
-                    style={[styles.chip, selected && styles.chipSelected]}
-                  >
-                    <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
-                      {label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            {picked ? (
+              <Text style={styles.unitText}>
+                {item.catalogItemId === null ? '' : t(`supplies.units.${item.unit}`)}
+              </Text>
+            ) : (
+              <View style={styles.units} accessibilityRole="radiogroup">
+                {SUPPLY_UNITS.map((unit) => {
+                  const selected = item.unit === unit;
+                  const label = t(`supplies.units.${unit}`);
+                  return (
+                    <Pressable
+                      key={unit}
+                      accessibilityRole="radio"
+                      accessibilityLabel={label}
+                      accessibilityState={{ selected, checked: selected, disabled: isSubmitting }}
+                      disabled={isSubmitting}
+                      onPress={() => updateItem(item.key, { unit })}
+                      style={[styles.chip, selected && styles.chipSelected]}
+                    >
+                      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
           </View>
+          {catalog.length > 0 ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={picked ? t('supplies.manualEntry') : t('supplies.backToCatalog')}
+              disabled={isSubmitting}
+              onPress={() => (picked ? switchToManual(item) : switchToCatalog(item))}
+              style={styles.link}
+            >
+              <Text style={styles.switchText}>
+                {picked ? t('supplies.manualEntry') : t('supplies.backToCatalog')}
+              </Text>
+            </Pressable>
+          ) : null}
           <TextInput
             accessibilityLabel={t('supplies.itemCommentAccessibility', { index: index + 1 })}
             editable={!isSubmitting}
@@ -142,7 +230,8 @@ export function SupplyForm({
             </Pressable>
           ) : null}
         </View>
-      ))}
+        );
+      })}
 
       <Pressable
         accessibilityRole="button"
@@ -261,8 +350,12 @@ const createStyles = (theme: Theme) =>
       backgroundColor: theme.background,
     },
     inputMultiline: { minHeight: NOTE_MIN_HEIGHT, backgroundColor: theme.card },
-    quantityRow: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'flex-start' },
+    quantityRow: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
     quantity: { width: QUANTITY_WIDTH, textAlign: 'center' },
+    pick: { justifyContent: 'center' },
+    pickText: { color: theme.text, fontSize: FontSize.title },
+    unitText: { color: theme.text, fontSize: FontSize.title, fontWeight: '600' },
+    switchText: { color: theme.primary, fontSize: FontSize.body, fontWeight: '600' },
     units: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
     chips: { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },
     chip: {

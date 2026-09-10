@@ -3,8 +3,10 @@ import type { Json } from '@str-ops/shared';
 import { supabase } from '@/lib/supabase';
 
 import {
+  catalogItemListSchema,
   supplyRequestListSchema,
   supplyRequestSchema,
+  type CatalogItem,
   type SupplyItemPayload,
   type SupplyPriority,
   type SupplyRequest,
@@ -13,7 +15,23 @@ import {
 const SUPPLY_COLUMNS =
   'id, requested_by, property_id, task_id, status, priority, note, needed_by, reviewed_at, ' +
   'fulfilled_at, reject_reason, created_at, property:properties(name), ' +
-  'items:supply_request_items(id, name, quantity, unit, comment, sort_order)';
+  'items:supply_request_items(id, name, quantity, unit, comment, sort_order, catalog_item_id)';
+
+/** The company's list of consumables she can pick from, in the manager's order. */
+export async function fetchSupplyCatalog(): Promise<CatalogItem[]> {
+  const { data, error } = await supabase
+    .from('supply_catalog_items')
+    .select('id, name, name_i18n, unit, sort_order')
+    .is('archived_at', null)
+    .order('sort_order', { ascending: true })
+    .order('name', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return catalogItemListSchema.parse(data ?? []);
+}
 
 /** Her own requests, newest first. Row level security shows nobody else's. */
 export async function fetchMySupplyRequests(): Promise<SupplyRequest[]> {

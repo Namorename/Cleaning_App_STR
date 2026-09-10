@@ -1,8 +1,13 @@
 import {
   canEditSupplyRequest,
+  catalogItemName,
+  clearCatalogPick,
   draftItemsPayload,
   draftOfRequest,
   emptySupplyDraft,
+  filterCatalog,
+  newItemDraft,
+  pickCatalogItem,
   groupSupplyRequests,
   parseQuantity,
   supplyDraftIssue,
@@ -36,6 +41,7 @@ function request(overrides: Partial<SupplyRequest> = {}): SupplyRequest {
         unit: 'pack',
         comment: '60 л',
         sort_order: 2,
+        catalog_item_id: null,
       },
       {
         id: 'e9000001-0000-4000-8000-000000000001',
@@ -44,6 +50,7 @@ function request(overrides: Partial<SupplyRequest> = {}): SupplyRequest {
         unit: 'l',
         comment: null,
         sort_order: 1,
+        catalog_item_id: null,
       },
     ],
     ...overrides,
@@ -74,7 +81,7 @@ describe('supplyDraftIssue', () => {
 
   test('a filled line with a bad quantity is named', () => {
     const bad = draft({
-      items: [{ key: 'k1', name: 'Мешки', quantity: '0', unit: 'pack', comment: '' }],
+      items: [{ key: 'k1', name: 'Мешки', quantity: '0', unit: 'pack', comment: '', catalogItemId: null }],
     });
 
     expect(supplyDraftIssue(bad)).toBe('itemInvalid');
@@ -82,7 +89,7 @@ describe('supplyDraftIssue', () => {
 
   test('a filled line with a quantity is enough', () => {
     const ok = draft({
-      items: [{ key: 'k1', name: 'Мешки', quantity: '2', unit: 'pack', comment: '' }],
+      items: [{ key: 'k1', name: 'Мешки', quantity: '2', unit: 'pack', comment: '', catalogItemId: null }],
     });
 
     expect(supplyDraftIssue(ok)).toBeNull();
@@ -94,9 +101,9 @@ describe('draftItemsPayload', () => {
     const payload = draftItemsPayload(
       draft({
         items: [
-          { key: 'a', name: ' Мешки ', quantity: '1,5', unit: 'pack', comment: ' 60 л ' },
-          { key: 'b', name: '', quantity: '1', unit: 'pcs', comment: '' },
-          { key: 'c', name: 'Перчатки', quantity: '3', unit: 'pcs', comment: '' },
+          { key: 'a', name: ' Мешки ', quantity: '1,5', unit: 'pack', comment: ' 60 л ', catalogItemId: null },
+          { key: 'b', name: '', quantity: '1', unit: 'pcs', comment: '', catalogItemId: null },
+          { key: 'c', name: 'Перчатки', quantity: '3', unit: 'pcs', comment: '', catalogItemId: null },
         ],
       }),
     );
@@ -162,5 +169,61 @@ describe('supplyRequestSchema', () => {
     void property;
 
     expect(supplyRequestSchema.parse(bare).items).toEqual([]);
+  });
+});
+
+describe('the catalogue', () => {
+  const entry = {
+    id: 'c9000002-0000-4000-8000-000000000001',
+    name: 'Средство для стёкол',
+    name_i18n: { en: 'Glass cleaner' },
+    unit: 'l' as const,
+    sort_order: 1,
+  };
+
+  test('names an entry in her language and falls back to the manager’s words', () => {
+    expect(catalogItemName(entry, 'en')).toBe('Glass cleaner');
+    expect(catalogItemName(entry, 'cs')).toBe('Средство для стёкол');
+    expect(catalogItemName({ ...entry, name_i18n: { en: '  ' } }, 'en')).toBe('Средство для стёкол');
+  });
+
+  test('a picked line takes the name and unit from the entry, and can be cleared again', () => {
+    const line = newItemDraft('k1');
+    const picked = pickCatalogItem(line, entry, 'en');
+
+    expect(picked).toEqual({
+      ...line,
+      name: 'Glass cleaner',
+      unit: 'l',
+      catalogItemId: entry.id,
+    });
+    expect(clearCatalogPick(picked)).toEqual({ ...picked, name: '', catalogItemId: null });
+  });
+
+  test('a picked line needs no typed name and travels with its entry id', () => {
+    const line = { ...newItemDraft('k1'), quantity: '2', catalogItemId: entry.id };
+
+    expect(supplyDraftIssue(draft({ items: [line] }))).toBeNull();
+    expect(draftItemsPayload(draft({ items: [line] }))).toEqual([
+      { name: '', quantity: 2, unit: 'pcs', catalog_item_id: entry.id },
+    ]);
+  });
+
+  test('a rebuilt line remembers where it came from', () => {
+    const { items, ...bare } = request();
+    const rebuilt = draftOfRequest({
+      ...bare,
+      items: [{ ...items[1], catalog_item_id: entry.id }],
+    });
+
+    expect(rebuilt.items[0].catalogItemId).toBe(entry.id);
+  });
+
+  test('the search matches any language, ignoring case', () => {
+    const bags = { ...entry, id: 'c9000002-0000-4000-8000-000000000002', name: 'Мешки', name_i18n: {} };
+
+    expect(filterCatalog([entry, bags], 'GLASS').map((item) => item.name)).toEqual(['Средство для стёкол']);
+    expect(filterCatalog([entry, bags], 'меш').map((item) => item.name)).toEqual(['Мешки']);
+    expect(filterCatalog([entry, bags], '  ')).toHaveLength(2);
   });
 });

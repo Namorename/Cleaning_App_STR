@@ -5,12 +5,24 @@ import { useSession } from '@/features/auth/session';
 import {
   deleteSupplyRequest,
   fetchMySupplyRequests,
+  fetchSupplyCatalog,
   fetchSupplyRequest,
   saveSupplyRequest,
   type SaveSupplyRequestVariables,
 } from './api';
 import { supplyKeys, supplyMutationKeys } from './keys';
 import type { SupplyRequest } from './schema';
+
+/** The list she picks from; the manager edits it rarely, so a stale copy is fine. */
+export function useSupplyCatalog() {
+  const { userId } = useSession();
+
+  return useQuery({
+    queryKey: supplyKeys.catalog(),
+    queryFn: fetchSupplyCatalog,
+    enabled: userId !== null,
+  });
+}
 
 /** Teach the query client how to replay each write after a restart. */
 export function registerSupplyMutations(queryClient: QueryClient): void {

@@ -17,7 +17,11 @@ import {
   type SupplyDraft,
 } from '@/features/supplies/schema';
 import { SupplyForm } from '@/features/supplies/supply-form';
-import { useSaveSupplyRequest, useSupplyRequest } from '@/features/supplies/use-supplies';
+import {
+  useSaveSupplyRequest,
+  useSupplyCatalog,
+  useSupplyRequest,
+} from '@/features/supplies/use-supplies';
 import { propertyName } from '@/features/tasks/format';
 import { useTask } from '@/features/tasks/use-tasks';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
@@ -50,6 +54,7 @@ export default function SupplyFormRoute() {
 
   const existing = useSupplyRequest(editingId ?? '');
   const task = useTask(taskId ?? '');
+  const catalog = useSupplyCatalog();
   const save = useSaveSupplyRequest();
 
   useEffect(() => {
@@ -116,6 +121,7 @@ export default function SupplyFormRoute() {
           setDraft({ ...draft, items: [...draft.items, newItemDraft(randomUUID())] })
         }
         place={place}
+        catalog={catalog.data ?? []}
         isSubmitting={save.isPending && !save.isPaused}
         submitLabel={editingId === null ? t('supplies.submit') : t('supplies.save')}
         onSubmit={onSubmit}
