@@ -54,14 +54,6 @@ export function TaskCard({ task, today, onEdit, onOpenWork }: TaskCardProps) {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
         <span>{task.property?.name ?? t('panel.tasks.noProperty')}</span>
         {timeWindow === null ? null : <span>{timeWindow}</span>}
-        {/* The person doing it is the thing a schedule is read for: it keeps
-            the foreground colour while the rest of the line stays quiet. */}
-        <Person
-          name={task.assignee?.full_name}
-          role={task.assignee?.role}
-          fallback={t('panel.tasks.noAssignee')}
-          className={cn(task.assignee?.full_name != null && 'font-medium text-foreground')}
-        />
         {task.reservation_id !== null ? <span>{t('panel.tasks.origin.booking')}</span> : null}
         {task.problem_id !== null ? <span>{t('panel.tasks.origin.problem')}</span> : null}
         {task.author?.full_name == null ? null : (
@@ -80,6 +72,17 @@ export function TaskCard({ task, today, onEdit, onOpenWork }: TaskCardProps) {
             {t('panel.tasks.actions.edit')}
           </Button>
         )}
+        {/* Beside the button that changes it: who the job is on is what the
+            manager looks for before deciding to touch the task at all. */}
+        <Person
+          name={task.assignee?.full_name}
+          role={task.assignee?.role}
+          fallback={t('panel.tasks.noAssignee')}
+          className={cn(
+            'mr-1',
+            task.assignee?.full_name == null ? 'text-muted-foreground' : 'font-medium',
+          )}
+        />
         {task.status === 'done' ? (
           <Button type="button" variant="outline" size="sm" onClick={() => onOpenWork(task)}>
             {t('panel.tasks.actions.openWork')}
