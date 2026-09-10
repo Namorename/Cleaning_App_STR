@@ -1,11 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@str-ops/shared';
 
-import { FALLBACK_LANGUAGE, isSupportedLanguage, type Language } from '@str-ops/shared';
-
 import { todayIso } from '@/lib/format-date';
 import { withSignedUrls, type WithUrl } from '@/lib/media';
-import { trimTranslations } from '@/lib/translations';
 
 import {
   propertyListSchema,
@@ -85,20 +82,6 @@ export async function fetchProperties(client: Client): Promise<Property[]> {
     throw error;
   }
   return propertyListSchema.parse(data ?? []);
-}
-
-/** The language the company writes its names in; row level security shows one company. */
-export async function fetchCompanyLanguage(client: Client): Promise<Language> {
-  const { data, error } = await client
-    .from('hosts')
-    .select('default_language')
-    .limit(1)
-    .maybeSingle();
-  if (error) {
-    throw error;
-  }
-  const code = data?.default_language ?? '';
-  return isSupportedLanguage(code) ? code : FALLBACK_LANGUAGE;
 }
 
 export interface TaskStep {
@@ -182,7 +165,13 @@ export interface SaveTaskVariables {
   allowDuplicate?: boolean;
 }
 
-/** Write a task, or rewrite one. The id comes from the panel, so a retry replays. */
+/**
+ * Write a task, or rewrite one. The id comes from the panel, so a retry replays.
+ *
+ * `p_title_i18n` is deliberately not sent: the form has one title field, and
+ * omitting the argument tells the server to leave whatever translations the
+ * row carries alone rather than emptying them.
+ */
 export async function saveTask(client: Client, variables: SaveTaskVariables): Promise<Task> {
   const { draft } = variables;
   const { data, error } = await client.rpc('save_task', {
@@ -190,8 +179,7 @@ export async function saveTask(client: Client, variables: SaveTaskVariables): Pr
     p_property_id: draft.propertyId ?? 0,
     p_type: draft.type,
     p_scheduled_date: draft.scheduledDate,
-    p_title: draft.title.trim(),
-    p_title_i18n: trimTranslations(draft.titleI18n),
+    p_title: draft.title.trim() === '' ? undefined : draft.title.trim(),
     p_assignee_id: draft.assigneeId ?? undefined,
     p_time_from: draft.timeFrom ?? undefined,
     p_time_to: draft.timeTo ?? undefined,

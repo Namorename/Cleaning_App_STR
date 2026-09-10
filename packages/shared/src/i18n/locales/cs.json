@@ -300,18 +300,12 @@
       "form": {
         "titleNew": "Nový úkol",
         "titleEdit": "Upravit úkol",
-        "description": "Uklízečka uvidí název ve svém jazyce, pokud je vyplněn překlad; jinak v jazyce firmy.",
+        "description": "Bez názvu se úkol jmenuje podle svého druhu — „Úklid“, „Kontrola“. Název se píše v jazyce firmy.",
         "property": "Byt",
         "propertyPlaceholder": "Vyberte byt",
         "type": "Druh úkolu",
         "date": "Den",
-        "name": "Název ({{language}})",
-        "translation": "Překlad: {{language}}",
-        "languages": {
-          "ru": "ruština",
-          "en": "angličtina",
-          "cs": "čeština"
-        },
+        "name": "Název (volitelné)",
         "assignee": "Vykonavatel",
         "assigneeNobody": "Zatím nikdo",
         "timeFrom": "Ne dříve než",
@@ -629,7 +623,6 @@
     "videoMissing": "Nejdřív natočte video",
     "catalogItemDuplicate": "Tato položka v této jednotce už v katalogu je",
     "catalogItemNotFound": "Položka katalogu nenalezena",
-    "taskTitleRequired": "Úkol musí mít název",
     "taskTitleTooLong": "Název je delší než {{limit}} znaků",
     "taskDateRequired": "Úkol musí mít den",
     "taskAssigneeInvalid": "Tento člověk v této firmě nepracuje",

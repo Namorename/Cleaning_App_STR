@@ -6,7 +6,6 @@ import { useSupabase } from '@/lib/supabase/use-client';
 
 import {
   cancelTask,
-  fetchCompanyLanguage,
   fetchProperties,
   fetchStaff,
   fetchTaskProblems,
@@ -31,14 +30,6 @@ export function useStaff() {
 export function useProperties() {
   const client = useSupabase();
   return useQuery({ queryKey: taskKeys.properties(), queryFn: () => fetchProperties(client) });
-}
-
-export function useCompanyLanguage() {
-  const client = useSupabase();
-  return useQuery({
-    queryKey: taskKeys.companyLanguage(),
-    queryFn: () => fetchCompanyLanguage(client),
-  });
 }
 
 /** Steps and photos of one task; idle until a task is open. */

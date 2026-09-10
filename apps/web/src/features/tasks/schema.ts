@@ -242,15 +242,20 @@ export function localizedTitle(
   return translated !== undefined && translated.trim() !== '' ? translated : task.title;
 }
 
-/** What the manager fills in for a new task, or changes on an existing one. */
+/**
+ * What the manager fills in for a new task, or changes on an existing one.
+ *
+ * One title, in the company's own language, and it may be left blank — a job
+ * is usually "cleaning, flat 3, Friday" and needs no name of its own. The
+ * translations column is not here: the form does not offer one, and a save
+ * that says nothing about translations leaves whatever is stored alone.
+ */
 export interface TaskDraft {
   id: string;
   propertyId: number | null;
   type: TaskType;
   scheduledDate: string;
   title: string;
-  /** Language code to text, for the languages the manager chose to fill in. */
-  titleI18n: Record<string, string>;
   assigneeId: string | null;
   timeFrom: string | null;
   timeTo: string | null;
@@ -264,7 +269,6 @@ export function draftFromTask(task: Task): TaskDraft {
     type: task.type,
     scheduledDate: task.scheduled_date,
     title: task.title ?? '',
-    titleI18n: task.title_i18n ?? {},
     assigneeId: task.assignee_id,
     timeFrom: task.time_from === null ? null : task.time_from.slice(0, 5),
     timeTo: task.time_to === null ? null : task.time_to.slice(0, 5),
@@ -274,8 +278,9 @@ export function draftFromTask(task: Task): TaskDraft {
 
 /**
  * Is the draft worth sending? Only what the panel can see for itself — the
- * server checks the rest and says so in the reader's language.
+ * server checks the rest and says so in the reader's language. The title is
+ * not among them: a task without one is called by its kind.
  */
 export function isDraftReady(draft: TaskDraft): boolean {
-  return draft.propertyId !== null && draft.title.trim() !== '' && draft.scheduledDate.trim() !== '';
+  return draft.propertyId !== null && draft.scheduledDate.trim() !== '';
 }

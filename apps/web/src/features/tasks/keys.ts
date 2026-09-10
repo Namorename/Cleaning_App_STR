@@ -6,5 +6,4 @@ export const taskKeys = {
   problems: (taskId: string) => ['tasks', 'problems', taskId] as const,
   staff: () => ['tasks', 'staff'] as const,
   properties: () => ['tasks', 'properties'] as const,
-  companyLanguage: () => ['tasks', 'company-language'] as const,
 };

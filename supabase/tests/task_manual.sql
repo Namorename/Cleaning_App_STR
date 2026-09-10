@@ -89,6 +89,15 @@ select pg_temp.check('the manager is recorded as the author',
 select pg_temp.check('with nobody to do it, it waits in the queue',
   (pg_temp.task(1)).status::text, 'unassigned');
 
+-- The panel offers one field and sends no translations at all. That has to
+-- mean "nothing said about them", not "empty them".
+select pg_temp.as_boss();
+select public.save_task(pg_temp.tid(1), 900001901, 'cleaning', current_date + 1,
+  'Генеральная уборка');
+reset role; reset request.jwt.claims;
+select pg_temp.check('a save that says nothing about translations keeps them',
+  (pg_temp.task(1)).title_i18n ->> 'cs', 'Hloubkový úklid');
+
 -- ---------- the same job twice on the same day ----------
 
 select pg_temp.as_boss();
@@ -151,6 +160,8 @@ select public.save_task(pg_temp.tid(1), 900001901, 'cleaning', current_date + 1,
   'Генеральная уборка', '{}'::jsonb, 'd9000001-0000-4000-8000-0000000000e1');
 select pg_temp.check('an executor moves it out of the queue',
   (pg_temp.task(1)).status::text, 'assigned');
+select pg_temp.check('but an empty object sent on purpose does empty them',
+  (pg_temp.task(1)).title_i18n, '{}'::jsonb);
 select public.save_task(pg_temp.tid(1), 900001901, 'cleaning', current_date + 1,
   'Генеральная уборка');
 select pg_temp.check('taking the executor away puts it back',
@@ -166,11 +177,11 @@ reset role; reset request.jwt.claims;
 -- ---------- what a bad brief is refused with ----------
 
 select pg_temp.as_boss();
-select pg_temp.check('a job needs a name',
-  pg_temp.refusal($sql$select public.save_task(
-    'c9000007-0000-4000-8000-000000000007'::uuid, 900001901, 'maintenance',
-    current_date + 1, '   ')$sql$),
-  'serverErrors.taskTitleRequired');
+select public.save_task(pg_temp.tid(7), 900001901, 'maintenance', current_date + 5, '   ');
+select pg_temp.check('a job may go without a name',
+  ((pg_temp.task(7)).title is null), true);
+select pg_temp.check('and it is a job all the same',
+  (pg_temp.task(7)).type::text, 'maintenance');
 select pg_temp.check('a name longer than the limit is refused',
   pg_temp.refusal($sql$select public.save_task(
     'c9000007-0000-4000-8000-000000000007'::uuid, 900001901, 'maintenance',

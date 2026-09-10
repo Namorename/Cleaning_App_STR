@@ -300,18 +300,12 @@
       "form": {
         "titleNew": "New task",
         "titleEdit": "Edit the task",
-        "description": "The cleaner reads the title in her own language when a translation is filled in, and in the company language when it is not.",
+        "description": "Without a title the task is called by its kind — \"Cleaning\", \"Inspection\". The title is written in the company language.",
         "property": "Listing",
         "propertyPlaceholder": "Pick a listing",
         "type": "Kind of task",
         "date": "Day",
-        "name": "Title ({{language}})",
-        "translation": "Translation: {{language}}",
-        "languages": {
-          "ru": "Russian",
-          "en": "English",
-          "cs": "Czech"
-        },
+        "name": "Title (optional)",
         "assignee": "Executor",
         "assigneeNobody": "Nobody yet",
         "timeFrom": "Not before",
@@ -629,7 +623,6 @@
     "videoMissing": "Record a video first",
     "catalogItemDuplicate": "The catalogue already has this item in this unit",
     "catalogItemNotFound": "Catalogue item not found",
-    "taskTitleRequired": "A task needs a title",
     "taskTitleTooLong": "The title is longer than {{limit}} characters",
     "taskDateRequired": "A task needs a day",
     "taskAssigneeInvalid": "That person does not work at this company",

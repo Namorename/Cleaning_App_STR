@@ -1,6 +1,5 @@
 'use client';
 
-import { FALLBACK_LANGUAGE, SUPPORTED_LANGUAGES } from '@str-ops/shared';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -26,7 +25,7 @@ import {
   type Task,
   type TaskDraft,
 } from './schema';
-import { useCompanyLanguage, useProperties, useSaveTask, useStaff } from './use-tasks';
+import { useProperties, useSaveTask, useStaff } from './use-tasks';
 
 const SELECT_CLASS = 'h-9 rounded-md border bg-background px-2 text-sm';
 
@@ -47,7 +46,6 @@ function emptyDraft(): TaskDraft {
     type: 'cleaning',
     scheduledDate: todayIso(),
     title: '',
-    titleI18n: {},
     assigneeId: null,
     timeFrom: null,
     timeTo: null,
@@ -76,14 +74,11 @@ export function TaskForm({ task, onClose }: TaskFormProps) {
   const { t } = useTranslation();
   const properties = useProperties();
   const staff = useStaff();
-  const companyLanguage = useCompanyLanguage();
   const save = useSaveTask();
   const [draft, setDraft] = useState<TaskDraft>(() =>
     task === null ? emptyDraft() : draftFromTask(task),
   );
 
-  const language = companyLanguage.data ?? FALLBACK_LANGUAGE;
-  const otherLanguages = SUPPORTED_LANGUAGES.filter((code) => code !== language);
   const isGenerated = task !== null && !isManualTask(task);
   const failure = save.isError ? serverErrorText(save.error) : null;
   const isDuplicate = save.isError && hintOf(save.error) === DUPLICATE_HINT;
@@ -94,8 +89,6 @@ export function TaskForm({ task, onClose }: TaskFormProps) {
   };
   const confirmDuplicate = () =>
     save.mutate({ draft, allowDuplicate: true }, { onSuccess: onClose });
-  const setTranslation = (code: string, text: string) =>
-    setDraft((current) => ({ ...current, titleI18n: { ...current.titleI18n, [code]: text } }));
 
   return (
     <Dialog open onOpenChange={(next) => (next ? undefined : onClose())}>
@@ -157,11 +150,7 @@ export function TaskForm({ task, onClose }: TaskFormProps) {
           ) : null}
 
           <div className="flex flex-col gap-1">
-            <Label htmlFor="task-title">
-              {t('panel.tasks.form.name', {
-                language: t(`panel.tasks.form.languages.${language}`),
-              })}
-            </Label>
+            <Label htmlFor="task-title">{t('panel.tasks.form.name')}</Label>
             <Input
               id="task-title"
               value={draft.title}
@@ -169,22 +158,6 @@ export function TaskForm({ task, onClose }: TaskFormProps) {
             />
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            {otherLanguages.map((code) => (
-              <div key={code} className="flex flex-col gap-1">
-                <Label htmlFor={`task-title-${code}`}>
-                  {t('panel.tasks.form.translation', {
-                    language: t(`panel.tasks.form.languages.${code}`),
-                  })}
-                </Label>
-                <Input
-                  id={`task-title-${code}`}
-                  value={draft.titleI18n[code] ?? ''}
-                  onChange={(event) => setTranslation(code, event.target.value)}
-                />
-              </div>
-            ))}
-          </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="flex flex-col gap-1">

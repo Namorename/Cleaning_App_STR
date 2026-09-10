@@ -242,7 +242,6 @@ describe('draftFromTask', () => {
     expect(draft).toMatchObject({
       id: id(1),
       title: 'Генеральная уборка',
-      titleI18n: { en: 'Deep clean' },
       timeFrom: '10:00',
       timeTo: '12:30',
       notes: 'Ключи у соседей',
@@ -253,10 +252,11 @@ describe('draftFromTask', () => {
 describe('isDraftReady', () => {
   const draft = draftFromTask(task({ id: id(1), title: 'Осмотр' }));
 
-  test('a listing, a title and a day are what the panel can check itself', () => {
+  test('a listing and a day are what the panel can check itself', () => {
     expect(isDraftReady(draft)).toBe(true);
     expect(isDraftReady({ ...draft, propertyId: null })).toBe(false);
-    expect(isDraftReady({ ...draft, title: '   ' })).toBe(false);
+    // A task without a name is called by its kind, so a blank title is fine.
+    expect(isDraftReady({ ...draft, title: '   ' })).toBe(true);
     expect(isDraftReady({ ...draft, scheduledDate: '' })).toBe(false);
   });
 });

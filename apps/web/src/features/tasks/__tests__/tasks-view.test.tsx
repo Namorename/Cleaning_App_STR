@@ -87,7 +87,6 @@ vi.mock('../use-tasks', () => ({
   useTasks: () => useTasks(),
   useStaff: () => ({ data: staff, isPending: false, isError: false }),
   useProperties: () => ({ data: properties, isPending: false, isError: false }),
-  useCompanyLanguage: () => ({ data: 'ru', isPending: false, isError: false }),
   useTaskWork: () => ({
     data: {
       steps: [
@@ -181,8 +180,7 @@ describe('TasksView', () => {
     const dialog = await screen.findByRole('dialog');
 
     await userEvent.selectOptions(within(dialog).getByLabelText('Объект'), 'Vinohrady 12');
-    await userEvent.type(within(dialog).getByLabelText(/Название \(русский\)/), 'Мойка окон');
-    await userEvent.type(within(dialog).getByLabelText('Перевод: английский'), 'Windows');
+    await userEvent.type(within(dialog).getByLabelText(/Название/), 'Мойка окон');
     await userEvent.selectOptions(within(dialog).getByLabelText('Исполнитель'), 'Maria Test');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
 
@@ -192,10 +190,34 @@ describe('TasksView', () => {
           propertyId: 1,
           type: 'cleaning',
           title: 'Мойка окон',
-          titleI18n: { en: 'Windows' },
           assigneeId: MARIA,
         }),
       },
+      expect.anything(),
+    );
+  }, 20000);
+
+  test('saves a task with no name at all, and calls it by its kind', async () => {
+    useTasks.mockReturnValue({
+      data: [task({ id: id(5), title: null, time_from: '09:00:00' })],
+      isPending: false,
+      isError: false,
+    });
+    render(<TasksView />);
+
+    // With no name of its own the card is headed by its kind, which the badge repeats.
+    const card = screen.getByText('Vinohrady 12').closest('[data-slot="card"]') as HTMLElement;
+    expect(within(card).getAllByText('Уборка')).toHaveLength(2);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Новое задание' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.selectOptions(within(dialog).getByLabelText('Объект'), 'Vinohrady 12');
+
+    const save = within(dialog).getByRole('button', { name: 'Сохранить' });
+    expect(save).toBeEnabled();
+    await userEvent.click(save);
+    expect(saveTask).toHaveBeenCalledWith(
+      { draft: expect.objectContaining({ title: '' }) },
       expect.anything(),
     );
   }, 20000);
@@ -208,7 +230,7 @@ describe('TasksView', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Новое задание' }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.selectOptions(within(dialog).getByLabelText('Объект'), 'Vinohrady 12');
-    await userEvent.type(within(dialog).getByLabelText(/Название \(русский\)/), 'Мойка окон');
+    await userEvent.type(within(dialog).getByLabelText(/Название/), 'Мойка окон');
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Всё равно создать' }));
     expect(saveTask).toHaveBeenCalledWith(
