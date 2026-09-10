@@ -417,3 +417,11 @@ enabled = true
 # Hostaway не умеет присылать токен Supabase; защита — Basic Auth
 # внутри самой функции (supabase/functions/hostaway-webhook/handler.ts).
 verify_jwt = false
+
+[functions.manage-staff]
+# Панель зовёт функцию из браузера, а предполётный OPTIONS заголовка
+# Authorization не несёт — шлюз превратил бы его в 401, который панели
+# нечем объяснить. Токен функция проверяет сама и после этого спрашивает
+# у базы настоящие роль и тенант звонящего
+# (supabase/functions/manage-staff/handler.ts).
+verify_jwt = false

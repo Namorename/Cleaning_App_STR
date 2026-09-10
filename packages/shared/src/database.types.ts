@@ -260,6 +260,7 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          email: string | null
           full_name: string | null
           host_id: string
           id: string
@@ -271,6 +272,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          email?: string | null
           full_name?: string | null
           host_id?: string
           id: string
@@ -284,6 +286,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          email?: string | null
           full_name?: string | null
           host_id?: string
           id?: string
@@ -1836,6 +1839,29 @@ export type Database = {
       save_property_checklist: {
         Args: { p_modules: Json; p_property_id: number }
         Returns: Json
+      }
+      save_property_cleaner: {
+        Args: {
+          p_cleaner_id: string
+          p_mode?: Database["public"]["Enums"]["assignment_mode"]
+          p_priority?: number
+          p_property_id: number
+        }
+        Returns: {
+          cleaner_id: string
+          created_at: string
+          host_id: string
+          mode: Database["public"]["Enums"]["assignment_mode"]
+          priority: number
+          property_id: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "property_cleaners"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       save_supply_catalog_item: {
         Args: {

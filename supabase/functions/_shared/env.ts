@@ -62,6 +62,21 @@ export function readSupabaseCredentials(env: EnvReader): SupabaseCredentials {
   return { supabaseUrl: supabaseUrl as string, supabaseSecretKey: supabaseSecretKey as string };
 }
 
+/**
+ * The public key, for the one call that must not be made as service_role.
+ *
+ * Asking auth to post a letter goes through the ordinary public endpoint —
+ * the same one a person pressing "forgot my password" would reach. Null when
+ * the key is not set: the caller then reports that no letter went, rather than
+ * failing the operation that was actually asked for.
+ *
+ * Two names again: PUBLISHABLE_KEY is the current one, ANON_KEY the one the
+ * Edge runtime still sets by itself.
+ */
+export function readPublishableKey(env: EnvReader): string | null {
+  return readNonEmpty(env, "SUPABASE_PUBLISHABLE_KEY") ?? readNonEmpty(env, "SUPABASE_ANON_KEY");
+}
+
 export function readConfig(env: EnvReader): SyncConfig {
   const supabaseUrl = readNonEmpty(env, "SUPABASE_URL");
 
