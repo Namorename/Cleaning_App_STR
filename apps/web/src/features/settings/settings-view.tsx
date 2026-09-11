@@ -4,6 +4,9 @@ import { useTranslation } from 'react-i18next';
 
 import { SignOut } from '@/components/sign-out';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ProcessSection } from '@/features/workflow/process-section';
+
+import { HostToggles } from './host-toggles';
 
 interface SettingsViewProps {
   email: string;
@@ -11,12 +14,13 @@ interface SettingsViewProps {
 }
 
 /**
- * Settings, as far as they go for now.
+ * What a company decides once, in one place.
  *
- * Stage 6 fills this screen with the process builder and the company's
- * switches. What is here today is the account: who is signed in, and the way
- * out — which had to leave the sidebar, where it sat one press away from the
- * navigation.
+ * Three cards, widest to narrowest in reach. The account is this person's
+ * and nobody else's. The switches are the company's and change how every
+ * cleaner's app behaves. The process is the company's too, with room for one
+ * listing to differ — and it is the longest of the three, so it sits last
+ * where it can be as tall as it needs to be.
  */
 export function SettingsView({ email, onSignOut }: SettingsViewProps) {
   const { t } = useTranslation();
@@ -35,7 +39,24 @@ export function SettingsView({ email, onSignOut }: SettingsViewProps) {
         </CardContent>
       </Card>
 
-      <p className="text-sm text-muted-foreground">{t('panel.settings.rest')}</p>
+      <Card className="max-w-3xl">
+        <CardHeader>
+          <CardTitle>{t('panel.settings.company')}</CardTitle>
+          <CardDescription>{t('panel.settings.companyHint')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <HostToggles />
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-3xl">
+        <CardHeader>
+          <CardTitle>{t('panel.settings.workflow.title')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ProcessSection />
+        </CardContent>
+      </Card>
     </div>
   );
 }
