@@ -524,7 +524,8 @@
         "info": "Informace",
         "cleaners": "Uklízečky",
         "bookings": "Rezervace",
-        "maintenance": "Údržba"
+        "maintenance": "Údržba",
+        "checklist": "Checklist"
       },
       "cleaners": {
         "empty": "Nikdo není přiřazen. Úklidy budou čekat ve frontě.",
@@ -574,6 +575,33 @@
         "untitled": "Bez názvu",
         "reports": "Hlášení (otevřených: {{open}})",
         "noReports": "Žádná hlášení."
+      },
+      "checklist": {
+        "loadError": "Checklist se nepodařilo načíst.",
+        "empty": "Zatím žádný checklist.",
+        "inherited": "Zobrazen checklist objektu „{{name}}“. Uložením úpravy získá tento objekt vlastní checklist a vazba na nadřazený skončí.",
+        "moduleTitle": "Sekce",
+        "moduleNumber": "Název sekce {{at}}",
+        "moduleUp": "Sekce {{at}} nahoru",
+        "moduleDown": "Sekce {{at}} dolů",
+        "removeModule": "Odebrat sekci",
+        "addModule": "Přidat sekci",
+        "itemNumber": "Položka {{at}} sekce {{module}}",
+        "itemUp": "Položka {{at}} sekce {{module}} nahoru",
+        "removeItem": "Odebrat",
+        "addItem": "Přidat položku",
+        "optional": "Nepovinná",
+        "save": "Uložit checklist",
+        "saving": "Ukládáme…",
+        "saved": "Uloženo",
+        "problems": {
+          "blankTitle": "Sekce nebo položka nemá název.",
+          "emptyModule": "Sekce bez položek se neuloží."
+        },
+        "copyFrom": "Zkopírovat checklist z objektu",
+        "copyPlaceholder": "Vyberte objekt",
+        "copy": "Zkopírovat",
+        "copyHint": "Kopírování nahradí celý stávající checklist."
       }
     }
   },

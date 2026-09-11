@@ -524,7 +524,8 @@
         "info": "Information",
         "cleaners": "Cleaners",
         "bookings": "Bookings",
-        "maintenance": "Maintenance"
+        "maintenance": "Maintenance",
+        "checklist": "Checklist"
       },
       "cleaners": {
         "empty": "Nobody is on this listing. Its cleanings will wait in the open pool.",
@@ -574,6 +575,33 @@
         "untitled": "No title",
         "reports": "Reports (open: {{open}})",
         "noReports": "No reports."
+      },
+      "checklist": {
+        "loadError": "Could not load the checklist.",
+        "empty": "No checklist yet.",
+        "inherited": "This is the checklist of “{{name}}”. Saving an edit gives this listing a checklist of its own and ends the inheritance.",
+        "moduleTitle": "Section",
+        "moduleNumber": "Title of section {{at}}",
+        "moduleUp": "Section {{at}} up",
+        "moduleDown": "Section {{at}} down",
+        "removeModule": "Remove section",
+        "addModule": "Add a section",
+        "itemNumber": "Item {{at}} of section {{module}}",
+        "itemUp": "Item {{at}} of section {{module}} up",
+        "removeItem": "Remove",
+        "addItem": "Add an item",
+        "optional": "Optional",
+        "save": "Save the checklist",
+        "saving": "Saving…",
+        "saved": "Saved",
+        "problems": {
+          "blankTitle": "A section or an item has no title.",
+          "emptyModule": "A section with no items will not be saved."
+        },
+        "copyFrom": "Copy a checklist from",
+        "copyPlaceholder": "Choose a listing",
+        "copy": "Copy",
+        "copyHint": "Copying replaces the whole checklist that is here."
       }
     }
   },

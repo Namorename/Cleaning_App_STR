@@ -4,12 +4,15 @@ import type { Database } from '@str-ops/shared';
 import { functionError } from '@/lib/function-error';
 
 import {
+  checklistPayload,
+  checklistSchema,
   maintenanceTaskListSchema,
   propertyDetailSchema,
   propertyListSchema,
   propertyProblemListSchema,
   reservationListSchema,
   syncSummarySchema,
+  type ChecklistModule,
   type InfoDraft,
   type MaintenanceTask,
   type Property,
@@ -228,6 +231,76 @@ export async function fetchPropertyProblems(
     throw error;
   }
   return propertyProblemListSchema.parse(data ?? []);
+}
+
+/**
+ * The checklist a cleaning of this flat would take.
+ *
+ * The snapshot resolves the fallback: a unit with no checklist of its own
+ * answers with its parent's. Which of the two it is comes from
+ * `fetchChecklistOwner` — editing here always writes to this flat, so the tab
+ * has to say plainly whose list is on screen before somebody edits a copy of
+ * their parent's by accident.
+ */
+export async function fetchChecklist(
+  client: Client,
+  propertyId: number,
+): Promise<ChecklistModule[]> {
+  const { data, error } = await client.rpc('property_checklist_snapshot', {
+    p_property_id: propertyId,
+  });
+  if (error) {
+    throw error;
+  }
+  return checklistSchema.parse(data ?? { modules: [] }).modules;
+}
+
+/** Whose checklist the snapshot just returned: this flat, or the one above it. */
+export async function fetchChecklistOwner(client: Client, propertyId: number): Promise<number> {
+  const { data, error } = await client.rpc('resolve_checklist_property', {
+    p_property_id: propertyId,
+  });
+  if (error) {
+    throw error;
+  }
+  return data ?? propertyId;
+}
+
+/**
+ * Write the checklist of this flat.
+ *
+ * The whole list goes in one call: the RPC keeps what the payload names and
+ * deletes the rest, so a module removed in the editor is removed by sending
+ * the list without it. Order is the array order — `sort_order` is written from
+ * the position, not carried in the payload.
+ */
+export async function saveChecklist(
+  client: Client,
+  propertyId: number,
+  modules: ChecklistModule[],
+): Promise<void> {
+  const { error } = await client.rpc('save_property_checklist', {
+    p_property_id: propertyId,
+    p_modules: checklistPayload(modules) as never,
+  });
+  if (error) {
+    throw error;
+  }
+}
+
+/** Take another flat's checklist wholesale. Replaces whatever is here. */
+export async function copyChecklist(
+  client: Client,
+  sourcePropertyId: number,
+  targetPropertyId: number,
+): Promise<void> {
+  const { error } = await client.rpc('copy_property_checklist', {
+    p_source_property_id: sourcePropertyId,
+    p_target_property_id: targetPropertyId,
+  });
+  if (error) {
+    throw error;
+  }
 }
 
 /**

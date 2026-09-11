@@ -7,19 +7,23 @@ import { teamKeys } from '@/features/team/keys';
 import { useSupabase } from '@/lib/supabase/use-client';
 
 import {
+  copyChecklist,
+  fetchChecklist,
+  fetchChecklistOwner,
   fetchMaintenanceTasks,
   fetchOpenCleanings,
   fetchProperty,
   fetchPropertyProblems,
   fetchRegistry,
   fetchReservations,
+  saveChecklist,
   savePropertyInfo,
   setPropertyStatus,
   syncListings,
   type StatusChange,
 } from './api';
 import { apartmentKeys } from './keys';
-import type { InfoDraft } from './schema';
+import type { ChecklistModule, InfoDraft } from './schema';
 
 export function useRegistry() {
   const client = useSupabase();
@@ -102,5 +106,40 @@ export function usePropertyProblems(propertyId: number) {
   return useQuery({
     queryKey: [...apartmentKeys.one(propertyId), 'problems'],
     queryFn: () => fetchPropertyProblems(client, propertyId),
+  });
+}
+
+export function useChecklist(propertyId: number) {
+  const client = useSupabase();
+  return useQuery({
+    queryKey: [...apartmentKeys.one(propertyId), 'checklist'],
+    queryFn: () => fetchChecklist(client, propertyId),
+  });
+}
+
+/** Which flat the checklist on screen actually belongs to. */
+export function useChecklistOwner(propertyId: number) {
+  const client = useSupabase();
+  return useQuery({
+    queryKey: [...apartmentKeys.one(propertyId), 'checklist-owner'],
+    queryFn: () => fetchChecklistOwner(client, propertyId),
+  });
+}
+
+export function useSaveChecklist(propertyId: number) {
+  const client = useSupabase();
+  const invalidate = useInvalidateEverywhere();
+  return useMutation({
+    mutationFn: (modules: ChecklistModule[]) => saveChecklist(client, propertyId, modules),
+    onSuccess: invalidate,
+  });
+}
+
+export function useCopyChecklist(propertyId: number) {
+  const client = useSupabase();
+  const invalidate = useInvalidateEverywhere();
+  return useMutation({
+    mutationFn: (sourcePropertyId: number) => copyChecklist(client, sourcePropertyId, propertyId),
+    onSuccess: invalidate,
   });
 }

@@ -143,6 +143,107 @@ export const propertyProblemSchema = z.object({
 export type PropertyProblem = z.infer<typeof propertyProblemSchema>;
 export const propertyProblemListSchema = z.array(propertyProblemSchema);
 
+// ---------------------------------------------------------------------------
+//  The checklist
+// ---------------------------------------------------------------------------
+
+/**
+ * What the snapshot hands back.
+ *
+ * Ids are there for what already exists and absent for what the editor has
+ * just invented — `save_property_checklist` reads a missing id as "insert" and
+ * a known one as "update", and drops anything the payload no longer mentions.
+ */
+export const checklistItemSchema = z.object({
+  id: z.string().optional(),
+  title: z.string(),
+  is_optional: z.boolean(),
+});
+export type ChecklistItem = z.infer<typeof checklistItemSchema>;
+
+export const checklistModuleSchema = z.object({
+  id: z.string().optional(),
+  title: z.string(),
+  items: z.array(checklistItemSchema).nullable().transform((items) => items ?? []),
+});
+export type ChecklistModule = z.infer<typeof checklistModuleSchema>;
+
+export const checklistSchema = z.object({ modules: z.array(checklistModuleSchema) });
+
+/** A blank line the editor gives you to type into. */
+export function emptyModule(): ChecklistModule {
+  return { title: '', items: [] };
+}
+
+export function emptyItem(): ChecklistItem {
+  return { title: '', is_optional: false };
+}
+
+/** Immutable edits — the list is rebuilt, never poked at in place. */
+export function replaceModule(
+  modules: ChecklistModule[],
+  index: number,
+  next: ChecklistModule,
+): ChecklistModule[] {
+  return modules.map((module, at) => (at === index ? next : module));
+}
+
+export function removeAt<T>(list: T[], index: number): T[] {
+  return list.filter((_, at) => at !== index);
+}
+
+/**
+ * Move one entry up or down.
+ *
+ * Order is the whole meaning here: `save_property_checklist` writes
+ * `sort_order` from the position in the array, and a cleaner reads the list
+ * top to bottom. A move off either end is not an error, it is simply nothing.
+ */
+export function moveAt<T>(list: T[], index: number, direction: -1 | 1): T[] {
+  const target = index + direction;
+  if (target < 0 || target >= list.length) {
+    return list;
+  }
+  const next = [...list];
+  [next[index], next[target]] = [next[target], next[index]];
+  return next;
+}
+
+/**
+ * What may be saved.
+ *
+ * A module with no items is dropped by the snapshot on the way back anyway
+ * (it only returns modules that have items), so saving one would make a line
+ * that silently disappears. Blank titles are the same kind of trap.
+ */
+export function checklistProblem(modules: ChecklistModule[]): 'blankTitle' | 'emptyModule' | null {
+  for (const section of modules) {
+    if (section.title.trim() === '') {
+      return 'blankTitle';
+    }
+    if (section.items.length === 0) {
+      return 'emptyModule';
+    }
+    if (section.items.some((item) => item.title.trim() === '')) {
+      return 'blankTitle';
+    }
+  }
+  return null;
+}
+
+/** Trimmed, and without the keys the server would only have to ignore. */
+export function checklistPayload(modules: ChecklistModule[]): unknown[] {
+  return modules.map((section) => ({
+    ...(section.id === undefined ? {} : { id: section.id }),
+    title: section.title.trim(),
+    items: section.items.map((item) => ({
+      ...(item.id === undefined ? {} : { id: item.id }),
+      title: item.title.trim(),
+      is_optional: item.is_optional,
+    })),
+  }));
+}
+
 /** A booking that has not ended yet is the half a manager is usually after. */
 export function isUpcoming(reservation: Reservation, today: string): boolean {
   return reservation.departure_date >= today;
