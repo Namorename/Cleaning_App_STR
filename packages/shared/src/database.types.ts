@@ -447,6 +447,49 @@ export type Database = {
           },
         ]
       }
+      reservation_units: {
+        Row: {
+          created_at: string
+          host_id: string
+          property_id: number
+          reservation_id: number
+        }
+        Insert: {
+          created_at?: string
+          host_id?: string
+          property_id: number
+          reservation_id: number
+        }
+        Update: {
+          created_at?: string
+          host_id?: string
+          property_id?: number
+          reservation_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_units_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_units_host_id_property_id_fkey"
+            columns: ["host_id", "property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["host_id", "id"]
+          },
+          {
+            foreignKeyName: "reservation_units_host_id_reservation_id_fkey"
+            columns: ["host_id", "reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["host_id", "id"]
+          },
+        ]
+      }
       reservations: {
         Row: {
           arrival_date: string
@@ -2087,7 +2130,7 @@ export type Database = {
         Returns: Json
       }
       sync_hostaway_reservations: {
-        Args: { raw_rows: Json; reservation_rows: Json }
+        Args: { raw_rows: Json; reservation_rows: Json; unit_rows?: Json }
         Returns: Json
       }
       task_grace_days: { Args: never; Returns: number }

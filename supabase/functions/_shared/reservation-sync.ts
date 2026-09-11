@@ -6,7 +6,12 @@
  * through one RPC.
  */
 
-import { normalizeReservation, type ReservationRow } from "./reservation.ts";
+import {
+  normalizeReservation,
+  reservationUnits,
+  type ReservationRow,
+  type ReservationUnitLink,
+} from "./reservation.ts";
 
 /** A narrow contract instead of depending on the Supabase client type — easier to stub in tests. */
 export type RpcCaller = (fn: string, args: Record<string, unknown>) => Promise<unknown>;
@@ -38,6 +43,12 @@ export interface ReservationPushResult {
   readonly rawUpserted: number;
   readonly inserted: number;
   readonly updated: number;
+  /** Links between a booking and the rooms it took; empty on ordinary listings. */
+  readonly unitsFound: number;
+  readonly unitsLinked: number;
+  readonly unitsFreed: number;
+  /** Rooms Hostaway names that we have no row for — run the listing sync. */
+  readonly unknownUnitIds: number[];
   /** Properties absent from the properties table: time to refresh the listings. */
   readonly unknownPropertyIds: number[];
   /**
@@ -61,6 +72,7 @@ export async function pushReservations(
   batchSize: number = DB_BATCH_SIZE,
 ): Promise<ReservationPushResult> {
   const rows: ReservationRow[] = [];
+  const units: ReservationUnitLink[] = [];
   const raws: Array<{ id: number; data: unknown; synced_at: string }> = [];
   const skipped: SkippedReservation[] = [];
 
@@ -70,6 +82,7 @@ export async function pushReservations(
     try {
       const row = normalizeReservation(raw, syncedAt);
       rows.push(row);
+      units.push(...reservationUnits(raw));
       raws.push({ id: row.id, data: raw, synced_at: syncedAt });
     } catch (error: unknown) {
       const reason = getErrorMessage(error);
@@ -86,6 +99,10 @@ export async function pushReservations(
       rawUpserted: 0,
       inserted: 0,
       updated: 0,
+      unitsFound: 0,
+      unitsLinked: 0,
+      unitsFreed: 0,
+      unknownUnitIds: [],
       unknownPropertyIds: [],
       departureRange: null,
     };
@@ -94,18 +111,36 @@ export async function pushReservations(
   let rawUpserted = 0;
   let inserted = 0;
   let updated = 0;
+  let unitsLinked = 0;
+  let unitsFreed = 0;
   const unknownPropertyIds = new Set<number>();
+  const unknownUnitIds = new Set<number>();
 
   for (let start = 0; start < rows.length; start += batchSize) {
+    // The rooms of exactly the bookings in this batch. The RPC replaces the
+    // set for every booking it writes, so a batch must carry all the rooms of
+    // the bookings it carries — otherwise the ones left out look withdrawn.
+    const batch = new Set(rows.slice(start, start + batchSize).map((row) => row.id));
+
     const counts = (await rpc("sync_hostaway_reservations", {
       raw_rows: raws.slice(start, start + batchSize),
       reservation_rows: rows.slice(start, start + batchSize),
+      unit_rows: units.filter((link) => batch.has(link.reservation_id)),
     })) as Record<string, unknown> | null;
 
     const read = (key: string): number => Number((counts ?? {})[key] ?? 0);
     rawUpserted += read("raw_upserted");
     inserted += read("reservations_inserted");
     updated += read("reservations_updated");
+    unitsLinked += read("units_linked");
+    unitsFreed += read("units_freed");
+
+    const unknownUnits = (counts ?? {}).skipped_unit_ids;
+    if (Array.isArray(unknownUnits)) {
+      for (const id of unknownUnits) {
+        unknownUnitIds.add(Number(id));
+      }
+    }
 
     const unknownIds = (counts ?? {}).skipped_property_ids;
     if (Array.isArray(unknownIds)) {
@@ -125,6 +160,10 @@ export async function pushReservations(
     rawUpserted,
     inserted,
     updated,
+    unitsFound: units.length,
+    unitsLinked,
+    unitsFreed,
+    unknownUnitIds: [...unknownUnitIds],
     unknownPropertyIds: [...unknownPropertyIds],
     departureRange: { from: departures[0], to: departures[departures.length - 1] },
   };

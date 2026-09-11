@@ -1,9 +1,9 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert@1";
-import { normalizeReservation } from "./reservation.ts";
+import { normalizeReservation, reservationUnits } from "./reservation.ts";
 
 const SYNCED_AT = "2026-08-27T18:00:00.000Z";
 
-/** Слепок реального ответа Hostaway, урезанный до значимых полей (в живом — 137). */
+/** A snapshot of a real Hostaway response, trimmed to the fields we use (the live one has 137). */
 function makeReservation(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     id: 65289672,
@@ -11,7 +11,7 @@ function makeReservation(overrides: Record<string, unknown> = {}): Record<string
     channelId: 2018,
     channelName: "airbnbOfficial",
     status: "modified",
-    guestName: "Тестовый Гость",
+    guestName: "Test Guest",
     arrivalDate: "2026-08-28",
     departureDate: "2026-08-31",
     numberOfGuests: 5,
@@ -23,7 +23,7 @@ function makeReservation(overrides: Record<string, unknown> = {}): Record<string
   };
 }
 
-Deno.test("нормализует полную бронь в строку reservations", () => {
+Deno.test("normalizes a complete booking into a reservations row", () => {
   const row = normalizeReservation(makeReservation(), SYNCED_AT);
 
   assertEquals(row, {
@@ -33,7 +33,7 @@ Deno.test("нормализует полную бронь в строку reserv
     departure_date: "2026-08-31",
     status: "modified",
     channel_id: 2018,
-    guest_name: "Тестовый Гость",
+    guest_name: "Test Guest",
     guests_count: 5,
     total_price: 6948.4,
     is_block: false,
@@ -43,10 +43,10 @@ Deno.test("нормализует полную бронь в строку reserv
   });
 });
 
-// Часы брони — не то же самое, что стандартное окно объекта: гость может
-// докупить поздний выезд. На живых данных 22 брони расходятся с листингом по
-// заезду и 2 по выезду. Hostaway отдаёт их целыми часами, без минут.
-Deno.test("часы брони становятся временем", () => {
+// A booking's hours are not the listing's standard window: a guest can buy a
+// late checkout. On live data 22 bookings differ from their listing on arrival
+// and 2 on departure. Hostaway reports whole hours, never minutes.
+Deno.test("the hours of a booking become times", () => {
   const row = normalizeReservation(
     makeReservation({ checkInTime: 16, checkOutTime: 12 }),
     SYNCED_AT,
@@ -56,7 +56,7 @@ Deno.test("часы брони становятся временем", () => {
   assertEquals(row.check_out_time, "12:00");
 });
 
-Deno.test("отсутствующие часы дают null — окно возьмётся у объекта", () => {
+Deno.test("missing hours give null — the window then comes from the listing", () => {
   const raw = makeReservation();
   delete raw.checkInTime;
   delete raw.checkOutTime;
@@ -67,55 +67,55 @@ Deno.test("отсутствующие часы дают null — окно воз
   assertEquals(row.check_out_time, null);
 });
 
-// Ноль приходит, когда канал времени не сообщил (видели на брони Airbnb для
-// объекта с заездом в 15:00). Здесь он сохраняется как есть: трактовка живёт
-// в одном месте — в public.reservation_cleaning_window.
-Deno.test("ноль сохраняется как полночь, а не выбрасывается", () => {
+// Zero arrives when the channel reported no time (seen on an Airbnb booking
+// for a listing that checks in at 15:00). It is stored as it came: reading
+// anything into it happens in one place, public.reservation_cleaning_window.
+Deno.test("zero is kept as midnight rather than thrown away", () => {
   const row = normalizeReservation(makeReservation({ checkInTime: 0 }), SYNCED_AT);
 
   assertEquals(row.check_in_time, "00:00");
 });
 
-Deno.test("час вне суток отбрасывается", () => {
+Deno.test("an hour outside the day is dropped", () => {
   for (const hour of [24, -1, 99]) {
     const row = normalizeReservation(makeReservation({ checkInTime: hour }), SYNCED_AT);
-    assertEquals(row.check_in_time, null, `час ${hour}`);
+    assertEquals(row.check_in_time, null, `hour ${hour}`);
   }
 });
 
-Deno.test("дробный час отбрасывается — колонка хранит целые часы", () => {
+Deno.test("a fractional hour is dropped — the column holds whole hours", () => {
   const row = normalizeReservation(makeReservation({ checkOutTime: 12.5 }), SYNCED_AT);
 
   assertEquals(row.check_out_time, null);
 });
 
-Deno.test("listingMapId становится property_id", () => {
+Deno.test("listingMapId becomes property_id", () => {
   const row = normalizeReservation(makeReservation({ listingMapId: 98352 }), SYNCED_AT);
   assertEquals(row.property_id, 98352);
 });
 
 // ---------------------------------------------------------------------------
-//  is_block: единственный однозначный сигнал — статус ownerStay
+//  is_block: the one unambiguous signal — the ownerStay status
 // ---------------------------------------------------------------------------
 
-Deno.test("ownerStay помечается блокировкой", () => {
+Deno.test("ownerStay is marked a block", () => {
   const row = normalizeReservation(makeReservation({ status: "ownerStay" }), SYNCED_AT);
   assertEquals(row.is_block, true);
 });
 
-Deno.test("обычные статусы блокировкой не считаются", () => {
+Deno.test("the ordinary statuses are not blocks", () => {
   const statuses = ["new", "modified", "cancelled", "expired", "inquiry", "inquiryPreapproved"];
   for (const status of statuses) {
     const row = normalizeReservation(makeReservation({ status }), SYNCED_AT);
-    assertEquals(row.is_block, false, `статус ${status} ошибочно помечен блокировкой`);
+    assertEquals(row.is_block, false, `status ${status} was wrongly marked a block`);
   }
 });
 
-Deno.test("прямой канал с нулевой ценой блокировкой НЕ считается", () => {
-  // На живых данных под channelId=2000 нашлись промо-показы и фотосъёмки:
-  // 'andrej promo show', цена 0, статус modified. Люди в квартире были,
-  // уборка нужна. Пропустить нужную уборку хуже, чем сделать лишнюю,
-  // поэтому по каналу и цене блокировку не выводим.
+Deno.test("the direct channel at zero price is NOT a block", () => {
+  // Live data under channelId=2000 turned up promo showings and photo shoots:
+  // 'andrej promo show', price 0, status modified. People were in the flat and
+  // it needed cleaning. Missing a needed cleaning is worse than scheduling a
+  // spare one, so neither channel nor price decides a block.
   const row = normalizeReservation(
     makeReservation({ channelId: 2000, totalPrice: 0, guestName: "andrej promo show" }),
     SYNCED_AT,
@@ -123,27 +123,27 @@ Deno.test("прямой канал с нулевой ценой блокиров
   assertEquals(row.is_block, false);
 });
 
-Deno.test("имя гостя блокировку не определяет", () => {
-  // Встречались 'block', 'Upgrade', 'Foceni', 'NY Block' — произвольный текст,
-  // опираться на него нельзя.
+Deno.test("the guest name does not decide a block", () => {
+  // 'block', 'Upgrade', 'Foceni', 'NY Block' have all turned up — arbitrary
+  // text, and nothing to lean on.
   for (const guestName of ["block", "Upgrade", "NY Block"]) {
     const row = normalizeReservation(makeReservation({ guestName }), SYNCED_AT);
-    assertEquals(row.is_block, false, `имя ${guestName} не должно влиять на is_block`);
+    assertEquals(row.is_block, false, `name ${guestName} must not affect is_block`);
   }
 });
 
-Deno.test("неизвестный статус сохраняется как есть", () => {
-  // Hostaway обещает добавлять новые значения — падать на них нельзя.
+Deno.test("an unknown status is stored as it came", () => {
+  // Hostaway promises to add new values, and falling over on one is not an option.
   const row = normalizeReservation(makeReservation({ status: "somethingNew" }), SYNCED_AT);
   assertEquals(row.status, "somethingNew");
   assertEquals(row.is_block, false);
 });
 
 // ---------------------------------------------------------------------------
-//  Приведение типов
+//  Coercion
 // ---------------------------------------------------------------------------
 
-Deno.test("числа, пришедшие строками, приводятся", () => {
+Deno.test("numbers that arrived as strings are coerced", () => {
   const row = normalizeReservation(
     makeReservation({
       id: "65289672",
@@ -160,12 +160,12 @@ Deno.test("числа, пришедшие строками, приводятся
   assertEquals(row.total_price, 6948.4);
 });
 
-Deno.test("нулевая цена сохраняется как ноль, а не как null", () => {
+Deno.test("a zero price is kept as zero, not as null", () => {
   const row = normalizeReservation(makeReservation({ totalPrice: 0 }), SYNCED_AT);
   assertEquals(row.total_price, 0);
 });
 
-Deno.test("отсутствующие необязательные поля дают null", () => {
+Deno.test("missing optional fields give null", () => {
   const row = normalizeReservation(
     makeReservation({
       channelId: null,
@@ -183,11 +183,11 @@ Deno.test("отсутствующие необязательные поля да
 });
 
 // ---------------------------------------------------------------------------
-//  Проверки на границе
+//  Checks at the boundary
 // ---------------------------------------------------------------------------
 
-Deno.test("нулевой интервал допускается", () => {
-  // Hostaway отдаёт такое для части блокировок; констрейнт схемы это разрешает.
+Deno.test("a zero-length stay is allowed", () => {
+  // Hostaway reports these for some blocks, and the schema constraint allows it.
   const row = normalizeReservation(
     makeReservation({ arrivalDate: "2026-09-10", departureDate: "2026-09-10" }),
     SYNCED_AT,
@@ -195,8 +195,8 @@ Deno.test("нулевой интервал допускается", () => {
   assertEquals(row.arrival_date, row.departure_date);
 });
 
-Deno.test("выезд раньше заезда отвергается", () => {
-  // Такая строка уронила бы весь батч на констрейнте — отсекаем на границе.
+Deno.test("a departure before the arrival is rejected", () => {
+  // Such a row would sink the whole batch on the constraint — stop it at the boundary.
   assertThrows(
     () =>
       normalizeReservation(
@@ -208,8 +208,8 @@ Deno.test("выезд раньше заезда отвергается", () => {
   );
 });
 
-Deno.test("падает на нераспознаваемой дате", () => {
-  for (const bad of ["не-дата", "2026-13-45", "", null, 20260828]) {
+Deno.test("throws on a date it cannot read", () => {
+  for (const bad of ["not-a-date", "2026-13-45", "", null, 20260828]) {
     assertThrows(
       () => normalizeReservation(makeReservation({ arrivalDate: bad }), SYNCED_AT),
       Error,
@@ -218,13 +218,13 @@ Deno.test("падает на нераспознаваемой дате", () => {
   }
 });
 
-Deno.test("падает без пригодного id", () => {
-  for (const bad of [null, "", "не-число", {}, []]) {
+Deno.test("throws with no usable id", () => {
+  for (const bad of [null, "", "not-a-number", {}, []]) {
     assertThrows(() => normalizeReservation(makeReservation({ id: bad }), SYNCED_AT), Error, "id");
   }
 });
 
-Deno.test("падает без listingMapId: бронь без объекта бессмысленна", () => {
+Deno.test("throws with no listingMapId: a booking with no listing means nothing", () => {
   assertThrows(
     () => normalizeReservation(makeReservation({ listingMapId: null }), SYNCED_AT),
     Error,
@@ -232,8 +232,93 @@ Deno.test("падает без listingMapId: бронь без объекта б
   );
 });
 
-Deno.test("падает, когда пришёл не объект", () => {
-  for (const bad of [null, undefined, 42, "строка", [], true]) {
+Deno.test("throws when what arrived is not an object", () => {
+  for (const bad of [null, undefined, 42, "a string", [], true]) {
     assertThrows(() => normalizeReservation(bad, SYNCED_AT), Error);
   }
+});
+
+// ---------------------------------------------------------------------------
+//  Which room the booking took
+// ---------------------------------------------------------------------------
+
+/** Real shape from booking 66140823 on listing 219524, room "3 - 3008". */
+function unit(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: 2866072,
+    reservationId: 65289672,
+    listingUnitId: 18008,
+    guestName: "Test Guest",
+    numberOfGuests: 1,
+    totalPrice: 469.82,
+    ...overrides,
+  };
+}
+
+Deno.test("an ordinary listing names no room, and that is not a problem", () => {
+  assertEquals(reservationUnits(makeReservation()), []);
+});
+
+Deno.test("reservationUnit as an empty array names no room either", () => {
+  assertEquals(reservationUnits(makeReservation({ reservationUnit: [] })), []);
+});
+
+Deno.test("a booking on one room is one link", () => {
+  const raw = makeReservation({ reservationUnit: [unit()] });
+
+  assertEquals(reservationUnits(raw), [{ reservation_id: 65289672, hostaway_unit_id: 18008 }]);
+});
+
+// Eight bookings in the account take more than one room, one of them three.
+// A single link would schedule one cleaning where three are needed.
+Deno.test("a booking across three rooms is three links", () => {
+  const raw = makeReservation({
+    id: 64882623,
+    reservationUnit: [
+      unit({ listingUnitId: 18008 }),
+      unit({ listingUnitId: 18009 }),
+      unit({ listingUnitId: 18010 }),
+    ],
+  });
+
+  assertEquals(reservationUnits(raw).map((link) => link.hostaway_unit_id), [18008, 18009, 18010]);
+  assertEquals(reservationUnits(raw).every((link) => link.reservation_id === 64882623), true);
+});
+
+// The row id is derived from the unit number, so a reference without one has
+// nowhere to go. The rest of the booking still does.
+Deno.test("a room reference with no unit id is dropped, the others survive", () => {
+  const raw = makeReservation({
+    reservationUnit: [unit({ listingUnitId: null }), unit({ listingUnitId: 18009 })],
+  });
+
+  assertEquals(reservationUnits(raw), [{ reservation_id: 65289672, hostaway_unit_id: 18009 }]);
+});
+
+Deno.test("the same room named twice is one link", () => {
+  const raw = makeReservation({ reservationUnit: [unit(), unit()] });
+
+  assertEquals(reservationUnits(raw).length, 1);
+});
+
+// Deciding which bookings deserve a cleaning belongs to the generator, which
+// already reads the status. Dropping the room here would take the fact away
+// before it could.
+Deno.test("the room is read whatever the status says", () => {
+  for (const status of ["new", "modified", "cancelled", "inquiry", "ownerStay", "expired"]) {
+    const raw = makeReservation({ status, reservationUnit: [unit()] });
+    assertEquals(reservationUnits(raw).length, 1, `status ${status}`);
+  }
+});
+
+Deno.test("reservationUnit that is not an array is ignored rather than thrown at", () => {
+  assertEquals(reservationUnits(makeReservation({ reservationUnit: "nope" })), []);
+});
+
+Deno.test("a booking with no usable id throws: there is nothing to link to", () => {
+  assertThrows(
+    () => reservationUnits(makeReservation({ id: null, reservationUnit: [unit()] })),
+    Error,
+    "id",
+  );
 });

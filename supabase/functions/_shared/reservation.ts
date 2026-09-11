@@ -107,3 +107,69 @@ export function normalizeReservation(raw: unknown, syncedAt: string): Reservatio
     synced_at: syncedAt,
   };
 }
+
+/**
+ * The rooms one booking took, as a link waiting for its room row.
+ *
+ * The property id is deliberately absent: the Hostaway unit number becomes a
+ * `properties` row id through `public.property_id_for_unit()`, and the sync
+ * RPC applies it. A second copy of that arithmetic here is how the two would
+ * come to disagree.
+ */
+export interface ReservationUnitLink {
+  reservation_id: number;
+  hostaway_unit_id: number;
+}
+
+/**
+ * Read `reservationUnit` off a booking.
+ *
+ * Empty for the seventy of seventy-nine listings that have no rooms, and that
+ * is the ordinary case rather than a problem.
+ *
+ * The field arrives without `includeResources=1` — checked against the live
+ * account on 2026-09-12, on the list endpoint and on a single booking alike —
+ * even though the published specification says it would be an empty array
+ * (p. 57). The sync asks for the parameter anyway; this reads whatever came.
+ *
+ * Every status carries it, cancelled and ownerStay included. Filtering on
+ * status belongs to the task generator, which already decides which bookings
+ * deserve a cleaning; throwing the room away here would take the information
+ * from it before it could.
+ */
+export function reservationUnits(raw: unknown): ReservationUnitLink[] {
+  if (!isRecord(raw)) {
+    throw new TypeError(`Hostaway reservation must be an object, got: ${typeof raw}`);
+  }
+
+  const id = toFiniteNumber(raw.id);
+  if (id === null) {
+    throw new TypeError("Hostaway reservation has no usable id");
+  }
+
+  const units = raw.reservationUnit;
+  if (!Array.isArray(units)) {
+    return [];
+  }
+
+  const links: ReservationUnitLink[] = [];
+  const seen = new Set<number>();
+
+  for (const unit of units) {
+    if (!isRecord(unit)) {
+      continue;
+    }
+
+    const unitId = toFiniteNumber(unit.listingUnitId);
+    // A room reference with no id names nothing: the row id is derived from
+    // it, so there is nowhere to put the link.
+    if (unitId === null || seen.has(unitId)) {
+      continue;
+    }
+
+    seen.add(unitId);
+    links.push({ reservation_id: id, hostaway_unit_id: unitId });
+  }
+
+  return links;
+}

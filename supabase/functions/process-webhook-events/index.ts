@@ -130,7 +130,12 @@ async function processBatch(): Promise<ProcessSummary> {
 
   for (const [reservationId, eventIds] of byReservation) {
     try {
-      fetched.push(await hostaway.getObject(`reservations/${reservationId}`));
+      // includeResources for the same reason as the nightly reconciliation:
+      // the room a booking took arrives without it today, and the spec says
+      // it should not.
+      fetched.push(
+        await hostaway.getObject(`reservations/${reservationId}?includeResources=1`),
+      );
       okEventIds.push(...eventIds);
     } catch (error: unknown) {
       // Одна недоступная бронь не должна ронять пачку: остальные доедут,

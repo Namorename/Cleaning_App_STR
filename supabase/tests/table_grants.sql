@@ -37,6 +37,10 @@ insert into wanted values
   ('profiles',             'DELETE,INSERT,SELECT,UPDATE'),
   ('properties',           'DELETE,INSERT,SELECT,UPDATE'),
   ('reservations',         'DELETE,INSERT,SELECT,UPDATE'),
+  -- Written by the sync alone: the rows copy what Hostaway said about
+  -- which room a booking took, and a hand-edit would be overwritten in
+  -- the night.
+  ('reservation_units',    'SELECT'),
   ('property_cleaners',    'DELETE,INSERT,SELECT,UPDATE'),
   ('tasks',                'DELETE,INSERT,SELECT,UPDATE'),
   ('hosts',                'SELECT'),

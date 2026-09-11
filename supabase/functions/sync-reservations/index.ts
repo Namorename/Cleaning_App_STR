@@ -63,6 +63,11 @@ async function runReconciliation(
   const reservations = await hostaway.listAll(RESERVATIONS_ENDPOINT, PAGE_SIZE, {
     departureStartDate: window.from,
     departureEndDate: window.to,
+    // Which room a booking took, on the nine multi-unit listings. Live data
+    // returns `reservationUnit` without this parameter, but the published
+    // specification says it would be empty (p. 57) — asking costs nothing and
+    // means a change of heart on their side does not quietly empty the rooms.
+    includeResources: "1",
   });
   console.info(`Fetched reservations from Hostaway: ${reservations.length} (${window.from}..${window.to})`);
 
@@ -79,6 +84,13 @@ async function runReconciliation(
   };
 
   const result = await pushReservations(reservations, syncedAt, rpc);
+
+  if (result.unknownUnitIds.length > 0) {
+    console.error(
+      `Reservations name rooms we have no row for: ${result.unknownUnitIds.join(", ")}. ` +
+        "Run sync-listings — a room was probably added to a listing in Hostaway.",
+    );
+  }
 
   if (result.unknownPropertyIds.length > 0) {
     console.error(
