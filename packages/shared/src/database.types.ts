@@ -1626,6 +1626,10 @@ export type Database = {
         Args: { p_property_id: number }
         Returns: Json
       }
+      property_open_cleanings: {
+        Args: { p_property_id: number }
+        Returns: number
+      }
       record_webhook_event: {
         Args: { event_payload: Json; event_source?: string }
         Returns: number
@@ -1991,6 +1995,40 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "workflow_templates"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_property_status: {
+        Args: {
+          p_cancel_tasks?: boolean
+          p_property_id: number
+          p_status: Database["public"]["Enums"]["property_status"]
+        }
+        Returns: {
+          address: string | null
+          bathrooms: number | null
+          bedrooms: number | null
+          check_in_time: string | null
+          check_out_time: string | null
+          city: string | null
+          cleaner_notes: string | null
+          country_code: string | null
+          created_at: string
+          host_id: string
+          id: number
+          internal_notes: string | null
+          max_guests: number | null
+          name: string
+          parent_id: number | null
+          status: Database["public"]["Enums"]["property_status"]
+          synced_at: string | null
+          timezone: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "properties"
           isOneToOne: true
           isSetofReturn: false
         }

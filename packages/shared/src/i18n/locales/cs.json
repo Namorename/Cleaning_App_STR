@@ -699,6 +699,7 @@
     "propertyHasUnits": "Apartmán {{id}} má vlastní jednotky a nemůže být jednotkou",
     "propertyIsUnit": "Apartmán {{id}} je sám jednotkou a nemůže být nadřazený",
     "propertyNotFound": "Apartmán nebyl nalezen",
+    "propertyHasOpenTasks": "Objekt má {{total}} nedokončených úklidů — vyřazením z provozu se zruší.",
     "reasonRequired": "Uveďte důvod",
     "requiredStepNotSkippable": "Povinný krok nelze přeskočit",
     "requiredStepsLeft": "Zbývá povinných kroků: {{count}}",

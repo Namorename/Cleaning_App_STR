@@ -699,6 +699,7 @@
     "propertyHasUnits": "Apartment {{id}} has units of its own and cannot be a unit",
     "propertyIsUnit": "Apartment {{id}} is a unit itself and cannot be a parent",
     "propertyNotFound": "Apartment not found",
+    "propertyHasOpenTasks": "This listing still has {{total}} cleanings on the books — taking it out of service cancels them.",
     "reasonRequired": "Please give a reason",
     "requiredStepNotSkippable": "A required step cannot be skipped",
     "requiredStepsLeft": "Required steps left: {{count}}",
