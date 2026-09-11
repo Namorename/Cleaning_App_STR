@@ -47,12 +47,18 @@ export async function fetchStaff(client: Client): Promise<Staff[]> {
  * Archived ones are out: opening a listing that has left the company to
  * somebody is a link nobody will ever act on. A flat under maintenance stays —
  * the repair ends and the cleaner is already on it.
+ *
+ * Rooms are out, and permanently so rather than pending a later screen: a
+ * cleaner is linked to a listing and her rooms follow from it. Offering the
+ * rooms as well would turn nine listings into thirty-one ticks to keep in
+ * step, for a distinction nobody makes when handing out work.
  */
 export async function fetchProperties(client: Client): Promise<Property[]> {
   const { data, error } = await client
     .from('properties')
     .select('id, name')
     .neq('status', 'archived')
+    .is('parent_id', null)
     .order('name', { ascending: true });
   if (error) {
     throw error;

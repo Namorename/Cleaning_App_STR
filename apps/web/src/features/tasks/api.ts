@@ -78,12 +78,17 @@ export async function fetchStaff(client: Client): Promise<Staff[]> {
  * Archived ones are out — that listing has left the company. A flat under
  * maintenance stays on offer: booking a technician onto it is the reason the
  * state exists.
+ *
+ * Rooms are out for now. Flattened into this list a room would sit next to
+ * its own listing with nothing to say which building it is in; the picker
+ * gains the hierarchy in the calendar phase and the rooms with it.
  */
 export async function fetchProperties(client: Client): Promise<Property[]> {
   const { data, error } = await client
     .from('properties')
     .select('id, name')
     .neq('status', 'archived')
+    .is('parent_id', null)
     .order('name', { ascending: true });
   if (error) {
     throw error;

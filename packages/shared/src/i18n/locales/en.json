@@ -909,6 +909,7 @@
     "propertyIsUnit": "Apartment {{id}} is a unit itself and cannot be a parent",
     "propertyNotFound": "Apartment not found",
     "propertyHasOpenTasks": "This listing still has {{total}} cleanings on the books — taking it out of service cancels them.",
+    "unitParentNotActive": "Put the listing itself back to work first — an archived listing cannot have working rooms.",
     "reasonRequired": "Please give a reason",
     "requiredStepNotSkippable": "A required step cannot be skipped",
     "requiredStepsLeft": "Required steps left: {{count}}",

@@ -1,5 +1,5 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert@1";
-import { normalizeListing } from "./listing.ts";
+import { normalizeListing, normalizeUnits } from "./listing.ts";
 
 const SYNCED_AT = "2026-08-27T16:00:00.000Z";
 
@@ -171,4 +171,99 @@ Deno.test("rejects anything that is not an object", () => {
   for (const notAnObject of [null, undefined, 42, "string", [], true]) {
     assertThrows(() => normalizeListing(notAnObject, SYNCED_AT), Error);
   }
+});
+
+// ---------------------------------------------------------------------------
+//  Rooms inside a multi-unit listing
+// ---------------------------------------------------------------------------
+
+/** Real shape from listing 412432, which holds seven rooms. */
+const NADRAZNI_UNITS = [
+  { id: 64266, name: "Unit 6 - 1 floor - keypad 638247#", ground: null, unitNumber: null, listingMapIdUnit: null },
+  { id: 64267, name: "Unit 8 - 3rd floor - lockbox 8251", ground: null, unitNumber: null, listingMapIdUnit: null },
+];
+
+Deno.test("a listing with no units yields none — the ordinary case", () => {
+  const parent = normalizeListing(makeListing(), SYNCED_AT);
+
+  assertEquals(normalizeUnits(makeListing(), parent, SYNCED_AT), []);
+});
+
+Deno.test("listingUnits absent altogether is not an error", () => {
+  const raw = makeListing();
+  delete raw.listingUnits;
+  const parent = normalizeListing(raw, SYNCED_AT);
+
+  assertEquals(normalizeUnits(raw, parent, SYNCED_AT), []);
+});
+
+Deno.test("a room inherits the address and the times of its listing", () => {
+  const raw = makeListing({ id: 412432, listingUnits: NADRAZNI_UNITS });
+  const parent = normalizeListing(raw, SYNCED_AT);
+
+  const units = normalizeUnits(raw, parent, SYNCED_AT);
+
+  assertEquals(units.length, 2);
+  assertEquals(units[0], {
+    hostaway_unit_id: 64266,
+    parent_id: 412432,
+    name: "Unit 6 - 1 floor - keypad 638247#",
+    address: parent.address,
+    city: parent.city,
+    country_code: parent.country_code,
+    timezone: parent.timezone,
+    check_in_time: parent.check_in_time,
+    check_out_time: parent.check_out_time,
+    synced_at: SYNCED_AT,
+  });
+});
+
+// The id belongs to public.property_id_for_unit(), and a second copy of the
+// shift here is exactly how the two would come to disagree.
+Deno.test("a room carries no row id of its own", () => {
+  const raw = makeListing({ listingUnits: NADRAZNI_UNITS });
+  const parent = normalizeListing(raw, SYNCED_AT);
+
+  assertEquals("id" in normalizeUnits(raw, parent, SYNCED_AT)[0], false);
+});
+
+// Hostaway reports capacity per listing. Ten guests across four rooms says
+// nothing true about one of them.
+Deno.test("a room carries no capacity of its own", () => {
+  const raw = makeListing({ personCapacity: 10, bedroomsNumber: 2, listingUnits: NADRAZNI_UNITS });
+  const parent = normalizeListing(raw, SYNCED_AT);
+  const unit = normalizeUnits(raw, parent, SYNCED_AT)[0];
+
+  assertEquals("max_guests" in unit, false);
+  assertEquals("bedrooms" in unit, false);
+  assertEquals("bathrooms" in unit, false);
+});
+
+// Losing the row would lose every cleaning that belongs to the room.
+Deno.test("a nameless room is kept and named by its number", () => {
+  const raw = makeListing({ listingUnits: [{ id: 64268, name: "   " }] });
+  const parent = normalizeListing(raw, SYNCED_AT);
+
+  assertEquals(normalizeUnits(raw, parent, SYNCED_AT)[0].name, "Unit 64268");
+});
+
+// There is nothing to hang a room without an id on: the row id is derived
+// from it and the reservation binding resolves through it.
+Deno.test("a room with no usable id is dropped, the rest survive", () => {
+  const raw = makeListing({
+    listingUnits: [{ id: null, name: "Broken" }, ...NADRAZNI_UNITS],
+  });
+  const parent = normalizeListing(raw, SYNCED_AT);
+
+  const units = normalizeUnits(raw, parent, SYNCED_AT);
+
+  assertEquals(units.length, 2);
+  assertEquals(units.map((unit) => unit.hostaway_unit_id), [64266, 64267]);
+});
+
+Deno.test("listingUnits that is not an array is ignored rather than thrown at", () => {
+  const raw = makeListing({ listingUnits: "nope" });
+  const parent = normalizeListing(raw, SYNCED_AT);
+
+  assertEquals(normalizeUnits(raw, parent, SYNCED_AT), []);
 });

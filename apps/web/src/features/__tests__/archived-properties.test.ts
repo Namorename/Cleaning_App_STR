@@ -101,3 +101,45 @@ describe('the registry is the exception, on purpose', () => {
     expect(query?.filters).not.toContain(ARCHIVED_IS_OUT);
   });
 });
+
+/**
+ * The second rule, and the newer one: a room is not a listing.
+ *
+ * Nine of the seventy-nine listings hold rooms — thirty-one between them —
+ * and each room is a `properties` row under `parent_id` so that cleanings,
+ * checklists and processes work on it unchanged. The cost is that every
+ * reader of `properties` now picks up rooms unless it says not to, and a flat
+ * list is the wrong answer in all three places below for two different
+ * reasons.
+ *
+ * For the team screen it is permanent: a cleaner is linked to a listing and
+ * her rooms follow. For the registry and the task form it holds until those
+ * screens show rooms as a branch under their listing.
+ */
+const ROOMS_ARE_OUT = 'is:parent_id=null';
+
+describe('a room is not offered as a listing of its own', () => {
+  test('not in the listing field of a task', async () => {
+    const { client, calls } = recordingClient();
+
+    await fetchTaskProperties(client);
+
+    expect(calls.find((call) => call.table === 'properties')?.filters).toContain(ROOMS_ARE_OUT);
+  });
+
+  test('not when somebody is put on listings', async () => {
+    const { client, calls } = recordingClient();
+
+    await fetchTeamProperties(client);
+
+    expect(calls.find((call) => call.table === 'properties')?.filters).toContain(ROOMS_ARE_OUT);
+  });
+
+  test('and not as a row of its own in the registry', async () => {
+    const { client, calls } = recordingClient();
+
+    await fetchRegistry(client);
+
+    expect(calls.find((call) => call.table === 'properties')?.filters).toContain(ROOMS_ARE_OUT);
+  });
+});

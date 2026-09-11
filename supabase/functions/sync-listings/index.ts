@@ -13,7 +13,12 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { allowsSync, CORS_HEADERS, readBearer } from "../_shared/caller.ts";
 import { ConfigError, readConfig, readSupabaseCredentials } from "../_shared/env.ts";
 import { HostawayClient } from "../_shared/hostaway.ts";
-import { normalizeListing, type PropertyRow } from "../_shared/listing.ts";
+import {
+  normalizeListing,
+  normalizeUnits,
+  type PropertyRow,
+  type PropertyUnitRow,
+} from "../_shared/listing.ts";
 
 const LISTINGS_ENDPOINT = "listings";
 const PAGE_SIZE = 100;
@@ -36,6 +41,10 @@ interface SyncSummary {
   readonly rawUpserted: number;
   readonly propertiesInserted: number;
   readonly propertiesUpdated: number;
+  /** Rooms inside multi-unit listings; nine of seventy-nine listings have any. */
+  readonly unitsNormalized: number;
+  readonly unitsInserted: number;
+  readonly unitsUpdated: number;
   readonly durationMs: number;
 }
 
@@ -53,8 +62,14 @@ function getErrorMessage(error: unknown): string {
 function normalizeAll(
   listings: readonly unknown[],
   syncedAt: string,
-): { properties: PropertyRow[]; raws: RawListingRow[]; skipped: SkippedListing[] } {
+): {
+  properties: PropertyRow[];
+  units: PropertyUnitRow[];
+  raws: RawListingRow[];
+  skipped: SkippedListing[];
+} {
   const properties: PropertyRow[] = [];
+  const units: PropertyUnitRow[] = [];
   const raws: RawListingRow[] = [];
   const skipped: SkippedListing[] = [];
 
@@ -62,6 +77,9 @@ function normalizeAll(
     try {
       const property = normalizeListing(listing, syncedAt);
       properties.push(property);
+      // Rooms inherit the listing's address and times, so they are read from
+      // the normalized parent rather than from the payload a second time.
+      units.push(...normalizeUnits(listing, property, syncedAt));
       raws.push({ id: property.id, data: listing, synced_at: syncedAt });
     } catch (error: unknown) {
       const reason = getErrorMessage(error);
@@ -70,7 +88,7 @@ function normalizeAll(
     }
   });
 
-  return { properties, raws, skipped };
+  return { properties, units, raws, skipped };
 }
 
 async function runSync(): Promise<SyncSummary> {
@@ -82,7 +100,8 @@ async function runSync(): Promise<SyncSummary> {
   const listings = await hostaway.listAll(LISTINGS_ENDPOINT, PAGE_SIZE);
   console.info(`Fetched listings from Hostaway: ${listings.length}`);
 
-  const { properties, raws, skipped } = normalizeAll(listings, syncedAt);
+  const { properties, units, raws, skipped } = normalizeAll(listings, syncedAt);
+  console.info(`Listing units found: ${units.length}`);
 
   const supabase = createClient(config.supabaseUrl, config.supabaseSecretKey, {
     auth: { persistSession: false },
@@ -91,6 +110,7 @@ async function runSync(): Promise<SyncSummary> {
   const { data, error } = await supabase.rpc("sync_hostaway_listings", {
     raw_rows: raws,
     property_rows: properties,
+    unit_rows: units,
   });
 
   if (error) {
@@ -106,6 +126,9 @@ async function runSync(): Promise<SyncSummary> {
     rawUpserted: counts.raw_upserted ?? 0,
     propertiesInserted: counts.properties_inserted ?? 0,
     propertiesUpdated: counts.properties_updated ?? 0,
+    unitsNormalized: units.length,
+    unitsInserted: counts.units_inserted ?? 0,
+    unitsUpdated: counts.units_updated ?? 0,
     durationMs: Date.now() - startedAt,
   };
 }

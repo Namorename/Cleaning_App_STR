@@ -323,6 +323,7 @@ export type Database = {
           country_code: string | null
           created_at: string
           host_id: string
+          hostaway_unit_id: number | null
           id: number
           internal_notes: string | null
           max_guests: number | null
@@ -344,6 +345,7 @@ export type Database = {
           country_code?: string | null
           created_at?: string
           host_id?: string
+          hostaway_unit_id?: number | null
           id: number
           internal_notes?: string | null
           max_guests?: number | null
@@ -365,6 +367,7 @@ export type Database = {
           country_code?: string | null
           created_at?: string
           host_id?: string
+          hostaway_unit_id?: number | null
           id?: number
           internal_notes?: string | null
           max_guests?: number | null
@@ -1629,6 +1632,7 @@ export type Database = {
         Args: { p_property_id: number }
         Returns: Json
       }
+      property_id_for_unit: { Args: { p_unit_id: number }; Returns: number }
       property_open_cleanings: {
         Args: { p_property_id: number }
         Returns: number
@@ -2019,6 +2023,7 @@ export type Database = {
           country_code: string | null
           created_at: string
           host_id: string
+          hostaway_unit_id: number | null
           id: number
           internal_notes: string | null
           max_guests: number | null
@@ -2078,7 +2083,7 @@ export type Database = {
       supply_item_name_max_length: { Args: never; Returns: number }
       supply_note_max_length: { Args: never; Returns: number }
       sync_hostaway_listings: {
-        Args: { property_rows: Json; raw_rows: Json }
+        Args: { property_rows: Json; raw_rows: Json; unit_rows?: Json }
         Returns: Json
       }
       sync_hostaway_reservations: {

@@ -909,6 +909,7 @@
     "propertyIsUnit": "Apartmán {{id}} je sám jednotkou a nemůže být nadřazený",
     "propertyNotFound": "Apartmán nebyl nalezen",
     "propertyHasOpenTasks": "Objekt má {{total}} nedokončených úklidů — vyřazením z provozu se zruší.",
+    "unitParentNotActive": "Nejprve vraťte do provozu samotnou nabídku — archivovaná nabídka nemůže mít aktivní pokoje.",
     "reasonRequired": "Uveďte důvod",
     "requiredStepNotSkippable": "Povinný krok nelze přeskočit",
     "requiredStepsLeft": "Zbývá povinných kroků: {{count}}",

@@ -40,11 +40,17 @@ const NOT_STARTED = ['unassigned', 'assigned'] as const;
  * Everywhere else asks for `status <> 'archived'`. If you are copying this
  * function into a new screen, that is what you want instead — an archived
  * listing in a picker is the bug this whole state exists to prevent.
+ *
+ * Rooms are out. A multi-unit listing holds up to seven of them and the nine
+ * such listings would add thirty-one rows here, each looking like a flat of
+ * its own. They belong under their listing as a branch, which is the registry
+ * work in the calendar phase; until then the screen shows listings only.
  */
 export async function fetchRegistry(client: Client): Promise<Property[]> {
   const { data, error } = await client
     .from('properties')
     .select(PROPERTY_COLUMNS)
+    .is('parent_id', null)
     .order('name', { ascending: true });
   if (error) {
     throw error;

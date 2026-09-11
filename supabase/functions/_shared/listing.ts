@@ -91,3 +91,83 @@ export function normalizeListing(raw: unknown, syncedAt: string): PropertyRow {
     synced_at: syncedAt,
   };
 }
+
+/**
+ * A room inside a multi-unit listing, as a properties row waiting for its id.
+ *
+ * The id is deliberately absent. Hostaway numbers units in a space of its own
+ * and the row id is that number shifted clear of the listing ids; the shift
+ * lives in `public.property_id_for_unit()` so the rule has one home, and the
+ * sync RPC applies it. Sending an id from here would be a second copy of it.
+ *
+ * Capacity is absent for a different reason: Hostaway reports bedrooms,
+ * bathrooms and guests per LISTING. Those numbers describe all the rooms
+ * together and are wrong for any one of them, so a unit carries none — empty
+ * beats untrue.
+ */
+export interface PropertyUnitRow {
+  hostaway_unit_id: number;
+  parent_id: number;
+  name: string;
+  /** Inherited from the listing: a room is at the same address, in the same timezone. */
+  address: string | null;
+  city: string | null;
+  country_code: string | null;
+  timezone: string;
+  check_in_time: string | null;
+  check_out_time: string | null;
+  synced_at: string;
+}
+
+/**
+ * The rooms of one listing.
+ *
+ * Empty for the seventy of seventy-nine listings that have none, and that is
+ * the ordinary case rather than a problem.
+ *
+ * A unit whose name is missing is still returned, named by its own number:
+ * losing the row would lose every cleaning that belongs to the room. A unit
+ * with no usable id is dropped — there is nothing to hang it on.
+ */
+export function normalizeUnits(
+  raw: unknown,
+  parent: Readonly<PropertyRow>,
+  syncedAt: string,
+): PropertyUnitRow[] {
+  if (!isRecord(raw)) {
+    throw new TypeError(`Hostaway listing must be an object, got: ${typeof raw}`);
+  }
+
+  const units = raw.listingUnits;
+  if (!Array.isArray(units)) {
+    return [];
+  }
+
+  const rows: PropertyUnitRow[] = [];
+
+  for (const unit of units) {
+    if (!isRecord(unit)) {
+      continue;
+    }
+
+    const unitId = toFiniteNumber(unit.id);
+    if (unitId === null) {
+      continue;
+    }
+
+    rows.push({
+      hostaway_unit_id: unitId,
+      parent_id: parent.id,
+      name: toTrimmedString(unit.name) ?? `Unit ${unitId}`,
+      address: parent.address,
+      city: parent.city,
+      country_code: parent.country_code,
+      timezone: parent.timezone,
+      check_in_time: parent.check_in_time,
+      check_out_time: parent.check_out_time,
+      synced_at: syncedAt,
+    });
+  }
+
+  return rows;
+}
