@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 
 import {
   STEP_CATALOGUE,
+  WORKFLOW_SCOPES,
   emptyStep,
   isLiveStep,
   processDraftFrom,
@@ -47,6 +48,36 @@ const draft = (overrides: Partial<ProcessDraft> = {}): ProcessDraft => ({
 const photoStep = (overrides: Partial<StepDraft> = {}): StepDraft => ({
   ...emptyStep('photos_after'),
   ...overrides,
+});
+
+// Every task type the panel can create must have a process to build, or the
+// task reaches the cleaner with no steps and nothing says why. The four here
+// are the whole `workflow_scope` column (20260905110000).
+describe('the scopes offered', () => {
+  test('covers every value of the workflow_scope column', () => {
+    expect([...WORKFLOW_SCOPES]).toEqual(['cleaning', 'midstay', 'problem', 'inspection']);
+  });
+
+  test('leaves cleanings first, so the screen opens where the work is', () => {
+    expect(WORKFLOW_SCOPES[0]).toBe('cleaning');
+  });
+
+  test('includes the two a task can be created with but had no process', () => {
+    expect(WORKFLOW_SCOPES).toContain('midstay');
+    expect(WORKFLOW_SCOPES).toContain('inspection');
+  });
+
+  test('a mid-stay process keeps its scope through the payload', () => {
+    const payload = processPayload(draft({ scope: 'midstay', name: 'Уборка в проживание' }));
+
+    expect((payload as { scope: string }).scope).toBe('midstay');
+  });
+
+  test('an inspection process keeps its scope through the payload', () => {
+    const payload = processPayload(draft({ scope: 'inspection', name: 'Осмотр' }));
+
+    expect((payload as { scope: string }).scope).toBe('inspection');
+  });
 });
 
 describe('the step catalogue', () => {

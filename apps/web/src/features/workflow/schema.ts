@@ -1,14 +1,19 @@
 import { z } from 'zod';
 
 /**
- * The processes stage 6 lets a manager build.
+ * The processes a manager can build.
  *
- * The database enum has four — `midstay` and `inspection` are the other two —
- * and the machinery below is indifferent to which of them it is handling. The
- * panel offers these two because they are the ones with a process today: a
- * cleaning, and fixing a reported problem.
+ * All four values of the `workflow_scope` column, listed in the order the
+ * enum itself declares them (20260905110000) so the two cannot drift apart.
+ *
+ * The panel used to offer only `cleaning` and `problem`. That left a silent
+ * gap: the task form has always been able to create a `midstay` or an
+ * `inspection` (`TASK_TYPES` in `features/tasks/schema.ts`), and
+ * `workflow_scope_for()` has always mapped them to a scope of their own — so
+ * such a task reached the cleaner with no steps at all and nothing on any
+ * screen explained why.
  */
-export const WORKFLOW_SCOPES = ['cleaning', 'problem'] as const;
+export const WORKFLOW_SCOPES = ['cleaning', 'midstay', 'problem', 'inspection'] as const;
 export type WorkflowScope = (typeof WORKFLOW_SCOPES)[number];
 
 /**
@@ -86,9 +91,9 @@ export const VIDEO_SEC_CEILING = 600;
 /**
  * A template row.
  *
- * `scope` is read as a plain string rather than narrowed to the two the panel
- * offers: the column holds four values, and a parser that threw on `midstay`
- * would turn a row nobody asked for into a blank screen.
+ * `scope` is read as a plain string rather than narrowed to the enum the
+ * panel knows. The column is the source of truth, and a fifth value added
+ * there later must not turn a row nobody asked for into a blank screen.
  */
 export const workflowTemplateSchema = z.object({
   id: z.string(),

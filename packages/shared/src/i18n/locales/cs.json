@@ -39,7 +39,9 @@
         "scope": "Proces pro",
         "scopes": {
           "cleaning": "Úklidy",
-          "problem": "Řešení problémů"
+          "midstay": "Úklidy během pobytu",
+          "problem": "Řešení problémů",
+          "inspection": "Kontroly"
         },
         "target": "Kde platí",
         "targetDefault": "Všechny objekty",

@@ -39,7 +39,9 @@
         "scope": "Process for",
         "scopes": {
           "cleaning": "Cleanings",
-          "problem": "Fixing problems"
+          "midstay": "Mid-stay cleanings",
+          "problem": "Fixing problems",
+          "inspection": "Inspections"
         },
         "target": "Where it applies",
         "targetDefault": "Every listing",

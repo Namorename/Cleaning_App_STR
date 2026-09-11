@@ -88,6 +88,29 @@ describe('the company process', () => {
     expect(screen.getByText(/Шаг 2 · Подтверждение/)).toBeInTheDocument();
   });
 
+  // The task form can already create all four kinds. A kind missing from here
+  // is a task that reaches the cleaner with no steps at all.
+  test('offers a process for every kind of task the panel can create', () => {
+    render(<ProcessSection />);
+
+    const options = within(screen.getByLabelText('Процесс для')).getAllByRole('option');
+
+    expect(options.map((option) => option.textContent)).toEqual([
+      'Уборки',
+      'Уборки в проживание',
+      'Устранения проблем',
+      'Осмотры',
+    ]);
+  });
+
+  test('switching to inspections asks the server for that process', async () => {
+    render(<ProcessSection />);
+
+    await userEvent.selectOptions(screen.getByLabelText('Процесс для'), 'inspection');
+
+    expect(screen.getByLabelText('Процесс для')).toHaveValue('inspection');
+  });
+
   // Switching off the company default would leave every cleaning with no
   // steps at all. It is legal and almost certainly a mistake, so the screen
   // does not offer it.
