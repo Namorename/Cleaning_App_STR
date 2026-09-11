@@ -517,6 +517,41 @@
           "maintenance": "Send",
           "archived": "Archive"
         }
+      },
+      "back": "← All listings",
+      "notFound": "Listing not found.",
+      "card": {
+        "info": "Information",
+        "cleaners": "Cleaners"
+      },
+      "cleaners": {
+        "empty": "Nobody is on this listing. Its cleanings will wait in the open pool.",
+        "add": "Add somebody",
+        "addPlaceholder": "Choose a person"
+      },
+      "info": {
+        "fromHostaway": "From Hostaway",
+        "ours": "Ours",
+        "address": "Address",
+        "city": "City",
+        "timezone": "Time zone",
+        "window": "Cleaning window (out — in)",
+        "size": "Size",
+        "sizeValue": "{{bedrooms}} bedrooms, up to {{guests}} guests",
+        "listingId": "Listing number",
+        "hostawayHint": "These come from Hostaway and are rewritten by every sync — change them there.",
+        "parent": "Part of",
+        "noParent": "A listing of its own",
+        "parentHint": "A combined listing is made of units. Without this link a booking on it creates cleanings twice over.",
+        "units": "Units",
+        "noUnits": "No units.",
+        "cleanerNotes": "Note for the cleaner",
+        "cleanerNotesHint": "Shown in the app on the task screen.",
+        "internalNotes": "Internal note",
+        "internalNotesHint": "Panel only. Staff never see it.",
+        "save": "Save",
+        "saving": "Saving…",
+        "saved": "Saved"
       }
     }
   },

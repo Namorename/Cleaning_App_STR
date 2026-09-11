@@ -2,12 +2,15 @@ import { describe, expect, test } from 'vitest';
 
 import {
   childrenOf,
+  infoDraftFrom,
   isInTab,
   matchesTokens,
   needsChange,
   openCleaningsBy,
   openCleaningsOf,
   parentOf,
+  possibleParents,
+  propertyDetailSchema,
   propertySchema,
   type Property,
 } from '../schema';
@@ -129,5 +132,49 @@ describe('needsChange', () => {
 
   test('and when nothing would change, nothing is', () => {
     expect(needsChange(all, [2], 'archived')).toEqual([]);
+  });
+});
+
+describe('possibleParents', () => {
+  const whole = property({ id: 1, name: 'Whole flat' });
+  const unit = property({ id: 2, name: 'Room A', parent_id: 1 });
+  const other = property({ id: 3, name: 'Anděl 4' });
+  const gone = property({ id: 4, name: 'Karlín 7', status: 'archived' });
+  const all = [whole, unit, other, gone];
+
+  test('a listing is not its own parent', () => {
+    expect(possibleParents(all, whole).map((one) => one.id)).not.toContain(1);
+  });
+
+  test('and neither is one of its own units — that would be a loop', () => {
+    expect(possibleParents(all, whole).map((one) => one.id)).not.toContain(2);
+  });
+
+  test("an archived listing is nobody's parent", () => {
+    expect(possibleParents(all, whole).map((one) => one.id)).not.toContain(4);
+  });
+
+  test('what is left is offered', () => {
+    expect(possibleParents(all, whole).map((one) => one.id)).toEqual([3]);
+  });
+});
+
+describe('infoDraftFrom', () => {
+  test('turns the nulls of a row into the empty strings a form can hold', () => {
+    const draft = infoDraftFrom(
+      propertyDetailSchema.parse({
+        ...base,
+        country_code: null,
+        timezone: 'UTC',
+        bathrooms: null,
+        check_in_time: null,
+        check_out_time: null,
+        cleaner_notes: null,
+        internal_notes: null,
+        synced_at: null,
+      }),
+    );
+
+    expect(draft).toEqual({ parentId: null, cleanerNotes: '', internalNotes: '' });
   });
 });

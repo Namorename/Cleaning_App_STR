@@ -517,6 +517,41 @@
           "maintenance": "Poslat",
           "archived": "Archivovat"
         }
+      },
+      "back": "← Všechny objekty",
+      "notFound": "Objekt nenalezen.",
+      "card": {
+        "info": "Informace",
+        "cleaners": "Uklízečky"
+      },
+      "cleaners": {
+        "empty": "Nikdo není přiřazen. Úklidy budou čekat ve frontě.",
+        "add": "Přidat pracovníka",
+        "addPlaceholder": "Vyberte pracovníka"
+      },
+      "info": {
+        "fromHostaway": "Z Hostaway",
+        "ours": "Naše údaje",
+        "address": "Adresa",
+        "city": "Město",
+        "timezone": "Časové pásmo",
+        "window": "Okno úklidu (odjezd — příjezd)",
+        "size": "Velikost",
+        "sizeValue": "{{bedrooms}} ložnic, až {{guests}} hostů",
+        "listingId": "Číslo inzerátu",
+        "hostawayHint": "Tato pole přicházejí z Hostaway a přepisují se při každé synchronizaci — měňte je tam.",
+        "parent": "Součást objektu",
+        "noParent": "Samostatný objekt",
+        "parentHint": "Kombinovaný inzerát se skládá z jednotek. Bez této vazby vytvoří rezervace úklidy dvakrát.",
+        "units": "Jednotky",
+        "noUnits": "Žádné jednotky.",
+        "cleanerNotes": "Poznámka pro uklízečku",
+        "cleanerNotesHint": "Zobrazí se v aplikaci u úkolu.",
+        "internalNotes": "Interní poznámka",
+        "internalNotesHint": "Jen v panelu. Pracovníci ji nevidí.",
+        "save": "Uložit",
+        "saving": "Ukládáme…",
+        "saved": "Uloženo"
       }
     }
   },

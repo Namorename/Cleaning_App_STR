@@ -4,8 +4,11 @@ import type { Database } from '@str-ops/shared';
 import { functionError } from '@/lib/function-error';
 
 import {
+  propertyDetailSchema,
   propertyListSchema,
   syncSummarySchema,
+  type InfoDraft,
+  type PropertyDetail,
   type Property,
   type PropertyStatus,
   type SyncSummary,
@@ -38,6 +41,56 @@ export async function fetchRegistry(client: Client): Promise<Property[]> {
     throw error;
   }
   return propertyListSchema.parse(data ?? []);
+}
+
+const DETAIL_COLUMNS =
+  `${PROPERTY_COLUMNS}, country_code, timezone, bathrooms, check_in_time, check_out_time, ` +
+  'cleaner_notes, internal_notes, synced_at';
+
+/**
+ * One listing in full.
+ *
+ * Archived ones are readable here on purpose: the card is reached from the
+ * archive tab, and a manager checking what she is about to restore should see
+ * the flat, not a "not found".
+ */
+export async function fetchProperty(client: Client, id: number): Promise<PropertyDetail | null> {
+  const { data, error } = await client
+    .from('properties')
+    .select(DETAIL_COLUMNS)
+    .eq('id', id)
+    .maybeSingle();
+  if (error) {
+    throw error;
+  }
+  return data === null ? null : propertyDetailSchema.parse(data);
+}
+
+/**
+ * Write the half of a listing that belongs to the company.
+ *
+ * Only three columns, and deliberately so: everything else on the row is
+ * rewritten from Hostaway on the next sync, so writing it here would be a
+ * change that undoes itself in the night. A plain update rather than an RPC —
+ * the manager policy on `properties` already says who may do this, and there
+ * is nothing to explain about a note.
+ */
+export async function savePropertyInfo(
+  client: Client,
+  id: number,
+  draft: InfoDraft,
+): Promise<void> {
+  const { error } = await client
+    .from('properties')
+    .update({
+      parent_id: draft.parentId,
+      cleaner_notes: draft.cleanerNotes.trim() === '' ? null : draft.cleanerNotes.trim(),
+      internal_notes: draft.internalNotes.trim() === '' ? null : draft.internalNotes.trim(),
+    })
+    .eq('id', id);
+  if (error) {
+    throw error;
+  }
 }
 
 /**

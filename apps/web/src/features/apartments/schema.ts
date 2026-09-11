@@ -32,6 +32,63 @@ export const propertySchema = z.object({
 export type Property = z.infer<typeof propertySchema>;
 export const propertyListSchema = z.array(propertySchema);
 
+/**
+ * One listing in full, as its card shows it.
+ *
+ * The fields split in two, and the card says which is which. Everything
+ * Hostaway knows — the name, the address, the size, the check-in and check-out
+ * hours — is rewritten by every sync (`sync_hostaway_listings` sets them from
+ * `excluded`), so the panel shows those and does not offer to edit them: a box
+ * whose contents vanish overnight is worse than a line of text.
+ *
+ * What the company knows about the flat — the notes and which listing it is a
+ * unit of — is ours, absent from that update list, and editable here.
+ */
+export const propertyDetailSchema = propertySchema.extend({
+  country_code: z.string().nullable(),
+  timezone: z.string(),
+  bathrooms: z.number().nullable(),
+  check_in_time: z.string().nullable(),
+  check_out_time: z.string().nullable(),
+  cleaner_notes: z.string().nullable(),
+  internal_notes: z.string().nullable(),
+  synced_at: z.string().nullable(),
+});
+export type PropertyDetail = z.infer<typeof propertyDetailSchema>;
+
+/** The half of a listing the panel may write. */
+export interface InfoDraft {
+  parentId: number | null;
+  cleanerNotes: string;
+  internalNotes: string;
+}
+
+export function infoDraftFrom(property: PropertyDetail): InfoDraft {
+  return {
+    parentId: property.parent_id,
+    cleanerNotes: property.cleaner_notes ?? '',
+    internalNotes: property.internal_notes ?? '',
+  };
+}
+
+/**
+ * Listings this one could be a unit of.
+ *
+ * Not itself, and not one of its own units: either would make a loop, and a
+ * loop in the parent chain is how a booking turns into an endless hunt for
+ * which flat to clean. Archived listings are out — a live unit hanging off a
+ * listing the company no longer has is a link nobody will act on.
+ */
+export function possibleParents(all: Property[], property: Property): Property[] {
+  const units = new Set(childrenOf(all, property.id).map((child) => child.id));
+  return all.filter(
+    (candidate) =>
+      candidate.id !== property.id &&
+      !units.has(candidate.id) &&
+      candidate.status !== 'archived',
+  );
+}
+
 /** What a sync run reports back. Skipped listings carry their own reason. */
 export const syncSummarySchema = z.object({
   fetched: z.number(),

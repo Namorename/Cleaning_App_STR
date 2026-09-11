@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -204,7 +205,9 @@ export function ApartmentsView() {
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{property.name}</span>
+                    <Link className="font-medium underline" href={`/apartments/${property.id}`}>
+                      {property.name}
+                    </Link>
                     {property.status === 'active' ? null : (
                       <Badge variant="outline">
                         {t(`panel.apartments.tabs.${property.status}`)}

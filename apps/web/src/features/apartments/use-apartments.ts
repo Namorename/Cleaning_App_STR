@@ -8,12 +8,15 @@ import { useSupabase } from '@/lib/supabase/use-client';
 
 import {
   fetchOpenCleanings,
+  fetchProperty,
   fetchRegistry,
+  savePropertyInfo,
   setPropertyStatus,
   syncListings,
   type StatusChange,
 } from './api';
 import { apartmentKeys } from './keys';
+import type { InfoDraft } from './schema';
 
 export function useRegistry() {
   const client = useSupabase();
@@ -58,4 +61,19 @@ export function useSyncListings() {
   const client = useSupabase();
   const invalidate = useInvalidateEverywhere();
   return useMutation({ mutationFn: () => syncListings(client), onSuccess: invalidate });
+}
+
+export function useProperty(id: number) {
+  const client = useSupabase();
+  return useQuery({ queryKey: apartmentKeys.one(id), queryFn: () => fetchProperty(client, id) });
+}
+
+/** The three columns Hostaway does not own. See savePropertyInfo. */
+export function useSaveInfo(id: number) {
+  const client = useSupabase();
+  const invalidate = useInvalidateEverywhere();
+  return useMutation({
+    mutationFn: (draft: InfoDraft) => savePropertyInfo(client, id, draft),
+    onSuccess: invalidate,
+  });
 }
