@@ -6,9 +6,7 @@ import {
   checklistPayload,
   checklistProblem,
   checklistSchema,
-  moveAt,
   propertySchema,
-  removeAt,
   type ChecklistModule,
   type Property,
 } from '../schema';
@@ -111,26 +109,6 @@ describe('the payload', () => {
     expect(payload[0].title).toBe('Кухня');
     expect('id' in payload[0].items[0]).toBe(false);
     expect(payload[0].items[0].title).toBe('Плита');
-  });
-});
-
-describe('moving an entry', () => {
-  test('swaps it with its neighbour', () => {
-    expect(moveAt(['a', 'b', 'c'], 1, -1)).toEqual(['b', 'a', 'c']);
-    expect(moveAt(['a', 'b', 'c'], 1, 1)).toEqual(['a', 'c', 'b']);
-  });
-
-  test('a move off either end is simply nothing', () => {
-    expect(moveAt(['a', 'b'], 0, -1)).toEqual(['a', 'b']);
-    expect(moveAt(['a', 'b'], 1, 1)).toEqual(['a', 'b']);
-  });
-
-  test('and the original list is never touched', () => {
-    const list = ['a', 'b'];
-    moveAt(list, 0, 1);
-    removeAt(list, 0);
-
-    expect(list).toEqual(['a', 'b']);
   });
 });
 

@@ -179,35 +179,9 @@ export function emptyItem(): ChecklistItem {
   return { title: '', is_optional: false };
 }
 
-/** Immutable edits — the list is rebuilt, never poked at in place. */
-export function replaceModule(
-  modules: ChecklistModule[],
-  index: number,
-  next: ChecklistModule,
-): ChecklistModule[] {
-  return modules.map((module, at) => (at === index ? next : module));
-}
-
-export function removeAt<T>(list: T[], index: number): T[] {
-  return list.filter((_, at) => at !== index);
-}
-
-/**
- * Move one entry up or down.
- *
- * Order is the whole meaning here: `save_property_checklist` writes
- * `sort_order` from the position in the array, and a cleaner reads the list
- * top to bottom. A move off either end is not an error, it is simply nothing.
- */
-export function moveAt<T>(list: T[], index: number, direction: -1 | 1): T[] {
-  const target = index + direction;
-  if (target < 0 || target >= list.length) {
-    return list;
-  }
-  const next = [...list];
-  [next[index], next[target]] = [next[target], next[index]];
-  return next;
-}
+// Reordering and replacing entries live in `@/lib/list`: the process editor
+// of stage 6 is the same kind of ordered list, and one copy of a swap is
+// enough for both.
 
 /**
  * What may be saved.

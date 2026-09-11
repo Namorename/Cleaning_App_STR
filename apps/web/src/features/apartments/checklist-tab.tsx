@@ -5,15 +5,13 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { moveAt, removeAt, replaceAt } from '@/lib/list';
 import { serverErrorText } from '@/lib/server-error';
 
 import {
   checklistProblem,
   emptyItem,
   emptyModule,
-  moveAt,
-  removeAt,
-  replaceModule,
   type ChecklistModule,
   type Property,
 } from './schema';
@@ -122,7 +120,7 @@ export function ChecklistTab({ propertyId, all }: ChecklistTabProps) {
                     value={section.title}
                     onChange={(event) =>
                       setModules(
-                        replaceModule(modules, moduleAt, { ...section, title: event.target.value }),
+                        replaceAt(modules, moduleAt, { ...section, title: event.target.value }),
                       )
                     }
                   />
@@ -167,7 +165,7 @@ export function ChecklistTab({ propertyId, all }: ChecklistTabProps) {
                       value={item.title}
                       onChange={(event) =>
                         setModules(
-                          replaceModule(modules, moduleAt, {
+                          replaceAt(modules, moduleAt, {
                             ...section,
                             items: section.items.map((one, at) =>
                               at === itemAt ? { ...one, title: event.target.value } : one,
@@ -183,7 +181,7 @@ export function ChecklistTab({ propertyId, all }: ChecklistTabProps) {
                         checked={item.is_optional}
                         onChange={(event) =>
                           setModules(
-                            replaceModule(modules, moduleAt, {
+                            replaceAt(modules, moduleAt, {
                               ...section,
                               items: section.items.map((one, at) =>
                                 at === itemAt ? { ...one, is_optional: event.target.checked } : one,
@@ -204,7 +202,7 @@ export function ChecklistTab({ propertyId, all }: ChecklistTabProps) {
                       })}
                       onClick={() =>
                         setModules(
-                          replaceModule(modules, moduleAt, {
+                          replaceAt(modules, moduleAt, {
                             ...section,
                             items: moveAt(section.items, itemAt, -1),
                           }),
@@ -219,7 +217,7 @@ export function ChecklistTab({ propertyId, all }: ChecklistTabProps) {
                       size="sm"
                       onClick={() =>
                         setModules(
-                          replaceModule(modules, moduleAt, {
+                          replaceAt(modules, moduleAt, {
                             ...section,
                             items: removeAt(section.items, itemAt),
                           }),
@@ -239,7 +237,7 @@ export function ChecklistTab({ propertyId, all }: ChecklistTabProps) {
                   size="sm"
                   onClick={() =>
                     setModules(
-                      replaceModule(modules, moduleAt, {
+                      replaceAt(modules, moduleAt, {
                         ...section,
                         items: [...section.items, emptyItem()],
                       }),
