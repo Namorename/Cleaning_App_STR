@@ -72,11 +72,18 @@ export async function fetchStaff(client: Client): Promise<Staff[]> {
   return staffListSchema.parse(data ?? []);
 }
 
-/** Listings a task can be put on. */
+/**
+ * Listings a task can be put on.
+ *
+ * Archived ones are out — that listing has left the company. A flat under
+ * maintenance stays on offer: booking a technician onto it is the reason the
+ * state exists.
+ */
 export async function fetchProperties(client: Client): Promise<Property[]> {
   const { data, error } = await client
     .from('properties')
     .select('id, name')
+    .neq('status', 'archived')
     .order('name', { ascending: true });
   if (error) {
     throw error;

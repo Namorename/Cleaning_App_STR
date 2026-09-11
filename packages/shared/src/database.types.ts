@@ -322,10 +322,10 @@ export type Database = {
           host_id: string
           id: number
           internal_notes: string | null
-          is_active: boolean
           max_guests: number | null
           name: string
           parent_id: number | null
+          status: Database["public"]["Enums"]["property_status"]
           synced_at: string | null
           timezone: string
           updated_at: string
@@ -343,10 +343,10 @@ export type Database = {
           host_id?: string
           id: number
           internal_notes?: string | null
-          is_active?: boolean
           max_guests?: number | null
           name: string
           parent_id?: number | null
+          status?: Database["public"]["Enums"]["property_status"]
           synced_at?: string | null
           timezone?: string
           updated_at?: string
@@ -364,10 +364,10 @@ export type Database = {
           host_id?: string
           id?: number
           internal_notes?: string | null
-          is_active?: boolean
           max_guests?: number | null
           name?: string
           parent_id?: number | null
+          status?: Database["public"]["Enums"]["property_status"]
           synced_at?: string | null
           timezone?: string
           updated_at?: string
@@ -2268,6 +2268,7 @@ export type Database = {
         | "in_progress"
         | "resolved"
         | "cancelled"
+      property_status: "active" | "maintenance" | "archived"
       supply_priority: "normal" | "urgent"
       supply_request_status:
         | "new"
@@ -2440,6 +2441,7 @@ export const Constants = {
         "resolved",
         "cancelled",
       ],
+      property_status: ["active", "maintenance", "archived"],
       supply_priority: ["normal", "urgent"],
       supply_request_status: [
         "new",

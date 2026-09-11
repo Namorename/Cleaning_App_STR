@@ -147,4 +147,40 @@ select pg_temp.check('the cancelled task stays as history next to the new one',
 select pg_temp.check('a booking whose cleaning is under way does not get a second task',
   pg_temp.task_statuses(900000308), 'in_progress');
 
+-- ---------- a listing that is not taking guests ----------
+--
+-- Both states stop the schedule, and that is the whole point of the pair:
+-- `maintenance` is a flat under repair and `archived` one that has left the
+-- company. Neither earns a cleaning; only one of them is expected back.
+insert into public.properties (id, name, timezone, check_in_time, check_out_time) values
+  (900000205, 'Goes under repair', 'Europe/Prague', '15:00', '10:00');
+
+insert into public.reservations (id, property_id, arrival_date, departure_date, status, guest_name) values
+  (900000310, 900000205, '2026-12-01', '2026-12-04', 'new', 'Leaves mid-renovation');
+
+update public.properties set status = 'maintenance' where id = 900000205;
+
+select pg_temp.check('a listing under maintenance earns no cleaning',
+  (select (public.generate_cleaning_tasks('2026-12-01', '2026-12-31') ->> 'created')::int), 0);
+
+update public.properties set status = 'archived' where id = 900000205;
+
+select pg_temp.check('and neither does an archived one',
+  (select (public.generate_cleaning_tasks('2026-12-01', '2026-12-31') ->> 'created')::int), 0);
+
+-- Back in service, and the booking that waited through the repair is served.
+update public.properties set status = 'active' where id = 900000205;
+
+select pg_temp.check('back in service, the booking finally gets its cleaning',
+  (select (public.generate_cleaning_tasks('2026-12-01', '2026-12-31') ->> 'created')::int), 1);
+
+-- A listing pulled out of service after the task exists: the same pass that
+-- cancels a withdrawn booking takes this one down too.
+update public.properties set status = 'maintenance' where id = 900000205;
+
+select pg_temp.check('a listing pulled out of service cancels the task it had',
+  (select (public.generate_cleaning_tasks('2026-12-01', '2026-12-31') ->> 'cancelled')::int), 1);
+select pg_temp.check('cancelled, not deleted — it stays as history',
+  pg_temp.task_statuses(900000310), 'cancelled');
+
 rollback;

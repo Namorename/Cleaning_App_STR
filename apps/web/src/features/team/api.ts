@@ -41,10 +41,18 @@ export async function fetchStaff(client: Client): Promise<Staff[]> {
   return staffListSchema.parse(data ?? []);
 }
 
+/**
+ * Listings a person can be put on.
+ *
+ * Archived ones are out: opening a listing that has left the company to
+ * somebody is a link nobody will ever act on. A flat under maintenance stays —
+ * the repair ends and the cleaner is already on it.
+ */
 export async function fetchProperties(client: Client): Promise<Property[]> {
   const { data, error } = await client
     .from('properties')
     .select('id, name')
+    .neq('status', 'archived')
     .order('name', { ascending: true });
   if (error) {
     throw error;
