@@ -900,6 +900,7 @@
     "notSignedIn": "Nejste přihlášeni. Přihlaste se znovu.",
     "mailNotSent": "E-mail se nepodařilo odeslat.",
     "mailTooSoon": "Na tuhle adresu právě odešel e-mail. Zkuste to za minutu.",
-    "mailNotConfigured": "Odesílání e-mailů není nastavené."
+    "mailNotConfigured": "Odesílání e-mailů není nastavené.",
+    "hostNotFound": "Společnost nebyla nalezena."
   }
 }

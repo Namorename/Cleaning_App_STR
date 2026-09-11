@@ -144,6 +144,7 @@ export type Database = {
         Row: {
           created_at: string
           default_language: Database["public"]["Enums"]["app_language"]
+          gallery_allowed: boolean
           id: string
           name: string
           parallel_start_allowed: boolean
@@ -152,6 +153,7 @@ export type Database = {
         Insert: {
           created_at?: string
           default_language?: Database["public"]["Enums"]["app_language"]
+          gallery_allowed?: boolean
           id?: string
           name: string
           parallel_start_allowed?: boolean
@@ -160,6 +162,7 @@ export type Database = {
         Update: {
           created_at?: string
           default_language?: Database["public"]["Enums"]["app_language"]
+          gallery_allowed?: boolean
           id?: string
           name?: string
           parallel_start_allowed?: boolean
@@ -2199,6 +2202,27 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "problems"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      update_host_settings: {
+        Args: {
+          p_gallery_allowed?: boolean
+          p_parallel_start_allowed?: boolean
+        }
+        Returns: {
+          created_at: string
+          default_language: Database["public"]["Enums"]["app_language"]
+          gallery_allowed: boolean
+          id: string
+          name: string
+          parallel_start_allowed: boolean
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "hosts"
           isOneToOne: true
           isSetofReturn: false
         }

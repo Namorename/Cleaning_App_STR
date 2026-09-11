@@ -900,6 +900,7 @@
     "notSignedIn": "You are not signed in. Sign in again.",
     "mailNotSent": "The letter could not be sent.",
     "mailTooSoon": "A letter has just gone to this address. Try again in a minute.",
-    "mailNotConfigured": "Sending email is not configured."
+    "mailNotConfigured": "Sending email is not configured.",
+    "hostNotFound": "The company was not found."
   }
 }
