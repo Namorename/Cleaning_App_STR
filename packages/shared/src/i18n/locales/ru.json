@@ -19,10 +19,18 @@
   "panel": {
     "title": "STR Ops",
     "signOut": "Выйти",
+    "cancel": "Отмена",
+    "settings": {
+      "account": "Аккаунт",
+      "signedInAs": "Вы вошли как {{email}}.",
+      "rest": "Остальные настройки появятся здесь позже."
+    },
     "login": {
       "subtitle": "Панель менеджера",
       "email": "Эл. почта",
       "password": "Пароль",
+      "showPassword": "Показать пароль",
+      "hidePassword": "Скрыть пароль",
       "submit": "Войти",
       "issues": {
         "missing": "Введите почту и пароль",
@@ -447,7 +455,7 @@
         "priorityFor": "Очередь: {{name}}",
         "remove": "Убрать",
         "add": "Добавить объект",
-        "addPlaceholder": "Выберите объект",
+        "addNone": "Все объекты уже открыты.",
         "addButton": "Добавить"
       }
     },

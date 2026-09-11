@@ -330,6 +330,51 @@ describe('TeamView — listings are chosen while the person is hired', () => {
     expect(saveLinkAsync).not.toHaveBeenCalled();
   }, 20000);
 
+  test('several listings are ticked and opened by one press', async () => {
+    render(<TeamView />);
+
+    // Petr is on nothing, so the whole catalogue is on offer in his drawer.
+    await userEvent.click(within(rowFor('Petr Tech')).getByRole('button', { name: 'Объектов: 0' }));
+    const sheet = await screen.findByRole('dialog');
+
+    await userEvent.click(within(sheet).getByRole('checkbox', { name: 'Vinohrady 12' }));
+    await userEvent.click(within(sheet).getByRole('checkbox', { name: 'Anděl 4' }));
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Добавить' }));
+
+    await waitFor(() => expect(saveLinkAsync).toHaveBeenCalledTimes(2));
+    expect(saveLinkAsync).toHaveBeenCalledWith({
+      propertyId: 1,
+      cleanerId: PETR,
+      mode: 'claim',
+      priority: 1,
+    });
+    expect(saveLinkAsync).toHaveBeenCalledWith({
+      propertyId: 2,
+      cleanerId: PETR,
+      mode: 'claim',
+      priority: 1,
+    });
+  }, 20000);
+
+  test('nothing ticked, nothing to press', async () => {
+    render(<TeamView />);
+
+    await userEvent.click(within(rowFor('Petr Tech')).getByRole('button', { name: 'Объектов: 0' }));
+    const sheet = await screen.findByRole('dialog');
+
+    expect(within(sheet).getByRole('button', { name: 'Добавить' })).toBeDisabled();
+  });
+
+  test('a person already on every listing is told so, not shown an empty box', async () => {
+    render(<TeamView />);
+
+    // Maria holds both listings in the fixture.
+    await userEvent.click(within(rowFor('Maria Test')).getByRole('button', { name: 'Объектов: 2' }));
+    const sheet = await screen.findByRole('dialog');
+
+    expect(within(sheet).getByText('Все объекты уже открыты.')).toBeInTheDocument();
+  });
+
   test('saving an edit that changed no listing writes none', async () => {
     render(<TeamView />);
 

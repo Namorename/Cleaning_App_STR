@@ -1,6 +1,7 @@
 'use client';
 
-import { useActionState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
+import { useActionState, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ import { Label } from '@/components/ui/label';
 
 import { signIn, type SignInState } from './actions';
 
-const INITIAL: SignInState = { issue: null };
+const INITIAL: SignInState = { issue: null, email: '' };
 
 interface LoginFormProps {
   next: string;
@@ -19,6 +20,7 @@ interface LoginFormProps {
 export function LoginForm({ next }: LoginFormProps) {
   const { t } = useTranslation();
   const [state, action, isPending] = useActionState(signIn, INITIAL);
+  const [isPasswordShown, setIsPasswordShown] = useState(false);
 
   return (
     <Card className="w-full max-w-sm">
@@ -31,17 +33,48 @@ export function LoginForm({ next }: LoginFormProps) {
           <input type="hidden" name="next" value={next} />
           <div className="flex flex-col gap-2">
             <Label htmlFor="email">{t('panel.login.email')}</Label>
-            <Input id="email" name="email" type="email" autoComplete="email" required />
+            {/* The address survives a refused attempt — see SignInState.email. */}
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              defaultValue={state.email}
+              required
+            />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="password">{t('panel.login.password')}</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                name="password"
+                type={isPasswordShown ? 'text' : 'password'}
+                autoComplete="current-password"
+                className="pr-10"
+                required
+              />
+              {/*
+                A password typed on a phone keyboard, or dictated over one, is
+                worth being able to check before it is refused. The button is
+                not a submit — inside a form an unnamed button would be.
+              */}
+              <button
+                type="button"
+                onClick={() => setIsPasswordShown(!isPasswordShown)}
+                aria-label={t(
+                  isPasswordShown ? 'panel.login.hidePassword' : 'panel.login.showPassword',
+                )}
+                aria-pressed={isPasswordShown}
+                className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-md text-muted-foreground hover:text-foreground"
+              >
+                {isPasswordShown ? (
+                  <EyeOff className="size-4" aria-hidden="true" />
+                ) : (
+                  <Eye className="size-4" aria-hidden="true" />
+                )}
+              </button>
+            </div>
           </div>
           {state.issue !== null ? (
             <p role="alert" className="text-sm text-destructive">

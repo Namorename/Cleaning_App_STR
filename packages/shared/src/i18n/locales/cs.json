@@ -19,10 +19,18 @@
   "panel": {
     "title": "STR Ops",
     "signOut": "Odhlásit se",
+    "cancel": "Zrušit",
+    "settings": {
+      "account": "Účet",
+      "signedInAs": "Jste přihlášeni jako {{email}}.",
+      "rest": "Ostatní nastavení přibudou později."
+    },
     "login": {
       "subtitle": "Panel manažera",
       "email": "E-mail",
       "password": "Heslo",
+      "showPassword": "Zobrazit heslo",
+      "hidePassword": "Skrýt heslo",
       "submit": "Přihlásit se",
       "issues": {
         "missing": "Zadejte e-mail a heslo",
@@ -447,7 +455,7 @@
         "priorityFor": "Pořadí: {{name}}",
         "remove": "Odebrat",
         "add": "Přidat objekt",
-        "addPlaceholder": "Vyberte objekt",
+        "addNone": "Všechny objekty jsou už otevřené.",
         "addButton": "Přidat"
       }
     },

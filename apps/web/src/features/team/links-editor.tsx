@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/sheet';
 import { serverErrorText } from '@/lib/server-error';
 
+import { PropertyPicker } from './property-picker';
 import {
   ASSIGNMENT_MODES,
   linksOf,
@@ -50,7 +51,7 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
   const links = useCleanerLinks();
   const save = useSaveCleanerLink();
   const remove = useRemoveCleanerLink();
-  const [adding, setAdding] = useState('');
+  const [adding, setAdding] = useState<number[]>([]);
 
   const allProperties = properties.data ?? [];
   const allLinks = links.data ?? [];
@@ -63,14 +64,30 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
       ? serverErrorText(remove.error)
       : null;
 
+  /**
+   * Open every listing that was ticked, one write each.
+   *
+   * One at a time rather than in parallel: `save_property_cleaner` answers
+   * "this listing already has somebody fixed to it" by naming her, and a
+   * burst of writes would turn one readable refusal into several at once.
+   * The ticks are left alone on a failure, so nothing has to be ticked twice.
+   */
   const add = () => {
-    if (adding === '') {
-      return;
-    }
-    save.mutate(
-      { propertyId: Number(adding), cleanerId: staff.id, mode: 'claim', priority: MIN_PRIORITY },
-      { onSuccess: () => setAdding('') },
-    );
+    void (async () => {
+      try {
+        for (const propertyId of adding) {
+          await save.mutateAsync({
+            propertyId,
+            cleanerId: staff.id,
+            mode: 'claim',
+            priority: MIN_PRIORITY,
+          });
+        }
+        setAdding([]);
+      } catch {
+        // Already on screen through `save.isError` — see `failure` below.
+      }
+    })();
   };
 
   return (
@@ -160,25 +177,32 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
               </ul>
             )}
 
-            <div className="flex flex-wrap items-end gap-2 border-t pt-3">
-              <label className="flex flex-1 flex-col gap-1 text-xs text-muted-foreground">
-                {t('panel.team.links.add')}
-                <select
-                  className={SELECT_CLASS}
-                  value={adding}
-                  onChange={(event) => setAdding(event.target.value)}
-                >
-                  <option value="">{t('panel.team.links.addPlaceholder')}</option>
-                  {available.map((property) => (
-                    <option key={property.id} value={property.id}>
-                      {property.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <Button type="button" disabled={adding === '' || save.isPending} onClick={add}>
-                {t('panel.team.links.addButton')}
-              </Button>
+            <div className="flex flex-col gap-2 border-t pt-3">
+              <span className="text-xs text-muted-foreground">{t('panel.team.links.add')}</span>
+              {available.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t('panel.team.links.addNone')}</p>
+              ) : (
+                <>
+                  {/* Ticking, not picking one at a time: a new cleaner is put on
+                      a street or a building, and that is five listings, not one
+                      listing five times over. */}
+                  <PropertyPicker
+                    properties={available}
+                    selected={adding}
+                    isPending={false}
+                    onChange={setAdding}
+                  />
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      disabled={adding.length === 0 || save.isPending}
+                      onClick={add}
+                    >
+                      {t('panel.team.links.addButton')}
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
 
             {failure === null ? null : (

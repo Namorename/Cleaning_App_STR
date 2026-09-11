@@ -5,7 +5,6 @@ import { Sidebar } from '@/components/sidebar';
 import { isPanelRole, roleOf } from '@/lib/session';
 import { createClient } from '@/lib/supabase/server';
 
-import { signOut } from '../(auth)/login/actions';
 
 /**
  * The shell every manager page sits in.
@@ -25,7 +24,7 @@ export default async function PanelLayout({ children }: { children: ReactNode })
 
   return (
     <div className="flex min-h-full flex-1">
-      <Sidebar email={user?.email ?? ''} onSignOut={signOut} />
+      <Sidebar email={user?.email ?? ''} />
       <main className="flex-1 p-6">{children}</main>
     </div>
   );

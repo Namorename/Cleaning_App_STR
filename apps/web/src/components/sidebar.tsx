@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 
-import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
@@ -22,10 +21,16 @@ export const NAV_ITEMS = [
 
 interface SidebarProps {
   email: string;
-  onSignOut: () => Promise<void>;
 }
 
-export function Sidebar({ email, onSignOut }: SidebarProps) {
+/**
+ * The signed-in address sits here; the way out does not.
+ *
+ * Signing out used to be a button right under the navigation, which is where
+ * a hand goes by accident — one press and the shift stops for a password. It
+ * asks first now, and it lives in Settings.
+ */
+export function Sidebar({ email }: SidebarProps) {
   const { t } = useTranslation();
   const pathname = usePathname();
 
@@ -55,11 +60,6 @@ export function Sidebar({ email, onSignOut }: SidebarProps) {
         <span className="truncate text-xs text-muted-foreground" title={email}>
           {email}
         </span>
-        <form action={onSignOut}>
-          <Button type="submit" variant="outline" size="sm" className="w-full">
-            {t('panel.signOut')}
-          </Button>
-        </form>
       </div>
     </aside>
   );

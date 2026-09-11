@@ -19,10 +19,18 @@
   "panel": {
     "title": "STR Ops",
     "signOut": "Sign out",
+    "cancel": "Cancel",
+    "settings": {
+      "account": "Account",
+      "signedInAs": "Signed in as {{email}}.",
+      "rest": "The rest of the settings arrive here later."
+    },
     "login": {
       "subtitle": "Manager panel",
       "email": "Email",
       "password": "Password",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
       "submit": "Sign in",
       "issues": {
         "missing": "Enter your email and password",
@@ -447,7 +455,7 @@
         "priorityFor": "Position: {{name}}",
         "remove": "Remove",
         "add": "Add a listing",
-        "addPlaceholder": "Choose a listing",
+        "addNone": "Every listing is already open.",
         "addButton": "Add"
       }
     },
