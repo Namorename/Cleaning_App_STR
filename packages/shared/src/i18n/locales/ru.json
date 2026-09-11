@@ -417,6 +417,8 @@
         "properties": "Объекты",
         "propertiesHint": "Сотрудник видит задания только по тем объектам, которые отмечены здесь.",
         "propertiesEmpty": "Объектов пока нет.",
+        "propertiesSearch": "Поиск по названию",
+        "propertiesNoMatch": "Ничего не найдено",
         "propertiesChosen": "Выбрано: {{total}}",
         "propertiesNotForRole": "Менеджеру и администратору объекты не назначаются — им видно всё.",
         "propertiesFailed": "Сотрудник сохранён, но объекты открыть не удалось.",

@@ -356,6 +356,55 @@ describe('TeamView — listings are chosen while the person is hired', () => {
     });
   }, 20000);
 
+  test('the list of listings can be searched', async () => {
+    render(<TeamView />);
+
+    await userEvent.click(within(rowFor('Petr Tech')).getByRole('button', { name: 'Объектов: 0' }));
+    const sheet = await screen.findByRole('dialog');
+
+    await userEvent.type(within(sheet).getByLabelText('Поиск по названию'), 'vino');
+
+    expect(within(sheet).getByRole('checkbox', { name: 'Vinohrady 12' })).toBeInTheDocument();
+    expect(within(sheet).queryByRole('checkbox', { name: 'Anděl 4' })).not.toBeInTheDocument();
+
+    await userEvent.clear(within(sheet).getByLabelText('Поиск по названию'));
+    expect(within(sheet).getByRole('checkbox', { name: 'Anděl 4' })).toBeInTheDocument();
+  }, 20000);
+
+  test('a search that matches nothing says so', async () => {
+    render(<TeamView />);
+
+    await userEvent.click(within(rowFor('Petr Tech')).getByRole('button', { name: 'Объектов: 0' }));
+    const sheet = await screen.findByRole('dialog');
+
+    await userEvent.type(within(sheet).getByLabelText('Поиск по названию'), 'улица которой нет');
+
+    expect(within(sheet).getByText('Ничего не найдено')).toBeInTheDocument();
+  }, 20000);
+
+  test('a listing ticked and then searched out of sight is still opened', async () => {
+    render(<TeamView />);
+
+    await userEvent.click(within(rowFor('Petr Tech')).getByRole('button', { name: 'Объектов: 0' }));
+    const sheet = await screen.findByRole('dialog');
+
+    await userEvent.click(within(sheet).getByRole('checkbox', { name: 'Anděl 4' }));
+    // The search hides rows; it does not untick them.
+    await userEvent.type(within(sheet).getByLabelText('Поиск по названию'), 'vino');
+    expect(within(sheet).getByText('Выбрано: 1')).toBeInTheDocument();
+
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Добавить' }));
+
+    await waitFor(() =>
+      expect(saveLinkAsync).toHaveBeenCalledWith({
+        propertyId: 2,
+        cleanerId: PETR,
+        mode: 'claim',
+        priority: 1,
+      }),
+    );
+  }, 20000);
+
   test('nothing ticked, nothing to press', async () => {
     render(<TeamView />);
 

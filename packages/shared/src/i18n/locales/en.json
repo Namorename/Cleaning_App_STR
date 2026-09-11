@@ -417,6 +417,8 @@
         "properties": "Listings",
         "propertiesHint": "The person sees tasks only for the listings ticked here.",
         "propertiesEmpty": "No listings yet.",
+        "propertiesSearch": "Search by name",
+        "propertiesNoMatch": "Nothing found",
         "propertiesChosen": "Chosen: {{total}}",
         "propertiesNotForRole": "Managers and admins are not put on listings — they see every one.",
         "propertiesFailed": "The person was saved, but the listings could not be opened.",

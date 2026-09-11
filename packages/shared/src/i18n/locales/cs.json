@@ -417,6 +417,8 @@
         "properties": "Objekty",
         "propertiesHint": "Zaměstnanec vidí úkoly jen u objektů, které jsou tu zaškrtnuté.",
         "propertiesEmpty": "Zatím žádné objekty.",
+        "propertiesSearch": "Hledat podle názvu",
+        "propertiesNoMatch": "Nic nenalezeno",
         "propertiesChosen": "Vybráno: {{total}}",
         "propertiesNotForRole": "Manažerovi a správci se objekty nepřiřazují — vidí všechny.",
         "propertiesFailed": "Zaměstnanec byl uložen, ale objekty se nepodařilo otevřít.",
