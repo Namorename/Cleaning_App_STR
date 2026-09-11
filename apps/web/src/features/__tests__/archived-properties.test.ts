@@ -115,8 +115,13 @@ describe('the registry is the exception, on purpose', () => {
  * For the team screen it is permanent: a cleaner is linked to a listing and
  * her rooms follow. For the registry and the task form it holds until those
  * screens show rooms as a branch under their listing.
+ *
+ * The filter asks `hostaway_unit_id`, never `parent_id`. The latter also
+ * carries the combined-listing relationship — a part of a combined listing is
+ * a real listing with its own calendar and belongs in every one of these lists.
+ * Filtering on it would hide a listing a manager had just configured.
  */
-const ROOMS_ARE_OUT = 'is:parent_id=null';
+const ROOMS_ARE_OUT = 'is:hostaway_unit_id=null';
 
 describe('a room is not offered as a listing of its own', () => {
   test('not in the listing field of a task', async () => {

@@ -118,7 +118,15 @@ export function normalizeReservation(raw: unknown, syncedAt: string): Reservatio
  */
 export interface ReservationUnitLink {
   reservation_id: number;
-  hostaway_unit_id: number;
+  /**
+   * Null means "Hostaway said nothing about rooms for this booking".
+   *
+   * Not the same as a booking with no rooms, and the difference decides whether
+   * the sync leaves the existing links alone or deletes them. A booking that
+   * carries `reservationUnit: []` is making a statement; one where the field is
+   * missing entirely is not.
+   */
+  hostaway_unit_id: number | null;
 }
 
 /**
@@ -136,6 +144,12 @@ export interface ReservationUnitLink {
  * status belongs to the task generator, which already decides which bookings
  * deserve a cleaning; throwing the room away here would take the information
  * from it before it could.
+ *
+ * A booking whose `reservationUnit` is MISSING rather than empty yields a
+ * single link with a null unit: the sync reads that as "nothing to say" and
+ * leaves whatever links the booking already has untouched. Without it, the day
+ * Hostaway renames or nests that field the nightly run would normalize 1290
+ * bookings into 1290 empty statements and delete every room link we hold.
  */
 export function reservationUnits(raw: unknown): ReservationUnitLink[] {
   if (!isRecord(raw)) {
@@ -149,7 +163,7 @@ export function reservationUnits(raw: unknown): ReservationUnitLink[] {
 
   const units = raw.reservationUnit;
   if (!Array.isArray(units)) {
-    return [];
+    return [{ reservation_id: id, hostaway_unit_id: null }];
   }
 
   const links: ReservationUnitLink[] = [];

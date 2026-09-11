@@ -67,6 +67,48 @@ alter table public.properties
   add constraint properties_unit_id_is_derived
     check (hostaway_unit_id is null or id = public.property_id_for_unit(hostaway_unit_id));
 
+/**
+ * A room does not outlive its listing.
+ *
+ * `parent_id` was declared `on delete set null` in 20260905093000, which was
+ * right when the only children were parts of a combined listing: unpicking the
+ * combination leaves two ordinary listings. A room is not like that. It has no
+ * Hostaway listing of its own, and orphaning one would leave a row that
+ * `properties_unit_has_parent` forbids — so without this trigger, deleting any
+ * of the nine multi-unit listings fails with a bare 23514 naming a constraint
+ * the statement never mentioned.
+ *
+ * Deleting the rooms first is the honest reading rather than relaxing the
+ * check: an orphaned room would keep its unit number, its `active` status and
+ * its bookings, and would surface in the registry as a flat of its own while
+ * still generating cleanings nobody could do.
+ *
+ * No recursion to worry about: a room can never be a parent, so the inner
+ * delete fires this trigger once per room and finds nothing.
+ *
+ * Nothing in the product deletes a listing — a listing that leaves the company
+ * is archived, which is what `set_property_status` is for. This is for the
+ * hand-written statement in Studio, and it is here so that statement does the
+ * obvious thing instead of failing.
+ */
+create or replace function public.cascade_delete_property_units()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  delete from public.properties
+  where parent_id = old.id and hostaway_unit_id is not null;
+
+  return old;
+end;
+$$;
+
+create trigger properties_delete_units
+  before delete on public.properties
+  for each row execute function public.cascade_delete_property_units();
+
 -- ---------------------------------------------------------------------------
 --  Units arrive with the listing sync
 -- ---------------------------------------------------------------------------
@@ -78,6 +120,13 @@ alter table public.properties
 --
 -- The Edge Function sends the Hostaway unit number and this computes the row
 -- id, so the shift lives in one place instead of being repeated in TypeScript.
+--
+-- `unit_rows` defaults to NULL, meaning "this caller has nothing to say about
+-- rooms", and is read the same way as in sync_hostaway_reservations — where the
+-- distinction between NULL and `'[]'` is the difference between leaving the
+-- links alone and deleting them. Nothing here deletes anything today, so the
+-- default costs one coalesce; it is written this way so that adding a removal
+-- later cannot quietly turn an old deployed caller into one.
 --
 -- What the sync deliberately does not write on a unit:
 --   status                        — same reason `is_active` was never written:
@@ -93,7 +142,7 @@ drop function if exists public.sync_hostaway_listings(jsonb, jsonb);
 create or replace function public.sync_hostaway_listings(
   raw_rows      jsonb,
   property_rows jsonb,
-  unit_rows     jsonb default '[]'::jsonb
+  unit_rows     jsonb default null
 )
 returns jsonb
 language plpgsql
@@ -159,20 +208,28 @@ begin
   -- parent row to exist, and a listing new this run has only just arrived.
   with upserted_units as (
     insert into public.properties (
-      id, hostaway_unit_id, parent_id, name,
+      id, hostaway_unit_id, parent_id, host_id, status, name,
       address, city, country_code, timezone,
       check_in_time, check_out_time, synced_at
     )
     select public.property_id_for_unit(u.hostaway_unit_id),
-           u.hostaway_unit_id, u.parent_id, u.name,
+           u.hostaway_unit_id, u.parent_id, parent.host_id, parent.status, u.name,
            u.address, u.city, u.country_code, u.timezone,
            u.check_in_time, u.check_out_time, u.synced_at
-    from jsonb_to_recordset(unit_rows)
+    from jsonb_to_recordset(coalesce(unit_rows, '[]'::jsonb))
       as u(
         hostaway_unit_id bigint, parent_id bigint, name text,
         address text, city text, country_code text, timezone text,
         check_in_time time, check_out_time time, synced_at timestamptz
       )
+    -- Tenant and state come from the listing, never from a column default.
+    -- host_id would otherwise be default_host_id() — the FIRST company — so a
+    -- second company's rooms would land in the first one's tenant, where the
+    -- composite key on reservation_units then refuses every booking on them
+    -- without saying why. status must match too, or a room of an archived
+    -- listing is born in the one state this migration declares illegal and
+    -- starts taking cleanings nobody can do.
+    join public.properties parent on parent.id = u.parent_id
     on conflict (id) do update
       set parent_id      = excluded.parent_id,
           name           = excluded.name,
@@ -224,9 +281,24 @@ grant execute on function public.sync_hostaway_listings(jsonb, jsonb, jsonb) to 
 -- archived building has no working rooms, and the generator — which reads the
 -- room's own status — would quietly start scheduling cleanings nobody can do.
 --
--- `id = p or parent_id = p` covers both directions in one expression: a room
--- can never be a parent (guard_property_hierarchy), so on a room it matches
--- the room alone.
+-- The cascade follows ROOMS, not every child. `parent_id` carries two different
+-- relationships: a room of a multi-unit listing, and a part of a combined
+-- listing — which is a real Hostaway listing with its own calendar and its own
+-- guests (20260824190200:32), and which the panel's Info tab can set today.
+-- Only the first is a piece of its parent. Cascading onto the second would
+-- cancel an independent listing's cleanings and archive it because of something
+-- a manager did to a different listing, so the predicate asks
+-- `hostaway_unit_id is not null` rather than merely `parent_id = p`.
+--
+-- A room can never be a parent (guard_property_hierarchy), so on a room the
+-- predicate matches the room alone and both directions stay in one expression.
+--
+-- TWO KNOWN LIMITATIONS, left deliberately: guard_property_hierarchy forbids a
+-- listing that has rooms from becoming part of a combined listing, and the
+-- `on delete set null` on parent_id now collides with properties_unit_has_parent
+-- so a multi-unit listing cannot be deleted outright. Neither bites today —
+-- combined listings hold no rows, and listings are archived rather than deleted
+-- — and both belong to the combined-listing feature when it is built.
 create or replace function public.set_property_status(
   p_property_id  bigint,
   p_status       public.property_status,
@@ -273,12 +345,15 @@ begin
 
   -- Saying again what is already true is not a change, and must not sweep
   -- anything: the panel may send the same press twice on a slow connection.
-  -- A listing whose rooms have drifted is still a change, so the rooms are
-  -- part of the question.
-  if v_property.status = p_status and not exists (
-    select 1 from public.properties u
-    where u.parent_id = p_property_id and u.host_id = v_host and u.status <> p_status
-  ) then
+  --
+  -- Rooms are NOT part of that question, and an earlier draft that made them
+  -- part of it was wrong. A room under repair inside a working listing is the
+  -- ordinary case and the whole reason a room carries a status of its own;
+  -- reading it as drift meant a second manager pressing "in service" on the
+  -- listing — or one stale panel retrying — quietly sent the room back to work
+  -- with a burst pipe in it. The other direction cannot drift: a room more
+  -- alive than its listing is refused above.
+  if v_property.status = p_status then
     return v_property;
   end if;
 
@@ -288,7 +363,8 @@ begin
     select count(*) into v_open
     from public.tasks t
     where (t.property_id = p_property_id or t.property_id in (
-             select u.id from public.properties u where u.parent_id = p_property_id
+             select u.id from public.properties u
+             where u.parent_id = p_property_id and u.hostaway_unit_id is not null
            ))
       and t.host_id = v_host
       and t.type = 'cleaning'
@@ -304,7 +380,8 @@ begin
     update public.tasks
     set status = 'cancelled'
     where (property_id = p_property_id or property_id in (
-             select u.id from public.properties u where u.parent_id = p_property_id
+             select u.id from public.properties u
+             where u.parent_id = p_property_id and u.hostaway_unit_id is not null
            ))
       and host_id = v_host
       and type = 'cleaning'
@@ -313,7 +390,8 @@ begin
 
   update public.properties
   set status = p_status
-  where (id = p_property_id or parent_id = p_property_id)
+  where (id = p_property_id
+         or (parent_id = p_property_id and hostaway_unit_id is not null))
     and host_id = v_host;
 
   select * into v_property
@@ -348,7 +426,8 @@ as $$
     and (t.property_id = p_property_id
          or t.property_id in (select u.id
                               from public.properties u
-                              where u.parent_id = p_property_id));
+                              where u.parent_id = p_property_id
+                                and u.hostaway_unit_id is not null));
 $$;
 
 revoke all on function public.property_open_cleanings(bigint) from public, anon;
@@ -364,13 +443,17 @@ grant execute on function public.property_open_cleanings(bigint) to authenticate
 -- at. Checked against the hosted project on 2026-09-12: nine listings carry
 -- `listingUnits`, thirty-one rooms between them.
 --
--- host_id comes from the parent rather than default_host_id(): identical
--- today with one company, and the right answer when there is more than one.
+-- host_id and status come from the parent rather than from column defaults:
+-- identical today (one company, and all nine multi-unit listings are active on
+-- the hosted project as of 2026-09-12), and the right answer the moment either
+-- stops being true. A room born `active` under an archived listing would sit in
+-- the one state this migration declares illegal and start taking cleanings
+-- nobody can do.
 --
 -- A room with no usable name still gets a row — named by its Hostaway number
 -- so a manager can see and rename it. Dropping it would lose the cleanings.
 insert into public.properties (
-  id, hostaway_unit_id, parent_id, host_id, name,
+  id, hostaway_unit_id, parent_id, host_id, status, name,
   address, city, country_code, timezone,
   check_in_time, check_out_time, synced_at
 )
@@ -379,6 +462,7 @@ select
   (u.value ->> 'id')::bigint,
   p.id,
   p.host_id,
+  p.status,
   coalesce(nullif(btrim(u.value ->> 'name'), ''), 'Unit ' || (u.value ->> 'id')),
   p.address, p.city, p.country_code, p.timezone,
   p.check_in_time, p.check_out_time, r.synced_at
@@ -389,5 +473,9 @@ cross join lateral jsonb_array_elements(
        then r.data -> 'listingUnits'
        else '[]'::jsonb end
 ) as u(value)
+-- The numeric guard and the cast are both in this one WHERE/SELECT pair, so
+-- the same ordering hazard as in the next migration applies; here the cast is
+-- only reached through the select list, which Postgres evaluates after the
+-- qualification, and the array is nine listings rather than 1926 bookings.
 where (u.value ->> 'id') ~ '^[0-9]+$'
 on conflict (id) do nothing;

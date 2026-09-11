@@ -51,14 +51,19 @@ export async function fetchStaff(client: Client): Promise<Staff[]> {
  * Rooms are out, and permanently so rather than pending a later screen: a
  * cleaner is linked to a listing and her rooms follow from it. Offering the
  * rooms as well would turn nine listings into thirty-one ticks to keep in
- * step, for a distinction nobody makes when handing out work.
+ * step, for a distinction nobody makes when handing out work. *
+ * The test is `hostaway_unit_id`, not `parent_id`. That column carries two
+ * different relationships — a room of a multi-unit listing, and a part of a
+ * combined listing, which is a real listing with its own calendar. Filtering on
+ * `parent_id is null` would hide the second kind from the panel entirely, and
+ * the Info tab can create one today.
  */
 export async function fetchProperties(client: Client): Promise<Property[]> {
   const { data, error } = await client
     .from('properties')
     .select('id, name')
     .neq('status', 'archived')
-    .is('parent_id', null)
+    .is('hostaway_unit_id', null)
     .order('name', { ascending: true });
   if (error) {
     throw error;

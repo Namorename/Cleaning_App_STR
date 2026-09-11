@@ -19,6 +19,10 @@ function makeReservation(overrides: Record<string, unknown> = {}): Record<string
     checkInTime: 15,
     checkOutTime: 10,
     isManuallyChecked: 0,
+    // Live shape: an ordinary listing carries the field and leaves it empty —
+    // checked against bookings on 98352 and 115202 on 2026-09-12. It is the
+    // difference between "no rooms" and "nothing said", so the fixture states it.
+    reservationUnit: [],
     ...overrides,
   };
 }
@@ -311,8 +315,29 @@ Deno.test("the room is read whatever the status says", () => {
   }
 });
 
-Deno.test("reservationUnit that is not an array is ignored rather than thrown at", () => {
-  assertEquals(reservationUnits(makeReservation({ reservationUnit: "nope" })), []);
+// Silence is not an empty answer. An ordinary listing says `[]`; a response
+// that has lost the field says nothing, and the sync must leave the links it
+// already holds alone rather than read the absence as "this booking has no
+// rooms" and delete them.
+Deno.test("a missing reservationUnit is silence, not an empty answer", () => {
+  const raw = makeReservation();
+  delete raw.reservationUnit;
+
+  assertEquals(reservationUnits(raw), [{ reservation_id: 65289672, hostaway_unit_id: null }]);
+});
+
+Deno.test("reservationUnit that is not an array is silence too", () => {
+  assertEquals(
+    reservationUnits(makeReservation({ reservationUnit: "nope" })),
+    [{ reservation_id: 65289672, hostaway_unit_id: null }],
+  );
+});
+
+Deno.test("reservationUnit as null is silence too", () => {
+  assertEquals(
+    reservationUnits(makeReservation({ reservationUnit: null })),
+    [{ reservation_id: 65289672, hostaway_unit_id: null }],
+  );
 });
 
 Deno.test("a booking with no usable id throws: there is nothing to link to", () => {

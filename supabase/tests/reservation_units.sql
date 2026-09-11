@@ -187,6 +187,50 @@ select pg_temp.check('an ordinary listing gets no links',
   pg_temp.rooms_of(900002103), '{}'::bigint[]);
 
 -- ---------------------------------------------------------------------------
+--  A caller that says nothing about rooms
+-- ---------------------------------------------------------------------------
+--
+-- This is the deploy window. Between `db:push` and `functions deploy` the
+-- already-deployed edge function calls this RPC with two named arguments and
+-- no unit_rows; PostgREST resolves that to the three-argument version with the
+-- third defaulted. Saying nothing about rooms is not the same as saying there
+-- are none, and the default must not clear anything.
+--
+-- Measured before the default was changed: that call reported units_freed = 1
+-- and emptied the table for every booking in the batch. The nightly
+-- reconciliation walks about 1290 bookings, so the backfill would have been
+-- gone by morning.
+select pg_temp.sync(
+  jsonb_build_array(pg_temp.booking(900002101, 900002001)),
+  '[{"reservation_id": 900002101, "hostaway_unit_id": 65002}]'::jsonb);
+
+select pg_temp.check('a booking has its room before the old caller runs',
+  pg_temp.rooms_of(900002101), array[1000000065002]::bigint[]);
+
+select pg_temp.check('a call with no unit_rows at all reports it touched nothing',
+  (select (public.sync_hostaway_reservations(
+     raw_rows => '[]'::jsonb,
+     reservation_rows => jsonb_build_array(pg_temp.booking(900002101, 900002001))
+   ) ->> 'units_untouched')::boolean), true);
+
+select pg_temp.check('and the room survived the old caller',
+  pg_temp.rooms_of(900002101), array[1000000065002]::bigint[]);
+
+-- An explicit empty array still means what it says: this booking has no rooms.
+select pg_temp.check('an explicit empty list still clears them',
+  (select (pg_temp.sync(
+     jsonb_build_array(pg_temp.booking(900002101, 900002001)), '[]'::jsonb
+   ) ->> 'units_untouched')::boolean), false);
+
+select pg_temp.check('and the booking now has none',
+  pg_temp.rooms_of(900002101), '{}'::bigint[]);
+
+-- Put it back for the reads further down.
+select pg_temp.sync(
+  jsonb_build_array(pg_temp.booking(900002101, 900002001)),
+  '[{"reservation_id": 900002101, "hostaway_unit_id": 65002}]'::jsonb);
+
+-- ---------------------------------------------------------------------------
 --  A room we do not have yet
 -- ---------------------------------------------------------------------------
 --
@@ -201,6 +245,59 @@ select pg_temp.check('an unknown room is reported rather than fatal',
 
 select pg_temp.check('and the booking still has no link to a room we lack',
   pg_temp.rooms_of(900002103), '{}'::bigint[]);
+
+-- ---------------------------------------------------------------------------
+--  Silence about a booking, and a room we do not have
+-- ---------------------------------------------------------------------------
+--
+-- A null unit number is the caller saying "Hostaway told me nothing about
+-- rooms for this booking". That is not the assertion that there are none, and
+-- the day Hostaway renames or nests the field the nightly run would otherwise
+-- normalize 1290 bookings into 1290 empty assertions and delete every link.
+select pg_temp.sync(
+  jsonb_build_array(pg_temp.booking(900002101, 900002001)),
+  '[{"reservation_id": 900002101, "hostaway_unit_id": 65001}]'::jsonb);
+
+select pg_temp.check('the booking has a room to lose',
+  pg_temp.rooms_of(900002101), array[1000000065001]::bigint[]);
+
+select pg_temp.sync(
+  jsonb_build_array(pg_temp.booking(900002101, 900002001)),
+  '[{"reservation_id": 900002101, "hostaway_unit_id": null}]'::jsonb);
+
+select pg_temp.check('silence about a booking leaves its room alone',
+  pg_temp.rooms_of(900002101), array[1000000065001]::bigint[]);
+
+-- A guest moved into a room created in Hostaway an hour ago, before our next
+-- listing run. Emptying the booking would lose the cleaning outright; leaving
+-- it keeps the cleaning on the room it had until sync-listings catches up.
+select pg_temp.sync(
+  jsonb_build_array(pg_temp.booking(900002101, 900002001)),
+  '[{"reservation_id": 900002101, "hostaway_unit_id": 79998}]'::jsonb);
+
+select pg_temp.check('a booking naming a room we lack keeps the room it had',
+  pg_temp.rooms_of(900002101), array[1000000065001]::bigint[]);
+
+select pg_temp.check('and the unknown room is still reported',
+  (select (pg_temp.sync(
+     jsonb_build_array(pg_temp.booking(900002101, 900002001)),
+     '[{"reservation_id": 900002101, "hostaway_unit_id": 79998}]'::jsonb
+   ) -> 'skipped_unit_ids')::text), '[79998]');
+
+-- A booking that named a real room AND an unknown one is still left alone:
+-- half a set is not a set.
+select pg_temp.sync(
+  jsonb_build_array(pg_temp.booking(900002101, 900002001)),
+  $json$[{"reservation_id": 900002101, "hostaway_unit_id": 65003},
+         {"reservation_id": 900002101, "hostaway_unit_id": 79998}]$json$::jsonb);
+
+select pg_temp.check('a half-resolvable set does not replace the old one',
+  pg_temp.rooms_of(900002101), array[1000000065001]::bigint[]);
+
+-- Put it back to what the reads below expect.
+select pg_temp.sync(
+  jsonb_build_array(pg_temp.booking(900002101, 900002001)),
+  '[{"reservation_id": 900002101, "hostaway_unit_id": 65002}]'::jsonb);
 
 -- ---------------------------------------------------------------------------
 --  Tenants

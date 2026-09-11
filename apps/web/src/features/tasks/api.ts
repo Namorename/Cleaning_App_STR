@@ -81,14 +81,19 @@ export async function fetchStaff(client: Client): Promise<Staff[]> {
  *
  * Rooms are out for now. Flattened into this list a room would sit next to
  * its own listing with nothing to say which building it is in; the picker
- * gains the hierarchy in the calendar phase and the rooms with it.
+ * gains the hierarchy in the calendar phase and the rooms with it. *
+ * The test is `hostaway_unit_id`, not `parent_id`. That column carries two
+ * different relationships — a room of a multi-unit listing, and a part of a
+ * combined listing, which is a real listing with its own calendar. Filtering on
+ * `parent_id is null` would hide the second kind from the panel entirely, and
+ * the Info tab can create one today.
  */
 export async function fetchProperties(client: Client): Promise<Property[]> {
   const { data, error } = await client
     .from('properties')
     .select('id, name')
     .neq('status', 'archived')
-    .is('parent_id', null)
+    .is('hostaway_unit_id', null)
     .order('name', { ascending: true });
   if (error) {
     throw error;

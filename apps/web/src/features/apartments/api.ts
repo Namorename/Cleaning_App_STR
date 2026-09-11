@@ -44,13 +44,18 @@ const NOT_STARTED = ['unassigned', 'assigned'] as const;
  * Rooms are out. A multi-unit listing holds up to seven of them and the nine
  * such listings would add thirty-one rows here, each looking like a flat of
  * its own. They belong under their listing as a branch, which is the registry
- * work in the calendar phase; until then the screen shows listings only.
+ * work in the calendar phase; until then the screen shows listings only. *
+ * The test is `hostaway_unit_id`, not `parent_id`. That column carries two
+ * different relationships — a room of a multi-unit listing, and a part of a
+ * combined listing, which is a real listing with its own calendar. Filtering on
+ * `parent_id is null` would hide the second kind from the panel entirely, and
+ * the Info tab can create one today.
  */
 export async function fetchRegistry(client: Client): Promise<Property[]> {
   const { data, error } = await client
     .from('properties')
     .select(PROPERTY_COLUMNS)
-    .is('parent_id', null)
+    .is('hostaway_unit_id', null)
     .order('name', { ascending: true });
   if (error) {
     throw error;

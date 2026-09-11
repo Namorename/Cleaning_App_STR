@@ -86,12 +86,25 @@ create policy "managers read reservation units"
 -- than failing the batch: a new room appears in Hostaway before our next
 -- listing run, and losing thirteen hundred bookings over one of them would be
 -- the wrong trade.
+--
+-- NULL AND EMPTY MEAN DIFFERENT THINGS, and the difference is the whole safety
+-- of the deploy. `'[]'` is an assertion — "I looked, this booking has no rooms"
+-- — and it clears what is there. NULL is the absence of one — "I have nothing
+-- to say about rooms" — and it leaves the links exactly as they are.
+--
+-- The default is NULL for that reason. Between `db:push` and `functions deploy`
+-- the already-deployed edge function calls this with two named arguments and no
+-- unit_rows at all; PostgREST resolves that to this function with the third
+-- argument defaulted. Measured on the local stack: with a default of `'[]'` that
+-- call reported `units_freed: 1` and emptied the table for every booking in the
+-- batch. The nightly reconciliation walks about 1290 bookings, so the whole
+-- backfill would have been gone by morning.
 drop function if exists public.sync_hostaway_reservations(jsonb, jsonb);
 
 create or replace function public.sync_hostaway_reservations(
   raw_rows         jsonb,
   reservation_rows jsonb,
-  unit_rows        jsonb default '[]'::jsonb
+  unit_rows        jsonb default null
 )
 returns jsonb
 language plpgsql
@@ -163,8 +176,54 @@ begin
   into v_inserted, v_updated
   from upserted;
 
-  -- The rooms this batch claims, already translated and already checked
-  -- against the bookings and rooms that actually exist.
+  -- A caller that said nothing about rooms is not saying there are none.
+  if unit_rows is null then
+    return jsonb_build_object(
+      'raw_upserted', v_raw,
+      'reservations_inserted', v_inserted,
+      'reservations_updated', v_updated,
+      'skipped_property_ids', to_jsonb(v_skipped),
+      'units_linked', 0,
+      'units_freed', 0,
+      'units_untouched', true,
+      'skipped_unit_ids', to_jsonb('{}'::bigint[])
+    );
+  end if;
+
+  -- Bookings whose set must NOT be replaced, for either of two reasons.
+  --
+  --   hostaway_unit_id is null — the caller is saying "Hostaway told me nothing
+  --     about rooms for this booking". Silence is not the assertion that there
+  --     are none, and reading it as one is how a change of shape on their side
+  --     would delete every link we hold.
+  --   the room is unknown to us — a room created in Hostaway since our last
+  --     listing run. Emptying the booking would lose the cleaning outright,
+  --     where leaving it puts the cleaning on the room it had until sync-listings
+  --     catches up.
+  create temporary table _untouchable_res on commit drop as
+  select distinct u.reservation_id
+  from jsonb_to_recordset(unit_rows) as u(reservation_id bigint, hostaway_unit_id bigint)
+  where u.hostaway_unit_id is null
+     or not exists (
+          select 1 from public.properties p
+          where p.id = public.property_id_for_unit(u.hostaway_unit_id)
+        );
+
+  select coalesce(array_agg(distinct u.hostaway_unit_id), '{}')
+  into v_units_missed
+  from jsonb_to_recordset(unit_rows) as u(reservation_id bigint, hostaway_unit_id bigint)
+  where u.hostaway_unit_id is not null
+    and not exists (
+      select 1 from public.properties p
+      where p.id = public.property_id_for_unit(u.hostaway_unit_id)
+    );
+
+
+  -- The rooms this batch claims, already translated, already checked against
+  -- the bookings and rooms that exist, and with the untouchable bookings taken
+  -- out. Half a set is not a set: a booking naming one room we have and one we
+  -- do not is frozen whole rather than half-applied, which would leave it
+  -- claiming a room it kept and a room it just moved into at the same time.
   --
   -- Dropped explicitly at the end rather than left to `on commit drop`, the
   -- same way generate_cleaning_tasks handles `_wanted`: the reconciliation
@@ -178,20 +237,21 @@ begin
   from jsonb_to_recordset(unit_rows) as u(reservation_id bigint, hostaway_unit_id bigint)
   join public.reservations r on r.id = u.reservation_id
   join public.properties   p on p.id = public.property_id_for_unit(u.hostaway_unit_id)
-                            and p.host_id = r.host_id;
+                            and p.host_id = r.host_id
+  where u.hostaway_unit_id is not null
+    and not exists (
+      select 1 from _untouchable_res x where x.reservation_id = u.reservation_id
+    );
 
-  select coalesce(array_agg(distinct u.hostaway_unit_id), '{}')
-  into v_units_missed
-  from jsonb_to_recordset(unit_rows) as u(reservation_id bigint, hostaway_unit_id bigint)
-  where not exists (
-    select 1 from public.properties p
-    where p.id = public.property_id_for_unit(u.hostaway_unit_id)
-  );
-
+  -- Bookings in _untouchable_res keep whatever they have; every other booking
+  -- this batch wrote has its set replaced by what the caller named.
   with freed as (
     delete from public.reservation_units ru
     where ru.reservation_id in (
             select r.id from jsonb_to_recordset(reservation_rows) as r(id bigint)
+          )
+      and not exists (
+            select 1 from _untouchable_res x where x.reservation_id = ru.reservation_id
           )
       and not exists (
             select 1 from _wanted_units w
@@ -212,6 +272,7 @@ begin
   select count(*) into v_units_linked from linked;
 
   drop table _wanted_units;
+  drop table _untouchable_res;
 
   return jsonb_build_object(
     'raw_upserted', v_raw,
@@ -220,6 +281,7 @@ begin
     'skipped_property_ids', to_jsonb(v_skipped),
     'units_linked', v_units_linked,
     'units_freed', v_units_freed,
+    'units_untouched', false,
     'skipped_unit_ids', to_jsonb(v_units_missed)
   );
 end;
@@ -242,20 +304,30 @@ grant execute on function public.sync_hostaway_reservations(jsonb, jsonb, jsonb)
 -- the rooms were created by the previous migration from the same raw layer, so
 -- the two agree by construction, and a mismatch means something we have not
 -- seen and should not guess at.
+--
+-- The numeric guard sits in a CTE rather than beside the cast. A WHERE clause
+-- and a JOIN qualifier in the same query have no ordering guarantee, so a
+-- single `"listingUnitId": ""` among the 1926 stored bookings could be cast
+-- before the guard filtered it and abort the whole migration on `invalid input
+-- syntax for type bigint`. Filtering in a separate scan makes that impossible.
+with named as (
+  select res.host_id, res.id as reservation_id, u.value ->> 'listingUnitId' as unit_text
+  from raw.hostaway_reservations r
+  join public.reservations res on res.id = r.id
+  cross join lateral jsonb_array_elements(
+    case when jsonb_typeof(r.data -> 'reservationUnit') = 'array'
+         then r.data -> 'reservationUnit'
+         else '[]'::jsonb end
+  ) as u(value)
+), numbered as (
+  select host_id, reservation_id, unit_text::bigint as hostaway_unit_id
+  from named
+  where unit_text ~ '^[0-9]+$'
+)
 insert into public.reservation_units (host_id, reservation_id, property_id)
-select distinct
-  res.host_id,
-  res.id,
-  public.property_id_for_unit((u.value ->> 'listingUnitId')::bigint)
-from raw.hostaway_reservations r
-join public.reservations res on res.id = r.id
-cross join lateral jsonb_array_elements(
-  case when jsonb_typeof(r.data -> 'reservationUnit') = 'array'
-       then r.data -> 'reservationUnit'
-       else '[]'::jsonb end
-) as u(value)
+select distinct n.host_id, n.reservation_id, p.id
+from numbered n
 join public.properties p
-  on p.id = public.property_id_for_unit((u.value ->> 'listingUnitId')::bigint)
- and p.host_id = res.host_id
-where (u.value ->> 'listingUnitId') ~ '^[0-9]+$'
+  on p.id = public.property_id_for_unit(n.hostaway_unit_id)
+ and p.host_id = n.host_id
 on conflict (reservation_id, property_id) do nothing;

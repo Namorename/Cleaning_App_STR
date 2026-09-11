@@ -287,6 +287,93 @@ select pg_temp.check('a room may come back alone when its listing is active',
   $stmt$), 'no refusal');
 
 -- ---------------------------------------------------------------------------
+--  A room does not outlive its listing
+-- ---------------------------------------------------------------------------
+--
+-- parent_id is `on delete set null`, which is right for a combined listing's
+-- parts and wrong for a room: an orphaned room keeps its unit number, its
+-- status and its bookings, and would show up in the registry as a flat of its
+-- own. Before the trigger this DELETE failed outright on
+-- properties_unit_has_parent, naming a constraint the statement never mentions.
+reset role;
+
+insert into public.properties (id, name, timezone) values (900001904, 'Doomed listing', 'UTC');
+insert into public.properties (id, hostaway_unit_id, parent_id, name, timezone) values
+  (1000000064290, 64290, 900001904, 'Doomed room A', 'UTC'),
+  (1000000064291, 64291, 900001904, 'Doomed room B', 'UTC');
+
+select pg_temp.check('deleting a listing with rooms is not refused',
+  pg_temp.refusal_state($stmt$
+    delete from public.properties where id = 900001904
+  $stmt$), 'no refusal');
+
+select pg_temp.check('and its rooms went with it',
+  (select count(*)::int from public.properties where parent_id = 900001904), 0);
+
+select pg_temp.check('no orphan room was left behind',
+  (select count(*)::int from public.properties
+   where hostaway_unit_id in (64290, 64291)), 0);
+
+select pg_temp.as_boss();
+
+-- ---------------------------------------------------------------------------
+--  A part of a combined listing is not a room
+-- ---------------------------------------------------------------------------
+--
+-- parent_id carries two relationships. 900001902 below is an ordinary listing
+-- made a part of 900001901 — it has its own Hostaway id, its own calendar and
+-- its own guests. Archiving the parent must not touch it, or a manager loses
+-- an independent listing's cleanings for something she did elsewhere.
+reset role;
+update public.properties set parent_id = 900001901 where id = 900001902;
+
+-- One cleaning on a real room of the listing, one on the combined-listing
+-- child. The count must see the first and not the second.
+insert into public.tasks (id, property_id, type, status, scheduled_date) values
+  ('a6000001-0000-4000-8000-000000000010', 1000000064267, 'cleaning', 'unassigned', current_date),
+  ('a6000001-0000-4000-8000-000000000011', 900001902, 'cleaning', 'unassigned', current_date);
+
+select pg_temp.as_boss();
+
+select pg_temp.check('the count for a listing sees its rooms',
+  public.property_open_cleanings(900001901), 1);
+
+select public.set_property_status(900001901, 'archived', true);
+
+select pg_temp.check('the room was archived with its listing',
+  pg_temp.status_of(1000000064267), 'archived');
+select pg_temp.check('and the room lost its cleaning',
+  (select status::text from public.tasks
+   where id = 'a6000001-0000-4000-8000-000000000010'), 'cancelled');
+select pg_temp.check('but the combined-listing child was not',
+  pg_temp.status_of(900001902), 'active');
+select pg_temp.check('and it kept its cleaning',
+  (select status::text from public.tasks
+   where id = 'a6000001-0000-4000-8000-000000000011'), 'unassigned');
+
+select public.set_property_status(900001901, 'active');
+reset role;
+update public.properties set parent_id = null where id = 900001902;
+select pg_temp.as_boss();
+
+-- ---------------------------------------------------------------------------
+--  A repeat press must not undo a room put under repair
+-- ---------------------------------------------------------------------------
+
+select public.set_property_status(1000000064266, 'maintenance', true);
+select pg_temp.check('the room is under repair', pg_temp.status_of(1000000064266), 'maintenance');
+
+-- A second manager, or one stale panel retrying, presses "in service" on a
+-- listing that is already in service.
+select public.set_property_status(900001901, 'active');
+
+select pg_temp.check('the listing is untouched', pg_temp.status_of(900001901), 'active');
+select pg_temp.check('and the burst pipe is still a burst pipe',
+  pg_temp.status_of(1000000064266), 'maintenance');
+
+select public.set_property_status(1000000064266, 'active');
+
+-- ---------------------------------------------------------------------------
 --  Who may do it
 -- ---------------------------------------------------------------------------
 
