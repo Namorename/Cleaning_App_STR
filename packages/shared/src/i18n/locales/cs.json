@@ -360,6 +360,90 @@
       },
       "authorLabel": "Zadal:"
     },
+    "team": {
+      "title": "Tým",
+      "add": "Přidat člověka",
+      "edit": "Upravit",
+      "resetPassword": "Obnovit heslo",
+      "off": "Nepracuje",
+      "loading": "Načítáme…",
+      "loadError": "Tým se nepodařilo načíst.",
+      "empty": "Nikdo neodpovídá.",
+      "languageUnset": "Nevybráno",
+      "languages": {
+        "ru": "Русский",
+        "en": "English",
+        "cs": "Čeština"
+      },
+      "tabs": {
+        "working": "Pracují",
+        "off": "Vypnutí",
+        "all": "Všichni"
+      },
+      "filters": {
+        "search": "Jméno, e-mail nebo telefon",
+        "role": "Role",
+        "anyRole": "Libovolná role"
+      },
+      "columns": {
+        "name": "Jméno",
+        "login": "Přihlášení",
+        "language": "Jazyk",
+        "properties": "Objekty",
+        "actions": "Akce"
+      },
+      "form": {
+        "titleNew": "Nový člověk",
+        "titleEdit": "Upravit člověka",
+        "descriptionNew": "Heslo se vytvoří samo a hned odejde e-mailem. Uvidíte ho na obrazovce.",
+        "descriptionEdit": "E-mail tady změnit nelze: zadává se jednou.",
+        "name": "Jméno",
+        "email": "E-mail (přihlášení)",
+        "emailHint": "S tímto e-mailem se přihlásí do aplikace.",
+        "emailLocked": "E-mail je přihlašovací jméno a mění se jen přes podporu.",
+        "phone": "Telefon",
+        "role": "Role",
+        "language": "Jazyk",
+        "languageUnset": "Nevybráno",
+        "languageHint": "V tomto jazyce chodí e-maily. V aplikaci si jazyk zvolí sám.",
+        "active": "Pracuje",
+        "create": "Vytvořit",
+        "save": "Uložit",
+        "saving": "Ukládáme…",
+        "close": "Zrušit"
+      },
+      "password": {
+        "title": "Heslo pro {{name}}",
+        "description": "Heslo je vidět jen teď: dál se ukládá zašifrované a znovu ho ukázat nelze.",
+        "login": "Přihlášení",
+        "password": "Heslo",
+        "copy": "Kopírovat",
+        "copied": "Zkopírováno",
+        "mailSent": "Přihlašovací jméno a heslo odešly na {{email}}.",
+        "mailFailed": "E-mail neodešel.",
+        "sendAnother": "Poslat nové heslo",
+        "sending": "Odesíláme…",
+        "done": "Hotovo"
+      },
+      "links": {
+        "title": "Objekty: {{name}}",
+        "description": "„Napevno“ přiřadí úkol hned, jak vznikne. „Z fronty“ ho nechá tomu, kdo si ho vezme první.",
+        "empty": "Zatím žádný objekt.",
+        "count": "Objektů: {{total}}",
+        "mode": "Jak přichází",
+        "modeFor": "Jak přichází: {{name}}",
+        "modes": {
+          "auto": "Napevno",
+          "claim": "Z fronty"
+        },
+        "priority": "Pořadí",
+        "priorityFor": "Pořadí: {{name}}",
+        "remove": "Odebrat",
+        "add": "Přidat objekt",
+        "addPlaceholder": "Vyberte objekt",
+        "addButton": "Přidat"
+      }
+    },
     "roles": {
       "cleaner": "Uklízečka",
       "tech": "Technik",
@@ -644,6 +728,24 @@
     "taskTitleTooLong": "Název je delší než {{limit}} znaků",
     "taskDateRequired": "Úkol musí mít den",
     "taskAssigneeInvalid": "Tento člověk v této firmě nepracuje",
-    "taskDuplicate": "Tento byt už na {{date}} takový úkol má"
+    "taskDuplicate": "Tento byt už na {{date}} takový úkol má",
+    "cleanerAutoTaken": "Objekt už je napevno přiřazen: {{name}}. Nejdřív to přiřazení zrušte.",
+    "cleanerPriorityInvalid": "Pořadí je číslo od 1 do 99.",
+    "staffNotFound": "Takový člověk neexistuje.",
+    "staffNameRequired": "Jméno je potřeba.",
+    "staffNameTooLong": "Jméno je delší než {{limit}} znaků.",
+    "staffPhoneTooLong": "Telefon je delší než {{limit}} znaků.",
+    "staffRoleInvalid": "Taková role neexistuje.",
+    "staffLanguageInvalid": "Takový jazyk neexistuje.",
+    "staffEmailInvalid": "Tohle nevypadá jako e-mailová adresa.",
+    "staffEmailTaken": "Na tuhle adresu už účet existuje.",
+    "staffPayloadInvalid": "Panel poslal požadavek, kterému server nerozumí.",
+    "staffSelfChange": "Vlastní roli ani vlastní přístup měnit nelze — požádejte kolegu.",
+    "adminRoleForbidden": "Roli administrátora může udělit jen administrátor.",
+    "staffNoEmail": "Tenhle účet nemá adresu, kam poslat e-mail.",
+    "notSignedIn": "Nejste přihlášeni. Přihlaste se znovu.",
+    "mailNotSent": "E-mail se nepodařilo odeslat.",
+    "mailTooSoon": "Na tuhle adresu právě odešel e-mail. Zkuste to za minutu.",
+    "mailNotConfigured": "Odesílání e-mailů není nastavené."
   }
 }

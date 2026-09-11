@@ -360,6 +360,90 @@
       },
       "authorLabel": "Asked by"
     },
+    "team": {
+      "title": "Team",
+      "add": "Add somebody",
+      "edit": "Edit",
+      "resetPassword": "Reset password",
+      "off": "Not working",
+      "loading": "Loading…",
+      "loadError": "Could not load the team.",
+      "empty": "Nobody matches.",
+      "languageUnset": "Not chosen",
+      "languages": {
+        "ru": "Русский",
+        "en": "English",
+        "cs": "Čeština"
+      },
+      "tabs": {
+        "working": "Working",
+        "off": "Switched off",
+        "all": "All"
+      },
+      "filters": {
+        "search": "Name, email or phone",
+        "role": "Role",
+        "anyRole": "Any role"
+      },
+      "columns": {
+        "name": "Name",
+        "login": "Login",
+        "language": "Language",
+        "properties": "Listings",
+        "actions": "Actions"
+      },
+      "form": {
+        "titleNew": "New person",
+        "titleEdit": "Edit person",
+        "descriptionNew": "A password is made automatically and posted straight away. You will see it on screen.",
+        "descriptionEdit": "The address cannot be changed here: it is set once.",
+        "name": "Name",
+        "email": "Email (login)",
+        "emailHint": "This is the address they will sign in with.",
+        "emailLocked": "The address is the login, and it changes only through support.",
+        "phone": "Phone",
+        "role": "Role",
+        "language": "Language",
+        "languageUnset": "Not chosen",
+        "languageHint": "Letters go out in this language. In the app they pick their own.",
+        "active": "Works here",
+        "create": "Create",
+        "save": "Save",
+        "saving": "Saving…",
+        "close": "Cancel"
+      },
+      "password": {
+        "title": "Password for {{name}}",
+        "description": "This is the only time the password is readable: from here on it is stored hashed and cannot be shown again.",
+        "login": "Login",
+        "password": "Password",
+        "copy": "Copy",
+        "copied": "Copied",
+        "mailSent": "The login and the password have been posted to {{email}}.",
+        "mailFailed": "The letter did not go.",
+        "sendAnother": "Send a new password",
+        "sending": "Sending…",
+        "done": "Done"
+      },
+      "links": {
+        "title": "Listings: {{name}}",
+        "description": "\"Assigned\" hands the job over the moment it appears. \"From the queue\" leaves it for whoever takes it first.",
+        "empty": "No listings yet.",
+        "count": "Listings: {{total}}",
+        "mode": "How it arrives",
+        "modeFor": "How it arrives: {{name}}",
+        "modes": {
+          "auto": "Assigned",
+          "claim": "From the queue"
+        },
+        "priority": "Position",
+        "priorityFor": "Position: {{name}}",
+        "remove": "Remove",
+        "add": "Add a listing",
+        "addPlaceholder": "Choose a listing",
+        "addButton": "Add"
+      }
+    },
     "roles": {
       "cleaner": "Cleaner",
       "tech": "Technician",
@@ -644,6 +728,24 @@
     "taskTitleTooLong": "The title is longer than {{limit}} characters",
     "taskDateRequired": "A task needs a day",
     "taskAssigneeInvalid": "That person does not work at this company",
-    "taskDuplicate": "This flat already has such a task on {{date}}"
+    "taskDuplicate": "This flat already has such a task on {{date}}",
+    "cleanerAutoTaken": "The listing is already assigned to {{name}}. Release that link first.",
+    "cleanerPriorityInvalid": "The position is a number from 1 to 99.",
+    "staffNotFound": "No such person.",
+    "staffNameRequired": "A name is needed.",
+    "staffNameTooLong": "The name is longer than {{limit}} characters.",
+    "staffPhoneTooLong": "The phone number is longer than {{limit}} characters.",
+    "staffRoleInvalid": "No such role.",
+    "staffLanguageInvalid": "No such language.",
+    "staffEmailInvalid": "That does not look like an email address.",
+    "staffEmailTaken": "That address already has an account.",
+    "staffPayloadInvalid": "The panel sent a request the server did not understand.",
+    "staffSelfChange": "You cannot change your own role or switch yourself off — ask a colleague.",
+    "adminRoleForbidden": "Only an admin can hand out the admin role.",
+    "staffNoEmail": "This account has no address to write to.",
+    "notSignedIn": "You are not signed in. Sign in again.",
+    "mailNotSent": "The letter could not be sent.",
+    "mailTooSoon": "A letter has just gone to this address. Try again in a minute.",
+    "mailNotConfigured": "Sending email is not configured."
   }
 }
