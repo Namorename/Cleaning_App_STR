@@ -467,6 +467,57 @@
       "manager": "Manager",
       "admin": "Administrator",
       "unknown": "Staff"
+    },
+    "apartments": {
+      "search": "Search: name, address, city or number",
+      "loading": "Loading…",
+      "loadError": "Could not load the listings.",
+      "empty": "Nothing found.",
+      "selected": "Chosen: {{total}}",
+      "bulkActions": "Actions on the chosen",
+      "partOf": "A unit of “{{name}}”",
+      "madeOf": "Made of units: {{total}}",
+      "tabs": {
+        "active": "Working",
+        "maintenance": "Maintenance",
+        "archived": "Archive"
+      },
+      "columns": {
+        "name": "Listing",
+        "address": "Address",
+        "linked": "Links",
+        "cleanings": "Cleanings booked",
+        "actions": "Actions"
+      },
+      "move": {
+        "active": "Back to work",
+        "maintenance": "To maintenance",
+        "archived": "To archive"
+      },
+      "sync": {
+        "start": "Sync with Hostaway",
+        "running": "Syncing…",
+        "done": "Done. Added: {{added}}, updated: {{updated}}.",
+        "noSkips": "Nothing was skipped.",
+        "skipped": "Listings skipped: {{total}}."
+      },
+      "confirm": {
+        "title": {
+          "active": "Back to work?",
+          "maintenance": "Send to maintenance?",
+          "archived": "Move to archive?"
+        },
+        "listings": "Listings: {{total}} — {{names}}",
+        "cancels": "Cleanings that will be cancelled: {{total}}.",
+        "keeps": "Finished cleanings, measured time, photos and history all stay. A cleaning already under way is not interrupted.",
+        "restores": "New cleanings start being created on the next generator run.",
+        "working": "Applying…",
+        "submit": {
+          "active": "Restore",
+          "maintenance": "Send",
+          "archived": "Archive"
+        }
+      }
     }
   },
   "tabs": {

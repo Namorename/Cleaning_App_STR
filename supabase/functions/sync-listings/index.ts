@@ -10,7 +10,8 @@
  */
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { ConfigError, readConfig } from "../_shared/env.ts";
+import { allowsSync, CORS_HEADERS, readBearer } from "../_shared/caller.ts";
+import { ConfigError, readConfig, readSupabaseCredentials } from "../_shared/env.ts";
 import { HostawayClient } from "../_shared/hostaway.ts";
 import { normalizeListing, type PropertyRow } from "../_shared/listing.ts";
 
@@ -109,8 +110,46 @@ async function runSync(): Promise<SyncSummary> {
   };
 }
 
-Deno.serve(async () => {
+/**
+ * Ask auth what role this token carries, or null when it is not a user token.
+ *
+ * The service key reaches this only if the exact match in `allowsSync` did not
+ * already recognise it, which means it is not the key this project signs with.
+ */
+async function roleOf(token: string): Promise<string | null> {
+  const { supabaseUrl, supabaseSecretKey } = readSupabaseCredentials(Deno.env);
+  const admin = createClient(supabaseUrl, supabaseSecretKey, { auth: { persistSession: false } });
+
+  const { data, error } = await admin.auth.getUser(token);
+  if (error !== null || data.user === null) {
+    return null;
+  }
+  // The role lives in app_metadata, never in user_metadata: the latter is
+  // whatever the client wrote at sign-up.
+  const role = (data.user.app_metadata as { role?: unknown } | null)?.role;
+  return typeof role === "string" ? role : null;
+}
+
+Deno.serve(async (request: Request) => {
+  // A browser asks before it calls, and the question carries no token.
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+
   try {
+    const allowed = await allowsSync({
+      token: readBearer(request),
+      serviceKey: readSupabaseCredentials(Deno.env).supabaseSecretKey,
+      roleOf,
+    });
+    if (!allowed) {
+      console.error("Listing sync refused: the caller is neither the scheduler nor a manager");
+      return Response.json(
+        { success: false, error: "Not allowed to start a listing sync" },
+        { status: 403, headers: CORS_HEADERS },
+      );
+    }
+
     const summary = await runSync();
     console.info(
       `Listing sync finished in ${summary.durationMs} ms: ` +
@@ -118,13 +157,13 @@ Deno.serve(async () => {
         `skipped ${summary.skipped.length}`,
     );
 
-    return Response.json({ success: true, data: summary });
+    return Response.json({ success: true, data: summary }, { headers: CORS_HEADERS });
   } catch (error: unknown) {
     const message = getErrorMessage(error);
     console.error(`Listing sync failed: ${message}`);
 
     // Нехватка настроек — вина развёртывания, а не запроса.
     const status = error instanceof ConfigError ? 500 : 502;
-    return Response.json({ success: false, error: message }, { status });
+    return Response.json({ success: false, error: message }, { status, headers: CORS_HEADERS });
   }
 });

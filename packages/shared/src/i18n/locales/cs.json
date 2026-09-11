@@ -467,6 +467,57 @@
       "manager": "Manažer",
       "admin": "Administrátor",
       "unknown": "Zaměstnanec"
+    },
+    "apartments": {
+      "search": "Hledat: název, adresa, město nebo číslo",
+      "loading": "Načítáme…",
+      "loadError": "Objekty se nepodařilo načíst.",
+      "empty": "Nic nenalezeno.",
+      "selected": "Vybráno: {{total}}",
+      "bulkActions": "Akce s vybranými",
+      "partOf": "Jednotka objektu „{{name}}“",
+      "madeOf": "Skládá se z jednotek: {{total}}",
+      "tabs": {
+        "active": "V provozu",
+        "maintenance": "Údržba",
+        "archived": "Archiv"
+      },
+      "columns": {
+        "name": "Objekt",
+        "address": "Adresa",
+        "linked": "Vazby",
+        "cleanings": "Naplánované úklidy",
+        "actions": "Akce"
+      },
+      "move": {
+        "active": "Vrátit do provozu",
+        "maintenance": "Na údržbu",
+        "archived": "Do archivu"
+      },
+      "sync": {
+        "start": "Synchronizovat s Hostaway",
+        "running": "Synchronizujeme…",
+        "done": "Hotovo. Přidáno: {{added}}, aktualizováno: {{updated}}.",
+        "noSkips": "Nic nebylo přeskočeno.",
+        "skipped": "Přeskočené objekty: {{total}}."
+      },
+      "confirm": {
+        "title": {
+          "active": "Vrátit do provozu?",
+          "maintenance": "Poslat na údržbu?",
+          "archived": "Přesunout do archivu?"
+        },
+        "listings": "Objektů: {{total}} — {{names}}",
+        "cancels": "Zrušené naplánované úklidy: {{total}}.",
+        "keeps": "Dokončené úklidy, naměřený čas, fotky i historie zůstávají. Probíhající úklid se nepřeruší.",
+        "restores": "Nové úklidy se začnou vytvářet při dalším běhu generátoru.",
+        "working": "Aplikujeme…",
+        "submit": {
+          "active": "Vrátit",
+          "maintenance": "Poslat",
+          "archived": "Archivovat"
+        }
+      }
     }
   },
   "tabs": {
