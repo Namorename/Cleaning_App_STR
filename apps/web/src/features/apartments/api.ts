@@ -4,13 +4,19 @@ import type { Database } from '@str-ops/shared';
 import { functionError } from '@/lib/function-error';
 
 import {
+  maintenanceTaskListSchema,
   propertyDetailSchema,
   propertyListSchema,
+  propertyProblemListSchema,
+  reservationListSchema,
   syncSummarySchema,
   type InfoDraft,
-  type PropertyDetail,
+  type MaintenanceTask,
   type Property,
+  type PropertyDetail,
+  type PropertyProblem,
   type PropertyStatus,
+  type Reservation,
   type SyncSummary,
 } from './schema';
 
@@ -152,6 +158,76 @@ export async function setPropertyStatus(client: Client, change: StatusChange): P
   if (error) {
     throw error;
   }
+}
+
+/** How far a card looks back. A registry card is not the archive of a flat. */
+const RECENT_LIMIT = 60;
+
+/**
+ * The bookings of one flat, newest arrival first.
+ *
+ * Capped rather than paged: the card answers what is coming and what just
+ * happened, and somebody who needs the whole history of a flat is asking a
+ * reporting question rather than a registry one.
+ */
+export async function fetchReservations(
+  client: Client,
+  propertyId: number,
+): Promise<Reservation[]> {
+  const { data, error } = await client
+    .from('reservations')
+    .select('id, arrival_date, departure_date, guest_name, guests_count, status, is_block')
+    .eq('property_id', propertyId)
+    .order('arrival_date', { ascending: false })
+    .limit(RECENT_LIMIT);
+  if (error) {
+    throw error;
+  }
+  return reservationListSchema.parse(data ?? []);
+}
+
+/** Technicians' jobs on this flat — the work the maintenance state is about. */
+export async function fetchMaintenanceTasks(
+  client: Client,
+  propertyId: number,
+): Promise<MaintenanceTask[]> {
+  const { data, error } = await client
+    .from('tasks')
+    .select(
+      'id, title, status, scheduled_date, completed_at, ' +
+        'assignee:profiles!tasks_assignee_id_fkey(full_name)',
+    )
+    .eq('property_id', propertyId)
+    .eq('type', 'maintenance')
+    .order('scheduled_date', { ascending: false })
+    .limit(RECENT_LIMIT);
+  if (error) {
+    throw error;
+  }
+  return maintenanceTaskListSchema.parse(data ?? []);
+}
+
+/**
+ * What the field has reported about this flat.
+ *
+ * Archived reports are left out: they were put away on purpose, and the card
+ * is a picture of the flat now.
+ */
+export async function fetchPropertyProblems(
+  client: Client,
+  propertyId: number,
+): Promise<PropertyProblem[]> {
+  const { data, error } = await client
+    .from('problems')
+    .select('id, title, status, priority, created_at, resolved_at')
+    .eq('property_id', propertyId)
+    .is('archived_at', null)
+    .order('created_at', { ascending: false })
+    .limit(RECENT_LIMIT);
+  if (error) {
+    throw error;
+  }
+  return propertyProblemListSchema.parse(data ?? []);
 }
 
 /**

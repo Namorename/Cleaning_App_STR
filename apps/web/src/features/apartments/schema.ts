@@ -100,6 +100,54 @@ export const syncSummarySchema = z.object({
 });
 export type SyncSummary = z.infer<typeof syncSummarySchema>;
 
+/**
+ * A booking as the card shows it.
+ *
+ * `is_block` is not a guest: Hostaway calls an owner stay or a maintenance
+ * window a reservation too, and those produce no cleaning. The card says which
+ * is which rather than leaving a nameless row that looks like a lost booking.
+ */
+export const reservationSchema = z.object({
+  id: z.number(),
+  arrival_date: z.string(),
+  departure_date: z.string(),
+  guest_name: z.string().nullable(),
+  guests_count: z.number().nullable(),
+  status: z.string(),
+  is_block: z.boolean(),
+});
+export type Reservation = z.infer<typeof reservationSchema>;
+export const reservationListSchema = z.array(reservationSchema);
+
+/** A technician's job on this flat. */
+export const maintenanceTaskSchema = z.object({
+  id: z.string(),
+  title: z.string().nullable(),
+  status: z.string(),
+  scheduled_date: z.string().nullable(),
+  completed_at: z.string().nullable(),
+  assignee: z.object({ full_name: z.string().nullable() }).nullable(),
+});
+export type MaintenanceTask = z.infer<typeof maintenanceTaskSchema>;
+export const maintenanceTaskListSchema = z.array(maintenanceTaskSchema);
+
+/** A report from the field about this flat. */
+export const propertyProblemSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  status: z.string(),
+  priority: z.string(),
+  created_at: z.string(),
+  resolved_at: z.string().nullable(),
+});
+export type PropertyProblem = z.infer<typeof propertyProblemSchema>;
+export const propertyProblemListSchema = z.array(propertyProblemSchema);
+
+/** A booking that has not ended yet is the half a manager is usually after. */
+export function isUpcoming(reservation: Reservation, today: string): boolean {
+  return reservation.departure_date >= today;
+}
+
 // ---------------------------------------------------------------------------
 //  Narrowing the registry
 // ---------------------------------------------------------------------------

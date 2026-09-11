@@ -522,7 +522,9 @@
       "notFound": "Objekt nenalezen.",
       "card": {
         "info": "Informace",
-        "cleaners": "Uklízečky"
+        "cleaners": "Uklízečky",
+        "bookings": "Rezervace",
+        "maintenance": "Údržba"
       },
       "cleaners": {
         "empty": "Nikdo není přiřazen. Úklidy budou čekat ve frontě.",
@@ -552,6 +554,26 @@
         "save": "Uložit",
         "saving": "Ukládáme…",
         "saved": "Uloženo"
+      },
+      "bookings": {
+        "loadError": "Rezervace se nepodařilo načíst.",
+        "empty": "Žádné rezervace.",
+        "guest": "Host",
+        "dates": "Termín",
+        "guests": "Hostů",
+        "status": "Stav",
+        "block": "Blok (není host)",
+        "noName": "Bez jména",
+        "upcoming": "Nadcházející"
+      },
+      "maintenance": {
+        "state": "Stav objektu",
+        "stateHint": "Při údržbě a v archivu se úklidy nevytvářejí. Probíhající úklid se nepřeruší.",
+        "jobs": "Práce techniků",
+        "noJobs": "Zatím žádné práce.",
+        "untitled": "Bez názvu",
+        "reports": "Hlášení (otevřených: {{open}})",
+        "noReports": "Žádná hlášení."
       }
     }
   },

@@ -7,9 +7,12 @@ import { teamKeys } from '@/features/team/keys';
 import { useSupabase } from '@/lib/supabase/use-client';
 
 import {
+  fetchMaintenanceTasks,
   fetchOpenCleanings,
   fetchProperty,
+  fetchPropertyProblems,
   fetchRegistry,
+  fetchReservations,
   savePropertyInfo,
   setPropertyStatus,
   syncListings,
@@ -75,5 +78,29 @@ export function useSaveInfo(id: number) {
   return useMutation({
     mutationFn: (draft: InfoDraft) => savePropertyInfo(client, id, draft),
     onSuccess: invalidate,
+  });
+}
+
+export function useReservations(propertyId: number) {
+  const client = useSupabase();
+  return useQuery({
+    queryKey: [...apartmentKeys.one(propertyId), 'reservations'],
+    queryFn: () => fetchReservations(client, propertyId),
+  });
+}
+
+export function useMaintenance(propertyId: number) {
+  const client = useSupabase();
+  return useQuery({
+    queryKey: [...apartmentKeys.one(propertyId), 'maintenance'],
+    queryFn: () => fetchMaintenanceTasks(client, propertyId),
+  });
+}
+
+export function usePropertyProblems(propertyId: number) {
+  const client = useSupabase();
+  return useQuery({
+    queryKey: [...apartmentKeys.one(propertyId), 'problems'],
+    queryFn: () => fetchPropertyProblems(client, propertyId),
   });
 }

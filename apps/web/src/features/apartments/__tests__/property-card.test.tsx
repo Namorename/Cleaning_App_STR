@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
@@ -82,10 +83,66 @@ const saveLink = vi.fn();
 const removeLink = vi.fn();
 const infoState = { isPending: false, isError: false, isSuccess: false, error: null as unknown };
 
+const reservations = [
+  {
+    id: 9001,
+    arrival_date: '2999-01-10',
+    departure_date: '2999-01-14',
+    guest_name: 'Jan Novák',
+    guests_count: 2,
+    status: 'new',
+    is_block: false,
+  },
+  {
+    id: 9002,
+    arrival_date: '2020-03-01',
+    departure_date: '2020-03-08',
+    guest_name: null,
+    guests_count: null,
+    status: 'new',
+    is_block: true,
+  },
+];
+
+const maintenanceJobs = [
+  {
+    id: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000001',
+    title: 'Поменять смеситель',
+    status: 'done',
+    scheduled_date: '2026-09-02',
+    completed_at: '2026-09-02T12:00:00+00:00',
+    assignee: { full_name: 'Petr Tech' },
+  },
+];
+
+const reports = [
+  {
+    id: 'cccccccc-cccc-4ccc-8ccc-000000000001',
+    title: 'Течёт кран',
+    status: 'open',
+    priority: 'high',
+    created_at: '2026-09-01T08:00:00+00:00',
+    resolved_at: null,
+  },
+];
+
+const setStatus = vi.fn();
+const countOpenCleanings = vi.fn();
+
+vi.mock('@/lib/supabase/use-client', () => ({ useSupabase: () => ({}) }));
+
+vi.mock('../api', () => ({
+  countOpenCleanings: (...args: unknown[]) => countOpenCleanings(...args),
+}));
+
 vi.mock('../use-apartments', () => ({
   useProperty: () => ({ data: detail, isPending: false, isError: false }),
   useRegistry: () => ({ data: registry, isPending: false, isError: false }),
   useSaveInfo: () => ({ ...infoState, mutate: saveInfo }),
+  useReservations: () => ({ data: reservations, isPending: false, isError: false }),
+  useMaintenance: () => ({ data: maintenanceJobs, isPending: false, isError: false }),
+  usePropertyProblems: () => ({ data: reports, isPending: false, isError: false }),
+  useSetStatus: () => ({ isPending: false, mutateAsync: setStatus }),
 }));
 
 vi.mock('@/features/team/use-team', () => ({
@@ -102,15 +159,26 @@ vi.mock('@/features/team/use-team', () => ({
 
 import { PropertyCard } from '../property-card';
 
+function renderCard() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <PropertyCard propertyId={WHOLE} />
+    </QueryClientProvider>,
+  );
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   infoState.isSuccess = false;
   infoState.isError = false;
+  setStatus.mockResolvedValue(undefined);
+  countOpenCleanings.mockResolvedValue(0);
 });
 
 describe('what Hostaway owns is shown, not offered for editing', () => {
   test('the address and the cleaning window are plain text', () => {
-    render(<PropertyCard propertyId={WHOLE} />);
+    renderCard();
 
     expect(screen.getByText('Korunní 12')).toBeInTheDocument();
     // The window reads out — in, the way a cleaning runs.
@@ -121,7 +189,7 @@ describe('what Hostaway owns is shown, not offered for editing', () => {
   });
 
   test('and the card says why they are not editable here', () => {
-    render(<PropertyCard propertyId={WHOLE} />);
+    renderCard();
 
     expect(screen.getByText(/перезаписываются при каждой синхронизации/)).toBeInTheDocument();
   });
@@ -129,14 +197,14 @@ describe('what Hostaway owns is shown, not offered for editing', () => {
 
 describe('what the company owns is edited here', () => {
   test('the notes are filled in from the row', () => {
-    render(<PropertyCard propertyId={WHOLE} />);
+    renderCard();
 
     expect(screen.getByLabelText('Заметка для уборщицы')).toHaveValue('Ключ у консьержа');
     expect(screen.getByLabelText('Внутренняя заметка')).toHaveValue('Владелец придирчив');
   });
 
   test('saving sends the three columns the sync does not touch', async () => {
-    render(<PropertyCard propertyId={WHOLE} />);
+    renderCard();
 
     await userEvent.clear(screen.getByLabelText('Заметка для уборщицы'));
     await userEvent.type(screen.getByLabelText('Заметка для уборщицы'), 'Код 1234');
@@ -152,7 +220,7 @@ describe('what the company owns is edited here', () => {
 
 describe('listings that belong together', () => {
   test('the units are listed and lead to their own cards', () => {
-    render(<PropertyCard propertyId={WHOLE} />);
+    renderCard();
 
     expect(screen.getByRole('link', { name: 'Room A' })).toHaveAttribute(
       'href',
@@ -161,7 +229,7 @@ describe('listings that belong together', () => {
   });
 
   test('a listing is never offered itself or its own unit as a parent', () => {
-    render(<PropertyCard propertyId={WHOLE} />);
+    renderCard();
     const parent = screen.getByLabelText('Часть объекта');
 
     const offered = within(parent)
@@ -178,7 +246,7 @@ describe('listings that belong together', () => {
 
 describe('who works the flat', () => {
   test('the fixed cleaner comes before the queue', async () => {
-    render(<PropertyCard propertyId={WHOLE} />);
+    renderCard();
     await userEvent.click(screen.getByRole('tab', { name: 'Клинеры' }));
 
     const names = screen.getAllByRole('listitem').map((item) => item.textContent);
@@ -187,7 +255,7 @@ describe('who works the flat', () => {
   });
 
   test('somebody already on it is not offered again, and a manager never is', async () => {
-    render(<PropertyCard propertyId={WHOLE} />);
+    renderCard();
     await userEvent.click(screen.getByRole('tab', { name: 'Клинеры' }));
 
     const picker = screen.getByLabelText(/Добавить исполнителя/);
@@ -202,7 +270,7 @@ describe('who works the flat', () => {
   });
 
   test('taking somebody off the flat', async () => {
-    render(<PropertyCard propertyId={WHOLE} />);
+    renderCard();
     await userEvent.click(screen.getByRole('tab', { name: 'Клинеры' }));
 
     const row = screen.getAllByRole('listitem')[0];
@@ -210,6 +278,62 @@ describe('who works the flat', () => {
 
     await waitFor(() =>
       expect(removeLink).toHaveBeenCalledWith({ propertyId: WHOLE, cleanerId: MARIA }),
+    );
+  });
+});
+
+describe('what is booked on the flat', () => {
+  test('a guest is named and a booking still ahead is marked', async () => {
+    renderCard();
+    await userEvent.click(screen.getByRole('tab', { name: 'Бронирования' }));
+
+    const row = screen.getAllByRole('row').find((one) => one.textContent?.includes('Jan Novák'));
+    expect(row).toBeDefined();
+    expect(within(row as HTMLElement).getByText('Впереди')).toBeInTheDocument();
+    expect(within(row as HTMLElement).getByText('2999-01-10 — 2999-01-14')).toBeInTheDocument();
+  });
+
+  test('a block is not shown as a nameless guest', async () => {
+    renderCard();
+    await userEvent.click(screen.getByRole('tab', { name: 'Бронирования' }));
+
+    // An owner stay or a closed week comes through Hostaway as a reservation
+    // with no guest; leaving it blank would read as a booking somebody lost.
+    expect(screen.getByText('Блок (не гость)')).toBeInTheDocument();
+    expect(screen.queryByText('Без имени')).not.toBeInTheDocument();
+  });
+});
+
+describe('maintenance', () => {
+  test('the state is shown with the moves available from it', async () => {
+    renderCard();
+    await userEvent.click(screen.getByRole('tab', { name: 'Обслуживание' }));
+
+    expect(screen.getByRole('button', { name: 'На обслуживание' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'В архив' })).toBeInTheDocument();
+    // The flat is already working, so there is nothing to restore it from.
+    expect(screen.queryByRole('button', { name: 'Вернуть в работу' })).not.toBeInTheDocument();
+  });
+
+  test('changing the state still asks first', async () => {
+    renderCard();
+    await userEvent.click(screen.getByRole('tab', { name: 'Обслуживание' }));
+    await userEvent.click(screen.getByRole('button', { name: 'На обслуживание' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Отправить на обслуживание?')).toBeInTheDocument();
+    expect(setStatus).not.toHaveBeenCalled();
+  }, 20000);
+
+  test('the work and the reports on this flat are listed', async () => {
+    renderCard();
+    await userEvent.click(screen.getByRole('tab', { name: 'Обслуживание' }));
+
+    expect(screen.getByText('Поменять смеситель')).toBeInTheDocument();
+    expect(screen.getByText(/Репорты \(открытых: 1\)/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Течёт кран' })).toHaveAttribute(
+      'href',
+      '/problems/cccccccc-cccc-4ccc-8ccc-000000000001',
     );
   });
 });

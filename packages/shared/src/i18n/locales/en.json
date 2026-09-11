@@ -522,7 +522,9 @@
       "notFound": "Listing not found.",
       "card": {
         "info": "Information",
-        "cleaners": "Cleaners"
+        "cleaners": "Cleaners",
+        "bookings": "Bookings",
+        "maintenance": "Maintenance"
       },
       "cleaners": {
         "empty": "Nobody is on this listing. Its cleanings will wait in the open pool.",
@@ -552,6 +554,26 @@
         "save": "Save",
         "saving": "Saving…",
         "saved": "Saved"
+      },
+      "bookings": {
+        "loadError": "Could not load the bookings.",
+        "empty": "No bookings.",
+        "guest": "Guest",
+        "dates": "Dates",
+        "guests": "Guests",
+        "status": "Status",
+        "block": "Block (not a guest)",
+        "noName": "No name",
+        "upcoming": "Ahead"
+      },
+      "maintenance": {
+        "state": "State of the listing",
+        "stateHint": "Under maintenance and in the archive no cleanings are created. A cleaning already under way is not interrupted.",
+        "jobs": "Technicians’ jobs",
+        "noJobs": "No jobs yet.",
+        "untitled": "No title",
+        "reports": "Reports (open: {{open}})",
+        "noReports": "No reports."
       }
     }
   },

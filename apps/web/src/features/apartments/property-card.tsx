@@ -7,13 +7,15 @@ import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+import { BookingsTab } from './bookings-tab';
 import { CleanersTab } from './cleaners-tab';
 import { InfoTab } from './info-tab';
+import { MaintenanceTab } from './maintenance-tab';
 import { parentOf } from './schema';
 import { useProperty, useRegistry } from './use-apartments';
 
 /** The sections of the card, in the order the plan builds them. */
-const CARD_TABS = ['info', 'cleaners'] as const;
+const CARD_TABS = ['info', 'cleaners', 'bookings', 'maintenance'] as const;
 type CardTab = (typeof CARD_TABS)[number];
 
 interface PropertyCardProps {
@@ -85,6 +87,12 @@ export function PropertyCard({ propertyId }: PropertyCardProps) {
         </TabsContent>
         <TabsContent value="cleaners" className="pt-4">
           <CleanersTab propertyId={one.id} />
+        </TabsContent>
+        <TabsContent value="bookings" className="pt-4">
+          <BookingsTab propertyId={one.id} />
+        </TabsContent>
+        <TabsContent value="maintenance" className="pt-4">
+          <MaintenanceTab property={one} />
         </TabsContent>
       </Tabs>
     </div>
