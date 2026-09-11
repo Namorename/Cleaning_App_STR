@@ -20,6 +20,15 @@ export interface PasswordSubject {
   account: StaffAccount;
   name: string;
   email: string;
+  /**
+   * The account was made, but a listing did not open.
+   *
+   * It belongs on this dialog rather than back in the form: the form is gone
+   * by now, and this is the screen the manager is already reading. She can
+   * finish the job from the list afterwards — the password is the part that
+   * cannot be recovered, so it keeps the top of the dialog.
+   */
+  linkWarning?: string | null;
 }
 
 interface PasswordDialogProps {
@@ -99,6 +108,12 @@ export function PasswordDialog({ subject, onClose }: PasswordDialogProps) {
           ) : (
             <p role="alert" className="text-sm text-destructive">
               {t('panel.team.password.mailFailed')} {serverErrorText({ hint: mailFailure }).text}
+            </p>
+          )}
+
+          {subject.linkWarning == null ? null : (
+            <p role="alert" className="text-sm text-destructive">
+              {t('panel.team.password.linksFailed')} {subject.linkWarning}
             </p>
           )}
 

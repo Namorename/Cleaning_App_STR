@@ -190,6 +190,32 @@ export function linksOf(links: CleanerLink[], properties: Property[], cleanerId:
     });
 }
 
+/** The listings this person is on, as the form holds them: ids and nothing else. */
+export function selectedProperties(links: CleanerLink[], cleanerId: string): number[] {
+  return links.filter((link) => link.cleaner_id === cleanerId).map((link) => link.property_id);
+}
+
+export interface LinkChanges {
+  readonly added: number[];
+  readonly removed: number[];
+}
+
+/**
+ * What has to be written to turn the links somebody has into the ones ticked.
+ *
+ * Only the difference: a listing that was already open is left alone, so
+ * saving the form does not reset the terms the drawer set on it — a cleaner
+ * fixed to a flat stays fixed to it when her phone number is corrected.
+ */
+export function linkChanges(current: readonly number[], chosen: readonly number[]): LinkChanges {
+  const before = new Set(current);
+  const after = new Set(chosen);
+  return {
+    added: chosen.filter((id) => !before.has(id)),
+    removed: current.filter((id) => !after.has(id)),
+  };
+}
+
 /** What is left to offer — a listing she already works is not an option. */
 export function unlinkedProperties(
   links: CleanerLink[],

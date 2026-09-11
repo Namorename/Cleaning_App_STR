@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -53,6 +53,9 @@ const saveStaff = vi.fn();
 const saveLink = vi.fn();
 const removeLink = vi.fn();
 const resetPassword = vi.fn();
+/** The form writes links one at a time and waits for each; the drawer fires and forgets. */
+const saveLinkAsync = vi.fn();
+const removeLinkAsync = vi.fn();
 const idle = { isPending: false, isError: false, error: null as unknown, reset: vi.fn() };
 
 vi.mock('../use-team', () => ({
@@ -61,8 +64,8 @@ vi.mock('../use-team', () => ({
   useCleanerLinks: () => ({ data: links, isPending: false, isError: false }),
   useSaveStaff: () => ({ ...idle, mutate: saveStaff }),
   useResetPassword: () => ({ ...idle, mutate: resetPassword }),
-  useSaveCleanerLink: () => ({ ...idle, mutate: saveLink }),
-  useRemoveCleanerLink: () => ({ ...idle, mutate: removeLink }),
+  useSaveCleanerLink: () => ({ ...idle, mutate: saveLink, mutateAsync: saveLinkAsync }),
+  useRemoveCleanerLink: () => ({ ...idle, mutate: removeLink, mutateAsync: removeLinkAsync }),
 }));
 
 import { TeamView } from '../team-view';
@@ -71,11 +74,25 @@ import { TeamView } from '../team-view';
 const rowFor = (name: string): HTMLElement =>
   screen.getAllByRole('row').find((row) => row.textContent?.includes(name)) as HTMLElement;
 
+const NEW_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-000000000009';
+
 beforeEach(() => {
   vi.clearAllMocks();
   resetPassword.mockImplementation((id: string, options?: { onSuccess?: (a: unknown) => void }) => {
     options?.onSuccess?.({ id, password: NEW_PASSWORD, emailSent: true });
   });
+  saveStaff.mockImplementation(
+    (draft: { id: string | null }, options?: { onSuccess?: (a: unknown) => void }) => {
+      // A new account answers with a password; an edit does not.
+      options?.onSuccess?.(
+        draft.id === null
+          ? { id: NEW_ID, password: NEW_PASSWORD, emailSent: true }
+          : { id: draft.id },
+      );
+    },
+  );
+  saveLinkAsync.mockResolvedValue(undefined);
+  removeLinkAsync.mockResolvedValue(undefined);
 });
 
 describe('TeamView', () => {
@@ -248,4 +265,82 @@ describe('TeamView', () => {
 
     expect(removeLink).toHaveBeenCalledWith({ propertyId: 1, cleanerId: MARIA });
   });
+});
+
+describe('TeamView — listings are chosen while the person is hired', () => {
+  test('a listing ticked on the form is opened as the account is made', async () => {
+    render(<TeamView />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить сотрудника' }));
+    const dialog = await screen.findByRole('dialog');
+
+    await userEvent.type(within(dialog).getByLabelText('Имя'), 'Nova Cleaner');
+    await userEvent.type(within(dialog).getByLabelText('Почта (логин)'), 'nova@example.com');
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Vinohrady 12' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
+
+    // The id comes from the account that was just made, not from the list.
+    await waitFor(() =>
+      expect(saveLinkAsync).toHaveBeenCalledWith({
+        propertyId: 1,
+        cleanerId: NEW_ID,
+        mode: 'claim',
+        priority: 1,
+      }),
+    );
+  }, 20000);
+
+  test('a manager is not offered listings — she is not put on them', async () => {
+    render(<TeamView />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить сотрудника' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.selectOptions(within(dialog).getByLabelText('Роль'), 'Менеджер');
+
+    expect(within(dialog).queryByRole('checkbox', { name: 'Vinohrady 12' })).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByText('Менеджеру и администратору объекты не назначаются — им видно всё.'),
+    ).toBeInTheDocument();
+  }, 20000);
+
+  test('an edit opens with the listings the person already works ticked', async () => {
+    render(<TeamView />);
+
+    await userEvent.click(within(rowFor('Maria Test')).getByRole('button', { name: 'Изменить' }));
+    const dialog = await screen.findByRole('dialog');
+
+    expect(within(dialog).getByRole('checkbox', { name: 'Vinohrady 12' })).toBeChecked();
+    expect(within(dialog).getByRole('checkbox', { name: 'Anděl 4' })).toBeChecked();
+  });
+
+  test('unticking a listing closes it, and the untouched one is not rewritten', async () => {
+    render(<TeamView />);
+
+    await userEvent.click(within(rowFor('Maria Test')).getByRole('button', { name: 'Изменить' }));
+    const dialog = await screen.findByRole('dialog');
+
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Anděl 4' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+
+    await waitFor(() =>
+      expect(removeLinkAsync).toHaveBeenCalledWith({ propertyId: 2, cleanerId: MARIA }),
+    );
+    // Vinohrady 12 stayed ticked, so nothing was written for it — the terms
+    // the drawer set on that link survive an edit of the person.
+    expect(saveLinkAsync).not.toHaveBeenCalled();
+  }, 20000);
+
+  test('saving an edit that changed no listing writes none', async () => {
+    render(<TeamView />);
+
+    await userEvent.click(within(rowFor('Maria Test')).getByRole('button', { name: 'Изменить' }));
+    const dialog = await screen.findByRole('dialog');
+
+    await userEvent.type(within(dialog).getByLabelText('Телефон'), '+420 000');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+
+    await waitFor(() => expect(saveStaff).toHaveBeenCalled());
+    expect(saveLinkAsync).not.toHaveBeenCalled();
+    expect(removeLinkAsync).not.toHaveBeenCalled();
+  }, 20000);
 });

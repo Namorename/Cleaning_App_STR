@@ -6,9 +6,11 @@ import {
   draftFrom,
   EMPTY_DRAFT,
   isInTab,
+  linkChanges,
   linksOf,
   matchesRole,
   matchesSearch,
+  selectedProperties,
   staffSchema,
   unlinkedProperties,
   type CleanerLink,
@@ -182,6 +184,39 @@ describe('linksOf', () => {
 
   test('falls back to the number when the listing is not in the list', () => {
     expect(linksOf([link(99)], properties, MARIA)[0].name).toBe('99');
+  });
+});
+
+describe('selectedProperties', () => {
+  test('gives this person’s listings as plain ids, and nobody else’s', () => {
+    const links = [link(1), link(3), link(2, { cleaner_id: PETR })];
+
+    expect(selectedProperties(links, MARIA)).toEqual([1, 3]);
+    expect(selectedProperties(links, PETR)).toEqual([2]);
+  });
+
+  test('somebody on nothing has nothing', () => {
+    expect(selectedProperties([], MARIA)).toEqual([]);
+  });
+});
+
+describe('linkChanges', () => {
+  test('names only what has to be written', () => {
+    expect(linkChanges([1, 2], [2, 3])).toEqual({ added: [3], removed: [1] });
+  });
+
+  test('a listing that was already open is left alone, terms and all', () => {
+    // Nothing to write means save_property_cleaner is never called for it, so
+    // a cleaner fixed to a flat stays fixed when her phone number is fixed.
+    expect(linkChanges([1, 2], [1, 2])).toEqual({ added: [], removed: [] });
+  });
+
+  test('hiring somebody adds everything and removes nothing', () => {
+    expect(linkChanges([], [4, 5])).toEqual({ added: [4, 5], removed: [] });
+  });
+
+  test('clearing the list removes everything', () => {
+    expect(linkChanges([4, 5], [])).toEqual({ added: [], removed: [4, 5] });
   });
 });
 

@@ -226,9 +226,9 @@ export function TeamView() {
         <StaffForm
           staff={editing.staff}
           onClose={() => setEditing(null)}
-          onCreated={(account, person) => {
+          onCreated={(account, person, linkWarning) => {
             setEditing(null);
-            setPassword({ account, name: person.name, email: person.email });
+            setPassword({ account, name: person.name, email: person.email, linkWarning });
           }}
         />
       )}

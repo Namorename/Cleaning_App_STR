@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -15,15 +15,26 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { serverErrorText } from '@/lib/server-error';
 
+import { PropertyPicker } from './property-picker';
 import {
   draftFrom,
   LANGUAGES,
+  linkChanges,
+  LINKABLE_ROLES,
+  MIN_PRIORITY,
+  selectedProperties,
   STAFF_ROLES,
   type Staff,
   type StaffAccount,
   type StaffDraft,
 } from './schema';
-import { useSaveStaff } from './use-team';
+import {
+  useCleanerLinks,
+  useProperties,
+  useRemoveCleanerLink,
+  useSaveCleanerLink,
+  useSaveStaff,
+} from './use-team';
 
 const SELECT_CLASS = 'h-9 rounded-md border bg-background px-2 text-sm';
 
@@ -37,8 +48,15 @@ interface StaffFormProps {
    * dialog opens the instant the account is made, before the list has been
    * re-read, and a heading that said "password for" and then nothing would be
    * the one thing on screen that could not be checked.
+   *
+   * `linkWarning` carries the one failure that must not stop the handover: the
+   * account exists and its password is on screen, but a listing did not open.
    */
-  onCreated: (account: StaffAccount, person: { name: string; email: string }) => void;
+  onCreated: (
+    account: StaffAccount,
+    person: { name: string; email: string },
+    linkWarning: string | null,
+  ) => void;
   onClose: () => void;
 }
 
@@ -58,36 +76,98 @@ interface StaffFormProps {
  * the server in her own language — one clear refusal beats a list whose
  * contents depend on who is reading it.
  *
+ * The listings are part of hiring, not a second errand. A cleaner reads only
+ * the tasks of the listings she is on — that is the `cleaner reads tasks of
+ * her listings` policy, not a rule the panel invents — so somebody created
+ * without any opens the app to an empty day.
+ *
  * Mounted only while open, so each opening starts from a fresh draft without
  * an effect to reset one.
  */
 export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
   const { t } = useTranslation();
   const save = useSaveStaff();
+  const properties = useProperties();
+  const links = useCleanerLinks();
+  const saveLink = useSaveCleanerLink();
+  const removeLink = useRemoveCleanerLink();
+
   const [draft, setDraft] = useState<StaffDraft>(() => draftFrom(staff));
+  /** Null until the manager touches the list — until then it mirrors what is stored. */
+  const [chosen, setChosen] = useState<number[] | null>(null);
+  const [linkFailure, setLinkFailure] = useState<string | null>(null);
 
   const isNew = staff === null;
+  const allLinks = useMemo(() => links.data ?? [], [links.data]);
+  const current = useMemo(
+    () => (staff === null ? [] : selectedProperties(allLinks, staff.id)),
+    [allLinks, staff],
+  );
+  const selection = chosen ?? current;
+
+  // The picker follows the role being chosen, not the one on file: a person
+  // being turned into a manager stops being offered listings straight away.
+  const takesListings = LINKABLE_ROLES.includes(draft.role);
   const failure = save.isError ? serverErrorText(save.error) : null;
-  const isReady =
-    draft.fullName.trim() !== '' && (!isNew || draft.email.trim() !== '') && !save.isPending;
+  const isBusy = save.isPending || saveLink.isPending || removeLink.isPending;
+  const isReady = draft.fullName.trim() !== '' && (!isNew || draft.email.trim() !== '') && !isBusy;
+
+  /**
+   * Open and close the listings, and report a failure instead of throwing it.
+   *
+   * The account is already written by the time this runs, so a refusal here
+   * may not take the password down with it — it is handed back as a line of
+   * text for whoever can still show it.
+   */
+  const applyLinks = async (cleanerId: string): Promise<string | null> => {
+    if (!takesListings) {
+      return null;
+    }
+
+    const { added, removed } = linkChanges(current, selection);
+    try {
+      for (const propertyId of added) {
+        await saveLink.mutateAsync({
+          propertyId,
+          cleanerId,
+          mode: 'claim',
+          priority: MIN_PRIORITY,
+        });
+      }
+      for (const propertyId of removed) {
+        await removeLink.mutateAsync({ propertyId, cleanerId });
+      }
+      return null;
+    } catch (error: unknown) {
+      return serverErrorText(error).text;
+    }
+  };
+
+  const finish = async (account: StaffAccount) => {
+    const warning = await applyLinks(account.id);
+
+    // An edit answers without a password; only a new account has one to show.
+    if (account.password === undefined) {
+      if (warning === null) {
+        onClose();
+        return;
+      }
+      setLinkFailure(warning);
+      return;
+    }
+
+    onCreated(account, { name: draft.fullName.trim(), email: draft.email.trim() }, warning);
+  };
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    save.mutate(draft, {
-      onSuccess: (account) => {
-        // An edit answers without a password; only a new account has one to show.
-        if (account.password === undefined) {
-          onClose();
-          return;
-        }
-        onCreated(account, { name: draft.fullName.trim(), email: draft.email.trim() });
-      },
-    });
+    setLinkFailure(null);
+    save.mutate(draft, { onSuccess: (account) => void finish(account) });
   };
 
   return (
     <Dialog open onOpenChange={(next) => (next ? undefined : onClose())}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
             {isNew ? t('panel.team.form.titleNew') : t('panel.team.form.titleEdit')}
@@ -172,6 +252,23 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
             <p className="text-xs text-muted-foreground">{t('panel.team.form.languageHint')}</p>
           </div>
 
+          {takesListings ? (
+            <fieldset className="flex flex-col gap-2">
+              <legend className="text-sm font-medium">{t('panel.team.form.properties')}</legend>
+              <p className="text-xs text-muted-foreground">{t('panel.team.form.propertiesHint')}</p>
+              <PropertyPicker
+                properties={properties.data ?? []}
+                selected={selection}
+                isPending={properties.isPending || links.isPending}
+                onChange={setChosen}
+              />
+            </fieldset>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {t('panel.team.form.propertiesNotForRole')}
+            </p>
+          )}
+
           {isNew ? null : (
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -193,12 +290,18 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
             </div>
           )}
 
+          {linkFailure === null ? null : (
+            <p role="alert" className="text-sm text-destructive">
+              {t('panel.team.form.propertiesFailed')} {linkFailure}
+            </p>
+          )}
+
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onClose}>
               {t('panel.team.form.close')}
             </Button>
             <Button type="submit" disabled={!isReady}>
-              {save.isPending
+              {isBusy
                 ? t('panel.team.form.saving')
                 : isNew
                   ? t('panel.team.form.create')
