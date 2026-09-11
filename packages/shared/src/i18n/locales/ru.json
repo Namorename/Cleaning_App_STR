@@ -775,7 +775,11 @@
     "photoAccessibility": "Фото {{index}}. {{status}}",
     "videoAccessibility": "Видео. {{status}}",
     "cameraDenied": "Нет доступа к камере — разрешите его в настройках телефона",
-    "captureFailed": "Не удалось снять — попробуйте ещё раз"
+    "captureFailed": "Не удалось снять — попробуйте ещё раз",
+    "pickPhoto": "Выбрать фото из галереи",
+    "pickVideo": "Выбрать видео из галереи",
+    "galleryDenied": "Доступ к галерее не разрешён",
+    "videoTooLong": "Видео длиннее {{seconds}} с — выберите короче или снимите камерой"
   },
   "problems": {
     "report": "Сообщить о проблеме",

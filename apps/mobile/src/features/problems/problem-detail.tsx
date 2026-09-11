@@ -16,6 +16,7 @@ interface ProblemDetailProps {
   canEdit: boolean;
   onEdit: () => void;
   onCapture: () => void;
+  onPickFromGallery?: () => void;
   onRemovePhoto: (mediaId: string) => void;
   onRetryPhoto: (mediaId: string) => void;
   isCapturing: boolean;
@@ -39,6 +40,7 @@ export function ProblemDetail({
   canEdit,
   onEdit,
   onCapture,
+  onPickFromGallery,
   onRemovePhoto,
   onRetryPhoto,
   isCapturing,
@@ -90,6 +92,7 @@ export function ProblemDetail({
           items={photos}
           maxCount={MAX_PROBLEM_PHOTOS}
           onCapture={canEdit ? onCapture : undefined}
+          onPickFromGallery={canEdit ? onPickFromGallery : undefined}
           onRemove={canEdit ? onRemovePhoto : undefined}
           onRetry={canEdit ? onRetryPhoto : undefined}
           isCapturing={isCapturing}

@@ -6,7 +6,9 @@ import { z } from 'zod';
 
 import { FontSize, Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
-import { CameraDeniedError, capturePhoto } from '@/features/media/capture';
+import { capturePhoto, pickPhotoFromGallery } from '@/features/media/capture';
+import { attachFailure } from '@/features/media/failure';
+import { useGalleryAllowed } from '@/features/host/use-host';
 import { toLocalRecord, type LocalMediaRecord } from '@/features/media/local-store';
 import { mediaOfProblem } from '@/features/media/schema';
 import {
@@ -48,6 +50,7 @@ export default function ProblemRoute() {
   const rememberLocal = useRememberLocalMedia();
   const local = useLocalMedia();
   const uploading = useUploadingMediaIds();
+  const galleryAllowed = useGalleryAllowed();
   const [isCapturing, setCapturing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -105,14 +108,15 @@ export default function ProblemRoute() {
     });
   };
 
-  const onCapture = async () => {
+  const attachFrom = async (source: 'camera' | 'gallery') => {
     if (isCapturing) {
       return;
     }
     setCapturing(true);
     setNotice(null);
     try {
-      const captured = await capturePhoto();
+      const captured =
+        source === 'gallery' ? await pickPhotoFromGallery() : await capturePhoto();
       if (captured === null) {
         return;
       }
@@ -120,9 +124,7 @@ export default function ProblemRoute() {
       await rememberLocal(record);
       startUpload(record);
     } catch (error: unknown) {
-      setNotice(
-        error instanceof CameraDeniedError ? t('steps.cameraDenied') : t('steps.captureFailed'),
-      );
+      setNotice(attachFailure(error, t));
     } finally {
       setCapturing(false);
     }
@@ -143,7 +145,8 @@ export default function ProblemRoute() {
         photos={items}
         canEdit={canEditProblem(problem.data, userId)}
         onEdit={() => router.push({ pathname: '/problem/[id]/edit', params: { id: problemId } })}
-        onCapture={() => void onCapture()}
+        onCapture={() => void attachFrom('camera')}
+        onPickFromGallery={galleryAllowed ? () => void attachFrom('gallery') : undefined}
         onRemovePhoto={(mediaId) => removeMedia.mutate({ problemId, mediaId })}
         onRetryPhoto={onRetryPhoto}
         isCapturing={isCapturing}

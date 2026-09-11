@@ -14,7 +14,10 @@ interface StepMediaProps {
   /** Pressing capture is refused while the camera is already open. */
   isCapturing: boolean;
   disabled: boolean;
+  /** Only when the company allows it — `hosts.gallery_allowed`. */
+  canPickFromGallery: boolean;
   onCapture: () => void;
+  onPickFromGallery: () => void;
   onRemove: (mediaId: string) => void;
   onRetry: (mediaId: string) => void;
 }
@@ -35,7 +38,9 @@ export function StepMedia({
   maxVideoSec,
   isCapturing,
   disabled,
+  canPickFromGallery,
   onCapture,
+  onPickFromGallery,
   onRemove,
   onRetry,
 }: StepMediaProps) {
@@ -45,6 +50,7 @@ export function StepMedia({
   const max = kind === 'video' ? 1 : limits.max;
   const canCapture = !disabled && !isCapturing && items.length < max;
   const captureLabel = kind === 'video' ? t('steps.recordVideo') : t('steps.takePhoto');
+  const pickLabel = kind === 'video' ? t('steps.pickVideo') : t('steps.pickPhoto');
 
   return (
     <View style={styles.container}>
@@ -96,6 +102,26 @@ export function StepMedia({
           ) : (
             <Text style={styles.captureText}>{captureLabel}</Text>
           )}
+        </Pressable>
+      ) : null}
+
+      {/* Second, and second in every sense: the camera is the way this is
+          meant to be done, and the gallery appears only where the company
+          has decided to allow it. */}
+      {!disabled && canPickFromGallery ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={pickLabel}
+          accessibilityState={{ disabled: !canCapture }}
+          disabled={!canCapture}
+          onPress={onPickFromGallery}
+          style={({ pressed }) => [
+            styles.pickButton,
+            !canCapture && styles.captureDisabled,
+            pressed && styles.capturePressed,
+          ]}
+        >
+          <Text style={styles.pickText}>{pickLabel}</Text>
         </Pressable>
       ) : null}
     </View>
@@ -229,4 +255,15 @@ const createStyles = (theme: Theme) =>
     captureDisabled: { opacity: 0.5 },
     capturePressed: { opacity: 0.75 },
     captureText: { color: theme.onPrimary, fontSize: FontSize.title, fontWeight: '600' },
+    // Outlined rather than filled: the camera is the primary way, the
+    // gallery the exception a company has opted into.
+    pickButton: {
+      minHeight: MIN_TOUCH_TARGET,
+      borderRadius: Radius.md,
+      borderWidth: 1,
+      borderColor: theme.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    pickText: { color: theme.primary, fontSize: FontSize.body, fontWeight: '600' },
   });

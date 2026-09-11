@@ -7,7 +7,14 @@ import { z } from 'zod';
 
 import { FontSize, Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
-import { CameraDeniedError, capturePhoto, captureVideo } from '@/features/media/capture';
+import { useGalleryAllowed } from '@/features/host/use-host';
+import {
+  capturePhoto,
+  captureVideo,
+  pickPhotoFromGallery,
+  pickVideoFromGallery,
+} from '@/features/media/capture';
+import { attachFailure } from '@/features/media/failure';
 import { toLocalRecord, type LocalMediaRecord } from '@/features/media/local-store';
 import { mediaKindOfStep, mediaOfStep, videoLimitSec } from '@/features/media/schema';
 import {
@@ -46,7 +53,8 @@ const Params = z.object({ id: z.string().uuid(), stepId: z.string().uuid() });
  * A media step adds the camera: a capture is remembered on the phone first,
  * then handed to the upload queue, which registers, uploads and confirms it
  * whenever there is signal. The screen shows each file's progress and lets
- * her complete the step once every file has arrived.
+ * her complete the step once every file has arrived. The gallery appears
+ * beside the camera only where the company has allowed it.
  */
 export default function StepRoute() {
   const { t } = useTranslation();
@@ -73,6 +81,7 @@ export default function StepRoute() {
   const rememberLocal = useRememberLocalMedia();
   const local = useLocalMedia();
   const uploading = useUploadingMediaIds();
+  const galleryAllowed = useGalleryAllowed();
   const [isCapturing, setCapturing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -155,16 +164,30 @@ export default function StepRoute() {
     });
   };
 
-  const onCapture = async () => {
+  /**
+   * Attach a file, from the camera or from the gallery.
+   *
+   * One path for both: everything after the file exists — keeping it,
+   * remembering it on disk, queuing the upload — is the same, and the only
+   * difference worth having is where it came from.
+   */
+  const attachFrom = async (source: 'camera' | 'gallery') => {
     const kind = mediaKindOfStep(step.type);
     if (kind === null || isCapturing) {
       return;
     }
+    const seconds = videoLimitSec(step);
     setCapturing(true);
     setNotice(null);
     try {
       const captured =
-        kind === 'video' ? await captureVideo(videoLimitSec(step)) : await capturePhoto();
+        source === 'gallery'
+          ? kind === 'video'
+            ? await pickVideoFromGallery(seconds)
+            : await pickPhotoFromGallery()
+          : kind === 'video'
+            ? await captureVideo(seconds)
+            : await capturePhoto();
       if (captured === null) {
         return;
       }
@@ -172,9 +195,7 @@ export default function StepRoute() {
       await rememberLocal(record);
       startUpload(record);
     } catch (error: unknown) {
-      setNotice(
-        error instanceof CameraDeniedError ? t('steps.cameraDenied') : t('steps.captureFailed'),
-      );
+      setNotice(attachFailure(error, t));
     } finally {
       setCapturing(false);
     }
@@ -204,7 +225,9 @@ export default function StepRoute() {
         onSkip={() => skip.mutate({ taskId, stepId })}
         media={mediaItems}
         isCapturing={isCapturing}
-        onCapture={() => void onCapture()}
+        canPickFromGallery={galleryAllowed}
+        onCapture={() => void attachFrom('camera')}
+        onPickFromGallery={() => void attachFrom('gallery')}
         onRemoveMedia={(mediaId) => removeMedia.mutate({ taskId, mediaId })}
         onRetryMedia={onRetryMedia}
       />

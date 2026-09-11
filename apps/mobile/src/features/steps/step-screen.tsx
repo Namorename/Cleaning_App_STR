@@ -47,7 +47,10 @@ interface StepScreenProps {
   /** The photos or video of a media step, and what can be done with them. */
   media?: readonly MediaItemView[];
   isCapturing?: boolean;
+  /** Only when the company allows it — `hosts.gallery_allowed`. */
+  canPickFromGallery?: boolean;
   onCapture?: () => void;
+  onPickFromGallery?: () => void;
   onRemoveMedia?: (mediaId: string) => void;
   onRetryMedia?: (mediaId: string) => void;
 }
@@ -72,7 +75,9 @@ export function StepScreen({
   onSkip,
   media = [],
   isCapturing = false,
+  canPickFromGallery = false,
   onCapture = noop,
+  onPickFromGallery = noop,
   onRemoveMedia = noop,
   onRetryMedia = noop,
 }: StepScreenProps) {
@@ -195,7 +200,9 @@ export function StepScreen({
             maxVideoSec={videoLimitSec(step)}
             isCapturing={isCapturing}
             disabled={!canAct || !isPending}
+            canPickFromGallery={canPickFromGallery}
             onCapture={onCapture}
+            onPickFromGallery={onPickFromGallery}
             onRemove={onRemoveMedia}
             onRetry={onRetryMedia}
           />

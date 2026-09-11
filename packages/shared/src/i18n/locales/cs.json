@@ -775,7 +775,11 @@
     "photoAccessibility": "Foto {{index}}. {{status}}",
     "videoAccessibility": "Video. {{status}}",
     "cameraDenied": "Bez přístupu k fotoaparátu — povolte ho v nastavení telefonu",
-    "captureFailed": "Nepodařilo se vyfotit — zkuste to znovu"
+    "captureFailed": "Nepodařilo se vyfotit — zkuste to znovu",
+    "pickPhoto": "Vybrat fotku z galerie",
+    "pickVideo": "Vybrat video z galerie",
+    "galleryDenied": "Přístup do galerie nebyl povolen",
+    "videoTooLong": "Video je delší než {{seconds}} s — vyberte kratší nebo ho natočte"
   },
   "problems": {
     "report": "Nahlásit problém",

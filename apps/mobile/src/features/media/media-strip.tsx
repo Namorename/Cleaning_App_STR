@@ -19,6 +19,8 @@ interface MediaStripProps {
   maxCount: number;
   /** Absent: the strip is read-only, as on a closed report. */
   onCapture?: () => void;
+  /** Absent unless the company allows it — `hosts.gallery_allowed`. */
+  onPickFromGallery?: () => void;
   onRemove?: (mediaId: string) => void;
   onRetry?: (mediaId: string) => void;
   isCapturing?: boolean;
@@ -35,6 +37,7 @@ export function MediaStrip({
   items,
   maxCount,
   onCapture,
+  onPickFromGallery,
   onRemove,
   onRetry,
   isCapturing = false,
@@ -104,6 +107,20 @@ export function MediaStrip({
           </Text>
         </Pressable>
       ) : null}
+
+      {/* Only where the company has allowed it, and always after the camera. */}
+      {onPickFromGallery !== undefined ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('steps.pickPhoto')}
+          accessibilityState={{ disabled: !canCapture }}
+          disabled={!canCapture}
+          onPress={onPickFromGallery}
+          style={[styles.capture, styles.pick, !canCapture && styles.captureDisabled]}
+        >
+          <Text style={styles.captureText}>{t('steps.pickPhoto')}</Text>
+        </Pressable>
+      ) : null}
     </ScrollView>
   );
 }
@@ -133,6 +150,9 @@ const createStyles = (theme: Theme) =>
       padding: Spacing.sm,
     },
     captureDisabled: { opacity: 0.5 },
+    // Dashed, so the two tiles at the end of the strip do not read as the
+    // same button twice: the camera is the ordinary way in.
+    pick: { borderStyle: 'dashed' },
     captureText: { color: theme.primary, fontSize: FontSize.body, fontWeight: '600', textAlign: 'center' },
     captureCount: { color: theme.textSecondary, fontSize: FontSize.caption },
   });

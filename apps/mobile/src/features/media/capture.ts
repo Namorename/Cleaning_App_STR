@@ -32,6 +32,25 @@ export class CameraDeniedError extends Error {
   override readonly name = 'CameraDeniedError';
 }
 
+export class MediaLibraryDeniedError extends Error {
+  override readonly name = 'MediaLibraryDeniedError';
+}
+
+/**
+ * A recording from the gallery that the step will not accept.
+ *
+ * The camera caps its own recording (`videoMaxDuration`); the gallery hands
+ * over whatever was picked, so the length is checked here — before the file
+ * is copied and registered, rather than as a refusal from the server after
+ * an upload the cleaner waited for.
+ */
+export class VideoTooLongError extends Error {
+  override readonly name = 'VideoTooLongError';
+  constructor(readonly maxSeconds: number) {
+    super(`The video is longer than ${maxSeconds} seconds`);
+  }
+}
+
 async function ensureCameraPermission(): Promise<void> {
   const current = await ImagePicker.getCameraPermissionsAsync();
   if (current.granted) {
@@ -41,6 +60,49 @@ async function ensureCameraPermission(): Promise<void> {
   if (!requested.granted) {
     throw new CameraDeniedError('Camera permission was not granted');
   }
+}
+
+async function ensureLibraryPermission(): Promise<void> {
+  const current = await ImagePicker.getMediaLibraryPermissionsAsync();
+  if (current.granted) {
+    return;
+  }
+  const requested = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!requested.granted) {
+    throw new MediaLibraryDeniedError('Media library permission was not granted');
+  }
+}
+
+/**
+ * When the photograph was actually taken, if it says so.
+ *
+ * This matters more for a file from the gallery than for anything else on
+ * this screen. A picture chosen from the roll may have been taken in another
+ * flat, or a week ago, and `device_taken_at` is the one column that would
+ * show it — stamping it with the moment of the upload would erase the only
+ * trace. EXIF writes `YYYY:MM:DD HH:MM:SS` in local time with colons in the
+ * date; anything else, or nothing at all, answers null and the caller falls
+ * back to now.
+ */
+export function exifTakenAt(exif: Record<string, unknown> | null | undefined): string | null {
+  const raw = exif?.DateTimeOriginal ?? exif?.DateTime;
+  if (typeof raw !== 'string') {
+    return null;
+  }
+  const match = /^(\d{4}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/.exec(raw);
+  if (match === null) {
+    return null;
+  }
+  const [, year, month, day, hour, minute, second] = match;
+  const taken = new Date(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second),
+  );
+  return Number.isNaN(taken.getTime()) ? null : taken.toISOString();
 }
 
 /** Fit the longest edge into MAX_PHOTO_EDGE, keeping the aspect ratio. */
@@ -54,26 +116,11 @@ export function resizeTarget(
   return { height: Math.min(height, MAX_PHOTO_EDGE) };
 }
 
-/**
- * Take a photo with the camera, compressed for upload.
- *
- * Camera only, never the gallery: a photo of the flat is evidence of its
- * state at that moment, and the setting that would allow the gallery lives
- * with the manager (F10). Resolves to null when she backs out of the camera.
- */
-export async function capturePhoto(): Promise<CapturedMedia | null> {
-  await ensureCameraPermission();
-
-  const result = await ImagePicker.launchCameraAsync({
-    mediaTypes: ['images'],
-    quality: 1,
-    exif: false,
-  });
-  const asset = result.canceled ? null : (result.assets[0] ?? null);
-  if (asset === null) {
-    return null;
-  }
-
+/** Compress whatever was picked and keep it under an id of our own. */
+async function toPhoto(
+  asset: ImagePicker.ImagePickerAsset,
+  takenAt: string,
+): Promise<CapturedMedia> {
   const compressed = await manipulateAsync(
     asset.uri,
     [{ resize: resizeTarget(asset.width, asset.height) }],
@@ -92,8 +139,57 @@ export async function capturePhoto(): Promise<CapturedMedia | null> {
     width: compressed.width,
     height: compressed.height,
     durationSec: null,
-    takenAt: new Date().toISOString(),
+    takenAt,
   };
+}
+
+/**
+ * Take a photo with the camera, compressed for upload.
+ *
+ * The camera is always available; the gallery is the one that has to be
+ * allowed (`hosts.gallery_allowed`, set by the manager in F10). A photo
+ * taken here is evidence of the flat at this moment, which is why it is
+ * stamped with now. Resolves to null when she backs out of the camera.
+ */
+export async function capturePhoto(): Promise<CapturedMedia | null> {
+  await ensureCameraPermission();
+
+  const result = await ImagePicker.launchCameraAsync({
+    mediaTypes: ['images'],
+    quality: 1,
+    exif: false,
+  });
+  const asset = result.canceled ? null : (result.assets[0] ?? null);
+  if (asset === null) {
+    return null;
+  }
+
+  return toPhoto(asset, new Date().toISOString());
+}
+
+/**
+ * Choose a photo from the gallery.
+ *
+ * Only reachable when the company has allowed it. The file is asked for with
+ * its EXIF so that `device_taken_at` can say when the picture was really
+ * taken: a manager who turned the gallery on accepted that a photo might not
+ * be of this cleaning, and the one thing that must not happen is the app
+ * quietly claiming that it is.
+ */
+export async function pickPhotoFromGallery(): Promise<CapturedMedia | null> {
+  await ensureLibraryPermission();
+
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ['images'],
+    quality: 1,
+    exif: true,
+  });
+  const asset = result.canceled ? null : (result.assets[0] ?? null);
+  if (asset === null) {
+    return null;
+  }
+
+  return toPhoto(asset, exifTakenAt(asset.exif) ?? new Date().toISOString());
 }
 
 /** The extension the server will give the file, from what the camera said. */
@@ -122,25 +218,61 @@ export async function captureVideo(maxSeconds: number): Promise<CapturedMedia | 
     return null;
   }
 
+  return toVideo(asset, maxSeconds, new Date().toISOString());
+}
+
+/** Seconds of a picked recording, or null when the picker could not measure it. */
+function measuredSeconds(asset: ImagePicker.ImagePickerAsset): number | null {
+  // The picker reports milliseconds, rounded here to a tenth of a second.
+  return typeof asset.duration === 'number' && asset.duration > 0
+    ? Math.round(asset.duration / 100) / 10
+    : null;
+}
+
+function toVideo(
+  asset: ImagePicker.ImagePickerAsset,
+  fallbackSeconds: number,
+  takenAt: string,
+): Promise<CapturedMedia> {
   const mimeType = asset.mimeType === 'video/quicktime' ? 'video/quicktime' : 'video/mp4';
   const id = randomUUID();
   const uri = keepFile(asset.uri, id, videoExtension(mimeType));
-  // The picker reports milliseconds; a recording it could not measure is
-  // taken as the cap, which the camera enforced anyway.
-  const durationSec =
-    typeof asset.duration === 'number' && asset.duration > 0
-      ? Math.round(asset.duration / 100) / 10
-      : maxSeconds;
 
-  return {
+  return fileSize(uri).then((byteSize) => ({
     id,
-    kind: 'video',
+    kind: 'video' as const,
     uri,
     mimeType,
-    byteSize: await fileSize(uri),
+    byteSize,
     width: asset.width > 0 ? asset.width : null,
     height: asset.height > 0 ? asset.height : null,
-    durationSec,
-    takenAt: new Date().toISOString(),
-  };
+    durationSec: measuredSeconds(asset) ?? fallbackSeconds,
+    takenAt,
+  }));
+}
+
+/**
+ * Choose a video from the gallery.
+ *
+ * The library has no `videoMaxDuration` — that setting belongs to the
+ * camera — so the length is checked here and a recording that is too long is
+ * refused before anything is copied. A recording the picker could not
+ * measure is let through: the server bounds the size, and refusing a file on
+ * a measurement that does not exist would strand a cleaner with no way past.
+ */
+export async function pickVideoFromGallery(maxSeconds: number): Promise<CapturedMedia | null> {
+  await ensureLibraryPermission();
+
+  const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos'], exif: true });
+  const asset = result.canceled ? null : (result.assets[0] ?? null);
+  if (asset === null) {
+    return null;
+  }
+
+  const seconds = measuredSeconds(asset);
+  if (seconds !== null && seconds > maxSeconds) {
+    throw new VideoTooLongError(maxSeconds);
+  }
+
+  return toVideo(asset, maxSeconds, exifTakenAt(asset.exif) ?? new Date().toISOString());
 }

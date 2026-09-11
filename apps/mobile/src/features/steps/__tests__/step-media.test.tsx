@@ -16,7 +16,9 @@ function item(overrides: Partial<MediaItemView> = {}): MediaItemView {
 }
 
 const handlers = {
+  canPickFromGallery: false,
   onCapture: jest.fn(),
+  onPickFromGallery: jest.fn(),
   onRemove: jest.fn(),
   onRetry: jest.fn(),
 };
@@ -124,4 +126,61 @@ test('offers nothing to change once the step is closed', async () => {
 
   expect(screen.queryByRole('button')).toBeNull();
   expect(screen.getByLabelText('Фото 1. Загружено')).toBeTruthy();
+});
+
+// The gallery is the company's decision, not the phone's: a build that
+// showed the button by default would let through the file the setting exists
+// to keep out.
+test('offers the camera alone until the company allows the gallery', async () => {
+  await render(
+    <StepMedia
+      kind="photo"
+      items={[]}
+      limits={{ min: 1, max: 4 }}
+      maxVideoSec={30}
+      isCapturing={false}
+      disabled={false}
+      {...handlers}
+    />,
+  );
+
+  expect(screen.getByRole('button', { name: 'Снять фото' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Выбрать фото из галереи' })).toBeNull();
+});
+
+test('and offers both once it has', async () => {
+  await render(
+    <StepMedia
+      kind="photo"
+      items={[]}
+      limits={{ min: 1, max: 4 }}
+      maxVideoSec={30}
+      isCapturing={false}
+      disabled={false}
+      {...handlers}
+      canPickFromGallery
+    />,
+  );
+
+  await fireEvent.press(screen.getByRole('button', { name: 'Выбрать фото из галереи' }));
+
+  expect(handlers.onPickFromGallery).toHaveBeenCalled();
+  expect(handlers.onCapture).not.toHaveBeenCalled();
+});
+
+test('a video step offers the gallery in its own words', async () => {
+  await render(
+    <StepMedia
+      kind="video"
+      items={[]}
+      limits={{ min: 1, max: 1 }}
+      maxVideoSec={30}
+      isCapturing={false}
+      disabled={false}
+      {...handlers}
+      canPickFromGallery
+    />,
+  );
+
+  expect(screen.getByRole('button', { name: 'Выбрать видео из галереи' })).toBeTruthy();
 });

@@ -775,7 +775,11 @@
     "photoAccessibility": "Photo {{index}}. {{status}}",
     "videoAccessibility": "Video. {{status}}",
     "cameraDenied": "No access to the camera — allow it in the phone settings",
-    "captureFailed": "Could not take it — please try again"
+    "captureFailed": "Could not take it — please try again",
+    "pickPhoto": "Choose a photo from the gallery",
+    "pickVideo": "Choose a video from the gallery",
+    "galleryDenied": "Access to the gallery was not granted",
+    "videoTooLong": "The video is longer than {{seconds}} s — choose a shorter one or record it"
   },
   "problems": {
     "report": "Report a problem",

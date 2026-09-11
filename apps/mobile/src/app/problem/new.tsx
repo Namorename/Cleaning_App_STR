@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
-import { CameraDeniedError, capturePhoto } from '@/features/media/capture';
+import { capturePhoto, pickPhotoFromGallery } from '@/features/media/capture';
+import { attachFailure } from '@/features/media/failure';
+import { useGalleryAllowed } from '@/features/host/use-host';
 import { discardFile } from '@/features/media/file';
 import { toLocalRecord, type LocalMediaRecord } from '@/features/media/local-store';
 import type { StripItem } from '@/features/media/media-strip';
@@ -37,6 +39,7 @@ export default function NewProblemRoute() {
   const [problemId] = useState(() => randomUUID());
   const [draft, setDraft] = useState(EMPTY_PROBLEM_DRAFT);
   const [photos, setPhotos] = useState<LocalMediaRecord[]>([]);
+  const galleryAllowed = useGalleryAllowed();
   const [isCapturing, setCapturing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -56,14 +59,15 @@ export default function NewProblemRoute() {
     [photos],
   );
 
-  const onCapture = async () => {
+  const attachFrom = async (source: 'camera' | 'gallery') => {
     if (isCapturing || photos.length >= MAX_PROBLEM_PHOTOS) {
       return;
     }
     setCapturing(true);
     setNotice(null);
     try {
-      const captured = await capturePhoto();
+      const captured =
+        source === 'gallery' ? await pickPhotoFromGallery() : await capturePhoto();
       if (captured === null) {
         return;
       }
@@ -71,9 +75,7 @@ export default function NewProblemRoute() {
       await rememberLocal(record);
       setPhotos((current) => [...current, record]);
     } catch (error: unknown) {
-      setNotice(
-        error instanceof CameraDeniedError ? t('steps.cameraDenied') : t('steps.captureFailed'),
-      );
+      setNotice(attachFailure(error, t));
     } finally {
       setCapturing(false);
     }
@@ -107,7 +109,8 @@ export default function NewProblemRoute() {
         onChange={setDraft}
         place={task.data ? propertyName(task.data) : null}
         photos={items}
-        onCapture={() => void onCapture()}
+        onCapture={() => void attachFrom('camera')}
+        onPickFromGallery={galleryAllowed ? () => void attachFrom('gallery') : undefined}
         onRemovePhoto={onRemovePhoto}
         isCapturing={isCapturing}
         isSubmitting={report.isPending && !report.isPaused}

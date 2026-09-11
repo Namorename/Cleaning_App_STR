@@ -32,6 +32,7 @@ interface ProblemFormProps {
   /** Absent when the form edits an existing report: photos live on its screen. */
   photos?: readonly StripItem[];
   onCapture?: () => void;
+  onPickFromGallery?: () => void;
   onRemovePhoto?: (mediaId: string) => void;
   isCapturing?: boolean;
   isSubmitting: boolean;
@@ -55,6 +56,7 @@ export function ProblemForm({
   place,
   photos,
   onCapture,
+  onPickFromGallery,
   onRemovePhoto,
   isCapturing = false,
   isSubmitting,
@@ -134,6 +136,7 @@ export function ProblemForm({
             items={photos}
             maxCount={MAX_PROBLEM_PHOTOS}
             onCapture={onCapture}
+            onPickFromGallery={onPickFromGallery}
             onRemove={onRemovePhoto}
             isCapturing={isCapturing}
             disabled={isSubmitting}
