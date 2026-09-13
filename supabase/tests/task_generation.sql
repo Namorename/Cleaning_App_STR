@@ -82,7 +82,7 @@ select pg_temp.check('finished work keeps its original deadline',
 select pg_temp.check('a third run reports no changes',
   (select public.generate_cleaning_tasks('2026-10-01', '2026-10-31')
      - 'window_from' - 'window_to'),
-  '{"created": 0, "rescheduled": 0, "assigned": 0, "cancelled": 0}'::jsonb);
+  '{"created": 0, "rescheduled": 0, "assigned": 0, "cancelled": 0, "relocated": 0}'::jsonb);
 
 -- ---------- a booking is cancelled ----------
 -- The task is never deleted: it is a record that a cleaning was planned. A

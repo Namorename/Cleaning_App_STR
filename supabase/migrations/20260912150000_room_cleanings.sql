@@ -7,7 +7,7 @@
 -- the booking says which rooms it took (public.reservation_units), and since
 -- 20260912140000 a room's cleaner is known. This is the stage that uses both.
 --
--- Three things change, and a fourth is done once to the work already on the
+-- Four things change, and a fifth is done once to the work already on the
 -- books:
 --
 --   the work list fans out. `_wanted` becomes one row per room the booking
@@ -23,6 +23,13 @@
 --   that have no task, the reschedule and the hand-over would write one room's
 --   answer onto another, and the cancel would spare a room because a different
 --   one matched.
+--
+--   a cleaning follows its booking to the room. A booking can learn its room
+--   after its cleaning exists — Hostaway assigns the unit later, or a listing
+--   grows rooms — and the generator now moves that row instead of leaving it
+--   to be skipped by the insert and swept by the cancel. On a copy of
+--   production that pair cancelled 192 cleanings and created none, 96 of them
+--   with a cleaner's name on them.
 --
 --   urgency is judged per room. `same_day_turnover` asks whether the next
 --   guest arrives the day this one leaves; asked of the listing it says yes
@@ -142,6 +149,7 @@ security definer
 set search_path = ''
 as $function$
 declare
+  v_relocated   integer;
   v_created     integer;
   v_rescheduled integer;
   v_assigned    integer;
@@ -214,6 +222,59 @@ begin
     and r.status in ('new', 'modified')
     and not r.is_block
     and p.status = 'active';
+
+
+  -- Move a cleaning that still stands on the listing onto the room the booking
+  -- turns out to have taken.
+  --
+  -- A booking can learn its room after its cleaning exists: Hostaway assigns
+  -- the unit later, or a listing grows rooms it did not have. The row on the
+  -- listing and the row owed on the room are then the same cleaning under two
+  -- names, and moving it keeps its id and with it the cleaner's name, her
+  -- photos, her steps and the problems filed against it.
+  --
+  -- Without this pass the insert below reads the listing row as "already
+  -- served" and skips the room, and the cancel pass — which judges by the pair
+  -- — then takes that very row away: the booking comes out of the run owing
+  -- nothing, and tomorrow's run gives back a stranger with no cleaner on it.
+  -- Measured against a copy of production, that pair cancelled 192 cleanings
+  -- and created none, 96 of them with a cleaner's name on them.
+  --
+  -- Only untouched work, which is the rule the other three passes keep: a
+  -- cleaning somebody has accepted or started stays where she accepted it, and
+  -- the insert's listing branch below is what keeps it from being duplicated
+  -- onto a room.
+  with wanted_room as (
+    -- The lowest room id the booking took: an arbitrary choice among them, but
+    -- a stable one, and the same one the one-off backfill makes. The booking's
+    -- other rooms are owed cleanings of their own and the insert writes them.
+    select distinct on (reservation_id) reservation_id, property_id, listing_id
+    from _wanted
+    where property_id <> listing_id
+    order by reservation_id, property_id
+  ),
+  relocated as (
+    update public.tasks t
+    set property_id = w.property_id
+    from wanted_room w
+    where t.reservation_id = w.reservation_id
+      and t.property_id = w.listing_id
+      and t.type = 'cleaning'
+      and t.status in ('unassigned', 'assigned')
+      -- If the room already holds this booking's cleaning, the move would
+      -- collide with the pair that names one. The listing row is then a
+      -- duplicate of work that already exists where it belongs, and the cancel
+      -- pass below is what clears it.
+      and not exists (
+        select 1 from public.tasks x
+        where x.reservation_id = w.reservation_id
+          and x.property_id = w.property_id
+          and x.type = 'cleaning'
+          and x.status not in ('cancelled', 'expired')
+      )
+    returning 1
+  )
+  select count(*) into v_relocated from relocated;
 
   -- Insert missing tasks. The partial unique index on reservation_id keeps
   -- this idempotent: a repeated run collides and does nothing.
@@ -334,6 +395,7 @@ begin
   return jsonb_build_object(
     'window_from', from_date,
     'window_to', to_date,
+    'relocated', v_relocated,
     'created', v_created,
     'rescheduled', v_rescheduled,
     'assigned', v_assigned,

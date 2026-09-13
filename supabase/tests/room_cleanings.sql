@@ -264,4 +264,49 @@ select pg_temp.check('while a sibling room is a different cleaning, not a duplic
   (select count(distinct property_id)::int from public.tasks
    where reservation_id = 900002351 and status <> 'cancelled'), 2);
 
+-- ---------------------------------------------------------------------------
+--  A booking that learns its room late
+-- ---------------------------------------------------------------------------
+--
+-- 53 sits on a listing that has rooms but named none of them, so its cleaning
+-- stands on the listing and Maria has been handed it by hand. Hostaway then
+-- says which room the guest took.
+--
+-- It is the same cleaning either way: what has changed is where it is, not
+-- whether it is owed. Left to the insert and the cancel passes alone the
+-- booking comes out of the run with nothing — the insert reads the listing row
+-- as "already served" and the cancel pass, which judges by the pair, takes that
+-- very row away. Measured against a copy of production, that pair cancelled 192
+-- cleanings and created none, 96 of them with a cleaner's name on them.
+
+create temporary table _late_task as
+  select id from public.tasks
+  where reservation_id = 900002353 and type = 'cleaning' and status <> 'cancelled';
+
+update public.tasks
+set assignee_id = 'c9000001-0000-4000-8000-0000000000c1', status = 'assigned'
+where reservation_id = 900002353 and type = 'cleaning' and status <> 'cancelled';
+
+insert into public.reservation_units (reservation_id, property_id)
+values (900002353, public.property_id_for_unit(67004));
+
+select public.generate_cleaning_tasks(current_date - 1, current_date + 7);
+
+select pg_temp.check('a booking that learns its room late still owes one cleaning',
+  pg_temp.cleanings(900002353), 1);
+select pg_temp.check('and that cleaning now stands on the room',
+  pg_temp.status_of(900002353, 67004), 'assigned');
+select pg_temp.check('nothing is left standing on the listing',
+  (select count(*)::int from public.tasks
+   where reservation_id = 900002353 and property_id = 900002303
+     and type = 'cleaning' and status <> 'cancelled'), 0);
+select pg_temp.check('the cleaner keeps the job she was handed',
+  pg_temp.assignee_of(900002353, 67004),
+  'c9000001-0000-4000-8000-0000000000c1'::uuid);
+select pg_temp.check('it is the same row, so her photos and steps come with it',
+  (select count(*)::int from public.tasks t join _late_task l on l.id = t.id
+   where t.property_id = public.property_id_for_unit(67004) and t.status <> 'cancelled'), 1);
+select pg_temp.check('and a second run leaves it alone',
+  (public.generate_cleaning_tasks(current_date - 1, current_date + 7) ->> 'created')::int, 0);
+
 rollback;

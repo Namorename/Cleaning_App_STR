@@ -138,7 +138,7 @@ select pg_temp.check('the guest count follows the arriving booking',
 select pg_temp.check('a further run reports no changes',
   (select public.generate_cleaning_tasks(current_date - 1, current_date + 7)
      - 'window_from' - 'window_to'),
-  '{"created": 0, "rescheduled": 0, "assigned": 0, "cancelled": 0}'::jsonb);
+  '{"created": 0, "rescheduled": 0, "assigned": 0, "cancelled": 0, "relocated": 0}'::jsonb);
 
 -- ---------- additive columns of F15 ----------
 -- No behaviour of their own yet; they are checked so that a migration which
