@@ -73,27 +73,27 @@ export async function fetchStaff(client: Client): Promise<Staff[]> {
 }
 
 /**
- * Listings a task can be put on.
+ * Listings a task can be put on, and the rooms of the ones that have rooms.
  *
  * Archived ones are out — that listing has left the company. A flat under
  * maintenance stays on offer: booking a technician onto it is the reason the
  * state exists.
  *
- * Rooms are out for now. Flattened into this list a room would sit next to
- * its own listing with nothing to say which building it is in; the picker
- * gains the hierarchy in the calendar phase and the rooms with it. *
- * The test is `hostaway_unit_id`, not `parent_id`. That column carries two
+ * Rooms are in, and have to be: a generated cleaning stands on the room the
+ * guest slept in, so a field that cannot name one has nothing to show where
+ * the flat belongs. `parent_id` comes along because a room's own name never
+ * says which building it is in — `propertyOptions` puts the two together.
+ *
+ * The archived test stays on `status`, and the room test on
+ * `hostaway_unit_id` rather than `parent_id`: that column carries two
  * different relationships — a room of a multi-unit listing, and a part of a
- * combined listing, which is a real listing with its own calendar. Filtering on
- * `parent_id is null` would hide the second kind from the panel entirely, and
- * the Info tab can create one today.
+ * combined listing, which is a real listing with its own calendar.
  */
 export async function fetchProperties(client: Client): Promise<Property[]> {
   const { data, error } = await client
     .from('properties')
-    .select('id, name')
+    .select('id, name, parent_id, hostaway_unit_id')
     .neq('status', 'archived')
-    .is('hostaway_unit_id', null)
     .order('name', { ascending: true });
   if (error) {
     throw error;

@@ -71,10 +71,74 @@ export const staffSchema = z.object({
 export type Staff = z.infer<typeof staffSchema>;
 export const staffListSchema = z.array(staffSchema);
 
-/** A listing the manager can put a task on. */
-export const propertySchema = z.object({ id: z.number(), name: z.string() });
+/**
+ * A listing the manager can put a task on, or one of its rooms.
+ *
+ * Nine listings hold rooms, and since the cleanings moved onto the rooms the
+ * field has to be able to name one. `hostaway_unit_id` is what says which is
+ * which — `parent_id` also carries the combined-listing relationship, whose
+ * children are real listings with their own calendars.
+ */
+export const propertySchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  parent_id: z.number().nullable().default(null),
+  hostaway_unit_id: z.number().nullable().default(null),
+});
 export type Property = z.infer<typeof propertySchema>;
 export const propertyListSchema = z.array(propertySchema);
+
+/** What stands between a building and a room in one line of text. */
+const PROPERTY_PATH_SEPARATOR = ' — ';
+
+/** One line of the listing field. */
+export interface PropertyOption {
+  id: number;
+  name: string;
+}
+
+/** The building a property belongs to, and the room within it if it is one. */
+function propertyPath(
+  property: Property,
+  byId: Map<number, Property>,
+): { building: string; room: string | null } {
+  const parent = property.parent_id === null ? undefined : byId.get(property.parent_id);
+  // An orphan — a room whose listing is not in the list — keeps its own name.
+  // It should not happen, the status cascade takes rooms with their listing,
+  // but dropping it would blank the flat field of every task standing on it,
+  // which is the defect this list exists to prevent.
+  if (property.hostaway_unit_id === null || parent === undefined) {
+    return { building: property.name, room: null };
+  }
+  return { building: parent.name, room: property.name };
+}
+
+/**
+ * The listings and rooms a task can be put on, as the field should read them.
+ *
+ * A room is named by its building and itself. Its own name — "1 - 2109",
+ * "Unit 3 - 7013" — never says which building it is in, and a closed select
+ * shows nothing but the chosen option's own text, so a heading above it would
+ * answer the question only while the list is open.
+ *
+ * Rooms follow their own listing, and the listing stays pickable: a repair in
+ * the hallway belongs to the building rather than to any one flat.
+ */
+export function propertyOptions(properties: Property[]): PropertyOption[] {
+  const byId = new Map(properties.map((property) => [property.id, property]));
+  return properties
+    .map((property) => ({ property, ...propertyPath(property, byId) }))
+    .sort(
+      (left, right) =>
+        left.building.localeCompare(right.building) ||
+        (left.room === null ? 0 : 1) - (right.room === null ? 0 : 1) ||
+        (left.room ?? '').localeCompare(right.room ?? ''),
+    )
+    .map(({ property, building, room }) => ({
+      id: property.id,
+      name: room === null ? building : `${building}${PROPERTY_PATH_SEPARATOR}${room}`,
+    }));
+}
 
 /** A problem reported while this task was being done. */
 export const taskProblemSchema = z.object({

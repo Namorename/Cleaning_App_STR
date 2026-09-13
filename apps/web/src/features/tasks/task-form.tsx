@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ import {
   draftFromTask,
   isDraftReady,
   isManualTask,
+  propertyOptions,
   TASK_TYPES,
   type Task,
   type TaskDraft,
@@ -78,6 +79,8 @@ export function TaskForm({ task, onClose }: TaskFormProps) {
   const [draft, setDraft] = useState<TaskDraft>(() =>
     task === null ? emptyDraft() : draftFromTask(task),
   );
+  // Sorted and composed once per list, not once per keystroke in the notes.
+  const places = useMemo(() => propertyOptions(properties.data ?? []), [properties.data]);
 
   const isGenerated = task !== null && !isManualTask(task);
   const failure = save.isError ? serverErrorText(save.error) : null;
@@ -117,9 +120,9 @@ export function TaskForm({ task, onClose }: TaskFormProps) {
                 }
               >
                 <option value="">{t('panel.tasks.form.propertyPlaceholder')}</option>
-                {(properties.data ?? []).map((property) => (
-                  <option key={property.id} value={property.id}>
-                    {property.name}
+                {places.map((place) => (
+                  <option key={place.id} value={place.id}>
+                    {place.name}
                   </option>
                 ))}
               </select>

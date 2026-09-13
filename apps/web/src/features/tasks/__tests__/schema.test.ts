@@ -10,6 +10,7 @@ import {
   isOverdue,
   localizedTitle,
   matchesFilters,
+  propertyOptions,
   tabOf,
   taskMinutes,
   taskSchema,
@@ -280,5 +281,47 @@ describe('isDraftReady', () => {
     // A task without a name is called by its kind, so a blank title is fine.
     expect(isDraftReady({ ...draft, title: '   ' })).toBe(true);
     expect(isDraftReady({ ...draft, scheduledDate: '' })).toBe(false);
+  });
+});
+
+describe('propertyOptions', () => {
+  const royal = { id: 219524, name: 'CZ - Vinohradska Royal', parent_id: null, hostaway_unit_id: null };
+  const first = { id: 1000000018007, name: '1 - 2109', parent_id: 219524, hostaway_unit_id: 18007 };
+  const third = { id: 1000000018009, name: '3 - 3008', parent_id: 219524, hostaway_unit_id: 18009 };
+  const anglicka = { id: 98352, name: 'Anglicka 7', parent_id: null, hostaway_unit_id: null };
+
+  test('an ordinary listing is named as it always was', () => {
+    expect(propertyOptions([anglicka])).toEqual([{ id: 98352, name: 'Anglicka 7' }]);
+  });
+
+  test('a room is named by the building it is in, because its own name never says', () => {
+    const options = propertyOptions([royal, first]);
+
+    expect(options).toContainEqual({
+      id: 1000000018007,
+      name: 'CZ - Vinohradska Royal — 1 - 2109',
+    });
+  });
+
+  test('rooms follow their own listing, and the listings stay alphabetical', () => {
+    const options = propertyOptions([third, anglicka, first, royal]);
+
+    expect(options.map((option) => option.name)).toEqual([
+      'Anglicka 7',
+      'CZ - Vinohradska Royal',
+      'CZ - Vinohradska Royal — 1 - 2109',
+      'CZ - Vinohradska Royal — 3 - 3008',
+    ]);
+  });
+
+  test('a room whose listing is not in the list is still offered, under its own name', () => {
+    // Not expected to happen — the status cascade takes rooms with their
+    // listing — but a room dropped here is a task whose flat field goes blank,
+    // which is the very defect this list exists to prevent.
+    expect(propertyOptions([first])).toEqual([{ id: 1000000018007, name: '1 - 2109' }]);
+  });
+
+  test('the listing itself stays pickable: a repair in the hallway belongs to the building', () => {
+    expect(propertyOptions([royal, first]).map((option) => option.id)).toContain(219524);
   });
 });

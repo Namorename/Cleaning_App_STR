@@ -1811,7 +1811,7 @@ export type Database = {
         }
       }
       reservation_cleaning_window: {
-        Args: { target_reservation_id: number }
+        Args: { target_property_id: number; target_reservation_id: number }
         Returns: {
           guests_count: number
           same_day_turnover: boolean

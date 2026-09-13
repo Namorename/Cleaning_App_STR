@@ -103,18 +103,23 @@ describe('the registry is the exception, on purpose', () => {
 });
 
 /**
- * The second rule, and the newer one: a room is not a listing.
+ * The second rule, and the newer one: a room is not a listing — except where
+ * the work actually happens.
  *
  * Nine of the seventy-nine listings hold rooms — thirty-one between them —
  * and each room is a `properties` row under `parent_id` so that cleanings,
  * checklists and processes work on it unchanged. The cost is that every
- * reader of `properties` now picks up rooms unless it says not to, and a flat
- * list is the wrong answer in all three places below for two different
- * reasons.
+ * reader of `properties` now picks up rooms unless it says not to, and the
+ * right answer differs by screen.
  *
- * For the team screen it is permanent: a cleaner is linked to a listing and
- * her rooms follow. For the registry and the task form it holds until those
- * screens show rooms as a branch under their listing.
+ * The task form reads them, and has to: a generated cleaning stands on the
+ * room the guest slept in, and a field that cannot name a room shows the
+ * manager a placeholder where the flat belongs. It composes the building and
+ * the room itself — see `propertyOptions`.
+ *
+ * The team screen leaves them out permanently: a cleaner is linked to a
+ * listing and her rooms follow (migration 20260912140000). The registry
+ * leaves them out until it shows rooms as a branch under their listing.
  *
  * The filter asks `hostaway_unit_id`, never `parent_id`. The latter also
  * carries the combined-listing relationship — a part of a combined listing is
@@ -123,16 +128,21 @@ describe('the registry is the exception, on purpose', () => {
  */
 const ROOMS_ARE_OUT = 'is:hostaway_unit_id=null';
 
-describe('a room is not offered as a listing of its own', () => {
-  test('not in the listing field of a task', async () => {
+describe('a room is offered only where a task can stand on one', () => {
+  test('the task form asks for rooms, and for the parent that names them', async () => {
     const { client, calls } = recordingClient();
 
     await fetchTaskProperties(client);
 
-    expect(calls.find((call) => call.table === 'properties')?.filters).toContain(ROOMS_ARE_OUT);
+    const query = calls.find((call) => call.table === 'properties');
+    expect(query?.filters).not.toContain(ROOMS_ARE_OUT);
+    // Without the parent a room is "1 - 2109" and says nothing about which
+    // building it is in.
+    expect(query?.filters.join(' ')).toContain('parent_id');
+    expect(query?.filters.join(' ')).toContain('hostaway_unit_id');
   });
 
-  test('not when somebody is put on listings', async () => {
+  test('not when somebody is put on listings — her rooms follow the listing', async () => {
     const { client, calls } = recordingClient();
 
     await fetchTeamProperties(client);
