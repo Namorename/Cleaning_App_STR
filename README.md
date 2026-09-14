@@ -209,10 +209,10 @@ Expo Go этот проект не поднимает — нужна своя с
 Первый раз, по порядку:
 
 ```bash
-npx eas login                                  # интерактивно, под аккаунтом владельца
-npx eas init                                   # заводит проект в EAS, пишет projectId
-npx eas update:configure                       # прописывает адрес обновлений
-npx eas build --profile preview --platform android
+npx eas-cli@latest login                                  # интерактивно, под аккаунтом владельца
+npx eas-cli@latest init                                   # заводит проект в EAS, пишет projectId
+npx eas-cli@latest update:configure                       # прописывает адрес обновлений
+npx eas-cli@latest build --profile preview --platform android
 ```
 
 **Переменные окружения в `eas.json` не хранятся.** Репозиторий публичный, а
@@ -221,8 +221,8 @@ npx eas build --profile preview --platform android
 профиль:
 
 ```bash
-npx eas env:create --scope project --name EXPO_PUBLIC_SUPABASE_URL --value "<url>" --environment preview --environment production --visibility plaintext
-npx eas env:create --scope project --name EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY --value "<key>" --environment preview --environment production --visibility plaintext
+npx eas-cli@latest env:create --scope project --name EXPO_PUBLIC_SUPABASE_URL --value "<url>" --environment preview --environment production --visibility plaintext
+npx eas-cli@latest env:create --scope project --name EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY --value "<key>" --environment preview --environment production --visibility plaintext
 ```
 
 Серверные ключи (`SUPABASE_SECRET_KEY`, Hostaway) в EAS не заводятся никогда —
@@ -236,8 +236,8 @@ JavaScript, доезжает до установленных приложени�
 сборки и без стора.
 
 ```bash
-npx eas update --branch preview     --message "что изменилось"
-npx eas update --branch production  --message "что изменилось"
+npx eas-cli@latest update --branch preview     --message "что изменилось"
+npx eas-cli@latest update --branch production  --message "что изменилось"
 ```
 
 Ветка обновлений должна совпадать с каналом сборки (`channel` в `eas.json`).
