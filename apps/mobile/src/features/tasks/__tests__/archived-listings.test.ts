@@ -100,3 +100,14 @@ test('the phone asks for tasks, never for a list of listings', async () => {
   // archived flat could surface, and would need a filter of its own.
   expect(calls.map((call) => call.table)).toEqual(['tasks', 'tasks']);
 });
+
+test('and asks each task which building it stands in, and where that is', async () => {
+  await fetchMyTasks(CLEANER);
+
+  // Since the cleanings moved onto rooms, the joined name is "1 - 2109" and
+  // names no house. The house is the parent row, and the street is the
+  // address — both travel with the task or the cleaner has neither.
+  const select = calls.flatMap((call) => call.filters).join(' ');
+  expect(select).toContain('parent:parent_id(name)');
+  expect(select).toContain('address');
+});

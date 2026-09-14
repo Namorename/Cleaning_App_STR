@@ -18,7 +18,13 @@ function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
     due_at: null,
     assignee_id: ME,
     property_id: 412432,
-    property: { name: 'CZ - Nadrazni Apt 6', cleaner_notes: 'Ключ в ящике 4325' },
+    property: {
+      name: 'CZ - Nadrazni Apt 6',
+      address: 'Nádražní 6',
+      hostaway_unit_id: null,
+      cleaner_notes: 'Ключ в ящике 4325',
+      parent: null,
+    },
     time_from: '10:00:00',
     time_to: '15:00:00',
     guests_count: 4,
@@ -46,6 +52,34 @@ test('shows what the cleaner needs to plan by: window, guests, notes', async () 
   expect(screen.getByText(/10:00–15:00/)).toBeTruthy();
   expect(screen.getByText('4')).toBeTruthy();
   expect(screen.getByText('Ключ в ящике 4325')).toBeTruthy();
+});
+
+test('says which house, which room in it, and the street to drive to', async () => {
+  // Arrange: a cleaning on a room. Without the house she has the room number
+  // of a building she cannot name, and without the street nowhere to go.
+  const inRoom = task({
+    property: {
+      name: '1 - 2109',
+      address: 'Vinohradská 2109/10',
+      hostaway_unit_id: 18007,
+      cleaner_notes: null,
+      parent: { name: 'CZ - Vinohradska Royal Apt 1.3.5.7' },
+    },
+  });
+
+  // Act
+  await render(<TaskDetail task={inRoom} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />);
+
+  // Assert
+  expect(screen.getByText('CZ - Vinohradska Royal Apt 1.3.5.7')).toBeTruthy();
+  expect(screen.getByText('1 - 2109')).toBeTruthy();
+  expect(screen.getByText('Vinohradská 2109/10')).toBeTruthy();
+});
+
+test('shows the street of a listing cleaning too', async () => {
+  await render(<TaskDetail task={task()} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />);
+
+  expect(screen.getByText('Nádražní 6')).toBeTruthy();
 });
 
 test('offers to start a task assigned to her', async () => {

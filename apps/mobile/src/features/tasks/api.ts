@@ -8,10 +8,22 @@ import { cleaningTaskListSchema, earliestClaimableDate, type CleaningTask } from
 // The joined listing name is what the cleaner actually recognises; the numeric
 // id means nothing to her. Notes ride along: the code for the key box is the
 // first thing she needs at the door.
+//
+// Since the cleanings moved onto rooms, the joined name of a multi-unit
+// listing's cleaning is the room's — "1 - 2109" — which names no house. The
+// house is the parent row and the street is `address`, so both are asked for
+// here rather than left to a second query the phone would make offline.
+//
+// `parent:parent_id(...)` names the FOREIGN KEY COLUMN, and that is what makes
+// it resolve forward to one row. The two other spellings do not work:
+// `properties!parent_id` walks the relation backwards and returns `[]`, and
+// the constraint name `properties_parent_id_fkey` is not in the schema cache
+// as a hint at all. Verified against the hosted project on 2026-09-14.
 const TASK_COLUMNS =
   'id, type, status, priority, scheduled_date, due_at, assignee_id, property_id, ' +
   'time_from, time_to, guests_count, started_at, completed_at, is_parallel, ' +
-  'property:properties(name, cleaner_notes), problem:problems(id, title, priority)';
+  'property:properties(name, address, hostaway_unit_id, cleaner_notes, parent:parent_id(name)), ' +
+  'problem:problems(id, title, priority)';
 
 // A technician's day is maintenance; a cleaner's is cleaning. Both are "mine".
 const MY_TASK_TYPES = ['cleaning', 'maintenance'] as const;

@@ -65,5 +65,10 @@ export const persistOptions = {
   maxAge: CACHE_LIFETIME,
   // A change to what a task looks like must not restore an older shape into
   // screens that expect the new one. Bump when the task schema changes.
-  buster: 'tasks-v5',
+  //
+  // v6: the task carries the building it stands in (`property.parent`) and the
+  // street (`property.address`). A row restored from v5 has neither key, and
+  // the cache is restored by JSON.parse — zod never sees it — so the screens
+  // would read `parent` off a row that has no such field.
+  buster: 'tasks-v6',
 };

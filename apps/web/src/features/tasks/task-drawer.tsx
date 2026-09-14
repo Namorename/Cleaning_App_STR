@@ -15,7 +15,7 @@ import { serverErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
 
 import { splitMinutes } from './format';
-import { localizedTitle, taskMinutes, type Task } from './schema';
+import { localizedTitle, taskMinutes, taskPropertyName, type Task } from './schema';
 import { useSetDuration, useTaskProblems, useTaskWork } from './use-tasks';
 
 interface TaskDrawerProps {
@@ -100,7 +100,7 @@ export function TaskDrawer({ task, onClose }: TaskDrawerProps) {
 
         <div className="flex flex-col gap-1">
           <span className="font-medium">{title}</span>
-          <span className="text-muted-foreground">{task.property?.name ?? ''}</span>
+          <span className="text-muted-foreground">{taskPropertyName(task) ?? ''}</span>
           <span className="text-muted-foreground">{task.assignee?.full_name ?? ''}</span>
         </div>
 

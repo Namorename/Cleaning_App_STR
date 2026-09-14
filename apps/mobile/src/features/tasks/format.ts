@@ -120,6 +120,64 @@ export function formatStartNotBefore(task: CleaningTask): string {
   return i18n.t('tasks.detail.startsAt', { time, date });
 }
 
+/** What stands between a building and a room in one line of text. */
+const PROPERTY_PATH_SEPARATOR = ' — ';
+
+/** Where the cleaning is: the house, the room in it, and the street. */
+export interface TaskPlace {
+  /** The listing — the house she drives to. Never empty. */
+  building: string;
+  /** The room inside it, when the cleaning stands on one. */
+  room: string | null;
+  address: string | null;
+}
+
+/**
+ * The place, taken apart for a screen that has two lines for it.
+ *
+ * A cleaning of a multi-unit listing stands on the room the guest slept in,
+ * and a room is named by its number — "1 - 2109", "Unit 3 - 7013". That names
+ * nothing she can drive to, so the house is read off the joined parent row and
+ * the room becomes the second line. On an ordinary listing there is no parent
+ * and its own name is the house.
+ */
+export function taskPlace(task: CleaningTask): TaskPlace {
+  const property = task.property ?? null;
+  if (property === null) {
+    return {
+      building: i18n.t('tasks.unnamedProperty', { id: task.property_id }),
+      room: null,
+      address: null,
+    };
+  }
+
+  // `?? null` rather than a plain read: the query cache is restored from disk
+  // by JSON.parse, so a row written by an older build reaches this line with
+  // the keys that build knew and no others. Zod fills the defaults on the way
+  // in from the network; nothing fills them on the way in from disk.
+  const parent = property.parent ?? null;
+  const address = property.address ?? null;
+  const unitId = property.hostaway_unit_id ?? null;
+
+  // A room, and not merely a child: `parent_id` also links a part of a
+  // combined listing, which is a listing in its own right with its own
+  // calendar and its own name. Prefixing that one with its neighbour's name
+  // would be plainly wrong, so the test is `hostaway_unit_id`, as it is
+  // everywhere else in this codebase.
+  if (parent !== null && unitId !== null) {
+    return { building: parent.name, room: property.name, address };
+  }
+
+  return { building: property.name, room: null, address };
+}
+
+/**
+ * The place in one line, for somewhere only one line fits — a screen title,
+ * or the "where" of a problem report a manager will read.
+ */
 export function propertyName(task: CleaningTask): string {
-  return task.property?.name ?? i18n.t('tasks.unnamedProperty', { id: task.property_id });
+  const place = taskPlace(task);
+  return place.room === null
+    ? place.building
+    : `${place.building}${PROPERTY_PATH_SEPARATOR}${place.room}`;
 }

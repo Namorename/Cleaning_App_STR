@@ -12,7 +12,13 @@ function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
     due_at: null,
     assignee_id: null,
     property_id: 412432,
-    property: { name: 'CZ - Nadrazni Apt 6', cleaner_notes: null },
+    property: {
+      name: 'CZ - Nadrazni Apt 6',
+      address: 'Nádražní 6',
+      hostaway_unit_id: null,
+      cleaner_notes: null,
+      parent: null,
+    },
     time_from: '10:00:00',
     time_to: '15:00:00',
     guests_count: null,
@@ -28,6 +34,58 @@ test('shows the listing name the cleaner would recognise', async () => {
   await render(<TaskCard task={task()} />);
 
   expect(screen.getByText('CZ - Nadrazni Apt 6')).toBeTruthy();
+});
+
+test('names the building first and the room under it', async () => {
+  // Arrange: a cleaning standing on a room of a multi-unit listing. "1 - 2109"
+  // is the only name the row carries and it names no house at all.
+  const inRoom = task({
+    property: {
+      name: '1 - 2109',
+      address: 'Vinohradská 2109/10',
+      hostaway_unit_id: 18007,
+      cleaner_notes: null,
+      parent: { name: 'CZ - Vinohradska Royal Apt 1.3.5.7' },
+    },
+  });
+
+  // Act
+  await render(<TaskCard task={inRoom} />);
+
+  // Assert: both, and the house is the heading.
+  expect(screen.getByText('CZ - Vinohradska Royal Apt 1.3.5.7')).toBeTruthy();
+  expect(screen.getByText('1 - 2109')).toBeTruthy();
+});
+
+test('a fix on a room is named by what is broken, and says which flat in which house', async () => {
+  // A maintenance card is titled by the problem, so the flat lives in the line
+  // under it — and that line has to carry the house, not just "1 - 2109".
+  const fix = task({
+    type: 'maintenance',
+    problem: {
+      id: '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d',
+      title: 'Течёт кран',
+      priority: 'high',
+    },
+    property: {
+      name: '1 - 2109',
+      address: 'Vinohradská 2109/10',
+      hostaway_unit_id: 18007,
+      cleaner_notes: null,
+      parent: { name: 'CZ - Vinohradska Royal Apt 1.3.5.7' },
+    },
+  });
+
+  await render(<TaskCard task={fix} />);
+
+  expect(screen.getByText('Течёт кран')).toBeTruthy();
+  expect(screen.getByText(/CZ - Vinohradska Royal Apt 1\.3\.5\.7 — 1 - 2109/)).toBeTruthy();
+});
+
+test('a task whose listing did not come with it is still named by its id', async () => {
+  await render(<TaskCard task={task({ property: null })} />);
+
+  expect(screen.getByText('Объект 412432')).toBeTruthy();
 });
 
 test('states a same-day turnover as the check-in time', async () => {

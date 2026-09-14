@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { matchesAllTokens } from '@/lib/search';
+
 export const TASK_TYPES = ['cleaning', 'midstay', 'maintenance', 'inspection'] as const;
 export type TaskType = (typeof TASK_TYPES)[number];
 
@@ -55,7 +57,20 @@ export const taskSchema = z.object({
   title: z.string().nullable().default(null),
   title_i18n: z.record(z.string(), z.string()).nullable().catch(null),
   created_at: z.string(),
-  property: z.object({ name: z.string() }).nullable().optional(),
+  property: z
+    .object({
+      name: z.string(),
+      // Set on a room of a multi-unit listing, and only there — the same test
+      // `propertyOptions` uses. A part of a combined listing is also a child
+      // under `parent_id`, and it is a listing with its own calendar.
+      hostaway_unit_id: z.number().nullable().default(null),
+      // The listing a room belongs to. Null when the task stands on the
+      // listing itself — then `name` is already the building's. A room's own
+      // name ("1 - 2109") never says which building it is in.
+      parent: z.object({ name: z.string() }).nullable().default(null),
+    })
+    .nullable()
+    .optional(),
   assignee: personSchema.optional(),
   author: personSchema.optional(),
 });
@@ -140,6 +155,35 @@ export function propertyOptions(properties: Property[]): PropertyOption[] {
     }));
 }
 
+/**
+ * The flat a task stands on, in one line: the building, and the room inside it
+ * when the cleaning stands on a room.
+ *
+ * Nine listings hold rooms, and a cleaning of one stands on the room the guest
+ * slept in. The row's own name is then "1 - 2109" — which labels a card with
+ * something no manager can place, and leaves a search for the house finding
+ * none of its cleanings. The parent listing is joined onto every task for
+ * exactly this, and this is where the two become one name.
+ *
+ * A child that is not a room keeps its own name: `parent_id` also links a part
+ * of a combined listing, which is a listing with its own calendar and its own
+ * guests, and naming it after its neighbour would be simply wrong. The test is
+ * `hostaway_unit_id`, the same one `propertyPath` makes above.
+ *
+ * Null when the listing was not joined: the caller decides what to show
+ * instead, and a task always has `property_id` whatever this returns.
+ */
+export function taskPropertyName(task: Pick<Task, 'property'>): string | null {
+  const property = task.property ?? null;
+  if (property === null) {
+    return null;
+  }
+  const parent = property.parent;
+  return parent === null || property.hostaway_unit_id === null
+    ? property.name
+    : `${parent.name}${PROPERTY_PATH_SEPARATOR}${property.name}`;
+}
+
 /** A problem reported while this task was being done. */
 export const taskProblemSchema = z.object({
   id: z.uuid(),
@@ -208,21 +252,24 @@ export function hasFilters(filters: TaskFilters): boolean {
   );
 }
 
-/** Title, listing or executor contains the query; an empty query keeps everything. */
+/**
+ * Title, listing or executor contains every word of the query; an empty query
+ * keeps everything.
+ *
+ * The listing here is the whole flat — building and room — because a manager
+ * looking for the work in a house types the name of the house, and the
+ * cleanings of that house now stand on its rooms. Every word rather than one
+ * substring for the same reason: the flat reads "CZ - Vinohradska Royal —
+ * 1 - 2109", and "vinohradska 2109" is what a person types after seeing it.
+ */
 export function matchesQuery(task: Task, query: string): boolean {
-  const needle = query.trim().toLocaleLowerCase();
-  if (needle === '') {
-    return true;
-  }
   const haystack = [
     task.title ?? '',
-    task.property?.name ?? '',
+    taskPropertyName(task) ?? '',
     task.assignee?.full_name ?? '',
     task.notes ?? '',
-  ]
-    .join(' ')
-    .toLocaleLowerCase();
-  return haystack.includes(needle);
+  ].join(' ');
+  return matchesAllTokens(haystack, query);
 }
 
 export function matchesFilters(task: Task, filters: TaskFilters): boolean {
@@ -288,10 +335,16 @@ export interface TaskGroup {
   tasks: Task[];
 }
 
-/** Earliest window first; a task with no window closes the group. */
+/**
+ * Earliest window first; a task with no window closes the group.
+ *
+ * Equal windows are settled by the flat — building first, then the room in it,
+ * which is what `taskPropertyName` composes. Sorting by the row's own name
+ * instead would interleave the rooms of different houses under one heading.
+ */
 function byTime(left: Task, right: Task): number {
   if (left.time_from === right.time_from) {
-    return (left.property?.name ?? '').localeCompare(right.property?.name ?? '');
+    return (taskPropertyName(left) ?? '').localeCompare(taskPropertyName(right) ?? '');
   }
   if (left.time_from === null) {
     return 1;

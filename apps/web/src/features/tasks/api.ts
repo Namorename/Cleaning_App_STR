@@ -34,7 +34,12 @@ const TASK_COLUMNS =
   'created_by, scheduled_date, time_from, time_to, started_at, completed_at, ' +
   'measured_minutes, duration_override_min, is_parallel, is_short_measurement, ' +
   'notes, title, title_i18n, created_at, ' +
-  'property:properties(name), ' +
+  // The room a cleaning stands on is named "1 - 2109" and names no building,
+  // so the building comes along: `taskPropertyName` composes the two, the card
+  // shows it and the search looks through it. The hint is the foreign key
+  // COLUMN — `properties!parent_id` walks the relation backwards and answers
+  // with an empty array, and the constraint name is not in the schema cache.
+  'property:properties(name, hostaway_unit_id, parent:parent_id(name)), ' +
   'assignee:profiles!tasks_assignee_id_fkey(full_name, role), ' +
   'author:profiles!tasks_created_by_fkey(full_name, role)';
 

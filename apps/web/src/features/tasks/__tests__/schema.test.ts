@@ -10,9 +10,11 @@ import {
   isOverdue,
   localizedTitle,
   matchesFilters,
+  matchesQuery,
   propertyOptions,
   tabOf,
   taskMinutes,
+  taskPropertyName,
   taskSchema,
   timeGroup,
   type Task,
@@ -137,6 +139,32 @@ describe('groupTasks', () => {
     expect(groups.map((group) => group.key)).toEqual(['2026-09-10', '2026-09-08']);
   });
 
+  test('at the same hour the rooms of one house stay together', () => {
+    // Arrange: two rooms of one building and a flat of another, all at ten.
+    // Sorted by the row's own name — "1 - 2109", "3 - 3008" — the other house
+    // would land between them.
+    const royal = (room: string, unit: number) => ({
+      name: room,
+      hostaway_unit_id: unit,
+      parent: { name: 'CZ - Vinohradska Royal' },
+    });
+    const groups = groupTasks(
+      [
+        task({ id: id(1), time_from: '10:00:00', property: royal('3 - 3008', 18009) }),
+        task({
+          id: id(2),
+          time_from: '10:00:00',
+          property: { name: '2 - Anglicka', hostaway_unit_id: null, parent: null },
+        }),
+        task({ id: id(3), time_from: '10:00:00', property: royal('1 - 2109', 18007) }),
+      ],
+      'today',
+    );
+
+    // Act & Assert
+    expect(groups[0]?.tasks.map((entry) => entry.id)).toEqual([id(2), id(3), id(1)]);
+  });
+
   test('a task with no window closes its day', () => {
     const groups = groupTasks(
       [
@@ -156,7 +184,7 @@ describe('matchesFilters', () => {
     id: id(1),
     title: 'Генеральная уборка',
     assignee_id: maria,
-    property: { name: 'Vinohrady 12' },
+    property: { name: 'Vinohrady 12', hostaway_unit_id: null, parent: null },
     assignee: { full_name: 'Maria Test', role: 'cleaner' },
   });
   const inspection = task({ id: id(2), type: 'inspection', title: 'Осмотр' });
@@ -323,5 +351,85 @@ describe('propertyOptions', () => {
 
   test('the listing itself stays pickable: a repair in the hallway belongs to the building', () => {
     expect(propertyOptions([royal, first]).map((option) => option.id)).toContain(219524);
+  });
+});
+
+describe('taskPropertyName', () => {
+  const onListing = task({
+    id: id(1),
+    property: { name: 'Anglicka 7', hostaway_unit_id: null, parent: null },
+  });
+  const inRoom = task({
+    id: id(2),
+    property: {
+      name: '1 - 2109',
+      hostaway_unit_id: 18007,
+      parent: { name: 'CZ - Vinohradska Royal' },
+    },
+  });
+
+  test('a cleaning of an ordinary listing is named as it always was', () => {
+    expect(taskPropertyName(onListing)).toBe('Anglicka 7');
+  });
+
+  test('a cleaning of a room is named by its building and itself', () => {
+    expect(taskPropertyName(inRoom)).toBe('CZ - Vinohradska Royal — 1 - 2109');
+  });
+
+  test('a part of a combined listing keeps its own name, parent or no parent', () => {
+    // `parent_id` carries two relationships, and only one of them is a room.
+    // A part of a combined listing is a listing with its own calendar and its
+    // own guests; naming it after its neighbour would be plainly wrong.
+    const part = task({
+      id: id(4),
+      property: { name: 'Žitná 12 ap. 313', hostaway_unit_id: null, parent: { name: 'Žitná 12' } },
+    });
+
+    expect(taskPropertyName(part)).toBe('Žitná 12 ap. 313');
+  });
+
+  test('a task whose listing was not joined has no name to show', () => {
+    expect(taskPropertyName(task({ id: id(3) }))).toBeNull();
+  });
+});
+
+describe('the search finds a room cleaning by the house it is in', () => {
+  const inRoom = task({
+    id: id(1),
+    property: {
+      name: '1 - 2109',
+      hostaway_unit_id: 18007,
+      parent: { name: 'CZ - Vinohradska Royal' },
+    },
+  });
+
+  test('the name of the building matches, though the task carries the room', () => {
+    // The defect this is here for: the cleanings of nine listings moved onto
+    // rooms, and a manager searching the house they all belong to found none
+    // of them — the row says "1 - 2109" and nothing else.
+    expect(matchesQuery(inRoom, 'vinohradska')).toBe(true);
+  });
+
+  test('and the room itself still matches', () => {
+    expect(matchesQuery(inRoom, '2109')).toBe(true);
+  });
+
+  test('the house and the room together match, in either order', () => {
+    // What a manager types after reading the card: two words that are nowhere
+    // next to each other in the row, and only a token search can join them.
+    expect(matchesQuery(inRoom, 'vinohradska 2109')).toBe(true);
+    expect(matchesQuery(inRoom, '2109 vinohradska')).toBe(true);
+  });
+
+  test('a house it is not in does not match', () => {
+    expect(matchesQuery(inRoom, 'anglicka')).toBe(false);
+  });
+
+  test('a word that is nowhere in the task still excludes it', () => {
+    expect(matchesQuery(inRoom, 'vinohradska karlín')).toBe(false);
+  });
+
+  test('the filter bar asks the same question', () => {
+    expect(matchesFilters(inRoom, { ...EMPTY_FILTERS, query: 'vinohradska' })).toBe(true);
   });
 });

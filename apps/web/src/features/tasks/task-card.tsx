@@ -11,7 +11,14 @@ import { useLanguage } from '@/lib/use-language';
 import { cn } from '@/lib/utils';
 
 import { formatWindow, statusVariant, typeVariant } from './format';
-import { isManualTask, isOverdue, isTaskClosed, localizedTitle, type Task } from './schema';
+import {
+  isManualTask,
+  isOverdue,
+  isTaskClosed,
+  localizedTitle,
+  taskPropertyName,
+  type Task,
+} from './schema';
 import { useCancelTask } from './use-tasks';
 
 interface TaskCardProps {
@@ -52,7 +59,7 @@ export function TaskCard({ task, today, onEdit, onOpenWork }: TaskCardProps) {
       </div>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
-        <span>{task.property?.name ?? t('panel.tasks.noProperty')}</span>
+        <span>{taskPropertyName(task) ?? t('panel.tasks.noProperty')}</span>
         {timeWindow === null ? null : <span>{timeWindow}</span>}
         {task.reservation_id !== null ? <span>{t('panel.tasks.origin.booking')}</span> : null}
         {task.problem_id !== null ? <span>{t('panel.tasks.origin.problem')}</span> : null}

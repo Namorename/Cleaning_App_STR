@@ -31,8 +31,20 @@ export const cleaningTaskSchema = z.object({
   property: z
     .object({
       name: z.string(),
+      // The street she drives to. A room inherits it from its listing, so it
+      // is filled whether the cleaning stands on the building or in it.
+      // Defaulted for a row cached before the column was asked for.
+      address: z.string().nullable().default(null),
       // Access codes and quirks of the flat, written by the office for her.
       cleaner_notes: z.string().nullable().default(null),
+      // Set on a room of a multi-unit listing, and only there. It is what
+      // separates a room from a part of a combined listing — both are children
+      // under `parent_id`, and only the first is a piece of its parent.
+      hostaway_unit_id: z.number().nullable().default(null),
+      // The listing a room belongs to. Null when the cleaning stands on the
+      // listing itself — then `name` already names the house. A room's own
+      // name ("1 - 2109", "Unit 3 - 7013") never does.
+      parent: z.object({ name: z.string() }).nullable().default(null),
     })
     .nullable(),
   // The window the cleaning has to fit into: when the departing guest actually

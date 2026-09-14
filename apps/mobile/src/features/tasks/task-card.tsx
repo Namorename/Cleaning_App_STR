@@ -5,7 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
-import { formatScheduledDate, formatWindow, propertyName, urgencyText } from './format';
+import { formatScheduledDate, formatWindow, propertyName, taskPlace, urgencyText } from './format';
 import { isRunning, isSameDayTurnover, type CleaningTask } from './schema';
 
 interface TaskCardProps {
@@ -23,8 +23,16 @@ function TaskCardComponent({ task, onClaim, onPress, isClaiming = false }: TaskC
   const urgent = isSameDayTurnover(task);
   const running = isRunning(task);
   const fix = task.type === 'maintenance' ? (task.problem ?? null) : null;
+  const place = taskPlace(task);
   // A fix is named by what is broken; the flat is the second line.
-  const name = fix === null ? propertyName(task) : fix.title;
+  const name = fix === null ? place.building : fix.title;
+  // The room under the house, on a cleaning of a multi-unit listing. A fix
+  // already carries the whole place in its banner, and repeating it under the
+  // title of the problem would say the same thing twice.
+  const room = fix === null ? place.room : null;
+  // Spoken as one line: a screen reader gets no second line for free, and
+  // "1 - 2109" without its house is the one thing this card must not say.
+  const spoken = fix === null ? propertyName(task) : fix.title;
   const date = formatScheduledDate(task);
   const window = formatWindow(task);
   // Colour repeats what the line says; it never carries the meaning alone.
@@ -38,15 +46,27 @@ function TaskCardComponent({ task, onClaim, onPress, isClaiming = false }: TaskC
 
   const body = (
     <>
-      <View style={styles.header}>
-        <Text style={styles.name} numberOfLines={2}>
-          {name}
-        </Text>
-        {running ? (
-          <View style={styles.status}>
-            <Text style={styles.statusText}>{t('tasks.status.inProgress')}</Text>
-          </View>
-        ) : null}
+      {/* The house and the room in it are one block: the card's even spacing
+          would otherwise read the room as just another line of metadata.
+          Two lines each — a room can be called "Unit 8 - 3rd floor", and the
+          system font can be set large. */}
+      <View style={styles.place}>
+        <View style={styles.header}>
+          <Text style={styles.name} numberOfLines={2}>
+            {name}
+          </Text>
+          {running ? (
+            <View style={styles.status}>
+              <Text style={styles.statusText}>{t('tasks.status.inProgress')}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {room === null ? null : (
+          <Text style={styles.room} numberOfLines={2}>
+            {room}
+          </Text>
+        )}
       </View>
 
       <Text style={styles.meta}>
@@ -63,7 +83,7 @@ function TaskCardComponent({ task, onClaim, onPress, isClaiming = false }: TaskC
       {onClaim ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t('tasks.claimAccessibility', { property: name, date })}
+          accessibilityLabel={t('tasks.claimAccessibility', { property: spoken, date })}
           accessibilityState={{ disabled: isClaiming, busy: isClaiming }}
           disabled={isClaiming}
           onPress={() => onClaim(task.id)}
@@ -79,7 +99,7 @@ function TaskCardComponent({ task, onClaim, onPress, isClaiming = false }: TaskC
     </>
   );
 
-  const label = t('tasks.cardAccessibility', { property: name, date, urgency });
+  const label = t('tasks.cardAccessibility', { property: spoken, date, urgency });
 
   if (onPress === undefined) {
     return (
@@ -114,6 +134,7 @@ const createStyles = (theme: Theme) =>
       gap: Spacing.sm,
     },
     cardPressed: { opacity: 0.85 },
+    place: { gap: Spacing.xs },
     header: {
       flexDirection: 'row',
       alignItems: 'flex-start',
@@ -123,6 +144,13 @@ const createStyles = (theme: Theme) =>
       flex: 1,
       color: theme.text,
       fontSize: FontSize.title,
+      fontWeight: '600',
+    },
+    // Which flat inside the house — a fact of the same weight as the house,
+    // one step quieter so the two read as one address rather than two names.
+    room: {
+      color: theme.textSecondary,
+      fontSize: FontSize.body,
       fontWeight: '600',
     },
     status: {

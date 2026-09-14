@@ -12,7 +12,7 @@ import {
   formatScheduledDate,
   formatStartNotBefore,
   formatWindow,
-  propertyName,
+  taskPlace,
   urgencyText,
 } from './format';
 import { availableAction, canStartNow, isSameDayTurnover, type CleaningTask } from './schema';
@@ -69,6 +69,10 @@ export function TaskDetail({
   const action = availableAction(task, userId);
   const urgent = isSameDayTurnover(task);
   const window = formatWindow(task);
+  const place = taskPlace(task);
+  // Blank as good as absent: a listing synced without a street would otherwise
+  // leave an empty line where the address belongs.
+  const address = place.address === null || place.address.trim() === '' ? null : place.address;
   const notes = task.property?.cleaner_notes ?? null;
   const showSteps =
     steps !== undefined &&
@@ -114,7 +118,13 @@ export function TaskDetail({
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Text style={styles.name}>{propertyName(task)}</Text>
+      {/* The house, the room in it, and the street — read as one block, which
+          is why they sit closer together than the facts below them. */}
+      <View style={styles.place}>
+        <Text style={styles.name}>{place.building}</Text>
+        {place.room === null ? null : <Text style={styles.room}>{place.room}</Text>}
+        {address === null ? null : <Text style={styles.meta}>{address}</Text>}
+      </View>
       <Text style={styles.meta}>{formatScheduledDate(task)}</Text>
 
       <View style={[styles.banner, urgent ? styles.bannerUrgent : styles.bannerCalm]}>
@@ -268,7 +278,9 @@ const createStyles = (theme: Theme) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.background },
     content: { padding: Spacing.lg, gap: Spacing.md },
+    place: { gap: Spacing.xs },
     name: { color: theme.text, fontSize: FontSize.heading, fontWeight: '700' },
+    room: { color: theme.textSecondary, fontSize: FontSize.title, fontWeight: '600' },
     meta: { color: theme.textSecondary, fontSize: FontSize.body },
     banner: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
     bannerUrgent: { backgroundColor: theme.urgentSurface },

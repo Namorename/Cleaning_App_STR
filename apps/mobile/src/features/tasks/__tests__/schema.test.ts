@@ -88,6 +88,36 @@ describe('cleaningTaskSchema', () => {
   test('does not treat an expired task as free work', () => {
     expect(isFree(cleaningTaskSchema.parse(row))).toBe(false);
   });
+
+  test('keeps the building a room belongs to', () => {
+    // The cleaning stands on the room; the name of the house comes with it
+    // through the join, and losing it at the boundary would leave the cleaner
+    // with a room number and no address.
+    const parsed = cleaningTaskSchema.parse({
+      ...row,
+      property: {
+        name: '1 - 2109',
+        address: 'Vinohradská 2109/10',
+        hostaway_unit_id: 18007,
+        cleaner_notes: null,
+        parent: { name: 'CZ - Vinohradska Royal Apt 1.3.5.7' },
+      },
+    });
+
+    expect(parsed.property?.parent?.name).toBe('CZ - Vinohradska Royal Apt 1.3.5.7');
+    expect(parsed.property?.address).toBe('Vinohradská 2109/10');
+  });
+
+  test('still parses a task cached before the building was joined', () => {
+    // A row written to disk by the previous release has neither field.
+    const parsed = cleaningTaskSchema.parse({
+      ...row,
+      property: { name: 'CZ - Nadrazni Apt 6', cleaner_notes: null },
+    });
+
+    expect(parsed.property?.parent).toBeNull();
+    expect(parsed.property?.address).toBeNull();
+  });
 });
 
 function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
@@ -99,7 +129,13 @@ function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
     due_at: null,
     assignee_id: '7c9e6679-7425-40de-944b-e07fc1f90ae7',
     property_id: 412432,
-    property: { name: 'CZ - Nadrazni Apt 6', cleaner_notes: null },
+    property: {
+      name: 'CZ - Nadrazni Apt 6',
+      address: 'Nádražní 6',
+      hostaway_unit_id: null,
+      cleaner_notes: null,
+      parent: null,
+    },
     time_from: '10:00:00',
     time_to: '15:00:00',
     guests_count: null,

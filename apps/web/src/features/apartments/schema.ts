@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { matchesAllTokens } from '@/lib/search';
+
 /**
  * What a listing is doing, in the company's words.
  *
@@ -248,18 +250,13 @@ export function isInTab(property: Property, tab: ApartmentTab): boolean {
  * and caring about none of their order is what makes "vinohrady 12" and
  * "12 vinohrady" the same search.
  */
+/* Delegates to the panel's one search rule — see `lib/search.ts`. */
 export function matchesTokens(property: Property, query: string): boolean {
-  const tokens = query.trim().toLowerCase().split(/\s+/).filter((token) => token !== '');
-  if (tokens.length === 0) {
-    return true;
-  }
-
   const haystack = [property.name, property.address, property.city, String(property.id)]
     .filter((field): field is string => field !== null && field !== '')
-    .join(' ')
-    .toLowerCase();
+    .join(' ');
 
-  return tokens.every((token) => haystack.includes(token));
+  return matchesAllTokens(haystack, query);
 }
 
 // ---------------------------------------------------------------------------

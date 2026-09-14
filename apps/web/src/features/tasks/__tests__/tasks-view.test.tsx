@@ -141,6 +141,33 @@ describe('TasksView', () => {
     expect(screen.queryByText('Уборка завтра')).not.toBeInTheDocument();
   });
 
+  test('a cleaning of a room is labelled by its house, and found by it', async () => {
+    // Arrange: the shape nine listings produce since the cleanings moved onto
+    // rooms — the row is called "1 - 2109" and names no building at all.
+    const inRoom = task({
+      id: id(9),
+      title: 'Уборка комнаты',
+      time_from: '09:30:00',
+      property: {
+        name: '1 - 2109',
+        hostaway_unit_id: 18007,
+        parent: { name: 'CZ - Vinohradska Royal' },
+      },
+    });
+    useTasks.mockReturnValue({ data: [inRoom], isPending: false, isError: false });
+    render(<TasksView />);
+
+    // Assert: the card says both, and the search for the house finds it.
+    const card = screen.getByText('Уборка комнаты').closest('[data-slot="card"]') as HTMLElement;
+    expect(card).toHaveTextContent('CZ - Vinohradska Royal — 1 - 2109');
+
+    await userEvent.type(
+      screen.getByLabelText('Поиск по названию, объекту, исполнителю'),
+      'vinohradska',
+    );
+    expect(screen.getByText('Уборка комнаты')).toBeInTheDocument();
+  }, 20000);
+
   test('switches to the days ahead and marks where a task came from', async () => {
     render(<TasksView />);
 
