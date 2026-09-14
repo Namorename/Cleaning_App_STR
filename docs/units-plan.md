@@ -119,13 +119,35 @@
   и синк, создающий их, не должны идти одновременно. Гасится и возвращается
   так:
 
+  **Прямая правка таблицы в облаке запрещена** — `update cron.job set active`
+  отвечает `permission denied for table job`: таблица принадлежит
+  `supabase_admin`. Работает только API планировщика, а `unschedule` — это
+  удаление, поэтому возвращать задание нужно полным определением (проверено на
+  выкате 2026-09-14):
+
   ```sql
-  update cron.job set active = false
-   where jobname in ('process-webhook-events', 'sync-reservations-daily');
-  -- db push
-  update cron.job set active = true
-   where jobname in ('process-webhook-events', 'sync-reservations-daily');
+  -- перед db push
+  select cron.unschedule('process-webhook-events');
+  select cron.unschedule('sync-reservations-daily');
+
+  -- после db push — именно завести заново, «включить» нечего
+  select cron.schedule(
+    'process-webhook-events',
+    '*/2 * * * *',
+    $$select public.invoke_edge_function('process-webhook-events')$$
+  );
+  select cron.schedule(
+    'sync-reservations-daily',
+    '15 3 * * *',
+    $$select public.invoke_edge_function('sync-reservations')$$
+  );
+
+  select jobname, schedule, active from cron.job order by jobname;
   ```
+
+  Имя задания и имя функции у второго намеренно разные. В проверке должно быть
+  пять заданий: два возвращённых плюс `sync-listings-daily` (0 3),
+  `expire-stale-tasks` (30 3) и `purge-task-media-daily` (30 4).
 
 - **Проверка после выката** — числа ночного прогона: сколько уборок переехало
   (`relocated`), сколько создано и погашено. На копии прода бэкфилл дал
