@@ -193,3 +193,55 @@ Function, поэтому Vault ему не нужен. В 04:30 — ретенш
 задачу, как только у неё появится обязательный шаг — сервер откажет, а
 показать почему приложение не сумеет. Пока пользователи тестовые, риск
 нулевой; с реальными уборщицами правило становится обязательным.
+
+## Сборка приложения уборщицы
+
+Expo Go этот проект не поднимает — нужна своя сборка. Профили лежат в
+`apps/mobile/eas.json`, идентификатор приложения на обеих платформах —
+`cz.strops.cleaner`.
+
+| Профиль | Что даёт | Кому |
+| --- | --- | --- |
+| `development` | dev-client для отладки на устройстве | разработчику |
+| `preview` | APK по ссылке или QR, без сторов | уборщицам на Android |
+| `production` | `aab` для Google Play и `ipa` для TestFlight | релиз |
+
+Первый раз, по порядку:
+
+```bash
+npx eas login                                  # интерактивно, под аккаунтом владельца
+npx eas init                                   # заводит проект в EAS, пишет projectId
+npx eas update:configure                       # прописывает адрес обновлений
+npx eas build --profile preview --platform android
+```
+
+**Переменные окружения в `eas.json` не хранятся.** Репозиторий публичный, а
+`EXPO_PUBLIC_SUPABASE_URL` и `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` хоть и
+попадают в бандл, в git не кладутся — заводятся переменными EAS на каждый
+профиль:
+
+```bash
+npx eas env:create --scope project --name EXPO_PUBLIC_SUPABASE_URL --value "<url>" --environment preview --environment production --visibility plaintext
+npx eas env:create --scope project --name EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY --value "<key>" --environment preview --environment production --visibility plaintext
+```
+
+Серверные ключи (`SUPABASE_SECRET_KEY`, Hostaway) в EAS не заводятся никогда —
+приложение их не видит и видеть не должно.
+
+### Обновления по воздуху
+
+`expo-updates` подключён, `runtimeVersion` считается по отпечатку нативной
+части (`policy: fingerprint`). Это значит: правка, которая трогает только
+JavaScript, доезжает до установленных приложений одной командой, без новой
+сборки и без стора.
+
+```bash
+npx eas update --branch preview     --message "что изменилось"
+npx eas update --branch production  --message "что изменилось"
+```
+
+Ветка обновлений должна совпадать с каналом сборки (`channel` в `eas.json`).
+**Нативное изменение по воздуху не доедет** — новая зависимость с нативным
+кодом, правка `app.json` или обновление SDK меняют отпечаток, и такой сборке
+обновление просто не предложится. Тогда нужна новая сборка: проверить это
+заранее — `npx expo-doctor` и `npx expo install --check`.
