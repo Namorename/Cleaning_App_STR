@@ -49,13 +49,22 @@ const DIGITS = "23456789";
  * The marks.
  *
  * Picked for where this password has to survive. It is printed into the
- * Recovery email, so nothing HTML escapes (`&` `<` `>` `"` `'`) is here — an
- * `&amp;` on screen is a password nobody can type. The hyphen is out too: it
- * separates the name from the tail, and a second one would blur where the
- * name ends. What is left is on the first symbol page of both phone
- * keyboards, and no two of them can be mistaken for each other.
+ * Recovery email, which Go renders with `html/template`, so nothing that
+ * escaper touches is here — an `&amp;` on screen is a password nobody can
+ * type, and it reads as "the password is wrong" rather than as a bug.
+ *
+ * Go's table is wider than the five characters one expects. It escapes
+ * `NUL " & ' + < >` in text and `=` as well inside an unquoted attribute
+ * (src/html/template/html.go). `+` and `=` were in this set until a letter
+ * proved the point: roughly one password in seven carried one of them and
+ * would have arrived as `&#43;` or `&#61;`. They are now `@` and `_`, which
+ * no table touches.
+ *
+ * The hyphen is out too: it separates the name from the tail, and a second
+ * one would blur where the name ends. No two of what is left can be mistaken
+ * for each other.
  */
-const MARKS = "!#$%*+=?";
+const MARKS = "!#$%*?@_";
 
 /** Exactly 64 — see the note above. */
 export const ALPHABET = LOWER + UPPER + DIGITS + MARKS;

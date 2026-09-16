@@ -39,7 +39,11 @@ Deno.test("no character of a password can be mangled by rendering it as HTML", (
   // The alphabet is chosen so this holds (see staff-password.ts), and the
   // letter is where it would show: `&amp;` on screen is a password nobody can
   // type, and it would read as "the password is wrong" rather than as a bug.
-  const escaped = ["&", "<", ">", '"', "'"];
+  //
+  // The list is Go's, not the obvious one: html/template escapes `+` in plain
+  // text and `=` inside an unquoted attribute, on top of the five everybody
+  // names (src/html/template/html.go). Both were in the alphabet once.
+  const escaped = ["&", "<", ">", '"', "'", "+", "=", "`"];
 
   assert(
     escaped.every((character) => !ALPHABET.includes(character)),
