@@ -820,6 +820,12 @@
       "cancelled": "Отменена"
     },
     "noProperty": "Без объекта",
+    "place": "Где",
+    "pickPlace": "Выберите объект",
+    "loadingPlaces": "Загружаем объекты…",
+    "searchPlaces": "Поиск объектов",
+    "noPlaces": "За вами пока не закреплён ни один объект",
+    "noPlaceMatch": "Ничего не найдено",
     "cancelReason": "Причина отмены",
     "openFixTask": "Открыть задачу по устранению",
     "cardAccessibility": "{{title}}. {{place}}. {{status}}"

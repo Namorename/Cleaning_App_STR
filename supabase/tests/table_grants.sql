@@ -54,7 +54,8 @@ insert into wanted values
   ('supply_requests',      'SELECT'),
   ('supply_request_items', 'SELECT'),
   ('supply_catalog_items',  'SELECT'),
-  ('expired_tasks_review', 'SELECT');
+  ('expired_tasks_review', 'SELECT'),
+  ('report_properties',    'SELECT');
 
 create temp table actual as
 select grantee, table_name as relation,

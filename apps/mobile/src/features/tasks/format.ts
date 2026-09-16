@@ -1,3 +1,5 @@
+import { propertyPath } from '@str-ops/shared';
+
 import { INTL_LOCALES, currentLanguage, i18n } from '@/i18n';
 
 import { isSameDayTurnover, startNotBefore, type CleaningTask } from './schema';
@@ -121,7 +123,6 @@ export function formatStartNotBefore(task: CleaningTask): string {
 }
 
 /** What stands between a building and a room in one line of text. */
-const PROPERTY_PATH_SEPARATOR = ' — ';
 
 /** Where the cleaning is: the house, the room in it, and the street. */
 export interface TaskPlace {
@@ -177,7 +178,5 @@ export function taskPlace(task: CleaningTask): TaskPlace {
  */
 export function propertyName(task: CleaningTask): string {
   const place = taskPlace(task);
-  return place.room === null
-    ? place.building
-    : `${place.building}${PROPERTY_PATH_SEPARATOR}${place.room}`;
+  return propertyPath(place.building, place.room);
 }

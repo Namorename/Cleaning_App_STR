@@ -820,6 +820,12 @@
       "cancelled": "Cancelled"
     },
     "noProperty": "No listing",
+    "place": "Where",
+    "pickPlace": "Choose a place",
+    "loadingPlaces": "Loading places…",
+    "searchPlaces": "Search places",
+    "noPlaces": "No places are linked to you yet",
+    "noPlaceMatch": "Nothing matches",
     "cancelReason": "Reason for cancelling",
     "openFixTask": "Open the fix task",
     "cardAccessibility": "{{title}}. {{place}}. {{status}}"

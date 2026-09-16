@@ -11,6 +11,8 @@ import {
 
 import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
 import { MediaStrip, type StripItem } from '@/features/media/media-strip';
+import { PropertyPicker } from '@/features/properties/property-picker';
+import type { ReportProperty } from '@/features/properties/schema';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { serverErrorText } from '@/lib/server-error';
 
@@ -27,8 +29,18 @@ import {
 interface ProblemFormProps {
   draft: ProblemDraft;
   onChange: (draft: ProblemDraft) => void;
-  /** Where it is, when known; the form does not let her change it. */
+  /** Where it is, when the report came from a task and cannot be moved. */
   place: string | null;
+  /**
+   * The places she may report about, when she is the one choosing.
+   *
+   * Absent from a report filed on a task: the task already says where it is,
+   * and offering a choice would invite a report about the wrong flat.
+   */
+  properties?: readonly ReportProperty[];
+  selectedPropertyId?: number | null;
+  onSelectProperty?: (propertyId: number) => void;
+  isLoadingProperties?: boolean;
   /** Absent when the form edits an existing report: photos live on its screen. */
   photos?: readonly StripItem[];
   onCapture?: () => void;
@@ -54,6 +66,10 @@ export function ProblemForm({
   draft,
   onChange,
   place,
+  properties,
+  selectedPropertyId = null,
+  onSelectProperty,
+  isLoadingProperties = false,
   photos,
   onCapture,
   onPickFromGallery,
@@ -78,6 +94,18 @@ export function ProblemForm({
       keyboardShouldPersistTaps="handled"
     >
       {place !== null ? <Text style={styles.place}>{place}</Text> : null}
+
+      {onSelectProperty !== undefined ? (
+        <View style={styles.field}>
+          <Text style={styles.label}>{t('problems.place')}</Text>
+          <PropertyPicker
+            properties={properties ?? []}
+            selectedId={selectedPropertyId}
+            onSelect={onSelectProperty}
+            isLoading={isLoadingProperties}
+          />
+        </View>
+      ) : null}
 
       <View style={styles.field}>
         <Text style={styles.label}>{t('problems.titleLabel')}</Text>

@@ -820,6 +820,12 @@
       "cancelled": "Zrušený"
     },
     "noProperty": "Bez objektu",
+    "place": "Kde",
+    "pickPlace": "Vyberte objekt",
+    "loadingPlaces": "Načítáme objekty…",
+    "searchPlaces": "Hledat objekty",
+    "noPlaces": "Zatím vám není přiřazen žádný objekt",
+    "noPlaceMatch": "Nic nenalezeno",
     "cancelReason": "Důvod zrušení",
     "openFixTask": "Otevřít úkol opravy",
     "cardAccessibility": "{{title}}. {{place}}. {{status}}"

@@ -12,6 +12,7 @@ import { toLocalRecord, type LocalMediaRecord } from '@/features/media/local-sto
 import type { StripItem } from '@/features/media/media-strip';
 import { useRememberLocalMedia } from '@/features/media/use-media';
 import { ProblemForm } from '@/features/problems/problem-form';
+import { useReportProperties } from '@/features/properties/use-properties';
 import { EMPTY_PROBLEM_DRAFT, MAX_PROBLEM_PHOTOS } from '@/features/problems/schema';
 import { useReportProblem } from '@/features/problems/use-problems';
 import { propertyName } from '@/features/tasks/format';
@@ -37,6 +38,9 @@ export default function NewProblemRoute() {
   const propertyId = parsed.success ? (parsed.data.propertyId ?? null) : null;
 
   const [problemId] = useState(() => randomUUID());
+  // Where it happened, when no task says so. Seeded from the link, so a report
+  // started from a listing screen keeps that listing.
+  const [chosenPropertyId, setChosenPropertyId] = useState<number | null>(propertyId);
   const [draft, setDraft] = useState(EMPTY_PROBLEM_DRAFT);
   const [photos, setPhotos] = useState<LocalMediaRecord[]>([]);
   const galleryAllowed = useGalleryAllowed();
@@ -44,6 +48,9 @@ export default function NewProblemRoute() {
   const [notice, setNotice] = useState<string | null>(null);
 
   const task = useTask(taskId ?? '');
+  // Asked for only when she is the one choosing: a report filed on a task is
+  // already placed, and the list would be a question with one right answer.
+  const places = useReportProperties();
   const report = useReportProblem();
   const rememberLocal = useRememberLocalMedia();
 
@@ -96,7 +103,7 @@ export default function NewProblemRoute() {
       description: draft.description.trim(),
       priority: draft.priority,
       taskId,
-      propertyId: taskId === null ? propertyId : null,
+      propertyId: taskId === null ? chosenPropertyId : null,
       photos,
     });
   };
@@ -108,6 +115,10 @@ export default function NewProblemRoute() {
         draft={draft}
         onChange={setDraft}
         place={task.data ? propertyName(task.data) : null}
+        properties={places.data ?? []}
+        selectedPropertyId={chosenPropertyId}
+        onSelectProperty={taskId === null ? setChosenPropertyId : undefined}
+        isLoadingProperties={places.isPending}
         photos={items}
         onCapture={() => void attachFrom('camera')}
         onPickFromGallery={galleryAllowed ? () => void attachFrom('gallery') : undefined}

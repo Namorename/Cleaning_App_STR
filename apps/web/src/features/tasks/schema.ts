@@ -1,3 +1,4 @@
+import { propertyPath } from '@str-ops/shared';
 import { z } from 'zod';
 
 import { matchesAllTokens } from '@/lib/search';
@@ -104,7 +105,6 @@ export type Property = z.infer<typeof propertySchema>;
 export const propertyListSchema = z.array(propertySchema);
 
 /** What stands between a building and a room in one line of text. */
-const PROPERTY_PATH_SEPARATOR = ' — ';
 
 /** One line of the listing field. */
 export interface PropertyOption {
@@ -113,7 +113,7 @@ export interface PropertyOption {
 }
 
 /** The building a property belongs to, and the room within it if it is one. */
-function propertyPath(
+function splitPlace(
   property: Property,
   byId: Map<number, Property>,
 ): { building: string; room: string | null } {
@@ -142,7 +142,7 @@ function propertyPath(
 export function propertyOptions(properties: Property[]): PropertyOption[] {
   const byId = new Map(properties.map((property) => [property.id, property]));
   return properties
-    .map((property) => ({ property, ...propertyPath(property, byId) }))
+    .map((property) => ({ property, ...splitPlace(property, byId) }))
     .sort(
       (left, right) =>
         left.building.localeCompare(right.building) ||
@@ -151,7 +151,7 @@ export function propertyOptions(properties: Property[]): PropertyOption[] {
     )
     .map(({ property, building, room }) => ({
       id: property.id,
-      name: room === null ? building : `${building}${PROPERTY_PATH_SEPARATOR}${room}`,
+      name: propertyPath(building, room),
     }));
 }
 
@@ -168,7 +168,7 @@ export function propertyOptions(properties: Property[]): PropertyOption[] {
  * A child that is not a room keeps its own name: `parent_id` also links a part
  * of a combined listing, which is a listing with its own calendar and its own
  * guests, and naming it after its neighbour would be simply wrong. The test is
- * `hostaway_unit_id`, the same one `propertyPath` makes above.
+ * `hostaway_unit_id`, the same one `splitPlace` makes above.
  *
  * Null when the listing was not joined: the caller decides what to show
  * instead, and a task always has `property_id` whatever this returns.
@@ -181,7 +181,7 @@ export function taskPropertyName(task: Pick<Task, 'property'>): string | null {
   const parent = property.parent;
   return parent === null || property.hostaway_unit_id === null
     ? property.name
-    : `${parent.name}${PROPERTY_PATH_SEPARATOR}${property.name}`;
+    : propertyPath(parent.name, property.name);
 }
 
 /** A problem reported while this task was being done. */
