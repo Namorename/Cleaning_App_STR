@@ -85,6 +85,18 @@ const FALLBACK_STEM = "Staff";
  */
 const COMBINING_MARKS = new RegExp("[\\u0300-\\u036f]", "g");
 
+/**
+ * The key the password waits under while auth renders the letter.
+ *
+ * It lives here rather than beside the code that stages it because the
+ * Recovery template has to name the same key — `{{ .Data.initial_password }}`
+ * — and that template is `supabase/templates/recovery.html`. Renaming this
+ * constant without editing the template would post an empty letter and say
+ * nothing about it; `manage-staff/template.test.ts` is what holds the two
+ * together.
+ */
+export const STAGED_PASSWORD = "initial_password";
+
 export type RandomBytes = (length: number) => Uint8Array;
 
 const systemRandom: RandomBytes = (length) => crypto.getRandomValues(new Uint8Array(length));

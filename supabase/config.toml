@@ -248,6 +248,15 @@ otp_expiry = 3600
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
 
+# The letter `manage-staff` posts when a manager creates an account or changes
+# a password. It prints the password the function stages in user_metadata, so
+# the local stack has to render the same file the hosted project renders from
+# its dashboard copy — otherwise a template that works locally can still post
+# an empty letter in production.
+[auth.email.template.recovery]
+subject = "STR Ops: доступ · access · přístup"
+content_path = "./supabase/templates/recovery.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true

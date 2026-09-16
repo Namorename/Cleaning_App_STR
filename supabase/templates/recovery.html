@@ -1,0 +1,63 @@
+<!--
+  The letter a cleaner gets with her sign-in details.
+
+  Supabase sends it as the Recovery template, because that is the only mailer
+  the platform exposes — see `supabase/functions/manage-staff/index.ts`. The
+  password is not in the letter by accident: `manage-staff` stages it in the
+  person's own user_metadata under `initial_password`, auth renders this file
+  against that data, and the value is wiped the moment the call returns.
+
+  `{{ .Data.initial_password }}` is the whole point of the file. Go renders a
+  key that is not there as nothing at all — no error, no warning — so a letter
+  that arrives with an empty box means the rendered template named a different
+  key. `manage-staff/template.test.ts` holds this file and the constant in the
+  function together.
+
+  THE HOSTED PROJECT DOES NOT READ THIS FILE. `config.toml` points the local
+  stack here; the cloud keeps its own copy under Authentication → Emails →
+  Templates → Reset Password. After editing this file, paste it there too.
+
+  Three languages, because the company works in three and the mailer does not
+  know which one this person reads: her language lives in her profile, and auth
+  has never heard of it. Labels are stacked, values printed once.
+
+  No reset link. The letter carries the password itself, and a second way in
+  would only be a second thing to explain.
+-->
+<!doctype html>
+<html>
+  <body style="margin: 0; padding: 24px; background: #f4f5f7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; color: #111827;">
+    <div style="max-width: 460px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 24px;">
+      <p style="margin: 0 0 20px; font-size: 18px; font-weight: 600;">STR Ops</p>
+
+      <p style="margin: 0 0 20px; font-size: 15px; line-height: 1.5;">
+        Доступ в приложение STR Ops.<br />
+        Your access to the STR Ops app.<br />
+        Přístup do aplikace STR Ops.
+      </p>
+
+      <div style="padding: 12px 14px; background: #f4f5f7; border-radius: 8px; margin: 0 0 10px;">
+        <div style="font-size: 12px; color: #6b7280; margin: 0 0 4px;">Логин · Login · Přihlašovací jméno</div>
+        <div style="font-size: 16px; font-weight: 600; word-break: break-all;">{{ .Email }}</div>
+      </div>
+
+      <div style="padding: 12px 14px; background: #f4f5f7; border-radius: 8px; margin: 0 0 20px;">
+        <div style="font-size: 12px; color: #6b7280; margin: 0 0 4px;">Пароль · Password · Heslo</div>
+        <div style="font-size: 20px; font-weight: 700; letter-spacing: 0.5px; font-family: 'SF Mono', Menlo, Consolas, monospace; word-break: break-all;">{{ .Data.initial_password }}</div>
+      </div>
+
+      <p style="margin: 0 0 8px; font-size: 13px; color: #6b7280; line-height: 1.5;">
+        Это письмо приходит и на новую учётную запись, и на смену пароля. Если
+        пароль сменили — прежний больше не работает.
+      </p>
+      <p style="margin: 0 0 8px; font-size: 13px; color: #6b7280; line-height: 1.5;">
+        This letter is sent both for a new account and for a changed password.
+        If the password was changed, the previous one no longer works.
+      </p>
+      <p style="margin: 0; font-size: 13px; color: #6b7280; line-height: 1.5;">
+        Tento e-mail chodí při založení účtu i při změně hesla. Pokud bylo heslo
+        změněno, předchozí už neplatí.
+      </p>
+    </div>
+  </body>
+</html>

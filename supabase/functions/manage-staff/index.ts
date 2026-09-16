@@ -8,11 +8,18 @@
  *
  * Supabase has no "send this email" API. What it has is the auth mailer: the
  * templates it sends on invite, confirmation and password recovery, each of
- * which can read `{{ .Data }}` — the person's own user_metadata. So the
- * password is put there, `resetPasswordForEmail` is asked to post the Recovery
- * template, and the value is cleared again the moment the call returns. It is
- * in the clear for the length of one HTTP call and no longer, which is the
- * price of not adding a second mail provider to the system.
+ * which can read `{{ .Data.<key> }}` — the person's own user_metadata. So the
+ * password is put under `initial_password`, `resetPasswordForEmail` is asked to
+ * post the Recovery template, and the value is cleared again the moment the
+ * call returns. It is in the clear for the length of one HTTP call and no
+ * longer, which is the price of not adding a second mail provider to the
+ * system.
+ *
+ * The template prints `{{ .Data.initial_password }}` and is kept in the
+ * repository as `supabase/templates/recovery.html`. The hosted project holds
+ * its own copy in the dashboard, which is why a letter can arrive empty: that
+ * copy names a key the data does not carry, and Go's templates render a
+ * missing key as nothing at all rather than complaining.
  *
  * The same path serves a new account and a reset. One template, worded for
  * both, is easier to keep true than two that drift.
@@ -34,7 +41,7 @@
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 
 import { readPublishableKey, readSupabaseCredentials } from "../_shared/env.ts";
-import { generatePassword } from "../_shared/staff-password.ts";
+import { generatePassword, STAGED_PASSWORD } from "../_shared/staff-password.ts";
 import {
   type Caller,
   type CreatedStaff,
@@ -44,9 +51,6 @@ import {
   type StaffProfile,
   StaffRefusal,
 } from "./handler.ts";
-
-/** Where the password waits while auth renders the letter. Never longer. */
-const STAGED_PASSWORD = "initial_password";
 
 const PROFILE_COLUMNS = "id, role, host_id, is_active, full_name, email";
 
