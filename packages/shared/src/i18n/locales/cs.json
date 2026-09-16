@@ -11,6 +11,8 @@
     "signingIn": "Přihlašujeme…",
     "invalidCredentials": "Nesprávný e-mail nebo heslo.",
     "signInFailed": "Přihlášení se nezdařilo.",
+    "noConnection": "Není připojení. Zkontrolujte síť a zkuste to znovu.",
+    "tooManyAttempts": "Příliš mnoho pokusů. Zkuste to za minutu.",
     "signOut": "Odhlásit se",
     "signOutTitle": "Odhlásit se?",
     "signOutQuestion": "K dalšímu přihlášení bude potřeba heslo.",

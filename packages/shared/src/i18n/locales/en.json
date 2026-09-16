@@ -11,6 +11,8 @@
     "signingIn": "Signing in…",
     "invalidCredentials": "Wrong email or password.",
     "signInFailed": "Could not sign in.",
+    "noConnection": "No connection. Check the network and try again.",
+    "tooManyAttempts": "Too many attempts. Try again in a minute.",
     "signOut": "Sign out",
     "signOutTitle": "Sign out?",
     "signOutQuestion": "You will need your password to sign in again.",

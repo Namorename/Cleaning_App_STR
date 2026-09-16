@@ -14,8 +14,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import { signInFailureText } from '@/features/auth/failure';
 import { signIn, useSession } from '@/features/auth/session';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
+import type { ServerErrorText } from '@/lib/server-error';
 
 export default function SignInScreen() {
   const { t } = useTranslation();
@@ -23,24 +25,27 @@ export default function SignInScreen() {
   const { userId } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<ServerErrorText | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const onSubmit = useCallback(async () => {
-    setError(null);
+    setFailure(null);
     setIsSubmitting(true);
     try {
-      await signIn(email.trim(), password);
+      // Trimmed because this password arrives by copy: out of the panel's
+      // dialog, out of a letter, off a note. A trailing space picked up on the
+      // way is invisible in a masked field and reads as a wrong password. No
+      // generated password has one — the alphabet has no whitespace in it —
+      // so nothing correct is lost by dropping it.
+      await signIn(email.trim(), password.trim());
     } catch (caught: unknown) {
-      // The reason is never spelled out: telling an attacker which half was
-      // wrong turns the login form into an account enumerator.
-      setError(
-        caught instanceof Error ? t('auth.invalidCredentials') : t('auth.signInFailed'),
-      );
+      // Which half was wrong is still never said — that would turn the form
+      // into an account enumerator. What did happen is.
+      setFailure(signInFailureText(caught));
     } finally {
       setIsSubmitting(false);
     }
-  }, [email, password, t]);
+  }, [email, password]);
 
   if (userId !== null) {
     return <Redirect href="/(tabs)" />;
@@ -90,10 +95,13 @@ export default function SignInScreen() {
           />
         </View>
 
-        {error !== null ? (
-          <Text accessibilityLiveRegion="polite" style={styles.error}>
-            {error}
-          </Text>
+        {failure !== null ? (
+          <View accessibilityLiveRegion="polite" style={styles.failure}>
+            <Text style={styles.error}>{failure.text}</Text>
+            {failure.detail !== null ? (
+              <Text style={styles.errorDetail}>{failure.detail}</Text>
+            ) : null}
+          </View>
         ) : null}
 
         <Pressable
@@ -143,7 +151,11 @@ const createStyles = (theme: Theme) =>
       color: theme.text,
       backgroundColor: theme.card,
     },
+    failure: { gap: Spacing.xs },
     error: { color: theme.danger, fontSize: FontSize.body },
+    // The server's own English, for a failure this build cannot name. Small,
+    // under the sentence she can read, so she can forward it to the manager.
+    errorDetail: { color: theme.textSecondary, fontSize: FontSize.caption },
     button: {
       minHeight: MIN_TOUCH_TARGET,
       borderRadius: Radius.md,

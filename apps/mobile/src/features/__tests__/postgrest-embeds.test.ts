@@ -1,6 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { fetchHostSettings } from '@/features/host/api';
+import { fetchProblemMedia, fetchTaskMedia } from '@/features/media/api';
+import { fetchMyProblems, fetchProblem } from '@/features/problems/api';
+import { fetchTaskSteps } from '@/features/steps/api';
+import { fetchMySupplyRequests, fetchSupplyRequest } from '@/features/supplies/api';
+import { fetchFreeTasks, fetchMyTasks, fetchTask } from '@/features/tasks/api';
+
 /**
  * Every embed the phone asks for must name exactly one relationship.
  *
@@ -22,7 +29,7 @@ import { join } from 'node:path';
  * is only allowed where exactly one relationship exists to resolve it.
  */
 
-const recorded: { table: string; select: string }[] = [];
+const mockRecorded: { table: string; select: string }[] = [];
 
 jest.mock('@/lib/supabase', () => {
   const answer = Promise.resolve({ data: [], error: null });
@@ -44,7 +51,7 @@ jest.mock('@/lib/supabase', () => {
         if (property === 'select') {
           return (columns?: unknown) => {
             if (typeof columns === 'string') {
-              recorded.push({ table, select: columns });
+              mockRecorded.push({ table, select: columns });
             }
             return target;
           };
@@ -62,13 +69,6 @@ jest.mock('@/lib/supabase', () => {
     },
   };
 });
-
-import { fetchHostSettings } from '@/features/host/api';
-import { fetchProblemMedia, fetchTaskMedia } from '@/features/media/api';
-import { fetchMyProblems, fetchProblem } from '@/features/problems/api';
-import { fetchTaskSteps } from '@/features/steps/api';
-import { fetchMySupplyRequests, fetchSupplyRequest } from '@/features/supplies/api';
-import { fetchFreeTasks, fetchMyTasks, fetchTask } from '@/features/tasks/api';
 
 const ANY_ID = '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b';
 
@@ -237,17 +237,17 @@ describe('the schema this test reasons about', () => {
 
 describe('every read the cleaner makes', () => {
   test('sends a select string', () => {
-    expect(recorded.length).toBeGreaterThanOrEqual(READERS.length);
+    expect(mockRecorded.length).toBeGreaterThanOrEqual(READERS.length);
   });
 
   test('names one relationship per embed', () => {
-    const complaints = recorded.flatMap(entry => complaintsIn(entry.table, entry.select));
+    const complaints = mockRecorded.flatMap(entry => complaintsIn(entry.table, entry.select));
 
     expect(complaints).toEqual([]);
   });
 
   test('asks for the problem a maintenance task fixes by its foreign key column', () => {
-    const tasks = recorded.filter(entry => entry.table === 'tasks').map(entry => entry.select);
+    const tasks = mockRecorded.filter(entry => entry.table === 'tasks').map(entry => entry.select);
 
     expect(tasks.length).toBeGreaterThan(0);
     for (const select of tasks) {
