@@ -2,6 +2,8 @@
 
 import { useTranslation } from 'react-i18next';
 
+import { PhotoSource } from '@/features/media/photo-source';
+
 import type { Photo } from './api';
 
 interface ProblemPhotosProps {
@@ -27,7 +29,7 @@ export function ProblemPhotos({ photos, emptyText }: ProblemPhotosProps) {
               {t('problems.noPhotos')}
             </span>
           ) : (
-            <a href={photo.url} target="_blank" rel="noreferrer">
+            <a href={photo.url} target="_blank" rel="noreferrer" className="relative block size-24">
               {/* eslint-disable-next-line @next/next/no-img-element -- signed, short-lived storage links */}
               <img
                 src={photo.url}
@@ -35,6 +37,7 @@ export function ProblemPhotos({ photos, emptyText }: ProblemPhotosProps) {
                 className="size-24 rounded-md border object-cover"
                 loading="lazy"
               />
+              <PhotoSource source={photo.source} />
             </a>
           )}
         </li>

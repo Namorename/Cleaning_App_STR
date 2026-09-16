@@ -59,7 +59,7 @@ export interface Photo extends Media {
 export async function fetchProblemPhotos(client: Client, problemId: string): Promise<Photo[]> {
   const { data, error } = await client
     .from('task_media')
-    .select('id, step_id, storage_path, created_at')
+    .select('id, step_id, storage_path, created_at, source')
     .eq('problem_id', problemId)
     .is('deleted_at', null)
     .not('uploaded_at', 'is', null)
@@ -88,7 +88,7 @@ export async function fetchFixTaskSteps(client: Client, taskId: string): Promise
       .order('sort_order', { ascending: true }),
     client
       .from('task_media')
-      .select('id, step_id, storage_path, created_at')
+      .select('id, step_id, storage_path, created_at, source')
       .eq('task_id', taskId)
       .is('deleted_at', null)
       .not('uploaded_at', 'is', null)

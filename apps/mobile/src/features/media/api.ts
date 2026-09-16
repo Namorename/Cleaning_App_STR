@@ -97,6 +97,14 @@ export interface AddMediaVariables extends MediaOwnerRef {
   height: number | null;
   durationSec: number | null;
   takenAt: string;
+  /**
+   * What the app says about where the file came from.
+   *
+   * Left out by a build that does not know — and the server refuses that
+   * outright in a company that has opened its gallery, rather than recording
+   * an undeclared file as if it had been taken on the spot.
+   */
+  source?: 'camera' | 'gallery';
 }
 
 /** Register the file and learn where it has to go. Replayable by id. */
@@ -110,6 +118,7 @@ export function addMedia(variables: AddMediaVariables): Promise<TaskMedia> {
       p_width: variables.width ?? undefined,
       p_height: variables.height ?? undefined,
       p_device_taken_at: variables.takenAt,
+      p_source: variables.source,
     });
   }
   if (variables.stepId === undefined) {
@@ -126,6 +135,7 @@ export function addMedia(variables: AddMediaVariables): Promise<TaskMedia> {
     p_height: variables.height ?? undefined,
     p_duration_sec: variables.durationSec ?? undefined,
     p_device_taken_at: variables.takenAt,
+    p_source: variables.source,
   });
 }
 

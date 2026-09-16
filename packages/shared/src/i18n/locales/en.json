@@ -674,6 +674,10 @@
         "copy": "Copy",
         "copyHint": "Copying replaces the whole checklist that is here."
       }
+    },
+    "media": {
+      "fromGallery": "from gallery",
+      "sourceUnknown": "source not stated"
     }
   },
   "tabs": {
@@ -951,6 +955,8 @@
     "mediaKindMismatch": "This step takes a different kind of media",
     "mediaTypeInvalid": "This file type is not accepted",
     "mediaSizeMissing": "The file was not saved in full. Take it again.",
+    "galleryNotAllowed": "Your company does not allow files from the gallery",
+    "mediaSourceMissing": "Update the app to attach files",
     "mediaTooLarge": "The file is larger than {{limit_mb}} MB",
     "videoDurationMissing": "The length of the video is unknown",
     "videoTooLong": "The video is longer than {{limit}} seconds",

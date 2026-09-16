@@ -15,6 +15,10 @@ const recordSchema = z.object({
   height: z.number().nullable(),
   durationSec: z.number().nullable(),
   takenAt: z.string(),
+  // Defaulted, not required: a record written by the build before this column
+  // said nothing, and nothing must not become a claim of 'camera'. The server
+  // reads an absent source the same way.
+  source: z.enum(['camera', 'gallery']).optional(),
 });
 
 const storeSchema = z.record(z.string(), recordSchema);
@@ -72,6 +76,7 @@ export function toLocalRecord(captured: CapturedMedia): LocalMediaRecord {
     height: captured.height,
     durationSec: captured.durationSec,
     takenAt: captured.takenAt,
+    source: captured.source,
   };
 }
 

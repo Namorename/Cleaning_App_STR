@@ -105,6 +105,7 @@ export default function ProblemRoute() {
       height: record.height,
       durationSec: record.durationSec,
       takenAt: record.takenAt,
+      source: record.source,
     });
   };
 

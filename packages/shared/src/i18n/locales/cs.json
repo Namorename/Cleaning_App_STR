@@ -674,6 +674,10 @@
         "copy": "Zkopírovat",
         "copyHint": "Kopírování nahradí celý stávající checklist."
       }
+    },
+    "media": {
+      "fromGallery": "z galerie",
+      "sourceUnknown": "zdroj neuveden"
     }
   },
   "tabs": {
@@ -951,6 +955,8 @@
     "mediaKindMismatch": "Tento krok přijímá jiný typ souboru",
     "mediaTypeInvalid": "Tento typ souboru není přijímán",
     "mediaSizeMissing": "Soubor se neuložil celý. Pořiďte jej znovu.",
+    "galleryNotAllowed": "Firma nepovoluje soubory z galerie",
+    "mediaSourceMissing": "Aktualizujte aplikaci, abyste mohli přikládat soubory",
     "mediaTooLarge": "Soubor je větší než {{limit_mb}} MB",
     "videoDurationMissing": "Délka videa není známa",
     "videoTooLong": "Video je delší než {{limit}} sekund",

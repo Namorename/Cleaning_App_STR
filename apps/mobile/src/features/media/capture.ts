@@ -15,6 +15,16 @@ import type { MediaKind } from './schema';
 export const MAX_PHOTO_EDGE = 1600;
 export const PHOTO_QUALITY = 0.8;
 
+/**
+ * Where a file came from, as the app declares it to the server.
+ *
+ * Known here and nowhere else: by the time the row is written, a picked file
+ * and a taken one look exactly alike. It used to be dropped at this boundary,
+ * which is why the gallery had to stay shut — a manager could not tell a photo
+ * of the flat from a photo of a photo.
+ */
+export type MediaSource = 'camera' | 'gallery';
+
 /** What the camera produced, ready to be registered and uploaded. */
 export interface CapturedMedia {
   id: string;
@@ -26,6 +36,7 @@ export interface CapturedMedia {
   height: number | null;
   durationSec: number | null;
   takenAt: string;
+  source: MediaSource;
 }
 
 export class CameraDeniedError extends Error {
@@ -136,6 +147,7 @@ export function resizeTarget(
 async function toPhoto(
   asset: ImagePicker.ImagePickerAsset,
   takenAt: string,
+  source: MediaSource,
 ): Promise<CapturedMedia> {
   const compressed = await manipulateAsync(
     asset.uri,
@@ -160,6 +172,7 @@ async function toPhoto(
     height: compressed.height,
     durationSec: null,
     takenAt,
+    source,
   };
 }
 
@@ -184,7 +197,7 @@ export async function capturePhoto(): Promise<CapturedMedia | null> {
     return null;
   }
 
-  return toPhoto(asset, new Date().toISOString());
+  return toPhoto(asset, new Date().toISOString(), 'camera');
 }
 
 /**
@@ -209,7 +222,7 @@ export async function pickPhotoFromGallery(): Promise<CapturedMedia | null> {
     return null;
   }
 
-  return toPhoto(asset, exifTakenAt(asset.exif) ?? new Date().toISOString());
+  return toPhoto(asset, exifTakenAt(asset.exif) ?? new Date().toISOString(), 'gallery');
 }
 
 /** The extension the server will give the file, from what the camera said. */
@@ -238,7 +251,7 @@ export async function captureVideo(maxSeconds: number): Promise<CapturedMedia | 
     return null;
   }
 
-  return toVideo(asset, maxSeconds, new Date().toISOString());
+  return toVideo(asset, maxSeconds, new Date().toISOString(), 'camera');
 }
 
 /** Seconds of a picked recording, or null when the picker could not measure it. */
@@ -253,6 +266,7 @@ async function toVideo(
   asset: ImagePicker.ImagePickerAsset,
   fallbackSeconds: number,
   takenAt: string,
+  source: MediaSource,
 ): Promise<CapturedMedia> {
   const mimeType = asset.mimeType === 'video/quicktime' ? 'video/quicktime' : 'video/mp4';
   const id = randomUUID();
@@ -272,6 +286,7 @@ async function toVideo(
     height: asset.height > 0 ? asset.height : null,
     durationSec: measuredSeconds(asset) ?? fallbackSeconds,
     takenAt,
+    source,
   };
 }
 
@@ -298,5 +313,5 @@ export async function pickVideoFromGallery(maxSeconds: number): Promise<Captured
     throw new VideoTooLongError(maxSeconds);
   }
 
-  return toVideo(asset, maxSeconds, exifTakenAt(asset.exif) ?? new Date().toISOString());
+  return toVideo(asset, maxSeconds, exifTakenAt(asset.exif) ?? new Date().toISOString(), 'gallery');
 }

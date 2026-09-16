@@ -348,7 +348,7 @@ select pg_temp.check('anon reads nothing',
   has_table_privilege('anon', 'public.task_media', 'SELECT'), false);
 select pg_temp.check('anon cannot register media',
   has_function_privilege('anon',
-    'public.add_task_media(uuid, uuid, public.media_kind, text, integer, integer, integer, numeric, timestamptz)',
+    'public.add_task_media(uuid, uuid, public.media_kind, text, integer, integer, integer, numeric, timestamptz, public.media_source)',
     'execute'), false);
 select pg_temp.check('the phone has no say in retention',
   has_function_privilege('authenticated', 'public.task_media_to_purge(integer)', 'execute'), false);

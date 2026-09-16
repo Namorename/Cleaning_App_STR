@@ -811,6 +811,7 @@ export type Database = {
           mime_type: string
           problem_id: string | null
           purged_at: string | null
+          source: Database["public"]["Enums"]["media_source"]
           step_id: string | null
           storage_path: string
           task_id: string | null
@@ -831,6 +832,7 @@ export type Database = {
           mime_type: string
           problem_id?: string | null
           purged_at?: string | null
+          source?: Database["public"]["Enums"]["media_source"]
           step_id?: string | null
           storage_path: string
           task_id?: string | null
@@ -851,6 +853,7 @@ export type Database = {
           mime_type?: string
           problem_id?: string | null
           purged_at?: string | null
+          source?: Database["public"]["Enums"]["media_source"]
           step_id?: string | null
           storage_path?: string
           task_id?: string | null
@@ -1392,82 +1395,166 @@ export type Database = {
       }
     }
     Functions: {
-      add_problem_media: {
-        Args: {
-          p_byte_size: number
-          p_device_taken_at?: string
-          p_height?: number
-          p_id: string
-          p_mime_type: string
-          p_problem_id: string
-          p_width?: number
-        }
-        Returns: {
-          byte_size: number
-          created_at: string
-          created_by: string | null
-          deleted_at: string | null
-          device_taken_at: string | null
-          duration_sec: number | null
-          height: number | null
-          host_id: string
-          id: string
-          kind: Database["public"]["Enums"]["media_kind"]
-          mime_type: string
-          problem_id: string | null
-          purged_at: string | null
-          step_id: string | null
-          storage_path: string
-          task_id: string | null
-          uploaded_at: string | null
-          width: number | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "task_media"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      add_task_media: {
-        Args: {
-          p_byte_size: number
-          p_device_taken_at?: string
-          p_duration_sec?: number
-          p_height?: number
-          p_id: string
-          p_kind: Database["public"]["Enums"]["media_kind"]
-          p_mime_type: string
-          p_step_id: string
-          p_width?: number
-        }
-        Returns: {
-          byte_size: number
-          created_at: string
-          created_by: string | null
-          deleted_at: string | null
-          device_taken_at: string | null
-          duration_sec: number | null
-          height: number | null
-          host_id: string
-          id: string
-          kind: Database["public"]["Enums"]["media_kind"]
-          mime_type: string
-          problem_id: string | null
-          purged_at: string | null
-          step_id: string | null
-          storage_path: string
-          task_id: string | null
-          uploaded_at: string | null
-          width: number | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "task_media"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      add_problem_media:
+        | {
+            Args: {
+              p_byte_size: number
+              p_device_taken_at?: string
+              p_height?: number
+              p_id: string
+              p_mime_type: string
+              p_problem_id: string
+              p_width?: number
+            }
+            Returns: {
+              byte_size: number
+              created_at: string
+              created_by: string | null
+              deleted_at: string | null
+              device_taken_at: string | null
+              duration_sec: number | null
+              height: number | null
+              host_id: string
+              id: string
+              kind: Database["public"]["Enums"]["media_kind"]
+              mime_type: string
+              problem_id: string | null
+              purged_at: string | null
+              source: Database["public"]["Enums"]["media_source"]
+              step_id: string | null
+              storage_path: string
+              task_id: string | null
+              uploaded_at: string | null
+              width: number | null
+            }
+            SetofOptions: {
+              from: "*"
+              to: "task_media"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              p_byte_size: number
+              p_device_taken_at?: string
+              p_height?: number
+              p_id: string
+              p_mime_type: string
+              p_problem_id: string
+              p_source?: Database["public"]["Enums"]["media_source"]
+              p_width?: number
+            }
+            Returns: {
+              byte_size: number
+              created_at: string
+              created_by: string | null
+              deleted_at: string | null
+              device_taken_at: string | null
+              duration_sec: number | null
+              height: number | null
+              host_id: string
+              id: string
+              kind: Database["public"]["Enums"]["media_kind"]
+              mime_type: string
+              problem_id: string | null
+              purged_at: string | null
+              source: Database["public"]["Enums"]["media_source"]
+              step_id: string | null
+              storage_path: string
+              task_id: string | null
+              uploaded_at: string | null
+              width: number | null
+            }
+            SetofOptions: {
+              from: "*"
+              to: "task_media"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+      add_task_media:
+        | {
+            Args: {
+              p_byte_size: number
+              p_device_taken_at?: string
+              p_duration_sec?: number
+              p_height?: number
+              p_id: string
+              p_kind: Database["public"]["Enums"]["media_kind"]
+              p_mime_type: string
+              p_step_id: string
+              p_width?: number
+            }
+            Returns: {
+              byte_size: number
+              created_at: string
+              created_by: string | null
+              deleted_at: string | null
+              device_taken_at: string | null
+              duration_sec: number | null
+              height: number | null
+              host_id: string
+              id: string
+              kind: Database["public"]["Enums"]["media_kind"]
+              mime_type: string
+              problem_id: string | null
+              purged_at: string | null
+              source: Database["public"]["Enums"]["media_source"]
+              step_id: string | null
+              storage_path: string
+              task_id: string | null
+              uploaded_at: string | null
+              width: number | null
+            }
+            SetofOptions: {
+              from: "*"
+              to: "task_media"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              p_byte_size: number
+              p_device_taken_at?: string
+              p_duration_sec?: number
+              p_height?: number
+              p_id: string
+              p_kind: Database["public"]["Enums"]["media_kind"]
+              p_mime_type: string
+              p_source?: Database["public"]["Enums"]["media_source"]
+              p_step_id: string
+              p_width?: number
+            }
+            Returns: {
+              byte_size: number
+              created_at: string
+              created_by: string | null
+              deleted_at: string | null
+              device_taken_at: string | null
+              duration_sec: number | null
+              height: number | null
+              host_id: string
+              id: string
+              kind: Database["public"]["Enums"]["media_kind"]
+              mime_type: string
+              problem_id: string | null
+              purged_at: string | null
+              source: Database["public"]["Enums"]["media_source"]
+              step_id: string | null
+              storage_path: string
+              task_id: string | null
+              uploaded_at: string | null
+              width: number | null
+            }
+            SetofOptions: {
+              from: "*"
+              to: "task_media"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       archive_problem: {
         Args: { p_id: string }
         Returns: {
@@ -1644,6 +1731,7 @@ export type Database = {
           mime_type: string
           problem_id: string | null
           purged_at: string | null
+          source: Database["public"]["Enums"]["media_source"]
           step_id: string | null
           storage_path: string
           task_id: string | null
@@ -1774,6 +1862,7 @@ export type Database = {
           mime_type: string
           problem_id: string | null
           purged_at: string | null
+          source: Database["public"]["Enums"]["media_source"]
           step_id: string | null
           storage_path: string
           task_id: string | null
@@ -2241,6 +2330,7 @@ export type Database = {
           mime_type: string
           problem_id: string | null
           purged_at: string | null
+          source: Database["public"]["Enums"]["media_source"]
           step_id: string | null
           storage_path: string
           task_id: string | null
@@ -2445,6 +2535,7 @@ export type Database = {
       app_role: "cleaner" | "tech" | "manager" | "admin"
       assignment_mode: "auto" | "claim"
       media_kind: "photo" | "video"
+      media_source: "camera" | "gallery" | "unknown"
       problem_priority: "low" | "normal" | "high"
       problem_status:
         | "open"
@@ -2617,6 +2708,7 @@ export const Constants = {
       app_role: ["cleaner", "tech", "manager", "admin"],
       assignment_mode: ["auto", "claim"],
       media_kind: ["photo", "video"],
+      media_source: ["camera", "gallery", "unknown"],
       problem_priority: ["low", "normal", "high"],
       problem_status: [
         "open",

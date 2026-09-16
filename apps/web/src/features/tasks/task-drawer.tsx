@@ -1,5 +1,6 @@
 'use client';
 
+import { PhotoSource } from '@/features/media/photo-source';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -224,7 +225,7 @@ export function TaskDrawer({ task, onClose }: TaskDrawerProps) {
                                 href={photo.url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="block"
+                                className="relative block h-20 w-20"
                               >
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
@@ -232,6 +233,7 @@ export function TaskDrawer({ task, onClose }: TaskDrawerProps) {
                                   alt=""
                                   className="h-20 w-20 rounded-md object-cover"
                                 />
+                                <PhotoSource source={photo.source} />
                               </a>
                             ),
                           )}

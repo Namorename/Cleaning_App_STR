@@ -146,3 +146,13 @@ test('an empty capture reads as a capture failure, not as a rejected file type',
     'steps.captureFailed',
   );
 });
+
+test('a photo taken here declares the camera, which is what lets the gallery open at all', async () => {
+  sizes.set('file:///cache/compressed.jpg', 250_000);
+
+  const photo = await capturePhoto();
+
+  // The declaration is made where it is still known: by the time the row is
+  // written, a picked file and a taken one look exactly alike.
+  expect(photo?.source).toBe('camera');
+});

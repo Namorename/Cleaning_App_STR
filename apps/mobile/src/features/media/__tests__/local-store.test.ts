@@ -17,6 +17,7 @@ const captured = {
   height: 1200,
   durationSec: null,
   takenAt: '2026-09-07T10:00:00+00:00',
+  source: 'camera' as const,
 };
 
 beforeEach(async () => {

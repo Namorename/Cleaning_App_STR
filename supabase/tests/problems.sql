@@ -400,4 +400,52 @@ reset role; reset request.jwt.claims;
 select pg_temp.check('with the stamp gone',
   ((pg_temp.problem(4)).archived_at is null), true);
 
+-- ---------------------------------------------------------------------------
+--  Where the app said the file came from
+-- ---------------------------------------------------------------------------
+--
+-- `source` is a declaration, not a proof — the server cannot see a camera. So
+-- what is checked here is that the declaration is recorded as made, that
+-- silence is never read as "camera", and that the company's gallery switch now
+-- holds on the server instead of merely hiding a button.
+
+select pg_temp.as_maria();
+
+select public.add_problem_media(pg_temp.mid(7), pg_temp.pid(2), 'image/jpeg', 500000);
+select pg_temp.check('a build that says nothing is recorded as unknown, not as camera',
+  (select source::text from public.task_media where id = pg_temp.mid(7)), 'unknown');
+
+select public.add_problem_media(pg_temp.mid(8), pg_temp.pid(2), 'image/jpeg', 500000,
+  null, null, null, 'camera');
+select pg_temp.check('a file taken here says so',
+  (select source::text from public.task_media where id = pg_temp.mid(8)), 'camera');
+
+select pg_temp.check('the gallery is refused while the company keeps it shut',
+  pg_temp.refusal($q$select public.add_problem_media(pg_temp.mid(9), pg_temp.pid(2),
+    'image/jpeg', 500000, null, null, null, 'gallery')$q$),
+  'serverErrors.galleryNotAllowed');
+
+reset role; reset request.jwt.claims;
+update public.hosts set gallery_allowed = true where id = (pg_temp.problem(1)).host_id;
+
+select pg_temp.as_maria();
+select public.add_problem_media(pg_temp.mid(9), pg_temp.pid(2), 'image/jpeg', 500000,
+  null, null, null, 'gallery');
+select pg_temp.check('once the company opens the gallery, a picked file is taken and says so',
+  (select source::text from public.task_media where id = pg_temp.mid(9)), 'gallery');
+
+select pg_temp.check('and a build that says nothing is refused outright, not recorded as unknown',
+  pg_temp.refusal($q$select public.add_problem_media('e8000001-0000-4000-8000-00000000000a'::uuid, pg_temp.pid(2),
+    'image/jpeg', 500000)$q$),
+  'serverErrors.mediaSourceMissing');
+
+-- The idempotent branch returns the row as it stands. If it did not, a second
+-- call would be a way to rewrite 'gallery' into 'camera' — and the whole point
+-- of the column is that nobody can.
+select public.add_problem_media(pg_temp.mid(9), pg_temp.pid(2), 'image/jpeg', 500000,
+  null, null, null, 'camera');
+select pg_temp.check('a repeat call cannot rewrite where a file came from',
+  (select source::text from public.task_media where id = pg_temp.mid(9)), 'gallery');
+reset role; reset request.jwt.claims;
+
 rollback;

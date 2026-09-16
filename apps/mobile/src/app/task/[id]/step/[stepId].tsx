@@ -161,6 +161,7 @@ export default function StepRoute() {
       height: record.height,
       durationSec: record.durationSec,
       takenAt: record.takenAt,
+      source: record.source,
     });
   };
 

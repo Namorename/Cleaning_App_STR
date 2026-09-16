@@ -47,6 +47,7 @@ export async function reportProblemWithPhotos(
       height: photo.height,
       durationSec: photo.durationSec,
       takenAt: photo.takenAt,
+      source: photo.source,
     });
   }
   return problem;

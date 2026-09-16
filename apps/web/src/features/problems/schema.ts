@@ -61,6 +61,14 @@ export const mediaSchema = z.object({
   step_id: z.uuid().nullable(),
   storage_path: z.string(),
   created_at: z.string(),
+  /**
+   * What the app said about where the file came from.
+   *
+   * A declaration, not a proof — the server cannot see a camera — which is
+   * exactly why the manager is shown it rather than left to assume. A build
+   * older than the column said nothing, and that is 'unknown'.
+   */
+  source: z.enum(['camera', 'gallery', 'unknown']).catch('unknown'),
 });
 export type Media = z.infer<typeof mediaSchema>;
 export const mediaListSchema = z.array(mediaSchema);

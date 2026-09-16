@@ -123,6 +123,8 @@ export interface TaskMedia {
   step_id: string | null;
   storage_path: string;
   created_at: string;
+  /** What the app said about where the file came from. A claim, not a proof. */
+  source: 'camera' | 'gallery' | 'unknown';
 }
 
 export interface TaskWork {
@@ -143,7 +145,7 @@ export async function fetchTaskWork(client: Client, taskId: string): Promise<Tas
       .order('sort_order', { ascending: true }),
     client
       .from('task_media')
-      .select('id, step_id, storage_path, created_at')
+      .select('id, step_id, storage_path, created_at, source')
       .eq('task_id', taskId)
       .is('deleted_at', null)
       .not('uploaded_at', 'is', null)
