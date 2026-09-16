@@ -40,7 +40,18 @@ export async function loadLocalMedia(): Promise<LocalMediaStore> {
       return {};
     }
     const parsed = storeSchema.safeParse(JSON.parse(raw));
-    return parsed.success ? parsed.data : {};
+    if (!parsed.success) {
+      return {};
+    }
+    // A capture the old build measured before it had finished moving was
+    // remembered as zero bytes, and the server refuses such a row every time:
+    // the retry button on the step screen could only ever fail again. The
+    // record is dropped instead of kept, so she is offered a fresh shot rather
+    // than a loop. Nothing recoverable is lost — the size is exactly what this
+    // record failed to learn.
+    return Object.fromEntries(
+      Object.entries(parsed.data).filter(([, record]) => record.byteSize > 0),
+    );
   } catch {
     return {};
   }

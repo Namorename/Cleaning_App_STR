@@ -51,6 +51,22 @@ export class VideoTooLongError extends Error {
   }
 }
 
+/**
+ * A capture that measured zero bytes.
+ *
+ * The server refuses such a row, and rightly so — but it cannot say anything
+ * useful about why the phone offered it, so the refusal comes back as a
+ * sentence about file types that has nothing to do with what happened. It is
+ * caught here instead, before anything is registered or uploaded, where the
+ * cause is still in reach: the file was not where it was measured.
+ */
+export class EmptyCaptureError extends Error {
+  override readonly name = 'EmptyCaptureError';
+  constructor(uri: string) {
+    super(`The capture at ${uri} measured zero bytes`);
+  }
+}
+
 async function ensureCameraPermission(): Promise<void> {
   const current = await ImagePicker.getCameraPermissionsAsync();
   if (current.granted) {
@@ -128,14 +144,18 @@ async function toPhoto(
   );
 
   const id = randomUUID();
-  const uri = keepFile(compressed.uri, id, 'jpg');
+  const uri = await keepFile(compressed.uri, id, 'jpg');
+  const byteSize = await fileSize(uri);
+  if (byteSize <= 0) {
+    throw new EmptyCaptureError(uri);
+  }
 
   return {
     id,
     kind: 'photo',
     uri,
     mimeType: 'image/jpeg',
-    byteSize: await fileSize(uri),
+    byteSize,
     width: compressed.width,
     height: compressed.height,
     durationSec: null,
@@ -229,16 +249,20 @@ function measuredSeconds(asset: ImagePicker.ImagePickerAsset): number | null {
     : null;
 }
 
-function toVideo(
+async function toVideo(
   asset: ImagePicker.ImagePickerAsset,
   fallbackSeconds: number,
   takenAt: string,
 ): Promise<CapturedMedia> {
   const mimeType = asset.mimeType === 'video/quicktime' ? 'video/quicktime' : 'video/mp4';
   const id = randomUUID();
-  const uri = keepFile(asset.uri, id, videoExtension(mimeType));
+  const uri = await keepFile(asset.uri, id, videoExtension(mimeType));
+  const byteSize = await fileSize(uri);
+  if (byteSize <= 0) {
+    throw new EmptyCaptureError(uri);
+  }
 
-  return fileSize(uri).then((byteSize) => ({
+  return {
     id,
     kind: 'video' as const,
     uri,
@@ -248,7 +272,7 @@ function toVideo(
     height: asset.height > 0 ? asset.height : null,
     durationSec: measuredSeconds(asset) ?? fallbackSeconds,
     takenAt,
-  }));
+  };
 }
 
 /**

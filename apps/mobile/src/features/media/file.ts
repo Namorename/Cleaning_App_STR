@@ -33,8 +33,20 @@ const MEDIA_DIRECTORY = 'task-media';
  *
  * Returns the new uri. The browser has no such place; its blob URL is
  * returned as it is.
+ *
+ * The move is awaited, and that is the whole point of this function being
+ * async. `File.move()` became a promise in expo-file-system 56 (`moveSync()`
+ * is the synchronous one), and the version that dropped it on the floor left
+ * the caller reading the size of a path the file had not reached yet: on
+ * Android the native move runs on a coroutine, so whether the JS thread or the
+ * rename won was a coin toss. The loser got size 0, the server refused the
+ * row, and the cleaner was told her file was of a kind nobody accepts.
  */
-export function keepFile(uri: string, mediaId: string, extension: string): string {
+export async function keepFile(
+  uri: string,
+  mediaId: string,
+  extension: string,
+): Promise<string> {
   if (Platform.OS === 'web') {
     return uri;
   }
@@ -43,7 +55,7 @@ export function keepFile(uri: string, mediaId: string, extension: string): strin
     directory.create({ intermediates: true, idempotent: true });
   }
   const kept = new File(directory, `${mediaId}.${extension}`);
-  new File(uri).move(kept);
+  await new File(uri).move(kept);
   return kept.uri;
 }
 

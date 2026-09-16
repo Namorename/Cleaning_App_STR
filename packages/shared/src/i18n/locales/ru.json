@@ -944,6 +944,7 @@
     "stepCompleted": "Шаг уже выполнен — верните его в работу, чтобы изменить фото",
     "mediaKindMismatch": "Этот шаг принимает другой тип файла",
     "mediaTypeInvalid": "Такой тип файла не принимается",
+    "mediaSizeMissing": "Файл сохранился не полностью. Снимите ещё раз.",
     "mediaTooLarge": "Файл больше {{limit_mb}} МБ",
     "videoDurationMissing": "Длительность видео неизвестна",
     "videoTooLong": "Видео длиннее {{limit}} секунд",

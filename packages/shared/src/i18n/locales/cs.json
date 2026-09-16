@@ -944,6 +944,7 @@
     "stepCompleted": "Krok je už hotový — vraťte ho do práce, abyste změnili fotky",
     "mediaKindMismatch": "Tento krok přijímá jiný typ souboru",
     "mediaTypeInvalid": "Tento typ souboru není přijímán",
+    "mediaSizeMissing": "Soubor se neuložil celý. Pořiďte jej znovu.",
     "mediaTooLarge": "Soubor je větší než {{limit_mb}} MB",
     "videoDurationMissing": "Délka videa není známa",
     "videoTooLong": "Video je delší než {{limit}} sekund",

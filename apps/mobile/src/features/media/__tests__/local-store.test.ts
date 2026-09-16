@@ -43,3 +43,12 @@ test('reads a corrupted store as empty rather than failing', async () => {
 
   await expect(loadLocalMedia()).resolves.toEqual({});
 });
+
+test('drops a capture the old build remembered as zero bytes', async () => {
+  // What the phone was left holding after a photo was measured before it had
+  // moved: a record the server refuses every time, so retrying it is a loop.
+  await rememberLocalMedia(toLocalRecord({ ...captured, id: 'stuck', byteSize: 0 }));
+  await rememberLocalMedia(toLocalRecord(captured));
+
+  await expect(loadLocalMedia()).resolves.toEqual({ m1: captured });
+});
