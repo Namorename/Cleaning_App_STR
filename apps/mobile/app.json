@@ -21,7 +21,10 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
@@ -57,6 +60,16 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c65748e2-c04f-4413-b454-1d848fb9d68b"
+      }
+    },
+    "owner": "namorenames-team",
+    "updates": {
+      "url": "https://u.expo.dev/c65748e2-c04f-4413-b454-1d848fb9d68b"
     }
   }
 }
