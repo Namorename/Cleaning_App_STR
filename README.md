@@ -210,7 +210,7 @@ Expo Go этот проект не поднимает — нужна своя с
 
 ```bash
 npx eas-cli@latest login                                  # интерактивно, под аккаунтом владельца
-npx eas-cli@latest init                                   # заводит проект в EAS, пишет projectId
+npx eas-cli@latest init --force                           # заводит проект в EAS, пишет projectId
 npx eas-cli@latest update:configure                       # прописывает адрес обновлений
 npx eas-cli@latest build --profile preview --platform android
 ```
@@ -221,8 +221,8 @@ npx eas-cli@latest build --profile preview --platform android
 профиль:
 
 ```bash
-npx eas-cli@latest env:create --scope project --name EXPO_PUBLIC_SUPABASE_URL --value "<url>" --environment preview --environment production --visibility plaintext
-npx eas-cli@latest env:create --scope project --name EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY --value "<key>" --environment preview --environment production --visibility plaintext
+npx eas-cli@latest env:set --scope project --name EXPO_PUBLIC_SUPABASE_URL --value "<url>" --environment preview --environment production --visibility plaintext
+npx eas-cli@latest env:set --scope project --name EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY --value "<key>" --environment preview --environment production --visibility plaintext
 ```
 
 Серверные ключи (`SUPABASE_SECRET_KEY`, Hostaway) в EAS не заводятся никогда —
@@ -230,10 +230,10 @@ npx eas-cli@latest env:create --scope project --name EXPO_PUBLIC_SUPABASE_PUBLIS
 
 ### Обновления по воздуху
 
-`expo-updates` подключён, `runtimeVersion` считается по отпечатку нативной
-части (`policy: fingerprint`). Это значит: правка, которая трогает только
-JavaScript, доезжает до установленных приложений одной командой, без новой
-сборки и без стора.
+`expo-updates` подключён, `runtimeVersion` равна версии приложения
+(`policy: appVersion`, сейчас `1.0.0`). Это значит: правка, которая трогает
+только JavaScript, доезжает до установленных приложений одной командой, без
+новой сборки и без стора.
 
 ```bash
 npx eas-cli@latest update --branch preview     --message "что изменилось"
@@ -241,7 +241,20 @@ npx eas-cli@latest update --branch production  --message "что изменил�
 ```
 
 Ветка обновлений должна совпадать с каналом сборки (`channel` в `eas.json`).
-**Нативное изменение по воздуху не доедет** — новая зависимость с нативным
-кодом, правка `app.json` или обновление SDK меняют отпечаток, и такой сборке
-обновление просто не предложится. Тогда нужна новая сборка: проверить это
-заранее — `npx expo-doctor` и `npx expo install --check`.
+
+**Нативное изменение по воздуху не доедет**, и версия среды об этом сама не
+догадается — её выбираем мы. Правило: тронули нативную часть — подняли
+`version` в `app.json` и собрали заново. Нативная часть — это новая
+зависимость с нативным кодом, обновление SDK, правка `plugins`,
+`permissions`, идентификаторов приложения или иконок. Не поднять версию —
+значит предложить установленному приложению обновление, к которому его
+нативная часть не готова. Проверить заранее: `npx expo-doctor` и
+`npx expo install --check`.
+
+Отпечаток нативной части (`policy: fingerprint`) здесь не работает. EAS
+считает его на сервере после `prebuild`, когда каталог `android` уже
+сгенерирован, а eas-cli — на чистом дереве до него: в серверном отпечатке
+появляется источник `bareNativeDir`, а файлы плагинов конфига исчезают.
+Отпечатки расходятся всегда, и сборка падает на фазе
+`CONFIGURE_EXPO_UPDATES`. Открытый дефект EAS —
+https://github.com/expo/eas-cli/issues/4137.
