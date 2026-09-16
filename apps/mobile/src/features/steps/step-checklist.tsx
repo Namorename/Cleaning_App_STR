@@ -2,8 +2,8 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import { useLanguage } from '@/hooks/use-language';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
-import { currentLanguage } from '@/i18n';
 
 import { localizedTitle, type ChecklistModuleView } from './schema';
 
@@ -28,9 +28,7 @@ interface StepChecklistProps {
 export function StepChecklist({ modules, checked, onToggle, disabled }: StepChecklistProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
-  // useTranslation subscribes this component to a change of language, so
-  // reading the active one here re-runs when it changes.
-  const language = currentLanguage();
+  const language = useLanguage();
 
   if (modules.length === 0) {
     return <Text style={styles.empty}>{t('steps.checklistEmpty')}</Text>;

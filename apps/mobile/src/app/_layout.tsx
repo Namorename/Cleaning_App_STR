@@ -9,6 +9,7 @@ import '@/i18n';
 
 import { Colors } from '@/constants/theme';
 import { SessionProvider } from '@/features/auth/session';
+import { ProfileLanguageGate } from '@/features/profile/language-gate';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { createAppQueryClient, persistOptions } from '@/lib/query-client';
 
@@ -65,22 +66,29 @@ export default function RootLayout() {
       }}
     >
       <SessionProvider>
-        <SafeAreaProvider>
-          <ThemeProvider
-            value={colorScheme === 'dark' ? navigationThemes.dark : navigationThemes.light}
-          >
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen
-                name="task/[id]/index"
-                options={{ headerShown: true, headerBackTitle: t('common.back') }}
-              />
-              <Stack.Screen
-                name="task/[id]/step/[stepId]"
-                options={{ headerShown: true, headerBackTitle: t('common.back') }}
-              />
-            </Stack>
-          </ThemeProvider>
-        </SafeAreaProvider>
+        {/*
+          Inside the session, because the language belongs to the person who
+          signed in; above everything that draws text, because switching it
+          redraws the lot.
+        */}
+        <ProfileLanguageGate>
+          <SafeAreaProvider>
+            <ThemeProvider
+              value={colorScheme === 'dark' ? navigationThemes.dark : navigationThemes.light}
+            >
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen
+                  name="task/[id]/index"
+                  options={{ headerShown: true, headerBackTitle: t('common.back') }}
+                />
+                <Stack.Screen
+                  name="task/[id]/step/[stepId]"
+                  options={{ headerShown: true, headerBackTitle: t('common.back') }}
+                />
+              </Stack>
+            </ThemeProvider>
+          </SafeAreaProvider>
+        </ProfileLanguageGate>
       </SessionProvider>
     </PersistQueryClientProvider>
   );

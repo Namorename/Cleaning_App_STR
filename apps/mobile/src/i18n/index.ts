@@ -16,7 +16,15 @@ import { initReactI18next } from 'react-i18next';
 // what is the phone's own: the device locale and the i18next instance.
 export { FALLBACK_LANGUAGE, INTL_LOCALES, SUPPORTED_LANGUAGES, resolveLanguage, type Language };
 
-function deviceLanguage(): Language {
+/**
+ * The language to read before anyone has signed in.
+ *
+ * A guess, and the only sensible one: the profile that actually decides is on
+ * the server, behind a login. Once it arrives, `applyLanguage` takes over —
+ * and this is what the app goes back to when she signs out, so the next person
+ * on a shared phone does not inherit her language.
+ */
+export function deviceLanguage(): Language {
   try {
     return resolveLanguage(getLocales().map((locale) => locale.languageCode));
   } catch {
@@ -40,6 +48,22 @@ void i18n.use(initReactI18next).init({
 /** The active language, always one the app has a file for. */
 export function currentLanguage(): Language {
   return isSupportedLanguage(i18n.language) ? i18n.language : FALLBACK_LANGUAGE;
+}
+
+/**
+ * Switch the whole app to a language.
+ *
+ * Every component that shows translated text is subscribed through
+ * `useTranslation`, so the redraw is the event's own doing and nothing here
+ * has to walk the tree. The guard matters more than it looks: i18next emits
+ * `languageChanged` even when the language did not change, and that is a
+ * re-render of every screen for nothing.
+ */
+export async function applyLanguage(next: Language): Promise<void> {
+  if (i18n.language === next) {
+    return;
+  }
+  await i18n.changeLanguage(next);
 }
 
 export { i18n };

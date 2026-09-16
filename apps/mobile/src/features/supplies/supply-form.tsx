@@ -11,8 +11,8 @@ import {
 } from 'react-native';
 
 import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import { useLanguage } from '@/hooks/use-language';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
-import { currentLanguage } from '@/i18n';
 import { serverErrorText } from '@/lib/server-error';
 
 import { CatalogPicker } from './catalog-picker';
@@ -68,7 +68,7 @@ export function SupplyForm({
 }: SupplyFormProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
-  const language = currentLanguage();
+  const language = useLanguage();
   const issue = supplyDraftIssue(draft);
   const canSubmit = issue === null && !isSubmitting;
   const failure = error === null ? null : serverErrorText(error);
