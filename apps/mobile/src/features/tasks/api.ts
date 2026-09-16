@@ -19,11 +19,19 @@ import { cleaningTaskListSchema, earliestClaimableDate, type CleaningTask } from
 // `properties!parent_id` walks the relation backwards and returns `[]`, and
 // the constraint name `properties_parent_id_fkey` is not in the schema cache
 // as a hint at all. Verified against the hosted project on 2026-09-14.
+//
+// `problem:problem_id(...)` is hinted for a different reason: tasks and
+// problems are joined TWICE — `tasks.problem_id` is the report a maintenance
+// task fixes, `problems.task_id` is the cleaning a problem was found during.
+// Asked by table name, the server cannot tell which one is meant and refuses
+// the whole query with "Could not embed because more than one relationship was
+// found", leaving the cleaner with an empty screen. The same pair is hinted
+// from the other side in `features/problems/api.ts`.
 const TASK_COLUMNS =
   'id, type, status, priority, scheduled_date, due_at, assignee_id, property_id, ' +
   'time_from, time_to, guests_count, started_at, completed_at, is_parallel, ' +
   'property:properties(name, address, hostaway_unit_id, cleaner_notes, parent:parent_id(name)), ' +
-  'problem:problems(id, title, priority)';
+  'problem:problem_id(id, title, priority)';
 
 // A technician's day is maintenance; a cleaner's is cleaning. Both are "mine".
 const MY_TASK_TYPES = ['cleaning', 'maintenance'] as const;
