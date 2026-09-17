@@ -36,7 +36,7 @@ export const cleaningTaskSchema = z.object({
       // Defaulted for a row cached before the column was asked for.
       address: z.string().nullable().default(null),
       // Access codes and quirks of the flat, written by the office for her.
-      cleaner_notes: z.string().nullable().default(null),
+      effective_cleaner_notes: z.string().nullable().default(null),
       // Set on a room of a multi-unit listing, and only there. It is what
       // separates a room from a part of a combined listing — both are children
       // under `parent_id`, and only the first is a piece of its parent.

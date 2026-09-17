@@ -1674,6 +1674,10 @@ export type Database = {
       current_host_id: { Args: never; Returns: string }
       default_host_id: { Args: never; Returns: string }
       delete_supply_request: { Args: { p_id: string }; Returns: boolean }
+      effective_cleaner_notes: {
+        Args: { p: Database["public"]["Tables"]["properties"]["Row"] }
+        Returns: string
+      }
       expire_stale_tasks: { Args: never; Returns: Json }
       generate_cleaning_tasks: {
         Args: { from_date: string; to_date: string }

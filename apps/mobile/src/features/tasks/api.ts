@@ -9,6 +9,19 @@ import { cleaningTaskListSchema, earliestClaimableDate, type CleaningTask } from
 // id means nothing to her. Notes ride along: the code for the key box is the
 // first thing she needs at the door.
 //
+// `effective_cleaner_notes` is NOT a column. It is a function of the row
+// (`20260917150000_room_cleaner_notes.sql`) that PostgREST serves as one, and
+// it answers with the listing's note when the row is a room carrying none of
+// its own — which, since cleanings moved onto rooms, is where the note is
+// actually written. Asking for the raw `cleaner_notes` here is what made "the
+// key is in box 4325" invisible to the person standing at that box.
+//
+// Type generation models it as a function rather than a column, so `tsc` does
+// not vouch for the spelling and — as the ambiguous embed below taught us — a
+// bad select in this codebase fails silently into zod. Verified against a
+// running PostgREST instead: a room with a blank note answers with its
+// listing's, and a misspelled field answers 42703.
+//
 // Since the cleanings moved onto rooms, the joined name of a multi-unit
 // listing's cleaning is the room's — "1 - 2109" — which names no house. The
 // house is the parent row and the street is `address`, so both are asked for
@@ -30,7 +43,7 @@ import { cleaningTaskListSchema, earliestClaimableDate, type CleaningTask } from
 const TASK_COLUMNS =
   'id, type, status, priority, scheduled_date, due_at, assignee_id, property_id, ' +
   'time_from, time_to, guests_count, started_at, completed_at, is_parallel, ' +
-  'property:properties(name, address, hostaway_unit_id, cleaner_notes, parent:parent_id(name)), ' +
+  'property:properties(name, address, hostaway_unit_id, effective_cleaner_notes, parent:parent_id(name)), ' +
   'problem:problem_id(id, title, priority)';
 
 // A technician's day is maintenance; a cleaner's is cleaning. Both are "mine".

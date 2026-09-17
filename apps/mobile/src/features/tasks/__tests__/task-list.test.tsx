@@ -24,7 +24,7 @@ function task(): CleaningTask {
       name: 'CZ - Nadrazni Apt 6',
       address: 'Nádražní 6',
       hostaway_unit_id: null,
-      cleaner_notes: null,
+      effective_cleaner_notes: null,
       parent: null,
     },
     time_from: '10:00:00',

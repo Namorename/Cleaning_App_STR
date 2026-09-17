@@ -73,7 +73,7 @@ export function TaskDetail({
   // Blank as good as absent: a listing synced without a street would otherwise
   // leave an empty line where the address belongs.
   const address = place.address === null || place.address.trim() === '' ? null : place.address;
-  const notes = task.property?.cleaner_notes ?? null;
+  const notes = task.property?.effective_cleaner_notes ?? null;
   const showSteps =
     steps !== undefined &&
     steps.length > 0 &&

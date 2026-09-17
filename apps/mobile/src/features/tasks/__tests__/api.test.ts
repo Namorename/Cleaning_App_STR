@@ -24,7 +24,7 @@ const row = {
   due_at: '2026-11-10T13:00:00+00:00',
   assignee_id: '7c9e6679-7425-40de-944b-e07fc1f90ae7',
   property_id: 412432,
-  property: { name: 'CZ - Nadrazni Apt 6', cleaner_notes: null },
+  property: { name: 'CZ - Nadrazni Apt 6', effective_cleaner_notes: null },
   time_from: '10:00:00',
   time_to: '15:00:00',
   guests_count: null,

@@ -69,7 +69,7 @@ describe('cleaningTaskSchema', () => {
     due_at: null,
     assignee_id: null,
     property_id: 412432,
-    property: { name: 'CZ - Nadrazni Apt 6', cleaner_notes: null },
+    property: { name: 'CZ - Nadrazni Apt 6', effective_cleaner_notes: null },
     time_from: '10:00:00',
     time_to: '15:00:00',
     guests_count: null,
@@ -99,7 +99,7 @@ describe('cleaningTaskSchema', () => {
         name: '1 - 2109',
         address: 'Vinohradská 2109/10',
         hostaway_unit_id: 18007,
-        cleaner_notes: null,
+        effective_cleaner_notes: null,
         parent: { name: 'CZ - Vinohradska Royal Apt 1.3.5.7' },
       },
     });
@@ -112,7 +112,7 @@ describe('cleaningTaskSchema', () => {
     // A row written to disk by the previous release has neither field.
     const parsed = cleaningTaskSchema.parse({
       ...row,
-      property: { name: 'CZ - Nadrazni Apt 6', cleaner_notes: null },
+      property: { name: 'CZ - Nadrazni Apt 6', effective_cleaner_notes: null },
     });
 
     expect(parsed.property?.parent).toBeNull();
@@ -133,7 +133,7 @@ function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
       name: 'CZ - Nadrazni Apt 6',
       address: 'Nádražní 6',
       hostaway_unit_id: null,
-      cleaner_notes: null,
+      effective_cleaner_notes: null,
       parent: null,
     },
     time_from: '10:00:00',

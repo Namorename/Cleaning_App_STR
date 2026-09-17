@@ -425,4 +425,53 @@ select pg_temp.as_boss();
 select pg_temp.check('and the room is still where it was',
   pg_temp.status_of(1000000064266), 'active');
 
+-- ---------- the note at the door ----------
+-- "The key is in box 4325" is written on the listing, and the cleaning stands
+-- on the room. Without inheritance the note never reaches the person holding
+-- the phone in the doorway.
+reset role; reset request.jwt.claims;
+update public.properties set cleaner_notes = 'key in box 4325' where id = 900001901;
+update public.properties set cleaner_notes = 'this room has its own lock'
+  where id = 1000000064267;
+-- A cleared textarea leaves this behind; it must not shadow the listing.
+update public.properties set cleaner_notes = '   ' where id = 1000000064266;
+update public.properties set cleaner_notes = 'ordinary flat note' where id = 900001902;
+
+select pg_temp.as_boss();
+
+select pg_temp.check('a room with nothing of its own reads the listing note',
+  (select public.effective_cleaner_notes(p) from public.properties p
+    where p.id = 1000000064266), 'key in box 4325');
+
+select pg_temp.check('a room that has its own note keeps it',
+  (select public.effective_cleaner_notes(p) from public.properties p
+    where p.id = 1000000064267), 'this room has its own lock');
+
+select pg_temp.check('an ordinary flat reads its own and looks no higher',
+  (select public.effective_cleaner_notes(p) from public.properties p
+    where p.id = 900001902), 'ordinary flat note');
+
+select pg_temp.check('the listing itself reads the note it carries',
+  (select public.effective_cleaner_notes(p) from public.properties p
+    where p.id = 900001901), 'key in box 4325');
+
+-- Invoker, so the parent row is read under the caller's own policies. A
+-- cleaner may read every listing her company owns, so the note arrives; if
+-- that policy ever narrows, this is the check that goes red rather than the
+-- note quietly going blank at the door.
+select pg_temp.as_maria();
+select pg_temp.check('and the cleaner at the door gets the same note',
+  (select public.effective_cleaner_notes(p) from public.properties p
+    where p.id = 1000000064266), 'key in box 4325');
+
+-- Clearing the listing's note clears it in the rooms too: an inherited note is
+-- read through, never copied, so there is no stale copy to go on showing.
+reset role; reset request.jwt.claims;
+update public.properties set cleaner_notes = null where id = 900001901;
+
+select pg_temp.as_boss();
+select pg_temp.check('a cleared listing note leaves the room with nothing',
+  (select public.effective_cleaner_notes(p) from public.properties p
+    where p.id = 1000000064266), null::text);
+
 rollback;

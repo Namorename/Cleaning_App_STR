@@ -13,7 +13,7 @@ const ROOM = {
   name: '1 - 2109',
   address: 'Vinohradská 2109/10',
   hostaway_unit_id: 18007,
-  cleaner_notes: null,
+  effective_cleaner_notes: null,
   parent: { name: 'CZ - Vinohradska Royal Apt 1.3.5.7' },
 };
 
@@ -30,7 +30,7 @@ function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
       name: 'CZ - Nadrazni Apt 6',
       address: 'Nádražní 6',
       hostaway_unit_id: null,
-      cleaner_notes: null,
+      effective_cleaner_notes: null,
       parent: null,
     },
     time_from: '10:00:00',
@@ -137,7 +137,7 @@ describe('taskPlace', () => {
           name: 'Žitná 12 ap. 313',
           address: 'Žitná 12',
           hostaway_unit_id: null,
-          cleaner_notes: null,
+          effective_cleaner_notes: null,
           parent: { name: 'Žitná 12 combined' },
         },
       }),
@@ -154,7 +154,7 @@ describe('taskPlace', () => {
     // degrade to the listing name rather than throw in the middle of a list.
     const cached = {
       ...task(),
-      property: { name: 'CZ - Nadrazni Apt 6', cleaner_notes: null },
+      property: { name: 'CZ - Nadrazni Apt 6', effective_cleaner_notes: null },
     } as unknown as CleaningTask;
 
     const place = taskPlace(cached);

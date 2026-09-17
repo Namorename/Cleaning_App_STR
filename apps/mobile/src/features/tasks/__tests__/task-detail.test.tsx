@@ -22,7 +22,7 @@ function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
       name: 'CZ - Nadrazni Apt 6',
       address: 'Nádražní 6',
       hostaway_unit_id: null,
-      cleaner_notes: 'Ключ в ящике 4325',
+      effective_cleaner_notes: 'Ключ в ящике 4325',
       parent: null,
     },
     time_from: '10:00:00',
@@ -62,7 +62,7 @@ test('says which house, which room in it, and the street to drive to', async () 
       name: '1 - 2109',
       address: 'Vinohradská 2109/10',
       hostaway_unit_id: 18007,
-      cleaner_notes: null,
+      effective_cleaner_notes: null,
       parent: { name: 'CZ - Vinohradska Royal Apt 1.3.5.7' },
     },
   });
