@@ -99,7 +99,12 @@ describe('listings that belong together', () => {
 });
 
 describe('cleanings at stake', () => {
-  const rows = [{ property_id: 1 }, { property_id: 1 }, { property_id: 2 }];
+  // The server has already folded each room's cleanings into its listing, so a
+  // listing arrives as one row carrying its total — not as one row per task.
+  const rows = [
+    { property_id: 1, cleanings: 2 },
+    { property_id: 2, cleanings: 1 },
+  ];
 
   test('counted per listing', () => {
     const counts = openCleaningsBy(rows);
@@ -107,6 +112,13 @@ describe('cleanings at stake', () => {
     expect(counts.get(1)).toBe(2);
     expect(counts.get(2)).toBe(1);
     expect(counts.get(3)).toBeUndefined();
+  });
+
+  test('a listing the server did not mention has no cleanings, not a crash', () => {
+    const counts = openCleaningsBy([]);
+
+    expect(counts.get(1)).toBeUndefined();
+    expect(openCleaningsOf(counts, [1, 2])).toBe(0);
   });
 
   test('and added up for a bulk action', () => {

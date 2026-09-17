@@ -15,6 +15,7 @@ import {
   type ChecklistModule,
   type InfoDraft,
   type MaintenanceTask,
+  type OpenCleanings,
   type Property,
   type PropertyDetail,
   type PropertyProblem,
@@ -27,8 +28,6 @@ export type Client = SupabaseClient<Database>;
 
 const PROPERTY_COLUMNS = 'id, name, address, city, status, parent_id, bedrooms, max_guests';
 
-/** The statuses a cleaning is in while nobody has started it yet. */
-const NOT_STARTED = ['unassigned', 'assigned'] as const;
 
 /**
  * Every listing the company has, archived ones included.
@@ -119,17 +118,19 @@ export async function savePropertyInfo(
  * One read rather than one per row: the registry shows the number against
  * every listing and adds them up for a bulk action, so it needs the lot
  * anyway. Row security keeps it to the manager's own company.
+ *
+ * Counted by the server, not here. A cleaning stands on a room, a room is a
+ * property of its own, and grouping the rows by `property_id` in TypeScript
+ * showed zero against every multi-unit listing while the confirmation dialog
+ * beside it — which asks the server — showed the truth. The fold belongs
+ * where `property_open_cleanings` already keeps it.
  */
-export async function fetchOpenCleanings(client: Client): Promise<{ property_id: number }[]> {
-  const { data, error } = await client
-    .from('tasks')
-    .select('property_id')
-    .eq('type', 'cleaning')
-    .in('status', NOT_STARTED);
+export async function fetchOpenCleanings(client: Client): Promise<OpenCleanings[]> {
+  const { data, error } = await client.rpc('open_cleanings_by_listing');
   if (error) {
     throw error;
   }
-  return (data ?? []) as { property_id: number }[];
+  return (data ?? []) as OpenCleanings[];
 }
 
 /**

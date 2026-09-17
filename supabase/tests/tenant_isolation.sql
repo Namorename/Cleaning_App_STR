@@ -77,16 +77,16 @@ select pg_temp.check('операционные таблицы несут host_id
    where table_schema = 'public' and column_name = 'host_id'
      and table_name in ('profiles','properties','reservations','tasks','property_cleaners')), 5);
 
--- ---------- функция с правами владельца клиенту не выдаётся ----------
--- `reservation_cleaning_window` — security definer и по `host_id` не
--- фильтрует: она отвечает про любую бронь по её id, включая чужую компанию.
--- Клиент её не зовёт — единственный вызывающий, `generate_cleaning_tasks`,
--- сам security definer и дотягивается до неё правами владельца, — поэтому у
--- клиентской роли права нет и быть не должно.
-select pg_temp.check('окно уборки не вызывается клиентской ролью',
+-- ---------- an owner-privileged function is not handed to the client ----------
+-- reservation_cleaning_window is security definer and filters by no host_id:
+-- it answers about any booking by its id, another company's included. No
+-- client reaches it -- its only caller, generate_cleaning_tasks, is security
+-- definer itself and gets there with the owner's privileges -- so the client
+-- role holds no grant on it and must not.
+select pg_temp.check('the cleaning window is not callable by a client role',
   has_function_privilege('authenticated',
     'public.reservation_cleaning_window(bigint, bigint)', 'execute'), false);
-select pg_temp.check('окно уборки остаётся у service_role',
+select pg_temp.check('the cleaning window stays with service_role',
   has_function_privilege('service_role',
     'public.reservation_cleaning_window(bigint, bigint)', 'execute'), true);
 

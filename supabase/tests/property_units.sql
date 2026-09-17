@@ -221,6 +221,23 @@ select pg_temp.check('open cleanings on a listing count its rooms',
 select pg_temp.check('and on a room, only that room',
   public.property_open_cleanings(1000000064266), 1);
 
+-- The same question asked for the whole company at once. The registry prints
+-- this number beside every listing and the confirmation prints the one above;
+-- a manager reads them side by side, so they have to be the same rule.
+select pg_temp.check('the company-wide tally folds rooms into their listing',
+  (select c.cleanings from public.open_cleanings_by_listing() c
+    where c.property_id = 900001901), 2);
+
+select pg_temp.check('and leaves an ordinary flat counting only its own',
+  (select c.cleanings from public.open_cleanings_by_listing() c
+    where c.property_id = 900001902), 1);
+
+-- A room never gets a line of its own: the registry has no row to put it on,
+-- and a number with nowhere to go is a number that silently goes missing.
+select pg_temp.check('a room has no line of its own in the tally',
+  (select count(*)::int from public.open_cleanings_by_listing() c
+    where c.property_id = 1000000064266), 0);
+
 select pg_temp.check('archiving a listing full of rooms needs the second yes',
   pg_temp.refusal_hint($stmt$
     select public.set_property_status(900001901, 'archived')

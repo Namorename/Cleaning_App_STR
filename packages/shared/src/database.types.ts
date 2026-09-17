@@ -1686,6 +1686,13 @@ export type Database = {
         Args: { error_text?: string; event_ids: number[]; new_status: string }
         Returns: number
       }
+      open_cleanings_by_listing: {
+        Args: never
+        Returns: {
+          cleanings: number
+          property_id: number
+        }[]
+      }
       open_task_step: {
         Args: { p_step_id: string }
         Returns: {

@@ -285,13 +285,23 @@ export function parentOf(properties: Property[], property: Property): Property |
 //  Taking listings out of service
 // ---------------------------------------------------------------------------
 
-/** Cleanings nobody has started, by listing — what taking one out would sweep. */
-export function openCleaningsBy(rows: { property_id: number }[]): Map<number, number> {
-  const counts = new Map<number, number>();
-  for (const row of rows) {
-    counts.set(row.property_id, (counts.get(row.property_id) ?? 0) + 1);
-  }
-  return counts;
+/** One listing's open cleanings, as `open_cleanings_by_listing` counted them. */
+export interface OpenCleanings {
+  property_id: number;
+  cleanings: number;
+}
+
+/**
+ * Cleanings nobody has started, by listing — what taking one out would sweep.
+ *
+ * The rows arrive already folded: a cleaning standing in a room is counted
+ * against the room's listing, because that is the row the registry has to put
+ * the number on. Counting the rows here instead is what printed `0` against
+ * all nine multi-unit listings while the confirmation dialog, which asks the
+ * server, printed the truth.
+ */
+export function openCleaningsBy(rows: readonly OpenCleanings[]): Map<number, number> {
+  return new Map(rows.map((row) => [row.property_id, row.cleanings]));
 }
 
 export function openCleaningsOf(counts: Map<number, number>, ids: readonly number[]): number {
