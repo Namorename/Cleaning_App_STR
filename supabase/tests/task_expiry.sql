@@ -189,6 +189,18 @@ end $$;
 select pg_temp.check('the reopened task is still expired',
   pg_temp.status('last week, taken and never finished'), 'expired');
 
+-- A room of the ordinary listing, with a cleaning that already expired in it.
+-- The room's own name identifies a door and no house, so the review has to
+-- carry the house separately or the manager reads a list of bare identifiers.
+-- The id is not free: properties_unit_id_is_derived demands
+-- 1000000000000 + hostaway_unit_id.
+insert into public.properties (id, name, timezone, parent_id, hostaway_unit_id,
+                               check_in_time, check_out_time)
+values (1000000060001, 'Unit 1 - 4120', 'UTC', 900000602, 60001, '15:00', '10:00');
+
+insert into public.tasks (property_id, type, status, scheduled_date, notes)
+values (1000000060001, 'cleaning', 'expired', current_date - 1, 'expired in a room');
+
 -- ---------- what the manager sees ----------
 set local role authenticated;
 set local request.jwt.claims =
@@ -197,6 +209,18 @@ set local request.jwt.claims =
 select pg_temp.check('unfinished work does not disappear from the manager view',
   (select count(*)::int from public.expired_tasks_review
    where property_id between 900000601 and 900000604), 4);
+
+select pg_temp.check('a room row names the house it stands in',
+  (select parent_name from public.expired_tasks_review
+   where task_notes = 'expired in a room'), 'Ordinary listing');
+select pg_temp.check('and says it is a room rather than a listing of its own',
+  (select unit_id from public.expired_tasks_review
+   where task_notes = 'expired in a room'), 60001::bigint);
+-- An ordinary listing keeps its own name and nothing above it: parent_name is
+-- the house of a ROOM, not whatever parent_id happens to point at.
+select pg_temp.check('an ordinary listing names no house above it',
+  (select parent_name from public.expired_tasks_review
+   where task_notes = 'last week, taken and never finished'), null::text);
 select pg_temp.check('the manager sees who was holding the unfinished cleaning',
   (select assignee_name from public.expired_tasks_review
    where task_notes = 'last week, taken and never finished'), 'Maria');

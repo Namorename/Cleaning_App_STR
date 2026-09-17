@@ -1330,12 +1330,14 @@ export type Database = {
           due_at: string | null
           expired_at: string | null
           id: string | null
+          parent_name: string | null
           priority: number | null
           property_id: number | null
           property_name: string | null
           reservation_id: number | null
           scheduled_date: string | null
           task_notes: string | null
+          unit_id: number | null
         }
         Relationships: [
           {
