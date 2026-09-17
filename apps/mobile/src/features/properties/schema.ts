@@ -14,7 +14,13 @@ export const reportPropertySchema = z.object({
   id: z.number(),
   name: z.string(),
   parent_id: z.number().nullable(),
-  hostaway_unit_id: z.string().nullable(),
+  // `bigint`, and PostgREST serialises it as a JSON number — not a string.
+  // Declared as a string this field threw on every room row, and because the
+  // list is parsed with `z.array`, one room took the whole picker down with
+  // it: the cleaner saw an error instead of her places on exactly the nine
+  // listings that have rooms. Nothing caught it — the fixtures in the test are
+  // typed objects that never reach `parse`.
+  hostaway_unit_id: z.number().nullable(),
   parent_name: z.string().nullable(),
 });
 

@@ -17,7 +17,7 @@ const place = (id: number, name: string, parentName: string | null = null): Repo
   id,
   name,
   parent_id: parentName === null ? null : 1,
-  hostaway_unit_id: parentName === null ? null : String(id),
+  hostaway_unit_id: parentName === null ? null : id,
   parent_name: parentName,
 });
 
