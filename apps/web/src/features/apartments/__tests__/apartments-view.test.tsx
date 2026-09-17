@@ -22,8 +22,14 @@ const repaired = property({ id: 102, name: 'Anděl 4', status: 'maintenance' });
 const gone = property({ id: 103, name: 'Karlín 7', status: 'archived' });
 const unit = property({ id: 104, name: 'Room A', parent_id: 101 });
 
-/** Two cleanings stand on Vinohrady 12 and none anywhere else. */
-const openCleanings = [{ property_id: 101 }, { property_id: 101 }];
+/**
+ * Two cleanings stand on Vinohrady 12 and none anywhere else.
+ *
+ * One row per listing carrying its total, not one row per task: the server
+ * counts them now and folds a room's cleanings into the listing it belongs to
+ * (`open_cleanings_by_listing`). The row shape is what the RPC returns.
+ */
+const openCleanings = [{ property_id: 101, cleanings: 2 }];
 
 const setStatus = vi.fn();
 const sync = vi.fn();
@@ -132,6 +138,18 @@ describe('linked listings', () => {
     renderView();
 
     expect(within(rowFor('Vinohrady 12')).getByText(/Состоит из юнитов/)).toBeInTheDocument();
+  });
+
+  // The column is the half of the pair a manager reads first. The other half
+  // is the number in the confirmation dialog, which asks the server fresh; the
+  // two disagreed on this screen until the fold moved onto the server, so the
+  // count is asserted here rather than left to the dialog's test.
+  test('the cleanings column shows the number the server counted', () => {
+    renderView();
+
+    expect(within(rowFor('Vinohrady 12')).getByText('2')).toBeInTheDocument();
+    // A listing the server did not mention reads zero, not blank.
+    expect(within(rowFor('Room A')).getByText('0')).toBeInTheDocument();
   });
 });
 
