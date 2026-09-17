@@ -131,7 +131,7 @@ describe('SuppliesView', () => {
     render(<SuppliesView />);
 
     const card = screen.getByText('Karlín 3').closest('[data-slot="card"]') as HTMLElement;
-    expect(within(card).getByTitle('Уборщица')).toHaveTextContent('Maria Test');
+    expect(within(card).getByTitle('Горничная')).toHaveTextContent('Maria Test');
 
     // Everything in the fixture was created on 2026-09-09.
     await userEvent.type(screen.getByLabelText('Дата с'), '2026-09-10');
@@ -188,7 +188,7 @@ describe('SuppliesView', () => {
     await userEvent.click(screen.getByRole('tab', { name: /Все/ }));
     const card = screen.getByText('Швабра').closest('[data-slot="card"]') as HTMLElement;
     expect(card).toHaveTextContent('Причина отказа: Есть на складе');
-    expect(card).toHaveTextContent('Уборщица видит отказ и причину в приложении');
+    expect(card).toHaveTextContent('Горничная видит отказ и причину в приложении');
     expect(within(card).queryByRole('button', { name: 'Принять' })).not.toBeInTheDocument();
   });
 

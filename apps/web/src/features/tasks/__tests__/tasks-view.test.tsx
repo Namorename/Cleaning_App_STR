@@ -198,7 +198,7 @@ describe('TasksView', () => {
 
     // The executor is named, with the icon of what she does beside her.
     const card = screen.getByText('Генеральная уборка').closest('[data-slot="card"]') as HTMLElement;
-    expect(within(card).getByTitle('Уборщица')).toHaveTextContent('Maria Test');
+    expect(within(card).getByTitle('Горничная')).toHaveTextContent('Maria Test');
 
     await userEvent.click(screen.getByRole('tab', { name: /Ближайшие/ }));
     expect(screen.getByText('Уборка завтра')).toBeInTheDocument();

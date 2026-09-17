@@ -230,15 +230,15 @@ describe('what the company owns is edited here', () => {
   test('the notes are filled in from the row', () => {
     renderCard();
 
-    expect(screen.getByLabelText('Заметка для уборщицы')).toHaveValue('Ключ у консьержа');
+    expect(screen.getByLabelText('Заметка для горничной')).toHaveValue('Ключ у консьержа');
     expect(screen.getByLabelText('Внутренняя заметка')).toHaveValue('Владелец придирчив');
   });
 
   test('saving sends the three columns the sync does not touch', async () => {
     renderCard();
 
-    await userEvent.clear(screen.getByLabelText('Заметка для уборщицы'));
-    await userEvent.type(screen.getByLabelText('Заметка для уборщицы'), 'Код 1234');
+    await userEvent.clear(screen.getByLabelText('Заметка для горничной'));
+    await userEvent.type(screen.getByLabelText('Заметка для горничной'), 'Код 1234');
     await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
 
     expect(saveInfo).toHaveBeenCalledWith({
