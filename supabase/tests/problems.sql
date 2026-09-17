@@ -448,4 +448,35 @@ select pg_temp.check('a repeat call cannot rewrite where a file came from',
   (select source::text from public.task_media where id = pg_temp.mid(9)), 'gallery');
 reset role; reset request.jwt.claims;
 
+-- ---------------------------------------------------------------------------
+--  A repair taken away takes the report with it
+-- ---------------------------------------------------------------------------
+--
+-- `tasks_one_fix_per_problem` lets a cancelled attempt be replaced, so after a
+-- second try BOTH technicians point at the problem — the one doing the work and
+-- the one whose attempt was cancelled. Until 20260918110000 the second kept
+-- reading the report for ever. He must not, and the conversation that hangs off
+-- the report (F29) is why it stopped being a small thing.
+
+select pg_temp.as_tech();
+select pg_temp.check('the technician holding the repair reads the report',
+  (select count(*)::int from public.problems where id = pg_temp.pid(1)), 1);
+
+reset role; reset request.jwt.claims;
+update public.tasks set status = 'cancelled' where problem_id = pg_temp.pid(1);
+
+select pg_temp.as_tech();
+select pg_temp.check('a cancelled attempt is not a membership card',
+  (select count(*)::int from public.problems where id = pg_temp.pid(1)), 0);
+
+-- 'done' is deliberately not in the exclusion list: whoever finished the repair
+-- is still the person to ask what was actually done.
+reset role; reset request.jwt.claims;
+update public.tasks set status = 'done' where problem_id = pg_temp.pid(1);
+
+select pg_temp.as_tech();
+select pg_temp.check('but a finished one still is',
+  (select count(*)::int from public.problems where id = pg_temp.pid(1)), 1);
+reset role; reset request.jwt.claims;
+
 rollback;
