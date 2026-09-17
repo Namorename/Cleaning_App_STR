@@ -1,0 +1,521 @@
+-- The conversation. Run: npm run test:rls
+-- Runs inside a transaction and rolls back — the database stays clean.
+--
+-- What is being protected: what people say to each other about flats guests are
+-- staying in. A thread is readable by whoever may read its SUBJECT and by
+-- nobody else, a company never sees another company's word, and every line is
+-- written through an idempotent RPC so a lost connection replays instead of
+-- duplicating.
+--
+-- The audience is deliberately the subject's audience and not the assignee's.
+-- A cleaner covers for a colleague without asking the office, and a manager
+-- writing on an UNCLAIMED task must have a reader — otherwise the main case
+-- the feature exists for has nobody in it.
+--
+-- Fixture ids live in the 9000020xx range.
+begin;
+
+insert into public.hosts (id, name) values
+  ('c7000000-0000-4000-8000-00000000000c', 'Host C'),
+  ('d7000000-0000-4000-8000-00000000000d', 'Host D');
+
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        created_at, updated_at, raw_user_meta_data, raw_app_meta_data)
+values
+  ('c7000001-0000-4000-8000-000000000001','00000000-0000-0000-0000-000000000000',
+   'authenticated','authenticated','boss.c@test.local','x',now(),now(),
+   '{"full_name":"Boss C"}'::jsonb, '{"role":"manager"}'::jsonb),
+  ('c7000002-0000-4000-8000-000000000002','00000000-0000-0000-0000-000000000000',
+   'authenticated','authenticated','anna.c@test.local','x',now(),now(),
+   '{"full_name":"Anna"}'::jsonb, '{"role":"cleaner"}'::jsonb),
+  ('c7000003-0000-4000-8000-000000000003','00000000-0000-0000-0000-000000000000',
+   'authenticated','authenticated','bara.c@test.local','x',now(),now(),
+   '{"full_name":"Bara"}'::jsonb, '{"role":"cleaner"}'::jsonb),
+  ('c7000004-0000-4000-8000-000000000004','00000000-0000-0000-0000-000000000000',
+   'authenticated','authenticated','tomas.c@test.local','x',now(),now(),
+   '{"full_name":"Tomas"}'::jsonb, '{"role":"tech"}'::jsonb),
+  ('c7000005-0000-4000-8000-000000000005','00000000-0000-0000-0000-000000000000',
+   'authenticated','authenticated','gone.c@test.local','x',now(),now(),
+   '{"full_name":"Gone"}'::jsonb, '{"role":"cleaner"}'::jsonb),
+  ('c7000006-0000-4000-8000-000000000006','00000000-0000-0000-0000-000000000000',
+   'authenticated','authenticated','petr.c@test.local','x',now(),now(),
+   '{"full_name":"Petr"}'::jsonb, '{"role":"tech"}'::jsonb),
+  ('d7000001-0000-4000-8000-000000000001','00000000-0000-0000-0000-000000000000',
+   'authenticated','authenticated','anna.d@test.local','x',now(),now(),
+   '{"full_name":"Anna D"}'::jsonb, '{"role":"cleaner"}'::jsonb);
+
+update public.profiles set host_id = 'c7000000-0000-4000-8000-00000000000c'
+where id in ('c7000001-0000-4000-8000-000000000001',
+             'c7000002-0000-4000-8000-000000000002',
+             'c7000003-0000-4000-8000-000000000003',
+             'c7000004-0000-4000-8000-000000000004',
+             'c7000005-0000-4000-8000-000000000005',
+             'c7000006-0000-4000-8000-000000000006');
+update public.profiles set host_id = 'd7000000-0000-4000-8000-00000000000d'
+where id = 'd7000001-0000-4000-8000-000000000001';
+
+insert into public.properties (id, host_id, name, timezone, check_in_time, check_out_time) values
+  (900002001, 'c7000000-0000-4000-8000-00000000000c', 'Anna flat', 'UTC', '15:00', '10:00'),
+  (900002002, 'c7000000-0000-4000-8000-00000000000c', 'Other flat', 'UTC', '15:00', '10:00'),
+  (900002003, 'd7000000-0000-4000-8000-00000000000d', 'Host D flat', 'UTC', '15:00', '10:00');
+
+-- Anna works the first flat; Bara works the second. Neither is linked to the
+-- other, which is what makes "a colleague's listing" testable.
+insert into public.property_cleaners (host_id, property_id, cleaner_id, mode) values
+  ('c7000000-0000-4000-8000-00000000000c', 900002001,
+   'c7000002-0000-4000-8000-000000000002', 'claim'),
+  ('c7000000-0000-4000-8000-00000000000c', 900002002,
+   'c7000003-0000-4000-8000-000000000003', 'claim');
+
+insert into public.tasks (id, host_id, property_id, type, status, scheduled_date, assignee_id, notes)
+values
+  -- Assigned to Anna, on her own listing.
+  ('e7000001-0000-4000-8000-000000000001', 'c7000000-0000-4000-8000-00000000000c',
+   900002001, 'cleaning', 'assigned', current_date, 'c7000002-0000-4000-8000-000000000002', 'annas'),
+  -- Free, on Anna's listing: this is the one a manager writes on in advance.
+  ('e7000001-0000-4000-8000-000000000002', 'c7000000-0000-4000-8000-00000000000c',
+   900002001, 'cleaning', 'unassigned', current_date, null, 'free'),
+  -- Beyond the horizon (seven days) — invisible to a cleaner, visible to the office.
+  ('e7000001-0000-4000-8000-000000000003', 'c7000000-0000-4000-8000-00000000000c',
+   900002001, 'cleaning', 'unassigned', current_date + 30, null, 'far'),
+  -- A manual repair with no problem behind it: it keeps a thread of its own.
+  ('e7000001-0000-4000-8000-000000000004', 'c7000000-0000-4000-8000-00000000000c',
+   900002001, 'maintenance', 'assigned', current_date, 'c7000004-0000-4000-8000-000000000004', 'manual fix'),
+  -- Another company's work.
+  ('e7000001-0000-4000-8000-000000000009', 'd7000000-0000-4000-8000-00000000000d',
+   900002003, 'cleaning', 'assigned', current_date, 'd7000001-0000-4000-8000-000000000001', 'theirs');
+
+insert into public.problems (id, host_id, property_id, reported_by, title) values
+  ('f7000001-0000-4000-8000-000000000001', 'c7000000-0000-4000-8000-00000000000c',
+   900002001, 'c7000002-0000-4000-8000-000000000002', 'Tap leaks'),
+  ('f7000001-0000-4000-8000-000000000002', 'c7000000-0000-4000-8000-00000000000c',
+   900002002, 'c7000003-0000-4000-8000-000000000003', 'Window stuck');
+
+-- The repair of the first problem, held by the technician.
+insert into public.tasks (id, host_id, property_id, type, status, scheduled_date, assignee_id, problem_id)
+values ('e7000001-0000-4000-8000-000000000005', 'c7000000-0000-4000-8000-00000000000c',
+        900002001, 'maintenance', 'assigned', current_date,
+        'c7000004-0000-4000-8000-000000000004', 'f7000001-0000-4000-8000-000000000001');
+
+create or replace function pg_temp.check(label text, got anyelement, want anyelement)
+returns void language plpgsql as $fn$
+begin
+  if got is distinct from want then
+    raise exception 'FAIL % — got %, want %', label, got, want;
+  end if;
+  raise notice 'ok  %', label;
+end $fn$;
+
+create or replace function pg_temp.as_user(sub text) returns void language sql as $fn$
+  select set_config('role', 'authenticated', true),
+         set_config('request.jwt.claims',
+           '{"sub":"' || sub || '","role":"authenticated"}', true)
+$fn$;
+
+create or replace function pg_temp.as_boss()  returns void language sql as $fn$
+  select pg_temp.as_user('c7000001-0000-4000-8000-000000000001') $fn$;
+create or replace function pg_temp.as_anna()  returns void language sql as $fn$
+  select pg_temp.as_user('c7000002-0000-4000-8000-000000000002') $fn$;
+create or replace function pg_temp.as_bara()  returns void language sql as $fn$
+  select pg_temp.as_user('c7000003-0000-4000-8000-000000000003') $fn$;
+create or replace function pg_temp.as_tomas() returns void language sql as $fn$
+  select pg_temp.as_user('c7000004-0000-4000-8000-000000000004') $fn$;
+create or replace function pg_temp.as_petr()  returns void language sql as $fn$
+  select pg_temp.as_user('c7000006-0000-4000-8000-000000000006') $fn$;
+create or replace function pg_temp.as_gone()  returns void language sql as $fn$
+  select pg_temp.as_user('c7000005-0000-4000-8000-000000000005') $fn$;
+create or replace function pg_temp.as_other_host() returns void language sql as $fn$
+  select pg_temp.as_user('d7000001-0000-4000-8000-000000000001') $fn$;
+
+/** The i18n key a refusal carries, or 'no refusal' when the statement went through. */
+create or replace function pg_temp.refusal_hint(stmt text) returns text
+language plpgsql as $fn$
+declare v_hint text;
+begin
+  execute stmt;
+  return 'no refusal';
+exception when others then
+  get stacked diagnostics v_hint = PG_EXCEPTION_HINT;
+  return coalesce(v_hint, '(no hint)');
+end $fn$;
+
+/** The SQLSTATE a refusal carries, or 'no refusal' when the statement went through. */
+create or replace function pg_temp.refusal_state(stmt text) returns text
+language plpgsql as $fn$
+begin
+  execute stmt;
+  return 'no refusal';
+exception when others then
+  return SQLSTATE;
+end $fn$;
+
+/** How many threads this caller can see at all. */
+create or replace function pg_temp.threads_seen() returns integer language sql as $fn$
+  select count(*)::int from public.chat_threads
+$fn$;
+
+/** How many messages this caller can see at all. */
+create or replace function pg_temp.messages_seen() returns integer language sql as $fn$
+  select count(*)::int from public.chat_messages
+$fn$;
+
+-- ---------------------------------------------------------------------------
+--  Nothing is written by hand
+-- ---------------------------------------------------------------------------
+
+select pg_temp.as_anna();
+
+-- 42501 is "insufficient privilege": the client role holds SELECT and nothing
+-- else on all three tables, so the refusal happens before any policy is even
+-- consulted. Everything a person says goes through send_message.
+select pg_temp.check('a cleaner cannot insert a message directly',
+  pg_temp.refusal_state($stmt$
+    insert into public.chat_messages (id, thread_id, author_role, body)
+    values (gen_random_uuid(), gen_random_uuid(), 'cleaner', 'smuggled')
+  $stmt$), '42501');
+
+select pg_temp.check('nor open a thread directly',
+  pg_temp.refusal_state($stmt$
+    insert into public.chat_threads (kind, task_id)
+    values ('task', 'e7000001-0000-4000-8000-000000000001')
+  $stmt$), '42501');
+
+select pg_temp.check('nor move a read marker by hand',
+  pg_temp.refusal_state($stmt$
+    update public.chat_reads set last_read_at = now()
+  $stmt$), '42501');
+
+-- ---------------------------------------------------------------------------
+--  A thread is about exactly one thing
+-- ---------------------------------------------------------------------------
+
+select pg_temp.check('a thread with no subject is refused',
+  pg_temp.refusal_hint($stmt$ select public.open_thread() $stmt$),
+  'serverErrors.threadSubjectInvalid');
+
+select pg_temp.check('a thread with two subjects is refused',
+  pg_temp.refusal_hint($stmt$
+    select public.open_thread('e7000001-0000-4000-8000-000000000001',
+                              'f7000001-0000-4000-8000-000000000001')
+  $stmt$), 'serverErrors.threadSubjectInvalid');
+
+-- ---------------------------------------------------------------------------
+--  Saying something
+-- ---------------------------------------------------------------------------
+
+select pg_temp.as_boss();
+
+select public.send_message(
+  '17000001-0000-4000-8000-000000000001', 'Ключ в ящике 4325',
+  'e7000001-0000-4000-8000-000000000001');
+
+select pg_temp.check('the message carries the author name as it was',
+  (select author_name from public.chat_messages
+    where id = '17000001-0000-4000-8000-000000000001'), 'Boss C');
+
+select pg_temp.check('and the role as it was',
+  (select author_role::text from public.chat_messages
+    where id = '17000001-0000-4000-8000-000000000001'), 'manager');
+
+select pg_temp.check('the thread counted it',
+  (select message_count from public.chat_threads th
+    where th.task_id = 'e7000001-0000-4000-8000-000000000001'), 1);
+
+-- A replay after a lost connection is the same row, not a second one.
+select public.send_message(
+  '17000001-0000-4000-8000-000000000001', 'Ключ в ящике 4325',
+  'e7000001-0000-4000-8000-000000000001');
+
+select pg_temp.check('a replay does not say it twice',
+  (select message_count from public.chat_threads th
+    where th.task_id = 'e7000001-0000-4000-8000-000000000001'), 1);
+
+select pg_temp.check('an empty message is refused',
+  pg_temp.refusal_hint($stmt$
+    select public.send_message('17000001-0000-4000-8000-00000000000e', '   ',
+                               'e7000001-0000-4000-8000-000000000001')
+  $stmt$), 'serverErrors.messageEmpty');
+
+select pg_temp.check('more photos than allowed is refused',
+  pg_temp.refusal_hint($stmt$
+    select public.send_message('17000001-0000-4000-8000-00000000000f', '',
+                               'e7000001-0000-4000-8000-000000000001',
+                               null, null, 9::smallint)
+  $stmt$), 'serverErrors.messagePhotoLimit');
+
+-- A message with no words but declared photos is legal: the row comes first
+-- and the files follow, exactly as a problem report's photos do.
+select public.send_message('17000001-0000-4000-8000-000000000002', '',
+                           'e7000001-0000-4000-8000-000000000001',
+                           null, null, 2::smallint);
+
+select pg_temp.check('a photo-only message is allowed when it says so',
+  (select media_expected from public.chat_messages
+    where id = '17000001-0000-4000-8000-000000000002'), 2::smallint);
+
+-- ---------------------------------------------------------------------------
+--  Who reads a work thread
+-- ---------------------------------------------------------------------------
+
+select pg_temp.as_anna();
+
+select pg_temp.check('the assignee reads what the office wrote on her task',
+  (select count(*)::int from public.chat_messages
+    where id = '17000001-0000-4000-8000-000000000001'), 1);
+
+select pg_temp.as_bara();
+
+select pg_temp.check('a cleaner of another listing does not',
+  (select count(*)::int from public.chat_messages
+    where id = '17000001-0000-4000-8000-000000000001'), 0);
+
+-- The case the wide audience exists for: the office writes on work nobody has
+-- taken, and whoever COULD take it is the one who has to read it.
+select pg_temp.as_boss();
+select public.send_message('17000001-0000-4000-8000-000000000003',
+                           'Сантехник придёт в 14:00',
+                           'e7000001-0000-4000-8000-000000000002');
+
+select pg_temp.as_anna();
+select pg_temp.check('a note left on free work has a reader before it is taken',
+  (select count(*)::int from public.chat_messages
+    where id = '17000001-0000-4000-8000-000000000003'), 1);
+
+select pg_temp.as_bara();
+select pg_temp.check('and only among those who could take it',
+  (select count(*)::int from public.chat_messages
+    where id = '17000001-0000-4000-8000-000000000003'), 0);
+
+-- The horizon hides the far future from the field and not from the office.
+select pg_temp.as_boss();
+select public.send_message('17000001-0000-4000-8000-000000000004', 'Через месяц',
+                           'e7000001-0000-4000-8000-000000000003');
+
+select pg_temp.as_anna();
+select pg_temp.check('work past the horizon keeps its conversation out of sight',
+  (select count(*)::int from public.chat_messages
+    where id = '17000001-0000-4000-8000-000000000004'), 0);
+
+select pg_temp.as_boss();
+select pg_temp.check('while the office reads it',
+  (select count(*)::int from public.chat_messages
+    where id = '17000001-0000-4000-8000-000000000004'), 1);
+
+-- ---------------------------------------------------------------------------
+--  The breakage and its repair share one conversation
+-- ---------------------------------------------------------------------------
+
+select pg_temp.as_anna();
+select public.send_message('17000001-0000-4000-8000-000000000005',
+                           'Капает под мойкой',
+                           null, 'f7000001-0000-4000-8000-000000000001');
+
+-- The technician opens HIS task and must land in the report's thread, with
+-- what the cleaner already said waiting in it.
+select pg_temp.as_tomas();
+
+select pg_temp.check('the repair draws the breakage''s thread, not one of its own',
+  (select (public.open_thread('e7000001-0000-4000-8000-000000000005')).problem_id),
+  'f7000001-0000-4000-8000-000000000001'::uuid);
+
+select pg_temp.check('and the technician reads what she wrote there',
+  (select count(*)::int from public.chat_messages
+    where id = '17000001-0000-4000-8000-000000000005'), 1);
+
+-- A repair with no breakage behind it keeps a thread of its own.
+select pg_temp.check('a manual repair has a thread of its own',
+  (select (public.open_thread('e7000001-0000-4000-8000-000000000004')).task_id),
+  'e7000001-0000-4000-8000-000000000004'::uuid);
+
+-- A cancelled attempt must not take the conversation with it.
+reset role; reset request.jwt.claims;
+update public.tasks set status = 'cancelled', assignee_id = null
+where id = 'e7000001-0000-4000-8000-000000000005';
+insert into public.tasks (id, host_id, property_id, type, status, scheduled_date, assignee_id, problem_id)
+values ('e7000001-0000-4000-8000-000000000006', 'c7000000-0000-4000-8000-00000000000c',
+        900002001, 'maintenance', 'assigned', current_date,
+        'c7000006-0000-4000-8000-000000000006', 'f7000001-0000-4000-8000-000000000001');
+
+select pg_temp.as_petr();
+select pg_temp.check('the second technician arrives in the same conversation',
+  (select count(*)::int from public.chat_messages
+    where id = '17000001-0000-4000-8000-000000000005'), 1);
+
+-- And the first one leaves it. A cancelled attempt is not a membership card:
+-- without this he would keep reading — and, now that there is a chat, writing —
+-- for ever. The report itself goes with it (20260918110000).
+select pg_temp.as_tomas();
+select pg_temp.check('the technician taken off the job loses the conversation',
+  (select count(*)::int from public.chat_messages
+    where id = '17000001-0000-4000-8000-000000000005'), 0);
+select pg_temp.check('and the report it hangs off',
+  (select count(*)::int from public.problems
+    where id = 'f7000001-0000-4000-8000-000000000001'), 0);
+select pg_temp.check('nor can he say anything more in it',
+  pg_temp.refusal_hint($stmt$
+    select public.send_message('17000001-0000-4000-8000-00000000000b', 'ещё раз',
+                               null, 'f7000001-0000-4000-8000-000000000001')
+  $stmt$), 'serverErrors.threadNotFound');
+
+select pg_temp.as_bara();
+select pg_temp.check('another cleaner does not read the breakage thread',
+  (select count(*)::int from public.chat_messages
+    where id = '17000001-0000-4000-8000-000000000005'), 0);
+
+-- Archiving a report takes it away from its reporter, and the conversation
+-- goes with it: the thread is readable through the subject and nothing else.
+reset role; reset request.jwt.claims;
+update public.problems set archived_at = now()
+where id = 'f7000001-0000-4000-8000-000000000001';
+
+select pg_temp.as_anna();
+select pg_temp.check('an archived report takes its conversation from the reporter',
+  (select count(*)::int from public.chat_messages
+    where id = '17000001-0000-4000-8000-000000000005'), 0);
+
+reset role; reset request.jwt.claims;
+update public.problems set archived_at = null
+where id = 'f7000001-0000-4000-8000-000000000001';
+
+-- ---------------------------------------------------------------------------
+--  The company inbox
+-- ---------------------------------------------------------------------------
+
+select pg_temp.as_anna();
+select public.send_message('17000001-0000-4000-8000-000000000006',
+                           'Заболела, не выйду',
+                           null, null, 'c7000002-0000-4000-8000-000000000002');
+
+select pg_temp.check('a cleaner has exactly one direct thread',
+  (select count(*)::int from public.chat_threads
+    where profile_id = 'c7000002-0000-4000-8000-000000000002'), 1);
+
+select pg_temp.as_bara();
+select pg_temp.check('and a colleague cannot read it',
+  (select count(*)::int from public.chat_messages
+    where id = '17000001-0000-4000-8000-000000000006'), 0);
+
+select pg_temp.check('nor write into it',
+  pg_temp.refusal_hint($stmt$
+    select public.send_message('17000001-0000-4000-8000-00000000000a', 'подслушала',
+                               null, null, 'c7000002-0000-4000-8000-000000000002')
+  $stmt$), 'serverErrors.threadNotFound');
+
+-- The counterpart is the office, not a person: any manager of the host reads
+-- it and answers in it, so a holiday loses nothing.
+select pg_temp.as_boss();
+select pg_temp.check('the office reads it',
+  (select count(*)::int from public.chat_messages
+    where id = '17000001-0000-4000-8000-000000000006'), 1);
+
+select public.send_message('17000001-0000-4000-8000-000000000007', 'Поняла, выздоравливай',
+                           null, null, 'c7000002-0000-4000-8000-000000000002');
+
+select pg_temp.check('and answers in the same one',
+  (select count(*)::int from public.chat_threads
+    where profile_id = 'c7000002-0000-4000-8000-000000000002'), 1);
+
+-- ---------------------------------------------------------------------------
+--  Unread is a marker on the reader
+-- ---------------------------------------------------------------------------
+
+-- Sending is reading: without this the sequence me -> her -> me loses her
+-- message behind my own, because the last author is me again.
+select pg_temp.check('sending moves my own marker',
+  (select last_read_at is not null from public.chat_reads
+    where profile_id = 'c7000001-0000-4000-8000-000000000001'
+      and thread_id = (select id from public.chat_threads
+                        where profile_id = 'c7000002-0000-4000-8000-000000000002')),
+  true);
+
+select pg_temp.as_anna();
+
+select pg_temp.check('the marker does not walk backwards',
+  (select (public.mark_thread_read(
+             (select id from public.chat_threads
+               where profile_id = 'c7000002-0000-4000-8000-000000000002'),
+             timestamptz '2000-01-01')).last_read_at
+          > timestamptz '2001-01-01'), true);
+
+select pg_temp.check('and cannot be set into the future',
+  (select (public.mark_thread_read(
+             (select id from public.chat_threads
+               where profile_id = 'c7000002-0000-4000-8000-000000000002'),
+             now() + interval '1 day')).last_read_at <= now()), true);
+
+select pg_temp.as_bara();
+select pg_temp.check('a thread she does not take part in cannot be marked read',
+  pg_temp.refusal_hint($stmt$
+    select public.mark_thread_read(
+      (select th.id from public.chat_threads th
+        where th.profile_id = 'c7000002-0000-4000-8000-000000000002'))
+  $stmt$), 'serverErrors.threadNotFound');
+
+select pg_temp.as_anna();
+select pg_temp.check('a cleaner reads her own marker and no one else''s',
+  (select count(*)::int from public.chat_reads
+    where profile_id <> 'c7000002-0000-4000-8000-000000000002'), 0);
+
+-- ---------------------------------------------------------------------------
+--  The edge of the company, and of employment
+-- ---------------------------------------------------------------------------
+
+select pg_temp.as_other_host();
+
+select pg_temp.check('another company sees no threads at all', pg_temp.threads_seen(), 0);
+select pg_temp.check('nor any message',                        pg_temp.messages_seen(), 0);
+select pg_temp.check('nor any read marker',
+  (select count(*)::int from public.chat_reads), 0);
+
+select pg_temp.check('and cannot open a thread on our work',
+  pg_temp.refusal_hint($stmt$
+    select public.open_thread('e7000001-0000-4000-8000-000000000001')
+  $stmt$), 'serverErrors.threadNotFound');
+
+-- The office talks to the people who go to the flats. A thread whose subject
+-- were a manager would be read by every OTHER manager of the host, which is a
+-- group chat and not an inbox; manager to manager is out of scope.
+select pg_temp.as_boss();
+select pg_temp.check('the inbox is for field staff, not for the office itself',
+  pg_temp.refusal_hint($stmt$
+    select public.open_thread(null, null, 'c7000001-0000-4000-8000-000000000001')
+  $stmt$), 'serverErrors.threadNotFound');
+
+-- A repair scheduled past the horizon is hidden from its own assignee by the
+-- task policies, and the problems policy inherits that through its exists().
+-- The predicate is a definer and would see the hidden row unless it says so.
+reset role; reset request.jwt.claims;
+insert into public.tasks (id, host_id, property_id, type, status, scheduled_date, assignee_id, problem_id)
+values ('e7000001-0000-4000-8000-000000000007', 'c7000000-0000-4000-8000-00000000000c',
+        900002002, 'maintenance', 'assigned', current_date + 30,
+        'c7000004-0000-4000-8000-000000000004', 'f7000001-0000-4000-8000-000000000002');
+
+select pg_temp.as_tomas();
+select pg_temp.check('a repair past the horizon carries no conversation either',
+  public.chat_participates('problem', null, 'f7000001-0000-4000-8000-000000000002', null),
+  false);
+
+-- An unknown kind, or a caller with no active profile, must answer NO. `if not
+-- <null>` does not fire, so a null here would walk straight through the gates.
+select pg_temp.check('the predicate never answers null',
+  public.chat_participates('task', null, null, null), false);
+
+-- Dismissing somebody must not delete the company's own record of what was
+-- said to her. She loses the inbox; the office keeps it.
+select pg_temp.as_gone();
+select public.send_message('17000001-0000-4000-8000-000000000008', 'Ухожу',
+                           null, null, 'c7000005-0000-4000-8000-000000000005');
+
+reset role; reset request.jwt.claims;
+update public.profiles set is_active = false
+where id = 'c7000005-0000-4000-8000-000000000005';
+
+select pg_temp.as_gone();
+select pg_temp.check('somebody no longer employed sees nothing', pg_temp.threads_seen(), 0);
+
+select pg_temp.as_boss();
+select pg_temp.check('but the office keeps her inbox',
+  (select count(*)::int from public.chat_messages
+    where id = '17000001-0000-4000-8000-000000000008'), 1);
+
+rollback;

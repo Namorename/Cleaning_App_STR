@@ -34,6 +34,13 @@ end $$;
 -- company row are read-only. The view is read-only by nature.
 create temp table wanted (relation text primary key, privs text not null);
 insert into wanted values
+  -- Everything a person says is written through send_message, so the
+  -- tables themselves are read-only to a client. A thread is opened by
+  -- open_thread and its tail is kept by a trigger; a read marker moves
+  -- only forward, and only through mark_thread_read.
+  ('chat_threads',         'SELECT'),
+  ('chat_messages',        'SELECT'),
+  ('chat_reads',           'SELECT'),
   ('profiles',             'DELETE,INSERT,SELECT,UPDATE'),
   ('properties',           'DELETE,INSERT,SELECT,UPDATE'),
   ('reservations',         'DELETE,INSERT,SELECT,UPDATE'),

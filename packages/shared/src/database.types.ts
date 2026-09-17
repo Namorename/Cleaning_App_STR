@@ -34,6 +34,192 @@ export type Database = {
   }
   public: {
     Tables: {
+      chat_messages: {
+        Row: {
+          author_id: string | null
+          author_name: string | null
+          author_role: Database["public"]["Enums"]["app_role"]
+          body: string
+          created_at: string
+          host_id: string
+          id: string
+          media_expected: number
+          thread_id: string
+        }
+        Insert: {
+          author_id?: string | null
+          author_name?: string | null
+          author_role: Database["public"]["Enums"]["app_role"]
+          body?: string
+          created_at?: string
+          host_id?: string
+          id: string
+          media_expected?: number
+          thread_id: string
+        }
+        Update: {
+          author_id?: string | null
+          author_name?: string | null
+          author_role?: Database["public"]["Enums"]["app_role"]
+          body?: string
+          created_at?: string
+          host_id?: string
+          id?: string
+          media_expected?: number
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "chat_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_reads: {
+        Row: {
+          host_id: string
+          last_read_at: string
+          profile_id: string
+          thread_id: string
+          updated_at: string
+        }
+        Insert: {
+          host_id?: string
+          last_read_at: string
+          profile_id: string
+          thread_id: string
+          updated_at?: string
+        }
+        Update: {
+          host_id?: string
+          last_read_at?: string
+          profile_id?: string
+          thread_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_reads_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_reads_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_reads_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "chat_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_threads: {
+        Row: {
+          created_at: string
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["chat_thread_kind"]
+          last_author_id: string | null
+          last_message_at: string | null
+          message_count: number
+          problem_id: string | null
+          profile_id: string | null
+          task_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          host_id?: string
+          id?: string
+          kind: Database["public"]["Enums"]["chat_thread_kind"]
+          last_author_id?: string | null
+          last_message_at?: string | null
+          message_count?: number
+          problem_id?: string | null
+          profile_id?: string | null
+          task_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          host_id?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["chat_thread_kind"]
+          last_author_id?: string | null
+          last_message_at?: string | null
+          message_count?: number
+          problem_id?: string | null
+          profile_id?: string | null
+          task_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_threads_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_threads_last_author_id_fkey"
+            columns: ["last_author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_threads_problem_id_fkey"
+            columns: ["problem_id"]
+            isOneToOne: false
+            referencedRelation: "problems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_threads_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_threads_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "expired_tasks_review"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_threads_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_items: {
         Row: {
           created_at: string
@@ -1587,6 +1773,17 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      chat_body_max_length: { Args: never; Returns: number }
+      chat_max_photos: { Args: never; Returns: number }
+      chat_participates: {
+        Args: {
+          p_kind: Database["public"]["Enums"]["chat_thread_kind"]
+          p_problem_id: string
+          p_profile_id: string
+          p_task_id: string
+        }
+        Returns: boolean
+      }
       claim_webhook_events: {
         Args: { batch_size?: number; max_attempts?: number }
         Returns: Json
@@ -1688,6 +1885,22 @@ export type Database = {
       is_localized_text: { Args: { p_value: Json }; Returns: boolean }
       is_manager: { Args: never; Returns: boolean }
       mark_task_media_purged: { Args: { p_ids: string[] }; Returns: number }
+      mark_thread_read: {
+        Args: { p_thread_id: string; p_up_to?: string }
+        Returns: {
+          host_id: string
+          last_read_at: string
+          profile_id: string
+          thread_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "chat_reads"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       mark_webhook_events: {
         Args: { error_text?: string; event_ids: number[]; new_status: string }
         Returns: number
@@ -1733,6 +1946,31 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "task_steps"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      open_thread: {
+        Args: {
+          p_problem_id?: string
+          p_profile_id?: string
+          p_task_id?: string
+        }
+        Returns: {
+          created_at: string
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["chat_thread_kind"]
+          last_author_id: string | null
+          last_message_at: string | null
+          message_count: number
+          problem_id: string | null
+          profile_id: string | null
+          task_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "chat_threads"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -2171,6 +2409,33 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      send_message: {
+        Args: {
+          p_body: string
+          p_id: string
+          p_media_expected?: number
+          p_problem_id?: string
+          p_profile_id?: string
+          p_task_id?: string
+        }
+        Returns: {
+          author_id: string | null
+          author_name: string | null
+          author_role: Database["public"]["Enums"]["app_role"]
+          body: string
+          created_at: string
+          host_id: string
+          id: string
+          media_expected: number
+          thread_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "chat_messages"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_property_status: {
         Args: {
           p_cancel_tasks?: boolean
@@ -2493,6 +2758,7 @@ export type Database = {
       app_language: "en" | "ru" | "cs"
       app_role: "cleaner" | "tech" | "manager" | "admin"
       assignment_mode: "auto" | "claim"
+      chat_thread_kind: "task" | "problem" | "direct"
       media_kind: "photo" | "video"
       media_source: "camera" | "gallery" | "unknown"
       problem_priority: "low" | "normal" | "high"
@@ -2666,6 +2932,7 @@ export const Constants = {
       app_language: ["en", "ru", "cs"],
       app_role: ["cleaner", "tech", "manager", "admin"],
       assignment_mode: ["auto", "claim"],
+      chat_thread_kind: ["task", "problem", "direct"],
       media_kind: ["photo", "video"],
       media_source: ["camera", "gallery", "unknown"],
       problem_priority: ["low", "normal", "high"],
