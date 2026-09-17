@@ -77,6 +77,19 @@ select pg_temp.check('операционные таблицы несут host_id
    where table_schema = 'public' and column_name = 'host_id'
      and table_name in ('profiles','properties','reservations','tasks','property_cleaners')), 5);
 
+-- ---------- функция с правами владельца клиенту не выдаётся ----------
+-- `reservation_cleaning_window` — security definer и по `host_id` не
+-- фильтрует: она отвечает про любую бронь по её id, включая чужую компанию.
+-- Клиент её не зовёт — единственный вызывающий, `generate_cleaning_tasks`,
+-- сам security definer и дотягивается до неё правами владельца, — поэтому у
+-- клиентской роли права нет и быть не должно.
+select pg_temp.check('окно уборки не вызывается клиентской ролью',
+  has_function_privilege('authenticated',
+    'public.reservation_cleaning_window(bigint, bigint)', 'execute'), false);
+select pg_temp.check('окно уборки остаётся у service_role',
+  has_function_privilege('service_role',
+    'public.reservation_cleaning_window(bigint, bigint)', 'execute'), true);
+
 -- ---------- клинер видит только свою компанию ----------
 set local role authenticated;
 set local request.jwt.claims =
