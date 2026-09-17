@@ -255,4 +255,20 @@ describe('every read the cleaner makes', () => {
       expect(select).not.toContain('problem:problems(');
     }
   });
+
+  // A cleaning stands on a room, and a room's own name — "1 - 2109" — names a
+  // door and no house. Every read that shows a place to a person has to bring
+  // the house along, or the screen names something she cannot place. The rule
+  // above only says an embed is unambiguous; this one says it is there at all.
+  test('brings the house along wherever it shows a place', () => {
+    const withPlace = mockRecorded.filter(entry =>
+      ['tasks', 'problems', 'supply_requests'].includes(entry.table),
+    );
+
+    expect(withPlace.length).toBeGreaterThan(0);
+    for (const entry of withPlace) {
+      expect(entry.select).toContain('parent:parent_id(name)');
+      expect(entry.select).toContain('hostaway_unit_id');
+    }
+  });
 });

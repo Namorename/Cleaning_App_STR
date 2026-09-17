@@ -30,6 +30,7 @@ import {
   sortedItems,
   type SupplyRequest,
   type SupplyStatus,
+  supplyPlace,
 } from './schema';
 import { useReviewSupplyRequest } from './use-supplies';
 
@@ -66,7 +67,7 @@ export function SupplyCard({ request }: SupplyCardProps) {
 
   // The file a supplier or a warehouse takes: who asked, for where, and the lines.
   const exportRows: CellValue[][] = [
-    [t('panel.supplies.export.property'), request.property?.name ?? t('supplies.general')],
+    [t('panel.supplies.export.property'), supplyPlace(request) ?? t('supplies.general')],
     [t('panel.supplies.export.requester'), requester],
     [t('panel.supplies.export.status'), t(`supplies.statuses.${request.status}`)],
     [t('panel.supplies.export.createdAt'), formatDateTime(request.created_at, language)],
@@ -94,7 +95,7 @@ export function SupplyCard({ request }: SupplyCardProps) {
     <Card>
       <CardHeader>
         <div className="flex flex-wrap items-center gap-2">
-          <CardTitle>{request.property?.name ?? t('supplies.general')}</CardTitle>
+          <CardTitle>{supplyPlace(request) ?? t('supplies.general')}</CardTitle>
           {request.priority === 'urgent' ? (
             <Badge variant="destructive">{t('supplies.priorities.urgent')}</Badge>
           ) : null}

@@ -1,4 +1,4 @@
-import { propertyPath } from '@str-ops/shared';
+import { propertyPath, propertyPathOf, splitPlace, type PlaceParts } from '@str-ops/shared';
 import { z } from 'zod';
 
 import { matchesAllTokens } from '@/lib/search';
@@ -112,20 +112,25 @@ export interface PropertyOption {
   name: string;
 }
 
-/** The building a property belongs to, and the room within it if it is one. */
-function splitPlace(
-  property: Property,
-  byId: Map<number, Property>,
-): { building: string; room: string | null } {
-  const parent = property.parent_id === null ? undefined : byId.get(property.parent_id);
-  // An orphan — a room whose listing is not in the list — keeps its own name.
-  // It should not happen, the status cascade takes rooms with their listing,
-  // but dropping it would blank the flat field of every task standing on it,
-  // which is the defect this list exists to prevent.
-  if (property.hostaway_unit_id === null || parent === undefined) {
-    return { building: property.name, room: null };
-  }
-  return { building: parent.name, room: property.name };
+/**
+ * The building a property belongs to, and the room within it if it is one.
+ *
+ * This list holds flat rows and resolves the parent through a map, so it
+ * cannot hand the shared labeller a joined row directly — it builds one. The
+ * roomness test itself is not repeated here: `splitPlace` owns it.
+ *
+ * `?? null` on the lookup is what keeps the orphan case. A room whose listing
+ * is not in the list should not happen — the status cascade takes rooms with
+ * their listing — but dropping it would blank the flat field of every task
+ * standing on it, which is the defect this list exists to prevent.
+ */
+function splitOptionPlace(property: Property, byId: Map<number, Property>): PlaceParts {
+  const parent = property.parent_id === null ? null : (byId.get(property.parent_id) ?? null);
+  return splitPlace({
+    name: property.name,
+    hostaway_unit_id: property.hostaway_unit_id,
+    parent: parent === null ? null : { name: parent.name },
+  });
 }
 
 /**
@@ -142,7 +147,7 @@ function splitPlace(
 export function propertyOptions(properties: Property[]): PropertyOption[] {
   const byId = new Map(properties.map((property) => [property.id, property]));
   return properties
-    .map((property) => ({ property, ...splitPlace(property, byId) }))
+    .map((property) => ({ property, ...splitOptionPlace(property, byId) }))
     .sort(
       (left, right) =>
         left.building.localeCompare(right.building) ||
@@ -174,14 +179,7 @@ export function propertyOptions(properties: Property[]): PropertyOption[] {
  * instead, and a task always has `property_id` whatever this returns.
  */
 export function taskPropertyName(task: Pick<Task, 'property'>): string | null {
-  const property = task.property ?? null;
-  if (property === null) {
-    return null;
-  }
-  const parent = property.parent;
-  return parent === null || property.hostaway_unit_id === null
-    ? property.name
-    : propertyPath(parent.name, property.name);
+  return propertyPathOf(task.property ?? null);
 }
 
 /** A problem reported while this task was being done. */

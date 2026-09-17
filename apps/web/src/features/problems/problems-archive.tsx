@@ -10,7 +10,7 @@ import { serverErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
 
 import { statusVariant } from './format';
-import type { Problem } from './schema';
+import { problemPlace, type Problem } from './schema';
 import { useUnarchiveProblem } from './use-problems';
 
 interface ProblemsArchiveProps {
@@ -48,7 +48,7 @@ export function ProblemsArchive({ problems }: ProblemsArchiveProps) {
                 </Badge>
               </div>
               <span className="text-muted-foreground">
-                {problem.property?.name ?? t('problems.noProperty')}
+                {problemPlace(problem) ?? t('problems.noProperty')}
                 {problem.archived_at !== null
                   ? ` · ${t('panel.problems.detail.archivedAt', {
                       date: formatDateTime(problem.archived_at, language),

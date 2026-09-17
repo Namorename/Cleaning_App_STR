@@ -1,3 +1,5 @@
+import { propertyPathOf } from '@str-ops/shared';
+
 import { INTL_LOCALES, currentLanguage, i18n } from '@/i18n';
 
 import type { Problem, ProblemPriority, ProblemStatus } from './schema';
@@ -31,7 +33,15 @@ export function problemPriorityText(priority: ProblemPriority): string {
   return i18n.t(`problems.priorities.${priority}`);
 }
 
-/** The listing's name, or the word for a report that has none. */
+/**
+ * Where the problem is: the house, and the room inside it when it is one.
+ *
+ * A report filed from a cleaning stands on the room the cleaner was working,
+ * and a room's own name — "1 - 2109" — names a door and no house. Through the
+ * shared labeller so the phone and the panel spell a place identically, down
+ * to the dash: they have to, or the panel's search stops finding what was
+ * reported here.
+ */
 export function problemPlace(problem: Problem): string {
-  return problem.property?.name ?? i18n.t('problems.noProperty');
+  return propertyPathOf(problem.property ?? null) ?? i18n.t('problems.noProperty');
 }

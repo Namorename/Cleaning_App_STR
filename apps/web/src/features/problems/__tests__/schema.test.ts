@@ -94,6 +94,43 @@ describe('matchesQuery', () => {
   test('keeps everything for an empty query', () => {
     expect(matchesQuery(problem, '   ')).toBe(true);
   });
+
+  // The failure this finding is about, and it was silent: a report filed from
+  // a cleaning stands on the ROOM, whose name is "1 - 2109". Searching the
+  // row's own name meant the manager had to type the door number — the one
+  // thing she does not remember — and the house name found nothing.
+  test('a report filed in a room is found by the name of its house', () => {
+    const inRoom = problemSchema.parse({
+      ...row,
+      property: {
+        name: '1 - 2109',
+        hostaway_unit_id: 64266,
+        parent: { name: 'CZ - Vinohradska Royal' },
+      },
+    });
+
+    expect(matchesQuery(inRoom, 'vinohradska')).toBe(true);
+    expect(matchesQuery(inRoom, '2109')).toBe(true);
+    // Every word, in any order — the same rule the registry searches by.
+    expect(matchesQuery(inRoom, '2109 vinohradska')).toBe(true);
+    expect(matchesQuery(inRoom, 'vinohradska brehova')).toBe(false);
+  });
+
+  // A part of a combined listing is a listing of its own: prefixing it with
+  // its neighbour's name would make the neighbour's name find it.
+  test('a part of a combined listing is not found by its neighbour', () => {
+    const half = problemSchema.parse({
+      ...row,
+      property: {
+        name: 'Andel 4 - half',
+        hostaway_unit_id: null,
+        parent: { name: 'Andel 4 - whole' },
+      },
+    });
+
+    expect(matchesQuery(half, 'half')).toBe(true);
+    expect(matchesQuery(half, 'whole')).toBe(false);
+  });
 });
 
 describe('stepState', () => {

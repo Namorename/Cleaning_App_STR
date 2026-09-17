@@ -76,7 +76,18 @@ export const supplyRequestSchema = z.object({
   fulfilled_at: z.string().nullable(),
   reject_reason: z.string().nullable(),
   created_at: z.string(),
-  property: z.object({ name: z.string().nullable() }).nullable().optional(),
+  // `name` is `text not null` on the table and has always been in the
+  // select, so the old `.nullable()` was never real — and the shared
+  // labeller needs a string. The house rides along: a report filed from a
+  // task stands on the room, whose own name names no house.
+  property: z
+    .object({
+      name: z.string(),
+      hostaway_unit_id: z.number().nullable().default(null),
+      parent: z.object({ name: z.string() }).nullable().default(null),
+    })
+    .nullable()
+    .optional(),
   items: z.array(supplyItemSchema).default([]),
 });
 

@@ -1,3 +1,5 @@
+import { propertyPathOf } from '@str-ops/shared';
+
 import { i18n } from '@/i18n';
 
 import type { SupplyItem, SupplyPriority, SupplyRequest, SupplyStatus, SupplyUnit } from './schema';
@@ -34,7 +36,10 @@ export function itemsSummary(items: readonly SupplyItem[]): string {
   return rest > 0 ? i18n.t('supplies.moreItems', { shown, count: rest }) : shown;
 }
 
-/** The listing's name, or the word for a request that has none. */
+/**
+ * Where the request came from: the house, and the room inside it when it is
+ * one. Same shared labeller as everywhere else — see `problemPlace`.
+ */
 export function supplyPlace(request: SupplyRequest): string {
-  return request.property?.name ?? i18n.t('supplies.general');
+  return propertyPathOf(request.property ?? null) ?? i18n.t('supplies.general');
 }

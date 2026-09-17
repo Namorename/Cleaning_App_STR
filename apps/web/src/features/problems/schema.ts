@@ -1,4 +1,7 @@
+import { propertyPathOf } from '@str-ops/shared';
 import { z } from 'zod';
+
+import { matchesAllTokens } from '@/lib/search';
 
 export const PROBLEM_PRIORITIES = ['low', 'normal', 'high'] as const;
 export type ProblemPriority = (typeof PROBLEM_PRIORITIES)[number];
@@ -48,7 +51,19 @@ export const problemSchema = z.object({
   /** Set when the manager put the problem away; it is then off the board and the list. */
   archived_at: z.string().nullable().default(null),
   created_at: z.string(),
-  property: z.object({ name: z.string() }).nullable().optional(),
+  // The house is joined alongside the row's own name because a cleaning
+  // stands on a room, and a room's name — "1 - 2109" — names no house.
+  // `parent_id` names the FOREIGN KEY COLUMN: that is what resolves it
+  // forward to one row. Optional on the outer object because the six
+  // manager RPCs return a bare row with no joins and parse through here.
+  property: z
+    .object({
+      name: z.string(),
+      hostaway_unit_id: z.number().nullable().default(null),
+      parent: z.object({ name: z.string() }).nullable().default(null),
+    })
+    .nullable()
+    .optional(),
   reporter: personSchema.optional(),
   fix_tasks: z.array(fixTaskSchema).default([]),
 });
@@ -115,13 +130,25 @@ export function isProblemArchived(problem: Pick<Problem, 'archived_at'>): boolea
 }
 
 /** Title or listing name contains the query, case-insensitively; an empty query keeps everything. */
+/**
+ * Where the problem is, in one line: the house, and the room inside it.
+ *
+ * A report filed from a cleaning stands on the room the cleaner was working —
+ * "1 - 2109" — which names a door and no house. Through the shared labeller so
+ * the panel spells a place exactly as the phone does, down to the dash; a
+ * hand-rolled separator here would silently stop this search finding the
+ * phone's reports.
+ */
+export function problemPlace(problem: Pick<Problem, 'property'>): string | null {
+  return propertyPathOf(problem.property ?? null);
+}
+
 export function matchesQuery(problem: Problem, query: string): boolean {
-  const needle = query.trim().toLocaleLowerCase();
-  if (needle === '') {
-    return true;
-  }
-  const haystack = [problem.title, problem.property?.name ?? ''].join(' ').toLocaleLowerCase();
-  return haystack.includes(needle);
+  // The house, not the room. A report filed from a cleaning stands on the room
+  // it was found in, so searching the row's own name meant typing "1 - 2109" —
+  // which is the one thing a manager does not remember. Through the shared
+  // token rule, so "vinohradska 2109" and "2109 vinohradska" are one search.
+  return matchesAllTokens([problem.title, problemPlace(problem) ?? ''].join(' '), query);
 }
 
 /**

@@ -21,7 +21,7 @@ export type Client = SupabaseClient<Database>;
 const REQUEST_COLUMNS =
   'id, requested_by, property_id, task_id, status, priority, note, needed_by, ' +
   'reviewed_at, fulfilled_at, reject_reason, created_at, ' +
-  'property:properties(name), ' +
+  'property:properties(name, hostaway_unit_id, parent:parent_id(name)), ' +
   'requester:profiles!supply_requests_requested_by_fkey(full_name, role), ' +
   'items:supply_request_items(id, name, quantity, unit, comment, sort_order, catalog_item_id)';
 

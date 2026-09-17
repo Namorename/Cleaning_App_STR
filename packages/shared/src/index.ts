@@ -10,7 +10,14 @@ export type {
   CompositeTypes,
 } from './database.types';
 export { Constants } from './database.types';
-export { PROPERTY_PATH_SEPARATOR, propertyPath } from './property-path';
+export {
+  PROPERTY_PATH_SEPARATOR,
+  propertyPath,
+  propertyPathOf,
+  splitPlace,
+  type PlaceParts,
+  type PlaceRow,
+} from './property-path';
 export {
   FALLBACK_LANGUAGE,
   INTL_LOCALES,

@@ -1,4 +1,4 @@
-import { propertyPath } from '@str-ops/shared';
+import { propertyPath, splitPlace } from '@str-ops/shared';
 import { z } from 'zod';
 
 /**
@@ -38,8 +38,15 @@ export const reportPropertyListSchema = z.array(reportPropertySchema);
  * its own and must keep its own name.
  */
 export function propertyLabel(property: ReportProperty): string {
-  const isRoom = property.hostaway_unit_id !== null && property.parent_name !== null;
-  return isRoom ? propertyPath(property.parent_name ?? '', property.name) : property.name;
+  // The view hands out flat columns, so the row is shaped for the shared
+  // labeller rather than the roomness test being written again here.
+  const { building, room } = splitPlace({
+    name: property.name,
+    hostaway_unit_id: property.hostaway_unit_id,
+    parent: property.parent_name === null ? null : { name: property.parent_name },
+  });
+
+  return propertyPath(building, room);
 }
 
 /** The places whose label holds every word typed, in any order. */

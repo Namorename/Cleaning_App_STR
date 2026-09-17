@@ -10,6 +10,8 @@ import { formatDay } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/lib/use-language';
 
+import { problemPlace } from './schema';
+
 import { priorityVariant } from './format';
 import { isDraggable, liveFixTask, type Problem } from './schema';
 
@@ -55,7 +57,7 @@ export function ProblemCard({ problem, onDragStart, onDragEnd }: ProblemCardProp
         </Badge>
       </div>
       <span className="text-muted-foreground">
-        {problem.property?.name ?? t('problems.noProperty')}
+        {problemPlace(problem) ?? t('problems.noProperty')}
       </span>
       {fixTask !== null ? (
         <span className="text-xs text-muted-foreground">

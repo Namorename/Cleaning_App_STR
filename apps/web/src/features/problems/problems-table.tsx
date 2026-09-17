@@ -17,7 +17,7 @@ import { formatDateTime } from '@/lib/format-date';
 import { useLanguage } from '@/lib/use-language';
 
 import { priorityVariant, statusVariant } from './format';
-import { liveFixTask, type Problem } from './schema';
+import { liveFixTask, problemPlace, type Problem } from './schema';
 
 interface ProblemsTableProps {
   problems: Problem[];
@@ -52,7 +52,7 @@ export function ProblemsTable({ problems }: ProblemsTableProps) {
                     {problem.title}
                   </Link>
                 </TableCell>
-                <TableCell>{problem.property?.name ?? t('problems.noProperty')}</TableCell>
+                <TableCell>{problemPlace(problem) ?? t('problems.noProperty')}</TableCell>
                 <TableCell>
                   <Badge variant={priorityVariant(problem.priority)}>
                     {t(`problems.priorities.${problem.priority}`)}

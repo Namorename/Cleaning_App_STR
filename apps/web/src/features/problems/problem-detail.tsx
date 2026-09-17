@@ -24,6 +24,7 @@ import {
   liveFixTask,
   type FixTask,
   type Problem,
+  problemPlace,
 } from './schema';
 import {
   useArchiveProblem,
@@ -97,7 +98,7 @@ function ProblemCard({ problem }: { problem: Problem }) {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>{problem.property?.name ?? t('problems.noProperty')}</CardTitle>
+            <CardTitle>{problemPlace(problem) ?? t('problems.noProperty')}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 text-sm">
             <ReportMeta problem={problem} />

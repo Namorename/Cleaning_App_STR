@@ -1,3 +1,4 @@
+import { propertyPathOf } from '@str-ops/shared';
 import { z } from 'zod';
 
 import { todayIso } from '@/lib/format-date';
@@ -72,11 +73,34 @@ export const supplyRequestSchema = z.object({
   fulfilled_at: z.string().nullable(),
   reject_reason: z.string().nullable(),
   created_at: z.string(),
-  property: z.object({ name: z.string() }).nullable().optional(),
+  // The house is joined alongside the row's own name because a cleaning
+  // stands on a room, and a room's name — "1 - 2109" — names no house.
+  // `parent_id` names the FOREIGN KEY COLUMN: that is what resolves it
+  // forward to one row. Optional on the outer object because the six
+  // manager RPCs return a bare row with no joins and parse through here.
+  property: z
+    .object({
+      name: z.string(),
+      hostaway_unit_id: z.number().nullable().default(null),
+      parent: z.object({ name: z.string() }).nullable().default(null),
+    })
+    .nullable()
+    .optional(),
   requester: personSchema.optional(),
   items: z.array(supplyItemSchema).default([]),
 });
 export type SupplyRequest = z.infer<typeof supplyRequestSchema>;
+/**
+ * Where the request came from, in one line: the house, and the room inside it.
+ *
+ * This string is also what the purchase summary groups by and what leaves the
+ * system in the CSV, where a bare room name is not obscure but ambiguous —
+ * nothing in the file says which building "1 - 2109" belongs to.
+ */
+export function supplyPlace(request: Pick<SupplyRequest, 'property'>): string | null {
+  return propertyPathOf(request.property ?? null);
+}
+
 export const supplyRequestListSchema = z.array(supplyRequestSchema);
 
 /**
@@ -192,7 +216,9 @@ export function aggregatePurchase(
     if (!statuses.includes(request.status)) {
       continue;
     }
-    const source = request.property?.name ?? null;
+    // The house and the room, not the room alone: this string is what the
+    // purchase summary groups by and what leaves in the CSV.
+    const source = supplyPlace(request);
     for (const item of request.items) {
       const key = lineKey(item.name, item.unit);
       const existing = lines.get(key);

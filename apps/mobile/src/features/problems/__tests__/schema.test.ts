@@ -24,7 +24,7 @@ function problem(overrides: Partial<Problem> = {}): Problem {
     cancelled_at: null,
     cancel_reason: null,
     created_at: '2026-11-10T08:05:00+00:00',
-    property: { name: 'CZ - Nadrazni Apt 6' },
+    property: { name: 'CZ - Nadrazni Apt 6', hostaway_unit_id: null, parent: null },
     fix_tasks: [],
     ...overrides,
   };

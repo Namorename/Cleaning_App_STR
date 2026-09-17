@@ -20,7 +20,7 @@ export type Client = SupabaseClient<Database>;
 const PROBLEM_COLUMNS =
   'id, property_id, task_id, reported_by, title, description, priority, status, ' +
   'resolved_at, cancelled_at, cancel_reason, archived_at, created_at, ' +
-  'property:properties(name), ' +
+  'property:properties(name, hostaway_unit_id, parent:parent_id(name)), ' +
   'reporter:profiles!problems_reported_by_fkey(full_name, role), ' +
   'fix_tasks:tasks!tasks_problem_id_fkey(id, assignee_id, status, scheduled_date, time_from, time_to, ' +
   'assignee:profiles!tasks_assignee_id_fkey(full_name, role))';

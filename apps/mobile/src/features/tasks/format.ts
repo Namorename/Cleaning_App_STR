@@ -1,4 +1,4 @@
-import { propertyPath } from '@str-ops/shared';
+import { propertyPath, splitPlace } from '@str-ops/shared';
 
 import { INTL_LOCALES, currentLanguage, i18n } from '@/i18n';
 
@@ -156,20 +156,11 @@ export function taskPlace(task: CleaningTask): TaskPlace {
   // by JSON.parse, so a row written by an older build reaches this line with
   // the keys that build knew and no others. Zod fills the defaults on the way
   // in from the network; nothing fills them on the way in from disk.
-  const parent = property.parent ?? null;
   const address = property.address ?? null;
-  const unitId = property.hostaway_unit_id ?? null;
 
-  // A room, and not merely a child: `parent_id` also links a part of a
-  // combined listing, which is a listing in its own right with its own
-  // calendar and its own name. Prefixing that one with its neighbour's name
-  // would be plainly wrong, so the test is `hostaway_unit_id`, as it is
-  // everywhere else in this codebase.
-  if (parent !== null && unitId !== null) {
-    return { building: parent.name, room: property.name, address };
-  }
-
-  return { building: property.name, room: null, address };
+  // The roomness test is not repeated here: `splitPlace` owns it, and it reads
+  // both extras with `?? null` for exactly the reason above.
+  return { ...splitPlace(property), address };
 }
 
 /**
