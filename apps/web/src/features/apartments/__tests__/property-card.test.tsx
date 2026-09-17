@@ -104,6 +104,11 @@ const reservations = [
   },
 ];
 
+/**
+ * As `property_maintenance_tasks` returns them: the technician flat rather
+ * than embedded, and `unit_name` saying which door inside the house — null
+ * when the job stands on the house itself.
+ */
 const maintenanceJobs = [
   {
     id: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000001',
@@ -111,7 +116,19 @@ const maintenanceJobs = [
     status: 'done',
     scheduled_date: '2026-09-02',
     completed_at: '2026-09-02T12:00:00+00:00',
-    assignee: { full_name: 'Petr Tech' },
+    assignee_name: 'Petr Tech',
+    property_id: 101,
+    unit_name: null,
+  },
+  {
+    id: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000002',
+    title: 'Заменить замок',
+    status: 'assigned',
+    scheduled_date: '2026-09-03',
+    completed_at: null,
+    assignee_name: null,
+    property_id: 1000000064266,
+    unit_name: '1 - 2109',
   },
 ];
 
@@ -123,6 +140,20 @@ const reports = [
     priority: 'high',
     created_at: '2026-09-01T08:00:00+00:00',
     resolved_at: null,
+    property_id: 101,
+    unit_name: null,
+  },
+  // Filed from a cleaning, so it stands on the room the cleaner was working.
+  // Before the fold the house's card showed nothing of it at all.
+  {
+    id: 'cccccccc-cccc-4ccc-8ccc-000000000002',
+    title: 'Не закрывается окно',
+    status: 'open',
+    priority: 'normal',
+    created_at: '2026-09-01T09:00:00+00:00',
+    resolved_at: null,
+    property_id: 1000000064266,
+    unit_name: '1 - 2109',
   },
 ];
 
@@ -330,10 +361,31 @@ describe('maintenance', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Обслуживание' }));
 
     expect(screen.getByText('Поменять смеситель')).toBeInTheDocument();
-    expect(screen.getByText(/Репорты \(открытых: 1\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Репорты \(открытых: 2\)/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Течёт кран' })).toHaveAttribute(
       'href',
       '/problems/cccccccc-cccc-4ccc-8ccc-000000000001',
     );
+  });
+
+  // The card is a house. A report filed from a cleaning stands on the room the
+  // cleaner was working, so before the fold the house showed none of its own
+  // breakages — and showing them without saying which door would only move the
+  // question rather than answer it.
+  test('what stands in a room is listed too, and says which room', async () => {
+    renderCard();
+    await userEvent.click(screen.getByRole('tab', { name: 'Обслуживание' }));
+
+    expect(screen.getByRole('link', { name: 'Не закрывается окно' })).toBeInTheDocument();
+    expect(screen.getByText('Заменить замок')).toBeInTheDocument();
+    expect(screen.getAllByText('в комнате «1 - 2109»')).toHaveLength(2);
+  });
+
+  test('and what stands on the house itself names no room', async () => {
+    renderCard();
+    await userEvent.click(screen.getByRole('tab', { name: 'Обслуживание' }));
+
+    const onTheHouse = screen.getByText('Поменять смеситель');
+    expect(onTheHouse.textContent).not.toContain('в комнате');
   });
 });

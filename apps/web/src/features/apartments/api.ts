@@ -206,16 +206,15 @@ export async function fetchMaintenanceTasks(
   client: Client,
   propertyId: number,
 ): Promise<MaintenanceTask[]> {
-  const { data, error } = await client
-    .from('tasks')
-    .select(
-      'id, title, status, scheduled_date, completed_at, ' +
-        'assignee:profiles!tasks_assignee_id_fkey(full_name)',
-    )
-    .eq('property_id', propertyId)
-    .eq('type', 'maintenance')
-    .order('scheduled_date', { ascending: false })
-    .limit(RECENT_LIMIT);
+  // The listing and the rooms inside it, folded by the server. Asking for one
+  // `property_id` showed a house none of the repairs booked in its rooms, and
+  // the form that books them has offered rooms since stage 3. The technician
+  // arrives flat as `assignee_name` because the function joins her, so there
+  // is no embed to spell here and none to spell wrongly.
+  const { data, error } = await client.rpc('property_maintenance_tasks', {
+    p_property_id: propertyId,
+    p_limit: RECENT_LIMIT,
+  });
   if (error) {
     throw error;
   }
@@ -232,13 +231,13 @@ export async function fetchPropertyProblems(
   client: Client,
   propertyId: number,
 ): Promise<PropertyProblem[]> {
-  const { data, error } = await client
-    .from('problems')
-    .select('id, title, status, priority, created_at, resolved_at')
-    .eq('property_id', propertyId)
-    .is('archived_at', null)
-    .order('created_at', { ascending: false })
-    .limit(RECENT_LIMIT);
+  // Folded the same way: a report filed from a cleaning stands on the room the
+  // cleaner was working, so a house asked about only itself saw none of its
+  // own breakages. The archived exclusion moved into the function with it.
+  const { data, error } = await client.rpc('property_problems', {
+    p_property_id: propertyId,
+    p_limit: RECENT_LIMIT,
+  });
   if (error) {
     throw error;
   }

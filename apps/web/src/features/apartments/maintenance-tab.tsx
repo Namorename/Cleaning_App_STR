@@ -79,10 +79,17 @@ export function MaintenanceTab({ property }: MaintenanceTabProps) {
               <li key={job.id} className="flex flex-wrap items-center gap-2 rounded-md border p-2">
                 <span className="flex-1 text-sm">
                   {job.title ?? t('panel.apartments.maintenance.untitled')}
+                  {/* The card's heading is the house; this says which door
+                      inside it, for a job the fold brought in from a room. */}
+                  {job.unit_name === null ? null : (
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {t('panel.apartments.maintenance.inUnit', { name: job.unit_name })}
+                    </span>
+                  )}
                 </span>
                 <span className="text-xs text-muted-foreground">{job.scheduled_date ?? '—'}</span>
-                {job.assignee === null ? null : (
-                  <Person name={job.assignee.full_name} role="tech" className="text-xs" />
+                {job.assignee_name === null ? null : (
+                  <Person name={job.assignee_name} role="tech" className="text-xs" />
                 )}
                 <Badge variant="outline">{t(`panel.tasks.statuses.${job.status}`)}</Badge>
               </li>
@@ -108,9 +115,16 @@ export function MaintenanceTab({ property }: MaintenanceTabProps) {
                 key={report.id}
                 className="flex flex-wrap items-center gap-2 rounded-md border p-2"
               >
-                <Link className="flex-1 text-sm underline" href={`/problems/${report.id}`}>
-                  {report.title}
-                </Link>
+                <span className="flex-1 text-sm">
+                  <Link className="underline" href={`/problems/${report.id}`}>
+                    {report.title}
+                  </Link>
+                  {report.unit_name === null ? null : (
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {t('panel.apartments.maintenance.inUnit', { name: report.unit_name })}
+                    </span>
+                  )}
+                </span>
                 {/* Shared with the phone: one wording for a report's state. */}
                 <Badge variant="outline">{t(`problems.statuses.${report.status}`)}</Badge>
               </li>

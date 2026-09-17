@@ -643,6 +643,7 @@
         "stateHint": "Under maintenance and in the archive no cleanings are created. A cleaning already under way is not interrupted.",
         "jobs": "Technicians’ jobs",
         "noJobs": "No jobs yet.",
+        "inUnit": "in room “{{name}}”",
         "untitled": "No title",
         "reports": "Reports (open: {{open}})",
         "noReports": "No reports."

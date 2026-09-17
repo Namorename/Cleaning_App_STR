@@ -643,6 +643,7 @@
         "stateHint": "Při údržbě a v archivu se úklidy nevytvářejí. Probíhající úklid se nepřeruší.",
         "jobs": "Práce techniků",
         "noJobs": "Zatím žádné práce.",
+        "inUnit": "v pokoji „{{name}}“",
         "untitled": "Bez názvu",
         "reports": "Hlášení (otevřených: {{open}})",
         "noReports": "Žádná hlášení."

@@ -128,7 +128,11 @@ export const maintenanceTaskSchema = z.object({
   status: z.string(),
   scheduled_date: z.string().nullable(),
   completed_at: z.string().nullable(),
-  assignee: z.object({ full_name: z.string().nullable() }).nullable(),
+  assignee_name: z.string().nullable(),
+  property_id: z.number(),
+  // Null when the job stands on the listing the card is showing; the room's
+  // name when it stands inside it. The card's own heading is the house.
+  unit_name: z.string().nullable(),
 });
 export type MaintenanceTask = z.infer<typeof maintenanceTaskSchema>;
 export const maintenanceTaskListSchema = z.array(maintenanceTaskSchema);
@@ -141,6 +145,10 @@ export const propertyProblemSchema = z.object({
   priority: z.string(),
   created_at: z.string(),
   resolved_at: z.string().nullable(),
+  property_id: z.number(),
+  // Same rule as a maintenance job: null on the listing itself, the room's
+  // name when the report was filed inside one.
+  unit_name: z.string().nullable(),
 });
 export type PropertyProblem = z.infer<typeof propertyProblemSchema>;
 export const propertyProblemListSchema = z.array(propertyProblemSchema);

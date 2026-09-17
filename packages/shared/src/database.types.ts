@@ -1771,9 +1771,35 @@ export type Database = {
         Returns: Json
       }
       property_id_for_unit: { Args: { p_unit_id: number }; Returns: number }
+      property_maintenance_tasks: {
+        Args: { p_limit: number; p_property_id: number }
+        Returns: {
+          assignee_name: string
+          completed_at: string
+          id: string
+          property_id: number
+          scheduled_date: string
+          status: Database["public"]["Enums"]["task_status"]
+          title: string
+          unit_name: string
+        }[]
+      }
       property_open_cleanings: {
         Args: { p_property_id: number }
         Returns: number
+      }
+      property_problems: {
+        Args: { p_limit: number; p_property_id: number }
+        Returns: {
+          created_at: string
+          id: string
+          priority: Database["public"]["Enums"]["problem_priority"]
+          property_id: number
+          resolved_at: string
+          status: Database["public"]["Enums"]["problem_status"]
+          title: string
+          unit_name: string
+        }[]
       }
       record_webhook_event: {
         Args: { event_payload: Json; event_source?: string }

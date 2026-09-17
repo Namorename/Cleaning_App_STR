@@ -355,6 +355,61 @@ select pg_temp.as_boss();
 select pg_temp.check('the count for a listing sees its rooms',
   public.property_open_cleanings(900001901), 1);
 
+-- ---------- what the listing's card can see ----------
+-- A report filed from a cleaning stands on the ROOM, and a repair can be
+-- booked on one, so a card that asks only about its own id shows a house none
+-- of its own breakages. The same fold as the count above, and the same line:
+-- the combined-listing part keeps its rows to itself, because it has a card.
+reset role; reset request.jwt.claims;
+insert into public.problems (id, property_id, reported_by, title) values
+  ('b6000001-0000-4000-8000-000000000001', 900001901,
+   'd6000001-0000-4000-8000-0000000000d1', 'On the house itself'),
+  ('b6000001-0000-4000-8000-000000000002', 1000000064266,
+   'd6000001-0000-4000-8000-0000000000d1', 'In a room'),
+  ('b6000001-0000-4000-8000-000000000003', 900001902,
+   'd6000001-0000-4000-8000-0000000000d1', 'In the combined part');
+
+insert into public.tasks (id, property_id, type, status, scheduled_date) values
+  ('a6000001-0000-4000-8000-000000000020', 1000000064266, 'maintenance', 'unassigned', current_date);
+
+select pg_temp.as_boss();
+
+select pg_temp.check('the card sees the reports of the house and of its rooms',
+  (select count(*)::int from public.property_problems(900001901, 60)), 2);
+
+select pg_temp.check('and not the one filed on a combined listing part',
+  (select count(*)::int from public.property_problems(900001901, 60) c
+    where c.title = 'In the combined part'), 0);
+
+-- Which door. Null on the house's own row, the room's name on the folded one:
+-- the card's heading is already the house, so repeating it would say nothing.
+select pg_temp.check('a report on the house names no unit',
+  (select c.unit_name from public.property_problems(900001901, 60) c
+    where c.title = 'On the house itself'), null::text);
+
+select pg_temp.check('a folded report names the room it was filed in',
+  (select c.unit_name from public.property_problems(900001901, 60) c
+    where c.title = 'In a room'),
+  (select p.name from public.properties p where p.id = 1000000064266));
+
+-- Asked about the room directly the answer is null again: the heading is then
+-- the room itself. The test is identity, not roomness.
+select pg_temp.check('asked about the room itself, no unit is named',
+  (select c.unit_name from public.property_problems(1000000064266, 60) c
+    where c.title = 'In a room'), null::text);
+
+select pg_temp.check('the maintenance tab sees a repair booked in a room',
+  (select count(*)::int from public.property_maintenance_tasks(900001901, 60)), 1);
+
+select pg_temp.check('and names the room it stands in',
+  (select c.unit_name from public.property_maintenance_tasks(900001901, 60) c),
+  (select p.name from public.properties p where p.id = 1000000064266));
+
+-- The limit is the caller's and has no default here, so an absurd one still
+-- returns a row rather than an error.
+select pg_temp.check('a limit below one still returns something',
+  (select count(*)::int from public.property_problems(900001901, 0)), 1);
+
 select public.set_property_status(900001901, 'archived', true);
 
 select pg_temp.check('the room was archived with its listing',
