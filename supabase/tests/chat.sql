@@ -888,4 +888,67 @@ reset role; reset request.jwt.claims;
 drop trigger race_send on public.chat_messages;
 drop trigger race_media on public.task_media;
 
+-- ---------------------------------------------------------------------------
+--  A photo that never arrived expires (20260918200000)
+-- ---------------------------------------------------------------------------
+select pg_temp.as_boss();
+-- In Bara's inbox: task ...01 was closed 91 days ago above, and its thread's
+-- photos are due by that clock already. A direct thread ages by the message.
+select public.send_message('17000001-0000-4000-8000-000000000051', 'expiry',
+                           null, null, 'c7000003-0000-4000-8000-000000000003', 1::smallint);
+select public.add_message_media('27000001-0000-4000-8000-000000000051',
+  '17000001-0000-4000-8000-000000000051', 'image/jpeg', 400000);
+reset role; reset request.jwt.claims;
+
+update public.task_media set created_at = now() - interval '23 hours'
+where id = '27000001-0000-4000-8000-000000000051';
+select pg_temp.check('a photo without a file is kept within the upload window',
+  (select count(*)::int from public.task_media_to_purge(100)
+    where id = '27000001-0000-4000-8000-000000000051'), 0);
+update public.task_media set created_at = now() - interval '25 hours'
+where id = '27000001-0000-4000-8000-000000000051';
+select pg_temp.check('and is due once the window has passed',
+  (select count(*)::int from public.task_media_to_purge(100)
+    where id = '27000001-0000-4000-8000-000000000051'), 1);
+
+-- A confirmed photo of the same age is not: the window is about the file
+-- that never came, not about the photo.
+select pg_temp.as_anna();
+select public.send_message('17000001-0000-4000-8000-000000000052', '',
+                           null, null, 'c7000002-0000-4000-8000-000000000002', 1::smallint);
+select public.add_message_media('27000001-0000-4000-8000-000000000052',
+  '17000001-0000-4000-8000-000000000052', 'image/jpeg', 400000);
+insert into storage.objects (bucket_id, name, owner, owner_id)
+select 'task-media', m.storage_path, m.created_by, m.created_by::text
+from public.task_media m where m.id = '27000001-0000-4000-8000-000000000052';
+select public.confirm_task_media('27000001-0000-4000-8000-000000000052');
+reset role; reset request.jwt.claims;
+update public.task_media set created_at = now() - interval '25 hours'
+where id = '27000001-0000-4000-8000-000000000052';
+select pg_temp.check('a confirmed photo older than the window is kept',
+  (select count(*)::int from public.task_media_to_purge(100)
+    where id = '27000001-0000-4000-8000-000000000052'), 0);
+
+-- The sweep has marked it. Every link of the sender's chain now answers the
+-- same word, and taking the photo back is what remains.
+select public.mark_task_media_purged(array['27000001-0000-4000-8000-000000000051'::uuid]);
+select pg_temp.as_boss();
+select pg_temp.check('registering an expired photo again says it expired',
+  pg_temp.refusal_hint($stmt$
+    select public.add_message_media('27000001-0000-4000-8000-000000000051',
+      '17000001-0000-4000-8000-000000000051', 'image/jpeg', 400000)
+  $stmt$), 'serverErrors.messageMediaExpired');
+select pg_temp.check('the bucket refuses the file',
+  public.can_upload_task_media((select storage_path from public.task_media
+    where id = '27000001-0000-4000-8000-000000000051')), false);
+select pg_temp.check('confirming it says the same',
+  pg_temp.refusal_hint($stmt$
+    select public.confirm_task_media('27000001-0000-4000-8000-000000000051')
+  $stmt$), 'serverErrors.messageMediaExpired');
+select public.remove_task_media('27000001-0000-4000-8000-000000000051');
+select pg_temp.check('and the author may take it back',
+  (select deleted_at is not null from public.task_media
+    where id = '27000001-0000-4000-8000-000000000051'), true);
+reset role; reset request.jwt.claims;
+
 rollback;

@@ -1001,6 +1001,7 @@
     "messageEmpty": "Napište něco nebo přiložte fotku",
     "messagePhotoLimit": "Ke zprávě lze přiložit nejvýše {{limit}} fotek",
     "messageMediaSent": "Fotka je součástí odeslané zprávy — nelze ji vzít zpět",
+    "messageMediaExpired": "Fotka čekala na nahrání příliš dlouho a vypršela — odeberte ji a pošlete znovu",
     "photosMissing": "Vyfoťte alespoň {{min}} foto",
     "photosTooMany": "Tento krok přijímá nejvýše {{limit}} fotek",
     "videoMissing": "Nejdřív natočte video",

@@ -62,6 +62,7 @@ export async function fetchProblemPhotos(client: Client, problemId: string): Pro
     .select('id, step_id, storage_path, created_at, source')
     .eq('problem_id', problemId)
     .is('deleted_at', null)
+    .is('purged_at', null)
     .not('uploaded_at', 'is', null)
     .order('created_at', { ascending: true });
   if (error) {
@@ -91,6 +92,7 @@ export async function fetchFixTaskSteps(client: Client, taskId: string): Promise
       .select('id, step_id, storage_path, created_at, source')
       .eq('task_id', taskId)
       .is('deleted_at', null)
+      .is('purged_at', null)
       .not('uploaded_at', 'is', null)
       .order('created_at', { ascending: true }),
   ]);

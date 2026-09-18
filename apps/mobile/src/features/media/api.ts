@@ -30,6 +30,7 @@ export async function fetchTaskMedia(taskId: string): Promise<TaskMedia[]> {
     .select(MEDIA_COLUMNS)
     .eq('task_id', taskId)
     .is('deleted_at', null)
+    .is('purged_at', null)
     .order('created_at', { ascending: true });
 
   if (error) {
@@ -46,6 +47,7 @@ export async function fetchProblemMedia(problemId: string): Promise<TaskMedia[]>
     .select(MEDIA_COLUMNS)
     .eq('problem_id', problemId)
     .is('deleted_at', null)
+    .is('purged_at', null)
     .order('created_at', { ascending: true });
 
   if (error) {

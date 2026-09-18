@@ -148,6 +148,7 @@ export async function fetchTaskWork(client: Client, taskId: string): Promise<Tas
       .select('id, step_id, storage_path, created_at, source')
       .eq('task_id', taskId)
       .is('deleted_at', null)
+      .is('purged_at', null)
       .not('uploaded_at', 'is', null)
       .order('created_at', { ascending: true }),
   ]);

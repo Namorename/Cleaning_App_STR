@@ -1001,6 +1001,7 @@
     "messageEmpty": "Write something or attach a photo",
     "messagePhotoLimit": "A message takes at most {{limit}} photo(s)",
     "messageMediaSent": "The photo is part of a sent message and cannot be taken back",
+    "messageMediaExpired": "The photo waited too long for its file and has expired; remove it and send it again",
     "photosMissing": "Take at least {{min}} photo(s)",
     "photosTooMany": "This step takes at most {{limit}} photos",
     "videoMissing": "Record a video first",

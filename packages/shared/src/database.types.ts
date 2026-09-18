@@ -1827,6 +1827,7 @@ export type Database = {
       }
       chat_body_max_length: { Args: never; Returns: number }
       chat_max_photos: { Args: never; Returns: number }
+      chat_media_upload_window: { Args: never; Returns: string }
       chat_participates: {
         Args: {
           p_kind: Database["public"]["Enums"]["chat_thread_kind"]
