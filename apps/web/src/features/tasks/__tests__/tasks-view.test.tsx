@@ -306,7 +306,7 @@ describe('TasksView', () => {
     render(<TasksView />);
 
     const card = screen.getByText('Вечерний осмотр').closest('[data-slot="card"]') as HTMLElement;
-    await userEvent.click(within(card).getByRole('button', { name: 'Разговор' }));
+    await userEvent.click(within(card).getByRole('button', { name: 'Чат' }));
 
     const drawer = await screen.findByRole('dialog', { name: 'Задание' });
     expect(within(drawer).getByRole('region', { name: 'Разговор' })).toHaveTextContent(id(2));
