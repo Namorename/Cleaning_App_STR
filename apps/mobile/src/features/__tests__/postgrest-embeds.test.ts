@@ -8,25 +8,35 @@ import { fetchTaskSteps } from '@/features/steps/api';
 import { fetchMySupplyRequests, fetchSupplyRequest } from '@/features/supplies/api';
 import { fetchFreeTasks, fetchMyTasks, fetchTask } from '@/features/tasks/api';
 
+import {
+  complaintsIn,
+  indexSchema,
+  joinCount,
+} from '../../../../../packages/shared/src/testing/postgrest-select';
+
 /**
- * Every embed the phone asks for must name exactly one relationship.
+ * Every select the phone sends must be one the server will answer.
  *
- * PostgREST refuses a whole query — HTTP 300, no rows, empty screen — when the
- * two tables it is asked to join are joined more than once and the request
- * does not say which way. That is not a typo a reviewer catches: the select
+ * Two things go wrong with a select string and neither is a type error: the
  * string is data, the mocked tests parse whatever they are handed, and the
  * client's own types go unchecked because the rows leave through zod, which
- * takes `unknown`. It surfaced on a real phone, as "Could not embed because
- * more than one relationship was found for 'tasks' and 'problems'" —
- * `tasks.problem_id` is the report a maintenance task fixes, `problems.task_id`
- * is the cleaning a problem was found during.
+ * takes `unknown`.
  *
- * So the rule is checked here, against the same schema the client is typed
- * with: drive the readers, catch the select strings they send, and resolve
- * every embed in them the way the server would. An embed may be spelled by
- * foreign key column (`problem:problem_id(...)`), hinted explicitly
- * (`tasks!tasks_problem_id_fkey(...)`), or named by table — and the last one
- * is only allowed where exactly one relationship exists to resolve it.
+ * An embed naming two tables joined more than one way, without saying which,
+ * is refused whole — HTTP 300, no rows, empty screen. It surfaced on a real
+ * phone as "Could not embed because more than one relationship was found for
+ * 'tasks' and 'problems'": `tasks.problem_id` is the report a maintenance
+ * task fixes, `problems.task_id` is the cleaning a problem was found during.
+ *
+ * A column the table does not have is refused the same way — 42703, empty
+ * screen. It surfaced twice: as a typo, and as a computed field
+ * (`effective_cleaner_notes`) whose migration had not reached the cloud when
+ * the bundle asking for it did. The generator files computed fields under
+ * `Functions`, not under the table's `Row`, so the guard reads both.
+ *
+ * The rule is checked against the same schema the client is typed with:
+ * drive the readers, catch the select strings they send, and resolve every
+ * field in them the way the server would.
  */
 
 const mockRecorded: { table: string; select: string }[] = [];
@@ -37,7 +47,7 @@ jest.mock('@/lib/supabase', () => {
   // The readers chain a different set of filters each, and none of that
   // matters here: anything called returns the same recorder, and awaiting it
   // yields no rows. Only `from` and `select` are remembered.
-  const recorder = (table: string): Record<string, unknown> => {
+  const recorder = (table: string | null): Record<string, unknown> => {
     const self: Record<string, unknown> = {
       then: answer.then.bind(answer),
       catch: answer.catch.bind(answer),
@@ -50,7 +60,7 @@ jest.mock('@/lib/supabase', () => {
         }
         if (property === 'select') {
           return (columns?: unknown) => {
-            if (typeof columns === 'string') {
+            if (typeof columns === 'string' && table !== null) {
               mockRecorded.push({ table, select: columns });
             }
             return target;
@@ -64,8 +74,8 @@ jest.mock('@/lib/supabase', () => {
   return {
     supabase: {
       from: (table: string) => recorder(table),
-      rpc: () => recorder('rpc'),
-      storage: { from: () => recorder('storage') },
+      rpc: () => recorder(null),
+      storage: { from: () => recorder(null) },
     },
   };
 });
@@ -87,134 +97,9 @@ const READERS: readonly (() => Promise<unknown>)[] = [
   () => fetchHostSettings(),
 ];
 
-interface Relationship {
-  table: string;
-  columns: readonly string[];
-  referencedRelation: string;
-}
-
-/**
- * The relationships of the generated schema, read from the file `db:types`
- * writes. Nothing exports them at runtime — they live in a type — so the text
- * is parsed. A parse that quietly matched nothing would make every assertion
- * below pass, which is why the shape of the result is asserted first.
- */
-function readRelationships(): Relationship[] {
-  const path = join(__dirname, '../../../../../packages/shared/src/database.types.ts');
-  const source = readFileSync(path, 'utf8');
-
-  const tableStarts = [...source.matchAll(/^ {6}(\w+): \{$/gm)].map(match => ({
-    name: match[1],
-    at: match.index ?? 0,
-  }));
-
-  const entries = [
-    ...source.matchAll(
-      /foreignKeyName: "[^"]+"\s+columns: \[([^\]]*)\]\s+isOneToOne: \w+\s+referencedRelation: "(\w+)"/g,
-    ),
-  ];
-
-  return entries.map(entry => {
-    const at = entry.index ?? 0;
-    const owner = [...tableStarts].reverse().find(start => start.at < at);
-    return {
-      table: owner?.name ?? '',
-      columns: entry[1]
-        .split(',')
-        .map(column => column.trim().replace(/"/g, ''))
-        .filter(Boolean),
-      referencedRelation: entry[2],
-    };
-  });
-}
-
-const relationships = readRelationships();
-
-/** How many ways the server could join these two tables. */
-function joinCount(from: string, to: string): number {
-  const forward = relationships.filter(item => item.table === from && item.referencedRelation === to);
-  if (from === to) {
-    return forward.length;
-  }
-  const backward = relationships.filter(item => item.table === to && item.referencedRelation === from);
-  return forward.length + backward.length;
-}
-
-interface Embed {
-  head: string;
-  children: string;
-}
-
-/** Splits one level of a select string into its embeds, parentheses respected. */
-function embedsOf(select: string): Embed[] {
-  const found: Embed[] = [];
-  let depth = 0;
-  let field = '';
-
-  const take = (text: string) => {
-    const open = text.indexOf('(');
-    if (open === -1) {
-      return;
-    }
-    found.push({
-      head: text.slice(0, open).trim(),
-      children: text.slice(open + 1, text.lastIndexOf(')')),
-    });
-  };
-
-  for (const character of select) {
-    if (character === '(') depth += 1;
-    if (character === ')') depth -= 1;
-    if (character === ',' && depth === 0) {
-      take(field);
-      field = '';
-      continue;
-    }
-    field += character;
-  }
-  take(field);
-
-  return found;
-}
-
-/** The table an embed resolves to, or a complaint explaining why it cannot. */
-function resolve(parent: string, head: string): { table: string } | { problem: string } {
-  const target = head.includes(':') ? head.slice(head.indexOf(':') + 1) : head;
-
-  if (target.includes('!')) {
-    return { table: target.slice(0, target.indexOf('!')) };
-  }
-
-  const byColumn = relationships.find(
-    item => item.table === parent && item.columns.length === 1 && item.columns[0] === target,
-  );
-  if (byColumn) {
-    return { table: byColumn.referencedRelation };
-  }
-
-  const ways = joinCount(parent, target);
-  if (ways === 1) {
-    return { table: target };
-  }
-  if (ways === 0) {
-    return { problem: `'${parent}' has no relationship to '${target}'` };
-  }
-  return {
-    problem:
-      `'${parent}' and '${target}' are joined ${ways} ways — name the foreign key column ` +
-      `or hint the constraint, or the server answers 300 and the screen stays empty`,
-  };
-}
-
-function complaintsIn(table: string, select: string): string[] {
-  return embedsOf(select).flatMap(embed => {
-    const outcome = resolve(table, embed.head);
-    if ('problem' in outcome) {
-      return [`${table} → ${embed.head}: ${outcome.problem}`];
-    }
-    return complaintsIn(outcome.table, embed.children);
-  });
-}
+const schema = indexSchema(
+  readFileSync(join(__dirname, '../../../../../packages/shared/src/database.types.ts'), 'utf8'),
+);
 
 beforeAll(async () => {
   for (const read of READERS) {
@@ -225,13 +110,30 @@ beforeAll(async () => {
 });
 
 describe('the schema this test reasons about', () => {
+  // A parse that quietly matched nothing would make every assertion below
+  // pass, which is why the shape of the result is asserted first.
   test('is parsed, not silently empty', () => {
-    expect(relationships.length).toBeGreaterThan(20);
-    expect(relationships.every(item => item.table !== '')).toBe(true);
+    expect(schema.relationships.length).toBeGreaterThan(20);
+    expect(schema.relationships.every(item => item.table !== '')).toBe(true);
+    expect(schema.columns.get('tasks')?.has('scheduled_date')).toBe(true);
+    expect(schema.columns.get('expired_tasks_review')?.has('parent_name')).toBe(true);
   });
 
   test('still joins tasks and problems both ways, which is what makes the embed ambiguous', () => {
-    expect(joinCount('tasks', 'problems')).toBe(2);
+    expect(joinCount(schema, 'tasks', 'problems')).toBe(2);
+  });
+
+  test('knows a computed field as a column of its table', () => {
+    expect(schema.computed.get('properties')?.has('effective_cleaner_notes')).toBe(true);
+    expect(complaintsIn(schema, 'properties', 'id, effective_cleaner_notes')).toEqual([]);
+  });
+
+  test('and refuses a column that is not there, however it is spelled', () => {
+    expect(complaintsIn(schema, 'properties', 'id, cleaner_notez')).toHaveLength(1);
+    expect(complaintsIn(schema, 'tasks', 'notes:cleaner_notez::text')).toHaveLength(1);
+    expect(complaintsIn(schema, 'tasks', 'property:property_id(name, cleaner_notez)')).toHaveLength(
+      1,
+    );
   });
 });
 
@@ -240,8 +142,10 @@ describe('every read the cleaner makes', () => {
     expect(mockRecorded.length).toBeGreaterThanOrEqual(READERS.length);
   });
 
-  test('names one relationship per embed', () => {
-    const complaints = mockRecorded.flatMap(entry => complaintsIn(entry.table, entry.select));
+  test('names one relationship per embed and only columns the schema has', () => {
+    const complaints = mockRecorded.flatMap(entry =>
+      complaintsIn(schema, entry.table, entry.select),
+    );
 
     expect(complaints).toEqual([]);
   });
