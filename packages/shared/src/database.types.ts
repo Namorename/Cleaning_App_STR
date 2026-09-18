@@ -2634,6 +2634,42 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      task_media_written_meanwhile: {
+        Args: {
+          p_id: string
+          p_message_id: string
+          p_problem_id: string
+          p_step_id: string
+        }
+        Returns: {
+          byte_size: number
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          device_taken_at: string | null
+          duration_sec: number | null
+          height: number | null
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["media_kind"]
+          message_id: string | null
+          mime_type: string
+          problem_id: string | null
+          purged_at: string | null
+          source: Database["public"]["Enums"]["media_source"]
+          step_id: string | null
+          storage_path: string
+          task_id: string | null
+          uploaded_at: string | null
+          width: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "task_media"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       task_note_line_count: { Args: { p_text: string }; Returns: number }
       task_start_not_before: {
         Args: {

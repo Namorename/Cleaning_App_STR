@@ -430,4 +430,35 @@ select pg_temp.check('a task still open keeps its files however old',
   (select count(*)::int from public.task_media_to_purge(100)
    where task_id = (pg_temp.task(2)).id), 0);
 
+-- ---------- two calls with one id at the same moment (20260918190000) ----------
+--
+-- One session cannot make two calls at once, so the other call is played by a
+-- trigger: between the RPC's lookup (which misses) and its insert, the trigger
+-- writes the very row the RPC is about to write. The RPC's own insert then
+-- lands on the primary key exactly as the loser of the race does.
+reset role; reset request.jwt.claims;
+
+create function pg_temp.other_call_wins() returns trigger language plpgsql as $$
+begin
+  if pg_trigger_depth() = 1 then
+    execute format('insert into %I.%I select ($1).*', tg_table_schema, tg_table_name) using new;
+  end if;
+  return new;
+end $$;
+
+create trigger race_media before insert on public.task_media for each row
+  when (new.id = 'e6000001-0000-4000-8000-000000000009')
+  execute function pg_temp.other_call_wins();
+
+select pg_temp.as_maria();
+select pg_temp.check('add_task_media that loses the race gets the same row, not 23505',
+  (select id from public.add_task_media(pg_temp.media_id(9), (pg_temp.step(2, 'photos_after')).id,
+     'photo', 'image/jpeg', 500000, 1600, 1200, null, now())),
+  pg_temp.media_id(9));
+select pg_temp.check('and one row only',
+  (select count(*)::int from public.task_media where id = pg_temp.media_id(9)), 1);
+
+reset role; reset request.jwt.claims;
+drop trigger race_media on public.task_media;
+
 rollback;

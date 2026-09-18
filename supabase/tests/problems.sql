@@ -479,4 +479,36 @@ select pg_temp.check('but a finished one still is',
   (select count(*)::int from public.problems where id = pg_temp.pid(1)), 1);
 reset role; reset request.jwt.claims;
 
+-- ---------- two calls with one id at the same moment (20260918190000) ----------
+--
+-- One session cannot make two calls at once, so the other call is played by a
+-- trigger: between the RPC's lookup (which misses) and its insert, the trigger
+-- writes the very row the RPC is about to write. The RPC's own insert then
+-- lands on the primary key exactly as the loser of the race does.
+reset role; reset request.jwt.claims;
+
+create function pg_temp.other_call_wins() returns trigger language plpgsql as $$
+begin
+  if pg_trigger_depth() = 1 then
+    execute format('insert into %I.%I select ($1).*', tg_table_schema, tg_table_name) using new;
+  end if;
+  return new;
+end $$;
+
+create trigger race_media before insert on public.task_media for each row
+  when (new.id = 'e8000001-0000-4000-8000-0000000000a7')
+  execute function pg_temp.other_call_wins();
+
+-- Problem 2 is still open; whoever reported it attaches.
+select pg_temp.as_user((pg_temp.problem(2)).reported_by::text);
+select pg_temp.check('add_problem_media that loses the race gets the same row, not 23505',
+  (select id from public.add_problem_media('e8000001-0000-4000-8000-0000000000a7'::uuid, pg_temp.pid(2),
+     'image/jpeg', 500000, 1600, 1200, now(), 'camera')),
+  'e8000001-0000-4000-8000-0000000000a7'::uuid);
+select pg_temp.check('and one row only',
+  (select count(*)::int from public.task_media where id = 'e8000001-0000-4000-8000-0000000000a7'::uuid), 1);
+
+reset role; reset request.jwt.claims;
+drop trigger race_media on public.task_media;
+
 rollback;

@@ -820,4 +820,72 @@ select pg_temp.check('a photo in the inbox older than the retention period is du
   (select count(*)::int from public.task_media_to_purge(100)
     where id = '27000001-0000-4000-8000-000000000032'), 1);
 
+-- ---------------------------------------------------------------------------
+--  Two calls with one id at the same moment (20260918190000)
+-- ---------------------------------------------------------------------------
+-- One session cannot make two calls at once, so the other call is played by a
+-- trigger: between the RPC's lookup (which misses) and its insert, the trigger
+-- writes the very row the RPC is about to write. The RPC's own insert then
+-- lands on the primary key exactly as the loser of the race does.
+reset role; reset request.jwt.claims;
+
+create function pg_temp.other_call_wins() returns trigger language plpgsql as $fn$
+begin
+  if pg_trigger_depth() = 1 then
+    execute format('insert into %I.%I select ($1).*', tg_table_schema, tg_table_name) using new;
+  end if;
+  return new;
+end $fn$;
+
+create trigger race_send before insert on public.chat_messages for each row
+  when (new.id = '17000001-0000-4000-8000-000000000041')
+  execute function pg_temp.other_call_wins();
+create trigger race_media before insert on public.task_media for each row
+  when (new.id = '27000001-0000-4000-8000-000000000041')
+  execute function pg_temp.other_call_wins();
+
+select pg_temp.as_boss();
+select pg_temp.check('send_message that loses the race gets the same row, not 23505',
+  (select id from public.send_message('17000001-0000-4000-8000-000000000041', 'race',
+     'e7000001-0000-4000-8000-000000000001', null, null, 2::smallint)),
+  '17000001-0000-4000-8000-000000000041'::uuid);
+select pg_temp.check('and the message was written once',
+  (select count(*)::int from public.chat_messages
+    where id = '17000001-0000-4000-8000-000000000041'), 1);
+select pg_temp.check('and the thread counted it once',
+  (select message_count from public.chat_threads where id = pg_temp.task_thread())
+    = (select count(*) from public.chat_messages where thread_id = pg_temp.task_thread()),
+  true);
+
+select pg_temp.check('add_message_media that loses the race gets the same row',
+  (select id from public.add_message_media('27000001-0000-4000-8000-000000000041',
+     '17000001-0000-4000-8000-000000000041', 'image/jpeg', 400000)),
+  '27000001-0000-4000-8000-000000000041'::uuid);
+select pg_temp.check('and one row only',
+  (select count(*)::int from public.task_media
+    where id = '27000001-0000-4000-8000-000000000041'), 1);
+
+-- The row written meanwhile by ANOTHER company is not the answer: the
+-- re-read applies the host and author checks and refuses with a key.
+select pg_temp.as_other_host();
+select public.send_message('17000001-0000-4000-8000-000000000043', '',
+                           null, null, 'd7000001-0000-4000-8000-000000000001', 1::smallint);
+select public.add_message_media('27000001-0000-4000-8000-000000000043',
+  '17000001-0000-4000-8000-000000000043', 'image/jpeg', 400000);
+select pg_temp.as_boss();
+select pg_temp.check('a media id taken by another company is refused with a key',
+  pg_temp.refusal_hint($stmt$
+    select public.add_message_media('27000001-0000-4000-8000-000000000043',
+      '17000001-0000-4000-8000-000000000041', 'image/jpeg', 400000)
+  $stmt$), 'serverErrors.mediaNotFound');
+select pg_temp.check('a message id taken by another company likewise',
+  pg_temp.refusal_hint($stmt$
+    select public.send_message('17000001-0000-4000-8000-000000000043', 'mine',
+      'e7000001-0000-4000-8000-000000000001')
+  $stmt$), 'serverErrors.messageNotFound');
+
+reset role; reset request.jwt.claims;
+drop trigger race_send on public.chat_messages;
+drop trigger race_media on public.task_media;
+
 rollback;
