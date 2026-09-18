@@ -454,7 +454,21 @@
       "sending": "Sending…",
       "sendHint": "Ctrl+Enter to send",
       "unknownAuthor": "Unknown",
-      "unread": "New message"
+      "unread": "New message",
+      "attachPhoto": "Attach photos",
+      "photoCount": "{{taken}} of {{max}}",
+      "photoAlt": "Photo {{index}}. {{status}}",
+      "photoOnItsWay": "Photo on its way",
+      "retryPhoto": "Try the upload again",
+      "removePhoto": "Remove",
+      "photoRefused": "Only JPEG and WebP photos up to {{limit}} MB can be attached.",
+      "photoStatus": {
+        "picked": "Ready to send",
+        "uploaded": "Uploaded",
+        "uploading": "Uploading",
+        "failed": "Not uploaded",
+        "expired": "Expired"
+      }
     },
     "team": {
       "title": "Team",

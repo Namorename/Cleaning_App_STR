@@ -454,7 +454,21 @@
       "sending": "Отправляем…",
       "sendHint": "Ctrl+Enter — отправить",
       "unknownAuthor": "Неизвестно",
-      "unread": "Новое сообщение"
+      "unread": "Новое сообщение",
+      "attachPhoto": "Прикрепить фото",
+      "photoCount": "{{taken}} из {{max}}",
+      "photoAlt": "Фото {{index}}. {{status}}",
+      "photoOnItsWay": "Фото в пути",
+      "retryPhoto": "Повторить загрузку",
+      "removePhoto": "Убрать",
+      "photoRefused": "Прикрепить можно только фото JPEG и WebP до {{limit}} МБ.",
+      "photoStatus": {
+        "picked": "Готово к отправке",
+        "uploaded": "Загружено",
+        "uploading": "Загружается",
+        "failed": "Не загрузилось",
+        "expired": "Срок вышел"
+      }
     },
     "team": {
       "title": "Команда",

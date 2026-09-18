@@ -1,14 +1,21 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { serverErrorText } from '@/lib/server-error';
 
 import { MessageComposer } from './message-composer';
 import { MessageList } from './message-list';
-import { newestMessageAt, type ChatSubject } from './schema';
-import { useCurrentUserId, useMarkThreadRead, useMessages, useThread } from './use-chat';
+import { newestMessageAt, type ChatMessage, type ChatSubject } from './schema';
+import {
+  useCurrentUserId,
+  useMarkThreadRead,
+  useMessages,
+  usePhotoUrls,
+  useThread,
+} from './use-chat';
+import { useOutgoingPhotos } from './use-outgoing-photos';
 
 interface ThreadPanelProps {
   subject: ChatSubject;
@@ -58,13 +65,24 @@ function ThreadError({ error }: { error: unknown }) {
   );
 }
 
+/** The paths worth signing: the photos that actually have a file. */
+function arrivedPaths(messages: readonly ChatMessage[] | undefined): string[] {
+  return (messages ?? []).flatMap((message) =>
+    message.task_media.flatMap((photo) => (photo.uploaded_at === null ? [] : [photo.storage_path])),
+  );
+}
+
 function Thread({ threadId, subject }: { threadId: string; subject: ChatSubject }) {
   const { t } = useTranslation();
   const messages = useMessages(threadId);
   const currentUserId = useCurrentUserId();
   const { mutate: markRead } = useMarkThreadRead();
+  const outgoing = useOutgoingPhotos();
   // What has already been reported as read, so a re-render does not repeat it.
   const markedUpTo = useRef<string | null>(null);
+
+  const paths = useMemo(() => arrivedPaths(messages.data), [messages.data]);
+  const urls = usePhotoUrls(paths);
 
   const newest = messages.data === undefined ? null : newestMessageAt(messages.data);
 
@@ -87,9 +105,17 @@ function Thread({ threadId, subject }: { threadId: string; subject: ChatSubject 
       ) : messages.data.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t('panel.chat.empty')}</p>
       ) : (
-        <MessageList messages={messages.data} currentUserId={currentUserId} />
+        <MessageList
+          messages={messages.data}
+          currentUserId={currentUserId}
+          outgoing={outgoing.states}
+          previews={outgoing.previews}
+          urls={urls}
+          onRetryPhoto={outgoing.retry}
+          onRemovePhoto={outgoing.discard}
+        />
       )}
-      <MessageComposer subject={subject} />
+      <MessageComposer subject={subject} onSent={outgoing.start} />
     </>
   );
 }

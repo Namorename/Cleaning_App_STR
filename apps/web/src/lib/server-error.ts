@@ -43,11 +43,18 @@ function parameters(details: unknown): Record<string, unknown> {
   }
 }
 
-export function serverErrorText(error: unknown): ServerErrorText {
-  const { hint, details, message } = asRaised(error);
+/** The i18n key a refusal carries, when it carries one this build knows. */
+export function serverErrorKey(error: unknown): string | null {
+  const { hint } = asRaised(error);
+  return typeof hint === 'string' && hint.startsWith(KEY_PREFIX) && i18n.exists(hint) ? hint : null;
+}
 
-  if (typeof hint === 'string' && hint.startsWith(KEY_PREFIX) && i18n.exists(hint)) {
-    return { text: i18n.t(hint, parameters(details)), detail: null };
+export function serverErrorText(error: unknown): ServerErrorText {
+  const { details, message } = asRaised(error);
+  const key = serverErrorKey(error);
+
+  if (key !== null) {
+    return { text: i18n.t(key, parameters(details)), detail: null };
   }
 
   return {

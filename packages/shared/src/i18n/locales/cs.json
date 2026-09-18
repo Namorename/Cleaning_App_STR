@@ -454,7 +454,21 @@
       "sending": "Odesíláme…",
       "sendHint": "Ctrl+Enter odešle",
       "unknownAuthor": "Neznámý",
-      "unread": "Nová zpráva"
+      "unread": "Nová zpráva",
+      "attachPhoto": "Připojit fotky",
+      "photoCount": "{{taken}} ze {{max}}",
+      "photoAlt": "Fotka {{index}}. {{status}}",
+      "photoOnItsWay": "Fotka je na cestě",
+      "retryPhoto": "Zkusit nahrát znovu",
+      "removePhoto": "Odebrat",
+      "photoRefused": "Připojit lze jen fotky JPEG a WebP do {{limit}} MB.",
+      "photoStatus": {
+        "picked": "Připraveno k odeslání",
+        "uploaded": "Nahráno",
+        "uploading": "Nahrává se",
+        "failed": "Nenahráno",
+        "expired": "Vypršelo"
+      }
     },
     "team": {
       "title": "Tým",

@@ -33,8 +33,8 @@ const transcript = [
   }),
 ];
 
-const queries = { thread: vi.fn(), messages: vi.fn() };
-const mutations = { send: vi.fn(), markRead: vi.fn() };
+const queries = { thread: vi.fn(), messages: vi.fn(), photoUrls: vi.fn() };
+const mutations = { send: vi.fn(), markRead: vi.fn(), attach: vi.fn(), remove: vi.fn() };
 const sendState = { isPending: false, isError: false, error: null as unknown };
 
 vi.mock('../use-chat', () => ({
@@ -43,6 +43,9 @@ vi.mock('../use-chat', () => ({
   useCurrentUserId: () => ME,
   useSendMessage: () => ({ ...sendState, mutate: mutations.send }),
   useMarkThreadRead: () => ({ mutate: mutations.markRead }),
+  useAttachPhoto: () => ({ mutate: mutations.attach }),
+  useRemovePhoto: () => ({ mutate: mutations.remove }),
+  usePhotoUrls: () => queries.photoUrls(),
 }));
 
 import { ThreadPanel } from '../thread-panel';
@@ -56,6 +59,13 @@ beforeEach(() => {
   sendState.error = null;
   queries.thread.mockReturnValue(loaded({ id: THREAD }));
   queries.messages.mockReturnValue(loaded(transcript));
+  queries.photoUrls.mockReturnValue(new Map());
+  // jsdom has no object URLs; the composer makes one per picked file.
+  vi.stubGlobal('URL', {
+    ...URL,
+    createObjectURL: vi.fn(() => 'blob:picked'),
+    revokeObjectURL: vi.fn(),
+  });
 });
 
 describe('ThreadPanel', () => {
@@ -128,6 +138,114 @@ describe('ThreadPanel', () => {
     render(<ThreadPanel subject={{ taskId: TASK }} />);
 
     expect(screen.getByRole('alert')).toHaveTextContent('В сообщении не больше 4000 символов');
+  });
+
+  test('a photo of somebody else with no file yet is drawn as on its way', () => {
+    queries.messages.mockReturnValue(
+      loaded([
+        message({
+          id: '88888888-8888-4888-8888-888888888888',
+          author_id: HER,
+          author_name: 'Maria Test',
+          author_role: 'cleaner',
+          body: '',
+          media_expected: 1,
+          task_media: [
+            {
+              id: '99999999-9999-4999-8999-999999999999',
+              storage_path: 'host/chat/thread/99999999.jpg',
+              uploaded_at: null,
+              created_at: '2026-09-18T10:08:00+00:00',
+            },
+          ],
+        }),
+      ]),
+    );
+
+    render(<ThreadPanel subject={{ taskId: TASK }} />);
+
+    expect(screen.getByText('Фото в пути')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Повторить загрузку' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Убрать' })).not.toBeInTheDocument();
+  });
+
+  test('a photo that arrived is a picture behind its signed link', () => {
+    queries.photoUrls.mockReturnValue(
+      new Map([['host/chat/thread/99999999.jpg', 'https://signed/photo']]),
+    );
+    queries.messages.mockReturnValue(
+      loaded([
+        message({
+          id: '88888888-8888-4888-8888-888888888888',
+          body: '',
+          media_expected: 1,
+          task_media: [
+            {
+              id: '99999999-9999-4999-8999-999999999999',
+              storage_path: 'host/chat/thread/99999999.jpg',
+              uploaded_at: '2026-09-18T10:09:00+00:00',
+              created_at: '2026-09-18T10:08:00+00:00',
+            },
+          ],
+        }),
+      ]),
+    );
+
+    render(<ThreadPanel subject={{ taskId: TASK }} />);
+
+    expect(screen.getByRole('img', { name: /Фото 1\. Загружено/ })).toHaveAttribute(
+      'src',
+      'https://signed/photo',
+    );
+  });
+
+  test('declares the picked photos and sends them under the message id', async () => {
+    mutations.send.mockImplementation((_variables, handlers) => handlers?.onSuccess?.());
+
+    render(<ThreadPanel subject={{ taskId: TASK }} />);
+
+    const photo = new File(['bytes'], 'photo.jpg', { type: 'image/jpeg' });
+    await userEvent.upload(screen.getByLabelText('Прикрепить фото'), photo);
+
+    expect(screen.getByText('1 из 4')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+
+    const [variables] = mutations.send.mock.calls[0];
+    expect(variables.mediaExpected).toBe(1);
+    expect(mutations.attach).toHaveBeenCalledTimes(1);
+    const [attached] = mutations.attach.mock.calls[0];
+    expect(attached.messageId).toBe(variables.id);
+    expect(attached.file).toBe(photo);
+  });
+
+  test('a photo alone, with no words, may be sent', async () => {
+    render(<ThreadPanel subject={{ taskId: TASK }} />);
+
+    expect(screen.getByRole('button', { name: 'Отправить' })).toBeDisabled();
+
+    await userEvent.upload(
+      screen.getByLabelText('Прикрепить фото'),
+      new File(['bytes'], 'photo.webp', { type: 'image/webp' }),
+    );
+
+    expect(screen.getByRole('button', { name: 'Отправить' })).toBeEnabled();
+  });
+
+  test('a file the server would refuse is never picked up at all', async () => {
+    render(<ThreadPanel subject={{ taskId: TASK }} />);
+
+    // `accept` only steers the dialog; a drag or "all files" gets past it, so
+    // the refusal is tested the way it can actually happen.
+    await userEvent.upload(
+      screen.getByLabelText('Прикрепить фото'),
+      new File(['bytes'], 'scan.pdf', { type: 'application/pdf' }),
+      { applyAccept: false },
+    );
+
+    expect(screen.getByRole('alert')).toHaveTextContent('только фото JPEG и WebP до 20 МБ');
+    expect(screen.getByText('0 из 4')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Отправить' })).toBeDisabled();
   });
 
   test('a thread it may not open is reported, with the server words under it', () => {
