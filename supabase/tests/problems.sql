@@ -479,7 +479,7 @@ select pg_temp.check('but a finished one still is',
   (select count(*)::int from public.problems where id = pg_temp.pid(1)), 1);
 reset role; reset request.jwt.claims;
 
--- ---------- two calls with one id at the same moment (20260918190000) ----------
+-- ---------- two calls with one id at the same moment (20260918170000) ----------
 --
 -- One session cannot make two calls at once, so the other call is played by a
 -- trigger: between the RPC's lookup (which misses) and its insert, the trigger

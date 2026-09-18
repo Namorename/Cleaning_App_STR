@@ -16,8 +16,9 @@
 -- that the live path of a cleaning's photos can be watched for a day before
 -- the chat follows (owner's decision, 2026-09-18).
 --
--- The bodies below are those of 20260917110100; only the insert and the tail
--- after it change.
+-- The bodies below are those of 20260917110100; what changes is the insert,
+-- the tail after it, and one more lookup right after the row lock -- the
+-- point where a concurrent writer's row first becomes visible.
 
 /**
  * The row a replayed media write lost the race to: written by this same
@@ -98,6 +99,14 @@ begin
   end if;
 
   v_step := public.task_step_for_update(p_step_id, true);
+
+  -- The lookup above ran before this lock. A call with the same id that was
+  -- writing while we waited has committed by now and its row is visible only
+  -- from here on: ask once more, or the limit below would be charged for a
+  -- file that is our own (preflight 2026-09-19, seen on a video step).
+  if exists (select 1 from public.task_media m where m.id = p_id) then
+    return public.task_media_written_meanwhile(p_id, p_step_id, null);
+  end if;
 
   if v_step.completed_at is not null then
     raise exception 'The step is completed; reopen it to change its media'
@@ -244,6 +253,11 @@ begin
   if not found then
     raise exception 'Problem not found'
       using errcode = 'check_violation', hint = 'serverErrors.problemNotFound';
+  end if;
+
+  -- The lookup above ran before this lock; see add_task_media.
+  if exists (select 1 from public.task_media m where m.id = p_id) then
+    return public.task_media_written_meanwhile(p_id, null, p_problem_id);
   end if;
   if v_problem.status <> 'open' then
     raise exception 'Problem is % and its photos can no longer change', v_problem.status

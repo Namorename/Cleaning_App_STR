@@ -430,7 +430,7 @@ select pg_temp.check('a task still open keeps its files however old',
   (select count(*)::int from public.task_media_to_purge(100)
    where task_id = (pg_temp.task(2)).id), 0);
 
--- ---------- two calls with one id at the same moment (20260918190000) ----------
+-- ---------- two calls with one id at the same moment (20260918170000) ----------
 --
 -- One session cannot make two calls at once, so the other call is played by a
 -- trigger: between the RPC's lookup (which misses) and its insert, the trigger
@@ -460,5 +460,31 @@ select pg_temp.check('and one row only',
 
 reset role; reset request.jwt.claims;
 drop trigger race_media on public.task_media;
+
+-- The row written meanwhile by ANOTHER author is not the answer: the re-read
+-- applies the author check and refuses with a key, never with 23505.
+create function pg_temp.other_author_wins() returns trigger language plpgsql as $$
+declare v_row public.task_media;
+begin
+  if pg_trigger_depth() = 1 then
+    v_row := new;
+    v_row.created_by := 'd6000002-0000-4000-8000-0000000000d2';
+    execute format('insert into %I.%I select ($1).*', tg_table_schema, tg_table_name) using v_row;
+  end if;
+  return new;
+end $$;
+
+create trigger race_author before insert on public.task_media for each row
+  when (new.id = 'e6000001-0000-4000-8000-000000000010')
+  execute function pg_temp.other_author_wins();
+
+select pg_temp.as_maria();
+select pg_temp.check('a row written meanwhile by another author is refused with a key',
+  pg_temp.refusal($q$select public.add_task_media(pg_temp.media_id(10),
+    (pg_temp.step(2, 'photos_after')).id, 'photo', 'image/jpeg', 500000, 1600, 1200, null, now())$q$),
+  'serverErrors.mediaNotFound');
+
+reset role; reset request.jwt.claims;
+drop trigger race_author on public.task_media;
 
 rollback;

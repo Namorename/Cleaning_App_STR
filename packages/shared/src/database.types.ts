@@ -1828,6 +1828,37 @@ export type Database = {
       chat_body_max_length: { Args: never; Returns: number }
       chat_max_photos: { Args: never; Returns: number }
       chat_media_upload_window: { Args: never; Returns: string }
+      chat_media_written_meanwhile: {
+        Args: { p_id: string; p_message_id: string }
+        Returns: {
+          byte_size: number
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          device_taken_at: string | null
+          duration_sec: number | null
+          height: number | null
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["media_kind"]
+          message_id: string | null
+          mime_type: string
+          problem_id: string | null
+          purged_at: string | null
+          source: Database["public"]["Enums"]["media_source"]
+          step_id: string | null
+          storage_path: string
+          task_id: string | null
+          uploaded_at: string | null
+          width: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "task_media"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       chat_participates: {
         Args: {
           p_kind: Database["public"]["Enums"]["chat_thread_kind"]
