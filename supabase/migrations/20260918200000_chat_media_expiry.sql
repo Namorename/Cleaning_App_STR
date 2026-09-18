@@ -177,7 +177,16 @@ begin
 
   -- A replay of this very call got its row in between the lookup and the
   -- insert: that row is the answer, under the checks the lookup applies.
-  return public.task_media_written_meanwhile(p_id, null, null, p_message_id);
+  select m.* into v_media
+  from public.task_media m
+  where m.id = p_id and m.host_id = public.current_host_id();
+  if not found
+     or v_media.message_id is distinct from p_message_id
+     or v_media.created_by is distinct from (select auth.uid()) then
+    raise exception 'Media not found'
+      using errcode = 'check_violation', hint = 'serverErrors.mediaNotFound';
+  end if;
+  return v_media;
 end;
 $$;
 

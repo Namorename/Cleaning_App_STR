@@ -2636,12 +2636,7 @@ export type Database = {
         }
       }
       task_media_written_meanwhile: {
-        Args: {
-          p_id: string
-          p_message_id: string
-          p_problem_id: string
-          p_step_id: string
-        }
+        Args: { p_id: string; p_problem_id: string; p_step_id: string }
         Returns: {
           byte_size: number
           created_at: string
