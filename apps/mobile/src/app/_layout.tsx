@@ -1,6 +1,6 @@
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -11,6 +11,7 @@ import { Colors } from '@/constants/theme';
 import { SessionProvider } from '@/features/auth/session';
 import { ProfileLanguageGate } from '@/features/profile/language-gate';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { subscribeFocusToAppState } from '@/lib/app-focus';
 import { createAppQueryClient, persistOptions } from '@/lib/query-client';
 
 /**
@@ -53,6 +54,10 @@ export default function RootLayout() {
   // away every cached list on the next re-render.
   const [queryClient] = useState(createAppQueryClient);
 
+  // A poll stops when the phone is locked and a stale list refreshes when
+  // the app comes back; without this the client thinks it is always in front.
+  useEffect(() => subscribeFocusToAppState(), []);
+
   return (
     <PersistQueryClientProvider
       client={queryClient}
@@ -83,6 +88,10 @@ export default function RootLayout() {
                 />
                 <Stack.Screen
                   name="task/[id]/step/[stepId]"
+                  options={{ headerShown: true, headerBackTitle: t('common.back') }}
+                />
+                <Stack.Screen
+                  name="chat/[subject]/[id]"
                   options={{ headerShown: true, headerBackTitle: t('common.back') }}
                 />
               </Stack>

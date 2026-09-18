@@ -23,6 +23,8 @@ interface ProblemDetailProps {
   /** The task that fixes it, when it is the reader's own. */
   fixTaskId: string | null;
   onOpenFixTask: (taskId: string) => void;
+  /** The conversation about this report; the repair speaks in the same one. */
+  onOpenChat?: () => void;
   error: Error | null;
   notice: string | null;
 }
@@ -46,6 +48,7 @@ export function ProblemDetail({
   isCapturing,
   fixTaskId,
   onOpenFixTask,
+  onOpenChat,
   error,
   notice,
 }: ProblemDetailProps) {
@@ -122,6 +125,17 @@ export function ProblemDetail({
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
         >
           <Text style={styles.buttonText}>{t('problems.openFixTask')}</Text>
+        </Pressable>
+      ) : null}
+
+      {onOpenChat !== undefined ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('problems.openChat')}
+          onPress={onOpenChat}
+          style={({ pressed }) => [styles.secondary, pressed && styles.buttonPressed]}
+        >
+          <Text style={styles.secondaryText}>{t('problems.openChat')}</Text>
         </Pressable>
       ) : null}
 

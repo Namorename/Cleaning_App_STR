@@ -36,6 +36,8 @@ interface TaskDetailProps {
   onRequestSupplies?: (taskId: string) => void;
   /** On a maintenance task: the report it fixes. */
   onOpenProblem?: (problemId: string) => void;
+  /** The conversation about this job. Offered to whoever can see the job at all. */
+  onOpenChat?: (taskId: string) => void;
 }
 
 /**
@@ -63,6 +65,7 @@ export function TaskDetail({
   onReportProblem,
   onRequestSupplies,
   onOpenProblem,
+  onOpenChat,
 }: TaskDetailProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
@@ -179,6 +182,19 @@ export function TaskDetail({
           <Text style={styles.notesLabel}>{t('tasks.detail.notes')}</Text>
           <Text style={styles.notesText}>{notes}</Text>
         </View>
+      ) : null}
+
+      {/* Not gated by canRaise: the office writes on a job before anyone
+          takes it, and that note has to be readable from the queue. */}
+      {onOpenChat !== undefined ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('tasks.detail.openChat')}
+          onPress={() => onOpenChat(task.id)}
+          style={({ pressed }) => [styles.secondary, pressed && styles.buttonPressed]}
+        >
+          <Text style={styles.secondaryText}>{t('tasks.detail.openChat')}</Text>
+        </Pressable>
       ) : null}
 
       {canRaise && (onReportProblem !== undefined || onRequestSupplies !== undefined) ? (

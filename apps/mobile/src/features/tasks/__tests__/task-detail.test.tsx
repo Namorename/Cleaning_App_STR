@@ -397,3 +397,24 @@ test('falls back to one sentence when there is no key, keeping the raw words', a
   // Kept in small print: the cleaner can read it out to a manager.
   expect(screen.getByText('Network request failed')).toBeTruthy();
 });
+
+test('offers the chat on any job she can see, before anyone has taken it', async () => {
+  const onOpenChat = jest.fn();
+  const free = task({ status: 'unassigned', assignee_id: null });
+
+  await render(
+    <TaskDetail
+      task={free}
+      userId={ME}
+      now={NOW}
+      isBusy={false}
+      error={null}
+      onOpenChat={onOpenChat}
+      {...actions}
+    />,
+  );
+
+  await fireEvent.press(screen.getByRole('button', { name: 'Чат' }));
+
+  expect(onOpenChat).toHaveBeenCalledWith(free.id);
+});

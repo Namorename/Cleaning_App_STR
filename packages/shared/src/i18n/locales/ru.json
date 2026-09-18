@@ -741,6 +741,7 @@
       "requestSupplies": "Запросить расходники",
       "problem": "Проблема",
       "openProblem": "Открыть проблему",
+      "openChat": "Чат",
       "fixBanner": "{{property}} · срочность: {{priority}}",
       "notFound": "Задача не найдена или больше не ваша"
     }
@@ -848,6 +849,7 @@
     "noPlaceMatch": "Ничего не найдено",
     "cancelReason": "Причина отмены",
     "openFixTask": "Открыть задачу по устранению",
+    "openChat": "Чат",
     "cardAccessibility": "{{title}}. {{place}}. {{status}}"
   },
   "supplies": {
@@ -920,6 +922,16 @@
       "failed": "Не загрузилось",
       "local": "Будет отправлено"
     }
+  },
+  "chat": {
+    "title": "Чат",
+    "loading": "Загружаем сообщения…",
+    "empty": "Пока ничего не написано",
+    "notFound": "Этот чат недоступен",
+    "placeholder": "Написать…",
+    "send": "Отправить",
+    "pending": "Отправляется…",
+    "unknownAuthor": "Неизвестно"
   },
   "serverErrors": {
     "checklistCopySameProperty": "Источник и получатель — один и тот же апартамент",

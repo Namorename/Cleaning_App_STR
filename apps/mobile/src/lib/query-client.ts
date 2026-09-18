@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import { QueryClient } from '@tanstack/react-query';
 
+import { registerChatMutations } from '@/features/chat/use-chat';
 import { registerMediaMutations } from '@/features/media/use-media';
 import { registerProblemMutations } from '@/features/problems/use-problems';
 import { registerSupplyMutations } from '@/features/supplies/use-supplies';
@@ -48,6 +49,7 @@ export function createAppQueryClient(): QueryClient {
   registerMediaMutations(queryClient);
   registerProblemMutations(queryClient);
   registerSupplyMutations(queryClient);
+  registerChatMutations(queryClient);
 
   return queryClient;
 }

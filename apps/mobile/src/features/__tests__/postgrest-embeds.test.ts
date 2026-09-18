@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { fetchMessages } from '@/features/chat/api';
 import { fetchHostSettings } from '@/features/host/api';
 import { fetchProblemMedia, fetchTaskMedia } from '@/features/media/api';
 import { fetchMyProblems, fetchProblem } from '@/features/problems/api';
@@ -95,6 +96,7 @@ const READERS: readonly (() => Promise<unknown>)[] = [
   () => fetchProblemMedia(ANY_ID),
   () => fetchTaskSteps(ANY_ID),
   () => fetchHostSettings(),
+  () => fetchMessages(ANY_ID),
 ];
 
 const schema = indexSchema(

@@ -741,6 +741,7 @@
       "requestSupplies": "Request supplies",
       "problem": "Problem",
       "openProblem": "Open the problem",
+      "openChat": "Chat",
       "fixBanner": "{{property}} · priority: {{priority}}",
       "notFound": "Task not found, or no longer yours"
     }
@@ -848,6 +849,7 @@
     "noPlaceMatch": "Nothing matches",
     "cancelReason": "Reason for cancelling",
     "openFixTask": "Open the fix task",
+    "openChat": "Chat",
     "cardAccessibility": "{{title}}. {{place}}. {{status}}"
   },
   "supplies": {
@@ -920,6 +922,16 @@
       "failed": "Not uploaded",
       "local": "Will be sent"
     }
+  },
+  "chat": {
+    "title": "Chat",
+    "loading": "Loading messages…",
+    "empty": "Nothing has been said yet",
+    "notFound": "This chat is not available",
+    "placeholder": "Write…",
+    "send": "Send",
+    "pending": "Sending…",
+    "unknownAuthor": "Unknown"
   },
   "serverErrors": {
     "checklistCopySameProperty": "Source and target are the same apartment",

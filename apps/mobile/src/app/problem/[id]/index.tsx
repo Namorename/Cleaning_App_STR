@@ -153,6 +153,12 @@ export default function ProblemRoute() {
         isCapturing={isCapturing}
         fixTaskId={ownFixTaskId(problem.data, userId)}
         onOpenFixTask={(taskId) => router.push({ pathname: '/task/[id]', params: { id: taskId } })}
+        onOpenChat={() =>
+          router.push({
+            pathname: '/chat/[subject]/[id]',
+            params: { subject: 'problem', id: problemId },
+          })
+        }
         error={attach.error ?? removeMedia.error}
         notice={notice}
       />

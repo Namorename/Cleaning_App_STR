@@ -741,6 +741,7 @@
       "requestSupplies": "Požádat o materiál",
       "problem": "Problém",
       "openProblem": "Otevřít problém",
+      "openChat": "Chat",
       "fixBanner": "{{property}} · priorita: {{priority}}",
       "notFound": "Úkol nenalezen, nebo už není váš"
     }
@@ -848,6 +849,7 @@
     "noPlaceMatch": "Nic nenalezeno",
     "cancelReason": "Důvod zrušení",
     "openFixTask": "Otevřít úkol opravy",
+    "openChat": "Chat",
     "cardAccessibility": "{{title}}. {{place}}. {{status}}"
   },
   "supplies": {
@@ -920,6 +922,16 @@
       "failed": "Nenahráno",
       "local": "Bude odesláno"
     }
+  },
+  "chat": {
+    "title": "Chat",
+    "loading": "Načítáme zprávy…",
+    "empty": "Zatím nikdo nic nenapsal",
+    "notFound": "Tento chat není dostupný",
+    "placeholder": "Napsat…",
+    "send": "Odeslat",
+    "pending": "Odesílá se…",
+    "unknownAuthor": "Neznámý"
   },
   "serverErrors": {
     "checklistCopySameProperty": "Zdroj a cíl jsou tentýž apartmán",

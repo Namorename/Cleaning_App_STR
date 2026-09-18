@@ -82,6 +82,9 @@ export default function TaskScreen() {
         onOpenProblem={(problemId) =>
           router.push({ pathname: '/problem/[id]', params: { id: problemId } })
         }
+        onOpenChat={(id) =>
+          router.push({ pathname: '/chat/[subject]/[id]', params: { subject: 'task', id } })
+        }
       />
     </>
   );
