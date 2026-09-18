@@ -63,6 +63,49 @@ describe('a message as the panel reads it', () => {
   });
 });
 
+describe('a photo of a message', () => {
+  const PHOTO = '77777777-7777-4777-8777-777777777777';
+
+  test('is read with no file yet, which is what draws the hole', () => {
+    const withPhoto = message({
+      id: '44444444-4444-4444-8444-444444444444',
+      media_expected: 1,
+      task_media: [
+        {
+          id: PHOTO,
+          storage_path: 'host/chat/thread/photo.jpg',
+          uploaded_at: null,
+          created_at: '2026-09-18T10:00:30+00:00',
+        },
+      ],
+    });
+
+    expect(withPhoto.task_media[0].uploaded_at).toBeNull();
+  });
+
+  test('is nothing at all when the embed brings no rows', () => {
+    const wordsOnly = message({ id: '44444444-4444-4444-8444-444444444444' });
+
+    expect(wordsOnly.task_media).toEqual([]);
+  });
+
+  test('refuses a row without the path its file lives at', () => {
+    expect(() =>
+      chatMessageSchema.parse({
+        id: '44444444-4444-4444-8444-444444444444',
+        thread_id: THREAD,
+        author_id: ME,
+        author_name: 'Olga',
+        author_role: 'manager',
+        body: '',
+        media_expected: 1,
+        created_at: '2026-09-18T10:00:00+00:00',
+        task_media: [{ id: PHOTO, uploaded_at: null, created_at: '2026-09-18T10:00:30+00:00' }],
+      }),
+    ).toThrow();
+  });
+});
+
 describe('the newest message drawn', () => {
   test('is the latest by time, whatever order the rows arrived in', () => {
     const rows = [

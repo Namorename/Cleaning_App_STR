@@ -29,6 +29,7 @@ const message = {
   body: 'Ключи в боксе',
   media_expected: 0,
   created_at: '2026-09-18T10:01:00+00:00',
+  task_media: [],
 };
 
 /**
@@ -51,7 +52,7 @@ function recordingClient(answers: Record<string, unknown>) {
       catch: result.catch.bind(result),
       finally: result.finally.bind(result),
     };
-    for (const name of ['eq', 'order', 'limit']) {
+    for (const name of ['eq', 'is', 'order', 'limit']) {
       self[name] = (...args: unknown[]) => {
         read.calls.push([name, ...args]);
         return self;
@@ -136,10 +137,67 @@ describe('reading a thread', () => {
     expect(reads[0].select).toContain('author_role');
     expect(reads[0].calls).toEqual([
       ['eq', 'thread_id', THREAD],
+      ['is', 'task_media.deleted_at', null],
+      ['is', 'task_media.purged_at', null],
       ['order', 'created_at', { ascending: true }],
       ['order', 'id', { ascending: true }],
+      ['order', 'created_at', { referencedTable: 'task_media', ascending: true }],
     ]);
     expect(rows[0].body).toBe('Ключи в боксе');
+  });
+
+  test('brings the photos of a message in the same call, oldest first', async () => {
+    const { client, reads } = recordingClient({
+      chat_messages: [
+        {
+          ...message,
+          media_expected: 2,
+          task_media: [
+            {
+              id: '77777777-7777-4777-8777-777777777777',
+              storage_path: 'host/chat/thread/77777777.jpg',
+              uploaded_at: '2026-09-18T10:02:00+00:00',
+              created_at: '2026-09-18T10:01:30+00:00',
+            },
+            {
+              id: '88888888-8888-4888-8888-888888888888',
+              storage_path: 'host/chat/thread/88888888.jpg',
+              uploaded_at: null,
+              created_at: '2026-09-18T10:01:40+00:00',
+            },
+          ],
+        },
+      ],
+    });
+
+    const rows = await fetchMessages(client, THREAD);
+
+    expect(reads[0].select).toContain('task_media(');
+    expect(rows[0].task_media.map((photo) => photo.uploaded_at)).toEqual([
+      '2026-09-18T10:02:00+00:00',
+      null,
+    ]);
+  });
+
+  test('reads a message with no photos as an empty list, not as missing', async () => {
+    const { client } = recordingClient({
+      chat_messages: [
+        {
+          id: message.id,
+          thread_id: THREAD,
+          author_id: message.author_id,
+          author_name: message.author_name,
+          author_role: 'manager',
+          body: 'Ключи в боксе',
+          media_expected: 0,
+          created_at: message.created_at,
+        },
+      ],
+    });
+
+    const rows = await fetchMessages(client, THREAD);
+
+    expect(rows[0].task_media).toEqual([]);
   });
 });
 

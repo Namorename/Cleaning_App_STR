@@ -9,6 +9,22 @@ export type ChatThreadKind = (typeof CHAT_THREAD_KINDS)[number];
  */
 export const CHAT_BODY_MAX_LENGTH = 4000;
 
+/**
+ * A photo of a message, read together with the message.
+ *
+ * A row without `uploaded_at` is a file still on its way (docs/chat-plan.md,
+ * layer 5): the reader sees a grey tile, the sender her own upload. Rows taken
+ * back or expired never arrive here — the select filters them on the embed, so
+ * the panel never has to know they existed.
+ */
+export const chatMessageMediaSchema = z.object({
+  id: z.uuid(),
+  storage_path: z.string(),
+  uploaded_at: z.string().nullable(),
+  created_at: z.string(),
+});
+export type ChatMessageMedia = z.infer<typeof chatMessageMediaSchema>;
+
 /** A thread as `open_thread` returns it: the row and its denormalised tail. */
 export const chatThreadSchema = z.object({
   id: z.uuid(),
@@ -36,8 +52,13 @@ export const chatMessageSchema = z.object({
   author_name: z.string().nullable(),
   author_role: z.string(),
   body: z.string(),
+  /**
+   * The photos the row was licensed for. Never what is drawn: how many photos
+   * a message holds is said by its `task_media` rows and by nothing else.
+   */
   media_expected: z.number(),
   created_at: z.string(),
+  task_media: z.array(chatMessageMediaSchema).default([]),
 });
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
 export const chatMessageListSchema = z.array(chatMessageSchema);
