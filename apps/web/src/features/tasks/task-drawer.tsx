@@ -1,5 +1,6 @@
 'use client';
 
+import { ThreadPanel } from '@/features/chat/thread-panel';
 import { PhotoSource } from '@/features/media/photo-source';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -20,7 +21,7 @@ import { localizedTitle, taskMinutes, taskPropertyName, type Task } from './sche
 import { useSetDuration, useTaskProblems, useTaskWork } from './use-tasks';
 
 interface TaskDrawerProps {
-  /** The finished task being read. */
+  /** The task being read; finished or not. */
   task: Task;
   onClose: () => void;
 }
@@ -55,8 +56,14 @@ function stepState(step: {
 }
 
 /**
- * What happened on a finished cleaning: the steps, the photos, the problems
- * it turned up, and how long it is counted as.
+ * A job up close: the conversation about it and, once it has been worked,
+ * the steps, the photos, the problems it turned up, and how long it is
+ * counted as.
+ *
+ * The conversation comes first because it is the one part every job has: a
+ * manager's note on a job nobody has claimed yet is the case the chat exists
+ * for. The work sections appear once the job has been started; the time
+ * correction only once it is done.
  *
  * The measurement itself is never rewritten (§13.3). A correction goes into
  * its own field and can be taken back, and the drawer shows both numbers so
@@ -73,6 +80,8 @@ export function TaskDrawer({ task, onClose }: TaskDrawerProps) {
   );
 
   const title = localizedTitle(task, language) ?? t(`panel.tasks.types.${task.type}`);
+  const isDone = task.status === 'done';
+  const isStarted = task.started_at !== null;
   const counted = taskMinutes(task);
   const failure = setDuration.isError ? serverErrorText(setDuration.error) : null;
   const parsed = Number(correction);
@@ -96,7 +105,9 @@ export function TaskDrawer({ task, onClose }: TaskDrawerProps) {
     <Sheet open onOpenChange={(next) => (next ? undefined : onClose())}>
       <SheetContent className="gap-4 overflow-y-auto p-4 sm:max-w-lg">
         <SheetHeader className="p-0">
-          <SheetTitle>{t('panel.tasks.work.title')}</SheetTitle>
+          <SheetTitle>
+            {isDone ? t('panel.tasks.work.title') : t('panel.tasks.work.titleOpen')}
+          </SheetTitle>
         </SheetHeader>
 
         <div className="flex flex-col gap-1">
@@ -138,114 +149,128 @@ export function TaskDrawer({ task, onClose }: TaskDrawerProps) {
 
         <Separator />
 
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="task-correction">{t('panel.tasks.work.correction')}</Label>
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              id="task-correction"
-              type="number"
-              min={1}
-              className="w-28"
-              value={correction}
-              onChange={(event) => setCorrection(event.target.value)}
-            />
-            <Button
-              type="button"
-              size="sm"
-              disabled={setDuration.isPending || !isCorrectionValid}
-              onClick={saveCorrection}
-            >
-              {t('panel.tasks.work.correctionSave')}
-            </Button>
-            {task.duration_override_min === null ? null : (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={setDuration.isPending}
-                onClick={() => {
-                  setCorrection('');
-                  setDuration.mutate({ taskId: task.id, minutes: null });
-                }}
-              >
-                {t('panel.tasks.work.correctionReset')}
-              </Button>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground">{t('panel.tasks.work.correctionHint')}</p>
-          {failure === null ? null : (
-            <p role="alert" className="text-sm text-destructive">
-              {failure.text}
-              {failure.detail === null ? null : (
-                <span className="block text-xs text-muted-foreground">{failure.detail}</span>
+        <ThreadPanel subject={{ taskId: task.id }} />
+
+        {isDone ? (
+          <>
+            <Separator />
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="task-correction">{t('panel.tasks.work.correction')}</Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  id="task-correction"
+                  type="number"
+                  min={1}
+                  className="w-28"
+                  value={correction}
+                  onChange={(event) => setCorrection(event.target.value)}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={setDuration.isPending || !isCorrectionValid}
+                  onClick={saveCorrection}
+                >
+                  {t('panel.tasks.work.correctionSave')}
+                </Button>
+                {task.duration_override_min === null ? null : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={setDuration.isPending}
+                    onClick={() => {
+                      setCorrection('');
+                      setDuration.mutate({ taskId: task.id, minutes: null });
+                    }}
+                  >
+                    {t('panel.tasks.work.correctionReset')}
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t('panel.tasks.work.correctionHint')}
+              </p>
+              {failure === null ? null : (
+                <p role="alert" className="text-sm text-destructive">
+                  {failure.text}
+                  {failure.detail === null ? null : (
+                    <span className="block text-xs text-muted-foreground">{failure.detail}</span>
+                  )}
+                </p>
               )}
-            </p>
-          )}
-        </div>
+            </div>
+          </>
+        ) : null}
 
-        <Separator />
+        {isStarted ? (
+          <>
+            <Separator />
 
-        <div className="flex flex-col gap-2">
-          <h3 className="font-medium">{t('panel.tasks.work.steps')}</h3>
-          {work.isPending ? (
-            <p className="text-muted-foreground">{t('panel.tasks.work.loading')}</p>
-          ) : work.isError ? (
-            <p role="alert" className="text-destructive">
-              {t('panel.tasks.work.loadError')}
-            </p>
-          ) : work.data.steps.length === 0 ? (
-            <p className="text-muted-foreground">{t('panel.tasks.work.noSteps')}</p>
-          ) : (
-            <ol className="flex flex-col gap-2">
-              {work.data.steps.map((step, index) => {
-                const state = stepState(step);
-                const photos = work.data.photosByStep[step.id] ?? [];
-                const stepTitle =
-                  step.title_i18n?.[language] ?? step.title ?? t(`steps.types.${step.type}`);
-                return (
-                  <li key={step.id} className="flex flex-col gap-2 rounded-md border p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium">
-                        {index + 1}. {stepTitle}
-                      </span>
-                      <Badge variant={STATE_VARIANT[state]}>
-                        {t(`panel.tasks.work.stepStates.${state}`)}
-                      </Badge>
-                    </div>
-                    {photos.length === 0 ? null : (
-                      <>
-                        <span className="text-xs text-muted-foreground">
-                          {t('panel.tasks.work.photos', { count: photos.length })}
-                        </span>
-                        <div className="flex flex-wrap gap-2">
-                          {photos.map((photo) =>
-                            photo.url === null ? null : (
-                              <a
-                                key={photo.id}
-                                href={photo.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="relative block h-20 w-20"
-                              >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={photo.url}
-                                  alt=""
-                                  className="h-20 w-20 rounded-md object-cover"
-                                />
-                                <PhotoSource source={photo.source} />
-                              </a>
-                            ),
-                          )}
+            <div className="flex flex-col gap-2">
+              <h3 className="font-medium">{t('panel.tasks.work.steps')}</h3>
+              {work.isPending ? (
+                <p className="text-muted-foreground">{t('panel.tasks.work.loading')}</p>
+              ) : work.isError ? (
+                <p role="alert" className="text-destructive">
+                  {t('panel.tasks.work.loadError')}
+                </p>
+              ) : work.data.steps.length === 0 ? (
+                <p className="text-muted-foreground">{t('panel.tasks.work.noSteps')}</p>
+              ) : (
+                <ol className="flex flex-col gap-2">
+                  {work.data.steps.map((step, index) => {
+                    const state = stepState(step);
+                    const photos = work.data.photosByStep[step.id] ?? [];
+                    const stepTitle =
+                      step.title_i18n?.[language] ?? step.title ?? t(`steps.types.${step.type}`);
+                    return (
+                      <li key={step.id} className="flex flex-col gap-2 rounded-md border p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium">
+                            {index + 1}. {stepTitle}
+                          </span>
+                          <Badge variant={STATE_VARIANT[state]}>
+                            {t(`panel.tasks.work.stepStates.${state}`)}
+                          </Badge>
                         </div>
-                      </>
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
-          )}
-        </div>
+                        {photos.length === 0 ? null : (
+                          <>
+                            <span className="text-xs text-muted-foreground">
+                              {t('panel.tasks.work.photos', { count: photos.length })}
+                            </span>
+                            <div className="flex flex-wrap gap-2">
+                              {photos.map((photo) =>
+                                photo.url === null ? null : (
+                                  <a
+                                    key={photo.id}
+                                    href={photo.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="relative block h-20 w-20"
+                                  >
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={photo.url}
+                                      alt=""
+                                      className="h-20 w-20 rounded-md object-cover"
+                                    />
+                                    <PhotoSource source={photo.source} />
+                                  </a>
+                                ),
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+            </div>
+          </>
+        ) : null}
 
         <Separator />
 

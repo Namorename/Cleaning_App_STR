@@ -113,6 +113,13 @@ vi.mock('../use-tasks', () => ({
   useSetDuration: () => ({ ...idle, mutate: setDuration }),
 }));
 
+// The conversation has its own tests; here it only has to be in the card.
+vi.mock('@/features/chat/thread-panel', () => ({
+  ThreadPanel: ({ subject }: { subject: Record<string, string> }) => (
+    <section aria-label="Разговор">{Object.values(subject).join(',')}</section>
+  ),
+}));
+
 import { TasksView } from '../tasks-view';
 
 beforeEach(() => {
@@ -295,13 +302,26 @@ describe('TasksView', () => {
     expect(cancelTask).toHaveBeenCalledWith(id(2));
   });
 
+  test('opens the conversation of a job nobody has started, without the work sections', async () => {
+    render(<TasksView />);
+
+    const card = screen.getByText('Вечерний осмотр').closest('[data-slot="card"]') as HTMLElement;
+    await userEvent.click(within(card).getByRole('button', { name: 'Разговор' }));
+
+    const drawer = await screen.findByRole('dialog', { name: 'Задание' });
+    expect(within(drawer).getByRole('region', { name: 'Разговор' })).toHaveTextContent(id(2));
+    expect(within(drawer).queryByLabelText('Корректировка, минут')).not.toBeInTheDocument();
+    expect(within(drawer).queryByText('Шаги')).not.toBeInTheDocument();
+  });
+
   test('reads a finished cleaning and corrects the time without touching the measurement', async () => {
     render(<TasksView />);
 
     await userEvent.click(screen.getByRole('tab', { name: /Завершённые/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Как прошла уборка' }));
 
-    const drawer = await screen.findByRole('dialog');
+    const drawer = await screen.findByRole('dialog', { name: 'Как прошла уборка' });
+    expect(within(drawer).getByRole('region', { name: 'Разговор' })).toHaveTextContent(id(4));
     expect(drawer).toHaveTextContent('Замер: 1 ч 35 мин');
     expect(drawer).toHaveTextContent('Фото после уборки');
 

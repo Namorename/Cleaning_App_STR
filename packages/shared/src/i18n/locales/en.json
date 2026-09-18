@@ -384,7 +384,8 @@
         "cancelConfirm": "Cancel this task? It stays as history.",
         "cancelConfirmYes": "Yes, cancel it",
         "cancelConfirmNo": "No",
-        "openWork": "How the cleaning went"
+        "openWork": "How the cleaning went",
+        "openChat": "Conversation"
       },
       "form": {
         "titleNew": "New task",
@@ -408,6 +409,7 @@
       },
       "work": {
         "title": "How the cleaning went",
+        "titleOpen": "Task",
         "loading": "Loading the work…",
         "loadError": "Could not load the work",
         "steps": "Steps",
@@ -438,6 +440,19 @@
         "close": "Close"
       },
       "authorLabel": "Asked by"
+    },
+    "chat": {
+      "title": "Conversation",
+      "loading": "Loading the conversation…",
+      "loadError": "Could not open the conversation",
+      "empty": "Nothing has been said yet",
+      "audienceTask": "Seen by whoever sees the task: the assignee, the cleaners of the listing and the managers",
+      "audienceProblem": "Seen by whoever sees the problem: the reporter, the technician and the managers",
+      "placeholder": "Write…",
+      "send": "Send",
+      "sending": "Sending…",
+      "sendHint": "Ctrl+Enter to send",
+      "unknownAuthor": "Unknown"
     },
     "team": {
       "title": "Team",

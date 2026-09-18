@@ -66,6 +66,13 @@ vi.mock('../use-problems', () => ({
   useUnarchiveProblem: () => ({ ...idle, mutate: mutations.unarchive }),
 }));
 
+// The conversation has its own tests; here it only has to be in the card.
+vi.mock('@/features/chat/thread-panel', () => ({
+  ThreadPanel: ({ subject }: { subject: Record<string, string> }) => (
+    <section aria-label="Разговор">{Object.values(subject).join(',')}</section>
+  ),
+}));
+
 import { ProblemDetail } from '../problem-detail';
 
 const loaded = <T,>(data: T) => ({ data, isPending: false, isError: false });
@@ -136,6 +143,8 @@ describe('ProblemDetail', () => {
     expect(screen.getByText('1. Фото проблемы')).toBeInTheDocument();
     expect(screen.getByText('Выполнен')).toBeInTheDocument();
     expect(screen.getByText('Не выполнен')).toBeInTheDocument();
+    // The conversation is about the problem, whichever task fixes it.
+    expect(screen.getByRole('region', { name: 'Разговор' })).toHaveTextContent(PROBLEM_ID);
   });
 
   test('reassigns with the chosen person, date and window', async () => {

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { ThreadPanel } from '@/features/chat/thread-panel';
 import { formatDateTime, formatDay } from '@/lib/format-date';
 import { serverErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
@@ -135,6 +136,14 @@ function ProblemCard({ problem }: { problem: Problem }) {
               </section>
             ) : null}
             <ManagerActions problem={problem} />
+          </CardContent>
+        </Card>
+
+        {/* The repair speaks in the report's thread (open_thread), so one
+            conversation serves the problem and whichever task fixes it. */}
+        <Card className="lg:col-span-2">
+          <CardContent className="pt-6">
+            <ThreadPanel subject={{ problemId: problem.id }} />
           </CardContent>
         </Card>
       </div>

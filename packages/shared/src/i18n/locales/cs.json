@@ -384,7 +384,8 @@
         "cancelConfirm": "Zrušit tento úkol? Zůstane v historii.",
         "cancelConfirmYes": "Ano, zrušit",
         "cancelConfirmNo": "Ne",
-        "openWork": "Jak úklid proběhl"
+        "openWork": "Jak úklid proběhl",
+        "openChat": "Konverzace"
       },
       "form": {
         "titleNew": "Nový úkol",
@@ -408,6 +409,7 @@
       },
       "work": {
         "title": "Jak úklid proběhl",
+        "titleOpen": "Úkol",
         "loading": "Načítáme průběh…",
         "loadError": "Průběh se nepodařilo načíst",
         "steps": "Kroky",
@@ -438,6 +440,19 @@
         "close": "Zavřít"
       },
       "authorLabel": "Zadal:"
+    },
+    "chat": {
+      "title": "Konverzace",
+      "loading": "Načítáme konverzaci…",
+      "loadError": "Konverzaci se nepodařilo otevřít",
+      "empty": "Zatím nikdo nic nenapsal",
+      "audienceTask": "Vidí ti, kdo vidí úkol: přidělený pracovník, uklízečky objektu a manažeři",
+      "audienceProblem": "Vidí ti, kdo vidí závadu: kdo ji nahlásil, technik a manažeři",
+      "placeholder": "Napsat…",
+      "send": "Odeslat",
+      "sending": "Odesíláme…",
+      "sendHint": "Ctrl+Enter odešle",
+      "unknownAuthor": "Neznámý"
     },
     "team": {
       "title": "Tým",

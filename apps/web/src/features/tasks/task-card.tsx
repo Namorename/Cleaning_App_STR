@@ -90,11 +90,13 @@ export function TaskCard({ task, today, onEdit, onOpenWork }: TaskCardProps) {
             task.assignee?.full_name == null ? 'text-muted-foreground' : 'font-medium',
           )}
         />
-        {task.status === 'done' ? (
-          <Button type="button" variant="outline" size="sm" onClick={() => onOpenWork(task)}>
-            {t('panel.tasks.actions.openWork')}
-          </Button>
-        ) : null}
+        {/* The drawer carries the conversation for every job, and the work
+            of a finished one; the button is named after what it will show. */}
+        <Button type="button" variant="outline" size="sm" onClick={() => onOpenWork(task)}>
+          {task.status === 'done'
+            ? t('panel.tasks.actions.openWork')
+            : t('panel.tasks.actions.openChat')}
+        </Button>
         {closed || !isManualTask(task) ? null : isConfirmingCancel ? (
           <>
             <span className="text-muted-foreground">{t('panel.tasks.actions.cancelConfirm')}</span>
