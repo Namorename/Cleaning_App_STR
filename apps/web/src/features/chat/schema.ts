@@ -9,6 +9,29 @@ export type ChatThreadKind = (typeof CHAT_THREAD_KINDS)[number];
  */
 export const CHAT_BODY_MAX_LENGTH = 4000;
 
+/** Mirrors `chat_max_photos()` on the server; the server is what refuses. */
+export const CHAT_MAX_PHOTOS = 4;
+
+/**
+ * Mirrors `task_media_extension()` for photos: the only two the bucket and the
+ * server take. The file dialog is limited to them, and a file that gets past
+ * it is refused here — before a message is sent that would then declare a
+ * photo no file can ever fill.
+ */
+export const CHAT_PHOTO_MIME_TYPES = ['image/jpeg', 'image/webp'] as const;
+
+/** Mirrors `task_media_max_bytes('photo')`; the server is what refuses. */
+export const CHAT_PHOTO_MAX_BYTES = 20 * 1024 * 1024;
+
+/** Is this something the server would accept as a photo of a message? */
+export function isAcceptedPhoto(file: { type: string; size: number }): boolean {
+  return (
+    (CHAT_PHOTO_MIME_TYPES as readonly string[]).includes(file.type.toLowerCase()) &&
+    file.size > 0 &&
+    file.size <= CHAT_PHOTO_MAX_BYTES
+  );
+}
+
 /**
  * A photo of a message, read together with the message.
  *

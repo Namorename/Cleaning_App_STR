@@ -64,6 +64,11 @@ export interface SendMessageVariables {
   id: string;
   body: string;
   subject: ChatSubject;
+  /**
+   * How many photos follow. The licence for a wordless message and the cap on
+   * what may be registered under it; nothing is ever drawn from it.
+   */
+  mediaExpected?: number;
 }
 
 export async function sendMessage(
@@ -73,6 +78,7 @@ export async function sendMessage(
   const { data, error } = await client.rpc('send_message', {
     p_id: variables.id,
     p_body: variables.body,
+    p_media_expected: variables.mediaExpected ?? 0,
     ...subjectArgs(variables.subject),
   });
   if (error) {

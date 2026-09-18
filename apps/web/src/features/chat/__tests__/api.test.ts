@@ -214,10 +214,30 @@ describe('writing', () => {
     expect(rpcs).toEqual([
       {
         name: 'send_message',
-        args: { p_id: MESSAGE, p_body: 'Ключи в боксе', p_task_id: TASK },
+        args: { p_id: MESSAGE, p_body: 'Ключи в боксе', p_media_expected: 0, p_task_id: TASK },
       },
     ]);
     expect(sent.id).toBe(MESSAGE);
+  });
+
+  test('declares the photos that follow, so a wordless message is allowed', async () => {
+    const { client, rpcs } = recordingClient({
+      send_message: { ...message, body: '', media_expected: 2 },
+    });
+
+    await sendMessage(client, {
+      id: MESSAGE,
+      body: '',
+      subject: { taskId: TASK },
+      mediaExpected: 2,
+    });
+
+    expect(rpcs[0].args).toEqual({
+      p_id: MESSAGE,
+      p_body: '',
+      p_media_expected: 2,
+      p_task_id: TASK,
+    });
   });
 
   test('marks read up to the moment it was given', async () => {

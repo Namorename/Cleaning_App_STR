@@ -15,11 +15,32 @@ export type WithUrl<T> = T & {
 };
 
 /**
- * Ask storage for one signed link per row, in one call.
+ * Ask storage for one signed link per path, in one call.
  *
- * A path storage will not sign comes back with a null link rather than
- * throwing: one unreadable photo must not take the whole card down with it.
+ * A path storage will not sign is simply absent from the answer rather than
+ * failing it: one unreadable photo must not take the whole card down with it.
  */
+export async function signedUrlsByPath(
+  client: Client,
+  paths: readonly string[],
+): Promise<Map<string, string>> {
+  if (paths.length === 0) {
+    return new Map();
+  }
+  const { data, error } = await client.storage
+    .from(MEDIA_BUCKET)
+    .createSignedUrls([...paths], SIGNED_URL_SECONDS);
+  if (error) {
+    throw error;
+  }
+  return new Map(
+    (data ?? [])
+      .filter((entry) => entry.error === null && entry.path !== null && entry.signedUrl !== null)
+      .map((entry) => [entry.path as string, entry.signedUrl as string]),
+  );
+}
+
+/** The same links, put back onto the rows that carry the paths. */
 export async function withSignedUrls<T extends { storage_path: string }>(
   client: Client,
   media: T[],
@@ -27,19 +48,9 @@ export async function withSignedUrls<T extends { storage_path: string }>(
   if (media.length === 0) {
     return [];
   }
-  const { data, error } = await client.storage
-    .from(MEDIA_BUCKET)
-    .createSignedUrls(
-      media.map((item) => item.storage_path),
-      SIGNED_URL_SECONDS,
-    );
-  if (error) {
-    throw error;
-  }
-  const urls = new Map(
-    (data ?? [])
-      .filter((entry) => entry.error === null && entry.path !== null)
-      .map((entry) => [entry.path as string, entry.signedUrl]),
+  const urls = await signedUrlsByPath(
+    client,
+    media.map((item) => item.storage_path),
   );
   return media.map((item) => ({ ...item, url: urls.get(item.storage_path) ?? null }));
 }
