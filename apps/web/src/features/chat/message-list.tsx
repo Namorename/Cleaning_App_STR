@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Person } from '@/components/person';
@@ -16,38 +17,55 @@ interface MessageListProps {
   currentUserId: string | null;
 }
 
-/** The transcript: who said what, and when. Own messages keep to the right. */
+/**
+ * The transcript: who said what, and when. Own messages keep to the right.
+ *
+ * Boxed to a fixed height with its own scroll, so a long conversation does
+ * not stretch the card it sits in; the box opens on the newest message and
+ * follows the conversation as it grows.
+ */
 export function MessageList({ messages, currentUserId }: MessageListProps) {
   const { t } = useTranslation();
   const language = useLanguage();
+  const box = useRef<HTMLDivElement>(null);
+  const newestId = messages.length === 0 ? null : messages[messages.length - 1].id;
+
+  useEffect(() => {
+    const element = box.current;
+    if (element !== null) {
+      element.scrollTop = element.scrollHeight;
+    }
+  }, [newestId]);
 
   return (
-    <ol className="flex flex-col gap-2">
-      {messages.map((message) => {
-        const isOwn = isOwnMessage(message, currentUserId);
-        return (
-          <li
-            key={message.id}
-            className={cn(
-              'flex max-w-[85%] flex-col gap-1 rounded-md border p-3 text-sm',
-              isOwn ? 'self-end bg-primary/5' : 'self-start bg-muted/40',
-            )}
-          >
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-              <Person
-                name={message.author_name}
-                role={message.author_role}
-                fallback={t('panel.chat.unknownAuthor')}
-                className="font-medium text-foreground"
-              />
-              <time dateTime={message.created_at}>
-                {formatDateTime(message.created_at, language)}
-              </time>
-            </div>
-            <p className="break-words whitespace-pre-wrap">{message.body}</p>
-          </li>
-        );
-      })}
-    </ol>
+    <div ref={box} className="max-h-96 overflow-y-auto rounded-md border p-2">
+      <ol className="flex flex-col gap-2">
+        {messages.map((message) => {
+          const isOwn = isOwnMessage(message, currentUserId);
+          return (
+            <li
+              key={message.id}
+              className={cn(
+                'flex max-w-[85%] flex-col gap-1 rounded-md border p-3 text-sm',
+                isOwn ? 'self-end bg-primary/5' : 'self-start bg-muted/40',
+              )}
+            >
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                <Person
+                  name={message.author_name}
+                  role={message.author_role}
+                  fallback={t('panel.chat.unknownAuthor')}
+                  className="font-medium text-foreground"
+                />
+                <time dateTime={message.created_at}>
+                  {formatDateTime(message.created_at, language)}
+                </time>
+              </div>
+              <p className="break-words whitespace-pre-wrap">{message.body}</p>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }
