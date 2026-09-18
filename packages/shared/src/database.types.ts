@@ -994,6 +994,7 @@ export type Database = {
           host_id: string
           id: string
           kind: Database["public"]["Enums"]["media_kind"]
+          message_id: string | null
           mime_type: string
           problem_id: string | null
           purged_at: string | null
@@ -1015,6 +1016,7 @@ export type Database = {
           host_id: string
           id?: string
           kind: Database["public"]["Enums"]["media_kind"]
+          message_id?: string | null
           mime_type: string
           problem_id?: string | null
           purged_at?: string | null
@@ -1036,6 +1038,7 @@ export type Database = {
           host_id?: string
           id?: string
           kind?: Database["public"]["Enums"]["media_kind"]
+          message_id?: string | null
           mime_type?: string
           problem_id?: string | null
           purged_at?: string | null
@@ -1059,6 +1062,13 @@ export type Database = {
             columns: ["host_id"]
             isOneToOne: false
             referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_media_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
             referencedColumns: ["id"]
           },
           {
@@ -1583,6 +1593,46 @@ export type Database = {
       }
     }
     Functions: {
+      add_message_media: {
+        Args: {
+          p_byte_size: number
+          p_device_taken_at?: string
+          p_height?: number
+          p_id: string
+          p_message_id: string
+          p_mime_type: string
+          p_source?: Database["public"]["Enums"]["media_source"]
+          p_width?: number
+        }
+        Returns: {
+          byte_size: number
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          device_taken_at: string | null
+          duration_sec: number | null
+          height: number | null
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["media_kind"]
+          message_id: string | null
+          mime_type: string
+          problem_id: string | null
+          purged_at: string | null
+          source: Database["public"]["Enums"]["media_source"]
+          step_id: string | null
+          storage_path: string
+          task_id: string | null
+          uploaded_at: string | null
+          width: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "task_media"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       add_problem_media: {
         Args: {
           p_byte_size: number
@@ -1605,6 +1655,7 @@ export type Database = {
           host_id: string
           id: string
           kind: Database["public"]["Enums"]["media_kind"]
+          message_id: string | null
           mime_type: string
           problem_id: string | null
           purged_at: string | null
@@ -1646,6 +1697,7 @@ export type Database = {
           host_id: string
           id: string
           kind: Database["public"]["Enums"]["media_kind"]
+          message_id: string | null
           mime_type: string
           problem_id: string | null
           purged_at: string | null
@@ -1858,6 +1910,7 @@ export type Database = {
           host_id: string
           id: string
           kind: Database["public"]["Enums"]["media_kind"]
+          message_id: string | null
           mime_type: string
           problem_id: string | null
           purged_at: string | null
@@ -2067,6 +2120,7 @@ export type Database = {
           host_id: string
           id: string
           kind: Database["public"]["Enums"]["media_kind"]
+          message_id: string | null
           mime_type: string
           problem_id: string | null
           purged_at: string | null
@@ -2562,6 +2616,7 @@ export type Database = {
           host_id: string
           id: string
           kind: Database["public"]["Enums"]["media_kind"]
+          message_id: string | null
           mime_type: string
           problem_id: string | null
           purged_at: string | null

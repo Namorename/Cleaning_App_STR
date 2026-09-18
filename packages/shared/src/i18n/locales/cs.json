@@ -1000,6 +1000,7 @@
     "messageTooLong": "Zpráva má nejvýše {{limit}} znaků",
     "messageEmpty": "Napište něco nebo přiložte fotku",
     "messagePhotoLimit": "Ke zprávě lze přiložit nejvýše {{limit}} fotek",
+    "messageMediaSent": "Fotka je součástí odeslané zprávy — nelze ji vzít zpět",
     "photosMissing": "Vyfoťte alespoň {{min}} foto",
     "photosTooMany": "Tento krok přijímá nejvýše {{limit}} fotek",
     "videoMissing": "Nejdřív natočte video",

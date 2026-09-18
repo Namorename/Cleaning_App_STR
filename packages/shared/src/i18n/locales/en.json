@@ -1000,6 +1000,7 @@
     "messageTooLong": "A message takes at most {{limit}} characters",
     "messageEmpty": "Write something or attach a photo",
     "messagePhotoLimit": "A message takes at most {{limit}} photo(s)",
+    "messageMediaSent": "The photo is part of a sent message and cannot be taken back",
     "photosMissing": "Take at least {{min}} photo(s)",
     "photosTooMany": "This step takes at most {{limit}} photos",
     "videoMissing": "Record a video first",

@@ -645,4 +645,179 @@ select pg_temp.check('but the office keeps her inbox',
   (select count(*)::int from public.chat_messages
     where id = '17000001-0000-4000-8000-000000000008'), 1);
 
+-- ---------------------------------------------------------------------------
+--  Photos in a message (layer 5)
+-- ---------------------------------------------------------------------------
+--
+-- Message ...02 was sent by the office on Anna's task with two photos declared
+-- and no words. Its thread is the unit the path is built on.
+
+create or replace function pg_temp.task_thread() returns uuid language sql as $fn$
+  select id from public.chat_threads where task_id = 'e7000001-0000-4000-8000-000000000001' $fn$;
+
+-- Only the author registers a photo on a message: Anna reads it, but it is
+-- not hers to complete.
+select pg_temp.as_anna();
+select pg_temp.check('a reader who is not the author cannot attach a photo',
+  pg_temp.refusal_hint($stmt$
+    select public.add_message_media('27000001-0000-4000-8000-000000000001',
+      '17000001-0000-4000-8000-000000000002', 'image/jpeg', 500000, 1600, 1200)
+  $stmt$), 'serverErrors.messageNotFound');
+
+select pg_temp.as_boss();
+select public.add_message_media('27000001-0000-4000-8000-000000000001',
+  '17000001-0000-4000-8000-000000000002', 'image/jpeg', 500000, 1600, 1200, now(), 'gallery');
+
+select pg_temp.check('the photo is registered on the message',
+  (select message_id from public.task_media where id = '27000001-0000-4000-8000-000000000001'),
+  '17000001-0000-4000-8000-000000000002'::uuid);
+select pg_temp.check('with no other owner',
+  (select task_id is null and step_id is null and problem_id is null
+     from public.task_media where id = '27000001-0000-4000-8000-000000000001'), true);
+select pg_temp.check('under host/chat/thread/id.ext',
+  (select storage_path from public.task_media where id = '27000001-0000-4000-8000-000000000001'),
+  'c7000000-0000-4000-8000-00000000000c/chat/' || pg_temp.task_thread()::text
+    || '/27000001-0000-4000-8000-000000000001.jpg');
+select pg_temp.check('the gallery is not refused in a conversation',
+  (select source::text from public.task_media where id = '27000001-0000-4000-8000-000000000001'),
+  'gallery');
+
+-- A replay is the same row, not a second one.
+select public.add_message_media('27000001-0000-4000-8000-000000000001',
+  '17000001-0000-4000-8000-000000000002', 'image/jpeg', 500000, 1600, 1200);
+select pg_temp.check('a replay does not register a second photo',
+  (select count(*)::int from public.task_media
+    where message_id = '17000001-0000-4000-8000-000000000002'), 1);
+
+select pg_temp.check('a video is refused in a message',
+  pg_temp.refusal_hint($stmt$
+    select public.add_message_media('27000001-0000-4000-8000-000000000009',
+      '17000001-0000-4000-8000-000000000002', 'video/mp4', 500000)
+  $stmt$), 'serverErrors.mediaTypeInvalid');
+
+select public.add_message_media('27000001-0000-4000-8000-000000000002',
+  '17000001-0000-4000-8000-000000000002', 'image/jpeg', 400000, 1600, 1200);
+select pg_temp.check('the message declared two photos and takes no third',
+  pg_temp.refusal_hint($stmt$
+    select public.add_message_media('27000001-0000-4000-8000-000000000003',
+      '17000001-0000-4000-8000-000000000002', 'image/jpeg', 400000, 1600, 1200)
+  $stmt$), 'serverErrors.messagePhotoLimit');
+
+-- Message ...01 said nothing about photos, so it takes none: a picture the
+-- row did not announce is a picture nobody asked for.
+select pg_temp.check('a message that declared no photos takes none',
+  pg_temp.refusal_hint($stmt$
+    select public.add_message_media('27000001-0000-4000-8000-000000000004',
+      '17000001-0000-4000-8000-000000000001', 'image/jpeg', 400000, 1600, 1200)
+  $stmt$), 'serverErrors.messagePhotoLimit');
+
+-- The file goes onto the path the row is waiting for, by the author.
+insert into storage.objects (bucket_id, name, owner, owner_id)
+select 'task-media', m.storage_path, m.created_by, m.created_by::text
+from public.task_media m where m.id = '27000001-0000-4000-8000-000000000001';
+select public.confirm_task_media('27000001-0000-4000-8000-000000000001');
+select pg_temp.check('the author uploads and confirms',
+  (select uploaded_at is not null from public.task_media
+    where id = '27000001-0000-4000-8000-000000000001'), true);
+
+-- Who reads the message reads its photos -- and its file.
+select pg_temp.as_anna();
+select pg_temp.check('the assignee sees the photos of the message she reads',
+  (select count(*)::int from public.task_media
+    where message_id = '17000001-0000-4000-8000-000000000002'), 2);
+select pg_temp.check('and may read the file',
+  public.can_read_task_media('c7000000-0000-4000-8000-00000000000c/chat/'
+    || pg_temp.task_thread()::text || '/27000001-0000-4000-8000-000000000001.jpg'), true);
+
+select pg_temp.as_bara();
+select pg_temp.check('a cleaner of another listing sees no photos',
+  (select count(*)::int from public.task_media
+    where message_id = '17000001-0000-4000-8000-000000000002'), 0);
+select pg_temp.check('and may not read the file',
+  public.can_read_task_media('c7000000-0000-4000-8000-00000000000c/chat/'
+    || pg_temp.task_thread()::text || '/27000001-0000-4000-8000-000000000001.jpg'), false);
+
+select pg_temp.as_other_host();
+select pg_temp.check('another company sees no photos',
+  (select count(*)::int from public.task_media
+    where message_id = '17000001-0000-4000-8000-000000000002'), 0);
+
+-- A confirmed photo is part of what was said; an unconfirmed one is a failed
+-- upload the author may give up on.
+select pg_temp.as_boss();
+select pg_temp.check('a confirmed photo of a sent message cannot be taken back',
+  pg_temp.refusal_hint($stmt$
+    select public.remove_task_media('27000001-0000-4000-8000-000000000001')
+  $stmt$), 'serverErrors.messageMediaSent');
+select public.remove_task_media('27000001-0000-4000-8000-000000000002');
+select pg_temp.check('a photo whose file never arrived can be',
+  (select deleted_at is not null from public.task_media
+    where id = '27000001-0000-4000-8000-000000000002'), true);
+select public.add_message_media('27000001-0000-4000-8000-000000000003',
+  '17000001-0000-4000-8000-000000000002', 'image/jpeg', 400000, 1600, 1200);
+select pg_temp.check('and its place is free again',
+  (select count(*)::int from public.task_media
+    where message_id = '17000001-0000-4000-8000-000000000002' and deleted_at is null), 2);
+
+-- Access follows the subject: the technician taken off the repair can no
+-- longer complete his own message about it. By now Petr holds the repair
+-- (task ...06); Tomas was taken off it above.
+select pg_temp.as_petr();
+select public.send_message('17000001-0000-4000-8000-000000000031', '',
+                           null, 'f7000001-0000-4000-8000-000000000001',
+                           null, 1::smallint);
+reset role; reset request.jwt.claims;
+update public.tasks set assignee_id = 'c7000004-0000-4000-8000-000000000004'
+where id = 'e7000001-0000-4000-8000-000000000006';
+select pg_temp.as_petr();
+select pg_temp.check('a technician taken off the repair cannot attach to his own message',
+  pg_temp.refusal_hint($stmt$
+    select public.add_message_media('27000001-0000-4000-8000-000000000031',
+      '17000001-0000-4000-8000-000000000031', 'image/jpeg', 400000)
+  $stmt$), 'serverErrors.messageNotFound');
+reset role; reset request.jwt.claims;
+update public.tasks set assignee_id = 'c7000006-0000-4000-8000-000000000006'
+where id = 'e7000001-0000-4000-8000-000000000006';
+
+-- One owner, always.
+select pg_temp.check('a row cannot belong to a message and a task at once',
+  pg_temp.refusal_state($stmt$
+    insert into public.task_media (id, host_id, task_id, step_id, message_id, kind,
+                                   storage_path, mime_type, byte_size)
+    values ('27000001-0000-4000-8000-000000000099', 'c7000000-0000-4000-8000-00000000000c',
+            'e7000001-0000-4000-8000-000000000001', 'e7000001-0000-4000-8000-000000000001',
+            '17000001-0000-4000-8000-000000000002', 'photo', 'x/y.jpg', 'image/jpeg', 1)
+  $stmt$), '23514');
+
+-- Retention: a thread ages with its subject.
+select pg_temp.check('the photo taken back is due at once, the others are not',
+  (select array_agg(id order by created_at) from public.task_media_to_purge(100)),
+  array['27000001-0000-4000-8000-000000000002'::uuid]);
+update public.tasks set status = 'done', completed_at = now() - interval '89 days'
+where id = 'e7000001-0000-4000-8000-000000000001';
+select pg_temp.check('a task closed 89 days ago keeps the photos of its thread',
+  (select count(*)::int from public.task_media_to_purge(100)), 1);
+update public.tasks set completed_at = now() - interval '91 days'
+where id = 'e7000001-0000-4000-8000-000000000001';
+select pg_temp.check('at 91 days the photos of its thread are due',
+  (select array_agg(id order by id) from public.task_media_to_purge(100)),
+  array['27000001-0000-4000-8000-000000000001'::uuid,
+        '27000001-0000-4000-8000-000000000002'::uuid,
+        '27000001-0000-4000-8000-000000000003'::uuid]);
+
+-- A direct thread has no subject to close: its photos age with the message.
+select pg_temp.as_anna();
+select public.send_message('17000001-0000-4000-8000-000000000032', '',
+                           null, null, 'c7000002-0000-4000-8000-000000000002', 1::smallint);
+select public.add_message_media('27000001-0000-4000-8000-000000000032',
+  '17000001-0000-4000-8000-000000000032', 'image/jpeg', 400000);
+reset role; reset request.jwt.claims;
+select pg_temp.check('a fresh photo in the inbox is kept',
+  (select count(*)::int from public.task_media_to_purge(100)), 3);
+update public.chat_messages set created_at = now() - interval '91 days'
+where id = '17000001-0000-4000-8000-000000000032';
+select pg_temp.check('a photo in the inbox older than the retention period is due',
+  (select count(*)::int from public.task_media_to_purge(100)
+    where id = '27000001-0000-4000-8000-000000000032'), 1);
+
 rollback;
