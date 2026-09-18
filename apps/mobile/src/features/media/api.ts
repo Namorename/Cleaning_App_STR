@@ -60,6 +60,7 @@ export async function fetchProblemMedia(problemId: string): Promise<TaskMedia[]>
 type MediaFunction =
   | 'add_task_media'
   | 'add_problem_media'
+  | 'add_message_media'
   | 'confirm_task_media'
   | 'remove_task_media';
 
@@ -80,14 +81,15 @@ async function callMediaFunction<TName extends MediaFunction>(
 }
 
 /**
- * Who a file belongs to: a step of a task, or a problem report. The task id
- * is what the caches are keyed by; the server needs only the step or the
- * problem.
+ * Who a file belongs to: a step of a task, a problem report, or a chat
+ * message. The task id is what the caches are keyed by; the server needs
+ * only the step, the problem or the message.
  */
 export interface MediaOwnerRef {
   taskId?: string;
   stepId?: string;
   problemId?: string;
+  messageId?: string;
 }
 
 export interface AddMediaVariables extends MediaOwnerRef {
@@ -111,6 +113,18 @@ export interface AddMediaVariables extends MediaOwnerRef {
 
 /** Register the file and learn where it has to go. Replayable by id. */
 export function addMedia(variables: AddMediaVariables): Promise<TaskMedia> {
+  if (variables.messageId !== undefined) {
+    return callMediaFunction('add_message_media', {
+      p_id: variables.mediaId,
+      p_message_id: variables.messageId,
+      p_mime_type: variables.mimeType,
+      p_byte_size: variables.byteSize,
+      p_width: variables.width ?? undefined,
+      p_height: variables.height ?? undefined,
+      p_device_taken_at: variables.takenAt,
+      p_source: variables.source,
+    });
+  }
   if (variables.problemId !== undefined) {
     return callMediaFunction('add_problem_media', {
       p_id: variables.mediaId,

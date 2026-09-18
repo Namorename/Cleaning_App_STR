@@ -48,6 +48,12 @@ function parameters(details: unknown): Record<string, unknown> {
   }
 }
 
+/** The i18n key a refusal carries, when it carries one this build knows. */
+export function serverErrorKey(error: unknown): string | null {
+  const { hint } = asRaised(error);
+  return typeof hint === 'string' && hint.startsWith(KEY_PREFIX) && i18n.exists(hint) ? hint : null;
+}
+
 /**
  * Turn a failure into something worth showing.
  *
@@ -57,10 +63,11 @@ function parameters(details: unknown): Record<string, unknown> {
  * reader's language, with the raw message underneath rather than thrown away.
  */
 export function serverErrorText(error: unknown): ServerErrorText {
-  const { hint, details, message } = asRaised(error);
+  const { details, message } = asRaised(error);
+  const key = serverErrorKey(error);
 
-  if (typeof hint === 'string' && hint.startsWith(KEY_PREFIX) && i18n.exists(hint)) {
-    return { text: i18n.t(hint, parameters(details)), detail: null };
+  if (key !== null) {
+    return { text: i18n.t(key, parameters(details)), detail: null };
   }
 
   return {

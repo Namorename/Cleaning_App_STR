@@ -922,6 +922,7 @@
       "uploaded": "Uploaded",
       "uploading": "Uploading",
       "failed": "Not uploaded",
+      "expired": "Expired",
       "local": "Will be sent"
     }
   },
@@ -934,6 +935,7 @@
     "send": "Send",
     "pending": "Sending…",
     "unknownAuthor": "Unknown",
+    "photoOnItsWay": "Photo on its way",
     "unread": "New message"
   },
   "serverErrors": {

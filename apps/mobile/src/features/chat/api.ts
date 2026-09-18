@@ -28,8 +28,13 @@ export async function openThread(subject: ChatSubject): Promise<ChatThread> {
   return chatThreadSchema.parse(data);
 }
 
+/**
+ * The photos come embedded: one round trip for the whole thread. Taken-back
+ * and expired rows are filtered on the embed, not on the phone.
+ */
 const MESSAGE_COLUMNS =
-  'id, thread_id, author_id, author_name, author_role, body, media_expected, created_at';
+  'id, thread_id, author_id, author_name, author_role, body, media_expected, created_at, ' +
+  'task_media(id, storage_path, uploaded_at, created_at)';
 
 /** Every message of a thread, oldest first. Row level security draws the line. */
 export async function fetchMessages(threadId: string): Promise<ChatMessage[]> {
@@ -37,8 +42,11 @@ export async function fetchMessages(threadId: string): Promise<ChatMessage[]> {
     .from('chat_messages')
     .select(MESSAGE_COLUMNS)
     .eq('thread_id', threadId)
+    .is('task_media.deleted_at', null)
+    .is('task_media.purged_at', null)
     .order('created_at', { ascending: true })
-    .order('id', { ascending: true });
+    .order('id', { ascending: true })
+    .order('created_at', { referencedTable: 'task_media', ascending: true });
   if (error) {
     throw error;
   }
@@ -50,6 +58,11 @@ export interface SendMessageVariables {
   messageId: string;
   body: string;
   subject: ChatSubject;
+  /**
+   * How many photos follow. The licence for a wordless message and the cap on
+   * what may be registered under it; the server draws nothing from it.
+   */
+  mediaExpected?: number;
 }
 
 /** Say something. Replayable by id: the server hands the same row back. */
@@ -57,6 +70,7 @@ export async function sendMessage(variables: SendMessageVariables): Promise<Chat
   const { data, error } = await supabase.rpc('send_message', {
     p_id: variables.messageId,
     p_body: variables.body,
+    p_media_expected: variables.mediaExpected ?? 0,
     ...subjectArgs(variables.subject),
   });
   if (error) {

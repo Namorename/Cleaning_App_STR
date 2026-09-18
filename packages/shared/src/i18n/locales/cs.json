@@ -922,6 +922,7 @@
       "uploaded": "Nahráno",
       "uploading": "Nahrává se",
       "failed": "Nenahráno",
+      "expired": "Vypršela",
       "local": "Bude odesláno"
     }
   },
@@ -934,6 +935,7 @@
     "send": "Odeslat",
     "pending": "Odesílá se…",
     "unknownAuthor": "Neznámý",
+    "photoOnItsWay": "Fotka je na cestě",
     "unread": "Nová zpráva"
   },
   "serverErrors": {

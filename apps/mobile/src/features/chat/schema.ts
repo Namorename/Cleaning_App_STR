@@ -6,6 +6,23 @@ export type ChatSubjectKind = (typeof CHAT_SUBJECT_KINDS)[number];
 /** Mirrors `chat_body_max_length()` on the server; the server is what refuses. */
 export const CHAT_BODY_MAX_LENGTH = 4000;
 
+/** Mirrors `chat_max_photos()` on the server; the server is what refuses. */
+export const CHAT_MAX_PHOTOS = 4;
+
+/**
+ * A photo of a message, read together with the message. A row without
+ * `uploaded_at` is a file still on its way (docs/chat-plan.md, layer 5): the
+ * receiver draws it as a grey tile, the sender as her own upload. A row that
+ * expired is never read: purged rows are filtered out at the select.
+ */
+export const chatMessageMediaSchema = z.object({
+  id: z.string().uuid(),
+  storage_path: z.string(),
+  uploaded_at: z.string().nullable(),
+  created_at: z.string(),
+});
+export type ChatMessageMedia = z.infer<typeof chatMessageMediaSchema>;
+
 /** A thread as `open_thread` returns it. Only the id is used on the phone today. */
 export const chatThreadSchema = z.object({
   id: z.string().uuid(),
@@ -29,8 +46,13 @@ export const chatMessageSchema = z.object({
   author_name: z.string().nullable(),
   author_role: z.string(),
   body: z.string(),
+  /**
+   * The photos the row was licensed for. Never what is drawn: how many photos
+   * a message holds is said by its `task_media` rows and by nothing else.
+   */
   media_expected: z.number().int(),
   created_at: z.string(),
+  task_media: z.array(chatMessageMediaSchema).default([]),
 });
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
 export const chatMessageListSchema = z.array(chatMessageSchema);

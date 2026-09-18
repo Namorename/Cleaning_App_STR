@@ -8,15 +8,15 @@ const listResponse: { data: unknown; error: unknown } = { data: null, error: nul
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     rpc: (...args: unknown[]) => mockRpc(...args),
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          is: () => ({
-            order: () => Promise.resolve(listResponse),
-          }),
-        }),
-      }),
-    }),
+    from: () => {
+      // The readers chain filters; how many is not the point of these tests.
+      const chain = {
+        eq: () => chain,
+        is: () => chain,
+        order: () => Promise.resolve(listResponse),
+      };
+      return { select: () => chain };
+    },
     storage: {
       from: () => ({
         upload: (...args: unknown[]) => mockUpload(...args),
@@ -139,6 +139,23 @@ describe('uploadMediaFile', () => {
     await expect(
       uploadMediaFile(row.storage_path, 'file:///tmp/a.jpg', 'image/jpeg'),
     ).rejects.toMatchObject({ statusCode: '403' });
+  });
+});
+
+describe('addMedia for a message', () => {
+  test('registers under the message and nothing else', async () => {
+    const messageId = '55555555-5555-4555-8555-555555555555';
+    mockRpc.mockResolvedValue({
+      data: { ...row, task_id: null, step_id: null, message_id: messageId },
+      error: null,
+    });
+
+    await addMedia({ ...variables, stepId: undefined, messageId });
+
+    expect(mockRpc).toHaveBeenCalledWith(
+      'add_message_media',
+      expect.objectContaining({ p_id: row.id, p_message_id: messageId }),
+    );
   });
 });
 

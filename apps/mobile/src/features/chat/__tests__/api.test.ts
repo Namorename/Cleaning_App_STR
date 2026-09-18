@@ -67,9 +67,26 @@ test('sends under the id made on the phone, so a retry replays', async () => {
   expect(mockRpc).toHaveBeenCalledWith('send_message', {
     p_id: MESSAGE,
     p_body: 'Поняла, спасибо',
+    p_media_expected: 0,
     p_task_id: TASK,
   });
   expect(sent.body).toBe('Поняла, спасибо');
+});
+
+test('declares how many photos follow, so a wordless message is allowed', async () => {
+  mockRpc.mockResolvedValue({ data: { ...message, body: '', media_expected: 2 }, error: null });
+
+  await sendMessage({
+    messageId: MESSAGE,
+    body: '',
+    subject: { kind: 'task', id: TASK },
+    mediaExpected: 2,
+  });
+
+  expect(mockRpc).toHaveBeenCalledWith(
+    'send_message',
+    expect.objectContaining({ p_body: '', p_media_expected: 2 }),
+  );
 });
 
 test('marks read up to the moment it was given', async () => {

@@ -8,7 +8,11 @@ import {
 import { useMemo } from 'react';
 
 import { useSession } from '@/features/auth/session';
+import { sendMessage, type SendMessageVariables } from '@/features/chat/api';
+import { chatKeys } from '@/features/chat/keys';
+import type { OwnMediaState, OwnMediaStates } from '@/features/chat/media-tiles';
 import { stepKeys } from '@/features/steps/keys';
+import { serverErrorKey } from '@/lib/server-error';
 
 import {
   addMedia,
@@ -46,6 +50,13 @@ const ATTACH_RETRIES = 3;
 export interface AttachMediaVariables extends AddMediaVariables {
   /** The file on the phone. */
   uri: string;
+  /**
+   * For a photo of a chat message: the message itself, said again first.
+   * The text goes out through its own queue, and the two queues do not wait
+   * for each other; `send_message` is replayable by id, so saying it again
+   * costs nothing and the photo can never run ahead of its message.
+   */
+  message?: SendMessageVariables;
 }
 
 export interface RemoveMediaVariables extends MediaOwnerRef {
@@ -54,9 +65,40 @@ export interface RemoveMediaVariables extends MediaOwnerRef {
 
 /** The cache a file's owner reads its media from. */
 export function mediaOwnerKey(owner: MediaOwnerRef) {
+  if (owner.messageId !== undefined) {
+    return mediaKeys.byMessage(owner.messageId);
+  }
   return owner.problemId !== undefined
     ? mediaKeys.byProblem(owner.problemId)
     : mediaKeys.byTask(owner.taskId ?? '');
+}
+
+/** The reads a file's owner shows up in, beyond its own media cache. */
+function invalidateOwner(queryClient: QueryClient, owner: MediaOwnerRef): void {
+  void queryClient.invalidateQueries({ queryKey: mediaOwnerKey(owner) });
+  if (owner.taskId !== undefined) {
+    void queryClient.invalidateQueries({ queryKey: stepKeys.byTask(owner.taskId) });
+  }
+  if (owner.messageId !== undefined) {
+    void queryClient.invalidateQueries({ queryKey: chatKeys.all });
+  }
+}
+
+/**
+ * Forget the attempts that already failed for this file: a retry or a
+ * removal is the answer to them, and a tile must not keep saying "failed"
+ * on their account.
+ */
+function dropFailedAttempts(queryClient: QueryClient, mediaId: string): void {
+  const cache = queryClient.getMutationCache();
+  cache
+    .findAll({
+      mutationKey: mediaMutationKeys.attach,
+      status: 'error',
+      predicate: (mutation) =>
+        (mutation.state.variables as AttachMediaVariables | undefined)?.mediaId === mediaId,
+    })
+    .forEach((mutation) => cache.remove(mutation));
 }
 
 /**
@@ -68,8 +110,21 @@ export function mediaOwnerKey(owner: MediaOwnerRef) {
  * confirmed row as it is.
  */
 export async function attachMedia(variables: AttachMediaVariables): Promise<TaskMedia> {
+  if (variables.message !== undefined) {
+    await sendMessage(variables.message);
+  }
   const row = await addMedia(variables);
-  await uploadMediaFile(row.storage_path, variables.uri, variables.mimeType);
+  try {
+    await uploadMediaFile(row.storage_path, variables.uri, variables.mimeType);
+  } catch (error: unknown) {
+    // The bucket refuses a path whose row has expired meanwhile, in words of
+    // its own. Asked again, the registration says so in a key the screen can
+    // show; a row still alive hands the bucket's refusal on as it was.
+    if (variables.messageId !== undefined) {
+      await addMedia(variables);
+    }
+    throw error;
+  }
   return confirmMedia(variables.mediaId);
 }
 
@@ -153,6 +208,7 @@ export function useAttachMedia() {
     scope: ATTACH_SCOPE,
     retry: ATTACH_RETRIES,
     onMutate: async (variables) => {
+      dropFailedAttempts(queryClient, variables.mediaId);
       const key = mediaOwnerKey(variables);
       await queryClient.cancelQueries({ queryKey: key });
       queryClient.setQueryData<TaskMedia[]>(key, (media = []) =>
@@ -167,10 +223,7 @@ export function useAttachMedia() {
       );
     },
     onSettled: (_row, _error, variables) => {
-      void queryClient.invalidateQueries({ queryKey: mediaOwnerKey(variables) });
-      if (variables.taskId !== undefined) {
-        void queryClient.invalidateQueries({ queryKey: stepKeys.byTask(variables.taskId) });
-      }
+      invalidateOwner(queryClient, variables);
     },
   });
 }
@@ -186,6 +239,7 @@ export function useRemoveMedia() {
     mutationKey: mediaMutationKeys.remove,
     mutationFn: ({ mediaId }) => removeMedia(mediaId),
     onMutate: async (variables) => {
+      dropFailedAttempts(queryClient, variables.mediaId);
       const key = mediaOwnerKey(variables);
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<TaskMedia[]>(key);
@@ -207,7 +261,7 @@ export function useRemoveMedia() {
       queryClient.setQueryData(mediaKeys.local, await forgetLocalMedia(variables.mediaId));
     },
     onSettled: (_row, _error, variables) => {
-      void queryClient.invalidateQueries({ queryKey: mediaOwnerKey(variables) });
+      invalidateOwner(queryClient, variables);
     },
   });
 }
@@ -219,6 +273,50 @@ export function useRememberLocalMedia() {
   return async (record: LocalMediaRecord): Promise<void> => {
     queryClient.setQueryData(mediaKeys.local, await rememberLocalMedia(record));
   };
+}
+
+/** Let go of a capture that was never handed over: the file and the record. */
+export function useDiscardLocalMedia() {
+  const queryClient = useQueryClient();
+
+  return async (record: LocalMediaRecord): Promise<void> => {
+    discardFile(record.uri);
+    queryClient.setQueryData(mediaKeys.local, await forgetLocalMedia(record.id));
+  };
+}
+
+/**
+ * What this phone's queue says about the photos of its own messages: still
+ * travelling (including paused for lack of signal), refused by the server,
+ * or expired. A failed attempt stays in the cache until the app restarts or
+ * the photo is retried or removed, so the tile can say which it was.
+ */
+export function useOwnMediaStates(): OwnMediaStates {
+  const entries = useMutationState({
+    filters: {
+      mutationKey: mediaMutationKeys.attach,
+      predicate: (mutation) =>
+        mutation.state.status === 'pending' || mutation.state.status === 'error',
+    },
+    select: (mutation): [string, OwnMediaState] | null => {
+      const variables = mutation.state.variables as AttachMediaVariables | undefined;
+      if (variables === undefined || variables.messageId === undefined) {
+        return null;
+      }
+      const status: OwnMediaState['status'] =
+        mutation.state.status === 'pending'
+          ? 'uploading'
+          : serverErrorKey(mutation.state.error) === 'serverErrors.messageMediaExpired'
+            ? 'expired'
+            : 'failed';
+      return [variables.mediaId, { messageId: variables.messageId, status }];
+    },
+  });
+
+  return useMemo(
+    () => new Map(entries.filter((entry): entry is [string, OwnMediaState] => entry !== null)),
+    [entries],
+  );
 }
 
 /** Ids of the uploads under way or waiting for signal. */

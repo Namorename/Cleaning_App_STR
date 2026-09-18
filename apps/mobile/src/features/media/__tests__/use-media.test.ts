@@ -1,7 +1,15 @@
+import { addMedia, uploadMediaFile } from '../api';
 import type { TaskMedia } from '../schema';
 import { attachMedia, mediaItemViews } from '../use-media';
 
 const calls: string[] = [];
+
+jest.mock('@/features/chat/api', () => ({
+  sendMessage: jest.fn(async () => {
+    calls.push('send');
+    return {};
+  }),
+}));
 
 jest.mock('../api', () => ({
   addMedia: jest.fn(async () => {
@@ -50,6 +58,54 @@ describe('attachMedia', () => {
 
     expect(calls).toEqual(['add', 'upload:host/task/m1.jpg', 'confirm:m1']);
     expect(row.uploaded_at).not.toBeNull();
+  });
+
+  const ofMessage = {
+    messageId: 'msg1',
+    uri: 'file:///tmp/m1.jpg',
+    mediaId: 'm1',
+    kind: 'photo' as const,
+    mimeType: 'image/jpeg',
+    byteSize: 100,
+    width: 1600,
+    height: 1200,
+    durationSec: null,
+    takenAt: '2026-09-18T10:00:00+00:00',
+  };
+
+  test('a photo of a message says the message again before registering it', async () => {
+    await attachMedia({
+      ...ofMessage,
+      message: {
+        messageId: 'msg1',
+        body: 'x',
+        subject: { kind: 'task', id: 't1' },
+        mediaExpected: 1,
+      },
+    });
+
+    expect(calls).toEqual(['send', 'add', 'upload:host/task/m1.jpg', 'confirm:m1']);
+  });
+
+  test('a refusal from the bucket asks the registration again, so an expired row says so', async () => {
+    const expired = { message: 'expired', hint: 'serverErrors.messageMediaExpired' };
+    jest.mocked(uploadMediaFile).mockRejectedValueOnce({ statusCode: '403', message: 'denied' });
+    jest
+      .mocked(addMedia)
+      .mockImplementationOnce(async () => ({ storage_path: 'host/chat/m1.jpg' }) as TaskMedia)
+      .mockImplementationOnce(async () => {
+        throw expired;
+      });
+
+    await expect(attachMedia(ofMessage)).rejects.toBe(expired);
+    expect(calls).not.toContain('confirm:m1');
+  });
+
+  test('a refusal from the bucket stands as it was when the row is alive', async () => {
+    const denied = { statusCode: '403', message: 'denied' };
+    jest.mocked(uploadMediaFile).mockRejectedValueOnce(denied);
+
+    await expect(attachMedia(ofMessage)).rejects.toBe(denied);
   });
 });
 
