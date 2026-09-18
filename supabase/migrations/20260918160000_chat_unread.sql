@@ -44,21 +44,40 @@ stable
 security definer
 set search_path = ''
 as $fn$
-  with me as (
+  -- `not materialized`: `me` is referenced three times, and a materialized
+  -- CTE would turn the marker join into a hash over ALL of chat_reads instead
+  -- of an index probe by the caller (seen in the layer 4 preflight).
+  with me as not materialized (
     select p.id, p.host_id, (p.role in ('manager', 'admin')) as is_manager
     from public.profiles p
     where p.id = (select auth.uid()) and p.is_active
+  ),
+  -- Two branches, not one `or`. A definer SQL function cannot be inlined, so
+  -- its body is planned once with the arrays as unknown parameters, and an
+  -- `or` whose first disjunct mentions no column is not indexable: the phone's
+  -- call with 60 ids walked every thread of every tenant (51 500 rows removed
+  -- by filter in the preflight). Split on the parameter-only test, each branch
+  -- gets a one-time filter and the ids branch a BitmapOr over the two partial
+  -- indexes. No ids at all means the whole company; an empty array means
+  -- nothing (`= any(null)` is as false as `= any('{}')`).
+  candidates as (
+    select th.*
+    from me
+    join public.chat_threads th on th.host_id = me.host_id
+    where p_task_ids is null and p_problem_ids is null
+    union all
+    select th.*
+    from me
+    join public.chat_threads th on th.host_id = me.host_id
+    where (p_task_ids is not null or p_problem_ids is not null)
+      and (th.task_id = any (p_task_ids) or th.problem_id = any (p_problem_ids))
   )
   select th.id, th.kind, th.task_id, th.problem_id, th.profile_id, th.last_message_at
   from me
-  join public.chat_threads th on th.host_id = me.host_id
+  join candidates th on true
   left join public.chat_reads r on r.thread_id = th.id and r.profile_id = me.id
   where th.last_message_at > coalesce(r.last_read_at, '-infinity')
     and th.last_author_id is distinct from me.id
-    -- No ids at all means the whole company; an empty array means nothing.
-    and ((p_task_ids is null and p_problem_ids is null)
-         or th.task_id    = any (coalesce(p_task_ids, '{}'))
-         or th.problem_id = any (coalesce(p_problem_ids, '{}')))
     -- `case`, not `or`: SQL does not promise to short-circuit, and the whole
     -- point is that a manager never pays for the field-staff branch. Only
     -- work threads take the short cut: for those the manager branch of

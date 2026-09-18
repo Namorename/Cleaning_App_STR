@@ -17,12 +17,20 @@ export default function MyTasksScreen() {
   // a floor, and this list is how she switches between them.
   const sections = useMemo(() => (data === undefined ? undefined : groupMyTasks(data)), [data]);
 
-  // The marks are asked for exactly the jobs on this screen.
+  // The marks are asked for exactly the jobs on this screen. A repair speaks
+  // in its report's thread, so its report is asked about too.
   const taskIds = useMemo(
     () => (data === undefined ? NO_IDS : data.map((task) => task.id)),
     [data],
   );
-  const unread = useUnreadSubjects(taskIds, NO_IDS);
+  const problemIds = useMemo(
+    () =>
+      data === undefined
+        ? NO_IDS
+        : data.flatMap((task) => (task.problem == null ? [] : [task.problem.id])),
+    [data],
+  );
+  const unread = useUnreadSubjects(taskIds, problemIds);
 
   const onRefresh = useCallback(() => {
     void refetch();
@@ -42,6 +50,7 @@ export default function MyTasksScreen() {
       isRefreshing={isRefetching}
       onPress={onPress}
       unreadTaskIds={unread.tasks}
+      unreadProblemIds={unread.problems}
       emptyMessage={t('tasks.emptyMine')}
     />
   );

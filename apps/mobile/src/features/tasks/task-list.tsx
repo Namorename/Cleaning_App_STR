@@ -21,6 +21,11 @@ interface TaskListProps {
   claimingTaskId?: string | null;
   /** The jobs somebody has written about since she last looked. */
   unreadTaskIds?: ReadonlySet<string>;
+  /**
+   * The reports somebody has written about. A repair speaks in its report's
+   * thread (open_thread), so a repair card lights up by its problem, not its id.
+   */
+  unreadProblemIds?: ReadonlySet<string>;
 }
 
 /**
@@ -43,6 +48,7 @@ export function TaskList({
   onPress,
   claimingTaskId = null,
   unreadTaskIds,
+  unreadProblemIds,
 }: TaskListProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
@@ -54,10 +60,13 @@ export function TaskList({
         onClaim={onClaim}
         onPress={onPress}
         isClaiming={claimingTaskId === item.id}
-        hasUnread={unreadTaskIds?.has(item.id) ?? false}
+        hasUnread={
+          (unreadTaskIds?.has(item.id) ?? false) ||
+          (item.problem != null && (unreadProblemIds?.has(item.problem.id) ?? false))
+        }
       />
     ),
-    [onClaim, onPress, claimingTaskId, unreadTaskIds],
+    [onClaim, onPress, claimingTaskId, unreadTaskIds, unreadProblemIds],
   );
 
   const renderSectionHeader = useCallback(

@@ -506,9 +506,31 @@ select pg_temp.check('read to the tail, the task is quiet',
 select pg_temp.check('while the free work still waits',
   pg_temp.unread_task('e7000001-0000-4000-8000-000000000002'), true);
 
+-- A deleted author leaves the tail with no name (`on delete set null`); the
+-- word is still unread. `is distinct from`, not `<>`, is what keeps it so.
+reset role; reset request.jwt.claims;
+update public.chat_threads set last_author_id = null
+where task_id = 'e7000001-0000-4000-8000-000000000002';
+select pg_temp.as_anna();
+select pg_temp.check('a message whose author is gone is still unread',
+  pg_temp.unread_task('e7000001-0000-4000-8000-000000000002'), true);
+
 select pg_temp.as_bara();
 select pg_temp.check('a colleague of another listing has nothing unread there',
   pg_temp.unread_task('e7000001-0000-4000-8000-000000000002'), false);
+
+-- The manager's short cut stays inside the company: a thread of the other
+-- host's work, inserted by hand, is not the office's to see.
+reset role; reset request.jwt.claims;
+insert into public.chat_threads (host_id, kind, task_id, last_message_at, last_author_id, message_count)
+values ('d7000000-0000-4000-8000-00000000000d', 'task', 'e7000001-0000-4000-8000-000000000009',
+        now(), 'd7000001-0000-4000-8000-000000000001', 1);
+select pg_temp.as_boss();
+select pg_temp.check('the office never sees another company''s unread work',
+  pg_temp.unread_task('e7000001-0000-4000-8000-000000000009'), false);
+-- Taken out again: the other company's checks below expect its cupboard bare.
+reset role; reset request.jwt.claims;
+delete from public.chat_threads where task_id = 'e7000001-0000-4000-8000-000000000009';
 
 -- The office asks without ids and gets the whole company: what Anna said on
 -- the breakage, not what the office itself said last.
@@ -605,6 +627,18 @@ select pg_temp.as_gone();
 select pg_temp.check('somebody no longer employed sees nothing', pg_temp.threads_seen(), 0);
 select pg_temp.check('and has nothing unread',
   (select count(*)::int from public.chat_unread_threads()), 0);
+
+-- The short cut for managers is gated by the same is_active as everything
+-- else: a dismissed manager whose token is still valid gets nothing.
+reset role; reset request.jwt.claims;
+update public.profiles set is_active = false
+where id = 'c7000001-0000-4000-8000-000000000001';
+select pg_temp.as_boss();
+select pg_temp.check('a dismissed manager has nothing unread either',
+  (select count(*)::int from public.chat_unread_threads()), 0);
+reset role; reset request.jwt.claims;
+update public.profiles set is_active = true
+where id = 'c7000001-0000-4000-8000-000000000001';
 
 select pg_temp.as_boss();
 select pg_temp.check('but the office keeps her inbox',
