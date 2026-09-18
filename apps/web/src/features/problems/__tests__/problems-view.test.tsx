@@ -71,6 +71,11 @@ vi.mock('../use-problems', () => ({
   useUnarchiveProblem: () => ({ ...idle, mutate: unarchive }),
 }));
 
+// The marks on the cards have their own test on the board; here the answer is empty.
+vi.mock('@/features/chat/use-chat', () => ({
+  useUnreadSubjects: () => ({ tasks: new Set<string>(), problems: new Set<string>() }),
+}));
+
 import { ProblemsView } from '../problems-view';
 
 describe('ProblemsView', () => {

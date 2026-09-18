@@ -15,9 +15,17 @@ interface TaskCardProps {
   /** Opens the task. Omitted where the card is not a link. */
   onPress?: (taskId: string) => void;
   isClaiming?: boolean;
+  /** Somebody said something about this job that she has not read yet. */
+  hasUnread?: boolean;
 }
 
-function TaskCardComponent({ task, onClaim, onPress, isClaiming = false }: TaskCardProps) {
+function TaskCardComponent({
+  task,
+  onClaim,
+  onPress,
+  isClaiming = false,
+  hasUnread = false,
+}: TaskCardProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const urgent = isSameDayTurnover(task);
@@ -55,6 +63,11 @@ function TaskCardComponent({ task, onClaim, onPress, isClaiming = false }: TaskC
           <Text style={styles.name} numberOfLines={2}>
             {name}
           </Text>
+          {hasUnread ? (
+            <View style={styles.unread}>
+              <Text style={styles.unreadText}>{t('chat.unread')}</Text>
+            </View>
+          ) : null}
           {running ? (
             <View style={styles.status}>
               <Text style={styles.statusText}>{t('tasks.status.inProgress')}</Text>
@@ -99,7 +112,13 @@ function TaskCardComponent({ task, onClaim, onPress, isClaiming = false }: TaskC
     </>
   );
 
-  const label = t('tasks.cardAccessibility', { property: spoken, date, urgency });
+  // The mark is a fact of the card, so the reader hears it with the rest.
+  const label = [
+    t('tasks.cardAccessibility', { property: spoken, date, urgency }),
+    hasUnread ? t('chat.unread') : null,
+  ]
+    .filter((part) => part !== null)
+    .join('. ');
 
   if (onPress === undefined) {
     return (
@@ -161,6 +180,18 @@ const createStyles = (theme: Theme) =>
     },
     statusText: {
       color: theme.onPrimary,
+      fontSize: FontSize.caption,
+      fontWeight: '600',
+    },
+    // Quieter than "in progress": a word waiting for her, not the state of the job.
+    unread: {
+      backgroundColor: theme.calmSurface,
+      borderRadius: Radius.md,
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: Spacing.xs,
+    },
+    unreadText: {
+      color: theme.calmText,
       fontSize: FontSize.caption,
       fontWeight: '600',
     },

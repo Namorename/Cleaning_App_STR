@@ -19,6 +19,8 @@ interface TaskListProps {
   onClaim?: (taskId: string) => void;
   onPress?: (taskId: string) => void;
   claimingTaskId?: string | null;
+  /** The jobs somebody has written about since she last looked. */
+  unreadTaskIds?: ReadonlySet<string>;
 }
 
 /**
@@ -40,6 +42,7 @@ export function TaskList({
   onClaim,
   onPress,
   claimingTaskId = null,
+  unreadTaskIds,
 }: TaskListProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
@@ -51,9 +54,10 @@ export function TaskList({
         onClaim={onClaim}
         onPress={onPress}
         isClaiming={claimingTaskId === item.id}
+        hasUnread={unreadTaskIds?.has(item.id) ?? false}
       />
     ),
-    [onClaim, onPress, claimingTaskId],
+    [onClaim, onPress, claimingTaskId, unreadTaskIds],
   );
 
   const renderSectionHeader = useCallback(

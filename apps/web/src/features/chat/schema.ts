@@ -67,3 +67,36 @@ export function newestMessageAt(messages: readonly ChatMessage[]): string | null
 export function isOwnMessage(message: ChatMessage, userId: string | null): boolean {
   return userId !== null && message.author_id === userId;
 }
+
+/**
+ * A thread with something the reader has not seen, as `chat_unread_threads`
+ * returns it: the tail is newer than the reader's marker and the last word
+ * was somebody else's. The server decides; the panel only draws the mark.
+ */
+export const chatUnreadThreadSchema = z.object({
+  thread_id: z.uuid(),
+  kind: z.enum(CHAT_THREAD_KINDS),
+  task_id: z.uuid().nullable(),
+  problem_id: z.uuid().nullable(),
+  profile_id: z.uuid().nullable(),
+  last_message_at: z.string(),
+});
+export type ChatUnreadThread = z.infer<typeof chatUnreadThreadSchema>;
+export const chatUnreadThreadListSchema = z.array(chatUnreadThreadSchema);
+
+/** The subjects with unread threads, by kind, for a card to look itself up in. */
+export interface UnreadSubjects {
+  tasks: ReadonlySet<string>;
+  problems: ReadonlySet<string>;
+}
+
+export const NO_UNREAD: UnreadSubjects = { tasks: new Set(), problems: new Set() };
+
+export function unreadSubjects(threads: readonly ChatUnreadThread[]): UnreadSubjects {
+  return {
+    tasks: new Set(threads.flatMap((thread) => (thread.task_id === null ? [] : [thread.task_id]))),
+    problems: new Set(
+      threads.flatMap((thread) => (thread.problem_id === null ? [] : [thread.problem_id])),
+    ),
+  };
+}

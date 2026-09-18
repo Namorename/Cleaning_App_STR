@@ -457,12 +457,103 @@ select pg_temp.check('a cleaner reads her own marker and no one else''s',
     where profile_id <> 'c7000002-0000-4000-8000-000000000002'), 0);
 
 -- ---------------------------------------------------------------------------
+--  What is unread (layer 4)
+-- ---------------------------------------------------------------------------
+
+-- The tail is newer than my marker and the last word was not mine. The office
+-- wrote on Anna's task and on the free one; Anna herself spoke last on the
+-- breakage; her marker on the inbox was just moved to now() above.
+create or replace function pg_temp.unread_task(task uuid, ids uuid[] default null) returns boolean
+language sql as $fn$
+  select exists (select 1 from public.chat_unread_threads(ids, null) u where u.task_id = task)
+$fn$;
+create or replace function pg_temp.unread_problem(problem uuid) returns boolean
+language sql as $fn$
+  select exists (select 1 from public.chat_unread_threads() u where u.problem_id = problem)
+$fn$;
+
+select pg_temp.as_anna();
+
+select pg_temp.check('what the office wrote on her task is unread',
+  pg_temp.unread_task('e7000001-0000-4000-8000-000000000001'), true);
+select pg_temp.check('and the note on the free work she could take',
+  pg_temp.unread_task('e7000001-0000-4000-8000-000000000002'), true);
+select pg_temp.check('her own last word is not unread to her',
+  pg_temp.unread_problem('f7000001-0000-4000-8000-000000000001'), false);
+select pg_temp.check('an inbox she has just read is quiet',
+  (select count(*)::int from public.chat_unread_threads() u where u.kind = 'direct'), 0);
+
+-- The phone asks for the ids on its screen; a subject it names but may not
+-- read is not in the answer, and an empty list is an empty answer.
+select pg_temp.check('asked about her screen, the answer is limited to it',
+  (select count(*)::int from public.chat_unread_threads(
+     array['e7000001-0000-4000-8000-000000000001']::uuid[], null)), 1);
+select pg_temp.check('work past the horizon is not unread even when asked for by id',
+  pg_temp.unread_task('e7000001-0000-4000-8000-000000000003',
+                      array['e7000001-0000-4000-8000-000000000002',
+                            'e7000001-0000-4000-8000-000000000003']::uuid[]), false);
+select pg_temp.check('an empty screen has nothing unread on it',
+  (select count(*)::int from public.chat_unread_threads(array[]::uuid[], array[]::uuid[])), 0);
+
+-- Reading up to the tail makes it quiet; reading up to an older message does not.
+select public.mark_thread_read(
+  (select id from public.chat_threads where task_id = 'e7000001-0000-4000-8000-000000000001'),
+  (select max(created_at) from public.chat_messages
+    where thread_id = (select id from public.chat_threads
+                        where task_id = 'e7000001-0000-4000-8000-000000000001')));
+select pg_temp.check('read to the tail, the task is quiet',
+  pg_temp.unread_task('e7000001-0000-4000-8000-000000000001'), false);
+select pg_temp.check('while the free work still waits',
+  pg_temp.unread_task('e7000001-0000-4000-8000-000000000002'), true);
+
+select pg_temp.as_bara();
+select pg_temp.check('a colleague of another listing has nothing unread there',
+  pg_temp.unread_task('e7000001-0000-4000-8000-000000000002'), false);
+
+-- The office asks without ids and gets the whole company: what Anna said on
+-- the breakage, not what the office itself said last.
+select pg_temp.as_boss();
+select pg_temp.check('the office sees the breakage Anna wrote on',
+  pg_temp.unread_problem('f7000001-0000-4000-8000-000000000001'), true);
+select pg_temp.check('but not the task where the office spoke last',
+  pg_temp.unread_task('e7000001-0000-4000-8000-000000000001'), false);
+select pg_temp.check('nor the inbox it answered',
+  (select count(*)::int from public.chat_unread_threads() u where u.kind = 'direct'), 0);
+
+-- The office takes no short cut on an inbox: its subject must still be field
+-- staff. Somebody promoted out of the field takes her inbox out of reach,
+-- exactly as the policies would have it.
+-- Inside one transaction every row is stamped with the same now(), so a new
+-- message cannot outrun a marker; the tail is set by hand instead: Anna spoke
+-- last, and the office's marker sits an hour behind.
+reset role; reset request.jwt.claims;
+update public.chat_threads set last_author_id = 'c7000002-0000-4000-8000-000000000002'
+where profile_id = 'c7000002-0000-4000-8000-000000000002';
+update public.chat_reads set last_read_at = last_read_at - interval '1 hour'
+where profile_id = 'c7000001-0000-4000-8000-000000000001'
+  and thread_id = (select id from public.chat_threads
+                    where profile_id = 'c7000002-0000-4000-8000-000000000002');
+select pg_temp.as_boss();
+select pg_temp.check('with the marker behind the tail the inbox is unread for the office',
+  (select count(*)::int from public.chat_unread_threads() u where u.kind = 'direct'), 1);
+
+reset role; reset request.jwt.claims;
+update public.profiles set role = 'manager' where id = 'c7000002-0000-4000-8000-000000000002';
+select pg_temp.as_boss();
+select pg_temp.check('an inbox whose owner was promoted is nobody''s to read, the office included',
+  (select count(*)::int from public.chat_unread_threads() u where u.kind = 'direct'), 0);
+reset role; reset request.jwt.claims;
+update public.profiles set role = 'cleaner' where id = 'c7000002-0000-4000-8000-000000000002';
+
+-- ---------------------------------------------------------------------------
 --  The edge of the company, and of employment
 -- ---------------------------------------------------------------------------
 
 select pg_temp.as_other_host();
 
 select pg_temp.check('another company sees no threads at all', pg_temp.threads_seen(), 0);
+select pg_temp.check('nor anything unread',
+  (select count(*)::int from public.chat_unread_threads()), 0);
 select pg_temp.check('nor any message',                        pg_temp.messages_seen(), 0);
 select pg_temp.check('nor any read marker',
   (select count(*)::int from public.chat_reads), 0);
@@ -512,6 +603,8 @@ where id = 'c7000005-0000-4000-8000-000000000005';
 
 select pg_temp.as_gone();
 select pg_temp.check('somebody no longer employed sees nothing', pg_temp.threads_seen(), 0);
+select pg_temp.check('and has nothing unread',
+  (select count(*)::int from public.chat_unread_threads()), 0);
 
 select pg_temp.as_boss();
 select pg_temp.check('but the office keeps her inbox',

@@ -27,10 +27,12 @@ interface TaskCardProps {
   today: string;
   onEdit: (task: Task) => void;
   onOpenWork: (task: Task) => void;
+  /** Somebody said something in the conversation about this job that the manager has not read. */
+  hasUnread?: boolean;
 }
 
 /** One job in the list: enough to know what it is, and the few things to do with it. */
-export function TaskCard({ task, today, onEdit, onOpenWork }: TaskCardProps) {
+export function TaskCard({ task, today, onEdit, onOpenWork, hasUnread = false }: TaskCardProps) {
   const { t } = useTranslation();
   const language = useLanguage();
   const cancel = useCancelTask();
@@ -50,6 +52,7 @@ export function TaskCard({ task, today, onEdit, onOpenWork }: TaskCardProps) {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <span className="font-medium">{title}</span>
         <div className="flex flex-wrap items-center gap-1">
+          {hasUnread ? <Badge>{t('panel.chat.unread')}</Badge> : null}
           {overdue ? <Badge variant="destructive">{t('panel.tasks.overdue')}</Badge> : null}
           <Badge variant={typeVariant()}>{t(`panel.tasks.types.${task.type}`)}</Badge>
           <Badge variant={statusVariant(task.status)}>

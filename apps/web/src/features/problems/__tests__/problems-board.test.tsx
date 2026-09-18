@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { problemSchema, type Problem } from '../schema';
 
@@ -68,6 +68,16 @@ vi.mock('../use-problems', () => ({
     isError: false,
   }),
 }));
+
+
+// The marks come from one company-wide answer; here it is a pair of sets the
+// test fills by hand.
+const unread = { tasks: new Set<string>(), problems: new Set<string>() };
+vi.mock('@/features/chat/use-chat', () => ({ useUnreadSubjects: () => unread }));
+
+afterEach(() => {
+  unread.problems.clear();
+});
 
 import { ProblemsBoard } from '../problems-board';
 
@@ -158,5 +168,13 @@ describe('ProblemsBoard drag and drop', () => {
 
     dragTo('Перегорела лампа', 'Открыта');
     expect(mutations.reopen).toHaveBeenCalledWith(RESOLVED_ID, expect.anything());
+  });
+
+  test('marks the breakage somebody wrote about, and no other', () => {
+    unread.problems.add(OPEN_ID);
+    render(<ProblemsBoard problems={problems} />);
+
+    expect(within(card('Течёт кран')).getByText('Новое сообщение')).toBeInTheDocument();
+    expect(within(card('Сломан замок')).queryByText('Новое сообщение')).not.toBeInTheDocument();
   });
 });

@@ -118,7 +118,8 @@
       "team": "Команда",
       "apartments": "Объекты",
       "settings": "Настройки",
-      "calendar": "Календарь"
+      "calendar": "Календарь",
+      "unread": "Непрочитанных: {{count}}"
     },
     "dashboard": {
       "emptyTitle": "Панель подключена",
@@ -452,7 +453,8 @@
       "send": "Отправить",
       "sending": "Отправляем…",
       "sendHint": "Ctrl+Enter — отправить",
-      "unknownAuthor": "Неизвестно"
+      "unknownAuthor": "Неизвестно",
+      "unread": "Новое сообщение"
     },
     "team": {
       "title": "Команда",
@@ -931,7 +933,8 @@
     "placeholder": "Написать…",
     "send": "Отправить",
     "pending": "Отправляется…",
-    "unknownAuthor": "Неизвестно"
+    "unknownAuthor": "Неизвестно",
+    "unread": "Новое сообщение"
   },
   "serverErrors": {
     "checklistCopySameProperty": "Источник и получатель — один и тот же апартамент",

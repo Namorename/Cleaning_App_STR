@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { fetchMessages, markThreadRead, openThread, sendMessage } from '../api';
+import { fetchMessages, fetchUnreadThreads, markThreadRead, openThread, sendMessage } from '../api';
 
 const TASK = '11111111-1111-4111-8111-111111111111';
 const PROBLEM = '22222222-2222-4222-8222-222222222222';
@@ -74,6 +74,34 @@ function recordingClient(answers: Record<string, unknown>) {
 
   return { client, rpcs, reads };
 }
+
+describe('what is unread', () => {
+  test('is asked for the whole company in one call and keeps the subject ids', async () => {
+    const { client, rpcs } = recordingClient({
+      chat_unread_threads: [
+        {
+          thread_id: THREAD,
+          kind: 'task',
+          task_id: TASK,
+          problem_id: null,
+          profile_id: null,
+          last_message_at: '2026-09-18T10:07:00+00:00',
+        },
+      ],
+    });
+
+    const rows = await fetchUnreadThreads(client);
+
+    expect(rpcs).toEqual([{ name: 'chat_unread_threads', args: undefined }]);
+    expect(rows.map((row) => row.task_id)).toEqual([TASK]);
+  });
+
+  test('is nothing when the server says nothing', async () => {
+    const { client } = recordingClient({});
+
+    expect(await fetchUnreadThreads(client)).toEqual([]);
+  });
+});
 
 describe('opening a thread', () => {
   test('names the task and nothing else', async () => {

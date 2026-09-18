@@ -118,7 +118,8 @@
       "team": "Team",
       "apartments": "Listings",
       "settings": "Settings",
-      "calendar": "Calendar"
+      "calendar": "Calendar",
+      "unread": "Unread: {{count}}"
     },
     "dashboard": {
       "emptyTitle": "The panel is connected",
@@ -452,7 +453,8 @@
       "send": "Send",
       "sending": "Sending…",
       "sendHint": "Ctrl+Enter to send",
-      "unknownAuthor": "Unknown"
+      "unknownAuthor": "Unknown",
+      "unread": "New message"
     },
     "team": {
       "title": "Team",
@@ -931,7 +933,8 @@
     "placeholder": "Write…",
     "send": "Send",
     "pending": "Sending…",
-    "unknownAuthor": "Unknown"
+    "unknownAuthor": "Unknown",
+    "unread": "New message"
   },
   "serverErrors": {
     "checklistCopySameProperty": "Source and target are the same apartment",

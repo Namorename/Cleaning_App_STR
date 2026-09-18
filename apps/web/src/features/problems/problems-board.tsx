@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { serverErrorText } from '@/lib/server-error';
 import { cn } from '@/lib/utils';
 
@@ -54,6 +55,7 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
   const resolve = useResolveProblem();
   const unassign = useUnassignProblem();
   const reopen = useReopenProblem();
+  const unread = useUnreadSubjects();
   const [dragging, setDragging] = useState<Problem | null>(null);
   const [over, setOver] = useState<BoardStatus | null>(null);
   const [pending, setPending] = useState<PendingMove | null>(null);
@@ -175,6 +177,7 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
                   <ProblemCard
                     key={problem.id}
                     problem={problem}
+                    hasUnread={unread.problems.has(problem.id)}
                     onDragStart={setDragging}
                     onDragEnd={() => {
                       setDragging(null);

@@ -20,10 +20,17 @@ interface ProblemCardProps {
   /** Fired when the manager picks the card up; absent on a board that cannot move cards. */
   onDragStart?: (problem: Problem) => void;
   onDragEnd?: () => void;
+  /** Somebody said something about this breakage that the manager has not read. */
+  hasUnread?: boolean;
 }
 
 /** One problem on the board: enough to decide whether to open it, and a handle to move it. */
-export function ProblemCard({ problem, onDragStart, onDragEnd }: ProblemCardProps) {
+export function ProblemCard({
+  problem,
+  onDragStart,
+  onDragEnd,
+  hasUnread = false,
+}: ProblemCardProps) {
   const { t } = useTranslation();
   const language = useLanguage();
   const fixTask = liveFixTask(problem);
@@ -52,9 +59,12 @@ export function ProblemCard({ problem, onDragStart, onDragEnd }: ProblemCardProp
     >
       <div className="flex items-start justify-between gap-2">
         <span className="font-medium">{problem.title}</span>
-        <Badge variant={priorityVariant(problem.priority)}>
-          {t(`problems.priorities.${problem.priority}`)}
-        </Badge>
+        <span className="flex flex-wrap items-center justify-end gap-1">
+          {hasUnread ? <Badge>{t('panel.chat.unread')}</Badge> : null}
+          <Badge variant={priorityVariant(problem.priority)}>
+            {t(`problems.priorities.${problem.priority}`)}
+          </Badge>
+        </span>
       </div>
       <span className="text-muted-foreground">
         {problemPlace(problem) ?? t('problems.noProperty')}

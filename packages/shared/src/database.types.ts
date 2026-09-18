@@ -1784,6 +1784,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      chat_unread_threads: {
+        Args: { p_problem_ids?: string[]; p_task_ids?: string[] }
+        Returns: {
+          kind: Database["public"]["Enums"]["chat_thread_kind"]
+          last_message_at: string
+          problem_id: string
+          profile_id: string
+          task_id: string
+          thread_id: string
+        }[]
+      }
       claim_webhook_events: {
         Args: { batch_size?: number; max_attempts?: number }
         Returns: Json

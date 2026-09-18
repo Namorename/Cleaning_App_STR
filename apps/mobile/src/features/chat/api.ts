@@ -4,9 +4,11 @@ import {
   chatMessageListSchema,
   chatMessageSchema,
   chatThreadSchema,
+  chatUnreadThreadListSchema,
   type ChatMessage,
   type ChatSubject,
   type ChatThread,
+  type ChatUnreadThread,
 } from './schema';
 
 /** The RPC arguments that name a subject; exactly one of them is set. */
@@ -61,6 +63,28 @@ export async function sendMessage(variables: SendMessageVariables): Promise<Chat
     throw error;
   }
   return chatMessageSchema.parse(data);
+}
+
+export interface UnreadQuery {
+  taskIds: readonly string[];
+  problemIds: readonly string[];
+}
+
+/**
+ * Which of the subjects on screen have something unread. Always asked WITH
+ * the ids: for field staff the server checks the audience rule per thread,
+ * and a whole-company answer would cost more the bigger the company gets
+ * (20260918160000_chat_unread.sql).
+ */
+export async function fetchUnreadThreads(query: UnreadQuery): Promise<ChatUnreadThread[]> {
+  const { data, error } = await supabase.rpc('chat_unread_threads', {
+    p_task_ids: [...query.taskIds],
+    p_problem_ids: [...query.problemIds],
+  });
+  if (error) {
+    throw error;
+  }
+  return chatUnreadThreadListSchema.parse(data ?? []);
 }
 
 export interface MarkReadVariables {

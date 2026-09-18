@@ -1,4 +1,12 @@
-import { chatMessageSchema, isOwnMessage, newestMessageAt, subjectKey, type ChatMessage } from '../schema';
+import {
+  chatMessageSchema,
+  chatUnreadThreadSchema,
+  isOwnMessage,
+  newestMessageAt,
+  subjectKey,
+  unreadSubjects,
+  type ChatMessage,
+} from '../schema';
 
 const THREAD = '11111111-1111-4111-8111-111111111111';
 const ME = '22222222-2222-4222-8222-222222222222';
@@ -51,4 +59,23 @@ test('a task and a problem with the same id have different keys', () => {
   expect(subjectKey({ kind: 'task', id: THREAD })).not.toBe(
     subjectKey({ kind: 'problem', id: THREAD }),
   );
+});
+
+test('the subjects with something unread are split by kind', () => {
+  const rows = [
+    { kind: 'task', task_id: THREAD, problem_id: null },
+    { kind: 'problem', task_id: null, problem_id: HER },
+  ].map((row, index) =>
+    chatUnreadThreadSchema.parse({
+      thread_id: `4444444${index}-4444-4444-8444-444444444444`,
+      last_message_at: '2026-09-18T10:07:00+00:00',
+      ...row,
+    }),
+  );
+
+  const subjects = unreadSubjects(rows);
+
+  expect([...subjects.tasks]).toEqual([THREAD]);
+  expect([...subjects.problems]).toEqual([HER]);
+  expect(unreadSubjects([]).problems.size).toBe(0);
 });

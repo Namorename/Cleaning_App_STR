@@ -120,10 +120,17 @@ vi.mock('@/features/chat/thread-panel', () => ({
   ),
 }));
 
+
+// The marks come from one company-wide answer; here it is a pair of sets the
+// test fills by hand.
+const unread = { tasks: new Set<string>(), problems: new Set<string>() };
+vi.mock('@/features/chat/use-chat', () => ({ useUnreadSubjects: () => unread }));
+
 import { TasksView } from '../tasks-view';
 
 beforeEach(() => {
   vi.clearAllMocks();
+  unread.tasks.clear();
   saveState.isError = false;
   saveState.error = null;
   useTasks.mockReturnValue({
@@ -329,4 +336,18 @@ describe('TasksView', () => {
     await userEvent.click(within(drawer).getByRole('button', { name: 'Сохранить' }));
     expect(setDuration).toHaveBeenCalledWith({ taskId: id(4), minutes: 80 });
   }, 20000);
+
+  test('marks the job somebody wrote about, and no other', () => {
+    unread.tasks.add(id(2));
+    render(<TasksView />);
+
+    const evening = screen
+      .getByText('Вечерний осмотр')
+      .closest('[data-slot="card"]') as HTMLElement;
+    const morning = screen
+      .getByText('Генеральная уборка')
+      .closest('[data-slot="card"]') as HTMLElement;
+    expect(within(evening).getByText('Новое сообщение')).toBeInTheDocument();
+    expect(within(morning).queryByText('Новое сообщение')).not.toBeInTheDocument();
+  });
 });

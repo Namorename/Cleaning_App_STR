@@ -6,10 +6,13 @@ import {
   type QueryClient,
 } from '@tanstack/react-query';
 
+import { useMemo } from 'react';
+
 import { useSession } from '@/features/auth/session';
 
 import {
   fetchMessages,
+  fetchUnreadThreads,
   markThreadRead,
   openThread,
   sendMessage,
@@ -17,7 +20,15 @@ import {
   type SendMessageVariables,
 } from './api';
 import { chatKeys, chatMutationKeys } from './keys';
-import { subjectKey, type ChatMessage, type ChatSubject, type PendingMessage } from './schema';
+import {
+  NO_UNREAD,
+  subjectKey,
+  unreadSubjects,
+  type ChatMessage,
+  type ChatSubject,
+  type PendingMessage,
+  type UnreadSubjects,
+} from './schema';
 
 /**
  * Messages go out one after another, in the order they were written. Their
@@ -107,9 +118,45 @@ export function usePendingMessages(subject: ChatSubject | null): PendingMessage[
   }).filter((item): item is PendingMessage => item !== null);
 }
 
+/** Reading a thread takes its mark off the card. */
 export function useMarkThreadRead() {
+  const queryClient = useQueryClient();
+
   return useMutation<void, Error, MarkReadVariables>({
     mutationKey: chatMutationKeys.read,
     mutationFn: markThreadRead,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: chatKeys.unreadAll });
+    },
   });
+}
+
+/**
+ * Which of the subjects on a screen have something unread. Asked with the ids
+ * on screen, never for the whole company (docs/chat-plan.md, layer 4). It
+ * refreshes when the app comes back to the front, on pull-to-refresh through
+ * `refetch`, and after this phone's own send or read; there is no poll.
+ * Empty until the first answer: a mark that is not there yet is better than a
+ * mark that is wrong.
+ */
+export function useUnreadSubjects(
+  taskIds: readonly string[],
+  problemIds: readonly string[],
+): UnreadSubjects & { refetch: () => void } {
+  const { userId } = useSession();
+  const { data, refetch } = useQuery({
+    queryKey: chatKeys.unread(taskIds, problemIds),
+    queryFn: () => fetchUnreadThreads({ taskIds, problemIds }),
+    enabled: userId !== null && taskIds.length + problemIds.length > 0,
+  });
+
+  return useMemo(
+    () => ({
+      ...(data === undefined ? NO_UNREAD : unreadSubjects(data)),
+      refetch: () => {
+        void refetch();
+      },
+    }),
+    [data, refetch],
+  );
 }

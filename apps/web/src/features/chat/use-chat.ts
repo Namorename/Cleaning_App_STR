@@ -1,12 +1,26 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
 import { useSupabase } from '@/lib/supabase/use-client';
 
-import { fetchCurrentUserId, fetchMessages, markThreadRead, openThread, sendMessage } from './api';
+import {
+  fetchCurrentUserId,
+  fetchMessages,
+  fetchUnreadThreads,
+  markThreadRead,
+  openThread,
+  sendMessage,
+} from './api';
 import { chatKeys } from './keys';
-import { subjectKey, type ChatSubject } from './schema';
+import {
+  NO_UNREAD,
+  subjectKey,
+  unreadSubjects,
+  type ChatSubject,
+  type UnreadSubjects,
+} from './schema';
 
 /**
  * How often an open thread asks for news. There is no Realtime on purpose
@@ -14,6 +28,13 @@ import { subjectKey, type ChatSubject } from './schema';
  * the tab is in front, which is what TanStack does by default.
  */
 const MESSAGES_POLL_MS = 15_000;
+
+/**
+ * How often the marks and the count in the menu ask again while the tab is in
+ * front. Slower than an open thread: a mark can wait a minute, and the answer
+ * is one cheap call for the whole company.
+ */
+const UNREAD_POLL_MS = 60_000;
 
 export function useThread(subject: ChatSubject) {
   const client = useSupabase();
@@ -59,10 +80,33 @@ export function useSendMessage(subject: ChatSubject) {
   });
 }
 
+/** Reading a thread takes its mark off the card and one off the count. */
 export function useMarkThreadRead() {
   const client = useSupabase();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ threadId, upTo }: { threadId: string; upTo: string }) =>
       markThreadRead(client, threadId, upTo),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: chatKeys.unread() }),
   });
+}
+
+/** Every thread of the company with something unread; polled while the tab is in front. */
+export function useUnreadThreads() {
+  const client = useSupabase();
+  return useQuery({
+    queryKey: chatKeys.unread(),
+    queryFn: () => fetchUnreadThreads(client),
+    refetchInterval: UNREAD_POLL_MS,
+  });
+}
+
+/**
+ * The same answer as sets of subject ids, for a card to look itself up in.
+ * Empty until the first answer: a mark that is not there yet is better than a
+ * mark that is wrong.
+ */
+export function useUnreadSubjects(): UnreadSubjects {
+  const { data } = useUnreadThreads();
+  return useMemo(() => (data === undefined ? NO_UNREAD : unreadSubjects(data)), [data]);
 }

@@ -2,9 +2,11 @@ import { describe, expect, test } from 'vitest';
 
 import {
   chatMessageSchema,
+  chatUnreadThreadSchema,
   isOwnMessage,
   newestMessageAt,
   subjectKey,
+  unreadSubjects,
   type ChatMessage,
 } from '../schema';
 
@@ -83,6 +85,28 @@ describe('the newest message drawn', () => {
 
   test('is nothing for an empty thread, so nothing is marked read', () => {
     expect(newestMessageAt([])).toBeNull();
+  });
+});
+
+describe('the subjects with something unread', () => {
+  test('are split by kind, so a card looks itself up in one set', () => {
+    const rows = [
+      { kind: 'task', task_id: THREAD, problem_id: null },
+      { kind: 'problem', task_id: null, problem_id: HER },
+    ].map((row, index) =>
+      chatUnreadThreadSchema.parse({
+        thread_id: `4444444${index}-4444-4444-8444-444444444444`,
+        profile_id: null,
+        last_message_at: '2026-09-18T10:07:00+00:00',
+        ...row,
+      }),
+    );
+
+    const subjects = unreadSubjects(rows);
+
+    expect([...subjects.tasks]).toEqual([THREAD]);
+    expect([...subjects.problems]).toEqual([HER]);
+    expect(unreadSubjects([]).tasks.size).toBe(0);
   });
 });
 

@@ -118,7 +118,8 @@
       "team": "Tým",
       "apartments": "Objekty",
       "settings": "Nastavení",
-      "calendar": "Kalendář"
+      "calendar": "Kalendář",
+      "unread": "Nepřečtené: {{count}}"
     },
     "dashboard": {
       "emptyTitle": "Panel je připojen",
@@ -452,7 +453,8 @@
       "send": "Odeslat",
       "sending": "Odesíláme…",
       "sendHint": "Ctrl+Enter odešle",
-      "unknownAuthor": "Neznámý"
+      "unknownAuthor": "Neznámý",
+      "unread": "Nová zpráva"
     },
     "team": {
       "title": "Tým",
@@ -931,7 +933,8 @@
     "placeholder": "Napsat…",
     "send": "Odeslat",
     "pending": "Odesílá se…",
-    "unknownAuthor": "Neznámý"
+    "unknownAuthor": "Neznámý",
+    "unread": "Nová zpráva"
   },
   "serverErrors": {
     "checklistCopySameProperty": "Zdroj a cíl jsou tentýž apartmán",

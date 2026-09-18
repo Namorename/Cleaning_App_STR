@@ -17,6 +17,8 @@ interface ProblemListProps {
   isRefreshing: boolean;
   onPress: (problemId: string) => void;
   header?: ReactElement;
+  /** The reports somebody has written about since she last looked. */
+  unreadProblemIds?: ReadonlySet<string>;
 }
 
 /**
@@ -31,13 +33,20 @@ export function ProblemList({
   isRefreshing,
   onPress,
   header,
+  unreadProblemIds,
 }: ProblemListProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
 
   const renderItem = useCallback(
-    ({ item }: { item: Problem }) => <ProblemCard problem={item} onPress={onPress} />,
-    [onPress],
+    ({ item }: { item: Problem }) => (
+      <ProblemCard
+        problem={item}
+        onPress={onPress}
+        hasUnread={unreadProblemIds?.has(item.id) ?? false}
+      />
+    ),
+    [onPress, unreadProblemIds],
   );
 
   const renderSectionHeader = useCallback(

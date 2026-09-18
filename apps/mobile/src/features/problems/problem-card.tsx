@@ -11,24 +11,29 @@ import type { Problem } from './schema';
 interface ProblemCardProps {
   problem: Problem;
   onPress: (problemId: string) => void;
+  /** Somebody said something about this report that she has not read yet. */
+  hasUnread?: boolean;
 }
 
-function ProblemCardComponent({ problem, onPress }: ProblemCardProps) {
+function ProblemCardComponent({ problem, onPress, hasUnread = false }: ProblemCardProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const status = problemStatusText(problem.status);
   const priority = problemPriorityText(problem.priority);
   const place = problemPlace(problem);
   const when = formatReportedAt(problem.created_at);
+  // The mark is a fact of the card, so the reader hears it with the rest.
+  const label = [
+    t('problems.cardAccessibility', { title: problem.title, place, status }),
+    hasUnread ? t('chat.unread') : null,
+  ]
+    .filter((part) => part !== null)
+    .join('. ');
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={t('problems.cardAccessibility', {
-        title: problem.title,
-        place,
-        status,
-      })}
+      accessibilityLabel={label}
       onPress={() => onPress(problem.id)}
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
     >
@@ -36,6 +41,11 @@ function ProblemCardComponent({ problem, onPress }: ProblemCardProps) {
         <Text style={styles.title} numberOfLines={2}>
           {problem.title}
         </Text>
+        {hasUnread ? (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{t('chat.unread')}</Text>
+          </View>
+        ) : null}
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{status}</Text>
         </View>

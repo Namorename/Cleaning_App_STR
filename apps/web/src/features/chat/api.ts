@@ -5,9 +5,11 @@ import {
   chatMessageListSchema,
   chatMessageSchema,
   chatThreadSchema,
+  chatUnreadThreadListSchema,
   type ChatMessage,
   type ChatSubject,
   type ChatThread,
+  type ChatUnreadThread,
 } from './schema';
 
 export type Client = SupabaseClient<Database>;
@@ -87,6 +89,19 @@ export async function markThreadRead(
   if (error) {
     throw error;
   }
+}
+
+/**
+ * Every thread of the company with something the manager has not read. The
+ * server answers from the reader's marker in about a millisecond, so this is
+ * asked for the whole company at once rather than card by card.
+ */
+export async function fetchUnreadThreads(client: Client): Promise<ChatUnreadThread[]> {
+  const { data, error } = await client.rpc('chat_unread_threads');
+  if (error) {
+    throw error;
+  }
+  return chatUnreadThreadListSchema.parse(data ?? []);
 }
 
 /** Who is signed in, to tell own messages from the others. Null when nobody is. */

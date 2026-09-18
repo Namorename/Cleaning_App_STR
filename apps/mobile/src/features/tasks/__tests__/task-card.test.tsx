@@ -153,3 +153,16 @@ test('opens the task when the card is pressed', async () => {
 
   expect(onPress).toHaveBeenCalledWith('3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b');
 });
+
+test('says when somebody has written about the job, to the eye and to the reader', async () => {
+  await render(<TaskCard task={task()} onPress={jest.fn()} hasUnread />);
+
+  expect(screen.getByText('Новое сообщение')).toBeTruthy();
+  expect(screen.getByRole('button', { name: /Новое сообщение/ })).toBeTruthy();
+});
+
+test('says nothing about the conversation when there is nothing new', async () => {
+  await render(<TaskCard task={task()} onPress={jest.fn()} />);
+
+  expect(screen.queryByText('Новое сообщение')).toBeNull();
+});

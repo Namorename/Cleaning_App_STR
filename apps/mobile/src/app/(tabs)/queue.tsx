@@ -3,9 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { Alert } from 'react-native';
 
 import { useSession } from '@/features/auth/session';
+import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { TaskList } from '@/features/tasks/task-list';
 import type { TaskGroup } from '@/features/tasks/schema';
 import { useClaimTask, useFreeTasks } from '@/features/tasks/use-tasks';
+
+const NO_IDS: readonly string[] = [];
 
 export default function FreeQueueScreen() {
   const { t } = useTranslation();
@@ -20,9 +23,18 @@ export default function FreeQueueScreen() {
     [data],
   );
 
+  // A note the office left on free work is the case the conversation exists
+  // for, so the queue carries the marks too.
+  const taskIds = useMemo(
+    () => (data === undefined ? NO_IDS : data.map((task) => task.id)),
+    [data],
+  );
+  const unread = useUnreadSubjects(taskIds, NO_IDS);
+
   const onRefresh = useCallback(() => {
     void refetch();
-  }, [refetch]);
+    unread.refetch();
+  }, [refetch, unread]);
 
   const onClaim = useCallback(
     (taskId: string) => {
@@ -52,6 +64,7 @@ export default function FreeQueueScreen() {
       isRefreshing={isRefetching}
       onClaim={onClaim}
       claimingTaskId={claimingTaskId}
+      unreadTaskIds={unread.tasks}
       emptyMessage={t('tasks.emptyQueue')}
     />
   );

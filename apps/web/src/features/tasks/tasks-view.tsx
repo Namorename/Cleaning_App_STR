@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { formatDay, todayIso } from '@/lib/format-date';
 import { useLanguage } from '@/lib/use-language';
 
@@ -38,6 +39,7 @@ export function TasksView() {
   const { t } = useTranslation();
   const language = useLanguage();
   const { data, isPending, isError } = useTasks();
+  const unread = useUnreadSubjects();
   const staff = useStaff();
   const [tab, setTab] = useState<TaskTab>('today');
   const [filters, setFilters] = useState<TaskFilters>(EMPTY_FILTERS);
@@ -165,6 +167,7 @@ export function TasksView() {
                       today={today}
                       onEdit={openEdit}
                       onOpenWork={openWork}
+                      hasUnread={unread.tasks.has(task.id)}
                     />
                   ))}
                 </section>

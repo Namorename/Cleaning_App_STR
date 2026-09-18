@@ -1,4 +1,4 @@
-import { markThreadRead, openThread, sendMessage } from '../api';
+import { fetchUnreadThreads, markThreadRead, openThread, sendMessage } from '../api';
 
 const mockRpc = jest.fn();
 
@@ -88,4 +88,37 @@ test("hands the server's refusal up as it is", async () => {
   mockRpc.mockResolvedValue({ data: null, error: refusal });
 
   await expect(openThread({ kind: 'task', id: TASK })).rejects.toBe(refusal);
+});
+
+test('asks what is unread for the subjects on screen, never for the whole company', async () => {
+  mockRpc.mockResolvedValue({
+    data: [
+      {
+        thread_id: THREAD,
+        kind: 'task',
+        task_id: TASK,
+        problem_id: null,
+        last_message_at: '2026-09-18T10:07:00+00:00',
+      },
+    ],
+    error: null,
+  });
+
+  const rows = await fetchUnreadThreads({ taskIds: [TASK], problemIds: [PROBLEM] });
+
+  expect(mockRpc).toHaveBeenCalledWith('chat_unread_threads', {
+    p_task_ids: [TASK],
+    p_problem_ids: [PROBLEM],
+  });
+  expect(rows.map((row) => row.task_id)).toEqual([TASK]);
+});
+
+test('an empty screen sends empty lists, which the server answers with nothing', async () => {
+  mockRpc.mockResolvedValue({ data: [], error: null });
+
+  expect(await fetchUnreadThreads({ taskIds: [], problemIds: [] })).toEqual([]);
+  expect(mockRpc).toHaveBeenCalledWith('chat_unread_threads', {
+    p_task_ids: [],
+    p_problem_ids: [],
+  });
 });
