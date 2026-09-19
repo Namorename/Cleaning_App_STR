@@ -35,6 +35,11 @@ grant execute on function public.chat_media_upload_window() to authenticated, se
  * arrived within chat_media_upload_window() is due as well. Only a message's
  * photo: a step's row without a file waits for the step's task to close, as
  * before -- the cleaner is still on the spot and may well finish the upload.
+ *
+ * This branch carries no test of the message's own retention age, and must
+ * not: that test belongs to the two subject branches, where it keeps a word
+ * said today from ageing by a task closed a year ago. Put it here as well and
+ * a day's window would wait ninety days.
  */
 create or replace function public.task_media_to_purge(p_limit integer default 200)
 returns setof public.task_media
@@ -53,10 +58,14 @@ as $$
     and (m.deleted_at is not null
          or (t.status in ('done', 'cancelled', 'expired')
              and coalesce(t.completed_at, t.updated_at)
-                 < now() - make_interval(days => public.task_media_retention_days()))
+                 < now() - make_interval(days => public.task_media_retention_days())
+             and (m.message_id is null
+                  or cm.created_at < now() - make_interval(days => public.task_media_retention_days())))
          or (p.status in ('resolved', 'cancelled')
              and coalesce(p.resolved_at, p.cancelled_at, p.updated_at)
-                 < now() - make_interval(days => public.task_media_retention_days()))
+                 < now() - make_interval(days => public.task_media_retention_days())
+             and (m.message_id is null
+                  or cm.created_at < now() - make_interval(days => public.task_media_retention_days())))
          or (th.kind = 'direct'
              and cm.created_at
                  < now() - make_interval(days => public.task_media_retention_days()))

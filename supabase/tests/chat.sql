@@ -836,7 +836,14 @@ select pg_temp.check('a task closed 89 days ago keeps the photos of its thread',
   (select count(*)::int from public.task_media_to_purge(100)), 1);
 update public.tasks set completed_at = now() - interval '91 days'
 where id = 'e7000001-0000-4000-8000-000000000001';
-select pg_temp.check('at 91 days the photos of its thread are due',
+-- A thread outlives the work it is about. The subject has been closed long
+-- enough, but the word about it is today's: only the photo taken back is due.
+select pg_temp.check('a photo of a fresh message in a long-closed thread is kept',
+  (select array_agg(id order by id) from public.task_media_to_purge(100)),
+  array['27000001-0000-4000-8000-000000000002'::uuid]);
+update public.chat_messages set created_at = now() - interval '91 days'
+where id = '17000001-0000-4000-8000-000000000002';
+select pg_temp.check('at 91 days on both clocks the photos of its thread are due',
   (select array_agg(id order by id) from public.task_media_to_purge(100)),
   array['27000001-0000-4000-8000-000000000001'::uuid,
         '27000001-0000-4000-8000-000000000002'::uuid,
@@ -965,6 +972,26 @@ where id = '27000001-0000-4000-8000-000000000052';
 select pg_temp.check('a confirmed photo older than the window is kept',
   (select count(*)::int from public.task_media_to_purge(100)
     where id = '27000001-0000-4000-8000-000000000052'), 0);
+
+-- The window is the chat's clock and reaches nothing else. A step's photo
+-- waiting for its file is not swept by it: the cleaner is still on the spot
+-- and may yet finish the upload, and her row waits for the task to close as it
+-- always did.
+reset role; reset request.jwt.claims;
+insert into public.task_steps (id, task_id, host_id, sort_order, type, required)
+values ('a7000001-0000-4000-8000-000000000001', 'e7000001-0000-4000-8000-000000000004',
+        'c7000000-0000-4000-8000-00000000000c', 1, 'photos_before', true);
+insert into public.task_media (id, host_id, task_id, step_id, kind, storage_path,
+                               mime_type, byte_size, created_by, created_at)
+values ('27000002-0000-4000-8000-000000000001', 'c7000000-0000-4000-8000-00000000000c',
+        'e7000001-0000-4000-8000-000000000004', 'a7000001-0000-4000-8000-000000000001',
+        'photo', 'c7000000-0000-4000-8000-00000000000c/e7000001-0000-4000-8000-000000000004/'
+          || '27000002-0000-4000-8000-000000000001.jpg',
+        'image/jpeg', 400000, 'c7000004-0000-4000-8000-000000000004',
+        now() - interval '30 hours');
+select pg_temp.check('a step photo of 30 hours without a file is not swept',
+  (select count(*)::int from public.task_media_to_purge(100)
+    where id = '27000002-0000-4000-8000-000000000001'), 0);
 
 -- The sweep has marked it. Every link of the sender's chain now answers the
 -- same word, and taking the photo back is what remains.

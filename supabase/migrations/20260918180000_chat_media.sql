@@ -274,6 +274,12 @@ $$;
  *
  * The thread's subject is joined through coalesce so a step's, a problem's
  * and a message's row all land on the same two branches below.
+ *
+ * A message's photo waits for BOTH clocks, its subject's and its own. A thread
+ * outlives the work it is about: somebody writes in it the day after the task
+ * was closed, or a year after, and that word is not due the moment it is
+ * said. Hence the `m.message_id is null or cm.created_at < ...` on each of the
+ * subject branches -- a step's and a problem's own files are unaffected by it.
  */
 create or replace function public.task_media_to_purge(p_limit integer default 200)
 returns setof public.task_media
@@ -292,10 +298,14 @@ as $$
     and (m.deleted_at is not null
          or (t.status in ('done', 'cancelled', 'expired')
              and coalesce(t.completed_at, t.updated_at)
-                 < now() - make_interval(days => public.task_media_retention_days()))
+                 < now() - make_interval(days => public.task_media_retention_days())
+             and (m.message_id is null
+                  or cm.created_at < now() - make_interval(days => public.task_media_retention_days())))
          or (p.status in ('resolved', 'cancelled')
              and coalesce(p.resolved_at, p.cancelled_at, p.updated_at)
-                 < now() - make_interval(days => public.task_media_retention_days()))
+                 < now() - make_interval(days => public.task_media_retention_days())
+             and (m.message_id is null
+                  or cm.created_at < now() - make_interval(days => public.task_media_retention_days())))
          or (th.kind = 'direct'
              and cm.created_at
                  < now() - make_interval(days => public.task_media_retention_days())))
