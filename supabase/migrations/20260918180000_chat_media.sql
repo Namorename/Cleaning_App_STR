@@ -47,10 +47,40 @@ create index task_media_message_idx on public.task_media (message_id)
 
 -- Whoever may read the message reads its photos. The subquery runs under the
 -- caller's own policies on chat_messages, which in turn defer to chat_threads
--- and so to chat_participates -- the one place the rule is written. For a
--- step's or a problem's row the first test is false and the rest is never
--- evaluated, so the reads every task screen makes are not made longer.
-create policy "message media is read by whoever reads the message"
+-- and so to chat_participates -- the one place the rule is written.
+--
+-- host_id = current_host_id() is not a second copy of what the subquery
+-- already proves. It is what keeps host_id in the scan condition of
+-- task_media_task_idx: every policy on this table carries the test, so the
+-- planner lifts it out of the OR as a common factor. Drop it here and it
+-- leaves the factored part, and the index reads every task screen makes lose
+-- their leading column.
+--
+-- A step's or a problem's row does not pay for this branch. The EXISTS is a
+-- SubPlan, the planner tests the cheap `message_id IS NOT NULL` ahead of it,
+-- and the branch is already false when the subquery would run -- `never
+-- executed` in the plan, and 164 buffers on the phone's fetchTaskMedia over
+-- 20 000 rows both with this policy and without it. Measured, not promised:
+-- what order the tests inside a branch are taken in is the planner's choice.
+--
+-- THE NAME IS PART OF THE DESIGN, and that is why it begins with a word the
+-- feature does not need. Permissive policies are folded into one OR, and the
+-- branches come out ordered by policy NAME, DESCENDING. "chat message ..."
+-- therefore sorts behind "managers read all task media", the manager's cheap
+-- branch is taken first, and a manager reading a thread never reaches the
+-- EXISTS below: 983 buffers instead of 2383 on a thread of 20 messages with
+-- 40 photos, 11 049 instead of 37 929 on 220 messages with 840 photos.
+--
+-- NONE OF THAT IS CONTRACTED. No documentation promises that policy names
+-- order the branches; it is an artefact of how the planner assembles them,
+-- checked here on PostgreSQL 17.6. After an upgrade it can go away in
+-- silence -- the reads stay correct and merely get dearer, and nothing turns
+-- red on its own. Two things guard against that: the check in
+-- supabase/tests/chat.sql that reads the Filter text of the plan and fails
+-- when is_manager() is no longer ahead of the message branch, and the standing
+-- item in F13 Hardening (docs/ROADMAP.md) to measure again after every
+-- Postgres upgrade. How to look: docs/chat-plan.md, "Эксплуатация выката".
+create policy "chat message media is read by whoever reads the message"
   on public.task_media for select to authenticated
   using (message_id is not null
          and host_id = public.current_host_id()

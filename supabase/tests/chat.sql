@@ -742,6 +742,43 @@ select pg_temp.check('another company sees no photos',
   (select count(*)::int from public.task_media
     where message_id = '17000001-0000-4000-8000-000000000002'), 0);
 
+-- The name of the chat policy buys the order of the branches, and nothing in
+-- Postgres promises it (see 20260918180000_chat_media.sql). Permissive
+-- policies are folded into one OR whose branches come out ordered by policy
+-- name, descending, so "chat message ..." sits behind "managers read all task
+-- media" and a manager reading a thread stops at the cheap branch instead of
+-- running the EXISTS over chat_messages. If an upgrade ever takes that away,
+-- every read stays correct and merely gets dearer -- which is exactly why it
+-- has to be a test and not a measurement somebody remembers to repeat.
+reset role; reset request.jwt.claims;
+create or replace function pg_temp.media_policy_filter(p_task uuid) returns text
+language plpgsql as $fn$
+declare
+  v_line text;
+begin
+  -- The outermost Filter is the first one printed that carries is_manager():
+  -- the branches of the policy OR live there, the SubPlans come after it.
+  for v_line in
+    execute 'explain (costs off) select id from public.task_media where task_id = $1'
+    using p_task
+  loop
+    if v_line like '%Filter:%' and v_line like '%is_manager()%' then
+      return v_line;
+    end if;
+  end loop;
+  return null;
+end $fn$;
+
+select pg_temp.as_boss();
+select pg_temp.check('the policy OR shows both branches on one Filter',
+  (select f is not null and strpos(f, 'message_id IS NOT NULL') > 0
+     from (select pg_temp.media_policy_filter('e7000001-0000-4000-8000-000000000001') as f) plan),
+  true);
+select pg_temp.check('and is_manager() is taken before the chat branch',
+  (select strpos(f, 'is_manager()') < strpos(f, 'message_id IS NOT NULL')
+     from (select pg_temp.media_policy_filter('e7000001-0000-4000-8000-000000000001') as f) plan),
+  true);
+
 -- A confirmed photo is part of what was said; an unconfirmed one is a failed
 -- upload the author may give up on.
 select pg_temp.as_boss();
