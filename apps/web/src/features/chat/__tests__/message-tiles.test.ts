@@ -26,6 +26,7 @@ const tiles = (over: Partial<Parameters<typeof messageTiles>[0]> = {}) =>
     outgoing: NO_OUTGOING,
     previews: {},
     urls: NO_URLS,
+    pastUploadWindow: false,
     ...over,
   });
 
@@ -34,7 +35,7 @@ describe('a photo somebody else sent', () => {
     const drawn = tiles({ rows: [row(FIRST, null)] });
 
     expect(drawn).toEqual([
-      { id: FIRST, url: null, status: 'awaited', hasRow: true, canRetry: false },
+      { id: FIRST, url: null, status: 'awaited', hasRow: true, canRetry: false, canRemove: true },
     ]);
   });
 
@@ -103,7 +104,14 @@ describe('a photo this panel is sending', () => {
     });
 
     expect(drawn).toEqual([
-      { id: SECOND, url: 'blob:second', status: 'failed', hasRow: false, canRetry: true },
+      {
+        id: SECOND,
+        url: 'blob:second',
+        status: 'failed',
+        hasRow: false,
+        canRetry: true,
+        canRemove: true,
+      },
     ]);
   });
 
@@ -132,7 +140,14 @@ describe('a message with no words at all', () => {
     const drawn = tiles({ body: '' });
 
     expect(drawn).toEqual([
-      { id: `${MESSAGE}:awaited`, url: null, status: 'awaited', hasRow: false, canRetry: false },
+      {
+        id: `${MESSAGE}:awaited`,
+        url: null,
+        status: 'awaited',
+        hasRow: false,
+        canRetry: false,
+        canRemove: false,
+      },
     ]);
   });
 
@@ -145,5 +160,52 @@ describe('a message with no words at all', () => {
 
   test('says nothing extra for a message that is only words', () => {
     expect(tiles()).toEqual([]);
+  });
+});
+
+describe('a message older than the upload window', () => {
+  test('stops promising a photo that is not coming', () => {
+    const drawn = tiles({ rows: [row(FIRST, null)], pastUploadWindow: true });
+
+    expect(drawn[0]).toMatchObject({ status: 'expired', hasRow: true, canRetry: false });
+  });
+
+  test('leaves the picture that did arrive alone', () => {
+    const drawn = tiles({
+      rows: [row(FIRST, '2026-09-18T10:01:00+00:00')],
+      pastUploadWindow: true,
+      urls: new Map([[`host/chat/thread/${FIRST}.jpg`, 'https://signed/first']]),
+    });
+
+    expect(drawn[0]).toMatchObject({ status: 'uploaded' });
+  });
+
+  test('says so on the placeholder of a wordless message, with nothing to remove', () => {
+    // The photos were swept: no row is left to draw, and "on its way" here
+    // would be a promise kept for ever. The id belongs to no row either, so
+    // the tile must not offer a button that would act on nothing.
+    const drawn = tiles({ body: '', pastUploadWindow: true });
+
+    expect(drawn).toEqual([
+      {
+        id: `${MESSAGE}:expired`,
+        url: null,
+        status: 'expired',
+        hasRow: false,
+        canRetry: false,
+        canRemove: false,
+      },
+    ]);
+  });
+
+  test('leaves the sender her own verdict, which is the more precise one', () => {
+    const drawn = tiles({
+      isOwn: true,
+      rows: [row(FIRST, null)],
+      outgoing: new Map([[FIRST, { messageId: MESSAGE, status: 'uploading' as const }]]),
+      pastUploadWindow: true,
+    });
+
+    expect(drawn[0]).toMatchObject({ status: 'uploading' });
   });
 });

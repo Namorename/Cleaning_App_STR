@@ -1,7 +1,9 @@
 import {
+  CHAT_MEDIA_UPLOAD_WINDOW_MS,
   chatMessageSchema,
   chatUnreadThreadSchema,
   isOwnMessage,
+  isPastUploadWindow,
   newestMessageAt,
   subjectKey,
   unreadSubjects,
@@ -78,4 +80,29 @@ test('the subjects with something unread are split by kind', () => {
   expect([...subjects.tasks]).toEqual([THREAD]);
   expect([...subjects.problems]).toEqual([HER]);
   expect(unreadSubjects([]).problems.size).toBe(0);
+});
+
+describe('the upload window of a photo', () => {
+  const SENT = '2026-09-18T10:00:00+00:00';
+  const sentAgo = (ms: number) => Date.parse(SENT) + ms;
+
+  test('a message just sent is not late', () => {
+    expect(isPastUploadWindow(SENT, sentAgo(1000))).toBe(false);
+  });
+
+  test('nor is one an hour short of the window', () => {
+    expect(isPastUploadWindow(SENT, sentAgo(CHAT_MEDIA_UPLOAD_WINDOW_MS - 3_600_000))).toBe(false);
+  });
+
+  test('past the window it is', () => {
+    expect(isPastUploadWindow(SENT, sentAgo(CHAT_MEDIA_UPLOAD_WINDOW_MS + 1))).toBe(true);
+  });
+
+  test('a message the server has not confirmed yet is never late', () => {
+    expect(isPastUploadWindow(null, sentAgo(CHAT_MEDIA_UPLOAD_WINDOW_MS * 10))).toBe(false);
+  });
+
+  test('an unreadable date is not treated as ancient', () => {
+    expect(isPastUploadWindow('not a date', sentAgo(CHAT_MEDIA_UPLOAD_WINDOW_MS * 10))).toBe(false);
+  });
 });

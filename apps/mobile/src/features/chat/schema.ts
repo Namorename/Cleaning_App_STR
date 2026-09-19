@@ -9,6 +9,29 @@ export const CHAT_BODY_MAX_LENGTH = 4000;
 /** Mirrors `chat_max_photos()` on the server; the server is what refuses. */
 export const CHAT_MAX_PHOTOS = 4;
 
+/** Mirrors `chat_media_upload_window()`: how long a photo may wait for its file. */
+export const CHAT_MEDIA_UPLOAD_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Has this message waited longer than a photo of it may wait for its file?
+ *
+ * Asked of the MESSAGE, not of the row, because the row cannot answer it. The
+ * nightly sweep marks an abandoned row `purged_at` and the select drops it, so
+ * a photo that never came leaves no trace at all — and until the sweep runs, up
+ * to a day later, the row is still there saying nothing. Either way the
+ * message's own age is what tells the reader the photo is not coming.
+ *
+ * `null` is a message this phone has just sent and the server has not
+ * confirmed yet: nothing is late about it.
+ */
+export function isPastUploadWindow(createdAt: string | null, now = Date.now()): boolean {
+  if (createdAt === null) {
+    return false;
+  }
+  const sent = Date.parse(createdAt);
+  return !Number.isNaN(sent) && now - sent > CHAT_MEDIA_UPLOAD_WINDOW_MS;
+}
+
 /**
  * A photo of a message, read together with the message. A row without
  * `uploaded_at` is a file still on its way (docs/chat-plan.md, layer 5): the

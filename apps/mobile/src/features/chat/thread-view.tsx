@@ -25,6 +25,7 @@ import {
   CHAT_BODY_MAX_LENGTH,
   CHAT_MAX_PHOTOS,
   isOwnMessage,
+  isPastUploadWindow,
   type ChatMessage,
   type PendingMessage,
 } from './schema';
@@ -89,6 +90,7 @@ function rowsOf(
         ownMedia,
         local,
         urls,
+        isPastUploadWindow(message.created_at),
       ),
     })),
     // A pending message the server has meanwhile confirmed is already above.
@@ -98,7 +100,8 @@ function rowsOf(
         kind: 'pending',
         key: item.id,
         body: item.body,
-        tiles: messageTiles(item.id, item.body, [], true, ownMedia, local, urls),
+        // Just written on this phone: nothing about it is late yet.
+        tiles: messageTiles(item.id, item.body, [], true, ownMedia, local, urls, false),
       })),
   ];
 }

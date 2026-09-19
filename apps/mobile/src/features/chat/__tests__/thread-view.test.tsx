@@ -36,6 +36,9 @@ const onSend = jest.fn();
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // The transcript's dates are fixed, so the clock has to be: what a tile of a
+  // photo says now depends on how old its message is.
+  jest.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-18T10:10:00+00:00'));
 });
 
 test('draws the transcript, naming the others and not herself', async () => {
@@ -147,6 +150,37 @@ test('draws the photos: a hole for a file on its way, retry and remove for her o
     'a2222222-2222-4222-8222-222222222222',
     '55555555-5555-4555-8555-555555555555',
   );
+});
+
+test('a photo nobody sent within the day stops being on its way', async () => {
+  // The sweep has taken the rows of this wordless message, so there is nothing
+  // left to draw it from — and «фото в пути» a day later would be a promise
+  // kept for ever. There is nothing to press either: the id of the placeholder
+  // belongs to no row.
+  const onRemove = jest.fn();
+  const stale = [
+    message({
+      id: '44444444-4444-4444-8444-444444444444',
+      body: '',
+      media_expected: 1,
+      created_at: '2026-09-17T08:00:00+00:00',
+    }),
+  ];
+
+  await render(
+    <ThreadView
+      messages={stale}
+      pending={[]}
+      currentUserId={ME}
+      error={null}
+      onSend={onSend}
+      onRemoveMedia={onRemove}
+    />,
+  );
+
+  expect(screen.getByLabelText('Фото 1. Срок вышел')).toBeTruthy();
+  expect(screen.queryByLabelText('Фото 1. Фото в пути')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Удалить' })).toBeNull();
 });
 
 test('a photo alone is enough to send, and the gallery is offered without a switch', async () => {

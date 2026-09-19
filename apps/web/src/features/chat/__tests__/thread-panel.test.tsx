@@ -55,6 +55,9 @@ const failed = (error: unknown) => ({ data: undefined, isPending: false, isError
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // The transcript's dates are fixed, so the clock has to be: what a tile of a
+  // photo says now depends on how old its message is.
+  vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-18T10:10:00+00:00'));
   sendState.isError = false;
   sendState.error = null;
   queries.thread.mockReturnValue(loaded({ id: THREAD }));
@@ -166,6 +169,32 @@ describe('ThreadPanel', () => {
 
     expect(screen.getByText('Фото в пути')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Повторить загрузку' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Убрать' })).not.toBeInTheDocument();
+  });
+
+  test('a photo nobody sent within the day stops being on its way', () => {
+    // The sweep has taken the rows of this wordless message, so there is
+    // nothing left to draw it from — and «on its way» a day later would be a
+    // promise kept for ever. There is nothing to press either: the id of the
+    // placeholder belongs to no row.
+    queries.messages.mockReturnValue(
+      loaded([
+        message({
+          id: '88888888-8888-4888-8888-888888888888',
+          author_id: HER,
+          author_name: 'Maria Test',
+          author_role: 'cleaner',
+          body: '',
+          media_expected: 1,
+          created_at: '2026-09-17T08:00:00+00:00',
+        }),
+      ]),
+    );
+
+    render(<ThreadPanel subject={{ taskId: TASK }} />);
+
+    expect(screen.getByText('Срок вышел')).toBeInTheDocument();
+    expect(screen.queryByText('Фото в пути')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Убрать' })).not.toBeInTheDocument();
   });
 

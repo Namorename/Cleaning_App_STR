@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 
 import { MessageMedia } from './message-media';
 import { messageTiles, type OutgoingPhotoStates } from './message-tiles';
+import { isPastUploadWindow } from './schema';
 import { isOwnMessage, type ChatMessage } from './schema';
 
 interface MessageListProps {
@@ -68,6 +69,7 @@ export function MessageList({
             outgoing,
             previews,
             urls,
+            pastUploadWindow: isPastUploadWindow(message.created_at),
           });
           return (
             <li

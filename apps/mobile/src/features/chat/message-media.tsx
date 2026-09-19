@@ -35,7 +35,9 @@ export function MessageMedia({ tiles, onRetry, onRemove }: MessageMediaProps) {
         const status = statusText(tile.status, t);
         const canRetry = tile.status === 'failed' && onRetry !== undefined;
         const canRemove =
-          (tile.status === 'failed' || tile.status === 'expired') && onRemove !== undefined;
+          (tile.status === 'failed' || tile.status === 'expired') &&
+          tile.canRemove &&
+          onRemove !== undefined;
 
         return (
           <View key={tile.id} style={styles.tile}>

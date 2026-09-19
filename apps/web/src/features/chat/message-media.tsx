@@ -37,7 +37,9 @@ export function MessageMedia({ tiles, onRetry, onRemove }: MessageMediaProps) {
         const label = t('panel.chat.photoAlt', { index: index + 1, status });
         const canRetry = tile.canRetry && onRetry !== undefined;
         const canRemove =
-          (tile.status === 'failed' || tile.status === 'expired') && onRemove !== undefined;
+          (tile.status === 'failed' || tile.status === 'expired') &&
+          tile.canRemove &&
+          onRemove !== undefined;
 
         return (
           <li key={tile.id} className="flex w-24 flex-col gap-1">

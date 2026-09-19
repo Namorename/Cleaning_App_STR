@@ -37,11 +37,12 @@ test('the receiver sees a picture where the file arrived and a hole where it did
     NONE,
     {},
     { 'host/chat/thread/m1.jpg': 'https://signed/m1' },
+    false,
   );
 
   expect(tiles).toEqual([
-    { id: 'm1', uri: 'https://signed/m1', status: 'uploaded' },
-    { id: 'm2', uri: null, status: 'awaited' },
+    { id: 'm1', uri: 'https://signed/m1', status: 'uploaded', canRemove: true },
+    { id: 'm2', uri: null, status: 'awaited', canRemove: true },
   ]);
 });
 
@@ -60,25 +61,48 @@ test('the sender sees her own queue: travelling, failed, expired', () => {
     own,
     local,
     {},
+    false,
   );
 
   expect(tiles).toEqual([
     // A row without a file and nothing in the queue for it: stranded.
-    { id: 'm1', uri: null, status: 'failed' },
+    { id: 'm1', uri: null, status: 'failed', canRemove: true },
     // Registered and still travelling, shown from the file on the phone.
-    { id: 'm2', uri: 'file:///kept/m2.jpg', status: 'uploading' },
+    { id: 'm2', uri: 'file:///kept/m2.jpg', status: 'uploading', canRemove: true },
     // Not registered at all, but this phone knows about it.
-    { id: 'm3', uri: null, status: 'expired' },
+    { id: 'm3', uri: null, status: 'expired', canRemove: true },
   ]);
 });
 
 test('the hole is drawn by the row, never by the declaration', () => {
   // The message declared photos; none is registered; the reader sees no tiles.
-  expect(messageTiles(MESSAGE, 'Только текст', [], false, NONE, {}, {})).toEqual([]);
+  expect(messageTiles(MESSAGE, 'Только текст', [], false, NONE, {}, {}, false)).toEqual([]);
 });
 
 test('a message with no words and no rows shows one grey tile, by the empty text', () => {
-  expect(messageTiles(MESSAGE, '  ', [], false, NONE, {}, {})).toEqual([
-    { id: `${MESSAGE}:awaited`, uri: null, status: 'awaited' },
+  expect(messageTiles(MESSAGE, '  ', [], false, NONE, {}, {}, false)).toEqual([
+    { id: `${MESSAGE}:awaited`, uri: null, status: 'awaited', canRemove: false },
+  ]);
+});
+
+test('past the upload window the hole stops promising a photo that is not coming', () => {
+  expect(messageTiles(MESSAGE, 'Смотри', [row('m2', false)], false, NONE, {}, {}, true)).toEqual([
+    { id: 'm2', uri: null, status: 'expired', canRemove: true },
+  ]);
+});
+
+test('and the placeholder of a wordless message says so, with nothing to remove', () => {
+  // The photos were swept: no row is left to draw, the id belongs to nothing,
+  // and «on its way» here would be a promise kept for ever.
+  expect(messageTiles(MESSAGE, '', [], false, NONE, {}, {}, true)).toEqual([
+    { id: `${MESSAGE}:expired`, uri: null, status: 'expired', canRemove: false },
+  ]);
+});
+
+test('the sender keeps her own verdict, which is the more precise one', () => {
+  const own: OwnMediaStates = new Map([['m2', { messageId: MESSAGE, status: 'uploading' }]]);
+
+  expect(messageTiles(MESSAGE, '', [row('m2', false)], true, own, local, {}, true)).toEqual([
+    { id: 'm2', uri: 'file:///kept/m2.jpg', status: 'uploading', canRemove: true },
   ]);
 });

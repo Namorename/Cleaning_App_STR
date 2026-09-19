@@ -8,6 +8,10 @@ import type { ChatMessageMedia } from './schema';
  * sees her own attempt instead — travelling, refused, or expired, because the
  * row waited longer than a day for its file and the sweep marked it.
  *
+ * `awaited` turns into `expired` once the MESSAGE is older than the upload
+ * window: nothing is on its way by then, whether the row is still there
+ * waiting for the sweep or the sweep has already taken it.
+ *
  * The mirror of `messageTiles()` on the phone
  * (`apps/mobile/src/features/chat/media-tiles.ts`). Kept separate rather than
  * shared: the phone feeds it files on disk, the panel object URLs.
@@ -28,6 +32,13 @@ export interface MessageTile {
    * file the manager picked in another session.
    */
   canRetry: boolean;
+  /**
+   * Whether there is anything behind this tile for "remove" to act on: a row
+   * on the server, or a file this panel still holds. False on the placeholder
+   * of a wordless message whose photos are gone — an offer there would be a
+   * button that does nothing.
+   */
+  canRemove: boolean;
 }
 
 /** What this panel's own upload says about one photo. */
@@ -50,6 +61,11 @@ export interface MessageTilesInput {
   previews: Readonly<Record<string, string>>;
   /** Signed links, by storage path. */
   urls: ReadonlyMap<string, string>;
+  /**
+   * Whether the message is older than `chat_media_upload_window()`
+   * (`isPastUploadWindow`). A photo that has not arrived by then never will.
+   */
+  pastUploadWindow: boolean;
 }
 
 /**
@@ -60,6 +76,10 @@ export interface MessageTilesInput {
  * landed is a tile only for the sender, from the file in the browser. A
  * message with no words and no tiles at all would be an empty bubble, so it
  * shows one grey tile — by the empty text, not by a count.
+ *
+ * That last tile is the one the age matters most for: a wordless message whose
+ * photos the sweep has taken has no rows left to draw, and "photo on its way"
+ * under it would be a promise kept for ever.
  */
 export function messageTiles({
   messageId,
@@ -69,20 +89,23 @@ export function messageTiles({
   outgoing,
   previews,
   urls,
+  pastUploadWindow,
 }: MessageTilesInput): MessageTile[] {
+  const unarrived: MessageTileStatus = pastUploadWindow ? 'expired' : 'awaited';
   const fromRows = rows.map<MessageTile>((row) => {
     const status: MessageTileStatus =
       row.uploaded_at !== null
         ? 'uploaded'
         : isOwn
           ? (outgoing.get(row.id)?.status ?? 'failed')
-          : 'awaited';
+          : unarrived;
     return {
       id: row.id,
       url: previews[row.id] ?? urls.get(row.storage_path) ?? null,
       status,
       hasRow: true,
       canRetry: status === 'failed' && outgoing.has(row.id),
+      canRemove: true,
     };
   });
 
@@ -96,13 +119,21 @@ export function messageTiles({
           status: state.status,
           hasRow: false,
           canRetry: state.status === 'failed',
+          canRemove: true,
         }))
     : [];
 
   const tiles = [...fromRows, ...queued];
   if (tiles.length === 0 && body.trim() === '') {
     return [
-      { id: `${messageId}:awaited`, url: null, status: 'awaited', hasRow: false, canRetry: false },
+      {
+        id: `${messageId}:${unarrived}`,
+        url: null,
+        status: unarrived,
+        hasRow: false,
+        canRetry: false,
+        canRemove: false,
+      },
     ];
   }
   return tiles;
