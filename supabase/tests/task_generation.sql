@@ -183,4 +183,74 @@ select pg_temp.check('a listing pulled out of service cancels the task it had',
 select pg_temp.check('cancelled, not deleted — it stays as history',
   pg_temp.task_statuses(900000310), 'cancelled');
 
+-- ---------------------------------------------------------------------------
+--  The night after the sweep: one row, not one per night (20260918171000)
+-- ---------------------------------------------------------------------------
+--
+-- The nightly window reaches seven days back, so a departure of last week is
+-- reconciled again every night. An `expired` cleaning did not count as one that
+-- exists, so the generator wrote a fresh row each night and the sweep closed it
+-- again: 4853 rows for 769 departures in production on 2026-09-19.
+--
+-- Dates here are relative to today, because staleness is: a fixed date would
+-- stop being stale the day after the fixture was written.
+
+insert into public.properties (id, name, timezone, check_in_time, check_out_time) values
+  (900000206, 'Departure five days ago', 'Europe/Prague', '15:00', '10:00');
+insert into public.reservations (id, property_id, arrival_date, departure_date, status, guest_name)
+values (900000311, 900000206, current_date - 8, current_date - 5, 'new', 'Left five days ago');
+
+-- The window a night uses, cut short at the top so the October and November
+-- fixtures above stay out of reach and the counts below are about this booking.
+create or replace function pg_temp.nightly() returns int language sql as $$
+  select (public.generate_cleaning_tasks(current_date - 7, current_date + 5) ->> 'created')::int
+$$;
+
+create or replace function pg_temp.rows_of(res_id bigint) returns int language sql as $$
+  select count(*)::int from public.tasks where reservation_id = res_id and type = 'cleaning'
+$$;
+
+select pg_temp.check('night one writes the cleaning for a departure already past',
+  pg_temp.nightly(), 1);
+select public.expire_stale_tasks();
+select pg_temp.check('and the sweep closes it, nobody having done it',
+  pg_temp.task_statuses(900000311), 'expired');
+
+select pg_temp.check('night two writes nothing: that day was already tried',
+  pg_temp.nightly(), 0);
+select public.expire_stale_tasks();
+select pg_temp.check('night three likewise', pg_temp.nightly(), 0);
+select public.expire_stale_tasks();
+
+select pg_temp.check('three nights leave one row, not three', pg_temp.rows_of(900000311), 1);
+
+-- The departure moves into the future. That is a different day and real work:
+-- the expired row answers for the day nobody cleaned, not for this one. Without
+-- this the departure would be lost -- which is why the guard is keyed on the
+-- day and not on the booking.
+update public.reservations set departure_date = current_date + 3, status = 'modified'
+where id = 900000311;
+
+select pg_temp.check('a departure that moved gets a cleaning for the new day',
+  pg_temp.nightly(), 1);
+select pg_temp.check('the record of the day nobody cleaned is kept',
+  (select count(*)::int from public.tasks
+    where reservation_id = 900000311 and status = 'expired'), 1);
+select pg_temp.check('and the new day is live, on its own date',
+  (select count(*)::int from public.tasks
+    where reservation_id = 900000311 and status = 'unassigned'
+      and scheduled_date = current_date + 3), 1);
+select pg_temp.check('two rows in all: one closed day, one open', pg_temp.rows_of(900000311), 2);
+select pg_temp.check('the night after that adds nothing', pg_temp.nightly(), 0);
+
+-- And the day that was tried stays closed to the generator even now: moving the
+-- booking back onto it does not earn a second attempt.
+update public.reservations set departure_date = current_date - 5 where id = 900000311;
+select pg_temp.check('moved back onto the tried day, still no third row',
+  pg_temp.nightly(), 0);
+select pg_temp.check('and the live row followed the booking instead',
+  (select count(*)::int from public.tasks
+    where reservation_id = 900000311 and status = 'unassigned'
+      and scheduled_date = current_date - 5), 1);
+
 rollback;
