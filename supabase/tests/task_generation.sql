@@ -82,7 +82,8 @@ select pg_temp.check('finished work keeps its original deadline',
 select pg_temp.check('a third run reports no changes',
   (select public.generate_cleaning_tasks('2026-10-01', '2026-10-31')
      - 'window_from' - 'window_to'),
-  '{"created": 0, "rescheduled": 0, "assigned": 0, "cancelled": 0, "relocated": 0}'::jsonb);
+  '{"created": 0, "rescheduled": 0, "assigned": 0, "cancelled": 0, "relocated": 0,
+    "past_bound": 0}'::jsonb);
 
 -- ---------- a booking is cancelled ----------
 -- The task is never deleted: it is a record that a cleaning was planned. A
@@ -294,12 +295,19 @@ select pg_temp.check('and leaves no row behind', pg_temp.rows_of(900000312), 0);
 select pg_temp.check('the answer is an ordinary result, not an error',
   (select array_agg(k order by k) from jsonb_object_keys(
      public.generate_cleaning_tasks(current_date - 46, current_date - 46)) k),
-  array['assigned','cancelled','created','relocated','rescheduled','window_from','window_to']);
+  array['assigned','cancelled','created','past_bound','relocated','rescheduled',
+        'window_from','window_to']);
+select pg_temp.check('the refused cleaning is counted as past_bound',
+  (public.generate_cleaning_tasks(current_date - 46, current_date - 46) ->> 'past_bound')::int, 1);
 
 select pg_temp.check('two days ago is past grace: no cleaning',
   (public.generate_cleaning_tasks(current_date - 2, current_date - 2) ->> 'created')::int, 0);
 select pg_temp.check('yesterday is the boundary and still owed a cleaning',
   (public.generate_cleaning_tasks(current_date - 1, current_date - 1) ->> 'created')::int, 1);
+select pg_temp.check('a day within grace is never counted as past_bound',
+  (public.generate_cleaning_tasks(current_date - 1, current_date - 1) ->> 'past_bound')::int, 0);
+select pg_temp.check('nor is a stale day that already has its cleaning',
+  (public.generate_cleaning_tasks(current_date - 5, current_date - 5) ->> 'past_bound')::int, 0);
 
 -- The bound is on birth only. A live cleaning that went stale since it was
 -- written is the sweep's to close as `expired`; the generator must not read

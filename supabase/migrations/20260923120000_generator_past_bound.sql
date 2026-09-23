@@ -25,9 +25,11 @@
 -- (cancelled). The reschedule and assignment passes are untouched as well: a
 -- live row follows its booking even onto a stale day, and the sweep closes it.
 --
--- The answer is unchanged in shape: a booking the bound skips is simply not
--- counted in `created`. Nothing in it is an error, and the callers read the
--- object as it was.
+-- The answer gains one key, `past_bound`: cleanings the bookings asked for
+-- that the bound refused. It is a count, not an error, and it is how a
+-- verification after a rollout tells "the bound fired" from "nothing was owed".
+-- Both callers (process-webhook-events, sync-reservations) hold the answer as
+-- `unknown` and pass it through untouched, so a new key breaks neither.
 --
 -- The expired-day branch of 20260918171000 stays. An expired row's day is
 -- stale by construction, so this bound now covers it too; keeping it costs
@@ -48,6 +50,7 @@ declare
   v_rescheduled integer;
   v_assigned    integer;
   v_cancelled   integer;
+  v_past_bound  integer;
 begin
   -- One row per cleaning owed: a booking on an ordinary listing owes one, a
   -- booking that took three rooms owes three. `p` is the thing being cleaned
@@ -172,23 +175,19 @@ begin
 
   -- Insert missing tasks. The partial unique index on reservation_id keeps
   -- this idempotent: a repeated run collides and does nothing.
-  with inserted as (
-    insert into public.tasks (
-      property_id, reservation_id, type, status, priority,
-      scheduled_date, time_from, time_to, guests_count, due_at, assignee_id
-    )
-    select
-      w.property_id, w.reservation_id, 'cleaning',
-      (case when w.auto_cleaner_id is not null then 'assigned' else 'unassigned' end)
-        ::public.task_status,
-      w.priority, w.scheduled_date, w.time_from, w.time_to, w.guests_count,
-      w.due_at, w.auto_cleaner_id
+  --
+  -- `owed` is every cleaning the bookings ask for that the table does not yet
+  -- answer. Those whose day is already past grace are counted as past_bound
+  -- and not written; both numbers come from the one list, so they cannot
+  -- disagree about what "missing" means.
+  with owed as (
+    select w.*,
+           -- No cleaning is born for a day the sweep would close: task_is_stale
+           -- is the one boundary the sweep and the claim policy already share.
+           -- The bound sits here and not in _wanted on purpose -- see the header.
+           public.task_is_stale(w.property_id, w.scheduled_date) as is_past
     from _wanted w
-    -- No cleaning is born for a day the sweep would close: task_is_stale is
-    -- the one boundary the sweep and the claim policy already share. The bound
-    -- sits here and not in _wanted on purpose -- see the header.
-    where not public.task_is_stale(w.property_id, w.scheduled_date)
-      and not exists (
+    where not exists (
       select 1 from public.tasks t
       where t.reservation_id = w.reservation_id
         and t.type = 'cleaning'
@@ -217,9 +216,25 @@ begin
              -- w.listing_id are the same value and it says nothing new.
              or t.property_id = w.listing_id)
     )
+  ),
+  inserted as (
+    insert into public.tasks (
+      property_id, reservation_id, type, status, priority,
+      scheduled_date, time_from, time_to, guests_count, due_at, assignee_id
+    )
+    select
+      o.property_id, o.reservation_id, 'cleaning',
+      (case when o.auto_cleaner_id is not null then 'assigned' else 'unassigned' end)
+        ::public.task_status,
+      o.priority, o.scheduled_date, o.time_from, o.time_to, o.guests_count,
+      o.due_at, o.auto_cleaner_id
+    from owed o
+    where not o.is_past
     returning 1
   )
-  select count(*) into v_created from inserted;
+  select (select count(*) from inserted),
+         (select count(*) from owed where is_past)
+    into v_created, v_past_bound;
 
   -- Move tasks whose booking shifted, whose window changed, or whose guest
   -- count changed. Only untouched tasks: once a cleaner has accepted or
@@ -301,7 +316,8 @@ begin
     'created', v_created,
     'rescheduled', v_rescheduled,
     'assigned', v_assigned,
-    'cancelled', v_cancelled
+    'cancelled', v_cancelled,
+    'past_bound', v_past_bound
   );
 end;
 $function$;
