@@ -97,8 +97,18 @@ returns uuid language sql as $$
   select t.id from public.tasks t where t.notes = label
 $$;
 
--- The task the generator owes us for the forgotten departure.
+-- The task the generator owes us for the forgotten departure. It is born the
+-- day after the departure, still within grace -- the generator writes nothing
+-- for a day already stale (20260923120000) -- and then a week goes by.
+update public.reservations
+set arrival_date = current_date - 4, departure_date = current_date - 1
+where id = 900000701;
 select public.generate_cleaning_tasks(current_date - 10, current_date + 10);
+
+update public.reservations
+set arrival_date = current_date - 10, departure_date = current_date - 7
+where id = 900000701;
+update public.tasks set scheduled_date = current_date - 7 where reservation_id = 900000701;
 
 select pg_temp.check('the forgotten departure did produce a task',
   (select status::text from public.tasks

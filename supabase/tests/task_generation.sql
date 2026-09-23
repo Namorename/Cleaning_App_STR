@@ -195,10 +195,15 @@ select pg_temp.check('cancelled, not deleted — it stays as history',
 -- Dates here are relative to today, because staleness is: a fixed date would
 -- stop being stale the day after the fixture was written.
 
+-- The listing sits in UTC so that current_date and its local date agree at any
+-- hour: the first night below is exactly on the grace boundary.
 insert into public.properties (id, name, timezone, check_in_time, check_out_time) values
-  (900000206, 'Departure five days ago', 'Europe/Prague', '15:00', '10:00');
+  (900000206, 'Departure five days ago', 'UTC', '15:00', '10:00');
+-- The cleaning is born while its day is still within grace -- the generator
+-- does not write one for a day already stale (20260923120000) -- and the days
+-- then pass underneath it.
 insert into public.reservations (id, property_id, arrival_date, departure_date, status, guest_name)
-values (900000311, 900000206, current_date - 8, current_date - 5, 'new', 'Left five days ago');
+values (900000311, 900000206, current_date - 4, current_date - 1, 'new', 'Left five days ago');
 
 -- The window a night uses, cut short at the top so the October and November
 -- fixtures above stay out of reach and the counts below are about this booking.
@@ -210,8 +215,16 @@ create or replace function pg_temp.rows_of(res_id bigint) returns int language s
   select count(*)::int from public.tasks where reservation_id = res_id and type = 'cleaning'
 $$;
 
-select pg_temp.check('night one writes the cleaning for a departure already past',
+select pg_temp.check('night one writes the cleaning for yesterday, still within grace',
   pg_temp.nightly(), 1);
+
+-- Four days go by with nobody taking it. Moving the booking and its row back
+-- together is how a fixture says "time passed" without touching the clock.
+update public.reservations
+set arrival_date = current_date - 8, departure_date = current_date - 5
+where id = 900000311;
+update public.tasks set scheduled_date = current_date - 5 where reservation_id = 900000311;
+
 select public.expire_stale_tasks();
 select pg_temp.check('and the sweep closes it, nobody having done it',
   pg_temp.task_statuses(900000311), 'expired');
@@ -252,5 +265,50 @@ select pg_temp.check('and the live row followed the booking instead',
   (select count(*)::int from public.tasks
     where reservation_id = 900000311 and status = 'unassigned'
       and scheduled_date = current_date - 5), 1);
+
+-- ---------------------------------------------------------------------------
+--  No cleaning is born for a day already past its grace (20260923120000)
+-- ---------------------------------------------------------------------------
+--
+-- The webhook path reconciles over the dates of the booking itself, so an edit
+-- in Hostaway to a booking that left weeks ago reached the generator with a
+-- window around that old day. Found in production on 2026-09-23: booking
+-- 63925530, departure 08.08, edited 23.09, got a fresh unassigned cleaning for
+-- 08.08 that sat in the manager's queue until the sweep closed it.
+--
+-- The boundary is task_is_stale(), the very function the sweep and the claim
+-- policy ask: a day the sweep would close is a day the generator must not open.
+
+insert into public.properties (id, name, timezone, check_in_time, check_out_time) values
+  (900000207, 'Past-bound listing', 'UTC', '15:00', '10:00');
+insert into public.reservations (id, property_id, arrival_date, departure_date, status, guest_name)
+values
+  (900000312, 900000207, current_date - 50, current_date - 46, 'modified', 'Edited weeks later'),
+  (900000313, 900000207, current_date - 5,  current_date - 2,  'new',      'Two days ago'),
+  (900000314, 900000207, current_date - 4,  current_date - 1,  'new',      'Yesterday');
+
+-- The webhook's call: the window is exactly the booking's own departure.
+select pg_temp.check('an edit to a booking long gone creates no cleaning',
+  (public.generate_cleaning_tasks(current_date - 46, current_date - 46) ->> 'created')::int, 0);
+select pg_temp.check('and leaves no row behind', pg_temp.rows_of(900000312), 0);
+select pg_temp.check('the answer is an ordinary result, not an error',
+  (select array_agg(k order by k) from jsonb_object_keys(
+     public.generate_cleaning_tasks(current_date - 46, current_date - 46)) k),
+  array['assigned','cancelled','created','relocated','rescheduled','window_from','window_to']);
+
+select pg_temp.check('two days ago is past grace: no cleaning',
+  (public.generate_cleaning_tasks(current_date - 2, current_date - 2) ->> 'created')::int, 0);
+select pg_temp.check('yesterday is the boundary and still owed a cleaning',
+  (public.generate_cleaning_tasks(current_date - 1, current_date - 1) ->> 'created')::int, 1);
+
+-- The bound is on birth only. A live cleaning that went stale since it was
+-- written is the sweep's to close as `expired`; the generator must not read
+-- "not wanted any more" into it and cancel it first -- it runs at 03:15, the
+-- sweep at 03:30, so the night would turn every miss into a cancellation.
+update public.reservations set departure_date = current_date - 2 where id = 900000314;
+update public.tasks set scheduled_date = current_date - 2 where reservation_id = 900000314;
+select public.generate_cleaning_tasks(current_date - 7, current_date);
+select pg_temp.check('a stale live cleaning is left for the sweep, not cancelled',
+  pg_temp.task_statuses(900000314), 'unassigned');
 
 rollback;
