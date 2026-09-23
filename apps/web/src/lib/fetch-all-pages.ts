@@ -71,11 +71,7 @@ function merge<T>(pages: readonly (readonly T[])[]): T[] {
   });
 }
 
-async function readUncounted<T>(
-  request: PageRequest<T>,
-  first: T[],
-  size: number,
-): Promise<T[]> {
+async function readUncounted<T>(request: PageRequest<T>, first: T[], size: number): Promise<T[]> {
   const pages: T[][] = [first];
   let offset = first.length;
   let last = first;

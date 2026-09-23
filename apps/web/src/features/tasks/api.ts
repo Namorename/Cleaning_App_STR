@@ -41,7 +41,9 @@ const TASK_COLUMNS =
   // shows it and the search looks through it. The hint is the foreign key
   // COLUMN — `properties!parent_id` walks the relation backwards and answers
   // with an empty array, and the constraint name is not in the schema cache.
-  'property:properties(name, hostaway_unit_id, parent:parent_id(name)), ' +
+  // The zone comes along so "yesterday" on a card is the property's
+  // yesterday, as the grace rule counts it (`tailOf`).
+  'property:properties(name, hostaway_unit_id, timezone, parent:parent_id(name)), ' +
   'assignee:profiles!tasks_assignee_id_fkey(full_name, role), ' +
   'author:profiles!tasks_created_by_fkey(full_name, role)';
 
