@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { formatDay, todayIso } from '@/lib/format-date';
+import { serverErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
 
 import { TaskCard } from './task-card';
@@ -25,7 +26,7 @@ import {
   type TaskFilters,
   type TaskTab,
 } from './schema';
-import { useStaff, useTasks } from './use-tasks';
+import { useCancelTask, useStaff, useTasks } from './use-tasks';
 
 const SELECT_CLASS = 'h-9 rounded-md border bg-background px-2 text-sm';
 
@@ -41,6 +42,10 @@ export function TasksView() {
   const { data, isPending, isError } = useTasks();
   const unread = useUnreadSubjects();
   const staff = useStaff();
+  // The cancel lives here, not in the card: its refusal arrives after the
+  // list has refreshed, and the card that asked may have left the tab.
+  const cancel = useCancelTask();
+  const cancelFailure = cancel.isError ? serverErrorText(cancel.error) : null;
   const [tab, setTab] = useState<TaskTab>('today');
   const [filters, setFilters] = useState<TaskFilters>(EMPTY_FILTERS);
   // The dialog and the drawer live only while they are open: a fresh mount is
@@ -131,6 +136,15 @@ export function TasksView() {
         ) : null}
       </div>
 
+      {cancelFailure === null ? null : (
+        <p role="alert" className="text-sm text-destructive">
+          {cancelFailure.text}
+          {cancelFailure.detail === null ? null : (
+            <span className="block text-xs text-muted-foreground">{cancelFailure.detail}</span>
+          )}
+        </p>
+      )}
+
       {isPending ? (
         <p className="text-sm text-muted-foreground">{t('panel.tasks.loading')}</p>
       ) : isError ? (
@@ -167,6 +181,8 @@ export function TasksView() {
                       today={today}
                       onEdit={openEdit}
                       onOpenWork={openWork}
+                      onCancel={(job) => cancel.mutate(job.id)}
+                      isCancelling={cancel.isPending && cancel.variables === task.id}
                       hasUnread={unread.tasks.has(task.id)}
                     />
                   ))}

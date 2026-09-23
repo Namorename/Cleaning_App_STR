@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import { Person } from '@/components/person';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { serverErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
 import { cn } from '@/lib/utils';
 
@@ -19,7 +18,6 @@ import {
   taskPropertyName,
   type Task,
 } from './schema';
-import { useCancelTask } from './use-tasks';
 
 interface TaskCardProps {
   task: Task;
@@ -27,15 +25,29 @@ interface TaskCardProps {
   today: string;
   onEdit: (task: Task) => void;
   onOpenWork: (task: Task) => void;
+  /**
+   * Call the job off. The view owns the write: a refused cancel is answered
+   * after the list has refreshed, and by then this card may have left the tab.
+   */
+  onCancel: (task: Task) => void;
+  /** This card's cancel is on its way to the server. */
+  isCancelling?: boolean;
   /** Somebody said something in the conversation about this job that the manager has not read. */
   hasUnread?: boolean;
 }
 
 /** One job in the list: enough to know what it is, and the few things to do with it. */
-export function TaskCard({ task, today, onEdit, onOpenWork, hasUnread = false }: TaskCardProps) {
+export function TaskCard({
+  task,
+  today,
+  onEdit,
+  onOpenWork,
+  onCancel,
+  isCancelling = false,
+  hasUnread = false,
+}: TaskCardProps) {
   const { t } = useTranslation();
   const language = useLanguage();
-  const cancel = useCancelTask();
   const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
 
   const title = localizedTitle(task, language) ?? t(`panel.tasks.types.${task.type}`);
@@ -45,7 +57,6 @@ export function TaskCard({ task, today, onEdit, onOpenWork, hasUnread = false }:
   });
   const closed = isTaskClosed(task);
   const overdue = isOverdue(task, today);
-  const failure = cancel.isError ? serverErrorText(cancel.error) : null;
 
   return (
     <div data-slot="card" className="flex flex-col gap-2 rounded-lg border bg-card p-3 text-sm">
@@ -107,8 +118,8 @@ export function TaskCard({ task, today, onEdit, onOpenWork, hasUnread = false }:
               type="button"
               variant="destructive"
               size="sm"
-              disabled={cancel.isPending}
-              onClick={() => cancel.mutate(task.id)}
+              disabled={isCancelling}
+              onClick={() => onCancel(task)}
             >
               {t('panel.tasks.actions.cancelConfirmYes')}
             </Button>
@@ -132,15 +143,6 @@ export function TaskCard({ task, today, onEdit, onOpenWork, hasUnread = false }:
           </Button>
         )}
       </div>
-
-      {failure === null ? null : (
-        <p role="alert" className="text-destructive">
-          {failure.text}
-          {failure.detail === null ? null : (
-            <span className="block text-xs text-muted-foreground">{failure.detail}</span>
-          )}
-        </p>
-      )}
     </div>
   );
 }

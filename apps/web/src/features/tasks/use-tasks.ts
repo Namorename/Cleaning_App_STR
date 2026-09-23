@@ -71,7 +71,8 @@ export function useCancelTask() {
   const invalidate = useInvalidateTasks();
   return useMutation({
     mutationFn: (taskId: string) => cancelTask(client, taskId),
-    onSuccess: invalidate,
+    // A refusal means the task changed meanwhile: refresh either way.
+    onSettled: invalidate,
   });
 }
 

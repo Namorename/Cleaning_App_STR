@@ -55,13 +55,14 @@ const resolved: Problem = problemSchema.parse({
 });
 
 const mutations = { resolve: vi.fn(), unassign: vi.fn(), assign: vi.fn(), reopen: vi.fn() };
+const resets = { resolve: vi.fn(), unassign: vi.fn(), reopen: vi.fn() };
 const idle = { isPending: false, isError: false, isSuccess: false, error: null };
 
 vi.mock('../use-problems', () => ({
-  useResolveProblem: () => ({ ...idle, mutate: mutations.resolve }),
-  useUnassignProblem: () => ({ ...idle, mutate: mutations.unassign }),
+  useResolveProblem: () => ({ ...idle, mutate: mutations.resolve, reset: resets.resolve }),
+  useUnassignProblem: () => ({ ...idle, mutate: mutations.unassign, reset: resets.unassign }),
   useAssignProblem: () => ({ ...idle, mutate: mutations.assign }),
-  useReopenProblem: () => ({ ...idle, mutate: mutations.reopen }),
+  useReopenProblem: () => ({ ...idle, mutate: mutations.reopen, reset: resets.reopen }),
   useStaff: () => ({
     data: [{ id: TECH_ID, full_name: 'Petr Fixer', role: 'cleaner' }],
     isPending: false,
@@ -108,6 +109,19 @@ describe('ProblemsBoard drag and drop', () => {
     dragTo('Сломан замок', 'Открыта');
 
     expect(mutations.unassign).toHaveBeenCalledWith(TASK_ID, expect.anything());
+  });
+
+  // A stale screen now makes "take the technician off" fail routinely
+  // (serverErrors.taskChangedMeanwhile). The status line shows the first
+  // failed mutation, so an old refusal must not outlive the next action.
+  test('every drop clears the outcome an earlier action left', () => {
+    render(<ProblemsBoard problems={problems} />);
+
+    dragTo('Течёт кран', 'Открыта');
+
+    expect(resets.resolve).toHaveBeenCalled();
+    expect(resets.unassign).toHaveBeenCalled();
+    expect(resets.reopen).toHaveBeenCalled();
   });
 
   test('dropping on "resolved" asks first and resolves on confirmation', async () => {

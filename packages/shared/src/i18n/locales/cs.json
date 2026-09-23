@@ -978,6 +978,8 @@
     "problemTitleTooLong": "Název je delší než {{limit}} znaků",
     "problemDescriptionTooLong": "Popis je delší než {{limit}} znaků",
     "problemNotOpen": "Problém už někdo převzal — nelze ho změnit",
+    "problemArchived": "Problém je v archivu — před přidělením ho obnovte",
+    "taskChangedMeanwhile": "Úkol se mezitím změnil — obrazovka byla obnovena",
     "problemNoProperty": "Problém nemá objekt — nelze ho přidělit",
     "problemAssigneeInvalid": "Řešitel není mezi aktivními členy týmu",
     "taskNotFound": "Úkol nenalezen",

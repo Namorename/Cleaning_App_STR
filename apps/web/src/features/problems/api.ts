@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@str-ops/shared';
 
+import { cancelLiveTask } from '@/lib/cancel-live-task';
 import { withSignedUrls } from '@/lib/media';
 
 import {
@@ -171,14 +172,11 @@ export async function cancelProblem(
 
 /**
  * Take the fix away from the technician: the live task is cancelled, and the
- * database's mirror puts the problem back to 'open'. A manager writes tasks
- * under row level security; there is no RPC for this on purpose.
+ * database's mirror puts the problem back to 'open'. A task the technician
+ * finished meanwhile is left alone; see cancelLiveTask.
  */
 export async function unassignProblem(client: Client, taskId: string): Promise<void> {
-  const { error } = await client.from('tasks').update({ status: 'cancelled' }).eq('id', taskId);
-  if (error) {
-    throw error;
-  }
+  await cancelLiveTask(client, taskId);
 }
 
 export async function resolveProblem(client: Client, problemId: string): Promise<Problem> {

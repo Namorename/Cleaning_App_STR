@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@str-ops/shared';
 
+import { cancelLiveTask } from '@/lib/cancel-live-task';
 import { todayIso } from '@/lib/format-date';
 import { withSignedUrls, type WithUrl } from '@/lib/media';
 
@@ -219,14 +220,11 @@ export async function saveTask(client: Client, variables: SaveTaskVariables): Pr
 
 /**
  * Call the job off. Nothing is deleted — a cancelled task stays as history,
- * and its day is free for something else. A manager writes tasks under row
- * level security; there is no RPC for this on purpose.
+ * and its day is free for something else. Only a live task is touched; see
+ * cancelLiveTask.
  */
 export async function cancelTask(client: Client, taskId: string): Promise<void> {
-  const { error } = await client.from('tasks').update({ status: 'cancelled' }).eq('id', taskId);
-  if (error) {
-    throw error;
-  }
+  await cancelLiveTask(client, taskId);
 }
 
 /**

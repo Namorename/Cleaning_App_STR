@@ -83,12 +83,21 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
     setOver(status);
   };
 
+  // The status line shows the first mutation that failed, whenever it did: a
+  // new action starts from a clean line, or an old refusal hides its answer.
+  const clearOutcome = () => {
+    resolve.reset();
+    unassign.reset();
+    reopen.reset();
+  };
+
   const onDrop = (status: BoardStatus) => (event: DragEvent<HTMLElement>) => {
     event.preventDefault();
     setOver(null);
     if (dragging === null) {
       return;
     }
+    clearOutcome();
     const problem = dragging;
     setDragging(null);
     const move = boardMove(problem.status, status);
@@ -126,6 +135,7 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
   // The column the technician fills: a drop is refused, but the reason is worth a line.
   const onDropRefused = (status: BoardStatus) => () => {
     if (dragging !== null && boardMove(dragging.status, status) === 'startOnPhone') {
+      clearOutcome();
       setNotice(t('panel.problems.board.startOnPhone'));
     }
   };

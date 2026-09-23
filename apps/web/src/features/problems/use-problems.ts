@@ -87,7 +87,8 @@ export function useUnassignProblem() {
   const invalidate = useInvalidateProblems();
   return useMutation({
     mutationFn: (taskId: string) => unassignProblem(client, taskId),
-    onSuccess: invalidate,
+    // A refusal means the task changed meanwhile: refresh either way.
+    onSettled: invalidate,
   });
 }
 

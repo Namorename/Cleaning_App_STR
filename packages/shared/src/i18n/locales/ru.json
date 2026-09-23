@@ -978,6 +978,8 @@
     "problemTitleTooLong": "Заголовок длиннее {{limit}} символов",
     "problemDescriptionTooLong": "Описание длиннее {{limit}} символов",
     "problemNotOpen": "Проблему уже взяли в работу — изменить её нельзя",
+    "problemArchived": "Проблема в архиве — верните её из архива, прежде чем назначать",
+    "taskChangedMeanwhile": "Задача уже изменилась — экран обновлён",
     "problemNoProperty": "У проблемы нет объекта — назначить нельзя",
     "problemAssigneeInvalid": "Исполнитель не найден среди активных сотрудников",
     "taskNotFound": "Задача не найдена",

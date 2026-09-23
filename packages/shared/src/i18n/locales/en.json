@@ -978,6 +978,8 @@
     "problemTitleTooLong": "The title is longer than {{limit}} characters",
     "problemDescriptionTooLong": "The description is longer than {{limit}} characters",
     "problemNotOpen": "The problem has been picked up — it can no longer be changed",
+    "problemArchived": "The problem is in the archive — restore it before handing it out",
+    "taskChangedMeanwhile": "The task has changed in the meantime — the screen has been refreshed",
     "problemNoProperty": "The problem has no listing — it cannot be assigned",
     "problemAssigneeInvalid": "The assignee is not an active member of the team",
     "taskNotFound": "Task not found",

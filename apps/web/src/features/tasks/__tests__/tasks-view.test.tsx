@@ -81,6 +81,12 @@ const saveTask = vi.fn();
 const cancelTask = vi.fn();
 const setDuration = vi.fn();
 const saveState = { isPending: false, isError: false, error: null as unknown };
+const cancelState = {
+  isPending: false,
+  isError: false,
+  error: null as unknown,
+  variables: undefined as unknown,
+};
 const idle = { isPending: false, isError: false, error: null, reset: vi.fn() };
 
 vi.mock('../use-tasks', () => ({
@@ -109,7 +115,7 @@ vi.mock('../use-tasks', () => ({
   }),
   useTaskProblems: () => ({ data: [], isPending: false, isError: false }),
   useSaveTask: () => ({ ...saveState, mutate: saveTask, reset: idle.reset }),
-  useCancelTask: () => ({ ...idle, mutate: cancelTask }),
+  useCancelTask: () => ({ ...cancelState, mutate: cancelTask, reset: idle.reset }),
   useSetDuration: () => ({ ...idle, mutate: setDuration }),
 }));
 
@@ -133,6 +139,8 @@ beforeEach(() => {
   unread.tasks.clear();
   saveState.isError = false;
   saveState.error = null;
+  cancelState.isError = false;
+  cancelState.error = null;
   useTasks.mockReturnValue({
     data: [morning, evening, upcoming, finished],
     isPending: false,
@@ -307,6 +315,25 @@ describe('TasksView', () => {
     expect(cancelTask).not.toHaveBeenCalled();
     await userEvent.click(within(card).getByRole('button', { name: 'Да, отменить' }));
     expect(cancelTask).toHaveBeenCalledWith(id(2));
+  });
+
+  // The refresh that follows a refused cancel moves the job to the closed tab
+  // before the refusal arrives, so the card that asked is gone by then: the
+  // sentence has to live in the view, or the refusal reads as a cancel that
+  // worked.
+  test('tells a refused cancel above the list, after the card has moved away', () => {
+    cancelState.isError = true;
+    cancelState.error = { hint: 'serverErrors.taskChangedMeanwhile' };
+    useTasks.mockReturnValue({
+      // Nothing is left on Today, so no card is there to carry the sentence.
+      data: [{ ...evening, status: 'done' }, upcoming, finished],
+      isPending: false,
+      isError: false,
+    });
+    render(<TasksView />);
+
+    expect(screen.queryByText('Вечерний осмотр')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('Задача уже изменилась — экран обновлён');
   });
 
   test('opens the conversation of a job nobody has started, without the work sections', async () => {
