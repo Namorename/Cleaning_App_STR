@@ -367,6 +367,10 @@
         "reset": "Сбросить фильтры"
       },
       "overdue": "Просрочено",
+      "tail": {
+        "yesterday": "со вчера",
+        "departure": "выезд {{date}}"
+      },
       "noAssignee": "Без исполнителя",
       "noProperty": "Без объекта",
       "window": {

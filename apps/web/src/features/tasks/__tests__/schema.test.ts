@@ -7,12 +7,12 @@ import {
   groupTasks,
   isDraftReady,
   isManualTask,
-  isOverdue,
   localizedTitle,
   matchesFilters,
   matchesQuery,
   propertyOptions,
   tabOf,
+  tailOf,
   taskMinutes,
   taskPropertyName,
   taskSchema,
@@ -71,17 +71,54 @@ describe('tabOf', () => {
   });
 });
 
-describe('isOverdue', () => {
-  test('an open task from yesterday is overdue', () => {
-    expect(isOverdue({ status: 'assigned', scheduled_date: '2026-09-10' }, TODAY)).toBe(true);
+describe('tailOf', () => {
+  // 10:00 UTC on 23.09: the same calendar day in Prague and in UTC.
+  const midMorning = new Date('2026-09-23T10:00:00Z');
+  const prague = {
+    name: 'Vinohrady 12',
+    hostaway_unit_id: null,
+    timezone: 'Europe/Prague',
+    parent: null,
+  };
+  const on = (scheduled_date: string, status: Task['status'] = 'assigned') => ({
+    status,
+    scheduled_date,
+    property: prague,
   });
 
-  test('a finished task from yesterday is not', () => {
-    expect(isOverdue({ status: 'done', scheduled_date: '2026-09-10' }, TODAY)).toBe(false);
+  test("a live cleaning from yesterday is a one-day tail", () => {
+    expect(
+      tailOf({ status: 'unassigned', scheduled_date: '2026-09-22', property: prague }, midMorning),
+    ).toEqual({ days: 1 });
   });
 
-  test('nor is today', () => {
-    expect(isOverdue({ status: 'assigned', scheduled_date: TODAY }, TODAY)).toBe(false);
+  test('an older live task counts its days', () => {
+    expect(
+      tailOf({ status: 'assigned', scheduled_date: '2026-09-19', property: prague }, midMorning),
+    ).toEqual({ days: 4 });
+  });
+
+  test('today and later are not a tail', () => {
+    expect(tailOf(on('2026-09-23'), midMorning)).toBeNull();
+    expect(tailOf(on('2026-09-24'), midMorning)).toBeNull();
+  });
+
+  test('a closed task from yesterday is not a tail', () => {
+    expect(tailOf(on('2026-09-22', 'done'), midMorning)).toBeNull();
+    expect(tailOf(on('2026-09-22', 'expired'), midMorning)).toBeNull();
+  });
+
+  test("the property's own today decides, not the browser's", () => {
+    // 22:30 UTC on 23.09 is already the 24th in Prague, still the 23rd in UTC.
+    const lateEvening = new Date('2026-09-23T22:30:00Z');
+    const utc = { ...prague, timezone: 'UTC' };
+
+    expect(
+      tailOf({ status: 'assigned', scheduled_date: '2026-09-23', property: prague }, lateEvening),
+    ).toEqual({ days: 1 });
+    expect(
+      tailOf({ status: 'assigned', scheduled_date: '2026-09-23', property: utc }, lateEvening),
+    ).toBeNull();
   });
 });
 

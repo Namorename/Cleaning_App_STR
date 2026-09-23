@@ -367,6 +367,10 @@
         "reset": "Clear the filters"
       },
       "overdue": "Overdue",
+      "tail": {
+        "yesterday": "since yesterday",
+        "departure": "check-out {{date}}"
+      },
       "noAssignee": "Nobody yet",
       "noProperty": "No listing",
       "window": {

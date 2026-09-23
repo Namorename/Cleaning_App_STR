@@ -367,6 +367,10 @@
         "reset": "Zrušit filtry"
       },
       "overdue": "Propadlo",
+      "tail": {
+        "yesterday": "od včera",
+        "departure": "odjezd {{date}}"
+      },
       "noAssignee": "Zatím nikdo",
       "noProperty": "Bez bytu",
       "window": {

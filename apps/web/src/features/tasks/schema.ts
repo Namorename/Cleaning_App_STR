@@ -1,6 +1,7 @@
 import { propertyPath, propertyPathOf, splitPlace, type PlaceParts } from '@str-ops/shared';
 import { z } from 'zod';
 
+import { todayIn } from '@/lib/format-date';
 import { matchesAllTokens } from '@/lib/search';
 
 export const TASK_TYPES = ['cleaning', 'midstay', 'maintenance', 'inspection'] as const;
@@ -65,6 +66,10 @@ export const taskSchema = z.object({
       // `propertyOptions` uses. A part of a combined listing is also a child
       // under `parent_id`, and it is a listing with its own calendar.
       hostaway_unit_id: z.number().nullable().default(null),
+      // The property's own zone: "yesterday" is counted by the property's
+      // calendar, as the server's grace rule counts it (`tailOf`). Missing,
+      // the browser's day stands in.
+      timezone: z.string().nullable().optional(),
       // The listing a room belongs to. Null when the task stands on the
       // listing itself — then `name` is already the building's. A room's own
       // name ("1 - 2109") never says which building it is in.
@@ -201,9 +206,37 @@ export function isManualTask(task: Pick<Task, 'reservation_id' | 'problem_id'>):
   return task.reservation_id === null && task.problem_id === null;
 }
 
-/** Its day has passed and it is still open — the manager needs to see it today. */
-export function isOverdue(task: Pick<Task, 'status' | 'scheduled_date'>, today: string): boolean {
-  return !isTaskClosed(task) && task.scheduled_date < today;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function dayNumber(day: string): number {
+  const [year, month, date] = day.split('-').map(Number);
+  return Date.UTC(year, month - 1, date) / DAY_MS;
+}
+
+/** How many days a live task has been hanging past its own day. */
+export interface TaskTail {
+  days: number;
+}
+
+/**
+ * A live task whose day is already behind the property's own today. The
+ * usual one is yesterday's cleaning in its grace day — still allowed, still
+ * the manager's to chase — and it stays in the Today tab, marked. The day is
+ * counted in the property's zone, as the server's grace rule counts it: a
+ * manager elsewhere must not see a tail the server does not.
+ */
+export function tailOf(
+  task: Pick<Task, 'status' | 'scheduled_date' | 'property'>,
+  now: Date = new Date(),
+): TaskTail | null {
+  if (isTaskClosed(task)) {
+    return null;
+  }
+  const today = todayIn(task.property?.timezone, now);
+  if (task.scheduled_date >= today) {
+    return null;
+  }
+  return { days: dayNumber(today) - dayNumber(task.scheduled_date) };
 }
 
 /** How long it took, the manager's correction winning over the measurement. */

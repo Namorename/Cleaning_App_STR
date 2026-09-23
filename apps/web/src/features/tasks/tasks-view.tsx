@@ -53,7 +53,9 @@ export function TasksView() {
   const [editing, setEditing] = useState<{ task: Task | null } | null>(null);
   const [reading, setReading] = useState<Task | null>(null);
 
-  const today = todayIso();
+  // One instant for the whole render, so every card agrees on what a tail is.
+  const now = new Date();
+  const today = todayIso(now);
   const tasks = (data ?? []).filter((task) => matchesFilters(task, filters));
   const inTab = (key: TaskTab) => tasks.filter((task) => tabOf(task, today) === key);
   const groups = groupTasks(inTab(tab), tab);
@@ -178,7 +180,7 @@ export function TasksView() {
                     <TaskCard
                       key={task.id}
                       task={task}
-                      today={today}
+                      now={now}
                       onEdit={openEdit}
                       onOpenWork={openWork}
                       onCancel={(job) => cancel.mutate(job.id)}
