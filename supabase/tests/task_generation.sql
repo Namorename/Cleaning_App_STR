@@ -319,4 +319,62 @@ select public.generate_cleaning_tasks(current_date - 7, current_date);
 select pg_temp.check('a stale live cleaning is left for the sweep, not cancelled',
   pg_temp.task_statuses(900000314), 'unassigned');
 
+-- ---------------------------------------------------------------------------
+--  Every committed run leaves a row in raw.generator_runs (20260923120000)
+-- ---------------------------------------------------------------------------
+--
+-- The answer used to live only in the HTTP body pg_net keeps for six hours,
+-- and the evidence of two nights was lost that way. A run that made nothing
+-- must leave a row too: the zero is the evidence.
+
+create or replace function pg_temp.trace_rows() returns int language sql as $$
+  select count(*)::int from raw.generator_runs
+$$;
+
+create temp table trace_before as select pg_temp.trace_rows() as n;
+create temp table trace_answer as
+  select public.generate_cleaning_tasks('2031-01-01', '2031-01-31') as answer;
+
+select pg_temp.check('a run that made nothing still leaves exactly one row',
+  pg_temp.trace_rows() - (select n from trace_before), 1);
+select pg_temp.check('the row holds the answer the caller got',
+  (select answer from raw.generator_runs order by id desc limit 1),
+  (select answer from trace_answer));
+select pg_temp.check('and the window it was asked about',
+  (select array[window_from, window_to] from raw.generator_runs order by id desc limit 1),
+  array['2031-01-01'::date, '2031-01-31'::date]);
+select pg_temp.check('and that answer is a zero, recorded as one',
+  (select (answer ->> 'created')::int from trace_answer), 0);
+
+-- A trace that cannot be written must not cost a cleaning: the insert is
+-- wrapped, and the run goes on with a warning. A constraint no row can meet
+-- stands in for any failure of the insert.
+insert into public.reservations (id, property_id, arrival_date, departure_date, status, guest_name)
+values (900000315, 900000207, '2031-02-01', '2031-02-05', 'new', 'Arrives while the trace is broken');
+alter table raw.generator_runs add constraint trace_broken check (false) not valid;
+
+select pg_temp.check('with the trace broken the run still creates the cleaning',
+  (public.generate_cleaning_tasks('2031-02-01', '2031-02-28') ->> 'created')::int, 1);
+select pg_temp.check('and the cleaning is there',
+  pg_temp.task_statuses(900000315), 'unassigned');
+select pg_temp.check('and no row was written for it',
+  (select count(*)::int from raw.generator_runs where window_from = '2031-02-01'), 0);
+
+alter table raw.generator_runs drop constraint trace_broken;
+
+-- Retention is the scheduled job itself, run here as written.
+insert into raw.generator_runs (ran_at, window_from, window_to, answer) values
+  (now() - interval '91 days', '2030-01-01', '2030-01-01', '{}'),
+  (now() - interval '89 days', '2030-01-02', '2030-01-02', '{}');
+
+select pg_temp.check('the purge job is scheduled',
+  (select count(*)::int from cron.job where jobname = 'purge-generator-runs'), 1);
+do $$ begin
+  execute (select command from cron.job where jobname = 'purge-generator-runs');
+end $$;
+select pg_temp.check('it drops a row older than ninety days',
+  (select count(*)::int from raw.generator_runs where window_from = '2030-01-01'), 0);
+select pg_temp.check('and keeps one younger than that',
+  (select count(*)::int from raw.generator_runs where window_from = '2030-01-02'), 1);
+
 rollback;

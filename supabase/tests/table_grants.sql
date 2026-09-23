@@ -134,4 +134,79 @@ select pg_temp.check('postgres hands new tables to neither client role',
      and g.grantee in ('anon'::regrole, 'authenticated'::regrole)),
   '');
 
+-- ---------- raw: closed to clients as a whole ----------
+--
+-- raw holds what no client may read: the Hostaway payloads with guest names
+-- and phones, and the generator's run trace (20260923120000). It is closed by
+-- 20260824190000_helpers.sql and nothing else said so until now -- the matrix
+-- above looks at public only.
+--
+-- The checks ask what a client role can actually DO, through the has_*
+-- functions, rather than reading ACL arrays: those resolve PUBLIC, role
+-- membership, column grants and built-in defaults (a new function is
+-- executable by PUBLIC without any ACL entry saying so), where the arrays show
+-- only what was written down. The schema is the first gate; the objects
+-- behind it are checked too, so that opening the schema one day does not
+-- expose whatever sits underneath. And raw has two doors that bypass the
+-- schema gate altogether, both running with their owner's rights: a function
+-- that reads raw, and a view built on it. Neither may be callable by a client.
+select pg_temp.check('neither client role may enter schema raw',
+  (select coalesce(string_agg(r || ' ' || p, ', ' order by r, p), '')
+   from unnest(array['anon', 'authenticated']) r
+   cross join unnest(array['USAGE', 'CREATE']) p
+   where has_schema_privilege(r, 'raw', p)),
+  '');
+
+select pg_temp.check('no object in raw is usable by a client role, schema aside',
+  (select coalesce(string_agg(x, ', ' order by x), '')
+   from (
+     select r || ' ' || c.relname as x
+     from pg_class c cross join unnest(array['anon', 'authenticated']) r
+     where c.relnamespace = 'raw'::regnamespace
+       and c.relkind in ('r', 'p', 'v', 'm', 'f')
+       and (has_table_privilege(r, c.oid,
+              'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+            or has_any_column_privilege(r, c.oid, 'SELECT,INSERT,UPDATE,REFERENCES'))
+     union all
+     select r || ' ' || c.relname
+     from pg_class c cross join unnest(array['anon', 'authenticated']) r
+     where c.relnamespace = 'raw'::regnamespace and c.relkind = 'S'
+       and has_sequence_privilege(r, c.oid, 'USAGE,SELECT,UPDATE')
+     union all
+     select r || ' ' || p.oid::regprocedure::text
+     from pg_proc p cross join unnest(array['anon', 'authenticated']) r
+     where p.pronamespace = 'raw'::regnamespace
+       and has_function_privilege(r, p.oid, 'EXECUTE')
+   ) leaks),
+  '');
+
+select pg_temp.check('no function that touches raw is callable by a client role',
+  (select coalesce(string_agg(p.oid::regprocedure::text, ', ' order by 1), '')
+   from pg_proc p
+   where p.pronamespace not in ('pg_catalog'::regnamespace, 'information_schema'::regnamespace)
+     and p.prosrc ~ '\mraw\.'
+     and (has_function_privilege('anon', p.oid, 'EXECUTE')
+          or has_function_privilege('authenticated', p.oid, 'EXECUTE'))),
+  '');
+
+select pg_temp.check('no view built on raw is readable by a client role',
+  (select coalesce(string_agg(distinct v.oid::regclass::text, ', '), '')
+   from pg_rewrite rw
+   join pg_class v on v.oid = rw.ev_class
+   join pg_depend d on d.classid = 'pg_rewrite'::regclass and d.objid = rw.oid
+   join pg_class t on t.oid = d.refobjid
+   where t.relnamespace = 'raw'::regnamespace
+     and v.oid <> t.oid
+     and (has_table_privilege('anon', v.oid, 'SELECT')
+          or has_table_privilege('authenticated', v.oid, 'SELECT'))),
+  '');
+
+select pg_temp.check('no default privilege hands a new raw object to a client role',
+  (select coalesce(string_agg(distinct d.defaclrole::regrole::text || ' ' || d.defaclobjtype::text, ', '), '')
+   from pg_default_acl d
+   cross join lateral aclexplode(d.defaclacl) g
+   where d.defaclnamespace in (0, 'raw'::regnamespace)
+     and g.grantee in (0, 'anon'::regrole, 'authenticated'::regrole)),
+  '');
+
 rollback;

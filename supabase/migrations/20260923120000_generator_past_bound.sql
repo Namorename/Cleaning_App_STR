@@ -1,12 +1,13 @@
--- The generator writes no cleaning for a day already past its grace.
+-- The generator writes no cleaning for a day already past its grace, and
+-- a committed run now leaves a row in raw.generator_runs.
 --
 -- Found in production on 2026-09-23. The webhook path reconciles over the
 -- dates of the booking it just wrote (departureRange,
 -- supabase/functions/_shared/reservation-sync.ts), so an edit in Hostaway to a
 -- booking that left long ago calls the generator with a window around that old
 -- day. Booking 63925530, departure 08.08, edited 23.09: a fresh unassigned
--- cleaning for 08.08 appeared at 11:00 UTC and sat in the manager's queue until
--- the sweep closed it at 03:30. The guard of 20260918171000 could not stop it:
+-- cleaning for 08.08 appeared at 11:00 UTC and sits in the manager's queue
+-- until the sweep closes it at 03:30 on 24.09. The guard of 20260918171000 could not stop it:
 -- the booking had never had a cleaning, expired or otherwise, to compare with.
 --
 -- THE BOUNDARY IS task_is_stale(). The sweep closes a task when it holds, and
@@ -35,8 +36,100 @@
 -- stale by construction, so this bound now covers it too; keeping it costs
 -- nothing and keeps the loop closed should the grace period ever change.
 --
+-- RUN TRACE. Until now the answer lived only in the HTTP body of the Edge
+-- Function that called the generator, and pg_net keeps that body in
+-- net._http_response for six hours -- an unlogged table, emptied by a crash,
+-- and with no body at all when the call outlives pg_net's 120 s timeout. The
+-- nights of 20.09 and 21.09 after 20260918171000 could not be proven that way:
+-- by morning only cron's `succeeded` was left, and that says the request was
+-- queued, not that the generator ran. From here on the generator writes its
+-- own answer into raw.generator_runs before returning it, in the same
+-- transaction as the tasks it changed: a row means the run was committed.
+-- The converse holds except in one case, below.
+--
+-- HOW TO READ IT -- the rule changed, and it is the reason for this trace.
+-- A row with zeros means the run happened and had nothing to do. NO ROW now
+-- means one of three things, and no longer "did not happen or made zero",
+-- which is what an empty morning meant before:
+--   1. the generator was never called. The cron did not fire, or Hostaway or
+--      the sync RPC failed first. Each step is its own transaction: a nightly
+--      sync that failed partway keeps the booking batches it already wrote,
+--      and their cleanings wait for the next successful call;
+--   2. the generator failed, and its transaction rolled back with the row;
+--   3. rarely, the run committed its tasks and only the trace failed. That
+--      leaves WARNING "generate_cleaning_tasks: run trace not written" in the
+--      Postgres log, and the run's work in public.tasks at that minute
+--      (created_at / updated_at). Check both before calling a missing night a
+--      failure.
+-- Why a run failed: the Edge Function log (console.error) and the Postgres
+-- log, for as long as the plan keeps logs; the HTTP body in
+-- net._http_response, for six hours; per-booking fetch errors on the webhook
+-- path, for good, in raw.webhook_events.last_error. A webhook batch whose
+-- generator call committed but whose `processed` mark then failed is claimed
+-- and reconciled again: one row per attempt.
+--
+-- Both callers write rows, and nothing in the row says which one. The nightly
+-- sync (sync-reservations, cron at 03:15 UTC) fetches departures from today-7
+-- to today+90, so its row is stamped 03:15-03:25 UTC with window_from on or
+-- just after (ran_at at UTC)::date - 7 and a window about 97 days wide. A
+-- webhook batch reconciles every booking departing between the earliest and
+-- the latest departure it fetched: usually a narrow window, but one old
+-- booking in the batch stretches it, and its past_bound then counts every
+-- stale booking without a cleaning inside that span, not only the ones the
+-- batch touched. A manual call of sync-reservations looks like a night at
+-- another hour. Telling the callers apart exactly would need a header from
+-- both Edge Functions -- two deploys for what the hour and window_from
+-- already say.
+--
+-- past_bound will read 0 on nearly every nightly row: the defect this
+-- migration fixes lives on the webhook path. The signal is in webhook rows.
+--
+-- Volume, measured in production on 23.09 before the rollout: webhook
+-- batches that reached `processed` ran at 124-179 a day on the full days
+-- 16.09-22.09, 233 a day on average over 28 days, and 541 at the busiest
+-- (07.09, in the week 06.09-12.09 that stayed between 284 and 541). That is
+-- an upper bound on webhook rows: a processed batch skips the generator only
+-- when none of its bookings normalized. Kept 90 days: about 21 000 rows,
+-- 49 000 if every day were the busiest.
+--
+-- WHY raw. The answer is counts and dates across every company -- the
+-- generator has no host -- and nothing a client should read. raw is closed to
+-- anon and authenticated as a schema (20260824190000_helpers.sql), is not
+-- exposed through PostgREST, and needs no row policy for that reason;
+-- supabase/tests/table_grants.sql now checks that it stays closed -- on the
+-- local stack; in the cloud the same questions have to be asked after the
+-- push. The table still revokes the client roles by name, because the hosted
+-- defaults have surprised us before.
+--
+-- A TRACE NEVER COSTS A CLEANING. The insert sits in its own block and any
+-- failure there becomes a warning; the run returns its answer and commits its
+-- tasks either way. One failure would slip past that block: a wait for a lock
+-- on raw.generator_runs. Both callers come through PostgREST, where
+-- statement_timeout and lock_timeout are both 8 s; the statement timer starts
+-- first and wins, and a cancelled statement (57014) is not caught by
+-- `when others` -- the whole run would roll back. So the block takes its lock
+-- with NOWAIT first: anything holding a conflicting lock (ALTER TABLE,
+-- TRUNCATE, VACUUM FULL, a non-concurrent index build) costs the trace at
+-- once, as a caught 55P03, and never the run. The purge's DELETE and
+-- autovacuum take locks that do not conflict.
+--
 -- Signature unchanged, so create or replace replaces rather than overloads.
--- Unchanged from 20260918171000 apart from that one condition.
+-- Unchanged from 20260918171000 apart from the bound, the owed/inserted split
+-- that counts past_bound, and the trace written before the return.
+
+create table raw.generator_runs (
+  id          bigint generated always as identity primary key,
+  ran_at      timestamptz not null default now(),
+  -- Nullable on purpose: a call with an odd window still leaves its row.
+  window_from date,
+  window_to   date,
+  -- The whole answer, so keys added later arrive without a migration here.
+  answer      jsonb not null
+);
+
+create index generator_runs_ran_at_idx on raw.generator_runs (ran_at);
+
+revoke all on table raw.generator_runs from public, anon, authenticated;
 
 create or replace function public.generate_cleaning_tasks(from_date date, to_date date)
 returns jsonb
@@ -51,6 +144,7 @@ declare
   v_assigned    integer;
   v_cancelled   integer;
   v_past_bound  integer;
+  v_answer      jsonb;
 begin
   -- One row per cleaning owed: a booking on an ordinary listing owes one, a
   -- booking that took three rooms owes three. `p` is the thing being cleaned
@@ -309,7 +403,7 @@ begin
 
   drop table _wanted;
 
-  return jsonb_build_object(
+  v_answer := jsonb_build_object(
     'window_from', from_date,
     'window_to', to_date,
     'relocated', v_relocated,
@@ -319,8 +413,29 @@ begin
     'cancelled', v_cancelled,
     'past_bound', v_past_bound
   );
+
+  -- The trace, in its own block: a failure here rolls back only this insert
+  -- and is reported, never the run. See the header.
+  begin
+    lock table raw.generator_runs in row exclusive mode nowait;
+    insert into raw.generator_runs (window_from, window_to, answer)
+    values (from_date, to_date, v_answer);
+  exception when others then
+    raise warning 'generate_cleaning_tasks: run trace not written: % (SQLSTATE %)',
+      sqlerrm, sqlstate;
+  end;
+
+  return v_answer;
 end;
 $function$;
 
 revoke all on function public.generate_cleaning_tasks(date, date) from public, anon, authenticated;
 grant execute on function public.generate_cleaning_tasks(date, date) to service_role;
+
+-- Retention: ninety days, in plain SQL and without pg_net, like
+-- expire-stale-tasks. cron.schedule is idempotent by name.
+select cron.schedule(
+  'purge-generator-runs',
+  '45 3 * * *',
+  $$delete from raw.generator_runs where ran_at < now() - interval '90 days'$$
+);
