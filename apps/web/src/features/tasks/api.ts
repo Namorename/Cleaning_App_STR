@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@str-ops/shared';
 
 import { cancelLiveTask } from '@/lib/cancel-live-task';
+import { fetchAllPages } from '@/lib/fetch-all-pages';
 import { todayIso } from '@/lib/format-date';
 import { withSignedUrls, type WithUrl } from '@/lib/media';
 
@@ -51,18 +52,28 @@ function daysAgo(days: number, now: Date = new Date()): string {
   return todayIso(past);
 }
 
-/** The company's schedule from HISTORY_DAYS ago onward. Row level security draws the line. */
+/**
+ * The company's schedule from HISTORY_DAYS ago onward. Row level security
+ * draws the line.
+ *
+ * Read page by page: one response stops at the server's max-rows, and a month
+ * back is thousands of rows (most of them expired duplicates until the
+ * pre-launch reset), so a single request ended weeks before today. The sort
+ * ends on `id` because pages only tile a list whose order has no ties.
+ */
 export async function fetchTasks(client: Client): Promise<Task[]> {
-  const { data, error } = await client
-    .from('tasks')
-    .select(TASK_COLUMNS)
-    .gte('scheduled_date', daysAgo(HISTORY_DAYS))
-    .order('scheduled_date', { ascending: true })
-    .order('time_from', { ascending: true, nullsFirst: false });
-  if (error) {
-    throw error;
-  }
-  return taskListSchema.parse(data ?? []);
+  const since = daysAgo(HISTORY_DAYS);
+  const rows = await fetchAllPages((from, to, withCount) =>
+    client
+      .from('tasks')
+      .select(TASK_COLUMNS, withCount ? { count: 'exact' } : undefined)
+      .gte('scheduled_date', since)
+      .order('scheduled_date', { ascending: true })
+      .order('time_from', { ascending: true, nullsFirst: false })
+      .order('id', { ascending: true })
+      .range(from, to),
+  );
+  return taskListSchema.parse(rows);
 }
 
 /** Active people of the company a task can be handed to. */
