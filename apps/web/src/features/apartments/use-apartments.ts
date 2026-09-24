@@ -75,7 +75,7 @@ export function useProperty(id: number) {
   return useQuery({ queryKey: apartmentKeys.one(id), queryFn: () => fetchProperty(client, id) });
 }
 
-/** The three columns Hostaway does not own. See savePropertyInfo. */
+/** What Hostaway does not own: parent, cleaner note, office note. See savePropertyInfo. */
 export function useSaveInfo(id: number) {
   const client = useSupabase();
   const invalidate = useInvalidateEverywhere();

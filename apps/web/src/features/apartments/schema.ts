@@ -46,17 +46,27 @@ export const propertyListSchema = z.array(propertySchema);
  * What the company knows about the flat — the notes and which listing it is a
  * unit of — is ours, absent from that update list, and editable here.
  */
-export const propertyDetailSchema = propertySchema.extend({
+export const propertyRowSchema = propertySchema.extend({
   country_code: z.string().nullable(),
   timezone: z.string(),
   bathrooms: z.number().nullable(),
   check_in_time: z.string().nullable(),
   check_out_time: z.string().nullable(),
   cleaner_notes: z.string().nullable(),
-  internal_notes: z.string().nullable(),
   synced_at: z.string().nullable(),
 });
+
+/**
+ * The card: the property row, and the office's note from the table only a
+ * manager reads (docs/window3-plan.md, «А»).
+ */
+export const propertyDetailSchema = propertyRowSchema.extend({
+  internal_notes: z.string().nullable(),
+});
 export type PropertyDetail = z.infer<typeof propertyDetailSchema>;
+
+/** The office's note, from its own table: at most one row per listing. */
+export const internalNoteSchema = z.object({ notes: z.string() }).nullable();
 
 /** The half of a listing the panel may write. */
 export interface InfoDraft {
