@@ -2,7 +2,7 @@ export const meta = {
   name: 'chat-window2-preflight',
   description: 'Adversarial preflight of the three chat-media migrations of window 2 before they are pushed to the cloud',
   phases: [
-    { title: 'Lenses', detail: 'six independent readings of the three migrations' },
+    { title: 'Lenses', detail: 'seven independent readings of the three migrations' },
     { title: 'Refute', detail: 'three skeptics per finding, each from a different angle' },
   ],
 }
@@ -12,8 +12,9 @@ PROJECT: STR Ops — C:\\Users\\Roman\\Desktop\\Cleaning App (Supabase + Next.js
 cleaner app). CLAUDE.md states the rules this repo lives by. The feature plan is docs/chat-plan.md;
 "Эксплуатация выката" describes how these migrations are deployed and how window 1 was deployed.
 
-WHAT IS ALREADY IN THE CLOUD: everything up to and including 20260918170000_media_rpc_race.sql, pushed
-2026-09-18 as "window 1". That migration added public.task_media_written_meanwhile(uuid, uuid, uuid)
+WHAT IS ALREADY IN THE CLOUD: everything up to and including 20260923130000 (the cloud head). In
+particular 20260918170000_media_rpc_race.sql, pushed 2026-09-18 as "window 1". That migration added
+public.task_media_written_meanwhile(uuid, uuid, uuid)
 and rewrote add_task_media and add_problem_media so that two calls with the SAME id cannot both insert:
 on conflict (id) do nothing, then re-read with an owner/author check, plus a second lookup by id
 immediately after the row lock (a real two-session race showed the loser was otherwise charged
@@ -21,24 +22,56 @@ mediaLimitReached for its own file). Grants were verified in the cloud afterward
 SELECT for authenticated and nothing for anon; add_task_media / add_problem_media are security definer
 with EXECUTE for authenticated and service_role, one signature each.
 
+THE PACKAGE, written AFTER window 2 and already in the cloud (pushed 2026-09-23 18:21 UTC; the first
+file on 2026-09-19): 20260918171000_generator_respects_expired, 20260923120000_generator_past_bound
+(generate_cleaning_tasks, raw.generator_runs, cron job purge-generator-runs at 03:45) and
+20260923130000_problem_mirror_current_attempt (mirror_problem_status and the trigger
+tasks_mirror_problem now listening to DELETE; guard_task_fields pins problem_id for non-managers;
+expire_stale_tasks no longer expires tasks with a problem_id — repairs; assign_problem refuses an
+archived problem). Window 2 was renamed on 2026-09-24 from 20260918180000/190000/200000 to the numbers
+below so that it applies AFTER the package, as the cloud will apply it. Only the header cross-references
+changed with the rename.
+
+THE ORDER CHECK ALREADY DONE (workflow wf_7d5bfd21-885, plus a manual diff; treat as a claim to
+re-verify, not as given): the objects window 2 creates or replaces and the objects the package creates
+or replaces are DISJOINT — no package file mentions task_media or chat_*, and no window-2 file mentions a
+package object. Each function window 2 replaces is built on its latest predecessor, none of which is in
+the package: remove_task_media and task_media_to_purge on 20260908130100, confirm_task_media on
+20260907160100, send_message on 20260918120000; the window-2 bodies differ from them only by added
+lines. After db:reset in the new order the five package functions on the local stack have exactly the
+md5 prefix and length docs/rollout/postpush_package.sql records for the cloud. Three behavioural
+interactions were found and judged as needing no change to window 2:
+  * expire_stale_tasks skips repairs, so a technician on an overdue repair keeps chat_participates on
+    the problem thread — send_message, add_message_media and reading message photos keep working for
+    her, where the old sweep cut her off on day+2;
+  * the new mirror decides problems.status / resolved_at from the current attempt only, and
+    task_media_to_purge's problem branch — which after window 2 also ages photos in a PROBLEM thread —
+    reads exactly those columns; chat.sql tests retention only for task and direct threads;
+  * guard_task_fields now pins problem_id, closing the path by which an executor could point her own
+    task at a problem and so join that problem's thread (and, after window 2, its photos).
+
 WHAT IS ABOUT TO BE PUSHED — window 2, three files, in this order:
-  * supabase/migrations/20260918180000_chat_media.sql — task_media.message_id (FK to chat_messages,
+  * supabase/migrations/20260924100000_chat_media.sql — task_media.message_id (FK to chat_messages,
     on delete cascade); task_media_one_owner rewritten to a three-way XOR (step / problem / message);
     partial index task_media_message_idx; a THIRD permissive select policy on task_media,
-    "message media is read by whoever reads the message"; add_message_media; remove_task_media
+    "chat message media is read by whoever reads the message"; add_message_media; remove_task_media
     rewritten to cover all three owners; retention (task_media_to_purge) extended to message rows.
-  * supabase/migrations/20260918190000_chat_rpc_race.sql — chat_media_written_meanwhile(uuid, uuid)
+  * supabase/migrations/20260924110000_chat_rpc_race.sql — chat_media_written_meanwhile(uuid, uuid)
     and the same race fix inside send_message and add_message_media. It does NOT touch add_task_media
     or add_problem_media: those went out with window 1 and must stay as they are in the cloud.
-  * supabase/migrations/20260918200000_chat_media_expiry.sql — chat_media_upload_window(), a sweep
+  * supabase/migrations/20260924120000_chat_media_expiry.sql — chat_media_upload_window(), a sweep
     that marks a message photo whose file never arrived (24 h, run daily, so 24–48 h in practice),
     add_message_media and confirm_task_media answering messageMediaExpired for such a row.
 
-THE CLIENTS: the phone's layer-5 client (commit ce2c1ba) and the panel's (commits 5a04752, 16c00a9,
-86a8b2c) are COMMITTED but NOT deployed — no OTA, no Vercel deploy. Both call things that only exist
-after these migrations (task_media embedded on chat_messages, add_message_media). The deploy order is
-therefore cloud first, then Vercel, then OTA. What is LIVE today is the previous panel build and the
-phones in the field.
+THE CLIENTS: both call things that only exist after these migrations (task_media embedded on
+chat_messages, add_message_media).
+  * The PANEL's layer-5 client (commits 5a04752, 16c00a9, 86a8b2c, a3b1b7a) is ALREADY LIVE: Vercel
+    deploys every push to main to production, and those commits have been in main since 2026-09-19.
+    Today the live panel gets PGRST200 "Could not find a relationship between 'chat_messages' and
+    'task_media'" on every chat thread read, so the chat opens no thread at all until window 2 lands.
+  * The PHONE's layer-5 client (ce2c1ba) is committed but NOT shipped: no eas update has gone out from
+    main since it landed. The phones in the field run an earlier bundle without layer 5. Their OTA goes
+    out only after window 2 is in the cloud and the owner has seen the panel chat open.
 
 THE DECISIONS YOU ARE CHECKING (approved by the owner):
   * A photo of a message is a task_media row with message_id set and the other three owners null; one
@@ -53,12 +86,12 @@ THE DECISIONS YOU ARE CHECKING (approved by the owner):
     That claim is the one the owner has asked to be measured. Postgres does not promise left-to-right
     evaluation of AND, and permissive policies are OR-ed together.
 
-TOOLS: the local Supabase stack is UP with the FULL schema (all four migrations applied) and EMPTY
-data:
+TOOLS: the local Supabase stack is UP with the FULL schema, applied by db:reset in the cloud's order
+(the package, then the three window-2 files), and EMPTY data:
   docker exec -i supabase_db_azpvpzqkseluzbtlnlkb psql -U postgres -d postgres -c "<sql>"
-A dump of production data from 2026-09-12 (thin: about two task_media rows) can be loaded onto the HEAD
-schema from
-  %LOCALAPPDATA%\\Temp\\claude\\C--Users-Roman-Desktop-Cleaning-App\\a858b341-2206-404b-8b45-e530fdb94832\\scratchpad\\prod_data.sql
+There is NO production dump any more (the old one was deleted on purpose): seed synthetic rows. The
+cloud holds about ten task_media rows (read-only probe of 2026-09-23); reason about larger sizes
+rather than loading anything.
 To act as a user (see supabase/tests/chat.sql, pg_temp.as_user):
   set local role authenticated;
   set local request.jwt.claims = '{"sub":"<uuid>","role":"authenticated"}';
@@ -135,7 +168,7 @@ Then, as a CLEANER (her own tasks) and as a MANAGER, run and compare:
     purged_at is null) and the exact selects the panel sends
     (apps/web/src/features/problems/api.ts fetchProblemPhotos and fetchFixTaskSteps).
   * the SAME queries with the new policy dropped inside the transaction
-    (drop policy "message media is read by whoever reads the message" on public.task_media),
+    (drop policy "chat message media is read by whoever reads the message" on public.task_media),
     so you have a before and an after on identical data.
 Report both numbers and the plan shape: is the new policy's exists() subplan present in the plan for a
 step row at all; is it an InitPlan/SubPlan evaluated per row; how many rows it is evaluated for; does
@@ -177,11 +210,11 @@ visible exactly to the assignee and managers.`,
 long they hold a lock.
 
   * task_media_one_owner is DROPPED and re-added. Adding a check constraint validates every existing
-    row and takes ACCESS EXCLUSIVE meanwhile. Load the 2026-09-12 production dump onto the HEAD schema
-    (it is thin, so also reason about the real table: the cloud has a handful of task_media rows today,
-    but say what the cost would be at 20000 and at 200000 rows) and answer: how many live rows would
-    FAIL the new constraint (the expected answer is zero — prove it with a query against the dump, and
-    write the same query so the owner can run it against the cloud), and how long the table is locked.
+    row and takes ACCESS EXCLUSIVE meanwhile. Seed synthetic step and problem rows in a rolled-back
+    transaction (the cloud has about ten task_media rows today; say what the cost would be at 20000
+    and at 200000 rows) and answer: how many live rows would FAIL the new constraint (the expected
+    answer is zero — reason it from the old two-owner check, and write a read-only count query the
+    owner can run against the cloud, selecting no personal columns), and how long the table is locked.
   * message_id is added as a nullable column with a FOREIGN KEY. Adding an FK takes SHARE ROW
     EXCLUSIVE on both tables and validates existing rows; with message_id null everywhere that should
     be instant — confirm it, and confirm the column addition itself does not rewrite the table.
@@ -198,12 +231,12 @@ long they hold a lock.
     prompt: `LENS: the two functions window 2 rewrites that the LIVE step and problem path already
 depends on, and the interplay with what window 1 put in the cloud.
 
-  * remove_task_media is rewritten in 20260918180000 to cover three owners. Read the version currently
-    in the cloud (20260907160100 as amended by later migrations up to 20260918170000 — reconstruct it
-    from the migrations) and diff the behaviour for a STEP row and a PROBLEM row: who may call it, what
+  * remove_task_media is rewritten in 20260924100000 to cover three owners. Read the version currently
+    in the cloud (20260907160100 as amended by later migrations up to the cloud head 20260923130000 —
+    reconstruct it from the migrations) and diff the behaviour for a STEP row and a PROBLEM row: who may call it, what
     it refuses, what it returns, what it stamps. Any change to the step or problem path is a change to
     a path that is live today and was not asked for.
-  * confirm_task_media is rewritten in 20260918200000. Same exercise: for a step row and a problem row,
+  * confirm_task_media is rewritten in 20260924120000. Same exercise: for a step row and a problem row,
     is the answer identical to what the cloud does now, including the order of its checks and the
     mediaNotUploaded / mediaNotFound wording?
   * Window 1 is already in the cloud. Prove that applying these three files does NOT revert it: grep
@@ -220,18 +253,22 @@ depends on, and the interplay with what window 1 put in the cloud.
     key: 'expiry-and-skew',
     prompt: `LENS: the expiry rule, and the days when the cloud is ahead of the clients.
 
-  * Read chat_media_upload_window() and the sweep in 20260918200000. Confirm on the local stack, in a
+  * Read chat_media_upload_window() and the sweep in 20260924120000. Confirm on the local stack, in a
     rolled-back transaction with timestamps moved by hand, that: a confirmed photo is never touched; an
     unconfirmed message photo younger than the window is not touched; one older is marked; a marked row
     answers messageMediaExpired from add_message_media and from confirm_task_media; the bucket refuses
     its path afterwards; remove_task_media still gives it up. Say what the real worst case is between
     the window and the daily run, and whether a photo can expire while its file is mid-upload.
   * A STEP or PROBLEM row must NOT be swept by this rule. Prove it.
-  * Deploy skew: the cloud gets these three files first; Vercel and OTA follow. For the PREVIOUS panel
-    build and the phones in the field, list everything they call that these migrations touch
-    (send_message, confirm_task_media, remove_task_media, the task_media selects, the storage policies)
-    and say for each whether the answer changes. Anything that changes for an old client is a finding.
-  * Then the other direction: the NEW panel build (apps/web/src/features/chat) and the NEW phone build
+  * Deploy skew: the cloud gets these three files; the panel with layer 5 is ALREADY live (see THE
+    CLIENTS); the phone OTA follows later. For the phones in the field (the bundle WITHOUT layer 5),
+    list everything they call that these migrations touch (send_message, confirm_task_media,
+    remove_task_media, the task_media selects, the storage policies) and say for each whether the
+    answer changes. Anything that changes for an old phone is a finding. A manager in the live panel
+    will be able to send a photo-only message the moment the push lands: say exactly what an old
+    phone shows for it (the bubble with media_expected and an empty body) and whether that is worse
+    than what it shows today.
+  * Then the other direction: the live panel build (apps/web/src/features/chat) and the NEW phone build
     call task_media embedded on chat_messages and add_message_media. Confirm from
     packages/shared/src/database.types.ts and the two api.ts files that their call shapes match the
     functions these migrations install — argument names, argument order, nullability of every column
@@ -260,6 +297,40 @@ depends on, and the interplay with what window 1 put in the cloud.
     messagePhotoLimit, mediaTypeInvalid, mediaSizeMissing, mediaTooLarge, mediaNotFound, mediaNotUploaded.
   * docs/chat-plan.md describes layer 5 and the two windows. Check that what it says matches what these
     three files actually do, and name any sentence that has gone stale.`,
+  },
+  {
+    key: 'package-order',
+    prompt: `LENS: window 2 after the package — the order check (see THE ORDER CHECK ALREADY DONE). Re-verify
+it; do not take it on trust.
+
+  * Overwrite. On the local stack compare pg_proc for every function the package defines
+    (generate_cleaning_tasks, expire_stale_tasks, mirror_problem_status, guard_task_fields,
+    assign_problem): md5(prosrc) prefix and length against the header of
+    docs/rollout/postpush_package.sql, one overload per name, owner postgres, prosecdef true,
+    proconfig {search_path=""}; the trigger tasks_mirror_problem as pg_get_triggerdef; six cron jobs.
+    Then the other way: for every function window 2 installs, compare prosrc with the body in the
+    LAST window-2 file that defines it. Any difference is a finding. (Local ACLs of the two trigger
+    functions are shorter than the cloud's: that is the known local/hosted default-privileges gap, not
+    a finding, unless a window-2 file grants or revokes on them.)
+  * Read the three package files and the three window-2 files yourself and look for any object both
+    sides create, replace, drop, alter, grant or revoke — including policies, constraints, triggers,
+    comments and cron jobs. The earlier check says there is none.
+  * The three behavioural interactions, each by experiment in ONE rolled-back transaction:
+    (a) a technician whose repair (a task with problem_id) is past its date: run expire_stale_tasks()
+        as postgres, then as the technician call send_message into the problem thread and
+        add_message_media for her message, and read the photo back through task_media — all should
+        work; then set the repair to 'cancelled' by hand and confirm she is out (threadNotFound /
+        messageNotFound, no photo rows visible).
+    (b) a photo of a message in a PROBLEM thread: resolve the problem through its current attempt (so
+        the mirror sets resolved_at), move resolved_at back beyond task_media_retention_days() by hand
+        and confirm task_media_to_purge returns the row; confirm a write to a superseded attempt does
+        not reset resolved_at and so does not hide the row again. Say whether supabase/tests/chat.sql
+        should carry this case (today it tests retention only for task and direct threads) and give
+        the smallest check.
+    (c) an executor updating problem_id on her own task: confirm guard_task_fields puts it back and she
+        gains no access to that problem's thread or its message photos.
+  * Order independence of the tests: after the rename, is there any assertion in supabase/tests/*.sql
+    whose outcome depends on window 2 applying before or after the package? Name it or say none.`,
   },
 ]
 
