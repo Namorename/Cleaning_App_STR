@@ -1,5 +1,6 @@
 -- Post-push check for window 3 (docs/window3-plan.md, «Порядок выката»). Read-only, one
--- statement, counts and catalog only. Run right after db push №1 (М1, Б1, Б2, В, Г) and again
+-- statement, counts and catalog only. Run right after db push №1 (М1, Б1, Б2, В, Г, the security
+-- fix 20260924175000) and again
 -- right after db push №2 (М2):
 --
 --   npx supabase db query --linked -f docs/rollout/postpush_window3.sql > postpush_window3.json
@@ -10,20 +11,25 @@
 -- against live rows.
 --
 -- Expected, label by label:
---   head             after №1: 20260924170000; after №2: 20260924180000. Anything between
---                    20260924120000 and 20260924170000 means push №1 stopped part-way: each file
+--   head             after №1: 20260924175000; after №2: 20260924180000. Anything between
+--                    20260924120000 and 20260924175000 means push №1 stopped part-way: each file
 --                    is its own transaction, the later ones are simply absent. Repeat with
 --                    HEAD_WANT = that version and LIST_WANT = the rest (plan, step 1).
 --   functions        one row per name, overloads = 1, owner postgres, config {search_path=""},
 --                    md5 prefix / length / definer / ACL exactly (local stack after db:reset,
---                    2026-09-24 — recompute if a body changes before the push):
+--                    2026-09-25 — recompute if a body changes before the push):
+--                      guard_profile_privileges    2c16d311  255 t {=X/postgres,postgres=X/postgres}
+--                      is_manager                  45802a43   70 t {=X/postgres,postgres=X/postgres}
 --                      open_cleanings_by_listing   86fe197e  286 f {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
 --                      property_open_cleanings     14dde466  698 t {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
 --                      set_property_status         ff912a09 3513 t {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
---                      staff_property_ids          aa974876  958 t {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
---                    The cloud may add service_role on its own (hosting default privileges) —
---                    that is the only accepted difference.
---   function_privs   anon -> false on all four; authenticated -> true on all four.
+--                      staff_property_ids          3de14f4a 1056 t {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+--                    The ACL of the six is whatever the cloud already had for the four replaced
+--                    ones (create or replace keeps it; is_manager and guard_profile_privileges
+--                    carry the PUBLIC execute of their first migration) — compare with the
+--                    baseline, not with the local stack. The md5 must match exactly.
+--   function_privs   anon -> false on open_cleanings_by_listing, property_open_cleanings,
+--                    set_property_status, staff_property_ids; authenticated -> true on all six.
 --   properties_policies  two permissive policies, in DESCENDING name order (the order Postgres
 --                    OR-s them in): "managers write properties" (ALL) first, then
 --                    "field staff read their properties" (SELECT) with
@@ -52,8 +58,9 @@ select label, payload from (
                    'md5', left(md5(p.prosrc), 8), 'len', length(p.prosrc),
                    'owner', p.proowner::regrole::text, 'definer', p.prosecdef,
                    'config', p.proconfig, 'acl', p.proacl::text) order by f.name)
-          from unnest(array['open_cleanings_by_listing', 'property_open_cleanings',
-                            'set_property_status', 'staff_property_ids']) as f(name)
+          from unnest(array['guard_profile_privileges', 'is_manager', 'open_cleanings_by_listing',
+                            'property_open_cleanings', 'set_property_status',
+                            'staff_property_ids']) as f(name)
           left join pg_proc p
             on p.pronamespace = 'public'::regnamespace and p.proname = f.name)
 
@@ -65,8 +72,9 @@ select label, payload from (
                    'anon', has_function_privilege('anon', p.oid, 'execute')) order by p.proname)
           from pg_proc p
           where p.pronamespace = 'public'::regnamespace
-            and p.proname in ('open_cleanings_by_listing', 'property_open_cleanings',
-                              'set_property_status', 'staff_property_ids'))
+            and p.proname in ('guard_profile_privileges', 'is_manager', 'open_cleanings_by_listing',
+                              'property_open_cleanings', 'set_property_status',
+                              'staff_property_ids'))
 
   union all
   select 4, 'properties_policies',
@@ -151,7 +159,7 @@ order by ord;
 -- A forward migration through the same guard, never a hand edit in Studio. It must DROP the new
 -- policy as well: permissive policies are OR-ed, the new one comes first, and a failing
 -- staff_property_ids() would fail every read even with the broad policy back beside it. Number:
--- between 20260924170000 and М2 while М2 is not in the cloud (park М2 again for that push), after
+-- between 20260924175000 and М2 while М2 is not in the cloud (park М2 again for that push), after
 -- М2 once it is. Revert the window-3 cases of supabase/tests/rls_smoke.sql in the same change, or
 -- test:rls will not pass.
 --
