@@ -1,5 +1,5 @@
 import { randomUUID } from 'expo-crypto';
-import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
@@ -39,6 +39,10 @@ import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { serverErrorText } from '@/lib/server-error';
 
 const Params = z.object({ subject: z.enum(CHAT_SUBJECT_KINDS), id: z.string().uuid() });
+
+// A thread that cannot be drawn fails here, under the header and its way back,
+// not at the root: the rest of the app stays where she left it.
+export { RouteError as ErrorBoundary } from '@/components/route-error';
 
 /**
  * The conversation about a task or a problem. Thin: params in, hooks wired,
@@ -170,28 +174,26 @@ export default function ChatRoute() {
     }
   };
 
+  // The title comes from the root layout, where the route is declared.
   return (
-    <>
-      <Stack.Screen options={{ title: t('chat.title') }} />
-      <ThreadView
-        messages={messages.data}
-        pending={pending}
-        currentUserId={userId}
-        error={send.error ?? messages.error}
-        notice={notice}
-        onSend={onSend}
-        ownMedia={ownMedia}
-        local={local.data}
-        urls={urls.data}
-        onRetryMedia={onRetryMedia}
-        onRemoveMedia={(mediaId, messageId) => removeMedia.mutate({ messageId, mediaId })}
-        drafts={drafts}
-        onTakePhoto={() => void attachFrom('camera')}
-        onPickPhoto={() => void attachFrom('gallery')}
-        onDiscardDraft={discardDraft}
-        isCapturing={isCapturing}
-      />
-    </>
+    <ThreadView
+      messages={messages.data}
+      pending={pending}
+      currentUserId={userId}
+      error={send.error ?? messages.error}
+      notice={notice}
+      onSend={onSend}
+      ownMedia={ownMedia}
+      local={local.data}
+      urls={urls.data}
+      onRetryMedia={onRetryMedia}
+      onRemoveMedia={(mediaId, messageId) => removeMedia.mutate({ messageId, mediaId })}
+      drafts={drafts}
+      onTakePhoto={() => void attachFrom('camera')}
+      onPickPhoto={() => void attachFrom('gallery')}
+      onDiscardDraft={discardDraft}
+      isCapturing={isCapturing}
+    />
   );
 }
 

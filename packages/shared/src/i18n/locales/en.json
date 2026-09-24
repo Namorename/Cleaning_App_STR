@@ -1,7 +1,9 @@
 {
   "common": {
     "cancel": "Cancel",
-    "back": "Back"
+    "back": "Back",
+    "screenFailed": "This screen could not be shown. Please try again.",
+    "retry": "Try again"
   },
   "auth": {
     "heading": "Cleaner sign-in",

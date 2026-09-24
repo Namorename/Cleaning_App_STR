@@ -1,7 +1,9 @@
 {
   "common": {
     "cancel": "Zrušit",
-    "back": "Zpět"
+    "back": "Zpět",
+    "screenFailed": "Obrazovku se nepodařilo zobrazit. Zkuste to prosím znovu.",
+    "retry": "Zkusit znovu"
   },
   "auth": {
     "heading": "Přihlášení pro úklid",

@@ -68,6 +68,12 @@ export const persistOptions = {
   // A change to what a task looks like must not restore an older shape into
   // screens that expect the new one. Bump when the task schema changes.
   //
+  // A bump also throws away the mutations paused on disk — whatever a cleaner
+  // tapped without signal. So a query whose shape changes is better read
+  // through its schema on the way out (`select`, as useMessages does since the
+  // chat photos' OTA restored threads without `task_media` and the screen
+  // closed the app), and the bump kept for when that cannot be done.
+  //
   // v6: the task carries the building it stands in (`property.parent`) and the
   // street (`property.address`). A row restored from v5 has neither key, and
   // the cache is restored by JSON.parse — zod never sees it — so the screens
