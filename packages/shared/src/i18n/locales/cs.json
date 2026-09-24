@@ -336,7 +336,8 @@
         "morning": "Ráno",
         "afternoon": "Odpoledne",
         "evening": "Večer",
-        "anytime": "Kdykoli"
+        "anytime": "Kdykoli",
+        "tail": "Z předchozích dnů"
       },
       "types": {
         "cleaning": "Úklid",
@@ -410,7 +411,12 @@
         "saving": "Ukládáme…",
         "close": "Zrušit",
         "duplicate": "Přesto vytvořit",
-        "generatedHint": "Úkol vznikl z rezervace nebo z problému: byt ani druh nelze změnit."
+        "generatedHint": "Úkol vznikl z rezervace nebo z problému: byt ani druh nelze změnit.",
+        "guest": "Odjíždějící host",
+        "reservation": "Rezervace v Hostaway",
+        "guestUnknown": "neuvedeno",
+        "guestUnavailable": "nepodařilo se načíst",
+        "guestLoading": "Načítáme…"
       },
       "work": {
         "title": "Jak úklid proběhl",

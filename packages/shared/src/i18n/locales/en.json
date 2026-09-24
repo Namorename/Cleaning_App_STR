@@ -336,7 +336,8 @@
         "morning": "Morning",
         "afternoon": "Afternoon",
         "evening": "Evening",
-        "anytime": "Any time"
+        "anytime": "Any time",
+        "tail": "From earlier days"
       },
       "types": {
         "cleaning": "Cleaning",
@@ -410,7 +411,12 @@
         "saving": "Saving…",
         "close": "Cancel",
         "duplicate": "Create it anyway",
-        "generatedHint": "This task came from a booking or a problem: its listing and kind cannot be changed."
+        "generatedHint": "This task came from a booking or a problem: its listing and kind cannot be changed.",
+        "guest": "Departing guest",
+        "reservation": "Hostaway booking",
+        "guestUnknown": "not given",
+        "guestUnavailable": "could not be loaded",
+        "guestLoading": "Loading…"
       },
       "work": {
         "title": "How the cleaning went",

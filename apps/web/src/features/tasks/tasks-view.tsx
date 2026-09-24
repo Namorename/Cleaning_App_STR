@@ -58,7 +58,7 @@ export function TasksView() {
   const today = todayIso(now);
   const tasks = (data ?? []).filter((task) => matchesFilters(task, filters));
   const inTab = (key: TaskTab) => tasks.filter((task) => tabOf(task, today) === key);
-  const groups = groupTasks(inTab(tab), tab);
+  const groups = groupTasks(inTab(tab), tab, now);
   const isFiltered = hasFilters(filters);
 
   const openNew = () => setEditing({ task: null });
@@ -172,9 +172,9 @@ export function TasksView() {
               groups.map((group) => (
                 <section key={group.key} className="flex flex-col gap-2">
                   <h2 className="text-sm font-medium text-muted-foreground">
-                    {group.kind === 'time'
-                      ? t(`panel.tasks.groups.${group.key}`)
-                      : formatDay(group.key, language)}
+                    {group.kind === 'day'
+                      ? formatDay(group.key, language)
+                      : t(`panel.tasks.groups.${group.key}`)}
                   </h2>
                   {group.tasks.map((task) => (
                     <TaskCard

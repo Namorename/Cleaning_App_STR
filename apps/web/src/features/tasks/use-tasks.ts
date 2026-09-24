@@ -7,6 +7,7 @@ import { useSupabase } from '@/lib/supabase/use-client';
 import {
   cancelTask,
   fetchProperties,
+  fetchReservationGuest,
   fetchStaff,
   fetchTaskProblems,
   fetchTaskWork,
@@ -48,6 +49,18 @@ export function useTaskProblems(taskId: string | null) {
     queryKey: taskKeys.problems(taskId ?? ''),
     queryFn: () => fetchTaskProblems(client, taskId ?? ''),
     enabled: taskId !== null,
+  });
+}
+
+/**
+ * Who is leaving from the booking a cleaning closes. Only a task with a
+ * booking asks, so the form mounts the caller only for one.
+ */
+export function useReservationGuest(reservationId: number) {
+  const client = useSupabase();
+  return useQuery({
+    queryKey: taskKeys.reservation(reservationId),
+    queryFn: () => fetchReservationGuest(client, reservationId),
   });
 }
 

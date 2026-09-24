@@ -25,8 +25,20 @@ const properties = [
 ];
 
 const mutate = vi.fn();
+const JAN = { id: 58123, guest_name: 'Jan Novák' };
+interface GuestState {
+  data: { id: number; guest_name: string | null } | undefined;
+  isPending: boolean;
+  isError: boolean;
+}
+const guest = vi.fn<(reservationId: number) => GuestState>(() => ({
+  data: JAN,
+  isPending: false,
+  isError: false,
+}));
 
 vi.mock('../use-tasks', () => ({
+  useReservationGuest: (reservationId: number) => guest(reservationId),
   useProperties: () => ({ data: properties, isPending: false, isError: false }),
   useStaff: () => ({ data: [], isPending: false, isError: false }),
   useSaveTask: () => ({
@@ -120,6 +132,58 @@ describe('the listing field of a task that stands on a room', () => {
   });
 });
 
+/**
+ * The booking behind a cleaning. The manager changing a generated cleaning
+ * needs to know whose stay it closes, and the booking's number to look it up
+ * in Hostaway. The panel only: the cleaner's phone never shows a guest.
+ */
+describe('the booking behind a cleaning', () => {
+  const cleaning = () =>
+    task({ id: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000005', reservation_id: JAN.id });
+
+  test('shows who is leaving and the Hostaway booking id', () => {
+    guest.mockClear();
+
+    render(<TaskForm task={cleaning()} onClose={() => {}} />);
+
+    expect(screen.getByText('Выезжающий гость')).toBeTruthy();
+    expect(screen.getByText('Jan Novák')).toBeTruthy();
+    expect(screen.getByText('Бронь в Hostaway')).toBeTruthy();
+    expect(screen.getByText('58123')).toBeTruthy();
+    expect(guest).toHaveBeenLastCalledWith(JAN.id);
+  });
+
+  test('a booking without a name says so rather than leaving a blank', () => {
+    guest.mockReturnValueOnce({
+      data: { id: JAN.id, guest_name: null },
+      isPending: false,
+      isError: false,
+    });
+
+    render(<TaskForm task={cleaning()} onClose={() => {}} />);
+
+    expect(screen.getByText('не указан')).toBeTruthy();
+  });
+
+  test('while the name is on its way the field says so, not that the tasks are loading', () => {
+    guest.mockReturnValueOnce({ data: undefined, isPending: true, isError: false });
+
+    render(<TaskForm task={cleaning()} onClose={() => {}} />);
+
+    expect(screen.getByText('Загружаем…')).toBeTruthy();
+    expect(screen.queryByText('Загружаем задания…')).toBeNull();
+  });
+
+  test('a name that could not be read does not hide the booking id', () => {
+    guest.mockReturnValueOnce({ data: undefined, isPending: false, isError: true });
+
+    render(<TaskForm task={cleaning()} onClose={() => {}} />);
+
+    expect(screen.getByText('не удалось загрузить')).toBeTruthy();
+    expect(screen.getByText('58123')).toBeTruthy();
+  });
+});
+
 describe('the listing field when the manager writes a task by hand', () => {
   test('offers the rooms too — a broken shower is in one flat, not in the building', async () => {
     render(<TaskForm task={null} onClose={() => {}} />);
@@ -141,6 +205,15 @@ describe('the listing field when the manager writes a task by hand', () => {
       'CZ - Vinohradska Royal',
       'CZ - Vinohradska Royal — 1 - 2109',
     ]);
+  });
+
+  test('a task written by hand has no booking to show', () => {
+    render(
+      <TaskForm task={task({ id: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000004' })} onClose={() => {}} />,
+    );
+
+    expect(screen.queryByText('Бронь в Hostaway')).toBeNull();
+    expect(screen.queryByText('Выезжающий гость')).toBeNull();
   });
 
   test('sends the room it was given, not the building above it', async () => {

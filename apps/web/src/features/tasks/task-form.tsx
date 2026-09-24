@@ -26,6 +26,7 @@ import {
   type Task,
   type TaskDraft,
 } from './schema';
+import { TaskDeparture } from './task-departure';
 import { useProperties, useSaveTask, useStaff } from './use-tasks';
 
 const SELECT_CLASS = 'h-9 rounded-md border bg-background px-2 text-sm';
@@ -150,6 +151,10 @@ export function TaskForm({ task, onClose }: TaskFormProps) {
 
           {isGenerated ? (
             <p className="text-xs text-muted-foreground">{t('panel.tasks.form.generatedHint')}</p>
+          ) : null}
+
+          {task !== null && task.reservation_id !== null ? (
+            <TaskDeparture reservationId={task.reservation_id} />
           ) : null}
 
           <div className="flex flex-col gap-1">

@@ -68,6 +68,7 @@ function recordingClient() {
 
 const ANY_ID = '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b';
 const ANY_PROPERTY = 1;
+const ANY_RESERVATION = 1;
 
 /** Every read the panel makes. A reader added without a line here goes unguarded. */
 const READERS: readonly ((client: never) => Promise<unknown>)[] = [
@@ -94,6 +95,7 @@ const READERS: readonly ((client: never) => Promise<unknown>)[] = [
   (client) => tasks.fetchProperties(client),
   (client) => tasks.fetchTaskWork(client, ANY_ID),
   (client) => tasks.fetchTaskProblems(client, ANY_ID),
+  (client) => tasks.fetchReservationGuest(client, ANY_RESERVATION),
   (client) => team.fetchStaff(client),
   (client) => team.fetchProperties(client),
   (client) => team.fetchCleanerLinks(client),

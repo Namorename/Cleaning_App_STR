@@ -4,6 +4,7 @@ export const taskKeys = {
   list: () => ['tasks', 'list'] as const,
   steps: (taskId: string) => ['tasks', 'steps', taskId] as const,
   problems: (taskId: string) => ['tasks', 'problems', taskId] as const,
+  reservation: (reservationId: number) => ['tasks', 'reservation', reservationId] as const,
   staff: () => ['tasks', 'staff'] as const,
   properties: () => ['tasks', 'properties'] as const,
 };

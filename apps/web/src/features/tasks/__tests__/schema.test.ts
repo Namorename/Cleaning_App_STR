@@ -136,6 +136,9 @@ describe('timeGroup', () => {
 });
 
 describe('groupTasks', () => {
+  // Mid-morning of TODAY everywhere between UTC-10 and UTC+13.
+  const ON_TODAY = new Date(`${TODAY}T10:00:00Z`);
+
   test('groups today by the part of the day, earliest first, and drops empty parts', () => {
     const groups = groupTasks(
       [
@@ -145,10 +148,57 @@ describe('groupTasks', () => {
         task({ id: id(4), time_from: '08:00:00' }),
       ],
       'today',
+      ON_TODAY,
     );
 
     expect(groups.map((group) => group.key)).toEqual(['morning', 'evening', 'anytime']);
     expect(groups[0]?.tasks.map((entry) => entry.time_from)).toEqual(['08:00:00', '09:00:00']);
+  });
+
+  test('today puts the tails first, in a group of their own, the oldest day first', () => {
+    // Arrange: two live tasks left over from earlier days among today's work.
+    const groups = groupTasks(
+      [
+        task({ id: id(1), time_from: '08:00:00' }),
+        task({ id: id(2), scheduled_date: '2026-09-10', time_from: '18:00:00' }),
+        task({ id: id(3), time_from: '18:00:00' }),
+        task({ id: id(4), scheduled_date: '2026-09-09', time_from: null }),
+      ],
+      'today',
+      ON_TODAY,
+    );
+
+    // Act & Assert: the tails no longer hide in the morning and the evening.
+    expect(groups.map((group) => group.key)).toEqual(['tail', 'morning', 'evening']);
+    expect(groups[0]?.kind).toBe('tail');
+    expect(groups[0]?.tasks.map((entry) => entry.id)).toEqual([id(4), id(2)]);
+    expect(groups.slice(1).flatMap((group) => group.tasks.map((entry) => entry.id))).toEqual([
+      id(1),
+      id(3),
+    ]);
+  });
+
+  test("a tail is counted by the property's own day, as the card's border is", () => {
+    // 22:30 UTC is already tomorrow in Prague and still today in UTC.
+    const lateEvening = new Date(`${TODAY}T22:30:00Z`);
+    const house = (timezone: string) => ({
+      name: timezone,
+      hostaway_unit_id: null,
+      timezone,
+      parent: null,
+    });
+
+    const groups = groupTasks(
+      [
+        task({ id: id(1), property: house('Europe/Prague') }),
+        task({ id: id(2), property: house('UTC') }),
+      ],
+      'today',
+      lateEvening,
+    );
+
+    expect(groups.map((group) => group.key)).toEqual(['tail', 'anytime']);
+    expect(groups[0]?.tasks.map((entry) => entry.id)).toEqual([id(1)]);
   });
 
   test('groups the days ahead by day, nearest first', () => {
@@ -158,6 +208,7 @@ describe('groupTasks', () => {
         task({ id: id(2), scheduled_date: '2026-09-12' }),
       ],
       'upcoming',
+      ON_TODAY,
     );
 
     expect(groups.map((group) => group.key)).toEqual(['2026-09-12', '2026-09-14']);
@@ -171,6 +222,7 @@ describe('groupTasks', () => {
         task({ id: id(2), status: 'done', scheduled_date: '2026-09-10' }),
       ],
       'closed',
+      ON_TODAY,
     );
 
     expect(groups.map((group) => group.key)).toEqual(['2026-09-10', '2026-09-08']);
@@ -196,6 +248,7 @@ describe('groupTasks', () => {
         task({ id: id(3), time_from: '10:00:00', property: royal('1 - 2109', 18007) }),
       ],
       'today',
+      ON_TODAY,
     );
 
     // Act & Assert
@@ -209,6 +262,7 @@ describe('groupTasks', () => {
         task({ id: id(2), scheduled_date: '2026-09-12', time_from: '10:00:00' }),
       ],
       'upcoming',
+      ON_TODAY,
     );
 
     expect(groups[0]?.tasks.map((entry) => entry.id)).toEqual([id(2), id(1)]);

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { fetchTasks } from '../api';
+import { fetchReservationGuest, fetchTasks } from '../api';
 
 /**
  * What the list of tasks asks the server for.
@@ -157,5 +157,59 @@ describe('the list is read to its end, not to the server cap', () => {
     for (const order of server.orders) {
       expect(order.at(-1)).toBe('id');
     }
+  });
+});
+
+/**
+ * Who is leaving, for the task's form. A cleaning made from a booking carries
+ * the booking's Hostaway id; the guest's name is read only when the form opens,
+ * not with the list, so thousands of names do not travel with every visit.
+ */
+function bookingServer(answer: { data: unknown; error: unknown }) {
+  const calls: unknown[][] = [];
+  const chain = {
+    select: (...args: unknown[]) => {
+      calls.push(['select', ...args]);
+      return chain;
+    },
+    eq: (...args: unknown[]) => {
+      calls.push(['eq', ...args]);
+      return chain;
+    },
+    maybeSingle: () => Promise.resolve(answer),
+  };
+  const client = {
+    from: (table: string) => {
+      calls.push(['from', table]);
+      return chain;
+    },
+  } as never;
+  return { client, calls };
+}
+
+describe('the departing guest of a task', () => {
+  test('reads the booking by its Hostaway id and hands back the name', async () => {
+    const server = bookingServer({ data: { id: 58123, guest_name: 'Jan Novák' }, error: null });
+
+    const guest = await fetchReservationGuest(server.client, 58123);
+
+    expect(guest).toEqual({ id: 58123, guest_name: 'Jan Novák' });
+    expect(server.calls).toEqual([
+      ['from', 'reservations'],
+      ['select', 'id, guest_name'],
+      ['eq', 'id', 58123],
+    ]);
+  });
+
+  test('a booking that is gone reads as nothing, not as an error', async () => {
+    const server = bookingServer({ data: null, error: null });
+
+    await expect(fetchReservationGuest(server.client, 58123)).resolves.toBeNull();
+  });
+
+  test('a refusal from the server is thrown, not swallowed', async () => {
+    const server = bookingServer({ data: null, error: { message: 'boom' } });
+
+    await expect(fetchReservationGuest(server.client, 58123)).rejects.toEqual({ message: 'boom' });
   });
 });

@@ -7,11 +7,13 @@ import { todayIso } from '@/lib/format-date';
 import { withSignedUrls, type WithUrl } from '@/lib/media';
 
 import {
+  departureGuestSchema,
   propertyListSchema,
   staffListSchema,
   taskListSchema,
   taskProblemListSchema,
   taskSchema,
+  type DepartureGuest,
   type Property,
   type Staff,
   type Task,
@@ -182,6 +184,27 @@ export async function fetchTaskWork(client: Client, taskId: string): Promise<Tas
   }, {});
 
   return { steps: (stepsResult.data ?? []) as TaskStep[], photosByStep };
+}
+
+/**
+ * The booking a generated cleaning closes, for its form: the Hostaway id and
+ * the guest who is leaving. Read one booking when the form opens rather than
+ * joined onto the list, which would carry every guest's name on every visit.
+ * Managers only by row level security; null when the booking is gone.
+ */
+export async function fetchReservationGuest(
+  client: Client,
+  reservationId: number,
+): Promise<DepartureGuest | null> {
+  const { data, error } = await client
+    .from('reservations')
+    .select('id, guest_name')
+    .eq('id', reservationId)
+    .maybeSingle();
+  if (error) {
+    throw error;
+  }
+  return data === null ? null : departureGuestSchema.parse(data);
 }
 
 /** Problems the cleaner reported while doing this task. */
