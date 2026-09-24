@@ -1,12 +1,7 @@
-import {
-  QueryClient,
-  QueryClientProvider,
-  dehydrate,
-  hydrate,
-  type DehydratedState,
-} from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
+
+import { restoredFromDisk, withClient } from '@/testing/restored-cache';
 
 import { fetchMyTasks, fetchTask } from '../api';
 import { taskKeys, useMyTasks, useTask } from '../use-tasks';
@@ -51,30 +46,6 @@ const TASK_WITHOUT_NOTE = {
   type: 'cleaning',
   problem: null,
 };
-
-/**
- * A client whose tasks came back from disk the way the app restores them:
- * dehydrated, written as JSON, read back and hydrated. zod never sees them.
- * gcTime Infinity schedules no collection timer, so nothing holds the worker.
- */
-function restoredFromDisk(key: readonly unknown[], data: unknown): QueryClient {
-  const options = { defaultOptions: { queries: { retry: false, gcTime: Infinity } } };
-  const before = new QueryClient(options);
-  before.setQueryData(key, data);
-  // The persister's own round trip: whatever shape went in comes back untyped.
-  const onDisk = JSON.parse(JSON.stringify(dehydrate(before))) as DehydratedState;
-  before.clear();
-
-  const client = new QueryClient(options);
-  hydrate(client, onDisk);
-  return client;
-}
-
-function withClient(client: QueryClient) {
-  return function ClientWrapper({ children }: { children: ReactNode }) {
-    return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
-  };
-}
 
 beforeEach(() => {
   jest.clearAllMocks();

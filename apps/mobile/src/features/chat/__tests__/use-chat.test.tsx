@@ -1,12 +1,8 @@
-import {
-  QueryClient,
-  QueryClientProvider,
-  dehydrate,
-  hydrate,
-  type DehydratedState,
-} from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
+
+import { restoredFromDisk, withClient } from '@/testing/restored-cache';
 
 import { fetchMessages, fetchUnreadThreads } from '../api';
 import { chatKeys } from '../keys';
@@ -37,28 +33,9 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
-/**
- * A client whose messages came back from disk the way the app restores them:
- * dehydrated, written as JSON, read back and hydrated. zod never sees them.
- * gcTime Infinity schedules no collection timer, so nothing holds the worker.
- */
-function restoredFromDisk(rows: unknown): QueryClient {
-  const options = { defaultOptions: { queries: { retry: false, gcTime: Infinity } } };
-  const before = new QueryClient(options);
-  before.setQueryData(chatKeys.messages(THREAD), rows);
-  // The persister's own round trip: whatever shape went in comes back untyped.
-  const onDisk = JSON.parse(JSON.stringify(dehydrate(before))) as DehydratedState;
-  before.clear();
-
-  const client = new QueryClient(options);
-  hydrate(client, onDisk);
-  return client;
-}
-
-function withClient(client: QueryClient) {
-  return function ClientWrapper({ children }: { children: ReactNode }) {
-    return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
-  };
+/** This thread's messages as they came back from disk (`restoredFromDisk`). */
+function restoredThread(rows: unknown): QueryClient {
+  return restoredFromDisk(chatKeys.messages(THREAD), rows);
 }
 
 /** A message as the build before layer 5 read it: no `task_media` at all. */
@@ -109,7 +86,7 @@ test('does not ask at all for an empty screen', async () => {
 // `task_media`, and the chat screen closed the app on `row.uploaded_at`.
 test('a thread saved to disk by an older build reads as one with no photos', async () => {
   // Arrange: the refresh never answers, so the screen draws what the disk gave.
-  const client = restoredFromDisk([MESSAGE_WITHOUT_PHOTOS_KEY]);
+  const client = restoredThread([MESSAGE_WITHOUT_PHOTOS_KEY]);
   fetchThreadMessages.mockReturnValue(new Promise(() => {}));
 
   // Act
@@ -124,7 +101,7 @@ test('a thread saved to disk by an older build reads as one with no photos', asy
 
 test('a cached row no build can read is a short query error, and a good answer clears it', async () => {
   // Arrange: offline, so the fetch settles and nothing is left in flight.
-  const client = restoredFromDisk([{ id: 'not-a-message' }]);
+  const client = restoredThread([{ id: 'not-a-message' }]);
   fetchThreadMessages.mockRejectedValue(new Error('offline'));
 
   // Act

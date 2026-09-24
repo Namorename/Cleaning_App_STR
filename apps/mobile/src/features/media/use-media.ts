@@ -30,6 +30,7 @@ import { mediaKeys } from './keys';
 import {
   forgetLocalMedia,
   loadLocalMedia,
+  readLocalMediaStore,
   rememberLocalMedia,
   type LocalMediaRecord,
 } from './local-store';
@@ -177,6 +178,9 @@ export function useLocalMedia() {
   return useQuery({
     queryKey: mediaKeys.local,
     queryFn: loadLocalMedia,
+    // Never reloaded, so a copy restored from disk is all it has: read it by
+    // the store's own rules.
+    select: readLocalMediaStore,
     staleTime: Number.POSITIVE_INFINITY,
   });
 }

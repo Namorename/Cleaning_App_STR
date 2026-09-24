@@ -40,25 +40,32 @@ export type LocalMediaStore = Record<string, LocalMediaRecord>;
 export async function loadLocalMedia(): Promise<LocalMediaStore> {
   try {
     const raw = await AsyncStorage.getItem(STORE_KEY);
-    if (raw === null) {
-      return {};
-    }
-    const parsed = storeSchema.safeParse(JSON.parse(raw));
-    if (!parsed.success) {
-      return {};
-    }
-    // A capture the old build measured before it had finished moving was
-    // remembered as zero bytes, and the server refuses such a row every time:
-    // the retry button on the step screen could only ever fail again. The
-    // record is dropped instead of kept, so she is offered a fresh shot rather
-    // than a loop. Nothing recoverable is lost — the size is exactly what this
-    // record failed to learn.
-    return Object.fromEntries(
-      Object.entries(parsed.data).filter(([, record]) => record.byteSize > 0),
-    );
+    return raw === null ? {} : readLocalMediaStore(JSON.parse(raw));
   } catch {
     return {};
   }
+}
+
+/**
+ * The ledger read by the store's rules, wherever it comes from: its own key,
+ * or the query cache's copy restored from disk, which the query never reloads
+ * (its staleTime is infinite) and zod never saw.
+ *
+ * A capture the old build measured before it had finished moving was
+ * remembered as zero bytes, and the server refuses such a row every time: the
+ * retry button on the step screen could only ever fail again. The record is
+ * dropped instead of kept, so she is offered a fresh shot rather than a loop.
+ * Nothing recoverable is lost — the size is exactly what this record failed to
+ * learn. Unreadable reads as empty, as the store has always treated it.
+ */
+export function readLocalMediaStore(data: unknown): LocalMediaStore {
+  const parsed = storeSchema.safeParse(data);
+  if (!parsed.success) {
+    return {};
+  }
+  return Object.fromEntries(
+    Object.entries(parsed.data).filter(([, record]) => record.byteSize > 0),
+  );
 }
 
 async function saveLocalMedia(store: LocalMediaStore): Promise<void> {
