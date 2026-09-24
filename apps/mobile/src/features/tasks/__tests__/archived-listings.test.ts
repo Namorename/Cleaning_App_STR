@@ -12,8 +12,11 @@
  *
  * Archiving cancels the cleanings and stay-over cleanings nobody has started
  * (`set_property_status`, 20260924170000_archive_cancels_midstay.sql). An
- * inspection or a repair on an archived flat stays in her list until the
- * nightly sweep expires it.
+ * inspection or a repair on an archived flat is not cancelled: an inspection,
+ * or a repair written by hand, stays in her list until the nightly sweep
+ * expires it; a repair raised from a problem is never swept
+ * (20260923130000_problem_mirror_current_attempt.sql) and stays until it is
+ * done or cancelled.
  */
 
 interface Recorded {

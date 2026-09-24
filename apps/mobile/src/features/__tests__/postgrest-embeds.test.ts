@@ -6,8 +6,13 @@ import { fetchHostSettings } from '@/features/host/api';
 import { fetchProblemMedia, fetchTaskMedia } from '@/features/media/api';
 import { fetchReportProperties } from '@/features/properties/api';
 import { fetchMyProblems, fetchProblem } from '@/features/problems/api';
+import { fetchMyLanguage } from '@/features/profile/api';
 import { fetchTaskSteps } from '@/features/steps/api';
-import { fetchMySupplyRequests, fetchSupplyRequest } from '@/features/supplies/api';
+import {
+  fetchMySupplyRequests,
+  fetchSupplyCatalog,
+  fetchSupplyRequest,
+} from '@/features/supplies/api';
 import { fetchFreeTasks, fetchMyTasks, fetchTask } from '@/features/tasks/api';
 
 import {
@@ -99,6 +104,8 @@ const READERS: readonly (() => Promise<unknown>)[] = [
   () => fetchHostSettings(),
   () => fetchMessages(ANY_ID),
   () => fetchReportProperties(),
+  () => fetchMyLanguage(ANY_ID),
+  () => fetchSupplyCatalog(),
 ];
 
 const schema = indexSchema(
