@@ -40,7 +40,8 @@ where id = 'd2500004-0000-4000-8000-0000000000d4';
 
 insert into public.properties (id, host_id, name, timezone) values
   (900002501, default, 'Flat with an owner', 'UTC'),
-  (900002502, 'b2500000-0000-4000-8000-00000000000b', 'Flat of host B', 'UTC');
+  (900002502, 'b2500000-0000-4000-8000-00000000000b', 'Flat of host B', 'UTC'),
+  (900002503, default, 'Flat without a note', 'UTC');
 
 -- Maria cleans this flat and the technician repairs in it: the two people
 -- closest to it, and the two the note must still never reach.
@@ -72,6 +73,15 @@ begin
 exception when others then
   return SQLSTATE;
 end $fn$;
+
+-- A plain insert, as a POST without upsert would send it: this is what the
+-- policy's WITH CHECK decides alone. An upsert onto an existing note is
+-- refused earlier, by USING on the conflicting row.
+create or replace function pg_temp.insert_state(p bigint) returns text language sql as $fn$
+  select pg_temp.refusal_state(format(
+    'insert into public.property_internal_notes (property_id, notes) values (%s, %L)',
+    p, 'slipped in'))
+$fn$;
 
 -- What the panel sends: property_id and the text, never the company. The
 -- company comes from the column default — the writer's own.
@@ -116,6 +126,8 @@ select pg_temp.check('the cleaner of the flat does not see the note',
   (select count(*)::int from public.property_internal_notes), 0);
 select pg_temp.check('and cannot write one',
   pg_temp.refusal_state($$select pg_temp.upsert_note(900002501, 'I was here')$$), '42501');
+select pg_temp.check('not even on a flat that has none yet',
+  pg_temp.insert_state(900002503), '42501');
 
 update public.property_internal_notes set notes = 'overwritten' where property_id = 900002501;
 delete from public.property_internal_notes where property_id = 900002501;
@@ -123,10 +135,14 @@ delete from public.property_internal_notes where property_id = 900002501;
 select pg_temp.as_user('d2500002-0000-4000-8000-0000000000d2');
 select pg_temp.check('the technician repairing it does not see the note',
   (select count(*)::int from public.property_internal_notes), 0);
+select pg_temp.check('and cannot write one',
+  pg_temp.insert_state(900002503), '42501');
 
 select pg_temp.as_user('d2500004-0000-4000-8000-0000000000d4');
 select pg_temp.check('a deactivated manager does not see it',
   (select count(*)::int from public.property_internal_notes), 0);
+select pg_temp.check('nor write one',
+  pg_temp.insert_state(900002503), '42501');
 
 select pg_temp.as_user('d2500003-0000-4000-8000-0000000000d3');
 select pg_temp.check('and nothing the others tried reached the note',

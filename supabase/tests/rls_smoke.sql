@@ -192,7 +192,19 @@ select pg_temp.check('a deactivated user does NOT see her tasks',
   (select count(*)::int from public.tasks where property_id between 900000001 and 900000999), 0);
 select pg_temp.check('a deactivated user does NOT see properties',
   (select count(*)::int from public.properties where id between 900000001 and 900000999), 0);
+
+-- She can still sign in: deactivation does not ban the login. For her
+-- is_manager() used to be NULL, not false, and the privilege guard's
+-- `if not is_manager()` skipped on NULL — one PATCH of her own profile made
+-- her an active manager again (preflight of window 3, 2026-09-25).
+update public.profiles set is_active = true, role = 'manager'
+  where id = '11111111-1111-1111-1111-111111111111';
 reset role; reset request.jwt.claims;
+select pg_temp.check('a deactivated user can NOT switch herself back on',
+  (select is_active from public.profiles where id = '11111111-1111-1111-1111-111111111111'), false);
+select pg_temp.check('nor make herself a manager',
+  (select role::text from public.profiles where id = '11111111-1111-1111-1111-111111111111'),
+  'cleaner');
 update public.profiles set is_active=false where id='33333333-3333-3333-3333-333333333333';
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
@@ -292,7 +304,13 @@ values
    '{"full_name":"Technician without repairs"}'::jsonb, '{"role":"tech"}'::jsonb),
   ('e3000009-0000-4000-8000-0000000000e9','00000000-0000-0000-0000-000000000000',
    'authenticated','authenticated','boss.w3@test.local','x',now(),now(),
-   '{"full_name":"Boss"}'::jsonb, '{"role":"manager"}'::jsonb);
+   '{"full_name":"Boss"}'::jsonb, '{"role":"manager"}'::jsonb),
+  ('e300000a-0000-4000-8000-0000000000ea','00000000-0000-0000-0000-000000000000',
+   'authenticated','authenticated','listing.tech.w3@test.local','x',now(),now(),
+   '{"full_name":"Repair on a listing"}'::jsonb, '{"role":"tech"}'::jsonb),
+  ('e300000b-0000-4000-8000-0000000000eb','00000000-0000-0000-0000-000000000000',
+   'authenticated','authenticated','combined.w3@test.local','x',now(),now(),
+   '{"full_name":"Linked to a combined listing"}'::jsonb, '{"role":"cleaner"}'::jsonb);
 
 -- Four listings with two rooms each. The ids of rooms are the derived ones
 -- (property_id_for_unit), which the schema checks.
@@ -300,7 +318,14 @@ insert into public.properties (id, name, timezone, cleaner_notes) values
   (900000011, 'Linked listing',     'Europe/Prague', null),
   (900000012, 'Room-linked listing','Europe/Prague', null),
   (900000013, 'Assigned listing',   'Europe/Prague', 'key in box 4325'),
-  (900000014, 'Reported listing',   'Europe/Prague', null);
+  (900000014, 'Reported listing',   'Europe/Prague', null),
+  (900000015, 'Combined listing',   'Europe/Prague', null);
+
+-- A part of a combined listing: a listing of its own with parent_id set and no
+-- unit number. It is not a room, and a link to the combined listing does not
+-- open it.
+insert into public.properties (id, parent_id, name, timezone) values
+  (900000016, 900000015, 'Part of combined', 'Europe/Prague');
 
 insert into public.properties (id, hostaway_unit_id, parent_id, name, timezone) values
   (1000000090011, 90011, 900000011, 'Room 11', 'Europe/Prague'),
@@ -322,7 +347,8 @@ insert into public.properties (id, host_id, hostaway_unit_id, parent_id, name, t
 
 insert into public.property_cleaners (property_id, cleaner_id, mode) values
   (900000011, 'e3000002-0000-4000-8000-0000000000e2', 'claim'),
-  (1000000090021, 'e3000003-0000-4000-8000-0000000000e3', 'claim');
+  (1000000090021, 'e3000003-0000-4000-8000-0000000000e3', 'claim'),
+  (900000015, 'e300000b-0000-4000-8000-0000000000eb', 'claim');
 -- Deliberately wrong, as in tenant_isolation.sql: a link into another company.
 insert into public.property_cleaners (host_id, property_id, cleaner_id, mode) values
   ('e3000000-0000-4000-8000-00000000000b', 900000019,
@@ -352,6 +378,11 @@ insert into public.tasks (id, property_id, type, status, assignee_id, scheduled_
   ('e3000043-0000-4000-8000-000000000043', 1000000090041, 'maintenance', 'assigned',
    'e3000007-0000-4000-8000-0000000000e7', current_date,
    'e3000041-0000-4000-8000-000000000041');
+
+-- A repair on the listing itself, not on one of its rooms.
+insert into public.tasks (id, property_id, type, status, assignee_id, scheduled_date) values
+  ('e3000044-0000-4000-8000-000000000044', 900000011, 'maintenance', 'assigned',
+   'e300000a-0000-4000-8000-0000000000ea', current_date);
 
 create or replace function pg_temp.as_user(sub text) returns void language sql as $$
   select set_config('role', 'authenticated', true),
@@ -461,6 +492,32 @@ select pg_temp.as_user('e3000008-0000-4000-8000-0000000000e8');
 select pg_temp.check('a technician without repairs sees nothing',
   pg_temp.visible_places(), '(none)');
 
+-- Only a LINK to a listing opens the rooms under it. A task on the listing
+-- itself shows the listing and nothing under it.
+select pg_temp.as_user('e300000a-0000-4000-8000-0000000000ea');
+select pg_temp.check('a repair on a listing shows the listing, not its rooms',
+  pg_temp.visible_places(), 'Linked listing');
+
+-- And only real rooms: the part of a combined listing has a calendar of its
+-- own and is not opened by a link to the combined one.
+select pg_temp.as_user('e300000b-0000-4000-8000-0000000000eb');
+select pg_temp.check('a link to a combined listing does not open its parts',
+  pg_temp.visible_places(), 'Combined listing');
+
+-- Her own company is not hers to change: current_host_id() follows the
+-- profile, and every company-scoped policy with it.
+select pg_temp.as_user('e3000001-0000-4000-8000-0000000000e1');
+update public.profiles set host_id = 'e3000000-0000-4000-8000-00000000000b'
+  where id = 'e3000001-0000-4000-8000-0000000000e1';
+select pg_temp.as_user('e3000009-0000-4000-8000-0000000000e9');
+update public.profiles set host_id = 'e3000000-0000-4000-8000-00000000000b'
+  where id = 'e3000009-0000-4000-8000-0000000000e9';
+reset role; reset request.jwt.claims;
+select pg_temp.check('a member of staff can NOT move herself to another company',
+  (select count(*)::int from public.profiles
+   where id in ('e3000001-0000-4000-8000-0000000000e1', 'e3000009-0000-4000-8000-0000000000e9')
+     and host_id = 'e3000000-0000-4000-8000-00000000000b'), 0);
+
 -- «Взять» is ONE statement: PostgREST updates and embeds in the same query,
 -- and the rule sees the tasks table as it was before the update, so the new
 -- assignee cannot be what opens the row. It is the link that has to. A test
@@ -508,8 +565,9 @@ create temp table w3_calls on commit drop as
 select pg_temp.as_user('e3000009-0000-4000-8000-0000000000e9');
 select pg_temp.check('a manager sees every property of her company',
   pg_temp.visible_places(),
-  'Assigned listing, Linked listing, Reported listing, Room 11, Room 12, Room 21, '
-  || 'Room 22, Room 31, Room 32, Room 41, Room 42, Room-linked listing');
+  'Assigned listing, Combined listing, Linked listing, Part of combined, Reported listing, '
+  || 'Room 11, Room 12, Room 21, Room 22, Room 31, Room 32, Room 41, Room 42, '
+  || 'Room-linked listing');
 
 reset role; reset request.jwt.claims;
 select pg_temp.check('and the rule was not evaluated for her',
@@ -522,6 +580,17 @@ update public.profiles set is_active = false where id = 'e3000002-0000-4000-8000
 select pg_temp.as_user('e3000002-0000-4000-8000-0000000000e2');
 select pg_temp.check('a deactivated cleaner sees none of her linked places',
   pg_temp.visible_places(), '(none)');
+-- Called directly, as PostgREST would let her, the rule gives her nothing
+-- either — not even the bare ids of the places she was tied to.
+select pg_temp.check('and the rule itself answers her with nothing',
+  (select count(*)::int from public.staff_property_ids()), 0);
+do $$
+begin
+  perform public.property_open_cleanings(900000011);
+  raise exception 'FAIL a deactivated user asked how many cleanings are open';
+exception when insufficient_privilege then
+  raise notice 'ok  a deactivated user is refused the manager''s count';
+end $$;
 reset role; reset request.jwt.claims;
 
 -- ---------- webhook payload shapes ----------

@@ -17,7 +17,9 @@
 -- write properties", so a manager's is_manager() comes first and the set is
 -- never built for her: it is an InitPlan, evaluated only when reached
 -- (rls_smoke.sql counts the calls). A name sorting above "managers..." would
--- put the rule first for every manager read.
+-- put the rule first for every manager read. For a cleaner the set is built
+-- once per read of properties, and again inside every effective_cleaner_notes
+-- call that reaches a parent (20260924140000 has the numbers).
 --
 -- host_id = current_host_id() stays in the policy: the rule has no company
 -- filter of its own, and the conjunct shared by both policies is what goes

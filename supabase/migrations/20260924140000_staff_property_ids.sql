@@ -36,8 +36,18 @@
 -- 6000 tasks), under the generic plan PostgREST runs: the assignee arm became
 -- a Seq Scan of tasks on every row, and the phone's task feed went from 40 to
 -- about 240 ms. The same rule as a set behind `id = any (array(...))` is built
--- once per statement as an InitPlan and handed to the primary key -- 65 ms,
--- the shape 20260917160000 measured for the listing card.
+-- as an InitPlan once per read of properties in a statement and handed to the
+-- primary key -- 65 ms, the shape 20260917160000 measured for the listing card.
+-- A full select of properties builds it once, the report picker twice (the
+-- row and its parent). The phone's task embed builds it 2 + R times, R being
+-- the rooms on screen with no note of their own: effective_cleaner_notes is
+-- an invoker SQL function that cannot be inlined, and its read of the parent
+-- is a query of its own under this policy (preflight, 2026-09-25: 17 builds,
+-- ~17 ms of a 100-250 ms feed with 2400 tasks of history; ROADMAP F13).
+--
+-- A deactivated caller gets an empty set: the policy already refuses her every
+-- row, and called directly as an RPC the rule should not answer her with the
+-- bare ids of the places she was once tied to either. The gate is one InitPlan.
 --
 -- Definer, search_path ''. The arms read tasks, problems and supply requests
 -- past the caller's own horizon and archive filters, and an invoker body that
@@ -80,24 +90,28 @@ as $$
     where sr.requested_by = (select auth.uid())
       and sr.property_id is not null
   )
-  select tie.id from tie
-  union
-  -- the listing above a tied row
-  select p.parent_id
-  from public.properties p
-  join tie on tie.id = p.id
-  where p.parent_id is not null
-  union
-  -- the rooms under a linked listing
-  select r.id
-  from public.properties r
-  join public.property_cleaners pc on pc.property_id = r.parent_id
-  where pc.cleaner_id = (select auth.uid())
-    and r.hostaway_unit_id is not null;
+  select s.id
+  from (
+    select tie.id from tie
+    union
+    -- the listing above a tied row
+    select p.parent_id
+    from public.properties p
+    join tie on tie.id = p.id
+    where p.parent_id is not null
+    union
+    -- the rooms under a linked listing
+    select r.id
+    from public.properties r
+    join public.property_cleaners pc on pc.property_id = r.parent_id
+    where pc.cleaner_id = (select auth.uid())
+      and r.hostaway_unit_id is not null
+  ) s
+  where (select public.is_active_user());
 $$;
 
 comment on function public.staff_property_ids() is
-  'Property ids a non-manager may read: tied (linked, assignee in any status, problem or supply author) to the row or to a room/part right under it, plus the rooms under a linked listing. The read policy of properties for staff. docs/window3-plan.md.';
+  'Property ids an active non-manager may read: tied (linked, assignee in any status, problem or supply author) to the row or to a room/part right under it, plus the rooms under a linked listing. Empty for a deactivated caller. The read policy of properties for staff. docs/window3-plan.md.';
 
 revoke all on function public.staff_property_ids() from public, anon;
 grant execute on function public.staff_property_ids() to authenticated, service_role;
@@ -113,4 +127,4 @@ create index tasks_assignee_property_idx
 -- of staff read every listing (20260917150000); it stays right because the
 -- listing above any row she reads is now hers to read by the rule itself.
 comment on function public.effective_cleaner_notes(public.properties) is
-  'The note for the cleaner at the door: the row''s own, else the listing above it. Invoker: the parent is read under the caller''s policy, which since window 3 always admits the listing above a row she reads (staff_property_ids).';
+  'The note for the cleaner at the door: the row''s own, else the listing above it. Invoker: the parent is read under the caller''s policy, which since window 3 always admits the listing above a row she reads (staff_property_ids). Each call that reaches the parent is a query of its own, so for a cleaner it builds that set again.';

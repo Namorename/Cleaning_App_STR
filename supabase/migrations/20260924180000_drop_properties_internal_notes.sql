@@ -17,9 +17,15 @@
 -- one; if the refusal fires anyway, nothing is lost -- the column is still
 -- there -- and the ids in the message say which properties to settle by hand.
 --
--- LOCKS. drop column takes ACCESS EXCLUSIVE on public.properties, which every
--- task feed embeds; the drop itself is a catalog change and takes
--- milliseconds.
+-- LOCKS. The table is held still from the check to the drop: a plain SELECT
+-- takes only ACCESS SHARE, and an old-panel save that committed between the
+-- check and the drop would go with the column (preflight, 2026-09-25, seen
+-- with a two-session race). The lock is taken inside the do-block because the
+-- CLI sends a migration as one pipelined transaction in which a top-level
+-- LOCK TABLE is refused ("can only be used in transaction blocks"); inside
+-- plpgsql it is not top level, and it holds until the file commits. drop
+-- column then needs no upgrade. The scan is ~110 rows, milliseconds, under the
+-- same lock_timeout.
 
 set local lock_timeout = '3s';
 
@@ -27,6 +33,8 @@ do $$
 declare
   v_ids text;
 begin
+  lock table public.properties in access exclusive mode;
+
   select string_agg(p.id::text, ', ' order by p.id)
   into v_ids
   from public.properties p
