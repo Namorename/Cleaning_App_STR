@@ -24,6 +24,20 @@
 -- evidence of a step, and the office attaches from a browser that has no
 -- camera at all -- with the switch off by default, enforcing it would have
 -- shut the panel out. `source` is still recorded as the declaration it is.
+--
+-- LOCKS. Adding message_id with its foreign key and swapping the owner check
+-- take ACCESS EXCLUSIVE on public.task_media and SHARE ROW EXCLUSIVE on
+-- public.chat_messages until this file commits. The work itself takes
+-- milliseconds, but nothing else bounds the wait for the locks, and every
+-- later read of task_media -- the step media each task screen loads -- queues
+-- behind a waiting ACCESS EXCLUSIVE. lock_timeout makes a busy table fail the
+-- push instead. 3s, not the 5s of 20260923130000: the two locks are taken one
+-- after the other, so a read queued behind this file may wait up to twice the
+-- timeout, and 2 x 3s stays under the 8s statement_timeout of authenticated
+-- and authenticator. If it fires, no file of window 2 is applied and the push
+-- is repeated as it is.
+
+set local lock_timeout = '3s';
 
 alter table public.task_media
   add column message_id uuid references public.chat_messages(id) on delete cascade;

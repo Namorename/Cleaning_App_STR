@@ -743,7 +743,7 @@ select pg_temp.check('another company sees no photos',
     where message_id = '17000001-0000-4000-8000-000000000002'), 0);
 
 -- The name of the chat policy buys the order of the branches, and nothing in
--- Postgres promises it (see 20260918180000_chat_media.sql). Permissive
+-- Postgres promises it (see 20260924100000_chat_media.sql). Permissive
 -- policies are folded into one OR whose branches come out ordered by policy
 -- name, descending, so "chat message ..." sits behind "managers read all task
 -- media" and a manager reading a thread stops at the cheap branch instead of
@@ -864,8 +864,36 @@ select pg_temp.check('a photo in the inbox older than the retention period is du
   (select count(*)::int from public.task_media_to_purge(100)
     where id = '27000001-0000-4000-8000-000000000032'), 1);
 
+-- A problem thread ages with the problem, and the problem's status and
+-- resolved_at are the mirror's to write (20260923130000): close the current
+-- attempt and let the trigger resolve it, rather than writing the problem.
+-- The photo is confirmed by hand so that the upload window stays out of it.
+select pg_temp.as_anna();
+select public.send_message('17000001-0000-4000-8000-000000000033', '',
+                           null, 'f7000001-0000-4000-8000-000000000001', null, 1::smallint);
+select public.add_message_media('27000001-0000-4000-8000-000000000033',
+  '17000001-0000-4000-8000-000000000033', 'image/jpeg', 400000);
+reset role; reset request.jwt.claims;
+update public.task_media set uploaded_at = now()
+where id = '27000001-0000-4000-8000-000000000033';
+update public.tasks set status = 'done', completed_at = now()
+where id = 'e7000001-0000-4000-8000-000000000006';
+select pg_temp.check('closing the current attempt resolves the problem',
+  (select status::text || ':' || (resolved_at is not null)::text from public.problems
+    where id = 'f7000001-0000-4000-8000-000000000001'), 'resolved:true');
+update public.problems set resolved_at = now() - interval '91 days'
+where id = 'f7000001-0000-4000-8000-000000000001';
+select pg_temp.check('a fresh photo in a long-resolved problem''s thread is kept',
+  (select count(*)::int from public.task_media_to_purge(100)
+    where id = '27000001-0000-4000-8000-000000000033'), 0);
+update public.chat_messages set created_at = now() - interval '91 days'
+where id = '17000001-0000-4000-8000-000000000033';
+select pg_temp.check('at 91 days on both clocks a problem thread''s photo is due',
+  (select count(*)::int from public.task_media_to_purge(100)
+    where id = '27000001-0000-4000-8000-000000000033'), 1);
+
 -- ---------------------------------------------------------------------------
---  Two calls with one id at the same moment (20260918190000)
+--  Two calls with one id at the same moment (20260924110000)
 -- ---------------------------------------------------------------------------
 -- One session cannot make two calls at once, so the other call is played by a
 -- trigger: between the RPC's lookup (which misses) and its insert, the trigger
@@ -933,7 +961,7 @@ drop trigger race_send on public.chat_messages;
 drop trigger race_media on public.task_media;
 
 -- ---------------------------------------------------------------------------
---  A photo that never arrived expires (20260918200000)
+--  A photo that never arrived expires (20260924120000)
 -- ---------------------------------------------------------------------------
 select pg_temp.as_boss();
 -- In Bara's inbox: task ...01 was closed 91 days ago above, and its thread's
@@ -992,6 +1020,19 @@ values ('27000002-0000-4000-8000-000000000001', 'c7000000-0000-4000-8000-0000000
 select pg_temp.check('a step photo of 30 hours without a file is not swept',
   (select count(*)::int from public.task_media_to_purge(100)
     where id = '27000002-0000-4000-8000-000000000001'), 0);
+-- Nor is a problem's own photo: the window is keyed on message_id, not on the
+-- absence of a step. Bara's problem is still open.
+insert into public.task_media (id, host_id, problem_id, kind, storage_path,
+                               mime_type, byte_size, created_by, created_at)
+values ('27000002-0000-4000-8000-000000000002', 'c7000000-0000-4000-8000-00000000000c',
+        'f7000001-0000-4000-8000-000000000002', 'photo',
+        'c7000000-0000-4000-8000-00000000000c/problems/f7000001-0000-4000-8000-000000000002/'
+          || '27000002-0000-4000-8000-000000000002.jpg',
+        'image/jpeg', 400000, 'c7000003-0000-4000-8000-000000000003',
+        now() - interval '30 hours');
+select pg_temp.check('a problem photo of 30 hours without a file is not swept',
+  (select count(*)::int from public.task_media_to_purge(100)
+    where id = '27000002-0000-4000-8000-000000000002'), 0);
 
 -- The sweep has marked it. Every link of the sender's chain now answers the
 -- same word, and taking the photo back is what remains.

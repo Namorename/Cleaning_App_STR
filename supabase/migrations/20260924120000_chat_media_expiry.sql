@@ -31,7 +31,7 @@ grant execute on function public.chat_media_upload_window() to authenticated, se
 -- ---------- retention: the fourth branch ----------
 
 /**
- * Changed from 20260918180000: a photo of a message whose file has not
+ * Changed from 20260924100000: a photo of a message whose file has not
  * arrived within chat_media_upload_window() is due as well. Only a message's
  * photo: a step's row without a file waits for the step's task to close, as
  * before -- the cleaner is still on the spot and may well finish the upload.
@@ -79,7 +79,7 @@ $$;
 -- ---------- registering: a replay of an expired row is told so ----------
 
 /**
- * Changed from 20260918190000: the replay of a row the purge has already
+ * Changed from 20260924110000: the replay of a row the purge has already
  * marked answers messageMediaExpired instead of handing back a row whose
  * path the bucket will refuse. Otherwise as before.
  */

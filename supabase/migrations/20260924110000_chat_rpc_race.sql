@@ -16,7 +16,7 @@
 -- task_media_written_meanwhile: that helper shipped before the chat and
 -- knows only steps and problems.
 --
--- The bodies below are those of 20260918180000 (add_message_media) and
+-- The bodies below are those of 20260924100000 (add_message_media) and
 -- 20260918120000 (send_message); only the insert and the tail after it change.
 
 /**
