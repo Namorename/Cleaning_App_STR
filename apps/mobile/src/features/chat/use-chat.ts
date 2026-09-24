@@ -9,6 +9,7 @@ import {
 import { useMemo } from 'react';
 
 import { useSession } from '@/features/auth/session';
+import { readCached } from '@/lib/read-cached';
 
 import {
   fetchMessages,
@@ -74,19 +75,11 @@ export function useThread(subject: ChatSubject | null) {
  * build comes back in the shape that build read: the OTA that added photos
  * found threads without `task_media` and the chat screen closed the app.
  * Read like any outside input, the old shape gains what it lacks, and a shape
- * that cannot be read becomes a query error the screen shows — in one short
- * line, not zod's whole report, which would push the box off the screen.
+ * that cannot be read becomes a short query error the screen shows.
  * Module-level so the query runs it only when the data changes.
  */
 function readMessages(data: unknown): ChatMessage[] {
-  const parsed = chatMessageListSchema.safeParse(data);
-  if (parsed.success) {
-    return parsed.data;
-  }
-  const [issue] = parsed.error.issues;
-  throw new Error(
-    `Cached chat messages unreadable at ${issue?.path.join('.') ?? '?'}: ${issue?.message ?? 'unknown'}`,
-  );
+  return readCached(chatMessageListSchema, data, 'chat messages');
 }
 
 /**

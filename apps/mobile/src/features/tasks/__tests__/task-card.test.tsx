@@ -26,6 +26,9 @@ function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
     completed_at: null,
     is_parallel: false,
     type: 'cleaning',
+    notes: null,
+    title: null,
+    title_i18n: {},
     ...overrides,
   };
 }
@@ -34,6 +37,19 @@ test('shows the listing name the cleaner would recognise', async () => {
   await render(<TaskCard task={task()} />);
 
   expect(screen.getByText('CZ - Nadrazni Apt 6')).toBeTruthy();
+});
+
+test('an inspection and a midstay say what kind of job they are, not that nobody checks in', async () => {
+  // Arrange / Act
+  await render(<TaskCard task={task({ type: 'inspection' })} onPress={jest.fn()} />);
+
+  // Assert: on the card and in what the reader hears.
+  expect(screen.getByText('Осмотр')).toBeTruthy();
+  expect(screen.queryByText('Заезда нет')).toBeNull();
+  expect(screen.getByRole('button', { name: /Осмотр/ })).toBeTruthy();
+
+  await render(<TaskCard task={task({ type: 'midstay' })} />);
+  expect(screen.getByText('Уборка в проживание')).toBeTruthy();
 });
 
 test('names the building first and the room under it', async () => {

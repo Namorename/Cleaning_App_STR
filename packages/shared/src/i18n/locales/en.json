@@ -754,6 +754,10 @@
       "checkInSameDay": "Check-in that day",
       "noCheckIn": "No check-in"
     },
+    "kinds": {
+      "inspection": "Inspection",
+      "midstay": "Mid-stay cleaning"
+    },
     "detail": {
       "window": "Cleaning window",
       "guests": "Guests arriving",

@@ -81,6 +81,18 @@ export function TaskDetail({
     steps !== undefined &&
     steps.length > 0 &&
     (task.status === 'in_progress' || task.status === 'done');
+  // The office's words on this job, unless the step list on screen already
+  // carries the same words as a step to tick off. The step froze them at the
+  // start; if the office has rewritten them since, the current ones show here
+  // too. An inspection or a midstay without a process never gets that step.
+  const noteText = task.notes?.trim() ?? '';
+  const isNoteOnScreenAsStep =
+    showSteps &&
+    (steps?.some(
+      (step) => step.type === 'task_note' && (step.instructions ?? '').trim() === noteText,
+    ) ??
+      false);
+  const taskNote = noteText !== '' && !isNoteOnScreenAsStep ? task.notes : null;
   const remaining = steps === undefined ? 0 : remainingRequired(steps);
   const failure = error === null ? null : serverErrorText(error);
   const isFinishBlocked = action === 'finish' && remaining > 0;
@@ -181,6 +193,14 @@ export function TaskDetail({
         <View style={styles.notes}>
           <Text style={styles.notesLabel}>{t('tasks.detail.notes')}</Text>
           <Text style={styles.notesText}>{notes}</Text>
+        </View>
+      ) : null}
+
+      {taskNote !== null ? (
+        <View style={styles.notes}>
+          {/* Named as the step that carries the same words once she starts. */}
+          <Text style={styles.notesLabel}>{t('steps.types.task_note')}</Text>
+          <Text style={styles.notesText}>{taskNote}</Text>
         </View>
       ) : null}
 

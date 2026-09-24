@@ -40,6 +40,9 @@ function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
     completed_at: null,
     is_parallel: false,
     type: 'cleaning',
+    notes: null,
+    title: null,
+    title_i18n: {},
     ...overrides,
   };
 }
@@ -91,6 +94,27 @@ describe('urgencyText', () => {
 
   test('says plainly that nobody is arriving', () => {
     expect(urgencyText(task({ priority: 0, due_at: null }))).toBe('Заезда нет');
+  });
+
+  test('an inspection or a midstay names its kind: no check-in is what it is about', () => {
+    // A midstay's guest is in the flat; an inspection has nobody to wait for.
+    expect(urgencyText(task({ type: 'inspection' }))).toBe('Осмотр');
+    expect(urgencyText(task({ type: 'midstay', priority: 1 }))).toBe('Уборка в проживание');
+    expect(urgencyText(task({ type: 'maintenance' }))).toBe('Заезда нет');
+  });
+
+  test('names an inspection or a midstay by the title the office gave it, as the panel does', () => {
+    expect(urgencyText(task({ type: 'inspection', title: 'Проверить протечку' }))).toBe(
+      'Проверить протечку',
+    );
+    // In her language when the office translated it.
+    expect(
+      urgencyText(
+        task({ type: 'midstay', title: 'Fresh towels', title_i18n: { ru: 'Свежие полотенца' } }),
+      ),
+    ).toBe('Свежие полотенца');
+    // A blank title is no title.
+    expect(urgencyText(task({ type: 'inspection', title: '   ' }))).toBe('Осмотр');
   });
 });
 

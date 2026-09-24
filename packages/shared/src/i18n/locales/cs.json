@@ -754,6 +754,10 @@
       "checkInSameDay": "Ten den je příjezd",
       "noCheckIn": "Bez příjezdu"
     },
+    "kinds": {
+      "inspection": "Kontrola",
+      "midstay": "Úklid během pobytu"
+    },
     "detail": {
       "window": "Okno úklidu",
       "guests": "Přijíždí hostů",

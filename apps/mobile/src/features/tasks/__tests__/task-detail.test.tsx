@@ -32,6 +32,9 @@ function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
     completed_at: null,
     is_parallel: false,
     type: 'cleaning',
+    notes: null,
+    title: null,
+    title_i18n: {},
     ...overrides,
   };
 }
@@ -52,6 +55,37 @@ test('shows what the cleaner needs to plan by: window, guests, notes', async () 
   expect(screen.getByText(/10:00–15:00/)).toBeTruthy();
   expect(screen.getByText('4')).toBeTruthy();
   expect(screen.getByText('Ключ в ящике 4325')).toBeTruthy();
+});
+
+test("shows the office's note on the job before it starts, apart from the listing's", async () => {
+  // Arrange: an inspection or a midstay may have no process to carry the note.
+  const inspection = task({ type: 'inspection', notes: 'Проверить бойлер' });
+
+  // Act
+  await render(
+    <TaskDetail task={inspection} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />,
+  );
+
+  // Assert
+  expect(screen.getByText('Указания к заданию')).toBeTruthy();
+  expect(screen.getByText('Проверить бойлер')).toBeTruthy();
+  expect(screen.getByText('Ключ в ящике 4325')).toBeTruthy();
+});
+
+test('an inspection says what kind of job it is where a cleaning names the check-in', async () => {
+  await render(
+    <TaskDetail
+      task={task({ type: 'inspection' })}
+      userId={ME}
+      now={NOW}
+      isBusy={false}
+      error={null}
+      {...actions}
+    />,
+  );
+
+  expect(screen.getByText('Осмотр')).toBeTruthy();
+  expect(screen.queryByText('Заезда нет')).toBeNull();
 });
 
 test('says which house, which room in it, and the street to drive to', async () => {
@@ -307,6 +341,70 @@ describe('the process', () => {
     await fireEvent.press(screen.getByRole('button', { name: /Финальная проверка/ }));
 
     expect(onOpenStep).toHaveBeenCalledWith('b1c2d3e4-1111-4111-8111-b1c2d3e40001');
+  });
+
+  test("once started, the office's note lives in its step and is not repeated above", async () => {
+    // Arrange: the server copied the note into a step to tick off.
+    const withNote = { ...running, notes: 'Проверить бойлер' };
+
+    // Act
+    await render(
+      <TaskDetail
+        task={withNote}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        steps={[
+          step({ type: 'task_note', title: 'Заметка менеджера', instructions: 'Проверить бойлер' }),
+        ]}
+        {...actions}
+      />,
+    );
+
+    // Assert
+    expect(screen.queryByText('Указания к заданию')).toBeNull();
+    expect(screen.queryByText('Проверить бойлер')).toBeNull();
+  });
+
+  /** Renders the task with its steps and says whether the note block is on screen. */
+  async function noteShownWith(
+    overrides: Partial<CleaningTask>,
+    steps: readonly TaskStep[],
+  ): Promise<boolean> {
+    await render(
+      <TaskDetail
+        task={{ ...running, notes: 'Проверить бойлер', ...overrides }}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        steps={steps}
+        {...actions}
+      />,
+    );
+    return screen.queryByText('Указания к заданию') !== null;
+  }
+
+  test('the note stays when the process has no note step, or none has loaded', async () => {
+    // Not started: the steps are copied at the start, so there are none yet.
+    expect(await noteShownWith({ status: 'assigned', started_at: null }, [])).toBe(true);
+    // Under way with a process that carries no note, e.g. an inspection's.
+    expect(await noteShownWith({}, [step()])).toBe(true);
+  });
+
+  test('a note the office changed after the start is shown, not hidden behind the old step', async () => {
+    // The step froze the words at the start; the office has rewritten them since.
+    const frozen = step({ type: 'task_note', instructions: 'Проверить бойлер' });
+
+    expect(await noteShownWith({ notes: 'Проверить бойлер, полить цветы' }, [frozen])).toBe(true);
+  });
+
+  test('the note stays while the step list is not on screen, even if its step has loaded', async () => {
+    // Steps can arrive before the task's own refresh says it has started.
+    const noteStep = step({ type: 'task_note', instructions: 'Проверить бойлер' });
+
+    expect(await noteShownWith({ status: 'assigned', started_at: null }, [noteStep])).toBe(true);
   });
 
   test('holds the finish while a required step is open, and says how many', async () => {

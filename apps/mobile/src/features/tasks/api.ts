@@ -1,4 +1,4 @@
-import type { TaskStatus } from '@str-ops/shared';
+import { Constants, type TaskStatus, type TaskType } from '@str-ops/shared';
 
 import { i18n } from '@/i18n';
 import { supabase } from '@/lib/supabase';
@@ -43,11 +43,20 @@ import { cleaningTaskListSchema, earliestClaimableDate, type CleaningTask } from
 const TASK_COLUMNS =
   'id, type, status, priority, scheduled_date, due_at, assignee_id, property_id, ' +
   'time_from, time_to, guests_count, started_at, completed_at, is_parallel, ' +
+  'notes, title, title_i18n, ' +
   'property:properties(name, address, hostaway_unit_id, effective_cleaner_notes, parent:parent_id(name)), ' +
   'problem:problem_id(id, title, priority)';
 
-// A technician's day is maintenance; a cleaner's is cleaning. Both are "mine".
-const MY_TASK_TYPES = ['cleaning', 'maintenance'] as const;
+// Whatever the office assigned to her is hers to see: a technician's
+// maintenance, a cleaner's cleaning, and the inspections and mid-stay
+// cleanings the panel creates. A kind left out here never reached her, and the
+// nightly sweep closed it as expired.
+const MY_TASK_TYPES = Constants.public.Enums.task_type;
+
+// What anyone may take for herself. A mid-stay cleaning is a cleaning; an
+// inspection is given by the office, never picked from the pool (owner's
+// decision, 2026-09-24).
+const FREE_TASK_TYPES = ['cleaning', 'midstay'] as const satisfies readonly TaskType[];
 
 // `satisfies` ties the list to the database enum: a status renamed in a
 // migration becomes a type error here instead of a filter that silently
@@ -104,7 +113,7 @@ export async function fetchFreeTasks(): Promise<CleaningTask[]> {
   const { data, error } = await supabase
     .from('tasks')
     .select(TASK_COLUMNS)
-    .eq('type', 'cleaning')
+    .in('type', FREE_TASK_TYPES)
     .eq('status', 'unassigned')
     .is('assignee_id', null)
     .gte('scheduled_date', earliestClaimableDate())

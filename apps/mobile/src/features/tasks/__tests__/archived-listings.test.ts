@@ -9,6 +9,10 @@
  * So the guarantee the app rests on is one line: `cancelled` is not an open
  * status. If it is ever added to that list, an archived flat starts appearing
  * in cleaners' schedules again — and this suite fails first.
+ *
+ * Archiving cancels cleanings only (`set_property_status`,
+ * 20260912120000_property_units.sql). An inspection or a midstay on an
+ * archived flat stays in her list until the nightly sweep expires it.
  */
 
 interface Recorded {
@@ -90,6 +94,28 @@ test('and the open pool does not offer one either', async () => {
   const statuses = statusFilter();
   expect(statuses).not.toContain('cancelled');
   expect(statuses).toContain('unassigned');
+});
+
+/** The kinds a reader asked for, sorted: the order of an `in` list means nothing. */
+const askedKinds = () => {
+  const filter = calls.flatMap((call) => call.filters).find((f) => f.startsWith('in:type='));
+  return filter === undefined
+    ? null
+    : (JSON.parse(filter.slice('in:type='.length)) as string[]).sort();
+};
+
+test('her own list holds every kind the office can give her', async () => {
+  await fetchMyTasks(CLEANER);
+
+  // Filtered out, an inspection or a midstay assigned to her never reached her
+  // and the nightly sweep closed it as expired.
+  expect(askedKinds()).toEqual(['cleaning', 'inspection', 'maintenance', 'midstay']);
+});
+
+test('the open pool offers cleanings and midstays; an inspection goes by assignment only', async () => {
+  await fetchFreeTasks();
+
+  expect(askedKinds()).toEqual(['cleaning', 'midstay']);
 });
 
 test('the phone asks for tasks, never for a list of listings', async () => {

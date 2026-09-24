@@ -754,6 +754,10 @@
       "checkInSameDay": "В этот день заезд",
       "noCheckIn": "Заезда нет"
     },
+    "kinds": {
+      "inspection": "Осмотр",
+      "midstay": "Уборка в проживание"
+    },
     "detail": {
       "window": "Окно уборки",
       "guests": "Гостей заезжает",

@@ -1,5 +1,6 @@
 import { propertyPath, splitPlace } from '@str-ops/shared';
 
+import { localizedText } from '@/features/steps/schema';
 import { INTL_LOCALES, currentLanguage, i18n } from '@/i18n';
 
 import { isSameDayTurnover, startNotBefore, type CleaningTask } from './schema';
@@ -55,14 +56,28 @@ export function formatDeadlineTime(task: CleaningTask): string | null {
   );
 }
 
+/** Kinds whose banner names the job rather than a check-in: nobody arrives for them. */
+const KINDS_NAMED_ON_BANNER: ReadonlySet<CleaningTask['type']> = new Set(['inspection', 'midstay']);
+
 /**
  * Why this cleaning matters, in as few words as it takes.
  *
  * Priority 1 has exactly one meaning in this system — the next guest arrives
  * the same day — and the time is the only thing the cleaner has to plan
  * around, so the line is the time and the reason and nothing else.
+ *
+ * An inspection or a mid-stay cleaning has no check-in to plan around — a
+ * midstay's guest is in the flat — so the line says what the job is: the
+ * title the office gave it, in her language when translated, or else its kind.
+ * The panel names these jobs the same way.
  */
 export function urgencyText(task: CleaningTask): string {
+  if (KINDS_NAMED_ON_BANNER.has(task.type)) {
+    const title = task.title?.trim() ?? '';
+    return title !== ''
+      ? localizedText(title, task.title_i18n, currentLanguage())
+      : i18n.t(`tasks.kinds.${task.type}`);
+  }
   if (!isSameDayTurnover(task)) {
     return i18n.t('tasks.urgency.noCheckIn');
   }

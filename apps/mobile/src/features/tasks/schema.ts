@@ -1,3 +1,4 @@
+import { Constants } from '@str-ops/shared';
 import { z } from 'zod';
 
 /**
@@ -52,8 +53,22 @@ export const cleaningTaskSchema = z.object({
   // seconds ("10:00:00"); it is kept as it comes and trimmed for display.
   time_from: z.string().nullable(),
   time_to: z.string().nullable(),
-  // Defaulted so a row cached before F9 still parses.
-  type: z.enum(['cleaning', 'maintenance', 'inspection']).default('cleaning'),
+  // Every kind the office can create, straight from the database enum: a kind
+  // missing here failed the whole list and blanked her day. Defaulted for a
+  // row cached before F9 — the readers run cached rows through this schema.
+  type: z.enum(Constants.public.Enums.task_type).default('cleaning'),
+  // The office's words on this job — on a fix, the report's description. A
+  // process with a task-note step carries them as a step once the task starts;
+  // before that, and on an inspection or a midstay without a process, this is
+  // the only way they reach her. Defaulted for a row cached before the column
+  // was asked for.
+  notes: z.string().nullable().default(null),
+  // What the office called the job, in the company's language, with its
+  // translations. Set on work made by hand in the panel; the panel names the
+  // job by it and falls back to the kind, and so does the phone. Defaulted for
+  // a row cached before the columns were asked for.
+  title: z.string().nullable().default(null),
+  title_i18n: z.record(z.string(), z.string()).catch({}).default({}),
   // Set on a maintenance task: the report it fixes.
   problem: z
     .object({

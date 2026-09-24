@@ -9,6 +9,30 @@ import {
   type CleaningTask,
 } from '../schema';
 
+describe('cleaningTaskSchema — the kinds the office creates, and its note', () => {
+  /** A row as the server sends it, without the note column an older select left out. */
+  function rowWithoutNote(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      ...Object.fromEntries(Object.entries(task()).filter(([key]) => key !== 'notes')),
+      ...overrides,
+    };
+  }
+
+  test('reads a midstay and an inspection, not only cleanings', () => {
+    expect(cleaningTaskSchema.parse(rowWithoutNote({ type: 'midstay' })).type).toBe('midstay');
+    expect(cleaningTaskSchema.parse(rowWithoutNote({ type: 'inspection' })).type).toBe(
+      'inspection',
+    );
+  });
+
+  test('keeps the note the office wrote, and a row read before the note came has none', () => {
+    expect(cleaningTaskSchema.parse(rowWithoutNote({ notes: 'Полить цветы' })).notes).toBe(
+      'Полить цветы',
+    );
+    expect(cleaningTaskSchema.parse(rowWithoutNote()).notes).toBeNull();
+  });
+});
+
 describe('canStartNow', () => {
   test('opens at the window start on the scheduled day, in local time', () => {
     // Arrange
@@ -143,6 +167,9 @@ function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
     completed_at: null,
     is_parallel: false,
     type: 'cleaning',
+    notes: null,
+    title: null,
+    title_i18n: {},
     ...overrides,
   };
 }
