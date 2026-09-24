@@ -147,10 +147,16 @@ select pg_temp.check('a further run reports no changes',
 select pg_temp.check('a task records who actually finished it',
   (pg_temp.task(900001001)).completed_by, null::uuid);
 
-select pg_temp.check('a listing carries notes for the cleaner and notes for the office',
+-- The office's note moved to a table of its own in window 3: a column on
+-- the property row reached every cleaner who could read the row.
+select pg_temp.check('a listing carries notes for the cleaner, and not the office''s',
   (select count(*)::int from information_schema.columns
    where table_schema = 'public' and table_name = 'properties'
-     and column_name in ('cleaner_notes', 'internal_notes')), 2);
+     and column_name in ('cleaner_notes', 'internal_notes')), 1);
+
+select pg_temp.check('the office''s notes have a table of their own',
+  (select count(*)::int from information_schema.tables
+   where table_schema = 'public' and table_name = 'property_internal_notes'), 1);
 
 select pg_temp.check('a link carries the order in which cleaners are offered work',
   (select count(*)::int from information_schema.columns

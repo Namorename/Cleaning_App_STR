@@ -34,7 +34,8 @@ insert into public.properties (id, name, timezone, check_in_time, check_out_time
   (900001701, 'Quiet flat',        'UTC', '15:00', '10:00'),
   (900001702, 'Flat with work on', 'UTC', '15:00', '10:00'),
   (900001703, 'Flat mid-clean',    'UTC', '15:00', '10:00'),
-  (900001704, 'Flat with history', 'UTC', '15:00', '10:00');
+  (900001704, 'Flat with history', 'UTC', '15:00', '10:00'),
+  (900001705, 'Flat with a stay',  'UTC', '15:00', '10:00');
 
 insert into public.tasks (id, property_id, type, status, scheduled_date, assignee_id) values
   -- Two nobody has started: these are the ones a sweep takes.
@@ -46,6 +47,13 @@ insert into public.tasks (id, property_id, type, status, scheduled_date, assigne
   -- Somebody is standing in this one.
   ('a7000001-0000-4000-8000-000000000004', 900001703, 'cleaning', 'in_progress', current_date,
    'd7000001-0000-4000-8000-0000000000d1');
+
+-- A stay-over cleaning is a cleaning; an inspection is not.
+insert into public.tasks (id, property_id, type, status, scheduled_date, assignee_id) values
+  ('a7000001-0000-4000-8000-000000000011', 900001705, 'midstay', 'unassigned', current_date, null),
+  ('a7000001-0000-4000-8000-000000000012', 900001705, 'midstay', 'assigned', current_date,
+   'd7000001-0000-4000-8000-0000000000d1'),
+  ('a7000001-0000-4000-8000-000000000013', 900001705, 'inspection', 'unassigned', current_date, null);
 
 -- measured_minutes is computed by the database from the two stamps, so the
 -- ninety-five minutes are stated the way a real cleaning states them.
@@ -121,6 +129,12 @@ select pg_temp.check('a cleaner cannot take a listing out of service',
   pg_temp.refusal_hint($$select public.set_property_status(900001701, 'archived')$$),
   'serverErrors.managerOnly');
 
+-- The number at stake is the manager's question: a cleaner is told nothing,
+-- not even how many cleanings a flat of her company has open.
+select pg_temp.check('a cleaner cannot ask how many cleanings are at stake',
+  pg_temp.refusal_hint($$select public.property_open_cleanings(900001702)$$),
+  'serverErrors.managerOnly');
+
 select pg_temp.as_boss_b();
 
 select pg_temp.check('another company''s listing is simply not there',
@@ -165,6 +179,22 @@ select pg_temp.check('a technician''s job is not a cleaning and stays',
   pg_temp.task_status('a7000001-0000-4000-8000-000000000003'), 'unassigned');
 select pg_temp.check('nothing is left to sweep afterwards',
   public.property_open_cleanings(900001702), 0);
+
+-- ---------- a stay-over is a cleaning ----------
+
+select pg_temp.check('stay-over cleanings are counted with the rest',
+  public.property_open_cleanings(900001705), 2);
+select pg_temp.check('and the refusal names them',
+  pg_temp.refusal_total($$select public.set_property_status(900001705, 'archived')$$), 2);
+
+select public.set_property_status(900001705, 'archived', true);
+
+select pg_temp.check('the free stay-over is cancelled',
+  pg_temp.task_status('a7000001-0000-4000-8000-000000000011'), 'cancelled');
+select pg_temp.check('and the handed-out one',
+  pg_temp.task_status('a7000001-0000-4000-8000-000000000012'), 'cancelled');
+select pg_temp.check('an inspection stays on the books',
+  pg_temp.task_status('a7000001-0000-4000-8000-000000000013'), 'unassigned');
 
 -- ---------- what is never touched ----------
 

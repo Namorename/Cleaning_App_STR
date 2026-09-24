@@ -518,7 +518,6 @@ export type Database = {
           host_id: string
           hostaway_unit_id: number | null
           id: number
-          internal_notes: string | null
           max_guests: number | null
           name: string
           parent_id: number | null
@@ -540,7 +539,6 @@ export type Database = {
           host_id?: string
           hostaway_unit_id?: number | null
           id: number
-          internal_notes?: string | null
           max_guests?: number | null
           name: string
           parent_id?: number | null
@@ -562,7 +560,6 @@ export type Database = {
           host_id?: string
           hostaway_unit_id?: number | null
           id?: number
-          internal_notes?: string | null
           max_guests?: number | null
           name?: string
           parent_id?: number | null
@@ -651,6 +648,42 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "report_properties"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_internal_notes: {
+        Row: {
+          host_id: string
+          notes: string
+          property_id: number
+          updated_at: string
+        }
+        Insert: {
+          host_id?: string
+          notes: string
+          property_id: number
+          updated_at?: string
+        }
+        Update: {
+          host_id?: string
+          notes?: string
+          property_id?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_internal_notes_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_internal_notes_host_id_property_id_fkey"
+            columns: ["host_id", "property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["host_id", "id"]
           },
         ]
       }
@@ -2552,7 +2585,6 @@ export type Database = {
           host_id: string
           hostaway_unit_id: number | null
           id: number
-          internal_notes: string | null
           max_guests: number | null
           name: string
           parent_id: number | null
@@ -2607,6 +2639,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      staff_property_ids: { Args: never; Returns: number[] }
       supply_item_name_max_length: { Args: never; Returns: number }
       supply_note_max_length: { Args: never; Returns: number }
       sync_hostaway_listings: {

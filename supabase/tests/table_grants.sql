@@ -49,6 +49,9 @@ insert into wanted values
   -- the night.
   ('reservation_units',    'SELECT'),
   ('property_cleaners',    'DELETE,INSERT,SELECT,UPDATE'),
+  -- The office's note on a property: the panel writes it directly, and only
+  -- a manager of the property's company passes the policy.
+  ('property_internal_notes', 'DELETE,INSERT,SELECT,UPDATE'),
   ('tasks',                'DELETE,INSERT,SELECT,UPDATE'),
   ('hosts',                'SELECT'),
   ('workflow_templates',   'SELECT'),
