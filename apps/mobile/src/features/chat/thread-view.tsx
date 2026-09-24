@@ -19,6 +19,7 @@ import { formatReportedAt } from '@/features/problems/format';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { serverErrorText } from '@/lib/server-error';
 
+import { AttachButtons } from './attach-buttons';
 import { messageTiles, type MessageTile, type OwnMediaStates } from './media-tiles';
 import { MessageMedia } from './message-media';
 import {
@@ -206,25 +207,35 @@ export function ThreadView({
         <View accessibilityLiveRegion="polite" style={styles.failure}>
           <Text style={styles.error}>{failure?.text ?? notice}</Text>
           {failure?.detail != null ? (
-            <Text style={styles.errorDetail}>{failure.detail}</Text>
+            // Raw words for passing on; a long report must not push the box away.
+            <Text style={styles.errorDetail} numberOfLines={3}>
+              {failure.detail}
+            </Text>
           ) : null}
         </View>
       ) : null}
 
-      {onTakePhoto !== undefined ? (
+      {/* The chosen photos take room only once there are any. */}
+      {drafts.length > 0 ? (
         <View style={styles.drafts}>
           <MediaStrip
             items={drafts.map((draft) => ({ id: draft.id, uri: draft.uri, status: 'local' }))}
             maxCount={CHAT_MAX_PHOTOS}
-            onCapture={onTakePhoto}
-            onPickFromGallery={onPickPhoto}
             onRemove={onDiscardDraft}
-            isCapturing={isCapturing}
           />
         </View>
       ) : null}
 
       <View style={styles.composer}>
+        {onTakePhoto !== undefined ? (
+          <AttachButtons
+            taken={drafts.length}
+            max={CHAT_MAX_PHOTOS}
+            onTakePhoto={onTakePhoto}
+            onPickPhoto={onPickPhoto}
+            isCapturing={isCapturing}
+          />
+        ) : null}
         <TextInput
           accessibilityLabel={t('chat.placeholder')}
           placeholder={t('chat.placeholder')}

@@ -1,7 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
+
+import { MIN_TOUCH_TARGET } from '@/constants/theme';
 
 import { chatMessageSchema, type ChatMessage } from '../schema';
 import { ThreadView } from '../thread-view';
+
+// The icon font loads through expo-font at run time; the buttons are what is tested.
+jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 
 const THREAD = '33333333-3333-4333-8333-333333333333';
 const ME = '66666666-6666-4666-8666-666666666666';
@@ -213,6 +219,98 @@ test('a photo alone is enough to send, and the gallery is offered without a swit
   expect(screen.getByRole('button', { name: 'Выбрать фото из галереи' })).toBeTruthy();
   await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
   expect(onSend).toHaveBeenCalledWith('');
+});
+
+function draftPhoto(id: string) {
+  return {
+    id,
+    kind: 'photo' as const,
+    uri: `file:///kept/${id}.jpg`,
+    mimeType: 'image/jpeg',
+    byteSize: 1,
+    width: null,
+    height: null,
+    durationSec: null,
+    takenAt: '2026-09-18T10:00:00+00:00',
+  };
+}
+
+test('the camera and the gallery are icons in the box, each on a full touch target', async () => {
+  // Arrange
+  const onTakePhoto = jest.fn();
+  const onPickPhoto = jest.fn();
+
+  // Act
+  await render(
+    <ThreadView
+      messages={transcript}
+      pending={[]}
+      currentUserId={ME}
+      error={null}
+      onSend={onSend}
+      onTakePhoto={onTakePhoto}
+      onPickPhoto={onPickPhoto}
+      onDiscardDraft={jest.fn()}
+    />,
+  );
+
+  // Assert: a 48-point target, not the 112-point tile of a report's strip.
+  for (const name of ['Снять фото', 'Выбрать фото из галереи']) {
+    const style = StyleSheet.flatten(screen.getByRole('button', { name }).props.style);
+    expect(style.width).toBe(MIN_TOUCH_TARGET);
+    expect(style.height).toBe(MIN_TOUCH_TARGET);
+  }
+  await fireEvent.press(screen.getByRole('button', { name: 'Снять фото' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Выбрать фото из галереи' }));
+  expect(onTakePhoto).toHaveBeenCalledTimes(1);
+  expect(onPickPhoto).toHaveBeenCalledTimes(1);
+});
+
+test('four chosen photos close the camera and the gallery, and the count is read out', async () => {
+  // Arrange / Act
+  await render(
+    <ThreadView
+      messages={transcript}
+      pending={[]}
+      currentUserId={ME}
+      error={null}
+      onSend={onSend}
+      drafts={['d1', 'd2', 'd3', 'd4'].map(draftPhoto)}
+      onTakePhoto={jest.fn()}
+      onPickPhoto={jest.fn()}
+      onDiscardDraft={jest.fn()}
+    />,
+  );
+
+  // Assert
+  const camera = screen.getByRole('button', { name: 'Снять фото' });
+  expect(camera).toBeDisabled();
+  expect(camera.props.accessibilityValue).toEqual({ text: '4 из 4' });
+  expect(screen.getByRole('button', { name: 'Выбрать фото из галереи' })).toBeDisabled();
+});
+
+test('a chosen photo can be taken back before sending', async () => {
+  // Arrange
+  const onDiscardDraft = jest.fn();
+  await render(
+    <ThreadView
+      messages={transcript}
+      pending={[]}
+      currentUserId={ME}
+      error={null}
+      onSend={onSend}
+      drafts={[draftPhoto('d1')]}
+      onTakePhoto={jest.fn()}
+      onPickPhoto={jest.fn()}
+      onDiscardDraft={onDiscardDraft}
+    />,
+  );
+
+  // Act
+  await fireEvent.press(screen.getByRole('button', { name: 'Удалить' }));
+
+  // Assert
+  expect(onDiscardDraft).toHaveBeenCalledWith('d1');
 });
 
 test('an empty thread says so, and a refusal is translated with its parameters', async () => {
