@@ -5,9 +5,9 @@ import { reportPropertyListSchema, type ReportProperty } from './schema';
 /**
  * The places this person may report about.
  *
- * Read from the view rather than from `properties`: the read policy on the
- * table hands every active member of staff the whole company, because a
- * cleaner has to be able to read the listing of a task she is holding. The
+ * Read from the view rather than from `properties`: the table shows her more
+ * than she may report about — the places of her past tasks, problems and
+ * requests, and the listing above each (window 3, docs/window3-plan.md). The
  * view carries the same predicate the writer refuses by, so the picker cannot
  * offer a place the report would then bounce off.
  */

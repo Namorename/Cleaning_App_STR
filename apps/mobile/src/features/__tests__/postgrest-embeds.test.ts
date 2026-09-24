@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { fetchMessages } from '@/features/chat/api';
 import { fetchHostSettings } from '@/features/host/api';
 import { fetchProblemMedia, fetchTaskMedia } from '@/features/media/api';
+import { fetchReportProperties } from '@/features/properties/api';
 import { fetchMyProblems, fetchProblem } from '@/features/problems/api';
 import { fetchTaskSteps } from '@/features/steps/api';
 import { fetchMySupplyRequests, fetchSupplyRequest } from '@/features/supplies/api';
@@ -97,6 +98,7 @@ const READERS: readonly (() => Promise<unknown>)[] = [
   () => fetchTaskSteps(ANY_ID),
   () => fetchHostSettings(),
   () => fetchMessages(ANY_ID),
+  () => fetchReportProperties(),
 ];
 
 const schema = indexSchema(

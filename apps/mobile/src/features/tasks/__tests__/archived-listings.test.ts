@@ -10,9 +10,10 @@
  * status. If it is ever added to that list, an archived flat starts appearing
  * in cleaners' schedules again — and this suite fails first.
  *
- * Archiving cancels cleanings only (`set_property_status`,
- * 20260912120000_property_units.sql). An inspection or a midstay on an
- * archived flat stays in her list until the nightly sweep expires it.
+ * Archiving cancels the cleanings and stay-over cleanings nobody has started
+ * (`set_property_status`, 20260924170000_archive_cancels_midstay.sql). An
+ * inspection or a repair on an archived flat stays in her list until the
+ * nightly sweep expires it.
  */
 
 interface Recorded {
