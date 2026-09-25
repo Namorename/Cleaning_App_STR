@@ -64,10 +64,11 @@ export function useSetStatus() {
   });
 }
 
+/** Refreshed however it ends: a sync the panel saw fail may still have written listings. */
 export function useSyncListings() {
   const client = useSupabase();
   const invalidate = useInvalidateEverywhere();
-  return useMutation({ mutationFn: () => syncListings(client), onSuccess: invalidate });
+  return useMutation({ mutationFn: () => syncListings(client), onSettled: invalidate });
 }
 
 export function useProperty(id: number) {
@@ -75,13 +76,18 @@ export function useProperty(id: number) {
   return useQuery({ queryKey: apartmentKeys.one(id), queryFn: () => fetchProperty(client, id) });
 }
 
-/** What Hostaway does not own: parent, cleaner note, office note. See savePropertyInfo. */
+/**
+ * What Hostaway does not own: parent, cleaner note, office note. See savePropertyInfo.
+ *
+ * Refreshed however it ends: the row and the note are two writes, and when the
+ * note fails the row is already saved.
+ */
 export function useSaveInfo(id: number) {
   const client = useSupabase();
   const invalidate = useInvalidateEverywhere();
   return useMutation({
     mutationFn: (draft: InfoDraft) => savePropertyInfo(client, id, draft),
-    onSuccess: invalidate,
+    onSettled: invalidate,
   });
 }
 

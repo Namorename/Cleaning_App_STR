@@ -24,6 +24,9 @@ function fail(message) {
   process.exit(1);
 }
 
+// The same rules as scripts/hostaway-get.mjs, copied rather than shared: that
+// file must stay self-contained for its pin (see its header), and
+// scripts/__tests__/hostaway.test.mjs keeps the two copies equal.
 function baseUrl() {
   const override = process.env.HOSTAWAY_GET_BASE_URL;
   if (!override) {

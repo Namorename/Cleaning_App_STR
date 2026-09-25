@@ -13,6 +13,12 @@
 //
 // The token is read from ~/.str-ops/hostaway-token.json and never printed.
 //
+// Self-contained on purpose: .claude/hooks/script-pins.mjs checks this file's
+// hash before every no-question run, and a module it imported could change
+// what runs without changing that hash. So baseUrl() and tokenFile() are
+// copied in scripts/hostaway-issue-token.mjs, and
+// scripts/__tests__/hostaway.test.mjs keeps the two copies equal.
+//
 // Personal data (guest names, phones, e-mails) is read only when a task cannot
 // do without it and never goes into a report: --pick prints only the named
 // fields of each result item, --count only the number of items.
@@ -20,6 +26,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const LIVE_BASE_URL = 'https://api.hostaway.com/v1';
 
@@ -57,13 +64,38 @@ function storedToken() {
   return token;
 }
 
+/**
+ * The URL a relative API path names, or null when it would leave the API root.
+ *
+ * No scheme, no host, no dot segment in any spelling — fetch() collapses
+ * %2e%2e exactly like .. — and no backslash or encoded slash a server might
+ * decode into a segment of its own. Then the URL fetch() will actually use is
+ * checked to still lie under the root.
+ */
+export function apiUrl(base, path) {
+  if (
+    /^[a-z][a-z0-9+.-]*:/i.test(path) ||
+    path.startsWith('/') ||
+    path.includes('..') ||
+    /\\|%(2e|2f|5c)/i.test(path)
+  ) {
+    return null;
+  }
+  try {
+    const root = new URL(`${base}/`);
+    const url = new URL(path, root);
+    return url.origin === root.origin && url.pathname.startsWith(root.pathname) ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 function parseArgs(argv) {
   const [path, ...rest] = argv;
   if (!path || path.startsWith('-')) {
     fail('usage: node scripts/hostaway-get.mjs <path> [--pick a,b] [--count]');
   }
-  // A relative API path only: no scheme, no host, no climbing out of /v1.
-  if (/^[a-z][a-z0-9+.-]*:/i.test(path) || path.startsWith('/') || path.includes('..')) {
+  if (apiUrl(LIVE_BASE_URL, path) === null) {
     fail('the path is relative to /v1, e.g. listings or reservations?limit=5');
   }
   const options = { path, pick: null, count: false };
@@ -85,7 +117,11 @@ function project(item, fields) {
 }
 
 async function get(options) {
-  const response = await fetch(`${baseUrl()}/${options.path}`, {
+  const url = apiUrl(baseUrl(), options.path);
+  if (url === null) {
+    fail('the path is relative to /v1, e.g. listings or reservations?limit=5');
+  }
+  const response = await fetch(url, {
     method: 'GET',
     headers: { Authorization: `Bearer ${storedToken()}` },
   });
@@ -109,6 +145,9 @@ async function get(options) {
   process.stdout.write(`${JSON.stringify(shown, null, 2)}\n`);
 }
 
-get(parseArgs(process.argv.slice(2))).catch((error) =>
-  fail(error instanceof Error ? error.message : String(error)),
-);
+// Run as a script only: the tests import apiUrl() and send nothing.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  get(parseArgs(process.argv.slice(2))).catch((error) =>
+    fail(error instanceof Error ? error.message : String(error)),
+  );
+}
