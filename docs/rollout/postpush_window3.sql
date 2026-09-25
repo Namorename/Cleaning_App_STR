@@ -5,6 +5,11 @@
 --
 --   npx supabase db query --linked -f docs/rollout/postpush_window3.sql > postpush_window3.json
 --
+-- or, with no question to the owner, node scripts/cloud-read.mjs docs/rollout/postpush_window3.sql:
+-- every label reads the same under supabase_read_only_user (it has bypassrls). The grants come
+-- from pg_class.relacl for that reason — information_schema.role_table_grants shows a role only
+-- the grants it gave or holds, and would come back empty for the read-only role.
+--
 -- Not before push №1: it names public.property_internal_notes, which М1 creates. The baseline
 -- before the window is docs/rollout/window3_probe.sql. After push №1 also run
 -- docs/rollout/window3_rule_check.sql — this file checks the catalog, that one the deployed rule
@@ -36,15 +41,16 @@
 --                    `id = ANY (ARRAY(SELECT staff_property_ids()))` in its qual.
 --                    "active staff read properties" must be gone.
 --   notes_table      exists, rls on, one policy "managers keep internal notes" (ALL);
---                    grants: authenticated DELETE,INSERT,SELECT,UPDATE; anon nothing.
+--                    grants: authenticated DELETE,INSERT,SELECT,UPDATE; anon and PUBLIC nothing.
 --   notes_rows       the number of notes carried over (the cloud had 0 on 2026-09-24).
 --   m2_gate          after №1 and before №2: column_exists true, not_carried 0, differs 0 — the
 --                    two things М2 refuses on. After №2: column_exists false, both 0.
 --   cron_jobs        seven, purge-webhook-events at "50 3 * * *", active, run as postgres.
 --   indexes          tasks_assignee_property_idx and webhook_events_settled_received_idx, both
 --                    partial, as in the migrations.
---   public_grants    every table in public with its authenticated / anon privileges: compare with
---                    the matrix of supabase/tests/table_grants.sql; any anon row is a stop.
+--   public_grants    every table in public with its authenticated / anon / PUBLIC privileges:
+--                    compare with the matrix of supabase/tests/table_grants.sql; any anon or
+--                    PUBLIC row is a stop.
 select label, payload from (
   select 1 as ord, 'head' as label,
          to_jsonb((select max(version) from supabase_migrations.schema_migrations)) as payload
@@ -96,12 +102,14 @@ select label, payload from (
                         from pg_policies po
                         where po.schemaname = 'public' and po.tablename = 'property_internal_notes'),
            'grants', (select coalesce(jsonb_object_agg(t.grantee, t.privileges), '{}'::jsonb)
-                      from (select g.grantee,
-                                   string_agg(g.privilege_type, ',' order by g.privilege_type) as privileges
-                            from information_schema.role_table_grants g
-                            where g.table_schema = 'public' and g.table_name = 'property_internal_notes'
-                              and g.grantee in ('anon', 'authenticated')
-                            group by g.grantee) t))
+                      from (select case when a.grantee = 0 then 'PUBLIC'
+                                        else a.grantee::regrole::text end as grantee,
+                                   string_agg(a.privilege_type, ',' order by a.privilege_type) as privileges
+                            from pg_class c
+                            cross join lateral aclexplode(c.relacl) a
+                            where c.oid = 'public.property_internal_notes'::regclass
+                              and a.grantee in (0, 'anon'::regrole, 'authenticated'::regrole)
+                            group by 1) t))
 
   union all
   select 6, 'notes_rows',
@@ -147,11 +155,16 @@ select label, payload from (
          (select jsonb_agg(jsonb_build_object('table', t.table_name, 'grantee', t.grantee,
                                               'privileges', t.privileges)
                            order by t.table_name, t.grantee)
-          from (select g.table_name, g.grantee,
-                       string_agg(g.privilege_type, ',' order by g.privilege_type) as privileges
-                from information_schema.role_table_grants g
-                where g.table_schema = 'public' and g.grantee in ('anon', 'authenticated')
-                group by g.table_name, g.grantee) t)
+          from (select c.relname as table_name,
+                       case when a.grantee = 0 then 'PUBLIC'
+                            else a.grantee::regrole::text end as grantee,
+                       string_agg(a.privilege_type, ',' order by a.privilege_type) as privileges
+                from pg_class c
+                cross join lateral aclexplode(c.relacl) a
+                where c.relnamespace = 'public'::regnamespace
+                  and c.relkind in ('r', 'v', 'm', 'p', 'f')
+                  and a.grantee in (0, 'anon'::regrole, 'authenticated'::regrole)
+                group by 1, 2) t)
 ) checks
 order by ord;
 

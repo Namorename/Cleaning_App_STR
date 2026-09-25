@@ -23,7 +23,10 @@
 -- returns before the policy's company filter, so a stray link into another
 -- company still shows up there; holes are counted within her own company.
 --
--- Run: npx supabase db query --linked -f docs/rollout/window3_rule_check.sql
+-- Run ONLY with: npx supabase db query --linked -f docs/rollout/window3_rule_check.sql
+-- (the owner's word). Not through scripts/cloud-read.mjs: staff_property_ids() is executable by
+-- authenticated and service_role only, so as supabase_read_only_user this fails with "permission
+-- denied for function staff_property_ids". That error says nothing about the deployed ACL.
 with staff as (
   select pr.id as uid, pr.host_id, pr.role
   from public.profiles pr

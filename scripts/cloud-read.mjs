@@ -51,7 +51,10 @@ function readQuery(argv) {
 // extension functions written in C: cron.schedule/unschedule (a job owned by
 // the read-only role — it could only read, but the row in cron.job is a
 // write), net.worker_restart/wake, and the large-object functions. Until F13
-// revokes those in the database, this check is what stops them.
+// revokes those in the database, this check is what stops them. One it can
+// never revoke: pg_logical_emit_message writes a WAL record the rollback does
+// not undo, and it belongs to supabase_admin, not to postgres who runs the
+// migrations — for it this check stays the only layer.
 //
 // So it reads the query the way the server will (lexQuery): comments go,
 // string literals are set aside, quoted identifiers lose their quotes — a
@@ -68,11 +71,18 @@ function readQuery(argv) {
 const READ_STATEMENT = /^(select|with|explain|show|table|values|\()/;
 const REFUSED_CALLS = [
   [/\b(schedule|schedule_in_database|unschedule|alter_job)\s*\(/, 'scheduling cron jobs'],
-  [/\bnet\s*\.|\b(http|http_\w+|worker_restart|wake|wait_until_running)\s*\(/, 'calling pg_net or http'],
+  [
+    /\bnet\s*\.|\b(http|http_\w+|worker_restart|wake|wait_until_running)\s*\(/,
+    'calling pg_net or http',
+  ],
   [/\blo_\w+\s*\(|\blo(read|write)\s*\(/, 'large objects'],
   [/\bdblink\w*\s*\(/, 'dblink'],
-  [/\b(query_to_xml\w*|cursor_to_xml\w*|ts_stat|ts_rewrite)\s*\(/, 'running SQL handed over as a string'],
+  [
+    /\b(query_to_xml\w*|cursor_to_xml\w*|ts_stat|ts_rewrite)\s*\(/,
+    'running SQL handed over as a string',
+  ],
   [/\bpg_notify\s*\(/, 'notifications'],
+  [/\bpg_logical_emit_message\s*\(/, 'writing logical WAL messages'],
 ];
 const SET_CONFIG = /\bset_config\s*\(/g;
 const SET_CONFIG_LITERAL = /\bset_config\s*\(\s*'#(\d+)'/g;
@@ -145,7 +155,14 @@ function lexQuery(query) {
       }
       i = end;
       code += ' ';
-    } else if ((ch === 'u' || ch === 'U') && query[i + 1] === '&' && !wordCharAt(i - 1)) {
+    } else if (
+      // A unicode escape only as the server reads one: U& with the quote right
+      // after it. Anything else (u&1, U& 'x') is a name and the & operator.
+      (ch === 'u' || ch === 'U') &&
+      query[i + 1] === '&' &&
+      (query[i + 2] === "'" || query[i + 2] === '"') &&
+      !wordCharAt(i - 1)
+    ) {
       return null;
     } else if (ch === "'") {
       const escaped = (query[i - 1] === 'e' || query[i - 1] === 'E') && !wordCharAt(i - 2);

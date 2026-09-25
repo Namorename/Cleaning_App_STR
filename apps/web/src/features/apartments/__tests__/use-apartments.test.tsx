@@ -13,7 +13,11 @@ const client = {
 
 vi.mock('@/lib/supabase/use-client', () => ({ useSupabase: () => client }));
 
-const DRAFT = { parentId: null, cleanerNotes: 'Keys in the box', internalNotes: 'Owner visits in May' };
+const DRAFT = {
+  parentId: null,
+  cleanerNotes: 'Keys in the box',
+  internalNotes: 'Owner visits in May',
+};
 
 function renderWithCache<T>(hook: () => T) {
   const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });

@@ -86,8 +86,11 @@
 - **Локальный и облачный Supabase ведут себя по-разному.** Хостинг выдаёт
   новым таблицам полный набор привилегий через default privileges, локальный
   стек — меньший. Проверять права нужно и на облаке после каждого `db:push`,
-  а не только тестом: `information_schema.role_table_grants` для `anon` и
-  `authenticated`.
+  а не только тестом: `pg_class.relacl` через `aclexplode` для `anon`,
+  `authenticated` и `PUBLIC` (как в `docs/rollout/postpush_window3.sql`).
+  `information_schema.role_table_grants` годится только под `postgres`: роли
+  чтения из `cloud-read.mjs` он показывает пустоту, и проверка проходит, ничего
+  не проверив.
 - **`db push`, запущенный агентом, не спрашивает подтверждения.** При
   переменной `CLAUDECODE` CLI переключает вывод в json, а согласие в
   не-текстовом формате берётся по умолчанию как «да» — проверено чтением

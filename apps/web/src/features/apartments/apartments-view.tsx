@@ -173,7 +173,7 @@ export function ApartmentsView() {
 
       {registry.isPending ? (
         <p className="text-sm text-muted-foreground">{t('panel.apartments.loading')}</p>
-      ) : registry.isError ? (
+      ) : registry.isError && registry.data === undefined ? (
         <p role="alert" className="text-sm text-destructive">
           {t('panel.apartments.loadError')}
         </p>
