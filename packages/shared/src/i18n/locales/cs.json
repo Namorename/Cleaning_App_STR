@@ -721,6 +721,18 @@
         "copyPlaceholder": "Vyberte objekt",
         "copy": "Zkopírovat",
         "copyHint": "Kopírování nahradí celý stávající checklist."
+      },
+      "room": {
+        "parent": "Pokoj objektu",
+        "parentHint": "Pokoj k objektu přiřazuje Hostaway, proto se vazba zde nemění.",
+        "cleanings": "Počítá se u objektu",
+        "cleaners": "Pokoj má pracovníky úklidu svého objektu — mění se na jeho kartě:",
+        "bookings": "Rezervace pokoje jsou na objektu a najdete je na jeho kartě; pobyty pokoje ukáže kalendář:",
+        "checklist": "Pokoj používá checklist svého objektu, zde jen ke čtení; upravuje se na kartě objektu:"
+      },
+      "tree": {
+        "expand": "Zobrazit jednotky „{{name}}“",
+        "collapse": "Skrýt jednotky „{{name}}“"
       }
     },
     "media": {

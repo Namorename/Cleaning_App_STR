@@ -119,7 +119,8 @@ describe('the registry is the exception, on purpose', () => {
  *
  * The team screen leaves them out permanently: a cleaner is linked to a
  * listing and her rooms follow (migration 20260912140000). The registry
- * leaves them out until it shows rooms as a branch under their listing.
+ * reads them and shows each as a branch under its listing (docs/f10-plan.md,
+ * 7.1).
  *
  * The filter asks `hostaway_unit_id`, never `parent_id`. The latter also
  * carries the combined-listing relationship — a part of a combined listing is
@@ -150,11 +151,16 @@ describe('a room is offered only where a task can stand on one', () => {
     expect(calls.find((call) => call.table === 'properties')?.filters).toContain(ROOMS_ARE_OUT);
   });
 
-  test('and not as a row of its own in the registry', async () => {
+  // Since 7.1 the registry shows a room as a branch under its listing, so it
+  // reads them — and the column that tells a room from a part of a villa.
+  test('the registry reads rooms too, and what makes them rooms', async () => {
     const { client, calls } = recordingClient();
 
     await fetchRegistry(client);
 
-    expect(calls.find((call) => call.table === 'properties')?.filters).toContain(ROOMS_ARE_OUT);
+    const query = calls.find((call) => call.table === 'properties');
+    expect(query?.filters).not.toContain(ROOMS_ARE_OUT);
+    expect(query?.filters.join(' ')).toContain('parent_id');
+    expect(query?.filters.join(' ')).toContain('hostaway_unit_id');
   });
 });

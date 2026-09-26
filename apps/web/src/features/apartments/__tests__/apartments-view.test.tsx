@@ -21,6 +21,11 @@ const working = property({ id: 101, name: 'Vinohrady 12', address: 'Korunní 12'
 const repaired = property({ id: 102, name: 'Anděl 4', status: 'maintenance' });
 const gone = property({ id: 103, name: 'Karlín 7', status: 'archived' });
 const unit = property({ id: 104, name: 'Room A', parent_id: 101 });
+// A multi-unit listing and two of its rooms: `hostaway_unit_id` is what makes
+// a room a room rather than a part of a villa.
+const house = property({ id: 201, name: 'Royal Cerna' });
+const room10 = property({ id: 203, name: 'Unit 10', parent_id: 201, hostaway_unit_id: 7010 });
+const room3 = property({ id: 202, name: 'Unit 3', parent_id: 201, hostaway_unit_id: 7003 });
 
 /**
  * Two cleanings stand on Vinohrady 12 and none anywhere else.
@@ -51,7 +56,7 @@ vi.mock('../api', () => ({
 
 vi.mock('../use-apartments', () => ({
   useRegistry: () => ({
-    data: registryState.hasData ? [working, repaired, gone, unit] : undefined,
+    data: registryState.hasData ? [working, repaired, gone, unit, house, room10, room3] : undefined,
     isPending: false,
     isError: registryState.isError,
   }),
@@ -320,5 +325,59 @@ describe('the sync button', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Синхронизировать с Hostaway' }));
 
     expect(sync).toHaveBeenCalled();
+  });
+});
+
+/**
+ * Rooms as a branch under their listing (docs/f10-plan.md, 7.1).
+ */
+describe('rooms under their listing', () => {
+  const names = () =>
+    screen
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => within(row).getAllByRole('link')[0]?.textContent);
+
+  test('come right after it, counted the way a person counts', () => {
+    renderView();
+
+    const order = names();
+    const at = order.indexOf('Royal Cerna');
+    expect(order.slice(at, at + 3)).toEqual(['Royal Cerna', 'Unit 3', 'Unit 10']);
+  });
+
+  // Trap 6: a room's state is changed by its own row button, whose dialog asks
+  // the server for that one room; a bulk action would take the number from the
+  // listing fold, which has no key for a room, and say "0".
+  test('a room has no tick for a bulk action', () => {
+    renderView();
+
+    expect(within(rowFor('Unit 3')).queryByRole('checkbox')).toBeNull();
+    expect(within(rowFor('Royal Cerna')).getByRole('checkbox')).toBeInTheDocument();
+  });
+
+  // Trap 4: the listing's number already includes its rooms.
+  test('a room shows no cleanings of its own — they are counted on the listing', () => {
+    renderView();
+
+    const cell = within(rowFor('Unit 3')).getByTitle('Считается у объекта');
+    expect(cell).toHaveTextContent('—');
+  });
+
+  test('the group closes and opens again', async () => {
+    renderView();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Скрыть единицы «Royal Cerna»' }));
+    expect(screen.queryByText('Unit 3')).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Показать единицы «Royal Cerna»' }));
+    expect(screen.getByText('Unit 3')).toBeInTheDocument();
+  });
+
+  test('a tab counts listings, not the rooms inside them', () => {
+    renderView();
+
+    // Vinohrady 12 with its part, and Royal Cerna with its two rooms.
+    expect(screen.getByRole('tab', { name: /Работают/ })).toHaveTextContent('(2)');
   });
 });

@@ -28,11 +28,27 @@ export const propertySchema = z.object({
   city: z.string().nullable(),
   status: z.enum(PROPERTY_STATUSES).catch('active'),
   parent_id: z.number().nullable(),
+  /**
+   * Set on a room of a multi-unit listing, and only there — what tells a room
+   * from a part of a villa, which also has a parent (docs/units-plan.md).
+   */
+  hostaway_unit_id: z.number().nullable().default(null),
   bedrooms: z.number().nullable(),
   max_guests: z.number().nullable(),
 });
 export type Property = z.infer<typeof propertySchema>;
 export const propertyListSchema = z.array(propertySchema);
+
+/** A room of a multi-unit listing: Hostaway names its listing, the panel does not. */
+export function isRoom(property: Pick<Property, 'hostaway_unit_id'>): boolean {
+  return property.hostaway_unit_id !== null;
+}
+
+/** The listing a room's card sends the manager to. */
+export interface ListingRef {
+  id: number;
+  name: string;
+}
 
 /**
  * One listing in full, as its card shows it.
@@ -71,6 +87,12 @@ export const internalNoteSchema = z.object({ notes: z.string() }).nullable();
 /** The half of a listing the panel may write. */
 export interface InfoDraft {
   parentId: number | null;
+  /**
+   * False on a room: the sync writes its listing (`20260912120000`), and a
+   * save that sent it back would undo a Hostaway change overnight — or, empty,
+   * fail on `properties_unit_has_parent` with an unnamed 23514.
+   */
+  hasParentChoice: boolean;
   cleanerNotes: string;
   internalNotes: string;
 }
@@ -78,27 +100,42 @@ export interface InfoDraft {
 export function infoDraftFrom(property: PropertyDetail): InfoDraft {
   return {
     parentId: property.parent_id,
+    hasParentChoice: !isRoom(property),
     cleanerNotes: property.cleaner_notes ?? '',
     internalNotes: property.internal_notes ?? '',
   };
 }
 
 /**
- * Listings this one could be a unit of.
+ * Listings this one could be a part of — the question `guard_property_hierarchy`
+ * asks, asked before the server has to refuse.
  *
- * Not itself, and not one of its own units: either would make a loop, and a
- * loop in the parent chain is how a booking turns into an endless hunt for
- * which flat to clean. Archived listings are out — a live unit hanging off a
+ * The tree is two levels: a parent is a row with no parent of its own, so a
+ * part or a room is nobody's parent, and a row that already has units cannot
+ * become a part (`propertyHasUnits`). A room has no choice either — Hostaway
+ * names its listing. Archived listings are out: a live part hanging off a
  * listing the company no longer has is a link nobody will act on.
  */
 export function possibleParents(all: Property[], property: Property): Property[] {
-  const units = new Set(childrenOf(all, property.id).map((child) => child.id));
+  if (isRoom(property) || childrenOf(all, property.id).length > 0) {
+    return [];
+  }
   return all.filter(
     (candidate) =>
       candidate.id !== property.id &&
-      !units.has(candidate.id) &&
+      candidate.parent_id === null &&
       candidate.status !== 'archived',
   );
+}
+
+/**
+ * Listings a checklist can be copied from (docs/f10-plan.md, 7.1, trap 1).
+ *
+ * Never a room: none has a checklist of its own, and the server would resolve
+ * one from its listing anyway (`resolve_checklist_property`: its own first).
+ */
+export function checklistSources(all: Property[], propertyId: number): Property[] {
+  return all.filter((one) => one.id !== propertyId && one.status !== 'archived' && !isRoom(one));
 }
 
 /** What a sync run reports back. Skipped listings carry their own reason. */
@@ -275,6 +312,42 @@ export function matchesTokens(property: Property, query: string): boolean {
     .join(' ');
 
   return matchesAllTokens(haystack, query);
+}
+
+/**
+ * The rows a registry tab shows for a search (docs/f10-plan.md, 7.1).
+ *
+ * A room stands in the tab of its own status (trap 3). A search keeps groups
+ * readable: a room or a part found by name comes with its listing, and a
+ * listing found by name keeps its rooms — both only from the same tab. It does
+ * not drag its parts along: a part is a listing of its own, with its own
+ * address, and has to match by itself.
+ */
+export function registryRows(all: Property[], tab: ApartmentTab, query: string): Property[] {
+  const inTab = all.filter((property) => isInTab(property, tab));
+  if (query.trim() === '') {
+    return inTab;
+  }
+
+  const found = new Set(
+    inTab.filter((property) => matchesTokens(property, query)).map((property) => property.id),
+  );
+  const present = new Set(inTab.map((property) => property.id));
+  const parentsOfFound = new Set(
+    inTab
+      .filter(
+        (property) =>
+          found.has(property.id) && property.parent_id !== null && present.has(property.parent_id),
+      )
+      .map((property) => property.parent_id),
+  );
+
+  return inTab.filter(
+    (property) =>
+      found.has(property.id) ||
+      parentsOfFound.has(property.id) ||
+      (isRoom(property) && property.parent_id !== null && found.has(property.parent_id)),
+  );
 }
 
 // ---------------------------------------------------------------------------

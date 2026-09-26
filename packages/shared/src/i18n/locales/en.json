@@ -717,6 +717,18 @@
         "copyPlaceholder": "Choose a listing",
         "copy": "Copy",
         "copyHint": "Copying replaces the whole checklist that is here."
+      },
+      "room": {
+        "parent": "A room of",
+        "parentHint": "Hostaway links a room to its listing, so the link is not changed here.",
+        "cleanings": "Counted on the listing",
+        "cleaners": "A room has its listing's cleaners — change them on its card:",
+        "bookings": "A room's bookings stand on its listing and show on its card; the calendar shows the room's stays:",
+        "checklist": "A room uses its listing's checklist, read-only here; it is edited on the listing's card:"
+      },
+      "tree": {
+        "expand": "Show the units of “{{name}}”",
+        "collapse": "Hide the units of “{{name}}”"
       }
     },
     "media": {

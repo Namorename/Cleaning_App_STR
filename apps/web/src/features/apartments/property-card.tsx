@@ -12,7 +12,7 @@ import { ChecklistTab } from './checklist-tab';
 import { CleanersTab } from './cleaners-tab';
 import { InfoTab } from './info-tab';
 import { MaintenanceTab } from './maintenance-tab';
-import { parentOf } from './schema';
+import { isRoom, parentOf, type ListingRef } from './schema';
 import { useProperty, useRegistry } from './use-apartments';
 
 /** The sections of the card, in the order the plan builds them. */
@@ -56,6 +56,11 @@ export function PropertyCard({ propertyId }: PropertyCardProps) {
 
   const one = property.data;
   const parent = parentOf(all, one);
+  // A room's cleaners, bookings and checklist live on its listing (7.1, trap 5).
+  const listing: ListingRef | null =
+    isRoom(one) && one.parent_id !== null
+      ? { id: one.parent_id, name: parent?.name ?? String(one.parent_id) }
+      : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -89,13 +94,13 @@ export function PropertyCard({ propertyId }: PropertyCardProps) {
           <InfoTab property={one} all={all} />
         </TabsContent>
         <TabsContent value="cleaners" className="pt-4">
-          <CleanersTab propertyId={one.id} />
+          <CleanersTab propertyId={one.id} listing={listing} />
         </TabsContent>
         <TabsContent value="checklist" className="pt-4">
-          <ChecklistTab propertyId={one.id} all={all} />
+          <ChecklistTab propertyId={one.id} all={all} listing={listing} />
         </TabsContent>
         <TabsContent value="bookings" className="pt-4">
-          <BookingsTab propertyId={one.id} />
+          <BookingsTab propertyId={one.id} listing={listing} />
         </TabsContent>
         <TabsContent value="maintenance" className="pt-4">
           <MaintenanceTab property={one} />

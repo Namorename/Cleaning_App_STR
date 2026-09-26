@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import {
+  checklistSources,
   childrenOf,
   infoDraftFrom,
   isInTab,
@@ -12,6 +13,7 @@ import {
   possibleParents,
   propertyDetailSchema,
   propertySchema,
+  registryRows,
   type Property,
 } from '../schema';
 
@@ -154,46 +156,135 @@ describe('needsChange', () => {
   });
 });
 
+/**
+ * The same question `guard_property_hierarchy` asks, asked before the server
+ * has to refuse: the tree is two levels, a parent is a row with no parent of
+ * its own, and a row that already has units cannot become one.
+ */
 describe('possibleParents', () => {
   const whole = property({ id: 1, name: 'Whole flat' });
-  const unit = property({ id: 2, name: 'Room A', parent_id: 1 });
+  const part = property({ id: 2, name: 'Room A', parent_id: 1 });
   const other = property({ id: 3, name: 'Anděl 4' });
   const gone = property({ id: 4, name: 'Karlín 7', status: 'archived' });
-  const all = [whole, unit, other, gone];
+  const room = property({ id: 5, name: 'Unit 1', parent_id: 6, hostaway_unit_id: 9001 });
+  const house = property({ id: 6, name: 'Royal Cerna' });
+  const alone = property({ id: 7, name: 'Karlín 9' });
+  const all = [whole, part, other, gone, room, house, alone];
+
+  const ids = (of: Property) => possibleParents(all, of).map((one) => one.id);
 
   test('a listing is not its own parent', () => {
-    expect(possibleParents(all, whole).map((one) => one.id)).not.toContain(1);
-  });
-
-  test('and neither is one of its own units — that would be a loop', () => {
-    expect(possibleParents(all, whole).map((one) => one.id)).not.toContain(2);
+    expect(ids(alone)).not.toContain(7);
   });
 
   test("an archived listing is nobody's parent", () => {
-    expect(possibleParents(all, whole).map((one) => one.id)).not.toContain(4);
+    expect(ids(alone)).not.toContain(4);
   });
 
-  test('what is left is offered', () => {
-    expect(possibleParents(all, whole).map((one) => one.id)).toEqual([3]);
+  test('a part or a room is nobody’s parent — the tree is two levels', () => {
+    expect(ids(alone)).not.toContain(2);
+    expect(ids(alone)).not.toContain(5);
+  });
+
+  test('what is left is offered, a listing with units of its own included', () => {
+    expect(ids(alone)).toEqual([1, 3, 6]);
+  });
+
+  test('a listing that has units is offered no parent at all', () => {
+    expect(ids(whole)).toEqual([]);
+    expect(ids(house)).toEqual([]);
+  });
+
+  test('a room is offered none either — Hostaway names its listing', () => {
+    expect(ids(room)).toEqual([]);
+  });
+
+  test('a part keeps the listing it is in among the choices', () => {
+    expect(ids(part)).toEqual([1, 3, 6, 7]);
+  });
+});
+
+describe('checklistSources', () => {
+  const all = [
+    property({ id: 1, name: 'Whole flat' }),
+    property({ id: 2, name: 'Villa part', parent_id: 1 }),
+    property({ id: 3, name: 'Unit 1', parent_id: 6, hostaway_unit_id: 9001 }),
+    property({ id: 4, name: 'Karlín 7', status: 'archived' }),
+    property({ id: 6, name: 'Royal Cerna' }),
+  ];
+
+  // A room has no checklist of its own in the cloud, and copying from one would
+  // hand out a list the server resolves from its listing anyway (trap 1).
+  test('offers listings and parts, never a room, the archive or itself', () => {
+    expect(checklistSources(all, 6).map((one) => one.id)).toEqual([1, 2]);
+  });
+});
+
+describe('registryRows', () => {
+  const house = property({ id: 10, name: 'Royal Cerna' });
+  const unit3 = property({ id: 11, name: 'Unit 3', parent_id: 10, hostaway_unit_id: 7003 });
+  const unit4 = property({ id: 12, name: 'Unit 4', parent_id: 10, hostaway_unit_id: 7004 });
+  const fixing = property({
+    id: 13,
+    name: 'Unit 5',
+    parent_id: 10,
+    hostaway_unit_id: 7005,
+    status: 'maintenance',
+  });
+  const plain = property({ id: 20, name: 'Anglicka 7', address: 'Anglická 7' });
+  const all = [house, unit3, unit4, fixing, plain];
+
+  const names = (tab: 'active' | 'maintenance', query: string) =>
+    registryRows(all, tab, query).map((one) => one.name);
+
+  test('with no search the tab shows its rows, rooms included', () => {
+    expect(names('active', '')).toEqual(['Royal Cerna', 'Unit 3', 'Unit 4', 'Anglicka 7']);
+  });
+
+  test('a room found by name is shown under its listing', () => {
+    expect(names('active', 'unit 3')).toEqual(['Royal Cerna', 'Unit 3']);
+  });
+
+  test('a listing found by name keeps its rooms', () => {
+    expect(names('active', 'royal')).toEqual(['Royal Cerna', 'Unit 3', 'Unit 4']);
+  });
+
+  // Trap 3: a room stands in the tab of its own status.
+  test('a room in another state than its listing is in its own tab, alone', () => {
+    expect(names('maintenance', '')).toEqual(['Unit 5']);
+    expect(names('active', '')).not.toContain('Unit 5');
   });
 });
 
 describe('infoDraftFrom', () => {
-  test('turns the nulls of a row into the empty strings a form can hold', () => {
-    const draft = infoDraftFrom(
-      propertyDetailSchema.parse({
-        ...base,
-        country_code: null,
-        timezone: 'UTC',
-        bathrooms: null,
-        check_in_time: null,
-        check_out_time: null,
-        cleaner_notes: null,
-        internal_notes: null,
-        synced_at: null,
-      }),
-    );
+  const detail = (overrides: Record<string, unknown> = {}) =>
+    propertyDetailSchema.parse({
+      ...base,
+      country_code: null,
+      timezone: 'UTC',
+      bathrooms: null,
+      check_in_time: null,
+      check_out_time: null,
+      cleaner_notes: null,
+      internal_notes: null,
+      synced_at: null,
+      ...overrides,
+    });
 
-    expect(draft).toEqual({ parentId: null, cleanerNotes: '', internalNotes: '' });
+  test('turns the nulls of a row into the empty strings a form can hold', () => {
+    expect(infoDraftFrom(detail())).toEqual({
+      parentId: null,
+      hasParentChoice: true,
+      cleanerNotes: '',
+      internalNotes: '',
+    });
+  });
+
+  // The sync writes a room's listing; a save that sent it back would undo a
+  // Hostaway change or, empty, fail on properties_unit_has_parent (trap 5).
+  test('a room has no parent to choose', () => {
+    const draft = infoDraftFrom(detail({ parent_id: 10, hostaway_unit_id: 7003 }));
+
+    expect(draft.hasParentChoice).toBe(false);
   });
 });

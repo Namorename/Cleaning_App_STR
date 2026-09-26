@@ -12,6 +12,7 @@ import { serverErrorText } from '@/lib/server-error';
 import {
   childrenOf,
   infoDraftFrom,
+  parentOf,
   possibleParents,
   type InfoDraft,
   type Property,
@@ -93,28 +94,40 @@ export function InfoTab({ property, all }: InfoTabProps) {
       <form className="flex flex-col gap-4" onSubmit={submit}>
         <h2 className="text-sm font-medium">{t('panel.apartments.info.ours')}</h2>
 
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="property-parent">{t('panel.apartments.info.parent')}</Label>
-          <select
-            id="property-parent"
-            className={SELECT_CLASS}
-            value={draft.parentId === null ? '' : String(draft.parentId)}
-            onChange={(event) =>
-              setDraft({
-                ...draft,
-                parentId: event.target.value === '' ? null : Number(event.target.value),
-              })
-            }
-          >
-            <option value="">{t('panel.apartments.info.noParent')}</option>
-            {parents.map((candidate) => (
-              <option key={candidate.id} value={candidate.id}>
-                {candidate.name}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-muted-foreground">{t('panel.apartments.info.parentHint')}</p>
-        </div>
+        {!draft.hasParentChoice ? (
+          // A room: Hostaway names its listing, and the sync would undo a change.
+          <div className="flex flex-col gap-1">
+            <span className="text-sm font-medium">{t('panel.apartments.room.parent')}</span>
+            <Link className="text-sm underline" href={`/apartments/${property.parent_id}`}>
+              {parentOf(all, property)?.name ?? String(property.parent_id)}
+            </Link>
+            <p className="text-xs text-muted-foreground">{t('panel.apartments.room.parentHint')}</p>
+          </div>
+        ) : units.length > 0 ? null : (
+          // A listing with units of its own cannot become a part (propertyHasUnits).
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="property-parent">{t('panel.apartments.info.parent')}</Label>
+            <select
+              id="property-parent"
+              className={SELECT_CLASS}
+              value={draft.parentId === null ? '' : String(draft.parentId)}
+              onChange={(event) =>
+                setDraft({
+                  ...draft,
+                  parentId: event.target.value === '' ? null : Number(event.target.value),
+                })
+              }
+            >
+              <option value="">{t('panel.apartments.info.noParent')}</option>
+              {parents.map((candidate) => (
+                <option key={candidate.id} value={candidate.id}>
+                  {candidate.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">{t('panel.apartments.info.parentHint')}</p>
+          </div>
+        )}
 
         <div className="flex flex-col gap-1">
           <span className="text-sm font-medium">{t('panel.apartments.info.units')}</span>

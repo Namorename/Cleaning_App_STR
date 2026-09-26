@@ -15,6 +15,7 @@ vi.mock('@/lib/supabase/use-client', () => ({ useSupabase: () => client }));
 
 const DRAFT = {
   parentId: null,
+  hasParentChoice: true,
   cleanerNotes: 'Keys in the box',
   internalNotes: 'Owner visits in May',
 };

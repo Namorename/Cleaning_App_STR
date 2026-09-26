@@ -27,7 +27,8 @@ import {
 
 export type Client = SupabaseClient<Database>;
 
-const PROPERTY_COLUMNS = 'id, name, address, city, status, parent_id, bedrooms, max_guests';
+const PROPERTY_COLUMNS =
+  'id, name, address, city, status, parent_id, hostaway_unit_id, bedrooms, max_guests';
 
 
 /**
@@ -41,21 +42,15 @@ const PROPERTY_COLUMNS = 'id, name, address, city, status, parent_id, bedrooms, 
  * function into a new screen, that is what you want instead — an archived
  * listing in a picker is the bug this whole state exists to prevent.
  *
- * Rooms are out. A multi-unit listing holds up to seven of them and the nine
- * such listings would add thirty-one rows here, each looking like a flat of
- * its own. They belong under their listing as a branch, which is the registry
- * work in the calendar phase; until then the screen shows listings only. *
- * The test is `hostaway_unit_id`, not `parent_id`. That column carries two
- * different relationships — a room of a multi-unit listing, and a part of a
- * combined listing, which is a real listing with its own calendar. Filtering on
- * `parent_id is null` would hide the second kind from the panel entirely, and
- * the Info tab can create one today.
+ * Rooms are in, and drawn as a branch under their listing (docs/f10-plan.md,
+ * 7.1): `hostaway_unit_id` is read to tell a room from a part of a combined
+ * listing — `parent_id` carries both, and a part is a real listing with its
+ * own calendar.
  */
 export async function fetchRegistry(client: Client): Promise<Property[]> {
   const { data, error } = await client
     .from('properties')
     .select(PROPERTY_COLUMNS)
-    .is('hostaway_unit_id', null)
     .order('name', { ascending: true });
   if (error) {
     throw error;
@@ -119,12 +114,15 @@ export async function savePropertyInfo(
   id: number,
   draft: InfoDraft,
 ): Promise<void> {
+  const cleanerNotes = draft.cleanerNotes.trim() === '' ? null : draft.cleanerNotes.trim();
+  // A room's listing is the sync's to write (InfoDraft.hasParentChoice).
   const { error } = await client
     .from('properties')
-    .update({
-      parent_id: draft.parentId,
-      cleaner_notes: draft.cleanerNotes.trim() === '' ? null : draft.cleanerNotes.trim(),
-    })
+    .update(
+      draft.hasParentChoice
+        ? { parent_id: draft.parentId, cleaner_notes: cleanerNotes }
+        : { cleaner_notes: cleanerNotes },
+    )
     .eq('id', id);
   if (error) {
     throw error;

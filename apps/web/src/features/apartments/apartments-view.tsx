@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { propertyPath } from '@str-ops/shared';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,17 +18,18 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { buildPropertyTree, visibleRows, type PropertyNode } from '@/lib/property-tree';
 import { serverErrorText } from '@/lib/server-error';
 
 import {
   APARTMENT_TABS,
   childrenOf,
-  isInTab,
-  matchesTokens,
+  isRoom,
   needsChange,
   openCleaningsBy,
   openCleaningsOf,
   parentOf,
+  registryRows,
   type ApartmentTab,
   type Property,
   type PropertyStatus,
@@ -63,20 +66,39 @@ export function ApartmentsView() {
   const [search, setSearch] = useState('');
   const [picked, setPicked] = useState<number[]>([]);
   const [subject, setSubject] = useState<StatusSubject | null>(null);
+  const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(() => new Set());
 
   const all = useMemo(() => registry.data ?? [], [registry.data]);
   const openBy = useMemo(() => openCleaningsBy(cleanings.data ?? []), [cleanings.data]);
 
-  const found = all.filter((property) => matchesTokens(property, search));
-  const shown = found.filter((property) => isInTab(property, tab));
+  // Rooms hang under their listing (docs/f10-plan.md, 7.1). While a search is
+  // on every group stays open: a room found by name has to be seen.
+  const tree = buildPropertyTree(registryRows(all, tab, search));
+  const rows = visibleRows(tree, search.trim() === '' ? collapsed : new Set<number>());
+  const shown = rows.map((one) => one.node.row);
 
   // A tick that scrolls out of sight when the tab or the search changes would
   // act on a listing nobody can see, so the selection is kept to what is shown.
-  const selected = picked.filter((id) => shown.some((property) => property.id === id));
+  // A room has no tick at all (trap 6).
+  const selected = picked.filter((id) =>
+    shown.some((property) => property.id === id && !isRoom(property)),
+  );
   const syncFailure = sync.isError ? serverErrorText(sync.error) : null;
 
   const toggle = (id: number, isOn: boolean) => {
     setPicked(isOn ? [...selected, id] : selected.filter((current) => current !== id));
+  };
+
+  const toggleGroup = (id: number) => {
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   };
 
   const ask = (status: PropertyStatus, ids: number[]) => {
@@ -142,7 +164,7 @@ export function ApartmentsView() {
           {APARTMENT_TABS.map((name) => (
             <TabsTrigger key={name} value={name}>
               {t(`panel.apartments.tabs.${name}`)} (
-              {found.filter((property) => isInTab(property, name)).length})
+              {buildPropertyTree(registryRows(all, name, search)).length})
             </TabsTrigger>
           ))}
         </TabsList>
@@ -192,54 +214,20 @@ export function ApartmentsView() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {shown.map((property) => (
-              <TableRow key={property.id}>
-                <TableCell>
-                  <input
-                    type="checkbox"
-                    className="size-4"
-                    aria-label={property.name}
-                    checked={selected.includes(property.id)}
-                    onChange={(event) => toggle(property.id, event.target.checked)}
-                  />
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link className="font-medium underline" href={`/apartments/${property.id}`}>
-                      {property.name}
-                    </Link>
-                    {property.status === 'active' ? null : (
-                      <Badge variant="outline">
-                        {t(`panel.apartments.tabs.${property.status}`)}
-                      </Badge>
-                    )}
-                  </div>
-                  <span className="text-xs text-muted-foreground">{property.id}</span>
-                </TableCell>
-                <TableCell className="text-sm">
-                  {[property.address, property.city].filter((part) => part !== null).join(', ') ||
-                    '—'}
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
-                  <LinkedListings all={all} property={property} />
-                </TableCell>
-                <TableCell className="text-sm">{openBy.get(property.id) ?? 0}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex flex-wrap justify-end gap-2">
-                    {MOVES[tab].map((status) => (
-                      <Button
-                        key={status}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => ask(status, [property.id])}
-                      >
-                        {t(`panel.apartments.move.${status}`)}
-                      </Button>
-                    ))}
-                  </div>
-                </TableCell>
-              </TableRow>
+            {rows.map(({ node, depth }) => (
+              <RegistryRow
+                key={node.row.id}
+                node={node}
+                depth={depth}
+                all={all}
+                tab={tab}
+                cleanings={openBy.get(node.row.id) ?? 0}
+                isTicked={selected.includes(node.row.id)}
+                isClosed={collapsed.has(node.row.id) && search.trim() === ''}
+                onTick={(isOn) => toggle(node.row.id, isOn)}
+                onToggleGroup={() => toggleGroup(node.row.id)}
+                onMove={(status) => ask(status, [node.row.id])}
+              />
             ))}
           </TableBody>
         </Table>
@@ -247,6 +235,114 @@ export function ApartmentsView() {
 
       {subject === null ? null : <StatusDialog subject={subject} onClose={() => setSubject(null)} />}
     </div>
+  );
+}
+
+interface RegistryRowProps {
+  node: PropertyNode<Property>;
+  depth: number;
+  all: Property[];
+  tab: ApartmentTab;
+  cleanings: number;
+  isTicked: boolean;
+  isClosed: boolean;
+  onTick: (isOn: boolean) => void;
+  onToggleGroup: () => void;
+  onMove: (status: PropertyStatus) => void;
+}
+
+/**
+ * One row of the registry: a listing, or a room or part under it.
+ *
+ * A room has no tick (trap 6) and no cleanings of its own — the listing's
+ * number already holds them (trap 4). A room standing alone in a tab its
+ * listing is not in names the house too (trap 3).
+ */
+function RegistryRow({
+  node,
+  depth,
+  all,
+  tab,
+  cleanings,
+  isTicked,
+  isClosed,
+  onTick,
+  onToggleGroup,
+  onMove,
+}: RegistryRowProps) {
+  const { t } = useTranslation();
+  const property = node.row;
+  const room = isRoom(property);
+  const parent = node.isDetached ? parentOf(all, property) : null;
+  const name = parent === null ? property.name : propertyPath(parent.name, property.name);
+
+  return (
+    <TableRow>
+      <TableCell>
+        {room ? null : (
+          <input
+            type="checkbox"
+            className="size-4"
+            aria-label={property.name}
+            checked={isTicked}
+            onChange={(event) => onTick(event.target.checked)}
+          />
+        )}
+      </TableCell>
+      <TableCell>
+        <div className={`flex flex-wrap items-center gap-2 ${depth > 0 ? 'pl-6' : ''}`}>
+          {node.children.length === 0 ? null : (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-6 px-1"
+              aria-expanded={!isClosed}
+              aria-label={t(
+                isClosed ? 'panel.apartments.tree.expand' : 'panel.apartments.tree.collapse',
+                { name: property.name },
+              )}
+              onClick={onToggleGroup}
+            >
+              {isClosed ? '▸' : '▾'}
+            </Button>
+          )}
+          <Link className="font-medium underline" href={`/apartments/${property.id}`}>
+            {name}
+          </Link>
+          {property.status === 'active' ? null : (
+            <Badge variant="outline">{t(`panel.apartments.tabs.${property.status}`)}</Badge>
+          )}
+        </div>
+        <span className={`text-xs text-muted-foreground ${depth > 0 ? 'pl-6' : ''}`}>
+          {property.id}
+        </span>
+      </TableCell>
+      <TableCell className="text-sm">
+        {[property.address, property.city].filter((part) => part !== null).join(', ') || '—'}
+      </TableCell>
+      <TableCell className="text-xs text-muted-foreground">
+        <LinkedListings all={all} property={property} />
+      </TableCell>
+      <TableCell className="text-sm">
+        {room ? <span title={t('panel.apartments.room.cleanings')}>—</span> : cleanings}
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex flex-wrap justify-end gap-2">
+          {MOVES[tab].map((status) => (
+            <Button
+              key={status}
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onMove(status)}
+            >
+              {t(`panel.apartments.move.${status}`)}
+            </Button>
+          ))}
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }
 

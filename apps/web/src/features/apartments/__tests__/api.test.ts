@@ -86,7 +86,12 @@ const ROW = {
   synced_at: null,
 };
 
-const DRAFT: InfoDraft = { parentId: null, cleanerNotes: ' Key in box 4325 ', internalNotes: '' };
+const DRAFT: InfoDraft = {
+  parentId: null,
+  hasParentChoice: true,
+  cleanerNotes: ' Key in box 4325 ',
+  internalNotes: '',
+};
 
 describe('reading a listing', () => {
   test('brings the office note from its own table into the card', async () => {
@@ -155,6 +160,17 @@ describe('saving a listing', () => {
     expect(row?.op).toBe('update');
     expect(row?.payload).toEqual({ parent_id: null, cleaner_notes: 'Key in box 4325' });
     expect(row?.filters).toEqual([['id', 7]]);
+  });
+
+  // The sync writes a room's listing (trap 5): sent back, an empty one fails on
+  // properties_unit_has_parent, a stale one undoes a Hostaway change.
+  test('a room is saved without its parent — Hostaway owns that link', async () => {
+    const { client, calls } = fakeClient({});
+
+    await savePropertyInfo(client, 7, { ...DRAFT, parentId: 10, hasParentChoice: false });
+
+    const row = calls.find((call) => call.table === 'properties');
+    expect(row?.payload).toEqual({ cleaner_notes: 'Key in box 4325' });
   });
 
   test('keeps the office note in its own table, one row per listing', async () => {
