@@ -1139,6 +1139,7 @@
     "taskDateRequired": "A task needs a day",
     "taskAssigneeInvalid": "That person does not work at this company",
     "taskDuplicate": "This flat already has such a task on {{date}}",
+    "taskMovedMeanwhile": "While the form was open, the task was moved to {{date}}. Open it again.",
     "cleanerAutoTaken": "The listing is already assigned to {{name}}. Release that link first.",
     "cleanerPriorityInvalid": "The position is a number from 1 to 99.",
     "staffNotFound": "No such person.",

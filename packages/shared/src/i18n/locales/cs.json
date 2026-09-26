@@ -1163,6 +1163,7 @@
     "taskDateRequired": "Úkol musí mít den",
     "taskAssigneeInvalid": "Tento člověk v této firmě nepracuje",
     "taskDuplicate": "Tento byt už na {{date}} takový úkol má",
+    "taskMovedMeanwhile": "Zatímco byl formulář otevřený, úkol se přesunul na {{date}}. Otevřete ho znovu.",
     "cleanerAutoTaken": "Objekt už je napevno přiřazen: {{name}}. Nejdřív to přiřazení zrušte.",
     "cleanerPriorityInvalid": "Pořadí je číslo od 1 do 99.",
     "staffNotFound": "Takový člověk neexistuje.",

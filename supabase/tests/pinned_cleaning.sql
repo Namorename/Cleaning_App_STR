@@ -49,7 +49,11 @@ insert into public.properties (id, name, timezone, check_in_time, check_out_time
   (900002511, 'Rooms house',           'UTC', '15:00', '10:00'),
   (900002512, 'Old flat',              'UTC', '15:00', '10:00'),
   (900002513, 'New flat',              'UTC', '15:00', '10:00'),
-  (900002514, 'Far move, untouched',   'UTC', '15:00', '10:00');
+  (900002514, 'Far move, untouched',   'UTC', '15:00', '10:00'),
+  (900002516, 'Midnight check-in',     'UTC', '15:00', '10:00'),
+  (900002517, 'Office arrives',        'UTC', '15:00', '10:00'),
+  (900002518, 'Form left open',        'UTC', '15:00', '10:00'),
+  (900002519, 'Arrival after expiry',  'UTC', '15:00', '10:00');
 
 insert into public.properties (id, hostaway_unit_id, parent_id, name,
                                timezone, check_in_time, check_out_time) values
@@ -79,7 +83,18 @@ values
   (900002527, 900002512, current_date + 5,  current_date + 10, 'new', 'Guest 17', 2),
   (900002528, 900002514, current_date + 5,  current_date + 10, 'new', 'Guest 18', 2),
   -- Into room A of the rooms house on the day 25 leaves it: a turnover of one room.
-  (900002530, 900002511, current_date + 10, current_date + 12, 'new', 'Guest 20', 5);
+  (900002530, 900002511, current_date + 10, current_date + 12, 'new', 'Guest 20', 5),
+  (900002531, 900002516, current_date + 5,  current_date + 10, 'new', 'Guest 21', 2),
+  -- Hostaway's "no hour" is 00:00: the listing's check-in stands for it.
+  (900002532, 900002516, current_date + 10, current_date + 12, 'new', 'Guest 22', 2),
+  (900002533, 900002517, current_date + 5,  current_date + 10, 'new', 'Guest 23', 2),
+  -- The office's own work arriving is no guest: no turnover.
+  (900002534, 900002517, current_date + 10, current_date + 12, 'new', '#Painter', 2),
+  (900002535, 900002518, current_date + 5,  current_date + 10, 'new', 'Guest 25', 2),
+  (900002536, 900002519, current_date - 2,  current_date + 3,  'new', 'Guest 26', 2);
+
+update public.reservations set check_in_time = '16:00' where id = 900002523;
+update public.reservations set check_in_time = '00:00' where id = 900002532;
 
 insert into public.reservation_units (reservation_id, property_id) values
   (900002525, public.property_id_for_unit(25101)),
@@ -191,9 +206,10 @@ select pg_temp.check('the generator and a move read one check-in rule',
    join public.properties p on p.id = coalesce(ru.property_id, r.property_id)
    cross join lateral public.reservation_cleaning_window(r.id, p.id) w
    cross join lateral public.cleaning_turnover_on(r.id, p.id, r.departure_date) f
-   where r.id between 900002511 and 900002530
+   where r.id between 900002511 and 900002536
      and ((case when w.same_day_turnover then 1 else 0 end) <> f.priority
           or w.guests_count is distinct from f.guests_count
+          or w.window_to is distinct from f.window_to
           or (case when w.same_day_turnover and w.window_to is not null
                    then (r.departure_date + w.window_to) at time zone p.timezone end)
              is distinct from f.due_at)), 0);
@@ -371,21 +387,28 @@ select pg_temp.check('and the new flat gets one of its own',
 select pg_temp.check('before a move, the cleaning is a same-day turnover',
   array[(pg_temp.cleaning(900002522)).priority::int, (pg_temp.cleaning(900002522)).guests_count::int],
   array[1, 3]);
+select pg_temp.check('its window ends at the next guest''s hour',
+  (pg_temp.cleaning(900002522)).time_to, '16:00'::time);
 select pg_temp.move((pg_temp.cleaning(900002522)).id, current_date + 11);
 select pg_temp.check('moved to a day nobody arrives on, it is not urgent',
   (pg_temp.cleaning(900002522)).priority::int, 0);
 select pg_temp.check('and has no check-in deadline',
   (pg_temp.cleaning(900002522)).due_at, null::timestamptz);
+select pg_temp.check('its window ends at the listing''s check-in, not the old guest''s',
+  (pg_temp.cleaning(900002522)).time_to, '15:00'::time);
 
 -- A guest books into that very day after the move.
 insert into public.reservations (id, property_id, arrival_date, departure_date, status,
                                  guest_name, guests_count)
 values (900002524, 900002510, current_date + 11, current_date + 13, 'new', 'Guest 14', 4);
+update public.reservations set check_in_time = '17:30' where id = 900002524;
 select pg_temp.run_for(900002524);
 select pg_temp.check('a guest arriving on the moved day makes it urgent again',
   (pg_temp.cleaning(900002522)).priority::int, 1);
 select pg_temp.check('with the deadline of that arrival',
-  (pg_temp.cleaning(900002522)).due_at, ((current_date + 11) + time '15:00') at time zone 'UTC');
+  (pg_temp.cleaning(900002522)).due_at, ((current_date + 11) + time '17:30') at time zone 'UTC');
+select pg_temp.check('and a window ending at that hour',
+  (pg_temp.cleaning(900002522)).time_to, '17:30'::time);
 select pg_temp.check('and that guest''s party',
   (pg_temp.cleaning(900002522)).guests_count::int, 4);
 select pg_temp.check('while the move itself holds',
@@ -394,7 +417,9 @@ select pg_temp.check('while the move itself holds',
 update public.reservations set status = 'cancelled' where id = 900002524;
 select pg_temp.run_for(900002524);
 select pg_temp.check('and not once that guest cancels',
-  (pg_temp.cleaning(900002522)).priority::int, 0);
+  array[(pg_temp.cleaning(900002522)).priority::int::text,
+        (pg_temp.cleaning(900002522)).time_to::text],
+  array['0', '15:00:00']);
 
 -- ---------- 10. a hand-made cleaning on a departure day asks first ----------
 
@@ -452,10 +477,43 @@ select pg_temp.check('a moved cleaning that never happened is not written again 
 
 update public.reservations set departure_date = current_date + 5 where id = 900002520;
 select pg_temp.run_for(900002520);
+-- Only the arrival changes after it expired: the move is void all the same,
+-- and the departure itself was never tried.
+select pg_temp.move((pg_temp.cleaning(900002536)).id, current_date - 3);
+update public.tasks set status = 'expired' where id = (pg_temp.cleaning(900002536)).id;
+update public.reservations set arrival_date = current_date - 1 where id = 900002536;
+select pg_temp.run_for(900002536);
+select pg_temp.check('a new arrival after it expired brings the cleaning back on the departure',
+  (select scheduled_date from public.tasks
+   where reservation_id = 900002536 and status not in ('cancelled', 'expired')),
+  current_date + 3);
+
 select pg_temp.check('a booking that changes after it is owed a cleaning on its new day',
   (select scheduled_date from public.tasks
    where reservation_id = 900002520 and status not in ('cancelled', 'expired')),
   current_date + 5);
+
+-- ---------- 13. a form left open while the booking moved ----------
+
+-- The form opened with the cleaning on +10; the booking then moved to +11
+-- and took the cleaning along. The form still says +10.
+update public.reservations set departure_date = current_date + 11 where id = 900002535;
+select pg_temp.run_for(900002535);
+select pg_temp.as_boss();
+select pg_temp.check('a form opened before the cleaning moved is told so, not obeyed',
+  pg_temp.refusal(format($sql$select public.save_task(%L::uuid, 900002518, 'cleaning',
+    current_date + 10, null, null, null, null, null, null, null, false,
+    current_date + 10)$sql$, (pg_temp.cleaning(900002535)).id)),
+  'serverErrors.taskMovedMeanwhile');
+select pg_temp.check('a form opened on the day it stands on moves it',
+  pg_temp.refusal(format($sql$select public.save_task(%L::uuid, 900002518, 'cleaning',
+    current_date + 12, null, null, null, null, null, null, null, false,
+    current_date + 11)$sql$, (pg_temp.cleaning(900002535)).id)),
+  'no refusal');
+select pg_temp.as_postgres();
+select pg_temp.check('and the move holds against the booking as it now is',
+  array[(pg_temp.cleaning(900002535)).scheduled_date, (pg_temp.cleaning(900002535)).pinned_departure],
+  array[current_date + 12, current_date + 11]);
 
 -- ---------- 12. an executor cannot move or undo a move ----------
 

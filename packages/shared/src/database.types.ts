@@ -1932,6 +1932,7 @@ export type Database = {
           due_at: string
           guests_count: number
           priority: number
+          window_to: string
         }[]
       }
       cleans_property: {
@@ -2497,6 +2498,7 @@ export type Database = {
         Args: {
           p_allow_duplicate?: boolean
           p_assignee_id?: string
+          p_expected_date?: string
           p_id: string
           p_notes?: string
           p_priority?: number

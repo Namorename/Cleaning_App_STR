@@ -14,11 +14,12 @@
 --               validated.
 --   functions   five rows, each owner postgres, security definer, config
 --               {search_path=""}; volatility v but for the two sql ones (s).
---               The ACL of the three replaced ones is what they had before the
+--               The ACL of the two replaced ones is what they had before the
 --               push (create or replace keeps it; cloud, 2026-09-26 — the
 --               trigger function carries the hosting's default grants, which
---               the local stack does not give); the new one is granted by the
---               hosting's defaults and then revoked from authenticated:
+--               the local stack does not give); cleaning_turnover_on is granted
+--               by the hosting's defaults and then revoked from authenticated;
+--               save_task is dropped and created, and granted again explicitly:
 --                 cleaning_turnover_on(bigint,bigint,date)
 --                   {postgres=X/postgres,service_role=X/postgres}           new
 --                 generate_cleaning_tasks(date,date)
@@ -27,16 +28,17 @@
 --                   {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
 --                 reservation_cleaning_window(bigint,bigint)
 --                   {postgres=X/postgres,service_role=X/postgres}     untouched
---                 save_task(uuid,bigint,task_type,date,text,jsonb,uuid,time without time zone,time without time zone,text,integer,boolean)
---                   {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+--                 save_task(uuid,bigint,task_type,date,text,jsonb,uuid,time without time zone,time without time zone,text,integer,boolean,date)
+--                   {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}  new signature
+--                 — the twelve-argument save_task is gone: exactly one row for it.
 --               md5 prefix / length (local stack, 2026-09-27), and what the
 --               cloud held before the push:
 --                                              after              before
---                 cleaning_turnover_on         53765221  1320     —
---                 generate_cleaning_tasks      56fcaf92 19327     7730946a 13726
+--                 cleaning_turnover_on         91d3a00c  1392     —
+--                 generate_cleaning_tasks      f48b956b 19636     7730946a 13726
 --                 guard_task_fields            ded65b7a  2130     0121a161  1950
 --                 reservation_cleaning_window  3420c63a  1389     3420c63a  1389
---                 save_task                    7185b82f  8769     24f754be  5446
+--                 save_task                    91c9583b  9423     24f754be  5446
 --   anon        false for all five. Any true is a stop.
 --   public      false for all five.
 --   tasks_acl   anon, authenticated and PUBLIC on public.tasks as before the
@@ -45,7 +47,9 @@
 --               checks that nothing else moved.
 --
 -- ROLLBACK. There is no down migration. A later forward migration restores the
--- three bodies of 20260926102000 / 20260910150000 / 20260923130000, drops
+-- three bodies of 20260926102000 / 20260910150000 / 20260923130000 (save_task
+-- with its twelve arguments, dropping the thirteen-argument one — a panel
+-- that sends p_expected_date must not be deployed then), drops
 -- cleaning_turnover_on, the constraint and the two columns — the columns only
 -- once no deployed panel selects them (a select naming a missing column
 -- answers 42703 and empties the calendar). Restoring the bodies alone is safe

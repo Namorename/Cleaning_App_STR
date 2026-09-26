@@ -32,8 +32,9 @@
 --   beyond_the_night  cleanings on a day of the scope whose booking now leaves
 --                     outside it. Today the nightly run cancels them; now they
 --                     follow the booking. Counted in off_departure as well.
---   not_owed          accepted cleanings of a booking that owes none any
---                     more, by reason: the cancel pass now cancels them.
+--   not_owed          cleanings of a booking that owes none any more (or not
+--                     there), by status and reason: the cancel pass cancels
+--                     them — unassigned and assigned as today, accepted new.
 with scope as (
   select current_date - 7 as d_from, current_date + 90 as d_to
 ),
@@ -106,7 +107,7 @@ select label, payload from (
   union all
   select 6, 'not_owed',
          coalesce((select jsonb_object_agg(reason, n)
-                   from (select case
+                   from (select j.status::text || ': ' || case
                                   when j.r_status not in ('new', 'modified') then 'booking ' || j.r_status
                                   when j.is_block then 'block'
                                   when j.is_service then 'service booking'
@@ -115,6 +116,6 @@ select label, payload from (
                                 end as reason,
                                 count(*) as n
                          from judged j
-                         where j.status = 'accepted' and not (j.booking_owes and j.in_its_place)
+                         where not (j.booking_owes and j.in_its_place)
                          group by 1) x), '{}'::jsonb)
 ) t order by ord
