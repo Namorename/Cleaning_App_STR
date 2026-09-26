@@ -719,6 +719,90 @@ describe('task chips', () => {
   });
 });
 
+// The owner's request of 2026-09-26: «Полный / Компактный» next to the
+// filters, remembered like the depth. A compact chip is the status dot and
+// the person; the window, SDT and the type live in the tooltip and the label.
+describe('the compact view', () => {
+  const annasSdtCleaning = () =>
+    calendarTask(1, '2026-09-28', {
+      assignee_id: ANNA,
+      assignee: { full_name: 'Anna', role: 'cleaner' },
+      time_from: '10:00:00',
+      time_to: '15:00:00',
+      priority: 1,
+    });
+
+  test('is chosen next to the filters, and is remembered', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const { unmount } = render(<CalendarView />);
+
+    const views = screen.getByRole('group', { name: 'Вид заданий' });
+    expect(within(views).getByRole('button', { name: 'Полный' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await user.click(within(views).getByRole('button', { name: 'Компактный' }));
+    expect(within(views).getByRole('button', { name: 'Компактный' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    unmount();
+    render(<CalendarView />);
+    expect(screen.getByRole('button', { name: 'Компактный' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  test('a compact chip shows the person; the window, SDT and the type only in its label', () => {
+    window.localStorage.setItem('str-ops.calendar.chip-view', 'compact');
+    tasksState.data = [annasSdtCleaning()];
+    render(<CalendarView />);
+
+    const chip = screen.getByRole('button', { name: /Anna/ });
+    expect(chip).toHaveTextContent(/^Anna$/);
+    expect(chip).toHaveAccessibleName(/Уборка/);
+    expect(chip).toHaveAccessibleName(/10:00–15:00/);
+    expect(chip).toHaveAccessibleName(/SDT/);
+    expect(chip).toHaveAttribute('title', chip.getAttribute('aria-label'));
+  });
+
+  test('the full chip keeps the window and SDT on it', () => {
+    tasksState.data = [annasSdtCleaning()];
+    render(<CalendarView />);
+
+    const chip = screen.getByRole('button', { name: /Anna/ });
+    expect(chip).toHaveTextContent('10:00–15:00');
+    expect(chip).toHaveTextContent('SDT');
+  });
+
+  test('a compact chip nobody holds says «Никто» in red', () => {
+    window.localStorage.setItem('str-ops.calendar.chip-view', 'compact');
+    tasksState.data = [calendarTask(1, '2026-09-28', { status: 'unassigned' })];
+    render(<CalendarView />);
+
+    const chip = screen.getByRole('button', { name: /Никто/ });
+    expect(chip).toHaveTextContent(/^Никто$/);
+    expect(within(chip).getByText('Никто')).toHaveClass('text-destructive');
+  });
+
+  test('a week’s cell holds two compact chips where the full view shows one and «+1»', () => {
+    tasksState.data = [
+      calendarTask(1, '2026-09-28', { time_from: '09:00:00' }),
+      calendarTask(1, '2026-09-28', { time_from: '11:00:00', type: 'inspection' }),
+    ];
+    const { unmount } = render(<CalendarView />);
+    expect(screen.getByRole('button', { name: '+1' })).toBeInTheDocument();
+
+    unmount();
+    window.localStorage.setItem('str-ops.calendar.chip-view', 'compact');
+    render(<CalendarView />);
+    expect(screen.queryByRole('button', { name: '+1' })).toBeNull();
+    expect(screen.getAllByRole('button', { name: /Никто/ })).toHaveLength(2);
+  });
+});
+
 // The window of these tests: 25 September to 1 October 2026; today is the 26th.
 describe('what never happened, the cancelled, the repairs', () => {
   const lapsed = (extra: Record<string, unknown> = {}): ExpiredTask => ({

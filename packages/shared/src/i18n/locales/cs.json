@@ -798,6 +798,11 @@
       "overdue": "Po termínu",
       "overdueSince": "od {{day}}, technik: {{who}}",
       "showCancelled": "Zobrazit zrušené",
+      "chipView": "Zobrazení úkolů",
+      "chipViews": {
+        "full": "Plné",
+        "compact": "Kompaktní"
+      },
       "expiredError": "Neproběhlé úkoly se nepodařilo načíst.",
       "cancelledError": "Zrušené úkoly se nepodařilo načíst.",
       "repairsError": "Opravy se nepodařilo načíst.",

@@ -146,13 +146,33 @@ const DOT_BELOW = 100;
 const DOTS_PER_CELL = 2;
 /** A chip read in full needs about a week's column (§4: about 130 px). */
 const FULL_CHIP_WIDTH = 130;
+/**
+ * A compact chip is the status dot and a name (the owner's request of
+ * 2026-09-26): half a week's column, so fifteen days still read a name.
+ */
+const COMPACT_CHIP_WIDTH = 64;
+/** Compact, only thirty days' columns are too narrow for a name. */
+const COMPACT_DOT_BELOW = 48;
+
+/** How a chip reads: in full, or the status and the person alone. */
+export const CHIP_VIEWS = ['full', 'compact'] as const;
+export type ChipView = (typeof CHIP_VIEWS)[number];
+
+export function isChipView(value: unknown): value is ChipView {
+  return CHIP_VIEWS.includes(value as ChipView);
+}
 
 export interface ChipCapacity {
-  mode: 'dot' | 'full';
+  mode: 'dot' | 'full' | 'compact';
   count: number;
 }
 
-export function chipCapacity(dayWidth: number): ChipCapacity {
+export function chipCapacity(dayWidth: number, view: ChipView = 'full'): ChipCapacity {
+  if (view === 'compact') {
+    return dayWidth < COMPACT_DOT_BELOW
+      ? { mode: 'dot', count: DOTS_PER_CELL }
+      : { mode: 'compact', count: Math.max(1, Math.floor(dayWidth / COMPACT_CHIP_WIDTH)) };
+  }
   return dayWidth < DOT_BELOW
     ? { mode: 'dot', count: DOTS_PER_CELL }
     : { mode: 'full', count: Math.max(1, Math.floor(dayWidth / FULL_CHIP_WIDTH)) };

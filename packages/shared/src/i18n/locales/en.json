@@ -788,6 +788,11 @@
       "overdue": "Overdue",
       "overdueSince": "since {{day}}, technician: {{who}}",
       "showCancelled": "Show cancelled",
+      "chipView": "Task view",
+      "chipViews": {
+        "full": "Full",
+        "compact": "Compact"
+      },
       "expiredError": "Could not load the tasks that did not happen.",
       "cancelledError": "Could not load the cancelled tasks.",
       "repairsError": "Could not load the repairs.",

@@ -1,15 +1,17 @@
+import { isChipView, type ChipView } from './chips';
 import { DEFAULT_DEPTH, isDepth, type Depth } from './dates';
 
 /**
- * What the calendar remembers between visits: the depth and the closed
- * groups (docs/f10-plan.md, 7.2).
+ * What the calendar remembers between visits: the depth, the chip view and
+ * the closed groups (docs/f10-plan.md, 7.2).
  *
  * A convenience and nothing more. Storage can be missing or throw — a private
  * window, blocked site data, the server render — and then the calendar opens
- * on a week with every group open, never on an error.
+ * on a week of full chips with every group open, never on an error.
  */
 
 const DEPTH_KEY = 'str-ops.calendar.depth';
+const CHIP_VIEW_KEY = 'str-ops.calendar.chip-view';
 const COLLAPSED_KEY = 'str-ops.calendar.collapsed';
 
 function browserStorage(): Storage | null {
@@ -43,6 +45,15 @@ export function readDepth(storage: Storage | null = browserStorage()): Depth {
 
 export function writeDepth(depth: Depth, storage: Storage | null = browserStorage()): void {
   write(storage, DEPTH_KEY, String(depth));
+}
+
+export function readChipView(storage: Storage | null = browserStorage()): ChipView {
+  const value = read(storage, CHIP_VIEW_KEY);
+  return isChipView(value) ? value : 'full';
+}
+
+export function writeChipView(view: ChipView, storage: Storage | null = browserStorage()): void {
+  write(storage, CHIP_VIEW_KEY, view);
 }
 
 export function readCollapsed(storage: Storage | null = browserStorage()): Set<number> {

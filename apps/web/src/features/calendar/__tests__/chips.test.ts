@@ -229,6 +229,17 @@ describe('how many chips a cell has room for', () => {
     expect(chipCapacity(64)).toEqual({ mode: 'dot', count: 2 });
     expect(chipCapacity(32)).toEqual({ mode: 'dot', count: 2 });
   });
+
+  test('a compact chip — a dot and a name — takes half a week’s column', () => {
+    expect(chipCapacity(130, 'compact')).toEqual({ mode: 'compact', count: 2 });
+    expect(chipCapacity(200, 'compact')).toEqual({ mode: 'compact', count: 3 });
+    expect(chipCapacity(320, 'compact')).toEqual({ mode: 'compact', count: 5 });
+  });
+
+  test('compact, fifteen days read a name; thirty still show dots', () => {
+    expect(chipCapacity(64, 'compact')).toEqual({ mode: 'compact', count: 1 });
+    expect(chipCapacity(32, 'compact')).toEqual({ mode: 'dot', count: 2 });
+  });
 });
 
 describe('the assignee filter’s list', () => {

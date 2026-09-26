@@ -8,9 +8,11 @@ import type { Staff } from '@/features/tasks/schema';
 
 import {
   ANY_ASSIGNEE,
+  CHIP_VIEWS,
   NO_ASSIGNEE,
   STATUS_FILTERS,
   type AssigneeFilter,
+  type ChipView,
   type StatusFilter,
 } from './chips';
 
@@ -30,6 +32,9 @@ interface CalendarFiltersProps {
   /** The cancelled are hidden until this is on (§2); «Статус» does not reach them. */
   showCancelled: boolean;
   onShowCancelled: (next: boolean) => void;
+  /** In full, or compact: the status dot and the person alone. */
+  chipView: ChipView;
+  onChipView: (next: ChipView) => void;
   onNewTask: () => void;
 }
 
@@ -47,6 +52,8 @@ export function CalendarFilters({
   offList,
   showCancelled,
   onShowCancelled,
+  chipView,
+  onChipView,
   onNewTask,
 }: CalendarFiltersProps) {
   const { t } = useTranslation();
@@ -101,6 +108,21 @@ export function CalendarFilters({
         />
         {t('panel.calendar.showCancelled')}
       </label>
+
+      <div role="group" aria-label={t('panel.calendar.chipView')} className="flex gap-1">
+        {CHIP_VIEWS.map((one) => (
+          <Button
+            key={one}
+            type="button"
+            size="sm"
+            variant={one === chipView ? 'default' : 'outline'}
+            aria-pressed={one === chipView}
+            onClick={() => onChipView(one)}
+          >
+            {t(`panel.calendar.chipViews.${one}`)}
+          </Button>
+        ))}
+      </div>
 
       <Button type="button" size="sm" className="ml-auto" onClick={onNewTask}>
         {t('panel.tasks.actions.new')}

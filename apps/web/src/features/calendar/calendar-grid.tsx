@@ -13,7 +13,7 @@ import { formatShortDay } from '@/lib/format-date';
 import type { VisibleRow } from '@/lib/property-tree';
 
 import type { RowLayout } from './bars';
-import { cellTasks } from './chips';
+import { cellTasks, type ChipView } from './chips';
 import { DAY_WIDTH, dayLabel, fullDayLabel, type Depth } from './dates';
 import { RowTrack } from './row-track';
 import type { CalendarBooking } from './schema';
@@ -47,6 +47,8 @@ interface CalendarGridProps {
   byRowDay: ReadonlyMap<number, ReadonlyMap<string, readonly CalendarTask[]>>;
   /** The window's bookings by id; null until they are read. */
   bookings: ReadonlyMap<number, CalendarBooking> | null;
+  /** How the chips read: in full, or the status dot and the person. */
+  chipView: ChipView;
   language: Language;
   onOpenBooking: (booking: CalendarBooking) => void;
   onOpenTask: (task: CalendarTask, label: string) => void;
@@ -113,6 +115,7 @@ export function CalendarGrid({
   layout,
   byRowDay,
   bookings,
+  chipView,
   language,
   onOpenBooking,
   onOpenTask,
@@ -256,6 +259,7 @@ export function CalendarGrid({
                 isClosedGroup={isGroup && isClosed}
                 unitCount={node.children.length}
                 highlighted={highlighted}
+                chipView={chipView}
                 language={language}
                 onPoint={setHighlighted}
                 onOpen={onOpenBooking}

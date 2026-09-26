@@ -11,7 +11,7 @@ import { isRepairOverdue } from '@/features/tasks/repairs';
 import { localizedTitle, type CalendarTask } from '@/features/tasks/schema';
 import { cn } from '@/lib/utils';
 
-import { chipCapacity, chipTone, isBookingChanged, type ChipTone } from './chips';
+import { chipCapacity, chipTone, isBookingChanged, type ChipTone, type ChipView } from './chips';
 import type { CalendarBooking } from './schema';
 
 /** The line of chips under the track of bars (see `row-track.tsx`). */
@@ -70,6 +70,8 @@ export interface ChipText {
   label: string;
   /** What the chip shows first: the problem of a repair, else the person. */
   lead: string;
+  /** Who does it, or «Никто»: all a compact chip shows beside its dot. */
+  person: string;
   isNobody: boolean;
   window: string | null;
   isSdt: boolean;
@@ -133,7 +135,7 @@ export function useChipText(language: Language) {
     ]
       .filter((part): part is string => part !== null)
       .join(' · ');
-    return { label, lead, isNobody, window, isSdt, isOverdue };
+    return { label, lead, person, isNobody, window, isSdt, isOverdue };
   };
 }
 
@@ -191,6 +193,8 @@ interface TaskChipsProps {
   dayWidth: number;
   /** The window's bookings by id; null until they are read. */
   bookings: ReadonlyMap<number, CalendarBooking> | null;
+  /** In full, or compact: the status dot and the person alone. */
+  view: ChipView;
   language: Language;
   onOpen: (task: CalendarTask, label: string) => void;
   onMore: (day: string, tasks: readonly CalendarTask[]) => void;
@@ -199,6 +203,8 @@ interface TaskChipsProps {
 /**
  * The chips of one row (docs/f10-plan.md, 7.4, §4): a week reads a chip in
  * full, thirty days a dot; what does not fit is «+N», which lists them all.
+ * Compact, a chip is its dot and its person, and the rest — the window, SDT,
+ * the type — is in its tooltip and label.
  */
 export function TaskChips({
   rowId,
@@ -206,13 +212,14 @@ export function TaskChips({
   days,
   dayWidth,
   bookings,
+  view,
   language,
   onOpen,
   onMore,
 }: TaskChipsProps) {
   const { t } = useTranslation();
   const textOf = useChipText(language);
-  const capacity = chipCapacity(dayWidth);
+  const capacity = chipCapacity(dayWidth, view);
 
   return days.map((day, at) => {
     const tasks = cells[at] ?? [];
@@ -307,18 +314,26 @@ export function TaskChips({
               }}
             >
               <span aria-hidden className={cn('size-2 shrink-0', dotClass(task, false))} />
-              <span className={cn('truncate', text.isNobody && 'text-destructive')}>
-                {text.lead}
-              </span>
-              {text.window === null ? null : (
-                <span className="shrink-0 text-muted-foreground">{text.window}</span>
-              )}
-              {text.isSdt ? (
-                <span className="shrink-0 rounded-sm bg-orange-500 px-0.5 text-[9px] text-white">
-                  {t('panel.calendar.sdtMark')}
+              {capacity.mode === 'compact' ? (
+                <span className={cn('truncate', text.isNobody && 'text-destructive')}>
+                  {text.person}
                 </span>
-              ) : null}
-              {isChanged ? <span aria-hidden>⚠</span> : null}
+              ) : (
+                <>
+                  <span className={cn('truncate', text.isNobody && 'text-destructive')}>
+                    {text.lead}
+                  </span>
+                  {text.window === null ? null : (
+                    <span className="shrink-0 text-muted-foreground">{text.window}</span>
+                  )}
+                  {text.isSdt ? (
+                    <span className="shrink-0 rounded-sm bg-orange-500 px-0.5 text-[9px] text-white">
+                      {t('panel.calendar.sdtMark')}
+                    </span>
+                  ) : null}
+                  {isChanged ? <span aria-hidden>⚠</span> : null}
+                </>
+              )}
             </ChipLinkOrButton>
           );
         })}

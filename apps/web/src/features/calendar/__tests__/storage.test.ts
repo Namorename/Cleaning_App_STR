@@ -1,6 +1,13 @@
 import { describe, expect, test } from 'vitest';
 
-import { readCollapsed, readDepth, writeCollapsed, writeDepth } from '../storage';
+import {
+  readChipView,
+  readCollapsed,
+  readDepth,
+  writeChipView,
+  writeCollapsed,
+  writeDepth,
+} from '../storage';
 
 /** A storage that keeps what it is given, like the browser's. */
 function memoryStorage(): Storage {
@@ -51,6 +58,29 @@ describe('the depth the manager chose', () => {
   test('a storage that throws costs the memory, not the screen', () => {
     expect(readDepth(brokenStorage)).toBe(7);
     expect(() => writeDepth(3, brokenStorage)).not.toThrow();
+  });
+});
+
+describe('the chip view the manager chose', () => {
+  test('is remembered', () => {
+    const storage = memoryStorage();
+
+    writeChipView('compact', storage);
+
+    expect(readChipView(storage)).toBe('compact');
+  });
+
+  test('falls back to the full chip when nothing, or nonsense, is stored', () => {
+    const storage = memoryStorage();
+    expect(readChipView(storage)).toBe('full');
+
+    storage.setItem('str-ops.calendar.chip-view', 'tiny');
+    expect(readChipView(storage)).toBe('full');
+  });
+
+  test('a storage that throws costs the memory, not the screen', () => {
+    expect(readChipView(brokenStorage)).toBe('full');
+    expect(() => writeChipView('compact', brokenStorage)).not.toThrow();
   });
 });
 

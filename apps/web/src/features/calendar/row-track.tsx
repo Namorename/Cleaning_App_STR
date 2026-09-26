@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import type { CalendarTask } from '@/features/tasks/schema';
 
 import type { Bar, RowLayout, Shadow } from './bars';
+import type { ChipView } from './chips';
 import type { CalendarBooking } from './schema';
 import { TaskChips } from './task-chips';
 
@@ -35,6 +36,7 @@ interface RowTrackProps {
   isClosedGroup: boolean;
   unitCount: number;
   highlighted: number | null;
+  chipView: ChipView;
   language: Language;
   onPoint: (bookingId: number | null) => void;
   onOpen: (booking: CalendarBooking) => void;
@@ -59,6 +61,7 @@ export function RowTrack({
   isClosedGroup,
   unitCount,
   highlighted,
+  chipView,
   language,
   onPoint,
   onOpen,
@@ -119,6 +122,7 @@ export function RowTrack({
         days={days}
         dayWidth={dayWidth}
         bookings={bookings}
+        view={chipView}
         language={language}
         onOpen={onOpenTask}
         onMore={onMoreTasks}

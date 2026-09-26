@@ -13,10 +13,18 @@ import { layoutRows } from './bars';
 import { BookingCard } from './booking-card';
 import { CalendarFilters } from './calendar-filters';
 import { CalendarGrid } from './calendar-grid';
+import type { ChipView } from './chips';
 import { addDays, DEPTHS, defaultStart, rangeLabel, windowDays, type Depth } from './dates';
 import { LayerAlert } from './layer-alert';
 import type { CalendarBooking } from './schema';
-import { readCollapsed, readDepth, writeCollapsed, writeDepth } from './storage';
+import {
+  readChipView,
+  readCollapsed,
+  readDepth,
+  writeChipView,
+  writeCollapsed,
+  writeDepth,
+} from './storage';
 import { useTaskDialogs } from './task-dialogs';
 import {
   useCalendarBookings,
@@ -73,6 +81,7 @@ function CalendarBody({ isStand }: { isStand: boolean }) {
 
   const today = todayIso();
   const [depth, setDepth] = useState<Depth>(() => readDepth());
+  const [chipView, setChipView] = useState<ChipView>(() => readChipView());
   const [start, setStart] = useState(() => defaultStart(today));
   const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(() => readCollapsed());
   const [opened, setOpened] = useState<CalendarBooking | null>(null);
@@ -110,6 +119,10 @@ function CalendarBody({ isStand }: { isStand: boolean }) {
   const chooseDepth = (next: Depth) => {
     setDepth(next);
     writeDepth(next);
+  };
+  const chooseChipView = (next: ChipView) => {
+    setChipView(next);
+    writeChipView(next);
   };
   const toggleGroup = (id: number) => {
     const next = toggled(collapsed, id);
@@ -198,7 +211,12 @@ function CalendarBody({ isStand }: { isStand: boolean }) {
         </div>
       </div>
 
-      <CalendarFilters {...chips.filters} onNewTask={taskDialogs.newTask} />
+      <CalendarFilters
+        {...chips.filters}
+        chipView={chipView}
+        onChipView={chooseChipView}
+        onNewTask={taskDialogs.newTask}
+      />
 
       {rowsQuery.data === undefined && rowsQuery.isError ? (
         <p role="alert" className="text-sm text-destructive">
@@ -222,6 +240,7 @@ function CalendarBody({ isStand }: { isStand: boolean }) {
           byRowDay={chips.byRowDay}
           repairAlerts={repairAlerts}
           bookings={bookingsById}
+          chipView={chipView}
           language={language}
           onOpenBooking={setOpened}
           onOpenTask={taskDialogs.openTask}
