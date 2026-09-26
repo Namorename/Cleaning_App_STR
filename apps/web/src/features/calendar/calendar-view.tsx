@@ -8,11 +8,15 @@ import { FALLBACK_LANGUAGE, INTL_LOCALES, isSupportedLanguage } from '@str-ops/s
 import { Button } from '@/components/ui/button';
 import { todayIso } from '@/lib/format-date';
 import { buildPropertyTree, visibleRows } from '@/lib/property-tree';
+import { serverErrorText } from '@/lib/server-error';
 
+import { layoutRows } from './bars';
+import { BookingCard } from './booking-card';
 import { CalendarGrid } from './calendar-grid';
 import { addDays, DEPTHS, defaultStart, rangeLabel, windowDays, type Depth } from './dates';
+import type { CalendarBooking } from './schema';
 import { readCollapsed, readDepth, writeCollapsed, writeDepth } from './storage';
-import { useCalendarClient, useCalendarRows } from './use-calendar';
+import { useCalendarBookings, useCalendarClient, useCalendarRows } from './use-calendar';
 
 interface CalendarViewProps {
   /** The stand: data from the fixture instead of the database (§5). */
@@ -63,14 +67,24 @@ function CalendarBody({ isStand }: { isStand: boolean }) {
   const [depth, setDepth] = useState<Depth>(() => readDepth());
   const [start, setStart] = useState(() => defaultStart(today));
   const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(() => readCollapsed());
+  const [opened, setOpened] = useState<CalendarBooking | null>(null);
 
-  const locale =
-    INTL_LOCALES[isSupportedLanguage(i18n.language) ? i18n.language : FALLBACK_LANGUAGE];
-  const days = windowDays(start, depth);
+  const language = isSupportedLanguage(i18n.language) ? i18n.language : FALLBACK_LANGUAGE;
+  const locale = INTL_LOCALES[language];
+  const days = useMemo(() => windowDays(start, depth), [start, depth]);
   const all = useMemo(() => rowsQuery.data ?? [], [rowsQuery.data]);
+  const byId = useMemo(() => new Map(all.map((one) => [one.id, one])), [all]);
   const tree = useMemo(() => buildPropertyTree(all), [all]);
   const rows = useMemo(() => visibleRows(tree, collapsed), [tree, collapsed]);
   const rooms = all.filter((one) => one.hostaway_unit_id !== null).length;
+
+  // Bars are drawn only when every month of the window has come (§1).
+  const bookings = useCalendarBookings(client, isStand, days);
+  const layout = useMemo(
+    () => layoutRows(tree, bookings.data ?? [], days),
+    [tree, bookings.data, days],
+  );
+  const bookingsFailure = bookings.isError ? serverErrorText(bookings.error) : null;
 
   const chooseDepth = (next: Depth) => {
     setDepth(next);
@@ -91,7 +105,21 @@ function CalendarBody({ isStand }: { isStand: boolean }) {
             {t('panel.calendar.counts', { listings: all.length - rooms, rooms })}
           </span>
         )}
+        {bookings.isPending ? (
+          <span className="text-sm text-muted-foreground">
+            {t('panel.calendar.loadingBookings')}
+          </span>
+        ) : null}
       </div>
+
+      {bookingsFailure === null ? null : (
+        <div role="alert" className="text-sm text-destructive">
+          <p>{t('panel.calendar.bookingsError')}</p>
+          {bookingsFailure.detail === null ? null : (
+            <p className="text-xs text-muted-foreground">{bookingsFailure.detail}</p>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <Button
@@ -159,8 +187,18 @@ function CalendarBody({ isStand }: { isStand: boolean }) {
           locale={locale}
           collapsed={collapsed}
           onToggleGroup={toggleGroup}
+          layout={layout}
+          language={language}
+          onOpenBooking={setOpened}
         />
       )}
+
+      <BookingCard
+        booking={opened}
+        byId={byId}
+        language={language}
+        onClose={() => setOpened(null)}
+      />
     </div>
   );
 }

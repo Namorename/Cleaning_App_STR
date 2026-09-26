@@ -753,7 +753,25 @@
       "units": "Единиц: {{count}}",
       "loadingRows": "Загружаем объекты…",
       "rowsError": "Не удалось загрузить объекты",
-      "empty": "Объектов нет"
+      "empty": "Объектов нет",
+      "loadingBookings": "Загружаем брони…",
+      "bookingsError": "Не удалось загрузить брони.",
+      "doubleBooking": "Двойная бронь",
+      "continuesBefore": "Началась раньше",
+      "continuesAfter": "Продолжается дальше",
+      "shadowWhole": "Занято: вилла целиком",
+      "shadowPart": "Занята часть: {{name}}",
+      "occupancy": "Занято {{taken}} из {{total}}",
+      "card": {
+        "title": "Бронь",
+        "rooms": "Комнаты",
+        "arrival": "Заезд",
+        "departure": "Выезд",
+        "nights_one": "{{count}} ночь",
+        "nights_few": "{{count}} ночи",
+        "nights_many": "{{count}} ночей",
+        "nights_other": "{{count}} ночи"
+      }
     }
   },
   "tabs": {

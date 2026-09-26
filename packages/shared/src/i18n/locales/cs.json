@@ -753,7 +753,25 @@
       "units": "Jednotek: {{count}}",
       "loadingRows": "Načítáme objekty…",
       "rowsError": "Objekty se nepodařilo načíst",
-      "empty": "Žádné objekty"
+      "empty": "Žádné objekty",
+      "loadingBookings": "Načítáme rezervace…",
+      "bookingsError": "Rezervace se nepodařilo načíst.",
+      "doubleBooking": "Dvojitá rezervace",
+      "continuesBefore": "Začala dříve",
+      "continuesAfter": "Pokračuje dál",
+      "shadowWhole": "Obsazeno: celá vila",
+      "shadowPart": "Obsazená část: {{name}}",
+      "occupancy": "Obsazeno {{taken}} z {{total}}",
+      "card": {
+        "title": "Rezervace",
+        "rooms": "Pokoje",
+        "arrival": "Příjezd",
+        "departure": "Odjezd",
+        "nights_one": "{{count}} noc",
+        "nights_few": "{{count}} noci",
+        "nights_many": "{{count}} noci",
+        "nights_other": "{{count}} nocí"
+      }
     }
   },
   "tabs": {

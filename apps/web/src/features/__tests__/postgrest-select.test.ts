@@ -8,6 +8,7 @@ import {
   indexSchema,
 } from '../../../../../packages/shared/src/testing/postgrest-select';
 import * as apartments from '../apartments/api';
+import * as calendar from '../calendar/api';
 import * as chat from '../chat/api';
 import * as problems from '../problems/api';
 import * as settings from '../settings/api';
@@ -85,6 +86,7 @@ const READERS: readonly ((client: never) => Promise<unknown>)[] = [
   (client) => apartments.fetchPropertyProblems(client, ANY_PROPERTY),
   (client) => apartments.fetchChecklist(client, ANY_PROPERTY),
   (client) => apartments.fetchChecklistOwner(client, ANY_PROPERTY),
+  (client) => calendar.fetchCalendarBookings(client, '2026-09-01', '2026-10-01'),
   (client) => chat.fetchMessages(client, ANY_ID),
   (client) => problems.fetchProblems(client),
   (client) => problems.fetchProblem(client, ANY_ID),

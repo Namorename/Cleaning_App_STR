@@ -747,7 +747,23 @@
       "units": "Units: {{count}}",
       "loadingRows": "Loading listings…",
       "rowsError": "Could not load the listings",
-      "empty": "No listings"
+      "empty": "No listings",
+      "loadingBookings": "Loading bookings…",
+      "bookingsError": "Could not load the bookings.",
+      "doubleBooking": "Double booking",
+      "continuesBefore": "Began earlier",
+      "continuesAfter": "Goes on later",
+      "shadowWhole": "Taken: the whole villa",
+      "shadowPart": "Part taken: {{name}}",
+      "occupancy": "{{taken}} of {{total}} taken",
+      "card": {
+        "title": "Booking",
+        "rooms": "Rooms",
+        "arrival": "Arrival",
+        "departure": "Departure",
+        "nights_one": "{{count}} night",
+        "nights_other": "{{count}} nights"
+      }
     }
   },
   "tabs": {

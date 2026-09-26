@@ -50,6 +50,29 @@ export function monthsOf(days: readonly string[]): string[] {
   return [...new Set(days.map((day) => day.slice(0, 7)))];
 }
 
+/** How many days `day` is after `first`; negative before it. */
+export function daysBetween(first: string, day: string): number {
+  return Math.round((toUtc(day) - toUtc(first)) / DAY_MS);
+}
+
+function shiftMonth(month: string, amount: number): string {
+  const [year, number] = month.split('-').map(Number);
+  return fromUtc(Date.UTC(year, number - 1 + amount, 1)).slice(0, 7);
+}
+
+/** A month as a half-open range of days: its first day up to the next month's. */
+export function monthBounds(month: string): { from: string; to: string } {
+  return { from: `${month}-01`, to: `${shiftMonth(month, 1)}-01` };
+}
+
+/** The month before the window and the one after: the next arrow reaches them. */
+export function neighbourMonths(months: readonly string[]): string[] {
+  if (months.length === 0) {
+    return [];
+  }
+  return [shiftMonth(months[0], -1), shiftMonth(months[months.length - 1], 1)];
+}
+
 /**
  * The width of a day column, by depth. A week reads a chip in full (about
  * 130 px, §4); a month shows a dot per chip in about 30 px, and scrolls

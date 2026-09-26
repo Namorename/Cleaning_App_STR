@@ -1,6 +1,14 @@
 import { describe, expect, test } from 'vitest';
 
-import { addDays, defaultStart, isDepth, monthsOf, windowDays } from '../dates';
+import {
+  addDays,
+  defaultStart,
+  isDepth,
+  monthBounds,
+  monthsOf,
+  neighbourMonths,
+  windowDays,
+} from '../dates';
 
 describe('the days of the window', () => {
   test('a day steps over the end of a month and of a year', () => {
@@ -28,6 +36,20 @@ describe('the days of the window', () => {
   test('names every month the window touches', () => {
     expect(monthsOf(windowDays('2027-01-31', 30))).toEqual(['2027-01', '2027-02', '2027-03']);
     expect(monthsOf(windowDays('2026-09-25', 3))).toEqual(['2026-09']);
+  });
+
+  // A month is read as a half-open range of days: from its first day to the
+  // first day of the next.
+  test('a month is its first day up to the first day of the next', () => {
+    expect(monthBounds('2026-09')).toEqual({ from: '2026-09-01', to: '2026-10-01' });
+    expect(monthBounds('2026-12')).toEqual({ from: '2026-12-01', to: '2027-01-01' });
+  });
+
+  // The arrows reach the neighbours next, so their bookings are read ahead.
+  test('the neighbours of the window are the month before and the month after', () => {
+    expect(neighbourMonths(['2026-09', '2026-10'])).toEqual(['2026-08', '2026-11']);
+    expect(neighbourMonths(['2027-01'])).toEqual(['2026-12', '2027-02']);
+    expect(neighbourMonths([])).toEqual([]);
   });
 });
 

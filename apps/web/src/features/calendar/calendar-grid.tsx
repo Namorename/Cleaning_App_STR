@@ -1,16 +1,19 @@
 'use client';
 
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { propertyPath } from '@str-ops/shared';
+import { propertyPath, type Language } from '@str-ops/shared';
 
 import { Badge } from '@/components/ui/badge';
 import type { Property } from '@/features/tasks/schema';
 import type { VisibleRow } from '@/lib/property-tree';
 
+import type { RowLayout } from './bars';
 import { DAY_WIDTH, dayLabel, fullDayLabel, type Depth } from './dates';
+import { RowTrack } from './row-track';
+import type { CalendarBooking } from './schema';
 
 /** The property column; the days start after it. */
 const FIRST_COLUMN = 240;
@@ -34,6 +37,10 @@ interface CalendarGridProps {
   locale: string;
   collapsed: ReadonlySet<number>;
   onToggleGroup: (id: number) => void;
+  /** Bars, shades and counts by property id; empty while bookings load. */
+  layout: ReadonlyMap<number, RowLayout>;
+  language: Language;
+  onOpenBooking: (booking: CalendarBooking) => void;
 }
 
 /**
@@ -52,9 +59,14 @@ export function CalendarGrid({
   locale,
   collapsed,
   onToggleGroup,
+  layout,
+  language,
+  onOpenBooking,
 }: CalendarGridProps) {
   const { t } = useTranslation();
   const scroller = useRef<HTMLDivElement>(null);
+  // Pointing at one bar of a stay of several rooms lights all of them (§3).
+  const [highlighted, setHighlighted] = useState<number | null>(null);
   const dayWidth = DAY_WIDTH[depth];
   const width = FIRST_COLUMN + days.length * dayWidth;
 
@@ -123,7 +135,9 @@ export function CalendarGrid({
             <div
               key={item.key}
               role="row"
-              className="absolute left-0 flex border-b"
+              // top-0: without it a row starts at its static place under the
+              // sticky header, and the header's height is counted twice.
+              className="absolute top-0 left-0 flex border-b"
               style={{ width, height: item.size, transform: `translateY(${item.start}px)` }}
             >
               <div
@@ -166,10 +180,17 @@ export function CalendarGrid({
                   </Badge>
                 ) : null}
               </div>
-              <div
-                aria-hidden
-                className="h-full"
-                style={{ width: days.length * dayWidth, backgroundImage: dayLines }}
+              <RowTrack
+                layout={layout.get(property.id)}
+                days={days}
+                dayWidth={dayWidth}
+                dayLines={dayLines}
+                isClosedGroup={isGroup && isClosed}
+                unitCount={node.children.length}
+                highlighted={highlighted}
+                language={language}
+                onPoint={setHighlighted}
+                onOpen={onOpenBooking}
               />
             </div>
           );
