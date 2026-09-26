@@ -78,6 +78,25 @@ test('says where each photo stands and counts them', async () => {
   expect(handlers.onRemove).toHaveBeenCalledWith('m2');
 });
 
+// A tile whose picture is not here yet (its signed link still on the way)
+// says what it holds, not which step: the same tiles serve "photos after".
+test('a photo not here yet is called a photo, not a photo before', async () => {
+  await render(
+    <StepMedia
+      kind="photo"
+      items={[item({ uri: null })]}
+      limits={{ min: 1, max: 4 }}
+      maxVideoSec={30}
+      isCapturing={false}
+      disabled={false}
+      {...handlers}
+    />,
+  );
+
+  expect(screen.getByText('Фото')).toBeTruthy();
+  expect(screen.queryByText('Фото до')).toBeNull();
+});
+
 test('closes the camera once the step is full', async () => {
   await render(
     <StepMedia

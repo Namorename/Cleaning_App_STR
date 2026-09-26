@@ -41,7 +41,9 @@ export function PropertyCard({ propertyId }: PropertyCardProps) {
   if (property.isPending) {
     return <p className="text-sm text-muted-foreground">{t('panel.apartments.loading')}</p>;
   }
-  if (property.isError) {
+  // Only when there is nothing to show: a refresh that fails over data already
+  // on screen must not take the Info form, and what the manager typed, away.
+  if (property.isError && property.data === undefined) {
     return (
       <p role="alert" className="text-sm text-destructive">
         {t('panel.apartments.loadError')}

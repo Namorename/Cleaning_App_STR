@@ -40,6 +40,9 @@ function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
     completed_at: null,
     is_parallel: false,
     type: 'cleaning',
+    notes: null,
+    title: null,
+    title_i18n: {},
     ...overrides,
   };
 }
@@ -91,6 +94,56 @@ describe('urgencyText', () => {
 
   test('says plainly that nobody is arriving', () => {
     expect(urgencyText(task({ priority: 0, due_at: null }))).toBe('Заезда нет');
+  });
+
+  test('a cleaning after a booking says whether the next guest comes that day', () => {
+    expect(urgencyText(task({ reservation_id: 5001, priority: 0 }))).toBe('Заезда нет');
+    expect(urgencyText(task({ reservation_id: 5001, priority: 1 }))).toBe('В этот день заезд');
+  });
+
+  test('an inspection, a midstay or a repair names its kind: no check-in is what it is about', () => {
+    // A midstay's guest is in the flat; an inspection and a repair have nobody
+    // to wait for, and every repair carries priority 0.
+    expect(urgencyText(task({ type: 'inspection' }))).toBe('Осмотр');
+    expect(urgencyText(task({ type: 'midstay', priority: 1 }))).toBe('Уборка в проживание');
+    expect(urgencyText(task({ type: 'maintenance' }))).toBe('Обслуживание');
+    expect(urgencyText(task({ type: 'maintenance', title: 'Заменить смеситель' }))).toBe(
+      'Заменить смеситель',
+    );
+  });
+
+  test('a job the office made by hand, with no booking behind it, claims nothing about a check-in', () => {
+    // Priority 0 on it means nobody decided anything about arrivals — not that
+    // nobody arrives. Named by its title, or else by its kind.
+    expect(urgencyText(task({ reservation_id: null }))).toBe('Уборка');
+    expect(urgencyText(task({ reservation_id: null, priority: 1 }))).toBe('Уборка');
+    expect(urgencyText(task({ reservation_id: null, title: 'Генеральная уборка' }))).toBe(
+      'Генеральная уборка',
+    );
+  });
+
+  test('a row cached before the booking was asked for reads as it did before', () => {
+    // The fixture has no `reservation_id` key, as such a row has none. No key
+    // is "not known", not "no booking": the turnover she saw yesterday keeps
+    // its check-in until the list refreshes.
+    const cached = task({ priority: 1, due_at: null });
+
+    expect('reservation_id' in cached).toBe(false);
+    expect(urgencyText(cached)).toBe('В этот день заезд');
+  });
+
+  test('names an inspection or a midstay by the title the office gave it, as the panel does', () => {
+    expect(urgencyText(task({ type: 'inspection', title: 'Проверить протечку' }))).toBe(
+      'Проверить протечку',
+    );
+    // In her language when the office translated it.
+    expect(
+      urgencyText(
+        task({ type: 'midstay', title: 'Fresh towels', title_i18n: { ru: 'Свежие полотенца' } }),
+      ),
+    ).toBe('Свежие полотенца');
+    // A blank title is no title.
+    expect(urgencyText(task({ type: 'inspection', title: '   ' }))).toBe('Осмотр');
   });
 });
 

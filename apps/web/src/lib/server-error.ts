@@ -1,3 +1,5 @@
+import { serverErrorOptions } from '@str-ops/shared';
+
 import { i18n } from '@/lib/i18n';
 
 /**
@@ -45,8 +47,14 @@ function parameters(details: unknown): Record<string, unknown> {
 
 /** The i18n key a refusal carries, when it carries one this build knows. */
 export function serverErrorKey(error: unknown): string | null {
-  const { hint } = asRaised(error);
-  return typeof hint === 'string' && hint.startsWith(KEY_PREFIX) && i18n.exists(hint) ? hint : null;
+  const { hint, details } = asRaised(error);
+  // A counted key exists only in its plural forms, so it is looked up with
+  // its count — and without one it is not a key this build can read.
+  return typeof hint === 'string' &&
+    hint.startsWith(KEY_PREFIX) &&
+    i18n.exists(hint, serverErrorOptions(hint, parameters(details)))
+    ? hint
+    : null;
 }
 
 export function serverErrorText(error: unknown): ServerErrorText {
@@ -54,7 +62,7 @@ export function serverErrorText(error: unknown): ServerErrorText {
   const key = serverErrorKey(error);
 
   if (key !== null) {
-    return { text: i18n.t(key, parameters(details)), detail: null };
+    return { text: i18n.t(key, serverErrorOptions(key, parameters(details))), detail: null };
   }
 
   return {

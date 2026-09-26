@@ -12,7 +12,13 @@ import { SessionProvider } from '@/features/auth/session';
 import { ProfileLanguageGate } from '@/features/profile/language-gate';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { subscribeFocusToAppState } from '@/lib/app-focus';
+import { markAppDrawn } from '@/components/route-error';
 import { createAppQueryClient, persistOptions } from '@/lib/query-client';
+
+// The last net under every screen: once the app has drawn, a render error
+// shows a retry instead of closing the app. Screens that can fail on their own
+// data carry their own boundary.
+export { RootRouteError as ErrorBoundary } from '@/components/route-error';
 
 /**
  * Navigation chrome painted from the app's own palette.
@@ -58,6 +64,9 @@ export default function RootLayout() {
   // the app comes back; without this the client thinks it is always in front.
   useEffect(() => subscribeFocusToAppState(), []);
 
+  // From the first commit on, the root boundary catches instead of crashing.
+  useEffect(() => markAppDrawn(), []);
+
   return (
     <PersistQueryClientProvider
       client={queryClient}
@@ -90,9 +99,18 @@ export default function RootLayout() {
                   name="task/[id]/step/[stepId]"
                   options={{ headerShown: true, headerBackTitle: t('common.back') }}
                 />
+                {/*
+                  The title is set here, not by the screen: a thread that fails
+                  on its first render never draws its own, and the header would
+                  show the route's file name above the error.
+                */}
                 <Stack.Screen
                   name="chat/[subject]/[id]"
-                  options={{ headerShown: true, headerBackTitle: t('common.back') }}
+                  options={{
+                    headerShown: true,
+                    headerBackTitle: t('common.back'),
+                    title: t('chat.title'),
+                  }}
                 />
               </Stack>
             </ThemeProvider>

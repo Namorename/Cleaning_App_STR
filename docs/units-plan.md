@@ -214,9 +214,10 @@
   ```
 
   Имя задания и имя функции у второго намеренно разные. В проверке должно быть
-  **шесть заданий** (после выката `20260923120000`; до него — пять): два
-  возвращённых плюс `sync-listings-daily` (0 3), `expire-stale-tasks` (30 3),
-  `purge-generator-runs` (45 3) и `purge-task-media-daily` (30 4).
+  **семь заданий** (после выката окна 3, `20260924160000`; до него — шесть, до
+  `20260923120000` — пять): два возвращённых плюс `sync-listings-daily` (0 3),
+  `expire-stale-tasks` (30 3), `purge-generator-runs` (45 3),
+  `purge-webhook-events` (50 3) и `purge-task-media-daily` (30 4).
 
 - **Проверка после выката** — числа ночного прогона: сколько уборок переехало
   (`relocated`), сколько создано и погашено. На копии прода бэкфилл дал
@@ -350,7 +351,9 @@
      `table_grants.sql` облако не видит, а хостинг раздавал права щедрее
      локального стека. Непустой `client_access_to_raw` — стоп и `revoke`;
   5. `information_schema.role_table_grants` для `anon` и `authenticated` по
-     `public` — как после каждого push;
+     `public` (тогда — под `db query --linked`, то есть `postgres`; с
+     2026-09-26 права сверяются по `pg_class.relacl` через `aclexplode`, как
+     в `docs/rollout/postpush_window3.sql`, CLAUDE.md);
   6. окно 2 обратно, `sha256sum -c`, пустой `git status`;
   7. **через час** — ещё раз `postpush_package.sql`, метка
      `trace_last_hour`: строк больше нуля, если за час прошла хоть одна

@@ -13,6 +13,11 @@
 -- Fixture ids live in the 900001 9xx range, rooms at 1000000642xx.
 begin;
 
+-- The pg_temp helpers below are created by postgres, whose new functions no
+-- longer go to PUBLIC (20260926100000), and they are called as authenticated
+-- too. Hand them to that role for the length of this transaction.
+alter default privileges for role postgres grant execute on functions to authenticated;
+
 insert into public.hosts (id, name) values
   ('b6000000-0000-4000-8000-00000000000b', 'Host B');
 
@@ -480,6 +485,68 @@ select pg_temp.as_boss();
 select pg_temp.check('and the room is still where it was',
   pg_temp.status_of(1000000064266), 'active');
 
+-- ---------------------------------------------------------------------------
+--  A stay-over cleaning goes with its listing too
+-- ---------------------------------------------------------------------------
+--
+-- A midstay is a cleaning while the guests stay, and the phone offers a free
+-- one in «Свободные». Archiving the house has to take the unstarted ones with
+-- it, in its rooms as well, and the three counts the manager reads before
+-- saying yes have to see them (owner's word 2026-09-24). An inspection or a
+-- repair is not a cleaning: an inspection after a repair is exactly what a
+-- flat under maintenance is for.
+reset role; reset request.jwt.claims;
+insert into public.properties (id, name, timezone) values
+  (900001905, 'Stay-over house', 'Europe/Prague');
+insert into public.properties (id, hostaway_unit_id, parent_id, name, timezone) values
+  (1000000064280, 64280, 900001905, 'Stay-over room A', 'Europe/Prague'),
+  (1000000064281, 64281, 900001905, 'Stay-over room B', 'Europe/Prague');
+
+insert into public.tasks (id, property_id, type, status, scheduled_date, assignee_id) values
+  ('a6000005-0000-4000-8000-000000000051', 900001905, 'midstay', 'unassigned',
+   current_date, null),
+  ('a6000005-0000-4000-8000-000000000052', 1000000064280, 'midstay', 'assigned',
+   current_date, 'd6000001-0000-4000-8000-0000000000d1'),
+  -- She has said she is taking it: started, never swept.
+  ('a6000005-0000-4000-8000-000000000053', 1000000064281, 'midstay', 'accepted',
+   current_date, 'd6000001-0000-4000-8000-0000000000d1'),
+  ('a6000005-0000-4000-8000-000000000054', 1000000064281, 'inspection', 'unassigned',
+   current_date, null),
+  ('a6000005-0000-4000-8000-000000000055', 1000000064280, 'maintenance', 'unassigned',
+   current_date, null);
+
+select pg_temp.as_boss();
+
+select pg_temp.check('the confirmation counts the stay-over cleanings, rooms included',
+  public.property_open_cleanings(900001905), 2);
+
+select pg_temp.check('and the registry beside it says the same',
+  (select c.cleanings from public.open_cleanings_by_listing() c
+    where c.property_id = 900001905), 2);
+
+select pg_temp.check('archiving asks first',
+  pg_temp.refusal_hint($stmt$
+    select public.set_property_status(900001905, 'archived')
+  $stmt$), 'serverErrors.propertyHasOpenTasks');
+
+select public.set_property_status(900001905, 'archived', true);
+
+select pg_temp.check('the unstarted stay-over on the house is cancelled',
+  (select status::text from public.tasks
+   where id = 'a6000005-0000-4000-8000-000000000051'), 'cancelled');
+select pg_temp.check('and the one handed out in a room',
+  (select status::text from public.tasks
+   where id = 'a6000005-0000-4000-8000-000000000052'), 'cancelled');
+select pg_temp.check('the one she has taken stays hers',
+  (select status::text from public.tasks
+   where id = 'a6000005-0000-4000-8000-000000000053'), 'accepted');
+select pg_temp.check('an inspection is not a cleaning and stays',
+  (select status::text from public.tasks
+   where id = 'a6000005-0000-4000-8000-000000000054'), 'unassigned');
+select pg_temp.check('nor is a repair',
+  (select status::text from public.tasks
+   where id = 'a6000005-0000-4000-8000-000000000055'), 'unassigned');
+
 -- ---------- the note at the door ----------
 -- "The key is in box 4325" is written on the listing, and the cleaning stands
 -- on the room. Without inheritance the note never reaches the person holding
@@ -510,9 +577,11 @@ select pg_temp.check('the listing itself reads the note it carries',
   (select public.effective_cleaner_notes(p) from public.properties p
     where p.id = 900001901), 'key in box 4325');
 
--- Invoker, so the parent row is read under the caller's own policies. A
--- cleaner may read every listing her company owns, so the note arrives; if
--- that policy ever narrows, this is the check that goes red rather than the
+-- Invoker, so the parent row is read under the caller's own policies. Since
+-- window 3 a cleaner reads only the places she is tied to and the listing
+-- above them (docs/window3-plan.md, «Б»); Maria has a task in this room, so
+-- the house above it is hers to read and the note arrives. If the rule ever
+-- loses the listing above, this is the check that goes red rather than the
 -- note quietly going blank at the door.
 select pg_temp.as_maria();
 select pg_temp.check('and the cleaner at the door gets the same note',

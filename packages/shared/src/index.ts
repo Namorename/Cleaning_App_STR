@@ -1,4 +1,4 @@
-// Общие типы и константы. Типы БД генерируются: npm run db:types
+// Shared types and constants. The database types are generated: npm run db:types
 
 export type {
   Database,
@@ -21,9 +21,11 @@ export {
 export {
   FALLBACK_LANGUAGE,
   INTL_LOCALES,
+  SERVER_ERROR_COUNT_PARAMETER,
   SUPPORTED_LANGUAGES,
   isSupportedLanguage,
   resolveLanguage,
+  serverErrorOptions,
   translationResources,
   translations,
   type Language,

@@ -7,9 +7,10 @@ import {
   checklistPayload,
   checklistSchema,
   maintenanceTaskListSchema,
-  propertyDetailSchema,
+  internalNoteSchema,
   propertyListSchema,
   propertyProblemListSchema,
+  propertyRowSchema,
   reservationListSchema,
   syncSummarySchema,
   type ChecklistModule,
@@ -64,35 +65,54 @@ export async function fetchRegistry(client: Client): Promise<Property[]> {
 
 const DETAIL_COLUMNS =
   `${PROPERTY_COLUMNS}, country_code, timezone, bathrooms, check_in_time, check_out_time, ` +
-  'cleaner_notes, internal_notes, synced_at';
+  'cleaner_notes, synced_at';
 
 /**
- * One listing in full.
+ * One listing in full, with the office's note.
  *
  * Archived ones are readable here on purpose: the card is reached from the
  * archive tab, and a manager checking what she is about to restore should see
  * the flat, not a "not found".
+ *
+ * The note lives in a table of its own that only a manager reads — on the
+ * property row it reached every cleaner who could read the row
+ * (docs/window3-plan.md, «А»). Both reads leave before either is parsed, and
+ * the card gets them as one object: the Info tab fills its form once, when it
+ * mounts, and a note arriving later would never reach the box.
  */
 export async function fetchProperty(client: Client, id: number): Promise<PropertyDetail | null> {
-  const { data, error } = await client
-    .from('properties')
-    .select(DETAIL_COLUMNS)
-    .eq('id', id)
-    .maybeSingle();
-  if (error) {
-    throw error;
+  const [row, note] = await Promise.all([
+    client.from('properties').select(DETAIL_COLUMNS).eq('id', id).maybeSingle(),
+    client.from('property_internal_notes').select('notes').eq('property_id', id).maybeSingle(),
+  ]);
+  if (row.error) {
+    throw row.error;
   }
-  return data === null ? null : propertyDetailSchema.parse(data);
+  if (note.error) {
+    throw note.error;
+  }
+  if (row.data === null) {
+    return null;
+  }
+  return {
+    ...propertyRowSchema.parse(row.data),
+    internal_notes: internalNoteSchema.parse(note.data)?.notes ?? null,
+  };
 }
 
 /**
  * Write the half of a listing that belongs to the company.
  *
- * Only three columns, and deliberately so: everything else on the row is
- * rewritten from Hostaway on the next sync, so writing it here would be a
- * change that undoes itself in the night. A plain update rather than an RPC —
- * the manager policy on `properties` already says who may do this, and there
- * is nothing to explain about a note.
+ * Only what Hostaway does not own, and deliberately so: everything else on the
+ * row is rewritten from Hostaway on the next sync, so writing it here would be
+ * a change that undoes itself in the night. Plain writes rather than an RPC —
+ * the manager policies already say who may do this, and there is nothing to
+ * explain about a note.
+ *
+ * Two writes since the office's note left the row. The row goes first: a
+ * parent the hierarchy refuses stops the save before anything is written. If
+ * the note then fails, the row is saved and the manager sees the error; saving
+ * again writes the same row and retries the note.
  */
 export async function savePropertyInfo(
   client: Client,
@@ -104,9 +124,23 @@ export async function savePropertyInfo(
     .update({
       parent_id: draft.parentId,
       cleaner_notes: draft.cleanerNotes.trim() === '' ? null : draft.cleanerNotes.trim(),
-      internal_notes: draft.internalNotes.trim() === '' ? null : draft.internalNotes.trim(),
     })
     .eq('id', id);
+  if (error) {
+    throw error;
+  }
+  await saveInternalNote(client, id, draft.internalNotes);
+}
+
+/** An emptied box is no note at all: the table refuses a blank one. */
+async function saveInternalNote(client: Client, id: number, text: string): Promise<void> {
+  const note = text.trim();
+  const { error } =
+    note === ''
+      ? await client.from('property_internal_notes').delete().eq('property_id', id)
+      : await client
+          .from('property_internal_notes')
+          .upsert({ property_id: id, notes: note }, { onConflict: 'property_id' });
   if (error) {
     throw error;
   }

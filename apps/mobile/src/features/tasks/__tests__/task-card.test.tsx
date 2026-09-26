@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 
 import { TaskCard } from '../task-card';
 import type { CleaningTask } from '../schema';
@@ -26,6 +26,9 @@ function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
     completed_at: null,
     is_parallel: false,
     type: 'cleaning',
+    notes: null,
+    title: null,
+    title_i18n: {},
     ...overrides,
   };
 }
@@ -34,6 +37,19 @@ test('shows the listing name the cleaner would recognise', async () => {
   await render(<TaskCard task={task()} />);
 
   expect(screen.getByText('CZ - Nadrazni Apt 6')).toBeTruthy();
+});
+
+test('an inspection and a midstay say what kind of job they are, not that nobody checks in', async () => {
+  // Arrange / Act
+  await render(<TaskCard task={task({ type: 'inspection' })} onPress={jest.fn()} />);
+
+  // Assert: on the card and in what the reader hears.
+  expect(screen.getByText('Осмотр')).toBeTruthy();
+  expect(screen.queryByText('Заезда нет')).toBeNull();
+  expect(screen.getByRole('button', { name: /Осмотр/ })).toBeTruthy();
+
+  await render(<TaskCard task={task({ type: 'midstay' })} />);
+  expect(screen.getByText('Уборка в проживание')).toBeTruthy();
 });
 
 test('names the building first and the room under it', async () => {
@@ -151,6 +167,26 @@ test('opens the task when the card is pressed', async () => {
 
   await fireEvent.press(screen.getByRole('button', { name: /CZ - Nadrazni Apt 6/ }));
 
+  expect(onPress).toHaveBeenCalledWith('3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b');
+});
+
+test('in the queue the card opens the task, and taking it stays a control of its own', async () => {
+  // Arrange
+  const onPress = jest.fn();
+  const onClaim = jest.fn();
+  await render(<TaskCard task={task()} onPress={onPress} onClaim={onClaim} />);
+  const card = screen.getByRole('button', { name: /^CZ - Nadrazni Apt 6\./ });
+
+  // Assert: a screen reader reads a button as one element, so a button
+  // inside it is out of reach on iOS — "take" must not sit inside the card's.
+  expect(within(card).queryByRole('button', { name: /Взять уборку/ })).toBeNull();
+
+  // Act / Assert: each does its own thing and not the other's.
+  await fireEvent.press(screen.getByRole('button', { name: /Взять уборку/ }));
+  expect(onClaim).toHaveBeenCalledWith('3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b');
+  expect(onPress).not.toHaveBeenCalled();
+
+  await fireEvent.press(card);
   expect(onPress).toHaveBeenCalledWith('3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b');
 });
 

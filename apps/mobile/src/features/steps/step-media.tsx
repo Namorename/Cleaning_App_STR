@@ -57,7 +57,7 @@ export function StepMedia({
       <Text style={styles.hint}>
         {kind === 'video'
           ? t('steps.videoHint', { seconds: maxVideoSec })
-          : t('steps.photosHint', { min: limits.min })}
+          : t('steps.photosHint', { count: limits.min })}
       </Text>
 
       {items.length === 0 ? (
@@ -160,7 +160,7 @@ function MediaTile({ item, index, disabled, onRemove, onRetry, styles }: MediaTi
             <Text style={styles.placeholderText}>
               {item.kind === 'video'
                 ? t('steps.videoLength', { seconds: item.durationSec ?? 0 })
-                : t('steps.types.photos_before')}
+                : t('steps.photoPlaceholder')}
             </Text>
           </View>
         )}

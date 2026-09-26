@@ -188,6 +188,16 @@ export function taskPropertyName(task: Pick<Task, 'property'>): string | null {
 }
 
 /** A problem reported while this task was being done. */
+/**
+ * The booking a generated cleaning closes: its Hostaway id and who is leaving.
+ * Read for the task's form only — the list does not carry guests' names.
+ */
+export const departureGuestSchema = z.object({
+  id: z.number(),
+  guest_name: z.string().nullable(),
+});
+export type DepartureGuest = z.infer<typeof departureGuestSchema>;
+
 export const taskProblemSchema = z.object({
   id: z.uuid(),
   title: z.string(),
@@ -358,11 +368,12 @@ export function timeGroup(task: Pick<Task, 'time_from'>): TimeGroup {
  * A heading with the tasks under it.
  *
  * `kind` says how to read the key: `time` is one of TIME_GROUPS and is
- * translated, `day` is a `YYYY-MM-DD` and is formatted as a date.
+ * translated, `day` is a `YYYY-MM-DD` and is formatted as a date, `tail` is
+ * the Today tab's work left over from earlier days.
  */
 export interface TaskGroup {
   key: string;
-  kind: 'time' | 'day';
+  kind: 'time' | 'day' | 'tail';
   tasks: Task[];
 }
 
@@ -386,18 +397,34 @@ function byTime(left: Task, right: Task): number {
   return left.time_from.localeCompare(right.time_from);
 }
 
+/** The oldest day first — the longest overdue is the first to chase. */
+function byDayThenTime(left: Task, right: Task): number {
+  return left.scheduled_date === right.scheduled_date
+    ? byTime(left, right)
+    : left.scheduled_date.localeCompare(right.scheduled_date);
+}
+
 /**
- * Today's work reads as a day: morning, then afternoon, then evening. The
- * other tabs span days, so there the day itself is the heading — nearest
+ * Today's work reads as a day: morning, then afternoon, then evening. What is
+ * left over from earlier days goes above all of it, in a group of its own —
+ * spread over the parts of the day, a tail stood among today's work and was
+ * found only by its border. A tail is what `tailOf` says, with the same `now`
+ * the cards get, so the heading and the border never disagree.
+ *
+ * The other tabs span days, so there the day itself is the heading — nearest
  * first when the work is ahead, most recent first when it is behind.
  */
-export function groupTasks(tasks: Task[], tab: TaskTab): TaskGroup[] {
+export function groupTasks(tasks: Task[], tab: TaskTab, now: Date): TaskGroup[] {
   if (tab === 'today') {
-    return TIME_GROUPS.map((key) => ({
+    const tails = tasks.filter((task) => tailOf(task, now) !== null);
+    const current = tasks.filter((task) => tailOf(task, now) === null);
+    const tailGroup: TaskGroup = { key: 'tail', kind: 'tail', tasks: tails.sort(byDayThenTime) };
+    const timeGroups = TIME_GROUPS.map((key) => ({
       key,
       kind: 'time' as const,
-      tasks: tasks.filter((task) => timeGroup(task) === key).sort(byTime),
-    })).filter((group) => group.tasks.length > 0);
+      tasks: current.filter((task) => timeGroup(task) === key).sort(byTime),
+    }));
+    return [tailGroup, ...timeGroups].filter((group) => group.tasks.length > 0);
   }
 
   const days = [...new Set(tasks.map((task) => task.scheduled_date))].sort((left, right) =>
@@ -454,10 +481,48 @@ export function draftFromTask(task: Task): TaskDraft {
 }
 
 /**
+ * The kinds that are somebody's job from the moment they are written.
+ *
+ * The owner's decision: an inspection or a maintenance job left to nobody is
+ * one nobody does — nobody is shown it, and it expires unnoticed. A cleaning
+ * may still wait in the queue. The panel holds this line on its own:
+ * `save_task` still accepts an unassigned task of any kind.
+ */
+const TYPES_NEEDING_ASSIGNEE: readonly TaskType[] = ['inspection', 'maintenance'];
+
+export function needsAssignee(type: TaskType): boolean {
+  return TYPES_NEEDING_ASSIGNEE.includes(type);
+}
+
+/**
+ * A kind that needs somebody, with nobody named who can do it — the gap the
+ * form points at. `activeStaff` is the list the form offers: an executor
+ * missing from it has been switched off and will never see the job. While the
+ * list is on its way it is undefined, and only an empty choice counts, so
+ * nobody is flagged for a list that has not arrived.
+ */
+export function isAssigneeMissing(
+  draft: Pick<TaskDraft, 'type' | 'assigneeId'>,
+  activeStaff?: readonly string[],
+): boolean {
+  if (!needsAssignee(draft.type)) {
+    return false;
+  }
+  if (draft.assigneeId === null) {
+    return true;
+  }
+  return activeStaff !== undefined && !activeStaff.includes(draft.assigneeId);
+}
+
+/**
  * Is the draft worth sending? Only what the panel can see for itself — the
  * server checks the rest and says so in the reader's language. The title is
  * not among them: a task without one is called by its kind.
  */
-export function isDraftReady(draft: TaskDraft): boolean {
-  return draft.propertyId !== null && draft.scheduledDate.trim() !== '';
+export function isDraftReady(draft: TaskDraft, activeStaff?: readonly string[]): boolean {
+  return (
+    draft.propertyId !== null &&
+    draft.scheduledDate.trim() !== '' &&
+    !isAssigneeMissing(draft, activeStaff)
+  );
 }

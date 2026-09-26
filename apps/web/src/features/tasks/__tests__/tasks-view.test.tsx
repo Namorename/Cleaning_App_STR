@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { beforeEach, describe, expect, onTestFinished, test, vi } from 'vitest';
 
 import { todayIso } from '@/lib/format-date';
 
@@ -114,6 +114,7 @@ vi.mock('../use-tasks', () => ({
     isError: false,
   }),
   useTaskProblems: () => ({ data: [], isPending: false, isError: false }),
+  useReservationGuest: () => ({ data: undefined, isPending: true, isError: false }),
   useSaveTask: () => ({ ...saveState, mutate: saveTask, reset: idle.reset }),
   useCancelTask: () => ({ ...cancelState, mutate: cancelTask, reset: idle.reset }),
   useSetDuration: () => ({ ...idle, mutate: setDuration }),
@@ -161,6 +162,54 @@ describe('TasksView', () => {
     expect(screen.getByText('Генеральная уборка')).toBeInTheDocument();
     expect(screen.getByText('09:00 – 11:00')).toBeInTheDocument();
     expect(screen.queryByText('Уборка завтра')).not.toBeInTheDocument();
+  });
+
+  test("puts what is left over from earlier days above today's work, under its own heading", () => {
+    // The clock stands at noon of TODAY, so "yesterday" here and "today" in
+    // the view cannot fall on two sides of a midnight.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(`${TODAY}T12:00:00`));
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+
+    // Arrange: yesterday's live cleaning in the evening, among today's two.
+    const YESTERDAY = todayIso(new Date(Date.now() - DAY_MS));
+    const leftOver = task({
+      id: id(5),
+      title: 'Уборка со вчера',
+      scheduled_date: YESTERDAY,
+      time_from: '18:00:00',
+      status: 'unassigned',
+    });
+    useTasks.mockReturnValue({
+      data: [morning, evening, leftOver],
+      isPending: false,
+      isError: false,
+    });
+
+    // Act
+    render(<TasksView />);
+
+    // Assert: the tail heads the tab rather than hiding in the evening.
+    const headings = screen.getAllByRole('heading', { level: 2 });
+    expect(headings.map((heading) => heading.textContent)).toEqual([
+      'С прошлых дней',
+      'Утро',
+      'Вечер',
+    ]);
+    const titles = ['Уборка со вчера', 'Генеральная уборка', 'Вечерний осмотр'].map((title) =>
+      screen.getByText(title),
+    );
+    expect(
+      titles.every((node, index) =>
+        index === 0
+          ? true
+          : Boolean(
+              titles[index - 1].compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING,
+            ),
+      ),
+    ).toBe(true);
   });
 
   test('a cleaning of a room is labelled by its house, and found by it', async () => {

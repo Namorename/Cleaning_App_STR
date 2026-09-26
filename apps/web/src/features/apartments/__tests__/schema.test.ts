@@ -57,6 +57,13 @@ describe('matchesTokens', () => {
     expect(matchesTokens(property(), '   ')).toBe(true);
   });
 
+  test('a name and an address typed without diacritics are found', () => {
+    const czech = property({ name: 'CZ - Vinohradská Royal', address: 'Korunní 12' });
+
+    expect(matchesTokens(czech, 'vinohradska')).toBe(true);
+    expect(matchesTokens(czech, 'korunni 12')).toBe(true);
+  });
+
   test('a listing with no address is searched by what it does have', () => {
     const bare = property({ address: null, city: null });
 

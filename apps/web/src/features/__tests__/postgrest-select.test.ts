@@ -40,7 +40,11 @@ function recordingClient() {
       catch: answer.catch.bind(answer),
       finally: answer.finally.bind(answer),
     };
-    return new Proxy(self, {
+    // Every call hands back the proxy itself, so a chain runs to its end and a
+    // reader that sends a second request after the first gets to send it.
+    // Handing back the bare target made `.select(...).eq(...)` throw on the
+    // spot, and anything after the first select went unrecorded.
+    const proxy: Record<string, unknown> = new Proxy(self, {
       get(target, property: string) {
         if (property in target) {
           return target[property];
@@ -50,12 +54,13 @@ function recordingClient() {
             if (typeof columns === 'string' && table !== null) {
               recorded.push({ table, select: columns });
             }
-            return target;
+            return proxy;
           };
         }
-        return () => target;
+        return () => proxy;
       },
     });
+    return proxy;
   };
 
   return {
@@ -68,6 +73,7 @@ function recordingClient() {
 
 const ANY_ID = '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b';
 const ANY_PROPERTY = 1;
+const ANY_RESERVATION = 1;
 
 /** Every read the panel makes. A reader added without a line here goes unguarded. */
 const READERS: readonly ((client: never) => Promise<unknown>)[] = [
@@ -94,6 +100,7 @@ const READERS: readonly ((client: never) => Promise<unknown>)[] = [
   (client) => tasks.fetchProperties(client),
   (client) => tasks.fetchTaskWork(client, ANY_ID),
   (client) => tasks.fetchTaskProblems(client, ANY_ID),
+  (client) => tasks.fetchReservationGuest(client, ANY_RESERVATION),
   (client) => team.fetchStaff(client),
   (client) => team.fetchProperties(client),
   (client) => team.fetchCleanerLinks(client),
@@ -130,6 +137,14 @@ describe('every read the panel makes', () => {
   test('sends a select string', () => {
     // Some readers go through an RPC and send no select at all.
     expect(recorded.length).toBeGreaterThanOrEqual(20);
+  });
+
+  // fetchProperty sends two reads, and the empty answer of this client makes
+  // a reader that parses the first before sending the second throw early —
+  // leaving the second unguarded without a word. The count above would not
+  // notice one select fewer.
+  test('includes the office note, read from its own table', () => {
+    expect(recorded.some((entry) => entry.table === 'property_internal_notes')).toBe(true);
   });
 
   test('names one relationship per embed and only columns the schema has', () => {

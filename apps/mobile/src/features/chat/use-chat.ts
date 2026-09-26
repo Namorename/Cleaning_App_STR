@@ -9,6 +9,7 @@ import {
 import { useMemo } from 'react';
 
 import { useSession } from '@/features/auth/session';
+import { readCached } from '@/lib/read-cached';
 
 import {
   fetchMessages,
@@ -22,6 +23,7 @@ import {
 import { chatKeys, chatMutationKeys } from './keys';
 import {
   NO_UNREAD,
+  chatMessageListSchema,
   subjectKey,
   unreadSubjects,
   type ChatMessage,
@@ -69,6 +71,18 @@ export function useThread(subject: ChatSubject | null) {
 }
 
 /**
+ * The cache on disk is restored by JSON.parse, so a thread saved by an older
+ * build comes back in the shape that build read: the OTA that added photos
+ * found threads without `task_media` and the chat screen closed the app.
+ * Read like any outside input, the old shape gains what it lacks, and a shape
+ * that cannot be read becomes a short query error the screen shows.
+ * Module-level so the query runs it only when the data changes.
+ */
+function readMessages(data: unknown): ChatMessage[] {
+  return readCached(chatMessageListSchema, data, 'chat messages');
+}
+
+/**
  * The messages of a thread. `isLive` says whether the thread is on screen:
  * only then does it poll.
  */
@@ -78,6 +92,7 @@ export function useMessages(threadId: string | null, isLive: boolean) {
   return useQuery({
     queryKey: chatKeys.messages(threadId ?? ''),
     queryFn: () => fetchMessages(threadId ?? ''),
+    select: readMessages,
     enabled: userId !== null && threadId !== null,
     refetchInterval: isLive ? MESSAGES_POLL_MS : false,
   });

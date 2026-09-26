@@ -44,12 +44,16 @@ function useInvalidateTeam() {
   return () => queryClient.invalidateQueries({ queryKey: teamKeys.all });
 }
 
+/**
+ * Refreshed however it ends: manage-staff writes the profile row before
+ * app_metadata, and when the second write fails the row is already changed.
+ */
 export function useSaveStaff() {
   const client = useSupabase();
   const invalidate = useInvalidateTeam();
   return useMutation({
     mutationFn: (draft: StaffDraft) => saveStaff(client, draft),
-    onSuccess: invalidate,
+    onSettled: invalidate,
   });
 }
 

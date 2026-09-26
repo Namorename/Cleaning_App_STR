@@ -95,6 +95,17 @@ describe('matchesQuery', () => {
     expect(matchesQuery(problem, '   ')).toBe(true);
   });
 
+  test('finds the house typed without its diacritics', () => {
+    const inCzech = problemSchema.parse({
+      ...row,
+      title: 'Nefunguje sprcha',
+      property: { name: 'CZ - Vinohradská Royal' },
+    });
+
+    expect(matchesQuery(inCzech, 'vinohradska')).toBe(true);
+    expect(matchesQuery(inCzech, 'vinohradska sprcha')).toBe(true);
+  });
+
   // The failure this finding is about, and it was silent: a report filed from
   // a cleaning stands on the ROOM, whose name is "1 - 2109". Searching the
   // row's own name meant the manager had to type the door number — the one

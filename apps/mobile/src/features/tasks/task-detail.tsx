@@ -12,6 +12,7 @@ import {
   formatScheduledDate,
   formatStartNotBefore,
   formatWindow,
+  jobWordKey,
   taskPlace,
   urgencyText,
 } from './format';
@@ -81,6 +82,18 @@ export function TaskDetail({
     steps !== undefined &&
     steps.length > 0 &&
     (task.status === 'in_progress' || task.status === 'done');
+  // The office's words on this job, unless the step list on screen already
+  // carries the same words as a step to tick off. The step froze them at the
+  // start; if the office has rewritten them since, the current ones show here
+  // too. An inspection or a midstay without a process never gets that step.
+  const noteText = task.notes?.trim() ?? '';
+  const isNoteOnScreenAsStep =
+    showSteps &&
+    (steps?.some(
+      (step) => step.type === 'task_note' && (step.instructions ?? '').trim() === noteText,
+    ) ??
+      false);
+  const taskNote = noteText !== '' && !isNoteOnScreenAsStep ? task.notes : null;
   const remaining = steps === undefined ? 0 : remainingRequired(steps);
   const failure = error === null ? null : serverErrorText(error);
   const isFinishBlocked = action === 'finish' && remaining > 0;
@@ -90,13 +103,14 @@ export function TaskDetail({
   const canRaise = task.assignee_id === userId && (action === 'start' || action === 'finish');
   const fix = task.type === 'maintenance' ? (task.problem ?? null) : null;
 
+  // A cleaning is started as a cleaning; an inspection or a repair as work.
   const actionLabel =
     action === 'claim'
       ? t('tasks.claim')
       : action === 'start'
-        ? t('tasks.start')
+        ? t(jobWordKey(task.type, 'start'))
         : action === 'finish'
-          ? t('tasks.finish')
+          ? t(jobWordKey(task.type, 'finish'))
           : null;
 
   const onAction = () => {
@@ -114,9 +128,9 @@ export function TaskDetail({
 
   const idleHint =
     task.status === 'done'
-      ? t('tasks.detail.finished')
+      ? t(jobWordKey(task.type, 'finished'))
       : task.assignee_id !== null && task.assignee_id !== userId
-        ? t('tasks.detail.colleague')
+        ? t(jobWordKey(task.type, 'colleague'))
         : t('tasks.detail.closed');
 
   return (
@@ -138,7 +152,7 @@ export function TaskDetail({
 
       <View style={styles.facts}>
         {window !== null ? (
-          <Fact label={t('tasks.detail.window')} value={window} styles={styles} />
+          <Fact label={t(jobWordKey(task.type, 'window'))} value={window} styles={styles} />
         ) : null}
         {task.guests_count !== null ? (
           <Fact label={t('tasks.detail.guests')} value={String(task.guests_count)} styles={styles} />
@@ -184,6 +198,14 @@ export function TaskDetail({
         </View>
       ) : null}
 
+      {taskNote !== null ? (
+        <View style={styles.notes}>
+          {/* Named as the step that carries the same words once she starts. */}
+          <Text style={styles.notesLabel}>{t('steps.types.task_note')}</Text>
+          <Text style={styles.notesText}>{taskNote}</Text>
+        </View>
+      ) : null}
+
       {/* Not gated by canRaise: the office writes on a job before anyone
           takes it, and that note has to be readable from the queue. */}
       {onOpenChat !== undefined ? (
@@ -222,7 +244,13 @@ export function TaskDetail({
         </View>
       ) : null}
 
-      {showSteps ? <StepList steps={steps} onOpenStep={onOpenStep ?? noop} /> : null}
+      {showSteps ? (
+        <StepList
+          steps={steps}
+          heading={t(jobWordKey(task.type, 'steps'))}
+          onOpenStep={onOpenStep ?? noop}
+        />
+      ) : null}
 
       {task.is_parallel ? <Text style={styles.hint}>{t('tasks.detail.parallel')}</Text> : null}
 

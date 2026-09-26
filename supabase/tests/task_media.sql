@@ -15,6 +15,11 @@
 -- so the checks can name them.
 begin;
 
+-- The pg_temp helpers below are created by postgres, whose new functions no
+-- longer go to PUBLIC (20260926100000), and they are called as authenticated
+-- too. Hand them to that role for the length of this transaction.
+alter default privileges for role postgres grant execute on functions to authenticated;
+
 insert into public.hosts (id, name) values
   ('b6000000-0000-4000-8000-00000000000b', 'Host B');
 
@@ -486,5 +491,56 @@ select pg_temp.check('a row written meanwhile by another author is refused with 
 
 reset role; reset request.jwt.claims;
 drop trigger race_author on public.task_media;
+
+-- ---------- a replayed id names the owner it was registered for (20260926101000) ----------
+--
+-- A media id is the phone's own, and a replay has to name the same owner the
+-- first call did. The step's comparison used to be `step_id <> p_step_id`: on a
+-- problem's photo step_id is null, the comparison is null, the refusal did not
+-- fire, and the replay handed back a row of another owner. The problem's and
+-- the message's comparisons were `is distinct from`, which lets a null
+-- argument match a row that has no such owner. Every pair is checked here for
+-- the same author, since another author is refused by the author check alone.
+insert into public.problems (id, host_id, property_id, reported_by, title)
+select 'f6000001-0000-4000-8000-000000000001', pr.host_id, 900001601, pr.id, 'Tap leaks'
+from public.profiles pr where pr.id = 'd6000001-0000-4000-8000-0000000000d1';
+
+select pg_temp.as_maria();
+select public.add_problem_media(pg_temp.media_id(11), 'f6000001-0000-4000-8000-000000000001',
+  'image/jpeg', 400000, 1600, 1200, now());
+
+select pg_temp.check('a problem photo replayed onto a step is refused',
+  pg_temp.refusal($q$select public.add_task_media(pg_temp.media_id(11),
+    (pg_temp.step(2, 'photos_before')).id, 'photo', 'image/jpeg', 400000)$q$),
+  'serverErrors.mediaNotFound');
+select pg_temp.check('a problem photo replayed with no step is refused',
+  pg_temp.refusal($q$select public.add_task_media(pg_temp.media_id(11),
+    null, 'photo', 'image/jpeg', 400000)$q$),
+  'serverErrors.mediaNotFound');
+select pg_temp.check('a step photo replayed with no step is refused',
+  pg_temp.refusal($q$select public.add_task_media(pg_temp.media_id(7),
+    null, 'photo', 'image/jpeg', 700000)$q$),
+  'serverErrors.mediaNotFound');
+select pg_temp.check('a step photo replayed onto a problem is refused',
+  pg_temp.refusal($q$select public.add_problem_media(pg_temp.media_id(7),
+    'f6000001-0000-4000-8000-000000000001', 'image/jpeg', 700000)$q$),
+  'serverErrors.mediaNotFound');
+select pg_temp.check('a step photo replayed with no problem is refused',
+  pg_temp.refusal($q$select public.add_problem_media(pg_temp.media_id(7),
+    null, 'image/jpeg', 700000)$q$),
+  'serverErrors.mediaNotFound');
+select pg_temp.check('a problem photo replayed with no problem is refused',
+  pg_temp.refusal($q$select public.add_problem_media(pg_temp.media_id(11),
+    null, 'image/jpeg', 400000)$q$),
+  'serverErrors.mediaNotFound');
+select pg_temp.check('the true replay of the problem photo still returns it',
+  (public.add_problem_media(pg_temp.media_id(11), 'f6000001-0000-4000-8000-000000000001',
+     'image/jpeg', 400000)).id,
+  pg_temp.media_id(11));
+select pg_temp.check('and the true replay of the step photo too',
+  (public.add_task_media(pg_temp.media_id(7), (pg_temp.step(2, 'photos_before')).id,
+     'photo', 'image/jpeg', 700000)).id,
+  pg_temp.media_id(7));
+reset role; reset request.jwt.claims;
 
 rollback;

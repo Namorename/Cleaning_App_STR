@@ -73,11 +73,24 @@
   повтор после потери сети возвращает ту же строку, а не дубль. Таблицы
   `problems`, `supply_requests`, `supply_request_items` у `authenticated`
   только на чтение.
+- **Чтение облака — `node scripts/cloud-read.mjs <файл.sql>`**, без вопросов:
+  Management API `database/query/read-only`, роль `supabase_read_only_user`
+  без прав на запись, транзакция read only — запись отклоняет сама база
+  (проверено 2026-09-25). `db query --linked` пишет с полными правами и
+  остаётся за словом владельца. Hostaway — `node scripts/hostaway-get.mjs
+  <путь>`, только GET по сохранённому токену; выпуск токена
+  (`scripts/hostaway-issue-token.mjs`) — только со словом владельца. Правка
+  этих скриптов и их пинов (`.claude/hooks/script-pins.json`, хук сверяет
+  sha256 перед запуском) — тоже. Персональные данные читаются, только когда
+  без них не обойтись, и в отчёт не выводятся.
 - **Локальный и облачный Supabase ведут себя по-разному.** Хостинг выдаёт
   новым таблицам полный набор привилегий через default privileges, локальный
-  стек — меньший. Проверять права нужно и на облаке после каждого `db:push`,
-  а не только тестом: `information_schema.role_table_grants` для `anon` и
-  `authenticated`.
+  стек — меньший. Проверять права нужно и на облаке после каждого `db push`,
+  а не только тестом: `pg_class.relacl` через `aclexplode` для `anon`,
+  `authenticated` и `PUBLIC` (как в `docs/rollout/postpush_window3.sql`).
+  `information_schema.role_table_grants` годится только под `postgres`: роли
+  чтения из `cloud-read.mjs` он показывает пустоту, и проверка проходит, ничего
+  не проверив.
 - **`db push`, запущенный агентом, не спрашивает подтверждения.** При
   переменной `CLAUDECODE` CLI переключает вывод в json, а согласие в
   не-текстовом формате берётся по умолчанию как «да» — проверено чтением
@@ -116,6 +129,11 @@
   `packages/shared/src/testing/postgrest-select.ts` (тесты
   `postgrest-embeds.test.ts` у телефона и `postgrest-select.test.ts` у панели).
   Новый читатель вписывается в список `READERS` того же теста.
+- **Запрос телефона живёт на диске и читается через схему на выходе:** `select:
+  readX` с `readCached(schema, …)` (`apps/mobile/src/lib/read-cached.ts`), новый
+  ключ схемы — с `.default`; поднимать `buster` нельзя — он стирает очередь
+  действий, набранных без связи (вылет чата 24.09: кэш старого бандла без
+  `task_media`, `docs/chat-plan.md`).
 - **Сценарии состязательных предполётов живут в репозитории.**
   `.claude/workflows/*.js` — прогон перед выкатом схемного этапа (решение
   2026-09-18); новый предполёт кладётся рядом, а не в скретчпад.
@@ -123,7 +141,7 @@
 ## Правила ECC
 
 Установлены выборочно: `common` (язык-агностик), `typescript` (Edge
-Functions на Deno, будущая веб-панель на Next.js) и `react-native`
+Functions на Deno, веб-панель на Next.js) и `react-native`
 (приложение горничной на Expo, подключён в F5).
 
 @.claude/rules/ecc/common/coding-style.md

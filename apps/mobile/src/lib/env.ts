@@ -25,7 +25,7 @@ if (!parsed.success) {
   // confusing 401s at runtime otherwise, and the fix (copy .env.example) is
   // the same in every case.
   throw new Error(
-    'Не задана конфигурация Supabase. Скопируйте apps/mobile/.env.example в .env и заполните значения.',
+    'Supabase configuration is missing. Copy apps/mobile/.env.example to .env and fill in the values.',
   );
 }
 

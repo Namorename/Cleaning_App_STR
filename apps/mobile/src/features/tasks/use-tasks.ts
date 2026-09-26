@@ -3,8 +3,26 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import { useSession } from '@/features/auth/session';
 import { stepKeys } from '@/features/steps/keys';
 
+import { readCached } from '@/lib/read-cached';
+
 import { claimTask, fetchFreeTasks, fetchMyTasks, fetchTask, finishTask, startTask } from './api';
-import type { CleaningTask } from './schema';
+import { cleaningTaskListSchema, cleaningTaskSchema, type CleaningTask } from './schema';
+
+/**
+ * Tasks restored from disk come back in the shape the build that saved them
+ * read (`readCached`): a column asked for since — the office's note — is
+ * simply missing. Read through the schema, it is null instead of undefined.
+ * Module-level so a query runs them only when its data changes.
+ */
+const oneOrNoTaskSchema = cleaningTaskSchema.nullable();
+
+function readTasks(data: unknown): CleaningTask[] {
+  return readCached(cleaningTaskListSchema, data, 'tasks');
+}
+
+function readTask(data: unknown): CleaningTask | null {
+  return readCached(oneOrNoTaskSchema, data, 'task');
+}
 
 export const taskKeys = {
   all: ['tasks'] as const,
@@ -55,6 +73,7 @@ export function useMyTasks() {
   return useQuery({
     queryKey: taskKeys.mine(userId ?? 'anonymous'),
     queryFn: () => fetchMyTasks(userId as string),
+    select: readTasks,
     enabled: userId !== null,
   });
 }
@@ -65,6 +84,7 @@ export function useFreeTasks() {
   return useQuery({
     queryKey: taskKeys.free(),
     queryFn: fetchFreeTasks,
+    select: readTasks,
     enabled: userId !== null,
   });
 }
@@ -76,6 +96,8 @@ export function useTask(taskId: string) {
   return useQuery({
     queryKey: taskKeys.one(taskId),
     queryFn: () => fetchTask(taskId),
+    // The list's copy seeds the screen below, raw from disk like any other.
+    select: readTask,
     // An empty id is "no task": a form opened from the list, not from a task.
     enabled: userId !== null && taskId !== '',
     // The list already holds this task more often than not: show it at once

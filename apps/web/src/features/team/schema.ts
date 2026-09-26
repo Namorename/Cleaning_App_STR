@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { foldForSearch } from '@/lib/search';
+
 export const STAFF_ROLES = ['cleaner', 'tech', 'manager', 'admin'] as const;
 export type StaffRole = (typeof STAFF_ROLES)[number];
 
@@ -132,12 +134,12 @@ export function isInTab(staff: Staff, tab: TeamTab): boolean {
  * missed call — and should not have to know which one the panel indexes.
  */
 export function matchesSearch(staff: Staff, query: string): boolean {
-  const needle = query.trim().toLowerCase();
+  const needle = foldForSearch(query.trim());
   if (needle === '') {
     return true;
   }
   return [staff.full_name, staff.email, staff.phone].some((field) =>
-    (field ?? '').toLowerCase().includes(needle),
+    foldForSearch(field ?? '').includes(needle),
   );
 }
 

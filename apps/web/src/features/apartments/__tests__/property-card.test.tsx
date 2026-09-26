@@ -82,6 +82,8 @@ const saveInfo = vi.fn();
 const saveLink = vi.fn();
 const removeLink = vi.fn();
 const infoState = { isPending: false, isError: false, isSuccess: false, error: null as unknown };
+// A query whose refetch failed keeps its data: `hasData` with `isError` is that case.
+const propertyState = { isError: false, hasData: true };
 
 const reservations = [
   {
@@ -167,7 +169,11 @@ vi.mock('../api', () => ({
 }));
 
 vi.mock('../use-apartments', () => ({
-  useProperty: () => ({ data: detail, isPending: false, isError: false }),
+  useProperty: () => ({
+    data: propertyState.hasData ? detail : undefined,
+    isPending: false,
+    isError: propertyState.isError,
+  }),
   useRegistry: () => ({ data: registry, isPending: false, isError: false }),
   useSaveInfo: () => ({ ...infoState, mutate: saveInfo }),
   useReservations: () => ({ data: reservations, isPending: false, isError: false }),
@@ -203,6 +209,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   infoState.isSuccess = false;
   infoState.isError = false;
+  propertyState.isError = false;
+  propertyState.hasData = true;
   setStatus.mockResolvedValue(undefined);
   countOpenCleanings.mockResolvedValue(0);
 });
@@ -247,6 +255,36 @@ describe('what the company owns is edited here', () => {
       internalNotes: 'Владелец придирчив',
     });
   }, 20000);
+});
+
+describe('a refresh that fails does not take the form away', () => {
+  test('what the manager typed stays when a refresh fails over data already shown', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const card = () => (
+      <QueryClientProvider client={client}>
+        <PropertyCard propertyId={WHOLE} />
+      </QueryClientProvider>
+    );
+    const view = render(card());
+    await userEvent.clear(screen.getByLabelText('Внутренняя заметка'));
+    await userEvent.type(screen.getByLabelText('Внутренняя заметка'), 'Звонить заранее');
+
+    // The save failed, the cache was refreshed, and the refresh failed too.
+    propertyState.isError = true;
+    view.rerender(card());
+
+    expect(screen.queryByText('Не удалось загрузить объекты.')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Внутренняя заметка')).toHaveValue('Звонить заранее');
+  }, 20000);
+
+  test('a first load that fails still says so', () => {
+    propertyState.isError = true;
+    propertyState.hasData = false;
+
+    renderCard();
+
+    expect(screen.getByText('Не удалось загрузить объекты.')).toBeInTheDocument();
+  });
 });
 
 describe('listings that belong together', () => {

@@ -49,6 +49,9 @@ insert into wanted values
   -- the night.
   ('reservation_units',    'SELECT'),
   ('property_cleaners',    'DELETE,INSERT,SELECT,UPDATE'),
+  -- The office's note on a property: the panel writes it directly, and only
+  -- a manager of the property's company passes the policy.
+  ('property_internal_notes', 'DELETE,INSERT,SELECT,UPDATE'),
   ('tasks',                'DELETE,INSERT,SELECT,UPDATE'),
   ('hosts',                'SELECT'),
   ('workflow_templates',   'SELECT'),
@@ -132,6 +135,108 @@ select pg_temp.check('postgres hands new tables to neither client role',
      and d.defaclnamespace = 'public'::regnamespace
      and d.defaclobjtype = 'r'
      and g.grantee in ('anon'::regrole, 'authenticated'::regrole)),
+  '');
+
+-- Sequences and functions too (20260926100000). A sequence behind an identity
+-- column is created with the table and carries the sequence defaults, which
+-- 20260907150000 left open to authenticated. Functions are subtler: a
+-- per-schema default can only ADD to the global one, and the global one hands
+-- EXECUTE to PUBLIC unless an entry without a schema says otherwise — so the
+-- check reads both the entry for public and the global entry (namespace 0),
+-- and PUBLIC is grantee 0.
+select pg_temp.check('no postgres default in public or global hands r, S or f to PUBLIC or anon',
+  (select coalesce(string_agg(distinct d.defaclobjtype::text || ' '
+            || case when g.grantee = 0 then 'PUBLIC' else g.grantee::regrole::text end, ', '), '')
+   from pg_default_acl d
+   cross join lateral aclexplode(d.defaclacl) g
+   where d.defaclrole = 'postgres'::regrole
+     and d.defaclnamespace in (0, 'public'::regnamespace)
+     and d.defaclobjtype in ('r', 'S', 'f')
+     and g.grantee in (0, 'anon'::regrole)),
+  '');
+
+select pg_temp.check('nor hands sequences to authenticated',
+  (select coalesce(string_agg(distinct g.privilege_type, ', '), '')
+   from pg_default_acl d
+   cross join lateral aclexplode(d.defaclacl) g
+   where d.defaclrole = 'postgres'::regrole
+     and d.defaclnamespace in (0, 'public'::regnamespace)
+     and d.defaclobjtype = 'S'
+     and g.grantee = 'authenticated'::regrole),
+  '');
+
+select pg_temp.check('a global entry takes the built-in PUBLIC execute off new functions',
+  (select count(*)::int from pg_default_acl d
+   where d.defaclrole = 'postgres'::regrole
+     and d.defaclnamespace = 0
+     and d.defaclobjtype = 'f'
+     and not exists (select 1 from aclexplode(d.defaclacl) g where g.grantee = 0)),
+  1);
+
+-- The catalog says what was written down; these say what the next object
+-- actually gets. Created as postgres, as a migration would, and rolled back
+-- with the rest of the suite.
+create sequence public.grants_probe_seq;
+create function public.grants_probe_fn() returns integer language sql as 'select 1';
+
+select pg_temp.check('a new sequence is usable by neither client role',
+  (select coalesce(string_agg(r || ' ' || p, ', ' order by r, p), '')
+   from unnest(array['anon', 'authenticated']) r
+   cross join unnest(array['USAGE', 'SELECT', 'UPDATE']) p
+   where has_sequence_privilege(r, 'public.grants_probe_seq', p)),
+  '');
+select pg_temp.check('a new function is not executable by anon',
+  has_function_privilege('anon', 'public.grants_probe_fn()', 'execute'), false);
+select pg_temp.check('nor by PUBLIC',
+  (select count(*)::int
+   from pg_proc p
+   cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) g
+   where p.oid = 'public.grants_probe_fn()'::regprocedure and g.grantee = 0),
+  0);
+select pg_temp.check('but is by authenticated and service_role, as before',
+  has_function_privilege('authenticated', 'public.grants_probe_fn()', 'execute')
+    and has_function_privilege('service_role', 'public.grants_probe_fn()', 'execute'),
+  true);
+
+drop function public.grants_probe_fn();
+drop sequence public.grants_probe_seq;
+
+-- ---------- functions: nothing in public is anon's to call ----------
+--
+-- anon holds USAGE on public, so every function PUBLIC may execute is an
+-- /rpc/<name> endpoint for anyone holding the publishable key. The functions
+-- that are members of an extension are the extension's to govern and are left
+-- out; the application's own must each have said who may call them.
+select pg_temp.check('no function of ours in public is executable by anon',
+  (select coalesce(string_agg(p.oid::regprocedure::text, ', ' order by 1), '')
+   from pg_proc p
+   where p.pronamespace = 'public'::regnamespace
+     and not exists (select 1 from pg_depend d
+                     where d.classid = 'pg_proc'::regclass and d.objid = p.oid
+                       and d.deptype = 'e')
+     and has_function_privilege('anon', p.oid, 'EXECUTE')),
+  '');
+
+select pg_temp.check('none carries PUBLIC in its ACL, written or built in',
+  (select coalesce(string_agg(p.oid::regprocedure::text, ', ' order by 1), '')
+   from pg_proc p
+   cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) g
+   where p.pronamespace = 'public'::regnamespace
+     and not exists (select 1 from pg_depend d
+                     where d.classid = 'pg_proc'::regclass and d.objid = p.oid
+                       and d.deptype = 'e')
+     and g.grantee = 0),
+  '');
+
+-- What PUBLIC used to give, the two roles that need it still hold: the RLS
+-- helpers run as the caller inside every policy, and the threshold inside the
+-- generated column tasks.is_short_measurement, computed by whoever writes the row.
+select pg_temp.check('the helpers PUBLIC used to reach stay with authenticated and service_role',
+  (select coalesce(string_agg(r || ' ' || f, ', ' order by r, f), '')
+   from unnest(array['authenticated', 'service_role']) r
+   cross join unnest(array['public.is_manager()', 'public.auth_role()',
+                           'public.is_active_user()', 'public.short_cleaning_threshold()']) f
+   where not has_function_privilege(r, f, 'EXECUTE')),
   '');
 
 -- ---------- raw: closed to clients as a whole ----------

@@ -40,6 +40,8 @@ const syncState = {
   error: null as unknown,
 };
 const countOpenCleanings = vi.fn();
+// A query whose refetch failed keeps its data: `hasData` with `isError` is that case.
+const registryState = { isError: false, hasData: true };
 
 vi.mock('@/lib/supabase/use-client', () => ({ useSupabase: () => ({}) }));
 
@@ -48,7 +50,11 @@ vi.mock('../api', () => ({
 }));
 
 vi.mock('../use-apartments', () => ({
-  useRegistry: () => ({ data: [working, repaired, gone, unit], isPending: false, isError: false }),
+  useRegistry: () => ({
+    data: registryState.hasData ? [working, repaired, gone, unit] : undefined,
+    isPending: false,
+    isError: registryState.isError,
+  }),
   useOpenCleanings: () => ({ data: openCleanings, isPending: false, isError: false }),
   useSetStatus: () => ({ isPending: false, mutateAsync: setStatus }),
   useSyncListings: () => ({ ...syncState, mutate: sync }),
@@ -73,8 +79,30 @@ beforeEach(() => {
   syncState.data = undefined;
   syncState.isError = false;
   syncState.error = null;
+  registryState.isError = false;
+  registryState.hasData = true;
   setStatus.mockResolvedValue(undefined);
   countOpenCleanings.mockResolvedValue(2);
+});
+
+describe('a refresh that fails keeps what is already on screen', () => {
+  test('the listings stay when a refresh fails over data already shown', () => {
+    registryState.isError = true;
+
+    renderView();
+
+    expect(screen.getByText('Vinohrady 12')).toBeInTheDocument();
+    expect(screen.queryByText('Не удалось загрузить объекты.')).not.toBeInTheDocument();
+  });
+
+  test('a first load that fails still says so', () => {
+    registryState.isError = true;
+    registryState.hasData = false;
+
+    renderView();
+
+    expect(screen.getByText('Не удалось загрузить объекты.')).toBeInTheDocument();
+  });
 });
 
 describe('the registry opens on the listings that work', () => {

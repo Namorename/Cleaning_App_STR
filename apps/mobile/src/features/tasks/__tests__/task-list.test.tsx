@@ -34,6 +34,9 @@ function task(): CleaningTask {
     completed_at: null,
     is_parallel: false,
     type: 'cleaning',
+    notes: null,
+    title: null,
+    title_i18n: {},
   };
 }
 

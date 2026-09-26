@@ -15,6 +15,11 @@
 -- Fixture ids live in the 9000020xx range.
 begin;
 
+-- The pg_temp helpers below are created by postgres, whose new functions no
+-- longer go to PUBLIC (20260926100000), and they are called as authenticated
+-- too. Hand them to that role for the length of this transaction.
+alter default privileges for role postgres grant execute on functions to authenticated;
+
 insert into public.hosts (id, name) values
   ('c7000000-0000-4000-8000-00000000000c', 'Host C'),
   ('d7000000-0000-4000-8000-00000000000d', 'Host D');
@@ -1054,6 +1059,99 @@ select public.remove_task_media('27000001-0000-4000-8000-000000000051');
 select pg_temp.check('and the author may take it back',
   (select deleted_at is not null from public.task_media
     where id = '27000001-0000-4000-8000-000000000051'), true);
+reset role; reset request.jwt.claims;
+
+-- ---------------------------------------------------------------------------
+--  A replayed id names the owner it was registered for (20260926101000)
+-- ---------------------------------------------------------------------------
+-- A replay returns the row only when it names the same owner the first call
+-- did. The message's comparison was `message_id is distinct from p_message_id`:
+-- called with no message it matched a step's or a problem's photo, whose
+-- message_id is null, and handed that row back; add_task_media's `<>` did the
+-- same the other way round. The pairs are checked for one author, since
+-- another author is refused by the author check alone.
+--
+-- Tomas owns the step photo ...27000002-...01 from above and Bara the problem
+-- photo ...27000002-...02; each now gets a photo in a message too.
+select pg_temp.as_tomas();
+select public.send_message('17000001-0000-4000-8000-000000000061', '',
+                           null, null, 'c7000004-0000-4000-8000-000000000004', 1::smallint);
+select public.add_message_media('27000001-0000-4000-8000-000000000061',
+  '17000001-0000-4000-8000-000000000061', 'image/jpeg', 400000);
+select pg_temp.as_bara();
+select public.send_message('17000001-0000-4000-8000-000000000062', '',
+                           null, null, 'c7000003-0000-4000-8000-000000000003', 1::smallint);
+select public.add_message_media('27000001-0000-4000-8000-000000000062',
+  '17000001-0000-4000-8000-000000000062', 'image/jpeg', 400000);
+
+-- message <-> step
+select pg_temp.as_tomas();
+select pg_temp.check('a step photo replayed onto a message is refused',
+  pg_temp.refusal_hint($stmt$
+    select public.add_message_media('27000002-0000-4000-8000-000000000001',
+      '17000001-0000-4000-8000-000000000061', 'image/jpeg', 400000)
+  $stmt$), 'serverErrors.mediaNotFound');
+select pg_temp.check('a step photo replayed with no message is refused',
+  pg_temp.refusal_hint($stmt$
+    select public.add_message_media('27000002-0000-4000-8000-000000000001',
+      null, 'image/jpeg', 400000)
+  $stmt$), 'serverErrors.mediaNotFound');
+select pg_temp.check('a message photo replayed onto a step is refused',
+  pg_temp.refusal_hint($stmt$
+    select public.add_task_media('27000001-0000-4000-8000-000000000061',
+      'a7000001-0000-4000-8000-000000000001', 'photo', 'image/jpeg', 400000)
+  $stmt$), 'serverErrors.mediaNotFound');
+select pg_temp.check('a message photo replayed with no step is refused',
+  pg_temp.refusal_hint($stmt$
+    select public.add_task_media('27000001-0000-4000-8000-000000000061',
+      null, 'photo', 'image/jpeg', 400000)
+  $stmt$), 'serverErrors.mediaNotFound');
+select pg_temp.check('a message photo replayed with no message is refused',
+  pg_temp.refusal_hint($stmt$
+    select public.add_message_media('27000001-0000-4000-8000-000000000061',
+      null, 'image/jpeg', 400000)
+  $stmt$), 'serverErrors.mediaNotFound');
+
+-- message <-> problem
+select pg_temp.as_bara();
+select pg_temp.check('a problem photo replayed onto a message is refused',
+  pg_temp.refusal_hint($stmt$
+    select public.add_message_media('27000002-0000-4000-8000-000000000002',
+      '17000001-0000-4000-8000-000000000062', 'image/jpeg', 400000)
+  $stmt$), 'serverErrors.mediaNotFound');
+select pg_temp.check('a problem photo replayed with no message is refused',
+  pg_temp.refusal_hint($stmt$
+    select public.add_message_media('27000002-0000-4000-8000-000000000002',
+      null, 'image/jpeg', 400000)
+  $stmt$), 'serverErrors.mediaNotFound');
+select pg_temp.check('a message photo replayed onto a problem is refused',
+  pg_temp.refusal_hint($stmt$
+    select public.add_problem_media('27000001-0000-4000-8000-000000000062',
+      'f7000001-0000-4000-8000-000000000002', 'image/jpeg', 400000)
+  $stmt$), 'serverErrors.mediaNotFound');
+select pg_temp.check('a message photo replayed with no problem is refused',
+  pg_temp.refusal_hint($stmt$
+    select public.add_problem_media('27000001-0000-4000-8000-000000000062',
+      null, 'image/jpeg', 400000)
+  $stmt$), 'serverErrors.mediaNotFound');
+
+-- Layer 5 had no case for these two: the photo of another author, named with
+-- its own message, and one's own photo named with a message it is not on.
+select pg_temp.check('a replay of another author''s photo is refused',
+  pg_temp.refusal_hint($stmt$
+    select public.add_message_media('27000001-0000-4000-8000-000000000061',
+      '17000001-0000-4000-8000-000000000061', 'image/jpeg', 400000)
+  $stmt$), 'serverErrors.mediaNotFound');
+select pg_temp.as_tomas();
+select pg_temp.check('a replay of one''s photo onto another message is refused',
+  pg_temp.refusal_hint($stmt$
+    select public.add_message_media('27000001-0000-4000-8000-000000000061',
+      '17000001-0000-4000-8000-000000000062', 'image/jpeg', 400000)
+  $stmt$), 'serverErrors.mediaNotFound');
+select pg_temp.check('and the true replay still returns the photo',
+  (select id from public.add_message_media('27000001-0000-4000-8000-000000000061',
+     '17000001-0000-4000-8000-000000000061', 'image/jpeg', 400000)),
+  '27000001-0000-4000-8000-000000000061'::uuid);
 reset role; reset request.jwt.claims;
 
 rollback;

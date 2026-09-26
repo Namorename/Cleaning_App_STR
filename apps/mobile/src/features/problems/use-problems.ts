@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import { useSession } from '@/features/auth/session';
 import type { LocalMediaRecord } from '@/features/media/local-store';
 import { attachMedia } from '@/features/media/use-media';
+import { readCached } from '@/lib/read-cached';
 
 import {
   fetchMyProblems,
@@ -13,7 +14,7 @@ import {
   type UpdateProblemVariables,
 } from './api';
 import { problemKeys, problemMutationKeys } from './keys';
-import type { Problem } from './schema';
+import { problemListSchema, problemSchema, type Problem } from './schema';
 
 const REPORT_RETRIES = 3;
 
@@ -64,12 +65,29 @@ export function registerProblemMutations(queryClient: QueryClient): void {
   });
 }
 
+/**
+ * Reports restored from disk come back in the shape the build that saved them
+ * read (`readCached`): the house under a room's name, asked for since, is
+ * simply missing. Read through the schema it is null instead of undefined.
+ * Module-level so a query runs them only when its data changes.
+ */
+const oneOrNoProblemSchema = problemSchema.nullable();
+
+function readProblems(data: unknown): Problem[] {
+  return readCached(problemListSchema, data, 'problems');
+}
+
+function readProblem(data: unknown): Problem | null {
+  return readCached(oneOrNoProblemSchema, data, 'problem');
+}
+
 export function useMyProblems() {
   const { userId } = useSession();
 
   return useQuery({
     queryKey: problemKeys.mine(),
     queryFn: fetchMyProblems,
+    select: readProblems,
     enabled: userId !== null,
   });
 }
@@ -81,6 +99,8 @@ export function useProblem(problemId: string) {
   return useQuery({
     queryKey: problemKeys.one(problemId),
     queryFn: () => fetchProblem(problemId),
+    // The list's copy seeds the screen below, raw from disk like any other.
+    select: readProblem,
     enabled: userId !== null && problemId !== '',
     initialData: () =>
       queryClient

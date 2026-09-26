@@ -52,7 +52,7 @@ function TaskCardComponent({
           priority: t(`problems.priorities.${fix.priority}`),
         });
 
-  const body = (
+  const summary = (
     <>
       {/* The house and the room in it are one block: the card's even spacing
           would otherwise read the room as just another line of metadata.
@@ -93,6 +93,40 @@ function TaskCardComponent({
         </Text>
       </View>
 
+    </>
+  );
+
+  // The mark is a fact of the card, so the reader hears it with the rest.
+  const label = [
+    t('tasks.cardAccessibility', { property: spoken, date, urgency }),
+    hasUnread ? t('chat.unread') : null,
+  ]
+    .filter((part) => part !== null)
+    .join('. ');
+
+  // The facts are read as one element, and opened as one where the card is a
+  // link. "Take" sits beside them, never inside: VoiceOver reads a grouped
+  // element whole, and a button inside one is out of its reach — on the
+  // queue, where the card both opens and is taken, that was the button.
+  const facts =
+    onPress === undefined ? (
+      <View style={styles.summary} accessible accessibilityLabel={label}>
+        {summary}
+      </View>
+    ) : (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        onPress={() => onPress(task.id)}
+        style={({ pressed }) => [styles.summary, pressed && styles.cardPressed]}
+      >
+        {summary}
+      </Pressable>
+    );
+
+  return (
+    <View style={styles.card}>
+      {facts}
       {onClaim ? (
         <Pressable
           accessibilityRole="button"
@@ -109,34 +143,7 @@ function TaskCardComponent({
           )}
         </Pressable>
       ) : null}
-    </>
-  );
-
-  // The mark is a fact of the card, so the reader hears it with the rest.
-  const label = [
-    t('tasks.cardAccessibility', { property: spoken, date, urgency }),
-    hasUnread ? t('chat.unread') : null,
-  ]
-    .filter((part) => part !== null)
-    .join('. ');
-
-  if (onPress === undefined) {
-    return (
-      <View style={styles.card} accessible accessibilityLabel={label}>
-        {body}
-      </View>
-    );
-  }
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={() => onPress(task.id)}
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-    >
-      {body}
-    </Pressable>
+    </View>
   );
 }
 
@@ -152,6 +159,8 @@ const createStyles = (theme: Theme) =>
       padding: Spacing.lg,
       gap: Spacing.sm,
     },
+    // The same rhythm inside the facts as between them and "take".
+    summary: { gap: Spacing.sm },
     cardPressed: { opacity: 0.85 },
     place: { gap: Spacing.xs },
     header: {

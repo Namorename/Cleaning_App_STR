@@ -32,6 +32,9 @@ function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
     completed_at: null,
     is_parallel: false,
     type: 'cleaning',
+    notes: null,
+    title: null,
+    title_i18n: {},
     ...overrides,
   };
 }
@@ -52,6 +55,37 @@ test('shows what the cleaner needs to plan by: window, guests, notes', async () 
   expect(screen.getByText(/10:00–15:00/)).toBeTruthy();
   expect(screen.getByText('4')).toBeTruthy();
   expect(screen.getByText('Ключ в ящике 4325')).toBeTruthy();
+});
+
+test("shows the office's note on the job before it starts, apart from the listing's", async () => {
+  // Arrange: an inspection or a midstay may have no process to carry the note.
+  const inspection = task({ type: 'inspection', notes: 'Проверить бойлер' });
+
+  // Act
+  await render(
+    <TaskDetail task={inspection} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />,
+  );
+
+  // Assert
+  expect(screen.getByText('Указания к заданию')).toBeTruthy();
+  expect(screen.getByText('Проверить бойлер')).toBeTruthy();
+  expect(screen.getByText('Ключ в ящике 4325')).toBeTruthy();
+});
+
+test('an inspection says what kind of job it is where a cleaning names the check-in', async () => {
+  await render(
+    <TaskDetail
+      task={task({ type: 'inspection' })}
+      userId={ME}
+      now={NOW}
+      isBusy={false}
+      error={null}
+      {...actions}
+    />,
+  );
+
+  expect(screen.getByText('Осмотр')).toBeTruthy();
+  expect(screen.queryByText('Заезда нет')).toBeNull();
 });
 
 test('says which house, which room in it, and the street to drive to', async () => {
@@ -247,7 +281,8 @@ describe('the window', () => {
       />,
     );
 
-    expect(screen.getByText('Уборку нельзя начать раньше 10:00 (2026-11-11)')).toBeTruthy();
+    // The server's refusals are worded for every kind of job, not for cleanings.
+    expect(screen.getByText('Задачу нельзя начать раньше 10:00 (2026-11-11)')).toBeTruthy();
   });
 });
 
@@ -307,6 +342,70 @@ describe('the process', () => {
     await fireEvent.press(screen.getByRole('button', { name: /Финальная проверка/ }));
 
     expect(onOpenStep).toHaveBeenCalledWith('b1c2d3e4-1111-4111-8111-b1c2d3e40001');
+  });
+
+  test("once started, the office's note lives in its step and is not repeated above", async () => {
+    // Arrange: the server copied the note into a step to tick off.
+    const withNote = { ...running, notes: 'Проверить бойлер' };
+
+    // Act
+    await render(
+      <TaskDetail
+        task={withNote}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        steps={[
+          step({ type: 'task_note', title: 'Заметка менеджера', instructions: 'Проверить бойлер' }),
+        ]}
+        {...actions}
+      />,
+    );
+
+    // Assert
+    expect(screen.queryByText('Указания к заданию')).toBeNull();
+    expect(screen.queryByText('Проверить бойлер')).toBeNull();
+  });
+
+  /** Renders the task with its steps and says whether the note block is on screen. */
+  async function noteShownWith(
+    overrides: Partial<CleaningTask>,
+    steps: readonly TaskStep[],
+  ): Promise<boolean> {
+    await render(
+      <TaskDetail
+        task={{ ...running, notes: 'Проверить бойлер', ...overrides }}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        steps={steps}
+        {...actions}
+      />,
+    );
+    return screen.queryByText('Указания к заданию') !== null;
+  }
+
+  test('the note stays when the process has no note step, or none has loaded', async () => {
+    // Not started: the steps are copied at the start, so there are none yet.
+    expect(await noteShownWith({ status: 'assigned', started_at: null }, [])).toBe(true);
+    // Under way with a process that carries no note, e.g. an inspection's.
+    expect(await noteShownWith({}, [step()])).toBe(true);
+  });
+
+  test('a note the office changed after the start is shown, not hidden behind the old step', async () => {
+    // The step froze the words at the start; the office has rewritten them since.
+    const frozen = step({ type: 'task_note', instructions: 'Проверить бойлер' });
+
+    expect(await noteShownWith({ notes: 'Проверить бойлер, полить цветы' }, [frozen])).toBe(true);
+  });
+
+  test('the note stays while the step list is not on screen, even if its step has loaded', async () => {
+    // Steps can arrive before the task's own refresh says it has started.
+    const noteStep = step({ type: 'task_note', instructions: 'Проверить бойлер' });
+
+    expect(await noteShownWith({ status: 'assigned', started_at: null }, [noteStep])).toBe(true);
   });
 
   test('holds the finish while a required step is open, and says how many', async () => {
@@ -417,4 +516,143 @@ test('offers the chat on any job she can see, before anyone has taken it', async
   await fireEvent.press(screen.getByRole('button', { name: 'Чат' }));
 
   expect(onOpenChat).toHaveBeenCalledWith(free.id);
+});
+
+describe('the words follow the kind of job', () => {
+  const jobStep: TaskStep = {
+    id: 'b1c2d3e4-1111-4111-8111-b1c2d3e40002',
+    task_id: '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b',
+    sort_order: 1,
+    type: 'confirmation',
+    required: false,
+    title: 'Проверить бойлер',
+    instructions: null,
+    started_at: null,
+    completed_at: null,
+    completed_by: null,
+    title_i18n: {},
+    instructions_i18n: {},
+    config: {},
+    min_photos: null,
+    max_photos: null,
+    max_video_sec: null,
+    payload: {},
+    skipped_at: null,
+    skip_reason: null,
+    waived_at: null,
+    waive_reason: null,
+  };
+
+  test('a repair is started and finished as work, in a window for work, not a cleaning', async () => {
+    // Arrange
+    const repair = task({ type: 'maintenance', reservation_id: null });
+
+    // Act
+    await render(
+      <TaskDetail task={repair} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />,
+    );
+
+    // Assert
+    expect(screen.getByRole('button', { name: 'Начать работу' })).toBeTruthy();
+    expect(screen.getByText('Окно работы')).toBeTruthy();
+    expect(screen.queryByText(/уборк/i)).toBeNull();
+    // A repair has no check-in either way; the banner names the job.
+    expect(screen.queryByText('Заезда нет')).toBeNull();
+    expect(screen.getByText('Обслуживание')).toBeTruthy();
+  });
+
+  test('an inspection under way lists its steps and finishes as work', async () => {
+    // Arrange
+    const inspection = task({
+      type: 'inspection',
+      status: 'in_progress',
+      started_at: '2026-11-10T08:05:00+00:00',
+    });
+
+    // Act
+    await render(
+      <TaskDetail
+        task={inspection}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        steps={[jobStep]}
+        {...actions}
+      />,
+    );
+
+    // Assert
+    expect(screen.getByText('Шаги работы')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Завершить работу' })).toBeTruthy();
+    expect(screen.queryByText(/уборк/i)).toBeNull();
+  });
+
+  test('a finished inspection, and one a colleague holds, say so without calling it a cleaning', async () => {
+    // Arrange / Act
+    await render(
+      <TaskDetail
+        task={task({ type: 'inspection', status: 'done' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    // Assert
+    expect(screen.getByText('Работа завершена')).toBeTruthy();
+
+    // Arrange / Act
+    await render(
+      <TaskDetail
+        task={task({ type: 'maintenance', assignee_id: 'a1b2c3d4-2222-4222-8222-a1b2c3d40002' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    // Assert
+    expect(screen.getByText('Работу выполняет коллега')).toBeTruthy();
+  });
+
+  test('a midstay is a cleaning and is called one', async () => {
+    // Arrange / Act
+    await render(
+      <TaskDetail
+        task={task({ type: 'midstay' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    // Assert
+    expect(screen.getByRole('button', { name: 'Начать уборку' })).toBeTruthy();
+    expect(screen.getByText('Окно уборки')).toBeTruthy();
+  });
+
+  test('a cleaning with no booking behind it says nothing about a check-in', async () => {
+    // Arrange / Act: made by hand in the panel.
+    await render(
+      <TaskDetail
+        task={task({ reservation_id: null, title: 'Генеральная уборка' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    // Assert
+    expect(screen.queryByText('Заезда нет')).toBeNull();
+    expect(screen.getByText('Генеральная уборка')).toBeTruthy();
+  });
 });

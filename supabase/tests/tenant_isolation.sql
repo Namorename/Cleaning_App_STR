@@ -1,4 +1,4 @@
--- Изоляция тенантов. Run: npm run test:rls
+-- Tenant isolation. Run: npm run test:rls
 -- Runs inside a transaction and rolls back — the database stays clean.
 --
 -- Phase A of multi-tenancy: every operational row carries the host it belongs
@@ -13,6 +13,11 @@
 -- Fixture ids live in the 90000110x range; hosts use fixed uuids so the checks
 -- can name them.
 begin;
+
+-- The pg_temp helpers below are created by postgres, whose new functions no
+-- longer go to PUBLIC (20260926100000), and they are called as authenticated
+-- too. Hand them to that role for the length of this transaction.
+alter default privileges for role postgres grant execute on functions to authenticated;
 
 insert into public.hosts (id, name) values
   ('a0000000-0000-4000-8000-00000000000a', 'Host A'),
@@ -71,8 +76,8 @@ returns boolean language sql as $$
   select exists (select 1 from public.tasks t where t.notes = label)
 $$;
 
--- ---------- каждая операционная таблица знает свой тенант ----------
-select pg_temp.check('операционные таблицы несут host_id',
+-- ---------- every operational table knows its tenant ----------
+select pg_temp.check('operational tables carry host_id',
   (select count(*)::int from information_schema.columns
    where table_schema = 'public' and column_name = 'host_id'
      and table_name in ('profiles','properties','reservations','tasks','property_cleaners')), 5);
@@ -90,61 +95,74 @@ select pg_temp.check('the cleaning window stays with service_role',
   has_function_privilege('service_role',
     'public.reservation_cleaning_window(bigint, bigint)', 'execute'), true);
 
--- ---------- клинер видит только свою компанию ----------
+-- Its caller neither: generate_cleaning_tasks runs over every company at once
+-- and writes tasks with the owner's rights. Only the Edge Functions call it
+-- (sync-reservations and process-webhook-events), as service_role.
+select pg_temp.check('the generator is not callable by authenticated',
+  has_function_privilege('authenticated',
+    'public.generate_cleaning_tasks(date, date)', 'execute'), false);
+select pg_temp.check('nor by anon',
+  has_function_privilege('anon',
+    'public.generate_cleaning_tasks(date, date)', 'execute'), false);
+select pg_temp.check('the generator stays with service_role',
+  has_function_privilege('service_role',
+    'public.generate_cleaning_tasks(date, date)', 'execute'), true);
+
+-- ---------- a cleaner sees their own company only ----------
 set local role authenticated;
 set local request.jwt.claims =
   '{"sub":"aa000000-0000-4000-8000-00000000aaaa","role":"authenticated"}';
 
-select pg_temp.check('клинер знает свой тенант',
+select pg_temp.check('a cleaner knows their tenant',
   public.current_host_id(), 'a0000000-0000-4000-8000-00000000000a'::uuid);
-select pg_temp.check('клинер видит объект своей компании',
+select pg_temp.check('a cleaner sees a listing of their own company',
   (select count(*)::int from public.properties where id = 900001101), 1);
-select pg_temp.check('клинер не видит объект чужой компании',
+select pg_temp.check('a cleaner does not see a listing of another company',
   (select count(*)::int from public.properties where id = 900001102), 0);
-select pg_temp.check('клинер видит задачу своей компании',
+select pg_temp.check('a cleaner sees a task of their own company',
   pg_temp.visible('work of host A'), true);
-select pg_temp.check('привязка к чужому объекту не открывает чужую задачу',
+select pg_temp.check('a link to a listing of another company does not open its task',
   pg_temp.visible('work of host B'), false);
-select pg_temp.check('клинер не видит сотрудников чужой компании',
+select pg_temp.check('a cleaner does not see the staff of another company',
   (select count(*)::int from public.profiles
    where id = 'bb000000-0000-4000-8000-00000000bbbb'), 0);
 
--- Захват чужой задачи: строка не проходит USING, обновление не трогает ничего.
+-- Taking another company's task: the row fails USING, the update touches nothing.
 update public.tasks
 set assignee_id = 'aa000000-0000-4000-8000-00000000aaaa', status = 'assigned'
 where notes = 'work of host B';
 
 reset role; reset request.jwt.claims;
-select pg_temp.check('клинер не может взять задачу чужой компании',
+select pg_temp.check('a cleaner cannot take a task of another company',
   (select assignee_id from public.tasks where notes = 'work of host B'), null::uuid);
 
--- ---------- менеджер тоже упирается в границу тенанта ----------
+-- ---------- a manager meets the tenant boundary too ----------
 set local role authenticated;
 set local request.jwt.claims =
   '{"sub":"cc000000-0000-4000-8000-00000000cccc","role":"authenticated"}';
 
-select pg_temp.check('менеджер видит все задачи своей компании',
+select pg_temp.check('a manager sees every task of their own company',
   pg_temp.visible('work of host A'), true);
-select pg_temp.check('менеджер не видит задачи чужой компании',
+select pg_temp.check('a manager does not see the tasks of another company',
   pg_temp.visible('work of host B'), false);
-select pg_temp.check('менеджер не видит чужие объекты',
+select pg_temp.check('a manager does not see the listings of another company',
   (select count(*)::int from public.properties where id = 900001102), 0);
 
--- Запись в чужой тенант отклоняется WITH CHECK, а не молча уезжает.
+-- A write into another tenant is refused by WITH CHECK, not carried off silently.
 do $$
 begin
   insert into public.properties (id, host_id, name, timezone)
   values (900001103, 'b0000000-0000-4000-8000-00000000000b', 'Smuggled', 'UTC');
-  raise exception 'FAIL менеджер завёл объект в чужом тенанте';
+  raise exception 'FAIL a manager created a listing in another tenant';
 exception when insufficient_privilege then
-  raise notice 'ok  менеджер не может завести объект в чужом тенанте';
+  raise notice 'ok  a manager cannot create a listing in another tenant';
 end $$;
 
 reset role; reset request.jwt.claims;
--- ---------- новые строки попадают в тенант сами ----------
+-- ---------- new rows land in their tenant by themselves ----------
 insert into public.properties (id, name, timezone) values (900001104, 'Defaulted', 'UTC');
 
-select pg_temp.check('объект без явного тенанта попадает в тенант по умолчанию',
+select pg_temp.check('a listing with no explicit tenant lands in the default one',
   (select host_id from public.properties where id = 900001104),
   public.default_host_id());
 

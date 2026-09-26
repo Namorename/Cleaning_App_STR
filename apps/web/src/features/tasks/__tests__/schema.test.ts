@@ -5,11 +5,13 @@ import {
   EMPTY_FILTERS,
   hasFilters,
   groupTasks,
+  isAssigneeMissing,
   isDraftReady,
   isManualTask,
   localizedTitle,
   matchesFilters,
   matchesQuery,
+  needsAssignee,
   propertyOptions,
   tabOf,
   tailOf,
@@ -136,6 +138,9 @@ describe('timeGroup', () => {
 });
 
 describe('groupTasks', () => {
+  // Mid-morning of TODAY everywhere between UTC-10 and UTC+13.
+  const ON_TODAY = new Date(`${TODAY}T10:00:00Z`);
+
   test('groups today by the part of the day, earliest first, and drops empty parts', () => {
     const groups = groupTasks(
       [
@@ -145,10 +150,57 @@ describe('groupTasks', () => {
         task({ id: id(4), time_from: '08:00:00' }),
       ],
       'today',
+      ON_TODAY,
     );
 
     expect(groups.map((group) => group.key)).toEqual(['morning', 'evening', 'anytime']);
     expect(groups[0]?.tasks.map((entry) => entry.time_from)).toEqual(['08:00:00', '09:00:00']);
+  });
+
+  test('today puts the tails first, in a group of their own, the oldest day first', () => {
+    // Arrange: two live tasks left over from earlier days among today's work.
+    const groups = groupTasks(
+      [
+        task({ id: id(1), time_from: '08:00:00' }),
+        task({ id: id(2), scheduled_date: '2026-09-10', time_from: '18:00:00' }),
+        task({ id: id(3), time_from: '18:00:00' }),
+        task({ id: id(4), scheduled_date: '2026-09-09', time_from: null }),
+      ],
+      'today',
+      ON_TODAY,
+    );
+
+    // Act & Assert: the tails no longer hide in the morning and the evening.
+    expect(groups.map((group) => group.key)).toEqual(['tail', 'morning', 'evening']);
+    expect(groups[0]?.kind).toBe('tail');
+    expect(groups[0]?.tasks.map((entry) => entry.id)).toEqual([id(4), id(2)]);
+    expect(groups.slice(1).flatMap((group) => group.tasks.map((entry) => entry.id))).toEqual([
+      id(1),
+      id(3),
+    ]);
+  });
+
+  test("a tail is counted by the property's own day, as the card's border is", () => {
+    // 22:30 UTC is already tomorrow in Prague and still today in UTC.
+    const lateEvening = new Date(`${TODAY}T22:30:00Z`);
+    const house = (timezone: string) => ({
+      name: timezone,
+      hostaway_unit_id: null,
+      timezone,
+      parent: null,
+    });
+
+    const groups = groupTasks(
+      [
+        task({ id: id(1), property: house('Europe/Prague') }),
+        task({ id: id(2), property: house('UTC') }),
+      ],
+      'today',
+      lateEvening,
+    );
+
+    expect(groups.map((group) => group.key)).toEqual(['tail', 'anytime']);
+    expect(groups[0]?.tasks.map((entry) => entry.id)).toEqual([id(1)]);
   });
 
   test('groups the days ahead by day, nearest first', () => {
@@ -158,6 +210,7 @@ describe('groupTasks', () => {
         task({ id: id(2), scheduled_date: '2026-09-12' }),
       ],
       'upcoming',
+      ON_TODAY,
     );
 
     expect(groups.map((group) => group.key)).toEqual(['2026-09-12', '2026-09-14']);
@@ -171,6 +224,7 @@ describe('groupTasks', () => {
         task({ id: id(2), status: 'done', scheduled_date: '2026-09-10' }),
       ],
       'closed',
+      ON_TODAY,
     );
 
     expect(groups.map((group) => group.key)).toEqual(['2026-09-10', '2026-09-08']);
@@ -196,6 +250,7 @@ describe('groupTasks', () => {
         task({ id: id(3), time_from: '10:00:00', property: royal('1 - 2109', 18007) }),
       ],
       'today',
+      ON_TODAY,
     );
 
     // Act & Assert
@@ -209,6 +264,7 @@ describe('groupTasks', () => {
         task({ id: id(2), scheduled_date: '2026-09-12', time_from: '10:00:00' }),
       ],
       'upcoming',
+      ON_TODAY,
     );
 
     expect(groups[0]?.tasks.map((entry) => entry.id)).toEqual([id(2), id(1)]);
@@ -347,6 +403,64 @@ describe('isDraftReady', () => {
     expect(isDraftReady({ ...draft, title: '   ' })).toBe(true);
     expect(isDraftReady({ ...draft, scheduledDate: '' })).toBe(false);
   });
+
+  test('an inspection or a maintenance job is not ready without an executor', () => {
+    const person = 'bbbbbbbb-bbbb-4bbb-8bbb-000000000001';
+
+    expect(isDraftReady({ ...draft, type: 'inspection', assigneeId: null })).toBe(false);
+    expect(isDraftReady({ ...draft, type: 'maintenance', assigneeId: null })).toBe(false);
+    expect(isDraftReady({ ...draft, type: 'inspection', assigneeId: person })).toBe(true);
+    expect(isDraftReady({ ...draft, type: 'maintenance', assigneeId: person })).toBe(true);
+  });
+
+  test('a cleaning may still wait in the queue for somebody', () => {
+    expect(isDraftReady({ ...draft, type: 'cleaning', assigneeId: null })).toBe(true);
+    expect(isDraftReady({ ...draft, type: 'midstay', assigneeId: null })).toBe(true);
+  });
+});
+
+describe('needsAssignee', () => {
+  test('only an inspection and a maintenance job must have somebody from the start', () => {
+    expect(needsAssignee('inspection')).toBe(true);
+    expect(needsAssignee('maintenance')).toBe(true);
+    expect(needsAssignee('cleaning')).toBe(false);
+    expect(needsAssignee('midstay')).toBe(false);
+  });
+});
+
+describe('isAssigneeMissing', () => {
+  const draft = draftFromTask(task({ id: id(1) }));
+
+  test('is the gap the form points at, and only on the kinds that need somebody', () => {
+    expect(isAssigneeMissing({ ...draft, type: 'inspection', assigneeId: null })).toBe(true);
+    expect(isAssigneeMissing({ ...draft, type: 'cleaning', assigneeId: null })).toBe(false);
+    expect(
+      isAssigneeMissing({
+        ...draft,
+        type: 'maintenance',
+        assigneeId: 'bbbbbbbb-bbbb-4bbb-8bbb-000000000001',
+      }),
+    ).toBe(false);
+  });
+
+  // The form offers active colleagues only; an executor switched off since is
+  // nobody who can do the job.
+  test('counts an executor missing from the active list as a gap on those kinds', () => {
+    const active = ['bbbbbbbb-bbbb-4bbb-8bbb-000000000001'];
+    const gone = 'bbbbbbbb-bbbb-4bbb-8bbb-000000000009';
+
+    expect(isAssigneeMissing({ ...draft, type: 'inspection', assigneeId: gone }, active)).toBe(
+      true,
+    );
+    expect(isAssigneeMissing({ ...draft, type: 'inspection', assigneeId: active[0] }, active)).toBe(
+      false,
+    );
+    expect(isAssigneeMissing({ ...draft, type: 'cleaning', assigneeId: gone }, active)).toBe(false);
+    // While the list is on its way nobody is flagged for it.
+    expect(isAssigneeMissing({ ...draft, type: 'inspection', assigneeId: gone }, undefined)).toBe(
+      false,
+    );
+  });
 });
 
 describe('propertyOptions', () => {
@@ -468,5 +582,18 @@ describe('the search finds a room cleaning by the house it is in', () => {
 
   test('the filter bar asks the same question', () => {
     expect(matchesFilters(inRoom, { ...EMPTY_FILTERS, query: 'vinohradska' })).toBe(true);
+  });
+});
+
+describe('the search ignores diacritics', () => {
+  test('finds the work of a person whose name is typed without its marks', () => {
+    const hers = task({
+      id: id(1),
+      assignee_id: 'bbbbbbbb-bbbb-4bbb-8bbb-000000000001',
+      assignee: { full_name: 'Šárka Nováková', role: 'cleaner' },
+    });
+
+    expect(matchesQuery(hers, 'sarka')).toBe(true);
+    expect(matchesQuery(hers, 'novakova sarka')).toBe(true);
   });
 });
