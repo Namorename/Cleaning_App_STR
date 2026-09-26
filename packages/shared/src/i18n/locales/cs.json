@@ -738,6 +738,22 @@
     "media": {
       "fromGallery": "z galerie",
       "sourceUnknown": "zdroj neuveden"
+    },
+    "calendar": {
+      "counts": "Objektů: {{listings}} · pokojů: {{rooms}}",
+      "today": "Dnes",
+      "previous": "Předchozí období",
+      "next": "Další období",
+      "depthLabel": "Rozsah",
+      "days_one": "{{count}} den",
+      "days_few": "{{count}} dny",
+      "days_many": "{{count}} dne",
+      "days_other": "{{count}} dní",
+      "property": "Objekt",
+      "units": "Jednotek: {{count}}",
+      "loadingRows": "Načítáme objekty…",
+      "rowsError": "Objekty se nepodařilo načíst",
+      "empty": "Žádné objekty"
     }
   },
   "tabs": {

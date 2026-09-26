@@ -25,7 +25,7 @@ export default async function PanelLayout({ children }: { children: ReactNode })
   return (
     <div className="flex min-h-full flex-1">
       <Sidebar email={user?.email ?? ''} />
-      <main className="flex-1 p-6">{children}</main>
+      <main className="min-h-0 min-w-0 flex-1 p-6">{children}</main>
     </div>
   );
 }

@@ -113,7 +113,7 @@ export async function fetchStaff(client: Client): Promise<Staff[]> {
 export async function fetchProperties(client: Client): Promise<Property[]> {
   const { data, error } = await client
     .from('properties')
-    .select('id, name, parent_id, hostaway_unit_id')
+    .select('id, name, parent_id, hostaway_unit_id, status, timezone')
     .neq('status', 'archived')
     .order('name', { ascending: true });
   if (error) {

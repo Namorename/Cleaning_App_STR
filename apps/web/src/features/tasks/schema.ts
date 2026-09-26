@@ -105,6 +105,10 @@ export const propertySchema = z.object({
   name: z.string(),
   parent_id: z.number().nullable().default(null),
   hostaway_unit_id: z.number().nullable().default(null),
+  // Read for the calendar's rows (docs/f10-plan.md, 7.2): a room under repair
+  // gets a badge, and "today" is a date in the listing's own time zone.
+  status: z.string().default('active'),
+  timezone: z.string().nullable().default(null),
 });
 export type Property = z.infer<typeof propertySchema>;
 export const propertyListSchema = z.array(propertySchema);
@@ -129,7 +133,10 @@ export interface PropertyOption {
  * their listing — but dropping it would blank the flat field of every task
  * standing on it, which is the defect this list exists to prevent.
  */
-function splitOptionPlace(property: Property, byId: Map<number, Property>): PlaceParts {
+/** What the option labeller reads of a row — no more, so any row shape will do. */
+type OptionRow = Pick<Property, 'id' | 'name' | 'parent_id' | 'hostaway_unit_id'>;
+
+function splitOptionPlace(property: OptionRow, byId: Map<number, OptionRow>): PlaceParts {
   const parent = property.parent_id === null ? null : (byId.get(property.parent_id) ?? null);
   return splitPlace({
     name: property.name,
@@ -149,7 +156,7 @@ function splitOptionPlace(property: Property, byId: Map<number, Property>): Plac
  * Rooms follow their own listing, and the listing stays pickable: a repair in
  * the hallway belongs to the building rather than to any one flat.
  */
-export function propertyOptions(properties: Property[]): PropertyOption[] {
+export function propertyOptions(properties: readonly OptionRow[]): PropertyOption[] {
   const byId = new Map(properties.map((property) => [property.id, property]));
   return properties
     .map((property) => ({ property, ...splitOptionPlace(property, byId) }))

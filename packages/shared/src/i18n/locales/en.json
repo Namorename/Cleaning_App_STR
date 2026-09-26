@@ -734,6 +734,20 @@
     "media": {
       "fromGallery": "from gallery",
       "sourceUnknown": "source not stated"
+    },
+    "calendar": {
+      "counts": "Listings: {{listings}} · rooms: {{rooms}}",
+      "today": "Today",
+      "previous": "Previous period",
+      "next": "Next period",
+      "depthLabel": "Depth",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "property": "Listing",
+      "units": "Units: {{count}}",
+      "loadingRows": "Loading listings…",
+      "rowsError": "Could not load the listings",
+      "empty": "No listings"
     }
   },
   "tabs": {

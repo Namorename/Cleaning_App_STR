@@ -738,6 +738,22 @@
     "media": {
       "fromGallery": "из галереи",
       "sourceUnknown": "источник не указан"
+    },
+    "calendar": {
+      "counts": "Объектов: {{listings}} · комнат: {{rooms}}",
+      "today": "Сегодня",
+      "previous": "Предыдущий период",
+      "next": "Следующий период",
+      "depthLabel": "Глубина",
+      "days_one": "{{count}} день",
+      "days_few": "{{count}} дня",
+      "days_many": "{{count}} дней",
+      "days_other": "{{count}} дня",
+      "property": "Объект",
+      "units": "Единиц: {{count}}",
+      "loadingRows": "Загружаем объекты…",
+      "rowsError": "Не удалось загрузить объекты",
+      "empty": "Объектов нет"
     }
   },
   "tabs": {
