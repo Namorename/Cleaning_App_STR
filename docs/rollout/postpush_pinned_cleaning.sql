@@ -16,15 +16,15 @@
 --                  {postgres=X/postgres,service_role=X/postgres}
 --                guard_task_fields()
 --                  {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
---                save_task(uuid,bigint,task_type,date,text,jsonb,uuid,time,time,text,integer,boolean)
+--                save_task(uuid,bigint,task_type,date,text,jsonb,uuid,time without time zone,time without time zone,text,integer,boolean)
 --                  {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
 --              md5 prefix / length (local stack, 2026-09-26), and what the
 --              cloud held before the push — the bodies of the three migrations
 --              this one starts from, hashed the same way:
 --                                         after              before
---                generate_cleaning_tasks  13e91587 17579     7730946a 13726
+--                generate_cleaning_tasks  2902e27c 17926     7730946a 13726
 --                guard_task_fields        cf75e049  2071     0121a161  1950
---                save_task                4e0efc04  7426     24f754be  5446
+--                save_task                c1bc4b75  7690     24f754be  5446
 --   anon       false for all three. Any true is a stop.
 --   public     false for all three.
 --   tasks_acl  anon, authenticated and PUBLIC on public.tasks as before the

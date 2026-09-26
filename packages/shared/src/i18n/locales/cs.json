@@ -409,6 +409,7 @@
         "saving": "Ukládáme…",
         "close": "Zrušit",
         "duplicate": "Přesto vytvořit",
+        "duplicateSave": "Přesto uložit",
         "generatedHint": "Úkol vznikl z rezervace nebo z problému: byt ani druh nelze změnit.",
         "guest": "Odjíždějící host",
         "reservation": "Rezervace v Hostaway",

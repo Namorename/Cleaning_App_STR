@@ -29,9 +29,14 @@
 --     departure moved out of the run's window: its booking still owes it.
 --   * A cleaning written by hand on a listing and day that already have a
 --     booking's cleaning asks first, with the same question — serverErrors.
---     taskDuplicate — as two hand-made ones. It asks when the task lands on
---     that day: when it is created or moved there, not on every later edit
---     of a pair the manager has already confirmed.
+--     taskDuplicate — as two hand-made ones. Both questions are asked when a
+--     task lands on that day: created, moved there, or turned into another
+--     kind of job — not on every later edit of a pair the manager has already
+--     confirmed (the question about two hand-made ones was asked on every
+--     save until now).
+--   * A pinned cleaning that expires counts as the booking's tried day, as an
+--     unpinned one does on its own day: the generator does not write the
+--     booking's cleaning again on the departure it was moved away from.
 --
 -- Proposed with this migration, for the owner to settle before the push: a
 -- booking that moves to another day takes an accepted cleaning with it, back
@@ -47,10 +52,10 @@
 -- An executor may not pin or unpin: guard_task_fields reverts the column for
 -- anyone but a manager, as it does the day itself.
 --
--- The generator's body is that of 20260926102000 but for the reschedule and
--- the cancel passes; save_task's is that of 20260910150000 but for the pin
--- and the second duplicate check; guard_task_fields's is that of
--- 20260923130000 plus one line.
+-- The generator's body is that of 20260926102000 but for the insert's
+-- expired-day stopper and the reschedule and cancel passes; save_task's is
+-- that of 20260910150000 but for the pin and the duplicate questions;
+-- guard_task_fields's is that of 20260923130000 plus one line.
 --
 -- Tests: supabase/tests/pinned_cleaning.sql.
 --
@@ -171,6 +176,7 @@ declare
   v_status    public.task_status;
   v_departure date;
   v_pinned    date;
+  v_lands     boolean;
 begin
   if not public.is_manager() then
     raise exception 'Only a manager may do this'
@@ -224,10 +230,20 @@ begin
       using errcode = 'check_violation', hint = 'serverErrors.taskAssigneeInvalid';
   end if;
 
+  -- Both questions below are asked when a task lands on a flat and a day —
+  -- created, or moved there, or turned into another kind of job — and not
+  -- again on every later edit of a pair the manager has already confirmed
+  -- (20260926160000; before, the first one was asked on every save).
+  v_lands := v_task.id is null
+             or p_scheduled_date is distinct from v_task.scheduled_date
+             or v_property is distinct from v_task.property_id
+             or v_type is distinct from v_task.type;
+
   -- The same kind of job, on the same flat, on the same day. A job from a
   -- booking or from a report is not one of these — it was not written by
   -- hand — and a cancelled or expired one is out of the way by definition.
   if not coalesce(p_allow_duplicate, false)
+     and v_lands
      and exists (select 1 from public.tasks t
                  where t.host_id = v_host
                    and t.property_id = v_property
@@ -245,14 +261,10 @@ begin
   end if;
 
   -- A booking's cleaning on the same flat and day is the same question
-  -- (20260926160000): the flat is already being cleaned. Asked when a
-  -- cleaning lands on that day — created, or moved there — and not again on
-  -- every edit of a pair the manager has already confirmed.
+  -- (20260926160000): the flat is already being cleaned.
   if not coalesce(p_allow_duplicate, false)
+     and v_lands
      and v_type = 'cleaning'
-     and (v_task.id is null
-          or p_scheduled_date is distinct from v_task.scheduled_date
-          or v_property is distinct from v_task.property_id)
      and exists (select 1 from public.tasks t
                  where t.host_id = v_host
                    and t.property_id = v_property
@@ -480,7 +492,11 @@ begin
   -- run writes whatever it still finds missing.
   --
   -- A pinned cleaning is live work of its booking whatever day it stands on,
-  -- so its booking is never owed a second one (20260926160000).
+  -- so its booking is never owed a second one (20260926160000). Once it
+  -- expires, the day that was tried is its pinned one: an expired row answers
+  -- for the departure it was pinned against as well as for its own day, or a
+  -- cleaning moved before the departure and never closed would come back on
+  -- the departure — the incident of 2026-09-26 by another road.
   --
   -- `owed` is every cleaning the bookings ask for that the table does not yet
   -- answer. Those whose day is already past grace are counted as past_bound
@@ -501,7 +517,8 @@ begin
         -- already tried and closed unfinished. The second half is what stops
         -- the nightly loop; the header of this migration says why.
         and (t.status not in ('cancelled', 'expired')
-             or (t.status = 'expired' and t.scheduled_date = w.scheduled_date))
+             or (t.status = 'expired'
+                 and w.scheduled_date in (t.scheduled_date, t.pinned_departure)))
         and (t.property_id = w.property_id
              -- ...or it stands on the booking's own listing, which is where
              -- every cleaning stood before this migration. Such a row is the

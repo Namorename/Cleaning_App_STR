@@ -409,6 +409,7 @@
         "saving": "Saving…",
         "close": "Cancel",
         "duplicate": "Create it anyway",
+        "duplicateSave": "Save it anyway",
         "generatedHint": "This task came from a booking or a problem: its listing and kind cannot be changed.",
         "guest": "Departing guest",
         "reservation": "Hostaway booking",

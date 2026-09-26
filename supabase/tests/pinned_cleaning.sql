@@ -41,7 +41,8 @@ insert into public.properties (id, name, timezone, check_in_time, check_out_time
   (900002504, 'Accepted follows',      'UTC', '15:00', '10:00'),
   (900002505, 'Pinned stays put',      'UTC', '15:00', '10:00'),
   (900002506, 'Booking meets pin',     'UTC', '15:00', '10:00'),
-  (900002507, 'Duplicate question',    'UTC', '15:00', '10:00');
+  (900002507, 'Duplicate question',    'UTC', '15:00', '10:00'),
+  (900002508, 'Pin never happened',    'UTC', '15:00', '10:00');
 
 insert into public.reservations (id, property_id, arrival_date, departure_date, status, guest_name)
 values
@@ -53,7 +54,8 @@ values
   (900002516, 900002504, current_date + 5,  current_date + 10, 'new', 'Guest 6'),
   (900002517, 900002505, current_date + 5,  current_date + 10, 'new', 'Guest 7'),
   (900002518, 900002506, current_date + 5,  current_date + 10, 'new', 'Guest 8'),
-  (900002519, 900002507, current_date + 5,  current_date + 10, 'new', 'Guest 9');
+  (900002519, 900002507, current_date + 5,  current_date + 10, 'new', 'Guest 9'),
+  (900002520, 900002508, current_date - 2,  current_date + 3,  'new', 'Guest 10');
 
 create or replace function pg_temp.check(label text, got anyelement, want anyelement)
 returns void language plpgsql as $$
@@ -233,8 +235,25 @@ select pg_temp.check('an edit that keeps its day asks nothing again',
     'c9002507-0000-4000-8000-000000000001'::uuid, 900002507, 'cleaning',
     current_date + 10, 'Deep clean')$sql$),
   'no refusal');
+-- Nor does an edit of the booking's side of the pair: handing it to a cleaner.
+select pg_temp.check('nor an edit of the booking''s cleaning that keeps its day',
+  pg_temp.refusal(format($sql$select public.save_task(%L::uuid, 900002507, 'cleaning',
+    current_date + 10, null, null, 'd9002501-0000-4000-8000-0000000025e1'::uuid)$sql$,
+    (pg_temp.cleaning(900002519)).id)),
+  'no refusal');
 select public.save_task('c9002507-0000-4000-8000-000000000002'::uuid, 900002507, 'inspection',
   current_date + 10);
+-- An inspection that becomes a cleaning lands on the day as a cleaning.
+select pg_temp.check('a second inspection that day, confirmed, saves',
+  pg_temp.refusal($sql$select public.save_task(
+    'c9002507-0000-4000-8000-000000000003'::uuid, 900002507, 'inspection',
+    current_date + 10, null, null, null, null, null, null, null, true)$sql$),
+  'no refusal');
+select pg_temp.check('turned into a cleaning on that day, it is asked about',
+  pg_temp.refusal($sql$select public.save_task(
+    'c9002507-0000-4000-8000-000000000003'::uuid, 900002507, 'cleaning',
+    current_date + 10)$sql$),
+  'serverErrors.taskDuplicate');
 reset role; reset request.jwt.claims;
 select pg_temp.check('another kind of job that day asks nothing',
   (select type::text from public.tasks where id = 'c9002507-0000-4000-8000-000000000002'),
@@ -242,6 +261,25 @@ select pg_temp.check('another kind of job that day asks nothing',
 select pg_temp.check('a task written by hand is never pinned',
   (select pinned_departure from public.tasks where id = 'c9002507-0000-4000-8000-000000000001'),
   null::date);
+
+-- ---------- 8. a pinned cleaning that never happened ----------
+
+-- Moved to a day before the departure, never closed, swept: the day the
+-- booking's cleaning was tried is the pinned one, and its departure is not
+-- tried again — the rule an unpinned cleaning already keeps on its own day.
+select pg_temp.move(900002520, current_date - 3);
+update public.tasks set status = 'expired' where id = (pg_temp.cleaning(900002520)).id;
+select pg_temp.run_for(900002520);
+select pg_temp.run();
+select pg_temp.check('a pinned cleaning that never happened is not written again on the departure',
+  pg_temp.live_cleanings(900002520), 0);
+
+update public.reservations set departure_date = current_date + 5 where id = 900002520;
+select pg_temp.run_for(900002520);
+select pg_temp.check('a booking that moves after it is owed a cleaning on its new day',
+  (select scheduled_date from public.tasks
+   where reservation_id = 900002520 and status not in ('cancelled', 'expired')),
+  current_date + 5);
 
 -- ---------- an executor cannot pin or unpin ----------
 

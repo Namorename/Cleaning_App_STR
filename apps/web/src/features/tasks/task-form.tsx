@@ -200,7 +200,6 @@ export function TaskForm({ task, initial, onClose }: TaskFormProps) {
             />
           </div>
 
-
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="flex flex-col gap-1">
               <Label htmlFor="task-date">{t('panel.tasks.form.date')}</Label>
@@ -310,7 +309,10 @@ export function TaskForm({ task, initial, onClose }: TaskFormProps) {
                 disabled={save.isPending || !isReady}
                 onClick={confirmDuplicate}
               >
-                {t('panel.tasks.form.duplicate')}
+                {/* An edit creates nothing: it is the move that is confirmed. */}
+                {task === null
+                  ? t('panel.tasks.form.duplicate')
+                  : t('panel.tasks.form.duplicateSave')}
               </Button>
             ) : null}
             <Button type="submit" disabled={save.isPending || !isReady}>
