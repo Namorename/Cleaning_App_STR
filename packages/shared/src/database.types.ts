@@ -1283,6 +1283,7 @@ export type Database = {
           is_short_measurement: boolean | null
           measured_minutes: number | null
           notes: string | null
+          pinned_departure: string | null
           priority: number
           problem_id: string | null
           property_id: number
@@ -1312,6 +1313,7 @@ export type Database = {
           is_short_measurement?: boolean | null
           measured_minutes?: number | null
           notes?: string | null
+          pinned_departure?: string | null
           priority?: number
           problem_id?: string | null
           property_id: number
@@ -1341,6 +1343,7 @@ export type Database = {
           is_short_measurement?: boolean | null
           measured_minutes?: number | null
           notes?: string | null
+          pinned_departure?: string | null
           priority?: number
           problem_id?: string | null
           property_id?: number
@@ -2505,6 +2508,7 @@ export type Database = {
           is_short_measurement: boolean | null
           measured_minutes: number | null
           notes: string | null
+          pinned_departure: string | null
           priority: number
           problem_id: string | null
           property_id: number
