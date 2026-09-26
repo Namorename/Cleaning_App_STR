@@ -53,6 +53,17 @@
 -- 20260923130000 plus one line.
 --
 -- Tests: supabase/tests/pinned_cleaning.sql.
+--
+-- LOCKS. Adding a nullable column without a default touches the catalog only,
+-- but it takes ACCESS EXCLUSIVE on public.tasks, and every read of tasks —
+-- the phone's list, the panel's calendar — queues behind a waiting request
+-- for it. The webhook job runs the generator every two minutes and holds row
+-- locks on tasks while it does. lock_timeout makes a busy table fail the push
+-- instead: one lock, 5 s, under the 8 s statement_timeout of authenticated.
+-- If it fires, nothing of this file is applied and the push is repeated as
+-- it is.
+
+set local lock_timeout = '5s';
 
 alter table public.tasks add column pinned_departure date;
 
