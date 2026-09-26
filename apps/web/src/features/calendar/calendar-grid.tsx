@@ -56,6 +56,8 @@ interface CalendarGridProps {
   onEmptyDay: (propertyId: number, place: string, day: string) => void;
   /** Overdue live repairs by property id: a badge in the row's first column (§6). */
   repairAlerts: ReadonlyMap<number, RepairAlert>;
+  /** Rows drawn beyond the window; the stand measures «all» too (7.6). */
+  overscan: number;
 }
 
 function subtreeIds(node: VisibleRow<Property>['node']): number[] {
@@ -122,6 +124,7 @@ export function CalendarGrid({
   onMoreTasks,
   onEmptyDay,
   repairAlerts,
+  overscan,
 }: CalendarGridProps) {
   const { t } = useTranslation();
   const scroller = useRef<HTMLDivElement>(null);
@@ -138,7 +141,7 @@ export function CalendarGrid({
     getScrollElement: () => scroller.current,
     estimateSize: (at) => (rows[at].depth === 0 ? LISTING_HEIGHT : ROOM_HEIGHT),
     getItemKey: (at) => rows[at].node.row.id,
-    overscan: 8,
+    overscan,
     paddingStart: HEADER_HEIGHT,
     scrollPaddingStart: HEADER_HEIGHT,
   });

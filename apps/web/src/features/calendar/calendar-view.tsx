@@ -16,6 +16,7 @@ import { CalendarGrid } from './calendar-grid';
 import type { ChipView } from './chips';
 import { addDays, DEPTHS, defaultStart, rangeLabel, windowDays, type Depth } from './dates';
 import { LayerAlert } from './layer-alert';
+import { standOverscan, useStandPaintMark } from './stand-measure';
 import type { CalendarBooking } from './schema';
 import {
   readChipView,
@@ -37,6 +38,8 @@ import { useChipLayers } from './use-chip-layers';
 interface CalendarViewProps {
   /** The stand: data from the fixture instead of the database (§5). */
   fixture?: boolean;
+  /** The stand's fixture this many times over: 1 or 3 (7.6). */
+  scale?: number;
 }
 
 const noSubscription = () => () => {};
@@ -50,7 +53,7 @@ const noSubscription = () => () => {};
  * in the browser only: a server render with a week and every group open would
  * then be corrected in front of her.
  */
-export function CalendarView({ fixture = false }: CalendarViewProps) {
+export function CalendarView({ fixture = false, scale = 1 }: CalendarViewProps) {
   const { t } = useTranslation();
   const isBrowser = useSyncExternalStore(
     noSubscription,
@@ -61,7 +64,7 @@ export function CalendarView({ fixture = false }: CalendarViewProps) {
   if (!isBrowser) {
     return <p className="text-sm text-muted-foreground">{t('panel.calendar.loadingRows')}</p>;
   }
-  return <CalendarBody isStand={fixture} />;
+  return <CalendarBody isStand={fixture} scale={scale} />;
 }
 
 function toggled(ids: ReadonlySet<number>, id: number): Set<number> {
@@ -74,9 +77,9 @@ function toggled(ids: ReadonlySet<number>, id: number): Set<number> {
   return next;
 }
 
-function CalendarBody({ isStand }: { isStand: boolean }) {
+function CalendarBody({ isStand, scale }: { isStand: boolean; scale: number }) {
   const { t, i18n } = useTranslation();
-  const client = useCalendarClient(isStand);
+  const client = useCalendarClient(isStand, scale);
   const rowsQuery = useCalendarRows(client, isStand);
 
   const today = todayIso();
@@ -115,6 +118,15 @@ function CalendarBody({ isStand }: { isStand: boolean }) {
   const repairs = useLiveRepairs(client, isStand);
   // Judged now, like the chips: a memo would keep yesterday's today (a handful of rows).
   const repairAlerts = overdueRepairsByProperty(repairs.data ?? []);
+
+  // The stand's measurement (7.6): the first drawing with every layer in.
+  useStandPaintMark(
+    isStand,
+    rowsQuery.data !== undefined &&
+      bookings.data !== undefined &&
+      !chips.isPending &&
+      !repairs.isPending,
+  );
 
   const chooseDepth = (next: Depth) => {
     setDepth(next);
@@ -246,6 +258,7 @@ function CalendarBody({ isStand }: { isStand: boolean }) {
           onOpenTask={taskDialogs.openTask}
           onMoreTasks={taskDialogs.showCell}
           onEmptyDay={taskDialogs.newTaskOn}
+          overscan={standOverscan(isStand, rows.length)}
         />
       )}
 

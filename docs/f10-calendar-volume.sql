@@ -5,7 +5,12 @@
 -- are configuration, not personal data. One statement, one result set of
 -- (metric text, value jsonb), ordered:
 --
---   npx supabase db query --linked -f docs/f10-calendar-volume.sql
+--   node scripts/cloud-read.mjs docs/f10-calendar-volume.sql
+--
+-- Under the read-only role, which may execute no function of ours since the grants
+-- hygiene of step 1 (PUBLIC holds no EXECUTE, 20260926100000): the probe calls none.
+-- task_grace_days() is a constant 1 (20260904120100:28-34) and is written out below as
+-- GRACE_DAYS; if that function ever changes, change the two places here with it.
 --
 -- Measured 2026-09-23 for the stage 7 plan (docs/f10-plan.md, "Этап 7. Календарь — план").
 -- Re-run before stage 7.6 and after the expired duplicates are cleaned up. Metric i1 was
@@ -248,7 +253,7 @@ from (
                        from win),
            'migration_head', (select max(version) from supabase_migrations.schema_migrations),
            'hosts', (select count(*) from public.hosts),
-           'task_grace_days', public.task_grace_days(),
+           'task_grace_days', 1, -- GRACE_DAYS, see the header
            'timezones_not_archived',
              (select jsonb_object_agg(x.timezone, x.n)
               from (select p.timezone, count(*) as n
@@ -637,7 +642,7 @@ from (
                      count(*) filter (where r.is_live and r.scheduled_date < r.local_today),
                    'live_past_grace',
                      count(*) filter (where r.is_live
-                                        and r.scheduled_date < r.local_today - public.task_grace_days()),
+                                        and r.scheduled_date < r.local_today - 1), -- GRACE_DAYS
                    'live_max_days_overdue',
                      max(r.local_today - r.scheduled_date) filter (where r.is_live and r.scheduled_date < r.local_today),
                    'live_no_assignee', count(*) filter (where r.is_live and r.no_assignee),

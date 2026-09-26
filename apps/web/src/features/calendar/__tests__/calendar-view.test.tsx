@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -334,6 +334,34 @@ describe('rows', () => {
     render(<CalendarView />);
 
     expect(screen.getAllByRole('rowheader').length).toBeLessThan(150);
+  });
+
+  // 7.6 measures «overscan = count» too; only the stand listens to the address.
+  test('on the stand, ?overscan=all draws every row; elsewhere the address is ignored', () => {
+    rowsState.data = Array.from({ length: 150 }, (_, at) => row(1000 + at, `Listing ${at}`));
+    window.history.replaceState(null, '', '/calendar?overscan=all');
+    try {
+      const { unmount } = render(<CalendarView />);
+      expect(screen.getAllByRole('rowheader').length).toBeLessThan(150);
+      unmount();
+
+      render(<CalendarView fixture />);
+      expect(screen.getAllByRole('rowheader')).toHaveLength(150);
+    } finally {
+      window.history.replaceState(null, '', '/');
+    }
+  });
+
+  test('on the stand, the first full drawing leaves a mark to measure by', async () => {
+    performance.clearMarks('calendar:painted');
+    const { unmount } = render(<CalendarView />);
+    await new Promise((done) => setTimeout(done, 50));
+    expect(performance.getEntriesByName('calendar:painted')).toHaveLength(0);
+    unmount();
+
+    render(<CalendarView fixture />);
+
+    await waitFor(() => expect(performance.getEntriesByName('calendar:painted')).toHaveLength(1));
   });
 
   test('says when the listings could not be read, rather than drawing none', () => {

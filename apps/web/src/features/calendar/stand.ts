@@ -2,6 +2,7 @@ import { todayIso } from '@/lib/format-date';
 import type { Client } from '@/lib/supabase/use-client';
 
 import { addDays } from './dates';
+import { scaledTables } from './stand-copies';
 import { FIXTURE_STAFF, fixtureTasks } from './stand-tasks';
 
 /**
@@ -186,6 +187,21 @@ export function fixtureBookings(today: string): FixtureBooking[] {
 /** Every request waits this long, so loading states are seen and measured. */
 const LATENCY_MS = 150;
 
+/**
+ * Left on the page's timeline by every answer (7.6): «data ready» is the last
+ * of them before the calendar's own «painted» mark.
+ */
+export const STAND_ANSWER_MARK = 'stand:answer';
+
+function answerLater<T>(answer: T): Promise<T> {
+  return new Promise((done) =>
+    setTimeout(() => {
+      performance.mark(STAND_ANSWER_MARK);
+      done(answer);
+    }, LATENCY_MS),
+  );
+}
+
 type Row = Record<string, unknown>;
 type Filter = (row: Row) => boolean;
 
@@ -250,9 +266,7 @@ function queryOf(rows: readonly Row[]) {
       keep((row) => compare(valueOf(row, column), value) >= 0),
     maybeSingle: () => {
       const found = rows.find((row) => filters.every((test) => test(row))) ?? null;
-      return new Promise<{ data: Row | null; error: null }>((done) =>
-        setTimeout(() => done({ data: found, error: null }), LATENCY_MS),
-      );
+      return answerLater<{ data: Row | null; error: null }>({ data: found, error: null });
     },
     order: (column: string, options?: { ascending?: boolean }) => {
       orders.push({ column, ascending: options?.ascending ?? true });
@@ -276,9 +290,7 @@ function queryOf(rows: readonly Row[]) {
       const range = page as { from: number; to: number } | null;
       const data = range === null ? sorted : sorted.slice(range.from, range.to + 1);
       const answer = { data, error: null, count: isCounted ? found.length : null };
-      return new Promise<typeof answer>((done) => setTimeout(() => done(answer), LATENCY_MS)).then(
-        resolve,
-      );
+      return answerLater(answer).then(resolve);
     },
   };
 
@@ -290,16 +302,22 @@ function queryOf(rows: readonly Row[]) {
   return builder;
 }
 
-/** The stub, typed as the real client: the readers under test cannot tell. */
-export function standClient(): Client {
+/**
+ * The stub, typed as the real client: the readers under test cannot tell.
+ * `scale` 3 is the fixture three times over (`CALENDAR_FIXTURE=3`, 7.6).
+ */
+export function standClient(scale = 1): Client {
   const today = todayIso();
   const properties = fixtureProperties();
   const bookings = fixtureBookings(today);
-  const tables: Record<string, readonly Row[]> = {
-    properties: properties as unknown as Row[],
-    reservations: bookings as unknown as Row[],
-    tasks: fixtureTasks(today, properties, bookings),
-    profiles: FIXTURE_STAFF,
-  };
+  const scaled = scaledTables(
+    {
+      properties: properties as unknown as Row[],
+      reservations: bookings as unknown as Row[],
+      tasks: fixtureTasks(today, properties, bookings),
+    },
+    scale,
+  );
+  const tables: Record<string, readonly Row[]> = { ...scaled, profiles: FIXTURE_STAFF };
   return { from: (table: string) => queryOf(tables[table] ?? []) } as unknown as Client;
 }

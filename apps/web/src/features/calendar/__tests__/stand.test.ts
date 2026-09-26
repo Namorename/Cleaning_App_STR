@@ -2,13 +2,18 @@ import { describe, expect, test } from 'vitest';
 
 import { todayIso } from '@/lib/format-date';
 
-import { fetchExpiredBetween, fetchLiveRepairs, fetchTasksBetween } from '@/features/tasks/api';
+import {
+  fetchExpiredBetween,
+  fetchLiveRepairs,
+  fetchProperties,
+  fetchTasksBetween,
+} from '@/features/tasks/api';
 import { overdueRepairsByProperty } from '@/features/tasks/repairs';
 
 import { fetchCalendarBookings } from '../api';
 import { collapseExpired } from '../chips';
 import { addDays } from '../dates';
-import { standClient } from '../stand';
+import { STAND_ANSWER_MARK, standClient } from '../stand';
 
 /**
  * The stand answers the real reader (docs/f10-plan.md, §5): pages, the count,
@@ -90,5 +95,43 @@ describe('the stand for 7.5', () => {
     expect(alerts.size).toBe(3);
     expect([...alerts.values()].filter((alert) => alert.isTechnicianOff)).toHaveLength(1);
     expect(alerts.has(2011)).toBe(true);
+  });
+});
+
+// 7.6 (docs/f10-plan.md, §5): the matrix is measured at ×1 and ×3, and the
+// time to «data ready» is read off the stand's own answers.
+describe('the stand for 7.6', () => {
+  test('at ×3 holds three copies of every row, stay and task, no two sharing an id', async () => {
+    const today = todayIso();
+    const from = addDays(today, -5);
+    const to = addDays(today, 15);
+    const [one, three] = [standClient(), standClient(3)];
+
+    const [rows1, rows3, stays1, stays3, tasks1, tasks3] = await Promise.all([
+      fetchProperties(one),
+      fetchProperties(three),
+      fetchCalendarBookings(one, from, to),
+      fetchCalendarBookings(three, from, to),
+      fetchTasksBetween(one, from, to, 'active'),
+      fetchTasksBetween(three, from, to, 'active'),
+    ]);
+
+    expect(rows3).toHaveLength(rows1.length * 3);
+    expect(stays3).toHaveLength(stays1.length * 3);
+    expect(tasks3).toHaveLength(tasks1.length * 3);
+    for (const list of [rows3, stays3, tasks3]) {
+      expect(new Set(list.map((item) => item.id)).size).toBe(list.length);
+    }
+    // A copy's room still hangs under its copy's listing.
+    const byId = new Map(rows3.map((row) => [row.id, row]));
+    expect(rows3.every((row) => row.parent_id === null || byId.has(row.parent_id))).toBe(true);
+  });
+
+  test('marks every answer, so «data ready» is the last one before the paint', async () => {
+    performance.clearMarks(STAND_ANSWER_MARK);
+
+    await fetchProperties(standClient());
+
+    expect(performance.getEntriesByName(STAND_ANSWER_MARK).length).toBeGreaterThan(0);
   });
 });

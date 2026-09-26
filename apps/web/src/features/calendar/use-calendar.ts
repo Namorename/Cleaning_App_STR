@@ -26,7 +26,7 @@ import type { CalendarBooking } from './schema';
  * fixture, loaded by a dynamic import only then: the chunk is in every build,
  * Vercel's included, but nothing asks for it there. Null while it loads.
  */
-export function useCalendarClient(isStand: boolean): Client | null {
+export function useCalendarClient(isStand: boolean, scale = 1): Client | null {
   const real = useSupabase();
   const [stand, setStand] = useState<Client | null>(null);
 
@@ -37,13 +37,13 @@ export function useCalendarClient(isStand: boolean): Client | null {
     let isLive = true;
     void import('./stand').then((module) => {
       if (isLive) {
-        setStand(module.standClient());
+        setStand(module.standClient(scale));
       }
     });
     return () => {
       isLive = false;
     };
-  }, [isStand]);
+  }, [isStand, scale]);
 
   return isStand ? stand : real;
 }
