@@ -13,7 +13,7 @@ import { overdueRepairsByProperty } from '@/features/tasks/repairs';
 import { fetchCalendarBookings } from '../api';
 import { collapseExpired } from '../chips';
 import { addDays } from '../dates';
-import { STAND_ANSWER_MARK, standClient } from '../stand';
+import { STAND_ANSWER_MARK, STAND_WORK_MEASURE, standClient } from '../stand';
 
 /**
  * The stand answers the real reader (docs/f10-plan.md, §5): pages, the count,
@@ -133,5 +133,15 @@ describe('the stand for 7.6', () => {
     await fetchProperties(standClient());
 
     expect(performance.getEntriesByName(STAND_ANSWER_MARK).length).toBeGreaterThan(0);
+  });
+
+  // The stub filters and sorts in the browser, which a real client never
+  // does: its own time is measured apart, to be taken off «painted».
+  test('measures its own work apart from the calendar', async () => {
+    performance.clearMeasures(STAND_WORK_MEASURE);
+
+    await fetchProperties(standClient());
+
+    expect(performance.getEntriesByName(STAND_WORK_MEASURE, 'measure').length).toBeGreaterThan(1);
   });
 });

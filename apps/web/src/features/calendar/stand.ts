@@ -193,6 +193,22 @@ const LATENCY_MS = 150;
  */
 export const STAND_ANSWER_MARK = 'stand:answer';
 
+/**
+ * The stub's own work — building the fixture, filtering and sorting it for
+ * each answer — runs on the page's thread, which a real client's never does.
+ * Measured apart (7.6), so the driver can take it off «painted».
+ */
+export const STAND_WORK_MEASURE = 'stand:work';
+
+function measured<T>(work: () => T): T {
+  const start = performance.now();
+  try {
+    return work();
+  } finally {
+    performance.measure(STAND_WORK_MEASURE, { start, end: performance.now() });
+  }
+}
+
 function answerLater<T>(answer: T): Promise<T> {
   return new Promise((done) =>
     setTimeout(() => {
@@ -210,10 +226,17 @@ interface Order {
   ascending: boolean;
 }
 
+/**
+ * The fixture's text is ASCII and its dates are ISO, so code-point order is
+ * the database's order here — and localeCompare, run thousands of times per
+ * answer, was stand work the measurement had to carry (7.6).
+ */
 function compare(a: unknown, b: unknown): number {
-  return typeof a === 'number' && typeof b === 'number'
-    ? a - b
-    : String(a).localeCompare(String(b));
+  if (typeof a === 'number' && typeof b === 'number') {
+    return a - b;
+  }
+  const [x, y] = [String(a), String(b)];
+  return x < y ? -1 : x > y ? 1 : 0;
 }
 
 /** A column, or an embedded one — `property.status` — as PostgREST reads it. */
@@ -265,7 +288,7 @@ function queryOf(rows: readonly Row[]) {
     gte: (column: string, value: unknown) =>
       keep((row) => compare(valueOf(row, column), value) >= 0),
     maybeSingle: () => {
-      const found = rows.find((row) => filters.every((test) => test(row))) ?? null;
+      const found = measured(() => rows.find((row) => filters.every((test) => test(row))) ?? null);
       return answerLater<{ data: Row | null; error: null }>({ data: found, error: null });
     },
     order: (column: string, options?: { ascending?: boolean }) => {
@@ -277,19 +300,21 @@ function queryOf(rows: readonly Row[]) {
       return builder;
     },
     then<T>(resolve: (value: { data: Row[]; error: null; count: number | null }) => T) {
-      const found = rows.filter((row) => filters.every((test) => test(row)));
-      const sorted = [...found].sort((a, b) => {
-        for (const { column, ascending } of orders) {
-          const order = compare(a[column], b[column]);
-          if (order !== 0) {
-            return ascending ? order : -order;
+      const answer = measured(() => {
+        const found = rows.filter((row) => filters.every((test) => test(row)));
+        const sorted = [...found].sort((a, b) => {
+          for (const { column, ascending } of orders) {
+            const order = compare(a[column], b[column]);
+            if (order !== 0) {
+              return ascending ? order : -order;
+            }
           }
-        }
-        return 0;
+          return 0;
+        });
+        const range = page as { from: number; to: number } | null;
+        const data = range === null ? sorted : sorted.slice(range.from, range.to + 1);
+        return { data, error: null, count: isCounted ? found.length : null };
       });
-      const range = page as { from: number; to: number } | null;
-      const data = range === null ? sorted : sorted.slice(range.from, range.to + 1);
-      const answer = { data, error: null, count: isCounted ? found.length : null };
       return answerLater(answer).then(resolve);
     },
   };
@@ -308,16 +333,18 @@ function queryOf(rows: readonly Row[]) {
  */
 export function standClient(scale = 1): Client {
   const today = todayIso();
-  const properties = fixtureProperties();
-  const bookings = fixtureBookings(today);
-  const scaled = scaledTables(
-    {
-      properties: properties as unknown as Row[],
-      reservations: bookings as unknown as Row[],
-      tasks: fixtureTasks(today, properties, bookings),
-    },
-    scale,
-  );
+  const scaled = measured(() => {
+    const properties = fixtureProperties();
+    const bookings = fixtureBookings(today);
+    return scaledTables(
+      {
+        properties: properties as unknown as Row[],
+        reservations: bookings as unknown as Row[],
+        tasks: fixtureTasks(today, properties, bookings),
+      },
+      scale,
+    );
+  });
   const tables: Record<string, readonly Row[]> = { ...scaled, profiles: FIXTURE_STAFF };
   return { from: (table: string) => queryOf(tables[table] ?? []) } as unknown as Client;
 }
