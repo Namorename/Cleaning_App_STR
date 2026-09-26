@@ -351,7 +351,9 @@
      `table_grants.sql` облако не видит, а хостинг раздавал права щедрее
      локального стека. Непустой `client_access_to_raw` — стоп и `revoke`;
   5. `information_schema.role_table_grants` для `anon` и `authenticated` по
-     `public` — как после каждого push;
+     `public` (тогда — под `db query --linked`, то есть `postgres`; с
+     2026-09-26 права сверяются по `pg_class.relacl` через `aclexplode`, как
+     в `docs/rollout/postpush_window3.sql`, CLAUDE.md);
   6. окно 2 обратно, `sha256sum -c`, пустой `git status`;
   7. **через час** — ещё раз `postpush_package.sql`, метка
      `trace_last_hour`: строк больше нуля, если за час прошла хоть одна

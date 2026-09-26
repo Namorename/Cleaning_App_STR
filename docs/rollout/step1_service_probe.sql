@@ -15,7 +15,10 @@
 --
 -- Labels:
 --   selftest       every value true: the rule and the word patterns read Cyrillic and Czech under
---                  the cloud's locale (en_US.UTF-8, libc on 2026-09-26).
+--                  the cloud's locale (ICU en-US, PG 17.6 on 2026-09-26: datlocprovider = 'i' in
+--                  pg_database, while datctype still reads en_US.UTF-8). Under ICU [[:space:]]
+--                  already takes U+00A0 and the other Zs spaces; chr(160) keeps the rule the same
+--                  under a libc or C collation.
 --   hash_bookings  live bookings (new/modified, not a block) under the rule, by departure: inside
 --                  the nightly window (today-7 .. today+90, sync-reservations at 03:15 UTC) or not.
 --   hash_open      their open cleanings (unassigned/assigned): what the first generator run whose

@@ -43,6 +43,36 @@
 --   global_f           true: a global entry for functions exists and names no PUBLIC. false means
 --                      the built-in PUBLIC execute still reaches every new function.
 --   sequence_grants    [] -- no sequence in public held by anon, authenticated or PUBLIC.
+--
+-- ROLLBACK OF STEP 1, should the push have to be undone. Always a new, later forward migration
+-- through the same --dry-run guard; never Studio, never an edit of the three applied files. The
+-- suites that pin the new behaviour change in the same edit, or test:rls will not pass:
+-- task_generation.sql, task_media.sql, chat.sql, table_grants.sql, tenant_isolation.sql.
+--   media RPCs   create or replace add_task_media and add_problem_media with the bodies of
+--                20260918170000, add_message_media with that of 20260924120000. The signatures
+--                are the same and create or replace keeps the grants; the replay that lets a null
+--                owner through (the reason for 20260926101000) comes back with them.
+--   generator    create or replace generate_cleaning_tasks (20260923120000) and
+--                reservation_cleaning_window (20260912150000) FIRST. is_service_booking may
+--                stay: with both bodies back nothing calls it. Dropping it is optional and never
+--                goes alone -- only as the last statement of the migration that restores both
+--                bodies, behind a do-block that raises while any other function in public still
+--                names it in prosrc. Nothing records the dependency (plain sql and plpgsql bodies
+--                leave no pg_depend row), so a drop that goes first, or alone, succeeds, and
+--                every generator call then fails with 42883: the next webhook batch, the nightly
+--                sync. After the rollback "#" bookings earn cleanings again.
+--   grants       targeted, never PUBLIC by reflex. A role found missing a helper (helpers_kept)
+--                gets `grant execute on function public.<fn>(...) to <role>`; a function in
+--                another schema that a system role must call (an Auth hook) gets its own grant
+--                to supabase_auth_admin; anon stays off. The built-in PUBLIC execute on new
+--                functions comes back with `alter default privileges for role postgres grant
+--                execute on functions to public`, which deletes the global entry (the same
+--                grant `in schema public` brings it back for public alone) -- and with it anon's
+--                /rpc on every new function, the hole this step closes: only on the owner's
+--                order of a full revert of 20260926100000. Neither form touches the functions
+--                that exist: each one PUBLIC lost (sixteen on the local stack) would need its
+--                own grant. The sequence default for authenticated comes back only if a real
+--                need appears.
 select label, payload from (
   select 1 as ord, 'head' as label,
          to_jsonb((select max(version) from supabase_migrations.schema_migrations)) as payload
