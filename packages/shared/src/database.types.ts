@@ -1283,6 +1283,7 @@ export type Database = {
           is_short_measurement: boolean | null
           measured_minutes: number | null
           notes: string | null
+          pinned_arrival: string | null
           pinned_departure: string | null
           priority: number
           problem_id: string | null
@@ -1313,6 +1314,7 @@ export type Database = {
           is_short_measurement?: boolean | null
           measured_minutes?: number | null
           notes?: string | null
+          pinned_arrival?: string | null
           pinned_departure?: string | null
           priority?: number
           problem_id?: string | null
@@ -1343,6 +1345,7 @@ export type Database = {
           is_short_measurement?: boolean | null
           measured_minutes?: number | null
           notes?: string | null
+          pinned_arrival?: string | null
           pinned_departure?: string | null
           priority?: number
           problem_id?: string | null
@@ -1918,6 +1921,18 @@ export type Database = {
       claim_webhook_events: {
         Args: { batch_size?: number; max_attempts?: number }
         Returns: Json
+      }
+      cleaning_turnover_on: {
+        Args: {
+          target_day: string
+          target_property_id: number
+          target_reservation_id: number
+        }
+        Returns: {
+          due_at: string
+          guests_count: number
+          priority: number
+        }[]
       }
       cleans_property: {
         Args: { target_property_id: number }
@@ -2508,6 +2523,7 @@ export type Database = {
           is_short_measurement: boolean | null
           measured_minutes: number | null
           notes: string | null
+          pinned_arrival: string | null
           pinned_departure: string | null
           priority: number
           problem_id: string | null

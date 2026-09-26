@@ -1,4 +1,5 @@
--- A cleaning moved by hand stays where the manager put it.
+-- A booking's cleaning follows its booking; a manager's move holds until the
+-- booking changes.
 --
 -- Found 2026-09-26 on a listing of the owner's: a cleaning from a booking,
 -- moved in the panel, came back to the departure day on the next generator
@@ -8,25 +9,28 @@
 -- cleaning written by hand on that departure day went in without a word:
 -- save_task's check for "the same job twice" looked at hand-made tasks only.
 --
--- The owner's decisions of 2026-09-26 (and one of 2026-09-25):
---   * A manager may move a cleaning from a booking. The move pins it:
---     tasks.pinned_departure keeps the booking's departure at the moment of
---     the move. The generator leaves a pinned cleaning alone entirely — its
---     day, window, priority, guest count, deadline — and never writes a
---     second cleaning for the booking (it never did: the insert looks for any
---     live cleaning of the booking, on any day, and the unique index
---     tasks_one_cleaning_per_reservation backs it).
---   * Moving it back onto the departure day unpins it; so does the booking's
---     own departure arriving on the pinned day. It is then an ordinary
---     cleaning again, under the generator.
+-- The owner's rule of 2026-09-27, which replaces the pin of 2026-09-26 before
+-- it was ever rolled out:
+--   * The cleaning always follows its booking. A booking moved, lengthened or
+--     shortened, or moved to another room of a multi-unit listing, takes its
+--     cleaning to the new departure and the new room — the same row, so the
+--     same cleaner, her photos and her steps. A room change is common, not a
+--     corner case.
+--   * A manager may put the cleaning on another day, and it stays there while
+--     the booking does not change. save_task records the booking's dates at
+--     the move (tasks.pinned_arrival, tasks.pinned_departure); any change of
+--     the booking's dates or room undoes the move, and the cleaning follows
+--     the booking again. Moving it back onto the departure undoes it too.
+--   * in_progress and paused are never moved, nor cancelled.
 --   * A booking that no longer owes a cleaning — cancelled, an inquiry, a
---     block or a "#" service booking, moved to another listing or room, or
---     its listing out of service — cancels the cleaning while nobody has
---     started it: unassigned, assigned and, by the owner's decision of
---     2026-09-25 that the rollout of step 1 did not carry, accepted; pinned or
---     not. in_progress and paused are left alone. A taken or pinned cleaning
---     is cancelled only for that reason, never because its booking's
---     departure moved out of the run's window: its booking still owes it.
+--     block or a "#" service booking, or its listing out of service — cancels
+--     it while nobody has started it: unassigned, assigned and, by the
+--     owner's decision of 2026-09-25 that step 1 did not carry, accepted.
+--   * What the phone says about the next check-in (priority, due_at,
+--     guests_count) is true of the day the cleaning stands on, moved or not
+--     (option B): save_task writes it for the new day, and every run brings
+--     every moved cleaning's up to date — a guest may book into that day, or
+--     cancel, after the move.
 --   * A cleaning written by hand on a listing and day that already have a
 --     booking's cleaning asks first, with the same question — serverErrors.
 --     taskDuplicate — as two hand-made ones. Both questions are asked when a
@@ -34,56 +38,148 @@
 --     kind of job — not on every later edit of a pair the manager has already
 --     confirmed (the question about two hand-made ones was asked on every
 --     save until now).
---   * A pinned cleaning that expires counts as the booking's tried day, as an
---     unpinned one does on its own day: the generator does not write the
+--   * A moved cleaning that expires counts as the booking's tried day, as an
+--     unmoved one does on its own day: the generator does not write the
 --     booking's cleaning again on the departure it was moved away from.
 --
--- Proposed with this migration, for the owner to settle before the push: a
--- booking that moves to another day takes an accepted cleaning with it, back
--- to «assigned» — the same cleaner, asked to confirm the new day. Until now
--- an accepted cleaning stayed on the old day, and the panel said «бронь
--- изменилась». (The push that tells her is F11.)
+-- Following the booking needs the run to see the booking. A run's window is a
+-- range of departures — a webhook's is the departures of its batch, the
+-- night's is 7 days back to 90 ahead — and a booking whose departure moved
+-- outside it used to drop out of the run while its cleaning stayed in it: the
+-- cancel pass then took the cleaning away, with its cleaner, and a later run
+-- wrote a stranger. So `_wanted` also takes every booking that has an
+-- unstarted cleaning on a day of the window.
 --
--- The panel reads the column once this migration is in the cloud: «бронь
--- изменилась» on a pinned cleaning means its booking has gone or leaves on
--- another day than the one it was pinned against — not merely that the pinned
--- day differs from the departure.
+-- A booking moved to another listing is not followed across: the old flat's
+-- cleaning is cancelled and the new flat gets its own, by its own regular
+-- cleaner if it has one. Rooms are followed within their listing.
 --
--- An executor may not pin or unpin: guard_task_fields reverts the column for
--- anyone but a manager, as it does the day itself.
+-- Proposed with this migration and dormant today: an accepted cleaning that
+-- moves to another day goes back to «assigned», the same cleaner. Nothing
+-- writes 'accepted' yet (the phone has no accept step; the cloud holds none).
+-- The pushes that tell a cleaner — cancelled, moved, moved by the manager —
+-- are F11.
 --
--- The generator's body is that of 20260926102000 but for the insert's
--- expired-day stopper and the reschedule and cancel passes; save_task's is
--- that of 20260910150000 but for the pin and the duplicate questions;
--- guard_task_fields's is that of 20260923130000 plus one line.
+-- The panel reads the columns once this migration is in the cloud: «бронь
+-- изменилась» on a moved cleaning means its booking has gone or changed since
+-- the move — not merely that the day differs from the departure.
+--
+-- An executor may not move or undo a move: guard_task_fields reverts the two
+-- columns for anyone but a manager, as it does the day itself.
+--
+-- The check-in rule — who arrives into this room on this day — is the lateral
+-- inside reservation_cleaning_window, asked of the departure. save_task and
+-- the refresh of moved cleanings ask it of any day, through
+-- cleaning_turnover_on, which carries a copy of that lateral. One function
+-- reading the other would cost the generator a nested security definer call
+-- on every row it reads — measured at about four times the whole run — so the
+-- rule is written twice and a test holds the two to one answer.
+--
+-- The generator's body is that of 20260926102000 but for `_wanted`, the
+-- relocate, reschedule and cancel passes, the refresh of moved cleanings and
+-- the insert's expired-day stopper; save_task's is that of 20260910150000 but
+-- for the move and the duplicate questions; guard_task_fields's is that of
+-- 20260923130000 plus two lines.
+--
+-- Measured by calling the generator on 9000 synthetic cleanings (local stack,
+-- rolled back, three runs each, alternating with the body of 20260926102000):
+-- a 100-day run 0.40-0.68 s against 0.37-1.30 s, a webhook's one-day run
+-- 34-62 ms against 25-50 ms — the same, within the noise of the machine.
 --
 -- Tests: supabase/tests/pinned_cleaning.sql.
 --
--- LOCKS. Adding a nullable column without a default touches the catalog only,
--- but it takes ACCESS EXCLUSIVE on public.tasks, and every read of tasks —
--- the phone's list, the panel's calendar — queues behind a waiting request
--- for it. The webhook job runs the generator every two minutes and holds row
--- locks on tasks while it does. lock_timeout makes a busy table fail the push
--- instead: one lock, 5 s, under the 8 s statement_timeout of authenticated.
--- If it fires, nothing of this file is applied and the push is repeated as
--- it is.
+-- LOCKS. Adding nullable columns without a default touches the catalog only,
+-- and the check constraint reads the table once (six thousand rows, all null)
+-- — but the one ALTER takes ACCESS EXCLUSIVE on public.tasks, and every read
+-- of tasks — the phone's list, the panel's calendar — queues behind a waiting
+-- request for it. The webhook job runs the generator every two minutes and
+-- holds row locks on tasks while it does. lock_timeout makes a busy table fail
+-- the push instead: one lock, 5 s, under the 8 s statement_timeout of
+-- authenticated. If it fires, nothing of this file is applied and the push is
+-- repeated as it is.
 
 set local lock_timeout = '5s';
 
-alter table public.tasks add column pinned_departure date;
+alter table public.tasks
+  add column pinned_arrival date,
+  add column pinned_departure date,
+  add constraint tasks_pinned_whole
+    check ((pinned_arrival is null) = (pinned_departure is null));
 
+comment on column public.tasks.pinned_arrival is
+  'Set with pinned_departure when a manager moved a booking''s cleaning off its '
+  'departure day: the booking''s arrival at that moment. Null otherwise.';
 comment on column public.tasks.pinned_departure is
   'Set when a manager moved a booking''s cleaning off its departure day: the '
-  'departure at that moment. The generator leaves a pinned cleaning alone. '
-  'Null for every other task.';
+  'booking''s departure at that moment. While the booking keeps these dates and '
+  'its room, the generator leaves the day and window alone; any change undoes '
+  'the move. Null for every other task.';
+
+
+/**
+ * What a booking's cleaning on `target_day` knows about the next check-in:
+ * urgent (priority 1) when a guest arrives into the same room that day, with
+ * that guest's hour as the deadline — in the cleaned property's own timezone —
+ * and that guest's party. The generator's rule for the departure day, asked
+ * of any day: save_task asks it of the day a manager moves the cleaning to,
+ * and the generator of every moved cleaning on each run (20260926160000).
+ */
+create or replace function public.cleaning_turnover_on(
+  target_reservation_id bigint,
+  target_property_id    bigint,
+  target_day            date
+)
+returns table (priority smallint, due_at timestamptz, guests_count smallint)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select
+    (case when nxt.id is not null then 1 else 0 end)::smallint,
+    case
+      when nxt.id is not null
+      then (target_day + coalesce(nullif(nxt.check_in_time, time '00:00'), l.check_in_time))
+           at time zone c.timezone
+    end,
+    nxt.guests_count
+  from public.reservations r
+  join public.properties l on l.id = r.property_id
+  join public.properties c on c.id = target_property_id
+  -- The guest who arrives on that day into the room being cleaned: the
+  -- lateral of reservation_cleaning_window (20260926102000) with the day in
+  -- place of the departure. Keep the two in step; pinned_cleaning.sql, 0,
+  -- holds them to one answer.
+  left join lateral (
+    select n.id, n.check_in_time, n.guests_count
+    from public.reservations n
+    where n.property_id = r.property_id
+      and n.arrival_date = target_day
+      and n.id <> r.id
+      and n.status in ('new', 'modified')
+      and not n.is_block
+      and not public.is_service_booking(n.guest_name)
+      and (target_property_id = r.property_id
+           or exists (select 1
+                      from public.reservation_units nu
+                      where nu.reservation_id = n.id
+                        and nu.property_id = target_property_id))
+    order by n.id
+    limit 1
+  ) nxt on true
+  where r.id = target_reservation_id
+$$;
+
+revoke all on function public.cleaning_turnover_on(bigint, bigint, date)
+  from public, anon, authenticated;
 
 
 /**
  * What an executor may not change on her own task.
  *
- * Unchanged from 20260923130000 apart from pinned_departure, which joins the
- * pinned fields: a pin is the manager's word on a day, and the day is already
- * the executor's only to read.
+ * Unchanged from 20260923130000 apart from pinned_arrival and
+ * pinned_departure, which join the pinned fields: a move is the manager's
+ * word on a day, and the day is already the executor's only to read.
  */
 create or replace function public.guard_task_fields()
 returns trigger
@@ -136,7 +232,8 @@ begin
     new.title_i18n            := old.title_i18n;
     -- Which problem a task repairs is the manager's to say (20260923130000).
     new.problem_id            := old.problem_id;
-    -- So is whether a cleaning's day is pinned (20260926160000).
+    -- So is a manager's move of a booking's cleaning (20260926160000).
+    new.pinned_arrival        := old.pinned_arrival;
     new.pinned_departure      := old.pinned_departure;
   end if;
 
@@ -174,9 +271,15 @@ declare
   v_property  bigint := p_property_id;
   v_type      public.task_type := p_type;
   v_status    public.task_status;
-  v_departure date;
-  v_pinned    date;
-  v_lands     boolean;
+  v_arrival          date;
+  v_departure        date;
+  v_pinned_arrival   date;
+  v_pinned_departure date;
+  v_moves            boolean := false;
+  v_priority         smallint;
+  v_due_at           timestamptz;
+  v_guests           smallint;
+  v_lands            boolean;
 begin
   if not public.is_manager() then
     raise exception 'Only a manager may do this'
@@ -280,20 +383,32 @@ begin
             detail = jsonb_build_object('type', 'cleaning', 'date', p_scheduled_date)::text;
   end if;
 
-  -- A booking's cleaning moved off its departure day is pinned there, against
-  -- the departure of the moment; moved back onto it, it is the generator's
-  -- again. An edit that says nothing new about the day keeps what was.
-  v_pinned := v_task.pinned_departure;
+  -- A booking's cleaning moved off its departure day holds there while the
+  -- booking keeps the dates it had at the move; moved back onto the
+  -- departure, it follows the booking again. An edit that says nothing new
+  -- about the day keeps what was. A move brings what the phone says about
+  -- the next check-in to the new day (option B, 20260926160000).
+  v_pinned_arrival   := v_task.pinned_arrival;
+  v_pinned_departure := v_task.pinned_departure;
   if v_task.reservation_id is not null and v_task.type = 'cleaning' then
-    select r.departure_date into v_departure
+    select r.arrival_date, r.departure_date into v_arrival, v_departure
     from public.reservations r
     where r.id = v_task.reservation_id;
 
-    v_pinned := case
-      when p_scheduled_date = v_departure then null
-      when p_scheduled_date is distinct from v_task.scheduled_date then v_departure
-      else v_task.pinned_departure
-    end;
+    v_moves := p_scheduled_date is distinct from v_task.scheduled_date;
+    if p_scheduled_date = v_departure then
+      v_pinned_arrival   := null;
+      v_pinned_departure := null;
+    elsif v_moves then
+      v_pinned_arrival   := v_arrival;
+      v_pinned_departure := v_departure;
+    end if;
+
+    if v_moves then
+      select f.priority, f.due_at, f.guests_count into v_priority, v_due_at, v_guests
+      from public.cleaning_turnover_on(v_task.reservation_id, v_task.property_id,
+                                       p_scheduled_date) f;
+    end if;
   end if;
 
   -- Handing the job out moves it out of the queue; taking the executor away
@@ -325,7 +440,8 @@ begin
     set property_id      = v_property,
         type             = v_type,
         status           = v_status,
-        priority         = coalesce(p_priority, t.priority),
+        priority         = case when v_moves then v_priority
+                                else coalesce(p_priority, t.priority) end,
         assignee_id      = p_assignee_id,
         scheduled_date   = p_scheduled_date,
         time_from        = p_time_from,
@@ -334,7 +450,10 @@ begin
         title            = v_title,
         -- Nothing sent means nothing said about the translations.
         title_i18n       = coalesce(p_title_i18n, t.title_i18n),
-        pinned_departure = v_pinned
+        due_at           = case when v_moves then v_due_at else t.due_at end,
+        guests_count     = case when v_moves then v_guests else t.guests_count end,
+        pinned_arrival   = v_pinned_arrival,
+        pinned_departure = v_pinned_departure
     where t.id = p_id
     returning * into v_task;
   end if;
@@ -354,6 +473,7 @@ declare
   v_relocated   integer;
   v_created     integer;
   v_rescheduled integer;
+  v_refreshed   integer;
   v_assigned    integer;
   v_cancelled   integer;
   v_past_bound  integer;
@@ -370,6 +490,8 @@ begin
     -- Carried for one reason: a cleaning finished before this migration stands
     -- on the listing and answers for every room at once. See the insert.
     r.property_id    as listing_id,
+    -- With the departure, what a manager's move is checked against.
+    r.arrival_date   as arrival_date,
     r.departure_date as scheduled_date,
     (case when w.same_day_turnover then 1 else 0 end)::smallint as priority,
     w.window_from    as time_from,
@@ -422,7 +544,22 @@ begin
   left join public.reservation_units ru on ru.reservation_id = r.id
   join public.properties p on p.id = coalesce(ru.property_id, r.property_id)
   cross join lateral public.reservation_cleaning_window(r.id, p.id) w
-  where r.departure_date between from_date and to_date
+  -- The bookings leaving in the window, and every booking with a cleaning
+  -- nobody has started on a day of the window, wherever it now leaves: that
+  -- is how a cleaning follows a booking whose departure moved out of the
+  -- window (20260926160000). Two lists joined by union, so each is read on
+  -- its own; an `or` here would read every booking.
+  where r.id in (select r1.id
+                 from public.reservations r1
+                 where r1.departure_date between from_date and to_date
+                   and not r1.is_block
+                 union
+                 select t1.reservation_id
+                 from public.tasks t1
+                 where t1.type = 'cleaning'
+                   and t1.reservation_id is not null
+                   and t1.status in ('unassigned', 'assigned', 'accepted')
+                   and t1.scheduled_date between from_date and to_date)
     and r.status in ('new', 'modified')
     and not r.is_block
     -- A service booking is a block by another name (20260926102000).
@@ -430,54 +567,66 @@ begin
     and p.status = 'active';
 
 
-  -- Move a cleaning that still stands on the listing onto the room the booking
-  -- turns out to have taken.
+  -- Take a cleaning to the room its booking's guest is now in.
   --
-  -- A booking can learn its room after its cleaning exists: Hostaway assigns
-  -- the unit later, or a listing grows rooms it did not have. The row on the
-  -- listing and the row owed on the room are then the same cleaning under two
-  -- names, and moving it keeps its id and with it the cleaner's name, her
-  -- photos, her steps and the problems filed against it.
+  -- A booking can learn its room after its cleaning exists — Hostaway assigns
+  -- the unit later, or a listing grows rooms it did not have — and it can be
+  -- moved from one room to another, or lose its rooms and be cleaned as the
+  -- listing: the owner's rule is that the cleaning follows, and a room change
+  -- is common (20260926160000). The row where the guest was and the row owed
+  -- where the guest is are the same cleaning under two names, and moving it
+  -- keeps its id and with it the cleaner's name, her photos, her steps and the
+  -- problems filed against it.
   --
-  -- Without this pass the insert below reads the listing row as "already
-  -- served" and skips the room, and the cancel pass — which judges by the pair
-  -- — then takes that very row away: the booking comes out of the run owing
-  -- nothing, and tomorrow's run gives back a stranger with no cleaner on it.
-  -- Measured against a copy of production, that pair cancelled 192 cleanings
-  -- and created none, 96 of them with a cleaner's name on them.
+  -- Without this pass the cancel pass takes the old row away and the insert
+  -- writes a stranger with no cleaner on it. Measured against a copy of
+  -- production for the listing-to-room case alone, that pair cancelled 192
+  -- cleanings and created none, 96 of them with a cleaner's name on them.
   --
-  -- Only untouched work, which is the rule the other three passes keep: a
-  -- cleaning somebody has accepted or started stays where she accepted it, and
-  -- the insert's listing branch below is what keeps it from being duplicated
-  -- onto a room.
-  with wanted_room as (
-    -- The lowest room id the booking took: an arbitrary choice among them, but
-    -- a stable one, and the same one the one-off backfill makes. The booking's
-    -- other rooms are owed cleanings of their own and the insert writes them.
-    select distinct on (reservation_id) reservation_id, property_id, listing_id
-    from _wanted
-    where property_id <> listing_id
-    order by reservation_id, property_id
+  -- Within one listing only: its own row and its rooms. A booking moved to
+  -- another listing is served there by that listing's rule. Work somebody has
+  -- started stays where it was started. A booking's rows that stand where it
+  -- owes nothing are paired, in property order, with the places it owes and
+  -- has no live cleaning on — the lowest room first, as the one-off backfill
+  -- chose; what is left unpaired on either side is the cancel pass's and the
+  -- insert's. A new room is a changed booking, and undoes a manager's move.
+  with stray as (
+    select t.id, t.reservation_id,
+           row_number() over (partition by t.reservation_id
+                              order by t.property_id, t.id) as rank
+    from public.tasks t
+    join (select distinct reservation_id, listing_id from _wanted) b
+      on b.reservation_id = t.reservation_id
+    join public.properties tp on tp.id = t.property_id
+    where t.type = 'cleaning'
+      and t.status in ('unassigned', 'assigned', 'accepted')
+      and (t.property_id = b.listing_id
+           or (tp.parent_id = b.listing_id and tp.hostaway_unit_id is not null))
+      and not exists (select 1 from _wanted w
+                      where w.reservation_id = t.reservation_id
+                        and w.property_id = t.property_id)
+  ),
+  open_place as (
+    select w.reservation_id, w.property_id,
+           row_number() over (partition by w.reservation_id
+                              order by w.property_id) as rank
+    from _wanted w
+    -- The pair names one cleaning (tasks_one_cleaning_per_reservation): a
+    -- place already holding this booking's live cleaning is served.
+    where not exists (select 1 from public.tasks x
+                      where x.reservation_id = w.reservation_id
+                        and x.property_id = w.property_id
+                        and x.type = 'cleaning'
+                        and x.status not in ('cancelled', 'expired'))
   ),
   relocated as (
     update public.tasks t
-    set property_id = w.property_id
-    from wanted_room w
-    where t.reservation_id = w.reservation_id
-      and t.property_id = w.listing_id
-      and t.type = 'cleaning'
-      and t.status in ('unassigned', 'assigned')
-      -- If the room already holds this booking's cleaning, the move would
-      -- collide with the pair that names one. The listing row is then a
-      -- duplicate of work that already exists where it belongs, and the cancel
-      -- pass below is what clears it.
-      and not exists (
-        select 1 from public.tasks x
-        where x.reservation_id = w.reservation_id
-          and x.property_id = w.property_id
-          and x.type = 'cleaning'
-          and x.status not in ('cancelled', 'expired')
-      )
+    set property_id      = o.property_id,
+        pinned_arrival   = null,
+        pinned_departure = null
+    from stray s
+    join open_place o on o.reservation_id = s.reservation_id and o.rank = s.rank
+    where t.id = s.id
     returning 1
   )
   select count(*) into v_relocated from relocated;
@@ -491,10 +640,10 @@ begin
   -- 23505 once it commits, and the whole second run rolls back -- the next
   -- run writes whatever it still finds missing.
   --
-  -- A pinned cleaning is live work of its booking whatever day it stands on,
+  -- A moved cleaning is live work of its booking whatever day it stands on,
   -- so its booking is never owed a second one (20260926160000). Once it
-  -- expires, the day that was tried is its pinned one: an expired row answers
-  -- for the departure it was pinned against as well as for its own day, or a
+  -- expires, the day that was tried is the moved one: an expired row answers
+  -- for the departure it was moved away from as well as for its own day, or a
   -- cleaning moved before the departure and never closed would come back on
   -- the departure — the incident of 2026-09-26 by another road.
   --
@@ -559,18 +708,19 @@ begin
          (select count(*) from owed where is_past)
     into v_created, v_past_bound;
 
-  -- Move tasks whose booking shifted, whose window changed, or whose guest
-  -- count changed.
+  -- Bring each cleaning up to its booking: a new departure, a new window, a
+  -- new guest count, a new next guest.
   --
   -- Work nobody has started: unassigned, assigned and — since 20260926160000
   -- — accepted. An accepted cleaning that moves to another day goes back to
-  -- «assigned», still hers: the day she said yes to is not this one, and she
-  -- is asked again rather than dropped. Work under way is left for a human.
+  -- «assigned», still hers. Work under way is left for a human.
   --
-  -- A pinned cleaning is the manager's day and is not rewritten at all —
-  -- until the booking's own departure arrives on that day: then it is an
-  -- ordinary cleaning again, unpinned, and brought up to date here with the
-  -- rest (it counts as rescheduled).
+  -- A manager's move holds while the booking keeps the dates it had at the
+  -- move: such a row is left to the refresh below. Once the booking's dates
+  -- differ, the move is undone here and the row follows the booking like any
+  -- other; a new room undid it already, in the relocate pass. Onto a day
+  -- already past grace too: the sweep then closes it, as task_generation.sql
+  -- has it (the tried day stays closed to a second attempt).
   with moved as (
     update public.tasks t
     set scheduled_date   = w.scheduled_date,
@@ -585,24 +735,52 @@ begin
                              then 'assigned'::public.task_status
                              else t.status
                            end,
+        pinned_arrival   = null,
         pinned_departure = null
     from _wanted w
     where t.reservation_id = w.reservation_id
       and t.property_id = w.property_id
       and t.type = 'cleaning'
       and t.status in ('unassigned', 'assigned', 'accepted')
-      and ((t.pinned_departure is null
-            and (t.scheduled_date is distinct from w.scheduled_date
-                 or t.priority is distinct from w.priority
-                 or t.time_from is distinct from w.time_from
-                 or t.time_to is distinct from w.time_to
-                 or t.guests_count is distinct from w.guests_count
-                 or t.due_at is distinct from w.due_at))
-           or (t.pinned_departure is not null
-               and t.scheduled_date = w.scheduled_date))
+      and ((t.pinned_departure is not null
+            and (t.pinned_departure is distinct from w.scheduled_date
+                 or t.pinned_arrival is distinct from w.arrival_date))
+           or (t.pinned_departure is null
+               and (t.scheduled_date is distinct from w.scheduled_date
+                    or t.priority is distinct from w.priority
+                    or t.time_from is distinct from w.time_from
+                    or t.time_to is distinct from w.time_to
+                    or t.guests_count is distinct from w.guests_count
+                    or t.due_at is distinct from w.due_at)))
     returning 1
   )
   select count(*) into v_rescheduled from moved;
+
+  -- A moved cleaning keeps its day and its window, and what the phone says
+  -- about the next check-in stays true of that day (option B): a guest may
+  -- book into it, or cancel, long after the move, and neither is a change of
+  -- this cleaning's own booking. Every moved cleaning nobody has started, on
+  -- every run — they are a handful, and a booking into the moved day is not
+  -- in the window of the run it causes. Counted as rescheduled.
+  with refreshed as (
+    update public.tasks t
+    set priority     = f.priority,
+        due_at       = f.due_at,
+        guests_count = f.guests_count
+    from public.tasks m
+    cross join lateral public.cleaning_turnover_on(m.reservation_id, m.property_id,
+                                                   m.scheduled_date) f
+    where t.id = m.id
+      and m.pinned_departure is not null
+      and m.type = 'cleaning'
+      and m.status in ('unassigned', 'assigned', 'accepted')
+      and m.reservation_id is not null
+      and (t.priority is distinct from f.priority
+           or t.due_at is distinct from f.due_at
+           or t.guests_count is distinct from f.guests_count)
+    returning 1
+  )
+  select count(*) into v_refreshed from refreshed;
 
   -- Hand over tasks that are still waiting on a listing with a default
   -- cleaner. This covers the link being switched to 'auto' after the task
@@ -626,36 +804,22 @@ begin
   )
   select count(*) into v_assigned from taken;
 
-  -- Cancel tasks whose reservation no longer qualifies: cancelled, turned into
-  -- an inquiry, became a block or a service booking, moved to another listing
-  -- or room, moved out of the window entirely — or whose listing has since
-  -- gone into maintenance or been archived.
+  -- Cancel tasks whose booking no longer owes them: cancelled, turned into an
+  -- inquiry, became a block or a service booking, moved to another listing,
+  -- gave up the room — or whose listing has since gone into maintenance or
+  -- been archived.
   --
-  -- Two readings of "no longer wanted" (20260926160000):
-  --   * untouched, unpinned work — unassigned, assigned — on a day of the
-  --     run's window is judged by the run, as before: absent from `_wanted`,
-  --     it goes;
-  --   * any work nobody has started — accepted and pinned included — is
-  --     judged by its booking alone: it goes when the booking owes this
-  --     cleaning nothing any more. Never because the departure moved out of
-  --     this run's window: the booking still owes it, and a later run finds it.
-  -- The second reading repeats the conditions of `_wanted` without its window;
-  -- the two lists have to be kept in step.
+  -- `_wanted` holds every booking that could still owe a cleaning reached
+  -- here — each one leaving in the window, and each one with an unstarted
+  -- cleaning in the window — so a cleaning reached here whose pair is not in
+  -- it is owed by nobody (20260926160000). Before, a booking whose departure
+  -- moved out of the window was missing from `_wanted` and its cleaning was
+  -- cancelled for it; now the reschedule above has taken the cleaning along.
   --
-  -- The second reading reaches the cleaning either by its day or by its
-  -- booking's departure. A webhook's run spans only the departures of its
-  -- batch, and a pinned cleaning stands on another day: reached by its day
-  -- alone, it would outlive its cancelled booking until a sync's wider run
-  -- came by.
-  --
-  -- A cleaning `_wanted` names is owed by both readings, so that test comes
-  -- first and is shared: the booking is looked up only for what the run did
-  -- not name. Measured by calling the generator on 9000 synthetic cleanings
-  -- (local stack, rolled back, three runs each against the body of
-  -- 20260926102000): asking the booking of every cleaning in the window
-  -- doubled the run; with the shared test first a 100-day run takes what it
-  -- took (0.40-0.51 s), and a one-day run, a webhook's, 40-47 ms against
-  -- 25-37 ms — the reach by departure, a scan of tasks.
+  -- Reached by its day in the window, or by its booking's departure in it: a
+  -- webhook's run spans only the departures of its batch, and a moved
+  -- cleaning stands on another day — reached by its day alone, it would
+  -- outlive its cancelled booking until a sync's wider run came by.
   --
   -- Work under way or done is never touched, and neither is work that
   -- expired: those are answers about what happened, not open questions.
@@ -665,32 +829,14 @@ begin
     where t.type = 'cleaning'
       and t.reservation_id is not null
       and t.status in ('unassigned', 'assigned', 'accepted')
+      and (t.scheduled_date between from_date and to_date
+           or t.reservation_id in (select r0.id from public.reservations r0
+                                   where r0.departure_date between from_date and to_date))
       and not exists (
         select 1 from _wanted w
         where w.reservation_id = t.reservation_id
           and w.property_id = t.property_id
       )
-      and ((t.scheduled_date between from_date and to_date
-            and t.status in ('unassigned', 'assigned')
-            and t.pinned_departure is null)
-           or ((t.scheduled_date between from_date and to_date
-                or t.reservation_id in (select r0.id from public.reservations r0
-                                        where r0.departure_date between from_date and to_date))
-               and not exists (
-                 select 1
-                 from public.reservations r
-                 join public.properties p on p.id = t.property_id
-                 where r.id = t.reservation_id
-                   and r.status in ('new', 'modified')
-                   and not r.is_block
-                   and not public.is_service_booking(r.guest_name)
-                   and p.status = 'active'
-                   -- The booking's own listing, or one of the rooms it took.
-                   and (t.property_id = r.property_id
-                        or exists (select 1 from public.reservation_units u
-                                   where u.reservation_id = r.id
-                                     and u.property_id = t.property_id))
-               )))
     returning 1
   )
   select count(*) into v_cancelled from dropped;
@@ -702,7 +848,7 @@ begin
     'window_to', to_date,
     'relocated', v_relocated,
     'created', v_created,
-    'rescheduled', v_rescheduled,
+    'rescheduled', v_rescheduled + v_refreshed,
     'assigned', v_assigned,
     'cancelled', v_cancelled,
     'past_bound', v_past_bound

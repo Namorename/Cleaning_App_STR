@@ -135,7 +135,7 @@ select pg_temp.check('the same job in another flat is fine',
 -- cleaning written by hand already holds: a flat can turn over on a day it is
 -- also deep cleaned. The other way round — a cleaning by hand on the day of a
 -- booking's cleaning — save_task asks first (20260926160000; the cases are in
--- pinned_cleaning.sql, 7).
+-- pinned_cleaning.sql, 10).
 insert into public.tasks (id, property_id, reservation_id, type, status, scheduled_date)
 values ('c9000008-0000-4000-8000-000000000008', 900001901, 900001911, 'cleaning',
         'unassigned', current_date + 1);
