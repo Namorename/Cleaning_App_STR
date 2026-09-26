@@ -13,6 +13,13 @@
 --   anon        false for both. Any true is a stop.
 --   public      false for both: PUBLIC holds no EXECUTE on functions of ours
 --               since 20260926100000.
+--
+-- ROLLBACK. There is no down migration: a later forward migration
+-- `drop function public.is_service_booking(public.reservations);`, and only
+-- once no deployed panel build selects the field — a select naming a missing
+-- computed field answers 42703 and empties the calendar. Always name the
+-- argument type: the bare name is ambiguous now. The text rule stays either
+-- way, so dropping the field never changes what the generator does.
 select label, payload from (
   select 1 as ord, 'head' as label,
          to_jsonb((select max(version) from supabase_migrations.schema_migrations)) as payload

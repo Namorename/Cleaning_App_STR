@@ -126,6 +126,27 @@ describe('the schema this test reasons about', () => {
     expect(schema.relationships.length).toBeGreaterThan(20);
     expect(schema.columns.get('chat_messages')?.has('author_role')).toBe(true);
     expect(schema.computed.get('properties')?.has('effective_cleaner_notes')).toBe(true);
+    // An overloaded name is written as a union of members (20260926140000).
+    expect(schema.computed.get('reservations')?.has('is_service_booking')).toBe(true);
+  });
+
+  // The generator orders the members of an overload as it likes; the row
+  // member must be found wherever it stands.
+  test('finds a computed field in any member of an overload', () => {
+    const source = [
+      '      flag:',
+      '        | { Args: { name: string }; Returns: boolean }',
+      '        | {',
+      '            Args: {',
+      '              row: Database["public"]["Tables"]["things"]["Row"]',
+      '            }',
+      '            Returns: boolean',
+      '          }',
+      '      other: { Args: never; Returns: boolean }',
+    ].join('\n');
+
+    expect(indexSchema(source).computed.get('things')?.has('flag')).toBe(true);
+    expect(indexSchema(source).computed.get('things')?.has('other')).toBeFalsy();
   });
 
   test('refuses a column that is not there', () => {
