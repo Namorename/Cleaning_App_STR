@@ -1,9 +1,56 @@
+import { i18n } from '@/i18n';
+
 import { RefusalError, alertMessage, serverErrorText } from '../server-error';
 
 /** An error as supabase-js hands a database refusal over. */
 function raised(hint: string | null, message: string, details?: string) {
   return Object.assign(new Error(message), { hint, details });
 }
+
+describe('a refusal that counts', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('ru');
+  });
+
+  // The server names its number after what it counts ("total", "limit");
+  // i18next picks a plural form only from `count`.
+  test('agrees with the number, read from the parameter the server named', async () => {
+    await i18n.changeLanguage('cs');
+    const text = (total: number) =>
+      serverErrorText(
+        raised(
+          'serverErrors.propertyHasOpenTasks',
+          `The listing has ${total} open tasks`,
+          JSON.stringify({ total }),
+        ),
+      ).text;
+
+    expect(text(1)).toContain('má 1 nedokončený úkol');
+    expect(text(3)).toContain('má 3 nedokončené úkoly');
+    expect(text(7)).toContain('má 7 nedokončených úkolů');
+  });
+
+  test('reads a limit of one file in the singular', () => {
+    const failure = serverErrorText(
+      raised(
+        'serverErrors.mediaLimitReached',
+        'The step already holds 1 of at most 1 files',
+        '{"limit":1}',
+      ),
+    );
+
+    expect(failure).toEqual({ text: 'Этот шаг принимает не больше 1 файла', detail: null });
+  });
+
+  test('without its number becomes the general sentence, the server words kept', () => {
+    const failure = serverErrorText(
+      raised('serverErrors.propertyHasOpenTasks', 'The listing has open tasks', '{}'),
+    );
+
+    expect(failure.text).toBe('Не удалось выполнить действие. Попробуйте ещё раз.');
+    expect(failure.detail).toBe('The listing has open tasks');
+  });
+});
 
 describe('a key the app knows', () => {
   test('is read in the language of the app, not of the server', () => {

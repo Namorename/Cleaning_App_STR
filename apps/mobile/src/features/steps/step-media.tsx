@@ -57,7 +57,7 @@ export function StepMedia({
       <Text style={styles.hint}>
         {kind === 'video'
           ? t('steps.videoHint', { seconds: maxVideoSec })
-          : t('steps.photosHint', { min: limits.min })}
+          : t('steps.photosHint', { count: limits.min })}
       </Text>
 
       {items.length === 0 ? (

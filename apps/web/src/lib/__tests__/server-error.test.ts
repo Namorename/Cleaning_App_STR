@@ -1,7 +1,48 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test } from 'vitest';
 
-import { languageFromCookie } from '../i18n';
+import { i18n, languageFromCookie } from '../i18n';
 import { serverErrorText } from '../server-error';
+
+/** An error as supabase-js hands a database refusal over. */
+function raised(hint: string, message: string, details: string) {
+  return Object.assign(new Error(message), { hint, details });
+}
+
+describe('a refusal that counts', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('ru');
+  });
+
+  // The server names its number after what it counts ("total", "limit");
+  // i18next picks a plural form only from `count`.
+  test('agrees with the number of open tasks the listing still has', async () => {
+    await i18n.changeLanguage('cs');
+    const text = (total: number) =>
+      serverErrorText(
+        raised(
+          'serverErrors.propertyHasOpenTasks',
+          `The listing has ${total} open tasks`,
+          JSON.stringify({ total }),
+        ),
+      ).text;
+
+    expect(text(1)).toContain('má 1 nedokončený úkol');
+    expect(text(2)).toContain('má 2 nedokončené úkoly');
+    expect(text(12)).toContain('má 12 nedokončených úkolů');
+  });
+
+  test('reads a limit of one file in the singular', () => {
+    const failure = serverErrorText(
+      raised(
+        'serverErrors.mediaLimitReached',
+        'The step holds 1 of at most 1 files',
+        '{"limit": 1}',
+      ),
+    );
+
+    expect(failure).toEqual({ text: 'Этот шаг принимает не больше 1 файла', detail: null });
+  });
+});
 
 describe('serverErrorText', () => {
   test('translates a key the server sent, with its parameters', () => {

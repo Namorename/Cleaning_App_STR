@@ -17,6 +17,7 @@ import {
   type Property,
   type PropertyDetail,
 } from './schema';
+import { sizeText } from './size-text';
 import { useSaveInfo } from './use-apartments';
 
 const SELECT_CLASS = 'h-9 rounded-md border bg-background px-2 text-sm';
@@ -82,10 +83,7 @@ export function InfoTab({ property, all }: InfoTabProps) {
           />
           <Fact
             label={t('panel.apartments.info.size')}
-            value={t('panel.apartments.info.sizeValue', {
-              bedrooms: property.bedrooms ?? 0,
-              guests: property.max_guests ?? 0,
-            })}
+            value={sizeText(t, property.bedrooms, property.max_guests)}
           />
           <Fact label={t('panel.apartments.info.listingId')} value={String(property.id)} />
         </div>

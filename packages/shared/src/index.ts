@@ -21,9 +21,11 @@ export {
 export {
   FALLBACK_LANGUAGE,
   INTL_LOCALES,
+  SERVER_ERROR_COUNT_PARAMETER,
   SUPPORTED_LANGUAGES,
   isSupportedLanguage,
   resolveLanguage,
+  serverErrorOptions,
   translationResources,
   translations,
   type Language,

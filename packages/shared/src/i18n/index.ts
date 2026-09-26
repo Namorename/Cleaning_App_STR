@@ -64,3 +64,35 @@ export const translationResources: Record<Language, { translation: TranslationDi
 };
 
 export const translations: Record<Language, TranslationDictionary> = { en, ru, cs };
+
+/**
+ * The parameter whose number picks the plural form of a counted refusal.
+ *
+ * The server names its number after what it counts — "total", "limit", "min"
+ * — and i18next picks a plural form from `count` alone. Every `serverErrors.`
+ * key with plural forms is listed here; the phone's i18n test holds the two
+ * together, because a counted key read without its count is not found at all.
+ */
+export const SERVER_ERROR_COUNT_PARAMETER: Readonly<Record<string, string>> = {
+  'serverErrors.propertyHasOpenTasks': 'total',
+  'serverErrors.photosMissing': 'min',
+  'serverErrors.photosTooMany': 'limit',
+  'serverErrors.mediaLimitReached': 'limit',
+  'serverErrors.messagePhotoLimit': 'limit',
+  'serverErrors.videoTooLong': 'limit',
+};
+
+/**
+ * A refusal's parameters as i18next should read them: a counted refusal also
+ * carries its number as `count`. When the server left the number out, nothing
+ * is made up — the key is then not found, and the reader gets the general
+ * sentence with the server's own words under it.
+ */
+export function serverErrorOptions(
+  key: string,
+  parameters: Readonly<Record<string, unknown>>,
+): Record<string, unknown> {
+  const name = SERVER_ERROR_COUNT_PARAMETER[key];
+  const count = name === undefined ? undefined : parameters[name];
+  return typeof count === 'number' ? { ...parameters, count } : { ...parameters };
+}
