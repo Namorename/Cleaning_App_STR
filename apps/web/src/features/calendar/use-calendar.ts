@@ -3,9 +3,15 @@
 import { useQueries, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
-import { fetchProperties, fetchStaff, fetchTasksBetween } from '@/features/tasks/api';
+import {
+  fetchExpiredBetween,
+  fetchLiveRepairs,
+  fetchProperties,
+  fetchStaff,
+  fetchTasksBetween,
+} from '@/features/tasks/api';
 import { taskKeys } from '@/features/tasks/keys';
-import type { CalendarTask } from '@/features/tasks/schema';
+import type { CalendarTask, ExpiredTask } from '@/features/tasks/schema';
 import { useSupabase, type Client } from '@/lib/supabase/use-client';
 
 import { fetchCalendarBookings } from './api';
@@ -70,7 +76,12 @@ type MonthQuery<T> = (
   client: Client | null,
   isStand: boolean,
   month: string,
-) => { queryKey: readonly unknown[]; queryFn: () => Promise<T[]>; enabled: boolean };
+) => {
+  queryKey: readonly unknown[];
+  queryFn: () => Promise<T[]>;
+  enabled: boolean;
+  staleTime?: number;
+};
 
 /**
  * One month of bookings. Keyed by the calendar month, outside `tasks`: the
@@ -131,10 +142,11 @@ function useMonthLayer<T extends { id: string | number }>(
   client: Client | null,
   isStand: boolean,
   days: readonly string[],
+  isReadAhead = true,
 ): MonthLayer<T> {
   const queryClient = useQueryClient();
   const months = monthsOf(days);
-  const ahead = neighbourMonths(months).join(' ');
+  const ahead = isReadAhead ? neighbourMonths(months).join(' ') : '';
 
   const layer = useQueries({
     queries: months.map((month) => query(client, isStand, month)),
@@ -179,6 +191,71 @@ export function useCalendarStaff(client: Client | null, isStand: boolean) {
   return useQuery({
     queryKey: isStand ? ['calendar', 'stand', 'staff'] : taskKeys.staff(),
     queryFn: () => fetchStaff(client as Client),
+    enabled: client !== null,
+  });
+}
+
+/** Expired changes only with the nightly sweep: an hour is fresh enough (§1). */
+const EXPIRED_STALE_MS = 60 * 60 * 1000;
+
+/**
+ * One month of what never happened. Outside `tasks` on purpose (§1): the
+ * panel never writes such a row, and under `tasks` every save would reread
+ * thousands of them.
+ */
+const expiredQuery: MonthQuery<ExpiredTask> = (client, isStand, month) => ({
+  queryKey: isStand ? ['calendar', 'stand', 'expired', month] : ['calendar', 'expired', month],
+  queryFn: () => {
+    const { from, to } = monthBounds(month);
+    return fetchExpiredBetween(client as Client, from, to);
+  },
+  enabled: client !== null,
+  staleTime: EXPIRED_STALE_MS,
+});
+
+/** One month of the cancelled: under `tasks`, a cancel moves a task here (§1). */
+const cancelledQuery: MonthQuery<CalendarTask> = (client, isStand, month) => ({
+  queryKey: isStand
+    ? ['calendar', 'stand', 'tasks', 'cancelled', month]
+    : taskKeys.calendar('cancelled', month),
+  queryFn: () => {
+    const { from, to } = monthBounds(month);
+    return fetchTasksBetween(client as Client, from, to, 'cancelled');
+  },
+  enabled: client !== null,
+});
+
+/** What never happened on the window's days — the visible months only (§1). */
+export function useCalendarExpired(
+  client: Client | null,
+  isStand: boolean,
+  days: readonly string[],
+): MonthLayer<ExpiredTask> {
+  return useMonthLayer(expiredQuery, client, isStand, days, false);
+}
+
+/**
+ * The cancelled of the window's days, read only while the switch is on — the
+ * visible months only (§1).
+ */
+export function useCalendarCancelled(
+  client: Client | null,
+  isStand: boolean,
+  days: readonly string[],
+  isShown: boolean,
+): TasksLayer {
+  return useMonthLayer(cancelledQuery, isShown ? client : null, isStand, days, false);
+}
+
+/**
+ * Every live repair, whatever its day (§6): the badge in the first column
+ * shows one left behind whatever the window. The same read and key stage 8's
+ * dashboard takes.
+ */
+export function useLiveRepairs(client: Client | null, isStand: boolean) {
+  return useQuery({
+    queryKey: isStand ? ['calendar', 'stand', 'liveRepairs'] : taskKeys.liveRepairs(),
+    queryFn: () => fetchLiveRepairs(client as Client),
     enabled: client !== null,
   });
 }

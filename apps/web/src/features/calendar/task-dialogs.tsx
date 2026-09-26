@@ -5,10 +5,19 @@ import { useTranslation } from 'react-i18next';
 
 import type { Language } from '@str-ops/shared';
 
-import type { CalendarTask, TaskDraft } from '@/features/tasks/schema';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { isTaskClosed, type CalendarTask, type TaskDraft } from '@/features/tasks/schema';
 import { TaskDrawer } from '@/features/tasks/task-drawer';
 import { TaskForm } from '@/features/tasks/task-form';
+import { useTask } from '@/features/tasks/use-tasks';
 import { formatDay } from '@/lib/format-date';
+import { serverErrorText } from '@/lib/server-error';
 
 import { CellTasksDialog, type CellTasks } from './cell-tasks-dialog';
 import type { CalendarBooking } from './schema';
@@ -31,6 +40,8 @@ export function useTaskDialogs({ isStand, language, bookings }: TaskDialogsOptio
   const { t } = useTranslation();
   const [editing, setEditing] = useState<{ task: CalendarTask | null; start?: Start } | null>(null);
   const [reading, setReading] = useState<CalendarTask | null>(null);
+  // A mark of what never happened is read narrow (§1): its drawer reads it whole.
+  const [lapsedId, setLapsedId] = useState<string | null>(null);
   const [cell, setCell] = useState<CellTasks | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
@@ -38,7 +49,9 @@ export function useTaskDialogs({ isStand, language, bookings }: TaskDialogsOptio
     setCell(null);
     if (isStand) {
       setPreview(label);
-    } else if (task.status === 'done') {
+    } else if (task.status === 'expired') {
+      setLapsedId(task.id);
+    } else if (isTaskClosed(task)) {
       setReading(task);
     } else {
       setEditing({ task });
@@ -70,6 +83,9 @@ export function useTaskDialogs({ isStand, language, bookings }: TaskDialogsOptio
         <TaskForm task={editing.task} initial={editing.start} onClose={() => setEditing(null)} />
       )}
       {reading === null ? null : <TaskDrawer task={reading} onClose={() => setReading(null)} />}
+      {lapsedId === null ? null : (
+        <WholeTaskDrawer taskId={lapsedId} onClose={() => setLapsedId(null)} />
+      )}
       <CellTasksDialog
         cell={cell}
         bookings={bookings}
@@ -82,4 +98,45 @@ export function useTaskDialogs({ isStand, language, bookings }: TaskDialogsOptio
   );
 
   return { openTask, newTask, newTaskOn, showCell, dialogs };
+}
+
+interface WholeTaskDrawerProps {
+  taskId: string;
+  onClose: () => void;
+}
+
+/**
+ * The drawer of a task the calendar holds only narrow (§1): it reads the
+ * task whole first. Until then a card says it is reading; a read that fails,
+ * or a task no longer there to see, says so in that card rather than
+ * opening an empty drawer.
+ */
+function WholeTaskDrawer({ taskId, onClose }: WholeTaskDrawerProps) {
+  const { t } = useTranslation();
+  const task = useTask(taskId);
+
+  if (task.data !== undefined && task.data !== null) {
+    return <TaskDrawer task={task.data} onClose={onClose} />;
+  }
+  const isMissing = task.isError || task.data === null;
+  const failure = task.isError ? serverErrorText(task.error) : null;
+  return (
+    <Dialog
+      open
+      onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            {isMissing ? t('panel.calendar.taskMissing') : t('panel.tasks.loading')}
+          </DialogTitle>
+          <DialogDescription>{failure?.detail ?? ''}</DialogDescription>
+        </DialogHeader>
+      </DialogContent>
+    </Dialog>
+  );
 }

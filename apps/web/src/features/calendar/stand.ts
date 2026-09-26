@@ -200,10 +200,32 @@ function compare(a: unknown, b: unknown): number {
     : String(a).localeCompare(String(b));
 }
 
+/** A column, or an embedded one — `property.status` — as PostgREST reads it. */
+function valueOf(row: Row, column: string): unknown {
+  return column
+    .split('.')
+    .reduce<unknown>(
+      (value, key) =>
+        typeof value === 'object' && value !== null ? (value as Row)[key] : undefined,
+      row,
+    );
+}
+
+/** `not(column, 'is', null)` and `not(column, 'in', '(a,b)')`, the two the readers use. */
+function isNot(row: Row, column: string, operator: string, value: unknown): boolean {
+  const actual = valueOf(row, column);
+  if (operator === 'is') {
+    return actual !== value;
+  }
+  const listed = String(value)
+    .replace(/^\(|\)$/g, '')
+    .split(',');
+  return !listed.includes(String(actual));
+}
+
 /**
  * A query builder that understands what the calendar's readers ask: the
- * filters, the order, a page with its count, and a thenable answer. More
- * operators join with the readers of 7.4–7.5.
+ * filters, the order, a page with its count, one row, and a thenable answer.
  */
 function queryOf(rows: readonly Row[]) {
   const filters: Filter[] = [];
@@ -216,12 +238,22 @@ function queryOf(rows: readonly Row[]) {
       isCounted = options?.count === 'exact';
       return builder;
     },
-    eq: (column: string, value: unknown) => keep((row) => row[column] === value),
-    neq: (column: string, value: unknown) => keep((row) => row[column] !== value),
-    in: (column: string, values: readonly unknown[]) => keep((row) => values.includes(row[column])),
-    is: (column: string, value: unknown) => keep((row) => row[column] === value),
-    lt: (column: string, value: unknown) => keep((row) => compare(row[column], value) < 0),
-    gte: (column: string, value: unknown) => keep((row) => compare(row[column], value) >= 0),
+    eq: (column: string, value: unknown) => keep((row) => valueOf(row, column) === value),
+    neq: (column: string, value: unknown) => keep((row) => valueOf(row, column) !== value),
+    in: (column: string, values: readonly unknown[]) =>
+      keep((row) => values.includes(valueOf(row, column))),
+    is: (column: string, value: unknown) => keep((row) => valueOf(row, column) === value),
+    not: (column: string, operator: string, value: unknown) =>
+      keep((row) => isNot(row, column, operator, value)),
+    lt: (column: string, value: unknown) => keep((row) => compare(valueOf(row, column), value) < 0),
+    gte: (column: string, value: unknown) =>
+      keep((row) => compare(valueOf(row, column), value) >= 0),
+    maybeSingle: () => {
+      const found = rows.find((row) => filters.every((test) => test(row))) ?? null;
+      return new Promise<{ data: Row | null; error: null }>((done) =>
+        setTimeout(() => done({ data: found, error: null }), LATENCY_MS),
+      );
+    },
     order: (column: string, options?: { ascending?: boolean }) => {
       orders.push({ column, ascending: options?.ascending ?? true });
       return builder;

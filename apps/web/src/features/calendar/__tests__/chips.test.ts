@@ -5,6 +5,7 @@ import { buildPropertyTree } from '@/lib/property-tree';
 
 import {
   cellTasks,
+  collapseExpired,
   chipCapacity,
   chipTone,
   isBookingChanged,
@@ -245,5 +246,75 @@ describe('the assignee filter’s list', () => {
     expect(offListAssignees(tasks, [{ id: ANNA, full_name: 'Anna', role: 'cleaner' }])).toEqual([
       { id: IVA, name: 'Iva' },
     ]);
+  });
+
+  // An id is not a name: the select shows «Без имени» rather than a UUID.
+  test('somebody whose name is not known has no name, not their id', () => {
+    const tasks = [task(1, '2026-09-28', { assignee_id: IVA, assignee: null })];
+
+    expect(offListAssignees(tasks, [])).toEqual([{ id: IVA, name: null }]);
+  });
+});
+
+// Until the pre-launch reset a booking's expired cleaning comes in up to 27
+// copies a cell (§2): the calendar draws one mark, keyed like the generator's
+// guard (20260918171000) — booking, listing, day.
+describe('what never happened', () => {
+  let expiredSerial = 0;
+  const expired = (extra: Record<string, unknown> = {}) => {
+    expiredSerial += 1;
+    return {
+      id: `eeeeeeee-0000-4000-8000-${String(expiredSerial).padStart(12, '0')}`,
+      property_id: 1,
+      reservation_id: 7,
+      scheduled_date: '2026-09-20',
+      type: 'cleaning' as const,
+      assignee_id: null,
+      assignee: null,
+      ...extra,
+    };
+  };
+
+  test('is one mark per booking, listing and day, however many rows', () => {
+    const rows = [expired(), expired(), expired(), expired({ scheduled_date: '2026-09-21' })];
+
+    expect(collapseExpired(rows)).toEqual([rows[0], rows[3]]);
+  });
+
+  // The copies of a bug carry no person; the one who held the cleaning does.
+  test('the mark stands for a copy that has a person, when one has', () => {
+    const rows = [expired(), expired({ assignee_id: ANNA })];
+
+    expect(collapseExpired(rows)).toEqual([rows[1]]);
+  });
+
+  test('another listing is another mark', () => {
+    const rows = [expired(), expired({ property_id: 2 })];
+
+    expect(collapseExpired(rows)).toHaveLength(2);
+  });
+
+  // A task written by hand has no key: two on one day are two tasks.
+  test('a task written by hand is never folded', () => {
+    const rows = [expired({ reservation_id: null }), expired({ reservation_id: null })];
+
+    expect(collapseExpired(rows)).toHaveLength(2);
+  });
+});
+
+// §2: «Статус» acts on the live and the done only; the assignee filter on all.
+describe('the filters and the closed chips', () => {
+  const cancelled = task(1, '2026-09-28', { status: 'cancelled', assignee_id: ANNA });
+  const lapsed = task(1, '2026-09-20', { status: 'expired' });
+
+  test('the status filter leaves the cancelled and what never happened be', () => {
+    expect(matchesChipFilters(cancelled, 'done', 'all')).toBe(true);
+    expect(matchesChipFilters(lapsed, 'open', 'all')).toBe(true);
+  });
+
+  test('the assignee filter acts on them', () => {
+    expect(matchesChipFilters(cancelled, 'all', 'nobody')).toBe(false);
+    expect(matchesChipFilters(lapsed, 'all', 'nobody')).toBe(true);
+    expect(matchesChipFilters(lapsed, 'all', ANNA)).toBe(false);
   });
 });

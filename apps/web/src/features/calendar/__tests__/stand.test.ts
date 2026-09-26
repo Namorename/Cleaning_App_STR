@@ -2,9 +2,11 @@ import { describe, expect, test } from 'vitest';
 
 import { todayIso } from '@/lib/format-date';
 
-import { fetchTasksBetween } from '@/features/tasks/api';
+import { fetchExpiredBetween, fetchLiveRepairs, fetchTasksBetween } from '@/features/tasks/api';
+import { overdueRepairsByProperty } from '@/features/tasks/repairs';
 
 import { fetchCalendarBookings } from '../api';
+import { collapseExpired } from '../chips';
 import { addDays } from '../dates';
 import { standClient } from '../stand';
 
@@ -68,5 +70,25 @@ describe('the stand', () => {
         (row) => row.departure_date > addDays(today, 30) && row.arrival_date < addDays(today, -1),
       ),
     ).toBe(true);
+  });
+});
+
+describe('the stand for 7.5', () => {
+  test('has what never happened in copies, folded to one mark per key', async () => {
+    const today = todayIso();
+
+    const rows = await fetchExpiredBetween(standClient(), addDays(today, -30), today);
+
+    expect(rows.length).toBeGreaterThan(collapseExpired(rows).length);
+    expect(rows.every((row) => row.scheduled_date < today)).toBe(true);
+  });
+
+  test('has three repairs left behind, one with a technician who left, one on a room', async () => {
+    const repairs = await fetchLiveRepairs(standClient());
+    const alerts = overdueRepairsByProperty(repairs);
+
+    expect(alerts.size).toBe(3);
+    expect([...alerts.values()].filter((alert) => alert.isTechnicianOff)).toHaveLength(1);
+    expect(alerts.has(2011)).toBe(true);
   });
 });

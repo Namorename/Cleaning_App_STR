@@ -9,6 +9,8 @@ import { withSignedUrls, type WithUrl } from '@/lib/media';
 import {
   calendarTaskListSchema,
   departureGuestSchema,
+  expiredTaskListSchema,
+  liveRepairListSchema,
   propertyListSchema,
   staffListSchema,
   taskListSchema,
@@ -16,6 +18,8 @@ import {
   taskSchema,
   type CalendarTask,
   type DepartureGuest,
+  type ExpiredTask,
+  type LiveRepair,
   type Property,
   type Staff,
   type Task,
@@ -89,8 +93,18 @@ export async function fetchTasks(client: Client): Promise<Task[]> {
  * (7.5). Expired has a reader of its own: it is never saved from the panel,
  * and under `tasks` every save would reread thousands of its rows.
  */
+/** The statuses of a task somebody may still do. */
+export const LIVE_STATUSES = [
+  'unassigned',
+  'assigned',
+  'accepted',
+  'in_progress',
+  'paused',
+  'blocked',
+] as const satisfies readonly TaskStatus[];
+
 export const TASK_CLASSES = {
-  active: ['unassigned', 'assigned', 'accepted', 'in_progress', 'paused', 'blocked', 'done'],
+  active: [...LIVE_STATUSES, 'done'],
   cancelled: ['cancelled'],
 } as const satisfies Record<string, readonly TaskStatus[]>;
 export type TaskClass = keyof typeof TASK_CLASSES;
@@ -121,6 +135,76 @@ export async function fetchTasksBetween(
       .range(first, last),
   );
   return calendarTaskListSchema.parse(rows);
+}
+
+// A mark needs no more: until the pre-launch reset there are thousands (§1).
+// The assignee's name comes along: a cleaner who has left is in no other list
+// the calendar reads, and her missed cleanings are the ones a mark is for.
+const EXPIRED_COLUMNS =
+  'id, property_id, reservation_id, scheduled_date, type, assignee_id, ' +
+  'assignee:profiles!tasks_assignee_id_fkey(full_name)';
+
+/**
+ * The tasks that never happened on the days `from` up to `to` (exclusive):
+ * the calendar's «Не состоялась» (§2). Read in pages, sorted to the id last.
+ */
+export async function fetchExpiredBetween(
+  client: Client,
+  from: string,
+  to: string,
+): Promise<ExpiredTask[]> {
+  const rows = await fetchAllPages((first, last, withCount) =>
+    client
+      .from('tasks')
+      .select(EXPIRED_COLUMNS, withCount ? { count: 'exact' } : undefined)
+      .eq('status', 'expired')
+      .gte('scheduled_date', from)
+      .lt('scheduled_date', to)
+      .order('scheduled_date', { ascending: true })
+      .order('id', { ascending: true })
+      .range(first, last),
+  );
+  return expiredTaskListSchema.parse(rows);
+}
+
+/** One task whole, for the drawer a closed chip opens. Null when there is no row to see. */
+export async function fetchTask(client: Client, taskId: string): Promise<Task | null> {
+  const { data, error } = await client
+    .from('tasks')
+    .select(TASK_COLUMNS)
+    .eq('id', taskId)
+    .maybeSingle();
+  if (error) {
+    throw error;
+  }
+  return data === null ? null : taskSchema.parse(data);
+}
+
+// The technician with the switch that says whether they still work here, and
+// the listing joined inner so an archived one's repair falls away (§6).
+const REPAIR_COLUMNS =
+  'id, property_id, problem_id, status, scheduled_date, assignee_id, ' +
+  'assignee:profiles!tasks_assignee_id_fkey(full_name, is_active), ' +
+  'property:properties!inner(name, status, timezone)';
+
+/**
+ * Every live repair, whatever its day (§6): the sweep no longer closes a
+ * repair, so one left behind stays live until somebody closes it. A handful
+ * at a time — no pages. The calendar's badge and stage 8's counters read it.
+ */
+export async function fetchLiveRepairs(client: Client): Promise<LiveRepair[]> {
+  const { data, error } = await client
+    .from('tasks')
+    .select(REPAIR_COLUMNS)
+    .not('problem_id', 'is', null)
+    .in('status', [...LIVE_STATUSES])
+    .neq('property.status', 'archived')
+    .order('scheduled_date', { ascending: true })
+    .order('id', { ascending: true });
+  if (error) {
+    throw error;
+  }
+  return liveRepairListSchema.parse(data ?? []);
 }
 
 /** Active people of the company a task can be handed to. */

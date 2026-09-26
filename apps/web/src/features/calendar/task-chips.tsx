@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import type { Language } from '@str-ops/shared';
 
 import { formatClock } from '@/features/tasks/format';
+import { isRepairOverdue } from '@/features/tasks/repairs';
 import { localizedTitle, type CalendarTask } from '@/features/tasks/schema';
 import { cn } from '@/lib/utils';
 
@@ -30,9 +31,38 @@ const TONE_DOT: Readonly<Record<ChipTone, string>> = {
   done: 'bg-emerald-600',
 };
 
-function toneClass(task: CalendarTask): string {
+/**
+ * A status's dot. What never happened and the cancelled differ by shape as
+ * well as colour (§4): a hollow red ring, a grey square.
+ */
+function dotClass(task: CalendarTask, isOverdue: boolean): string {
+  if (task.status === 'expired') {
+    return 'rounded-full border-2 border-destructive bg-transparent';
+  }
+  if (task.status === 'cancelled') {
+    return 'rounded-none bg-muted-foreground/50';
+  }
   const tone = chipTone(task.status);
-  return tone === null ? 'bg-muted-foreground' : TONE_DOT[tone];
+  // An overdue repair's dot is a framed square: not only red (§6).
+  return cn(
+    isOverdue ? 'rounded-sm border-2 border-destructive' : 'rounded-full',
+    tone === null ? 'bg-muted-foreground' : TONE_DOT[tone],
+  );
+}
+
+/** Hatched, not only red: «Не состоялась» must read without colour (§2). */
+const HATCH_RED =
+  'repeating-linear-gradient(135deg, transparent 0 3px, rgb(220 38 38 / 0.18) 3px 6px)';
+
+/** A full chip's frame: what never happened, the cancelled, an overdue repair. */
+function chipClass(task: CalendarTask, isOverdue: boolean): string {
+  if (task.status === 'expired') {
+    return 'border-destructive text-destructive';
+  }
+  if (task.status === 'cancelled') {
+    return 'text-muted-foreground line-through opacity-70';
+  }
+  return isOverdue ? 'border-destructive' : '';
 }
 
 export interface ChipText {
@@ -43,6 +73,8 @@ export interface ChipText {
   isNobody: boolean;
   window: string | null;
   isSdt: boolean;
+  /** A live repair past its day, by the listing's own today (§6). */
+  isOverdue: boolean;
 }
 
 /**
@@ -72,22 +104,36 @@ export function useChipText(language: Language) {
             : null;
     // SDT: the next guest arrives the same day, into the same room (§4).
     const isSdt = task.type === 'cleaning' && task.priority === 1;
+    const isOverdue = task.problem_id !== null && isRepairOverdue(task);
+    // «Просрочено» already names the status and the overdue badge of the
+    // Tasks screen; the calendar's legend needs both words apart (§2).
+    const status =
+      task.status === 'expired'
+        ? t('panel.calendar.expiredMark')
+        : t(`panel.tasks.statuses.${task.status}`);
     const label = [
       place,
       name,
-      t(`panel.tasks.statuses.${task.status}`),
+      status,
       person,
       window,
       isSdt ? `${t('panel.calendar.sdtMark')} (${t('panel.calendar.sdt')})` : null,
       task.problem?.priority === 'high' ? t('problems.priorities.high') : null,
+      isOverdue ? t('panel.calendar.overdue') : null,
       isChanged ? t('panel.calendar.bookingChanged') : null,
     ]
       .filter((part): part is string => part !== null && part !== '')
       .join(', ');
-    const lead = [place, task.problem?.title ?? null, person]
+    const lead = [
+      place,
+      task.status === 'expired' ? status : null,
+      isOverdue ? t('panel.calendar.overdue') : null,
+      task.problem?.title ?? null,
+      person,
+    ]
       .filter((part): part is string => part !== null)
       .join(' · ');
-    return { label, lead, isNobody, window, isSdt };
+    return { label, lead, isNobody, window, isSdt, isOverdue };
   };
 }
 
@@ -209,15 +255,16 @@ export function TaskChips({
         <Fragment key={day}>
           {shown.map((task, k) => {
             const isChanged = isBookingChanged(task, bookings);
+            const text = textOf(task, isChanged, rowId);
             return (
               <ChipLinkOrButton
                 key={task.id}
                 task={task}
-                label={textOf(task, isChanged, rowId).label}
+                label={text.label}
                 onOpen={onOpen}
                 className={cn(
-                  'absolute rounded-full',
-                  toneClass(task),
+                  'absolute',
+                  dotClass(task, text.isOverdue),
                   isChanged && 'ring-2 ring-amber-500',
                 )}
                 style={{
@@ -248,6 +295,7 @@ export function TaskChips({
               onOpen={onOpen}
               className={cn(
                 'absolute flex items-center gap-1 overflow-hidden rounded-sm border bg-background px-1 text-[10px] leading-none whitespace-nowrap hover:bg-accent',
+                chipClass(task, text.isOverdue),
                 isChanged && 'ring-2 ring-amber-500',
               )}
               style={{
@@ -255,9 +303,10 @@ export function TaskChips({
                 width: slot - 2,
                 top: CHIP_TOP,
                 height: CHIP_HEIGHT,
+                backgroundImage: task.status === 'expired' ? HATCH_RED : undefined,
               }}
             >
-              <span aria-hidden className={cn('size-2 shrink-0 rounded-full', toneClass(task))} />
+              <span aria-hidden className={cn('size-2 shrink-0', dotClass(task, false))} />
               <span className={cn('truncate', text.isNobody && 'text-destructive')}>
                 {text.lead}
               </span>

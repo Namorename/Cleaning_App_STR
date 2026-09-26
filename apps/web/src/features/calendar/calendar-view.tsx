@@ -6,20 +6,13 @@ import { useTranslation } from 'react-i18next';
 import { FALLBACK_LANGUAGE, INTL_LOCALES, isSupportedLanguage } from '@str-ops/shared';
 
 import { Button } from '@/components/ui/button';
+import { overdueRepairsByProperty } from '@/features/tasks/repairs';
 import { todayIso } from '@/lib/format-date';
 import { buildPropertyTree, visibleRows } from '@/lib/property-tree';
 import { layoutRows } from './bars';
 import { BookingCard } from './booking-card';
 import { CalendarFilters } from './calendar-filters';
 import { CalendarGrid } from './calendar-grid';
-import {
-  ANY_ASSIGNEE,
-  matchesChipFilters,
-  offListAssignees,
-  tasksByRowDay,
-  type AssigneeFilter,
-  type StatusFilter,
-} from './chips';
 import { addDays, DEPTHS, defaultStart, rangeLabel, windowDays, type Depth } from './dates';
 import { LayerAlert } from './layer-alert';
 import type { CalendarBooking } from './schema';
@@ -29,9 +22,9 @@ import {
   useCalendarBookings,
   useCalendarClient,
   useCalendarRows,
-  useCalendarStaff,
-  useCalendarTasks,
+  useLiveRepairs,
 } from './use-calendar';
+import { useChipLayers } from './use-chip-layers';
 
 interface CalendarViewProps {
   /** The stand: data from the fixture instead of the database (§5). */
@@ -106,35 +99,13 @@ function CalendarBody({ isStand }: { isStand: boolean }) {
   );
 
   // Chips, likewise, only when every month has come; the filters act on them alone.
-  const tasks = useCalendarTasks(client, isStand, days);
-  const staff = useCalendarStaff(client, isStand);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [assigneeFilter, setAssigneeFilter] = useState<AssigneeFilter>(ANY_ASSIGNEE);
-  const byRowDay = useMemo(
-    () =>
-      tasksByRowDay(
-        (tasks.data ?? []).filter((task) => matchesChipFilters(task, statusFilter, assigneeFilter)),
-      ),
-    [tasks.data, statusFilter, assigneeFilter],
-  );
-  const offList = useMemo(
-    () => (staff.data === undefined ? [] : offListAssignees(tasks.data ?? [], staff.data)),
-    [tasks.data, staff.data],
-  );
-  // A person who left, once chosen, keeps an option after the window moves
-  // past their chips: otherwise the select shows «Все» over an empty grid.
-  const [chosenName, setChosenName] = useState<string | null>(null);
-  const chooseAssignee = (next: AssigneeFilter) => {
-    setAssigneeFilter(next);
-    setChosenName(offList.find((person) => person.id === next)?.name ?? null);
-  };
-  const shownOffList =
-    chosenName !== null &&
-    !offList.some((person) => person.id === assigneeFilter) &&
-    !(staff.data ?? []).some((person) => person.id === assigneeFilter)
-      ? [...offList, { id: assigneeFilter, name: chosenName }]
-      : offList;
+  const chips = useChipLayers({ client, isStand, days, byId });
   const taskDialogs = useTaskDialogs({ isStand, language, bookings: bookingsById });
+
+  // A repair left behind shows in its row's first column, whatever the window (§6).
+  const repairs = useLiveRepairs(client, isStand);
+  // Judged now, like the chips: a memo would keep yesterday's today (a handful of rows).
+  const repairAlerts = overdueRepairsByProperty(repairs.data ?? []);
 
   const chooseDepth = (next: Depth) => {
     setDepth(next);
@@ -160,7 +131,7 @@ function CalendarBody({ isStand }: { isStand: boolean }) {
             {t('panel.calendar.loadingBookings')}
           </span>
         ) : null}
-        {tasks.isPending ? (
+        {chips.isPending || repairs.isPending ? (
           <span className="text-sm text-muted-foreground">{t('panel.calendar.loadingTasks')}</span>
         ) : null}
       </div>
@@ -168,8 +139,15 @@ function CalendarBody({ isStand }: { isStand: boolean }) {
       {bookings.isError ? (
         <LayerAlert message={t('panel.calendar.bookingsError')} error={bookings.error} />
       ) : null}
-      {tasks.isError ? (
-        <LayerAlert message={t('panel.calendar.tasksError')} error={tasks.error} />
+      {chips.failures.map((failure) => (
+        <LayerAlert
+          key={failure.messageKey}
+          message={t(failure.messageKey)}
+          error={failure.error}
+        />
+      ))}
+      {repairs.isError ? (
+        <LayerAlert message={t('panel.calendar.repairsError')} error={repairs.error} />
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
@@ -220,15 +198,7 @@ function CalendarBody({ isStand }: { isStand: boolean }) {
         </div>
       </div>
 
-      <CalendarFilters
-        status={statusFilter}
-        onStatus={setStatusFilter}
-        assignee={assigneeFilter}
-        onAssignee={chooseAssignee}
-        staff={staff.data ?? []}
-        offList={shownOffList}
-        onNewTask={taskDialogs.newTask}
-      />
+      <CalendarFilters {...chips.filters} onNewTask={taskDialogs.newTask} />
 
       {rowsQuery.data === undefined && rowsQuery.isError ? (
         <p role="alert" className="text-sm text-destructive">
@@ -249,7 +219,8 @@ function CalendarBody({ isStand }: { isStand: boolean }) {
           collapsed={collapsed}
           onToggleGroup={toggleGroup}
           layout={layout}
-          byRowDay={byRowDay}
+          byRowDay={chips.byRowDay}
+          repairAlerts={repairAlerts}
           bookings={bookingsById}
           language={language}
           onOpenBooking={setOpened}

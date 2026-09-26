@@ -6,10 +6,13 @@ import { addDays, daysBetween } from './dates';
  * A cleaning on every guest departure, where the generator would put it: on
  * each room a stay names, else on its listing; none for a block or the
  * office's own "#" booking; SDT when the next guest arrives the same day into
- * the same row. Past cleanings are done, today's and later ones open or in
- * work. Then the cases 7.4 is checked on, each on its own listing: a repair
- * with its problem, a taken cleaning whose booking is gone, a cell with more
- * chips than fit, and a person who no longer works here.
+ * the same row. Past cleanings are done or — in up to 11 copies of one key —
+ * never happened; today's and later ones open, in work, now and then
+ * cancelled. Then the cases 7.4 and 7.5 are checked on, each on its own row:
+ * a repair with its problem, a taken cleaning whose booking is gone, a cell
+ * with more chips than fit, a person who no longer works here, the legitimate
+ * pair of a lapsed and a live attempt, two lapsed tasks written by hand, and
+ * three repairs left behind — one with a technician who left, one on a room.
  */
 
 interface StandProperty {
@@ -17,6 +20,7 @@ interface StandProperty {
   name: string;
   parent_id: number | null;
   hostaway_unit_id: number | null;
+  status: string;
   timezone: string;
 }
 
@@ -39,15 +43,28 @@ export const FIXTURE_STAFF = [
   { id: uuid(9003), full_name: 'Cleaner 3', role: 'cleaner', is_active: true },
   { id: uuid(9004), full_name: 'Technician 1', role: 'technician', is_active: true },
   { id: uuid(9005), full_name: 'Former Cleaner', role: 'cleaner', is_active: false },
+  { id: uuid(9006), full_name: 'Former Technician', role: 'technician', is_active: false },
 ];
 const CLEANERS = FIXTURE_STAFF.slice(0, 3);
 const TECHNICIAN = FIXTURE_STAFF[3];
 const FORMER = FIXTURE_STAFF[4];
+const FORMER_TECHNICIAN = FIXTURE_STAFF[5];
 
 /** The listings that carry one case each of 7.4. */
 const REPAIR_ROW = 1005;
 const CHANGED_ROW = 1006;
 const CROWDED_ROW = 1007;
+
+/** The rows that carry one case each of 7.5. */
+const PAIR_ROW = 1008;
+const MANUAL_ROW = 1009;
+const OVERDUE_ROW = 1010;
+const OFF_TECHNICIAN_ROW = 1011;
+/** Multi 2, Room 1: an overdue repair on a room. */
+const OVERDUE_ROOM = 2011;
+
+/** Until the pre-launch reset a booking's expired cleaning comes in copies, up to 11 (§5). */
+const MAX_COPIES = 11;
 
 const TODAY_STATUSES = ['in_progress', 'accepted', 'assigned', 'unassigned'];
 const LATER_STATUSES = ['assigned', 'unassigned', 'accepted'];
@@ -106,10 +123,14 @@ export function fixtureTasks(
       property: {
         name: place?.name ?? String(property),
         hostaway_unit_id: place?.hostaway_unit_id ?? null,
+        status: place?.status ?? 'active',
         timezone: place?.timezone ?? null,
         parent: parent === undefined ? null : { name: parent.name },
       },
-      assignee: person === undefined ? null : { full_name: person.full_name, role: person.role },
+      assignee:
+        person === undefined
+          ? null
+          : { full_name: person.full_name, role: person.role, is_active: person.is_active },
       author: null,
       problem: null,
       ...extra,
@@ -121,29 +142,90 @@ export function fixtureTasks(
     guests.flatMap((booking) => rowsOf(booking).map((row) => `${row}:${booking.arrival_date}`)),
   );
 
+  // Past: done, or — one in three — never happened, in 1 to 11 copies of one
+  // key. Today and later: open or in work, and now and then cancelled.
+  const statusOf = (offset: number) => {
+    if (offset < 0) {
+      return serial % 3 === 0 ? 'expired' : 'done';
+    }
+    if (offset > 0 && serial % 13 === 0) {
+      return 'cancelled';
+    }
+    return offset === 0
+      ? TODAY_STATUSES[serial % TODAY_STATUSES.length]
+      : LATER_STATUSES[serial % LATER_STATUSES.length];
+  };
+
   const cleanings = guests.flatMap((booking) =>
-    rowsOf(booking).map((row) => {
-      const offset = daysBetween(today, booking.departure_date);
-      const status =
-        offset < 0
-          ? 'done'
-          : offset === 0
-            ? TODAY_STATUSES[serial % TODAY_STATUSES.length]
-            : LATER_STATUSES[serial % LATER_STATUSES.length];
+    rowsOf(booking).flatMap((row) => {
+      const status = statusOf(daysBetween(today, booking.departure_date));
       const assignee =
         status === 'unassigned'
           ? null
           : serial % 17 === 0
             ? FORMER.id
             : CLEANERS[serial % CLEANERS.length].id;
-      return task(row, booking.departure_date, {
-        reservation_id: booking.id,
-        status,
-        assignee_id: assignee,
-        priority: arrivals.has(`${row}:${booking.departure_date}`) ? 1 : 0,
-      });
+      const copies = status === 'expired' ? 1 + (serial % MAX_COPIES) : 1;
+      return Array.from({ length: copies }, () =>
+        task(row, booking.departure_date, {
+          reservation_id: booking.id,
+          status,
+          assignee_id: assignee,
+          priority: arrivals.has(`${row}:${booking.departure_date}`) ? 1 : 0,
+        }),
+      );
     }),
   );
+
+  // A booking of the pair's listing that left a few days ago.
+  const pairBooking = guests.find(
+    (booking) =>
+      booking.property_id === PAIR_ROW &&
+      daysBetween(today, booking.departure_date) < 0 &&
+      daysBetween(today, booking.departure_date) >= -5,
+  );
+  const overdueRepair = (row: number, offset: number, title: string, technician: string) =>
+    task(row, addDays(today, offset), {
+      type: 'maintenance',
+      problem_id: `aaaaaaaa-aaaa-4aaa-8aaa-${String(row).padStart(12, '0')}`,
+      problem: { title, priority: 'normal' },
+      assignee_id: technician,
+      time_from: '10:00:00',
+      time_to: '11:00:00',
+    });
+
+  const cases75 = [
+    // Listing 9: what never happened and a live attempt on the same key —
+    // the legitimate pair (20260918171000): both chips stay.
+    ...(pairBooking === undefined
+      ? []
+      : [
+          ...Array.from({ length: 3 }, () =>
+            task(PAIR_ROW, pairBooking.departure_date, {
+              reservation_id: pairBooking.id,
+              status: 'expired',
+              assignee_id: CLEANERS[0].id,
+            }),
+          ),
+          task(PAIR_ROW, pairBooking.departure_date, {
+            reservation_id: pairBooking.id,
+            status: 'in_progress',
+            assignee_id: CLEANERS[1].id,
+          }),
+        ]),
+    // Listing 10: two inspections written by hand that never happened — two marks.
+    ...Array.from({ length: 2 }, () =>
+      task(MANUAL_ROW, addDays(today, -1), {
+        type: 'inspection',
+        status: 'expired',
+        assignee_id: CLEANERS[2].id,
+      }),
+    ),
+    // Three repairs left behind: one plain, one whose technician left, one on a room.
+    overdueRepair(OVERDUE_ROW, -3, 'Leaking tap', TECHNICIAN.id),
+    overdueRepair(OFF_TECHNICIAN_ROW, -10, 'Broken lock', FORMER_TECHNICIAN.id),
+    overdueRepair(OVERDUE_ROOM, -5, 'No hot water', TECHNICIAN.id),
+  ];
 
   const cases = [
     // Listing 6: a repair — the chip leads to its problem.
@@ -181,5 +263,5 @@ export function fixtureTasks(
     }),
   ];
 
-  return [...cleanings, ...cases];
+  return [...cleanings, ...cases, ...cases75];
 }

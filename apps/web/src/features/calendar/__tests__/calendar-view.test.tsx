@@ -99,12 +99,45 @@ const staffState = {
   isError: false,
 };
 
+const expiredState = {
+  data: [] as ExpiredTask[] | undefined,
+  isPending: false,
+  isError: false,
+  error: null as unknown,
+};
+const cancelledState = {
+  data: [] as CalendarTask[] | undefined,
+  isPending: false,
+  isError: false,
+  error: null as unknown,
+};
+const repairsState = {
+  data: [] as LiveRepair[] | undefined,
+  isPending: false,
+  isError: false,
+  error: null as unknown,
+};
+
 vi.mock('../use-calendar', () => ({
   useCalendarClient: () => ({}),
   useCalendarRows: () => rowsState,
   useCalendarBookings: () => bookingsState,
   useCalendarTasks: () => tasksState,
   useCalendarStaff: () => staffState,
+  useCalendarExpired: () => expiredState,
+  useCalendarCancelled: () => cancelledState,
+  useLiveRepairs: () => repairsState,
+}));
+
+// A mark of what never happened is read narrow; its drawer reads it whole.
+const wholeTask = vi.fn((id: string | null) => ({
+  data: id === null ? undefined : calendarTask(1, '2026-09-25', { id, status: 'expired' }),
+  isPending: false,
+  isError: false,
+  error: null,
+}));
+vi.mock('@/features/tasks/use-tasks', () => ({
+  useTask: (id: string | null) => wholeTask(id),
 }));
 
 // What the calendar hands the form and the drawer is what is tested here;
@@ -129,7 +162,13 @@ vi.mock('@/features/tasks/task-drawer', () => ({
   ),
 }));
 
-import { calendarTaskSchema, type CalendarTask } from '@/features/tasks/schema';
+import {
+  calendarTaskSchema,
+  liveRepairSchema,
+  type CalendarTask,
+  type ExpiredTask,
+  type LiveRepair,
+} from '@/features/tasks/schema';
 
 import { CalendarView } from '../calendar-view';
 import type { CalendarBooking } from '../schema';
@@ -198,6 +237,9 @@ beforeEach(() => {
   tasksState.isPending = false;
   tasksState.isError = false;
   tasksState.error = null;
+  expiredState.data = [];
+  cancelledState.data = [];
+  repairsState.data = [];
 });
 
 afterEach(() => {
@@ -674,5 +716,214 @@ describe('task chips', () => {
 
     expect(screen.queryByRole('dialog', { name: 'Форма задания' })).toBeNull();
     expect(screen.getByRole('dialog')).toHaveTextContent('Стенд: запись выключена');
+  });
+});
+
+// The window of these tests: 25 September to 1 October 2026; today is the 26th.
+describe('what never happened, the cancelled, the repairs', () => {
+  const lapsed = (extra: Record<string, unknown> = {}): ExpiredTask => ({
+    id: `eeeeeeee-0000-4000-8000-${String((taskSerial += 1)).padStart(12, '0')}`,
+    property_id: 1,
+    reservation_id: 7,
+    scheduled_date: '2026-09-25',
+    type: 'cleaning',
+    assignee_id: ANNA,
+    assignee: { full_name: 'Anna' },
+    ...extra,
+  });
+
+  test('a cleaning that never happened is one mark «Не состоялась», however many rows', () => {
+    expiredState.data = [lapsed(), lapsed(), lapsed()];
+    render(<CalendarView />);
+
+    expect(screen.getAllByRole('button', { name: /Не состоялась/ })).toHaveLength(1);
+  });
+
+  test('the status filter leaves the mark be; the assignee filter does not', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    expiredState.data = [lapsed()];
+    render(<CalendarView />);
+
+    await user.selectOptions(screen.getByLabelText('Статус'), 'Выполнено');
+    expect(screen.getByRole('button', { name: /Не состоялась/ })).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText('Исполнитель'), 'Не назначено');
+    expect(screen.queryByRole('button', { name: /Не состоялась/ })).toBeNull();
+  });
+
+  test('a mark opens the drawer on the whole task', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const mark = lapsed();
+    expiredState.data = [mark];
+    render(<CalendarView />);
+
+    await user.click(screen.getByRole('button', { name: /Не состоялась/ }));
+
+    expect(wholeTask).toHaveBeenCalledWith(mark.id);
+    expect(screen.getByRole('dialog', { name: 'Шторка задания' })).toHaveAttribute(
+      'data-task',
+      mark.id,
+    );
+  });
+
+  test('the cancelled wait behind their switch, and open the drawer', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const cancelled = calendarTask(1, '2026-09-28', { status: 'cancelled' });
+    cancelledState.data = [cancelled];
+    render(<CalendarView />);
+
+    expect(screen.queryByRole('button', { name: /Отменено/ })).toBeNull();
+
+    await user.click(screen.getByRole('checkbox', { name: 'Показывать отменённые' }));
+    await user.click(screen.getByRole('button', { name: /Отменено/ }));
+
+    expect(screen.getByRole('dialog', { name: 'Шторка задания' })).toHaveAttribute(
+      'data-task',
+      cancelled.id,
+    );
+  });
+
+  // §6: overdue by the listing's own day; the chip stays on its day.
+  test('a repair past its day says «Просрочен» on its chip', () => {
+    tasksState.data = [
+      calendarTask(1, '2026-09-25', {
+        type: 'maintenance',
+        problem_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        problem: { title: 'Leak', priority: 'normal' },
+        property: { name: 'Anglicka 7', timezone: 'Europe/Prague' },
+      }),
+    ];
+    render(<CalendarView />);
+
+    expect(screen.getByRole('link', { name: /Leak/ })).toHaveAccessibleName(/Просрочен/);
+  });
+
+  const liveRepair = (extra: Record<string, unknown> = {}): LiveRepair =>
+    liveRepairSchema.parse({
+      id: '00000000-0000-4000-8000-000000000901',
+      property_id: 1,
+      problem_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      status: 'assigned',
+      scheduled_date: '2026-09-20',
+      assignee_id: IVA,
+      assignee: { full_name: 'Iva', is_active: true },
+      property: { name: 'Anglicka 7', status: 'active', timezone: 'Europe/Prague' },
+      ...extra,
+    });
+
+  // Seen whatever the window: the day may be weeks behind it (§6).
+  test('the row of a listing with an overdue repair carries a badge, since when and who', () => {
+    repairsState.data = [liveRepair()];
+    render(<CalendarView />);
+
+    const badge = within(
+      screen
+        .getAllByRole('rowheader')
+        .find((one) => one.getAttribute('aria-label') === 'Anglicka 7')!,
+    ).getByText('Просрочен');
+    expect(badge).toHaveAttribute('title', expect.stringContaining('20.09'));
+    expect(badge).toHaveAttribute('title', expect.stringContaining('Iva'));
+    expect(badge).not.toHaveAttribute('data-off');
+  });
+
+  test('the badge turns red when the technician no longer works here', () => {
+    repairsState.data = [liveRepair({ assignee: { full_name: 'Iva', is_active: false } })];
+    render(<CalendarView />);
+
+    const badge = screen.getByText('Просрочен');
+    expect(badge).toHaveAttribute('data-off', 'true');
+    expect(badge).toHaveAttribute('title', expect.stringContaining('Iva — нет доступа'));
+  });
+});
+
+// Review of 7.5 (2026-09-26).
+describe('what never happened and the repairs, after review', () => {
+  const lapsed = (extra: Record<string, unknown> = {}): ExpiredTask => ({
+    id: `eeeeeeee-1000-4000-8000-${String((taskSerial += 1)).padStart(12, '0')}`,
+    property_id: 1,
+    reservation_id: 7,
+    scheduled_date: '2026-09-25',
+    type: 'cleaning',
+    assignee_id: IVA,
+    assignee: { full_name: 'Iva' },
+    ...extra,
+  });
+
+  // A cleaner who left is in no other list the calendar reads: the mark
+  // brings her name, and the select names her rather than showing an id.
+  test('somebody who left and is only on marks is named on the mark and in the filter', () => {
+    expiredState.data = [lapsed()];
+    render(<CalendarView />);
+
+    expect(screen.getByRole('button', { name: /Не состоялась/ })).toHaveAccessibleName(/Iva/);
+    const field = screen.getByLabelText('Исполнитель');
+    expect(within(field).getByRole('option', { name: 'Iva — нет доступа' })).toBeInTheDocument();
+  });
+
+  test('the assignee filter finds a mark by any of its copies', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    expiredState.data = [
+      lapsed({
+        id: 'eeeeeeee-2000-4000-8000-000000000001',
+        assignee_id: ANNA,
+        assignee: { full_name: 'Anna' },
+      }),
+      lapsed({ id: 'eeeeeeee-2000-4000-8000-000000000002' }),
+    ];
+    render(<CalendarView />);
+
+    await user.selectOptions(screen.getByLabelText('Исполнитель'), 'Iva — нет доступа');
+
+    expect(screen.getByRole('button', { name: /Не состоялась/ })).toHaveAccessibleName(/Iva/);
+  });
+
+  test('an overdue repair says «Просрочен» on the chip itself, not only in its tooltip', () => {
+    tasksState.data = [
+      calendarTask(1, '2026-09-25', {
+        type: 'maintenance',
+        problem_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        problem: { title: 'Leak', priority: 'normal' },
+        property: { name: 'Anglicka 7', timezone: 'Europe/Prague' },
+      }),
+    ];
+    render(<CalendarView />);
+
+    expect(
+      within(screen.getByRole('link', { name: /Leak/ })).getByText(/Просрочен/),
+    ).toBeInTheDocument();
+  });
+
+  test('while the whole task is read, its card says so', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const original = wholeTask.getMockImplementation();
+    wholeTask.mockImplementation(() => ({
+      data: undefined,
+      isPending: true,
+      isError: false,
+      error: null,
+    }));
+    expiredState.data = [lapsed()];
+    try {
+      render(<CalendarView />);
+      await user.click(screen.getByRole('button', { name: /Не состоялась/ }));
+
+      expect(screen.getByRole('dialog')).toHaveTextContent('Загружаем задания…');
+    } finally {
+      if (original) {
+        wholeTask.mockImplementation(original);
+      }
+    }
+  });
+
+  test('while the repairs load, the calendar says so', () => {
+    repairsState.data = undefined;
+    repairsState.isPending = true;
+    try {
+      render(<CalendarView />);
+
+      expect(screen.getByText('Загружаем задания…')).toBeInTheDocument();
+    } finally {
+      repairsState.isPending = false;
+    }
   });
 });

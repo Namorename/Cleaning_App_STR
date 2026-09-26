@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { taskKeys } from '@/features/tasks/keys';
 import { useSupabase } from '@/lib/supabase/use-client';
 
 import {
@@ -57,10 +58,18 @@ export function useStaff() {
   return useQuery({ queryKey: problemKeys.staff(), queryFn: () => fetchStaff(client) });
 }
 
-/** After any write the lists and the card are stale together. */
+/**
+ * After any write the lists and the card are stale together — and the tasks:
+ * a problem's repair is a task, and the calendar and the Tasks screen read it
+ * (docs/f10-plan.md, §6). Both settle before the mutation does.
+ */
 function useInvalidateProblems() {
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: problemKeys.all });
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: problemKeys.all }),
+      queryClient.invalidateQueries({ queryKey: taskKeys.all }),
+    ]);
 }
 
 export function useAssignProblem() {

@@ -9,6 +9,7 @@ import {
   fetchProperties,
   fetchReservationGuest,
   fetchStaff,
+  fetchTask,
   fetchTaskProblems,
   fetchTaskWork,
   fetchTasks,
@@ -61,6 +62,16 @@ export function useReservationGuest(reservationId: number) {
   return useQuery({
     queryKey: taskKeys.reservation(reservationId),
     queryFn: () => fetchReservationGuest(client, reservationId),
+  });
+}
+
+/** One task whole, for the drawer a closed chip of the calendar opens. */
+export function useTask(taskId: string | null) {
+  const client = useSupabase();
+  return useQuery({
+    queryKey: taskKeys.one(taskId ?? ''),
+    queryFn: () => fetchTask(client, taskId as string),
+    enabled: taskId !== null,
   });
 }
 

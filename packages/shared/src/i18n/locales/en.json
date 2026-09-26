@@ -783,7 +783,15 @@
       "stand": {
         "title": "Stand: writing is off",
         "newTask": "New task: {{place}}, {{day}}"
-      }
+      },
+      "expiredMark": "Did not happen",
+      "overdue": "Overdue",
+      "overdueSince": "since {{day}}, technician: {{who}}",
+      "showCancelled": "Show cancelled",
+      "expiredError": "Could not load the tasks that did not happen.",
+      "cancelledError": "Could not load the cancelled tasks.",
+      "repairsError": "Could not load the repairs.",
+      "taskMissing": "The task could not be opened."
     }
   },
   "tabs": {

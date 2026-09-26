@@ -1,4 +1,4 @@
-import type { CalendarTask, Staff, TaskStatus } from '@/features/tasks/schema';
+import type { CalendarTask, ExpiredTask, Staff, TaskStatus } from '@/features/tasks/schema';
 import type { PropertyNode, TreeRow } from '@/lib/property-tree';
 
 import { barKind } from './bars';
@@ -34,12 +34,18 @@ export function chipTone(status: TaskStatus): ChipTone | null {
   return tones.find((tone) => TONE_STATUSES[tone].includes(status)) ?? null;
 }
 
+/**
+ * «Статус» acts on the live and the done only; the cancelled answer to their
+ * switch and what never happened to its default (§2). The assignee filter
+ * acts on all of them.
+ */
 export function matchesChipFilters(
   task: Pick<CalendarTask, 'status' | 'assignee_id'>,
   status: StatusFilter,
   assignee: AssigneeFilter,
 ): boolean {
-  const isStatusKept = status === 'all' || chipTone(task.status) === status;
+  const tone = chipTone(task.status);
+  const isStatusKept = status === 'all' || tone === null || tone === status;
   const isAssigneeKept =
     assignee === ANY_ASSIGNEE ||
     (assignee === NO_ASSIGNEE ? task.assignee_id === null : task.assignee_id === assignee);
@@ -162,15 +168,85 @@ const collator = new Intl.Collator(undefined, { sensitivity: 'base' });
 export function offListAssignees(
   tasks: readonly CalendarTask[],
   staff: readonly Staff[],
-): { id: string; name: string }[] {
+): { id: string; name: string | null }[] {
   const active = new Set(staff.map((person) => person.id));
-  const found = new Map<string, string>();
+  const found = new Map<string, string | null>();
   for (const task of tasks) {
     if (task.assignee_id !== null && !active.has(task.assignee_id)) {
-      found.set(task.assignee_id, task.assignee?.full_name ?? task.assignee_id);
+      // An id is not a name: a nameless person reads «Без имени», not a UUID.
+      found.set(task.assignee_id, task.assignee?.full_name ?? found.get(task.assignee_id) ?? null);
     }
   }
   return [...found]
     .map(([id, name]) => ({ id, name }))
-    .sort((a, b) => collator.compare(a.name, b.name));
+    .sort((a, b) => collator.compare(a.name ?? '', b.name ?? ''));
+}
+
+/**
+ * One mark per cleaning that never happened (§2): the same key as the
+ * generator's guard (20260918171000) — the booking, the listing, the day.
+ * The copies are a trace of the old bug, not information, so no «×11». A
+ * task written by hand has no key and is never folded: two on one day are
+ * two tasks. The first row by id stands for its key.
+ */
+export function collapseExpired(rows: readonly ExpiredTask[]): ExpiredTask[] {
+  const seen = new Set<string>();
+  // A copy that names a person stands for its key before one that names
+  // nobody: the person who held the cleaning is what the mark should say.
+  const byStanding = (a: ExpiredTask, b: ExpiredTask) =>
+    Number(a.assignee_id === null) - Number(b.assignee_id === null) || a.id.localeCompare(b.id);
+  return [...rows]
+    .sort(byStanding)
+    .filter((row) => {
+      if (row.type !== 'cleaning' || row.reservation_id === null) {
+        return true;
+      }
+      const key = `${row.reservation_id}:${row.property_id}:${row.scheduled_date}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date) || a.id.localeCompare(b.id));
+}
+
+/**
+ * A mark as a chip. The row is narrow (§1); the chip needs a place's name
+ * when a closed group folds it, and the person's name for its words — both
+ * from what the calendar already holds. The drawer reads the task whole.
+ */
+export function expiredAsTask(
+  row: ExpiredTask,
+  placeName: (propertyId: number) => string | undefined,
+  personName: (personId: string) => string | undefined,
+): CalendarTask {
+  const name = placeName(row.property_id);
+  const person =
+    row.assignee_id === null
+      ? undefined
+      : (row.assignee?.full_name ?? personName(row.assignee_id) ?? undefined);
+  return {
+    ...row,
+    problem_id: null,
+    status: 'expired',
+    priority: 0,
+    created_by: null,
+    time_from: null,
+    time_to: null,
+    started_at: null,
+    completed_at: null,
+    measured_minutes: null,
+    duration_override_min: null,
+    is_parallel: false,
+    is_short_measurement: null,
+    notes: null,
+    title: null,
+    title_i18n: null,
+    created_at: row.scheduled_date,
+    property:
+      name === undefined ? null : { name, hostaway_unit_id: null, timezone: null, parent: null },
+    assignee: person === undefined ? null : { full_name: person, role: null },
+    problem: null,
+  };
 }

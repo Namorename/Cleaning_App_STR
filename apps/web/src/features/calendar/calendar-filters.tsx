@@ -25,8 +25,11 @@ interface CalendarFiltersProps {
   onAssignee: (next: AssigneeFilter) => void;
   /** The working staff, alphabetical. */
   staff: readonly Staff[];
-  /** People on the chips who are no longer working, marked apart. */
-  offList: readonly { id: string; name: string }[];
+  /** People on the chips who are no longer working, marked apart; a name may be unknown. */
+  offList: readonly { id: string; name: string | null }[];
+  /** The cancelled are hidden until this is on (§2); «Статус» does not reach them. */
+  showCancelled: boolean;
+  onShowCancelled: (next: boolean) => void;
   onNewTask: () => void;
 }
 
@@ -42,6 +45,8 @@ export function CalendarFilters({
   onAssignee,
   staff,
   offList,
+  showCancelled,
+  onShowCancelled,
   onNewTask,
 }: CalendarFiltersProps) {
   const { t } = useTranslation();
@@ -81,10 +86,21 @@ export function CalendarFilters({
         ))}
         {offList.map((person) => (
           <option key={person.id} value={person.id}>
-            {t('panel.tasks.form.assigneeInactive', { name: person.name })}
+            {t('panel.tasks.form.assigneeInactive', {
+              name: person.name ?? t('panel.apartments.bookings.noName'),
+            })}
           </option>
         ))}
       </select>
+
+      <label className="flex items-center gap-1 text-sm">
+        <input
+          type="checkbox"
+          checked={showCancelled}
+          onChange={(event) => onShowCancelled(event.target.checked)}
+        />
+        {t('panel.calendar.showCancelled')}
+      </label>
 
       <Button type="button" size="sm" className="ml-auto" onClick={onNewTask}>
         {t('panel.tasks.actions.new')}

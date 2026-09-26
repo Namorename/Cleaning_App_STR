@@ -7,7 +7,9 @@ import { useTranslation } from 'react-i18next';
 import { propertyPath, type Language } from '@str-ops/shared';
 
 import { Badge } from '@/components/ui/badge';
+import { mergeRepairAlerts, type RepairAlert } from '@/features/tasks/repairs';
 import type { CalendarTask, Property } from '@/features/tasks/schema';
+import { formatShortDay } from '@/lib/format-date';
 import type { VisibleRow } from '@/lib/property-tree';
 
 import type { RowLayout } from './bars';
@@ -50,6 +52,46 @@ interface CalendarGridProps {
   onOpenTask: (task: CalendarTask, label: string) => void;
   onMoreTasks: (rowId: number, place: string, day: string, tasks: readonly CalendarTask[]) => void;
   onEmptyDay: (propertyId: number, place: string, day: string) => void;
+  /** Overdue live repairs by property id: a badge in the row's first column (§6). */
+  repairAlerts: ReadonlyMap<number, RepairAlert>;
+}
+
+function subtreeIds(node: VisibleRow<Property>['node']): number[] {
+  return [node.row.id, ...node.children.flatMap((child) => subtreeIds(child))];
+}
+
+interface RepairBadgeProps {
+  alert: RepairAlert;
+  language: Language;
+}
+
+/**
+ * A repair left behind (§6): seen whatever the window, even with its day
+ * weeks behind it. Red when a technician on it no longer works here — and
+ * says so in words, not only in colour.
+ */
+function RepairBadge({ alert, language }: RepairBadgeProps) {
+  const { t } = useTranslation();
+  const who =
+    alert.technicians
+      .map((person) => {
+        const name = person.name ?? t('panel.apartments.bookings.noName');
+        return person.isOff ? t('panel.tasks.form.assigneeInactive', { name }) : name;
+      })
+      .join(', ') || t('panel.calendar.nobody');
+  return (
+    <Badge
+      variant={alert.isTechnicianOff ? 'destructive' : 'outline'}
+      data-off={alert.isTechnicianOff ? 'true' : undefined}
+      title={t('panel.calendar.overdueSince', {
+        day: formatShortDay(alert.since, language),
+        who,
+      })}
+      className="shrink-0"
+    >
+      {t('panel.calendar.overdue')}
+    </Badge>
+  );
 }
 
 /**
@@ -76,6 +118,7 @@ export function CalendarGrid({
   onOpenTask,
   onMoreTasks,
   onEmptyDay,
+  repairAlerts,
 }: CalendarGridProps) {
   const { t } = useTranslation();
   const scroller = useRef<HTMLDivElement>(null);
@@ -146,6 +189,13 @@ export function CalendarGrid({
           const house = property.parent_id === null ? undefined : byId.get(property.parent_id);
           const place =
             house === undefined ? property.name : propertyPath(house.name, property.name);
+          // A closed group carries its rooms' and parts' badges.
+          const alert = mergeRepairAlerts(
+            (isGroup && isClosed ? subtreeIds(node) : [property.id]).flatMap((id) => {
+              const found = repairAlerts.get(id);
+              return found === undefined ? [] : [found];
+            }),
+          );
 
           return (
             <div
@@ -193,6 +243,7 @@ export function CalendarGrid({
                     {t('panel.apartments.tabs.maintenance')}
                   </Badge>
                 ) : null}
+                {alert === undefined ? null : <RepairBadge alert={alert} language={language} />}
               </div>
               <RowTrack
                 rowId={property.id}

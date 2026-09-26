@@ -9,4 +9,8 @@ export const taskKeys = {
   properties: () => ['tasks', 'properties'] as const,
   /** One class of the calendar's tasks in one month, `YYYY-MM`. */
   calendar: (taskClass: string, month: string) => ['tasks', 'calendar', taskClass, month] as const,
+  /** One task whole, for the drawer a closed chip opens. */
+  one: (taskId: string) => ['tasks', 'one', taskId] as const,
+  /** The live repairs whatever their day: the calendar's badge, stage 8's counters. */
+  liveRepairs: () => ['tasks', 'liveRepairs'] as const,
 };

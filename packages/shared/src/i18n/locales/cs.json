@@ -793,7 +793,15 @@
       "stand": {
         "title": "Stand: zápis je vypnutý",
         "newTask": "Nový úkol: {{place}}, {{day}}"
-      }
+      },
+      "expiredMark": "Neproběhlo",
+      "overdue": "Po termínu",
+      "overdueSince": "od {{day}}, technik: {{who}}",
+      "showCancelled": "Zobrazit zrušené",
+      "expiredError": "Neproběhlé úkoly se nepodařilo načíst.",
+      "cancelledError": "Zrušené úkoly se nepodařilo načíst.",
+      "repairsError": "Opravy se nepodařilo načíst.",
+      "taskMissing": "Úkol se nepodařilo otevřít."
     }
   },
   "tabs": {

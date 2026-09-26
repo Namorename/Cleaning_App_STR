@@ -88,13 +88,44 @@ export const taskListSchema = z.array(taskSchema);
  * priority for the chip (docs/f10-plan.md, §6).
  */
 export const calendarTaskSchema = taskSchema.extend({
-  problem: z
-    .object({ title: z.string(), priority: z.string() })
-    .nullable()
-    .default(null),
+  problem: z.object({ title: z.string(), priority: z.string() }).nullable().default(null),
 });
 export type CalendarTask = z.infer<typeof calendarTaskSchema>;
 export const calendarTaskListSchema = z.array(calendarTaskSchema);
+
+/**
+ * A task that never happened, as narrow as the calendar's mark needs it
+ * (docs/f10-plan.md, §1): thousands of duplicate rows a month until the
+ * pre-launch reset. The drawer reads the task whole when it is pressed.
+ */
+export const expiredTaskSchema = z.object({
+  id: z.uuid(),
+  property_id: z.number(),
+  reservation_id: z.number().nullable(),
+  scheduled_date: z.string(),
+  type: z.enum(TASK_TYPES),
+  assignee_id: z.uuid().nullable(),
+  assignee: z.object({ full_name: z.string().nullable() }).nullable().default(null),
+});
+export type ExpiredTask = z.infer<typeof expiredTaskSchema>;
+export const expiredTaskListSchema = z.array(expiredTaskSchema);
+
+/**
+ * A live repair, whatever its day (§6): the technician with the switch that
+ * says whether they still work here, and the listing with its status and zone.
+ */
+export const liveRepairSchema = z.object({
+  id: z.uuid(),
+  property_id: z.number(),
+  problem_id: z.uuid(),
+  status: z.enum(TASK_STATUSES),
+  scheduled_date: z.string(),
+  assignee_id: z.uuid().nullable(),
+  assignee: z.object({ full_name: z.string().nullable(), is_active: z.boolean() }).nullable(),
+  property: z.object({ name: z.string(), status: z.string(), timezone: z.string().nullable() }),
+});
+export type LiveRepair = z.infer<typeof liveRepairSchema>;
+export const liveRepairListSchema = z.array(liveRepairSchema);
 
 /** Somebody a task can be handed to. */
 export const staffSchema = z.object({

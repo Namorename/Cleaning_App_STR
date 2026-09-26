@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import { fetchRegistry } from '@/features/apartments/api';
-import { fetchProperties as fetchTaskProperties } from '@/features/tasks/api';
+import { fetchLiveRepairs, fetchProperties as fetchTaskProperties } from '@/features/tasks/api';
 import { fetchProperties as fetchTeamProperties } from '@/features/team/api';
 
 /**
@@ -162,5 +162,21 @@ describe('a room is offered only where a task can stand on one', () => {
     expect(query?.filters).not.toContain(ROOMS_ARE_OUT);
     expect(query?.filters.join(' ')).toContain('parent_id');
     expect(query?.filters.join(' ')).toContain('hostaway_unit_id');
+  });
+});
+
+// The live repairs read tasks, not listings, and keep only those whose
+// listing is not archived: a repair there lives on the problem board alone,
+// its row is not in the calendar (docs/f10-plan.md, §6).
+describe('the live repairs leave the archive out through their listing', () => {
+  test('the listing is joined inner, and an archived one is filtered away', async () => {
+    const { client, calls } = recordingClient();
+
+    await fetchLiveRepairs(client);
+
+    const query = calls.find((call) => call.table === 'tasks');
+    expect(query, 'the reader never asked for tasks').toBeDefined();
+    expect(query?.filters).toContain('neq:property.status=archived');
+    expect(query?.filters.join(' ')).toContain('property:properties!inner(');
   });
 });
