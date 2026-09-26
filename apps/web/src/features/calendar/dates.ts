@@ -74,9 +74,9 @@ export function neighbourMonths(months: readonly string[]): string[] {
 }
 
 /**
- * The width of a day column, by depth. A week reads a chip in full (about
- * 130 px, §4); a month shows a dot per chip in about 30 px, and scrolls
- * sideways only when thirty of those do not fit.
+ * The least width of a day column, by depth. A week reads a chip in full
+ * (about 130 px, §4); a month shows a dot per chip in about 30 px, and
+ * scrolls sideways only when thirty of those do not fit.
  */
 export const DAY_WIDTH: Readonly<Record<Depth, number>> = {
   1: 320,
@@ -85,6 +85,17 @@ export const DAY_WIDTH: Readonly<Record<Depth, number>> = {
   15: 64,
   30: 32,
 };
+
+/**
+ * The width of a day column: the days share the area the grid has for them
+ * (`spare`, its width less the column of listings), and never go below the
+ * least width of their depth — below that the grid scrolls sideways. The
+ * owner's request of 2026-09-27: at 15 days a third of the screen stood empty.
+ * Until the area is measured, the least width.
+ */
+export function dayWidthFor(depth: Depth, spare: number): number {
+  return Math.max(DAY_WIDTH[depth], Math.floor(spare / depth));
+}
 
 const utcFormat = (locale: string, options: Intl.DateTimeFormatOptions) =>
   new Intl.DateTimeFormat(locale, { ...options, timeZone: 'UTC' });

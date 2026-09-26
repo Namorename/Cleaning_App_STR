@@ -281,6 +281,35 @@ describe('the calendar', () => {
     expect(days()).toHaveLength(30);
   });
 
+  // The owner's request of 2026-09-27: at 15 days a third of the screen stood
+  // empty. The days fill the area; narrower than the least width, it scrolls.
+  test('the days stretch to fill the width of the area', async () => {
+    const width = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1280);
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(private readonly onResize: ResizeObserverCallback) {}
+        observe(target: Element) {
+          this.onResize([{ target } as ResizeObserverEntry], this as unknown as ResizeObserver);
+        }
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    try {
+      window.localStorage.setItem('str-ops.calendar.depth', '15');
+      render(<CalendarView />);
+
+      // (1280 − the 240 px of listings) / 15 days, rounded down.
+      await waitFor(() =>
+        expect(screen.getAllByRole('columnheader')[1]).toHaveStyle({ width: '69px' }),
+      );
+    } finally {
+      width.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   test('the arrows step by the depth, and “Today” comes back', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     render(<CalendarView />);

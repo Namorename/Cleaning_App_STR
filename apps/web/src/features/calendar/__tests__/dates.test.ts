@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 
 import {
   addDays,
+  dayWidthFor,
   defaultStart,
   isDepth,
   monthBounds,
@@ -59,5 +60,25 @@ describe('isDepth', () => {
     expect(isDepth(30)).toBe(true);
     expect(isDepth(10)).toBe(false);
     expect(isDepth('7')).toBe(false);
+  });
+});
+
+// The owner's request of 2026-09-27: the days fill the area; the width by
+// depth is the least a column gets, and below it the grid scrolls sideways.
+describe('the width of a day', () => {
+  test('stretches so the days fill the area', () => {
+    expect(dayWidthFor(15, 1040)).toBe(69);
+    expect(dayWidthFor(7, 1040)).toBe(148);
+    expect(dayWidthFor(30, 1040)).toBe(34);
+  });
+
+  test('never falls below the least a column of that depth needs', () => {
+    expect(dayWidthFor(15, 700)).toBe(64);
+    expect(dayWidthFor(7, 500)).toBe(130);
+  });
+
+  test('is the least width while the area is not measured yet', () => {
+    expect(dayWidthFor(30, 0)).toBe(32);
+    expect(dayWidthFor(30, -240)).toBe(32);
   });
 });

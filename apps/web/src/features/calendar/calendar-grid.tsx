@@ -1,7 +1,7 @@
 'use client';
 
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { propertyPath, type Language } from '@str-ops/shared';
@@ -14,7 +14,7 @@ import type { VisibleRow } from '@/lib/property-tree';
 
 import type { RowLayout } from './bars';
 import { cellTasks, type ChipView } from './chips';
-import { DAY_WIDTH, dayLabel, fullDayLabel, type Depth } from './dates';
+import { dayLabel, dayWidthFor, fullDayLabel, type Depth } from './dates';
 import { RowTrack } from './row-track';
 import type { CalendarBooking } from './schema';
 
@@ -58,6 +58,27 @@ interface CalendarGridProps {
   repairAlerts: ReadonlyMap<number, RepairAlert>;
   /** Rows drawn beyond the window; the stand measures «all» too (7.6). */
   overscan: number;
+}
+
+/**
+ * The width inside an element's borders and scrollbar, followed as it
+ * resizes: the window, the sidebar, a scrollbar coming or going. Zero until
+ * measured, and where nothing measures (the server, a test without layout).
+ */
+function useClientWidth(ref: RefObject<HTMLElement | null>): number {
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (element === null || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    const observer = new ResizeObserver(() => setWidth(element.clientWidth));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref]);
+
+  return width;
 }
 
 function subtreeIds(node: VisibleRow<Property>['node']): number[] {
@@ -130,7 +151,8 @@ export function CalendarGrid({
   const scroller = useRef<HTMLDivElement>(null);
   // Pointing at one bar of a stay of several rooms lights all of them (§3).
   const [highlighted, setHighlighted] = useState<number | null>(null);
-  const dayWidth = DAY_WIDTH[depth];
+  // The days fill the area, never narrower than their depth allows (dates.ts).
+  const dayWidth = dayWidthFor(depth, useClientWidth(scroller) - FIRST_COLUMN);
   const width = FIRST_COLUMN + days.length * dayWidth;
 
   // The compiler cannot memoize a component that holds a virtualizer, and
