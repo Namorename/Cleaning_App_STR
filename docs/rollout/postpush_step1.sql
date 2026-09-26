@@ -21,7 +21,7 @@
 --                        add_problem_media            6d9e61bf  4577 t v {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
 --                        add_task_media               88c707f6  5685 t v {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
 --                        generate_cleaning_tasks      7730946a 13726 t v {postgres=X/postgres,service_role=X/postgres}
---                        is_service_booking           7e24094f    58 f i {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+--                        is_service_booking           e0aedd90    63 f i {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
 --                        reservation_cleaning_window  3420c63a  1389 t s {postgres=X/postgres,service_role=X/postgres}
 --                      The ACL of the five replaced ones is what the cloud already had (create or
 --                      replace keeps it); a difference there is worth a look but is not this
