@@ -15,7 +15,6 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:diff": "supabase db diff -f",
-    "db:push": "supabase db push",
     "db:types": "node scripts/gen-types.mjs",
     "fn:serve": "supabase functions serve",
     "fn:deploy": "supabase functions deploy",

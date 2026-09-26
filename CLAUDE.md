@@ -85,7 +85,7 @@
   без них не обойтись, и в отчёт не выводятся.
 - **Локальный и облачный Supabase ведут себя по-разному.** Хостинг выдаёт
   новым таблицам полный набор привилегий через default privileges, локальный
-  стек — меньший. Проверять права нужно и на облаке после каждого `db:push`,
+  стек — меньший. Проверять права нужно и на облаке после каждого `db push`,
   а не только тестом: `pg_class.relacl` через `aclexplode` для `anon`,
   `authenticated` и `PUBLIC` (как в `docs/rollout/postpush_window3.sql`).
   `information_schema.role_table_grants` годится только под `postgres`: роли
@@ -141,7 +141,7 @@
 ## Правила ECC
 
 Установлены выборочно: `common` (язык-агностик), `typescript` (Edge
-Functions на Deno, будущая веб-панель на Next.js) и `react-native`
+Functions на Deno, веб-панель на Next.js) и `react-native`
 (приложение горничной на Expo, подключён в F5).
 
 @.claude/rules/ecc/common/coding-style.md
