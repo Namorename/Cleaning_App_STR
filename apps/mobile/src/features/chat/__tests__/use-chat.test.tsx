@@ -55,7 +55,20 @@ beforeEach(() => {
 });
 
 test('marks the subjects the server names and no other', async () => {
-  fetchUnread.mockResolvedValue([
+  // The answer is held until the first look: an async render flushes the
+  // microtasks, and an answer resolved up front could arrive before it.
+  let answer: (rows: Awaited<ReturnType<typeof fetchUnreadThreads>>) => void = () => {};
+  fetchUnread.mockReturnValue(
+    new Promise((resolve) => {
+      answer = resolve;
+    }),
+  );
+
+  const { result } = await renderHook(() => useUnreadSubjects([TASK, OTHER], []), { wrapper });
+
+  // Empty until the answer: a mark that is not there yet beats a wrong one.
+  expect(result.current.tasks.size).toBe(0);
+  answer([
     {
       thread_id: '44444444-4444-4444-8444-444444444444',
       kind: 'task',
@@ -64,11 +77,6 @@ test('marks the subjects the server names and no other', async () => {
       last_message_at: '2026-09-18T10:07:00+00:00',
     },
   ]);
-
-  const { result } = await renderHook(() => useUnreadSubjects([TASK, OTHER], []), { wrapper });
-
-  // Empty until the answer: a mark that is not there yet beats a wrong one.
-  expect(result.current.tasks.size).toBe(0);
   await waitFor(() => expect(result.current.tasks.has(TASK)).toBe(true));
   expect(result.current.tasks.has(OTHER)).toBe(false);
   expect(fetchUnread).toHaveBeenCalledWith({ taskIds: [TASK, OTHER], problemIds: [] });

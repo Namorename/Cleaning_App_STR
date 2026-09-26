@@ -494,9 +494,24 @@ export function needsAssignee(type: TaskType): boolean {
   return TYPES_NEEDING_ASSIGNEE.includes(type);
 }
 
-/** A kind that needs somebody, with nobody named — the gap the form points at. */
-export function isAssigneeMissing(draft: Pick<TaskDraft, 'type' | 'assigneeId'>): boolean {
-  return needsAssignee(draft.type) && draft.assigneeId === null;
+/**
+ * A kind that needs somebody, with nobody named who can do it — the gap the
+ * form points at. `activeStaff` is the list the form offers: an executor
+ * missing from it has been switched off and will never see the job. While the
+ * list is on its way it is undefined, and only an empty choice counts, so
+ * nobody is flagged for a list that has not arrived.
+ */
+export function isAssigneeMissing(
+  draft: Pick<TaskDraft, 'type' | 'assigneeId'>,
+  activeStaff?: readonly string[],
+): boolean {
+  if (!needsAssignee(draft.type)) {
+    return false;
+  }
+  if (draft.assigneeId === null) {
+    return true;
+  }
+  return activeStaff !== undefined && !activeStaff.includes(draft.assigneeId);
 }
 
 /**
@@ -504,8 +519,10 @@ export function isAssigneeMissing(draft: Pick<TaskDraft, 'type' | 'assigneeId'>)
  * server checks the rest and says so in the reader's language. The title is
  * not among them: a task without one is called by its kind.
  */
-export function isDraftReady(draft: TaskDraft): boolean {
+export function isDraftReady(draft: TaskDraft, activeStaff?: readonly string[]): boolean {
   return (
-    draft.propertyId !== null && draft.scheduledDate.trim() !== '' && !isAssigneeMissing(draft)
+    draft.propertyId !== null &&
+    draft.scheduledDate.trim() !== '' &&
+    !isAssigneeMissing(draft, activeStaff)
   );
 }

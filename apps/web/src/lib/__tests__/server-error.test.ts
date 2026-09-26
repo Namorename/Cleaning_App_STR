@@ -40,7 +40,7 @@ describe('a refusal that counts', () => {
       ),
     );
 
-    expect(failure).toEqual({ text: 'Этот шаг принимает не больше 1 файла', detail: null });
+    expect(failure).toEqual({ text: 'Сюда можно приложить не больше 1 файла', detail: null });
   });
 });
 

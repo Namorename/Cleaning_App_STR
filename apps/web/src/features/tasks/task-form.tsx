@@ -88,10 +88,25 @@ export function TaskForm({ task, onClose }: TaskFormProps) {
   // Sorted and composed once per list, not once per keystroke in the notes.
   const places = useMemo(() => propertyOptions(properties.data ?? []), [properties.data]);
 
+  // Active colleagues only; undefined until the list arrives.
+  const activeStaff = useMemo(() => staff.data?.map((person) => person.id), [staff.data]);
+
   const isGenerated = task !== null && !isManualTask(task);
-  const isReady = isDraftReady(draft);
+  const isReady = isDraftReady(draft, activeStaff);
   const isAssigneeRequired = needsAssignee(draft.type);
-  const hasAssigneeGap = isAssigneeMissing(draft);
+  const hasAssigneeGap = isAssigneeMissing(draft, activeStaff);
+  // An executor the list does not offer — switched off since, or the list is
+  // still on its way — gets an option of their own. Without it the select
+  // matches nothing, and a browser shows the first option it may pick: on an
+  // inspection, where "nobody" is disabled, a colleague who was never asked.
+  const offListAssignee =
+    draft.assigneeId !== null && !(activeStaff ?? []).includes(draft.assigneeId)
+      ? draft.assigneeId
+      : null;
+  const offListName =
+    (offListAssignee !== null && offListAssignee === task?.assignee_id
+      ? task.assignee?.full_name
+      : null) ?? offListAssignee;
   const failure = save.isError ? serverErrorText(save.error) : null;
   const isDuplicate = save.isError && hintOf(save.error) === DUPLICATE_HINT;
 
@@ -243,6 +258,13 @@ export function TaskForm({ task, onClose }: TaskFormProps) {
               <option value="" disabled={isAssigneeRequired}>
                 {t('panel.tasks.form.assigneeNobody')}
               </option>
+              {offListAssignee !== null ? (
+                <option value={offListAssignee} disabled={staff.data !== undefined}>
+                  {staff.data === undefined
+                    ? offListName
+                    : t('panel.tasks.form.assigneeInactive', { name: offListName })}
+                </option>
+              ) : null}
               {(staff.data ?? []).map((person) => (
                 <option key={person.id} value={person.id}>
                   {person.full_name ?? person.id}

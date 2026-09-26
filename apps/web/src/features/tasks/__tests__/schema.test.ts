@@ -442,6 +442,25 @@ describe('isAssigneeMissing', () => {
       }),
     ).toBe(false);
   });
+
+  // The form offers active colleagues only; an executor switched off since is
+  // nobody who can do the job.
+  test('counts an executor missing from the active list as a gap on those kinds', () => {
+    const active = ['bbbbbbbb-bbbb-4bbb-8bbb-000000000001'];
+    const gone = 'bbbbbbbb-bbbb-4bbb-8bbb-000000000009';
+
+    expect(isAssigneeMissing({ ...draft, type: 'inspection', assigneeId: gone }, active)).toBe(
+      true,
+    );
+    expect(isAssigneeMissing({ ...draft, type: 'inspection', assigneeId: active[0] }, active)).toBe(
+      false,
+    );
+    expect(isAssigneeMissing({ ...draft, type: 'cleaning', assigneeId: gone }, active)).toBe(false);
+    // While the list is on its way nobody is flagged for it.
+    expect(isAssigneeMissing({ ...draft, type: 'inspection', assigneeId: gone }, undefined)).toBe(
+      false,
+    );
+  });
 });
 
 describe('propertyOptions', () => {

@@ -347,3 +347,55 @@ describe('an inspection or a maintenance job always has an executor', () => {
     },
   );
 });
+
+/**
+ * The executor list holds active colleagues only. A job still assigned to
+ * somebody who has since been switched off matches no option, and a browser
+ * then shows the first option it may pick — with "nobody" disabled on an
+ * inspection, that is a real colleague who was never asked.
+ */
+describe('an executor who has been switched off', () => {
+  const REQUIRED = 'Осмотру и обслуживанию нужен исполнитель: выберите, кто сделает задание.';
+  const GONE = { id: 'bbbbbbbb-bbbb-4bbb-8bbb-000000000009', full_name: 'Eva Svobodová' };
+
+  const assigneeField = () => screen.getByLabelText('Исполнитель') as HTMLSelectElement;
+  const saveButton = () => screen.getByRole('button', { name: 'Сохранить' });
+  const assignedToGone = (type: string) =>
+    task({
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000013',
+      type,
+      assignee_id: GONE.id,
+      assignee: { full_name: GONE.full_name },
+    });
+
+  test('an inspection shows them as they are and asks for somebody who can do it', () => {
+    mutate.mockClear();
+    render(<TaskForm task={assignedToGone('inspection')} onClose={() => {}} />);
+
+    expect(assigneeField().value).toBe(GONE.id);
+    expect(chosen(assigneeField())).toBe('Eva Svobodová — нет доступа');
+    expect(screen.getByText(REQUIRED)).toBeInTheDocument();
+    expect(saveButton()).toBeDisabled();
+  });
+
+  test('picking an active colleague hands the job over', async () => {
+    mutate.mockClear();
+    render(<TaskForm task={assignedToGone('maintenance')} onClose={() => {}} />);
+
+    await userEvent.selectOptions(assigneeField(), PETR.id);
+
+    expect(screen.queryByText(REQUIRED)).toBeNull();
+    await userEvent.click(saveButton());
+    expect(mutate.mock.calls[0][0].draft).toMatchObject({ assigneeId: PETR.id });
+  });
+
+  test('a cleaning shows them too, and may still be saved as it is', async () => {
+    mutate.mockClear();
+    render(<TaskForm task={assignedToGone('cleaning')} onClose={() => {}} />);
+
+    expect(chosen(assigneeField())).toBe('Eva Svobodová — нет доступа');
+    expect(screen.queryByText(REQUIRED)).toBeNull();
+    await userEvent.click(saveButton());
+    expect(mutate.mock.calls[0][0].draft).toMatchObject({ assigneeId: GONE.id });
+  });
+});

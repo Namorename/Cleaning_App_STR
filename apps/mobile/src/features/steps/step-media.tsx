@@ -160,7 +160,7 @@ function MediaTile({ item, index, disabled, onRemove, onRetry, styles }: MediaTi
             <Text style={styles.placeholderText}>
               {item.kind === 'video'
                 ? t('steps.videoLength', { seconds: item.durationSec ?? 0 })
-                : t('steps.types.photos_before')}
+                : t('steps.photoPlaceholder')}
             </Text>
           </View>
         )}
