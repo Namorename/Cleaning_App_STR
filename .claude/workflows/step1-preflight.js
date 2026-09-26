@@ -13,9 +13,13 @@ Expo cleaner app apps/mobile). CLAUDE.md states the rules this repo lives by. do
 запуска», item 1 «Открытые проблемы», lists what step 1 closes and the owner's decisions; the approved
 problem list (numbers 7–27 below) comes from the review of 2026-09-25.
 
-WHAT IS UNDER REVIEW: the UNCOMMITTED working tree on main (HEAD 8b1338e). "git diff" plus the untracked
-files ("git status --short") are the whole of step 1. Do NOT modify any repository file, do NOT run git
-commands that change state, do NOT touch the cloud except the read-only reads allowed below.
+WHAT IS UNDER REVIEW: branch step1-fixes, five commits over main 8b1338e (6bcf8ef db, 0eba75f apps,
+e4041e2 docs, 38ccf27 db check and probe, 1ebe24b plural forms): "git diff main...step1-fixes" and "git
+log main..step1-fixes" are the whole of step 1. The working tree is checked out on step1-fixes; its one
+uncommitted change, supabase/config.toml (studio, realtime, local_smtp, analytics and edge_runtime turned
+off to save memory), is NOT part of step 1 and is reverted after this run. Do NOT modify any repository
+file, do NOT run git commands that change state, do NOT touch the cloud except the read-only reads
+allowed below.
 
 WHAT IS LIVE: cloud head 20260924180000 (every migration up to it). The production panel (Vercel, deploys
 every push to main) runs main 8b1338e. The phones run build 1.0.0 (APK of 17.09) with OTA 0e335479;
@@ -66,8 +70,45 @@ THE APP CHANGES (no schema; the panel goes to main = production, the phone goes 
     build is a test build for the owner's phone only, maids get one APK after the redesign); stale
     places in ROADMAP, README, f10-plan, chat-plan, launch-reset, CLAUDE.md; eas.json development profile
     removed.
+  * plural forms (1ebe24b, owner's request of 2026-09-26): phrases a number is read into from live data
+    or from a limit the manager sets agree with it — i18next keys _one/_few/_many/_other (English
+    _one/_other) for serverErrors.propertyHasOpenTasks, photosMissing, photosTooMany, mediaLimitReached,
+    messagePhotoLimit, videoTooLong and steps.photosHint; the panel's listing size is two counted phrases
+    (panel.apartments.info.bedrooms, guestsUpTo) in the frame sizeValue, apps/web/src/features/apartments/
+    size-text.ts. The server names its number "total"/"limit"/"min"; SERVER_ERROR_COUNT_PARAMETER and
+    serverErrorOptions (packages/shared/src/i18n/index.ts) hand it to i18next as count in both apps'
+    serverErrorText, and serverErrorKey looks a counted key up with its count. The phone imports the
+    pure-JS polyfill intl-pluralrules first thing in apps/mobile/src/i18n/index.ts, because Hermes may
+    ship without Intl.PluralRules and i18next then knows only one/other. The key-parity test compares
+    phrases and demands exactly Intl.PluralRules' categories per language. Label-style keys ("Items:
+    {{count}}") and the fixed text-length limits (32–4000) stay plain on purpose. Four Czech texts are the
+    OWNER'S OWN wording and are not findings: tasks.emptyMine, tasks.claimTaken,
+    panel.tasks.form.assigneeRequired, tasks.work.window.
 
-TOOLS: the local Supabase stack is UP with the full schema of the working tree and EMPTY data:
+ROLLOUT ORDER — the owner's decision of 2026-09-26: the database FIRST. Preflight → the owner's "пушим" →
+db push (guarded) → postpush_step1.sql → merge step1-fixes into main and push (= the production panel) →
+"npx supabase migration list --linked" → eas update from main. The main agent's reasoning, to be checked
+and not taken on trust: in the cloud PUBLIC may execute sixteen functions of ours (is_manager, auth_role,
+is_active_user, short_cleaning_threshold and twelve trigger functions), and all sixteen already carry
+explicit EXECUTE for authenticated and service_role (hosted default privileges); anon holds no explicit
+grant on any function; neither app calls any of the four by rpc or runs anything as anon; the media
+RPCs keep their signatures; the new client code reads no new schema. So between the db push and the
+client deploy the OLD clients (panel 8b1338e, phones on OTA 0e335479) must keep working — that is the
+claim to break.
+
+ALREADY MEASURED IN THE CLOUD (2026-09-26, docs/rollout/step1_service_probe.sql): live bookings whose
+guest name the "#" rule matches — 0, so the first generator run after the push cancels 0 cleanings; 17
+bookings look like the office's own (names with repair/block/owner words, or price 0) without "#"; the
+owner renames those in Hostaway himself. The first purge-webhook-events run (03:50 UTC 26.09) succeeded
+with DELETE 0. Do not re-measure these; check the probe instead where a lens says so.
+
+ALREADY RUN BY THE MAIN AGENT, ALL GREEN: db:reset, test:rls 28/28 (1093), db:types unchanged,
+postpush_step1.sql on the local stack as supabase_read_only_user (every stop label empty), test:mobile
+461/461, typecheck:mobile, expo lint (0 errors, 3 old warnings), test:web 514/514, typecheck:web, eslint
+of the panel, build:web, test:scripts 55/55, test:fn 166/166.
+
+TOOLS: the local Supabase stack is UP — db, storage, rest, auth and kong only (see config.toml above; no
+realtime, studio or analytics container) — with the full schema of step1-fixes and EMPTY data:
   docker exec -i supabase_db_azpvpzqkseluzbtlnlkb psql -U postgres -d postgres -v ON_ERROR_STOP=1
 (pipe SQL on stdin). Seed synthetic rows yourself. To act as a user (see supabase/tests/rls_smoke.sql,
 pg_temp.as_user): set local role authenticated; set local request.jwt.claims =
@@ -79,9 +120,10 @@ authenticated. npm run test:rls is safe (every suite rolls back) but slow — pr
 CLOUD, READ-ONLY, NO QUESTION NEEDED: node scripts/cloud-read.mjs --sql "<one select>" (role
 supabase_read_only_user, read-only transaction). Catalog reads and COUNTS only; never print guest names,
 e-mails, phones or any other personal data — aggregate them away inside the query.
-MEMORY: the machine has 16 GB and a crash from too many processes happened on 2026-09-25. Do NOT run the
-full jest or vitest suites (the main agent ran them: all green); run at most one single test file at a
-time, jest with --maxWorkers=2. Never leave a background process.
+MEMORY: the machine has 16 GB and a crash from too many processes happened on 2026-09-25; at most two
+agents of this run work at once. Do NOT run the full jest or vitest suites (the main agent ran them: all
+green); run at most one single test file at a time, jest and vitest with --maxWorkers=2. Never leave a
+background process.
 
 CALIBRATION (project memory "adversarial-refuters-calibration"): skeptics have reflexively refuted real
 findings before, and lenses have padded reports with non-defects. Report only what you have SEEN — by an
@@ -193,11 +235,12 @@ f10-stage7-calendar)? A booking is a block there but not a service booking would
 By experiment: renamed live booking with a cleaning in each status (new/assigned/accepted/in_progress/
 done/expired/cancelled) — what happens on the next run, and is that the same as for is_block? A service
 booking on a room of a multi-unit listing (reservation_units). A name like "#" alone, " #", "\\u00a0#",
-"Guest #2", null, "＃" (full-width). CLOUD, counts only: how many live bookings (departure today or later,
-not cancelled) have a guest name that is_service_booking would match, and how many open cleanings the
-first run after the push would therefore cancel — the owner must know this number before "пушим".
-Also measure the generator's cost by calling it (generic plan) on a seed shaped like production, before
-and after.`,
+"Guest #2", null, "＃" (full-width). The cloud numbers are measured already (see ALREADY MEASURED); read
+docs/rollout/step1_service_probe.sql instead: does its "#" rule (chr(160) in place of the migration's
+regex escape) match exactly what is_service_booking matches — prove it on the local stack by comparing
+both on the same names — do its open-cleaning and turnover counts follow the generator's own conditions
+(statuses, window today-7..today+90, rooms), and can any label leak a guest name? Also measure the
+generator's cost by calling it (generic plan) on a seed shaped like production, before and after.`,
   },
   {
     key: 'db-tests',
@@ -226,9 +269,14 @@ two minutes)? Is lock_timeout set, and is it right against authenticated's state
 paused (docs/units-plan.md: not for a create or replace)? Quiet windows (not 03:00–03:55 or 04:25–04:40
 UTC). What if the push stops after the first or second file — is each intermediate state safe for the
 live panel and phones? Is there a rollback text, and does it restore PUBLIC defaults and grants
-correctly? Does anything in the app changes need the package in the cloud first (CLAUDE.md: client code
-that reads unshipped schema must not reach main/OTA)? Check postpush_step1.sql expectations against the
-local catalog EXCEPT md5 (recomputed later).`,
+correctly? THE ORDER (see ROLLOUT ORDER): try to break the main agent's claim that the database may go
+first — find any path of the OLD panel (git show main:apps/web/...) or the OLD phone bundle (main as of
+1518203) that the package breaks before the new clients arrive: a function that loses EXECUTE for a role
+an old client acts as, a media replay the stricter owner check now refuses, a generator answer an old
+screen misreads. And the other way: does anything in the new client code need the package in the cloud
+(CLAUDE.md: client code that reads unshipped schema must not reach main/OTA)? Check postpush_step1.sql
+expectations against the local catalog (md5 values were recomputed after the last db:reset — a mismatch
+IS a finding now).`,
   },
   {
     key: 'panel',
@@ -243,7 +291,12 @@ and that every search box of the panel now uses it (grep for toLowerCase().inclu
 toLocaleLowerCase in apps/web/src). (23) nothing still imports the deleted files; the eight removed keys
 are unused (dynamic keys included) and the phone does not use them. Run single test files only.
 House rules: no raw error.message on screen, English in code, i18n keys in three languages, READERS
-of postgrest-select.test.ts untouched or updated if a select changed.`,
+of postgrest-select.test.ts untouched or updated if a select changed. PLURALS (1ebe24b): sizeText in
+info-tab (null bedrooms/guests, the frame in three languages); serverErrorText and serverErrorKey with a
+counted key — every place in the panel that shows serverErrors.propertyHasOpenTasks or a media limit
+(archive dialog, maintenance switch, chat composer): the count reaches i18next, the key is not reported
+unknown, and a caller that reads the key some other way (serverErrorKey comparisons, t() of the bare key)
+still works now that the bare key no longer exists. Grep apps/web for every t('<counted key>' use.`,
   },
   {
     key: 'phone',
@@ -267,6 +320,14 @@ reaches every phone at once. Read the diff of apps/mobile and the shared locales
     passing?), language-gate isolation.
   * (19): set-state-during-render in problem/[id]/edit.tsx and supply/new.tsx cannot loop and does not
     overwrite what the user typed when the query refetches.
+  * PLURALS (1ebe24b): the polyfill intl-pluralrules — pure JavaScript, no native code, so safe by OTA on
+    1.0.0? Is it evaluated before anything asks i18next for a plural (import order in src/i18n/index.ts
+    and in the app entry, i18next's rule cache)? Does Hermes of this React Native (0.86, Expo SDK 57)
+    ship Intl.PluralRules at all — look for evidence in node_modules (hermes version files, release
+    notes), and say what the phone shows either way. Every phone path that shows a counted key (step
+    hints, media limits, message photo limit, video too long, the upload queue's refusals, RefusalError)
+    passes the count; nothing t()s the bare key that no longer exists. The simulated-Hermes test in
+    src/i18n/__tests__/i18n.test.ts really removes Intl.PluralRules and restores it for later tests.
 Run single test files only (jest --maxWorkers=2).`,
   },
   {
@@ -275,8 +336,14 @@ Run single test files only (jest --maxWorkers=2).`,
 diff them; for every changed or added key, is the text right in all three languages for EVERY kind of job
 it can be shown on (cleaning, midstay, inspection, maintenance), natural for a cleaner, and consistent in
 terms with the rest of the file? The Czech wording was invented by an agent — flag anything a native
-speaker would find wrong or odd, with a better phrasing. Server error keys (serverErrors.*) must not name
-"уборка" when the error can come from an inspection or a repair. (b) The documents: docs/ROADMAP.md
+speaker would find wrong or odd, with a better phrasing; the four texts named as the owner's own are not
+findings. Server error keys (serverErrors.*) must not name "уборка" when the error can come from an
+inspection or a repair. PLURAL FORMS: for every counted key, is each form grammatical for the numbers
+it is picked for (CLDR: ru one = 1, 21, 31…; few = 2–4, 22–24…; many = 0, 5–20, 25–30…; other =
+fractions; cs one = 1; few = 2–4; many = fractions; other = 0, 5+; en one = 1) — case after "не
+больше", "до", "длиннее", "alespoň", "nejvýše", "než", "až"? Is any counted phrase missing, i.e. a key
+elsewhere whose number comes from live data or a manager's setting and reads wrong for 1–4 or 21?
+(b) The documents: docs/ROADMAP.md
 «Минимум запуска» against the owner's order and decisions of 2026-09-25 (problems → calendar → F11 →
 dashboard → redesign; F11 build is a test build for the owner's phone only; maids get the APK once, after
 the redesign; passwords decision; service bookings by "#"; expo lint is fixed) — any contradiction,
@@ -291,12 +358,32 @@ phase('Lenses')
 
 const ANGLES = [
   `Try to REFUTE this finding by experiment or by reading the exact lines. Reproduce it as described in how_seen. If it does not reproduce, say so and refute. If it reproduces but no real caller can reach it (no policy, no RPC, no app path, no screen), refute it as unreachable and say why.`,
-  `Accept that the finding is real and judge SEVERITY and FIX against the approved plan: docs/ROADMAP.md «Минимум запуска» item 1 and the owner's decisions (service bookings by "#" treated as blocks; inspection/maintenance assignee enforced in the panel form only, no migration; expo lint fixed; one db push with a stop before it; the phone by OTA on 1.0.0). Refute if it argues with an approved decision, or if the severity is overstated by more than one level. If the proposed fix is wrong or opens something else, give the better one.`,
+  `Accept that the finding is real and judge SEVERITY and FIX against the approved plan: docs/ROADMAP.md «Минимум запуска» item 1 and the owner's decisions (service bookings by "#" treated as blocks; inspection/maintenance assignee enforced in the panel form only, no migration; expo lint fixed; one db push with a stop before it; the phone by OTA on 1.0.0; the database goes first, then the panel, then the OTA; plural forms through i18next; the four Czech texts of the owner). Refute if it argues with an approved decision, or if the severity is overstated by more than one level. If the proposed fix is wrong or opens something else, give the better one.`,
 ]
+
+// The owner's limit for this machine (2026-09-26): at most two agents at once. The
+// runtime would run up to six; every agent() of this run goes through this gate.
+const MAX_AGENTS = 2
+let running = 0
+const waiting = []
+
+async function limited(prompt, opts) {
+  while (running >= MAX_AGENTS) {
+    await new Promise((resolve) => waiting.push(resolve))
+  }
+  running += 1
+  try {
+    return await agent(prompt, opts)
+  } finally {
+    running -= 1
+    const next = waiting.shift()
+    if (next) next()
+  }
+}
 
 const results = await pipeline(
   LENSES,
-  (l) => agent(`${CONTEXT}\n\n${l.prompt}`, { label: `lens:${l.key}`, phase: 'Lenses', schema: FINDING_SCHEMA }),
+  (l) => limited(`${CONTEXT}\n\n${l.prompt}`, { label: `lens:${l.key}`, phase: 'Lenses', schema: FINDING_SCHEMA }),
   (report, l) => {
     if (!report || !report.findings || report.findings.length === 0) {
       return {
@@ -311,7 +398,7 @@ const results = await pipeline(
       report.findings.map((f) => () =>
         parallel(
           ANGLES.map((ask, i) => () =>
-            agent(
+            limited(
               `${CONTEXT}\n\nYou are reviewing ONE finding from the preflight of step 1.\n\nANGLE ${i + 1}: ${ask}\n\nTHE FINDING:\n${JSON.stringify(f, null, 2)}`,
               { label: `refute:${l.key}:${f.severity}:${i + 1}`, phase: 'Refute', schema: VERDICT_SCHEMA },
             ),
