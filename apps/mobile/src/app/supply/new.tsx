@@ -57,11 +57,13 @@ export default function SupplyFormRoute() {
   const catalog = useSupplyCatalog();
   const save = useSaveSupplyRequest();
 
-  useEffect(() => {
-    if (draft === null && existing.data) {
-      setDraft(draftOfRequest(existing.data));
-    }
-  }, [draft, existing.data]);
+  // A rewrite starts from the row once, then belongs to her fingers. Set
+  // while rendering rather than in an effect: React draws again at once with
+  // the draft, before anything reaches the screen, and a later refetch finds
+  // the draft taken and leaves her typing alone.
+  if (draft === null && existing.data) {
+    setDraft(draftOfRequest(existing.data));
+  }
 
   const isLeaving = save.isSuccess || save.isPaused;
   useEffect(() => {

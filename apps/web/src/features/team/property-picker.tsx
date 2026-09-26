@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Input } from '@/components/ui/input';
+import { matchesAllTokens } from '@/lib/search';
 
 import type { Property } from './schema';
 
@@ -36,11 +37,7 @@ export function PropertyPicker({ properties, selected, isPending, onChange }: Pr
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
 
-  const needle = query.trim().toLowerCase();
-  const shown =
-    needle === ''
-      ? properties
-      : properties.filter((property) => property.name.toLowerCase().includes(needle));
+  const shown = properties.filter((property) => matchesAllTokens(property.name, query));
 
   const toggle = (id: number, isOn: boolean) => {
     onChange(isOn ? [...selected, id] : selected.filter((current) => current !== id));

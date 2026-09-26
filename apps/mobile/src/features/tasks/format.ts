@@ -56,8 +56,27 @@ export function formatDeadlineTime(task: CleaningTask): string | null {
   );
 }
 
-/** Kinds whose banner names the job rather than a check-in: nobody arrives for them. */
-const KINDS_NAMED_ON_BANNER: ReadonlySet<CleaningTask['type']> = new Set(['inspection', 'midstay']);
+/**
+ * Kinds whose banner names the job rather than a check-in: nobody arrives for
+ * them. Every repair carries priority 0, which on a cleaning would read as
+ * "nobody checks in" — a claim about arrivals a repair has no business making.
+ */
+const KINDS_NAMED_ON_BANNER: ReadonlySet<CleaningTask['type']> = new Set([
+  'inspection',
+  'midstay',
+  'maintenance',
+]);
+
+/**
+ * What the job is: the title the office gave it, in her language when
+ * translated, or else its kind. The panel names these jobs the same way.
+ */
+function jobName(task: CleaningTask): string {
+  const title = task.title?.trim() ?? '';
+  return title !== ''
+    ? localizedText(title, task.title_i18n, currentLanguage())
+    : i18n.t(`tasks.kinds.${task.type}`);
+}
 
 /**
  * Why this cleaning matters, in as few words as it takes.
@@ -66,17 +85,16 @@ const KINDS_NAMED_ON_BANNER: ReadonlySet<CleaningTask['type']> = new Set(['inspe
  * the same day — and the time is the only thing the cleaner has to plan
  * around, so the line is the time and the reason and nothing else.
  *
- * An inspection or a mid-stay cleaning has no check-in to plan around — a
- * midstay's guest is in the flat — so the line says what the job is: the
- * title the office gave it, in her language when translated, or else its kind.
- * The panel names these jobs the same way.
+ * An inspection, a mid-stay cleaning or a repair has no check-in to plan
+ * around — a midstay's guest is in the flat — and neither has a job the office
+ * made by hand with no booking behind it: the generator never set its
+ * priority, so priority 0 there says nothing about who arrives. Those lines
+ * say what the job is instead. A row cached before the booking was asked for
+ * carries no `reservation_id` at all and reads as it did before.
  */
 export function urgencyText(task: CleaningTask): string {
-  if (KINDS_NAMED_ON_BANNER.has(task.type)) {
-    const title = task.title?.trim() ?? '';
-    return title !== ''
-      ? localizedText(title, task.title_i18n, currentLanguage())
-      : i18n.t(`tasks.kinds.${task.type}`);
+  if (KINDS_NAMED_ON_BANNER.has(task.type) || task.reservation_id === null) {
+    return jobName(task);
   }
   if (!isSameDayTurnover(task)) {
     return i18n.t('tasks.urgency.noCheckIn');
@@ -87,6 +105,40 @@ export function urgencyText(task: CleaningTask): string {
   return time === null
     ? i18n.t('tasks.urgency.checkInSameDay')
     : i18n.t('tasks.urgency.checkInAt', { time });
+}
+
+/** A word a screen says about the job itself, rather than about its place or time. */
+export type JobWord = 'start' | 'finish' | 'window' | 'finished' | 'colleague' | 'steps';
+
+/** A cleaning, and a mid-stay cleaning, are called what they are. */
+const CLEANING_WORDS: Readonly<Record<JobWord, string>> = {
+  start: 'tasks.start',
+  finish: 'tasks.finish',
+  window: 'tasks.detail.window',
+  finished: 'tasks.detail.finished',
+  colleague: 'tasks.detail.colleague',
+  steps: 'steps.heading',
+};
+
+/** An inspection and a repair are work: a technician is not cleaning a boiler. */
+const WORK_WORDS: Readonly<Record<JobWord, string>> = {
+  start: 'tasks.work.start',
+  finish: 'tasks.work.finish',
+  window: 'tasks.work.window',
+  finished: 'tasks.work.finished',
+  colleague: 'tasks.work.colleague',
+  steps: 'tasks.work.steps',
+};
+
+const CLEANING_KINDS: ReadonlySet<CleaningTask['type']> = new Set(['cleaning', 'midstay']);
+
+/**
+ * The key of a word about the job, for its kind. A key rather than the text,
+ * so the screen translates it through its own `t` and redraws when she
+ * changes language.
+ */
+export function jobWordKey(type: CleaningTask['type'], word: JobWord): string {
+  return (CLEANING_KINDS.has(type) ? CLEANING_WORDS : WORK_WORDS)[word];
 }
 
 /** An instant — a start or a finish stamp — as a clock time on the phone. */

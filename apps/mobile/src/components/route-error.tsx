@@ -5,6 +5,7 @@ import { ScrollView, StyleSheet, Text } from 'react-native';
 import { ListAction } from '@/components/list-action';
 import { FontSize, Spacing, type Theme } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { forgetSavedQueries } from '@/lib/query-client';
 
 /** The raw words shown under the sentence are for passing on, not for reading. */
 const DETAIL_LINES = 3;
@@ -23,6 +24,15 @@ const DETAIL_LINES = 3;
  * translations and the colour scheme.
  */
 export function RouteError({ error, retry }: ErrorBoundaryProps) {
+  return <ErrorScreen error={error} retry={retry} />;
+}
+
+interface ErrorScreenProps extends ErrorBoundaryProps {
+  /** Only the root has it: drop the saved lists, then draw again. */
+  onResetSaved?: () => void;
+}
+
+function ErrorScreen({ error, retry, onResetSaved }: ErrorScreenProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const detail = describe(error);
@@ -42,6 +52,12 @@ export function RouteError({ error, retry }: ErrorBoundaryProps) {
         </Text>
       ) : null}
       <ListAction label={t('common.retry')} onPress={() => void retry()} />
+      {onResetSaved !== undefined ? (
+        <>
+          <ListAction label={t('common.resetSaved')} onPress={onResetSaved} />
+          <Text style={styles.detail}>{t('common.resetSavedHint')}</Text>
+        </>
+      ) : null}
     </ScrollView>
   );
 }
@@ -64,12 +80,23 @@ export function markAppDrawn(): void {
  * a build that cannot draw its first screen must still crash, because that is
  * what makes expo-updates roll a broken OTA back to the one before. Anything
  * later — a screen opened, a cache restored — is caught like on any route.
+ *
+ * A screen that fails on what the cache restored from disk fails again on
+ * every retry, because the retry restores the same thing. So the root also
+ * offers to drop the saved lists — only the lists: what she tapped without
+ * signal stays queued (`forgetSavedQueries`) — and then draws the app from a
+ * fresh start. Drawn again either way: if the lists could not be dropped and
+ * were the cause, this screen simply comes back.
  */
 export function RootRouteError(props: ErrorBoundaryProps) {
   if (!hasAppDrawn) {
     throw props.error;
   }
-  return <RouteError {...props} />;
+  const { retry } = props;
+  const onResetSaved = () => {
+    void forgetSavedQueries().then(retry, retry);
+  };
+  return <ErrorScreen {...props} onResetSaved={onResetSaved} />;
 }
 
 const createStyles = (theme: Theme) =>

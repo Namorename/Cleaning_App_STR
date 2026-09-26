@@ -1,4 +1,4 @@
-import { serverErrorText } from '../server-error';
+import { RefusalError, alertMessage, serverErrorText } from '../server-error';
 
 /** An error as supabase-js hands a database refusal over. */
 function raised(hint: string | null, message: string, details?: string) {
@@ -11,7 +11,7 @@ describe('a key the app knows', () => {
       raised('serverErrors.stepNotFound', 'Step not found, or its task is not in progress'),
     );
 
-    expect(failure.text).toBe('Шаг не найден или уборка уже не в работе');
+    expect(failure.text).toBe('Шаг не найден или задача уже не в работе');
     // Nothing of the server's English survives: it would only confuse.
     expect(failure.detail).toBeNull();
   });
@@ -65,5 +65,37 @@ describe('anything else', () => {
 
     expect(failure.text).toBe('Не удалось выполнить действие. Попробуйте ещё раз.');
     expect(failure.detail).toBeNull();
+  });
+});
+
+describe('a refusal the app read off an answer itself', () => {
+  test('is translated by its key, and its English stays in the logs', () => {
+    // An update that matched no row says "no" without an error: the app
+    // raises it in the server's shape, English for the logs and a key.
+    const failure = serverErrorText(
+      new RefusalError('Claim matched no row: taken or past its day', 'tasks.claimTaken'),
+    );
+
+    expect(failure.text).toBe('Задачу уже взяли, либо её срок истёк.');
+    expect(failure.detail).toBeNull();
+  });
+
+  test('with a key this build does not have, falls back like any other failure', () => {
+    const failure = serverErrorText(new RefusalError('Something new', 'tasks.notInThisBuild'));
+
+    expect(failure.text).toBe('Не удалось выполнить действие. Попробуйте ещё раз.');
+    expect(failure.detail).toBe('Something new');
+  });
+});
+
+describe('an alert, which has no small print', () => {
+  test('is the sentence alone when there is nothing to pass on', () => {
+    expect(alertMessage({ text: 'Задачу уже взяли.', detail: null })).toBe('Задачу уже взяли.');
+  });
+
+  test('keeps the raw words as a paragraph of their own under the sentence', () => {
+    expect(
+      alertMessage({ text: 'Не удалось выполнить действие.', detail: 'Network request failed' }),
+    ).toBe('Не удалось выполнить действие.\n\nNetwork request failed');
   });
 });

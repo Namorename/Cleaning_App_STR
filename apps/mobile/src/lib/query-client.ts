@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import { QueryClient } from '@tanstack/react-query';
+import type { PersistedClient } from '@tanstack/react-query-persist-client';
 
 import { registerChatMutations } from '@/features/chat/use-chat';
 import { registerMediaMutations } from '@/features/media/use-media';
@@ -54,9 +55,12 @@ export function createAppQueryClient(): QueryClient {
   return queryClient;
 }
 
+/** Where the cache lives on disk: the lists she saw and the moves waiting for signal. */
+export const QUERY_CACHE_KEY = 'str-ops.query-cache';
+
 export const queryPersister = createAsyncStoragePersister({
   storage: AsyncStorage,
-  key: 'str-ops.query-cache',
+  key: QUERY_CACHE_KEY,
   // Writes are debounced: a list that re-renders while scrolling does not hit
   // the disk on every frame.
   throttleTime: 1_000,
@@ -80,3 +84,59 @@ export const persistOptions = {
   // would read `parent` off a row that has no such field.
   buster: 'tasks-v6',
 };
+
+/**
+ * Drop the saved lists and keep the moves waiting for signal.
+ *
+ * The way out of a screen that cannot draw what the cache restored: the root
+ * error screen offers it next to "retry", which on its own restores the same
+ * lists again. Only the queries go — the paused mutations, the stamp and the
+ * buster stay, so the next start still sends what she tapped without signal.
+ * Bumping the buster would clear the lists too, and the queue with them.
+ *
+ * The lists in memory need nothing: the root boundary has unmounted the root
+ * layout that held the client, and drawing it again creates a new one and
+ * restores it from what is written here.
+ *
+ * Written twice on purpose. The persister's own write is throttled, and a
+ * snapshot the crashed client queued in its last second would otherwise land
+ * after ours; handing it the cleared state replaces that snapshot. The direct
+ * write is the one awaited, so the restore that follows reads it.
+ *
+ * A saved state that cannot be read is left alone: the restore discards it
+ * itself, and there is no queue in it left to keep.
+ */
+export async function forgetSavedQueries(): Promise<void> {
+  const saved = await readSavedClient();
+  if (saved === null) {
+    return;
+  }
+  const cleared: PersistedClient = {
+    ...saved,
+    clientState: { ...saved.clientState, queries: [] },
+  };
+
+  void queryPersister.persistClient(cleared);
+  await AsyncStorage.setItem(QUERY_CACHE_KEY, JSON.stringify(cleared));
+}
+
+async function readSavedClient(): Promise<PersistedClient | null> {
+  const raw = await AsyncStorage.getItem(QUERY_CACHE_KEY);
+  if (raw === null) {
+    return null;
+  }
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return isPersistedClient(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function isPersistedClient(value: unknown): value is PersistedClient {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const { clientState } = value as { clientState?: unknown };
+  return typeof clientState === 'object' && clientState !== null;
+}

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, test, vi } from 'vitest';
 
@@ -24,6 +24,13 @@ const properties = [
   { id: ANGLICKA, name: 'Anglicka 7', parent_id: null, hostaway_unit_id: null },
 ];
 
+const PETR = {
+  id: 'bbbbbbbb-bbbb-4bbb-8bbb-000000000001',
+  full_name: 'Petr Dvořák',
+  role: 'tech',
+};
+const staff = [PETR];
+
 const mutate = vi.fn();
 const JAN = { id: 58123, guest_name: 'Jan Novák' };
 interface GuestState {
@@ -40,7 +47,7 @@ const guest = vi.fn<(reservationId: number) => GuestState>(() => ({
 vi.mock('../use-tasks', () => ({
   useReservationGuest: (reservationId: number) => guest(reservationId),
   useProperties: () => ({ data: properties, isPending: false, isError: false }),
-  useStaff: () => ({ data: [], isPending: false, isError: false }),
+  useStaff: () => ({ data: staff, isPending: false, isError: false }),
   useSaveTask: () => ({
     isPending: false,
     isError: false,
@@ -225,4 +232,118 @@ describe('the listing field when the manager writes a task by hand', () => {
 
     expect(mutate.mock.calls[0][0].draft.propertyId).toBe(ROOM_ONE);
   });
+});
+
+/**
+ * An inspection or a maintenance job is somebody's from the moment it is
+ * written (the owner's decision): one left to nobody is one nobody does, and
+ * unlike a cleaning there is no generator to hand it out later. The panel
+ * holds the line on its own; the server still accepts an unassigned task.
+ */
+describe('an inspection or a maintenance job always has an executor', () => {
+  const REQUIRED = 'Осмотру и обслуживанию нужен исполнитель: выберите, кто сделает задание.';
+
+  const typeField = () => screen.getByLabelText('Тип задания') as HTMLSelectElement;
+  const assigneeField = () => screen.getByLabelText('Исполнитель') as HTMLSelectElement;
+  const nobody = () =>
+    Array.from(assigneeField().options).find((option) => option.value === '') as HTMLOptionElement;
+  const saveButton = () => screen.getByRole('button', { name: 'Сохранить' });
+  const submitForm = () => fireEvent.submit(saveButton().closest('form') as HTMLFormElement);
+
+  test.each(['inspection', 'maintenance'])(
+    'switching a new task to %s with nobody says why and does not send',
+    async (type) => {
+      mutate.mockClear();
+      render(<TaskForm task={null} onClose={() => {}} />);
+
+      await userEvent.selectOptions(listingField(), String(ANGLICKA));
+      await userEvent.selectOptions(typeField(), type);
+
+      expect(screen.getByText(REQUIRED)).toBeInTheDocument();
+      expect(assigneeField()).toHaveAttribute('aria-invalid', 'true');
+      expect(nobody().disabled).toBe(true);
+      expect(saveButton()).toBeDisabled();
+      submitForm();
+      expect(mutate).not.toHaveBeenCalled();
+    },
+  );
+
+  test('picking somebody clears the error, and the save carries them', async () => {
+    mutate.mockClear();
+    render(<TaskForm task={null} onClose={() => {}} />);
+
+    await userEvent.selectOptions(listingField(), String(ANGLICKA));
+    await userEvent.selectOptions(typeField(), 'inspection');
+    await userEvent.selectOptions(assigneeField(), PETR.id);
+
+    expect(screen.queryByText(REQUIRED)).toBeNull();
+    await userEvent.click(saveButton());
+    expect(mutate.mock.calls[0][0].draft).toMatchObject({
+      type: 'inspection',
+      assigneeId: PETR.id,
+    });
+  });
+
+  test('an existing inspection cannot be left without its executor', () => {
+    mutate.mockClear();
+    render(
+      <TaskForm
+        task={task({
+          id: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000011',
+          type: 'inspection',
+          assignee_id: PETR.id,
+        })}
+        onClose={() => {}}
+      />,
+    );
+
+    expect(assigneeField().value).toBe(PETR.id);
+    expect(nobody().disabled).toBe(true);
+    expect(screen.queryByText(REQUIRED)).toBeNull();
+
+    // A disabled option can still be reached by a script or an old browser;
+    // the form must not trust the option alone.
+    fireEvent.change(assigneeField(), { target: { value: '' } });
+
+    expect(screen.getByText(REQUIRED)).toBeInTheDocument();
+    expect(saveButton()).toBeDisabled();
+    submitForm();
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  test('a maintenance job from a report that nobody has yet asks for somebody', () => {
+    mutate.mockClear();
+    render(
+      <TaskForm
+        task={task({
+          id: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000012',
+          type: 'maintenance',
+          problem_id: 'cccccccc-cccc-4ccc-8ccc-000000000001',
+          assignee_id: null,
+        })}
+        onClose={() => {}}
+      />,
+    );
+
+    expect(screen.getByText(REQUIRED)).toBeInTheDocument();
+    expect(saveButton()).toBeDisabled();
+    submitForm();
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  test.each(['cleaning', 'midstay'])(
+    'a %s may still wait in the queue for somebody',
+    async (type) => {
+      mutate.mockClear();
+      render(<TaskForm task={null} onClose={() => {}} />);
+
+      await userEvent.selectOptions(listingField(), String(ANGLICKA));
+      await userEvent.selectOptions(typeField(), type);
+
+      expect(nobody().disabled).toBe(false);
+      expect(screen.queryByText(REQUIRED)).toBeNull();
+      await userEvent.click(saveButton());
+      expect(mutate.mock.calls[0][0].draft).toMatchObject({ type, assigneeId: null });
+    },
+  );
 });

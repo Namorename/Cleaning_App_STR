@@ -1,3 +1,5 @@
+import { serverErrorText } from '@/lib/server-error';
+
 import { claimTask, finishTask, startTask } from '../api';
 
 const mockResponse: { data: unknown; error: unknown } = { data: null, error: null };
@@ -54,9 +56,18 @@ test('reports that the task is gone when the update took no row', async () => {
   // here would show the cleaner a task that is not hers.
   mockResponse.data = [];
 
-  await expect(claimTask(row.id, '7c9e6679-7425-40de-944b-e07fc1f90ae7')).rejects.toThrow(
-    'Задачу уже взяли, либо её срок истёк.',
+  const refusal = await claimTask(row.id, '7c9e6679-7425-40de-944b-e07fc1f90ae7').catch(
+    (caught: unknown) => caught,
   );
+
+  // English for the logs, the reader's sentence by its key — never the
+  // other way round, so a screen cannot show the log line by accident.
+  expect(refusal).toBeInstanceOf(Error);
+  expect((refusal as Error).message).not.toMatch(/[а-яё]/i);
+  expect(serverErrorText(refusal)).toEqual({
+    text: 'Задачу уже взяли, либо её срок истёк.',
+    detail: null,
+  });
 });
 
 test('surfaces a transport failure instead of treating it as a lost race', async () => {
@@ -88,7 +99,10 @@ describe('startTask', () => {
     // the move — a second start with parallel work switched off, for instance.
     mockResponse.data = [];
 
-    await expect(startTask(row.id)).rejects.toThrow('Не удалось начать уборку — обновите список.');
+    const refusal = await startTask(row.id).catch((caught: unknown) => caught);
+
+    expect((refusal as Error).message).not.toMatch(/[а-яё]/i);
+    expect(serverErrorText(refusal).text).toBe('Не удалось начать задачу — обновите список.');
   });
 });
 
@@ -104,8 +118,9 @@ describe('finishTask', () => {
   test('explains when the task could not be finished', async () => {
     mockResponse.data = [];
 
-    await expect(finishTask(row.id)).rejects.toThrow(
-      'Не удалось завершить уборку — обновите список.',
-    );
+    const refusal = await finishTask(row.id).catch((caught: unknown) => caught);
+
+    expect((refusal as Error).message).not.toMatch(/[а-яё]/i);
+    expect(serverErrorText(refusal).text).toBe('Не удалось завершить задачу — обновите список.');
   });
 });

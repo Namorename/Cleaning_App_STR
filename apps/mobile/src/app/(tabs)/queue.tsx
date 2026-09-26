@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from 'react-native';
@@ -7,6 +8,7 @@ import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { TaskList } from '@/features/tasks/task-list';
 import type { TaskGroup } from '@/features/tasks/schema';
 import { useClaimTask, useFreeTasks } from '@/features/tasks/use-tasks';
+import { alertMessage, serverErrorText } from '@/lib/server-error';
 
 const NO_IDS: readonly string[] = [];
 
@@ -36,6 +38,13 @@ export default function FreeQueueScreen() {
     unread.refetch();
   }, [refetch, unread]);
 
+  // A free task opens before it is taken: the listing's notes and the
+  // office's words in the chat are what she decides by. The task screen offers
+  // the same claim.
+  const onPress = useCallback((taskId: string) => {
+    router.push({ pathname: '/task/[id]', params: { id: taskId } });
+  }, []);
+
   const onClaim = useCallback(
     (taskId: string) => {
       if (userId === null) {
@@ -44,9 +53,11 @@ export default function FreeQueueScreen() {
       setClaimingTaskId(taskId);
       claim.mutate({ taskId, cleanerId: userId }, {
         // Losing the race is an ordinary outcome, not a failure of the app —
-        // say who it affects and let the refreshed list show the truth.
+        // say who it affects and let the refreshed list show the truth. What
+        // the server said in its own words is the second paragraph, never the
+        // whole message.
         onError: (mutationError) => {
-          Alert.alert(t('tasks.claimFailedTitle'), mutationError.message);
+          Alert.alert(t('tasks.claimFailedTitle'), alertMessage(serverErrorText(mutationError)));
           void refetch();
         },
         onSettled: () => setClaimingTaskId(null),
@@ -62,6 +73,7 @@ export default function FreeQueueScreen() {
       error={error}
       onRefresh={onRefresh}
       isRefreshing={isRefetching}
+      onPress={onPress}
       onClaim={onClaim}
       claimingTaskId={claimingTaskId}
       unreadTaskIds={unread.tasks}

@@ -31,6 +31,18 @@ describe('cleaningTaskSchema — the kinds the office creates, and its note', ()
     );
     expect(cleaningTaskSchema.parse(rowWithoutNote()).notes).toBeNull();
   });
+
+  test('keeps the booking behind a task, its absence, and a row read before it was asked for', () => {
+    expect(cleaningTaskSchema.parse(rowWithoutNote({ reservation_id: 5001 })).reservation_id).toBe(
+      5001,
+    );
+    // Made by hand in the panel: no booking at all.
+    expect(
+      cleaningTaskSchema.parse(rowWithoutNote({ reservation_id: null })).reservation_id,
+    ).toBeNull();
+    // Cached by an older build: not known, which is not the same as none.
+    expect(cleaningTaskSchema.parse(rowWithoutNote()).reservation_id).toBeUndefined();
+  });
 });
 
 describe('canStartNow', () => {

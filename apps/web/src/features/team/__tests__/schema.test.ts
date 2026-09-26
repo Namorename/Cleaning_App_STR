@@ -108,6 +108,14 @@ describe('matchesSearch', () => {
     expect(matchesSearch(staff(), '  MARIA  ')).toBe(true);
   });
 
+  test('finds a name typed without its diacritics, and one typed with them', () => {
+    const sarka = staff({ full_name: 'Šárka Nováková' });
+
+    expect(matchesSearch(sarka, 'sarka')).toBe(true);
+    expect(matchesSearch(sarka, 'novakova')).toBe(true);
+    expect(matchesSearch(staff({ full_name: 'Sarka Novakova' }), 'Šárka')).toBe(true);
+  });
+
   test('lets everybody through on an empty query', () => {
     expect(matchesSearch(staff(), '   ')).toBe(true);
   });

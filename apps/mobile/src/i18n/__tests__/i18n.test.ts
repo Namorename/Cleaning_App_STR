@@ -37,6 +37,56 @@ describe('translation files', () => {
   });
 });
 
+describe('words shared by every kind of job', () => {
+  // These are read on a cleaning, a mid-stay cleaning, an inspection and a
+  // repair alike — the server's refusals above all, which know nothing of the
+  // kind. Calling a boiler repair "the cleaning" is how a technician learns
+  // the app was not written for him.
+  const SHARED_BY_EVERY_KIND = [
+    'tabs.myTasks',
+    'tasks.loading',
+    'tasks.loadFailed',
+    'tasks.emptyMine',
+    'tasks.startFailed',
+    'tasks.finishFailed',
+    'tasks.detail.parallel',
+    'tasks.work.start',
+    'tasks.work.finish',
+    'tasks.work.window',
+    'tasks.work.finished',
+    'tasks.work.colleague',
+    'tasks.work.steps',
+    'tasks.kinds.maintenance',
+    'steps.readOnly',
+    'steps.commentPlaceholder',
+    'steps.types.photos_before',
+    'steps.types.photos_after',
+    'serverErrors.parallelStartOff',
+    'serverErrors.startTooEarly',
+    'serverErrors.stepNotFound',
+    'serverErrors.propertyHasOpenTasks',
+  ];
+
+  /** "Cleaning" in each language, in the forms these sentences would use. */
+  const CLEANING_WORD = /уборк|уборок|úklid|clean/i;
+
+  test.each(['en', 'ru', 'cs'])('%s does not call them cleanings', (language) => {
+    const cleaningWords = SHARED_BY_EVERY_KIND.filter((key) =>
+      CLEANING_WORD.test(i18n.t(key, { lng: language })),
+    );
+
+    expect(cleaningWords).toEqual([]);
+  });
+
+  test.each(['en', 'ru', 'cs'])('%s has every one of them', (language) => {
+    const missing = SHARED_BY_EVERY_KIND.filter(
+      (key) => !i18n.exists(key, { lng: language, fallbackLng: false }),
+    );
+
+    expect(missing).toEqual([]);
+  });
+});
+
 describe('resolveLanguage', () => {
   test('takes the first preference the app can actually speak', () => {
     expect(resolveLanguage(['cs', 'en'])).toBe('cs');

@@ -281,7 +281,8 @@ describe('the window', () => {
       />,
     );
 
-    expect(screen.getByText('Уборку нельзя начать раньше 10:00 (2026-11-11)')).toBeTruthy();
+    // The server's refusals are worded for every kind of job, not for cleanings.
+    expect(screen.getByText('Задачу нельзя начать раньше 10:00 (2026-11-11)')).toBeTruthy();
   });
 });
 
@@ -515,4 +516,143 @@ test('offers the chat on any job she can see, before anyone has taken it', async
   await fireEvent.press(screen.getByRole('button', { name: 'Чат' }));
 
   expect(onOpenChat).toHaveBeenCalledWith(free.id);
+});
+
+describe('the words follow the kind of job', () => {
+  const jobStep: TaskStep = {
+    id: 'b1c2d3e4-1111-4111-8111-b1c2d3e40002',
+    task_id: '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b',
+    sort_order: 1,
+    type: 'confirmation',
+    required: false,
+    title: 'Проверить бойлер',
+    instructions: null,
+    started_at: null,
+    completed_at: null,
+    completed_by: null,
+    title_i18n: {},
+    instructions_i18n: {},
+    config: {},
+    min_photos: null,
+    max_photos: null,
+    max_video_sec: null,
+    payload: {},
+    skipped_at: null,
+    skip_reason: null,
+    waived_at: null,
+    waive_reason: null,
+  };
+
+  test('a repair is started and finished as work, in a window for work, not a cleaning', async () => {
+    // Arrange
+    const repair = task({ type: 'maintenance', reservation_id: null });
+
+    // Act
+    await render(
+      <TaskDetail task={repair} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />,
+    );
+
+    // Assert
+    expect(screen.getByRole('button', { name: 'Начать работу' })).toBeTruthy();
+    expect(screen.getByText('Окно работы')).toBeTruthy();
+    expect(screen.queryByText(/уборк/i)).toBeNull();
+    // A repair has no check-in either way; the banner names the job.
+    expect(screen.queryByText('Заезда нет')).toBeNull();
+    expect(screen.getByText('Обслуживание')).toBeTruthy();
+  });
+
+  test('an inspection under way lists its steps and finishes as work', async () => {
+    // Arrange
+    const inspection = task({
+      type: 'inspection',
+      status: 'in_progress',
+      started_at: '2026-11-10T08:05:00+00:00',
+    });
+
+    // Act
+    await render(
+      <TaskDetail
+        task={inspection}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        steps={[jobStep]}
+        {...actions}
+      />,
+    );
+
+    // Assert
+    expect(screen.getByText('Шаги работы')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Завершить работу' })).toBeTruthy();
+    expect(screen.queryByText(/уборк/i)).toBeNull();
+  });
+
+  test('a finished inspection, and one a colleague holds, say so without calling it a cleaning', async () => {
+    // Arrange / Act
+    await render(
+      <TaskDetail
+        task={task({ type: 'inspection', status: 'done' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    // Assert
+    expect(screen.getByText('Работа завершена')).toBeTruthy();
+
+    // Arrange / Act
+    await render(
+      <TaskDetail
+        task={task({ type: 'maintenance', assignee_id: 'a1b2c3d4-2222-4222-8222-a1b2c3d40002' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    // Assert
+    expect(screen.getByText('Работу выполняет коллега')).toBeTruthy();
+  });
+
+  test('a midstay is a cleaning and is called one', async () => {
+    // Arrange / Act
+    await render(
+      <TaskDetail
+        task={task({ type: 'midstay' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    // Assert
+    expect(screen.getByRole('button', { name: 'Начать уборку' })).toBeTruthy();
+    expect(screen.getByText('Окно уборки')).toBeTruthy();
+  });
+
+  test('a cleaning with no booking behind it says nothing about a check-in', async () => {
+    // Arrange / Act: made by hand in the panel.
+    await render(
+      <TaskDetail
+        task={task({ reservation_id: null, title: 'Генеральная уборка' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    // Assert
+    expect(screen.queryByText('Заезда нет')).toBeNull();
+    expect(screen.getByText('Генеральная уборка')).toBeTruthy();
+  });
 });

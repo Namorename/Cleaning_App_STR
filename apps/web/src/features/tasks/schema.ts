@@ -481,10 +481,31 @@ export function draftFromTask(task: Task): TaskDraft {
 }
 
 /**
+ * The kinds that are somebody's job from the moment they are written.
+ *
+ * The owner's decision: an inspection or a maintenance job left to nobody is
+ * one nobody does — nobody is shown it, and it expires unnoticed. A cleaning
+ * may still wait in the queue. The panel holds this line on its own:
+ * `save_task` still accepts an unassigned task of any kind.
+ */
+const TYPES_NEEDING_ASSIGNEE: readonly TaskType[] = ['inspection', 'maintenance'];
+
+export function needsAssignee(type: TaskType): boolean {
+  return TYPES_NEEDING_ASSIGNEE.includes(type);
+}
+
+/** A kind that needs somebody, with nobody named — the gap the form points at. */
+export function isAssigneeMissing(draft: Pick<TaskDraft, 'type' | 'assigneeId'>): boolean {
+  return needsAssignee(draft.type) && draft.assigneeId === null;
+}
+
+/**
  * Is the draft worth sending? Only what the panel can see for itself — the
  * server checks the rest and says so in the reader's language. The title is
  * not among them: a task without one is called by its kind.
  */
 export function isDraftReady(draft: TaskDraft): boolean {
-  return draft.propertyId !== null && draft.scheduledDate.trim() !== '';
+  return (
+    draft.propertyId !== null && draft.scheduledDate.trim() !== '' && !isAssigneeMissing(draft)
+  );
 }

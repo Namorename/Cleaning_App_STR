@@ -9,6 +9,11 @@ import { stepState, type TaskStep } from './schema';
 
 interface StepListProps {
   steps: readonly TaskStep[];
+  /**
+   * Above the steps. The task knows its kind and names them — a cleaning's
+   * steps, or the steps of a repair; without it, the cleaning's heading.
+   */
+  heading?: string;
   onOpenStep: (stepId: string) => void;
 }
 
@@ -20,13 +25,13 @@ interface StepListProps {
  * a gap in the numbering. Plain views, not a list component — a process has a
  * handful of steps and this sits inside the task's own scroll view.
  */
-export function StepList({ steps, onOpenStep }: StepListProps) {
+export function StepList({ steps, heading, onOpenStep }: StepListProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
 
   return (
     <View style={styles.list}>
-      <Text style={styles.heading}>{t('steps.heading')}</Text>
+      <Text style={styles.heading}>{heading ?? t('steps.heading')}</Text>
       {steps.map((step, index) => {
         const state = stepState(step);
         const title = stepTitle(step);

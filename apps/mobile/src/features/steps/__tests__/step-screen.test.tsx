@@ -171,7 +171,8 @@ describe('outside the cleaning', () => {
     );
 
     expect(screen.queryByRole('button')).toBeNull();
-    expect(screen.getByText('Шаги можно менять только во время уборки')).toBeTruthy();
+    // A step belongs to a cleaning, an inspection or a repair alike.
+    expect(screen.getByText('Шаги можно менять, только пока задача в работе')).toBeTruthy();
   });
 
   test('shows the refusal in the language of the cleaner, not of the server', async () => {
@@ -187,7 +188,7 @@ describe('outside the cleaning', () => {
       />,
     );
 
-    expect(screen.getByText('Шаг не найден или уборка уже не в работе')).toBeTruthy();
+    expect(screen.getByText('Шаг не найден или задача уже не в работе')).toBeTruthy();
     expect(screen.queryByText('Step not found, or its task is not in progress')).toBeNull();
   });
 });

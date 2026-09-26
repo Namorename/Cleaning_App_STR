@@ -19,7 +19,6 @@
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts",
-    "css.d.ts"
+    "expo-env.d.ts"
   ]
 }

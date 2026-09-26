@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 
 import { TaskCard } from '../task-card';
 import type { CleaningTask } from '../schema';
@@ -167,6 +167,26 @@ test('opens the task when the card is pressed', async () => {
 
   await fireEvent.press(screen.getByRole('button', { name: /CZ - Nadrazni Apt 6/ }));
 
+  expect(onPress).toHaveBeenCalledWith('3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b');
+});
+
+test('in the queue the card opens the task, and taking it stays a control of its own', async () => {
+  // Arrange
+  const onPress = jest.fn();
+  const onClaim = jest.fn();
+  await render(<TaskCard task={task()} onPress={onPress} onClaim={onClaim} />);
+  const card = screen.getByRole('button', { name: /^CZ - Nadrazni Apt 6\./ });
+
+  // Assert: a screen reader reads a button as one element, so a button
+  // inside it is out of reach on iOS — "take" must not sit inside the card's.
+  expect(within(card).queryByRole('button', { name: /Взять уборку/ })).toBeNull();
+
+  // Act / Assert: each does its own thing and not the other's.
+  await fireEvent.press(screen.getByRole('button', { name: /Взять уборку/ }));
+  expect(onClaim).toHaveBeenCalledWith('3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b');
+  expect(onPress).not.toHaveBeenCalled();
+
+  await fireEvent.press(card);
   expect(onPress).toHaveBeenCalledWith('3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b');
 });
 

@@ -12,6 +12,7 @@ import {
   formatScheduledDate,
   formatStartNotBefore,
   formatWindow,
+  jobWordKey,
   taskPlace,
   urgencyText,
 } from './format';
@@ -102,13 +103,14 @@ export function TaskDetail({
   const canRaise = task.assignee_id === userId && (action === 'start' || action === 'finish');
   const fix = task.type === 'maintenance' ? (task.problem ?? null) : null;
 
+  // A cleaning is started as a cleaning; an inspection or a repair as work.
   const actionLabel =
     action === 'claim'
       ? t('tasks.claim')
       : action === 'start'
-        ? t('tasks.start')
+        ? t(jobWordKey(task.type, 'start'))
         : action === 'finish'
-          ? t('tasks.finish')
+          ? t(jobWordKey(task.type, 'finish'))
           : null;
 
   const onAction = () => {
@@ -126,9 +128,9 @@ export function TaskDetail({
 
   const idleHint =
     task.status === 'done'
-      ? t('tasks.detail.finished')
+      ? t(jobWordKey(task.type, 'finished'))
       : task.assignee_id !== null && task.assignee_id !== userId
-        ? t('tasks.detail.colleague')
+        ? t(jobWordKey(task.type, 'colleague'))
         : t('tasks.detail.closed');
 
   return (
@@ -150,7 +152,7 @@ export function TaskDetail({
 
       <View style={styles.facts}>
         {window !== null ? (
-          <Fact label={t('tasks.detail.window')} value={window} styles={styles} />
+          <Fact label={t(jobWordKey(task.type, 'window'))} value={window} styles={styles} />
         ) : null}
         {task.guests_count !== null ? (
           <Fact label={t('tasks.detail.guests')} value={String(task.guests_count)} styles={styles} />
@@ -242,7 +244,13 @@ export function TaskDetail({
         </View>
       ) : null}
 
-      {showSteps ? <StepList steps={steps} onOpenStep={onOpenStep ?? noop} /> : null}
+      {showSteps ? (
+        <StepList
+          steps={steps}
+          heading={t(jobWordKey(task.type, 'steps'))}
+          onOpenStep={onOpenStep ?? noop}
+        />
+      ) : null}
 
       {task.is_parallel ? <Text style={styles.hint}>{t('tasks.detail.parallel')}</Text> : null}
 

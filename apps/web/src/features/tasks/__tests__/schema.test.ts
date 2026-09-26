@@ -5,11 +5,13 @@ import {
   EMPTY_FILTERS,
   hasFilters,
   groupTasks,
+  isAssigneeMissing,
   isDraftReady,
   isManualTask,
   localizedTitle,
   matchesFilters,
   matchesQuery,
+  needsAssignee,
   propertyOptions,
   tabOf,
   tailOf,
@@ -401,6 +403,45 @@ describe('isDraftReady', () => {
     expect(isDraftReady({ ...draft, title: '   ' })).toBe(true);
     expect(isDraftReady({ ...draft, scheduledDate: '' })).toBe(false);
   });
+
+  test('an inspection or a maintenance job is not ready without an executor', () => {
+    const person = 'bbbbbbbb-bbbb-4bbb-8bbb-000000000001';
+
+    expect(isDraftReady({ ...draft, type: 'inspection', assigneeId: null })).toBe(false);
+    expect(isDraftReady({ ...draft, type: 'maintenance', assigneeId: null })).toBe(false);
+    expect(isDraftReady({ ...draft, type: 'inspection', assigneeId: person })).toBe(true);
+    expect(isDraftReady({ ...draft, type: 'maintenance', assigneeId: person })).toBe(true);
+  });
+
+  test('a cleaning may still wait in the queue for somebody', () => {
+    expect(isDraftReady({ ...draft, type: 'cleaning', assigneeId: null })).toBe(true);
+    expect(isDraftReady({ ...draft, type: 'midstay', assigneeId: null })).toBe(true);
+  });
+});
+
+describe('needsAssignee', () => {
+  test('only an inspection and a maintenance job must have somebody from the start', () => {
+    expect(needsAssignee('inspection')).toBe(true);
+    expect(needsAssignee('maintenance')).toBe(true);
+    expect(needsAssignee('cleaning')).toBe(false);
+    expect(needsAssignee('midstay')).toBe(false);
+  });
+});
+
+describe('isAssigneeMissing', () => {
+  const draft = draftFromTask(task({ id: id(1) }));
+
+  test('is the gap the form points at, and only on the kinds that need somebody', () => {
+    expect(isAssigneeMissing({ ...draft, type: 'inspection', assigneeId: null })).toBe(true);
+    expect(isAssigneeMissing({ ...draft, type: 'cleaning', assigneeId: null })).toBe(false);
+    expect(
+      isAssigneeMissing({
+        ...draft,
+        type: 'maintenance',
+        assigneeId: 'bbbbbbbb-bbbb-4bbb-8bbb-000000000001',
+      }),
+    ).toBe(false);
+  });
 });
 
 describe('propertyOptions', () => {
@@ -522,5 +563,18 @@ describe('the search finds a room cleaning by the house it is in', () => {
 
   test('the filter bar asks the same question', () => {
     expect(matchesFilters(inRoom, { ...EMPTY_FILTERS, query: 'vinohradska' })).toBe(true);
+  });
+});
+
+describe('the search ignores diacritics', () => {
+  test('finds the work of a person whose name is typed without its marks', () => {
+    const hers = task({
+      id: id(1),
+      assignee_id: 'bbbbbbbb-bbbb-4bbb-8bbb-000000000001',
+      assignee: { full_name: 'Šárka Nováková', role: 'cleaner' },
+    });
+
+    expect(matchesQuery(hers, 'sarka')).toBe(true);
+    expect(matchesQuery(hers, 'novakova sarka')).toBe(true);
   });
 });

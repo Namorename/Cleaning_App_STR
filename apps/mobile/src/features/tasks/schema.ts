@@ -69,6 +69,13 @@ export const cleaningTaskSchema = z.object({
   // a row cached before the columns were asked for.
   title: z.string().nullable().default(null),
   title_i18n: z.record(z.string(), z.string()).catch({}).default({}),
+  // The booking the job follows. Null on work the office made by hand in the
+  // panel: nobody checks in after it, and nobody decided that nobody does —
+  // its priority 0 says nothing about arrivals. Optional rather than
+  // defaulted: a row cached before the column was asked for has no key, and
+  // that means "not known", not "no booking" — reading it as null would strip
+  // the check-in from a turnover she is looking at offline.
+  reservation_id: z.number().nullable().optional(),
   // Set on a maintenance task: the report it fixes.
   problem: z
     .object({

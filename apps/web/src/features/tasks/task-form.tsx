@@ -19,8 +19,10 @@ import { serverErrorText } from '@/lib/server-error';
 
 import {
   draftFromTask,
+  isAssigneeMissing,
   isDraftReady,
   isManualTask,
+  needsAssignee,
   propertyOptions,
   TASK_TYPES,
   type Task,
@@ -33,6 +35,9 @@ const SELECT_CLASS = 'h-9 rounded-md border bg-background px-2 text-sm';
 
 /** The key the server sends back when a job of this kind is already on that day. */
 const DUPLICATE_HINT = 'serverErrors.taskDuplicate';
+
+/** Ties the executor field to the sentence that says why it cannot stay empty. */
+const ASSIGNEE_ERROR_ID = 'task-assignee-error';
 
 interface TaskFormProps {
   /** The task being changed, or null for a new one. */
@@ -84,15 +89,27 @@ export function TaskForm({ task, onClose }: TaskFormProps) {
   const places = useMemo(() => propertyOptions(properties.data ?? []), [properties.data]);
 
   const isGenerated = task !== null && !isManualTask(task);
+  const isReady = isDraftReady(draft);
+  const isAssigneeRequired = needsAssignee(draft.type);
+  const hasAssigneeGap = isAssigneeMissing(draft);
   const failure = save.isError ? serverErrorText(save.error) : null;
   const isDuplicate = save.isError && hintOf(save.error) === DUPLICATE_HINT;
 
+  // The disabled button is what the manager sees; the handlers ask the same
+  // question, so a submit that reaches the form some other way sends nothing.
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!isReady) {
+      return;
+    }
     save.mutate({ draft }, { onSuccess: onClose });
   };
-  const confirmDuplicate = () =>
+  const confirmDuplicate = () => {
+    if (!isReady) {
+      return;
+    }
     save.mutate({ draft, allowDuplicate: true }, { onSuccess: onClose });
+  };
 
   return (
     <Dialog open onOpenChange={(next) => (next ? undefined : onClose())}>
@@ -213,6 +230,8 @@ export function TaskForm({ task, onClose }: TaskFormProps) {
               id="task-assignee"
               className={SELECT_CLASS}
               value={draft.assigneeId ?? ''}
+              aria-invalid={hasAssigneeGap}
+              aria-describedby={hasAssigneeGap ? ASSIGNEE_ERROR_ID : undefined}
               onChange={(event) =>
                 setDraft({
                   ...draft,
@@ -220,13 +239,21 @@ export function TaskForm({ task, onClose }: TaskFormProps) {
                 })
               }
             >
-              <option value="">{t('panel.tasks.form.assigneeNobody')}</option>
+              {/* Listed even when it cannot be picked: a job with nobody yet shows it chosen. */}
+              <option value="" disabled={isAssigneeRequired}>
+                {t('panel.tasks.form.assigneeNobody')}
+              </option>
               {(staff.data ?? []).map((person) => (
                 <option key={person.id} value={person.id}>
                   {person.full_name ?? person.id}
                 </option>
               ))}
             </select>
+            {hasAssigneeGap ? (
+              <p id={ASSIGNEE_ERROR_ID} role="alert" className="text-xs text-destructive">
+                {t('panel.tasks.form.assigneeRequired')}
+              </p>
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-1">
@@ -256,13 +283,13 @@ export function TaskForm({ task, onClose }: TaskFormProps) {
               <Button
                 type="button"
                 variant="secondary"
-                disabled={save.isPending}
+                disabled={save.isPending || !isReady}
                 onClick={confirmDuplicate}
               >
                 {t('panel.tasks.form.duplicate')}
               </Button>
             ) : null}
-            <Button type="submit" disabled={save.isPending || !isDraftReady(draft)}>
+            <Button type="submit" disabled={save.isPending || !isReady}>
               {save.isPending ? t('panel.tasks.form.saving') : t('panel.tasks.form.save')}
             </Button>
           </div>

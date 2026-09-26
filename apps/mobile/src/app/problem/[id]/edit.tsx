@@ -26,12 +26,13 @@ export default function EditProblemRoute() {
   const update = useUpdateProblem();
   const [draft, setDraft] = useState<ProblemDraft | null>(null);
 
-  // The draft starts from the row once, then belongs to her fingers.
-  useEffect(() => {
-    if (draft === null && problem.data) {
-      setDraft(draftOfProblem(problem.data));
-    }
-  }, [draft, problem.data]);
+  // The draft starts from the row once, then belongs to her fingers. Set
+  // while rendering rather than in an effect: React draws again at once with
+  // the draft, before anything reaches the screen, and a later refetch finds
+  // the draft taken and leaves her typing alone.
+  if (draft === null && problem.data) {
+    setDraft(draftOfProblem(problem.data));
+  }
 
   const isLeaving = update.isSuccess || update.isPaused;
   useEffect(() => {

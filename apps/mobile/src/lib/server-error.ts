@@ -28,6 +28,25 @@ export interface ServerErrorText {
 const KEY_PREFIX = 'serverErrors.';
 const UNKNOWN_KEY = 'serverErrors.unknown';
 
+/**
+ * A refusal the app reads off an answer itself, in the server's shape.
+ *
+ * An update whose filters matched no row says "no" without an error — a
+ * colleague took the task first, or it moved on meanwhile. The app raises it
+ * the way a database function would: English for the logs, and the key of
+ * the sentence the reader gets. Its key lives with its feature ("tasks.…"),
+ * not under `serverErrors.`, which only the server's own hints may use.
+ */
+export class RefusalError extends Error {
+  readonly key: string;
+
+  constructor(message: string, key: string) {
+    super(message);
+    this.name = 'RefusalError';
+    this.key = key;
+  }
+}
+
 function asRaised(error: unknown): RaisedError {
   return typeof error === 'object' && error !== null ? (error as RaisedError) : {};
 }
@@ -50,6 +69,9 @@ function parameters(details: unknown): Record<string, unknown> {
 
 /** The i18n key a refusal carries, when it carries one this build knows. */
 export function serverErrorKey(error: unknown): string | null {
+  if (error instanceof RefusalError) {
+    return i18n.exists(error.key) ? error.key : null;
+  }
   const { hint } = asRaised(error);
   return typeof hint === 'string' && hint.startsWith(KEY_PREFIX) && i18n.exists(hint) ? hint : null;
 }
@@ -74,4 +96,16 @@ export function serverErrorText(error: unknown): ServerErrorText {
     text: i18n.t(UNKNOWN_KEY),
     detail: typeof message === 'string' && message.trim() !== '' ? message : null,
   };
+}
+
+/** Between the sentence and the raw words: a paragraph break. */
+const PARAGRAPH = '\n\n';
+
+/**
+ * A failure as the body of an alert, which has no small print to put the raw
+ * words in: the sentence first, and the server's English as a paragraph of
+ * its own under it — there for her to forward, not to read.
+ */
+export function alertMessage(failure: ServerErrorText): string {
+  return failure.detail === null ? failure.text : `${failure.text}${PARAGRAPH}${failure.detail}`;
 }
