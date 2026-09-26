@@ -25,9 +25,9 @@ describe('a refusal that counts', () => {
         ),
       ).text;
 
-    expect(text(1)).toContain('má 1 nedokončený úkol');
-    expect(text(3)).toContain('má 3 nedokončené úkoly');
-    expect(text(7)).toContain('má 7 nedokončených úkolů');
+    expect(text(1)).toContain('má 1 nedokončený úklid');
+    expect(text(3)).toContain('má 3 nedokončené úklidy');
+    expect(text(7)).toContain('má 7 nedokončených úklidů');
   });
 
   test('reads a limit of one file in the singular', () => {

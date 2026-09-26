@@ -149,7 +149,8 @@ describe('words shared by every kind of job', () => {
     'serverErrors.parallelStartOff',
     'serverErrors.startTooEarly',
     'serverErrors.stepNotFound',
-    'serverErrors.propertyHasOpenTasks',
+    // Not serverErrors.propertyHasOpenTasks: set_property_status counts and
+    // cancels cleanings only, and the text says so (owner, 2026-09-26).
   ];
 
   /** "Cleaning" in each language, in the forms these sentences would use. */
@@ -174,16 +175,16 @@ describe('words shared by every kind of job', () => {
 
 describe('a number and its noun', () => {
   test.each([
-    ['cs', 1, 'má 1 nedokončený úkol'],
-    ['cs', 3, 'má 3 nedokončené úkoly'],
-    ['cs', 5, 'má 5 nedokončených úkolů'],
-    ['ru', 1, 'У объекта 1 незакрытая задача'],
-    ['ru', 3, 'У объекта 3 незакрытые задачи'],
-    ['ru', 5, 'У объекта 5 незакрытых задач'],
-    ['ru', 21, 'У объекта 21 незакрытая задача'],
-    ['en', 1, 'still has 1 open task on'],
-    ['en', 2, 'still has 2 open tasks on'],
-  ])('%s reads %i open tasks as "%s"', (lng, count, expected) => {
+    ['cs', 1, 'má 1 nedokončený úklid'],
+    ['cs', 3, 'má 3 nedokončené úklidy'],
+    ['cs', 5, 'má 5 nedokončených úklidů'],
+    ['ru', 1, 'У объекта 1 незакрытая уборка'],
+    ['ru', 3, 'У объекта 3 незакрытые уборки'],
+    ['ru', 5, 'У объекта 5 незакрытых уборок'],
+    ['ru', 21, 'У объекта 21 незакрытая уборка'],
+    ['en', 1, 'still has 1 open cleaning on'],
+    ['en', 2, 'still has 2 open cleanings on'],
+  ])('%s reads %i open cleanings as "%s"', (lng, count, expected) => {
     expect(i18n.t('serverErrors.propertyHasOpenTasks', { lng, count, total: count })).toContain(
       expected,
     );
@@ -232,7 +233,7 @@ describe('on an engine without Intl.PluralRules', () => {
 
       expect(
         isolated.t('serverErrors.propertyHasOpenTasks', { lng: 'cs', count: 2, total: 2 }),
-      ).toContain('má 2 nedokončené úkoly');
+      ).toContain('má 2 nedokončené úklidy');
     } finally {
       Object.defineProperty(Intl, 'PluralRules', {
         value: native,

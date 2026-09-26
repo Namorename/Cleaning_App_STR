@@ -15,7 +15,7 @@ describe('a refusal that counts', () => {
 
   // The server names its number after what it counts ("total", "limit");
   // i18next picks a plural form only from `count`.
-  test('agrees with the number of open tasks the listing still has', async () => {
+  test('agrees with the number of open cleanings the listing still has', async () => {
     await i18n.changeLanguage('cs');
     const text = (total: number) =>
       serverErrorText(
@@ -26,9 +26,9 @@ describe('a refusal that counts', () => {
         ),
       ).text;
 
-    expect(text(1)).toContain('má 1 nedokončený úkol');
-    expect(text(2)).toContain('má 2 nedokončené úkoly');
-    expect(text(12)).toContain('má 12 nedokončených úkolů');
+    expect(text(1)).toContain('má 1 nedokončený úklid');
+    expect(text(2)).toContain('má 2 nedokončené úklidy');
+    expect(text(12)).toContain('má 12 nedokončených úklidů');
   });
 
   test('reads a limit of one file in the singular', () => {
