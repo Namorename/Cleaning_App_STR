@@ -44,9 +44,11 @@ function readQuery(argv) {
 
 // A second layer, not the boundary. Checked 2026-09-25: the endpoint runs the
 // query as supabase_read_only_user in a read-only transaction; every INSERT,
-// UPDATE, DELETE and data-modifying CTE is refused, and the only definer
-// functions the role may call only read (auth_role, is_active_user,
-// is_manager). But the endpoint takes several statements, so `set transaction
+// UPDATE, DELETE and data-modifying CTE is refused, and since
+// 20260926100000_grants_hygiene the role may execute none of our functions in
+// public: it held is_manager, auth_role and is_active_user only through PUBLIC,
+// and a probe that must call one goes through `db query --linked` with the
+// owner's word. But the endpoint takes several statements, so `set transaction
 // read write` can lift the read-only mode, and PUBLIC may still execute a few
 // extension functions written in C: cron.schedule/unschedule (a job owned by
 // the read-only role — it could only read, but the row in cron.job is a
