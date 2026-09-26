@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 
 import { buildPropertyTree } from '@/lib/property-tree';
 
-import { barKind, layoutRows, mergeBookings, spanOf } from '../bars';
+import { barKind, layoutRows, mergeById, spanOf } from '../bars';
 import { windowDays } from '../dates';
 import type { CalendarBooking } from '../schema';
 
@@ -230,7 +230,7 @@ describe('bookings read month by month', () => {
   test('a stay across the turn of a month comes twice and is kept once', () => {
     const stay = booking(1, 1, '2026-09-29', '2026-10-03');
 
-    expect(mergeBookings([[stay], [stay, booking(2, 1, '2026-10-05', '2026-10-07')]])).toEqual([
+    expect(mergeById([[stay], [stay, booking(2, 1, '2026-10-05', '2026-10-07')]])).toEqual([
       stay,
       booking(2, 1, '2026-10-05', '2026-10-07'),
     ]);

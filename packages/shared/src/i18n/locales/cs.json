@@ -771,6 +771,28 @@
         "nights_few": "{{count}} noci",
         "nights_many": "{{count}} noci",
         "nights_other": "{{count}} nocí"
+      },
+      "nobody": "Nikdo",
+      "sdtMark": "SDT",
+      "sdt": "odjezd a příjezd v jeden den",
+      "bookingChanged": "Rezervace se změnila",
+      "moreTasks_one": "Ještě {{count}} úkol",
+      "moreTasks_few": "Ještě {{count}} úkoly",
+      "moreTasks_many": "Ještě {{count}} úkolu",
+      "moreTasks_other": "Ještě {{count}} úkolů",
+      "loadingTasks": "Načítáme úkoly…",
+      "tasksError": "Úkoly se nepodařilo načíst.",
+      "filters": {
+        "status": "Stav",
+        "all": "Vše",
+        "open": "Otevřené",
+        "inWork": "Probíhá",
+        "done": "Hotovo",
+        "nobody": "Nepřiřazeno"
+      },
+      "stand": {
+        "title": "Stand: zápis je vypnutý",
+        "newTask": "Nový úkol: {{place}}, {{day}}"
       }
     }
   },

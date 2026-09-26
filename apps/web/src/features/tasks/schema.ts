@@ -83,6 +83,19 @@ export const taskSchema = z.object({
 export type Task = z.infer<typeof taskSchema>;
 export const taskListSchema = z.array(taskSchema);
 
+/**
+ * A task as the calendar reads it: a repair brings its problem's title and
+ * priority for the chip (docs/f10-plan.md, §6).
+ */
+export const calendarTaskSchema = taskSchema.extend({
+  problem: z
+    .object({ title: z.string(), priority: z.string() })
+    .nullable()
+    .default(null),
+});
+export type CalendarTask = z.infer<typeof calendarTaskSchema>;
+export const calendarTaskListSchema = z.array(calendarTaskSchema);
+
 /** Somebody a task can be handed to. */
 export const staffSchema = z.object({
   id: z.uuid(),

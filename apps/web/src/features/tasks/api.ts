@@ -7,18 +7,21 @@ import { todayIso } from '@/lib/format-date';
 import { withSignedUrls, type WithUrl } from '@/lib/media';
 
 import {
+  calendarTaskListSchema,
   departureGuestSchema,
   propertyListSchema,
   staffListSchema,
   taskListSchema,
   taskProblemListSchema,
   taskSchema,
+  type CalendarTask,
   type DepartureGuest,
   type Property,
   type Staff,
   type Task,
   type TaskDraft,
   type TaskProblem,
+  type TaskStatus,
 } from './schema';
 
 export type Client = SupabaseClient<Database>;
@@ -78,6 +81,46 @@ export async function fetchTasks(client: Client): Promise<Task[]> {
       .range(from, to),
   );
   return taskListSchema.parse(rows);
+}
+
+/**
+ * The calendar's classes of tasks (docs/f10-plan.md, §1, §2). The live and
+ * the done are its default view; the cancelled sit behind their own switch
+ * (7.5). Expired has a reader of its own: it is never saved from the panel,
+ * and under `tasks` every save would reread thousands of its rows.
+ */
+export const TASK_CLASSES = {
+  active: ['unassigned', 'assigned', 'accepted', 'in_progress', 'paused', 'blocked', 'done'],
+  cancelled: ['cancelled'],
+} as const satisfies Record<string, readonly TaskStatus[]>;
+export type TaskClass = keyof typeof TASK_CLASSES;
+
+// A repair names its problem on the chip, with the problem's priority (§6).
+const CALENDAR_TASK_COLUMNS = `${TASK_COLUMNS}, problem:problem_id(title, priority)`;
+
+/**
+ * One class of tasks on the days `from` up to `to` (exclusive), for the
+ * calendar. Read in pages, sorted to the id last.
+ */
+export async function fetchTasksBetween(
+  client: Client,
+  from: string,
+  to: string,
+  taskClass: TaskClass,
+): Promise<CalendarTask[]> {
+  const rows = await fetchAllPages((first, last, withCount) =>
+    client
+      .from('tasks')
+      .select(CALENDAR_TASK_COLUMNS, withCount ? { count: 'exact' } : undefined)
+      .gte('scheduled_date', from)
+      .lt('scheduled_date', to)
+      .in('status', [...TASK_CLASSES[taskClass]])
+      .order('scheduled_date', { ascending: true })
+      .order('time_from', { ascending: true, nullsFirst: false })
+      .order('id', { ascending: true })
+      .range(first, last),
+  );
+  return calendarTaskListSchema.parse(rows);
 }
 
 /** Active people of the company a task can be handed to. */

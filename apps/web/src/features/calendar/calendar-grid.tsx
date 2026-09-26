@@ -7,10 +7,11 @@ import { useTranslation } from 'react-i18next';
 import { propertyPath, type Language } from '@str-ops/shared';
 
 import { Badge } from '@/components/ui/badge';
-import type { Property } from '@/features/tasks/schema';
+import type { CalendarTask, Property } from '@/features/tasks/schema';
 import type { VisibleRow } from '@/lib/property-tree';
 
 import type { RowLayout } from './bars';
+import { cellTasks } from './chips';
 import { DAY_WIDTH, dayLabel, fullDayLabel, type Depth } from './dates';
 import { RowTrack } from './row-track';
 import type { CalendarBooking } from './schema';
@@ -21,10 +22,11 @@ const HEADER_HEIGHT = 40;
 /**
  * A row's height does not depend on the data of the window (§4): one track of
  * bars and one line of chips, a constant per kind of row. Otherwise rows would
- * jump under the cursor on every arrow and every month read.
+ * jump under the cursor on every arrow and every month read. A room is as tall
+ * as a listing: its cleanings are its own, and their line needs the room.
  */
 const LISTING_HEIGHT = 44;
-const ROOM_HEIGHT = 36;
+const ROOM_HEIGHT = 44;
 const INDENT = 16;
 
 interface CalendarGridProps {
@@ -39,8 +41,15 @@ interface CalendarGridProps {
   onToggleGroup: (id: number) => void;
   /** Bars, shades and counts by property id; empty while bookings load. */
   layout: ReadonlyMap<number, RowLayout>;
+  /** The filtered tasks by row and day; empty while tasks load. */
+  byRowDay: ReadonlyMap<number, ReadonlyMap<string, readonly CalendarTask[]>>;
+  /** The window's bookings by id; null until they are read. */
+  bookings: ReadonlyMap<number, CalendarBooking> | null;
   language: Language;
   onOpenBooking: (booking: CalendarBooking) => void;
+  onOpenTask: (task: CalendarTask, label: string) => void;
+  onMoreTasks: (rowId: number, place: string, day: string, tasks: readonly CalendarTask[]) => void;
+  onEmptyDay: (propertyId: number, place: string, day: string) => void;
 }
 
 /**
@@ -60,8 +69,13 @@ export function CalendarGrid({
   collapsed,
   onToggleGroup,
   layout,
+  byRowDay,
+  bookings,
   language,
   onOpenBooking,
+  onOpenTask,
+  onMoreTasks,
+  onEmptyDay,
 }: CalendarGridProps) {
   const { t } = useTranslation();
   const scroller = useRef<HTMLDivElement>(null);
@@ -130,6 +144,8 @@ export function CalendarGrid({
           const isGroup = node.children.length > 0;
           const isClosed = collapsed.has(property.id);
           const house = property.parent_id === null ? undefined : byId.get(property.parent_id);
+          const place =
+            house === undefined ? property.name : propertyPath(house.name, property.name);
 
           return (
             <div
@@ -142,9 +158,7 @@ export function CalendarGrid({
             >
               <div
                 role="rowheader"
-                aria-label={
-                  house === undefined ? property.name : propertyPath(house.name, property.name)
-                }
+                aria-label={place}
                 className="sticky left-0 z-10 flex items-center gap-1 border-r bg-background text-sm"
                 style={{
                   width: FIRST_COLUMN,
@@ -181,7 +195,10 @@ export function CalendarGrid({
                 ) : null}
               </div>
               <RowTrack
+                rowId={property.id}
                 layout={layout.get(property.id)}
+                cells={days.map((day) => cellTasks(node, day, byRowDay, isGroup && isClosed))}
+                bookings={bookings}
                 days={days}
                 dayWidth={dayWidth}
                 dayLines={dayLines}
@@ -191,6 +208,9 @@ export function CalendarGrid({
                 language={language}
                 onPoint={setHighlighted}
                 onOpen={onOpenBooking}
+                onOpenTask={onOpenTask}
+                onMoreTasks={(day, tasks) => onMoreTasks(property.id, place, day, tasks)}
+                onEmptyDay={(day) => onEmptyDay(property.id, place, day)}
               />
             </div>
           );

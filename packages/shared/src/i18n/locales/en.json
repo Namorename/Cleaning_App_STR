@@ -763,6 +763,26 @@
         "departure": "Departure",
         "nights_one": "{{count}} night",
         "nights_other": "{{count}} nights"
+      },
+      "nobody": "Nobody",
+      "sdtMark": "SDT",
+      "sdt": "same-day turnover",
+      "bookingChanged": "Booking changed",
+      "moreTasks_one": "{{count}} more task",
+      "moreTasks_other": "{{count}} more tasks",
+      "loadingTasks": "Loading tasks…",
+      "tasksError": "Could not load the tasks.",
+      "filters": {
+        "status": "Status",
+        "all": "All",
+        "open": "Open",
+        "inWork": "In progress",
+        "done": "Done",
+        "nobody": "Unassigned"
+      },
+      "stand": {
+        "title": "Stand: writing is off",
+        "newTask": "New task: {{place}}, {{day}}"
       }
     }
   },

@@ -771,6 +771,28 @@
         "nights_few": "{{count}} ночи",
         "nights_many": "{{count}} ночей",
         "nights_other": "{{count}} ночи"
+      },
+      "nobody": "Никто",
+      "sdtMark": "SDT",
+      "sdt": "выезд и заезд в один день",
+      "bookingChanged": "Бронь изменилась",
+      "moreTasks_one": "Ещё {{count}} задание",
+      "moreTasks_few": "Ещё {{count}} задания",
+      "moreTasks_many": "Ещё {{count}} заданий",
+      "moreTasks_other": "Ещё {{count}} задания",
+      "loadingTasks": "Загружаем задания…",
+      "tasksError": "Не удалось загрузить задания.",
+      "filters": {
+        "status": "Статус",
+        "all": "Все",
+        "open": "Открыто",
+        "inWork": "В работе",
+        "done": "Выполнено",
+        "nobody": "Не назначено"
+      },
+      "stand": {
+        "title": "Стенд: запись выключена",
+        "newTask": "Новое задание: {{place}}, {{day}}"
       }
     }
   },

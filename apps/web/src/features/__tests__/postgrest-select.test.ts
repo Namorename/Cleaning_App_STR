@@ -98,6 +98,8 @@ const READERS: readonly ((client: never) => Promise<unknown>)[] = [
   (client) => supplies.fetchCompanyLanguage(client),
   (client) => supplies.fetchSupplyRequests(client),
   (client) => tasks.fetchTasks(client),
+  (client) => tasks.fetchTasksBetween(client, '2026-09-01', '2026-10-01', 'active'),
+  (client) => tasks.fetchTasksBetween(client, '2026-09-01', '2026-10-01', 'cancelled'),
   (client) => tasks.fetchStaff(client),
   (client) => tasks.fetchProperties(client),
   (client) => tasks.fetchTaskWork(client, ANY_ID),

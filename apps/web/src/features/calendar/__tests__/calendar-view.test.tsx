@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -84,14 +84,98 @@ const bookingsState = {
   error: null as unknown,
 };
 
+const tasksState = {
+  data: [] as CalendarTask[] | undefined,
+  isPending: false,
+  isError: false,
+  error: null as unknown,
+};
+
+const ANNA = '11111111-1111-4111-8111-111111111111';
+const IVA = '22222222-2222-4222-8222-222222222222';
+const staffState = {
+  data: [{ id: ANNA, full_name: 'Anna', role: 'cleaner' }],
+  isPending: false,
+  isError: false,
+};
+
 vi.mock('../use-calendar', () => ({
   useCalendarClient: () => ({}),
   useCalendarRows: () => rowsState,
   useCalendarBookings: () => bookingsState,
+  useCalendarTasks: () => tasksState,
+  useCalendarStaff: () => staffState,
 }));
+
+// What the calendar hands the form and the drawer is what is tested here;
+// they have suites of their own.
+vi.mock('@/features/tasks/task-form', () => ({
+  TaskForm: (props: {
+    task: { id: string } | null;
+    initial?: { propertyId: number; scheduledDate: string };
+  }) => (
+    <div
+      role="dialog"
+      aria-label="Форма задания"
+      data-task={props.task?.id ?? 'new'}
+      data-property={props.initial?.propertyId ?? ''}
+      data-day={props.initial?.scheduledDate ?? ''}
+    />
+  ),
+}));
+vi.mock('@/features/tasks/task-drawer', () => ({
+  TaskDrawer: (props: { task: { id: string } }) => (
+    <div role="dialog" aria-label="Шторка задания" data-task={props.task.id} />
+  ),
+}));
+
+import { calendarTaskSchema, type CalendarTask } from '@/features/tasks/schema';
 
 import { CalendarView } from '../calendar-view';
 import type { CalendarBooking } from '../schema';
+
+let taskSerial = 0;
+const calendarTask = (
+  property: number,
+  day: string,
+  extra: Record<string, unknown> = {},
+): CalendarTask => {
+  taskSerial += 1;
+  return calendarTaskSchema.parse({
+    id: `00000000-0000-4000-8000-${String(taskSerial).padStart(12, '0')}`,
+    property_id: property,
+    reservation_id: null,
+    problem_id: null,
+    type: 'cleaning',
+    status: 'assigned',
+    priority: 0,
+    assignee_id: null,
+    scheduled_date: day,
+    time_from: null,
+    time_to: null,
+    started_at: null,
+    completed_at: null,
+    measured_minutes: null,
+    duration_override_min: null,
+    notes: null,
+    created_at: '2026-09-20T08:00:00+00:00',
+    property: { name: 'Anglicka 7' },
+    assignee: null,
+    problem: null,
+    ...extra,
+  });
+};
+
+const rowCell = (name: string) => {
+  const row = screen
+    .getAllByRole('row')
+    .find((one) => one.querySelector('[role="rowheader"]')?.getAttribute('aria-label') === name);
+  const cell = row?.querySelector('[role="gridcell"]');
+  if (!cell) {
+    throw new Error(`no row ${name}`);
+  }
+  return cell as HTMLElement;
+};
 
 const days = () =>
   screen
@@ -110,6 +194,10 @@ beforeEach(() => {
   bookingsState.isPending = false;
   bookingsState.isError = false;
   bookingsState.error = null;
+  tasksState.data = [];
+  tasksState.isPending = false;
+  tasksState.isError = false;
+  tasksState.error = null;
 });
 
 afterEach(() => {
@@ -332,5 +420,259 @@ describe('bookings', () => {
     const alert = screen.getByRole('alert');
     expect(alert).toHaveTextContent('Не удалось загрузить брони.');
     expect(alert).toHaveTextContent('canceling statement due to statement timeout');
+  });
+});
+
+// The window of these tests: 25 September to 1 October 2026, a week of
+// 130-px days after a 240-px column of listings.
+describe('task chips', () => {
+  test('a cleaning is a chip with who does it and when', () => {
+    tasksState.data = [
+      calendarTask(1, '2026-09-28', {
+        assignee_id: ANNA,
+        assignee: { full_name: 'Anna', role: 'cleaner' },
+        time_from: '10:00:00',
+        time_to: '15:00:00',
+      }),
+    ];
+    render(<CalendarView />);
+
+    const chip = screen.getByRole('button', { name: /Anna/ });
+    expect(chip).toHaveAccessibleName(/Уборка/);
+    expect(chip).toHaveAccessibleName(/10:00–15:00/);
+  });
+
+  test('a chip nobody holds says «Никто»', () => {
+    tasksState.data = [calendarTask(1, '2026-09-28', { status: 'unassigned' })];
+    render(<CalendarView />);
+
+    expect(screen.getByRole('button', { name: /Никто/ })).toBeInTheDocument();
+  });
+
+  test('a cleaning before a same-day arrival is marked SDT', () => {
+    tasksState.data = [calendarTask(1, '2026-09-28', { priority: 1 })];
+    render(<CalendarView />);
+
+    expect(screen.getByRole('button', { name: /Уборка/ })).toHaveAccessibleName(/SDT/);
+  });
+
+  test('an open chip opens the task form, a done one the drawer', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const open = calendarTask(1, '2026-09-28', { status: 'accepted' });
+    const done = calendarTask(1, '2026-09-26', { status: 'done' });
+    tasksState.data = [open, done];
+    render(<CalendarView />);
+
+    await user.click(screen.getByRole('button', { name: /Принято/ }));
+    expect(screen.getByRole('dialog', { name: 'Форма задания' })).toHaveAttribute(
+      'data-task',
+      open.id,
+    );
+  });
+
+  test('a done chip opens the drawer', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const done = calendarTask(1, '2026-09-26', { status: 'done' });
+    tasksState.data = [done];
+    render(<CalendarView />);
+
+    await user.click(screen.getByRole('button', { name: /Выполнено/ }));
+    expect(screen.getByRole('dialog', { name: 'Шторка задания' })).toHaveAttribute(
+      'data-task',
+      done.id,
+    );
+  });
+
+  // The unit of work is the problem: its date and technician change there (§6).
+  test('a repair chip leads to its problem', () => {
+    const problem = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    tasksState.data = [
+      calendarTask(1, '2026-09-28', {
+        type: 'maintenance',
+        problem_id: problem,
+        problem: { title: 'Broken boiler', priority: 'high' },
+      }),
+    ];
+    render(<CalendarView />);
+
+    expect(screen.getByRole('link', { name: /Broken boiler/ })).toHaveAttribute(
+      'href',
+      `/problems/${problem}`,
+    );
+  });
+
+  test('«Новое задание» opens an empty form', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<CalendarView />);
+
+    await user.click(screen.getByRole('button', { name: 'Новое задание' }));
+
+    const form = screen.getByRole('dialog', { name: 'Форма задания' });
+    expect(form).toHaveAttribute('data-task', 'new');
+    expect(form).toHaveAttribute('data-property', '');
+  });
+
+  test('a click on an empty cell opens the form on that listing and that day', () => {
+    render(<CalendarView />);
+
+    // jsdom lays nothing out: the cell starts at 0, so the fourth day is at 3 × 130 px.
+    fireEvent.click(rowCell('Anglicka 7'), { clientX: 3 * 130 + 5 });
+
+    const form = screen.getByRole('dialog', { name: 'Форма задания' });
+    expect(form).toHaveAttribute('data-property', '1');
+    expect(form).toHaveAttribute('data-day', '2026-09-28');
+  });
+
+  test('the status filter keeps what it names', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    tasksState.data = [
+      calendarTask(1, '2026-09-26', { status: 'done' }),
+      calendarTask(1, '2026-09-28', { status: 'in_progress' }),
+    ];
+    render(<CalendarView />);
+
+    await user.selectOptions(screen.getByLabelText('Статус'), 'Выполнено');
+
+    expect(screen.getByRole('button', { name: /Выполнено/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /В работе/ })).toBeNull();
+  });
+
+  test('the assignee filter offers nobody, the staff, and a person who left, marked', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    tasksState.data = [
+      calendarTask(1, '2026-09-26', { status: 'unassigned' }),
+      calendarTask(1, '2026-09-28', {
+        assignee_id: IVA,
+        assignee: { full_name: 'Iva', role: 'cleaner' },
+      }),
+    ];
+    render(<CalendarView />);
+
+    const field = screen.getByLabelText('Исполнитель');
+    expect(within(field).getByRole('option', { name: 'Не назначено' })).toBeInTheDocument();
+    expect(within(field).getByRole('option', { name: 'Anna' })).toBeInTheDocument();
+    expect(within(field).getByRole('option', { name: 'Iva — нет доступа' })).toBeInTheDocument();
+
+    await user.selectOptions(field, 'Не назначено');
+    expect(screen.getByRole('button', { name: /Никто/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Iva/ })).toBeNull();
+  });
+
+  // Their chips are gone from this window; the filter must still say whom it holds.
+  test('the assignee filter keeps a person who left after the window moves past their chips', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    tasksState.data = [
+      calendarTask(1, '2026-09-28', {
+        assignee_id: IVA,
+        assignee: { full_name: 'Iva', role: 'cleaner' },
+      }),
+    ];
+    const { rerender } = render(<CalendarView />);
+    await user.selectOptions(screen.getByLabelText('Исполнитель'), 'Iva — нет доступа');
+
+    tasksState.data = [
+      calendarTask(1, '2026-09-30', {
+        assignee_id: ANNA,
+        assignee: { full_name: 'Anna', role: 'cleaner' },
+      }),
+    ];
+    rerender(<CalendarView />);
+
+    const field = screen.getByLabelText('Исполнитель') as HTMLSelectElement;
+    expect(field.value).toBe(IVA);
+    expect(within(field).getByRole('option', { name: 'Iva — нет доступа' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Anna/ })).toBeNull();
+  });
+
+  test('a closed group’s chips say which room they stand on', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    tasksState.data = [
+      calendarTask(11, '2026-09-28', { time_from: '10:00:00', property: { name: 'Unit 1' } }),
+      calendarTask(12, '2026-09-28', { time_from: '12:00:00', property: { name: 'Unit 2' } }),
+    ];
+    render(<CalendarView />);
+
+    await user.click(screen.getByRole('button', { name: 'Скрыть единицы «Royal Cerna»' }));
+
+    expect(screen.getByRole('button', { name: /^Unit 1, / })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '+1' }));
+    expect(
+      within(screen.getByRole('dialog')).getByRole('button', { name: /^Unit 2, / }),
+    ).toBeInTheDocument();
+  });
+
+  test('a person without a name reads «Без имени», not a blank', () => {
+    tasksState.data = [
+      calendarTask(1, '2026-09-28', {
+        assignee_id: ANNA,
+        assignee: { full_name: null, role: 'cleaner' },
+      }),
+    ];
+    render(<CalendarView />);
+
+    expect(screen.getByRole('button', { name: /Уборка/ })).toHaveAccessibleName(/Без имени/);
+  });
+
+  test('a cell with more than it has room for shows «+N», and «+N» lists them all', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    tasksState.data = [
+      calendarTask(1, '2026-09-28', { time_from: '09:00:00' }),
+      calendarTask(1, '2026-09-28', { time_from: '11:00:00', type: 'inspection' }),
+      calendarTask(1, '2026-09-28', { time_from: '13:00:00', type: 'midstay' }),
+    ];
+    render(<CalendarView />);
+
+    await user.click(screen.getByRole('button', { name: /\+2/ }));
+
+    const list = screen.getByRole('dialog');
+    expect(within(list).getAllByRole('button', { name: /Уборка|Осмотр|проживание/ })).toHaveLength(
+      3,
+    );
+  });
+
+  // §2: the generator leaves a taken or started cleaning where it was.
+  test('a live chip whose booking is gone warns, once the bookings are read', () => {
+    tasksState.data = [calendarTask(1, '2026-09-28', { status: 'accepted', reservation_id: 77 })];
+    const { unmount } = render(<CalendarView />);
+
+    expect(screen.getByRole('button', { name: /Принято/ })).toHaveAccessibleName(
+      /Бронь изменилась/,
+    );
+
+    unmount();
+    bookingsState.data = undefined;
+    bookingsState.isPending = true;
+    render(<CalendarView />);
+    expect(screen.getByRole('button', { name: /Принято/ })).not.toHaveAccessibleName(
+      /Бронь изменилась/,
+    );
+  });
+
+  test('while the tasks load it says so; when they cannot be read it says that', () => {
+    tasksState.data = undefined;
+    tasksState.isPending = true;
+    const { unmount } = render(<CalendarView />);
+    expect(screen.getByText('Загружаем задания…')).toBeInTheDocument();
+
+    unmount();
+    tasksState.isPending = false;
+    tasksState.isError = true;
+    tasksState.error = { message: 'permission denied for table tasks' };
+    render(<CalendarView />);
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('Не удалось загрузить задания.');
+    expect(alert).toHaveTextContent('permission denied for table tasks');
+  });
+
+  // Writing is off on the stand (§5): a chip shows what it would open.
+  test('on the stand a chip opens a preview, not the form', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    tasksState.data = [calendarTask(1, '2026-09-28', { status: 'accepted' })];
+    render(<CalendarView fixture />);
+
+    await user.click(screen.getByRole('button', { name: /Принято/ }));
+
+    expect(screen.queryByRole('dialog', { name: 'Форма задания' })).toBeNull();
+    expect(screen.getByRole('dialog')).toHaveTextContent('Стенд: запись выключена');
   });
 });

@@ -2,6 +2,7 @@ import { todayIso } from '@/lib/format-date';
 import type { Client } from '@/lib/supabase/use-client';
 
 import { addDays } from './dates';
+import { FIXTURE_STAFF, fixtureTasks } from './stand-tasks';
 
 /**
  * The calendar stand (docs/f10-plan.md, §5): a stub client over a fixture,
@@ -259,9 +260,14 @@ function queryOf(rows: readonly Row[]) {
 
 /** The stub, typed as the real client: the readers under test cannot tell. */
 export function standClient(): Client {
+  const today = todayIso();
+  const properties = fixtureProperties();
+  const bookings = fixtureBookings(today);
   const tables: Record<string, readonly Row[]> = {
-    properties: fixtureProperties() as unknown as Row[],
-    reservations: fixtureBookings(todayIso()) as unknown as Row[],
+    properties: properties as unknown as Row[],
+    reservations: bookings as unknown as Row[],
+    tasks: fixtureTasks(today, properties, bookings),
+    profiles: FIXTURE_STAFF,
   };
   return { from: (table: string) => queryOf(tables[table] ?? []) } as unknown as Client;
 }

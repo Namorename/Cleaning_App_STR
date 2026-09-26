@@ -222,16 +222,18 @@ export function layoutRows<T extends TreeRow>(
 }
 
 /**
- * The bookings of several months as one list. A stay across the turn of a
- * month is read with both and kept once.
+ * The rows of several months as one list. A stay across the turn of a month
+ * is read with both and kept once.
  */
-export function mergeBookings(months: readonly (readonly CalendarBooking[])[]): CalendarBooking[] {
-  const seen = new Set<number>();
-  return months.flat().filter((booking) => {
-    if (seen.has(booking.id)) {
+export function mergeById<T extends { id: string | number }>(
+  months: readonly (readonly T[])[],
+): T[] {
+  const seen = new Set<string | number>();
+  return months.flat().filter((row) => {
+    if (seen.has(row.id)) {
       return false;
     }
-    seen.add(booking.id);
+    seen.add(row.id);
     return true;
   });
 }

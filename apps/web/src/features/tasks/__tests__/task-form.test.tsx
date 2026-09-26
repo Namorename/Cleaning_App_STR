@@ -93,6 +93,23 @@ const listingField = () => screen.getByLabelText('Объект') as HTMLSelectEl
 const chosen = (select: HTMLSelectElement) =>
   select.selectedIndex < 0 ? null : select.options[select.selectedIndex].textContent;
 
+// The calendar opens a new task from a cell: the listing and the day are
+// the ones the manager pointed at (docs/f10-plan.md, 7.4).
+describe('a new task opened from a calendar cell', () => {
+  test('starts on that listing and that day', () => {
+    render(
+      <TaskForm
+        task={null}
+        initial={{ propertyId: ANGLICKA, scheduledDate: '2026-10-02' }}
+        onClose={() => {}}
+      />,
+    );
+
+    expect(listingField().value).toBe(String(ANGLICKA));
+    expect((screen.getByLabelText('День') as HTMLInputElement).value).toBe('2026-10-02');
+  });
+});
+
 describe('the listing field of a task that stands on a room', () => {
   test('names the building and the room, not the placeholder', () => {
     render(

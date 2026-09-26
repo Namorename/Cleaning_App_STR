@@ -7,4 +7,6 @@ export const taskKeys = {
   reservation: (reservationId: number) => ['tasks', 'reservation', reservationId] as const,
   staff: () => ['tasks', 'staff'] as const,
   properties: () => ['tasks', 'properties'] as const,
+  /** One class of the calendar's tasks in one month, `YYYY-MM`. */
+  calendar: (taskClass: string, month: string) => ['tasks', 'calendar', taskClass, month] as const,
 };
