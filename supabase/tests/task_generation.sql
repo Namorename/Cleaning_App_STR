@@ -377,4 +377,92 @@ select pg_temp.check('it drops a row older than ninety days',
 select pg_temp.check('and keeps one younger than that',
   (select count(*)::int from raw.generator_runs where window_from = '2030-01-02'), 1);
 
+-- ---------------------------------------------------------------------------
+--  A service booking is a block (20260926102000)
+-- ---------------------------------------------------------------------------
+--
+-- The office books a flat for its own work -- a boiler repair, an inspection --
+-- as an ordinary reservation whose guest name starts with "#" (the owner's
+-- decision of 2026-09-25). Hostaway does not call it a block, so until now it
+-- earned a cleaning like a guest's stay. The generator now treats it exactly as
+-- it treats is_block: no cleaning of its own, its arrival is nobody's
+-- same-day turnover, and a live booking renamed into one loses the cleaning
+-- nobody has started.
+
+insert into public.properties (id, name, timezone, check_in_time, check_out_time) values
+  (900000208, 'Service bookings', 'UTC', '15:00', '10:00'),
+  (900000209, 'Renamed into service', 'UTC', '15:00', '10:00');
+
+insert into public.reservations
+  (id, property_id, arrival_date, departure_date, status, guest_name, is_block)
+values
+  (900000316, 900000208, '2027-03-01', '2027-03-03', 'new', '#Boiler - ремонт', false),
+  (900000317, 900000208, '2027-03-03', '2027-03-05', 'new', '   #Plumber', false),
+  (900000318, 900000208, '2027-03-05', '2027-03-06', 'new', E' #Owner', false),
+  (900000319, 900000208, '2027-03-07', '2027-03-09', 'new', 'Guest #2', false),
+  (900000320, 900000208, '2027-03-09', '2027-03-11', 'new', null, false),
+  -- Leaves on the day a service booking arrives...
+  (900000321, 900000208, '2027-03-12', '2027-03-14', 'new', 'Leaves before the repair', false),
+  (900000322, 900000208, '2027-03-14', '2027-03-15', 'new', '#Boiler check', false),
+  -- ...and, for comparison, on the day a block arrives.
+  (900000323, 900000208, '2027-03-17', '2027-03-19', 'new', 'Leaves before the owner', false),
+  (900000324, 900000208, '2027-03-19', '2027-03-21', 'new', 'Owner', true),
+  -- Live bookings the next run will see renamed, started, or turned into a block.
+  (900000325, 900000209, '2027-03-01', '2027-03-03', 'new', 'Real guest', false),
+  (900000326, 900000209, '2027-03-05', '2027-03-07', 'new', 'Real guest too', false),
+  (900000327, 900000209, '2027-03-09', '2027-03-11', 'new', 'Becomes a block', false);
+
+create or replace function pg_temp.turnover(res_id bigint) returns text language sql as $$
+  select priority::text || ' ' || coalesce(due_at::text, 'no deadline')
+  from public.tasks
+  where reservation_id = res_id and type = 'cleaning' and status <> 'cancelled'
+$$;
+
+select public.generate_cleaning_tasks('2027-03-01', '2027-03-31');
+
+select pg_temp.check('a booking named "#Boiler - ремонт" earns no cleaning',
+  pg_temp.rows_of(900000316), 0);
+select pg_temp.check('nor one whose "#" follows spaces',
+  pg_temp.rows_of(900000317), 0);
+select pg_temp.check('nor one whose "#" follows a no-break space',
+  pg_temp.rows_of(900000318), 0);
+select pg_temp.check('a "#" further in the name is only a name',
+  pg_temp.rows_of(900000319), 1);
+select pg_temp.check('a booking with no name is an ordinary booking',
+  pg_temp.rows_of(900000320), 1);
+select pg_temp.check('a block arriving makes no same-day turnover',
+  pg_temp.turnover(900000323), '0 no deadline');
+select pg_temp.check('and neither does a service booking arriving',
+  pg_temp.turnover(900000321), '0 no deadline');
+select pg_temp.check('the service booking itself earns no cleaning',
+  pg_temp.rows_of(900000322), 0);
+select pg_temp.check('the live bookings have their cleanings',
+  pg_temp.rows_of(900000325) + pg_temp.rows_of(900000326) + pg_temp.rows_of(900000327), 3);
+
+update public.tasks
+set status = 'in_progress', assignee_id = 'd7000000-0000-4000-8000-0000000000d7',
+    started_at = now() - interval '1 hour'
+where reservation_id = 900000326;
+
+update public.reservations set guest_name = '#Boiler - ремонт' where id = 900000325;
+update public.reservations set guest_name = ' #Inspection' where id = 900000326;
+update public.reservations set is_block = true where id = 900000327;
+
+select pg_temp.check('renamed into a service booking and turned into a block: two cancelled',
+  (public.generate_cleaning_tasks('2027-03-01', '2027-03-31') ->> 'cancelled')::int, 2);
+select pg_temp.check('the renamed booking''s untouched cleaning is cancelled',
+  pg_temp.task_statuses(900000325), 'cancelled');
+select pg_temp.check('exactly as the block''s is',
+  pg_temp.task_statuses(900000327), 'cancelled');
+select pg_temp.check('a cleaning under way is left running',
+  pg_temp.task_statuses(900000326), 'in_progress');
+
+update public.reservations set guest_name = 'Real guest' where id = 900000325;
+select pg_temp.check('named back, the booking gets a cleaning again',
+  (public.generate_cleaning_tasks('2027-03-01', '2027-03-31') ->> 'created')::int, 1);
+select pg_temp.check('beside the cancelled one, as a reinstated booking does',
+  (select string_agg(status::text, ',' order by status::text) from public.tasks
+    where reservation_id = 900000325 and type = 'cleaning'),
+  'cancelled,unassigned');
+
 rollback;

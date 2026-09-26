@@ -14,6 +14,11 @@
 -- can name them.
 begin;
 
+-- The pg_temp helpers below are created by postgres, whose new functions no
+-- longer go to PUBLIC (20260926100000), and they are called as authenticated
+-- too. Hand them to that role for the length of this transaction.
+alter default privileges for role postgres grant execute on functions to authenticated;
+
 insert into public.hosts (id, name) values
   ('a0000000-0000-4000-8000-00000000000a', 'Host A'),
   ('b0000000-0000-4000-8000-00000000000b', 'Host B');
@@ -89,6 +94,19 @@ select pg_temp.check('the cleaning window is not callable by a client role',
 select pg_temp.check('the cleaning window stays with service_role',
   has_function_privilege('service_role',
     'public.reservation_cleaning_window(bigint, bigint)', 'execute'), true);
+
+-- Its caller neither: generate_cleaning_tasks runs over every company at once
+-- and writes tasks with the owner's rights. Only the Edge Functions call it
+-- (sync-reservations and process-webhook-events), as service_role.
+select pg_temp.check('the generator is not callable by authenticated',
+  has_function_privilege('authenticated',
+    'public.generate_cleaning_tasks(date, date)', 'execute'), false);
+select pg_temp.check('nor by anon',
+  has_function_privilege('anon',
+    'public.generate_cleaning_tasks(date, date)', 'execute'), false);
+select pg_temp.check('the generator stays with service_role',
+  has_function_privilege('service_role',
+    'public.generate_cleaning_tasks(date, date)', 'execute'), true);
 
 -- ---------- клинер видит только свою компанию ----------
 set local role authenticated;

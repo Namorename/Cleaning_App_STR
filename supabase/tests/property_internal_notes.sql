@@ -11,6 +11,11 @@
 -- Fixture ids live in the 9000025xx range.
 begin;
 
+-- The pg_temp helpers below are created by postgres, whose new functions no
+-- longer go to PUBLIC (20260926100000), and they are called as authenticated
+-- too. Hand them to that role for the length of this transaction.
+alter default privileges for role postgres grant execute on functions to authenticated;
+
 insert into public.hosts (id, name) values
   ('b2500000-0000-4000-8000-00000000000b', 'Host B');
 

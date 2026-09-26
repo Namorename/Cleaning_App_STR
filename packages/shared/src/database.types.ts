@@ -2013,6 +2013,7 @@ export type Database = {
       is_active_user: { Args: never; Returns: boolean }
       is_localized_text: { Args: { p_value: Json }; Returns: boolean }
       is_manager: { Args: never; Returns: boolean }
+      is_service_booking: { Args: { guest_name: string }; Returns: boolean }
       mark_task_media_purged: { Args: { p_ids: string[] }; Returns: number }
       mark_thread_read: {
         Args: { p_thread_id: string; p_up_to?: string }
