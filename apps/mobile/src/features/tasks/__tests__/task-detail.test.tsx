@@ -50,7 +50,9 @@ beforeEach(() => {
 });
 
 test('shows what the cleaner needs to plan by: window, guests, notes', async () => {
-  await render(<TaskDetail task={task()} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />);
+  await render(
+    <TaskDetail task={task()} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />,
+  );
 
   expect(screen.getByText(/10:00–15:00/)).toBeTruthy();
   expect(screen.getByText('4')).toBeTruthy();
@@ -67,7 +69,7 @@ test("shows the office's note on the job before it starts, apart from the listin
   );
 
   // Assert
-  expect(screen.getByText('Указания к заданию')).toBeTruthy();
+  expect(screen.getByText('Указания к уборке')).toBeTruthy();
   expect(screen.getByText('Проверить бойлер')).toBeTruthy();
   expect(screen.getByText('Ключ в ящике 4325')).toBeTruthy();
 });
@@ -102,7 +104,9 @@ test('says which house, which room in it, and the street to drive to', async () 
   });
 
   // Act
-  await render(<TaskDetail task={inRoom} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />);
+  await render(
+    <TaskDetail task={inRoom} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />,
+  );
 
   // Assert
   expect(screen.getByText('CZ - Vinohradska Royal Apt 1.3.5.7')).toBeTruthy();
@@ -111,13 +115,17 @@ test('says which house, which room in it, and the street to drive to', async () 
 });
 
 test('shows the street of a listing cleaning too', async () => {
-  await render(<TaskDetail task={task()} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />);
+  await render(
+    <TaskDetail task={task()} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />,
+  );
 
   expect(screen.getByText('Nádražní 6')).toBeTruthy();
 });
 
 test('offers to start a task assigned to her', async () => {
-  await render(<TaskDetail task={task()} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />);
+  await render(
+    <TaskDetail task={task()} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />,
+  );
 
   await fireEvent.press(screen.getByRole('button', { name: 'Начать уборку' }));
 
@@ -197,7 +205,7 @@ test('says when a finished task is finished', async () => {
 });
 
 describe('the window', () => {
-  test('holds the start of tomorrow\'s cleaning and says when it opens', async () => {
+  test("holds the start of tomorrow's cleaning and says when it opens", async () => {
     await render(
       <TaskDetail
         task={task({ scheduled_date: '2026-11-11' })}
@@ -281,8 +289,9 @@ describe('the window', () => {
       />,
     );
 
-    // The server's refusals are worded for every kind of job, not for cleanings.
-    expect(screen.getByText('Задачу нельзя начать раньше 10:00 (2026-11-11)')).toBeTruthy();
+    // The server's refusals are worded for every kind of job: «уборка» names the
+    // whole section, inspections and repairs included.
+    expect(screen.getByText('Уборку нельзя начать раньше 10:00 (2026-11-11)')).toBeTruthy();
   });
 });
 
@@ -310,12 +319,12 @@ describe('the process', () => {
       completed_at: null,
       completed_by: null,
       title_i18n: {},
-    instructions_i18n: {},
-    config: {},
-    min_photos: null,
-    max_photos: null,
-    max_video_sec: null,
-    payload: {},
+      instructions_i18n: {},
+      config: {},
+      min_photos: null,
+      max_photos: null,
+      max_video_sec: null,
+      payload: {},
       skipped_at: null,
       skip_reason: null,
       waived_at: null,
@@ -364,7 +373,7 @@ describe('the process', () => {
     );
 
     // Assert
-    expect(screen.queryByText('Указания к заданию')).toBeNull();
+    expect(screen.queryByText('Указания к уборке')).toBeNull();
     expect(screen.queryByText('Проверить бойлер')).toBeNull();
   });
 
@@ -384,7 +393,7 @@ describe('the process', () => {
         {...actions}
       />,
     );
-    return screen.queryByText('Указания к заданию') !== null;
+    return screen.queryByText('Указания к уборке') !== null;
   }
 
   test('the note stays when the process has no note step, or none has loaded', async () => {

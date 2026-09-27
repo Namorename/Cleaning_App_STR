@@ -67,7 +67,7 @@ describe('serverErrorText', () => {
     );
 
     expect(serverErrorText(moved).text).toBe(
-      `Пока форма была открыта, задание перенесли на ${formatDay('2026-09-18', 'ru')}. Откройте его заново.`,
+      `Пока форма была открыта, уборку перенесли на ${formatDay('2026-09-18', 'ru')}. Откройте её заново.`,
     );
     expect(serverErrorText(moved).text).not.toContain('2026-09-18');
 

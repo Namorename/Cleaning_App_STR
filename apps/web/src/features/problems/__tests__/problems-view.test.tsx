@@ -101,8 +101,8 @@ describe('ProblemsView', () => {
     useProblems.mockReturnValue({ data: problems, isPending: false, isError: false });
     render(<ProblemsView />);
 
-    const open = screen.getByRole('region', { name: 'Открыта' });
-    const assigned = screen.getByRole('region', { name: 'Назначена' });
+    const open = screen.getByRole('region', { name: 'Открыто' });
+    const assigned = screen.getByRole('region', { name: 'Назначено' });
     expect(open).toHaveTextContent('Течёт кран');
     expect(assigned).toHaveTextContent('Сломан замок');
     expect(assigned).toHaveTextContent('Petr Fixer');
@@ -116,13 +116,13 @@ describe('ProblemsView', () => {
     useProblems.mockReturnValue({ data: [], isPending: false, isError: false });
     const { unmount } = render(<ProblemsView />);
     expect(screen.getAllByRole('region')).toHaveLength(4);
-    expect(screen.getAllByText('✨ Проблем пока нет')).toHaveLength(4);
+    expect(screen.getAllByText('✨ Заданий пока нет')).toHaveLength(4);
     await userEvent.type(screen.getByRole('searchbox'), 'x');
     expect(screen.getAllByText('🔍 Ничего не найдено')).toHaveLength(4);
     unmount();
 
     useProblems.mockReturnValue({ data: undefined, isPending: false, isError: true });
     render(<ProblemsView />);
-    expect(screen.getByRole('alert')).toHaveTextContent('Не удалось загрузить проблемы');
+    expect(screen.getByRole('alert')).toHaveTextContent('Не удалось загрузить задания');
   });
 });

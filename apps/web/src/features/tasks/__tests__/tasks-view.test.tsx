@@ -245,9 +245,7 @@ describe('TasksView', () => {
     const card = screen.getByText('Уборка завтра').closest('[data-slot="card"]') as HTMLElement;
     expect(card).toHaveTextContent('Из брони');
     // A task from a booking is not the manager's to call off.
-    expect(
-      within(card).queryByRole('button', { name: 'Отменить задание' }),
-    ).not.toBeInTheDocument();
+    expect(within(card).queryByRole('button', { name: 'Отменить уборку' })).not.toBeInTheDocument();
   });
 
   test('filters by person and by kind', async () => {
@@ -294,7 +292,7 @@ describe('TasksView', () => {
   test('writes a new task through the form', async () => {
     render(<TasksView />);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Новое задание' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Новая уборка' }));
     const dialog = await screen.findByRole('dialog');
 
     await userEvent.selectOptions(within(dialog).getByLabelText('Объект'), 'Vinohrady 12');
@@ -327,7 +325,7 @@ describe('TasksView', () => {
     const card = screen.getByText('Vinohrady 12').closest('[data-slot="card"]') as HTMLElement;
     expect(within(card).getAllByText('Уборка')).toHaveLength(2);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Новое задание' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Новая уборка' }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.selectOptions(within(dialog).getByLabelText('Объект'), 'Vinohrady 12');
 
@@ -345,7 +343,7 @@ describe('TasksView', () => {
     saveState.error = { hint: 'serverErrors.taskDuplicate', details: '{"date":"2026-09-11"}' };
     render(<TasksView />);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Новое задание' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Новая уборка' }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.selectOptions(within(dialog).getByLabelText('Объект'), 'Vinohrady 12');
     await userEvent.type(within(dialog).getByLabelText(/Название/), 'Мойка окон');
@@ -381,7 +379,7 @@ describe('TasksView', () => {
     render(<TasksView />);
     const card = screen.getByText('Вечерний осмотр').closest('[data-slot="card"]') as HTMLElement;
 
-    await userEvent.click(within(card).getByRole('button', { name: 'Отменить задание' }));
+    await userEvent.click(within(card).getByRole('button', { name: 'Отменить уборку' }));
     expect(cancelTask).not.toHaveBeenCalled();
     await userEvent.click(within(card).getByRole('button', { name: 'Да, отменить' }));
     expect(cancelTask).toHaveBeenCalledWith(id(2));
@@ -403,7 +401,7 @@ describe('TasksView', () => {
     render(<TasksView />);
 
     expect(screen.queryByText('Вечерний осмотр')).not.toBeInTheDocument();
-    expect(screen.getByRole('alert')).toHaveTextContent('Задача уже изменилась — экран обновлён');
+    expect(screen.getByRole('alert')).toHaveTextContent('Это уже изменилось — экран обновлён');
   });
 
   test('opens the conversation of a job nobody has started, without the work sections', async () => {
@@ -412,7 +410,7 @@ describe('TasksView', () => {
     const card = screen.getByText('Вечерний осмотр').closest('[data-slot="card"]') as HTMLElement;
     await userEvent.click(within(card).getByRole('button', { name: 'Чат' }));
 
-    const drawer = await screen.findByRole('dialog', { name: 'Задание' });
+    const drawer = await screen.findByRole('dialog', { name: 'Уборка' });
     expect(within(drawer).getByRole('region', { name: 'Разговор' })).toHaveTextContent(id(2));
     expect(within(drawer).queryByLabelText('Корректировка, минут')).not.toBeInTheDocument();
     expect(within(drawer).queryByText('Шаги')).not.toBeInTheDocument();

@@ -149,7 +149,7 @@ vi.mock('@/features/tasks/task-form', () => ({
   }) => (
     <div
       role="dialog"
-      aria-label="Форма задания"
+      aria-label="Форма уборки"
       data-task={props.task?.id ?? 'new'}
       data-property={props.initial?.propertyId ?? ''}
       data-day={props.initial?.scheduledDate ?? ''}
@@ -158,7 +158,7 @@ vi.mock('@/features/tasks/task-form', () => ({
 }));
 vi.mock('@/features/tasks/task-drawer', () => ({
   TaskDrawer: (props: { task: { id: string } }) => (
-    <div role="dialog" aria-label="Шторка задания" data-task={props.task.id} />
+    <div role="dialog" aria-label="Шторка уборки" data-task={props.task.id} />
   ),
 }));
 
@@ -562,8 +562,8 @@ describe('task chips', () => {
     tasksState.data = [open, done];
     render(<CalendarView />);
 
-    await user.click(screen.getByRole('button', { name: /Принято/ }));
-    expect(screen.getByRole('dialog', { name: 'Форма задания' })).toHaveAttribute(
+    await user.click(screen.getByRole('button', { name: /Принята/ }));
+    expect(screen.getByRole('dialog', { name: 'Форма уборки' })).toHaveAttribute(
       'data-task',
       open.id,
     );
@@ -575,8 +575,8 @@ describe('task chips', () => {
     tasksState.data = [done];
     render(<CalendarView />);
 
-    await user.click(screen.getByRole('button', { name: /Выполнено/ }));
-    expect(screen.getByRole('dialog', { name: 'Шторка задания' })).toHaveAttribute(
+    await user.click(screen.getByRole('button', { name: /Выполнена/ }));
+    expect(screen.getByRole('dialog', { name: 'Шторка уборки' })).toHaveAttribute(
       'data-task',
       done.id,
     );
@@ -600,13 +600,13 @@ describe('task chips', () => {
     );
   });
 
-  test('«Новое задание» opens an empty form', async () => {
+  test('«Новая уборка» opens an empty form', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     render(<CalendarView />);
 
-    await user.click(screen.getByRole('button', { name: 'Новое задание' }));
+    await user.click(screen.getByRole('button', { name: 'Новая уборка' }));
 
-    const form = screen.getByRole('dialog', { name: 'Форма задания' });
+    const form = screen.getByRole('dialog', { name: 'Форма уборки' });
     expect(form).toHaveAttribute('data-task', 'new');
     expect(form).toHaveAttribute('data-property', '');
   });
@@ -617,7 +617,7 @@ describe('task chips', () => {
     // jsdom lays nothing out: the cell starts at 0, so the fourth day is at 3 × 130 px.
     fireEvent.click(rowCell('Anglicka 7'), { clientX: 3 * 130 + 5 });
 
-    const form = screen.getByRole('dialog', { name: 'Форма задания' });
+    const form = screen.getByRole('dialog', { name: 'Форма уборки' });
     expect(form).toHaveAttribute('data-property', '1');
     expect(form).toHaveAttribute('data-day', '2026-09-28');
   });
@@ -630,9 +630,9 @@ describe('task chips', () => {
     ];
     render(<CalendarView />);
 
-    await user.selectOptions(screen.getByLabelText('Статус'), 'Выполнено');
+    await user.selectOptions(screen.getByLabelText('Статус'), 'Выполнена');
 
-    expect(screen.getByRole('button', { name: /Выполнено/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Выполнена/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /В работе/ })).toBeNull();
   });
 
@@ -749,7 +749,7 @@ describe('task chips', () => {
     tasksState.data = undefined;
     tasksState.isPending = true;
     const { unmount } = render(<CalendarView />);
-    expect(screen.getByText('Загружаем задания…')).toBeInTheDocument();
+    expect(screen.getByText('Загружаем уборки…')).toBeInTheDocument();
 
     unmount();
     tasksState.isPending = false;
@@ -757,7 +757,7 @@ describe('task chips', () => {
     tasksState.error = { message: 'permission denied for table tasks' };
     render(<CalendarView />);
     const alert = screen.getByRole('alert');
-    expect(alert).toHaveTextContent('Не удалось загрузить задания.');
+    expect(alert).toHaveTextContent('Не удалось загрузить уборки.');
     expect(alert).toHaveTextContent('permission denied for table tasks');
   });
 
@@ -767,9 +767,9 @@ describe('task chips', () => {
     tasksState.data = [calendarTask(1, '2026-09-28', { status: 'accepted' })];
     render(<CalendarView fixture />);
 
-    await user.click(screen.getByRole('button', { name: /Принято/ }));
+    await user.click(screen.getByRole('button', { name: /Принята/ }));
 
-    expect(screen.queryByRole('dialog', { name: 'Форма задания' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Форма уборки' })).toBeNull();
     expect(screen.getByRole('dialog')).toHaveTextContent('Стенд: запись выключена');
   });
 });
@@ -791,7 +791,7 @@ describe('the compact view', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const { unmount } = render(<CalendarView />);
 
-    const views = screen.getByRole('group', { name: 'Вид заданий' });
+    const views = screen.getByRole('group', { name: 'Вид уборок' });
     expect(within(views).getByRole('button', { name: 'Полный' })).toHaveAttribute(
       'aria-pressed',
       'true',
@@ -883,7 +883,7 @@ describe('what never happened, the cancelled, the repairs', () => {
     expiredState.data = [lapsed()];
     render(<CalendarView />);
 
-    await user.selectOptions(screen.getByLabelText('Статус'), 'Выполнено');
+    await user.selectOptions(screen.getByLabelText('Статус'), 'Выполнена');
     expect(screen.getByRole('button', { name: /Не состоялась/ })).toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText('Исполнитель'), 'Не назначено');
@@ -899,7 +899,7 @@ describe('what never happened, the cancelled, the repairs', () => {
     await user.click(screen.getByRole('button', { name: /Не состоялась/ }));
 
     expect(wholeTask).toHaveBeenCalledWith(mark.id);
-    expect(screen.getByRole('dialog', { name: 'Шторка задания' })).toHaveAttribute(
+    expect(screen.getByRole('dialog', { name: 'Шторка уборки' })).toHaveAttribute(
       'data-task',
       mark.id,
     );
@@ -911,12 +911,12 @@ describe('what never happened, the cancelled, the repairs', () => {
     cancelledState.data = [cancelled];
     render(<CalendarView />);
 
-    expect(screen.queryByRole('button', { name: /Отменено/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Отменена/ })).toBeNull();
 
     await user.click(screen.getByRole('checkbox', { name: 'Показывать отменённые' }));
-    await user.click(screen.getByRole('button', { name: /Отменено/ }));
+    await user.click(screen.getByRole('button', { name: /Отменена/ }));
 
-    expect(screen.getByRole('dialog', { name: 'Шторка задания' })).toHaveAttribute(
+    expect(screen.getByRole('dialog', { name: 'Шторка уборки' })).toHaveAttribute(
       'data-task',
       cancelled.id,
     );
@@ -1046,7 +1046,7 @@ describe('what never happened and the repairs, after review', () => {
       render(<CalendarView />);
       await user.click(screen.getByRole('button', { name: /Не состоялась/ }));
 
-      expect(screen.getByRole('dialog')).toHaveTextContent('Загружаем задания…');
+      expect(screen.getByRole('dialog')).toHaveTextContent('Загружаем уборки…');
     } finally {
       if (original) {
         wholeTask.mockImplementation(original);
@@ -1060,7 +1060,7 @@ describe('what never happened and the repairs, after review', () => {
     try {
       render(<CalendarView />);
 
-      expect(screen.getByText('Загружаем задания…')).toBeInTheDocument();
+      expect(screen.getByText('Загружаем уборки…')).toBeInTheDocument();
     } finally {
       repairsState.isPending = false;
     }
@@ -1106,7 +1106,7 @@ describe('after the branch preflight', () => {
     expiredState.data = [closedCopy(task.id)];
     render(<CalendarView />);
 
-    expect(screen.queryByRole('button', { name: /Назначено/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Назначена/ })).toBeNull();
     expect(screen.getAllByRole('button', { name: /Не состоялась/ })).toHaveLength(1);
   });
 
@@ -1119,8 +1119,8 @@ describe('after the branch preflight', () => {
 
     await user.click(screen.getByRole('checkbox', { name: 'Показывать отменённые' }));
 
-    expect(screen.queryByRole('button', { name: /Назначено/ })).toBeNull();
-    expect(screen.getAllByRole('button', { name: /Отменено/ })).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: /Назначена/ })).toBeNull();
+    expect(screen.getAllByRole('button', { name: /Отменена/ })).toHaveLength(1);
   });
 
   test("the booking card names the status in words, not Hostaway's code", async () => {

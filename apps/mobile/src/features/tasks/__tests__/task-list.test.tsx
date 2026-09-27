@@ -43,7 +43,7 @@ function task(): CleaningTask {
 test('says it is loading rather than showing an empty list', async () => {
   await render(<TaskList {...baseProps} sections={undefined} isLoading error={null} />);
 
-  expect(screen.getByText('Загружаем задачи…')).toBeTruthy();
+  expect(screen.getByText('Загружаем уборки…')).toBeTruthy();
   expect(screen.queryByText('Свободных уборок нет.')).toBeNull();
 });
 
@@ -57,7 +57,7 @@ test('distinguishes a failure from an empty day', async () => {
     />,
   );
 
-  expect(screen.getByText('Не удалось загрузить задачи')).toBeTruthy();
+  expect(screen.getByText('Не удалось загрузить уборки')).toBeTruthy();
   expect(screen.getByText('Не удалось выполнить действие. Попробуйте ещё раз.')).toBeTruthy();
   expect(screen.getByText('Network request failed')).toBeTruthy();
   expect(screen.queryByText('Свободных уборок нет.')).toBeNull();
@@ -70,12 +70,14 @@ test('shows the empty message when there is genuinely nothing to do', async () =
 });
 
 test('renders the tasks it was given', async () => {
-  await render(<TaskList
+  await render(
+    <TaskList
       {...baseProps}
       sections={[{ key: 'upcoming', data: [task()] }]}
       isLoading={false}
       error={null}
-    />);
+    />,
+  );
 
   expect(screen.getByText('CZ - Nadrazni Apt 6')).toBeTruthy();
 });

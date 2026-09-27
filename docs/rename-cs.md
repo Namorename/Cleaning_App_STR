@@ -135,3 +135,9 @@ Prosíme o kontrolu gramatiky (pády, množné číslo) a přirozenosti. Nejdůl
 - `serverErrors.taskDateRequired`: Úkol musí mít den → Úklid musí mít den — 1. pád j. č.
 - `serverErrors.taskDuplicate`: Tento byt už na {{date}} takový úkol má → Tento byt už na {{date}} takový úklid má — 4. pád j. č.; „takový“ beze změny
 - `serverErrors.taskMovedMeanwhile`: Zatímco byl formulář otevřený, úkol se přesunul na {{date}}. Otevřete ho znovu. → Zatímco byl formulář otevřený, úklid se přesunul na {{date}}. Otevřete ho znovu. — 1. pád j. č.; „ho“ beze změny
+
+Doplněno podle rozhodnutí majitele (2026-09-27): „Hlášení“ na kartě objektu a „závada“ v popisku chatu → „úkol“.
+
+- `panel.apartments.maintenance.reports`: Hlášení (otevřených: {{open}}) → Úkoly (otevřených: {{open}}) — 1. pád mn. č.
+- `panel.apartments.maintenance.noReports`: Žádná hlášení. → Žádné úkoly. — 1. pád mn. č.
+- `panel.chat.audienceProblem`: Vidí ti, kdo vidí závadu: kdo ji nahlásil, technik a manažeři → Vidí ti, kdo vidí úkol: kdo ho nahlásil, technik a manažeři — 4. pád j. č.; zájmeno ji → ho (úkol je mužského rodu)

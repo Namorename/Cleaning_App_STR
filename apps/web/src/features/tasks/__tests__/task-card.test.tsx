@@ -87,7 +87,7 @@ describe('an older tail', () => {
       }),
     );
 
-    expect(screen.getByText('Просрочено · 19.09')).toBeInTheDocument();
+    expect(screen.getByText('Просрочена · 19.09')).toBeInTheDocument();
   });
 
   test('an older booking cleaning names its check-out', () => {
@@ -99,6 +99,6 @@ describe('an older tail', () => {
       }),
     );
 
-    expect(screen.getByText('Просрочено · выезд 21.09')).toBeInTheDocument();
+    expect(screen.getByText('Просрочена · выезд 21.09')).toBeInTheDocument();
   });
 });

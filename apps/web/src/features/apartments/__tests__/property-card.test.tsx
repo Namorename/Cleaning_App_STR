@@ -447,7 +447,7 @@ describe('maintenance', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Обслуживание' }));
 
     expect(screen.getByText('Поменять смеситель')).toBeInTheDocument();
-    expect(screen.getByText(/Репорты \(открытых: 2\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Задания \(открытых: 2\)/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Течёт кран' })).toHaveAttribute(
       'href',
       '/problems/cccccccc-cccc-4ccc-8ccc-000000000001',

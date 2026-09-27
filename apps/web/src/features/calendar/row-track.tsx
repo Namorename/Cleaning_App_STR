@@ -70,7 +70,7 @@ export function RowTrack({
   onEmptyDay,
 }: RowTrackProps) {
   // A bar, a chip or «+N» answer for themselves; the rest of the day is empty.
-  // The keyboard's way to a new task is the «Новое задание» button.
+  // The keyboard's way to a new task is the «Новая уборка» button.
   const pressEmpty = (event: React.MouseEvent<HTMLDivElement>) => {
     if ((event.target as HTMLElement).closest('button, a') !== null) {
       return;

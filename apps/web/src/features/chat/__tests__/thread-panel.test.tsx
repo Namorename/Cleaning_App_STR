@@ -90,11 +90,11 @@ describe('ThreadPanel', () => {
 
   test('says who will see a task thread, and who a problem thread', () => {
     const { unmount } = render(<ThreadPanel subject={{ taskId: TASK }} />);
-    expect(screen.getByText(/кому видно задание/)).toBeInTheDocument();
+    expect(screen.getByText(/кому видна уборка/)).toBeInTheDocument();
     unmount();
 
     render(<ThreadPanel subject={{ problemId: TASK }} />);
-    expect(screen.getByText(/кому видна поломка/)).toBeInTheDocument();
+    expect(screen.getByText(/кому видно задание/)).toBeInTheDocument();
   });
 
   test('an empty thread says so and marks nothing read', () => {

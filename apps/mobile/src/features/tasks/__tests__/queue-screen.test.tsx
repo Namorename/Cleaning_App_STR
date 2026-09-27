@@ -75,9 +75,9 @@ const mutate = jest.fn();
 
 beforeEach(() => {
   jest.clearAllMocks();
-  jest.mocked(useClaimTask).mockReturnValue({ mutate } as unknown as ReturnType<
-    typeof useClaimTask
-  >);
+  jest
+    .mocked(useClaimTask)
+    .mockReturnValue({ mutate } as unknown as ReturnType<typeof useClaimTask>);
 });
 
 /** Taps "Взять" and has the claim fail the way the server answered. */
@@ -98,7 +98,7 @@ test('a claim the server refused in its own words is said in hers, with the word
 
   // Assert
   expect(alert).toHaveBeenCalledWith(
-    'Не получилось взять задачу',
+    'Не получилось взять уборку',
     'Не удалось выполнить действие. Попробуйте ещё раз.\n\npermission denied for table tasks',
   );
   expect(mockRefetch).toHaveBeenCalled();
@@ -112,8 +112,8 @@ test('a lost race is the one sentence that explains it, with nothing raw under i
 
   // Assert
   expect(alert).toHaveBeenCalledWith(
-    'Не получилось взять задачу',
-    'Задачу уже взяли, либо её срок истёк.',
+    'Не получилось взять уборку',
+    'Уборку уже взяли, либо её срок истёк.',
   );
 });
 

@@ -3,7 +3,7 @@
  *
  * The server cuts every response at its max-rows setting — the hosted default
  * is a thousand — and says nothing when it does: a reader that asks once gets
- * the first thousand rows and a 200. The Tasks screen did exactly that and,
+ * the first thousand rows and a 200. The Cleanings screen (/tasks) did exactly that and,
  * sorted by date over a month of expired duplicates, stopped weeks before
  * today (docs/f10-plan.md, stage 7.0).
  *

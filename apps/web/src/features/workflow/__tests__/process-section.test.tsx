@@ -98,7 +98,7 @@ describe('the company process', () => {
     expect(options.map((option) => option.textContent)).toEqual([
       'Уборки',
       'Уборки в проживание',
-      'Устранения проблем',
+      'Работы по заданиям',
       'Осмотры',
     ]);
   });
@@ -134,7 +134,7 @@ describe('the company process', () => {
 
     render(<ProcessSection />);
 
-    expect(screen.getByRole('status')).toHaveTextContent('Процесса для этого вида задач ещё нет.');
+    expect(screen.getByRole('status')).toHaveTextContent('Процесса для этого вида ещё нет.');
   });
 
   // A blank name is a complaint about an empty form nobody has filled in yet.

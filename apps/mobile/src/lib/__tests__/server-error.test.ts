@@ -58,7 +58,7 @@ describe('a key the app knows', () => {
       raised('serverErrors.stepNotFound', 'Step not found, or its task is not in progress'),
     );
 
-    expect(failure.text).toBe('Шаг не найден или задача уже не в работе');
+    expect(failure.text).toBe('Шаг не найден или уборка уже не в работе');
     // Nothing of the server's English survives: it would only confuse.
     expect(failure.detail).toBeNull();
   });
@@ -123,7 +123,7 @@ describe('a refusal the app read off an answer itself', () => {
       new RefusalError('Claim matched no row: taken or past its day', 'tasks.claimTaken'),
     );
 
-    expect(failure.text).toBe('Задачу уже взяли, либо её срок истёк.');
+    expect(failure.text).toBe('Уборку уже взяли, либо её срок истёк.');
     expect(failure.detail).toBeNull();
   });
 
@@ -137,7 +137,7 @@ describe('a refusal the app read off an answer itself', () => {
 
 describe('an alert, which has no small print', () => {
   test('is the sentence alone when there is nothing to pass on', () => {
-    expect(alertMessage({ text: 'Задачу уже взяли.', detail: null })).toBe('Задачу уже взяли.');
+    expect(alertMessage({ text: 'Уборку уже взяли.', detail: null })).toBe('Уборку уже взяли.');
   });
 
   test('keeps the raw words as a paragraph of their own under the sentence', () => {

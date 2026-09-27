@@ -203,7 +203,7 @@ describe('the booking behind a cleaning', () => {
     render(<TaskForm task={cleaning()} onClose={() => {}} />);
 
     expect(screen.getByText('Загружаем…')).toBeTruthy();
-    expect(screen.queryByText('Загружаем задания…')).toBeNull();
+    expect(screen.queryByText('Загружаем уборки…')).toBeNull();
   });
 
   test('a name that could not be read does not hide the booking id', () => {
@@ -262,9 +262,9 @@ describe('the listing field when the manager writes a task by hand', () => {
  * holds the line on its own; the server still accepts an unassigned task.
  */
 describe('an inspection or a maintenance job always has an executor', () => {
-  const REQUIRED = 'Осмотру и обслуживанию нужен исполнитель: выберите, кто сделает задание.';
+  const REQUIRED = 'Осмотру и обслуживанию нужен исполнитель: выберите, кто сделает работу.';
 
-  const typeField = () => screen.getByLabelText('Тип задания') as HTMLSelectElement;
+  const typeField = () => screen.getByLabelText('Тип') as HTMLSelectElement;
   const assigneeField = () => screen.getByLabelText('Исполнитель') as HTMLSelectElement;
   const nobody = () =>
     Array.from(assigneeField().options).find((option) => option.value === '') as HTMLOptionElement;
@@ -376,7 +376,7 @@ describe('an inspection or a maintenance job always has an executor', () => {
  * inspection, that is a real colleague who was never asked.
  */
 describe('an executor who has been switched off', () => {
-  const REQUIRED = 'Осмотру и обслуживанию нужен исполнитель: выберите, кто сделает задание.';
+  const REQUIRED = 'Осмотру и обслуживанию нужен исполнитель: выберите, кто сделает работу.';
   const GONE = { id: 'bbbbbbbb-bbbb-4bbb-8bbb-000000000009', full_name: 'Eva Svobodová' };
 
   const assigneeField = () => screen.getByLabelText('Исполнитель') as HTMLSelectElement;
@@ -512,7 +512,7 @@ describe('the day the form was opened with', () => {
       render(<TaskForm task={bookingCleaning()} onClose={() => {}} />);
 
       expect(screen.getByRole('alert')).toHaveTextContent(
-        `Пока форма была открыта, задание перенесли на ${formatDay('2026-09-18', 'ru')}. Откройте его заново.`,
+        `Пока форма была открыта, уборку перенесли на ${formatDay('2026-09-18', 'ru')}. Откройте её заново.`,
       );
       // Nothing to confirm: the day it was opened with is gone.
       expect(screen.queryByRole('button', { name: 'Всё равно сохранить' })).toBeNull();

@@ -1,6 +1,6 @@
-// Before i18next: it picks "1 úkol, 2 úkoly, 5 úkolů" through Intl.PluralRules,
+// Before i18next: it picks "1 úklid, 2 úklidy, 5 úklidů" through Intl.PluralRules,
 // which Hermes may not ship. Without it i18next knows only "one" and "other"
-// and a Czech or Russian reader gets "2 úkolů". Pure JavaScript, installed only
+// and a Czech or Russian reader gets "2 úklidů". Pure JavaScript, installed only
 // where the engine has no rules of its own.
 import 'intl-pluralrules';
 
