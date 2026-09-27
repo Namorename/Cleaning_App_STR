@@ -52,12 +52,16 @@
 -- and done today, and the sweep closes it a day later — and any change of the
 -- booking undoes every move of it.
 --
--- Fewer places than cleanings. When a booking keeps fewer places than it has
--- cleanings — its rooms folded into the listing, two rooms made one — the
--- relocate pass pairs one of them with the place left and the cancel pass
--- takes the rest. It paired the lowest room's, so a cleaner's cleaning could
--- be cancelled and one nobody held kept. A cleaning somebody holds is now
--- paired first.
+-- Fewer new places than cleanings left behind. When the cleanings left in
+-- rooms a booking gave up outnumber the places it newly needs — its rooms
+-- folded into the listing, two rooms moved together into one new room — the
+-- relocate pass pairs some of them with those places and the cancel pass takes
+-- the rest. It paired the lowest room's, so a cleaner's cleaning could be
+-- cancelled and one nobody held kept. A cleaning somebody holds is now paired
+-- first; among cleanings all held, room order decides. A room the booking
+-- keeps keeps its own cleaning, whoever holds it: with rooms A and B cut to A
+-- alone, B's cleaning is cancelled even if a cleaner holds it (as before this
+-- migration; none such in the cloud on 2026-09-27).
 --
 -- A swap next to an expired cleaning. The relocate pass pairs a booking's
 -- cleaning left in a room it gave up with a room it now needs, the lowest room
@@ -619,10 +623,13 @@ begin
   -- cleaning of the booking (20260927120000).
   with stray as (
     select t.id, t.reservation_id,
-           -- A cleaning somebody holds is paired first: when the booking keeps
-           -- fewer places than it has cleanings — its rooms folded into the
-           -- listing, two rooms made one — the one left over is cancelled,
-           -- and it should not be the cleaner's (20260927120000).
+           -- A cleaning somebody holds is paired first: when the cleanings
+           -- left behind outnumber the places newly needed — rooms folded
+           -- into the listing, two rooms moved into one new room — the one
+           -- left over is cancelled, and it should not be the cleaner's
+           -- (20260927120000). Among cleanings all held, room order decides.
+           -- A room the booking keeps is not a place newly needed: its own
+           -- cleaning stays there, whoever holds it.
            row_number() over (partition by t.reservation_id
                               order by (t.assignee_id is null), t.property_id, t.id) as rank
     from public.tasks t

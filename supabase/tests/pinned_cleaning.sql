@@ -22,9 +22,9 @@
 -- any change of a booking's rooms undoes the move of every cleaning of that
 -- booking, not only the one whose room changed; the window of a booking's
 -- cleaning is the server's, whatever times a save sends; after the stay the
--- rule is the same, a departure corrected to yesterday included; and when a
--- booking keeps fewer places than it has cleanings, the one somebody holds is
--- kept.
+-- rule is the same, a departure corrected to yesterday included; and when
+-- the cleanings left in rooms a booking gave up outnumber the places it newly
+-- needs, the one somebody holds is kept (a room it keeps keeps its own).
 --
 -- Every case has its own property; ids 9000025xx, rooms 251xx and 252xx. Days
 -- are counted from today.
