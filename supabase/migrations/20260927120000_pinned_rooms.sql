@@ -88,9 +88,11 @@
 --
 -- ROLLBACK. There is no down migration, and the bodies of 20260926160000 cannot
 -- come back on their own: they never name pinned_rooms, so with
--- tasks_pinned_rooms_whole in place the old save_task fails every move and
--- every move back (23514), and the old generator, clearing the dates and
--- leaving the rooms, aborts the whole run. The rollback is one forward
+-- tasks_pinned_rooms_whole in place the old save_task fails whenever it sets
+-- or clears the dates of a move — a cleaning's first move and every move back
+-- onto the departure (23514; a further move of one already moved keeps its
+-- rooms and passes) — and the old generator, clearing the dates and leaving
+-- the rooms, aborts every run that undoes a move. The rollback is one forward
 -- migration that, in one file, drops tasks_pinned_rooms_whole, sets
 -- pinned_rooms to null, and restores the three bodies; reservation_rooms and
 -- the column may go with it or later — the column only once no deployed panel
