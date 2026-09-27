@@ -1285,6 +1285,7 @@ export type Database = {
           notes: string | null
           pinned_arrival: string | null
           pinned_departure: string | null
+          pinned_rooms: number[] | null
           priority: number
           problem_id: string | null
           property_id: number
@@ -1316,6 +1317,7 @@ export type Database = {
           notes?: string | null
           pinned_arrival?: string | null
           pinned_departure?: string | null
+          pinned_rooms?: number[] | null
           priority?: number
           problem_id?: string | null
           property_id: number
@@ -1347,6 +1349,7 @@ export type Database = {
           notes?: string | null
           pinned_arrival?: string | null
           pinned_departure?: string | null
+          pinned_rooms?: number[] | null
           priority?: number
           problem_id?: string | null
           property_id?: number
@@ -2337,6 +2340,10 @@ export type Database = {
           window_to: string
         }[]
       }
+      reservation_rooms: {
+        Args: { target_reservation_id: number }
+        Returns: number[]
+      }
       resolve_checklist_property: {
         Args: { p_property_id: number }
         Returns: number
@@ -2528,6 +2535,7 @@ export type Database = {
           notes: string | null
           pinned_arrival: string | null
           pinned_departure: string | null
+          pinned_rooms: number[] | null
           priority: number
           problem_id: string | null
           property_id: number

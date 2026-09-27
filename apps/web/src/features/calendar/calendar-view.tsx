@@ -13,8 +13,17 @@ import { layoutRows } from './bars';
 import { BookingCard } from './booking-card';
 import { CalendarFilters } from './calendar-filters';
 import { CalendarGrid } from './calendar-grid';
-import type { ChipView } from './chips';
-import { addDays, DEPTHS, defaultStart, rangeLabel, windowDays, type Depth } from './dates';
+import type { BookingsRead, ChipView } from './chips';
+import {
+  addDays,
+  DEPTHS,
+  defaultStart,
+  monthBounds,
+  monthsOf,
+  rangeLabel,
+  windowDays,
+  type Depth,
+} from './dates';
 import { LayerAlert } from './layer-alert';
 import { standOverscan, useStandPaintMark } from './stand-measure';
 import type { CalendarBooking } from './schema';
@@ -105,14 +114,23 @@ function CalendarBody({ isStand, scale }: { isStand: boolean; scale: number }) {
     [tree, bookings.data, days],
   );
   // Null until read: a chip is not judged against bookings that have not come.
-  const bookingsById = useMemo(
-    () => (bookings.data === undefined ? null : new Map(bookings.data.map((one) => [one.id, one]))),
-    [bookings.data],
-  );
+  // The months read ride along, so a moved chip is not judged against a
+  // booking that was never asked for (chips.ts, isStayRead).
+  const bookingsRead = useMemo((): BookingsRead | null => {
+    if (bookings.data === undefined) {
+      return null;
+    }
+    const months = monthsOf(days);
+    return {
+      byId: new Map(bookings.data.map((one) => [one.id, one])),
+      from: monthBounds(months[0]).from,
+      to: monthBounds(months[months.length - 1]).to,
+    };
+  }, [bookings.data, days]);
 
   // Chips, likewise, only when every month has come; the filters act on them alone.
   const chips = useChipLayers({ client, isStand, days, byId });
-  const taskDialogs = useTaskDialogs({ isStand, language, bookings: bookingsById });
+  const taskDialogs = useTaskDialogs({ isStand, language, bookings: bookingsRead });
 
   // A repair left behind shows in its row's first column, whatever the window (§6).
   const repairs = useLiveRepairs(client, isStand);
@@ -256,7 +274,7 @@ function CalendarBody({ isStand, scale }: { isStand: boolean; scale: number }) {
           layout={layout}
           byRowDay={chips.byRowDay}
           repairAlerts={repairAlerts}
-          bookings={bookingsById}
+          bookings={bookingsRead}
           chipView={chipView}
           language={language}
           onOpenBooking={setOpened}

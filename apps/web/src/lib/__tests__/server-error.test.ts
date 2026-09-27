@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from 'vitest';
 
+import { formatDay } from '../format-date';
 import { i18n, languageFromCookie } from '../i18n';
 import { serverErrorText } from '../server-error';
 
@@ -15,7 +16,7 @@ describe('a refusal that counts', () => {
 
   // The server names its number after what it counts ("total", "limit");
   // i18next picks a plural form only from `count`.
-  test('agrees with the number of open tasks the listing still has', async () => {
+  test('agrees with the number of open cleanings the listing still has', async () => {
     await i18n.changeLanguage('cs');
     const text = (total: number) =>
       serverErrorText(
@@ -26,9 +27,9 @@ describe('a refusal that counts', () => {
         ),
       ).text;
 
-    expect(text(1)).toContain('má 1 nedokončený úkol');
-    expect(text(2)).toContain('má 2 nedokončené úkoly');
-    expect(text(12)).toContain('má 12 nedokončených úkolů');
+    expect(text(1)).toContain('má 1 nedokončený úklid');
+    expect(text(2)).toContain('má 2 nedokončené úklidy');
+    expect(text(12)).toContain('má 12 nedokončených úklidů');
   });
 
   test('reads a limit of one file in the singular', () => {
@@ -55,6 +56,27 @@ describe('serverErrorText', () => {
       text: 'Заголовок длиннее 200 символов',
       detail: null,
     });
+  });
+
+  // The server names a day as YYYY-MM-DD; the manager reads it as a date.
+  test('reads a day the server names as a date, in the reader’s language', async () => {
+    const moved = raised(
+      'serverErrors.taskMovedMeanwhile',
+      'Task was moved to 2026-09-18 while the form was open',
+      '{"date": "2026-09-18"}',
+    );
+
+    expect(serverErrorText(moved).text).toBe(
+      `Пока форма была открыта, задание перенесли на ${formatDay('2026-09-18', 'ru')}. Откройте его заново.`,
+    );
+    expect(serverErrorText(moved).text).not.toContain('2026-09-18');
+
+    await i18n.changeLanguage('cs');
+    try {
+      expect(serverErrorText(moved).text).toContain(formatDay('2026-09-18', 'cs'));
+    } finally {
+      await i18n.changeLanguage('ru');
+    }
   });
 
   test('falls back to one sentence and keeps the raw words for an unknown error', () => {

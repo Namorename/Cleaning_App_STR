@@ -14,8 +14,7 @@ import {
 import type { CalendarTask } from '@/features/tasks/schema';
 import { formatDay } from '@/lib/format-date';
 
-import { isBookingChanged } from './chips';
-import type { CalendarBooking } from './schema';
+import { isBookingChanged, type BookingsRead } from './chips';
 import { useChipText } from './task-chips';
 
 export interface CellTasks {
@@ -28,7 +27,7 @@ export interface CellTasks {
 
 interface CellTasksDialogProps {
   cell: CellTasks | null;
-  bookings: ReadonlyMap<number, CalendarBooking> | null;
+  bookings: BookingsRead | null;
   language: Language;
   onOpen: (task: CalendarTask, label: string) => void;
   onClose: () => void;
@@ -63,7 +62,7 @@ export function CellTasksDialog({
 
 interface CellTasksListProps {
   cell: CellTasks;
-  bookings: ReadonlyMap<number, CalendarBooking> | null;
+  bookings: BookingsRead | null;
   language: Language;
   onOpen: (task: CalendarTask, label: string) => void;
 }

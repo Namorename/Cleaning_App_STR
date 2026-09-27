@@ -11,8 +11,14 @@ import { isRepairOverdue } from '@/features/tasks/repairs';
 import { localizedTitle, type CalendarTask } from '@/features/tasks/schema';
 import { cn } from '@/lib/utils';
 
-import { chipCapacity, chipTone, isBookingChanged, type ChipTone, type ChipView } from './chips';
-import type { CalendarBooking } from './schema';
+import {
+  chipCapacity,
+  chipTone,
+  isBookingChanged,
+  type BookingsRead,
+  type ChipTone,
+  type ChipView,
+} from './chips';
 
 /** The line of chips under the track of bars (see `row-track.tsx`). */
 export const CHIP_TOP = 24;
@@ -191,8 +197,8 @@ interface TaskChipsProps {
   cells: readonly (readonly CalendarTask[])[];
   days: readonly string[];
   dayWidth: number;
-  /** The window's bookings by id; null until they are read. */
-  bookings: ReadonlyMap<number, CalendarBooking> | null;
+  /** The bookings read for the window's months; null until they are read. */
+  bookings: BookingsRead | null;
   /** In full, or compact: the status dot and the person alone. */
   view: ChipView;
   language: Language;

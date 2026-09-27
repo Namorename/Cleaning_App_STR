@@ -20,7 +20,7 @@ import { formatDay } from '@/lib/format-date';
 import { serverErrorText } from '@/lib/server-error';
 
 import { CellTasksDialog, type CellTasks } from './cell-tasks-dialog';
-import type { CalendarBooking } from './schema';
+import type { BookingsRead } from './chips';
 import { StandPreview } from './stand-preview';
 
 type Start = Pick<TaskDraft, 'propertyId' | 'scheduledDate'>;
@@ -28,7 +28,7 @@ type Start = Pick<TaskDraft, 'propertyId' | 'scheduledDate'>;
 interface TaskDialogsOptions {
   isStand: boolean;
   language: Language;
-  bookings: ReadonlyMap<number, CalendarBooking> | null;
+  bookings: BookingsRead | null;
 }
 
 /**

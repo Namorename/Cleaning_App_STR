@@ -1,5 +1,6 @@
-import { serverErrorOptions } from '@str-ops/shared';
+import { FALLBACK_LANGUAGE, isSupportedLanguage, serverErrorOptions } from '@str-ops/shared';
 
+import { formatDay } from '@/lib/format-date';
 import { i18n } from '@/lib/i18n';
 
 /**
@@ -45,6 +46,15 @@ function parameters(details: unknown): Record<string, unknown> {
   }
 }
 
+/**
+ * The key a refusal carries, whether or not this build can translate it: what
+ * a caller branches on, where `serverErrorKey` is what it shows.
+ */
+export function serverErrorHint(error: unknown): string | null {
+  const { hint } = asRaised(error);
+  return typeof hint === 'string' ? hint : null;
+}
+
 /** The i18n key a refusal carries, when it carries one this build knows. */
 export function serverErrorKey(error: unknown): string | null {
   const { hint, details } = asRaised(error);
@@ -57,12 +67,33 @@ export function serverErrorKey(error: unknown): string | null {
     : null;
 }
 
+/** A day as the server names it, `YYYY-MM-DD`. */
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * The parameters as the reader reads them: a day the server names — the day a
+ * task already stands on, or was moved to — becomes a date in the reader's
+ * language. Only the panel does this; the phone reads its own.
+ */
+function readable(values: Record<string, unknown>): Record<string, unknown> {
+  const language = isSupportedLanguage(i18n.language) ? i18n.language : FALLBACK_LANGUAGE;
+  return Object.fromEntries(
+    Object.entries(values).map(([name, value]) => [
+      name,
+      typeof value === 'string' && ISO_DAY.test(value) ? formatDay(value, language) : value,
+    ]),
+  );
+}
+
 export function serverErrorText(error: unknown): ServerErrorText {
   const { details, message } = asRaised(error);
   const key = serverErrorKey(error);
 
   if (key !== null) {
-    return { text: i18n.t(key, serverErrorOptions(key, parameters(details))), detail: null };
+    return {
+      text: i18n.t(key, serverErrorOptions(key, readable(parameters(details)))),
+      detail: null,
+    };
   }
 
   return {

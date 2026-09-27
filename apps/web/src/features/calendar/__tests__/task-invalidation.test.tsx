@@ -56,6 +56,7 @@ describe('saving a task in the form', () => {
           timeFrom: null,
           timeTo: null,
           notes: '',
+          expectedDate: null,
         },
       });
     });

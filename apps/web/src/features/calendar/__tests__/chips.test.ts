@@ -10,6 +10,7 @@ import {
   chipTone,
   isBookingChanged,
   matchesChipFilters,
+  type BookingsRead,
   offListAssignees,
   tasksByRowDay,
 } from '../chips';
@@ -67,6 +68,15 @@ function booking(
   };
 }
 
+/** Bookings as the calendar holds them: read for September and October 2026, whole. */
+function read(
+  byId: ReadonlyMap<number, CalendarBooking>,
+  from = '2026-09-01',
+  to = '2026-11-01',
+): BookingsRead {
+  return { byId, from, to };
+}
+
 const ANNA = '11111111-1111-4111-8111-111111111111';
 const IVA = '22222222-2222-4222-8222-222222222222';
 
@@ -106,20 +116,20 @@ describe('the filters', () => {
   });
 });
 
-// A cleaning taken or started is not moved by the generator when its booking
-// moves or goes (§2): the chip then warns.
+// A cleaning somebody has started is not moved by the generator when its
+// booking moves or goes (§2; 20260926160000): the chip then warns.
 describe('a booking that changed under a live chip', () => {
-  const bookings = new Map([[5, booking(5, '2026-09-28')]]);
+  const bookings = read(new Map([[5, booking(5, '2026-09-28')]]));
 
   test('is not judged before the bookings are read', () => {
     expect(
-      isBookingChanged(task(1, '2026-09-28', { status: 'accepted', reservation_id: 9 }), null),
+      isBookingChanged(task(1, '2026-09-28', { status: 'in_progress', reservation_id: 9 }), null),
     ).toBe(false);
   });
 
   test('a booking that is gone, or leaves on another day, is a change', () => {
     expect(
-      isBookingChanged(task(1, '2026-09-28', { status: 'accepted', reservation_id: 9 }), bookings),
+      isBookingChanged(task(1, '2026-09-28', { status: 'paused', reservation_id: 9 }), bookings),
     ).toBe(true);
     expect(
       isBookingChanged(
@@ -131,13 +141,13 @@ describe('a booking that changed under a live chip', () => {
 
   test('the booking that still leaves on the chip’s day is no change', () => {
     expect(
-      isBookingChanged(task(1, '2026-09-28', { status: 'accepted', reservation_id: 5 }), bookings),
+      isBookingChanged(task(1, '2026-09-28', { status: 'blocked', reservation_id: 5 }), bookings),
     ).toBe(false);
   });
 
   // The generator still moves and cancels these: a mismatch is its lag, or a
   // bookings layer older than the tasks just reread after a save.
-  test('a cleaning nobody has taken yet is never judged', () => {
+  test('a cleaning nobody has started yet is never judged', () => {
     for (const status of ['unassigned', 'assigned']) {
       expect(isBookingChanged(task(1, '2026-09-28', { status, reservation_id: 9 }), bookings)).toBe(
         false,
@@ -145,27 +155,42 @@ describe('a booking that changed under a live chip', () => {
     }
   });
 
+  // Since 20260926160000 the generator moves and cancels an accepted one too.
+  test('an accepted cleaning is the generator’s to move, and is not judged', () => {
+    expect(
+      isBookingChanged(task(1, '2026-09-28', { status: 'accepted', reservation_id: 9 }), bookings),
+    ).toBe(false);
+    expect(
+      isBookingChanged(task(1, '2026-09-29', { status: 'accepted', reservation_id: 5 }), bookings),
+    ).toBe(false);
+  });
+
   test('a booking that became a block or the office’s own "#" booking is a change', () => {
-    const blocks = new Map([
-      [6, booking(6, '2026-09-28', { status: 'ownerStay' })],
-      [7, booking(7, '2026-09-28', { is_block: true })],
-      [8, booking(8, '2026-09-28', { is_service_booking: true })],
-    ]);
+    const blocks = read(
+      new Map([
+        [6, booking(6, '2026-09-28', { status: 'ownerStay' })],
+        [7, booking(7, '2026-09-28', { is_block: true })],
+        [8, booking(8, '2026-09-28', { is_service_booking: true })],
+      ]),
+    );
 
     for (const id of [6, 7, 8]) {
       expect(
-        isBookingChanged(task(1, '2026-09-28', { status: 'accepted', reservation_id: id }), blocks),
+        isBookingChanged(
+          task(1, '2026-09-28', { status: 'in_progress', reservation_id: id }),
+          blocks,
+        ),
       ).toBe(true);
     }
   });
 
   test('a booking moved to another listing is a change; its listing and its rooms are not', () => {
-    const rooms = new Map([
-      [5, booking(5, '2026-09-28', { property_id: 10, rooms: [{ property_id: 11 }] })],
-    ]);
+    const rooms = read(
+      new Map([[5, booking(5, '2026-09-28', { property_id: 10, rooms: [{ property_id: 11 }] })]]),
+    );
     const at = (property: number) =>
       isBookingChanged(
-        task(property, '2026-09-28', { status: 'accepted', reservation_id: 5 }),
+        task(property, '2026-09-28', { status: 'in_progress', reservation_id: 5 }),
         rooms,
       );
 
@@ -179,16 +204,88 @@ describe('a booking that changed under a live chip', () => {
   test('only a departure cleaning is judged by its departure', () => {
     expect(
       isBookingChanged(
-        task(1, '2026-09-25', { type: 'midstay', status: 'accepted', reservation_id: 5 }),
+        task(1, '2026-09-25', { type: 'midstay', status: 'in_progress', reservation_id: 5 }),
         bookings,
       ),
     ).toBe(false);
   });
 
   test('a task written by hand and a done one are never judged', () => {
-    expect(isBookingChanged(task(1, '2026-09-28', { status: 'accepted' }), bookings)).toBe(false);
+    expect(isBookingChanged(task(1, '2026-09-28', { status: 'in_progress' }), bookings)).toBe(
+      false,
+    );
     expect(
       isBookingChanged(task(1, '2026-09-28', { status: 'done', reservation_id: 9 }), bookings),
+    ).toBe(false);
+  });
+});
+
+// The manager put the cleaning on another day; the move holds while the
+// booking keeps the dates it had then (20260926160000). The chip warns when
+// the booking changed since the move, not because the day is not the departure.
+describe('a booking under a cleaning the manager moved', () => {
+  const stay = booking(5, '2026-09-28', { arrival_date: '2026-09-20' });
+  const moved = (extra: Record<string, unknown> = {}) =>
+    task(1, '2026-09-30', {
+      status: 'in_progress',
+      reservation_id: 5,
+      pinned_arrival: '2026-09-20',
+      pinned_departure: '2026-09-28',
+      ...extra,
+    });
+  const judged = (bookingsById: ReadonlyMap<number, CalendarBooking>) =>
+    isBookingChanged(moved(), read(bookingsById));
+
+  test('the same booking is no change, though the day is not its departure', () => {
+    expect(judged(new Map([[5, stay]]))).toBe(false);
+  });
+
+  test('a booking that now leaves on another day is a change', () => {
+    expect(judged(new Map([[5, { ...stay, departure_date: '2026-09-29' }]]))).toBe(true);
+  });
+
+  test('a booking that now arrives on another day is a change, the departure the same', () => {
+    expect(judged(new Map([[5, { ...stay, arrival_date: '2026-09-21' }]]))).toBe(true);
+  });
+
+  test('a booking that is gone is a change', () => {
+    expect(judged(new Map())).toBe(true);
+  });
+
+  // The calendar reads the bookings of the months it shows, whole (§1). A
+  // cleaning moved across the turn of a month stands in a month its stay at the
+  // move never touched, and its booking may simply not have been read.
+  test('a booking not read, whose stay at the move lies outside the months read, is not judged', () => {
+    const acrossTheMonth = moved({ scheduled_date: '2026-10-01' });
+    expect(isBookingChanged(acrossTheMonth, read(new Map(), '2026-10-01', '2026-11-01'))).toBe(
+      false,
+    );
+  });
+
+  test('a booking not read, whose stay at the move lies inside the months read, is gone', () => {
+    const acrossTheMonth = moved({ scheduled_date: '2026-10-01' });
+    expect(isBookingChanged(acrossTheMonth, read(new Map()))).toBe(true);
+  });
+
+  // The departure's rule would call this no change: the booking now leaves on
+  // the very day the cleaning stands on. The move's rule sees the booking
+  // lengthened since the move.
+  test('a booking now leaving on the day the cleaning was moved to is a change', () => {
+    expect(judged(new Map([[5, { ...stay, departure_date: '2026-09-30' }]]))).toBe(true);
+  });
+
+  test('a block, a "#" booking or another listing is a change, as for one not moved', () => {
+    expect(judged(new Map([[5, { ...stay, is_block: true }]]))).toBe(true);
+    expect(judged(new Map([[5, { ...stay, is_service_booking: true }]]))).toBe(true);
+    expect(judged(new Map([[5, { ...stay, property_id: 2 }]]))).toBe(true);
+  });
+
+  test('one nobody has started is still the generator’s, moved or not', () => {
+    expect(
+      isBookingChanged(
+        moved({ status: 'assigned' }),
+        read(new Map([[5, { ...stay, departure_date: '2026-09-29' }]])),
+      ),
     ).toBe(false);
   });
 });
