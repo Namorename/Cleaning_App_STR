@@ -1932,6 +1932,7 @@ export type Database = {
           due_at: string
           guests_count: number
           priority: number
+          window_from: string
           window_to: string
         }[]
       }

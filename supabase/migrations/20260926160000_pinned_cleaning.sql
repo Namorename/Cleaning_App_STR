@@ -53,12 +53,17 @@
 -- A form left open while the booking moved its cleaning would send the old
 -- day back, and with a move now holding that day would stay: save_task takes
 -- the day the form was opened with (p_expected_date) and refuses a save made
--- against another (serverErrors.taskMovedMeanwhile). Null — the panel before
--- this migration — checks nothing. The panel sends it once this is rolled out.
+-- against another (serverErrors.taskMovedMeanwhile). A move is recorded only
+-- by a caller that sends it: the panel before this migration sends none, and
+-- its saves move a cleaning as they always did — the booking takes it back
+-- on the next run. So the push needs no panel on the same day, and the rule
+-- of the manual move starts with the panel that sends the day.
 --
--- The end of a booking's cleaning window is the next check-in, moved or not:
--- the generator rewrites it on every unmoved cleaning, and a move and every
--- run bring it to the moved day with the rest of the check-in facts.
+-- The window of a booking's cleaning is the server's, moved or not: the
+-- generator rewrites both ends on every unmoved cleaning, and a move and
+-- every run bring a moved one's to its day — from the listing's check-out
+-- (nobody of this booking leaves that day) to the next check-in. The panel
+-- shows the times of a booking's cleaning and does not offer to edit them.
 --
 -- A change of the booking undoes the move of the cleaning it changes: its
 -- dates undo every one of its cleanings' moves, a new room the move of the
@@ -138,8 +143,9 @@ comment on column public.tasks.pinned_departure is
  * What a booking's cleaning on `target_day` knows about the next check-in:
  * urgent (priority 1) when a guest arrives into the same room that day, with
  * that guest's hour as the deadline — in the cleaned property's own timezone —
- * and that guest's party; and the end of its window, which is that hour, or
- * the listing's check-in when nobody arrives. The generator's rule for the departure day, asked
+ * and that guest's party; and its window: from the booking's check-out on
+ * its departure (the listing's on any other day) to the next guest's hour,
+ * or the listing's check-in when nobody arrives. The generator's rule for the departure day, asked
  * of any day: save_task asks it of the day a manager moves the cleaning to,
  * and the generator of every moved cleaning on each run (20260926160000).
  */
@@ -148,7 +154,8 @@ create or replace function public.cleaning_turnover_on(
   target_property_id    bigint,
   target_day            date
 )
-returns table (priority smallint, due_at timestamptz, guests_count smallint, window_to time)
+returns table (priority smallint, due_at timestamptz, guests_count smallint,
+               window_from time, window_to time)
 language sql
 stable
 security definer
@@ -162,6 +169,14 @@ as $$
            at time zone c.timezone
     end,
     nxt.guests_count,
+    -- The booking's own check-out on its departure, as the generator's window
+    -- has it; on any other day nobody of this booking leaves, and the
+    -- listing's hour stands.
+    case
+      when target_day = r.departure_date
+      then coalesce(nullif(r.check_out_time, time '00:00'), l.check_out_time)
+      else l.check_out_time
+    end,
     coalesce(nullif(nxt.check_in_time, time '00:00'), l.check_in_time)
   from public.reservations r
   join public.properties l on l.id = r.property_id
@@ -289,7 +304,8 @@ create function public.save_task(
   -- the form is open, and the day the form then sends is not a manager's
   -- move but a stale one; with a move now holding (20260926160000) it would
   -- stay. Null — a caller that does not send it, the panel before this
-  -- migration — says nothing, and nothing is checked.
+  -- migration — says nothing: nothing is checked, and no move is recorded;
+  -- the booking takes its cleaning back on the next run, as before.
   p_expected_date   date default null
 )
 returns public.tasks
@@ -312,6 +328,7 @@ declare
   v_priority         smallint;
   v_due_at           timestamptz;
   v_guests           smallint;
+  v_window_from      time;
   v_window_to        time;
   v_lands            boolean;
 begin
@@ -427,8 +444,8 @@ begin
   -- booking keeps the dates it had at the move; moved back onto the
   -- departure, it follows the booking again. An edit that says nothing new
   -- about the day keeps what was. A move brings what the phone says about
-  -- the next check-in to the new day (option B, 20260926160000), the end of
-  -- the window with it: on a booking's cleaning that end is the next check-in,
+  -- the next check-in to the new day (option B, 20260926160000), and the
+  -- window with it: the window of a booking's cleaning is the server's,
   -- moved or not, as the generator writes it for every unmoved one.
   v_pinned_arrival   := v_task.pinned_arrival;
   v_pinned_departure := v_task.pinned_departure;
@@ -437,8 +454,11 @@ begin
     from public.reservations r
     where r.id = v_task.reservation_id;
 
-    v_moves := p_scheduled_date is distinct from v_task.scheduled_date;
-    if p_scheduled_date = v_departure then
+    v_moves := p_expected_date is not null
+               and p_scheduled_date is distinct from v_task.scheduled_date;
+    if p_expected_date is null then
+      null;  -- the old panel: no word on a move either way
+    elsif p_scheduled_date = v_departure then
       v_pinned_arrival   := null;
       v_pinned_departure := null;
     elsif v_moves then
@@ -447,8 +467,8 @@ begin
     end if;
 
     if v_moves then
-      select f.priority, f.due_at, f.guests_count, f.window_to
-        into v_priority, v_due_at, v_guests, v_window_to
+      select f.priority, f.due_at, f.guests_count, f.window_from, f.window_to
+        into v_priority, v_due_at, v_guests, v_window_from, v_window_to
       from public.cleaning_turnover_on(v_task.reservation_id, v_task.property_id,
                                        p_scheduled_date) f;
     end if;
@@ -487,7 +507,7 @@ begin
                                 else coalesce(p_priority, t.priority) end,
         assignee_id      = p_assignee_id,
         scheduled_date   = p_scheduled_date,
-        time_from        = p_time_from,
+        time_from        = case when v_moves then v_window_from else p_time_from end,
         time_to          = case when v_moves then v_window_to else p_time_to end,
         notes            = nullif(btrim(coalesce(p_notes, '')), ''),
         title            = v_title,
@@ -809,9 +829,9 @@ begin
   )
   select count(*) into v_rescheduled from moved;
 
-  -- A moved cleaning keeps its day and the start of its window, and what the
-  -- phone says about the next check-in — the end of the window with it —
-  -- stays true of that day (option B): a guest may
+  -- A moved cleaning keeps its day, and what the phone says about the next
+  -- check-in — its window with it — stays true of that day (option B): the
+  -- listing's hours may change, and a guest may
   -- book into it, or cancel, long after the move, and neither is a change of
   -- this cleaning's own booking. Every moved cleaning nobody has started, on
   -- every run — they are a handful, and a booking into the moved day is not
@@ -821,6 +841,7 @@ begin
     set priority     = f.priority,
         due_at       = f.due_at,
         guests_count = f.guests_count,
+        time_from    = f.window_from,
         time_to      = f.window_to
     from public.tasks m
     cross join lateral public.cleaning_turnover_on(m.reservation_id, m.property_id,
@@ -833,6 +854,7 @@ begin
       and (t.priority is distinct from f.priority
            or t.due_at is distinct from f.due_at
            or t.guests_count is distinct from f.guests_count
+           or t.time_from is distinct from f.window_from
            or t.time_to is distinct from f.window_to)
     returning 1
   )

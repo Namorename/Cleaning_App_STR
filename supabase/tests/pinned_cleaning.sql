@@ -176,7 +176,8 @@ $$;
 
 -- A manager moves a booking's cleaning in the panel. The form sends back
 -- every field it shows, so everything but the day goes as it was; it sends
--- no priority (apps/web/src/features/tasks/api.ts, saveTask).
+-- no priority (apps/web/src/features/tasks/api.ts, saveTask), and — the
+-- panel of this migration — the day it was opened with.
 create or replace function pg_temp.move(task_id uuid, day date) returns void
 language plpgsql as $$
 declare
@@ -186,7 +187,7 @@ begin
   perform pg_temp.as_boss();
   perform public.save_task(v_task.id, v_task.property_id, 'cleaning', day,
     v_task.title, null, v_task.assignee_id, v_task.time_from, v_task.time_to,
-    v_task.notes);
+    v_task.notes, null, false, v_task.scheduled_date);
   perform pg_temp.as_postgres();
 end $$;
 
@@ -210,6 +211,7 @@ select pg_temp.check('the generator and a move read one check-in rule',
      and ((case when w.same_day_turnover then 1 else 0 end) <> f.priority
           or w.guests_count is distinct from f.guests_count
           or w.window_to is distinct from f.window_to
+          or w.window_from is distinct from f.window_from
           or (case when w.same_day_turnover and w.window_to is not null
                    then (r.departure_date + w.window_to) at time zone p.timezone end)
              is distinct from f.due_at)), 0);
@@ -235,6 +237,20 @@ select pg_temp.check('back on the departure day, the move is undone',
   (pg_temp.cleaning(900002511)).pinned_departure, null::date);
 select pg_temp.run();
 select pg_temp.check('and the generator keeps it there',
+  (pg_temp.cleaning(900002511)).scheduled_date, current_date + 10);
+
+-- The panel before this migration sends no p_expected_date: its save says
+-- nothing about a move, so none is recorded — as before, the booking's day
+-- comes back on the next run. A form left open while the booking moved
+-- cannot pin the old day this way.
+select pg_temp.as_boss();
+select public.save_task((pg_temp.cleaning(900002511)).id, 900002501, 'cleaning',
+  current_date + 12);
+select pg_temp.as_postgres();
+select pg_temp.check('a save from the old panel records no move',
+  (pg_temp.cleaning(900002511)).pinned_departure, null::date);
+select pg_temp.run();
+select pg_temp.check('and the booking takes its cleaning back',
   (pg_temp.cleaning(900002511)).scheduled_date, current_date + 10);
 
 -- ---------- 2. a cancelled booking cancels work nobody has started ----------
@@ -285,13 +301,14 @@ select pg_temp.check('still hers',
 
 select pg_temp.hand_to_maria((pg_temp.cleaning(900002517)).id);
 select pg_temp.move((pg_temp.cleaning(900002517)).id, current_date + 9);
--- The window the generator would write moves to 11:00; the booking itself
--- is the same, so the move holds and the window is the manager's.
+-- The listing's check-out moves to 11:00. The booking itself is the same, so
+-- the move holds; the window of a booking's cleaning is the server's, moved
+-- or not, and follows the listing on the moved day.
 update public.properties set check_out_time = '11:00' where id = 900002505;
 select pg_temp.run();
-select pg_temp.check('a moved cleaning''s window is not rewritten under it',
-  (pg_temp.cleaning(900002517)).time_from, '10:00'::time);
-select pg_temp.check('nor its day',
+select pg_temp.check('a moved cleaning''s window follows the listing''s hours',
+  (pg_temp.cleaning(900002517)).time_from, '11:00'::time);
+select pg_temp.check('while its day holds',
   (pg_temp.cleaning(900002517)).scheduled_date, current_date + 9);
 
 -- The guest stays two nights longer: the booking changed.
@@ -396,6 +413,8 @@ select pg_temp.check('and has no check-in deadline',
   (pg_temp.cleaning(900002522)).due_at, null::timestamptz);
 select pg_temp.check('its window ends at the listing''s check-in, not the old guest''s',
   (pg_temp.cleaning(900002522)).time_to, '15:00'::time);
+select pg_temp.check('and starts at the listing''s check-out: nobody leaves that day',
+  (pg_temp.cleaning(900002522)).time_from, '10:00'::time);
 
 -- A guest books into that very day after the move.
 insert into public.reservations (id, property_id, arrival_date, departure_date, status,

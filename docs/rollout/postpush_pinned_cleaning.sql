@@ -34,11 +34,11 @@
 --               md5 prefix / length (local stack, 2026-09-27), and what the
 --               cloud held before the push:
 --                                              after              before
---                 cleaning_turnover_on         91d3a00c  1392     —
---                 generate_cleaning_tasks      f48b956b 19636     7730946a 13726
+--                 cleaning_turnover_on         eb21e064  1737     —
+--                 generate_cleaning_tasks      40d48c56 19728     7730946a 13726
 --                 guard_task_fields            ded65b7a  2130     0121a161  1950
 --                 reservation_cleaning_window  3420c63a  1389     3420c63a  1389
---                 save_task                    91c9583b  9423     24f754be  5446
+--                 save_task                    bcdae505  9662     24f754be  5446
 --   anon        false for all five. Any true is a stop.
 --   public      false for all five.
 --   tasks_acl   anon, authenticated and PUBLIC on public.tasks as before the
