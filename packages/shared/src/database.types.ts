@@ -687,6 +687,90 @@ export type Database = {
           },
         ]
       }
+      push_preferences: {
+        Row: {
+          host_id: string
+          muted: Database["public"]["Enums"]["push_kind"][]
+          profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          host_id: string
+          muted?: Database["public"]["Enums"]["push_kind"][]
+          profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          host_id?: string
+          muted?: Database["public"]["Enums"]["push_kind"][]
+          profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_preferences_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "push_preferences_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_tokens: {
+        Row: {
+          app_version: string | null
+          created_at: string
+          host_id: string
+          language: Database["public"]["Enums"]["app_language"] | null
+          platform: string
+          profile_id: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          app_version?: string | null
+          created_at?: string
+          host_id: string
+          language?: Database["public"]["Enums"]["app_language"] | null
+          platform: string
+          profile_id: string
+          token: string
+          updated_at?: string
+        }
+        Update: {
+          app_version?: string | null
+          created_at?: string
+          host_id?: string
+          language?: Database["public"]["Enums"]["app_language"] | null
+          platform?: string
+          profile_id?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_tokens_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "push_tokens_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reservation_units: {
         Row: {
           created_at: string
@@ -1910,6 +1994,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      chat_participates_as: {
+        Args: {
+          p_kind: Database["public"]["Enums"]["chat_thread_kind"]
+          p_person_id: string
+          p_problem_id: string
+          p_profile_id: string
+          p_task_id: string
+        }
+        Returns: boolean
+      }
       chat_unread_threads: {
         Args: { p_problem_ids?: string[]; p_task_ids?: string[] }
         Returns: {
@@ -1941,6 +2035,10 @@ export type Database = {
       }
       cleans_property: {
         Args: { target_property_id: number }
+        Returns: boolean
+      }
+      cleans_property_as: {
+        Args: { p_person_id: string; target_property_id: number }
         Returns: boolean
       }
       complete_task_step: {
@@ -2199,9 +2297,19 @@ export type Database = {
           unit_name: string
         }[]
       }
+      push_tokens_per_person: { Args: never; Returns: number }
       record_webhook_event: {
         Args: { event_payload: Json; event_source?: string }
         Returns: number
+      }
+      register_push_token: {
+        Args: {
+          p_app_version?: string
+          p_language?: Database["public"]["Enums"]["app_language"]
+          p_platform: string
+          p_token: string
+        }
+        Returns: undefined
       }
       remove_task_media: {
         Args: { p_id: string }
@@ -2639,6 +2747,24 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_push_preference: {
+        Args: {
+          p_enabled: boolean
+          p_kind: Database["public"]["Enums"]["push_kind"]
+        }
+        Returns: {
+          host_id: string
+          muted: Database["public"]["Enums"]["push_kind"][]
+          profile_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "push_preferences"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       short_cleaning_threshold: { Args: never; Returns: string }
       skip_task_step: {
         Args: { p_reason?: string; p_step_id: string }
@@ -2843,6 +2969,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      unregister_push_token: { Args: { p_token: string }; Returns: undefined }
       update_host_settings: {
         Args: {
           p_gallery_allowed?: boolean
@@ -2970,6 +3097,17 @@ export type Database = {
         | "resolved"
         | "cancelled"
       property_status: "active" | "maintenance" | "archived"
+      push_kind:
+        | "cleaning_new"
+        | "cleaning_assigned"
+        | "cleaning_unassigned"
+        | "cleaning_cancelled"
+        | "cleaning_moved"
+        | "cleaning_window"
+        | "cleaning_free"
+        | "booking_cancelled_live"
+        | "chat_message"
+        | "daily_digest"
       supply_priority: "normal" | "urgent"
       supply_request_status:
         | "new"
@@ -3145,6 +3283,18 @@ export const Constants = {
         "cancelled",
       ],
       property_status: ["active", "maintenance", "archived"],
+      push_kind: [
+        "cleaning_new",
+        "cleaning_assigned",
+        "cleaning_unassigned",
+        "cleaning_cancelled",
+        "cleaning_moved",
+        "cleaning_window",
+        "cleaning_free",
+        "booking_cancelled_live",
+        "chat_message",
+        "daily_digest",
+      ],
       supply_priority: ["normal", "urgent"],
       supply_request_status: [
         "new",

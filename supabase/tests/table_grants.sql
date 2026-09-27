@@ -65,7 +65,14 @@ insert into wanted values
   ('supply_request_items', 'SELECT'),
   ('supply_catalog_items',  'SELECT'),
   ('expired_tasks_review', 'SELECT'),
-  ('report_properties',    'SELECT');
+  ('report_properties',    'SELECT'),
+  -- The address of each phone. A client holds nothing on it, not even SELECT:
+  -- the tokens of other people's phones are not hers to read, and her own is
+  -- written by register_push_token/unregister_push_token.
+  ('push_tokens',          ''),
+  -- Which pushes a person switched off: she reads her own row for the settings
+  -- screen and writes it through set_push_preference.
+  ('push_preferences',     'SELECT');
 
 create temp table actual as
 select grantee, table_name as relation,
@@ -97,11 +104,22 @@ select pg_temp.check('authenticated holds nothing beyond the matrix',
    where a.grantee = 'authenticated' and a.privs is distinct from w.privs),
   '');
 
+-- An empty entry means "nothing at all": such a relation has no row in
+-- `actual`, and that is the point.
 select pg_temp.check('and nothing short of it',
   (select coalesce(string_agg(w.relation, ', ' order by w.relation), '')
    from wanted w
    left join actual a on a.relation = w.relation and a.grantee = 'authenticated'
-   where a.privs is null),
+   where a.privs is null and w.privs <> ''),
+  '');
+
+select pg_temp.check('a relation meant to be closed holds nothing',
+  (select coalesce(string_agg(w.relation, ', ' order by w.relation), '')
+   from wanted w
+   where w.privs = ''
+     and exists (select 1 from information_schema.role_table_grants g
+                 where g.table_schema = 'public' and g.table_name = w.relation
+                   and g.grantee = 'authenticated')),
   '');
 
 select pg_temp.check('TRUNCATE is off every table',
