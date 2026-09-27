@@ -40,8 +40,16 @@
 -- when the day stayed — the panel's form sends back every field it shows, and
 -- a form opened before a guest booked into that day sent the old window back,
 -- to stand until the next run that reached the cleaning. Now a save that keeps
--- a booking's cleaning on its day keeps its window; a task written by hand
--- keeps the times the manager gives it. The panel shows those times read-only.
+-- a booking's cleaning on its day keeps its window, whatever its status — one
+-- in progress too, whose window no run rewrites any more; a task written by
+-- hand keeps the times the manager gives it. The panel shows those times
+-- read-only, for every status.
+--
+-- A swap next to an expired cleaning. The relocate pass pairs a booking's
+-- cleaning left in a room it gave up with a room it now needs, the lowest room
+-- first; a room whose cleaning expired counted as needed too, so a guest moved
+-- from B to C could send B's cleaner to A, where a moved cleaning had expired.
+-- Rooms the booking has just taken now come first.
 --
 -- A replayed save. The panel's form keeps the day it was opened with, and a
 -- move whose answer was lost, saved again, came back as «moved while the form
@@ -56,17 +64,20 @@
 --
 -- Bodies: guard_task_fields, save_task and generate_cleaning_tasks are those
 -- of 20260926160000 but for the lines that name pinned_rooms, save_task's
--- window and the comments beside them. save_task keeps its signature, and
--- create or replace keeps its grants.
+-- window and its replayed save, the order of the relocate pass's open places,
+-- and the comments beside them. save_task keeps its signature, and create or
+-- replace keeps its grants.
 --
 -- Tests: supabase/tests/pinned_cleaning.sql, sections 12, 14 and 15.
 --
 -- Measured by calling the generator (local stack, rolled back, after ANALYZE)
 -- on 9000 synthetic bookings all inside the window — 300 listings, 30 of them
 -- with rooms — and 60 cleanings moved by hand, 20 of them on rooms; three runs
--- each, alternating with the body of 20260926160000: a 97-day run 5.2-8.1 s
--- against 5.7-7.2 s, a one-day run 0.42-0.75 s against 0.40-0.73 s — the same,
--- within the noise of the machine. The 60 moves held through every run.
+-- each, three sessions, alternating with the body of 20260926160000 (this one
+-- first in each pair), on an idle machine: a 97-day run 0.71-1.04 s, mean
+-- 0.83, against 0.72-0.89 s, mean 0.78; a one-day run 49-76 ms against
+-- 47-71 ms — within the noise of the machine, the 97-day mean some 6% above.
+-- The 60 moves held through every run.
 --
 -- LOCKS. As in 20260926160000: adding a nullable column without a default and
 -- a check that reads six thousand rows, under one ACCESS EXCLUSIVE lock on
@@ -75,12 +86,16 @@
 -- authenticated; if it fires, nothing of this file is applied, and the push is
 -- repeated as it is.
 --
--- ROLLBACK. There is no down migration. A later forward migration restores the
--- three bodies of 20260926160000 and drops reservation_rooms, the constraint
--- and the column — the column only once no deployed panel selects it (the
--- panel that ships with this migration does not). Restoring the bodies alone
--- is safe at any time: a move then holds through a change of another room, as
--- it did before.
+-- ROLLBACK. There is no down migration, and the bodies of 20260926160000 cannot
+-- come back on their own: they never name pinned_rooms, so with
+-- tasks_pinned_rooms_whole in place the old save_task fails every move and
+-- every move back (23514), and the old generator, clearing the dates and
+-- leaving the rooms, aborts the whole run. The rollback is one forward
+-- migration that, in one file, drops tasks_pinned_rooms_whole, sets
+-- pinned_rooms to null, and restores the three bodies; reservation_rooms and
+-- the column may go with it or later — the column only once no deployed panel
+-- selects it (the panel that ships with this migration does not). A move then
+-- holds through a change of another room, as it did before.
 
 set local lock_timeout = '5s';
 
@@ -364,8 +379,9 @@ begin
   -- brings what the phone says about the next check-in to the new day
   -- (option B, 20260926160000), and the window with it: the window of a
   -- booking's cleaning is the server's, moved or not, as the generator writes
-  -- it for every unmoved one — so a save that keeps the day keeps the window,
-  -- whatever times it sends (20260927120000).
+  -- it for every unmoved one nobody has started — so a save that keeps the day
+  -- keeps the window, whatever times it sends and whatever the status
+  -- (20260927120000).
   v_pinned_arrival   := v_task.pinned_arrival;
   v_pinned_departure := v_task.pinned_departure;
   v_pinned_rooms     := v_task.pinned_rooms;
@@ -601,8 +617,17 @@ begin
   ),
   open_place as (
     select w.reservation_id, w.property_id,
+           -- A place the booking has just taken comes before one that holds
+           -- only its expired cleaning: a swapped guest went to the new room,
+           -- and the cleaner goes after her (20260927120000). By property
+           -- order within each.
            row_number() over (partition by w.reservation_id
-                              order by w.property_id) as rank
+                              order by exists (select 1 from public.tasks e
+                                               where e.reservation_id = w.reservation_id
+                                                 and e.property_id = w.property_id
+                                                 and e.type = 'cleaning'
+                                                 and e.status = 'expired'),
+                                       w.property_id) as rank
     from _wanted w
     -- The pair names one cleaning (tasks_one_cleaning_per_reservation): a
     -- place already holding this booking's live cleaning is served.

@@ -13,7 +13,7 @@ import { formatShortDay } from '@/lib/format-date';
 import type { VisibleRow } from '@/lib/property-tree';
 
 import type { RowLayout } from './bars';
-import { cellTasks, type ChipView } from './chips';
+import { cellTasks, type BookingsRead, type ChipView } from './chips';
 import { dayLabel, dayWidthFor, fullDayLabel, type Depth } from './dates';
 import { RowTrack } from './row-track';
 import type { CalendarBooking } from './schema';
@@ -45,8 +45,8 @@ interface CalendarGridProps {
   layout: ReadonlyMap<number, RowLayout>;
   /** The filtered tasks by row and day; empty while tasks load. */
   byRowDay: ReadonlyMap<number, ReadonlyMap<string, readonly CalendarTask[]>>;
-  /** The window's bookings by id; null until they are read. */
-  bookings: ReadonlyMap<number, CalendarBooking> | null;
+  /** The bookings read for the window's months; null until they are read. */
+  bookings: BookingsRead | null;
   /** How the chips read: in full, or the status dot and the person. */
   chipView: ChipView;
   language: Language;

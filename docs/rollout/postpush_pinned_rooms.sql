@@ -33,15 +33,19 @@
 --                  save_task(uuid,bigint,task_type,date,text,jsonb,uuid,time without time zone,time without time zone,text,integer,boolean,date)
 --                    {postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}
 --                — one row for save_task, the thirteen-argument one.
---                md5 prefix / length (local stack, 2026-09-27), and what the
---                cloud held before the push (postpush_pinned_cleaning.sql):
+--                md5 prefix / length of the bodies in the migration file as
+--                committed (LF, what db push stores; the local stack holds the
+--                same after the bodies were re-applied from the file), and what
+--                the cloud held before the push (postpush_pinned_cleaning.sql);
+--                has_cr false for all six — a body re-created through a
+--                Windows pipe carries CRs and another md5 for the same text:
 --                                               after              before
 --                  cleaning_turnover_on         eb21e064  1737     eb21e064  1737
---                  generate_cleaning_tasks      488b7dee 20489     40d48c56 19728
+--                  generate_cleaning_tasks      6615ddf6 21150     40d48c56 19728
 --                  guard_task_fields            26092472  2181     ded65b7a  2130
 --                  reservation_cleaning_window  3420c63a  1389     3420c63a  1389
 --                  reservation_rooms            55a579fb   171     —
---                  save_task                    b2118738 10318     bcdae505  9662
+--                  save_task                    ca2ee81c 10608     bcdae505  9662
 --   anon         false for all six. Any true is a stop.
 --   public       false for all six.
 --   tasks_acl    as before the push: authenticated DELETE, INSERT, SELECT,
@@ -76,6 +80,7 @@ select label, payload from (
          (select jsonb_agg(jsonb_build_object(
                    'signature', p.oid::regprocedure::text,
                    'md5', left(md5(p.prosrc), 8), 'len', length(p.prosrc),
+                   'has_cr', position(chr(13) in p.prosrc) > 0,
                    'owner', p.proowner::regrole::text, 'definer', p.prosecdef,
                    'volatility', p.provolatile::text,
                    'config', p.proconfig, 'acl', p.proacl::text)

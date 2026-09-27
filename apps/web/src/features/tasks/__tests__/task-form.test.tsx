@@ -2,6 +2,8 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, test, vi } from 'vitest';
 
+import { formatDay } from '@/lib/format-date';
+
 import { taskSchema, type Task } from '../schema';
 
 /**
@@ -510,7 +512,7 @@ describe('the day the form was opened with', () => {
       render(<TaskForm task={bookingCleaning()} onClose={() => {}} />);
 
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Пока форма была открыта, задание перенесли на 2026-09-18. Откройте его заново.',
+        `Пока форма была открыта, задание перенесли на ${formatDay('2026-09-18', 'ru')}. Откройте его заново.`,
       );
       // Nothing to confirm: the day it was opened with is gone.
       expect(screen.queryByRole('button', { name: 'Всё равно сохранить' })).toBeNull();

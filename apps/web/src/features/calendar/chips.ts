@@ -2,7 +2,6 @@ import type { CalendarTask, ExpiredTask, Staff, TaskStatus } from '@/features/ta
 import type { PropertyNode, TreeRow } from '@/lib/property-tree';
 
 import { barKind } from './bars';
-import { monthBounds } from './dates';
 import type { CalendarBooking } from './schema';
 
 /**
@@ -88,19 +87,28 @@ function isDatesChanged(task: JudgedTask, booking: CalendarBooking): boolean {
 }
 
 /**
- * Would the bookings layer have read this cleaning's booking, had it not
- * changed? The calendar reads the bookings of the months it shows, whole (§1),
- * and the cleaning's own month is one of them. An unmoved cleaning stands on
- * its departure, so its booking touches that month. A moved one may stand
- * across the turn of a month from its stay at the move; then a booking missing
- * from the layer may simply not have been read, and it is not judged.
+ * The bookings the calendar has read: those that touch the months it shows,
+ * read whole (§1) — `from` is the first day of the first month, `to` the first
+ * day of the month after the last.
  */
-function isStayRead(task: JudgedTask): boolean {
+export interface BookingsRead {
+  byId: ReadonlyMap<number, CalendarBooking>;
+  from: string;
+  to: string;
+}
+
+/**
+ * Would the layer have read this cleaning's booking, had it not changed? An
+ * unmoved cleaning stands on its departure, inside the months read. A moved
+ * one may stand across the turn of a month from its stay at the move; when
+ * that stay lies outside the months read, a booking missing from the layer
+ * may simply not have been read, and it is not judged.
+ */
+function isStayRead(task: JudgedTask, read: BookingsRead): boolean {
   if (task.pinned_arrival === null || task.pinned_departure === null) {
     return true;
   }
-  const { from, to } = monthBounds(task.scheduled_date.slice(0, 7));
-  return task.pinned_arrival < to && task.pinned_departure >= from;
+  return task.pinned_arrival < read.to && task.pinned_departure >= read.from;
 }
 
 /**
@@ -116,10 +124,7 @@ function isStayRead(task: JudgedTask): boolean {
  * older than the tasks just reread after a save. The row is judged loosely: a
  * cleaning from before 12.09 still stands on the listing of a booking of rooms.
  */
-export function isBookingChanged(
-  task: JudgedTask,
-  bookings: ReadonlyMap<number, CalendarBooking> | null,
-): boolean {
+export function isBookingChanged(task: JudgedTask, bookings: BookingsRead | null): boolean {
   if (
     bookings === null ||
     task.type !== 'cleaning' ||
@@ -128,9 +133,9 @@ export function isBookingChanged(
   ) {
     return false;
   }
-  const booking = bookings.get(task.reservation_id);
+  const booking = bookings.byId.get(task.reservation_id);
   if (booking === undefined) {
-    return isStayRead(task);
+    return isStayRead(task, bookings);
   }
   if (isDatesChanged(task, booking) || barKind(booking) === 'block') {
     return true;

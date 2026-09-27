@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import type { CalendarTask } from '@/features/tasks/schema';
 
 import type { Bar, RowLayout, Shadow } from './bars';
-import type { ChipView } from './chips';
+import type { BookingsRead, ChipView } from './chips';
 import type { CalendarBooking } from './schema';
 import { TaskChips } from './task-chips';
 
@@ -26,8 +26,8 @@ interface RowTrackProps {
   layout: RowLayout | undefined;
   /** The chips of each day of the window, the group's folded in when it is closed. */
   cells: readonly (readonly CalendarTask[])[];
-  /** The window's bookings by id, for the «booking changed» warning; null until read. */
-  bookings: ReadonlyMap<number, CalendarBooking> | null;
+  /** The bookings read for the window's months, for the «booking changed» warning; null until read. */
+  bookings: BookingsRead | null;
   days: readonly string[];
   dayWidth: number;
   /** The day lines, drawn as a background rather than a box per cell (§4). */

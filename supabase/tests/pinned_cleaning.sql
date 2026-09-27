@@ -113,7 +113,8 @@ insert into public.properties (id, name, timezone, check_in_time, check_out_time
   (900002522, 'Room given up',            'UTC', '15:00', '10:00'),
   (900002523, 'Rooms back as they were',  'UTC', '15:00', '10:00'),
   (900002524, 'Rooms change after expiry','UTC', '15:00', '10:00'),
-  (900002525, 'Window is the server''s',  'UTC', '15:00', '10:00');
+  (900002525, 'Window is the server''s',  'UTC', '15:00', '10:00'),
+  (900002526, 'Swap past an expired room','UTC', '15:00', '10:00');
 
 insert into public.properties (id, hostaway_unit_id, parent_id, name,
                                timezone, check_in_time, check_out_time)
@@ -123,7 +124,8 @@ from (values (25201, 900002520), (25202, 900002520), (25203, 900002520),
              (25211, 900002521), (25212, 900002521), (25213, 900002521),
              (25221, 900002522), (25222, 900002522),
              (25231, 900002523), (25232, 900002523), (25233, 900002523),
-             (25241, 900002524), (25242, 900002524), (25243, 900002524)) u(unit, listing);
+             (25241, 900002524), (25242, 900002524), (25243, 900002524),
+             (25261, 900002526), (25262, 900002526), (25263, 900002526)) u(unit, listing);
 
 insert into public.reservations (id, property_id, arrival_date, departure_date, status,
                                  guest_name, guests_count)
@@ -133,7 +135,8 @@ values
   (900002542, 900002522, current_date + 5,  current_date + 10, 'new', 'Guest 42', 2),
   (900002543, 900002523, current_date + 5,  current_date + 10, 'new', 'Guest 43', 2),
   (900002544, 900002524, current_date - 2,  current_date + 3,  'new', 'Guest 44', 2),
-  (900002545, 900002525, current_date + 5,  current_date + 10, 'new', 'Guest 45', 2);
+  (900002545, 900002525, current_date + 5,  current_date + 10, 'new', 'Guest 45', 2),
+  (900002546, 900002526, current_date - 2,  current_date + 3,  'new', 'Guest 46', 2);
 
 insert into public.reservation_units (reservation_id, property_id) values
   (900002540, public.property_id_for_unit(25201)),
@@ -145,7 +148,9 @@ insert into public.reservation_units (reservation_id, property_id) values
   (900002543, public.property_id_for_unit(25231)),
   (900002543, public.property_id_for_unit(25232)),
   (900002544, public.property_id_for_unit(25241)),
-  (900002544, public.property_id_for_unit(25242));
+  (900002544, public.property_id_for_unit(25242)),
+  (900002546, public.property_id_for_unit(25261)),
+  (900002546, public.property_id_for_unit(25262));
 
 create or replace function pg_temp.check(label text, got anyelement, want anyelement)
 returns void language plpgsql as $$
@@ -700,6 +705,27 @@ select pg_temp.check('a change of rooms after it expired brings A''s cleaning ba
    where reservation_id = 900002544 and property_id = pg_temp.room(25241)
      and status not in ('cancelled', 'expired')),
   current_date + 3);
+
+-- 46 took A and B; B's cleaning is Maria's; A's was moved before the
+-- departure and never happened. Then Hostaway moves B's guest to C. A's place
+-- stands open (its cleaning expired) and so does C's: the guest went to C, and
+-- Maria's cleaning goes with her there — not to A, the lower room — while A,
+-- its move void, is owed a cleaning of its own (20260927120000).
+select pg_temp.hand_to_maria((pg_temp.cleaning(900002546, pg_temp.room(25262))).id);
+select pg_temp.move((pg_temp.cleaning(900002546, pg_temp.room(25261))).id, current_date - 1);
+update public.tasks set status = 'expired'
+where id = (pg_temp.cleaning(900002546, pg_temp.room(25261))).id;
+update public.reservation_units set property_id = pg_temp.room(25263)
+where reservation_id = 900002546 and property_id = pg_temp.room(25262);
+select pg_temp.run_for(900002546);
+select pg_temp.check('a swapped room''s cleaning follows its guest past a room whose cleaning expired',
+  (pg_temp.cleaning(900002546, pg_temp.room(25263))).assignee_id,
+  'd9002501-0000-4000-8000-0000000025e1'::uuid);
+select pg_temp.check('and the room whose move is void is owed its own, on the departure',
+  (select array[count(*)::text, min(scheduled_date)::text] from public.tasks
+   where reservation_id = 900002546 and property_id = pg_temp.room(25261)
+     and status not in ('cancelled', 'expired')),
+  array['1', (current_date + 3)::text]);
 
 -- A pin is whole: rooms without the dates of a move are refused (a check
 -- constraint says so with an empty hint).
