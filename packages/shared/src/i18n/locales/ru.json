@@ -409,6 +409,7 @@
         "saving": "Сохраняем…",
         "close": "Отмена",
         "duplicate": "Всё равно создать",
+        "duplicateSave": "Всё равно сохранить",
         "generatedHint": "Задание пришло из брони или из проблемы: объект и тип менять нельзя.",
         "guest": "Выезжающий гость",
         "reservation": "Бронь в Hostaway",
@@ -721,11 +722,98 @@
         "copyPlaceholder": "Выберите объект",
         "copy": "Скопировать",
         "copyHint": "Копирование заменяет текущий чек-лист целиком."
+      },
+      "room": {
+        "parent": "Комната объекта",
+        "parentHint": "Комнату к объекту привязывает Hostaway — здесь связь не меняется.",
+        "cleanings": "Считается у объекта",
+        "cleaners": "У комнаты клинеры объекта — менять их в его карточке:",
+        "bookings": "Брони комнаты стоят на объекте и видны в его карточке; полосы комнаты покажет календарь:",
+        "checklist": "У комнаты чек-лист объекта, здесь — только для чтения; правится в его карточке:"
+      },
+      "tree": {
+        "expand": "Показать единицы «{{name}}»",
+        "collapse": "Скрыть единицы «{{name}}»"
       }
     },
     "media": {
       "fromGallery": "из галереи",
       "sourceUnknown": "источник не указан"
+    },
+    "calendar": {
+      "counts": "Объектов: {{listings}} · комнат: {{rooms}}",
+      "today": "Сегодня",
+      "previous": "Предыдущий период",
+      "next": "Следующий период",
+      "depthLabel": "Глубина",
+      "days_one": "{{count}} день",
+      "days_few": "{{count}} дня",
+      "days_many": "{{count}} дней",
+      "days_other": "{{count}} дня",
+      "property": "Объект",
+      "units": "Единиц: {{count}}",
+      "loadingRows": "Загружаем объекты…",
+      "rowsError": "Не удалось загрузить объекты",
+      "empty": "Объектов нет",
+      "loadingBookings": "Загружаем брони…",
+      "bookingsError": "Не удалось загрузить брони.",
+      "doubleBooking": "Двойная бронь",
+      "continuesBefore": "Началась раньше",
+      "continuesAfter": "Продолжается дальше",
+      "shadowWhole": "Занято: вилла целиком",
+      "shadowPart": "Занята часть: {{name}}",
+      "occupancy": "Занято {{taken}} из {{total}}",
+      "card": {
+        "title": "Бронь",
+        "rooms": "Комнаты",
+        "arrival": "Заезд",
+        "departure": "Выезд",
+        "nights_one": "{{count}} ночь",
+        "nights_few": "{{count}} ночи",
+        "nights_many": "{{count}} ночей",
+        "nights_other": "{{count}} ночи",
+        "statuses": {
+          "new": "Новая",
+          "modified": "Изменена",
+          "ownerStay": "Проживание владельца"
+        }
+      },
+      "nobody": "Никто",
+      "sdtMark": "SDT",
+      "sdt": "выезд и заезд в один день",
+      "bookingChanged": "Бронь изменилась",
+      "moreTasks_one": "Ещё {{count}} задание",
+      "moreTasks_few": "Ещё {{count}} задания",
+      "moreTasks_many": "Ещё {{count}} заданий",
+      "moreTasks_other": "Ещё {{count}} задания",
+      "loadingTasks": "Загружаем задания…",
+      "tasksError": "Не удалось загрузить задания.",
+      "filters": {
+        "status": "Статус",
+        "all": "Все",
+        "open": "Открыто",
+        "inWork": "В работе",
+        "done": "Выполнено",
+        "nobody": "Не назначено"
+      },
+      "stand": {
+        "title": "Стенд: запись выключена",
+        "newTask": "Новое задание: {{place}}, {{day}}"
+      },
+      "expiredMark": "Не состоялась",
+      "overdue": "Просрочен",
+      "overdueSince": "с {{day}}, техник: {{who}}",
+      "showCancelled": "Показывать отменённые",
+      "chipView": "Вид заданий",
+      "chipViews": {
+        "full": "Полный",
+        "compact": "Компактный"
+      },
+      "expiredError": "Не удалось загрузить несостоявшиеся задания.",
+      "cancelledError": "Не удалось загрузить отменённые задания.",
+      "staffError": "Не удалось загрузить сотрудников",
+      "repairsError": "Не удалось загрузить ремонты.",
+      "taskMissing": "Задание не удалось открыть."
     }
   },
   "tabs": {
@@ -1081,6 +1169,7 @@
     "taskDateRequired": "У задания должен быть день",
     "taskAssigneeInvalid": "Исполнитель не работает в этой компании",
     "taskDuplicate": "На {{date}} в этой квартире такое задание уже есть",
+    "taskMovedMeanwhile": "Пока форма была открыта, задание перенесли на {{date}}. Откройте его заново.",
     "cleanerAutoTaken": "Объект уже закреплён за: {{name}}. Сначала снимите закрепление.",
     "cleanerPriorityInvalid": "Очередь — число от 1 до 99.",
     "staffNotFound": "Такого сотрудника нет.",

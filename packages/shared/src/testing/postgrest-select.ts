@@ -38,15 +38,30 @@ export interface SchemaIndex {
   computed: ReadonlyMap<string, ReadonlySet<string>>;
 }
 
-const ENTRY = /^ {6}(\w+): \{$/gm;
+// An entry opens with `name: {`, or with a bare `name:` when it is an
+// overloaded function written as a union of members.
+const ENTRY = /^ {6}(\w+):/gm;
 const ENTRY_LINE = /^ {6}(\w+): \{$/;
 const ROW_HEAD = /^ {8}Row: \{$/;
 const ROW_END = /^ {8}\}$/;
 const COLUMN = /^ {10}(\w+)\??:/;
 const RELATIONSHIP =
   /foreignKeyName: "[^"]+"\s+columns: \[([^\]]*)\]\s+isOneToOne: \w+\s+referencedRelation: "(\w+)"/g;
-const COMPUTED =
-  /^ {6}(\w+): \{\s+Args: \{\s*\w+: Database\["public"\]\["Tables"\]\["(\w+)"\]\["Row"\]\s*\}/gm;
+const ROW_ARGUMENT = /Args: \{\s*\w+: Database\["public"\]\["Tables"\]\["(\w+)"\]\["Row"\]\s*\}/g;
+
+interface EntryStart {
+  name: string;
+  at: number;
+}
+
+function entryStarts(source: string): EntryStart[] {
+  return [...source.matchAll(ENTRY)].map((match) => ({ name: match[1], at: match.index ?? 0 }));
+}
+
+/** The entry a position in the source belongs to: the last one opened before it. */
+function entryAt(starts: readonly EntryStart[], at: number): string {
+  return [...starts].reverse().find((start) => start.at < at)?.name ?? '';
+}
 
 function readColumns(source: string): Map<string, Set<string>> {
   const lines = source.split('\n').map((line) => line.replace(/\r$/, ''));
@@ -70,27 +85,26 @@ function readColumns(source: string): Map<string, Set<string>> {
   return columns;
 }
 
+// A function taking a table's row is a computed field of that table. An
+// overloaded one is a union whose members come in whatever order the generator
+// picks (is_service_booking, 20260926140000), so every row argument counts,
+// not only one that opens its entry.
 function readComputed(source: string): Map<string, Set<string>> {
+  const starts = entryStarts(source);
   const computed = new Map<string, Set<string>>();
-  for (const match of source.matchAll(COMPUTED)) {
-    const fields = computed.get(match[2]) ?? new Set<string>();
-    fields.add(match[1]);
-    computed.set(match[2], fields);
+  for (const match of source.matchAll(ROW_ARGUMENT)) {
+    const field = entryAt(starts, match.index ?? 0);
+    computed.set(match[1], new Set([...(computed.get(match[1]) ?? []), field]));
   }
   return computed;
 }
 
 function readRelationships(source: string): Relationship[] {
-  const starts = [...source.matchAll(ENTRY)].map((match) => ({
-    name: match[1],
-    at: match.index ?? 0,
-  }));
+  const starts = entryStarts(source);
 
   return [...source.matchAll(RELATIONSHIP)].map((entry) => {
-    const at = entry.index ?? 0;
-    const owner = [...starts].reverse().find((start) => start.at < at);
     return {
-      table: owner?.name ?? '',
+      table: entryAt(starts, entry.index ?? 0),
       columns: entry[1]
         .split(',')
         .map((column) => column.trim().replace(/"/g, ''))

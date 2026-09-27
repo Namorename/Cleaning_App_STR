@@ -127,7 +127,6 @@ vi.mock('@/features/chat/thread-panel', () => ({
   ),
 }));
 
-
 // The marks come from one company-wide answer; here it is a pair of sets the
 // test fills by hand.
 const unread = { tasks: new Set<string>(), problems: new Set<string>() };
@@ -268,7 +267,9 @@ describe('TasksView', () => {
     render(<TasksView />);
 
     // The executor is named, with the icon of what she does beside her.
-    const card = screen.getByText('Генеральная уборка').closest('[data-slot="card"]') as HTMLElement;
+    const card = screen
+      .getByText('Генеральная уборка')
+      .closest('[data-slot="card"]') as HTMLElement;
     expect(within(card).getByTitle('Горничная')).toHaveTextContent('Maria Test');
 
     await userEvent.click(screen.getByRole('tab', { name: /Ближайшие/ }));
@@ -350,6 +351,26 @@ describe('TasksView', () => {
     await userEvent.type(within(dialog).getByLabelText(/Название/), 'Мойка окон');
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Всё равно создать' }));
+    expect(saveTask).toHaveBeenCalledWith(
+      { draft: expect.anything(), allowDuplicate: true },
+      expect.anything(),
+    );
+  }, 20000);
+
+  // An edit creates nothing: moving a task onto a taken day asks to save it anyway.
+  test('on an edit, the duplicate question offers to save, not to create', async () => {
+    saveState.isError = true;
+    saveState.error = { hint: 'serverErrors.taskDuplicate', details: '{"date":"2026-09-11"}' };
+    render(<TasksView />);
+    const card = screen
+      .getByText('Генеральная уборка')
+      .closest('[data-slot="card"]') as HTMLElement;
+
+    await userEvent.click(within(card).getByRole('button', { name: 'Изменить' }));
+    const dialog = await screen.findByRole('dialog');
+
+    expect(within(dialog).queryByRole('button', { name: 'Всё равно создать' })).toBeNull();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Всё равно сохранить' }));
     expect(saveTask).toHaveBeenCalledWith(
       { draft: expect.anything(), allowDuplicate: true },
       expect.anything(),

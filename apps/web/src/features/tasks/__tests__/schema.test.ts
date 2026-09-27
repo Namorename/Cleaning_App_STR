@@ -88,7 +88,7 @@ describe('tailOf', () => {
     property: prague,
   });
 
-  test("a live cleaning from yesterday is a one-day tail", () => {
+  test('a live cleaning from yesterday is a one-day tail', () => {
     expect(
       tailOf({ status: 'unassigned', scheduled_date: '2026-09-22', property: prague }, midMorning),
     ).toEqual({ days: 1 });
@@ -325,12 +325,8 @@ describe('matchesFilters', () => {
   });
 
   test('the kind filters by kind', () => {
-    expect(matchesFilters(cleaning, { ...EMPTY_FILTERS, type: 'inspection' })).toBe(
-      false,
-    );
-    expect(matchesFilters(inspection, { ...EMPTY_FILTERS, type: 'inspection' })).toBe(
-      true,
-    );
+    expect(matchesFilters(cleaning, { ...EMPTY_FILTERS, type: 'inspection' })).toBe(false);
+    expect(matchesFilters(inspection, { ...EMPTY_FILTERS, type: 'inspection' })).toBe(true);
   });
 });
 
@@ -464,7 +460,12 @@ describe('isAssigneeMissing', () => {
 });
 
 describe('propertyOptions', () => {
-  const royal = { id: 219524, name: 'CZ - Vinohradska Royal', parent_id: null, hostaway_unit_id: null };
+  const royal = {
+    id: 219524,
+    name: 'CZ - Vinohradska Royal',
+    parent_id: null,
+    hostaway_unit_id: null,
+  };
   const first = { id: 1000000018007, name: '1 - 2109', parent_id: 219524, hostaway_unit_id: 18007 };
   const third = { id: 1000000018009, name: '3 - 3008', parent_id: 219524, hostaway_unit_id: 18009 };
   const anglicka = { id: 98352, name: 'Anglicka 7', parent_id: null, hostaway_unit_id: null };

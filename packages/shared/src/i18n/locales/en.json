@@ -409,6 +409,7 @@
         "saving": "Saving…",
         "close": "Cancel",
         "duplicate": "Create it anyway",
+        "duplicateSave": "Save it anyway",
         "generatedHint": "This task came from a booking or a problem: its listing and kind cannot be changed.",
         "guest": "Departing guest",
         "reservation": "Hostaway booking",
@@ -717,11 +718,92 @@
         "copyPlaceholder": "Choose a listing",
         "copy": "Copy",
         "copyHint": "Copying replaces the whole checklist that is here."
+      },
+      "room": {
+        "parent": "A room of",
+        "parentHint": "Hostaway links a room to its listing, so the link is not changed here.",
+        "cleanings": "Counted on the listing",
+        "cleaners": "A room has its listing's cleaners — change them on its card:",
+        "bookings": "A room's bookings stand on its listing and show on its card; the calendar shows the room's stays:",
+        "checklist": "A room uses its listing's checklist, read-only here; it is edited on the listing's card:"
+      },
+      "tree": {
+        "expand": "Show the units of “{{name}}”",
+        "collapse": "Hide the units of “{{name}}”"
       }
     },
     "media": {
       "fromGallery": "from gallery",
       "sourceUnknown": "source not stated"
+    },
+    "calendar": {
+      "counts": "Listings: {{listings}} · rooms: {{rooms}}",
+      "today": "Today",
+      "previous": "Previous period",
+      "next": "Next period",
+      "depthLabel": "Depth",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "property": "Listing",
+      "units": "Units: {{count}}",
+      "loadingRows": "Loading listings…",
+      "rowsError": "Could not load the listings",
+      "empty": "No listings",
+      "loadingBookings": "Loading bookings…",
+      "bookingsError": "Could not load the bookings.",
+      "doubleBooking": "Double booking",
+      "continuesBefore": "Began earlier",
+      "continuesAfter": "Goes on later",
+      "shadowWhole": "Taken: the whole villa",
+      "shadowPart": "Part taken: {{name}}",
+      "occupancy": "{{taken}} of {{total}} taken",
+      "card": {
+        "title": "Booking",
+        "rooms": "Rooms",
+        "arrival": "Arrival",
+        "departure": "Departure",
+        "nights_one": "{{count}} night",
+        "nights_other": "{{count}} nights",
+        "statuses": {
+          "new": "New",
+          "modified": "Modified",
+          "ownerStay": "Owner stay"
+        }
+      },
+      "nobody": "Nobody",
+      "sdtMark": "SDT",
+      "sdt": "same-day turnover",
+      "bookingChanged": "Booking changed",
+      "moreTasks_one": "{{count}} more task",
+      "moreTasks_other": "{{count}} more tasks",
+      "loadingTasks": "Loading tasks…",
+      "tasksError": "Could not load the tasks.",
+      "filters": {
+        "status": "Status",
+        "all": "All",
+        "open": "Open",
+        "inWork": "In progress",
+        "done": "Done",
+        "nobody": "Unassigned"
+      },
+      "stand": {
+        "title": "Stand: writing is off",
+        "newTask": "New task: {{place}}, {{day}}"
+      },
+      "expiredMark": "Did not happen",
+      "overdue": "Overdue",
+      "overdueSince": "since {{day}}, technician: {{who}}",
+      "showCancelled": "Show cancelled",
+      "chipView": "Task view",
+      "chipViews": {
+        "full": "Full",
+        "compact": "Compact"
+      },
+      "expiredError": "Could not load the tasks that did not happen.",
+      "cancelledError": "Could not load the cancelled tasks.",
+      "staffError": "Could not load the staff",
+      "repairsError": "Could not load the repairs.",
+      "taskMissing": "The task could not be opened."
     }
   },
   "tabs": {
@@ -1063,6 +1145,7 @@
     "taskDateRequired": "A task needs a day",
     "taskAssigneeInvalid": "That person does not work at this company",
     "taskDuplicate": "This flat already has such a task on {{date}}",
+    "taskMovedMeanwhile": "While the form was open, the task was moved to {{date}}. Open it again.",
     "cleanerAutoTaken": "The listing is already assigned to {{name}}. Release that link first.",
     "cleanerPriorityInvalid": "The position is a number from 1 to 99.",
     "staffNotFound": "No such person.",

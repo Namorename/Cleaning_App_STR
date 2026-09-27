@@ -8,6 +8,7 @@ import {
   indexSchema,
 } from '../../../../../packages/shared/src/testing/postgrest-select';
 import * as apartments from '../apartments/api';
+import * as calendar from '../calendar/api';
 import * as chat from '../chat/api';
 import * as problems from '../problems/api';
 import * as settings from '../settings/api';
@@ -85,6 +86,7 @@ const READERS: readonly ((client: never) => Promise<unknown>)[] = [
   (client) => apartments.fetchPropertyProblems(client, ANY_PROPERTY),
   (client) => apartments.fetchChecklist(client, ANY_PROPERTY),
   (client) => apartments.fetchChecklistOwner(client, ANY_PROPERTY),
+  (client) => calendar.fetchCalendarBookings(client, '2026-09-01', '2026-10-01'),
   (client) => chat.fetchMessages(client, ANY_ID),
   (client) => problems.fetchProblems(client),
   (client) => problems.fetchProblem(client, ANY_ID),
@@ -96,6 +98,11 @@ const READERS: readonly ((client: never) => Promise<unknown>)[] = [
   (client) => supplies.fetchCompanyLanguage(client),
   (client) => supplies.fetchSupplyRequests(client),
   (client) => tasks.fetchTasks(client),
+  (client) => tasks.fetchTasksBetween(client, '2026-09-01', '2026-10-01', 'active'),
+  (client) => tasks.fetchTasksBetween(client, '2026-09-01', '2026-10-01', 'cancelled'),
+  (client) => tasks.fetchExpiredBetween(client, '2026-09-01', '2026-10-01'),
+  (client) => tasks.fetchTask(client, ANY_ID),
+  (client) => tasks.fetchLiveRepairs(client),
   (client) => tasks.fetchStaff(client),
   (client) => tasks.fetchProperties(client),
   (client) => tasks.fetchTaskWork(client, ANY_ID),
@@ -126,6 +133,27 @@ describe('the schema this test reasons about', () => {
     expect(schema.relationships.length).toBeGreaterThan(20);
     expect(schema.columns.get('chat_messages')?.has('author_role')).toBe(true);
     expect(schema.computed.get('properties')?.has('effective_cleaner_notes')).toBe(true);
+    // An overloaded name is written as a union of members (20260926140000).
+    expect(schema.computed.get('reservations')?.has('is_service_booking')).toBe(true);
+  });
+
+  // The generator orders the members of an overload as it likes; the row
+  // member must be found wherever it stands.
+  test('finds a computed field in any member of an overload', () => {
+    const source = [
+      '      flag:',
+      '        | { Args: { name: string }; Returns: boolean }',
+      '        | {',
+      '            Args: {',
+      '              row: Database["public"]["Tables"]["things"]["Row"]',
+      '            }',
+      '            Returns: boolean',
+      '          }',
+      '      other: { Args: never; Returns: boolean }',
+    ].join('\n');
+
+    expect(indexSchema(source).computed.get('things')?.has('flag')).toBe(true);
+    expect(indexSchema(source).computed.get('things')?.has('other')).toBeFalsy();
   });
 
   test('refuses a column that is not there', () => {

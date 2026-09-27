@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -10,9 +11,11 @@ import { serverErrorText } from '@/lib/server-error';
 
 import {
   checklistProblem,
+  checklistSources,
   emptyItem,
   emptyModule,
   type ChecklistModule,
+  type ListingRef,
   type Property,
 } from './schema';
 import {
@@ -28,6 +31,11 @@ interface ChecklistTabProps {
   propertyId: number;
   /** The registry, for the listing a checklist can be copied from. */
   all: Property[];
+  /**
+   * Set on a room: it has only its listing's checklist (owner's decision), shown
+   * to read — a save here would give the room one of its own (plan 7.1, trap 5).
+   */
+  listing?: ListingRef | null;
 }
 
 /**
@@ -48,7 +56,7 @@ interface ChecklistTabProps {
  * types the company language, and the RPC keeps whatever translations a row
  * already had when the payload does not mention them.
  */
-export function ChecklistTab({ propertyId, all }: ChecklistTabProps) {
+export function ChecklistTab({ propertyId, all, listing = null }: ChecklistTabProps) {
   const { t } = useTranslation();
   const checklist = useChecklist(propertyId);
   const owner = useChecklistOwner(propertyId);
@@ -72,7 +80,7 @@ export function ChecklistTab({ propertyId, all }: ChecklistTabProps) {
       ? serverErrorText(copy.error)
       : null;
 
-  const others = all.filter((one) => one.id !== propertyId && one.status !== 'archived');
+  const others = checklistSources(all, propertyId);
 
   const setModules = (next: ChecklistModule[]) => setDraft(next);
 
@@ -93,6 +101,9 @@ export function ChecklistTab({ propertyId, all }: ChecklistTabProps) {
         {t('panel.apartments.checklist.loadError')}
       </p>
     );
+  }
+  if (listing !== null) {
+    return <InheritedChecklist listing={listing} modules={checklist.data ?? []} />;
   }
 
   return (
@@ -320,6 +331,45 @@ export function ChecklistTab({ propertyId, all }: ChecklistTabProps) {
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">{t('panel.apartments.checklist.copyHint')}</p>
+    </div>
+  );
+}
+
+interface InheritedChecklistProps {
+  listing: ListingRef;
+  modules: ChecklistModule[];
+}
+
+/** A room's checklist: its listing's, to read, with the way to where it is edited. */
+function InheritedChecklist({ listing, modules }: InheritedChecklistProps) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-sm">
+        {t('panel.apartments.room.checklist')}{' '}
+        <Link className="underline" href={`/apartments/${listing.id}`}>
+          {listing.name}
+        </Link>
+      </p>
+      {modules.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t('panel.apartments.checklist.empty')}</p>
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {modules.map((section, moduleAt) => (
+            <li key={section.id ?? moduleAt} className="flex flex-col gap-1 rounded-md border p-3">
+              <span className="text-sm font-medium">{section.title}</span>
+              <ul className="flex flex-col gap-0.5">
+                {section.items.map((item, itemAt) => (
+                  <li key={item.id ?? itemAt} className="text-sm">
+                    {item.title}
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 
 import { Badge } from '@/components/ui/badge';
@@ -13,11 +14,13 @@ import {
 } from '@/components/ui/table';
 import { todayIso } from '@/lib/format-date';
 
-import { isUpcoming } from './schema';
+import { isUpcoming, type ListingRef } from './schema';
 import { useReservations } from './use-apartments';
 
 interface BookingsTabProps {
   propertyId: number;
+  /** Set on a room: its bookings stand on its listing (plan 7.1, trap 5). */
+  listing?: ListingRef | null;
 }
 
 /**
@@ -31,11 +34,21 @@ interface BookingsTabProps {
  * reservation too, and those produce no cleaning — a row with no name and no
  * explanation would read as a booking somebody lost.
  */
-export function BookingsTab({ propertyId }: BookingsTabProps) {
+export function BookingsTab({ propertyId, listing = null }: BookingsTabProps) {
   const { t } = useTranslation();
   const reservations = useReservations(propertyId);
   const today = todayIso();
 
+  if (listing !== null) {
+    return (
+      <p className="text-sm">
+        {t('panel.apartments.room.bookings')}{' '}
+        <Link className="underline" href={`/apartments/${listing.id}`}>
+          {listing.name}
+        </Link>
+      </p>
+    );
+  }
   if (reservations.isPending) {
     return <p className="text-sm text-muted-foreground">{t('panel.apartments.loading')}</p>;
   }

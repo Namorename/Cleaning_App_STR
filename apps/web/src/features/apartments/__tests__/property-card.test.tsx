@@ -41,11 +41,30 @@ const detail = propertyDetailSchema.parse({
   synced_at: '2026-09-11T03:00:00+00:00',
 });
 
+/** A room of Vinohrady 12, as the sync writes one: Hostaway names its listing. */
+const ROOM = 1000000064266;
+
+const roomDetail = propertyDetailSchema.parse({
+  ...detail,
+  id: ROOM,
+  name: '1 - 2109',
+  parent_id: WHOLE,
+  hostaway_unit_id: 64266,
+  cleaner_notes: null,
+  internal_notes: null,
+});
+
 const registry: Property[] = [
   listing({ id: WHOLE, name: 'Vinohrady 12' }),
   listing({ id: UNIT_A, name: 'Room A', parent_id: WHOLE }),
   listing({ id: OTHER, name: 'Anděl 4' }),
   listing({ id: GONE, name: 'Karlín 7', status: 'archived' }),
+  listing({ id: ROOM, name: '1 - 2109', parent_id: WHOLE, hostaway_unit_id: 64266 }),
+];
+
+/** The listing's checklist, which is what a room's cleaning resolves to. */
+const listingChecklist = [
+  { id: 'm1', title: 'Кухня', items: [{ id: 'i1', title: 'Помыть плиту', is_optional: false }] },
 ];
 
 const MARIA = 'bbbbbbbb-bbbb-4bbb-8bbb-000000000001';
@@ -168,11 +187,30 @@ vi.mock('../api', () => ({
   countOpenCleanings: (...args: unknown[]) => countOpenCleanings(...args),
 }));
 
+/** Which card is open: the listing, or one of its rooms. */
+const cardState = { subject: detail };
+const saveChecklist = vi.fn();
+const copyChecklist = vi.fn();
+
 vi.mock('../use-apartments', () => ({
   useProperty: () => ({
-    data: propertyState.hasData ? detail : undefined,
+    data: propertyState.hasData ? cardState.subject : undefined,
     isPending: false,
     isError: propertyState.isError,
+  }),
+  useChecklist: () => ({ data: listingChecklist, isPending: false, isError: false }),
+  useChecklistOwner: () => ({ data: WHOLE, isPending: false, isError: false }),
+  useSaveChecklist: () => ({
+    isPending: false,
+    isError: false,
+    error: null,
+    mutate: saveChecklist,
+  }),
+  useCopyChecklist: () => ({
+    isPending: false,
+    isError: false,
+    error: null,
+    mutate: copyChecklist,
   }),
   useRegistry: () => ({ data: registry, isPending: false, isError: false }),
   useSaveInfo: () => ({ ...infoState, mutate: saveInfo }),
@@ -207,6 +245,7 @@ function renderCard() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  cardState.subject = detail;
   infoState.isSuccess = false;
   infoState.isError = false;
   propertyState.isError = false;
@@ -251,6 +290,7 @@ describe('what the company owns is edited here', () => {
 
     expect(saveInfo).toHaveBeenCalledWith({
       parentId: null,
+      hasParentChoice: true,
       cleanerNotes: 'Код 1234',
       internalNotes: 'Владелец придирчив',
     });
@@ -297,18 +337,26 @@ describe('listings that belong together', () => {
     );
   });
 
-  test('a listing is never offered itself or its own unit as a parent', () => {
+  // guard_property_hierarchy: a listing with units cannot become a part.
+  test('a listing with units of its own is offered no parent at all', () => {
     renderCard();
-    const parent = screen.getByLabelText('Часть объекта');
 
-    const offered = within(parent)
+    expect(screen.queryByLabelText('Часть объекта')).toBeNull();
+  });
+
+  test('a listing on its own is offered listings with no parent of their own', () => {
+    cardState.subject = propertyDetailSchema.parse({ ...detail, id: OTHER, name: 'Anděl 4' });
+    renderCard();
+
+    const offered = within(screen.getByLabelText('Часть объекта'))
       .getAllByRole('option')
       .map((option) => option.textContent);
-    expect(offered).toContain('Anděl 4');
-    // Either would make a loop in the parent chain.
-    expect(offered).not.toContain('Vinohrady 12');
+    expect(offered).toContain('Vinohrady 12');
+    // Not itself, not a part or a room — the tree is two levels — and an
+    // archived listing is nobody's parent.
+    expect(offered).not.toContain('Anděl 4');
     expect(offered).not.toContain('Room A');
-    // And an archived listing is nobody's parent.
+    expect(offered).not.toContain('1 - 2109');
     expect(offered).not.toContain('Karlín 7');
   });
 });
@@ -425,5 +473,70 @@ describe('maintenance', () => {
 
     const onTheHouse = screen.getByText('Поменять смеситель');
     expect(onTheHouse.textContent).not.toContain('в комнате');
+  });
+});
+
+/**
+ * A room's card (docs/f10-plan.md, 7.1, trap 5): the registry and the list of
+ * units now lead here, and each tab says where the room's things really live.
+ */
+describe('the card of a room', () => {
+  beforeEach(() => {
+    cardState.subject = roomDetail;
+  });
+
+  test('names its listing as text, with no choice of parent', () => {
+    renderCard();
+
+    expect(screen.queryByLabelText('Часть объекта')).toBeNull();
+    expect(screen.getByRole('link', { name: 'Vinohrady 12' })).toHaveAttribute(
+      'href',
+      `/apartments/${WHOLE}`,
+    );
+  });
+
+  test('saving leaves the parent out — the sync owns it', async () => {
+    renderCard();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    expect(saveInfo).toHaveBeenCalledWith(expect.objectContaining({ hasParentChoice: false }));
+  });
+
+  // A link of its own on the room would beat the listing's auto link in the
+  // generator, and the screen never makes one (20260912140000).
+  test('shows the listing’s cleaners, and writes none', async () => {
+    renderCard();
+    await userEvent.click(screen.getByRole('tab', { name: 'Клинеры' }));
+
+    expect(screen.getByText(/Maria Test/)).toBeInTheDocument();
+    expect(screen.getByText(/Petr Tech/)).toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Добавить/ })).toBeNull();
+    expect(saveLink).not.toHaveBeenCalled();
+  });
+
+  test('sends the manager to the listing for its bookings', async () => {
+    renderCard();
+    await userEvent.click(screen.getByRole('tab', { name: 'Бронирования' }));
+
+    expect(screen.queryByText('Jan Novák')).toBeNull();
+    expect(screen.getByRole('link', { name: 'Vinohrady 12' })).toHaveAttribute(
+      'href',
+      `/apartments/${WHOLE}`,
+    );
+  });
+
+  // Saving here would give the room a checklist of its own (owner's decision:
+  // a room has only the inherited one).
+  test('shows the inherited checklist to read, with nothing to edit', async () => {
+    renderCard();
+    await userEvent.click(screen.getByRole('tab', { name: 'Чек-лист' }));
+
+    expect(screen.getByText('Кухня')).toBeInTheDocument();
+    expect(screen.getByText('Помыть плиту')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Скопировать' })).toBeNull();
+    expect(saveChecklist).not.toHaveBeenCalled();
   });
 });

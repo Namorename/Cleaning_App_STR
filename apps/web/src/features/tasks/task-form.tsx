@@ -42,6 +42,8 @@ const ASSIGNEE_ERROR_ID = 'task-assignee-error';
 interface TaskFormProps {
   /** The task being changed, or null for a new one. */
   task: Task | null;
+  /** Where a new task starts: the calendar opens one on a listing and a day. */
+  initial?: Pick<TaskDraft, 'propertyId' | 'scheduledDate'>;
   onClose: () => void;
 }
 
@@ -77,13 +79,13 @@ function hintOf(error: unknown): string | null {
  * Mounted only while it is open, so every opening starts on a clean draft
  * with an id of its own, without an effect to reset one.
  */
-export function TaskForm({ task, onClose }: TaskFormProps) {
+export function TaskForm({ task, initial, onClose }: TaskFormProps) {
   const { t } = useTranslation();
   const properties = useProperties();
   const staff = useStaff();
   const save = useSaveTask();
   const [draft, setDraft] = useState<TaskDraft>(() =>
-    task === null ? emptyDraft() : draftFromTask(task),
+    task === null ? { ...emptyDraft(), ...initial } : draftFromTask(task),
   );
   // Sorted and composed once per list, not once per keystroke in the notes.
   const places = useMemo(() => propertyOptions(properties.data ?? []), [properties.data]);
@@ -198,7 +200,6 @@ export function TaskForm({ task, onClose }: TaskFormProps) {
             />
           </div>
 
-
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="flex flex-col gap-1">
               <Label htmlFor="task-date">{t('panel.tasks.form.date')}</Label>
@@ -308,7 +309,10 @@ export function TaskForm({ task, onClose }: TaskFormProps) {
                 disabled={save.isPending || !isReady}
                 onClick={confirmDuplicate}
               >
-                {t('panel.tasks.form.duplicate')}
+                {/* An edit creates nothing: it is the move that is confirmed. */}
+                {task === null
+                  ? t('panel.tasks.form.duplicate')
+                  : t('panel.tasks.form.duplicateSave')}
               </Button>
             ) : null}
             <Button type="submit" disabled={save.isPending || !isReady}>

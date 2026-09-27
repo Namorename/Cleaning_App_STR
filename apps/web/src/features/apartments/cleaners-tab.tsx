@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -22,10 +23,18 @@ import {
 } from '@/features/team/use-team';
 import { serverErrorText } from '@/lib/server-error';
 
+import type { ListingRef } from './schema';
+
 const SELECT_CLASS = 'h-9 rounded-md border bg-background px-2 text-sm';
 
 interface CleanersTabProps {
   propertyId: number;
+  /**
+   * Set on a room: its cleaners are its listing's, shown and never written
+   * here — a room's own `auto` link would beat the listing's in the generator,
+   * and the screen does not create one (20260912140000; plan 7.1, trap 5).
+   */
+  listing?: ListingRef | null;
 }
 
 /**
@@ -40,7 +49,7 @@ interface CleanersTabProps {
  * Only cleaners and technicians are on offer. A manager in this list would
  * turn up in a schedule, which is not what putting her in the company meant.
  */
-export function CleanersTab({ propertyId }: CleanersTabProps) {
+export function CleanersTab({ propertyId, listing = null }: CleanersTabProps) {
   const { t } = useTranslation();
   const staff = useStaff();
   const links = useCleanerLinks();
@@ -50,7 +59,7 @@ export function CleanersTab({ propertyId }: CleanersTabProps) {
 
   const everybody = staff.data ?? [];
   const allLinks = links.data ?? [];
-  const here = allLinks.filter((link) => link.property_id === propertyId);
+  const here = allLinks.filter((link) => link.property_id === (listing?.id ?? propertyId));
   const byId = new Map(everybody.map((person) => [person.id, person]));
 
   // Automatic first — that person gets the work whether she looks or not —
@@ -93,6 +102,30 @@ export function CleanersTab({ propertyId }: CleanersTabProps) {
 
   if (staff.isPending || links.isPending) {
     return <p className="text-sm text-muted-foreground">{t('panel.apartments.loading')}</p>;
+  }
+
+  if (listing !== null) {
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-sm">
+          {t('panel.apartments.room.cleaners')}{' '}
+          <Link className="underline" href={`/apartments/${listing.id}`}>
+            {listing.name}
+          </Link>
+        </p>
+        {rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t('panel.apartments.cleaners.empty')}</p>
+        ) : (
+          <ul className="flex flex-col gap-1">
+            {rows.map((link) => (
+              <li key={link.cleaner_id} className="text-sm">
+                {nameOf(byId.get(link.cleaner_id))} · {t(`panel.team.links.modes.${link.mode}`)}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
   }
 
   return (

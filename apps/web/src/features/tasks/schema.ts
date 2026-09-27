@@ -83,6 +83,50 @@ export const taskSchema = z.object({
 export type Task = z.infer<typeof taskSchema>;
 export const taskListSchema = z.array(taskSchema);
 
+/**
+ * A task as the calendar reads it: a repair brings its problem's title and
+ * priority for the chip (docs/f10-plan.md, §6).
+ */
+export const calendarTaskSchema = taskSchema.extend({
+  problem: z.object({ title: z.string(), priority: z.string() }).nullable().default(null),
+});
+export type CalendarTask = z.infer<typeof calendarTaskSchema>;
+export const calendarTaskListSchema = z.array(calendarTaskSchema);
+
+/**
+ * A task that never happened, as narrow as the calendar's mark needs it
+ * (docs/f10-plan.md, §1): thousands of duplicate rows a month until the
+ * pre-launch reset. The drawer reads the task whole when it is pressed.
+ */
+export const expiredTaskSchema = z.object({
+  id: z.uuid(),
+  property_id: z.number(),
+  reservation_id: z.number().nullable(),
+  scheduled_date: z.string(),
+  type: z.enum(TASK_TYPES),
+  assignee_id: z.uuid().nullable(),
+  assignee: z.object({ full_name: z.string().nullable() }).nullable().default(null),
+});
+export type ExpiredTask = z.infer<typeof expiredTaskSchema>;
+export const expiredTaskListSchema = z.array(expiredTaskSchema);
+
+/**
+ * A live repair, whatever its day (§6): the technician with the switch that
+ * says whether they still work here, and the listing with its status and zone.
+ */
+export const liveRepairSchema = z.object({
+  id: z.uuid(),
+  property_id: z.number(),
+  problem_id: z.uuid(),
+  status: z.enum(TASK_STATUSES),
+  scheduled_date: z.string(),
+  assignee_id: z.uuid().nullable(),
+  assignee: z.object({ full_name: z.string().nullable(), is_active: z.boolean() }).nullable(),
+  property: z.object({ name: z.string(), status: z.string(), timezone: z.string().nullable() }),
+});
+export type LiveRepair = z.infer<typeof liveRepairSchema>;
+export const liveRepairListSchema = z.array(liveRepairSchema);
+
 /** Somebody a task can be handed to. */
 export const staffSchema = z.object({
   id: z.uuid(),
@@ -105,6 +149,10 @@ export const propertySchema = z.object({
   name: z.string(),
   parent_id: z.number().nullable().default(null),
   hostaway_unit_id: z.number().nullable().default(null),
+  // Read for the calendar's rows (docs/f10-plan.md, 7.2): a room under repair
+  // gets a badge, and "today" is a date in the listing's own time zone.
+  status: z.string().default('active'),
+  timezone: z.string().nullable().default(null),
 });
 export type Property = z.infer<typeof propertySchema>;
 export const propertyListSchema = z.array(propertySchema);
@@ -129,7 +177,10 @@ export interface PropertyOption {
  * their listing — but dropping it would blank the flat field of every task
  * standing on it, which is the defect this list exists to prevent.
  */
-function splitOptionPlace(property: Property, byId: Map<number, Property>): PlaceParts {
+/** What the option labeller reads of a row — no more, so any row shape will do. */
+type OptionRow = Pick<Property, 'id' | 'name' | 'parent_id' | 'hostaway_unit_id'>;
+
+function splitOptionPlace(property: OptionRow, byId: Map<number, OptionRow>): PlaceParts {
   const parent = property.parent_id === null ? null : (byId.get(property.parent_id) ?? null);
   return splitPlace({
     name: property.name,
@@ -149,7 +200,7 @@ function splitOptionPlace(property: Property, byId: Map<number, Property>): Plac
  * Rooms follow their own listing, and the listing stays pickable: a repair in
  * the hallway belongs to the building rather than to any one flat.
  */
-export function propertyOptions(properties: Property[]): PropertyOption[] {
+export function propertyOptions(properties: readonly OptionRow[]): PropertyOption[] {
   const byId = new Map(properties.map((property) => [property.id, property]));
   return properties
     .map((property) => ({ property, ...splitOptionPlace(property, byId) }))

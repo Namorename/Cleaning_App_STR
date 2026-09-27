@@ -1283,6 +1283,8 @@ export type Database = {
           is_short_measurement: boolean | null
           measured_minutes: number | null
           notes: string | null
+          pinned_arrival: string | null
+          pinned_departure: string | null
           priority: number
           problem_id: string | null
           property_id: number
@@ -1312,6 +1314,8 @@ export type Database = {
           is_short_measurement?: boolean | null
           measured_minutes?: number | null
           notes?: string | null
+          pinned_arrival?: string | null
+          pinned_departure?: string | null
           priority?: number
           problem_id?: string | null
           property_id: number
@@ -1341,6 +1345,8 @@ export type Database = {
           is_short_measurement?: boolean | null
           measured_minutes?: number | null
           notes?: string | null
+          pinned_arrival?: string | null
+          pinned_departure?: string | null
           priority?: number
           problem_id?: string | null
           property_id?: number
@@ -1916,6 +1922,20 @@ export type Database = {
         Args: { batch_size?: number; max_attempts?: number }
         Returns: Json
       }
+      cleaning_turnover_on: {
+        Args: {
+          target_day: string
+          target_property_id: number
+          target_reservation_id: number
+        }
+        Returns: {
+          due_at: string
+          guests_count: number
+          priority: number
+          window_from: string
+          window_to: string
+        }[]
+      }
       cleans_property: {
         Args: { target_property_id: number }
         Returns: boolean
@@ -2479,6 +2499,7 @@ export type Database = {
         Args: {
           p_allow_duplicate?: boolean
           p_assignee_id?: string
+          p_expected_date?: string
           p_id: string
           p_notes?: string
           p_priority?: number
@@ -2505,6 +2526,8 @@ export type Database = {
           is_short_measurement: boolean | null
           measured_minutes: number | null
           notes: string | null
+          pinned_arrival: string | null
+          pinned_departure: string | null
           priority: number
           problem_id: string | null
           property_id: number
