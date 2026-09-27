@@ -21,9 +21,10 @@
 -- And from the owner's word of 2026-09-27, carried by the migration after it:
 -- any change of a booking's rooms undoes the move of every cleaning of that
 -- booking, not only the one whose room changed; the window of a booking's
--- cleaning is the server's, whatever times a save sends; and once the day a
--- booking leaves has passed, no edit of its rooms or dates undoes a move or
--- moves its cleaning.
+-- cleaning is the server's, whatever times a save sends; after the stay the
+-- rule is the same, a departure corrected to yesterday included; and when a
+-- booking keeps fewer places than it has cleanings, the one somebody holds is
+-- kept.
 --
 -- Every case has its own property; ids 9000025xx, rooms 251xx and 252xx. Days
 -- are counted from today.
@@ -117,10 +118,10 @@ insert into public.properties (id, name, timezone, check_in_time, check_out_time
   (900002524, 'Rooms change after expiry','UTC', '15:00', '10:00'),
   (900002525, 'Window is the server''s',  'UTC', '15:00', '10:00'),
   (900002526, 'Swap past an expired room','UTC', '15:00', '10:00'),
-  (900002527, 'Gone, then rooms changed', 'UTC', '15:00', '10:00'),
-  (900002528, 'Gone, then dates changed', 'UTC', '15:00', '10:00'),
-  (900002529, 'Gone, unmoved, dates',     'UTC', '15:00', '10:00'),
-  (900002530, 'Gone, then stayed longer', 'UTC', '15:00', '10:00');
+  (900002527, 'Left early, told late',    'UTC', '15:00', '10:00'),
+  (900002528, 'Rooms fixed after stay',   'UTC', '15:00', '10:00'),
+  (900002529, 'Rooms all dropped',        'UTC', '15:00', '10:00'),
+  (900002530, 'Two rooms become one',     'UTC', '15:00', '10:00');
 
 insert into public.properties (id, hostaway_unit_id, parent_id, name,
                                timezone, check_in_time, check_out_time)
@@ -132,7 +133,9 @@ from (values (25201, 900002520), (25202, 900002520), (25203, 900002520),
              (25231, 900002523), (25232, 900002523), (25233, 900002523),
              (25241, 900002524), (25242, 900002524), (25243, 900002524),
              (25261, 900002526), (25262, 900002526), (25263, 900002526),
-             (25271, 900002527), (25272, 900002527), (25273, 900002527)) u(unit, listing);
+             (25281, 900002528), (25282, 900002528), (25283, 900002528),
+             (25291, 900002529), (25292, 900002529),
+             (25301, 900002530), (25302, 900002530), (25303, 900002530)) u(unit, listing);
 
 insert into public.reservations (id, property_id, arrival_date, departure_date, status,
                                  guest_name, guests_count)
@@ -144,11 +147,11 @@ values
   (900002544, 900002524, current_date - 2,  current_date + 3,  'new', 'Guest 44', 2),
   (900002545, 900002525, current_date + 5,  current_date + 10, 'new', 'Guest 45', 2),
   (900002546, 900002526, current_date - 2,  current_date + 3,  'new', 'Guest 46', 2),
-  -- Section 16: four bookings that left yesterday.
-  (900002547, 900002527, current_date - 4,  current_date - 1,  'new', 'Guest 47', 2),
+  -- Section 16.
+  (900002547, 900002527, current_date - 3,  current_date + 2,  'new', 'Guest 47', 2),
   (900002548, 900002528, current_date - 4,  current_date - 1,  'new', 'Guest 48', 2),
-  (900002549, 900002529, current_date - 4,  current_date - 1,  'new', 'Guest 49', 2),
-  (900002550, 900002530, current_date - 4,  current_date - 1,  'new', 'Guest 50', 2);
+  (900002549, 900002529, current_date + 5,  current_date + 10, 'new', 'Guest 49', 2),
+  (900002550, 900002530, current_date + 5,  current_date + 10, 'new', 'Guest 50', 2);
 
 insert into public.reservation_units (reservation_id, property_id) values
   (900002540, public.property_id_for_unit(25201)),
@@ -163,8 +166,12 @@ insert into public.reservation_units (reservation_id, property_id) values
   (900002544, public.property_id_for_unit(25242)),
   (900002546, public.property_id_for_unit(25261)),
   (900002546, public.property_id_for_unit(25262)),
-  (900002547, public.property_id_for_unit(25271)),
-  (900002547, public.property_id_for_unit(25272));
+  (900002548, public.property_id_for_unit(25281)),
+  (900002548, public.property_id_for_unit(25282)),
+  (900002549, public.property_id_for_unit(25291)),
+  (900002549, public.property_id_for_unit(25292)),
+  (900002550, public.property_id_for_unit(25301)),
+  (900002550, public.property_id_for_unit(25302));
 
 create or replace function pg_temp.check(label text, got anyelement, want anyelement)
 returns void language plpgsql as $$
@@ -777,60 +784,61 @@ select pg_temp.check('a task written by hand keeps the times the manager gives i
    where id = 'c9002525-0000-4000-8000-000000000001'),
   array['08:00'::time, '09:00'::time]);
 
--- ---------- 16. after the departure day, no edit moves the cleaning ----------
+-- ---------- 16. after the stay the rule is the same; a cleaner's cleaning is kept ----------
 
--- The owner's word of 2026-09-27: once the day a booking leaves has passed,
--- no edit of it — of its rooms or of its dates — undoes a move or moves its
--- cleaning. Hostaway is corrected after the stay; a cleaning pulled back onto
--- a day already gone is swept as never done, and the flat is not cleaned.
--- All four left yesterday; their cleanings are written by their own run.
+-- The owner's word of 2026-09-27: no rule of its own after the departure.
+-- The cleaning follows its booking there too — a departure corrected after
+-- the fact takes it to the new day, yesterday included: yesterday's cleaning
+-- is still to be seen and done today, and the sweep closes it only a day
+-- later.
+
+-- 47 was to leave the day after tomorrow; Hostaway learns today that the
+-- guest left yesterday.
+select pg_temp.hand_to_maria((pg_temp.cleaning(900002547)).id);
+update public.reservations set departure_date = current_date - 1 where id = 900002547;
 select pg_temp.run_for(900002547);
+select pg_temp.check('a departure corrected to yesterday takes the cleaning there, still live and hers',
+  array[(pg_temp.cleaning(900002547)).scheduled_date::text,
+        (pg_temp.cleaning(900002547)).status::text,
+        (pg_temp.cleaning(900002547)).assignee_id::text],
+  array[(current_date - 1)::text, 'assigned', 'd9002501-0000-4000-8000-0000000025e1']);
+select pg_temp.check('and not yet past its grace',
+  public.task_is_stale(900002527, (pg_temp.cleaning(900002547)).scheduled_date), false);
+
+-- 48 left yesterday from rooms A and B; B's cleaning was put on tomorrow.
+-- Hostaway then corrects room A to C: a change of the booking, which undoes
+-- every move of it, after the stay as before it.
 select pg_temp.run_for(900002548);
-select pg_temp.run_for(900002549);
-select pg_temp.run_for(900002550);
-
--- 47 took rooms A and B; B's cleaning is put on tomorrow. Then Hostaway
--- corrects room A to C.
-select pg_temp.move((pg_temp.cleaning(900002547, pg_temp.room(25272))).id, current_date + 1);
-update public.reservation_units set property_id = pg_temp.room(25273)
-where reservation_id = 900002547 and property_id = pg_temp.room(25271);
-select pg_temp.run_for(900002547);
-select pg_temp.run();
-select pg_temp.check('a change of rooms after the departure leaves a move where it is',
-  array[(pg_temp.cleaning(900002547, pg_temp.room(25272))).scheduled_date,
-        (pg_temp.cleaning(900002547, pg_temp.room(25272))).pinned_departure],
-  array[current_date + 1, current_date - 1]);
-select pg_temp.check('while the corrected room''s cleaning keeps its day and goes with its guest',
-  (pg_temp.cleaning(900002547, pg_temp.room(25273))).scheduled_date, current_date - 1);
-
--- 48's cleaning is put on tomorrow; then its dates are corrected into the
--- past: it left two days ago, not yesterday.
-select pg_temp.move((pg_temp.cleaning(900002548)).id, current_date + 1);
-update public.reservations
-set arrival_date = current_date - 5, departure_date = current_date - 2
-where id = 900002548;
+select pg_temp.move((pg_temp.cleaning(900002548, pg_temp.room(25282))).id, current_date + 1);
+update public.reservation_units set property_id = pg_temp.room(25283)
+where reservation_id = 900002548 and property_id = pg_temp.room(25281);
 select pg_temp.run_for(900002548);
-select pg_temp.check('a change of dates after the departure leaves a move where it is',
-  array[(pg_temp.cleaning(900002548)).scheduled_date,
-        (pg_temp.cleaning(900002548)).pinned_departure],
-  array[current_date + 1, current_date - 1]);
+select pg_temp.check('a change of rooms after the stay undoes the move as well',
+  array[(pg_temp.cleaning(900002548, pg_temp.room(25282))).scheduled_date::text,
+        coalesce((pg_temp.cleaning(900002548, pg_temp.room(25282))).pinned_departure::text, '-')],
+  array[(current_date - 1)::text, '-']);
 
--- 49's cleaning was never moved: it stands on yesterday, nobody has done it
--- yet, still within grace. The dates are corrected the same way.
-update public.reservations
-set arrival_date = current_date - 5, departure_date = current_date - 3
-where id = 900002549;
+-- 49 took A and B; B's cleaning is Maria's, A's is nobody's. The booking
+-- drops both rooms and is cleaned as the listing: one place for two
+-- cleanings. The one somebody holds is the one kept (20260927120000); before,
+-- the lower room's won, and Maria's was cancelled.
+select pg_temp.hand_to_maria((pg_temp.cleaning(900002549, pg_temp.room(25292))).id);
+delete from public.reservation_units where reservation_id = 900002549;
 select pg_temp.run_for(900002549);
-select pg_temp.check('nor does it pull a cleaning nobody moved onto a day already gone',
-  array[(pg_temp.cleaning(900002549)).scheduled_date::text,
-        (pg_temp.cleaning(900002549)).status::text],
-  array[(current_date - 1)::text, 'unassigned']);
+select pg_temp.check('rooms folded into the listing keep the cleaning somebody holds',
+  (pg_temp.cleaning(900002549, 900002529)).assignee_id,
+  'd9002501-0000-4000-8000-0000000025e1'::uuid);
+select pg_temp.check('and the one nobody held is cancelled, one live cleaning left',
+  pg_temp.live_cleanings(900002549), 1);
 
--- 50 turns out to have stayed longer: it leaves the day after tomorrow. Its
--- departure has not passed after all, and the cleaning follows it.
-update public.reservations set departure_date = current_date + 2 where id = 900002550;
+-- 50 took A and B, B's Maria's; both guests are moved into room C.
+select pg_temp.hand_to_maria((pg_temp.cleaning(900002550, pg_temp.room(25302))).id);
+delete from public.reservation_units where reservation_id = 900002550;
+insert into public.reservation_units (reservation_id, property_id)
+values (900002550, pg_temp.room(25303));
 select pg_temp.run_for(900002550);
-select pg_temp.check('a booking that turns out to leave later is followed',
-  (pg_temp.cleaning(900002550)).scheduled_date, current_date + 2);
+select pg_temp.check('two rooms become one: the room keeps the cleaning somebody holds',
+  (pg_temp.cleaning(900002550, pg_temp.room(25303))).assignee_id,
+  'd9002501-0000-4000-8000-0000000025e1'::uuid);
 
 rollback;

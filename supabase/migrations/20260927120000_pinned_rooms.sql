@@ -45,19 +45,19 @@
 -- hand keeps the times the manager gives it. The panel shows those times
 -- read-only, for every status.
 --
--- After the departure day. The owner's word of 2026-09-27, given at the
--- preflight of this migration: once the day a booking leaves is over where
--- its flat is, no edit of the booking — of its rooms or of its dates — undoes
--- a move or moves its cleaning, moved or not. The preflight found a change of
--- rooms after the stay pulling a cleaning moved forward back onto the past
--- departure, to be swept as never done; the same trap stood for dates, and for
--- a cleaning nobody moved: task_generation.sql had the live row follow its
--- booking "back onto the tried day", five days gone. The reschedule pass now
--- leaves every row of a booking that has left alone, and the relocate pass,
--- which still takes such a cleaning to the room its guest was in, keeps its
--- move. A booking that turns out to leave later — its new departure today or
--- ahead — has not left, and its cleaning follows it as before. Cancellation
--- is not an edit of dates or rooms and is unchanged.
+-- After the stay the rule is the same (the owner's word of 2026-09-27, after
+-- a rule of its own for a booking that had left was tried at the preflight
+-- and withdrawn): a departure corrected after the fact takes the cleaning to
+-- the new day, yesterday included — yesterday's cleaning is still to be seen
+-- and done today, and the sweep closes it a day later — and any change of the
+-- booking undoes every move of it.
+--
+-- Fewer places than cleanings. When a booking keeps fewer places than it has
+-- cleanings — its rooms folded into the listing, two rooms made one — the
+-- relocate pass pairs one of them with the place left and the cancel pass
+-- takes the rest. It paired the lowest room's, so a cleaner's cleaning could
+-- be cancelled and one nobody held kept. A cleaning somebody holds is now
+-- paired first.
 --
 -- A swap next to an expired cleaning. The relocate pass pairs a booking's
 -- cleaning left in a room it gave up with a room it now needs, the lowest room
@@ -78,14 +78,12 @@
 --
 -- Bodies: guard_task_fields, save_task and generate_cleaning_tasks are those
 -- of 20260926160000 but for the lines that name pinned_rooms, save_task's
--- window and its replayed save, the order of the relocate pass's open places,
--- the booking that has left (_wanted.departed, read by the reschedule and
--- relocate passes), and the comments beside them. save_task keeps its signature, and create or
+-- window and its replayed save, the order in which the relocate pass pairs
+-- the cleanings left behind with the places open, and the comments beside
+-- them. save_task keeps its signature, and create or
 -- replace keeps its grants.
 --
--- Tests: supabase/tests/pinned_cleaning.sql, sections 12 to 16, and
--- task_generation.sql, whose live row no longer follows a booking back onto a
--- day already gone.
+-- Tests: supabase/tests/pinned_cleaning.sql, sections 12 to 16.
 --
 -- Measured by calling the generator (local stack, rolled back, after ANALYZE)
 -- on 9000 synthetic bookings all inside the window — 300 listings, 30 of them
@@ -94,9 +92,7 @@
 -- first in each pair), on an idle machine: a 97-day run 0.71-1.04 s, mean
 -- 0.83, against 0.72-0.89 s, mean 0.78; a one-day run 49-76 ms against
 -- 47-71 ms — within the noise of the machine, the 97-day mean some 6% above.
--- With the booking that has left (nine more pairs, the machine busy): a
--- 97-day run 4.0-4.7 s against 4.3-6.0 s, a one-day run 0.28-0.51 s against
--- 0.24-0.45 s. The 60 moves held through every run.
+-- The 60 moves held through every run.
 --
 -- LOCKS. As in 20260926160000: adding a nullable column without a default and
 -- a check that reads six thousand rows, under one ACCESS EXCLUSIVE lock on
@@ -521,10 +517,6 @@ begin
     -- With the departure, what a manager's move is checked against.
     r.arrival_date   as arrival_date,
     r.departure_date as scheduled_date,
-    -- The booking has left: its departure day is over where the flat is.
-    -- After it no edit of the booking moves its cleaning (the owner's word of
-    -- 2026-09-27, 20260927120000).
-    r.departure_date < (now() at time zone p.timezone)::date as departed,
     (case when w.same_day_turnover then 1 else 0 end)::smallint as priority,
     w.window_from    as time_from,
     w.window_to      as time_to,
@@ -618,16 +610,21 @@ begin
   -- Within one listing only: its own row and its rooms. A booking moved to
   -- another listing is served there by that listing's rule. Work somebody has
   -- started stays where it was started. A booking's rows that stand where it
-  -- owes nothing are paired, in property order, with the places it owes and
-  -- has no live cleaning on — the lowest room first, as the one-off backfill
-  -- chose; what is left unpaired on either side is the cancel pass's and the
+  -- owes nothing are paired — those somebody holds first, then in property
+  -- order — with the places it owes and has no live cleaning on, the lowest
+  -- room first, as the one-off backfill chose; what is left unpaired on
+  -- either side is the cancel pass's and the
   -- insert's. A new room is a changed booking, and undoes a manager's move —
   -- here for the cleaning that moves, in the reschedule pass for every other
   -- cleaning of the booking (20260927120000).
   with stray as (
     select t.id, t.reservation_id,
+           -- A cleaning somebody holds is paired first: when the booking keeps
+           -- fewer places than it has cleanings — its rooms folded into the
+           -- listing, two rooms made one — the one left over is cancelled,
+           -- and it should not be the cleaner's (20260927120000).
            row_number() over (partition by t.reservation_id
-                              order by t.property_id, t.id) as rank
+                              order by (t.assignee_id is null), t.property_id, t.id) as rank
     from public.tasks t
     join (select distinct reservation_id, listing_id from _wanted) b
       on b.reservation_id = t.reservation_id
@@ -641,7 +638,7 @@ begin
                         and w.property_id = t.property_id)
   ),
   open_place as (
-    select w.reservation_id, w.property_id, w.departed,
+    select w.reservation_id, w.property_id,
            -- A place the booking has just taken comes before one that holds
            -- only its expired cleaning: a swapped guest went to the new room,
            -- and the cleaner goes after her (20260927120000). By property
@@ -665,11 +662,9 @@ begin
   relocated as (
     update public.tasks t
     set property_id      = o.property_id,
-        -- A booking that has left keeps a move: the cleaning goes with its
-        -- guest's room, and stays on the day the manager gave it.
-        pinned_arrival   = case when o.departed then t.pinned_arrival end,
-        pinned_departure = case when o.departed then t.pinned_departure end,
-        pinned_rooms     = case when o.departed then t.pinned_rooms end
+        pinned_arrival   = null,
+        pinned_departure = null,
+        pinned_rooms     = null
     from stray s
     join open_place o on o.reservation_id = s.reservation_id and o.rank = s.rank
     where t.id = s.id
@@ -773,14 +768,9 @@ begin
   -- swapped, whichever cleaning it concerns (the owner's word of 2026-09-27,
   -- 20260927120000) — the move is undone here and the row follows the booking
   -- like any other; the cleaning that changed room was undone already, in the
-  -- relocate pass.
-  --
-  -- Until the booking has left. Once its departure day is over, no edit of
-  -- its dates or rooms undoes a move or moves its cleaning, moved or not (the
-  -- owner's word of 2026-09-27, 20260927120000): a correction in Hostaway after
-  -- the stay would pull the cleaning onto a day already gone, where the sweep
-  -- closes it as never done and the flat stays dirty. A booking that turns
-  -- out to leave later has not left, and is followed.
+  -- relocate pass. Onto a day
+  -- already past grace too: the sweep then closes it, as task_generation.sql
+  -- has it (the tried day stays closed to a second attempt).
   with moved as (
     update public.tasks t
     set scheduled_date   = w.scheduled_date,
@@ -803,7 +793,6 @@ begin
       and t.property_id = w.property_id
       and t.type = 'cleaning'
       and t.status in ('unassigned', 'assigned', 'accepted')
-      and not w.departed
       and ((t.pinned_departure is not null
             and (t.pinned_departure is distinct from w.scheduled_date
                  or t.pinned_arrival is distinct from w.arrival_date

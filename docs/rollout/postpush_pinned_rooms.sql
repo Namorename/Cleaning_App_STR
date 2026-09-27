@@ -41,7 +41,7 @@
 --                Windows pipe carries CRs and another md5 for the same text:
 --                                               after              before
 --                  cleaning_turnover_on         eb21e064  1737     eb21e064  1737
---                  generate_cleaning_tasks      f056f340 22019     40d48c56 19728
+--                  generate_cleaning_tasks      216ec74e 21514     40d48c56 19728
 --                  guard_task_fields            26092472  2181     ded65b7a  2130
 --                  reservation_cleaning_window  3420c63a  1389     3420c63a  1389
 --                  reservation_rooms            55a579fb   171     —
