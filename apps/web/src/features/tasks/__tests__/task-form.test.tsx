@@ -44,14 +44,20 @@ const guest = vi.fn<(reservationId: number) => GuestState>(() => ({
   isError: false,
 }));
 
+/** How the last save ended, as the form reads it off the mutation. */
+interface SaveState {
+  isError: boolean;
+  error: unknown;
+}
+const saveState = vi.fn<() => SaveState>(() => ({ isError: false, error: null }));
+
 vi.mock('../use-tasks', () => ({
   useReservationGuest: (reservationId: number) => guest(reservationId),
   useProperties: () => ({ data: properties, isPending: false, isError: false }),
   useStaff: () => ({ data: staff, isPending: false, isError: false }),
   useSaveTask: () => ({
     isPending: false,
-    isError: false,
-    error: null,
+    ...saveState(),
     mutate: (...args: unknown[]) => mutate(...args),
     reset: vi.fn(),
   }),
@@ -224,11 +230,7 @@ describe('the listing field when the manager writes a task by hand', () => {
       Array.from(listingField().options)
         .map((option) => option.textContent)
         .filter((label) => label !== 'Выберите объект'),
-    ).toEqual([
-      'Anglicka 7',
-      'CZ - Vinohradska Royal',
-      'CZ - Vinohradska Royal — 1 - 2109',
-    ]);
+    ).toEqual(['Anglicka 7', 'CZ - Vinohradska Royal', 'CZ - Vinohradska Royal — 1 - 2109']);
   });
 
   test('a task written by hand has no booking to show', () => {
@@ -414,5 +416,152 @@ describe('an executor who has been switched off', () => {
     expect(screen.queryByText(REQUIRED)).toBeNull();
     await userEvent.click(saveButton());
     expect(mutate.mock.calls[0][0].draft).toMatchObject({ assigneeId: GONE.id });
+  });
+});
+
+/** A refusal as supabase-js hands it over: the key in `hint`, its parameters in `details`. */
+const refusal = (hint: string, details: Record<string, unknown>) =>
+  Object.assign(new Error('refused'), { hint, details: JSON.stringify(details) });
+
+/**
+ * A booking may move its cleaning while the form is open, and a save of the
+ * old day would then hold as the manager's move (20260926160000). The form
+ * sends the day it was opened with; the server refuses a save made against
+ * another one.
+ */
+describe('the day the form was opened with', () => {
+  const OPENED_ON = '2026-09-14';
+  const saveButton = () => screen.getByRole('button', { name: 'Сохранить' });
+  const dayField = () => screen.getByLabelText('День') as HTMLInputElement;
+  const bookingCleaning = (overrides: Record<string, unknown> = {}) =>
+    task({
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000021',
+      reservation_id: JAN.id,
+      scheduled_date: OPENED_ON,
+      ...overrides,
+    });
+
+  test('an edit sends it, whatever day the manager moves the task to', async () => {
+    mutate.mockClear();
+    render(<TaskForm task={bookingCleaning()} onClose={() => {}} />);
+
+    fireEvent.change(dayField(), { target: { value: '2026-09-16' } });
+    await userEvent.click(saveButton());
+
+    expect(mutate.mock.calls[0][0].draft).toMatchObject({
+      scheduledDate: '2026-09-16',
+      expectedDate: OPENED_ON,
+    });
+  });
+
+  test('the «save it anyway» retry sends the same day', async () => {
+    mutate.mockClear();
+    saveState.mockReturnValue({
+      isError: true,
+      error: refusal('serverErrors.taskDuplicate', { date: '2026-09-16' }),
+    });
+    try {
+      render(<TaskForm task={bookingCleaning()} onClose={() => {}} />);
+      fireEvent.change(dayField(), { target: { value: '2026-09-16' } });
+
+      await userEvent.click(screen.getByRole('button', { name: 'Всё равно сохранить' }));
+
+      expect(mutate.mock.calls[0][0]).toMatchObject({
+        allowDuplicate: true,
+        draft: { scheduledDate: '2026-09-16', expectedDate: OPENED_ON },
+      });
+    } finally {
+      saveState.mockReset();
+      saveState.mockImplementation(() => ({ isError: false, error: null }));
+    }
+  });
+
+  test('a new task sends none', async () => {
+    mutate.mockClear();
+    render(<TaskForm task={null} onClose={() => {}} />);
+
+    await userEvent.selectOptions(listingField(), String(ANGLICKA));
+    await userEvent.click(saveButton());
+
+    expect(mutate.mock.calls[0][0].draft.expectedDate).toBeNull();
+  });
+
+  // The list or the calendar rereads while the form is open and hands it the
+  // task on its new day. The form keeps the day it was opened with, so the
+  // server can tell the manager the task moved rather than take the old day.
+  test('a reread that hands the form the task on another day does not change it', async () => {
+    mutate.mockClear();
+    const { rerender } = render(<TaskForm task={bookingCleaning()} onClose={() => {}} />);
+
+    rerender(
+      <TaskForm task={bookingCleaning({ scheduled_date: '2026-09-18' })} onClose={() => {}} />,
+    );
+    await userEvent.click(saveButton());
+
+    expect(mutate.mock.calls[0][0].draft.expectedDate).toBe(OPENED_ON);
+  });
+
+  test('a save refused as moved meanwhile says where the task is now', () => {
+    saveState.mockReturnValue({
+      isError: true,
+      error: refusal('serverErrors.taskMovedMeanwhile', { date: '2026-09-18' }),
+    });
+    try {
+      render(<TaskForm task={bookingCleaning()} onClose={() => {}} />);
+
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Пока форма была открыта, задание перенесли на 2026-09-18. Откройте его заново.',
+      );
+      // Nothing to confirm: the day it was opened with is gone.
+      expect(screen.queryByRole('button', { name: 'Всё равно сохранить' })).toBeNull();
+    } finally {
+      saveState.mockReset();
+      saveState.mockImplementation(() => ({ isError: false, error: null }));
+    }
+  });
+});
+
+/**
+ * The window of a booking's cleaning is the server's (20260926160000): from
+ * the listing's check-out to the next check-in, on whatever day it stands. The
+ * form shows it and does not offer to change it.
+ */
+describe('the window of a cleaning from a booking', () => {
+  const HINT = 'Время уборки из брони задаёт сервер: от выезда до следующего заезда.';
+  const fromField = () => screen.getByLabelText('Начать не раньше') as HTMLInputElement;
+  const toField = () => screen.getByLabelText('Закончить до') as HTMLInputElement;
+
+  test('is shown read-only, with a word on why', () => {
+    render(
+      <TaskForm
+        task={task({ id: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000031', reservation_id: JAN.id })}
+        onClose={() => {}}
+      />,
+    );
+
+    expect(fromField().value).toBe('10:00');
+    expect(toField().value).toBe('15:00');
+    expect(fromField().readOnly).toBe(true);
+    expect(toField().readOnly).toBe(true);
+    expect(fromField()).toHaveAccessibleDescription(HINT);
+    expect(toField()).toHaveAccessibleDescription(HINT);
+  });
+
+  test('a cleaning written by hand keeps it editable', () => {
+    render(
+      <TaskForm task={task({ id: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000032' })} onClose={() => {}} />,
+    );
+
+    expect(fromField().readOnly).toBe(false);
+    expect(toField().readOnly).toBe(false);
+    expect(screen.queryByText(HINT)).toBeNull();
+  });
+
+  test('a new task keeps it editable', () => {
+    render(<TaskForm task={null} onClose={() => {}} />);
+
+    expect(fromField().readOnly).toBe(false);
+    expect(toField().readOnly).toBe(false);
+    expect(screen.queryByText(HINT)).toBeNull();
   });
 });

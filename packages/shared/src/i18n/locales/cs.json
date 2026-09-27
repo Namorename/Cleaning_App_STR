@@ -411,6 +411,7 @@
         "duplicate": "Přesto vytvořit",
         "duplicateSave": "Přesto uložit",
         "generatedHint": "Úkol vznikl z rezervace nebo z problému: byt ani druh nelze změnit.",
+        "windowFromBooking": "Čas úklidu z rezervace určuje server: od odjezdu do dalšího příjezdu.",
         "guest": "Odjíždějící host",
         "reservation": "Rezervace v Hostaway",
         "guestUnknown": "neuvedeno",

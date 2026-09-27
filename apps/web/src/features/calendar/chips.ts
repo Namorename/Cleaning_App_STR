@@ -2,6 +2,7 @@ import type { CalendarTask, ExpiredTask, Staff, TaskStatus } from '@/features/ta
 import type { PropertyNode, TreeRow } from '@/lib/property-tree';
 
 import { barKind } from './bars';
+import { monthBounds } from './dates';
 import type { CalendarBooking } from './schema';
 
 /**
@@ -54,23 +55,69 @@ export function matchesChipFilters(
 
 /**
  * The statuses the generator leaves alone when a booking moves or goes
- * (20260926102000: it moves and cancels only `unassigned` and `assigned`).
+ * (20260926160000: it moves and cancels `unassigned`, `assigned` and
+ * `accepted`; a cleaning somebody has started stays where it is).
  */
-const LEFT_BEHIND: readonly TaskStatus[] = ['accepted', 'in_progress', 'paused', 'blocked'];
+const LEFT_BEHIND: readonly TaskStatus[] = ['in_progress', 'paused', 'blocked'];
+
+type JudgedTask = Pick<
+  CalendarTask,
+  | 'type'
+  | 'status'
+  | 'reservation_id'
+  | 'scheduled_date'
+  | 'property_id'
+  | 'pinned_arrival'
+  | 'pinned_departure'
+>;
+
+/**
+ * Do the booking's dates still say what the cleaning was put on? An unmoved
+ * cleaning stands on its booking's departure. A moved one stands where the
+ * manager put it, and holds while the booking keeps the dates it had at the
+ * move (`pinned_*`, 20260926160000): its day differing from the departure is
+ * the move itself, not a change.
+ */
+function isDatesChanged(task: JudgedTask, booking: CalendarBooking): boolean {
+  if (task.pinned_departure === null) {
+    return booking.departure_date !== task.scheduled_date;
+  }
+  return (
+    booking.arrival_date !== task.pinned_arrival || booking.departure_date !== task.pinned_departure
+  );
+}
+
+/**
+ * Would the bookings layer have read this cleaning's booking, had it not
+ * changed? The calendar reads the bookings of the months it shows, whole (§1),
+ * and the cleaning's own month is one of them. An unmoved cleaning stands on
+ * its departure, so its booking touches that month. A moved one may stand
+ * across the turn of a month from its stay at the move; then a booking missing
+ * from the layer may simply not have been read, and it is not judged.
+ */
+function isStayRead(task: JudgedTask): boolean {
+  if (task.pinned_arrival === null || task.pinned_departure === null) {
+    return true;
+  }
+  const { from, to } = monthBounds(task.scheduled_date.slice(0, 7));
+  return task.pinned_arrival < to && task.pinned_departure >= from;
+}
 
 /**
  * A departure cleaning left behind by its booking (§2): the booking is gone,
- * leaves on another day, stands on another listing, or has become a block
- * that owes no cleaning.
+ * has changed its dates, stands on another listing, or has become a block
+ * that owes no cleaning. The dates are judged by `isDatesChanged`: against the
+ * departure for a cleaning where the booking put it, against the booking as it
+ * was at the move for one the manager moved.
  *
  * Judged only when the bookings are read (`null` until then), and only for a
- * cleaning somebody has taken: one nobody has taken is still the generator's
- * to move, and a mismatch there is its lag, or a bookings layer older than
- * the tasks just reread after a save. The row is judged loosely: a cleaning
- * from before 12.09 still stands on the listing of a booking of rooms.
+ * cleaning somebody has started: one nobody has started is still the
+ * generator's to move, and a mismatch there is its lag, or a bookings layer
+ * older than the tasks just reread after a save. The row is judged loosely: a
+ * cleaning from before 12.09 still stands on the listing of a booking of rooms.
  */
 export function isBookingChanged(
-  task: Pick<CalendarTask, 'type' | 'status' | 'reservation_id' | 'scheduled_date' | 'property_id'>,
+  task: JudgedTask,
   bookings: ReadonlyMap<number, CalendarBooking> | null,
 ): boolean {
   if (
@@ -82,11 +129,10 @@ export function isBookingChanged(
     return false;
   }
   const booking = bookings.get(task.reservation_id);
-  if (
-    booking === undefined ||
-    booking.departure_date !== task.scheduled_date ||
-    barKind(booking) === 'block'
-  ) {
+  if (booking === undefined) {
+    return isStayRead(task);
+  }
+  if (isDatesChanged(task, booking) || barKind(booking) === 'block') {
     return true;
   }
   return (
@@ -268,6 +314,8 @@ export function expiredAsTask(
     title: null,
     title_i18n: null,
     created_at: row.scheduled_date,
+    pinned_arrival: null,
+    pinned_departure: null,
     property:
       name === undefined ? null : { name, hostaway_unit_id: null, timezone: null, parent: null },
     assignee: person === undefined ? null : { full_name: person, role: null },

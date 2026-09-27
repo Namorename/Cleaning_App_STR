@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { todayIso } from '@/lib/format-date';
-import { serverErrorText } from '@/lib/server-error';
+import { serverErrorHint, serverErrorText } from '@/lib/server-error';
 
 import {
   draftFromTask,
@@ -39,6 +39,23 @@ const DUPLICATE_HINT = 'serverErrors.taskDuplicate';
 /** Ties the executor field to the sentence that says why it cannot stay empty. */
 const ASSIGNEE_ERROR_ID = 'task-assignee-error';
 
+/** Ties the time fields of a booking's cleaning to the sentence that says why they are fixed. */
+const WINDOW_HINT_ID = 'task-window-hint';
+
+/** A field shown for reading only: set apart from the ones the manager can change. */
+const READ_ONLY_CLASS = 'bg-muted';
+
+/**
+ * The window of a booking's cleaning is the server's (20260926160000): from
+ * the listing's check-out to the next check-in, on whatever day it stands,
+ * moved or not. A move writes it for the new day, every generator run
+ * rewrites it, and a save that keeps the day keeps it whatever times it sends
+ * (20260927120000) — times typed here would not hold.
+ */
+function hasServerWindow(task: Task | null): boolean {
+  return task !== null && task.reservation_id !== null && task.type === 'cleaning';
+}
+
 interface TaskFormProps {
   /** The task being changed, or null for a new one. */
   task: Task | null;
@@ -59,12 +76,8 @@ function emptyDraft(): TaskDraft {
     timeFrom: null,
     timeTo: null,
     notes: '',
+    expectedDate: null,
   };
-}
-
-function hintOf(error: unknown): string | null {
-  const hint = (error as { hint?: unknown } | null)?.hint;
-  return typeof hint === 'string' ? hint : null;
 }
 
 /**
@@ -94,6 +107,10 @@ export function TaskForm({ task, initial, onClose }: TaskFormProps) {
   const activeStaff = useMemo(() => staff.data?.map((person) => person.id), [staff.data]);
 
   const isGenerated = task !== null && !isManualTask(task);
+  const isWindowFixed = hasServerWindow(task);
+  const windowFieldProps = isWindowFixed
+    ? { readOnly: true, className: READ_ONLY_CLASS, 'aria-describedby': WINDOW_HINT_ID }
+    : {};
   const isReady = isDraftReady(draft, activeStaff);
   const isAssigneeRequired = needsAssignee(draft.type);
   const hasAssigneeGap = isAssigneeMissing(draft, activeStaff);
@@ -110,7 +127,7 @@ export function TaskForm({ task, initial, onClose }: TaskFormProps) {
       ? task.assignee?.full_name
       : null) ?? offListAssignee;
   const failure = save.isError ? serverErrorText(save.error) : null;
-  const isDuplicate = save.isError && hintOf(save.error) === DUPLICATE_HINT;
+  const isDuplicate = save.isError && serverErrorHint(save.error) === DUPLICATE_HINT;
 
   // The disabled button is what the manager sees; the handlers ask the same
   // question, so a submit that reaches the form some other way sends nothing.
@@ -200,44 +217,53 @@ export function TaskForm({ task, initial, onClose }: TaskFormProps) {
             />
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="task-date">{t('panel.tasks.form.date')}</Label>
-              <Input
-                id="task-date"
-                type="date"
-                value={draft.scheduledDate}
-                onChange={(event) => setDraft({ ...draft, scheduledDate: event.target.value })}
-              />
+          <div className="flex flex-col gap-1">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="task-date">{t('panel.tasks.form.date')}</Label>
+                <Input
+                  id="task-date"
+                  type="date"
+                  value={draft.scheduledDate}
+                  onChange={(event) => setDraft({ ...draft, scheduledDate: event.target.value })}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="task-from">{t('panel.tasks.form.timeFrom')}</Label>
+                <Input
+                  id="task-from"
+                  type="time"
+                  value={draft.timeFrom ?? ''}
+                  {...windowFieldProps}
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      timeFrom: event.target.value === '' ? null : event.target.value,
+                    })
+                  }
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="task-to">{t('panel.tasks.form.timeTo')}</Label>
+                <Input
+                  id="task-to"
+                  type="time"
+                  value={draft.timeTo ?? ''}
+                  {...windowFieldProps}
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      timeTo: event.target.value === '' ? null : event.target.value,
+                    })
+                  }
+                />
+              </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="task-from">{t('panel.tasks.form.timeFrom')}</Label>
-              <Input
-                id="task-from"
-                type="time"
-                value={draft.timeFrom ?? ''}
-                onChange={(event) =>
-                  setDraft({
-                    ...draft,
-                    timeFrom: event.target.value === '' ? null : event.target.value,
-                  })
-                }
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="task-to">{t('panel.tasks.form.timeTo')}</Label>
-              <Input
-                id="task-to"
-                type="time"
-                value={draft.timeTo ?? ''}
-                onChange={(event) =>
-                  setDraft({
-                    ...draft,
-                    timeTo: event.target.value === '' ? null : event.target.value,
-                  })
-                }
-              />
-            </div>
+            {isWindowFixed ? (
+              <p id={WINDOW_HINT_ID} className="text-xs text-muted-foreground">
+                {t('panel.tasks.form.windowFromBooking')}
+              </p>
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-1">

@@ -45,6 +45,9 @@ const TASK_COLUMNS =
   'created_by, scheduled_date, time_from, time_to, started_at, completed_at, ' +
   'measured_minutes, duration_override_min, is_parallel, is_short_measurement, ' +
   'notes, title, title_i18n, created_at, ' +
+  // The booking's dates when the manager moved its cleaning, null unless moved
+  // (20260926160000): the calendar judges a moved cleaning's booking by them.
+  'pinned_arrival, pinned_departure, ' +
   // The room a cleaning stands on is named "1 - 2109" and names no building,
   // so the building comes along: `taskPropertyName` composes the two, the card
   // shows it and the search looks through it. The hint is the foreign key
@@ -360,6 +363,10 @@ export interface SaveTaskVariables {
  * `p_title_i18n` is deliberately not sent: the form has one title field, and
  * omitting the argument tells the server to leave whatever translations the
  * row carries alone rather than emptying them.
+ *
+ * `p_expected_date` is the day the form was opened with, on the first save and
+ * on the «save it anyway» retry alike; a new task sends none. Sending it is
+ * also what makes a move of a booking's cleaning hold (20260926160000).
  */
 export async function saveTask(client: Client, variables: SaveTaskVariables): Promise<Task> {
   const { draft } = variables;
@@ -374,6 +381,7 @@ export async function saveTask(client: Client, variables: SaveTaskVariables): Pr
     p_time_to: draft.timeTo ?? undefined,
     p_notes: draft.notes.trim() === '' ? undefined : draft.notes.trim(),
     p_allow_duplicate: variables.allowDuplicate ?? false,
+    p_expected_date: draft.expectedDate ?? undefined,
   });
   if (error) {
     throw error;

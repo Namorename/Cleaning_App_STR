@@ -9,7 +9,7 @@ import { addDays, daysBetween } from './dates';
  * the same row. Past cleanings are done or — in up to 11 copies of one key —
  * never happened; today's and later ones open, in work, now and then
  * cancelled. Then the cases 7.4 and 7.5 are checked on, each on its own row:
- * a repair with its problem, a taken cleaning whose booking is gone, a cell
+ * a repair with its problem, a started cleaning whose booking is gone, a cell
  * with more chips than fit, a person who no longer works here, the legitimate
  * pair of a lapsed and a live attempt, two lapsed tasks written by hand, and
  * three repairs left behind — one with a technician who left, one on a room.
@@ -237,10 +237,12 @@ export function fixtureTasks(
       time_from: '10:00:00',
       time_to: '11:00:00',
     }),
-    // Listing 7: a taken cleaning whose booking is gone — the chip warns.
+    // Listing 7: a started cleaning whose booking is gone — the chip warns. An
+    // accepted one no longer would: the generator moves and cancels it
+    // (20260926160000).
     task(CHANGED_ROW, addDays(today, 2), {
       reservation_id: 999999,
-      status: 'accepted',
+      status: 'paused',
       assignee_id: CLEANERS[0].id,
     }),
     // Listing 8: more than a week's cell shows — «+N».

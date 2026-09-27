@@ -411,6 +411,7 @@
         "duplicate": "Create it anyway",
         "duplicateSave": "Save it anyway",
         "generatedHint": "This task came from a booking or a problem: its listing and kind cannot be changed.",
+        "windowFromBooking": "The server sets the time of a cleaning from a booking: from the check-out to the next check-in.",
         "guest": "Departing guest",
         "reservation": "Hostaway booking",
         "guestUnknown": "not given",

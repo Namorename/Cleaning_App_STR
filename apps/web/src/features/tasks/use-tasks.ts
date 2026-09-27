@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { serverErrorHint } from '@/lib/server-error';
 import { useSupabase } from '@/lib/supabase/use-client';
 
 import {
@@ -81,12 +82,30 @@ function useInvalidateTasks() {
   return () => queryClient.invalidateQueries({ queryKey: taskKeys.all });
 }
 
+/** A save refused because the task moved while the form was open (20260926160000). */
+const MOVED_HINT = 'serverErrors.taskMovedMeanwhile';
+
+/**
+ * The calendar's own layers, read outside `tasks` (use-calendar.ts): the
+ * bookings and what never happened. The stand's copies share the prefix and
+ * are read only on the stand.
+ */
+const CALENDAR_LAYERS = ['calendar'] as const;
+
 export function useSaveTask() {
   const client = useSupabase();
+  const queryClient = useQueryClient();
   const invalidate = useInvalidateTasks();
   return useMutation({
     mutationFn: (variables: SaveTaskVariables) => saveTask(client, variables),
     onSuccess: invalidate,
+    // A booking moved the task while the form was open: the list, the
+    // calendar's chips and the bookings that moved it are all behind, and the
+    // manager is told to open the task again on its new day.
+    onError: (error) =>
+      serverErrorHint(error) === MOVED_HINT
+        ? Promise.all([invalidate(), queryClient.invalidateQueries({ queryKey: CALENDAR_LAYERS })])
+        : undefined,
   });
 }
 

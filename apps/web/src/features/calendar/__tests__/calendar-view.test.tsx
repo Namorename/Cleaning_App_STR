@@ -729,20 +729,18 @@ describe('task chips', () => {
     );
   });
 
-  // §2: the generator leaves a taken or started cleaning where it was.
+  // §2: the generator leaves a started cleaning where it was (20260926160000).
   test('a live chip whose booking is gone warns, once the bookings are read', () => {
-    tasksState.data = [calendarTask(1, '2026-09-28', { status: 'accepted', reservation_id: 77 })];
+    tasksState.data = [calendarTask(1, '2026-09-28', { status: 'paused', reservation_id: 77 })];
     const { unmount } = render(<CalendarView />);
 
-    expect(screen.getByRole('button', { name: /Принято/ })).toHaveAccessibleName(
-      /Бронь изменилась/,
-    );
+    expect(screen.getByRole('button', { name: /Пауза/ })).toHaveAccessibleName(/Бронь изменилась/);
 
     unmount();
     bookingsState.data = undefined;
     bookingsState.isPending = true;
     render(<CalendarView />);
-    expect(screen.getByRole('button', { name: /Принято/ })).not.toHaveAccessibleName(
+    expect(screen.getByRole('button', { name: /Пауза/ })).not.toHaveAccessibleName(
       /Бронь изменилась/,
     );
   });

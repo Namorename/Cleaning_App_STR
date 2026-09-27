@@ -59,6 +59,11 @@ export const taskSchema = z.object({
   title: z.string().nullable().default(null),
   title_i18n: z.record(z.string(), z.string()).nullable().catch(null),
   created_at: z.string(),
+  // A booking's cleaning the manager moved to another day: the booking's
+  // dates at the move. The move holds while the booking keeps them
+  // (20260926160000). Null on anything not moved.
+  pinned_arrival: z.string().nullable().default(null),
+  pinned_departure: z.string().nullable().default(null),
   property: z
     .object({
       name: z.string(),
@@ -515,6 +520,13 @@ export interface TaskDraft {
   timeFrom: string | null;
   timeTo: string | null;
   notes: string;
+  /**
+   * The day the task stood on when the form was opened, null for a new one.
+   * The server refuses a save made against a day the task no longer stands
+   * on (serverErrors.taskMovedMeanwhile): a booking may move its cleaning
+   * while the form is open, and the old day sent back would then hold.
+   */
+  expectedDate: string | null;
 }
 
 export function draftFromTask(task: Task): TaskDraft {
@@ -528,6 +540,7 @@ export function draftFromTask(task: Task): TaskDraft {
     timeFrom: task.time_from === null ? null : task.time_from.slice(0, 5),
     timeTo: task.time_to === null ? null : task.time_to.slice(0, 5),
     notes: task.notes ?? '',
+    expectedDate: task.scheduled_date,
   };
 }
 

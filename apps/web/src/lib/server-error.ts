@@ -45,6 +45,15 @@ function parameters(details: unknown): Record<string, unknown> {
   }
 }
 
+/**
+ * The key a refusal carries, whether or not this build can translate it: what
+ * a caller branches on, where `serverErrorKey` is what it shows.
+ */
+export function serverErrorHint(error: unknown): string | null {
+  const { hint } = asRaised(error);
+  return typeof hint === 'string' ? hint : null;
+}
+
 /** The i18n key a refusal carries, when it carries one this build knows. */
 export function serverErrorKey(error: unknown): string | null {
   const { hint, details } = asRaised(error);
