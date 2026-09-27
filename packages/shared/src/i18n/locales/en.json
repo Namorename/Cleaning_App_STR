@@ -763,7 +763,12 @@
         "arrival": "Arrival",
         "departure": "Departure",
         "nights_one": "{{count}} night",
-        "nights_other": "{{count}} nights"
+        "nights_other": "{{count}} nights",
+        "statuses": {
+          "new": "New",
+          "modified": "Modified",
+          "ownerStay": "Owner stay"
+        }
       },
       "nobody": "Nobody",
       "sdtMark": "SDT",
@@ -796,6 +801,7 @@
       },
       "expiredError": "Could not load the tasks that did not happen.",
       "cancelledError": "Could not load the cancelled tasks.",
+      "staffError": "Could not load the staff",
       "repairsError": "Could not load the repairs.",
       "taskMissing": "The task could not be opened."
     }

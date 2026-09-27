@@ -1068,3 +1068,92 @@ describe('what never happened and the repairs, after review', () => {
     }
   });
 });
+
+// The branch preflight of 2026-09-27.
+describe('after the branch preflight', () => {
+  const closedCopy = (id: string): ExpiredTask => ({
+    id,
+    property_id: 1,
+    reservation_id: 7,
+    scheduled_date: '2026-09-25',
+    type: 'cleaning',
+    assignee_id: ANNA,
+    assignee: { full_name: 'Anna' },
+  });
+
+  test('at one day the calendar opens on today, and «Сегодня» comes back to it', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    window.localStorage.setItem('str-ops.calendar.depth', '1');
+    render(<CalendarView />);
+
+    expect(days()).toEqual(['2026-09-26']);
+    await user.click(screen.getByRole('button', { name: 'Следующий период' }));
+    expect(days()).toEqual(['2026-09-27']);
+    await user.click(screen.getByRole('button', { name: 'Сегодня' }));
+    expect(days()).toEqual(['2026-09-26']);
+  });
+
+  test('switching to one day from where the week opened shows today', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<CalendarView />);
+
+    await user.click(screen.getByRole('button', { name: '1 день' }));
+
+    expect(days()).toEqual(['2026-09-26']);
+  });
+
+  test('a task a fresher layer has closed is drawn once, as closed', () => {
+    const task = calendarTask(1, '2026-09-25', { status: 'assigned' });
+    tasksState.data = [task];
+    expiredState.data = [closedCopy(task.id)];
+    render(<CalendarView />);
+
+    expect(screen.queryByRole('button', { name: /Назначено/ })).toBeNull();
+    expect(screen.getAllByRole('button', { name: /Не состоялась/ })).toHaveLength(1);
+  });
+
+  test('a cancelled copy wins over a stale live one', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const task = calendarTask(1, '2026-09-28', { status: 'assigned' });
+    tasksState.data = [task];
+    cancelledState.data = [{ ...task, status: 'cancelled' }];
+    render(<CalendarView />);
+
+    await user.click(screen.getByRole('checkbox', { name: 'Показывать отменённые' }));
+
+    expect(screen.queryByRole('button', { name: /Назначено/ })).toBeNull();
+    expect(screen.getAllByRole('button', { name: /Отменено/ })).toHaveLength(1);
+  });
+
+  test("the booking card names the status in words, not Hostaway's code", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    bookingsState.data = [booking(1, 1, '2026-09-26', '2026-09-28', { guest_name: 'Jan Novak' })];
+    render(<CalendarView />);
+
+    await user.click(screen.getByRole('button', { name: /Jan Novak/ }));
+
+    const card = screen.getByRole('dialog');
+    expect(card).toHaveTextContent('Новая');
+    expect(within(card).queryByText('new')).toBeNull();
+  });
+
+  test('when the staff cannot be read, it says so beside the filters', () => {
+    const saved = { ...staffState };
+    Object.assign(staffState, { data: undefined, isError: true, error: { message: 'boom' } });
+    try {
+      render(<CalendarView />);
+
+      expect(screen.getByRole('alert')).toHaveTextContent('Не удалось загрузить сотрудников');
+    } finally {
+      Object.assign(staffState, saved);
+    }
+  });
+
+  test('every drawn row says which row of the grid it is', () => {
+    render(<CalendarView />);
+
+    const rows = screen.getAllByRole('row');
+    expect(rows[0]).toHaveAttribute('aria-rowindex', '1');
+    expect(rows[1]).toHaveAttribute('aria-rowindex', '2');
+  });
+});

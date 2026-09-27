@@ -182,6 +182,7 @@ export function CalendarGrid({
       <div className="relative" style={{ width, height: virtualizer.getTotalSize() }}>
         <div
           role="row"
+          aria-rowindex={1}
           className="sticky top-0 z-20 flex border-b bg-background"
           style={{ width, height: HEADER_HEIGHT }}
         >
@@ -229,6 +230,9 @@ export function CalendarGrid({
             <div
               key={item.key}
               role="row"
+              // Only the rows that fit are in the DOM: the index says where
+              // each stands among all of them (aria-rowcount).
+              aria-rowindex={item.index + 2}
               // top-0: without it a row starts at its static place under the
               // sticky header, and the header's height is counted twice.
               className="absolute top-0 left-0 flex border-b"

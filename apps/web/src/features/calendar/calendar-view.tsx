@@ -85,7 +85,7 @@ function CalendarBody({ isStand, scale }: { isStand: boolean; scale: number }) {
   const today = todayIso();
   const [depth, setDepth] = useState<Depth>(() => readDepth());
   const [chipView, setChipView] = useState<ChipView>(() => readChipView());
-  const [start, setStart] = useState(() => defaultStart(today));
+  const [start, setStart] = useState(() => defaultStart(today, depth));
   const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(() => readCollapsed());
   const [opened, setOpened] = useState<CalendarBooking | null>(null);
 
@@ -129,6 +129,11 @@ function CalendarBody({ isStand, scale }: { isStand: boolean; scale: number }) {
   );
 
   const chooseDepth = (next: Depth) => {
+    // Still where it opened: the new depth opens where it would. Paged away,
+    // the manager's window stays.
+    if (start === defaultStart(today, depth)) {
+      setStart(defaultStart(today, next));
+    }
     setDepth(next);
     writeDepth(next);
   };
@@ -180,7 +185,7 @@ function CalendarBody({ isStand, scale }: { isStand: boolean; scale: number }) {
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => setStart(defaultStart(today))}
+          onClick={() => setStart(defaultStart(today, depth))}
         >
           {t('panel.calendar.today')}
         </Button>

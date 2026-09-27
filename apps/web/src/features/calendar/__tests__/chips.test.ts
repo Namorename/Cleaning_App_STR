@@ -329,3 +329,17 @@ describe('the filters and the closed chips', () => {
     expect(matchesChipFilters(lapsed, 'all', ANNA)).toBe(false);
   });
 });
+
+// The branch preflight of 2026-09-27: stretched columns gave chips too narrow
+// for a name. A chip is drawn only where a whole one fits; below, dots.
+describe('a chip needs its whole width', () => {
+  test("full chips from a week's column up, dots below it", () => {
+    expect(chipCapacity(120)).toEqual({ mode: 'dot', count: 2 });
+    expect(chipCapacity(130)).toEqual({ mode: 'full', count: 1 });
+  });
+
+  test('compact chips from their own width up, dots below it', () => {
+    expect(chipCapacity(56, 'compact')).toEqual({ mode: 'dot', count: 2 });
+    expect(chipCapacity(64, 'compact')).toEqual({ mode: 'compact', count: 1 });
+  });
+});

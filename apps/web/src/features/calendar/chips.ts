@@ -141,18 +141,22 @@ export function cellTasks<T extends TreeRow>(
   return isFolded ? [...found].sort(byWindow) : [...found];
 }
 
-/** A column this narrow shows dots, not chips (§4: 30 days, about 30 px). */
-const DOT_BELOW = 100;
 const DOTS_PER_CELL = 2;
 /** A chip read in full needs about a week's column (§4: about 130 px). */
 const FULL_CHIP_WIDTH = 130;
+/**
+ * A column narrower than a whole chip shows dots (§4: 30 days, about 30 px).
+ * Columns stretch to the screen since 7.5b, and a chip squeezed below its
+ * width read as its first letters (the branch preflight of 2026-09-27).
+ */
+const DOT_BELOW = FULL_CHIP_WIDTH;
 /**
  * A compact chip is the status dot and a name (the owner's request of
  * 2026-09-26): half a week's column, so fifteen days still read a name.
  */
 const COMPACT_CHIP_WIDTH = 64;
-/** Compact, only thirty days' columns are too narrow for a name. */
-const COMPACT_DOT_BELOW = 48;
+/** Compact, a column narrower than one compact chip shows dots. */
+const COMPACT_DOT_BELOW = COMPACT_CHIP_WIDTH;
 
 /** How a chip reads: in full, or the status and the person alone. */
 export const CHIP_VIEWS = ['full', 'compact'] as const;

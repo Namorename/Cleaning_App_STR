@@ -99,7 +99,9 @@ function BookingDetails({ booking, byId, language }: BookingDetailsProps) {
         <dt className="text-muted-foreground">{t('panel.calendar.card.departure')}</dt>
         <dd>{at(booking.departure_date, booking.check_out_time)}</dd>
         <dt className="text-muted-foreground">{t('panel.apartments.bookings.status')}</dt>
-        <dd>{booking.status}</dd>
+        <dd>
+          {t(`panel.calendar.card.statuses.${booking.status}`, { defaultValue: booking.status })}
+        </dd>
       </dl>
     </DialogContent>
   );

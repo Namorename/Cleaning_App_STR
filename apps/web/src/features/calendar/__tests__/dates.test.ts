@@ -29,7 +29,7 @@ describe('the days of the window', () => {
   // The window opens a day before today: yesterday's late check-out is still
   // on the manager's mind (docs/f10-plan.md, 7.2).
   test('opens the day before today', () => {
-    expect(defaultStart('2026-09-26')).toBe('2026-09-25');
+    expect(defaultStart('2026-09-26', 7)).toBe('2026-09-25');
   });
 
   // Data is keyed by calendar month; a 30-day window from 31 January of a
@@ -80,5 +80,18 @@ describe('the width of a day', () => {
   test('is the least width while the area is not measured yet', () => {
     expect(dayWidthFor(30, 0)).toBe(32);
     expect(dayWidthFor(30, -240)).toBe(32);
+  });
+});
+
+// The branch preflight of 2026-09-27: at one day the window was yesterday,
+// and «Сегодня» went back to yesterday.
+describe('where the window opens', () => {
+  test("a day before today, so yesterday's departures still show", () => {
+    expect(defaultStart('2026-09-26', 7)).toBe('2026-09-25');
+    expect(defaultStart('2026-09-26', 3)).toBe('2026-09-25');
+  });
+
+  test('on today itself when the window is one day', () => {
+    expect(defaultStart('2026-09-26', 1)).toBe('2026-09-26');
   });
 });

@@ -37,9 +37,13 @@ export function windowDays(start: string, depth: Depth): string[] {
   return Array.from({ length: depth }, (_, at) => addDays(start, at));
 }
 
-/** The window opens the day before today: yesterday's departures still matter. */
-export function defaultStart(today: string): string {
-  return addDays(today, -1);
+/**
+ * The window opens the day before today: yesterday's departures still
+ * matter. A window of one day opens on today itself — else «Сегодня» would
+ * never show today (the branch preflight of 2026-09-27).
+ */
+export function defaultStart(today: string, depth: Depth): string {
+  return depth === 1 ? today : addDays(today, -1);
 }
 
 /**

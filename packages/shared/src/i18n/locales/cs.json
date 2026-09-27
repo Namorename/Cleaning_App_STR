@@ -771,7 +771,12 @@
         "nights_one": "{{count}} noc",
         "nights_few": "{{count}} noci",
         "nights_many": "{{count}} noci",
-        "nights_other": "{{count}} nocí"
+        "nights_other": "{{count}} nocí",
+        "statuses": {
+          "new": "Nová",
+          "modified": "Změněná",
+          "ownerStay": "Pobyt majitele"
+        }
       },
       "nobody": "Nikdo",
       "sdtMark": "SDT",
@@ -806,6 +811,7 @@
       },
       "expiredError": "Neproběhlé úkoly se nepodařilo načíst.",
       "cancelledError": "Zrušené úkoly se nepodařilo načíst.",
+      "staffError": "Nepodařilo se načíst zaměstnance",
       "repairsError": "Opravy se nepodařilo načíst.",
       "taskMissing": "Úkol se nepodařilo otevřít."
     }

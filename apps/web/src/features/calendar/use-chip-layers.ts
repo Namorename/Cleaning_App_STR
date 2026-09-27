@@ -89,9 +89,23 @@ export function useChipLayers({ client, isStand, days, byId }: ChipLayersOptions
     [expired.data, assignee, asChip],
   );
 
+  // The layers are read apart, and a task that just closed can sit in two of
+  // them until the older read comes back — or, for a sweep's `expired`, for
+  // good. A closed copy is final: the live copy of the same id goes.
+  const closedIds = useMemo(
+    () =>
+      new Set([
+        ...(expired.data ?? []).map((row) => row.id),
+        ...(cancelled.data ?? []).map((task) => task.id),
+      ]),
+    [expired.data, cancelled.data],
+  );
   const live = useMemo<CalendarTask[]>(
-    () => [...(tasks.data ?? []), ...(showCancelled ? (cancelled.data ?? []) : [])],
-    [tasks.data, showCancelled, cancelled.data],
+    () => [
+      ...(tasks.data ?? []).filter((task) => !closedIds.has(task.id)),
+      ...(showCancelled ? (cancelled.data ?? []) : []),
+    ],
+    [tasks.data, closedIds, showCancelled, cancelled.data],
   );
 
   const byRowDay = useMemo(
@@ -131,13 +145,21 @@ export function useChipLayers({ client, isStand, days, byId }: ChipLayersOptions
     { layer: expired, messageKey: 'panel.calendar.expiredError' },
     ...(showCancelled ? [{ layer: cancelled, messageKey: 'panel.calendar.cancelledError' }] : []),
   ];
+  // Not a layer of chips — the chips draw without it — but the assignee
+  // filter lists nobody when it fails, and must not do so in silence.
+  const staffFailure: LayerFailure[] = staff.isError
+    ? [{ messageKey: 'panel.calendar.staffError', error: staff.error }]
+    : [];
 
   return {
     byRowDay,
     isPending: layers.some(({ layer }) => layer.isPending),
-    failures: layers
-      .filter(({ layer }) => layer.isError)
-      .map(({ layer, messageKey }): LayerFailure => ({ messageKey, error: layer.error })),
+    failures: [
+      ...layers
+        .filter(({ layer }) => layer.isError)
+        .map(({ layer, messageKey }): LayerFailure => ({ messageKey, error: layer.error })),
+      ...staffFailure,
+    ],
     filters: {
       status,
       onStatus: setStatus,

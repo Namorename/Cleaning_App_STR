@@ -771,7 +771,12 @@
         "nights_one": "{{count}} ночь",
         "nights_few": "{{count}} ночи",
         "nights_many": "{{count}} ночей",
-        "nights_other": "{{count}} ночи"
+        "nights_other": "{{count}} ночи",
+        "statuses": {
+          "new": "Новая",
+          "modified": "Изменена",
+          "ownerStay": "Проживание владельца"
+        }
       },
       "nobody": "Никто",
       "sdtMark": "SDT",
@@ -806,6 +811,7 @@
       },
       "expiredError": "Не удалось загрузить несостоявшиеся задания.",
       "cancelledError": "Не удалось загрузить отменённые задания.",
+      "staffError": "Не удалось загрузить сотрудников",
       "repairsError": "Не удалось загрузить ремонты.",
       "taskMissing": "Задание не удалось открыть."
     }
