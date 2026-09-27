@@ -70,7 +70,6 @@ vi.mock('../use-problems', () => ({
   }),
 }));
 
-
 // The marks come from one company-wide answer; here it is a pair of sets the
 // test fills by hand.
 const unread = { tasks: new Set<string>(), problems: new Set<string>() };
@@ -106,7 +105,7 @@ describe('ProblemsBoard drag and drop', () => {
   test('dropping an assigned card on "open" cancels the technician task', () => {
     render(<ProblemsBoard problems={problems} />);
 
-    dragTo('Сломан замок', 'Открыта');
+    dragTo('Сломан замок', 'Открыто');
 
     expect(mutations.unassign).toHaveBeenCalledWith(TASK_ID, expect.anything());
   });
@@ -117,7 +116,7 @@ describe('ProblemsBoard drag and drop', () => {
   test('every drop clears the outcome an earlier action left', () => {
     render(<ProblemsBoard problems={problems} />);
 
-    dragTo('Течёт кран', 'Открыта');
+    dragTo('Течёт кран', 'Открыто');
 
     expect(resets.resolve).toHaveBeenCalled();
     expect(resets.unassign).toHaveBeenCalled();
@@ -127,25 +126,25 @@ describe('ProblemsBoard drag and drop', () => {
   test('dropping on "resolved" asks first and resolves on confirmation', async () => {
     render(<ProblemsBoard problems={problems} />);
 
-    dragTo('Течёт кран', 'Решена');
+    dragTo('Течёт кран', 'Выполнено');
 
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText(/«Течёт кран» закроется как решённая/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/«Течёт кран» закроется как выполненное/)).toBeInTheDocument();
     expect(mutations.resolve).not.toHaveBeenCalled();
 
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Да, решена' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Да, выполнено' }));
     expect(mutations.resolve).toHaveBeenCalledWith(OPEN_ID, expect.anything());
   });
 
   test('the resolve dialog closes once the server has answered, refusal included', async () => {
-    mutations.resolve.mockImplementation(
-      (_id: string, options: { onSettled?: () => void }) => options.onSettled?.(),
+    mutations.resolve.mockImplementation((_id: string, options: { onSettled?: () => void }) =>
+      options.onSettled?.(),
     );
     render(<ProblemsBoard problems={problems} />);
 
-    dragTo('Течёт кран', 'Решена');
+    dragTo('Течёт кран', 'Выполнено');
     const dialog = await screen.findByRole('dialog');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Да, решена' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Да, выполнено' }));
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
@@ -153,7 +152,7 @@ describe('ProblemsBoard drag and drop', () => {
   test('dropping an open card on "assigned" opens the technician form', async () => {
     render(<ProblemsBoard problems={problems} />);
 
-    dragTo('Течёт кран', 'Назначена');
+    dragTo('Течёт кран', 'Назначено');
 
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Назначить техника')).toBeInTheDocument();
@@ -166,7 +165,7 @@ describe('ProblemsBoard drag and drop', () => {
     dragTo('Течёт кран', 'В работе');
 
     expect(screen.getByRole('status')).toHaveTextContent(
-      'В работу проблему переводит техник, начав задачу в приложении',
+      'В работу задание переводит техник кнопкой «Начать работу» в приложении',
     );
     expect(mutations.resolve).not.toHaveBeenCalled();
     expect(mutations.unassign).not.toHaveBeenCalled();
@@ -176,11 +175,11 @@ describe('ProblemsBoard drag and drop', () => {
     render(<ProblemsBoard problems={[...problems, resolved]} />);
     expect(card('Перегорела лампа')).toHaveAttribute('draggable', 'true');
 
-    dragTo('Перегорела лампа', 'Назначена');
+    dragTo('Перегорела лампа', 'Назначено');
     expect(mutations.reopen).not.toHaveBeenCalled();
     expect(screen.getByRole('status')).toHaveTextContent('Отсюда перенести сюда нельзя');
 
-    dragTo('Перегорела лампа', 'Открыта');
+    dragTo('Перегорела лампа', 'Открыто');
     expect(mutations.reopen).toHaveBeenCalledWith(RESOLVED_ID, expect.anything());
   });
 

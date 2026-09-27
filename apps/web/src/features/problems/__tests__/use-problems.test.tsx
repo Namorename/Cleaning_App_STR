@@ -25,7 +25,7 @@ import {
 
 /**
  * A problem's repair is a task: assigning, cancelling, resolving or archiving
- * a problem changes it. The calendar and the Tasks screen read tasks, so a
+ * a problem changes it. The calendar and the Cleanings screen (/tasks) read tasks, so a
  * write on a problem wakes them too (docs/f10-plan.md, §6) — otherwise a
  * repair moved on its problem's page stays on its old day for up to 30 s.
  */

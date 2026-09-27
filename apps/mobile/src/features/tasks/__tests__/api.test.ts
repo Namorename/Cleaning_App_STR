@@ -65,7 +65,7 @@ test('reports that the task is gone when the update took no row', async () => {
   expect(refusal).toBeInstanceOf(Error);
   expect((refusal as Error).message).not.toMatch(/[а-яё]/i);
   expect(serverErrorText(refusal)).toEqual({
-    text: 'Задачу уже взяли, либо её срок истёк.',
+    text: 'Уборку уже взяли, либо её срок истёк.',
     detail: null,
   });
 });
@@ -86,7 +86,9 @@ test('rejects a row that does not match the expected shape', async () => {
 
 describe('startTask', () => {
   test('returns the task once it is in progress', async () => {
-    mockResponse.data = [{ ...row, status: 'in_progress', started_at: '2026-11-10T08:00:00+00:00' }];
+    mockResponse.data = [
+      { ...row, status: 'in_progress', started_at: '2026-11-10T08:00:00+00:00' },
+    ];
 
     const started = await startTask(row.id);
 
@@ -102,7 +104,7 @@ describe('startTask', () => {
     const refusal = await startTask(row.id).catch((caught: unknown) => caught);
 
     expect((refusal as Error).message).not.toMatch(/[а-яё]/i);
-    expect(serverErrorText(refusal).text).toBe('Не удалось начать задачу — обновите список.');
+    expect(serverErrorText(refusal).text).toBe('Не удалось начать уборку — обновите список.');
   });
 });
 
@@ -121,6 +123,6 @@ describe('finishTask', () => {
     const refusal = await finishTask(row.id).catch((caught: unknown) => caught);
 
     expect((refusal as Error).message).not.toMatch(/[а-яё]/i);
-    expect(serverErrorText(refusal).text).toBe('Не удалось завершить задачу — обновите список.');
+    expect(serverErrorText(refusal).text).toBe('Не удалось завершить уборку — обновите список.');
   });
 });

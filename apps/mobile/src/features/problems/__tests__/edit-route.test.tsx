@@ -63,7 +63,7 @@ test('a report that arrives after the screen opened fills the form', async () =>
   // Arrange: nothing yet.
   answer(undefined);
   const view = await render(<EditProblemRoute />);
-  expect(screen.getByText('Загружаем проблемы…')).toBeTruthy();
+  expect(screen.getByText('Загружаем задания…')).toBeTruthy();
 
   // Act: the row arrives.
   answer(problem());

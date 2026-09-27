@@ -50,7 +50,7 @@ function formsOf(dictionary: Dictionary, phrase: string): string[] {
 /**
  * The phrases a number is read into — from live data, or from a limit the
  * manager sets per step — so each must agree with its count in every language:
- * "1 úkol, 2 úkoly, 5 úkolů". A number the phrase only labels ("Items: 3"), or a
+ * "1 úklid, 2 úklidy, 5 úklidů". A number the phrase only labels ("Items: 3"), or a
  * fixed limit that reads right as it is, stays a plain key.
  */
 const COUNTED = [
@@ -125,8 +125,10 @@ describe('translation files', () => {
 describe('words shared by every kind of job', () => {
   // These are read on a cleaning, a mid-stay cleaning, an inspection and a
   // repair alike — the server's refusals above all, which know nothing of the
-  // kind. Calling a boiler repair "the cleaning" is how a technician learns
-  // the app was not written for him.
+  // kind. They used to avoid the word "cleaning"; since the owner's rename of
+  // 2026-09-27 they say «уборка» for every kind, as the section does: there
+  // are no technicians yet. When there are, these are the strings to read
+  // again (docs/ROADMAP.md), so the list stays.
   const SHARED_BY_EVERY_KIND = [
     'tabs.myTasks',
     'tasks.loading',
@@ -153,17 +155,6 @@ describe('words shared by every kind of job', () => {
     // cancels cleanings only, and the text says so (owner, 2026-09-26).
   ];
 
-  /** "Cleaning" in each language, in the forms these sentences would use. */
-  const CLEANING_WORD = /уборк|уборок|úklid|clean/i;
-
-  test.each(['en', 'ru', 'cs'])('%s does not call them cleanings', (language) => {
-    const cleaningWords = SHARED_BY_EVERY_KIND.flatMap((phrase) =>
-      formsOf(dictionaries[language], phrase),
-    ).filter((key) => CLEANING_WORD.test(i18n.t(key, { lng: language })));
-
-    expect(cleaningWords).toEqual([]);
-  });
-
   test.each(['en', 'ru', 'cs'])('%s has every one of them', (language) => {
     const missing = SHARED_BY_EVERY_KIND.filter(
       (phrase) => formsOf(dictionaries[language], phrase).length === 0,
@@ -171,6 +162,83 @@ describe('words shared by every kind of job', () => {
 
     expect(missing).toEqual([]);
   });
+});
+
+/** The text of one leaf key, or undefined. */
+function valueOf(dictionary: Dictionary, path: string): string | undefined {
+  const found = path
+    .split('.')
+    .reduce<string | Dictionary | undefined>(
+      (node, part) => (typeof node === 'object' ? node[part] : undefined),
+      dictionary,
+    );
+  return typeof found === 'string' ? found : undefined;
+}
+
+// The owner's rename of 2026-09-27 (docs/rename-table.md): the section of
+// cleanings, inspections and repairs — «Задания» — is «Уборки», and what the
+// maids report — «Проблемы» — is «Задания». The keys, the routes and the
+// tables keep their names (tasks, problems); only the words the user reads
+// change, and none of the old ones may stay in its old sense.
+describe('the names of the two sections', () => {
+  test.each([
+    ['ru', ['Уборки', 'Задания', 'Мои уборки', 'Задания']],
+    ['en', ['Cleanings', 'Tasks', 'My cleanings', 'Tasks']],
+    ['cs', ['Úklidy', 'Úkoly', 'Moje úklidy', 'Úkoly']],
+  ])('%s names the sections as the owner did', (language, names) => {
+    const read = ['panel.nav.tasks', 'panel.nav.problems', 'tabs.myTasks', 'tabs.problems'].map(
+      (path) => valueOf(dictionaries[language], path),
+    );
+
+    expect(read).toEqual(names);
+  });
+
+  // «Задача» was the phone's word for a cleaning, «проблема» the maids'
+  // report; «поломка» and «репорты» named the report too (owner, 2026-09-27).
+  // «Ремонт» stays: it is a kind of job, not a section. English "report" stays
+  // where it is the statistics report; Czech «hlášení» is matched as a word,
+  // so «Přihlášení» (signing in) is not.
+  const GONE: Record<string, RegExp> = {
+    ru: /задач|проблем|поломк|репорт/i,
+    en: /\bproblems?\b/i,
+    cs: /problém|závad|(?<!\p{L})hlášení/iu,
+  };
+
+  test.each(['ru', 'en', 'cs'])('%s keeps none of the old words', (language) => {
+    const old = keyPaths(dictionaries[language]).filter((path) =>
+      GONE[language].test(valueOf(dictionaries[language], path) ?? ''),
+    );
+
+    expect(old).toEqual([]);
+  });
+
+  // On the cleanings' side the new word names only what was a problem: the
+  // task a cleaning came from, or one found while cleaning — keys that still
+  // say "problem" in their own name, which the rename leaves alone.
+  const TASK_WORD: Record<string, RegExp> = {
+    ru: /задани/i,
+    en: /\btasks?\b/i,
+    cs: /úkol/i,
+  };
+  const CLEANINGS_SIDE = /^(tabs\.myTasks|tasks\.|steps\.|panel\.tasks\.|panel\.calendar\.)/;
+  const NAMES_A_TASK = /problem/i;
+  // «Уборка пришла из брони или из задания».
+  const ALSO_A_TASK = ['panel.tasks.form.generatedHint'];
+
+  test.each(['ru', 'en', 'cs'])(
+    '%s says «task» on the cleanings’ side only of what was a problem',
+    (language) => {
+      const misused = keyPaths(dictionaries[language]).filter(
+        (path) =>
+          CLEANINGS_SIDE.test(path) &&
+          !NAMES_A_TASK.test(path) &&
+          !ALSO_A_TASK.includes(path) &&
+          TASK_WORD[language].test(valueOf(dictionaries[language], path) ?? ''),
+      );
+
+      expect(misused).toEqual([]);
+    },
+  );
 });
 
 describe('a number and its noun', () => {
@@ -213,7 +281,7 @@ describe('a number and its noun', () => {
 
 describe('on an engine without Intl.PluralRules', () => {
   // Hermes, the phone's JavaScript engine, may ship without it. i18next then
-  // knows only "one" and "other", and a Czech cleaner reads "2 úkolů". The app
+  // knows only "one" and "other", and a Czech cleaner reads "2 úklidů". The app
   // installs a polyfill before i18next starts, so the forms hold there too.
   test('still reads the Czech "few" form', async () => {
     const native = Intl.PluralRules;

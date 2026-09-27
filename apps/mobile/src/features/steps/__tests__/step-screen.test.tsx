@@ -42,9 +42,7 @@ beforeEach(() => {
 
 describe('confirmation', () => {
   test('shows the instructions and completes with an empty answer', async () => {
-    await render(
-      <StepScreen step={step()} isEditable isBusy={false} error={null} {...actions} />,
-    );
+    await render(<StepScreen step={step()} isEditable isBusy={false} error={null} {...actions} />);
 
     expect(screen.getByText('Окна закрыты')).toBeTruthy();
     expect(screen.getByText('Свет выключен')).toBeTruthy();
@@ -172,7 +170,7 @@ describe('outside the cleaning', () => {
 
     expect(screen.queryByRole('button')).toBeNull();
     // A step belongs to a cleaning, an inspection or a repair alike.
-    expect(screen.getByText('Шаги можно менять, только пока задача в работе')).toBeTruthy();
+    expect(screen.getByText('Шаги можно менять, только пока уборка в работе')).toBeTruthy();
   });
 
   test('shows the refusal in the language of the cleaner, not of the server', async () => {
@@ -188,7 +186,7 @@ describe('outside the cleaning', () => {
       />,
     );
 
-    expect(screen.getByText('Шаг не найден или задача уже не в работе')).toBeTruthy();
+    expect(screen.getByText('Шаг не найден или уборка уже не в работе')).toBeTruthy();
     expect(screen.queryByText('Step not found, or its task is not in progress')).toBeNull();
   });
 });
@@ -315,8 +313,20 @@ describe('checklist', () => {
 });
 
 describe('photos', () => {
-  const photos = step({ type: 'photos_before', title: null, instructions: null, min_photos: 1, max_photos: 2 });
-  const uploaded = { id: 'm1', kind: 'photo' as const, uri: null, status: 'uploaded' as const, durationSec: null };
+  const photos = step({
+    type: 'photos_before',
+    title: null,
+    instructions: null,
+    min_photos: 1,
+    max_photos: 2,
+  });
+  const uploaded = {
+    id: 'm1',
+    kind: 'photo' as const,
+    uri: null,
+    status: 'uploaded' as const,
+    durationSec: null,
+  };
 
   test('keeps the done button off until every photo has arrived, then completes with nothing to add', async () => {
     const { rerender } = await render(
@@ -334,7 +344,14 @@ describe('photos', () => {
     expect(screen.getByLabelText('Фото 1. Загружается…')).toBeTruthy();
 
     await rerender(
-      <StepScreen step={photos} isEditable isBusy={false} error={null} media={[uploaded]} {...actions} />,
+      <StepScreen
+        step={photos}
+        isEditable
+        isBusy={false}
+        error={null}
+        media={[uploaded]}
+        {...actions}
+      />,
     );
     await fireEvent.press(screen.getByRole('button', { name: 'Готово' }));
 
@@ -377,6 +394,8 @@ describe('photos', () => {
       />,
     );
 
-    expect(screen.getByText('Нет доступа к камере — разрешите его в настройках телефона')).toBeTruthy();
+    expect(
+      screen.getByText('Нет доступа к камере — разрешите его в настройках телефона'),
+    ).toBeTruthy();
   });
 });

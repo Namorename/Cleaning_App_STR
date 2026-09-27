@@ -113,8 +113,8 @@ export function useChipText(language: Language) {
     // SDT: the next guest arrives the same day, into the same room (§4).
     const isSdt = task.type === 'cleaning' && task.priority === 1;
     const isOverdue = task.problem_id !== null && isRepairOverdue(task);
-    // «Просрочено» already names the status and the overdue badge of the
-    // Tasks screen; the calendar's legend needs both words apart (§2).
+    // «Просрочена» already names the status and the overdue badge of the
+    // Cleanings screen; the calendar's legend needs both words apart (§2).
     const status =
       task.status === 'expired'
         ? t('panel.calendar.expiredMark')

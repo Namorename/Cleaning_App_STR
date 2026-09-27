@@ -60,7 +60,7 @@ export function useStaff() {
 
 /**
  * After any write the lists and the card are stale together — and the tasks:
- * a problem's repair is a task, and the calendar and the Tasks screen read it
+ * a problem's repair is a task, and the calendar and the Cleanings screen (/tasks) read it
  * (docs/f10-plan.md, §6). Both settle before the mutation does.
  */
 function useInvalidateProblems() {

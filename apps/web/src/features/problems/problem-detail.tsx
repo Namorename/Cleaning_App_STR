@@ -255,7 +255,7 @@ function FixTaskSummary({ fixTask }: { fixTask: FixTask }) {
       </span>
       <span className="text-muted-foreground">
         {t('panel.problems.detail.taskStatus', {
-          status: t(`tasks.statuses.${fixTask.status}`, { defaultValue: fixTask.status }),
+          status: t(`panel.tasks.statuses.${fixTask.status}`),
         })}
       </span>
     </div>

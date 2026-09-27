@@ -147,6 +147,15 @@ describe('ProblemDetail', () => {
     expect(screen.getByRole('region', { name: 'Разговор' })).toHaveTextContent(PROBLEM_ID);
   });
 
+  // The status of the technician's job read a key no dictionary has, and the
+  // manager saw the raw code: «Статус задачи: assigned».
+  test('says the status of the technician’s job in words, not as a code', () => {
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    expect(screen.getByText('Статус работы: Назначена')).toBeInTheDocument();
+    expect(screen.queryByText(/: assigned$/)).toBeNull();
+  });
+
   test('reassigns with the chosen person, date and window', async () => {
     render(<ProblemDetail problemId={PROBLEM_ID} />);
 
@@ -168,10 +177,10 @@ describe('ProblemDetail', () => {
   test('resolves at once and cancels only after a confirmation with a reason', async () => {
     render(<ProblemDetail problemId={PROBLEM_ID} />);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Отметить решённой' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Отметить выполненным' }));
     expect(mutations.resolve).toHaveBeenCalledWith(PROBLEM_ID);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Отменить проблему' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Отменить задание' }));
     expect(mutations.cancel).not.toHaveBeenCalled();
     await userEvent.type(screen.getByLabelText('Причина отмены'), 'Дубликат');
     await userEvent.click(screen.getByRole('button', { name: 'Подтвердить отмену' }));
@@ -183,7 +192,7 @@ describe('ProblemDetail', () => {
       loaded({ ...assigned, status: 'resolved', resolved_at: '2026-09-10T12:00:00+00:00' }),
     );
     const { unmount } = render(<ProblemDetail problemId={PROBLEM_ID} />);
-    expect(screen.queryByRole('button', { name: 'Отметить решённой' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Отметить выполненным' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Техник')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Вернуть в работу' }));
     expect(mutations.reopen).toHaveBeenCalledWith(PROBLEM_ID);
@@ -191,7 +200,7 @@ describe('ProblemDetail', () => {
 
     queries.problem.mockReturnValue(loaded(null));
     render(<ProblemDetail problemId={PROBLEM_ID} />);
-    expect(screen.getByText('Проблема не найдена')).toBeInTheDocument();
+    expect(screen.getByText('Задание не найдено')).toBeInTheDocument();
   });
 
   test('archives only after a confirmation and restores an archived problem', async () => {
@@ -205,11 +214,16 @@ describe('ProblemDetail', () => {
     unmount();
 
     queries.problem.mockReturnValue(
-      loaded({ ...assigned, status: 'open', fix_tasks: [], archived_at: '2026-09-10T12:00:00+00:00' }),
+      loaded({
+        ...assigned,
+        status: 'open',
+        fix_tasks: [],
+        archived_at: '2026-09-10T12:00:00+00:00',
+      }),
     );
     render(<ProblemDetail problemId={PROBLEM_ID} />);
     expect(screen.getByText(/В архиве с/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Отметить решённой' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Отметить выполненным' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Техник')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Восстановить из архива' }));
     expect(mutations.unarchive).toHaveBeenCalledWith(PROBLEM_ID);

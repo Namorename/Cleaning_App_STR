@@ -21,8 +21,8 @@ describe('Sidebar', () => {
   test('lists every section and marks the current one', () => {
     render(<Sidebar email="manager.test@example.com" />);
 
-    expect(screen.getByRole('link', { name: 'Проблемы' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: 'Задания' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('link', { name: 'Задания' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Уборки' })).not.toHaveAttribute('aria-current');
     expect(screen.getByText('manager.test@example.com')).toBeInTheDocument();
   });
 
@@ -40,8 +40,8 @@ describe('Sidebar', () => {
     unread.problems.add('c');
     render(<Sidebar email="manager.test@example.com" />);
 
-    expect(screen.getByRole('link', { name: /Задания/ })).toHaveTextContent('2');
-    expect(screen.getByRole('link', { name: /Проблемы/ })).toHaveTextContent('1');
+    expect(screen.getByRole('link', { name: /Уборки/ })).toHaveTextContent('2');
+    expect(screen.getByRole('link', { name: /Задания/ })).toHaveTextContent('1');
     expect(screen.getByLabelText('Непрочитанных: 2')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Календарь' })).not.toHaveTextContent(/\d/);
   });

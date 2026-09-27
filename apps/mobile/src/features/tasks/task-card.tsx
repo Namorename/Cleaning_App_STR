@@ -10,7 +10,7 @@ import { isRunning, isSameDayTurnover, type CleaningTask } from './schema';
 
 interface TaskCardProps {
   task: CleaningTask;
-  /** Omitted in the "my tasks" list, where there is nothing to claim. */
+  /** Omitted in the "My cleanings" list, where there is nothing to claim. */
   onClaim?: (taskId: string) => void;
   /** Opens the task. Omitted where the card is not a link. */
   onPress?: (taskId: string) => void;
