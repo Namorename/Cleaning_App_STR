@@ -262,10 +262,15 @@ select pg_temp.check('the night after that adds nothing', pg_temp.nightly(), 0);
 update public.reservations set departure_date = current_date - 5 where id = 900000311;
 select pg_temp.check('moved back onto the tried day, still no third row',
   pg_temp.nightly(), 0);
-select pg_temp.check('and the live row followed the booking instead',
+-- Nor is the live row pulled back after it: the booking's departure is five
+-- days gone, and after the departure day no edit of a booking moves its
+-- cleaning (the owner's word of 2026-09-27, 20260927120000). Until then it
+-- followed the booking onto the tried day, where the sweep closed it as never
+-- done.
+select pg_temp.check('and the live row stays on its day rather than follow it into the past',
   (select count(*)::int from public.tasks
     where reservation_id = 900000311 and status = 'unassigned'
-      and scheduled_date = current_date - 5), 1);
+      and scheduled_date = current_date + 3), 1);
 
 -- ---------------------------------------------------------------------------
 --  No cleaning is born for a day already past its grace (20260923120000)
