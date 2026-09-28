@@ -1,18 +1,30 @@
 import { describe, expect, test } from 'vitest';
 
+import { ImageMetadataError } from '@str-ops/shared';
+
+import {
+  BASELINE_JPEG_BASE64,
+  ascii,
+  dirtyJpeg,
+  fromBase64,
+  metadataLeaks,
+} from '../../../../../../packages/shared/src/testing/image-fixtures';
 import { attachMessagePhoto, removeMessagePhoto } from '../media';
 
 const MESSAGE = '11111111-1111-4111-8111-111111111111';
 const MEDIA = '22222222-2222-4222-8222-222222222222';
 const PATH = 'host/chat/thread/photo.jpg';
 
-/** A picked file, as the dialog hands it over; only these fields are read. */
-const file = {
-  type: 'image/jpeg',
-  size: 1024,
-  lastModified: Date.parse('2026-09-18T09:30:00+00:00'),
-  name: 'photo.jpg',
-} as File;
+const PICKED_AT = Date.parse('2026-09-18T09:30:00+00:00');
+const clean = fromBase64(BASELINE_JPEG_BASE64);
+
+/** A picked file, as the dialog hands it over: a photo with nothing to remove. */
+const file = new File([clean], 'photo.jpg', { type: 'image/jpeg', lastModified: PICKED_AT });
+
+/** The bytes a recorded upload carried. */
+async function uploadedBytes(body: unknown): Promise<Uint8Array> {
+  return new Uint8Array(await (body as Blob).arrayBuffer());
+}
 
 const row = {
   id: MEDIA,
@@ -96,7 +108,7 @@ describe('attaching a photo to a message', () => {
       p_id: MEDIA,
       p_message_id: MESSAGE,
       p_mime_type: 'image/jpeg',
-      p_byte_size: 1024,
+      p_byte_size: clean.length,
       p_device_taken_at: '2026-09-18T09:30:00.000Z',
       p_source: 'gallery',
     });
@@ -146,6 +158,44 @@ describe('attaching a photo to a message', () => {
       attachMessagePhoto(client, { mediaId: MEDIA, messageId: MESSAGE, file }),
     ).rejects.toMatchObject({ statusCode: '403' });
     expect(calls.map((call) => call.name)).not.toContain('confirm_task_media');
+  });
+
+  test('a photo from a phone leaves the panel without its place, time and camera', async () => {
+    // Arrange: what a manager's phone writes into a picture, GPS included.
+    const fromPhone = new File([dirtyJpeg(clean)], 'IMG_2041.jpg', {
+      type: 'image/jpeg',
+      lastModified: PICKED_AT,
+    });
+    const { client, calls } = recordingClient({ add_message_media: row, confirm_task_media: row });
+
+    // Act
+    await attachMessagePhoto(client, { mediaId: MEDIA, messageId: MESSAGE, file: fromPhone });
+
+    // Assert: stripped before the row is written, so the row declares the
+    // size of what is uploaded, and a retry strips to the same bytes again.
+    const sent = await uploadedBytes((calls[1].args as { body: unknown }).body);
+    expect(metadataLeaks(sent)).toEqual([]);
+    expect((calls[0].args as { p_byte_size: number }).p_byte_size).toBe(sent.length);
+    expect((calls[1].args as { options: unknown }).options).toEqual({
+      contentType: 'image/jpeg',
+      upsert: false,
+    });
+    expect((calls[0].args as { p_device_taken_at: string }).p_device_taken_at).toBe(
+      '2026-09-18T09:30:00.000Z',
+    );
+  });
+
+  test('a file that cannot be read as a picture is not sent at all', async () => {
+    const broken = new File([ascii('not a picture')], 'broken.jpg', {
+      type: 'image/jpeg',
+      lastModified: PICKED_AT,
+    });
+    const { client, calls } = recordingClient({ add_message_media: row });
+
+    await expect(
+      attachMessagePhoto(client, { mediaId: MEDIA, messageId: MESSAGE, file: broken }),
+    ).rejects.toBeInstanceOf(ImageMetadataError);
+    expect(calls).toEqual([]);
   });
 
   test('never uploads when the row expired before the file was picked', async () => {

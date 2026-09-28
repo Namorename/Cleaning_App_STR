@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '@str-ops/shared';
+import { stripImageMetadata, type Database } from '@str-ops/shared';
 
 import { MEDIA_BUCKET } from '@/lib/media';
 
@@ -84,6 +84,29 @@ async function confirmPhoto(client: Client, mediaId: string): Promise<ChatMessag
 }
 
 /**
+ * The picked file without what the camera wrote into it — where, when, on
+ * which phone (owner's word, 2026-09-28). A photo from a manager's phone
+ * arrives in the file dialog exactly as the phone saved it, GPS included.
+ *
+ * Done before the row is written: the row declares the size of what is
+ * uploaded. The same file always strips to the same bytes, so a retry of the
+ * chain declares and sends what the first attempt did. A file with nothing
+ * to remove is sent as it is. A file that cannot be read as the picture it
+ * says it is throws, and is not sent at all.
+ */
+async function withoutMetadata(file: File): Promise<File> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const clean = stripImageMetadata(bytes, file.type);
+  if (clean === bytes) {
+    return file;
+  }
+  return new File([clean.slice().buffer], file.name, {
+    type: file.type,
+    lastModified: file.lastModified,
+  });
+}
+
+/**
  * The whole chain for one photo: row, file, confirmation.
  *
  * The row comes before the file, always (docs/chat-plan.md): the bucket admits
@@ -96,8 +119,9 @@ export async function attachMessagePhoto(
   client: Client,
   variables: AttachPhotoVariables,
 ): Promise<ChatMessageMedia> {
-  const row = await registerPhoto(client, variables);
-  await uploadPhotoFile(client, row.storage_path, variables.file);
+  const file = await withoutMetadata(variables.file);
+  const row = await registerPhoto(client, { ...variables, file });
+  await uploadPhotoFile(client, row.storage_path, file);
   return confirmPhoto(client, variables.mediaId);
 }
 

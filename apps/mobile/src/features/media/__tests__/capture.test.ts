@@ -1,3 +1,9 @@
+import {
+  BASELINE_JPEG_BASE64,
+  dirtyJpeg,
+  fromBase64,
+  metadataLeaks,
+} from '../../../../../../packages/shared/src/testing/image-fixtures';
 import { capturePhoto, EmptyCaptureError } from '../capture';
 import { attachFailure } from '../failure';
 import { fileSize, keepFile } from '../file';
@@ -21,6 +27,8 @@ import { fileSize, keepFile } from '../file';
 
 jest.mock('expo-file-system', () => {
   const sizes: Map<string, number> = new Map();
+  // What a file holds, for the tests that read it; the others know only sizes.
+  const contents: Map<string, Uint8Array> = new Map();
 
   class MockFile {
     readonly uri: string;
@@ -37,6 +45,15 @@ jest.mock('expo-file-system', () => {
       return sizes.get(this.uri) ?? null;
     }
 
+    async bytes(): Promise<Uint8Array> {
+      return contents.get(this.uri) ?? new Uint8Array(sizes.get(this.uri) ?? 0);
+    }
+
+    write(content: Uint8Array): void {
+      contents.set(this.uri, content);
+      sizes.set(this.uri, content.length);
+    }
+
     async move(destination: MockFile): Promise<void> {
       await new Promise((resolve) => setTimeout(resolve, 0));
       const size = sizes.get(this.uri);
@@ -45,10 +62,16 @@ jest.mock('expo-file-system', () => {
       }
       sizes.delete(this.uri);
       sizes.set(destination.uri, size);
+      const content = contents.get(this.uri);
+      if (content !== undefined) {
+        contents.delete(this.uri);
+        contents.set(destination.uri, content);
+      }
     }
 
     delete(): void {
       sizes.delete(this.uri);
+      contents.delete(this.uri);
     }
   }
 
@@ -70,6 +93,7 @@ jest.mock('expo-file-system', () => {
     Directory: MockDirectory,
     Paths: { document: 'file:///documents/' },
     __sizes: sizes,
+    __contents: contents,
   };
 });
 
@@ -98,11 +122,15 @@ jest.mock('expo-image-picker', () => ({
   MediaTypeOptions: { Images: 'Images', Videos: 'Videos' },
 }));
 
-/** The mock's own map, so a test can put a file on this filesystem. */
-const sizes = (jest.requireMock('expo-file-system') as { __sizes: Map<string, number> }).__sizes;
+/** The mock's own maps, so a test can put a file on this filesystem. */
+const { __sizes: sizes, __contents: contents } = jest.requireMock('expo-file-system') as {
+  __sizes: Map<string, number>;
+  __contents: Map<string, Uint8Array>;
+};
 
 beforeEach(() => {
   sizes.clear();
+  contents.clear();
 });
 
 test('a kept file is measured after it has arrived, not while it is moving', async () => {
@@ -155,4 +183,38 @@ test('a photo taken here declares the camera, which is what lets the gallery ope
   // The declaration is made where it is still known: by the time the row is
   // written, a picked file and a taken one look exactly alike.
   expect(photo?.source).toBe('camera');
+});
+
+/**
+ * Where, when and on which phone: none of it leaves with the photo (owner's
+ * word, 2026-09-28). The manipulator re-encodes every photo from a bare
+ * bitmap, which already drops it — this guard is there for the day a
+ * manipulator version or a phone's encoder writes some of it back.
+ */
+test('a photo is uploaded without what the camera wrote about place, time and phone', async () => {
+  // Arrange: the manipulator's output, as if it had kept the camera's Exif.
+  const dirty = dirtyJpeg(fromBase64(BASELINE_JPEG_BASE64));
+  contents.set('file:///cache/compressed.jpg', dirty);
+  sizes.set('file:///cache/compressed.jpg', dirty.length);
+
+  // Act
+  const photo = await capturePhoto();
+
+  // Assert: the kept file is the clean one, and it is declared at its own size.
+  const kept = contents.get('file:///documents/task-media/kept-id.jpg');
+  expect(kept).toBeDefined();
+  expect(metadataLeaks(kept as Uint8Array)).toEqual([]);
+  expect(photo?.byteSize).toBe((kept as Uint8Array).length);
+  expect(photo?.byteSize).toBeLessThan(dirty.length);
+});
+
+test('a photo with nothing to remove is not written again', async () => {
+  const clean = fromBase64(BASELINE_JPEG_BASE64);
+  contents.set('file:///cache/compressed.jpg', clean);
+  sizes.set('file:///cache/compressed.jpg', clean.length);
+
+  const photo = await capturePhoto();
+
+  expect(contents.get('file:///documents/task-media/kept-id.jpg')).toBe(clean);
+  expect(photo?.byteSize).toBe(clean.length);
 });

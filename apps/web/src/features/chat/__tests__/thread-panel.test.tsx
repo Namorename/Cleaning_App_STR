@@ -43,7 +43,13 @@ vi.mock('../use-chat', () => ({
   useCurrentUserId: () => ME,
   useSendMessage: () => ({ ...sendState, mutate: mutations.send }),
   useMarkThreadRead: () => ({ mutate: mutations.markRead }),
-  useAttachPhoto: () => ({ mutate: mutations.attach }),
+  // Each photo keeps its own promise (use-outgoing-photos.ts); this one never settles.
+  useAttachPhoto: () => ({
+    mutateAsync: (...args: unknown[]) => {
+      mutations.attach(...args);
+      return new Promise(() => {});
+    },
+  }),
   useRemovePhoto: () => ({ mutate: mutations.remove }),
   usePhotoUrls: () => queries.photoUrls(),
 }));
