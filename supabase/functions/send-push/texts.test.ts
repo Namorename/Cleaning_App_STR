@@ -168,7 +168,7 @@ Deno.test("a booking cancelled while she cleans tells her to ask the office", ()
 Deno.test("messages are counted in the grammar of her language, and never quoted", () => {
   const chat = (count: number, language: Language) =>
     renderPush(
-      { type: "chat", count, author: "Bara", subject: "task", subjectId: "t", propertyId: "900003" },
+      { type: "chat", count, author: "Bara", subject: "task", subjectId: "t", threadId: "th", propertyId: "900003" },
       group(language),
     );
 
@@ -185,7 +185,7 @@ Deno.test("messages are counted in the grammar of her language, and never quoted
 Deno.test("a message from nobody known names only the flat", () => {
   assertEquals(
     renderPush(
-      { type: "chat", count: 1, author: null, subject: "problem", subjectId: "p", propertyId: "900003" },
+      { type: "chat", count: 1, author: null, subject: "problem", subjectId: "p", threadId: "th", propertyId: "900003" },
       group("en"),
     ).body,
     "Flat C",

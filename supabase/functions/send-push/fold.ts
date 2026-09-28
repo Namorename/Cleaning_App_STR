@@ -53,6 +53,8 @@ export interface FoldedChat {
   readonly author: string | null;
   readonly subject: "task" | "problem";
   readonly subjectId: string;
+  /** The thread itself: a repair's chat is reached through its cleaning on the phone. */
+  readonly threadId: string | null;
   readonly propertyId: string | null;
 }
 
@@ -185,6 +187,7 @@ function foldChat(rows: readonly PushRow[]): FoldedChat | null {
     author: text(last.params.author_name),
     subject,
     subjectId,
+    threadId: last.threadId,
     propertyId: last.propertyId,
   };
 }

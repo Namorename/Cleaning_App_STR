@@ -207,6 +207,7 @@ Deno.test("several messages in one thread: one push that counts them and names t
     author: "Anna",
     subject: "task",
     subjectId: TASK,
+    threadId: thread,
     propertyId: "900001",
   });
 });

@@ -97,7 +97,13 @@ function pushData(folded: Folded): Record<string, unknown> {
     case "task":
       return { kind: folded.event, taskId: folded.taskId };
     case "chat":
-      return { kind: "chat_message", subject: folded.subject, id: folded.subjectId };
+      // The thread's own id too: the phone tells the thread on screen by it.
+      return {
+        kind: "chat_message",
+        subject: folded.subject,
+        id: folded.subjectId,
+        threadId: folded.threadId,
+      };
     case "digest":
       return { kind: "daily_digest" };
   }

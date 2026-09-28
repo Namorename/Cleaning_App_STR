@@ -129,6 +129,39 @@ Deno.test("a due assignment goes to every phone she has, in her language, and is
   assertEquals(summary.sent, 1);
 });
 
+Deno.test("a message push names its thread, so the phone can tell the one on screen", async () => {
+  // A repair's chat is opened on the phone through its cleaning, while the
+  // server calls the thread a report's: only the thread's own id matches both.
+  const thread = "5b6d4e8f-9a0b-4c2d-8e4f-5a6b3f2a1c4e";
+  const problem = "9a0b1c2d-3e4f-4a5b-8f2a-1c4e5b6d4e8f";
+  const { db } = database([[{
+    recipient_id: "tomas",
+    collapse_key: `thread:${thread}`,
+    language: "en",
+    tokens: [{ token: "T1", platform: "ios" }],
+    places: { "900003": { name: "Flat C", hostaway_unit_id: null, parent: null } },
+    rows: [{
+      id: 91,
+      kind: "chat_message",
+      task_id: null,
+      thread_id: thread,
+      property_id: 900003,
+      params: { subject: "problem", task_id: null, problem_id: problem, author_name: "Bara" },
+      urgent: false,
+    }],
+  }]]);
+  const { expo, sent } = sender(okTickets);
+
+  await runSendPush(db, expo, quiet);
+
+  assertEquals(sent[0][0].data, {
+    kind: "chat_message",
+    subject: "problem",
+    id: problem,
+    threadId: thread,
+  });
+});
+
 Deno.test("a group that folds to nothing is settled as collapsed and not sent", async () => {
   const group = assignedGroup("anna", ["T1"], [21]);
   const taken = {
