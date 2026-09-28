@@ -36,6 +36,12 @@ jest.mock('expo-router', () => {
 
 jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 
+// The layout's push wiring has its own tests (features/push/__tests__/hooks.test.tsx).
+jest.mock('@/features/push/hooks', () => ({
+  usePushTaps: jest.fn(),
+  usePermissionPrompt: jest.fn(),
+}));
+
 jest.mock('@/features/auth/session', () => ({
   useSession: () => ({ userId: '7c9e6679-7425-40de-944b-e07fc1f90ae7', isLoading: false }),
   signOut: jest.fn(),

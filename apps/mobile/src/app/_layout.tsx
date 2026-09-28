@@ -10,9 +10,11 @@ import '@/i18n';
 import { Colors } from '@/constants/theme';
 import { SessionProvider } from '@/features/auth/session';
 import { ProfileLanguageGate } from '@/features/profile/language-gate';
+import { PushBridge } from '@/features/push/push-bridge';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { subscribeFocusToAppState } from '@/lib/app-focus';
 import { markAppDrawn } from '@/components/route-error';
+import { watchNetwork } from '@/lib/network';
 import { createAppQueryClient, persistOptions } from '@/lib/query-client';
 
 // The last net under every screen: once the app has drawn, a render error
@@ -64,6 +66,10 @@ export default function RootLayout() {
   // the app comes back; without this the client thinks it is always in front.
   useEffect(() => subscribeFocusToAppState(), []);
 
+  // Losing the network pauses the moves at once instead of after a failure;
+  // the server, not the radio, decides when they go out again.
+  useEffect(() => watchNetwork(), []);
+
   // From the first commit on, the root boundary catches instead of crashing.
   useEffect(() => markAppDrawn(), []);
 
@@ -86,6 +92,8 @@ export default function RootLayout() {
           redraws the lot.
         */}
         <ProfileLanguageGate>
+          {/* Inside the language: the Android channels are named in hers. */}
+          <PushBridge />
           <SafeAreaProvider>
             <ThemeProvider
               value={colorScheme === 'dark' ? navigationThemes.dark : navigationThemes.light}
@@ -118,6 +126,15 @@ export default function RootLayout() {
                     headerShown: true,
                     headerBackTitle: t('common.back'),
                     title: t('chat.title'),
+                  }}
+                />
+                {/* Over the tabs, before the system asks: why notifications. */}
+                <Stack.Screen
+                  name="notifications"
+                  options={{
+                    presentation: 'modal',
+                    headerShown: true,
+                    title: t('notifications.intro.title'),
                   }}
                 />
               </Stack>

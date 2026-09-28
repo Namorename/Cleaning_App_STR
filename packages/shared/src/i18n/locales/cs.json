@@ -843,6 +843,18 @@
         "booking_cancelled_live": "Rezervace zrušena během úklidu",
         "chat_message": "Zpráva v chatu",
         "daily_digest": "Ranní přehled"
+      },
+      "channels": {
+        "urgent": "Naléhavá oznámení",
+        "general": "Ostatní oznámení"
+      },
+      "permission": {
+        "notAsked": "Telefon zatím aplikaci nepovolil posílat oznámení.",
+        "off": "Oznámení jsou vypnutá v nastavení telefonu. Bez nich se nedozvíte o nových úklidech a zprávách.",
+        "channelOff": "V nastavení telefonu jsou vypnutá „{{channel}}“.",
+        "provisional": "Oznámení chodí potichu, jen do Centra oznámení. Zvuk a bannery se zapínají v nastavení telefonu.",
+        "enable": "Zapnout oznámení",
+        "openSettings": "Otevřít nastavení telefonu"
       }
     },
     "language": {
@@ -864,6 +876,17 @@
       "needsNetwork": "Ke změně hesla je potřeba připojení. Zkontrolujte internet a zkuste to znovu.",
       "confirmAgain": "Přihlášení je potřeba znovu potvrdit. Klepněte ještě jednou na „Změnit heslo“.",
       "changed": "Heslo je změněno. Na ostatních zařízeních se bude nutné znovu přihlásit."
+    }
+  },
+  "notifications": {
+    "intro": {
+      "title": "Oznámení",
+      "heading": "Nezmeškejte úklid",
+      "body": "Aplikace vám dá vědět, když vám přidělí úklid, přesunou ho nebo zruší a když vám někdo odpoví v chatu. Text zprávy se v oznámení nikdy neukazuje.",
+      "allow": "Povolit oznámení",
+      "later": "Teď ne",
+      "settingsHint": "Pokud si to rozmyslíte, najdete to v Nastavení.",
+      "failed": "Oznámení se nepodařilo zapnout."
     }
   },
   "tasks": {
@@ -929,6 +952,12 @@
       "openChat": "Chat",
       "fixBanner": "{{property}} · priorita: {{priority}}",
       "notFound": "Úklid nenalezen, nebo už není váš"
+    },
+    "pushNotice": {
+      "unassigned": "Tento úklid vám byl odebrán.",
+      "cancelled": "Tento úklid byl zrušen.",
+      "movedAway": "Úklid byl přesunut a teď ve vašem seznamu není.",
+      "dismiss": "Skrýt"
     }
   },
   "steps": {

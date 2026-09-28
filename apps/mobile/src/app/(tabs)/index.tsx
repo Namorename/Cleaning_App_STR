@@ -1,9 +1,12 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from 'react-native';
+import { z } from 'zod';
 
 import { useUnreadSubjects } from '@/features/chat/use-chat';
+import { PUSH_NOTICES } from '@/features/push/destination';
+import { PushNotice } from '@/features/tasks/push-notice';
 import { groupMyTasks } from '@/features/tasks/schema';
 import { TaskList } from '@/features/tasks/task-list';
 import type { CleaningTask } from '@/features/tasks/schema';
@@ -13,11 +16,16 @@ import { alertMessage, serverErrorText } from '@/lib/server-error';
 const NO_IDS: readonly string[] = [];
 const NO_ACCEPTS: ReadonlySet<string> = new Set();
 
+/** Set by a tap on a push about a cleaning that is no longer hers (features/push/hooks.ts). */
+const Params = z.object({ notice: z.enum(PUSH_NOTICES).optional() });
+
 export default function MyTasksScreen() {
   const { t } = useTranslation();
   const { data, isPending, error, refetch, isRefetching } = useMyTasks();
   const { mutateAsync: accept } = useAcceptTask();
   const [acceptingIds, setAcceptingIds] = useState<ReadonlySet<string>>(NO_ACCEPTS);
+  const parsed = Params.safeParse(useLocalSearchParams());
+  const notice = parsed.success ? parsed.data.notice : undefined;
 
   // Work under way first, as its own group: several cleanings run at once on
   // a floor, and this list is how she switches between them.
@@ -86,6 +94,11 @@ export default function MyTasksScreen() {
       unreadTaskIds={unread.tasks}
       unreadProblemIds={unread.problems}
       emptyMessage={t('tasks.emptyMine')}
+      header={
+        notice === undefined ? undefined : (
+          <PushNotice notice={notice} onDismiss={() => router.setParams({ notice: undefined })} />
+        )
+      }
     />
   );
 }

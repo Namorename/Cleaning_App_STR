@@ -14,7 +14,12 @@ import { useAcceptTask } from '../use-tasks';
  * is what she sees and where a tap takes her.
  */
 
-jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
+let mockParams: Record<string, string | undefined> = {};
+
+jest.mock('expo-router', () => ({
+  router: { push: jest.fn(), setParams: jest.fn() },
+  useLocalSearchParams: () => mockParams,
+}));
 
 jest.mock('@/features/auth/session', () => ({
   useSession: () => ({ userId: '7c9e6679-7425-40de-944b-e07fc1f90ae7' }),
@@ -153,4 +158,39 @@ test('the card still opens the cleaning', async () => {
   // Assert
   expect(router.push).toHaveBeenCalledWith({ pathname: '/task/[id]', params: { id: TASK_ID } });
   expect(mutateAsync).not.toHaveBeenCalled();
+});
+
+describe('after a tap on a push about a cleaning that is no longer hers', () => {
+  afterEach(() => {
+    mockParams = {};
+  });
+
+  test.each([
+    ['unassigned', 'Эту уборку с вас сняли.'],
+    ['cancelled', 'Эту уборку отменили.'],
+    ['movedAway', 'Уборку перенесли, и в вашем списке её сейчас нет.'],
+  ])('%s: her list says what happened', async (notice, text) => {
+    mockParams = { notice };
+
+    await render(<MyTasksScreen />);
+
+    expect(screen.getByText(text)).toBeTruthy();
+  });
+
+  test('the line goes once she has read it', async () => {
+    mockParams = { notice: 'cancelled' };
+    await render(<MyTasksScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Скрыть' }));
+
+    expect(router.setParams).toHaveBeenCalledWith({ notice: undefined });
+  });
+
+  test('a notice the app does not know says nothing', async () => {
+    mockParams = { notice: 'somethingElse' };
+
+    await render(<MyTasksScreen />);
+
+    expect(screen.queryByRole('button', { name: 'Скрыть' })).toBeNull();
+  });
 });

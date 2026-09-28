@@ -166,6 +166,91 @@
   `photo-metadata` (`90a7bbc`), влита сюда (`00b611d`), может уйти в `main`
   раньше F11: схемы не трогает.
 
+**2026-09-28, Т2 — натив сборки 1.1.0** (ветка `f11-native` от `f11-push`,
+тест сначала). **Нативная правка: нужна сборка EAS, по воздуху на 1.0.0 не
+едет** — `runtimeVersion: appVersion` и `version` 1.1.0 держат этот бандл от
+старой сборки.
+- Пакеты: `expo-notifications ~57.0.21`, `@react-native-community/netinfo
+  12.0.1`, `@sentry/react-native ~8.28.0` — **не** `~7.11`, которую ставит
+  `expo install`: линия 7.x закрыта, 7.11 импортирует `React/RCTTextView.h`,
+  которого нет в RN 0.87, — подъём на SDK 58 сломал бы сборку iOS; исправление
+  потерянных логов на iOS с RN ≥ 0.86 есть только в 8.25+. В `package.json` —
+  `expo.install.exclude`, чтобы `expo-doctor` не спорил.
+- `features/push/`: `payload.ts` (данные push ровно как пишет `send-push`,
+  zod; неизвестный вид — `null`, push показывается, нажатие просто открывает
+  приложение), `channels.ts` (`urgent` HIGH и `general` DEFAULT, при каждом
+  старте, до токена и до запроса; без поля `sound`; имя — на её языке и
+  меняется с языком), `registration.ts` (не на вебе и не в симуляторе;
+  каналы → разрешение → токен Expo → `register_push_token` с языком телефона
+  и версией; один раз за запуск на человека, заново — при новом токене
+  системы), `api.ts` (`forgetThisPhone`: `unregister_push_token` по
+  запомненному токену **до** `signOut`, мимо очереди, не дольше 3 с, никогда не
+  бросает), `token-store.ts` (токен в Keychain: по нему можно слать push на
+  этот телефон), `permission.ts` (iOS читается по `ios.status`, Android — по
+  `granted`/`canAskAgain`: Android 13 до первого вопроса отвечает `denied`),
+  `destination.ts` (куда ведёт нажатие; «сняли» и «отменена» — в список с
+  пояснением, перенос — спросить `fetchTask`, пропала — «перенесли, в списке
+  нет»; `Record` по видам — новый вид не компилируется без места),
+  `foreground.ts` + `open-thread.ts` (на переднем плане показывается всё, кроме
+  сообщения в ветке, которую она читает, — по `threadId`), `hooks.ts`
+  (регистрация при входе, при возврате в приложение и в `addPushTokenListener`;
+  инвалидация по виду; нажатие — из вкладок, после сессии, один раз по
+  `identifier`, с `clearLastNotificationResponse`; пояснение — раз за запуск),
+  `permission-explainer.tsx` + маршрут `app/notifications.tsx` (модалка).
+- `signOut`: сначала `forgetThisPhone`, сетевая ошибка `auth.signOut` больше не
+  «не удалось выйти» — сессию auth-js снимает и так.
+- «Настройки»: `PermissionNotice` над переключателями — «ещё не разрешено» →
+  «Включить», отказ → «Открыть настройки телефона», выключенный канал Android
+  по имени, «без звука» на iPhone. Вопрос, который телефон так и не показал
+  (Android 12 с выключенными уведомлениями), ведёт в настройки.
+- «Мои уборки»: `TaskList` получил `header`; `PushNotice` с «Скрыть».
+- NetInfo — подсказка, не власть (`lib/network.ts`): потеря сети — сразу
+  офлайн; сеть вернулась — один взгляд на сервер, решает он; `null` на старте
+  ничего не меняет. Своя проверка NetInfo выключена: на iOS она раз в минуту
+  ходила бы на адрес Google с каждого телефона.
+- Sentry (`lib/sentry.ts`): только сборка с DSN; без персональных данных,
+  скриншотов, иерархии экранов и трассировки; IP — `0.0.0.0`. Ошибки, пойманные
+  границей экрана, отправляются оттуда (иначе Sentry их не видит).
+- Точка входа `index.js` → `src/boot.ts` (Sentry и обработчик переднего плана)
+  → `expo-router/entry`. Первый `metro.config.js` (`getSentryExpoConfig`):
+  `expo export` для Android собрался, `@str-ops/shared` резолвится.
+- Конфиг: `version` 1.1.0; плагин `expo-notifications` (иконка 96×96 из
+  монохромной иконки приложения — знак шаблона Expo, сменится с редизайном);
+  `app.config.ts` — `googleServicesFile` из `GOOGLE_SERVICES_JSON`,
+  `usesNonExemptEncryption: false`, time-sensitive, плагин Sentry с
+  организацией и проектом из окружения и `disableAutoUpload`, пока нет
+  `SENTRY_AUTH_TOKEN` (сборка без токена не падает); честная строка
+  `photosPermission`; `google-services.json` в `.gitignore`; `eas.json` —
+  профиль `testflight` (store, канал `preview`, **`environment: preview`** —
+  без него профиль store берёт переменные `production`, `autoIncrement`) и
+  одноимённый профиль отправки.
+- Тексты: `settings.notifications.channels.*`, `…permission.*`,
+  `notifications.intro.*`, `tasks.pushNotice.*` на трёх языках — не под
+  `push.*` (копия функции сверяется с этим поддеревом); чешские — в
+  `docs/rename-cs.md`.
+- Проверки: `test:mobile` 84 наборов, 723 тестов; `tsc` — 0; `expo lint` — 0
+  ошибок, новых предупреждений нет; `npx expo config` показывает оба плагина,
+  entitlement и `usesNonExemptEncryption`.
+
+**Отступления Т2 от раздела 5:**
+- Данные push — не `{ kind, id }`, а то, что пишет функция: `{ kind, taskId }`,
+  `{ kind: 'chat_message', subject, id, threadId }`, `{ kind: 'daily_digest' }`.
+- Регистрация — не мутация `offlineFirst`, а прямой вызов при входе и при
+  каждом возврате в приложение: запрос из очереди мог бы уйти после выхода.
+- Отдельного слушателя нажатий на уровне модуля нет: `useLastNotificationResponse`
+  отдаёт и холодный старт, и нажатие в фоне. **Проверить холодный старт на
+  настоящем iPhone** (8.5).
+- «Не сейчас» помнится до перезапуска приложения, не на диске: пояснение
+  появится при следующем холодном старте, пока она не ответит системе.
+
+**Перед сборкой — от владельца (EAS, окружение `preview`):**
+`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (в EAS
+`.env` не едет), `GOOGLE_SERVICES_JSON` (файл, secret) и ключ FCM V1 (раздел
+7), ключ APNs (8.2). Sentry — по желанию к этой сборке: `EXPO_PUBLIC_SENTRY_DSN`,
+`SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` (sensitive); без них сборка
+идёт, отчёты не шлются. В проекте Sentry включить «Prevent Storing of IP
+Addresses».
+
 **Найдено в работе, к решению владельца (2026-09-28):**
 - **Очередь действий без связи на деле не копит.** `onlineManager` TanStack ни к
   чему не подключён: NetInfo или `expo-network` в приложении нет, а слушатель по
@@ -840,7 +925,8 @@ Push не идёт на правки колонок, которые не мен�
     его по имени. В нём `ios.appName` и `language` — до первой отправки (7.3);
   - канал поля для горничных — вопрос 9.
 - **Sentry** (вопрос 8, предлагаю — да):
-  - `@sentry/react-native ~7.11.0` с плагином;
+  - `@sentry/react-native ~8.28.0` с плагином (не `~7.11`: см. «Этап 2 — ход
+    работы», Т2);
   - **первый в проекте `metro.config.js`** (`getSentryExpoConfig`) — проверить, что
     живут импорты `@str-ops/shared` из 18 файлов;
   - DSN как `EXPO_PUBLIC_`; токен `SENTRY_AUTH_TOKEN` — видимость **sensitive**, не

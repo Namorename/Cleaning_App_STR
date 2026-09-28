@@ -1,6 +1,8 @@
 import type { Session } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
+import { forgetThisPhone } from '@/features/push/api';
+import { isNetworkError } from '@/lib/online';
 import { supabase } from '@/lib/supabase';
 
 interface SessionState {
@@ -66,9 +68,18 @@ export async function signIn(email: string, password: string): Promise<void> {
   }
 }
 
+/**
+ * Leaves the account. The phone's push token is let go of first, while the
+ * call still runs as her — afterwards the server would refuse it — so pushes
+ * about her stop reaching a phone she may be handing on.
+ *
+ * Without signal the session is removed all the same (auth-js drops it before
+ * reporting the network), so no signal is not a failure to show her.
+ */
 export async function signOut(): Promise<void> {
+  await forgetThisPhone();
   const { error } = await supabase.auth.signOut();
-  if (error) {
+  if (error && !isNetworkError(error)) {
     throw error;
   }
 }

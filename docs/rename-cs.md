@@ -227,3 +227,25 @@ Doplněno pro texty push (F11, 2026-09-28). Nové texty; posílá je server v ja
 - `push.windowUntil`: do {{time}}
 - `push.messageFrom`: {{place}} · {{author}}
 - `push.unknownPlace`: Objekt {{id}}
+
+Doplněno pro oznámení v telefonu (F11, sestavení 1.1.0, 2026-09-28). Nové texty. Kanály jsou kategorie oznámení, které Android ukazuje v nastavení aplikace; úvodní obrazovka se objeví před systémovým dotazem na povolení; poznámka nad seznamem úklidů se ukáže po klepnutí na oznámení o úklidu, který už není její.
+
+- `settings.notifications.channels.urgent`: Naléhavá oznámení — název kanálu v nastavení Androidu
+- `settings.notifications.channels.general`: Ostatní oznámení — název kanálu v nastavení Androidu
+- `settings.notifications.permission.notAsked`: Telefon zatím aplikaci nepovolil posílat oznámení.
+- `settings.notifications.permission.off`: Oznámení jsou vypnutá v nastavení telefonu. Bez nich se nedozvíte o nových úklidech a zprávách.
+- `settings.notifications.permission.channelOff`: V nastavení telefonu jsou vypnutá „{{channel}}“. — {{channel}} je název kanálu výše
+- `settings.notifications.permission.provisional`: Oznámení chodí potichu, jen do Centra oznámení. Zvuk a bannery se zapínají v nastavení telefonu. — jen iPhone
+- `settings.notifications.permission.enable`: Zapnout oznámení
+- `settings.notifications.permission.openSettings`: Otevřít nastavení telefonu
+- `notifications.intro.title`: Oznámení — nadpis obrazovky
+- `notifications.intro.heading`: Nezmeškejte úklid
+- `notifications.intro.body`: Aplikace vám dá vědět, když vám přidělí úklid, přesunou ho nebo zruší a když vám někdo odpoví v chatu. Text zprávy se v oznámení nikdy neukazuje.
+- `notifications.intro.allow`: Povolit oznámení
+- `notifications.intro.later`: Teď ne
+- `notifications.intro.settingsHint`: Pokud si to rozmyslíte, najdete to v Nastavení.
+- `notifications.intro.failed`: Oznámení se nepodařilo zapnout.
+- `tasks.pushNotice.unassigned`: Tento úklid vám byl odebrán.
+- `tasks.pushNotice.cancelled`: Tento úklid byl zrušen.
+- `tasks.pushNotice.movedAway`: Úklid byl přesunut a teď ve vašem seznamu není.
+- `tasks.pushNotice.dismiss`: Skrýt

@@ -10,6 +10,15 @@
         "buildType": "apk"
       }
     },
+    "testflight": {
+      "distribution": "store",
+      "channel": "preview",
+      "environment": "preview",
+      "autoIncrement": true,
+      "ios": {
+        "resourceClass": "medium"
+      }
+    },
     "production": {
       "distribution": "store",
       "channel": "production",
@@ -20,6 +29,9 @@
     }
   },
   "submit": {
+    "testflight": {
+      "ios": {}
+    },
     "production": {}
   }
 }

@@ -7,6 +7,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { serverErrorText, type ServerErrorText } from '@/lib/server-error';
 
+import { PermissionNotice } from './permission-notice';
 import { PUSH_KINDS, isPushEnabled, type PushKind, type PushPreferences } from './schema';
 import { FailureNote, SettingsSection, failureOf } from './section';
 import { usePushPreferences, useSetPushPreference } from './use-settings';
@@ -17,7 +18,7 @@ import { usePushPreferences, useSetPushPreference } from './use-settings';
  * The choice lives on the server and is checked when a push is sent, so a
  * switch turned off also stops what is already waiting in the queue. What the
  * phone itself allows — the system permission, Android's channels — is a
- * layer of its own, shown by the native build (docs/f11-plan.md §3.2).
+ * layer of its own, said above the switches (docs/f11-plan.md §3.2).
  */
 export function PushSection() {
   const { t } = useTranslation();
@@ -36,6 +37,7 @@ export function PushSection() {
       title={t('settings.notifications.heading')}
       hint={t('settings.notifications.hint')}
     >
+      <PermissionNotice />
       {preferences.data !== undefined ? (
         <PushSwitches preferences={preferences.data} onChange={onChange} />
       ) : (
