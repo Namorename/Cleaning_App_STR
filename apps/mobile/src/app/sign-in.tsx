@@ -122,6 +122,10 @@ export default function SignInScreen() {
             <Text style={styles.buttonText}>{t('auth.submit')}</Text>
           )}
         </Pressable>
+
+        {/* No letter can reset it before launch: there is no mail server yet,
+            and the manager resets it in the panel (owner's decision 16). */}
+        <Text style={styles.forgot}>{t('auth.forgotPassword')}</Text>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -166,4 +170,5 @@ const createStyles = (theme: Theme) =>
     buttonDisabled: { opacity: 0.5 },
     buttonPressed: { opacity: 0.75 },
     buttonText: { color: theme.onPrimary, fontSize: FontSize.title, fontWeight: '600' },
+    forgot: { color: theme.textSecondary, fontSize: FontSize.body, textAlign: 'center' },
   });

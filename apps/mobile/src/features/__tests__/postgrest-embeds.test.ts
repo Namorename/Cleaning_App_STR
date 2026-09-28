@@ -7,6 +7,7 @@ import { fetchProblemMedia, fetchTaskMedia } from '@/features/media/api';
 import { fetchReportProperties } from '@/features/properties/api';
 import { fetchMyProblems, fetchProblem } from '@/features/problems/api';
 import { fetchMyLanguage } from '@/features/profile/api';
+import { fetchMyPushPreferences } from '@/features/settings/api';
 import { fetchTaskSteps } from '@/features/steps/api';
 import {
   fetchMySupplyRequests,
@@ -105,6 +106,7 @@ const READERS: readonly (() => Promise<unknown>)[] = [
   () => fetchMessages(ANY_ID),
   () => fetchReportProperties(),
   () => fetchMyLanguage(ANY_ID),
+  () => fetchMyPushPreferences(ANY_ID),
   () => fetchSupplyCatalog(),
 ];
 

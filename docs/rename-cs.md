@@ -141,3 +141,40 @@ Doplněno podle rozhodnutí majitele (2026-09-27): „Hlášení“ na kartě ob
 - `panel.apartments.maintenance.reports`: Hlášení (otevřených: {{open}}) → Úkoly (otevřených: {{open}}) — 1. pád mn. č.
 - `panel.apartments.maintenance.noReports`: Žádná hlášení. → Žádné úkoly. — 1. pád mn. č.
 - `panel.chat.audienceProblem`: Vidí ti, kdo vidí závadu: kdo ji nahlásil, technik a manažeři → Vidí ti, kdo vidí úkol: kdo ho nahlásil, technik a manažeři — 4. pád j. č.; zájmeno ji → ho (úkol je mužského rodu)
+
+Doplněno pro obrazovku „Nastavení“ v aplikaci uklízeček (F11, 2026-09-28). Nové texty, dříve neexistovaly. Každý řádek: klíč: text — poznámka, pokud je potřeba. Texty v {{složených závorkách}} se nepřekládají.
+
+- `auth.forgotPassword`: Zapomněli jste heslo? Obraťte se na manažera.
+- `settings.title`: Nastavení
+- `settings.notifications.heading`: Oznámení
+- `settings.notifications.hint`: Tyto přepínače určují, co vám bude server posílat.
+- `settings.notifications.loading`: Načítáme…
+- `settings.notifications.loadFailed`: Oznámení se nepodařilo načíst.
+- `settings.notifications.saveFailed`: Volba se neuložila.
+- `settings.notifications.kinds.cleaning_new`: Nový úklid
+- `settings.notifications.kinds.cleaning_assigned`: Úklid přidělen vám — slovosled podle majitele („vám“ na konci zdůrazňuje komu)
+- `settings.notifications.kinds.cleaning_unassigned`: Úklid vám byl odebrán — trpný rod: úklid byl odebrán
+- `settings.notifications.kinds.cleaning_cancelled`: Úklid zrušen
+- `settings.notifications.kinds.cleaning_moved`: Úklid přesunut
+- `settings.notifications.kinds.cleaning_window`: Změnil se čas úklidu
+- `settings.notifications.kinds.cleaning_free`: Volný úklid
+- `settings.notifications.kinds.booking_cancelled_live`: Rezervace zrušena během úklidu — zrušena — ž. r. (rezervace); během úklidu — 2. pád j. č.
+- `settings.notifications.kinds.chat_message`: Zpráva v chatu
+- `settings.notifications.kinds.daily_digest`: Ranní přehled
+- `settings.language.heading`: Jazyk
+- `settings.language.saveFailed`: Jazyk se nepodařilo změnit.
+- `settings.password.heading`: Heslo
+- `settings.password.current`: Současné heslo
+- `settings.password.new`: Nové heslo
+- `settings.password.repeat`: Nové heslo znovu
+- `settings.password.submit`: Změnit heslo
+- `settings.password.fillAll`: Vyplňte všechna tři pole.
+- `settings.password.mismatch`: Nová hesla se neshodují.
+- `settings.password.tooShort`: Nové heslo musí mít alespoň {{min}} znaků. — {{min}} je vždy 6: „6 znaků“ — 2. pád mn. č.
+- `settings.password.sameAsCurrent`: Nové heslo je stejné jako současné.
+- `settings.password.wrongCurrent`: Současné heslo není správné.
+- `settings.password.weak`: Heslo je příliš jednoduché. Zvolte jiné. — o hesle, které server odmítl jako příliš snadno uhodnutelné
+- `settings.password.needsNetwork`: Ke změně hesla je potřeba připojení. Zkontrolujte internet a zkuste to znovu.
+- `settings.password.changed`: Heslo je změněno. Na ostatních zařízeních se bude nutné znovu přihlásit.
+- `settings.password.othersStillIn`: Heslo je změněno, ale ostatní zařízení se nepodařilo odhlásit. — odhlásit ostatní zařízení — 4. pád mn. č.
+- `common.languages.ru`, `.en`, `.cs`: Русский, English, Čeština — beze změny, jen přesunuto z `panel.team.languages`; každý jazyk je napsán sám sebou

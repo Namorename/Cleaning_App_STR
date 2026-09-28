@@ -6,6 +6,7 @@ import type { PersistedClient } from '@tanstack/react-query-persist-client';
 import { registerChatMutations } from '@/features/chat/use-chat';
 import { registerMediaMutations } from '@/features/media/use-media';
 import { registerProblemMutations } from '@/features/problems/use-problems';
+import { registerSettingsMutations } from '@/features/settings/use-settings';
 import { registerSupplyMutations } from '@/features/supplies/use-supplies';
 import { registerStepMutations } from '@/features/steps/use-steps';
 import { registerTaskMutations } from '@/features/tasks/use-tasks';
@@ -51,6 +52,7 @@ export function createAppQueryClient(): QueryClient {
   registerProblemMutations(queryClient);
   registerSupplyMutations(queryClient);
   registerChatMutations(queryClient);
+  registerSettingsMutations(queryClient);
 
   return queryClient;
 }

@@ -245,7 +245,7 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
               <option value="">{t('panel.team.form.languageUnset')}</option>
               {LANGUAGES.map((language) => (
                 <option key={language} value={language}>
-                  {t(`panel.team.languages.${language}`)}
+                  {t(`common.languages.${language}`)}
                 </option>
               ))}
             </select>

@@ -5,7 +5,12 @@
     "screenFailed": "Obrazovku se nepodařilo zobrazit. Zkuste to prosím znovu.",
     "retry": "Zkusit znovu",
     "resetSaved": "Vymazat uložené seznamy",
-    "resetSavedHint": "Seznamy se načtou znovu. Akce čekající na připojení zůstanou zachovány."
+    "resetSavedHint": "Seznamy se načtou znovu. Akce čekající na připojení zůstanou zachovány.",
+    "languages": {
+      "ru": "Русский",
+      "en": "English",
+      "cs": "Čeština"
+    }
   },
   "auth": {
     "heading": "Přihlášení pro úklid",
@@ -17,6 +22,7 @@
     "signInFailed": "Přihlášení se nezdařilo.",
     "noConnection": "Není připojení. Zkontrolujte síť a zkuste to znovu.",
     "tooManyAttempts": "Příliš mnoho pokusů. Zkuste to za minutu.",
+    "forgotPassword": "Zapomněli jste heslo? Obraťte se na manažera.",
     "signOut": "Odhlásit se",
     "signOutTitle": "Odhlásit se?",
     "signOutQuestion": "K dalšímu přihlášení bude potřeba heslo.",
@@ -490,11 +496,6 @@
       "loadError": "Tým se nepodařilo načíst.",
       "empty": "Nikdo neodpovídá.",
       "languageUnset": "Nevybráno",
-      "languages": {
-        "ru": "Русский",
-        "en": "English",
-        "cs": "Čeština"
-      },
       "tabs": {
         "working": "Pracují",
         "off": "Vypnutí",
@@ -822,6 +823,48 @@
     "queue": "Volné",
     "problems": "Úkoly",
     "supplies": "Materiál"
+  },
+  "settings": {
+    "title": "Nastavení",
+    "notifications": {
+      "heading": "Oznámení",
+      "hint": "Tyto přepínače určují, co vám bude server posílat.",
+      "loading": "Načítáme…",
+      "loadFailed": "Oznámení se nepodařilo načíst.",
+      "saveFailed": "Volba se neuložila.",
+      "kinds": {
+        "cleaning_new": "Nový úklid",
+        "cleaning_assigned": "Úklid přidělen vám",
+        "cleaning_unassigned": "Úklid vám byl odebrán",
+        "cleaning_cancelled": "Úklid zrušen",
+        "cleaning_moved": "Úklid přesunut",
+        "cleaning_window": "Změnil se čas úklidu",
+        "cleaning_free": "Volný úklid",
+        "booking_cancelled_live": "Rezervace zrušena během úklidu",
+        "chat_message": "Zpráva v chatu",
+        "daily_digest": "Ranní přehled"
+      }
+    },
+    "language": {
+      "heading": "Jazyk",
+      "saveFailed": "Jazyk se nepodařilo změnit."
+    },
+    "password": {
+      "heading": "Heslo",
+      "current": "Současné heslo",
+      "new": "Nové heslo",
+      "repeat": "Nové heslo znovu",
+      "submit": "Změnit heslo",
+      "fillAll": "Vyplňte všechna tři pole.",
+      "mismatch": "Nová hesla se neshodují.",
+      "tooShort": "Nové heslo musí mít alespoň {{min}} znaků.",
+      "sameAsCurrent": "Nové heslo je stejné jako současné.",
+      "wrongCurrent": "Současné heslo není správné.",
+      "weak": "Heslo je příliš jednoduché. Zvolte jiné.",
+      "needsNetwork": "Ke změně hesla je potřeba připojení. Zkontrolujte internet a zkuste to znovu.",
+      "changed": "Heslo je změněno. Na ostatních zařízeních se bude nutné znovu přihlásit.",
+      "othersStillIn": "Heslo je změněno, ale ostatní zařízení se nepodařilo odhlásit."
+    }
   },
   "tasks": {
     "loading": "Načítáme úklidy…",
