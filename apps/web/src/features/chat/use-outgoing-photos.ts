@@ -90,19 +90,22 @@ export function useOutgoingPhotos(): OutgoingPhotos {
     });
   }, []);
 
+  // Each photo keeps its own promise. The photos of a message go out together
+  // through this one mutation, and TanStack drops the per-call callbacks of an
+  // earlier mutate() once a later one is made: a photo that failed before the
+  // last of its message would never be told so, and its tile would spin for
+  // ever with no retry and no way to remove it.
+  const { mutateAsync: attachAsync } = attach;
   const run = useCallback(
     (mediaId: string, messageId: string, file: File) => {
-      attach.mutate(
-        { mediaId, messageId, file },
-        {
-          // Done: the row carries its file now and the transcript draws it.
-          onSuccess: () => drop(mediaId),
-          onError: (error) =>
-            put(mediaId, serverErrorKey(error) === EXPIRED_KEY ? 'expired' : 'failed'),
-        },
+      attachAsync({ mediaId, messageId, file }).then(
+        // Done: the row carries its file now and the transcript draws it.
+        () => drop(mediaId),
+        (error: unknown) =>
+          put(mediaId, serverErrorKey(error) === EXPIRED_KEY ? 'expired' : 'failed'),
       );
     },
-    [attach, drop, put],
+    [attachAsync, drop, put],
   );
 
   const start = useCallback(

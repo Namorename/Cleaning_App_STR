@@ -1,3 +1,4 @@
+import { ImageMetadataError, stripJpegMetadata } from '@str-ops/shared';
 import { Directory, File, Paths } from 'expo-file-system';
 import { Platform } from 'react-native';
 
@@ -57,6 +58,41 @@ export async function keepFile(
   const kept = new File(directory, `${mediaId}.${extension}`);
   await new File(uri).move(kept);
   return kept.uri;
+}
+
+/**
+ * Take out of a kept photo what a camera writes about where, when and on
+ * which phone it was taken (owner's word, 2026-09-28).
+ *
+ * A guard, not the cure: every photo comes out of expo-image-manipulator,
+ * which re-encodes it from a bare bitmap and so writes none of it (its
+ * sources, read 2026-09-28). This is here for the day a manipulator version
+ * or a phone's encoder writes some of it back. Run before the size is taken:
+ * the row declares the size of what is uploaded.
+ *
+ * A file the walk cannot read is left as the manipulator wrote it — already
+ * clean by construction — rather than failing the photo she has just taken.
+ * A file with nothing to remove is not written again.
+ */
+export async function stripKeptPhoto(uri: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    // A blob URL of the browser build; the canvas that made it writes no metadata.
+    return;
+  }
+  const file = new File(uri);
+  const bytes = await file.bytes();
+  let clean: Uint8Array;
+  try {
+    clean = stripJpegMetadata(bytes);
+  } catch (error) {
+    if (error instanceof ImageMetadataError) {
+      return;
+    }
+    throw error;
+  }
+  if (clean !== bytes) {
+    file.write(clean);
+  }
 }
 
 /** Remove a kept file; a file already gone is not an error. */

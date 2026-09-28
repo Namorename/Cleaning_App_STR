@@ -11,6 +11,12 @@ export type {
 } from './database.types';
 export { Constants } from './database.types';
 export {
+  ImageMetadataError,
+  stripImageMetadata,
+  stripJpegMetadata,
+  stripWebpMetadata,
+} from './media/strip-image-metadata';
+export {
   PROPERTY_PATH_SEPARATOR,
   propertyPath,
   propertyPathOf,

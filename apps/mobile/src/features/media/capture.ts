@@ -2,7 +2,7 @@ import { randomUUID } from 'expo-crypto';
 import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 
-import { fileSize, keepFile } from './file';
+import { fileSize, keepFile, stripKeptPhoto } from './file';
 import type { MediaKind } from './schema';
 
 /**
@@ -157,6 +157,7 @@ async function toPhoto(
 
   const id = randomUUID();
   const uri = await keepFile(compressed.uri, id, 'jpg');
+  await stripKeptPhoto(uri);
   const byteSize = await fileSize(uri);
   if (byteSize <= 0) {
     throw new EmptyCaptureError(uri);
