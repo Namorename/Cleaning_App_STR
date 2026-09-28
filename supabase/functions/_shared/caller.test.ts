@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { allowsSync, CORS_HEADERS, readBearer } from "./caller.ts";
+import { allowsSync, CORS_HEADERS, isScheduler, readBearer } from "./caller.ts";
 
 const SERVICE_KEY = "service-key-for-the-scheduler";
 
@@ -99,4 +99,13 @@ Deno.test("the preflight answer names the headers supabase-js actually sends", (
   assertEquals(CORS_HEADERS["Access-Control-Allow-Headers"].includes("authorization"), true);
   assertEquals(CORS_HEADERS["Access-Control-Allow-Headers"].includes("apikey"), true);
   assertEquals(CORS_HEADERS["Access-Control-Allow-Methods"].includes("OPTIONS"), true);
+});
+
+Deno.test("a job only the scheduler starts knows it by its key alone", () => {
+  assertEquals(isScheduler(SERVICE_KEY, SERVICE_KEY), true);
+  // A signed-in person's token is not the scheduler, whoever she is.
+  assertEquals(isScheduler("eyJ.a-cleaners.token", SERVICE_KEY), false);
+  assertEquals(isScheduler(null, SERVICE_KEY), false);
+  // A key that was never configured recognises nobody.
+  assertEquals(isScheduler("", ""), false);
 });

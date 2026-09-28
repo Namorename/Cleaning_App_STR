@@ -109,6 +109,9 @@ declare
   v_keys       text[];
   v_ids        bigint[];
   v_batch      jsonb;
+  -- Whose lease this is: a run that outlives its lease must not let go of
+  -- what the next run took over (record_push_results).
+  v_lease      uuid := gen_random_uuid();
 begin
   -- One sender at a time decides what is due; the lease below keeps the next
   -- one off what this one took once the transaction is over.
@@ -131,17 +134,20 @@ begin
     and o.collapse_key = dead.collapse_key
     and o.settled_at is null;
 
-  -- The groups due now: every row of the group due, none of it leased.
+  -- The groups due now, none of it leased: every urgent row of the group due
+  -- or, with none urgent, every row. An urgent change does not wait for seven
+  -- behind a calm row about the same cleaning — it takes that row along.
   select array_agg(g.recipient_id order by g.due), array_agg(g.collapse_key order by g.due)
   into v_recipients, v_keys
   from (
-    select x.recipient_id, x.collapse_key, max(x.send_after) as due
+    select x.recipient_id, x.collapse_key,
+           coalesce(max(x.send_after) filter (where x.urgent), max(x.send_after)) as due
     from raw.push_outbox x
     where x.settled_at is null
     group by x.recipient_id, x.collapse_key
-    having max(x.send_after) <= now()
+    having coalesce(max(x.send_after) filter (where x.urgent), max(x.send_after)) <= now()
        and not coalesce(bool_or(x.claimed_until > now()), false)
-    order by max(x.send_after)
+    order by 3
     limit greatest(p_limit, 0)
   ) g;
 
@@ -149,7 +155,10 @@ begin
     return '[]'::jsonb;
   end if;
 
-  -- Checked now, not when the event was written.
+  -- Checked now, not when the event was written. The kinds she switched off
+  -- are not among these: a group is folded first and judged by what it folds
+  -- into — muting one half of "given, then taken away" would send the other
+  -- half, about work she never had.
   update raw.push_outbox o
   set settled_at = now(), outcome = v.outcome, claimed_until = null
   from (
@@ -158,39 +167,65 @@ begin
              when not pr.is_active then 'skipped'
              when not exists (select 1 from public.push_tokens t where t.profile_id = x.recipient_id)
                then 'skipped'
-             when x.kind = any (coalesce(pp.muted, '{}')) then 'muted'
              when x.kind = 'chat_message' and not coalesce((
                     select public.chat_participates_as(x.recipient_id, th.kind, th.task_id,
                                                        th.problem_id, th.profile_id)
                     from public.chat_threads th where th.id = x.thread_id), false)
                then 'skipped'
-             -- Somebody took it since: telling her it is free would send her
-             -- after work that is not there.
+             -- Somebody took it since, it left her week, or she no longer
+             -- cleans the listing: telling her it is free would send her after
+             -- work that is not there, or not hers to take.
              when x.kind = 'cleaning_free' and not exists (
                     select 1 from public.tasks t
-                    where t.id = x.task_id and t.status = 'unassigned' and t.assignee_id is null)
+                    join public.properties p on p.id = t.property_id
+                    where t.id = x.task_id and t.status = 'unassigned' and t.assignee_id is null
+                      and t.type in ('cleaning', 'midstay')
+                      and t.scheduled_date
+                          between (now() at time zone p.timezone)::date - public.task_grace_days()
+                              and (now() at time zone p.timezone)::date + public.task_horizon_days()
+                      and public.cleans_property_as(x.recipient_id, t.property_id))
                then 'skipped'
            end as outcome
     from raw.push_outbox x
     join unnest(v_recipients, v_keys) as g(recipient_id, collapse_key)
       on g.recipient_id = x.recipient_id and g.collapse_key = x.collapse_key
     join public.profiles pr on pr.id = x.recipient_id
-    left join public.push_preferences pp on pp.profile_id = x.recipient_id
     where x.settled_at is null
   ) v
   where o.id = v.id
     and v.outcome is not null;
 
-  -- The rest is the sender's for the length of the lease. Only rows already
-  -- due: one written a moment ago waits for its own group.
+  -- A group of nothing but kinds she switched off: whatever it folds into is
+  -- one of them. Settled here, never handed out.
+  update raw.push_outbox o
+  set settled_at = now(), outcome = 'muted', claimed_until = null
+  from (
+    select x.recipient_id, x.collapse_key
+    from raw.push_outbox x
+    join unnest(v_recipients, v_keys) as g(recipient_id, collapse_key)
+      on g.recipient_id = x.recipient_id and g.collapse_key = x.collapse_key
+    left join public.push_preferences pp on pp.profile_id = x.recipient_id
+    where x.settled_at is null
+    group by x.recipient_id, x.collapse_key
+    having bool_and(x.kind = any (coalesce(pp.muted, '{}')))
+  ) m
+  where o.recipient_id = m.recipient_id
+    and o.collapse_key = m.collapse_key
+    and o.settled_at is null;
+
+  -- The rest is the sender's for the length of the lease: rows already due,
+  -- and calm rows the group's urgent ones take along. An urgent row written a
+  -- moment ago waits for its own group.
   with leased as (
     update raw.push_outbox o
-    set claimed_until = now() + public.push_lease()
+    set claimed_until = now() + public.push_lease(),
+        claimed_at = now(),
+        claimed_by = v_lease
     from unnest(v_recipients, v_keys) as g(recipient_id, collapse_key)
     where o.recipient_id = g.recipient_id
       and o.collapse_key = g.collapse_key
       and o.settled_at is null
-      and o.send_after <= now()
+      and (o.send_after <= now() or not o.urgent)
     returning o.id
   )
   select array_agg(l.id) into v_ids from leased l;
@@ -200,10 +235,11 @@ begin
   end if;
 
   with located as (
-    -- The flat a row is about: the cleaning's own, or, for a message about a
-    -- report, the report's.
+    -- The flat a row is about: the one it was written about, else the
+    -- cleaning's own, or, for a message about a report, the report's.
     select o.*,
            coalesce(
+             (o.params ->> 'property')::bigint,
              (select t.property_id from public.tasks t where t.id = o.task_id),
              (select pb.property_id from public.problems pb
               where pb.id = (o.params ->> 'problem_id')::uuid)
@@ -247,6 +283,11 @@ begin
   select coalesce(jsonb_agg(jsonb_build_object(
            'recipient_id', g.recipient_id,
            'collapse_key', g.collapse_key,
+           'lease', v_lease,
+           -- The kinds she switched off: the sender judges the folded push by them.
+           'muted', to_jsonb(coalesce(
+             (select pp.muted from public.push_preferences pp where pp.profile_id = g.recipient_id),
+             '{}'::public.push_kind[])),
            'language', (
              select coalesce(pr.preferred_language,
                              (select t.language from public.push_tokens t
@@ -279,11 +320,15 @@ comment on function public.claim_push_batch(integer) is
 
 -- ---------- settling what was sent ----------
 
--- p_results: [{ "outbox_ids": [..], "outcome": "sent" | "collapsed" | "skipped"
--- | "failed", "tickets": [{ "token", "status": "ok"|"error", "ticket_id",
--- "error", "message" }] }]. "failed" — Expo did not answer — lets the rows go
--- for the next run, until they expire. A row already settled keeps its first
--- outcome: a repeated answer changes nothing.
+-- p_results: [{ "outbox_ids": [..], "lease": uuid, "outcome": "sent" |
+-- "collapsed" | "muted" | "skipped" | "failed", "tickets": [{ "token",
+-- "status": "ok"|"error", "ticket_id", "error", "message" }] }].
+-- "failed" — Expo did not answer — lets the rows go for the next run, until
+-- they expire; only rows still under this run's lease: a run that outlived it
+-- cannot free what the next run holds. A row already settled keeps its first
+-- outcome, and a repeated answer keeps no second ticket.
+-- A phone Expo calls unregistered is judged against the moment the push went
+-- (the claim), not the moment the answer was written down.
 create or replace function public.record_push_results(p_results jsonb)
 returns void
 language plpgsql
@@ -291,36 +336,50 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_result jsonb;
-  v_ids    bigint[];
-  v_ticket jsonb;
+  v_result  jsonb;
+  v_ids     bigint[];
+  v_ticket  jsonb;
+  v_settled integer;
+  v_sent_at timestamptz;
 begin
   for v_result in select value from jsonb_array_elements(coalesce(p_results, '[]'::jsonb)) loop
     select coalesce(array_agg(value::bigint), '{}') into v_ids
     from jsonb_array_elements_text(v_result -> 'outbox_ids');
 
+    select coalesce(min(o.claimed_at), now()) into v_sent_at
+    from raw.push_outbox o where o.id = any (v_ids);
+
     if v_result ->> 'outcome' = 'failed' then
       update raw.push_outbox o
       set claimed_until = null
-      where o.id = any (v_ids) and o.settled_at is null;
-    elsif v_result ->> 'outcome' in ('sent', 'collapsed', 'skipped') then
+      where o.id = any (v_ids)
+        and o.settled_at is null
+        and o.claimed_by = (v_result ->> 'lease')::uuid;
+      v_settled := 0;
+    elsif v_result ->> 'outcome' in ('sent', 'collapsed', 'muted', 'skipped') then
       update raw.push_outbox o
       set settled_at = now(), outcome = v_result ->> 'outcome', claimed_until = null
       where o.id = any (v_ids) and o.settled_at is null;
+      get diagnostics v_settled = row_count;
     else
       raise exception 'Unknown push outcome %', v_result ->> 'outcome'
         using errcode = 'invalid_parameter_value';
     end if;
 
+    -- Tickets only with the answer that settled the rows: a repeat keeps none.
+    continue when v_settled = 0;
+
     for v_ticket in select value from jsonb_array_elements(coalesce(v_result -> 'tickets', '[]'::jsonb)) loop
-      insert into raw.push_tickets (outbox_ids, recipient_id, token, status, ticket_id, error, message)
+      insert into raw.push_tickets (outbox_ids, recipient_id, token, status, ticket_id, error, message,
+                                    created_at)
       select v_ids, o.recipient_id, v_ticket ->> 'token', v_ticket ->> 'status',
-             v_ticket ->> 'ticket_id', v_ticket ->> 'error', left(v_ticket ->> 'message', 500)
+             v_ticket ->> 'ticket_id', v_ticket ->> 'error', left(v_ticket ->> 'message', 500),
+             v_sent_at
       from raw.push_outbox o
       where o.id = v_ids[1];
 
       if v_ticket ->> 'error' = 'DeviceNotRegistered' then
-        perform public.forget_push_token(v_ticket ->> 'token', now());
+        perform public.forget_push_token(v_ticket ->> 'token', v_sent_at);
       end if;
     end loop;
   end loop;
@@ -347,6 +406,9 @@ as $$
     where t.status = 'ok'
       and t.receipt_at is null
       and t.created_at <= now() - public.push_receipt_delay()
+      -- Expo keeps a receipt for a day; asking later only takes the place of
+      -- newer tickets in the thousand.
+      and t.created_at > now() - interval '1 day'
     order by t.created_at
     limit greatest(p_limit, 0)
   ) t

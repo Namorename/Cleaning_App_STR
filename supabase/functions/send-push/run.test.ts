@@ -111,8 +111,9 @@ Deno.test("a due assignment goes to every phone she has, in her language, and is
     "high",
     "default",
   ]);
+  // Her phones are Android: tag replaces, and FCM gets no collapse key.
   assertEquals([first.collapseId, first.tag, first.threadId], [
-    `task:${TASK}`,
+    undefined,
     `task:${TASK}`,
     `task:${TASK}`,
   ]);
@@ -284,4 +285,128 @@ Deno.test("a database that refuses to settle stops the run loudly", async () => 
   const { expo } = sender(okTickets);
 
   await assertRejects(() => runSendPush(db, expo, quiet), Error, "record_push_results");
+});
+
+Deno.test("a group that folds into a kind she switched off is settled as muted, never sent", async () => {
+  const group = {
+    ...assignedGroup("anna", ["T1"], [91]),
+    lease: "lease-1",
+    muted: ["cleaning_assigned"],
+  };
+  const { db, calls } = database([[group]]);
+  const { expo, sent } = sender(okTickets);
+
+  const summary = await runSendPush(db, expo, quiet);
+
+  assertEquals(sent.length, 0);
+  assertEquals(settled(calls), [{
+    outbox_ids: [91],
+    lease: "lease-1",
+    outcome: "muted",
+    tickets: [],
+  }]);
+  assertEquals(summary.muted, 1);
+});
+
+Deno.test("half of a burst switched off does not send the other half", async () => {
+  // Given, then taken away, with "taken away" switched off: the fold still
+  // sees both halves, and says nothing.
+  const base = assignedGroup("anna", ["T1"], [92]);
+  const group = {
+    ...base,
+    muted: ["cleaning_unassigned"],
+    rows: [...base.rows, { ...base.rows[0], id: 93, kind: "cleaning_unassigned" }],
+  };
+  const { db, calls } = database([[group]]);
+  const { expo, sent } = sender(okTickets);
+
+  await runSendPush(db, expo, quiet);
+
+  assertEquals(sent.length, 0);
+  assertEquals(settled(calls)[0].outcome, "collapsed");
+});
+
+Deno.test("each group is settled under the lease it was handed out with", async () => {
+  const { db, calls } = database([[{ ...assignedGroup("anna", ["T1"], [94]), lease: "lease-2" }]]);
+  const { expo } = sender(okTickets);
+
+  await runSendPush(db, expo, quiet);
+
+  assertEquals(settled(calls)[0].lease, "lease-2");
+});
+
+Deno.test("Android is not given a collapse key: FCM keeps only four for a phone that is off", async () => {
+  // tag replaces the notification on an Android screen; collapseId is the
+  // iPhone's own. With a collapse key FCM would drop all but four pushes for
+  // a phone out of signal.
+  const group = {
+    ...assignedGroup("anna", [], [95]),
+    tokens: [{ token: "A", platform: "android" }, { token: "I", platform: "ios" }],
+  };
+  const { db } = database([[group]]);
+  const { expo, sent } = sender(okTickets);
+
+  await runSendPush(db, expo, quiet);
+
+  const [android, iphone] = sent[0];
+  assertEquals(android.collapseId, undefined);
+  assertEquals(android.tag, `task:${TASK}`);
+  assertEquals(iphone.collapseId, `task:${TASK}`);
+});
+
+Deno.test("one group that cannot be written is set aside; the rest of the batch goes", async () => {
+  const good = assignedGroup("anna", ["A"], [97]);
+  const broken = {
+    ...assignedGroup("bara", ["B"], [96]),
+    rows: [{ ...assignedGroup("bara", ["B"], [96]).rows[0], params: { date: "not a day" } }],
+  };
+  const { db, calls } = database([[broken, good]]);
+  const { expo, sent } = sender(okTickets);
+  const errors: unknown[] = [];
+
+  await runSendPush(db, expo, { log: () => {}, error: (...args) => errors.push(args) });
+
+  assertEquals(sent.flat().map((m) => m.to), ["A"]);
+  const outcomes = Object.fromEntries(
+    settled(calls).map((s) => [(s.outbox_ids as number[])[0], s.outcome]),
+  );
+  assertEquals(outcomes, { 96: "skipped", 97: "sent" });
+  assertEquals(errors.length, 1);
+});
+
+Deno.test("a run out of time starts no further request: its groups go again", async () => {
+  // The lease is two minutes. A group still unsent when the batch's time is
+  // up is let go under its own lease, not sent after another run took it.
+  let clock = 0;
+  const { db, calls } = database([[assignedGroup("anna", ["A"], [98]), assignedGroup("bara", ["B"], [99])]]);
+  const { expo, sent } = sender((messages) => {
+    clock += 120_000;
+    return okTickets(messages);
+  });
+
+  await runSendPush(db, expo, { ...quiet, messagesPerRequest: 1, now: () => clock });
+
+  assertEquals(sent.map((request) => request.map((m) => m.to)), [["A"]]);
+  const outcomes = Object.fromEntries(
+    settled(calls).map((s) => [(s.outbox_ids as number[])[0], s.outcome]),
+  );
+  assertEquals(outcomes, { 98: "sent", 99: "failed" });
+});
+
+Deno.test("broken push keys reported in receipts are said loudly in the log too", async () => {
+  const { db } = database([[]], ["tk-keys"]);
+  const expo: PushSender = {
+    send: () => Promise.resolve([]),
+    receipts: () =>
+      Promise.resolve(
+        new Map<string, ExpoReceipt>([
+          ["tk-keys", { status: "error", details: { error: "InvalidCredentials" } }],
+        ]),
+      ),
+  };
+  const errors: string[] = [];
+
+  await runSendPush(db, expo, { log: () => {}, error: (text) => errors.push(String(text)) });
+
+  assertEquals(errors.some((text) => text.includes("InvalidCredentials")), true);
 });

@@ -104,7 +104,11 @@ insert into public.tasks (id, host_id, property_id, type, status, scheduled_date
   (pg_temp.tid(2), 'a8f14000-0000-4000-8000-00000000000a', 900014003, 'cleaning', 'assigned', current_date + 2, pg_temp.anna()),
   (pg_temp.tid(3), 'a8f14000-0000-4000-8000-00000000000a', 900014003, 'maintenance', 'assigned', current_date + 1, pg_temp.tomas()),
   (pg_temp.tid(4), 'a8f14000-0000-4000-8000-00000000000a', 900014001, 'cleaning', 'unassigned', current_date + 3, null),
-  (pg_temp.tid(5), 'a8f14000-0000-4000-8000-00000000000a', 900014001, 'cleaning', 'assigned', current_date + 3, pg_temp.bara());
+  (pg_temp.tid(5), 'a8f14000-0000-4000-8000-00000000000a', 900014001, 'cleaning', 'assigned', current_date + 3, pg_temp.bara()),
+  (pg_temp.tid(6), 'a8f14000-0000-4000-8000-00000000000a', 900014003, 'maintenance', 'assigned', current_date + 2, pg_temp.tomas()),
+  (pg_temp.tid(7), 'a8f14000-0000-4000-8000-00000000000a', 900014001, 'cleaning', 'unassigned', current_date + 2, null),
+  (pg_temp.tid(8), 'a8f14000-0000-4000-8000-00000000000a', 900014001, 'cleaning', 'unassigned', current_date + 30, null),
+  (pg_temp.tid(9), 'a8f14000-0000-4000-8000-00000000000a', 900014003, 'cleaning', 'assigned', current_date + 1, pg_temp.bara());
 
 -- The triggers of M3a write rows for these inserts; the test builds the queue
 -- by hand, with times it controls.
@@ -113,12 +117,12 @@ delete from raw.push_outbox;
 -- A queue row, due `p_due_in` from now (negative: already due).
 create or replace function pg_temp.queue(
   p_recipient uuid, p_kind public.push_kind, p_task uuid, p_due_in interval,
-  p_params jsonb default '{}', p_thread uuid default null
+  p_params jsonb default '{}', p_thread uuid default null, p_urgent boolean default true
 ) returns bigint language sql as $fn$
   insert into raw.push_outbox (host_id, recipient_id, kind, task_id, thread_id, collapse_key,
                                params, urgent, send_after, expire_at)
   values ('a8f14000-0000-4000-8000-00000000000a', p_recipient, p_kind, p_task, p_thread,
-          coalesce('thread:' || p_thread, 'task:' || p_task), p_params, true,
+          coalesce('thread:' || p_thread, 'task:' || p_task), p_params, p_urgent,
           now() + p_due_in, now() + p_due_in + interval '30 minutes')
   returning id
 $fn$;
@@ -202,6 +206,8 @@ select pg_temp.check('each row says which flat it is about: the cleaning''s own'
 -- ---------- two runs never hand out the same row ----------
 select pg_temp.check('a second run while the first holds the lease gets nothing of it',
   pg_temp.handed(public.claim_push_batch()), '{}'::text[]);
+select pg_temp.check('each group names the lease it was handed out under',
+  (select (batch -> 0 ->> 'lease') is not null from first_claim), true);
 
 -- ---------- settling what was sent ----------
 select public.record_push_results(jsonb_build_array(jsonb_build_object(
@@ -228,6 +234,14 @@ select public.record_push_results(jsonb_build_array(jsonb_build_object(
 select pg_temp.check('a settled row keeps its first outcome when the answer is repeated',
   (select array_agg(distinct o.outcome) from raw.push_outbox o where o.task_id = pg_temp.tid(2)),
   array['sent']);
+-- The same answer again, tickets and all: a run retried after a lost reply.
+select public.record_push_results(jsonb_build_array(jsonb_build_object(
+  'outbox_ids', (select jsonb_agg(r -> 'id') from first_claim, jsonb_array_elements(batch -> 0 -> 'rows') r),
+  'outcome', 'sent',
+  'tickets', jsonb_build_array(
+    jsonb_build_object('token', 'ExponentPushToken[se-anna-2]', 'status', 'ok', 'ticket_id', 'tk-anna-2')))));
+select pg_temp.check('a repeated answer keeps no second ticket',
+  (select count(*)::int from raw.push_tickets t where t.ticket_id = 'tk-anna-2'), 1);
 
 -- ---------- a failed send lets the group go again ----------
 select pg_temp.queue(pg_temp.bara(), 'cleaning_assigned', pg_temp.tid(5), interval '-1 minute');
@@ -238,13 +252,81 @@ select pg_temp.check('in her phone''s language, as she never chose one',
   (select batch -> 0 ->> 'language' from bara_claim), 'en');
 select public.record_push_results(jsonb_build_array(jsonb_build_object(
   'outbox_ids', (select jsonb_agg(r -> 'id') from bara_claim, jsonb_array_elements(batch -> 0 -> 'rows') r),
-  'recipient_id', pg_temp.bara(), 'outcome', 'failed', 'tickets', '[]'::jsonb)));
+  'lease', (select batch -> 0 ->> 'lease' from bara_claim),
+  'outcome', 'failed', 'tickets', '[]'::jsonb)));
 select pg_temp.check('Expo did not answer: the rows stay unsettled and are handed out again',
   pg_temp.handed(public.claim_push_batch()),
   array['Bara task:' || pg_temp.tid(5) || ': cleaning_assigned']);
 select public.record_push_results(jsonb_build_array(jsonb_build_object(
   'outbox_ids', (select jsonb_agg(o.id) from raw.push_outbox o where o.recipient_id = pg_temp.bara()),
   'recipient_id', pg_temp.bara(), 'outcome', 'sent', 'tickets', '[]'::jsonb)));
+
+-- ---------- a late answer from a run whose lease ran out ----------
+select pg_temp.queue(pg_temp.bara(), 'cleaning_window', pg_temp.tid(5), interval '-1 minute',
+                     '{"date": "2026-11-10", "time_from": "11:00:00", "time_to": "15:00:00"}');
+create temp table slow_claim as select public.claim_push_batch() as batch;
+-- The first run hangs past its lease; the next run takes the group.
+update raw.push_outbox set claimed_until = now() - interval '1 second'
+where recipient_id = pg_temp.bara() and settled_at is null;
+create temp table next_claim as select public.claim_push_batch() as batch;
+select pg_temp.check('once the lease ran out the next run takes the group',
+  pg_temp.handed((select batch from next_claim)),
+  array['Bara task:' || pg_temp.tid(5) || ': cleaning_window']);
+select public.record_push_results(jsonb_build_array(jsonb_build_object(
+  'outbox_ids', (select jsonb_agg(r -> 'id') from slow_claim, jsonb_array_elements(batch -> 0 -> 'rows') r),
+  'lease', (select batch -> 0 ->> 'lease' from slow_claim),
+  'outcome', 'failed', 'tickets', '[]'::jsonb)));
+select pg_temp.check('the first run''s late failure does not free what the next run holds',
+  (select bool_and(o.claimed_until > now()) from raw.push_outbox o
+   where o.recipient_id = pg_temp.bara() and o.settled_at is null), true);
+select public.record_push_results(jsonb_build_array(jsonb_build_object(
+  'outbox_ids', (select jsonb_agg(r -> 'id') from next_claim, jsonb_array_elements(batch -> 0 -> 'rows') r),
+  'lease', (select batch -> 0 ->> 'lease' from next_claim),
+  'outcome', 'sent', 'tickets', '[]'::jsonb)));
+
+-- ---------- a phone that registered again after the push went ----------
+select pg_temp.queue(pg_temp.bara(), 'cleaning_assigned', pg_temp.tid(9), interval '-1 minute');
+create temp table resend_claim as select public.claim_push_batch() as batch;
+-- The push went a minute ago; the phone registered again half a minute ago.
+update raw.push_outbox set claimed_at = now() - interval '1 minute'
+where recipient_id = pg_temp.bara() and task_id = pg_temp.tid(9);
+update public.push_tokens set updated_at = now() - interval '30 seconds'
+where token = 'ExponentPushToken[se-bara]';
+select public.record_push_results(jsonb_build_array(jsonb_build_object(
+  'outbox_ids', (select jsonb_agg(r -> 'id') from resend_claim, jsonb_array_elements(batch -> 0 -> 'rows') r),
+  'lease', (select batch -> 0 ->> 'lease' from resend_claim),
+  'outcome', 'sent',
+  'tickets', jsonb_build_array(
+    jsonb_build_object('token', 'ExponentPushToken[se-bara]', 'status', 'error',
+                       'error', 'DeviceNotRegistered')))));
+select pg_temp.check('a phone that registered again after the push went is kept',
+  exists (select 1 from public.push_tokens where token = 'ExponentPushToken[se-bara]'), true);
+update public.push_tokens set updated_at = now() - interval '1 day' where token = 'ExponentPushToken[se-bara]';
+
+-- ---------- an urgent change does not wait for a calm one ----------
+-- A calm row about Bara's cleaning waits for seven; then it moves: urgent.
+select pg_temp.queue(pg_temp.bara(), 'cleaning_assigned', pg_temp.tid(9), interval '8 hours',
+                     '{}', null, false);
+select pg_temp.queue(pg_temp.bara(), 'cleaning_moved', pg_temp.tid(9), interval '-1 minute');
+create temp table urgent_claim as select public.claim_push_batch() as batch;
+select pg_temp.check('the urgent row goes now, and takes the calm one about the same cleaning with it',
+  pg_temp.handed((select batch from urgent_claim)),
+  array['Bara task:' || pg_temp.tid(9) || ': cleaning_assigned, cleaning_moved']);
+select public.record_push_results(jsonb_build_array(jsonb_build_object(
+  'outbox_ids', (select jsonb_agg(r -> 'id') from urgent_claim, jsonb_array_elements(batch -> 0 -> 'rows') r),
+  'lease', (select batch -> 0 ->> 'lease' from urgent_claim),
+  'outcome', 'sent', 'tickets', '[]'::jsonb)));
+
+-- ---------- a row names the flat it was written about ----------
+select pg_temp.queue(pg_temp.anna(), 'cleaning_unassigned', pg_temp.tid(2), interval '-1 minute',
+                     '{"property": 900014001}');
+create temp table flat_claim as select public.claim_push_batch() as batch;
+select pg_temp.check('taken off her: the flat she had, not where the cleaning is now',
+  (select r ->> 'property_id' from flat_claim, jsonb_array_elements(batch -> 0 -> 'rows') r),
+  '900014001');
+select public.record_push_results(jsonb_build_array(jsonb_build_object(
+  'outbox_ids', (select jsonb_agg(r -> 'id') from flat_claim, jsonb_array_elements(batch -> 0 -> 'rows') r),
+  'outcome', 'sent', 'tickets', '[]'::jsonb)));
 
 -- ---------- checked at the moment of sending ----------
 -- Tomas: a move he switched off, and a new repair he did not.
@@ -265,13 +347,36 @@ create temp table e_ids as select
 
 create temp table later_claim as select public.claim_push_batch() as batch;
 
-select pg_temp.check('Tomas gets the repair, not the move he switched off; nobody else gets anything',
+select pg_temp.check('Tomas''s group goes whole, the switched-off move with it: the fold decides what he hears',
   pg_temp.handed((select batch from later_claim)),
-  array['Tomas task:' || pg_temp.tid(3) || ': cleaning_assigned']);
+  array['Tomas task:' || pg_temp.tid(3) || ': cleaning_moved, cleaning_assigned']);
+select pg_temp.check('with the kinds he switched off, for the sender to judge the folded push by',
+  (select batch -> 0 -> 'muted' from later_claim), '["cleaning_moved"]'::jsonb);
 select pg_temp.check('in the company''s language, as neither he nor his phone chose one',
   (select batch -> 0 ->> 'language' from later_claim), 'cs');
-select pg_temp.check('the switched-off move is settled as muted',
-  pg_temp.outcome((select moved from t_ids)), 'muted');
+select pg_temp.check('the switched-off move waits with its group for the sender''s answer',
+  pg_temp.outcome((select moved from t_ids)), 'pending');
+select public.record_push_results(jsonb_build_array(jsonb_build_object(
+  'outbox_ids', (select jsonb_agg(r -> 'id') from later_claim, jsonb_array_elements(batch -> 0 -> 'rows') r),
+  'lease', (select batch -> 0 ->> 'lease' from later_claim),
+  'outcome', 'sent', 'tickets', '[]'::jsonb)));
+-- A group of nothing but what he switched off never leaves the database.
+create temp table m_ids as select
+  pg_temp.queue(pg_temp.tomas(), 'cleaning_moved', pg_temp.tid(6), interval '-1 minute') as id;
+select pg_temp.check('a group of switched-off kinds only is not handed out',
+  pg_temp.handed(public.claim_push_batch()), '{}'::text[]);
+select pg_temp.check('and is settled as muted',
+  pg_temp.outcome((select id from m_ids)), 'muted');
+-- The sender folded a group into a kind she switched off: it says so.
+create temp table mf_ids as select
+  pg_temp.queue(pg_temp.tomas(), 'cleaning_window', pg_temp.tid(6), interval '-1 minute') as id;
+create temp table mf_claim as select public.claim_push_batch() as batch;
+select public.record_push_results(jsonb_build_array(jsonb_build_object(
+  'outbox_ids', (select jsonb_agg(r -> 'id') from mf_claim, jsonb_array_elements(batch -> 0 -> 'rows') r),
+  'lease', (select batch -> 0 ->> 'lease' from mf_claim),
+  'outcome', 'muted', 'tickets', '[]'::jsonb)));
+select pg_temp.check('the sender''s own muted answer is kept',
+  pg_temp.outcome((select id from mf_ids)), 'muted');
 select pg_temp.check('a dismissed person''s push is settled as skipped',
   pg_temp.outcome((select id from g_ids)), 'skipped');
 select pg_temp.check('free work taken since is settled as skipped',
@@ -292,15 +397,39 @@ select pg_temp.check('a thread she may no longer read is not handed out',
 select pg_temp.check('and is settled as skipped',
   pg_temp.outcome((select id from c_ids)), 'skipped');
 
+-- ---------- free work, checked again when it goes ----------
+-- Anna no longer cleans the house (her link went above); Bara still does.
+create temp table fr_ids as select
+  pg_temp.queue(pg_temp.anna(), 'cleaning_free', pg_temp.tid(7), interval '-1 minute',
+                '{}', null, false) as anna,
+  pg_temp.queue(pg_temp.bara(), 'cleaning_free', pg_temp.tid(7), interval '-1 minute',
+                '{}', null, false) as bara,
+  pg_temp.queue(pg_temp.bara(), 'cleaning_free', pg_temp.tid(8), interval '-1 minute',
+                '{}', null, false) as beyond;
+create temp table fr_claim as select public.claim_push_batch() as batch;
+select pg_temp.check('free work goes only to who may still take it, inside her week',
+  pg_temp.handed((select batch from fr_claim)),
+  array['Bara task:' || pg_temp.tid(7) || ': cleaning_free']);
+select pg_temp.check('the one who lost the listing is skipped',
+  pg_temp.outcome((select anna from fr_ids)), 'skipped');
+select pg_temp.check('free work that left the week is skipped',
+  pg_temp.outcome((select beyond from fr_ids)), 'skipped');
+select public.record_push_results(jsonb_build_array(jsonb_build_object(
+  'outbox_ids', (select jsonb_agg(r -> 'id') from fr_claim, jsonb_array_elements(batch -> 0 -> 'rows') r),
+  'lease', (select batch -> 0 ->> 'lease' from fr_claim),
+  'outcome', 'sent', 'tickets', '[]'::jsonb)));
+
 -- ---------- receipts ----------
 insert into raw.push_tickets (outbox_ids, recipient_id, token, status, ticket_id, created_at) values
+  -- Past the day Expo keeps receipts: asking would only waste the minute.
+  ('{1}', pg_temp.bara(),  'ExponentPushToken[se-bara]',  'ok', 'tk-too-old',   now() - interval '25 hours'),
   ('{1}', pg_temp.bara(),  'ExponentPushToken[se-bara]',  'ok', 'tk-old-bara',  now() - interval '20 minutes'),
   ('{1}', pg_temp.tomas(), 'ExponentPushToken[se-tomas]', 'ok', 'tk-old-tomas', now() - interval '20 minutes'),
   ('{1}', pg_temp.tomas(), 'ExponentPushToken[se-tomas]', 'ok', 'tk-fresh',     now() - interval '5 minutes');
 -- Tomas's phone registered again after the old push: it is alive.
 update public.push_tokens set updated_at = now() - interval '10 minutes' where token = 'ExponentPushToken[se-tomas]';
 
-select pg_temp.check('receipts are asked for tickets older than a quarter of an hour',
+select pg_temp.check('receipts are asked for tickets older than a quarter of an hour, younger than a day',
   pg_temp.receipts_due(), array['tk-old-bara', 'tk-old-tomas']);
 select public.record_push_receipts(jsonb_build_array(
   jsonb_build_object('ticket_id', 'tk-old-bara', 'status', 'error', 'error', 'DeviceNotRegistered'),

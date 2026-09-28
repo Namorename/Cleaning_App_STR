@@ -12,7 +12,9 @@
  * - it moved: one move, from where it was to where it is — nothing if that is
  *   the same place and day;
  * - its hours changed: the last hours;
- * - free work: offered as it is.
+ * - free work: offered as it is — unless the group also speaks of her own
+ *   holding of the cleaning (given, taken, moved, its hours): then that is the
+ *   news, and "free" would read as an offer of her own cleaning back.
  * A thread says how many messages came and who wrote the last. The morning
  * summary is sent as it is.
  */
@@ -139,6 +141,10 @@ function foldWindow(rows: readonly PushRow[], row: PushRow): FoldedTask {
 }
 
 function foldTask(rows: readonly PushRow[]): FoldedTask | null {
+  const own = rows.filter((row) => row.kind !== "cleaning_free");
+  if (own.length > 0 && own.length < rows.length) {
+    return foldTask(own);
+  }
   const has = (kinds: ReadonlySet<PushKind> | PushKind) =>
     rows.some((row) => (typeof kinds === "string" ? row.kind === kinds : kinds.has(row.kind)));
   const last = rows[rows.length - 1];

@@ -33,6 +33,8 @@ function group(rows: PushRow[], collapseKey = `task:${TASK}`): PushGroup {
     language: "ru",
     tokens: [{ token: "ExponentPushToken[x]", platform: "ios" }],
     places: new Map(),
+    muted: new Set(),
+    lease: null,
     rows,
   };
 }
@@ -242,4 +244,25 @@ Deno.test("the morning summary says what is hers today and what came into her we
   }], "digest:2026-10-02"));
 
   assertEquals(folded, { type: "digest", today: 2, newInWeek: 1 });
+});
+
+Deno.test("taken off her and left free: she hears it was taken, not that it is free", () => {
+  // Free work is an offer to whoever may take it; to the one the same group
+  // says held it, her own holding is the news — whatever order the rows came in.
+  const folded = fold(group([
+    row("cleaning_unassigned", { date: "2026-10-02" }, true),
+    row("cleaning_free", { date: "2026-10-02" }),
+  ]));
+
+  assertEquals(folded?.type === "task" ? folded.event : null, "cleaning_unassigned");
+});
+
+Deno.test("given, taken away and left free inside one minute: nothing", () => {
+  const folded = fold(group([
+    row("cleaning_assigned", { date: "2026-10-02" }),
+    row("cleaning_unassigned", { date: "2026-10-02" }),
+    row("cleaning_free", { date: "2026-10-02" }),
+  ]));
+
+  assertEquals(folded, null);
 });

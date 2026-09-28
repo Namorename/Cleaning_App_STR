@@ -28,6 +28,15 @@ export function readBearer(request: Request): string | null {
   return match === null ? null : match[1].trim();
 }
 
+/**
+ * The scheduler, and nobody else: pg_cron calls with the service key. For a
+ * job no person starts — `verify_jwt` alone lets any signed-in token through,
+ * a cleaner's included.
+ */
+export function isScheduler(token: string | null, serviceKey: string): boolean {
+  return token !== null && token !== "" && serviceKey !== "" && token === serviceKey;
+}
+
 /** What the panel's roles are called in `app_metadata`. */
 const ALLOWED_ROLES: readonly string[] = ["manager", "admin"];
 
@@ -50,7 +59,7 @@ export async function allowsSync({ token, serviceKey, roleOf }: SyncCallerInput)
   if (token === null || token === "") {
     return false;
   }
-  if (serviceKey !== "" && token === serviceKey) {
+  if (isScheduler(token, serviceKey)) {
     return true;
   }
 
