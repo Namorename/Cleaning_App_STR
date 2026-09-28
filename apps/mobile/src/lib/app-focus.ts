@@ -1,5 +1,7 @@
-import { focusManager } from '@tanstack/react-query';
+import { focusManager, onlineManager } from '@tanstack/react-query';
 import { AppState, Platform, type AppStateStatus } from 'react-native';
+
+import { checkConnection } from '@/lib/online';
 
 /**
  * Tell the query client when the app is in front.
@@ -16,6 +18,11 @@ export function subscribeFocusToAppState(): () => void {
   }
   const subscription = AppState.addEventListener('change', (status: AppStateStatus) => {
     focusManager.setFocused(status === 'active');
+    // Back in front after no signal: look for the server at once rather than
+    // at the next tick of the watch, so what she tapped goes out now.
+    if (status === 'active' && !onlineManager.isOnline()) {
+      void checkConnection();
+    }
   });
   return () => subscription.remove();
 }

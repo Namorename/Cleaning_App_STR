@@ -10,9 +10,30 @@ import { registerSettingsMutations } from '@/features/settings/use-settings';
 import { registerSupplyMutations } from '@/features/supplies/use-supplies';
 import { registerStepMutations } from '@/features/steps/use-steps';
 import { registerTaskMutations } from '@/features/tasks/use-tasks';
+import { goOffline, isNetworkError } from '@/lib/online';
 
 /** Milliseconds; the cache is thrown away after this long without a refresh. */
 const CACHE_LIFETIME = 24 * 60 * 60 * 1000;
+
+/** One more try for a move the server refused or failed; a network failure waits instead. */
+const MUTATION_RETRIES = 1;
+
+/**
+ * Whether a failed move is tried again.
+ *
+ * A failure that is the network's marks the client offline (lib/online.ts):
+ * the retry then pauses on disk until the server is found again, and the move
+ * goes through with nothing tapped twice. Anything else — a refusal, a server
+ * error — gets its one more try and then fails, as it always did, so the
+ * screen can say why.
+ */
+function retryMove(failureCount: number, error: unknown): boolean {
+  if (isNetworkError(error)) {
+    goOffline();
+    return true;
+  }
+  return failureCount < MUTATION_RETRIES;
+}
 
 /**
  * The query client and its store on disk.
@@ -24,8 +45,12 @@ const CACHE_LIFETIME = 24 * 60 * 60 * 1000;
  * — cache for tomorrow, photos queued, conflict handling — is a later step.
  *
  * Mutations are 'offlineFirst': the first attempt is made at once, and a
- * failure for lack of network pauses rather than errors. Everything else fails
- * loudly so the screen can show why and offer a retry.
+ * failure for lack of network pauses rather than errors (retryMove). Everything
+ * else fails loudly so the screen can show why and offer a retry.
+ *
+ * Queries keep 'always': a list read without signal fails and says so, with
+ * the cached copy on screen, exactly as before the client could tell it was
+ * offline — a spinner that waits for the network would read as a hang.
  */
 export function createAppQueryClient(): QueryClient {
   const queryClient = new QueryClient({
@@ -33,13 +58,14 @@ export function createAppQueryClient(): QueryClient {
       queries: {
         // A cleaner's phone drops to no signal inside stairwells more often
         // than the server actually fails.
+        networkMode: 'always',
         retry: 2,
         staleTime: 30_000,
         gcTime: CACHE_LIFETIME,
       },
       mutations: {
         networkMode: 'offlineFirst',
-        retry: 1,
+        retry: retryMove,
       },
     },
   });
