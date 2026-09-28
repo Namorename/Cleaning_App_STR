@@ -67,32 +67,40 @@ describe('what is checked before anything is sent', () => {
 });
 
 describe('changePassword', () => {
-  test('checks the current password, sets the new one, then closes the other sign-ins', async () => {
+  test('checks the current password, then sets the new one on the fresh sign-in', async () => {
     // Act
-    const result = await changePassword({
-      email: EMAIL,
-      current: 'old-secret',
-      next: 'new-secret',
-    });
+    await changePassword({ email: EMAIL, current: 'old-secret', next: 'new-secret' });
 
     // Assert
     expect(mockSignInWithPassword).toHaveBeenCalledWith({ email: EMAIL, password: 'old-secret' });
-    expect(mockUpdateUser).toHaveBeenCalledWith({ password: 'new-secret' });
-    expect(mockSignOut).toHaveBeenCalledWith({ scope: 'others' });
+    expect(mockUpdateUser).toHaveBeenCalledWith({
+      password: 'new-secret',
+      current_password: 'old-secret',
+    });
     expect(mockSignInWithPassword.mock.invocationCallOrder[0]).toBeLessThan(
       mockUpdateUser.mock.invocationCallOrder[0],
     );
-    expect(mockUpdateUser.mock.invocationCallOrder[0]).toBeLessThan(
-      mockSignOut.mock.invocationCallOrder[0],
-    );
-    expect(result).toEqual({ othersSignedOut: true });
+  });
+
+  // Auth closes every other session itself when the password changes
+  // (LogoutAllExceptMe in UpdatePassword, supabase/auth v2.197.0
+  // internal/models/user.go#L459-L462; seen on a local GoTrue: two sessions
+  // before, one after). A sign-out of our own on top of it could only fail
+  // and report other devices still in that are not.
+  test('leaves closing the other sign-ins to the server, which does it with the change', async () => {
+    await changePassword({ email: EMAIL, current: 'old-secret', next: 'new-secret' });
+
+    expect(mockSignOut).not.toHaveBeenCalled();
   });
 
   test('sends the passwords the way the sign-in screen will read them, trimmed', async () => {
     await changePassword({ email: EMAIL, current: ' old-secret ', next: 'new-secret ' });
 
     expect(mockSignInWithPassword).toHaveBeenCalledWith({ email: EMAIL, password: 'old-secret' });
-    expect(mockUpdateUser).toHaveBeenCalledWith({ password: 'new-secret' });
+    expect(mockUpdateUser).toHaveBeenCalledWith({
+      password: 'new-secret',
+      current_password: 'old-secret',
+    });
   });
 
   test('a wrong current password stops before anything changes', async () => {
@@ -112,22 +120,13 @@ describe('changePassword', () => {
     expect(mockSignOut).not.toHaveBeenCalled();
   });
 
-  test('a refused new password leaves the other sign-ins alone', async () => {
+  test('a refused new password is passed on as it came', async () => {
     const weak = { code: 'weak_password', status: 422, message: 'Password is known to be weak' };
     mockUpdateUser.mockResolvedValue({ data: {}, error: weak });
 
     await expect(
       changePassword({ email: EMAIL, current: 'old-secret', next: 'password' }),
     ).rejects.toBe(weak);
-    expect(mockSignOut).not.toHaveBeenCalled();
-  });
-
-  test('other sign-ins that could not be closed still leave the password changed', async () => {
-    mockSignOut.mockResolvedValue({ error: { status: 500, message: 'Internal error' } });
-
-    await expect(
-      changePassword({ email: EMAIL, current: 'old-secret', next: 'new-secret' }),
-    ).resolves.toEqual({ othersSignedOut: false });
   });
 });
 
@@ -146,6 +145,17 @@ describe('passwordFailureText', () => {
       { name: 'AuthRetryableFetchError', status: 0, message: 'Network request failed' },
       'Для смены пароля нужна сеть. Проверьте интернет и попробуйте снова.',
     ],
+    // "Secure password change" on, and the session updateUser saw was more
+    // than a day old: only a refresh racing the fresh sign-in gets here, and a
+    // second tap goes through (experiment on GoTrue v2.195.0, flag on).
+    [
+      { code: 'reauthentication_needed', status: 400 },
+      'Вход нужно подтвердить заново. Нажмите «Сменить пароль» ещё раз.',
+    ],
+    // The separate "require current password" setting (GoTrue v2.190+): the
+    // current password travels with the change, and a wrong one is said so.
+    [{ code: 'current_password_invalid', status: 400 }, 'Текущий пароль неверный.'],
+    [{ code: 'current_password_required', status: 400 }, 'Текущий пароль неверный.'],
   ])('%o reads as a sentence of its own', (failure, text) => {
     expect(passwordFailureText(failure)).toEqual({ text, detail: null });
   });

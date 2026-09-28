@@ -16,7 +16,7 @@ import {
   taskPlace,
   urgencyText,
 } from './format';
-import { availableAction, canStartNow, isSameDayTurnover, type CleaningTask } from './schema';
+import { availableActions, canStartNow, isSameDayTurnover, type CleaningTask } from './schema';
 
 interface TaskDetailProps {
   task: CleaningTask;
@@ -24,11 +24,15 @@ interface TaskDetailProps {
   /** The clock the start button is judged against; ticks in the route. */
   now: Date;
   isBusy: boolean;
+  /** The busy move is the accept: its own button spins, the main one only waits. */
+  isAccepting?: boolean;
   /** The last action's failure, shown next to the button so she can retry. */
   error: Error | null;
   /** The task's process, once it has started. Undefined while loading. */
   steps?: readonly TaskStep[];
   onClaim: (taskId: string) => void;
+  /** Gets the task as shown: what she accepts is this day and this flat. */
+  onAccept: (task: CleaningTask) => void;
   onStart: (taskId: string) => void;
   onFinish: (taskId: string) => void;
   onOpenStep?: (stepId: string) => void;
@@ -42,24 +46,28 @@ interface TaskDetailProps {
 }
 
 /**
- * One task, and the one thing she can do with it right now.
+ * One task, and what she can do with it right now.
  *
- * Presentational: the route wires the hooks in. Exactly one action is offered
- * at a time — take, start or finish — because the database allows exactly
- * one, and a screen with two buttons where one is going to be refused is a
- * screen that lies. Once the task has started its steps sit between the facts
- * and the button; a required step still open disables the finish and says why,
- * mirroring the refusal the server would give. The start is held the same way
- * until the cleaning window opens.
+ * Presentational: the route wires the hooks in. One main action at a time —
+ * take, start or finish — because the database allows one, and a screen with
+ * two main buttons where one is going to be refused is a screen that lies.
+ * Accepting sits beside it as a quieter button of its own: a signal to the
+ * office the server takes at any time, not a step the start waits for. Once
+ * the task has started its steps sit between the facts and the button; a
+ * required step still open disables the finish and says why, mirroring the
+ * refusal the server would give. The start is held the same way until the
+ * cleaning window opens.
  */
 export function TaskDetail({
   task,
   userId,
   now,
   isBusy,
+  isAccepting = false,
   error,
   steps,
   onClaim,
+  onAccept,
   onStart,
   onFinish,
   onOpenStep,
@@ -70,7 +78,10 @@ export function TaskDetail({
 }: TaskDetailProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
-  const action = availableAction(task, userId);
+  const actions = availableActions(task, userId);
+  const canAccept = actions.includes('accept');
+  const action = actions.find((move) => move !== 'accept') ?? null;
+  const isAccepted = task.status === 'accepted' && task.assignee_id === userId;
   const urgent = isSameDayTurnover(task);
   const window = formatWindow(task);
   const place = taskPlace(task);
@@ -275,11 +286,34 @@ export function TaskDetail({
         </Text>
       ) : null}
 
+      {isAccepted ? (
+        <Text accessibilityLiveRegion="polite" style={styles.hint}>
+          {t(jobWordKey(task.type, 'accepted'))}
+        </Text>
+      ) : null}
+
+      {canAccept ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('tasks.accept')}
+          accessibilityState={{ disabled: isBusy, busy: isAccepting }}
+          disabled={isBusy}
+          onPress={() => onAccept(task)}
+          style={({ pressed }) => [styles.secondary, pressed && styles.buttonPressed]}
+        >
+          {isAccepting ? (
+            <ActivityIndicator color={styles.secondaryText.color} />
+          ) : (
+            <Text style={styles.secondaryText}>{t('tasks.accept')}</Text>
+          )}
+        </Pressable>
+      ) : null}
+
       {actionLabel !== null ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={actionLabel}
-          accessibilityState={{ disabled: isBusy || isBlocked, busy: isBusy }}
+          accessibilityState={{ disabled: isBusy || isBlocked, busy: isBusy && !isAccepting }}
           disabled={isBusy || isBlocked}
           onPress={onAction}
           style={({ pressed }) => [
@@ -288,7 +322,7 @@ export function TaskDetail({
             pressed && styles.buttonPressed,
           ]}
         >
-          {isBusy ? (
+          {isBusy && !isAccepting ? (
             <ActivityIndicator color={styles.buttonText.color} />
           ) : (
             <Text style={styles.buttonText}>{actionLabel}</Text>

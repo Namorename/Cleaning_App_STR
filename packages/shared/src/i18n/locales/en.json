@@ -852,8 +852,8 @@
       "wrongCurrent": "The current password is wrong.",
       "weak": "This password is too easy to guess. Choose another one.",
       "needsNetwork": "Changing the password needs a connection. Check the internet and try again.",
-      "changed": "Password changed. Other devices will have to sign in again.",
-      "othersStillIn": "Password changed, but the other devices could not be signed out."
+      "confirmAgain": "Your sign-in needs to be confirmed again. Tap “Change password” once more.",
+      "changed": "Password changed. Other devices will have to sign in again."
     }
   },
   "tasks": {
@@ -863,17 +863,22 @@
     "emptyMine": "Nothing assigned to you yet. Look in “Available” — there may be work on your listings.",
     "emptyQueue": "No free cleanings on your listings.",
     "claim": "Take",
+    "accept": "Accept",
     "start": "Start cleaning",
     "finish": "Finish cleaning",
     "claimAccessibility": "Take cleaning: {{property}}, {{date}}",
+    "acceptAccessibility": "Accept: {{property}}, {{date}}",
     "claimFailedTitle": "Could not take the cleaning",
     "claimTaken": "Someone already took it, or its day has passed.",
+    "acceptFailedTitle": "Could not accept the cleaning",
+    "acceptFailed": "Could not accept the cleaning — it may have been reassigned, moved or cancelled.",
     "startFailed": "Could not start the cleaning — refresh the list.",
     "finishFailed": "Could not finish the cleaning — refresh the list.",
     "unnamedProperty": "Listing {{id}}",
     "cardAccessibility": "{{property}}. {{date}}. {{urgency}}",
     "status": {
-      "inProgress": "In progress"
+      "inProgress": "In progress",
+      "accepted": "Accepted"
     },
     "urgency": {
       "checkInAt": "Check-in at {{time}}",
@@ -891,6 +896,7 @@
       "finish": "Finish work",
       "window": "Work window",
       "finished": "Work finished",
+      "accepted": "Job accepted",
       "colleague": "A colleague is doing this job",
       "steps": "Work steps"
     },
@@ -902,6 +908,7 @@
       "notes": "Notes on the listing",
       "parallel": "Ran alongside another cleaning",
       "finished": "Cleaning finished",
+      "accepted": "Cleaning accepted",
       "colleague": "A colleague is doing this cleaning",
       "closed": "Cleaning closed",
       "startsAt": "Can start no earlier than {{time}}, {{date}}",

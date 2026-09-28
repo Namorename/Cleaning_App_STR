@@ -113,6 +113,32 @@ test('knows how to replay a push choice before anything is restored', () => {
   client.clear();
 });
 
+test('knows how to replay an accept before anything is restored', () => {
+  // Act
+  const client = createAppQueryClient();
+
+  // Assert
+  expect(taskMutationKeys.accept).toEqual(['tasks', 'accept']);
+  expect(client.getMutationDefaults(taskMutationKeys.accept).mutationFn).toEqual(
+    expect.any(Function),
+  );
+  client.clear();
+});
+
+// A take, an accept, a start and a finish queued together replay one after
+// another, in the order she tapped them: a start landing before the accept
+// would turn the accept into a refusal while she is cleaning.
+test('the moves of a cleaning replay one at a time, in the order tapped', () => {
+  const client = createAppQueryClient();
+
+  const scopes = Object.values(taskMutationKeys).map(
+    (key) => client.getMutationDefaults(key).scope?.id,
+  );
+
+  expect(new Set(scopes)).toEqual(new Set(['task-moves']));
+  client.clear();
+});
+
 test('with nothing saved, writes nothing', async () => {
   // Act
   await forgetSavedQueries();

@@ -7,6 +7,7 @@ import { z } from 'zod';
 
 import { FontSize, Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
+import { SignedInRoute } from '@/features/auth/signed-in-route';
 import type { SendMessageVariables } from '@/features/chat/api';
 import {
   CHAT_MAX_PHOTOS,
@@ -61,6 +62,18 @@ export { RouteError as ErrorBoundary } from '@/components/route-error';
  * attaches from a browser that has no camera at all.
  */
 export default function ChatRoute() {
+  const { t } = useTranslation();
+
+  // Opened cold from a notification, the stored session is read after the
+  // route is: until then "this chat is not available" would be false.
+  return (
+    <SignedInRoute loadingText={t('chat.loading')}>
+      <ChatScreen />
+    </SignedInRoute>
+  );
+}
+
+function ChatScreen() {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const { userId } = useSession();

@@ -159,16 +159,17 @@ export async function fetchTask(taskId: string): Promise<CleaningTask | null> {
  */
 async function moveTask(
   taskId: string,
-  from: TaskStatus,
+  from: readonly TaskStatus[],
   patch: { status: TaskStatus; assignee_id?: string },
   failureKey: string,
+  same?: { scheduledDate: string; propertyId: number },
 ): Promise<CleaningTask> {
-  const { data, error } = await supabase
-    .from('tasks')
-    .update(patch)
-    .eq('id', taskId)
-    .eq('status', from)
-    .select(TASK_COLUMNS);
+  const moving = supabase.from('tasks').update(patch).eq('id', taskId).in('status', from);
+  const narrowed =
+    same === undefined
+      ? moving
+      : moving.eq('scheduled_date', same.scheduledDate).eq('property_id', same.propertyId);
+  const { data, error } = await narrowed.select(TASK_COLUMNS);
 
   if (error) {
     throw error;
@@ -177,7 +178,7 @@ async function moveTask(
   const moved = cleaningTaskListSchema.parse(data ?? []);
   if (moved.length === 0) {
     throw new RefusalError(
-      `Moving task ${taskId} from '${from}' to '${patch.status}' matched no row`,
+      `Moving task ${taskId} from '${from.join("' or '")}' to '${patch.status}' matched no row`,
       failureKey,
     );
   }
@@ -188,6 +189,13 @@ async function moveTask(
 /**
  * Take a free task.
  *
+ * Taken is accepted: she chose it herself, and the office's "not accepted"
+ * should not list it (owner's decision 5c, F11). The server lets it through
+ * only since 20260928110000: the transition guard allows unassigned ->
+ * accepted, and the claim policy's check takes 'accepted'. Against a database
+ * without that migration every take and every accept from this build is
+ * refused, which is why this code reaches phones only after the db push.
+ *
  * Zero rows has two causes and the response cannot tell them apart: a
  * colleague was faster, or the task is past the day it could be done and the
  * server refused it. The message covers both rather than guessing.
@@ -195,16 +203,58 @@ async function moveTask(
 export function claimTask(taskId: string, cleanerId: string): Promise<CleaningTask> {
   return moveTask(
     taskId,
-    'unassigned',
-    { assignee_id: cleanerId, status: 'assigned' },
+    ['unassigned'],
+    { assignee_id: cleanerId, status: 'accepted' },
     'tasks.claimTaken',
   );
 }
 
+/**
+ * What she accepts: the cleaning, on the day and in the flat she saw it.
+ *
+ * Saved to disk with a paused accept, so the shape is kept as it is once
+ * released: a queued accept from an older build replays through the same
+ * function.
+ */
+export interface AcceptVariables {
+  taskId: string;
+  scheduledDate: string;
+  propertyId: number;
+}
+
+/**
+ * Tell the office she will do it.
+ *
+ * A signal, not a lock: nothing waits for it, and the start does not require
+ * it. 'accepted' is among the statuses it moves from, so a replay after an
+ * answer lost without signal matches its own row rather than refusing — the
+ * server lets a status stay what it is.
+ *
+ * "Accepted" means this person, this day, this flat (20260928110000): the
+ * office moving the job puts it back to 'assigned'. So the day and the flat
+ * she saw are part of the match. An accept tapped on a card that has not
+ * caught up with a move, or replayed from the queue after one, finds no row
+ * instead of accepting a day she never saw.
+ *
+ * Zero rows: given to someone else, cancelled, moved to another day or flat,
+ * or carried out of the week she sees.
+ */
+export function acceptTask({
+  taskId,
+  scheduledDate,
+  propertyId,
+}: AcceptVariables): Promise<CleaningTask> {
+  return moveTask(taskId, ['assigned', 'accepted'], { status: 'accepted' }, 'tasks.acceptFailed', {
+    scheduledDate,
+    propertyId,
+  });
+}
+
+/** Accepted or not: a cleaner who forgot to accept can still work at the door. */
 export function startTask(taskId: string): Promise<CleaningTask> {
-  return moveTask(taskId, 'assigned', { status: 'in_progress' }, 'tasks.startFailed');
+  return moveTask(taskId, ['assigned', 'accepted'], { status: 'in_progress' }, 'tasks.startFailed');
 }
 
 export function finishTask(taskId: string): Promise<CleaningTask> {
-  return moveTask(taskId, 'in_progress', { status: 'done' }, 'tasks.finishFailed');
+  return moveTask(taskId, ['in_progress'], { status: 'done' }, 'tasks.finishFailed');
 }

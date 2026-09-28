@@ -12,9 +12,12 @@ interface TaskCardProps {
   task: CleaningTask;
   /** Omitted in the "My cleanings" list, where there is nothing to claim. */
   onClaim?: (taskId: string) => void;
+  /** Offered in her own list, on a cleaning she has not accepted yet; gets it as shown. */
+  onAccept?: (task: CleaningTask) => void;
   /** Opens the task. Omitted where the card is not a link. */
   onPress?: (taskId: string) => void;
   isClaiming?: boolean;
+  isAccepting?: boolean;
   /** Somebody said something about this job that she has not read yet. */
   hasUnread?: boolean;
 }
@@ -22,14 +25,20 @@ interface TaskCardProps {
 function TaskCardComponent({
   task,
   onClaim,
+  onAccept,
   onPress,
   isClaiming = false,
+  isAccepting = false,
   hasUnread = false,
 }: TaskCardProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const urgent = isSameDayTurnover(task);
   const running = isRunning(task);
+  // Hers already: the list only ever holds her own work, so the status says it.
+  const accepted = task.status === 'accepted';
+  // Only what she has not accepted yet; the queue never passes it.
+  const accept = task.status === 'assigned' ? onAccept : undefined;
   const fix = task.type === 'maintenance' ? (task.problem ?? null) : null;
   const place = taskPlace(task);
   // A fix is named by what is broken; the flat is the second line.
@@ -73,6 +82,11 @@ function TaskCardComponent({
               <Text style={styles.statusText}>{t('tasks.status.inProgress')}</Text>
             </View>
           ) : null}
+          {accepted ? (
+            <View style={styles.accepted}>
+              <Text style={styles.acceptedText}>{t('tasks.status.accepted')}</Text>
+            </View>
+          ) : null}
         </View>
 
         {room === null ? null : (
@@ -99,6 +113,7 @@ function TaskCardComponent({
   // The mark is a fact of the card, so the reader hears it with the rest.
   const label = [
     t('tasks.cardAccessibility', { property: spoken, date, urgency }),
+    accepted ? t('tasks.status.accepted') : null,
     hasUnread ? t('chat.unread') : null,
   ]
     .filter((part) => part !== null)
@@ -140,6 +155,23 @@ function TaskCardComponent({
             <ActivityIndicator color={styles.claimText.color} />
           ) : (
             <Text style={styles.claimText}>{t('tasks.claim')}</Text>
+          )}
+        </Pressable>
+      ) : null}
+      {/* Beside the facts like "take", and quieter: a signal, not the job. */}
+      {accept !== undefined ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('tasks.acceptAccessibility', { property: spoken, date })}
+          accessibilityState={{ disabled: isAccepting, busy: isAccepting }}
+          disabled={isAccepting}
+          onPress={() => accept(task)}
+          style={({ pressed }) => [styles.accept, pressed && styles.claimPressed]}
+        >
+          {isAccepting ? (
+            <ActivityIndicator color={styles.acceptText.color} />
+          ) : (
+            <Text style={styles.acceptText}>{t('tasks.accept')}</Text>
           )}
         </Pressable>
       ) : null}
@@ -192,6 +224,20 @@ const createStyles = (theme: Theme) =>
       fontSize: FontSize.caption,
       fontWeight: '600',
     },
+    // A state of the job like "in progress", and quieter: her word to the
+    // office, drawn as an outline rather than as the filled mark of work under way.
+    accepted: {
+      borderRadius: Radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.primary,
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: Spacing.xs,
+    },
+    acceptedText: {
+      color: theme.primary,
+      fontSize: FontSize.caption,
+      fontWeight: '600',
+    },
     // Quieter than "in progress": a word waiting for her, not the state of the job.
     unread: {
       backgroundColor: theme.calmSurface,
@@ -229,6 +275,20 @@ const createStyles = (theme: Theme) =>
     claimPressed: { opacity: 0.75 },
     claimText: {
       color: theme.onPrimary,
+      fontSize: FontSize.title,
+      fontWeight: '600',
+    },
+    accept: {
+      minHeight: MIN_TOUCH_TARGET,
+      borderRadius: Radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: Spacing.xs,
+    },
+    acceptText: {
+      color: theme.primary,
       fontSize: FontSize.title,
       fontWeight: '600',
     },

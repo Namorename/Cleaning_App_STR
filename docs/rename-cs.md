@@ -176,5 +176,15 @@ Doplněno pro obrazovku „Nastavení“ v aplikaci uklízeček (F11, 2026-09-28
 - `settings.password.weak`: Heslo je příliš jednoduché. Zvolte jiné. — o hesle, které server odmítl jako příliš snadno uhodnutelné
 - `settings.password.needsNetwork`: Ke změně hesla je potřeba připojení. Zkontrolujte internet a zkuste to znovu.
 - `settings.password.changed`: Heslo je změněno. Na ostatních zařízeních se bude nutné znovu přihlásit.
-- `settings.password.othersStillIn`: Heslo je změněno, ale ostatní zařízení se nepodařilo odhlásit. — odhlásit ostatní zařízení — 4. pád mn. č.
+- `settings.password.confirmAgain`: Přihlášení je potřeba znovu potvrdit. Klepněte ještě jednou na „Změnit heslo“. — server chce čerstvé přihlášení; druhé klepnutí ho dá
 - `common.languages.ru`, `.en`, `.cs`: Русский, English, Čeština — beze změny, jen přesunuto z `panel.team.languages`; každý jazyk je napsán sám sebou
+
+Doplněno pro tlačítko „Přijmout“ (F11, 2026-09-28). Nové texty. Uklízečka jím dává kanceláři najevo, že přidělený úklid udělá; začít úklid jde i bez něj.
+
+- `tasks.accept`: Přijmout — tlačítko na kartě a na obrazovce úklidu
+- `tasks.acceptAccessibility`: Přijmout: {{property}}, {{date}} — co přečte čtečka obrazovky
+- `tasks.acceptFailedTitle`: Úklid se nepodařilo přijmout
+- `tasks.acceptFailed`: Úklid se nepodařilo přijmout — mohl být předán jinému, přesunut nebo zrušen. — úklid mužského rodu: předán, přesunut, zrušen
+- `tasks.status.accepted`: Přijato — štítek na kartě; platí pro úklid i práci, proto střední rod
+- `tasks.detail.accepted`: Úklid přijat
+- `tasks.work.accepted`: Práce přijata — pro opravy a kontroly

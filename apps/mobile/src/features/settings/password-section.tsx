@@ -82,9 +82,7 @@ export function PasswordSection() {
       {change.isError ? <FailureNote failure={passwordFailureText(change.error)} /> : null}
       {change.isSuccess ? (
         <Text accessibilityLiveRegion="polite" style={styles.done}>
-          {change.data.othersSignedOut
-            ? t('settings.password.changed')
-            : t('settings.password.othersStillIn')}
+          {t('settings.password.changed')}
         </Text>
       ) : null}
 

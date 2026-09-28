@@ -147,7 +147,7 @@ test('an unknown refusal shows the general sentence with the server words under 
   expect(screen.getByText('Database error updating user')).toBeTruthy();
 });
 
-test('a changed password clears the form, closes the other sign-ins and says so', async () => {
+test('a changed password clears the form and says the other devices are signed out', async () => {
   // Arrange
   await renderSection();
 
@@ -162,20 +162,34 @@ test('a changed password clears the form, closes the other sign-ins and says so'
     email: 'maria@test.local',
     password: 'old-secret',
   });
-  expect(mockUpdateUser).toHaveBeenCalledWith({ password: 'new-secret' });
-  expect(mockSignOut).toHaveBeenCalledWith({ scope: 'others' });
+  expect(mockUpdateUser).toHaveBeenCalledWith({
+    password: 'new-secret',
+    current_password: 'old-secret',
+  });
+  // Auth itself closes every other session with the change.
+  expect(mockSignOut).not.toHaveBeenCalled();
   expect(screen.getByLabelText('Текущий пароль').props.value).toBe('');
   expect(screen.getByLabelText('Новый пароль').props.value).toBe('');
   expect(screen.getByLabelText('Новый пароль ещё раз').props.value).toBe('');
 });
 
-test('a changed password whose other sign-ins stayed open says that too', async () => {
-  mockSignOut.mockResolvedValue({ error: { status: 500, message: 'Internal error' } });
+test('a sign-in the server wants confirmed again asks for one more tap, not a code by e-mail', async () => {
+  // "Secure password change" on in the cloud, and a refresh raced the fresh
+  // sign-in: there is no mail to send a code with, and a second tap succeeds.
+  mockUpdateUser.mockResolvedValue({
+    data: {},
+    error: {
+      code: 'reauthentication_needed',
+      status: 400,
+      message: 'Password update requires reauthentication',
+    },
+  });
   await renderSection();
 
   await submit('old-secret', 'new-secret', 'new-secret');
 
   expect(
-    await screen.findByText('Пароль изменён, но выйти на других устройствах не удалось.'),
+    await screen.findByText('Вход нужно подтвердить заново. Нажмите «Сменить пароль» ещё раз.'),
   ).toBeTruthy();
+  expect(screen.queryByText('Password update requires reauthentication')).toBeNull();
 });

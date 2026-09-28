@@ -13,7 +13,7 @@ import { readCached } from '@/lib/read-cached';
 
 import { fetchMyPushPreferences, saveMyLanguage, setPushPreference } from './api';
 import { settingsKeys, settingsMutationKeys } from './keys';
-import { changePassword, type PasswordChange, type PasswordChanged } from './password';
+import { changePassword, type PasswordChange } from './password';
 import {
   cachedPushPreferencesSchema,
   isPushEnabled,
@@ -167,7 +167,7 @@ export function useChangeLanguage() {
  * sign-in attempt only brings the rate limit closer.
  */
 export function useChangePassword() {
-  return useMutation<PasswordChanged, unknown, PasswordChange>({
+  return useMutation<void, unknown, PasswordChange>({
     mutationFn: changePassword,
     networkMode: 'always',
     retry: false,

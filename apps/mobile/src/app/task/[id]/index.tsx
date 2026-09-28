@@ -5,15 +5,38 @@ import { z } from 'zod';
 
 import { FontSize, Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
+import { SignedInRoute } from '@/features/auth/signed-in-route';
 import { useTaskSteps } from '@/features/steps/use-steps';
 import { propertyName } from '@/features/tasks/format';
+import { latestMoveError } from '@/features/tasks/moves';
 import { TaskDetail } from '@/features/tasks/task-detail';
-import { useClaimTask, useFinishTask, useStartTask, useTask } from '@/features/tasks/use-tasks';
+import {
+  acceptVariables,
+  useAcceptTask,
+  useClaimTask,
+  useFinishTask,
+  useStartTask,
+  useTask,
+} from '@/features/tasks/use-tasks';
 import { useNow } from '@/hooks/use-now';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { serverErrorText } from '@/lib/server-error';
 
 const Params = z.object({ id: z.string().uuid() });
+
+/**
+ * One task, opened from a list or, cold, from a notification: the guard waits
+ * for the stored session before the screen can say the task is not hers.
+ */
+export default function TaskRoute() {
+  const { t } = useTranslation();
+
+  return (
+    <SignedInRoute loadingText={t('tasks.loading')}>
+      <TaskScreen />
+    </SignedInRoute>
+  );
+}
 
 /**
  * One task. Thin: params in, hooks wired, the screen itself is TaskDetail.
@@ -22,7 +45,7 @@ const Params = z.object({ id: z.string().uuid() });
  * The steps are a query of their own: the task row is shared with the lists
  * and stays light, the steps exist only once the task has started.
  */
-export default function TaskScreen() {
+function TaskScreen() {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const { userId } = useSession();
@@ -32,12 +55,14 @@ export default function TaskScreen() {
   const query = useTask(taskId ?? '');
   const steps = useTaskSteps(taskId ?? '');
   const claim = useClaimTask();
+  const accept = useAcceptTask();
   const start = useStartTask();
   const finish = useFinishTask();
   const now = useNow();
 
-  const isBusy = claim.isPending || start.isPending || finish.isPending;
-  const error = claim.error ?? start.error ?? finish.error;
+  const isBusy = claim.isPending || accept.isPending || start.isPending || finish.isPending;
+  // One line for a failure, and it is about the move she made last.
+  const error = latestMoveError([claim, accept, start, finish]);
 
   if (taskId === null || userId === null) {
     return <Message text={t('tasks.detail.notFound')} styles={styles} />;
@@ -69,9 +94,11 @@ export default function TaskScreen() {
         userId={userId}
         now={now}
         isBusy={isBusy}
+        isAccepting={accept.isPending}
         error={error}
         steps={steps.data}
         onClaim={(id) => claim.mutate({ taskId: id, cleanerId: userId })}
+        onAccept={(task) => accept.mutate(acceptVariables(task))}
         onStart={(id) => start.mutate(id)}
         onFinish={(id) => finish.mutate(id)}
         onOpenStep={(stepId) =>

@@ -43,6 +43,7 @@ const actions = {
   onStart: jest.fn(),
   onFinish: jest.fn(),
   onClaim: jest.fn(),
+  onAccept: jest.fn(),
 };
 
 beforeEach(() => {
@@ -131,6 +132,138 @@ test('offers to start a task assigned to her', async () => {
 
   expect(actions.onStart).toHaveBeenCalledWith('3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b');
   expect(screen.queryByRole('button', { name: 'Завершить уборку' })).toBeNull();
+});
+
+describe('accepting', () => {
+  test('offers to accept her assigned cleaning beside the start', async () => {
+    // Arrange / Act
+    await render(
+      <TaskDetail task={task()} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />,
+    );
+    await fireEvent.press(screen.getByRole('button', { name: 'Принять' }));
+
+    // Assert: accepting is a signal, not a step before the start; the whole
+    // task goes, so the day and flat she saw go with it.
+    expect(actions.onAccept).toHaveBeenCalledWith(task());
+    expect(screen.getByRole('button', { name: 'Начать уборку' })).not.toBeDisabled();
+  });
+
+  test("tomorrow's cleaning can be accepted today, though not started", async () => {
+    await render(
+      <TaskDetail
+        task={task({ scheduled_date: '2026-11-11' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Начать уборку' })).toBeDisabled();
+    await fireEvent.press(screen.getByRole('button', { name: 'Принять' }));
+    expect(actions.onAccept).toHaveBeenCalledTimes(1);
+  });
+
+  test('an accepted cleaning says so and offers only the start', async () => {
+    await render(
+      <TaskDetail
+        task={task({ status: 'accepted' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Принять' })).toBeNull();
+    expect(screen.getByText('Уборка принята')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Начать уборку' }));
+    expect(actions.onStart).toHaveBeenCalledWith('3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b');
+  });
+
+  test('a repair is accepted as work, not as a cleaning', async () => {
+    await render(
+      <TaskDetail
+        task={task({ type: 'maintenance', status: 'accepted' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    expect(screen.getByText('Работа принята')).toBeTruthy();
+    expect(screen.queryByText('Уборка принята')).toBeNull();
+  });
+
+  test('an accepted cleaning still lets her report a problem or ask for supplies', async () => {
+    await render(
+      <TaskDetail
+        task={task({ status: 'accepted' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+        onReportProblem={jest.fn()}
+        onRequestSupplies={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Создать задание' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Запросить расходники' })).toBeTruthy();
+  });
+
+  test('a colleague accepted it: nothing to press, and it says whose it is', async () => {
+    await render(
+      <TaskDetail
+        task={task({ status: 'accepted', assignee_id: 'a1b2c3d4-2222-4222-8222-a1b2c3d40002' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.getByText('Уборку выполняет коллега')).toBeTruthy();
+  });
+
+  test('while the accept is under way, the spinner is on it, not on the start', async () => {
+    await render(
+      <TaskDetail
+        task={task()}
+        userId={ME}
+        now={NOW}
+        isBusy
+        isAccepting
+        error={null}
+        {...actions}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Принять' })).toHaveProp(
+      'accessibilityState',
+      expect.objectContaining({ busy: true }),
+    );
+    const start = screen.getByRole('button', { name: 'Начать уборку' });
+    expect(start).toBeDisabled();
+    expect(start).toHaveProp('accessibilityState', expect.objectContaining({ busy: false }));
+  });
+
+  test('does not accept twice while a move is in flight', async () => {
+    await render(
+      <TaskDetail task={task()} userId={ME} now={NOW} isBusy error={null} {...actions} />,
+    );
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Принять' }));
+
+    expect(actions.onAccept).not.toHaveBeenCalled();
+  });
 });
 
 test('offers to finish a task she has started', async () => {

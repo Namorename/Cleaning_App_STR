@@ -53,27 +53,26 @@ export interface PasswordChange {
   next: string;
 }
 
-export interface PasswordChanged {
-  /** False when the password changed but the other sign-ins could not be closed. */
-  othersSignedOut: boolean;
-}
-
 /**
  * Change her password while she is signed in. Online only: no queue, because
  * a password waiting on disk for signal is a password in plain text on disk.
  *
  * 1. Signing in again with the current password is the check that she knows
- *    it; it also gives the "recent sign-in" the Secure password change setting
- *    asks for, if the project has it on. A failed sign-in leaves the session
- *    she has untouched.
- * 2. The new password is set.
- * 3. Every other sign-in is closed (owner's decision 15). This phone's session
- *    from before step 1 is one of them, which is as it should be.
- *
- * A failure at step 3 does not undo step 2: the password has changed either
- * way, and the answer says so rather than reporting a failure.
+ *    it. It also makes the session updateUser runs on a new one: with "Secure
+ *    password change" on, Auth asks for a code by e-mail when that session is
+ *    more than 24 hours old (`session.CreatedAt`, supabase/auth v2.197.0
+ *    internal/api/user.go#L154-L165), and there is no mail to send it with. A
+ *    failed sign-in leaves the session she has untouched.
+ * 2. The new password is set, with the current one beside it: ignored unless
+ *    the separate "require current password" setting is on (GoTrue v2.190+),
+ *    and then it is what that setting asks for.
+ * 3. Every other sign-in is closed (owner's decision 15) by Auth itself, as
+ *    part of the change (`LogoutAllExceptMe` in `UpdatePassword`, v2.197.0
+ *    internal/models/user.go#L459-L462). A sign-out of our own on top of it
+ *    could only fail, and then say other devices are still in when they are
+ *    not.
  */
-export async function changePassword(change: PasswordChange): Promise<PasswordChanged> {
+export async function changePassword(change: PasswordChange): Promise<void> {
   if (change.email === '') {
     throw new Error('The signed-in account has no email address');
   }
@@ -86,18 +85,24 @@ export async function changePassword(change: PasswordChange): Promise<PasswordCh
     throw checked.error;
   }
 
-  const updated = await supabase.auth.updateUser({ password: change.next.trim() });
+  const updated = await supabase.auth.updateUser({
+    password: change.next.trim(),
+    current_password: change.current.trim(),
+  });
   if (updated.error) {
     throw updated.error;
   }
-
-  const closed = await supabase.auth.signOut({ scope: 'others' });
-  return { othersSignedOut: closed.error === null };
 }
 
 /** Auth's codes for the refusals she can act on, and the sentence each one gets. */
 const KNOWN_CODES: ReadonlyMap<string, string> = new Map([
   ['invalid_credentials', 'settings.password.wrongCurrent'],
+  // "Require current password" on in the cloud (GoTrue v2.190+).
+  ['current_password_invalid', 'settings.password.wrongCurrent'],
+  ['current_password_required', 'settings.password.wrongCurrent'],
+  // "Secure password change" on, and a token refresh raced the fresh sign-in
+  // of step 1: the next tap signs in again and goes through.
+  ['reauthentication_needed', 'settings.password.confirmAgain'],
   ['weak_password', 'settings.password.weak'],
   ['same_password', 'settings.password.sameAsCurrent'],
   ['over_request_rate_limit', 'auth.tooManyAttempts'],

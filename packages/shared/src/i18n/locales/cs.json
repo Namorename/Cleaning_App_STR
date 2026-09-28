@@ -862,8 +862,8 @@
       "wrongCurrent": "Současné heslo není správné.",
       "weak": "Heslo je příliš jednoduché. Zvolte jiné.",
       "needsNetwork": "Ke změně hesla je potřeba připojení. Zkontrolujte internet a zkuste to znovu.",
-      "changed": "Heslo je změněno. Na ostatních zařízeních se bude nutné znovu přihlásit.",
-      "othersStillIn": "Heslo je změněno, ale ostatní zařízení se nepodařilo odhlásit."
+      "confirmAgain": "Přihlášení je potřeba znovu potvrdit. Klepněte ještě jednou na „Změnit heslo“.",
+      "changed": "Heslo je změněno. Na ostatních zařízeních se bude nutné znovu přihlásit."
     }
   },
   "tasks": {
@@ -873,17 +873,22 @@
     "emptyMine": "Zatím vám nebyl přidělen žádný úklid. Podívejte se do „Volné“ — na vašich objektech může být práce.",
     "emptyQueue": "Na vašich objektech nejsou volné úklidy.",
     "claim": "Vzít",
+    "accept": "Přijmout",
     "start": "Začít úklid",
     "finish": "Dokončit úklid",
     "claimAccessibility": "Vzít úklid: {{property}}, {{date}}",
+    "acceptAccessibility": "Přijmout: {{property}}, {{date}}",
     "claimFailedTitle": "Úklid se nepodařilo vzít",
     "claimTaken": "Úklid si už někdo vzal, nebo už vypršel.",
+    "acceptFailedTitle": "Úklid se nepodařilo přijmout",
+    "acceptFailed": "Úklid se nepodařilo přijmout — mohl být předán jinému, přesunut nebo zrušen.",
     "startFailed": "Úklid se nepodařilo začít — obnovte seznam.",
     "finishFailed": "Úklid se nepodařilo dokončit — obnovte seznam.",
     "unnamedProperty": "Objekt {{id}}",
     "cardAccessibility": "{{property}}. {{date}}. {{urgency}}",
     "status": {
-      "inProgress": "Probíhá"
+      "inProgress": "Probíhá",
+      "accepted": "Přijato"
     },
     "urgency": {
       "checkInAt": "Příjezd v {{time}}",
@@ -901,6 +906,7 @@
       "finish": "Dokončit práci",
       "window": "Časové okno",
       "finished": "Práce dokončena",
+      "accepted": "Práce přijata",
       "colleague": "Tuto práci dělá někdo jiný",
       "steps": "Kroky práce"
     },
@@ -912,6 +918,7 @@
       "notes": "Poznámky k objektu",
       "parallel": "Probíhal souběžně s jiným úklidem",
       "finished": "Úklid dokončen",
+      "accepted": "Úklid přijat",
       "colleague": "Úklid dělá kolegyně",
       "closed": "Úklid je uzavřen",
       "startsAt": "Začít lze nejdříve v {{time}}, {{date}}",
