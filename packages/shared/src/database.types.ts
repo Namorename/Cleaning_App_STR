@@ -2125,6 +2125,7 @@ export type Database = {
         Args: { p: Database["public"]["Tables"]["properties"]["Row"] }
         Returns: string
       }
+      enqueue_daily_digest: { Args: { p_at?: string }; Returns: number }
       expire_stale_tasks: { Args: never; Returns: Json }
       generate_cleaning_tasks: {
         Args: { from_date: string; to_date: string }
@@ -2297,6 +2298,16 @@ export type Database = {
           unit_name: string
         }[]
       }
+      push_digest_hour: { Args: never; Returns: number }
+      push_lifetime: { Args: never; Returns: string }
+      push_quiet_end: { Args: never; Returns: number }
+      push_quiet_start: { Args: never; Returns: number }
+      push_send_after: {
+        Args: { p_at?: string; p_urgent: boolean }
+        Returns: string
+      }
+      push_settle: { Args: never; Returns: string }
+      push_timezone: { Args: never; Returns: string }
       push_tokens_per_person: { Args: never; Returns: number }
       record_webhook_event: {
         Args: { event_payload: Json; event_source?: string }
