@@ -13,6 +13,13 @@ const TOKEN_KEY = 'push-token';
 /** Who the phone was registered for in this run, so coming back to the app does not ask again. */
 let registeredFor: string | null = null;
 
+/** Sign-outs in this run: a registration begun before one must not land after it. */
+let signOuts = 0;
+
+export function signOutsSoFar(): number {
+  return signOuts;
+}
+
 export async function rememberRegistration(token: string, registrant: string): Promise<void> {
   await SecureStore.setItemAsync(TOKEN_KEY, token);
   registeredFor = registrant;
@@ -28,6 +35,7 @@ export async function rememberedToken(): Promise<string | null> {
 
 /** On sign-out: the next person, or she herself signing back in, registers afresh. */
 export async function forgetRegistration(): Promise<void> {
+  signOuts += 1;
   registeredFor = null;
   await SecureStore.deleteItemAsync(TOKEN_KEY);
 }

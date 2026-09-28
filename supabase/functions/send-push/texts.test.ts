@@ -33,6 +33,8 @@ function group(language: Language): PushGroup {
     collapseKey: "task:t",
     language,
     tokens: [],
+    muted: new Set(),
+    lease: null,
     places: new Map([
       ["900001", HOUSE],
       ["1000000014002", ROOM],

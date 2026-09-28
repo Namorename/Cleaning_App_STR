@@ -7,7 +7,7 @@ import { deviceLanguage } from '@/i18n';
 
 import { registerPushToken } from './api';
 import { ensureChannels } from './channels';
-import { isRegisteredFor, rememberRegistration } from './token-store';
+import { isRegisteredFor, rememberRegistration, signOutsSoFar } from './token-store';
 
 /**
  * Registers this phone for the pushes of whoever is signed in on it.
@@ -33,6 +33,9 @@ export async function registerThisPhone(
   if (devicePushToken === undefined && isRegisteredFor(userId)) {
     return true;
   }
+  // The token takes seconds on a weak signal; if she signs out meanwhile, a
+  // registration landing afterwards would give the phone back to her.
+  const signOuts = signOutsSoFar();
   await ensureChannels();
   const permission = await Notifications.getPermissionsAsync();
   if (!permission.granted) {
@@ -42,6 +45,9 @@ export async function registerThisPhone(
   const { data: token } = await Notifications.getExpoPushTokenAsync(
     devicePushToken === undefined ? { projectId } : { projectId, devicePushToken },
   );
+  if (signOutsSoFar() !== signOuts) {
+    return false;
+  }
   await registerPushToken({
     token,
     platform: Platform.OS === 'ios' ? 'ios' : 'android',

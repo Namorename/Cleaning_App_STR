@@ -19,6 +19,12 @@ export const RECEIPTS_PER_REQUEST = 1_000;
 const MAX_ATTEMPTS = 4;
 const FIRST_PAUSE_MS = 1_000;
 
+/**
+ * One request's longest wait. The runtime sets no timeout of its own, and a
+ * run must finish inside its lease (claim_push_batch, two minutes).
+ */
+const REQUEST_TIMEOUT_MS = 15_000;
+
 export interface ExpoMessage {
   readonly to: string;
   readonly title: string;
@@ -28,7 +34,8 @@ export interface ExpoMessage {
   readonly priority: "high";
   readonly channelId: "urgent" | "general";
   readonly interruptionLevel: "active" | "time-sensitive";
-  readonly collapseId: string;
+  /** iPhone only: on Android it becomes FCM's collapse key, of which FCM keeps four. */
+  readonly collapseId?: string;
   readonly tag: string;
   readonly threadId: string;
   readonly ttl: number;
@@ -64,6 +71,8 @@ export interface ExpoClientOptions {
   readonly sleep?: (ms: number) => Promise<void>;
   /** "Enhanced security" (docs/f11-plan.md, 7.6): without it anyone with a token may push. */
   readonly accessToken?: string | null;
+  /** The clock, in ms; replaced in tests. */
+  readonly now?: () => number;
 }
 
 function defaultSleep(ms: number): Promise<void> {
@@ -124,26 +133,29 @@ export class ExpoPushClient {
   readonly #fetch: typeof fetch;
   readonly #sleep: (ms: number) => Promise<void>;
   readonly #accessToken: string | null;
+  readonly #now: () => number;
 
   constructor(options: ExpoClientOptions = {}) {
     this.#fetch = options.fetchImpl ?? globalThis.fetch;
     this.#sleep = options.sleep ?? defaultSleep;
     this.#accessToken = options.accessToken ?? null;
+    this.#now = options.now ?? Date.now;
   }
 
   /**
    * Send up to 100 messages; one ticket back for each, in the same order.
    * The caller keeps a group's messages in one call, so a group is either
-   * sent or not.
+   * sent or not. `deadline` (ms, the caller's clock) is when the run's lease
+   * ends: no attempt starts that could not finish before it.
    */
-  async send(messages: readonly ExpoMessage[]): Promise<ExpoTicket[]> {
+  async send(messages: readonly ExpoMessage[], deadline?: number): Promise<ExpoTicket[]> {
     if (messages.length === 0) {
       return [];
     }
     if (messages.length > MESSAGES_PER_REQUEST) {
       throw new ExpoRequestError(`At most ${MESSAGES_PER_REQUEST} messages a request`);
     }
-    const body = await this.#post(EXPO_SEND_URL, messages);
+    const body = await this.#post(EXPO_SEND_URL, messages, deadline);
     const data = isRecord(body) && Array.isArray(body.data) ? body.data : null;
     const tickets = data === null ? [] : data.map(readTicket);
     if (data === null || tickets.length !== messages.length || tickets.includes(null)) {
@@ -168,7 +180,7 @@ export class ExpoPushClient {
     return receipts;
   }
 
-  async #post(url: string, payload: unknown): Promise<unknown> {
+  async #post(url: string, payload: unknown, deadline?: number): Promise<unknown> {
     const headers: Record<string, string> = {
       "accept": "application/json",
       "accept-encoding": "gzip, deflate",
@@ -180,8 +192,14 @@ export class ExpoPushClient {
 
     let lastFailure = "";
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
-      if (attempt > 1) {
-        await this.#sleep(FIRST_PAUSE_MS * 2 ** (attempt - 2));
+      const pause = attempt > 1 ? FIRST_PAUSE_MS * 2 ** (attempt - 2) : 0;
+      const left = deadline === undefined ? REQUEST_TIMEOUT_MS : deadline - this.#now() - pause;
+      if (left <= 0) {
+        const why = lastFailure === "" ? "" : `: ${lastFailure}`;
+        throw new ExpoUnavailableError(`No time left in the run${why}`);
+      }
+      if (pause > 0) {
+        await this.#sleep(pause);
       }
       let response: Response;
       try {
@@ -189,6 +207,7 @@ export class ExpoPushClient {
           method: "POST",
           headers,
           body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(Math.min(REQUEST_TIMEOUT_MS, left)),
         });
       } catch (error) {
         lastFailure = error instanceof Error ? error.message : String(error);

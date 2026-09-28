@@ -57,6 +57,10 @@ export interface PushGroup {
   readonly tokens: readonly PushToken[];
   /** Keyed by property id as text. */
   readonly places: ReadonlyMap<string, Place>;
+  /** The kinds she switched off: the folded push is judged by them. */
+  readonly muted: ReadonlySet<PushKind>;
+  /** The claim's lease: a group is settled under it. Null from an older database. */
+  readonly lease: string | null;
   readonly rows: readonly PushRow[];
 }
 
@@ -129,6 +133,10 @@ function readTokens(raw: unknown): PushToken[] {
   );
 }
 
+function readMuted(raw: unknown): Set<PushKind> {
+  return new Set(Array.isArray(raw) ? raw.filter(isPushKind) : []);
+}
+
 /** Every row id in a group, readable or not: what to settle when the group cannot be read. */
 function rowIds(raw: unknown): number[] {
   return Array.isArray(raw)
@@ -170,6 +178,8 @@ export function readBatch(raw: unknown): Batch {
       language: isLanguage(value.language) ? value.language : "ru",
       tokens: readTokens(value.tokens),
       places: readPlaces(value.places),
+      muted: readMuted(value.muted),
+      lease: typeof value.lease === "string" && value.lease !== "" ? value.lease : null,
       rows,
     });
   }

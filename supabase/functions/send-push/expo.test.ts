@@ -168,3 +168,33 @@ Deno.test("receipts are asked for at most a thousand tickets at a time", async (
     ["tk-1499", { status: "error", message: "gone", details: { error: "DeviceNotRegistered" } }],
   ]);
 });
+
+Deno.test("every request to Expo is bounded in time", async () => {
+  const signals: (AbortSignal | null | undefined)[] = [];
+  const client = new ExpoPushClient({
+    fetchImpl: ((_url: string | URL | Request, init?: RequestInit) => {
+      signals.push(init?.signal);
+      return Promise.resolve(json({ data: [{ status: "ok", id: "tk" }] }));
+    }) as typeof fetch,
+    sleep: () => Promise.resolve(),
+  });
+
+  await client.send([message("A")]);
+
+  assertEquals(signals[0] instanceof AbortSignal, true);
+});
+
+Deno.test("with no time left in the run, nothing is sent", async () => {
+  let fetched = 0;
+  const client = new ExpoPushClient({
+    fetchImpl: (() => {
+      fetched += 1;
+      return Promise.resolve(json({ data: [{ status: "ok", id: "tk" }] }));
+    }) as typeof fetch,
+    sleep: () => Promise.resolve(),
+    now: () => 10_000,
+  });
+
+  await assertRejects(() => client.send([message("A")], 5_000), ExpoUnavailableError);
+  assertEquals(fetched, 0);
+});

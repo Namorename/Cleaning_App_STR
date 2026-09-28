@@ -15,8 +15,8 @@
 --                  definer exactly:
 --                    assign_problem            3746831d  2627 t
 --                    chat_participates_as      dcc8b012  3589 t
---                    claim_push_batch          96633725  6870 t
---                    claim_push_receipts       d049d571   334 t
+--                    claim_push_batch          752472f7  9212 t
+--                    claim_push_receipts       150a47fa   502 t
 --                    cleans_property_as        787fd4ef   400 t
 --                    enqueue_daily_digest      54b53d4a  1741 t
 --                    forget_push_token         1738dff3    96 t
@@ -30,7 +30,7 @@
 --                    push_lifetime             b492e431    30 f
 --                    push_on_booking_status    4217d556   989 t
 --                    push_on_chat_message      9e7e1734  2289 t
---                    push_on_task_change       f6b04fa8  9793 t
+--                    push_on_task_change       3ba02279 11631 t
 --                    push_quiet_end            2bdfd84e    10 f
 --                    push_quiet_start          923b4778    11 f
 --                    push_receipt_delay        88539d53    30 f
@@ -39,7 +39,7 @@
 --                    push_timezone             23215d02    24 f
 --                    push_tokens_per_person    016cec6c    12 f
 --                    record_push_receipts      46a4cdd4   666 t
---                    record_push_results       10cdb50b  1474 t
+--                    record_push_results       c72f54f4  1968 t
 --                    register_push_token       acf65339  1180 t
 --                    save_task                 a90159bf 10937 t
 --                    set_property_status       5b613443  3611 t
@@ -175,3 +175,22 @@ select label, payload from (
                 where c.relnamespace = 'public'::regnamespace and c.relkind in ('r', 'p', 'v', 'm')) t)
 ) checks
 order by ord;
+
+-- ROLLBACK. Each of the five files is its own transaction; a revert is a forward migration through
+-- the same dry-run gate (docs/units-plan.md, «Эксплуатация выката»), never a hand edit in Studio.
+-- What may go back, and from when:
+-- * М3 / М3b (push_events, push_sender): drop the four triggers (tasks_push_insert,
+--   tasks_push_update, chat_messages_push, reservations_push_status) and unschedule send-push,
+--   push-daily-digest and push-history-purge; raw.push_outbox and raw.push_tickets may stay. No
+--   client reads them.
+-- * М2's bodies of save_task, assign_problem, set_property_status, property_open_cleanings and
+--   open_cleanings_by_listing may go back on their own at any time: an 'accepted' row simply stays
+--   'accepted'.
+-- * М2's guard (guard_task_transitions) and the claim policy are one-way from the first 'accepted'
+--   row — from the T1 OTA on. The old guard refuses every move out of 'accepted' and the old policy
+--   every claim that writes it: she is locked out of her own cleaning. From then on fix forward;
+--   or one migration that first turns 'accepted' back into 'assigned' (with the push triggers
+--   dropped first, or nobody is told a thing) and then restores the old guard and policy — shipped
+--   together with an OTA that withdraws T1.
+-- * М1 and the participation core never go back alone: the triggers and the chat audience call
+--   them, and dropping them fails every task write or chat message.

@@ -8,7 +8,9 @@
  *    request, so a group is either sent or not;
  * 4. settles each group (record_push_results): sent with its tickets,
  *    collapsed, skipped, or failed — a failed group goes again next run;
- * 5. repeats while full batches come back, up to a bound;
+ * 5. repeats while full batches come back, up to a bound — and only while a
+ *    batch can still finish inside its lease: a group not sent in time is let
+ *    go under its own lease for the next run;
  * 6. reads the receipts of what went out a quarter of an hour ago
  *    (claim_push_receipts / record_push_receipts). A phone Expo calls gone is
  *    forgotten by the database.
@@ -16,7 +18,7 @@
  * Nothing here is text for a person except what texts.ts writes.
  */
 
-import { type Batch, type PushGroup, readBatch } from "./batch.ts";
+import { type Batch, type PushGroup, type PushKind, readBatch } from "./batch.ts";
 import {
   type ExpoMessage,
   type ExpoReceipt,
@@ -36,7 +38,7 @@ export interface PushDatabase {
 
 /** The part of the Expo client the run uses; replaced in tests. */
 export interface PushSender {
-  send(messages: readonly ExpoMessage[]): Promise<ExpoTicket[]>;
+  send(messages: readonly ExpoMessage[], deadline?: number): Promise<ExpoTicket[]>;
   receipts(ticketIds: readonly string[]): Promise<Map<string, ExpoReceipt>>;
 }
 
@@ -46,12 +48,15 @@ export interface RunOptions {
   readonly groupsPerBatch?: number;
   readonly maxBatches?: number;
   readonly messagesPerRequest?: number;
+  /** The clock, in ms; replaced in tests. */
+  readonly now?: () => number;
 }
 
 export interface RunSummary {
   batches: number;
   sent: number;
   collapsed: number;
+  muted: number;
   skipped: number;
   failed: number;
   receipts: number;
@@ -67,10 +72,20 @@ const MAX_BATCHES = 5;
  */
 const PUSH_TTL_SECONDS = 6 * 60 * 60;
 
-/** Ticket codes that mean the project's push keys are broken, not her phone. */
+/**
+ * How long a batch may take from its claim: the lease (push_lease, two
+ * minutes) less a margin, so a group is never sent after its lease ran out
+ * and the next run took it.
+ */
+const BATCH_BUDGET_MS = 90_000;
+
+/** No new batch is claimed after this much of the run: the next minute's run takes it. */
+const RUN_BUDGET_MS = 45_000;
+
+/** Ticket and receipt codes that mean the project's push keys are broken, not her phone. */
 const CREDENTIAL_ERRORS: ReadonlySet<string> = new Set(["InvalidCredentials", "MismatchSenderId"]);
 
-type Outcome = "sent" | "collapsed" | "skipped" | "failed";
+type Outcome = "sent" | "collapsed" | "muted" | "skipped" | "failed";
 
 interface SettledTicket {
   token: string;
@@ -82,6 +97,7 @@ interface SettledTicket {
 
 interface Settlement {
   outbox_ids: number[];
+  lease?: string;
   outcome: Outcome;
   tickets: SettledTicket[];
 }
@@ -109,6 +125,18 @@ function pushData(folded: Folded): Record<string, unknown> {
   }
 }
 
+/** The kind a folded push is, as she switches it off in the settings. */
+function kindOf(folded: Folded): PushKind {
+  switch (folded.type) {
+    case "task":
+      return folded.event;
+    case "chat":
+      return "chat_message";
+    case "digest":
+      return "daily_digest";
+  }
+}
+
 function messagesFor(group: PushGroup, folded: Folded): ExpoMessage[] {
   const { title, body } = renderPush(folded, group);
   const urgent = folded.type === "task" && folded.urgent;
@@ -121,8 +149,11 @@ function messagesFor(group: PushGroup, folded: Folded): ExpoMessage[] {
     priority: "high",
     channelId: urgent ? "urgent" : "general",
     interruptionLevel: urgent ? "time-sensitive" : "active",
-    // A newer push about the same cleaning or thread replaces the older one.
-    collapseId: group.collapseKey,
+    // A newer push about the same cleaning or thread replaces the older one:
+    // collapseId on an iPhone, tag on Android. Not collapseId on Android — it
+    // becomes FCM's collapse key, and FCM keeps four of those for a phone that
+    // is off, dropping the rest.
+    ...(phone.platform === "ios" ? { collapseId: group.collapseKey } : {}),
     tag: group.collapseKey,
     threadId: group.collapseKey,
     ttl: PUSH_TTL_SECONDS,
@@ -131,6 +162,20 @@ function messagesFor(group: PushGroup, folded: Folded): ExpoMessage[] {
 
 function ids(group: PushGroup): number[] {
   return group.rows.map((row) => row.id);
+}
+
+/** A group's settlement, under the lease it was handed out with. */
+function settlement(
+  group: PushGroup,
+  outcome: Outcome,
+  tickets: SettledTicket[] = [],
+): Settlement {
+  return {
+    outbox_ids: ids(group),
+    ...(group.lease === null ? {} : { lease: group.lease }),
+    outcome,
+    tickets,
+  };
 }
 
 /** Pack whole groups into requests of at most `size` messages. */
@@ -174,30 +219,44 @@ async function sendAll(
   outgoing: readonly Outgoing[],
   expo: PushSender,
   options: RunOptions,
+  deadline: number,
 ): Promise<Settlement[]> {
+  const now = options.now ?? Date.now;
   const settlements: Settlement[] = [];
+  let outOfTime = false;
   for (const request of pack(outgoing, options.messagesPerRequest ?? MESSAGES_PER_REQUEST)) {
+    if (outOfTime || now() >= deadline) {
+      // Past the lease a group may already be another run's: let it go.
+      outOfTime = true;
+      for (const item of request) {
+        settlements.push(settlement(item.group, "failed"));
+      }
+      continue;
+    }
     let tickets: ExpoTicket[];
     try {
-      tickets = await expo.send(request.flatMap((item) => item.messages));
+      tickets = await expo.send(request.flatMap((item) => item.messages), deadline);
     } catch (error) {
       options.error("send-push: Expo did not take the request; the groups go again", error);
       for (const item of request) {
-        settlements.push({ outbox_ids: ids(item.group), outcome: "failed", tickets: [] });
+        settlements.push(settlement(item.group, "failed"));
       }
       continue;
     }
     let at = 0;
     for (const item of request) {
-      settlements.push({
-        outbox_ids: ids(item.group),
-        outcome: "sent",
-        tickets: item.messages.map((message, index) =>
-          settleTicket(message, tickets[at + index], options)
+      settlements.push(
+        settlement(
+          item.group,
+          "sent",
+          item.messages.map((message, index) => settleTicket(message, tickets[at + index], options)),
         ),
-      });
+      );
       at += item.messages.length;
     }
+  }
+  if (outOfTime) {
+    options.error("send-push: the batch ran out of time; the rest goes in the next run");
   }
   return settlements;
 }
@@ -214,10 +273,37 @@ async function call(
   return data;
 }
 
+/**
+ * What one group comes to: a push, or a settlement without one. The fold
+ * decides first and the kinds she switched off are judged on what it decided
+ * — muting half of "given, then taken away" must not send the other half.
+ * A group that cannot be written (params the text cannot read) is set aside
+ * and reported; the rest of the batch goes on.
+ */
+function prepare(group: PushGroup, options: RunOptions): Outgoing | Settlement {
+  try {
+    const folded = fold(group);
+    if (folded === null) {
+      return settlement(group, "collapsed");
+    }
+    if (group.muted.has(kindOf(folded))) {
+      return settlement(group, "muted");
+    }
+    if (group.tokens.length === 0) {
+      return settlement(group, "skipped");
+    }
+    return { group, messages: messagesFor(group, folded) };
+  } catch (error) {
+    options.error(`send-push: ${group.collapseKey} could not be written; set aside`, error);
+    return settlement(group, "skipped");
+  }
+}
+
 async function runBatch(
   batch: Batch,
   expo: PushSender,
   options: RunOptions,
+  deadline: number,
 ): Promise<Settlement[]> {
   const settlements: Settlement[] = [];
   if (batch.unreadable.length > 0) {
@@ -226,20 +312,36 @@ async function runBatch(
 
   const outgoing: Outgoing[] = [];
   for (const group of batch.groups) {
-    const folded = fold(group);
-    if (folded === null) {
-      settlements.push({ outbox_ids: ids(group), outcome: "collapsed", tickets: [] });
-    } else if (group.tokens.length === 0) {
-      settlements.push({ outbox_ids: ids(group), outcome: "skipped", tickets: [] });
+    const prepared = prepare(group, options);
+    if ("messages" in prepared) {
+      outgoing.push(prepared);
     } else {
-      outgoing.push({ group, messages: messagesFor(group, folded) });
+      settlements.push(prepared);
     }
   }
 
-  return [...settlements, ...(await sendAll(outgoing, expo, options))];
+  return [...settlements, ...(await sendAll(outgoing, expo, options, deadline))];
 }
 
-async function readReceipts(db: PushDatabase, expo: PushSender): Promise<number> {
+/** Receipt codes that mean the project's keys are broken: said once a run, with how many. */
+function reportBrokenKeys(receipts: ReadonlyMap<string, ExpoReceipt>, options: RunOptions): void {
+  const counts = new Map<string, number>();
+  for (const receipt of receipts.values()) {
+    const code = receipt.details?.error;
+    if (code !== undefined && CREDENTIAL_ERRORS.has(code)) {
+      counts.set(code, (counts.get(code) ?? 0) + 1);
+    }
+  }
+  for (const [code, count] of counts) {
+    options.error(`send-push: ${code} in ${count} receipt(s) — the project's push keys are broken`);
+  }
+}
+
+async function readReceipts(
+  db: PushDatabase,
+  expo: PushSender,
+  options: RunOptions,
+): Promise<number> {
   const due = await call(db, "claim_push_receipts", {});
   const ticketIds = Array.isArray(due)
     ? due.filter((id): id is string => typeof id === "string")
@@ -248,6 +350,7 @@ async function readReceipts(db: PushDatabase, expo: PushSender): Promise<number>
     return 0;
   }
   const receipts = await expo.receipts(ticketIds);
+  reportBrokenKeys(receipts, options);
   const answered = [...receipts.entries()].map(([ticketId, receipt]) => ({
     ticket_id: ticketId,
     status: receipt.status,
@@ -267,24 +370,31 @@ export async function runSendPush(
 ): Promise<RunSummary> {
   const groupsPerBatch = options.groupsPerBatch ?? GROUPS_PER_BATCH;
   const maxBatches = options.maxBatches ?? MAX_BATCHES;
+  const now = options.now ?? Date.now;
+  const runStarted = now();
   const summary: RunSummary = {
     batches: 0,
     sent: 0,
     collapsed: 0,
+    muted: 0,
     skipped: 0,
     failed: 0,
     receipts: 0,
   };
 
   for (let batchNumber = 0; batchNumber < maxBatches; batchNumber += 1) {
+    if (batchNumber > 0 && now() - runStarted >= RUN_BUDGET_MS) {
+      break;
+    }
     const raw = await call(db, "claim_push_batch", { p_limit: groupsPerBatch });
+    const deadline = now() + BATCH_BUDGET_MS;
     const handedOut = Array.isArray(raw) ? raw.length : 0;
     if (handedOut === 0) {
       break;
     }
     summary.batches += 1;
 
-    const settlements = await runBatch(readBatch(raw), expo, options);
+    const settlements = await runBatch(readBatch(raw), expo, options, deadline);
     await call(db, "record_push_results", { p_results: settlements });
     for (const settlement of settlements) {
       summary[settlement.outcome] += 1;
@@ -295,7 +405,7 @@ export async function runSendPush(
     }
   }
 
-  summary.receipts = await readReceipts(db, expo);
+  summary.receipts = await readReceipts(db, expo, options);
   options.log("send-push", JSON.stringify(summary));
   return summary;
 }

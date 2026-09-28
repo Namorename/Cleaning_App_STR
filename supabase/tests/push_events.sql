@@ -142,15 +142,17 @@ insert into public.tasks (id, host_id, property_id, type, status, scheduled_date
 
 select pg_temp.check('one statement, four new cleanings: only the one she can see and has a phone for',
   pg_temp.queued(), array['Anna cleaning_new']);
-select pg_temp.check('today''s is urgent',
-  (pg_temp.last_row()).urgent, true);
+select pg_temp.check('new work, even today''s, is not urgent: it waits out quiet hours (§1.4)',
+  (pg_temp.last_row()).urgent, false);
 select pg_temp.check('the row says which cleaning, and carries ids and dates, not text',
   (select array[o.task_id::text, o.collapse_key, o.params ->> 'date']
    from raw.push_outbox o order by o.id desc limit 1),
   array[pg_temp.tid(1)::text, 'task:' || pg_temp.tid(1), current_date::text]);
-select pg_temp.check('an urgent one waits a minute for the change to settle',
-  (select o.send_after = now() + interval '60 seconds' from raw.push_outbox o order by o.id desc limit 1),
+select pg_temp.check('it goes when a calm push may: a minute on by day, at seven at night',
+  (select o.send_after = public.push_send_after(false) from raw.push_outbox o order by o.id desc limit 1),
   true);
+select pg_temp.check('the row names the flat it was about when it was written',
+  (pg_temp.last_row()).params ->> 'property', '900013002');
 select pg_temp.check('and lapses half an hour after it was due',
   (select o.expire_at = o.send_after + interval '30 minutes' from raw.push_outbox o order by o.id desc limit 1),
   true);
@@ -171,6 +173,53 @@ update public.tasks set assignee_id = pg_temp.anna(), status = 'accepted'
 where id = pg_temp.tid(5) and status = 'unassigned';
 reset role; reset request.jwt.claims;
 select pg_temp.check('taking free work tells nobody', pg_temp.queued(), '{}'::text[]);
+
+-- ---------- free work: who hears of it, and when ----------
+--
+-- Anna holds tomorrow's cleaning on Flat A, a listing she may take free work
+-- on. The office takes it off her and leaves it free.
+insert into public.tasks (id, host_id, property_id, type, status, scheduled_date, assignee_id) values
+  (pg_temp.tid(11), 'a8f13000-0000-4000-8000-00000000000a', 900013001, 'cleaning', 'assigned', current_date + 1, pg_temp.anna());
+select pg_temp.clear();
+select pg_temp.as_boss();
+update public.tasks set assignee_id = null, status = 'unassigned' where id = pg_temp.tid(11);
+reset role; reset request.jwt.claims;
+select pg_temp.check('taken off her and left free: she hears it was taken, the others that it is free',
+  pg_temp.queued(), array['Anna cleaning_unassigned', 'Bara cleaning_free']);
+select pg_temp.check('taken off her tomorrow is urgent; free work is not (§1.4)',
+  (select array_agg(o.kind || ' ' || o.urgent order by o.id) from raw.push_outbox o),
+  array['cleaning_unassigned true', 'cleaning_free false']);
+select pg_temp.check('the row taken off her names the flat she had',
+  (select o.params ->> 'property' from raw.push_outbox o where o.kind = 'cleaning_unassigned'),
+  '900013001');
+select pg_temp.clear();
+
+-- An inspection is the office's own: nobody takes it from the queue.
+insert into public.tasks (id, host_id, property_id, type, status, scheduled_date) values
+  (pg_temp.tid(12), 'a8f13000-0000-4000-8000-00000000000a', 900013001, 'inspection', 'unassigned', current_date + 2);
+select pg_temp.check('an unassigned inspection is nobody''s free work', pg_temp.queued(), '{}'::text[]);
+
+-- Free work comes into the week from beyond it (the generator moves it).
+insert into public.tasks (id, host_id, property_id, type, status, scheduled_date) values
+  (pg_temp.tid(13), 'a8f13000-0000-4000-8000-00000000000a', 900013001, 'cleaning', 'unassigned', current_date + 30);
+select pg_temp.check('free work beyond the week: silence', pg_temp.queued(), '{}'::text[]);
+update public.tasks set scheduled_date = current_date + 3 where id = pg_temp.tid(13);
+select pg_temp.check('free work moved into the week is news to those who may take it',
+  pg_temp.queued(), array['Anna cleaning_free', 'Bara cleaning_free']);
+select pg_temp.clear();
+update public.tasks set scheduled_date = current_date + 4 where id = pg_temp.tid(13);
+select pg_temp.check('free work moved within the week: already known, silence', pg_temp.queued(), '{}'::text[]);
+
+-- Paused work handed to someone else: the new holder is told too.
+insert into public.tasks (id, host_id, property_id, type, status, scheduled_date, assignee_id) values
+  (pg_temp.tid(14), 'a8f13000-0000-4000-8000-00000000000a', 900013002, 'cleaning', 'paused', current_date, pg_temp.anna());
+select pg_temp.clear();
+select pg_temp.as_boss();
+update public.tasks set assignee_id = pg_temp.bara() where id = pg_temp.tid(14);
+reset role; reset request.jwt.claims;
+select pg_temp.check('paused work handed over: she is told, and the first hears it was taken',
+  pg_temp.queued(), array['Anna cleaning_unassigned', 'Bara cleaning_assigned']);
+select pg_temp.clear();
 
 -- ---------- the office hands it over, moves it, changes its hours ----------
 select pg_temp.as_boss();

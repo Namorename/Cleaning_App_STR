@@ -33,10 +33,15 @@
 -- one function. The functions are security definers: raw is closed to the
 -- people whose writes fire them.
 --
--- Quiet hours: 21:00-07:00 in Prague. What is urgent — the day of the cleaning is
--- today or tomorrow, or a booking was cancelled while she cleans — goes a minute
--- after the change; the rest waits for seven. The minute lets a burst of
--- changes to one cleaning settle into one push (the sender folds them).
+-- Quiet hours: 21:00-07:00 in Prague. What is urgent — a cleaning of today or
+-- tomorrow taken off her, cancelled or moved, or a booking cancelled while she
+-- cleans — goes a minute after the change; the rest waits for seven. The minute
+-- lets a burst of changes to one cleaning settle into one push (the sender
+-- folds them).
+--
+-- Every row about a cleaning names the flat it was about when it was written
+-- (params.property): the one taken off her is named as she had it, not where
+-- the cleaning went after.
 --
 -- New table and functions, three new triggers. Creating a trigger takes a
 -- SHARE ROW EXCLUSIVE lock on tasks, chat_messages and reservations for a
@@ -127,8 +132,12 @@ create table raw.push_outbox (
   send_after    timestamptz not null,
   expire_at     timestamptz not null,
   -- The sender's lease (M3b): a row claimed and not settled is not claimed
-  -- again until the lease runs out.
+  -- again until the lease runs out. The lease has an owner, so a run that
+  -- outlived it cannot let go of what the next run holds; and a moment, the
+  -- send's, against which a phone found dead is judged.
   claimed_until timestamptz,
+  claimed_at    timestamptz,
+  claimed_by    uuid,
   settled_at    timestamptz,
   outcome       text check (outcome in ('sent', 'collapsed', 'muted', 'expired', 'skipped', 'failed')),
   constraint push_outbox_settled check ((settled_at is null) = (outcome is null))
@@ -181,16 +190,20 @@ begin
              (case when v_actor is null then 'cleaning_new' else 'cleaning_assigned' end)::public.push_kind as kind,
              n.id as task_id, n.property_id,
              n.scheduled_date as day_a, n.scheduled_date as day_b,
-             jsonb_build_object('date', n.scheduled_date, 'type', n.type) as params
+             jsonb_build_object('date', n.scheduled_date, 'type', n.type,
+                                'property', n.property_id) as params
       from new_rows n
       where n.assignee_id is not null
         and n.status in ('assigned', 'accepted')
     ),
     free as materialized (
+      -- Only what a cleaner may take from the queue (apps/mobile tasks/api.ts,
+      -- FREE_TASK_TYPES): an inspection or maintenance is the office's.
       select n.host_id, n.id as task_id, n.property_id, n.scheduled_date, n.type
       from new_rows n
       where n.assignee_id is null
         and n.status = 'unassigned'
+        and n.type in ('cleaning', 'midstay')
     )
     insert into raw.push_outbox (host_id, recipient_id, kind, task_id, collapse_key,
                                  params, urgent, send_after, expire_at)
@@ -206,7 +219,7 @@ begin
       -- cut the candidates down.
       select f.host_id, tk.profile_id, 'cleaning_free'::public.push_kind, f.task_id, f.property_id,
              f.scheduled_date, f.scheduled_date,
-             jsonb_build_object('date', f.scheduled_date, 'type', f.type)
+             jsonb_build_object('date', f.scheduled_date, 'type', f.type, 'property', f.property_id)
       from free f
       join public.properties p on p.id = f.property_id
       join (select distinct t.profile_id from public.push_tokens t) tk on true
@@ -221,7 +234,11 @@ begin
       select (now() at time zone p.timezone)::date as today
     ) d
     cross join lateral (
-      select (e.day_a in (d.today, d.today + 1) or e.day_b in (d.today, d.today + 1)) as urgent
+      -- Urgent is what changes her day: taken off her, cancelled or moved,
+      -- today or tomorrow (§1.4). New, handed-over and free work can wait out
+      -- quiet hours: it goes at seven, before the day starts.
+      select (e.kind in ('cleaning_cancelled', 'cleaning_moved', 'cleaning_unassigned')
+              and (e.day_a in (d.today, d.today + 1) or e.day_b in (d.today, d.today + 1))) as urgent
     ) w
     where e.recipient_id is distinct from v_actor
       and (e.day_a between d.today - v_grace and d.today + v_horizon
@@ -251,19 +268,20 @@ begin
        or o.time_to is distinct from n.time_to
   ),
   ev as (
-    -- Handed to her.
+    -- Handed to her — work already under way or paused included: she now
+    -- holds what somebody else started.
     select x.host_id, x.new_assignee as recipient_id, 'cleaning_assigned'::public.push_kind as kind,
            x.id as task_id, x.property_id, x.new_day as day_a, x.new_day as day_b,
-           jsonb_build_object('date', x.new_day, 'type', x.type) as params
+           jsonb_build_object('date', x.new_day, 'type', x.type, 'property', x.property_id) as params
     from pair x
     where x.new_assignee is not null
       and x.new_assignee is distinct from x.old_assignee
-      and x.new_status in ('assigned', 'accepted')
+      and x.new_status in ('assigned', 'accepted', 'in_progress', 'paused', 'blocked')
     union all
     -- Taken from her, and not by being cancelled or closed.
     select x.host_id, x.old_assignee, 'cleaning_unassigned', x.id, x.property_id,
            x.old_day, x.old_day,
-           jsonb_build_object('date', x.old_day, 'type', x.type)
+           jsonb_build_object('date', x.old_day, 'type', x.type, 'property', x.old_property)
     from pair x
     where x.old_assignee is not null
       and x.new_assignee is distinct from x.old_assignee
@@ -273,7 +291,7 @@ begin
     -- Cancelled while open, work under way included.
     select x.host_id, x.old_assignee, 'cleaning_cancelled', x.id, x.property_id,
            x.old_day, x.old_day,
-           jsonb_build_object('date', x.old_day, 'type', x.type)
+           jsonb_build_object('date', x.old_day, 'type', x.type, 'property', x.old_property)
     from pair x
     where x.new_status = 'cancelled'
       and x.old_status not in ('done', 'cancelled', 'expired')
@@ -284,7 +302,7 @@ begin
            x.old_day, x.new_day,
            jsonb_build_object('from_date', x.old_day, 'to_date', x.new_day,
                               'from_property', x.old_property, 'to_property', x.property_id,
-                              'type', x.type,
+                              'property', x.property_id, 'type', x.type,
                               'by', case when v_office then 'office' else 'booking' end)
     from pair x
     where x.new_assignee is not null
@@ -298,7 +316,7 @@ begin
     select x.host_id, x.new_assignee, 'cleaning_window', x.id, x.property_id,
            x.new_day, x.new_day,
            jsonb_build_object('date', x.new_day, 'time_from', x.new_from, 'time_to', x.new_to,
-                              'type', x.type)
+                              'type', x.type, 'property', x.property_id)
     from pair x
     where x.new_assignee is not null
       and x.new_assignee = x.old_assignee
@@ -309,12 +327,17 @@ begin
       and (x.new_from is distinct from x.old_from or x.new_to is distinct from x.old_to)
   ),
   free as materialized (
-    -- Became free: everyone who may take it (below).
-    select x.host_id, x.id as task_id, x.property_id, x.new_day, x.type
+    -- Free work newly in reach: it became free, or free work moved (the
+    -- audience below keeps a move only when it came into the week). Only what
+    -- a cleaner may take from the queue, as on INSERT.
+    select x.host_id, x.id as task_id, x.property_id, x.new_day, x.old_day, x.type, x.old_assignee,
+           (x.old_status is distinct from 'unassigned' or x.old_assignee is not null) as became_free
     from pair x
     where x.new_status = 'unassigned'
       and x.new_assignee is null
-      and (x.old_status is distinct from 'unassigned' or x.old_assignee is not null)
+      and x.type in ('cleaning', 'midstay')
+      and (x.old_status is distinct from 'unassigned' or x.old_assignee is not null
+           or x.old_day is distinct from x.new_day)
   )
   insert into raw.push_outbox (host_id, recipient_id, kind, task_id, collapse_key,
                                params, urgent, send_after, expire_at)
@@ -327,13 +350,19 @@ begin
     union all
     select f.host_id, tk.profile_id, 'cleaning_free'::public.push_kind, f.task_id, f.property_id,
            f.new_day, f.new_day,
-           jsonb_build_object('date', f.new_day, 'type', f.type)
+           jsonb_build_object('date', f.new_day, 'type', f.type, 'property', f.property_id)
     from free f
     join public.properties p on p.id = f.property_id
     join (select distinct t.profile_id from public.push_tokens t) tk on true
     join public.profiles pr on pr.id = tk.profile_id and pr.host_id = f.host_id
     where f.new_day between (now() at time zone p.timezone)::date - v_grace
                         and (now() at time zone p.timezone)::date + v_horizon
+      and (f.became_free
+           or f.old_day not between (now() at time zone p.timezone)::date - v_grace
+                                and (now() at time zone p.timezone)::date + v_horizon)
+      -- Not the one it was just taken from: she hears it was taken off her,
+      -- and "free" would read as an offer of her own cleaning back.
+      and tk.profile_id is distinct from f.old_assignee
       and public.cleans_property_as(tk.profile_id, f.property_id)
   ) e
   join public.properties p on p.id = e.property_id
@@ -342,7 +371,9 @@ begin
     select (now() at time zone p.timezone)::date as today
   ) d
   cross join lateral (
-    select (e.day_a in (d.today, d.today + 1) or e.day_b in (d.today, d.today + 1)) as urgent
+    -- Urgent: taken off her, cancelled or moved, today or tomorrow (as above).
+    select (e.kind in ('cleaning_cancelled', 'cleaning_moved', 'cleaning_unassigned')
+            and (e.day_a in (d.today, d.today + 1) or e.day_b in (d.today, d.today + 1))) as urgent
   ) w
   where e.recipient_id is distinct from v_actor
     and (e.day_a between d.today - v_grace and d.today + v_horizon

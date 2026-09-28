@@ -149,3 +149,15 @@ test('a refusal is not remembered as a registration', async () => {
   await registerThisPhone('me');
   expect(mockRegister).toHaveBeenCalledTimes(1);
 });
+
+test('a registration still on its way when she signs out does not land after it', async () => {
+  // The token comes from Apple or Google, then Expo: seconds on a weak signal.
+  getToken.mockImplementationOnce(async () => {
+    await forgetRegistration();
+    return { type: 'expo', data: 'ExponentPushToken[test]' };
+  });
+
+  await expect(registerThisPhone('me')).resolves.toBe(false);
+
+  expect(mockRegister).not.toHaveBeenCalled();
+});
