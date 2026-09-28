@@ -3,7 +3,8 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 
 import { forgetThisPhone } from '@/features/push/api';
 import { isNetworkError } from '@/lib/online';
-import { supabase } from '@/lib/supabase';
+import { sessionStorage } from '@/lib/secure-storage';
+import { SESSION_STORAGE_KEY, supabase } from '@/lib/supabase';
 
 interface SessionState {
   session: Session | null;
@@ -73,13 +74,19 @@ export async function signIn(email: string, password: string): Promise<void> {
  * call still runs as her — afterwards the server would refuse it — so pushes
  * about her stop reaching a phone she may be handing on.
  *
- * Without signal the session is removed all the same (auth-js drops it before
- * reporting the network), so no signal is not a failure to show her.
+ * Without signal auth-js usually removes the session all the same and only
+ * reports the network: then she is out, and nothing failed. With an access
+ * token that expired while the app slept it cannot refresh, keeps the session
+ * and returns the same error — so what decides is whether a session is still
+ * stored, not what the error says.
  */
 export async function signOut(): Promise<void> {
   await forgetThisPhone();
   const { error } = await supabase.auth.signOut();
-  if (error && !isNetworkError(error)) {
+  if (error === null) {
+    return;
+  }
+  if (!isNetworkError(error) || (await sessionStorage.getItem(SESSION_STORAGE_KEY)) !== null) {
     throw error;
   }
 }

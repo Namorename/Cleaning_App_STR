@@ -17,7 +17,7 @@ import { registerThisPhone } from '../registration';
 jest.mock('expo-router', () => ({ router: { back: jest.fn() } }));
 jest.mock('../registration', () => ({ registerThisPhone: jest.fn(async () => true) }));
 jest.mock('../channels', () => ({ ensureChannels: jest.fn(async () => undefined) }));
-jest.mock('@/lib/sentry', () => ({ reportError: jest.fn() }));
+jest.mock('@/lib/sentry', () => ({ reportError: jest.fn(), reportUnlessOffline: jest.fn() }));
 jest.mock('@/features/auth/session', () => ({
   useSession: () => ({ userId: '7c9e6679-7425-40de-944b-e07fc1f90ae7' }),
 }));
@@ -37,7 +37,7 @@ test('says why, and that the text of a message is never shown', async () => {
   expect(screen.getByRole('button', { name: 'Не сейчас' })).toBeTruthy();
 });
 
-test('"Allow": channels first, then the system question, then the phone is registered', async () => {
+test('"Allow": channels first, then the system question; the screen closes and the phone registers behind it', async () => {
   const order: string[] = [];
   jest.mocked(ensureChannels).mockImplementationOnce(async () => {
     order.push('channels');
@@ -56,6 +56,19 @@ test('"Allow": channels first, then the system question, then the phone is regis
 
   await waitFor(() => expect(router.back).toHaveBeenCalledTimes(1));
   expect(order).toEqual(['channels', 'question', 'register']);
+  expect(registerThisPhone).toHaveBeenCalledWith('7c9e6679-7425-40de-944b-e07fc1f90ae7');
+});
+
+test('a registration that never answers does not keep the screen open', async () => {
+  // Registering reaches Apple or Google, then Expo, then the server: a stairwell away.
+  jest
+    .mocked(registerThisPhone)
+    .mockImplementationOnce(() => new Promise<boolean>(() => undefined));
+  await render(<PermissionExplainer />);
+
+  await fireEvent.press(screen.getByRole('button', { name: 'Разрешить уведомления' }));
+
+  await waitFor(() => expect(router.back).toHaveBeenCalledTimes(1));
 });
 
 test('a "no" to the system question closes the screen and registers nothing', async () => {

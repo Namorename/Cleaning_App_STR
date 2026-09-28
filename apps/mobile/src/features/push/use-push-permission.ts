@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 
 import { useSession } from '@/features/auth/session';
-import { reportError } from '@/lib/sentry';
+import { reportError, reportUnlessOffline } from '@/lib/sentry';
 
 import { ensureChannels, type PushChannel } from './channels';
 import {
@@ -78,7 +78,8 @@ export function usePushPermission(): PushPermission {
       // settings are the way now.
       setState(next === 'ask' ? 'blocked' : next);
       if (permission.granted && userId !== null) {
-        await registerThisPhone(userId);
+        // Behind the notice: no signal now is retried on the next return to the app.
+        registerThisPhone(userId).catch(reportUnlessOffline);
       }
     };
     asking()

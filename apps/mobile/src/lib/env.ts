@@ -13,7 +13,8 @@ const envSchema = z.object({
   supabasePublishableKey: z.string().min(1),
   // Where crash reports go (lib/sentry.ts). Optional: a development run and a
   // build without it simply report nothing. A DSN only lets one send reports.
-  sentryDsn: z.string().url().optional(),
+  // One that is not a URL means no reports, never an app that will not start.
+  sentryDsn: z.string().url().optional().catch(undefined),
 });
 
 export type Env = z.infer<typeof envSchema>;

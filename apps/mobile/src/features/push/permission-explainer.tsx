@@ -8,7 +8,7 @@ import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/const
 import { useSession } from '@/features/auth/session';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
-import { reportError } from '@/lib/sentry';
+import { reportError, reportUnlessOffline } from '@/lib/sentry';
 
 import { ensureChannels } from './channels';
 import { registerThisPhone } from './registration';
@@ -20,7 +20,8 @@ import { registerThisPhone } from './registration';
  * given to a bare question is final there, so it is asked only after she has
  * read what she gets — and what she never gets: the text of a message.
  * "Allow" makes the Android channels first (Android 13 shows its question
- * only once one exists), asks, and registers the phone if she said yes.
+ * only once one exists), asks, closes, and registers the phone behind the
+ * closed screen if she said yes.
  * "Not now" asks nothing; the app offers again on its next start, and the
  * Settings keep the way to turn them on.
  */
@@ -41,8 +42,9 @@ export function PermissionExplainer() {
         ios: { allowAlert: true, allowSound: true, allowBadge: false },
       });
       if (permission.granted && userId !== null) {
-        // The answer does not keep the screen open: registering is retried on every start.
-        await registerThisPhone(userId).catch(reportError);
+        // Behind the closed screen: registering goes to Apple or Google, Expo
+        // and the server, and every start and return to the app tries again.
+        registerThisPhone(userId).catch(reportUnlessOffline);
       }
       router.back();
     } catch (error: unknown) {

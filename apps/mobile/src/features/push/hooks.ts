@@ -7,23 +7,17 @@ import { useTranslation } from 'react-i18next';
 import { AppState, Platform } from 'react-native';
 
 import { fetchTask } from '@/features/tasks/api';
-import { isNetworkError } from '@/lib/online';
-import { reportError } from '@/lib/sentry';
+import { reportError, reportUnlessOffline } from '@/lib/sentry';
 
 import { ensureChannels } from './channels';
 import { destinationOf, staleAfter } from './destination';
+import { useLastResponse } from './last-response';
 import { readPushData, type PushData } from './payload';
 import { needsAsking, readPermissionState } from './permission';
 import { registerThisPhone } from './registration';
+import { isRegisteredFor } from './token-store';
 
 const hasPushes = Platform.OS !== 'web';
-
-/** No signal is the stairwell, not a fault: the next start registers again. */
-function reportUnlessOffline(error: unknown): void {
-  if (!isNetworkError(error)) {
-    reportError(error);
-  }
-}
 
 /**
  * Keeps this phone registered for whoever is signed in on it: at sign-in, when
@@ -45,7 +39,13 @@ export function usePushRegistration(userId: string | null): void {
       registering.catch(reportUnlessOffline);
     };
     register();
-    const tokens = Notifications.addPushTokenListener(register);
+    // Every token fetch fires this event too, including the registration's
+    // own; only once this run's registration went through is it news.
+    const tokens = Notifications.addPushTokenListener((device) => {
+      if (isRegisteredFor(userId)) {
+        register(device);
+      }
+    });
     const appState = AppState.addEventListener('change', (status) => {
       if (status === 'active') {
         register();
@@ -87,18 +87,27 @@ export function usePushRefresh(): void {
   }, [client]);
 }
 
-/** Taps already followed in this run: the tabs draw again after sign-in or a retry. */
+/**
+ * Taps already followed in this run — the tabs draw again after sign-in or a
+ * retry. Keyed on the delivery, not the identifier alone: pushes about one
+ * cleaning or thread share their identifier (the collapse key), and a newer
+ * one is a tap of its own.
+ */
 const followedTaps = new Set<string>();
 
 async function follow(client: QueryClient, data: PushData): Promise<void> {
-  // Stale first: the screen it opens must not draw the copy cached before the push.
-  await refresh(client, data);
+  // Marked stale at once, refetched in the background: the screen it opens
+  // does not draw the copy cached before the push, and the tap does not wait
+  // for a list to come back over a weak signal.
+  void refresh(client, data);
   const destination = await destinationOf(data, fetchTask);
   if (destination.pathname === '/(tabs)') {
-    router.navigate(destination);
-  } else {
-    router.push(destination);
+    // The list itself, not a second copy of it over the screen she was on.
+    if (router.canDismiss()) {
+      router.dismissAll();
+    }
   }
+  router.navigate(destination);
 }
 
 /**
@@ -110,7 +119,7 @@ async function follow(client: QueryClient, data: PushData): Promise<void> {
  */
 export function usePushTaps(userId: string | null): void {
   const client = useQueryClient();
-  const last = Notifications.useLastNotificationResponse();
+  const last = useLastResponse();
 
   useEffect(() => {
     if (userId === null || last === undefined || last === null) {
@@ -119,7 +128,7 @@ export function usePushTaps(userId: string | null): void {
     if (last.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) {
       return;
     }
-    const tapId = last.notification.request.identifier;
+    const tapId = `${last.notification.request.identifier}@${last.notification.date}`;
     if (followedTaps.has(tapId)) {
       return;
     }

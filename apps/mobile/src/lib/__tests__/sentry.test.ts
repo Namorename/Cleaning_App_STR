@@ -24,12 +24,19 @@ test('a release build with a DSN starts reporting, without personal data', () =>
     expect.objectContaining({
       dsn: DSN,
       sendDefaultPii: false,
-      tracesSampleRate: 0,
       attachScreenshot: false,
       attachViewHierarchy: false,
     }),
   );
   expect(Sentry.setUser).toHaveBeenCalledWith({ ip_address: '0.0.0.0' });
+});
+
+test('no tracing: a sample rate of any number, 0 too, would switch it on', () => {
+  // With tracing on, every request of the app carries sentry-trace and baggage headers.
+  initSentry(DSN, false);
+
+  expect(jest.mocked(Sentry.init).mock.calls[0][0]).not.toHaveProperty('tracesSampleRate');
+  expect(jest.mocked(Sentry.init).mock.calls[0][0]).not.toHaveProperty('tracesSampler');
 });
 
 test('a development run reports nothing', () => {

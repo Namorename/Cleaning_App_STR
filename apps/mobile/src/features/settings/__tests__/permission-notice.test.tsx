@@ -18,7 +18,7 @@ jest.mock('@/features/push/registration', () => ({
 jest.mock('@/features/auth/session', () => ({
   useSession: () => ({ userId: '7c9e6679-7425-40de-944b-e07fc1f90ae7' }),
 }));
-jest.mock('@/lib/sentry', () => ({ reportError: jest.fn() }));
+jest.mock('@/lib/sentry', () => ({ reportError: jest.fn(), reportUnlessOffline: jest.fn() }));
 
 const getPermissions = Notifications.getPermissionsAsync as jest.Mock;
 const request = Notifications.requestPermissionsAsync as jest.Mock;

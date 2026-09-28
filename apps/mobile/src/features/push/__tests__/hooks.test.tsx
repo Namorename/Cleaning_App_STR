@@ -1,15 +1,16 @@
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient, QueryObserver } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react-native';
+import * as Sentry from '@sentry/react-native';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import { AppState } from 'react-native';
 
 import { fetchTask } from '@/features/tasks/api';
-import { reportError } from '@/lib/sentry';
 import { withClient } from '@/testing/restored-cache';
 
 import { usePermissionPrompt, usePushRefresh, usePushRegistration, usePushTaps } from '../hooks';
 import { registerThisPhone } from '../registration';
+import { isRegisteredFor } from '../token-store';
 
 /**
  * The push wiring in the app's tree: registering the phone for whoever signs
@@ -19,10 +20,14 @@ import { registerThisPhone } from '../registration';
 
 jest.mock('../registration', () => ({ registerThisPhone: jest.fn(async () => true) }));
 jest.mock('@/features/tasks/api', () => ({ fetchTask: jest.fn(async () => null) }));
-jest.mock('@/lib/sentry', () => ({ reportError: jest.fn() }));
-jest.mock('expo-router', () => ({ router: { push: jest.fn(), navigate: jest.fn() } }));
+jest.mock('../token-store', () => ({ isRegisteredFor: jest.fn(() => true) }));
+jest.mock('expo-router', () => ({
+  router: { push: jest.fn(), navigate: jest.fn(), dismissAll: jest.fn(), canDismiss: jest.fn() },
+}));
 
 const mockRegister = jest.mocked(registerThisPhone);
+const registered = jest.mocked(isRegisteredFor);
+const canDismiss = router.canDismiss as jest.Mock;
 const lastResponse = Notifications.useLastNotificationResponse as jest.Mock;
 const getPermissions = Notifications.getPermissionsAsync as jest.Mock;
 
@@ -30,10 +35,11 @@ const ME = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
 const TASK_ID = '0b3f5c1e-8d2a-4f6b-9c7d-1e2f3a4b5c6d';
 const THREAD_ID = '9f8e7d6c-5b4a-4392-8170-6f5e4d3c2b1a';
 
-function tap(identifier: string, data: unknown) {
+/** A tap on a push delivered at `date`: pushes about one thread or cleaning share an identifier. */
+function tap(identifier: string, data: unknown, date = 1_000) {
   return {
     actionIdentifier: Notifications.DEFAULT_ACTION_IDENTIFIER,
-    notification: { request: { identifier, content: { data } } },
+    notification: { date, request: { identifier, content: { data } } },
   };
 }
 
@@ -48,6 +54,8 @@ const settle = () => new Promise((resolve) => setImmediate(resolve));
 beforeEach(() => {
   jest.clearAllMocks();
   lastResponse.mockReturnValue(null);
+  registered.mockReturnValue(true);
+  canDismiss.mockReturnValue(false);
 });
 
 describe('usePushRegistration', () => {
@@ -82,10 +90,25 @@ describe('usePushRegistration', () => {
     expect(mockRegister).toHaveBeenLastCalledWith(ME, device);
   });
 
+  test("the token the phone's own registration fetched does not register it a second time", async () => {
+    // Every token fetch also fires the token event; before this run's
+    // registration succeeded, that event is the registration's own echo.
+    registered.mockReturnValue(false);
+    await renderHook(() => usePushRegistration(ME));
+    mockRegister.mockClear();
+
+    lastListener<(token: unknown) => void>(Notifications.addPushTokenListener)({
+      type: 'android',
+      data: 'fcm-1',
+    });
+
+    expect(mockRegister).not.toHaveBeenCalled();
+  });
+
   test('a failure is reported, not thrown; no signal is not even reported', async () => {
     mockRegister.mockRejectedValueOnce(new Error('refused'));
     await renderHook(() => usePushRegistration(ME));
-    await waitFor(() => expect(reportError).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(Sentry.captureException).toHaveBeenCalledTimes(1));
 
     mockRegister.mockRejectedValueOnce(new TypeError('Network request failed'));
     lastListener<(token: unknown) => void>(Notifications.addPushTokenListener)({
@@ -94,7 +117,7 @@ describe('usePushRegistration', () => {
     });
     await settle();
 
-    expect(reportError).toHaveBeenCalledTimes(1);
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -125,22 +148,55 @@ describe('usePushTaps', () => {
     await renderHook(() => usePushTaps(ME), { wrapper: withClient(client) });
 
     await waitFor(() =>
-      expect(router.push).toHaveBeenCalledWith({ pathname: '/task/[id]', params: { id: TASK_ID } }),
+      expect(router.navigate).toHaveBeenCalledWith({
+        pathname: '/task/[id]',
+        params: { id: TASK_ID },
+      }),
     );
     expect(Notifications.clearLastNotificationResponse).toHaveBeenCalled();
+  });
+
+  test('a tap opens its screen without waiting for the lists to refresh', async () => {
+    // An active list whose refetch never answers: a stalled connection.
+    const client = new QueryClient();
+    const observer = new QueryObserver(client, {
+      queryKey: ['tasks', 'mine', ME],
+      queryFn: () => new Promise<never>(() => undefined),
+    });
+    const unsubscribe = observer.subscribe(() => undefined);
+    lastResponse.mockReturnValue(tap('n-7', { kind: 'cleaning_new', taskId: TASK_ID }));
+
+    await renderHook(() => usePushTaps(ME), { wrapper: withClient(client) });
+
+    await waitFor(() => expect(router.navigate).toHaveBeenCalledTimes(1));
+    expect(client.getQueryState(['tasks', 'mine', ME])?.isInvalidated).toBe(true);
+    unsubscribe();
+  });
+
+  test('two pushes about one thread are two taps: each is followed', async () => {
+    const client = new QueryClient();
+    const message = { kind: 'chat_message', subject: 'task', id: TASK_ID, threadId: THREAD_ID };
+    lastResponse.mockReturnValue(tap(`thread:${THREAD_ID}`, message, 1_000));
+    const { rerender } = await renderHook(() => usePushTaps(ME), { wrapper: withClient(client) });
+    await waitFor(() => expect(router.navigate).toHaveBeenCalledTimes(1));
+
+    lastResponse.mockReturnValue(tap(`thread:${THREAD_ID}`, message, 2_000));
+    await rerender({});
+
+    await waitFor(() => expect(router.navigate).toHaveBeenCalledTimes(2));
   });
 
   test('the same tap is not followed twice when the tabs draw again', async () => {
     const client = new QueryClient();
     lastResponse.mockReturnValue(tap('n-2', { kind: 'cleaning_new', taskId: TASK_ID }));
     const first = await renderHook(() => usePushTaps(ME), { wrapper: withClient(client) });
-    await waitFor(() => expect(router.push).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(router.navigate).toHaveBeenCalledTimes(1));
     await first.unmount();
 
     await renderHook(() => usePushTaps(ME), { wrapper: withClient(client) });
     await settle();
 
-    expect(router.push).toHaveBeenCalledTimes(1);
+    expect(router.navigate).toHaveBeenCalledTimes(1);
   });
 
   test('signed out, a tap waits', async () => {
@@ -150,11 +206,13 @@ describe('usePushTaps', () => {
     await renderHook(() => usePushTaps(null), { wrapper: withClient(client) });
     await settle();
 
-    expect(router.push).not.toHaveBeenCalled();
+    expect(router.navigate).not.toHaveBeenCalled();
     expect(Notifications.clearLastNotificationResponse).not.toHaveBeenCalled();
   });
 
-  test('a cleaning taken off her lands on her list, saying so', async () => {
+  test('a cleaning taken off her lands on her list, saying so, not on a second copy of it', async () => {
+    // She is on some screen over the tabs: going to the list closes it.
+    canDismiss.mockReturnValue(true);
     const client = new QueryClient();
     lastResponse.mockReturnValue(tap('n-4', { kind: 'cleaning_unassigned', taskId: TASK_ID }));
 
@@ -165,6 +223,10 @@ describe('usePushTaps', () => {
         pathname: '/(tabs)',
         params: { notice: 'unassigned' },
       }),
+    );
+    expect(router.dismissAll).toHaveBeenCalledTimes(1);
+    expect(jest.mocked(router.dismissAll).mock.invocationCallOrder[0]).toBeLessThan(
+      jest.mocked(router.navigate).mock.invocationCallOrder[0],
     );
   });
 
@@ -185,7 +247,6 @@ describe('usePushTaps', () => {
     await renderHook(() => usePushTaps(ME), { wrapper: withClient(client) });
     await settle();
 
-    expect(router.push).not.toHaveBeenCalled();
     expect(router.navigate).not.toHaveBeenCalled();
   });
 });
@@ -215,5 +276,15 @@ describe('usePermissionPrompt', () => {
     await settle();
 
     expect(router.push).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the web build', () => {
+  test('has no tapped push to follow, and asks the notifications module nothing', () => {
+    const { useLastResponse } =
+      jest.requireActual<typeof import('../last-response.web')>('../last-response.web');
+
+    expect(useLastResponse()).toBeNull();
+    expect(lastResponse).not.toHaveBeenCalled();
   });
 });

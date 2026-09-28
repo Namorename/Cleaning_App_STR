@@ -1,4 +1,5 @@
 import type { Language } from '@str-ops/shared';
+import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
@@ -10,8 +11,8 @@ import { forgetRegistration, rememberedToken } from './token-store';
  * queue: a registration is simply made again on the next start, and a let-go
  * replayed after someone else signed in on the phone would run as her.
  *
- * No native module is imported here — session.tsx calls forgetThisPhone, and
- * the web build signs out through it too.
+ * session.tsx calls forgetThisPhone, and the web build signs out through it
+ * too: nothing native is asked for there.
  */
 
 /** Long enough for a slow network, short enough that signing out never hangs on it. */
@@ -39,7 +40,10 @@ export async function registerPushToken(registration: PhoneRegistration): Promis
 }
 
 /**
- * Before signing out: stop pushes about her reaching this phone.
+ * Before signing out: stop pushes about her reaching this phone, and take
+ * what it still shows of her off it — her delivered pushes name her flats,
+ * and a tap on one not yet followed would be followed for whoever signs in
+ * next.
  *
  * Never throws and never waits long — signing out must work in a stairwell.
  * When it fails the token stays with her on the server until the next person
@@ -54,6 +58,16 @@ export async function forgetThisPhone(): Promise<void> {
     await unregister(token);
   }
   await forgetRegistration().catch(() => undefined);
+  await clearWhatIsShown();
+}
+
+async function clearWhatIsShown(): Promise<void> {
+  await Notifications.dismissAllNotificationsAsync().catch(() => undefined);
+  try {
+    Notifications.clearLastNotificationResponse();
+  } catch {
+    // Nothing kept to clear: the tap is gone either way.
+  }
 }
 
 async function unregister(token: string): Promise<void> {

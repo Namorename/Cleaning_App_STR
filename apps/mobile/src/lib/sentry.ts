@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/react-native';
 
 import { env } from '@/lib/env';
+import { isNetworkError } from '@/lib/online';
 
 /**
  * Crash reports from the field.
@@ -12,8 +13,10 @@ import { env } from '@/lib/env';
  * What is sent is the error and its stack, never the people in it. Screens
  * show names, addresses and photos, so Sentry's own Expo example — personal
  * data on, screenshots, replay — is not followed: no personal data, no
- * screenshot, no view hierarchy, no tracing, and the sender's IP is stored as
- * 0.0.0.0 rather than inferred.
+ * screenshot, no view hierarchy, and the sender's IP is stored as 0.0.0.0
+ * rather than inferred. No tracing either — and that means no sample rate at
+ * all: any number, 0 included, switches tracing on, and every request of the
+ * app would carry Sentry's trace headers.
  */
 export function initSentry(dsn: string | undefined = env.sentryDsn, isDev = __DEV__): boolean {
   if (dsn === undefined || isDev) {
@@ -22,7 +25,6 @@ export function initSentry(dsn: string | undefined = env.sentryDsn, isDev = __DE
   Sentry.init({
     dsn,
     sendDefaultPii: false,
-    tracesSampleRate: 0,
     attachScreenshot: false,
     attachViewHierarchy: false,
   });
@@ -33,4 +35,11 @@ export function initSentry(dsn: string | undefined = env.sentryDsn, isDev = __DE
 /** An error the app caught and survived, for the report; a no-op when reporting is off. */
 export function reportError(error: unknown): void {
   Sentry.captureException(error);
+}
+
+/** The same, except no signal: that is the stairwell, not a fault — the next try goes through. */
+export function reportUnlessOffline(error: unknown): void {
+  if (!isNetworkError(error)) {
+    reportError(error);
+  }
 }

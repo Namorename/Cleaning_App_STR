@@ -1,19 +1,28 @@
 import { forgetThisPhone } from '@/features/push/api';
+import { sessionStorage } from '@/lib/secure-storage';
 
 import { signOut } from '../session';
 
 /**
  * Signing out lets go of the phone's push token first — afterwards the call
  * would run with no one signed in, and the server would refuse it — and then
- * leaves. Without signal the session is gone all the same (auth-js removes it
- * before it reports the network), so that is not a failure to show her.
+ * leaves. Without signal auth-js usually removes the session all the same and
+ * only reports the network: then she is out, and nothing failed. But with an
+ * access token that expired while the app slept, it cannot refresh, keeps the
+ * session and returns the same network error — then she is still in, and the
+ * screen must say so.
  */
 
 const mockSignOut = jest.fn();
 const calls: string[] = [];
 
 jest.mock('@/lib/supabase', () => ({
+  SESSION_STORAGE_KEY: 'sb-project-auth-token',
   supabase: { auth: { signOut: () => mockSignOut() } },
+}));
+
+jest.mock('@/lib/secure-storage', () => ({
+  sessionStorage: { getItem: jest.fn(async () => null) },
 }));
 
 jest.mock('@/features/push/api', () => ({
@@ -21,9 +30,16 @@ jest.mock('@/features/push/api', () => ({
 }));
 
 const mockForget = jest.mocked(forgetThisPhone);
+const storedSession = jest.mocked(sessionStorage.getItem);
+const noSignal = {
+  name: 'AuthRetryableFetchError',
+  status: 0,
+  message: 'Network request failed',
+};
 
 beforeEach(() => {
   calls.length = 0;
+  storedSession.mockReset().mockResolvedValue(null);
   mockForget.mockReset().mockImplementation(async () => {
     calls.push('forget');
   });
@@ -39,12 +55,19 @@ test('lets go of the phone before signing out', async () => {
   expect(calls).toEqual(['forget', 'signOut']);
 });
 
-test('no signal: she is signed out, and nothing is reported as failed', async () => {
-  mockSignOut.mockResolvedValue({
-    error: { name: 'AuthRetryableFetchError', status: 0, message: 'Network request failed' },
-  });
+test('no signal, and the session is gone: she is signed out, and nothing failed', async () => {
+  mockSignOut.mockResolvedValue({ error: noSignal });
 
   await expect(signOut()).resolves.toBeUndefined();
+
+  expect(storedSession).toHaveBeenCalledWith('sb-project-auth-token');
+});
+
+test('no signal, and the session is still stored: she is still in, and is told', async () => {
+  mockSignOut.mockResolvedValue({ error: noSignal });
+  storedSession.mockResolvedValue('{"access_token":"expired"}');
+
+  await expect(signOut()).rejects.toBe(noSignal);
 });
 
 test('a refusal the server sent still reaches the screen', async () => {

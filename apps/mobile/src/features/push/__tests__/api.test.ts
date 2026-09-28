@@ -1,3 +1,4 @@
+import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 
 import { FORGET_TIMEOUT_MS, forgetThisPhone, registerPushToken } from '../api';
@@ -27,6 +28,8 @@ function rpcAnswering(result: Promise<{ error: unknown }>) {
 
 beforeEach(async () => {
   mockRpc.mockReset();
+  jest.mocked(Notifications.dismissAllNotificationsAsync).mockClear();
+  jest.mocked(Notifications.clearLastNotificationResponse).mockClear();
   await SecureStore.deleteItemAsync('push-token');
 });
 
@@ -101,5 +104,30 @@ describe('forgetThisPhone', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+});
+
+describe('what the phone still shows of her', () => {
+  test('her delivered notifications leave the tray, and a pending tap is dropped', async () => {
+    // A phone being handed on must not show the next person her flats, nor
+    // open one of her pushes for them after they sign in.
+    await rememberRegistration(TOKEN, 'me|ru');
+    rpcAnswering(Promise.resolve({ error: null }));
+
+    await forgetThisPhone();
+
+    expect(Notifications.dismissAllNotificationsAsync).toHaveBeenCalledTimes(1);
+    expect(Notifications.clearLastNotificationResponse).toHaveBeenCalledTimes(1);
+  });
+
+  test('a tray that cannot be emptied does not stop her signing out', async () => {
+    jest
+      .mocked(Notifications.dismissAllNotificationsAsync)
+      .mockRejectedValueOnce(new Error('native module missing'));
+    jest.mocked(Notifications.clearLastNotificationResponse).mockImplementationOnce(() => {
+      throw new Error('native module missing');
+    });
+
+    await expect(forgetThisPhone()).resolves.toBeUndefined();
   });
 });
