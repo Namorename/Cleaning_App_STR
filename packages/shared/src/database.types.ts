@@ -2015,6 +2015,8 @@ export type Database = {
           thread_id: string
         }[]
       }
+      claim_push_batch: { Args: { p_limit?: number }; Returns: Json }
+      claim_push_receipts: { Args: { p_limit?: number }; Returns: Json }
       claim_webhook_events: {
         Args: { batch_size?: number; max_attempts?: number }
         Returns: Json
@@ -2127,6 +2129,10 @@ export type Database = {
       }
       enqueue_daily_digest: { Args: { p_at?: string }; Returns: number }
       expire_stale_tasks: { Args: never; Returns: Json }
+      forget_push_token: {
+        Args: { p_seen_at: string; p_token: string }
+        Returns: undefined
+      }
       generate_cleaning_tasks: {
         Args: { from_date: string; to_date: string }
         Returns: Json
@@ -2298,10 +2304,14 @@ export type Database = {
           unit_name: string
         }[]
       }
+      purge_push_history: { Args: never; Returns: undefined }
       push_digest_hour: { Args: never; Returns: number }
+      push_history_kept: { Args: never; Returns: string }
+      push_lease: { Args: never; Returns: string }
       push_lifetime: { Args: never; Returns: string }
       push_quiet_end: { Args: never; Returns: number }
       push_quiet_start: { Args: never; Returns: number }
+      push_receipt_delay: { Args: never; Returns: string }
       push_send_after: {
         Args: { p_at?: string; p_urgent: boolean }
         Returns: string
@@ -2309,6 +2319,8 @@ export type Database = {
       push_settle: { Args: never; Returns: string }
       push_timezone: { Args: never; Returns: string }
       push_tokens_per_person: { Args: never; Returns: number }
+      record_push_receipts: { Args: { p_receipts: Json }; Returns: undefined }
+      record_push_results: { Args: { p_results: Json }; Returns: undefined }
       record_webhook_event: {
         Args: { event_payload: Json; event_source?: string }
         Returns: number
