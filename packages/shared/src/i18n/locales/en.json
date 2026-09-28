@@ -1216,5 +1216,61 @@
     "mailTooSoon": "A letter has just gone to this address. Try again in a minute.",
     "mailNotConfigured": "Sending email is not configured.",
     "hostNotFound": "The company was not found."
+  },
+  "push": {
+    "cleaning_new": {
+      "title": "New cleaning",
+      "titleWork": "New job"
+    },
+    "cleaning_assigned": {
+      "title": "Cleaning assigned to you",
+      "titleWork": "Job assigned to you"
+    },
+    "cleaning_unassigned": {
+      "title": "You no longer have this cleaning",
+      "titleWork": "You no longer have this job"
+    },
+    "cleaning_cancelled": {
+      "title": "Cleaning cancelled",
+      "titleWork": "Job cancelled"
+    },
+    "cleaning_moved": {
+      "title": "Cleaning moved",
+      "titleWork": "Job moved",
+      "byOffice": "Moved by the office.",
+      "byBooking": "The booking changed."
+    },
+    "cleaning_window": {
+      "title": "Cleaning hours changed",
+      "titleWork": "Job hours changed"
+    },
+    "cleaning_free": {
+      "title": "Free cleaning",
+      "titleWork": "Free job"
+    },
+    "booking_cancelled_live": {
+      "title": "Booking cancelled",
+      "body": "{{place}}: the booking was cancelled while the cleaning is under way. Check with the office."
+    },
+    "chat_message": {
+      "title": "New message",
+      "count_one": "{{count}} new message",
+      "count_other": "{{count}} new messages"
+    },
+    "daily_digest": {
+      "title": "Your day",
+      "today": "Today: {{count}}",
+      "newInWeek": "New this week: {{count}}"
+    },
+    "placeDay": "{{place}}, {{date}}",
+    "moveDays": "{{place}}: {{from}} → {{to}}",
+    "movePlaces": "{{from}} → {{to}}, {{date}}",
+    "moveBoth": "{{fromPlace}}, {{fromDate}} → {{toPlace}}, {{toDate}}",
+    "windowBody": "{{place}}, {{date}}: {{window}}",
+    "windowRange": "{{from}}–{{to}}",
+    "windowFrom": "from {{time}}",
+    "windowUntil": "until {{time}}",
+    "messageFrom": "{{place}} · {{author}}",
+    "unknownPlace": "Property {{id}}"
   }
 }

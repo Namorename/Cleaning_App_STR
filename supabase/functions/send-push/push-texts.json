@@ -1,0 +1,174 @@
+{
+  "ru": {
+    "cleaning_new": {
+      "title": "Новая уборка",
+      "titleWork": "Новая работа"
+    },
+    "cleaning_assigned": {
+      "title": "Вам назначена уборка",
+      "titleWork": "Вам назначена работа"
+    },
+    "cleaning_unassigned": {
+      "title": "Уборку сняли с вас",
+      "titleWork": "Работу сняли с вас"
+    },
+    "cleaning_cancelled": {
+      "title": "Уборка отменена",
+      "titleWork": "Работа отменена"
+    },
+    "cleaning_moved": {
+      "title": "Уборка перенесена",
+      "titleWork": "Работа перенесена",
+      "byOffice": "Перенёс менеджер.",
+      "byBooking": "Изменилась бронь."
+    },
+    "cleaning_window": {
+      "title": "Время уборки изменилось",
+      "titleWork": "Время работы изменилось"
+    },
+    "cleaning_free": {
+      "title": "Свободная уборка",
+      "titleWork": "Свободная работа"
+    },
+    "booking_cancelled_live": {
+      "title": "Бронь отменена",
+      "body": "{{place}}: бронь отменена, пока идёт уборка. Уточните у менеджера."
+    },
+    "chat_message": {
+      "title": "Новое сообщение",
+      "count_one": "{{count}} новое сообщение",
+      "count_few": "{{count}} новых сообщения",
+      "count_many": "{{count}} новых сообщений",
+      "count_other": "{{count}} нового сообщения"
+    },
+    "daily_digest": {
+      "title": "Ваш день",
+      "today": "Сегодня: {{count}}",
+      "newInWeek": "Новых на неделе: {{count}}"
+    },
+    "placeDay": "{{place}}, {{date}}",
+    "moveDays": "{{place}}: {{from}} → {{to}}",
+    "movePlaces": "{{from}} → {{to}}, {{date}}",
+    "moveBoth": "{{fromPlace}}, {{fromDate}} → {{toPlace}}, {{toDate}}",
+    "windowBody": "{{place}}, {{date}}: {{window}}",
+    "windowRange": "{{from}}–{{to}}",
+    "windowFrom": "с {{time}}",
+    "windowUntil": "до {{time}}",
+    "messageFrom": "{{place}} · {{author}}",
+    "unknownPlace": "Объект {{id}}"
+  },
+  "en": {
+    "cleaning_new": {
+      "title": "New cleaning",
+      "titleWork": "New job"
+    },
+    "cleaning_assigned": {
+      "title": "Cleaning assigned to you",
+      "titleWork": "Job assigned to you"
+    },
+    "cleaning_unassigned": {
+      "title": "You no longer have this cleaning",
+      "titleWork": "You no longer have this job"
+    },
+    "cleaning_cancelled": {
+      "title": "Cleaning cancelled",
+      "titleWork": "Job cancelled"
+    },
+    "cleaning_moved": {
+      "title": "Cleaning moved",
+      "titleWork": "Job moved",
+      "byOffice": "Moved by the office.",
+      "byBooking": "The booking changed."
+    },
+    "cleaning_window": {
+      "title": "Cleaning hours changed",
+      "titleWork": "Job hours changed"
+    },
+    "cleaning_free": {
+      "title": "Free cleaning",
+      "titleWork": "Free job"
+    },
+    "booking_cancelled_live": {
+      "title": "Booking cancelled",
+      "body": "{{place}}: the booking was cancelled while the cleaning is under way. Check with the office."
+    },
+    "chat_message": {
+      "title": "New message",
+      "count_one": "{{count}} new message",
+      "count_other": "{{count}} new messages"
+    },
+    "daily_digest": {
+      "title": "Your day",
+      "today": "Today: {{count}}",
+      "newInWeek": "New this week: {{count}}"
+    },
+    "placeDay": "{{place}}, {{date}}",
+    "moveDays": "{{place}}: {{from}} → {{to}}",
+    "movePlaces": "{{from}} → {{to}}, {{date}}",
+    "moveBoth": "{{fromPlace}}, {{fromDate}} → {{toPlace}}, {{toDate}}",
+    "windowBody": "{{place}}, {{date}}: {{window}}",
+    "windowRange": "{{from}}–{{to}}",
+    "windowFrom": "from {{time}}",
+    "windowUntil": "until {{time}}",
+    "messageFrom": "{{place}} · {{author}}",
+    "unknownPlace": "Property {{id}}"
+  },
+  "cs": {
+    "cleaning_new": {
+      "title": "Nový úklid",
+      "titleWork": "Nová práce"
+    },
+    "cleaning_assigned": {
+      "title": "Máte přidělený úklid",
+      "titleWork": "Máte přidělenou práci"
+    },
+    "cleaning_unassigned": {
+      "title": "Tento úklid už nemáte",
+      "titleWork": "Tuto práci už nemáte"
+    },
+    "cleaning_cancelled": {
+      "title": "Úklid zrušen",
+      "titleWork": "Práce zrušena"
+    },
+    "cleaning_moved": {
+      "title": "Úklid přesunut",
+      "titleWork": "Práce přesunuta",
+      "byOffice": "Přesunul manažer.",
+      "byBooking": "Změnila se rezervace."
+    },
+    "cleaning_window": {
+      "title": "Změnil se čas úklidu",
+      "titleWork": "Změnil se čas práce"
+    },
+    "cleaning_free": {
+      "title": "Volný úklid",
+      "titleWork": "Volná práce"
+    },
+    "booking_cancelled_live": {
+      "title": "Rezervace zrušena",
+      "body": "{{place}}: rezervace byla zrušena během úklidu. Ověřte si to u manažera."
+    },
+    "chat_message": {
+      "title": "Nová zpráva",
+      "count_one": "{{count}} nová zpráva",
+      "count_few": "{{count}} nové zprávy",
+      "count_many": "{{count}} nové zprávy",
+      "count_other": "{{count}} nových zpráv"
+    },
+    "daily_digest": {
+      "title": "Váš den",
+      "today": "Dnes: {{count}}",
+      "newInWeek": "Nových v týdnu: {{count}}"
+    },
+    "placeDay": "{{place}}, {{date}}",
+    "moveDays": "{{place}}: {{from}} → {{to}}",
+    "movePlaces": "{{from}} → {{to}}, {{date}}",
+    "moveBoth": "{{fromPlace}}, {{fromDate}} → {{toPlace}}, {{toDate}}",
+    "windowBody": "{{place}}, {{date}}: {{window}}",
+    "windowRange": "{{from}}–{{to}}",
+    "windowFrom": "od {{time}}",
+    "windowUntil": "do {{time}}",
+    "messageFrom": "{{place}} · {{author}}",
+    "unknownPlace": "Objekt {{id}}"
+  }
+}

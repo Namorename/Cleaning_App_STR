@@ -188,3 +188,42 @@ Doplněno pro tlačítko „Přijmout“ (F11, 2026-09-28). Nové texty. Uklíze
 - `tasks.status.accepted`: Přijato — štítek na kartě; platí pro úklid i práci, proto střední rod
 - `tasks.detail.accepted`: Úklid přijat
 - `tasks.work.accepted`: Práce přijata — pro opravy a kontroly
+
+Doplněno pro texty push (F11, 2026-09-28). Nové texty; posílá je server v jazyce uklízečky, když je aplikace zavřená. {{place}} je objekt, {{date}} den („pá 2. 10.“), {{count}} počet, {{author}} jméno pisatele. Text zprávy se nikdy neukazuje.
+
+- `push.cleaning_new.title`: Nový úklid
+- `push.cleaning_new.titleWork`: Nová práce
+- `push.cleaning_assigned.title`: Máte přidělený úklid
+- `push.cleaning_assigned.titleWork`: Máte přidělenou práci
+- `push.cleaning_unassigned.title`: Tento úklid už nemáte — úklid mužského rodu: „tento úklid“
+- `push.cleaning_unassigned.titleWork`: Tuto práci už nemáte
+- `push.cleaning_cancelled.title`: Úklid zrušen
+- `push.cleaning_cancelled.titleWork`: Práce zrušena
+- `push.cleaning_moved.title`: Úklid přesunut
+- `push.cleaning_moved.titleWork`: Práce přesunuta
+- `push.cleaning_moved.byOffice`: Přesunul manažer. — kdo úklid přesunul
+- `push.cleaning_moved.byBooking`: Změnila se rezervace.
+- `push.cleaning_window.title`: Změnil se čas úklidu
+- `push.cleaning_window.titleWork`: Změnil se čas práce
+- `push.cleaning_free.title`: Volný úklid
+- `push.cleaning_free.titleWork`: Volná práce
+- `push.booking_cancelled_live.title`: Rezervace zrušena
+- `push.booking_cancelled_live.body`: {{place}}: rezervace byla zrušena během úklidu. Ověřte si to u manažera.
+- `push.chat_message.title`: Nová zpráva
+- `push.chat_message.count_one`: {{count}} nová zpráva
+- `push.chat_message.count_few`: {{count}} nové zprávy — 2–4 zprávy
+- `push.chat_message.count_many`: {{count}} nové zprávy
+- `push.chat_message.count_other`: {{count}} nových zpráv — 5 a více zpráv
+- `push.daily_digest.title`: Váš den
+- `push.daily_digest.today`: Dnes: {{count}}
+- `push.daily_digest.newInWeek`: Nových v týdnu: {{count}}
+- `push.placeDay`: {{place}}, {{date}}
+- `push.moveDays`: {{place}}: {{from}} → {{to}}
+- `push.movePlaces`: {{from}} → {{to}}, {{date}}
+- `push.moveBoth`: {{fromPlace}}, {{fromDate}} → {{toPlace}}, {{toDate}}
+- `push.windowBody`: {{place}}, {{date}}: {{window}}
+- `push.windowRange`: {{from}}–{{to}}
+- `push.windowFrom`: od {{time}}
+- `push.windowUntil`: do {{time}}
+- `push.messageFrom`: {{place}} · {{author}}
+- `push.unknownPlace`: Objekt {{id}}

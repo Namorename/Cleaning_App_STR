@@ -1240,5 +1240,63 @@
     "mailTooSoon": "На этот адрес только что уходило письмо. Попробуйте через минуту.",
     "mailNotConfigured": "Отправка почты не настроена.",
     "hostNotFound": "Компания не найдена."
+  },
+  "push": {
+    "cleaning_new": {
+      "title": "Новая уборка",
+      "titleWork": "Новая работа"
+    },
+    "cleaning_assigned": {
+      "title": "Вам назначена уборка",
+      "titleWork": "Вам назначена работа"
+    },
+    "cleaning_unassigned": {
+      "title": "Уборку сняли с вас",
+      "titleWork": "Работу сняли с вас"
+    },
+    "cleaning_cancelled": {
+      "title": "Уборка отменена",
+      "titleWork": "Работа отменена"
+    },
+    "cleaning_moved": {
+      "title": "Уборка перенесена",
+      "titleWork": "Работа перенесена",
+      "byOffice": "Перенёс менеджер.",
+      "byBooking": "Изменилась бронь."
+    },
+    "cleaning_window": {
+      "title": "Время уборки изменилось",
+      "titleWork": "Время работы изменилось"
+    },
+    "cleaning_free": {
+      "title": "Свободная уборка",
+      "titleWork": "Свободная работа"
+    },
+    "booking_cancelled_live": {
+      "title": "Бронь отменена",
+      "body": "{{place}}: бронь отменена, пока идёт уборка. Уточните у менеджера."
+    },
+    "chat_message": {
+      "title": "Новое сообщение",
+      "count_one": "{{count}} новое сообщение",
+      "count_few": "{{count}} новых сообщения",
+      "count_many": "{{count}} новых сообщений",
+      "count_other": "{{count}} нового сообщения"
+    },
+    "daily_digest": {
+      "title": "Ваш день",
+      "today": "Сегодня: {{count}}",
+      "newInWeek": "Новых на неделе: {{count}}"
+    },
+    "placeDay": "{{place}}, {{date}}",
+    "moveDays": "{{place}}: {{from}} → {{to}}",
+    "movePlaces": "{{from}} → {{to}}, {{date}}",
+    "moveBoth": "{{fromPlace}}, {{fromDate}} → {{toPlace}}, {{toDate}}",
+    "windowBody": "{{place}}, {{date}}: {{window}}",
+    "windowRange": "{{from}}–{{to}}",
+    "windowFrom": "с {{time}}",
+    "windowUntil": "до {{time}}",
+    "messageFrom": "{{place}} · {{author}}",
+    "unknownPlace": "Объект {{id}}"
   }
 }

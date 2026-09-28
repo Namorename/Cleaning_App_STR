@@ -1240,5 +1240,63 @@
     "mailTooSoon": "Na tuhle adresu právě odešel e-mail. Zkuste to za minutu.",
     "mailNotConfigured": "Odesílání e-mailů není nastavené.",
     "hostNotFound": "Společnost nebyla nalezena."
+  },
+  "push": {
+    "cleaning_new": {
+      "title": "Nový úklid",
+      "titleWork": "Nová práce"
+    },
+    "cleaning_assigned": {
+      "title": "Máte přidělený úklid",
+      "titleWork": "Máte přidělenou práci"
+    },
+    "cleaning_unassigned": {
+      "title": "Tento úklid už nemáte",
+      "titleWork": "Tuto práci už nemáte"
+    },
+    "cleaning_cancelled": {
+      "title": "Úklid zrušen",
+      "titleWork": "Práce zrušena"
+    },
+    "cleaning_moved": {
+      "title": "Úklid přesunut",
+      "titleWork": "Práce přesunuta",
+      "byOffice": "Přesunul manažer.",
+      "byBooking": "Změnila se rezervace."
+    },
+    "cleaning_window": {
+      "title": "Změnil se čas úklidu",
+      "titleWork": "Změnil se čas práce"
+    },
+    "cleaning_free": {
+      "title": "Volný úklid",
+      "titleWork": "Volná práce"
+    },
+    "booking_cancelled_live": {
+      "title": "Rezervace zrušena",
+      "body": "{{place}}: rezervace byla zrušena během úklidu. Ověřte si to u manažera."
+    },
+    "chat_message": {
+      "title": "Nová zpráva",
+      "count_one": "{{count}} nová zpráva",
+      "count_few": "{{count}} nové zprávy",
+      "count_many": "{{count}} nové zprávy",
+      "count_other": "{{count}} nových zpráv"
+    },
+    "daily_digest": {
+      "title": "Váš den",
+      "today": "Dnes: {{count}}",
+      "newInWeek": "Nových v týdnu: {{count}}"
+    },
+    "placeDay": "{{place}}, {{date}}",
+    "moveDays": "{{place}}: {{from}} → {{to}}",
+    "movePlaces": "{{from}} → {{to}}, {{date}}",
+    "moveBoth": "{{fromPlace}}, {{fromDate}} → {{toPlace}}, {{toDate}}",
+    "windowBody": "{{place}}, {{date}}: {{window}}",
+    "windowRange": "{{from}}–{{to}}",
+    "windowFrom": "od {{time}}",
+    "windowUntil": "do {{time}}",
+    "messageFrom": "{{place}} · {{author}}",
+    "unknownPlace": "Objekt {{id}}"
   }
 }
