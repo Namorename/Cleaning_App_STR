@@ -224,11 +224,19 @@ Deno.test("a phone of another Expo project does not silence everyone sent with i
   ]]);
   const { expo, sent } = sender((messages) =>
     messages.length === 3
-      ? new ExpoMixedProjectsError("PUSH_TOO_MANY_EXPERIENCE_IDS", [["A1", "B1"], ["D1"]])
+      ? new ExpoMixedProjectsError(
+        "Expo refused the request (400): PUSH_TOO_MANY_EXPERIENCE_IDS: mixed projects",
+        [["A1", "B1"], ["D1"]],
+        ["@office/str-ops", "@tester/str-ops-dev"],
+      )
       : okTickets(messages)
   );
+  const logs: string[] = [];
 
-  await runSendPush(db, expo, quiet);
+  await runSendPush(db, expo, {
+    log: (...args) => logs.push(args.map(String).join(" ")),
+    error: () => {},
+  });
 
   assertEquals(sent.map((request) => request.map((m) => m.to)), [
     ["A1", "D1", "B1"],
@@ -240,6 +248,11 @@ Deno.test("a phone of another Expo project does not silence everyone sent with i
     [[72], "sent"],
     [[73], "sent"],
   ]);
+  // The owner reads which project is the stray one — never a phone's token.
+  const mix = logs.find((line) => line.includes("PUSH_TOO_MANY_EXPERIENCE_IDS")) ?? "";
+  assertEquals(mix.includes("@office/str-ops 2"), true);
+  assertEquals(mix.includes("@tester/str-ops-dev 1"), true);
+  assertEquals(logs.some((line) => /\b(A1|B1|D1)\b/.test(line)), false);
 });
 
 Deno.test("when one project's request fails, only the groups wholly in it go again", async () => {
@@ -249,21 +262,26 @@ Deno.test("when one project's request fails, only the groups wholly in it go aga
   ]]);
   const { expo } = sender((messages) => {
     if (messages.length === 2) {
-      return new ExpoMixedProjectsError("PUSH_TOO_MANY_EXPERIENCE_IDS", [["A1"], ["D1"]]);
+      return new ExpoMixedProjectsError(
+        "PUSH_TOO_MANY_EXPERIENCE_IDS",
+        [["A1"], ["D1"]],
+        ["@office/str-ops", "@tester/str-ops-dev"],
+      );
     }
     return messages[0].to === "D1"
       ? new ExpoRequestError("Expo refused the request (401)")
       : okTickets(messages);
   });
-  const errors: unknown[] = [];
+  const errors: string[] = [];
 
-  await runSendPush(db, expo, { log: () => {}, error: (...args) => errors.push(args) });
+  await runSendPush(db, expo, { log: () => {}, error: (text) => errors.push(String(text)) });
 
   assertEquals(settled(calls).map((s) => [s.outbox_ids, s.outcome]), [
     [[81], "sent"],
     [[82], "failed"],
   ]);
   assertEquals(errors.length, 1);
+  assertEquals(errors[0].includes("@tester/str-ops-dev"), true);
 });
 
 Deno.test("a group split across projects is settled with what reached her, never sent twice", async () => {

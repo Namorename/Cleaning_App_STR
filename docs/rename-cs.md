@@ -217,6 +217,10 @@ Doplněno pro texty push (F11, 2026-09-28). Nové texty; posílá je server v ja
 - `push.daily_digest.title`: Váš den
 - `push.daily_digest.today`: Dnes: {{count}}
 - `push.daily_digest.newInWeek`: Nových v týdnu: {{count}}
+- `push.daily_digest.free`: Volných v týdnu: {{count}} — (2026-09-29, ночью, по
+  образцу строки выше; носителю проверить обе: «v týdnu» может читаться как «в
+  будни», а «volných» без слова — как «выходных»; вариант — «Volné úklidy v
+  týdnu: {{count}}»)
 - `push.placeDay`: {{place}}, {{date}}
 - `push.moveDays`: {{place}}: {{from}} → {{to}}
 - `push.movePlaces`: {{from}} → {{to}}, {{date}}

@@ -407,6 +407,10 @@ insert into public.property_cleaners (host_id, property_id, cleaner_id, mode) va
   ('a8f13000-0000-4000-8000-00000000000a', 900013001, 'a8f13008-0000-4000-8000-000000000008', 'claim');
 insert into public.push_tokens (token, profile_id, host_id, platform) values
   ('ExponentPushToken[ev-vera]', 'a8f13008-0000-4000-8000-000000000008', 'a8f13000-0000-4000-8000-00000000000a', 'android');
+-- Yesterday's cleaning nobody took: still in her queue (the day of grace), and
+-- still hers to take — the morning counts it as the queue shows it.
+insert into public.tasks (id, host_id, property_id, type, status, scheduled_date) values
+  (pg_temp.tid(15), 'a8f13000-0000-4000-8000-00000000000a', 900013001, 'cleaning', 'unassigned', current_date - 1);
 select pg_temp.clear();
 
 select public.enqueue_daily_digest(((current_date + time '07:10') at time zone 'Europe/Prague'));
@@ -420,17 +424,17 @@ select pg_temp.check('Bara''s says what came into her week',
   (select array[o.params ->> 'today', o.params ->> 'new_in_week'] from raw.push_outbox o
    where o.recipient_id = pg_temp.bara()),
   array['0', '1']);
--- Free on Flat A this week: the cleaning taken off Anna (tomorrow) and the one
--- moved into the week (in four days). The inspection is the office's, and
+-- Free on Flat A: yesterday's, the cleaning taken off Anna (tomorrow) and the
+-- one moved into the week (in four days). The inspection is the office's, and
 -- nobody works Flat B.
-select pg_temp.check('Anna''s counts the free cleanings of her week she may take',
-  (select o.params ->> 'free' from raw.push_outbox o where o.recipient_id = pg_temp.anna()), '2');
+select pg_temp.check('Anna''s counts the free cleanings she may take, as her queue shows them',
+  (select o.params ->> 'free' from raw.push_outbox o where o.recipient_id = pg_temp.anna()), '3');
 select pg_temp.check('Bara''s counts none: she no longer works the listing',
   (select o.params ->> 'free' from raw.push_outbox o where o.recipient_id = pg_temp.bara()), '0');
 select pg_temp.check('Vera, with nothing of her own, hears of the free work alone',
   (select array[o.params ->> 'today', o.params ->> 'new_in_week', o.params ->> 'free']
    from raw.push_outbox o where o.recipient_id = 'a8f13008-0000-4000-8000-000000000008'),
-  array['0', '0', '2']);
+  array['0', '0', '3']);
 select public.enqueue_daily_digest(((current_date + time '07:40') at time zone 'Europe/Prague'));
 select pg_temp.check('asked again the same morning: still one each', cardinality(pg_temp.queued()), 4);
 select pg_temp.clear();

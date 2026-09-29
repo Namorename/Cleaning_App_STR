@@ -13,11 +13,15 @@
 --   and the guard lets an unchanged status through, as it always has.
 --
 -- - the claim policy: taking a free cleaning from the queue is accepting it
---   (owner's word 5c). The WITH CHECK takes 'accepted' beside 'assigned'; the
---   latter stays for a phone that has not had the update yet. And only a
---   cleaning can be taken: until now the policy let a cleaner take a free
---   inspection or maintenance on her listing, which the phone's queue and the
---   push about free work (M3) both leave to the office.
+--   (owner's word 5c). What lets a take write 'accepted' is the guard above
+--   (unassigned -> accepted). The policy's WITH CHECK lists 'accepted' beside
+--   'assigned' only to name what a take writes: permissive UPDATE checks are
+--   OR'ed, and 'assignee updates own tasks' admits any row of hers, so the
+--   list refuses nothing ('assigned' is what a phone without the update
+--   writes). What the policy does decide is its USING: only a cleaning can be
+--   taken. Until now it let a cleaner take a free inspection or maintenance
+--   on her listing, which the phone's queue and the push about free work (M3)
+--   both leave to the office.
 --
 -- - save_task and assign_problem: 'accepted' means accepted by THIS person for
 --   THIS day and flat. When the office hands the job to someone else, or moves
@@ -175,8 +179,10 @@ create policy "cleaner claims a free task on her listings"
          and public.cleans_property(property_id)
          and public.is_active_user())
   with check (assignee_id = (select auth.uid())
-              -- 'accepted' since 20260928110000: taking free work is accepting
-              -- it. 'assigned' stays for a phone that has not had the update.
+              -- Refuses nothing on its own (OR'ed with 'assignee updates own
+              -- tasks'): it names what a take writes — 'accepted' since
+              -- 20260928110000, 'assigned' from a phone without the update.
+              -- The guard decides the status.
               and status in ('assigned', 'accepted')
               and host_id = public.current_host_id());
 

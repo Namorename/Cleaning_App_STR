@@ -75,10 +75,17 @@ export class ExpoRequestError extends Error {
 export class ExpoMixedProjectsError extends ExpoRequestError {
   override readonly name: string = "ExpoMixedProjectsError";
   readonly projects: readonly (readonly string[])[];
+  /** Each project's name ("@owner/slug"), in the order of `projects`: for the log. */
+  readonly names: readonly string[];
 
-  constructor(message: string, projects: readonly (readonly string[])[]) {
+  constructor(
+    message: string,
+    projects: readonly (readonly string[])[],
+    names: readonly string[] = [],
+  ) {
     super(message);
     this.projects = projects;
+    this.names = names;
   }
 }
 
@@ -152,7 +159,7 @@ function describeRefusal(status: number, body: unknown): string {
  * tokens from the request" (the Expo docs, read 2026-09-29; they print no
  * example). Null when it did not, or not in a shape this code can read.
  */
-function mixedProjects(body: unknown): string[][] | null {
+function mixedProjects(body: unknown): { projects: string[][]; names: string[] } | null {
   const errors = isRecord(body) && Array.isArray(body.errors) ? body.errors : [];
   const mixed = errors.find((error) =>
     isRecord(error) && error.code === "PUSH_TOO_MANY_EXPERIENCE_IDS"
@@ -160,11 +167,16 @@ function mixedProjects(body: unknown): string[][] | null {
   if (!isRecord(mixed) || !isRecord(mixed.details)) {
     return null;
   }
-  const projects = Object.values(mixed.details);
-  const readable = projects.length > 0 && projects.every((tokens) =>
+  const entries = Object.entries(mixed.details);
+  const readable = entries.length > 0 && entries.every(([, tokens]) =>
     Array.isArray(tokens) && tokens.every((token) => typeof token === "string")
   );
-  return readable ? (projects as string[][]) : null;
+  return readable
+    ? {
+      projects: entries.map(([, tokens]) => tokens as string[]),
+      names: entries.map(([name]) => name),
+    }
+    : null;
 }
 
 export class ExpoPushClient {
@@ -258,10 +270,10 @@ export class ExpoPushClient {
       }
       if (!response.ok) {
         const refusal = describeRefusal(response.status, body);
-        const projects = mixedProjects(body);
-        throw projects === null
+        const mixed = mixedProjects(body);
+        throw mixed === null
           ? new ExpoRequestError(refusal)
-          : new ExpoMixedProjectsError(refusal, projects);
+          : new ExpoMixedProjectsError(refusal, mixed.projects, mixed.names);
       }
       return body;
     }

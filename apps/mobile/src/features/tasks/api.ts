@@ -192,9 +192,9 @@ async function moveTask(
  * Taken is accepted: she chose it herself, and the office's "not accepted"
  * should not list it (owner's decision 5c, F11). The server lets it through
  * only since 20260928110000: the transition guard allows unassigned ->
- * accepted, and the claim policy's check takes 'accepted'. Against a database
- * without that migration every take and every accept from this build is
- * refused, which is why this code reaches phones only after the db push.
+ * accepted. Against a database without that migration the guard refuses every
+ * take and every accept from this build (serverErrors.transitionNotAllowed),
+ * which is why this code reaches phones only after the db push.
  *
  * Zero rows has two causes and the response cannot tell them apart: a
  * colleague was faster, or the task is past the day it could be done and the
