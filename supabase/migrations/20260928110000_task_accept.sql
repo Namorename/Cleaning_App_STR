@@ -14,7 +14,10 @@
 --
 -- - the claim policy: taking a free cleaning from the queue is accepting it
 --   (owner's word 5c). The WITH CHECK takes 'accepted' beside 'assigned'; the
---   latter stays for a phone that has not had the update yet.
+--   latter stays for a phone that has not had the update yet. And only a
+--   cleaning can be taken: until now the policy let a cleaner take a free
+--   inspection or maintenance on her listing, which the phone's queue and the
+--   push about free work (M3) both leave to the office.
 --
 -- - save_task and assign_problem: 'accepted' means accepted by THIS person for
 --   THIS day and flat. When the office hands the job to someone else, or moves
@@ -160,6 +163,12 @@ create policy "cleaner claims a free task on her listings"
   to authenticated
   using (assignee_id is null
          and status = 'unassigned'
+         -- What the queue offers (apps/mobile tasks/api.ts, FREE_TASK_TYPES)
+         -- and the push about free work announces: an inspection or a
+         -- maintenance is the office's to hand out. Here and not in WITH CHECK:
+         -- the check of the policy on her own tasks would admit the new row
+         -- anyway, and the old row is the one that must be free work.
+         and type in ('cleaning', 'midstay')
          and host_id = public.current_host_id()
          and not public.task_is_stale(property_id, scheduled_date)
          and not public.task_is_beyond_horizon(property_id, scheduled_date)

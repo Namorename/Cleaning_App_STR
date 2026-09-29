@@ -64,6 +64,8 @@ export interface FoldedDigest {
   readonly type: "digest";
   readonly today: number;
   readonly newInWeek: number;
+  /** Free cleanings of her week she may take; 0 on a row queued before the count. */
+  readonly free: number;
 }
 
 export type Folded = FoldedTask | FoldedChat | FoldedDigest;
@@ -212,6 +214,7 @@ export function fold(group: PushGroup): Folded | null {
       type: "digest",
       today: count(last.params.today),
       newInWeek: count(last.params.new_in_week),
+      free: count(last.params.free),
     };
   }
   return foldTask(rows);

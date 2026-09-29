@@ -5,7 +5,8 @@
  * 2026-09-28): up to 100 messages a request, a ticket per message in the same
  * order; receipts for up to 1000 tickets a request. 429 and 5xx are waited out
  * with a growing pause; any other refusal is the request's own fault and is
- * not repeated.
+ * not repeated. A refusal for mixing Expo projects names each project's
+ * phones, and the caller sends them apart (ExpoMixedProjectsError).
  */
 
 import { isRecord } from "../_shared/coerce.ts";
@@ -62,7 +63,23 @@ export class ExpoUnavailableError extends Error {
 
 /** Expo refused the request itself, or answered in a shape this code cannot read. */
 export class ExpoRequestError extends Error {
-  override readonly name = "ExpoRequestError";
+  override readonly name: string = "ExpoRequestError";
+}
+
+/**
+ * Expo refused a request whose phones belong to more than one Expo project
+ * (PUSH_TOO_MANY_EXPERIENCE_IDS): a development build registered beside the
+ * app, say. `projects` holds each project's phones as Expo named them; the
+ * caller sends each project's messages in a request of their own.
+ */
+export class ExpoMixedProjectsError extends ExpoRequestError {
+  override readonly name: string = "ExpoMixedProjectsError";
+  readonly projects: readonly (readonly string[])[];
+
+  constructor(message: string, projects: readonly (readonly string[])[]) {
+    super(message);
+    this.projects = projects;
+  }
 }
 
 export interface ExpoClientOptions {
@@ -127,6 +144,27 @@ function describeRefusal(status: number, body: unknown): string {
     .filter((text) => text !== "");
   const codes = described.length > 0 ? `: ${described.join("; ")}` : "";
   return `Expo refused the request (${status})${codes}`;
+}
+
+/**
+ * Each project's phones, when Expo refused a request for mixing Expo projects
+ * and named them — "a mapping of experience names to their associated push
+ * tokens from the request" (the Expo docs, read 2026-09-29; they print no
+ * example). Null when it did not, or not in a shape this code can read.
+ */
+function mixedProjects(body: unknown): string[][] | null {
+  const errors = isRecord(body) && Array.isArray(body.errors) ? body.errors : [];
+  const mixed = errors.find((error) =>
+    isRecord(error) && error.code === "PUSH_TOO_MANY_EXPERIENCE_IDS"
+  );
+  if (!isRecord(mixed) || !isRecord(mixed.details)) {
+    return null;
+  }
+  const projects = Object.values(mixed.details);
+  const readable = projects.length > 0 && projects.every((tokens) =>
+    Array.isArray(tokens) && tokens.every((token) => typeof token === "string")
+  );
+  return readable ? (projects as string[][]) : null;
 }
 
 export class ExpoPushClient {
@@ -219,7 +257,11 @@ export class ExpoPushClient {
         continue;
       }
       if (!response.ok) {
-        throw new ExpoRequestError(describeRefusal(response.status, body));
+        const refusal = describeRefusal(response.status, body);
+        const projects = mixedProjects(body);
+        throw projects === null
+          ? new ExpoRequestError(refusal)
+          : new ExpoMixedProjectsError(refusal, projects);
       }
       return body;
     }

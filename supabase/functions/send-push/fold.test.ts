@@ -232,18 +232,32 @@ Deno.test("a message about a report opens the report's thread", () => {
   ]);
 });
 
-Deno.test("the morning summary says what is hers today and what came into her week", () => {
+Deno.test("the morning summary says what is hers today, what came into her week and what is free", () => {
   const folded = fold(group([{
     id: nextId++,
     kind: "daily_digest",
     taskId: null,
     threadId: null,
     propertyId: null,
-    params: { date: "2026-10-02", today: 2, new_in_week: 1 },
+    params: { date: "2026-10-02", today: 2, new_in_week: 1, free: 3 },
     urgent: false,
   }], "digest:2026-10-02"));
 
-  assertEquals(folded, { type: "digest", today: 2, newInWeek: 1 });
+  assertEquals(folded, { type: "digest", today: 2, newInWeek: 1, free: 3 });
+});
+
+Deno.test("a summary queued before free work was counted says nothing of it", () => {
+  const folded = fold(group([{
+    id: nextId++,
+    kind: "daily_digest",
+    taskId: null,
+    threadId: null,
+    propertyId: null,
+    params: { date: "2026-10-02", today: 2, new_in_week: 0 },
+    urgent: false,
+  }], "digest:2026-10-02"));
+
+  assertEquals(folded, { type: "digest", today: 2, newInWeek: 0, free: 0 });
 });
 
 Deno.test("taken off her and left free: she hears it was taken, not that it is free", () => {

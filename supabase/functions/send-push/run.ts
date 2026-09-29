@@ -5,7 +5,8 @@
  * 1. takes the groups that are due (claim_push_batch leases them);
  * 2. folds each into one push, or none, and writes it in her language;
  * 3. sends it to every phone she has — a group's messages always in one
- *    request, so a group is either sent or not;
+ *    request, so a group is either sent or not (unless Expo refuses a request
+ *    that mixes Expo projects: then each project's messages go apart);
  * 4. settles each group (record_push_results): sent with its tickets,
  *    collapsed, skipped, or failed — a failed group goes again next run;
  * 5. repeats while full batches come back, up to a bound — and only while a
@@ -21,6 +22,7 @@
 import { type Batch, type PushGroup, type PushKind, readBatch } from "./batch.ts";
 import {
   type ExpoMessage,
+  ExpoMixedProjectsError,
   type ExpoReceipt,
   type ExpoTicket,
   MESSAGES_PER_REQUEST,
@@ -215,6 +217,68 @@ function settleTicket(message: ExpoMessage, ticket: ExpoTicket, options: RunOpti
   };
 }
 
+/** A message no request took, in a group that cannot go again. */
+function lostTicket(error: unknown): ExpoTicket {
+  return {
+    status: "error",
+    message: error instanceof Error ? error.message : String(error),
+    details: { error: "RequestFailed" },
+  };
+}
+
+/**
+ * Expo refused a request holding phones of more than one Expo project — a
+ * development build registered beside the app, say. One such phone must not
+ * silence everybody packed with it: each project's messages go in a request of
+ * their own, phones Expo did not name in one more. A group wholly in a part
+ * that fails goes again next run, like any failed group; a group split across
+ * parts is settled with what reached her, since going again would repeat the
+ * push on the phones it already reached.
+ */
+async function sendByProject(
+  request: readonly Outgoing[],
+  projects: readonly (readonly string[])[],
+  expo: PushSender,
+  options: RunOptions,
+  deadline: number,
+): Promise<Settlement[]> {
+  options.log(`send-push: a request mixed ${projects.length} Expo projects; each goes on its own`);
+  const projectOf = new Map<string, number>();
+  projects.forEach((tokens, index) => tokens.forEach((token) => projectOf.set(token, index)));
+
+  const parts = new Map<number, ExpoMessage[]>();
+  for (const message of request.flatMap((item) => item.messages)) {
+    const index = projectOf.get(message.to) ?? projects.length;
+    parts.set(index, [...(parts.get(index) ?? []), message]);
+  }
+
+  // A message's ticket, or the reason its part's request failed.
+  const tickets = new Map<ExpoMessage, ExpoTicket>();
+  const failures = new Map<ExpoMessage, unknown>();
+  for (const part of parts.values()) {
+    try {
+      const answer = await expo.send(part, deadline);
+      part.forEach((message, index) => tickets.set(message, answer[index]));
+    } catch (error) {
+      options.error("send-push: the request for one Expo project failed", error);
+      part.forEach((message) => failures.set(message, error));
+    }
+  }
+
+  return request.map((item) => {
+    if (item.messages.every((message) => failures.has(message))) {
+      return settlement(item.group, "failed");
+    }
+    return settlement(
+      item.group,
+      "sent",
+      item.messages.map((message) =>
+        settleTicket(message, tickets.get(message) ?? lostTicket(failures.get(message)), options)
+      ),
+    );
+  });
+}
+
 async function sendAll(
   outgoing: readonly Outgoing[],
   expo: PushSender,
@@ -237,6 +301,10 @@ async function sendAll(
     try {
       tickets = await expo.send(request.flatMap((item) => item.messages), deadline);
     } catch (error) {
+      if (error instanceof ExpoMixedProjectsError) {
+        settlements.push(...(await sendByProject(request, error.projects, expo, options, deadline)));
+        continue;
+      }
       options.error("send-push: Expo did not take the request; the groups go again", error);
       for (const item of request) {
         settlements.push(settlement(item.group, "failed"));

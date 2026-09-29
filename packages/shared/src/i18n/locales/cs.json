@@ -1286,7 +1286,8 @@
     "daily_digest": {
       "title": "Váš den",
       "today": "Dnes: {{count}}",
-      "newInWeek": "Nových v týdnu: {{count}}"
+      "newInWeek": "Nových v týdnu: {{count}}",
+      "free": "Volných v týdnu: {{count}}"
     },
     "placeDay": "{{place}}, {{date}}",
     "moveDays": "{{place}}: {{from}} → {{to}}",

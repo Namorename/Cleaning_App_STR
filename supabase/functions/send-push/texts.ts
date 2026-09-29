@@ -177,6 +177,7 @@ function renderDigest(texts: Texts, folded: FoldedDigest): PushText {
     ...(folded.newInWeek > 0
       ? [say(texts, "daily_digest.newInWeek", { count: folded.newInWeek })]
       : []),
+    ...(folded.free > 0 ? [say(texts, "daily_digest.free", { count: folded.free })] : []),
   ];
   return { title: say(texts, "daily_digest.title"), body: parts.join(" · ") };
 }

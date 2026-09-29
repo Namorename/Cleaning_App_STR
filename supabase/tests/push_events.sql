@@ -392,21 +392,59 @@ select pg_temp.check('across the change to winter time it is still seven in Prag
 select pg_temp.clear();
 insert into public.tasks (id, host_id, property_id, type, status, scheduled_date, assignee_id) values
   (pg_temp.tid(10), 'a8f13000-0000-4000-8000-00000000000a', 900013002, 'cleaning', 'accepted', current_date + 7, pg_temp.bara());
+
+-- Vera works Flat A and has nothing of her own: the free work there is all the
+-- morning has for her. She arrives only now, so no earlier scene counts her.
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        created_at, updated_at, raw_user_meta_data, raw_app_meta_data)
+values
+  ('a8f13008-0000-4000-8000-000000000008','00000000-0000-0000-0000-000000000000',
+   'authenticated','authenticated','vera.ev@test.local','x',now(),now(),
+   '{"full_name":"Vera"}'::jsonb, '{"role":"cleaner"}'::jsonb);
+update public.profiles set host_id = 'a8f13000-0000-4000-8000-00000000000a'
+where id = 'a8f13008-0000-4000-8000-000000000008';
+insert into public.property_cleaners (host_id, property_id, cleaner_id, mode) values
+  ('a8f13000-0000-4000-8000-00000000000a', 900013001, 'a8f13008-0000-4000-8000-000000000008', 'claim');
+insert into public.push_tokens (token, profile_id, host_id, platform) values
+  ('ExponentPushToken[ev-vera]', 'a8f13008-0000-4000-8000-000000000008', 'a8f13000-0000-4000-8000-00000000000a', 'android');
 select pg_temp.clear();
 
 select public.enqueue_daily_digest(((current_date + time '07:10') at time zone 'Europe/Prague'));
 -- Tomas has today's repair. The office, the phoneless, the dismissed and the
 -- other company get nothing.
-select pg_temp.check('at seven: one summary for each person with work today or new this week',
-  pg_temp.queued(), array['Anna daily_digest', 'Bara daily_digest', 'Tomas daily_digest']);
+select pg_temp.check('at seven: one summary for each person with work today, new this week or free to take',
+  pg_temp.queued(), array['Anna daily_digest', 'Bara daily_digest', 'Tomas daily_digest', 'Vera daily_digest']);
 select pg_temp.check('Anna''s says what is hers today',
   (select o.params ->> 'today' from raw.push_outbox o where o.recipient_id = pg_temp.anna()), '1');
 select pg_temp.check('Bara''s says what came into her week',
   (select array[o.params ->> 'today', o.params ->> 'new_in_week'] from raw.push_outbox o
    where o.recipient_id = pg_temp.bara()),
   array['0', '1']);
+-- Free on Flat A this week: the cleaning taken off Anna (tomorrow) and the one
+-- moved into the week (in four days). The inspection is the office's, and
+-- nobody works Flat B.
+select pg_temp.check('Anna''s counts the free cleanings of her week she may take',
+  (select o.params ->> 'free' from raw.push_outbox o where o.recipient_id = pg_temp.anna()), '2');
+select pg_temp.check('Bara''s counts none: she no longer works the listing',
+  (select o.params ->> 'free' from raw.push_outbox o where o.recipient_id = pg_temp.bara()), '0');
+select pg_temp.check('Vera, with nothing of her own, hears of the free work alone',
+  (select array[o.params ->> 'today', o.params ->> 'new_in_week', o.params ->> 'free']
+   from raw.push_outbox o where o.recipient_id = 'a8f13008-0000-4000-8000-000000000008'),
+  array['0', '0', '2']);
 select public.enqueue_daily_digest(((current_date + time '07:40') at time zone 'Europe/Prague'));
-select pg_temp.check('asked again the same morning: still one each', cardinality(pg_temp.queued()), 3);
+select pg_temp.check('asked again the same morning: still one each', cardinality(pg_temp.queued()), 4);
+select pg_temp.clear();
+
+-- Free work switched off: the line goes, and a summary with nothing else in it
+-- is not written at all.
+insert into public.push_preferences (profile_id, host_id, muted) values
+  (pg_temp.anna(), 'a8f13000-0000-4000-8000-00000000000a', '{cleaning_free}'),
+  ('a8f13008-0000-4000-8000-000000000008', 'a8f13000-0000-4000-8000-00000000000a', '{cleaning_free}');
+select public.enqueue_daily_digest(((current_date + time '07:10') at time zone 'Europe/Prague'));
+select pg_temp.check('free work switched off: no word of it, and no summary for Vera',
+  (select array_agg(pr.full_name || ' ' || (o.params ->> 'free') order by o.id)
+   from raw.push_outbox o join public.profiles pr on pr.id = o.recipient_id),
+  array['Anna 0', 'Bara 0', 'Tomas 0']);
 select pg_temp.clear();
 select public.enqueue_daily_digest(((current_date + time '09:10') at time zone 'Europe/Prague'));
 select pg_temp.check('outside seven o''clock: nothing', pg_temp.queued(), '{}'::text[]);

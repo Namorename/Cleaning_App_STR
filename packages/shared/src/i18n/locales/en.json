@@ -1260,7 +1260,8 @@
     "daily_digest": {
       "title": "Your day",
       "today": "Today: {{count}}",
-      "newInWeek": "New this week: {{count}}"
+      "newInWeek": "New this week: {{count}}",
+      "free": "Free this week: {{count}}"
     },
     "placeDay": "{{place}}, {{date}}",
     "moveDays": "{{place}}: {{from}} → {{to}}",

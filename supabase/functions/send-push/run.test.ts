@@ -2,7 +2,9 @@ import { assertEquals, assertRejects } from "jsr:@std/assert@1";
 
 import {
   type ExpoMessage,
+  ExpoMixedProjectsError,
   type ExpoReceipt,
+  ExpoRequestError,
   type ExpoTicket,
   ExpoUnavailableError,
 } from "./expo.ts";
@@ -209,6 +211,80 @@ Deno.test("when Expo cannot be reached the groups are let go for the next run", 
   assertEquals(settled(calls), [{ outbox_ids: [41], outcome: "failed", tickets: [] }]);
   assertEquals(summary.failed, 1);
   assertEquals(errors.length, 1);
+});
+
+Deno.test("a phone of another Expo project does not silence everyone sent with it", async () => {
+  // A tester's development build registered in the company: Expo refuses a
+  // request that mixes projects and names each project's phones. Each
+  // project's messages go again in a request of their own.
+  const { db, calls } = database([[
+    assignedGroup("anna", ["A1"], [71]),
+    assignedGroup("tester", ["D1"], [72]),
+    assignedGroup("bara", ["B1"], [73]),
+  ]]);
+  const { expo, sent } = sender((messages) =>
+    messages.length === 3
+      ? new ExpoMixedProjectsError("PUSH_TOO_MANY_EXPERIENCE_IDS", [["A1", "B1"], ["D1"]])
+      : okTickets(messages)
+  );
+
+  await runSendPush(db, expo, quiet);
+
+  assertEquals(sent.map((request) => request.map((m) => m.to)), [
+    ["A1", "D1", "B1"],
+    ["A1", "B1"],
+    ["D1"],
+  ]);
+  assertEquals(settled(calls).map((s) => [s.outbox_ids, s.outcome]), [
+    [[71], "sent"],
+    [[72], "sent"],
+    [[73], "sent"],
+  ]);
+});
+
+Deno.test("when one project's request fails, only the groups wholly in it go again", async () => {
+  const { db, calls } = database([[
+    assignedGroup("anna", ["A1"], [81]),
+    assignedGroup("tester", ["D1"], [82]),
+  ]]);
+  const { expo } = sender((messages) => {
+    if (messages.length === 2) {
+      return new ExpoMixedProjectsError("PUSH_TOO_MANY_EXPERIENCE_IDS", [["A1"], ["D1"]]);
+    }
+    return messages[0].to === "D1"
+      ? new ExpoRequestError("Expo refused the request (401)")
+      : okTickets(messages);
+  });
+  const errors: unknown[] = [];
+
+  await runSendPush(db, expo, { log: () => {}, error: (...args) => errors.push(args) });
+
+  assertEquals(settled(calls).map((s) => [s.outbox_ids, s.outcome]), [
+    [[81], "sent"],
+    [[82], "failed"],
+  ]);
+  assertEquals(errors.length, 1);
+});
+
+Deno.test("a group split across projects is settled with what reached her, never sent twice", async () => {
+  // Her phone and her own development build: the build's request fails after
+  // the phone got the push. Going again would repeat it on the phone.
+  const { db, calls } = database([[assignedGroup("anna", ["A1", "D1"], [91])]]);
+  const { expo } = sender((messages) => {
+    if (messages.length === 2) {
+      return new ExpoMixedProjectsError("PUSH_TOO_MANY_EXPERIENCE_IDS", [["A1"], ["D1"]]);
+    }
+    return messages[0].to === "D1" ? new ExpoUnavailableError("down") : okTickets(messages);
+  });
+
+  await runSendPush(db, expo, quiet);
+
+  const [result] = settled(calls);
+  assertEquals(result.outcome, "sent");
+  assertEquals(
+    (result.tickets as Array<Record<string, unknown>>).map((t) => [t.token, t.status, t.error]),
+    [["A1", "ok", null], ["D1", "error", "RequestFailed"]],
+  );
 });
 
 Deno.test("broken push keys are said loudly in the log", async () => {

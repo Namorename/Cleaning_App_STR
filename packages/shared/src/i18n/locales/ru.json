@@ -1286,7 +1286,8 @@
     "daily_digest": {
       "title": "Ваш день",
       "today": "Сегодня: {{count}}",
-      "newInWeek": "Новых на неделе: {{count}}"
+      "newInWeek": "Новых на неделе: {{count}}",
+      "free": "Свободных на неделе: {{count}}"
     },
     "placeDay": "{{place}}, {{date}}",
     "moveDays": "{{place}}: {{from}} → {{to}}",
