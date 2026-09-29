@@ -216,13 +216,25 @@ begin
       union all
       -- Free work: everyone who may take it. The listing rule is the twin of
       -- the one in the policies, asked only after the week and the phones have
-      -- cut the candidates down.
+      -- cut the candidates down — and only of phones linked to the listing, or
+      -- to the listing a room belongs to (owner's word 2026-09-29): nobody
+      -- else may take it, and asking every phone of the company cost a call a
+      -- phone a cleaning. A narrowing, not a second rule: the rule decides.
       select f.host_id, tk.profile_id, 'cleaning_free'::public.push_kind, f.task_id, f.property_id,
              f.scheduled_date, f.scheduled_date,
              jsonb_build_object('date', f.scheduled_date, 'type', f.type, 'property', f.property_id)
       from free f
       join public.properties p on p.id = f.property_id
-      join (select distinct t.profile_id from public.push_tokens t) tk on true
+      -- The candidates come from the listing's own people: a lateral join, so
+      -- the rule below is asked of them alone. As a qual beside the rule the
+      -- narrowing would be ordered by cost, and the rule, cheaper on paper
+      -- than a subquery, went first for every phone.
+      join lateral (
+        select distinct pc.cleaner_id as profile_id
+        from public.property_cleaners pc
+        where pc.property_id in (f.property_id, p.parent_id)
+          and exists (select 1 from public.push_tokens t where t.profile_id = pc.cleaner_id)
+      ) tk on true
       join public.profiles pr on pr.id = tk.profile_id and pr.host_id = f.host_id
       where f.scheduled_date between (now() at time zone p.timezone)::date - v_grace
                                  and (now() at time zone p.timezone)::date + v_horizon
@@ -353,7 +365,13 @@ begin
            jsonb_build_object('date', f.new_day, 'type', f.type, 'property', f.property_id)
     from free f
     join public.properties p on p.id = f.property_id
-    join (select distinct t.profile_id from public.push_tokens t) tk on true
+    -- Only phones linked to the listing or its house, as on INSERT.
+    join lateral (
+      select distinct pc.cleaner_id as profile_id
+      from public.property_cleaners pc
+      where pc.property_id in (f.property_id, p.parent_id)
+        and exists (select 1 from public.push_tokens t where t.profile_id = pc.cleaner_id)
+    ) tk on true
     join public.profiles pr on pr.id = tk.profile_id and pr.host_id = f.host_id
     where f.new_day between (now() at time zone p.timezone)::date - v_grace
                         and (now() at time zone p.timezone)::date + v_horizon
@@ -554,7 +572,7 @@ begin
     -- her phone and the audience of the push about free work (cleanings
     -- only). Free work that walks into the week by the calendar alone sends
     -- no push of its own (owner's word 2026-09-29), so the morning counts it.
-    select t.host_id, t.property_id, count(*) as free
+    select t.host_id, t.property_id, p.parent_id, count(*) as free
     from public.tasks t
     join public.properties p on p.id = t.property_id
     where t.status = 'unassigned'
@@ -562,7 +580,7 @@ begin
       and t.type in ('cleaning', 'midstay')
       and t.scheduled_date between (p_at at time zone p.timezone)::date - v_grace
                                and (p_at at time zone p.timezone)::date + v_horizon
-    group by t.host_id, t.property_id
+    group by t.host_id, t.property_id, p.parent_id
   )
   insert into raw.push_outbox (host_id, recipient_id, kind, collapse_key,
                                params, urgent, send_after, expire_at)
@@ -589,11 +607,22 @@ begin
     -- function call, and the week of a big claim team holds hundreds of
     -- cleanings (measured 2026-09-29, 300 listings, a claim team of five a
     -- listing: asked per cleaning, the summary took 98 s).
+    -- Asked only of a listing she is linked to, or its house, as the push
+    -- about free work does: nobody else may take its free work.
+    -- A lateral join, and the rule is asked of its row: as a plain qual the
+    -- rule would be ordered first by its cost and asked of every listing.
     select coalesce(sum(w.free), 0)::integer as free
     from free_work w
+    join lateral (
+      select pc.cleaner_id
+      from public.property_cleaners pc
+      where pc.cleaner_id = pr.id
+        and pc.property_id in (w.property_id, w.parent_id)
+      limit 1
+    ) linked on true
     where w.host_id = pr.host_id
       and not coalesce('cleaning_free' = any (pp.muted), false)
-      and public.cleans_property_as(pr.id, w.property_id)
+      and public.cleans_property_as(linked.cleaner_id, w.property_id)
   ) f
   where pr.is_active
     and pr.role in ('cleaner', 'tech')
