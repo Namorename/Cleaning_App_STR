@@ -19,7 +19,7 @@
 --                    claim_push_batch          752472f7  9212 t
 --                    claim_push_receipts       150a47fa   502 t
 --                    cleans_property_as        787fd4ef   400 t
---                    enqueue_daily_digest      1e8f6202  3417 t
+--                    enqueue_daily_digest      3d07dc3e  3637 t
 --                    forget_push_token         1738dff3    96 t
 --                    guard_task_transitions    c96824e9  3665 t
 --                    open_cleanings_by_listing 90e5c6ec   298 f
@@ -187,11 +187,13 @@ order by ord;
 -- * М2's bodies of save_task, assign_problem, set_property_status, property_open_cleanings and
 --   open_cleanings_by_listing may go back on their own at any time: an 'accepted' row simply stays
 --   'accepted'.
--- * М2's guard (guard_task_transitions) and the claim policy are one-way from the first 'accepted'
---   row — from the T1 OTA on. The old guard refuses every move out of 'accepted' and the old policy
---   every claim that writes it: she is locked out of her own cleaning. From then on fix forward;
---   or one migration that first turns 'accepted' back into 'assigned' (with the push triggers
---   dropped first, or nobody is told a thing) and then restores the old guard and policy — shipped
---   together with an OTA that withdraws T1.
+-- * М2's guard (guard_task_transitions) is one-way from the first 'accepted' row — from the T1
+--   OTA on: the old guard refuses a take that writes 'accepted' and every move out of 'accepted',
+--   so she is locked out of her own cleaning. From then on fix forward; or one migration that
+--   first turns 'accepted' back into 'assigned' (with the push triggers dropped first, or nobody
+--   is told a thing) and then restores the old guard — shipped together with an OTA that
+--   withdraws T1. The claim policy can go back alone at any time: its WITH CHECK refuses nothing
+--   (OR'ed with 'assignee updates own tasks'), and going back only lets a free inspection or
+--   maintenance be taken again (night review 2026-09-29).
 -- * М1 and the participation core never go back alone: the triggers and the chat audience call
 --   them, and dropping them fails every task write or chat message.
