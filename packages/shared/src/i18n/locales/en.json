@@ -1261,7 +1261,7 @@
       "title": "Your day",
       "today": "Today: {{count}}",
       "newInWeek": "New this week: {{count}}",
-      "free": "Free this week: {{count}}"
+      "free": "Free cleanings this week: {{count}}"
     },
     "placeDay": "{{place}}, {{date}}",
     "moveDays": "{{place}}: {{from}} → {{to}}",

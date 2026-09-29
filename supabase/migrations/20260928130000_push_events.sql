@@ -537,6 +537,7 @@ declare
   v_day     date := (p_at at time zone public.push_timezone())::date;
   -- Asked once, not once a row: a SQL function with its own search_path is
   -- never inlined (as in push_on_task_change).
+  v_grace   integer := public.task_grace_days();
   v_horizon integer := public.task_horizon_days();
   v_count   integer;
 begin
@@ -547,17 +548,19 @@ begin
   end if;
 
   with free_work as materialized (
-    -- Free work of the week, counted once a listing: the queue on her phone
-    -- and the audience of the push about free work (cleanings only). Free
-    -- work that walks into the week by the calendar alone sends no push of
-    -- its own (owner's word 2026-09-29), so the morning counts it.
+    -- Free work, counted once a listing, over the days her queue shows it:
+    -- from the day of grace (yesterday's, still hers to take, as the claim
+    -- policy's task_is_stale has it) to the end of the week — the queue on
+    -- her phone and the audience of the push about free work (cleanings
+    -- only). Free work that walks into the week by the calendar alone sends
+    -- no push of its own (owner's word 2026-09-29), so the morning counts it.
     select t.host_id, t.property_id, count(*) as free
     from public.tasks t
     join public.properties p on p.id = t.property_id
     where t.status = 'unassigned'
       and t.assignee_id is null
       and t.type in ('cleaning', 'midstay')
-      and t.scheduled_date between (p_at at time zone p.timezone)::date
+      and t.scheduled_date between (p_at at time zone p.timezone)::date - v_grace
                                and (p_at at time zone p.timezone)::date + v_horizon
     group by t.host_id, t.property_id
   )
@@ -606,8 +609,9 @@ $$;
 
 comment on function public.enqueue_daily_digest(timestamptz) is
   'At seven in Prague: one summary a person with work — what is hers today, '
-  'what came into her week, and the free cleanings of her week she may take '
-  '(unless she switched free work off). Once a day, however often it is called.';
+  'what came into her week, and the free cleanings she may take, as her queue '
+  'shows them (unless she switched free work off). Once a day, however often '
+  'it is called.';
 
 -- ---------- grants ----------
 --

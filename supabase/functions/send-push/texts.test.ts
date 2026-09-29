@@ -209,7 +209,7 @@ Deno.test("the free cleanings of the week are counted in every language", () => 
   const free = (language: "en" | "cs") =>
     renderPush({ type: "digest", today: 0, newInWeek: 0, free: 4 }, group(language)).body;
 
-  assertEquals(free("en"), "Free this week: 4");
+  assertEquals(free("en"), "Free cleanings this week: 4");
   assertEquals(free("cs"), "Volných v týdnu: 4");
 });
 

@@ -159,6 +159,7 @@ Deno.test("a request mixing Expo projects is refused with the phones of each pro
     "PUSH_TOO_MANY_EXPERIENCE_IDS",
   );
   assertEquals(error.projects, [["A", "B"], ["C"]]);
+  assertEquals(error.names, ["@office/str-ops", "@tester/str-ops-dev"]);
   assertEquals(error instanceof ExpoRequestError, true);
   assertEquals(calls.length, 1);
 });

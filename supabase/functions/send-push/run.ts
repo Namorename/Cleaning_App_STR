@@ -237,30 +237,39 @@ function lostTicket(error: unknown): ExpoTicket {
  */
 async function sendByProject(
   request: readonly Outgoing[],
-  projects: readonly (readonly string[])[],
+  refusal: ExpoMixedProjectsError,
   expo: PushSender,
   options: RunOptions,
   deadline: number,
 ): Promise<Settlement[]> {
-  options.log(`send-push: a request mixed ${projects.length} Expo projects; each goes on its own`);
+  const { projects, names } = refusal;
   const projectOf = new Map<string, number>();
   projects.forEach((tokens, index) => tokens.forEach((token) => projectOf.set(token, index)));
+  const nameOf = (index: number): string => names[index] ?? "(not named by Expo)";
 
   const parts = new Map<number, ExpoMessage[]>();
   for (const message of request.flatMap((item) => item.messages)) {
     const index = projectOf.get(message.to) ?? projects.length;
     parts.set(index, [...(parts.get(index) ?? []), message]);
   }
+  // Which project is the stray one, and how many of this request's phones each
+  // holds: the owner removes the stray phone by it. Never a token, and not
+  // Expo's own text either — it is not ours to vouch for.
+  const perProject = [...parts.entries()].map(([index, part]) => `${nameOf(index)} ${part.length}`);
+  options.log(
+    "send-push: Expo refused a request mixing Expo projects (PUSH_TOO_MANY_EXPERIENCE_IDS); " +
+      `sent apart, phones per project: ${perProject.join(", ")}`,
+  );
 
   // A message's ticket, or the reason its part's request failed.
   const tickets = new Map<ExpoMessage, ExpoTicket>();
   const failures = new Map<ExpoMessage, unknown>();
-  for (const part of parts.values()) {
+  for (const [index, part] of parts.entries()) {
     try {
       const answer = await expo.send(part, deadline);
-      part.forEach((message, index) => tickets.set(message, answer[index]));
+      part.forEach((message, at) => tickets.set(message, answer[at]));
     } catch (error) {
-      options.error("send-push: the request for one Expo project failed", error);
+      options.error(`send-push: the request for Expo project ${nameOf(index)} failed`, error);
       part.forEach((message) => failures.set(message, error));
     }
   }
@@ -302,7 +311,7 @@ async function sendAll(
       tickets = await expo.send(request.flatMap((item) => item.messages), deadline);
     } catch (error) {
       if (error instanceof ExpoMixedProjectsError) {
-        settlements.push(...(await sendByProject(request, error.projects, expo, options, deadline)));
+        settlements.push(...(await sendByProject(request, error, expo, options, deadline)));
         continue;
       }
       options.error("send-push: Expo did not take the request; the groups go again", error);
