@@ -195,12 +195,22 @@ Deno.test("a message from nobody known names only the flat", () => {
 });
 
 Deno.test("the morning summary says what there is, and leaves out what there is not", () => {
-  const digest = (today: number, newInWeek: number) =>
-    renderPush({ type: "digest", today, newInWeek }, group("ru"));
+  const digest = (today: number, newInWeek: number, free = 0) =>
+    renderPush({ type: "digest", today, newInWeek, free }, group("ru"));
 
   assertEquals(digest(2, 1), { title: "Ваш день", body: "Сегодня: 2 · Новых на неделе: 1" });
   assertEquals(digest(2, 0).body, "Сегодня: 2");
   assertEquals(digest(0, 3).body, "Новых на неделе: 3");
+  assertEquals(digest(2, 1, 5).body, "Сегодня: 2 · Новых на неделе: 1 · Свободных на неделе: 5");
+  assertEquals(digest(0, 0, 4).body, "Свободных на неделе: 4");
+});
+
+Deno.test("the free cleanings of the week are counted in every language", () => {
+  const free = (language: "en" | "cs") =>
+    renderPush({ type: "digest", today: 0, newInWeek: 0, free: 4 }, group(language)).body;
+
+  assertEquals(free("en"), "Free this week: 4");
+  assertEquals(free("cs"), "Volných v týdnu: 4");
 });
 
 Deno.test("a flat whose name did not come is called by its number", () => {

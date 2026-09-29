@@ -44,7 +44,8 @@
     "daily_digest": {
       "title": "Ваш день",
       "today": "Сегодня: {{count}}",
-      "newInWeek": "Новых на неделе: {{count}}"
+      "newInWeek": "Новых на неделе: {{count}}",
+      "free": "Свободных на неделе: {{count}}"
     },
     "placeDay": "{{place}}, {{date}}",
     "moveDays": "{{place}}: {{from}} → {{to}}",
@@ -100,7 +101,8 @@
     "daily_digest": {
       "title": "Your day",
       "today": "Today: {{count}}",
-      "newInWeek": "New this week: {{count}}"
+      "newInWeek": "New this week: {{count}}",
+      "free": "Free this week: {{count}}"
     },
     "placeDay": "{{place}}, {{date}}",
     "moveDays": "{{place}}: {{from}} → {{to}}",
@@ -158,7 +160,8 @@
     "daily_digest": {
       "title": "Váš den",
       "today": "Dnes: {{count}}",
-      "newInWeek": "Nových v týdnu: {{count}}"
+      "newInWeek": "Nových v týdnu: {{count}}",
+      "free": "Volných v týdnu: {{count}}"
     },
     "placeDay": "{{place}}, {{date}}",
     "moveDays": "{{place}}: {{from}} → {{to}}",

@@ -4,6 +4,7 @@ import {
   EXPO_RECEIPTS_URL,
   EXPO_SEND_URL,
   type ExpoMessage,
+  ExpoMixedProjectsError,
   ExpoPushClient,
   ExpoRequestError,
   ExpoUnavailableError,
@@ -135,6 +136,41 @@ Deno.test("a request Expo refuses is not repeated", async () => {
     "PUSH_TOO_MANY_NOTIFICATIONS",
   );
   assertEquals(calls.length, 1);
+});
+
+Deno.test("a request mixing Expo projects is refused with the phones of each project", async () => {
+  // A tester's development build registered in the company, say. Expo names
+  // which phones belong to which project (docs: "a mapping of experience names
+  // to their associated push tokens from the request").
+  const { calls, fetchImpl } = recording([
+    json({
+      errors: [{
+        code: "PUSH_TOO_MANY_EXPERIENCE_IDS",
+        message: "All push notification messages in the same request must be for the same project",
+        details: { "@office/str-ops": ["A", "B"], "@tester/str-ops-dev": ["C"] },
+      }],
+    }, 400),
+  ]);
+  const client = new ExpoPushClient({ fetchImpl, sleep: noSleep });
+
+  const error = await assertRejects(
+    () => client.send([message("A"), message("B"), message("C")]),
+    ExpoMixedProjectsError,
+    "PUSH_TOO_MANY_EXPERIENCE_IDS",
+  );
+  assertEquals(error.projects, [["A", "B"], ["C"]]);
+  assertEquals(error instanceof ExpoRequestError, true);
+  assertEquals(calls.length, 1);
+});
+
+Deno.test("a mixed-projects refusal without a readable list of phones is an ordinary refusal", async () => {
+  const { fetchImpl } = recording([
+    json({ errors: [{ code: "PUSH_TOO_MANY_EXPERIENCE_IDS", message: "mixed", details: "?" }] }, 400),
+  ]);
+  const client = new ExpoPushClient({ fetchImpl, sleep: noSleep });
+
+  const error = await assertRejects(() => client.send([message("A")]), ExpoRequestError);
+  assertEquals(error instanceof ExpoMixedProjectsError, false);
 });
 
 Deno.test("an answer that does not match the messages is refused rather than guessed at", async () => {

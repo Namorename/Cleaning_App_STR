@@ -10,7 +10,10 @@
 -- - "accepted" means accepted by THIS person for THIS day and flat. When the
 --   office hands the job to someone else, or moves it, the new state has not
 --   been accepted by anybody, and the status says so;
--- - a free cleaning taken from the queue counts as accepted: she chose it.
+-- - a free cleaning taken from the queue counts as accepted: she chose it;
+-- - only a cleaning can be taken from the queue: a free inspection or
+--   maintenance on her listing is the office's to hand out, as in the phone's
+--   queue (FREE_TASK_TYPES) and the push about free work.
 --
 -- Fixture ids live in the a8f120xx range.
 begin;
@@ -70,6 +73,14 @@ values
    900012001, 'cleaning', 'unassigned', current_date, null, 'free old app'),
   ('a8f12101-0000-4000-8000-000000000006', 'a8f12000-0000-4000-8000-00000000000a',
    900012001, 'cleaning', 'unassigned', current_date, null, 'free, grabbed wrong'),
+  -- Free on her listing but not all of it hers to take: a mid-stay cleaning
+  -- is, an inspection and a maintenance are the office's.
+  ('a8f12101-0000-4000-8000-00000000000b', 'a8f12000-0000-4000-8000-00000000000a',
+   900012001, 'midstay', 'unassigned', current_date, null, 'free midstay'),
+  ('a8f12101-0000-4000-8000-00000000000c', 'a8f12000-0000-4000-8000-00000000000a',
+   900012001, 'inspection', 'unassigned', current_date, null, 'free inspection'),
+  ('a8f12101-0000-4000-8000-00000000000d', 'a8f12000-0000-4000-8000-00000000000a',
+   900012001, 'maintenance', 'unassigned', current_date, null, 'free maintenance'),
   -- Accepted manual jobs the office then edits.
   ('a8f12101-0000-4000-8000-000000000007', 'a8f12000-0000-4000-8000-00000000000a',
    900012002, 'cleaning', 'accepted', current_date + 2, 'a8f12002-0000-4000-8000-000000000002', 'to Bara'),
@@ -185,6 +196,25 @@ select pg_temp.check('taken from the queue by the new app, it is accepted at onc
 select pg_temp.check('taken by an app from before the accept step, it is assigned as ever',
   pg_temp.status_of(5), 'assigned');
 select pg_temp.check('and the one grabbed the wrong way is still free', pg_temp.status_of(6), 'unassigned');
+
+-- Taking free work the way the phone does: one write, 0 rows when refused.
+create or replace function pg_temp.take(n int) returns int language sql as $fn$
+  with u as (
+    update public.tasks t
+    set assignee_id = 'a8f12002-0000-4000-8000-000000000002', status = 'accepted'
+    where t.id = pg_temp.tid(n) and t.status = 'unassigned'
+    returning 1
+  )
+  select count(*)::int from u
+$fn$;
+
+select pg_temp.as_anna();
+select pg_temp.check('a free mid-stay cleaning can be taken', pg_temp.take(11), 1);
+select pg_temp.check('a free inspection on her listing cannot', pg_temp.take(12), 0);
+select pg_temp.check('nor a free maintenance', pg_temp.take(13), 0);
+reset role; reset request.jwt.claims;
+select pg_temp.check('the inspection is still free', pg_temp.status_of(12), 'unassigned');
+select pg_temp.check('and so is the maintenance', pg_temp.status_of(13), 'unassigned');
 
 -- ---------- the office changes what she accepted ----------
 select pg_temp.as_boss();

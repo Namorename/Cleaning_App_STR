@@ -533,9 +533,12 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_local timestamp := p_at at time zone public.push_timezone();
-  v_day   date := (p_at at time zone public.push_timezone())::date;
-  v_count integer;
+  v_local   timestamp := p_at at time zone public.push_timezone();
+  v_day     date := (p_at at time zone public.push_timezone())::date;
+  -- Asked once, not once a row: a SQL function with its own search_path is
+  -- never inlined (as in push_on_task_change).
+  v_horizon integer := public.task_horizon_days();
+  v_count   integer;
 begin
   -- The job runs every hour so that the change to winter time cannot move the
   -- summary; only the run inside seven o'clock in Prague writes anything.
@@ -543,27 +546,56 @@ begin
     return 0;
   end if;
 
+  with free_work as materialized (
+    -- Free work of the week, counted once a listing: the queue on her phone
+    -- and the audience of the push about free work (cleanings only). Free
+    -- work that walks into the week by the calendar alone sends no push of
+    -- its own (owner's word 2026-09-29), so the morning counts it.
+    select t.host_id, t.property_id, count(*) as free
+    from public.tasks t
+    join public.properties p on p.id = t.property_id
+    where t.status = 'unassigned'
+      and t.assignee_id is null
+      and t.type in ('cleaning', 'midstay')
+      and t.scheduled_date between (p_at at time zone p.timezone)::date
+                               and (p_at at time zone p.timezone)::date + v_horizon
+    group by t.host_id, t.property_id
+  )
   insert into raw.push_outbox (host_id, recipient_id, kind, collapse_key,
                                params, urgent, send_after, expire_at)
   select pr.host_id, pr.id, 'daily_digest', 'digest:' || v_day,
-         jsonb_build_object('date', v_day, 'today', s.today, 'new_in_week', s.new_in_week),
+         jsonb_build_object('date', v_day, 'today', s.today, 'new_in_week', s.new_in_week,
+                            'free', f.free),
          false, p_at, p_at + public.push_lifetime()
   from public.profiles pr
+  left join public.push_preferences pp on pp.profile_id = pr.id
   cross join lateral (
     -- Her work not yet started, counted in each listing's own day: what is
     -- hers today, and what came into her week today.
     select count(*) filter (where t.scheduled_date = (p_at at time zone p.timezone)::date) as today,
            count(*) filter (where t.scheduled_date = (p_at at time zone p.timezone)::date
-                                                     + public.task_horizon_days()) as new_in_week
+                                                     + v_horizon) as new_in_week
     from public.tasks t
     join public.properties p on p.id = t.property_id
     where t.assignee_id = pr.id
       and t.status in ('assigned', 'accepted')
   ) s
+  cross join lateral (
+    -- The free work of the listings she works, unless she switched free work
+    -- off. The rule is asked once a listing, not once a cleaning: it is a
+    -- function call, and the week of a big claim team holds hundreds of
+    -- cleanings (measured 2026-09-29, 300 listings, a claim team of five a
+    -- listing: asked per cleaning, the summary took 98 s).
+    select coalesce(sum(w.free), 0)::integer as free
+    from free_work w
+    where w.host_id = pr.host_id
+      and not coalesce('cleaning_free' = any (pp.muted), false)
+      and public.cleans_property_as(pr.id, w.property_id)
+  ) f
   where pr.is_active
     and pr.role in ('cleaner', 'tech')
     and exists (select 1 from public.push_tokens tk where tk.profile_id = pr.id)
-    and (s.today > 0 or s.new_in_week > 0)
+    and (s.today > 0 or s.new_in_week > 0 or f.free > 0)
   order by pr.id
   on conflict (recipient_id, collapse_key) where kind = 'daily_digest' do nothing;
 
@@ -573,8 +605,9 @@ end;
 $$;
 
 comment on function public.enqueue_daily_digest(timestamptz) is
-  'At seven in Prague: one summary a person with work — what is hers today and '
-  'what came into her week. Once a day, however often it is called.';
+  'At seven in Prague: one summary a person with work — what is hers today, '
+  'what came into her week, and the free cleanings of her week she may take '
+  '(unless she switched free work off). Once a day, however often it is called.';
 
 -- ---------- grants ----------
 --
