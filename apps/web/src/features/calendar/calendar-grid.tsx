@@ -1,7 +1,7 @@
 'use client';
 
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { propertyPath, type Language } from '@str-ops/shared';
@@ -119,6 +119,134 @@ function RepairBadge({ alert, language }: RepairBadgeProps) {
   );
 }
 
+interface GridRowProps {
+  row: VisibleRow<Property>;
+  /** The listing a room belongs to, for its name; undefined for a listing. */
+  house: Property | undefined;
+  isClosed: boolean;
+  layout: RowLayout | undefined;
+  byRowDay: CalendarGridProps['byRowDay'];
+  repairAlerts: CalendarGridProps['repairAlerts'];
+  days: readonly string[];
+  dayWidth: number;
+  dayLines: string;
+  bookings: BookingsRead | null;
+  highlighted: number | null;
+  chipView: ChipView;
+  language: Language;
+  onToggleGroup: CalendarGridProps['onToggleGroup'];
+  onPoint: (bookingId: number | null) => void;
+  onOpenBooking: CalendarGridProps['onOpenBooking'];
+  onOpenTask: CalendarGridProps['onOpenTask'];
+  onMoreTasks: CalendarGridProps['onMoreTasks'];
+  onEmptyDay: CalendarGridProps['onEmptyDay'];
+}
+
+/**
+ * One row's name and days. A scroll redraws the grid — the virtualizer lives
+ * there — but a row already on screen gets the same props and is not drawn
+ * again: every one of them is stable while the window scrolls, and what a row
+ * derives (its cells, its callbacks) is derived here, not by the grid on every
+ * frame (ROADMAP, the 7.6 tail).
+ */
+const GridRow = memo(function GridRow({
+  row,
+  house,
+  isClosed,
+  layout,
+  byRowDay,
+  repairAlerts,
+  days,
+  dayWidth,
+  dayLines,
+  bookings,
+  highlighted,
+  chipView,
+  language,
+  onToggleGroup,
+  onPoint,
+  onOpenBooking,
+  onOpenTask,
+  onMoreTasks,
+  onEmptyDay,
+}: GridRowProps) {
+  const { t } = useTranslation();
+  const { node, depth: level } = row;
+  const property = node.row;
+  const isGroup = node.children.length > 0;
+  const place = house === undefined ? property.name : propertyPath(house.name, property.name);
+  // A closed group carries its rooms' and parts' badges.
+  const alert = mergeRepairAlerts(
+    (isGroup && isClosed ? subtreeIds(node) : [property.id]).flatMap((id) => {
+      const found = repairAlerts.get(id);
+      return found === undefined ? [] : [found];
+    }),
+  );
+
+  return (
+    <>
+      <div
+        role="rowheader"
+        aria-label={place}
+        className="sticky left-0 z-10 flex items-center gap-1 border-r bg-background text-sm"
+        style={{
+          width: FIRST_COLUMN,
+          minWidth: FIRST_COLUMN,
+          paddingLeft: 8 + level * INDENT,
+        }}
+      >
+        {isGroup ? (
+          <button
+            type="button"
+            className="rounded px-1 text-xs hover:bg-accent"
+            aria-expanded={!isClosed}
+            aria-label={t(
+              isClosed ? 'panel.apartments.tree.expand' : 'panel.apartments.tree.collapse',
+              { name: property.name },
+            )}
+            onClick={() => onToggleGroup(property.id)}
+          >
+            {isClosed ? '▸' : '▾'}
+          </button>
+        ) : null}
+        <span data-testid="row-name" className="truncate">
+          {property.name}
+        </span>
+        {isGroup ? (
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {t('panel.calendar.units', { count: node.children.length })}
+          </span>
+        ) : null}
+        {property.status === 'maintenance' ? (
+          <Badge variant="outline" className="shrink-0">
+            {t('panel.apartments.tabs.maintenance')}
+          </Badge>
+        ) : null}
+        {alert === undefined ? null : <RepairBadge alert={alert} language={language} />}
+      </div>
+      <RowTrack
+        rowId={property.id}
+        layout={layout}
+        cells={days.map((day) => cellTasks(node, day, byRowDay, isGroup && isClosed))}
+        bookings={bookings}
+        days={days}
+        dayWidth={dayWidth}
+        dayLines={dayLines}
+        isClosedGroup={isGroup && isClosed}
+        unitCount={node.children.length}
+        highlighted={highlighted}
+        chipView={chipView}
+        language={language}
+        onPoint={onPoint}
+        onOpen={onOpenBooking}
+        onOpenTask={onOpenTask}
+        onMoreTasks={(day, tasks) => onMoreTasks(property.id, place, day, tasks)}
+        onEmptyDay={(day) => onEmptyDay(property.id, place, day)}
+      />
+    </>
+  );
+});
+
 /**
  * The grid (docs/f10-plan.md, §4): rows are listings and rooms, columns are
  * days. It is the page's only vertical scroller — the header, the first
@@ -156,7 +284,8 @@ export function CalendarGrid({
   const width = FIRST_COLUMN + days.length * dayWidth;
 
   // The compiler cannot memoize a component that holds a virtualizer, and
-  // should not: the grid redraws on every scroll by design (§4).
+  // should not: the grid redraws on every scroll by design (§4). A row already
+  // on screen does not — GridRow gets the same props and is skipped.
   // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -168,7 +297,7 @@ export function CalendarGrid({
     scrollPaddingStart: HEADER_HEIGHT,
   });
 
-  const byId = new Map(all.map((one) => [one.id, one]));
+  const byId = useMemo(() => new Map(all.map((one) => [one.id, one])), [all]);
   const dayLines = `repeating-linear-gradient(to right, transparent 0 ${dayWidth - 1}px, var(--border) ${dayWidth - 1}px ${dayWidth}px)`;
 
   return (
@@ -211,20 +340,8 @@ export function CalendarGrid({
         </div>
 
         {virtualizer.getVirtualItems().map((item) => {
-          const { node, depth: level } = rows[item.index];
-          const property = node.row;
-          const isGroup = node.children.length > 0;
-          const isClosed = collapsed.has(property.id);
-          const house = property.parent_id === null ? undefined : byId.get(property.parent_id);
-          const place =
-            house === undefined ? property.name : propertyPath(house.name, property.name);
-          // A closed group carries its rooms' and parts' badges.
-          const alert = mergeRepairAlerts(
-            (isGroup && isClosed ? subtreeIds(node) : [property.id]).flatMap((id) => {
-              const found = repairAlerts.get(id);
-              return found === undefined ? [] : [found];
-            }),
-          );
+          const row = rows[item.index];
+          const property = row.node.row;
 
           return (
             <div
@@ -238,63 +355,26 @@ export function CalendarGrid({
               className="absolute top-0 left-0 flex border-b"
               style={{ width, height: item.size, transform: `translateY(${item.start}px)` }}
             >
-              <div
-                role="rowheader"
-                aria-label={place}
-                className="sticky left-0 z-10 flex items-center gap-1 border-r bg-background text-sm"
-                style={{
-                  width: FIRST_COLUMN,
-                  minWidth: FIRST_COLUMN,
-                  paddingLeft: 8 + level * INDENT,
-                }}
-              >
-                {isGroup ? (
-                  <button
-                    type="button"
-                    className="rounded px-1 text-xs hover:bg-accent"
-                    aria-expanded={!isClosed}
-                    aria-label={t(
-                      isClosed ? 'panel.apartments.tree.expand' : 'panel.apartments.tree.collapse',
-                      { name: property.name },
-                    )}
-                    onClick={() => onToggleGroup(property.id)}
-                  >
-                    {isClosed ? '▸' : '▾'}
-                  </button>
-                ) : null}
-                <span data-testid="row-name" className="truncate">
-                  {property.name}
-                </span>
-                {isGroup ? (
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {t('panel.calendar.units', { count: node.children.length })}
-                  </span>
-                ) : null}
-                {property.status === 'maintenance' ? (
-                  <Badge variant="outline" className="shrink-0">
-                    {t('panel.apartments.tabs.maintenance')}
-                  </Badge>
-                ) : null}
-                {alert === undefined ? null : <RepairBadge alert={alert} language={language} />}
-              </div>
-              <RowTrack
-                rowId={property.id}
+              <GridRow
+                row={row}
+                house={property.parent_id === null ? undefined : byId.get(property.parent_id)}
+                isClosed={collapsed.has(property.id)}
                 layout={layout.get(property.id)}
-                cells={days.map((day) => cellTasks(node, day, byRowDay, isGroup && isClosed))}
-                bookings={bookings}
+                byRowDay={byRowDay}
+                repairAlerts={repairAlerts}
                 days={days}
                 dayWidth={dayWidth}
                 dayLines={dayLines}
-                isClosedGroup={isGroup && isClosed}
-                unitCount={node.children.length}
+                bookings={bookings}
                 highlighted={highlighted}
                 chipView={chipView}
                 language={language}
+                onToggleGroup={onToggleGroup}
                 onPoint={setHighlighted}
-                onOpen={onOpenBooking}
+                onOpenBooking={onOpenBooking}
                 onOpenTask={onOpenTask}
-                onMoreTasks={(day, tasks) => onMoreTasks(property.id, place, day, tasks)}
-                onEmptyDay={(day) => onEmptyDay(property.id, place, day)}
+                onMoreTasks={onMoreTasks}
+                onEmptyDay={onEmptyDay}
               />
             </div>
           );
