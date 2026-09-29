@@ -129,7 +129,10 @@ $$;
 
 comment on function public.cleans_property_as(uuid, bigint) is
   'cleans_property asked about a given person rather than the caller. A twin, '
-  'not a core: change both together (supabase/tests/chat.sql holds them equal).';
+  'not a core: change both together (supabase/tests/chat.sql holds them equal). '
+  'The push about free work and the morning summary ask it only of people '
+  'linked by property_cleaners to the listing or its house (20260928130000): '
+  'a new way to clean a listing must widen them too.';
 comment on function public.chat_participates_as(uuid, public.chat_thread_kind, uuid, uuid, uuid) is
   'chat_participates asked about a given person rather than the caller: may '
   'she read this conversation? A twin, not a core: change both together '

@@ -210,6 +210,40 @@ select pg_temp.clear();
 update public.tasks set scheduled_date = current_date + 4 where id = pg_temp.tid(13);
 select pg_temp.check('free work moved within the week: already known, silence', pg_temp.queued(), '{}'::text[]);
 
+-- Free work asks the rule only about the people on the listing (owner's word
+-- 2026-09-29): its audience starts from property_cleaners — the listing, or
+-- the listing a room belongs to — not from every phone of the company. Tomas
+-- and the office have phones and work no listing: nobody asks about them.
+set local track_functions = 'all';
+create or replace function pg_temp.rule_calls() returns bigint language sql as $fn$
+  select coalesce(sum(f.calls), 0) from pg_stat_xact_user_functions f
+  where f.funcname = 'cleans_property_as' $fn$;
+create temp table rule_mark (calls bigint);
+select pg_temp.clear();
+insert into rule_mark select pg_temp.rule_calls();
+insert into public.tasks (id, host_id, property_id, type, status, scheduled_date) values
+  (pg_temp.tid(16), 'a8f13000-0000-4000-8000-00000000000a', 900013001, 'cleaning', 'unassigned', current_date + 2);
+select pg_temp.check('free work asks the rule only about the people on the listing (Anna, Bara, the dismissed one)',
+  pg_temp.rule_calls() - (select calls from rule_mark) <= 3, true);
+select pg_temp.check('and those who may take it are told', pg_temp.queued(),
+  array['Anna cleaning_free', 'Bara cleaning_free']);
+select pg_temp.clear();
+
+-- A room of Flat A: its free work is for the people of Flat A, who are linked
+-- to the listing, not to the room — the narrowing must see the listing too.
+insert into public.properties (id, host_id, name, timezone, check_in_time, check_out_time,
+                               parent_id, hostaway_unit_id) values
+  (public.property_id_for_unit(880013003), 'a8f13000-0000-4000-8000-00000000000a', 'Room A1',
+   'UTC', '15:00', '10:00', 900013001, 880013003);
+insert into public.tasks (id, host_id, property_id, type, status, scheduled_date) values
+  (pg_temp.tid(17), 'a8f13000-0000-4000-8000-00000000000a', public.property_id_for_unit(880013003),
+   'cleaning', 'unassigned', current_date + 2);
+select pg_temp.check('a room''s free work reaches the people of its listing', pg_temp.queued(),
+  array['Anna cleaning_free', 'Bara cleaning_free']);
+select pg_temp.clear();
+-- Out of the way of the scenes below: they count the free work of Flat A.
+delete from public.tasks where id in (pg_temp.tid(16), pg_temp.tid(17));
+
 -- Paused work handed to someone else: the new holder is told too.
 insert into public.tasks (id, host_id, property_id, type, status, scheduled_date, assignee_id) values
   (pg_temp.tid(14), 'a8f13000-0000-4000-8000-00000000000a', 900013002, 'cleaning', 'paused', current_date, pg_temp.anna());
@@ -413,7 +447,14 @@ insert into public.tasks (id, host_id, property_id, type, status, scheduled_date
   (pg_temp.tid(15), 'a8f13000-0000-4000-8000-00000000000a', 900013001, 'cleaning', 'unassigned', current_date - 1);
 select pg_temp.clear();
 
+delete from rule_mark;
+insert into rule_mark select pg_temp.rule_calls();
 select public.enqueue_daily_digest(((current_date + time '07:10') at time zone 'Europe/Prague'));
+-- The rule is asked about the people on a listing with free work, not about
+-- every person and every listing: Anna and Vera on Flat A. Nobody works Flat
+-- B; Bara left Flat A; Tomas works no listing.
+select pg_temp.check('the summary asks the rule only about the people on a listing with free work',
+  pg_temp.rule_calls() - (select calls from rule_mark) <= 2, true);
 -- Tomas has today's repair. The office, the phoneless, the dismissed and the
 -- other company get nothing.
 select pg_temp.check('at seven: one summary for each person with work today, new this week or free to take',
