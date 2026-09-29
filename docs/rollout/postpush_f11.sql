@@ -9,8 +9,9 @@
 -- outright on a push that stopped part-way — then read the head alone (remote_head.sql).
 --
 -- Expected, label by label (local stack after db:reset, 2026-09-28; push_on_task_change and enqueue_daily_digest
--- recomputed 2026-09-29 after the free count and the property_cleaners narrowing; the cloud baseline before
--- the push was read the same day with scripts/cloud-read.mjs):
+-- recomputed 2026-09-29 after the free count and the property_cleaners narrowing, guard_task_transitions the
+-- same day after the refusal of a take without a status; the cloud baseline before the push was read the
+-- same day with scripts/cloud-read.mjs):
 --   head           20260928140000.
 --   functions      one row per name, overloads = 1, config {search_path=""}, md5 prefix / length /
 --                  definer exactly:
@@ -21,7 +22,7 @@
 --                    cleans_property_as        787fd4ef   400 t
 --                    enqueue_daily_digest      12ee31c3  4180 t
 --                    forget_push_token         1738dff3    96 t
---                    guard_task_transitions    c96824e9  3665 t
+--                    guard_task_transitions    5f1c8489  4372 t
 --                    open_cleanings_by_listing 90e5c6ec   298 f
 --                    property_open_cleanings   415b0631   710 t
 --                    purge_push_history        faa86814   405 t
@@ -65,7 +66,10 @@
 --                  raw.push_tickets: no grant to anon, authenticated or PUBLIC (raw's default
 --                  privileges give service_role only).
 --   triggers       tasks_push_insert, tasks_push_update, chat_messages_push,
---                  reservations_push_status — all enabled ('O').
+--                  reservations_push_status and tasks_guard_transitions — all enabled ('O').
+--                  columns: tasks_guard_transitions ["assignee_id", "status"] — without
+--                  assignee_id a take that writes only her name never wakes the guard;
+--                  reservations_push_status ["status"]; the other three [].
 --   cron_jobs      ten, all active, run as postgres; new: send-push '* * * * *',
 --                  push-daily-digest '5 * * * *', push-history-purge '40 2 * * *'.
 --   queue          right after the push: outbox 0, tickets 0, tokens 0 — nothing is written until
@@ -140,11 +144,17 @@ select label, payload from (
   union all
   select 5, 'triggers',
          (select jsonb_agg(jsonb_build_object('table', t.tgrelid::regclass::text, 'name', t.tgname,
-                                              'enabled', t.tgenabled) order by t.tgname)
+                                              'enabled', t.tgenabled,
+                                              'columns', (select coalesce(jsonb_agg(a.attname order by a.attname),
+                                                                          '[]'::jsonb)
+                                                          from pg_attribute a
+                                                          where a.attrelid = t.tgrelid
+                                                            and a.attnum = any (t.tgattr::int2[])))
+                           order by t.tgname)
           from pg_trigger t
           where not t.tgisinternal
             and t.tgname in ('tasks_push_insert', 'tasks_push_update', 'chat_messages_push',
-                             'reservations_push_status'))
+                             'reservations_push_status', 'tasks_guard_transitions'))
 
   union all
   select 6, 'cron_jobs',
@@ -192,7 +202,11 @@ order by ord;
 --   so she is locked out of her own cleaning. From then on fix forward; or one migration that
 --   first turns 'accepted' back into 'assigned' (with the push triggers dropped first, or nobody
 --   is told a thing) and then restores the old guard — shipped together with an OTA that
---   withdraws T1. The claim policy can go back alone at any time: its WITH CHECK refuses nothing
+--   withdraws T1. The old guard lets a take that writes only her name through again, as before
+--   F11 (no build writes one). Restore the body alone: the trigger may keep (status,
+--   assignee_id), the old body returns at once while the status stays; never narrow the trigger
+--   under the new body — that alone reopens the name-only take (day preflight 2026-09-29).
+--   The claim policy can go back alone at any time: its WITH CHECK refuses nothing
 --   (OR'ed with 'assignee updates own tasks'), and going back only lets a free inspection or
 --   maintenance be taken again (night review 2026-09-29).
 -- * М1 and the participation core never go back alone: the triggers and the chat audience call
