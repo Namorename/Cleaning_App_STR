@@ -10,7 +10,9 @@
 --   unassigned -> accepted, which is taking free work (below). Accepting is a
 --   signal, not a lock: assigned -> in_progress stays, so a cleaner who forgot
 --   to tap still starts at the door. A replay of the tap writes the same status
---   and the guard lets an unchanged status through, as it always has.
+--   and the guard lets an unchanged status through, as it always has. A take
+--   that writes only her name, leaving 'unassigned', is refused: the trigger
+--   now wakes for assignee_id too.
 --
 -- - the claim policy: taking a free cleaning from the queue is accepting it
 --   (owner's word 5c). What lets a take write 'accepted' is the guard above
@@ -63,6 +65,19 @@ declare
 begin
   if (select auth.uid()) is null or pg_trigger_depth() > 1 then
     return new;
+  end if;
+
+  -- A take says so: an executor who puts her name on free work moves it out
+  -- of 'unassigned'. Her name on a row left 'unassigned' would make it neither
+  -- free (gone from the queue) nor hers (nothing says she took it) — night
+  -- review 2026-09-29. The trigger wakes for assignee_id too, for this.
+  if new.status = 'unassigned'
+     and new.assignee_id is distinct from old.assignee_id
+     and not public.is_manager() then
+    raise exception 'An executor takes free work by moving it out of unassigned'
+      using errcode = 'check_violation',
+            hint = 'serverErrors.transitionNotAllowed',
+            detail = jsonb_build_object('from', old.status, 'to', new.status)::text;
   end if;
 
   if new.status = old.status then
@@ -158,6 +173,13 @@ begin
   return new;
 end;
 $$;
+
+-- The guard wakes for a change of the person as well as of the status: a take
+-- that writes only the name must meet the rule above (night review
+-- 2026-09-29). Until now it woke for the status alone (20260905100000).
+create or replace trigger tasks_guard_transitions
+  before update of status, assignee_id on public.tasks
+  for each row execute function public.guard_task_transitions();
 
 -- ---------- taking free work ----------
 
