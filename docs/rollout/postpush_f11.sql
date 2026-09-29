@@ -8,7 +8,8 @@
 -- built on it passes without checking (CLAUDE.md). It names objects the push creates, so it fails
 -- outright on a push that stopped part-way — then read the head alone (remote_head.sql).
 --
--- Expected, label by label (local stack after db:reset, 2026-09-28; the cloud baseline before
+-- Expected, label by label (local stack after db:reset, 2026-09-28, enqueue_daily_digest
+-- recomputed 2026-09-29 after the free count; the cloud baseline before
 -- the push was read the same day with scripts/cloud-read.mjs):
 --   head           20260928140000.
 --   functions      one row per name, overloads = 1, config {search_path=""}, md5 prefix / length /
@@ -18,7 +19,7 @@
 --                    claim_push_batch          752472f7  9212 t
 --                    claim_push_receipts       150a47fa   502 t
 --                    cleans_property_as        787fd4ef   400 t
---                    enqueue_daily_digest      54b53d4a  1741 t
+--                    enqueue_daily_digest      1e8f6202  3417 t
 --                    forget_push_token         1738dff3    96 t
 --                    guard_task_transitions    c96824e9  3665 t
 --                    open_cleanings_by_listing 90e5c6ec   298 f
