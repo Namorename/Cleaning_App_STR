@@ -255,6 +255,36 @@ Deno.test("a phone of another Expo project does not silence everyone sent with i
   assertEquals(logs.some((line) => /\b(A1|B1|D1)\b/.test(line)), false);
 });
 
+Deno.test("the log counts a stray phone once, however many pushes it carries", async () => {
+  // The count is there so the owner can find the phone to remove: a phone with
+  // the morning summary and a cleaning in one request is still one phone.
+  const { db } = database([[
+    assignedGroup("anna", ["A1"], [101]),
+    assignedGroup("tester", ["D1"], [102]),
+    { ...assignedGroup("tester", ["D1"], [103]), collapse_key: "task:another" },
+  ]]);
+  const { expo } = sender((messages) =>
+    messages.length === 3
+      ? new ExpoMixedProjectsError(
+        "PUSH_TOO_MANY_EXPERIENCE_IDS",
+        [["A1"], ["D1"]],
+        ["@office/str-ops", "@tester/str-ops-dev"],
+      )
+      : okTickets(messages)
+  );
+  const logs: string[] = [];
+
+  await runSendPush(db, expo, {
+    log: (...args) => logs.push(args.map(String).join(" ")),
+    error: () => {},
+  });
+
+  const mix = logs.find((line) => line.includes("PUSH_TOO_MANY_EXPERIENCE_IDS")) ?? "";
+  assertEquals(mix.includes("@tester/str-ops-dev 1"), true);
+  assertEquals(mix.includes("@office/str-ops 1"), true);
+  assertEquals(logs.some((line) => /\b(A1|D1)\b/.test(line)), false);
+});
+
 Deno.test("when one project's request fails, only the groups wholly in it go again", async () => {
   const { db, calls } = database([[
     assignedGroup("anna", ["A1"], [81]),

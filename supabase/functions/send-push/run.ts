@@ -255,7 +255,10 @@ async function sendByProject(
   // Which project is the stray one, and how many of this request's phones each
   // holds: the owner removes the stray phone by it. Never a token, and not
   // Expo's own text either — it is not ours to vouch for.
-  const perProject = [...parts.entries()].map(([index, part]) => `${nameOf(index)} ${part.length}`);
+  // Phones, not messages: one phone may carry several pushes in a request.
+  const perProject = [...parts.entries()].map(
+    ([index, part]) => `${nameOf(index)} ${new Set(part.map((message) => message.to)).size}`,
+  );
   options.log(
     "send-push: Expo refused a request mixing Expo projects (PUSH_TOO_MANY_EXPERIENCE_IDS); " +
       `sent apart, phones per project: ${perProject.join(", ")}`,
