@@ -8,8 +8,8 @@
 -- built on it passes without checking (CLAUDE.md). It names objects the push creates, so it fails
 -- outright on a push that stopped part-way — then read the head alone (remote_head.sql).
 --
--- Expected, label by label (local stack after db:reset, 2026-09-28, enqueue_daily_digest
--- recomputed 2026-09-29 after the free count; the cloud baseline before
+-- Expected, label by label (local stack after db:reset, 2026-09-28; push_on_task_change and enqueue_daily_digest
+-- recomputed 2026-09-29 after the free count and the property_cleaners narrowing; the cloud baseline before
 -- the push was read the same day with scripts/cloud-read.mjs):
 --   head           20260928140000.
 --   functions      one row per name, overloads = 1, config {search_path=""}, md5 prefix / length /
@@ -19,7 +19,7 @@
 --                    claim_push_batch          752472f7  9212 t
 --                    claim_push_receipts       150a47fa   502 t
 --                    cleans_property_as        787fd4ef   400 t
---                    enqueue_daily_digest      3d07dc3e  3637 t
+--                    enqueue_daily_digest      12ee31c3  4180 t
 --                    forget_push_token         1738dff3    96 t
 --                    guard_task_transitions    c96824e9  3665 t
 --                    open_cleanings_by_listing 90e5c6ec   298 f
@@ -31,7 +31,7 @@
 --                    push_lifetime             b492e431    30 f
 --                    push_on_booking_status    4217d556   989 t
 --                    push_on_chat_message      9e7e1734  2289 t
---                    push_on_task_change       3ba02279 11631 t
+--                    push_on_task_change       6ef13c3d 12671 t
 --                    push_quiet_end            2bdfd84e    10 f
 --                    push_quiet_start          923b4778    11 f
 --                    push_receipt_delay        88539d53    30 f
