@@ -81,6 +81,9 @@ values
    900012001, 'inspection', 'unassigned', current_date, null, 'free inspection'),
   ('a8f12101-0000-4000-8000-00000000000d', 'a8f12000-0000-4000-8000-00000000000a',
    900012001, 'maintenance', 'unassigned', current_date, null, 'free maintenance'),
+  -- Free, and taken the wrong way: her name without a status.
+  ('a8f12101-0000-4000-8000-00000000000e', 'a8f12000-0000-4000-8000-00000000000a',
+   900012001, 'cleaning', 'unassigned', current_date, null, 'free, named without a status'),
   -- Accepted manual jobs the office then edits.
   ('a8f12101-0000-4000-8000-000000000007', 'a8f12000-0000-4000-8000-00000000000a',
    900012002, 'cleaning', 'accepted', current_date + 2, 'a8f12002-0000-4000-8000-000000000002', 'to Bara'),
@@ -215,6 +218,18 @@ select pg_temp.check('nor a free maintenance', pg_temp.take(13), 0);
 reset role; reset request.jwt.claims;
 select pg_temp.check('the inspection is still free', pg_temp.status_of(12), 'unassigned');
 select pg_temp.check('and so is the maintenance', pg_temp.status_of(13), 'unassigned');
+
+-- A take says so: her name on free work without a status would leave a row
+-- neither free (gone from the queue) nor hers (nothing says she took it).
+select pg_temp.as_anna();
+select pg_temp.check('putting her name on free work without taking it is refused',
+  pg_temp.refusal_hint($q$update public.tasks set assignee_id = 'a8f12002-0000-4000-8000-000000000002'
+                          where id = pg_temp.tid(14) and status = 'unassigned'$q$),
+  'serverErrors.transitionNotAllowed');
+reset role; reset request.jwt.claims;
+select pg_temp.check('and the cleaning stays free',
+  (select t.assignee_id is null and t.status = 'unassigned' from public.tasks t where t.id = pg_temp.tid(14)),
+  true);
 
 -- ---------- the office changes what she accepted ----------
 select pg_temp.as_boss();
