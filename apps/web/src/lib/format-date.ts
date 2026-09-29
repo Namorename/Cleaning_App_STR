@@ -1,8 +1,30 @@
 import { INTL_LOCALES, type Language } from '@str-ops/shared';
 
+const formats = new Map<string, Intl.DateTimeFormat>();
+
+/**
+ * One Intl.DateTimeFormat per locale and options, built on first use and kept:
+ * building one costs far more than using it, and the calendar formats in every
+ * row it draws (ROADMAP, the 7.6 tail). A zone the browser does not know
+ * throws here, before anything is kept, exactly as a fresh build would.
+ */
+export function dateFormat(
+  locale: string,
+  options: Intl.DateTimeFormatOptions,
+): Intl.DateTimeFormat {
+  const key = `${locale} ${JSON.stringify(options)}`;
+  const known = formats.get(key);
+  if (known !== undefined) {
+    return known;
+  }
+  const made = new Intl.DateTimeFormat(locale, options);
+  formats.set(key, made);
+  return made;
+}
+
 /** An ISO timestamp as the manager reads it: "9 сент. 2026 г., 14:05". */
 export function formatDateTime(iso: string, language: Language): string {
-  return new Intl.DateTimeFormat(INTL_LOCALES[language], {
+  return dateFormat(INTL_LOCALES[language], {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(iso));
@@ -11,7 +33,7 @@ export function formatDateTime(iso: string, language: Language): string {
 /** A `YYYY-MM-DD` date, read as a calendar day rather than an instant. */
 export function formatDay(day: string, language: Language): string {
   const [year, month, date] = day.split('-').map(Number);
-  return new Intl.DateTimeFormat(INTL_LOCALES[language], { dateStyle: 'medium' }).format(
+  return dateFormat(INTL_LOCALES[language], { dateStyle: 'medium' }).format(
     new Date(year, month - 1, date),
   );
 }
@@ -19,7 +41,7 @@ export function formatDay(day: string, language: Language): string {
 /** A `YYYY-MM-DD` date as day and month only — "22.09" — for a short label on a card. */
 export function formatShortDay(day: string, language: Language): string {
   const [year, month, date] = day.split('-').map(Number);
-  return new Intl.DateTimeFormat(INTL_LOCALES[language], {
+  return dateFormat(INTL_LOCALES[language], {
     day: '2-digit',
     month: '2-digit',
   }).format(new Date(year, month - 1, date));
@@ -44,7 +66,7 @@ export function todayIn(timeZone: string | null | undefined, now: Date = new Dat
   }
   let parts: Intl.DateTimeFormatPart[];
   try {
-    parts = new Intl.DateTimeFormat('en-GB', {
+    parts = dateFormat('en-GB', {
       timeZone,
       year: 'numeric',
       month: '2-digit',

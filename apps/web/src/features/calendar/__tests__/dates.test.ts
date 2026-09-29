@@ -1,15 +1,31 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import {
   addDays,
+  dayLabel,
   dayWidthFor,
   defaultStart,
+  fullDayLabel,
   isDepth,
   monthBounds,
   monthsOf,
   neighbourMonths,
   windowDays,
 } from '../dates';
+
+// The header labels every column on every redraw of the grid (ROADMAP, 7.6 tail).
+describe('the column labels build their formats once', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  test('for a month of columns in the same locale', () => {
+    const built = vi.spyOn(Intl, 'DateTimeFormat');
+    for (const day of windowDays('2026-10-01', 30)) {
+      dayLabel(day, 'ru-RU', 30);
+      fullDayLabel(day, 'ru-RU');
+    }
+    expect(built.mock.calls.length).toBeLessThanOrEqual(2);
+  });
+});
 
 describe('the days of the window', () => {
   test('a day steps over the end of a month and of a year', () => {

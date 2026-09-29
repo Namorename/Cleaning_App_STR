@@ -7,6 +7,8 @@
  * can make a day 23 hours long and skip it.
  */
 
+import { dateFormat } from '@/lib/format-date';
+
 /** How many days the window shows at once — the controls of A.17. */
 export const DEPTHS = [1, 3, 7, 15, 30] as const;
 export type Depth = (typeof DEPTHS)[number];
@@ -101,8 +103,9 @@ export function dayWidthFor(depth: Depth, spare: number): number {
   return Math.max(DAY_WIDTH[depth], Math.floor(spare / depth));
 }
 
+// Kept per locale and options: the header labels every column on every redraw.
 const utcFormat = (locale: string, options: Intl.DateTimeFormatOptions) =>
-  new Intl.DateTimeFormat(locale, { ...options, timeZone: 'UTC' });
+  dateFormat(locale, { ...options, timeZone: 'UTC' });
 
 /** A column's heading: the weekday and the date. */
 export function dayLabel(day: string, locale: string, depth: Depth): string {
