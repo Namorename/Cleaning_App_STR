@@ -64,10 +64,7 @@ export interface CleaningsToday {
  * Today's cleanings, the mid-stay ones included, and how many are done. The
  * cancelled and the expired are not a day's work.
  */
-export function cleaningsToday(
-  tasks: readonly DayTask[],
-  now: Date = new Date(),
-): CleaningsToday {
+export function cleaningsToday(tasks: readonly DayTask[], now: Date = new Date()): CleaningsToday {
   const today = tasks.filter(
     (task) =>
       CLEANING_TYPES.includes(task.type) &&

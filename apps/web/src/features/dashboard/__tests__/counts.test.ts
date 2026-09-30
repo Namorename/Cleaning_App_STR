@@ -142,7 +142,11 @@ describe('unassignedAhead', () => {
   });
 
   test('counts by the listing’s own day', () => {
-    const tasks = [free('2026-10-01'), free('2026-09-30', { property: NEW_YORK }), free('2026-09-30')];
+    const tasks = [
+      free('2026-10-01'),
+      free('2026-09-30', { property: NEW_YORK }),
+      free('2026-09-30'),
+    ];
 
     expect(unassignedAhead(tasks, PRAGUE_MIDNIGHT)).toEqual({ week: 2, today: 2, tomorrow: 0 });
   });
