@@ -22,6 +22,15 @@ export type AssigneeFilter = string;
 export const ANY_ASSIGNEE = 'all';
 export const NO_ASSIGNEE = 'nobody';
 
+/**
+ * The filter the address opens the calendar on: `?assignee=nobody`, the
+ * dashboard's «Без исполнителя». Nothing else is taken from the address — an
+ * id there would be nobody's check — and anything else opens on everybody.
+ */
+export function assigneeFromAddress(value: string | string[] | undefined): AssigneeFilter {
+  return value === NO_ASSIGNEE ? NO_ASSIGNEE : ANY_ASSIGNEE;
+}
+
 const TONE_STATUSES: Readonly<Record<ChipTone, readonly TaskStatus[]>> = {
   open: ['unassigned', 'assigned', 'accepted'],
   inWork: ['in_progress', 'paused', 'blocked'],

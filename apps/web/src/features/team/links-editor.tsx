@@ -70,7 +70,10 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
    * One at a time rather than in parallel: `save_property_cleaner` answers
    * "this listing already has somebody fixed to it" by naming her, and a
    * burst of writes would turn one readable refusal into several at once.
-   * The ticks are left alone on a failure, so nothing has to be ticked twice.
+   * A listing leaves the ticks the moment it is open, so a failure further on
+   * leaves ticked exactly what is still closed: nothing has to be ticked
+   * twice, and a second press never writes an open listing again over terms
+   * set on its row since.
    */
   const add = () => {
     void (async () => {
@@ -82,8 +85,8 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
             mode: 'claim',
             priority: MIN_PRIORITY,
           });
+          setAdding((current) => current.filter((id) => id !== propertyId));
         }
-        setAdding([]);
       } catch {
         // Already on screen through `save.isError` — see `failure` below.
       }

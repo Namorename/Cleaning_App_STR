@@ -1,15 +1,32 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import {
   addDays,
+  dayLabel,
   dayWidthFor,
   defaultStart,
+  fullDayLabel,
   isDepth,
   monthBounds,
   monthsOf,
   neighbourMonths,
+  openingWindow,
   windowDays,
 } from '../dates';
+
+// The header labels every column on every redraw of the grid (ROADMAP, 7.6 tail).
+describe('the column labels build their formats once', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  test('for a month of columns in the same locale', () => {
+    const built = vi.spyOn(Intl, 'DateTimeFormat');
+    for (const day of windowDays('2026-10-01', 30)) {
+      dayLabel(day, 'ru-RU', 30);
+      fullDayLabel(day, 'ru-RU');
+    }
+    expect(built.mock.calls.length).toBeLessThanOrEqual(2);
+  });
+});
 
 describe('the days of the window', () => {
   test('a day steps over the end of a month and of a year', () => {
@@ -93,5 +110,19 @@ describe('where the window opens', () => {
 
   test('on today itself when the window is one day', () => {
     expect(defaultStart('2026-09-26', 1)).toBe('2026-09-26');
+  });
+
+  test('as usual, at the depth the manager chose, when nothing is asked ahead', () => {
+    expect(openingWindow('2026-09-26', 3, null)).toEqual({ start: '2026-09-25', depth: 3 });
+    expect(openingWindow('2026-09-26', 1, null)).toEqual({ start: '2026-09-26', depth: 1 });
+  });
+
+  // The dashboard's «Без исполнителя» counts today and the six days on; its link
+  // opens here on exactly those days or more (dashboard preflight).
+  test('on today and deep enough for the days asked ahead, the depth chosen kept when wider', () => {
+    expect(openingWindow('2026-09-26', 1, 7)).toEqual({ start: '2026-09-26', depth: 7 });
+    expect(openingWindow('2026-09-26', 3, 7)).toEqual({ start: '2026-09-26', depth: 7 });
+    expect(openingWindow('2026-09-26', 7, 7)).toEqual({ start: '2026-09-26', depth: 7 });
+    expect(openingWindow('2026-09-26', 30, 7)).toEqual({ start: '2026-09-26', depth: 30 });
   });
 });

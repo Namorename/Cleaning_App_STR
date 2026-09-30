@@ -184,11 +184,13 @@ export async function fetchTask(client: Client, taskId: string): Promise<Task | 
 }
 
 // The technician with the switch that says whether they still work here, and
-// the listing joined inner so an archived one's repair falls away (§6).
+// the listing joined inner so an archived one's repair falls away (§6). The
+// dashboard names the place, and a room's own name never says which building
+// it is in: the room test and the building come along (propertyPathOf).
 const REPAIR_COLUMNS =
   'id, property_id, problem_id, status, scheduled_date, assignee_id, ' +
   'assignee:profiles!tasks_assignee_id_fkey(full_name, is_active), ' +
-  'property:properties!inner(name, status, timezone)';
+  'property:properties!inner(name, status, timezone, hostaway_unit_id, parent:parent_id(name))';
 
 /**
  * Every live repair, whatever its day (§6): the sweep no longer closes a

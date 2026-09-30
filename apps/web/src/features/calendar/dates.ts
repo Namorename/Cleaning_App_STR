@@ -7,6 +7,8 @@
  * can make a day 23 hours long and skip it.
  */
 
+import { dateFormat } from '@/lib/format-date';
+
 /** How many days the window shows at once — the controls of A.17. */
 export const DEPTHS = [1, 3, 7, 15, 30] as const;
 export type Depth = (typeof DEPTHS)[number];
@@ -44,6 +46,31 @@ export function windowDays(start: string, depth: Depth): string[] {
  */
 export function defaultStart(today: string, depth: Depth): string {
   return depth === 1 ? today : addDays(today, -1);
+}
+
+export interface OpeningWindow {
+  start: string;
+  depth: Depth;
+}
+
+/**
+ * Where the calendar opens. As a rule the day before today, at the depth the
+ * manager chose last time. Asked for `aheadDays` — the dashboard's «Без
+ * исполнителя», which counts today and the six days on — it opens on today and
+ * at least that deep, so every task the tile counted is on the screen; a
+ * wider depth she chose is kept (dashboard preflight).
+ */
+export function openingWindow(
+  today: string,
+  storedDepth: Depth,
+  aheadDays: number | null,
+): OpeningWindow {
+  if (aheadDays === null) {
+    return { start: defaultStart(today, storedDepth), depth: storedDepth };
+  }
+  const depth =
+    DEPTHS.find((one) => one >= Math.max(storedDepth, aheadDays)) ?? DEPTHS[DEPTHS.length - 1];
+  return { start: today, depth };
 }
 
 /**
@@ -101,8 +128,9 @@ export function dayWidthFor(depth: Depth, spare: number): number {
   return Math.max(DAY_WIDTH[depth], Math.floor(spare / depth));
 }
 
+// Kept per locale and options: the header labels every column on every redraw.
 const utcFormat = (locale: string, options: Intl.DateTimeFormatOptions) =>
-  new Intl.DateTimeFormat(locale, { ...options, timeZone: 'UTC' });
+  dateFormat(locale, { ...options, timeZone: 'UTC' });
 
 /** A column's heading: the weekday and the date. */
 export function dayLabel(day: string, locale: string, depth: Depth): string {

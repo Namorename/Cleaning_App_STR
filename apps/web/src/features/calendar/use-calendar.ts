@@ -250,12 +250,13 @@ export function useCalendarCancelled(
 /**
  * Every live repair, whatever its day (§6): the badge in the first column
  * shows one left behind whatever the window. The same read and key stage 8's
- * dashboard takes.
+ * dashboard takes, with its `refetchInterval`.
  */
-export function useLiveRepairs(client: Client | null, isStand: boolean) {
+export function useLiveRepairs(client: Client | null, isStand: boolean, refetchInterval?: number) {
   return useQuery({
     queryKey: isStand ? ['calendar', 'stand', 'liveRepairs'] : taskKeys.liveRepairs(),
     queryFn: () => fetchLiveRepairs(client as Client),
     enabled: client !== null,
+    refetchInterval,
   });
 }

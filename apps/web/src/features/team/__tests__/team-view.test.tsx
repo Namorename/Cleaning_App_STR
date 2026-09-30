@@ -356,6 +356,34 @@ describe('TeamView — listings are chosen while the person is hired', () => {
     });
   }, 20000);
 
+  test('after a failed write only what is still closed stays ticked, and nothing is written twice', async () => {
+    // Vinohrady 12 opens, Anděl 4 is refused.
+    saveLinkAsync.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('offline'));
+    render(<TeamView />);
+
+    await userEvent.click(within(rowFor('Petr Tech')).getByRole('button', { name: 'Объектов: 0' }));
+    const sheet = await screen.findByRole('dialog');
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Выбрать все (2)' }));
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Добавить' }));
+
+    await waitFor(() => expect(within(sheet).getByText('Выбрано: 1')).toBeInTheDocument());
+    expect(within(sheet).getByRole('checkbox', { name: 'Anděl 4' })).toBeChecked();
+    expect(within(sheet).getByRole('checkbox', { name: 'Vinohrady 12' })).not.toBeChecked();
+
+    // Pressed again, it writes only what is still closed — not the open one
+    // again over terms the manager may have set on its row since.
+    saveLinkAsync.mockClear();
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Добавить' }));
+
+    await waitFor(() => expect(saveLinkAsync).toHaveBeenCalledTimes(1));
+    expect(saveLinkAsync).toHaveBeenCalledWith({
+      propertyId: 2,
+      cleanerId: PETR,
+      mode: 'claim',
+      priority: 1,
+    });
+  }, 20000);
+
   test('the list of listings can be searched', async () => {
     render(<TeamView />);
 

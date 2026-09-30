@@ -4,6 +4,7 @@ import { calendarTaskSchema, type CalendarTask } from '@/features/tasks/schema';
 import { buildPropertyTree } from '@/lib/property-tree';
 
 import {
+  assigneeFromAddress,
   cellTasks,
   collapseExpired,
   chipCapacity,
@@ -113,6 +114,16 @@ describe('the filters', () => {
 
     expect(kept('nobody')).toEqual([open]);
     expect(kept(ANNA)).toEqual([working]);
+  });
+
+  // The dashboard's «Без исполнителя» links to /calendar?assignee=nobody.
+  // Nothing else is taken from the address: a person's id there is unchecked.
+  test('the address can open the assignee filter on nobody, and on nothing else', () => {
+    expect(assigneeFromAddress('nobody')).toBe('nobody');
+    expect(assigneeFromAddress(undefined)).toBe('all');
+    expect(assigneeFromAddress(ANNA)).toBe('all');
+    expect(assigneeFromAddress('Nobody')).toBe('all');
+    expect(assigneeFromAddress(['nobody', 'nobody'])).toBe('all');
   });
 });
 

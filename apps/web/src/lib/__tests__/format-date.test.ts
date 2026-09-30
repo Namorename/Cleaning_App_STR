@@ -1,6 +1,27 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { formatDateTime, formatDay, formatShortDay, todayIn, todayIso } from '../format-date';
+
+// Building an Intl.DateTimeFormat costs far more than using one, and the
+// calendar formats in every row it draws (ROADMAP, 7.6 tail).
+describe('formats are built once and reused', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  test('a short day in the same language', () => {
+    const built = vi.spyOn(Intl, 'DateTimeFormat');
+    formatShortDay('2026-09-22', 'ru');
+    formatShortDay('2026-09-23', 'ru');
+    formatShortDay('2026-09-24', 'ru');
+    expect(built.mock.calls.length).toBeLessThanOrEqual(1);
+  });
+
+  test("a listing's today in the same time zone", () => {
+    const built = vi.spyOn(Intl, 'DateTimeFormat');
+    todayIn('Europe/Prague', new Date('2026-09-29T10:00:00Z'));
+    todayIn('Europe/Prague', new Date('2026-09-30T10:00:00Z'));
+    expect(built.mock.calls.length).toBeLessThanOrEqual(1);
+  });
+});
 
 describe('formatDay', () => {
   test('reads a database day as a calendar day in the manager language', () => {
