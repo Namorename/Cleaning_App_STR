@@ -11,7 +11,8 @@
 -- Expected, label by label (local stack after db:reset, 2026-09-28; push_on_task_change and enqueue_daily_digest
 -- recomputed 2026-09-29 after the free count and the property_cleaners narrowing, guard_task_transitions the
 -- same day after the refusal of a take without a status; the cloud baseline before the push was read the
--- same day with scripts/cloud-read.mjs):
+-- same day with scripts/cloud-read.mjs; all 32 rechecked 2026-09-30 after the ultrareview fixes, which
+-- change no SQL — unchanged):
 --   head           20260928140000.
 --   functions      one row per name, overloads = 1, config {search_path=""}, md5 prefix / length /
 --                  definer exactly:
