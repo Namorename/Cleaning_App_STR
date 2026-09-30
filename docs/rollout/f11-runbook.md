@@ -5,19 +5,25 @@
 подробно — `docs/f11-owner-steps.md`, правило заставы — `docs/units-plan.md`,
 «Эксплуатация выката», проба облака — `docs/rollout/postpush_f11.sql`.
 
-Составлено ночью 2026-09-29, **ничего из этого ещё не выполнено**. Кто делает шаг:
-**В** — владелец в своём окне (меню, вход, секреты); **Я** — я по слову владельца
-(запись в облако, деплой, push — только с его словом, CLAUDE.md).
+Составлено ночью 2026-09-29, сверено 2026-09-30 после ultrareview и обзора нативной
+половины; **ничего из шагов выката ещё не выполнено**. Кто делает шаг: **В** — владелец
+в своём окне (меню, вход, секреты); **Я** — я по слову владельца (запись в облако,
+деплой, push — только с его словом, CLAUDE.md).
 
 ## 0. Перед выкатом
 
-- [ ] Ultrareview разобран (`docs/f11-ultrareview.md`), подтверждённые находки
-      закрыты, ветки `f11-push` и `f11-native` чистые, `f11-native` содержит
-      `f11-push` (`git merge-base --is-ancestor f11-push f11-native`).
+- [x] Ultrareview разобран (`docs/f11-ultrareview.md`, 2026-09-30): две находки,
+      обе в телефоне, исправлены в `f11-push` (`dcf9592`) и слиты в `f11-native`.
+      Он видел только `f11-push`.
+- [ ] Обзор нативной половины разобран (`docs/f11-native-review.md`, 2026-09-30):
+      CRITICAL и HIGH нет. До сборки — решения владельца по тому, что не чинится по
+      воздуху (С-2, С-3, С-4, канал `general` — Т-9), и какие MEDIUM чинить до сборки.
+- [ ] Ветки `f11-push` и `f11-native` чистые, `f11-native` содержит `f11-push`
+      (`git merge-base --is-ancestor f11-push f11-native`).
 - [ ] Рабочее дерево — на `f11-push` или `f11-native`, не на снимках для обзора
       (`f11-review-base`, `f11-push-review`, `f11-push-code` — только локальные,
-      не сливать и не пушить).
-- [ ] Облако: голова `20260927120000`, заданий крона 7 —
+      не сливать и не пушить; обзор прошёл, их можно удалить: `git branch -D`).
+- [ ] Облако: голова `20260927120000`, заданий крона 7 (так и есть на 2026-09-30) —
       `node scripts/cloud-read.mjs docs/rollout/remote_head.sql` и
       `node scripts/cloud-read.mjs --sql "select jobname, schedule, active from cron.job order by 1"`.
 - [ ] Время `db push` выбрано (раздел 5): 22:00–02:00 UTC или 04:00–04:25 UTC.
@@ -35,12 +41,21 @@
    npx eas-cli env:set --name EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY --value <publishable key> --type string --visibility plaintext --environment preview
    ```
    Флаги сверены по исходнику eas-cli 24.7.0: `--type string|file`,
-   `--visibility plaintext|sensitive|secret`.
+   `--visibility plaintext|sensitive|secret`. Сборка iOS (`testflight`) берёт
+   окружение `preview` явно; APK (`preview`) — неявно: в `eas.json` у профиля нет
+   `environment` (обзор, С-2). Без этих двух переменных сборка проходит, а
+   приложение падает на старте без отчёта.
 2. **`google-services.json`** — шаги 1–3 (файл-секрет в EAS, не в репозиторий).
+   Без него сборка Android падает сразу — молча без FCM не соберётся.
 3. **Ключ FCM V1** — шаги 4–5 (JSON сервисного аккаунта в EAS Credentials).
 4. **Ключ APNs** — вручную не создавать: EAS создаст его на первой сборке iOS
-   (шаг 13, ответ «да» на «Setup Push Notifications»).
-5. **Sentry** (по желанию) — шаги 10–12, затем в EAS:
+   (шаг 13, ответ «да» на «Setup Push Notifications»). Если первая сборка iOS
+   упадёт на `time-sensitive` — включить у App ID `cz.strops.cleaner` возможность
+   «Time Sensitive Notifications» на developer.apple.com и собрать снова (обзор:
+   синхронизирует ли её EAS, из репозитория не видно).
+5. **Sentry** (решение 8 — да) — шаги 10–12, затем в EAS **все четыре переменные
+   вместе** (обзор, С-3: токен без организации и проекта роняет сборку iOS, без
+   токена сборка проходит, но source maps этого бинарника потеряны навсегда):
    ```
    npx eas-cli env:set --name EXPO_PUBLIC_SENTRY_DSN --value <dsn> --type string --visibility plaintext --environment preview
    npx eas-cli env:set --name SENTRY_ORG --value <org> --type string --visibility plaintext --environment preview
@@ -48,7 +63,9 @@
    npx eas-cli env:set --name SENTRY_AUTH_TOKEN --value <token> --type string --visibility sensitive --environment preview
    ```
    В проекте Sentry — «Prevent Storing of IP Addresses». Без DSN сборка
-   работает, отчёты не шлются.
+   работает, отчёты не шлются. DSN из окружения `preview` попадает и в бандлы
+   OTA, только пока `eas update` идёт с `--environment preview` (шаг 6; обзор,
+   С-1): в `apps/mobile/.env` DSN нет, без флага OTA молча выключит отчёты.
 6. **Токен Expo для `send-push`** — шаг 16, но только **после** шага 3 выката.
 
 ## 2. Порядок выката
@@ -124,9 +141,14 @@ npx supabase secrets set EXPO_ACCESS_TOKEN=<токен>
 ### Шаг 5. `f11-push` в `main` — панель (Я, по слову; только после шага 1)
 
 `main` открыт в worktree `.claude/worktrees/f10-stage7-calendar`, поэтому
-слияние — там:
+слияние — там. **Перемотки нет:** `main` ушёл вперёд веток F11 (прокрутка календаря
+`c9f6b8f`, дашборд `b9fe252`), `--ff-only` откажет. Слияние обычное; `git merge-tree`
+2026-09-30 — без конфликтов. Слитое дерево — новое сочетание (дашборд и правки панели
+F11 вместе), поэтому полный цикл до push:
 ```
-git -C ".claude/worktrees/f10-stage7-calendar" merge --ff-only f11-push
+git -C ".claude/worktrees/f10-stage7-calendar" merge --no-ff f11-push -m "merge: F11 — схема, send-push, Т1 телефона"
+# в worktree: apps/web — npm run typecheck, npx vitest run --maxWorkers=2, npm run build;
+#             apps/mobile — npx tsc --noEmit, npx jest --maxWorkers=2 --forceExit
 git -C ".claude/worktrees/f10-stage7-calendar" push origin main
 ```
 Vercel сам выкатит прод-панель (CLAUDE.md). До шага 1 нельзя: код панели читает
@@ -144,11 +166,17 @@ Vercel сам выкатит прод-панель (CLAUDE.md). До шага 1 
    ```
    npx eas-cli update --branch preview --environment preview --message "F11 T1: принять, настройки, ожидание сессии" --non-interactive
    ```
+   `--environment preview` не убирать: из него бандл берёт адрес облака и (для
+   1.1.0) DSN Sentry. Source maps для OTA сами не грузятся (обзор, С-3) — с Sentry
+   после `eas update` в своём окне, с `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` и
+   `SENTRY_PROJECT` в окружении: `npx sentry-expo-upload-sourcemaps dist`. Для
+   бандла T1 на 1.0.0 не нужно: в 1.0.0 Sentry нет.
 
 ### Шаг 7. `f11-native` в `main` — коммит сборки (Я, по слову)
 
 ```
-git -C ".claude/worktrees/f10-stage7-calendar" merge --ff-only f11-native
+git -C ".claude/worktrees/f10-stage7-calendar" merge --no-ff f11-native -m "merge: F11 — сборка 1.1.0"
+# тот же полный цикл телефона и панели на слитом дереве
 git -C ".claude/worktrees/f10-stage7-calendar" push origin main
 ```
 После этого `main` — версия 1.1.0: следующий `eas update` из `main` уйдёт на
@@ -172,10 +200,21 @@ APK — поверх 1.0.0. iOS — `npx eas-cli build -p ios --profile testflig
 | 1–2 | список уборок открывается; «Взять» свободную уборку работает (пишет `assigned`); начать и закончить | календарь, карточка уборки, сохранение; назначить ремонт |
 | 3–4 | ничего нового | ничего нового |
 | 5 | — | прод-деплой Vercel зелёный; календарь, уборки, задания; названия языков в настройках (`common.languages`) |
-| 6 | два перезапуска — пришёл OTA; «Принять» у своей уборки; взятая свободная — сразу «принята»; «Настройки»: язык, пароль; вход после долгого офлайна ждёт сессию | статус «принята» виден в карточке и календаре |
+| 6 | два перезапуска — пришёл OTA; «Принять» у своей уборки; взятая свободная — сразу «принята»; «Настройки»: язык, пароль; смена языка без связи — «Язык не сменился.» и язык вернулся (ultrareview, 1); «Настройки» при холодном старте — «Загружаем настройки…», а не пустой экран (ultrareview, 2); вход после долгого офлайна ждёт сессию | статус «принята» виден в карточке и календаре |
 | 8 | установка поверх 1.0.0 без потери входа; пояснение → системный вопрос → токен (проба: в `push_tokens` строка); менеджер назначает уборку на сегодня днём → push; нажатие открывает уборку; снятие — срочный push; сообщение в чате — push; выключенный вид не приходит; в 07:05 по Праге — сводка | — |
 
 Для шага 8 на iPhone — ещё раздел 8.5 плана (холодный старт по нажатию).
+
+Известное по обзору нативной половины (`docs/f11-native-review.md`), пока не
+исправлено — на шаге 8 не принимать за новую поломку:
+- **Android, П-1:** уборка, открытая из push при закрытом приложении, после выгрузки
+  процесса и возврата через «Недавние» открывается снова;
+- **П-2:** нажатие «Уборка перенесена» на плохой связи может сработать с большой
+  задержкой;
+- **Т-1, Т-2:** выход без связи или во время регистрации может оставить токен за
+  вышедшей — push про её объекты придут на этот телефон, пока кто-то не войдёт;
+- **Т-9:** push канала `general` (чат, новые и назначенные уборки) приходят со
+  звуком, но без всплывающего баннера — так задан канал.
 
 ## 4. Точка невозврата и откат
 
