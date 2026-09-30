@@ -222,12 +222,26 @@ test('iOS: urgent pushes may break through a Focus, and no export paperwork is a
 // Video steps are recorded with the app's own camera, not the system's (owner's
 // word 2026-09-30): length, size and bitrate are the app's to set, and it
 // writes no location into the file. Native, so it has to be in this build.
-test('the in-app camera is in the build, records sound, and leaves the barcode scanner out', () => {
+//
+// The barcode switch keeps ZXing out of the iOS build only. Android links the
+// prebuilt expo-camera library, whose own dependencies bring ML Kit whatever
+// the switch says; only building the module from source would honour it, and
+// that can be checked in a real build alone — left for the redesign build.
+test('the in-app camera is in the build, records sound, and leaves the iOS barcode scanner out', () => {
   const camera = plugin(resolve(), 'expo-camera');
 
   expect(packageJson.dependencies['expo-camera']).toBeDefined();
   expect(camera?.recordAudioAndroid).toBe(true);
   expect(camera?.barcodeScannerEnabled).toBe(false);
+});
+
+// The app never asks for Face ID: expo-secure-store would otherwise add its
+// generic "access your Face ID biometric data" reason to the first iOS build,
+// a reason with nothing behind it for App Review to read.
+test('iOS: no Face ID reason — the app does not use biometrics', () => {
+  const secureStore = plugin(resolve(), 'expo-secure-store');
+
+  expect(secureStore?.faceIDPermission).toBe(false);
 });
 
 // Both plugins write the same two iOS reasons; whichever runs last wins, so
