@@ -126,8 +126,35 @@
       "unread": "Unread: {{count}}"
     },
     "dashboard": {
-      "emptyTitle": "The panel is connected",
-      "emptyHint": "Figures arrive with the sections. Start with tasks and supply requests."
+      "tiles": {
+        "cleaningsToday": "Cleanings today",
+        "cleaningsTodayValue": "{{total}} · {{done}} done",
+        "unassigned": "No assignee",
+        "unassignedWeek": "next 7 days",
+        "unassignedToday": "today {{number}}",
+        "unassignedTomorrow": "tomorrow {{number}}",
+        "openProblems": "Open tasks",
+        "newSupplies": "New supply requests",
+        "overdueRepairs": "Overdue repairs",
+        "offRepairs": "Repairs held by switched-off staff"
+      },
+      "repairs": {
+        "title": "Stuck repairs",
+        "loading": "Loading the repairs…",
+        "empty": "No stuck repairs.",
+        "overdue": "Overdue",
+        "technicianOff": "Not working",
+        "nobody": "No assignee",
+        "noName": "No name",
+        "open": "Open the task"
+      },
+      "errors": {
+        "tasks": "Could not load the cleanings.",
+        "listings": "Could not load the listings.",
+        "problems": "Could not load the tasks.",
+        "supplies": "Could not load the supply requests.",
+        "repairs": "Could not load the repairs."
+      }
     },
     "problems": {
       "title": "Tasks",

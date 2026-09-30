@@ -33,6 +33,8 @@ interface ChipLayersOptions {
   isStand: boolean;
   days: readonly string[];
   byId: ReadonlyMap<number, Property>;
+  /** What the assignee filter opens on: the address's, or everybody. */
+  initialAssignee?: AssigneeFilter;
 }
 
 /**
@@ -41,7 +43,13 @@ interface ChipLayersOptions {
  * the cancelled while their switch is on. The filters act on the result:
  * «Статус» on the live and the done only, the assignee on all (§2).
  */
-export function useChipLayers({ client, isStand, days, byId }: ChipLayersOptions) {
+export function useChipLayers({
+  client,
+  isStand,
+  days,
+  byId,
+  initialAssignee = ANY_ASSIGNEE,
+}: ChipLayersOptions) {
   const tasks = useCalendarTasks(client, isStand, days);
   const expired = useCalendarExpired(client, isStand, days);
   const [showCancelled, setShowCancelled] = useState(false);
@@ -49,7 +57,7 @@ export function useChipLayers({ client, isStand, days, byId }: ChipLayersOptions
   const staff = useCalendarStaff(client, isStand);
 
   const [status, setStatus] = useState<StatusFilter>('all');
-  const [assignee, setAssignee] = useState<AssigneeFilter>(ANY_ASSIGNEE);
+  const [assignee, setAssignee] = useState<AssigneeFilter>(initialAssignee);
 
   // A mark is read narrow: its person's name comes from what is already held.
   const names = useMemo(() => {

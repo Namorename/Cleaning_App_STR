@@ -657,6 +657,34 @@ describe('task chips', () => {
     expect(screen.queryByRole('button', { name: /Iva/ })).toBeNull();
   });
 
+  // The dashboard's «Без исполнителя» opens /calendar?assignee=nobody (the page reads the address).
+  test('opens on the chips nobody holds when the address asks for them', () => {
+    tasksState.data = [
+      calendarTask(1, '2026-09-26', { status: 'unassigned' }),
+      calendarTask(1, '2026-09-28', {
+        assignee_id: ANNA,
+        assignee: { full_name: 'Anna', role: 'cleaner' },
+      }),
+    ];
+    render(<CalendarView initialAssignee="nobody" />);
+
+    expect((screen.getByLabelText('Исполнитель') as HTMLSelectElement).value).toBe('nobody');
+    expect(screen.getByRole('button', { name: /Никто/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Anna/ })).toBeNull();
+  });
+
+  // The tile counts today and the six days on; the calendar it opens shows them
+  // all, whatever depth was kept, and keeps that depth for the next visit.
+  test('opened for the week ahead, starts on today at a week, and remembers nothing of it', () => {
+    window.localStorage.setItem('str-ops.calendar.depth', '3');
+
+    render(<CalendarView initialAssignee="nobody" openAheadDays={7} />);
+
+    expect(days()).toHaveLength(7);
+    expect(days()[0]).toBe('2026-09-26');
+    expect(window.localStorage.getItem('str-ops.calendar.depth')).toBe('3');
+  });
+
   // Their chips are gone from this window; the filter must still say whom it holds.
   test('the assignee filter keeps a person who left after the window moves past their chips', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });

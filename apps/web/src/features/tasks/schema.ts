@@ -127,7 +127,14 @@ export const liveRepairSchema = z.object({
   scheduled_date: z.string(),
   assignee_id: z.uuid().nullable(),
   assignee: z.object({ full_name: z.string().nullable(), is_active: z.boolean() }).nullable(),
-  property: z.object({ name: z.string(), status: z.string(), timezone: z.string().nullable() }),
+  property: z.object({
+    name: z.string(),
+    status: z.string(),
+    timezone: z.string().nullable(),
+    // What names a room with its building on the dashboard (propertyPathOf).
+    hostaway_unit_id: z.number().nullable().default(null),
+    parent: z.object({ name: z.string() }).nullable().default(null),
+  }),
 });
 export type LiveRepair = z.infer<typeof liveRepairSchema>;
 export const liveRepairListSchema = z.array(liveRepairSchema);

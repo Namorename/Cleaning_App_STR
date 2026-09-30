@@ -126,8 +126,35 @@
       "unread": "Nepřečtené: {{count}}"
     },
     "dashboard": {
-      "emptyTitle": "Panel je připojen",
-      "emptyHint": "Čísla přijdou spolu se sekcemi. Začněte úkoly a žádostmi o materiál."
+      "tiles": {
+        "cleaningsToday": "Úklidů dnes",
+        "cleaningsTodayValue": "{{total}} · hotovo {{done}}",
+        "unassigned": "Nepřiřazeno",
+        "unassignedWeek": "na 7 dní dopředu",
+        "unassignedToday": "dnes {{number}}",
+        "unassignedTomorrow": "zítra {{number}}",
+        "openProblems": "Otevřených úkolů",
+        "newSupplies": "Nových žádostí o materiál",
+        "overdueRepairs": "Oprav po termínu",
+        "offRepairs": "Oprav u vypnutých"
+      },
+      "repairs": {
+        "title": "Uvízlé opravy",
+        "loading": "Načítáme opravy…",
+        "empty": "Žádné uvízlé opravy.",
+        "overdue": "Po termínu",
+        "technicianOff": "Nepracuje",
+        "nobody": "Nepřiřazeno",
+        "noName": "Bez jména",
+        "open": "Otevřít úkol"
+      },
+      "errors": {
+        "tasks": "Úklidy se nepodařilo načíst.",
+        "listings": "Objekty se nepodařilo načíst.",
+        "problems": "Úkoly se nepodařilo načíst.",
+        "supplies": "Žádosti o materiál se nepodařilo načíst.",
+        "repairs": "Opravy se nepodařilo načíst."
+      }
     },
     "problems": {
       "title": "Úkoly",

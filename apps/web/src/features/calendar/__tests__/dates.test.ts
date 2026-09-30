@@ -10,6 +10,7 @@ import {
   monthBounds,
   monthsOf,
   neighbourMonths,
+  openingWindow,
   windowDays,
 } from '../dates';
 
@@ -109,5 +110,19 @@ describe('where the window opens', () => {
 
   test('on today itself when the window is one day', () => {
     expect(defaultStart('2026-09-26', 1)).toBe('2026-09-26');
+  });
+
+  test('as usual, at the depth the manager chose, when nothing is asked ahead', () => {
+    expect(openingWindow('2026-09-26', 3, null)).toEqual({ start: '2026-09-25', depth: 3 });
+    expect(openingWindow('2026-09-26', 1, null)).toEqual({ start: '2026-09-26', depth: 1 });
+  });
+
+  // The dashboard's «Без исполнителя» counts today and the six days on; its link
+  // opens here on exactly those days or more (dashboard preflight).
+  test('on today and deep enough for the days asked ahead, the depth chosen kept when wider', () => {
+    expect(openingWindow('2026-09-26', 1, 7)).toEqual({ start: '2026-09-26', depth: 7 });
+    expect(openingWindow('2026-09-26', 3, 7)).toEqual({ start: '2026-09-26', depth: 7 });
+    expect(openingWindow('2026-09-26', 7, 7)).toEqual({ start: '2026-09-26', depth: 7 });
+    expect(openingWindow('2026-09-26', 30, 7)).toEqual({ start: '2026-09-26', depth: 30 });
   });
 });
