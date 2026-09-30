@@ -657,6 +657,22 @@ describe('task chips', () => {
     expect(screen.queryByRole('button', { name: /Iva/ })).toBeNull();
   });
 
+  // The dashboard's «Без исполнителя» opens /calendar?assignee=nobody (the page reads the address).
+  test('opens on the chips nobody holds when the address asks for them', () => {
+    tasksState.data = [
+      calendarTask(1, '2026-09-26', { status: 'unassigned' }),
+      calendarTask(1, '2026-09-28', {
+        assignee_id: ANNA,
+        assignee: { full_name: 'Anna', role: 'cleaner' },
+      }),
+    ];
+    render(<CalendarView initialAssignee="nobody" />);
+
+    expect((screen.getByLabelText('Исполнитель') as HTMLSelectElement).value).toBe('nobody');
+    expect(screen.getByRole('button', { name: /Никто/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Anna/ })).toBeNull();
+  });
+
   // Their chips are gone from this window; the filter must still say whom it holds.
   test('the assignee filter keeps a person who left after the window moves past their chips', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });

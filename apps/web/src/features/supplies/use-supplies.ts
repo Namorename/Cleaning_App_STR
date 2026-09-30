@@ -16,9 +16,14 @@ import {
 import { supplyKeys } from './keys';
 import type { CatalogItemDraft } from './schema';
 
-export function useSupplyRequests() {
+/** `refetchInterval` for a page that stays open and counts them, the dashboard. */
+export function useSupplyRequests(refetchInterval?: number) {
   const client = useSupabase();
-  return useQuery({ queryKey: supplyKeys.list(), queryFn: () => fetchSupplyRequests(client) });
+  return useQuery({
+    queryKey: supplyKeys.list(),
+    queryFn: () => fetchSupplyRequests(client),
+    refetchInterval,
+  });
 }
 
 export function useReviewSupplyRequest() {

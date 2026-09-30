@@ -22,9 +22,14 @@ import {
 } from './api';
 import { problemKeys } from './keys';
 
-export function useProblems() {
+/** `refetchInterval` for a page that stays open and counts them, the dashboard. */
+export function useProblems(refetchInterval?: number) {
   const client = useSupabase();
-  return useQuery({ queryKey: problemKeys.list(), queryFn: () => fetchProblems(client) });
+  return useQuery({
+    queryKey: problemKeys.list(),
+    queryFn: () => fetchProblems(client),
+    refetchInterval,
+  });
 }
 
 export function useProblem(problemId: string) {

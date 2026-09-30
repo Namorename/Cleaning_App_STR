@@ -112,7 +112,20 @@ describe('the live repairs', () => {
 
     const select = String(argsOf(calls, 'select')[0][0]);
     expect(select).toContain('assignee:profiles!tasks_assignee_id_fkey(full_name, is_active)');
-    expect(select).toContain('property:properties!inner(name, status, timezone)');
+    expect(select).toContain('property:properties!inner(name, status, timezone, ');
     expect(argsOf(calls, 'neq')).toEqual([['property.status', 'archived']]);
+  });
+
+  // The dashboard lists a repair by its place, and a room's own name ("1 -
+  // 2109") never says which building it is in (propertyPathOf).
+  test('come with what names a room: whether it is one, and its building', async () => {
+    const { client, calls } = recordingClient();
+
+    await fetchLiveRepairs(client);
+
+    const select = String(argsOf(calls, 'select')[0][0]);
+    expect(select).toContain(
+      'property:properties!inner(name, status, timezone, hostaway_unit_id, parent:parent_id(name))',
+    );
   });
 });

@@ -13,7 +13,7 @@ import { layoutRows } from './bars';
 import { BookingCard } from './booking-card';
 import { CalendarFilters } from './calendar-filters';
 import { CalendarGrid } from './calendar-grid';
-import type { BookingsRead, ChipView } from './chips';
+import type { AssigneeFilter, BookingsRead, ChipView } from './chips';
 import {
   addDays,
   DEPTHS,
@@ -49,6 +49,8 @@ interface CalendarViewProps {
   fixture?: boolean;
   /** The stand's fixture this many times over: 1 or 3 (7.6). */
   scale?: number;
+  /** The assignee filter the address opens on (`assigneeFromAddress`). */
+  initialAssignee?: AssigneeFilter;
 }
 
 const noSubscription = () => () => {};
@@ -62,7 +64,7 @@ const noSubscription = () => () => {};
  * in the browser only: a server render with a week and every group open would
  * then be corrected in front of her.
  */
-export function CalendarView({ fixture = false, scale = 1 }: CalendarViewProps) {
+export function CalendarView({ fixture = false, scale = 1, initialAssignee }: CalendarViewProps) {
   const { t } = useTranslation();
   const isBrowser = useSyncExternalStore(
     noSubscription,
@@ -73,7 +75,7 @@ export function CalendarView({ fixture = false, scale = 1 }: CalendarViewProps) 
   if (!isBrowser) {
     return <p className="text-sm text-muted-foreground">{t('panel.calendar.loadingRows')}</p>;
   }
-  return <CalendarBody isStand={fixture} scale={scale} />;
+  return <CalendarBody isStand={fixture} scale={scale} initialAssignee={initialAssignee} />;
 }
 
 function toggled(ids: ReadonlySet<number>, id: number): Set<number> {
@@ -86,7 +88,13 @@ function toggled(ids: ReadonlySet<number>, id: number): Set<number> {
   return next;
 }
 
-function CalendarBody({ isStand, scale }: { isStand: boolean; scale: number }) {
+interface CalendarBodyProps {
+  isStand: boolean;
+  scale: number;
+  initialAssignee?: AssigneeFilter;
+}
+
+function CalendarBody({ isStand, scale, initialAssignee }: CalendarBodyProps) {
   const { t, i18n } = useTranslation();
   const client = useCalendarClient(isStand, scale);
   const rowsQuery = useCalendarRows(client, isStand);
@@ -129,7 +137,7 @@ function CalendarBody({ isStand, scale }: { isStand: boolean; scale: number }) {
   }, [bookings.data, days]);
 
   // Chips, likewise, only when every month has come; the filters act on them alone.
-  const chips = useChipLayers({ client, isStand, days, byId });
+  const chips = useChipLayers({ client, isStand, days, byId, initialAssignee });
   const taskDialogs = useTaskDialogs({ isStand, language, bookings: bookingsRead });
 
   // A repair left behind shows in its row's first column, whatever the window (§6).

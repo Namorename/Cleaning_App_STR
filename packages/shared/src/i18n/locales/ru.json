@@ -126,8 +126,34 @@
       "unread": "Непрочитанных: {{count}}"
     },
     "dashboard": {
-      "emptyTitle": "Панель подключена",
-      "emptyHint": "Показатели появятся вместе с разделами. Начните с заданий и заявок."
+      "tiles": {
+        "cleaningsToday": "Уборок сегодня",
+        "cleaningsTodayValue": "{{total}} · готово {{done}}",
+        "unassigned": "Без исполнителя",
+        "unassignedWeek": "на 7 дней вперёд",
+        "unassignedToday": "сегодня {{number}}",
+        "unassignedTomorrow": "завтра {{number}}",
+        "openProblems": "Открытых заданий",
+        "newSupplies": "Новых заявок",
+        "overdueRepairs": "Ремонтов просрочено",
+        "offRepairs": "Ремонтов у отключённых"
+      },
+      "repairs": {
+        "title": "Застрявшие ремонты",
+        "loading": "Загружаем ремонты…",
+        "empty": "Застрявших ремонтов нет.",
+        "overdue": "Просрочен",
+        "technicianOff": "Не работает",
+        "nobody": "Без исполнителя",
+        "noName": "Без имени",
+        "open": "Открыть задание"
+      },
+      "errors": {
+        "tasks": "Не удалось загрузить уборки.",
+        "problems": "Не удалось загрузить задания.",
+        "supplies": "Не удалось загрузить заявки.",
+        "repairs": "Не удалось загрузить ремонты."
+      }
     },
     "problems": {
       "title": "Задания",
