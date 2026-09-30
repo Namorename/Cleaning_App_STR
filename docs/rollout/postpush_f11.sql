@@ -12,7 +12,8 @@
 -- recomputed 2026-09-29 after the free count and the property_cleaners narrowing, guard_task_transitions the
 -- same day after the refusal of a take without a status; the cloud baseline before the push was read the
 -- same day with scripts/cloud-read.mjs; all 32 rechecked 2026-09-30 after the ultrareview fixes, which
--- change no SQL — unchanged):
+-- change no SQL — unchanged; guard_task_fields added the same evening — the executor no longer rewrites
+-- notes, nobody created_at — and all 33 recomputed after db:reset on f11-push, the other 32 unchanged):
 --   head           20260928140000.
 --   functions      one row per name, overloads = 1, config {search_path=""}, md5 prefix / length /
 --                  definer exactly:
@@ -23,6 +24,7 @@
 --                    cleans_property_as        787fd4ef   400 t
 --                    enqueue_daily_digest      12ee31c3  4180 t
 --                    forget_push_token         1738dff3    96 t
+--                    guard_task_fields         a70a0246  2348 t
 --                    guard_task_transitions    5f1c8489  4372 t
 --                    open_cleanings_by_listing 90e5c6ec   298 f
 --                    property_open_cleanings   415b0631   710 t
@@ -59,8 +61,9 @@
 --                  open_cleanings_by_listing. FALSE on the triggers (push_on_*), the sender's calls
 --                  (claim_*, record_*, forget_push_token, purge_push_history, enqueue_daily_digest)
 --                  and the participation cores (cleans_property_as, chat_participates_as).
---                  guard_task_transitions -> true is the cloud's own ACL before F11 (create or
---                  replace keeps it) and harmless: a trigger function cannot be called directly.
+--                  guard_task_fields and guard_task_transitions -> true is the cloud's own ACL
+--                  before F11 (create or replace keeps it) and harmless: a trigger function
+--                  cannot be called directly.
 --   tables         push_tokens: rls on, no grant to anon, authenticated or PUBLIC, no policy.
 --                  push_preferences: rls on, authenticated SELECT only, one policy
 --                  "person reads own push preferences" (SELECT). raw.push_outbox and
@@ -92,7 +95,7 @@ select label, payload from (
                    'definer', p.prosecdef, 'config', p.proconfig) order by f.name)
           from unnest(array['assign_problem', 'chat_participates_as', 'claim_push_batch',
                             'claim_push_receipts', 'cleans_property_as', 'enqueue_daily_digest',
-                            'forget_push_token', 'guard_task_transitions',
+                            'forget_push_token', 'guard_task_fields', 'guard_task_transitions',
                             'open_cleanings_by_listing', 'property_open_cleanings',
                             'purge_push_history', 'push_digest_hour', 'push_history_kept',
                             'push_lease', 'push_lifetime', 'push_on_booking_status',
@@ -116,7 +119,8 @@ select label, payload from (
             and (p.proname like 'push\_%' or p.proname in (
                    'assign_problem', 'chat_participates_as', 'claim_push_batch',
                    'claim_push_receipts', 'cleans_property_as', 'enqueue_daily_digest',
-                   'forget_push_token', 'guard_task_transitions', 'open_cleanings_by_listing',
+                   'forget_push_token', 'guard_task_fields', 'guard_task_transitions',
+                   'open_cleanings_by_listing',
                    'property_open_cleanings', 'purge_push_history', 'record_push_receipts',
                    'record_push_results', 'register_push_token', 'save_task',
                    'set_property_status', 'set_push_preference', 'unregister_push_token')))
