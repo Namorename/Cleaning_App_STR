@@ -559,6 +559,8 @@
         "propertiesSearch": "Hledat podle názvu",
         "propertiesNoMatch": "Nic nenalezeno",
         "propertiesChosen": "Vybráno: {{total}}",
+        "propertiesSelectShown": "Vybrat vše ({{total}})",
+        "propertiesClearShown": "Odznačit vše ({{total}})",
         "propertiesNotForRole": "Manažerovi a správci se objekty nepřiřazují — vidí všechny.",
         "propertiesFailed": "Zaměstnanec byl uložen, ale objekty se nepodařilo otevřít.",
         "active": "Pracuje",

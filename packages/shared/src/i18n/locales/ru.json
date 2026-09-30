@@ -559,6 +559,8 @@
         "propertiesSearch": "Поиск по названию",
         "propertiesNoMatch": "Ничего не найдено",
         "propertiesChosen": "Выбрано: {{total}}",
+        "propertiesSelectShown": "Выбрать все ({{total}})",
+        "propertiesClearShown": "Снять все ({{total}})",
         "propertiesNotForRole": "Менеджеру и администратору объекты не назначаются — им видно всё.",
         "propertiesFailed": "Сотрудник сохранён, но объекты открыть не удалось.",
         "active": "Работает",
