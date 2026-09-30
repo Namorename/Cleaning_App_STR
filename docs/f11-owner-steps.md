@@ -36,9 +36,9 @@ Terminal, из папки `C:\Users\Roman\Desktop\Cleaning App\apps\mobile`. Ч�
 
 ### Apple
 
-- [ ] **6.** Apple Developer Program как **частное лицо** ($99 в год), Apple ID с
-  двухфакторной проверкой. Подтверждение обычно в течение суток.
-- [ ] **7.** После подтверждения: App Store Connect → Users and Access →
+- [x] **6.** Apple Developer Program как **частное лицо** ($99 в год), Apple ID с
+  двухфакторной проверкой. **Заведён** (владелец, 2026-09-30).
+- [ ] **7. Осталось:** App Store Connect → Users and Access →
   Integrations → App Store Connect API → **«Request Access»**. Нажать может только
   Account Holder, то есть вы; Apple рассматривает запрос сама, поэтому лучше
   сразу. Ключ пока **не** создавать.
