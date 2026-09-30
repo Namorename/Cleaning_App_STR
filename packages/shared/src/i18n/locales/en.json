@@ -816,6 +816,7 @@
   },
   "settings": {
     "title": "Settings",
+    "loading": "Loading the settings…",
     "notifications": {
       "heading": "Notifications",
       "hint": "These switches decide what the server sends you.",
