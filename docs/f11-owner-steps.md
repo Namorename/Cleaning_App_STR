@@ -59,16 +59,19 @@ Terminal, из папки `C:\Users\Roman\Desktop\Cleaning App\apps\mobile`. Ч�
 - [ ] **11. Сообщить:** DSN проекта (он публичный, его можно в чат) и слаги
   организации и проекта.
 - [ ] **12.** Settings → Auth Tokens → создать токен организации. **Секрет** —
-  в чат не присылать; положить позже командой, которую я дам, в EAS с
-  видимостью `sensitive`.
+  в чат не присылать; положить в EAS с видимостью `sensitive` командами из
+  `docs/rollout/f11-runbook.md`, раздел 1, п.5 — **все четыре переменные Sentry
+  вместе**: токен без организации и проекта роняет сборку iOS.
 
 ## Ждёт моей части
 
-- [ ] **13. Первая сборка iOS** — когда в ветке `f11-native` появится профиль
-  TestFlight. Я скажу точную команду; запуск в своём окне:
-  `npx eas-cli build -p ios --profile <профиль>`. Вход Apple ID, код 2FA, выбор
+- [ ] **13. Первая сборка iOS** — в день выката, шаг 8 ранбука (после `db push`:
+  сборка 1.1.0 ходит в новую схему). Профиль уже есть; в своём окне:
+  `npx eas-cli build -p ios --profile testflight`. Вход Apple ID, код 2FA, выбор
   команды; на вопрос «Setup Push Notifications for your project?» — **да**
-  (EAS создаст ключ APNs сам, файл `.p8` вам не нужен).
+  (EAS создаст ключ APNs сам, файл `.p8` вам не нужен). Если сборка упадёт на
+  `time-sensitive` — developer.apple.com → Identifiers → `cz.strops.cleaner` →
+  включить «Time Sensitive Notifications» и собрать снова.
 - [ ] **14. Первая отправка в TestFlight** — тоже в своём окне, с входом Apple
   ID: `npx eas-cli submit -p ios`. Она создаёт запись приложения в App Store
   Connect (ключом API это нельзя). Через 10–15 минут сборка в TestFlight.
