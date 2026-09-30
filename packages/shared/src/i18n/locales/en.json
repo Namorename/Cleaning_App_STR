@@ -150,6 +150,7 @@
       },
       "errors": {
         "tasks": "Could not load the cleanings.",
+        "listings": "Could not load the listings.",
         "problems": "Could not load the tasks.",
         "supplies": "Could not load the supply requests.",
         "repairs": "Could not load the repairs."

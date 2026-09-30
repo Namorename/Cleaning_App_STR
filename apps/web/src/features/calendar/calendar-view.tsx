@@ -20,6 +20,7 @@ import {
   defaultStart,
   monthBounds,
   monthsOf,
+  openingWindow,
   rangeLabel,
   windowDays,
   type Depth,
@@ -51,6 +52,8 @@ interface CalendarViewProps {
   scale?: number;
   /** The assignee filter the address opens on (`assigneeFromAddress`). */
   initialAssignee?: AssigneeFilter;
+  /** Open on today and at least this many days (`openingWindow`); not remembered. */
+  openAheadDays?: number;
 }
 
 const noSubscription = () => () => {};
@@ -64,7 +67,12 @@ const noSubscription = () => () => {};
  * in the browser only: a server render with a week and every group open would
  * then be corrected in front of her.
  */
-export function CalendarView({ fixture = false, scale = 1, initialAssignee }: CalendarViewProps) {
+export function CalendarView({
+  fixture = false,
+  scale = 1,
+  initialAssignee,
+  openAheadDays,
+}: CalendarViewProps) {
   const { t } = useTranslation();
   const isBrowser = useSyncExternalStore(
     noSubscription,
@@ -75,7 +83,14 @@ export function CalendarView({ fixture = false, scale = 1, initialAssignee }: Ca
   if (!isBrowser) {
     return <p className="text-sm text-muted-foreground">{t('panel.calendar.loadingRows')}</p>;
   }
-  return <CalendarBody isStand={fixture} scale={scale} initialAssignee={initialAssignee} />;
+  return (
+    <CalendarBody
+      isStand={fixture}
+      scale={scale}
+      initialAssignee={initialAssignee}
+      openAheadDays={openAheadDays}
+    />
+  );
 }
 
 function toggled(ids: ReadonlySet<number>, id: number): Set<number> {
@@ -92,17 +107,20 @@ interface CalendarBodyProps {
   isStand: boolean;
   scale: number;
   initialAssignee?: AssigneeFilter;
+  openAheadDays?: number;
 }
 
-function CalendarBody({ isStand, scale, initialAssignee }: CalendarBodyProps) {
+function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: CalendarBodyProps) {
   const { t, i18n } = useTranslation();
   const client = useCalendarClient(isStand, scale);
   const rowsQuery = useCalendarRows(client, isStand);
 
   const today = todayIso();
-  const [depth, setDepth] = useState<Depth>(() => readDepth());
+  // Read once: an opening asked from the dashboard is not remembered as her depth.
+  const [opening] = useState(() => openingWindow(today, readDepth(), openAheadDays ?? null));
+  const [depth, setDepth] = useState<Depth>(opening.depth);
   const [chipView, setChipView] = useState<ChipView>(() => readChipView());
-  const [start, setStart] = useState(() => defaultStart(today, depth));
+  const [start, setStart] = useState(opening.start);
   const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(() => readCollapsed());
   const [opened, setOpened] = useState<CalendarBooking | null>(null);
 

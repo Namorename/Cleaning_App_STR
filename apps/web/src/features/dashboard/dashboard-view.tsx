@@ -31,11 +31,22 @@ interface Read<T> {
   error: unknown;
 }
 
-function figure<T>(read: Read<T>, value: (data: T) => string): string {
-  if (read.data !== undefined) {
-    return value(read.data);
+/** A figure counted over `reads`: undefined until every one of them has come. */
+function shown(value: string | undefined, reads: readonly Read<unknown>[]): string {
+  if (value !== undefined) {
+    return value;
   }
-  return read.isError ? FAILED : PENDING;
+  return reads.some((read) => read.data === undefined && read.isError) ? FAILED : PENDING;
+}
+
+/**
+ * Next scrolls to an in-page anchor on the first click only: at the same
+ * `#stuck-repairs` a second click is no navigation (dashboard preflight). The
+ * link stays a Link — a plain anchor's history entry breaks Back in the app
+ * router — and the scroll is done here as well.
+ */
+function scrollToStuckRepairs(): void {
+  document.getElementById(STUCK_REPAIRS_ID)?.scrollIntoView();
 }
 
 interface TileProps {
@@ -44,14 +55,16 @@ interface TileProps {
   value: string;
   /** Something to chase: the figure turns red. The label says it in words too. */
   isAlert?: boolean;
+  onClick?: () => void;
   children?: ReactNode;
 }
 
 /** One figure, and the whole tile leads to where it is counted from. */
-function Tile({ href, label, value, isAlert = false, children }: TileProps) {
+function Tile({ href, label, value, isAlert = false, onClick, children }: TileProps) {
   return (
     <Link
       href={href}
+      onClick={onClick}
       className="flex flex-col gap-1 rounded-xl bg-card p-4 text-card-foreground ring-1 ring-foreground/10 transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring"
     >
       <span className="text-sm text-muted-foreground">{label}</span>
@@ -91,14 +104,19 @@ function UnassignedDays({ today, tomorrow }: { today: number; tomorrow: number }
 export function DashboardView() {
   const { t } = useTranslation();
   const now = useNow(REFRESH_MS);
-  const { tasks, problems, supplies, repairs } = useDashboard(now);
+  const { tasks, problems, supplies, repairs, rows } = useDashboard(now);
 
-  const unassigned = tasks.data === undefined ? undefined : unassignedAhead(tasks.data, now);
+  const cleanings = tasks.data === undefined ? undefined : cleaningsToday(tasks.data, now);
+  const unassigned =
+    tasks.data === undefined || rows.data === undefined
+      ? undefined
+      : unassignedAhead(tasks.data, new Set(rows.data.map((row) => row.id)), now);
   const stuck = repairs.data === undefined ? undefined : stuckRepairs(repairs.data, now);
   const repairTotals = stuck === undefined ? undefined : repairCounts(stuck);
 
   const failures = [
     { read: tasks, messageKey: 'panel.dashboard.errors.tasks' },
+    { read: rows, messageKey: 'panel.dashboard.errors.listings' },
     { read: problems, messageKey: 'panel.dashboard.errors.problems' },
     { read: supplies, messageKey: 'panel.dashboard.errors.supplies' },
     { read: repairs, messageKey: 'panel.dashboard.errors.repairs' },
@@ -116,14 +134,15 @@ export function DashboardView() {
         <Tile
           href="/tasks"
           label={t('panel.dashboard.tiles.cleaningsToday')}
-          value={figure(tasks, (data) =>
-            t('panel.dashboard.tiles.cleaningsTodayValue', { ...cleaningsToday(data, now) }),
+          value={shown(
+            cleanings && t('panel.dashboard.tiles.cleaningsTodayValue', { ...cleanings }),
+            [tasks],
           )}
         />
         <Tile
           href="/calendar?assignee=nobody"
           label={t('panel.dashboard.tiles.unassigned')}
-          value={figure(tasks, () => String(unassigned?.week ?? 0))}
+          value={shown(unassigned && String(unassigned.week), [tasks, rows])}
         >
           {unassigned === undefined ? null : (
             <UnassignedDays today={unassigned.today} tomorrow={unassigned.tomorrow} />
@@ -132,24 +151,26 @@ export function DashboardView() {
         <Tile
           href="/problems"
           label={t('panel.dashboard.tiles.openProblems')}
-          value={figure(problems, (data) => String(openProblemCount(data)))}
+          value={shown(problems.data && String(openProblemCount(problems.data)), [problems])}
         />
         <Tile
           href="/supplies"
           label={t('panel.dashboard.tiles.newSupplies')}
-          value={figure(supplies, (data) => String(newSupplyCount(data)))}
+          value={shown(supplies.data && String(newSupplyCount(supplies.data)), [supplies])}
         />
         <Tile
           href={`#${STUCK_REPAIRS_ID}`}
           label={t('panel.dashboard.tiles.overdueRepairs')}
-          value={figure(repairs, () => String(repairTotals?.overdue ?? 0))}
+          value={shown(repairTotals && String(repairTotals.overdue), [repairs])}
           isAlert={(repairTotals?.overdue ?? 0) > 0}
+          onClick={scrollToStuckRepairs}
         />
         <Tile
           href={`#${STUCK_REPAIRS_ID}`}
           label={t('panel.dashboard.tiles.offRepairs')}
-          value={figure(repairs, () => String(repairTotals?.technicianOff ?? 0))}
+          value={shown(repairTotals && String(repairTotals.technicianOff), [repairs])}
           isAlert={(repairTotals?.technicianOff ?? 0) > 0}
+          onClick={scrollToStuckRepairs}
         />
       </div>
 

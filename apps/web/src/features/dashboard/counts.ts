@@ -85,13 +85,20 @@ export interface UnassignedAhead {
  * on (owner, 2026-09-30): an inspection nobody was given is noticed by nobody,
  * and a repair without a technician counts nowhere else until its day passes.
  * What is already past its day is not here: a repair of that kind is overdue.
+ *
+ * Only on the listings the calendar draws (`drawn`, the ids of its rows): the
+ * tile leads there, and an inspection or a repair stays live on a listing
+ * after it is archived, where the calendar has no row to show it on.
  */
 export function unassignedAhead(
-  tasks: readonly DayTask[],
+  tasks: readonly (DayTask & Pick<CalendarTask, 'property_id'>)[],
+  drawn: ReadonlySet<number>,
   now: Date = new Date(),
 ): UnassignedAhead {
   const ahead = tasks
-    .filter((task) => !isTaskClosed(task) && task.assignee_id === null)
+    .filter(
+      (task) => !isTaskClosed(task) && task.assignee_id === null && drawn.has(task.property_id),
+    )
     .map((task) => daysAhead(task, now))
     .filter((days) => days >= 0 && days < UNASSIGNED_DAYS);
   return {

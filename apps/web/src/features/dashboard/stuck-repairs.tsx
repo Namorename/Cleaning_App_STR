@@ -61,11 +61,13 @@ function StuckRepairRow({ stuck }: { stuck: StuckRepair }) {
     repair.assignee_id === null
       ? t('panel.dashboard.repairs.nobody')
       : (repair.assignee?.full_name ?? t('panel.dashboard.repairs.noName'));
+  const place = propertyPathOf(repair.property);
+  const day = formatDay(repair.scheduled_date, language);
 
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm">
-      <span className="font-medium">{propertyPathOf(repair.property)}</span>
-      <span className="text-muted-foreground">{formatDay(repair.scheduled_date, language)}</span>
+      <span className="font-medium">{place}</span>
+      <span className="text-muted-foreground">{day}</span>
       <span>{technician}</span>
       {isTechnicianOff ? (
         <span className="text-destructive">{t('panel.dashboard.repairs.technicianOff')}</span>
@@ -78,6 +80,11 @@ function StuckRepairRow({ stuck }: { stuck: StuckRepair }) {
         className="ml-auto text-primary underline-offset-4 hover:underline"
       >
         {t('panel.dashboard.repairs.open')}
+        {/* A screen reader's list of links shows the links alone: each says
+            which repair, and still begins with the words on screen. */}
+        <span className="sr-only">
+          : {place}, {day}
+        </span>
       </Link>
     </li>
   );

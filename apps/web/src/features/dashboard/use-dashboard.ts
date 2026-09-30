@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import { useLiveRepairs } from '@/features/calendar/use-calendar';
+import { useCalendarRows, useLiveRepairs } from '@/features/calendar/use-calendar';
 import { useProblems } from '@/features/problems/use-problems';
 import { useSupplyRequests } from '@/features/supplies/use-supplies';
 import { fetchTasksBetween } from '@/features/tasks/api';
@@ -31,6 +31,9 @@ export function useDashboard(now: Date) {
   const problems = useProblems(REFRESH_MS);
   const supplies = useSupplyRequests(REFRESH_MS);
   const repairs = useLiveRepairs(client, false, REFRESH_MS);
+  // The calendar's rows, its read and key: «Без исполнителя» counts only what
+  // the calendar it leads to can draw. Listings seldom change; no interval.
+  const rows = useCalendarRows(client, false);
 
-  return { tasks, problems, supplies, repairs };
+  return { tasks, problems, supplies, repairs, rows };
 }

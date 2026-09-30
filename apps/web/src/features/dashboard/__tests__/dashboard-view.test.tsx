@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import type { Problem } from '@/features/problems/schema';
@@ -8,6 +8,7 @@ import {
   liveRepairSchema,
   type CalendarTask,
   type LiveRepair,
+  type Property,
 } from '@/features/tasks/schema';
 import { formatDay } from '@/lib/format-date';
 
@@ -25,7 +26,14 @@ const state: {
   problems: Read<Problem>;
   supplies: Read<SupplyRequest>;
   repairs: Read<LiveRepair>;
-} = { tasks: read([]), problems: read([]), supplies: read([]), repairs: read([]) };
+  rows: Read<Property>;
+} = {
+  tasks: read([]),
+  problems: read([]),
+  supplies: read([]),
+  repairs: read([]),
+  rows: read([]),
+};
 
 vi.mock('../use-dashboard', () => ({ useDashboard: () => state }));
 
@@ -85,6 +93,8 @@ const repair = (day: string, extra: Record<string, unknown> = {}): LiveRepair =>
 const problem = (status: string, archived_at: string | null = null) =>
   ({ status, archived_at }) as unknown as Problem;
 const supply = (status: string) => ({ status }) as unknown as SupplyRequest;
+// The calendar's rows: the tile counts only what it can draw.
+const row = (id: number) => ({ id }) as unknown as Property;
 
 const tile = (name: RegExp) => screen.getByRole('link', { name });
 
@@ -99,7 +109,10 @@ beforeEach(() => {
     free('2026-09-30', { type: 'inspection' }),
     free('2026-10-01', { type: 'maintenance' }),
     free('2026-10-05'),
+    // An inspection on an archived listing: live, but the calendar has no row for it.
+    free('2026-10-02', { property_id: 2, type: 'inspection' }),
   ]);
+  state.rows = read([row(1)]);
   state.problems = read([
     problem('open'),
     problem('assigned'),
@@ -144,6 +157,39 @@ describe('the tiles', () => {
     expect(tile(/Ремонтов просрочено/)).toHaveAttribute('href', '#stuck-repairs');
     expect(tile(/Ремонтов у отключённых/)).toHaveTextContent('2');
     expect(tile(/Ремонтов у отключённых/)).toHaveAttribute('href', '#stuck-repairs');
+  });
+
+  test('«Без исполнителя» waits for the calendar’s rows, as it counts only what they draw', () => {
+    state.rows = { data: undefined, isPending: true, isError: false, error: null };
+
+    render(<DashboardView />);
+
+    expect(tile(/Без исполнителя/)).toHaveTextContent('…');
+  });
+
+  // Next scrolls on the first click only: at the same #stuck-repairs a second
+  // click is no navigation to it (dashboard preflight).
+  test('the repair tiles bring the list into view on every click', () => {
+    const scrolled = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function scrollIntoView(this: Element) {
+      scrolled(this.id);
+    };
+    try {
+      render(<DashboardView />);
+
+      fireEvent.click(tile(/Ремонтов просрочено/));
+      fireEvent.click(tile(/Ремонтов у отключённых/));
+      fireEvent.click(tile(/Ремонтов просрочено/));
+
+      expect(scrolled.mock.calls).toEqual([
+        ['stuck-repairs'],
+        ['stuck-repairs'],
+        ['stuck-repairs'],
+      ]);
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
   });
 
   test('a figure still on its way shows an ellipsis, not a zero', () => {
@@ -200,7 +246,7 @@ describe('the stuck repairs', () => {
     expect(rows[0]).toHaveTextContent('Iva');
     expect(rows[0]).toHaveTextContent('Не работает');
     expect(rows[0]).toHaveTextContent('Просрочен');
-    expect(within(rows[0]).getByRole('link', { name: 'Открыть задание' })).toHaveAttribute(
+    expect(within(rows[0]).getByRole('link', { name: /^Открыть задание/ })).toHaveAttribute(
       'href',
       `/problems/${both.problem_id}`,
     );
@@ -210,6 +256,24 @@ describe('the stuck repairs', () => {
     expect(rows[1]).not.toHaveTextContent('Не работает');
 
     expect(rows[2]).toHaveTextContent('Без исполнителя');
+  });
+
+  // A screen reader's list of links shows the links alone (dashboard preflight).
+  test('each link names the place and the day of its repair', () => {
+    state.repairs = read([
+      repair('2026-09-20', { assignee: { full_name: 'Iva', is_active: false } }),
+      repair('2026-09-28'),
+    ]);
+
+    render(<DashboardView />);
+
+    const names = within(screen.getByRole('list', { name: 'Застрявшие ремонты' }))
+      .getAllByRole('link')
+      .map((link) => link.textContent);
+    expect(names).toEqual([
+      `Открыть задание: Anglicka 7, ${formatDay('2026-09-20', 'ru')}`,
+      `Открыть задание: Anglicka 7, ${formatDay('2026-09-28', 'ru')}`,
+    ]);
   });
 
   test('say so when there are none', () => {

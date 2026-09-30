@@ -673,6 +673,18 @@ describe('task chips', () => {
     expect(screen.queryByRole('button', { name: /Anna/ })).toBeNull();
   });
 
+  // The tile counts today and the six days on; the calendar it opens shows them
+  // all, whatever depth was kept, and keeps that depth for the next visit.
+  test('opened for the week ahead, starts on today at a week, and remembers nothing of it', () => {
+    window.localStorage.setItem('str-ops.calendar.depth', '3');
+
+    render(<CalendarView initialAssignee="nobody" openAheadDays={7} />);
+
+    expect(days()).toHaveLength(7);
+    expect(days()[0]).toBe('2026-09-26');
+    expect(window.localStorage.getItem('str-ops.calendar.depth')).toBe('3');
+  });
+
   // Their chips are gone from this window; the filter must still say whom it holds.
   test('the assignee filter keeps a person who left after the window moves past their chips', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });

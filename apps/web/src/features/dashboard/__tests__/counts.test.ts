@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
+import { addDays, DEPTHS, openingWindow, windowDays } from '@/features/calendar/dates';
 import {
   calendarTaskSchema,
   liveRepairSchema,
@@ -14,8 +15,12 @@ import {
   openProblemCount,
   repairCounts,
   stuckRepairs,
+  UNASSIGNED_DAYS,
   unassignedAhead,
 } from '../counts';
+
+/** The listings the calendar draws a row for: the fixture's one. */
+const DRAWN: ReadonlySet<number> = new Set([1]);
 
 // Noon in Prague: every listing of the fixture is on 2026-09-30.
 const NOW = new Date('2026-09-30T10:00:00Z');
@@ -125,7 +130,7 @@ describe('unassignedAhead', () => {
       free('2026-10-06'),
     ];
 
-    expect(unassignedAhead(tasks, NOW)).toEqual({ week: 5, today: 2, tomorrow: 1 });
+    expect(unassignedAhead(tasks, DRAWN, NOW)).toEqual({ week: 5, today: 2, tomorrow: 1 });
   });
 
   test('leaves out what somebody holds, what is closed, and what lies outside the week', () => {
@@ -138,7 +143,7 @@ describe('unassignedAhead', () => {
       free('2026-10-07'),
     ];
 
-    expect(unassignedAhead(tasks, NOW)).toEqual({ week: 0, today: 0, tomorrow: 0 });
+    expect(unassignedAhead(tasks, DRAWN, NOW)).toEqual({ week: 0, today: 0, tomorrow: 0 });
   });
 
   test('counts by the listing’s own day', () => {
@@ -148,7 +153,35 @@ describe('unassignedAhead', () => {
       free('2026-09-30'),
     ];
 
-    expect(unassignedAhead(tasks, PRAGUE_MIDNIGHT)).toEqual({ week: 2, today: 2, tomorrow: 0 });
+    expect(unassignedAhead(tasks, DRAWN, PRAGUE_MIDNIGHT)).toEqual({
+      week: 2,
+      today: 2,
+      tomorrow: 0,
+    });
+  });
+
+  // The tile leads to the calendar, which draws no row for an archived listing:
+  // an inspection or a repair there stays live after the archive (20260924170000).
+  test('counts only what the calendar has a row for', () => {
+    const tasks = [free('2026-09-30'), free('2026-10-01', { property_id: 2, type: 'inspection' })];
+
+    expect(unassignedAhead(tasks, DRAWN, NOW)).toEqual({ week: 1, today: 1, tomorrow: 0 });
+  });
+});
+
+// The tile's week has to be on the screen its link opens (dashboard preflight):
+// the calendar usually opens on yesterday at the depth the manager last chose.
+describe('the calendar the «Без исполнителя» tile opens', () => {
+  test.each(DEPTHS)('shows every day the tile counts, from a stored depth of %i', (stored) => {
+    const today = '2026-09-30';
+
+    const { start, depth } = openingWindow(today, stored, UNASSIGNED_DAYS);
+    const shown = windowDays(start, depth);
+
+    expect(shown[0]).toBe(today);
+    for (let ahead = 0; ahead < UNASSIGNED_DAYS; ahead += 1) {
+      expect(shown).toContain(addDays(today, ahead));
+    }
   });
 });
 

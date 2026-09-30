@@ -1,5 +1,6 @@
 import { CalendarView } from '@/features/calendar/calendar-view';
-import { assigneeFromAddress } from '@/features/calendar/chips';
+import { assigneeFromAddress, NO_ASSIGNEE } from '@/features/calendar/chips';
+import { UNASSIGNED_DAYS } from '@/features/dashboard/counts';
 
 interface CalendarPageProps {
   searchParams: Promise<{ assignee?: string | string[] }>;
@@ -14,9 +15,11 @@ interface CalendarPageProps {
  * fixture three times over, for the measurement at ×3 (7.6).
  *
  * `?assignee=nobody` opens it on the chips nobody holds: the dashboard's
- * «Без исполнителя» leads here. Read on the server, so a client-side
- * navigation hands the filter over with the page; the key makes a new address
- * a new calendar rather than one that keeps the filter it had.
+ * «Без исполнителя» leads here, and it opens on the days that tile counts —
+ * today and the six on — so the figure and the chips agree. Read on the
+ * server, so a client-side navigation hands the filter over with the page;
+ * the key makes a new address a new calendar rather than one that keeps the
+ * filter it had.
  */
 export default async function CalendarPage({ searchParams }: CalendarPageProps) {
   const fixture = process.env.CALENDAR_FIXTURE;
@@ -27,6 +30,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
       fixture={fixture === '1' || fixture === '3'}
       scale={fixture === '3' ? 3 : 1}
       initialAssignee={assignee}
+      openAheadDays={assignee === NO_ASSIGNEE ? UNASSIGNED_DAYS : undefined}
     />
   );
 }

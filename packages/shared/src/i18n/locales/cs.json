@@ -150,6 +150,7 @@
       },
       "errors": {
         "tasks": "Úklidy se nepodařilo načíst.",
+        "listings": "Objekty se nepodařilo načíst.",
         "problems": "Úkoly se nepodařilo načíst.",
         "supplies": "Žádosti o materiál se nepodařilo načíst.",
         "repairs": "Opravy se nepodařilo načíst."

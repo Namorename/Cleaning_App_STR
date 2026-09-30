@@ -48,6 +48,31 @@ export function defaultStart(today: string, depth: Depth): string {
   return depth === 1 ? today : addDays(today, -1);
 }
 
+export interface OpeningWindow {
+  start: string;
+  depth: Depth;
+}
+
+/**
+ * Where the calendar opens. As a rule the day before today, at the depth the
+ * manager chose last time. Asked for `aheadDays` — the dashboard's «Без
+ * исполнителя», which counts today and the six days on — it opens on today and
+ * at least that deep, so every task the tile counted is on the screen; a
+ * wider depth she chose is kept (dashboard preflight).
+ */
+export function openingWindow(
+  today: string,
+  storedDepth: Depth,
+  aheadDays: number | null,
+): OpeningWindow {
+  if (aheadDays === null) {
+    return { start: defaultStart(today, storedDepth), depth: storedDepth };
+  }
+  const depth =
+    DEPTHS.find((one) => one >= Math.max(storedDepth, aheadDays)) ?? DEPTHS[DEPTHS.length - 1];
+  return { start: today, depth };
+}
+
 /**
  * The calendar months the window touches, `YYYY-MM` — what the data is keyed
  * by, so the arrows reuse what they have already read (§1, «Окно — месяцами»).
