@@ -193,3 +193,29 @@ test('a sign-in the server wants confirmed again asks for one more tap, not a co
   ).toBeTruthy();
   expect(screen.queryByText('Password update requires reauthentication')).toBeNull();
 });
+
+test('each of the three passwords has its own eye, and it shows only its own field', async () => {
+  // Arrange
+  await renderSection();
+  const eyes = screen.getAllByRole('button', { name: 'Показать пароль' });
+  expect(eyes).toHaveLength(3);
+
+  // Act: the eye of the new password.
+  await fireEvent.press(eyes[1]);
+
+  // Assert
+  expect(screen.getByLabelText('Текущий пароль').props.secureTextEntry).toBe(true);
+  expect(screen.getByLabelText('Новый пароль').props.secureTextEntry).toBe(false);
+  expect(screen.getByLabelText('Новый пароль ещё раз').props.secureTextEntry).toBe(true);
+  expect(screen.getByRole('button', { name: 'Скрыть пароль' })).toBeTruthy();
+});
+
+test('behind the eye the fields still tell the password manager which one is which', async () => {
+  // Act
+  await renderSection();
+
+  // Assert
+  expect(screen.getByLabelText('Текущий пароль').props.autoComplete).toBe('current-password');
+  expect(screen.getByLabelText('Новый пароль').props.autoComplete).toBe('new-password');
+  expect(screen.getByLabelText('Новый пароль ещё раз').props.textContentType).toBe('newPassword');
+});
