@@ -235,6 +235,19 @@ test('the in-app camera is in the build, records sound, and leaves the iOS barco
   expect(camera?.barcodeScannerEnabled).toBe(false);
 });
 
+// The recording is watched on the phone before it is sent (owner's word
+// 2026-10-01). A player is native, so it has to be in this build. It plays in
+// the screen only: its config plugin adds nothing but background audio,
+// picture in picture and a playback service, so it is left out of the list —
+// given even `false` it writes an empty UIBackgroundModes into Info.plist.
+test('the video player is in the build, for the screen only', () => {
+  const video = plugin(resolve(), 'expo-video');
+
+  expect(packageJson.dependencies['expo-video']).toBeDefined();
+  expect(video?.supportsBackgroundPlayback).not.toBe(true);
+  expect(video?.supportsPictureInPicture).not.toBe(true);
+});
+
 // The app never asks for Face ID: expo-secure-store would otherwise add its
 // generic "access your Face ID biometric data" reason to the first iOS build,
 // a reason with nothing behind it for App Review to read.
