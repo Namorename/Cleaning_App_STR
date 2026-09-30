@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { matchesAllTokens } from '@/lib/search';
 
@@ -32,12 +33,20 @@ interface PropertyPickerProps {
  * The search hides rows, it never unticks them. A listing ticked and then
  * filtered out of sight is still going to be opened, and the count under the
  * list keeps saying so — it counts what is chosen, not what is visible.
+ *
+ * A cleaner is put on a street, not on one flat: the manager types the street
+ * and ticks everything left in sight with one button, or unticks it with the
+ * other. Both act on the rows in sight only, and each says how many ticks it is
+ * about to change, so a press never reaches a listing the search has hidden.
  */
 export function PropertyPicker({ properties, selected, isPending, onChange }: PropertyPickerProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
 
   const shown = properties.filter((property) => matchesAllTokens(property.name, query));
+  const chosen = new Set(selected);
+  const toTick = shown.filter((property) => !chosen.has(property.id)).map(({ id }) => id);
+  const toUntick = new Set(shown.filter((property) => chosen.has(property.id)).map(({ id }) => id));
 
   const toggle = (id: number, isOn: boolean) => {
     onChange(isOn ? [...selected, id] : selected.filter((current) => current !== id));
@@ -59,7 +68,39 @@ export function PropertyPicker({ properties, selected, isPending, onChange }: Pr
         placeholder={t('panel.team.form.propertiesSearch')}
         aria-label={t('panel.team.form.propertiesSearch')}
         onChange={(event) => setQuery(event.target.value)}
+        // The picker sits in the person's form, and Enter after a street
+        // would save the person before a single listing is ticked.
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+          }
+        }}
       />
+
+      {/* Off, but still focusable: a button that disables itself under the
+          keyboard would drop the focus behind the dialog. */}
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={toTick.length === 0}
+          focusableWhenDisabled
+          onClick={() => onChange([...selected, ...toTick])}
+        >
+          {t('panel.team.form.propertiesSelectShown', { total: toTick.length })}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={toUntick.size === 0}
+          focusableWhenDisabled
+          onClick={() => onChange(selected.filter((id) => !toUntick.has(id)))}
+        >
+          {t('panel.team.form.propertiesClearShown', { total: toUntick.size })}
+        </Button>
+      </div>
 
       <div className="flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border p-2">
         {shown.length === 0 ? (
@@ -81,7 +122,7 @@ export function PropertyPicker({ properties, selected, isPending, onChange }: Pr
         )}
       </div>
 
-      <p className="text-xs text-muted-foreground">
+      <p role="status" className="text-xs text-muted-foreground">
         {t('panel.team.form.propertiesChosen', { total: selected.length })}
       </p>
     </div>

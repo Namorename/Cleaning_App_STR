@@ -559,6 +559,8 @@
         "propertiesSearch": "Search by name",
         "propertiesNoMatch": "Nothing found",
         "propertiesChosen": "Chosen: {{total}}",
+        "propertiesSelectShown": "Select all ({{total}})",
+        "propertiesClearShown": "Clear all ({{total}})",
         "propertiesNotForRole": "Managers and admins are not put on listings — they see every one.",
         "propertiesFailed": "The person was saved, but the listings could not be opened.",
         "active": "Works here",
