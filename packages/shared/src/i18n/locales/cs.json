@@ -11,6 +11,8 @@
     "heading": "Přihlášení pro úklid",
     "email": "E-mail",
     "password": "Heslo",
+    "showPassword": "Zobrazit heslo",
+    "hidePassword": "Skrýt heslo",
     "submit": "Přihlásit se",
     "signingIn": "Přihlašujeme…",
     "invalidCredentials": "Nesprávný e-mail nebo heslo.",

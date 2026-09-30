@@ -11,6 +11,8 @@
     "heading": "Вход для клинеров",
     "email": "Почта",
     "password": "Пароль",
+    "showPassword": "Показать пароль",
+    "hidePassword": "Скрыть пароль",
     "submit": "Войти",
     "signingIn": "Входим…",
     "invalidCredentials": "Неверная почта или пароль.",

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PasswordInput } from '@/components/password-input';
 import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
 import { signInFailureText } from '@/features/auth/failure';
 import { signIn, useSession } from '@/features/auth/session';
@@ -83,12 +84,10 @@ export default function SignInScreen() {
           <Text style={styles.label} nativeID="password-label">
             {t('auth.password')}
           </Text>
-          <TextInput
+          <PasswordInput
             accessibilityLabelledBy="password-label"
             accessibilityLabel={t('auth.password')}
-            autoCapitalize="none"
             onChangeText={setPassword}
-            secureTextEntry
             style={styles.input}
             textContentType="password"
             value={password}
