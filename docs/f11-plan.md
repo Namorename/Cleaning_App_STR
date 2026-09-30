@@ -76,7 +76,9 @@
 - `20260928110000_task_accept.sql` — М2: страж, политика `claim`, сбросы
   `accepted` в `save_task` и `assign_problem`, архивация отменяет и `accepted`
   (три функции вместе). Тест `task_accept.sql` — 22 проверки; `property_units.sql`
-  переписан под новое правило.
+  переписан под новое правило. С 01.10 там же `guard_task_fields`: исполнитель не
+  переписывает `notes`, никто — `created_at` (находка 30.09, решение владельца —
+  закрыть в f11-push); тест — `task_manual.sql`, md5 — в `postpush_f11.sql`.
 - `20260928120000_participation_core.sql` — `cleans_property_as` и
   `chat_participates_as` для push.
 
