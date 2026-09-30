@@ -1,21 +1,20 @@
-import { Redirect } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 
-import { useSession } from '@/features/auth/session';
+import { SignedInRoute } from '@/features/auth/signed-in-route';
 import { SettingsScreen } from '@/features/settings/settings-screen';
 
 /**
  * The settings route. It sits on the root stack above the tabs, so the tabs'
  * own redirect does not reach it: signing out from here has to lead to the
- * sign-in screen by itself, or she would be left on settings for nobody.
+ * sign-in screen by itself, or she would be left on settings for nobody. The
+ * guard is the one a cleaning and a thread use, wait included.
  */
 export default function SettingsRoute() {
-  const { userId, isLoading } = useSession();
+  const { t } = useTranslation();
 
-  if (isLoading) {
-    return null;
-  }
-  if (userId === null) {
-    return <Redirect href="/sign-in" />;
-  }
-  return <SettingsScreen />;
+  return (
+    <SignedInRoute loadingText={t('settings.loading')}>
+      <SettingsScreen />
+    </SignedInRoute>
+  );
 }

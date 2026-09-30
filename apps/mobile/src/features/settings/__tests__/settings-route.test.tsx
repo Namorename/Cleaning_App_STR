@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react-native';
+import { render, screen } from '@testing-library/react-native';
 
 import SettingsRoute from '@/app/settings';
 
@@ -52,11 +52,14 @@ test('signed in, it shows the settings', async () => {
   expect(mockRedirect).not.toHaveBeenCalled();
 });
 
-test('while the stored session is still being read, it waits', async () => {
+// The same guard as a cleaning and a thread (SignedInRoute): the wait is said,
+// not a blank screen (docs/f11-ultrareview.md, finding 2).
+test('while the stored session is still being read, it waits and says so', async () => {
   mockSession.isLoading = true;
 
   await render(<SettingsRoute />);
 
+  expect(screen.getByText('Загружаем настройки…')).toBeTruthy();
   expect(mockSettingsDrawn).not.toHaveBeenCalled();
   expect(mockRedirect).not.toHaveBeenCalled();
 });

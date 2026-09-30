@@ -826,6 +826,7 @@
   },
   "settings": {
     "title": "Nastavení",
+    "loading": "Načítáme nastavení…",
     "notifications": {
       "heading": "Oznámení",
       "hint": "Tyto přepínače určují, co vám bude server posílat.",

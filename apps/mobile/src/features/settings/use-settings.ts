@@ -133,7 +133,11 @@ interface LanguageContext {
  * than one that did not change.
  *
  * Never paused and never replayed ('always'): a language write queued on disk
- * and sent after a restart could undo a choice she made since.
+ * and sent after a restart could undo a choice she made since. One more try
+ * and no more: the app's default for moves waits out a network failure for
+ * as long as it lasts (query-client.ts, retryMove), and a write that is never
+ * paused would go on for as long, with the language never put back
+ * (docs/f11-ultrareview.md, finding 1).
  */
 export function useChangeLanguage() {
   const { userId } = useSession();
@@ -142,6 +146,7 @@ export function useChangeLanguage() {
   return useMutation<void, Error, Language, LanguageContext>({
     mutationFn: (language) => saveMyLanguage(userId ?? '', language),
     networkMode: 'always',
+    retry: 1,
     onMutate: async (language) => {
       const previous = currentLanguage();
       await applyLanguage(language);
