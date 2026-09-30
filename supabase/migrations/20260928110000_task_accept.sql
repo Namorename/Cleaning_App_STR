@@ -40,11 +40,15 @@
 --   change together, as 20260924170000 requires; the push that tells her comes
 --   with M3.
 --
+-- - guard_task_fields: an executor may no longer rewrite the manager's
+--   instructions (notes), and nobody the day the job was written (created_at)
+--   — both went through a plain update of her own task (finding 2026-09-30).
+--
 -- Bodies are copied from their latest migrations (guard 20260908120000,
--- save_task 20260927120000, assign_problem 20260923130000, the three archive
--- functions 20260924170000) with only the changes above. Same signatures, so
--- the ACLs and the generated types stay as they are. No table changes; the
--- policy swap takes a brief lock on tasks.
+-- guard_task_fields 20260927120000, save_task 20260927120000, assign_problem
+-- 20260923130000, the three archive functions 20260924170000) with only the
+-- changes above. Same signatures, so the ACLs and the generated types stay as
+-- they are. No table changes; the policy swap takes a brief lock on tasks.
 
 set local lock_timeout = '3s';
 
@@ -180,6 +184,86 @@ $$;
 create or replace trigger tasks_guard_transitions
   before update of status, assignee_id on public.tasks
   for each row execute function public.guard_task_transitions();
+
+-- ---------- what the executor may not rewrite ----------
+
+/**
+ * What an executor may not change on her own task.
+ *
+ * From 20260927120000 with two more pins (finding 2026-09-30, reproduced in a
+ * rolled-back transaction: a cleaner's own token rewrote both with a plain
+ * update of her task). The phone writes nothing but the status, so only this
+ * guard stands between a hand-made request and the manager's word:
+ *
+ * - notes: the manager's instructions — for a repair, the copy of the report
+ *   the technician works from. The office's to write (save_task), not hers.
+ * - created_at: when the job was written, a record like who wrote it. Pinned
+ *   for everyone, as created_by is; nothing ever moved it on purpose.
+ */
+create or replace function public.guard_task_fields()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if (select auth.uid()) is null or pg_trigger_depth() > 1 then
+    return new;
+  end if;
+
+  if old.started_at is not null then
+    new.started_at := old.started_at;
+  end if;
+  if old.completed_at is not null then
+    new.completed_at := old.completed_at;
+  end if;
+
+  -- Who asked for the job, and when, is a record, not a field: nobody
+  -- rewrites it.
+  new.created_by := old.created_by;
+  new.created_at := old.created_at;
+
+  if not public.is_manager() then
+    if old.status in ('done', 'cancelled', 'expired') then
+      raise exception 'Task is % and cannot be changed by its executor', old.status
+        using errcode = 'check_violation',
+              hint = 'serverErrors.taskClosed',
+              detail = jsonb_build_object('status', old.status)::text;
+    end if;
+
+    -- assignee_id is deliberately NOT reverted here: a change of owner is
+    -- caught by the policy's WITH CHECK, which says so. A silent revert here
+    -- would intercept it before the check, and the client would read the
+    -- handover as a save that worked.
+    new.property_id           := old.property_id;
+    new.reservation_id        := old.reservation_id;
+    new.type                  := old.type;
+    new.priority              := old.priority;
+    new.scheduled_date        := old.scheduled_date;
+    new.due_at                := old.due_at;
+    new.time_from             := old.time_from;
+    new.time_to               := old.time_to;
+    new.guests_count          := old.guests_count;
+    new.started_at            := old.started_at;
+    new.completed_at          := old.completed_at;
+    new.completed_by          := old.completed_by;
+    new.is_parallel           := old.is_parallel;
+    new.duration_override_min := old.duration_override_min;
+    new.title                 := old.title;
+    new.title_i18n            := old.title_i18n;
+    -- The instructions are the office's word (save_task writes them).
+    new.notes                 := old.notes;
+    -- Which problem a task repairs is the manager's to say (20260923130000).
+    new.problem_id            := old.problem_id;
+    -- So is a manager's move of a booking's cleaning (20260926160000).
+    new.pinned_arrival        := old.pinned_arrival;
+    new.pinned_departure      := old.pinned_departure;
+    new.pinned_rooms          := old.pinned_rooms;
+  end if;
+
+  return new;
+end;
+$$;
 
 -- ---------- taking free work ----------
 
