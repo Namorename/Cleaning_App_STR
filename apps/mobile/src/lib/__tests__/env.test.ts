@@ -51,18 +51,10 @@ test('refuses to start without it, in English, and says where the values come fr
   expect(importEnv).toThrow(/^[\x20-\x7E]+$/);
 });
 
-test('a crash-report address that is not one means no reports, never no app', () => {
-  // Pasted into the EAS environment with its quotes, say.
-  process.env.EXPO_PUBLIC_SENTRY_DSN = '"https://public@o1.ingest.sentry.io/1"';
-
-  const { env } = importEnv();
-
-  expect(env.sentryDsn).toBeUndefined();
-  expect(env.supabaseUrl).toBe('https://project.supabase.co');
-});
-
-test('a crash-report address is kept when it is one', () => {
+// The crash-report address is read by lib/sentry.ts itself, not here: crash
+// reports start before this check can throw (docs/f11-native-review.md, С-2).
+test('the configuration does not carry the crash-report address', () => {
   process.env.EXPO_PUBLIC_SENTRY_DSN = 'https://public@o1.ingest.sentry.io/1';
 
-  expect(importEnv().env.sentryDsn).toBe('https://public@o1.ingest.sentry.io/1');
+  expect(importEnv().env).not.toHaveProperty('sentryDsn');
 });

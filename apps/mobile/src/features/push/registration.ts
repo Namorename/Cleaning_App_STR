@@ -7,7 +7,14 @@ import { deviceLanguage } from '@/i18n';
 
 import { registerPushToken } from './api';
 import { ensureChannels } from './channels';
-import { isRegisteredFor, rememberRegistration, signOutsSoFar } from './token-store';
+import {
+  isRegisteredFor,
+  markRegistered,
+  registrationOnItsWay,
+  rememberToken,
+  signOutsSoFar,
+  trackRegistration,
+} from './token-store';
 
 /**
  * Registers this phone for the pushes of whoever is signed in on it.
@@ -22,8 +29,25 @@ import { isRegisteredFor, rememberRegistration, signOutsSoFar } from './token-st
  *
  * Resolves to whether the phone is registered; a refusal from Expo or the
  * server is thrown for the caller to report.
+ *
+ * One registration at a time serves everyone who asks: after the first
+ * «Allow» the explainer and the app's return to the front both ask at once
+ * (docs/f11-native-review.md, Т-1). Signing out waits for the one on its way.
  */
-export async function registerThisPhone(
+export function registerThisPhone(
+  userId: string,
+  devicePushToken?: Notifications.DevicePushToken,
+): Promise<boolean> {
+  const onItsWay = devicePushToken === undefined ? registrationOnItsWay(userId) : null;
+  if (onItsWay !== null) {
+    return onItsWay;
+  }
+  const registration = register(userId, devicePushToken);
+  trackRegistration(userId, registration);
+  return registration;
+}
+
+async function register(
   userId: string,
   devicePushToken?: Notifications.DevicePushToken,
 ): Promise<boolean> {
@@ -48,13 +72,19 @@ export async function registerThisPhone(
   if (signOutsSoFar() !== signOuts) {
     return false;
   }
+  // Kept before the server hears of it: a sign-out while the call is on its
+  // way lets go of this token rather than finding nothing.
+  await rememberToken(token);
   await registerPushToken({
     token,
     platform: Platform.OS === 'ios' ? 'ios' : 'android',
     language: deviceLanguage(),
     appVersion: Constants.expoConfig?.version ?? null,
   });
-  await rememberRegistration(token, userId);
+  if (signOutsSoFar() !== signOuts) {
+    return false;
+  }
+  markRegistered(userId);
   return true;
 }
 

@@ -1,5 +1,5 @@
 import { QueryClient, QueryObserver } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 import * as Sentry from '@sentry/react-native';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
@@ -8,7 +8,14 @@ import { AppState } from 'react-native';
 import { fetchTask } from '@/features/tasks/api';
 import { withClient } from '@/testing/restored-cache';
 
-import { usePermissionPrompt, usePushRefresh, usePushRegistration, usePushTaps } from '../hooks';
+import { isNewTap } from '../followed-taps';
+import {
+  TAP_LOOKUP_TIMEOUT_MS,
+  usePermissionPrompt,
+  usePushRefresh,
+  usePushRegistration,
+  usePushTaps,
+} from '../hooks';
 import { registerThisPhone } from '../registration';
 import { isRegisteredFor } from '../token-store';
 
@@ -248,6 +255,47 @@ describe('usePushTaps', () => {
     await settle();
 
     expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  // Android hands the launch push over again when it restores the app it
+  // killed (docs/f11-native-review.md, П-1): the tap is on record from before.
+  test('a tap followed before is not followed again, and is cleared so a later one is not hidden', async () => {
+    await isNewTap('n-8@1000');
+    const client = new QueryClient();
+    lastResponse.mockReturnValue(tap('n-8', { kind: 'cleaning_new', taskId: TASK_ID }));
+
+    await renderHook(() => usePushTaps(ME), { wrapper: withClient(client) });
+    await settle();
+
+    expect(router.navigate).not.toHaveBeenCalled();
+    expect(Notifications.clearLastNotificationResponse).toHaveBeenCalled();
+  });
+
+  // П-2: a connection that passes nothing would otherwise hold the tap for
+  // minutes and then jump over whatever she is doing by then.
+  test('a moved cleaning looked up on a stalled connection opens after a few seconds', async () => {
+    jest.useFakeTimers({ doNotFake: ['setImmediate'] });
+    try {
+      jest.mocked(fetchTask).mockReturnValueOnce(new Promise(() => undefined));
+      const client = new QueryClient();
+      lastResponse.mockReturnValue(tap('n-9', { kind: 'cleaning_moved', taskId: TASK_ID }));
+
+      await renderHook(() => usePushTaps(ME), { wrapper: withClient(client) });
+      await settle();
+      await settle();
+      expect(router.navigate).not.toHaveBeenCalled();
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(TAP_LOOKUP_TIMEOUT_MS);
+      });
+
+      expect(router.navigate).toHaveBeenCalledWith({
+        pathname: '/task/[id]',
+        params: { id: TASK_ID },
+      });
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
 

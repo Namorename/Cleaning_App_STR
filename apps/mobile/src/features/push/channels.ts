@@ -26,6 +26,10 @@ const URGENT_VIBRATION_MS = [0, 250, 250, 250];
  * name changes on a second call — so they are decided here, once. No `sound`
  * field: leaving it out is the phone's own sound, and 'default' would be read
  * as a file of that name.
+ *
+ * Both pop up as a banner (owner, 2026-09-30): she can quiet «Остальные» in
+ * Android's settings, or switch kinds off in the app's «Настройки». Only the
+ * urgent one buzzes.
  */
 export async function ensureChannels(): Promise<void> {
   if (Platform.OS !== 'android') {
@@ -38,6 +42,6 @@ export async function ensureChannels(): Promise<void> {
   });
   await Notifications.setNotificationChannelAsync('general', {
     name: i18n.t('settings.notifications.channels.general'),
-    importance: Notifications.AndroidImportance.DEFAULT,
+    importance: Notifications.AndroidImportance.HIGH,
   });
 }

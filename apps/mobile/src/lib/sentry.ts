@@ -1,7 +1,23 @@
 import * as Sentry from '@sentry/react-native';
 
-import { env } from '@/lib/env';
-import { isNetworkError } from '@/lib/online';
+import { isNetworkError } from '@/lib/network-error';
+
+/**
+ * Where crash reports go, read here rather than through lib/env.ts: crash
+ * reports start first (src/crash-reports.ts), before the check of the app's
+ * configuration can throw, so a build missing it reports its crash at start
+ * (docs/f11-native-review.md, С-2). Not a URL — say, pasted with its quotes —
+ * or empty means no reports, never an app that will not start.
+ */
+export function readSentryDsn(value: string | undefined): string | undefined {
+  // A pattern, not `new URL`: React Native's URL leaves most of its parts unimplemented.
+  return value !== undefined && DSN_SHAPE.test(value) ? value : undefined;
+}
+
+/** `https://<key>@<host>/<project>`, give or take: a web address with no space or quote in it. */
+const DSN_SHAPE = /^https?:\/\/[^\s"'<>]+$/;
+
+const SENTRY_DSN = readSentryDsn(process.env.EXPO_PUBLIC_SENTRY_DSN);
 
 /**
  * Crash reports from the field.
@@ -18,7 +34,7 @@ import { isNetworkError } from '@/lib/online';
  * all: any number, 0 included, switches tracing on, and every request of the
  * app would carry Sentry's trace headers.
  */
-export function initSentry(dsn: string | undefined = env.sentryDsn, isDev = __DEV__): boolean {
+export function initSentry(dsn: string | undefined = SENTRY_DSN, isDev = __DEV__): boolean {
   if (dsn === undefined || isDev) {
     return false;
   }

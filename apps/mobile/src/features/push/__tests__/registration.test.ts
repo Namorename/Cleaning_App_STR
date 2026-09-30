@@ -5,7 +5,14 @@ import { Platform } from 'react-native';
 
 import { registerPushToken } from '../api';
 import { registerThisPhone } from '../registration';
-import { forgetRegistration } from '../token-store';
+import { forgetRegistration, isRegisteredFor } from '../token-store';
+
+/** Lets pending promises run until `check` holds; a stuck test fails on its timeout. */
+async function until(check: () => boolean): Promise<void> {
+  while (!check()) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+}
 
 /**
  * A phone is registered for her pushes once it allows them: channels first
@@ -160,4 +167,55 @@ test('a registration still on its way when she signs out does not land after it'
   await expect(registerThisPhone('me')).resolves.toBe(false);
 
   expect(mockRegister).not.toHaveBeenCalled();
+});
+
+// After the first «Allow» the system dialog closes and the app is back in
+// front: the explainer and the app's own return both register then
+// (docs/f11-native-review.md, Т-1).
+test('two registrations asked at once are one: one token, one call to the server', async () => {
+  const both = await Promise.all([registerThisPhone('me'), registerThisPhone('me')]);
+
+  expect(both).toEqual([true, true]);
+  expect(getToken).toHaveBeenCalledTimes(1);
+  expect(mockRegister).toHaveBeenCalledTimes(1);
+});
+
+// A sign-out while the server call is on its way must find the token to let go
+// of (Т-1): it is kept before the call, and counts as hers only after it.
+test('the token is kept on the phone before the server hears of it', async () => {
+  let answer: () => void = () => undefined;
+  mockRegister.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        answer = resolve;
+      }),
+  );
+
+  const registering = registerThisPhone('me');
+  await until(() => mockRegister.mock.calls.length > 0);
+
+  await expect(SecureStore.getItemAsync('push-token')).resolves.toBe('ExponentPushToken[test]');
+  expect(isRegisteredFor('me')).toBe(false);
+
+  answer();
+  await expect(registering).resolves.toBe(true);
+  expect(isRegisteredFor('me')).toBe(true);
+});
+
+test('signed out while the server call was on its way: the phone does not count as hers', async () => {
+  let answer: () => void = () => undefined;
+  mockRegister.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        answer = resolve;
+      }),
+  );
+
+  const registering = registerThisPhone('me');
+  await until(() => mockRegister.mock.calls.length > 0);
+  await forgetRegistration();
+  answer();
+
+  await expect(registering).resolves.toBe(false);
+  expect(isRegisteredFor('me')).toBe(false);
 });

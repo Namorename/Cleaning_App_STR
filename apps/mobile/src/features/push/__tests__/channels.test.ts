@@ -27,7 +27,9 @@ test('the channels are the two send-push names, and the default is one of them',
   expect(PUSH_CHANNELS).toContain(DEFAULT_PUSH_CHANNEL);
 });
 
-test('on Android both channels are made, urgent loud and general ordinary, named in her language', async () => {
+// Both pop up as a banner (owner, 2026-09-30: she can quiet «Остальные» in
+// Android or switch kinds off in «Настройки»); only the urgent one buzzes.
+test('on Android both channels are made to pop up, urgent with a buzz, named in her language', async () => {
   runOn('android');
 
   await ensureChannels();
@@ -38,15 +40,18 @@ test('on Android both channels are made, urgent loud and general ordinary, named
     expect.objectContaining({
       name: 'Срочные уведомления',
       importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: expect.any(Array),
     }),
   );
   expect(setChannel).toHaveBeenCalledWith(
     'general',
     expect.objectContaining({
       name: 'Остальные уведомления',
-      importance: Notifications.AndroidImportance.DEFAULT,
+      importance: Notifications.AndroidImportance.HIGH,
     }),
   );
+  const general = setChannel.mock.calls.find(([id]) => id === 'general')?.[1];
+  expect(general).not.toHaveProperty('vibrationPattern');
 });
 
 test('no channel names a sound: the phone plays its own', async () => {

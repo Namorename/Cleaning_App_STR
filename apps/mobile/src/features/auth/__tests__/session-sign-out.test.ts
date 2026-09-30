@@ -1,4 +1,6 @@
-import { forgetThisPhone } from '@/features/push/api';
+import { clearThisPhone, releaseThisPhone } from '@/features/push/api';
+import { registerThisPhone } from '@/features/push/registration';
+import { registrant, unmarkRegistered } from '@/features/push/token-store';
 import { sessionStorage } from '@/lib/secure-storage';
 
 import { signOut } from '../session';
@@ -11,6 +13,10 @@ import { signOut } from '../session';
  * access token that expired while the app slept, it cannot refresh, keeps the
  * session and returns the same network error — then she is still in, and the
  * screen must say so.
+ *
+ * The phone forgets its token only once she is out (docs/f11-native-review.md,
+ * Т-2): a sign-out that failed keeps the record for the next one to let go of,
+ * and one that failed after the server let go registers the phone again.
  */
 
 const mockSignOut = jest.fn();
@@ -26,10 +32,22 @@ jest.mock('@/lib/secure-storage', () => ({
 }));
 
 jest.mock('@/features/push/api', () => ({
-  forgetThisPhone: jest.fn(),
+  releaseThisPhone: jest.fn(),
+  clearThisPhone: jest.fn(),
 }));
 
-const mockForget = jest.mocked(forgetThisPhone);
+jest.mock('@/features/push/registration', () => ({
+  registerThisPhone: jest.fn(async () => true),
+}));
+
+jest.mock('@/features/push/token-store', () => ({
+  registrant: jest.fn(() => 'me'),
+  unmarkRegistered: jest.fn(),
+}));
+
+const mockRelease = jest.mocked(releaseThisPhone);
+const mockClear = jest.mocked(clearThisPhone);
+const mockRegister = jest.mocked(registerThisPhone);
 const storedSession = jest.mocked(sessionStorage.getItem);
 const noSignal = {
   name: 'AuthRetryableFetchError',
@@ -39,9 +57,16 @@ const noSignal = {
 
 beforeEach(() => {
   calls.length = 0;
+  jest.mocked(registrant).mockReturnValue('me');
+  jest.mocked(unmarkRegistered).mockClear();
+  mockRegister.mockClear();
   storedSession.mockReset().mockResolvedValue(null);
-  mockForget.mockReset().mockImplementation(async () => {
-    calls.push('forget');
+  mockRelease.mockReset().mockImplementation(async () => {
+    calls.push('release');
+    return 'released';
+  });
+  mockClear.mockReset().mockImplementation(async () => {
+    calls.push('clear');
   });
   mockSignOut.mockReset().mockImplementation(async () => {
     calls.push('signOut');
@@ -49,25 +74,42 @@ beforeEach(() => {
   });
 });
 
-test('lets go of the phone before signing out', async () => {
+test('lets go of the phone before signing out, and clears it once she is out', async () => {
   await signOut();
 
-  expect(calls).toEqual(['forget', 'signOut']);
+  expect(calls).toEqual(['release', 'signOut', 'clear']);
 });
 
-test('no signal, and the session is gone: she is signed out, and nothing failed', async () => {
+test('no signal, and the session is gone: she is signed out, nothing failed, the phone is cleared', async () => {
   mockSignOut.mockResolvedValue({ error: noSignal });
 
   await expect(signOut()).resolves.toBeUndefined();
 
   expect(storedSession).toHaveBeenCalledWith('sb-project-auth-token');
+  expect(mockClear).toHaveBeenCalledTimes(1);
 });
 
-test('no signal, and the session is still stored: she is still in, and is told', async () => {
+test('no signal, and the session is still stored: she is still in, is told, and the phone keeps its token', async () => {
+  mockRelease.mockResolvedValue('unconfirmed');
   mockSignOut.mockResolvedValue({ error: noSignal });
   storedSession.mockResolvedValue('{"access_token":"expired"}');
 
   await expect(signOut()).rejects.toBe(noSignal);
+
+  expect(mockClear).not.toHaveBeenCalled();
+  expect(mockRegister).not.toHaveBeenCalled();
+});
+
+test('still in after the server let go of the token: the phone is registered for her again', async () => {
+  const refusal = { name: 'AuthApiError', status: 500, message: 'Internal error' };
+  mockSignOut.mockResolvedValue({ error: refusal });
+  storedSession.mockResolvedValue('{"access_token":"valid"}');
+
+  await expect(signOut()).rejects.toBe(refusal);
+
+  expect(mockClear).not.toHaveBeenCalled();
+  expect(unmarkRegistered).toHaveBeenCalledTimes(1);
+  expect(mockRegister).toHaveBeenCalledWith('me');
 });
 
 test('a refusal the server sent still reaches the screen', async () => {

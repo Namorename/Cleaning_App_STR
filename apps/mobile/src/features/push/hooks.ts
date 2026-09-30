@@ -11,6 +11,7 @@ import { reportError, reportUnlessOffline } from '@/lib/sentry';
 
 import { ensureChannels } from './channels';
 import { destinationOf, staleAfter } from './destination';
+import { isNewTap } from './followed-taps';
 import { useLastResponse } from './last-response';
 import { readPushData, type PushData } from './payload';
 import { needsAsking, readPermissionState } from './permission';
@@ -88,19 +89,38 @@ export function usePushRefresh(): void {
 }
 
 /**
- * Taps already followed in this run — the tabs draw again after sign-in or a
- * retry. Keyed on the delivery, not the identifier alone: pushes about one
- * cleaning or thread share their identifier (the collapse key), and a newer
- * one is a tap of its own.
+ * How long a tap on «moved» waits to learn whether the cleaning is still
+ * hers. Longer, and a connection that passes nothing would hold the tap for
+ * minutes, then jump over whatever she is doing by then (review П-2); the
+ * cleaning itself opens instead, as without signal.
  */
-const followedTaps = new Set<string>();
+export const TAP_LOOKUP_TIMEOUT_MS = 3_000;
+
+function findTaskInTime(taskId: string): ReturnType<typeof fetchTask> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error('The moved cleaning was not found in time')),
+      TAP_LOOKUP_TIMEOUT_MS,
+    );
+    fetchTask(taskId).then(
+      (task) => {
+        clearTimeout(timer);
+        resolve(task);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
 
 async function follow(client: QueryClient, data: PushData): Promise<void> {
   // Marked stale at once, refetched in the background: the screen it opens
   // does not draw the copy cached before the push, and the tap does not wait
   // for a list to come back over a weak signal.
   void refresh(client, data);
-  const destination = await destinationOf(data, fetchTask);
+  const destination = await destinationOf(data, findTaskInTime);
   if (destination.pathname === '/(tabs)') {
     // The list itself, not a second copy of it over the screen she was on.
     if (router.canDismiss()) {
@@ -114,8 +134,11 @@ async function follow(client: QueryClient, data: PushData): Promise<void> {
  * Opens what a tapped push is about — from a cold start as well as from the
  * background. Called from the tabs, where the navigator is up and her session
  * has been read: from the root it would race the redirect to sign-in. A tap is
- * followed once, and cleared, so drawing the tabs again does not follow it
- * again. A push the app cannot read only opens the app.
+ * followed once across runs of the app (followed-taps.ts), and cleared either
+ * way — a tap kept would hide a later one with the same identifier. Keyed on
+ * the delivery, not the identifier alone: pushes about one cleaning or thread
+ * share their identifier (the collapse key), and a newer one is a tap of its
+ * own. A push the app cannot read only opens the app.
  */
 export function usePushTaps(userId: string | null): void {
   const client = useQueryClient();
@@ -129,15 +152,11 @@ export function usePushTaps(userId: string | null): void {
       return;
     }
     const tapId = `${last.notification.request.identifier}@${last.notification.date}`;
-    if (followedTaps.has(tapId)) {
-      return;
-    }
-    followedTaps.add(tapId);
     Notifications.clearLastNotificationResponse();
     const data = readPushData(last.notification.request.content.data);
-    if (data !== null) {
-      follow(client, data).catch(reportError);
-    }
+    isNewTap(tapId)
+      .then((isNew) => (isNew && data !== null ? follow(client, data) : undefined))
+      .catch(reportError);
   }, [client, last, userId]);
 }
 

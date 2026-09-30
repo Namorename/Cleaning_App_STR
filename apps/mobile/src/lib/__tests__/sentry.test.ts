@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/react-native';
 
-import { initSentry, reportError } from '../sentry';
+import { initSentry, readSentryDsn, reportError } from '../sentry';
 
 /**
  * Crash reports from the field, and nothing about the people in them.
@@ -49,6 +49,34 @@ test('a build without a DSN reports nothing', () => {
   expect(initSentry(undefined, false)).toBe(false);
 
   expect(Sentry.init).not.toHaveBeenCalled();
+});
+
+test('a crash-report address that is not one means no reports, never no app', () => {
+  // Pasted into the EAS environment with its quotes, say.
+  expect(readSentryDsn('"https://public@o1.ingest.sentry.io/1"')).toBeUndefined();
+  // An empty value in an EAS environment means "none", not a malformed URL.
+  expect(readSentryDsn('')).toBeUndefined();
+  expect(readSentryDsn(undefined)).toBeUndefined();
+});
+
+test('a crash-report address is kept when it is one', () => {
+  expect(readSentryDsn(DSN)).toBe(DSN);
+});
+
+// Crash reports start before anything that reads the app's configuration, so
+// a build missing it reports its crash (docs/f11-native-review.md, С-2).
+test('crash reports load even when the app configuration cannot', () => {
+  const loadWithoutConfiguration = (path: string) => () =>
+    jest.isolateModules(() => {
+      jest.doMock('@/lib/env', () => {
+        throw new Error('Supabase configuration is missing.');
+      });
+      jest.requireActual(path);
+    });
+
+  expect(loadWithoutConfiguration('../sentry')).not.toThrow();
+  // The control: a module that does read the configuration fails the same way.
+  expect(loadWithoutConfiguration('../online')).toThrow(/configuration is missing/);
 });
 
 test('an error is handed to the reporter', () => {

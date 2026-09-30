@@ -1303,5 +1303,10 @@
     "windowUntil": "until {{time}}",
     "messageFrom": "{{place}} · {{author}}",
     "unknownPlace": "Property {{id}}"
+  },
+  "iosPermissions": {
+    "camera": "The app uses the camera to photograph the flat before and after cleaning.",
+    "microphone": "The app records sound with the video of the cleaning.",
+    "photos": "The app attaches the photos you choose from your library to cleaning steps, reports and chat messages."
   }
 }

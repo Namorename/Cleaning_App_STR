@@ -8,13 +8,11 @@ import { z } from 'zod';
  * design — row level security, not secrecy, is what protects the data. The
  * secret key and the Hostaway credentials never leave the server.
  */
+// The crash-report address is not here: lib/sentry.ts reads it itself, so
+// crash reports start before this check can throw (docs/f11-native-review.md, С-2).
 const envSchema = z.object({
   supabaseUrl: z.string().url(),
   supabasePublishableKey: z.string().min(1),
-  // Where crash reports go (lib/sentry.ts). Optional: a development run and a
-  // build without it simply report nothing. A DSN only lets one send reports.
-  // One that is not a URL means no reports, never an app that will not start.
-  sentryDsn: z.string().url().optional().catch(undefined),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -22,8 +20,6 @@ export type Env = z.infer<typeof envSchema>;
 const parsed = envSchema.safeParse({
   supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
   supabasePublishableKey: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-  // An empty value in an EAS environment means "none", not a malformed URL.
-  sentryDsn: process.env.EXPO_PUBLIC_SENTRY_DSN || undefined,
 });
 
 if (!parsed.success) {

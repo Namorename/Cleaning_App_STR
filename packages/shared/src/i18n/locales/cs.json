@@ -1329,5 +1329,10 @@
     "windowUntil": "do {{time}}",
     "messageFrom": "{{place}} · {{author}}",
     "unknownPlace": "Objekt {{id}}"
+  },
+  "iosPermissions": {
+    "camera": "Aplikace fotoaparátem fotí byt před úklidem a po něm.",
+    "microphone": "Aplikace nahrává zvuk k videu z úklidu.",
+    "photos": "Aplikace připojí fotky, které vyberete v galerii, ke krokům úklidu, úkolům a zprávám v chatu."
   }
 }
