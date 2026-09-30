@@ -219,6 +219,45 @@ test('iOS: urgent pushes may break through a Focus, and no export paperwork is a
   expect(ios?.config?.usesNonExemptEncryption).toBe(false);
 });
 
+// Video steps are recorded with the app's own camera, not the system's (owner's
+// word 2026-09-30): length, size and bitrate are the app's to set, and it
+// writes no location into the file. Native, so it has to be in this build.
+test('the in-app camera is in the build, records sound, and leaves the barcode scanner out', () => {
+  const camera = plugin(resolve(), 'expo-camera');
+
+  expect(packageJson.dependencies['expo-camera']).toBeDefined();
+  expect(camera?.recordAudioAndroid).toBe(true);
+  expect(camera?.barcodeScannerEnabled).toBe(false);
+});
+
+// Both plugins write the same two iOS reasons; whichever runs last wins, so
+// they must say the same thing.
+test('iOS: the camera and the picker give the same reasons for the camera and the microphone', () => {
+  const config = resolve();
+  const camera = plugin(config, 'expo-camera');
+  const picker = plugin(config, 'expo-image-picker');
+
+  expect(camera?.cameraPermission).toBe(picker?.cameraPermission);
+  expect(camera?.microphonePermission).toBe(picker?.microphonePermission);
+});
+
+// A technician's work is not a cleaning (owner's word 2026-09-30): the reasons
+// iOS shows speak of the work, in every language.
+test('iOS: the permission reasons speak of the work, not of cleaning', () => {
+  const config = resolve();
+  const reasons = [
+    ...Object.values(plugin(config, 'expo-image-picker') ?? {}),
+    ...Object.values(
+      (config.locales as Record<string, Record<string, unknown>> | undefined) ?? {},
+    ).flatMap((strings) => Object.values(strings)),
+  ].map(String);
+
+  expect(reasons.length).toBeGreaterThanOrEqual(9);
+  for (const reason of reasons) {
+    expect(reason).not.toMatch(/clean|убор|úklid/i);
+  }
+});
+
 test('the photo library question says what the library is used for', () => {
   const picker = plugin(resolve(), 'expo-image-picker');
 

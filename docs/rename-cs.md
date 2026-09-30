@@ -253,3 +253,9 @@ Doplněno pro oznámení v telefonu (F11, sestavení 1.1.0, 2026-09-28). Nové t
 - `tasks.pushNotice.cancelled`: Tento úklid byl zrušen.
 - `tasks.pushNotice.movedAway`: Úklid byl přesunut a teď ve vašem seznamu není.
 - `tasks.pushNotice.dismiss`: Skrýt
+
+Doplněno pro systémové dotazy iPhonu na fotoaparát, mikrofon a galerii (sestavení 1.1.0, 2026-10-01). Texty čte i technik, proto mluví o „práci“, ne o úklidu; aplikace nově natáčí video vlastním fotoaparátem. Každý řádek: klíč: bylo → bude — poznámka.
+
+- `iosPermissions.camera`: Aplikace fotoaparátem fotí byt před úklidem a po něm. → Aplikace fotoaparátem pořizuje fotky a videa práce — před ní a po ní. — „před ní a po ní“ = před prací a po práci
+- `iosPermissions.microphone`: Aplikace nahrává zvuk k videu z úklidu. → Aplikace nahrává zvuk k videím z práce. — 3. pád mn. č.
+- `iosPermissions.photos`: Aplikace připojí fotky, které vyberete v galerii, ke krokům úklidu, úkolům a zprávám v chatu. → Aplikace připojí fotky, které vyberete v galerii, ke krokům checklistu, úkolům a zprávám v chatu. — „checklist“ jako jinde v aplikaci; jde-li lépe „kontrolního seznamu“, prosíme napsat

@@ -61,8 +61,10 @@ export function checkBuildEnv(env: BuildEnv): { errors: string[]; warnings: stri
 /**
  * The reasons iOS shows when the app asks for the camera, the microphone and
  * the photos, in each of her languages (docs/f11-native-review.md, С-4). The
- * English ones are app.json's, set on expo-image-picker; the translations
- * live with every other text of the app, in the shared locales.
+ * English ones are app.json's, set on expo-image-picker and, word for word,
+ * on expo-camera; the translations live with every other text of the app, in
+ * the shared locales. They speak of the work, not of cleaning: a technician
+ * reads them too.
  */
 function permissionTexts(texts: { camera: string; microphone: string; photos: string }) {
   return {
