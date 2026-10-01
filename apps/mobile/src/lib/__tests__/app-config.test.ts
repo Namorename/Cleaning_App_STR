@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { SUPPORTED_LANGUAGES } from '@str-ops/shared';
@@ -160,6 +160,20 @@ test('every build profile names its EAS environment, and the preview channel bui
   }
 });
 
+// An app linked against the iOS 27 SDK (Xcode 27) must use the UIScene life
+// cycle or it stops at launch (Apple TN3187), and SDK 57 wires no scene
+// delegate. EAS builds SDK 57 on Xcode 26.6 today; the image is named so that
+// a change of EAS's default cannot move the build to Xcode 27 unnoticed. A
+// launch crash there is not something an update over the air can fix.
+const XCODE_26_IMAGE = 'macos-tahoe-26.5-xcode-26.6';
+
+test('iOS: every store build is made on the Xcode 26 image', () => {
+  const build = easJson.build as Record<string, { ios?: { image?: string } }>;
+
+  expect(build.testflight.ios?.image).toBe(XCODE_26_IMAGE);
+  expect(build.production.ios?.image).toBe(XCODE_26_IMAGE);
+});
+
 // The first iOS build: the system asks in her language, and so does the app's
 // own reason for asking (review С-4).
 test('iOS: the app declares its three languages', () => {
@@ -241,11 +255,12 @@ test('the in-app camera is in the build, records sound, and leaves the iOS barco
 // picture in picture and a playback service, so it is left out of the list —
 // given even `false` it writes an empty UIBackgroundModes into Info.plist.
 test('the video player is in the build, for the screen only', () => {
-  const video = plugin(resolve(), 'expo-video');
+  const names = ((resolve().plugins ?? []) as Plugin[]).map((entry) =>
+    Array.isArray(entry) ? entry[0] : entry,
+  );
 
   expect(packageJson.dependencies['expo-video']).toBeDefined();
-  expect(video?.supportsBackgroundPlayback).not.toBe(true);
-  expect(video?.supportsPictureInPicture).not.toBe(true);
+  expect(names).not.toContain('expo-video');
 });
 
 // The app never asks for Face ID: expo-secure-store would otherwise add its
@@ -255,6 +270,28 @@ test('iOS: no Face ID reason — the app does not use biometrics', () => {
   const secureStore = plugin(resolve(), 'expo-secure-store');
 
   expect(secureStore?.faceIDPermission).toBe(false);
+});
+
+/** Every source file of the app, tests aside. */
+function appSources(dir = join(APP_ROOT, 'src')): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      return entry.name === '__tests__' ? [] : appSources(path);
+    }
+    return /\.tsx?$/.test(entry.name) ? [path] : [];
+  });
+}
+
+// Without that reason iOS throws the moment code asks for biometrics, and the
+// reason can only come back with a native build — so an update over the air
+// must not start asking. Biometrics need a Face ID reason and a new build first.
+test('no code asks for biometrics, which this build has no Face ID reason for', () => {
+  const asking = appSources().filter((path) =>
+    /requireAuthentication|expo-local-authentication/.test(readFileSync(path, 'utf8')),
+  );
+
+  expect(asking).toEqual([]);
 });
 
 // Both plugins write the same two iOS reasons; whichever runs last wins, so

@@ -17,7 +17,8 @@
       "environment": "preview",
       "autoIncrement": true,
       "ios": {
-        "resourceClass": "medium"
+        "resourceClass": "medium",
+        "image": "macos-tahoe-26.5-xcode-26.6"
       }
     },
     "production": {
@@ -27,6 +28,9 @@
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
+      },
+      "ios": {
+        "image": "macos-tahoe-26.5-xcode-26.6"
       }
     }
   },
