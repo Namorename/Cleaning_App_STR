@@ -196,6 +196,12 @@ npx eas-cli build -p android --profile preview
 APK — поверх 1.0.0. iOS — `npx eas-cli build -p ios --profile testflight`, затем
 `npx eas-cli submit -p ios` (вход Apple ID, 2FA; `f11-owner-steps.md`, шаги 13–15).
 
+iOS собирается на закреплённом образе `macos-tahoe-26.5-xcode-26.6` (`eas.json`):
+приложение, собранное на SDK iOS 27 (Xcode 27), без жизненного цикла UIScene не
+запускается на iOS 27 (Apple TN3187), а SDK 57 сцен не подключает. В логе сборки —
+Xcode 26.x. Переход на сцены — к требованию App Store собирать на SDK iOS 27
+(ожидается к апрелю 2027), вместе с SDK 58 (ROADMAP).
+
 ## 3. Что проверить после каждого шага
 
 | После | На телефоне (1.0.0, пока нет 1.1.0) | В панели |
