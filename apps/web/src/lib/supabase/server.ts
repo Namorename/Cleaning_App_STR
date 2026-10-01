@@ -4,22 +4,17 @@ import { cookies } from 'next/headers';
 
 import { publicEnv } from '@/lib/env';
 
-import { staleClockSafeFetch } from './stale-clock-retry';
-
 /**
  * A client for server components, route handlers and server actions.
  *
  * Reads the session from the request's cookies and writes refreshed tokens
  * back when it can. A server component cannot set cookies; that case is
- * expected and the proxy in `proxy.ts` refreshes the session instead. Reads
- * here (settings) meet PostgREST's stale clock as the browser's do, and go
- * through the same `staleClockSafeFetch`.
+ * expected and the proxy in `proxy.ts` refreshes the session instead.
  */
 export async function createClient() {
   const cookieStore = await cookies();
 
   return createServerClient<Database>(publicEnv.supabaseUrl, publicEnv.supabaseKey, {
-    global: { fetch: staleClockSafeFetch },
     cookies: {
       getAll() {
         return cookieStore.getAll();

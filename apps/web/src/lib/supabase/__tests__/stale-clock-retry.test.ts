@@ -112,6 +112,58 @@ describe('withStaleClockRetry', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
+  test('returns a refusal whose body is not JSON at once, its body still readable', async () => {
+    const page = new Response('<html>401 Authorization Required</html>', { status: 401 });
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValueOnce(page);
+
+    const response = await withStaleClockRetry(fetchImpl, [0])(REST);
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(401);
+    await expect(response.text()).resolves.toContain('Authorization Required');
+  });
+
+  test('stops at a refusal of another kind on the resend and returns that one', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(staleClock())
+      .mockResolvedValueOnce(refusal('JWT expired'));
+
+    const response = await withStaleClockRetry(fetchImpl, [0, 0])(REST);
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    await expect(response.json()).resolves.toMatchObject({ message: 'JWT expired' });
+  });
+
+  test('does not wait at all when the request was cancelled before the pause', async () => {
+    vi.useFakeTimers();
+    const controller = new AbortController();
+    controller.abort();
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValueOnce(staleClock());
+
+    await expect(
+      withStaleClockRetry(fetchImpl, [1_000])(REST, { signal: controller.signal }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+
+    expect(vi.getTimerCount()).toBe(0);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  test('leaves no abort listener behind once the pause is over', async () => {
+    const controller = new AbortController();
+    const added = vi.spyOn(controller.signal, 'addEventListener');
+    const removed = vi.spyOn(controller.signal, 'removeEventListener');
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(staleClock())
+      .mockResolvedValueOnce(ok());
+
+    await withStaleClockRetry(fetchImpl, [0])(REST, { signal: controller.signal });
+
+    expect(added).toHaveBeenCalledTimes(1);
+    expect(removed).toHaveBeenCalledWith('abort', added.mock.calls[0]?.[1]);
+  });
+
   test('passes successes and network failures through untouched', async () => {
     const success = ok();
     const offline = new TypeError('Failed to fetch');

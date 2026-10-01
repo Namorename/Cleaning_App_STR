@@ -12,6 +12,15 @@
  * The refusal happens at the token check, before any SQL runs, so sending the
  * same request again is as safe for a write as for a read. Only REST requests
  * and only this refusal are sent again; every other answer goes back as it came.
+ * The refusal is recognised by its body, so a HEAD request (a count asked with
+ * `head: true`, which the panel does not send) gets no second try.
+ *
+ * Only the browser's client is wrapped: the panel reads PostgREST there alone,
+ * the server's client and the proxy's talk to Auth (client-factories.test.ts).
+ * A table read on the server would need more than this: inside a render Next
+ * memoizes identical GET requests, and the resend would get the same refusal
+ * back from that memo. It would have to differ — a marker header, as
+ * postgrest-js sends `X-Retry-Count` on its own retries, or a signal.
  */
 export const STALE_CLOCK_MESSAGE = 'JWT issued at future';
 
@@ -101,9 +110,9 @@ export function withStaleClockRetry(
 }
 
 /**
- * What both of the panel's clients send through. The global fetch is looked up
- * on every call, not captured once, so whatever the runtime puts there (Next's
- * own fetch on the server) is still the one used.
+ * What the panel's browser client sends through. The global fetch is looked
+ * up on every call, not captured once, so whatever the page puts there later
+ * is still the one used.
  */
 export const staleClockSafeFetch: typeof fetch = withStaleClockRetry((input, init) =>
   fetch(input, init),
