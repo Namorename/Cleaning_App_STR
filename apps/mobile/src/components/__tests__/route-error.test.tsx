@@ -1,11 +1,13 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { forgetSavedQueries } from '@/lib/query-client';
+import { reportError } from '@/lib/sentry';
 
 import { RootRouteError, RouteError, markAppDrawn } from '../route-error';
 
 // The real one reaches for the disk; here it only has to be seen being asked.
 jest.mock('@/lib/query-client', () => ({ forgetSavedQueries: jest.fn(async () => {}) }));
+jest.mock('@/lib/sentry', () => ({ reportError: jest.fn() }));
 
 test('says the screen failed in her language and keeps the raw words small underneath', async () => {
   // Arrange
@@ -22,6 +24,21 @@ test('says the screen failed in her language and keeps the raw words small under
   // Assert
   expect(screen.getByText('Не удалось показать экран. Попробуйте ещё раз.')).toBeTruthy();
   expect(screen.getByText("Cannot read property 'uploaded_at' of undefined")).toBeTruthy();
+});
+
+test('an error a screen caught is reported once, however often it redraws', async () => {
+  // Arrange: the screens drawn by the tests above reported theirs.
+  jest.mocked(reportError).mockClear();
+  const error = new Error('drawn wrong');
+  const retry = jest.fn(async () => {});
+
+  // Act
+  const { rerender } = await render(<RouteError error={error} retry={retry} />);
+  await rerender(<RouteError error={error} retry={retry} />);
+
+  // Assert: caught errors never reach the crash handler; this is their only way out.
+  expect(reportError).toHaveBeenCalledTimes(1);
+  expect(reportError).toHaveBeenCalledWith(error);
 });
 
 test('tries the screen again on tap', async () => {

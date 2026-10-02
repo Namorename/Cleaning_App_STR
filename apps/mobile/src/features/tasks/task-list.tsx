@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
 
@@ -30,6 +30,8 @@ interface TaskListProps {
    * thread (open_thread), so a repair card lights up by its problem, not its id.
    */
   unreadProblemIds?: ReadonlySet<string>;
+  /** Drawn above the cards: a line about what a tapped push could not open. */
+  header?: ReactElement;
 }
 
 /**
@@ -55,6 +57,7 @@ export function TaskList({
   acceptingTaskIds,
   unreadTaskIds,
   unreadProblemIds,
+  header,
 }: TaskListProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
@@ -122,6 +125,7 @@ export function TaskList({
       ItemSeparatorComponent={Separator}
       SectionSeparatorComponent={Separator}
       stickySectionHeadersEnabled={false}
+      ListHeaderComponent={header}
       refreshControl={
         // The spinner is drawn by the platform and defaults to a dark tick on
         // iOS — invisible on the dark background without this.

@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react-native';
+import { Text } from 'react-native';
 
 import { TaskList } from '../task-list';
 import type { CleaningTask } from '../schema';
@@ -67,6 +68,21 @@ test('shows the empty message when there is genuinely nothing to do', async () =
   await render(<TaskList {...baseProps} sections={[]} isLoading={false} error={null} />);
 
   expect(screen.getByText('Свободных уборок нет.')).toBeTruthy();
+});
+
+test('draws what the screen puts above the cards', async () => {
+  await render(
+    <TaskList
+      {...baseProps}
+      sections={[{ key: 'upcoming', data: [task()] }]}
+      isLoading={false}
+      error={null}
+      header={<Text>Эту уборку с вас сняли.</Text>}
+    />,
+  );
+
+  expect(screen.getByText('Эту уборку с вас сняли.')).toBeTruthy();
+  expect(screen.getByText('CZ - Nadrazni Apt 6')).toBeTruthy();
 });
 
 test('renders the tasks it was given', async () => {

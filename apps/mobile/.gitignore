@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Firebase config for Android pushes: an EAS file variable in builds, never committed
+google-services.json

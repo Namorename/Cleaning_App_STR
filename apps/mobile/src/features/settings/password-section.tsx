@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { PasswordInput } from '@/components/password-input';
 import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
@@ -131,14 +132,11 @@ function PasswordField({
       <Text nativeID={id} style={styles.label}>
         {label}
       </Text>
-      <TextInput
+      <PasswordInput
         accessibilityLabel={label}
         accessibilityLabelledBy={id}
-        autoCapitalize="none"
         autoComplete={isCurrent ? 'current-password' : 'new-password'}
-        autoCorrect={false}
         onChangeText={onChange}
-        secureTextEntry
         style={styles.input}
         textContentType={isCurrent ? 'password' : 'newPassword'}
         value={value}

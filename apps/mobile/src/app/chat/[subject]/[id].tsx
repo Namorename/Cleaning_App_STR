@@ -36,6 +36,7 @@ import {
   useRemoveMedia,
   type AttachMediaVariables,
 } from '@/features/media/use-media';
+import { useShowingThread } from '@/features/push/use-showing-thread';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { serverErrorText } from '@/lib/server-error';
 
@@ -92,6 +93,8 @@ function ChatScreen() {
 
   const thread = useThread(subject);
   const threadId = thread.data?.id ?? null;
+  // A push about this thread arrives quietly while she is reading it.
+  useShowingThread(isFocused ? threadId : null);
   const messages = useMessages(threadId, isFocused);
   const pending = usePendingMessages(subject);
   const send = useSendMessage();

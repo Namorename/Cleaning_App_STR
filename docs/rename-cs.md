@@ -231,3 +231,31 @@ Doplněno pro texty push (F11, 2026-09-28). Nové texty; posílá je server v ja
 - `push.windowUntil`: do {{time}}
 - `push.messageFrom`: {{place}} · {{author}}
 - `push.unknownPlace`: Objekt {{id}}
+
+Doplněno pro oznámení v telefonu (F11, sestavení 1.1.0, 2026-09-28). Nové texty. Kanály jsou kategorie oznámení, které Android ukazuje v nastavení aplikace; úvodní obrazovka se objeví před systémovým dotazem na povolení; poznámka nad seznamem úklidů se ukáže po klepnutí na oznámení o úklidu, který už není její.
+
+- `settings.notifications.channels.urgent`: Naléhavá oznámení — název kanálu v nastavení Androidu
+- `settings.notifications.channels.general`: Ostatní oznámení — název kanálu v nastavení Androidu
+- `settings.notifications.permission.notAsked`: Telefon zatím aplikaci nepovolil posílat oznámení.
+- `settings.notifications.permission.off`: Oznámení jsou vypnutá v nastavení telefonu. Bez nich se nedozvíte o nových úklidech a zprávách.
+- `settings.notifications.permission.channelOff`: V nastavení telefonu jsou vypnutá „{{channel}}“. — {{channel}} je název kanálu výše
+- `settings.notifications.permission.provisional`: Oznámení chodí potichu, jen do Centra oznámení. Zvuk a bannery se zapínají v nastavení telefonu. — jen iPhone
+- `settings.notifications.permission.enable`: Zapnout oznámení
+- `settings.notifications.permission.openSettings`: Otevřít nastavení telefonu
+- `notifications.intro.title`: Oznámení — nadpis obrazovky
+- `notifications.intro.heading`: Nezmeškejte úklid
+- `notifications.intro.body`: Aplikace vám dá vědět, když vám přidělí úklid, přesunou ho nebo zruší a když vám někdo odpoví v chatu. Text zprávy se v oznámení nikdy neukazuje.
+- `notifications.intro.allow`: Povolit oznámení
+- `notifications.intro.later`: Teď ne
+- `notifications.intro.settingsHint`: Pokud si to rozmyslíte, najdete to v Nastavení.
+- `notifications.intro.failed`: Oznámení se nepodařilo zapnout.
+- `tasks.pushNotice.unassigned`: Tento úklid vám byl odebrán.
+- `tasks.pushNotice.cancelled`: Tento úklid byl zrušen.
+- `tasks.pushNotice.movedAway`: Úklid byl přesunut a teď ve vašem seznamu není.
+- `tasks.pushNotice.dismiss`: Skrýt
+
+Doplněno pro systémové dotazy iPhonu na fotoaparát, mikrofon a galerii (sestavení 1.1.0, 2026-10-01). Texty čte i technik, proto mluví o „práci“, ne o úklidu; aplikace nově natáčí video vlastním fotoaparátem. Každý řádek: klíč: bylo → bude — poznámka.
+
+- `iosPermissions.camera`: Aplikace fotoaparátem fotí byt před úklidem a po něm. → Aplikace fotoaparátem pořizuje fotky a videa práce — před ní a po ní. — „před ní a po ní“ = před prací a po práci
+- `iosPermissions.microphone`: Aplikace nahrává zvuk k videu z úklidu. → Aplikace nahrává zvuk k videím z práce. — 3. pád mn. č.
+- `iosPermissions.photos`: Aplikace připojí fotky, které vyberete v galerii, ke krokům úklidu, úkolům a zprávám v chatu. → Aplikace připojí fotky, které vyberete v galerii, ke krokům checklistu, úkolům a zprávám v chatu. — „checklist“ jako jinde v aplikaci; jde-li lépe „kontrolního seznamu“, prosíme napsat

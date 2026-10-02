@@ -8,6 +8,8 @@ import { z } from 'zod';
  * design — row level security, not secrecy, is what protects the data. The
  * secret key and the Hostaway credentials never leave the server.
  */
+// The crash-report address is not here: lib/sentry.ts reads it itself, so
+// crash reports start before this check can throw (docs/f11-native-review.md, С-2).
 const envSchema = z.object({
   supabaseUrl: z.string().url(),
   supabasePublishableKey: z.string().min(1),

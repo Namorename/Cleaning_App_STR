@@ -28,6 +28,8 @@
           "dependencies": [
             "npm:@expo/ui@~57.0.18",
             "npm:@react-native-async-storage/async-storage@2.2.0",
+            "npm:@react-native-community/netinfo@12.0.1",
+            "npm:@sentry/react-native@8.28",
             "npm:@str-ops/shared@0.1",
             "npm:@supabase/supabase-js@^2.112.4",
             "npm:@tanstack/query-async-storage-persister@^5.102.8",
@@ -49,6 +51,7 @@
             "npm:expo-image@~57.0.5",
             "npm:expo-linking@~57.0.10",
             "npm:expo-localization@~57.0.2",
+            "npm:expo-notifications@~57.0.21",
             "npm:expo-router@~57.0.21",
             "npm:expo-secure-store@~57.0.4",
             "npm:expo-splash-screen@~57.0.9",

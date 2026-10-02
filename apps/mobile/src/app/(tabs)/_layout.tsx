@@ -2,11 +2,18 @@ import { Redirect, Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { useSession } from '@/features/auth/session';
+import { usePermissionPrompt, usePushTaps } from '@/features/push/hooks';
 import { renderSettingsButton } from '@/features/settings/settings-button';
 
 export default function TabsLayout() {
   const { t } = useTranslation();
   const { userId, isLoading } = useSession();
+
+  // Here rather than at the root: the navigator is up and her session has
+  // been read, so a tapped push opens its screen instead of racing the
+  // redirect to sign-in, and the explainer is shown to someone signed in.
+  usePushTaps(userId);
+  usePermissionPrompt(userId);
 
   if (isLoading) {
     return null;

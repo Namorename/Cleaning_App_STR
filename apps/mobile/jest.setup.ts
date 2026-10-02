@@ -40,6 +40,66 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
+// Notifications: jest-expo stubs only the native side, where every promise
+// resolves to undefined, so reading a permission would throw. The phone here
+// has already allowed them, which keeps every screen that shows the
+// permission notice as it looks on a configured phone; a test about another
+// state says so with mockResolvedValueOnce.
+jest.mock('expo-notifications', () => {
+  const allowed = { status: 'granted', granted: true, canAskAgain: true, expires: 'never' };
+  const subscription = () => ({ remove: jest.fn() });
+  return {
+    AndroidImportance: {
+      UNKNOWN: 0,
+      UNSPECIFIED: 1,
+      NONE: 2,
+      MIN: 3,
+      LOW: 4,
+      DEFAULT: 5,
+      HIGH: 6,
+      MAX: 7,
+    },
+    IosAuthorizationStatus: {
+      NOT_DETERMINED: 0,
+      DENIED: 1,
+      AUTHORIZED: 2,
+      PROVISIONAL: 3,
+      EPHEMERAL: 4,
+    },
+    DEFAULT_ACTION_IDENTIFIER: 'expo.modules.notifications.actions.DEFAULT',
+    getPermissionsAsync: jest.fn(async () => allowed),
+    requestPermissionsAsync: jest.fn(async () => allowed),
+    getExpoPushTokenAsync: jest.fn(async () => ({ type: 'expo', data: 'ExponentPushToken[test]' })),
+    setNotificationChannelAsync: jest.fn(async () => null),
+    getNotificationChannelAsync: jest.fn(async () => null),
+    setNotificationHandler: jest.fn(),
+    getLastNotificationResponse: jest.fn(() => null),
+    clearLastNotificationResponse: jest.fn(),
+    dismissAllNotificationsAsync: jest.fn(async () => undefined),
+    useLastNotificationResponse: jest.fn(() => null),
+    addNotificationReceivedListener: jest.fn(subscription),
+    addNotificationResponseReceivedListener: jest.fn(subscription),
+    addPushTokenListener: jest.fn(subscription),
+  };
+});
+
+// A real phone, not a simulator: pushes are only registered on one.
+jest.mock('expo-device', () => ({ __esModule: true, isDevice: true }));
+
+// The package's own stand-in: connected, and a listener that is never called
+// unless a test calls it.
+jest.mock('@react-native-community/netinfo', () =>
+  require('@react-native-community/netinfo/jest/netinfo-mock.js'),
+);
+
+// Crash reports go nowhere under test.
+jest.mock('@sentry/react-native', () => ({
+  init: jest.fn(),
+  wrap: <T>(component: T) => component,
+  captureException: jest.fn(),
+  setUser: jest.fn(),
+}));
+
 // `waitFor` and `findBy*` give up after one second by default. An answer
 // that is already resolved can still take longer than that to reach the
 // screen when every core is busy, and a wait that fails on a busy machine

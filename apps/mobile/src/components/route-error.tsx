@@ -1,4 +1,5 @@
 import type { ErrorBoundaryProps } from 'expo-router';
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, Text } from 'react-native';
 
@@ -6,6 +7,7 @@ import { ListAction } from '@/components/list-action';
 import { FontSize, Spacing, type Theme } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { forgetSavedQueries } from '@/lib/query-client';
+import { reportError } from '@/lib/sentry';
 
 /** The raw words shown under the sentence are for passing on, not for reading. */
 const DETAIL_LINES = 3;
@@ -36,6 +38,10 @@ function ErrorScreen({ error, retry, onResetSaved }: ErrorScreenProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const detail = describe(error);
+
+  // A caught error never reaches the crash handler: this is its only way to
+  // the report. Once per error, not per redraw.
+  useEffect(() => reportError(error), [error]);
 
   return (
     <ScrollView

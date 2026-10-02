@@ -2,7 +2,7 @@
   "expo": {
     "name": "STR Ops Клинер",
     "slug": "str-ops-cleaner",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "strops",
@@ -22,9 +22,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ]
+      "permissions": ["android.permission.RECORD_AUDIO"]
     },
     "web": {
       "output": "static",
@@ -44,18 +42,47 @@
           "imageWidth": 76
         }
       ],
-      "expo-secure-store",
-      "expo-localization",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false
+        }
+      ],
+      [
+        "expo-localization",
+        {
+          "supportedLocales": {
+            "ios": ["en", "ru", "cs"]
+          }
+        }
+      ],
       [
         "expo-image-picker",
         {
-          "cameraPermission": "The app uses the camera to photograph the flat before and after cleaning.",
-          "microphonePermission": "The app records sound with the video of the cleaning.",
-          "photosPermission": "The app does not read the photo library."
+          "cameraPermission": "The app uses the camera to take photos and videos of the work, before and after it.",
+          "microphonePermission": "The app records sound with the videos of the work.",
+          "photosPermission": "The app attaches the photos you choose from your library to checklist steps, tasks and chat messages."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "The app uses the camera to take photos and videos of the work, before and after it.",
+          "microphonePermission": "The app records sound with the videos of the work.",
+          "recordAudioAndroid": true,
+          "barcodeScannerEnabled": false
         }
       ],
       "expo-image",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#208AEF",
+          "defaultChannel": "general"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

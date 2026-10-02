@@ -865,6 +865,18 @@
         "booking_cancelled_live": "Booking cancelled during your cleaning",
         "chat_message": "Chat message",
         "daily_digest": "Morning summary"
+      },
+      "channels": {
+        "urgent": "Urgent notifications",
+        "general": "Other notifications"
+      },
+      "permission": {
+        "notAsked": "The phone has not yet allowed the app to send notifications.",
+        "off": "Notifications are off in the phone's settings. Without them you will not hear about new cleanings and messages.",
+        "channelOff": "“{{channel}}” are off in the phone's settings.",
+        "provisional": "Notifications arrive silently, only in Notification Centre. Sound and banners are turned on in the phone's settings.",
+        "enable": "Turn on notifications",
+        "openSettings": "Open phone settings"
       }
     },
     "language": {
@@ -886,6 +898,17 @@
       "needsNetwork": "Changing the password needs a connection. Check the internet and try again.",
       "confirmAgain": "Your sign-in needs to be confirmed again. Tap “Change password” once more.",
       "changed": "Password changed. Other devices will have to sign in again."
+    }
+  },
+  "notifications": {
+    "intro": {
+      "title": "Notifications",
+      "heading": "Don't miss a cleaning",
+      "body": "The app tells you when a cleaning is assigned to you, moved or cancelled, and when someone answers you in the chat. The text of a message is never shown in a notification.",
+      "allow": "Allow notifications",
+      "later": "Not now",
+      "settingsHint": "If you change your mind, this is in Settings.",
+      "failed": "Could not turn on notifications."
     }
   },
   "tasks": {
@@ -951,6 +974,12 @@
       "openChat": "Chat",
       "fixBanner": "{{property}} · priority: {{priority}}",
       "notFound": "Cleaning not found, or no longer yours"
+    },
+    "pushNotice": {
+      "unassigned": "This cleaning was taken off you.",
+      "cancelled": "This cleaning was cancelled.",
+      "movedAway": "The cleaning was moved and is not in your list now.",
+      "dismiss": "Dismiss"
     }
   },
   "steps": {
@@ -1305,5 +1334,10 @@
     "windowUntil": "until {{time}}",
     "messageFrom": "{{place}} · {{author}}",
     "unknownPlace": "Property {{id}}"
+  },
+  "iosPermissions": {
+    "camera": "The app uses the camera to take photos and videos of the work, before and after it.",
+    "microphone": "The app records sound with the videos of the work.",
+    "photos": "The app attaches the photos you choose from your library to checklist steps, tasks and chat messages."
   }
 }

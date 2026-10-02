@@ -1,7 +1,13 @@
 import type { Session } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import { supabase } from '@/lib/supabase';
+import { clearThisPhone, releaseThisPhone } from '@/features/push/api';
+import { registerThisPhone } from '@/features/push/registration';
+import { registrant, unmarkRegistered } from '@/features/push/token-store';
+import { isNetworkError } from '@/lib/online';
+import { reportUnlessOffline } from '@/lib/sentry';
+import { sessionStorage } from '@/lib/secure-storage';
+import { SESSION_STORAGE_KEY, supabase } from '@/lib/supabase';
 
 interface SessionState {
   session: Session | null;
@@ -66,9 +72,38 @@ export async function signIn(email: string, password: string): Promise<void> {
   }
 }
 
+/**
+ * Leaves the account. The phone's push token is let go of first, while the
+ * call still runs as her — afterwards the server would refuse it — so pushes
+ * about her stop reaching a phone she may be handing on.
+ *
+ * Without signal auth-js usually removes the session all the same and only
+ * reports the network: then she is out, and nothing failed. With an access
+ * token that expired while the app slept it cannot refresh, keeps the session
+ * and returns the same error — so what decides is whether a session is still
+ * stored, not what the error says.
+ *
+ * The phone forgets the token only once she is out (docs/f11-native-review.md,
+ * Т-2): a failed sign-out keeps it for the next try to let go of, and one that
+ * failed after the server already let go registers the phone for her again —
+ * she is still here, and pushes would otherwise stop without a word.
+ */
 export async function signOut(): Promise<void> {
+  const person = registrant();
+  const release = await releaseThisPhone();
   const { error } = await supabase.auth.signOut();
-  if (error) {
-    throw error;
+  const isOut =
+    error === null ||
+    (isNetworkError(error) && (await sessionStorage.getItem(SESSION_STORAGE_KEY)) === null);
+  if (isOut) {
+    await clearThisPhone();
+    return;
   }
+  if (release === 'released') {
+    unmarkRegistered();
+    if (person !== null) {
+      registerThisPhone(person).catch(reportUnlessOffline);
+    }
+  }
+  throw error;
 }
