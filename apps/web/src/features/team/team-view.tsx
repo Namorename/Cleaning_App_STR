@@ -7,6 +7,7 @@ import { Person } from '@/components/person';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import {
   Table,
   TableBody,
@@ -34,8 +35,6 @@ import {
 } from './schema';
 import { StaffForm } from './staff-form';
 import { useCleanerLinks, useResetPassword, useStaff } from './use-team';
-
-const SELECT_CLASS = 'h-9 rounded-md border bg-background px-2 text-sm';
 
 /** What the form is doing: nothing, adding somebody, or editing this person. */
 type Editing = { staff: Staff | null } | null;
@@ -103,8 +102,7 @@ export function TeamView() {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
-        <select
-          className={SELECT_CLASS}
+        <NativeSelect
           aria-label={t('panel.team.filters.role')}
           value={role}
           onChange={(event) => setRole(event.target.value as StaffRole | '')}
@@ -115,7 +113,7 @@ export function TeamView() {
               {t(`panel.roles.${option}`)}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
 
       <Tabs value={tab} onValueChange={(next) => setTab(next as TeamTab)}>

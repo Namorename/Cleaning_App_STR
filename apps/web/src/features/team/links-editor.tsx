@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import {
   Sheet,
   SheetContent,
@@ -25,8 +26,6 @@ import {
   type Staff,
 } from './schema';
 import { useCleanerLinks, useProperties, useRemoveCleanerLink, useSaveCleanerLink } from './use-team';
-
-const SELECT_CLASS = 'h-9 rounded-md border bg-background px-2 text-sm';
 
 interface LinksEditorProps {
   staff: Staff;
@@ -120,8 +119,7 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
 
                     <label className="flex flex-col gap-1 text-xs text-muted-foreground">
                       {t('panel.team.links.mode')}
-                      <select
-                        className={SELECT_CLASS}
+                      <NativeSelect
                         aria-label={t('panel.team.links.modeFor', { name: row.name })}
                         value={row.mode}
                         onChange={(event) =>
@@ -138,7 +136,7 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
                             {t(`panel.team.links.modes.${mode}`)}
                           </option>
                         ))}
-                      </select>
+                      </NativeSelect>
                     </label>
 
                     <label className="flex flex-col gap-1 text-xs text-muted-foreground">

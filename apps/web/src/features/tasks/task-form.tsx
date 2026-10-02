@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
 import { todayIso } from '@/lib/format-date';
 import { serverErrorHint, serverErrorText } from '@/lib/server-error';
@@ -30,8 +31,6 @@ import {
 } from './schema';
 import { TaskDeparture } from './task-departure';
 import { useProperties, useSaveTask, useStaff } from './use-tasks';
-
-const SELECT_CLASS = 'h-9 rounded-md border bg-background px-2 text-sm';
 
 /** The key the server sends back when a job of this kind is already on that day. */
 const DUPLICATE_HINT = 'serverErrors.taskDuplicate';
@@ -159,9 +158,8 @@ export function TaskForm({ task, initial, onClose }: TaskFormProps) {
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1">
               <Label htmlFor="task-property">{t('panel.tasks.form.property')}</Label>
-              <select
+              <NativeSelect
                 id="task-property"
-                className={SELECT_CLASS}
                 value={draft.propertyId ?? ''}
                 disabled={isGenerated}
                 onChange={(event) =>
@@ -177,14 +175,13 @@ export function TaskForm({ task, initial, onClose }: TaskFormProps) {
                     {place.name}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
 
             <div className="flex flex-col gap-1">
               <Label htmlFor="task-type">{t('panel.tasks.form.type')}</Label>
-              <select
+              <NativeSelect
                 id="task-type"
-                className={SELECT_CLASS}
                 value={draft.type}
                 disabled={isGenerated}
                 onChange={(event) =>
@@ -196,7 +193,7 @@ export function TaskForm({ task, initial, onClose }: TaskFormProps) {
                     {t(`panel.tasks.types.${type}`)}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
           </div>
 
@@ -268,9 +265,8 @@ export function TaskForm({ task, initial, onClose }: TaskFormProps) {
 
           <div className="flex flex-col gap-1">
             <Label htmlFor="task-assignee">{t('panel.tasks.form.assignee')}</Label>
-            <select
+            <NativeSelect
               id="task-assignee"
-              className={SELECT_CLASS}
               value={draft.assigneeId ?? ''}
               aria-invalid={hasAssigneeGap}
               aria-describedby={hasAssigneeGap ? ASSIGNEE_ERROR_ID : undefined}
@@ -297,7 +293,7 @@ export function TaskForm({ task, initial, onClose }: TaskFormProps) {
                   {person.full_name ?? person.id}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
             {hasAssigneeGap ? (
               <p id={ASSIGNEE_ERROR_ID} role="alert" className="text-xs text-destructive">
                 {t('panel.tasks.form.assigneeRequired')}

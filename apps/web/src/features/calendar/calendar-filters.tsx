@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { NativeSelect } from '@/components/ui/native-select';
 import type { Staff } from '@/features/tasks/schema';
 
 import {
@@ -15,8 +16,6 @@ import {
   type ChipView,
   type StatusFilter,
 } from './chips';
-
-const SELECT_CLASS = 'h-8 rounded-md border bg-background px-2 text-sm';
 
 const collator = new Intl.Collator(undefined, { sensitivity: 'base' });
 
@@ -64,9 +63,9 @@ export function CalendarFilters({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Label htmlFor="calendar-status">{t('panel.calendar.filters.status')}</Label>
-      <select
+      <NativeSelect
         id="calendar-status"
-        className={SELECT_CLASS}
+        size="sm"
         value={status}
         onChange={(event) => onStatus(event.target.value as StatusFilter)}
       >
@@ -75,12 +74,12 @@ export function CalendarFilters({
             {t(`panel.calendar.filters.${one}`)}
           </option>
         ))}
-      </select>
+      </NativeSelect>
 
       <Label htmlFor="calendar-assignee">{t('panel.tasks.filters.assignee')}</Label>
-      <select
+      <NativeSelect
         id="calendar-assignee"
-        className={SELECT_CLASS}
+        size="sm"
         value={assignee}
         onChange={(event) => onAssignee(event.target.value)}
       >
@@ -98,7 +97,7 @@ export function CalendarFilters({
             })}
           </option>
         ))}
-      </select>
+      </NativeSelect>
 
       <label className="flex items-center gap-1 text-sm">
         <input

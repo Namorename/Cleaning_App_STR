@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import { moveAt, removeAt, replaceAt } from '@/lib/list';
 import { serverErrorText } from '@/lib/server-error';
 
@@ -24,8 +25,6 @@ import {
   useCopyChecklist,
   useSaveChecklist,
 } from './use-apartments';
-
-const SELECT_CLASS = 'h-9 rounded-md border bg-background px-2 text-sm';
 
 interface ChecklistTabProps {
   propertyId: number;
@@ -308,8 +307,7 @@ export function ChecklistTab({ propertyId, all, listing = null }: ChecklistTabPr
       <div className="flex flex-wrap items-end gap-2 border-t pt-3">
         <label className="flex flex-1 flex-col gap-1 text-xs text-muted-foreground">
           {t('panel.apartments.checklist.copyFrom')}
-          <select
-            className={SELECT_CLASS}
+          <NativeSelect
             value={source}
             onChange={(event) => setSource(event.target.value)}
           >
@@ -319,7 +317,7 @@ export function ChecklistTab({ propertyId, all, listing = null }: ChecklistTabPr
                 {one.name}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </label>
         <Button
           type="button"

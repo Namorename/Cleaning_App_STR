@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { formatDay, todayIso } from '@/lib/format-date';
@@ -27,8 +28,6 @@ import {
   type TaskTab,
 } from './schema';
 import { useCancelTask, useStaff, useTasks } from './use-tasks';
-
-const SELECT_CLASS = 'h-9 rounded-md border bg-background px-2 text-sm';
 
 /**
  * The section's page: three tabs, a filter bar, and the work under headings.
@@ -83,8 +82,7 @@ export function TasksView() {
           aria-label={t('panel.tasks.filters.search')}
           className="w-72"
         />
-        <select
-          className={SELECT_CLASS}
+        <NativeSelect
           aria-label={t('panel.tasks.filters.assignee')}
           value={filters.assigneeId}
           onChange={(event) => setFilters({ ...filters, assigneeId: event.target.value })}
@@ -96,9 +94,8 @@ export function TasksView() {
               {person.full_name ?? person.id}
             </option>
           ))}
-        </select>
-        <select
-          className={SELECT_CLASS}
+        </NativeSelect>
+        <NativeSelect
           aria-label={t('panel.tasks.filters.type')}
           value={filters.type}
           onChange={(event) =>
@@ -111,7 +108,7 @@ export function TasksView() {
               {t(`panel.tasks.types.${type}`)}
             </option>
           ))}
-        </select>
+        </NativeSelect>
         <Input
           type="date"
           className="w-40"
