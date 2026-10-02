@@ -40,8 +40,9 @@ Terminal, из папки `C:\Users\Roman\Desktop\Cleaning App\apps\mobile`. Ч�
 приложение на Android (ROADMAP, «Порядок с 2026-10-02»). Шаги 7–9, 13–15 и 17 —
 тогда же; для выката F11 на Android они не нужны.
 
-- [x] **6.** Apple Developer Program как **частное лицо** ($99 в год), Apple ID с
-  двухфакторной проверкой. **Заведён** (владелец, 2026-09-30).
+- [ ] **6.** Apple Developer Program как **частное лицо** ($99 в год), Apple ID с
+  двухфакторной проверкой. **Не оплачен** — оплата после теста готового
+  приложения на Android (владелец, 2026-10-02; отметка 30.09 была ошибочной).
 - [ ] **7. Осталось:** App Store Connect → Users and Access →
   Integrations → App Store Connect API → **«Request Access»**. Нажать может только
   Account Holder, то есть вы; Apple рассматривает запрос сама, поэтому лучше
