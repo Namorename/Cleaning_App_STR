@@ -1,0 +1,2191 @@
+{
+  "generated": "2026-10-02",
+  "revision": 4,
+  "tones": [
+    {
+      "key": "neutral",
+      "ru": "Нейтрально",
+      "en": "Neutral",
+      "cs": "Neutrální",
+      "meaning": "Нет действия: обычная срочность, шаг не начат, виды работ, «заезда нет», уведомления приходят без звука; задание в архиве и объект в архиве — значок архива рядом с чипом статуса; группа «Открыта» в фильтре календаря; подпись источника фото «из галереи» и «источник не указан».",
+      "cue": "Только слово; у чипа без рамки; у архива — значок архива, чип статуса остаётся и не зачёркивается. Шаг, который ещё не сделан, — контурный круг 2 px цвета neutral.mark с номером цвета neutral.fg. Подпись источника фото — цветом onScrim на затемнении scrim внизу снимка.",
+      "step": {
+        "draw": "ring",
+        "color": "mark",
+        "widthPx": 2,
+        "glyph": "номер шага",
+        "glyphColor": "fg"
+      }
+    },
+    {
+      "key": "unassigned",
+      "ru": "Без исполнителя",
+      "en": "Nobody yet",
+      "cs": "Zatím nikdo",
+      "meaning": "Нужен человек: уборка без исполнителя, задание «Открыто», новая заявка, «Никто» в календаре, ремонт «Без исполнителя» в «Застрявших ремонтах».",
+      "cue": "Ромб вместо круга в календаре; у чипа пунктирная рамка (пустое место) и значок пустого человечка."
+    },
+    {
+      "key": "assigned",
+      "ru": "Назначено",
+      "en": "Assigned",
+      "cs": "Přiděleno",
+      "meaning": "Есть исполнитель, работа не начата: назначена, принята (✓), заявка принята.",
+      "cue": "Залитый круг; у чипа значок человечка, у «Принята» добавлена галочка ✓."
+    },
+    {
+      "key": "inProgress",
+      "ru": "В работе",
+      "en": "In progress",
+      "cs": "Probíhá",
+      "meaning": "Идёт сейчас: в работе, пауза (‖), заказано, объект на обслуживании; «Бронь изменилась» у начатой уборки — кольцо этого цвета.",
+      "cue": "Залитый круг; у чипа значок «▶», у «Пауза» — «‖»; «Бронь изменилась» — кольцо этого цвета с зазором 1 px вокруг точки или чипа и ⚠ (как нынешнее жёлтое кольцо; красное кольцо — у флага «Срочно», со знаком «!», и у двойной брони)."
+    },
+    {
+      "key": "done",
+      "ru": "Выполнено",
+      "en": "Done",
+      "cs": "Hotovo",
+      "meaning": "Закрыто успешно: уборка выполнена, задание выполнено, заявка выполнена, шаг выполнен.",
+      "cue": "Залитый круг; у чипа галочка ✓. Выполненный шаг — залитый круг цвета done.mark (не тональная подложка) с ✓ цвета done.onMark.",
+      "step": {
+        "draw": "disc",
+        "color": "mark",
+        "glyph": "✓",
+        "glyphColor": "onMark"
+      }
+    },
+    {
+      "key": "overdue",
+      "ru": "Просрочено",
+      "en": "Overdue",
+      "cs": "Po termínu",
+      "meaning": "Срок прошёл, работа жива: просроченный ремонт, хвост уборки «Просрочена · 21.09».",
+      "cue": "Квадрат в рамке 2 px (цвет группы внутри) в календаре — с радиусом 1 px, не по теме; у чипа сплошная рамка и часы ◷; слово «Просрочен». Красный — общий с «Срочно»: просрочено — состояние, срочно — флаг."
+    },
+    {
+      "key": "notHappened",
+      "ru": "Не состоялась",
+      "en": "Did not happen",
+      "cs": "Neproběhlo",
+      "meaning": "Уборка закрыта сроком без выполнения (expired).",
+      "cue": "Свой цвет, не красный: винный в светлой теме, светлая орхидея в тёмной. Полое кольцо в календаре; чип заштрихован штриховкой 45° своего цвета (у «Блока» — 135°, так два вида штриховки различаются и без цвета) и обведён сплошной рамкой цвета notHappened.border — 1 px у А и В, 1,5 px у Б, как все его чипы; подпись — на сплошной плашке, не на полосах; слово «Не состоялась».",
+      "hatch": {
+        "angle": 45
+      }
+    },
+    {
+      "key": "cancelled",
+      "ru": "Отменено",
+      "en": "Cancelled",
+      "cs": "Zrušeno",
+      "meaning": "Снято без выполнения: уборка и задание отменены, заявка отклонена, шаг пропущен или снят, сотрудник отключён.",
+      "cue": "Серый квадрат в календаре, текст зачёркнут и бледнее, видно только с «Показывать отменённые»; у чипа значок ✕. Пропущенный или снятый шаг — бледный контурный круг 2 px цвета cancelled.mark с ✕ цвета cancelled.fg.",
+      "step": {
+        "draw": "ring",
+        "color": "mark",
+        "widthPx": 2,
+        "glyph": "✕",
+        "glyphColor": "fg"
+      }
+    },
+    {
+      "key": "urgent",
+      "ru": "Срочно",
+      "en": "Urgent",
+      "cs": "Naléhavé",
+      "meaning": "Смотреть сейчас: высокая срочность, срочная заявка, SDT, заезд в тот же день, уборка заблокирована, двойная бронь, уведомления не разрешены или выключены.",
+      "cue": "Флаг поверх другого статуса. В календаре у точки или чипа уборки — красное кольцо с зазором 1 px и «!», как у чипа (так помечена и «Заблокирована»); ⚠ остаётся за бронью: «Бронь изменилась» — янтарное кольцо и ⚠, двойная бронь — красное кольцо вокруг полосы, ⚠ и половинки дорожки. У чипа — «!» и слово, у SDT — слово «SDT». Красный — общий с «Просрочено»: флаг всегда стоит рядом с точкой своего статуса, поэтому свой цвет ему не нужен."
+    },
+    {
+      "key": "today",
+      "ru": "Сегодня",
+      "en": "Today",
+      "cs": "Dnes",
+      "meaning": "Сегодняшний день: колонка календаря, группа «Сегодня» в списках.",
+      "cue": "Вся колонка подложкой и рамкой 2 px по краям, шапка дня — пилюлей акцента с датой, aria-current=\"date\", слово «Сегодня». Подложка колонки — бледный оттенок акцента у всех трёх направлений (у В акцент голубой, его бледный оттенок далёк от подложки «Срочно»). Подложка «сегодня» почти совпадает с подложкой одного тона (в светлой теме: А — «В работе», Б — «Выполнено», В — «Бронь»), поэтому внутри колонки и группы «Сегодня» чип всегда с рамкой своего тона."
+    },
+    {
+      "key": "booking",
+      "ru": "Бронь",
+      "en": "Booking",
+      "cs": "Rezervace",
+      "meaning": "Бронь гостя на календаре и в карточке объекта.",
+      "cue": "Полоса с именем гостя; обрез окна — «‹ ›» и прямой край; двойная — половины дорожки, красное кольцо и ⚠."
+    },
+    {
+      "key": "block",
+      "ru": "Блок",
+      "en": "Block",
+      "cs": "Blok",
+      "meaning": "Не гость: блок, проживание владельца, служебная «#»-бронь.",
+      "cue": "Штриховка 135° по полосе (у «Не состоялась» — 45°) и слова «Блок (не гость)» — на сплошной плашке, не на полосах.",
+      "hatch": {
+        "angle": 135
+      }
+    },
+    {
+      "key": "unread",
+      "ru": "Новое сообщение",
+      "en": "New message",
+      "cs": "Nová zpráva",
+      "meaning": "Непрочитанное в чате: метка на карточке, счётчик в меню и на вкладке.",
+      "cue": "Бейдж — залитая пилюля цвета основного со словом или числом (bg = mark, fg = onMark): высота 20, текст 13/700, без тени и без нижнего края, на карточке — справа в строке заголовка, перед числом точка 8 px. Тональной формы нет — бледный чип брони того же оттенка с ней не спутать; в календаре не встречается."
+    }
+  ],
+  "statusMap": {
+    "tasks.unassigned": "unassigned",
+    "tasks.assigned": "assigned",
+    "tasks.accepted": "assigned",
+    "tasks.in_progress": "inProgress",
+    "tasks.paused": "inProgress",
+    "tasks.blocked": "urgent",
+    "tasks.done": "done",
+    "tasks.cancelled": "cancelled",
+    "tasks.expired": "notHappened",
+    "tasks.tail": "overdue",
+    "tasks.flags.tooShort": "urgent",
+    "tasks.flags.parallel": "neutral",
+    "tasks.type.cleaning": "neutral",
+    "tasks.type.midstay": "neutral",
+    "tasks.type.maintenance": "neutral",
+    "tasks.type.inspection": "neutral",
+    "tasks.origin.booking": "neutral",
+    "tasks.origin.problem": "neutral",
+    "problems.open": "unassigned",
+    "problems.assigned": "assigned",
+    "problems.in_progress": "inProgress",
+    "problems.resolved": "done",
+    "problems.cancelled": "cancelled",
+    "problems.archived": "neutral",
+    "problems.priority.high": "urgent",
+    "problems.priority.normal": "neutral",
+    "problems.priority.low": "neutral",
+    "supplies.new": "unassigned",
+    "supplies.accepted": "assigned",
+    "supplies.ordered": "inProgress",
+    "supplies.fulfilled": "done",
+    "supplies.rejected": "cancelled",
+    "supplies.priority.urgent": "urgent",
+    "supplies.priority.normal": "neutral",
+    "steps.pending": "neutral",
+    "steps.done": "done",
+    "steps.skipped": "cancelled",
+    "steps.waived": "cancelled",
+    "steps.unsupported": "neutral",
+    "steps.required": "neutral",
+    "calendar.booking": "booking",
+    "calendar.block": "block",
+    "calendar.ownerStay": "block",
+    "calendar.serviceBooking": "block",
+    "calendar.today": "today",
+    "calendar.nobody": "unassigned",
+    "calendar.overdueRepair": "overdue",
+    "calendar.overdueRepairTechOff": "urgent",
+    "calendar.expired": "notHappened",
+    "calendar.cancelled": "cancelled",
+    "calendar.doubleBooking": "urgent",
+    "calendar.bookingChanged": "inProgress",
+    "calendar.sdt": "urgent",
+    "calendar.villaShadow": "neutral",
+    "calendar.cut": "neutral",
+    "calendar.propertyMaintenance": "inProgress",
+    "calendar.group.open": "neutral",
+    "calendar.group.inWork": "inProgress",
+    "calendar.group.done": "done",
+    "bookingCard.new": "booking",
+    "bookingCard.modified": "booking",
+    "bookingCard.ownerStay": "block",
+    "bookingsTab.upcoming": "booking",
+    "property.active": "neutral",
+    "property.maintenance": "inProgress",
+    "property.archived": "neutral",
+    "team.inactive": "cancelled",
+    "dashboard.overdueRepairs": "overdue",
+    "dashboard.offRepairs": "urgent",
+    "dashboard.unassignedToday": "urgent",
+    "dashboard.stuck.overdue": "overdue",
+    "dashboard.stuck.technicianOff": "urgent",
+    "dashboard.stuck.nobody": "unassigned",
+    "phone.checkIn.sameDay": "urgent",
+    "phone.checkIn.none": "neutral",
+    "phone.kindBanner": "neutral",
+    "phone.pushNotice": "urgent",
+    "phone.permission.off": "urgent",
+    "phone.permission.notAsked": "urgent",
+    "phone.permission.channelOff": "urgent",
+    "phone.permission.provisional": "neutral",
+    "chat.unread": "unread",
+    "nav.unread": "unread",
+    "chat.ownBubble": "neutral",
+    "media.local": "neutral",
+    "media.uploading": "inProgress",
+    "media.uploaded": "done",
+    "media.failed": "urgent",
+    "media.expired": "cancelled",
+    "chat.pending": "neutral",
+    "media.source.gallery": "neutral",
+    "media.source.unknown": "neutral"
+  },
+  "rules": [
+    {
+      "key": "statusSet",
+      "ru": "Статусы — предложение (а): один общий набор смыслов на все три направления: красный — не по плану, янтарь — идёт, зелёный — сделано, синий — назначено, фиолетовый — нужен человек, винный (в тёмной теме — светлая орхидея) — не состоялась. Направление подстраивает в общем наборе только светлоту и насыщенность (оттенки смыслов у всех трёх одни, у «Выполнено» А и В совпадает даже hex). Из палитры направления — бронь (оттенок основного у А и Б, акцента у В), «сегодня» (пилюля и подложка — акцент), непрочитанное (основной) и серые. По брифу цвета статусов берутся из палитры направления — общий набор от этого отступает, и отступление ждёт согласия владельца. Вариант (б) измерен, а не предположен: оттенки семи меток — только из мест правила направления (±15°), тот же поиск и тот же валидатор (palette-status.json); худшие пары каждого направления показаны на странице рядом с общим набором. Выбор — вопрос владельцу до этапа 5.2."
+    },
+    {
+      "key": "destructive",
+      "ru": "Разрушающие действия («Удалить заявку», «Убрать позицию», «Удалить шаг») — тональная кнопка (подложка urgent.bg, текст и значок danger) или контур цвета danger, всегда со значком корзины или ⚠; залитой, как главная, не бывает. Текст ошибки («Не загрузилось») — всегда со значком ⚠. В календаре danger не рисует ни точек, ни колец: красные точки и кольца там — «Просрочено» и «Срочно» (тоны overdue и urgent), а danger — только текст со значком ⚠. Цвет danger отличается от основного и от акцента, но различие держит и форма: акцент — только заливка под текстом onAccent, danger — только текст и контур."
+    },
+    {
+      "key": "todayChips",
+      "ru": "Внутри колонки и группы «Сегодня» чип всегда с рамкой цвета border своего тона: подложка «сегодня» почти совпадает с подложкой одного из тонов."
+    },
+    {
+      "key": "hatching",
+      "ru": "Штриховки две, и они различаются наклоном: «Не состоялась» — 45°, «Блок» — 135° (цвета двух штриховок при дейтеранопии почти совпадают, поэтому различие держит наклон). Текст не лежит на штриховке: подпись чипа «Не состоялась» и полосы блока — на сплошной плашке."
+    },
+    {
+      "key": "wheel",
+      "ru": "Цветовой круг рисуется по настоящей хроме OKLCH: фон и поверхность — у центра, основной и акцент — ближе к краю. Метки статусов — на отдельном круге каждого направления рядом с местами правила, с подписью «общий набор смыслов; светлота и насыщенность подстроены под направление» (данные — `statusWheel`)."
+    },
+    {
+      "key": "margins",
+      "ru": "Правило на будущее, а не описание нынешних значений: при следующей перенастройке токенов целиться в запас 0,5 над порогами (ΔE 15 и 8, контраст 3:1, 4,5:1 и 7:1) и прогонять валидатор заново. Сейчас все проверки проходят порог, но часть — с запасом меньше 0,5 (список — отчёт, раздел «Запас»)."
+    },
+    {
+      "key": "accentInCalendar",
+      "ru": "Акцент в календаре — только залитая пилюля шапки дня и подложка колонки «сегодня»; кольцом и точкой он не бывает. Кольца в календаре — только «Срочно» (красное, с «!»), «Бронь изменилась» (янтарное, с ⚠), двойная бронь (красное вокруг полосы, с ⚠ и половинками дорожки) и полое кольцо «Не состоялась» вместо точки; поэтому светлая орхидея «Не состоялась» в тёмной теме не спорит ни с акцентами, ни с danger А."
+    },
+    {
+      "key": "calendarFlags",
+      "ru": "Флаги поверх точки уборки различаются и цветом, и знаком: «Заблокирована» и другие флаги «Срочно» — красное кольцо и «!», «Бронь изменилась» — янтарное кольцо и ⚠. Знак ⚠ в календаре — только у брони (изменилась, двойная)."
+    },
+    {
+      "key": "activeState",
+      "ru": "Подсветка акцентом никогда не единственный признак состояния. Активная вкладка — пилюля акцента под иконкой, иконка залитая (цвет onAccent), подпись 700 цвета text; неактивная — контурная иконка и подпись textMuted; плюс accessibilityState.selected / aria-current. Карточка «сейчас» — пилюля «▶ Сейчас» (заливка accent, текст onAccent) в шапке карточки и полоса 3 px цвета primary по левому краю (≥ 3:1 к поверхности и фону)."
+    },
+    {
+      "key": "calendarTargets",
+      "ru": "Календарь панели — предложенное исключение из цели 44 px, ждёт решения владельца (бриф: касания ≥ 44–48; вопрос 15): полный чип и «+N» получают зону нажатия не меньше 24×24 px (WCAG 2.5.8; сейчас чип 16 px в высоту, «+N» — 24×16), видимый чип — 20 px и невидимое поле до 24; точки (7 px, вид на 30 дней) — не цели: щелчок по ячейке дня открывает тот же список, что «+N». Без исключения — строки выше и меньше дней на экране."
+    }
+  ],
+  "directions": [
+    {
+      "id": "a",
+      "name": {
+        "ru": "Абрикос",
+        "en": "Apricot"
+      },
+      "character": "Самое тёплое и мягкое: терракота и мёд на абрикосовых сливках, круглый шрифт, пилюли и мягкие тени. Уют дома, куда приятно вернуться.",
+      "harmony": {
+        "rule": "analogous",
+        "ruleRu": "аналоговая",
+        "wheel": "OKLCH",
+        "baseHue": 42,
+        "hues": [
+          42,
+          72
+        ],
+        "explainRu": "Аналоговая: соседи на круге OKLCH с шагом 30°. База 42° — терракота: основной (38°) и поверхность (42°); соседнее место 72° — мёд: акцент (76°) и фон «абрикосовые сливки» (72°). Все цвета из тёплой четверти круга, поэтому спорить им не о чем — различие держит светлота: тёмная терракота против светлого мёда и сливок.",
+        "hslWheel": {
+          "bestBase": 9,
+          "maxDeviation": 6.7
+        }
+      },
+      "core": [
+        {
+          "role": "primary",
+          "roleRu": "основной",
+          "hex": "#983512",
+          "oklch": [
+            0.468,
+            0.14,
+            38
+          ],
+          "hsl": [
+            15.7,
+            78.8,
+            33.3
+          ],
+          "ruleHue": 42,
+          "deviationOklch": 4,
+          "deviationHsl": 6.7
+        },
+        {
+          "role": "accent",
+          "roleRu": "акцент",
+          "hex": "#fbbe61",
+          "oklch": [
+            0.839,
+            0.13,
+            75.8
+          ],
+          "hsl": [
+            36.2,
+            95.1,
+            68.2
+          ],
+          "ruleHue": 72,
+          "deviationOklch": 3.8,
+          "deviationHsl": 2.8
+        },
+        {
+          "role": "background",
+          "roleRu": "фон",
+          "hex": "#f7ebdd",
+          "oklch": [
+            0.946,
+            0.023,
+            71.8
+          ],
+          "hsl": [
+            32.3,
+            61.9,
+            91.8
+          ],
+          "ruleHue": 72,
+          "deviationOklch": 0.2,
+          "deviationHsl": 6.7
+        },
+        {
+          "role": "surface",
+          "roleRu": "поверхность",
+          "hex": "#fffcfb",
+          "oklch": [
+            0.993,
+            0.003,
+            39.5
+          ],
+          "hsl": [
+            15,
+            100,
+            99.2
+          ],
+          "ruleHue": 42,
+          "deviationOklch": 2.5,
+          "deviationHsl": 6
+        }
+      ],
+      "neutrals": {
+        "hue": 42,
+        "light": {
+          "50": "#fff9f6",
+          "100": "#f8efeb",
+          "200": "#f1e6e1",
+          "300": "#e1d4cf",
+          "400": "#b6a9a4",
+          "500": "#897c77",
+          "600": "#6f625e",
+          "700": "#5d524d",
+          "800": "#443b37",
+          "900": "#312927",
+          "950": "#1e1816"
+        },
+        "dark": {
+          "50": "#f6f1f0",
+          "100": "#ebe5e2",
+          "200": "#d6cfcc",
+          "300": "#c1b8b5",
+          "400": "#a29894",
+          "500": "#857b77",
+          "600": "#605551",
+          "700": "#4a403c",
+          "800": "#372c28",
+          "900": "#2a1f1b",
+          "950": "#1e1511"
+        }
+      },
+      "font": {
+        "family": "Nunito",
+        "css2": "https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap",
+        "weights": [
+          400,
+          600,
+          700,
+          800
+        ],
+        "tabularFigures": "default",
+        "whyRu": "Круглые окончания — самый дружелюбный из проверенных; цифры одной ширины без настроек (время, счётчики, даты встают в столбик и на телефоне, где tnum на устройстве не проверен). Обычное начертание тонковато: основной текст телефона — 600, мелкий — не тоньше 600.",
+        "expo": "@expo-google-fonts/nunito",
+        "nextFont": "next/font/google: Nunito({ subsets: ['latin', 'latin-ext', 'cyrillic'], weight: ['400', '600', '700', '800'], variable: '--font-sans' })"
+      },
+      "shape": {
+        "radius": {
+          "sm": 10,
+          "md": 14,
+          "lg": 20,
+          "xl": 28,
+          "pill": 999
+        },
+        "button": "Пилюля (радиус 999), высота 52 на телефоне и 44 в панели, заливка «основного», текст 17/700; вторичная — тональная (подложка основного 100 и текст основного 800) без рамки; разрушающая — тональная (подложка urgent.bg, текст и значок danger) со значком корзины или ⚠. В варианте «в перчатках» — 56 на телефоне.",
+        "chip": "Пилюля, тональная (подложка тона, текст тона), значок слева; рамка только у тех, чей признак — рамка (пунктир «Без исполнителя», сплошная «Просрочено», сплошная 1 px у заштрихованного «Не состоялась»), и у всех — внутри колонки и группы «Сегодня».",
+        "card": "Радиус 20, без рамки, мягкая тень в два слоя (0 1px 2px и 0 6px 16px, тёплый тон 6–8 %); в тёмной теме тень заменяет ступень поверхности и разделитель 1 px.",
+        "badge": "Бейдж непрочитанного — не кнопка, хотя кнопка А тоже пилюля основного цвета: высота 20 (кнопки — 52 и 44), текст 13/700, без тени, перед числом — точка 8 px, место — справа в строке заголовка карточки, а не внизу, где кнопки.",
+        "rowHeight": 64,
+        "rowHeightPanel": 52,
+        "touch": 48,
+        "touchGloves": 56,
+        "panelTarget": 44,
+        "buttonPhone": 52,
+        "buttonPanel": 44,
+        "buttonPanelHit": 44,
+        "glovesButton": 56,
+        "glovesRow": 64,
+        "density": "Просторная: отступы 8 / 12 / 16 / 24 / 32, межстрочный 1,45.",
+        "focus": "Кольцо 3 px цвета focusRing с зазором 2 px по форме элемента (у пилюли — пилюля).",
+        "calendarHit": 24,
+        "calendarChip": 20,
+        "calendarRuleRu": "Календарь панели — предложенное исключение из 44 px, ждёт решения владельца (вопрос 15): полный чип и «+N» — зона нажатия ≥ 24×24 px (WCAG 2.5.8), видимый чип 20 px и невидимое поле до 24, соседние цели не ближе, чем позволяет круг 24 px; точки 7 px (вид на 30 дней) — не цели: щелчок по ячейке дня открывает тот же список, что «+N».",
+        "activeTab": "Активная вкладка: пилюля акцента под иконкой, иконка залитая (onAccent), подпись 700 цвета text; неактивная — контурная иконка, подпись textMuted; accessibilityState.selected / aria-current=\"page\".",
+        "nowCard": "Карточка «сейчас»: пилюля «▶ Сейчас» (заливка accent, текст onAccent) в шапке и полоса 3 px цвета primary по левому краю — признак не только цветом.",
+        "badgeHeight": 20
+      },
+      "themes": {
+        "light": {
+          "bg": "#f7ebdd",
+          "surface": "#fffcfb",
+          "surfaceAlt": "#f1e6e1",
+          "text": "#1e1816",
+          "textSecondary": "#5d524d",
+          "textMuted": "#6f625e",
+          "border": "#897c77",
+          "divider": "#e1d4cf",
+          "primary": "#983512",
+          "onPrimary": "#fffcfb",
+          "primaryPressed": "#862700",
+          "accent": "#fbbe61",
+          "onAccent": "#4c3202",
+          "focusRing": "#c15330",
+          "danger": "#be0769",
+          "onDanger": "#fffcfb",
+          "link": "#983512",
+          "scrim": "#1e1511",
+          "onScrim": "#fffcfb",
+          "scrimAlpha": 0.64
+        },
+        "dark": {
+          "bg": "#1e1511",
+          "surface": "#2a1f1b",
+          "surfaceAlt": "#372c28",
+          "text": "#f6f1f0",
+          "textSecondary": "#d6cfcc",
+          "textMuted": "#a29894",
+          "border": "#857b77",
+          "divider": "#4a403c",
+          "primary": "#e78c70",
+          "onPrimary": "#1e1511",
+          "primaryPressed": "#f89c7f",
+          "accent": "#edb154",
+          "onAccent": "#402900",
+          "focusRing": "#cd6c4e",
+          "danger": "#ffb0e1",
+          "onDanger": "#1e1511",
+          "link": "#e78c70",
+          "scrim": "#1e1511",
+          "onScrim": "#fffcfb",
+          "scrimAlpha": 0.64
+        }
+      },
+      "sources": {
+        "light": {
+          "bg": "core.background",
+          "surface": "core.surface",
+          "surfaceAlt": "neutrals.light.200",
+          "text": "neutrals.light.950",
+          "textSecondary": "neutrals.light.700",
+          "textMuted": "neutrals.light.600",
+          "border": "neutrals.light.500",
+          "divider": "neutrals.light.300",
+          "primary": "core.primary",
+          "onPrimary": "core.surface",
+          "primaryPressed": "ramps.primary.800",
+          "accent": "core.accent",
+          "onAccent": "ramps.accent.900",
+          "focusRing": "ramps.primary.500",
+          "danger": "solved: h 358, C 0.21, >= 5:1 on every surface",
+          "onDanger": "core.surface",
+          "link": "core.primary",
+          "scrim": "neutrals.dark.950",
+          "onScrim": "core.surface",
+          "scrimAlpha": "solved: onScrim >= 5:1 over a white photo"
+        },
+        "dark": {
+          "bg": "neutrals.dark.950",
+          "surface": "neutrals.dark.900",
+          "surfaceAlt": "neutrals.dark.800",
+          "text": "neutrals.dark.50",
+          "textSecondary": "neutrals.dark.200",
+          "textMuted": "neutrals.dark.400",
+          "border": "neutrals.dark.500",
+          "divider": "neutrals.dark.700",
+          "primary": "ramps.primary.300",
+          "onPrimary": "neutrals.dark.950",
+          "primaryPressed": "ramps.primary.200",
+          "accent": "ramps.accent.300",
+          "onAccent": "ramps.accent.950",
+          "focusRing": "ramps.primary.400",
+          "danger": "solved: h 342, C 0.11, >= 8:1 on every surface",
+          "onDanger": "neutrals.dark.950",
+          "link": "ramps.primary.300",
+          "scrim": "neutrals.dark.950",
+          "onScrim": "core.surface",
+          "scrimAlpha": "solved: onScrim >= 5:1 over a white photo"
+        }
+      },
+      "ramps": {
+        "primary": {
+          "50": "#fff4f1",
+          "100": "#ffe5dc",
+          "200": "#f89c7f",
+          "300": "#e78c70",
+          "400": "#cd6c4e",
+          "500": "#c15330",
+          "600": "#a64221",
+          "700": "#983512",
+          "800": "#862700",
+          "900": "#55200f",
+          "950": "#381b12"
+        },
+        "accent": {
+          "50": "#fff9f1",
+          "100": "#ffe7c7",
+          "200": "#fbbe61",
+          "300": "#edb154",
+          "400": "#c68c27",
+          "500": "#a36e00",
+          "600": "#895c00",
+          "700": "#734d00",
+          "800": "#573900",
+          "900": "#4c3202",
+          "950": "#402900"
+        }
+      },
+      "todayUnderlay": {
+        "hue": 76,
+        "from": "accent"
+      },
+      "status": {
+        "light": {
+          "assigned": {
+            "fg": "#005d99",
+            "bg": "#e0f0ff",
+            "border": "#2384cd",
+            "mark": "#1f81c9"
+          },
+          "inProgress": {
+            "fg": "#775300",
+            "bg": "#ffe6be",
+            "border": "#a77600",
+            "mark": "#af7c00"
+          },
+          "done": {
+            "fg": "#005e3c",
+            "bg": "#c8fcdf",
+            "border": "#008b5b",
+            "mark": "#007a4f",
+            "onMark": "#fffcfb"
+          },
+          "unassigned": {
+            "fg": "#744593",
+            "bg": "#f5e8ff",
+            "border": "#9d69c2",
+            "mark": "#754197"
+          },
+          "overdue": {
+            "fg": "#983850",
+            "bg": "#ffe7ea",
+            "border": "#c95c75",
+            "mark": "#d53265"
+          },
+          "notHappened": {
+            "fg": "#8b3c77",
+            "bg": "#ffe5f6",
+            "border": "#b35b9c",
+            "mark": "#550e46",
+            "hatch": "#b2609c"
+          },
+          "urgent": {
+            "fg": "#983850",
+            "bg": "#ffe7ea",
+            "border": "#c95c75",
+            "mark": "#d53265"
+          },
+          "booking": {
+            "fg": "#973d17",
+            "bg": "#ffe8e0",
+            "border": "#c8623b",
+            "mark": "#87320a",
+            "onMark": "#fffcfb"
+          },
+          "neutral": {
+            "fg": "#645651",
+            "bg": "#f9e9e3",
+            "border": "#8b7c76",
+            "mark": "#8b7c76"
+          },
+          "cancelled": {
+            "fg": "#6d635f",
+            "bg": "#f6eae6",
+            "border": "#877d79",
+            "mark": "#c0b5b0"
+          },
+          "block": {
+            "fg": "#645651",
+            "bg": "#f9e9e3",
+            "border": "#8b7c76",
+            "mark": "#f9e9e3",
+            "hatch": "#8e7f7a"
+          },
+          "today": {
+            "fg": "#775213",
+            "bg": "#fce7c9",
+            "border": "#a97516",
+            "mark": "#fbbe61",
+            "onMark": "#4c3202"
+          },
+          "unread": {
+            "fg": "#fffcfb",
+            "bg": "#983512",
+            "border": "#983512",
+            "mark": "#983512",
+            "onMark": "#fffcfb"
+          }
+        },
+        "dark": {
+          "assigned": {
+            "fg": "#7aaedf",
+            "bg": "#163149",
+            "border": "#4282bb",
+            "mark": "#3477b1"
+          },
+          "inProgress": {
+            "fg": "#c9a266",
+            "bg": "#412a00",
+            "border": "#a37424",
+            "mark": "#c38600"
+          },
+          "done": {
+            "fg": "#79b88d",
+            "bg": "#153722",
+            "border": "#3e8e5d",
+            "mark": "#44ab6d",
+            "onMark": "#1e1511"
+          },
+          "unassigned": {
+            "fg": "#b19edc",
+            "bg": "#332947",
+            "border": "#8870b8",
+            "mark": "#a17ae8"
+          },
+          "overdue": {
+            "fg": "#dc939f",
+            "bg": "#44242a",
+            "border": "#b66272",
+            "mark": "#b65368"
+          },
+          "notHappened": {
+            "fg": "#c996c7",
+            "bg": "#3c263c",
+            "border": "#a96da8",
+            "mark": "#fc98fa",
+            "hatch": "#a96da8"
+          },
+          "urgent": {
+            "fg": "#dc939f",
+            "bg": "#44242a",
+            "border": "#b66272",
+            "mark": "#b65368"
+          },
+          "booking": {
+            "fg": "#da997a",
+            "bg": "#41281c",
+            "border": "#b56944",
+            "mark": "#803300",
+            "onMark": "#f6f1f0"
+          },
+          "neutral": {
+            "fg": "#b5a7a2",
+            "bg": "#392d29",
+            "border": "#887b76",
+            "mark": "#877a75"
+          },
+          "cancelled": {
+            "fg": "#a29995",
+            "bg": "#362e2b",
+            "border": "#857c78",
+            "mark": "#b5aca8"
+          },
+          "block": {
+            "fg": "#b5a7a2",
+            "bg": "#392d29",
+            "border": "#887b76",
+            "mark": "#392d29",
+            "hatch": "#887b76"
+          },
+          "today": {
+            "fg": "#caa167",
+            "bg": "#3a2500",
+            "border": "#a67310",
+            "mark": "#edb154",
+            "onMark": "#402900"
+          },
+          "unread": {
+            "fg": "#1e1511",
+            "bg": "#e78c70",
+            "border": "#e78c70",
+            "mark": "#e78c70",
+            "onMark": "#1e1511"
+          }
+        }
+      },
+      "statusWheel": {
+        "labelRu": "общий набор смыслов; светлота и насыщенность подстроены под направление",
+        "noteRu": "Метки статусов — общий набор на все три направления; из палитры направления здесь только бронь (оттенок основного). «Сегодня», непрочитанное и серые — тоже из палитры, но это не статусы и на этот круг не ставятся.",
+        "light": [
+          {
+            "key": "booking",
+            "tone": "booking",
+            "hex": "#87320a",
+            "oklch": [
+              0.434,
+              0.126,
+              41.2
+            ],
+            "fromPalette": true
+          },
+          {
+            "key": "assigned",
+            "tone": "assigned",
+            "hex": "#1f81c9",
+            "oklch": [
+              0.585,
+              0.14,
+              246.5
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "inProgress",
+            "tone": "inProgress",
+            "hex": "#af7c00",
+            "oklch": [
+              0.621,
+              0.129,
+              79.7
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "done",
+            "tone": "done",
+            "hex": "#007a4f",
+            "oklch": [
+              0.511,
+              0.115,
+              160.1
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "unassigned",
+            "tone": "unassigned",
+            "hex": "#754197",
+            "oklch": [
+              0.477,
+              0.141,
+              310
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "danger",
+            "tone": "overdue",
+            "hex": "#d53265",
+            "oklch": [
+              0.584,
+              0.2,
+              7.8
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "notHappened",
+            "tone": "notHappened",
+            "hex": "#550e46",
+            "oklch": [
+              0.316,
+              0.12,
+              338.3
+            ],
+            "fromPalette": false
+          }
+        ],
+        "dark": [
+          {
+            "key": "booking",
+            "tone": "booking",
+            "hex": "#803300",
+            "oklch": [
+              0.423,
+              0.119,
+              45.8
+            ],
+            "fromPalette": true
+          },
+          {
+            "key": "assigned",
+            "tone": "assigned",
+            "hex": "#3477b1",
+            "oklch": [
+              0.553,
+              0.113,
+              247.7
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "inProgress",
+            "tone": "inProgress",
+            "hex": "#c38600",
+            "oklch": [
+              0.665,
+              0.139,
+              76.6
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "done",
+            "tone": "done",
+            "hex": "#44ab6d",
+            "oklch": [
+              0.665,
+              0.133,
+              154
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "unassigned",
+            "tone": "unassigned",
+            "hex": "#a17ae8",
+            "oklch": [
+              0.664,
+              0.161,
+              298.3
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "danger",
+            "tone": "overdue",
+            "hex": "#b65368",
+            "oklch": [
+              0.572,
+              0.13,
+              8.8
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "notHappened",
+            "tone": "notHappened",
+            "hex": "#fc98fa",
+            "oklch": [
+              0.815,
+              0.17,
+              327.7
+            ],
+            "fromPalette": false
+          }
+        ]
+      },
+      "icon": {
+        "bg": "#983512",
+        "fg": "#f7ebdd",
+        "accent": "#fbbe61",
+        "motifRu": "Домик с округлой крышей цвета сливок на терракоте, в дверном проёме — медовая искра ✦ («здесь чисто»).",
+        "monoRu": "Монохромная (Android 13+): силуэт домика одним цветом, искра — в вырезе проёма; знак в безопасной зоне 66 dp из 108."
+      }
+    },
+    {
+      "id": "b",
+      "name": {
+        "ru": "Малина",
+        "en": "Raspberry"
+      },
+      "character": "Самое бойкое: малина и бирюза на почти белом фоне, плотный округлый шрифт, «наклейки» с рамкой вместо теней. Весело и чётко.",
+      "harmony": {
+        "rule": "complementary",
+        "ruleRu": "комплементарная",
+        "wheel": "OKLCH",
+        "baseHue": 355,
+        "hues": [
+          355,
+          175
+        ],
+        "explainRu": "Комплементарная: два противоположных оттенка, 180°. База 355° — малина: основной, фон и поверхность; напротив, 175°, — бирюза: акцент. Противоположности усиливают друг друга, поэтому бирюзы мало — активная вкладка, «сегодня», отметки; всё остальное — малина и её почти белый оттенок, фон и поверхность одного цвета.",
+        "hslWheel": {
+          "bestBase": 339.5,
+          "maxDeviation": 8.1
+        }
+      },
+      "core": [
+        {
+          "role": "primary",
+          "roleRu": "основной",
+          "hex": "#982d60",
+          "oklch": [
+            0.474,
+            0.15,
+            355.1
+          ],
+          "hsl": [
+            331.4,
+            54.3,
+            38.6
+          ],
+          "ruleHue": 355,
+          "deviationOklch": 0.1,
+          "deviationHsl": 8.1
+        },
+        {
+          "role": "accent",
+          "roleRu": "акцент",
+          "hex": "#71e2ca",
+          "oklch": [
+            0.84,
+            0.11,
+            177.8
+          ],
+          "hsl": [
+            167.3,
+            66.1,
+            66.5
+          ],
+          "ruleHue": 175,
+          "deviationOklch": 2.8,
+          "deviationHsl": 7.8
+        },
+        {
+          "role": "background",
+          "roleRu": "фон",
+          "hex": "#fffcfd",
+          "oklch": [
+            0.994,
+            0.003,
+            354.7
+          ],
+          "hsl": [
+            340,
+            100,
+            99.4
+          ],
+          "ruleHue": 355,
+          "deviationOklch": 0.3,
+          "deviationHsl": 0.5
+        },
+        {
+          "role": "surface",
+          "roleRu": "поверхность",
+          "hex": "#fffcfd",
+          "oklch": [
+            0.994,
+            0.003,
+            354.7
+          ],
+          "hsl": [
+            340,
+            100,
+            99.4
+          ],
+          "ruleHue": 355,
+          "deviationOklch": 0.3,
+          "deviationHsl": 0.5
+        }
+      ],
+      "neutrals": {
+        "hue": 355,
+        "light": {
+          "50": "#fef8fa",
+          "100": "#f7eef1",
+          "200": "#f0e5e9",
+          "300": "#e0d4d8",
+          "400": "#b5a9ad",
+          "500": "#887c80",
+          "600": "#6d6165",
+          "700": "#5c5155",
+          "800": "#433a3d",
+          "900": "#30292c",
+          "950": "#1d181a"
+        },
+        "dark": {
+          "50": "#f5f1f2",
+          "100": "#eae4e6",
+          "200": "#d6cfd1",
+          "300": "#c0b8bb",
+          "400": "#a0989b",
+          "500": "#847a7e",
+          "600": "#5f5558",
+          "700": "#493f43",
+          "800": "#362c2f",
+          "900": "#291f22",
+          "950": "#1d1417"
+        }
+      },
+      "font": {
+        "family": "Rubik",
+        "css2": "https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap",
+        "weights": [
+          400,
+          500,
+          600,
+          700
+        ],
+        "tabularFigures": "tnum",
+        "whyRu": "Чуть скруглённые углы и большая высота строчных — читается с расстояния и на солнце; характер «бодрый». Табличные цифры — включать tnum (CSS font-variant-numeric: tabular-nums, RN fontVariant [\"tabular-nums\"]).",
+        "openCheckRu": "Если выбрано это направление — в первой OTA 5.2 проверить fontVariant: ['tabular-nums'] на Android и iPhone (время «10:00–15:00», счётчики, даты); если цифры не выровняются — набирать цифры шрифтом с ровными цифрами (Nunito Sans или Mulish). Выбор направления это не задерживает.",
+        "expo": "@expo-google-fonts/rubik",
+        "nextFont": "next/font/google: Rubik({ subsets: ['latin', 'latin-ext', 'cyrillic'], weight: ['400', '500', '600', '700'], variable: '--font-sans' })"
+      },
+      "shape": {
+        "radius": {
+          "sm": 6,
+          "md": 10,
+          "lg": 14,
+          "xl": 18,
+          "pill": 999
+        },
+        "button": "Скруглённый прямоугольник, радиус 12, высота 52 на телефоне и 44 в панели, заливка «основного» и нижний край 3 px цвета primaryPressed — кнопка «нажимается» (подпись направления); вторичная — контур 2 px; разрушающая — контур 2 px цвета danger со значком корзины или ⚠. В варианте «в перчатках» — 56 на телефоне.",
+        "chip": "Радиус 8, контурный: рамка 1,5 px цвета border тона на подложке тона, значок слева.",
+        "card": "Радиус 14, рамка 2 px (нейтральная 300 / тёмная 700), без тени — плоские «наклейки»; фон страницы почти белый, равный поверхности, поэтому край карточки держит только рамка.",
+        "badge": "Бейдж непрочитанного: пилюля высотой 20, текст 13/700, без тени и без нижнего края кнопки, перед числом — точка 8 px.",
+        "rowHeight": 56,
+        "rowHeightPanel": 44,
+        "touch": 48,
+        "touchGloves": 56,
+        "panelTarget": 44,
+        "buttonPhone": 52,
+        "buttonPanel": 44,
+        "buttonPanelHit": 44,
+        "glovesButton": 56,
+        "glovesRow": 56,
+        "density": "Средняя: отступы 4 / 8 / 12 / 16 / 24, межстрочный 1,4.",
+        "focus": "Сплошная обводка 2 px цвета focusRing с отступом 2 px, прямоугольная со скруглением элемента + 2.",
+        "calendarHit": 24,
+        "calendarChip": 20,
+        "calendarRuleRu": "Календарь панели — предложенное исключение из 44 px, ждёт решения владельца (вопрос 15): полный чип и «+N» — зона нажатия ≥ 24×24 px (WCAG 2.5.8), видимый чип 20 px и невидимое поле до 24, соседние цели не ближе, чем позволяет круг 24 px; точки 7 px (вид на 30 дней) — не цели: щелчок по ячейке дня открывает тот же список, что «+N».",
+        "activeTab": "Активная вкладка: пилюля акцента под иконкой, иконка залитая (onAccent), подпись 700 цвета text; неактивная — контурная иконка, подпись textMuted; accessibilityState.selected / aria-current=\"page\".",
+        "nowCard": "Карточка «сейчас»: пилюля «▶ Сейчас» (заливка accent, текст onAccent) в шапке и полоса 3 px цвета primary по левому краю — признак не только цветом.",
+        "badgeHeight": 20
+      },
+      "themes": {
+        "light": {
+          "bg": "#fffcfd",
+          "surface": "#fffcfd",
+          "surfaceAlt": "#f0e5e9",
+          "text": "#1d181a",
+          "textSecondary": "#5c5155",
+          "textMuted": "#6d6165",
+          "border": "#887c80",
+          "divider": "#e0d4d8",
+          "primary": "#982d60",
+          "onPrimary": "#fffcfd",
+          "primaryPressed": "#871c52",
+          "accent": "#71e2ca",
+          "onAccent": "#004339",
+          "focusRing": "#bc4e7f",
+          "danger": "#c50710",
+          "onDanger": "#fffcfd",
+          "link": "#982d60",
+          "scrim": "#1d1417",
+          "onScrim": "#fffcfd",
+          "scrimAlpha": 0.64
+        },
+        "dark": {
+          "bg": "#1d1417",
+          "surface": "#291f22",
+          "surfaceAlt": "#362c2f",
+          "text": "#f5f1f2",
+          "textSecondary": "#d6cfd1",
+          "textMuted": "#a0989b",
+          "border": "#847a7e",
+          "divider": "#493f43",
+          "primary": "#e785ad",
+          "onPrimary": "#1d1417",
+          "primaryPressed": "#f895bc",
+          "accent": "#63d5be",
+          "onAccent": "#003a30",
+          "focusRing": "#c96991",
+          "danger": "#fab8a8",
+          "onDanger": "#1d1417",
+          "link": "#e785ad",
+          "scrim": "#1d1417",
+          "onScrim": "#fffcfd",
+          "scrimAlpha": 0.64
+        }
+      },
+      "sources": {
+        "light": {
+          "bg": "core.background",
+          "surface": "core.surface",
+          "surfaceAlt": "neutrals.light.200",
+          "text": "neutrals.light.950",
+          "textSecondary": "neutrals.light.700",
+          "textMuted": "neutrals.light.600",
+          "border": "neutrals.light.500",
+          "divider": "neutrals.light.300",
+          "primary": "core.primary",
+          "onPrimary": "core.surface",
+          "primaryPressed": "ramps.primary.800",
+          "accent": "core.accent",
+          "onAccent": "ramps.accent.900",
+          "focusRing": "ramps.primary.500",
+          "danger": "solved: h 28, C 0.21, >= 5:1 on every surface",
+          "onDanger": "core.surface",
+          "link": "core.primary",
+          "scrim": "neutrals.dark.950",
+          "onScrim": "core.surface",
+          "scrimAlpha": "solved: onScrim >= 5:1 over a white photo"
+        },
+        "dark": {
+          "bg": "neutrals.dark.950",
+          "surface": "neutrals.dark.900",
+          "surfaceAlt": "neutrals.dark.800",
+          "text": "neutrals.dark.50",
+          "textSecondary": "neutrals.dark.200",
+          "textMuted": "neutrals.dark.400",
+          "border": "neutrals.dark.500",
+          "divider": "neutrals.dark.700",
+          "primary": "ramps.primary.300",
+          "onPrimary": "neutrals.dark.950",
+          "primaryPressed": "ramps.primary.200",
+          "accent": "ramps.accent.300",
+          "onAccent": "ramps.accent.950",
+          "focusRing": "ramps.primary.400",
+          "danger": "solved: h 34, C 0.08, >= 8:1 on every surface",
+          "onDanger": "neutrals.dark.950",
+          "link": "ramps.primary.300",
+          "scrim": "neutrals.dark.950",
+          "onScrim": "core.surface",
+          "scrimAlpha": "solved: onScrim >= 5:1 over a white photo"
+        }
+      },
+      "ramps": {
+        "primary": {
+          "50": "#fff3f7",
+          "100": "#ffe2ec",
+          "200": "#f895bc",
+          "300": "#e785ad",
+          "400": "#c96991",
+          "500": "#bc4e7f",
+          "600": "#a4386a",
+          "700": "#982d60",
+          "800": "#871c52",
+          "900": "#541b35",
+          "950": "#371825"
+        },
+        "accent": {
+          "50": "#dffff7",
+          "100": "#bcfaeb",
+          "200": "#71e2ca",
+          "300": "#63d5be",
+          "400": "#35ae98",
+          "500": "#008e7a",
+          "600": "#007766",
+          "700": "#006455",
+          "800": "#005145",
+          "900": "#004339",
+          "950": "#003a30"
+        }
+      },
+      "todayUnderlay": {
+        "hue": 178,
+        "from": "accent"
+      },
+      "status": {
+        "light": {
+          "assigned": {
+            "fg": "#2459a1",
+            "bg": "#e4efff",
+            "border": "#457fd1",
+            "mark": "#4187e9"
+          },
+          "inProgress": {
+            "fg": "#795100",
+            "bg": "#ffe6c3",
+            "border": "#ac7400",
+            "mark": "#b57e1b"
+          },
+          "done": {
+            "fg": "#005d3e",
+            "bg": "#c7fce1",
+            "border": "#008b5f",
+            "mark": "#007c54",
+            "onMark": "#fffcfd"
+          },
+          "unassigned": {
+            "fg": "#4c51a3",
+            "bg": "#e9edff",
+            "border": "#6e76d3",
+            "mark": "#4341ae"
+          },
+          "overdue": {
+            "fg": "#993b2a",
+            "bg": "#ffe8e3",
+            "border": "#c95f4b",
+            "mark": "#c62300"
+          },
+          "notHappened": {
+            "fg": "#8d3b73",
+            "bg": "#ffe5f4",
+            "border": "#b55996",
+            "mark": "#d442a9",
+            "hatch": "#b55f97"
+          },
+          "urgent": {
+            "fg": "#993b2a",
+            "bg": "#ffe8e3",
+            "border": "#c95f4b",
+            "mark": "#c62300"
+          },
+          "booking": {
+            "fg": "#903a6c",
+            "bg": "#ffe6f2",
+            "border": "#bf5e94",
+            "mark": "#812c5e",
+            "onMark": "#fffcfd"
+          },
+          "neutral": {
+            "fg": "#63565b",
+            "bg": "#f8e8ed",
+            "border": "#897b80",
+            "mark": "#897b80"
+          },
+          "cancelled": {
+            "fg": "#6b6265",
+            "bg": "#f4e9ed",
+            "border": "#867c80",
+            "mark": "#beb4b8"
+          },
+          "block": {
+            "fg": "#63565b",
+            "bg": "#f8e8ed",
+            "border": "#897b80",
+            "mark": "#f8e8ed",
+            "hatch": "#8c7e83"
+          },
+          "today": {
+            "fg": "#006556",
+            "bg": "#c5fef0",
+            "border": "#008f7b",
+            "mark": "#71e2ca",
+            "onMark": "#004339"
+          },
+          "unread": {
+            "fg": "#fffcfd",
+            "bg": "#982d60",
+            "border": "#982d60",
+            "mark": "#982d60",
+            "onMark": "#fffcfd"
+          }
+        },
+        "dark": {
+          "assigned": {
+            "fg": "#77afde",
+            "bg": "#143249",
+            "border": "#3d83ba",
+            "mark": "#2f7db7"
+          },
+          "inProgress": {
+            "fg": "#caa267",
+            "bg": "#412a00",
+            "border": "#a37424",
+            "mark": "#c38602"
+          },
+          "done": {
+            "fg": "#71ba97",
+            "bg": "#0f3826",
+            "border": "#2e9068",
+            "mark": "#28ab79",
+            "onMark": "#1d1417"
+          },
+          "unassigned": {
+            "fg": "#ada0de",
+            "bg": "#312948",
+            "border": "#8372bb",
+            "mark": "#997cea"
+          },
+          "overdue": {
+            "fg": "#dd958b",
+            "bg": "#452521",
+            "border": "#b8645a",
+            "mark": "#d1493f"
+          },
+          "notHappened": {
+            "fg": "#cb97c8",
+            "bg": "#3d263c",
+            "border": "#a96da7",
+            "mark": "#fe93fb",
+            "hatch": "#a96da7"
+          },
+          "urgent": {
+            "fg": "#dd958b",
+            "bg": "#452521",
+            "border": "#b8645a",
+            "mark": "#d1493f"
+          },
+          "booking": {
+            "fg": "#db94ab",
+            "bg": "#41252f",
+            "border": "#b66481",
+            "mark": "#873b58",
+            "onMark": "#f5f1f2"
+          },
+          "neutral": {
+            "fg": "#b3a6ab",
+            "bg": "#372d31",
+            "border": "#877b7f",
+            "mark": "#867a7e"
+          },
+          "cancelled": {
+            "fg": "#a2999c",
+            "bg": "#352e31",
+            "border": "#857c7f",
+            "mark": "#b4abae"
+          },
+          "block": {
+            "fg": "#b3a6ab",
+            "bg": "#372d31",
+            "border": "#877b7f",
+            "mark": "#372d31",
+            "hatch": "#877b7f"
+          },
+          "today": {
+            "fg": "#60b8a5",
+            "bg": "#0e342d",
+            "border": "#008d79",
+            "mark": "#63d5be",
+            "onMark": "#003a30"
+          },
+          "unread": {
+            "fg": "#1d1417",
+            "bg": "#e785ad",
+            "border": "#e785ad",
+            "mark": "#e785ad",
+            "onMark": "#1d1417"
+          }
+        }
+      },
+      "statusWheel": {
+        "labelRu": "общий набор смыслов; светлота и насыщенность подстроены под направление",
+        "noteRu": "Метки статусов — общий набор на все три направления; из палитры направления здесь только бронь (оттенок основного). «Сегодня», непрочитанное и серые — тоже из палитры, но это не статусы и на этот круг не ставятся.",
+        "light": [
+          {
+            "key": "booking",
+            "tone": "booking",
+            "hex": "#812c5e",
+            "oklch": [
+              0.435,
+              0.13,
+              347.5
+            ],
+            "fromPalette": true
+          },
+          {
+            "key": "assigned",
+            "tone": "assigned",
+            "hex": "#4187e9",
+            "oklch": [
+              0.627,
+              0.164,
+              257.4
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "inProgress",
+            "tone": "inProgress",
+            "hex": "#b57e1b",
+            "oklch": [
+              0.633,
+              0.125,
+              75.9
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "done",
+            "tone": "done",
+            "hex": "#007c54",
+            "oklch": [
+              0.518,
+              0.113,
+              162.1
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "unassigned",
+            "tone": "unassigned",
+            "hex": "#4341ae",
+            "oklch": [
+              0.445,
+              0.169,
+              277.9
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "danger",
+            "tone": "overdue",
+            "hex": "#c62300",
+            "oklch": [
+              0.533,
+              0.2,
+              32.3
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "notHappened",
+            "tone": "notHappened",
+            "hex": "#d442a9",
+            "oklch": [
+              0.62,
+              0.21,
+              341.8
+            ],
+            "fromPalette": false
+          }
+        ],
+        "dark": [
+          {
+            "key": "booking",
+            "tone": "booking",
+            "hex": "#873b58",
+            "oklch": [
+              0.462,
+              0.109,
+              358.2
+            ],
+            "fromPalette": true
+          },
+          {
+            "key": "assigned",
+            "tone": "assigned",
+            "hex": "#2f7db7",
+            "oklch": [
+              0.569,
+              0.117,
+              244.7
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "inProgress",
+            "tone": "inProgress",
+            "hex": "#c38602",
+            "oklch": [
+              0.665,
+              0.139,
+              76.5
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "done",
+            "tone": "done",
+            "hex": "#28ab79",
+            "oklch": [
+              0.66,
+              0.133,
+              162.1
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "unassigned",
+            "tone": "unassigned",
+            "hex": "#997cea",
+            "oklch": [
+              0.662,
+              0.16,
+              293.7
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "danger",
+            "tone": "overdue",
+            "hex": "#d1493f",
+            "oklch": [
+              0.592,
+              0.173,
+              27.8
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "notHappened",
+            "tone": "notHappened",
+            "hex": "#fe93fb",
+            "oklch": [
+              0.81,
+              0.18,
+              328.1
+            ],
+            "fromPalette": false
+          }
+        ]
+      },
+      "icon": {
+        "bg": "#982d60",
+        "fg": "#fffcfd",
+        "accent": "#71e2ca",
+        "motifRu": "Сложенное полотенце — две скруглённые полосы стопкой, почти белые на малине, и бирюзовая искра ✦ в углу: «гостиничная свежесть».",
+        "monoRu": "Монохромная: две полосы и искра одним цветом; без искры знак тоже читается."
+      }
+    },
+    {
+      "id": "c",
+      "name": {
+        "ru": "Слива",
+        "en": "Plum"
+      },
+      "character": "Самое спокойное: слива на сливочном масле, голубая подсветка, ясный гуманистический шрифт, плотные таблицы и волосяные линии. Тепло дают масляный фон и сливовые кнопки, голубой — только отметки: активная вкладка, «сегодня», «сейчас».",
+      "harmony": {
+        "rule": "split-complementary",
+        "ruleRu": "раздельно-комплементарная",
+        "wheel": "OKLCH",
+        "baseHue": 100,
+        "hues": [
+          100,
+          250,
+          310
+        ],
+        "explainRu": "Раздельно-комплементарная: база и два соседа её противоположности (+150° и +210°). База 100° — сливочное масло: фон, поверхность и тон серых; противоположность — 280°, её соседи — 250° (голубой: акцент, 252°) и 310° (слива: основной, 310°). Большие площади — тёплые: масляный фон и сливовые кнопки; голубой занимает только подсветку. Контраст как у комплементарной, но мягче: слива и голубой — соседи между собой, масло — их тёплый противовес.",
+        "hslWheel": {
+          "bestBase": 59,
+          "maxDeviation": 7.3
+        }
+      },
+      "core": [
+        {
+          "role": "primary",
+          "roleRu": "основной",
+          "hex": "#70418f",
+          "oklch": [
+            0.466,
+            0.13,
+            310.1
+          ],
+          "hsl": [
+            276.2,
+            37.5,
+            40.8
+          ],
+          "ruleHue": 310,
+          "deviationOklch": 0.1,
+          "deviationHsl": 7.2
+        },
+        {
+          "role": "accent",
+          "roleRu": "акцент",
+          "hex": "#a7cefb",
+          "oklch": [
+            0.839,
+            0.076,
+            252.3
+          ],
+          "hsl": [
+            212.1,
+            91.3,
+            82
+          ],
+          "ruleHue": 250,
+          "deviationOklch": 2.3,
+          "deviationHsl": 3.1
+        },
+        {
+          "role": "background",
+          "roleRu": "фон",
+          "hex": "#fbf2ba",
+          "oklch": [
+            0.955,
+            0.072,
+            100
+          ],
+          "hsl": [
+            51.7,
+            89,
+            85.7
+          ],
+          "ruleHue": 100,
+          "deviationOklch": 0,
+          "deviationHsl": 7.3
+        },
+        {
+          "role": "surface",
+          "roleRu": "поверхность",
+          "hex": "#fffdef",
+          "oklch": [
+            0.992,
+            0.018,
+            100.1
+          ],
+          "hsl": [
+            52.5,
+            100,
+            96.9
+          ],
+          "ruleHue": 100,
+          "deviationOklch": 0.1,
+          "deviationHsl": 6.5
+        }
+      ],
+      "neutrals": {
+        "hue": 100,
+        "light": {
+          "50": "#fbfaf7",
+          "100": "#f2f1ec",
+          "200": "#eae9e2",
+          "300": "#d9d8d0",
+          "400": "#aeada5",
+          "500": "#818078",
+          "600": "#66655e",
+          "700": "#56554e",
+          "800": "#3e3d38",
+          "900": "#2c2b27",
+          "950": "#1a1a16"
+        },
+        "dark": {
+          "50": "#f3f2ed",
+          "100": "#e7e6e1",
+          "200": "#d1d1ce",
+          "300": "#bbbbb7",
+          "400": "#9b9a97",
+          "500": "#7e7d79",
+          "600": "#595854",
+          "700": "#43423e",
+          "800": "#302f2b",
+          "900": "#23221e",
+          "950": "#181713"
+        }
+      },
+      "font": {
+        "family": "Onest",
+        "css2": "https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap",
+        "weights": [
+          400,
+          500,
+          600,
+          700
+        ],
+        "tabularFigures": "tnum",
+        "whyRu": "Гуманистический гротеск с хорошей кириллицей: спокойный и ясный, тёплый за счёт открытых форм; самый лёгкий файл из трёх (≈96 КБ на начертание). Табличные цифры — через tnum.",
+        "openCheckRu": "Если выбрано это направление — в первой OTA 5.2 проверить fontVariant: ['tabular-nums'] на Android и iPhone (время «10:00–15:00», счётчики, даты); если цифры не выровняются — набирать цифры шрифтом с ровными цифрами (Nunito Sans или Mulish). Выбор направления это не задерживает.",
+        "expo": "@expo-google-fonts/onest",
+        "nextFont": "next/font/google: Onest({ subsets: ['latin', 'latin-ext', 'cyrillic'], weight: ['400', '500', '600', '700'], variable: '--font-sans' })"
+      },
+      "shape": {
+        "radius": {
+          "sm": 4,
+          "md": 6,
+          "lg": 10,
+          "xl": 14,
+          "pill": 999
+        },
+        "button": "Мягкий квадрат, радиус 6, высота 48 на телефоне и 36 в панели; в панели зона нажатия — 44 px за счёт невидимого поля (::before на 4 px во все стороны), соседние кнопки не ближе 8 px; заливка «основного»; вторичная — контур 1 px; разрушающая — контур 1 px цвета danger со значком корзины или ⚠. В варианте «в перчатках» — 56 на телефоне.",
+        "chip": "Радиус 4, «точка + слово»: точка 8 px цвета mark (в форме знака тона) на подложке тона, без рамки — кроме заштрихованного «Не состоялась» (сплошная 1 px цвета notHappened.border) и всех чипов внутри колонки и группы «Сегодня» (рамка тона).",
+        "card": "Радиус 10, волосяная рамка divider и тень 0 1px 2px (5 %) — на телефоне; в панели списки — строки таблицы с волосяными разделителями divider, без карточек.",
+        "badge": "Бейдж непрочитанного: пилюля высотой 20, текст 13/700, без тени, перед числом — точка 8 px.",
+        "rowHeight": 52,
+        "rowHeightPanel": 44,
+        "touch": 48,
+        "touchGloves": 56,
+        "panelTarget": 44,
+        "buttonPhone": 48,
+        "buttonPanel": 36,
+        "buttonPanelHit": 44,
+        "glovesButton": 56,
+        "glovesRow": 56,
+        "density": "Плотная: отступы 4 / 8 / 12 / 16 / 20, межстрочный 1,35; в панели — таблицы вместо карточек.",
+        "focus": "Двойное кольцо: 2 px focusRing снаружи и 1 px цвета поверхности внутри — видно на любом фоне.",
+        "calendarHit": 24,
+        "calendarChip": 20,
+        "calendarRuleRu": "Календарь панели — предложенное исключение из 44 px, ждёт решения владельца (вопрос 15): полный чип и «+N» — зона нажатия ≥ 24×24 px (WCAG 2.5.8), видимый чип 20 px и невидимое поле до 24, соседние цели не ближе, чем позволяет круг 24 px; точки 7 px (вид на 30 дней) — не цели: щелчок по ячейке дня открывает тот же список, что «+N».",
+        "activeTab": "Активная вкладка: пилюля акцента под иконкой, иконка залитая (onAccent), подпись 700 цвета text; неактивная — контурная иконка, подпись textMuted; accessibilityState.selected / aria-current=\"page\".",
+        "nowCard": "Карточка «сейчас»: пилюля «▶ Сейчас» (заливка accent, текст onAccent) в шапке и полоса 3 px цвета primary по левому краю — признак не только цветом.",
+        "badgeHeight": 20
+      },
+      "themes": {
+        "light": {
+          "bg": "#fbf2ba",
+          "surface": "#fffdef",
+          "surfaceAlt": "#eae9e2",
+          "text": "#1a1a16",
+          "textSecondary": "#56554e",
+          "textMuted": "#66655e",
+          "border": "#818078",
+          "divider": "#d9d8d0",
+          "primary": "#70418f",
+          "onPrimary": "#fffdef",
+          "primaryPressed": "#623380",
+          "accent": "#a7cefb",
+          "onAccent": "#1a395b",
+          "focusRing": "#965dbc",
+          "danger": "#af0b0f",
+          "onDanger": "#fffdef",
+          "link": "#70418f",
+          "scrim": "#181713",
+          "onScrim": "#fffdef",
+          "scrimAlpha": 0.64
+        },
+        "dark": {
+          "bg": "#181713",
+          "surface": "#23221e",
+          "surfaceAlt": "#302f2b",
+          "text": "#f3f2ed",
+          "textSecondary": "#d1d1ce",
+          "textMuted": "#9b9a97",
+          "border": "#7e7d79",
+          "divider": "#43423e",
+          "primary": "#bd94db",
+          "onPrimary": "#181713",
+          "primaryPressed": "#cda4ec",
+          "accent": "#9bc1ed",
+          "onAccent": "#113051",
+          "focusRing": "#a474c7",
+          "danger": "#fe6f88",
+          "onDanger": "#181713",
+          "link": "#bd94db",
+          "scrim": "#181713",
+          "onScrim": "#fffdef",
+          "scrimAlpha": 0.64
+        }
+      },
+      "sources": {
+        "light": {
+          "bg": "core.background",
+          "surface": "core.surface",
+          "surfaceAlt": "neutrals.light.200",
+          "text": "neutrals.light.950",
+          "textSecondary": "neutrals.light.700",
+          "textMuted": "neutrals.light.600",
+          "border": "neutrals.light.500",
+          "divider": "neutrals.light.300",
+          "primary": "core.primary",
+          "onPrimary": "core.surface",
+          "primaryPressed": "ramps.primary.800",
+          "accent": "core.accent",
+          "onAccent": "ramps.accent.900",
+          "focusRing": "ramps.primary.500",
+          "danger": "solved: danger mark hue, >= 5.95:1 on every surface",
+          "onDanger": "core.surface",
+          "link": "core.primary",
+          "scrim": "neutrals.dark.950",
+          "onScrim": "core.surface",
+          "scrimAlpha": "solved: onScrim >= 5:1 over a white photo"
+        },
+        "dark": {
+          "bg": "neutrals.dark.950",
+          "surface": "neutrals.dark.900",
+          "surfaceAlt": "neutrals.dark.800",
+          "text": "neutrals.dark.50",
+          "textSecondary": "neutrals.dark.200",
+          "textMuted": "neutrals.dark.400",
+          "border": "neutrals.dark.500",
+          "divider": "neutrals.dark.700",
+          "primary": "ramps.primary.300",
+          "onPrimary": "neutrals.dark.950",
+          "primaryPressed": "ramps.primary.200",
+          "accent": "ramps.accent.300",
+          "onAccent": "ramps.accent.950",
+          "focusRing": "ramps.primary.400",
+          "danger": "solved: h 12, C 0.175, >= 5:1 on every surface",
+          "onDanger": "neutrals.dark.950",
+          "link": "ramps.primary.300",
+          "scrim": "neutrals.dark.950",
+          "onScrim": "core.surface",
+          "scrimAlpha": "solved: onScrim >= 5:1 over a white photo"
+        }
+      },
+      "ramps": {
+        "primary": {
+          "50": "#faf4ff",
+          "100": "#f3e5ff",
+          "200": "#cda4ec",
+          "300": "#bd94db",
+          "400": "#a474c7",
+          "500": "#965dbc",
+          "600": "#7d4e9d",
+          "700": "#70418f",
+          "800": "#623380",
+          "900": "#3f2650",
+          "950": "#2b1d34"
+        },
+        "accent": {
+          "50": "#f1f8ff",
+          "100": "#ddedff",
+          "200": "#a7cefb",
+          "300": "#9bc1ed",
+          "400": "#769cc6",
+          "500": "#597da6",
+          "600": "#456990",
+          "700": "#35577e",
+          "800": "#25476c",
+          "900": "#1a395b",
+          "950": "#113051"
+        }
+      },
+      "todayUnderlay": {
+        "hue": 252,
+        "from": "accent"
+      },
+      "status": {
+        "light": {
+          "assigned": {
+            "fg": "#00627e",
+            "bg": "#d8f3ff",
+            "border": "#008ab1",
+            "mark": "#0094bd"
+          },
+          "inProgress": {
+            "fg": "#795300",
+            "bg": "#ffe6c1",
+            "border": "#aa7500",
+            "mark": "#b67e00"
+          },
+          "done": {
+            "fg": "#005e3c",
+            "bg": "#c8fcdf",
+            "border": "#008c5b",
+            "mark": "#007a4f",
+            "onMark": "#fffdef"
+          },
+          "unassigned": {
+            "fg": "#624b9e",
+            "bg": "#eeebff",
+            "border": "#8870ce",
+            "mark": "#7e5ccf"
+          },
+          "overdue": {
+            "fg": "#9a3b32",
+            "bg": "#ffe8e4",
+            "border": "#cb5f54",
+            "mark": "#c92420"
+          },
+          "notHappened": {
+            "fg": "#913b6c",
+            "bg": "#ffe6f1",
+            "border": "#ba588e",
+            "mark": "#8d1261",
+            "hatch": "#b95e8f"
+          },
+          "urgent": {
+            "fg": "#9a3b32",
+            "bg": "#ffe8e4",
+            "border": "#cb5f54",
+            "mark": "#c92420"
+          },
+          "booking": {
+            "fg": "#2859a2",
+            "bg": "#e4efff",
+            "border": "#487fd2",
+            "mark": "#2a5089",
+            "onMark": "#fffdef"
+          },
+          "neutral": {
+            "fg": "#5b5a52",
+            "bg": "#efede3",
+            "border": "#828078",
+            "mark": "#88877e"
+          },
+          "cancelled": {
+            "fg": "#66655f",
+            "bg": "#eeede6",
+            "border": "#81807a",
+            "mark": "#b8b8b1"
+          },
+          "block": {
+            "fg": "#5b5a52",
+            "bg": "#efede3",
+            "border": "#828078",
+            "mark": "#efede3",
+            "hatch": "#838279"
+          },
+          "today": {
+            "fg": "#315c8a",
+            "bg": "#e6f2ff",
+            "border": "#4583c5",
+            "mark": "#a7cefb",
+            "onMark": "#1a395b"
+          },
+          "unread": {
+            "fg": "#fffdef",
+            "bg": "#70418f",
+            "border": "#70418f",
+            "mark": "#70418f",
+            "onMark": "#fffdef"
+          }
+        },
+        "dark": {
+          "assigned": {
+            "fg": "#69b3d7",
+            "bg": "#093446",
+            "border": "#1e88b2",
+            "mark": "#0080ab"
+          },
+          "inProgress": {
+            "fg": "#c9a367",
+            "bg": "#402a00",
+            "border": "#a27523",
+            "mark": "#c18700"
+          },
+          "done": {
+            "fg": "#71b792",
+            "bg": "#113725",
+            "border": "#2f8d62",
+            "mark": "#1aae74",
+            "onMark": "#181713"
+          },
+          "unassigned": {
+            "fg": "#ae9edd",
+            "bg": "#312948",
+            "border": "#8571ba",
+            "mark": "#9c7ce9"
+          },
+          "overdue": {
+            "fg": "#de948f",
+            "bg": "#452523",
+            "border": "#b96460",
+            "mark": "#ca3b40"
+          },
+          "notHappened": {
+            "fg": "#cb97c8",
+            "bg": "#3d263c",
+            "border": "#a96da7",
+            "mark": "#fe93fb",
+            "hatch": "#a96da7"
+          },
+          "urgent": {
+            "fg": "#de948f",
+            "bg": "#452523",
+            "border": "#b96460",
+            "mark": "#ca3b40"
+          },
+          "booking": {
+            "fg": "#83abe1",
+            "bg": "#1d3049",
+            "border": "#4f7fbe",
+            "mark": "#0b4383",
+            "onMark": "#f3f2ed"
+          },
+          "neutral": {
+            "fg": "#abaaa4",
+            "bg": "#31302c",
+            "border": "#807f7a",
+            "mark": "#7e7e78"
+          },
+          "cancelled": {
+            "fg": "#9c9c98",
+            "bg": "#31302d",
+            "border": "#7f7f7b",
+            "mark": "#afaeaa"
+          },
+          "block": {
+            "fg": "#abaaa4",
+            "bg": "#31302c",
+            "border": "#807f7a",
+            "mark": "#31302c",
+            "hatch": "#807f7a"
+          },
+          "today": {
+            "fg": "#7eace0",
+            "bg": "#122438",
+            "border": "#4280c2",
+            "mark": "#9bc1ed",
+            "onMark": "#113051"
+          },
+          "unread": {
+            "fg": "#181713",
+            "bg": "#bd94db",
+            "border": "#bd94db",
+            "mark": "#bd94db",
+            "onMark": "#181713"
+          }
+        }
+      },
+      "statusWheel": {
+        "labelRu": "общий набор смыслов; светлота и насыщенность подстроены под направление",
+        "noteRu": "Метки статусов — общий набор на все три направления; из палитры направления здесь только бронь (оттенок акцента). «Сегодня», непрочитанное и серые — тоже из палитры, но это не статусы и на этот круг не ставятся.",
+        "light": [
+          {
+            "key": "booking",
+            "tone": "booking",
+            "hex": "#2a5089",
+            "oklch": [
+              0.433,
+              0.104,
+              258.4
+            ],
+            "fromPalette": true
+          },
+          {
+            "key": "assigned",
+            "tone": "assigned",
+            "hex": "#0094bd",
+            "oklch": [
+              0.621,
+              0.119,
+              226.2
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "inProgress",
+            "tone": "inProgress",
+            "hex": "#b67e00",
+            "oklch": [
+              0.634,
+              0.132,
+              77.5
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "done",
+            "tone": "done",
+            "hex": "#007a4f",
+            "oklch": [
+              0.511,
+              0.115,
+              160.1
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "unassigned",
+            "tone": "unassigned",
+            "hex": "#7e5ccf",
+            "oklch": [
+              0.566,
+              0.171,
+              293.9
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "danger",
+            "tone": "overdue",
+            "hex": "#c92420",
+            "oklch": [
+              0.541,
+              0.2,
+              28
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "notHappened",
+            "tone": "notHappened",
+            "hex": "#8d1261",
+            "oklch": [
+              0.434,
+              0.17,
+              347.9
+            ],
+            "fromPalette": false
+          }
+        ],
+        "dark": [
+          {
+            "key": "booking",
+            "tone": "booking",
+            "hex": "#0b4383",
+            "oklch": [
+              0.388,
+              0.121,
+              255.7
+            ],
+            "fromPalette": true
+          },
+          {
+            "key": "assigned",
+            "tone": "assigned",
+            "hex": "#0080ab",
+            "oklch": [
+              0.562,
+              0.113,
+              230.8
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "inProgress",
+            "tone": "inProgress",
+            "hex": "#c18700",
+            "oklch": [
+              0.664,
+              0.138,
+              78.3
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "done",
+            "tone": "done",
+            "hex": "#1aae74",
+            "oklch": [
+              0.665,
+              0.145,
+              159.9
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "unassigned",
+            "tone": "unassigned",
+            "hex": "#9c7ce9",
+            "oklch": [
+              0.664,
+              0.159,
+              295.3
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "danger",
+            "tone": "overdue",
+            "hex": "#ca3b40",
+            "oklch": [
+              0.565,
+              0.18,
+              23.2
+            ],
+            "fromPalette": false
+          },
+          {
+            "key": "notHappened",
+            "tone": "notHappened",
+            "hex": "#fe93fb",
+            "oklch": [
+              0.81,
+              0.18,
+              328.1
+            ],
+            "fromPalette": false
+          }
+        ]
+      },
+      "icon": {
+        "bg": "#70418f",
+        "fg": "#fbf2ba",
+        "accent": "#a7cefb",
+        "motifRu": "Ключ цвета сливочного масла на сливе, головка ключа — кружок с голубой галочкой ✓: «квартира готова к заезду».",
+        "monoRu": "Монохромная: силуэт ключа одним цветом, галочка — вырезом в головке, стержень не тоньше 6 dp."
+      }
+    }
+  ]
+}
