@@ -13,14 +13,21 @@
  * same request again is as safe for a write as for a read. Only REST requests
  * and only this refusal are sent again; every other answer goes back as it came.
  * The refusal is recognised by its body, so a HEAD request (a count asked with
- * `head: true`, which the panel does not send) gets no second try.
+ * `head: true`, which neither app sends) gets no second try.
  *
- * Only the browser's client is wrapped: the panel reads PostgREST there alone,
- * the server's client and the proxy's talk to Auth (client-factories.test.ts).
- * A table read on the server would need more than this: inside a render Next
- * memoizes identical GET requests, and the resend would get the same refusal
- * back from that memo. It would have to differ — a marker header, as
- * postgrest-js sends `X-Retry-Count` on its own retries, or a signal.
+ * Two clients go through it: the panel's browser client and the phone's.
+ * - The panel reads PostgREST in the browser alone; its server's client and
+ *   the proxy's talk to Auth (apps/web client-factories.test.ts). A table read
+ *   on the server would need more than this: inside a render Next memoizes
+ *   identical GET requests, and the resend would get the same refusal back
+ *   from that memo. It would have to differ — a marker header, as postgrest-js
+ *   sends `X-Retry-Count` on its own retries, or a signal.
+ * - The phone's retries of TanStack Query sit on top of this one; they are
+ *   seconds apart, and an action is tried only once more.
+ *
+ * Written for both runtimes: React Native has no `Request` or `URL` it can be
+ * trusted with everywhere, so neither is required to exist and the address is
+ * read as plain text.
  */
 export const STALE_CLOCK_MESSAGE = 'JWT issued at future';
 
@@ -32,20 +39,32 @@ export const STALE_CLOCK_RETRY_DELAYS_MS: readonly number[] = [300, 1_000];
 
 const REST_PATH = '/rest/v1/';
 
+function isRequest(input: unknown): input is Request {
+  return typeof Request !== 'undefined' && input instanceof Request;
+}
+
+function isUrl(input: unknown): input is URL {
+  return typeof URL !== 'undefined' && input instanceof URL;
+}
+
 function addressOf(input: RequestInfo | URL): string {
   if (typeof input === 'string') {
     return input;
   }
-  return input instanceof URL ? input.href : input.url;
+  if (isUrl(input)) {
+    return input.href;
+  }
+  return isRequest(input) ? input.url : String(input);
 }
 
+/** The path of the address — what comes before its query or fragment. */
 function isRestRequest(input: RequestInfo | URL): boolean {
-  return new URL(addressOf(input), 'http://localhost').pathname.includes(REST_PATH);
+  return (addressOf(input).split(/[?#]/, 1)[0] ?? '').includes(REST_PATH);
 }
 
 /** A Request that carries a body can be read once: sending it again would fail. */
 function canSendAgain(input: RequestInfo | URL): boolean {
-  return !(input instanceof Request) || input.body === null;
+  return !isRequest(input) || input.body === null;
 }
 
 async function isStaleClockRefusal(response: Response): Promise<boolean> {
