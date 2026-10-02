@@ -131,6 +131,48 @@ function refuse(
   throw new StaffRefusal(status, message, hint, params);
 }
 
+/** A failed database call, as supabase-js hands it over. */
+export interface DatabaseError {
+  readonly message: string;
+  readonly hint?: string | null;
+  readonly details?: string | null;
+}
+
+const SERVER_ERROR_KEY = "serverErrors.";
+
+/**
+ * A refusal the database raised, passed on as the database said it — or null
+ * for any other failure.
+ *
+ * Some rules about a person live on the profile row itself: nobody becomes a
+ * technician while still holding listings or open cleanings (migration
+ * 20261003110000), and the panel's edit reaches that row through here. The
+ * database raises in the house convention, so its key and parameters only need
+ * carrying on. Wrapped in a plain Error they would come out as a 500 and the
+ * general "something went wrong", with the reason the manager can act on lost.
+ * A failure without a key of ours stays an error.
+ */
+export function refusalFromDatabase(error: DatabaseError): StaffRefusal | null {
+  const hint = error.hint ?? null;
+  if (hint === null || !hint.startsWith(SERVER_ERROR_KEY)) {
+    return null;
+  }
+  return new StaffRefusal(409, error.message, hint, parameters(error.details ?? null));
+}
+
+/** The parameters a refusal carries as JSON, or null when it carries none we can read. */
+function parameters(details: string | null): Record<string, unknown> | null {
+  if (details === null || details.trim() === "") {
+    return null;
+  }
+  try {
+    const parsed: unknown = JSON.parse(details);
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 function json(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
     status,
