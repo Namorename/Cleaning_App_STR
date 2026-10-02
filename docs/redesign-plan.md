@@ -192,7 +192,7 @@
   видят только менеджеры (ROADMAP:590-592). Начинать панель можно и до выката F11: F11
   трогает в ней две строки;
 - **телефон** — после шагов 7–8 ранбука F11: `main` — 1.1.0, сборка 1.1.0 на телефоне
-  владельца (`f11:docs/rollout/f11-runbook.md:178, 189`, `docs/tech-plan.md:447-449`). F11
+  владельца (`f11:docs/rollout/f11-runbook.md:184, 195`, `docs/tech-plan.md:447-449`). F11
   меняет 116 файлов телефона, его «Настройки» и экран-пояснение перекрашиваются тоже. Код,
   который импортирует новый нативный модуль (`react-native-svg`, `expo-haptics`), живёт в
   ветке до коммита сборки 5.3 (ROADMAP:168-175).
@@ -619,7 +619,7 @@ ROADMAP уже с множителями, добавки ниже — тоже. 
      натива против коммита последнего бандла.
    - **Список путей сверки расширить.** П.6 сверяет `apps/mobile/app.json`,
      `apps/mobile/package.json`, `apps/mobile/eas.json` (ROADMAP:713-714), ранбук F11 — ещё
-     `package.json` и `package-lock.json` (`f11:docs/rollout/f11-runbook.md:162-163`).
+     `package.json` и `package-lock.json` (`f11:docs/rollout/f11-runbook.md:168-169`).
      Редизайн меняет натив и в `apps/mobile/app.config.ts` (`locales` названия), и в
      `apps/mobile/assets/images`, `apps/mobile/assets/expo.icon` (иконка, заставка, иконка
      push) — без них «пусто» пропустит новую иконку.
