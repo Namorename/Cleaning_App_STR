@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { getResolvedLocalesAsync } from '@expo/config-plugins/build/utils/locales';
 import { SUPPORTED_LANGUAGES } from '@str-ops/shared';
 import type { ExpoConfig } from 'expo/config';
 
@@ -44,6 +45,15 @@ function plugin(config: ExpoConfig, name: string): Record<string, unknown> | und
     Array.isArray(entry) ? entry[0] === name : entry === name,
   );
   return Array.isArray(found) ? found[1] : undefined;
+}
+
+/** The strings one platform's build writes per language, resolved as Expo's locales plugin does. */
+async function platformLocales(
+  config: ExpoConfig,
+  platform: 'ios' | 'android',
+): Promise<Record<string, Record<string, unknown>>> {
+  const { localesMap } = await getResolvedLocalesAsync(APP_ROOT, config.locales ?? {}, platform);
+  return localesMap;
 }
 
 test('the build is 1.1.0, and OTA updates follow the version', () => {
@@ -185,7 +195,7 @@ test('iOS: the app declares its three languages', () => {
   );
 });
 
-test('iOS: every permission question is written in each of her languages', () => {
+test('iOS: every permission question is written in each of her languages', async () => {
   const config = resolve();
   const picker = plugin(config, 'expo-image-picker');
   const english: Record<string, unknown> = {
@@ -193,15 +203,25 @@ test('iOS: every permission question is written in each of her languages', () =>
     NSMicrophoneUsageDescription: picker?.microphonePermission,
     NSPhotoLibraryUsageDescription: picker?.photosPermission,
   };
+  const ios = await platformLocales(config, 'ios');
 
   for (const language of SUPPORTED_LANGUAGES.filter((one) => one !== 'en')) {
-    const strings = (config.locales as Record<string, Record<string, unknown>> | undefined)?.[
-      language
-    ];
     for (const [key, value] of Object.entries(english)) {
-      expect(typeof strings?.[key]).toBe('string');
-      expect(strings?.[key]).not.toBe(value);
+      expect(typeof ios[language]?.[key]).toBe('string');
+      expect(ios[language]?.[key]).not.toBe(value);
     }
+  }
+});
+
+// Android's release lint refuses a string translated with no default-language
+// value (ExtraTranslation). Info.plist keys at the top of a locale land in
+// values-b+ru and values-b+cs as well, and the first 1.1.0 build failed on
+// exactly that (2026-10-02, :app:lintVitalRelease).
+test('Android: none of the iOS permission reasons reach the Android string resources', async () => {
+  const android = await platformLocales(resolve(), 'android');
+
+  for (const strings of Object.values(android)) {
+    expect(Object.keys(strings).filter((key) => key.startsWith('NS'))).toEqual([]);
   }
 });
 
@@ -307,13 +327,12 @@ test('iOS: the camera and the picker give the same reasons for the camera and th
 
 // A technician's work is not a cleaning (owner's word 2026-09-30): the reasons
 // iOS shows speak of the work, in every language.
-test('iOS: the permission reasons speak of the work, not of cleaning', () => {
+test('iOS: the permission reasons speak of the work, not of cleaning', async () => {
   const config = resolve();
+  const ios = await platformLocales(config, 'ios');
   const reasons = [
     ...Object.values(plugin(config, 'expo-image-picker') ?? {}),
-    ...Object.values(
-      (config.locales as Record<string, Record<string, unknown>> | undefined) ?? {},
-    ).flatMap((strings) => Object.values(strings)),
+    ...Object.values(ios).flatMap((strings) => Object.values(strings)),
   ].map(String);
 
   expect(reasons.length).toBeGreaterThanOrEqual(9);

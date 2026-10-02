@@ -65,12 +65,19 @@ export function checkBuildEnv(env: BuildEnv): { errors: string[]; warnings: stri
  * on expo-camera; the translations live with every other text of the app, in
  * the shared locales. They speak of the work, not of cleaning: a technician
  * reads them too.
+ *
+ * They sit under `ios`, which Expo writes to iOS alone. A key at the top of a
+ * locale goes to Android as well, into values-b+ru and values-b+cs with no
+ * default-language value, and Android's release lint refuses the build
+ * (ExtraTranslation) — the first 1.1.0 build failed on exactly that.
  */
 function permissionTexts(texts: { camera: string; microphone: string; photos: string }) {
   return {
-    NSCameraUsageDescription: texts.camera,
-    NSMicrophoneUsageDescription: texts.microphone,
-    NSPhotoLibraryUsageDescription: texts.photos,
+    ios: {
+      NSCameraUsageDescription: texts.camera,
+      NSMicrophoneUsageDescription: texts.microphone,
+      NSPhotoLibraryUsageDescription: texts.photos,
+    },
   };
 }
 
