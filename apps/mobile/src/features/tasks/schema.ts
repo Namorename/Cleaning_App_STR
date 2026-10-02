@@ -112,23 +112,35 @@ export function isRunning(task: CleaningTask): boolean {
   return task.status === 'in_progress';
 }
 
-/** What the cleaner holding the phone may do with this task right now. */
-export type TaskAction = 'claim' | 'start' | 'finish';
+/** What the cleaner holding the phone may do with this task. */
+export type TaskAction = 'claim' | 'accept' | 'start' | 'finish';
 
-export function availableAction(task: CleaningTask, userId: string): TaskAction | null {
+/**
+ * Every move the server would let her make, in the order the screen offers
+ * them.
+ *
+ * An assigned cleaning offers two: accepting is a signal to the office, not
+ * a step before the start, and a cleaner who forgot to tap it must still be
+ * able to work at the door (owner's decision 5, F11). Whether the start is
+ * open yet is the window's business (`canStartNow`), not this list's.
+ */
+export function availableActions(task: CleaningTask, userId: string): readonly TaskAction[] {
   if (isFree(task)) {
-    return 'claim';
+    return ['claim'];
   }
   if (task.assignee_id !== userId) {
-    return null;
+    return [];
   }
-  if (task.status === 'assigned') {
-    return 'start';
+  switch (task.status) {
+    case 'assigned':
+      return ['accept', 'start'];
+    case 'accepted':
+      return ['start'];
+    case 'in_progress':
+      return ['finish'];
+    default:
+      return [];
   }
-  if (task.status === 'in_progress') {
-    return 'finish';
-  }
-  return null;
 }
 
 export type TaskGroupKey = 'running' | 'upcoming';

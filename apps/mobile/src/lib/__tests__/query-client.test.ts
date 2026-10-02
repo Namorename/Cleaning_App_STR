@@ -2,9 +2,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient, dehydrate } from '@tanstack/react-query';
 import { persistQueryClientRestore } from '@tanstack/react-query-persist-client';
 
+import { settingsMutationKeys } from '@/features/settings/keys';
 import { taskMutationKeys } from '@/features/tasks/use-tasks';
 
-import { QUERY_CACHE_KEY, forgetSavedQueries, persistOptions, queryPersister } from '../query-client';
+import {
+  QUERY_CACHE_KEY,
+  createAppQueryClient,
+  forgetSavedQueries,
+  persistOptions,
+  queryPersister,
+} from '../query-client';
 
 /**
  * "Reset saved lists" on the root error screen.
@@ -90,6 +97,46 @@ test('keeps the stamp and the buster, so the queue is not thrown away as stale',
   expect(after.timestamp).toBe(before.timestamp);
   expect(after.clientState.mutations).toEqual(before.clientState.mutations);
   expect(after.clientState.queries).toEqual([]);
+});
+
+// A choice paused without signal comes back from disk as a key and its
+// variables; without a function registered under the key before the restore,
+// there is nothing to run and her switch is silently lost.
+test('knows how to replay a push choice before anything is restored', () => {
+  // Act
+  const client = createAppQueryClient();
+
+  // Assert
+  expect(client.getMutationDefaults(settingsMutationKeys.push).mutationFn).toEqual(
+    expect.any(Function),
+  );
+  client.clear();
+});
+
+test('knows how to replay an accept before anything is restored', () => {
+  // Act
+  const client = createAppQueryClient();
+
+  // Assert
+  expect(taskMutationKeys.accept).toEqual(['tasks', 'accept']);
+  expect(client.getMutationDefaults(taskMutationKeys.accept).mutationFn).toEqual(
+    expect.any(Function),
+  );
+  client.clear();
+});
+
+// A take, an accept, a start and a finish queued together replay one after
+// another, in the order she tapped them: a start landing before the accept
+// would turn the accept into a refusal while she is cleaning.
+test('the moves of a cleaning replay one at a time, in the order tapped', () => {
+  const client = createAppQueryClient();
+
+  const scopes = Object.values(taskMutationKeys).map(
+    (key) => client.getMutationDefaults(key).scope?.id,
+  );
+
+  expect(new Set(scopes)).toEqual(new Set(['task-moves']));
+  client.clear();
 });
 
 test('with nothing saved, writes nothing', async () => {

@@ -60,6 +60,8 @@ npx supabase link --project-ref azpvpzqkseluzbtlnlkb
 
 ```bash
 npm run db:start     # поднять локальный Postgres + Auth + Storage
+npm run db:start:light  # то же без Studio, логов (vector, logflare), почты, realtime,
+                        # edge-runtime и пулера — хватает тестам и стенду, память легче
 npm run db:reset     # пересоздать БД и применить все миграции
 npm run db:types     # сгенерировать TS-типы из схемы
 npm run db:stop

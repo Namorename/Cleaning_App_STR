@@ -1,4 +1,5 @@
 import {
+  availableActions,
   canStartNow,
   cleaningTaskSchema,
   earliestClaimableDate,
@@ -206,6 +207,43 @@ describe('groupMyTasks', () => {
     const groups = groupMyTasks([task({ status: 'assigned' })]);
 
     expect(groups.map((group) => group.key)).toEqual(['upcoming']);
+  });
+});
+
+describe('availableActions', () => {
+  const ME = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
+
+  test('free work is taken, not accepted or started', () => {
+    expect(availableActions(task({ status: 'unassigned', assignee_id: null }), ME)).toEqual([
+      'claim',
+    ]);
+  });
+
+  test('her assigned cleaning can be accepted, and started without it', () => {
+    // Accepting is a signal to the office, not a lock: a cleaner who forgot to
+    // tap it must still be able to work at the door (owner's decision 5).
+    expect(availableActions(task({ status: 'assigned' }), ME)).toEqual(['accept', 'start']);
+  });
+
+  test('once accepted, starting is what is left', () => {
+    expect(availableActions(task({ status: 'accepted' }), ME)).toEqual(['start']);
+  });
+
+  test('under way, only the finish', () => {
+    expect(availableActions(task({ status: 'in_progress' }), ME)).toEqual(['finish']);
+  });
+
+  test("nothing on a colleague's job, accepted or not", () => {
+    const colleague = 'a1b2c3d4-2222-4222-8222-a1b2c3d40002';
+
+    expect(availableActions(task({ status: 'assigned', assignee_id: colleague }), ME)).toEqual([]);
+    expect(availableActions(task({ status: 'accepted', assignee_id: colleague }), ME)).toEqual([]);
+  });
+
+  test('nothing on a finished, cancelled or expired job', () => {
+    expect(availableActions(task({ status: 'done' }), ME)).toEqual([]);
+    expect(availableActions(task({ status: 'cancelled' }), ME)).toEqual([]);
+    expect(availableActions(task({ status: 'expired' }), ME)).toEqual([]);
   });
 });
 

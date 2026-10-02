@@ -141,3 +141,93 @@ Doplněno podle rozhodnutí majitele (2026-09-27): „Hlášení“ na kartě ob
 - `panel.apartments.maintenance.reports`: Hlášení (otevřených: {{open}}) → Úkoly (otevřených: {{open}}) — 1. pád mn. č.
 - `panel.apartments.maintenance.noReports`: Žádná hlášení. → Žádné úkoly. — 1. pád mn. č.
 - `panel.chat.audienceProblem`: Vidí ti, kdo vidí závadu: kdo ji nahlásil, technik a manažeři → Vidí ti, kdo vidí úkol: kdo ho nahlásil, technik a manažeři — 4. pád j. č.; zájmeno ji → ho (úkol je mužského rodu)
+
+Doplněno pro obrazovku „Nastavení“ v aplikaci uklízeček (F11, 2026-09-28). Nové texty, dříve neexistovaly. Každý řádek: klíč: text — poznámka, pokud je potřeba. Texty v {{složených závorkách}} se nepřekládají.
+
+- `auth.forgotPassword`: Zapomněli jste heslo? Obraťte se na manažera.
+- `settings.title`: Nastavení
+- `settings.notifications.heading`: Oznámení
+- `settings.notifications.hint`: Tyto přepínače určují, co vám bude server posílat.
+- `settings.notifications.loading`: Načítáme…
+- `settings.notifications.loadFailed`: Oznámení se nepodařilo načíst.
+- `settings.notifications.saveFailed`: Volba se neuložila.
+- `settings.notifications.kinds.cleaning_new`: Nový úklid
+- `settings.notifications.kinds.cleaning_assigned`: Úklid přidělen vám — slovosled podle majitele („vám“ na konci zdůrazňuje komu)
+- `settings.notifications.kinds.cleaning_unassigned`: Úklid vám byl odebrán — trpný rod: úklid byl odebrán
+- `settings.notifications.kinds.cleaning_cancelled`: Úklid zrušen
+- `settings.notifications.kinds.cleaning_moved`: Úklid přesunut
+- `settings.notifications.kinds.cleaning_window`: Změnil se čas úklidu
+- `settings.notifications.kinds.cleaning_free`: Volný úklid
+- `settings.notifications.kinds.booking_cancelled_live`: Rezervace zrušena během úklidu — zrušena — ž. r. (rezervace); během úklidu — 2. pád j. č.
+- `settings.notifications.kinds.chat_message`: Zpráva v chatu
+- `settings.notifications.kinds.daily_digest`: Ranní přehled
+- `settings.language.heading`: Jazyk
+- `settings.language.saveFailed`: Jazyk se nepodařilo změnit.
+- `settings.password.heading`: Heslo
+- `settings.password.current`: Současné heslo
+- `settings.password.new`: Nové heslo
+- `settings.password.repeat`: Nové heslo znovu
+- `settings.password.submit`: Změnit heslo
+- `settings.password.fillAll`: Vyplňte všechna tři pole.
+- `settings.password.mismatch`: Nová hesla se neshodují.
+- `settings.password.tooShort`: Nové heslo musí mít alespoň {{min}} znaků. — {{min}} je vždy 6: „6 znaků“ — 2. pád mn. č.
+- `settings.password.sameAsCurrent`: Nové heslo je stejné jako současné.
+- `settings.password.wrongCurrent`: Současné heslo není správné.
+- `settings.password.weak`: Heslo je příliš jednoduché. Zvolte jiné. — o hesle, které server odmítl jako příliš snadno uhodnutelné
+- `settings.password.needsNetwork`: Ke změně hesla je potřeba připojení. Zkontrolujte internet a zkuste to znovu.
+- `settings.password.changed`: Heslo je změněno. Na ostatních zařízeních se bude nutné znovu přihlásit.
+- `settings.password.confirmAgain`: Přihlášení je potřeba znovu potvrdit. Klepněte ještě jednou na „Změnit heslo“. — server chce čerstvé přihlášení; druhé klepnutí ho dá
+- `common.languages.ru`, `.en`, `.cs`: Русский, English, Čeština — beze změny, jen přesunuto z `panel.team.languages`; každý jazyk je napsán sám sebou
+
+Doplněno pro tlačítko „Přijmout“ (F11, 2026-09-28). Nové texty. Uklízečka jím dává kanceláři najevo, že přidělený úklid udělá; začít úklid jde i bez něj.
+
+- `tasks.accept`: Přijmout — tlačítko na kartě a na obrazovce úklidu
+- `tasks.acceptAccessibility`: Přijmout: {{property}}, {{date}} — co přečte čtečka obrazovky
+- `tasks.acceptFailedTitle`: Úklid se nepodařilo přijmout
+- `tasks.acceptFailed`: Úklid se nepodařilo přijmout — mohl být předán jinému, přesunut nebo zrušen. — úklid mužského rodu: předán, přesunut, zrušen
+- `tasks.status.accepted`: Přijato — štítek na kartě; platí pro úklid i práci, proto střední rod
+- `tasks.detail.accepted`: Úklid přijat
+- `tasks.work.accepted`: Práce přijata — pro opravy a kontroly
+
+Doplněno pro texty push (F11, 2026-09-28). Nové texty; posílá je server v jazyce uklízečky, když je aplikace zavřená. {{place}} je objekt, {{date}} den („pá 2. 10.“), {{count}} počet, {{author}} jméno pisatele. Text zprávy se nikdy neukazuje.
+
+- `push.cleaning_new.title`: Nový úklid
+- `push.cleaning_new.titleWork`: Nová práce
+- `push.cleaning_assigned.title`: Máte přidělený úklid
+- `push.cleaning_assigned.titleWork`: Máte přidělenou práci
+- `push.cleaning_unassigned.title`: Tento úklid už nemáte — úklid mužského rodu: „tento úklid“
+- `push.cleaning_unassigned.titleWork`: Tuto práci už nemáte
+- `push.cleaning_cancelled.title`: Úklid zrušen
+- `push.cleaning_cancelled.titleWork`: Práce zrušena
+- `push.cleaning_moved.title`: Úklid přesunut
+- `push.cleaning_moved.titleWork`: Práce přesunuta
+- `push.cleaning_moved.byOffice`: Přesunul manažer. — kdo úklid přesunul
+- `push.cleaning_moved.byBooking`: Změnila se rezervace.
+- `push.cleaning_window.title`: Změnil se čas úklidu
+- `push.cleaning_window.titleWork`: Změnil se čas práce
+- `push.cleaning_free.title`: Volný úklid
+- `push.cleaning_free.titleWork`: Volná práce
+- `push.booking_cancelled_live.title`: Rezervace zrušena
+- `push.booking_cancelled_live.body`: {{place}}: rezervace byla zrušena během úklidu. Ověřte si to u manažera.
+- `push.chat_message.title`: Nová zpráva
+- `push.chat_message.count_one`: {{count}} nová zpráva
+- `push.chat_message.count_few`: {{count}} nové zprávy — 2–4 zprávy
+- `push.chat_message.count_many`: {{count}} nové zprávy
+- `push.chat_message.count_other`: {{count}} nových zpráv — 5 a více zpráv
+- `push.daily_digest.title`: Váš den
+- `push.daily_digest.today`: Dnes: {{count}}
+- `push.daily_digest.newInWeek`: Nových v týdnu: {{count}}
+- `push.daily_digest.free`: Volných v týdnu: {{count}} — (2026-09-29, ночью, по
+  образцу строки выше; носителю проверить обе: «v týdnu» может читаться как «в
+  будни», а «volných» без слова — как «выходных»; вариант — «Volné úklidy v
+  týdnu: {{count}}»)
+- `push.placeDay`: {{place}}, {{date}}
+- `push.moveDays`: {{place}}: {{from}} → {{to}}
+- `push.movePlaces`: {{from}} → {{to}}, {{date}}
+- `push.moveBoth`: {{fromPlace}}, {{fromDate}} → {{toPlace}}, {{toDate}}
+- `push.windowBody`: {{place}}, {{date}}: {{window}}
+- `push.windowRange`: {{from}}–{{to}}
+- `push.windowFrom`: od {{time}}
+- `push.windowUntil`: do {{time}}
+- `push.messageFrom`: {{place}} · {{author}}
+- `push.unknownPlace`: Objekt {{id}}

@@ -17,8 +17,12 @@ interface TaskListProps {
   isRefreshing: boolean;
   emptyMessage: string;
   onClaim?: (taskId: string) => void;
+  /** Her own list: accepting a cleaning without opening it. */
+  onAccept?: (task: CleaningTask) => void;
   onPress?: (taskId: string) => void;
   claimingTaskId?: string | null;
+  /** Her cleanings whose accept is on its way; several may be at once. */
+  acceptingTaskIds?: ReadonlySet<string>;
   /** The jobs somebody has written about since she last looked. */
   unreadTaskIds?: ReadonlySet<string>;
   /**
@@ -45,8 +49,10 @@ export function TaskList({
   isRefreshing,
   emptyMessage,
   onClaim,
+  onAccept,
   onPress,
   claimingTaskId = null,
+  acceptingTaskIds,
   unreadTaskIds,
   unreadProblemIds,
 }: TaskListProps) {
@@ -58,15 +64,17 @@ export function TaskList({
       <TaskCard
         task={item}
         onClaim={onClaim}
+        onAccept={onAccept}
         onPress={onPress}
         isClaiming={claimingTaskId === item.id}
+        isAccepting={acceptingTaskIds?.has(item.id) ?? false}
         hasUnread={
           (unreadTaskIds?.has(item.id) ?? false) ||
           (item.problem != null && (unreadProblemIds?.has(item.problem.id) ?? false))
         }
       />
     ),
-    [onClaim, onPress, claimingTaskId, unreadTaskIds, unreadProblemIds],
+    [onClaim, onAccept, onPress, claimingTaskId, acceptingTaskIds, unreadTaskIds, unreadProblemIds],
   );
 
   const renderSectionHeader = useCallback(

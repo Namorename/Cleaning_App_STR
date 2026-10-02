@@ -5,7 +5,12 @@
     "screenFailed": "This screen could not be shown. Please try again.",
     "retry": "Try again",
     "resetSaved": "Reset saved lists",
-    "resetSavedHint": "The lists will load again. Actions waiting for a connection are kept."
+    "resetSavedHint": "The lists will load again. Actions waiting for a connection are kept.",
+    "languages": {
+      "ru": "Русский",
+      "en": "English",
+      "cs": "Čeština"
+    }
   },
   "auth": {
     "heading": "Cleaner sign-in",
@@ -19,6 +24,7 @@
     "signInFailed": "Could not sign in.",
     "noConnection": "No connection. Check the network and try again.",
     "tooManyAttempts": "Too many attempts. Try again in a minute.",
+    "forgotPassword": "Forgot your password? Ask your manager.",
     "signOut": "Sign out",
     "signOutTitle": "Sign out?",
     "signOutQuestion": "You will need your password to sign in again.",
@@ -519,11 +525,6 @@
       "loadError": "Could not load the team.",
       "empty": "Nobody matches.",
       "languageUnset": "Not chosen",
-      "languages": {
-        "ru": "Русский",
-        "en": "English",
-        "cs": "Čeština"
-      },
       "tabs": {
         "working": "Working",
         "off": "Switched off",
@@ -844,6 +845,49 @@
     "problems": "Tasks",
     "supplies": "Supplies"
   },
+  "settings": {
+    "title": "Settings",
+    "loading": "Loading the settings…",
+    "notifications": {
+      "heading": "Notifications",
+      "hint": "These switches decide what the server sends you.",
+      "loading": "Loading…",
+      "loadFailed": "Could not load the notifications.",
+      "saveFailed": "The choice was not saved.",
+      "kinds": {
+        "cleaning_new": "New cleaning",
+        "cleaning_assigned": "Cleaning assigned to you",
+        "cleaning_unassigned": "Cleaning taken off you",
+        "cleaning_cancelled": "Cleaning cancelled",
+        "cleaning_moved": "Cleaning moved",
+        "cleaning_window": "Cleaning hours changed",
+        "cleaning_free": "Free cleaning",
+        "booking_cancelled_live": "Booking cancelled during your cleaning",
+        "chat_message": "Chat message",
+        "daily_digest": "Morning summary"
+      }
+    },
+    "language": {
+      "heading": "Language",
+      "saveFailed": "The language was not changed."
+    },
+    "password": {
+      "heading": "Password",
+      "current": "Current password",
+      "new": "New password",
+      "repeat": "New password again",
+      "submit": "Change password",
+      "fillAll": "Fill in all three fields.",
+      "mismatch": "The new passwords do not match.",
+      "tooShort": "The new password must be at least {{min}} characters long.",
+      "sameAsCurrent": "The new password is the same as the current one.",
+      "wrongCurrent": "The current password is wrong.",
+      "weak": "This password is too easy to guess. Choose another one.",
+      "needsNetwork": "Changing the password needs a connection. Check the internet and try again.",
+      "confirmAgain": "Your sign-in needs to be confirmed again. Tap “Change password” once more.",
+      "changed": "Password changed. Other devices will have to sign in again."
+    }
+  },
   "tasks": {
     "loading": "Loading cleanings…",
     "loadFailed": "Could not load cleanings",
@@ -851,17 +895,22 @@
     "emptyMine": "Nothing assigned to you yet. Look in “Available” — there may be work on your listings.",
     "emptyQueue": "No free cleanings on your listings.",
     "claim": "Take",
+    "accept": "Accept",
     "start": "Start cleaning",
     "finish": "Finish cleaning",
     "claimAccessibility": "Take cleaning: {{property}}, {{date}}",
+    "acceptAccessibility": "Accept: {{property}}, {{date}}",
     "claimFailedTitle": "Could not take the cleaning",
     "claimTaken": "Someone already took it, or its day has passed.",
+    "acceptFailedTitle": "Could not accept the cleaning",
+    "acceptFailed": "Could not accept the cleaning — it may have been reassigned, moved or cancelled.",
     "startFailed": "Could not start the cleaning — refresh the list.",
     "finishFailed": "Could not finish the cleaning — refresh the list.",
     "unnamedProperty": "Listing {{id}}",
     "cardAccessibility": "{{property}}. {{date}}. {{urgency}}",
     "status": {
-      "inProgress": "In progress"
+      "inProgress": "In progress",
+      "accepted": "Accepted"
     },
     "urgency": {
       "checkInAt": "Check-in at {{time}}",
@@ -879,6 +928,7 @@
       "finish": "Finish work",
       "window": "Work window",
       "finished": "Work finished",
+      "accepted": "Job accepted",
       "colleague": "A colleague is doing this job",
       "steps": "Work steps"
     },
@@ -890,6 +940,7 @@
       "notes": "Notes on the listing",
       "parallel": "Ran alongside another cleaning",
       "finished": "Cleaning finished",
+      "accepted": "Cleaning accepted",
       "colleague": "A colleague is doing this cleaning",
       "closed": "Cleaning closed",
       "startsAt": "Can start no earlier than {{time}}, {{date}}",
@@ -1197,5 +1248,62 @@
     "mailTooSoon": "A letter has just gone to this address. Try again in a minute.",
     "mailNotConfigured": "Sending email is not configured.",
     "hostNotFound": "The company was not found."
+  },
+  "push": {
+    "cleaning_new": {
+      "title": "New cleaning",
+      "titleWork": "New job"
+    },
+    "cleaning_assigned": {
+      "title": "Cleaning assigned to you",
+      "titleWork": "Job assigned to you"
+    },
+    "cleaning_unassigned": {
+      "title": "You no longer have this cleaning",
+      "titleWork": "You no longer have this job"
+    },
+    "cleaning_cancelled": {
+      "title": "Cleaning cancelled",
+      "titleWork": "Job cancelled"
+    },
+    "cleaning_moved": {
+      "title": "Cleaning moved",
+      "titleWork": "Job moved",
+      "byOffice": "Moved by the office.",
+      "byBooking": "The booking changed."
+    },
+    "cleaning_window": {
+      "title": "Cleaning hours changed",
+      "titleWork": "Job hours changed"
+    },
+    "cleaning_free": {
+      "title": "Free cleaning",
+      "titleWork": "Free job"
+    },
+    "booking_cancelled_live": {
+      "title": "Booking cancelled",
+      "body": "{{place}}: the booking was cancelled while the cleaning is under way. Check with the office."
+    },
+    "chat_message": {
+      "title": "New message",
+      "count_one": "{{count}} new message",
+      "count_other": "{{count}} new messages"
+    },
+    "daily_digest": {
+      "title": "Your day",
+      "today": "Today: {{count}}",
+      "newInWeek": "New this week: {{count}}",
+      "free": "Free cleanings this week: {{count}}"
+    },
+    "placeDay": "{{place}}, {{date}}",
+    "moveDays": "{{place}}: {{from}} → {{to}}",
+    "movePlaces": "{{from}} → {{to}}, {{date}}",
+    "moveBoth": "{{fromPlace}}, {{fromDate}} → {{toPlace}}, {{toDate}}",
+    "windowBody": "{{place}}, {{date}}: {{window}}",
+    "windowRange": "{{from}}–{{to}}",
+    "windowFrom": "from {{time}}",
+    "windowUntil": "until {{time}}",
+    "messageFrom": "{{place}} · {{author}}",
+    "unknownPlace": "Property {{id}}"
   }
 }

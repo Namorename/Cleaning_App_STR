@@ -63,6 +63,10 @@ insert into public.properties (id, host_id, name, timezone, check_in_time, check
   (900002001, 'c7000000-0000-4000-8000-00000000000c', 'Anna flat', 'UTC', '15:00', '10:00'),
   (900002002, 'c7000000-0000-4000-8000-00000000000c', 'Other flat', 'UTC', '15:00', '10:00'),
   (900002003, 'd7000000-0000-4000-8000-00000000000d', 'Host D flat', 'UTC', '15:00', '10:00');
+-- A room of Anna's listing, with no work of its own: the one listing on which
+-- the "room through its listing" branch of cleans_property answers yes.
+insert into public.properties (id, host_id, hostaway_unit_id, parent_id, name, timezone) values
+  (1000000090204, 'c7000000-0000-4000-8000-00000000000c', 90204, 900002001, 'Anna flat, room 1', 'UTC');
 
 -- Anna works the first flat; Bara works the second. Neither is linked to the
 -- other, which is what makes "a colleague's listing" testable.
@@ -131,6 +135,74 @@ create or replace function pg_temp.as_gone()  returns void language sql as $fn$
   select pg_temp.as_user('c7000005-0000-4000-8000-000000000005') $fn$;
 create or replace function pg_temp.as_other_host() returns void language sql as $fn$
   select pg_temp.as_user('d7000001-0000-4000-8000-000000000001') $fn$;
+
+/**
+ * The twins must agree (20260928120000). chat_participates and cleans_property
+ * answer about the caller; chat_participates_as and cleans_property_as answer
+ * about a given person, for the push triggers, and are copies rather than a
+ * core the first two wrap (a wrapper costs six times as much on the hot path).
+ * Every person of both companies is asked about every subject and every
+ * listing, both ways; called as postgres at several points of the story,
+ * because the answer turns on what has happened by then — a cancelled repair,
+ * an archived report, a dismissed person. Returns the disagreements, or a
+ * complaint when too few pairs were asked for the silence to mean anything.
+ */
+create or replace function pg_temp.twins_disagree() returns text
+language plpgsql as $fn$
+declare
+  v_hosts constant uuid[] := array['c7000000-0000-4000-8000-00000000000c',
+                                   'd7000000-0000-4000-8000-00000000000d']::uuid[];
+  r      record;
+  v_bad  text := '';
+  v_n    int := 0;
+begin
+  for r in
+    select pr.id as who, s.kind, s.task_id, s.problem_id, s.profile_id
+    from public.profiles pr
+    cross join (
+      select 'task'::public.chat_thread_kind as kind, t.id as task_id,
+             null::uuid as problem_id, null::uuid as profile_id
+      from public.tasks t where t.host_id = any (v_hosts)
+      union all
+      select 'problem', null, pb.id, null
+      from public.problems pb where pb.host_id = any (v_hosts)
+      union all
+      select 'direct', null, null, p2.id
+      from public.profiles p2 where p2.host_id = any (v_hosts)
+    ) s
+    where pr.host_id = any (v_hosts)
+  loop
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', r.who, 'role', 'authenticated')::text, true);
+    v_n := v_n + 1;
+    if public.chat_participates(r.kind, r.task_id, r.problem_id, r.profile_id)
+       is distinct from
+       public.chat_participates_as(r.who, r.kind, r.task_id, r.problem_id, r.profile_id) then
+      v_bad := v_bad || format(' %s on %s %s;', r.who, r.kind,
+                               coalesce(r.task_id, r.problem_id, r.profile_id));
+    end if;
+  end loop;
+
+  for r in
+    select pr.id as who, p.id as property_id
+    from public.profiles pr
+    cross join public.properties p
+    where pr.host_id = any (v_hosts) and p.host_id = any (v_hosts)
+  loop
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', r.who, 'role', 'authenticated')::text, true);
+    v_n := v_n + 1;
+    if public.cleans_property(r.property_id)
+       is distinct from public.cleans_property_as(r.who, r.property_id) then
+      v_bad := v_bad || format(' %s on listing %s;', r.who, r.property_id);
+    end if;
+  end loop;
+
+  perform set_config('request.jwt.claims', '', true);
+  return case when v_n < 100 then format('only %s pairs asked', v_n) else v_bad end;
+end $fn$;
+
+select pg_temp.check('the twins agree about everybody from the start', pg_temp.twins_disagree(), '');
 
 /** The i18n key a refusal carries, or 'no refusal' when the statement went through. */
 create or replace function pg_temp.refusal_hint(stmt text) returns text
@@ -341,6 +413,8 @@ values ('e7000001-0000-4000-8000-000000000006', 'c7000000-0000-4000-8000-0000000
         900002001, 'maintenance', 'assigned', current_date,
         'c7000006-0000-4000-8000-000000000006', 'f7000001-0000-4000-8000-000000000001');
 
+select pg_temp.check('the twins agree once a repair attempt is cancelled', pg_temp.twins_disagree(), '');
+
 select pg_temp.as_petr();
 select pg_temp.check('the second technician arrives in the same conversation',
   (select count(*)::int from public.chat_messages
@@ -372,6 +446,8 @@ select pg_temp.check('another cleaner does not read the breakage thread',
 reset role; reset request.jwt.claims;
 update public.problems set archived_at = now()
 where id = 'f7000001-0000-4000-8000-000000000001';
+
+select pg_temp.check('the twins agree about an archived report', pg_temp.twins_disagree(), '');
 
 select pg_temp.as_anna();
 select pg_temp.check('an archived report takes its conversation from the reporter',
@@ -638,6 +714,8 @@ select pg_temp.check('and has nothing unread',
 reset role; reset request.jwt.claims;
 update public.profiles set is_active = false
 where id = 'c7000001-0000-4000-8000-000000000001';
+select pg_temp.check('the twins agree about a dismissed cleaner and a dismissed manager',
+  pg_temp.twins_disagree(), '');
 select pg_temp.as_boss();
 select pg_temp.check('a dismissed manager has nothing unread either',
   (select count(*)::int from public.chat_unread_threads()), 0);
@@ -1153,5 +1231,7 @@ select pg_temp.check('and the true replay still returns the photo',
      '17000001-0000-4000-8000-000000000061', 'image/jpeg', 400000)),
   '27000001-0000-4000-8000-000000000061'::uuid);
 reset role; reset request.jwt.claims;
+
+select pg_temp.check('the twins still agree at the end of the story', pg_temp.twins_disagree(), '');
 
 rollback;

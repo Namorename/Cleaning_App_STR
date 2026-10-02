@@ -216,8 +216,12 @@ reset role; reset request.jwt.claims;
 
 select pg_temp.as_boss();
 select public.save_task(pg_temp.tid(6), 900001901, 'maintenance', current_date + 1,
-  'Заменить лампочку', '{}'::jsonb, 'd9000001-0000-4000-8000-0000000000e1');
+  'Заменить лампочку', '{}'::jsonb, 'd9000001-0000-4000-8000-0000000000e1',
+  p_notes => 'Лампочка в прихожей');
 reset role; reset request.jwt.claims;
+
+create temp table task_six_written as
+select created_at from public.tasks where id = pg_temp.tid(6);
 
 select pg_temp.as_maria();
 select pg_temp.check('a cleaner may not write a task herself',
@@ -226,9 +230,13 @@ select pg_temp.check('a cleaner may not write a task herself',
     current_date + 3, 'Мой осмотр')$sql$),
   'serverErrors.managerOnly');
 
+-- Straight at the table, as a hand-made request with her own token would:
+-- the phone writes nothing but the status, so only the guard stands here.
 update public.tasks
 set title = 'Ничего не делал', title_i18n = '{"en":"Nothing"}'::jsonb,
-    created_by = 'd9000001-0000-4000-8000-0000000000e1'
+    created_by = 'd9000001-0000-4000-8000-0000000000e1',
+    notes = 'Лампочку не менять',
+    created_at = '2020-01-01 00:00+00'
 where id = pg_temp.tid(6);
 reset role; reset request.jwt.claims;
 
@@ -238,5 +246,22 @@ select pg_temp.check('and so do its translations',
   (pg_temp.task(6)).title_i18n, '{}'::jsonb);
 select pg_temp.check('and the author stays the manager who asked',
   (pg_temp.task(6)).created_by, 'd9000004-0000-4000-8000-0000000000e4'::uuid);
+select pg_temp.check('and so do the manager''s instructions',
+  (pg_temp.task(6)).notes, 'Лампочка в прихожей');
+select pg_temp.check('and the day the job was written',
+  (pg_temp.task(6)).created_at, (select created_at from task_six_written));
+
+-- The instructions stay the manager's to rewrite; the day it was written is a
+-- record, like its author, and nobody moves it.
+select pg_temp.as_boss();
+update public.tasks
+set notes = 'Две лампочки', created_at = '2020-01-01 00:00+00'
+where id = pg_temp.tid(6);
+reset role; reset request.jwt.claims;
+
+select pg_temp.check('a manager rewrites the instructions',
+  (pg_temp.task(6)).notes, 'Две лампочки');
+select pg_temp.check('but not the day the job was written',
+  (pg_temp.task(6)).created_at, (select created_at from task_six_written));
 
 rollback;

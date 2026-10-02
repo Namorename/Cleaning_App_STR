@@ -190,6 +190,54 @@ test('in the queue the card opens the task, and taking it stays a control of its
   expect(onPress).toHaveBeenCalledWith('3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b');
 });
 
+describe('accepting from her list', () => {
+  const ME = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
+  const mine = task({ status: 'assigned', assignee_id: ME });
+
+  test('offers to accept an assigned cleaning, as a control of its own', async () => {
+    // Arrange
+    const onPress = jest.fn();
+    const onAccept = jest.fn();
+    await render(<TaskCard task={mine} onPress={onPress} onAccept={onAccept} />);
+    const card = screen.getByRole('button', { name: /^CZ - Nadrazni Apt 6\./ });
+
+    // Assert: like "take", never inside the card's own button.
+    expect(within(card).queryByRole('button', { name: /^Принять/ })).toBeNull();
+
+    // Act / Assert
+    await fireEvent.press(screen.getByRole('button', { name: /^Принять: CZ - Nadrazni Apt 6/ }));
+    expect(onAccept).toHaveBeenCalledWith(mine);
+    expect(onPress).not.toHaveBeenCalled();
+  });
+
+  test('an accepted cleaning says so, to the eye and to the reader, and is not offered again', async () => {
+    await render(
+      <TaskCard task={{ ...mine, status: 'accepted' }} onPress={jest.fn()} onAccept={jest.fn()} />,
+    );
+
+    expect(screen.getByText('Принята')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Принята/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Принять/ })).toBeNull();
+  });
+
+  test('does not fire a second accept while the first is in flight', async () => {
+    const onAccept = jest.fn();
+    await render(<TaskCard task={mine} onAccept={onAccept} isAccepting />);
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Принять/ }));
+
+    expect(onAccept).not.toHaveBeenCalled();
+  });
+
+  test('free work is taken, not accepted, and work under way is past accepting', async () => {
+    await render(<TaskCard task={task()} onAccept={jest.fn()} />);
+    expect(screen.queryByRole('button', { name: /^Принять/ })).toBeNull();
+
+    await render(<TaskCard task={{ ...mine, status: 'in_progress' }} onAccept={jest.fn()} />);
+    expect(screen.queryByRole('button', { name: /^Принять/ })).toBeNull();
+  });
+});
+
 test('says when somebody has written about the job, to the eye and to the reader', async () => {
   await render(<TaskCard task={task()} onPress={jest.fn()} hasUnread />);
 

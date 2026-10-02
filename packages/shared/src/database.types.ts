@@ -687,6 +687,90 @@ export type Database = {
           },
         ]
       }
+      push_preferences: {
+        Row: {
+          host_id: string
+          muted: Database["public"]["Enums"]["push_kind"][]
+          profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          host_id: string
+          muted?: Database["public"]["Enums"]["push_kind"][]
+          profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          host_id?: string
+          muted?: Database["public"]["Enums"]["push_kind"][]
+          profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_preferences_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "push_preferences_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_tokens: {
+        Row: {
+          app_version: string | null
+          created_at: string
+          host_id: string
+          language: Database["public"]["Enums"]["app_language"] | null
+          platform: string
+          profile_id: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          app_version?: string | null
+          created_at?: string
+          host_id: string
+          language?: Database["public"]["Enums"]["app_language"] | null
+          platform: string
+          profile_id: string
+          token: string
+          updated_at?: string
+        }
+        Update: {
+          app_version?: string | null
+          created_at?: string
+          host_id?: string
+          language?: Database["public"]["Enums"]["app_language"] | null
+          platform?: string
+          profile_id?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_tokens_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "push_tokens_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reservation_units: {
         Row: {
           created_at: string
@@ -1910,6 +1994,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      chat_participates_as: {
+        Args: {
+          p_kind: Database["public"]["Enums"]["chat_thread_kind"]
+          p_person_id: string
+          p_problem_id: string
+          p_profile_id: string
+          p_task_id: string
+        }
+        Returns: boolean
+      }
       chat_unread_threads: {
         Args: { p_problem_ids?: string[]; p_task_ids?: string[] }
         Returns: {
@@ -1921,6 +2015,8 @@ export type Database = {
           thread_id: string
         }[]
       }
+      claim_push_batch: { Args: { p_limit?: number }; Returns: Json }
+      claim_push_receipts: { Args: { p_limit?: number }; Returns: Json }
       claim_webhook_events: {
         Args: { batch_size?: number; max_attempts?: number }
         Returns: Json
@@ -1941,6 +2037,10 @@ export type Database = {
       }
       cleans_property: {
         Args: { target_property_id: number }
+        Returns: boolean
+      }
+      cleans_property_as: {
+        Args: { p_person_id: string; target_property_id: number }
         Returns: boolean
       }
       complete_task_step: {
@@ -2027,7 +2127,12 @@ export type Database = {
         Args: { p: Database["public"]["Tables"]["properties"]["Row"] }
         Returns: string
       }
+      enqueue_daily_digest: { Args: { p_at?: string }; Returns: number }
       expire_stale_tasks: { Args: never; Returns: Json }
+      forget_push_token: {
+        Args: { p_seen_at: string; p_token: string }
+        Returns: undefined
+      }
       generate_cleaning_tasks: {
         Args: { from_date: string; to_date: string }
         Returns: Json
@@ -2199,9 +2304,35 @@ export type Database = {
           unit_name: string
         }[]
       }
+      purge_push_history: { Args: never; Returns: undefined }
+      push_digest_hour: { Args: never; Returns: number }
+      push_history_kept: { Args: never; Returns: string }
+      push_lease: { Args: never; Returns: string }
+      push_lifetime: { Args: never; Returns: string }
+      push_quiet_end: { Args: never; Returns: number }
+      push_quiet_start: { Args: never; Returns: number }
+      push_receipt_delay: { Args: never; Returns: string }
+      push_send_after: {
+        Args: { p_at?: string; p_urgent: boolean }
+        Returns: string
+      }
+      push_settle: { Args: never; Returns: string }
+      push_timezone: { Args: never; Returns: string }
+      push_tokens_per_person: { Args: never; Returns: number }
+      record_push_receipts: { Args: { p_receipts: Json }; Returns: undefined }
+      record_push_results: { Args: { p_results: Json }; Returns: undefined }
       record_webhook_event: {
         Args: { event_payload: Json; event_source?: string }
         Returns: number
+      }
+      register_push_token: {
+        Args: {
+          p_app_version?: string
+          p_language?: Database["public"]["Enums"]["app_language"]
+          p_platform: string
+          p_token: string
+        }
+        Returns: undefined
       }
       remove_task_media: {
         Args: { p_id: string }
@@ -2639,6 +2770,24 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_push_preference: {
+        Args: {
+          p_enabled: boolean
+          p_kind: Database["public"]["Enums"]["push_kind"]
+        }
+        Returns: {
+          host_id: string
+          muted: Database["public"]["Enums"]["push_kind"][]
+          profile_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "push_preferences"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       short_cleaning_threshold: { Args: never; Returns: string }
       skip_task_step: {
         Args: { p_reason?: string; p_step_id: string }
@@ -2843,6 +2992,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      unregister_push_token: { Args: { p_token: string }; Returns: undefined }
       update_host_settings: {
         Args: {
           p_gallery_allowed?: boolean
@@ -2970,6 +3120,17 @@ export type Database = {
         | "resolved"
         | "cancelled"
       property_status: "active" | "maintenance" | "archived"
+      push_kind:
+        | "cleaning_new"
+        | "cleaning_assigned"
+        | "cleaning_unassigned"
+        | "cleaning_cancelled"
+        | "cleaning_moved"
+        | "cleaning_window"
+        | "cleaning_free"
+        | "booking_cancelled_live"
+        | "chat_message"
+        | "daily_digest"
       supply_priority: "normal" | "urgent"
       supply_request_status:
         | "new"
@@ -3145,6 +3306,18 @@ export const Constants = {
         "cancelled",
       ],
       property_status: ["active", "maintenance", "archived"],
+      push_kind: [
+        "cleaning_new",
+        "cleaning_assigned",
+        "cleaning_unassigned",
+        "cleaning_cancelled",
+        "cleaning_moved",
+        "cleaning_window",
+        "cleaning_free",
+        "booking_cancelled_live",
+        "chat_message",
+        "daily_digest",
+      ],
       supply_priority: ["normal", "urgent"],
       supply_request_status: [
         "new",

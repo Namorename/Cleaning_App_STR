@@ -5,7 +5,12 @@
     "screenFailed": "Не удалось показать экран. Попробуйте ещё раз.",
     "retry": "Повторить",
     "resetSaved": "Сбросить сохранённые списки",
-    "resetSavedHint": "Списки загрузятся заново. Действия, ждущие связи, сохранятся."
+    "resetSavedHint": "Списки загрузятся заново. Действия, ждущие связи, сохранятся.",
+    "languages": {
+      "ru": "Русский",
+      "en": "English",
+      "cs": "Čeština"
+    }
   },
   "auth": {
     "heading": "Вход для клинеров",
@@ -19,6 +24,7 @@
     "signInFailed": "Не удалось войти.",
     "noConnection": "Нет связи. Проверьте интернет и попробуйте снова.",
     "tooManyAttempts": "Слишком много попыток. Попробуйте через минуту.",
+    "forgotPassword": "Забыли пароль? Обратитесь к менеджеру.",
     "signOut": "Выйти",
     "signOutTitle": "Выйти из аккаунта?",
     "signOutQuestion": "Для входа снова понадобится пароль.",
@@ -519,11 +525,6 @@
       "loadError": "Не удалось загрузить команду.",
       "empty": "Никого не нашлось.",
       "languageUnset": "Не выбран",
-      "languages": {
-        "ru": "Русский",
-        "en": "English",
-        "cs": "Čeština"
-      },
       "tabs": {
         "working": "Работают",
         "off": "Отключённые",
@@ -854,6 +855,49 @@
     "problems": "Задания",
     "supplies": "Расходники"
   },
+  "settings": {
+    "title": "Настройки",
+    "loading": "Загружаем настройки…",
+    "notifications": {
+      "heading": "Уведомления",
+      "hint": "Переключатели решают, что сервер будет вам присылать.",
+      "loading": "Загружаем…",
+      "loadFailed": "Не удалось загрузить уведомления.",
+      "saveFailed": "Выбор не сохранился.",
+      "kinds": {
+        "cleaning_new": "Новая уборка",
+        "cleaning_assigned": "Вам назначена уборка",
+        "cleaning_unassigned": "Уборку сняли с вас",
+        "cleaning_cancelled": "Уборка отменена",
+        "cleaning_moved": "Уборка перенесена",
+        "cleaning_window": "Изменилось время уборки",
+        "cleaning_free": "Свободная уборка",
+        "booking_cancelled_live": "Бронь отменена во время уборки",
+        "chat_message": "Сообщение в чате",
+        "daily_digest": "Утренняя сводка"
+      }
+    },
+    "language": {
+      "heading": "Язык",
+      "saveFailed": "Язык не сменился."
+    },
+    "password": {
+      "heading": "Пароль",
+      "current": "Текущий пароль",
+      "new": "Новый пароль",
+      "repeat": "Новый пароль ещё раз",
+      "submit": "Сменить пароль",
+      "fillAll": "Заполните все три поля.",
+      "mismatch": "Новые пароли не совпадают.",
+      "tooShort": "Новый пароль должен быть не короче {{min}} символов.",
+      "sameAsCurrent": "Новый пароль совпадает с текущим.",
+      "wrongCurrent": "Текущий пароль неверный.",
+      "weak": "Пароль слишком простой. Придумайте другой.",
+      "needsNetwork": "Для смены пароля нужна сеть. Проверьте интернет и попробуйте снова.",
+      "confirmAgain": "Вход нужно подтвердить заново. Нажмите «Сменить пароль» ещё раз.",
+      "changed": "Пароль изменён. На других устройствах нужно будет войти заново."
+    }
+  },
   "tasks": {
     "loading": "Загружаем уборки…",
     "loadFailed": "Не удалось загрузить уборки",
@@ -861,17 +905,22 @@
     "emptyMine": "Пока нет назначенных уборок. Загляните во «Свободные» — там может быть работа на ваших объектах.",
     "emptyQueue": "Свободных уборок на ваших объектах нет.",
     "claim": "Взять",
+    "accept": "Принять",
     "start": "Начать уборку",
     "finish": "Завершить уборку",
     "claimAccessibility": "Взять уборку: {{property}}, {{date}}",
+    "acceptAccessibility": "Принять: {{property}}, {{date}}",
     "claimFailedTitle": "Не получилось взять уборку",
     "claimTaken": "Уборку уже взяли, либо её срок истёк.",
+    "acceptFailedTitle": "Не получилось принять уборку",
+    "acceptFailed": "Не удалось принять уборку — её могли передать, перенести или отменить.",
     "startFailed": "Не удалось начать уборку — обновите список.",
     "finishFailed": "Не удалось завершить уборку — обновите список.",
     "unnamedProperty": "Объект {{id}}",
     "cardAccessibility": "{{property}}. {{date}}. {{urgency}}",
     "status": {
-      "inProgress": "В работе"
+      "inProgress": "В работе",
+      "accepted": "Принята"
     },
     "urgency": {
       "checkInAt": "В {{time}} заезд",
@@ -889,6 +938,7 @@
       "finish": "Завершить работу",
       "window": "Окно работы",
       "finished": "Работа завершена",
+      "accepted": "Работа принята",
       "colleague": "Работу выполняет коллега",
       "steps": "Шаги работы"
     },
@@ -900,6 +950,7 @@
       "notes": "Заметки по объекту",
       "parallel": "Шла параллельно с другой уборкой",
       "finished": "Уборка завершена",
+      "accepted": "Уборка принята",
       "colleague": "Уборку выполняет коллега",
       "closed": "Уборка закрыта",
       "startsAt": "Начать можно не раньше {{time}}, {{date}}",
@@ -1221,5 +1272,64 @@
     "mailTooSoon": "На этот адрес только что уходило письмо. Попробуйте через минуту.",
     "mailNotConfigured": "Отправка почты не настроена.",
     "hostNotFound": "Компания не найдена."
+  },
+  "push": {
+    "cleaning_new": {
+      "title": "Новая уборка",
+      "titleWork": "Новая работа"
+    },
+    "cleaning_assigned": {
+      "title": "Вам назначена уборка",
+      "titleWork": "Вам назначена работа"
+    },
+    "cleaning_unassigned": {
+      "title": "Уборку сняли с вас",
+      "titleWork": "Работу сняли с вас"
+    },
+    "cleaning_cancelled": {
+      "title": "Уборка отменена",
+      "titleWork": "Работа отменена"
+    },
+    "cleaning_moved": {
+      "title": "Уборка перенесена",
+      "titleWork": "Работа перенесена",
+      "byOffice": "Перенёс менеджер.",
+      "byBooking": "Изменилась бронь."
+    },
+    "cleaning_window": {
+      "title": "Время уборки изменилось",
+      "titleWork": "Время работы изменилось"
+    },
+    "cleaning_free": {
+      "title": "Свободная уборка",
+      "titleWork": "Свободная работа"
+    },
+    "booking_cancelled_live": {
+      "title": "Бронь отменена",
+      "body": "{{place}}: бронь отменена, пока идёт уборка. Уточните у менеджера."
+    },
+    "chat_message": {
+      "title": "Новое сообщение",
+      "count_one": "{{count}} новое сообщение",
+      "count_few": "{{count}} новых сообщения",
+      "count_many": "{{count}} новых сообщений",
+      "count_other": "{{count}} нового сообщения"
+    },
+    "daily_digest": {
+      "title": "Ваш день",
+      "today": "Сегодня: {{count}}",
+      "newInWeek": "Новых на неделе: {{count}}",
+      "free": "Свободных на неделе: {{count}}"
+    },
+    "placeDay": "{{place}}, {{date}}",
+    "moveDays": "{{place}}: {{from}} → {{to}}",
+    "movePlaces": "{{from}} → {{to}}, {{date}}",
+    "moveBoth": "{{fromPlace}}, {{fromDate}} → {{toPlace}}, {{toDate}}",
+    "windowBody": "{{place}}, {{date}}: {{window}}",
+    "windowRange": "{{from}}–{{to}}",
+    "windowFrom": "с {{time}}",
+    "windowUntil": "до {{time}}",
+    "messageFrom": "{{place}} · {{author}}",
+    "unknownPlace": "Объект {{id}}"
   }
 }

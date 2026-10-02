@@ -1,16 +1,17 @@
 import { QueryClient } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { restoredFromDisk, withClient } from '@/testing/restored-cache';
 
-import { fetchMyTasks, fetchTask } from '../api';
-import { taskKeys, useMyTasks, useTask } from '../use-tasks';
+import { acceptTask, fetchMyTasks, fetchTask } from '../api';
+import { taskKeys, useAcceptTask, useMyTasks, useTask } from '../use-tasks';
 
 jest.mock('../api', () => ({
   fetchMyTasks: jest.fn(),
   fetchFreeTasks: jest.fn(),
   fetchTask: jest.fn(),
   claimTask: jest.fn(),
+  acceptTask: jest.fn(),
   startTask: jest.fn(),
   finishTask: jest.fn(),
 }));
@@ -94,4 +95,34 @@ test('a task opened from that list is read the same way', async () => {
 
   // Assert
   expect(result.current.data?.notes).toBeNull();
+});
+
+test('an accepted cleaning reads as accepted at once, in her list and on its screen', async () => {
+  // Arrange: her list as the server last sent it, and the accept that answers
+  // with the row moved on. Without writing the row into the caches, the list
+  // would show "Принять" again until its refetch landed — on weak signal, for
+  // seconds, inviting a second tap that looks like the first did nothing.
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+  });
+  const assigned = { ...TASK_WITHOUT_NOTE, notes: null, title: null, title_i18n: {} };
+  client.setQueryData(taskKeys.mine(ME), [assigned]);
+  client.setQueryData(taskKeys.one(assigned.id), assigned);
+  (acceptTask as jest.Mock).mockResolvedValue({ ...assigned, status: 'accepted' });
+  const { result } = await renderHook(() => useAcceptTask(), { wrapper: withClient(client) });
+
+  // Act
+  await act(async () => {
+    await result.current.mutateAsync({
+      taskId: assigned.id,
+      scheduledDate: assigned.scheduled_date,
+      propertyId: assigned.property_id,
+    });
+  });
+
+  // Assert
+  expect(client.getQueryData<{ status: string }[]>(taskKeys.mine(ME))?.[0].status).toBe('accepted');
+  expect(client.getQueryData<{ status: string }>(taskKeys.one(assigned.id))?.status).toBe(
+    'accepted',
+  );
 });

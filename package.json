@@ -12,6 +12,7 @@
   },
   "scripts": {
     "db:start": "supabase start",
+    "db:start:light": "supabase start -x vector,logflare,studio,postgres-meta,mailpit,edge-runtime,realtime,imgproxy,supavisor",
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:diff": "supabase db diff -f",

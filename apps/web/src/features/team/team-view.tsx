@@ -175,7 +175,7 @@ export function TeamView() {
                 <TableCell>
                   {person.preferred_language === null
                     ? t('panel.team.languageUnset')
-                    : t(`panel.team.languages.${person.preferred_language}`)}
+                    : t(`common.languages.${person.preferred_language}`)}
                 </TableCell>
                 <TableCell>
                   {canHaveLinks(person) ? (

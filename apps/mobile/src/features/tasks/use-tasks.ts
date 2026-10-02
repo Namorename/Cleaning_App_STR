@@ -5,7 +5,16 @@ import { stepKeys } from '@/features/steps/keys';
 
 import { readCached } from '@/lib/read-cached';
 
-import { claimTask, fetchFreeTasks, fetchMyTasks, fetchTask, finishTask, startTask } from './api';
+import {
+  acceptTask,
+  type AcceptVariables,
+  claimTask,
+  fetchFreeTasks,
+  fetchMyTasks,
+  fetchTask,
+  finishTask,
+  startTask,
+} from './api';
 import { cleaningTaskListSchema, cleaningTaskSchema, type CleaningTask } from './schema';
 
 /**
@@ -32,7 +41,7 @@ export const taskKeys = {
 };
 
 /**
- * Keys under which the three moves are queued.
+ * Keys under which the moves are queued.
  *
  * A mutation that was paused for lack of signal is restored from disk on the
  * next launch as a key plus variables — the function behind it has to be
@@ -40,6 +49,7 @@ export const taskKeys = {
  */
 export const taskMutationKeys = {
   claim: ['tasks', 'claim'] as const,
+  accept: ['tasks', 'accept'] as const,
   start: ['tasks', 'start'] as const,
   finish: ['tasks', 'finish'] as const,
 };
@@ -47,6 +57,19 @@ export const taskMutationKeys = {
 export interface ClaimVariables {
   taskId: string;
   cleanerId: string;
+}
+
+/**
+ * The moves of her cleanings go out one after another, in the order she
+ * tapped them — a start landing before the accept she made first would turn
+ * the accept into a refusal while she is cleaning. Persisted with a paused
+ * move, like the chat's and the media queue's scopes.
+ */
+const TASK_MOVES_SCOPE = { id: 'task-moves' };
+
+/** What an accept sends: the cleaning as the card showed it. */
+export function acceptVariables(task: CleaningTask): AcceptVariables {
+  return { taskId: task.id, scheduledDate: task.scheduled_date, propertyId: task.property_id };
 }
 
 /**
@@ -58,12 +81,19 @@ export interface ClaimVariables {
 export function registerTaskMutations(queryClient: QueryClient): void {
   queryClient.setMutationDefaults(taskMutationKeys.claim, {
     mutationFn: ({ taskId, cleanerId }: ClaimVariables) => claimTask(taskId, cleanerId),
+    scope: TASK_MOVES_SCOPE,
+  });
+  queryClient.setMutationDefaults(taskMutationKeys.accept, {
+    mutationFn: (variables: AcceptVariables) => acceptTask(variables),
+    scope: TASK_MOVES_SCOPE,
   });
   queryClient.setMutationDefaults(taskMutationKeys.start, {
     mutationFn: (taskId: string) => startTask(taskId),
+    scope: TASK_MOVES_SCOPE,
   });
   queryClient.setMutationDefaults(taskMutationKeys.finish, {
     mutationFn: (taskId: string) => finishTask(taskId),
+    scope: TASK_MOVES_SCOPE,
   });
 }
 
@@ -143,8 +173,45 @@ export function useClaimTask() {
   return useMutation<CleaningTask, Error, ClaimVariables>({
     mutationKey: taskMutationKeys.claim,
     mutationFn: ({ taskId, cleanerId }) => claimTask(taskId, cleanerId),
+    scope: TASK_MOVES_SCOPE,
     onSuccess: invalidate,
   });
+}
+
+/**
+ * Accept her cleaning.
+ *
+ * Not optimistic, for the same reason as the claim: the office may have given
+ * the cleaning to someone else or moved it, and a card that says "accepted"
+ * and then falls back reads as a bug. Paused without signal, it waits on disk
+ * like any move and goes through once she has it.
+ */
+export function useAcceptTask() {
+  const queryClient = useQueryClient();
+  const invalidate = useInvalidateTasks();
+
+  return useMutation<CleaningTask, Error, AcceptVariables>({
+    mutationKey: taskMutationKeys.accept,
+    mutationFn: acceptTask,
+    scope: TASK_MOVES_SCOPE,
+    // The row the server answered with goes into every copy at once: the
+    // refetch below can take seconds on a weak signal, and until it lands the
+    // card would offer "accept" again as if the tap had done nothing.
+    onSuccess: (accepted) => {
+      writeTask(queryClient, accepted);
+      invalidate();
+    },
+    // Refused: somebody changed it. The lists and its screen show what it is now.
+    onError: invalidate,
+  });
+}
+
+/** Put a task the server just answered with into every cached copy of it. */
+function writeTask(queryClient: QueryClient, task: CleaningTask): void {
+  queryClient.setQueriesData<CleaningTask[]>({ queryKey: taskKeys.all }, (tasks) =>
+    Array.isArray(tasks) ? tasks.map((row) => (row.id === task.id ? task : row)) : tasks,
+  );
+  queryClient.setQueryData(taskKeys.one(task.id), task);
 }
 
 export function useStartTask() {
@@ -153,6 +220,7 @@ export function useStartTask() {
   return useMutation<CleaningTask, Error, string>({
     mutationKey: taskMutationKeys.start,
     mutationFn: startTask,
+    scope: TASK_MOVES_SCOPE,
     onSuccess: invalidate,
   });
 }
@@ -163,6 +231,7 @@ export function useFinishTask() {
   return useMutation<CleaningTask, Error, string>({
     mutationKey: taskMutationKeys.finish,
     mutationFn: finishTask,
+    scope: TASK_MOVES_SCOPE,
     onSuccess: invalidate,
   });
 }

@@ -99,6 +99,14 @@ export default function RootLayout() {
                   name="task/[id]/step/[stepId]"
                   options={{ headerShown: true, headerBackTitle: t('common.back') }}
                 />
+                <Stack.Screen
+                  name="settings"
+                  options={{
+                    headerShown: true,
+                    headerBackTitle: t('common.back'),
+                    title: t('settings.title'),
+                  }}
+                />
                 {/*
                   The title is set here, not by the screen: a thread that fails
                   on its first render never draws its own, and the header would

@@ -507,7 +507,10 @@ insert into public.tasks (id, property_id, type, status, scheduled_date, assigne
    current_date, null),
   ('a6000005-0000-4000-8000-000000000052', 1000000064280, 'midstay', 'assigned',
    current_date, 'd6000001-0000-4000-8000-0000000000d1'),
-  -- She has said she is taking it: started, never swept.
+  -- She has said she is taking it. Until F11 nothing wrote 'accepted' and it
+  -- counted as started; with the accept button nearly every handed-out
+  -- cleaning is accepted, so it is swept like the others and she gets a push
+  -- (owner's word 2026-09-28, docs/f11-plan.md §2).
   ('a6000005-0000-4000-8000-000000000053', 1000000064281, 'midstay', 'accepted',
    current_date, 'd6000001-0000-4000-8000-0000000000d1'),
   ('a6000005-0000-4000-8000-000000000054', 1000000064281, 'inspection', 'unassigned',
@@ -518,11 +521,11 @@ insert into public.tasks (id, property_id, type, status, scheduled_date, assigne
 select pg_temp.as_boss();
 
 select pg_temp.check('the confirmation counts the stay-over cleanings, rooms included',
-  public.property_open_cleanings(900001905), 2);
+  public.property_open_cleanings(900001905), 3);
 
 select pg_temp.check('and the registry beside it says the same',
   (select c.cleanings from public.open_cleanings_by_listing() c
-    where c.property_id = 900001905), 2);
+    where c.property_id = 900001905), 3);
 
 select pg_temp.check('archiving asks first',
   pg_temp.refusal_hint($stmt$
@@ -537,9 +540,9 @@ select pg_temp.check('the unstarted stay-over on the house is cancelled',
 select pg_temp.check('and the one handed out in a room',
   (select status::text from public.tasks
    where id = 'a6000005-0000-4000-8000-000000000052'), 'cancelled');
-select pg_temp.check('the one she has taken stays hers',
+select pg_temp.check('and the one she has accepted',
   (select status::text from public.tasks
-   where id = 'a6000005-0000-4000-8000-000000000053'), 'accepted');
+   where id = 'a6000005-0000-4000-8000-000000000053'), 'cancelled');
 select pg_temp.check('an inspection is not a cleaning and stays',
   (select status::text from public.tasks
    where id = 'a6000005-0000-4000-8000-000000000054'), 'unassigned');
