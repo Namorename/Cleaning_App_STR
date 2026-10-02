@@ -3107,7 +3107,7 @@ export type Database = {
     }
     Enums: {
       app_language: "en" | "ru" | "cs"
-      app_role: "cleaner" | "tech" | "manager" | "admin"
+      app_role: "cleaner" | "tech" | "head_tech" | "manager" | "admin"
       assignment_mode: "auto" | "claim"
       chat_thread_kind: "task" | "problem" | "direct"
       media_kind: "photo" | "video"
@@ -3292,7 +3292,7 @@ export const Constants = {
   public: {
     Enums: {
       app_language: ["en", "ru", "cs"],
-      app_role: ["cleaner", "tech", "manager", "admin"],
+      app_role: ["cleaner", "tech", "head_tech", "manager", "admin"],
       assignment_mode: ["auto", "claim"],
       chat_thread_kind: ["task", "problem", "direct"],
       media_kind: ["photo", "video"],
