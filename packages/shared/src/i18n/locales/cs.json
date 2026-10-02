@@ -1287,6 +1287,8 @@
     "techNotLinkable": "Technik se k objektům nepřiřazuje: úklidy nejsou jeho práce.",
     "techRoleBlocked": "Nejdřív toho člověka odeberte z objektů (přiřazení: {{links}}) a z otevřených úklidů ({{cleanings}}): technik úklidy nemá.",
     "cleaningNotForTech": "Úklidy a kontroly se přidělují uklízečkám, ne technikům.",
+    "managerOrHeadTechOnly": "Tuto akci může provést jen manažer nebo hlavní technik",
+    "repairNeedsTech": "Hlavní technik přiděluje práci jen technikům",
     "staffNotFound": "Takový člověk neexistuje.",
     "staffNameRequired": "Jméno je potřeba.",
     "staffNameTooLong": "Jméno je delší než {{limit}} znaků.",

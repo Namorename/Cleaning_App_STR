@@ -2137,8 +2137,11 @@ export type Database = {
         Args: { from_date: string; to_date: string }
         Returns: Json
       }
+      head_tech_dispatching: { Args: never; Returns: boolean }
+      head_tech_property_ids: { Args: never; Returns: number[] }
       invoke_edge_function: { Args: { function_name: string }; Returns: number }
       is_active_user: { Args: never; Returns: boolean }
+      is_head_tech: { Args: never; Returns: boolean }
       is_localized_text: { Args: { p_value: Json }; Returns: boolean }
       is_manager: { Args: never; Returns: boolean }
       is_service_booking:
@@ -2241,6 +2244,32 @@ export type Database = {
         }
       }
       problem_description_max_length: { Args: never; Returns: number }
+      problem_for_dispatch: {
+        Args: { p_id: string }
+        Returns: {
+          archived_at: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          created_at: string
+          description: string | null
+          host_id: string
+          id: string
+          priority: Database["public"]["Enums"]["problem_priority"]
+          property_id: number | null
+          reported_by: string
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["problem_status"]
+          task_id: string | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "problems"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       problem_for_manager: {
         Args: { p_id: string }
         Returns: {
@@ -2827,6 +2856,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      staff_directory: {
+        Args: never
+        Returns: {
+          full_name: string
+          id: string
+          is_active: boolean
+          role: Database["public"]["Enums"]["app_role"]
+        }[]
+      }
       staff_property_ids: { Args: never; Returns: number[] }
       supply_item_name_max_length: { Args: never; Returns: number }
       supply_note_max_length: { Args: never; Returns: number }
@@ -2968,6 +3006,32 @@ export type Database = {
       task_title_max_length: { Args: never; Returns: number }
       unarchive_problem: {
         Args: { p_id: string }
+        Returns: {
+          archived_at: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          created_at: string
+          description: string | null
+          host_id: string
+          id: string
+          priority: Database["public"]["Enums"]["problem_priority"]
+          property_id: number | null
+          reported_by: string
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["problem_status"]
+          task_id: string | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "problems"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      unassign_problem: {
+        Args: { p_task_id: string }
         Returns: {
           archived_at: string | null
           cancel_reason: string | null

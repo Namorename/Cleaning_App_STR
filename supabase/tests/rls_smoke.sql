@@ -32,7 +32,15 @@ values
   -- fills in itself at signup. It has to be ignored.
   ('55555555-5555-5555-5555-555555555555','00000000-0000-0000-0000-000000000000',
    'authenticated','authenticated','attacker@test.local','x',now(),now(),
-   '{"full_name":"Impostor","role":"admin"}'::jsonb, '{}'::jsonb);
+   '{"full_name":"Impostor","role":"admin"}'::jsonb, '{}'::jsonb),
+  -- The head technician (20261003100000): granted through app_metadata, and
+  -- ignored through user_metadata like any other role.
+  ('66666666-6666-6666-6666-666666666666','00000000-0000-0000-0000-000000000000',
+   'authenticated','authenticated','headtech@test.local','x',now(),now(),
+   '{"full_name":"Head Tech"}'::jsonb, '{"role":"head_tech"}'::jsonb),
+  ('77777777-7777-7777-7777-777777777777','00000000-0000-0000-0000-000000000000',
+   'authenticated','authenticated','would.be.headtech@test.local','x',now(),now(),
+   '{"full_name":"Would-be Head Tech","role":"head_tech"}'::jsonb, '{}'::jsonb);
 
 insert into public.properties (id, name, timezone) values
   (900000001,'Test property','Europe/Prague'),
@@ -70,6 +78,22 @@ select pg_temp.check('an unknown role becomes cleaner',
 select pg_temp.check('a role from user_metadata is IGNORED (escalation at signup)',
   (select role::text from public.profiles where id='55555555-5555-5555-5555-555555555555'),
   'cleaner');
+select pg_temp.check('the head technician''s role from app_metadata is applied',
+  (select role::text from public.profiles where id='66666666-6666-6666-6666-666666666666'),
+  'head_tech');
+select pg_temp.check('and from user_metadata it is ignored',
+  (select role::text from public.profiles where id='77777777-7777-7777-7777-777777777777'),
+  'cleaner');
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"77777777-7777-7777-7777-777777777777","role":"authenticated"}';
+select pg_temp.check('so the would-be head technician is not one',
+  public.is_head_tech(), false);
+set local request.jwt.claims = '{"sub":"66666666-6666-6666-6666-666666666666","role":"authenticated"}';
+select pg_temp.check('while the real one is',
+  public.is_head_tech(), true);
+select pg_temp.check('and is no manager',
+  public.is_manager(), false);
+reset role; reset request.jwt.claims;
 
 -- ---------- service_role privileges (the Edge Functions run on it) ----------
 select pg_temp.check('service_role has DML on every operational table',
@@ -315,7 +339,10 @@ values
    '{"full_name":"Repair on a listing"}'::jsonb, '{"role":"tech"}'::jsonb),
   ('e300000b-0000-4000-8000-0000000000eb','00000000-0000-0000-0000-000000000000',
    'authenticated','authenticated','combined.w3@test.local','x',now(),now(),
-   '{"full_name":"Linked to a combined listing"}'::jsonb, '{"role":"cleaner"}'::jsonb);
+   '{"full_name":"Linked to a combined listing"}'::jsonb, '{"role":"cleaner"}'::jsonb),
+  ('e300000c-0000-4000-8000-0000000000ec','00000000-0000-0000-0000-000000000000',
+   'authenticated','authenticated','head.tech.w3@test.local','x',now(),now(),
+   '{"full_name":"Head technician"}'::jsonb, '{"role":"head_tech"}'::jsonb);
 
 -- Four listings with two rooms each. The ids of rooms are the derived ones
 -- (property_id_for_unit), which the schema checks.
@@ -497,6 +524,13 @@ select pg_temp.as_user('e3000008-0000-4000-8000-0000000000e8');
 select pg_temp.check('a technician without repairs sees nothing',
   pg_temp.visible_places(), '(none)');
 
+-- The head technician reads the places his company's tasks are about, and the
+-- house above a room among them (20261003120000) — whoever holds the repair,
+-- and not the place of a repair the office wrote by hand with no task behind it.
+select pg_temp.as_user('e300000c-0000-4000-8000-0000000000ec');
+select pg_temp.check('the head technician: the room of the task and its house, nothing else',
+  pg_temp.visible_places(), 'Reported listing, Room 41');
+
 -- Only a LINK to a listing opens the rooms under it. A task on the listing
 -- itself shows the listing and nothing under it.
 select pg_temp.as_user('e300000a-0000-4000-8000-0000000000ea');
@@ -566,6 +600,9 @@ set local track_functions = 'all';
 create temp table w3_calls on commit drop as
   select coalesce(sum(calls), 0)::int as n from pg_stat_xact_user_functions
   where schemaname = 'public' and funcname = 'staff_property_ids';
+create temp table w3_head_calls on commit drop as
+  select coalesce(sum(calls), 0)::int as n from pg_stat_xact_user_functions
+  where schemaname = 'public' and funcname in ('is_head_tech', 'head_tech_property_ids');
 
 select pg_temp.as_user('e3000009-0000-4000-8000-0000000000e9');
 select pg_temp.check('a manager sees every property of her company',
@@ -579,6 +616,10 @@ select pg_temp.check('and the rule was not evaluated for her',
   (select coalesce(sum(calls), 0)::int from pg_stat_xact_user_functions
    where schemaname = 'public' and funcname = 'staff_property_ids')
   - (select n from w3_calls), 0);
+select pg_temp.check('nor the head technician''s',
+  (select coalesce(sum(calls), 0)::int from pg_stat_xact_user_functions
+   where schemaname = 'public' and funcname in ('is_head_tech', 'head_tech_property_ids'))
+  - (select n from w3_head_calls), 0);
 
 -- Deactivation takes everything away, links included.
 update public.profiles set is_active = false where id = 'e3000002-0000-4000-8000-0000000000e2';
