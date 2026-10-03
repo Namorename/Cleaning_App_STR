@@ -13,7 +13,7 @@
 --
 -- Expected, label by label (local stack after db:reset on tech-server, 2026-10-03):
 --   head           20261003170000.
---   functions      26 rows, one per name, overloads = 1, config {search_path=""}; md5 prefix /
+--   functions      27 rows, one per name, overloads = 1, config {search_path=""}; md5 prefix /
 --                  length / definer exactly (computed from the migration files: the text between
 --                  the dollar quotes of the last create of each name, read with newline='' so a
 --                  CRLF would change it, md5 of its UTF-8 bytes; the same as md5(prosrc) and
@@ -35,7 +35,8 @@
 --                    is_head_tech                   539684f4    60 t
 --                    journal_problem_change         b73cf164  1378 t
 --                    journal_repair_change          96589394  3842 t
---                    problem_for_dispatch           fe38809b   585 f
+--                    problem_for_dispatch           c30ce1e8   744 f
+--                    problem_for_manager            705d5fd4   594 f
 --                    push_on_chat_message           f930d340  2686 t
 --                    push_on_problem_reported       ef9de429  1074 t
 --                    push_on_task_change            c420d547 13438 t
@@ -44,6 +45,8 @@
 --                    task_media_video_tolerance_sec 6276b5a1    19 f
 --                    unassign_problem               a0534df4  2149 t
 --                    update_host_settings           2a2f6665  2078 t
+--                  problem_for_manager is no new function: it last lived in 20260908130000 and
+--                  20261003130000 rewrites it (its lock alone), so it is pinned here too.
 --                  The md5 must match exactly; a different one is a file saved with CRLF or a body
 --                  edited after this list — recompute before the push, never after.
 --   function_privs per function, who of anon / authenticated / PUBLIC holds EXECUTE:
@@ -51,12 +54,13 @@
 --                  policy helpers: add_task_media, assign_problem, chat_participates,
 --                  chat_unread_threads, head_tech_property_ids, is_head_tech, save_task,
 --                  staff_directory, task_media_video_tolerance_sec, unassign_problem,
---                  update_host_settings (11). [] — the other 15: chat_participates_as,
+--                  update_host_settings (11). [] — the other 16: chat_participates_as,
 --                  claim_push_batch, enqueue_daily_digest, guard_cleaning_assignee,
 --                  guard_link_role, guard_task_fields,
 --                  guard_task_transitions, guard_tech_role_change, head_tech_dispatching,
 --                  journal_problem_change, journal_repair_change, problem_for_dispatch,
---                  push_on_chat_message, push_on_problem_reported, push_on_task_change.
+--                  problem_for_manager, push_on_chat_message, push_on_problem_reported,
+--                  push_on_task_change.
 --                  guard_task_fields and guard_task_transitions may read ["authenticated"] in
 --                  the cloud — its own ACL from before F11 (postpush_f11.sql), kept by create or
 --                  replace — and that is harmless: a trigger function cannot be called.
@@ -65,9 +69,10 @@
 --                  indexes problem_events_pkey, problem_events_problem_idx (problem_id,
 --                  created_at, id), problem_events_task_idx (task_id) where task_id is not null;
 --                  rows 0 — the journal starts on the day of the push.
---   triggers       seven, all enabled ('O'), "row": true; "when" true for problems_journal_update,
---                  tasks_journal_repair and tasks_no_cleaning_for_tech only; columns ([] — the
---                  trigger names none: an insert, or an update of any column):
+--   triggers       eight, all enabled ('O'), "row": true; "when" true for problems_journal_update,
+--                  tasks_journal_repair, tasks_no_cleaning_for_tech and
+--                  tasks_no_cleaning_for_tech_revived only; columns ([] — the trigger names
+--                  none: an insert, or an update of any column):
 --                    problems_journal_insert   problems          []
 --                    problems_journal_update   problems          [archived_at, status]
 --                    problems_push_reported    problems          []
@@ -76,6 +81,7 @@
 --                    tasks_journal_repair      tasks             [assignee_id, scheduled_date,
 --                                                                 status, time_from, time_to]
 --                    tasks_no_cleaning_for_tech tasks            [assignee_id, type]
+--                    tasks_no_cleaning_for_tech_revived tasks    [status]
 --   enums          app_role {cleaner,tech,head_tech,manager,admin}; push_kind ends
 --                  {…,booking_cancelled_live,problem_new,chat_message,daily_digest}; problem_event_kind
 --                  {reported,assigned,reassigned,unassigned,rescheduled,accepted,started,
@@ -114,7 +120,7 @@ select label, payload from (
                             'guard_task_fields', 'guard_task_transitions', 'guard_tech_role_change',
                             'head_tech_dispatching', 'head_tech_property_ids', 'is_head_tech',
                             'journal_problem_change', 'journal_repair_change',
-                            'problem_for_dispatch', 'push_on_chat_message',
+                            'problem_for_dispatch', 'problem_for_manager', 'push_on_chat_message',
                             'push_on_problem_reported', 'push_on_task_change', 'save_task',
                             'staff_directory', 'task_media_video_tolerance_sec',
                             'unassign_problem', 'update_host_settings']) as f(name)
@@ -140,7 +146,7 @@ select label, payload from (
                               'guard_task_fields', 'guard_task_transitions', 'guard_tech_role_change',
                               'head_tech_dispatching', 'head_tech_property_ids', 'is_head_tech',
                               'journal_problem_change', 'journal_repair_change',
-                              'problem_for_dispatch', 'push_on_chat_message',
+                              'problem_for_dispatch', 'problem_for_manager', 'push_on_chat_message',
                               'push_on_problem_reported', 'push_on_task_change', 'save_task',
                               'staff_directory', 'task_media_video_tolerance_sec',
                               'unassign_problem', 'update_host_settings'))
@@ -183,7 +189,7 @@ select label, payload from (
             and t.tgname in ('problems_journal_insert', 'problems_journal_update',
                              'problems_push_reported', 'profiles_guard_tech_role',
                              'property_cleaners_no_tech', 'tasks_journal_repair',
-                             'tasks_no_cleaning_for_tech'))
+                             'tasks_no_cleaning_for_tech', 'tasks_no_cleaning_for_tech_revived'))
 
   union all
   select 6, 'enums',

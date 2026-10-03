@@ -423,6 +423,117 @@ select pg_temp.check('and none of them is on him any more, but the cancelled one
 delete from public.tasks where id::text like 'b3101005-%';
 
 -- ---------------------------------------------------------------------------
+--  3b. A closed cleaning is not brought back on a technician
+-- ---------------------------------------------------------------------------
+--
+-- The rule above wakes for a write that names the person or the kind. A write
+-- of the status alone, from a closed one back to a live one, names neither: a
+-- closed cleaning on a technician — an old one, or one closed while he was
+-- still a cleaner — would come back on him, and he could start and finish it.
+-- A second trigger asks the same rule of exactly that write (20261003110000);
+-- the office brings such a cleaning back by handing it to a cleaner in the
+-- same write. The rows are planted past the rules, as the cloud may have them.
+
+alter table public.tasks disable trigger user;
+insert into public.tasks (id, property_id, type, status, assignee_id, scheduled_date) values
+  ('b3101006-0000-4000-8000-000000000001', 900031003, 'cleaning', 'cancelled',
+   'b3100003-0000-4000-8000-000000000003', current_date + 2),
+  ('b3101006-0000-4000-8000-000000000002', 900031003, 'inspection', 'expired',
+   'b3100003-0000-4000-8000-000000000003', current_date - 2),
+  ('b3101006-0000-4000-8000-000000000003', 900031003, 'midstay', 'done',
+   'b3100004-0000-4000-8000-000000000004', current_date - 1),
+  ('b3101006-0000-4000-8000-000000000004', 900031002, 'cleaning', 'cancelled',
+   'b3100002-0000-4000-8000-000000000002', current_date + 2),
+  ('b3101006-0000-4000-8000-000000000005', 900031002, 'inspection', 'expired',
+   'b3100002-0000-4000-8000-000000000002', current_date - 2),
+  ('b3101006-0000-4000-8000-000000000006', 900031003, 'cleaning', 'assigned',
+   'b3100003-0000-4000-8000-000000000003', current_date),
+  ('b3101006-0000-4000-8000-000000000007', 900031003, 'cleaning', 'cancelled',
+   'b3100003-0000-4000-8000-000000000003', current_date + 3);
+alter table public.tasks enable trigger user;
+
+-- Moves between live states, into a closed one, or from one closed state to
+-- another do not even call the rule: the WHEN leaves them out.
+set local track_functions = 'all';
+create or replace function pg_temp.calls(fn text) returns integer language sql as $fn$
+  select coalesce(sum(calls), 0)::int from pg_stat_xact_user_functions
+  where schemaname = 'public' and funcname = fn $fn$;
+create temp table tr_revive_calls on commit drop as
+  select pg_temp.calls('guard_cleaning_assignee') as rule_calls;
+
+select pg_temp.as_boss();
+select pg_temp.check('an old live cleaning on him moves between live states as before',
+  pg_temp.refusal($q$update public.tasks set status = 'accepted'
+                     where id = 'b3101006-0000-4000-8000-000000000006'$q$),
+  'no refusal');
+select pg_temp.check('and into a closed one',
+  pg_temp.refusal($q$update public.tasks set status = 'cancelled'
+                     where id = 'b3101006-0000-4000-8000-000000000006'$q$),
+  'no refusal');
+select pg_temp.check('and a closed one of his into another closed state',
+  pg_temp.refusal($q$update public.tasks set status = 'expired'
+                     where id = 'b3101006-0000-4000-8000-000000000007'$q$),
+  'no refusal');
+reset role; reset request.jwt.claims;
+select pg_temp.check('none of those moves asks the rule',
+  pg_temp.calls('guard_cleaning_assignee') - (select rule_calls from tr_revive_calls), 0);
+
+-- The status alone, from closed to live, by every road that may write it.
+select pg_temp.as_boss();
+select pg_temp.check('a cancelled cleaning on a technician is not brought back by its status',
+  pg_temp.refusal($q$update public.tasks set status = 'assigned'
+                     where id = 'b3101006-0000-4000-8000-000000000001'$q$),
+  'serverErrors.cleaningNotForTech {"type": "cleaning"}');
+select pg_temp.check('nor an expired inspection',
+  pg_temp.refusal($q$update public.tasks set status = 'accepted'
+                     where id = 'b3101006-0000-4000-8000-000000000002'$q$),
+  'serverErrors.cleaningNotForTech {"type": "inspection"}');
+reset role; reset request.jwt.claims;
+set local role service_role;
+select pg_temp.check('nor by the service role',
+  pg_temp.refusal($q$update public.tasks set status = 'assigned'
+                     where id = 'b3101006-0000-4000-8000-000000000002'$q$),
+  'serverErrors.cleaningNotForTech {"type": "inspection"}');
+reset role;
+select pg_temp.check('nor a done mid-stay cleaning on the head technician, by the server context',
+  pg_temp.refusal($q$update public.tasks set status = 'in_progress'
+                     where id = 'b3101006-0000-4000-8000-000000000003'$q$),
+  'serverErrors.cleaningNotForTech {"type": "midstay"}');
+select pg_temp.check('they stay closed',
+  (select string_agg(right(id::text, 1) || ' ' || status::text, ', ' order by id)
+   from public.tasks where id in ('b3101006-0000-4000-8000-000000000001',
+                                  'b3101006-0000-4000-8000-000000000002',
+                                  'b3101006-0000-4000-8000-000000000003')),
+  '1 cancelled, 2 expired, 3 done');
+
+-- A cleaner's come back as before, and so does his once a cleaner is named.
+select pg_temp.as_boss();
+select pg_temp.check('a cancelled cleaning of a cleaner comes back as before',
+  pg_temp.refusal($q$update public.tasks set status = 'assigned'
+                     where id = 'b3101006-0000-4000-8000-000000000004'$q$),
+  'no refusal');
+reset role; reset request.jwt.claims;
+select pg_temp.check('and so does her expired inspection, by the server context',
+  pg_temp.refusal($q$update public.tasks set status = 'assigned'
+                     where id = 'b3101006-0000-4000-8000-000000000005'$q$),
+  'no refusal');
+select pg_temp.as_boss();
+select pg_temp.check('the office brings his cancelled cleaning back by handing it to a cleaner at once',
+  pg_temp.refusal($q$update public.tasks
+                     set status = 'assigned', assignee_id = 'b3100002-0000-4000-8000-000000000002'
+                     where id = 'b3101006-0000-4000-8000-000000000001'$q$),
+  'no refusal');
+reset role; reset request.jwt.claims;
+select pg_temp.check('the three came back on the cleaner',
+  (select string_agg(right(id::text, 1) || ' ' || status::text || ' ' || right(assignee_id::text, 1),
+                     ', ' order by id)
+   from public.tasks where id in ('b3101006-0000-4000-8000-000000000001',
+                                  'b3101006-0000-4000-8000-000000000004',
+                                  'b3101006-0000-4000-8000-000000000005')),
+  '1 assigned 2, 4 assigned 2, 5 assigned 2');
+delete from public.tasks where id::text like 'b3101006-%';
+
+-- ---------------------------------------------------------------------------
 --  4. The generator hands out work through 'auto' links only
 -- ---------------------------------------------------------------------------
 --

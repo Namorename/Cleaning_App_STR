@@ -11,6 +11,24 @@
 --   resolve_problem, archive_problem, reopen_problem and unarchive_problem keep
 --   problem_for_manager.
 --
+-- - the lock both take on the task's row: FOR NO KEY UPDATE, not FOR UPDATE.
+--   FOR UPDATE also stops FOR KEY SHARE, which the foreign keys to problems
+--   take for every row written that points at the task — a journal row
+--   (problem_events), an attempt inserted or re-pointed (tasks.problem_id), a
+--   photo or a thread. A technician's accept or a manager's save_task on the
+--   repair writes the journal while it holds the attempt, and the dispatcher,
+--   holding the task's row, then wants the attempt: the pair ended in a
+--   deadlock (40P01) — reproduced in two sessions on 2026-10-03, both gone with
+--   the weaker lock. Nothing needs the stronger one: no key of problems is ever
+--   written (its only unique index is the primary key). Of the rows pointing at
+--   the task, the seven callers read only its attempts, and an attempt is
+--   written only by assign_problem, which waits at this same lock — save_task
+--   and the panel never write tasks.problem_id; one written by hand beside a
+--   dispatch meets tasks_one_fix_per_problem. Dispatchers and levers still
+--   wait for each other, and for the mirror's update of the task's status.
+--   problem_for_manager last lived in 20260908130000 and changes here, in its
+--   lock alone.
+--
 -- - assign_problem: the head technician hands work to technicians only (tech
 --   or head_tech); the manager, as before, to whoever is on the spot. The
 --   person who already holds the live attempt may be moved by him to another
@@ -51,16 +69,20 @@
 --   setting name from a caller.
 --
 -- Bodies are copied from their latest migrations (assign_problem,
--- guard_task_fields and guard_task_transitions from 20260928110000) with only
--- the changes above. Same signatures, so the ACLs and the generated types stay
--- as they are, except unassign_problem, which is new. No table changes.
+-- guard_task_fields and guard_task_transitions from 20260928110000,
+-- problem_for_manager from 20260908130000) with only the changes above. Same
+-- signatures, so the ACLs and the generated types stay as they are, except
+-- unassign_problem, which is new. No table changes.
 --
 -- Lock order: a dispatch locks the task's row (problem_for_dispatch), then the
--- attempt's; a direct write of the attempt — the panel's cancelLiveTask —
--- locks the attempt, then the task's row through the mirror. The two racing
--- on one task may end in a deadlock (40P01), one of them refused and nothing
--- half-written. The panel's take-off moving to unassign_problem removes the
--- likely pair (docs/tech-plan.md §12).
+-- attempt's; a direct write of the attempt that moves the task's status — the
+-- panel's cancelLiveTask, a technician's start or finish — locks the attempt,
+-- then the task's row through the mirror's update. The two racing on one task
+-- may end in a deadlock (40P01), one of them refused and nothing half-written:
+-- the inverted order 20260923130000 accepted. A write of the attempt that
+-- leaves the task's status as it is (an accept, a save of the hours) only
+-- journals, and no longer meets the dispatch at all. The panel's take-off
+-- moving to unassign_problem removes the likely pair (docs/tech-plan.md §12).
 
 set local lock_timeout = '3s';
 
@@ -79,10 +101,12 @@ begin
       using errcode = 'insufficient_privilege', hint = 'serverErrors.managerOrHeadTechOnly';
   end if;
 
+  -- No key update: dispatchers wait for each other here, while a row that
+  -- only points at the task (its journal, an attempt) is written beside it.
   select p.* into v_problem
   from public.problems p
   where p.id = p_id and p.host_id = public.current_host_id()
-  for update;
+  for no key update;
   if not found then
     raise exception 'Problem not found'
       using errcode = 'check_violation', hint = 'serverErrors.problemNotFound';
@@ -94,7 +118,41 @@ $$;
 
 comment on function public.problem_for_dispatch(uuid) is
   'problem_for_manager for handing a task out: the manager or the head technician '
-  '(decision 1 of 2026-10-01, 20261003130000). Locks the row.';
+  '(decision 1 of 2026-10-01, 20261003130000). Locks the row for no key update.';
+
+-- The manager's levers take the task's row the same way (cancel_problem,
+-- resolve_problem, reopen_problem, archive_problem, unarchive_problem). Body
+-- from 20260908130000 with only the lock changed; same signature and ACL.
+create or replace function public.problem_for_manager(p_id uuid)
+returns public.problems
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_problem public.problems;
+begin
+  if not public.is_manager() then
+    raise exception 'Only a manager may do this'
+      using errcode = 'insufficient_privilege', hint = 'serverErrors.managerOnly';
+  end if;
+
+  -- No key update, as problem_for_dispatch (20261003130000).
+  select p.* into v_problem
+  from public.problems p
+  where p.id = p_id and p.host_id = public.current_host_id()
+  for no key update;
+  if not found then
+    raise exception 'Problem not found'
+      using errcode = 'check_violation', hint = 'serverErrors.problemNotFound';
+  end if;
+
+  return v_problem;
+end;
+$$;
+
+comment on function public.problem_for_manager(uuid) is
+  'The task (problem) for a manager''s lever, locked for no key update '
+  '(20260908130000; the lock since 20261003130000).';
 
 -- The setting the two dispatch functions switch on around their write, asked
 -- by the guards on tasks. Both halves: the setting alone says nothing about
@@ -115,6 +173,7 @@ comment on function public.head_tech_dispatching() is
   'guards on tasks let the write through as the office''s (20261003130000).';
 
 revoke all on function public.problem_for_dispatch(uuid) from public, anon, authenticated;
+revoke all on function public.problem_for_manager(uuid) from public, anon, authenticated;
 revoke all on function public.head_tech_dispatching() from public, anon, authenticated;
 
 -- ---------- the guards ----------

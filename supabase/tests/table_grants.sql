@@ -276,6 +276,7 @@ select pg_temp.check('the dispatch internals are no client''s to call',
   (select coalesce(string_agg(r || ' ' || f, ', ' order by r, f), '')
    from unnest(array['anon', 'authenticated']) r
    cross join unnest(array['public.head_tech_dispatching()', 'public.problem_for_dispatch(uuid)',
+                           'public.problem_for_manager(uuid)',
                            'public.guard_link_role()', 'public.guard_tech_role_change()']) f
    where has_function_privilege(r, f, 'EXECUTE')),
   '');

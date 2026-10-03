@@ -20,6 +20,15 @@
 --   is the office's to take off — handed to a cleaner, put back in the queue,
 --   cancelled — and a write that keeps his name on it is refused.
 --
+--   A second trigger asks the same rule of the one write that names neither
+--   and still hands him a cleaning: the status alone, from done, cancelled or
+--   expired back to a live one, on a cleaning that carries his name — a closed
+--   one from before the rule, or one closed while he was still a cleaner. A
+--   manager's PATCH or the server could write it, and he could then start and
+--   finish it. The office brings such a cleaning back by handing it to a
+--   cleaner in the same write. Moves between live states, into a closed state
+--   or between closed states do not wake it.
+--
 -- - a change of role to tech or head_tech while the person still holds links
 --   or open cleanings (a cleaning, a mid-stay cleaning or an inspection that is
 --   neither done, cancelled nor expired): a trigger on profiles, which both
@@ -43,10 +52,19 @@
 -- for them. No technician can hold an 'auto' link: a new one is refused, an
 -- old 'claim' link cannot be turned into one, and nobody becomes a technician
 -- while holding any link. A run that did meet one would roll back whole, which
--- is why the gate takes the old links off before the push. What the rule costs
--- the generator was measured through the call, rolled back (docs/tech-plan.md
--- §12): about 16 µs per cleaning handed out — 0.11 to 0.12 s for 7200 of them
--- in one round of 9000 — and nothing for the passes it does not wake for.
+-- is why the gate takes the old links off before the push. The second trigger
+-- it cannot meet at all: it brings no closed cleaning back (its latest body,
+-- 20260927120000). Of its passes only three write a status, and each reads
+-- live rows alone — the reschedule (unassigned, assigned or accepted; an
+-- accepted one that moves goes back to assigned), the hand-over (unassigned to
+-- assigned) and the cancel (live to cancelled); the relocate and the refresh
+-- write no status; and a booking whose cleaning was closed is owed a new row
+-- from the insert, never the old one back.
+--
+-- What the rule costs the generator was measured through the call, rolled
+-- back (docs/tech-plan.md §12): about 16 µs per cleaning handed out — 0.11 to
+-- 0.12 s for 7200 of them in one round of 9000 — and nothing for the passes it
+-- does not wake for.
 --
 -- With no links the rest follows and is proven by supabase/tests/tech_rules.sql,
 -- not coded here: cleans_property is false for him, so he sees no free queue
@@ -64,7 +82,13 @@
 -- waits for the first and then sees what it wrote — a cleaning handed out
 -- first is counted by the role guard, a role changed first is seen by the
 -- trigger. That closes the race of a role change with a generator run or a
--- save.
+-- save. The read has a price: any update of the profile row of a person just
+-- handed a cleaning — her language, phone or name, from her phone, the panel
+-- or manage-staff — waits for that run or save to commit. Seconds at most (the
+-- generator's budget is 8 s, a save takes milliseconds), and no deadlock: a
+-- share lock is granted beside other share locks without queueing behind an
+-- updater that waits, so the run never waits for the update it holds back,
+-- and a profile write holds nothing else (its triggers only read).
 --
 -- save_task keeps its own check of the cleaning rule, on every save that names
 -- a technician on such a job — a new task or an edit, whether or not it
@@ -155,10 +179,24 @@ create trigger tasks_no_cleaning_for_tech
   when (new.type in ('cleaning', 'midstay', 'inspection') and new.assignee_id is not null)
   execute function public.guard_cleaning_assignee();
 
+-- The write the trigger above does not see: the status alone, bringing a
+-- closed cleaning with a person on it back to life. Only that move wakes it;
+-- a write that also names the person or the kind calls the rule twice, and
+-- the answer is the same. Sorts right after the one above.
+create trigger tasks_no_cleaning_for_tech_revived
+  before update of status on public.tasks
+  for each row
+  when (old.status in ('done', 'cancelled', 'expired')
+        and new.status not in ('done', 'cancelled', 'expired')
+        and new.type in ('cleaning', 'midstay', 'inspection')
+        and new.assignee_id is not null)
+  execute function public.guard_cleaning_assignee();
+
 comment on function public.guard_cleaning_assignee() is
   'No cleaning, mid-stay cleaning or inspection is written with a technician or the '
   'head technician on it, whoever writes it: save_task, a manager directly, the '
-  'take, the generator (docs/tech-plan.md, 2.2; 20261003110000).';
+  'take, the generator — nor brought back from closed while it carries his name '
+  '(docs/tech-plan.md, 2.2; 20261003110000).';
 
 -- ---------- 3. nobody becomes a technician with cleanings on them ----------
 
