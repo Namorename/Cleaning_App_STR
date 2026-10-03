@@ -41,6 +41,15 @@
     "signOut": "Odhlásit se",
     "cancel": "Zrušit",
     "close": "Zavřít",
+    "toDashboard": "Na přehled",
+    "notFound": {
+      "title": "Stránka nenalezena",
+      "text": "Taková stránka v panelu není: adresa je zadaná s chybou nebo je odkaz zastaralý."
+    },
+    "error": {
+      "title": "Stránka se neotevřela",
+      "digest": "Kód chyby: {{digest}}"
+    },
     "settings": {
       "account": "Účet",
       "signedInAs": "Jste přihlášeni jako {{email}}.",

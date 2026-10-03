@@ -41,6 +41,15 @@
     "signOut": "Sign out",
     "cancel": "Cancel",
     "close": "Close",
+    "toDashboard": "To the dashboard",
+    "notFound": {
+      "title": "Page not found",
+      "text": "There is no such page in the panel: the address has a typo or the link is out of date."
+    },
+    "error": {
+      "title": "The page did not open",
+      "digest": "Error code: {{digest}}"
+    },
     "settings": {
       "account": "Account",
       "signedInAs": "Signed in as {{email}}.",
