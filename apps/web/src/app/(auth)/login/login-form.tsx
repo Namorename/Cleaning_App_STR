@@ -4,6 +4,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { useActionState, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Logo } from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -25,7 +26,10 @@ export function LoginForm({ next }: LoginFormProps) {
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>
-        <CardTitle>{t('panel.title')}</CardTitle>
+        {/* The logo's text is the panel's name, so the title is not said twice. */}
+        <CardTitle>
+          <Logo alt={t('panel.title')} />
+        </CardTitle>
         <CardDescription>{t('panel.login.subtitle')}</CardDescription>
       </CardHeader>
       <CardContent>

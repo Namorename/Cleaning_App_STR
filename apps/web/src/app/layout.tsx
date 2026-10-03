@@ -24,8 +24,9 @@ const nunito = Nunito({
   display: 'swap',
 });
 
+/** The tab reads the panel's name, «woom» in every language — as `panel.title` does (decision 8). */
 export const metadata: Metadata = {
-  title: 'STR Ops',
+  title: 'woom',
   description: 'Manager panel',
 };
 
