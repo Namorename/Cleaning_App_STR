@@ -576,14 +576,79 @@ reset role; reset request.jwt.claims;
 select pg_temp.check('the leak waits again',
   (select status::text from public.problems where id = pg_temp.pid(1)), 'open');
 
--- He takes a cleaner off a repair the office gave her, too (owner, 2026-10-03:
--- «Да может снять»); he hands work only to technicians.
+-- A cleaner's repair, handed to her by the office: he may take her off it
+-- (owner, 2026-10-03: «Да может снять»), so he may move it too — the same
+-- person on another day or hours hands nothing to anybody. Handing it to
+-- anybody else is still for technicians only.
 select pg_temp.as_hector();
-select pg_temp.check('the head technician takes a cleaner off a repair',
-  pg_temp.refusal($q$select public.unassign_problem((pg_temp.live_fix(3)).id)$q$),
+select pg_temp.check('the head technician moves a cleaner''s repair to another day',
+  pg_temp.refusal($q$select public.assign_problem(pg_temp.pid(3),
+    'b3200005-0000-4000-8000-000000000005', current_date + 1, '09:00', '10:00')$q$),
+  'no refusal');
+reset role; reset request.jwt.claims;
+select pg_temp.check('it is still hers, on the new day and hours',
+  (select array[(f).assignee_id::text, (f).scheduled_date::text, (f).time_from::text]
+   from (select pg_temp.live_fix(3) as f) x),
+  array['b3200005-0000-4000-8000-000000000005', (current_date + 1)::text, '09:00:00']);
+select pg_temp.as_hector();
+select pg_temp.check('but he does not hand it to anybody but a technician',
+  pg_temp.refusal($q$select public.assign_problem(pg_temp.pid(3),
+    'b3200001-0000-4000-8000-000000000001')$q$),
+  'serverErrors.repairNeedsTech');
+reset role; reset request.jwt.claims;
+select pg_temp.check('and a refused hand-over leaves it with her',
+  (select (pg_temp.live_fix(3)).assignee_id), 'b3200005-0000-4000-8000-000000000005'::uuid);
+
+-- A take-off says whom the screen showed. A screen minutes old may show
+-- somebody the attempt no longer has: it is told so, and nobody is taken off.
+select pg_temp.as_hector();
+select pg_temp.check('a take-off of somebody the attempt no longer has is told it changed',
+  pg_temp.refusal($q$select public.unassign_problem((pg_temp.live_fix(3)).id,
+    'b3200003-0000-4000-8000-000000000003')$q$),
+  'serverErrors.taskChangedMeanwhile');
+reset role; reset request.jwt.claims;
+select pg_temp.check('and she is still on it',
+  (select (pg_temp.live_fix(3)).assignee_id), 'b3200005-0000-4000-8000-000000000005'::uuid);
+
+-- He takes a cleaner off a repair the office gave her, too; he hands work
+-- only to technicians.
+select pg_temp.as_hector();
+select pg_temp.check('the head technician takes a cleaner off a repair, naming her',
+  pg_temp.refusal($q$select public.unassign_problem((pg_temp.live_fix(3)).id,
+    'b3200005-0000-4000-8000-000000000005')$q$),
   'no refusal');
 reset role; reset request.jwt.claims;
 select pg_temp.check('and the room lamp waits again',
   (select status::text from public.problems where id = pg_temp.pid(3)), 'open');
+
+-- ---------------------------------------------------------------------------
+--  The live attempt is a repair
+-- ---------------------------------------------------------------------------
+--
+-- Only a repair is an attempt at a task. A live row of another kind that
+-- carries a problem_id — nothing of ours writes one, a manager's direct write
+-- could — is not the dispatch's to rewrite; a problem has one live task
+-- (tasks_one_fix_per_problem), so no attempt opens beside it either.
+insert into public.tasks (id, host_id, property_id, type, status, assignee_id, scheduled_date, problem_id)
+values ('b3202001-0000-4000-8000-000000000010', 'b3200000-0000-4000-8000-00000000000a', 900032001,
+        'inspection', 'assigned', 'b3200005-0000-4000-8000-000000000005', current_date,
+        pg_temp.pid(1));
+select pg_temp.as_hector();
+select pg_temp.check('the dispatch refuses a task held by an inspection that names it',
+  pg_temp.refusal($q$select public.assign_problem(pg_temp.pid(1),
+    'b3200004-0000-4000-8000-000000000004', current_date + 2)$q$),
+  'serverErrors.problemNotOpen');
+select pg_temp.check('nor takes anybody off it as if it were a repair',
+  pg_temp.refusal($q$select public.unassign_problem('b3202001-0000-4000-8000-000000000010')$q$),
+  'serverErrors.taskNotFound');
+reset role; reset request.jwt.claims;
+select pg_temp.check('the inspection is not touched',
+  (select array[assignee_id::text, scheduled_date::text, status::text] from public.tasks
+   where id = 'b3202001-0000-4000-8000-000000000010'),
+  array['b3200005-0000-4000-8000-000000000005', current_date::text, 'assigned']);
+select pg_temp.check('and no attempt opened beside it',
+  (select count(*)::int from public.tasks
+   where problem_id = pg_temp.pid(1) and type = 'maintenance'
+     and status not in ('done', 'cancelled', 'expired')), 0);
 
 rollback;

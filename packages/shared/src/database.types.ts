@@ -3110,7 +3110,7 @@ export type Database = {
         }
       }
       unassign_problem: {
-        Args: { p_task_id: string }
+        Args: { p_expected_assignee?: string; p_task_id: string }
         Returns: {
           archived_at: string | null
           cancel_reason: string | null

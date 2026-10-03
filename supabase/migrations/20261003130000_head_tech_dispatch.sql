@@ -12,16 +12,31 @@
 --   problem_for_manager.
 --
 -- - assign_problem: the head technician hands work to technicians only (tech
---   or head_tech); the manager, as before, to whoever is on the spot.
+--   or head_tech); the manager, as before, to whoever is on the spot. The
+--   person who already holds the live attempt may be moved by him to another
+--   day or hours whatever her role: he may take a cleaner off a repair
+--   (decision 17 of 2026-10-03), and a move is less. The live attempt is
+--   looked up among the task's repairs alone (type 'maintenance'), as
+--   unassign_problem takes it: a live row of another kind that carries the
+--   problem_id is not rewritten, and since a problem has one live task
+--   (tasks_one_fix_per_problem) the call is refused (problemNotOpen) instead
+--   of opening an attempt beside it. Last writer wins, as before —
+--   two dispatchers meet on the task's row and the second overwrites the
+--   first (docs/tech-plan.md, 3.3).
 --
--- - unassign_problem(p_task_id): taking a technician off a repair. Until now it
---   was the manager's direct write (the panel's cancelLiveTask): the attempt is
---   cancelled, the mirror puts the task back to 'open', and the technician
---   loses the task and its conversation (20260918110000). The head technician
---   is not the assignee and has no write on tasks, so it is a function, for
---   both. It takes the attempt by id, as the panel does: a click on a screen
---   that is minutes old lands on nothing (taskChangedMeanwhile) instead of on
---   an attempt opened since.
+-- - unassign_problem(p_task_id, p_expected_assignee): taking a technician off
+--   a repair. Until now it was the manager's direct write (the panel's
+--   cancelLiveTask): the attempt is cancelled, the mirror puts the task back
+--   to 'open', and the technician loses the task and its conversation
+--   (20260918110000). The head technician is not the assignee and has no
+--   write on tasks, so it is a function, for both. It takes the attempt by id,
+--   as the panel does: a click on a screen that is minutes old lands on
+--   nothing (taskChangedMeanwhile) instead of on an attempt opened since. With
+--   p_expected_assignee — whom the screen showed — a screen that showed
+--   somebody else than the attempt now has is told the same, and nobody is
+--   taken off: it must not take off a person it never showed. Null, the
+--   default, asks nothing. No caller yet: the panel moves to it after the push
+--   (docs/tech-plan.md §12).
 --
 -- - both guards on tasks: for anybody but a manager they hold the day, the
 --   hours and the other fields of a task (guard_task_fields, silently) and
@@ -39,6 +54,13 @@
 -- guard_task_fields and guard_task_transitions from 20260928110000) with only
 -- the changes above. Same signatures, so the ACLs and the generated types stay
 -- as they are, except unassign_problem, which is new. No table changes.
+--
+-- Lock order: a dispatch locks the task's row (problem_for_dispatch), then the
+-- attempt's; a direct write of the attempt — the panel's cancelLiveTask —
+-- locks the attempt, then the task's row through the mirror. The two racing
+-- on one task may end in a deadlock (40P01), one of them refused and nothing
+-- half-written. The panel's take-off moving to unassign_problem removes the
+-- likely pair (docs/tech-plan.md §12).
 
 set local lock_timeout = '3s';
 
@@ -311,6 +333,7 @@ as $$
 declare
   v_problem public.problems;
   v_task_id uuid;
+  v_holder  uuid;
   v_date    date;
   v_role    public.app_role;
 begin
@@ -337,9 +360,35 @@ begin
     raise exception 'Assignee is not an active member of this company'
       using errcode = 'check_violation', hint = 'serverErrors.problemAssigneeInvalid';
   end if;
+
+  -- The live attempt is a repair.
+  select t.id, t.assignee_id into v_task_id, v_holder
+  from public.tasks t
+  where t.problem_id = p_id
+    and t.type = 'maintenance'
+    and t.status not in ('done', 'cancelled', 'expired')
+  for update;
+
+  -- A problem has one live task (tasks_one_fix_per_problem). A live row of
+  -- another kind carrying its problem_id — nothing of ours writes one, a
+  -- manager's direct write could — is not the dispatch's to rewrite, and no
+  -- attempt can open beside it: said so, rather than left to the index.
+  if v_task_id is null
+     and exists (select 1 from public.tasks t
+                 where t.problem_id = p_id
+                   and t.status not in ('done', 'cancelled', 'expired')) then
+    raise exception 'Problem % is held by live work that is not a repair', p_id
+      using errcode = 'check_violation', hint = 'serverErrors.problemNotOpen';
+  end if;
+
   -- The head technician hands work to technicians, himself among them
   -- (decisions 1 and 8 of 2026-10-01); the office to whoever is on the spot.
-  if not public.is_manager() and v_role not in ('tech', 'head_tech') then
+  -- The person already on the live attempt he may move to another day or
+  -- hours, whatever her role: he may take her off (decision 17), and a move
+  -- hands nothing to anybody.
+  if not public.is_manager()
+     and v_role not in ('tech', 'head_tech')
+     and (v_task_id is null or p_assignee_id is distinct from v_holder) then
     raise exception 'The head technician hands work to technicians only'
       using errcode = 'check_violation', hint = 'serverErrors.repairNeedsTech';
   end if;
@@ -348,11 +397,6 @@ begin
     p_scheduled_date,
     (select (now() at time zone pr.timezone)::date
      from public.properties pr where pr.id = v_problem.property_id));
-
-  select t.id into v_task_id
-  from public.tasks t
-  where t.problem_id = p_id and t.status not in ('done', 'cancelled', 'expired')
-  for update;
 
   -- The guards on tasks hold an executor's write; this one is the office's,
   -- and so is the head technician's. Switched on for the write alone
@@ -393,7 +437,11 @@ $$;
 
 -- ---------- taking a technician off ----------
 
-create or replace function public.unassign_problem(p_task_id uuid)
+create or replace function public.unassign_problem(
+  p_task_id           uuid,
+  -- Whom the screen showed on the attempt. Null — the default — asks nothing.
+  p_expected_assignee uuid default null
+)
 returns public.problems
 language plpgsql
 security definer
@@ -402,7 +450,8 @@ as $$
 declare
   v_problem_id uuid;
   v_problem    public.problems;
-  v_count      integer;
+  v_holder     uuid;
+  v_closed     boolean;
 begin
   -- Asked before the attempt is looked up: whoever may not dispatch learns
   -- nothing about which ids exist.
@@ -425,21 +474,30 @@ begin
   end if;
 
   -- The task's row first, as assign_problem takes it: two dispatchers meet
-  -- there rather than on the attempt.
+  -- there rather than on the attempt. Then the attempt, as it is now.
   v_problem := public.problem_for_dispatch(v_problem_id);
+
+  select t.assignee_id, t.status in ('done', 'cancelled', 'expired')
+    into v_holder, v_closed
+  from public.tasks t
+  where t.id = p_task_id
+  for update;
+
+  -- A screen minutes old: the attempt has closed since (or is gone), or holds
+  -- somebody the screen did not show. Nobody is taken off whom the caller
+  -- never saw.
+  if not found
+     or v_closed
+     or (p_expected_assignee is not null and p_expected_assignee is distinct from v_holder) then
+    raise exception 'Repair % changed while the screen was open', p_task_id
+      using errcode = 'check_violation', hint = 'serverErrors.taskChangedMeanwhile';
+  end if;
 
   perform set_config('str_ops.head_tech_dispatch', 'on', true);
   update public.tasks t
   set status = 'cancelled'
-  where t.id = p_task_id
-    and t.status not in ('done', 'cancelled', 'expired');
-  get diagnostics v_count = row_count;
+  where t.id = p_task_id;
   perform set_config('str_ops.head_tech_dispatch', '', true);
-
-  if v_count = 0 then
-    raise exception 'Repair % is no longer live', p_task_id
-      using errcode = 'check_violation', hint = 'serverErrors.taskChangedMeanwhile';
-  end if;
 
   -- The mirror has put the task back to 'open'.
   select p.* into v_problem from public.problems p where p.id = v_problem_id;
@@ -447,10 +505,11 @@ begin
 end;
 $$;
 
-comment on function public.unassign_problem(uuid) is
-  'Take the technician off a repair: the live attempt is cancelled and its task '
-  'waits again. For the manager and the head technician (decision 1 of '
-  '2026-10-01, 20261003130000).';
+comment on function public.unassign_problem(uuid, uuid) is
+  'Take the person off a repair: the live attempt is cancelled and its task '
+  'waits again. With p_expected_assignee, only if the attempt still holds that '
+  'person. For the manager and the head technician (decisions 1 and 17, '
+  '20261003130000).';
 
-revoke all on function public.unassign_problem(uuid) from public, anon;
-grant execute on function public.unassign_problem(uuid) to authenticated, service_role;
+revoke all on function public.unassign_problem(uuid, uuid) from public, anon;
+grant execute on function public.unassign_problem(uuid, uuid) to authenticated, service_role;
