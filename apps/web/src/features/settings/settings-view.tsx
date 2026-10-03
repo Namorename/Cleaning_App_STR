@@ -5,24 +5,28 @@ import { useTranslation } from 'react-i18next';
 import { SignOut } from '@/components/sign-out';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProcessSection } from '@/features/workflow/process-section';
+import type { ThemeChoice } from '@/lib/theme';
 
 import { HostToggles } from './host-toggles';
+import { ThemeSwitcher } from './theme-switcher';
 
 interface SettingsViewProps {
   email: string;
+  /** The theme this browser keeps (the cookie, read by the page). */
+  theme: ThemeChoice;
   onSignOut: () => Promise<void>;
 }
 
 /**
  * What a company decides once, in one place.
  *
- * Three cards, widest to narrowest in reach. The account is this person's
- * and nobody else's. The switches are the company's and change how every
- * cleaner's app behaves. The process is the company's too, with room for one
- * listing to differ — and it is the longest of the three, so it sits last
- * where it can be as tall as it needs to be.
+ * Four cards, narrowest to widest in reach. The account is this person's
+ * and nobody else's, the look this browser's. The switches are the company's
+ * and change how every cleaner's app behaves. The process is the company's
+ * too, with room for one listing to differ — and it is the longest of them,
+ * so it sits last where it can be as tall as it needs to be.
  */
-export function SettingsView({ email, onSignOut }: SettingsViewProps) {
+export function SettingsView({ email, theme, onSignOut }: SettingsViewProps) {
   const { t } = useTranslation();
 
   return (
@@ -36,6 +40,16 @@ export function SettingsView({ email, onSignOut }: SettingsViewProps) {
         </CardHeader>
         <CardContent>
           <SignOut onSignOut={onSignOut} />
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-lg">
+        <CardHeader>
+          <CardTitle>{t('panel.settings.appearance')}</CardTitle>
+          <CardDescription>{t('panel.settings.appearanceHint')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ThemeSwitcher initial={theme} />
         </CardContent>
       </Card>
 

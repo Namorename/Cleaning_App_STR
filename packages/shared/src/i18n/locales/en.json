@@ -10,6 +10,12 @@
       "ru": "Русский",
       "en": "English",
       "cs": "Čeština"
+    },
+    "theme": {
+      "label": "Theme",
+      "system": "Same as the system",
+      "light": "Light",
+      "dark": "Dark"
     }
   },
   "auth": {
@@ -37,6 +43,8 @@
     "settings": {
       "account": "Account",
       "signedInAs": "Signed in as {{email}}.",
+      "appearance": "Appearance",
+      "appearanceHint": "In this browser only.",
       "company": "Company",
       "companyHint": "Applies to every listing and everyone on the staff.",
       "loadError": "The company settings could not be loaded.",

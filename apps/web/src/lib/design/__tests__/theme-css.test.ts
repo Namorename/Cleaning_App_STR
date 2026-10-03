@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import {
+  FONT,
   RADIUS,
   THEME_COLORS,
   THEME_NAMES,
@@ -185,5 +186,29 @@ describe('the stylesheet reads only what the theme defines', () => {
   test('the fonts do not point at themselves or at a font nobody loads', () => {
     expect(globals).not.toMatch(/--font-sans:\s*var\(--font-sans\)/);
     expect(globals).not.toContain('--font-geist-mono');
+  });
+});
+
+/**
+ * next/font takes only literal options, so the layout cannot read `FONT`; this
+ * reads the layout instead. The variable must sit on <html>, where `font-sans`
+ * is read: on <body> the panel stays in the browser's serif (checked in Chrome).
+ */
+describe('the font', () => {
+  const layout = read(path.join(APP, 'layout.tsx'));
+
+  test('is the tokens’ family in the tokens’ weights, with Cyrillic and Czech letters', () => {
+    expect(layout).toContain(`from 'next/font/google'`);
+    expect(layout).toMatch(new RegExp(`\\b${FONT.family}\\(\\{`));
+    const weights = /weight: \[([^\]]*)\]/.exec(layout)?.[1] ?? '';
+    expect(weights.split(',').map((one) => Number(one.trim().replace(/'/g, '')))).toEqual(
+      FONT.weights,
+    );
+    expect(layout).toContain(`subsets: ['latin', 'latin-ext', 'cyrillic']`);
+    expect(layout).toContain(`variable: '--font-sans'`);
+  });
+
+  test('sets its variable on <html>', () => {
+    expect(layout).toMatch(/<html[^>]*className=\{[^}]*\.variable/);
   });
 });

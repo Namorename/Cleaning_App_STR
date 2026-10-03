@@ -10,6 +10,12 @@
       "ru": "Русский",
       "en": "English",
       "cs": "Čeština"
+    },
+    "theme": {
+      "label": "Motiv",
+      "system": "Podle systému",
+      "light": "Světlý",
+      "dark": "Tmavý"
     }
   },
   "auth": {
@@ -37,6 +43,8 @@
     "settings": {
       "account": "Účet",
       "signedInAs": "Jste přihlášeni jako {{email}}.",
+      "appearance": "Vzhled",
+      "appearanceHint": "Jen v tomto prohlížeči.",
       "company": "Společnost",
       "companyHint": "Platí pro všechny objekty a pro všechny zaměstnance.",
       "loadError": "Nastavení společnosti se nepodařilo načíst.",
