@@ -134,12 +134,10 @@ describe('the street step-up', () => {
   });
 
   test('an asked weight steps up too, and 800 is the top', () => {
-    expect(resolveWeight({ variant: 'body', tone: 'secondary', weight: 400, scheme: 'light' })).toBe(
-      600,
-    );
-    expect(resolveWeight({ variant: 'chip', tone: 'default', weight: 800, scheme: 'light' })).toBe(
-      800,
-    );
+    const quiet = { variant: 'body', tone: 'secondary', scheme: 'light' } as const;
+    const chip = { variant: 'chip', tone: 'default', scheme: 'light' } as const;
+    expect(resolveWeight({ ...quiet, weight: 400 })).toBe(600);
+    expect(resolveWeight({ ...chip, weight: 800 })).toBe(800);
   });
 
   test('drawn: a secondary line in the light theme is semibold → bold', async () => {

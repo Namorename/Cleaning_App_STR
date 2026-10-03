@@ -75,6 +75,8 @@ export interface Theme {
   /** The darkening under a sheet or a caption on a photo, alpha included. */
   readonly scrim: string;
   readonly onScrim: HexColor;
+  /** The soft shadow a card sits on, in place of a frame (decisions §1, «Форма»). */
+  readonly shadow: string;
   /** The thirteen tones every status is drawn in; read one through `statusTone`. */
   readonly tone: Readonly<Record<Tone, ToneColors>>;
 }
@@ -84,6 +86,9 @@ function withAlpha(hex: HexColor, alpha: number): string {
   const value = parseInt(hex.slice(1), 16);
   return `rgba(${(value >> 16) & 0xff}, ${(value >> 8) & 0xff}, ${value & 0xff}, ${alpha})`;
 }
+
+/** How dark a card's shadow is: a dark screen needs more of it to show at all. */
+const SHADOW_ALPHA: Readonly<Record<ThemeName, number>> = { light: 0.1, dark: 0.4 };
 
 function phoneTheme(scheme: ThemeName): Theme {
   const c = THEME_COLORS[scheme];
@@ -113,6 +118,7 @@ function phoneTheme(scheme: ThemeName): Theme {
     link: c.link,
     scrim: withAlpha(c.scrim, c.scrimAlpha),
     onScrim: c.onScrim,
+    shadow: `0px 2px 8px ${withAlpha(c.scrim, SHADOW_ALPHA[scheme])}`,
     tone: TONE_COLORS[scheme],
   };
 }

@@ -1,6 +1,10 @@
 import { FONT, FONT_SIZE, FONT_WEIGHT, LINE_HEIGHT, type ThemeName } from '@str-ops/shared';
 import { useMemo } from 'react';
-import { Text as NativeText, type TextProps as NativeTextProps, type TextStyle } from 'react-native';
+import {
+  Text as NativeText,
+  type TextProps as NativeTextProps,
+  type TextStyle,
+} from 'react-native';
 
 import type { Theme } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
