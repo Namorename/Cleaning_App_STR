@@ -76,10 +76,16 @@ export default function RootLayout() {
   // the server, not the radio, decides when they go out again.
   useEffect(() => watchNetwork(), []);
 
-  // From the first commit of the screens on, the root boundary catches
-  // instead of crashing. Not before: while the splash is up nothing is drawn
-  // yet, and a first screen that cannot draw must still crash, so that
-  // expo-updates rolls a broken update back.
+  // Until this runs the root boundary rethrows; from then on it catches. It
+  // runs after the first commit of the root with the app ready: the root
+  // layout and the spinner app/index.tsx draws while the session is read. A
+  // render error in that commit still crashes, so expo-updates rolls a broken
+  // update back. A render error in any later commit — the tabs and the first
+  // list once the session is in, any screen opened after — does not crash and
+  // is not rolled back: the root shows "screen failed" with a retry. That is
+  // deliberate: those screens draw the lists restored from disk, a crash would
+  // only start again on the same lists, and the root's "reset saved lists"
+  // (`common.resetSaved`) is the way out of that loop.
   useEffect(() => {
     if (isReady) {
       markAppDrawn();
