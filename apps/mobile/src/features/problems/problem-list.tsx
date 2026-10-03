@@ -2,6 +2,7 @@ import { useCallback, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
 
+import { ErrorBanner } from '@/components/error-banner';
 import { FontSize, Spacing, type Theme } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { serverErrorText } from '@/lib/server-error';
@@ -66,7 +67,7 @@ export function ProblemList({
     );
   }
 
-  if (error !== null) {
+  if (error !== null && sections === undefined) {
     const failure = serverErrorText(error);
     return (
       <View style={styles.centered}>
@@ -76,13 +77,26 @@ export function ProblemList({
     );
   }
 
+  // Error over cache: a refresh that failed still has the list from the last
+  // time it loaded, kept on the phone. The list stays, and a line above it
+  // says what happened; the error screen above is for a list never loaded.
+  const listHeader =
+    error === null ? (
+      header
+    ) : (
+      <>
+        <ErrorBanner title={t('common.refreshFailed')} error={error} />
+        {header}
+      </>
+    );
+
   return (
     <SectionList
       sections={sections ?? []}
       keyExtractor={(item) => item.id}
       renderItem={renderItem}
       renderSectionHeader={renderSectionHeader}
-      ListHeaderComponent={header}
+      ListHeaderComponent={listHeader}
       contentContainerStyle={styles.content}
       ItemSeparatorComponent={Separator}
       stickySectionHeadersEnabled={false}

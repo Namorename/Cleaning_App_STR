@@ -6,6 +6,7 @@
     "retry": "Try again",
     "close": "Close",
     "loading": "Loading…",
+    "refreshFailed": "Could not refresh; showing what was saved. Pull down to try again.",
     "resetSaved": "Reset saved lists",
     "resetSavedHint": "The lists will load again. Actions waiting for a connection are kept.",
     "languages": {

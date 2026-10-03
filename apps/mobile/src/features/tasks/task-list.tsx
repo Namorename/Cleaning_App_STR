@@ -2,6 +2,7 @@ import { useCallback, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
 
+import { ErrorBanner } from '@/components/error-banner';
 import { FontSize, Spacing, type Theme } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { serverErrorText } from '@/lib/server-error';
@@ -99,7 +100,7 @@ export function TaskList({
     );
   }
 
-  if (error !== null) {
+  if (error !== null && sections === undefined) {
     const failure = serverErrorText(error);
 
     return (
@@ -114,6 +115,19 @@ export function TaskList({
     );
   }
 
+  // Error over cache: a refresh that failed still has the list from the last
+  // time it loaded, kept on the phone. The list stays, and a line above it
+  // says what happened; the error screen above is for a list never loaded.
+  const listHeader =
+    error === null ? (
+      header
+    ) : (
+      <>
+        <ErrorBanner title={t('common.refreshFailed')} error={error} />
+        {header}
+      </>
+    );
+
   return (
     <SectionList
       sections={sections ?? []}
@@ -125,7 +139,7 @@ export function TaskList({
       ItemSeparatorComponent={Separator}
       SectionSeparatorComponent={Separator}
       stickySectionHeadersEnabled={false}
-      ListHeaderComponent={header}
+      ListHeaderComponent={listHeader}
       refreshControl={
         // The spinner is drawn by the platform and defaults to a dark tick on
         // iOS — invisible on the dark background without this.

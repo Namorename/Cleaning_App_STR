@@ -64,6 +64,44 @@ test('distinguishes a failure from an empty day', async () => {
   expect(screen.queryByText('Свободных уборок нет.')).toBeNull();
 });
 
+// A refresh that fails in a stairwell must not take away the list she had a
+// minute ago: yesterday's cards stay, and a line above them says what happened.
+test('a failed refresh keeps the list it had, with the failure said above it', async () => {
+  await render(
+    <TaskList
+      {...baseProps}
+      sections={[{ key: 'upcoming', data: [task()] }]}
+      isLoading={false}
+      error={new Error('Network request failed')}
+    />,
+  );
+
+  expect(screen.getByText('CZ - Nadrazni Apt 6')).toBeTruthy();
+  expect(
+    screen.getByText('Не удалось обновить, показано сохранённое. Потяните вниз, чтобы повторить.'),
+  ).toBeTruthy();
+  expect(screen.getByText('Не удалось выполнить действие. Попробуйте ещё раз.')).toBeTruthy();
+  expect(screen.getByText('Network request failed')).toBeTruthy();
+  expect(screen.queryByText('Не удалось загрузить уборки')).toBeNull();
+});
+
+test('the failure line sits with what the screen puts above the cards', async () => {
+  await render(
+    <TaskList
+      {...baseProps}
+      sections={[{ key: 'upcoming', data: [task()] }]}
+      isLoading={false}
+      error={new Error('Network request failed')}
+      header={<Text>Эту уборку с вас сняли.</Text>}
+    />,
+  );
+
+  expect(screen.getByText('Эту уборку с вас сняли.')).toBeTruthy();
+  expect(
+    screen.getByText('Не удалось обновить, показано сохранённое. Потяните вниз, чтобы повторить.'),
+  ).toBeTruthy();
+});
+
 test('shows the empty message when there is genuinely nothing to do', async () => {
   await render(<TaskList {...baseProps} sections={[]} isLoading={false} error={null} />);
 
