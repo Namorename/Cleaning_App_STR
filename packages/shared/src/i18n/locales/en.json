@@ -143,6 +143,7 @@
       "unread": "Unread: {{count}}",
       "collapse": "Collapse the menu",
       "expand": "Expand the menu",
+      "open": "Open the menu",
       "groups": {
         "work": "Work",
         "reference": "Directory"

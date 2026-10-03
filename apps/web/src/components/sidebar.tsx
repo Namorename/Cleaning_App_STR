@@ -29,7 +29,8 @@ interface SidebarProps {
  * scrolls the menu itself), 240 px wide, and folds to a 64 px strip of icons
  * to give the calendar and the boards the width. The choice outlives the page
  * in a cookie (`lib/sidebar-state.ts`), so the server draws the next page at
- * the same width.
+ * the same width. Below `md` the phone's top bar takes its place
+ * (`mobile-nav.tsx`, decision 14).
  */
 export function Sidebar({ email, isInitiallyCollapsed = false }: SidebarProps) {
   const { t } = useTranslation();
@@ -48,7 +49,7 @@ export function Sidebar({ email, isInitiallyCollapsed = false }: SidebarProps) {
     <aside
       data-state={isCollapsed ? 'collapsed' : 'expanded'}
       className={cn(
-        'sticky top-0 flex h-dvh shrink-0 flex-col self-start overflow-x-hidden overflow-y-auto border-r bg-card py-4 transition-[width] duration-200 ease-out motion-reduce:transition-none',
+        'sticky top-0 hidden h-dvh shrink-0 flex-col self-start overflow-x-hidden overflow-y-auto border-r bg-card py-4 transition-[width] duration-200 ease-out motion-reduce:transition-none md:flex',
         isCollapsed ? 'w-16 px-2.5' : 'w-60 px-4',
       )}
     >

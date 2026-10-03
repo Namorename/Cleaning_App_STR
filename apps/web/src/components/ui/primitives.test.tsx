@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from './alert';
 import { Checkbox } from './checkbox';
 import { Skeleton } from './skeleton';
 import { Switch } from './switch';
+import { Tabs, TabsList, TabsTrigger } from './tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip';
 
 /**
@@ -72,5 +73,19 @@ describe('the new primitives', () => {
     );
 
     expect(screen.getByRole('button', { name: 'SDT' })).toBeInTheDocument();
+  });
+
+  test('a tab list never widens the page: on a narrow screen it scrolls within itself', () => {
+    // Decision 14: on a phone the page never scrolls sideways — the five tabs
+    // of a listing's card are wider than 390 px.
+    render(
+      <Tabs defaultValue="info">
+        <TabsList>
+          <TabsTrigger value="info">Информация</TabsTrigger>
+        </TabsList>
+      </Tabs>,
+    );
+
+    expect(screen.getByRole('tablist')).toHaveClass('max-w-full', 'overflow-x-auto');
   });
 });

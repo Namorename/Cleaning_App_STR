@@ -143,6 +143,7 @@
       "unread": "Nepřečtené: {{count}}",
       "collapse": "Sbalit nabídku",
       "expand": "Rozbalit nabídku",
+      "open": "Otevřít nabídku",
       "groups": {
         "work": "Práce",
         "reference": "Evidence"
