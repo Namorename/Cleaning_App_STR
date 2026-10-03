@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
+import { Icon } from '@/components/icon';
 import { ListRow } from '@/components/list-row';
 import { Spacing } from '@/constants/theme';
 
@@ -18,6 +19,8 @@ export function AboutSection() {
         <ListRow
           title={t('settings.fontLicense.title')}
           subtitle={t('settings.fontLicense.summary')}
+          // The row opens a screen of its own: the chevron says so before the tap.
+          right={<Icon name="action.next" tone="secondary" />}
           onPress={() => router.push('/font-license')}
         />
       </View>
