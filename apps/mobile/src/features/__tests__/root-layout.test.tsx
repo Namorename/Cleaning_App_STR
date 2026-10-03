@@ -1,4 +1,6 @@
 import { render, screen } from '@testing-library/react-native';
+import type { ReactNode } from 'react';
+import { Text, View } from 'react-native';
 
 import RootLayout, { ErrorBoundary } from '@/app/_layout';
 import { markAppDrawn } from '@/components/route-error';
@@ -20,45 +22,44 @@ jest.mock('@/components/route-error', () => {
   return { ...actual, markAppDrawn: jest.fn(actual.markAppDrawn) };
 });
 
+interface MockChildren {
+  children?: ReactNode;
+}
+
 // The providers reduced to a mark that they mounted; each has its own tests.
-jest.mock('@tanstack/react-query-persist-client', () => {
-  const { View } = require('react-native');
-  return {
-    PersistQueryClientProvider: ({ children }: { children: unknown }) => (
-      <View testID="query-cache">{children}</View>
-    ),
+// Built here, read only when drawn: by then the imports above are in.
+function mockMarkedProvider(testID: string) {
+  return function MarkedProvider({ children }: MockChildren) {
+    return <View testID={testID}>{children}</View>;
   };
-});
-jest.mock('@/features/auth/session', () => {
-  const { View } = require('react-native');
-  return {
-    SessionProvider: ({ children }: { children: unknown }) => (
-      <View testID="session">{children}</View>
-    ),
-  };
-});
-jest.mock('@/features/profile/language-gate', () => ({
-  ProfileLanguageGate: ({ children }: { children: unknown }) => children,
+}
+
+function mockPassThrough({ children }: MockChildren) {
+  return <>{children}</>;
+}
+
+function mockStackMark() {
+  return <Text>stack</Text>;
+}
+
+jest.mock('@tanstack/react-query-persist-client', () => ({
+  PersistQueryClientProvider: mockMarkedProvider('query-cache'),
 }));
+jest.mock('@/features/auth/session', () => ({
+  SessionProvider: mockMarkedProvider('session'),
+}));
+jest.mock('@/features/profile/language-gate', () => ({ ProfileLanguageGate: mockPassThrough }));
 jest.mock('@/features/push/push-bridge', () => ({ PushBridge: () => null }));
-jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaProvider: ({ children }: { children: unknown }) => children,
-}));
+jest.mock('react-native-safe-area-context', () => ({ SafeAreaProvider: mockPassThrough }));
 jest.mock('expo-router', () => {
-  const { Text } = require('react-native');
   function Stack() {
-    return <Text>stack</Text>;
+    return mockStackMark();
   }
   Stack.Screen = function Screen() {
     return null;
   };
   const stock = { dark: false, colors: {}, fonts: {} };
-  return {
-    Stack,
-    ThemeProvider: ({ children }: { children: unknown }) => children,
-    DarkTheme: stock,
-    DefaultTheme: stock,
-  };
+  return { Stack, ThemeProvider: mockPassThrough, DarkTheme: stock, DefaultTheme: stock };
 });
 
 jest.mock('@/lib/query-client', () => ({
