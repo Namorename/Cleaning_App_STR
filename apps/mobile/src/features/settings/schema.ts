@@ -1,4 +1,4 @@
-import { Constants, type Enums } from '@str-ops/shared';
+import { Constants, type AppRole, type Enums } from '@str-ops/shared';
 import { z } from 'zod';
 
 export type PushKind = Enums<'push_kind'>;
@@ -11,6 +11,29 @@ export type PushKind = Enums<'push_kind'>;
  * that silently matches nothing.
  */
 export const PUSH_KINDS: readonly PushKind[] = Constants.public.Enums.push_kind;
+
+/**
+ * The kinds sent to some roles only, each with the roles it is for; a kind
+ * not named here is offered to everybody. A new task (problem_new) goes to
+ * the head technician alone (20261003160000_head_tech_push), so nobody else
+ * is shown its switch — not a switch greyed out, no row at all (owner's word
+ * 2026-10-03, docs/tech-plan.md, decision 19).
+ */
+const KIND_ROLES: Partial<Record<PushKind, readonly AppRole[]>> = {
+  problem_new: ['head_tech'],
+};
+
+/**
+ * The kinds whose switch a person with this role is shown, in the enum's
+ * order. A token without a role, or with one this build does not know, is
+ * shown only the kinds that go to everybody.
+ */
+export function kindsFor(role: string | null): readonly PushKind[] {
+  return PUSH_KINDS.filter((kind) => {
+    const roles: readonly string[] | undefined = KIND_ROLES[kind];
+    return roles === undefined || (role !== null && roles.includes(role));
+  });
+}
 
 function isPushKind(value: unknown): value is PushKind {
   return typeof value === 'string' && (PUSH_KINDS as readonly string[]).includes(value);

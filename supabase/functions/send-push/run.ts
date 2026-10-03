@@ -124,6 +124,10 @@ function pushData(folded: Folded): Record<string, unknown> {
       };
     case "digest":
       return { kind: "daily_digest" };
+    case "problem":
+      // A build that does not know the kind reads this as nothing: the system
+      // shows the push, and a tap opens the app (apps/mobile push/payload.ts).
+      return { kind: "problem_new", problemId: folded.problemId };
   }
 }
 
@@ -136,12 +140,14 @@ function kindOf(folded: Folded): PushKind {
       return "chat_message";
     case "digest":
       return "daily_digest";
+    case "problem":
+      return "problem_new";
   }
 }
 
 function messagesFor(group: PushGroup, folded: Folded): ExpoMessage[] {
   const { title, body } = renderPush(folded, group);
-  const urgent = folded.type === "task" && folded.urgent;
+  const urgent = (folded.type === "task" || folded.type === "problem") && folded.urgent;
   return group.tokens.map((phone) => ({
     to: phone.token,
     title,

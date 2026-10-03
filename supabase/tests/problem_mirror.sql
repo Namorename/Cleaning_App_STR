@@ -321,15 +321,17 @@ select pg_temp.check('a live task leaving an archived problem leaves its status 
 --  Who may point a task at a problem
 -- ---------------------------------------------------------------------------
 
--- An executor cannot attach her own task to a problem: the link would hand
--- her the report, its chat, and the problem's status through the mirror.
+-- An executor cannot attach his own task to a problem: the link would hand
+-- him the report, its chat, and the problem's status through the mirror. His
+-- own task is a repair the office wrote by hand: a technician holds no
+-- cleaning (20261003110000).
 insert into public.tasks (property_id, type, status, assignee_id, scheduled_date, notes)
-values (900009516, 'cleaning', 'assigned', pg_temp.tech2(), current_date, 'her own cleaning');
+values (900009516, 'maintenance', 'assigned', pg_temp.tech2(), current_date, 'his own repair');
 select pg_temp.as_user(pg_temp.tech2());
-update public.tasks set problem_id = pg_temp.pid(13) where notes = 'her own cleaning';
+update public.tasks set problem_id = pg_temp.pid(13) where notes = 'his own repair';
 select pg_temp.as_postgres();
 select pg_temp.check('an executor''s problem_id write is ignored',
-  (select problem_id from public.tasks where notes = 'her own cleaning'), null::uuid);
+  (select problem_id from public.tasks where notes = 'his own repair'), null::uuid);
 select pg_temp.check('and the problem does not move', pg_temp.st(13), 'open -');
 
 -- A task never speaks for another company's problem, whoever wrote the link.

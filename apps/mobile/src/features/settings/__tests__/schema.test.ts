@@ -1,4 +1,12 @@
-import { PUSH_KINDS, isPushEnabled, pushPreferencesSchema, withPushChoice } from '../schema';
+import { Constants } from '@str-ops/shared';
+
+import {
+  PUSH_KINDS,
+  isPushEnabled,
+  kindsFor,
+  pushPreferencesSchema,
+  withPushChoice,
+} from '../schema';
 
 /**
  * Which pushes she wants is kept on the server as the list of the ones she
@@ -20,9 +28,32 @@ test('lists the push kinds in the order the owner approved them', () => {
     'cleaning_window',
     'cleaning_free',
     'booking_cancelled_live',
+    'problem_new',
     'chat_message',
     'daily_digest',
   ]);
+});
+
+test('the head technician is offered every kind, a new task among them', () => {
+  expect(kindsFor('head_tech')).toEqual(PUSH_KINDS);
+});
+
+// Read off the enum: a role added later is checked here without a word.
+const NOT_HEAD_TECH = Constants.public.Enums.app_role.filter((role) => role !== 'head_tech');
+
+test.each(NOT_HEAD_TECH)('a %s is not offered a new task, and every other kind stays', (role) => {
+  expect(kindsFor(role)).toEqual(PUSH_KINDS.filter((kind) => kind !== 'problem_new'));
+});
+
+test('the roles that are not offered a new task include the cleaner, the tech and the manager', () => {
+  expect(NOT_HEAD_TECH).toEqual(expect.arrayContaining(['cleaner', 'tech', 'manager']));
+});
+
+test('a token without a role, or with one this build does not know, is not offered a new task', () => {
+  const withoutNewTask = PUSH_KINDS.filter((kind) => kind !== 'problem_new');
+
+  expect(kindsFor(null)).toEqual(withoutNewTask);
+  expect(kindsFor('auditor')).toEqual(withoutNewTask);
 });
 
 test('a kind this build does not know is dropped, not thrown', () => {

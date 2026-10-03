@@ -9,7 +9,10 @@
 
 import { isRecord } from "../_shared/coerce.ts";
 
-/** push_kind, in the order the migration declares it (20260928100000). */
+/**
+ * push_kind, in the order the migrations declare it (20260928100000;
+ * problem_new, the head technician's new task, 20261003150000).
+ */
 export const PUSH_KINDS = [
   "cleaning_new",
   "cleaning_assigned",
@@ -19,6 +22,7 @@ export const PUSH_KINDS = [
   "cleaning_window",
   "cleaning_free",
   "booking_cancelled_live",
+  "problem_new",
   "chat_message",
   "daily_digest",
 ] as const;

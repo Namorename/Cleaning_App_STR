@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 48">
+  <!--
+    Placeholder until the owner sends his logo (docs/redesign-plan.md, 6.1),
+    for the dark theme: the Apricot mark - a house with a rounded roof, a
+    honey spark in its doorway, which is cut out to the page behind - and
+    the word in curves. The mark is the glyph of
+    docs/design/redesign-directions.html on its 108-unit canvas.
+  -->
+  <g transform="translate(-32 -30)">
+    <path fill="#e78c70" fill-rule="evenodd" d="M32 55Q32 51 35.5 48L50.5 35Q54 32 57.5 35L72.5 48Q76 51 76 55V73Q76 76 73 76H35Q32 76 32 73ZM47 76V65.5a7 7 0 0 1 14 0V76Z"/>
+    <path fill="#edb154" d="M54 63.2c.4 3 2.8 5.4 5.8 5.8-3 .4-5.4 2.8-5.8 5.8-.4-3-2.8-5.4-5.8-5.8 3-.4 5.4-2.8 5.8-5.8z"/>
+  </g>
+  <g fill="none" stroke="#f7ebdd" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M59 24L68 42L77 24L86 42L95 24"/>
+    <circle cx="114" cy="33" r="9"/>
+    <circle cx="142" cy="33" r="9"/>
+    <path d="M161 42V31a7 7 0 0 1 14 0V42M175 31a7 7 0 0 1 14 0V42"/>
+  </g>
+</svg>
