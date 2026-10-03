@@ -2,13 +2,14 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { FontSize, MIN_TOUCH_TARGET, Spacing, type Theme } from '@/constants/theme';
+import { roleOf } from '@/features/auth/role';
 import { useSession } from '@/features/auth/session';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { serverErrorText, type ServerErrorText } from '@/lib/server-error';
 
 import { PermissionNotice } from './permission-notice';
-import { PUSH_KINDS, isPushEnabled, type PushKind, type PushPreferences } from './schema';
+import { isPushEnabled, kindsFor, type PushKind, type PushPreferences } from './schema';
 import { FailureNote, SettingsSection, failureOf } from './section';
 import { usePushPreferences, useSetPushPreference } from './use-settings';
 
@@ -19,10 +20,14 @@ import { usePushPreferences, useSetPushPreference } from './use-settings';
  * switch turned off also stops what is already waiting in the queue. What the
  * phone itself allows — the system permission, Android's channels — is a
  * layer of its own, said above the switches (docs/f11-plan.md §3.2).
+ *
+ * Only the kinds her role can receive are offered (`kindsFor`): a new task
+ * goes to the head technician alone, and nobody else sees its switch.
  */
 export function PushSection() {
   const { t } = useTranslation();
-  const { userId } = useSession();
+  const { userId, session } = useSession();
+  const kinds = kindsFor(roleOf(session?.user ?? null));
   const preferences = usePushPreferences();
   const choose = useSetPushPreference();
 
@@ -39,7 +44,7 @@ export function PushSection() {
     >
       <PermissionNotice />
       {preferences.data !== undefined ? (
-        <PushSwitches preferences={preferences.data} onChange={onChange} />
+        <PushSwitches kinds={kinds} preferences={preferences.data} onChange={onChange} />
       ) : (
         <PushLoading
           failure={preferences.isError ? serverErrorText(preferences.error) : null}
@@ -54,18 +59,20 @@ export function PushSection() {
 }
 
 interface PushSwitchesProps {
+  /** The kinds offered to her, in the order they are listed. */
+  kinds: readonly PushKind[];
   preferences: PushPreferences | null;
   onChange: (kind: PushKind, enabled: boolean) => void;
 }
 
-function PushSwitches({ preferences, onChange }: PushSwitchesProps) {
+function PushSwitches({ kinds, preferences, onChange }: PushSwitchesProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
 
   return (
     <View>
-      {PUSH_KINDS.map((kind) => {
+      {kinds.map((kind) => {
         const label = t(`settings.notifications.kinds.${kind}`);
         return (
           <View key={kind} style={styles.row}>
