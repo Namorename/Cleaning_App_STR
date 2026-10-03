@@ -1,43 +1,81 @@
 -- The technician and the cleanings (docs/tech-plan.md, §2; owner's word 2026-10-01).
 --
 -- A technician sees and does only the work handed to him; cleanings are not
--- his — nor the head technician's (§3). The database refuses the writes that
--- would make one his, and every rule below holds for both roles:
+-- his — nor the head technician's (§3). The database refuses every write that
+-- would make one his, whoever writes it, and every rule below holds for both
+-- roles:
 --
--- - a link to a listing (property_cleaners): a trigger, so the RPC
---   save_property_cleaner, the manager's direct write and the server context
---   are all refused. Without links the generator, which hands work out only
---   through 'auto' links, never gives him a cleaning; cleans_property is false
---   for him, so he sees no free queue and has nothing to take; the push about
---   free work and the morning count of it go to linked people only. Those are
---   proven by supabase/tests/tech_rules.sql, not coded here.
+-- - a link to a listing (property_cleaners): a trigger on any insert or update
+--   of a link, so the RPC save_property_cleaner, the manager's direct write and
+--   the server context are all refused — and so is any edit of an old link:
+--   turned from 'claim' into 'auto' it would feed him the generator's
+--   cleanings. An old link is only taken off.
+--
+-- - a cleaning, a mid-stay cleaning or an inspection with his name on it: a
+--   trigger on tasks, on every insert and on every update that writes the
+--   person or the kind of job. Its WHEN leaves out repairs and work nobody
+--   holds, so the function is not even called for them. Every road meets it:
+--   save_task, the manager's direct insert or PATCH, the take («Взять») of a
+--   free cleaning through an old link, the generator. An old cleaning on him
+--   is the office's to take off — handed to a cleaner, put back in the queue,
+--   cancelled — and a write that keeps his name on it is refused.
 --
 -- - a change of role to tech or head_tech while the person still holds links
 --   or open cleanings (a cleaning, a mid-stay cleaning or an inspection that is
 --   neither done, cancelled nor expired): a trigger on profiles, which both
 --   paths that change a role hit — manage-staff, which upserts the row as the
 --   service role, and a manager writing the row. The manager takes them off
---   first; nothing is lost quietly. Only a change asks: an old link in the
---   cloud (one technician, docs/tech-plan.md §1) does not stop an edit of his
---   phone number, and the owner takes those rows off himself.
+--   first; nothing is lost quietly. Only a change into the role is asked: an
+--   edit that keeps the role is an edit, whatever old rows the person holds,
+--   so an old link in the cloud (one technician, docs/tech-plan.md §1) does not
+--   stop an edit of his phone number.
 --
--- - save_task handing a cleaning, a mid-stay cleaning or an inspection to a
---   technician, on creation or by an edit that changes the person or the kind
---   of job. A repair still goes to anybody on the spot (owner, 2026-10-01).
+-- What holds for the old rows, written before this file: nothing here removes
+-- them, and reading does not ask the role (§2.4). Until the owner takes the
+-- technician's links off in «Команда» — the gate before the push,
+-- docs/tech-plan.md §12 — cleans_property stays true for him on those
+-- listings: he reads their tasks, and only the table stops his take. A closed
+-- cleaning on him stays his to read, with its listing.
+--
+-- The generator never meets the refusal in practice. It names a person only
+-- through an 'auto' link — in its insert and in its hand-over pass; its other
+-- passes write neither the person nor the kind, and the trigger does not wake
+-- for them. No technician can hold an 'auto' link: a new one is refused, an
+-- old 'claim' link cannot be turned into one, and nobody becomes a technician
+-- while holding any link. A run that did meet one would roll back whole, which
+-- is why the gate takes the old links off before the push. What the rule costs
+-- the generator was measured through the call, rolled back (docs/tech-plan.md
+-- §12): about 16 µs per cleaning handed out — 0.11 to 0.12 s for 7200 of them
+-- in one round of 9000 — and nothing for the passes it does not wake for.
+--
+-- With no links the rest follows and is proven by supabase/tests/tech_rules.sql,
+-- not coded here: cleans_property is false for him, so he sees no free queue
+-- and has nothing to take; the push about free work and the morning count of
+-- it go to linked people only.
 --
 -- Reading tasks does not change (§2.4): a role in the hot policies would cost a
 -- call on every row of a feed, and reading must not hide a cleaning already
 -- handed out — it would be a cleaning nobody does.
 --
--- The three refusals follow CLAUDE.md: an English message, the i18n key in
--- hint, the parameters as JSON in detail. The role check and the write it
--- guards meet on the person's profile row: the link and the save read it FOR
--- SHARE, and the role change writes it, so whichever comes second waits for
--- the first and then sees what it wrote.
+-- The refusals follow CLAUDE.md: an English message, the i18n key in hint, the
+-- parameters as JSON in detail. A role check and the write it guards meet on
+-- the person's profile row: the link trigger, the tasks trigger and save_task
+-- read it FOR SHARE, and the role change writes it, so whichever comes second
+-- waits for the first and then sees what it wrote — a cleaning handed out
+-- first is counted by the role guard, a role changed first is seen by the
+-- trigger. That closes the race of a role change with a generator run or a
+-- save.
 --
--- save_task's body is copied from 20260928110000 with only the change above;
--- same signature, so its ACL and the generated types stay. The triggers take
--- a brief lock on property_cleaners and profiles.
+-- save_task keeps its own check of the cleaning rule, on every save that names
+-- a technician on such a job — a new task or an edit, whether or not it
+-- changes the person or the kind: it answers before the questions about
+-- duplicates (otherwise the panel would ask «save anyway?» about a save the
+-- table then refuses), and costs nothing, since the role comes with the FOR
+-- SHARE read that already checks the assignee. A repair still goes to anybody
+-- on the spot (owner, 2026-10-01). Its body is copied from 20260928110000
+-- with only that check; same signature, so its ACL and the generated types
+-- stay. The triggers take a brief lock on property_cleaners, tasks and
+-- profiles.
 
 set local lock_timeout = '3s';
 
@@ -66,15 +104,63 @@ begin
 end;
 $$;
 
+-- Any write of a link, not only of its person: an old link of a technician,
+-- from before this file, turned from 'claim' into 'auto' would hand him the
+-- listing's cleanings from the generator.
 create trigger property_cleaners_no_tech
-  before insert or update of cleaner_id on public.property_cleaners
+  before insert or update on public.property_cleaners
   for each row execute function public.guard_link_role();
 
 comment on function public.guard_link_role() is
-  'A technician or the head technician holds no link to a listing: cleanings are '
-  'not their work (docs/tech-plan.md, 2.1; 20261003110000).';
+  'A technician or the head technician holds no link to a listing, and an old one '
+  'is only taken off: cleanings are not their work (docs/tech-plan.md, 2.1; '
+  '20261003110000).';
 
--- ---------- 2. nobody becomes a technician with cleanings on them ----------
+-- ---------- 2. no cleaning carries a technician's name ----------
+
+create or replace function public.guard_cleaning_assignee()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_role public.app_role;
+begin
+  -- FOR SHARE: a change of the person's role waits for this write, and this
+  -- write for a change already under way.
+  select p.role into v_role
+  from public.profiles p
+  where p.id = new.assignee_id
+  for share;
+
+  if v_role in ('tech', 'head_tech') then
+    raise exception 'A % is not handed to a technician: % is %', new.type, new.assignee_id, v_role
+      using errcode = 'check_violation',
+            hint = 'serverErrors.cleaningNotForTech',
+            detail = jsonb_build_object('type', new.type)::text;
+  end if;
+
+  return new;
+end;
+$$;
+
+-- Wakes for a cleaning of any kind with a person on it, and only when the
+-- write names the person or the kind; a repair, free work, and a change of
+-- the status, the day or the hours never call it. Sorts after the guards on
+-- tasks, so it sees the row as they leave it.
+create trigger tasks_no_cleaning_for_tech
+  before insert or update of assignee_id, type on public.tasks
+  for each row
+  when (new.type in ('cleaning', 'midstay', 'inspection') and new.assignee_id is not null)
+  execute function public.guard_cleaning_assignee();
+
+comment on function public.guard_cleaning_assignee() is
+  'No cleaning, mid-stay cleaning or inspection is written with a technician or the '
+  'head technician on it, whoever writes it: save_task, a manager directly, the '
+  'take, the generator (docs/tech-plan.md, 2.2; 20261003110000).';
+
+-- ---------- 3. nobody becomes a technician with cleanings on them ----------
 
 create or replace function public.guard_tech_role_change()
 returns trigger
@@ -127,9 +213,10 @@ comment on function public.guard_tech_role_change() is
   'manager writing the profile.';
 
 revoke all on function public.guard_link_role() from public, anon, authenticated;
+revoke all on function public.guard_cleaning_assignee() from public, anon, authenticated;
 revoke all on function public.guard_tech_role_change() from public, anon, authenticated;
 
--- ---------- 3. save_task hands no cleaning to a technician ----------
+-- ---------- 4. save_task says so before its other questions ----------
 
 create or replace function public.save_task(
   p_id              uuid,
@@ -250,8 +337,10 @@ begin
         using errcode = 'check_violation', hint = 'serverErrors.taskAssigneeInvalid';
     end if;
     -- Cleanings of every kind are a cleaner's; a repair goes to whoever is on
-    -- the spot (docs/tech-plan.md, 2.2). Asked of the kind the task ends up
-    -- with, so neither a new task nor an edit of one hands it to a technician.
+    -- the spot (docs/tech-plan.md, 2.2). The table refuses it too
+    -- (tasks_no_cleaning_for_tech); asked here of the kind the task ends up
+    -- with, on every save that names him, so the answer comes before the
+    -- questions about duplicates below.
     if v_type in ('cleaning', 'midstay', 'inspection')
        and v_assignee_role in ('tech', 'head_tech') then
       raise exception 'A % is not handed to a technician', v_type

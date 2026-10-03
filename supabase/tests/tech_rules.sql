@@ -4,12 +4,15 @@
 -- What is being protected: a technician has nothing to do with cleanings, and
 -- neither has the head technician (§3). He sees and does only the work handed
 -- to him. The database refuses the two writes that would make a cleaning his —
--- a link to a listing and the assignment of a cleaning, a mid-stay cleaning or
--- an inspection — and refuses to turn into a technician somebody who still
--- holds either: the manager takes them off first, and nothing is lost quietly.
--- The rest follows from that, and is proven here rather than coded: the
--- generator hands out work only through 'auto' links, and the queue, the take,
--- the push about free work and the morning count of it all go through links.
+-- a link to a listing (any write of one) and a cleaning, a mid-stay cleaning or
+-- an inspection with his name on it (any write of one, by any road: save_task,
+-- the manager's direct write, the take, the server) — and refuses to turn into
+-- a technician somebody who still holds either: the manager takes them off
+-- first, and nothing is lost quietly. The rest follows from that, and is
+-- proven here rather than coded: the generator hands out work only through
+-- 'auto' links, and the queue, the take, the push about free work and the
+-- morning count of it all go through links. Old rows written before the rule
+-- are planted past it, as the cloud has them.
 --
 -- Fixture ids live in the 9000310xx range and under b31….
 begin;
@@ -241,8 +244,36 @@ select pg_temp.check('but not be made head technician before the link is off',
   pg_temp.refusal($q$update public.profiles set role = 'head_tech'
                      where id = 'b3100003-0000-4000-8000-000000000003'$q$),
   'serverErrors.techRoleBlocked {"links": 1, "cleanings": 0}');
+
+-- The old link is only taken off. Turned into his automatic one it would feed
+-- him the listing's cleanings from the generator; any other edit keeps a link
+-- the rule has no room for.
+select pg_temp.check('an old link of a technician is not turned into his automatic one',
+  pg_temp.refusal($q$update public.property_cleaners set mode = 'auto'
+                     where property_id = 900031003
+                       and cleaner_id = 'b3100003-0000-4000-8000-000000000003'$q$),
+  'serverErrors.techNotLinkable');
+select pg_temp.check('nor through save_property_cleaner',
+  pg_temp.refusal($q$select public.save_property_cleaner(
+    900031003, 'b3100003-0000-4000-8000-000000000003', 'auto', 1)$q$),
+  'serverErrors.techNotLinkable');
+select pg_temp.check('nor edited at all',
+  pg_temp.refusal($q$update public.property_cleaners set priority = 3
+                     where property_id = 900031003
+                       and cleaner_id = 'b3100003-0000-4000-8000-000000000003'$q$),
+  'serverErrors.techNotLinkable');
+select pg_temp.check('the old link is still a claim link',
+  (select mode::text || ' ' || priority::text from public.property_cleaners
+   where property_id = 900031003 and cleaner_id = 'b3100003-0000-4000-8000-000000000003'),
+  'claim 1');
+select pg_temp.check('and the manager takes it off',
+  pg_temp.refusal($q$delete from public.property_cleaners
+                     where cleaner_id = 'b3100003-0000-4000-8000-000000000003'$q$),
+  'no refusal');
 reset role; reset request.jwt.claims;
-delete from public.property_cleaners where cleaner_id = 'b3100003-0000-4000-8000-000000000003';
+select pg_temp.check('so he holds no link',
+  (select count(*)::int from public.property_cleaners
+   where cleaner_id = 'b3100003-0000-4000-8000-000000000003'), 0);
 
 -- Every link is counted, whatever its mode.
 select pg_temp.as_boss();
@@ -312,6 +343,86 @@ select pg_temp.check('the repair is still his and still a repair',
   'maintenance b3100003-0000-4000-8000-000000000003');
 
 -- ---------------------------------------------------------------------------
+--  3a. The table refuses, whoever writes
+-- ---------------------------------------------------------------------------
+--
+-- save_task is one road of several: the manager may write tasks directly, the
+-- take is the phone's direct write, and the generator writes as the server.
+-- The rule is the table's (20261003110000), and every road meets it.
+
+select pg_temp.as_boss();
+select pg_temp.check('a manager''s direct insert of a cleaning on a technician is refused',
+  pg_temp.refusal($q$insert into public.tasks (id, property_id, type, status, assignee_id, scheduled_date)
+                     values ('b3101005-0000-4000-8000-000000000001', 900031003, 'cleaning', 'assigned',
+                             'b3100003-0000-4000-8000-000000000003', current_date + 1)$q$),
+  'serverErrors.cleaningNotForTech {"type": "cleaning"}');
+select pg_temp.check('and so is handing a cleaner''s cleaning to him directly',
+  pg_temp.refusal($q$update public.tasks set assignee_id = 'b3100003-0000-4000-8000-000000000003'
+                     where id = 'b3101002-0000-4000-8000-000000000006'$q$),
+  'serverErrors.cleaningNotForTech {"type": "cleaning"}');
+select pg_temp.check('or to the head technician',
+  pg_temp.refusal($q$update public.tasks set assignee_id = 'b3100004-0000-4000-8000-000000000004'
+                     where id = 'b3101002-0000-4000-8000-000000000006'$q$),
+  'serverErrors.cleaningNotForTech {"type": "cleaning"}');
+select pg_temp.check('or turning his repair into an inspection',
+  pg_temp.refusal($q$update public.tasks set type = 'inspection'
+                     where id = 'b3101002-0000-4000-8000-000000000004'$q$),
+  'serverErrors.cleaningNotForTech {"type": "inspection"}');
+reset role; reset request.jwt.claims;
+select pg_temp.check('nor does the server context write one',
+  pg_temp.refusal($q$insert into public.tasks (id, property_id, type, status, assignee_id, scheduled_date)
+                     values ('b3101005-0000-4000-8000-000000000002', 900031003, 'midstay', 'assigned',
+                             'b3100004-0000-4000-8000-000000000004', current_date + 1)$q$),
+  'serverErrors.cleaningNotForTech {"type": "midstay"}');
+select pg_temp.check('nothing of it was written',
+  (select count(*)::int from public.tasks where id::text like 'b3101005-%')
+  + (select count(*)::int from public.tasks
+     where id = 'b3101002-0000-4000-8000-000000000006'
+       and assignee_id <> 'b3100002-0000-4000-8000-000000000002')
+  + (select count(*)::int from public.tasks
+     where id = 'b3101002-0000-4000-8000-000000000004' and type <> 'maintenance'), 0);
+
+-- An old cleaning on a technician, from before the rule, is the office's to
+-- take off him: handed to a cleaner, put back in the queue or cancelled. The
+-- table refuses only a write that names him on a cleaning.
+alter table public.tasks disable trigger user;
+insert into public.tasks (id, property_id, type, status, assignee_id, scheduled_date) values
+  ('b3101005-0000-4000-8000-000000000003', 900031003, 'cleaning', 'assigned',
+   'b3100003-0000-4000-8000-000000000003', current_date + 2),
+  ('b3101005-0000-4000-8000-000000000004', 900031003, 'inspection', 'assigned',
+   'b3100003-0000-4000-8000-000000000003', current_date + 2),
+  ('b3101005-0000-4000-8000-000000000005', 900031003, 'midstay', 'assigned',
+   'b3100003-0000-4000-8000-000000000003', current_date + 2);
+alter table public.tasks enable trigger user;
+select pg_temp.as_boss();
+select pg_temp.check('an old cleaning on him is not edited with his name kept',
+  pg_temp.refusal($q$update public.tasks set assignee_id = 'b3100003-0000-4000-8000-000000000003',
+                                             notes = 'Keys at the desk'
+                     where id = 'b3101005-0000-4000-8000-000000000003'$q$),
+  'serverErrors.cleaningNotForTech {"type": "cleaning"}');
+select pg_temp.check('it is handed to a cleaner',
+  pg_temp.refusal($q$update public.tasks set assignee_id = 'b3100002-0000-4000-8000-000000000002'
+                     where id = 'b3101005-0000-4000-8000-000000000003'$q$),
+  'no refusal');
+select pg_temp.check('or put back in the queue',
+  pg_temp.refusal($q$update public.tasks set assignee_id = null, status = 'unassigned'
+                     where id = 'b3101005-0000-4000-8000-000000000004'$q$),
+  'no refusal');
+select pg_temp.check('or cancelled',
+  pg_temp.refusal($q$update public.tasks set status = 'cancelled'
+                     where id = 'b3101005-0000-4000-8000-000000000005'$q$),
+  'no refusal');
+reset role; reset request.jwt.claims;
+select pg_temp.check('and none of them is on him any more, but the cancelled one''s record',
+  (select string_agg(right(id::text, 1) || ' ' || status::text || ' '
+                     || coalesce(right(assignee_id::text, 1), '-'), ', ' order by id)
+   from public.tasks where id::text like 'b3101005-%'),
+  '3 assigned 2, 4 unassigned -, 5 cancelled 3');
+-- The closed one stays in his sight like any closed work of his (§2.4); out
+-- of the way of what follows.
+delete from public.tasks where id::text like 'b3101005-%';
+
+-- ---------------------------------------------------------------------------
 --  4. The generator hands out work through 'auto' links only
 -- ---------------------------------------------------------------------------
 --
@@ -323,7 +434,19 @@ insert into public.reservations (id, property_id, arrival_date, departure_date, 
   (900031051, 900031002, current_date, current_date + 2, 'new', 'Guest B'),
   (900031052, 900031003, current_date, current_date + 2, 'new', 'Guest C');
 
+-- The table's rule is asked of a cleaning with a person on it, and of nothing
+-- else: the generator writes cleanings by the thousand, most of them free.
+set local track_functions = 'all';
+create or replace function pg_temp.calls(fn text) returns integer language sql as $fn$
+  select coalesce(sum(calls), 0)::int from pg_stat_xact_user_functions
+  where schemaname = 'public' and funcname = fn $fn$;
+create temp table tr_calls on commit drop as
+  select pg_temp.calls('guard_cleaning_assignee') as rule_calls;
+
 select public.generate_cleaning_tasks(current_date - 1, current_date + 7);
+
+select pg_temp.check('the generator asks the rule once, for the one cleaning it hands out',
+  pg_temp.calls('guard_cleaning_assignee') - (select rule_calls from tr_calls), 1);
 
 select pg_temp.check('the automatic cleaner gets her cleaning',
   (select assignee_id from public.tasks
@@ -337,7 +460,8 @@ select pg_temp.check('no technician holds a cleaning after the generator',
   (select count(*)::int from public.tasks
    where assignee_id in ('b3100003-0000-4000-8000-000000000003',
                          'b3100004-0000-4000-8000-000000000004')
-     and type in ('cleaning', 'midstay', 'inspection')), 0);
+     and type in ('cleaning', 'midstay', 'inspection')
+     and reservation_id is not null), 0);
 
 -- ---------------------------------------------------------------------------
 --  5. What a technician sees and may take
@@ -386,6 +510,24 @@ with taken as (
   returning id)
 select pg_temp.check('and he cannot take the free cleaning', (select count(*)::int from taken), 0);
 
+-- Through an old link from before the rule he would clean the flat as far as
+-- the take's policy can tell; the table refuses the take itself.
+reset role; reset request.jwt.claims;
+alter table public.property_cleaners disable trigger user;
+insert into public.property_cleaners (property_id, cleaner_id, mode) values
+  (900031001, 'b3100003-0000-4000-8000-000000000003', 'claim');
+alter table public.property_cleaners enable trigger user;
+select pg_temp.as_tomas();
+select pg_temp.check('an old link makes the flat his to clean, as far as the policy knows',
+  public.cleans_property(900031001), true);
+select pg_temp.check('but the take of the free cleaning through it is refused',
+  pg_temp.refusal($q$update public.tasks
+                     set assignee_id = 'b3100003-0000-4000-8000-000000000003', status = 'accepted'
+                     where id = 'b3101003-0000-4000-8000-000000000002'$q$),
+  'serverErrors.cleaningNotForTech {"type": "cleaning"}');
+reset role; reset request.jwt.claims;
+delete from public.property_cleaners where cleaner_id = 'b3100003-0000-4000-8000-000000000003';
+
 select pg_temp.as_hana();
 select pg_temp.check('the head technician does not clean it either',
   public.cleans_property(900031001), false);
@@ -426,10 +568,13 @@ select pg_temp.check('the technician''s morning has his repair and no free line'
 -- A role in the hot policies would cost a call on every row of the feed, and
 -- reading must not hide what is already handed out: a cleaning nobody does.
 -- An old cleaning on a technician stays in his sight until the owner moves it.
+-- It is planted past the table's rule, as it was written before it.
 
+alter table public.tasks disable trigger user;
 insert into public.tasks (id, property_id, type, status, assignee_id, scheduled_date) values
   ('b3101004-0000-4000-8000-000000000001', 900031003, 'cleaning', 'assigned',
    'b3100003-0000-4000-8000-000000000003', current_date + 1);
+alter table public.tasks enable trigger user;
 select pg_temp.as_tomas();
 select pg_temp.check('a cleaning already on a technician stays in his sight',
   (select count(*)::int from public.tasks where id = 'b3101004-0000-4000-8000-000000000001'), 1);
