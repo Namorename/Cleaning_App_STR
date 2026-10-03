@@ -37,7 +37,7 @@
     "signOutFailed": "Odhlášení se nezdařilo"
   },
   "panel": {
-    "title": "STR Ops",
+    "title": "woom",
     "signOut": "Odhlásit se",
     "cancel": "Zrušit",
     "close": "Zavřít",
@@ -140,7 +140,11 @@
       "apartments": "Objekty",
       "settings": "Nastavení",
       "calendar": "Kalendář",
-      "unread": "Nepřečtené: {{count}}"
+      "unread": "Nepřečtené: {{count}}",
+      "groups": {
+        "work": "Práce",
+        "reference": "Evidence"
+      }
     },
     "dashboard": {
       "tiles": {

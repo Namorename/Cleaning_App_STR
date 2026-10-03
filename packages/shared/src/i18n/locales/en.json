@@ -37,7 +37,7 @@
     "signOutFailed": "Could not sign out"
   },
   "panel": {
-    "title": "STR Ops",
+    "title": "woom",
     "signOut": "Sign out",
     "cancel": "Cancel",
     "close": "Close",
@@ -140,7 +140,11 @@
       "apartments": "Listings",
       "settings": "Settings",
       "calendar": "Calendar",
-      "unread": "Unread: {{count}}"
+      "unread": "Unread: {{count}}",
+      "groups": {
+        "work": "Work",
+        "reference": "Directory"
+      }
     },
     "dashboard": {
       "tiles": {

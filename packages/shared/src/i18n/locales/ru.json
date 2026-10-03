@@ -37,7 +37,7 @@
     "signOutFailed": "Не удалось выйти"
   },
   "panel": {
-    "title": "STR Ops",
+    "title": "woom",
     "signOut": "Выйти",
     "cancel": "Отмена",
     "close": "Закрыть",
@@ -140,7 +140,11 @@
       "apartments": "Объекты",
       "settings": "Настройки",
       "calendar": "Календарь",
-      "unread": "Непрочитанных: {{count}}"
+      "unread": "Непрочитанных: {{count}}",
+      "groups": {
+        "work": "Работа",
+        "reference": "Справочники"
+      }
     },
     "dashboard": {
       "tiles": {
