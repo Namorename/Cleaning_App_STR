@@ -19,6 +19,7 @@ import { markAppDrawn } from '@/components/route-error';
 import { FontsReadyProvider } from '@/lib/fonts-ready';
 import { watchNetwork } from '@/lib/network';
 import { createAppQueryClient, persistOptions } from '@/lib/query-client';
+import { useSystemBackground } from '@/lib/theme-preference';
 
 // The last net under every screen: once the app has drawn, a render error
 // shows a retry instead of closing the app. Screens that can fail on their own
@@ -59,6 +60,9 @@ export default function RootLayout() {
   const scheme: ThemeName = colorScheme === 'dark' ? 'dark' : 'light';
   const { isReady, areFontsLoaded } = useAppReady();
   const theme = useMemo(() => navigationTheme(scheme, areFontsLoaded), [scheme, areFontsLoaded]);
+  // The root view behind the screens takes the theme's background, on start
+  // and whenever the theme changes — the system's or the one she chose.
+  useSystemBackground(scheme);
 
   // Created once per app run, not per render: a new QueryClient would throw
   // away every cached list on the next re-render.
@@ -125,6 +129,15 @@ export default function RootLayout() {
                       headerShown: true,
                       headerBackTitle: t('common.back'),
                       title: t('settings.title'),
+                    }}
+                  />
+                  {/* Static text from the settings: no data, so no sign-in guard. */}
+                  <Stack.Screen
+                    name="font-license"
+                    options={{
+                      headerShown: true,
+                      headerBackTitle: t('common.back'),
+                      title: t('settings.fontLicense.title'),
                     }}
                   />
                   {/*

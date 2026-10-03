@@ -904,6 +904,18 @@
       "heading": "Jazyk",
       "saveFailed": "Jazyk se nepodařilo změnit."
     },
+    "theme": {
+      "hint": "Jen v tomto telefonu.",
+      "saveFailed": "Motiv se změnil, ale neuložil se: po restartu se vrátí předchozí."
+    },
+    "about": {
+      "heading": "O aplikaci"
+    },
+    "fontLicense": {
+      "title": "Licence písma",
+      "summary": "Nunito · SIL Open Font License 1.1",
+      "intro": "Písmo aplikace je Nunito. Šíří se pod licencí SIL Open Font License 1.1, jejíž text následuje anglicky, jak ji vydávají autoři písma."
+    },
     "password": {
       "heading": "Heslo",
       "current": "Současné heslo",

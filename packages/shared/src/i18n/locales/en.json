@@ -894,6 +894,18 @@
       "heading": "Language",
       "saveFailed": "The language was not changed."
     },
+    "theme": {
+      "hint": "On this phone only.",
+      "saveFailed": "The theme changed but was not saved: after a restart the previous one comes back."
+    },
+    "about": {
+      "heading": "About the app"
+    },
+    "fontLicense": {
+      "title": "Font license",
+      "summary": "Nunito · SIL Open Font License 1.1",
+      "intro": "The app's font is Nunito. It is distributed under the SIL Open Font License 1.1, whose text follows as the font's authors publish it."
+    },
     "password": {
       "heading": "Password",
       "current": "Current password",

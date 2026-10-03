@@ -4,6 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 
 import { NUNITO_FAMILY } from '@/components/text';
 import { reportError } from '@/lib/sentry';
+import { restoreThemePreference } from '@/lib/theme-preference';
 
 import { FONT_WAIT_MS, holdSplash, useAppReady } from '../app-ready';
 
@@ -20,12 +21,33 @@ jest.mock('expo-splash-screen', () => ({
   hide: jest.fn(),
 }));
 jest.mock('@/lib/sentry', () => ({ reportError: jest.fn() }));
+jest.mock('@/lib/theme-preference', () => ({ restoreThemePreference: jest.fn() }));
 
 const fonts = jest.mocked(useFonts);
 const hide = jest.mocked(SplashScreen.hide);
+const restoreTheme = jest.mocked(restoreThemePreference);
 
 beforeEach(() => {
   jest.clearAllMocks();
+  restoreTheme.mockResolvedValue('system');
+});
+
+test('her saved theme is applied before the splash goes, so the first screen is drawn in it', async () => {
+  fonts.mockReturnValue([true, null]);
+  let restored: (value: 'dark') => void = () => undefined;
+  restoreTheme.mockReturnValue(
+    new Promise((resolve) => {
+      restored = resolve;
+    }),
+  );
+  const { result } = await renderHook(() => useAppReady());
+  expect(result.current.isReady).toBe(false);
+  expect(hide).not.toHaveBeenCalled();
+
+  await act(async () => restored('dark'));
+
+  expect(result.current.isReady).toBe(true);
+  expect(hide).toHaveBeenCalledTimes(1);
 });
 
 test('loads the four weights, each under the family the text component draws', async () => {
@@ -61,10 +83,11 @@ test('a font that fails goes on in the system font, and the failure is reported'
   expect(reportError).toHaveBeenCalledWith(failure);
 });
 
-test('a font that never answers does not keep her on the splash', async () => {
+test('a font or a theme that never answers does not keep her on the splash', async () => {
   jest.useFakeTimers();
   try {
     fonts.mockReturnValue([false, null]);
+    restoreTheme.mockReturnValue(new Promise(() => undefined));
     const { result } = await renderHook(() => useAppReady());
     expect(result.current.isReady).toBe(false);
 

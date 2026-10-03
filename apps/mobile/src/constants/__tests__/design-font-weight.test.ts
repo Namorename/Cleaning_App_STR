@@ -23,7 +23,8 @@ const TEXT_COMPONENT = 'components/text.tsx';
 
 /**
  * Today's uses, per file (counted 2026-10-03 on redesign-phone: 84 in 29 files,
- * as on f11-native; the plan's 72 in 22 was main before F11).
+ * as on f11-native; the plan's 72 in 22 was main before F11). Down since: the
+ * settings' section frame and language choice moved onto the components.
  */
 const ALLOWANCE: Readonly<Record<string, number>> = {
   'app/sign-in.tsx': 2,
@@ -37,11 +38,9 @@ const ALLOWANCE: Readonly<Record<string, number>> = {
   'features/problems/problem-form.tsx': 3,
   'features/problems/problem-list.tsx': 1,
   'features/push/permission-explainer.tsx': 3,
-  'features/settings/language-section.tsx': 1,
   'features/settings/password-section.tsx': 1,
   'features/settings/permission-notice.tsx': 1,
   'features/settings/push-section.tsx': 1,
-  'features/settings/section.tsx': 1,
   'features/steps/step-checklist.tsx': 2,
   'features/steps/step-list.tsx': 4,
   'features/steps/step-media.tsx': 6,

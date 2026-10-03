@@ -4,9 +4,11 @@ import { useEffect, useState } from 'react';
 
 import { NUNITO_FONTS } from './fonts';
 import { reportError } from './sentry';
+import { restoreThemePreference } from './theme-preference';
 
 /**
- * How long the splash waits for the font before the app goes on without it.
+ * How long the splash waits for the font (and her saved theme) before the app
+ * goes on without them.
  * The files are on the phone already (an update is downloaded whole before it
  * runs), so loading them takes a moment; this is the ceiling for a phone that
  * is struggling, not a wait anyone is meant to see.
@@ -31,17 +33,33 @@ export interface AppReadiness {
 }
 
 /**
- * Ready once the font is in, has failed, or has taken longer than
- * `FONT_WAIT_MS` — never later: she is never left looking at the splash. A
- * font that loads after the wait still arrives, and the text redraws in it.
+ * Ready once the font is in (or has failed) and her saved theme is applied —
+ * or once `FONT_WAIT_MS` has passed, never later: she is never left looking at
+ * the splash. A font that loads after the wait still arrives, and the text
+ * redraws in it.
  */
 export function useAppReady(): AppReadiness {
   const [areFontsLoaded, fontError] = useFonts(NUNITO_FONTS);
+  const [isThemeRestored, setIsThemeRestored] = useState(false);
   const [hasWaited, setHasWaited] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setHasWaited(true), FONT_WAIT_MS);
     return () => clearTimeout(timer);
+  }, []);
+
+  // Applied before the first screen, so it is drawn once, in her theme.
+  // restoreThemePreference never rejects: a store it cannot read is the system.
+  useEffect(() => {
+    let isMounted = true;
+    void restoreThemePreference().then(() => {
+      if (isMounted) {
+        setIsThemeRestored(true);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -50,7 +68,8 @@ export function useAppReady(): AppReadiness {
     }
   }, [fontError]);
 
-  const isReady = areFontsLoaded || fontError !== null || hasWaited;
+  const areFontsSettled = areFontsLoaded || fontError !== null;
+  const isReady = (areFontsSettled && isThemeRestored) || hasWaited;
 
   useEffect(() => {
     if (isReady) {

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 
 import { SUPPORTED_LANGUAGES, deviceLanguage, i18n } from '@/i18n';
 
@@ -23,6 +23,9 @@ jest.mock('../api', () => ({
 // The password section and the sign-out button talk to auth; nothing here
 // presses them, and the real client has no business starting in a test.
 jest.mock('@/lib/supabase', () => ({ supabase: { auth: {} } }));
+
+// «О приложении» opens the font licence through the router; nothing here opens it.
+jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
 jest.mock('@/features/auth/session', () => ({
   useSession: () => ({
@@ -143,7 +146,10 @@ test('a refused switch goes back and says why', async () => {
 test('offers every language the app speaks, each named in itself', async () => {
   await renderScreen();
 
-  const names = screen.getAllByRole('radio').map((element) => element.props.accessibilityLabel);
+  // The language row only: the theme row below it is a radio group too.
+  const names = within(screen.getByLabelText('Язык'))
+    .getAllByRole('radio')
+    .map((element) => element.props.accessibilityLabel);
 
   expect(names).toEqual(['Русский', 'English', 'Čeština']);
   expect(names).toHaveLength(SUPPORTED_LANGUAGES.length);
