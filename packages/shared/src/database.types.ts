@@ -335,6 +335,9 @@ export type Database = {
           name: string
           parallel_start_allowed: boolean
           updated_at: string
+          video_bitrate_kbps: number
+          video_max_mb: number
+          video_max_sec: number
         }
         Insert: {
           created_at?: string
@@ -344,6 +347,9 @@ export type Database = {
           name: string
           parallel_start_allowed?: boolean
           updated_at?: string
+          video_bitrate_kbps?: number
+          video_max_mb?: number
+          video_max_sec?: number
         }
         Update: {
           created_at?: string
@@ -353,8 +359,80 @@ export type Database = {
           name?: string
           parallel_start_allowed?: boolean
           updated_at?: string
+          video_bitrate_kbps?: number
+          video_max_mb?: number
+          video_max_sec?: number
         }
         Relationships: []
+      }
+      problem_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          host_id: string
+          id: number
+          kind: Database["public"]["Enums"]["problem_event_kind"]
+          params: Json
+          problem_id: string
+          task_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          host_id: string
+          id?: never
+          kind: Database["public"]["Enums"]["problem_event_kind"]
+          params?: Json
+          problem_id: string
+          task_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          host_id?: string
+          id?: never
+          kind?: Database["public"]["Enums"]["problem_event_kind"]
+          params?: Json
+          problem_id?: string
+          task_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "problem_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "problem_events_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "problem_events_problem_id_fkey"
+            columns: ["problem_id"]
+            isOneToOne: false
+            referencedRelation: "problems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "problem_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "expired_tasks_review"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "problem_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       problems: {
         Row: {
@@ -2925,6 +3003,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      task_media_video_tolerance_sec: { Args: never; Returns: number }
       task_media_written_meanwhile: {
         Args: { p_id: string; p_problem_id: string; p_step_id: string }
         Returns: {
@@ -3061,6 +3140,9 @@ export type Database = {
         Args: {
           p_gallery_allowed?: boolean
           p_parallel_start_allowed?: boolean
+          p_video_bitrate_kbps?: number
+          p_video_max_mb?: number
+          p_video_max_sec?: number
         }
         Returns: {
           created_at: string
@@ -3070,6 +3152,9 @@ export type Database = {
           name: string
           parallel_start_allowed: boolean
           updated_at: string
+          video_bitrate_kbps: number
+          video_max_mb: number
+          video_max_sec: number
         }
         SetofOptions: {
           from: "*"
@@ -3176,6 +3261,23 @@ export type Database = {
       chat_thread_kind: "task" | "problem" | "direct"
       media_kind: "photo" | "video"
       media_source: "camera" | "gallery" | "unknown"
+      problem_event_kind:
+        | "reported"
+        | "assigned"
+        | "reassigned"
+        | "unassigned"
+        | "rescheduled"
+        | "accepted"
+        | "started"
+        | "completed"
+        | "attempt_cancelled"
+        | "taken_off"
+        | "status_changed"
+        | "resolved"
+        | "cancelled"
+        | "reopened"
+        | "archived"
+        | "unarchived"
       problem_priority: "low" | "normal" | "high"
       problem_status:
         | "open"
@@ -3193,6 +3295,7 @@ export type Database = {
         | "cleaning_window"
         | "cleaning_free"
         | "booking_cancelled_live"
+        | "problem_new"
         | "chat_message"
         | "daily_digest"
       supply_priority: "normal" | "urgent"
@@ -3361,6 +3464,24 @@ export const Constants = {
       chat_thread_kind: ["task", "problem", "direct"],
       media_kind: ["photo", "video"],
       media_source: ["camera", "gallery", "unknown"],
+      problem_event_kind: [
+        "reported",
+        "assigned",
+        "reassigned",
+        "unassigned",
+        "rescheduled",
+        "accepted",
+        "started",
+        "completed",
+        "attempt_cancelled",
+        "taken_off",
+        "status_changed",
+        "resolved",
+        "cancelled",
+        "reopened",
+        "archived",
+        "unarchived",
+      ],
       problem_priority: ["low", "normal", "high"],
       problem_status: [
         "open",
@@ -3379,6 +3500,7 @@ export const Constants = {
         "cleaning_window",
         "cleaning_free",
         "booking_cancelled_live",
+        "problem_new",
         "chat_message",
         "daily_digest",
       ],

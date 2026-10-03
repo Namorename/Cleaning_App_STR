@@ -1266,6 +1266,8 @@
     "cleaningNotForTech": "Cleanings and inspections go to cleaners, not to technicians.",
     "managerOrHeadTechOnly": "Only a manager or the head technician may do this",
     "repairNeedsTech": "The head technician hands work to technicians only",
+    "videoCameraOnly": "A video is recorded with the app's camera, not taken from the gallery.",
+    "videoSettingOutOfRange": "Allowed from {{min}} to {{max}}.",
     "staffNotFound": "No such person.",
     "staffNameRequired": "A name is needed.",
     "staffNameTooLong": "The name is longer than {{limit}} characters.",

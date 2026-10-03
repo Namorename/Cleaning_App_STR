@@ -1290,6 +1290,8 @@
     "cleaningNotForTech": "Уборки и осмотры назначают горничным, не техникам.",
     "managerOrHeadTechOnly": "Это действие доступно менеджеру и главному технику",
     "repairNeedsTech": "Главный техник назначает работу только техникам",
+    "videoCameraOnly": "Видео снимают камерой приложения, не из галереи.",
+    "videoSettingOutOfRange": "Допустимо от {{min}} до {{max}}.",
     "staffNotFound": "Такого сотрудника нет.",
     "staffNameRequired": "Без имени нельзя.",
     "staffNameTooLong": "Имя длиннее {{limit}} символов.",
