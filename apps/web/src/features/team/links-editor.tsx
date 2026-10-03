@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { EmptyState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
@@ -103,11 +104,11 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
         </SheetHeader>
 
         {links.isPending || properties.isPending ? (
-          <p className="text-sm text-muted-foreground">{t('panel.team.loading')}</p>
+          <LoadingState>{t('panel.team.loading')}</LoadingState>
         ) : (
           <div className="flex flex-col gap-3">
             {rows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('panel.team.links.empty')}</p>
+              <EmptyState>{t('panel.team.links.empty')}</EmptyState>
             ) : (
               <ul className="flex flex-col gap-2">
                 {rows.map((row) => (
@@ -181,7 +182,7 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
             <div className="flex flex-col gap-2 border-t pt-3">
               <span className="text-xs text-muted-foreground">{t('panel.team.links.add')}</span>
               {available.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t('panel.team.links.addNone')}</p>
+                <EmptyState>{t('panel.team.links.addNone')}</EmptyState>
               ) : (
                 <>
                   {/* Ticking, not picking one at a time: a new cleaner is put on

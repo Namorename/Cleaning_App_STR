@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -50,19 +51,17 @@ export function BookingsTab({ propertyId, listing = null }: BookingsTabProps) {
     );
   }
   if (reservations.isPending) {
-    return <p className="text-sm text-muted-foreground">{t('panel.apartments.loading')}</p>;
+    return <LoadingState>{t('panel.apartments.loading')}</LoadingState>;
   }
   if (reservations.isError) {
     return (
-      <p role="alert" className="text-sm text-destructive">
-        {t('panel.apartments.bookings.loadError')}
-      </p>
+      <ErrorState message={t('panel.apartments.bookings.loadError')} error={reservations.error} />
     );
   }
 
   const rows = reservations.data ?? [];
   if (rows.length === 0) {
-    return <p className="text-sm text-muted-foreground">{t('panel.apartments.bookings.empty')}</p>;
+    return <EmptyState>{t('panel.apartments.bookings.empty')}</EmptyState>;
   }
 
   return (

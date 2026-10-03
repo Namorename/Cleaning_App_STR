@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Person } from '@/components/person';
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,20 +48,16 @@ export function ProblemDetail({ problemId }: ProblemDetailProps) {
   const problem = useProblem(problemId);
 
   if (problem.isPending) {
-    return <p className="text-sm text-muted-foreground">{t('panel.problems.loading')}</p>;
+    return <LoadingState>{t('panel.problems.loading')}</LoadingState>;
   }
   if (problem.isError) {
-    return (
-      <p role="alert" className="text-sm text-destructive">
-        {t('panel.problems.loadError')}
-      </p>
-    );
+    return <ErrorState message={t('panel.problems.loadError')} error={problem.error} />;
   }
   if (problem.data === null) {
     return (
       <div className="flex flex-col gap-4">
         <BackLink />
-        <p className="text-sm text-muted-foreground">{t('panel.problems.notFound')}</p>
+        <EmptyState>{t('panel.problems.notFound')}</EmptyState>
       </div>
     );
   }
@@ -206,14 +203,10 @@ function ReportPhotos({ problemId }: { problemId: string }) {
   const photos = useProblemPhotos(problemId);
 
   if (photos.isPending) {
-    return <p className="text-muted-foreground">{t('panel.problems.loading')}</p>;
+    return <LoadingState>{t('panel.problems.loading')}</LoadingState>;
   }
   if (photos.isError) {
-    return (
-      <p role="alert" className="text-destructive">
-        {t('panel.problems.loadError')}
-      </p>
-    );
+    return <ErrorState message={t('panel.problems.loadError')} error={photos.error} />;
   }
   return <ProblemPhotos photos={photos.data} emptyText={t('panel.problems.detail.noPhotos')} />;
 }

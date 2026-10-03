@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { serverErrorText } from '@/lib/server-error';
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 
 import { MessageComposer } from './message-composer';
 import { MessageList } from './message-list';
@@ -44,24 +44,13 @@ export function ThreadPanel({ subject }: ThreadPanelProps) {
         <p className="text-xs text-muted-foreground">{audience}</p>
       </div>
       {thread.isPending ? (
-        <p className="text-sm text-muted-foreground">{t('panel.chat.loading')}</p>
+        <LoadingState>{t('panel.chat.loading')}</LoadingState>
       ) : thread.isError ? (
-        <ThreadError error={thread.error} />
+        <ErrorState message={t('panel.chat.loadError')} error={thread.error} />
       ) : (
         <Thread threadId={thread.data.id} subject={subject} />
       )}
     </section>
-  );
-}
-
-function ThreadError({ error }: { error: unknown }) {
-  const { t } = useTranslation();
-  const failure = serverErrorText(error);
-  return (
-    <p role="alert" className="text-sm text-destructive">
-      {t('panel.chat.loadError')}
-      <span className="block text-xs text-muted-foreground">{failure.detail ?? failure.text}</span>
-    </p>
   );
 }
 
@@ -97,13 +86,11 @@ function Thread({ threadId, subject }: { threadId: string; subject: ChatSubject 
   return (
     <>
       {messages.isPending ? (
-        <p className="text-sm text-muted-foreground">{t('panel.chat.loading')}</p>
+        <LoadingState>{t('panel.chat.loading')}</LoadingState>
       ) : messages.isError ? (
-        <p role="alert" className="text-sm text-destructive">
-          {t('panel.chat.loadError')}
-        </p>
+        <ErrorState message={t('panel.chat.loadError')} error={messages.error} />
       ) : messages.data.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('panel.chat.empty')}</p>
+        <EmptyState>{t('panel.chat.empty')}</EmptyState>
       ) : (
         <MessageList
           messages={messages.data}

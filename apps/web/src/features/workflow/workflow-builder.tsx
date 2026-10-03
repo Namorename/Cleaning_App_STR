@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { EmptyState } from '@/components/states';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
@@ -101,7 +102,7 @@ export function WorkflowBuilder({ source, scope, propertyId }: WorkflowBuilderPr
       </div>
 
       {process.steps.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('panel.settings.workflow.empty')}</p>
+        <EmptyState>{t('panel.settings.workflow.empty')}</EmptyState>
       ) : (
         <ul className="flex flex-col gap-3">
           {process.steps.map((step, at) => (

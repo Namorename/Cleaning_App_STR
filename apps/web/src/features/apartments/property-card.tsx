@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -39,19 +40,15 @@ export function PropertyCard({ propertyId }: PropertyCardProps) {
   const all = registry.data ?? [];
 
   if (property.isPending) {
-    return <p className="text-sm text-muted-foreground">{t('panel.apartments.loading')}</p>;
+    return <LoadingState>{t('panel.apartments.loading')}</LoadingState>;
   }
   // Only when there is nothing to show: a refresh that fails over data already
   // on screen must not take the Info form, and what the manager typed, away.
   if (property.isError && property.data === undefined) {
-    return (
-      <p role="alert" className="text-sm text-destructive">
-        {t('panel.apartments.loadError')}
-      </p>
-    );
+    return <ErrorState message={t('panel.apartments.loadError')} error={property.error} />;
   }
   if (property.data === null || property.data === undefined) {
-    return <p className="text-sm text-muted-foreground">{t('panel.apartments.notFound')}</p>;
+    return <EmptyState>{t('panel.apartments.notFound')}</EmptyState>;
   }
 
   const one = property.data;

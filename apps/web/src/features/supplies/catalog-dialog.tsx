@@ -4,6 +4,7 @@ import { FALLBACK_LANGUAGE, SUPPORTED_LANGUAGES } from '@str-ops/shared';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -103,13 +104,11 @@ export function CatalogDialog({ open, onOpenChange }: CatalogDialogProps) {
         </DialogHeader>
 
         {catalog.isPending ? (
-          <p className="text-sm text-muted-foreground">{t('panel.supplies.catalog.loading')}</p>
+          <LoadingState>{t('panel.supplies.catalog.loading')}</LoadingState>
         ) : catalog.isError ? (
-          <p role="alert" className="text-sm text-destructive">
-            {t('panel.supplies.catalog.loadError')}
-          </p>
+          <ErrorState message={t('panel.supplies.catalog.loadError')} error={catalog.error} />
         ) : items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('panel.supplies.catalog.empty')}</p>
+          <EmptyState>{t('panel.supplies.catalog.empty')}</EmptyState>
         ) : (
           <div className="max-h-80 overflow-auto rounded-lg border">
             <Table>

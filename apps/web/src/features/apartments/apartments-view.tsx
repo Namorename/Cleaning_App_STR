@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { propertyPath } from '@str-ops/shared';
 
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -194,13 +195,11 @@ export function ApartmentsView() {
       )}
 
       {registry.isPending ? (
-        <p className="text-sm text-muted-foreground">{t('panel.apartments.loading')}</p>
+        <LoadingState>{t('panel.apartments.loading')}</LoadingState>
       ) : registry.isError && registry.data === undefined ? (
-        <p role="alert" className="text-sm text-destructive">
-          {t('panel.apartments.loadError')}
-        </p>
+        <ErrorState message={t('panel.apartments.loadError')} error={registry.error} />
       ) : shown.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('panel.apartments.empty')}</p>
+        <EmptyState>{t('panel.apartments.empty')}</EmptyState>
       ) : (
         <Table>
           <TableHeader>

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Person } from '@/components/person';
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -137,13 +138,11 @@ export function TeamView() {
       )}
 
       {staff.isPending ? (
-        <p className="text-sm text-muted-foreground">{t('panel.team.loading')}</p>
+        <LoadingState>{t('panel.team.loading')}</LoadingState>
       ) : staff.isError ? (
-        <p role="alert" className="text-sm text-destructive">
-          {t('panel.team.loadError')}
-        </p>
+        <ErrorState message={t('panel.team.loadError')} error={staff.error} />
       ) : shown.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('panel.team.empty')}</p>
+        <EmptyState>{t('panel.team.empty')}</EmptyState>
       ) : (
         <Table>
           <TableHeader>

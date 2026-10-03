@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Person } from '@/components/person';
+import { EmptyState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
@@ -100,7 +101,7 @@ export function CleanersTab({ propertyId, listing = null }: CleanersTabProps) {
   const nameOf = (person: Staff | undefined) => person?.full_name ?? person?.email ?? '—';
 
   if (staff.isPending || links.isPending) {
-    return <p className="text-sm text-muted-foreground">{t('panel.apartments.loading')}</p>;
+    return <LoadingState>{t('panel.apartments.loading')}</LoadingState>;
   }
 
   if (listing !== null) {
@@ -113,7 +114,7 @@ export function CleanersTab({ propertyId, listing = null }: CleanersTabProps) {
           </Link>
         </p>
         {rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('panel.apartments.cleaners.empty')}</p>
+          <EmptyState>{t('panel.apartments.cleaners.empty')}</EmptyState>
         ) : (
           <ul className="flex flex-col gap-1">
             {rows.map((link) => (
@@ -130,7 +131,7 @@ export function CleanersTab({ propertyId, listing = null }: CleanersTabProps) {
   return (
     <div className="flex flex-col gap-4">
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('panel.apartments.cleaners.empty')}</p>
+        <EmptyState>{t('panel.apartments.cleaners.empty')}</EmptyState>
       ) : (
         <ul className="flex flex-col gap-2">
           {rows.map((link) => {

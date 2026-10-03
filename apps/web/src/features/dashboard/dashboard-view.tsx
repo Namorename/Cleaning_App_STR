@@ -4,7 +4,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { LayerAlert } from '@/features/calendar/layer-alert';
+import { ErrorState } from '@/components/states';
 import { cn } from '@/lib/utils';
 
 import {
@@ -127,7 +127,7 @@ export function DashboardView() {
       <h1 className="text-2xl font-semibold">{t('panel.nav.dashboard')}</h1>
 
       {failures.map(({ read, messageKey }) => (
-        <LayerAlert key={messageKey} message={t(messageKey)} error={read.error} />
+        <ErrorState key={messageKey} message={t(messageKey)} error={read.error} />
       ))}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

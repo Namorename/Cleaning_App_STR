@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
@@ -38,7 +39,7 @@ import { useCancelTask, useStaff, useTasks } from './use-tasks';
 export function TasksView() {
   const { t } = useTranslation();
   const language = useLanguage();
-  const { data, isPending, isError } = useTasks();
+  const { data, isPending, isError, error } = useTasks();
   const unread = useUnreadSubjects();
   const staff = useStaff();
   // The cancel lives here, not in the card: its refusal arrives after the
@@ -145,11 +146,9 @@ export function TasksView() {
       )}
 
       {isPending ? (
-        <p className="text-sm text-muted-foreground">{t('panel.tasks.loading')}</p>
+        <LoadingState>{t('panel.tasks.loading')}</LoadingState>
       ) : isError ? (
-        <p role="alert" className="text-sm text-destructive">
-          {t('panel.tasks.loadError')}
-        </p>
+        <ErrorState message={t('panel.tasks.loadError')} error={error} />
       ) : (
         <Tabs value={tab} onValueChange={(value) => setTab(value as TaskTab)}>
           <TabsList>
@@ -162,9 +161,9 @@ export function TasksView() {
           </TabsList>
           <TabsContent value={tab} className="flex flex-col gap-4">
             {groups.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
+              <EmptyState>
                 {isFiltered ? t('panel.tasks.emptyFiltered') : t('panel.tasks.empty')}
-              </p>
+              </EmptyState>
             ) : (
               groups.map((group) => (
                 <section key={group.key} className="flex flex-col gap-2">

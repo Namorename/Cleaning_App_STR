@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { EmptyState } from '@/components/states';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -97,7 +98,7 @@ export function PurchaseSummary({ requests, open, onOpenChange }: PurchaseSummar
         </fieldset>
 
         {lines.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('panel.supplies.summary.empty')}</p>
+          <EmptyState>{t('panel.supplies.summary.empty')}</EmptyState>
         ) : (
           <div className="max-h-96 overflow-auto rounded-lg border">
             <Table>

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { EmptyState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { matchesAllTokens } from '@/lib/search';
@@ -53,11 +54,11 @@ export function PropertyPicker({ properties, selected, isPending, onChange }: Pr
   };
 
   if (isPending) {
-    return <p className="text-sm text-muted-foreground">{t('panel.team.loading')}</p>;
+    return <LoadingState>{t('panel.team.loading')}</LoadingState>;
   }
 
   if (properties.length === 0) {
-    return <p className="text-sm text-muted-foreground">{t('panel.team.form.propertiesEmpty')}</p>;
+    return <EmptyState>{t('panel.team.form.propertiesEmpty')}</EmptyState>;
   }
 
   return (
@@ -104,9 +105,7 @@ export function PropertyPicker({ properties, selected, isPending, onChange }: Pr
 
       <div className="flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border p-2">
         {shown.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {t('panel.team.form.propertiesNoMatch')}
-          </p>
+          <EmptyState>{t('panel.team.form.propertiesNoMatch')}</EmptyState>
         ) : (
           shown.map((property) => (
             <label key={property.id} className="flex items-center gap-2 text-sm">

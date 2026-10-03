@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 
+import { EmptyState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatDateTime } from '@/lib/format-date';
@@ -26,7 +27,7 @@ export function ProblemsArchive({ problems }: ProblemsArchiveProps) {
   const failure = unarchive.isError ? serverErrorText(unarchive.error) : null;
 
   if (problems.length === 0) {
-    return <p className="text-sm text-muted-foreground">{t('panel.problems.archive.empty')}</p>;
+    return <EmptyState>{t('panel.problems.archive.empty')}</EmptyState>;
   }
 
   return (

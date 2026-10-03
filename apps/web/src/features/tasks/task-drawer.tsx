@@ -1,5 +1,6 @@
 'use client';
 
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { ThreadPanel } from '@/features/chat/thread-panel';
 import { PhotoSource } from '@/features/media/photo-source';
 import Link from 'next/link';
@@ -211,13 +212,11 @@ export function TaskDrawer({ task, onClose }: TaskDrawerProps) {
             <div className="flex flex-col gap-2">
               <h3 className="font-medium">{t('panel.tasks.work.steps')}</h3>
               {work.isPending ? (
-                <p className="text-muted-foreground">{t('panel.tasks.work.loading')}</p>
+                <LoadingState>{t('panel.tasks.work.loading')}</LoadingState>
               ) : work.isError ? (
-                <p role="alert" className="text-destructive">
-                  {t('panel.tasks.work.loadError')}
-                </p>
+                <ErrorState message={t('panel.tasks.work.loadError')} error={work.error} />
               ) : work.data.steps.length === 0 ? (
-                <p className="text-muted-foreground">{t('panel.tasks.work.noSteps')}</p>
+                <EmptyState>{t('panel.tasks.work.noSteps')}</EmptyState>
               ) : (
                 <ol className="flex flex-col gap-2">
                   {work.data.steps.map((step, index) => {
@@ -277,7 +276,7 @@ export function TaskDrawer({ task, onClose }: TaskDrawerProps) {
         <div className="flex flex-col gap-2">
           <h3 className="font-medium">{t('panel.tasks.work.problems')}</h3>
           {problems.isPending || problems.isError ? null : problems.data.length === 0 ? (
-            <p className="text-muted-foreground">{t('panel.tasks.work.noProblems')}</p>
+            <EmptyState>{t('panel.tasks.work.noProblems')}</EmptyState>
           ) : (
             <ul className="flex flex-col gap-1">
               {problems.data.map((problem) => (

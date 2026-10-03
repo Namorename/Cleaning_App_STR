@@ -2,6 +2,7 @@
 
 import { useTranslation } from 'react-i18next';
 
+import { ErrorState, LoadingState } from '@/components/states';
 import { serverErrorText } from '@/lib/server-error';
 
 import type { HostSettingsPatch } from './schema';
@@ -61,14 +62,10 @@ export function HostToggles() {
   const save = useSaveHostSettings();
 
   if (settings.isPending) {
-    return <p className="text-sm text-muted-foreground">{t('panel.settings.workflow.loading')}</p>;
+    return <LoadingState>{t('panel.settings.workflow.loading')}</LoadingState>;
   }
   if (settings.isError || settings.data === null || settings.data === undefined) {
-    return (
-      <p role="alert" className="text-sm text-destructive">
-        {t('panel.settings.loadError')}
-      </p>
-    );
+    return <ErrorState message={t('panel.settings.loadError')} error={settings.error} />;
   }
 
   const host = settings.data;

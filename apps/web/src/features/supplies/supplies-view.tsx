@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -28,7 +29,7 @@ export function SuppliesView() {
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const [dates, setDates] = useState<DateRange>(EMPTY_DATE_RANGE);
-  const { data, isPending, isError } = useSupplyRequests();
+  const { data, isPending, isError, error } = useSupplyRequests();
 
   // The date narrows everything: the tab counts have to agree with the list.
   const requests = (data ?? []).filter((request) => isInDateRange(request, dates));
@@ -82,11 +83,9 @@ export function SuppliesView() {
       </div>
 
       {isPending ? (
-        <p className="text-sm text-muted-foreground">{t('panel.supplies.loading')}</p>
+        <LoadingState>{t('panel.supplies.loading')}</LoadingState>
       ) : isError ? (
-        <p role="alert" className="text-sm text-destructive">
-          {t('panel.supplies.loadError')}
-        </p>
+        <ErrorState message={t('panel.supplies.loadError')} error={error} />
       ) : (
         <Tabs value={tab} onValueChange={(value) => setTab(value as SupplyTab)}>
           <TabsList>
@@ -101,7 +100,7 @@ export function SuppliesView() {
           </TabsList>
           <TabsContent value={tab} className="flex flex-col gap-3">
             {shown.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('panel.supplies.empty')}</p>
+              <EmptyState>{t('panel.supplies.empty')}</EmptyState>
             ) : (
               shown.map((request) => <SupplyCard key={request.id} request={request} />)
             )}

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ErrorState, LoadingState } from '@/components/states';
 import { NativeSelect } from '@/components/ui/native-select';
 import { useProperties } from '@/features/team/use-team';
 
@@ -117,11 +118,9 @@ export function ProcessSection() {
           {t('panel.settings.workflow.propertyPlaceholder')}
         </p>
       ) : process.isPending ? (
-        <p className="text-sm text-muted-foreground">{t('panel.settings.workflow.loading')}</p>
+        <LoadingState>{t('panel.settings.workflow.loading')}</LoadingState>
       ) : process.isError || source === null ? (
-        <p role="alert" className="text-sm text-destructive">
-          {t('panel.settings.workflow.loadError')}
-        </p>
+        <ErrorState message={t('panel.settings.workflow.loadError')} error={process.error} />
       ) : (
         <>
           {banner() === null ? null : (
