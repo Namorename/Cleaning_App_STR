@@ -12,12 +12,16 @@ const TASK_ID = '0b3f5c1e-8d2a-4f6b-9c7d-1e2f3a4b5c6d';
 const PROBLEM_ID = '5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c8d';
 const THREAD_ID = '9f8e7d6c-5b4a-4392-8170-6f5e4d3c2b1a';
 
-test('the cleaning kinds are every push kind but the chat message and the digest', () => {
+test('the cleaning kinds are every push kind but the chat message, the digest and a new task', () => {
   const expected = Constants.public.Enums.push_kind.filter(
-    (kind) => kind !== 'chat_message' && kind !== 'daily_digest',
+    (kind) => kind !== 'chat_message' && kind !== 'daily_digest' && kind !== 'problem_new',
   );
 
   expect([...TASK_PUSH_KINDS].sort()).toEqual([...expected].sort());
+});
+
+test('a new task, which this build does not open yet, reads as nothing', () => {
+  expect(readPushData({ kind: 'problem_new', problemId: PROBLEM_ID })).toBeNull();
 });
 
 test.each(TASK_PUSH_KINDS)('a %s push names the cleaning', (kind) => {

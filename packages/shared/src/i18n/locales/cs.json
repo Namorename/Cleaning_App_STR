@@ -885,6 +885,7 @@
         "cleaning_window": "Změnil se čas úklidu",
         "cleaning_free": "Volný úklid",
         "booking_cancelled_live": "Rezervace zrušena během úklidu",
+        "problem_new": "Nový úkol",
         "chat_message": "Zpráva v chatu",
         "daily_digest": "Ranní přehled"
       },
@@ -1308,6 +1309,13 @@
     "taskMovedMeanwhile": "Zatímco byl formulář otevřený, úklid se přesunul na {{date}}. Otevřete ho znovu.",
     "cleanerAutoTaken": "Objekt už je napevno přiřazen: {{name}}. Nejdřív to přiřazení zrušte.",
     "cleanerPriorityInvalid": "Pořadí je číslo od 1 do 99.",
+    "techNotLinkable": "Technik se k objektům nepřiřazuje: úklidy nejsou jeho práce.",
+    "techRoleBlocked": "Nejdřív toho člověka odeberte z objektů (přiřazení: {{links}}) a z otevřených úklidů ({{cleanings}}): technik úklidy nemá.",
+    "cleaningNotForTech": "Úklidy a kontroly se přidělují uklízečkám, ne technikům.",
+    "managerOrHeadTechOnly": "Tuto akci může provést jen manažer nebo hlavní technik",
+    "repairNeedsTech": "Hlavní technik přiděluje práci jen technikům",
+    "videoCameraOnly": "Video se natáčí kamerou aplikace, ne z galerie.",
+    "videoSettingOutOfRange": "Povoleno od {{min}} do {{max}}.",
     "staffNotFound": "Takový člověk neexistuje.",
     "staffNameRequired": "Jméno je potřeba.",
     "staffNameTooLong": "Jméno je delší než {{limit}} znaků.",
@@ -1360,6 +1368,10 @@
     "booking_cancelled_live": {
       "title": "Rezervace zrušena",
       "body": "{{place}}: rezervace byla zrušena během úklidu. Ověřte si to u manažera."
+    },
+    "problem_new": {
+      "title": "Nový úkol",
+      "titleUrgent": "Naléhavý úkol"
     },
     "chat_message": {
       "title": "Nová zpráva",

@@ -1,10 +1,12 @@
-import { assertEquals, assertStringIncludes } from "jsr:@std/assert@1";
+import { assert, assertEquals, assertStringIncludes } from "jsr:@std/assert@1";
 import {
   type Caller,
   createStaffHandler,
+  refusalFromDatabase,
   type StaffDeps,
   type StaffMember,
   type StaffProfile,
+  StaffRefusal,
 } from "./handler.ts";
 
 const MANAGER: Caller = { id: "m-1", role: "manager", hostId: "host-1", isActive: true };
@@ -290,6 +292,34 @@ Deno.test("a manager edits somebody on the team", async () => {
   assertEquals(received!.profile.language, "cs");
 });
 
+Deno.test("a manager hires a head technician, and makes somebody one", async () => {
+  // The role of 20261003100000: app_metadata and the profile both say it.
+  const created: StaffProfile[] = [];
+  const updated: StaffProfile[] = [];
+  const handler = createStaffHandler(
+    deps({
+      createStaff: (input) => {
+        created.push(input.profile);
+        return Promise.resolve({ id: "new-2", sent: true, failureKey: null });
+      },
+      updateStaff: (input) => {
+        updated.push(input.profile);
+        return Promise.resolve();
+      },
+    }),
+  );
+
+  const hired = await handler(
+    post({ action: "create", staff: { ...NEW_STAFF, role: "head_tech" } }),
+  );
+  const promoted = await handler(
+    post({ action: "update", id: "s-1", staff: { ...EDIT, role: "head_tech" } }),
+  );
+
+  assertEquals([hired.status, promoted.status], [200, 200]);
+  assertEquals([created[0].role, updated[0].role], ["head_tech", "head_tech"]);
+});
+
 Deno.test("switching somebody off is an explicit flag, never an omission", async () => {
   const handler = createStaffHandler(deps());
 
@@ -422,6 +452,59 @@ Deno.test("the new password is shown even when the letter did not go", async () 
   const body = (await response.json()) as { data: { password: string; mailFailureKey: string } };
   assertEquals(body.data.password, "Anna-abcde");
   assertEquals(body.data.mailFailureKey, "serverErrors.mailTooSoon");
+});
+
+// ---------------------------------------------------------------------------
+//  A refusal the database raised
+// ---------------------------------------------------------------------------
+
+const ROLE_BLOCKED = {
+  message: "Person s-1 still holds 2 listing links and 1 open cleanings",
+  hint: "serverErrors.techRoleBlocked",
+  details: '{"links": 2, "cleanings": 1}',
+  code: "23514",
+} as const;
+
+Deno.test("a database refusal keeps its key and its parameters", () => {
+  const refusal = refusalFromDatabase(ROLE_BLOCKED);
+
+  assert(refusal instanceof StaffRefusal);
+  assertEquals(refusal.status, 409);
+  assertEquals(refusal.hint, "serverErrors.techRoleBlocked");
+  assertEquals(refusal.params, { links: 2, cleanings: 1 });
+  assertEquals(refusal.message, ROLE_BLOCKED.message);
+});
+
+Deno.test("a database failure without a key of ours stays an error", () => {
+  assertEquals(refusalFromDatabase({ message: "connection reset" }), null);
+  assertEquals(refusalFromDatabase({ message: "boom", hint: null, details: null }), null);
+  // PostgREST's own hints are prose for a developer, not a key.
+  assertEquals(
+    refusalFromDatabase({ message: "column x", hint: "Perhaps you meant to reference y." }),
+    null,
+  );
+});
+
+Deno.test("parameters that are not a JSON object are dropped, the key is kept", () => {
+  assertEquals(refusalFromDatabase({ ...ROLE_BLOCKED, details: "not json" })?.params, null);
+  assertEquals(refusalFromDatabase({ ...ROLE_BLOCKED, details: "[1, 2]" })?.params, null);
+  assertEquals(refusalFromDatabase({ ...ROLE_BLOCKED, details: "" })?.params, null);
+  assertEquals(
+    refusalFromDatabase({ ...ROLE_BLOCKED, details: "not json" })?.hint,
+    "serverErrors.techRoleBlocked",
+  );
+});
+
+Deno.test("an edit the database refuses reaches the panel as a refusal it can read", async () => {
+  const handler = createStaffHandler(
+    deps({ updateStaff: () => Promise.reject(refusalFromDatabase(ROLE_BLOCKED)) }),
+  );
+
+  const response = await handler(post({ action: "update", id: "s-1", staff: EDIT }));
+  assertEquals(response.status, 409);
+  const refusal = await refusalOf(response);
+  assertEquals(refusal.error.hint, "serverErrors.techRoleBlocked");
+  assertEquals(JSON.parse(refusal.error.details ?? "null"), { links: 2, cleanings: 1 });
 });
 
 // ---------------------------------------------------------------------------

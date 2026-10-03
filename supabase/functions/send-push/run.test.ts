@@ -534,3 +534,68 @@ Deno.test("broken push keys reported in receipts are said loudly in the log too"
 
   assertEquals(errors.some((text) => text.includes("InvalidCredentials")), true);
 });
+
+const PROBLEM = "7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f";
+
+function reportedGroup(urgent: boolean, muted: string[] = []) {
+  return {
+    recipient_id: "hector",
+    collapse_key: `problem:${PROBLEM}`,
+    language: "ru",
+    tokens: [{ token: "T1", platform: "ios" }],
+    places: { "900003": { name: "Flat C", hostaway_unit_id: null, parent: null } },
+    muted,
+    lease: "lease-9",
+    rows: [{
+      id: 95,
+      kind: "problem_new",
+      task_id: null,
+      thread_id: null,
+      property_id: 900003,
+      params: {
+        problem_id: PROBLEM,
+        priority: urgent ? "high" : "normal",
+        property: 900003,
+        reporter_name: "Anna",
+      },
+      urgent,
+    }],
+  };
+}
+
+Deno.test("a new task goes to the head technician and names the task for the phone", async () => {
+  const { db, calls } = database([[reportedGroup(false)]]);
+  const { expo, sent } = sender(okTickets);
+
+  await runSendPush(db, expo, quiet);
+
+  const message = sent[0][0];
+  assertEquals([message.title, message.body], ["Новое задание", "Flat C · Anna"]);
+  assertEquals(message.data, { kind: "problem_new", problemId: PROBLEM });
+  assertEquals([message.channelId, message.interruptionLevel], ["general", "active"]);
+  assertEquals([message.collapseId, message.tag], [`problem:${PROBLEM}`, `problem:${PROBLEM}`]);
+  assertEquals(settled(calls)[0].outcome, "sent");
+});
+
+Deno.test("a new task of high priority goes on the urgent channel", async () => {
+  const { db } = database([[reportedGroup(true)]]);
+  const { expo, sent } = sender(okTickets);
+
+  await runSendPush(db, expo, quiet);
+
+  assertEquals([sent[0][0].title, sent[0][0].channelId, sent[0][0].interruptionLevel], [
+    "Срочное задание",
+    "urgent",
+    "time-sensitive",
+  ]);
+});
+
+Deno.test("a head technician who switched new tasks off is not sent one", async () => {
+  const { db, calls } = database([[reportedGroup(false, ["problem_new"])]]);
+  const { expo, sent } = sender(okTickets);
+
+  await runSendPush(db, expo, quiet);
+
+  assertEquals(sent.length, 0);
+  assertEquals(settled(calls)[0].outcome, "muted");
+});

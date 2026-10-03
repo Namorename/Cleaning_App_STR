@@ -219,3 +219,30 @@ Deno.test("a flat whose name did not come is called by its number", () => {
     `Objekt 424242, ${day("2026-10-02", "cs")}`,
   );
 });
+
+Deno.test("a new task names the place and who reported it, in every language", () => {
+  const reported = (language: Language, urgent: boolean) =>
+    renderPush(
+      { type: "problem", problemId: "p", propertyId: "900003", reporter: "Anna", urgent },
+      group(language),
+    );
+
+  assertEquals(reported("ru", false), { title: "Новое задание", body: "Flat C · Anna" });
+  assertEquals(reported("ru", true).title, "Срочное задание");
+  assertEquals(reported("en", false).title, "New task");
+  assertEquals(reported("en", true).title, "Urgent task");
+  assertEquals(reported("cs", false).title, "Nový úkol");
+  assertEquals(reported("cs", true).title, "Naléhavý úkol");
+});
+
+Deno.test("a new task without a place, or without a known reporter, says what there is", () => {
+  const reported = (propertyId: string | null, reporter: string | null) =>
+    renderPush(
+      { type: "problem", problemId: "p", propertyId, reporter, urgent: false },
+      group("en"),
+    ).body;
+
+  assertEquals(reported(null, "Anna"), "Anna");
+  assertEquals(reported("900003", null), "Flat C");
+  assertEquals(reported(null, null), "");
+});

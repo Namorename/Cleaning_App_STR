@@ -335,6 +335,9 @@ export type Database = {
           name: string
           parallel_start_allowed: boolean
           updated_at: string
+          video_bitrate_kbps: number
+          video_max_mb: number
+          video_max_sec: number
         }
         Insert: {
           created_at?: string
@@ -344,6 +347,9 @@ export type Database = {
           name: string
           parallel_start_allowed?: boolean
           updated_at?: string
+          video_bitrate_kbps?: number
+          video_max_mb?: number
+          video_max_sec?: number
         }
         Update: {
           created_at?: string
@@ -353,8 +359,80 @@ export type Database = {
           name?: string
           parallel_start_allowed?: boolean
           updated_at?: string
+          video_bitrate_kbps?: number
+          video_max_mb?: number
+          video_max_sec?: number
         }
         Relationships: []
+      }
+      problem_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          host_id: string
+          id: number
+          kind: Database["public"]["Enums"]["problem_event_kind"]
+          params: Json
+          problem_id: string
+          task_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          host_id: string
+          id?: never
+          kind: Database["public"]["Enums"]["problem_event_kind"]
+          params?: Json
+          problem_id: string
+          task_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          host_id?: string
+          id?: never
+          kind?: Database["public"]["Enums"]["problem_event_kind"]
+          params?: Json
+          problem_id?: string
+          task_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "problem_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "problem_events_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "problem_events_problem_id_fkey"
+            columns: ["problem_id"]
+            isOneToOne: false
+            referencedRelation: "problems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "problem_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "expired_tasks_review"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "problem_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       problems: {
         Row: {
@@ -2137,8 +2215,11 @@ export type Database = {
         Args: { from_date: string; to_date: string }
         Returns: Json
       }
+      head_tech_dispatching: { Args: never; Returns: boolean }
+      head_tech_property_ids: { Args: never; Returns: number[] }
       invoke_edge_function: { Args: { function_name: string }; Returns: number }
       is_active_user: { Args: never; Returns: boolean }
+      is_head_tech: { Args: never; Returns: boolean }
       is_localized_text: { Args: { p_value: Json }; Returns: boolean }
       is_manager: { Args: never; Returns: boolean }
       is_service_booking:
@@ -2241,6 +2322,32 @@ export type Database = {
         }
       }
       problem_description_max_length: { Args: never; Returns: number }
+      problem_for_dispatch: {
+        Args: { p_id: string }
+        Returns: {
+          archived_at: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          created_at: string
+          description: string | null
+          host_id: string
+          id: string
+          priority: Database["public"]["Enums"]["problem_priority"]
+          property_id: number | null
+          reported_by: string
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["problem_status"]
+          task_id: string | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "problems"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       problem_for_manager: {
         Args: { p_id: string }
         Returns: {
@@ -2827,6 +2934,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      staff_directory: {
+        Args: never
+        Returns: {
+          full_name: string
+          id: string
+          is_active: boolean
+          role: Database["public"]["Enums"]["app_role"]
+        }[]
+      }
       staff_property_ids: { Args: never; Returns: number[] }
       supply_item_name_max_length: { Args: never; Returns: number }
       supply_note_max_length: { Args: never; Returns: number }
@@ -2887,6 +3003,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      task_media_video_tolerance_sec: { Args: never; Returns: number }
       task_media_written_meanwhile: {
         Args: { p_id: string; p_problem_id: string; p_step_id: string }
         Returns: {
@@ -2992,11 +3109,40 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      unassign_problem: {
+        Args: { p_expected_assignee?: string; p_task_id: string }
+        Returns: {
+          archived_at: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          created_at: string
+          description: string | null
+          host_id: string
+          id: string
+          priority: Database["public"]["Enums"]["problem_priority"]
+          property_id: number | null
+          reported_by: string
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["problem_status"]
+          task_id: string | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "problems"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       unregister_push_token: { Args: { p_token: string }; Returns: undefined }
       update_host_settings: {
         Args: {
           p_gallery_allowed?: boolean
           p_parallel_start_allowed?: boolean
+          p_video_bitrate_kbps?: number
+          p_video_max_mb?: number
+          p_video_max_sec?: number
         }
         Returns: {
           created_at: string
@@ -3006,6 +3152,9 @@ export type Database = {
           name: string
           parallel_start_allowed: boolean
           updated_at: string
+          video_bitrate_kbps: number
+          video_max_mb: number
+          video_max_sec: number
         }
         SetofOptions: {
           from: "*"
@@ -3107,11 +3256,28 @@ export type Database = {
     }
     Enums: {
       app_language: "en" | "ru" | "cs"
-      app_role: "cleaner" | "tech" | "manager" | "admin"
+      app_role: "cleaner" | "tech" | "head_tech" | "manager" | "admin"
       assignment_mode: "auto" | "claim"
       chat_thread_kind: "task" | "problem" | "direct"
       media_kind: "photo" | "video"
       media_source: "camera" | "gallery" | "unknown"
+      problem_event_kind:
+        | "reported"
+        | "assigned"
+        | "reassigned"
+        | "unassigned"
+        | "rescheduled"
+        | "accepted"
+        | "started"
+        | "completed"
+        | "attempt_cancelled"
+        | "taken_off"
+        | "status_changed"
+        | "resolved"
+        | "cancelled"
+        | "reopened"
+        | "archived"
+        | "unarchived"
       problem_priority: "low" | "normal" | "high"
       problem_status:
         | "open"
@@ -3129,6 +3295,7 @@ export type Database = {
         | "cleaning_window"
         | "cleaning_free"
         | "booking_cancelled_live"
+        | "problem_new"
         | "chat_message"
         | "daily_digest"
       supply_priority: "normal" | "urgent"
@@ -3292,11 +3459,29 @@ export const Constants = {
   public: {
     Enums: {
       app_language: ["en", "ru", "cs"],
-      app_role: ["cleaner", "tech", "manager", "admin"],
+      app_role: ["cleaner", "tech", "head_tech", "manager", "admin"],
       assignment_mode: ["auto", "claim"],
       chat_thread_kind: ["task", "problem", "direct"],
       media_kind: ["photo", "video"],
       media_source: ["camera", "gallery", "unknown"],
+      problem_event_kind: [
+        "reported",
+        "assigned",
+        "reassigned",
+        "unassigned",
+        "rescheduled",
+        "accepted",
+        "started",
+        "completed",
+        "attempt_cancelled",
+        "taken_off",
+        "status_changed",
+        "resolved",
+        "cancelled",
+        "reopened",
+        "archived",
+        "unarchived",
+      ],
       problem_priority: ["low", "normal", "high"],
       problem_status: [
         "open",
@@ -3315,6 +3500,7 @@ export const Constants = {
         "cleaning_window",
         "cleaning_free",
         "booking_cancelled_live",
+        "problem_new",
         "chat_message",
         "daily_digest",
       ],
