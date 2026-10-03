@@ -40,6 +40,7 @@
     "title": "STR Ops",
     "signOut": "Выйти",
     "cancel": "Отмена",
+    "close": "Закрыть",
     "settings": {
       "account": "Аккаунт",
       "signedInAs": "Вы вошли как {{email}}.",
