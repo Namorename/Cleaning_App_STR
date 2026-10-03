@@ -141,6 +141,8 @@
       "settings": "Nastavení",
       "calendar": "Kalendář",
       "unread": "Nepřečtené: {{count}}",
+      "collapse": "Sbalit nabídku",
+      "expand": "Rozbalit nabídku",
       "groups": {
         "work": "Práce",
         "reference": "Evidence"

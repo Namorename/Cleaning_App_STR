@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!--
+    Placeholder until the owner sends his logo (docs/redesign-plan.md, 6.1),
+    for the light theme: the mark of logo-light.svg alone - the Apricot
+    house with a rounded roof, a honey spark in its doorway - centred in a
+    square, for the menu folded to icons and the phone's top bar.
+  -->
+  <g transform="translate(-30 -30.75)">
+    <path fill="#983512" d="M32 55Q32 51 35.5 48L50.5 35Q54 32 57.5 35L72.5 48Q76 51 76 55V73Q76 76 73 76H35Q32 76 32 73Z"/>
+    <path fill="#381b12" d="M47 76V65.5a7 7 0 0 1 14 0V76Z"/>
+    <path fill="#fbbe61" d="M54 63.2c.4 3 2.8 5.4 5.8 5.8-3 .4-5.4 2.8-5.8 5.8-.4-3-2.8-5.4-5.8-5.8 3-.4 5.4-2.8 5.8-5.8z"/>
+  </g>
+</svg>
