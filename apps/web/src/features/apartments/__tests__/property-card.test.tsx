@@ -232,6 +232,8 @@ vi.mock('@/features/team/use-team', () => ({
   }),
 }));
 
+import { expectPageTitle } from '@/components/page-header.expect';
+
 import { PropertyCard } from '../property-card';
 
 function renderCard() {
@@ -252,6 +254,18 @@ beforeEach(() => {
   propertyState.hasData = true;
   setStatus.mockResolvedValue(undefined);
   countOpenCleanings.mockResolvedValue(0);
+});
+
+describe('the card', () => {
+  test('is headed by the common header: the listing’s name and the way back', () => {
+    renderCard();
+
+    expectPageTitle('Vinohrady 12');
+    expect(screen.getByRole('link', { name: 'Все объекты' })).toHaveAttribute(
+      'href',
+      '/apartments',
+    );
+  });
 });
 
 describe('what Hostaway owns is shown, not offered for editing', () => {

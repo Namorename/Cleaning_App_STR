@@ -1,10 +1,10 @@
 'use client';
 
 import { problemPriorityTone, problemStatusTone } from '@str-ops/shared';
-import Link from 'next/link';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { PageBackLink, PageHeader } from '@/components/page-header';
 import { Person } from '@/components/person';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
@@ -66,13 +66,12 @@ export function ProblemDetail({ problemId }: ProblemDetailProps) {
   return <ProblemCard problem={problem.data} />;
 }
 
+const PROBLEMS_HREF = '/problems';
+
+/** The way back to the section's list; on its own while there is no title to head. */
 function BackLink() {
   const { t } = useTranslation();
-  return (
-    <Link href="/problems" className="text-sm text-muted-foreground hover:underline">
-      ← {t('panel.problems.detail.back')}
-    </Link>
-  );
+  return <PageBackLink href={PROBLEMS_HREF} label={t('panel.problems.detail.back')} />;
 }
 
 function ProblemCard({ problem }: { problem: Problem }) {
@@ -83,16 +82,20 @@ function ProblemCard({ problem }: { problem: Problem }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <BackLink />
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold">{problem.title}</h1>
-        <Badge tone={problemStatusTone(problem.status)}>
-          {t(`problems.statuses.${problem.status}`)}
-        </Badge>
-        <Badge tone={problemPriorityTone(problem.priority)}>
-          {t(`problems.priorities.${problem.priority}`)}
-        </Badge>
-      </div>
+      <PageHeader
+        back={{ href: PROBLEMS_HREF, label: t('panel.problems.detail.back') }}
+        title={problem.title}
+        meta={
+          <>
+            <Badge tone={problemStatusTone(problem.status)}>
+              {t(`problems.statuses.${problem.status}`)}
+            </Badge>
+            <Badge tone={problemPriorityTone(problem.priority)}>
+              {t(`problems.priorities.${problem.priority}`)}
+            </Badge>
+          </>
+        }
+      />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

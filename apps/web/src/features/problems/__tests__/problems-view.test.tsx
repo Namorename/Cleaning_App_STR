@@ -76,9 +76,21 @@ vi.mock('@/features/chat/use-chat', () => ({
   useUnreadSubjects: () => ({ tasks: new Set<string>(), problems: new Set<string>() }),
 }));
 
+import { expectPageTitle } from '@/components/page-header.expect';
+
 import { ProblemsView } from '../problems-view';
 
 describe('ProblemsView', () => {
+  test('is headed by the common header, the search among its actions', () => {
+    useProblems.mockReturnValue({ data: problems, isPending: false, isError: false });
+    render(<ProblemsView />);
+
+    expectPageTitle('Задания');
+    expect(
+      screen.getByRole('heading', { level: 1 }).closest('[data-slot="page-header"]'),
+    ).toContainElement(screen.getByRole('searchbox'));
+  });
+
   test('keeps archived problems off the board and restores them from the archive tab', async () => {
     useProblems.mockReturnValue({
       data: [...problems, archived],

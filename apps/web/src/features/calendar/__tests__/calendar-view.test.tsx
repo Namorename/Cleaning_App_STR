@@ -170,6 +170,8 @@ import {
   type LiveRepair,
 } from '@/features/tasks/schema';
 
+import { expectPageTitle } from '@/components/page-header.expect';
+
 import { CalendarView } from '../calendar-view';
 import type { CalendarBooking } from '../schema';
 
@@ -247,6 +249,15 @@ afterEach(() => {
 });
 
 describe('the calendar', () => {
+  test('is headed by the common header, its counts beside the title', () => {
+    render(<CalendarView />);
+
+    expectPageTitle('Календарь');
+    expect(screen.getByRole('heading', { level: 1 }).parentElement).toContainElement(
+      screen.getByText('Объектов: 5 · комнат: 2'),
+    );
+  });
+
   test('says how many listings and rooms it holds', () => {
     render(<CalendarView />);
 

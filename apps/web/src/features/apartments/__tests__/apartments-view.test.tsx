@@ -65,6 +65,8 @@ vi.mock('../use-apartments', () => ({
   useSyncListings: () => ({ ...syncState, mutate: sync }),
 }));
 
+import { expectPageTitle } from '@/components/page-header.expect';
+
 import { ApartmentsView } from '../apartments-view';
 
 function renderView() {
@@ -88,6 +90,17 @@ beforeEach(() => {
   registryState.hasData = true;
   setStatus.mockResolvedValue(undefined);
   countOpenCleanings.mockResolvedValue(2);
+});
+
+describe('the page', () => {
+  test('is headed by the common header, the sync among its actions', () => {
+    renderView();
+
+    expectPageTitle('Объекты');
+    expect(
+      screen.getByRole('heading', { level: 1 }).closest('[data-slot="page-header"]'),
+    ).toContainElement(screen.getByRole('button', { name: /Hostaway/ }));
+  });
 });
 
 describe('a refresh that fails keeps what is already on screen', () => {

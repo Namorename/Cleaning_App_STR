@@ -132,6 +132,8 @@ vi.mock('@/features/chat/thread-panel', () => ({
 const unread = { tasks: new Set<string>(), problems: new Set<string>() };
 vi.mock('@/features/chat/use-chat', () => ({ useUnreadSubjects: () => unread }));
 
+import { expectPageTitle } from '@/components/page-header.expect';
+
 import { TasksView } from '../tasks-view';
 
 beforeEach(() => {
@@ -149,6 +151,12 @@ beforeEach(() => {
 });
 
 describe('TasksView', () => {
+  test('is headed by the common header', () => {
+    render(<TasksView />);
+
+    expectPageTitle('Уборки');
+  });
+
   test('opens on today, grouped by the part of the day, and counts every tab', () => {
     render(<TasksView />);
 

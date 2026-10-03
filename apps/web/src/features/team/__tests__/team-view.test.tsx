@@ -68,6 +68,8 @@ vi.mock('../use-team', () => ({
   useRemoveCleanerLink: () => ({ ...idle, mutate: removeLink, mutateAsync: removeLinkAsync }),
 }));
 
+import { expectPageTitle } from '@/components/page-header.expect';
+
 import { TeamView } from '../team-view';
 
 /** The row a person is on — the table is read by name, as the manager reads it. */
@@ -96,6 +98,12 @@ beforeEach(() => {
 });
 
 describe('TeamView', () => {
+  test('is headed by the common header', () => {
+    render(<TeamView />);
+
+    expectPageTitle('Команда');
+  });
+
   test('opens on the people who are working, and counts every tab', () => {
     render(<TeamView />);
 
