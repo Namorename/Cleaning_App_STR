@@ -47,6 +47,7 @@ import {
   type CreatedStaff,
   createStaffHandler,
   type MailOutcome,
+  refusalFromDatabase,
   type StaffMember,
   type StaffProfile,
   StaffRefusal,
@@ -185,7 +186,9 @@ async function writeProfile(
 
   const { error } = await admin().from("profiles").upsert(row, { onConflict: "id" });
   if (error !== null) {
-    throw new Error(`profiles upsert: ${error.message}`);
+    // A rule of the row itself, such as no technician with cleanings still on
+    // him, is a refusal for the manager to read, not a crash.
+    throw refusalFromDatabase(error) ?? new Error(`profiles upsert: ${error.message}`);
   }
 }
 

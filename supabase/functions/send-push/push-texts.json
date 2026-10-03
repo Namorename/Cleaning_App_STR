@@ -34,6 +34,10 @@
       "title": "Бронь отменена",
       "body": "{{place}}: бронь отменена, пока идёт уборка. Уточните у менеджера."
     },
+    "problem_new": {
+      "title": "Новое задание",
+      "titleUrgent": "Срочное задание"
+    },
     "chat_message": {
       "title": "Новое сообщение",
       "count_one": "{{count}} новое сообщение",
@@ -93,6 +97,10 @@
       "title": "Booking cancelled",
       "body": "{{place}}: the booking was cancelled while the cleaning is under way. Check with the office."
     },
+    "problem_new": {
+      "title": "New task",
+      "titleUrgent": "Urgent task"
+    },
     "chat_message": {
       "title": "New message",
       "count_one": "{{count}} new message",
@@ -149,6 +157,10 @@
     "booking_cancelled_live": {
       "title": "Rezervace zrušena",
       "body": "{{place}}: rezervace byla zrušena během úklidu. Ověřte si to u manažera."
+    },
+    "problem_new": {
+      "title": "Nový úkol",
+      "titleUrgent": "Naléhavý úkol"
     },
     "chat_message": {
       "title": "Nová zpráva",

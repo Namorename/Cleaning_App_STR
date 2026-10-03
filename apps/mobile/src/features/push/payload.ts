@@ -3,8 +3,13 @@ import { z } from 'zod';
 import { CHAT_SUBJECT_KINDS } from '@/features/chat/schema';
 import type { PushKind } from '@/features/settings/schema';
 
-/** Every push about a cleaning: each names the cleaning and nothing else. */
-export type TaskPushKind = Exclude<PushKind, 'chat_message' | 'daily_digest'>;
+/**
+ * Every push about a cleaning: each names the cleaning and nothing else.
+ * problem_new (the head technician's new task, 20261003150000) names a task,
+ * not a cleaning, and this build opens nothing for it: readPushData reads it
+ * as nothing, the system shows it, a tap opens the app.
+ */
+export type TaskPushKind = Exclude<PushKind, 'chat_message' | 'daily_digest' | 'problem_new'>;
 
 /**
  * Listed by hand rather than filtered off the enum: z.enum needs the literal

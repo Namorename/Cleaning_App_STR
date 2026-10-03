@@ -45,6 +45,11 @@ values
   ('c7000006-0000-4000-8000-000000000006','00000000-0000-0000-0000-000000000000',
    'authenticated','authenticated','petr.c@test.local','x',now(),now(),
    '{"full_name":"Petr"}'::jsonb, '{"role":"tech"}'::jsonb),
+  -- The head technician (20261003120000): in the fixture from the start, so the
+  -- twins are asked about him at every point of the story.
+  ('c7000007-0000-4000-8000-000000000007','00000000-0000-0000-0000-000000000000',
+   'authenticated','authenticated','hector.c@test.local','x',now(),now(),
+   '{"full_name":"Hector"}'::jsonb, '{"role":"head_tech"}'::jsonb),
   ('d7000001-0000-4000-8000-000000000001','00000000-0000-0000-0000-000000000000',
    'authenticated','authenticated','anna.d@test.local','x',now(),now(),
    '{"full_name":"Anna D"}'::jsonb, '{"role":"cleaner"}'::jsonb);
@@ -55,7 +60,8 @@ where id in ('c7000001-0000-4000-8000-000000000001',
              'c7000003-0000-4000-8000-000000000003',
              'c7000004-0000-4000-8000-000000000004',
              'c7000005-0000-4000-8000-000000000005',
-             'c7000006-0000-4000-8000-000000000006');
+             'c7000006-0000-4000-8000-000000000006',
+             'c7000007-0000-4000-8000-000000000007');
 update public.profiles set host_id = 'd7000000-0000-4000-8000-00000000000d'
 where id = 'd7000001-0000-4000-8000-000000000001';
 
@@ -131,6 +137,8 @@ create or replace function pg_temp.as_tomas() returns void language sql as $fn$
   select pg_temp.as_user('c7000004-0000-4000-8000-000000000004') $fn$;
 create or replace function pg_temp.as_petr()  returns void language sql as $fn$
   select pg_temp.as_user('c7000006-0000-4000-8000-000000000006') $fn$;
+create or replace function pg_temp.as_hector() returns void language sql as $fn$
+  select pg_temp.as_user('c7000007-0000-4000-8000-000000000007') $fn$;
 create or replace function pg_temp.as_gone()  returns void language sql as $fn$
   select pg_temp.as_user('c7000005-0000-4000-8000-000000000005') $fn$;
 create or replace function pg_temp.as_other_host() returns void language sql as $fn$
@@ -1230,6 +1238,47 @@ select pg_temp.check('and the true replay still returns the photo',
   (select id from public.add_message_media('27000001-0000-4000-8000-000000000061',
      '17000001-0000-4000-8000-000000000061', 'image/jpeg', 400000)),
   '27000001-0000-4000-8000-000000000061'::uuid);
+reset role; reset request.jwt.claims;
+
+-- ---------------------------------------------------------------------------
+--  The head technician (20261003120000)
+-- ---------------------------------------------------------------------------
+-- He takes part in the conversation of every task of his company, the
+-- archived ones too, and has an inbox with the office like any field worker.
+-- A cleaning's conversation is not his, nor a repair's the office wrote by
+-- hand with no task behind it, nor a cleaner's inbox. Last in the story: what
+-- he writes would change what is unread to the others above.
+select pg_temp.as_hector();
+select pg_temp.check('the head technician reads the conversation of a task he holds nothing of',
+  (select count(*)::int from public.chat_messages
+    where id = '17000001-0000-4000-8000-000000000005'), 1);
+select pg_temp.check('and writes in it',
+  pg_temp.refusal_hint($stmt$
+    select public.send_message('17000001-0000-4000-8000-000000000071', 'Приеду в 14:00',
+                               null, 'f7000001-0000-4000-8000-000000000001')
+  $stmt$), 'no refusal');
+select pg_temp.check('a cleaning''s conversation is not his',
+  (select count(*)::int from public.chat_messages
+    where id = '17000001-0000-4000-8000-000000000001'), 0);
+select pg_temp.check('nor that of a repair with no task behind it',
+  pg_temp.refusal_hint($stmt$
+    select public.open_thread('e7000001-0000-4000-8000-000000000004')
+  $stmt$), 'serverErrors.threadNotFound');
+select pg_temp.check('nor a cleaner''s inbox',
+  (select count(*)::int from public.chat_messages
+    where id = '17000001-0000-4000-8000-000000000006'), 0);
+select pg_temp.check('his own inbox opens as a field worker''s does',
+  (select (public.open_thread(null, null, 'c7000007-0000-4000-8000-000000000007')).kind::text),
+  'direct');
+
+reset role; reset request.jwt.claims;
+update public.problems set archived_at = now()
+where id = 'f7000001-0000-4000-8000-000000000001';
+select pg_temp.check('the twins agree about him and an archived task', pg_temp.twins_disagree(), '');
+select pg_temp.as_hector();
+select pg_temp.check('an archived task keeps its conversation for him',
+  (select count(*)::int from public.chat_messages
+    where id in ('17000001-0000-4000-8000-000000000005', '17000001-0000-4000-8000-000000000071')), 2);
 reset role; reset request.jwt.claims;
 
 select pg_temp.check('the twins still agree at the end of the story', pg_temp.twins_disagree(), '');

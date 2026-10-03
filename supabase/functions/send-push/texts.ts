@@ -14,7 +14,7 @@
  */
 
 import type { Language, Place, PushGroup } from "./batch.ts";
-import type { Folded, FoldedChat, FoldedDigest, FoldedTask } from "./fold.ts";
+import type { Folded, FoldedChat, FoldedDigest, FoldedProblem, FoldedTask } from "./fold.ts";
 import COPY from "./push-texts.json" with { type: "json" };
 
 export interface PushText {
@@ -171,6 +171,19 @@ function renderChat(texts: Texts, folded: FoldedChat, group: PushGroup): PushTex
   return { title, body };
 }
 
+/**
+ * A new task names its place and who reported it, never what she wrote — as a
+ * message names its author and not its words. Either may be missing.
+ */
+function renderProblem(texts: Texts, folded: FoldedProblem, group: PushGroup): PushText {
+  const title = say(texts, folded.urgent ? "problem_new.titleUrgent" : "problem_new.title");
+  const place = placeName(texts, group.places, folded.propertyId);
+  if (folded.reporter === null || place === "") {
+    return { title, body: folded.reporter ?? place };
+  }
+  return { title, body: say(texts, "messageFrom", { place, author: folded.reporter }) };
+}
+
 function renderDigest(texts: Texts, folded: FoldedDigest): PushText {
   const parts = [
     ...(folded.today > 0 ? [say(texts, "daily_digest.today", { count: folded.today })] : []),
@@ -191,5 +204,7 @@ export function renderPush(folded: Folded, group: PushGroup): PushText {
       return renderChat(texts, folded, group);
     case "digest":
       return renderDigest(texts, folded);
+    case "problem":
+      return renderProblem(texts, folded, group);
   }
 }

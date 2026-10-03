@@ -61,6 +61,9 @@ insert into wanted values
   ('checklist_items',      'SELECT'),
   ('task_media',           'SELECT'),
   ('problems',             'SELECT'),
+  -- The history of a task (20261003140000): triggers write it, the manager
+  -- and the head technician read it, nobody edits it.
+  ('problem_events',       'SELECT'),
   ('supply_requests',      'SELECT'),
   ('supply_request_items', 'SELECT'),
   ('supply_catalog_items',  'SELECT'),
@@ -255,6 +258,27 @@ select pg_temp.check('the helpers PUBLIC used to reach stay with authenticated a
    cross join unnest(array['public.is_manager()', 'public.auth_role()',
                            'public.is_active_user()', 'public.short_cleaning_threshold()']) f
    where not has_function_privilege(r, f, 'EXECUTE')),
+  '');
+
+-- The head technician's helpers run as the caller inside the policies on
+-- problems, tasks, task_steps, task_media and properties (20261003120000):
+-- without EXECUTE every reader of those tables would be refused, not filtered.
+select pg_temp.check('the head technician''s policy helpers are callable by every reader',
+  (select coalesce(string_agg(r || ' ' || f, ', ' order by r, f), '')
+   from unnest(array['authenticated', 'service_role']) r
+   cross join unnest(array['public.is_head_tech()', 'public.head_tech_property_ids()']) f
+   where not has_function_privilege(r, f, 'EXECUTE')),
+  '');
+
+-- What lets his dispatch through the guards on tasks (20261003130000) runs
+-- inside definer functions only; a client has no business calling it.
+select pg_temp.check('the dispatch internals are no client''s to call',
+  (select coalesce(string_agg(r || ' ' || f, ', ' order by r, f), '')
+   from unnest(array['anon', 'authenticated']) r
+   cross join unnest(array['public.head_tech_dispatching()', 'public.problem_for_dispatch(uuid)',
+                           'public.problem_for_manager(uuid)',
+                           'public.guard_link_role()', 'public.guard_tech_role_change()']) f
+   where has_function_privilege(r, f, 'EXECUTE')),
   '');
 
 -- ---------- raw: closed to clients as a whole ----------

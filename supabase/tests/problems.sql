@@ -221,10 +221,12 @@ end $$;
 reset role; reset request.jwt.claims;
 
 -- ---------- the manager hands it over ----------
+-- The head technician hands tasks out too (20261003130000), so the refusal
+-- names both.
 select pg_temp.as_maria();
 select pg_temp.check('a cleaner cannot assign',
   pg_temp.refusal($q$select public.assign_problem(pg_temp.pid(1), 'd8000003-0000-4000-8000-0000000000d3')$q$),
-  'serverErrors.managerOnly');
+  'serverErrors.managerOrHeadTechOnly');
 reset role; reset request.jwt.claims;
 
 select pg_temp.as_boss();
