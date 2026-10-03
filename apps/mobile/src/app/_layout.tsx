@@ -1,19 +1,22 @@
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // Side-effect import: initialises i18next before any screen renders.
 import '@/i18n';
 
-import { Colors } from '@/constants/theme';
+import { navigationFonts } from '@/components/text';
+import { Colors, type ThemeName } from '@/constants/theme';
 import { SessionProvider } from '@/features/auth/session';
 import { ProfileLanguageGate } from '@/features/profile/language-gate';
 import { PushBridge } from '@/features/push/push-bridge';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { holdSplash, useAppReady } from '@/lib/app-ready';
 import { subscribeFocusToAppState } from '@/lib/app-focus';
 import { markAppDrawn } from '@/components/route-error';
+import { FontsReadyProvider } from '@/lib/fonts-ready';
 import { watchNetwork } from '@/lib/network';
 import { createAppQueryClient, persistOptions } from '@/lib/query-client';
 
@@ -22,41 +25,40 @@ import { createAppQueryClient, persistOptions } from '@/lib/query-client';
 // data carry their own boundary.
 export { RootRouteError as ErrorBoundary } from '@/components/route-error';
 
+// The splash stays until the font is in (or has failed, or taken too long):
+// the first screen is drawn once, in the font it keeps.
+holdSplash();
+
 /**
- * Navigation chrome painted from the app's own palette.
+ * Navigation chrome painted from the app's own palette, in the app's font.
  *
  * The stock navigation themes carry their own greys, so headers and the tab
  * bar drifted a shade away from the screens underneath them and, in dark mode,
  * from the text drawn on top of them.
  */
-const navigationThemes = {
-  light: {
-    ...DefaultTheme,
+function navigationTheme(scheme: ThemeName, areFontsLoaded: boolean) {
+  const stock = scheme === 'dark' ? DarkTheme : DefaultTheme;
+  const palette = Colors[scheme];
+  return {
+    ...stock,
     colors: {
-      ...DefaultTheme.colors,
-      background: Colors.light.background,
-      card: Colors.light.card,
-      text: Colors.light.text,
-      border: Colors.light.divider,
-      primary: Colors.light.primary,
+      ...stock.colors,
+      background: palette.background,
+      card: palette.card,
+      text: palette.text,
+      border: palette.divider,
+      primary: palette.primary,
     },
-  },
-  dark: {
-    ...DarkTheme,
-    colors: {
-      ...DarkTheme.colors,
-      background: Colors.dark.background,
-      card: Colors.dark.card,
-      text: Colors.dark.text,
-      border: Colors.dark.divider,
-      primary: Colors.dark.primary,
-    },
-  },
-} as const;
+    fonts: navigationFonts(areFontsLoaded, stock.fonts),
+  };
+}
 
 export default function RootLayout() {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
+  const scheme: ThemeName = colorScheme === 'dark' ? 'dark' : 'light';
+  const { isReady, areFontsLoaded } = useAppReady();
+  const theme = useMemo(() => navigationTheme(scheme, areFontsLoaded), [scheme, areFontsLoaded]);
 
   // Created once per app run, not per render: a new QueryClient would throw
   // away every cached list on the next re-render.
@@ -70,8 +72,19 @@ export default function RootLayout() {
   // the server, not the radio, decides when they go out again.
   useEffect(() => watchNetwork(), []);
 
-  // From the first commit on, the root boundary catches instead of crashing.
-  useEffect(() => markAppDrawn(), []);
+  // From the first commit of the screens on, the root boundary catches
+  // instead of crashing. Not before: while the splash is up nothing is drawn
+  // yet, and a first screen that cannot draw must still crash, so that
+  // expo-updates rolls a broken update back.
+  useEffect(() => {
+    if (isReady) {
+      markAppDrawn();
+    }
+  }, [isReady]);
+
+  if (!isReady) {
+    return null;
+  }
 
   return (
     <PersistQueryClientProvider
@@ -95,50 +108,50 @@ export default function RootLayout() {
           {/* Inside the language: the Android channels are named in hers. */}
           <PushBridge />
           <SafeAreaProvider>
-            <ThemeProvider
-              value={colorScheme === 'dark' ? navigationThemes.dark : navigationThemes.light}
-            >
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen
-                  name="task/[id]/index"
-                  options={{ headerShown: true, headerBackTitle: t('common.back') }}
-                />
-                <Stack.Screen
-                  name="task/[id]/step/[stepId]"
-                  options={{ headerShown: true, headerBackTitle: t('common.back') }}
-                />
-                <Stack.Screen
-                  name="settings"
-                  options={{
-                    headerShown: true,
-                    headerBackTitle: t('common.back'),
-                    title: t('settings.title'),
-                  }}
-                />
-                {/*
-                  The title is set here, not by the screen: a thread that fails
-                  on its first render never draws its own, and the header would
-                  show the route's file name above the error.
-                */}
-                <Stack.Screen
-                  name="chat/[subject]/[id]"
-                  options={{
-                    headerShown: true,
-                    headerBackTitle: t('common.back'),
-                    title: t('chat.title'),
-                  }}
-                />
-                {/* Over the tabs, before the system asks: why notifications. */}
-                <Stack.Screen
-                  name="notifications"
-                  options={{
-                    presentation: 'modal',
-                    headerShown: true,
-                    title: t('notifications.intro.title'),
-                  }}
-                />
-              </Stack>
-            </ThemeProvider>
+            <FontsReadyProvider value={areFontsLoaded}>
+              <ThemeProvider value={theme}>
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen
+                    name="task/[id]/index"
+                    options={{ headerShown: true, headerBackTitle: t('common.back') }}
+                  />
+                  <Stack.Screen
+                    name="task/[id]/step/[stepId]"
+                    options={{ headerShown: true, headerBackTitle: t('common.back') }}
+                  />
+                  <Stack.Screen
+                    name="settings"
+                    options={{
+                      headerShown: true,
+                      headerBackTitle: t('common.back'),
+                      title: t('settings.title'),
+                    }}
+                  />
+                  {/*
+                    The title is set here, not by the screen: a thread that fails
+                    on its first render never draws its own, and the header would
+                    show the route's file name above the error.
+                  */}
+                  <Stack.Screen
+                    name="chat/[subject]/[id]"
+                    options={{
+                      headerShown: true,
+                      headerBackTitle: t('common.back'),
+                      title: t('chat.title'),
+                    }}
+                  />
+                  {/* Over the tabs, before the system asks: why notifications. */}
+                  <Stack.Screen
+                    name="notifications"
+                    options={{
+                      presentation: 'modal',
+                      headerShown: true,
+                      title: t('notifications.intro.title'),
+                    }}
+                  />
+                </Stack>
+              </ThemeProvider>
+            </FontsReadyProvider>
           </SafeAreaProvider>
         </ProfileLanguageGate>
       </SessionProvider>
