@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import type { Language } from '@str-ops/shared';
 
+import { hatchImage } from '@/lib/design/hatch';
 import { formatShortDay } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
@@ -17,8 +18,6 @@ import { TaskChips } from './task-chips';
 /** The track of bars at the top of a row; the chips take the line under it. */
 const BAR_TOP = 4;
 const BAR_HEIGHT = 18;
-/** A block is hatched, not only greyed: it must read without colour. */
-const HATCH = 'repeating-linear-gradient(135deg, transparent 0 4px, rgb(0 0 0 / 0.14) 4px 8px)';
 
 interface RowTrackProps {
   /** The property the row stands for. */
@@ -169,12 +168,15 @@ function BarButton({ bar, dayWidth, isHighlighted, language, onPoint, onOpen }: 
       data-highlighted={isHighlighted ? 'true' : undefined}
       className={cn(
         'absolute flex items-center gap-0.5 overflow-hidden rounded-sm px-1 text-left text-[11px] leading-none whitespace-nowrap',
+        // The tones of the booking and the block (5.2). A block is hatched at
+        // 135°, not only greyed: it must read without colour. A guest's bar
+        // sits dark on the dark surface, so there its outline carries it.
         bar.kind === 'guest'
-          ? 'bg-primary text-primary-foreground'
-          : 'border bg-muted text-muted-foreground',
+          ? 'bg-tone-booking-mark text-tone-booking-on-mark dark:inset-ring dark:inset-ring-tone-booking-border'
+          : 'border border-tone-block-border bg-tone-block-mark text-tone-block-fg',
         bar.cutStart && 'rounded-l-none',
         bar.cutEnd && 'rounded-r-none',
-        isDouble && 'ring-2 ring-destructive',
+        isDouble && 'ring-2 ring-tone-urgent-mark',
         isHighlighted && 'outline-2 outline-offset-1 outline-ring',
       )}
       style={{
@@ -182,7 +184,7 @@ function BarButton({ bar, dayWidth, isHighlighted, language, onPoint, onOpen }: 
         width: (bar.to - bar.from) * dayWidth,
         top: BAR_TOP + bar.lane * height,
         height,
-        backgroundImage: bar.kind === 'block' ? HATCH : undefined,
+        backgroundImage: bar.kind === 'block' ? hatchImage('block') : undefined,
       }}
       onMouseEnter={() => onPoint(booking.id)}
       onMouseLeave={() => onPoint(null)}

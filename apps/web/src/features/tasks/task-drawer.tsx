@@ -1,12 +1,13 @@
 'use client';
 
-import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { ThreadPanel } from '@/features/chat/thread-panel';
 import { PhotoSource } from '@/features/media/photo-source';
+import { STATUS_TONE } from '@str-ops/shared';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,13 +29,6 @@ interface TaskDrawerProps {
 }
 
 type StepState = 'done' | 'skipped' | 'waived' | 'pending';
-
-const STATE_VARIANT: Record<StepState, 'default' | 'secondary' | 'outline'> = {
-  done: 'default',
-  waived: 'secondary',
-  skipped: 'secondary',
-  pending: 'outline',
-};
 
 /** A day is the longest a correction can sensibly claim. */
 const MAX_CORRECTION_MINUTES = 24 * 60;
@@ -140,10 +134,14 @@ export function TaskDrawer({ task, onClose }: TaskDrawerProps) {
           )}
           <div className="flex flex-wrap gap-1">
             {task.is_short_measurement === true ? (
-              <Badge variant="destructive">{t('panel.tasks.work.short')}</Badge>
+              <Badge tone={STATUS_TONE['tasks.flags.tooShort']}>
+                {t('panel.tasks.work.short')}
+              </Badge>
             ) : null}
             {task.is_parallel ? (
-              <Badge variant="secondary">{t('panel.tasks.work.parallel')}</Badge>
+              <Badge tone={STATUS_TONE['tasks.flags.parallel']}>
+                {t('panel.tasks.work.parallel')}
+              </Badge>
             ) : null}
           </div>
         </div>
@@ -230,7 +228,7 @@ export function TaskDrawer({ task, onClose }: TaskDrawerProps) {
                           <span className="font-medium">
                             {index + 1}. {stepTitle}
                           </span>
-                          <Badge variant={STATE_VARIANT[state]}>
+                          <Badge tone={STATUS_TONE[`steps.${state}`]}>
                             {t(`panel.tasks.work.stepStates.${state}`)}
                           </Badge>
                         </div>

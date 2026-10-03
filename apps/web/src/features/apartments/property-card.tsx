@@ -1,5 +1,6 @@
 'use client';
 
+import { propertyStatusTone } from '@str-ops/shared';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -68,7 +69,9 @@ export function PropertyCard({ propertyId }: PropertyCardProps) {
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-semibold">{one.name}</h1>
           {one.status === 'active' ? null : (
-            <Badge variant="outline">{t(`panel.apartments.tabs.${one.status}`)}</Badge>
+            <Badge tone={propertyStatusTone(one.status)}>
+              {t(`panel.apartments.tabs.${one.status}`)}
+            </Badge>
           )}
         </div>
         {parent === null ? null : (

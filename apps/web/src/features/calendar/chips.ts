@@ -14,8 +14,12 @@ import type { CalendarBooking } from './schema';
 export const STATUS_FILTERS = ['all', 'open', 'inWork', 'done'] as const;
 export type StatusFilter = (typeof STATUS_FILTERS)[number];
 
-/** A chip's colour: the status filter's group it falls in. */
-export type ChipTone = Exclude<StatusFilter, 'all'>;
+/**
+ * The status filter's group a chip falls in. Not its colour: since 5.2 a chip
+ * is drawn in its own status's tone (`STATUS_TONE`), and «Без исполнителя» no
+ * longer looks like «Назначена» because both are open.
+ */
+export type ChipGroup = Exclude<StatusFilter, 'all'>;
 
 /** `all`, `nobody`, or a person's id. */
 export type AssigneeFilter = string;
@@ -31,16 +35,16 @@ export function assigneeFromAddress(value: string | string[] | undefined): Assig
   return value === NO_ASSIGNEE ? NO_ASSIGNEE : ANY_ASSIGNEE;
 }
 
-const TONE_STATUSES: Readonly<Record<ChipTone, readonly TaskStatus[]>> = {
+const GROUP_STATUSES: Readonly<Record<ChipGroup, readonly TaskStatus[]>> = {
   open: ['unassigned', 'assigned', 'accepted'],
   inWork: ['in_progress', 'paused', 'blocked'],
   done: ['done'],
 };
 
 /** Null for the statuses the default view does not draw (cancelled, expired). */
-export function chipTone(status: TaskStatus): ChipTone | null {
-  const tones = Object.keys(TONE_STATUSES) as ChipTone[];
-  return tones.find((tone) => TONE_STATUSES[tone].includes(status)) ?? null;
+export function chipGroup(status: TaskStatus): ChipGroup | null {
+  const groups = Object.keys(GROUP_STATUSES) as ChipGroup[];
+  return groups.find((group) => GROUP_STATUSES[group].includes(status)) ?? null;
 }
 
 /**
@@ -53,8 +57,8 @@ export function matchesChipFilters(
   status: StatusFilter,
   assignee: AssigneeFilter,
 ): boolean {
-  const tone = chipTone(task.status);
-  const isStatusKept = status === 'all' || tone === null || tone === status;
+  const group = chipGroup(task.status);
+  const isStatusKept = status === 'all' || group === null || group === status;
   const isAssigneeKept =
     assignee === ANY_ASSIGNEE ||
     (assignee === NO_ASSIGNEE ? task.assignee_id === null : task.assignee_id === assignee);

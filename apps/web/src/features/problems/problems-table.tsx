@@ -1,5 +1,6 @@
 'use client';
 
+import { problemPriorityTone, problemStatusTone } from '@str-ops/shared';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 
@@ -16,7 +17,6 @@ import {
 import { formatDateTime } from '@/lib/format-date';
 import { useLanguage } from '@/lib/use-language';
 
-import { priorityVariant, statusVariant } from './format';
 import { liveFixTask, problemPlace, type Problem } from './schema';
 
 interface ProblemsTableProps {
@@ -54,12 +54,12 @@ export function ProblemsTable({ problems }: ProblemsTableProps) {
                 </TableCell>
                 <TableCell>{problemPlace(problem) ?? t('problems.noProperty')}</TableCell>
                 <TableCell>
-                  <Badge variant={priorityVariant(problem.priority)}>
+                  <Badge tone={problemPriorityTone(problem.priority)}>
                     {t(`problems.priorities.${problem.priority}`)}
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={statusVariant(problem.status)}>
+                  <Badge tone={problemStatusTone(problem.status)}>
                     {t(`problems.statuses.${problem.status}`)}
                   </Badge>
                 </TableCell>

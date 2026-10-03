@@ -4,7 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { memo, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { propertyPath, type Language } from '@str-ops/shared';
+import { propertyPath, STATUS_TONE, type Language } from '@str-ops/shared';
 
 import { Badge } from '@/components/ui/badge';
 import { mergeRepairAlerts, type RepairAlert } from '@/features/tasks/repairs';
@@ -92,8 +92,8 @@ interface RepairBadgeProps {
 
 /**
  * A repair left behind (§6): seen whatever the window, even with its day
- * weeks behind it. Red when a technician on it no longer works here — and
- * says so in words, not only in colour.
+ * weeks behind it. The overdue tone, the urgent one when a technician on it
+ * no longer works here — and says so in words, not only in colour.
  */
 function RepairBadge({ alert, language }: RepairBadgeProps) {
   const { t } = useTranslation();
@@ -106,7 +106,11 @@ function RepairBadge({ alert, language }: RepairBadgeProps) {
       .join(', ') || t('panel.calendar.nobody');
   return (
     <Badge
-      variant={alert.isTechnicianOff ? 'destructive' : 'outline'}
+      tone={
+        alert.isTechnicianOff
+          ? STATUS_TONE['calendar.overdueRepairTechOff']
+          : STATUS_TONE['calendar.overdueRepair']
+      }
       data-off={alert.isTechnicianOff ? 'true' : undefined}
       title={t('panel.calendar.overdueSince', {
         day: formatShortDay(alert.since, language),
@@ -218,7 +222,7 @@ const GridRow = memo(function GridRow({
           </span>
         ) : null}
         {property.status === 'maintenance' ? (
-          <Badge variant="outline" className="shrink-0">
+          <Badge tone={STATUS_TONE['property.maintenance']} className="shrink-0">
             {t('panel.apartments.tabs.maintenance')}
           </Badge>
         ) : null}

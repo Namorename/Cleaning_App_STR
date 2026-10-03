@@ -1,5 +1,6 @@
 'use client';
 
+import { STATUS_TONE } from '@str-ops/shared';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 
@@ -85,7 +86,9 @@ export function BookingsTab({ propertyId, listing = null }: BookingsTabProps) {
                     : (reservation.guest_name ?? t('panel.apartments.bookings.noName'))}
                 </span>
                 {isUpcoming(reservation, today) ? (
-                  <Badge variant="outline">{t('panel.apartments.bookings.upcoming')}</Badge>
+                  <Badge tone={STATUS_TONE['bookingsTab.upcoming']}>
+                    {t('panel.apartments.bookings.upcoming')}
+                  </Badge>
                 ) : null}
               </div>
             </TableCell>

@@ -1,5 +1,6 @@
 'use client';
 
+import { problemStatusTone } from '@str-ops/shared';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 
@@ -10,7 +11,6 @@ import { formatDateTime } from '@/lib/format-date';
 import { serverErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
 
-import { statusVariant } from './format';
 import { problemPlace, type Problem } from './schema';
 import { useUnarchiveProblem } from './use-problems';
 
@@ -44,7 +44,7 @@ export function ProblemsArchive({ problems }: ProblemsArchiveProps) {
                 <Link href={`/problems/${problem.id}`} className="font-medium hover:underline">
                   {problem.title}
                 </Link>
-                <Badge variant={statusVariant(problem.status)}>
+                <Badge tone={problemStatusTone(problem.status)}>
                   {t(`problems.statuses.${problem.status}`)}
                 </Badge>
               </div>

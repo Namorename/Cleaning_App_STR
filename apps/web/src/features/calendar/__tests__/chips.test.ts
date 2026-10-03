@@ -8,7 +8,7 @@ import {
   cellTasks,
   collapseExpired,
   chipCapacity,
-  chipTone,
+  chipGroup,
   isBookingChanged,
   matchesChipFilters,
   type BookingsRead,
@@ -81,15 +81,15 @@ function read(
 const ANNA = '11111111-1111-4111-8111-111111111111';
 const IVA = '22222222-2222-4222-8222-222222222222';
 
-describe('the colour of a chip', () => {
-  test('follows the status filter: open, in work, done', () => {
+describe('the status filter’s group of a chip', () => {
+  test('is open, in work or done', () => {
     expect(
-      ['unassigned', 'assigned', 'accepted'].map((status) => chipTone(status as never)),
+      ['unassigned', 'assigned', 'accepted'].map((status) => chipGroup(status as never)),
     ).toEqual(['open', 'open', 'open']);
-    expect(['in_progress', 'paused', 'blocked'].map((status) => chipTone(status as never))).toEqual(
-      ['inWork', 'inWork', 'inWork'],
-    );
-    expect(chipTone('done')).toBe('done');
+    expect(
+      ['in_progress', 'paused', 'blocked'].map((status) => chipGroup(status as never)),
+    ).toEqual(['inWork', 'inWork', 'inWork']);
+    expect(chipGroup('done')).toBe('done');
   });
 });
 

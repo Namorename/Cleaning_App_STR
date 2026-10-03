@@ -1,5 +1,6 @@
 'use client';
 
+import { supplyPriorityTone, supplyStatusTone } from '@str-ops/shared';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -23,7 +24,6 @@ import { formatDateTime, formatDay, todayIso } from '@/lib/format-date';
 import { serverErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
 
-import { statusVariant } from './format';
 import {
   canReject,
   nextStatuses,
@@ -97,9 +97,9 @@ export function SupplyCard({ request }: SupplyCardProps) {
         <div className="flex flex-wrap items-center gap-2">
           <CardTitle>{supplyPlace(request) ?? t('supplies.general')}</CardTitle>
           {request.priority === 'urgent' ? (
-            <Badge variant="destructive">{t('supplies.priorities.urgent')}</Badge>
+            <Badge tone={supplyPriorityTone('urgent')}>{t('supplies.priorities.urgent')}</Badge>
           ) : null}
-          <Badge variant={statusVariant(request.status)}>
+          <Badge tone={supplyStatusTone(request.status)}>
             {t(`supplies.statuses.${request.status}`)}
           </Badge>
         </div>

@@ -52,10 +52,14 @@ describe('a live cleaning left over from yesterday', () => {
     expect(screen.getByText('со вчера · выезд 22.09')).toBeInTheDocument();
   });
 
-  test('is framed in red, so it stands out among the day', () => {
+  // The frame is the overdue tone's since 5.2 (STATUS_TONE['tasks.tail']), no longer
+  // `destructive`: red is «Просрочено» and «Срочно» only, in their own shades.
+  test('is framed in the overdue tone, so it stands out among the day', () => {
     const { container } = renderCard(task({ scheduled_date: '2026-09-22' }));
 
-    expect(container.querySelector('[data-slot="card"]')).toHaveClass('border-destructive/50');
+    expect(container.querySelector('[data-slot="card"]')).toHaveClass(
+      'border-tone-overdue-border',
+    );
   });
 });
 
@@ -64,7 +68,9 @@ describe('a task that is not a tail', () => {
     const { container } = renderCard(task({}));
 
     expect(screen.queryByText(/со вчера/)).not.toBeInTheDocument();
-    expect(container.querySelector('[data-slot="card"]')).not.toHaveClass('border-destructive/50');
+    expect(container.querySelector('[data-slot="card"]')).not.toHaveClass(
+      'border-tone-overdue-border',
+    );
   });
 
   test('a finished one from yesterday is history, not a tail', () => {

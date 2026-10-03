@@ -1,5 +1,6 @@
 'use client';
 
+import { problemPriorityTone, STATUS_TONE } from '@str-ops/shared';
 import Link from 'next/link';
 import type { DragEvent } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -12,7 +13,6 @@ import { useLanguage } from '@/lib/use-language';
 
 import { problemPlace } from './schema';
 
-import { priorityVariant } from './format';
 import { isDraggable, liveFixTask, type Problem } from './schema';
 
 interface ProblemCardProps {
@@ -60,8 +60,10 @@ export function ProblemCard({
       <div className="flex items-start justify-between gap-2">
         <span className="font-medium">{problem.title}</span>
         <span className="flex flex-wrap items-center justify-end gap-1">
-          {hasUnread ? <Badge>{t('panel.chat.unread')}</Badge> : null}
-          <Badge variant={priorityVariant(problem.priority)}>
+          {hasUnread ? (
+            <Badge tone={STATUS_TONE['chat.unread']}>{t('panel.chat.unread')}</Badge>
+          ) : null}
+          <Badge tone={problemPriorityTone(problem.priority)}>
             {t(`problems.priorities.${problem.priority}`)}
           </Badge>
         </span>

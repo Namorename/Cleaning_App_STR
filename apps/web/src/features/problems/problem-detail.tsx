@@ -1,5 +1,6 @@
 'use client';
 
+import { problemPriorityTone, problemStatusTone } from '@str-ops/shared';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,7 +19,7 @@ import { useLanguage } from '@/lib/use-language';
 
 import { AssignForm } from './assign-form';
 import { FixTaskSteps } from './fix-task-steps';
-import { formatClock, priorityVariant, statusVariant } from './format';
+import { formatClock } from './format';
 import { ProblemPhotos } from './problem-photos';
 import {
   isProblemArchived,
@@ -85,10 +86,10 @@ function ProblemCard({ problem }: { problem: Problem }) {
       <BackLink />
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold">{problem.title}</h1>
-        <Badge variant={statusVariant(problem.status)}>
+        <Badge tone={problemStatusTone(problem.status)}>
           {t(`problems.statuses.${problem.status}`)}
         </Badge>
-        <Badge variant={priorityVariant(problem.priority)}>
+        <Badge tone={problemPriorityTone(problem.priority)}>
           {t(`problems.priorities.${problem.priority}`)}
         </Badge>
       </div>

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { propertyPath } from '@str-ops/shared';
+import { propertyPath, propertyStatusTone } from '@str-ops/shared';
 
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
@@ -310,7 +310,9 @@ function RegistryRow({
             {name}
           </Link>
           {property.status === 'active' ? null : (
-            <Badge variant="outline">{t(`panel.apartments.tabs.${property.status}`)}</Badge>
+            <Badge tone={propertyStatusTone(property.status)}>
+              {t(`panel.apartments.tabs.${property.status}`)}
+            </Badge>
           )}
         </div>
         <span className={`text-xs text-muted-foreground ${depth > 0 ? 'pl-6' : ''}`}>

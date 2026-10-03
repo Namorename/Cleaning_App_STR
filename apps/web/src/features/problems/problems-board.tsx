@@ -1,5 +1,6 @@
 'use client';
 
+import { problemStatusTone } from '@str-ops/shared';
 import { useState, type DragEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -19,7 +20,6 @@ import { cn } from '@/lib/utils';
 
 import { AssignForm } from './assign-form';
 import { ProblemCard } from './problem-card';
-import { statusVariant } from './format';
 import {
   BOARD_STATUSES,
   boardMove,
@@ -173,7 +173,7 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
               )}
             >
               <header className="flex items-center justify-between px-1 py-1">
-                <Badge variant={statusVariant(status)}>{heading}</Badge>
+                <Badge tone={problemStatusTone(status)}>{heading}</Badge>
                 <span className="text-xs text-muted-foreground">{column.length}</span>
               </header>
               {column.length === 0 ? (

@@ -4,21 +4,16 @@ import Link from 'next/link';
 import { Fragment, type CSSProperties, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import type { Language } from '@str-ops/shared';
+import { taskStatusTone, type Language } from '@str-ops/shared';
 
 import { formatClock } from '@/features/tasks/format';
 import { isRepairOverdue } from '@/features/tasks/repairs';
 import { localizedTitle, type CalendarTask } from '@/features/tasks/schema';
+import { hatchImage } from '@/lib/design/hatch';
+import { TONE_MARK_BG } from '@/lib/design/tone-classes';
 import { cn } from '@/lib/utils';
 
-import {
-  chipCapacity,
-  chipTone,
-  isBookingChanged,
-  type BookingsRead,
-  type ChipTone,
-  type ChipView,
-} from './chips';
+import { chipCapacity, isBookingChanged, type BookingsRead, type ChipView } from './chips';
 
 /** The line of chips under the track of bars (see `row-track.tsx`). */
 export const CHIP_TOP = 24;
@@ -28,47 +23,38 @@ const DOT_GAP = 2;
 const MORE_WIDTH = 24;
 
 /**
- * A chip's colour by the status filter's group. One place for the three
- * colours until the redesign gives the panel status tokens (ROADMAP 5.2).
- */
-const TONE_DOT: Readonly<Record<ChipTone, string>> = {
-  open: 'bg-sky-600',
-  inWork: 'bg-amber-500',
-  done: 'bg-emerald-600',
-};
-
-/**
- * A status's dot. What never happened and the cancelled differ by shape as
- * well as colour (§4): a hollow red ring, a grey square.
+ * A status's dot, in its status's tone (`STATUS_TONE`, 5.2). What never
+ * happened and the cancelled differ by shape as well as colour (§4): a hollow
+ * ring, a pale square. The shapes of the redesign — the diamond of
+ * «Без исполнителя» and the rest of `CALENDAR_MARK_SHAPE` — come with 5.4.
  */
 function dotClass(task: CalendarTask, isOverdue: boolean): string {
   if (task.status === 'expired') {
-    return 'rounded-full border-2 border-destructive bg-transparent';
+    return 'rounded-full border-2 border-tone-not-happened-mark bg-transparent';
   }
   if (task.status === 'cancelled') {
-    return 'rounded-none bg-muted-foreground/50';
+    return cn('rounded-none', TONE_MARK_BG.cancelled);
   }
-  const tone = chipTone(task.status);
   // An overdue repair's dot is a framed square: not only red (§6).
   return cn(
-    isOverdue ? 'rounded-sm border-2 border-destructive' : 'rounded-full',
-    tone === null ? 'bg-muted-foreground' : TONE_DOT[tone],
+    isOverdue ? 'rounded-sm border-2 border-tone-overdue-mark' : 'rounded-full',
+    TONE_MARK_BG[taskStatusTone(task.status)],
   );
 }
 
-/** Hatched, not only red: «Не состоялась» must read without colour (§2). */
-const HATCH_RED =
-  'repeating-linear-gradient(135deg, transparent 0 3px, rgb(220 38 38 / 0.18) 3px 6px)';
-
-/** A full chip's frame: what never happened, the cancelled, an overdue repair. */
+/**
+ * A full chip's colours: what never happened (its tint, hatched at 45° —
+ * it must read without colour, §2), the cancelled (struck out), an overdue
+ * repair (its frame).
+ */
 function chipClass(task: CalendarTask, isOverdue: boolean): string {
   if (task.status === 'expired') {
-    return 'border-destructive text-destructive';
+    return 'border-tone-not-happened-border bg-tone-not-happened-bg text-tone-not-happened-fg';
   }
   if (task.status === 'cancelled') {
-    return 'text-muted-foreground line-through opacity-70';
+    return 'text-tone-cancelled-fg line-through';
   }
-  return isOverdue ? 'border-destructive' : '';
+  return isOverdue ? 'border-tone-overdue-border' : '';
 }
 
 export interface ChipText {
@@ -278,7 +264,7 @@ export function TaskChips({
                 className={cn(
                   'absolute',
                   dotClass(task, text.isOverdue),
-                  isChanged && 'ring-2 ring-amber-500',
+                  isChanged && 'ring-2 ring-tone-in-progress-mark',
                 )}
                 style={{
                   left: cellLeft + DOT_GAP + k * (DOT_SIZE + DOT_GAP),
@@ -309,31 +295,31 @@ export function TaskChips({
               className={cn(
                 'absolute flex items-center gap-1 overflow-hidden rounded-sm border bg-background px-1 text-[10px] leading-none whitespace-nowrap hover:bg-accent',
                 chipClass(task, text.isOverdue),
-                isChanged && 'ring-2 ring-amber-500',
+                isChanged && 'ring-2 ring-tone-in-progress-mark',
               )}
               style={{
                 left: cellLeft + 2 + k * slot,
                 width: slot - 2,
                 top: CHIP_TOP,
                 height: CHIP_HEIGHT,
-                backgroundImage: task.status === 'expired' ? HATCH_RED : undefined,
+                backgroundImage: task.status === 'expired' ? hatchImage('notHappened') : undefined,
               }}
             >
               <span aria-hidden className={cn('size-2 shrink-0', dotClass(task, false))} />
               {capacity.mode === 'compact' ? (
-                <span className={cn('truncate', text.isNobody && 'text-destructive')}>
+                <span className={cn('truncate', text.isNobody && 'text-tone-unassigned-fg')}>
                   {text.person}
                 </span>
               ) : (
                 <>
-                  <span className={cn('truncate', text.isNobody && 'text-destructive')}>
+                  <span className={cn('truncate', text.isNobody && 'text-tone-unassigned-fg')}>
                     {text.lead}
                   </span>
                   {text.window === null ? null : (
                     <span className="shrink-0 text-muted-foreground">{text.window}</span>
                   )}
                   {text.isSdt ? (
-                    <span className="shrink-0 rounded-sm bg-orange-500 px-0.5 text-[9px] text-white">
+                    <span className="shrink-0 rounded-sm bg-tone-urgent-bg px-0.5 text-[9px] text-tone-urgent-fg">
                       {t('panel.calendar.sdtMark')}
                     </span>
                   ) : null}

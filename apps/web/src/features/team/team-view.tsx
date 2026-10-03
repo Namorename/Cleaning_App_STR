@@ -1,5 +1,6 @@
 'use client';
 
+import { STATUS_TONE } from '@str-ops/shared';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -161,7 +162,7 @@ export function TeamView() {
                   <div className="flex flex-wrap items-center gap-2">
                     <Person name={person.full_name} role={person.role} />
                     {person.is_active ? null : (
-                      <Badge variant="outline">{t('panel.team.off')}</Badge>
+                      <Badge tone={STATUS_TONE['team.inactive']}>{t('panel.team.off')}</Badge>
                     )}
                   </div>
                   {person.phone === null ? null : (

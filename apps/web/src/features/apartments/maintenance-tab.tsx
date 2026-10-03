@@ -1,5 +1,6 @@
 'use client';
 
+import { propertyStatusTone } from '@str-ops/shared';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -50,7 +51,9 @@ export function MaintenanceTab({ property }: MaintenanceTabProps) {
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-medium">{t('panel.apartments.maintenance.state')}</h2>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline">{t(`panel.apartments.tabs.${property.status}`)}</Badge>
+          <Badge tone={propertyStatusTone(property.status)}>
+            {t(`panel.apartments.tabs.${property.status}`)}
+          </Badge>
           {moves.map((status) => (
             <Button
               key={status}
