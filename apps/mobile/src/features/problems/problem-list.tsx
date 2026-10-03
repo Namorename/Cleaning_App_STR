@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
 
 import { ErrorBanner } from '@/components/error-banner';
+import { ErrorState } from '@/components/error-state';
 import { FontSize, Spacing, type Theme } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
-import { serverErrorText } from '@/lib/server-error';
 
 import { ProblemCard } from './problem-card';
 import type { Problem, ProblemGroup } from './schema';
@@ -68,13 +68,7 @@ export function ProblemList({
   }
 
   if (error !== null && sections === undefined) {
-    const failure = serverErrorText(error);
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.error}>{failure.text}</Text>
-        {failure.detail !== null ? <Text style={styles.message}>{failure.detail}</Text> : null}
-      </View>
-    );
+    return <ErrorState error={error} onRetry={onRefresh} />;
   }
 
   // Error over cache: a refresh that failed still has the list from the last
@@ -126,7 +120,6 @@ const createStyles = (theme: Theme) =>
       gap: Spacing.sm,
     },
     message: { color: theme.textSecondary, fontSize: FontSize.body, textAlign: 'center' },
-    error: { color: theme.danger, fontSize: FontSize.body, textAlign: 'center' },
     heading: {
       color: theme.textSecondary,
       fontSize: FontSize.caption,

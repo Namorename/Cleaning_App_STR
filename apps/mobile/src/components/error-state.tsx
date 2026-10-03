@@ -13,7 +13,7 @@ const DETAIL_LINES = 3;
 export interface ErrorStateProps {
   /** The failure as it came: a refusal the app knows is translated, anything else is not. */
   error: unknown;
-  /** What did not happen, from the screen: «Не удалось загрузить уборки». */
+  /** What did not happen, from the screen, such as `tasks.loadFailed`. */
   title?: string;
   onRetry?: () => void;
 }

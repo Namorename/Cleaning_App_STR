@@ -1,5 +1,7 @@
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
+import { StyleSheet, type TextStyle } from 'react-native';
 
+import { FontSize } from '@/constants/theme';
 import { ProblemList } from '@/features/problems/problem-list';
 import type { Problem } from '@/features/problems/schema';
 import type { SupplyRequest } from '@/features/supplies/schema';
@@ -18,6 +20,10 @@ const GENERAL = 'Не удалось выполнить действие. Поп
 
 const noop = () => {};
 const listProps = { isLoading: false, onRefresh: noop, isRefreshing: false, onPress: noop };
+
+function fontSizeOf(text: string): number | undefined {
+  return (StyleSheet.flatten(screen.getByText(text).props.style) as TextStyle).fontSize;
+}
 
 function problem(): Problem {
   return {
@@ -90,6 +96,39 @@ describe('her reports', () => {
     expect(screen.getByText(GENERAL)).toBeTruthy();
     expect(screen.queryByText(STALE)).toBeNull();
   });
+
+  test('the error screen says the sentence first and the server’s words small under it', async () => {
+    await render(
+      <ProblemList {...listProps} sections={undefined} error={new Error('Network request failed')} />,
+    );
+
+    expect(fontSizeOf(GENERAL)).toBe(FontSize.body);
+    expect(fontSizeOf('Network request failed')).toBe(FontSize.caption);
+  });
+
+  test('a list that never loaded offers a retry, and the retry refreshes it', async () => {
+    const onRefresh = jest.fn();
+    await render(
+      <ProblemList
+        {...listProps}
+        onRefresh={onRefresh}
+        sections={undefined}
+        error={new Error('Network request failed')}
+      />,
+    );
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Повторить' }));
+
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  test('an empty list whose refresh failed says both: nothing here, and the failure above', async () => {
+    await render(<ProblemList {...listProps} sections={[]} error={new Error('Network request failed')} />);
+
+    expect(screen.getByText('Заданий не заявлено')).toBeTruthy();
+    expect(screen.getByText(STALE)).toBeTruthy();
+    expect(screen.getByText('Network request failed')).toBeTruthy();
+  });
 });
 
 describe('her supply requests', () => {
@@ -114,5 +153,38 @@ describe('her supply requests', () => {
 
     expect(screen.getByText(GENERAL)).toBeTruthy();
     expect(screen.queryByText(STALE)).toBeNull();
+  });
+
+  test('the error screen says the sentence first and the server’s words small under it', async () => {
+    await render(
+      <SupplyList {...listProps} sections={undefined} error={new Error('Network request failed')} />,
+    );
+
+    expect(fontSizeOf(GENERAL)).toBe(FontSize.body);
+    expect(fontSizeOf('Network request failed')).toBe(FontSize.caption);
+  });
+
+  test('a list that never loaded offers a retry, and the retry refreshes it', async () => {
+    const onRefresh = jest.fn();
+    await render(
+      <SupplyList
+        {...listProps}
+        onRefresh={onRefresh}
+        sections={undefined}
+        error={new Error('Network request failed')}
+      />,
+    );
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Повторить' }));
+
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  test('an empty list whose refresh failed says both: nothing here, and the failure above', async () => {
+    await render(<SupplyList {...listProps} sections={[]} error={new Error('Network request failed')} />);
+
+    expect(screen.getByText('Заявок нет')).toBeTruthy();
+    expect(screen.getByText(STALE)).toBeTruthy();
+    expect(screen.getByText('Network request failed')).toBeTruthy();
   });
 });

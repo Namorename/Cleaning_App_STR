@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Text } from 'react-native';
 
 import { TaskList } from '../task-list';
@@ -64,6 +64,29 @@ test('distinguishes a failure from an empty day', async () => {
   expect(screen.queryByText('Свободных уборок нет.')).toBeNull();
 });
 
+test('a list that never loaded can be pulled down, as its line says', async () => {
+  // Arrange
+  const onRefresh = jest.fn();
+  await render(
+    <TaskList
+      {...baseProps}
+      onRefresh={onRefresh}
+      sections={undefined}
+      isLoading={false}
+      error={new Error('Network request failed')}
+    />,
+  );
+  expect(screen.getByText('Потяните список вниз, чтобы повторить.')).toBeTruthy();
+  const pulls = screen.container.queryAll((node) => node.type === 'RCTRefreshControl');
+  expect(pulls).toHaveLength(1);
+
+  // Act
+  await fireEvent(pulls[0], 'refresh');
+
+  // Assert
+  expect(onRefresh).toHaveBeenCalledTimes(1);
+});
+
 // A refresh that fails in a stairwell must not take away the list she had a
 // minute ago: yesterday's cards stay, and a line above them says what happened.
 test('a failed refresh keeps the list it had, with the failure said above it', async () => {
@@ -100,6 +123,24 @@ test('the failure line sits with what the screen puts above the cards', async ()
   expect(
     screen.getByText('Не удалось обновить, показано сохранённое. Потяните вниз, чтобы повторить.'),
   ).toBeTruthy();
+});
+
+test('an empty list whose refresh failed says both: nothing to do, and the failure above', async () => {
+  await render(
+    <TaskList
+      {...baseProps}
+      sections={[]}
+      isLoading={false}
+      error={new Error('Network request failed')}
+    />,
+  );
+
+  expect(screen.getByText('Свободных уборок нет.')).toBeTruthy();
+  expect(
+    screen.getByText('Не удалось обновить, показано сохранённое. Потяните вниз, чтобы повторить.'),
+  ).toBeTruthy();
+  expect(screen.getByText('Network request failed')).toBeTruthy();
+  expect(screen.queryByText('Не удалось загрузить уборки')).toBeNull();
 });
 
 test('shows the empty message when there is genuinely nothing to do', async () => {

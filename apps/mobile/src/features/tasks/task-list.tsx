@@ -1,6 +1,14 @@
 import { useCallback, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  SectionList,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { ErrorBanner } from '@/components/error-banner';
 import { FontSize, Spacing, type Theme } from '@/constants/theme';
@@ -91,6 +99,17 @@ export function TaskList({
 
   const keyExtractor = useCallback((item: CleaningTask) => item.id, []);
 
+  const refreshControl = (
+    // The spinner is drawn by the platform and defaults to a dark tick on
+    // iOS — invisible on the dark background without this.
+    <RefreshControl
+      refreshing={isRefreshing}
+      onRefresh={onRefresh}
+      tintColor={styles.message.color}
+      colors={[styles.message.color]}
+    />
+  );
+
   if (isLoading) {
     return (
       <View style={[styles.screen, styles.centered]} accessibilityLiveRegion="polite">
@@ -103,15 +122,21 @@ export function TaskList({
   if (error !== null && sections === undefined) {
     const failure = serverErrorText(error);
 
+    // Pulled down like the list it stands in for, as its last line asks.
     return (
-      <View style={[styles.screen, styles.centered]} accessibilityLiveRegion="polite">
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={styles.failure}
+        refreshControl={refreshControl}
+        accessibilityLiveRegion="polite"
+      >
         <Text style={styles.errorTitle}>{t('tasks.loadFailed')}</Text>
         <Text style={styles.message}>{failure.text}</Text>
         {failure.detail !== null ? (
           <Text style={styles.errorDetail}>{failure.detail}</Text>
         ) : null}
         <Text style={styles.message}>{t('tasks.pullToRetry')}</Text>
-      </View>
+      </ScrollView>
     );
   }
 
@@ -140,16 +165,7 @@ export function TaskList({
       SectionSeparatorComponent={Separator}
       stickySectionHeadersEnabled={false}
       ListHeaderComponent={listHeader}
-      refreshControl={
-        // The spinner is drawn by the platform and defaults to a dark tick on
-        // iOS — invisible on the dark background without this.
-        <RefreshControl
-          refreshing={isRefreshing}
-          onRefresh={onRefresh}
-          tintColor={styles.message.color}
-          colors={[styles.message.color]}
-        />
-      }
+      refreshControl={refreshControl}
       ListEmptyComponent={
         <View style={styles.centered}>
           <Text style={styles.message}>{emptyMessage}</Text>
@@ -187,6 +203,14 @@ const createStyles = (theme: Theme) =>
     },
     centered: {
       flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: Spacing.xl,
+      gap: Spacing.sm,
+    },
+    // `centered` inside a scroll view: grows to the screen, scrolls past it at large type.
+    failure: {
+      flexGrow: 1,
       alignItems: 'center',
       justifyContent: 'center',
       padding: Spacing.xl,

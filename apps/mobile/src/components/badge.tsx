@@ -18,9 +18,9 @@ export interface BadgeProps {
 }
 
 /**
- * How each tone's chip is framed (tokens.ts, `ToneColors.border`): «Без
- * исполнителя» dashed and «Просрочено» solid, so the two read apart by their
- * shape too; the unread badge is filled with its mark.
+ * How each tone's chip is framed (tokens.ts, `ToneColors.border`): the
+ * `unassigned` chip dashed and the `overdue` chip solid, so the two read apart
+ * by their shape too; the unread badge is filled with its mark.
  */
 function chipBox(tone: Tone, colors: ToneColors): ViewStyle {
   if (tone === 'unread') {
@@ -37,7 +37,7 @@ function chipBox(tone: Tone, colors: ToneColors): ViewStyle {
   return { backgroundColor: colors.bg };
 }
 
-/** A status, or a flag such as «Новое сообщение», as a pill in its tone. */
+/** A status, or a flag such as `chat.unread`, as a pill in its tone. */
 export function Badge({ label, tone, left, testID }: BadgeProps) {
   const theme = useTheme();
   const colors = theme.tone[tone];
