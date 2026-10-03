@@ -1,4 +1,14 @@
 const { availableParallelism } = require('node:os');
+const path = require('node:path');
+
+/**
+ * lucide-react-native publishes each icon as an ES module (`.mjs`): that is
+ * what Jest's React Native environment resolves the package's `exports` to,
+ * and the preset transforms no `.mjs`. Jest reads the package's CommonJS build
+ * instead — the same icons, the same components. The app's bundler keeps the
+ * ES modules.
+ */
+const LUCIDE_CJS = path.dirname(require.resolve('lucide-react-native'));
 
 /**
  * Workers: half the machine, never more than four. Jest's default is every
@@ -24,6 +34,10 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   maxWorkers: MAX_WORKERS,
   testTimeout: TEST_TIMEOUT_MS,
+  moduleNameMapper: {
+    '^lucide-react-native/icons$': path.join(LUCIDE_CJS, 'icons', 'index.js'),
+    '^lucide-react-native/icons/(.+)$': path.join(LUCIDE_CJS, 'icons', '$1.js'),
+  },
   transformIgnorePatterns: [
     'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg)',
   ],

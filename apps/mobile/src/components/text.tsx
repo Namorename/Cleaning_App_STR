@@ -45,7 +45,8 @@ const VARIANT_SIZE: Readonly<Record<TextVariant, number>> = {
   display: FONT_SIZE.display,
 };
 
-const TONE_ROLE = {
+/** The theme role each tone is drawn in — of text, and of an icon beside it. */
+export const TONE_ROLE = {
   default: 'text',
   secondary: 'textSecondary',
   muted: 'textMuted',

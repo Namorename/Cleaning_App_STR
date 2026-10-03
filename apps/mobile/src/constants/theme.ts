@@ -198,3 +198,15 @@ export const BUTTON_HEIGHT = TOUCH_TARGET.phoneButton;
 
 /** A row of a list. */
 export const ROW_HEIGHT = TOUCH_TARGET.phoneRow;
+
+/**
+ * Icon sizes, dp. `regular` is Lucide's 24-unit grid drawn 1:1 — the box a
+ * button, a row or a tab centres in its ≥ 48 dp target; `small` sits beside a
+ * chip's 13 dp words.
+ */
+export const IconSize = {
+  small: 16,
+  regular: 24,
+} as const;
+
+export type IconSizeName = keyof typeof IconSize;
