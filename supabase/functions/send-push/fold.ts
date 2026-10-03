@@ -16,12 +16,12 @@
  *   holding of the cleaning (given, taken, moved, its hours): then that is the
  *   news, and "free" would read as an offer of her own cleaning back.
  * A thread says how many messages came and who wrote the last. The morning
- * summary is sent as it is.
+ * summary is sent as it is, and so is a new task: one row a task, written once.
  */
 
 import type { PushGroup, PushKind, PushRow } from "./batch.ts";
 
-export type TaskEvent = Exclude<PushKind, "chat_message" | "daily_digest">;
+export type TaskEvent = Exclude<PushKind, "chat_message" | "daily_digest" | "problem_new">;
 
 export interface MoveFacts {
   readonly fromDate: string | null;
@@ -68,7 +68,18 @@ export interface FoldedDigest {
   readonly free: number;
 }
 
-export type Folded = FoldedTask | FoldedChat | FoldedDigest;
+/** A task reported in the company, for the head technician (20261003160000). */
+export interface FoldedProblem {
+  readonly type: "problem";
+  readonly problemId: string;
+  readonly propertyId: string | null;
+  /** Who reported it, as the profile names her; never what she wrote. */
+  readonly reporter: string | null;
+  /** A task of high priority. */
+  readonly urgent: boolean;
+}
+
+export type Folded = FoldedTask | FoldedChat | FoldedDigest | FoldedProblem;
 
 const TAKEN_AWAY: ReadonlySet<PushKind> = new Set(["cleaning_cancelled", "cleaning_unassigned"]);
 const GIVEN: ReadonlySet<PushKind> = new Set(["cleaning_new", "cleaning_assigned"]);
@@ -200,6 +211,21 @@ function foldChat(rows: readonly PushRow[]): FoldedChat | null {
   };
 }
 
+function foldProblem(rows: readonly PushRow[]): FoldedProblem | null {
+  const last = rows[rows.length - 1];
+  const problemId = text(last.params.problem_id);
+  if (problemId === null) {
+    return null;
+  }
+  return {
+    type: "problem",
+    problemId,
+    propertyId: last.propertyId,
+    reporter: text(last.params.reporter_name),
+    urgent: rows.some((row) => row.urgent),
+  };
+}
+
 export function fold(group: PushGroup): Folded | null {
   const rows = group.rows;
   const last = rows[rows.length - 1];
@@ -208,6 +234,9 @@ export function fold(group: PushGroup): Folded | null {
   }
   if (last.kind === "chat_message") {
     return foldChat(rows.filter((row) => row.kind === "chat_message"));
+  }
+  if (last.kind === "problem_new") {
+    return foldProblem(rows.filter((row) => row.kind === "problem_new"));
   }
   if (last.kind === "daily_digest") {
     return {

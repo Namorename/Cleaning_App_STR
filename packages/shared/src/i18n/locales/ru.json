@@ -873,6 +873,7 @@
         "cleaning_window": "Изменилось время уборки",
         "cleaning_free": "Свободная уборка",
         "booking_cancelled_live": "Бронь отменена во время уборки",
+        "problem_new": "Новое задание",
         "chat_message": "Сообщение в чате",
         "daily_digest": "Утренняя сводка"
       },
@@ -1341,6 +1342,10 @@
     "booking_cancelled_live": {
       "title": "Бронь отменена",
       "body": "{{place}}: бронь отменена, пока идёт уборка. Уточните у менеджера."
+    },
+    "problem_new": {
+      "title": "Новое задание",
+      "titleUrgent": "Срочное задание"
     },
     "chat_message": {
       "title": "Новое сообщение",

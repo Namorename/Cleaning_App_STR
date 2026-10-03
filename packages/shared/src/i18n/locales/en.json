@@ -863,6 +863,7 @@
         "cleaning_window": "Cleaning hours changed",
         "cleaning_free": "Free cleaning",
         "booking_cancelled_live": "Booking cancelled during your cleaning",
+        "problem_new": "New task",
         "chat_message": "Chat message",
         "daily_digest": "Morning summary"
       },
@@ -1317,6 +1318,10 @@
     "booking_cancelled_live": {
       "title": "Booking cancelled",
       "body": "{{place}}: the booking was cancelled while the cleaning is under way. Check with the office."
+    },
+    "problem_new": {
+      "title": "New task",
+      "titleUrgent": "Urgent task"
     },
     "chat_message": {
       "title": "New message",

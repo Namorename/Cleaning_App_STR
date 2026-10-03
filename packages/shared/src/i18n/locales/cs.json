@@ -873,6 +873,7 @@
         "cleaning_window": "Změnil se čas úklidu",
         "cleaning_free": "Volný úklid",
         "booking_cancelled_live": "Rezervace zrušena během úklidu",
+        "problem_new": "Nový úkol",
         "chat_message": "Zpráva v chatu",
         "daily_digest": "Ranní přehled"
       },
@@ -1341,6 +1342,10 @@
     "booking_cancelled_live": {
       "title": "Rezervace zrušena",
       "body": "{{place}}: rezervace byla zrušena během úklidu. Ověřte si to u manažera."
+    },
+    "problem_new": {
+      "title": "Nový úkol",
+      "titleUrgent": "Naléhavý úkol"
     },
     "chat_message": {
       "title": "Nová zpráva",
