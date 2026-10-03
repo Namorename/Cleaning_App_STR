@@ -13,18 +13,19 @@
 --
 -- Expected, label by label (local stack after db:reset on tech-server, 2026-10-03):
 --   head           20261003170000.
---   functions      25 rows, one per name, overloads = 1, config {search_path=""}; md5 prefix /
+--   functions      26 rows, one per name, overloads = 1, config {search_path=""}; md5 prefix /
 --                  length / definer exactly (computed from the migration files: the text between
 --                  the dollar quotes of the last create of each name, read with newline='' so a
 --                  CRLF would change it, md5 of its UTF-8 bytes; the same as md5(prosrc) and
 --                  length(prosrc) on the local stack):
 --                    add_task_media                 e22633c9  6950 t
---                    assign_problem                 9b868b96  3332 t
+--                    assign_problem                 dc3ce00a  4365 t
 --                    chat_participates              47e5fe4b  4182 t
 --                    chat_participates_as           1b1df35b  3891 t
 --                    chat_unread_threads            ae74cb67  2902 t
 --                    claim_push_batch               4863450e  9769 t
 --                    enqueue_daily_digest           0f06eaa6  4347 t
+--                    guard_cleaning_assignee        e9228cab   590 t
 --                    guard_link_role                5c1b47cf   383 t
 --                    guard_task_fields              086fd1ec  2589 t
 --                    guard_task_transitions         bba9946e  4571 t
@@ -38,10 +39,10 @@
 --                    push_on_chat_message           f930d340  2686 t
 --                    push_on_problem_reported       ef9de429  1074 t
 --                    push_on_task_change            c420d547 13438 t
---                    save_task                      b377fcd9 11753 t
+--                    save_task                      cb867170 11855 t
 --                    staff_directory                5b9b99d2   231 t
 --                    task_media_video_tolerance_sec 6276b5a1    19 f
---                    unassign_problem               1e2392ca  1740 t
+--                    unassign_problem               a0534df4  2149 t
 --                    update_host_settings           2a2f6665  2078 t
 --                  The md5 must match exactly; a different one is a file saved with CRLF or a body
 --                  edited after this list — recompute before the push, never after.
@@ -50,8 +51,9 @@
 --                  policy helpers: add_task_media, assign_problem, chat_participates,
 --                  chat_unread_threads, head_tech_property_ids, is_head_tech, save_task,
 --                  staff_directory, task_media_video_tolerance_sec, unassign_problem,
---                  update_host_settings (11). [] — the other 14: chat_participates_as,
---                  claim_push_batch, enqueue_daily_digest, guard_link_role, guard_task_fields,
+--                  update_host_settings (11). [] — the other 15: chat_participates_as,
+--                  claim_push_batch, enqueue_daily_digest, guard_cleaning_assignee,
+--                  guard_link_role, guard_task_fields,
 --                  guard_task_transitions, guard_tech_role_change, head_tech_dispatching,
 --                  journal_problem_change, journal_repair_change, problem_for_dispatch,
 --                  push_on_chat_message, push_on_problem_reported, push_on_task_change.
@@ -63,15 +65,17 @@
 --                  indexes problem_events_pkey, problem_events_problem_idx (problem_id,
 --                  created_at, id), problem_events_task_idx (task_id) where task_id is not null;
 --                  rows 0 — the journal starts on the day of the push.
---   triggers       six, all enabled ('O'), "row": true; "when" true for problems_journal_update
---                  and tasks_journal_repair only; columns:
+--   triggers       seven, all enabled ('O'), "row": true; "when" true for problems_journal_update,
+--                  tasks_journal_repair and tasks_no_cleaning_for_tech only; columns ([] — the
+--                  trigger names none: an insert, or an update of any column):
 --                    problems_journal_insert   problems          []
 --                    problems_journal_update   problems          [archived_at, status]
 --                    problems_push_reported    problems          []
 --                    profiles_guard_tech_role  profiles          [role]
---                    property_cleaners_no_tech property_cleaners [cleaner_id]
+--                    property_cleaners_no_tech property_cleaners []
 --                    tasks_journal_repair      tasks             [assignee_id, scheduled_date,
 --                                                                 status, time_from, time_to]
+--                    tasks_no_cleaning_for_tech tasks            [assignee_id, type]
 --   enums          app_role {cleaner,tech,head_tech,manager,admin}; push_kind ends
 --                  {…,booking_cancelled_live,problem_new,chat_message,daily_digest}; problem_event_kind
 --                  {reported,assigned,reassigned,unassigned,rescheduled,accepted,started,
@@ -90,6 +94,8 @@
 --   public_grants  every table in public with its authenticated / anon / PUBLIC privileges:
 --                  compare with the matrix of supabase/tests/table_grants.sql (problem_events
 --                  SELECT is new); any anon or PUBLIC row is a stop.
+--   tech_links     {} — no technician or head technician holds a link (the gate before the
+--                  push took them off; the link trigger lets no new one in).
 select label, payload from (
   select 1 as ord, 'head' as label,
          to_jsonb((select max(version) from supabase_migrations.schema_migrations)) as payload
@@ -104,8 +110,8 @@ select label, payload from (
                    'definer', p.prosecdef, 'config', p.proconfig) order by f.name)
           from unnest(array['add_task_media', 'assign_problem', 'chat_participates',
                             'chat_participates_as', 'chat_unread_threads', 'claim_push_batch',
-                            'enqueue_daily_digest', 'guard_link_role', 'guard_task_fields',
-                            'guard_task_transitions', 'guard_tech_role_change',
+                            'enqueue_daily_digest', 'guard_cleaning_assignee', 'guard_link_role',
+                            'guard_task_fields', 'guard_task_transitions', 'guard_tech_role_change',
                             'head_tech_dispatching', 'head_tech_property_ids', 'is_head_tech',
                             'journal_problem_change', 'journal_repair_change',
                             'problem_for_dispatch', 'push_on_chat_message',
@@ -130,8 +136,8 @@ select label, payload from (
           where p.pronamespace = 'public'::regnamespace
             and p.proname in ('add_task_media', 'assign_problem', 'chat_participates',
                               'chat_participates_as', 'chat_unread_threads', 'claim_push_batch',
-                              'enqueue_daily_digest', 'guard_link_role', 'guard_task_fields',
-                              'guard_task_transitions', 'guard_tech_role_change',
+                              'enqueue_daily_digest', 'guard_cleaning_assignee', 'guard_link_role',
+                              'guard_task_fields', 'guard_task_transitions', 'guard_tech_role_change',
                               'head_tech_dispatching', 'head_tech_property_ids', 'is_head_tech',
                               'journal_problem_change', 'journal_repair_change',
                               'problem_for_dispatch', 'push_on_chat_message',
@@ -176,7 +182,8 @@ select label, payload from (
           where not t.tgisinternal
             and t.tgname in ('problems_journal_insert', 'problems_journal_update',
                              'problems_push_reported', 'profiles_guard_tech_role',
-                             'property_cleaners_no_tech', 'tasks_journal_repair'))
+                             'property_cleaners_no_tech', 'tasks_journal_repair',
+                             'tasks_no_cleaning_for_tech'))
 
   union all
   select 6, 'enums',
@@ -226,6 +233,18 @@ select label, payload from (
                               group by 1) g) as grants
                 from pg_class c
                 where c.relnamespace = 'public'::regnamespace and c.relkind in ('r', 'p', 'v', 'm')) t)
+
+  union all
+  select 10, 'tech_links',
+         (select coalesce(jsonb_object_agg(x.role || ' ' || x.mode,
+                                           jsonb_build_object('people', x.people, 'links', x.links)),
+                          '{}'::jsonb)
+          from (select p.role::text as role, pc.mode::text as mode,
+                       count(distinct pc.cleaner_id) as people, count(*) as links
+                from public.property_cleaners pc
+                join public.profiles p on p.id = pc.cleaner_id
+                where p.role in ('tech', 'head_tech')
+                group by p.role, pc.mode) x)
 ) checks
 order by ord;
 

@@ -4,19 +4,34 @@
 --
 --   node scripts/cloud-read.mjs docs/rollout/prepush_tech.sql
 --
+-- It is the gate before step 1 (docs/tech-plan.md §12, step 0): the owner takes the
+-- technician off every listing in «Команда» first, then this is read, and the push
+-- goes only if tech_links and tech_cleanings are both {}.
+--
 -- What it answers:
 --   head           the cloud's last migration: 20260928140000 (F11) before this stage.
 --   roles          active and inactive profiles by role. head_tech must be absent
 --                  (the enum value arrives with the push; nobody can hold it before).
 --   tech_links     links to listings held by technicians and head technicians: how
---                  many people, how many links, of which mode. The new trigger
---                  (20261003110000) refuses NEW links only; old rows stay until the
---                  owner takes them off in «Команда» (tech-plan §1: 27 «Из очереди»
---                  links on 30.09). A role change of such a person to tech/head_tech is
---                  refused while they stand.
+--                  many people, how many links, of which mode. Must be {}. The new
+--                  trigger (20261003110000) refuses new links and any edit of an old
+--                  one, and removes nothing: an old link keeps cleans_property true
+--                  for him (he reads the listing's cleanings; only the table stops
+--                  his take), and an 'auto' one would make the generator's run meet
+--                  the refusal and roll back whole (tech-plan §1: 27 «Из очереди»
+--                  links on 30.09).
 --   tech_cleanings open cleanings, mid-stay cleanings and inspections assigned to a
---                  technician (not done, cancelled or expired), by type. The same:
---                  nothing breaks, but the owner takes them off himself (§2.5).
+--                  technician (not done, cancelled or expired), by type. Must be {}:
+--                  the office hands them to a cleaner, puts them back in the queue or
+--                  cancels them (§2.5).
+--   tech_closed_cleanings
+--                  closed cleanings of every kind that name a technician, by status,
+--                  with the listings they name and how many of those listings have
+--                  no task (problem) at all. Nothing refuses these: by §2.4 he keeps
+--                  reading them and their listings (address, the cleaner's note)
+--                  until the owner reassigns them or the office accepts it. The cloud
+--                  had one expired cleaning on the technician, on a listing with no
+--                  task.
 --   problems       tasks by status, and how many are archived: the head technician's
 --                  board on day one, and the size of what problem_events will NOT
 --                  hold (the journal starts empty).
@@ -66,7 +81,33 @@ select label, payload from (
                 group by t.type) x)
 
   union all
-  select 5, 'problems',
+  select 5, 'tech_closed_cleanings',
+         (select jsonb_build_object(
+                   'by_status', coalesce(jsonb_object_agg(x.status, x.n), '{}'::jsonb),
+                   'listings', (select count(distinct t.property_id)
+                                from public.tasks t
+                                join public.profiles p on p.id = t.assignee_id
+                                where p.role::text in ('tech', 'head_tech')
+                                  and t.type in ('cleaning', 'midstay', 'inspection')
+                                  and t.status in ('done', 'cancelled', 'expired')),
+                   'listings_without_task', (select count(distinct t.property_id)
+                                             from public.tasks t
+                                             join public.profiles p on p.id = t.assignee_id
+                                             where p.role::text in ('tech', 'head_tech')
+                                               and t.type in ('cleaning', 'midstay', 'inspection')
+                                               and t.status in ('done', 'cancelled', 'expired')
+                                               and not exists (select 1 from public.problems pb
+                                                               where pb.property_id = t.property_id)))
+          from (select t.status::text as status, count(*) as n
+                from public.tasks t
+                join public.profiles p on p.id = t.assignee_id
+                where p.role::text in ('tech', 'head_tech')
+                  and t.type in ('cleaning', 'midstay', 'inspection')
+                  and t.status in ('done', 'cancelled', 'expired')
+                group by t.status) x)
+
+  union all
+  select 6, 'problems',
          jsonb_build_object(
            'by_status', (select coalesce(jsonb_object_agg(x.status, x.n), '{}'::jsonb)
                          from (select pb.status::text as status, count(*) as n
@@ -74,7 +115,7 @@ select label, payload from (
            'archived', (select count(*) from public.problems pb where pb.archived_at is not null))
 
   union all
-  select 6, 'live_repairs',
+  select 7, 'live_repairs',
          (select coalesce(jsonb_object_agg(x.status, x.n), '{}'::jsonb)
           from (select t.status::text as status, count(*) as n
                 from public.tasks t
@@ -83,7 +124,7 @@ select label, payload from (
                 group by t.status) x)
 
   union all
-  select 7, 'hosts',
+  select 8, 'hosts',
          jsonb_build_object(
            'companies', (select count(*) from public.hosts),
            'video_columns', (select count(*) from pg_attribute a
@@ -91,7 +132,7 @@ select label, payload from (
                                and a.attname like 'video\_%' and not a.attisdropped))
 
   union all
-  select 8, 'push',
+  select 9, 'push',
          jsonb_build_object(
            'tokens', (select count(*) from public.push_tokens),
            'pending', (select coalesce(jsonb_object_agg(x.kind, x.n), '{}'::jsonb)

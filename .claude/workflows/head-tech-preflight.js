@@ -14,10 +14,13 @@ plan and the owner's decisions are docs/tech-plan.md — read §0, §2, §3, §5
 
 THE CHANGE: "git diff main...tech-server" in that worktree. Migrations, none in the cloud yet:
   20261003100000_head_tech_role (app_role += head_tech, one statement),
-  20261003110000_tech_rules (guard_link_role on property_cleaners, guard_tech_role_change on profiles, save_task
-  refuses cleanings for tech/head_tech), 20261003120000_head_tech_read (is_head_tech, head_tech_property_ids,
+  20261003110000_tech_rules (guard_link_role on any insert or update of property_cleaners, guard_cleaning_assignee
+  on tasks — trigger tasks_no_cleaning_for_tech: no cleaning, midstay or inspection with a tech/head_tech on it,
+  whoever writes — guard_tech_role_change on profiles, save_task's early check of the same rule),
+  20261003120000_head_tech_read (is_head_tech, head_tech_property_ids,
   staff_directory, five SELECT policies «head tech …», chat_participates and chat_participates_as),
-  20261003130000_head_tech_dispatch (problem_for_dispatch, assign_problem, unassign_problem, the transaction-local
+  20261003130000_head_tech_dispatch (problem_for_dispatch, assign_problem, unassign_problem(p_task_id,
+  p_expected_assignee), the transaction-local
   flag str_ops.head_tech_dispatch read by head_tech_dispatching() in guard_task_fields and guard_task_transitions),
   20261003140000_problem_events (enum problem_event_kind, table problem_events, journal_problem_change,
   journal_repair_change), 20261003150000_push_kind_problem_new (push_kind += problem_new, one statement),
