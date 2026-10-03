@@ -203,7 +203,9 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
   };
 
   return (
-    <div className="flex h-[calc(100dvh-3rem)] min-h-0 flex-col gap-3">
+    // The window's height less what the shell takes (`--page-chrome`, the
+    // panel's layout): the grid scrolls inside, the page does not.
+    <div className="flex h-[calc(100dvh_-_var(--page-chrome,3rem))] min-h-0 flex-col gap-3">
       <PageHeader
         title={t('panel.nav.calendar')}
         meta={
