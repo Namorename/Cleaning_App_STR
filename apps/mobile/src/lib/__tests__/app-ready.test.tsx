@@ -102,6 +102,30 @@ test('a font or a theme that never answers does not keep her on the splash', asy
   }
 });
 
+// The root layout draws everything under it: a timer that fires after the app
+// is ready would redraw the whole app for nothing.
+test('once ready, the wait is called off: nothing redraws when it would have run out', async () => {
+  jest.useFakeTimers();
+  try {
+    fonts.mockReturnValue([true, null]);
+    let renders = 0;
+    const { result } = await renderHook(() => {
+      renders += 1;
+      return useAppReady();
+    });
+    expect(result.current.isReady).toBe(true);
+    const settled = renders;
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(FONT_WAIT_MS);
+    });
+
+    expect(renders).toBe(settled);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
 test('holdSplash asks the splash to stay up', () => {
   holdSplash();
 

@@ -43,11 +43,6 @@ export function useAppReady(): AppReadiness {
   const [isThemeRestored, setIsThemeRestored] = useState(false);
   const [hasWaited, setHasWaited] = useState(false);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setHasWaited(true), FONT_WAIT_MS);
-    return () => clearTimeout(timer);
-  }, []);
-
   // Applied before the first screen, so it is drawn once, in her theme.
   // restoreThemePreference never rejects: a store it cannot read is the system.
   useEffect(() => {
@@ -70,6 +65,16 @@ export function useAppReady(): AppReadiness {
 
   const areFontsSettled = areFontsLoaded || fontError !== null;
   const isReady = (areFontsSettled && isThemeRestored) || hasWaited;
+
+  // The ceiling on the wait, called off once ready: the root draws the whole
+  // app, and a timer firing after that would redraw it for nothing.
+  useEffect(() => {
+    if (isReady) {
+      return undefined;
+    }
+    const timer = setTimeout(() => setHasWaited(true), FONT_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [isReady]);
 
   useEffect(() => {
     if (isReady) {
