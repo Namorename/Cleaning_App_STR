@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { FALLBACK_LANGUAGE, INTL_LOCALES, isSupportedLanguage } from '@str-ops/shared';
 
+import { PageHeader } from '@/components/page-header';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
 import { overdueRepairsByProperty } from '@/features/tasks/repairs';
@@ -193,22 +194,28 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
 
   return (
     <div className="flex h-[calc(100dvh-3rem)] min-h-0 flex-col gap-3">
-      <div className="flex flex-wrap items-baseline gap-3">
-        <h1 className="text-2xl font-semibold">{t('panel.nav.calendar')}</h1>
-        {rowsQuery.data === undefined ? null : (
-          <span className="text-sm text-muted-foreground">
-            {t('panel.calendar.counts', { listings: all.length - rooms, rooms })}
-          </span>
-        )}
-        {bookings.isPending ? (
-          <span className="text-sm text-muted-foreground">
-            {t('panel.calendar.loadingBookings')}
-          </span>
-        ) : null}
-        {chips.isPending || repairs.isPending ? (
-          <span className="text-sm text-muted-foreground">{t('panel.calendar.loadingTasks')}</span>
-        ) : null}
-      </div>
+      <PageHeader
+        title={t('panel.nav.calendar')}
+        meta={
+          <>
+            {rowsQuery.data === undefined ? null : (
+              <span className="text-sm text-muted-foreground">
+                {t('panel.calendar.counts', { listings: all.length - rooms, rooms })}
+              </span>
+            )}
+            {bookings.isPending ? (
+              <span className="text-sm text-muted-foreground">
+                {t('panel.calendar.loadingBookings')}
+              </span>
+            ) : null}
+            {chips.isPending || repairs.isPending ? (
+              <span className="text-sm text-muted-foreground">
+                {t('panel.calendar.loadingTasks')}
+              </span>
+            ) : null}
+          </>
+        }
+      />
 
       {bookings.isError ? (
         <ErrorState message={t('panel.calendar.bookingsError')} error={bookings.error} />

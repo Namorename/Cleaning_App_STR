@@ -97,6 +97,8 @@ vi.mock('../use-supplies', () => ({
 const downloadFile = vi.fn();
 vi.mock('@/lib/download', () => ({ downloadFile: (...args: unknown[]) => downloadFile(...args) }));
 
+import { expectPageTitle } from '@/components/page-header.expect';
+
 import { SuppliesView } from '../supplies-view';
 
 /** jsdom's Blob has no text(); the reader route works there and in browsers alike. */
@@ -113,6 +115,12 @@ beforeEach(() => {
 });
 
 describe('SuppliesView', () => {
+  test('is headed by the common header', () => {
+    render(<SuppliesView />);
+
+    expectPageTitle('Заявки на расходники');
+  });
+
   test('opens on the new requests with their lines, and switches tabs', async () => {
     render(<SuppliesView />);
 

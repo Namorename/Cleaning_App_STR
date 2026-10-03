@@ -73,6 +73,8 @@ vi.mock('@/features/chat/thread-panel', () => ({
   ),
 }));
 
+import { expectPageTitle } from '@/components/page-header.expect';
+
 import { ProblemDetail } from '../problem-detail';
 
 const loaded = <T,>(data: T) => ({ data, isPending: false, isError: false });
@@ -129,6 +131,16 @@ beforeEach(() => {
 });
 
 describe('ProblemDetail', () => {
+  test('is headed by the common header, with the way back to the list', () => {
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    expectPageTitle('Течёт кран');
+    expect(screen.getByRole('link', { name: 'К списку заданий' })).toHaveAttribute(
+      'href',
+      '/problems',
+    );
+  });
+
   test('shows the report, its photo, the technician, the window and the steps', () => {
     render(<ProblemDetail problemId={PROBLEM_ID} />);
 

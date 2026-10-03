@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { PageHeader } from '@/components/page-header';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -38,22 +39,24 @@ export function SuppliesView() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">{t('panel.supplies.title')}</h1>
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={() => setIsCatalogOpen(true)}>
-            {t('panel.supplies.catalog.open')}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={isPending || isError}
-            onClick={() => setIsSummaryOpen(true)}
-          >
-            {t('panel.supplies.summary.open')}
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title={t('panel.supplies.title')}
+        actions={
+          <>
+            <Button type="button" variant="outline" onClick={() => setIsCatalogOpen(true)}>
+              {t('panel.supplies.catalog.open')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isPending || isError}
+              onClick={() => setIsSummaryOpen(true)}
+            >
+              {t('panel.supplies.summary.open')}
+            </Button>
+          </>
+        }
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         <Input

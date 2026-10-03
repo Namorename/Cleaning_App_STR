@@ -4,6 +4,7 @@ import { STATUS_TONE } from '@str-ops/shared';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { PageHeader } from '@/components/page-header';
 import { Person } from '@/components/person';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
@@ -89,12 +90,14 @@ export function TeamView() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">{t('panel.team.title')}</h1>
-        <Button type="button" onClick={() => setEditing({ staff: null })}>
-          {t('panel.team.add')}
-        </Button>
-      </div>
+      <PageHeader
+        title={t('panel.team.title')}
+        actions={
+          <Button type="button" onClick={() => setEditing({ staff: null })}>
+            {t('panel.team.add')}
+          </Button>
+        }
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         <Input

@@ -1,10 +1,10 @@
 'use client';
 
 import { propertyStatusTone } from '@str-ops/shared';
-import Link from 'next/link';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { PageHeader } from '@/components/page-header';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -62,24 +62,20 @@ export function PropertyCard({ propertyId }: PropertyCardProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <Link className="text-sm text-muted-foreground underline" href="/apartments">
-          {t('panel.apartments.back')}
-        </Link>
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-semibold">{one.name}</h1>
-          {one.status === 'active' ? null : (
+      <PageHeader
+        back={{ href: '/apartments', label: t('panel.apartments.back') }}
+        title={one.name}
+        meta={
+          one.status === 'active' ? undefined : (
             <Badge tone={propertyStatusTone(one.status)}>
               {t(`panel.apartments.tabs.${one.status}`)}
             </Badge>
-          )}
-        </div>
-        {parent === null ? null : (
-          <span className="text-sm text-muted-foreground">
-            {t('panel.apartments.partOf', { name: parent.name })}
-          </span>
-        )}
-      </div>
+          )
+        }
+        description={
+          parent === null ? undefined : t('panel.apartments.partOf', { name: parent.name })
+        }
+      />
 
       <Tabs value={tab} onValueChange={(next) => setTab(next as CardTab)}>
         <TabsList>

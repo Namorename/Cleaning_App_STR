@@ -37,6 +37,8 @@ const state: {
 
 vi.mock('../use-dashboard', () => ({ useDashboard: () => state }));
 
+import { expectPageTitle } from '@/components/page-header.expect';
+
 import { DashboardView } from '../dashboard-view';
 
 const ANNA = '11111111-1111-4111-8111-111111111111';
@@ -126,6 +128,14 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+describe('the page', () => {
+  test('is headed by the common header', () => {
+    render(<DashboardView />);
+
+    expectPageTitle('Дашборд');
+  });
 });
 
 describe('the tiles', () => {

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { PageHeader } from '@/components/page-header';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -29,17 +30,19 @@ export function ProblemsView() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">{t('panel.problems.title')}</h1>
-        <Input
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder={t('panel.problems.searchPlaceholder')}
-          aria-label={t('panel.problems.searchPlaceholder')}
-          className="w-72"
-        />
-      </div>
+      <PageHeader
+        title={t('panel.problems.title')}
+        actions={
+          <Input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t('panel.problems.searchPlaceholder')}
+            aria-label={t('panel.problems.searchPlaceholder')}
+            className="w-72"
+          />
+        }
+      />
 
       {isPending ? (
         <LoadingState>{t('panel.problems.loading')}</LoadingState>

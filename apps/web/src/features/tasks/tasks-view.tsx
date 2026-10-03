@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { PageHeader } from '@/components/page-header';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,12 +68,14 @@ export function TasksView() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">{t('panel.tasks.title')}</h1>
-        <Button type="button" onClick={openNew}>
-          {t('panel.tasks.actions.new')}
-        </Button>
-      </div>
+      <PageHeader
+        title={t('panel.tasks.title')}
+        actions={
+          <Button type="button" onClick={openNew}>
+            {t('panel.tasks.actions.new')}
+          </Button>
+        }
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         <Input

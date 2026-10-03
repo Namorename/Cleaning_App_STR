@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { propertyPath, propertyStatusTone } from '@str-ops/shared';
 
+import { PageHeader } from '@/components/page-header';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -117,12 +118,14 @@ export function ApartmentsView() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">{t('panel.nav.apartments')}</h1>
-        <Button type="button" disabled={sync.isPending} onClick={() => sync.mutate()}>
-          {sync.isPending ? t('panel.apartments.sync.running') : t('panel.apartments.sync.start')}
-        </Button>
-      </div>
+      <PageHeader
+        title={t('panel.nav.apartments')}
+        actions={
+          <Button type="button" disabled={sync.isPending} onClick={() => sync.mutate()}>
+            {sync.isPending ? t('panel.apartments.sync.running') : t('panel.apartments.sync.start')}
+          </Button>
+        }
+      />
 
       {sync.data === undefined ? null : (
         <div role="status" className="flex flex-col gap-1 rounded-md border p-3 text-sm">

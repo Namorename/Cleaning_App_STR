@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { PageHeader } from '@/components/page-header';
 import { ErrorState } from '@/components/states';
 import { cn } from '@/lib/utils';
 
@@ -124,7 +125,7 @@ export function DashboardView() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold">{t('panel.nav.dashboard')}</h1>
+      <PageHeader title={t('panel.nav.dashboard')} />
 
       {failures.map(({ read, messageKey }) => (
         <ErrorState key={messageKey} message={t(messageKey)} error={read.error} />
