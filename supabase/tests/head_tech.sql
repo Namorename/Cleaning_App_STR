@@ -576,4 +576,14 @@ reset role; reset request.jwt.claims;
 select pg_temp.check('the leak waits again',
   (select status::text from public.problems where id = pg_temp.pid(1)), 'open');
 
+-- He takes a cleaner off a repair the office gave her, too (owner, 2026-10-03:
+-- «Да может снять»); he hands work only to technicians.
+select pg_temp.as_hector();
+select pg_temp.check('the head technician takes a cleaner off a repair',
+  pg_temp.refusal($q$select public.unassign_problem((pg_temp.live_fix(3)).id)$q$),
+  'no refusal');
+reset role; reset request.jwt.claims;
+select pg_temp.check('and the room lamp waits again',
+  (select status::text from public.problems where id = pg_temp.pid(3)), 'open');
+
 rollback;
