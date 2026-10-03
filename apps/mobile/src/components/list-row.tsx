@@ -23,7 +23,7 @@ export interface ListRowProps {
   isDisabled?: boolean;
 }
 
-/** A row of a list: 64 dp (decisions §1, «Форма»), title over a quieter line. */
+/** A row of a list: 64 dp (decisions §1, the shape), title over a quieter line. */
 export function ListRow({
   title,
   subtitle,

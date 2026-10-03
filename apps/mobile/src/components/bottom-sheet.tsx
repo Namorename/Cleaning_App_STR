@@ -24,9 +24,9 @@ export interface BottomSheetProps {
 /**
  * A sheet from the bottom of the screen over a darkened page, on React
  * Native's own `Modal` — no native module, so it ships over the air. Closed by
- * «Закрыть», by the system's back (Android) or by a tap on the darkened page;
- * the reader gets the button, the tap-outside is for the finger. Fades in, or
- * appears at once when the phone asks for less motion.
+ * its close button (`common.close`), by the system's back (Android) or by a
+ * tap on the darkened page; the reader gets the button, the tap-outside is for
+ * the finger. Fades in, or appears at once when the phone asks for less motion.
  */
 export function BottomSheet({ isVisible, title, onClose, children, testID }: BottomSheetProps) {
   const { t } = useTranslation();

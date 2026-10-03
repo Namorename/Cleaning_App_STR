@@ -17,7 +17,7 @@ export interface CardProps {
 }
 
 /**
- * A card: the surface, rounded 20, on a soft shadow — «Абрикос» draws cards
+ * A card: the surface, rounded 20, on a soft shadow — direction A draws cards
  * without a frame (decisions §1). A card with an action is one button; keep a
  * second action beside it, not inside, or the reader cannot reach it.
  */

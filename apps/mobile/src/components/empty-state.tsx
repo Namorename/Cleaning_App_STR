@@ -7,7 +7,7 @@ import { Button } from './button';
 import { Text } from './text';
 
 export interface EmptyStateProps {
-  /** What is empty, said plainly: «Свободных уборок нет». */
+  /** What is empty, said plainly, as `tasks.emptyQueue` does. */
   title: string;
   /** What she can do about it, if anything. */
   message?: string;

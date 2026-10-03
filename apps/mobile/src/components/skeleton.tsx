@@ -18,7 +18,7 @@ const PULSE_MS = 700;
 const PULSE_LOW = 0.45;
 
 export interface SkeletonGroupProps {
-  /** What is loading, said to the reader; «Загрузка…» by default. */
+  /** What is loading, said to the reader; `common.loading` by default. */
   label?: string;
   children: ReactNode;
   style?: StyleProp<ViewStyle>;

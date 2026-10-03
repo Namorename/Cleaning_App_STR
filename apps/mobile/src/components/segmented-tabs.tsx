@@ -14,7 +14,7 @@ export interface SegmentedTabsProps<T extends string> {
   options: readonly SegmentOption<T>[];
   value: T;
   onChange: (value: T) => void;
-  /** The name of the whole row, said before its choices: «Тема». */
+  /** The name of the whole row, said before its choices, such as `common.theme.label`. */
   accessibilityLabel: string;
   /**
    * `tabs` switches what a screen shows; `radio` picks a setting. The same

@@ -11,7 +11,7 @@ import { Text } from './text';
 const DETAIL_LINES = 3;
 
 export interface ErrorBannerProps {
-  /** What happened, from the screen: «Не удалось обновить — показан сохранённый список». */
+  /** What happened, from the screen: the lists pass `common.refreshFailed`. */
   title: string;
   error: unknown;
 }

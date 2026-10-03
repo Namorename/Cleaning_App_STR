@@ -17,8 +17,8 @@ import type { TextStyle, ViewStyle } from 'react-native';
 
 /**
  * The phone's palette and sizes: an adapter over the shared tokens of
- * «Абрикос» (`packages/shared/src/design/tokens.ts`, docs/redesign-plan.md
- * §2.2).
+ * direction A, Abrikos (`packages/shared/src/design/tokens.ts`,
+ * docs/redesign-plan.md §2.2).
  *
  * Screens built before the redesign read the names they always read —
  * `background`, `card`, `Radius.lg`, `FontSize.body` — and get the new palette
@@ -75,7 +75,7 @@ export interface Theme {
   /** The darkening under a sheet or a caption on a photo, alpha included. */
   readonly scrim: string;
   readonly onScrim: HexColor;
-  /** The soft shadow a card sits on, in place of a frame (decisions §1, «Форма»). */
+  /** The soft shadow a card sits on, in place of a frame (decisions §1, the shape). */
   readonly shadow: string;
   /** The thirteen tones every status is drawn in; read one through `statusTone`. */
   readonly tone: Readonly<Record<Tone, ToneColors>>;
@@ -165,7 +165,7 @@ export function toneChipStyles(theme: Theme): Readonly<Record<Tone, ToneChipStyl
 }
 
 /**
- * Spacing. The direction's steps, plus `xs`: «Абрикос» has no 4 dp step, but
+ * Spacing. The direction's steps, plus `xs`: direction A has no 4 dp step, but
  * a hairline gap between a title and its second line is what the screens use
  * it for, and it stays.
  */
