@@ -20,6 +20,7 @@ test('lists the push kinds in the order the owner approved them', () => {
     'cleaning_window',
     'cleaning_free',
     'booking_cancelled_live',
+    'problem_new',
     'chat_message',
     'daily_digest',
   ]);
