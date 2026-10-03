@@ -111,7 +111,7 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
         const task = liveFixTask(problem);
         if (task !== null) {
           setNotice(null);
-          unassign.mutate(task.id, {
+          unassign.mutate({ taskId: task.id, assigneeId: task.assignee_id }, {
             onSuccess: () => setNotice(t('panel.problems.board.unassigned')),
           });
         }

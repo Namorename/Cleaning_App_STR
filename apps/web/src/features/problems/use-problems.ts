@@ -100,7 +100,8 @@ export function useUnassignProblem() {
   const client = useSupabase();
   const invalidate = useInvalidateProblems();
   return useMutation({
-    mutationFn: (taskId: string) => unassignProblem(client, taskId),
+    mutationFn: ({ taskId, assigneeId }: { taskId: string; assigneeId: string | null }) =>
+      unassignProblem(client, taskId, assigneeId),
     // A refusal means the task changed meanwhile: refresh either way.
     onSettled: invalidate,
   });

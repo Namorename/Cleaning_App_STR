@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@str-ops/shared';
 
-import { cancelLiveTask } from '@/lib/cancel-live-task';
 import { withSignedUrls } from '@/lib/media';
 
 import {
@@ -171,12 +170,28 @@ export async function cancelProblem(
 }
 
 /**
- * Take the fix away from the technician: the live task is cancelled, and the
- * database's mirror puts the problem back to 'open'. A task the technician
- * finished meanwhile is left alone; see cancelLiveTask.
+ * Take the person off the repair through the server's unassign_problem
+ * (20261003130000): the live attempt is cancelled and the database's mirror
+ * puts the problem back to 'open'. Unlike a direct cancel, the journal then
+ * records that the person was taken off (taken_off), and the person hears that
+ * the work was taken from them, not that it was cancelled. A task finished
+ * meanwhile is refused, as before. `expectedAssigneeId` is the person the
+ * screen showed: work handed to someone else meanwhile is refused too
+ * (serverErrors.taskChangedMeanwhile) instead of taking off a person the
+ * manager never saw.
  */
-export async function unassignProblem(client: Client, taskId: string): Promise<void> {
-  await cancelLiveTask(client, taskId);
+export async function unassignProblem(
+  client: Client,
+  taskId: string,
+  expectedAssigneeId: string | null,
+): Promise<void> {
+  const { error } = await client.rpc('unassign_problem', {
+    p_task_id: taskId,
+    p_expected_assignee: expectedAssigneeId ?? undefined,
+  });
+  if (error) {
+    throw error;
+  }
 }
 
 export async function resolveProblem(client: Client, problemId: string): Promise<Problem> {
