@@ -159,7 +159,7 @@ const createStyles = (theme: Theme) =>
       color: theme.text,
       backgroundColor: theme.background,
     },
-    done: { color: theme.calmText, fontSize: FontSize.body },
+    done: { color: theme.tone.done.fg, fontSize: FontSize.body },
     button: {
       minHeight: MIN_TOUCH_TARGET,
       borderRadius: Radius.md,

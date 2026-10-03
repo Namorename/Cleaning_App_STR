@@ -1,9 +1,24 @@
 import type { Json } from '@str-ops/shared';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type TextStyle,
+} from 'react-native';
 
-import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import {
+  FontSize,
+  MIN_TOUCH_TARGET,
+  Radius,
+  Spacing,
+  statusTone,
+  type Theme,
+} from '@/constants/theme';
 import {
   canCompleteMediaStep,
   mediaKindOfStep,
@@ -15,7 +30,7 @@ import { formatClockTime } from '@/features/tasks/format';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { serverErrorText } from '@/lib/server-error';
 
-import { stepInstructions, stepStateText, stepTitle } from './format';
+import { STEP_STATUS_KEY, stepInstructions, stepStateText, stepTitle } from './format';
 import {
   checkedItemIds,
   checkedLines,
@@ -24,6 +39,7 @@ import {
   noteLines,
   remainingChecklistItems,
   stepState,
+  type StepState,
   type TaskStep,
 } from './schema';
 import { StepChecklist } from './step-checklist';
@@ -159,7 +175,9 @@ export function StepScreen({
         {step.required ? <Text style={styles.required}>{t('steps.required')}</Text> : null}
       </View>
 
-      {statusLine !== null ? <Text style={styles.status}>{statusLine}</Text> : null}
+      {statusLine !== null ? (
+        <Text style={[styles.status, styles.statusColor[state]]}>{statusLine}</Text>
+      ) : null}
 
       {state === 'unsupported' ? (
         <Text style={styles.hint}>{t('steps.unsupported')}</Text>
@@ -323,23 +341,39 @@ function ActionButton({
   );
 }
 
-const createStyles = (theme: Theme) =>
-  StyleSheet.create({
+/** The status line in the tone of where the step stands: done green, skipped grey. */
+function statusColors(theme: Theme): Readonly<Record<StepState, TextStyle>> {
+  const colorOf = (state: StepState): TextStyle => ({
+    color: statusTone(theme, STEP_STATUS_KEY[state]).fg,
+  });
+  return {
+    done: colorOf('done'),
+    skipped: colorOf('skipped'),
+    waived: colorOf('waived'),
+    pending: colorOf('pending'),
+    unsupported: colorOf('unsupported'),
+  };
+}
+
+const createStyles = (theme: Theme) => ({
+  statusColor: statusColors(theme),
+  ...StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.background },
     content: { padding: Spacing.lg, gap: Spacing.md },
     header: { gap: Spacing.xs },
     title: { color: theme.text, fontSize: FontSize.heading, fontWeight: '700' },
+    // A fact about the step, not an alarm: neutral, where it used to be red.
     required: {
       alignSelf: 'flex-start',
-      color: theme.urgentText,
-      backgroundColor: theme.urgentSurface,
+      color: statusTone(theme, 'steps.required').fg,
+      backgroundColor: statusTone(theme, 'steps.required').bg,
       borderRadius: Radius.md,
       paddingHorizontal: Spacing.sm,
       paddingVertical: 2,
       fontSize: FontSize.caption,
       fontWeight: '600',
     },
-    status: { color: theme.calmText, fontSize: FontSize.body, fontWeight: '600' },
+    status: { fontSize: FontSize.body, fontWeight: '600' },
     hint: { color: theme.textSecondary, fontSize: FontSize.body },
     progress: { color: theme.text, fontSize: FontSize.body, fontWeight: '600' },
     instructions: {
@@ -370,4 +404,5 @@ const createStyles = (theme: Theme) =>
     buttonPressed: { opacity: 0.75 },
     buttonText: { color: theme.onPrimary, fontSize: FontSize.title, fontWeight: '600' },
     buttonSecondaryText: { color: theme.primary, fontSize: FontSize.title, fontWeight: '600' },
-  });
+  }),
+});

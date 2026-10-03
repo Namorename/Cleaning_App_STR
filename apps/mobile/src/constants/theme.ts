@@ -1,78 +1,194 @@
+import {
+  FONT_SIZE,
+  RADIUS,
+  SPACING,
+  STATUS_TONE,
+  THEME_COLORS,
+  TONE_COLORS,
+  TONE_NAMES,
+  TOUCH_TARGET,
+  type HexColor,
+  type StatusKey,
+  type ThemeName,
+  type Tone,
+  type ToneColors,
+} from '@str-ops/shared';
+import type { TextStyle, ViewStyle } from 'react-native';
+
 /**
- * The app's colour palette, defined once for both schemes.
+ * The phone's palette and sizes: an adapter over the shared tokens of
+ * «Абрикос» (`packages/shared/src/design/tokens.ts`, docs/redesign-plan.md
+ * §2.2).
  *
- * Every colour the app paints lives here. Nothing hardcodes a hex value in a
- * StyleSheet: a value written into a component exists in one theme only, and
- * the one that was missing from the other theme is exactly how the first build
- * ended up printing black text on a black background.
+ * Screens built before the redesign read the names they always read —
+ * `background`, `card`, `Radius.lg`, `FontSize.body` — and get the new palette
+ * without a line of their own changing; the screens move onto the components
+ * in 5.4. New code reads the roles by their token names (`cta`, `surfaceAlt`,
+ * `tone`), and a status by its meaning through `statusTone`.
  *
- * Contrast ratios are verified by `__tests__/theme.test.ts` — change a value
- * here and the test says whether it is still readable.
+ * Every colour the app paints still lives in one place. Nothing hardcodes a
+ * hex value in a StyleSheet: a value written into a component exists in one
+ * theme only, and the one missing from the other theme is exactly how the
+ * first build printed black text on a black background. Contrast is measured
+ * on the tokens by `__tests__/design-contrast.test.ts`, and the pairs screens
+ * make out of them by `__tests__/theme-adapter.test.ts`.
  */
 
-export const Colors = {
-  light: {
-    background: '#F4F5F7',
-    card: '#FFFFFF',
-    text: '#11181C',
-    textSecondary: '#5B6169',
-    /** Outline of an input or other control the user has to find. */
-    border: '#7A828C',
-    /** Decorative edge of a card; deliberately quieter than `border`. */
-    divider: '#DDE1E6',
-    primary: '#0B62C4',
-    onPrimary: '#FFFFFF',
-    danger: '#B3261E',
-    urgentText: '#8C1D18',
-    urgentSurface: '#FBE9E7',
-    calmText: '#0F5132',
-    calmSurface: '#E4F2EA',
-  },
-  dark: {
-    background: '#0E1113',
-    card: '#1A1D21',
-    text: '#ECEDEE',
-    textSecondary: '#A3AAB3',
-    border: '#767D86',
-    divider: '#2B3038',
-    primary: '#4DA3FF',
-    // Dark ink on a light blue button: white on this blue is only 2.6:1.
-    onPrimary: '#082038',
-    danger: '#FF9E96',
-    urgentText: '#FFB4AB',
-    urgentSurface: '#3B1512',
-    calmText: '#7EE2A8',
-    calmSurface: '#12291C',
-  },
-} as const;
+export type { ThemeName } from '@str-ops/shared';
 
-export type ThemeName = keyof typeof Colors;
-export type Theme = (typeof Colors)[ThemeName];
+/** The colours of one theme, by the names the screens use. */
+export interface Theme {
+  /** Which theme this is: the text component steps up its weights in the light one. */
+  readonly scheme: ThemeName;
+  /** The screen behind everything (token `bg`). */
+  readonly background: HexColor;
+  /** Cards, sheets and section blocks (token `surface`). */
+  readonly card: HexColor;
+  /** A step off the card: an inactive control, a disabled button. */
+  readonly surfaceAlt: HexColor;
+  readonly text: HexColor;
+  readonly textSecondary: HexColor;
+  /** The quietest text that still reads; the disabled label. */
+  readonly textMuted: HexColor;
+  /** Outline of an input or other control the user has to find. */
+  readonly border: HexColor;
+  /** Decorative edge of a card; deliberately quieter than `border`. */
+  readonly divider: HexColor;
+  /** Links, the active choice, outlined buttons, the «now» stripe. */
+  readonly primary: HexColor;
+  readonly onPrimary: HexColor;
+  readonly primaryPressed: HexColor;
+  /** The tonal secondary button. */
+  readonly secondary: HexColor;
+  readonly onSecondary: HexColor;
+  /** The main button: deeper than `primary`, so its label reads in the sun. */
+  readonly cta: HexColor;
+  readonly onCta: HexColor;
+  readonly ctaPressed: HexColor;
+  readonly accent: HexColor;
+  readonly onAccent: HexColor;
+  /** Error text and the destructive button's label; never a fill like the main button. */
+  readonly danger: HexColor;
+  readonly onDanger: HexColor;
+  readonly focusRing: HexColor;
+  readonly link: HexColor;
+  /** The darkening under a sheet or a caption on a photo, alpha included. */
+  readonly scrim: string;
+  readonly onScrim: HexColor;
+  /** The thirteen tones every status is drawn in; read one through `statusTone`. */
+  readonly tone: Readonly<Record<Tone, ToneColors>>;
+}
+
+/** `#rrggbb` at an alpha, as React Native reads a colour. */
+function withAlpha(hex: HexColor, alpha: number): string {
+  const value = parseInt(hex.slice(1), 16);
+  return `rgba(${(value >> 16) & 0xff}, ${(value >> 8) & 0xff}, ${value & 0xff}, ${alpha})`;
+}
+
+function phoneTheme(scheme: ThemeName): Theme {
+  const c = THEME_COLORS[scheme];
+  return {
+    scheme,
+    background: c.bg,
+    card: c.surface,
+    surfaceAlt: c.surfaceAlt,
+    text: c.text,
+    textSecondary: c.textSecondary,
+    textMuted: c.textMuted,
+    border: c.border,
+    divider: c.divider,
+    primary: c.primary,
+    onPrimary: c.onPrimary,
+    primaryPressed: c.primaryPressed,
+    secondary: c.secondary,
+    onSecondary: c.onSecondary,
+    cta: c.cta,
+    onCta: c.onCta,
+    ctaPressed: c.ctaPressed,
+    accent: c.accent,
+    onAccent: c.onAccent,
+    danger: c.danger,
+    onDanger: c.onDanger,
+    focusRing: c.focusRing,
+    link: c.link,
+    scrim: withAlpha(c.scrim, c.scrimAlpha),
+    onScrim: c.onScrim,
+    tone: TONE_COLORS[scheme],
+  };
+}
+
+export const Colors: Readonly<Record<ThemeName, Theme>> = {
+  light: phoneTheme('light'),
+  dark: phoneTheme('dark'),
+};
 
 /**
- * Design tokens. Spacing and radii live here so screens never hardcode
- * numbers — the cleaner app is used one-handed, often in a hurry, and the
- * touch targets below are the accessibility minimum, not a suggestion.
+ * The colours of a status, by what it means rather than by its colour: the
+ * contract (`STATUS_TONE`) decides that a same-day check-in is urgent and her
+ * own chat bubble neutral, and no screen decides it again.
+ */
+export function statusTone(theme: Theme, key: StatusKey): ToneColors {
+  return theme.tone[STATUS_TONE[key]];
+}
+
+/** A chip in a tone: its fill and its words. */
+export interface ToneChipStyle {
+  readonly box: ViewStyle;
+  readonly label: TextStyle;
+}
+
+const toneChipCache = new WeakMap<Theme, Readonly<Record<Tone, ToneChipStyle>>>();
+
+/**
+ * The chip of every tone as styles, built once per theme: a list of cards
+ * picks a status's chip without allocating a style per card.
+ */
+export function toneChipStyles(theme: Theme): Readonly<Record<Tone, ToneChipStyle>> {
+  const cached = toneChipCache.get(theme);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const chips = Object.fromEntries(
+    TONE_NAMES.map((tone) => [
+      tone,
+      { box: { backgroundColor: theme.tone[tone].bg }, label: { color: theme.tone[tone].fg } },
+    ]),
+  ) as Record<Tone, ToneChipStyle>;
+  toneChipCache.set(theme, chips);
+  return chips;
+}
+
+/**
+ * Spacing. The direction's steps, plus `xs`: «Абрикос» has no 4 dp step, but
+ * a hairline gap between a title and its second line is what the screens use
+ * it for, and it stays.
  */
 export const Spacing = {
   xs: 4,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 24,
+  ...SPACING,
 } as const;
 
+/**
+ * Corner radii. `md` and `lg` are the old names with their old values (10 and
+ * 14 — the direction's `sm` and `md`), so no screen changes shape before 5.4;
+ * the rest are named for what they round.
+ */
 export const Radius = {
-  md: 10,
-  lg: 14,
+  md: RADIUS.sm,
+  lg: RADIUS.md,
+  card: RADIUS.lg,
+  sheet: RADIUS.xl,
+  pill: RADIUS.pill,
 } as const;
 
-export const FontSize = {
-  caption: 13,
-  body: 15,
-  title: 17,
-  heading: 22,
-} as const;
+/** Type sizes: body 16, title 18, heading 24 (before the redesign 15, 17 and 22). */
+export const FontSize = FONT_SIZE;
 
-/** iOS asks for 44pt, Android for 48dp; take the larger and stop thinking. */
-export const MIN_TOUCH_TARGET = 48;
+/** Any control a finger has to hit. iOS asks for 44pt, Android for 48dp; the larger. */
+export const MIN_TOUCH_TARGET = TOUCH_TARGET.phoneMin;
+
+/** A button: 56 dp, for a gloved finger (owner's decision 5, 2026-10-02). */
+export const BUTTON_HEIGHT = TOUCH_TARGET.phoneButton;
+
+/** A row of a list. */
+export const ROW_HEIGHT = TOUCH_TARGET.phoneRow;

@@ -1,4 +1,4 @@
-import { Constants } from '@str-ops/shared';
+import { Constants, type StatusKey } from '@str-ops/shared';
 
 import { currentLanguage, i18n } from '@/i18n';
 
@@ -42,3 +42,15 @@ export function stepInstructions(step: TaskStep): string | null {
 export function stepStateText(state: StepState): string {
   return i18n.t(`steps.state.${state}`);
 }
+
+/**
+ * Where a step stands, as a key of the tone contract (STATUS_TONE): done is
+ * green, skipped and waived are "cancelled" grey — not the green of done.
+ */
+export const STEP_STATUS_KEY = {
+  done: 'steps.done',
+  skipped: 'steps.skipped',
+  waived: 'steps.waived',
+  pending: 'steps.pending',
+  unsupported: 'steps.unsupported',
+} as const satisfies Readonly<Record<StepState, StatusKey>>;

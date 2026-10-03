@@ -12,7 +12,14 @@ import {
   View,
 } from 'react-native';
 
-import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import {
+  FontSize,
+  MIN_TOUCH_TARGET,
+  Radius,
+  Spacing,
+  statusTone,
+  type Theme,
+} from '@/constants/theme';
 import type { LocalMediaRecord, LocalMediaStore } from '@/features/media/local-store';
 import { MediaStrip } from '@/features/media/media-strip';
 import { formatReportedAt } from '@/features/problems/format';
@@ -327,7 +334,8 @@ const createStyles = (theme: Theme) =>
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.divider,
     },
-    bubbleOwn: { alignSelf: 'flex-end', backgroundColor: theme.calmSurface },
+    // Hers is told apart by its side and a neutral fill, no longer by green.
+    bubbleOwn: { alignSelf: 'flex-end', backgroundColor: statusTone(theme, 'chat.ownBubble').bg },
     bubbleOther: { alignSelf: 'flex-start', backgroundColor: theme.card },
     bubblePending: { opacity: 0.6 },
     author: { color: theme.textSecondary, fontSize: FontSize.caption, fontWeight: '700' },

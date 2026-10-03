@@ -1,10 +1,17 @@
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import {
+  FontSize,
+  MIN_TOUCH_TARGET,
+  Radius,
+  Spacing,
+  statusTone,
+  type Theme,
+} from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
-import { stepStateText, stepTitle } from './format';
+import { STEP_STATUS_KEY, stepStateText, stepTitle } from './format';
 import { stepState, type TaskStep } from './schema';
 
 interface StepListProps {
@@ -94,19 +101,29 @@ const createStyles = (theme: Theme) =>
       height: INDEX_SIZE,
       borderRadius: INDEX_SIZE / 2,
       borderWidth: 1,
-      borderColor: theme.border,
+      borderColor: statusTone(theme, STEP_STATUS_KEY.pending).mark,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    indexDone: { backgroundColor: theme.calmSurface, borderColor: theme.calmSurface },
-    indexText: { color: theme.textSecondary, fontSize: FontSize.caption, fontWeight: '700' },
-    indexTextDone: { color: theme.calmText },
+    // The step circles of the contract (STEP_CIRCLE): a ring with the number
+    // to do, a filled disc with ✓ once done.
+    indexDone: {
+      backgroundColor: statusTone(theme, STEP_STATUS_KEY.done).mark,
+      borderColor: statusTone(theme, STEP_STATUS_KEY.done).mark,
+    },
+    indexText: {
+      color: statusTone(theme, STEP_STATUS_KEY.pending).fg,
+      fontSize: FontSize.caption,
+      fontWeight: '700',
+    },
+    indexTextDone: { color: statusTone(theme, STEP_STATUS_KEY.done).onMark },
     body: { flex: 1, gap: Spacing.xs },
     title: { color: theme.text, fontSize: FontSize.body, fontWeight: '600' },
     meta: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
+    // A fact about the step, not an alarm: neutral, where it used to be red.
     required: {
-      color: theme.urgentText,
-      backgroundColor: theme.urgentSurface,
+      color: statusTone(theme, 'steps.required').fg,
+      backgroundColor: statusTone(theme, 'steps.required').bg,
       borderRadius: Radius.md,
       paddingHorizontal: Spacing.sm,
       paddingVertical: 2,
@@ -114,5 +131,5 @@ const createStyles = (theme: Theme) =>
       fontWeight: '600',
     },
     state: { color: theme.textSecondary, fontSize: FontSize.caption },
-    stateDone: { color: theme.calmText },
+    stateDone: { color: statusTone(theme, STEP_STATUS_KEY.done).fg },
   });

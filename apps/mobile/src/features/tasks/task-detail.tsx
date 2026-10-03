@@ -1,7 +1,14 @@
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import {
+  FontSize,
+  MIN_TOUCH_TARGET,
+  Radius,
+  Spacing,
+  statusTone,
+  type Theme,
+} from '@/constants/theme';
 import { remainingRequired, type TaskStep } from '@/features/steps/schema';
 import { StepList } from '@/features/steps/step-list';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
@@ -155,8 +162,10 @@ export function TaskDetail({
       </View>
       <Text style={styles.meta}>{formatScheduledDate(task)}</Text>
 
-      <View style={[styles.banner, urgent ? styles.bannerUrgent : styles.bannerCalm]}>
-        <Text style={[styles.bannerText, urgent ? styles.bannerTextUrgent : styles.bannerTextCalm]}>
+      <View style={[styles.banner, urgent ? styles.bannerUrgent : styles.bannerNeutral]}>
+        <Text
+          style={[styles.bannerText, urgent ? styles.bannerTextUrgent : styles.bannerTextNeutral]}
+        >
           {urgencyText(task)}
         </Text>
       </View>
@@ -361,11 +370,12 @@ const createStyles = (theme: Theme) =>
     room: { color: theme.textSecondary, fontSize: FontSize.title, fontWeight: '600' },
     meta: { color: theme.textSecondary, fontSize: FontSize.body },
     banner: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
-    bannerUrgent: { backgroundColor: theme.urgentSurface },
-    bannerCalm: { backgroundColor: theme.calmSurface },
+    // As on the card: a same-day check-in is urgent, anything else neutral.
+    bannerUrgent: { backgroundColor: statusTone(theme, 'phone.checkIn.sameDay').bg },
+    bannerNeutral: { backgroundColor: statusTone(theme, 'phone.kindBanner').bg },
     bannerText: { fontSize: FontSize.body, fontWeight: '600' },
-    bannerTextUrgent: { color: theme.urgentText },
-    bannerTextCalm: { color: theme.calmText },
+    bannerTextUrgent: { color: statusTone(theme, 'phone.checkIn.sameDay').fg },
+    bannerTextNeutral: { color: statusTone(theme, 'phone.kindBanner').fg },
     facts: {
       backgroundColor: theme.card,
       borderRadius: Radius.lg,

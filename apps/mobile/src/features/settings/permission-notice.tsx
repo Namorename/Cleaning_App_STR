@@ -1,7 +1,15 @@
+import type { StatusKey } from '@str-ops/shared';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import {
+  FontSize,
+  MIN_TOUCH_TARGET,
+  Radius,
+  Spacing,
+  statusTone,
+  type Theme,
+} from '@/constants/theme';
 import { usePushPermission } from '@/features/push/use-push-permission';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
@@ -40,11 +48,16 @@ export function PermissionNotice() {
     ? t('settings.notifications.permission.enable')
     : t('settings.notifications.permission.openSettings');
   const onAction = canAsk ? request : () => void Linking.openSettings();
+  // Off or never asked is urgent; an iPhone delivering quietly is only a fact.
+  const tone = statusTone(
+    theme,
+    state === 'granted' ? 'phone.permission.channelOff' : NOTICE_STATUS[state],
+  );
 
   return (
-    <View accessibilityLiveRegion="polite" style={styles.notice}>
+    <View accessibilityLiveRegion="polite" style={[styles.notice, { backgroundColor: tone.bg }]}>
       {lines.map((line) => (
-        <Text key={line} style={styles.text}>
+        <Text key={line} style={[styles.text, { color: tone.fg }]}>
           {line}
         </Text>
       ))}
@@ -72,6 +85,12 @@ const NOTICE_KEY = {
   provisional: 'provisional',
 } as const;
 
+const NOTICE_STATUS = {
+  ask: 'phone.permission.notAsked',
+  blocked: 'phone.permission.off',
+  provisional: 'phone.permission.provisional',
+} as const satisfies Readonly<Record<keyof typeof NOTICE_KEY, StatusKey>>;
+
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
     notice: {
@@ -79,9 +98,8 @@ const createStyles = (theme: Theme) =>
       borderRadius: Radius.md,
       paddingHorizontal: Spacing.md,
       paddingVertical: Spacing.sm,
-      backgroundColor: theme.urgentSurface,
     },
-    text: { color: theme.urgentText, fontSize: FontSize.body },
+    text: { fontSize: FontSize.body },
     action: { minHeight: MIN_TOUCH_TARGET, justifyContent: 'center', alignSelf: 'flex-start' },
     actionText: { color: theme.primary, fontSize: FontSize.body, fontWeight: '600' },
     pressed: { opacity: 0.6 },

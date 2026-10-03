@@ -1,8 +1,16 @@
+import { problemStatusTone } from '@str-ops/shared';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { FontSize, Radius, Spacing, type Theme } from '@/constants/theme';
+import {
+  FontSize,
+  Radius,
+  Spacing,
+  statusTone,
+  toneChipStyles,
+  type Theme,
+} from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 import { formatReportedAt, problemPlace, problemPriorityText, problemStatusText } from './format';
@@ -19,6 +27,8 @@ function ProblemCardComponent({ problem, onPress, hasUnread = false }: ProblemCa
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const status = problemStatusText(problem.status);
+  const statusChip = styles.chip[problemStatusTone(problem.status)];
+  const unreadChip = styles.chip.unread;
   const priority = problemPriorityText(problem.priority);
   const place = problemPlace(problem);
   const when = formatReportedAt(problem.created_at);
@@ -42,12 +52,12 @@ function ProblemCardComponent({ problem, onPress, hasUnread = false }: ProblemCa
           {problem.title}
         </Text>
         {hasUnread ? (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{t('chat.unread')}</Text>
+          <View style={[styles.badge, unreadChip.box]}>
+            <Text style={[styles.badgeText, unreadChip.label]}>{t('chat.unread')}</Text>
           </View>
         ) : null}
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{status}</Text>
+        <View style={[styles.badge, statusChip.box]}>
+          <Text style={[styles.badgeText, statusChip.label]}>{status}</Text>
         </View>
       </View>
       <Text style={styles.meta}>
@@ -62,8 +72,11 @@ function ProblemCardComponent({ problem, onPress, hasUnread = false }: ProblemCa
 
 export const ProblemCard = memo(ProblemCardComponent);
 
-const createStyles = (theme: Theme) =>
-  StyleSheet.create({
+// Each status in its own tone (STATUS_TONE), where one green chip used to say
+// every status; the chips are built once per theme.
+const createStyles = (theme: Theme) => ({
+  chip: toneChipStyles(theme),
+  ...StyleSheet.create({
     card: {
       backgroundColor: theme.card,
       borderRadius: Radius.lg,
@@ -77,13 +90,13 @@ const createStyles = (theme: Theme) =>
     title: { flex: 1, color: theme.text, fontSize: FontSize.title, fontWeight: '700' },
     badge: {
       alignSelf: 'flex-start',
-      backgroundColor: theme.calmSurface,
       borderRadius: Radius.md,
       paddingHorizontal: Spacing.sm,
       paddingVertical: Spacing.xs,
     },
-    badgeText: { color: theme.calmText, fontSize: FontSize.caption, fontWeight: '600' },
+    badgeText: { fontSize: FontSize.caption, fontWeight: '600' },
     meta: { color: theme.textSecondary, fontSize: FontSize.body },
     priority: { color: theme.textSecondary, fontSize: FontSize.caption },
-    priorityHigh: { color: theme.urgentText, fontWeight: '700' },
-  });
+    priorityHigh: { color: statusTone(theme, 'problems.priority.high').fg, fontWeight: '700' },
+  }),
+});

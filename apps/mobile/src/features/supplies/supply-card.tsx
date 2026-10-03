@@ -1,8 +1,16 @@
+import { supplyStatusTone } from '@str-ops/shared';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { FontSize, Radius, Spacing, type Theme } from '@/constants/theme';
+import {
+  FontSize,
+  Radius,
+  Spacing,
+  statusTone,
+  toneChipStyles,
+  type Theme,
+} from '@/constants/theme';
 import { formatReportedAt } from '@/features/problems/format';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
@@ -18,6 +26,7 @@ function SupplyCardComponent({ request, onPress }: SupplyCardProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const status = supplyStatusText(request.status);
+  const statusChip = styles.chip[supplyStatusTone(request.status)];
   const place = supplyPlace(request);
   const summary = itemsSummary(request.items);
   const urgent = request.priority === 'urgent';
@@ -31,8 +40,8 @@ function SupplyCardComponent({ request, onPress }: SupplyCardProps) {
     >
       <View style={styles.header}>
         <Text style={styles.place}>{place}</Text>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{status}</Text>
+        <View style={[styles.badge, statusChip.box]}>
+          <Text style={[styles.badgeText, statusChip.label]}>{status}</Text>
         </View>
       </View>
       <Text style={styles.summary} numberOfLines={3}>
@@ -48,8 +57,11 @@ function SupplyCardComponent({ request, onPress }: SupplyCardProps) {
 
 export const SupplyCard = memo(SupplyCardComponent);
 
-const createStyles = (theme: Theme) =>
-  StyleSheet.create({
+// Each status in its own tone (STATUS_TONE), where one green chip used to say
+// every status; the chips are built once per theme.
+const createStyles = (theme: Theme) => ({
+  chip: toneChipStyles(theme),
+  ...StyleSheet.create({
     card: {
       backgroundColor: theme.card,
       borderRadius: Radius.lg,
@@ -63,13 +75,13 @@ const createStyles = (theme: Theme) =>
     place: { flex: 1, color: theme.text, fontSize: FontSize.title, fontWeight: '700' },
     badge: {
       alignSelf: 'flex-start',
-      backgroundColor: theme.calmSurface,
       borderRadius: Radius.md,
       paddingHorizontal: Spacing.sm,
       paddingVertical: Spacing.xs,
     },
-    badgeText: { color: theme.calmText, fontSize: FontSize.caption, fontWeight: '600' },
+    badgeText: { fontSize: FontSize.caption, fontWeight: '600' },
     summary: { color: theme.text, fontSize: FontSize.body },
     meta: { color: theme.textSecondary, fontSize: FontSize.caption },
-    urgent: { color: theme.urgentText, fontWeight: '700' },
-  });
+    urgent: { color: statusTone(theme, 'supplies.priority.urgent').fg, fontWeight: '700' },
+  }),
+});

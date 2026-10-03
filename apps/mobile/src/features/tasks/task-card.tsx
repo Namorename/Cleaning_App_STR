@@ -2,7 +2,14 @@ import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import {
+  FontSize,
+  MIN_TOUCH_TARGET,
+  Radius,
+  Spacing,
+  statusTone,
+  type Theme,
+} from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 import { formatScheduledDate, formatWindow, propertyName, taskPlace, urgencyText } from './format';
@@ -101,8 +108,10 @@ function TaskCardComponent({
         {window === null ? '' : ` · ${window}`}
       </Text>
 
-      <View style={[styles.banner, urgent ? styles.bannerUrgent : styles.bannerCalm]}>
-        <Text style={[styles.bannerText, urgent ? styles.bannerTextUrgent : styles.bannerTextCalm]}>
+      <View style={[styles.banner, urgent ? styles.bannerUrgent : styles.bannerNeutral]}>
+        <Text
+          style={[styles.bannerText, urgent ? styles.bannerTextUrgent : styles.bannerTextNeutral]}
+        >
           {urgency}
         </Text>
       </View>
@@ -213,14 +222,16 @@ const createStyles = (theme: Theme) =>
       fontSize: FontSize.body,
       fontWeight: '600',
     },
+    // The tones are the contract's (STATUS_TONE): work under way is amber,
+    // accepted is "assigned" blue, a new message the unread badge.
     status: {
-      backgroundColor: theme.primary,
+      backgroundColor: statusTone(theme, 'tasks.in_progress').bg,
       borderRadius: Radius.md,
       paddingHorizontal: Spacing.sm,
       paddingVertical: Spacing.xs,
     },
     statusText: {
-      color: theme.onPrimary,
+      color: statusTone(theme, 'tasks.in_progress').fg,
       fontSize: FontSize.caption,
       fontWeight: '600',
     },
@@ -229,24 +240,24 @@ const createStyles = (theme: Theme) =>
     accepted: {
       borderRadius: Radius.md,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.primary,
+      borderColor: statusTone(theme, 'tasks.accepted').border,
       paddingHorizontal: Spacing.sm,
       paddingVertical: Spacing.xs,
     },
     acceptedText: {
-      color: theme.primary,
+      color: statusTone(theme, 'tasks.accepted').fg,
       fontSize: FontSize.caption,
       fontWeight: '600',
     },
-    // Quieter than "in progress": a word waiting for her, not the state of the job.
+    // A word waiting for her, not the state of the job.
     unread: {
-      backgroundColor: theme.calmSurface,
+      backgroundColor: statusTone(theme, 'chat.unread').bg,
       borderRadius: Radius.md,
       paddingHorizontal: Spacing.sm,
       paddingVertical: Spacing.xs,
     },
     unreadText: {
-      color: theme.calmText,
+      color: statusTone(theme, 'chat.unread').fg,
       fontSize: FontSize.caption,
       fontWeight: '600',
     },
@@ -259,11 +270,13 @@ const createStyles = (theme: Theme) =>
       paddingHorizontal: Spacing.md,
       paddingVertical: Spacing.sm,
     },
-    bannerUrgent: { backgroundColor: theme.urgentSurface },
-    bannerCalm: { backgroundColor: theme.calmSurface },
+    // A same-day check-in is urgent; no check-in, or the job's own name, is
+    // neutral — it used to be green, the colour of "done".
+    bannerUrgent: { backgroundColor: statusTone(theme, 'phone.checkIn.sameDay').bg },
+    bannerNeutral: { backgroundColor: statusTone(theme, 'phone.kindBanner').bg },
     bannerText: { fontSize: FontSize.body, fontWeight: '600' },
-    bannerTextUrgent: { color: theme.urgentText },
-    bannerTextCalm: { color: theme.calmText },
+    bannerTextUrgent: { color: statusTone(theme, 'phone.checkIn.sameDay').fg },
+    bannerTextNeutral: { color: statusTone(theme, 'phone.kindBanner').fg },
     claim: {
       minHeight: MIN_TOUCH_TARGET,
       borderRadius: Radius.md,

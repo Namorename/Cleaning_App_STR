@@ -1,7 +1,14 @@
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import {
+  FontSize,
+  MIN_TOUCH_TARGET,
+  Radius,
+  Spacing,
+  statusTone,
+  type Theme,
+} from '@/constants/theme';
 import type { PushNotice as Notice } from '@/features/push/destination';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
@@ -45,9 +52,14 @@ const createStyles = (theme: Theme) =>
       borderRadius: Radius.md,
       paddingHorizontal: Spacing.md,
       paddingVertical: Spacing.sm,
-      backgroundColor: theme.urgentSurface,
+      backgroundColor: statusTone(theme, 'phone.pushNotice').bg,
     },
-    text: { flex: 1, color: theme.urgentText, fontSize: FontSize.body, fontWeight: '600' },
+    text: {
+      flex: 1,
+      color: statusTone(theme, 'phone.pushNotice').fg,
+      fontSize: FontSize.body,
+      fontWeight: '600',
+    },
     dismiss: { minHeight: MIN_TOUCH_TARGET, justifyContent: 'center' },
     dismissText: { color: theme.primary, fontSize: FontSize.body, fontWeight: '600' },
     pressed: { opacity: 0.6 },
