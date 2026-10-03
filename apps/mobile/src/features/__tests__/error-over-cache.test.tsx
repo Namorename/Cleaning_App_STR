@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet, type TextStyle } from 'react-native';
 
 import { FontSize } from '@/constants/theme';
@@ -106,6 +106,22 @@ describe('her reports', () => {
     expect(fontSizeOf('Network request failed')).toBe(FontSize.caption);
   });
 
+  test('a list that never loaded offers a retry, and the retry refreshes it', async () => {
+    const onRefresh = jest.fn();
+    await render(
+      <ProblemList
+        {...listProps}
+        onRefresh={onRefresh}
+        sections={undefined}
+        error={new Error('Network request failed')}
+      />,
+    );
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Повторить' }));
+
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
   test('an empty list whose refresh failed says both: nothing here, and the failure above', async () => {
     await render(<ProblemList {...listProps} sections={[]} error={new Error('Network request failed')} />);
 
@@ -146,6 +162,22 @@ describe('her supply requests', () => {
 
     expect(fontSizeOf(GENERAL)).toBe(FontSize.body);
     expect(fontSizeOf('Network request failed')).toBe(FontSize.caption);
+  });
+
+  test('a list that never loaded offers a retry, and the retry refreshes it', async () => {
+    const onRefresh = jest.fn();
+    await render(
+      <SupplyList
+        {...listProps}
+        onRefresh={onRefresh}
+        sections={undefined}
+        error={new Error('Network request failed')}
+      />,
+    );
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Повторить' }));
+
+    expect(onRefresh).toHaveBeenCalledTimes(1);
   });
 
   test('an empty list whose refresh failed says both: nothing here, and the failure above', async () => {

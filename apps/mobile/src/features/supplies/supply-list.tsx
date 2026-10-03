@@ -56,7 +56,7 @@ export function SupplyList({
   }
 
   if (error !== null && sections === undefined) {
-    return <ErrorState error={error} />;
+    return <ErrorState error={error} onRetry={onRefresh} />;
   }
 
   // Error over cache: a refresh that failed still has the list from the last
