@@ -5,6 +5,7 @@ import {
   dayLabel,
   dayWidthFor,
   defaultStart,
+  DEPTHS,
   fullDayLabel,
   isDepth,
   monthBounds,
@@ -46,7 +47,7 @@ describe('the days of the window', () => {
   // The window opens a day before today: yesterday's late check-out is still
   // on the manager's mind (docs/f10-plan.md, 7.2).
   test('opens the day before today', () => {
-    expect(defaultStart('2026-09-26', 7)).toBe('2026-09-25');
+    expect(defaultStart('2026-09-26')).toBe('2026-09-25');
   });
 
   // Data is keyed by calendar month; a 30-day window from 31 January of a
@@ -78,6 +79,12 @@ describe('isDepth', () => {
     expect(isDepth(10)).toBe(false);
     expect(isDepth('7')).toBe(false);
   });
+
+  // The owner's word of 2026-10-04: one day is gone from the controls.
+  test('one day is not a depth any more; three days is the least', () => {
+    expect(isDepth(1)).toBe(false);
+    expect(DEPTHS).toEqual([3, 7, 15, 30]);
+  });
 });
 
 // The owner's request of 2026-09-27: the days fill the area; the width by
@@ -100,27 +107,14 @@ describe('the width of a day', () => {
   });
 });
 
-// The branch preflight of 2026-09-27: at one day the window was yesterday,
-// and «Сегодня» went back to yesterday.
 describe('where the window opens', () => {
-  test("a day before today, so yesterday's departures still show", () => {
-    expect(defaultStart('2026-09-26', 7)).toBe('2026-09-25');
-    expect(defaultStart('2026-09-26', 3)).toBe('2026-09-25');
-  });
-
-  test('on today itself when the window is one day', () => {
-    expect(defaultStart('2026-09-26', 1)).toBe('2026-09-26');
-  });
-
   test('as usual, at the depth the manager chose, when nothing is asked ahead', () => {
     expect(openingWindow('2026-09-26', 3, null)).toEqual({ start: '2026-09-25', depth: 3 });
-    expect(openingWindow('2026-09-26', 1, null)).toEqual({ start: '2026-09-26', depth: 1 });
   });
 
   // The dashboard's «Без исполнителя» counts today and the six days on; its link
   // opens here on exactly those days or more (dashboard preflight).
   test('on today and deep enough for the days asked ahead, the depth chosen kept when wider', () => {
-    expect(openingWindow('2026-09-26', 1, 7)).toEqual({ start: '2026-09-26', depth: 7 });
     expect(openingWindow('2026-09-26', 3, 7)).toEqual({ start: '2026-09-26', depth: 7 });
     expect(openingWindow('2026-09-26', 7, 7)).toEqual({ start: '2026-09-26', depth: 7 });
     expect(openingWindow('2026-09-26', 30, 7)).toEqual({ start: '2026-09-26', depth: 30 });

@@ -1108,25 +1108,22 @@ describe('after the branch preflight', () => {
     assignee: { full_name: 'Anna' },
   });
 
-  test('at one day the calendar opens on today, and «Сегодня» comes back to it', async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  // The owner's word of 2026-10-04: a day is too narrow to plan by; three is the least.
+  test('there is no one-day depth: three days is the shortest', () => {
+    render(<CalendarView />);
+
+    const depths = within(screen.getByRole('group', { name: 'Глубина' }))
+      .getAllByRole('button')
+      .map((button) => button.textContent);
+    expect(depths).toEqual(['3 дня', '7 дней', '15 дней', '30 дней']);
+  });
+
+  test('a depth of one day remembered from before opens the week', () => {
     window.localStorage.setItem('str-ops.calendar.depth', '1');
     render(<CalendarView />);
 
-    expect(days()).toEqual(['2026-09-26']);
-    await user.click(screen.getByRole('button', { name: 'Следующий период' }));
-    expect(days()).toEqual(['2026-09-27']);
-    await user.click(screen.getByRole('button', { name: 'Сегодня' }));
-    expect(days()).toEqual(['2026-09-26']);
-  });
-
-  test('switching to one day from where the week opened shows today', async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    render(<CalendarView />);
-
-    await user.click(screen.getByRole('button', { name: '1 день' }));
-
-    expect(days()).toEqual(['2026-09-26']);
+    expect(days()).toHaveLength(7);
+    expect(days()[0]).toBe('2026-09-25');
   });
 
   test('a task a fresher layer has closed is drawn once, as closed', () => {
@@ -1182,5 +1179,77 @@ describe('after the branch preflight', () => {
     const rows = screen.getAllByRole('row');
     expect(rows[0]).toHaveAttribute('aria-rowindex', '1');
     expect(rows[1]).toHaveAttribute('aria-rowindex', '2');
+  });
+});
+
+/**
+ * The owner's word of 2026-10-04: the calendar finds a listing by its name the
+ * way the registry does (`lib/search.ts`, `rowsMatching`) — a listing found
+ * keeps its rooms, a room found stands under its listing, and the marks of a
+ * letter do not count.
+ */
+describe('the search', () => {
+  const names = () =>
+    screen
+      .getAllByRole('rowheader')
+      .map((cell) => within(cell).getByTestId('row-name').textContent);
+  const searchBox = () => screen.getByRole('searchbox', { name: 'Найти объект по названию' });
+
+  test('finds a listing without its diacritics, and leaves the rest out', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    rowsState.data = [...SMALL, row(30, 'Šárka 5')];
+    render(<CalendarView />);
+
+    await user.type(searchBox(), 'sarka');
+
+    expect(names()).toEqual(['Šárka 5']);
+  });
+
+  test('a listing found shows all of its rooms', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<CalendarView />);
+
+    await user.type(searchBox(), 'royal');
+
+    expect(names()).toEqual(['Royal Cerna', 'Unit 1', 'Unit 2']);
+  });
+
+  test('a room found stands under its listing, without the other rooms', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<CalendarView />);
+
+    await user.type(searchBox(), 'unit 2');
+
+    expect(names()).toEqual(['Royal Cerna', 'Unit 2']);
+  });
+
+  test('a closed group opens while a room in it is found, and closes again after', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<CalendarView />);
+    await user.click(screen.getByRole('button', { name: 'Скрыть единицы «Royal Cerna»' }));
+
+    await user.type(searchBox(), 'unit 2');
+    expect(names()).toEqual(['Royal Cerna', 'Unit 2']);
+
+    await user.clear(searchBox());
+    expect(names()).toEqual([
+      'Anglicka 7',
+      'Royal Cerna',
+      'Villa Whole',
+      'Villa East',
+      'Villa West',
+    ]);
+  });
+
+  test('when nothing is found it says so, and clearing brings every row back', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<CalendarView />);
+
+    await user.type(searchBox(), 'zizkov');
+    expect(screen.getByText('Объектов с таким названием нет.')).toBeInTheDocument();
+    expect(screen.queryAllByRole('rowheader')).toEqual([]);
+
+    await user.clear(searchBox());
+    expect(names()).toHaveLength(SMALL.length);
   });
 });

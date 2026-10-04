@@ -799,6 +799,8 @@
       "previous": "Previous period",
       "next": "Next period",
       "depthLabel": "Depth",
+      "search": "Find a listing by name",
+      "noMatches": "No listing has that name.",
       "days_one": "{{count}} day",
       "days_other": "{{count}} days",
       "property": "Listing",
