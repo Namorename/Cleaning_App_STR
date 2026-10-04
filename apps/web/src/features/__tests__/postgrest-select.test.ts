@@ -103,6 +103,7 @@ const READERS: readonly ((client: never) => Promise<unknown>)[] = [
   (client) => tasks.fetchExpiredBetween(client, '2026-09-01', '2026-10-01'),
   (client) => tasks.fetchTask(client, ANY_ID),
   (client) => tasks.fetchLiveRepairs(client),
+  (client) => tasks.fetchOffStaffWork(client),
   (client) => tasks.fetchStaff(client),
   (client) => tasks.fetchProperties(client),
   (client) => tasks.fetchTaskWork(client, ANY_ID),

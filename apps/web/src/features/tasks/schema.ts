@@ -115,6 +115,22 @@ export const expiredTaskSchema = z.object({
 export type ExpiredTask = z.infer<typeof expiredTaskSchema>;
 export const expiredTaskListSchema = z.array(expiredTaskSchema);
 
+/** The person on a job, with the switch that says whether she still works here. */
+const switchedPersonSchema = z.object({
+  full_name: z.string().nullable(),
+  is_active: z.boolean(),
+});
+
+/** The listing of a job the dashboard names: its status, its zone, its building. */
+const dashboardPlaceSchema = z.object({
+  name: z.string(),
+  status: z.string(),
+  timezone: z.string().nullable(),
+  // What names a room with its building on the dashboard (propertyPathOf).
+  hostaway_unit_id: z.number().nullable().default(null),
+  parent: z.object({ name: z.string() }).nullable().default(null),
+});
+
 /**
  * A live repair, whatever its day (§6): the technician with the switch that
  * says whether they still work here, and the listing with its status and zone.
@@ -126,18 +142,37 @@ export const liveRepairSchema = z.object({
   status: z.enum(TASK_STATUSES),
   scheduled_date: z.string(),
   assignee_id: z.uuid().nullable(),
-  assignee: z.object({ full_name: z.string().nullable(), is_active: z.boolean() }).nullable(),
-  property: z.object({
-    name: z.string(),
-    status: z.string(),
-    timezone: z.string().nullable(),
-    // What names a room with its building on the dashboard (propertyPathOf).
-    hostaway_unit_id: z.number().nullable().default(null),
-    parent: z.object({ name: z.string() }).nullable().default(null),
-  }),
+  assignee: switchedPersonSchema.nullable(),
+  property: dashboardPlaceSchema,
 });
 export type LiveRepair = z.infer<typeof liveRepairSchema>;
 export const liveRepairListSchema = z.array(liveRepairSchema);
+
+/** Work somebody has started and not finished. */
+export const UNDER_WAY_STATUSES = [
+  'in_progress',
+  'paused',
+  'blocked',
+] as const satisfies readonly TaskStatus[];
+
+/**
+ * A job under way on a person switched off (docs/staff-disable-plan.md).
+ * Switching an account off takes it off everything nobody has started
+ * (20261004100000); what it had started stays on it for the manager to decide.
+ * The repairs of tasks are the repair tiles'; this is every other job.
+ */
+export const offStaffTaskSchema = z.object({
+  id: z.uuid(),
+  property_id: z.number(),
+  type: z.enum(TASK_TYPES),
+  status: z.enum(TASK_STATUSES),
+  scheduled_date: z.string(),
+  assignee_id: z.uuid(),
+  assignee: switchedPersonSchema,
+  property: dashboardPlaceSchema,
+});
+export type OffStaffTask = z.infer<typeof offStaffTaskSchema>;
+export const offStaffTaskListSchema = z.array(offStaffTaskSchema);
 
 /** Somebody a task can be handed to. */
 export const staffSchema = z.object({

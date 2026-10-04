@@ -132,15 +132,17 @@ select pg_temp.check('the queue lives in raw, out of every client''s reach',
 -- A row the generator writes is a NEW cleaning; a row the office writes with a
 -- name on it is an ASSIGNMENT (see the repair below): for her, the office
 -- handed her a job.
+--
+-- Gone, switched off, is not among them: since 20261004100000 no live job is
+-- written with his name (staff_disable.sql), so the queue's own filter on
+-- is_active is a second line here; free work on Flat A still asks it below.
 insert into public.tasks (id, host_id, property_id, type, status, scheduled_date, assignee_id) values
   (pg_temp.tid(1), 'a8f13000-0000-4000-8000-00000000000a', 900013002, 'cleaning', 'assigned', current_date,      pg_temp.anna()),
   (pg_temp.tid(2), 'a8f13000-0000-4000-8000-00000000000a', 900013002, 'cleaning', 'assigned', current_date + 30, pg_temp.anna()),
   (pg_temp.tid(3), 'a8f13000-0000-4000-8000-00000000000a', 900013002, 'cleaning', 'assigned', current_date + 3,
-   'a8f13005-0000-4000-8000-000000000005'),
-  (pg_temp.tid(4), 'a8f13000-0000-4000-8000-00000000000a', 900013002, 'cleaning', 'assigned', current_date + 2,
-   'a8f13006-0000-4000-8000-000000000006');
+   'a8f13005-0000-4000-8000-000000000005');
 
-select pg_temp.check('one statement, four new cleanings: only the one she can see and has a phone for',
+select pg_temp.check('one statement, three new cleanings: only the one she can see and has a phone for',
   pg_temp.queued(), array['Anna cleaning_new']);
 select pg_temp.check('new work, even today''s, is not urgent: it waits out quiet hours (§1.4)',
   (pg_temp.last_row()).urgent, false);

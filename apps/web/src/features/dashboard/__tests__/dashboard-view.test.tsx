@@ -6,8 +6,10 @@ import type { SupplyRequest } from '@/features/supplies/schema';
 import {
   calendarTaskSchema,
   liveRepairSchema,
+  offStaffTaskSchema,
   type CalendarTask,
   type LiveRepair,
+  type OffStaffTask,
   type Property,
 } from '@/features/tasks/schema';
 import { formatDay } from '@/lib/format-date';
@@ -27,15 +29,21 @@ const state: {
   supplies: Read<SupplyRequest>;
   repairs: Read<LiveRepair>;
   rows: Read<Property>;
+  offWork: Read<OffStaffTask>;
 } = {
   tasks: read([]),
   problems: read([]),
   supplies: read([]),
   repairs: read([]),
   rows: read([]),
+  offWork: read([]),
 };
 
 vi.mock('../use-dashboard', () => ({ useDashboard: () => state }));
+// The form reads the task whole and writes it; here it only says which one it opened.
+vi.mock('../off-work-form', () => ({
+  OffWorkForm: ({ taskId }: { taskId: string }) => <div role="dialog">form of {taskId}</div>,
+}));
 
 import { DashboardView } from '../dashboard-view';
 
@@ -89,6 +97,20 @@ const repair = (day: string, extra: Record<string, unknown> = {}): LiveRepair =>
     ...extra,
   });
 
+// Started by somebody who has since been switched off.
+const offTask = (day: string, extra: Record<string, unknown> = {}): OffStaffTask =>
+  offStaffTaskSchema.parse({
+    id: uuid('cccccccc'),
+    property_id: 1,
+    type: 'cleaning',
+    status: 'in_progress',
+    scheduled_date: day,
+    assignee_id: IVA,
+    assignee: { full_name: 'Iva', is_active: false },
+    property: { name: 'Anglicka 7', status: 'active', timezone: 'Europe/Prague' },
+    ...extra,
+  });
+
 // The counts read the status and the archive mark alone.
 const problem = (status: string, archived_at: string | null = null) =>
   ({ status, archived_at }) as unknown as Problem;
@@ -122,6 +144,7 @@ beforeEach(() => {
   ]);
   state.supplies = read([supply('new'), supply('new'), supply('accepted')]);
   state.repairs = read([repair('2026-10-02')]);
+  state.offWork = read([]);
 });
 
 afterEach(() => {
@@ -157,6 +180,47 @@ describe('the tiles', () => {
     expect(tile(/Ремонтов просрочено/)).toHaveAttribute('href', '#stuck-repairs');
     expect(tile(/Ремонтов у отключённых/)).toHaveTextContent('2');
     expect(tile(/Ремонтов у отключённых/)).toHaveAttribute('href', '#stuck-repairs');
+  });
+
+  test('«Уборок у отключённых» counts the work they had started, and leads to its list', () => {
+    state.offWork = read([offTask('2026-09-29'), offTask('2026-09-30', { status: 'paused' })]);
+
+    render(<DashboardView />);
+
+    expect(tile(/Уборок у отключённых/)).toHaveTextContent('2');
+    expect(tile(/Уборок у отключённых/)).toHaveAttribute('href', '#off-staff-work');
+  });
+
+  test('the tile brings its list into view on every click', () => {
+    const scrolled = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function scrollIntoView(this: Element) {
+      scrolled(this.id);
+    };
+    try {
+      render(<DashboardView />);
+
+      fireEvent.click(tile(/Уборок у отключённых/));
+      fireEvent.click(tile(/Уборок у отключённых/));
+
+      expect(scrolled.mock.calls).toEqual([['off-staff-work'], ['off-staff-work']]);
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
+  test('when that work could not be read the tile is a dash, and the page says which', () => {
+    state.offWork = {
+      data: undefined,
+      isPending: false,
+      isError: true,
+      error: { message: 'permission denied for table tasks' },
+    };
+
+    render(<DashboardView />);
+
+    expect(tile(/Уборок у отключённых/)).toHaveTextContent('—');
+    expect(screen.getByRole('alert')).toHaveTextContent('Не удалось загрузить уборки отключённых.');
   });
 
   test('«Без исполнителя» waits for the calendar’s rows, as it counts only what they draw', () => {
@@ -281,5 +345,77 @@ describe('the stuck repairs', () => {
 
     expect(screen.getByText('Застрявших ремонтов нет.')).toBeInTheDocument();
     expect(screen.queryByRole('list', { name: 'Застрявшие ремонты' })).toBeNull();
+  });
+});
+
+describe('the work under way of people switched off', () => {
+  test('is listed oldest first, with the place, the day, the job, its state and who left it', () => {
+    const room = offTask('2026-09-20', {
+      type: 'inspection',
+      status: 'paused',
+      property: {
+        name: 'Unit 1',
+        status: 'active',
+        timezone: 'Europe/Prague',
+        hostaway_unit_id: 7001,
+        parent: { name: 'Royal Cerna' },
+      },
+    });
+    const late = offTask('2026-09-29');
+    state.offWork = read([late, room]);
+
+    render(<DashboardView />);
+
+    const list = screen.getByRole('list', { name: 'Уборки в работе у отключённых' });
+    const rows = within(list).getAllByRole('listitem');
+    expect(rows).toHaveLength(2);
+
+    expect(rows[0]).toHaveTextContent('Royal Cerna — Unit 1');
+    expect(rows[0]).toHaveTextContent(formatDay('2026-09-20', 'ru'));
+    expect(rows[0]).toHaveTextContent('Осмотр');
+    expect(rows[0]).toHaveTextContent('Пауза');
+    expect(rows[0]).toHaveTextContent('Iva');
+    expect(rows[0]).toHaveTextContent('Не работает');
+
+    expect(rows[1]).toHaveTextContent(formatDay('2026-09-29', 'ru'));
+    expect(rows[1]).toHaveTextContent('Уборка');
+    expect(rows[1]).toHaveTextContent('В работе');
+  });
+
+  test('a row opens its job for the decision, and names which one to a screen reader', () => {
+    const late = offTask('2026-09-29');
+    state.offWork = read([late]);
+
+    render(<DashboardView />);
+
+    const open = within(screen.getByRole('list', { name: 'Уборки в работе у отключённых' }))
+      .getByRole('button');
+    expect(open).toHaveTextContent(`Открыть уборку: Anglicka 7, ${formatDay('2026-09-29', 'ru')}`);
+
+    fireEvent.click(open);
+
+    expect(screen.getByRole('dialog')).toHaveTextContent(`form of ${late.id}`);
+  });
+
+  // A started booking's cleaning cannot be closed from «Уборки» (only a
+  // hand-made job can be cancelled there), and the night sweep closes it a day
+  // after its day as one that never happened (expire_stale_tasks): the words
+  // say what the manager can do and what happens if she does not.
+  test('says what deciding means: hand it on, or it closes by itself after a day', () => {
+    render(<DashboardView />);
+
+    expect(
+      screen.getByText(
+        'Отключение сняло с них всё неначатое. Начатое ждёт решения: передайте уборку другому. ' +
+          'Если не передать, после дня запаса она закроется сама и будет отмечена «Не состоялась».',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  test('say so when there are none', () => {
+    render(<DashboardView />);
+
+    expect(screen.getByText('Начатых уборок у отключённых нет.')).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Уборки в работе у отключённых' })).toBeNull();
   });
 });
