@@ -1,4 +1,6 @@
+import { ICONS } from '@str-ops/shared';
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, test, vi } from 'vitest';
 
 import { taskSchema, type Task } from '../schema';
@@ -120,6 +122,43 @@ describe('the rest of a row', () => {
     const when = within(row).getAllByRole('cell')[0];
     expect(within(when).getByText('—')).toHaveAttribute('aria-hidden', 'true');
     expect(within(when).getByText('Без времени')).toHaveClass('sr-only');
+  });
+
+  // Owner, 04.10: the note is a small mark by the name; its text on hover and
+  // on keyboard focus, whole in the form.
+  test('a note is a mark by the name that a reader hears whole', () => {
+    const row = renderRow(task({ title: 'Мойка окон', notes: 'Ключ у соседа, кв. 4' }));
+
+    const name = within(row).getAllByRole('cell')[3];
+    expect(name).toHaveTextContent('Мойка окон');
+    const mark = within(name).getByRole('button', {
+      name: 'Заметка для исполнителя: Ключ у соседа, кв. 4',
+    });
+    expect(mark.querySelector('svg')).toHaveClass(`lucide-${ICONS['meta.note']}`);
+    expect(mark.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    // Not a text in the row: the row stays one line.
+    expect(screen.queryByText('Ключ у соседа, кв. 4')).not.toBeInTheDocument();
+  });
+
+  test("the note's text shows when the mark takes the keyboard's focus", async () => {
+    renderRow(task({ title: 'Мойка окон', notes: 'Ключ у соседа, кв. 4' }));
+
+    await userEvent.tab();
+    expect(screen.getByRole('button', { name: /^Заметка для исполнителя/ })).toHaveFocus();
+
+    expect(await screen.findByText('Ключ у соседа, кв. 4')).toBeVisible();
+  });
+
+  test('the note mark is a 44 px target', () => {
+    renderRow(task({ notes: 'Ключ у соседа' }));
+
+    expect(screen.getByRole('button', { name: /^Заметка для исполнителя/ })).toHaveClass('size-11');
+  });
+
+  test('no note, no mark', () => {
+    renderRow(task({ title: 'Мойка окон' }));
+
+    expect(screen.queryByRole('button', { name: /Заметка/ })).not.toBeInTheDocument();
   });
 
   test('names who asked for a job the manager wrote, beside nothing else', () => {

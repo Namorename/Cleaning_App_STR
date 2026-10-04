@@ -440,6 +440,7 @@
       },
       "noAssignee": "Без исполнителя",
       "noProperty": "Без объекта",
+      "note": "Заметка для исполнителя: {{text}}",
       "window": {
         "from": "с {{time}}",
         "until": "до {{time}}"

@@ -21,6 +21,7 @@ import { useLanguage } from '@/lib/use-language';
 import { cn } from '@/lib/utils';
 
 import { formatWindow } from './format';
+import { TaskNote } from './task-note';
 import {
   isManualTask,
   isTaskClosed,
@@ -136,8 +137,11 @@ export function TaskRow({
       <TableCell className="py-1 text-muted-foreground">
         {t(`panel.tasks.types.${task.type}`)}
       </TableCell>
-      <TableCell className="max-w-64 min-w-32 py-1 font-medium whitespace-normal">
-        {localizedTitle(task, language)}
+      <TableCell className="max-w-64 min-w-32 py-0 font-medium whitespace-normal">
+        <div className="flex min-h-11 items-center gap-1">
+          {localizedTitle(task, language)}
+          {task.notes === null || task.notes.trim() === '' ? null : <TaskNote note={task.notes} />}
+        </div>
       </TableCell>
       <TableCell className="py-1">
         <Badge tone={taskStatusTone(task.status)}>{t(`panel.tasks.statuses.${task.status}`)}</Badge>

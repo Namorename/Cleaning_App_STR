@@ -265,7 +265,7 @@ describe('TasksView', () => {
 
     const cells = within(rowOf('Vinohrady 12')).getAllByRole('cell');
     expect(cells[2]).toHaveTextContent('Уборка');
-    expect(cells[3]).toBeEmptyDOMElement();
+    expect(cells[3].textContent).toBe('');
     expect(cells[4]).toHaveTextContent('Без исполнителя');
     // The executor's column is a dash on screen; the words are for a reader.
     expect(within(cells[5]).getByText('—')).toHaveAttribute('aria-hidden', 'true');

@@ -440,6 +440,7 @@
       },
       "noAssignee": "Zatím nikdo",
       "noProperty": "Bez bytu",
+      "note": "Poznámka pro vykonavatele: {{text}}",
       "window": {
         "from": "od {{time}}",
         "until": "do {{time}}"

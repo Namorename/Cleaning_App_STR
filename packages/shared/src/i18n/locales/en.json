@@ -440,6 +440,7 @@
       },
       "noAssignee": "Nobody yet",
       "noProperty": "No listing",
+      "note": "Note for the executor: {{text}}",
       "window": {
         "from": "from {{time}}",
         "until": "until {{time}}"

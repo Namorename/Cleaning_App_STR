@@ -70,6 +70,8 @@ export const ICONS = {
 
   /** A problem's technician, beside his name. */
   'meta.technician': 'wrench',
+  /** A cleaning's note for its executor, beside its name in the panel's list. */
+  'meta.note': 'sticky-note',
 } as const;
 
 export type IconMeaning = keyof typeof ICONS;
