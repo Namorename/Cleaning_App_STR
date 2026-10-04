@@ -232,8 +232,6 @@ vi.mock('@/features/team/use-team', () => ({
   }),
 }));
 
-import { expectPageTitle } from '@/components/page-header.expect';
-
 import { PropertyCard } from '../property-card';
 
 function renderCard() {
@@ -257,14 +255,22 @@ beforeEach(() => {
 });
 
 describe('the card', () => {
-  test('is headed by the common header: the listing’s name and the way back', () => {
+  // 5.4, variant B: the card stands beside the registry, whose header holds
+  // the page's one h1 («Объекты»); the card is headed one level below it.
+  test('is headed by the listing’s name, a level under the page’s own heading', () => {
     renderCard();
 
-    expectPageTitle('Vinohrady 12');
-    expect(screen.getByRole('link', { name: 'Все объекты' })).toHaveAttribute(
-      'href',
-      '/apartments',
-    );
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+    expect(screen.getByRole('heading', { level: 2, name: 'Vinohrady 12' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Vinohrady 12' })).toBeInTheDocument();
+  });
+
+  test('its sections are 44 px tabs', () => {
+    renderCard();
+
+    for (const tab of screen.getAllByRole('tab')) {
+      expect(tab).toHaveClass('min-h-11');
+    }
   });
 });
 
@@ -347,7 +353,7 @@ describe('listings that belong together', () => {
 
     expect(screen.getByRole('link', { name: 'Room A' })).toHaveAttribute(
       'href',
-      `/apartments/${UNIT_A}`,
+      `/apartments?listing=${UNIT_A}`,
     );
   });
 
@@ -505,7 +511,7 @@ describe('the card of a room', () => {
     expect(screen.queryByLabelText('Часть объекта')).toBeNull();
     expect(screen.getByRole('link', { name: 'Vinohrady 12' })).toHaveAttribute(
       'href',
-      `/apartments/${WHOLE}`,
+      `/apartments?listing=${WHOLE}`,
     );
   });
 
@@ -537,7 +543,7 @@ describe('the card of a room', () => {
     expect(screen.queryByText('Jan Novák')).toBeNull();
     expect(screen.getByRole('link', { name: 'Vinohrady 12' })).toHaveAttribute(
       'href',
-      `/apartments/${WHOLE}`,
+      `/apartments?listing=${WHOLE}`,
     );
   });
 

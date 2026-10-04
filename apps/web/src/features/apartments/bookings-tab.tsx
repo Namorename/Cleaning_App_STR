@@ -1,7 +1,6 @@
 'use client';
 
 import { STATUS_TONE } from '@str-ops/shared';
-import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
@@ -16,6 +15,7 @@ import {
 } from '@/components/ui/table';
 import { todayIso } from '@/lib/format-date';
 
+import { ListingLink } from './listing-link';
 import { isUpcoming, type ListingRef } from './schema';
 import { useReservations } from './use-apartments';
 
@@ -45,9 +45,9 @@ export function BookingsTab({ propertyId, listing = null }: BookingsTabProps) {
     return (
       <p className="text-sm">
         {t('panel.apartments.room.bookings')}{' '}
-        <Link className="underline" href={`/apartments/${listing.id}`}>
+        <ListingLink className="underline" id={listing.id}>
           {listing.name}
-        </Link>
+        </ListingLink>
       </p>
     );
   }

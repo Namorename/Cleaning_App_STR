@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -65,9 +65,76 @@ vi.mock('../use-apartments', () => ({
   useSyncListings: () => ({ ...syncState, mutate: sync }),
 }));
 
+// The router reads the address jsdom holds; the view writes it through
+// history, which jsdom keeps as a browser would. «Назад» moves it a task later
+// with `popstate`, and the router shows the page again — as Next does.
+vi.mock('next/navigation', async () => {
+  const { useSyncExternalStore } = await import('react');
+  const subscribe = (onChange: () => void) => {
+    window.addEventListener('popstate', onChange);
+    return () => window.removeEventListener('popstate', onChange);
+  };
+  return {
+    useSearchParams: () =>
+      new URLSearchParams(useSyncExternalStore(subscribe, () => window.location.search)),
+    usePathname: () => window.location.pathname,
+  };
+});
+
+// The card has its own tests (property-card.test); here it only has to be
+// opened beside the registry, with the tab the address names.
+vi.mock('../property-card', () => ({
+  PropertyCard: ({
+    propertyId,
+    tab,
+    onTabChange,
+  }: {
+    propertyId: number;
+    tab: string;
+    onTabChange: (tab: string) => void;
+  }) => (
+    <section aria-label="Карточка объекта">
+      <span>
+        {propertyId}:{tab}
+      </span>
+      <button type="button" onClick={() => onTabChange('bookings')}>
+        К бронированиям
+      </button>
+    </section>
+  ),
+}));
+
 import { expectPageTitle } from '@/components/page-header.expect';
 
 import { ApartmentsView } from '../apartments-view';
+
+/** The query of the page's address, without its `?`. */
+const query = () => window.location.search.slice(1);
+
+/** «Назад»: jsdom walks the history a task later and says so with `popstate`. */
+function goBack(): Promise<void> {
+  return new Promise((resolve) => {
+    window.addEventListener('popstate', () => resolve(), { once: true });
+    window.history.back();
+  });
+}
+
+const card = () => screen.queryByRole('region', { name: 'Карточка объекта' });
+
+/** A row's moves wait in its menu «⋯» (5.4: they were two look-alike buttons). */
+async function moveFromMenu(name: string, move: string): Promise<void> {
+  await userEvent.click(within(rowFor(name)).getByRole('button', { name: `Действия: ${name}` }));
+  const menu = await screen.findByRole('menu');
+  await userEvent.click(within(menu).getByRole('menuitem', { name: move }));
+}
+
+const menuOf = async (name: string): Promise<string[]> => {
+  await userEvent.click(within(rowFor(name)).getByRole('button', { name: `Действия: ${name}` }));
+  const menu = await screen.findByRole('menu');
+  return within(menu)
+    .getAllByRole('menuitem')
+    .map((item) => item.textContent ?? '');
+};
 
 function renderView() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -83,6 +150,7 @@ const rowFor = (name: string): HTMLElement =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  window.history.replaceState(null, '', '/apartments');
   syncState.data = undefined;
   syncState.isError = false;
   syncState.error = null;
@@ -203,7 +271,7 @@ describe('taking a listing out of service', () => {
   test('the confirmation names the cleanings it would cancel', async () => {
     renderView();
 
-    await userEvent.click(within(rowFor('Vinohrady 12')).getByRole('button', { name: 'В архив' }));
+    await moveFromMenu('Vinohrady 12', 'В архив');
 
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Убрать в архив?')).toBeInTheDocument();
@@ -213,14 +281,16 @@ describe('taking a listing out of service', () => {
       ).toBeInTheDocument(),
     );
     // And says plainly what survives it.
-    expect(within(dialog).getByText(/Выполненные уборки, замеры времени, фото/)).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/Выполненные уборки, замеры времени, фото/),
+    ).toBeInTheDocument();
     expect(setStatus).not.toHaveBeenCalled();
   }, 20000);
 
   test('nothing happens until it is confirmed', async () => {
     renderView();
 
-    await userEvent.click(within(rowFor('Vinohrady 12')).getByRole('button', { name: 'В архив' }));
+    await moveFromMenu('Vinohrady 12', 'В архив');
     const dialog = await screen.findByRole('dialog');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Отмена' }));
 
@@ -230,7 +300,7 @@ describe('taking a listing out of service', () => {
   test('confirming archives it and agrees to the sweep', async () => {
     renderView();
 
-    await userEvent.click(within(rowFor('Vinohrady 12')).getByRole('button', { name: 'В архив' }));
+    await moveFromMenu('Vinohrady 12', 'В архив');
     const dialog = await screen.findByRole('dialog');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Убрать в архив' }));
 
@@ -248,10 +318,12 @@ describe('taking a listing out of service', () => {
     renderView();
 
     await userEvent.click(screen.getByRole('tab', { name: /Обслуживание/ }));
-    await userEvent.click(within(rowFor('Anděl 4')).getByRole('button', { name: 'В архив' }));
+    await moveFromMenu('Anděl 4', 'В архив');
 
     const dialog = await screen.findByRole('dialog');
-    await waitFor(() => expect(within(dialog).queryByText(/Будет отменено/)).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(within(dialog).queryByText(/Будет отменено/)).not.toBeInTheDocument(),
+    );
   }, 20000);
 });
 
@@ -260,10 +332,8 @@ describe('bringing one back', () => {
     renderView();
 
     await userEvent.click(screen.getByRole('tab', { name: /Архив/ }));
-    const row = rowFor('Karlín 7');
-
-    expect(within(row).queryByRole('button', { name: 'В архив' })).not.toBeInTheDocument();
-    await userEvent.click(within(row).getByRole('button', { name: 'Вернуть в работу' }));
+    expect(await menuOf('Karlín 7')).toEqual(['Вернуть в работу']);
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Вернуть в работу' }));
 
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText(/Новые уборки начнут создаваться/)).toBeInTheDocument();
@@ -392,5 +462,142 @@ describe('rooms under their listing', () => {
 
     // Vinohrady 12 with its part, and Royal Cerna with its two rooms.
     expect(screen.getByRole('tab', { name: /Работают/ })).toHaveTextContent('(2)');
+  });
+});
+
+// 5.4, «Объекты» variant B (docs/design/decisions.md §2): the registry and the
+// card side by side; the open listing and the card's tab live in the address.
+describe('the registry and the card side by side', () => {
+  test('opens the card of the listing the address names, beside the registry', () => {
+    window.history.replaceState(null, '', '/apartments?listing=101&card=bookings');
+
+    renderView();
+
+    expectPageTitle('Объекты');
+    expect(card()).toHaveTextContent('101:bookings');
+    expect(rowFor('Royal Cerna')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Vinohrady 12' })).toHaveAttribute(
+      'aria-current',
+      'true',
+    );
+  });
+
+  test('with nothing open, the space beside says how to open a card', () => {
+    renderView();
+
+    expect(card()).toBeNull();
+    expect(screen.getByText('Выберите объект — его карточка откроется здесь.')).toBeInTheDocument();
+  });
+
+  test('a press on a listing opens its card, and «Назад» closes it again', async () => {
+    // At the end of jsdom's history, so a step adds one.
+    window.history.pushState(null, '', '/apartments');
+    renderView();
+    const steps = window.history.length;
+
+    await userEvent.click(screen.getByRole('link', { name: 'Vinohrady 12' }));
+    expect(query()).toBe('listing=101');
+    expect(window.history.length).toBe(steps + 1);
+    expect(card()).toHaveTextContent('101:info');
+
+    await act(() => goBack());
+    expect(query()).toBe('');
+    expect(card()).toBeNull();
+  });
+
+  test('a new tab of the card is a step «Назад» walks back too', async () => {
+    window.history.pushState(null, '', '/apartments?listing=101');
+    renderView();
+    const steps = window.history.length;
+
+    await userEvent.click(screen.getByRole('button', { name: 'К бронированиям' }));
+    expect(query()).toBe('listing=101&card=bookings');
+    expect(window.history.length).toBe(steps + 1);
+
+    await act(() => goBack());
+    expect(card()).toHaveTextContent('101:info');
+  });
+
+  test('the status tab is a step, the search is not', async () => {
+    window.history.pushState(null, '', '/apartments');
+    renderView();
+    const steps = window.history.length;
+
+    await userEvent.type(screen.getByLabelText(/Поиск/), 'karl');
+    expect(window.history.length).toBe(steps);
+    await userEvent.click(screen.getByRole('tab', { name: /Архив/ }));
+    expect(window.history.length).toBe(steps + 1);
+    expect(query()).toBe('status=archived&q=karl');
+  });
+
+  test("a listing's link keeps the registry's tab and search, for a new window too", () => {
+    window.history.replaceState(null, '', '/apartments?status=archived&q=karl');
+
+    renderView();
+
+    expect(screen.getByRole('link', { name: 'Karlín 7' })).toHaveAttribute(
+      'href',
+      '/apartments?status=archived&q=karl&listing=103',
+    );
+  });
+
+  // Decision 14: on a phone the card does not squeeze beside the list — it
+  // takes the list's place, and «Все объекты» brings the list back.
+  test('on a narrow screen an open card takes the place of the list', async () => {
+    window.history.replaceState(null, '', '/apartments?listing=101');
+    const { container } = renderView();
+
+    expect(container.querySelector('[data-slot="registry"]')).toHaveClass('hidden', 'xl:flex');
+    const back = screen.getByRole('button', { name: 'Все объекты' });
+    expect(back).toHaveClass('xl:hidden', 'h-11');
+
+    await userEvent.click(back);
+    expect(query()).toBe('');
+    expect(container.querySelector('[data-slot="registry"]')).not.toHaveClass('hidden');
+  });
+});
+
+// The registry's rows (5.4): narrow enough to stand beside the card.
+describe('a row of the registry', () => {
+  test('offers the moves of its tab in its menu, the archive in the destructive colour', async () => {
+    renderView();
+
+    expect(await menuOf('Vinohrady 12')).toEqual(['На обслуживание', 'В архив']);
+    expect(screen.getByRole('menuitem', { name: 'В архив' })).toHaveAttribute(
+      'data-variant',
+      'destructive',
+    );
+  });
+
+  test('says where the flat is and its Hostaway id under its name', () => {
+    renderView();
+
+    const row = rowFor('Vinohrady 12');
+    expect(row).toHaveTextContent('Korunní 12, Praha');
+    expect(within(row).getByText('101')).toBeInTheDocument();
+  });
+
+  test('every target in it is 44 px: the tick, the group, the name and the menu', () => {
+    renderView();
+
+    const row = rowFor('Royal Cerna');
+    expect(within(row).getByRole('checkbox').closest('label')).toHaveClass('size-11');
+    expect(within(row).getByRole('button', { name: 'Скрыть единицы «Royal Cerna»' })).toHaveClass(
+      'size-11',
+    );
+    expect(within(row).getByRole('link', { name: 'Royal Cerna' })).toHaveClass('min-h-11');
+    expect(within(row).getByRole('button', { name: 'Действия: Royal Cerna' })).toHaveClass(
+      'size-11',
+    );
+    expect(screen.getByLabelText(/Поиск/)).toHaveClass('h-11');
+  });
+
+  test('a listing in another state wears its state’s tone', async () => {
+    renderView();
+    await userEvent.click(screen.getByRole('tab', { name: /Обслуживание/ }));
+
+    expect(within(rowFor('Anděl 4')).getByText('Обслуживание')).toHaveClass(
+      'bg-tone-in-progress-bg',
+    );
   });
 });

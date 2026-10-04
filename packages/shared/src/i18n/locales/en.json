@@ -670,6 +670,7 @@
         "archived": "Archive"
       },
       "columns": {
+        "pick": "Pick",
         "name": "Listing",
         "address": "Address",
         "linked": "Links",
@@ -706,6 +707,8 @@
         }
       },
       "back": "All listings",
+      "pickListing": "Pick a listing — its card opens here.",
+      "rowMenu": "Actions: {{name}}",
       "notFound": "Listing not found.",
       "card": {
         "info": "Information",

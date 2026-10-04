@@ -670,6 +670,7 @@
         "archived": "Archiv"
       },
       "columns": {
+        "pick": "Výběr",
         "name": "Objekt",
         "address": "Adresa",
         "linked": "Vazby",
@@ -706,6 +707,8 @@
         }
       },
       "back": "Všechny objekty",
+      "pickListing": "Vyberte byt — jeho karta se otevře zde.",
+      "rowMenu": "Akce: {{name}}",
       "notFound": "Objekt nenalezen.",
       "card": {
         "info": "Informace",

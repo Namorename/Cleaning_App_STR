@@ -1,14 +1,13 @@
 'use client';
 
-import { propertyStatusTone } from '@str-ops/shared';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { PageHeader } from '@/components/page-header';
+import { StatusBadge } from '@/components/status-badge';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+import { CARD_TABS, type CardTab } from './address';
 import { BookingsTab } from './bookings-tab';
 import { ChecklistTab } from './checklist-tab';
 import { CleanersTab } from './cleaners-tab';
@@ -17,26 +16,29 @@ import { MaintenanceTab } from './maintenance-tab';
 import { isRoom, parentOf, type ListingRef } from './schema';
 import { useProperty, useRegistry } from './use-apartments';
 
-/** The sections of the card, in the order the plan builds them. */
-const CARD_TABS = ['info', 'cleaners', 'checklist', 'bookings', 'maintenance'] as const;
-type CardTab = (typeof CARD_TABS)[number];
-
 interface PropertyCardProps {
   propertyId: number;
+  /** The open section; the registry keeps it in the address. Absent, the card keeps its own. */
+  tab?: CardTab;
+  onTabChange?: (tab: CardTab) => void;
 }
 
 /**
- * One flat, everything the company knows about it.
+ * One flat, everything the company knows about it — beside the registry
+ * (5.4, variant B), so its heading is the page's second level: the page's
+ * one h1 is «Объекты».
  *
  * Reached from the registry, including from the archive tab — a manager about
  * to bring a listing back should be able to look at it first, so an archived
  * flat opens here like any other and says so at the top.
  */
-export function PropertyCard({ propertyId }: PropertyCardProps) {
+export function PropertyCard({ propertyId, tab, onTabChange }: PropertyCardProps) {
   const { t } = useTranslation();
   const property = useProperty(propertyId);
   const registry = useRegistry();
-  const [tab, setTab] = useState<CardTab>('info');
+  const [ownTab, setOwnTab] = useState<CardTab>('info');
+  const current = tab ?? ownTab;
+  const setTab = onTabChange ?? setOwnTab;
 
   const all = registry.data ?? [];
 
@@ -61,26 +63,29 @@ export function PropertyCard({ propertyId }: PropertyCardProps) {
       : null;
 
   return (
-    <div className="flex flex-col gap-4">
-      <PageHeader
-        back={{ href: '/apartments', label: t('panel.apartments.back') }}
-        title={one.name}
-        meta={
-          one.status === 'active' ? undefined : (
-            <Badge tone={propertyStatusTone(one.status)}>
+    <section aria-labelledby="property-card-title" className="flex flex-col gap-4">
+      <header data-slot="property-head" className="flex flex-col gap-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 id="property-card-title" className="text-xl font-semibold break-words">
+            {one.name}
+          </h2>
+          {one.status === 'active' ? null : (
+            <StatusBadge status={`property.${one.status}`}>
               {t(`panel.apartments.tabs.${one.status}`)}
-            </Badge>
-          )
-        }
-        description={
-          parent === null ? undefined : t('panel.apartments.partOf', { name: parent.name })
-        }
-      />
+            </StatusBadge>
+          )}
+        </div>
+        {parent === null ? null : (
+          <p className="text-sm text-muted-foreground">
+            {t('panel.apartments.partOf', { name: parent.name })}
+          </p>
+        )}
+      </header>
 
-      <Tabs value={tab} onValueChange={(next) => setTab(next as CardTab)}>
-        <TabsList>
+      <Tabs value={current} onValueChange={(next) => setTab(next as CardTab)}>
+        <TabsList className="h-auto">
           {CARD_TABS.map((name) => (
-            <TabsTrigger key={name} value={name}>
+            <TabsTrigger key={name} value={name} className="min-h-11 px-3">
               {t(`panel.apartments.card.${name}`)}
             </TabsTrigger>
           ))}
@@ -102,6 +107,6 @@ export function PropertyCard({ propertyId }: PropertyCardProps) {
           <MaintenanceTab property={one} />
         </TabsContent>
       </Tabs>
-    </div>
+    </section>
   );
 }
