@@ -21,7 +21,14 @@ import { cn } from '@/lib/utils';
 
 import { AssignForm } from './assign-form';
 import { ProblemCard } from './problem-card';
-import { BOARD_STATUSES, boardMove, liveFixTask, type BoardStatus, type Problem } from './schema';
+import {
+  BOARD_STATUSES,
+  boardMove,
+  liveFixTask,
+  type BoardMove,
+  type BoardStatus,
+  type Problem,
+} from './schema';
 import { useReopenProblem, useResolveProblem, useUnassignProblem } from './use-problems';
 
 interface ProblemsBoardProps {
@@ -36,12 +43,24 @@ interface PendingMove {
   problem: Problem;
 }
 
+/**
+ * What moving this card to a column means. As `boardMove`, except that taking
+ * the technician off needs a live job to take him off: without one — a stale
+ * row — there is nothing to do, by the drop and by the menu alike.
+ */
+function cardMove(problem: Problem, to: BoardStatus): BoardMove {
+  const move = boardMove(problem.status, to);
+  return move === 'unassign' && liveFixTask(problem) === null ? null : move;
+}
+
+/** A move the manager makes here, rather than one only the technician's phone can. */
+function isManagerMove(move: BoardMove): boolean {
+  return move !== null && move !== 'startOnPhone';
+}
+
 /** The columns a card's menu offers: every move the manager can make from here. */
 function menuMoves(problem: Problem): BoardStatus[] {
-  return BOARD_STATUSES.filter((status) => {
-    const move = boardMove(problem.status, status);
-    return move !== null && move !== 'startOnPhone';
-  });
+  return BOARD_STATUSES.filter((status) => isManagerMove(cardMove(problem, status)));
 }
 
 /**
@@ -73,11 +92,7 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
   const failure = failed === undefined ? null : serverErrorText(failed.error);
 
   const canDrop = (status: BoardStatus) => {
-    if (dragging === null) {
-      return false;
-    }
-    const move = boardMove(dragging.status, status);
-    return move !== null && move !== 'startOnPhone';
+    return dragging !== null && isManagerMove(cardMove(dragging, status));
   };
 
   const onDragOver = (status: BoardStatus) => (event: DragEvent<HTMLElement>) => {
@@ -102,7 +117,7 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
   /** What a drop on a column — or the menu's «Перевести в …» — does. */
   const moveTo = (problem: Problem, status: BoardStatus) => {
     clearOutcome();
-    const move = boardMove(problem.status, status);
+    const move = cardMove(problem, status);
     switch (move) {
       case 'assign':
       case 'resolve':
@@ -110,14 +125,17 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
         setPending({ kind: move, problem });
         return;
       case 'unassign': {
+        // cardMove offers this only with a live job.
         const task = liveFixTask(problem);
-        if (task !== null) {
-          setNotice(null);
-          unassign.mutate(
-            { taskId: task.id, assigneeId: task.assignee_id },
-            { onSuccess: () => setNotice(t('panel.problems.board.unassigned')) },
-          );
+        if (task === null) {
+          setNotice(t('panel.problems.board.cannotMove'));
+          return;
         }
+        setNotice(null);
+        unassign.mutate(
+          { taskId: task.id, assigneeId: task.assignee_id },
+          { onSuccess: () => setNotice(t('panel.problems.board.unassigned')) },
+        );
         return;
       }
       case 'reopen':

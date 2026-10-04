@@ -271,6 +271,27 @@ describe('ProblemsBoard layout', () => {
 // The page's «перенос только мышью»: every move the mouse can make, the card's
 // menu makes too — from the keyboard, on a touch screen.
 describe('ProblemsBoard card menu', () => {
+  // An «assigned» problem whose job is gone (a stale row): there is nobody to
+  // take off. The menu does not offer «Открыто», and a drop there says it
+  // cannot be done — neither path sends anything.
+  test('offers no «Открыто» without a live job, and a drop there is refused in words', async () => {
+    const orphan = problemSchema.parse({
+      ...base,
+      id: '99999999-9999-4999-8999-999999999999',
+      title: 'Скрипит дверь',
+      status: 'assigned',
+      fix_tasks: [],
+    });
+    render(<ProblemsBoard problems={[orphan]} />);
+
+    expect(itemsOf(await openCardMenu('Скрипит дверь'))).toEqual(['Перевести в «Выполнено»']);
+    await userEvent.keyboard('{Escape}');
+
+    dragTo('Скрипит дверь', 'Открыто');
+    expect(mutations.unassign).not.toHaveBeenCalled();
+    expect(screen.getByRole('status')).toHaveTextContent('Отсюда перенести сюда нельзя');
+  });
+
   test('offers the columns a card can go to, and not the technician’s own', async () => {
     render(<ProblemsBoard problems={[...problems, resolved]} />);
 
