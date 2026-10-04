@@ -54,14 +54,18 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
   const isPublic = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
   const isManager = isPanelRole(roleOf(user));
 
   if (!isManager && !isPublic) {
+    // The way back is the whole address: a bookmarked `/calendar?assignee=nobody`
+    // must open filtered after the sign-in. The sign-in page itself keeps
+    // nothing of the query but that; `safeNext` checks it on the way out.
     const url = request.nextUrl.clone();
     url.pathname = '/login';
-    url.searchParams.set('next', pathname);
+    url.search = '';
+    url.searchParams.set('next', `${pathname}${search}`);
     return redirectKeepingCookies(url, response);
   }
 
