@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, test, vi } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { problemSchema, type Problem } from '../schema';
 
@@ -76,9 +76,39 @@ vi.mock('@/features/chat/use-chat', () => ({
   useUnreadSubjects: () => ({ tasks: new Set<string>(), problems: new Set<string>() }),
 }));
 
+// The router reads the address jsdom holds; the view writes it through
+// history. «Назад» moves it a task later with `popstate`, as Next shows it.
+vi.mock('next/navigation', async () => {
+  const { useSyncExternalStore } = await import('react');
+  const subscribe = (onChange: () => void) => {
+    window.addEventListener('popstate', onChange);
+    return () => window.removeEventListener('popstate', onChange);
+  };
+  return {
+    useSearchParams: () =>
+      new URLSearchParams(useSyncExternalStore(subscribe, () => window.location.search)),
+    usePathname: () => window.location.pathname,
+  };
+});
+
 import { expectPageTitle } from '@/components/page-header.expect';
 
 import { ProblemsView } from '../problems-view';
+
+/** «Назад»: jsdom walks the history a task later and says so with `popstate`. */
+function goBack(): Promise<void> {
+  return new Promise((resolve) => {
+    window.addEventListener('popstate', () => resolve(), { once: true });
+    window.history.back();
+  });
+}
+
+const selected = () =>
+  screen.getAllByRole('tab').find((tab) => tab.getAttribute('aria-selected') === 'true');
+
+beforeEach(() => {
+  window.history.pushState(null, '', '/problems');
+});
 
 describe('ProblemsView', () => {
   test('is headed by the common header, the search among its actions', () => {
@@ -146,5 +176,60 @@ describe('ProblemsView', () => {
     useProblems.mockReturnValue({ data: undefined, isPending: false, isError: true });
     render(<ProblemsView />);
     expect(screen.getByRole('alert')).toHaveTextContent('Не удалось загрузить задания');
+  });
+});
+
+// Owner, 05.10: the view is in the address, a step «Назад» walks back; the
+// page of a task returns to the view it was opened from.
+describe('the view in the address', () => {
+  test('a bare address is the board, and the view a link names opens', () => {
+    useProblems.mockReturnValue({ data: problems, isPending: false, isError: false });
+    const { unmount } = render(<ProblemsView />);
+    expect(selected()).toHaveTextContent('Доска');
+    unmount();
+
+    window.history.pushState(null, '', '/problems?view=list');
+    render(<ProblemsView />);
+    expect(selected()).toHaveTextContent('Список');
+  });
+
+  test('a new view is a step «Назад» walks back', async () => {
+    useProblems.mockReturnValue({ data: problems, isPending: false, isError: false });
+    render(<ProblemsView />);
+    const steps = window.history.length;
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Список' }));
+    expect(window.location.search).toBe('?view=list');
+    expect(window.history.length).toBe(steps + 1);
+
+    await act(() => goBack());
+    expect(window.location.search).toBe('');
+    expect(selected()).toHaveTextContent('Доска');
+  });
+
+  test('each view’s link to a task carries the view back', async () => {
+    useProblems.mockReturnValue({
+      data: [...problems, archived],
+      isPending: false,
+      isError: false,
+    });
+    render(<ProblemsView />);
+    const board = within(screen.getByRole('region', { name: 'Открыто' }));
+    expect(board.getByRole('link', { name: 'Течёт кран' })).toHaveAttribute(
+      'href',
+      `/problems/${problems[0].id}`,
+    );
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Список' }));
+    expect(screen.getByRole('link', { name: 'Течёт кран' })).toHaveAttribute(
+      'href',
+      `/problems/${problems[0].id}?view=list`,
+    );
+
+    await userEvent.click(screen.getByRole('tab', { name: /Архив/ }));
+    expect(screen.getByRole('link', { name: 'Тестовая заявка' })).toHaveAttribute(
+      'href',
+      `/problems/${archived.id}?view=archive`,
+    );
   });
 });

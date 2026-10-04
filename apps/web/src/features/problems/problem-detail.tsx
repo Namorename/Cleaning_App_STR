@@ -11,6 +11,7 @@ import { ThreadPanel } from '@/features/chat/thread-panel';
 import { formatDateTime, formatDay } from '@/lib/format-date';
 import { useLanguage } from '@/lib/use-language';
 
+import { problemsHref, type ProblemView } from './address';
 import { AssignForm } from './assign-form';
 import { FixTaskSteps } from './fix-task-steps';
 import { formatClock } from './format';
@@ -28,10 +29,12 @@ import { useProblem, useProblemPhotos } from './use-problems';
 
 interface ProblemDetailProps {
   problemId: string;
+  /** The view the task was opened from: «К списку заданий» returns to it. */
+  listView?: ProblemView;
 }
 
 /** The problem's card: the report, its photos, the fix and the manager's levers. */
-export function ProblemDetail({ problemId }: ProblemDetailProps) {
+export function ProblemDetail({ problemId, listView = 'board' }: ProblemDetailProps) {
   const { t } = useTranslation();
   const problem = useProblem(problemId);
 
@@ -44,21 +47,19 @@ export function ProblemDetail({ problemId }: ProblemDetailProps) {
   if (problem.data === null) {
     return (
       <div className="flex flex-col gap-4">
-        <BackLink />
+        <BackLink href={problemsHref(listView)} />
         <EmptyState>{t('panel.problems.notFound')}</EmptyState>
       </div>
     );
   }
 
-  return <ProblemPage problem={problem.data} />;
+  return <ProblemPage problem={problem.data} backHref={problemsHref(listView)} />;
 }
 
-const PROBLEMS_HREF = '/problems';
-
 /** The way back to the section's list; on its own while there is no title to head. */
-function BackLink() {
+function BackLink({ href }: { href: string }) {
   const { t } = useTranslation();
-  return <PageBackLink href={PROBLEMS_HREF} label={t('panel.problems.detail.back')} />;
+  return <PageBackLink href={href} label={t('panel.problems.detail.back')} />;
 }
 
 /**
@@ -67,7 +68,7 @@ function BackLink() {
  * the technician's work beside it; the conversation below (its own panel is
  * the «Чат» group's).
  */
-function ProblemPage({ problem }: { problem: Problem }) {
+function ProblemPage({ problem, backHref }: { problem: Problem; backHref: string }) {
   const { t } = useTranslation();
   const fixTask = liveFixTask(problem);
   // Nothing to assign on a closed or archived problem; the header's levers still apply.
@@ -79,7 +80,7 @@ function ProblemPage({ problem }: { problem: Problem }) {
           a third of the screen. */}
       <div data-slot="problem-head" className="bg-background py-2 md:sticky md:top-0 md:z-10">
         <PageHeader
-          back={{ href: PROBLEMS_HREF, label: t('panel.problems.detail.back') }}
+          back={{ href: backHref, label: t('panel.problems.detail.back') }}
           title={problem.title}
           meta={
             <>

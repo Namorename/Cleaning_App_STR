@@ -158,6 +158,15 @@ const header = () =>
   screen.getByRole('heading', { level: 1 }).closest('[data-slot="problem-head"]') as HTMLElement;
 
 describe('ProblemDetail', () => {
+  test('«К списку заданий» returns to the view the task was opened from', () => {
+    render(<ProblemDetail problemId={PROBLEM_ID} listView="list" />);
+
+    expect(screen.getByRole('link', { name: 'К списку заданий' })).toHaveAttribute(
+      'href',
+      '/problems?view=list',
+    );
+  });
+
   test('is headed by the common header, with the way back to the list', () => {
     render(<ProblemDetail problemId={PROBLEM_ID} />);
 

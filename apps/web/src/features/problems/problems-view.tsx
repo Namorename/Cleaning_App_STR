@@ -7,20 +7,27 @@ import { PageHeader } from '@/components/page-header';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAddressState } from '@/lib/use-address-state';
 
+import { readProblemsAddress, writeProblemsAddress, type ProblemView } from './address';
 import { ProblemsArchive } from './problems-archive';
 import { ProblemsBoard } from './problems-board';
 import { ProblemsTable } from './problems-table';
 import { isProblemArchived, matchesQuery } from './schema';
 import { useProblems } from './use-problems';
 
-type View = 'board' | 'list' | 'archive';
-
-/** The section's front page: search, then the board, the list or the archive. */
+/**
+ * The section's front page: search, then the board, the list or the archive.
+ *
+ * The view is in the address (owner, 05.10): a bare `/problems` is the board,
+ * a change of view is a step «Назад» walks back, and a task opened from a view
+ * returns to it.
+ */
 export function ProblemsView() {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
-  const [view, setView] = useState<View>('board');
+  const [address, setAddress] = useAddressState(readProblemsAddress, writeProblemsAddress);
+  const { view } = address;
   const { data, isPending, isError, error } = useProblems();
 
   const matching = (data ?? []).filter((problem) => matchesQuery(problem, query));
@@ -50,7 +57,10 @@ export function ProblemsView() {
       ) : isError ? (
         <ErrorState message={t('panel.problems.loadError')} error={error} />
       ) : (
-        <Tabs value={view} onValueChange={(value) => setView(value as View)}>
+        <Tabs
+          value={view}
+          onValueChange={(value) => setAddress({ view: value as ProblemView }, 'push')}
+        >
           <TabsList className="h-auto">
             <TabsTrigger value="board" className="min-h-11 px-3">
               {t('panel.problems.viewBoard')}

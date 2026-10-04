@@ -20,6 +20,7 @@ import { formatShortDay } from '@/lib/format-date';
 import { useLanguage } from '@/lib/use-language';
 import { cn } from '@/lib/utils';
 
+import { problemHref } from './address';
 import { isDraggable, liveFixTask, problemPlace, type BoardStatus, type Problem } from './schema';
 
 interface ProblemCardProps {
@@ -81,7 +82,7 @@ export function ProblemCard({
       <div className="flex items-start justify-between gap-2">
         <Link
           id={titleId}
-          href={`/problems/${problem.id}`}
+          href={problemHref(problem.id, 'board')}
           className="font-medium outline-none after:absolute after:inset-0 after:rounded-lg"
         >
           {problem.title}
