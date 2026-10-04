@@ -1,14 +1,11 @@
 import { notFound, redirect } from 'next/navigation';
-import { z } from 'zod';
 
 import {
   DEFAULT_APARTMENTS_ADDRESS,
+  listingIdSchema,
   readApartmentsAddress,
   writeApartmentsAddress,
 } from '@/features/apartments/address';
-
-/** Listing ids come from Hostaway and are whole numbers. */
-const Params = z.object({ id: z.coerce.number().int().positive() });
 
 interface PropertyPageProps {
   params: Promise<{ id: string }>;
@@ -22,13 +19,14 @@ interface PropertyPageProps {
  * one. A malformed id is a 404, not a query.
  */
 export default async function PropertyPage({ params, searchParams }: PropertyPageProps) {
-  const parsed = Params.safeParse(await params);
+  // The same reading as the registry's `listing`: digits only.
+  const parsed = listingIdSchema.safeParse((await params).id);
   if (!parsed.success) {
     notFound();
   }
   const { card } = readApartmentsAddress(new URLSearchParams(onlyStrings(await searchParams)));
   redirect(
-    `/apartments?${writeApartmentsAddress({ ...DEFAULT_APARTMENTS_ADDRESS, listing: parsed.data.id, card })}`,
+    `/apartments?${writeApartmentsAddress({ ...DEFAULT_APARTMENTS_ADDRESS, listing: parsed.data, card })}`,
   );
 }
 

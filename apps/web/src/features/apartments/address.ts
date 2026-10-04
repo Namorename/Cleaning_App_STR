@@ -31,8 +31,16 @@ const PARAM = { status: 'status', query: 'q', listing: 'listing', card: 'card' }
 
 const statusSchema = z.enum(APARTMENT_TABS);
 const cardSchema = z.enum(CARD_TABS);
-/** Listing ids come from Hostaway and are whole numbers. */
-const listingSchema = z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive());
+/**
+ * A listing's id as an address carries it. Ids come from Hostaway and are
+ * whole numbers written in digits: «1e3», «0x10» or « 5» are not ids, though
+ * `Number` would read each as one.
+ */
+export const listingIdSchema = z
+  .string()
+  .regex(/^\d+$/)
+  .transform(Number)
+  .pipe(z.number().int().positive());
 
 /**
  * The address as the screen's state. Each value is checked on its own: an old
@@ -46,7 +54,7 @@ export function readApartmentsAddress(params: URLSearchParams): ApartmentsAddres
   return {
     status: valid(statusSchema, PARAM.status, DEFAULT_APARTMENTS_ADDRESS.status),
     query: params.get(PARAM.query) ?? DEFAULT_APARTMENTS_ADDRESS.query,
-    listing: valid(listingSchema, PARAM.listing, DEFAULT_APARTMENTS_ADDRESS.listing),
+    listing: valid(listingIdSchema, PARAM.listing, DEFAULT_APARTMENTS_ADDRESS.listing),
     card: valid(cardSchema, PARAM.card, DEFAULT_APARTMENTS_ADDRESS.card),
   };
 }

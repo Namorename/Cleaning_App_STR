@@ -33,4 +33,9 @@ describe('/apartments/<id>', () => {
     expect(await thrownBy('abc')).toMatch(/404/);
     expect(await thrownBy('-3')).toMatch(/404/);
   });
+
+  // The review of 04.10: a coerced number took «1e3» for 1000 and «0x10» for 16.
+  test.each(['1e3', '0x10', ' 5', '5 ', '1.5', '0'])('%j is a 404 too', async (id) => {
+    expect(await thrownBy(id)).toMatch(/404/);
+  });
 });
