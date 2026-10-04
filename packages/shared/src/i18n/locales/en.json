@@ -277,9 +277,9 @@
       "board": {
         "dragHint": "Drag an open task to “Assigned”, or an assigned one back to “Open”; everything else is in the «⋯» menu",
         "dragRefused": "This cannot be dragged: move the card with its «⋯» menu — a task goes into work when the technician starts it in the app",
+        "dropHere": "Drop here",
         "moveTo": "Move to “{{status}}”",
         "cardMenu": "Actions: {{title}}",
-        "cannotMove": "A card cannot be moved from here to there",
         "unassigned": "The technician is taken off the job, the task is open again",
         "unassignTitle": "Take the technician off the job?",
         "unassignText": "{{name}} will no longer see “{{title}}”, and the task will be open again.",

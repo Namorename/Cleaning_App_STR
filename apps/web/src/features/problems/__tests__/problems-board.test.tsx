@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -58,9 +58,29 @@ const mutations = { resolve: vi.fn(), unassign: vi.fn(), assign: vi.fn(), reopen
 const resets = { resolve: vi.fn(), unassign: vi.fn(), reopen: vi.fn() };
 const idle = { isPending: false, isError: false, isSuccess: false, error: null };
 
+/** What a mutation last ended in, kept until it is reset — as TanStack keeps it. */
+const quiet = () => ({ isPending: false, isError: false, error: null as unknown });
+const outcome = { resolve: quiet(), unassign: quiet() };
+
 vi.mock('../use-problems', () => ({
-  useResolveProblem: () => ({ ...idle, mutate: mutations.resolve, reset: resets.resolve }),
-  useUnassignProblem: () => ({ ...idle, mutate: mutations.unassign, reset: resets.unassign }),
+  useResolveProblem: () => ({
+    ...idle,
+    ...outcome.resolve,
+    mutate: mutations.resolve,
+    reset: () => {
+      resets.resolve();
+      outcome.resolve = quiet();
+    },
+  }),
+  useUnassignProblem: () => ({
+    ...idle,
+    ...outcome.unassign,
+    mutate: mutations.unassign,
+    reset: () => {
+      resets.unassign();
+      outcome.unassign = quiet();
+    },
+  }),
   useAssignProblem: () => ({ ...idle, mutate: mutations.assign }),
   useReopenProblem: () => ({ ...idle, mutate: mutations.reopen, reset: resets.reopen }),
   useStaff: () => ({
@@ -80,6 +100,7 @@ afterEach(() => {
 });
 
 import { ProblemsBoard } from '../problems-board';
+import { useBoardMoves } from '../use-board-moves';
 
 const column = (name: string) => screen.getByRole('region', { name });
 const card = (title: string) => screen.getByRole('article', { name: title });
@@ -95,16 +116,26 @@ const itemsOf = (menu: HTMLElement) =>
     .getAllByRole('menuitem')
     .map((item) => item.textContent);
 
+/**
+ * A drag as a browser makes it: over the column, a drop only where the column
+ * accepted the card, and the dragend that always closes it.
+ */
 function dragTo(title: string, columnName: string) {
+  const dragged = card(title);
   const target = column(columnName);
-  fireEvent.dragStart(card(title));
+  fireEvent.dragStart(dragged);
   fireEvent.dragEnter(target);
   fireEvent.dragOver(target);
-  fireEvent.drop(target);
+  if (target.getAttribute('data-droppable') === 'true') {
+    fireEvent.drop(target);
+  }
+  fireEvent.dragEnd(dragged);
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  outcome.resolve = quiet();
+  outcome.unassign = quiet();
 });
 
 /** The words a refused drag leaves under the board (owner, 05.10). */
@@ -135,6 +166,20 @@ describe('ProblemsBoard drag and drop', () => {
     expect(column('Открыто')).toHaveAttribute('data-droppable', 'true');
     expect(column('Выполнено')).not.toHaveAttribute('data-droppable', 'true');
     expect(column('В работе')).not.toHaveAttribute('data-droppable', 'true');
+  });
+
+  // The review of 05.10: a faint ring (below 3:1) was the only sign. Now a
+  // dashed outline in the primary colour, and the words in the column's head.
+  test('the column a card may go to says so in words, and is outlined plainly', () => {
+    render(<ProblemsBoard problems={problems} />);
+
+    fireEvent.dragStart(card('Течёт кран'));
+
+    expect(within(column('Назначено')).getByText('Можно сюда')).toBeInTheDocument();
+    expect(column('Назначено')).toHaveClass('outline-2', 'outline-dashed', 'outline-primary');
+    expect(within(column('Выполнено')).queryByText('Можно сюда')).toBeNull();
+    expect(column('Выполнено')).not.toHaveClass('outline-dashed');
+    expect(screen.getAllByText('Можно сюда')).toHaveLength(1);
   });
 
   describe('«Открыто» → «Назначено»', () => {
@@ -452,5 +497,132 @@ describe('ProblemsBoard card menu', () => {
     const button = within(card('Течёт кран')).getByRole('button', { name: 'Действия: Течёт кран' });
     expect(button).toHaveClass('size-11');
     expect(button.closest('a')).toBeNull();
+  });
+});
+
+// The review of 05.10 (1175e15..c772831).
+describe('ProblemsBoard after the review', () => {
+  // p_expected_assignee: the card showed Petr; if the job went to somebody
+  // else meanwhile, the server refuses rather than take the wrong person off.
+  test('a take-off the server refuses closes the question and says so in words', async () => {
+    mutations.unassign.mockImplementation(
+      (_variables: unknown, options: { onSettled?: () => void }) => {
+        outcome.unassign = {
+          isPending: false,
+          isError: true,
+          error: { hint: 'serverErrors.taskChangedMeanwhile' },
+        };
+        options.onSettled?.();
+      },
+    );
+    render(<ProblemsBoard problems={problems} />);
+
+    dragTo('Сломан замок', 'Открыто');
+    const question = await screen.findByRole('dialog', { name: 'Снять техника с работы?' });
+    await userEvent.click(within(question).getByRole('button', { name: 'Снять' }));
+
+    expect(mutations.unassign).toHaveBeenCalledWith(
+      { taskId: TASK_ID, assigneeId: TECH_ID },
+      expect.anything(),
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('status')).toHaveTextContent('Это уже изменилось — экран обновлён');
+  });
+
+  test.each(['Escape', 'the overlay'])(
+    '%s closes the take-off question without a word to the server',
+    async (way) => {
+      render(<ProblemsBoard problems={problems} />);
+
+      dragTo('Сломан замок', 'Открыто');
+      await screen.findByRole('dialog', { name: 'Снять техника с работы?' });
+      if (way === 'Escape') {
+        await userEvent.keyboard('{Escape}');
+      } else {
+        // A click on the backdrop, as Base UI's outside press reads it (a
+        // press-less click: user-event's pointer sequence trips over jsdom).
+        fireEvent.click(document.querySelector('[data-slot="dialog-overlay"]') as HTMLElement);
+      }
+
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(mutations.unassign).not.toHaveBeenCalled();
+      expect(
+        within(column('Назначено')).getByRole('article', { name: 'Сломан замок' }),
+      ).toBeVisible();
+    },
+  );
+
+  test('a second press while the first is on its way sends nothing more', async () => {
+    render(<ProblemsBoard problems={problems} />);
+
+    dragTo('Сломан замок', 'Открыто');
+    const question = await screen.findByRole('dialog', { name: 'Снять техника с работы?' });
+    const confirm = within(question).getByRole('button', { name: 'Снять' });
+    await userEvent.click(confirm);
+    await userEvent.click(confirm);
+
+    expect(mutations.unassign).toHaveBeenCalledTimes(1);
+    expect(confirm).toBeDisabled();
+  });
+
+  test('the answer to an earlier question does not close the next one', async () => {
+    let settleResolve: (() => void) | undefined;
+    mutations.resolve.mockImplementation((_id: string, options: { onSettled?: () => void }) => {
+      settleResolve = options.onSettled;
+    });
+    render(<ProblemsBoard problems={problems} />);
+
+    let menu = await openCardMenu('Течёт кран');
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Перевести в «Выполнено»' }));
+    const resolveQuestion = await screen.findByRole('dialog', { name: 'Отметить выполненным?' });
+    await userEvent.click(within(resolveQuestion).getByRole('button', { name: 'Да, выполнено' }));
+    await userEvent.keyboard('{Escape}');
+
+    menu = await openCardMenu('Сломан замок');
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Перевести в «Открыто»' }));
+    await screen.findByRole('dialog', { name: 'Снять техника с работы?' });
+    act(() => settleResolve?.());
+
+    expect(screen.getByRole('dialog', { name: 'Снять техника с работы?' })).toBeInTheDocument();
+  }, 20000);
+
+  // A card moved to another column by a refresh while it was dragged is a new
+  // element: its dragend never reaches the board.
+  test.each([
+    ['a dragend', () => fireEvent.dragEnd(window)],
+    ['a drop anywhere', () => fireEvent.drop(document.body)],
+  ])('%s heard by the window ends the drag, so no column stays lit', (_how, end) => {
+    render(<ProblemsBoard problems={problems} />);
+
+    fireEvent.dragStart(card('Течёт кран'));
+    expect(column('Назначено')).toHaveAttribute('data-droppable', 'true');
+    end();
+
+    expect(column('Назначено')).not.toHaveAttribute('data-droppable');
+  });
+
+  // A live region speaks when its text changes: the same refusal twice is
+  // said twice only if the line is written afresh.
+  test('a refusal said twice is written afresh, so a screen reader says it again', () => {
+    render(<ProblemsBoard problems={problems} />);
+
+    dragTo('Течёт кран', 'Выполнено');
+    const first = within(screen.getByRole('status')).getByText(DRAG_REFUSED);
+    dragTo('Течёт кран', 'Выполнено');
+    const second = within(screen.getByRole('status')).getByText(DRAG_REFUSED);
+
+    expect(second).not.toBe(first);
+  });
+
+  // While the question closes it fades out: its words must not vanish first.
+  test('the take-off question keeps its words while it closes', async () => {
+    const { result } = renderHook(() => useBoardMoves());
+
+    act(() => result.current.moveTo(problems[1], 'open'));
+    expect(result.current.pending?.kind).toBe('unassign');
+    act(() => result.current.closePending());
+
+    expect(result.current.pending).toBeNull();
+    expect(result.current.shown?.problem.title).toBe('Сломан замок');
   });
 });

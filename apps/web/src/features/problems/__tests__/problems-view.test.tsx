@@ -193,6 +193,16 @@ describe('the view in the address', () => {
     expect(selected()).toHaveTextContent('Список');
   });
 
+  test('a view the address does not know opens the board', () => {
+    useProblems.mockReturnValue({ data: problems, isPending: false, isError: false });
+    window.history.pushState(null, '', '/problems?view=bogus');
+
+    render(<ProblemsView />);
+
+    expect(selected()).toHaveTextContent('Доска');
+    expect(screen.getByRole('region', { name: 'Открыто' })).toBeInTheDocument();
+  });
+
   test('a new view is a step «Назад» walks back', async () => {
     useProblems.mockReturnValue({ data: problems, isPending: false, isError: false });
     render(<ProblemsView />);
