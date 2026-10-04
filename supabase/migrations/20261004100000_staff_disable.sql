@@ -22,7 +22,11 @@
 --     person off — the attempt cancelled under the take-off flag, so its
 --     journal says taken_off and the mirror puts the task back to 'open'. The
 --     two now share one function, take_off_repairs(); the task's row is locked
---     before the attempt, as the dispatchers lock it.
+--     before the attempt, as the dispatchers lock it. Taken off by the switch,
+--     the journal line says why: params.cause = 'account_disabled' (owner's
+--     answer 3 of 2026-10-04) — a second transaction-local flag,
+--     str_ops.take_off_cause, set by take_off_repairs for its write and read by
+--     journal_repair_change. unassign_problem sets no cause.
 --   Work under way (in_progress, paused, blocked) and closed work stay as they
 --   are: the manager decides about them, and the dashboard shows them. A job
 --   under way that is not a repair of a task is not left for ever: the night
@@ -31,26 +35,30 @@
 --   She hears nothing: every push is asked of a person who works
 --   (push_on_task_change when it is written, claim_push_batch when it is
 --   sent), and she no longer does. Nobody else hears of a task open again:
---   there is no push of that kind, and none is added here.
+--   there is no push of that kind, and none is added (owner's answer 2).
 -- - Her pushes still waiting in the queue are settled as skipped — what the
 --   sender does with them while she is off (claim_push_batch) — so switched on
 --   again before they go, she does not hear «Вам назначена уборка» of a
 --   cleaning the switch took off her. A group a sender holds right now is that
 --   sender's; the release waits for a claim under way (its advisory lock).
--- - Her 'auto' links become 'claim'. The generator names a person only through
---   an 'auto' link; without one, her listings' cleanings come free. Her place
---   in their queue stays, so switched on again she may take their free work —
---   and nothing more: no job comes back, and no link turns 'auto' by itself.
---   Made 'auto' again by hand, she gets what the generator's hand-over gives
---   any 'auto' cleaner: the listing's cleanings still free in its run, those
---   the switch freed among them.
+-- - Every link of hers to a listing is removed, whatever its mode (owner's
+--   answer 1). The generator names a person only through an 'auto' link;
+--   without one, her listings' cleanings come free. Switched on again she has
+--   no listing until the office gives her some: no job comes back, no link
+--   either. Made 'auto' again by hand, she gets what the generator's hand-over
+--   gives any 'auto' cleaner: the listing's cleanings still free in its run,
+--   those the switch freed among them.
 -- - Nothing names a person who no longer works here on live work. A trigger on
 --   tasks refuses a write that puts her on a live job — a new job, a change of
 --   person, a closed job brought back, work under way turned back into work
 --   not started — whoever writes it: a manager directly, the generator, and
 --   save_task and assign_problem (both refuse before it, in their own words).
---   A trigger on property_cleaners refuses to make her a listing's fixed
---   ('auto') cleaner.
+--   A trigger on property_cleaners refuses any link of hers, written or
+--   changed, whatever its mode: save_property_cleaner, a direct write. The
+--   panel's «Команда» writes the account before the links (staff-form.tsx:
+--   the save, then applyLinks), so switching her on and ticking listings in
+--   one save works; ticking listings for somebody left switched off is
+--   refused, and the form says so.
 --
 -- Where the rule lives: profiles_release_work, an AFTER trigger on the move of
 -- is_active from true to false. Both paths that switch a person off write that
@@ -66,8 +74,9 @@
 -- dispatch, a manager, her own take of free work — reads her profile row FOR
 -- SHARE in the guard (save_task in itself too), so whoever comes second waits
 -- for the first and sees what it wrote: a job handed to her first is taken off
--- by the release; a release first makes the write that names her fail. A generator run that meets her so is refused whole, as one that met a
--- technician (20261003110000), and the next run reads her link as 'claim'. A
+-- by the release; a release first makes the write that names her fail. A
+-- generator run that meets her so is refused whole, as one that met a
+-- technician (20261003110000), and the next run finds no link of hers. A
 -- dispatcher locks the task's row before the attempt, as the release does, so
 -- the two do not deadlock over an attempt she holds. Three rare deadlocks
 -- (40P01) remain and are accepted, nothing half-written: a generator run that
@@ -92,16 +101,22 @@
 --
 -- unassign_problem's body is copied from 20261003130000 with only its write
 -- moved into take_off_repairs(); same signature, so its ACL and the generated
--- types stay. New: five functions (none a client may call) and four triggers —
--- one on profiles, two on tasks, one on property_cleaners; creating a trigger
--- takes a brief SHARE ROW EXCLUSIVE lock on its table, hence the lock timeout.
--- No table changes.
+-- types stay. journal_repair_change's body is copied from 20261003140000 with
+-- only the cause added to taken_off. New: five functions (none a client may
+-- call) and four triggers — one on profiles, two on tasks, one on
+-- property_cleaners; creating a trigger takes a brief SHARE ROW EXCLUSIVE lock
+-- on its table, hence the lock timeout. No table changes.
 
 set local lock_timeout = '3s';
 
 -- ---------- 1. taking a person off repairs: one function ----------
 
-create or replace function public.take_off_repairs(p_task_ids uuid[])
+create or replace function public.take_off_repairs(
+  p_task_ids uuid[],
+  -- Why, for the journal: null — a person taken off by the office — or
+  -- 'account_disabled', the switch.
+  p_cause    text default null
+)
 returns integer
 language plpgsql
 security definer
@@ -110,11 +125,17 @@ as $$
 declare
   v_count integer;
 begin
+  if p_cause is not null and p_cause <> 'account_disabled' then
+    raise exception 'Unknown cause of a take-off: %', p_cause
+      using errcode = 'invalid_parameter_value';
+  end if;
+
   -- The take-off flag (20261003130000): the journal writes taken_off, the
   -- person hears the work was taken from her rather than cancelled, the
-  -- guards on tasks read the head technician's dispatch as the office's.
-  -- Switched on for the write alone.
+  -- guards on tasks read the head technician's dispatch as the office's. And
+  -- the cause, which the journal writes beside it. Both for the write alone.
   perform set_config('str_ops.head_tech_dispatch', 'on', true);
+  perform set_config('str_ops.take_off_cause', coalesce(p_cause, ''), true);
 
   update public.tasks t
   set status = 'cancelled'
@@ -124,17 +145,124 @@ begin
     and t.status not in ('done', 'cancelled', 'expired');
   get diagnostics v_count = row_count;
 
+  perform set_config('str_ops.take_off_cause', '', true);
   perform set_config('str_ops.head_tech_dispatch', '', true);
   return v_count;
 end;
 $$;
 
-comment on function public.take_off_repairs(uuid[]) is
+comment on function public.take_off_repairs(uuid[], text) is
   'Take the people off these live repairs of tasks: each attempt cancelled under the '
-  'take-off flag, its task open again through the mirror. The callers lock first: '
-  'unassign_problem, and the release of a person switched off (20261004100000).';
+  'take-off flag, its task open again through the mirror, the cause (null or '
+  '''account_disabled'') in its journal. The callers lock first: unassign_problem, and '
+  'the release of a person switched off (20261004100000).';
 
-revoke all on function public.take_off_repairs(uuid[]) from public, anon, authenticated;
+revoke all on function public.take_off_repairs(uuid[], text) from public, anon, authenticated;
+
+-- The journal of a repair: taken_off says why when the take-off says so. Body
+-- from 20261003140000 with only the cause added; same signature and ACL.
+create or replace function public.journal_repair_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor  uuid := (select auth.uid());
+  v_kind   public.problem_event_kind;
+  v_params jsonb;
+  v_moved  boolean;
+  v_person boolean;
+begin
+  if tg_op = 'INSERT' then
+    if new.assignee_id is not null then
+      insert into public.problem_events (host_id, problem_id, task_id, kind, actor_id, params)
+      values (new.host_id, new.problem_id, new.id, 'assigned', v_actor,
+              jsonb_strip_nulls(jsonb_build_object(
+                'to', new.assignee_id, 'date', new.scheduled_date,
+                'time_from', new.time_from, 'time_to', new.time_to)));
+    end if;
+    return null;
+  end if;
+
+  -- An attempt moved to another task is the mirror's business; the journal
+  -- follows an attempt of one task.
+  if new.problem_id is distinct from old.problem_id then
+    return null;
+  end if;
+
+  v_person := new.assignee_id is distinct from old.assignee_id;
+  v_moved  := new.scheduled_date is distinct from old.scheduled_date
+              or new.time_from is distinct from old.time_from
+              or new.time_to is distinct from old.time_to;
+
+  -- The person, and with a new person the day and hours the attempt now has.
+  if v_person then
+    v_kind := case when old.assignee_id is null then 'assigned'
+                   when new.assignee_id is null then 'unassigned'
+                   else 'reassigned' end;
+    v_params := case v_kind
+      when 'unassigned' then jsonb_build_object('from', old.assignee_id)
+      else jsonb_strip_nulls(jsonb_build_object(
+             'from', old.assignee_id, 'to', new.assignee_id,
+             'from_date', case when new.scheduled_date is distinct from old.scheduled_date
+                               then old.scheduled_date end,
+             'date', new.scheduled_date,
+             'time_from', new.time_from, 'time_to', new.time_to))
+    end;
+    insert into public.problem_events (host_id, problem_id, task_id, kind, actor_id, params)
+    values (new.host_id, new.problem_id, new.id, v_kind, v_actor, v_params);
+  elsif v_moved then
+    insert into public.problem_events (host_id, problem_id, task_id, kind, actor_id, params)
+    values (new.host_id, new.problem_id, new.id, 'rescheduled', v_actor,
+            jsonb_strip_nulls(jsonb_build_object(
+              'from_date', old.scheduled_date, 'date', new.scheduled_date,
+              'time_from', new.time_from, 'time_to', new.time_to)));
+  end if;
+
+  if new.status is not distinct from old.status then
+    return null;
+  end if;
+
+  v_params := '{}'::jsonb;
+  v_kind := case
+    -- unassign_problem cancels under the dispatch setting (20261003130000);
+    -- so does the release of a person switched off (take_off_repairs,
+    -- 20261004100000). Nothing else cancels an attempt under it.
+    when new.status = 'cancelled'
+         and coalesce(current_setting('str_ops.head_tech_dispatch', true), '') = 'on'
+      then 'taken_off'
+    when new.status = 'cancelled' then 'attempt_cancelled'
+    when new.status = 'done' then 'completed'
+    when new.status = 'in_progress' and old.status in ('unassigned', 'assigned', 'accepted')
+      then 'started'
+    when new.status = 'accepted' and old.status in ('unassigned', 'assigned')
+      then 'accepted'
+    -- What a change of person or day does to the status (waiting again, or
+    -- accepted by nobody yet) is said by that change.
+    when (v_person or v_moved) and new.status in ('unassigned', 'assigned') then null
+    else 'status_changed'
+  end;
+
+  if v_kind is null then
+    return null;
+  end if;
+  if v_kind = 'taken_off' then
+    -- Why, when the take-off said so: 'account_disabled' (20261004100000).
+    v_params := jsonb_strip_nulls(jsonb_build_object(
+      'assignee', old.assignee_id,
+      'cause', nullif(coalesce(current_setting('str_ops.take_off_cause', true), ''), '')));
+  elsif v_kind = 'attempt_cancelled' then
+    v_params := jsonb_strip_nulls(jsonb_build_object('assignee', old.assignee_id));
+  elsif v_kind = 'status_changed' then
+    v_params := jsonb_build_object('from', old.status, 'to', new.status);
+  end if;
+
+  insert into public.problem_events (host_id, problem_id, task_id, kind, actor_id, params)
+  values (new.host_id, new.problem_id, new.id, v_kind, v_actor, v_params);
+  return null;
+end;
+$$;
 
 create or replace function public.unassign_problem(
   p_task_id           uuid,
@@ -249,7 +377,7 @@ begin
         for update of t) x;
 
   if cardinality(v_repairs) > 0 then
-    v_taken_off := public.take_off_repairs(v_repairs);
+    v_taken_off := public.take_off_repairs(v_repairs, 'account_disabled');
   end if;
 
   -- Every other job nobody has started is free again, as save_task frees one
@@ -262,12 +390,11 @@ begin
     and not (t.type = 'maintenance' and t.problem_id is not null);
   get diagnostics v_freed = row_count;
 
-  -- The generator names a person through an 'auto' link alone. Her place in
-  -- the listings' queue stays.
-  update public.property_cleaners pc
-  set mode = 'claim'
-  where pc.cleaner_id = p_person
-    and pc.mode = 'auto';
+  -- Every link of hers, whatever its mode (owner's answer 1): the generator
+  -- names a person through an 'auto' link, and the office gives listings
+  -- again to whoever it switches back on.
+  delete from public.property_cleaners pc
+  where pc.cleaner_id = p_person;
   get diagnostics v_links = row_count;
 
   -- Her pushes still waiting, settled now as the sender settles them while she
@@ -296,10 +423,10 @@ $$;
 
 comment on function public.release_work_of_inactive(uuid) is
   'Take a person who no longer works here off every job nobody has started: a '
-  'repair of a task taken off (take_off_repairs), any other job free again, her '
-  '''auto'' links ''claim'', her pushes still waiting settled as skipped. Work under '
-  'way and closed work stay. Answers what it did: cleanings, repairs, links, pushes '
-  '(20261004100000).';
+  'repair of a task taken off (take_off_repairs, cause account_disabled), any other '
+  'job free again, every link of hers removed, her pushes still waiting settled as '
+  'skipped. Work under way and closed work stay. Answers what it did: cleanings, '
+  'repairs, links, pushes (20261004100000).';
 
 revoke all on function public.release_work_of_inactive(uuid) from public, anon, authenticated;
 
@@ -386,7 +513,7 @@ create trigger tasks_person_works_update
                  and old.status not in ('unassigned', 'assigned', 'accepted'))))
   execute function public.guard_person_works();
 
-create or replace function public.guard_auto_link_works()
+create or replace function public.guard_link_works()
 returns trigger
 language plpgsql
 security definer
@@ -395,8 +522,8 @@ as $$
 declare
   v_active boolean;
 begin
-  -- FOR SHARE, as above: a link made 'auto' while she is being switched off
-  -- either waits and is refused, or is made first and turned 'claim' by the
+  -- FOR SHARE, as above: a link written while she is being switched off
+  -- either waits and is refused, or is written first and removed by the
   -- release.
   select p.is_active into v_active
   from public.profiles p
@@ -404,25 +531,26 @@ begin
   for share;
 
   if v_active is false then
-    raise exception 'Person % no longer works here and is no listing''s fixed cleaner', new.cleaner_id
-      using errcode = 'check_violation', hint = 'serverErrors.cleanerAutoInactive';
+    raise exception 'Person % no longer works here and is linked to no listing', new.cleaner_id
+      using errcode = 'check_violation', hint = 'serverErrors.cleanerLinkInactive';
   end if;
 
   return new;
 end;
 $$;
 
-comment on function public.guard_auto_link_works() is
-  'A person who no longer works here is no listing''s fixed (''auto'') cleaner: the '
-  'generator would hand her its cleanings (20261004100000).';
+comment on function public.guard_link_works() is
+  'A person who no longer works here is linked to no listing, in any mode: switching '
+  'her off removes her links, and none is written or changed until she is on again '
+  '(20261004100000).';
 
-revoke all on function public.guard_auto_link_works() from public, anon, authenticated;
+revoke all on function public.guard_link_works() from public, anon, authenticated;
 
-create trigger property_cleaners_auto_works
+-- Any write of a link; a removal is always allowed.
+create trigger property_cleaners_person_works
   before insert or update on public.property_cleaners
   for each row
-  when (new.mode = 'auto')
-  execute function public.guard_auto_link_works();
+  execute function public.guard_link_works();
 
 -- ---------- 4. what hangs today ----------
 
