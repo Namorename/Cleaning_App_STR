@@ -1,5 +1,5 @@
 import { ICONS } from '@str-ops/shared';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, test, vi } from 'vitest';
 
@@ -145,6 +145,16 @@ describe('the rest of a row', () => {
 
     await userEvent.tab();
     expect(screen.getByRole('button', { name: /^Заметка для исполнителя/ })).toHaveFocus();
+
+    expect(await screen.findByText('Ключ у соседа, кв. 4')).toBeVisible();
+  });
+
+  // A phone has no hover and a tap is no keyboard focus: the press itself
+  // shows the text (the review of 04.10). A bare click — no hover, no focus.
+  test("a press on the mark shows the note's text", async () => {
+    renderRow(task({ title: 'Мойка окон', notes: 'Ключ у соседа, кв. 4' }));
+
+    fireEvent.click(screen.getByRole('button', { name: /^Заметка для исполнителя/ }));
 
     expect(await screen.findByText('Ключ у соседа, кв. 4')).toBeVisible();
   });
