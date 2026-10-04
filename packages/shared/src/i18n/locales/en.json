@@ -1273,6 +1273,7 @@
     "taskDuplicate": "This flat already has such a cleaning on {{date}}",
     "taskMovedMeanwhile": "While the form was open, the cleaning was moved to {{date}}. Open it again.",
     "cleanerAutoTaken": "The listing is already assigned to {{name}}. Release that link first.",
+    "cleanerAutoInactive": "A switched-off account cannot be fixed to a listing: no cleanings would reach it.",
     "cleanerPriorityInvalid": "The position is a number from 1 to 99.",
     "techNotLinkable": "A technician is not linked to listings: cleanings are not their work.",
     "techRoleBlocked": "Take this person off their listings ({{links}} links) and open cleanings ({{cleanings}}) first: a technician has no cleanings.",

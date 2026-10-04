@@ -1297,6 +1297,7 @@
     "taskDuplicate": "Tento byt už na {{date}} takový úklid má",
     "taskMovedMeanwhile": "Zatímco byl formulář otevřený, úklid se přesunul na {{date}}. Otevřete ho znovu.",
     "cleanerAutoTaken": "Objekt už je napevno přiřazen: {{name}}. Nejdřív to přiřazení zrušte.",
+    "cleanerAutoInactive": "Vypnutý účet nelze k objektu napevno přiřadit: úklidy by k němu nedorazily.",
     "cleanerPriorityInvalid": "Pořadí je číslo od 1 do 99.",
     "techNotLinkable": "Technik se k objektům nepřiřazuje: úklidy nejsou jeho práce.",
     "techRoleBlocked": "Nejdřív toho člověka odeberte z objektů (přiřazení: {{links}}) a z otevřených úklidů ({{cleanings}}): technik úklidy nemá.",
