@@ -51,7 +51,7 @@ export function MaintenanceTab({ property }: MaintenanceTabProps) {
   return (
     <div className="flex flex-col gap-6">
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium">{t('panel.apartments.maintenance.state')}</h2>
+        <h3 className="text-sm font-medium">{t('panel.apartments.maintenance.state')}</h3>
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={`property.${property.status}`}>
             {t(`panel.apartments.tabs.${property.status}`)}
@@ -74,7 +74,7 @@ export function MaintenanceTab({ property }: MaintenanceTabProps) {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium">{t('panel.apartments.maintenance.jobs')}</h2>
+        <h3 className="text-sm font-medium">{t('panel.apartments.maintenance.jobs')}</h3>
         {tasks.isPending ? (
           <LoadingState>{t('panel.apartments.loading')}</LoadingState>
         ) : jobs.length === 0 ? (
@@ -109,9 +109,9 @@ export function MaintenanceTab({ property }: MaintenanceTabProps) {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium">
+        <h3 className="text-sm font-medium">
           {t('panel.apartments.maintenance.reports', { open: openReports.length })}
-        </h2>
+        </h3>
         {problems.isPending ? (
           <LoadingState>{t('panel.apartments.loading')}</LoadingState>
         ) : reports.length === 0 ? (

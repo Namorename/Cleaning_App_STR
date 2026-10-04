@@ -47,6 +47,7 @@ export function ListingLink({ id, className, isCurrent = false, children }: List
     <Link
       href={links.href(id)}
       className={className}
+      data-listing-link={id}
       aria-current={isCurrent ? 'true' : undefined}
       onClick={
         open === undefined

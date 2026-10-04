@@ -267,6 +267,34 @@ describe('the card', () => {
     expect(screen.getByRole('region', { name: 'Vinohrady 12' })).toBeInTheDocument();
   });
 
+  // The review of 04.10: the sections inside a tab were h2, the card's own level.
+  test('the sections inside a tab are a level under the card’s heading', async () => {
+    renderCard();
+    expect(screen.getAllByRole('heading', { level: 3 }).map((one) => one.textContent)).toEqual([
+      'Из Hostaway',
+      'Наши данные',
+    ]);
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Обслуживание' }));
+    expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(1);
+    expect(screen.getAllByRole('heading', { level: 3 }).length).toBeGreaterThanOrEqual(3);
+  });
+
+  test('the heading takes the focus when the registry asks for it, and only then', () => {
+    const claim = vi.fn().mockReturnValueOnce(true).mockReturnValue(false);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <PropertyCard propertyId={WHOLE} claimHeadingFocus={claim} />
+      </QueryClientProvider>,
+    );
+
+    const heading = screen.getByRole('heading', { level: 2, name: 'Vinohrady 12' });
+    expect(heading).toHaveFocus();
+    expect(heading).toHaveAttribute('tabindex', '-1');
+    expect(claim).toHaveBeenCalledTimes(1);
+  });
+
   test('its sections are 44 px tabs', () => {
     renderCard();
 

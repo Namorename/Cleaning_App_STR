@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { StatusBadge } from '@/components/status-badge';
@@ -21,6 +21,12 @@ interface PropertyCardProps {
   /** The open section; the registry keeps it in the address. Absent, the card keeps its own. */
   tab?: CardTab;
   onTabChange?: (tab: CardTab) => void;
+  /**
+   * Asked once, when the heading appears: true hands it the focus — the
+   * registry's way to keep the keyboard's place when the card takes the
+   * list's place on a narrow screen.
+   */
+  claimHeadingFocus?: () => boolean;
 }
 
 /**
@@ -32,13 +38,26 @@ interface PropertyCardProps {
  * to bring a listing back should be able to look at it first, so an archived
  * flat opens here like any other and says so at the top.
  */
-export function PropertyCard({ propertyId, tab, onTabChange }: PropertyCardProps) {
+export function PropertyCard({
+  propertyId,
+  tab,
+  onTabChange,
+  claimHeadingFocus,
+}: PropertyCardProps) {
   const { t } = useTranslation();
   const property = useProperty(propertyId);
   const registry = useRegistry();
   const [ownTab, setOwnTab] = useState<CardTab>('info');
   const current = tab ?? ownTab;
   const setTab = onTabChange ?? setOwnTab;
+  const focusHeading = useCallback(
+    (heading: HTMLHeadingElement | null) => {
+      if (heading !== null && claimHeadingFocus?.() === true) {
+        heading.focus();
+      }
+    },
+    [claimHeadingFocus],
+  );
 
   const all = registry.data ?? [];
 
@@ -66,7 +85,12 @@ export function PropertyCard({ propertyId, tab, onTabChange }: PropertyCardProps
     <section aria-labelledby="property-card-title" className="flex flex-col gap-4">
       <header data-slot="property-head" className="flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 id="property-card-title" className="text-xl font-semibold break-words">
+          <h2
+            ref={focusHeading}
+            id="property-card-title"
+            tabIndex={-1}
+            className="text-xl font-semibold break-words outline-none"
+          >
             {one.name}
           </h2>
           {one.status === 'active' ? null : (

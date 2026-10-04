@@ -72,7 +72,7 @@ export function InfoTab({ property, all }: InfoTabProps) {
   return (
     <div className="flex flex-col gap-6">
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium">{t('panel.apartments.info.fromHostaway')}</h2>
+        <h3 className="text-sm font-medium">{t('panel.apartments.info.fromHostaway')}</h3>
         <div className="grid gap-3 sm:grid-cols-3">
           <Fact label={t('panel.apartments.info.address')} value={property.address ?? '—'} />
           <Fact label={t('panel.apartments.info.city')} value={property.city ?? '—'} />
@@ -91,7 +91,7 @@ export function InfoTab({ property, all }: InfoTabProps) {
       </section>
 
       <form className="flex flex-col gap-4" onSubmit={submit}>
-        <h2 className="text-sm font-medium">{t('panel.apartments.info.ours')}</h2>
+        <h3 className="text-sm font-medium">{t('panel.apartments.info.ours')}</h3>
 
         {!draft.hasParentChoice ? (
           // A room: Hostaway names its listing, and the sync would undo a change.

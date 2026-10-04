@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { propertySchema, type Property } from '../schema';
 
@@ -88,12 +88,26 @@ vi.mock('../property-card', () => ({
     propertyId,
     tab,
     onTabChange,
+    claimHeadingFocus,
   }: {
     propertyId: number;
     tab: string;
     onTabChange: (tab: string) => void;
+    claimHeadingFocus?: () => boolean;
   }) => (
     <section aria-label="Карточка объекта">
+      {/* As the card's own heading does (property-card.test): it takes the
+          focus when it mounts, if the view asked for it. */}
+      <h2
+        tabIndex={-1}
+        ref={(heading) => {
+          if (heading !== null && claimHeadingFocus?.() === true) {
+            heading.focus();
+          }
+        }}
+      >
+        Карточка {propertyId}
+      </h2>
       <span>
         {propertyId}:{tab}
       </span>
@@ -598,6 +612,159 @@ describe('a row of the registry', () => {
 
     expect(within(rowFor('Anděl 4')).getByText('Обслуживание')).toHaveClass(
       'bg-tone-in-progress-bg',
+    );
+  });
+});
+
+// The review of 04.10: below xl the registry is hidden while a card is open,
+// and the focus went with it — into the body.
+describe('the focus, where only one of the two fits', () => {
+  const link = (name: string) => screen.getByRole('link', { name });
+
+  test('opening a listing from the keyboard puts the focus on its card’s heading', async () => {
+    window.history.pushState(null, '', '/apartments');
+    renderView();
+
+    link('Vinohrady 12').focus();
+    await userEvent.keyboard('{Enter}');
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Карточка 101' })).toHaveFocus();
+  });
+
+  test('«Все объекты» gives the focus back to the listing it closed', async () => {
+    window.history.pushState(null, '', '/apartments?listing=101');
+    renderView();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Все объекты' }));
+
+    expect(link('Vinohrady 12')).toHaveFocus();
+  });
+
+  test('«Назад» from an open card brings the list back, the focus on the listing', async () => {
+    window.history.pushState(null, '', '/apartments');
+    const { container } = renderView();
+    link('Royal Cerna').focus();
+    await userEvent.keyboard('{Enter}');
+    expect(container.querySelector('[data-slot="registry"]')).toHaveClass('hidden');
+
+    await act(() => goBack());
+
+    expect(card()).toBeNull();
+    expect(container.querySelector('[data-slot="registry"]')).not.toHaveClass('hidden');
+    expect(link('Royal Cerna')).toHaveFocus();
+  });
+
+  test('a closed listing the list does not show hands the focus to the search', async () => {
+    // Karlín 7 is archived: the working tab has no row for it.
+    window.history.pushState(null, '', '/apartments?listing=103');
+    renderView();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Все объекты' }));
+
+    expect(screen.getByLabelText(/Поиск/)).toHaveFocus();
+  });
+
+  describe('side by side, from xl', () => {
+    const matchMedia = window.matchMedia;
+    beforeEach(() => {
+      window.matchMedia = ((query: string) => ({
+        matches: query.includes('min-width'),
+        media: query,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })) as unknown as typeof window.matchMedia;
+    });
+    afterEach(() => {
+      window.matchMedia = matchMedia;
+    });
+
+    test('the focus stays on the list where it was', async () => {
+      window.history.pushState(null, '', '/apartments');
+      renderView();
+
+      link('Vinohrady 12').focus();
+      await userEvent.keyboard('{Enter}');
+
+      expect(card()).toHaveTextContent('101:info');
+      expect(link('Vinohrady 12')).toHaveFocus();
+    });
+  });
+});
+
+describe('the risky corners of the registry', () => {
+  // A link is a real address: a new tab, a new window, a download are the
+  // browser's business, not a card opened in place.
+  test.each([
+    ['Ctrl', { ctrlKey: true }],
+    ['Cmd', { metaKey: true }],
+    ['Shift', { shiftKey: true }],
+    ['the middle button', { button: 1 }],
+  ])('a press with %s is left to the browser', (_how, init) => {
+    renderView();
+    // What the page did with the press, seen last on its way up; the test then
+    // stops it, for jsdom cannot open a new tab.
+    let wasPrevented: boolean | null = null;
+    const watch = (event: Event) => {
+      wasPrevented = event.defaultPrevented;
+      event.preventDefault();
+    };
+    document.addEventListener('click', watch);
+
+    fireEvent.click(screen.getByRole('link', { name: 'Vinohrady 12' }), init);
+    document.removeEventListener('click', watch);
+
+    expect(wasPrevented).toBe(false);
+    expect(query()).toBe('');
+    expect(card()).toBeNull();
+  });
+
+  test('ticks for a bulk move survive a card opened and closed', async () => {
+    window.history.pushState(null, '', '/apartments');
+    renderView();
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Vinohrady 12' }));
+
+    await userEvent.click(screen.getByRole('link', { name: 'Royal Cerna' }));
+    expect(screen.getByText('Выбрано: 1')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Все объекты' }));
+
+    expect(screen.getByText('Выбрано: 1')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Vinohrady 12' })).toBeChecked();
+  });
+
+  test('a failed sync says so in the reader’s words, the server’s own text small under it', () => {
+    syncState.isError = true;
+    syncState.error = { message: 'Hostaway answered 503' };
+
+    renderView();
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('Не удалось выполнить действие. Попробуйте ещё раз.');
+    expect(within(alert).getByText('Hostaway answered 503')).toHaveClass(
+      'text-xs',
+      'text-muted-foreground',
+    );
+  });
+
+  // CLAUDE.md: the server's own words are never the sentence a manager reads.
+  test('listings the sync skipped: the phrase in words, the reasons small under it', () => {
+    syncState.data = {
+      fetched: 12,
+      normalized: 11,
+      skipped: [
+        { position: 4, reason: 'name is missing' },
+        { position: 7, reason: 'timezone is not a zone' },
+      ],
+      propertiesInserted: 0,
+      propertiesUpdated: 11,
+      durationMs: 800,
+    };
+
+    renderView();
+
+    expect(screen.getByText('Пропущено объектов: 2.')).toBeInTheDocument();
+    expect(screen.getByText('name is missing; timezone is not a zone')).toHaveClass(
+      'text-xs',
+      'text-muted-foreground',
     );
   });
 });
