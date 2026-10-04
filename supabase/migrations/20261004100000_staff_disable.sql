@@ -24,7 +24,10 @@
 --     two now share one function, take_off_repairs(); the task's row is locked
 --     before the attempt, as the dispatchers lock it.
 --   Work under way (in_progress, paused, blocked) and closed work stay as they
---   are: the manager decides about them, and the dashboard shows them.
+--   are: the manager decides about them, and the dashboard shows them. A job
+--   under way that is not a repair of a task is not left for ever: the night
+--   sweep (expire_stale_tasks) closes it a day after its day as one that never
+--   happened, as any live job — the manager has about a day and a half.
 --   She hears nothing: every push is asked of a person who works
 --   (push_on_task_change when it is written, claim_push_batch when it is
 --   sent), and she no longer does. Nobody else hears of a task open again:
@@ -38,6 +41,9 @@
 --   an 'auto' link; without one, her listings' cleanings come free. Her place
 --   in their queue stays, so switched on again she may take their free work —
 --   and nothing more: no job comes back, and no link turns 'auto' by itself.
+--   Made 'auto' again by hand, she gets what the generator's hand-over gives
+--   any 'auto' cleaner: the listing's cleanings still free in its run, those
+--   the switch freed among them.
 -- - Nothing names a person who no longer works here on live work. A trigger on
 --   tasks refuses a write that puts her on a live job — a new job, a change of
 --   person, a closed job brought back, work under way turned back into work
@@ -55,22 +61,30 @@
 --
 -- Locks. The switch holds her profile row from its write to the commit; the
 -- release then locks the tasks (problems) of her unstarted repairs FOR NO KEY
--- UPDATE in id order, the attempts, her other jobs, her links. A write that
--- names her — the generator, save_task, a dispatch, a manager, her own take of
--- free work — reads her profile row FOR SHARE in the guard, so whoever comes
--- second waits for the first and sees what it wrote: a job handed to her first
--- is taken off by the release; a release first makes the write that names her
--- fail. A generator run that meets her so is refused whole, as one that met a
+-- UPDATE in id order, the attempts, her other jobs, her links, her pushes. A
+-- write that puts her on a job — the generator, a new job through save_task, a
+-- dispatch, a manager, her own take of free work — reads her profile row FOR
+-- SHARE in the guard (save_task in itself too), so whoever comes second waits
+-- for the first and sees what it wrote: a job handed to her first is taken off
+-- by the release; a release first makes the write that names her fail. A generator run that meets her so is refused whole, as one that met a
 -- technician (20261003110000), and the next run reads her link as 'claim'. A
 -- dispatcher locks the task's row before the attempt, as the release does, so
--- the two do not deadlock over an attempt she holds. Two rare deadlocks (40P01)
--- remain and are accepted, nothing half-written: a generator run that moved one
--- of her cleanings in its reschedule pass and then hands her another through
--- her 'auto' link, while the release waits for the first; and her own start of
--- a repair of a task in the same second — the start holds the attempt and waits
--- for the task's row (the mirror), the release the other way round: the
--- inverted order 20260923130000 and 20261003130000 accepted for a direct write
--- of an attempt against a dispatch.
+-- the two do not deadlock over an attempt she holds. Three rare deadlocks
+-- (40P01) remain and are accepted, nothing half-written: a generator run that
+-- moved one of her cleanings in its reschedule pass and then hands her another
+-- through her 'auto' link, while the release waits for the first; her own
+-- start of a repair of a task in the same second — the start holds the attempt
+-- and waits for the task's row (the mirror), the release the other way round:
+-- the inverted order 20260923130000 and 20261003130000 accepted for a direct
+-- write of an attempt against a dispatch; and save_task keeping her on one of
+-- her own jobs in the same second — it locks the job, then reads her profile
+-- FOR SHARE, while the switch holds the profile and wants the job.
+--
+-- Accepted too: a manager's direct write that points her hand-made repair at a
+-- task (tasks.problem_id) while she is being switched off leaves a repair of a
+-- task on her — the release takes repairs of tasks first and the freeing then
+-- reads the row as such a repair. No path of the product writes problem_id on
+-- an existing job: the panel never does, assign_problem only inserts it.
 --
 -- The cleanup of what hangs today is release_work_of_inactive() for everybody
 -- switched off, at the end of this file (counted first by

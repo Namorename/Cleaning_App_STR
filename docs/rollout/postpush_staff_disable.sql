@@ -17,7 +17,7 @@
 --               md5(prosrc) and length(prosrc) on the local stack):
 --                 guard_auto_link_works          bcc82d20   552
 --                 guard_person_works             dcb1f989   512
---                 release_work_of_inactive       9a507bdb  2343
+--                 release_work_of_inactive       4914a0d1  3352
 --                 release_work_on_deactivation   36da10a1    78
 --                 take_off_repairs               e1250f2f   689
 --                 unassign_problem               6282d99b  2088
@@ -26,23 +26,31 @@
 --   function_privs  who of anon / authenticated / PUBLIC holds EXECUTE: [] for the five new
 --               ones; ["authenticated"] for unassign_problem (its ACL from 20261003130000, kept by
 --               create or replace).
---   triggers    four, enabled ('O'), "row": true, "when": true:
---                 profiles_release_work         profiles           [is_active]   after
---                 property_cleaners_auto_works  property_cleaners  []            before
---                 tasks_person_works_insert     tasks              []            before
---                 tasks_person_works_update     tasks              [assignee_id, status] before
+--   triggers    four, enabled ('O'), "row": true, "when": true, and the md5 prefix of
+--               pg_get_triggerdef exactly (local stack; an older trigger,
+--               tasks_no_cleaning_for_tech, hashes the same in the cloud and locally —
+--               58b40f36 — so the definitions compare as they are printed):
+--                 profiles_release_work         profiles           [is_active]   after   78d31b2c
+--                 property_cleaners_auto_works  property_cleaners  []            before  d4d3c7ea
+--                 tasks_person_works_insert     tasks              []            before  879a2481
+--                 tasks_person_works_update     tasks              [assignee_id, status] before d24bc3f1
 --   left_on_off unstarted jobs ('unassigned' with a name, assigned, accepted) on people switched
 --               off: {} — the cleanup took off every one (the probe counted 87 cleanings on
 --               2026-10-04); and their 'auto' links: 0.
---   under_way   work under way on people switched off by type and status: what the dashboard's
---               «Уборок у отключённых» and «Ремонтов у отключённых» show ({} on 2026-10-04).
+--   under_way   work under way on people switched off by type and status, on listings not
+--               archived — as the panel's readers count it: what the dashboard's «Уборок у
+--               отключённых» and «Ремонтов у отключённых» show ({} on 2026-10-04).
 --   freed       cleanings nobody holds whose last change came in the push's hour — the freed
 --               ones among them (87 on 2026-10-04, plus whatever the generator or the office
 --               freed in that hour); their days past / grace / week / later as the probe had them.
 --   journal     taken_off events by the system (no actor) in the push's hour: the repairs the
 --               cleanup took off — 0 on 2026-10-04.
---   push        rows waiting in the push queue by kind: no cleaning_free from the cleanup on
---               2026-10-04 (the probe's free_push was 0).
+--   push        the queue's rows written in the push's hour by kind, waiting and settled apart
+--               (settled as "kind outcome"): no cleaning_free from the cleanup on 2026-10-04 (the
+--               probe's free_push was 0). Rows written before the hour are not counted — on
+--               2026-10-04 one cleaning_free waited in the cloud that the cleanup did not write.
+--               And "settled_off": rows of people switched off settled as skipped in the hour —
+--               what the cleanup settled (the probe's pushes_settled: 0 on 2026-10-04).
 select label, payload from (
   select 1 as ord, 'head' as label,
          to_jsonb((select max(version) from supabase_migrations.schema_migrations)) as payload
@@ -81,6 +89,7 @@ select label, payload from (
   union all
   select 4, 'triggers',
          (select jsonb_agg(jsonb_build_object('table', t.tgrelid::regclass::text, 'name', t.tgname,
+                                              'md5', left(md5(pg_get_triggerdef(t.oid)), 8),
                                               'enabled', t.tgenabled,
                                               'row', (t.tgtype & 1) = 1,
                                               'before', (t.tgtype & 2) = 2,
@@ -119,8 +128,10 @@ select label, payload from (
                        count(*) as n
                 from public.tasks t
                 join public.profiles p on p.id = t.assignee_id
+                join public.properties pr on pr.id = t.property_id
                 where not p.is_active
                   and t.status in ('in_progress', 'paused', 'blocked')
+                  and pr.status <> 'archived'
                 group by 1) x)
 
   union all
@@ -148,10 +159,25 @@ select label, payload from (
 
   union all
   select 9, 'push',
-         (select coalesce(jsonb_object_agg(x.kind, x.n), '{}'::jsonb)
-          from (select o.kind::text as kind, count(*) as n
-                from raw.push_outbox o where o.settled_at is null
-                group by o.kind) x)
+         jsonb_build_object(
+           'waiting', (select coalesce(jsonb_object_agg(x.kind, x.n), '{}'::jsonb)
+                       from (select o.kind::text as kind, count(*) as n
+                             from raw.push_outbox o
+                             where o.created_at > now() - interval '1 hour'
+                               and o.settled_at is null
+                             group by o.kind) x),
+           'settled', (select coalesce(jsonb_object_agg(x.k, x.n), '{}'::jsonb)
+                       from (select o.kind::text || ' ' || o.outcome as k, count(*) as n
+                             from raw.push_outbox o
+                             where o.created_at > now() - interval '1 hour'
+                               and o.settled_at is not null
+                             group by 1) x),
+           'settled_off', (select count(*)
+                           from raw.push_outbox o
+                           join public.profiles p on p.id = o.recipient_id
+                           where not p.is_active
+                             and o.outcome = 'skipped'
+                             and o.settled_at > now() - interval '1 hour'))
 ) checks
 order by ord;
 

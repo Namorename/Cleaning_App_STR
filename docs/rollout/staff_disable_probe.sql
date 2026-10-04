@@ -15,9 +15,10 @@
 --                  every kind, inspections, repairs written by hand), "taken_off <status>" are
 --                  repairs of tasks, cancelled under the take-off flag. Its total is the number
 --                  of rows the cleanup writes in tasks.
---   reopened       the tasks (problems) of those repairs by status, and how many are archived
---                  (the mirror leaves an archived one as it is). Each non-archived one goes back
---                  to 'open' and gets one taken_off line in its journal.
+--   reopened       the tasks (problems) of those repairs by status, and how many are archived.
+--                  Every repair taken off writes one taken_off line in its task's journal, an
+--                  archived task's too; only the non-archived ones go back to 'open' (the mirror
+--                  leaves an archived one as it is).
 --   free_by_day    the freed jobs by their day against the listing's today: past (before
 --                  yesterday — the sweep closes those as before), grace (yesterday), week (today
 --                  to the seventh day), later.
@@ -29,6 +30,10 @@
 --                  cleaner: the generator's next run over their day hands them to that person
 --                  (its hand-over pass), as any free cleaning there.
 --   links          links of people switched off by mode; every 'auto' becomes 'claim'.
+--   pushes_settled rows of people switched off still waiting in the push queue, by kind, and how
+--                  many of them a sender holds right now: the cleanup settles every other one as
+--                  skipped (what claim_push_batch does while they are off); a held group is left
+--                  to its sender.
 --   under_way      work under way on people switched off, by type and status: not touched, it
 --                  is what the dashboard's «У отключённых» shows from the push on.
 --   objects        the push's functions and triggers already in the cloud: must be 0 and 0.
@@ -137,7 +142,22 @@ select label, payload from (
                 group by pc.mode) x)
 
   union all
-  select 9, 'under_way',
+  select 9, 'pushes_settled',
+         jsonb_build_object(
+           'by_kind', (select coalesce(jsonb_object_agg(x.kind, x.n), '{}'::jsonb)
+                       from (select o.kind::text as kind, count(*) as n
+                             from raw.push_outbox o
+                             join public.profiles p on p.id = o.recipient_id
+                             where not p.is_active and o.settled_at is null
+                             group by o.kind) x),
+           'held', (select count(*)
+                    from raw.push_outbox o
+                    join public.profiles p on p.id = o.recipient_id
+                    where not p.is_active and o.settled_at is null
+                      and o.claimed_until > now()))
+
+  union all
+  select 10, 'under_way',
          (select coalesce(jsonb_object_agg(x.k, x.n), '{}'::jsonb)
           from (select t.type::text || case when t.problem_id is not null then '+task' else '' end
                        || ' ' || t.status::text as k,
@@ -149,7 +169,7 @@ select label, payload from (
                 group by 1) x)
 
   union all
-  select 10, 'objects',
+  select 11, 'objects',
          jsonb_build_object(
            'functions', (select count(*) from pg_proc pp
                          where pp.pronamespace = 'public'::regnamespace
@@ -163,7 +183,7 @@ select label, payload from (
                                             'property_cleaners_auto_works')))
 
   union all
-  select 11, 'push',
+  select 12, 'push',
          (select coalesce(jsonb_object_agg(x.kind, x.n), '{}'::jsonb)
           from (select o.kind::text as kind, count(*) as n
                 from raw.push_outbox o where o.settled_at is null
