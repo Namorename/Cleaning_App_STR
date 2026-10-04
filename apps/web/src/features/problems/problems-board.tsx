@@ -4,7 +4,7 @@ import { problemStatusTone } from '@str-ops/shared';
 import { useState, type DragEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/status-badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,18 +15,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
+import { TONE_MARK_BG } from '@/lib/design/tone-classes';
 import { serverErrorText } from '@/lib/server-error';
 import { cn } from '@/lib/utils';
 
 import { AssignForm } from './assign-form';
 import { ProblemCard } from './problem-card';
-import {
-  BOARD_STATUSES,
-  boardMove,
-  liveFixTask,
-  type BoardStatus,
-  type Problem,
-} from './schema';
+import { BOARD_STATUSES, boardMove, liveFixTask, type BoardStatus, type Problem } from './schema';
 import { useReopenProblem, useResolveProblem, useUnassignProblem } from './use-problems';
 
 interface ProblemsBoardProps {
@@ -35,20 +30,33 @@ interface ProblemsBoardProps {
   isFiltered?: boolean;
 }
 
-/** A drop that needs the manager's word before anything is sent. */
+/** A move that needs the manager's word before anything is sent. */
 interface PendingMove {
   kind: 'assign' | 'resolve';
   problem: Problem;
 }
 
+/** The columns a card's menu offers: every move the manager can make from here. */
+function menuMoves(problem: Problem): BoardStatus[] {
+  return BOARD_STATUSES.filter((status) => {
+    const move = boardMove(problem.status, status);
+    return move !== null && move !== 'startOnPhone';
+  });
+}
+
 /**
  * Four columns, one per live status; cancelled problems are the list's business.
  *
- * Cards move by mouse. A drop is only a shortcut to what the card page
- * offers: assigning opens the same form, resolving asks first, moving back
- * to "open" cancels the technician's task, and a resolved card dragged back
- * to "open" is reopened. "In progress" belongs to the technician's phone, so
- * a drop there only explains itself.
+ * A card moves by mouse or through its menu «⋯» (5.4, variant A) — both are
+ * only a shortcut to what the card page offers: assigning opens the same
+ * form, resolving asks first, moving back to "open" takes the technician off
+ * the job (unassign_problem, with the person the card shows), and a resolved
+ * card moved back to "open" is reopened. "In progress" belongs to the
+ * technician's phone, so a drop there only explains itself and the menu does
+ * not offer it.
+ *
+ * The four columns stay side by side and the board scrolls sideways inside
+ * its frame on a narrow screen (decision 14).
  */
 export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardProps) {
   const { t } = useTranslation();
@@ -91,15 +99,9 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
     reopen.reset();
   };
 
-  const onDrop = (status: BoardStatus) => (event: DragEvent<HTMLElement>) => {
-    event.preventDefault();
-    setOver(null);
-    if (dragging === null) {
-      return;
-    }
+  /** What a drop on a column — or the menu's «Перевести в …» — does. */
+  const moveTo = (problem: Problem, status: BoardStatus) => {
     clearOutcome();
-    const problem = dragging;
-    setDragging(null);
     const move = boardMove(problem.status, status);
     switch (move) {
       case 'assign':
@@ -111,9 +113,10 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
         const task = liveFixTask(problem);
         if (task !== null) {
           setNotice(null);
-          unassign.mutate({ taskId: task.id, assigneeId: task.assignee_id }, {
-            onSuccess: () => setNotice(t('panel.problems.board.unassigned')),
-          });
+          unassign.mutate(
+            { taskId: task.id, assigneeId: task.assignee_id },
+            { onSuccess: () => setNotice(t('panel.problems.board.unassigned')) },
+          );
         }
         return;
       }
@@ -130,6 +133,17 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
         setNotice(t('panel.problems.board.cannotMove'));
         return;
     }
+  };
+
+  const onDrop = (status: BoardStatus) => (event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    setOver(null);
+    if (dragging === null) {
+      return;
+    }
+    const problem = dragging;
+    setDragging(null);
+    moveTo(problem, status);
   };
 
   // The column the technician fills: a drop is refused, but the reason is worth a line.
@@ -153,52 +167,65 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {BOARD_STATUSES.map((status) => {
-          const column = problems.filter((problem) => problem.status === status);
-          const heading = t(`problems.statuses.${status}`);
-          const droppable = canDrop(status);
-          return (
-            <section
-              key={status}
-              aria-label={heading}
-              onDragOver={onDragOver(status)}
-              onDragLeave={() => setOver((current) => (current === status ? null : current))}
-              onDrop={onDrop(status)}
-              onDragEnter={onDropRefused(status)}
-              className={cn(
-                'flex min-h-32 flex-col gap-2 rounded-lg bg-muted/40 p-2 transition-colors',
-                droppable && 'ring-1 ring-primary/30',
-                over === status && 'bg-accent ring-2 ring-primary',
-              )}
-            >
-              <header className="flex items-center justify-between px-1 py-1">
-                <Badge tone={problemStatusTone(status)}>{heading}</Badge>
-                <span className="text-xs text-muted-foreground">{column.length}</span>
-              </header>
-              {column.length === 0 ? (
-                <p className="flex flex-1 items-center justify-center py-6 text-center text-sm text-muted-foreground/60">
-                  {isFiltered
-                    ? t('panel.problems.board.columnEmptyFiltered')
-                    : t('panel.problems.board.columnEmpty')}
-                </p>
-              ) : (
-                column.map((problem) => (
-                  <ProblemCard
-                    key={problem.id}
-                    problem={problem}
-                    hasUnread={unread.problems.has(problem.id)}
-                    onDragStart={setDragging}
-                    onDragEnd={() => {
-                      setDragging(null);
-                      setOver(null);
-                    }}
-                  />
-                ))
-              )}
-            </section>
-          );
-        })}
+      <div className="overflow-x-auto pb-1">
+        <div
+          data-slot="problems-board"
+          className="grid grid-cols-[repeat(4,minmax(16rem,1fr))] items-start gap-3"
+        >
+          {BOARD_STATUSES.map((status) => {
+            const column = problems.filter((problem) => problem.status === status);
+            const heading = t(`problems.statuses.${status}`);
+            const droppable = canDrop(status);
+            return (
+              <section
+                key={status}
+                aria-label={heading}
+                onDragOver={onDragOver(status)}
+                onDragLeave={() => setOver((current) => (current === status ? null : current))}
+                onDrop={onDrop(status)}
+                onDragEnter={onDropRefused(status)}
+                className={cn(
+                  'flex min-h-32 flex-col gap-2 rounded-lg bg-muted/40 p-2 transition-colors',
+                  droppable && 'ring-1 ring-primary/30',
+                  over === status && 'bg-accent ring-2 ring-primary',
+                )}
+              >
+                <span
+                  aria-hidden="true"
+                  className={cn('h-1 rounded-full', TONE_MARK_BG[problemStatusTone(status)])}
+                />
+                <header className="flex items-center justify-between px-1">
+                  <StatusBadge status={`problems.${status}`}>{heading}</StatusBadge>
+                  <span className="text-xs font-semibold text-muted-foreground tabular-nums">
+                    {column.length}
+                  </span>
+                </header>
+                {column.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">
+                    {isFiltered
+                      ? t('panel.problems.board.columnEmptyFiltered')
+                      : t('panel.problems.board.columnEmpty')}
+                  </p>
+                ) : (
+                  column.map((problem) => (
+                    <ProblemCard
+                      key={problem.id}
+                      problem={problem}
+                      moves={menuMoves(problem)}
+                      onMove={moveTo}
+                      hasUnread={unread.problems.has(problem.id)}
+                      onDragStart={setDragging}
+                      onDragEnd={() => {
+                        setDragging(null);
+                        setOver(null);
+                      }}
+                    />
+                  ))
+                )}
+              </section>
+            );
+          })}
+        </div>
       </div>
 
       <p role="status" aria-live="polite" className="min-h-5 text-xs text-muted-foreground">
@@ -233,10 +260,15 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={closePending}>
+            <Button type="button" variant="outline" className="h-11" onClick={closePending}>
               {t('panel.problems.board.resolveAbort')}
             </Button>
-            <Button type="button" disabled={resolve.isPending} onClick={confirmResolve}>
+            <Button
+              type="button"
+              className="h-11"
+              disabled={resolve.isPending}
+              onClick={confirmResolve}
+            >
               {t('panel.problems.board.resolveConfirm')}
             </Button>
           </DialogFooter>

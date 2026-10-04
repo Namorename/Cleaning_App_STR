@@ -259,7 +259,9 @@
         "unarchive": "Restore from the archive"
       },
       "board": {
-        "dragHint": "Drag cards between the columns",
+        "dragHint": "Drag a card to another column, or move it with its «⋯» menu",
+        "moveTo": "Move to “{{status}}”",
+        "cardMenu": "Actions: {{title}}",
         "startOnPhone": "Only the technician moves a task into work, with the “Start work” button in the app",
         "cannotMove": "A card cannot be moved from here to there",
         "unassigned": "The technician's job is cancelled, the task is open again",
@@ -269,8 +271,8 @@
         "resolveAbort": "No",
         "assignTitle": "Assign a technician",
         "reopened": "The task is open again",
-        "columnEmpty": "✨ No tasks yet",
-        "columnEmptyFiltered": "🔍 Nothing found"
+        "columnEmpty": "No tasks yet",
+        "columnEmptyFiltered": "Nothing found"
       },
       "viewArchive": "Archive",
       "archive": {

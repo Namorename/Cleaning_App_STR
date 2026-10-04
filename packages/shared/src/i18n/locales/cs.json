@@ -259,7 +259,9 @@
         "unarchive": "Obnovit z archivu"
       },
       "board": {
-        "dragHint": "Karty lze přetahovat mezi sloupci",
+        "dragHint": "Kartu lze přetáhnout do jiného sloupce nebo přesunout přes nabídku „⋯“",
+        "moveTo": "Přesunout do „{{status}}“",
+        "cardMenu": "Akce: {{title}}",
         "startOnPhone": "Do práce úkol převádí technik tlačítkem „Začít práci“ v aplikaci",
         "cannotMove": "Odsud sem kartu přesunout nelze",
         "unassigned": "Práce technika je zrušena, úkol je znovu otevřený",
@@ -269,8 +271,8 @@
         "resolveAbort": "Ne",
         "assignTitle": "Přiřadit technika",
         "reopened": "Úkol je znovu otevřený",
-        "columnEmpty": "✨ Zatím žádné úkoly",
-        "columnEmptyFiltered": "🔍 Nic nenalezeno"
+        "columnEmpty": "Zatím žádné úkoly",
+        "columnEmptyFiltered": "Nic nenalezeno"
       },
       "viewArchive": "Archiv",
       "archive": {

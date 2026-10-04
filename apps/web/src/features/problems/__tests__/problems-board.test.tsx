@@ -82,7 +82,18 @@ afterEach(() => {
 import { ProblemsBoard } from '../problems-board';
 
 const column = (name: string) => screen.getByRole('region', { name });
-const card = (title: string) => screen.getByRole('link', { name: new RegExp(title) });
+const card = (title: string) => screen.getByRole('article', { name: title });
+
+/** Opens a card's «⋯» and hands back what it offers. */
+async function openCardMenu(title: string): Promise<HTMLElement> {
+  await userEvent.click(within(card(title)).getByRole('button', { name: `Действия: ${title}` }));
+  return screen.findByRole('menu');
+}
+
+const itemsOf = (menu: HTMLElement) =>
+  within(menu)
+    .getAllByRole('menuitem')
+    .map((item) => item.textContent);
 
 function dragTo(title: string, columnName: string) {
   const target = column(columnName);
@@ -192,5 +203,133 @@ describe('ProblemsBoard drag and drop', () => {
 
     expect(within(card('Течёт кран')).getByText('Новое сообщение')).toBeInTheDocument();
     expect(within(card('Сломан замок')).queryByText('Новое сообщение')).not.toBeInTheDocument();
+  });
+});
+
+// 5.4, «Задания» variant A (docs/design/decisions.md §2; the page's «Доска — частично»).
+describe('ProblemsBoard layout', () => {
+  test('keeps four columns side by side, the board scrolling sideways when the screen is narrow', () => {
+    const { container } = render(<ProblemsBoard problems={problems} />);
+
+    expect(
+      screen.getAllByRole('region').map((region) => region.getAttribute('aria-label')),
+    ).toEqual(['Открыто', 'Назначено', 'В работе', 'Выполнено']);
+    const grid = container.querySelector('[data-slot="problems-board"]');
+    expect(grid).toHaveClass('grid-cols-[repeat(4,minmax(16rem,1fr))]');
+    expect(grid?.parentElement).toHaveClass('overflow-x-auto');
+  });
+
+  // «Назначено» and «В работе» were one black pill: now each column is headed
+  // in its status's tone and glyph, so they differ in colour and in shape.
+  test('heads each column in its status’s tone and glyph', () => {
+    render(<ProblemsBoard problems={problems} />);
+
+    const head = (name: string) => within(column(name)).getByText(name);
+    expect(head('Назначено')).toHaveClass('bg-tone-assigned-bg');
+    expect(head('Назначено').querySelector('svg')).toHaveAttribute('fill', 'currentColor');
+    expect(head('В работе')).toHaveClass('bg-tone-in-progress-bg');
+    expect(head('В работе').querySelector('svg')).toHaveClass('lucide-play');
+    expect(head('Открыто').querySelector('svg')).toHaveAttribute('stroke-dasharray');
+  });
+
+  test('a card is compact: title, place, the technician and the day', () => {
+    render(<ProblemsBoard problems={problems} />);
+
+    const assigned = card('Сломан замок');
+    expect(assigned).toHaveTextContent('Vinohrady 12');
+    expect(assigned).toHaveTextContent('Petr Fixer · 10.09');
+    expect(within(assigned).getByRole('link', { name: 'Сломан замок' })).toHaveAttribute(
+      'href',
+      `/problems/${ASSIGNED_ID}`,
+    );
+  });
+
+  // «Обычная» on every card was noise: urgency speaks only when it is not the usual.
+  test('says the urgency only when it is not «Обычная»', () => {
+    const urgent = problemSchema.parse({
+      ...base,
+      id: '88888888-8888-4888-8888-888888888888',
+      title: 'Нет воды',
+      priority: 'high',
+      status: 'open',
+      fix_tasks: [],
+    });
+    render(<ProblemsBoard problems={[...problems, urgent]} />);
+
+    expect(screen.queryByText('Обычная')).not.toBeInTheDocument();
+    expect(within(card('Нет воды')).getByText('Высокая')).toHaveClass('bg-tone-urgent-bg');
+  });
+
+  test('an empty column says so in words, without an emoji and in the readable tone', () => {
+    render(<ProblemsBoard problems={problems} />);
+
+    const empty = within(column('В работе')).getByText('Заданий пока нет');
+    expect(empty).not.toHaveClass('text-muted-foreground/60');
+  });
+});
+
+// The page's «перенос только мышью»: every move the mouse can make, the card's
+// menu makes too — from the keyboard, on a touch screen.
+describe('ProblemsBoard card menu', () => {
+  test('offers the columns a card can go to, and not the technician’s own', async () => {
+    render(<ProblemsBoard problems={[...problems, resolved]} />);
+
+    expect(itemsOf(await openCardMenu('Течёт кран'))).toEqual([
+      'Перевести в «Назначено»',
+      'Перевести в «Выполнено»',
+    ]);
+    await userEvent.keyboard('{Escape}');
+    expect(itemsOf(await openCardMenu('Сломан замок'))).toEqual([
+      'Перевести в «Открыто»',
+      'Перевести в «Выполнено»',
+    ]);
+    await userEvent.keyboard('{Escape}');
+    expect(itemsOf(await openCardMenu('Перегорела лампа'))).toEqual(['Перевести в «Открыто»']);
+  });
+
+  test('«Открыто» takes off the person the card shows, as the drop does', async () => {
+    render(<ProblemsBoard problems={problems} />);
+
+    const menu = await openCardMenu('Сломан замок');
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Перевести в «Открыто»' }));
+
+    expect(mutations.unassign).toHaveBeenCalledWith(
+      { taskId: TASK_ID, assigneeId: TECH_ID },
+      expect.anything(),
+    );
+  });
+
+  test('«Назначено» opens the technician form, «Выполнено» asks first', async () => {
+    render(<ProblemsBoard problems={problems} />);
+
+    let menu = await openCardMenu('Течёт кран');
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Перевести в «Назначено»' }));
+    const form = await screen.findByRole('dialog');
+    expect(within(form).getByLabelText('Техник')).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+
+    menu = await openCardMenu('Течёт кран');
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Перевести в «Выполнено»' }));
+    const question = await screen.findByRole('dialog', { name: 'Отметить выполненным?' });
+    expect(mutations.resolve).not.toHaveBeenCalled();
+    await userEvent.click(within(question).getByRole('button', { name: 'Да, выполнено' }));
+    expect(mutations.resolve).toHaveBeenCalledWith(OPEN_ID, expect.anything());
+  }, 20000);
+
+  test('a resolved card goes back to «Открыто» through its menu', async () => {
+    render(<ProblemsBoard problems={[resolved]} />);
+
+    const menu = await openCardMenu('Перегорела лампа');
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Перевести в «Открыто»' }));
+
+    expect(mutations.reopen).toHaveBeenCalledWith(RESOLVED_ID, expect.anything());
+  });
+
+  test('the menu is a 44 px target that leaves the card a link to its page', () => {
+    render(<ProblemsBoard problems={problems} />);
+
+    const button = within(card('Течёт кран')).getByRole('button', { name: 'Действия: Течёт кран' });
+    expect(button).toHaveClass('size-11');
+    expect(button.closest('a')).toBeNull();
   });
 });

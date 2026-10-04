@@ -91,6 +91,16 @@ describe('ProblemsView', () => {
     ).toContainElement(screen.getByRole('searchbox'));
   });
 
+  test('the search and the tabs are 44 px targets', () => {
+    useProblems.mockReturnValue({ data: problems, isPending: false, isError: false });
+    render(<ProblemsView />);
+
+    expect(screen.getByRole('searchbox')).toHaveClass('h-11');
+    for (const tab of screen.getAllByRole('tab')) {
+      expect(tab).toHaveClass('min-h-11');
+    }
+  });
+
   test('keeps archived problems off the board and restores them from the archive tab', async () => {
     useProblems.mockReturnValue({
       data: [...problems, archived],
@@ -128,9 +138,9 @@ describe('ProblemsView', () => {
     useProblems.mockReturnValue({ data: [], isPending: false, isError: false });
     const { unmount } = render(<ProblemsView />);
     expect(screen.getAllByRole('region')).toHaveLength(4);
-    expect(screen.getAllByText('✨ Заданий пока нет')).toHaveLength(4);
+    expect(screen.getAllByText('Заданий пока нет')).toHaveLength(4);
     await userEvent.type(screen.getByRole('searchbox'), 'x');
-    expect(screen.getAllByText('🔍 Ничего не найдено')).toHaveLength(4);
+    expect(screen.getAllByText('Ничего не найдено')).toHaveLength(4);
     unmount();
 
     useProblems.mockReturnValue({ data: undefined, isPending: false, isError: true });
