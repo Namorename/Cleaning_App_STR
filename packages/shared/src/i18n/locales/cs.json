@@ -157,7 +157,8 @@
         "openProblems": "Otevřených úkolů",
         "newSupplies": "Nových žádostí o materiál",
         "overdueRepairs": "Oprav po termínu",
-        "offRepairs": "Oprav u vypnutých"
+        "offRepairs": "Oprav u vypnutých",
+        "offCleanings": "Úklidů u vypnutých"
       },
       "repairs": {
         "title": "Uvízlé opravy",
@@ -169,12 +170,22 @@
         "noName": "Bez jména",
         "open": "Otevřít úkol"
       },
+      "offWork": {
+        "title": "Rozpracované úklidy u vypnutých",
+        "hint": "Vypnutí jim odebralo vše, co nezačali. Rozpracované čeká na rozhodnutí: předejte ho jinému nebo ho uzavřete v Úklidech.",
+        "loading": "Načítáme úklidy…",
+        "empty": "Vypnutí nemají žádné rozpracované úklidy.",
+        "open": "Otevřít úklid",
+        "personOff": "Nepracuje",
+        "noName": "Bez jména"
+      },
       "errors": {
         "tasks": "Úklidy se nepodařilo načíst.",
         "listings": "Objekty se nepodařilo načíst.",
         "problems": "Úkoly se nepodařilo načíst.",
         "supplies": "Žádosti o materiál se nepodařilo načíst.",
-        "repairs": "Opravy se nepodařilo načíst."
+        "repairs": "Opravy se nepodařilo načíst.",
+        "offWork": "Úklidy vypnutých se nepodařilo načíst."
       }
     },
     "problems": {

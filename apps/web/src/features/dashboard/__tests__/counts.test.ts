@@ -4,14 +4,17 @@ import { addDays, DEPTHS, openingWindow, windowDays } from '@/features/calendar/
 import {
   calendarTaskSchema,
   liveRepairSchema,
+  offStaffTaskSchema,
   type CalendarTask,
   type LiveRepair,
+  type OffStaffTask,
 } from '@/features/tasks/schema';
 
 import {
   cleaningsToday,
   dashboardWindow,
   newSupplyCount,
+  offStaffWork,
   openProblemCount,
   repairCounts,
   stuckRepairs,
@@ -75,6 +78,20 @@ const repair = (day: string, extra: Record<string, unknown> = {}): LiveRepair =>
     scheduled_date: day,
     assignee_id: ANNA,
     assignee: { full_name: 'Anna', is_active: true },
+    property: { name: 'Anglicka 7', status: 'active', timezone: 'Europe/Prague' },
+    ...extra,
+  });
+
+/** Started by somebody who has since been switched off: what the switch did not take. */
+const offTask = (day: string, extra: Record<string, unknown> = {}): OffStaffTask =>
+  offStaffTaskSchema.parse({
+    id: uuid('cccccccc'),
+    property_id: 1,
+    type: 'cleaning',
+    status: 'in_progress',
+    scheduled_date: day,
+    assignee_id: ANNA,
+    assignee: { full_name: 'Anna', is_active: false },
     property: { name: 'Anglicka 7', status: 'active', timezone: 'Europe/Prague' },
     ...extra,
   });
@@ -257,5 +274,28 @@ describe('repairCounts', () => {
     );
 
     expect(repairCounts(stuck)).toEqual({ overdue: 2, technicianOff: 2 });
+  });
+});
+
+describe('offStaffWork', () => {
+  // Switching an account off takes it off everything nobody has started
+  // (20261004100000); what was started stays on it for the manager to decide.
+  test('is the work under way of people switched off, oldest first, by id within a day', () => {
+    const late = offTask('2026-09-29');
+    const early = offTask('2026-09-20', { status: 'paused', type: 'inspection' });
+    const blocked = offTask('2026-09-29', { status: 'blocked', type: 'maintenance' });
+    const working = offTask('2026-09-25', { assignee: { full_name: 'Iva', is_active: true } });
+    const notStarted = offTask('2026-09-26', { status: 'assigned' });
+    const done = offTask('2026-09-27', { status: 'done' });
+
+    expect(offStaffWork([late, working, early, notStarted, done, blocked])).toEqual([
+      early,
+      late,
+      blocked,
+    ]);
+  });
+
+  test('is empty when nobody switched off has started anything', () => {
+    expect(offStaffWork([])).toEqual([]);
   });
 });

@@ -157,7 +157,8 @@
         "openProblems": "Open tasks",
         "newSupplies": "New supply requests",
         "overdueRepairs": "Overdue repairs",
-        "offRepairs": "Repairs held by switched-off staff"
+        "offRepairs": "Repairs held by switched-off staff",
+        "offCleanings": "Cleanings held by switched-off staff"
       },
       "repairs": {
         "title": "Stuck repairs",
@@ -169,12 +170,22 @@
         "noName": "No name",
         "open": "Open the task"
       },
+      "offWork": {
+        "title": "Cleanings in progress held by switched-off staff",
+        "hint": "Switching them off took away everything not yet started. What they had started waits for a decision: hand it to someone else or close it in Cleanings.",
+        "loading": "Loading the cleanings…",
+        "empty": "No switched-off staff have cleanings in progress.",
+        "open": "Open the cleaning",
+        "personOff": "Not working",
+        "noName": "No name"
+      },
       "errors": {
         "tasks": "Could not load the cleanings.",
         "listings": "Could not load the listings.",
         "problems": "Could not load the tasks.",
         "supplies": "Could not load the supply requests.",
-        "repairs": "Could not load the repairs."
+        "repairs": "Could not load the repairs.",
+        "offWork": "Could not load the cleanings of switched-off staff."
       }
     },
     "problems": {

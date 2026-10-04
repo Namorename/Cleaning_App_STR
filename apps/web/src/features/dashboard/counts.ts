@@ -4,8 +4,11 @@ import { isInTab, type SupplyRequest } from '@/features/supplies/schema';
 import { isRepairOverdue, isTechnicianOff } from '@/features/tasks/repairs';
 import {
   isTaskClosed,
+  UNDER_WAY_STATUSES,
   type CalendarTask,
   type LiveRepair,
+  type OffStaffTask,
+  type TaskStatus,
   type TaskType,
 } from '@/features/tasks/schema';
 import { todayIn, todayIso } from '@/lib/format-date';
@@ -166,4 +169,26 @@ export function repairCounts(stuck: readonly StuckRepair[]): RepairCounts {
     overdue: stuck.filter((one) => one.isOverdue).length,
     technicianOff: stuck.filter((one) => one.isTechnicianOff).length,
   };
+}
+
+function byDayThenTaskId(a: OffStaffTask, b: OffStaffTask): number {
+  if (a.scheduled_date !== b.scheduled_date) {
+    return a.scheduled_date < b.scheduled_date ? -1 : 1;
+  }
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+/**
+ * The work under way on people switched off, oldest first
+ * (docs/staff-disable-plan.md). Switching an account off takes it off every
+ * job nobody has started (20261004100000); what it had started stays on it,
+ * and the manager decides — hands it on or closes it. The reader asks the
+ * server for exactly these; the rule is said here too, so the tile and the
+ * list never count anything else.
+ */
+export function offStaffWork(work: readonly OffStaffTask[]): OffStaffTask[] {
+  const underWay: readonly TaskStatus[] = UNDER_WAY_STATUSES;
+  return work
+    .filter((task) => underWay.includes(task.status) && isTechnicianOff(task))
+    .sort(byDayThenTaskId);
 }
