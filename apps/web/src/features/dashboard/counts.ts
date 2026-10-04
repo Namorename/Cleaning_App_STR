@@ -182,7 +182,8 @@ function byDayThenTaskId(a: OffStaffTask, b: OffStaffTask): number {
  * The work under way on people switched off, oldest first
  * (docs/staff-disable-plan.md). Switching an account off takes it off every
  * job nobody has started (20261004100000); what it had started stays on it,
- * and the manager decides — hands it on or closes it. The reader asks the
+ * and the manager decides — hands it on, or the night sweep closes it a day
+ * after its day (expire_stale_tasks). The reader asks the
  * server for exactly these; the rule is said here too, so the tile and the
  * list never count anything else.
  */

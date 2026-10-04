@@ -172,7 +172,7 @@
       },
       "offWork": {
         "title": "Rozpracované úklidy u vypnutých",
-        "hint": "Vypnutí jim odebralo vše, co nezačali. Rozpracované čeká na rozhodnutí: předejte ho jinému nebo ho uzavřete v Úklidech.",
+        "hint": "Vypnutí jim odebralo vše, co nezačali. Rozpracované čeká na rozhodnutí: předejte úklid jinému. Pokud ho nepředáte, po dni rezervy se sám uzavře a bude označen „Neproběhlo“.",
         "loading": "Načítáme úklidy…",
         "empty": "Vypnutí nemají žádné rozpracované úklidy.",
         "open": "Otevřít úklid",

@@ -397,6 +397,21 @@ describe('the work under way of people switched off', () => {
     expect(screen.getByRole('dialog')).toHaveTextContent(`form of ${late.id}`);
   });
 
+  // A started booking's cleaning cannot be closed from «Уборки» (only a
+  // hand-made job can be cancelled there), and the night sweep closes it a day
+  // after its day as one that never happened (expire_stale_tasks): the words
+  // say what the manager can do and what happens if she does not.
+  test('says what deciding means: hand it on, or it closes by itself after a day', () => {
+    render(<DashboardView />);
+
+    expect(
+      screen.getByText(
+        'Отключение сняло с них всё неначатое. Начатое ждёт решения: передайте уборку другому. ' +
+          'Если не передать, после дня запаса она закроется сама и будет отмечена «Не состоялась».',
+      ),
+    ).toBeInTheDocument();
+  });
+
   test('say so when there are none', () => {
     render(<DashboardView />);
 

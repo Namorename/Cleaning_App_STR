@@ -172,7 +172,7 @@
       },
       "offWork": {
         "title": "Cleanings in progress held by switched-off staff",
-        "hint": "Switching them off took away everything not yet started. What they had started waits for a decision: hand it to someone else or close it in Cleanings.",
+        "hint": "Switching them off took away everything not yet started. What they had started waits for a decision: hand the cleaning to someone else. If it is not handed on, after a day's grace it closes by itself and is marked “Did not happen”.",
         "loading": "Loading the cleanings…",
         "empty": "No switched-off staff have cleanings in progress.",
         "open": "Open the cleaning",

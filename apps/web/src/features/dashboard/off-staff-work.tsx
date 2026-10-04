@@ -25,8 +25,9 @@ interface OffStaffWorkProps {
  * The work under way on people switched off, oldest first
  * (docs/staff-disable-plan.md). Switching an account off took it off every
  * job nobody had started; these it had started, and each waits for the
- * manager to hand it on or close it: the place, the day, the job, its state,
- * who left it, and the job itself to open.
+ * manager to hand it on — left alone, the night sweep closes it a day after
+ * its day as one that never happened (expire_stale_tasks). The place, the
+ * day, the job, its state, who left it, and the job itself to open.
  */
 export function OffStaffWork({ work, isError, onOpen }: OffStaffWorkProps) {
   const { t } = useTranslation();
