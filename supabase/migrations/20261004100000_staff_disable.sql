@@ -29,6 +29,11 @@
 --   (push_on_task_change when it is written, claim_push_batch when it is
 --   sent), and she no longer does. Nobody else hears of a task open again:
 --   there is no push of that kind, and none is added here.
+-- - Her pushes still waiting in the queue are settled as skipped — what the
+--   sender does with them while she is off (claim_push_batch) — so switched on
+--   again before they go, she does not hear «Вам назначена уборка» of a
+--   cleaning the switch took off her. A group a sender holds right now is that
+--   sender's; the release waits for a claim under way (its advisory lock).
 -- - Her 'auto' links become 'claim'. The generator names a person only through
 --   an 'auto' link; without one, her listings' cleanings come free. Her place
 --   in their queue stays, so switched on again she may take their free work —
@@ -196,6 +201,7 @@ declare
   v_taken_off integer := 0;
   v_freed     integer;
   v_links     integer;
+  v_pushes    integer;
 begin
   -- Only somebody who no longer works here: the trigger calls it for a person
   -- just switched off, the cleanup below for everybody already off.
@@ -250,15 +256,36 @@ begin
     and pc.mode = 'auto';
   get diagnostics v_links = row_count;
 
-  return jsonb_build_object('cleanings', v_freed, 'repairs', v_taken_off, 'links', v_links);
+  -- Her pushes still waiting, settled now as the sender settles them while she
+  -- is off (claim_push_batch: skipped). Switched on again before they are due,
+  -- she would otherwise hear «Вам назначена уборка» of work the switch took
+  -- off her. One sender decides what is due at a time: the release waits for
+  -- a claim under way, then leaves a group a sender holds to that sender.
+  perform pg_advisory_xact_lock(hashtext('public.claim_push_batch'));
+  update raw.push_outbox o
+  set settled_at = now(),
+      outcome = 'skipped',
+      claimed_until = null
+  where o.recipient_id = p_person
+    and o.settled_at is null
+    and not exists (select 1 from raw.push_outbox l
+                    where l.recipient_id = o.recipient_id
+                      and l.collapse_key = o.collapse_key
+                      and l.settled_at is null
+                      and l.claimed_until > now());
+  get diagnostics v_pushes = row_count;
+
+  return jsonb_build_object('cleanings', v_freed, 'repairs', v_taken_off, 'links', v_links,
+                            'pushes', v_pushes);
 end;
 $$;
 
 comment on function public.release_work_of_inactive(uuid) is
   'Take a person who no longer works here off every job nobody has started: a '
   'repair of a task taken off (take_off_repairs), any other job free again, her '
-  '''auto'' links ''claim''. Work under way and closed work stay. Answers what it '
-  'did: cleanings, repairs, links (20261004100000).';
+  '''auto'' links ''claim'', her pushes still waiting settled as skipped. Work under '
+  'way and closed work stay. Answers what it did: cleanings, repairs, links, pushes '
+  '(20261004100000).';
 
 revoke all on function public.release_work_of_inactive(uuid) from public, anon, authenticated;
 
@@ -391,7 +418,8 @@ do $$
 declare
   v_person uuid;
   v_done   jsonb;
-  v_total  jsonb := jsonb_build_object('people', 0, 'cleanings', 0, 'repairs', 0, 'links', 0);
+  v_total  jsonb := jsonb_build_object('people', 0, 'cleanings', 0, 'repairs', 0, 'links', 0,
+                                       'pushes', 0);
 begin
   for v_person in
     select p.id from public.profiles p where not p.is_active order by p.id
@@ -401,7 +429,8 @@ begin
       'people',    (v_total ->> 'people')::int + 1,
       'cleanings', (v_total ->> 'cleanings')::int + (v_done ->> 'cleanings')::int,
       'repairs',   (v_total ->> 'repairs')::int + (v_done ->> 'repairs')::int,
-      'links',     (v_total ->> 'links')::int + (v_done ->> 'links')::int);
+      'links',     (v_total ->> 'links')::int + (v_done ->> 'links')::int,
+      'pushes',    (v_total ->> 'pushes')::int + (v_done ->> 'pushes')::int);
   end loop;
   raise notice 'staff_disable cleanup: %', v_total;
 end;
