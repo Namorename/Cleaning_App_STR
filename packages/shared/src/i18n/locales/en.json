@@ -247,6 +247,7 @@
       },
       "actions": {
         "resolve": "Mark as done",
+        "more": "More actions",
         "cancel": "Cancel the task",
         "cancelReason": "Cancel reason",
         "cancelConfirm": "Confirm cancellation",

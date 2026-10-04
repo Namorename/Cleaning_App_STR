@@ -247,6 +247,7 @@
       },
       "actions": {
         "resolve": "Označit jako splněný",
+        "more": "Další akce",
         "cancel": "Zrušit úkol",
         "cancelReason": "Důvod zrušení",
         "cancelConfirm": "Potvrdit zrušení",

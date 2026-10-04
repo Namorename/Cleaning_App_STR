@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -130,6 +130,15 @@ beforeEach(() => {
   );
 });
 
+/** Opens the header's «⋯» and hands back the menu. */
+async function openMoreActions(): Promise<HTMLElement> {
+  await userEvent.click(screen.getByRole('button', { name: 'Другие действия' }));
+  return screen.findByRole('menu');
+}
+
+const header = () =>
+  screen.getByRole('heading', { level: 1 }).closest('[data-slot="problem-head"]') as HTMLElement;
+
 describe('ProblemDetail', () => {
   test('is headed by the common header, with the way back to the list', () => {
     render(<ProblemDetail problemId={PROBLEM_ID} />);
@@ -168,6 +177,28 @@ describe('ProblemDetail', () => {
     expect(screen.queryByText(/: assigned$/)).toBeNull();
   });
 
+  // 5.4, variant A (docs/design/decisions.md §2): the levers were at the foot
+  // of the right card, under the steps; now they head the page and stay there.
+  test('keeps the title, the status and the actions in a header that stays on screen', () => {
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    expect(header()).toHaveClass('md:sticky');
+    expect(header()).toHaveTextContent('Назначено');
+    expect(
+      within(header()).getByRole('button', { name: 'Отметить выполненным' }),
+    ).toBeInTheDocument();
+    expect(within(header()).getByRole('button', { name: 'Другие действия' })).toBeInTheDocument();
+  });
+
+  test('sets the technician’s work beside the report, with no levers under its steps', () => {
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    const work = screen.getByText('Работа техника').closest('[data-slot="card"]') as HTMLElement;
+    expect(work.parentElement).toHaveClass('lg:grid-cols-2');
+    expect(within(work).queryByRole('button', { name: 'Отметить выполненным' })).toBeNull();
+    expect(within(work).getByRole('button', { name: 'Переназначить' })).toBeInTheDocument();
+  });
+
   test('reassigns with the chosen person, date and window', async () => {
     render(<ProblemDetail problemId={PROBLEM_ID} />);
 
@@ -186,18 +217,49 @@ describe('ProblemDetail', () => {
     );
   });
 
+  // «Отметить выполненным», «Отменить задание» and «Удалить в архив» stood
+  // side by side: the dangerous two now wait in the menu, after a separator.
+  test('keeps the dangerous actions away from «Отметить выполненным»', async () => {
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    expect(screen.queryByRole('button', { name: 'Отменить задание' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Удалить в архив' })).toBeNull();
+
+    const menu = await openMoreActions();
+    const items = within(menu).getAllByRole('menuitem');
+    expect(items.map((item) => item.textContent)).toEqual(['Отменить задание', 'Удалить в архив']);
+    expect(items[1]).toHaveAttribute('data-variant', 'destructive');
+  });
+
   test('resolves at once and cancels only after a confirmation with a reason', async () => {
     render(<ProblemDetail problemId={PROBLEM_ID} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Отметить выполненным' }));
     expect(mutations.resolve).toHaveBeenCalledWith(PROBLEM_ID);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Отменить задание' }));
+    const menu = await openMoreActions();
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Отменить задание' }));
+    const question = await screen.findByRole('dialog', { name: 'Отменить задание' });
     expect(mutations.cancel).not.toHaveBeenCalled();
-    await userEvent.type(screen.getByLabelText('Причина отмены'), 'Дубликат');
-    await userEvent.click(screen.getByRole('button', { name: 'Подтвердить отмену' }));
-    expect(mutations.cancel).toHaveBeenCalledWith({ problemId: PROBLEM_ID, reason: 'Дубликат' });
-  });
+    await userEvent.type(within(question).getByLabelText('Причина отмены'), 'Дубликат');
+    await userEvent.click(within(question).getByRole('button', { name: 'Подтвердить отмену' }));
+    expect(mutations.cancel).toHaveBeenCalledWith(
+      { problemId: PROBLEM_ID, reason: 'Дубликат' },
+      expect.anything(),
+    );
+  }, 20000);
+
+  test('«Не отменять» closes the question and cancels nothing', async () => {
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    const menu = await openMoreActions();
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Отменить задание' }));
+    const question = await screen.findByRole('dialog', { name: 'Отменить задание' });
+    await userEvent.click(within(question).getByRole('button', { name: 'Не отменять' }));
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(mutations.cancel).not.toHaveBeenCalled();
+  }, 20000);
 
   test('offers to reopen a closed problem instead of the live levers, and explains a missing one', async () => {
     queries.problem.mockReturnValue(
@@ -206,6 +268,13 @@ describe('ProblemDetail', () => {
     const { unmount } = render(<ProblemDetail problemId={PROBLEM_ID} />);
     expect(screen.queryByRole('button', { name: 'Отметить выполненным' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Техник')).not.toBeInTheDocument();
+    const menu = await openMoreActions();
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Удалить в архив']);
+    await userEvent.keyboard('{Escape}');
     await userEvent.click(screen.getByRole('button', { name: 'Вернуть в работу' }));
     expect(mutations.reopen).toHaveBeenCalledWith(PROBLEM_ID);
     unmount();
@@ -213,15 +282,17 @@ describe('ProblemDetail', () => {
     queries.problem.mockReturnValue(loaded(null));
     render(<ProblemDetail problemId={PROBLEM_ID} />);
     expect(screen.getByText('Задание не найдено')).toBeInTheDocument();
-  });
+  }, 20000);
 
   test('archives only after a confirmation and restores an archived problem', async () => {
     const { unmount } = render(<ProblemDetail problemId={PROBLEM_ID} />);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Удалить в архив' }));
+    const menu = await openMoreActions();
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Удалить в архив' }));
+    const question = await screen.findByRole('dialog', { name: 'Удалить в архив' });
     expect(mutations.archive).not.toHaveBeenCalled();
-    expect(screen.getByText(/Ничего не удаляется/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Да, в архив' }));
+    expect(question).toHaveTextContent(/Ничего не удаляется/);
+    await userEvent.click(within(question).getByRole('button', { name: 'Да, в архив' }));
     expect(mutations.archive).toHaveBeenCalledWith(PROBLEM_ID, expect.anything());
     unmount();
 
@@ -236,8 +307,20 @@ describe('ProblemDetail', () => {
     render(<ProblemDetail problemId={PROBLEM_ID} />);
     expect(screen.getByText(/В архиве с/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Отметить выполненным' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Другие действия' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Техник')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Восстановить из архива' }));
     expect(mutations.unarchive).toHaveBeenCalledWith(PROBLEM_ID);
+  }, 20000);
+
+  test('every control of the page is a 44 px target', () => {
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    expect(screen.getByRole('button', { name: 'Отметить выполненным' })).toHaveClass('h-11');
+    expect(screen.getByRole('button', { name: 'Другие действия' })).toHaveClass('size-11');
+    expect(screen.getByRole('button', { name: 'Переназначить' })).toHaveClass('h-11');
+    for (const label of ['Техник', 'Дата', 'С', 'До']) {
+      expect(screen.getByLabelText(label)).toHaveClass('h-11');
+    }
   });
 });
