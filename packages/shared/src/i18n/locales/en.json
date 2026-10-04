@@ -280,7 +280,7 @@
         "cardMenu": "Actions: {{title}}",
         "startOnPhone": "Only the technician moves a task into work, with the “Start work” button in the app",
         "cannotMove": "A card cannot be moved from here to there",
-        "unassigned": "The technician's job is cancelled, the task is open again",
+        "unassigned": "The technician is taken off the job, the task is open again",
         "resolveTitle": "Mark as done?",
         "resolveText": "“{{title}}” will close as done. The technician's job, if any, will be finished.",
         "resolveConfirm": "Yes, done",

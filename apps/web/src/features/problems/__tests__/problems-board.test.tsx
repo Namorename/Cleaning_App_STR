@@ -320,6 +320,26 @@ describe('ProblemsBoard card menu', () => {
     );
   });
 
+  // Owner, 05.10: since f969563 the server takes the technician off the job
+  // (unassign_problem) rather than cancelling it, and the line says so.
+  test('says the technician is taken off once the server has done it', async () => {
+    mutations.unassign.mockImplementation(
+      (_variables: unknown, options: { onSuccess?: () => void }) => options.onSuccess?.(),
+    );
+    render(<ProblemsBoard problems={problems} />);
+
+    const menu = await openCardMenu('Сломан замок');
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Перевести в «Открыто»' }));
+    const question = screen.queryByRole('dialog');
+    if (question !== null) {
+      await userEvent.click(within(question).getByRole('button', { name: 'Снять' }));
+    }
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Техник снят с работы, задание снова открыто',
+    );
+  });
+
   test('«Назначено» opens the technician form, «Выполнено» asks first', async () => {
     render(<ProblemsBoard problems={problems} />);
 

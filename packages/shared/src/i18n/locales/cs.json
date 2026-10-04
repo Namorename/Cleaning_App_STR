@@ -280,7 +280,7 @@
         "cardMenu": "Akce: {{title}}",
         "startOnPhone": "Do práce úkol převádí technik tlačítkem „Začít práci“ v aplikaci",
         "cannotMove": "Odsud sem kartu přesunout nelze",
-        "unassigned": "Práce technika je zrušena, úkol je znovu otevřený",
+        "unassigned": "Technik je stažen z práce, úkol je znovu otevřený",
         "resolveTitle": "Označit jako splněný?",
         "resolveText": "„{{title}}“ se uzavře jako splněný. Práce technika, pokud existuje, bude dokončena.",
         "resolveConfirm": "Ano, splněno",
