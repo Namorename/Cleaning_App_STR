@@ -78,4 +78,32 @@ describe('useAddressState', () => {
     rerender();
     expect(result.current[0]).toBe('upcoming');
   });
+
+  // The review of 2026-10-04: a change undone before the router showed it is
+  // never shown at all — the router catches up with the last write only. What
+  // was written then must not pass for an echo when a link brings it later.
+  test('a write the router never showed is not taken for an echo later', () => {
+    const { result, rerender } = renderTab();
+    act(() => result.current[1]('upcoming'));
+    act(() => result.current[1]('today'));
+    rerender();
+    expect(result.current[0]).toBe('today');
+
+    // A link to the same query, a while later: Next moves the address and the router.
+    window.history.replaceState(null, '', '/tasks?tab=upcoming');
+    router.search = 'tab=upcoming';
+    rerender();
+    expect(result.current[0]).toBe('upcoming');
+  });
+
+  test('the address keeps its anchor when the state is written', () => {
+    window.history.replaceState(null, '', '/tasks#today');
+    const { result } = renderTab();
+
+    act(() => result.current[1]('upcoming'));
+
+    expect(`${window.location.pathname}${window.location.search}${window.location.hash}`).toBe(
+      '/tasks?tab=upcoming#today',
+    );
+  });
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 
 interface AddressView<T> {
@@ -9,6 +9,15 @@ interface AddressView<T> {
   seen: string;
   /** Queries this view wrote that the router has not shown back yet, oldest first. */
   pending: readonly string[];
+}
+
+/** Whether the window's address still holds the last query a view wrote. */
+function isLastWriteInWindow(pending: readonly string[]): boolean {
+  return (
+    pending.length > 0 &&
+    typeof window !== 'undefined' &&
+    window.location.search.slice(1) === pending[pending.length - 1]
+  );
 }
 
 /**
@@ -26,6 +35,12 @@ interface AddressView<T> {
  * against what this view wrote and ignored. Any other query — the menu's link
  * to the bare page, «Назад» onto it — is read afresh and wins.
  *
+ * An echo is only an echo while the window's address is still this view's
+ * last write. The router may skip a write undone before it was shown — type a
+ * letter and take it back — and that query then waits in `pending` for an
+ * echo that never comes; a link that brings the same query later moves the
+ * window's address, so it is read as the foreign address it is.
+ *
  * `write` returns the query without its `?`, empty for the screen's defaults,
  * with the same encoding `URLSearchParams` gives it.
  */
@@ -33,7 +48,6 @@ export function useAddressState<T>(
   read: (params: URLSearchParams) => T,
   write: (value: T) => string,
 ): readonly [T, (next: T) => void] {
-  const pathname = usePathname();
   const address = useSearchParams().toString();
   const [view, setView] = useState<AddressView<T>>(() => ({
     value: read(new URLSearchParams(address)),
@@ -43,7 +57,7 @@ export function useAddressState<T>(
 
   let current = view;
   if (address !== view.seen) {
-    const own = view.pending.indexOf(address);
+    const own = isLastWriteInWindow(view.pending) ? view.pending.indexOf(address) : -1;
     current =
       own === -1
         ? { value: read(new URLSearchParams(address)), seen: address, pending: [] }
@@ -51,10 +65,13 @@ export function useAddressState<T>(
     setView(current);
   }
 
+  // The path and the anchor are the window's at the moment of writing: the
+  // query is all this view owns of the address.
   const update = (next: T) => {
     const search = write(next);
     setView((previous) => ({ ...previous, value: next, pending: [...previous.pending, search] }));
-    window.history.replaceState(null, '', search === '' ? pathname : `${pathname}?${search}`);
+    const { pathname, hash } = window.location;
+    window.history.replaceState(null, '', `${pathname}${search === '' ? '' : `?${search}`}${hash}`);
   };
 
   return [current.value, update] as const;
