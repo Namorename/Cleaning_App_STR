@@ -271,9 +271,9 @@ select pg_temp.check('a run that would hand a cleaning to somebody switched off 
   pg_temp.refusal('select public.generate_cleaning_tasks(current_date + 5, current_date + 6)'),
   '23514 serverErrors.taskAssigneeInvalid');
 
-select pg_temp.check('the cleanup counts what it took off',
+select pg_temp.check('the cleanup counts what it took off, and the pushes still waiting for him',
   public.release_work_of_inactive(pg_temp.gone()),
-  jsonb_build_object('cleanings', 2, 'repairs', 1, 'links', 1));
+  jsonb_build_object('cleanings', 2, 'repairs', 1, 'links', 1, 'pushes', 3));
 select pg_temp.check('his unstarted cleaning and inspection are free',
   pg_temp.states(array[31, 32]), array['unassigned nobody', 'unassigned nobody']);
 select pg_temp.check('his repair is taken off and its task open again',
@@ -512,5 +512,50 @@ select pg_temp.check('work under way on them is what the dashboard shows',
      and not p.is_active
      and t.status in ('in_progress', 'paused', 'blocked')),
   array['10 blocked', '34 in_progress']);
+
+-- ---------------------------------------------------------------------------
+--  10. Her pushes still waiting go with her
+-- ---------------------------------------------------------------------------
+
+-- At night the office hands Bella a cleaning, and the push waits for the
+-- morning. She is switched off before it goes and back on before seven: she
+-- must not hear «Вам назначена уборка» of a cleaning the switch took off her.
+-- Her rows are settled as claim_push_batch would settle them while she is off
+-- (skipped); a group a sender holds right now is the sender's.
+select pg_temp.clear();
+select pg_temp.as_boss();
+select public.save_task('b3602001-0000-4000-8000-000000000040', 900036002, 'cleaning',
+                        current_date + 3, p_assignee_id => pg_temp.bella());
+reset role; reset request.jwt.claims;
+-- Seven o'clock has come: the row is due.
+update raw.push_outbox set send_after = now() - interval '1 minute',
+                           expire_at = now() + interval '30 minutes'
+where recipient_id = pg_temp.bella();
+insert into raw.push_outbox (host_id, recipient_id, kind, collapse_key, params, urgent,
+                             send_after, expire_at, claimed_until, claimed_at, claimed_by)
+values ('b3600000-0000-4000-8000-00000000000a', pg_temp.bella(), 'cleaning_window', 'task:leased',
+        '{}', true, now() - interval '1 minute', now() + interval '30 minutes',
+        now() + interval '1 minute', now(), gen_random_uuid());
+select pg_temp.check('the handing out waits in the queue for her, beside a group a sender holds',
+  (select array_agg(o.kind::text order by o.kind::text) from raw.push_outbox o
+   where o.recipient_id = pg_temp.bella() and o.settled_at is null),
+  array['cleaning_assigned', 'cleaning_window']);
+
+update public.profiles set is_active = false where id = pg_temp.bella();
+select pg_temp.check('switched off, her waiting push is settled as skipped, unleased',
+  (select array[o.outcome, (o.settled_at is not null)::text, (o.claimed_until is null)::text]
+   from raw.push_outbox o
+   where o.recipient_id = pg_temp.bella() and o.kind = 'cleaning_assigned'),
+  array['skipped', 'true', 'true']);
+select pg_temp.check('the group a sender holds is left to the sender',
+  (select o.settled_at is null from raw.push_outbox o
+   where o.recipient_id = pg_temp.bella() and o.collapse_key = 'task:leased'),
+  true);
+
+update public.profiles set is_active = true where id = pg_temp.bella();
+select pg_temp.check('switched on again before seven, the sender hands her nothing',
+  (select count(*)::int from jsonb_array_elements(public.claim_push_batch(100)) g
+   where g ->> 'recipient_id' = pg_temp.bella()::text),
+  0);
 
 rollback;
