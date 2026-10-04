@@ -19,6 +19,14 @@ function renderTab() {
   return renderHook(() => useAddressState(readTab, writeTab));
 }
 
+/** «Назад»: jsdom walks the history a task later and says so with `popstate`. */
+function goBack(): Promise<void> {
+  return new Promise((resolve) => {
+    window.addEventListener('popstate', () => resolve(), { once: true });
+    window.history.back();
+  });
+}
+
 beforeEach(() => {
   router.search = '';
   window.history.replaceState(null, '', '/tasks');
@@ -45,6 +53,46 @@ describe('useAddressState', () => {
     expect(`${window.location.pathname}${window.location.search}`).toBe('/tasks');
     // Replaced, not pushed: «Назад» leaves the page rather than walking its filters.
     expect(window.history.length).toBe(before);
+  });
+
+  // Owner, 04.10: a new tab is a step «Назад» walks back; a filter is not.
+  test('a change written as a step is pushed, and «Назад» brings the value before it back', async () => {
+    const { result, rerender } = renderTab();
+    const before = window.history.length;
+
+    act(() => result.current[1]('closed', 'push'));
+    expect(window.history.length).toBe(before + 1);
+    expect(window.location.search).toBe('?tab=closed');
+    // The push's own echo.
+    router.search = 'tab=closed';
+    rerender();
+    expect(result.current[0]).toBe('closed');
+
+    // «Назад»: the window and then the router move to the step before.
+    await goBack();
+    expect(window.location.search).toBe('');
+    router.search = '';
+    rerender();
+    expect(result.current[0]).toBe('today');
+  });
+
+  test('a change replaced after a step stays on that step: «Назад» skips it', async () => {
+    const { result, rerender } = renderTab();
+    act(() => result.current[1]('closed', 'push'));
+    const steps = window.history.length;
+    router.search = 'tab=closed';
+    rerender();
+
+    act(() => result.current[1]('upcoming'));
+    expect(window.history.length).toBe(steps);
+    router.search = 'tab=upcoming';
+    rerender();
+    expect(result.current[0]).toBe('upcoming');
+
+    await goBack();
+    router.search = '';
+    rerender();
+    expect(result.current[0]).toBe('today');
   });
 
   test('its own writes coming back late never undo a newer change', () => {

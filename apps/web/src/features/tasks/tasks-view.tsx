@@ -37,7 +37,8 @@ import { useCancelTask, useStaff, useTasks } from './use-tasks';
  * that is how a day is worked; the day itself on the tabs that span days.
  *
  * The tab and the filters live in the address: leaving the screen and coming
- * back with «Назад», a reload or a forwarded link find it as it was.
+ * back with «Назад», a reload or a forwarded link find it as it was. Each new
+ * tab is a step of the history, so «Назад» also walks back through the tabs.
  */
 export function TasksView() {
   const { t } = useTranslation();
@@ -50,7 +51,8 @@ export function TasksView() {
   const cancelFailure = cancel.isError ? serverErrorText(cancel.error) : null;
   const [address, setAddress] = useAddressState(readTasksAddress, writeTasksAddress);
   const { tab, filters } = address;
-  const setTab = (next: TaskTab) => setAddress({ ...address, tab: next });
+  // A tab is a step «Назад» walks back; a filter is changed in place (owner, 04.10).
+  const setTab = (next: TaskTab) => setAddress({ ...address, tab: next }, 'push');
   const setFilters = (next: TaskFilters) => setAddress({ ...address, filters: next });
   // The dialogs and the drawer live only while they are open: a fresh mount
   // is a fresh draft, which is why none needs an effect to reset itself.

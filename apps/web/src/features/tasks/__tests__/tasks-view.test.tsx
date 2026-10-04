@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, onTestFinished, test, vi } from 'vitest';
 
@@ -127,12 +127,21 @@ vi.mock('@/features/chat/thread-panel', () => ({
   ),
 }));
 
-// The router reads the address jsdom holds; the view writes it with
-// history.replaceState, which jsdom keeps as a browser would.
-vi.mock('next/navigation', () => ({
-  useSearchParams: () => new URLSearchParams(window.location.search),
-  usePathname: () => window.location.pathname,
-}));
+// The router reads the address jsdom holds; the view writes it through
+// history, which jsdom keeps as a browser would. «Назад» moves it a task later
+// with `popstate`, and the router shows the page again — as Next does.
+vi.mock('next/navigation', async () => {
+  const { useSyncExternalStore } = await import('react');
+  const subscribe = (onChange: () => void) => {
+    window.addEventListener('popstate', onChange);
+    return () => window.removeEventListener('popstate', onChange);
+  };
+  return {
+    useSearchParams: () =>
+      new URLSearchParams(useSyncExternalStore(subscribe, () => window.location.search)),
+    usePathname: () => window.location.pathname,
+  };
+});
 
 // The marks come from one company-wide answer; here it is a pair of sets the
 // test fills by hand.
@@ -145,6 +154,14 @@ import { TasksView } from '../tasks-view';
 
 /** The query of the page's address, without its `?`. */
 const query = () => window.location.search.slice(1);
+
+/** «Назад»: jsdom walks the history a task later and says so with `popstate`. */
+function goBack(): Promise<void> {
+  return new Promise((resolve) => {
+    window.addEventListener('popstate', () => resolve(), { once: true });
+    window.history.back();
+  });
+}
 
 /** The table row a text stands in. */
 const rowOf = (text: string) => screen.getByText(text).closest('tr') as HTMLElement;
@@ -638,6 +655,46 @@ describe('TasksView keeps its tab and filters in the address', () => {
       'true',
     );
   }, 20000);
+
+  // Owner, 04.10: a tab is a step «Назад» walks back; the search and the filters are not.
+  test('«Назад» from a tab returns to the tab before, with its filters, read from the address', async () => {
+    render(<TasksView />);
+    const steps = window.history.length;
+
+    await userEvent.click(screen.getByRole('tab', { name: /Ближайшие/ }));
+    await userEvent.click(screen.getByRole('tab', { name: /Завершённые/ }));
+    expect(window.history.length).toBe(steps + 2);
+    await userEvent.selectOptions(screen.getByLabelText('Тип'), 'Осмотр');
+    await userEvent.type(screen.getByLabelText(/Поиск/), 'окна');
+    expect(window.history.length).toBe(steps + 2);
+    expect(query()).toBe('tab=closed&q=%D0%BE%D0%BA%D0%BD%D0%B0&type=inspection');
+
+    await act(() => goBack());
+    expect(query()).toBe('tab=upcoming');
+    expect(screen.getByRole('tab', { name: /Ближайшие/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByLabelText('Тип')).toHaveValue('all');
+    expect(screen.getByLabelText(/Поиск/)).toHaveValue('');
+
+    await act(() => goBack());
+    expect(screen.getByRole('tab', { name: /Сегодня/ })).toHaveAttribute('aria-selected', 'true');
+  }, 20000);
+
+  // Owner, 04.10: the menu's «Уборки» and the dashboard's tile lead to the bare
+  // `/tasks` (their links are checked in sidebar.test and dashboard-view.test);
+  // the screen remembers nothing of the last visit.
+  test('the bare address opens the plain screen, whatever was filtered before', async () => {
+    const first = render(<TasksView />);
+    await userEvent.click(screen.getByRole('tab', { name: /Завершённые/ }));
+    await userEvent.selectOptions(screen.getByLabelText('Исполнитель'), 'Без исполнителя');
+    first.unmount();
+
+    window.history.pushState(null, '', '/tasks');
+    render(<TasksView />);
+
+    expect(screen.getByRole('tab', { name: /Сегодня/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByLabelText('Исполнитель')).toHaveValue('all');
+    expect(query()).toBe('');
+  });
 
   test('a screen opened afresh on the written address is the screen that was left', async () => {
     const first = render(<TasksView />);
