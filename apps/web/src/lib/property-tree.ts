@@ -95,6 +95,34 @@ export function buildPropertyTree<T extends TreeRow>(rows: readonly T[]): Proper
     .map((row) => nodeOf(row, childrenOf, row.parent_id !== null));
 }
 
+/**
+ * The rows a search keeps, in the order given — the registry's and the
+ * calendar's (docs/f10-plan.md, 7.1). A search keeps a group readable: a row
+ * that matched comes with the listing it hangs under, and a listing that
+ * matched keeps all of its rooms. A part of a combined listing is a listing of
+ * its own, with its own name and bookings, and is not dragged along by its
+ * villa — it has to match by itself.
+ */
+export function rowsMatching<T extends TreeRow>(
+  rows: readonly T[],
+  isMatch: (row: T) => boolean,
+): T[] {
+  const present = new Set(rows.map((row) => row.id));
+  const found = new Set(rows.filter(isMatch).map((row) => row.id));
+  const listingsOfFound = new Set(
+    rows
+      .filter((row) => found.has(row.id) && row.parent_id !== null && present.has(row.parent_id))
+      .map((row) => row.parent_id),
+  );
+
+  return rows.filter(
+    (row) =>
+      found.has(row.id) ||
+      listingsOfFound.has(row.id) ||
+      (isRoomRow(row) && row.parent_id !== null && found.has(row.parent_id)),
+  );
+}
+
 /** The rows as they are drawn: a closed group shows its listing alone. */
 export function visibleRows<T extends TreeRow>(
   tree: readonly PropertyNode<T>[],

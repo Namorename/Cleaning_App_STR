@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { rowsMatching } from '@/lib/property-tree';
 import { matchesAllTokens } from '@/lib/search';
 
 /**
@@ -328,26 +329,7 @@ export function registryRows(all: Property[], tab: ApartmentTab, query: string):
   if (query.trim() === '') {
     return inTab;
   }
-
-  const found = new Set(
-    inTab.filter((property) => matchesTokens(property, query)).map((property) => property.id),
-  );
-  const present = new Set(inTab.map((property) => property.id));
-  const parentsOfFound = new Set(
-    inTab
-      .filter(
-        (property) =>
-          found.has(property.id) && property.parent_id !== null && present.has(property.parent_id),
-      )
-      .map((property) => property.parent_id),
-  );
-
-  return inTab.filter(
-    (property) =>
-      found.has(property.id) ||
-      parentsOfFound.has(property.id) ||
-      (isRoom(property) && property.parent_id !== null && found.has(property.parent_id)),
-  );
+  return rowsMatching(inTab, (property) => matchesTokens(property, query));
 }
 
 // ---------------------------------------------------------------------------

@@ -792,6 +792,8 @@
       "previous": "Předchozí období",
       "next": "Další období",
       "depthLabel": "Rozsah",
+      "search": "Najít objekt podle názvu",
+      "noMatches": "Žádný objekt s takovým názvem.",
       "days_one": "{{count}} den",
       "days_few": "{{count}} dny",
       "days_many": "{{count}} dne",
