@@ -1,8 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 
 import { taskSchema, type Task } from '../schema';
-import { TaskCard } from '../task-card';
+import { TaskRow } from '../task-row';
 
 // 10:00 UTC on 23.09: the same calendar day in the fixtures' zone whatever
 // the machine's clock says, so no run can straddle midnight.
@@ -39,42 +39,45 @@ const base = {
 const task = (overrides: Partial<Record<keyof typeof base, unknown>>): Task =>
   taskSchema.parse({ ...base, ...overrides });
 
-function renderCard(one: Task) {
-  return render(
-    <TaskCard task={one} now={NOW} onEdit={vi.fn()} onOpenWork={vi.fn()} onCancel={vi.fn()} />,
+function renderRow(one: Task) {
+  render(
+    <table>
+      <tbody>
+        <TaskRow task={one} now={NOW} onEdit={vi.fn()} onOpenWork={vi.fn()} onCancel={vi.fn()} />
+      </tbody>
+    </table>,
   );
+  return screen.getByRole('row');
 }
 
 describe('a live cleaning left over from yesterday', () => {
   test('says since when and which check-out it belongs to, in words', () => {
-    renderCard(task({ scheduled_date: '2026-09-22' }));
+    renderRow(task({ scheduled_date: '2026-09-22' }));
 
     expect(screen.getByText('со вчера · выезд 22.09')).toBeInTheDocument();
   });
 
-  // The frame is the overdue tone's since 5.2 (STATUS_TONE['tasks.tail']), no longer
-  // `destructive`: red is «Просрочено» and «Срочно» only, in their own shades.
-  test('is framed in the overdue tone, so it stands out among the day', () => {
-    const { container } = renderCard(task({ scheduled_date: '2026-09-22' }));
+  // The stripe is the overdue tone's (STATUS_TONE['tasks.tail']): red is
+  // «Просрочено» and «Срочно» only, in their own shades.
+  test('is striped in the overdue tone, so it stands out among the day', () => {
+    const row = renderRow(task({ scheduled_date: '2026-09-22' }));
 
-    expect(container.querySelector('[data-slot="card"]')).toHaveClass(
-      'border-tone-overdue-border',
-    );
+    expect(row).toHaveAttribute('data-tail');
+    expect(within(row).getAllByRole('cell')[0]).toHaveClass('border-tone-overdue-mark');
   });
 });
 
 describe('a task that is not a tail', () => {
-  test("today's cleaning carries neither the label nor the frame", () => {
-    const { container } = renderCard(task({}));
+  test("today's cleaning carries neither the label nor the stripe", () => {
+    const row = renderRow(task({}));
 
     expect(screen.queryByText(/со вчера/)).not.toBeInTheDocument();
-    expect(container.querySelector('[data-slot="card"]')).not.toHaveClass(
-      'border-tone-overdue-border',
-    );
+    expect(row).not.toHaveAttribute('data-tail');
+    expect(within(row).getAllByRole('cell')[0]).not.toHaveClass('border-tone-overdue-mark');
   });
 
   test('a finished one from yesterday is history, not a tail', () => {
-    renderCard(task({ scheduled_date: '2026-09-22', status: 'done' }));
+    renderRow(task({ scheduled_date: '2026-09-22', status: 'done' }));
 
     expect(screen.queryByText(/со вчера/)).not.toBeInTheDocument();
   });
@@ -82,7 +85,7 @@ describe('a task that is not a tail', () => {
 
 describe('an older tail', () => {
   test('a repair days behind is called overdue, with its planned day', () => {
-    renderCard(
+    renderRow(
       task({
         scheduled_date: '2026-09-19',
         status: 'assigned',
@@ -94,10 +97,11 @@ describe('an older tail', () => {
     );
 
     expect(screen.getByText('Просрочена · 19.09')).toBeInTheDocument();
+    expect(screen.getByText('Из задания')).toBeInTheDocument();
   });
 
   test('an older booking cleaning names its check-out', () => {
-    renderCard(
+    renderRow(
       task({
         scheduled_date: '2026-09-21',
         status: 'assigned',
@@ -106,5 +110,28 @@ describe('an older tail', () => {
     );
 
     expect(screen.getByText('Просрочена · выезд 21.09')).toBeInTheDocument();
+  });
+});
+
+describe('the rest of a row', () => {
+  test('a job without a window says so to a reader, a dash to the eye', () => {
+    const row = renderRow(task({}));
+
+    const when = within(row).getAllByRole('cell')[0];
+    expect(within(when).getByText('—')).toHaveAttribute('aria-hidden', 'true');
+    expect(within(when).getByText('Без времени')).toHaveClass('sr-only');
+  });
+
+  test('names who asked for a job the manager wrote, beside nothing else', () => {
+    renderRow(
+      task({
+        reservation_id: null,
+        author: { full_name: 'Eva Novak', role: 'manager' },
+      }),
+    );
+
+    expect(screen.getByText('Поставил:')).toBeInTheDocument();
+    expect(screen.getByTitle('Менеджер')).toHaveTextContent('Eva Novak');
+    expect(screen.queryByText('Из брони')).not.toBeInTheDocument();
   });
 });

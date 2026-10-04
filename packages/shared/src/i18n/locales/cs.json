@@ -423,6 +423,16 @@
         "dateTo": "Datum do",
         "reset": "Zrušit filtry"
       },
+      "columns": {
+        "window": "Čas",
+        "property": "Byt",
+        "type": "Druh",
+        "title": "Název",
+        "status": "Stav",
+        "assignee": "Vykonavatel",
+        "marks": "Štítky",
+        "actions": "Akce"
+      },
       "overdue": "Propadlo",
       "tail": {
         "yesterday": "od včera",
@@ -447,7 +457,8 @@
         "cancelConfirmYes": "Ano, zrušit",
         "cancelConfirmNo": "Ne",
         "openWork": "Jak úklid proběhl",
-        "openChat": "Chat"
+        "openChat": "Chat",
+        "menu": "Akce: {{name}}"
       },
       "form": {
         "titleNew": "Nový úklid",

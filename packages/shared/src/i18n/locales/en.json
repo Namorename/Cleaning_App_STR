@@ -423,6 +423,16 @@
         "dateTo": "Until",
         "reset": "Clear the filters"
       },
+      "columns": {
+        "window": "Time",
+        "property": "Listing",
+        "type": "Kind",
+        "title": "Title",
+        "status": "Status",
+        "assignee": "Executor",
+        "marks": "Flags",
+        "actions": "Actions"
+      },
       "overdue": "Overdue",
       "tail": {
         "yesterday": "since yesterday",
@@ -447,7 +457,8 @@
         "cancelConfirmYes": "Yes, cancel it",
         "cancelConfirmNo": "No",
         "openWork": "How the cleaning went",
-        "openChat": "Chat"
+        "openChat": "Chat",
+        "menu": "Actions: {{name}}"
       },
       "form": {
         "titleNew": "New cleaning",

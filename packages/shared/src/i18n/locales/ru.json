@@ -423,6 +423,16 @@
         "dateTo": "Дата по",
         "reset": "Сбросить фильтры"
       },
+      "columns": {
+        "window": "Время",
+        "property": "Объект",
+        "type": "Тип",
+        "title": "Название",
+        "status": "Статус",
+        "assignee": "Исполнитель",
+        "marks": "Метки",
+        "actions": "Действия"
+      },
       "overdue": "Просрочена",
       "tail": {
         "yesterday": "со вчера",
@@ -447,7 +457,8 @@
         "cancelConfirmYes": "Да, отменить",
         "cancelConfirmNo": "Нет",
         "openWork": "Как прошла уборка",
-        "openChat": "Чат"
+        "openChat": "Чат",
+        "menu": "Действия: {{name}}"
       },
       "form": {
         "titleNew": "Новая уборка",
