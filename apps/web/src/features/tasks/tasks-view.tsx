@@ -3,8 +3,10 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { formatDay, todayIso } from '@/lib/format-date';
@@ -28,8 +30,6 @@ import {
 } from './schema';
 import { useCancelTask, useStaff, useTasks } from './use-tasks';
 
-const SELECT_CLASS = 'h-9 rounded-md border bg-background px-2 text-sm';
-
 /**
  * The section's page: three tabs, a filter bar, and the work under headings.
  *
@@ -39,7 +39,7 @@ const SELECT_CLASS = 'h-9 rounded-md border bg-background px-2 text-sm';
 export function TasksView() {
   const { t } = useTranslation();
   const language = useLanguage();
-  const { data, isPending, isError } = useTasks();
+  const { data, isPending, isError, error } = useTasks();
   const unread = useUnreadSubjects();
   const staff = useStaff();
   // The cancel lives here, not in the card: its refusal arrives after the
@@ -83,8 +83,7 @@ export function TasksView() {
           aria-label={t('panel.tasks.filters.search')}
           className="w-72"
         />
-        <select
-          className={SELECT_CLASS}
+        <NativeSelect
           aria-label={t('panel.tasks.filters.assignee')}
           value={filters.assigneeId}
           onChange={(event) => setFilters({ ...filters, assigneeId: event.target.value })}
@@ -96,9 +95,8 @@ export function TasksView() {
               {person.full_name ?? person.id}
             </option>
           ))}
-        </select>
-        <select
-          className={SELECT_CLASS}
+        </NativeSelect>
+        <NativeSelect
           aria-label={t('panel.tasks.filters.type')}
           value={filters.type}
           onChange={(event) =>
@@ -111,7 +109,7 @@ export function TasksView() {
               {t(`panel.tasks.types.${type}`)}
             </option>
           ))}
-        </select>
+        </NativeSelect>
         <Input
           type="date"
           className="w-40"
@@ -148,11 +146,9 @@ export function TasksView() {
       )}
 
       {isPending ? (
-        <p className="text-sm text-muted-foreground">{t('panel.tasks.loading')}</p>
+        <LoadingState>{t('panel.tasks.loading')}</LoadingState>
       ) : isError ? (
-        <p role="alert" className="text-sm text-destructive">
-          {t('panel.tasks.loadError')}
-        </p>
+        <ErrorState message={t('panel.tasks.loadError')} error={error} />
       ) : (
         <Tabs value={tab} onValueChange={(value) => setTab(value as TaskTab)}>
           <TabsList>
@@ -165,9 +161,9 @@ export function TasksView() {
           </TabsList>
           <TabsContent value={tab} className="flex flex-col gap-4">
             {groups.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
+              <EmptyState>
                 {isFiltered ? t('panel.tasks.emptyFiltered') : t('panel.tasks.empty')}
-              </p>
+              </EmptyState>
             ) : (
               groups.map((group) => (
                 <section key={group.key} className="flex flex-col gap-2">

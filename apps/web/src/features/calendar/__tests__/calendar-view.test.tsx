@@ -860,14 +860,15 @@ describe('the compact view', () => {
     expect(chip).toHaveTextContent('SDT');
   });
 
-  test('a compact chip nobody holds says «Никто» in red', () => {
+  // Red is «Просрочено» and «Срочно» only (decision 3): nobody is the unassigned tone.
+  test('a compact chip nobody holds says «Никто» in the unassigned tone', () => {
     window.localStorage.setItem('str-ops.calendar.chip-view', 'compact');
     tasksState.data = [calendarTask(1, '2026-09-28', { status: 'unassigned' })];
     render(<CalendarView />);
 
     const chip = screen.getByRole('button', { name: /Никто/ });
     expect(chip).toHaveTextContent(/^Никто$/);
-    expect(within(chip).getByText('Никто')).toHaveClass('text-destructive');
+    expect(within(chip).getByText('Никто')).toHaveClass('text-tone-unassigned-fg');
   });
 
   test('a week’s cell holds two compact chips where the full view shows one and «+1»', () => {

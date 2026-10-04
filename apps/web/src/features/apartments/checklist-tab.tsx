@@ -4,8 +4,10 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import { moveAt, removeAt, replaceAt } from '@/lib/list';
 import { serverErrorText } from '@/lib/server-error';
 
@@ -24,8 +26,6 @@ import {
   useCopyChecklist,
   useSaveChecklist,
 } from './use-apartments';
-
-const SELECT_CLASS = 'h-9 rounded-md border bg-background px-2 text-sm';
 
 interface ChecklistTabProps {
   propertyId: number;
@@ -93,13 +93,11 @@ export function ChecklistTab({ propertyId, all, listing = null }: ChecklistTabPr
   };
 
   if (checklist.isPending) {
-    return <p className="text-sm text-muted-foreground">{t('panel.apartments.loading')}</p>;
+    return <LoadingState>{t('panel.apartments.loading')}</LoadingState>;
   }
   if (checklist.isError) {
     return (
-      <p role="alert" className="text-sm text-destructive">
-        {t('panel.apartments.checklist.loadError')}
-      </p>
+      <ErrorState message={t('panel.apartments.checklist.loadError')} error={checklist.error} />
     );
   }
   if (listing !== null) {
@@ -115,7 +113,7 @@ export function ChecklistTab({ propertyId, all, listing = null }: ChecklistTabPr
       ) : null}
 
       {modules.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('panel.apartments.checklist.empty')}</p>
+        <EmptyState>{t('panel.apartments.checklist.empty')}</EmptyState>
       ) : (
         <ul className="flex flex-col gap-4">
           {modules.map((section, moduleAt) => (
@@ -308,8 +306,7 @@ export function ChecklistTab({ propertyId, all, listing = null }: ChecklistTabPr
       <div className="flex flex-wrap items-end gap-2 border-t pt-3">
         <label className="flex flex-1 flex-col gap-1 text-xs text-muted-foreground">
           {t('panel.apartments.checklist.copyFrom')}
-          <select
-            className={SELECT_CLASS}
+          <NativeSelect
             value={source}
             onChange={(event) => setSource(event.target.value)}
           >
@@ -319,7 +316,7 @@ export function ChecklistTab({ propertyId, all, listing = null }: ChecklistTabPr
                 {one.name}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </label>
         <Button
           type="button"
@@ -353,7 +350,7 @@ function InheritedChecklist({ listing, modules }: InheritedChecklistProps) {
         </Link>
       </p>
       {modules.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('panel.apartments.checklist.empty')}</p>
+        <EmptyState>{t('panel.apartments.checklist.empty')}</EmptyState>
       ) : (
         <ul className="flex flex-col gap-3">
           {modules.map((section, moduleAt) => (

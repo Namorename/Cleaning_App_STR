@@ -5,8 +5,10 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Person } from '@/components/person';
+import { EmptyState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import {
   ASSIGNMENT_MODES,
   canHaveLinks,
@@ -24,8 +26,6 @@ import {
 import { serverErrorText } from '@/lib/server-error';
 
 import type { ListingRef } from './schema';
-
-const SELECT_CLASS = 'h-9 rounded-md border bg-background px-2 text-sm';
 
 interface CleanersTabProps {
   propertyId: number;
@@ -101,7 +101,7 @@ export function CleanersTab({ propertyId, listing = null }: CleanersTabProps) {
   const nameOf = (person: Staff | undefined) => person?.full_name ?? person?.email ?? '—';
 
   if (staff.isPending || links.isPending) {
-    return <p className="text-sm text-muted-foreground">{t('panel.apartments.loading')}</p>;
+    return <LoadingState>{t('panel.apartments.loading')}</LoadingState>;
   }
 
   if (listing !== null) {
@@ -114,7 +114,7 @@ export function CleanersTab({ propertyId, listing = null }: CleanersTabProps) {
           </Link>
         </p>
         {rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('panel.apartments.cleaners.empty')}</p>
+          <EmptyState>{t('panel.apartments.cleaners.empty')}</EmptyState>
         ) : (
           <ul className="flex flex-col gap-1">
             {rows.map((link) => (
@@ -131,7 +131,7 @@ export function CleanersTab({ propertyId, listing = null }: CleanersTabProps) {
   return (
     <div className="flex flex-col gap-4">
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('panel.apartments.cleaners.empty')}</p>
+        <EmptyState>{t('panel.apartments.cleaners.empty')}</EmptyState>
       ) : (
         <ul className="flex flex-col gap-2">
           {rows.map((link) => {
@@ -148,8 +148,7 @@ export function CleanersTab({ propertyId, listing = null }: CleanersTabProps) {
 
                 <label className="flex flex-col gap-1 text-xs text-muted-foreground">
                   {t('panel.team.links.mode')}
-                  <select
-                    className={SELECT_CLASS}
+                  <NativeSelect
                     aria-label={t('panel.team.links.modeFor', { name })}
                     value={link.mode}
                     onChange={(event) =>
@@ -166,7 +165,7 @@ export function CleanersTab({ propertyId, listing = null }: CleanersTabProps) {
                         {t(`panel.team.links.modes.${mode}`)}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </label>
 
                 <label className="flex flex-col gap-1 text-xs text-muted-foreground">
@@ -210,8 +209,7 @@ export function CleanersTab({ propertyId, listing = null }: CleanersTabProps) {
       <div className="flex flex-wrap items-end gap-2 border-t pt-3">
         <label className="flex flex-1 flex-col gap-1 text-xs text-muted-foreground">
           {t('panel.apartments.cleaners.add')}
-          <select
-            className={SELECT_CLASS}
+          <NativeSelect
             value={adding}
             onChange={(event) => setAdding(event.target.value)}
           >
@@ -221,7 +219,7 @@ export function CleanersTab({ propertyId, listing = null }: CleanersTabProps) {
                 {nameOf(person)}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </label>
         <Button type="button" disabled={adding === '' || save.isPending} onClick={add}>
           {t('panel.team.links.addButton')}

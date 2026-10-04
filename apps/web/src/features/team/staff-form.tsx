@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { NativeSelect } from '@/components/ui/native-select';
 import { serverErrorText } from '@/lib/server-error';
 
 import { PropertyPicker } from './property-picker';
@@ -35,8 +36,6 @@ import {
   useSaveCleanerLink,
   useSaveStaff,
 } from './use-team';
-
-const SELECT_CLASS = 'h-9 rounded-md border bg-background px-2 text-sm';
 
 interface StaffFormProps {
   /** The person being changed, or null for somebody new. */
@@ -215,9 +214,8 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
 
             <div className="flex flex-col gap-1">
               <Label htmlFor="staff-role">{t('panel.team.form.role')}</Label>
-              <select
+              <NativeSelect
                 id="staff-role"
-                className={SELECT_CLASS}
                 value={draft.role}
                 onChange={(event) =>
                   setDraft({ ...draft, role: event.target.value as StaffDraft['role'] })
@@ -228,15 +226,14 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
                     {t(`panel.roles.${role}`)}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
           </div>
 
           <div className="flex flex-col gap-1">
             <Label htmlFor="staff-language">{t('panel.team.form.language')}</Label>
-            <select
+            <NativeSelect
               id="staff-language"
-              className={SELECT_CLASS}
               value={draft.language}
               onChange={(event) =>
                 setDraft({ ...draft, language: event.target.value as StaffDraft['language'] })
@@ -248,7 +245,7 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
                   {t(`common.languages.${language}`)}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
             <p className="text-xs text-muted-foreground">{t('panel.team.form.languageHint')}</p>
           </div>
 

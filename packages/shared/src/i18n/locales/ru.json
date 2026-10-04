@@ -10,6 +10,12 @@
       "ru": "Русский",
       "en": "English",
       "cs": "Čeština"
+    },
+    "theme": {
+      "label": "Тема",
+      "system": "Как в системе",
+      "light": "Светлая",
+      "dark": "Тёмная"
     }
   },
   "auth": {
@@ -31,12 +37,15 @@
     "signOutFailed": "Не удалось выйти"
   },
   "panel": {
-    "title": "STR Ops",
+    "title": "woom",
     "signOut": "Выйти",
     "cancel": "Отмена",
+    "close": "Закрыть",
     "settings": {
       "account": "Аккаунт",
       "signedInAs": "Вы вошли как {{email}}.",
+      "appearance": "Оформление",
+      "appearanceHint": "Только в этом браузере.",
       "company": "Компания",
       "companyHint": "Действует на все объекты и на всех сотрудников.",
       "loadError": "Настройки компании не загрузились.",
@@ -131,7 +140,11 @@
       "apartments": "Объекты",
       "settings": "Настройки",
       "calendar": "Календарь",
-      "unread": "Непрочитанных: {{count}}"
+      "unread": "Непрочитанных: {{count}}",
+      "groups": {
+        "work": "Работа",
+        "reference": "Справочники"
+      }
     },
     "dashboard": {
       "tiles": {

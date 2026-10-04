@@ -2,6 +2,7 @@
 
 import { useTranslation } from 'react-i18next';
 
+import { EmptyState } from '@/components/states';
 import { PhotoSource } from '@/features/media/photo-source';
 
 import type { Photo } from './api';
@@ -17,7 +18,7 @@ export function ProblemPhotos({ photos, emptyText }: ProblemPhotosProps) {
   const { t } = useTranslation();
 
   if (photos.length === 0) {
-    return <p className="text-sm text-muted-foreground">{emptyText}</p>;
+    return <EmptyState>{emptyText}</EmptyState>;
   }
 
   return (

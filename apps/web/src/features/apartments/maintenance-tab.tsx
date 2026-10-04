@@ -1,10 +1,12 @@
 'use client';
 
+import { propertyStatusTone } from '@str-ops/shared';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Person } from '@/components/person';
+import { EmptyState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -49,7 +51,9 @@ export function MaintenanceTab({ property }: MaintenanceTabProps) {
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-medium">{t('panel.apartments.maintenance.state')}</h2>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline">{t(`panel.apartments.tabs.${property.status}`)}</Badge>
+          <Badge tone={propertyStatusTone(property.status)}>
+            {t(`panel.apartments.tabs.${property.status}`)}
+          </Badge>
           {moves.map((status) => (
             <Button
               key={status}
@@ -70,9 +74,9 @@ export function MaintenanceTab({ property }: MaintenanceTabProps) {
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-medium">{t('panel.apartments.maintenance.jobs')}</h2>
         {tasks.isPending ? (
-          <p className="text-sm text-muted-foreground">{t('panel.apartments.loading')}</p>
+          <LoadingState>{t('panel.apartments.loading')}</LoadingState>
         ) : jobs.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('panel.apartments.maintenance.noJobs')}</p>
+          <EmptyState>{t('panel.apartments.maintenance.noJobs')}</EmptyState>
         ) : (
           <ul className="flex flex-col gap-2">
             {jobs.map((job) => (
@@ -103,11 +107,9 @@ export function MaintenanceTab({ property }: MaintenanceTabProps) {
           {t('panel.apartments.maintenance.reports', { open: openReports.length })}
         </h2>
         {problems.isPending ? (
-          <p className="text-sm text-muted-foreground">{t('panel.apartments.loading')}</p>
+          <LoadingState>{t('panel.apartments.loading')}</LoadingState>
         ) : reports.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {t('panel.apartments.maintenance.noReports')}
-          </p>
+          <EmptyState>{t('panel.apartments.maintenance.noReports')}</EmptyState>
         ) : (
           <ul className="flex flex-col gap-2">
             {reports.map((report) => (

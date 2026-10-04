@@ -19,6 +19,14 @@ describe('LoginForm', () => {
     expect(screen.getByRole('button', { name: 'Войти' })).toBeEnabled();
   });
 
+  test('heads the card with the logo, one picture for each theme', () => {
+    render(<LoginForm next="/dashboard" />);
+
+    // The files pass the proxy without a session (proxy.test.ts).
+    expect(screen.getAllByRole('img', { name: 'woom' })).toHaveLength(2);
+    expect(screen.getByText('Панель менеджера')).toBeInTheDocument();
+  });
+
   test('carries the page to return to after sign-in', () => {
     const { container } = render(<LoginForm next="/problems" />);
 

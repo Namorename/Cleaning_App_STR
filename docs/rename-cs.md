@@ -259,3 +259,8 @@ Doplněno pro systémové dotazy iPhonu na fotoaparát, mikrofon a galerii (sest
 - `iosPermissions.camera`: Aplikace fotoaparátem fotí byt před úklidem a po něm. → Aplikace fotoaparátem pořizuje fotky a videa práce — před ní a po ní. — „před ní a po ní“ = před prací a po práci
 - `iosPermissions.microphone`: Aplikace nahrává zvuk k videu z úklidu. → Aplikace nahrává zvuk k videím z práce. — 3. pád mn. č.
 - `iosPermissions.photos`: Aplikace připojí fotky, které vyberete v galerii, ke krokům úklidu, úkolům a zprávám v chatu. → Aplikace připojí fotky, které vyberete v galerii, ke krokům checklistu, úkolům a zprávám v chatu. — „checklist“ jako jinde v aplikaci; jde-li lépe „kontrolního seznamu“, prosíme napsat
+
+Doplněno pro nové menu panelu (redesign 5.2, 2026-10-03): položky jsou ve skupinách „Práce“ (přehled, kalendář, úklidy, úkoly, žádosti) a „…“ (byty, tým); nastavení je samo dole. Každý řádek: klíč: text — poznámka.
+
+- `panel.nav.groups.work`: Práce — název skupiny, 1. pád j. č.
+- `panel.nav.groups.reference`: Evidence — prozatím; majitel navrhuje **„Číselníky“** (ru «Справочники», en „Directory“). Prosíme rodilého mluvčího o volbu: „Evidence“, „Číselníky“, nebo jiné slovo pro seznamy bytů a týmu.

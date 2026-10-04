@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
 import { serverErrorText } from '@/lib/server-error';
 
@@ -20,8 +21,6 @@ import {
 } from './schema';
 import { sizeText } from './size-text';
 import { useSaveInfo } from './use-apartments';
-
-const SELECT_CLASS = 'h-9 rounded-md border bg-background px-2 text-sm';
 
 interface InfoTabProps {
   property: PropertyDetail;
@@ -107,9 +106,8 @@ export function InfoTab({ property, all }: InfoTabProps) {
           // A listing with units of its own cannot become a part (propertyHasUnits).
           <div className="flex flex-col gap-1">
             <Label htmlFor="property-parent">{t('panel.apartments.info.parent')}</Label>
-            <select
+            <NativeSelect
               id="property-parent"
-              className={SELECT_CLASS}
               value={draft.parentId === null ? '' : String(draft.parentId)}
               onChange={(event) =>
                 setDraft({
@@ -124,7 +122,7 @@ export function InfoTab({ property, all }: InfoTabProps) {
                   {candidate.name}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
             <p className="text-xs text-muted-foreground">{t('panel.apartments.info.parentHint')}</p>
           </div>
         )}

@@ -1,15 +1,16 @@
 'use client';
 
+import { problemStatusTone } from '@str-ops/shared';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 
+import { EmptyState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatDateTime } from '@/lib/format-date';
 import { serverErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
 
-import { statusVariant } from './format';
 import { problemPlace, type Problem } from './schema';
 import { useUnarchiveProblem } from './use-problems';
 
@@ -26,7 +27,7 @@ export function ProblemsArchive({ problems }: ProblemsArchiveProps) {
   const failure = unarchive.isError ? serverErrorText(unarchive.error) : null;
 
   if (problems.length === 0) {
-    return <p className="text-sm text-muted-foreground">{t('panel.problems.archive.empty')}</p>;
+    return <EmptyState>{t('panel.problems.archive.empty')}</EmptyState>;
   }
 
   return (
@@ -43,7 +44,7 @@ export function ProblemsArchive({ problems }: ProblemsArchiveProps) {
                 <Link href={`/problems/${problem.id}`} className="font-medium hover:underline">
                   {problem.title}
                 </Link>
-                <Badge variant={statusVariant(problem.status)}>
+                <Badge tone={problemStatusTone(problem.status)}>
                   {t(`problems.statuses.${problem.status}`)}
                 </Badge>
               </div>

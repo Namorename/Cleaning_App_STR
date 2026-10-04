@@ -36,6 +36,8 @@ export {
   translations,
   type Language,
 } from './i18n';
+// The design system; its own index lists what it exports.
+export * from './design';
 
 import type { Tables, Enums } from './database.types';
 

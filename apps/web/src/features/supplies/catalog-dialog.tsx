@@ -4,6 +4,7 @@ import { FALLBACK_LANGUAGE, SUPPORTED_LANGUAGES } from '@str-ops/shared';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { NativeSelect } from '@/components/ui/native-select';
 import {
   Table,
   TableBody,
@@ -102,13 +104,11 @@ export function CatalogDialog({ open, onOpenChange }: CatalogDialogProps) {
         </DialogHeader>
 
         {catalog.isPending ? (
-          <p className="text-sm text-muted-foreground">{t('panel.supplies.catalog.loading')}</p>
+          <LoadingState>{t('panel.supplies.catalog.loading')}</LoadingState>
         ) : catalog.isError ? (
-          <p role="alert" className="text-sm text-destructive">
-            {t('panel.supplies.catalog.loadError')}
-          </p>
+          <ErrorState message={t('panel.supplies.catalog.loadError')} error={catalog.error} />
         ) : items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('panel.supplies.catalog.empty')}</p>
+          <EmptyState>{t('panel.supplies.catalog.empty')}</EmptyState>
         ) : (
           <div className="max-h-80 overflow-auto rounded-lg border">
             <Table>
@@ -200,9 +200,8 @@ export function CatalogDialog({ open, onOpenChange }: CatalogDialogProps) {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="catalog-unit">{t('panel.supplies.catalog.unit')}</Label>
-              <select
+              <NativeSelect
                 id="catalog-unit"
-                className="h-9 rounded-md border bg-background px-2 text-sm"
                 value={draft.unit}
                 onChange={(event) =>
                   setDraft({ ...draft, unit: event.target.value as CatalogItemDraft['unit'] })
@@ -213,7 +212,7 @@ export function CatalogDialog({ open, onOpenChange }: CatalogDialogProps) {
                     {t(`supplies.units.${unit}`)}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             {otherLanguages.map((code) => (
               <div key={code} className="flex flex-col gap-1.5">

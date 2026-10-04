@@ -1,44 +1,35 @@
 'use client';
 
+import { STATUS_TONE } from '@str-ops/shared';
 import { useTranslation } from 'react-i18next';
 
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/lib/use-language';
 
 import { stepTitle } from './format';
 import { ProblemPhotos } from './problem-photos';
-import { stepState, type StepState } from './schema';
+import { stepState } from './schema';
 import { useFixTaskSteps } from './use-problems';
 
 interface FixTaskStepsProps {
   taskId: string;
 }
 
-const STATE_VARIANT: Record<StepState, 'default' | 'secondary' | 'outline'> = {
-  done: 'default',
-  waived: 'secondary',
-  skipped: 'secondary',
-  pending: 'outline',
-};
-
 /** The technician's steps, with what she photographed on each. */
 export function FixTaskSteps({ taskId }: FixTaskStepsProps) {
   const { t } = useTranslation();
   const language = useLanguage();
-  const { data, isPending, isError } = useFixTaskSteps(taskId);
+  const { data, isPending, isError, error } = useFixTaskSteps(taskId);
 
   if (isPending) {
-    return <p className="text-sm text-muted-foreground">{t('panel.problems.loading')}</p>;
+    return <LoadingState>{t('panel.problems.loading')}</LoadingState>;
   }
   if (isError) {
-    return (
-      <p role="alert" className="text-sm text-destructive">
-        {t('panel.problems.loadError')}
-      </p>
-    );
+    return <ErrorState message={t('panel.problems.loadError')} error={error} />;
   }
   if (data.steps.length === 0) {
-    return <p className="text-sm text-muted-foreground">{t('panel.problems.detail.noSteps')}</p>;
+    return <EmptyState>{t('panel.problems.detail.noSteps')}</EmptyState>;
   }
 
   return (
@@ -53,7 +44,7 @@ export function FixTaskSteps({ taskId }: FixTaskStepsProps) {
               <span className="text-sm font-medium">
                 {index + 1}. {title}
               </span>
-              <Badge variant={STATE_VARIANT[state]}>{t(`steps.state.${state}`)}</Badge>
+              <Badge tone={STATUS_TONE[`steps.${state}`]}>{t(`steps.state.${state}`)}</Badge>
             </div>
             {photos.length > 0 ? (
               <ProblemPhotos photos={photos} emptyText={t('problems.noPhotos')} />

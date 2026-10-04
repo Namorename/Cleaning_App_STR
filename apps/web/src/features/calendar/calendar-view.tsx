@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { FALLBACK_LANGUAGE, INTL_LOCALES, isSupportedLanguage } from '@str-ops/shared';
 
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
 import { overdueRepairsByProperty } from '@/features/tasks/repairs';
 import { todayIso } from '@/lib/format-date';
@@ -25,7 +26,6 @@ import {
   windowDays,
   type Depth,
 } from './dates';
-import { LayerAlert } from './layer-alert';
 import { standOverscan, useStandPaintMark } from './stand-measure';
 import type { CalendarBooking } from './schema';
 import {
@@ -81,7 +81,7 @@ export function CalendarView({
   );
 
   if (!isBrowser) {
-    return <p className="text-sm text-muted-foreground">{t('panel.calendar.loadingRows')}</p>;
+    return <LoadingState>{t('panel.calendar.loadingRows')}</LoadingState>;
   }
   return (
     <CalendarBody
@@ -211,17 +211,17 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
       </div>
 
       {bookings.isError ? (
-        <LayerAlert message={t('panel.calendar.bookingsError')} error={bookings.error} />
+        <ErrorState message={t('panel.calendar.bookingsError')} error={bookings.error} />
       ) : null}
       {chips.failures.map((failure) => (
-        <LayerAlert
+        <ErrorState
           key={failure.messageKey}
           message={t(failure.messageKey)}
           error={failure.error}
         />
       ))}
       {repairs.isError ? (
-        <LayerAlert message={t('panel.calendar.repairsError')} error={repairs.error} />
+        <ErrorState message={t('panel.calendar.repairsError')} error={repairs.error} />
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
@@ -280,13 +280,11 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
       />
 
       {rowsQuery.data === undefined && rowsQuery.isError ? (
-        <p role="alert" className="text-sm text-destructive">
-          {t('panel.calendar.rowsError')}
-        </p>
+        <ErrorState message={t('panel.calendar.rowsError')} error={rowsQuery.error} />
       ) : rowsQuery.data === undefined ? (
-        <p className="text-sm text-muted-foreground">{t('panel.calendar.loadingRows')}</p>
+        <LoadingState>{t('panel.calendar.loadingRows')}</LoadingState>
       ) : all.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('panel.calendar.empty')}</p>
+        <EmptyState>{t('panel.calendar.empty')}</EmptyState>
       ) : (
         <CalendarGrid
           rows={rows}

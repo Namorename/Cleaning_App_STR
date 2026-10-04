@@ -10,6 +10,12 @@
       "ru": "Русский",
       "en": "English",
       "cs": "Čeština"
+    },
+    "theme": {
+      "label": "Theme",
+      "system": "Same as the system",
+      "light": "Light",
+      "dark": "Dark"
     }
   },
   "auth": {
@@ -31,12 +37,15 @@
     "signOutFailed": "Could not sign out"
   },
   "panel": {
-    "title": "STR Ops",
+    "title": "woom",
     "signOut": "Sign out",
     "cancel": "Cancel",
+    "close": "Close",
     "settings": {
       "account": "Account",
       "signedInAs": "Signed in as {{email}}.",
+      "appearance": "Appearance",
+      "appearanceHint": "In this browser only.",
       "company": "Company",
       "companyHint": "Applies to every listing and everyone on the staff.",
       "loadError": "The company settings could not be loaded.",
@@ -131,7 +140,11 @@
       "apartments": "Listings",
       "settings": "Settings",
       "calendar": "Calendar",
-      "unread": "Unread: {{count}}"
+      "unread": "Unread: {{count}}",
+      "groups": {
+        "work": "Work",
+        "reference": "Directory"
+      }
     },
     "dashboard": {
       "tiles": {

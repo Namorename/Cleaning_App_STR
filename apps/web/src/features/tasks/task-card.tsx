@@ -1,6 +1,6 @@
 'use client';
 
-import type { Language } from '@str-ops/shared';
+import { STATUS_TONE, taskStatusTone, taskTypeTone, type Language } from '@str-ops/shared';
 import type { TFunction } from 'i18next';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -12,7 +12,7 @@ import { formatShortDay } from '@/lib/format-date';
 import { useLanguage } from '@/lib/use-language';
 import { cn } from '@/lib/utils';
 
-import { formatWindow, statusVariant, typeVariant } from './format';
+import { formatWindow } from './format';
 import {
   isManualTask,
   isTaskClosed,
@@ -82,20 +82,22 @@ export function TaskCard({
       data-slot="card"
       className={cn(
         'flex flex-col gap-2 rounded-lg border bg-card p-3 text-sm',
-        tail === null ? null : 'border-destructive/50',
+        tail === null ? null : 'border-tone-overdue-border',
       )}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <span className="font-medium">{title}</span>
         <div className="flex flex-wrap items-center gap-1">
-          {hasUnread ? <Badge>{t('panel.chat.unread')}</Badge> : null}
+          {hasUnread ? (
+            <Badge tone={STATUS_TONE['chat.unread']}>{t('panel.chat.unread')}</Badge>
+          ) : null}
           {tail === null ? null : (
-            <Badge variant="outline" className="border-destructive/50 text-destructive">
+            <Badge tone={STATUS_TONE['tasks.tail']}>
               {tailLabel(task, tail, language, t)}
             </Badge>
           )}
-          <Badge variant={typeVariant()}>{t(`panel.tasks.types.${task.type}`)}</Badge>
-          <Badge variant={statusVariant(task.status)}>
+          <Badge tone={taskTypeTone(task.type)}>{t(`panel.tasks.types.${task.type}`)}</Badge>
+          <Badge tone={taskStatusTone(task.status)}>
             {t(`panel.tasks.statuses.${task.status}`)}
           </Badge>
         </div>

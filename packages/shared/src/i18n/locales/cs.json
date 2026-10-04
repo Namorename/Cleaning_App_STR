@@ -10,6 +10,12 @@
       "ru": "Русский",
       "en": "English",
       "cs": "Čeština"
+    },
+    "theme": {
+      "label": "Motiv",
+      "system": "Podle systému",
+      "light": "Světlý",
+      "dark": "Tmavý"
     }
   },
   "auth": {
@@ -31,12 +37,15 @@
     "signOutFailed": "Odhlášení se nezdařilo"
   },
   "panel": {
-    "title": "STR Ops",
+    "title": "woom",
     "signOut": "Odhlásit se",
     "cancel": "Zrušit",
+    "close": "Zavřít",
     "settings": {
       "account": "Účet",
       "signedInAs": "Jste přihlášeni jako {{email}}.",
+      "appearance": "Vzhled",
+      "appearanceHint": "Jen v tomto prohlížeči.",
       "company": "Společnost",
       "companyHint": "Platí pro všechny objekty a pro všechny zaměstnance.",
       "loadError": "Nastavení společnosti se nepodařilo načíst.",
@@ -131,7 +140,11 @@
       "apartments": "Objekty",
       "settings": "Nastavení",
       "calendar": "Kalendář",
-      "unread": "Nepřečtené: {{count}}"
+      "unread": "Nepřečtené: {{count}}",
+      "groups": {
+        "work": "Práce",
+        "reference": "Evidence"
+      }
     },
     "dashboard": {
       "tiles": {

@@ -17,6 +17,7 @@
     "db:reset": "supabase db reset",
     "db:diff": "supabase db diff -f",
     "db:types": "node scripts/gen-types.mjs",
+    "design:css": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/gen-theme-css.mts",
     "fn:serve": "supabase functions serve",
     "fn:deploy": "supabase functions deploy",
     "test:rls": "node scripts/test-rls.mjs",

@@ -4,6 +4,7 @@ import { propertyPathOf } from '@str-ops/shared';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 
+import { EmptyState, LoadingState } from '@/components/states';
 import { formatDay } from '@/lib/format-date';
 import { useLanguage } from '@/lib/use-language';
 
@@ -35,10 +36,10 @@ export function StuckRepairs({ stuck, isError }: StuckRepairsProps) {
       {stuck === undefined ? (
         // A failed read says so at the top of the page, once.
         isError ? null : (
-          <p className="text-sm text-muted-foreground">{t('panel.dashboard.repairs.loading')}</p>
+          <LoadingState>{t('panel.dashboard.repairs.loading')}</LoadingState>
         )
       ) : stuck.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('panel.dashboard.repairs.empty')}</p>
+        <EmptyState>{t('panel.dashboard.repairs.empty')}</EmptyState>
       ) : (
         <ul
           aria-labelledby={TITLE_ID}

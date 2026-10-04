@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -19,7 +20,7 @@ export function ProblemsView() {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [view, setView] = useState<View>('board');
-  const { data, isPending, isError } = useProblems();
+  const { data, isPending, isError, error } = useProblems();
 
   const matching = (data ?? []).filter((problem) => matchesQuery(problem, query));
   const problems = matching.filter((problem) => !isProblemArchived(problem));
@@ -41,11 +42,9 @@ export function ProblemsView() {
       </div>
 
       {isPending ? (
-        <p className="text-sm text-muted-foreground">{t('panel.problems.loading')}</p>
+        <LoadingState>{t('panel.problems.loading')}</LoadingState>
       ) : isError ? (
-        <p role="alert" className="text-sm text-destructive">
-          {t('panel.problems.loadError')}
-        </p>
+        <ErrorState message={t('panel.problems.loadError')} error={error} />
       ) : (
         <Tabs value={view} onValueChange={(value) => setView(value as View)}>
           <TabsList>
@@ -61,7 +60,7 @@ export function ProblemsView() {
           </TabsContent>
           <TabsContent value="list">
             {problems.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{emptyText}</p>
+              <EmptyState>{emptyText}</EmptyState>
             ) : (
               <ProblemsTable problems={problems} />
             )}

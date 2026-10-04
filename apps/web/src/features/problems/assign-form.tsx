@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { NativeSelect } from '@/components/ui/native-select';
 import { todayIso } from '@/lib/format-date';
 import { serverErrorText } from '@/lib/server-error';
 
@@ -62,12 +63,12 @@ export function AssignForm({ problem, fixTask, onAssigned }: AssignFormProps) {
     <form onSubmit={onSubmit} className="flex flex-col gap-3">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="assignee">{t('panel.problems.assign.assignee')}</Label>
-        <select
+        <NativeSelect
           id="assignee"
           value={assigneeId}
           onChange={(event) => setAssigneeId(event.target.value)}
           required
-          className="h-9 rounded-md border bg-background px-3 text-sm"
+          className="px-3"
         >
           <option value="">{t('panel.problems.assign.choose')}</option>
           {(staff.data ?? []).map((person) => (
@@ -75,7 +76,7 @@ export function AssignForm({ problem, fixTask, onAssigned }: AssignFormProps) {
               {person.full_name ?? t('panel.problems.unknownPerson')}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
       <div className="grid grid-cols-3 gap-3">
         <div className="flex flex-col gap-1.5">

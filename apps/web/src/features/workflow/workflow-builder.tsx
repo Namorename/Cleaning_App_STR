@@ -3,8 +3,10 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { EmptyState } from '@/components/states';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import { moveAt, removeAt, replaceAt } from '@/lib/list';
 import { serverErrorText } from '@/lib/server-error';
 
@@ -26,8 +28,6 @@ import {
 } from './schema';
 import { StepRow } from './step-row';
 import { useSaveProcess } from './use-workflow';
-
-const SELECT_CLASS = 'h-9 rounded-md border bg-background px-2 text-sm';
 
 interface WorkflowBuilderProps {
   source: ProcessSource;
@@ -102,7 +102,7 @@ export function WorkflowBuilder({ source, scope, propertyId }: WorkflowBuilderPr
       </div>
 
       {process.steps.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('panel.settings.workflow.empty')}</p>
+        <EmptyState>{t('panel.settings.workflow.empty')}</EmptyState>
       ) : (
         <ul className="flex flex-col gap-3">
           {process.steps.map((step, at) => (
@@ -121,8 +121,7 @@ export function WorkflowBuilder({ source, scope, propertyId }: WorkflowBuilderPr
       <div className="flex flex-wrap items-end gap-2 border-t pt-3">
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
           {t('panel.settings.workflow.addStep')}
-          <select
-            className={SELECT_CLASS}
+          <NativeSelect
             aria-label={t('panel.settings.workflow.addStep')}
             value={adding}
             onChange={(event) => setAdding(event.target.value as StepType)}
@@ -132,7 +131,7 @@ export function WorkflowBuilder({ source, scope, propertyId }: WorkflowBuilderPr
                 {t(`panel.settings.workflow.stepTypes.${type}`)}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </label>
         <Button
           type="button"

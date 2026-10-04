@@ -1,12 +1,15 @@
 'use client';
 
+import { STATUS_TONE } from '@str-ops/shared';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Person } from '@/components/person';
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import {
   Table,
   TableBody,
@@ -34,8 +37,6 @@ import {
 } from './schema';
 import { StaffForm } from './staff-form';
 import { useCleanerLinks, useResetPassword, useStaff } from './use-team';
-
-const SELECT_CLASS = 'h-9 rounded-md border bg-background px-2 text-sm';
 
 /** What the form is doing: nothing, adding somebody, or editing this person. */
 type Editing = { staff: Staff | null } | null;
@@ -103,8 +104,7 @@ export function TeamView() {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
-        <select
-          className={SELECT_CLASS}
+        <NativeSelect
           aria-label={t('panel.team.filters.role')}
           value={role}
           onChange={(event) => setRole(event.target.value as StaffRole | '')}
@@ -115,7 +115,7 @@ export function TeamView() {
               {t(`panel.roles.${option}`)}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
 
       <Tabs value={tab} onValueChange={(next) => setTab(next as TeamTab)}>
@@ -139,13 +139,11 @@ export function TeamView() {
       )}
 
       {staff.isPending ? (
-        <p className="text-sm text-muted-foreground">{t('panel.team.loading')}</p>
+        <LoadingState>{t('panel.team.loading')}</LoadingState>
       ) : staff.isError ? (
-        <p role="alert" className="text-sm text-destructive">
-          {t('panel.team.loadError')}
-        </p>
+        <ErrorState message={t('panel.team.loadError')} error={staff.error} />
       ) : shown.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('panel.team.empty')}</p>
+        <EmptyState>{t('panel.team.empty')}</EmptyState>
       ) : (
         <Table>
           <TableHeader>
@@ -164,7 +162,7 @@ export function TeamView() {
                   <div className="flex flex-wrap items-center gap-2">
                     <Person name={person.full_name} role={person.role} />
                     {person.is_active ? null : (
-                      <Badge variant="outline">{t('panel.team.off')}</Badge>
+                      <Badge tone={STATUS_TONE['team.inactive']}>{t('panel.team.off')}</Badge>
                     )}
                   </div>
                   {person.phone === null ? null : (

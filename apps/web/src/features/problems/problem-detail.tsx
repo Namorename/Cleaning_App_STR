@@ -1,10 +1,12 @@
 'use client';
 
+import { problemPriorityTone, problemStatusTone } from '@str-ops/shared';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Person } from '@/components/person';
+import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,7 +19,7 @@ import { useLanguage } from '@/lib/use-language';
 
 import { AssignForm } from './assign-form';
 import { FixTaskSteps } from './fix-task-steps';
-import { formatClock, priorityVariant, statusVariant } from './format';
+import { formatClock } from './format';
 import { ProblemPhotos } from './problem-photos';
 import {
   isProblemArchived,
@@ -47,20 +49,16 @@ export function ProblemDetail({ problemId }: ProblemDetailProps) {
   const problem = useProblem(problemId);
 
   if (problem.isPending) {
-    return <p className="text-sm text-muted-foreground">{t('panel.problems.loading')}</p>;
+    return <LoadingState>{t('panel.problems.loading')}</LoadingState>;
   }
   if (problem.isError) {
-    return (
-      <p role="alert" className="text-sm text-destructive">
-        {t('panel.problems.loadError')}
-      </p>
-    );
+    return <ErrorState message={t('panel.problems.loadError')} error={problem.error} />;
   }
   if (problem.data === null) {
     return (
       <div className="flex flex-col gap-4">
         <BackLink />
-        <p className="text-sm text-muted-foreground">{t('panel.problems.notFound')}</p>
+        <EmptyState>{t('panel.problems.notFound')}</EmptyState>
       </div>
     );
   }
@@ -88,10 +86,10 @@ function ProblemCard({ problem }: { problem: Problem }) {
       <BackLink />
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold">{problem.title}</h1>
-        <Badge variant={statusVariant(problem.status)}>
+        <Badge tone={problemStatusTone(problem.status)}>
           {t(`problems.statuses.${problem.status}`)}
         </Badge>
-        <Badge variant={priorityVariant(problem.priority)}>
+        <Badge tone={problemPriorityTone(problem.priority)}>
           {t(`problems.priorities.${problem.priority}`)}
         </Badge>
       </div>
@@ -206,14 +204,10 @@ function ReportPhotos({ problemId }: { problemId: string }) {
   const photos = useProblemPhotos(problemId);
 
   if (photos.isPending) {
-    return <p className="text-muted-foreground">{t('panel.problems.loading')}</p>;
+    return <LoadingState>{t('panel.problems.loading')}</LoadingState>;
   }
   if (photos.isError) {
-    return (
-      <p role="alert" className="text-destructive">
-        {t('panel.problems.loadError')}
-      </p>
-    );
+    return <ErrorState message={t('panel.problems.loadError')} error={photos.error} />;
   }
   return <ProblemPhotos photos={photos.data} emptyText={t('panel.problems.detail.noPhotos')} />;
 }
