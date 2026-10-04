@@ -15,19 +15,21 @@ of the migration.
 
 THE CHANGE UNDER REVIEW: "git diff main...staff-disable" in that worktree. Schema: one migration, not in the cloud:
   supabase/migrations/20261004100000_staff_disable.sql —
-  take_off_repairs(uuid[]) (cancel live repairs of tasks under the transaction-local flag str_ops.head_tech_dispatch,
-  which journal_repair_change reads as taken_off and push_on_task_change as cleaning_unassigned); unassign_problem
+  take_off_repairs(uuid[], text) (cancel live repairs of tasks under the transaction-local flag str_ops.head_tech_dispatch,
+  which journal_repair_change reads as taken_off and push_on_task_change as cleaning_unassigned, and the cause flag
+  str_ops.take_off_cause, written by journal_repair_change as params.cause = 'account_disabled'); unassign_problem
   rewritten to call it (body otherwise from 20261003130000); release_work_of_inactive(uuid) (locks the problems of
   the person's unstarted repairs FOR NO KEY UPDATE in id order, then the attempts FOR UPDATE, take_off_repairs; every
-  other unstarted job — 'unassigned' with her name, assigned, accepted — to assignee null + 'unassigned'; her 'auto'
-  links to 'claim'; her unsettled push rows settled as 'skipped' unless a sender holds the group, under the
+  other unstarted job — 'unassigned' with her name, assigned, accepted — to assignee null + 'unassigned'; every link
+  of hers deleted, any mode (owner's answer 1 of 2026-10-04); her unsettled push rows settled as 'skipped' unless a sender holds the group, under the
   advisory lock claim_push_batch takes — added after the first preflight run wf_83951e08-829); trigger profiles_release_work (AFTER UPDATE OF is_active, WHEN old.is_active AND NOT
   new.is_active); guard_person_works with triggers tasks_person_works_insert / tasks_person_works_update (refuse a live
   job naming a person switched off: insert, change of person, closed → live, started → unstarted; FOR SHARE on the
-  profile row; hint serverErrors.taskAssigneeInvalid); guard_auto_link_works with trigger property_cleaners_auto_works
-  (no 'auto' link for a person switched off; hint serverErrors.cleanerAutoInactive); and a do-block at the end that
+  profile row; hint serverErrors.taskAssigneeInvalid); guard_link_works with trigger property_cleaners_person_works
+  (no link of any mode written or changed for a person switched off; hint serverErrors.cleanerLinkInactive);
+  journal_repair_change (body from 20261003140000, cause added); and a do-block at the end that
   calls release_work_of_inactive for everybody already switched off.
-  Tests: supabase/tests/staff_disable.sql (63 checks), supabase/tests/push_events.sql (one fixture row removed).
+  Tests: supabase/tests/staff_disable.sql (67 checks), supabase/tests/push_events.sql (one fixture row removed).
   Panel: apps/web/src/features/dashboard (tile «Уборок у отключённых», list off-staff-work.tsx, off-work-form.tsx,
   counts.ts offStaffWork), apps/web/src/features/tasks/api.ts fetchOffStaffWork (+ schema, keys), team/use-team.ts
   (cache refresh after a person is saved switched off), locales packages/shared/src/i18n/locales/*.json.

@@ -11,32 +11,35 @@
 --
 -- Expected, label by label (local stack after db:reset on staff-disable, 2026-10-04):
 --   head        20261004100000.
---   functions   6 rows, one per name, overloads = 1, config {search_path=""}, definer true; md5
+--   functions   7 rows, one per name, overloads = 1, config {search_path=""}, definer true; md5
 --               prefix and length exactly (the text between the dollar quotes of each create in
 --               the migration file, read with newline='' so a CRLF would change it; the same as
 --               md5(prosrc) and length(prosrc) on the local stack):
---                 guard_auto_link_works          bcc82d20   552
+--                 guard_link_works               159d1c60   537
 --                 guard_person_works             dcb1f989   512
---                 release_work_of_inactive       4914a0d1  3352
+--                 journal_repair_change          05ea64d7  4205
+--                 release_work_of_inactive       7c659a96  3416
 --                 release_work_on_deactivation   36da10a1    78
---                 take_off_repairs               e1250f2f   689
+--                 take_off_repairs               be6993e3  1054
 --                 unassign_problem               6282d99b  2088
+--               journal_repair_change is no new function: 20261003140000 made it, this file adds
+--               the cause of a take-off (owner's answer 3 of 2026-10-04).
 --               A different md5 is a file saved with CRLF or a body edited after this list —
 --               recompute before the push, never after.
 --   function_privs  who of anon / authenticated / PUBLIC holds EXECUTE: [] for the five new
---               ones; ["authenticated"] for unassign_problem (its ACL from 20261003130000, kept by
+--               ones and for journal_repair_change; ["authenticated"] for unassign_problem (its ACL from 20261003130000, kept by
 --               create or replace).
 --   triggers    four, enabled ('O'), "row": true, "when": true, and the md5 prefix of
 --               pg_get_triggerdef exactly (local stack; an older trigger,
 --               tasks_no_cleaning_for_tech, hashes the same in the cloud and locally —
 --               58b40f36 — so the definitions compare as they are printed):
 --                 profiles_release_work         profiles           [is_active]   after   78d31b2c
---                 property_cleaners_auto_works  property_cleaners  []            before  d4d3c7ea
+--                 property_cleaners_person_works property_cleaners []           before  adeef84d
 --                 tasks_person_works_insert     tasks              []            before  879a2481
 --                 tasks_person_works_update     tasks              [assignee_id, status] before d24bc3f1
 --   left_on_off unstarted jobs ('unassigned' with a name, assigned, accepted) on people switched
 --               off: {} — the cleanup took off every one (the probe counted 87 cleanings on
---               2026-10-04); and their 'auto' links: 0.
+--               2026-10-04); and their links, any mode: 0.
 --   under_way   work under way on people switched off by type and status, on listings not
 --               archived — as the panel's readers count it: what the dashboard's «Уборок у
 --               отключённых» and «Ремонтов у отключённых» show ({} on 2026-10-04).
@@ -63,7 +66,7 @@ select label, payload from (
                                  where p2.pronamespace = 'public'::regnamespace and p2.proname = f.name),
                    'md5', left(md5(p.prosrc), 8), 'len', length(p.prosrc),
                    'definer', p.prosecdef, 'config', p.proconfig) order by f.name)
-          from unnest(array['guard_auto_link_works', 'guard_person_works',
+          from unnest(array['guard_link_works', 'guard_person_works', 'journal_repair_change',
                             'release_work_of_inactive', 'release_work_on_deactivation',
                             'take_off_repairs', 'unassign_problem']) as f(name)
           left join pg_proc p
@@ -82,7 +85,7 @@ select label, payload from (
                    order by p.proname)
           from pg_proc p
           where p.pronamespace = 'public'::regnamespace
-            and p.proname in ('guard_auto_link_works', 'guard_person_works',
+            and p.proname in ('guard_link_works', 'guard_person_works', 'journal_repair_change',
                               'release_work_of_inactive', 'release_work_on_deactivation',
                               'take_off_repairs', 'unassign_problem'))
 
@@ -102,7 +105,7 @@ select label, payload from (
                            order by t.tgname)
           from pg_trigger t
           where not t.tgisinternal
-            and t.tgname in ('profiles_release_work', 'property_cleaners_auto_works',
+            and t.tgname in ('profiles_release_work', 'property_cleaners_person_works',
                              'tasks_person_works_insert', 'tasks_person_works_update'))
 
   union all
@@ -115,10 +118,10 @@ select label, payload from (
                                where not p.is_active
                                  and t.status in ('unassigned', 'assigned', 'accepted')
                                group by 1) x),
-           'auto_links', (select count(*)
-                          from public.property_cleaners pc
-                          join public.profiles p on p.id = pc.cleaner_id
-                          where not p.is_active and pc.mode = 'auto'))
+           'links', (select count(*)
+                     from public.property_cleaners pc
+                     join public.profiles p on p.id = pc.cleaner_id
+                     where not p.is_active))
 
   union all
   select 6, 'under_way',
@@ -183,7 +186,8 @@ order by ord;
 
 -- ROLLBACK. One file, its own transaction; a revert is a forward migration through the same
 -- dry-run gate (docs/units-plan.md, «Эксплуатация выката»), never a hand edit in Studio:
--- drop the four triggers, drop the five new functions, and unassign_problem back to its body of
--- 20261003130000 (same signature, create or replace). The jobs the cleanup freed stay free —
--- nothing records whose they were but the journal of the repairs (taken_off, params.assignee)
--- and the docs' probe numbers; the 'auto' links turned 'claim' stay 'claim'.
+-- drop the four triggers, drop the five new functions, and unassign_problem and
+-- journal_repair_change back to their bodies of 20261003130000 and 20261003140000 (same
+-- signatures, create or replace). The jobs the cleanup freed stay free — nothing records whose
+-- they were but the journal of the repairs (taken_off, params.assignee) and the docs' probe
+-- numbers; removed links do not come back (0 on 2026-10-04).

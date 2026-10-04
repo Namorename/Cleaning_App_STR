@@ -29,7 +29,8 @@
 --   handover       freed booking cleanings on a listing (or its house) that has a working 'auto'
 --                  cleaner: the generator's next run over their day hands them to that person
 --                  (its hand-over pass), as any free cleaning there.
---   links          links of people switched off by mode; every 'auto' becomes 'claim'.
+--   links          links of people switched off by mode: the cleanup removes every one, whatever its
+--                  mode (owner's answer 1 of 2026-10-04). Must stay {} — 2026-10-04: {}.
 --   pushes_settled rows of people switched off still waiting in the push queue, by kind, and how
 --                  many of them a sender holds right now: the cleanup settles every other one as
 --                  skipped (what claim_push_batch does while they are off); a held group is left
@@ -175,12 +176,12 @@ select label, payload from (
                          where pp.pronamespace = 'public'::regnamespace
                            and pp.proname in ('take_off_repairs', 'release_work_of_inactive',
                                               'release_work_on_deactivation', 'guard_person_works',
-                                              'guard_auto_link_works')),
+                                              'guard_link_works')),
            'triggers', (select count(*) from pg_trigger tg
                         where not tg.tgisinternal
                           and tg.tgname in ('profiles_release_work', 'tasks_person_works_insert',
                                             'tasks_person_works_update',
-                                            'property_cleaners_auto_works')))
+                                            'property_cleaners_person_works')))
 
   union all
   select 12, 'push',
