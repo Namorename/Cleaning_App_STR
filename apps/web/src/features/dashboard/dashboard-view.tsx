@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PageHeader } from '@/components/page-header';
@@ -11,12 +11,15 @@ import { cn } from '@/lib/utils';
 import {
   cleaningsToday,
   newSupplyCount,
+  offStaffWork,
   openProblemCount,
   REFRESH_MS,
   repairCounts,
   stuckRepairs,
   unassignedAhead,
 } from './counts';
+import { OFF_STAFF_WORK_ID, OffStaffWork } from './off-staff-work';
+import { OffWorkForm } from './off-work-form';
 import { STUCK_REPAIRS_ID, StuckRepairs } from './stuck-repairs';
 import { useDashboard } from './use-dashboard';
 import { useNow } from './use-now';
@@ -46,8 +49,8 @@ function shown(value: string | undefined, reads: readonly Read<unknown>[]): stri
  * link stays a Link — a plain anchor's history entry breaks Back in the app
  * router — and the scroll is done here as well.
  */
-function scrollToStuckRepairs(): void {
-  document.getElementById(STUCK_REPAIRS_ID)?.scrollIntoView();
+function scrollToSection(id: string): void {
+  document.getElementById(id)?.scrollIntoView();
 }
 
 interface TileProps {
@@ -98,14 +101,18 @@ function UnassignedDays({ today, tomorrow }: { today: number; tomorrow: number }
 }
 
 /**
- * The basic dashboard (docs/dashboard-plan.md): six figures and the repairs
- * left behind, each tile leading to its section. Read by the sections'
- * readers, judged again every minute at the listing's own today.
+ * The basic dashboard (docs/dashboard-plan.md): seven figures, the repairs
+ * left behind and the work people switched off had started
+ * (docs/staff-disable-plan.md), each tile leading to its section or list.
+ * Read by the sections' readers, judged again every minute at the listing's
+ * own today.
  */
 export function DashboardView() {
   const { t } = useTranslation();
   const now = useNow(REFRESH_MS);
-  const { tasks, problems, supplies, repairs, rows } = useDashboard(now);
+  const { tasks, problems, supplies, repairs, rows, offWork } = useDashboard(now);
+  // The job of a person switched off the manager opened for a decision.
+  const [opening, setOpening] = useState<string | null>(null);
 
   const cleanings = tasks.data === undefined ? undefined : cleaningsToday(tasks.data, now);
   const unassigned =
@@ -114,6 +121,7 @@ export function DashboardView() {
       : unassignedAhead(tasks.data, new Set(rows.data.map((row) => row.id)), now);
   const stuck = repairs.data === undefined ? undefined : stuckRepairs(repairs.data, now);
   const repairTotals = stuck === undefined ? undefined : repairCounts(stuck);
+  const off = offWork.data === undefined ? undefined : offStaffWork(offWork.data);
 
   const failures = [
     { read: tasks, messageKey: 'panel.dashboard.errors.tasks' },
@@ -121,6 +129,7 @@ export function DashboardView() {
     { read: problems, messageKey: 'panel.dashboard.errors.problems' },
     { read: supplies, messageKey: 'panel.dashboard.errors.supplies' },
     { read: repairs, messageKey: 'panel.dashboard.errors.repairs' },
+    { read: offWork, messageKey: 'panel.dashboard.errors.offWork' },
   ].filter(({ read }) => read.isError);
 
   return (
@@ -164,18 +173,29 @@ export function DashboardView() {
           label={t('panel.dashboard.tiles.overdueRepairs')}
           value={shown(repairTotals && String(repairTotals.overdue), [repairs])}
           isAlert={(repairTotals?.overdue ?? 0) > 0}
-          onClick={scrollToStuckRepairs}
+          onClick={() => scrollToSection(STUCK_REPAIRS_ID)}
         />
         <Tile
           href={`#${STUCK_REPAIRS_ID}`}
           label={t('panel.dashboard.tiles.offRepairs')}
           value={shown(repairTotals && String(repairTotals.technicianOff), [repairs])}
           isAlert={(repairTotals?.technicianOff ?? 0) > 0}
-          onClick={scrollToStuckRepairs}
+          onClick={() => scrollToSection(STUCK_REPAIRS_ID)}
+        />
+        <Tile
+          href={`#${OFF_STAFF_WORK_ID}`}
+          label={t('panel.dashboard.tiles.offCleanings')}
+          value={shown(off && String(off.length), [offWork])}
+          isAlert={(off?.length ?? 0) > 0}
+          onClick={() => scrollToSection(OFF_STAFF_WORK_ID)}
         />
       </div>
 
       <StuckRepairs stuck={stuck} isError={repairs.isError} />
+      <OffStaffWork work={off} isError={offWork.isError} onOpen={setOpening} />
+      {opening === null ? null : (
+        <OffWorkForm taskId={opening} onClose={() => setOpening(null)} />
+      )}
     </div>
   );
 }

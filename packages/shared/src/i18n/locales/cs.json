@@ -169,7 +169,8 @@
         "openProblems": "Otevřených úkolů",
         "newSupplies": "Nových žádostí o materiál",
         "overdueRepairs": "Oprav po termínu",
-        "offRepairs": "Oprav u vypnutých"
+        "offRepairs": "Oprav u vypnutých",
+        "offCleanings": "Úklidů u vypnutých"
       },
       "repairs": {
         "title": "Uvízlé opravy",
@@ -181,12 +182,22 @@
         "noName": "Bez jména",
         "open": "Otevřít úkol"
       },
+      "offWork": {
+        "title": "Rozpracované úklidy u vypnutých",
+        "hint": "Vypnutí jim odebralo vše, co nezačali. Rozpracované čeká na rozhodnutí: předejte úklid jinému. Pokud ho nepředáte, po dni rezervy se sám uzavře a bude označen „Neproběhlo“.",
+        "loading": "Načítáme úklidy…",
+        "empty": "Vypnutí nemají žádné rozpracované úklidy.",
+        "open": "Otevřít úklid",
+        "personOff": "Nepracuje",
+        "noName": "Bez jména"
+      },
       "errors": {
         "tasks": "Úklidy se nepodařilo načíst.",
         "listings": "Objekty se nepodařilo načíst.",
         "problems": "Úkoly se nepodařilo načíst.",
         "supplies": "Žádosti o materiál se nepodařilo načíst.",
-        "repairs": "Opravy se nepodařilo načíst."
+        "repairs": "Opravy se nepodařilo načíst.",
+        "offWork": "Úklidy vypnutých se nepodařilo načíst."
       }
     },
     "problems": {
@@ -199,6 +210,10 @@
       "loading": "Načítáme úkoly…",
       "loadError": "Úkoly se nepodařilo načíst",
       "notFound": "Úkol nenalezen",
+      "history": {
+        "takenOff": "{{name}}: práce odebrána",
+        "takenOffAccountDisabled": "{{name}}: práce odebrána — účet vypnut"
+      },
       "columns": {
         "title": "Úkol",
         "property": "Objekt",
@@ -1332,6 +1347,7 @@
     "taskDuplicate": "Tento byt už na {{date}} takový úklid má",
     "taskMovedMeanwhile": "Zatímco byl formulář otevřený, úklid se přesunul na {{date}}. Otevřete ho znovu.",
     "cleanerAutoTaken": "Objekt už je napevno přiřazen: {{name}}. Nejdřív to přiřazení zrušte.",
+    "cleanerLinkInactive": "Vypnutý účet nelze přiřadit k objektu: nejdřív ho zapněte.",
     "cleanerPriorityInvalid": "Pořadí je číslo od 1 do 99.",
     "techNotLinkable": "Technik se k objektům nepřiřazuje: úklidy nejsou jeho práce.",
     "techRoleBlocked": "Nejdřív toho člověka odeberte z objektů (přiřazení: {{links}}) a z otevřených úklidů ({{cleanings}}): technik úklidy nemá.",

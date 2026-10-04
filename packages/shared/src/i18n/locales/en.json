@@ -169,7 +169,8 @@
         "openProblems": "Open tasks",
         "newSupplies": "New supply requests",
         "overdueRepairs": "Overdue repairs",
-        "offRepairs": "Repairs held by switched-off staff"
+        "offRepairs": "Repairs held by switched-off staff",
+        "offCleanings": "Cleanings held by switched-off staff"
       },
       "repairs": {
         "title": "Stuck repairs",
@@ -181,12 +182,22 @@
         "noName": "No name",
         "open": "Open the task"
       },
+      "offWork": {
+        "title": "Cleanings in progress held by switched-off staff",
+        "hint": "Switching them off took away everything not yet started. What they had started waits for a decision: hand the cleaning to someone else. If it is not handed on, after a day's grace it closes by itself and is marked “Did not happen”.",
+        "loading": "Loading the cleanings…",
+        "empty": "No switched-off staff have cleanings in progress.",
+        "open": "Open the cleaning",
+        "personOff": "Not working",
+        "noName": "No name"
+      },
       "errors": {
         "tasks": "Could not load the cleanings.",
         "listings": "Could not load the listings.",
         "problems": "Could not load the tasks.",
         "supplies": "Could not load the supply requests.",
-        "repairs": "Could not load the repairs."
+        "repairs": "Could not load the repairs.",
+        "offWork": "Could not load the cleanings of switched-off staff."
       }
     },
     "problems": {
@@ -199,6 +210,10 @@
       "loading": "Loading tasks…",
       "loadError": "Could not load the tasks",
       "notFound": "Task not found",
+      "history": {
+        "takenOff": "{{name}}: work taken off",
+        "takenOffAccountDisabled": "{{name}}: work taken off — account switched off"
+      },
       "columns": {
         "title": "Task",
         "property": "Listing",
@@ -1308,6 +1323,7 @@
     "taskDuplicate": "This flat already has such a cleaning on {{date}}",
     "taskMovedMeanwhile": "While the form was open, the cleaning was moved to {{date}}. Open it again.",
     "cleanerAutoTaken": "The listing is already assigned to {{name}}. Release that link first.",
+    "cleanerLinkInactive": "A switched-off account cannot be linked to a listing: switch it on first.",
     "cleanerPriorityInvalid": "The position is a number from 1 to 99.",
     "techNotLinkable": "A technician is not linked to listings: cleanings are not their work.",
     "techRoleBlocked": "Take this person off their listings ({{links}} links) and open cleanings ({{cleanings}}) first: a technician has no cleanings.",

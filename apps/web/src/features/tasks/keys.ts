@@ -13,6 +13,8 @@ export const taskKeys = {
   one: (taskId: string) => ['tasks', 'one', taskId] as const,
   /** The live repairs whatever their day: the calendar's badge, stage 8's counters. */
   liveRepairs: () => ['tasks', 'liveRepairs'] as const,
+  /** The work under way on people switched off: the dashboard's «Уборок у отключённых». */
+  offStaffWork: () => ['tasks', 'offStaffWork'] as const,
   /** The live and done tasks of the dashboard's days, `from` up to `to` (exclusive). */
   dashboard: (from: string, to: string) => ['tasks', 'dashboard', from, to] as const,
 };
