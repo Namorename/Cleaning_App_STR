@@ -58,10 +58,14 @@
 -- fail. A generator run that meets her so is refused whole, as one that met a
 -- technician (20261003110000), and the next run reads her link as 'claim'. A
 -- dispatcher locks the task's row before the attempt, as the release does, so
--- the two do not deadlock over an attempt she holds. One rare deadlock (40P01)
--- remains and is accepted, nothing half-written: a generator run that moved one
+-- the two do not deadlock over an attempt she holds. Two rare deadlocks (40P01)
+-- remain and are accepted, nothing half-written: a generator run that moved one
 -- of her cleanings in its reschedule pass and then hands her another through
--- her 'auto' link, while the release waits for the first.
+-- her 'auto' link, while the release waits for the first; and her own start of
+-- a repair of a task in the same second — the start holds the attempt and waits
+-- for the task's row (the mirror), the release the other way round: the
+-- inverted order 20260923130000 and 20261003130000 accepted for a direct write
+-- of an attempt against a dispatch.
 --
 -- The cleanup of what hangs today is release_work_of_inactive() for everybody
 -- switched off, at the end of this file (counted first by
