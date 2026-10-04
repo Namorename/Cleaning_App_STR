@@ -172,8 +172,8 @@ refresh in team/use-team.ts. Last: is anything in the panel's diff unsafe to shi
 
 const REFUTED_SEVERITIES = ['critical', 'high', 'medium']
 
-// Two agents at most on the machine (owner, 2026-10-03); the other line runs one alongside.
-const MAX_AGENTS = 1
+// Two agents at most on the machine (owner, 2026-10-03); the other line has none while this runs.
+const MAX_AGENTS = 2
 let running = 0
 const waiting = []
 
