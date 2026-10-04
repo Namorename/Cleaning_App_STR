@@ -12,8 +12,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { formatDay, todayIso } from '@/lib/format-date';
 import { serverErrorText } from '@/lib/server-error';
+import { useAddressState } from '@/lib/use-address-state';
 import { useLanguage } from '@/lib/use-language';
 
+import { readTasksAddress, writeTasksAddress } from './address';
 import { TaskCard } from './task-card';
 import { TaskDrawer } from './task-drawer';
 import { TaskForm } from './task-form';
@@ -36,6 +38,9 @@ import { useCancelTask, useStaff, useTasks } from './use-tasks';
  *
  * Today is grouped by the part of the day, because that is how a day is
  * worked; the other tabs span days and are grouped by the day itself.
+ *
+ * The tab and the filters live in the address (5.4): leaving the screen and
+ * coming back with «Назад», a reload or a forwarded link find it as it was.
  */
 export function TasksView() {
   const { t } = useTranslation();
@@ -47,8 +52,10 @@ export function TasksView() {
   // list has refreshed, and the card that asked may have left the tab.
   const cancel = useCancelTask();
   const cancelFailure = cancel.isError ? serverErrorText(cancel.error) : null;
-  const [tab, setTab] = useState<TaskTab>('today');
-  const [filters, setFilters] = useState<TaskFilters>(EMPTY_FILTERS);
+  const [address, setAddress] = useAddressState(readTasksAddress, writeTasksAddress);
+  const { tab, filters } = address;
+  const setTab = (next: TaskTab) => setAddress({ ...address, tab: next });
+  const setFilters = (next: TaskFilters) => setAddress({ ...address, filters: next });
   // The dialog and the drawer live only while they are open: a fresh mount is
   // a fresh draft, which is why neither needs an effect to reset itself.
   const [editing, setEditing] = useState<{ task: Task | null } | null>(null);
@@ -128,12 +135,7 @@ export function TasksView() {
           onChange={(event) => setFilters({ ...filters, dateTo: event.target.value })}
         />
         {isFiltered ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setFilters(EMPTY_FILTERS)}
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={() => setFilters(EMPTY_FILTERS)}>
             {t('panel.tasks.filters.reset')}
           </Button>
         ) : null}
@@ -194,12 +196,8 @@ export function TasksView() {
         </Tabs>
       )}
 
-      {editing === null ? null : (
-        <TaskForm task={editing.task} onClose={() => setEditing(null)} />
-      )}
-      {reading === null ? null : (
-        <TaskDrawer task={reading} onClose={() => setReading(null)} />
-      )}
+      {editing === null ? null : <TaskForm task={editing.task} onClose={() => setEditing(null)} />}
+      {reading === null ? null : <TaskDrawer task={reading} onClose={() => setReading(null)} />}
     </div>
   );
 }

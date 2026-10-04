@@ -127,6 +127,13 @@ vi.mock('@/features/chat/thread-panel', () => ({
   ),
 }));
 
+// The router reads the address jsdom holds; the view writes it with
+// history.replaceState, which jsdom keeps as a browser would.
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(window.location.search),
+  usePathname: () => window.location.pathname,
+}));
+
 // The marks come from one company-wide answer; here it is a pair of sets the
 // test fills by hand.
 const unread = { tasks: new Set<string>(), problems: new Set<string>() };
@@ -136,8 +143,12 @@ import { expectPageTitle } from '@/components/page-header.expect';
 
 import { TasksView } from '../tasks-view';
 
+/** The query of the page's address, without its `?`. */
+const query = () => window.location.search.slice(1);
+
 beforeEach(() => {
   vi.clearAllMocks();
+  window.history.replaceState(null, '', '/tasks');
   unread.tasks.clear();
   saveState.isError = false;
   saveState.error = null;
@@ -452,5 +463,50 @@ describe('TasksView', () => {
       .closest('[data-slot="card"]') as HTMLElement;
     expect(within(evening).getByText('Новое сообщение')).toBeInTheDocument();
     expect(within(morning).queryByText('Новое сообщение')).not.toBeInTheDocument();
+  });
+});
+
+describe('TasksView keeps its tab and filters in the address', () => {
+  test('opens on the tab and the filters a link names', () => {
+    window.history.replaceState(null, '', '/tasks?tab=upcoming&type=cleaning&assignee=nobody');
+
+    render(<TasksView />);
+
+    expect(screen.getByRole('tab', { name: /Ближайшие/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByLabelText('Тип')).toHaveValue('cleaning');
+    expect(screen.getByLabelText('Исполнитель')).toHaveValue('nobody');
+    expect(screen.getByText('Уборка завтра')).toBeInTheDocument();
+  });
+
+  test('writes every change into the address, and a reset takes the filters out of it', async () => {
+    render(<TasksView />);
+
+    await userEvent.click(screen.getByRole('tab', { name: /Завершённые/ }));
+    expect(query()).toBe('tab=closed');
+
+    await userEvent.selectOptions(screen.getByLabelText('Исполнитель'), 'Без исполнителя');
+    await userEvent.type(screen.getByLabelText(/Поиск/), 'окна');
+    expect(query()).toBe('tab=closed&q=%D0%BE%D0%BA%D0%BD%D0%B0&assignee=nobody');
+    expect(screen.getByLabelText(/Поиск/)).toHaveValue('окна');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Сбросить фильтры' }));
+    expect(query()).toBe('tab=closed');
+    expect(screen.getByRole('tab', { name: /Завершённые/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+  }, 20000);
+
+  test('a screen opened afresh on the written address is the screen that was left', async () => {
+    const first = render(<TasksView />);
+    await userEvent.click(screen.getByRole('tab', { name: /Ближайшие/ }));
+    await userEvent.selectOptions(screen.getByLabelText('Тип'), 'Осмотр');
+    first.unmount();
+
+    // «Назад» from another section, or a reload: the page mounts on the address.
+    render(<TasksView />);
+
+    expect(screen.getByRole('tab', { name: /Ближайшие/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByLabelText('Тип')).toHaveValue('inspection');
   });
 });
