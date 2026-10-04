@@ -234,8 +234,6 @@ vi.mock('@/features/team/use-team', () => ({
   }),
 }));
 
-import { expectPageTitle } from '@/components/page-header.expect';
-
 import { PropertyCard } from '../property-card';
 
 function renderCard() {
