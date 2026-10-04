@@ -110,6 +110,7 @@ export function InfoTab({ property, all }: InfoTabProps) {
             <Label htmlFor="property-parent">{t('panel.apartments.info.parent')}</Label>
             <NativeSelect
               id="property-parent"
+              className="w-full max-w-md"
               value={draft.parentId === null ? '' : String(draft.parentId)}
               onChange={(event) =>
                 setDraft({
@@ -150,6 +151,7 @@ export function InfoTab({ property, all }: InfoTabProps) {
           <Label htmlFor="cleaner-notes">{t('panel.apartments.info.cleanerNotes')}</Label>
           <Textarea
             id="cleaner-notes"
+            className="max-w-2xl"
             rows={3}
             value={draft.cleanerNotes}
             onChange={(event) => setDraft({ ...draft, cleanerNotes: event.target.value })}
@@ -163,6 +165,7 @@ export function InfoTab({ property, all }: InfoTabProps) {
           <Label htmlFor="internal-notes">{t('panel.apartments.info.internalNotes')}</Label>
           <Textarea
             id="internal-notes"
+            className="max-w-2xl"
             rows={3}
             value={draft.internalNotes}
             onChange={(event) => setDraft({ ...draft, internalNotes: event.target.value })}
@@ -182,7 +185,7 @@ export function InfoTab({ property, all }: InfoTabProps) {
         )}
 
         <div className="flex items-center gap-3">
-          <Button type="submit" disabled={save.isPending}>
+          <Button type="submit" className="h-11" disabled={save.isPending}>
             {save.isPending ? t('panel.apartments.info.saving') : t('panel.apartments.info.save')}
           </Button>
           {save.isSuccess && !save.isPending ? (

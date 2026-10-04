@@ -2,7 +2,7 @@ import { ICONS, type IconMeaning } from '@str-ops/shared';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, test } from 'vitest';
 
-import { STATUS_GLYPH_MEANINGS, StatusBadge, StatusGlyph } from './status-badge';
+import { STATUS_GLYPH_MEANINGS, StatusBadge, StatusGlyph, statusKey } from './status-badge';
 
 describe('the glyph of a status', () => {
   test.each(STATUS_GLYPH_MEANINGS)('%s is the icon the shared map names', (meaning) => {
@@ -46,6 +46,15 @@ describe('StatusBadge', () => {
     const badge = screen.getByText('В работе');
     expect(badge).toHaveClass('bg-tone-in-progress-bg');
     expect(badge.querySelector('svg')).toHaveClass('lucide-play');
+  });
+
+  test('a status read as plain text finds its key, or stays neutral without one', () => {
+    expect(statusKey('tasks', 'done')).toBe('tasks.done');
+    expect(statusKey('bookingCard', 'inquiry')).toBeNull();
+
+    render(<StatusBadge status={statusKey('bookingCard', 'inquiry')}>inquiry</StatusBadge>);
+    expect(screen.getByText('inquiry')).toHaveClass('bg-tone-neutral-bg');
+    expect(screen.getByText('inquiry').querySelector('svg')).toBeNull();
   });
 
   test('a status whose word stands alone has no glyph', () => {

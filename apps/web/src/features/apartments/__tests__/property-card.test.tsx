@@ -3,6 +3,8 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
+import { formatDay } from '@/lib/format-date';
+
 import { propertyDetailSchema, propertySchema, type Property } from '../schema';
 
 const WHOLE = 571441;
@@ -347,6 +349,21 @@ describe('a refresh that fails does not take the form away', () => {
   });
 });
 
+// 5.4: the fields of «Информация» ran the card's whole width — a <select> of 1168 px.
+describe('the fields keep a width of their own', () => {
+  test('the parent is a select of a readable width, the notes a column of text', () => {
+    // A listing with no units of its own is the one offered a parent.
+    cardState.subject = propertyDetailSchema.parse({ ...detail, id: OTHER, name: 'Anděl 4' });
+    renderCard();
+
+    expect(screen.getByLabelText('Часть объекта')).toHaveClass('max-w-md');
+    for (const notes of screen.getAllByRole('textbox')) {
+      expect(notes).toHaveClass('max-w-2xl');
+    }
+    expect(screen.getByRole('button', { name: 'Сохранить' })).toHaveClass('h-11');
+  });
+});
+
 describe('listings that belong together', () => {
   test('the units are listed and lead to their own cards', () => {
     renderCard();
@@ -427,7 +444,21 @@ describe('what is booked on the flat', () => {
     const row = screen.getAllByRole('row').find((one) => one.textContent?.includes('Jan Novák'));
     expect(row).toBeDefined();
     expect(within(row as HTMLElement).getByText('Впереди')).toBeInTheDocument();
-    expect(within(row as HTMLElement).getByText('2999-01-10 — 2999-01-14')).toBeInTheDocument();
+  });
+
+  // 5.4: the dates were ISO, the status Hostaway's own code.
+  test('the dates read the manager’s way, the status in words and its tone', async () => {
+    renderCard();
+    await userEvent.click(screen.getByRole('tab', { name: 'Бронирования' }));
+
+    const row = screen
+      .getAllByRole('row')
+      .find((one) => one.textContent?.includes('Jan Novák')) as HTMLElement;
+    expect(row).toHaveTextContent(
+      `${formatDay('2999-01-10', 'ru')} — ${formatDay('2999-01-14', 'ru')}`,
+    );
+    expect(row).not.toHaveTextContent('2999-01-10');
+    expect(within(row).getByText('Новая')).toHaveClass('bg-tone-booking-bg');
   });
 
   test('a block is not shown as a nameless guest', async () => {
@@ -485,6 +516,26 @@ describe('maintenance', () => {
     expect(screen.getByRole('link', { name: 'Не закрывается окно' })).toBeInTheDocument();
     expect(screen.getByText('Заменить замок')).toBeInTheDocument();
     expect(screen.getAllByText('в комнате «1 - 2109»')).toHaveLength(2);
+  });
+
+  // 5.4: every status was one grey outline, and the days were ISO.
+  test('the work and the reports wear their statuses’ tones, the days read the local way', async () => {
+    renderCard();
+    await userEvent.click(screen.getByRole('tab', { name: 'Обслуживание' }));
+
+    expect(screen.getByText('Выполнена')).toHaveClass('bg-tone-done-bg');
+    expect(screen.getByText('Назначена')).toHaveClass('bg-tone-assigned-bg');
+    expect(screen.getAllByText('Открыто')[0]).toHaveClass('bg-tone-unassigned-bg');
+    expect(screen.getByText(formatDay('2026-09-02', 'ru'))).toBeInTheDocument();
+    expect(screen.queryByText('2026-09-02')).toBeNull();
+  });
+
+  test('the moves of the state are 44 px, the archive in the destructive colour', async () => {
+    renderCard();
+    await userEvent.click(screen.getByRole('tab', { name: 'Обслуживание' }));
+
+    expect(screen.getByRole('button', { name: 'На обслуживание' })).toHaveClass('h-11');
+    expect(screen.getByRole('button', { name: 'В архив' })).toHaveClass('h-11', 'text-destructive');
   });
 
   test('and what stands on the house itself names no room', async () => {

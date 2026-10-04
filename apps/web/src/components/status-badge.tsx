@@ -72,9 +72,22 @@ function isGlyph(meaning: IconMeaning): meaning is StatusGlyphMeaning {
   return meaning in GLYPHS;
 }
 
+/**
+ * The contract's key for a status read as a plain string — a column the
+ * schema types as text, a code from Hostaway — or null when the contract has
+ * no such status, and the chip stays neutral.
+ */
+export function statusKey(area: string, value: string): StatusKey | null {
+  const key = `${area}.${value}`;
+  return Object.hasOwn(STATUS_TONE, key) ? (key as StatusKey) : null;
+}
+
 interface StatusBadgeProps {
-  /** The status as the contract keys it: `problems.in_progress`, `tasks.tail`. */
-  status: StatusKey;
+  /**
+   * The status as the contract keys it: `problems.in_progress`, `tasks.tail`;
+   * null for one the contract does not know, drawn neutral and without a glyph.
+   */
+  status: StatusKey | null;
   children: ReactNode;
   className?: string;
 }
@@ -85,9 +98,9 @@ interface StatusBadgeProps {
  * shape as well as colour.
  */
 export function StatusBadge({ status, children, className }: StatusBadgeProps) {
-  const meaning = statusIcon(status);
+  const meaning = status === null ? null : statusIcon(status);
   return (
-    <Badge tone={STATUS_TONE[status]} className={className}>
+    <Badge tone={status === null ? 'neutral' : STATUS_TONE[status]} className={className}>
       {meaning === null || !isGlyph(meaning) ? null : <StatusGlyph meaning={meaning} />}
       {children}
     </Badge>
