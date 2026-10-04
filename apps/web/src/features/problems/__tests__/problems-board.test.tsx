@@ -102,12 +102,15 @@ describe('ProblemsBoard drag and drop', () => {
     expect(card('Течёт кран')).toHaveAttribute('draggable', 'true');
   });
 
-  test('dropping an assigned card on "open" cancels the technician task', () => {
+  test('dropping an assigned card on "open" takes off the person the card shows', () => {
     render(<ProblemsBoard problems={problems} />);
 
     dragTo('Сломан замок', 'Открыто');
 
-    expect(mutations.unassign).toHaveBeenCalledWith(TASK_ID, expect.anything());
+    expect(mutations.unassign).toHaveBeenCalledWith(
+      { taskId: TASK_ID, assigneeId: TECH_ID },
+      expect.anything(),
+    );
   });
 
   // A stale screen now makes "take the technician off" fail routinely

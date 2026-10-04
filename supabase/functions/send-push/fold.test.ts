@@ -280,3 +280,42 @@ Deno.test("given, taken away and left free inside one minute: nothing", () => {
 
   assertEquals(folded, null);
 });
+
+const PROBLEM = "7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f";
+
+function reported(params: Record<string, unknown>, urgent = false): PushRow {
+  return {
+    id: nextId++,
+    kind: "problem_new",
+    taskId: null,
+    threadId: null,
+    propertyId: "900001",
+    params: { problem_id: PROBLEM, priority: "normal", property: 900001, ...params },
+    urgent,
+  };
+}
+
+Deno.test("a new task is one push about the task: where, who reported it, how urgent", () => {
+  const folded = fold(group([reported({ reporter_name: "Anna" })], `problem:${PROBLEM}`));
+
+  assertEquals(folded, {
+    type: "problem",
+    problemId: PROBLEM,
+    propertyId: "900001",
+    reporter: "Anna",
+    urgent: false,
+  });
+});
+
+Deno.test("a new task of high priority stays urgent", () => {
+  const folded = fold(group(
+    [reported({ priority: "high", reporter_name: "Anna" }, true)],
+    `problem:${PROBLEM}`,
+  ));
+
+  assertEquals(folded?.type === "problem" ? folded.urgent : null, true);
+});
+
+Deno.test("a new task that does not say which it is folds into nothing", () => {
+  assertEquals(fold(group([reported({ problem_id: null })], `problem:${PROBLEM}`)), null);
+});

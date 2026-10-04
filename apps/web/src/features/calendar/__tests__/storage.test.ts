@@ -55,6 +55,12 @@ describe('the depth the manager chose', () => {
     expect(readDepth(storage)).toBe(7);
   });
 
+  test('one day, remembered from before the owner took it away, falls back to a week', () => {
+    const storage = memoryStorage();
+    storage.setItem('str-ops.calendar.depth', '1');
+    expect(readDepth(storage)).toBe(7);
+  });
+
   test('a storage that throws costs the memory, not the screen', () => {
     expect(readDepth(brokenStorage)).toBe(7);
     expect(() => writeDepth(3, brokenStorage)).not.toThrow();
