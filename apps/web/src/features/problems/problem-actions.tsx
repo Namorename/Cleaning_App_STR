@@ -62,6 +62,18 @@ export function ProblemActions({ problem }: { problem: Problem }) {
   const isArchived = isProblemArchived(problem);
   const isClosed = isProblemClosed(problem);
   const close = () => setPending(null);
+  // The line under the actions shows the first mutation that failed, whenever
+  // it did: every action starts from a clean line, as on the board.
+  const clearOutcome = () => {
+    for (const mutation of mutations) {
+      mutation.reset();
+    }
+  };
+  /** Runs an action after clearing what the earlier ones left. */
+  const afresh = (run: () => void) => () => {
+    clearOutcome();
+    run();
+  };
 
   return (
     <div className="flex flex-col items-end gap-1">
@@ -71,7 +83,7 @@ export function ProblemActions({ problem }: { problem: Problem }) {
             type="button"
             className="h-11"
             disabled={isBusy}
-            onClick={() => unarchive.mutate(problem.id)}
+            onClick={afresh(() => unarchive.mutate(problem.id))}
           >
             {t('panel.problems.actions.unarchive')}
           </Button>
@@ -80,7 +92,7 @@ export function ProblemActions({ problem }: { problem: Problem }) {
             type="button"
             className="h-11"
             disabled={isBusy}
-            onClick={() => reopen.mutate(problem.id)}
+            onClick={afresh(() => reopen.mutate(problem.id))}
           >
             {t('panel.problems.actions.reopen')}
           </Button>
@@ -89,7 +101,7 @@ export function ProblemActions({ problem }: { problem: Problem }) {
             type="button"
             className="h-11"
             disabled={isBusy}
-            onClick={() => resolve.mutate(problem.id)}
+            onClick={afresh(() => resolve.mutate(problem.id))}
           >
             {t('panel.problems.actions.resolve')}
           </Button>
@@ -131,9 +143,10 @@ export function ProblemActions({ problem }: { problem: Problem }) {
       {pending === 'cancel' ? (
         <CancelDialog
           isBusy={isBusy}
-          onConfirm={(reason) =>
-            cancel.mutate({ problemId: problem.id, reason }, { onSettled: close })
-          }
+          onConfirm={(reason) => {
+            clearOutcome();
+            cancel.mutate({ problemId: problem.id, reason }, { onSettled: close });
+          }}
           onClose={close}
         />
       ) : null}
@@ -153,7 +166,7 @@ export function ProblemActions({ problem }: { problem: Problem }) {
                 variant="destructive"
                 className="h-11"
                 disabled={isBusy}
-                onClick={() => archive.mutate(problem.id, { onSettled: close })}
+                onClick={afresh(() => archive.mutate(problem.id, { onSettled: close }))}
               >
                 {t('panel.problems.actions.archiveConfirm')}
               </Button>

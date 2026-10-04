@@ -51,7 +51,24 @@ const mutations = {
   archive: vi.fn(),
   unarchive: vi.fn(),
 };
-const idle = { mutate: vi.fn(), isPending: false, isError: false, isSuccess: false, error: null };
+const idle = {
+  mutate: vi.fn(),
+  reset: vi.fn(),
+  isPending: false,
+  isError: false,
+  isSuccess: false,
+  error: null,
+};
+
+/** A refused cancel, kept until the mutation is reset — as TanStack keeps it. */
+const refusal = { cancel: false };
+const cancelOutcome = () => ({
+  isError: refusal.cancel,
+  error: refusal.cancel ? { hint: 'serverErrors.taskChangedMeanwhile' } : null,
+  reset: () => {
+    refusal.cancel = false;
+  },
+});
 
 vi.mock('../use-problems', () => ({
   useProblem: () => queries.problem(),
@@ -59,7 +76,7 @@ vi.mock('../use-problems', () => ({
   useFixTaskSteps: () => queries.steps(),
   useStaff: () => queries.staff(),
   useAssignProblem: () => ({ ...idle, mutate: mutations.assign }),
-  useCancelProblem: () => ({ ...idle, mutate: mutations.cancel }),
+  useCancelProblem: () => ({ ...idle, ...cancelOutcome(), mutate: mutations.cancel }),
   useResolveProblem: () => ({ ...idle, mutate: mutations.resolve }),
   useReopenProblem: () => ({ ...idle, mutate: mutations.reopen }),
   useArchiveProblem: () => ({ ...idle, mutate: mutations.archive }),
@@ -81,6 +98,7 @@ const loaded = <T,>(data: T) => ({ data, isPending: false, isError: false });
 
 beforeEach(() => {
   vi.clearAllMocks();
+  refusal.cancel = false;
   queries.problem.mockReturnValue(loaded(assigned));
   queries.photos.mockReturnValue(
     loaded([
@@ -312,6 +330,20 @@ describe('ProblemDetail', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Восстановить из архива' }));
     expect(mutations.unarchive).toHaveBeenCalledWith(PROBLEM_ID);
   }, 20000);
+
+  // The line under the actions showed the first mutation that had failed: a
+  // refused cancel stayed there after «Отметить выполненным» went through.
+  test('a new action clears the refusal an earlier one left', async () => {
+    refusal.cancel = true;
+    const { rerender } = render(<ProblemDetail problemId={PROBLEM_ID} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('Это уже изменилось — экран обновлён');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Отметить выполненным' }));
+    rerender(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    expect(mutations.resolve).toHaveBeenCalledWith(PROBLEM_ID);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
 
   test('every control of the page is a 44 px target', () => {
     render(<ProblemDetail problemId={PROBLEM_ID} />);
