@@ -107,94 +107,172 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
+/** The words a refused drag leaves under the board (owner, 05.10). */
+const DRAG_REFUSED =
+  'Так перетащить нельзя: перевести карточку можно через её меню «⋯», а в работу задание берёт техник в приложении';
+
+// Owner, 05.10: the mouse is an addition to the menu «⋯», and makes two moves
+// only — the two a manager makes most: hand an open task to a technician, and
+// take one back. Everything else is the menu's, or the technician's.
 describe('ProblemsBoard drag and drop', () => {
   test('only live cards are draggable', () => {
     render(<ProblemsBoard problems={problems} />);
     expect(card('Течёт кран')).toHaveAttribute('draggable', 'true');
   });
 
-  test('dropping an assigned card on "open" takes off the person the card shows', () => {
+  test('while a card is dragged, only the column it may go to is lit', () => {
     render(<ProblemsBoard problems={problems} />);
 
-    dragTo('Сломан замок', 'Открыто');
+    fireEvent.dragStart(card('Течёт кран'));
+    const lit = screen
+      .getAllByRole('region')
+      .filter((region) => region.getAttribute('data-droppable') === 'true')
+      .map((region) => region.getAttribute('aria-label'));
+    expect(lit).toEqual(['Назначено']);
+    fireEvent.dragEnd(card('Течёт кран'));
 
-    expect(mutations.unassign).toHaveBeenCalledWith(
-      { taskId: TASK_ID, assigneeId: TECH_ID },
-      expect.anything(),
-    );
+    fireEvent.dragStart(card('Сломан замок'));
+    expect(column('Открыто')).toHaveAttribute('data-droppable', 'true');
+    expect(column('Выполнено')).not.toHaveAttribute('data-droppable', 'true');
+    expect(column('В работе')).not.toHaveAttribute('data-droppable', 'true');
   });
 
-  // A stale screen now makes "take the technician off" fail routinely
+  describe('«Открыто» → «Назначено»', () => {
+    test('opens the technician form, and the choice assigns the task', async () => {
+      render(<ProblemsBoard problems={problems} />);
+
+      dragTo('Течёт кран', 'Назначено');
+      const dialog = await screen.findByRole('dialog', { name: 'Назначить техника' });
+      await userEvent.selectOptions(within(dialog).getByLabelText('Техник'), 'Petr Fixer');
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Назначить' }));
+
+      expect(mutations.assign).toHaveBeenCalledWith(
+        expect.objectContaining({ problemId: OPEN_ID, assigneeId: TECH_ID }),
+        expect.anything(),
+      );
+    }, 20000);
+
+    test('a cancelled choice leaves the card where it was', async () => {
+      render(<ProblemsBoard problems={problems} />);
+
+      dragTo('Течёт кран', 'Назначено');
+      await screen.findByRole('dialog', { name: 'Назначить техника' });
+      await userEvent.keyboard('{Escape}');
+
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(mutations.assign).not.toHaveBeenCalled();
+      expect(within(column('Открыто')).getByRole('article', { name: 'Течёт кран' })).toBeVisible();
+    });
+  });
+
+  describe('«Назначено» → «Открыто»', () => {
+    test('asks first, then takes off the person the card shows', async () => {
+      render(<ProblemsBoard problems={problems} />);
+
+      dragTo('Сломан замок', 'Открыто');
+      const question = await screen.findByRole('dialog', { name: 'Снять техника с работы?' });
+      expect(question).toHaveTextContent('Petr Fixer больше не будет видеть «Сломан замок»');
+      expect(mutations.unassign).not.toHaveBeenCalled();
+
+      await userEvent.click(within(question).getByRole('button', { name: 'Снять' }));
+      expect(mutations.unassign).toHaveBeenCalledWith(
+        { taskId: TASK_ID, assigneeId: TECH_ID },
+        expect.anything(),
+      );
+    });
+
+    test('«Оставить» leaves the technician on the job', async () => {
+      render(<ProblemsBoard problems={problems} />);
+
+      dragTo('Сломан замок', 'Открыто');
+      const question = await screen.findByRole('dialog', { name: 'Снять техника с работы?' });
+      await userEvent.click(within(question).getByRole('button', { name: 'Оставить' }));
+
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(mutations.unassign).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('every other drop is refused, in words', () => {
+    const inProgress: Problem = problemSchema.parse({
+      ...base,
+      id: '88888888-8888-4888-8888-888888888888',
+      title: 'Меняют стекло',
+      status: 'in_progress',
+      fix_tasks: [
+        {
+          id: '99999999-9999-4999-8999-999999999990',
+          assignee_id: TECH_ID,
+          status: 'in_progress',
+          scheduled_date: '2026-09-10',
+          time_from: null,
+          time_to: null,
+          assignee: { full_name: 'Petr Fixer' },
+        },
+      ],
+    });
+
+    test.each([
+      ['Течёт кран', 'Выполнено'],
+      ['Течёт кран', 'В работе'],
+      ['Сломан замок', 'В работе'],
+      ['Сломан замок', 'Выполнено'],
+      ['Меняют стекло', 'Открыто'],
+      ['Перегорела лампа', 'Открыто'],
+      ['Перегорела лампа', 'Назначено'],
+    ])('«%s» onto «%s» stays put, and the line says where it is done', (title, target) => {
+      render(<ProblemsBoard problems={[...problems, inProgress, resolved]} />);
+
+      dragTo(title, target);
+
+      expect(screen.queryByRole('dialog')).toBeNull();
+      for (const mutate of Object.values(mutations)) {
+        expect(mutate).not.toHaveBeenCalled();
+      }
+      expect(screen.getByRole('status')).toHaveTextContent(DRAG_REFUSED);
+    });
+  });
+
+  // A browser drops nothing on a column that did not accept the card: the
+  // drag just ends there, and that is when the line has to speak.
+  test('a card let go over a column it may not enter stays, and the line says why', () => {
+    render(<ProblemsBoard problems={problems} />);
+
+    fireEvent.dragStart(card('Течёт кран'));
+    fireEvent.dragEnter(column('Выполнено'));
+    fireEvent.dragEnd(card('Течёт кран'));
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('status')).toHaveTextContent(DRAG_REFUSED);
+  });
+
+  test('passing over a closed column on the way to the open one says nothing', async () => {
+    render(<ProblemsBoard problems={problems} />);
+    // Taken before the drop: the form it opens hides the board from queries.
+    const dragged = card('Течёт кран');
+
+    fireEvent.dragStart(dragged);
+    fireEvent.dragEnter(column('Выполнено'));
+    fireEvent.dragEnter(column('Назначено'));
+    fireEvent.dragOver(column('Назначено'));
+    fireEvent.drop(column('Назначено'));
+    fireEvent.dragEnd(dragged);
+
+    expect(await screen.findByRole('dialog', { name: 'Назначить техника' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).not.toHaveTextContent(DRAG_REFUSED);
+  });
+
+  // A stale screen makes "take the technician off" fail routinely
   // (serverErrors.taskChangedMeanwhile). The status line shows the first
   // failed mutation, so an old refusal must not outlive the next action.
   test('every drop clears the outcome an earlier action left', () => {
     render(<ProblemsBoard problems={problems} />);
 
-    dragTo('Течёт кран', 'Открыто');
+    dragTo('Течёт кран', 'Выполнено');
 
     expect(resets.resolve).toHaveBeenCalled();
     expect(resets.unassign).toHaveBeenCalled();
     expect(resets.reopen).toHaveBeenCalled();
-  });
-
-  test('dropping on "resolved" asks first and resolves on confirmation', async () => {
-    render(<ProblemsBoard problems={problems} />);
-
-    dragTo('Течёт кран', 'Выполнено');
-
-    const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText(/«Течёт кран» закроется как выполненное/)).toBeInTheDocument();
-    expect(mutations.resolve).not.toHaveBeenCalled();
-
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Да, выполнено' }));
-    expect(mutations.resolve).toHaveBeenCalledWith(OPEN_ID, expect.anything());
-  });
-
-  test('the resolve dialog closes once the server has answered, refusal included', async () => {
-    mutations.resolve.mockImplementation((_id: string, options: { onSettled?: () => void }) =>
-      options.onSettled?.(),
-    );
-    render(<ProblemsBoard problems={problems} />);
-
-    dragTo('Течёт кран', 'Выполнено');
-    const dialog = await screen.findByRole('dialog');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Да, выполнено' }));
-
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-
-  test('dropping an open card on "assigned" opens the technician form', async () => {
-    render(<ProblemsBoard problems={problems} />);
-
-    dragTo('Течёт кран', 'Назначено');
-
-    const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('Назначить техника')).toBeInTheDocument();
-    expect(within(dialog).getByLabelText('Техник')).toBeInTheDocument();
-  });
-
-  test('"in progress" explains that the technician starts the task', () => {
-    render(<ProblemsBoard problems={problems} />);
-
-    dragTo('Течёт кран', 'В работе');
-
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'В работу задание переводит техник кнопкой «Начать работу» в приложении',
-    );
-    expect(mutations.resolve).not.toHaveBeenCalled();
-    expect(mutations.unassign).not.toHaveBeenCalled();
-  });
-
-  test('a resolved card dragged back to "open" is reopened, anywhere else it stays', () => {
-    render(<ProblemsBoard problems={[...problems, resolved]} />);
-    expect(card('Перегорела лампа')).toHaveAttribute('draggable', 'true');
-
-    dragTo('Перегорела лампа', 'Назначено');
-    expect(mutations.reopen).not.toHaveBeenCalled();
-    expect(screen.getByRole('status')).toHaveTextContent('Отсюда перенести сюда нельзя');
-
-    dragTo('Перегорела лампа', 'Открыто');
-    expect(mutations.reopen).toHaveBeenCalledWith(RESOLVED_ID, expect.anything());
   });
 
   test('marks the breakage somebody wrote about, and no other', () => {
@@ -272,8 +350,8 @@ describe('ProblemsBoard layout', () => {
 // menu makes too — from the keyboard, on a touch screen.
 describe('ProblemsBoard card menu', () => {
   // An «assigned» problem whose job is gone (a stale row): there is nobody to
-  // take off. The menu does not offer «Открыто», and a drop there says it
-  // cannot be done — neither path sends anything.
+  // take off. The menu does not offer «Открыто», and a drop there is refused
+  // — neither path sends anything.
   test('offers no «Открыто» without a live job, and a drop there is refused in words', async () => {
     const orphan = problemSchema.parse({
       ...base,
@@ -289,7 +367,7 @@ describe('ProblemsBoard card menu', () => {
 
     dragTo('Скрипит дверь', 'Открыто');
     expect(mutations.unassign).not.toHaveBeenCalled();
-    expect(screen.getByRole('status')).toHaveTextContent('Отсюда перенести сюда нельзя');
+    expect(screen.getByRole('status')).toHaveTextContent(DRAG_REFUSED);
   });
 
   test('offers the columns a card can go to, and not the technician’s own', async () => {
@@ -308,11 +386,15 @@ describe('ProblemsBoard card menu', () => {
     expect(itemsOf(await openCardMenu('Перегорела лампа'))).toEqual(['Перевести в «Открыто»']);
   });
 
-  test('«Открыто» takes off the person the card shows, as the drop does', async () => {
+  // Owner, 05.10: the menu asks the same question the drop does.
+  test('«Открыто» asks first, then takes off the person the card shows, as the drop does', async () => {
     render(<ProblemsBoard problems={problems} />);
 
     const menu = await openCardMenu('Сломан замок');
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Перевести в «Открыто»' }));
+    const question = await screen.findByRole('dialog', { name: 'Снять техника с работы?' });
+    expect(mutations.unassign).not.toHaveBeenCalled();
+    await userEvent.click(within(question).getByRole('button', { name: 'Снять' }));
 
     expect(mutations.unassign).toHaveBeenCalledWith(
       { taskId: TASK_ID, assigneeId: TECH_ID },
@@ -330,10 +412,8 @@ describe('ProblemsBoard card menu', () => {
 
     const menu = await openCardMenu('Сломан замок');
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Перевести в «Открыто»' }));
-    const question = screen.queryByRole('dialog');
-    if (question !== null) {
-      await userEvent.click(within(question).getByRole('button', { name: 'Снять' }));
-    }
+    const question = await screen.findByRole('dialog', { name: 'Снять техника с работы?' });
+    await userEvent.click(within(question).getByRole('button', { name: 'Снять' }));
 
     expect(screen.getByRole('status')).toHaveTextContent(
       'Техник снят с работы, задание снова открыто',

@@ -1,7 +1,7 @@
 'use client';
 
 import { problemStatusTone } from '@str-ops/shared';
-import { useState, type DragEvent } from 'react';
+import { useRef, useState, type DragEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { StatusBadge } from '@/components/status-badge';
@@ -39,7 +39,7 @@ interface ProblemsBoardProps {
 
 /** A move that needs the manager's word before anything is sent. */
 interface PendingMove {
-  kind: 'assign' | 'resolve';
+  kind: 'assign' | 'resolve' | 'unassign';
   problem: Problem;
 }
 
@@ -64,15 +64,30 @@ function menuMoves(problem: Problem): BoardStatus[] {
 }
 
 /**
+ * The moves a card makes by mouse (owner, 05.10): an open task to «Назначено»,
+ * and an assigned one back to «Открыто». The mouse is an addition to the menu
+ * «⋯», which makes every move — from the keyboard and on a touch screen too.
+ */
+function isDragMove(problem: Problem, to: BoardStatus): boolean {
+  const move = cardMove(problem, to);
+  return move === 'assign' || (move === 'unassign' && problem.status === 'assigned');
+}
+
+/**
  * Four columns, one per live status; cancelled problems are the list's business.
  *
- * A card moves by mouse or through its menu «⋯» (5.4, variant A) — both are
- * only a shortcut to what the card page offers: assigning opens the same
- * form, resolving asks first, moving back to "open" takes the technician off
- * the job (unassign_problem, with the person the card shows), and a resolved
- * card moved back to "open" is reopened. "In progress" belongs to the
- * technician's phone, so a drop there only explains itself and the menu does
- * not offer it.
+ * A card moves through its menu «⋯» (5.4, variant A) — a shortcut to what the
+ * card page offers: assigning opens the same form, resolving asks first,
+ * moving back to "open" asks first and takes the technician off the job
+ * (unassign_problem, with the person the card shows), and a resolved card
+ * moved back to "open" is reopened. "In progress" belongs to the technician's
+ * phone, so the menu does not offer it.
+ *
+ * The mouse adds two of those moves (owner, 05.10): an open card dragged to
+ * «Назначено» and an assigned one back to «Открыто», through the same form
+ * and the same question. While a card is dragged only the column it may go to
+ * is lit; let go anywhere else, it stays, and the line under the board says
+ * the move is the menu's or the technician's.
  *
  * The four columns stay side by side and the board scrolls sideways inside
  * its frame on a narrow screen (decision 14).
@@ -87,13 +102,16 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
   const [over, setOver] = useState<BoardStatus | null>(null);
   const [pending, setPending] = useState<PendingMove | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Where the dragged card was last over, and whether it was dropped: a card
+  // let go over a column it may not enter is never dropped there, and the
+  // line says so when the drag ends.
+  const lastOver = useRef<BoardStatus | null>(null);
+  const wasDropped = useRef(false);
 
   const failed = [resolve, unassign, reopen].find((mutation) => mutation.isError);
   const failure = failed === undefined ? null : serverErrorText(failed.error);
 
-  const canDrop = (status: BoardStatus) => {
-    return dragging !== null && isManagerMove(cardMove(dragging, status));
-  };
+  const canDrop = (status: BoardStatus) => dragging !== null && isDragMove(dragging, status);
 
   const onDragOver = (status: BoardStatus) => (event: DragEvent<HTMLElement>) => {
     if (!canDrop(status)) {
@@ -124,33 +142,41 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
         setNotice(null);
         setPending({ kind: move, problem });
         return;
-      case 'unassign': {
-        // cardMove offers this only with a live job.
-        const task = liveFixTask(problem);
-        if (task === null) {
-          setNotice(t('panel.problems.board.cannotMove'));
-          return;
-        }
+      case 'unassign':
+        // Taking the technician off asks first, by the drop and by the menu
+        // alike (owner, 05.10); cardMove offers it only with a live job.
         setNotice(null);
-        unassign.mutate(
-          { taskId: task.id, assigneeId: task.assignee_id },
-          { onSuccess: () => setNotice(t('panel.problems.board.unassigned')) },
-        );
+        setPending({ kind: 'unassign', problem });
         return;
-      }
       case 'reopen':
         setNotice(null);
         reopen.mutate(problem.id, {
           onSuccess: () => setNotice(t('panel.problems.board.reopened')),
         });
         return;
+      // Neither path asks for these: the menu does not offer them, the drag
+      // refuses them first. A stale card that gets here is told so.
       case 'startOnPhone':
-        setNotice(t('panel.problems.board.startOnPhone'));
-        return;
       case null:
         setNotice(t('panel.problems.board.cannotMove'));
         return;
     }
+  };
+
+  /** A drag that may not go where it went: the card stays, the line says where it is done. */
+  const refuseDrag = () => {
+    clearOutcome();
+    setNotice(t('panel.problems.board.dragRefused'));
+  };
+
+  const onDragStart = (problem: Problem) => {
+    lastOver.current = null;
+    wasDropped.current = false;
+    setDragging(problem);
+  };
+
+  const onDragEnter = (status: BoardStatus) => () => {
+    lastOver.current = status;
   };
 
   const onDrop = (status: BoardStatus) => (event: DragEvent<HTMLElement>) => {
@@ -159,17 +185,29 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
     if (dragging === null) {
       return;
     }
+    wasDropped.current = true;
     const problem = dragging;
     setDragging(null);
-    moveTo(problem, status);
+    if (isDragMove(problem, status)) {
+      moveTo(problem, status);
+    } else {
+      refuseDrag();
+    }
   };
 
-  // The column the technician fills: a drop is refused, but the reason is worth a line.
-  const onDropRefused = (status: BoardStatus) => () => {
-    if (dragging !== null && boardMove(dragging.status, status) === 'startOnPhone') {
-      clearOutcome();
-      setNotice(t('panel.problems.board.startOnPhone'));
+  const onDragEnd = () => {
+    const refusedAt = lastOver.current;
+    if (
+      !wasDropped.current &&
+      dragging !== null &&
+      refusedAt !== null &&
+      refusedAt !== dragging.status &&
+      !isDragMove(dragging, refusedAt)
+    ) {
+      refuseDrag();
     }
+    setDragging(null);
+    setOver(null);
   };
 
   const closePending = () => setPending(null);
@@ -182,6 +220,24 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
     }
     resolve.mutate(pending.problem.id, { onSettled: closePending });
   };
+
+  // unassign_problem with the person the card showed (f969563): if the job
+  // went to somebody else meanwhile, the server refuses.
+  const confirmUnassign = () => {
+    const task = pending === null ? null : liveFixTask(pending.problem);
+    if (task === null) {
+      closePending();
+      return;
+    }
+    unassign.mutate(
+      { taskId: task.id, assigneeId: task.assignee_id },
+      {
+        onSuccess: () => setNotice(t('panel.problems.board.unassigned')),
+        onSettled: closePending,
+      },
+    );
+  };
+  const unassigning = pending?.kind === 'unassign' ? pending.problem : null;
 
   return (
     <div className="flex flex-col gap-3">
@@ -201,7 +257,8 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
                 onDragOver={onDragOver(status)}
                 onDragLeave={() => setOver((current) => (current === status ? null : current))}
                 onDrop={onDrop(status)}
-                onDragEnter={onDropRefused(status)}
+                onDragEnter={onDragEnter(status)}
+                data-droppable={droppable ? 'true' : undefined}
                 className={cn(
                   'flex min-h-32 flex-col gap-2 rounded-lg bg-muted/40 p-2 transition-colors',
                   droppable && 'ring-1 ring-primary/30',
@@ -232,11 +289,8 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
                       moves={menuMoves(problem)}
                       onMove={moveTo}
                       hasUnread={unread.problems.has(problem.id)}
-                      onDragStart={setDragging}
-                      onDragEnd={() => {
-                        setDragging(null);
-                        setOver(null);
-                      }}
+                      onDragStart={onDragStart}
+                      onDragEnd={onDragEnd}
                     />
                   ))
                 )}
@@ -288,6 +342,38 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
               onClick={confirmResolve}
             >
               {t('panel.problems.board.resolveConfirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={unassigning !== null} onOpenChange={(open) => !open && closePending()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('panel.problems.board.unassignTitle')}</DialogTitle>
+            <DialogDescription>
+              {unassigning === null
+                ? null
+                : t('panel.problems.board.unassignText', {
+                    name:
+                      liveFixTask(unassigning)?.assignee?.full_name ??
+                      t('panel.problems.unknownPerson'),
+                    title: unassigning.title,
+                  })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" className="h-11" onClick={closePending}>
+              {t('panel.problems.board.unassignAbort')}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="h-11"
+              disabled={unassign.isPending}
+              onClick={confirmUnassign}
+            >
+              {t('panel.problems.board.unassignConfirm')}
             </Button>
           </DialogFooter>
         </DialogContent>
