@@ -21,3 +21,16 @@ if (typeof Blob.prototype.arrayBuffer !== 'function') {
     });
   };
 }
+
+// jsdom has no top layer, so nothing in it is `:popover-open` or `:modal`.
+// Floating UI asks exactly that of every ancestor when it places a popup (a
+// menu, a tooltip), and the selector engine jsdom resolves here (nwsapi
+// 2.2.27) answers `:modal` by recursing through `:fullscreen` — about a
+// minute for the first Base UI menu of a run. The answer is false either way.
+if (typeof Element !== 'undefined') {
+  const TOP_LAYER = new Set([':popover-open', ':modal']);
+  const nativeMatches = Element.prototype.matches;
+  Element.prototype.matches = function matches(this: Element, selector: string): boolean {
+    return TOP_LAYER.has(selector) ? false : nativeMatches.call(this, selector);
+  };
+}
