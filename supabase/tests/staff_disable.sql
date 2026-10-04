@@ -10,10 +10,11 @@
 -- repair of a task (problem) is taken off the way unassign_problem does it:
 -- the attempt cancelled, the task open again, «taken off» in its journal. Work
 -- under way (in_progress, paused, blocked) and closed work stay as they are.
--- Her 'auto' links become 'claim', so the generator hands her nothing new;
--- switching her back on brings nothing back. And nothing names a person who no
--- longer works here on live work: not the generator, not a manager's direct
--- write, not a link set to 'auto'.
+-- Every link of hers to a listing is removed, so the generator hands her
+-- nothing new; switching her back on brings nothing back. The journal of a
+-- repair taken off so says why (cause 'account_disabled'). And nothing names a
+-- person who no longer works here on live work or links her to a listing: not
+-- the generator, not a manager's direct write, not save_property_cleaner.
 --
 -- The one-off cleanup of the migration is release_work_of_inactive() called for
 -- every person already switched off; §2 calls it on such a person, made with
@@ -216,7 +217,7 @@ create or replace function pg_temp.problem(n integer) returns text language sql 
   select p.status::text from public.problems p where p.id = pg_temp.pid(n) $fn$;
 -- A person's links as "Flat mode", by flat.
 create or replace function pg_temp.links(p_person uuid) returns text language sql as $fn$
-  select string_agg(right(pr.name, 1) || ' ' || pc.mode::text, ', ' order by pr.name)
+  select coalesce(string_agg(right(pr.name, 1) || ' ' || pc.mode::text, ', ' order by pr.name), '')
   from public.property_cleaners pc join public.properties pr on pr.id = pc.property_id
   where pc.cleaner_id = p_person $fn$;
 -- The events of one task, as "kind Actor" in order.
@@ -252,10 +253,10 @@ select pg_temp.check('the release and its parts are no client''s to call',
   (select coalesce(string_agg(r || ' ' || f, ', ' order by r, f), '')
    from unnest(array['anon', 'authenticated']) r
    cross join unnest(array['public.release_work_of_inactive(uuid)',
-                           'public.take_off_repairs(uuid[])',
+                           'public.take_off_repairs(uuid[], text)',
                            'public.release_work_on_deactivation()',
                            'public.guard_person_works()',
-                           'public.guard_auto_link_works()']) f
+                           'public.guard_link_works()']) f
    where has_function_privilege(r, f, 'EXECUTE')),
   '');
 select pg_temp.check('unassign_problem is still the office''s to call',
@@ -280,8 +281,11 @@ select pg_temp.check('his repair is taken off and its task open again',
   array[pg_temp.state(33), pg_temp.problem(7)], array['cancelled Gone', 'open']);
 select pg_temp.check('his work under way stays his',
   pg_temp.state(34), 'in_progress Gone');
-select pg_temp.check('his auto link is a queue link now',
-  pg_temp.links(pg_temp.gone()), 'C claim');
+select pg_temp.check('his link to the listing is removed',
+  pg_temp.links(pg_temp.gone()), '');
+select pg_temp.check('his task''s journal says he was taken off because his account was switched off',
+  pg_temp.last_params(7),
+  jsonb_build_object('assignee', pg_temp.gone(), 'cause', 'account_disabled'));
 select pg_temp.check('the cleanup refuses a person who still works',
   pg_temp.refusal(format('select public.release_work_of_inactive(%L)', pg_temp.bella())),
   '22023');
@@ -319,10 +323,11 @@ select pg_temp.check('her repair of a task is taken off, the task open again',
   array[pg_temp.state(11), pg_temp.problem(5)], array['cancelled Anna', 'open']);
 select pg_temp.check('the journal says she was taken off, by the system',
   pg_temp.history(5), array['reported (system)', 'assigned (system)', 'taken_off (system)']);
-select pg_temp.check('and names her',
-  pg_temp.last_params(5), jsonb_build_object('assignee', pg_temp.anna()));
-select pg_temp.check('her auto link is a queue link now, her queue link stays',
-  pg_temp.links(pg_temp.anna()), 'A claim, B claim');
+select pg_temp.check('and names her, and why',
+  pg_temp.last_params(5),
+  jsonb_build_object('assignee', pg_temp.anna(), 'cause', 'account_disabled'));
+select pg_temp.check('every link of hers is removed, the auto one and the queue one',
+  pg_temp.links(pg_temp.anna()), '');
 select pg_temp.check('she hears nothing: her phone went with her account; her colleague on the listing hears the cleanings are free',
   pg_temp.queued(), array['Bella cleaning_free', 'Bella cleaning_free']);
 select pg_temp.check('the free ones she hears of are the cleanings of her listing',
@@ -356,8 +361,9 @@ select pg_temp.check('his repair under way stays his, its task in progress',
   array[pg_temp.state(23), pg_temp.problem(3)], array['in_progress Tomas', 'in_progress']);
 select pg_temp.check('the journal names the manager who switched him off',
   pg_temp.history(1), array['reported (system)', 'assigned (system)', 'taken_off Boss']);
-select pg_temp.check('and him',
-  pg_temp.last_params(2), jsonb_build_object('assignee', pg_temp.tomas()));
+select pg_temp.check('and him, and why',
+  pg_temp.last_params(2),
+  jsonb_build_object('assignee', pg_temp.tomas(), 'cause', 'account_disabled'));
 select pg_temp.check('another technician''s repair is not touched',
   pg_temp.state(26), 'assigned Petr');
 select pg_temp.check('nobody hears of it: he is switched off, and a task open again is no free work',
@@ -377,8 +383,8 @@ select pg_temp.check('the repairs stay taken off, their tasks open',
   array[pg_temp.state(11), pg_temp.state(21), pg_temp.state(22),
         pg_temp.problem(5), pg_temp.problem(1), pg_temp.problem(2)],
   array['cancelled Anna', 'cancelled Tomas', 'cancelled Tomas', 'open', 'open', 'open']);
-select pg_temp.check('her links stay queue links',
-  pg_temp.links(pg_temp.anna()), 'A claim, B claim');
+select pg_temp.check('her links do not come back',
+  pg_temp.links(pg_temp.anna()), '');
 
 select public.generate_cleaning_tasks(current_date - 1, current_date + 3);
 select pg_temp.check('and the generator gives her nothing back',
@@ -459,26 +465,27 @@ select pg_temp.check('moving a job with its person, or freeing one, never calls 
   pg_temp.calls('guard_person_works') - (select calls from guard_quiet), 0);
 
 -- ---------------------------------------------------------------------------
---  7. Nor does a link make her the listing's fixed cleaner
+--  7. Nor is she linked to a listing while she is off
 -- ---------------------------------------------------------------------------
 
 select pg_temp.as_boss();
 select pg_temp.check('a manager cannot fix her to a listing',
   pg_temp.refusal(format($q$select public.save_property_cleaner(900036002, %L, 'auto')$q$,
                          pg_temp.anna())),
-  '23514 serverErrors.cleanerAutoInactive');
-select pg_temp.check('nor turn her old link into one',
-  pg_temp.refusal(format(
-    $q$update public.property_cleaners set mode = 'auto' where cleaner_id = %L and property_id = 900036001$q$,
-    pg_temp.anna())),
-  '23514 serverErrors.cleanerAutoInactive');
-select pg_temp.check('a queue link stays hers to keep: she may come back',
+  '23514 serverErrors.cleanerLinkInactive');
+select pg_temp.check('nor put her in a listing''s queue',
   pg_temp.refusal(format($q$select public.save_property_cleaner(900036003, %L, 'claim')$q$,
                          pg_temp.anna())),
-  'no error');
+  '23514 serverErrors.cleanerLinkInactive');
+select pg_temp.check('nor write the link directly',
+  pg_temp.refusal(format(
+    $q$insert into public.property_cleaners (host_id, property_id, cleaner_id, mode)
+       values ('b3600000-0000-4000-8000-00000000000a', 900036001, %L, 'claim')$q$,
+    pg_temp.anna())),
+  '23514 serverErrors.cleanerLinkInactive');
 reset role; reset request.jwt.claims;
-select pg_temp.check('her links',
-  pg_temp.links(pg_temp.anna()), 'A claim, B claim, C claim');
+select pg_temp.check('she holds no link',
+  pg_temp.links(pg_temp.anna()), '');
 
 -- ---------------------------------------------------------------------------
 --  8. unassign_problem takes a technician off as before
@@ -492,6 +499,8 @@ select pg_temp.check('the head technician takes Petr off: the attempt cancelled,
   array[pg_temp.state(26), pg_temp.problem(6)], array['cancelled Petr', 'open']);
 select pg_temp.check('the journal says taken off, by him',
   pg_temp.history(6), array['reported (system)', 'assigned (system)', 'taken_off Hector']);
+select pg_temp.check('with no cause: nobody''s account was switched off',
+  pg_temp.last_params(6), jsonb_build_object('assignee', pg_temp.petr()));
 select pg_temp.check('and Petr hears the work was taken from him',
   pg_temp.queued(), array['Petr cleaning_unassigned']);
 
@@ -557,5 +566,22 @@ select pg_temp.check('switched on again before seven, the sender hands her nothi
   (select count(*)::int from jsonb_array_elements(public.claim_push_batch(100)) g
    where g ->> 'recipient_id' = pg_temp.bella()::text),
   0);
+
+-- ---------------------------------------------------------------------------
+--  11. Switched on and given listings in one save, as «Команда» does it
+-- ---------------------------------------------------------------------------
+
+-- The form writes the account through manage-staff first, then the links
+-- (staff-form.tsx: save.mutate → finish → applyLinks): by the time a link is
+-- written she works again.
+update public.profiles set is_active = true where id = pg_temp.anna();
+select pg_temp.as_boss();
+select pg_temp.check('switched on, she is linked again',
+  pg_temp.refusal(format($q$select public.save_property_cleaner(900036002, %L, 'claim')$q$,
+                         pg_temp.anna())),
+  'no error');
+reset role; reset request.jwt.claims;
+select pg_temp.check('her new link',
+  pg_temp.links(pg_temp.anna()), 'B claim');
 
 rollback;
