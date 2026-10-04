@@ -457,6 +457,7 @@
         "cancelConfirmYes": "Yes, cancel it",
         "cancelConfirmNo": "No",
         "openWork": "How the cleaning went",
+        "openRepairWork": "How the job went",
         "openChat": "Chat",
         "menu": "Actions: {{name}}"
       },
@@ -492,6 +493,8 @@
       "work": {
         "title": "How the cleaning went",
         "titleOpen": "Cleaning",
+        "titleRepair": "How the job went",
+        "titleRepairOpen": "Job",
         "loading": "Loading the work…",
         "loadError": "Could not load the work",
         "steps": "Steps",

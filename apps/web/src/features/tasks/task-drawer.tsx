@@ -19,7 +19,13 @@ import { serverErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
 
 import { splitMinutes } from './format';
-import { localizedTitle, taskMinutes, taskPropertyName, type Task } from './schema';
+import {
+  isTechnicianJob,
+  localizedTitle,
+  taskMinutes,
+  taskPropertyName,
+  type Task,
+} from './schema';
 import { useSetDuration, useTaskProblems, useTaskWork } from './use-tasks';
 
 interface TaskDrawerProps {
@@ -76,6 +82,8 @@ export function TaskDrawer({ task, onClose }: TaskDrawerProps) {
 
   const title = localizedTitle(task, language) ?? t(`panel.tasks.types.${task.type}`);
   const isDone = task.status === 'done';
+  // A technician's job is «работа» (CLAUDE.md), not a cleaning.
+  const isJob = isTechnicianJob(task);
   const isStarted = task.started_at !== null;
   const counted = taskMinutes(task);
   const failure = setDuration.isError ? serverErrorText(setDuration.error) : null;
@@ -101,7 +109,9 @@ export function TaskDrawer({ task, onClose }: TaskDrawerProps) {
       <SheetContent className="gap-4 overflow-y-auto p-4 sm:max-w-lg">
         <SheetHeader className="p-0">
           <SheetTitle>
-            {isDone ? t('panel.tasks.work.title') : t('panel.tasks.work.titleOpen')}
+            {isDone
+              ? t(isJob ? 'panel.tasks.work.titleRepair' : 'panel.tasks.work.title')
+              : t(isJob ? 'panel.tasks.work.titleRepairOpen' : 'panel.tasks.work.titleOpen')}
           </SheetTitle>
         </SheetHeader>
 

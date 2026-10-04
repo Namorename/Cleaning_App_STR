@@ -457,6 +457,7 @@
         "cancelConfirmYes": "Да, отменить",
         "cancelConfirmNo": "Нет",
         "openWork": "Как прошла уборка",
+        "openRepairWork": "Как прошла работа",
         "openChat": "Чат",
         "menu": "Действия: {{name}}"
       },
@@ -492,6 +493,8 @@
       "work": {
         "title": "Как прошла уборка",
         "titleOpen": "Уборка",
+        "titleRepair": "Как прошла работа",
+        "titleRepairOpen": "Работа",
         "loading": "Загружаем ход работы…",
         "loadError": "Не удалось загрузить ход работы",
         "steps": "Шаги",

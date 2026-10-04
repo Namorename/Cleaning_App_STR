@@ -274,6 +274,15 @@ export function isTaskClosed(task: Pick<Task, 'status'>): boolean {
   return CLOSED_STATUSES.includes(task.status);
 }
 
+/**
+ * A technician's job — «работа» in the vocabulary (CLAUDE.md), where the rest
+ * of the section is cleanings and inspections; what the drawer and the menu
+ * call it by.
+ */
+export function isTechnicianJob(task: Pick<Task, 'type'>): boolean {
+  return task.type === 'maintenance';
+}
+
 /** Written by a person, rather than generated from a booking or a report. */
 export function isManualTask(task: Pick<Task, 'reservation_id' | 'problem_id'>): boolean {
   return task.reservation_id === null && task.problem_id === null;

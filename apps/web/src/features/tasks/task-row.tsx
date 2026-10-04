@@ -24,6 +24,7 @@ import { formatWindow } from './format';
 import {
   isManualTask,
   isTaskClosed,
+  isTechnicianJob,
   localizedTitle,
   tailOf,
   taskPropertyName,
@@ -169,7 +170,11 @@ export function TaskRow({
                 of a finished one; the item is named after what it will show. */}
             <DropdownMenuItem onClick={() => onOpenWork(task)}>
               {task.status === 'done'
-                ? t('panel.tasks.actions.openWork')
+                ? t(
+                    isTechnicianJob(task)
+                      ? 'panel.tasks.actions.openRepairWork'
+                      : 'panel.tasks.actions.openWork',
+                  )
                 : t('panel.tasks.actions.openChat')}
             </DropdownMenuItem>
             {canCancel ? (

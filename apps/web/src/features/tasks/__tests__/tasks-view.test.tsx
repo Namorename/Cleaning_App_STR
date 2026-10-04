@@ -558,6 +558,38 @@ describe('TasksView', () => {
     expect(setDuration).toHaveBeenCalledWith({ taskId: id(4), minutes: 80 });
   }, 20000);
 
+  // The vocabulary (CLAUDE.md): a technician's job is «работа», not «уборка».
+  test("names a technician's job a job, in its menu and on its drawer", async () => {
+    const repair = (n: number, status: Task['status'], title: string) =>
+      task({
+        id: id(n),
+        type: 'maintenance',
+        status,
+        title,
+        problem_id: 'cccccccc-cccc-4ccc-8ccc-000000000001',
+        assignee_id: MARIA,
+        assignee: { full_name: 'Petr Test', role: 'tech' },
+      });
+    useTasks.mockReturnValue({
+      data: [repair(6, 'assigned', 'Течёт кран'), repair(7, 'done', 'Заменить лампу')],
+      isPending: false,
+      isError: false,
+    });
+    render(<TasksView />);
+
+    await userEvent.click(
+      within(await openMenu(rowOf('Течёт кран'))).getByRole('menuitem', { name: 'Чат' }),
+    );
+    const open = await screen.findByRole('dialog', { name: 'Работа' });
+    expect(open).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+
+    await userEvent.click(screen.getByRole('tab', { name: /Завершённые/ }));
+    expect(await menuItems(rowOf('Заменить лампу'))).toEqual(['Как прошла работа']);
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Как прошла работа' }));
+    expect(await screen.findByRole('dialog', { name: 'Как прошла работа' })).toBeInTheDocument();
+  }, 20000);
+
   test('marks the job somebody wrote about, and no other', () => {
     unread.tasks.add(id(2));
     render(<TasksView />);

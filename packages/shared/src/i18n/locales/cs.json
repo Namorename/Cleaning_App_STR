@@ -457,6 +457,7 @@
         "cancelConfirmYes": "Ano, zrušit",
         "cancelConfirmNo": "Ne",
         "openWork": "Jak úklid proběhl",
+        "openRepairWork": "Jak práce proběhla",
         "openChat": "Chat",
         "menu": "Akce: {{name}}"
       },
@@ -492,6 +493,8 @@
       "work": {
         "title": "Jak úklid proběhl",
         "titleOpen": "Úklid",
+        "titleRepair": "Jak práce proběhla",
+        "titleRepairOpen": "Práce",
         "loading": "Načítáme průběh…",
         "loadError": "Průběh se nepodařilo načíst",
         "steps": "Kroky",
