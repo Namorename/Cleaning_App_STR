@@ -159,6 +159,20 @@ export interface UnreadSubjects {
 
 export const NO_UNREAD: UnreadSubjects = { tasks: new Set(), problems: new Set() };
 
+/**
+ * Whether a job has something unread: in its own thread, or — a repair that
+ * fixes a problem speaks in the problem's thread (`open_thread`) — in its
+ * problem's. Asking both keeps the rule of which thread is whose on the server.
+ */
+export function isTaskUnread(
+  task: { id: string; problem_id: string | null },
+  unread: UnreadSubjects,
+): boolean {
+  return (
+    unread.tasks.has(task.id) || (task.problem_id !== null && unread.problems.has(task.problem_id))
+  );
+}
+
 export function unreadSubjects(threads: readonly ChatUnreadThread[]): UnreadSubjects {
   return {
     tasks: new Set(threads.flatMap((thread) => (thread.task_id === null ? [] : [thread.task_id]))),

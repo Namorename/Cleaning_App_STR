@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ChatSheet } from '@/features/chat/chat-sheet';
+import type { UnreadSubjects } from '@/features/chat/schema';
 import {
   isTaskClosed,
   type CalendarTask,
@@ -36,6 +37,8 @@ interface TaskDialogsOptions {
   isStand: boolean;
   language: Language;
   bookings: BookingsRead | null;
+  /** What the list behind «+N» marks as written about. */
+  unread?: UnreadSubjects;
 }
 
 /**
@@ -45,7 +48,7 @@ interface TaskDialogsOptions {
  * «Разговор» swaps it for the conversation's sheet (5.4, «Чат»): one sheet
  * at a time.
  */
-export function useTaskDialogs({ isStand, language, bookings }: TaskDialogsOptions) {
+export function useTaskDialogs({ isStand, language, bookings, unread }: TaskDialogsOptions) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState<{ task: CalendarTask | null; start?: Start } | null>(null);
   const [reading, setReading] = useState<CalendarTask | null>(null);
@@ -119,6 +122,7 @@ export function useTaskDialogs({ isStand, language, bookings }: TaskDialogsOptio
         cell={cell}
         bookings={bookings}
         language={language}
+        unread={unread}
         onOpen={openTask}
         onClose={() => setCell(null)}
       />

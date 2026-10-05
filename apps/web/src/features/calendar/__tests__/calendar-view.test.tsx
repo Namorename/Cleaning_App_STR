@@ -173,6 +173,11 @@ vi.mock('@/features/chat/chat-sheet', () => ({
   ),
 }));
 
+// The marks come from one company-wide answer; here it is a pair of sets the
+// test fills by hand.
+const unread = { tasks: new Set<string>(), problems: new Set<string>() };
+vi.mock('@/features/chat/use-chat', () => ({ useUnreadSubjects: () => unread }));
+
 import {
   calendarTaskSchema,
   liveRepairSchema,
@@ -253,6 +258,8 @@ beforeEach(() => {
   expiredState.data = [];
   cancelledState.data = [];
   repairsState.data = [];
+  unread.tasks.clear();
+  unread.problems.clear();
 });
 
 afterEach(() => {
@@ -618,6 +625,16 @@ describe('task chips', () => {
       `${done.id} · Уборка · Anglicka 7`,
     );
     expect(screen.queryByRole('dialog', { name: 'Шторка уборки' })).toBeNull();
+  });
+
+  test('a chip somebody wrote about says so in its name', () => {
+    const written = calendarTask(1, '2026-09-26');
+    const quiet = calendarTask(1, '2026-09-27');
+    tasksState.data = [written, quiet];
+    unread.tasks.add(written.id);
+    render(<CalendarView />);
+
+    expect(screen.getAllByRole('button', { name: /Новое сообщение/ })).toHaveLength(1);
   });
 
   // The unit of work is the problem: its date and technician change there (§6).

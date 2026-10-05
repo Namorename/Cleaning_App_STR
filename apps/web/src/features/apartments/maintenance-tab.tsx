@@ -8,6 +8,9 @@ import { Person } from '@/components/person';
 import { StatusBadge, statusKey } from '@/components/status-badge';
 import { EmptyState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
+import { UnreadBadge, UnreadChatLink } from '@/features/chat/unread-mark';
+import { useUnreadSubjects } from '@/features/chat/use-chat';
+import { problemChatHref } from '@/features/problems/address';
 import { formatDay } from '@/lib/format-date';
 import { useLanguage } from '@/lib/use-language';
 
@@ -29,11 +32,14 @@ interface MaintenanceTabProps {
  *
  * Both lists are read-only here. A technician's job is booked from Tasks and a
  * report is handled from Problems; repeating either would be a second place to
- * keep in step with the first.
+ * keep in step with the first. What somebody wrote about carries «Новое
+ * сообщение» (5.4, «Чат»); a report's mark leads to its conversation. A job
+ * fixing a report speaks in the report's thread, so its mark is the report's.
  */
 export function MaintenanceTab({ property }: MaintenanceTabProps) {
   const { t } = useTranslation();
   const language = useLanguage();
+  const unread = useUnreadSubjects();
   const tasks = useMaintenance(property.id);
   const problems = usePropertyProblems(property.id);
   const [subject, setSubject] = useState<StatusSubject | null>(null);
@@ -99,6 +105,7 @@ export function MaintenanceTab({ property }: MaintenanceTabProps) {
                 {job.assignee_name === null ? null : (
                   <Person name={job.assignee_name} role="tech" className="text-xs" />
                 )}
+                {unread.tasks.has(job.id) ? <UnreadBadge /> : null}
                 <StatusBadge status={statusKey('tasks', job.status)}>
                   {t(`panel.tasks.statuses.${job.status}`)}
                 </StatusBadge>
@@ -133,6 +140,9 @@ export function MaintenanceTab({ property }: MaintenanceTabProps) {
                     </span>
                   )}
                 </span>
+                {unread.problems.has(report.id) ? (
+                  <UnreadChatLink href={problemChatHref(report.id, 'board')} />
+                ) : null}
                 {/* Shared with the phone: one wording for a report's state. */}
                 <StatusBadge status={statusKey('problems', report.status)}>
                   {t(`problems.statuses.${report.status}`)}

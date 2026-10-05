@@ -185,6 +185,11 @@ const countOpenCleanings = vi.fn();
 
 vi.mock('@/lib/supabase/use-client', () => ({ useSupabase: () => ({}) }));
 
+// The marks come from one company-wide answer; here it is a pair of sets the
+// test fills by hand.
+const unread = { tasks: new Set<string>(), problems: new Set<string>() };
+vi.mock('@/features/chat/use-chat', () => ({ useUnreadSubjects: () => unread }));
+
 vi.mock('../api', () => ({
   countOpenCleanings: (...args: unknown[]) => countOpenCleanings(...args),
 }));
@@ -247,6 +252,8 @@ function renderCard() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  unread.tasks.clear();
+  unread.problems.clear();
   cardState.subject = detail;
   infoState.isSuccess = false;
   infoState.isError = false;
@@ -564,6 +571,29 @@ describe('maintenance', () => {
 
     expect(screen.getByRole('button', { name: 'На обслуживание' })).toHaveClass('h-11');
     expect(screen.getByRole('button', { name: 'В архив' })).toHaveClass('h-11', 'text-destructive');
+  });
+
+  // 5.4, «Чат»: the mark of an unread message stood on the board and in
+  // «Уборки» only; a report's leads to its conversation.
+  test('a job and a report somebody wrote about carry the mark, and no other', async () => {
+    unread.tasks.add(maintenanceJobs[1].id);
+    unread.problems.add(reports[0].id);
+    renderCard();
+    await userEvent.click(screen.getByRole('tab', { name: 'Обслуживание' }));
+
+    const job = screen.getByText('Заменить замок').closest('li') as HTMLElement;
+    expect(within(job).getByText('Новое сообщение')).toHaveClass('bg-tone-unread-mark');
+    const otherJob = screen.getByText('Поменять смеситель').closest('li') as HTMLElement;
+    expect(within(otherJob).queryByText('Новое сообщение')).toBeNull();
+
+    const report = screen.getByRole('link', { name: 'Течёт кран' }).closest('li') as HTMLElement;
+    expect(
+      within(report).getByRole('link', { name: 'Новое сообщение — открыть разговор' }),
+    ).toHaveAttribute('href', `/problems/${reports[0].id}?chat=1`);
+    const otherReport = screen
+      .getByRole('link', { name: 'Не закрывается окно' })
+      .closest('li') as HTMLElement;
+    expect(within(otherReport).queryByText('Новое сообщение')).toBeNull();
   });
 
   test('and what stands on the house itself names no room', async () => {

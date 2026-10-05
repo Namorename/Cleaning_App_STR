@@ -7,11 +7,13 @@ import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { UnreadChatLink } from '@/features/chat/unread-mark';
+import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { formatDateTime } from '@/lib/format-date';
 import { serverErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
 
-import { problemHref } from './address';
+import { problemChatHref, problemHref } from './address';
 import { problemPlace, type Problem } from './schema';
 import { useUnarchiveProblem } from './use-problems';
 
@@ -20,10 +22,15 @@ interface ProblemsArchiveProps {
   problems: Problem[];
 }
 
-/** Problems the manager put away: still openable, one click from coming back. */
+/**
+ * Problems the manager put away: still openable, one click from coming back.
+ * An archived problem may still be written about; its mark leads to the
+ * conversation, as in the list.
+ */
 export function ProblemsArchive({ problems }: ProblemsArchiveProps) {
   const { t } = useTranslation();
   const language = useLanguage();
+  const unread = useUnreadSubjects();
   const unarchive = useUnarchiveProblem();
   const failure = unarchive.isError ? serverErrorText(unarchive.error) : null;
 
@@ -51,6 +58,9 @@ export function ProblemsArchive({ problems }: ProblemsArchiveProps) {
                 <Badge tone={problemStatusTone(problem.status)}>
                   {t(`problems.statuses.${problem.status}`)}
                 </Badge>
+                {unread.problems.has(problem.id) ? (
+                  <UnreadChatLink href={problemChatHref(problem.id, 'archive')} />
+                ) : null}
               </div>
               <span className="text-muted-foreground">
                 {problemPlace(problem) ?? t('problems.noProperty')}
