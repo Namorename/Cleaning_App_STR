@@ -333,8 +333,8 @@
       "summary": {
         "open": "Purchase summary",
         "title": "Purchase summary",
-        "across": "Across all requests",
-        "acrossDates": "Across all requests of the chosen dates",
+        "across": "Across all requests, regardless of the search",
+        "acrossDates": "Across all requests of the chosen dates, regardless of the search",
         "description": "Identical items from the selected requests are added up by name and unit.",
         "scope": "Include requests",
         "empty": "Nothing to purchase",

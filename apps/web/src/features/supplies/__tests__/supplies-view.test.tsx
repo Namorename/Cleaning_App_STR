@@ -626,15 +626,16 @@ describe('the files', () => {
   });
 
   // The owner, 05.10: the search stays out of the summary, and the summary says
-  // so above itself. The dates do narrow it, so then it names them too.
-  test('the summary says above itself that it is over every request', async () => {
+  // so above itself — in those words, the search named (the statuses below it
+  // still narrow it). The dates do narrow it, so then it names them too.
+  test('the summary says above itself that it is over every request, the search aside', async () => {
     window.history.replaceState(null, '', '/supplies?q=karlin');
     render(<SuppliesView />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Свести к закупке' }));
     const dialog = await screen.findByRole('dialog');
 
-    expect(within(dialog).getByText('По всем заявкам')).toBeInTheDocument();
+    expect(within(dialog).getByText('По всем заявкам, без учёта поиска')).toBeInTheDocument();
   });
 
   test('with dates chosen, the summary says it is over every request of those dates', async () => {
@@ -644,8 +645,10 @@ describe('the files', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Свести к закупке' }));
     const dialog = await screen.findByRole('dialog');
 
-    expect(within(dialog).getByText('По всем заявкам за выбранные даты')).toBeInTheDocument();
-    expect(within(dialog).queryByText('По всем заявкам')).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByText('По всем заявкам за выбранные даты, без учёта поиска'),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByText('По всем заявкам, без учёта поиска')).not.toBeInTheDocument();
   });
 });
 
