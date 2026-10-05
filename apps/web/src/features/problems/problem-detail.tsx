@@ -1,17 +1,28 @@
 'use client';
 
+import { MessageSquare } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PageBackLink, PageHeader } from '@/components/page-header';
 import { Person } from '@/components/person';
 import { StatusBadge } from '@/components/status-badge';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ThreadPanel } from '@/features/chat/thread-panel';
+import { ChatSheet } from '@/features/chat/chat-sheet';
+import { UnreadBadge } from '@/features/chat/unread-mark';
+import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { formatDateTime, formatDay } from '@/lib/format-date';
+import { useAddressState } from '@/lib/use-address-state';
 import { useLanguage } from '@/lib/use-language';
 
-import { problemsHref, type ProblemView } from './address';
+import {
+  problemsHref,
+  readProblemPageAddress,
+  writeProblemPageAddress,
+  type ProblemPageAddress,
+} from './address';
 import { AssignForm } from './assign-form';
 import { FixTaskSteps } from './fix-task-steps';
 import { formatClock } from './format';
@@ -29,14 +40,19 @@ import { useProblem, useProblemPhotos } from './use-problems';
 
 interface ProblemDetailProps {
   problemId: string;
-  /** The view the task was opened from: «К списку заданий» returns to it. */
-  listView?: ProblemView;
 }
 
-/** The problem's card: the report, its photos, the fix and the manager's levers. */
-export function ProblemDetail({ problemId, listView = 'board' }: ProblemDetailProps) {
+/**
+ * The problem's card: the report, its photos, the fix and the manager's levers.
+ *
+ * The address carries the view of «Задания» the task was opened from — «К
+ * списку заданий» returns to it — and whether its conversation is open.
+ */
+export function ProblemDetail({ problemId }: ProblemDetailProps) {
   const { t } = useTranslation();
   const problem = useProblem(problemId);
+  const chat = useChatAddress();
+  const backHref = problemsHref(chat.address.view);
 
   if (problem.isPending) {
     return <LoadingState>{t('panel.problems.loading')}</LoadingState>;
@@ -47,13 +63,55 @@ export function ProblemDetail({ problemId, listView = 'board' }: ProblemDetailPr
   if (problem.data === null) {
     return (
       <div className="flex flex-col gap-4">
-        <BackLink href={problemsHref(listView)} />
+        <BackLink href={backHref} />
         <EmptyState>{t('panel.problems.notFound')}</EmptyState>
       </div>
     );
   }
 
-  return <ProblemPage problem={problem.data} backHref={problemsHref(listView)} />;
+  return <ProblemPage problem={problem.data} backHref={backHref} chat={chat} />;
+}
+
+interface ChatAddress {
+  address: ProblemPageAddress;
+  isOpen: boolean;
+  open: () => void;
+  close: () => void;
+}
+
+/**
+ * The conversation's place in the address (5.4, «Чат»): `chat=1` beside the
+ * view. The header's button opens it as a step; closing it after that step
+ * walks the step back, so «Назад» neither opens it again nor stays on the
+ * page for an extra press. One the address opened — a link, a reload — has
+ * no step of this page behind it, and closing it takes the parameter out in
+ * place. «Назад» while it is open closes it: the router shows the address
+ * without it, and the state is read from there.
+ */
+function useChatAddress(): ChatAddress {
+  const [address, setAddress] = useAddressState(readProblemPageAddress, writeProblemPageAddress);
+  // How this page opened the conversation: by a step of its own, or that
+  // step is being walked back; null when the address opened it, or it is shut.
+  const [step, setStep] = useState<'pushed' | 'leaving' | null>(null);
+  if (step !== null && !address.chat) {
+    setStep(null);
+  }
+
+  const open = () => {
+    setStep('pushed');
+    setAddress({ ...address, chat: true }, 'push');
+  };
+  const close = () => {
+    if (step === 'pushed') {
+      // Shut at once; the address follows when «Назад» lands.
+      setStep('leaving');
+      window.history.back();
+    } else if (step === null) {
+      setAddress({ ...address, chat: false });
+    }
+  };
+
+  return { address, isOpen: address.chat && step !== 'leaving', open, close };
 }
 
 /** The way back to the section's list; on its own while there is no title to head. */
@@ -62,14 +120,22 @@ function BackLink({ href }: { href: string }) {
   return <PageBackLink href={href} label={t('panel.problems.detail.back')} />;
 }
 
+interface ProblemPageProps {
+  problem: Problem;
+  backHref: string;
+  chat: ChatAddress;
+}
+
 /**
  * The problem's page (5.4, variant A): a header that stays on screen with the
  * title, the status and the levers; under it two columns — the report, and
- * the technician's work beside it; the conversation below (its own panel is
- * the «Чат» group's).
+ * the technician's work beside it. The conversation is not a card under them
+ * any more: the header's «Разговор» slides it in from the right («Чат»,
+ * variant B).
  */
-function ProblemPage({ problem, backHref }: { problem: Problem; backHref: string }) {
+function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
   const { t } = useTranslation();
+  const hasUnread = useUnreadSubjects().problems.has(problem.id);
   const fixTask = liveFixTask(problem);
   // Nothing to assign on a closed or archived problem; the header's levers still apply.
   const isClosed = isProblemClosed(problem) || isProblemArchived(problem);
@@ -92,7 +158,16 @@ function ProblemPage({ problem, backHref }: { problem: Problem; backHref: string
               </StatusBadge>
             </>
           }
-          actions={<ProblemActions problem={problem} />}
+          actions={
+            <>
+              <Button type="button" variant="outline" className="h-11" onClick={chat.open}>
+                <MessageSquare aria-hidden="true" />
+                {t('panel.chat.open')}
+                {hasUnread ? <UnreadBadge /> : null}
+              </Button>
+              <ProblemActions problem={problem} />
+            </>
+          }
         />
       </div>
 
@@ -137,15 +212,13 @@ function ProblemPage({ problem, backHref }: { problem: Problem; backHref: string
             ) : null}
           </CardContent>
         </Card>
-
-        {/* The repair speaks in the report's thread (open_thread), so one
-            conversation serves the problem and whichever task fixes it. */}
-        <Card className="lg:col-span-2">
-          <CardContent className="pt-6">
-            <ThreadPanel subject={{ problemId: problem.id }} />
-          </CardContent>
-        </Card>
       </div>
+
+      {/* The repair speaks in the report's thread (open_thread), so one
+          conversation serves the problem and whichever task fixes it. */}
+      {chat.isOpen ? (
+        <ChatSheet subject={{ problemId: problem.id }} about={problem.title} onClose={chat.close} />
+      ) : null}
     </div>
   );
 }

@@ -485,7 +485,8 @@
         "cancelConfirmNo": "No",
         "openWork": "How the cleaning went",
         "openRepairWork": "How the job went",
-        "openChat": "Chat",
+        "openWorkLive": "How the cleaning is going",
+        "openRepairWorkLive": "How the job is going",
         "menu": "Actions: {{name}}"
       },
       "form": {
@@ -555,6 +556,8 @@
     },
     "chat": {
       "title": "Conversation",
+      "open": "Conversation",
+      "openUnread": "New message — open the conversation",
       "loading": "Loading the conversation…",
       "loadError": "Could not open the conversation",
       "empty": "Nothing has been said yet",

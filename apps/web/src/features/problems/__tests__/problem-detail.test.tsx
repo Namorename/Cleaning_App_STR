@@ -1,6 +1,6 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { beforeEach, describe, expect, onTestFinished, test, vi } from 'vitest';
 
 import { problemSchema, type Problem } from '../schema';
 
@@ -83,12 +83,41 @@ vi.mock('../use-problems', () => ({
   useUnarchiveProblem: () => ({ ...idle, mutate: mutations.unarchive }),
 }));
 
-// The conversation has its own tests; here it only has to be in the card.
-vi.mock('@/features/chat/thread-panel', () => ({
-  ThreadPanel: ({ subject }: { subject: Record<string, string> }) => (
-    <section aria-label="Разговор">{Object.values(subject).join(',')}</section>
+// The conversation has its own tests; here it only has to open, say what it
+// is about and close.
+vi.mock('@/features/chat/chat-sheet', () => ({
+  ChatSheet: (props: { subject: Record<string, string>; about: string; onClose: () => void }) => (
+    <div role="dialog" aria-label="Разговор">
+      {`${Object.values(props.subject).join(',')} · ${props.about}`}
+      <button type="button" onClick={props.onClose}>
+        Закрыть
+      </button>
+    </div>
   ),
 }));
+
+// The marks come from one company-wide answer; here it is a pair of sets the
+// test fills by hand.
+const unread = { tasks: new Set<string>(), problems: new Set<string>() };
+vi.mock('@/features/chat/use-chat', () => ({ useUnreadSubjects: () => unread }));
+
+// The router reads the address jsdom holds; the page writes it through
+// history, which jsdom keeps as a browser would. «Назад» moves it a task later
+// with `popstate`, and the router shows the page again — as Next does.
+vi.mock('next/navigation', async () => {
+  const { useSyncExternalStore } = await import('react');
+  const subscribe = (onChange: () => void) => {
+    window.addEventListener('popstate', onChange);
+    return () => window.removeEventListener('popstate', onChange);
+  };
+  return {
+    useSearchParams: () =>
+      new URLSearchParams(useSyncExternalStore(subscribe, () => window.location.search)),
+    usePathname: () => window.location.pathname,
+  };
+});
+
+import { ICONS } from '@str-ops/shared';
 
 import { expectPageTitle } from '@/components/page-header.expect';
 
@@ -96,8 +125,21 @@ import { ProblemDetail } from '../problem-detail';
 
 const loaded = <T,>(data: T) => ({ data, isPending: false, isError: false });
 
+/** The query of the page's address, without its `?`. */
+const query = () => window.location.search.slice(1);
+
+/** «Назад»: jsdom walks the history a task later and says so with `popstate`. */
+function goBack(): Promise<void> {
+  return new Promise((resolve) => {
+    window.addEventListener('popstate', () => resolve(), { once: true });
+    window.history.back();
+  });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
+  window.history.replaceState(null, '', `/problems/${PROBLEM_ID}`);
+  unread.problems.clear();
   refusal.cancel = false;
   queries.problem.mockReturnValue(loaded(assigned));
   queries.photos.mockReturnValue(
@@ -159,7 +201,8 @@ const header = () =>
 
 describe('ProblemDetail', () => {
   test('«К списку заданий» returns to the view the task was opened from', () => {
-    render(<ProblemDetail problemId={PROBLEM_ID} listView="list" />);
+    window.history.replaceState(null, '', `/problems/${PROBLEM_ID}?view=list`);
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
 
     expect(screen.getByRole('link', { name: 'К списку заданий' })).toHaveAttribute(
       'href',
@@ -191,8 +234,6 @@ describe('ProblemDetail', () => {
     expect(screen.getByText('1. Фото проблемы')).toBeInTheDocument();
     expect(screen.getByText('Выполнен')).toBeInTheDocument();
     expect(screen.getByText('Не выполнен')).toBeInTheDocument();
-    // The conversation is about the problem, whichever task fixes it.
-    expect(screen.getByRole('region', { name: 'Разговор' })).toHaveTextContent(PROBLEM_ID);
   });
 
   // The status of the technician's job read a key no dictionary has, and the
@@ -357,11 +398,95 @@ describe('ProblemDetail', () => {
   test('every control of the page is a 44 px target', () => {
     render(<ProblemDetail problemId={PROBLEM_ID} />);
 
+    expect(screen.getByRole('button', { name: 'Разговор' })).toHaveClass('h-11');
     expect(screen.getByRole('button', { name: 'Отметить выполненным' })).toHaveClass('h-11');
     expect(screen.getByRole('button', { name: 'Другие действия' })).toHaveClass('size-11');
     expect(screen.getByRole('button', { name: 'Переназначить' })).toHaveClass('h-11');
     for (const label of ['Техник', 'Дата', 'С', 'До']) {
       expect(screen.getByLabelText(label)).toHaveClass('h-11');
     }
+  });
+});
+
+// 5.4, «Чат», variant B: the conversation was a card at the foot of the page,
+// under the fold; now it slides in beside the task from the header.
+describe('the conversation of a task', () => {
+  const chatButton = () => within(header()).getByRole('button', { name: /^Разговор/ });
+
+  test('is no card on the page, but a button in the header with its picture and name', () => {
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Разговор' })).not.toBeInTheDocument();
+    expect(chatButton()).toHaveAccessibleName('Разговор');
+    expect(chatButton().querySelector('svg')).toHaveClass(`lucide-${ICONS['action.openChat']}`);
+    expect(chatButton().querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  test('opens by the button as a step, about the task, and closing walks that step back', async () => {
+    window.history.pushState(null, '', `/problems/${PROBLEM_ID}?view=list`);
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+    const steps = window.history.length;
+
+    await userEvent.click(chatButton());
+
+    expect(query()).toBe('view=list&chat=1');
+    expect(window.history.length).toBe(steps + 1);
+    // About the task, whichever technician fixes it.
+    const sheet = screen.getByRole('dialog', { name: 'Разговор' });
+    expect(sheet).toHaveTextContent(`${PROBLEM_ID} · Течёт кран`);
+
+    // «Назад» after it must not open it again: the close is the step back.
+    const walkedBack = new Promise<void>((resolve) =>
+      window.addEventListener('popstate', () => resolve(), { once: true }),
+    );
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Закрыть' }));
+    await act(() => walkedBack);
+
+    expect(query()).toBe('view=list');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  test('a link with the conversation in it opens the page with it open; closing takes it out in place', async () => {
+    window.history.pushState(null, '', `/problems/${PROBLEM_ID}?view=archive&chat=1`);
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+    const steps = window.history.length;
+    const popstate = vi.fn();
+    window.addEventListener('popstate', popstate);
+    onTestFinished(() => window.removeEventListener('popstate', popstate));
+
+    const sheet = screen.getByRole('dialog', { name: 'Разговор' });
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Закрыть' }));
+
+    // Nothing behind it to walk back to: the page came with it open.
+    expect(query()).toBe('view=archive');
+    expect(window.history.length).toBe(steps);
+    expect(popstate).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'К списку заданий' })).toHaveAttribute(
+      'href',
+      '/problems?view=archive',
+    );
+  });
+
+  test('«Назад» while it is open closes it', async () => {
+    window.history.pushState(null, '', `/problems/${PROBLEM_ID}`);
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    await userEvent.click(chatButton());
+    expect(screen.getByRole('dialog', { name: 'Разговор' })).toBeInTheDocument();
+
+    await act(() => goBack());
+
+    expect(query()).toBe('');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  test('the button carries the mark of a message the manager has not read', () => {
+    unread.problems.add(PROBLEM_ID);
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    expect(chatButton()).toHaveAccessibleName('Разговор Новое сообщение');
+    expect(within(chatButton()).getByText('Новое сообщение')).toHaveClass('bg-tone-unread-mark');
   });
 });

@@ -1,7 +1,7 @@
 import { ICONS } from '@str-ops/shared';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, test, vi } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { taskSchema, type Task } from '../schema';
 import { TaskRow } from '../task-row';
@@ -41,16 +41,39 @@ const base = {
 const task = (overrides: Partial<Record<keyof typeof base, unknown>>): Task =>
   taskSchema.parse({ ...base, ...overrides });
 
-function renderRow(one: Task) {
+const handlers = { onOpenWork: vi.fn(), onOpenChat: vi.fn() };
+
+function renderRow(one: Task, hasUnread = false) {
   render(
     <table>
       <tbody>
-        <TaskRow task={one} now={NOW} onEdit={vi.fn()} onOpenWork={vi.fn()} onCancel={vi.fn()} />
+        <TaskRow
+          task={one}
+          now={NOW}
+          onEdit={vi.fn()}
+          onOpenWork={handlers.onOpenWork}
+          onOpenChat={handlers.onOpenChat}
+          onCancel={vi.fn()}
+          hasUnread={hasUnread}
+        />
       </tbody>
     </table>,
   );
   return screen.getByRole('row');
 }
+
+/** What the row's «⋯» offers, in order. */
+async function menuItems(): Promise<string[]> {
+  await userEvent.click(screen.getByRole('button', { name: /^Действия: / }));
+  const menu = await screen.findByRole('menu');
+  return within(menu)
+    .getAllByRole('menuitem')
+    .map((item) => item.textContent ?? '');
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe('a live cleaning left over from yesterday', () => {
   test('says since when and which check-out it belongs to, in words', () => {
@@ -182,5 +205,73 @@ describe('the rest of a row', () => {
     expect(screen.getByText('Поставил:')).toBeInTheDocument();
     expect(screen.getByTitle('Менеджер')).toHaveTextContent('Eva Novak');
     expect(screen.queryByText('Из брони')).not.toBeInTheDocument();
+  });
+});
+
+// 5.4, «Чат», variant B: the conversation has a sheet of its own, so the menu
+// names it on every row; the drawer is the work's, offered once there is work.
+describe('the menu of a row', () => {
+  test('a job nobody has started offers its conversation, and no work', async () => {
+    renderRow(task({}));
+
+    expect(await menuItems()).toEqual(['Изменить', 'Разговор']);
+  });
+
+  test('a job under way offers how it is going, then the conversation', async () => {
+    renderRow(
+      task({
+        status: 'in_progress',
+        assignee_id: 'bbbbbbbb-bbbb-4bbb-8bbb-000000000001',
+        started_at: '2026-09-23T09:00:00+00:00',
+      }),
+    );
+
+    expect(await menuItems()).toEqual(['Изменить', 'Как идёт уборка', 'Разговор']);
+  });
+
+  test('a technician’s job under way is named a job', async () => {
+    renderRow(
+      task({
+        type: 'maintenance',
+        status: 'in_progress',
+        reservation_id: null,
+        problem_id: 'cccccccc-cccc-4ccc-8ccc-000000000001',
+        assignee_id: 'bbbbbbbb-bbbb-4bbb-8bbb-000000000001',
+        started_at: '2026-09-23T09:00:00+00:00',
+      }),
+    );
+
+    expect(await menuItems()).toEqual(['Изменить', 'Как идёт работа', 'Разговор']);
+  });
+
+  test('a finished job offers how it went and the conversation, and opens each', async () => {
+    const done = task({
+      status: 'done',
+      started_at: '2026-09-23T08:00:00+00:00',
+      completed_at: '2026-09-23T09:30:00+00:00',
+    });
+    renderRow(done);
+
+    expect(await menuItems()).toEqual(['Как прошла уборка', 'Разговор']);
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Разговор' }));
+    expect(handlers.onOpenChat).toHaveBeenCalledWith(done);
+
+    await menuItems();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Как прошла уборка' }));
+    expect(handlers.onOpenWork).toHaveBeenCalledWith(done);
+  }, 20000);
+});
+
+describe('the mark of an unread message', () => {
+  test('is a button of 44 px that opens the conversation of the row', async () => {
+    const one = task({});
+    renderRow(one, true);
+
+    const mark = screen.getByRole('button', { name: 'Новое сообщение — открыть разговор' });
+    expect(mark).toHaveTextContent('Новое сообщение');
+    expect(mark).toHaveClass('min-h-11');
+    await userEvent.click(mark);
+
+    expect(handlers.onOpenChat).toHaveBeenCalledWith(one);
   });
 });

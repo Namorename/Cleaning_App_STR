@@ -1,8 +1,8 @@
 'use client';
 
-import { ThreadPanel } from '@/features/chat/thread-panel';
 import { PhotoSource } from '@/features/media/photo-source';
 import { STATUS_TONE } from '@str-ops/shared';
+import { MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -32,6 +32,11 @@ interface TaskDrawerProps {
   /** The task being read; finished or not. */
   task: Task;
   onClose: () => void;
+  /**
+   * Put the drawer away and open the conversation about the same task: the
+   * caller holds both, so one sheet stands at a time, never one over another.
+   */
+  onOpenChat: (task: Task) => void;
 }
 
 type StepState = 'done' | 'skipped' | 'waived' | 'pending';
@@ -57,20 +62,19 @@ function stepState(step: {
 }
 
 /**
- * A job up close: the conversation about it and, once it has been worked,
- * the steps, the photos, the problems it turned up, and how long it is
- * counted as.
+ * A job up close, once it has been worked: the steps, the photos, the
+ * problems it turned up, and how long it is counted as.
  *
- * The conversation comes first because it is the one part every job has: a
- * manager's note on a job nobody has claimed yet is the case the chat exists
- * for. The work sections appear once the job has been started; the time
- * correction only once it is done.
+ * The conversation is not in here any more (5.4, «Чат», variant B): it has a
+ * sheet of its own, which every job's row opens; the drawer's «Разговор»
+ * swaps one sheet for the other. The work sections appear once the job has
+ * been started; the time correction only once it is done.
  *
  * The measurement itself is never rewritten (§13.3). A correction goes into
  * its own field and can be taken back, and the drawer shows both numbers so
  * the manager can see what was changed and by how much.
  */
-export function TaskDrawer({ task, onClose }: TaskDrawerProps) {
+export function TaskDrawer({ task, onClose, onOpenChat }: TaskDrawerProps) {
   const { t } = useTranslation();
   const language = useLanguage();
   const work = useTaskWork(task.id);
@@ -156,9 +160,15 @@ export function TaskDrawer({ task, onClose }: TaskDrawerProps) {
           </div>
         </div>
 
-        <Separator />
-
-        <ThreadPanel subject={{ taskId: task.id }} />
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 self-start"
+          onClick={() => onOpenChat(task)}
+        >
+          <MessageSquare aria-hidden="true" />
+          {t('panel.chat.open')}
+        </Button>
 
         {isDone ? (
           <>

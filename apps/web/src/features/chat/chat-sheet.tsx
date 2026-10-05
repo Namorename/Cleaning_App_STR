@@ -4,6 +4,13 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 
 import { MessageComposer } from './message-composer';
 import { MessageList } from './message-list';
@@ -17,32 +24,55 @@ import {
 } from './use-chat';
 import { useOutgoingPhotos } from './use-outgoing-photos';
 
-interface ThreadPanelProps {
+interface ChatSheetProps {
   subject: ChatSubject;
+  /** What the conversation is about: a task's title, or a cleaning's name · place. */
+  about: string;
+  onClose: () => void;
 }
 
 /**
- * The conversation about a subject, inside its card.
+ * The conversation about one subject, sliding in from the right (5.4, «Чат»,
+ * variant B): the panel of a task or a cleaning, not a section of its own —
+ * the list of every conversation comes with layer 6.
  *
- * Opening the panel opens the thread (the server finds or creates it), draws
- * what has been said and marks read exactly what was drawn, not everything
- * that exists. The audience is the audience of the subject; the line under
- * the heading says so, because a manager writing to an unclaimed task should
- * know who will see it.
+ * Opening it opens the thread (the server finds or creates it), draws what
+ * has been said and marks read exactly what was drawn, not everything that
+ * exists. The audience is the audience of the subject; the line under the
+ * heading says so, because a manager writing to an unclaimed task should know
+ * who will see it.
+ *
+ * The transcript takes the height of the sheet and scrolls on its own, the
+ * composer under it. On a phone the sheet is the whole width (decision 14).
  */
-export function ThreadPanel({ subject }: ThreadPanelProps) {
+export function ChatSheet({ subject, about, onClose }: ChatSheetProps) {
   const { t } = useTranslation();
-  const thread = useThread(subject);
-
   const audience =
     'taskId' in subject ? t('panel.chat.audienceTask') : t('panel.chat.audienceProblem');
 
   return (
-    <section aria-label={t('panel.chat.title')} className="flex flex-col gap-3">
-      <div className="flex flex-col gap-0.5">
-        <h3 className="font-medium">{t('panel.chat.title')}</h3>
-        <p className="text-xs text-muted-foreground">{audience}</p>
-      </div>
+    <Sheet open onOpenChange={(next) => (next ? undefined : onClose())}>
+      <SheetContent className="gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-lg">
+        <SheetHeader className="border-b pr-12">
+          <SheetTitle>{t('panel.chat.title')}</SheetTitle>
+          <SheetDescription className="font-medium break-words text-foreground">
+            {about}
+          </SheetDescription>
+          <p className="text-xs text-muted-foreground">{audience}</p>
+        </SheetHeader>
+        <ThreadBody subject={subject} />
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/** The thread of the subject, once the server has found or made it. */
+function ThreadBody({ subject }: { subject: ChatSubject }) {
+  const { t } = useTranslation();
+  const thread = useThread(subject);
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
       {thread.isPending ? (
         <LoadingState>{t('panel.chat.loading')}</LoadingState>
       ) : thread.isError ? (
@@ -50,7 +80,7 @@ export function ThreadPanel({ subject }: ThreadPanelProps) {
       ) : (
         <Thread threadId={thread.data.id} subject={subject} />
       )}
-    </section>
+    </div>
   );
 }
 
@@ -86,11 +116,11 @@ function Thread({ threadId, subject }: { threadId: string; subject: ChatSubject 
   return (
     <>
       {messages.isPending ? (
-        <LoadingState>{t('panel.chat.loading')}</LoadingState>
+        <LoadingState className="flex-1">{t('panel.chat.loading')}</LoadingState>
       ) : messages.isError ? (
-        <ErrorState message={t('panel.chat.loadError')} error={messages.error} />
+        <ErrorState className="flex-1" message={t('panel.chat.loadError')} error={messages.error} />
       ) : messages.data.length === 0 ? (
-        <EmptyState>{t('panel.chat.empty')}</EmptyState>
+        <EmptyState className="flex-1">{t('panel.chat.empty')}</EmptyState>
       ) : (
         <MessageList
           messages={messages.data}

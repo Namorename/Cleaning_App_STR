@@ -485,7 +485,8 @@
         "cancelConfirmNo": "Ne",
         "openWork": "Jak úklid proběhl",
         "openRepairWork": "Jak práce proběhla",
-        "openChat": "Chat",
+        "openWorkLive": "Jak úklid probíhá",
+        "openRepairWorkLive": "Jak práce probíhá",
         "menu": "Akce: {{name}}"
       },
       "form": {
@@ -555,6 +556,8 @@
     },
     "chat": {
       "title": "Konverzace",
+      "open": "Konverzace",
+      "openUnread": "Nová zpráva — otevřít konverzaci",
       "loading": "Načítáme konverzaci…",
       "loadError": "Konverzaci se nepodařilo otevřít",
       "empty": "Zatím nikdo nic nenapsal",

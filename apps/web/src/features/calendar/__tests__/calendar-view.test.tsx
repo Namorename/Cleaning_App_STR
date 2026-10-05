@@ -157,8 +157,19 @@ vi.mock('@/features/tasks/task-form', () => ({
   ),
 }));
 vi.mock('@/features/tasks/task-drawer', () => ({
-  TaskDrawer: (props: { task: { id: string } }) => (
-    <div role="dialog" aria-label="Шторка уборки" data-task={props.task.id} />
+  TaskDrawer: (props: { task: { id: string }; onOpenChat: (task: { id: string }) => void }) => (
+    <div role="dialog" aria-label="Шторка уборки" data-task={props.task.id}>
+      <button type="button" onClick={() => props.onOpenChat(props.task)}>
+        Разговор
+      </button>
+    </div>
+  ),
+}));
+vi.mock('@/features/chat/chat-sheet', () => ({
+  ChatSheet: (props: { subject: Record<string, string>; about: string }) => (
+    <div role="dialog" aria-label="Разговор">
+      {`${Object.values(props.subject).join(',')} · ${props.about}`}
+    </div>
   ),
 }));
 
@@ -591,6 +602,22 @@ describe('task chips', () => {
       'data-task',
       done.id,
     );
+  });
+
+  // 5.4, «Чат»: the drawer's «Разговор» swaps it for the conversation's sheet.
+  test('the drawer’s «Разговор» puts it away and opens the job’s conversation', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const done = calendarTask(1, '2026-09-26', { status: 'done' });
+    tasksState.data = [done];
+    render(<CalendarView />);
+
+    await user.click(screen.getByRole('button', { name: /Выполнена/ }));
+    await user.click(screen.getByRole('button', { name: 'Разговор' }));
+
+    expect(screen.getByRole('dialog', { name: 'Разговор' })).toHaveTextContent(
+      `${done.id} · Уборка · Anglicka 7`,
+    );
+    expect(screen.queryByRole('dialog', { name: 'Шторка уборки' })).toBeNull();
   });
 
   // The unit of work is the problem: its date and technician change there (§6).
