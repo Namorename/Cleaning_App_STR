@@ -397,7 +397,10 @@
         "dateTo": "Datum do",
         "reset": "Zrušit filtry"
       },
-      "requesterLabel": "Požádal:"
+      "requesterLabel": "Požádal:",
+      "search": "Hledat: objekt, položka nebo kdo žádal",
+      "pickRequest": "Vyberte žádost — otevře se zde.",
+      "back": "Všechny žádosti"
     },
     "tasks": {
       "title": "Úklidy",

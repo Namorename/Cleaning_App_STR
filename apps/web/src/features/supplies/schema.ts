@@ -2,6 +2,7 @@ import { propertyPathOf } from '@str-ops/shared';
 import { z } from 'zod';
 
 import { todayIso } from '@/lib/format-date';
+import { matchesAllTokens } from '@/lib/search';
 
 export const SUPPLY_UNITS = ['pcs', 'pack', 'l', 'kg', 'roll'] as const;
 export type SupplyUnit = (typeof SUPPLY_UNITS)[number];
@@ -128,6 +129,27 @@ export function isInDateRange(request: Pick<SupplyRequest, 'created_at'>, range:
     return false;
   }
   return range.to === '' || day <= range.to;
+}
+
+/**
+ * Whether a request answers the list's search: the panel's one rule for a
+ * search (`matchesAllTokens` — every word, any order, case and marks aside)
+ * over what a manager remembers of it — the house and the room, the lines,
+ * who asked, the note.
+ */
+export function matchesRequestSearch(
+  request: Pick<SupplyRequest, 'property' | 'items' | 'requester' | 'note'>,
+  query: string,
+): boolean {
+  const haystack = [
+    supplyPlace(request),
+    request.requester?.full_name,
+    request.note,
+    ...request.items.map((item) => item.name),
+  ]
+    .filter((part) => part !== null && part !== undefined)
+    .join(' ');
+  return matchesAllTokens(haystack, query);
 }
 
 /** The page's tabs; "all" is the only one that shows rejected requests. */

@@ -397,7 +397,10 @@
         "dateTo": "Until",
         "reset": "Clear the filters"
       },
-      "requesterLabel": "Requested by"
+      "requesterLabel": "Requested by",
+      "search": "Search: listing, item or who asked",
+      "pickRequest": "Pick a request — it opens here.",
+      "back": "All requests"
     },
     "tasks": {
       "title": "Cleanings",
