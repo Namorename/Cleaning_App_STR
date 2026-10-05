@@ -38,8 +38,21 @@ function mockPassThrough({ children }: MockChildren) {
   return <>{children}</>;
 }
 
-function mockStackMark() {
-  return <Text>stack</Text>;
+/** What the root declares for each screen of the stack, by route name. */
+const mockScreenOptions = new Map<string, unknown>();
+
+function mockStack({ children }: MockChildren) {
+  return (
+    <>
+      <Text>stack</Text>
+      {children}
+    </>
+  );
+}
+
+function mockScreen({ name, options }: { name: string; options?: unknown }) {
+  mockScreenOptions.set(name, options);
+  return null;
 }
 
 jest.mock('@tanstack/react-query-persist-client', () => ({
@@ -52,12 +65,7 @@ jest.mock('@/features/profile/language-gate', () => ({ ProfileLanguageGate: mock
 jest.mock('@/features/push/push-bridge', () => ({ PushBridge: () => null }));
 jest.mock('react-native-safe-area-context', () => ({ SafeAreaProvider: mockPassThrough }));
 jest.mock('expo-router', () => {
-  function Stack() {
-    return mockStackMark();
-  }
-  Stack.Screen = function Screen() {
-    return null;
-  };
+  const Stack = Object.assign(mockStack, { Screen: mockScreen });
   const stock = { dark: false, colors: {}, fonts: {} };
   return { Stack, ThemeProvider: mockPassThrough, DarkTheme: stock, DefaultTheme: stock };
 });
@@ -111,4 +119,24 @@ test('once ready the providers and the stack mount, and from then on the root bo
   expect(markAppDrawn).toHaveBeenCalledTimes(1);
   await render(<ErrorBoundary error={new Error('later')} retry={jest.fn(async () => {})} />);
   expect(screen.getByText(SCREEN_FAILED)).toBeTruthy();
+});
+
+// The three screens of a report had no header at all — no title, no way back
+// (docs/redesign-plan.md §2.4). The title is the root's, not the screen's: a
+// report still loading, or one that failed, is drawn under the same header.
+test.each([
+  ['problem/new', 'Новое задание'],
+  ['problem/[id]/index', 'Задание'],
+  ['problem/[id]/edit', 'Изменить задание'],
+])('%s has a header titled «%s» and a way back', async (name, title) => {
+  // Arrange
+  readiness.mockReturnValue({ isReady: true, areFontsLoaded: true });
+
+  // Act
+  await render(<RootLayout />);
+
+  // Assert
+  expect(mockScreenOptions.get(name)).toEqual(
+    expect.objectContaining({ headerShown: true, headerBackTitle: 'Назад', title }),
+  );
 });

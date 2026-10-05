@@ -137,6 +137,35 @@ export default function RootLayout() {
                       title: t('settings.title'),
                     }}
                   />
+                  {/*
+                    A report's three screens. Titled here rather than by the
+                    screen, for the reason the chat below gives: a report still
+                    loading, or one that failed, is drawn under the same header.
+                  */}
+                  <Stack.Screen
+                    name="problem/new"
+                    options={{
+                      headerShown: true,
+                      headerBackTitle: t('common.back'),
+                      title: t('problems.new'),
+                    }}
+                  />
+                  <Stack.Screen
+                    name="problem/[id]/index"
+                    options={{
+                      headerShown: true,
+                      headerBackTitle: t('common.back'),
+                      title: t('problems.one'),
+                    }}
+                  />
+                  <Stack.Screen
+                    name="problem/[id]/edit"
+                    options={{
+                      headerShown: true,
+                      headerBackTitle: t('common.back'),
+                      title: t('problems.editTitle'),
+                    }}
+                  />
                   {/* Static text from the settings: no data, so no sign-in guard. */}
                   <Stack.Screen
                     name="font-license"

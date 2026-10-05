@@ -1,4 +1,4 @@
-import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
@@ -138,31 +138,29 @@ export default function ProblemRoute() {
     }
   };
 
+  // The header and its title are the root layout's (app/_layout.tsx).
   return (
-    <>
-      <Stack.Screen options={{ title: t('problems.one') }} />
-      <ProblemDetail
-        problem={problem.data}
-        photos={items}
-        canEdit={canEditProblem(problem.data, userId)}
-        onEdit={() => router.push({ pathname: '/problem/[id]/edit', params: { id: problemId } })}
-        onCapture={() => void attachFrom('camera')}
-        onPickFromGallery={galleryAllowed ? () => void attachFrom('gallery') : undefined}
-        onRemovePhoto={(mediaId) => removeMedia.mutate({ problemId, mediaId })}
-        onRetryPhoto={onRetryPhoto}
-        isCapturing={isCapturing}
-        fixTaskId={ownFixTaskId(problem.data, userId)}
-        onOpenFixTask={(taskId) => router.push({ pathname: '/task/[id]', params: { id: taskId } })}
-        onOpenChat={() =>
-          router.push({
-            pathname: '/chat/[subject]/[id]',
-            params: { subject: 'problem', id: problemId },
-          })
-        }
-        error={attach.error ?? removeMedia.error}
-        notice={notice}
-      />
-    </>
+    <ProblemDetail
+      problem={problem.data}
+      photos={items}
+      canEdit={canEditProblem(problem.data, userId)}
+      onEdit={() => router.push({ pathname: '/problem/[id]/edit', params: { id: problemId } })}
+      onCapture={() => void attachFrom('camera')}
+      onPickFromGallery={galleryAllowed ? () => void attachFrom('gallery') : undefined}
+      onRemovePhoto={(mediaId) => removeMedia.mutate({ problemId, mediaId })}
+      onRetryPhoto={onRetryPhoto}
+      isCapturing={isCapturing}
+      fixTaskId={ownFixTaskId(problem.data, userId)}
+      onOpenFixTask={(taskId) => router.push({ pathname: '/task/[id]', params: { id: taskId } })}
+      onOpenChat={() =>
+        router.push({
+          pathname: '/chat/[subject]/[id]',
+          params: { subject: 'problem', id: problemId },
+        })
+      }
+      error={attach.error ?? removeMedia.error}
+      notice={notice}
+    />
   );
 }
 

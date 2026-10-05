@@ -1,5 +1,5 @@
 import { randomUUID } from 'expo-crypto';
-import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
@@ -108,28 +108,26 @@ export default function NewProblemRoute() {
     });
   };
 
+  // The header and its title are the root layout's (app/_layout.tsx).
   return (
-    <>
-      <Stack.Screen options={{ title: t('problems.new') }} />
-      <ProblemForm
-        draft={draft}
-        onChange={setDraft}
-        place={task.data ? propertyName(task.data) : null}
-        properties={places.data ?? []}
-        selectedPropertyId={chosenPropertyId}
-        onSelectProperty={taskId === null ? setChosenPropertyId : undefined}
-        isLoadingProperties={places.isPending}
-        photos={items}
-        onCapture={() => void attachFrom('camera')}
-        onPickFromGallery={galleryAllowed ? () => void attachFrom('gallery') : undefined}
-        onRemovePhoto={onRemovePhoto}
-        isCapturing={isCapturing}
-        isSubmitting={report.isPending && !report.isPaused}
-        submitLabel={t('problems.submit')}
-        onSubmit={onSubmit}
-        error={report.error}
-        notice={notice}
-      />
-    </>
+    <ProblemForm
+      draft={draft}
+      onChange={setDraft}
+      place={task.data ? propertyName(task.data) : null}
+      properties={places.data ?? []}
+      selectedPropertyId={chosenPropertyId}
+      onSelectProperty={taskId === null ? setChosenPropertyId : undefined}
+      isLoadingProperties={places.isPending}
+      photos={items}
+      onCapture={() => void attachFrom('camera')}
+      onPickFromGallery={galleryAllowed ? () => void attachFrom('gallery') : undefined}
+      onRemovePhoto={onRemovePhoto}
+      isCapturing={isCapturing}
+      isSubmitting={report.isPending && !report.isPaused}
+      submitLabel={t('problems.submit')}
+      onSubmit={onSubmit}
+      error={report.error}
+      notice={notice}
+    />
   );
 }

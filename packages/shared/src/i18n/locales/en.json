@@ -1140,6 +1140,7 @@
     "new": "New task",
     "one": "Task",
     "edit": "Edit",
+    "editTitle": "Edit task",
     "save": "Save",
     "submit": "Send",
     "loading": "Loading tasks…",
