@@ -4,6 +4,7 @@ import {
   aggregatePurchase,
   canReject,
   isInTab,
+  matchesRequestSearch,
   nextStatuses,
   supplyRequestSchema,
   type SupplyRequest,
@@ -116,5 +117,36 @@ describe('aggregatePurchase', () => {
       ['accepted'],
     );
     expect(lines).toEqual([]);
+  });
+});
+
+describe('matchesRequestSearch', () => {
+  const one = request(A, 'new', 'Karlín 3', [{ name: 'Мешки 60 л', quantity: 2 }]);
+
+  test('an empty search finds every request', () => {
+    expect(matchesRequestSearch(one, '')).toBe(true);
+    expect(matchesRequestSearch(one, '   ')).toBe(true);
+  });
+
+  test('finds a request by its place, its lines, who asked and its note, marks and case aside', () => {
+    expect(matchesRequestSearch(one, 'karlin')).toBe(true);
+    expect(matchesRequestSearch(one, 'МЕШКИ')).toBe(true);
+    expect(matchesRequestSearch(one, 'maria')).toBe(true);
+    expect(matchesRequestSearch({ ...one, note: 'До пятницы' }, 'пятниц')).toBe(true);
+    expect(matchesRequestSearch(one, 'vinohrady')).toBe(false);
+  });
+
+  test('every word has to be found, in any order', () => {
+    expect(matchesRequestSearch(one, '60 karlin')).toBe(true);
+    expect(matchesRequestSearch(one, 'karlin губки')).toBe(false);
+  });
+
+  test('a room is found by the house it stands in', () => {
+    const room = {
+      ...one,
+      property: { name: '1 - 2109', hostaway_unit_id: 7, parent: { name: 'Vinohradska Royal' } },
+    };
+
+    expect(matchesRequestSearch(room, 'royal 2109')).toBe(true);
   });
 });

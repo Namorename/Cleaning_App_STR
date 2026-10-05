@@ -1,11 +1,18 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeAll, describe, expect, test } from 'vitest';
+import { beforeAll, describe, expect, test, vi } from 'vitest';
 
 import { Alert, AlertDescription, AlertTitle } from './alert';
 import { Checkbox } from './checkbox';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './dropdown-menu';
 import { Skeleton } from './skeleton';
 import { Switch } from './switch';
+import { Tabs, TabsList, TabsTrigger } from './tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip';
 
 /**
@@ -72,5 +79,46 @@ describe('the new primitives', () => {
     );
 
     expect(screen.getByRole('button', { name: 'SDT' })).toBeInTheDocument();
+  });
+
+  test('a tab list never widens the page: on a narrow screen it scrolls within itself', () => {
+    // Decision 14: on a phone the page never scrolls sideways — the five tabs
+    // of a listing's card are wider than 390 px.
+    render(
+      <Tabs defaultValue="info">
+        <TabsList>
+          <TabsTrigger value="info">Информация</TabsTrigger>
+        </TabsList>
+      </Tabs>,
+    );
+
+    expect(screen.getByRole('tablist')).toHaveClass('max-w-full', 'overflow-x-auto');
+  });
+
+  // 5.4: the «⋯» of a row. Its items are the row's actions, each a full target.
+  test('a dropdown menu opens on its trigger, runs an item and closes', async () => {
+    const onEdit = vi.fn();
+    render(
+      <DropdownMenu>
+        <DropdownMenuTrigger aria-label="Действия">⋯</DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem onClick={onEdit}>Изменить</DropdownMenuItem>
+          <DropdownMenuItem variant="destructive">Отменить уборку</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>,
+    );
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Действия' }));
+    const item = await screen.findByRole('menuitem', { name: 'Изменить' });
+    expect(item).toHaveClass('min-h-11');
+    expect(screen.getByRole('menuitem', { name: 'Отменить уборку' })).toHaveAttribute(
+      'data-variant',
+      'destructive',
+    );
+
+    await userEvent.click(item);
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 });

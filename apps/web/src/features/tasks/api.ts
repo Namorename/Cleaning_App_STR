@@ -11,15 +11,18 @@ import {
   departureGuestSchema,
   expiredTaskListSchema,
   liveRepairListSchema,
+  offStaffTaskListSchema,
   propertyListSchema,
   staffListSchema,
   taskListSchema,
   taskProblemListSchema,
   taskSchema,
+  UNDER_WAY_STATUSES,
   type CalendarTask,
   type DepartureGuest,
   type ExpiredTask,
   type LiveRepair,
+  type OffStaffTask,
   type Property,
   type Staff,
   type Task,
@@ -210,6 +213,36 @@ export async function fetchLiveRepairs(client: Client): Promise<LiveRepair[]> {
     throw error;
   }
   return liveRepairListSchema.parse(data ?? []);
+}
+
+// The person joined inner: the filter on her switch drops the job, not just
+// her name. The listing as the live repairs read it, the archive left out.
+const OFF_STAFF_COLUMNS =
+  'id, property_id, type, status, scheduled_date, assignee_id, ' +
+  'assignee:profiles!tasks_assignee_id_fkey!inner(full_name, is_active), ' +
+  'property:properties!inner(name, status, timezone, hostaway_unit_id, parent:parent_id(name))';
+
+/**
+ * The work under way on people switched off (docs/staff-disable-plan.md):
+ * switching an account off takes it off everything nobody has started
+ * (20261004100000), and what it had started waits for the manager. Every job
+ * but a repair of a task — those are the repair tiles' (fetchLiveRepairs).
+ * A handful at a time, whatever the day — no pages.
+ */
+export async function fetchOffStaffWork(client: Client): Promise<OffStaffTask[]> {
+  const { data, error } = await client
+    .from('tasks')
+    .select(OFF_STAFF_COLUMNS)
+    .is('problem_id', null)
+    .in('status', [...UNDER_WAY_STATUSES])
+    .eq('assignee.is_active', false)
+    .neq('property.status', 'archived')
+    .order('scheduled_date', { ascending: true })
+    .order('id', { ascending: true });
+  if (error) {
+    throw error;
+  }
+  return offStaffTaskListSchema.parse(data ?? []);
 }
 
 /** Active people of the company a task can be handed to. */

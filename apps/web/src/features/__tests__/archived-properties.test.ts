@@ -1,7 +1,11 @@
 import { describe, expect, test } from 'vitest';
 
 import { fetchRegistry } from '@/features/apartments/api';
-import { fetchLiveRepairs, fetchProperties as fetchTaskProperties } from '@/features/tasks/api';
+import {
+  fetchLiveRepairs,
+  fetchOffStaffWork,
+  fetchProperties as fetchTaskProperties,
+} from '@/features/tasks/api';
 import { fetchProperties as fetchTeamProperties } from '@/features/team/api';
 
 /**
@@ -173,6 +177,22 @@ describe('the live repairs leave the archive out through their listing', () => {
     const { client, calls } = recordingClient();
 
     await fetchLiveRepairs(client);
+
+    const query = calls.find((call) => call.table === 'tasks');
+    expect(query, 'the reader never asked for tasks').toBeDefined();
+    expect(query?.filters).toContain('neq:property.status=archived');
+    expect(query?.filters.join(' ')).toContain('property:properties!inner(');
+  });
+});
+
+// The work under way of people switched off (docs/staff-disable-plan.md) is
+// read through its listing as the live repairs are: a job left on an archived
+// listing is not the dashboard's to show.
+describe('the work of people switched off leaves the archive out through its listing', () => {
+  test('the listing is joined inner, and an archived one is filtered away', async () => {
+    const { client, calls } = recordingClient();
+
+    await fetchOffStaffWork(client);
 
     const query = calls.find((call) => call.table === 'tasks');
     expect(query, 'the reader never asked for tasks').toBeDefined();

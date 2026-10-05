@@ -44,6 +44,15 @@
     "signOut": "Odhlásit se",
     "cancel": "Zrušit",
     "close": "Zavřít",
+    "toDashboard": "Na přehled",
+    "notFound": {
+      "title": "Stránka nenalezena",
+      "text": "Taková stránka v panelu není: adresa je zadaná s chybou nebo je odkaz zastaralý."
+    },
+    "error": {
+      "title": "Stránka se neotevřela",
+      "digest": "Kód chyby: {{digest}}"
+    },
     "settings": {
       "account": "Účet",
       "signedInAs": "Jste přihlášeni jako {{email}}.",
@@ -144,6 +153,9 @@
       "settings": "Nastavení",
       "calendar": "Kalendář",
       "unread": "Nepřečtené: {{count}}",
+      "collapse": "Sbalit nabídku",
+      "expand": "Rozbalit nabídku",
+      "open": "Otevřít nabídku",
       "groups": {
         "work": "Práce",
         "reference": "Evidence"
@@ -160,7 +172,8 @@
         "openProblems": "Otevřených úkolů",
         "newSupplies": "Nových žádostí o materiál",
         "overdueRepairs": "Oprav po termínu",
-        "offRepairs": "Oprav u vypnutých"
+        "offRepairs": "Oprav u vypnutých",
+        "offCleanings": "Úklidů u vypnutých"
       },
       "repairs": {
         "title": "Uvízlé opravy",
@@ -172,12 +185,22 @@
         "noName": "Bez jména",
         "open": "Otevřít úkol"
       },
+      "offWork": {
+        "title": "Rozpracované úklidy u vypnutých",
+        "hint": "Vypnutí jim odebralo vše, co nezačali. Rozpracované čeká na rozhodnutí: předejte úklid jinému. Pokud ho nepředáte, po dni rezervy se sám uzavře a bude označen „Neproběhlo“.",
+        "loading": "Načítáme úklidy…",
+        "empty": "Vypnutí nemají žádné rozpracované úklidy.",
+        "open": "Otevřít úklid",
+        "personOff": "Nepracuje",
+        "noName": "Bez jména"
+      },
       "errors": {
         "tasks": "Úklidy se nepodařilo načíst.",
         "listings": "Objekty se nepodařilo načíst.",
         "problems": "Úkoly se nepodařilo načíst.",
         "supplies": "Žádosti o materiál se nepodařilo načíst.",
-        "repairs": "Opravy se nepodařilo načíst."
+        "repairs": "Opravy se nepodařilo načíst.",
+        "offWork": "Úklidy vypnutých se nepodařilo načíst."
       }
     },
     "problems": {
@@ -190,6 +213,10 @@
       "loading": "Načítáme úkoly…",
       "loadError": "Úkoly se nepodařilo načíst",
       "notFound": "Úkol nenalezen",
+      "history": {
+        "takenOff": "{{name}}: práce odebrána",
+        "takenOffAccountDisabled": "{{name}}: práce odebrána — účet vypnut"
+      },
       "columns": {
         "title": "Úkol",
         "property": "Objekt",
@@ -238,6 +265,7 @@
       },
       "actions": {
         "resolve": "Označit jako splněný",
+        "more": "Další akce",
         "cancel": "Zrušit úkol",
         "cancelReason": "Důvod zrušení",
         "cancelConfirm": "Potvrdit zrušení",
@@ -250,18 +278,23 @@
         "unarchive": "Obnovit z archivu"
       },
       "board": {
-        "dragHint": "Karty lze přetahovat mezi sloupci",
-        "startOnPhone": "Do práce úkol převádí technik tlačítkem „Začít práci“ v aplikaci",
-        "cannotMove": "Odsud sem kartu přesunout nelze",
-        "unassigned": "Práce technika je zrušena, úkol je znovu otevřený",
+        "dragHint": "Otevřený úkol lze přetáhnout do „Přidělený“ a přidělený zpět do „Otevřený“; ostatní je v nabídce „⋯“",
+        "dragRefused": "Takto kartu přetáhnout nelze: přesuňte ji přes její nabídku „⋯“ — do práce úkol převádí technik v aplikaci",
+        "moveTo": "Přesunout do „{{status}}“",
+        "cardMenu": "Akce: {{title}}",
+        "unassigned": "Technik je stažen z práce, úkol je znovu otevřený",
+        "unassignTitle": "Stáhnout technika z práce?",
+        "unassignText": "{{name}} už neuvidí „{{title}}“ a úkol bude znovu otevřený.",
+        "unassignConfirm": "Stáhnout",
+        "unassignAbort": "Ponechat",
         "resolveTitle": "Označit jako splněný?",
         "resolveText": "„{{title}}“ se uzavře jako splněný. Práce technika, pokud existuje, bude dokončena.",
         "resolveConfirm": "Ano, splněno",
         "resolveAbort": "Ne",
         "assignTitle": "Přiřadit technika",
         "reopened": "Úkol je znovu otevřený",
-        "columnEmpty": "✨ Zatím žádné úkoly",
-        "columnEmptyFiltered": "🔍 Nic nenalezeno"
+        "columnEmpty": "Zatím žádné úkoly",
+        "columnEmptyFiltered": "Nic nenalezeno"
       },
       "viewArchive": "Archiv",
       "archive": {
@@ -270,7 +303,6 @@
       }
     },
     "supplies": {
-      "title": "Žádosti o spotřební materiál",
       "tabs": {
         "new": "Nové",
         "inProgress": "V řešení",
@@ -304,6 +336,8 @@
       "summary": {
         "open": "Souhrn k nákupu",
         "title": "Souhrn k nákupu",
+        "across": "Ze všech žádostí, bez ohledu na hledání",
+        "acrossDates": "Ze všech žádostí za zvolené dny, bez ohledu na hledání",
         "description": "Stejné položky z vybraných žádostí jsou sečteny podle názvu a jednotky.",
         "scope": "Zahrnout žádosti",
         "empty": "Není co nakupovat",
@@ -366,7 +400,10 @@
         "dateTo": "Datum do",
         "reset": "Zrušit filtry"
       },
-      "requesterLabel": "Požádal:"
+      "requesterLabel": "Požádal:",
+      "search": "Hledat: objekt, položka nebo kdo žádal",
+      "pickRequest": "Vyberte žádost — otevře se zde.",
+      "back": "Všechny žádosti"
     },
     "tasks": {
       "title": "Úklidy",
@@ -414,6 +451,16 @@
         "dateTo": "Datum do",
         "reset": "Zrušit filtry"
       },
+      "columns": {
+        "window": "Čas",
+        "property": "Byt",
+        "type": "Druh",
+        "title": "Název",
+        "status": "Stav",
+        "assignee": "Vykonavatel",
+        "marks": "Štítky",
+        "actions": "Akce"
+      },
       "overdue": "Propadlo",
       "tail": {
         "yesterday": "od včera",
@@ -421,6 +468,7 @@
       },
       "noAssignee": "Zatím nikdo",
       "noProperty": "Bez bytu",
+      "note": "Poznámka pro vykonavatele: {{text}}",
       "window": {
         "from": "od {{time}}",
         "until": "do {{time}}"
@@ -438,7 +486,9 @@
         "cancelConfirmYes": "Ano, zrušit",
         "cancelConfirmNo": "Ne",
         "openWork": "Jak úklid proběhl",
-        "openChat": "Chat"
+        "openRepairWork": "Jak práce proběhla",
+        "openChat": "Chat",
+        "menu": "Akce: {{name}}"
       },
       "form": {
         "titleNew": "Nový úklid",
@@ -472,6 +522,8 @@
       "work": {
         "title": "Jak úklid proběhl",
         "titleOpen": "Úklid",
+        "titleRepair": "Jak práce proběhla",
+        "titleRepairOpen": "Práce",
         "loading": "Načítáme průběh…",
         "loadError": "Průběh se nepodařilo načíst",
         "steps": "Kroky",
@@ -643,6 +695,7 @@
         "archived": "Archiv"
       },
       "columns": {
+        "pick": "Výběr",
         "name": "Objekt",
         "address": "Adresa",
         "linked": "Vazby",
@@ -678,7 +731,9 @@
           "archived": "Archivovat"
         }
       },
-      "back": "← Všechny objekty",
+      "back": "Všechny objekty",
+      "pickListing": "Vyberte byt — jeho karta se otevře zde.",
+      "rowMenu": "Akce: {{name}}",
       "notFound": "Objekt nenalezen.",
       "card": {
         "info": "Informace",
@@ -795,6 +850,8 @@
       "previous": "Předchozí období",
       "next": "Další období",
       "depthLabel": "Rozsah",
+      "search": "Najít objekt podle názvu",
+      "noMatches": "Žádný objekt s takovým názvem.",
       "days_one": "{{count}} den",
       "days_few": "{{count}} dny",
       "days_many": "{{count}} dne",
@@ -1312,6 +1369,7 @@
     "taskDuplicate": "Tento byt už na {{date}} takový úklid má",
     "taskMovedMeanwhile": "Zatímco byl formulář otevřený, úklid se přesunul na {{date}}. Otevřete ho znovu.",
     "cleanerAutoTaken": "Objekt už je napevno přiřazen: {{name}}. Nejdřív to přiřazení zrušte.",
+    "cleanerLinkInactive": "Vypnutý účet nelze přiřadit k objektu: nejdřív ho zapněte.",
     "cleanerPriorityInvalid": "Pořadí je číslo od 1 do 99.",
     "techNotLinkable": "Technik se k objektům nepřiřazuje: úklidy nejsou jeho práce.",
     "techRoleBlocked": "Nejdřív toho člověka odeberte z objektů (přiřazení: {{links}}) a z otevřených úklidů ({{cleanings}}): technik úklidy nemá.",

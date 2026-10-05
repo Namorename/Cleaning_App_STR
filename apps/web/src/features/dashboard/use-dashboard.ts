@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCalendarRows, useLiveRepairs } from '@/features/calendar/use-calendar';
 import { useProblems } from '@/features/problems/use-problems';
 import { useSupplyRequests } from '@/features/supplies/use-supplies';
-import { fetchTasksBetween } from '@/features/tasks/api';
+import { fetchOffStaffWork, fetchTasksBetween } from '@/features/tasks/api';
 import { taskKeys } from '@/features/tasks/keys';
 import { useSupabase } from '@/lib/supabase/use-client';
 
@@ -17,7 +17,8 @@ import { dashboardWindow, REFRESH_MS } from './counts';
  * sections and the calendar read them, under the same keys: a tile's link
  * opens on what is already held, and a write there wakes the tiles. The tasks
  * are the week's alone — the section reads a month back — keyed under
- * `taskKeys.all`, so a saved or cancelled task wakes them too.
+ * `taskKeys.all`, so a saved or cancelled task wakes them too. So is the work
+ * under way on people switched off, which only the dashboard reads.
  */
 export function useDashboard(now: Date) {
   const client = useSupabase();
@@ -34,6 +35,13 @@ export function useDashboard(now: Date) {
   // The calendar's rows, its read and key: «Без исполнителя» counts only what
   // the calendar it leads to can draw. Listings seldom change; no interval.
   const rows = useCalendarRows(client, false);
+  // The work under way on people switched off (docs/staff-disable-plan.md):
+  // under taskKeys.all, so a job handed on from its form wakes the tile.
+  const offWork = useQuery({
+    queryKey: taskKeys.offStaffWork(),
+    queryFn: () => fetchOffStaffWork(client),
+    refetchInterval: REFRESH_MS,
+  });
 
-  return { tasks, problems, supplies, repairs, rows };
+  return { tasks, problems, supplies, repairs, rows, offWork };
 }

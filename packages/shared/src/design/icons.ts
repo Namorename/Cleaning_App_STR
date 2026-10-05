@@ -31,6 +31,11 @@ export const ICONS = {
   'nav.queue': 'inbox',
   /** The technician: «Мои работы». */
   'nav.myJobs': 'wrench',
+  /** The panel's menu folds to a strip of icons, and opens out again. */
+  'nav.collapse': 'panel-left-close',
+  'nav.expand': 'panel-left-open',
+  /** The panel on a phone: the button that opens the menu. */
+  'nav.menu': 'menu',
 
   'action.add': 'plus',
   'action.back': 'chevron-left',
@@ -65,6 +70,8 @@ export const ICONS = {
 
   /** A problem's technician, beside his name. */
   'meta.technician': 'wrench',
+  /** A cleaning's note for its executor, beside its name in the panel's list. */
+  'meta.note': 'sticky-note',
 } as const;
 
 export type IconMeaning = keyof typeof ICONS;

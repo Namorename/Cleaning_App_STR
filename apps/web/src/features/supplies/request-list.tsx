@@ -1,0 +1,76 @@
+'use client';
+
+import { useTranslation } from 'react-i18next';
+
+import { EmptyState } from '@/components/states';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+import { RequestRow } from './request-row';
+import { isInTab, newestFirst, SUPPLY_TABS, type SupplyRequest, type SupplyTab } from './schema';
+
+interface RequestListProps {
+  /** The requests the search and the dates leave: the counters count these. */
+  requests: readonly SupplyRequest[];
+  tab: SupplyTab;
+  /** The request open beside the list. */
+  openRequest: string | null;
+  onTabChange: (tab: SupplyTab) => void;
+  /** The address that opens a request: a real link, for a new tab too. */
+  hrefOf: (id: string) => string;
+  onOpen: (id: string) => void;
+}
+
+/**
+ * The tabs by stage, each with its count, and the requests of the open one,
+ * newest first by when each was made — in «Все» too (5.4, variant B: «Новые
+ * сверху»; the owner, 05.10).
+ */
+export function RequestList({
+  requests,
+  tab,
+  openRequest,
+  onTabChange,
+  hrefOf,
+  onOpen,
+}: RequestListProps) {
+  const { t } = useTranslation();
+  const shown = newestFirst(requests.filter((request) => isInTab(request, tab)));
+
+  return (
+    <>
+      <Tabs value={tab} onValueChange={(next) => onTabChange(next as SupplyTab)}>
+        {/* Four tabs with counters are wider than a phone: a second row, not a wider page. */}
+        <TabsList className="h-auto flex-wrap justify-start">
+          {SUPPLY_TABS.map((key) => (
+            <TabsTrigger key={key} value={key} className="min-h-11 px-3">
+              {t(`panel.supplies.tabs.${key}`)}
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {requests.filter((request) => isInTab(request, key)).length}
+              </span>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+
+      {shown.length === 0 ? (
+        <EmptyState>{t('panel.supplies.empty')}</EmptyState>
+      ) : (
+        <ul
+          aria-label={t(`panel.supplies.tabs.${tab}`)}
+          className="flex flex-col divide-y overflow-hidden rounded-lg border bg-card"
+        >
+          {shown.map((request) => (
+            <li key={request.id}>
+              <RequestRow
+                request={request}
+                href={hrefOf(request.id)}
+                isCurrent={request.id === openRequest}
+                onOpen={() => onOpen(request.id)}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
+}

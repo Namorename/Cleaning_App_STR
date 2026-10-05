@@ -44,6 +44,15 @@
     "signOut": "Sign out",
     "cancel": "Cancel",
     "close": "Close",
+    "toDashboard": "To the dashboard",
+    "notFound": {
+      "title": "Page not found",
+      "text": "There is no such page in the panel: the address has a typo or the link is out of date."
+    },
+    "error": {
+      "title": "The page did not open",
+      "digest": "Error code: {{digest}}"
+    },
     "settings": {
       "account": "Account",
       "signedInAs": "Signed in as {{email}}.",
@@ -144,6 +153,9 @@
       "settings": "Settings",
       "calendar": "Calendar",
       "unread": "Unread: {{count}}",
+      "collapse": "Collapse the menu",
+      "expand": "Expand the menu",
+      "open": "Open the menu",
       "groups": {
         "work": "Work",
         "reference": "Directory"
@@ -160,7 +172,8 @@
         "openProblems": "Open tasks",
         "newSupplies": "New supply requests",
         "overdueRepairs": "Overdue repairs",
-        "offRepairs": "Repairs held by switched-off staff"
+        "offRepairs": "Repairs held by switched-off staff",
+        "offCleanings": "Cleanings held by switched-off staff"
       },
       "repairs": {
         "title": "Stuck repairs",
@@ -172,12 +185,22 @@
         "noName": "No name",
         "open": "Open the task"
       },
+      "offWork": {
+        "title": "Cleanings in progress held by switched-off staff",
+        "hint": "Switching them off took away everything not yet started. What they had started waits for a decision: hand the cleaning to someone else. If it is not handed on, after a day's grace it closes by itself and is marked “Did not happen”.",
+        "loading": "Loading the cleanings…",
+        "empty": "No switched-off staff have cleanings in progress.",
+        "open": "Open the cleaning",
+        "personOff": "Not working",
+        "noName": "No name"
+      },
       "errors": {
         "tasks": "Could not load the cleanings.",
         "listings": "Could not load the listings.",
         "problems": "Could not load the tasks.",
         "supplies": "Could not load the supply requests.",
-        "repairs": "Could not load the repairs."
+        "repairs": "Could not load the repairs.",
+        "offWork": "Could not load the cleanings of switched-off staff."
       }
     },
     "problems": {
@@ -190,6 +213,10 @@
       "loading": "Loading tasks…",
       "loadError": "Could not load the tasks",
       "notFound": "Task not found",
+      "history": {
+        "takenOff": "{{name}}: work taken off",
+        "takenOffAccountDisabled": "{{name}}: work taken off — account switched off"
+      },
       "columns": {
         "title": "Task",
         "property": "Listing",
@@ -238,6 +265,7 @@
       },
       "actions": {
         "resolve": "Mark as done",
+        "more": "More actions",
         "cancel": "Cancel the task",
         "cancelReason": "Cancel reason",
         "cancelConfirm": "Confirm cancellation",
@@ -250,18 +278,23 @@
         "unarchive": "Restore from the archive"
       },
       "board": {
-        "dragHint": "Drag cards between the columns",
-        "startOnPhone": "Only the technician moves a task into work, with the “Start work” button in the app",
-        "cannotMove": "A card cannot be moved from here to there",
-        "unassigned": "The technician's job is cancelled, the task is open again",
+        "dragHint": "Drag an open task to “Assigned”, or an assigned one back to “Open”; everything else is in the «⋯» menu",
+        "dragRefused": "This cannot be dragged: move the card with its «⋯» menu — a task goes into work when the technician starts it in the app",
+        "moveTo": "Move to “{{status}}”",
+        "cardMenu": "Actions: {{title}}",
+        "unassigned": "The technician is taken off the job, the task is open again",
+        "unassignTitle": "Take the technician off the job?",
+        "unassignText": "{{name}} will no longer see “{{title}}”, and the task will be open again.",
+        "unassignConfirm": "Take off",
+        "unassignAbort": "Keep",
         "resolveTitle": "Mark as done?",
         "resolveText": "“{{title}}” will close as done. The technician's job, if any, will be finished.",
         "resolveConfirm": "Yes, done",
         "resolveAbort": "No",
         "assignTitle": "Assign a technician",
         "reopened": "The task is open again",
-        "columnEmpty": "✨ No tasks yet",
-        "columnEmptyFiltered": "🔍 Nothing found"
+        "columnEmpty": "No tasks yet",
+        "columnEmptyFiltered": "Nothing found"
       },
       "viewArchive": "Archive",
       "archive": {
@@ -270,7 +303,6 @@
       }
     },
     "supplies": {
-      "title": "Supply requests",
       "tabs": {
         "new": "New",
         "inProgress": "In progress",
@@ -304,6 +336,8 @@
       "summary": {
         "open": "Purchase summary",
         "title": "Purchase summary",
+        "across": "Across all requests, regardless of the search",
+        "acrossDates": "Across all requests of the chosen dates, regardless of the search",
         "description": "Identical items from the selected requests are added up by name and unit.",
         "scope": "Include requests",
         "empty": "Nothing to purchase",
@@ -366,7 +400,10 @@
         "dateTo": "Until",
         "reset": "Clear the filters"
       },
-      "requesterLabel": "Requested by"
+      "requesterLabel": "Requested by",
+      "search": "Search: listing, item or who asked",
+      "pickRequest": "Pick a request — it opens here.",
+      "back": "All requests"
     },
     "tasks": {
       "title": "Cleanings",
@@ -414,6 +451,16 @@
         "dateTo": "Until",
         "reset": "Clear the filters"
       },
+      "columns": {
+        "window": "Time",
+        "property": "Listing",
+        "type": "Kind",
+        "title": "Title",
+        "status": "Status",
+        "assignee": "Executor",
+        "marks": "Flags",
+        "actions": "Actions"
+      },
       "overdue": "Overdue",
       "tail": {
         "yesterday": "since yesterday",
@@ -421,6 +468,7 @@
       },
       "noAssignee": "Nobody yet",
       "noProperty": "No listing",
+      "note": "Note for the executor: {{text}}",
       "window": {
         "from": "from {{time}}",
         "until": "until {{time}}"
@@ -438,7 +486,9 @@
         "cancelConfirmYes": "Yes, cancel it",
         "cancelConfirmNo": "No",
         "openWork": "How the cleaning went",
-        "openChat": "Chat"
+        "openRepairWork": "How the job went",
+        "openChat": "Chat",
+        "menu": "Actions: {{name}}"
       },
       "form": {
         "titleNew": "New cleaning",
@@ -472,6 +522,8 @@
       "work": {
         "title": "How the cleaning went",
         "titleOpen": "Cleaning",
+        "titleRepair": "How the job went",
+        "titleRepairOpen": "Job",
         "loading": "Loading the work…",
         "loadError": "Could not load the work",
         "steps": "Steps",
@@ -643,6 +695,7 @@
         "archived": "Archive"
       },
       "columns": {
+        "pick": "Pick",
         "name": "Listing",
         "address": "Address",
         "linked": "Links",
@@ -678,7 +731,9 @@
           "archived": "Archive"
         }
       },
-      "back": "← All listings",
+      "back": "All listings",
+      "pickListing": "Pick a listing — its card opens here.",
+      "rowMenu": "Actions: {{name}}",
       "notFound": "Listing not found.",
       "card": {
         "info": "Information",
@@ -791,6 +846,8 @@
       "previous": "Previous period",
       "next": "Next period",
       "depthLabel": "Depth",
+      "search": "Find a listing by name",
+      "noMatches": "No listing has that name.",
       "days_one": "{{count}} day",
       "days_other": "{{count}} days",
       "property": "Listing",
@@ -1288,6 +1345,7 @@
     "taskDuplicate": "This flat already has such a cleaning on {{date}}",
     "taskMovedMeanwhile": "While the form was open, the cleaning was moved to {{date}}. Open it again.",
     "cleanerAutoTaken": "The listing is already assigned to {{name}}. Release that link first.",
+    "cleanerLinkInactive": "A switched-off account cannot be linked to a listing: switch it on first.",
     "cleanerPriorityInvalid": "The position is a number from 1 to 99.",
     "techNotLinkable": "A technician is not linked to listings: cleanings are not their work.",
     "techRoleBlocked": "Take this person off their listings ({{links}} links) and open cleanings ({{cleanings}}) first: a technician has no cleanings.",

@@ -11,6 +11,7 @@ import { formatDateTime } from '@/lib/format-date';
 import { serverErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
 
+import { problemHref } from './address';
 import { problemPlace, type Problem } from './schema';
 import { useUnarchiveProblem } from './use-problems';
 
@@ -41,7 +42,10 @@ export function ProblemsArchive({ problems }: ProblemsArchiveProps) {
           >
             <div className="flex flex-col gap-1">
               <div className="flex flex-wrap items-center gap-2">
-                <Link href={`/problems/${problem.id}`} className="font-medium hover:underline">
+                <Link
+                  href={problemHref(problem.id, 'archive')}
+                  className="font-medium hover:underline"
+                >
                   {problem.title}
                 </Link>
                 <Badge tone={problemStatusTone(problem.status)}>

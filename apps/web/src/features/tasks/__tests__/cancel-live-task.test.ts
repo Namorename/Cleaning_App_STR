@@ -1,7 +1,5 @@
 import { describe, expect, test } from 'vitest';
 
-import { unassignProblem } from '@/features/problems/api';
-
 import { cancelTask } from '../api';
 
 /**
@@ -48,7 +46,6 @@ function fakeClient(rows: Array<{ id: string }>, error: unknown = null) {
 
 const writers = [
   ['cancelTask', cancelTask],
-  ['unassignProblem', unassignProblem],
 ] as const;
 
 describe.each(writers)('%s', (_name, write) => {

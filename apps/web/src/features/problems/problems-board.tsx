@@ -1,33 +1,15 @@
 'use client';
 
-import { problemStatusTone } from '@str-ops/shared';
-import { useState, type DragEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
-import { serverErrorText } from '@/lib/server-error';
-import { cn } from '@/lib/utils';
 
-import { AssignForm } from './assign-form';
-import { ProblemCard } from './problem-card';
-import {
-  BOARD_STATUSES,
-  boardMove,
-  liveFixTask,
-  type BoardStatus,
-  type Problem,
-} from './schema';
-import { useReopenProblem, useResolveProblem, useUnassignProblem } from './use-problems';
+import { BoardColumn } from './board-column';
+import { AssignMoveDialog, ConfirmMoveDialog } from './board-dialogs';
+import { isDragMove } from './board-moves';
+import { BOARD_STATUSES, liveFixTask, type Problem } from './schema';
+import { useBoardDrag } from './use-board-drag';
+import { useBoardMoves, type BoardMoves } from './use-board-moves';
 
 interface ProblemsBoardProps {
   problems: Problem[];
@@ -35,213 +17,130 @@ interface ProblemsBoardProps {
   isFiltered?: boolean;
 }
 
-/** A drop that needs the manager's word before anything is sent. */
-interface PendingMove {
-  kind: 'assign' | 'resolve';
-  problem: Problem;
-}
-
 /**
  * Four columns, one per live status; cancelled problems are the list's business.
  *
- * Cards move by mouse. A drop is only a shortcut to what the card page
- * offers: assigning opens the same form, resolving asks first, moving back
- * to "open" cancels the technician's task, and a resolved card dragged back
- * to "open" is reopened. "In progress" belongs to the technician's phone, so
- * a drop there only explains itself.
+ * A card moves through its menu «⋯» (5.4, variant A) — a shortcut to what the
+ * card page offers: assigning opens the same form, resolving asks first,
+ * moving back to "open" asks first and takes the technician off the job
+ * (unassign_problem, with the person the card shows), and a resolved card
+ * moved back to "open" is reopened. "In progress" belongs to the technician's
+ * phone, so the menu does not offer it.
+ *
+ * The mouse adds two of those moves (owner, 05.10): an open card dragged to
+ * «Назначено» and an assigned one back to «Открыто», through the same form
+ * and the same question. While a card is dragged only the column it may go to
+ * is marked; let go anywhere else, it stays, and the line under the board
+ * says the move is the menu's or the technician's.
+ *
+ * The four columns stay side by side and the board scrolls sideways inside
+ * its frame on a narrow screen (decision 14).
  */
 export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardProps) {
-  const { t } = useTranslation();
-  const resolve = useResolveProblem();
-  const unassign = useUnassignProblem();
-  const reopen = useReopenProblem();
   const unread = useUnreadSubjects();
-  const [dragging, setDragging] = useState<Problem | null>(null);
-  const [over, setOver] = useState<BoardStatus | null>(null);
-  const [pending, setPending] = useState<PendingMove | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-
-  const failed = [resolve, unassign, reopen].find((mutation) => mutation.isError);
-  const failure = failed === undefined ? null : serverErrorText(failed.error);
-
-  const canDrop = (status: BoardStatus) => {
-    if (dragging === null) {
-      return false;
-    }
-    const move = boardMove(dragging.status, status);
-    return move !== null && move !== 'startOnPhone';
-  };
-
-  const onDragOver = (status: BoardStatus) => (event: DragEvent<HTMLElement>) => {
-    if (!canDrop(status)) {
-      return;
-    }
-    event.preventDefault();
-    if (event.dataTransfer) {
-      event.dataTransfer.dropEffect = 'move';
-    }
-    setOver(status);
-  };
-
-  // The status line shows the first mutation that failed, whenever it did: a
-  // new action starts from a clean line, or an old refusal hides its answer.
-  const clearOutcome = () => {
-    resolve.reset();
-    unassign.reset();
-    reopen.reset();
-  };
-
-  const onDrop = (status: BoardStatus) => (event: DragEvent<HTMLElement>) => {
-    event.preventDefault();
-    setOver(null);
-    if (dragging === null) {
-      return;
-    }
-    clearOutcome();
-    const problem = dragging;
-    setDragging(null);
-    const move = boardMove(problem.status, status);
-    switch (move) {
-      case 'assign':
-      case 'resolve':
-        setNotice(null);
-        setPending({ kind: move, problem });
-        return;
-      case 'unassign': {
-        const task = liveFixTask(problem);
-        if (task !== null) {
-          setNotice(null);
-          unassign.mutate(task.id, {
-            onSuccess: () => setNotice(t('panel.problems.board.unassigned')),
-          });
-        }
-        return;
-      }
-      case 'reopen':
-        setNotice(null);
-        reopen.mutate(problem.id, {
-          onSuccess: () => setNotice(t('panel.problems.board.reopened')),
-        });
-        return;
-      case 'startOnPhone':
-        setNotice(t('panel.problems.board.startOnPhone'));
-        return;
-      case null:
-        setNotice(t('panel.problems.board.cannotMove'));
-        return;
-    }
-  };
-
-  // The column the technician fills: a drop is refused, but the reason is worth a line.
-  const onDropRefused = (status: BoardStatus) => () => {
-    if (dragging !== null && boardMove(dragging.status, status) === 'startOnPhone') {
-      clearOutcome();
-      setNotice(t('panel.problems.board.startOnPhone'));
-    }
-  };
-
-  const closePending = () => setPending(null);
-
-  // The dialog closes either way: a refusal is shown in the status line under
-  // the board, which the open dialog would otherwise cover.
-  const confirmResolve = () => {
-    if (pending === null) {
-      return;
-    }
-    resolve.mutate(pending.problem.id, { onSettled: closePending });
-  };
+  const moves = useBoardMoves();
+  const drag = useBoardDrag({
+    canMove: isDragMove,
+    onMove: moves.moveTo,
+    onRefused: moves.refuse,
+  });
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {BOARD_STATUSES.map((status) => {
-          const column = problems.filter((problem) => problem.status === status);
-          const heading = t(`problems.statuses.${status}`);
-          const droppable = canDrop(status);
-          return (
-            <section
+      <div className="overflow-x-auto pb-1">
+        <div
+          data-slot="problems-board"
+          className="grid grid-cols-[repeat(4,minmax(16rem,1fr))] items-start gap-3"
+        >
+          {BOARD_STATUSES.map((status) => (
+            <BoardColumn
               key={status}
-              aria-label={heading}
-              onDragOver={onDragOver(status)}
-              onDragLeave={() => setOver((current) => (current === status ? null : current))}
-              onDrop={onDrop(status)}
-              onDragEnter={onDropRefused(status)}
-              className={cn(
-                'flex min-h-32 flex-col gap-2 rounded-lg bg-muted/40 p-2 transition-colors',
-                droppable && 'ring-1 ring-primary/30',
-                over === status && 'bg-accent ring-2 ring-primary',
-              )}
-            >
-              <header className="flex items-center justify-between px-1 py-1">
-                <Badge tone={problemStatusTone(status)}>{heading}</Badge>
-                <span className="text-xs text-muted-foreground">{column.length}</span>
-              </header>
-              {column.length === 0 ? (
-                <p className="flex flex-1 items-center justify-center py-6 text-center text-sm text-muted-foreground/60">
-                  {isFiltered
-                    ? t('panel.problems.board.columnEmptyFiltered')
-                    : t('panel.problems.board.columnEmpty')}
-                </p>
-              ) : (
-                column.map((problem) => (
-                  <ProblemCard
-                    key={problem.id}
-                    problem={problem}
-                    hasUnread={unread.problems.has(problem.id)}
-                    onDragStart={setDragging}
-                    onDragEnd={() => {
-                      setDragging(null);
-                      setOver(null);
-                    }}
-                  />
-                ))
-              )}
-            </section>
-          );
-        })}
+              status={status}
+              problems={problems.filter((problem) => problem.status === status)}
+              isFiltered={isFiltered}
+              isDroppable={drag.isDroppable(status)}
+              isOver={drag.isOver(status)}
+              drop={drag.column(status)}
+              drag={drag.card}
+              onMove={moves.moveTo}
+              unread={unread.problems}
+            />
+          ))}
+        </div>
       </div>
-
-      <p role="status" aria-live="polite" className="min-h-5 text-xs text-muted-foreground">
-        {failure !== null ? (
-          <span className="text-destructive">
-            {failure.text}
-            {failure.detail !== null ? ` (${failure.detail})` : ''}
-          </span>
-        ) : (
-          (notice ?? t('panel.problems.board.dragHint'))
-        )}
-      </p>
-
-      <Dialog open={pending?.kind === 'assign'} onOpenChange={(open) => !open && closePending()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('panel.problems.board.assignTitle')}</DialogTitle>
-            <DialogDescription>{pending?.problem.title}</DialogDescription>
-          </DialogHeader>
-          {pending?.kind === 'assign' ? (
-            <AssignForm problem={pending.problem} fixTask={null} onAssigned={closePending} />
-          ) : null}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={pending?.kind === 'resolve'} onOpenChange={(open) => !open && closePending()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('panel.problems.board.resolveTitle')}</DialogTitle>
-            <DialogDescription>
-              {t('panel.problems.board.resolveText', { title: pending?.problem.title ?? '' })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={closePending}>
-              {t('panel.problems.board.resolveAbort')}
-            </Button>
-            <Button type="button" disabled={resolve.isPending} onClick={confirmResolve}>
-              {t('panel.problems.board.resolveConfirm')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <BoardStatusLine moves={moves} />
+      <BoardQuestions moves={moves} />
     </div>
+  );
+}
+
+/**
+ * The line under the board: a refusal, or what a move did, or how to move a
+ * card. A sentence is written afresh each time (its key), so a screen reader
+ * says even the same one again.
+ */
+function BoardStatusLine({ moves }: { moves: BoardMoves }) {
+  const { t } = useTranslation();
+  const { failure, notice } = moves;
+
+  return (
+    <p role="status" aria-live="polite" className="min-h-5 text-xs text-muted-foreground">
+      {failure !== null ? (
+        <span className="text-destructive">
+          {failure.text}
+          {failure.detail !== null ? ` (${failure.detail})` : ''}
+        </span>
+      ) : notice !== null ? (
+        <span key={notice.count}>{notice.text}</span>
+      ) : (
+        t('panel.problems.board.dragHint')
+      )}
+    </p>
+  );
+}
+
+/** The questions a move asks; their words stay while a dialog fades out. */
+function BoardQuestions({ moves }: { moves: BoardMoves }) {
+  const { t } = useTranslation();
+  const { pending, shown } = moves;
+  const asked = (kind: 'assign' | 'resolve' | 'unassign') =>
+    shown?.kind === kind ? shown.problem : null;
+  const resolving = asked('resolve');
+  const unassigning = asked('unassign');
+
+  return (
+    <>
+      <AssignMoveDialog
+        open={pending?.kind === 'assign'}
+        problem={asked('assign')}
+        onClose={moves.closePending}
+      />
+      <ConfirmMoveDialog
+        open={pending?.kind === 'resolve'}
+        title={t('panel.problems.board.resolveTitle')}
+        description={t('panel.problems.board.resolveText', { title: resolving?.title ?? '' })}
+        confirmLabel={t('panel.problems.board.resolveConfirm')}
+        abortLabel={t('panel.problems.board.resolveAbort')}
+        isBusy={moves.isResolving}
+        onConfirm={moves.confirmResolve}
+        onClose={moves.closePending}
+      />
+      <ConfirmMoveDialog
+        open={pending?.kind === 'unassign'}
+        title={t('panel.problems.board.unassignTitle')}
+        description={t('panel.problems.board.unassignText', {
+          name:
+            (unassigning === null ? null : liveFixTask(unassigning)?.assignee?.full_name) ??
+            t('panel.problems.unknownPerson'),
+          title: unassigning?.title ?? '',
+        })}
+        confirmLabel={t('panel.problems.board.unassignConfirm')}
+        abortLabel={t('panel.problems.board.unassignAbort')}
+        isDestructive
+        isBusy={moves.isUnassigning}
+        onConfirm={moves.confirmUnassign}
+        onClose={moves.closePending}
+      />
+    </>
   );
 }

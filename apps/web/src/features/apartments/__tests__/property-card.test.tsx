@@ -3,6 +3,8 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
+import { formatDay } from '@/lib/format-date';
+
 import { propertyDetailSchema, propertySchema, type Property } from '../schema';
 
 const WHOLE = 571441;
@@ -254,6 +256,54 @@ beforeEach(() => {
   countOpenCleanings.mockResolvedValue(0);
 });
 
+describe('the card', () => {
+  // 5.4, variant B: the card stands beside the registry, whose header holds
+  // the page's one h1 («Объекты»); the card is headed one level below it.
+  test('is headed by the listing’s name, a level under the page’s own heading', () => {
+    renderCard();
+
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+    expect(screen.getByRole('heading', { level: 2, name: 'Vinohrady 12' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Vinohrady 12' })).toBeInTheDocument();
+  });
+
+  // The review of 04.10: the sections inside a tab were h2, the card's own level.
+  test('the sections inside a tab are a level under the card’s heading', async () => {
+    renderCard();
+    expect(screen.getAllByRole('heading', { level: 3 }).map((one) => one.textContent)).toEqual([
+      'Из Hostaway',
+      'Наши данные',
+    ]);
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Обслуживание' }));
+    expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(1);
+    expect(screen.getAllByRole('heading', { level: 3 }).length).toBeGreaterThanOrEqual(3);
+  });
+
+  test('the heading takes the focus when the registry asks for it, and only then', () => {
+    const claim = vi.fn().mockReturnValueOnce(true).mockReturnValue(false);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <PropertyCard propertyId={WHOLE} claimHeadingFocus={claim} />
+      </QueryClientProvider>,
+    );
+
+    const heading = screen.getByRole('heading', { level: 2, name: 'Vinohrady 12' });
+    expect(heading).toHaveFocus();
+    expect(heading).toHaveAttribute('tabindex', '-1');
+    expect(claim).toHaveBeenCalledTimes(1);
+  });
+
+  test('its sections are 44 px tabs', () => {
+    renderCard();
+
+    for (const tab of screen.getAllByRole('tab')) {
+      expect(tab).toHaveClass('min-h-11');
+    }
+  });
+});
+
 describe('what Hostaway owns is shown, not offered for editing', () => {
   test('the address and the cleaning window are plain text', () => {
     renderCard();
@@ -327,13 +377,28 @@ describe('a refresh that fails does not take the form away', () => {
   });
 });
 
+// 5.4: the fields of «Информация» ran the card's whole width — a <select> of 1168 px.
+describe('the fields keep a width of their own', () => {
+  test('the parent is a select of a readable width, the notes a column of text', () => {
+    // A listing with no units of its own is the one offered a parent.
+    cardState.subject = propertyDetailSchema.parse({ ...detail, id: OTHER, name: 'Anděl 4' });
+    renderCard();
+
+    expect(screen.getByLabelText('Часть объекта')).toHaveClass('max-w-md');
+    for (const notes of screen.getAllByRole('textbox')) {
+      expect(notes).toHaveClass('max-w-2xl');
+    }
+    expect(screen.getByRole('button', { name: 'Сохранить' })).toHaveClass('h-11');
+  });
+});
+
 describe('listings that belong together', () => {
   test('the units are listed and lead to their own cards', () => {
     renderCard();
 
     expect(screen.getByRole('link', { name: 'Room A' })).toHaveAttribute(
       'href',
-      `/apartments/${UNIT_A}`,
+      `/apartments?listing=${UNIT_A}`,
     );
   });
 
@@ -407,7 +472,21 @@ describe('what is booked on the flat', () => {
     const row = screen.getAllByRole('row').find((one) => one.textContent?.includes('Jan Novák'));
     expect(row).toBeDefined();
     expect(within(row as HTMLElement).getByText('Впереди')).toBeInTheDocument();
-    expect(within(row as HTMLElement).getByText('2999-01-10 — 2999-01-14')).toBeInTheDocument();
+  });
+
+  // 5.4: the dates were ISO, the status Hostaway's own code.
+  test('the dates read the manager’s way, the status in words and its tone', async () => {
+    renderCard();
+    await userEvent.click(screen.getByRole('tab', { name: 'Бронирования' }));
+
+    const row = screen
+      .getAllByRole('row')
+      .find((one) => one.textContent?.includes('Jan Novák')) as HTMLElement;
+    expect(row).toHaveTextContent(
+      `${formatDay('2999-01-10', 'ru')} — ${formatDay('2999-01-14', 'ru')}`,
+    );
+    expect(row).not.toHaveTextContent('2999-01-10');
+    expect(within(row).getByText('Новая')).toHaveClass('bg-tone-booking-bg');
   });
 
   test('a block is not shown as a nameless guest', async () => {
@@ -467,6 +546,26 @@ describe('maintenance', () => {
     expect(screen.getAllByText('в комнате «1 - 2109»')).toHaveLength(2);
   });
 
+  // 5.4: every status was one grey outline, and the days were ISO.
+  test('the work and the reports wear their statuses’ tones, the days read the local way', async () => {
+    renderCard();
+    await userEvent.click(screen.getByRole('tab', { name: 'Обслуживание' }));
+
+    expect(screen.getByText('Выполнена')).toHaveClass('bg-tone-done-bg');
+    expect(screen.getByText('Назначена')).toHaveClass('bg-tone-assigned-bg');
+    expect(screen.getAllByText('Открыто')[0]).toHaveClass('bg-tone-unassigned-bg');
+    expect(screen.getByText(formatDay('2026-09-02', 'ru'))).toBeInTheDocument();
+    expect(screen.queryByText('2026-09-02')).toBeNull();
+  });
+
+  test('the moves of the state are 44 px, the archive in the destructive colour', async () => {
+    renderCard();
+    await userEvent.click(screen.getByRole('tab', { name: 'Обслуживание' }));
+
+    expect(screen.getByRole('button', { name: 'На обслуживание' })).toHaveClass('h-11');
+    expect(screen.getByRole('button', { name: 'В архив' })).toHaveClass('h-11', 'text-destructive');
+  });
+
   test('and what stands on the house itself names no room', async () => {
     renderCard();
     await userEvent.click(screen.getByRole('tab', { name: 'Обслуживание' }));
@@ -491,7 +590,7 @@ describe('the card of a room', () => {
     expect(screen.queryByLabelText('Часть объекта')).toBeNull();
     expect(screen.getByRole('link', { name: 'Vinohrady 12' })).toHaveAttribute(
       'href',
-      `/apartments/${WHOLE}`,
+      `/apartments?listing=${WHOLE}`,
     );
   });
 
@@ -523,7 +622,7 @@ describe('the card of a room', () => {
     expect(screen.queryByText('Jan Novák')).toBeNull();
     expect(screen.getByRole('link', { name: 'Vinohrady 12' })).toHaveAttribute(
       'href',
-      `/apartments/${WHOLE}`,
+      `/apartments?listing=${WHOLE}`,
     );
   });
 

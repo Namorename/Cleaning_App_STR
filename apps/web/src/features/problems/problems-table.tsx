@@ -17,6 +17,7 @@ import {
 import { formatDateTime } from '@/lib/format-date';
 import { useLanguage } from '@/lib/use-language';
 
+import { problemHref } from './address';
 import { liveFixTask, problemPlace, type Problem } from './schema';
 
 interface ProblemsTableProps {
@@ -48,7 +49,10 @@ export function ProblemsTable({ problems }: ProblemsTableProps) {
             return (
               <TableRow key={problem.id}>
                 <TableCell>
-                  <Link href={`/problems/${problem.id}`} className="font-medium hover:underline">
+                  <Link
+                    href={problemHref(problem.id, 'list')}
+                    className="font-medium hover:underline"
+                  >
                     {problem.title}
                   </Link>
                 </TableCell>

@@ -1,9 +1,9 @@
 'use client';
 
 import { STATUS_TONE } from '@str-ops/shared';
-import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 
+import { StatusBadge, statusKey } from '@/components/status-badge';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -14,8 +14,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { todayIso } from '@/lib/format-date';
+import { formatDay, todayIso } from '@/lib/format-date';
+import { useLanguage } from '@/lib/use-language';
 
+import { ListingLink } from './listing-link';
 import { isUpcoming, type ListingRef } from './schema';
 import { useReservations } from './use-apartments';
 
@@ -38,6 +40,7 @@ interface BookingsTabProps {
  */
 export function BookingsTab({ propertyId, listing = null }: BookingsTabProps) {
   const { t } = useTranslation();
+  const language = useLanguage();
   const reservations = useReservations(propertyId);
   const today = todayIso();
 
@@ -45,9 +48,9 @@ export function BookingsTab({ propertyId, listing = null }: BookingsTabProps) {
     return (
       <p className="text-sm">
         {t('panel.apartments.room.bookings')}{' '}
-        <Link className="underline" href={`/apartments/${listing.id}`}>
+        <ListingLink className="underline" id={listing.id}>
           {listing.name}
-        </Link>
+        </ListingLink>
       </p>
     );
   }
@@ -93,10 +96,18 @@ export function BookingsTab({ propertyId, listing = null }: BookingsTabProps) {
               </div>
             </TableCell>
             <TableCell className="text-sm">
-              {reservation.arrival_date} — {reservation.departure_date}
+              {formatDay(reservation.arrival_date, language)} —{' '}
+              {formatDay(reservation.departure_date, language)}
             </TableCell>
             <TableCell className="text-sm">{reservation.guests_count ?? '—'}</TableCell>
-            <TableCell className="text-sm text-muted-foreground">{reservation.status}</TableCell>
+            <TableCell>
+              {/* Hostaway's code, in the calendar card's words where it has them. */}
+              <StatusBadge status={statusKey('bookingCard', reservation.status)}>
+                {t(`panel.calendar.card.statuses.${reservation.status}`, {
+                  defaultValue: reservation.status,
+                })}
+              </StatusBadge>
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>

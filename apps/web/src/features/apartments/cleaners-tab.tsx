@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -25,6 +24,7 @@ import {
 } from '@/features/team/use-team';
 import { serverErrorText } from '@/lib/server-error';
 
+import { ListingLink } from './listing-link';
 import type { ListingRef } from './schema';
 
 interface CleanersTabProps {
@@ -109,9 +109,9 @@ export function CleanersTab({ propertyId, listing = null }: CleanersTabProps) {
       <div className="flex flex-col gap-3">
         <p className="text-sm">
           {t('panel.apartments.room.cleaners')}{' '}
-          <Link className="underline" href={`/apartments/${listing.id}`}>
+          <ListingLink className="underline" id={listing.id}>
             {listing.name}
-          </Link>
+          </ListingLink>
         </p>
         {rows.length === 0 ? (
           <EmptyState>{t('panel.apartments.cleaners.empty')}</EmptyState>
@@ -209,10 +209,7 @@ export function CleanersTab({ propertyId, listing = null }: CleanersTabProps) {
       <div className="flex flex-wrap items-end gap-2 border-t pt-3">
         <label className="flex flex-1 flex-col gap-1 text-xs text-muted-foreground">
           {t('panel.apartments.cleaners.add')}
-          <NativeSelect
-            value={adding}
-            onChange={(event) => setAdding(event.target.value)}
-          >
+          <NativeSelect value={adding} onChange={(event) => setAdding(event.target.value)}>
             <option value="">{t('panel.apartments.cleaners.addPlaceholder')}</option>
             {available.map((person) => (
               <option key={person.id} value={person.id}>

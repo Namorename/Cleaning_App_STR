@@ -2,6 +2,7 @@
 
 import { useTranslation } from 'react-i18next';
 
+import { PageHeader } from '@/components/page-header';
 import { SignOut } from '@/components/sign-out';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProcessSection } from '@/features/workflow/process-section';
@@ -31,7 +32,7 @@ export function SettingsView({ email, theme, onSignOut }: SettingsViewProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold">{t('panel.nav.settings')}</h1>
+      <PageHeader title={t('panel.nav.settings')} />
 
       <Card className="max-w-lg">
         <CardHeader>

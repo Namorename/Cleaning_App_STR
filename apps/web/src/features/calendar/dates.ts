@@ -9,8 +9,12 @@
 
 import { dateFormat } from '@/lib/format-date';
 
-/** How many days the window shows at once — the controls of A.17. */
-export const DEPTHS = [1, 3, 7, 15, 30] as const;
+/**
+ * How many days the window shows at once — the controls of A.17. One day is
+ * gone (the owner's word of 2026-10-04): too narrow to plan by. A depth of one
+ * stored before then is no depth now and falls back to the week (`readDepth`).
+ */
+export const DEPTHS = [3, 7, 15, 30] as const;
 export type Depth = (typeof DEPTHS)[number];
 
 export const DEFAULT_DEPTH: Depth = 7;
@@ -39,13 +43,9 @@ export function windowDays(start: string, depth: Depth): string[] {
   return Array.from({ length: depth }, (_, at) => addDays(start, at));
 }
 
-/**
- * The window opens the day before today: yesterday's departures still
- * matter. A window of one day opens on today itself — else «Сегодня» would
- * never show today (the branch preflight of 2026-09-27).
- */
-export function defaultStart(today: string, depth: Depth): string {
-  return depth === 1 ? today : addDays(today, -1);
+/** The window opens the day before today: yesterday's departures still matter. */
+export function defaultStart(today: string): string {
+  return addDays(today, -1);
 }
 
 export interface OpeningWindow {
@@ -66,7 +66,7 @@ export function openingWindow(
   aheadDays: number | null,
 ): OpeningWindow {
   if (aheadDays === null) {
-    return { start: defaultStart(today, storedDepth), depth: storedDepth };
+    return { start: defaultStart(today), depth: storedDepth };
   }
   const depth =
     DEPTHS.find((one) => one >= Math.max(storedDepth, aheadDays)) ?? DEPTHS[DEPTHS.length - 1];
@@ -110,7 +110,6 @@ export function neighbourMonths(months: readonly string[]): string[] {
  * scrolls sideways only when thirty of those do not fit.
  */
 export const DAY_WIDTH: Readonly<Record<Depth, number>> = {
-  1: 320,
   3: 200,
   7: 130,
   15: 64,

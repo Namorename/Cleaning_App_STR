@@ -1,14 +1,15 @@
 'use client';
 
-import { propertyStatusTone } from '@str-ops/shared';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Person } from '@/components/person';
+import { StatusBadge, statusKey } from '@/components/status-badge';
 import { EmptyState, LoadingState } from '@/components/states';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { formatDay } from '@/lib/format-date';
+import { useLanguage } from '@/lib/use-language';
 
 import { PROPERTY_STATUSES, type PropertyDetail, type PropertyStatus } from './schema';
 import { StatusDialog, type StatusSubject } from './status-dialog';
@@ -32,6 +33,7 @@ interface MaintenanceTabProps {
  */
 export function MaintenanceTab({ property }: MaintenanceTabProps) {
   const { t } = useTranslation();
+  const language = useLanguage();
   const tasks = useMaintenance(property.id);
   const problems = usePropertyProblems(property.id);
   const [subject, setSubject] = useState<StatusSubject | null>(null);
@@ -49,17 +51,17 @@ export function MaintenanceTab({ property }: MaintenanceTabProps) {
   return (
     <div className="flex flex-col gap-6">
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium">{t('panel.apartments.maintenance.state')}</h2>
+        <h3 className="text-sm font-medium">{t('panel.apartments.maintenance.state')}</h3>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge tone={propertyStatusTone(property.status)}>
+          <StatusBadge status={`property.${property.status}`}>
             {t(`panel.apartments.tabs.${property.status}`)}
-          </Badge>
+          </StatusBadge>
           {moves.map((status) => (
             <Button
               key={status}
               type="button"
-              variant="outline"
-              size="sm"
+              variant={status === 'archived' ? 'destructive' : 'outline'}
+              className="h-11"
               onClick={() => ask(status)}
             >
               {t(`panel.apartments.move.${status}`)}
@@ -72,7 +74,7 @@ export function MaintenanceTab({ property }: MaintenanceTabProps) {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium">{t('panel.apartments.maintenance.jobs')}</h2>
+        <h3 className="text-sm font-medium">{t('panel.apartments.maintenance.jobs')}</h3>
         {tasks.isPending ? (
           <LoadingState>{t('panel.apartments.loading')}</LoadingState>
         ) : jobs.length === 0 ? (
@@ -91,11 +93,15 @@ export function MaintenanceTab({ property }: MaintenanceTabProps) {
                     </span>
                   )}
                 </span>
-                <span className="text-xs text-muted-foreground">{job.scheduled_date ?? '—'}</span>
+                <span className="text-xs text-muted-foreground">
+                  {job.scheduled_date === null ? '—' : formatDay(job.scheduled_date, language)}
+                </span>
                 {job.assignee_name === null ? null : (
                   <Person name={job.assignee_name} role="tech" className="text-xs" />
                 )}
-                <Badge variant="outline">{t(`panel.tasks.statuses.${job.status}`)}</Badge>
+                <StatusBadge status={statusKey('tasks', job.status)}>
+                  {t(`panel.tasks.statuses.${job.status}`)}
+                </StatusBadge>
               </li>
             ))}
           </ul>
@@ -103,9 +109,9 @@ export function MaintenanceTab({ property }: MaintenanceTabProps) {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium">
+        <h3 className="text-sm font-medium">
           {t('panel.apartments.maintenance.reports', { open: openReports.length })}
-        </h2>
+        </h3>
         {problems.isPending ? (
           <LoadingState>{t('panel.apartments.loading')}</LoadingState>
         ) : reports.length === 0 ? (
@@ -128,7 +134,9 @@ export function MaintenanceTab({ property }: MaintenanceTabProps) {
                   )}
                 </span>
                 {/* Shared with the phone: one wording for a report's state. */}
-                <Badge variant="outline">{t(`problems.statuses.${report.status}`)}</Badge>
+                <StatusBadge status={statusKey('problems', report.status)}>
+                  {t(`problems.statuses.${report.status}`)}
+                </StatusBadge>
               </li>
             ))}
           </ul>
