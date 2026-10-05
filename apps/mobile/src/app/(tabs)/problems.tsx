@@ -1,8 +1,10 @@
 import { router } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { StyleSheet, View } from 'react-native';
 
-import { ListAction } from '@/components/list-action';
+import { ActionBar } from '@/components/action-bar';
+import { Button } from '@/components/button';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { ProblemList } from '@/features/problems/problem-list';
 import { groupProblems } from '@/features/problems/schema';
@@ -10,6 +12,12 @@ import { useMyProblems } from '@/features/problems/use-problems';
 
 const NO_IDS: readonly string[] = [];
 
+/**
+ * Her reports, with «Создать задание» pinned under them, above the tab bar:
+ * as the first row of the list it scrolled away, and it was missing whenever
+ * the list could not load — when she is offline, which is exactly when a
+ * report has to wait in the queue.
+ */
 export default function ProblemsScreen() {
   const { t } = useTranslation();
   const { data, isPending, error, refetch, isRefetching } = useMyProblems();
@@ -37,15 +45,23 @@ export default function ProblemsScreen() {
   }, []);
 
   return (
-    <ProblemList
-      sections={sections}
-      isLoading={isPending}
-      error={error}
-      onRefresh={onRefresh}
-      isRefreshing={isRefetching}
-      onPress={onPress}
-      unreadProblemIds={unread.problems}
-      header={<ListAction label={t('problems.report')} onPress={onReport} />}
-    />
+    <View style={styles.screen}>
+      <ProblemList
+        sections={sections}
+        isLoading={isPending}
+        error={error}
+        onRefresh={onRefresh}
+        isRefreshing={isRefetching}
+        onPress={onPress}
+        unreadProblemIds={unread.problems}
+      />
+      <ActionBar>
+        <Button label={t('problems.report')} onPress={onReport} />
+      </ActionBar>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: { flex: 1 },
+});

@@ -1,4 +1,4 @@
-import { useCallback, type ReactElement } from 'react';
+import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
 
@@ -17,7 +17,6 @@ interface ProblemListProps {
   onRefresh: () => void;
   isRefreshing: boolean;
   onPress: (problemId: string) => void;
-  header?: ReactElement;
   /** The reports somebody has written about since she last looked. */
   unreadProblemIds?: ReadonlySet<string>;
 }
@@ -33,7 +32,6 @@ export function ProblemList({
   onRefresh,
   isRefreshing,
   onPress,
-  header,
   unreadProblemIds,
 }: ProblemListProps) {
   const { t } = useTranslation();
@@ -74,15 +72,9 @@ export function ProblemList({
   // Error over cache: a refresh that failed still has the list from the last
   // time it loaded, kept on the phone. The list stays, and a line above it
   // says what happened; the error screen above is for a list never loaded.
+  // «Создать задание» is not a row of the list: the screen pins it below.
   const listHeader =
-    error === null ? (
-      header
-    ) : (
-      <>
-        <ErrorBanner title={t('common.refreshFailed')} error={error} />
-        {header}
-      </>
-    );
+    error === null ? undefined : <ErrorBanner title={t('common.refreshFailed')} error={error} />;
 
   return (
     <SectionList
