@@ -1,4 +1,4 @@
-import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
@@ -61,18 +61,17 @@ export default function SupplyRoute() {
     ]);
   };
 
+  // Titled by the root layout: a request still loading, or one that failed,
+  // stands under the same header.
   return (
-    <>
-      <Stack.Screen options={{ title: t('supplies.one') }} />
-      <SupplyDetail
-        request={request.data}
-        canEdit={canEditSupplyRequest(request.data, userId)}
-        onEdit={() => router.push({ pathname: '/supply/new', params: { id: requestId } })}
-        onDelete={onDelete}
-        isDeleting={remove.isPending && !remove.isPaused}
-        error={remove.error}
-      />
-    </>
+    <SupplyDetail
+      request={request.data}
+      canEdit={canEditSupplyRequest(request.data, userId)}
+      onEdit={() => router.push({ pathname: '/supply/new', params: { id: requestId } })}
+      onDelete={onDelete}
+      isDeleting={remove.isPending && !remove.isPaused}
+      error={remove.error}
+    />
   );
 }
 

@@ -17,8 +17,16 @@ const REQUEST_ID = 'e1f2a3b4-1111-4111-8111-e1f2a3b40001';
 
 jest.mock('expo-crypto', () => ({ randomUUID: () => 'f1a2b3c4-1111-4111-8111-f1a2b3c40001' }));
 
+/** The title the screen gives itself, if any; the root layout names it otherwise. */
+const mockTitles: unknown[] = [];
+
 jest.mock('expo-router', () => ({
-  Stack: { Screen: () => null },
+  Stack: {
+    Screen: ({ options }: { options?: { title?: string } }) => {
+      mockTitles.push(options?.title);
+      return null;
+    },
+  },
   router: { back: jest.fn(), replace: jest.fn() },
   useLocalSearchParams: () => ({ id: 'e1f2a3b4-1111-4111-8111-e1f2a3b40001' }),
 }));
@@ -75,6 +83,20 @@ function request(itemName: string): SupplyRequest {
 function answer(data: SupplyRequest | undefined): void {
   jest.mocked(useSupplyRequest).mockReturnValue({ data } as ReturnType<typeof useSupplyRequest>);
 }
+
+// The root layout titles the screen «Новая заявка»; a rewrite says what it is
+// from the first frame, before the request has loaded.
+test('a rewrite is titled «Изменить заявку», while it loads as well', async () => {
+  // Arrange
+  answer(undefined);
+
+  // Act
+  await render(<SupplyFormRoute />);
+
+  // Assert
+  expect(screen.getByText('Загружаем заявки…')).toBeTruthy();
+  expect(mockTitles.at(-1)).toBe('Изменить заявку');
+});
 
 test('a request that arrives after the screen opened fills the form', async () => {
   // Arrange: nothing yet.

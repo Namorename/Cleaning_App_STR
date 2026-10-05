@@ -124,10 +124,14 @@ test('once ready the providers and the stack mount, and from then on the root bo
 // The three screens of a report had no header at all — no title, no way back
 // (docs/redesign-plan.md §2.4). The title is the root's, not the screen's: a
 // report still loading, or one that failed, is drawn under the same header.
+// The two screens of a supply request had none either (the same §2.4); a
+// rewrite of a request is the form's screen, and the form retitles it.
 test.each([
   ['problem/new', 'Новое задание'],
   ['problem/[id]/index', 'Задание'],
   ['problem/[id]/edit', 'Изменить задание'],
+  ['supply/new', 'Новая заявка'],
+  ['supply/[id]', 'Заявка на расходники'],
 ])('%s has a header titled «%s» and a way back', async (name, title) => {
   // Arrange
   readiness.mockReturnValue({ isReady: true, areFontsLoaded: true });

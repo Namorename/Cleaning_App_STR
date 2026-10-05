@@ -166,6 +166,27 @@ export default function RootLayout() {
                       title: t('problems.editTitle'),
                     }}
                   />
+                  {/*
+                    A supply request's two screens, titled here for the same
+                    reason. The form's screen also rewrites a request that is
+                    still new, and then retitles itself.
+                  */}
+                  <Stack.Screen
+                    name="supply/new"
+                    options={{
+                      headerShown: true,
+                      headerBackTitle: t('common.back'),
+                      title: t('supplies.new'),
+                    }}
+                  />
+                  <Stack.Screen
+                    name="supply/[id]"
+                    options={{
+                      headerShown: true,
+                      headerBackTitle: t('common.back'),
+                      title: t('supplies.one'),
+                    }}
+                  />
                   {/* Static text from the settings: no data, so no sign-in guard. */}
                   <Stack.Screen
                     name="font-license"
