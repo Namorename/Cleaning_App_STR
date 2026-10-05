@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronLeft } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PageHeader } from '@/components/page-header';
@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/states';
 import { Button } from '@/components/ui/button';
 import { serverErrorText } from '@/lib/server-error';
 import { useAddressState } from '@/lib/use-address-state';
+import { useListPaneFocus } from '@/lib/use-list-pane-focus';
 import { cn } from '@/lib/utils';
 
 import {
@@ -22,14 +23,6 @@ import { PropertyCard } from './property-card';
 import { Registry } from './registry';
 import { StatusDialog, type StatusSubject } from './status-dialog';
 import { useSyncListings } from './use-apartments';
-
-/** Tailwind's `xl`: from here the registry and the card stand side by side. */
-const SIDE_BY_SIDE = '(min-width: 80rem)';
-
-/** Whether the two fit side by side now; a browser with no media queries is narrow. */
-function isSideBySide(): boolean {
-  return typeof window.matchMedia === 'function' && window.matchMedia(SIDE_BY_SIDE).matches;
-}
 
 /**
  * «Объекты» (5.4, variant B): the registry and a listing's card side by side.
@@ -50,46 +43,19 @@ export function ApartmentsView() {
   const sync = useSyncListings();
   const [address, setAddress] = useAddressState(readApartmentsAddress, writeApartmentsAddress);
   const [subject, setSubject] = useState<StatusSubject | null>(null);
-  const registryRef = useRef<HTMLDivElement>(null);
-  const cardPaneRef = useRef<HTMLDivElement>(null);
-  // Below xl the block that held the focus is hidden when the other one shows,
-  // and the focus would fall into the body (the review of 04.10). Opening a
-  // card from the list hands it to the card's heading; closing one — by
-  // «Все объекты» or «Назад» — hands it back to that listing in the list.
-  const headingFocus = useRef(false);
-  const shownListing = useRef(address.listing);
-  const claimHeadingFocus = useCallback(() => {
-    const isClaimed = headingFocus.current;
-    headingFocus.current = false;
-    return isClaimed;
-  }, []);
-
-  useEffect(() => {
-    const closed = shownListing.current;
-    shownListing.current = address.listing;
-    if (closed === null || address.listing !== null || isSideBySide()) {
-      return;
-    }
-    const active = document.activeElement;
-    const isLost =
-      active === null || active === document.body || cardPaneRef.current?.contains(active) === true;
-    if (!isLost) {
-      return;
-    }
-    const registry = registryRef.current;
-    const target =
-      registry?.querySelector<HTMLElement>(`[data-listing-link="${closed}"]`) ??
-      registry?.querySelector<HTMLElement>('input[type="search"]');
-    target?.focus();
-  }, [address.listing]);
+  // Below xl one block hides the other: the keyboard's place follows the
+  // listing opened and closed (the review of 04.10).
+  const { listRef, paneRef, noteOpening, claimHeadingFocus } = useListPaneFocus(
+    address.listing,
+    'data-listing-link',
+  );
 
   const go = (patch: Partial<ApartmentsAddress>) => setAddress({ ...address, ...patch }, 'push');
   const open = (id: number) => {
     if (id === address.listing) {
       return;
     }
-    headingFocus.current =
-      !isSideBySide() && registryRef.current?.contains(document.activeElement) === true;
+    noteOpening();
     go({ listing: id });
   };
   // Another listing keeps the tab its card was on: the bookings of three flats
@@ -156,7 +122,7 @@ export function ApartmentsView() {
 
         <div className="grid gap-4 xl:grid-cols-[minmax(22rem,28rem)_minmax(0,1fr)] xl:items-start">
           <div
-            ref={registryRef}
+            ref={listRef}
             data-slot="registry"
             className={cn('flex min-w-0 flex-col gap-3', isCardOpen && 'hidden xl:flex')}
           >
@@ -171,7 +137,7 @@ export function ApartmentsView() {
           </div>
 
           <div
-            ref={cardPaneRef}
+            ref={paneRef}
             data-slot="card-pane"
             className={cn(
               'min-w-0 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto',

@@ -1,9 +1,10 @@
 'use client';
 
 import { Search } from 'lucide-react';
-import { useId, type ReactNode } from 'react';
+import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { LabelledField } from '@/components/labelled-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
@@ -15,18 +16,6 @@ interface TasksFiltersProps {
   onChange: (filters: TaskFilters) => void;
   /** The people a job can be on; empty while they load. */
   staff: readonly Staff[];
-}
-
-/** A control with its name written above it, small, as the filters of the comparison page have. */
-function Labelled({ id, label, children }: { id: string; label: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-xs text-muted-foreground">
-        {label}
-      </label>
-      {children}
-    </div>
-  );
 }
 
 /**
@@ -61,7 +50,7 @@ export function TasksFilters({ filters, onChange, staff }: TasksFiltersProps) {
           className="h-11 pl-9"
         />
       </div>
-      <Labelled id={field('assignee')} label={t('panel.tasks.filters.assignee')}>
+      <LabelledField id={field('assignee')} label={t('panel.tasks.filters.assignee')}>
         <NativeSelect
           id={field('assignee')}
           className="h-11 max-w-56"
@@ -76,8 +65,8 @@ export function TasksFilters({ filters, onChange, staff }: TasksFiltersProps) {
             </option>
           ))}
         </NativeSelect>
-      </Labelled>
-      <Labelled id={field('type')} label={t('panel.tasks.filters.type')}>
+      </LabelledField>
+      <LabelledField id={field('type')} label={t('panel.tasks.filters.type')}>
         <NativeSelect
           id={field('type')}
           className="h-11"
@@ -91,8 +80,8 @@ export function TasksFilters({ filters, onChange, staff }: TasksFiltersProps) {
             </option>
           ))}
         </NativeSelect>
-      </Labelled>
-      <Labelled id={field('from')} label={t('panel.tasks.filters.dateFrom')}>
+      </LabelledField>
+      <LabelledField id={field('from')} label={t('panel.tasks.filters.dateFrom')}>
         <Input
           id={field('from')}
           type="date"
@@ -101,8 +90,8 @@ export function TasksFilters({ filters, onChange, staff }: TasksFiltersProps) {
           max={filters.dateTo === '' ? undefined : filters.dateTo}
           onChange={(event) => set({ dateFrom: event.target.value })}
         />
-      </Labelled>
-      <Labelled id={field('to')} label={t('panel.tasks.filters.dateTo')}>
+      </LabelledField>
+      <LabelledField id={field('to')} label={t('panel.tasks.filters.dateTo')}>
         <Input
           id={field('to')}
           type="date"
@@ -111,7 +100,7 @@ export function TasksFilters({ filters, onChange, staff }: TasksFiltersProps) {
           min={filters.dateFrom === '' ? undefined : filters.dateFrom}
           onChange={(event) => set({ dateTo: event.target.value })}
         />
-      </Labelled>
+      </LabelledField>
       {hasFilters(filters) ? (
         <Button
           type="button"

@@ -1,7 +1,8 @@
 'use client';
 
-import Link from 'next/link';
-import { createContext, useContext, type MouseEvent, type ReactNode } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
+
+import { InPlaceLink } from '@/components/in-place-link';
 
 /** How a link to a listing's card is made, and what a plain press on it does. */
 interface ListingLinks {
@@ -21,11 +22,6 @@ const ListingLinksContext = createContext<ListingLinks>({
  */
 export const ListingLinksProvider = ListingLinksContext.Provider;
 
-/** A press that means "here": no new tab, no new window, no download. */
-function isPlainPress(event: MouseEvent<HTMLAnchorElement>): boolean {
-  return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
-}
-
 interface ListingLinkProps {
   id: number;
   className?: string;
@@ -40,27 +36,17 @@ interface ListingLinkProps {
  * server for the page again.
  */
 export function ListingLink({ id, className, isCurrent = false, children }: ListingLinkProps) {
-  const links = useContext(ListingLinksContext);
-  const { open } = links;
+  const { href, open } = useContext(ListingLinksContext);
 
   return (
-    <Link
-      href={links.href(id)}
+    <InPlaceLink
+      href={href(id)}
       className={className}
       data-listing-link={id}
-      aria-current={isCurrent ? 'true' : undefined}
-      onClick={
-        open === undefined
-          ? undefined
-          : (event) => {
-              if (isPlainPress(event)) {
-                event.preventDefault();
-                open(id);
-              }
-            }
-      }
+      isCurrent={isCurrent}
+      onOpen={open === undefined ? undefined : () => open(id)}
     >
       {children}
-    </Link>
+    </InPlaceLink>
   );
 }
