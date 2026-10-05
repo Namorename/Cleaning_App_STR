@@ -67,7 +67,7 @@ export function SuppliesView() {
     if (id === address.request) {
       return;
     }
-    noteOpening();
+    noteOpening(id);
     step({ request: id });
   };
 

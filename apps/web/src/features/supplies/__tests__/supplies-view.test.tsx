@@ -95,12 +95,13 @@ const listState = {
 };
 const reviewState = { isPending: false, isError: false, error: null as unknown };
 const review = vi.fn();
+const resetReview = vi.fn();
 const saveCatalogItem = vi.fn();
 const archiveCatalogItem = vi.fn();
 const idle = { isPending: false, isError: false, error: null };
 vi.mock('../use-supplies', () => ({
   useSupplyRequests: () => listState,
-  useReviewSupplyRequest: () => ({ ...reviewState, mutate: review }),
+  useReviewSupplyRequest: () => ({ ...reviewState, mutate: review, reset: resetReview }),
   useCatalog: () => ({ data: catalog, isPending: false, isError: false }),
   useCompanyLanguage: () => ({ data: 'ru', isPending: false, isError: false }),
   useSaveCatalogItem: () => ({ ...idle, mutate: saveCatalogItem }),
@@ -291,6 +292,14 @@ describe('the list of requests', () => {
     expect(tab('Новые')).toHaveTextContent('2');
   }, 20000);
 
+  // Four tabs with their counters are wider than a phone in Russian and Czech:
+  // they wrap onto a second row rather than widen the page (decision 14).
+  test('the four tabs wrap rather than widen the page', () => {
+    render(<SuppliesView />);
+
+    expect(screen.getByRole('tablist')).toHaveClass('h-auto', 'flex-wrap', 'justify-start');
+  });
+
   test('the search, the dates and the tabs are 44 px targets', () => {
     render(<SuppliesView />);
 
@@ -460,6 +469,20 @@ describe('the moves over the open request', () => {
     expect(within(alert).getByText('status moved meanwhile')).toHaveClass('text-xs');
   });
 
+  test('leaving the reason unwritten clears the refusal shown', async () => {
+    reviewState.isError = true;
+    reviewState.error = { message: 'status moved meanwhile' };
+    window.history.replaceState(null, '', `/supplies?request=${NEW_2_ID}`);
+    render(<SuppliesView />);
+    const open = detail('Karlín 3');
+
+    await userEvent.click(within(open).getByRole('button', { name: 'Отклонить' }));
+    expect(resetReview).not.toHaveBeenCalled();
+    await userEvent.click(within(open).getByRole('button', { name: 'Не отклонять' }));
+
+    expect(resetReview).toHaveBeenCalledTimes(1);
+  });
+
   test('a fulfilled request offers no moves and says when it was done', () => {
     window.history.replaceState(null, '', `/supplies?tab=fulfilled&request=${DONE_ID}`);
 
@@ -503,6 +526,27 @@ describe('the files', () => {
     expect(csv).toContain('Комментарий,Закончились в обоих санузлах');
     expect(csv).toContain('Название,Кол-во,Ед.,Уточнение');
     expect(csv).toContain('средство для стёкол,3,шт,');
+  });
+
+  // A line comes from the field: «=1+2» or «+cmd» typed on a phone must reach
+  // the spreadsheet as text, not as a formula.
+  test('a line that looks like a formula leaves as text', async () => {
+    listState.data = [
+      supplyRequestSchema.parse({
+        ...base,
+        id: NEW_2_ID,
+        status: 'new',
+        property: { name: 'Karlín 3' },
+        items: [{ ...item('aaaaaaaa-aaaa-4aaa-8aaa-000000000009', '=1+2', 1), comment: '+cmd' }],
+      }),
+    ];
+    window.history.replaceState(null, '', `/supplies?request=${NEW_2_ID}`);
+    render(<SuppliesView />);
+
+    await userEvent.click(within(detail('Karlín 3')).getByRole('button', { name: 'Экспорт CSV' }));
+
+    const csv = await readBlob(downloadFile.mock.calls[0]?.[1] as Blob);
+    expect(csv).toContain("'=1+2,1,шт,'+cmd");
   });
 
   test('the catalogue lists entries, adds a new one and takes one off the list', async () => {

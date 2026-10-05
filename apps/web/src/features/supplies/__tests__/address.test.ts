@@ -36,9 +36,22 @@ describe('the address of «Заявки»', () => {
       DEFAULT_SUPPLIES_ADDRESS,
     );
     expect(read('request=55555555-5555').request).toBeNull();
+    expect(read(`request=%7B${REQUEST}%7D`).request).toBeNull();
+    expect(read(`request=+${REQUEST}`).request).toBeNull();
+    expect(read('request=').request).toBeNull();
     expect(read(`tab=fulfilled&request=${REQUEST}x`)).toEqual({
       ...DEFAULT_SUPPLIES_ADDRESS,
       tab: 'fulfilled',
+    });
+  });
+
+  // The two fields refuse it (min and max); a hand-edited link keeps both
+  // ends as written — the labelled fields show them, and the manager sees why
+  // the list is empty.
+  test('a range written backwards is kept as written', () => {
+    expect(read('from=2026-09-10&to=2026-09-01').dates).toEqual({
+      from: '2026-09-10',
+      to: '2026-09-01',
     });
   });
 

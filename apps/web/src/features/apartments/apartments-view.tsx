@@ -55,7 +55,7 @@ export function ApartmentsView() {
     if (id === address.listing) {
       return;
     }
-    noteOpening();
+    noteOpening(id);
     go({ listing: id });
   };
   // Another listing keeps the tab its card was on: the bookings of three flats

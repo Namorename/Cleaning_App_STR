@@ -16,7 +16,7 @@ interface ListPaneFocus {
   /** The block of the open entry: hidden below xl while none is. */
   paneRef: RefObject<HTMLDivElement | null>;
   /** Call as an entry is opened from the list, before the address changes. */
-  noteOpening: () => void;
+  noteOpening: (id: string | number) => void;
   /** For the entry's heading, asked once as it appears: true hands it the focus. */
   claimHeadingFocus: () => boolean;
 }
@@ -40,21 +40,28 @@ export function useListPaneFocus(
 ): ListPaneFocus {
   const listRef = useRef<HTMLDivElement>(null);
   const paneRef = useRef<HTMLDivElement>(null);
-  const headingFocus = useRef(false);
+  // The entry whose heading is to take the focus when it appears; null for none.
+  const headingFor = useRef<string | number | null>(null);
   const shown = useRef(open);
 
   const claimHeadingFocus = useCallback(() => {
-    const isClaimed = headingFocus.current;
-    headingFocus.current = false;
+    const isClaimed = headingFor.current !== null;
+    headingFor.current = null;
     return isClaimed;
   }, []);
 
-  const noteOpening = useCallback(() => {
-    headingFocus.current =
-      !isSideBySide() && listRef.current?.contains(document.activeElement) === true;
+  const noteOpening = useCallback((id: string | number) => {
+    headingFor.current =
+      !isSideBySide() && listRef.current?.contains(document.activeElement) === true ? id : null;
   }, []);
 
   useEffect(() => {
+    // A heading may appear a render later, when its data comes; but once the
+    // address shows another entry, or none, a heading that never appeared —
+    // not found, closed before it loaded — must not take the focus later.
+    if (headingFor.current !== open) {
+      headingFor.current = null;
+    }
     const closed = shown.current;
     shown.current = open;
     if (closed === null || open !== null || isSideBySide()) {

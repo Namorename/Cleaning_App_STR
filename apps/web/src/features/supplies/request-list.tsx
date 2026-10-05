@@ -38,7 +38,8 @@ export function RequestList({
   return (
     <>
       <Tabs value={tab} onValueChange={(next) => onTabChange(next as SupplyTab)}>
-        <TabsList className="h-auto">
+        {/* Four tabs with counters are wider than a phone: a second row, not a wider page. */}
+        <TabsList className="h-auto flex-wrap justify-start">
           {SUPPLY_TABS.map((key) => (
             <TabsTrigger key={key} value={key} className="min-h-11 px-3">
               {t(`panel.supplies.tabs.${key}`)}

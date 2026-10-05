@@ -228,7 +228,11 @@ function RequestMoves({ request }: RequestPartProps) {
           isBusy={review.isPending}
           onReasonChange={setReason}
           onConfirm={reject}
-          onAbort={() => setIsRejecting(false)}
+          onAbort={() => {
+            // The refusal shown was about the move just abandoned.
+            review.reset();
+            setIsRejecting(false);
+          }}
         />
       ) : forward.length > 0 || canReject(request.status) ? (
         <div className="flex flex-wrap gap-2">
