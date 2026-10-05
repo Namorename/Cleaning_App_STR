@@ -1027,6 +1027,11 @@
     "finishFailed": "Не удалось завершить уборку — обновите список.",
     "unnamedProperty": "Объект {{id}}",
     "cardAccessibility": "{{property}}. {{date}}. {{urgency}}",
+    "now": "Сейчас",
+    "days": {
+      "today": "Сегодня",
+      "tomorrow": "Завтра"
+    },
     "status": {
       "inProgress": "В работе",
       "accepted": "Принята"

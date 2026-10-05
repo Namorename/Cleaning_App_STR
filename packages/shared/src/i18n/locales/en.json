@@ -1017,6 +1017,11 @@
     "finishFailed": "Could not finish the cleaning — refresh the list.",
     "unnamedProperty": "Listing {{id}}",
     "cardAccessibility": "{{property}}. {{date}}. {{urgency}}",
+    "now": "Now",
+    "days": {
+      "today": "Today",
+      "tomorrow": "Tomorrow"
+    },
     "status": {
       "inProgress": "In progress",
       "accepted": "Accepted"

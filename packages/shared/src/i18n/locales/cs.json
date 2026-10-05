@@ -1027,6 +1027,11 @@
     "finishFailed": "Úklid se nepodařilo dokončit — obnovte seznam.",
     "unnamedProperty": "Objekt {{id}}",
     "cardAccessibility": "{{property}}. {{date}}. {{urgency}}",
+    "now": "Teď",
+    "days": {
+      "today": "Dnes",
+      "tomorrow": "Zítra"
+    },
     "status": {
       "inProgress": "Probíhá",
       "accepted": "Přijato"

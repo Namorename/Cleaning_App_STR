@@ -5,8 +5,8 @@ import { Alert } from 'react-native';
 
 import { useSession } from '@/features/auth/session';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
+import { groupByDay } from '@/features/tasks/schema';
 import { TaskList } from '@/features/tasks/task-list';
-import type { TaskGroup } from '@/features/tasks/schema';
 import { useClaimTask, useFreeTasks } from '@/features/tasks/use-tasks';
 import { alertMessage, serverErrorText } from '@/lib/server-error';
 
@@ -19,11 +19,10 @@ export default function FreeQueueScreen() {
   const claim = useClaimTask();
   const [claimingTaskId, setClaimingTaskId] = useState<string | null>(null);
 
-  // One unnamed group: the queue has no work under way by definition.
-  const sections = useMemo<TaskGroup[] | undefined>(
-    () => (data === undefined ? undefined : [{ key: 'upcoming', data }]),
-    [data],
-  );
+  // A section per day, grouped here from the rows already fetched: the queue
+  // spans a week, and which day a cleaning is on decides whether she can take
+  // it. No work under way here by definition.
+  const sections = useMemo(() => (data === undefined ? undefined : groupByDay(data)), [data]);
 
   // A note the office left on free work is the case the conversation exists
   // for, so the queue carries the marks too.

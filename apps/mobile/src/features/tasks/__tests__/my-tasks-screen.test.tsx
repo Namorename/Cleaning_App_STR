@@ -5,7 +5,7 @@ import { Alert } from 'react-native';
 import MyTasksScreen from '@/app/(tabs)/index';
 import { RefusalError } from '@/lib/server-error';
 
-import type { CleaningTask } from '../schema';
+import { calendarDay, type CleaningTask } from '../schema';
 import { useAcceptTask } from '../use-tasks';
 
 /**
@@ -79,6 +79,7 @@ const mockTasks: CleaningTask[] = [mockTask];
 const mutateAsync = jest.fn();
 
 const SECOND_ID = '9d2ff806-4bea-4aa5-be3c-1b07a629dbee';
+const THIRD_ID = 'c1d2e3f4-5a6b-4c7d-8e9f-0a1b2c3d4e5f';
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -193,4 +194,42 @@ describe('after a tap on a push about a cleaning that is no longer hers', () => 
 
     expect(screen.queryByRole('button', { name: 'Скрыть' })).toBeNull();
   });
+});
+
+test('her day: the work under way first, as the current work, then a section per day', async () => {
+  // Arrange: one started (parallel start allows more), one later today, one tomorrow.
+  const now = new Date();
+  mockTasks.splice(
+    0,
+    mockTasks.length,
+    { ...mockTask, scheduled_date: calendarDay(now) },
+    { ...mockTask, id: SECOND_ID, status: 'in_progress', scheduled_date: calendarDay(now) },
+    { ...mockTask, id: THIRD_ID, scheduled_date: calendarDay(now, 1) },
+  );
+
+  // Act
+  await render(<MyTasksScreen />);
+
+  // Assert
+  expect(screen.getAllByRole('header').map((heading) => heading.props.children)).toEqual([
+    'В работе',
+    'Сегодня',
+    'Завтра',
+  ]);
+  expect(screen.getAllByRole('button', { name: /^Сейчас\./ })).toHaveLength(1);
+});
+
+test('while an accept runs, its button says so and a second tap sends nothing', async () => {
+  // Arrange: the accept is on its way and has not answered.
+  mutateAsync.mockReturnValue(new Promise(() => {}));
+  await render(<MyTasksScreen />);
+  const accept = () => screen.getByRole('button', { name: /^Принять/ });
+
+  // Act
+  await fireEvent.press(accept());
+  await fireEvent.press(accept());
+
+  // Assert
+  expect(accept().props.accessibilityState).toMatchObject({ busy: true });
+  expect(mutateAsync).toHaveBeenCalledTimes(1);
 });

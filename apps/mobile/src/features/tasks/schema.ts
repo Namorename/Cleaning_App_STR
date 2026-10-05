@@ -143,29 +143,49 @@ export function availableActions(task: CleaningTask, userId: string): readonly T
   }
 }
 
-export type TaskGroupKey = 'running' | 'upcoming';
+/**
+ * A section of a list of cleanings: the work under way, or one planned day.
+ * A day's `key` is its `scheduled_date`, which is what the heading is read from.
+ */
+export type TaskGroup =
+  | { readonly kind: 'running'; readonly key: 'running'; readonly data: CleaningTask[] }
+  | { readonly kind: 'day'; readonly key: string; readonly data: CleaningTask[] };
 
-export interface TaskGroup {
-  key: TaskGroupKey;
-  data: CleaningTask[];
+/**
+ * One section per planned day, the nearest first.
+ *
+ * The day is `scheduled_date` as it came: a calendar date at the listing,
+ * which is where the phone is — the same reading as `earliestClaimableDate`.
+ * Inside a day the rows keep the order the server gave them (the same-day
+ * check-in first); the list is grouped, not re-sorted. A day with nothing on
+ * it gets no section.
+ */
+export function groupByDay(tasks: readonly CleaningTask[]): TaskGroup[] {
+  const days = [...new Set(tasks.map((task) => task.scheduled_date))].sort();
+
+  return days.map((day) => ({
+    kind: 'day' as const,
+    key: day,
+    data: tasks.filter((task) => task.scheduled_date === day),
+  }));
 }
 
 /**
- * The cleaner's own list, with everything under way first.
+ * The cleaner's own list: everything under way first, then her days.
  *
  * Several cleanings run at once on a floor, and switching between them is the
- * whole point of the list — so the running ones are a group of their own at
- * the top, never one highlighted row. An empty group is left out: a heading
- * with nothing under it reads as something missing.
+ * whole point of the list — so the running ones are a section of their own at
+ * the top, whatever day they were planned for, never one highlighted row.
+ * Nothing under way, no such section: a heading with nothing under it reads
+ * as something missing.
  */
 export function groupMyTasks(tasks: readonly CleaningTask[]): TaskGroup[] {
   const running = tasks.filter(isRunning);
-  const upcoming = tasks.filter((task) => !isRunning(task));
+  const days = groupByDay(tasks.filter((task) => !isRunning(task)));
 
-  return [
-    { key: 'running' as const, data: running },
-    { key: 'upcoming' as const, data: upcoming },
-  ].filter((group) => group.data.length > 0);
+  return running.length === 0
+    ? days
+    : [{ kind: 'running' as const, key: 'running' as const, data: running }, ...days];
 }
 
 /**
@@ -179,18 +199,24 @@ export function groupMyTasks(tasks: readonly CleaningTask[]): TaskGroup[] {
 export const CLAIM_GRACE_DAYS = 1;
 
 /**
- * Earliest scheduled date still worth showing in the free queue.
+ * The phone's calendar date, `days` away from `now`, in the shape
+ * `scheduled_date` has.
  *
  * Built from the device's local calendar date rather than from an instant:
  * `scheduled_date` is a calendar date in the listing's timezone, and the
  * cleaner's phone is in that timezone.
  */
-export function earliestClaimableDate(now: Date = new Date()): string {
-  const earliest = new Date(now.getFullYear(), now.getMonth(), now.getDate() - CLAIM_GRACE_DAYS);
-  const month = String(earliest.getMonth() + 1).padStart(2, '0');
-  const day = String(earliest.getDate()).padStart(2, '0');
+export function calendarDay(now: Date, days = 0): string {
+  const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + days);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
 
-  return `${earliest.getFullYear()}-${month}-${day}`;
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/** Earliest scheduled date still worth showing in the free queue. */
+export function earliestClaimableDate(now: Date = new Date()): string {
+  return calendarDay(now, -CLAIM_GRACE_DAYS);
 }
 
 /**

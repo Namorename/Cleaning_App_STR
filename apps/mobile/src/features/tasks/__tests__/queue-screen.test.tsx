@@ -5,7 +5,7 @@ import { Alert } from 'react-native';
 import FreeQueueScreen from '@/app/(tabs)/queue';
 import { RefusalError } from '@/lib/server-error';
 
-import type { CleaningTask } from '../schema';
+import { calendarDay, type CleaningTask } from '../schema';
 import { useClaimTask } from '../use-tasks';
 
 /**
@@ -28,7 +28,7 @@ const mockRefetch = jest.fn();
 
 jest.mock('../use-tasks', () => ({
   useFreeTasks: () => ({
-    data: [mockTask],
+    data: mockTasks,
     isPending: false,
     error: null,
     refetch: mockRefetch,
@@ -66,6 +66,11 @@ const mockTask: CleaningTask = {
   title_i18n: {},
 };
 
+/** The queue as the screen gets it; a test puts other days in when it needs them. */
+const mockTasks: CleaningTask[] = [mockTask];
+
+const SECOND_ID = '9d2ff806-4bea-4aa5-be3c-1b07a629dbee';
+
 interface MutateOptions {
   onError?: (error: Error) => void;
   onSettled?: () => void;
@@ -75,6 +80,7 @@ const mutate = jest.fn();
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockTasks.splice(0, mockTasks.length, mockTask);
   jest
     .mocked(useClaimTask)
     .mockReturnValue({ mutate } as unknown as ReturnType<typeof useClaimTask>);
@@ -142,4 +148,39 @@ test('taking a task from the queue does not also open it', async () => {
     expect.any(Object),
   );
   expect(router.push).not.toHaveBeenCalled();
+});
+
+test('free work stands under its day: today, tomorrow, each a heading of its own', async () => {
+  // Arrange: one free cleaning today and one tomorrow, by the phone's calendar.
+  const now = new Date();
+  mockTasks.splice(
+    0,
+    mockTasks.length,
+    { ...mockTask, scheduled_date: calendarDay(now) },
+    { ...mockTask, id: SECOND_ID, scheduled_date: calendarDay(now, 1) },
+  );
+
+  // Act
+  await render(<FreeQueueScreen />);
+
+  // Assert
+  expect(screen.getAllByRole('header').map((heading) => heading.props.children)).toEqual([
+    'Сегодня',
+    'Завтра',
+  ]);
+  expect(screen.getAllByRole('button', { name: /^Взять/ })).toHaveLength(2);
+});
+
+test('while the claim runs, its button says so and a second tap sends nothing', async () => {
+  // Arrange: the claim is on its way — mutate() has not settled.
+  await render(<FreeQueueScreen />);
+  const take = () => screen.getByRole('button', { name: /^Взять/ });
+
+  // Act
+  await fireEvent.press(take());
+  await fireEvent.press(take());
+
+  // Assert
+  expect(take().props.accessibilityState).toMatchObject({ busy: true });
+  expect(mutate).toHaveBeenCalledTimes(1);
 });

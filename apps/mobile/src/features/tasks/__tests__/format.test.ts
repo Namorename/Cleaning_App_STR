@@ -1,10 +1,13 @@
 import {
+  checkInText,
+  formatDayHeading,
   formatDeadlineTime,
   formatScheduledDate,
   formatWindow,
   propertyName,
   taskPlace,
   urgencyText,
+  windowLines,
 } from '../format';
 import type { CleaningTask } from '../schema';
 
@@ -246,5 +249,81 @@ describe('formatWindow', () => {
 
   test('returns null when there is no window at all', () => {
     expect(formatWindow(task({ time_from: null, time_to: null }))).toBeNull();
+  });
+});
+
+describe('windowLines', () => {
+  test('a row draws the start large and the end under it', () => {
+    expect(windowLines(task({ time_from: '10:00:00', time_to: '15:00:00' }))).toEqual({
+      first: '10:00',
+      second: '–15:00',
+    });
+  });
+
+  test('an unknown start leaves the end as the one line, still open in front', () => {
+    expect(windowLines(task({ time_from: null, time_to: '15:00:00' }))).toEqual({
+      first: '–15:00',
+      second: null,
+    });
+  });
+
+  test('an unknown end leaves the start open behind', () => {
+    expect(windowLines(task({ time_from: '10:00:00', time_to: null }))).toEqual({
+      first: '10:00–',
+      second: null,
+    });
+  });
+
+  test('no window, no lines', () => {
+    expect(windowLines(task({ time_from: null, time_to: null }))).toBeNull();
+  });
+});
+
+describe('checkInText', () => {
+  test('a same-day turnover states its check-in, with the time when it is known', () => {
+    expect(checkInText(task({ priority: 1, due_at: '2026-11-10T13:00:00+00:00' }))).toMatch(
+      /^В \d{2}:\d{2} заезд$/,
+    );
+    expect(checkInText(task({ priority: 1, due_at: null }))).toBe('В этот день заезд');
+  });
+
+  test('nobody arriving that day is not a check-in', () => {
+    expect(checkInText(task({ priority: 0 }))).toBeNull();
+  });
+
+  test('a job named by its kind or by hand claims no check-in', () => {
+    expect(checkInText(task({ type: 'inspection', priority: 1 }))).toBeNull();
+    expect(checkInText(task({ type: 'midstay', priority: 1 }))).toBeNull();
+    expect(checkInText(task({ reservation_id: null, priority: 1 }))).toBeNull();
+  });
+
+  test('says what the card used to say in its banner, word for word', () => {
+    const urgent = task({ priority: 1, due_at: '2026-11-10T13:00:00+00:00' });
+
+    expect(checkInText(urgent)).toBe(urgencyText(urgent));
+  });
+});
+
+describe('formatDayHeading', () => {
+  // The phone's own clock: 10 November, morning.
+  const NOW = new Date(2026, 10, 10, 9, 30);
+
+  test('today and tomorrow are called so', () => {
+    expect(formatDayHeading('2026-11-10', NOW)).toBe('Сегодня');
+    expect(formatDayHeading('2026-11-11', NOW)).toBe('Завтра');
+  });
+
+  test('tomorrow across a month end, late in the evening', () => {
+    expect(formatDayHeading('2026-12-01', new Date(2026, 10, 30, 23, 59))).toBe('Завтра');
+  });
+
+  test('any other day is its weekday and date in her language, starting with a capital', () => {
+    // 12 November 2026 is a Thursday, 9 November a Monday.
+    expect(formatDayHeading('2026-11-12', NOW)).toBe('Чт, 12 ноября');
+    expect(formatDayHeading('2026-11-09', NOW)).toBe('Пн, 9 ноября');
+  });
+
+  test('reads the date as a local day, not as midnight UTC', () => {
+    expect(formatDayHeading('2026-11-13', NOW)).toContain('13');
   });
 });

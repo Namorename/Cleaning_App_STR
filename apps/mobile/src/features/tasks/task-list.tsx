@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Text,
   View,
+  type SectionListRenderItemInfo,
 } from 'react-native';
 
 import { ErrorBanner } from '@/components/error-banner';
@@ -15,8 +16,9 @@ import { FontSize, Spacing, type Theme } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { serverErrorText } from '@/lib/server-error';
 
-import { TaskCard } from './task-card';
 import type { CleaningTask, TaskGroup } from './schema';
+import { SectionHeading } from './section-heading';
+import { TaskCard } from './task-card';
 
 interface TaskListProps {
   sections: TaskGroup[] | undefined;
@@ -49,8 +51,9 @@ interface TaskListProps {
  * things when she is standing in a doorway deciding where to go next. All
  * three are text a screen reader can reach, not just a spinner.
  *
- * Only the group of work under way gets a heading: a single unnamed list is
- * the queue; a list with "under way" at the top is her day.
+ * The cards stand in sections — the work under way, then one per day — whose
+ * headings stay on top while the day under them scrolls (5.4, variant 1).
+ * Every card of the work under way is the current one: several can run at once.
  */
 export function TaskList({
   sections,
@@ -72,7 +75,7 @@ export function TaskList({
   const styles = useThemedStyles(createStyles);
 
   const renderItem = useCallback(
-    ({ item }: { item: CleaningTask }) => (
+    ({ item, section }: SectionListRenderItemInfo<CleaningTask, TaskGroup>) => (
       <TaskCard
         task={item}
         onClaim={onClaim}
@@ -84,17 +87,10 @@ export function TaskList({
           (unreadTaskIds?.has(item.id) ?? false) ||
           (item.problem != null && (unreadProblemIds?.has(item.problem.id) ?? false))
         }
+        isNow={section.kind === 'running'}
       />
     ),
     [onClaim, onAccept, onPress, claimingTaskId, acceptingTaskIds, unreadTaskIds, unreadProblemIds],
-  );
-
-  const renderSectionHeader = useCallback(
-    ({ section }: { section: TaskGroup }) =>
-      section.key === 'running' ? (
-        <Text style={styles.heading}>{t('tasks.status.inProgress')}</Text>
-      ) : null,
-    [styles.heading, t],
   );
 
   const keyExtractor = useCallback((item: CleaningTask) => item.id, []);
@@ -144,13 +140,11 @@ export function TaskList({
   // time it loaded, kept on the phone. The list stays, and a line above it
   // says what happened; the error screen above is for a list never loaded.
   const listHeader =
-    error === null ? (
-      header
-    ) : (
-      <>
-        <ErrorBanner title={t('common.refreshFailed')} error={error} />
+    error === null && header === undefined ? undefined : (
+      <View style={layout.listHeader}>
+        {error === null ? null : <ErrorBanner title={t('common.refreshFailed')} error={error} />}
         {header}
-      </>
+      </View>
     );
 
   return (
@@ -162,8 +156,7 @@ export function TaskList({
       style={styles.screen}
       contentContainerStyle={styles.content}
       ItemSeparatorComponent={Separator}
-      SectionSeparatorComponent={Separator}
-      stickySectionHeadersEnabled={false}
+      stickySectionHeadersEnabled
       ListHeaderComponent={listHeader}
       refreshControl={refreshControl}
       ListEmptyComponent={
@@ -175,13 +168,20 @@ export function TaskList({
   );
 }
 
+function renderSectionHeader({ section }: { section: TaskGroup }) {
+  return <SectionHeading section={section} />;
+}
+
 function Separator() {
   return <View style={layout.separator} />;
 }
 
 /** Sizes only: nothing here depends on the colour scheme. */
 const layout = StyleSheet.create({
-  separator: { height: Spacing.md },
+  separator: { height: Spacing.sm },
+  // The first heading starts at the top edge, where it also sticks; a line
+  // above the cards keeps the gutter of the list.
+  listHeader: { paddingTop: Spacing.lg },
 });
 
 const createStyles = (theme: Theme) =>
@@ -191,15 +191,9 @@ const createStyles = (theme: Theme) =>
       backgroundColor: theme.background,
     },
     content: {
-      padding: Spacing.lg,
+      paddingHorizontal: Spacing.lg,
+      paddingBottom: Spacing.lg,
       flexGrow: 1,
-    },
-    heading: {
-      color: theme.textSecondary,
-      fontSize: FontSize.caption,
-      fontWeight: '700',
-      textTransform: 'uppercase',
-      letterSpacing: 1,
     },
     centered: {
       flex: 1,

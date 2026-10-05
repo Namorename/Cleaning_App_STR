@@ -1,19 +1,33 @@
-import { memo } from 'react';
+import { SIZE, STATUS_TONE, taskStatusTone } from '@str-ops/shared';
+import type { TFunction } from 'i18next';
+import { memo, useMemo, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
+import { Badge } from '@/components/badge';
+import { Button } from '@/components/button';
+import { Text } from '@/components/text';
 import {
-  FontSize,
-  MIN_TOUCH_TARGET,
+  BUTTON_HEIGHT,
+  ROW_HEIGHT,
   Radius,
   Spacing,
   statusTone,
   type Theme,
 } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
-import { formatScheduledDate, formatWindow, propertyName, taskPlace, urgencyText } from './format';
-import { isRunning, isSameDayTurnover, type CleaningTask } from './schema';
+import {
+  checkInText,
+  formatDayHeading,
+  formatWindow,
+  propertyName,
+  taskPlace,
+  urgencyText,
+  windowLines,
+} from './format';
+import { isRunning, type CleaningTask } from './schema';
 
 interface TaskCardProps {
   task: CleaningTask;
@@ -21,45 +35,59 @@ interface TaskCardProps {
   onClaim?: (taskId: string) => void;
   /** Offered in her own list, on a cleaning she has not accepted yet; gets it as shown. */
   onAccept?: (task: CleaningTask) => void;
-  /** Opens the task. Omitted where the card is not a link. */
+  /** Opens the task. Omitted where the row is not a link. */
   onPress?: (taskId: string) => void;
   isClaiming?: boolean;
   isAccepting?: boolean;
   /** Somebody said something about this job that she has not read yet. */
   hasUnread?: boolean;
+  /** In the section of work under way: the «▶ Сейчас» pill and the stripe. */
+  isNow?: boolean;
 }
 
-function TaskCardComponent({
-  task,
-  onClaim,
-  onAccept,
-  onPress,
-  isClaiming = false,
-  isAccepting = false,
-  hasUnread = false,
-}: TaskCardProps) {
-  const { t } = useTranslation();
-  const styles = useThemedStyles(createStyles);
-  const urgent = isSameDayTurnover(task);
-  const running = isRunning(task);
-  // Hers already: the list only ever holds her own work, so the status says it.
-  const accepted = task.status === 'accepted';
-  // Only what she has not accepted yet; the queue never passes it.
-  const accept = task.status === 'assigned' ? onAccept : undefined;
+/**
+ * Wide enough at the normal font for "10:00" in the title size and "В 15:00"
+ * on one line; a check-in in a longer language takes a second line rather than
+ * the place's room. Grows with the system font (`WindowColumn`).
+ */
+const WINDOW_COLUMN_WIDTH = 64;
+
+/** The ▶ before «Сейчас»: a triangle 8 dp high and about as wide. */
+const PLAY_HALF_HEIGHT = Spacing.xs;
+const PLAY_WIDTH = 7;
+
+/** The states a row shows as marks; each is a word in its tone, never colour alone. */
+interface RowMarks {
+  isNow: boolean;
+  isRunning: boolean;
+  isAccepted: boolean;
+  hasUnread: boolean;
+}
+
+/** What a row says, worked out once: drawn on it, and read out as its label. */
+interface RowText {
+  /** The house, or on a fix what is broken. */
+  name: string;
+  /** The room after its house, on a cleaning of a multi-unit listing. */
+  room: string | null;
+  /** The place in one line, for the reader: a room is never said without its house. */
+  spoken: string;
+  /** What the banner of the old card said, for the label. */
+  urgency: string;
+  /** The check-in, drawn under the window. */
+  checkIn: string | null;
+  /** The quiet line: anything the banner said that is not the check-in. */
+  quiet: string | null;
+  /** The day and the window, for the reader: the day is the section's heading, not on the row. */
+  when: string;
+}
+
+function rowText(task: CleaningTask, t: TFunction): RowText {
   const fix = task.type === 'maintenance' ? (task.problem ?? null) : null;
   const place = taskPlace(task);
-  // A fix is named by what is broken; the flat is the second line.
-  const name = fix === null ? place.building : fix.title;
-  // The room under the house, on a cleaning of a multi-unit listing. A fix
-  // already carries the whole place in its banner, and repeating it under the
-  // title of the problem would say the same thing twice.
-  const room = fix === null ? place.room : null;
-  // Spoken as one line: a screen reader gets no second line for free, and
-  // "1 - 2109" without its house is the one thing this card must not say.
-  const spoken = fix === null ? propertyName(task) : fix.title;
-  const date = formatScheduledDate(task);
-  const window = formatWindow(task);
-  // Colour repeats what the line says; it never carries the meaning alone.
+  const checkIn = checkInText(task);
+  // The banner of the old card: the check-in, what the job is, that nobody
+  // arrives, or on a fix the flat and how urgent.
   const urgency =
     fix === null
       ? urgencyText(task)
@@ -68,73 +96,88 @@ function TaskCardComponent({
           priority: t(`problems.priorities.${fix.priority}`),
         });
 
-  const summary = (
-    <>
-      {/* The house and the room in it are one block: the card's even spacing
-          would otherwise read the room as just another line of metadata.
-          Two lines each — a room can be called "Unit 8 - 3rd floor", and the
-          system font can be set large. */}
-      <View style={styles.place}>
-        <View style={styles.header}>
-          <Text style={styles.name} numberOfLines={2}>
-            {name}
-          </Text>
-          {hasUnread ? (
-            <View style={styles.unread}>
-              <Text style={styles.unreadText}>{t('chat.unread')}</Text>
-            </View>
-          ) : null}
-          {running ? (
-            <View style={styles.status}>
-              <Text style={styles.statusText}>{t('tasks.status.inProgress')}</Text>
-            </View>
-          ) : null}
-          {accepted ? (
-            <View style={styles.accepted}>
-              <Text style={styles.acceptedText}>{t('tasks.status.accepted')}</Text>
-            </View>
-          ) : null}
-        </View>
+  return {
+    name: fix === null ? place.building : fix.title,
+    // A fix carries the whole place in its quiet line already.
+    room: fix === null ? place.room : null,
+    spoken: fix === null ? propertyName(task) : fix.title,
+    urgency,
+    checkIn,
+    quiet: checkIn === null ? urgency : null,
+    when: [formatDayHeading(task.scheduled_date), formatWindow(task)]
+      .filter((part) => part !== null)
+      .join(', '),
+  };
+}
 
-        {room === null ? null : (
-          <Text style={styles.room} numberOfLines={2}>
-            {room}
-          </Text>
-        )}
-      </View>
-
-      <Text style={styles.meta}>
-        {date}
-        {window === null ? '' : ` · ${window}`}
-      </Text>
-
-      <View style={[styles.banner, urgent ? styles.bannerUrgent : styles.bannerNeutral]}>
-        <Text
-          style={[styles.bannerText, urgent ? styles.bannerTextUrgent : styles.bannerTextNeutral]}
-        >
-          {urgency}
-        </Text>
-      </View>
-
-    </>
-  );
-
-  // The mark is a fact of the card, so the reader hears it with the rest.
-  const label = [
-    t('tasks.cardAccessibility', { property: spoken, date, urgency }),
-    accepted ? t('tasks.status.accepted') : null,
-    hasUnread ? t('chat.unread') : null,
+/** The row as one sentence: what it says, its marks included. */
+function rowLabel(text: RowText, marks: RowMarks, t: TFunction): string {
+  return [
+    marks.isNow ? t('tasks.now') : null,
+    t('tasks.cardAccessibility', { property: text.spoken, date: text.when, urgency: text.urgency }),
+    marks.isRunning ? t('tasks.status.inProgress') : null,
+    marks.isAccepted ? t('tasks.status.accepted') : null,
+    marks.hasUnread ? t('chat.unread') : null,
   ]
     .filter((part) => part !== null)
     .join('. ');
+}
 
-  // The facts are read as one element, and opened as one where the card is a
+/**
+ * A cleaning as one row of a list (5.4, «Списки уборок», variant 1): the
+ * window large on the left with the check-in under it — the two times she
+ * plans by, together — the place and one quiet line in the middle, and «Взять»
+ * or «Принять» as a 56 dp button of its own on the right. The day is the
+ * heading of the row's section, not a line of the row.
+ */
+function TaskCardComponent({
+  task,
+  onClaim,
+  onAccept,
+  onPress,
+  isClaiming = false,
+  isAccepting = false,
+  hasUnread = false,
+  isNow = false,
+}: TaskCardProps) {
+  const { t } = useTranslation();
+  const styles = useThemedStyles(createStyles);
+  const text = rowText(task, t);
+  const marks: RowMarks = {
+    isNow,
+    isRunning: isRunning(task),
+    // Hers already: the list only ever holds her own work, so the status says it.
+    isAccepted: task.status === 'accepted',
+    hasUnread,
+  };
+  const label = rowLabel(text, marks, t);
+
+  const summary = (
+    <>
+      <WindowColumn task={task} checkIn={text.checkIn} />
+      <View style={styles.what}>
+        {/* Two lines: a room can be called "Unit 8 - 3rd floor", and the system
+            font can be set large. */}
+        <Text weight={700} numberOfLines={2}>
+          {text.name}
+          {text.room === null ? null : <Text tone="secondary">{` · ${text.room}`}</Text>}
+        </Text>
+        {text.quiet === null ? null : (
+          <Text variant="caption" tone="secondary" numberOfLines={1}>
+            {text.quiet}
+          </Text>
+        )}
+        <MarkRow marks={marks} />
+      </View>
+    </>
+  );
+
+  // The facts are read as one element, and opened as one where the row is a
   // link. "Take" sits beside them, never inside: VoiceOver reads a grouped
-  // element whole, and a button inside one is out of its reach — on the
-  // queue, where the card both opens and is taken, that was the button.
+  // element whole, and a button inside one is out of its reach.
   const facts =
     onPress === undefined ? (
-      <View style={styles.summary} accessible accessibilityLabel={label}>
+      <View style={[styles.body, isNow && styles.bodyNow]} accessible accessibilityLabel={label}>
         {summary}
       </View>
     ) : (
@@ -142,167 +185,223 @@ function TaskCardComponent({
         accessibilityRole="button"
         accessibilityLabel={label}
         onPress={() => onPress(task.id)}
-        style={({ pressed }) => [styles.summary, pressed && styles.cardPressed]}
+        style={({ pressed }) => [styles.body, isNow && styles.bodyNow, pressed && styles.pressed]}
       >
         {summary}
       </Pressable>
     );
 
   return (
-    <View style={styles.card}>
+    <View testID="task-card" style={[styles.card, isNow && styles.cardNow]}>
       {facts}
-      {onClaim ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('tasks.claimAccessibility', { property: spoken, date })}
-          accessibilityState={{ disabled: isClaiming, busy: isClaiming }}
-          disabled={isClaiming}
-          onPress={() => onClaim(task.id)}
-          style={({ pressed }) => [styles.claim, pressed && styles.claimPressed]}
-        >
-          {isClaiming ? (
-            <ActivityIndicator color={styles.claimText.color} />
-          ) : (
-            <Text style={styles.claimText}>{t('tasks.claim')}</Text>
-          )}
-        </Pressable>
-      ) : null}
-      {/* Beside the facts like "take", and quieter: a signal, not the job. */}
-      {accept !== undefined ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('tasks.acceptAccessibility', { property: spoken, date })}
-          accessibilityState={{ disabled: isAccepting, busy: isAccepting }}
-          disabled={isAccepting}
-          onPress={() => accept(task)}
-          style={({ pressed }) => [styles.accept, pressed && styles.claimPressed]}
-        >
-          {isAccepting ? (
-            <ActivityIndicator color={styles.acceptText.color} />
-          ) : (
-            <Text style={styles.acceptText}>{t('tasks.accept')}</Text>
-          )}
-        </Pressable>
-      ) : null}
+      <RowAction
+        task={task}
+        text={text}
+        onClaim={onClaim}
+        // Only what she has not accepted yet; the queue never passes it.
+        onAccept={task.status === 'assigned' ? onAccept : undefined}
+        isClaiming={isClaiming}
+        isAccepting={isAccepting}
+      />
     </View>
   );
 }
 
 export const TaskCard = memo(TaskCardComponent);
 
+interface WindowColumnProps {
+  task: CleaningTask;
+  checkIn: string | null;
+}
+
+/**
+ * The two times she plans by, together: the window large, the check-in under
+ * it. The column is as wide as the type is large — at a large system font a
+ * fixed width would cut "10:00" in two — and the same on every row, so the
+ * places line up.
+ */
+function WindowColumn({ task, checkIn }: WindowColumnProps) {
+  const theme = useTheme();
+  const { fontScale } = useWindowDimensions();
+  const width = useMemo(
+    () => ({ width: WINDOW_COLUMN_WIDTH * Math.max(1, fontScale) }),
+    [fontScale],
+  );
+  const window = windowLines(task);
+
+  return (
+    <View testID="task-window" style={width}>
+      {window === null ? null : (
+        <>
+          <Text variant="title">{window.first}</Text>
+          {window.second === null ? null : (
+            <Text variant="caption" tone="secondary">
+              {window.second}
+            </Text>
+          )}
+        </>
+      )}
+      {checkIn === null ? null : (
+        <Text variant="caption" color={statusTone(theme, 'phone.checkIn.sameDay').fg}>
+          {checkIn}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+interface MarkRowProps {
+  marks: RowMarks;
+}
+
+/** The marks of a row as compact badges, or nothing when it has none. */
+function MarkRow({ marks }: MarkRowProps) {
+  const { t } = useTranslation();
+  const styles = useThemedStyles(createStyles);
+  const badges = [
+    marks.isNow ? <NowPill key="now" label={t('tasks.now')} /> : null,
+    marks.isRunning ? (
+      <Badge
+        key="running"
+        label={t('tasks.status.inProgress')}
+        tone={taskStatusTone('in_progress')}
+      />
+    ) : null,
+    marks.isAccepted ? (
+      <Badge key="accepted" label={t('tasks.status.accepted')} tone={taskStatusTone('accepted')} />
+    ) : null,
+    marks.hasUnread ? (
+      <Badge key="unread" label={t('chat.unread')} tone={STATUS_TONE['chat.unread']} />
+    ) : null,
+  ].filter((badge): badge is ReactElement => badge !== null);
+
+  return badges.length === 0 ? null : <View style={styles.marks}>{badges}</View>;
+}
+
+interface RowActionProps {
+  task: CleaningTask;
+  text: RowText;
+  onClaim?: (taskId: string) => void;
+  onAccept?: (task: CleaningTask) => void;
+  isClaiming: boolean;
+  isAccepting: boolean;
+}
+
+/**
+ * «Взять» or «Принять»: a 56 dp button beside the row, never inside it, named
+ * by the cleaning it acts on. No list offers both — the queue claims and her
+ * own list accepts.
+ */
+function RowAction({ task, text, onClaim, onAccept, isClaiming, isAccepting }: RowActionProps) {
+  const { t } = useTranslation();
+  const styles = useThemedStyles(createStyles);
+  const named = { property: text.spoken, date: text.when };
+
+  if (onClaim !== undefined) {
+    return (
+      <Button
+        label={t('tasks.claim')}
+        accessibilityLabel={t('tasks.claimAccessibility', named)}
+        isBusy={isClaiming}
+        onPress={() => onClaim(task.id)}
+        style={styles.action}
+      />
+    );
+  }
+  if (onAccept !== undefined) {
+    // Quieter than "take": accepting is a signal to the office, not the job.
+    return (
+      <Button
+        variant="secondary"
+        label={t('tasks.accept')}
+        accessibilityLabel={t('tasks.acceptAccessibility', named)}
+        isBusy={isAccepting}
+        onPress={() => onAccept(task)}
+        style={styles.action}
+      />
+    );
+  }
+  return null;
+}
+
+interface NowPillProps {
+  label: string;
+}
+
+/** «▶ Сейчас»: the accent pill of the current card (directions.json, shape.nowCard). */
+function NowPill({ label }: NowPillProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(createStyles);
+
+  return (
+    <View style={styles.now}>
+      {/* Drawn rather than typed: a ▶ character turns into an emoji on some
+          phones, and the icons arrive only with build 1.2.0. */}
+      <View style={styles.play} />
+      <Text variant="chip" color={theme.onAccent}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
+    // A card of direction A: no frame, a soft shadow (components/card.tsx).
     card: {
-      backgroundColor: theme.card,
-      borderRadius: Radius.lg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.divider,
-      padding: Spacing.lg,
-      gap: Spacing.sm,
-    },
-    // The same rhythm inside the facts as between them and "take".
-    summary: { gap: Spacing.sm },
-    cardPressed: { opacity: 0.85 },
-    place: { gap: Spacing.xs },
-    header: {
       flexDirection: 'row',
-      alignItems: 'flex-start',
+      alignItems: 'center',
       gap: Spacing.sm,
+      backgroundColor: theme.card,
+      borderRadius: Radius.card,
+      boxShadow: theme.shadow,
     },
-    name: {
+    // The stripe of the current card follows its rounded corner as a border;
+    // a bar laid over the card would stick out of the corner.
+    cardNow: {
+      borderLeftWidth: SIZE.nowStripe,
+      borderLeftColor: theme.primary,
+    },
+    body: {
       flex: 1,
-      color: theme.text,
-      fontSize: FontSize.title,
-      fontWeight: '600',
-    },
-    // Which flat inside the house — a fact of the same weight as the house,
-    // one step quieter so the two read as one address rather than two names.
-    room: {
-      color: theme.textSecondary,
-      fontSize: FontSize.body,
-      fontWeight: '600',
-    },
-    // The tones are the contract's (STATUS_TONE): work under way is amber,
-    // accepted is "assigned" blue, a new message the unread badge.
-    status: {
-      backgroundColor: statusTone(theme, 'tasks.in_progress').bg,
-      borderRadius: Radius.md,
-      paddingHorizontal: Spacing.sm,
-      paddingVertical: Spacing.xs,
-    },
-    statusText: {
-      color: statusTone(theme, 'tasks.in_progress').fg,
-      fontSize: FontSize.caption,
-      fontWeight: '600',
-    },
-    // A state of the job like "in progress", and quieter: her word to the
-    // office, drawn as an outline rather than as the filled mark of work under way.
-    accepted: {
-      borderRadius: Radius.md,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: statusTone(theme, 'tasks.accepted').border,
-      paddingHorizontal: Spacing.sm,
-      paddingVertical: Spacing.xs,
-    },
-    acceptedText: {
-      color: statusTone(theme, 'tasks.accepted').fg,
-      fontSize: FontSize.caption,
-      fontWeight: '600',
-    },
-    // A word waiting for her, not the state of the job.
-    unread: {
-      backgroundColor: statusTone(theme, 'chat.unread').bg,
-      borderRadius: Radius.md,
-      paddingHorizontal: Spacing.sm,
-      paddingVertical: Spacing.xs,
-    },
-    unreadText: {
-      color: statusTone(theme, 'chat.unread').fg,
-      fontSize: FontSize.caption,
-      fontWeight: '600',
-    },
-    meta: {
-      color: theme.textSecondary,
-      fontSize: FontSize.body,
-    },
-    banner: {
-      borderRadius: Radius.md,
-      paddingHorizontal: Spacing.md,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.md,
+      minHeight: ROW_HEIGHT,
       paddingVertical: Spacing.sm,
+      paddingHorizontal: Spacing.md,
+      borderRadius: Radius.card,
     },
-    // A same-day check-in is urgent; no check-in, or the job's own name, is
-    // neutral — it used to be green, the colour of "done".
-    bannerUrgent: { backgroundColor: statusTone(theme, 'phone.checkIn.sameDay').bg },
-    bannerNeutral: { backgroundColor: statusTone(theme, 'phone.kindBanner').bg },
-    bannerText: { fontSize: FontSize.body, fontWeight: '600' },
-    bannerTextUrgent: { color: statusTone(theme, 'phone.checkIn.sameDay').fg },
-    bannerTextNeutral: { color: statusTone(theme, 'phone.kindBanner').fg },
-    claim: {
-      minHeight: MIN_TOUCH_TARGET,
-      borderRadius: Radius.md,
-      backgroundColor: theme.primary,
+    // The stripe takes its width from the padding, so the times of the
+    // current cards line up with the rest.
+    bodyNow: { paddingLeft: Spacing.md - SIZE.nowStripe },
+    pressed: { backgroundColor: theme.surfaceAlt },
+    what: { flex: 1, gap: Spacing.xs },
+    marks: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
+    // A square for a gloved finger, wider only as far as the word needs; the
+    // gap of the card keeps it apart from the row it does not open.
+    action: {
+      minWidth: BUTTON_HEIGHT,
+      paddingHorizontal: Spacing.md,
+      marginRight: Spacing.md,
+    },
+    now: {
+      flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: Spacing.xs,
+      gap: Spacing.xs,
+      borderRadius: Radius.pill,
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: 2,
+      backgroundColor: theme.accent,
     },
-    claimPressed: { opacity: 0.75 },
-    claimText: {
-      color: theme.onPrimary,
-      fontSize: FontSize.title,
-      fontWeight: '600',
-    },
-    accept: {
-      minHeight: MIN_TOUCH_TARGET,
-      borderRadius: Radius.md,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: Spacing.xs,
-    },
-    acceptText: {
-      color: theme.primary,
-      fontSize: FontSize.title,
-      fontWeight: '600',
+    play: {
+      width: 0,
+      height: 0,
+      borderLeftWidth: PLAY_WIDTH,
+      borderTopWidth: PLAY_HALF_HEIGHT,
+      borderBottomWidth: PLAY_HALF_HEIGHT,
+      borderLeftColor: theme.onAccent,
+      borderTopColor: 'transparent',
+      borderBottomColor: 'transparent',
     },
   });

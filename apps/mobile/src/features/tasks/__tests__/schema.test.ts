@@ -1,8 +1,10 @@
 import {
   availableActions,
+  calendarDay,
   canStartNow,
   cleaningTaskSchema,
   earliestClaimableDate,
+  groupByDay,
   groupMyTasks,
   isFree,
   isRunning,
@@ -187,26 +189,92 @@ function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
   };
 }
 
-describe('groupMyTasks', () => {
-  test('puts every running cleaning first, so she can switch between them', () => {
-    // Arrange: three flats on one floor, two of them already started.
-    const running1 = task({ id: 'a1b2c3d4-1111-4111-8111-a1b2c3d40001', status: 'in_progress' });
-    const upcoming = task({ id: 'a1b2c3d4-2222-4222-8222-a1b2c3d40002', status: 'assigned' });
-    const running2 = task({ id: 'a1b2c3d4-3333-4333-8333-a1b2c3d40003', status: 'in_progress' });
-
-    // Act
-    const groups = groupMyTasks([upcoming, running1, running2]);
-
-    // Assert: both running tasks are in the first group, in their own order.
-    expect(groups.map((group) => group.key)).toEqual(['running', 'upcoming']);
-    expect(groups[0].data.map((item) => item.id)).toEqual([running1.id, running2.id]);
-    expect(groups[1].data.map((item) => item.id)).toEqual([upcoming.id]);
+describe('calendarDay', () => {
+  test('is the phone’s own date, in the shape scheduled_date uses', () => {
+    // Late in the evening: an instant read as UTC would already be tomorrow
+    // east of Greenwich and still yesterday west of it.
+    expect(calendarDay(new Date(2026, 10, 10, 23, 59))).toBe('2026-11-10');
+    expect(calendarDay(new Date(2026, 2, 8, 0, 1))).toBe('2026-03-08');
   });
 
-  test('omits an empty group rather than showing a heading with nothing under it', () => {
+  test('counts days forward and back across a month and a year', () => {
+    expect(calendarDay(new Date(2026, 10, 30, 12, 0), 1)).toBe('2026-12-01');
+    expect(calendarDay(new Date(2027, 0, 1, 12, 0), -1)).toBe('2026-12-31');
+  });
+});
+
+describe('groupByDay', () => {
+  const ON_10TH = 'a1b2c3d4-1111-4111-8111-a1b2c3d40001';
+  const ON_11TH_URGENT = 'a1b2c3d4-2222-4222-8222-a1b2c3d40002';
+  const ON_11TH = 'a1b2c3d4-3333-4333-8333-a1b2c3d40003';
+
+  test('one section per planned day, the nearest first, each in the order the rows came', () => {
+    // Arrange: as the server orders them — by day, then the same-day check-in first.
+    const rows = [
+      task({ id: ON_10TH, scheduled_date: '2026-11-10' }),
+      task({ id: ON_11TH_URGENT, scheduled_date: '2026-11-11', priority: 1 }),
+      task({ id: ON_11TH, scheduled_date: '2026-11-11' }),
+    ];
+
+    // Act
+    const groups = groupByDay(rows);
+
+    // Assert
+    expect(groups.map((group) => [group.kind, group.key])).toEqual([
+      ['day', '2026-11-10'],
+      ['day', '2026-11-11'],
+    ]);
+    expect(groups[1].data.map((item) => item.id)).toEqual([ON_11TH_URGENT, ON_11TH]);
+  });
+
+  test('a day keeps its place whatever order the rows came in', () => {
+    const groups = groupByDay([
+      task({ id: ON_11TH, scheduled_date: '2026-11-11' }),
+      task({ id: ON_10TH, scheduled_date: '2026-11-10' }),
+    ]);
+
+    expect(groups.map((group) => group.key)).toEqual(['2026-11-10', '2026-11-11']);
+  });
+
+  test('no rows, no sections: an empty list is said by the list, not by an empty heading', () => {
+    expect(groupByDay([])).toEqual([]);
+  });
+});
+
+describe('groupMyTasks', () => {
+  test('puts every running cleaning first, in a section of its own, whatever its day', () => {
+    // Arrange: two started on one floor (parallel start), one of them still
+    // yesterday's, and two more ahead.
+    const running1 = task({
+      id: 'a1b2c3d4-1111-4111-8111-a1b2c3d40001',
+      status: 'in_progress',
+      scheduled_date: '2026-11-09',
+    });
+    const today = task({ id: 'a1b2c3d4-2222-4222-8222-a1b2c3d40002', status: 'assigned' });
+    const running2 = task({ id: 'a1b2c3d4-3333-4333-8333-a1b2c3d40003', status: 'in_progress' });
+    const tomorrow = task({
+      id: 'a1b2c3d4-4444-4444-8444-a1b2c3d40004',
+      status: 'accepted',
+      scheduled_date: '2026-11-11',
+    });
+
+    // Act
+    const groups = groupMyTasks([running1, today, running2, tomorrow]);
+
+    // Assert: both running ones first, in their own order; the rest by day.
+    expect(groups.map((group) => [group.kind, group.key])).toEqual([
+      ['running', 'running'],
+      ['day', '2026-11-10'],
+      ['day', '2026-11-11'],
+    ]);
+    expect(groups[0].data.map((item) => item.id)).toEqual([running1.id, running2.id]);
+    expect(groups[1].data.map((item) => item.id)).toEqual([today.id]);
+  });
+
+  test('omits the running section rather than showing a heading with nothing under it', () => {
     const groups = groupMyTasks([task({ status: 'assigned' })]);
 
-    expect(groups.map((group) => group.key)).toEqual(['upcoming']);
+    expect(groups.map((group) => group.kind)).toEqual(['day']);
   });
 });
 
