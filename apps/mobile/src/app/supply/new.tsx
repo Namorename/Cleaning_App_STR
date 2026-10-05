@@ -13,7 +13,6 @@ import {
   draftItemsPayload,
   draftOfRequest,
   emptySupplyDraft,
-  newItemDraft,
   type SupplyDraft,
 } from '@/features/supplies/schema';
 import { SupplyForm } from '@/features/supplies/supply-form';
@@ -49,7 +48,7 @@ export default function SupplyFormRoute() {
 
   const [requestId] = useState(() => editingId ?? randomUUID());
   const [draft, setDraft] = useState<SupplyDraft | null>(() =>
-    editingId === null ? emptySupplyDraft(randomUUID()) : null,
+    editingId === null ? emptySupplyDraft() : null,
   );
 
   const existing = useSupplyRequest(editingId ?? '');
@@ -124,9 +123,7 @@ export default function SupplyFormRoute() {
       <SupplyForm
         draft={draft}
         onChange={setDraft}
-        onAddItem={() =>
-          setDraft({ ...draft, items: [...draft.items, newItemDraft(randomUUID())] })
-        }
+        newKey={randomUUID}
         place={place}
         catalog={catalog.data ?? []}
         isSubmitting={save.isPending && !save.isPaused}

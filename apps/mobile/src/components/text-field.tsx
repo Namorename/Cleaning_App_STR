@@ -31,6 +31,12 @@ export interface TextFieldProps extends Omit<TextInputProps, 'style' | 'editable
   /** What is wrong with what she typed, in her language. */
   error?: string | null;
   isDisabled?: boolean;
+  /**
+   * What the reader hears in place of the label, when the label leans on what
+   * stands above it: «Уточнение» under each line of a supply request is heard
+   * as «Мешки для мусора: уточнение».
+   */
+  accessibilityLabel?: string;
   /** Layout of the whole field — a margin, a flex. */
   style?: StyleProp<ViewStyle>;
   ref?: Ref<TextInput>;
@@ -47,6 +53,7 @@ export function TextField({
   hint,
   error = null,
   isDisabled = false,
+  accessibilityLabel,
   style,
   onFocus,
   onBlur,
@@ -77,8 +84,8 @@ export function TextField({
       <TextInput
         {...input}
         ref={ref}
-        accessibilityLabel={label}
-        accessibilityLabelledBy={labelId}
+        accessibilityLabel={accessibilityLabel ?? label}
+        accessibilityLabelledBy={accessibilityLabel === undefined ? labelId : undefined}
         accessibilityHint={hint}
         accessibilityState={{ disabled: isDisabled }}
         editable={!isDisabled}

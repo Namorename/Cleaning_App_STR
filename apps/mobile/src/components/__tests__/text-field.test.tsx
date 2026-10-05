@@ -81,6 +81,23 @@ test('a field of one line keeps the button height', async () => {
   expect(inputStyle('Название').minHeight).toBe(BUTTON_HEIGHT);
 });
 
+// A field under each line of a supply request: the eye reads «Уточнение»
+// under the line's name, the reader has to hear which line it belongs to.
+test('a label of its own for the reader, when the visible one leans on what is above it', async () => {
+  await render(
+    <TextField
+      label="Уточнение"
+      accessibilityLabel="Мешки для мусора: уточнение"
+      value=""
+      onChangeText={jest.fn()}
+    />,
+  );
+
+  expect(screen.getByText('Уточнение')).toBeTruthy();
+  expect(screen.getByLabelText('Мешки для мусора: уточнение')).toBeTruthy();
+  expect(screen.queryByLabelText('Уточнение')).toBeNull();
+});
+
 test('disabled: not editable, and says so', async () => {
   await render(<TextField label="Название" value="Кран" isDisabled onChangeText={jest.fn()} />);
 

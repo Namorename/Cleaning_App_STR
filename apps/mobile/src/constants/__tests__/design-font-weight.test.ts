@@ -46,7 +46,6 @@ const ALLOWANCE: Readonly<Record<string, number>> = {
   'features/steps/step-task-note.tsx': 1,
   'features/supplies/supply-card.tsx': 3,
   'features/supplies/supply-detail.tsx': 6,
-  'features/supplies/supply-form.tsx': 7,
   'features/supplies/supply-list.tsx': 1,
   'features/tasks/push-notice.tsx': 2,
   'features/tasks/task-detail.tsx': 7,
