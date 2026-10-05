@@ -27,7 +27,7 @@ import {
   urgencyText,
   windowLines,
 } from './format';
-import { isRunning, type CleaningTask } from './schema';
+import { calendarDay, isRunning, type CleaningTask } from './schema';
 
 interface TaskCardProps {
   task: CleaningTask;
@@ -51,6 +51,16 @@ interface TaskCardProps {
  * the place's room. Grows with the system font (`WindowColumn`).
  */
 const WINDOW_COLUMN_WIDTH = 64;
+
+/**
+ * From this system font on, a column grown with the type would leave the place
+ * too little room (at a doubled font about 70 dp on a small phone, the name cut
+ * after two lines): the times stand above the place instead.
+ */
+const STACK_FONT_SCALE = 1.5;
+
+/** The column of a stacked row: a line across the row, no width of its own. */
+const STACKED_COLUMN = { alignSelf: 'stretch' } as const;
 
 /** The ▶ before «Сейчас»: a triangle 8 dp high and about as wide. */
 const PLAY_HALF_HEIGHT = Spacing.xs;
@@ -142,7 +152,16 @@ function TaskCardComponent({
 }: TaskCardProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const { fontScale } = useWindowDimensions();
+  const isStacked = fontScale >= STACK_FONT_SCALE;
   const text = rowText(task, t);
+  // «В работе» is a section without a day: a cleaning planned for another day
+  // and still running says its day, or it would pass for today's.
+  const day =
+    isNow && task.scheduled_date !== calendarDay(new Date())
+      ? formatDayHeading(task.scheduled_date)
+      : null;
+  const bodyStyle = [styles.body, isStacked && styles.bodyStacked, isNow && styles.bodyNow];
   const marks: RowMarks = {
     isNow,
     isRunning: isRunning(task),
@@ -154,8 +173,8 @@ function TaskCardComponent({
 
   const summary = (
     <>
-      <WindowColumn task={task} checkIn={text.checkIn} />
-      <View style={styles.what}>
+      <WindowColumn task={task} checkIn={text.checkIn} day={day} fontScale={fontScale} />
+      <View style={[styles.what, isStacked && styles.whatStacked]}>
         {/* Two lines: a room can be called "Unit 8 - 3rd floor", and the system
             font can be set large. */}
         <Text weight={700} numberOfLines={2}>
@@ -177,7 +196,7 @@ function TaskCardComponent({
   // element whole, and a button inside one is out of its reach.
   const facts =
     onPress === undefined ? (
-      <View style={[styles.body, isNow && styles.bodyNow]} accessible accessibilityLabel={label}>
+      <View style={bodyStyle} accessible accessibilityLabel={label}>
         {summary}
       </View>
     ) : (
@@ -185,7 +204,7 @@ function TaskCardComponent({
         accessibilityRole="button"
         accessibilityLabel={label}
         onPress={() => onPress(task.id)}
-        style={({ pressed }) => [styles.body, isNow && styles.bodyNow, pressed && styles.pressed]}
+        style={({ pressed }) => [...bodyStyle, pressed && styles.pressed]}
       >
         {summary}
       </Pressable>
@@ -212,19 +231,26 @@ export const TaskCard = memo(TaskCardComponent);
 interface WindowColumnProps {
   task: CleaningTask;
   checkIn: string | null;
+  /** The day, on work under way planned for another day; null otherwise. */
+  day: string | null;
+  /** The system font's scale: the column grows with it, then gives way. */
+  fontScale: number;
 }
 
 /**
  * The two times she plans by, together: the window large, the check-in under
  * it. The column is as wide as the type is large — at a large system font a
  * fixed width would cut "10:00" in two — and the same on every row, so the
- * places line up.
+ * places line up. From `STACK_FONT_SCALE` on it has no width of its own: the
+ * row stacks, and the column is a line above the place.
  */
-function WindowColumn({ task, checkIn }: WindowColumnProps) {
+function WindowColumn({ task, checkIn, day, fontScale }: WindowColumnProps) {
   const theme = useTheme();
-  const { fontScale } = useWindowDimensions();
   const width = useMemo(
-    () => ({ width: WINDOW_COLUMN_WIDTH * Math.max(1, fontScale) }),
+    () =>
+      fontScale >= STACK_FONT_SCALE
+        ? STACKED_COLUMN
+        : { width: WINDOW_COLUMN_WIDTH * Math.max(1, fontScale) },
     [fontScale],
   );
   const window = windowLines(task);
@@ -233,13 +259,20 @@ function WindowColumn({ task, checkIn }: WindowColumnProps) {
     <View testID="task-window" style={width}>
       {window === null ? null : (
         <>
-          <Text variant="title">{window.first}</Text>
+          {/* One edge alone is a time and a dash, too long for the title size:
+              it takes the end's size. */}
+          <Text variant={window.second === null ? 'caption' : 'title'}>{window.first}</Text>
           {window.second === null ? null : (
             <Text variant="caption" tone="secondary">
               {window.second}
             </Text>
           )}
         </>
+      )}
+      {day === null ? null : (
+        <Text variant="caption" tone="secondary">
+          {day}
+        </Text>
       )}
       {checkIn === null ? null : (
         <Text variant="caption" color={statusTone(theme, 'phone.checkIn.sameDay').fg}>
@@ -375,8 +408,12 @@ const createStyles = (theme: Theme) =>
     // The stripe takes its width from the padding, so the times of the
     // current cards line up with the rest.
     bodyNow: { paddingLeft: Spacing.md - SIZE.nowStripe },
+    // At the largest fonts: the times on a line above the place.
+    bodyStacked: { flexDirection: 'column', alignItems: 'stretch', gap: Spacing.xs },
     pressed: { backgroundColor: theme.surfaceAlt },
     what: { flex: 1, gap: Spacing.xs },
+    // In a column the place sizes to its lines, rather than share a height.
+    whatStacked: { flexGrow: 0, flexShrink: 1, flexBasis: 'auto' },
     marks: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
     // A square for a gloved finger, wider only as far as the word needs; the
     // gap of the card keeps it apart from the row it does not open.

@@ -3,7 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react-native
 import { Dimensions, StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
 import { TaskCard } from '../task-card';
-import type { CleaningTask } from '../schema';
+import { calendarDay, type CleaningTask } from '../schema';
 
 /**
  * A cleaning as one row of a list (5.4, «Списки уборок», variant 1): the
@@ -43,6 +43,7 @@ function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
 }
 
 const TASK_ID = '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b';
+const OTHER_ID = '9d2ff806-4bea-4aa5-be3c-1b07a629dbee';
 
 /** A same-day turnover: the next guest checks in at 13:00 UTC. */
 const turnover = (overrides: Partial<CleaningTask> = {}) =>
@@ -139,29 +140,74 @@ describe('the two times', () => {
     expect(screen.queryByText(/ · до \d{2}:\d{2}/)).toBeNull();
   });
 
+  /** The phone's font at `fontScale`, on a 390 dp screen. */
+  const atFontScale = (fontScale: number) =>
+    jest.spyOn(Dimensions, 'get').mockReturnValue({ width: 390, height: 844, scale: 3, fontScale });
+
   test('the column of the times grows with the system font, so a time is never cut', async () => {
-    // Arrange: the same phone with the font at its normal size, then doubled.
+    // Arrange: the same phone with the font at its normal size, then a step up.
     const widthAt = async (fontScale: number): Promise<unknown> => {
-      jest
-        .spyOn(Dimensions, 'get')
-        .mockReturnValue({ width: 390, height: 844, scale: 3, fontScale });
+      atFontScale(fontScale);
       await render(<TaskCard task={turnover()} />);
       return styleOf(screen.getByTestId('task-window')).width;
     };
 
     // Act
     const normal = await widthAt(1);
-    const large = await widthAt(2);
+    const larger = await widthAt(1.25);
 
     // Assert
     expect(typeof normal).toBe('number');
-    expect(large).toBe((normal as number) * 2);
+    expect(larger).toBe((normal as number) * 1.25);
+  });
+
+  // The review of 05.10: grown without end, the column left the place 70 dp at
+  // a doubled font — the name cut after two lines. At the largest fonts the
+  // times stand above the place instead, and the place keeps the row's width.
+  test('at the largest fonts the times stand above the place', async () => {
+    atFontScale(2);
+
+    await render(<TaskCard task={turnover()} onPress={jest.fn()} />);
+
+    expect(styleOf(screen.getByTestId('task-window')).width).toBeUndefined();
+    const body = screen.getByRole('button', { name: /^CZ - Nadrazni Apt 6\./ });
+    expect(styleOf(body).flexDirection).toBe('column');
+  });
+
+  // The review of 05.10: one edge alone is a whole time and a dash — too long
+  // for the title size in the column. It is drawn in the size of the end.
+  test('a window with one edge is drawn smaller than a start', async () => {
+    await render(
+      <>
+        <TaskCard task={task({ time_from: '10:00:00', time_to: '15:00:00' })} />
+        <TaskCard task={task({ id: OTHER_ID, time_from: '10:00:00', time_to: null })} />
+      </>,
+    );
+
+    const start = styleOf(screen.getByText('10:00'));
+    expect(styleOf(screen.getByText('10:00–')).fontSize).toBeLessThan(start.fontSize ?? 0);
   });
 
   test('a row does not repeat its day: the heading of its section says it', async () => {
     await render(<TaskCard task={task()} />);
 
     expect(screen.queryByText(/10 ноября/)).toBeNull();
+  });
+
+  // The review of 05.10: «В работе» is a section without a day, so a cleaning
+  // planned for another day and still running looked like today's. Such a row
+  // says its day under the window; today's does not.
+  test('work under way planned for another day says its day; today’s does not', async () => {
+    await render(
+      <>
+        <TaskCard task={task({ scheduled_date: '2026-11-10' })} isNow />
+        <TaskCard task={task({ id: OTHER_ID, scheduled_date: calendarDay(new Date()) })} isNow />
+      </>,
+    );
+
+    const [earlier] = screen.getAllByTestId('task-window');
+    expect(within(earlier).getByText(/10 ноября/)).toBeTruthy();
+    expect(screen.queryByText('Сегодня')).toBeNull();
   });
 });
 

@@ -31,7 +31,8 @@ interface TaskListProps {
   /** Her own list: accepting a cleaning without opening it. */
   onAccept?: (task: CleaningTask) => void;
   onPress?: (taskId: string) => void;
-  claimingTaskId?: string | null;
+  /** Free cleanings whose claim is on its way; several may be at once. */
+  claimingTaskIds?: ReadonlySet<string>;
   /** Her cleanings whose accept is on its way; several may be at once. */
   acceptingTaskIds?: ReadonlySet<string>;
   /** The jobs somebody has written about since she last looked. */
@@ -65,7 +66,7 @@ export function TaskList({
   onClaim,
   onAccept,
   onPress,
-  claimingTaskId = null,
+  claimingTaskIds,
   acceptingTaskIds,
   unreadTaskIds,
   unreadProblemIds,
@@ -81,7 +82,7 @@ export function TaskList({
         onClaim={onClaim}
         onAccept={onAccept}
         onPress={onPress}
-        isClaiming={claimingTaskId === item.id}
+        isClaiming={claimingTaskIds?.has(item.id) ?? false}
         isAccepting={acceptingTaskIds?.has(item.id) ?? false}
         hasUnread={
           (unreadTaskIds?.has(item.id) ?? false) ||
@@ -90,7 +91,7 @@ export function TaskList({
         isNow={section.kind === 'running'}
       />
     ),
-    [onClaim, onAccept, onPress, claimingTaskId, acceptingTaskIds, unreadTaskIds, unreadProblemIds],
+    [onClaim, onAccept, onPress, claimingTaskIds, acceptingTaskIds, unreadTaskIds, unreadProblemIds],
   );
 
   const keyExtractor = useCallback((item: CleaningTask) => item.id, []);
