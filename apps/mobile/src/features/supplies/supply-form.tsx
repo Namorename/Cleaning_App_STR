@@ -1,7 +1,7 @@
 import { HeaderHeightContext } from 'expo-router/react-navigation';
 import { use, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FlatList, KeyboardAvoidingView, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, FlatList, KeyboardAvoidingView, Pressable, StyleSheet, View } from 'react-native';
 
 import { ActionBar } from '@/components/action-bar';
 import { Button } from '@/components/button';
@@ -96,15 +96,45 @@ export function SupplyForm({
   const count = t('supplies.itemCount', { count: filledItems(draft).length });
   const rows = cartRows(draft, catalog, query);
 
+  // A line that carries her words — a comment, or a name the catalogue does
+  // not have — asks before it leaves: a step to zero took them with it, with
+  // no way back (the review of 05.10). «Отмена» keeps it, at one if it fell to
+  // zero; a tap beside the question is «Отмена» too.
+  const remove = (line: SupplyItemDraft) => {
+    const leaveIt = () => onChange(withoutLine(draft, line.key));
+    if (line.comment.trim() === '' && line.catalogItemId !== null) {
+      leaveIt();
+      return;
+    }
+    const keep = () => {
+      if (isZeroQuantity(line.quantity)) {
+        onChange(withQuantity(draft, line.key, '1'));
+      }
+    };
+    Alert.alert(
+      t('supplies.removeLineTitle', { name: line.name }),
+      t('supplies.removeLineBody'),
+      [
+        { text: t('common.cancel'), style: 'cancel', onPress: keep },
+        { text: t('supplies.removeLine'), style: 'destructive', onPress: leaveIt },
+      ],
+      { cancelable: true, onDismiss: keep },
+    );
+  };
+
   const actions: LineActions = {
     step: (line, delta) => {
       const next = stepQuantity(line.quantity, delta);
-      onChange(next === null ? withoutLine(draft, line.key) : withQuantity(draft, line.key, next));
+      if (next === null) {
+        remove(line);
+      } else {
+        onChange(withQuantity(draft, line.key, next));
+      }
     },
     type: (line, text) => onChange(withQuantity(draft, line.key, text)),
     leave: (line) => {
       if (isZeroQuantity(line.quantity)) {
-        onChange(withoutLine(draft, line.key));
+        remove(line);
       }
     },
   };

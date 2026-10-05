@@ -60,7 +60,11 @@ export function QuantityStepper({
         editable={!isDisabled}
         keyboardType="decimal-pad"
         selectTextOnFocus
-        value={value}
+        // A row not in the request is empty with «0» as its hint: there is no
+        // «0» to delete first, and a typed «5» is 5, not «05».
+        value={isInRequest ? value : ''}
+        placeholder={isInRequest ? undefined : '0'}
+        placeholderTextColor={theme.textSecondary}
         onChangeText={onChangeText}
         onFocus={() => setIsFocused(true)}
         onBlur={() => {

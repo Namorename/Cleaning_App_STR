@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { HeaderHeightContext } from 'expo-router/react-navigation';
-import { StyleSheet, type ViewStyle } from 'react-native';
+import { Alert, StyleSheet, type ViewStyle } from 'react-native';
 
 import { BUTTON_HEIGHT, MIN_TOUCH_TARGET } from '@/constants/theme';
 
@@ -111,7 +111,11 @@ describe('the catalogue is the form', () => {
     expect(screen.getByText('Средство для стёкол')).toBeTruthy();
     expect(screen.getByText('л')).toBeTruthy();
     expect(screen.getByText('Мешки для мусора')).toBeTruthy();
-    expect(screen.getByLabelText('Мешки для мусора: количество').props.value).toBe('0');
+    // Empty with «0» as its hint, not a «0» to delete first: a typed «5» is 5,
+    // not «05» (the review of 05.10).
+    const idle = screen.getByLabelText('Мешки для мусора: количество');
+    expect(idle.props.value).toBe('');
+    expect(idle.props.placeholder).toBe('0');
     expect(screen.getByRole('button', { name: 'Мешки для мусора: на одну меньше' })).toBeDisabled();
   });
 
@@ -140,6 +144,66 @@ describe('the catalogue is the form', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Мешки для мусора: на одну меньше' }));
 
     expect(onChange).toHaveBeenCalledWith(withItems());
+  });
+
+  // The review of 05.10: a step to zero took her words with the line — the
+  // comment, or the name she typed — with no way back. Such a line asks first.
+  describe('a line that carries her words asks before it leaves', () => {
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    /** The question's buttons, as the test would press them. */
+    function asked(alert: jest.SpyInstance): { text?: string; onPress?: () => void }[] {
+      expect(alert).toHaveBeenCalledWith(
+        expect.stringMatching(/^Убрать «.+» из заявки\?$/),
+        'То, что вы написали к ней, пропадёт.',
+        expect.any(Array),
+        // A tap beside the question keeps the line, as «Отмена» does.
+        expect.objectContaining({ cancelable: true }),
+      );
+      return alert.mock.calls[0][2] as { text?: string; onPress?: () => void }[];
+    }
+    const press = (buttons: { text?: string; onPress?: () => void }[], text: string) =>
+      buttons.find((button) => button.text === text)?.onPress?.();
+
+    test('a comment: − at one asks, «Убрать» takes it out, «Отмена» keeps it', async () => {
+      const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+      const line = { ...catalogLine('k1', bags, 'ru', '1'), comment: 'для кухни' };
+      const { onChange } = await renderForm(withItems(line));
+
+      await fireEvent.press(screen.getByRole('button', { name: 'Мешки для мусора: на одну меньше' }));
+
+      expect(onChange).not.toHaveBeenCalled();
+      const buttons = asked(alert);
+      press(buttons, 'Отмена');
+      expect(onChange).not.toHaveBeenCalled();
+      press(buttons, 'Убрать');
+      expect(onChange).toHaveBeenCalledWith(withItems());
+      alert.mockRestore();
+    });
+
+    test('a name of her own asks too', async () => {
+      const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+      await renderForm(withItems(own('o1', 'Свечи')));
+
+      await fireEvent.press(screen.getByRole('button', { name: 'Свечи: на одну меньше' }));
+
+      expect(alert.mock.calls[0][0]).toBe('Убрать «Свечи» из заявки?');
+      alert.mockRestore();
+    });
+
+    test('a field left at zero asks, and «Отмена» brings the line back to one', async () => {
+      const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+      const line = { ...catalogLine('k1', glass, 'ru', '0'), comment: 'для окон' };
+      const { onChange } = await renderForm(withItems(line));
+
+      await fireEvent(screen.getByLabelText('Средство для стёкол: количество'), 'blur');
+
+      press(asked(alert), 'Отмена');
+      expect(onChange).toHaveBeenCalledWith(withItems({ ...line, quantity: '1' }));
+      alert.mockRestore();
+    });
   });
 
   test('the number is typed too, decimals as before; typing on a row at zero starts its line', async () => {
@@ -282,6 +346,10 @@ describe('manual entry', () => {
   });
 
   test('her own line stands above the catalogue, with its stepper, and leaves at zero', async () => {
+    // Her own name is her words: the line asks first, and «Убрать» takes it out.
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation((_title, _body, buttons) =>
+      buttons?.find((button) => button.text === 'Убрать')?.onPress?.(),
+    );
     const { onChange } = await renderForm(withItems(own('k1', 'Губки')));
 
     const names = screen.getAllByText(/^(Губки|Средство для стёкол|Мешки для мусора)$/);
@@ -293,6 +361,7 @@ describe('manual entry', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Губки: на одну меньше' }));
 
     expect(onChange).toHaveBeenCalledWith(withItems());
+    alert.mockRestore();
   });
 
   test('her own line opens in the sheet to be changed', async () => {
