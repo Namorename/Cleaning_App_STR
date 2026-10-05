@@ -64,7 +64,10 @@ export function ProblemsTable({ problems }: ProblemsTableProps) {
                       {problem.title}
                     </Link>
                     {unread.problems.has(problem.id) ? (
-                      <UnreadChatLink href={problemChatHref(problem.id, 'list')} />
+                      <UnreadChatLink
+                        href={problemChatHref(problem.id, 'list')}
+                        about={problem.title}
+                      />
                     ) : null}
                   </div>
                 </TableCell>

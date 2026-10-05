@@ -588,7 +588,7 @@ describe('maintenance', () => {
 
     const report = screen.getByRole('link', { name: 'Течёт кран' }).closest('li') as HTMLElement;
     expect(
-      within(report).getByRole('link', { name: 'Новое сообщение — открыть разговор' }),
+      within(report).getByRole('link', { name: 'Новое сообщение — открыть разговор: Течёт кран' }),
     ).toHaveAttribute('href', `/problems/${reports[0].id}?chat=1`);
     const otherReport = screen
       .getByRole('link', { name: 'Не закрывается окно' })

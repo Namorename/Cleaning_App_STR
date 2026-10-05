@@ -116,6 +116,16 @@ describe('the mark of an unread message on a chip', () => {
     expect(dot.querySelector('[data-slot="chip-unread"]')).toHaveClass('bg-tone-unread-mark');
     expect(chipOf('Iva').querySelector('[data-slot="chip-unread"]')).toBeNull();
   });
+
+  // The review of 05.10: a 6 px pip 4 px out of a 7 px dot ran 2 px into the
+  // next dot, which painted over it. 4 px, 1 px out, its 1 px ring: within the gap.
+  test('the pip keeps to the gap between two dots', () => {
+    chips(DOT_WIDTH);
+
+    const pip = chipOf('Anna').querySelector('[data-slot="chip-unread"]');
+    expect(pip).toHaveClass('size-1', '-top-px', '-right-px', 'ring-1');
+    expect(pip).not.toHaveClass('size-1.5');
+  });
 });
 
 describe('the mark of an unread message behind «+N»', () => {

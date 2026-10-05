@@ -557,7 +557,7 @@
     "chat": {
       "title": "Konverzace",
       "open": "Konverzace",
-      "openUnread": "Nová zpráva — otevřít konverzaci",
+      "openUnread": "Nová zpráva — otevřít konverzaci: {{about}}",
       "loading": "Načítáme konverzaci…",
       "loadError": "Konverzaci se nepodařilo otevřít",
       "empty": "Zatím nikdo nic nenapsal",

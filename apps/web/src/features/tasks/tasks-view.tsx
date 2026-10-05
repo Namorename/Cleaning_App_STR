@@ -78,6 +78,9 @@ export function TasksView() {
     cancel.mutate(task.id);
     setConfirming(null);
   };
+  /** A row's «⋯»: where the focus goes back when the menu or drawer that led away is gone. */
+  const rowMenuOf = (taskId: string) =>
+    document.querySelector<HTMLElement>(`[data-task-menu="${taskId}"]`);
   // One sheet at a time: the drawer's «Разговор» puts the drawer away.
   const openChat = (task: Task) => {
     setReading(null);
@@ -150,8 +153,14 @@ export function TasksView() {
       {talking === null ? null : (
         <ChatSheet
           subject={{ taskId: talking.id }}
-          about={taskSummary(talking, language, t)}
+          // The row as it is now: an edit while the sheet is open shows in its head.
+          about={taskSummary(
+            (data ?? []).find((task) => task.id === talking.id) ?? talking,
+            language,
+            t,
+          )}
           onClose={() => setTalking(null)}
+          returnFocus={() => rowMenuOf(talking.id)}
         />
       )}
       {confirming === null ? null : (

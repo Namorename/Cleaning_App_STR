@@ -177,6 +177,8 @@ function ChipLinkOrButton({
   return (
     <button
       type="button"
+      // Where a conversation reached through its drawer hands the focus back.
+      data-task-chip={task.id}
       aria-label={label}
       title={label}
       className={className}
@@ -288,12 +290,13 @@ export function TaskChips({
                   height: DOT_SIZE,
                 }}
               >
-                {/* No room beside a dot: the pip sits on its corner. */}
+                {/* No room beside a dot: the pip sits on its corner — 4 px, 1 px
+                    out and its 1 px ring, within the 2 px gap to the next dot. */}
                 {text.hasUnread ? (
                   <span
                     aria-hidden="true"
                     data-slot="chip-unread"
-                    className="absolute -top-1 -right-1 size-1.5 rounded-full bg-tone-unread-mark ring-1 ring-background"
+                    className="absolute -top-px -right-px size-1 rounded-full bg-tone-unread-mark ring-1 ring-background"
                   />
                 ) : null}
               </ChipLinkOrButton>

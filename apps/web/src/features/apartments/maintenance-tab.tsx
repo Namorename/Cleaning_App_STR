@@ -105,6 +105,10 @@ export function MaintenanceTab({ property }: MaintenanceTabProps) {
                 {job.assignee_name === null ? null : (
                   <Person name={job.assignee_name} role="tech" className="text-xs" />
                 )}
+                {/* A job's own thread only, and no way into it from here: the
+                    rows of property_maintenance_tasks carry no problem_id, so a
+                    repair talking in its report's thread is marked on the
+                    report below (the review of 05.10; the function is schema). */}
                 {unread.tasks.has(job.id) ? <UnreadBadge /> : null}
                 <StatusBadge status={statusKey('tasks', job.status)}>
                   {t(`panel.tasks.statuses.${job.status}`)}
@@ -141,7 +145,10 @@ export function MaintenanceTab({ property }: MaintenanceTabProps) {
                   )}
                 </span>
                 {unread.problems.has(report.id) ? (
-                  <UnreadChatLink href={problemChatHref(report.id, 'board')} />
+                  <UnreadChatLink
+                    href={problemChatHref(report.id, 'board')}
+                    about={report.title}
+                  />
                 ) : null}
                 {/* Shared with the phone: one wording for a report's state. */}
                 <StatusBadge status={statusKey('problems', report.status)}>

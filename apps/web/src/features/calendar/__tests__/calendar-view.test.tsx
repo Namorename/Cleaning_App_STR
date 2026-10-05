@@ -166,9 +166,17 @@ vi.mock('@/features/tasks/task-drawer', () => ({
   ),
 }));
 vi.mock('@/features/chat/chat-sheet', () => ({
-  ChatSheet: (props: { subject: Record<string, string>; about: string }) => (
+  ChatSheet: (props: {
+    subject: Record<string, string>;
+    about: string;
+    returnFocus?: () => HTMLElement | null;
+  }) => (
     <div role="dialog" aria-label="Разговор">
       {`${Object.values(props.subject).join(',')} · ${props.about}`}
+      {/* Where the real sheet sends the focus when it closes. */}
+      <button type="button" onClick={() => props.returnFocus?.()?.focus()}>
+        Вернуть фокус
+      </button>
     </div>
   ),
 }));
@@ -625,6 +633,20 @@ describe('task chips', () => {
       `${done.id} · Уборка · Anglicka 7`,
     );
     expect(screen.queryByRole('dialog', { name: 'Шторка уборки' })).toBeNull();
+  });
+
+  // The review of 05.10: the drawer that led to the conversation is gone when
+  // it closes; the focus goes back to the chip, not to the page's body.
+  test('the conversation hands the focus back to the chip it came from', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    tasksState.data = [calendarTask(1, '2026-09-26', { status: 'done' })];
+    render(<CalendarView />);
+
+    await user.click(screen.getByRole('button', { name: /Выполнена/ }));
+    await user.click(screen.getByRole('button', { name: 'Разговор' }));
+    await user.click(screen.getByRole('button', { name: 'Вернуть фокус' }));
+
+    expect(screen.getByRole('button', { name: /Выполнена/ })).toHaveFocus();
   });
 
   test('a chip somebody wrote about says so in its name', () => {

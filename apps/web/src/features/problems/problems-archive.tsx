@@ -59,7 +59,10 @@ export function ProblemsArchive({ problems }: ProblemsArchiveProps) {
                   {t(`problems.statuses.${problem.status}`)}
                 </Badge>
                 {unread.problems.has(problem.id) ? (
-                  <UnreadChatLink href={problemChatHref(problem.id, 'archive')} />
+                  <UnreadChatLink
+                    href={problemChatHref(problem.id, 'archive')}
+                    about={problem.title}
+                  />
                 ) : null}
               </div>
               <span className="text-muted-foreground">

@@ -181,6 +181,8 @@ export function TaskRow({
       <TableCell className="py-0 text-right">
         <DropdownMenu>
           <DropdownMenuTrigger
+            // Where the conversation hands the focus back: its menu is gone by then.
+            data-task-menu={task.id}
             render={<Button type="button" variant="ghost" className="size-11" />}
             aria-label={t('panel.tasks.actions.menu', { name: taskSummary(task, language, t) })}
           >
@@ -238,7 +240,9 @@ function TaskMarks({ task, tail, hasUnread, onOpenChat }: TaskMarksProps) {
       {tail === null ? null : (
         <Badge tone={STATUS_TONE['tasks.tail']}>{tailLabel(task, tail, language, t)}</Badge>
       )}
-      {hasUnread ? <UnreadChatButton onOpen={onOpenChat} /> : null}
+      {hasUnread ? (
+        <UnreadChatButton onOpen={onOpenChat} about={taskSummary(task, language, t)} />
+      ) : null}
       <span className="text-xs text-muted-foreground">
         {task.reservation_id !== null ? t('panel.tasks.origin.booking') : null}
         {task.problem_id !== null ? t('panel.tasks.origin.problem') : null}

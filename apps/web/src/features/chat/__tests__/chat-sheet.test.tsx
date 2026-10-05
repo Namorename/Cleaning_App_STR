@@ -1,6 +1,7 @@
 import { THEME_COLORS } from '@str-ops/shared';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useRef, useState } from 'react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { contrastRatio } from '../../../../../../packages/shared/src/testing/color-math';
@@ -162,6 +163,41 @@ describe('ChatSheet', () => {
 
     await userEvent.keyboard('{Escape}');
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  // The review of 05.10: opened from a drawer's button or a menu's item — both
+  // gone by the time the sheet closes — the focus fell to the page's body, and
+  // a keyboard started again from the top. It goes where the caller says.
+  test('closed after what opened it is gone, it hands the focus where the caller says', async () => {
+    function Host() {
+      const [isOpen, setIsOpen] = useState(false);
+      const fallback = useRef<HTMLButtonElement>(null);
+      return (
+        <>
+          <button type="button" ref={fallback}>
+            Действия
+          </button>
+          {isOpen ? (
+            <ChatSheet
+              subject={{ taskId: TASK }}
+              about="Генеральная уборка · Vinohrady 12"
+              onClose={() => setIsOpen(false)}
+              returnFocus={() => fallback.current}
+            />
+          ) : (
+            <button type="button" onClick={() => setIsOpen(true)}>
+              Разговор из шторки
+            </button>
+          )}
+        </>
+      );
+    }
+    render(<Host />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Разговор из шторки' }));
+    await userEvent.keyboard('{Escape}');
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Действия' })).toHaveFocus());
   });
 
   test('an empty thread says so and marks nothing read', () => {

@@ -116,6 +116,10 @@ export function useTaskDialogs({ isStand, language, bookings, unread }: TaskDial
           subject={{ taskId: talking.id }}
           about={taskSummary(talking, language, t)}
           onClose={() => setTalking(null)}
+          // The drawer that led here is gone: back to the chip it came from.
+          returnFocus={() =>
+            document.querySelector<HTMLElement>(`[data-task-chip="${talking.id}"]`)
+          }
         />
       )}
       <CellTasksDialog

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
@@ -29,6 +29,12 @@ interface ChatSheetProps {
   /** What the conversation is about: a task's title, or a cleaning's name · place. */
   about: string;
   onClose: () => void;
+  /**
+   * Where the focus goes when the sheet closes, if what opened it is gone by
+   * then — a drawer's «Разговор», an item of a menu that closed. Absent, the
+   * dialog's own rule.
+   */
+  returnFocus?: () => HTMLElement | null;
 }
 
 /**
@@ -45,14 +51,28 @@ interface ChatSheetProps {
  * The transcript takes the height of the sheet and scrolls on its own, the
  * composer under it. On a phone the sheet is the whole width (decision 14).
  */
-export function ChatSheet({ subject, about, onClose }: ChatSheetProps) {
+export function ChatSheet({ subject, about, onClose, returnFocus }: ChatSheetProps) {
   const { t } = useTranslation();
   const audience =
     'taskId' in subject ? t('panel.chat.audienceTask') : t('panel.chat.audienceProblem');
+  // What had the focus as the sheet came: the dialog hands it back there, and
+  // when it has left the page meanwhile, to what the caller names.
+  const [opener] = useState(() =>
+    typeof document === 'undefined' ? null : document.activeElement,
+  );
+  const finalFocus = (): HTMLElement | boolean => {
+    if (opener instanceof HTMLElement && opener.isConnected) {
+      return opener;
+    }
+    return returnFocus?.() ?? true;
+  };
 
   return (
     <Sheet open onOpenChange={(next) => (next ? undefined : onClose())}>
-      <SheetContent className="gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-lg">
+      <SheetContent
+        finalFocus={finalFocus}
+        className="gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-lg"
+      >
         <SheetHeader className="border-b pr-12">
           <SheetTitle>{t('panel.chat.title')}</SheetTitle>
           <SheetDescription className="font-medium break-words text-foreground">

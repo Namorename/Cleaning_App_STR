@@ -1,7 +1,7 @@
 'use client';
 
 import { MessageSquare } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PageBackLink, PageHeader } from '@/components/page-header';
@@ -72,6 +72,9 @@ export function ProblemDetail({ problemId }: ProblemDetailProps) {
   return <ProblemPage problem={problem.data} backHref={backHref} chat={chat} />;
 }
 
+/** How long a close waits for its step back to land before it sets the address in place. */
+const LEAVE_FALLBACK_MS = 500;
+
 interface ChatAddress {
   address: ProblemPageAddress;
   isOpen: boolean;
@@ -110,6 +113,21 @@ function useChatAddress(): ChatAddress {
       setAddress({ ...address, chat: false });
     }
   };
+
+  // A step back that never lands — taken by another tab, or «Вперёд» came
+  // first — would leave the sheet hidden with `chat=1` in the address, and the
+  // next press would push a second one. After a moment the address is set
+  // right in place instead; a landing «Назад» clears the step before that.
+  useEffect(() => {
+    if (step !== 'leaving') {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setStep(null);
+      setAddress({ ...address, chat: false });
+    }, LEAVE_FALLBACK_MS);
+    return () => window.clearTimeout(timer);
+  }, [step, address, setAddress]);
 
   return { address, isOpen: address.chat && step !== 'leaving', open, close };
 }

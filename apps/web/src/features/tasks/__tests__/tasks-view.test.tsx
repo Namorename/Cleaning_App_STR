@@ -123,9 +123,17 @@ vi.mock('../use-tasks', () => ({
 // The conversation has its own tests; here it only has to open about the
 // right job, one sheet at a time.
 vi.mock('@/features/chat/chat-sheet', () => ({
-  ChatSheet: (props: { subject: Record<string, string>; about: string }) => (
+  ChatSheet: (props: {
+    subject: Record<string, string>;
+    about: string;
+    returnFocus?: () => HTMLElement | null;
+  }) => (
     <div role="dialog" aria-label="Разговор">
       {`${Object.values(props.subject).join(',')} · ${props.about}`}
+      {/* Where the real sheet sends the focus when it closes. */}
+      <button type="button" onClick={() => props.returnFocus?.()?.focus()}>
+        Вернуть фокус
+      </button>
     </div>
   ),
 }));
@@ -561,6 +569,21 @@ describe('TasksView', () => {
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
   }, 20000);
 
+  // The review of 05.10: the menu or the drawer that opened the conversation is
+  // gone when it closes; the focus goes back to the row's «⋯», not to the body.
+  test('the conversation hands the focus back to its row’s «⋯»', async () => {
+    render(<TasksView />);
+
+    const menu = await openMenu(rowOf('Вечерний осмотр'));
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Разговор' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Разговор' });
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Вернуть фокус' }));
+
+    expect(
+      within(rowOf('Вечерний осмотр')).getByRole('button', { name: /^Действия: / }),
+    ).toHaveFocus();
+  }, 20000);
+
   test('reads a finished cleaning and corrects the time without touching the measurement', async () => {
     render(<TasksView />);
 
@@ -652,7 +675,7 @@ describe('TasksView', () => {
 
     await userEvent.click(
       within(rowOf('Вечерний осмотр')).getByRole('button', {
-        name: 'Новое сообщение — открыть разговор',
+        name: /^Новое сообщение — открыть разговор: Вечерний осмотр/,
       }),
     );
 

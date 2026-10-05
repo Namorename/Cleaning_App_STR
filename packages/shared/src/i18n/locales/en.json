@@ -557,7 +557,7 @@
     "chat": {
       "title": "Conversation",
       "open": "Conversation",
-      "openUnread": "New message — open the conversation",
+      "openUnread": "New message — open the conversation: {{about}}",
       "loading": "Loading the conversation…",
       "loadError": "Could not open the conversation",
       "empty": "Nothing has been said yet",

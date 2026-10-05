@@ -267,7 +267,7 @@ describe('the mark of an unread message', () => {
     const one = task({});
     renderRow(one, true);
 
-    const mark = screen.getByRole('button', { name: 'Новое сообщение — открыть разговор' });
+    const mark = screen.getByRole('button', { name: /^Новое сообщение — открыть разговор: / });
     expect(mark).toHaveTextContent('Новое сообщение');
     expect(mark).toHaveClass('min-h-11');
     await userEvent.click(mark);

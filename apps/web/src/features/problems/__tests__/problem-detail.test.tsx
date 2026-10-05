@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, onTestFinished, test, vi } from 'vitest';
 
@@ -467,6 +467,34 @@ describe('the conversation of a task', () => {
       'href',
       '/problems?view=archive',
     );
+  });
+
+  // The review of 05.10: the close hid the sheet and waited for «Назад» to land.
+  // When it never does — the step was taken by another tab, or «Вперёд» came
+  // first — the sheet stayed hidden with `chat=1` in the address, and the next
+  // press pushed a second `chat=1`. Then the address is set right in place.
+  test('a close whose step back never lands takes the conversation out in place', async () => {
+    window.history.pushState(null, '', `/problems/${PROBLEM_ID}?view=list`);
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+    await userEvent.click(chatButton());
+    const steps = window.history.length;
+    const back = vi.spyOn(window.history, 'back').mockImplementation(() => {});
+    onTestFinished(() => back.mockRestore());
+
+    await userEvent.click(
+      within(screen.getByRole('dialog', { name: 'Разговор' })).getByRole('button', {
+        name: 'Закрыть',
+      }),
+    );
+
+    await waitFor(() => expect(query()).toBe('view=list'));
+    expect(window.history.length).toBe(steps);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    await userEvent.click(chatButton());
+    expect(query()).toBe('view=list&chat=1');
+    expect(window.history.length).toBe(steps + 1);
+    expect(screen.getByRole('dialog', { name: 'Разговор' })).toBeInTheDocument();
   });
 
   test('«Назад» while it is open closes it', async () => {
