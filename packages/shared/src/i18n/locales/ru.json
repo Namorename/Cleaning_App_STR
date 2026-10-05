@@ -1255,7 +1255,9 @@
   "media": {
     "takePhoto": "Снять фото",
     "remove": "Удалить",
+    "removePhoto": "Удалить фото {{index}}",
     "retry": "Повторить загрузку",
+    "retryPhoto": "Повторить загрузку фото {{index}}",
     "count": "{{taken}} из {{max}}",
     "photoAccessibility": "Фото {{index}}. {{status}}",
     "status": {

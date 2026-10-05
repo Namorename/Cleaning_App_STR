@@ -1,15 +1,13 @@
+import { HeaderHeightContext } from 'expo-router/react-navigation';
+import { use } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import { ActionBar } from '@/components/action-bar';
+import { Button } from '@/components/button';
+import { Text } from '@/components/text';
+import { TextField } from '@/components/text-field';
+import { MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
 import { MediaStrip, type StripItem } from '@/features/media/media-strip';
 import { PropertyPicker } from '@/features/properties/property-picker';
 import type { ReportProperty } from '@/features/properties/schema';
@@ -58,6 +56,11 @@ interface ProblemFormProps {
 /**
  * What is broken, in her words.
  *
+ * The owner's variant 1 (docs/design/decisions.md §2): filled from the top
+ * down with one hand — the photos first, then where, then what happened and
+ * the details — and the button pinned under the form instead of at the end of
+ * it, riding above the keyboard while she types.
+ *
  * Presentational: the route wires the camera and the queue in. The title is
  * the one thing the server insists on; the button stays grey until it is
  * there, mirroring the refusal rather than sending it to be refused.
@@ -83,129 +86,128 @@ export function ProblemForm({
 }: ProblemFormProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
-  const issue = problemDraftIssue(draft);
-  const canSubmit = issue === null && !isSubmitting;
+  // The keyboard's top is measured from the window's, the form's from under
+  // the header: the header's height is the difference. Outside a navigator
+  // (a test) there is no header.
+  const headerHeight = use(HeaderHeightContext) ?? 0;
   const failure = error === null ? null : serverErrorText(error);
 
   return (
-    <ScrollView
+    // Padding on both systems: the view measures how much of it the keyboard
+    // covers, so it adds nothing where the system has already made room, and
+    // with Android drawing edge to edge the system does not.
+    <KeyboardAvoidingView
       style={styles.screen}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
+      behavior="padding"
+      keyboardVerticalOffset={headerHeight}
     >
-      {place !== null ? <Text style={styles.place}>{place}</Text> : null}
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        {photos !== undefined ? (
+          <View style={styles.field}>
+            <Text tone="secondary">{t('problems.photosLabel')}</Text>
+            <Text variant="caption" tone="secondary">
+              {t('problems.photosHint', { max: MAX_PROBLEM_PHOTOS })}
+            </Text>
+            <MediaStrip
+              items={photos}
+              maxCount={MAX_PROBLEM_PHOTOS}
+              onCapture={onCapture}
+              onPickFromGallery={onPickFromGallery}
+              onRemove={onRemovePhoto}
+              isCapturing={isCapturing}
+              disabled={isSubmitting}
+            />
+          </View>
+        ) : null}
 
-      {onSelectProperty !== undefined ? (
-        <View style={styles.field}>
-          <Text style={styles.label}>{t('problems.place')}</Text>
+        {notice !== null ? (
+          <Text accessibilityLiveRegion="polite" tone="secondary">
+            {notice}
+          </Text>
+        ) : null}
+
+        {onSelectProperty !== undefined ? (
           <PropertyPicker
             properties={properties ?? []}
             selectedId={selectedPropertyId}
             onSelect={onSelectProperty}
             isLoading={isLoadingProperties}
           />
-        </View>
-      ) : null}
+        ) : place !== null ? (
+          <View style={styles.field}>
+            <Text tone="secondary">{t('problems.place')}</Text>
+            <Text>{place}</Text>
+          </View>
+        ) : null}
 
-      <View style={styles.field}>
-        <Text style={styles.label}>{t('problems.titleLabel')}</Text>
-        <TextInput
-          accessibilityLabel={t('problems.titleLabel')}
-          editable={!isSubmitting}
+        <TextField
+          label={t('problems.titleLabel')}
+          isDisabled={isSubmitting}
           maxLength={MAX_PROBLEM_TITLE}
           onChangeText={(title) => onChange({ ...draft, title })}
           placeholder={t('problems.titlePlaceholder')}
-          placeholderTextColor={styles.counter.color}
-          style={styles.input}
           value={draft.title}
         />
-      </View>
 
-      <View style={styles.field}>
-        <Text style={styles.label}>{t('problems.descriptionLabel')}</Text>
-        <TextInput
-          accessibilityLabel={t('problems.descriptionLabel')}
-          editable={!isSubmitting}
-          maxLength={MAX_PROBLEM_DESCRIPTION}
-          multiline
-          onChangeText={(description) => onChange({ ...draft, description })}
-          placeholder={t('problems.descriptionPlaceholder')}
-          placeholderTextColor={styles.counter.color}
-          style={[styles.input, styles.inputMultiline]}
-          textAlignVertical="top"
-          value={draft.description}
-        />
-        <Text style={styles.counter}>
-          {draft.description.length} / {MAX_PROBLEM_DESCRIPTION}
-        </Text>
-      </View>
-
-      <View style={styles.field}>
-        <Text style={styles.label}>{t('problems.priorityLabel')}</Text>
-        <View style={styles.chips} accessibilityRole="radiogroup">
-          {PROBLEM_PRIORITIES.map((priority) => (
-            <PriorityChip
-              key={priority}
-              priority={priority}
-              selected={draft.priority === priority}
-              disabled={isSubmitting}
-              onSelect={() => onChange({ ...draft, priority })}
-              styles={styles}
-            />
-          ))}
-        </View>
-      </View>
-
-      {photos !== undefined ? (
         <View style={styles.field}>
-          <Text style={styles.label}>{t('problems.photosLabel')}</Text>
-          <Text style={styles.hint}>{t('problems.photosHint', { max: MAX_PROBLEM_PHOTOS })}</Text>
-          <MediaStrip
-            items={photos}
-            maxCount={MAX_PROBLEM_PHOTOS}
-            onCapture={onCapture}
-            onPickFromGallery={onPickFromGallery}
-            onRemove={onRemovePhoto}
-            isCapturing={isCapturing}
-            disabled={isSubmitting}
+          <TextField
+            label={t('problems.descriptionLabel')}
+            isDisabled={isSubmitting}
+            maxLength={MAX_PROBLEM_DESCRIPTION}
+            multiline
+            onChangeText={(description) => onChange({ ...draft, description })}
+            placeholder={t('problems.descriptionPlaceholder')}
+            value={draft.description}
           />
+          <Text variant="caption" tone="secondary" align="right">
+            {draft.description.length} / {MAX_PROBLEM_DESCRIPTION}
+          </Text>
         </View>
-      ) : null}
 
-      {notice !== null ? (
-        <Text accessibilityLiveRegion="polite" style={styles.hint}>
-          {notice}
-        </Text>
-      ) : null}
-
-      {failure !== null ? (
-        <View accessibilityLiveRegion="polite" style={styles.failure}>
-          <Text style={styles.error}>{failure.text}</Text>
-          {failure.detail !== null ? (
-            <Text style={styles.errorDetail}>{failure.detail}</Text>
-          ) : null}
+        <View style={styles.field}>
+          <Text tone="secondary">{t('problems.priorityLabel')}</Text>
+          <View style={styles.chips} accessibilityRole="radiogroup">
+            {PROBLEM_PRIORITIES.map((priority) => (
+              <PriorityChip
+                key={priority}
+                priority={priority}
+                selected={draft.priority === priority}
+                disabled={isSubmitting}
+                onSelect={() => onChange({ ...draft, priority })}
+                styles={styles}
+              />
+            ))}
+          </View>
         </View>
-      ) : null}
+      </ScrollView>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={submitLabel}
-        accessibilityState={{ disabled: !canSubmit, busy: isSubmitting }}
-        disabled={!canSubmit}
-        onPress={onSubmit}
-        style={({ pressed }) => [
-          styles.button,
-          !canSubmit && styles.buttonDisabled,
-          pressed && styles.buttonPressed,
-        ]}
-      >
-        {isSubmitting ? (
-          <ActivityIndicator color={styles.buttonText.color} />
-        ) : (
-          <Text style={styles.buttonText}>{submitLabel}</Text>
-        )}
-      </Pressable>
-    </ScrollView>
+      <ActionBar isAtScreenEdge>
+        {failure !== null ? (
+          <View accessibilityLiveRegion="polite" style={styles.failure}>
+            <Text tone="danger" align="center">
+              {failure.text}
+            </Text>
+            {failure.detail !== null ? (
+              // The server's words, for passing on; a long one must not push
+              // the button off the screen.
+              <Text variant="caption" tone="secondary" align="center" numberOfLines={3}>
+                {failure.detail}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+        <Button
+          label={submitLabel}
+          onPress={onSubmit}
+          isDisabled={problemDraftIssue(draft) !== null}
+          isBusy={isSubmitting}
+        />
+      </ActionBar>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -230,57 +232,28 @@ function PriorityChip({ priority, selected, disabled, onSelect, styles }: Priori
       onPress={onSelect}
       style={[styles.chip, selected && styles.chipSelected]}
     >
-      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
+      <Text weight={600} tone={selected ? 'onPrimary' : 'default'}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
-
-const INPUT_MIN_HEIGHT = 120;
 
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.background },
     content: { padding: Spacing.lg, gap: Spacing.lg },
-    place: { color: theme.textSecondary, fontSize: FontSize.body },
     field: { gap: Spacing.xs },
-    label: { color: theme.textSecondary, fontSize: FontSize.caption, fontWeight: '700' },
-    hint: { color: theme.textSecondary, fontSize: FontSize.body },
-    input: {
-      minHeight: MIN_TOUCH_TARGET,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-      borderRadius: Radius.md,
-      padding: Spacing.md,
-      fontSize: FontSize.title,
-      color: theme.text,
-      backgroundColor: theme.card,
-    },
-    inputMultiline: { minHeight: INPUT_MIN_HEIGHT },
-    counter: { color: theme.textSecondary, fontSize: FontSize.caption, textAlign: 'right' },
     chips: { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },
     chip: {
       minHeight: MIN_TOUCH_TARGET,
       paddingHorizontal: Spacing.lg,
-      borderRadius: Radius.md,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: Radius.pill,
+      borderWidth: 1,
       borderColor: theme.border,
       backgroundColor: theme.card,
       justifyContent: 'center',
     },
     chipSelected: { backgroundColor: theme.primary, borderColor: theme.primary },
-    chipText: { color: theme.text, fontSize: FontSize.body, fontWeight: '600' },
-    chipTextSelected: { color: theme.onPrimary },
     failure: { gap: Spacing.xs },
-    error: { color: theme.danger, fontSize: FontSize.body, textAlign: 'center' },
-    errorDetail: { color: theme.textSecondary, fontSize: FontSize.caption, textAlign: 'center' },
-    button: {
-      minHeight: MIN_TOUCH_TARGET,
-      borderRadius: Radius.md,
-      backgroundColor: theme.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    buttonDisabled: { opacity: 0.5 },
-    buttonPressed: { opacity: 0.75 },
-    buttonText: { color: theme.onPrimary, fontSize: FontSize.title, fontWeight: '600' },
   });

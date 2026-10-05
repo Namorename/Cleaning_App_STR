@@ -306,8 +306,8 @@ test('a chosen photo can be taken back before sending', async () => {
     />,
   );
 
-  // Act
-  await fireEvent.press(screen.getByRole('button', { name: 'Удалить' }));
+  // Act: the strip names the photo an action is for (media-strip.test.tsx).
+  await fireEvent.press(screen.getByRole('button', { name: 'Удалить фото 1' }));
 
   // Assert
   expect(onDiscardDraft).toHaveBeenCalledWith('d1');

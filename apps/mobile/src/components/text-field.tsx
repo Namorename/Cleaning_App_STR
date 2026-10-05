@@ -20,6 +20,9 @@ type BlurEvent = Parameters<NonNullable<TextInputProps['onBlur']>>[0];
 /** The weight of what she types: the body weight. */
 const INPUT_WEIGHT = 600;
 
+/** A field of several lines (`multiline`): room for a few of them before it scrolls. */
+const MULTILINE_MIN_HEIGHT = 120;
+
 export interface TextFieldProps extends Omit<TextInputProps, 'style' | 'editable'> {
   /** Shown above the field, and its name for a screen reader. */
   label: string;
@@ -86,6 +89,7 @@ export function TextField({
         style={[
           styles.input,
           face,
+          input.multiline === true && styles.multiline,
           isFocused && styles.focused,
           hasError && styles.invalid,
           isDisabled && styles.disabled,
@@ -122,6 +126,12 @@ const createStyles = (theme: Theme) =>
       fontSize: FontSize.body,
       color: theme.text,
       backgroundColor: theme.card,
+    },
+    // Written from the top, not from the middle of the box (Android's default).
+    multiline: {
+      minHeight: MULTILINE_MIN_HEIGHT,
+      paddingVertical: Spacing.md,
+      textAlignVertical: 'top',
     },
     // Two pixels where one was: the state shows in the width as well as the colour.
     focused: { borderWidth: 2, borderColor: theme.focusRing },

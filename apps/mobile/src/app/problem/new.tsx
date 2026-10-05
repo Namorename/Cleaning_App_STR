@@ -51,6 +51,10 @@ export default function NewProblemRoute() {
   // Asked for only when she is the one choosing: a report filed on a task is
   // already placed, and the list would be a question with one right answer.
   const places = useReportProperties();
+  // A cleaner with one place has nothing to choose: it comes chosen. A place
+  // she picked, or one the link brought, still wins.
+  const onlyPlaceId = places.data?.length === 1 ? places.data[0].id : null;
+  const placeId = chosenPropertyId ?? onlyPlaceId;
   const report = useReportProblem();
   const rememberLocal = useRememberLocalMedia();
 
@@ -103,7 +107,7 @@ export default function NewProblemRoute() {
       description: draft.description.trim(),
       priority: draft.priority,
       taskId,
-      propertyId: taskId === null ? chosenPropertyId : null,
+      propertyId: taskId === null ? placeId : null,
       photos,
     });
   };
@@ -115,7 +119,7 @@ export default function NewProblemRoute() {
       onChange={setDraft}
       place={task.data ? propertyName(task.data) : null}
       properties={places.data ?? []}
-      selectedPropertyId={chosenPropertyId}
+      selectedPropertyId={placeId}
       onSelectProperty={taskId === null ? setChosenPropertyId : undefined}
       isLoadingProperties={places.isPending}
       photos={items}

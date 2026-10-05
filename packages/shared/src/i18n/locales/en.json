@@ -1243,7 +1243,9 @@
   "media": {
     "takePhoto": "Take a photo",
     "remove": "Remove",
+    "removePhoto": "Remove photo {{index}}",
     "retry": "Retry the upload",
+    "retryPhoto": "Retry the upload of photo {{index}}",
     "count": "{{taken}} of {{max}}",
     "photoAccessibility": "Photo {{index}}. {{status}}",
     "status": {

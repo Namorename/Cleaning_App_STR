@@ -1255,7 +1255,9 @@
   "media": {
     "takePhoto": "Vyfotit",
     "remove": "Odstranit",
+    "removePhoto": "Odstranit fotku {{index}}",
     "retry": "Zkusit nahrát znovu",
+    "retryPhoto": "Zkusit nahrát znovu fotku {{index}}",
     "count": "{{taken}} z {{max}}",
     "photoAccessibility": "Fotka {{index}}. {{status}}",
     "status": {
