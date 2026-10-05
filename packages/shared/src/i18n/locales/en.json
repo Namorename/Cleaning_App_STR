@@ -51,6 +51,7 @@
       "digest": "Error code: {{digest}}"
     },
     "settings": {
+      "sections": "Settings sections",
       "account": "Account",
       "signedInAs": "Signed in as {{email}}.",
       "appearance": "Appearance",

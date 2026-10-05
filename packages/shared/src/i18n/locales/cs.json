@@ -51,6 +51,7 @@
       "digest": "Kód chyby: {{digest}}"
     },
     "settings": {
+      "sections": "Oddíly nastavení",
       "account": "Účet",
       "signedInAs": "Jste přihlášeni jako {{email}}.",
       "appearance": "Vzhled",

@@ -51,6 +51,7 @@
       "digest": "Код ошибки: {{digest}}"
     },
     "settings": {
+      "sections": "Разделы настроек",
       "account": "Аккаунт",
       "signedInAs": "Вы вошли как {{email}}.",
       "appearance": "Оформление",

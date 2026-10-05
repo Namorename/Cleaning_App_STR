@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { LabelledField } from '@/components/labelled-field';
 import { ErrorState, LoadingState } from '@/components/states';
 import { NativeSelect } from '@/components/ui/native-select';
 import { useProperties } from '@/features/team/use-team';
@@ -34,6 +35,7 @@ const NO_PROPERTY = '';
  */
 export function ProcessSection() {
   const { t } = useTranslation();
+  const id = useId();
   const properties = useProperties();
 
   const [scope, setScope] = useState<WorkflowScope>(WORKFLOW_SCOPES[0]);
@@ -65,10 +67,9 @@ export function ProcessSection() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-          {t('panel.settings.workflow.scope')}
+        <LabelledField id={`${id}-scope`} label={t('panel.settings.workflow.scope')}>
           <NativeSelect
-            aria-label={t('panel.settings.workflow.scope')}
+            id={`${id}-scope`}
             value={scope}
             onChange={(event) => setScope(event.target.value as WorkflowScope)}
           >
@@ -78,25 +79,23 @@ export function ProcessSection() {
               </option>
             ))}
           </NativeSelect>
-        </label>
+        </LabelledField>
 
-        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-          {t('panel.settings.workflow.target')}
+        <LabelledField id={`${id}-target`} label={t('panel.settings.workflow.target')}>
           <NativeSelect
-            aria-label={t('panel.settings.workflow.target')}
+            id={`${id}-target`}
             value={perProperty ? 'property' : 'default'}
             onChange={(event) => setPerProperty(event.target.value === 'property')}
           >
             <option value="default">{t('panel.settings.workflow.targetDefault')}</option>
             <option value="property">{t('panel.settings.workflow.targetProperty')}</option>
           </NativeSelect>
-        </label>
+        </LabelledField>
 
         {perProperty ? (
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            {t('panel.settings.workflow.property')}
+          <LabelledField id={`${id}-property`} label={t('panel.settings.workflow.property')}>
             <NativeSelect
-              aria-label={t('panel.settings.workflow.property')}
+              id={`${id}-property`}
               value={propertyId}
               onChange={(event) => setPropertyId(event.target.value)}
             >
@@ -109,7 +108,7 @@ export function ProcessSection() {
                 </option>
               ))}
             </NativeSelect>
-          </label>
+          </LabelledField>
         ) : null}
       </div>
 
