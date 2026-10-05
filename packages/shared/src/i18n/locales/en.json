@@ -277,7 +277,6 @@
       "board": {
         "dragHint": "Drag an open task to “Assigned”, or an assigned one back to “Open”; everything else is in the «⋯» menu",
         "dragRefused": "This cannot be dragged: move the card with its «⋯» menu — a task goes into work when the technician starts it in the app",
-        "dropHere": "Drop here",
         "moveTo": "Move to “{{status}}”",
         "cardMenu": "Actions: {{title}}",
         "unassigned": "The technician is taken off the job, the task is open again",
@@ -301,7 +300,6 @@
       }
     },
     "supplies": {
-      "title": "Supply requests",
       "tabs": {
         "new": "New",
         "inProgress": "In progress",
@@ -335,6 +333,8 @@
       "summary": {
         "open": "Purchase summary",
         "title": "Purchase summary",
+        "across": "Across all requests",
+        "acrossDates": "Across all requests of the chosen dates",
         "description": "Identical items from the selected requests are added up by name and unit.",
         "scope": "Include requests",
         "empty": "Nothing to purchase",

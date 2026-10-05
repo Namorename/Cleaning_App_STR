@@ -26,7 +26,7 @@ import {
 import { useSupplyRequests } from './use-supplies';
 
 /**
- * «Заявки на расходники» (5.4, variant B): the list of requests and the open
+ * «Заявки» (5.4, variant B): the list of requests and the open
  * one side by side — its lines, note, moves and files — instead of a big card
  * per request, two to a screen.
  *
@@ -74,7 +74,7 @@ export function SuppliesView() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title={t('panel.supplies.title')}
+        title={t('panel.nav.supplies')}
         actions={
           <>
             <Button
@@ -144,7 +144,12 @@ export function SuppliesView() {
         </div>
       )}
 
-      <PurchaseSummary requests={dated} open={isSummaryOpen} onOpenChange={setIsSummaryOpen} />
+      <PurchaseSummary
+        requests={dated}
+        isDated={address.dates.from !== '' || address.dates.to !== ''}
+        open={isSummaryOpen}
+        onOpenChange={setIsSummaryOpen}
+      />
       <CatalogDialog open={isCatalogOpen} onOpenChange={setIsCatalogOpen} />
     </div>
   );

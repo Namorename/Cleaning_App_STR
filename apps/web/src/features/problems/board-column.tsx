@@ -31,10 +31,10 @@ interface BoardColumnProps {
 
 /**
  * One column of the board: its status's tone and glyph at the head, the
- * count, the cards. While a card is dragged, the column it may go to says
- * so in words in its head and is outlined in the primary colour, dashed
- * (the review of 05.10: a faint ring alone was below 3:1); the card over it
- * turns the outline solid.
+ * count, the cards. While a card is dragged, the column it may go to is
+ * outlined in the primary colour, dashed (the review of 05.10: a faint ring
+ * alone was below 3:1); the card over it turns the outline solid. No words
+ * in the head — the owner (05.10) found «Можно сюда» one sign too many.
  */
 export function BoardColumn({
   status,
@@ -70,11 +70,6 @@ export function BoardColumn({
       />
       <header className="flex items-center justify-between gap-2 px-1">
         <StatusBadge status={`problems.${status}`}>{heading}</StatusBadge>
-        {isDroppable ? (
-          <span className="text-xs font-semibold text-primary">
-            {t('panel.problems.board.dropHere')}
-          </span>
-        ) : null}
         <span className="text-xs font-semibold text-muted-foreground tabular-nums">
           {problems.length}
         </span>

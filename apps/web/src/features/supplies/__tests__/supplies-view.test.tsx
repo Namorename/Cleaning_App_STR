@@ -171,7 +171,8 @@ describe('the page', () => {
   test('is headed by the common header, the catalogue and the summary among its actions', () => {
     render(<SuppliesView />);
 
-    expectPageTitle('Заявки на расходники');
+    // The owner, 05.10: the page is called what its menu item is called.
+    expectPageTitle('Заявки');
     const actions = screen
       .getByRole('heading', { level: 1 })
       .closest('[data-slot="page-header"]') as HTMLElement;
@@ -308,6 +309,27 @@ describe('the list of requests', () => {
       expect(one).toHaveClass('min-h-11');
     }
   });
+
+  // The owner, 05.10: «Все» is by the day a request was made, newest on top —
+  // not «Новая» first. The page sorts itself rather than trust the query's order.
+  test('«Все» lists by when a request was made, newest first, whatever its status', () => {
+    const made = (one: SupplyRequest, created_at: string) => ({ ...one, created_at });
+    listState.data = [
+      made(requests[0], '2026-09-01T08:00:00+00:00'),
+      made(requests[2], '2026-09-07T08:00:00+00:00'),
+      made(rejected, '2026-09-09T08:00:00+00:00'),
+      made(requests[1], '2026-09-03T08:00:00+00:00'),
+    ];
+    window.history.replaceState(null, '', '/supplies?tab=all');
+
+    render(<SuppliesView />);
+
+    const places = ['Žižkov 1', 'Smíchov 8', 'Karlín 3', 'Vinohrady 12'];
+    const order = within(screen.getByRole('list'))
+      .getAllByRole('link')
+      .map((link) => places.find((place) => link.textContent?.includes(place)));
+    expect(order).toEqual(places);
+  });
 });
 
 describe('the request beside the list', () => {
@@ -316,7 +338,7 @@ describe('the request beside the list', () => {
 
     render(<SuppliesView />);
 
-    expectPageTitle('Заявки на расходники');
+    expectPageTitle('Заявки');
     expect(screen.getByRole('heading', { level: 2, name: 'Karlín 3' })).toBeInTheDocument();
     expect(rowLink('Karlín 3')).toHaveAttribute('aria-current', 'true');
     expect(rowLink('Vinohrady 12')).not.toHaveAttribute('aria-current');
@@ -601,6 +623,29 @@ describe('the files', () => {
     const dialog = await screen.findByRole('dialog');
     const row = within(dialog).getByText('Средство для стёкол').closest('tr') as HTMLElement;
     expect(row).toHaveTextContent('Vinohrady 12; Karlín 3');
+  });
+
+  // The owner, 05.10: the search stays out of the summary, and the summary says
+  // so above itself. The dates do narrow it, so then it names them too.
+  test('the summary says above itself that it is over every request', async () => {
+    window.history.replaceState(null, '', '/supplies?q=karlin');
+    render(<SuppliesView />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Свести к закупке' }));
+    const dialog = await screen.findByRole('dialog');
+
+    expect(within(dialog).getByText('По всем заявкам')).toBeInTheDocument();
+  });
+
+  test('with dates chosen, the summary says it is over every request of those dates', async () => {
+    window.history.replaceState(null, '', '/supplies?from=2026-09-01');
+    render(<SuppliesView />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Свести к закупке' }));
+    const dialog = await screen.findByRole('dialog');
+
+    expect(within(dialog).getByText('По всем заявкам за выбранные даты')).toBeInTheDocument();
+    expect(within(dialog).queryByText('По всем заявкам')).not.toBeInTheDocument();
   });
 });
 

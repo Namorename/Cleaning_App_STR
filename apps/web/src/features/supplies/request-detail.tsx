@@ -56,7 +56,7 @@ interface RequestDetailProps {
  * The request open beside the list (5.4, variant B): where and who, the
  * lines, the note, the manager's moves and the two files — one request
  * settled without scrolling past another. Its heading is the page's second
- * level: the page's one h1 is «Заявки на расходники».
+ * level: the page's one h1 is «Заявки».
  */
 export function RequestDetail({ request, claimHeadingFocus }: RequestDetailProps) {
   const { t } = useTranslation();

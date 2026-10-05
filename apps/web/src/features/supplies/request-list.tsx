@@ -6,7 +6,7 @@ import { EmptyState } from '@/components/states';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { RequestRow } from './request-row';
-import { isInTab, SUPPLY_TABS, type SupplyRequest, type SupplyTab } from './schema';
+import { isInTab, newestFirst, SUPPLY_TABS, type SupplyRequest, type SupplyTab } from './schema';
 
 interface RequestListProps {
   /** The requests the search and the dates leave: the counters count these. */
@@ -22,7 +22,8 @@ interface RequestListProps {
 
 /**
  * The tabs by stage, each with its count, and the requests of the open one,
- * newest first as the server sends them (5.4, variant B: «Новые сверху»).
+ * newest first by when each was made — in «Все» too (5.4, variant B: «Новые
+ * сверху»; the owner, 05.10).
  */
 export function RequestList({
   requests,
@@ -33,7 +34,7 @@ export function RequestList({
   onOpen,
 }: RequestListProps) {
   const { t } = useTranslation();
-  const shown = requests.filter((request) => isInTab(request, tab));
+  const shown = newestFirst(requests.filter((request) => isInTab(request, tab)));
 
   return (
     <>

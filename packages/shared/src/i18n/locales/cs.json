@@ -277,7 +277,6 @@
       "board": {
         "dragHint": "Otevřený úkol lze přetáhnout do „Přidělený“ a přidělený zpět do „Otevřený“; ostatní je v nabídce „⋯“",
         "dragRefused": "Takto kartu přetáhnout nelze: přesuňte ji přes její nabídku „⋯“ — do práce úkol převádí technik v aplikaci",
-        "dropHere": "Sem lze",
         "moveTo": "Přesunout do „{{status}}“",
         "cardMenu": "Akce: {{title}}",
         "unassigned": "Technik je stažen z práce, úkol je znovu otevřený",
@@ -301,7 +300,6 @@
       }
     },
     "supplies": {
-      "title": "Žádosti o spotřební materiál",
       "tabs": {
         "new": "Nové",
         "inProgress": "V řešení",
@@ -335,6 +333,8 @@
       "summary": {
         "open": "Souhrn k nákupu",
         "title": "Souhrn k nákupu",
+        "across": "Ze všech žádostí",
+        "acrossDates": "Ze všech žádostí za zvolené dny",
         "description": "Stejné položky z vybraných žádostí jsou sečteny podle názvu a jednotky.",
         "scope": "Zahrnout žádosti",
         "empty": "Není co nakupovat",

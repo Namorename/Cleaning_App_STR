@@ -168,6 +168,19 @@ export function isInTab(request: Pick<SupplyRequest, 'status'>, tab: SupplyTab):
   return statuses === null || statuses.includes(request.status);
 }
 
+/**
+ * The order of every tab, «Все» included: by when a request was made, the
+ * newest on top, whatever its status (the owner, 05.10). Sorted here rather
+ * than trusted to the query, so a request the cache gains still lands in place.
+ */
+export function newestFirst<T extends Pick<SupplyRequest, 'created_at'>>(
+  requests: readonly T[],
+): T[] {
+  return requests
+    .slice()
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+}
+
 /** The forward moves the server accepts from a status, in the order the buttons show. */
 export function nextStatuses(status: SupplyStatus): SupplyStatus[] {
   switch (status) {

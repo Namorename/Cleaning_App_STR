@@ -168,18 +168,17 @@ describe('ProblemsBoard drag and drop', () => {
     expect(column('В работе')).not.toHaveAttribute('data-droppable', 'true');
   });
 
-  // The review of 05.10: a faint ring (below 3:1) was the only sign. Now a
-  // dashed outline in the primary colour, and the words in the column's head.
-  test('the column a card may go to says so in words, and is outlined plainly', () => {
+  // The review of 05.10: a faint ring (below 3:1) was the only sign, so the
+  // column got a dashed outline in the primary colour. The words «Можно сюда»
+  // that came with it are gone at the owner's word of 05.10: the outline says it.
+  test('the column a card may go to is outlined plainly, without words', () => {
     render(<ProblemsBoard problems={problems} />);
 
     fireEvent.dragStart(card('Течёт кран'));
 
-    expect(within(column('Назначено')).getByText('Можно сюда')).toBeInTheDocument();
     expect(column('Назначено')).toHaveClass('outline-2', 'outline-dashed', 'outline-primary');
-    expect(within(column('Выполнено')).queryByText('Можно сюда')).toBeNull();
     expect(column('Выполнено')).not.toHaveClass('outline-dashed');
-    expect(screen.getAllByText('Можно сюда')).toHaveLength(1);
+    expect(screen.queryByText('Можно сюда')).toBeNull();
   });
 
   describe('«Открыто» → «Назначено»', () => {
