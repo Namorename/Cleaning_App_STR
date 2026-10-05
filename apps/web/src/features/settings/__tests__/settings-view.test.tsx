@@ -86,7 +86,7 @@ describe('the page', () => {
     expect(section('Аккаунт')).toHaveTextContent('Вы вошли как manager.test@example.com.');
     expect(within(section('Аккаунт') as HTMLElement).getByRole('button', { name: 'Выйти' }))
       .toBeInTheDocument();
-    expect(sectionLink('Аккаунт')).toHaveAttribute('aria-current', 'true');
+    expect(sectionLink('Аккаунт')).toHaveAttribute('aria-current', 'page');
     expect(section('Оформление')).toBeNull();
     expect(section('Компания')).toBeNull();
     expect(section('Процесс')).toBeNull();
@@ -101,7 +101,7 @@ describe('the page', () => {
     expect(section('Компания')).toHaveTextContent(
       'Действует на все объекты и на всех сотрудников.',
     );
-    expect(sectionLink('Компания')).toHaveAttribute('aria-current', 'true');
+    expect(sectionLink('Компания')).toHaveAttribute('aria-current', 'page');
     expect(sectionLink('Аккаунт')).not.toHaveAttribute('aria-current');
     expect(section('Аккаунт')).toBeNull();
   });
@@ -137,6 +137,19 @@ describe('the page', () => {
     expect(query()).toBe('');
     expect(await screen.findByRole('region', { name: 'Аккаунт' })).toBeInTheDocument();
     expect(section('Процесс')).toBeNull();
+  });
+
+  // The review of 05.10: a second press on the open section is not a step —
+  // «Назад» would otherwise walk through the same section twice.
+  test('a press on the section already open adds no step', async () => {
+    window.history.replaceState(null, '', '/settings?section=company');
+    render(view());
+    const steps = window.history.length;
+
+    await userEvent.click(sectionLink('Компания'));
+
+    expect(window.history.length).toBe(steps);
+    expect(query()).toBe('section=company');
   });
 
   // The process editor holds a draft until it is saved. A press on another

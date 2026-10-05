@@ -93,6 +93,7 @@ export function SettingsView({ email, theme, onSignOut }: SettingsViewProps) {
                   <InPlaceLink
                     href={sectionHref(section)}
                     isCurrent={isCurrent}
+                    currentAs="page"
                     onOpen={() => open(section)}
                     className={cn(
                       'flex min-h-11 items-center rounded-md px-3 text-sm hover:bg-accent',
