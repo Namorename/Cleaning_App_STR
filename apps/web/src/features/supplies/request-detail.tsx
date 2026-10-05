@@ -222,34 +222,14 @@ function RequestMoves({ request }: RequestPartProps) {
   return (
     <>
       {isRejecting ? (
-        <div className="flex flex-col gap-2">
-          <Label htmlFor={`reject-${request.id}`}>{t('panel.supplies.actions.rejectReason')}</Label>
-          <Textarea
-            id={`reject-${request.id}`}
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            rows={2}
-          />
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="destructive"
-              className="h-11"
-              disabled={review.isPending || reason.trim() === ''}
-              onClick={reject}
-            >
-              {t('panel.supplies.actions.rejectConfirm')}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11"
-              onClick={() => setIsRejecting(false)}
-            >
-              {t('panel.supplies.actions.rejectAbort')}
-            </Button>
-          </div>
-        </div>
+        <RejectForm
+          id={`reject-${request.id}`}
+          reason={reason}
+          isBusy={review.isPending}
+          onReasonChange={setReason}
+          onConfirm={reject}
+          onAbort={() => setIsRejecting(false)}
+        />
       ) : forward.length > 0 || canReject(request.status) ? (
         <div className="flex flex-wrap gap-2">
           {forward.map((status) => (
@@ -285,6 +265,46 @@ function RequestMoves({ request }: RequestPartProps) {
         </div>
       )}
     </>
+  );
+}
+
+interface RejectFormProps {
+  id: string;
+  reason: string;
+  isBusy: boolean;
+  onReasonChange: (reason: string) => void;
+  onConfirm: () => void;
+  onAbort: () => void;
+}
+
+/** A refusal waits for its reason: the cleaner reads it in the app. */
+function RejectForm({ id, reason, isBusy, onReasonChange, onConfirm, onAbort }: RejectFormProps) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Label htmlFor={id}>{t('panel.supplies.actions.rejectReason')}</Label>
+      <Textarea
+        id={id}
+        value={reason}
+        onChange={(event) => onReasonChange(event.target.value)}
+        rows={2}
+      />
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="destructive"
+          className="h-11"
+          disabled={isBusy || reason.trim() === ''}
+          onClick={onConfirm}
+        >
+          {t('panel.supplies.actions.rejectConfirm')}
+        </Button>
+        <Button type="button" variant="outline" className="h-11" onClick={onAbort}>
+          {t('panel.supplies.actions.rejectAbort')}
+        </Button>
+      </div>
+    </div>
   );
 }
 
