@@ -71,7 +71,7 @@ function renderSheet(subject: { taskId: string } | { problemId: string } = { tas
   );
 }
 
-const sheet = () => screen.getByRole('dialog', { name: 'Разговор' });
+const sheet = () => screen.getByRole('dialog', { name: 'Чат' });
 
 /**
  * Picks files as the browser's dialog hands them over, `accept` or not (a drag
@@ -104,7 +104,7 @@ beforeEach(() => {
 describe('ChatSheet', () => {
   // 5.4, «Чат», variant B: the conversation slides in beside its subject and
   // says what it is about, instead of sitting at the foot of a card.
-  test('is a sheet named «Разговор» that says what it is about', () => {
+  test('is a sheet named «Чат» that says what it is about', () => {
     renderSheet();
 
     expect(sheet()).toHaveTextContent('Генеральная уборка · Vinohrady 12');
@@ -186,7 +186,7 @@ describe('ChatSheet', () => {
             />
           ) : (
             <button type="button" onClick={() => setIsOpen(true)}>
-              Разговор из шторки
+              Чат из шторки
             </button>
           )}
         </>
@@ -194,7 +194,7 @@ describe('ChatSheet', () => {
     }
     render(<Host />);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Разговор из шторки' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Чат из шторки' }));
     await userEvent.keyboard('{Escape}');
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Действия' })).toHaveFocus());
@@ -381,8 +381,8 @@ describe('ChatSheet', () => {
     renderSheet();
 
     const alert = screen.getByRole('alert');
-    expect(alert).toHaveTextContent('Не удалось открыть разговор');
-    expect(alert).toHaveTextContent('Этот разговор недоступен');
+    expect(alert).toHaveTextContent('Не удалось открыть чат');
+    expect(alert).toHaveTextContent('Этот чат недоступен');
     expect(screen.queryByLabelText('Написать…')).not.toBeInTheDocument();
   });
 });

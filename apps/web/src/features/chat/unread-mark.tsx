@@ -20,7 +20,7 @@ interface UnreadChatLinkProps {
   href: string;
   /**
    * Whose conversation: said in the mark's name, so a reader listing the links
-   * of a list hears one per subject, not «открыть разговор» over and over.
+   * of a list hears one per subject, not «открыть чат» over and over.
    */
   about: string;
 }

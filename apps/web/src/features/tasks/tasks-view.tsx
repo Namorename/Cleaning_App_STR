@@ -81,7 +81,7 @@ export function TasksView() {
   /** A row's «⋯»: where the focus goes back when the menu or drawer that led away is gone. */
   const rowMenuOf = (taskId: string) =>
     document.querySelector<HTMLElement>(`[data-task-menu="${taskId}"]`);
-  // One sheet at a time: the drawer's «Разговор» puts the drawer away.
+  // One sheet at a time: the drawer's «Чат» puts the drawer away.
   const openChat = (task: Task) => {
     setReading(null);
     setTalking(task);

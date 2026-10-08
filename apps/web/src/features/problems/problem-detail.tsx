@@ -148,7 +148,7 @@ interface ProblemPageProps {
  * The problem's page (5.4, variant A): a header that stays on screen with the
  * title, the status and the levers; under it two columns — the report, and
  * the technician's work beside it. The conversation is not a card under them
- * any more: the header's «Разговор» slides it in from the right («Чат»,
+ * any more: the header's «Чат» slides it in from the right («Чат»,
  * variant B).
  */
 function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {

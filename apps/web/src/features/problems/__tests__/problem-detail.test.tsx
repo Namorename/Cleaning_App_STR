@@ -87,7 +87,7 @@ vi.mock('../use-problems', () => ({
 // is about and close.
 vi.mock('@/features/chat/chat-sheet', () => ({
   ChatSheet: (props: { subject: Record<string, string>; about: string; onClose: () => void }) => (
-    <div role="dialog" aria-label="Разговор">
+    <div role="dialog" aria-label="Чат">
       {`${Object.values(props.subject).join(',')} · ${props.about}`}
       <button type="button" onClick={props.onClose}>
         Закрыть
@@ -398,7 +398,7 @@ describe('ProblemDetail', () => {
   test('every control of the page is a 44 px target', () => {
     render(<ProblemDetail problemId={PROBLEM_ID} />);
 
-    expect(screen.getByRole('button', { name: 'Разговор' })).toHaveClass('h-11');
+    expect(screen.getByRole('button', { name: 'Чат' })).toHaveClass('h-11');
     expect(screen.getByRole('button', { name: 'Отметить выполненным' })).toHaveClass('h-11');
     expect(screen.getByRole('button', { name: 'Другие действия' })).toHaveClass('size-11');
     expect(screen.getByRole('button', { name: 'Переназначить' })).toHaveClass('h-11');
@@ -411,14 +411,14 @@ describe('ProblemDetail', () => {
 // 5.4, «Чат», variant B: the conversation was a card at the foot of the page,
 // under the fold; now it slides in beside the task from the header.
 describe('the conversation of a task', () => {
-  const chatButton = () => within(header()).getByRole('button', { name: /^Разговор/ });
+  const chatButton = () => within(header()).getByRole('button', { name: /^Чат/ });
 
   test('is no card on the page, but a button in the header with its picture and name', () => {
     render(<ProblemDetail problemId={PROBLEM_ID} />);
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: 'Разговор' })).not.toBeInTheDocument();
-    expect(chatButton()).toHaveAccessibleName('Разговор');
+    expect(screen.queryByRole('region', { name: 'Чат' })).not.toBeInTheDocument();
+    expect(chatButton()).toHaveAccessibleName('Чат');
     expect(chatButton().querySelector('svg')).toHaveClass(`lucide-${ICONS['action.openChat']}`);
     expect(chatButton().querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
   });
@@ -433,7 +433,7 @@ describe('the conversation of a task', () => {
     expect(query()).toBe('view=list&chat=1');
     expect(window.history.length).toBe(steps + 1);
     // About the task, whichever technician fixes it.
-    const sheet = screen.getByRole('dialog', { name: 'Разговор' });
+    const sheet = screen.getByRole('dialog', { name: 'Чат' });
     expect(sheet).toHaveTextContent(`${PROBLEM_ID} · Течёт кран`);
 
     // «Назад» after it must not open it again: the close is the step back.
@@ -455,7 +455,7 @@ describe('the conversation of a task', () => {
     window.addEventListener('popstate', popstate);
     onTestFinished(() => window.removeEventListener('popstate', popstate));
 
-    const sheet = screen.getByRole('dialog', { name: 'Разговор' });
+    const sheet = screen.getByRole('dialog', { name: 'Чат' });
     await userEvent.click(within(sheet).getByRole('button', { name: 'Закрыть' }));
 
     // Nothing behind it to walk back to: the page came with it open.
@@ -482,7 +482,7 @@ describe('the conversation of a task', () => {
     onTestFinished(() => back.mockRestore());
 
     await userEvent.click(
-      within(screen.getByRole('dialog', { name: 'Разговор' })).getByRole('button', {
+      within(screen.getByRole('dialog', { name: 'Чат' })).getByRole('button', {
         name: 'Закрыть',
       }),
     );
@@ -494,7 +494,7 @@ describe('the conversation of a task', () => {
     await userEvent.click(chatButton());
     expect(query()).toBe('view=list&chat=1');
     expect(window.history.length).toBe(steps + 1);
-    expect(screen.getByRole('dialog', { name: 'Разговор' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Чат' })).toBeInTheDocument();
   });
 
   test('«Назад» while it is open closes it', async () => {
@@ -502,7 +502,7 @@ describe('the conversation of a task', () => {
     render(<ProblemDetail problemId={PROBLEM_ID} />);
 
     await userEvent.click(chatButton());
-    expect(screen.getByRole('dialog', { name: 'Разговор' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Чат' })).toBeInTheDocument();
 
     await act(() => goBack());
 
@@ -514,7 +514,7 @@ describe('the conversation of a task', () => {
     unread.problems.add(PROBLEM_ID);
     render(<ProblemDetail problemId={PROBLEM_ID} />);
 
-    expect(chatButton()).toHaveAccessibleName('Разговор Новое сообщение');
+    expect(chatButton()).toHaveAccessibleName('Чат Новое сообщение');
     expect(within(chatButton()).getByText('Новое сообщение')).toHaveClass('bg-tone-unread-mark');
   });
 });

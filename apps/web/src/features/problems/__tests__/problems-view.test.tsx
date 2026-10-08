@@ -248,7 +248,7 @@ describe('the view in the address', () => {
 // 5.4, «Чат»: the mark of an unread message stood on the board's cards only.
 describe('the mark of an unread message', () => {
   /** The mark's name: the words, then whose conversation it opens. */
-  const MARK = /^Новое сообщение — открыть разговор: /;
+  const MARK = /^Новое сообщение — открыть чат: /;
 
   test('stands beside the title in the list, and leads to the conversation', async () => {
     unread.problems.add(problems[1].id);
@@ -263,7 +263,7 @@ describe('the mark of an unread message', () => {
       `/problems/${problems[1].id}?view=list&chat=1`,
     );
     expect(within(marked).getByRole('link', { name: MARK })).toHaveAccessibleName(
-      'Новое сообщение — открыть разговор: Сломан замок',
+      'Новое сообщение — открыть чат: Сломан замок',
     );
     // The title still opens the page itself.
     expect(within(marked).getByRole('link', { name: 'Сломан замок' })).toHaveAttribute(

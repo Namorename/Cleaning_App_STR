@@ -31,7 +31,7 @@ interface ChatSheetProps {
   onClose: () => void;
   /**
    * Where the focus goes when the sheet closes, if what opened it is gone by
-   * then — a drawer's «Разговор», an item of a menu that closed. Absent, the
+   * then — a drawer's «Чат», an item of a menu that closed. Absent, the
    * dialog's own rule.
    */
   returnFocus?: () => HTMLElement | null;

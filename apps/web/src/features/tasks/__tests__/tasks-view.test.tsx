@@ -128,7 +128,7 @@ vi.mock('@/features/chat/chat-sheet', () => ({
     about: string;
     returnFocus?: () => HTMLElement | null;
   }) => (
-    <div role="dialog" aria-label="Разговор">
+    <div role="dialog" aria-label="Чат">
       {`${Object.values(props.subject).join(',')} · ${props.about}`}
       {/* Where the real sheet sends the focus when it closes. */}
       <button type="button" onClick={() => props.returnFocus?.()?.focus()}>
@@ -366,7 +366,7 @@ describe('TasksView', () => {
     const row = rowOf('Уборка завтра');
     expect(row).toHaveTextContent('Из брони');
     // A task from a booking is not the manager's to call off.
-    expect(await menuItems(row)).toEqual(['Изменить', 'Разговор']);
+    expect(await menuItems(row)).toEqual(['Изменить', 'Чат']);
   });
 
   test('a job the manager wrote is the one the menu offers to call off', async () => {
@@ -374,7 +374,7 @@ describe('TasksView', () => {
 
     expect(await menuItems(rowOf('Вечерний осмотр'))).toEqual([
       'Изменить',
-      'Разговор',
+      'Чат',
       'Отменить уборку',
     ]);
   });
@@ -562,9 +562,9 @@ describe('TasksView', () => {
     render(<TasksView />);
 
     const menu = await openMenu(rowOf('Вечерний осмотр'));
-    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Разговор' }));
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Чат' }));
 
-    const sheet = await screen.findByRole('dialog', { name: 'Разговор' });
+    const sheet = await screen.findByRole('dialog', { name: 'Чат' });
     expect(sheet).toHaveTextContent(`${id(2)} · Вечерний осмотр · Vinohrady 12`);
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
   }, 20000);
@@ -575,8 +575,8 @@ describe('TasksView', () => {
     render(<TasksView />);
 
     const menu = await openMenu(rowOf('Вечерний осмотр'));
-    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Разговор' }));
-    const sheet = await screen.findByRole('dialog', { name: 'Разговор' });
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Чат' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Чат' });
     await userEvent.click(within(sheet).getByRole('button', { name: 'Вернуть фокус' }));
 
     expect(
@@ -589,7 +589,7 @@ describe('TasksView', () => {
 
     await userEvent.click(screen.getByRole('tab', { name: /Завершённые/ }));
     // A closed job is not edited any more: its menu reads it and its conversation.
-    expect(await menuItems(rowOf('Вчерашняя уборка'))).toEqual(['Как прошла уборка', 'Разговор']);
+    expect(await menuItems(rowOf('Вчерашняя уборка'))).toEqual(['Как прошла уборка', 'Чат']);
     await userEvent.click(screen.getByRole('menuitem', { name: 'Как прошла уборка' }));
 
     const drawer = await screen.findByRole('dialog', { name: 'Как прошла уборка' });
@@ -602,7 +602,7 @@ describe('TasksView', () => {
     expect(setDuration).toHaveBeenCalledWith({ taskId: id(4), minutes: 80 });
   }, 20000);
 
-  test('the drawer’s «Разговор» puts the drawer away and opens the job’s conversation', async () => {
+  test('the drawer’s «Чат» puts the drawer away and opens the job’s conversation', async () => {
     render(<TasksView />);
 
     await userEvent.click(screen.getByRole('tab', { name: /Завершённые/ }));
@@ -612,12 +612,12 @@ describe('TasksView', () => {
       }),
     );
     const drawer = await screen.findByRole('dialog', { name: 'Как прошла уборка' });
-    const toChat = within(drawer).getByRole('button', { name: 'Разговор' });
+    const toChat = within(drawer).getByRole('button', { name: 'Чат' });
     expect(toChat).toHaveClass('h-11');
     await userEvent.click(toChat);
 
     // One sheet at a time, never one over the other.
-    const sheet = await screen.findByRole('dialog', { name: 'Разговор' });
+    const sheet = await screen.findByRole('dialog', { name: 'Чат' });
     expect(sheet).toHaveTextContent(id(4));
     expect(screen.queryByRole('dialog', { name: 'Как прошла уборка' })).not.toBeInTheDocument();
   }, 20000);
@@ -654,7 +654,7 @@ describe('TasksView', () => {
     await userEvent.keyboard('{Escape}');
 
     await userEvent.click(screen.getByRole('tab', { name: /Завершённые/ }));
-    expect(await menuItems(rowOf('Заменить лампу'))).toEqual(['Как прошла работа', 'Разговор']);
+    expect(await menuItems(rowOf('Заменить лампу'))).toEqual(['Как прошла работа', 'Чат']);
     await userEvent.click(screen.getByRole('menuitem', { name: 'Как прошла работа' }));
     expect(await screen.findByRole('dialog', { name: 'Как прошла работа' })).toBeInTheDocument();
   }, 20000);
@@ -675,11 +675,11 @@ describe('TasksView', () => {
 
     await userEvent.click(
       within(rowOf('Вечерний осмотр')).getByRole('button', {
-        name: /^Новое сообщение — открыть разговор: Вечерний осмотр/,
+        name: /^Новое сообщение — открыть чат: Вечерний осмотр/,
       }),
     );
 
-    expect(await screen.findByRole('dialog', { name: 'Разговор' })).toHaveTextContent(id(2));
+    expect(await screen.findByRole('dialog', { name: 'Чат' })).toHaveTextContent(id(2));
   });
 
   // Decision 14: on a phone the page never scrolls sideways; the table does, in its frame.

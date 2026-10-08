@@ -66,7 +66,7 @@ function stepState(step: {
  * problems it turned up, and how long it is counted as.
  *
  * The conversation is not in here any more (5.4, «Чат», variant B): it has a
- * sheet of its own, which every job's row opens; the drawer's «Разговор»
+ * sheet of its own, which every job's row opens; the drawer's «Чат»
  * swaps one sheet for the other. The work sections appear once the job has
  * been started; the time correction only once it is done.
  *

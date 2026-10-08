@@ -214,7 +214,7 @@ describe('the menu of a row', () => {
   test('a job nobody has started offers its conversation, and no work', async () => {
     renderRow(task({}));
 
-    expect(await menuItems()).toEqual(['Изменить', 'Разговор']);
+    expect(await menuItems()).toEqual(['Изменить', 'Чат']);
   });
 
   test('a job under way offers how it is going, then the conversation', async () => {
@@ -226,7 +226,7 @@ describe('the menu of a row', () => {
       }),
     );
 
-    expect(await menuItems()).toEqual(['Изменить', 'Как идёт уборка', 'Разговор']);
+    expect(await menuItems()).toEqual(['Изменить', 'Как идёт уборка', 'Чат']);
   });
 
   test('a technician’s job under way is named a job', async () => {
@@ -241,7 +241,7 @@ describe('the menu of a row', () => {
       }),
     );
 
-    expect(await menuItems()).toEqual(['Изменить', 'Как идёт работа', 'Разговор']);
+    expect(await menuItems()).toEqual(['Изменить', 'Как идёт работа', 'Чат']);
   });
 
   test('a finished job offers how it went and the conversation, and opens each', async () => {
@@ -252,8 +252,8 @@ describe('the menu of a row', () => {
     });
     renderRow(done);
 
-    expect(await menuItems()).toEqual(['Как прошла уборка', 'Разговор']);
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Разговор' }));
+    expect(await menuItems()).toEqual(['Как прошла уборка', 'Чат']);
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Чат' }));
     expect(handlers.onOpenChat).toHaveBeenCalledWith(done);
 
     await menuItems();
@@ -267,7 +267,7 @@ describe('the mark of an unread message', () => {
     const one = task({});
     renderRow(one, true);
 
-    const mark = screen.getByRole('button', { name: /^Новое сообщение — открыть разговор: / });
+    const mark = screen.getByRole('button', { name: /^Новое сообщение — открыть чат: / });
     expect(mark).toHaveTextContent('Новое сообщение');
     expect(mark).toHaveClass('min-h-11');
     await userEvent.click(mark);

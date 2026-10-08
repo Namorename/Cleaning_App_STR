@@ -16,12 +16,12 @@ describe('the mark «Новое сообщение»', () => {
   // 5.4, «Чат»: in a list the mark is a way into the conversation, not a sign
   // to go and look for it.
   // The review of 05.10: every mark of a list had the same name, and a reader
-  // listing the links heard «открыть разговор» over and over. Each names its own.
+  // listing the links heard «открыть чат» over and over. Each names its own.
   test('as a link, leads to the conversation and says whose', () => {
     render(<UnreadChatLink href={HREF} about="Течёт кран" />);
 
     const link = screen.getByRole('link', {
-      name: 'Новое сообщение — открыть разговор: Течёт кран',
+      name: 'Новое сообщение — открыть чат: Течёт кран',
     });
     expect(link).toHaveAttribute('href', HREF);
     expect(link).toHaveTextContent('Новое сообщение');
@@ -33,7 +33,7 @@ describe('the mark «Новое сообщение»', () => {
     render(<UnreadChatButton onOpen={onOpen} about="Генеральная уборка · Vinohrady 12" />);
 
     const button = screen.getByRole('button', {
-      name: 'Новое сообщение — открыть разговор: Генеральная уборка · Vinohrady 12',
+      name: 'Новое сообщение — открыть чат: Генеральная уборка · Vinohrady 12',
     });
     expect(button).toHaveClass('min-h-11');
     await userEvent.click(button);

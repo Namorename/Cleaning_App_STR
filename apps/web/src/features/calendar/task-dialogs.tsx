@@ -45,7 +45,7 @@ interface TaskDialogsOptions {
  * What a chip, «+N» and an empty day open (docs/f10-plan.md, 7.4): the task
  * form for an open task or a new one, the drawer for a done one. On the stand
  * writing is off (§5), so each opens a preview card instead. The drawer's
- * «Разговор» swaps it for the conversation's sheet (5.4, «Чат»): one sheet
+ * «Чат» swaps it for the conversation's sheet (5.4, «Чат»): one sheet
  * at a time.
  */
 export function useTaskDialogs({ isStand, language, bookings, unread }: TaskDialogsOptions) {
