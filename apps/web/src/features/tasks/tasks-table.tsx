@@ -24,6 +24,7 @@ interface TasksTableProps {
   unread: ReadonlySet<string>;
   onEdit: (task: Task) => void;
   onOpenWork: (task: Task) => void;
+  onOpenChat: (task: Task) => void;
   onCancel: (task: Task) => void;
 }
 
@@ -36,7 +37,15 @@ interface TasksTableProps {
  * The table scrolls sideways inside its own frame: on a phone the page itself
  * never does (decision 14).
  */
-export function TasksTable({ groups, now, unread, onEdit, onOpenWork, onCancel }: TasksTableProps) {
+export function TasksTable({
+  groups,
+  now,
+  unread,
+  onEdit,
+  onOpenWork,
+  onOpenChat,
+  onCancel,
+}: TasksTableProps) {
   const { t } = useTranslation();
   const language = useLanguage();
 
@@ -77,6 +86,7 @@ export function TasksTable({ groups, now, unread, onEdit, onOpenWork, onCancel }
                 now={now}
                 onEdit={onEdit}
                 onOpenWork={onOpenWork}
+                onOpenChat={onOpenChat}
                 onCancel={onCancel}
                 hasUnread={unread.has(task.id)}
               />

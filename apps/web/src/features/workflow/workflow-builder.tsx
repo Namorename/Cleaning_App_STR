@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { LabelledField } from '@/components/labelled-field';
 import { EmptyState } from '@/components/states';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,6 +52,7 @@ interface WorkflowBuilderProps {
  */
 export function WorkflowBuilder({ source, scope, propertyId }: WorkflowBuilderProps) {
   const { t } = useTranslation();
+  const id = useId();
   const save = useSaveProcess();
 
   /** Null until the manager touches it — until then the server's answer shows. */
@@ -65,13 +67,13 @@ export function WorkflowBuilder({ source, scope, propertyId }: WorkflowBuilderPr
 
   return (
     <div className="flex flex-col gap-4">
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-        {t('panel.settings.workflow.name')}
+      <LabelledField id={`${id}-name`} label={t('panel.settings.workflow.name')}>
         <Input
+          id={`${id}-name`}
           value={process.name}
           onChange={(event) => setDraft({ ...process, name: event.target.value })}
         />
-      </label>
+      </LabelledField>
 
       {propertyId === null ? null : (
         <div className="flex flex-col gap-1">
@@ -119,10 +121,9 @@ export function WorkflowBuilder({ source, scope, propertyId }: WorkflowBuilderPr
       )}
 
       <div className="flex flex-wrap items-end gap-2 border-t pt-3">
-        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-          {t('panel.settings.workflow.addStep')}
+        <LabelledField id={`${id}-add`} label={t('panel.settings.workflow.addStep')}>
           <NativeSelect
-            aria-label={t('panel.settings.workflow.addStep')}
+            id={`${id}-add`}
             value={adding}
             onChange={(event) => setAdding(event.target.value as StepType)}
           >
@@ -132,7 +133,7 @@ export function WorkflowBuilder({ source, scope, propertyId }: WorkflowBuilderPr
               </option>
             ))}
           </NativeSelect>
-        </label>
+        </LabelledField>
         <Button
           type="button"
           variant="outline"

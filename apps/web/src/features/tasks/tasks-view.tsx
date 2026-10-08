@@ -8,10 +8,12 @@ import { PageHeader } from '@/components/page-header';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ChatSheet } from '@/features/chat/chat-sheet';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { todayIso } from '@/lib/format-date';
 import { serverErrorText } from '@/lib/server-error';
 import { useAddressState } from '@/lib/use-address-state';
+import { useLanguage } from '@/lib/use-language';
 
 import { readTasksAddress, writeTasksAddress } from './address';
 import { CancelTaskDialog } from './cancel-task-dialog';
@@ -27,6 +29,7 @@ import {
 } from './schema';
 import { TaskDrawer } from './task-drawer';
 import { TaskForm } from './task-form';
+import { taskSummary } from './task-row';
 import { TasksFilters } from './tasks-filters';
 import { TasksTable } from './tasks-table';
 import { useCancelTask, useStaff, useTasks } from './use-tasks';
@@ -42,6 +45,7 @@ import { useCancelTask, useStaff, useTasks } from './use-tasks';
  */
 export function TasksView() {
   const { t } = useTranslation();
+  const language = useLanguage();
   const { data, isPending, isError, error } = useTasks();
   const unread = useUnreadSubjects();
   const staff = useStaff();
@@ -54,10 +58,13 @@ export function TasksView() {
   // A tab is a step «Назад» walks back; a filter is changed in place (owner, 04.10).
   const setTab = (next: TaskTab) => setAddress({ ...address, tab: next }, 'push');
   const setFilters = (next: TaskFilters) => setAddress({ ...address, filters: next });
-  // The dialogs and the drawer live only while they are open: a fresh mount
-  // is a fresh draft, which is why none needs an effect to reset itself.
+  // The dialogs and the sheets live only while they are open: a fresh mount
+  // is a fresh draft, which is why none needs an effect to reset itself. The
+  // conversation's sheet is held here, not in the address («Чат», variant B):
+  // it is a look at one row, as the drawer is.
   const [editing, setEditing] = useState<{ task: Task | null } | null>(null);
   const [reading, setReading] = useState<Task | null>(null);
+  const [talking, setTalking] = useState<Task | null>(null);
   const [confirming, setConfirming] = useState<Task | null>(null);
 
   // One instant for the whole render, so every row agrees on what a tail is.
@@ -70,6 +77,14 @@ export function TasksView() {
   const callOff = (task: Task) => {
     cancel.mutate(task.id);
     setConfirming(null);
+  };
+  /** A row's «⋯»: where the focus goes back when the menu or drawer that led away is gone. */
+  const rowMenuOf = (taskId: string) =>
+    document.querySelector<HTMLElement>(`[data-task-menu="${taskId}"]`);
+  // One sheet at a time: the drawer's «Чат» puts the drawer away.
+  const openChat = (task: Task) => {
+    setReading(null);
+    setTalking(task);
   };
 
   return (
@@ -123,6 +138,7 @@ export function TasksView() {
                 unread={unread.tasks}
                 onEdit={(task) => setEditing({ task })}
                 onOpenWork={setReading}
+                onOpenChat={openChat}
                 onCancel={setConfirming}
               />
             )}
@@ -131,7 +147,22 @@ export function TasksView() {
       )}
 
       {editing === null ? null : <TaskForm task={editing.task} onClose={() => setEditing(null)} />}
-      {reading === null ? null : <TaskDrawer task={reading} onClose={() => setReading(null)} />}
+      {reading === null ? null : (
+        <TaskDrawer task={reading} onClose={() => setReading(null)} onOpenChat={openChat} />
+      )}
+      {talking === null ? null : (
+        <ChatSheet
+          subject={{ taskId: talking.id }}
+          // The row as it is now: an edit while the sheet is open shows in its head.
+          about={taskSummary(
+            (data ?? []).find((task) => task.id === talking.id) ?? talking,
+            language,
+            t,
+          )}
+          onClose={() => setTalking(null)}
+          returnFocus={() => rowMenuOf(talking.id)}
+        />
+      )}
       {confirming === null ? null : (
         <CancelTaskDialog
           task={confirming}

@@ -54,6 +54,7 @@
       "digest": "Код ошибки: {{digest}}"
     },
     "settings": {
+      "sections": "Разделы настроек",
       "account": "Аккаунт",
       "signedInAs": "Вы вошли как {{email}}.",
       "appearance": "Оформление",
@@ -487,7 +488,8 @@
         "cancelConfirmNo": "Нет",
         "openWork": "Как прошла уборка",
         "openRepairWork": "Как прошла работа",
-        "openChat": "Чат",
+        "openWorkLive": "Как идёт уборка",
+        "openRepairWorkLive": "Как идёт работа",
         "menu": "Действия: {{name}}"
       },
       "form": {
@@ -556,9 +558,11 @@
       "authorLabel": "Поставил:"
     },
     "chat": {
-      "title": "Разговор",
-      "loading": "Загружаем разговор…",
-      "loadError": "Не удалось открыть разговор",
+      "title": "Чат",
+      "open": "Чат",
+      "openUnread": "Новое сообщение — открыть чат: {{about}}",
+      "loading": "Загружаем чат…",
+      "loadError": "Не удалось открыть чат",
       "empty": "Пока ничего не написано",
       "audienceTask": "Видят те, кому видна уборка: исполнитель, горничные объекта и менеджеры",
       "audienceProblem": "Видят те, кому видно задание: кто сообщил, техник и менеджеры",
@@ -1364,8 +1368,8 @@
     "mediaLimitReached_other": "Сюда можно приложить не больше {{limit}} файла",
     "mediaNotUploaded": "Файл ещё не дошёл до сервера",
     "mediaUploadPending": "Файлов ещё загружается: {{count}}",
-    "threadSubjectInvalid": "Разговор бывает ровно об одном",
-    "threadNotFound": "Этот разговор недоступен",
+    "threadSubjectInvalid": "Чат бывает ровно об одном",
+    "threadNotFound": "Этот чат недоступен",
     "messageNotFound": "Это сообщение недоступно",
     "messageTooLong": "В сообщении не больше {{limit}} символов",
     "messageEmpty": "Напишите что-нибудь или приложите фото",

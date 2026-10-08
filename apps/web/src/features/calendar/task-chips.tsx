@@ -1,11 +1,13 @@
 'use client';
 
+import { MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { Fragment, type CSSProperties, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { taskStatusTone, type Language } from '@str-ops/shared';
 
+import { isTaskUnread, NO_UNREAD, type UnreadSubjects } from '@/features/chat/schema';
 import { formatClock } from '@/features/tasks/format';
 import { isRepairOverdue } from '@/features/tasks/repairs';
 import { localizedTitle, type CalendarTask } from '@/features/tasks/schema';
@@ -69,14 +71,17 @@ export interface ChipText {
   isSdt: boolean;
   /** A live repair past its day, by the listing's own today (§6). */
   isOverdue: boolean;
+  /** Somebody wrote about it and the manager has not read it (5.4, «Чат»). */
+  hasUnread: boolean;
 }
 
 /**
  * The words of a chip, in the manager's language. `rowId` is the row the chip
  * is drawn on: a closed group folds its rooms' chips into the listing's row
- * (§3), and there a chip names the room it stands on.
+ * (§3), and there a chip names the room it stands on. An unread message is
+ * said last: a chip has no room for a badge, so its words are in the name.
  */
-export function useChipText(language: Language) {
+export function useChipText(language: Language, unread: UnreadSubjects = NO_UNREAD) {
   const { t } = useTranslation();
 
   return (task: CalendarTask, isChanged: boolean, rowId: number): ChipText => {
@@ -99,6 +104,7 @@ export function useChipText(language: Language) {
     // SDT: the next guest arrives the same day, into the same room (§4).
     const isSdt = task.type === 'cleaning' && task.priority === 1;
     const isOverdue = task.problem_id !== null && isRepairOverdue(task);
+    const hasUnread = isTaskUnread(task, unread);
     // «Просрочена» already names the status and the overdue badge of the
     // Cleanings screen; the calendar's legend needs both words apart (§2).
     const status =
@@ -115,6 +121,7 @@ export function useChipText(language: Language) {
       task.problem?.priority === 'high' ? t('problems.priorities.high') : null,
       isOverdue ? t('panel.calendar.overdue') : null,
       isChanged ? t('panel.calendar.bookingChanged') : null,
+      hasUnread ? t('panel.chat.unread') : null,
     ]
       .filter((part): part is string => part !== null && part !== '')
       .join(', ');
@@ -127,8 +134,13 @@ export function useChipText(language: Language) {
     ]
       .filter((part): part is string => part !== null)
       .join(' · ');
-    return { label, lead, person, isNobody, window, isSdt, isOverdue };
+    return { label, lead, person, isNobody, window, isSdt, isOverdue, hasUnread };
   };
+}
+
+/** The picture of an unread message beside a chip's dot; its words are the chip's name. */
+export function UnreadGlyph() {
+  return <MessageSquare aria-hidden="true" className="size-2.5 shrink-0 text-tone-unread-mark" />;
 }
 
 interface ChipLinkOrButtonProps {
@@ -165,6 +177,8 @@ function ChipLinkOrButton({
   return (
     <button
       type="button"
+      // Where a conversation reached through its drawer hands the focus back.
+      data-task-chip={task.id}
       aria-label={label}
       title={label}
       className={className}
@@ -188,6 +202,8 @@ interface TaskChipsProps {
   /** In full, or compact: the status dot and the person alone. */
   view: ChipView;
   language: Language;
+  /** The jobs and tasks somebody wrote about that the manager has not read. */
+  unread?: UnreadSubjects;
   onOpen: (task: CalendarTask, label: string) => void;
   onMore: (day: string, tasks: readonly CalendarTask[]) => void;
 }
@@ -206,11 +222,12 @@ export function TaskChips({
   bookings,
   view,
   language,
+  unread = NO_UNREAD,
   onOpen,
   onMore,
 }: TaskChipsProps) {
   const { t } = useTranslation();
-  const textOf = useChipText(language);
+  const textOf = useChipText(language, unread);
   const capacity = chipCapacity(dayWidth, view);
 
   return days.map((day, at) => {
@@ -272,7 +289,17 @@ export function TaskChips({
                   width: DOT_SIZE,
                   height: DOT_SIZE,
                 }}
-              />
+              >
+                {/* No room beside a dot: the pip sits on its corner — 4 px, 1 px
+                    out and its 1 px ring, within the 2 px gap to the next dot. */}
+                {text.hasUnread ? (
+                  <span
+                    aria-hidden="true"
+                    data-slot="chip-unread"
+                    className="absolute -top-px -right-px size-1 rounded-full bg-tone-unread-mark ring-1 ring-background"
+                  />
+                ) : null}
+              </ChipLinkOrButton>
             );
           })}
           {more}
@@ -306,6 +333,7 @@ export function TaskChips({
               }}
             >
               <span aria-hidden className={cn('size-2 shrink-0', dotClass(task, false))} />
+              {text.hasUnread ? <UnreadGlyph /> : null}
               {capacity.mode === 'compact' ? (
                 <span className={cn('truncate', text.isNobody && 'text-tone-unassigned-fg')}>
                   {text.person}

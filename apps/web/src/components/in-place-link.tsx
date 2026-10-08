@@ -14,6 +14,8 @@ interface InPlaceLinkProps extends Omit<ComponentProps<typeof Link>, 'href' | 'o
   onOpen?: () => void;
   /** The entry this link opens is the one already open. */
   isCurrent?: boolean;
+  /** How the open one is announced: an entry of a list, or a page of a submenu. */
+  currentAs?: 'true' | 'page';
 }
 
 /**
@@ -22,11 +24,16 @@ interface InPlaceLinkProps extends Omit<ComponentProps<typeof Link>, 'href' | 'o
  * opens the entry in place, without asking the server for the page again.
  * Ctrl, Cmd, Shift and the middle button are left to the browser.
  */
-export function InPlaceLink({ onOpen, isCurrent = false, ...props }: InPlaceLinkProps) {
+export function InPlaceLink({
+  onOpen,
+  isCurrent = false,
+  currentAs = 'true',
+  ...props
+}: InPlaceLinkProps) {
   return (
     <Link
       {...props}
-      aria-current={isCurrent ? 'true' : undefined}
+      aria-current={isCurrent ? currentAs : undefined}
       onClick={
         onOpen === undefined
           ? undefined

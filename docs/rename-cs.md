@@ -264,3 +264,13 @@ Doplněno pro nové menu panelu (redesign 5.2, 2026-10-03): položky jsou ve sku
 
 - `panel.nav.groups.work`: Práce — název skupiny, 1. pád j. č.
 - `panel.nav.groups.reference`: Evidence — prozatím; majitel navrhuje **„Číselníky“** (ru «Справочники», en „Directory“). Prosíme rodilého mluvčího o volbu: „Evidence“, „Číselníky“, nebo jiné slovo pro seznamy bytů a týmu.
+
+Doplněno pro přejmenování „Konverzace“ → „Chat“ (rozhodnutí majitele 2026-10-08): v celém panelu se konverzace u úkolu nebo úklidu jmenuje „Chat“ (ru «Чат», en „Chat“), stejně jako v aplikaci, kde už „Chat“ je (`chat.title`, `chat.notFound` „Tento chat není dostupný“). Klíče se nemění. Slovo mění rod: konverzace — ž. r., chat — m. r. Každý řádek: klíč: bylo → bude — poznámka.
+
+- `panel.chat.title`: Konverzace → Chat — nadpis panelu vpravo, 1. pád j. č.
+- `panel.chat.open`: Konverzace → Chat — tlačítko v záhlaví úkolu a položka menu „⋯“ u úklidu
+- `panel.chat.openUnread`: Nová zpráva — otevřít konverzaci: {{about}} → Nová zpráva — otevřít chat: {{about}} — 4. pád j. č.; jméno značky pro čtečku obrazovky
+- `panel.chat.loading`: Načítáme konverzaci… → Načítáme chat… — 4. pád j. č.
+- `panel.chat.loadError`: Konverzaci se nepodařilo otevřít → Chat se nepodařilo otevřít — 4. pád j. č. (předmět infinitivu)
+- `serverErrors.threadSubjectInvalid`: Konverzace se týká právě jedné věci → Chat se týká právě jedné věci — zní „chat se týká“ přirozeně?
+- `serverErrors.threadNotFound`: Tato konverzace není dostupná → Tento chat není dostupný — m. r.; stejně jako `chat.notFound` v aplikaci

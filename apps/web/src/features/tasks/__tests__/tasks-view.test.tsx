@@ -120,10 +120,21 @@ vi.mock('../use-tasks', () => ({
   useSetDuration: () => ({ ...idle, mutate: setDuration }),
 }));
 
-// The conversation has its own tests; here it only has to be in the drawer.
-vi.mock('@/features/chat/thread-panel', () => ({
-  ThreadPanel: ({ subject }: { subject: Record<string, string> }) => (
-    <section aria-label="Разговор">{Object.values(subject).join(',')}</section>
+// The conversation has its own tests; here it only has to open about the
+// right job, one sheet at a time.
+vi.mock('@/features/chat/chat-sheet', () => ({
+  ChatSheet: (props: {
+    subject: Record<string, string>;
+    about: string;
+    returnFocus?: () => HTMLElement | null;
+  }) => (
+    <div role="dialog" aria-label="Чат">
+      {`${Object.values(props.subject).join(',')} · ${props.about}`}
+      {/* Where the real sheet sends the focus when it closes. */}
+      <button type="button" onClick={() => props.returnFocus?.()?.focus()}>
+        Вернуть фокус
+      </button>
+    </div>
   ),
 }));
 
@@ -545,34 +556,70 @@ describe('TasksView', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Это уже изменилось — экран обновлён');
   });
 
-  test('opens the conversation of a job nobody has started, without the work sections', async () => {
+  // 5.4, «Чат», variant B: the conversation slides in on its own, not inside
+  // the drawer of the work.
+  test('opens the conversation of a job nobody has started in a sheet of its own', async () => {
     render(<TasksView />);
 
     const menu = await openMenu(rowOf('Вечерний осмотр'));
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Чат' }));
 
-    const drawer = await screen.findByRole('dialog', { name: 'Уборка' });
-    expect(within(drawer).getByRole('region', { name: 'Разговор' })).toHaveTextContent(id(2));
-    expect(within(drawer).queryByLabelText('Корректировка, минут')).not.toBeInTheDocument();
-    expect(within(drawer).queryByText('Шаги')).not.toBeInTheDocument();
+    const sheet = await screen.findByRole('dialog', { name: 'Чат' });
+    expect(sheet).toHaveTextContent(`${id(2)} · Вечерний осмотр · Vinohrady 12`);
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+  }, 20000);
+
+  // The review of 05.10: the menu or the drawer that opened the conversation is
+  // gone when it closes; the focus goes back to the row's «⋯», not to the body.
+  test('the conversation hands the focus back to its row’s «⋯»', async () => {
+    render(<TasksView />);
+
+    const menu = await openMenu(rowOf('Вечерний осмотр'));
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Чат' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Чат' });
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Вернуть фокус' }));
+
+    expect(
+      within(rowOf('Вечерний осмотр')).getByRole('button', { name: /^Действия: / }),
+    ).toHaveFocus();
   }, 20000);
 
   test('reads a finished cleaning and corrects the time without touching the measurement', async () => {
     render(<TasksView />);
 
     await userEvent.click(screen.getByRole('tab', { name: /Завершённые/ }));
-    // A closed job is not edited any more: its menu only reads it.
-    expect(await menuItems(rowOf('Вчерашняя уборка'))).toEqual(['Как прошла уборка']);
+    // A closed job is not edited any more: its menu reads it and its conversation.
+    expect(await menuItems(rowOf('Вчерашняя уборка'))).toEqual(['Как прошла уборка', 'Чат']);
     await userEvent.click(screen.getByRole('menuitem', { name: 'Как прошла уборка' }));
 
     const drawer = await screen.findByRole('dialog', { name: 'Как прошла уборка' });
-    expect(within(drawer).getByRole('region', { name: 'Разговор' })).toHaveTextContent(id(4));
+    expect(within(drawer).queryByLabelText('Написать…')).not.toBeInTheDocument();
     expect(drawer).toHaveTextContent('Замер: 1 ч 35 мин');
     expect(drawer).toHaveTextContent('Фото после уборки');
 
     await userEvent.type(within(drawer).getByLabelText('Корректировка, минут'), '80');
     await userEvent.click(within(drawer).getByRole('button', { name: 'Сохранить' }));
     expect(setDuration).toHaveBeenCalledWith({ taskId: id(4), minutes: 80 });
+  }, 20000);
+
+  test('the drawer’s «Чат» puts the drawer away and opens the job’s conversation', async () => {
+    render(<TasksView />);
+
+    await userEvent.click(screen.getByRole('tab', { name: /Завершённые/ }));
+    await userEvent.click(
+      within(await openMenu(rowOf('Вчерашняя уборка'))).getByRole('menuitem', {
+        name: 'Как прошла уборка',
+      }),
+    );
+    const drawer = await screen.findByRole('dialog', { name: 'Как прошла уборка' });
+    const toChat = within(drawer).getByRole('button', { name: 'Чат' });
+    expect(toChat).toHaveClass('h-11');
+    await userEvent.click(toChat);
+
+    // One sheet at a time, never one over the other.
+    const sheet = await screen.findByRole('dialog', { name: 'Чат' });
+    expect(sheet).toHaveTextContent(id(4));
+    expect(screen.queryByRole('dialog', { name: 'Как прошла уборка' })).not.toBeInTheDocument();
   }, 20000);
 
   // The vocabulary (CLAUDE.md): a technician's job is «работа», not «уборка».
@@ -588,21 +635,26 @@ describe('TasksView', () => {
         assignee: { full_name: 'Petr Test', role: 'tech' },
       });
     useTasks.mockReturnValue({
-      data: [repair(6, 'assigned', 'Течёт кран'), repair(7, 'done', 'Заменить лампу')],
+      data: [
+        { ...repair(6, 'in_progress', 'Течёт кран'), started_at: '2026-09-10T08:00:00+00:00' },
+        { ...repair(7, 'done', 'Заменить лампу'), started_at: '2026-09-10T08:00:00+00:00' },
+      ],
       isPending: false,
       isError: false,
     });
     render(<TasksView />);
 
     await userEvent.click(
-      within(await openMenu(rowOf('Течёт кран'))).getByRole('menuitem', { name: 'Чат' }),
+      within(await openMenu(rowOf('Течёт кран'))).getByRole('menuitem', {
+        name: 'Как идёт работа',
+      }),
     );
     const open = await screen.findByRole('dialog', { name: 'Работа' });
     expect(open).toBeInTheDocument();
     await userEvent.keyboard('{Escape}');
 
     await userEvent.click(screen.getByRole('tab', { name: /Завершённые/ }));
-    expect(await menuItems(rowOf('Заменить лампу'))).toEqual(['Как прошла работа']);
+    expect(await menuItems(rowOf('Заменить лампу'))).toEqual(['Как прошла работа', 'Чат']);
     await userEvent.click(screen.getByRole('menuitem', { name: 'Как прошла работа' }));
     expect(await screen.findByRole('dialog', { name: 'Как прошла работа' })).toBeInTheDocument();
   }, 20000);
@@ -615,6 +667,19 @@ describe('TasksView', () => {
     expect(
       within(rowOf('Генеральная уборка')).queryByText('Новое сообщение'),
     ).not.toBeInTheDocument();
+  });
+
+  test('the mark opens the conversation it is about', async () => {
+    unread.tasks.add(id(2));
+    render(<TasksView />);
+
+    await userEvent.click(
+      within(rowOf('Вечерний осмотр')).getByRole('button', {
+        name: /^Новое сообщение — открыть чат: Вечерний осмотр/,
+      }),
+    );
+
+    expect(await screen.findByRole('dialog', { name: 'Чат' })).toHaveTextContent(id(2));
   });
 
   // Decision 14: on a phone the page never scrolls sideways; the table does, in its frame.
