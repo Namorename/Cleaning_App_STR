@@ -157,10 +157,34 @@ vi.mock('@/features/tasks/task-form', () => ({
   ),
 }));
 vi.mock('@/features/tasks/task-drawer', () => ({
-  TaskDrawer: (props: { task: { id: string } }) => (
-    <div role="dialog" aria-label="Шторка уборки" data-task={props.task.id} />
+  TaskDrawer: (props: { task: { id: string }; onOpenChat: (task: { id: string }) => void }) => (
+    <div role="dialog" aria-label="Шторка уборки" data-task={props.task.id}>
+      <button type="button" onClick={() => props.onOpenChat(props.task)}>
+        Чат
+      </button>
+    </div>
   ),
 }));
+vi.mock('@/features/chat/chat-sheet', () => ({
+  ChatSheet: (props: {
+    subject: Record<string, string>;
+    about: string;
+    returnFocus?: () => HTMLElement | null;
+  }) => (
+    <div role="dialog" aria-label="Чат">
+      {`${Object.values(props.subject).join(',')} · ${props.about}`}
+      {/* Where the real sheet sends the focus when it closes. */}
+      <button type="button" onClick={() => props.returnFocus?.()?.focus()}>
+        Вернуть фокус
+      </button>
+    </div>
+  ),
+}));
+
+// The marks come from one company-wide answer; here it is a pair of sets the
+// test fills by hand.
+const unread = { tasks: new Set<string>(), problems: new Set<string>() };
+vi.mock('@/features/chat/use-chat', () => ({ useUnreadSubjects: () => unread }));
 
 import {
   calendarTaskSchema,
@@ -242,6 +266,8 @@ beforeEach(() => {
   expiredState.data = [];
   cancelledState.data = [];
   repairsState.data = [];
+  unread.tasks.clear();
+  unread.problems.clear();
 });
 
 afterEach(() => {
@@ -591,6 +617,46 @@ describe('task chips', () => {
       'data-task',
       done.id,
     );
+  });
+
+  // 5.4, «Чат»: the drawer's «Чат» swaps it for the conversation's sheet.
+  test('the drawer’s «Чат» puts it away and opens the job’s conversation', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const done = calendarTask(1, '2026-09-26', { status: 'done' });
+    tasksState.data = [done];
+    render(<CalendarView />);
+
+    await user.click(screen.getByRole('button', { name: /Выполнена/ }));
+    await user.click(screen.getByRole('button', { name: 'Чат' }));
+
+    expect(screen.getByRole('dialog', { name: 'Чат' })).toHaveTextContent(
+      `${done.id} · Уборка · Anglicka 7`,
+    );
+    expect(screen.queryByRole('dialog', { name: 'Шторка уборки' })).toBeNull();
+  });
+
+  // The review of 05.10: the drawer that led to the conversation is gone when
+  // it closes; the focus goes back to the chip, not to the page's body.
+  test('the conversation hands the focus back to the chip it came from', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    tasksState.data = [calendarTask(1, '2026-09-26', { status: 'done' })];
+    render(<CalendarView />);
+
+    await user.click(screen.getByRole('button', { name: /Выполнена/ }));
+    await user.click(screen.getByRole('button', { name: 'Чат' }));
+    await user.click(screen.getByRole('button', { name: 'Вернуть фокус' }));
+
+    expect(screen.getByRole('button', { name: /Выполнена/ })).toHaveFocus();
+  });
+
+  test('a chip somebody wrote about says so in its name', () => {
+    const written = calendarTask(1, '2026-09-26');
+    const quiet = calendarTask(1, '2026-09-27');
+    tasksState.data = [written, quiet];
+    unread.tasks.add(written.id);
+    render(<CalendarView />);
+
+    expect(screen.getAllByRole('button', { name: /Новое сообщение/ })).toHaveLength(1);
   });
 
   // The unit of work is the problem: its date and technician change there (§6).

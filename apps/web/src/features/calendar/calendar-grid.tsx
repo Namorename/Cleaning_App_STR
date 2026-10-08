@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { propertyPath, STATUS_TONE, type Language } from '@str-ops/shared';
 
 import { Badge } from '@/components/ui/badge';
+import type { UnreadSubjects } from '@/features/chat/schema';
 import { mergeRepairAlerts, type RepairAlert } from '@/features/tasks/repairs';
 import type { CalendarTask, Property } from '@/features/tasks/schema';
 import { formatShortDay } from '@/lib/format-date';
@@ -50,6 +51,8 @@ interface CalendarGridProps {
   /** How the chips read: in full, or the status dot and the person. */
   chipView: ChipView;
   language: Language;
+  /** The jobs and tasks somebody wrote about that the manager has not read (5.4, «Чат»). */
+  unread?: UnreadSubjects;
   onOpenBooking: (booking: CalendarBooking) => void;
   onOpenTask: (task: CalendarTask, label: string) => void;
   onMoreTasks: (rowId: number, place: string, day: string, tasks: readonly CalendarTask[]) => void;
@@ -138,6 +141,7 @@ interface GridRowProps {
   highlighted: number | null;
   chipView: ChipView;
   language: Language;
+  unread: CalendarGridProps['unread'];
   onToggleGroup: CalendarGridProps['onToggleGroup'];
   onPoint: (bookingId: number | null) => void;
   onOpenBooking: CalendarGridProps['onOpenBooking'];
@@ -167,6 +171,7 @@ const GridRow = memo(function GridRow({
   highlighted,
   chipView,
   language,
+  unread,
   onToggleGroup,
   onPoint,
   onOpenBooking,
@@ -241,6 +246,7 @@ const GridRow = memo(function GridRow({
         highlighted={highlighted}
         chipView={chipView}
         language={language}
+        unread={unread}
         onPoint={onPoint}
         onOpen={onOpenBooking}
         onOpenTask={onOpenTask}
@@ -272,6 +278,7 @@ export function CalendarGrid({
   bookings,
   chipView,
   language,
+  unread,
   onOpenBooking,
   onOpenTask,
   onMoreTasks,
@@ -373,6 +380,7 @@ export function CalendarGrid({
                 highlighted={highlighted}
                 chipView={chipView}
                 language={language}
+                unread={unread}
                 onToggleGroup={onToggleGroup}
                 onPoint={setHighlighted}
                 onOpenBooking={onOpenBooking}

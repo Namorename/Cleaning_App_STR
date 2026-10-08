@@ -103,4 +103,16 @@ describe('InPlaceLink', () => {
     expect(link()).toHaveAttribute('aria-current', 'true');
     expect(screen.getByRole('link', { name: 'Smíchov 8' })).not.toHaveAttribute('aria-current');
   });
+
+  // A submenu's links are pages of their own (the sections of «Настройки»):
+  // a screen reader says «current page», not just «current».
+  test('a link of a submenu is marked as the current page', () => {
+    render(
+      <InPlaceLink href="/settings?section=company" isCurrent currentAs="page" onOpen={onOpen}>
+        Karlín 3
+      </InPlaceLink>,
+    );
+
+    expect(link()).toHaveAttribute('aria-current', 'page');
+  });
 });

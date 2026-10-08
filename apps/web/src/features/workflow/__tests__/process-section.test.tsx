@@ -148,6 +148,29 @@ describe('the company process', () => {
   });
 });
 
+// 5.4: a chosen value read grey, like a disabled one («Процесс для», «Где
+// применяется», «Фото до» in «Добавить шаг») — every field sat inside its
+// label and took the label's muted colour. The words over a field stay quiet;
+// what is in the field is the text's own colour.
+describe('what the fields show', () => {
+  test('every value reads in the text colour, not in the grey of its label', async () => {
+    processState.data = {
+      ...DEFAULT_SOURCE,
+      steps: [...DEFAULT_SOURCE.steps, step({ id: 's3', type: 'video', title: 'Обход на видео' })],
+    };
+    const { container } = render(<ProcessSection />);
+    await chooseListing('Vinohrady 12');
+
+    // Three pickers, the name, «Добавить шаг», and the fields of three steps:
+    // photos (title, instructions, two counts), a confirmation, a video (seconds).
+    const fields = container.querySelectorAll('select, textarea, input:not([type="checkbox"])');
+    expect(fields.length).toBe(14);
+    for (const field of fields) {
+      expect(field.closest('.text-muted-foreground')).toBeNull();
+    }
+  });
+});
+
 describe('a listing that follows the shared process', () => {
   test('is told whose process it is running', async () => {
     render(<ProcessSection />);

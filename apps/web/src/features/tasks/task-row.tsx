@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { TableCell, TableRow } from '@/components/ui/table';
+import { UnreadChatButton } from '@/features/chat/unread-mark';
 import { formatShortDay } from '@/lib/format-date';
 import { useLanguage } from '@/lib/use-language';
 import { cn } from '@/lib/utils';
@@ -84,11 +85,26 @@ interface TaskRowProps {
   /** The instant the list was drawn at, so a whole list agrees on what a tail is. */
   now: Date;
   onEdit: (task: Task) => void;
+  /** The drawer of the work: offered once the job has been started. */
   onOpenWork: (task: Task) => void;
+  /** The conversation about the job, in its sheet: offered on every row. */
+  onOpenChat: (task: Task) => void;
   /** Ask whether to call the job off; the view asks, and owns the write. */
   onCancel: (task: Task) => void;
   /** Somebody said something in the conversation about this job that the manager has not read. */
   hasUnread?: boolean;
+}
+
+/** What the drawer of a started job shows, said as the item that opens it. */
+function workItemKey(task: Task): string {
+  if (task.status === 'done') {
+    return isTechnicianJob(task)
+      ? 'panel.tasks.actions.openRepairWork'
+      : 'panel.tasks.actions.openWork';
+  }
+  return isTechnicianJob(task)
+    ? 'panel.tasks.actions.openRepairWorkLive'
+    : 'panel.tasks.actions.openWorkLive';
 }
 
 /**
@@ -105,6 +121,7 @@ export function TaskRow({
   now,
   onEdit,
   onOpenWork,
+  onOpenChat,
   onCancel,
   hasUnread = false,
 }: TaskRowProps) {
@@ -154,11 +171,18 @@ export function TaskRow({
         )}
       </TableCell>
       <TableCell className="py-1">
-        <TaskMarks task={task} tail={tail} hasUnread={hasUnread} />
+        <TaskMarks
+          task={task}
+          tail={tail}
+          hasUnread={hasUnread}
+          onOpenChat={() => onOpenChat(task)}
+        />
       </TableCell>
       <TableCell className="py-0 text-right">
         <DropdownMenu>
           <DropdownMenuTrigger
+            // Where the conversation hands the focus back: its menu is gone by then.
+            data-task-menu={task.id}
             render={<Button type="button" variant="ghost" className="size-11" />}
             aria-label={t('panel.tasks.actions.menu', { name: taskSummary(task, language, t) })}
           >
@@ -170,16 +194,16 @@ export function TaskRow({
                 {t('panel.tasks.actions.edit')}
               </DropdownMenuItem>
             )}
-            {/* The drawer carries the conversation for every job, and the work
-                of a finished one; the item is named after what it will show. */}
-            <DropdownMenuItem onClick={() => onOpenWork(task)}>
-              {task.status === 'done'
-                ? t(
-                    isTechnicianJob(task)
-                      ? 'panel.tasks.actions.openRepairWork'
-                      : 'panel.tasks.actions.openWork',
-                  )
-                : t('panel.tasks.actions.openChat')}
+            {/* The drawer is the work's: there is some once the job has been
+                started, and the item is named after what it will show. The
+                conversation has its own sheet («Чат», variant B), every job. */}
+            {task.started_at === null ? null : (
+              <DropdownMenuItem onClick={() => onOpenWork(task)}>
+                {t(workItemKey(task))}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onClick={() => onOpenChat(task)}>
+              {t('panel.chat.open')}
             </DropdownMenuItem>
             {canCancel ? (
               <>
@@ -200,10 +224,14 @@ interface TaskMarksProps {
   task: Task;
   tail: TaskTail | null;
   hasUnread: boolean;
+  onOpenChat: () => void;
 }
 
-/** What stands out about a job: left behind, written about — then, quietly, where it came from. */
-function TaskMarks({ task, tail, hasUnread }: TaskMarksProps) {
+/**
+ * What stands out about a job: left behind, written about — then, quietly,
+ * where it came from. «Новое сообщение» opens the conversation it is about.
+ */
+function TaskMarks({ task, tail, hasUnread, onOpenChat }: TaskMarksProps) {
   const { t } = useTranslation();
   const language = useLanguage();
 
@@ -212,7 +240,9 @@ function TaskMarks({ task, tail, hasUnread }: TaskMarksProps) {
       {tail === null ? null : (
         <Badge tone={STATUS_TONE['tasks.tail']}>{tailLabel(task, tail, language, t)}</Badge>
       )}
-      {hasUnread ? <Badge tone={STATUS_TONE['chat.unread']}>{t('panel.chat.unread')}</Badge> : null}
+      {hasUnread ? (
+        <UnreadChatButton onOpen={onOpenChat} about={taskSummary(task, language, t)} />
+      ) : null}
       <span className="text-xs text-muted-foreground">
         {task.reservation_id !== null ? t('panel.tasks.origin.booking') : null}
         {task.problem_id !== null ? t('panel.tasks.origin.problem') : null}

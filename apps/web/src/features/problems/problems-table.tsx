@@ -14,20 +14,27 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { UnreadChatLink } from '@/features/chat/unread-mark';
+import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { formatDateTime } from '@/lib/format-date';
 import { useLanguage } from '@/lib/use-language';
 
-import { problemHref } from './address';
+import { problemChatHref, problemHref } from './address';
 import { liveFixTask, problemPlace, type Problem } from './schema';
 
 interface ProblemsTableProps {
   problems: Problem[];
 }
 
-/** Every problem in one table, cancelled ones included. */
+/**
+ * Every problem in one table, cancelled ones included. A problem somebody
+ * wrote about carries «Новое сообщение» beside its title — a link to its
+ * page with the conversation open (5.4, «Чат»).
+ */
 export function ProblemsTable({ problems }: ProblemsTableProps) {
   const { t } = useTranslation();
   const language = useLanguage();
+  const unread = useUnreadSubjects();
 
   return (
     <div className="overflow-x-auto rounded-lg border">
@@ -49,12 +56,20 @@ export function ProblemsTable({ problems }: ProblemsTableProps) {
             return (
               <TableRow key={problem.id}>
                 <TableCell>
-                  <Link
-                    href={problemHref(problem.id, 'list')}
-                    className="font-medium hover:underline"
-                  >
-                    {problem.title}
-                  </Link>
+                  <div className="flex flex-wrap items-center gap-x-2">
+                    <Link
+                      href={problemHref(problem.id, 'list')}
+                      className="font-medium hover:underline"
+                    >
+                      {problem.title}
+                    </Link>
+                    {unread.problems.has(problem.id) ? (
+                      <UnreadChatLink
+                        href={problemChatHref(problem.id, 'list')}
+                        about={problem.title}
+                      />
+                    ) : null}
+                  </div>
                 </TableCell>
                 <TableCell>{problemPlace(problem) ?? t('problems.noProperty')}</TableCell>
                 <TableCell>

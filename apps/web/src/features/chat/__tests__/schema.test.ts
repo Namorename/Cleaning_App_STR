@@ -6,6 +6,7 @@ import {
   chatUnreadThreadSchema,
   isOwnMessage,
   isPastUploadWindow,
+  isTaskUnread,
   newestMessageAt,
   subjectKey,
   unreadSubjects,
@@ -152,6 +153,22 @@ describe('the subjects with something unread', () => {
     expect([...subjects.tasks]).toEqual([THREAD]);
     expect([...subjects.problems]).toEqual([HER]);
     expect(unreadSubjects([]).tasks.size).toBe(0);
+  });
+});
+
+// A repair speaks in its problem's thread (open_thread), so in a list of jobs
+// the mark of a repair is its problem's.
+describe('a job with something unread', () => {
+  const unread = { tasks: new Set([THREAD]), problems: new Set([HER]) };
+
+  test('is one whose own thread has it', () => {
+    expect(isTaskUnread({ id: THREAD, problem_id: null }, unread)).toBe(true);
+    expect(isTaskUnread({ id: ME, problem_id: null }, unread)).toBe(false);
+  });
+
+  test('or a repair whose problem has it', () => {
+    expect(isTaskUnread({ id: ME, problem_id: HER }, unread)).toBe(true);
+    expect(isTaskUnread({ id: ME, problem_id: THREAD }, unread)).toBe(false);
   });
 });
 

@@ -1,7 +1,9 @@
 'use client';
 
+import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { LabelledField } from '@/components/labelled-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -38,6 +40,7 @@ interface StepRowProps {
  */
 export function StepRow({ step, at, onChange, onMove, onRemove }: StepRowProps) {
   const { t } = useTranslation();
+  const id = useId();
   const number = at + 1;
   const supported = isLiveStep(step.type);
   const stepLabel = t('panel.settings.workflow.stepNumber', { at: number });
@@ -93,31 +96,31 @@ export function StepRow({ step, at, onChange, onMove, onRemove }: StepRowProps) 
         <p className="text-xs text-muted-foreground">{t('panel.settings.workflow.notSupported')}</p>
       )}
 
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-        {t('panel.settings.workflow.stepTitle')}
+      <LabelledField id={`${id}-title`} label={t('panel.settings.workflow.stepTitle')}>
         <Input
+          id={`${id}-title`}
           aria-label={`${t('panel.settings.workflow.stepTitle')} — ${stepLabel}`}
           placeholder={t('panel.settings.workflow.stepTitlePlaceholder')}
           value={step.title}
           onChange={(event) => onChange({ ...step, title: event.target.value })}
         />
-      </label>
+      </LabelledField>
 
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-        {t('panel.settings.workflow.instructions')}
+      <LabelledField id={`${id}-instructions`} label={t('panel.settings.workflow.instructions')}>
         <Textarea
+          id={`${id}-instructions`}
           aria-label={`${t('panel.settings.workflow.instructions')} — ${stepLabel}`}
           rows={2}
           value={step.instructions}
           onChange={(event) => onChange({ ...step, instructions: event.target.value })}
         />
-      </label>
+      </LabelledField>
 
       {isPhotoStep(step.type) ? (
         <div className="flex flex-wrap gap-2">
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            {t('panel.settings.workflow.minPhotos')}
+          <LabelledField id={`${id}-min`} label={t('panel.settings.workflow.minPhotos')}>
             <Input
+              id={`${id}-min`}
               type="number"
               min={0}
               className="w-24"
@@ -125,10 +128,10 @@ export function StepRow({ step, at, onChange, onMove, onRemove }: StepRowProps) 
               value={step.minPhotos ?? ''}
               onChange={(event) => onChange({ ...step, minPhotos: toLimit(event.target.value) })}
             />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            {t('panel.settings.workflow.maxPhotos')}
+          </LabelledField>
+          <LabelledField id={`${id}-max`} label={t('panel.settings.workflow.maxPhotos')}>
             <Input
+              id={`${id}-max`}
               type="number"
               min={1}
               className="w-24"
@@ -136,21 +139,22 @@ export function StepRow({ step, at, onChange, onMove, onRemove }: StepRowProps) 
               value={step.maxPhotos ?? ''}
               onChange={(event) => onChange({ ...step, maxPhotos: toLimit(event.target.value) })}
             />
-          </label>
+          </LabelledField>
         </div>
       ) : null}
 
       {isVideoStep(step.type) ? (
-        <label className="flex w-32 flex-col gap-1 text-xs text-muted-foreground">
-          {t('panel.settings.workflow.maxVideoSec')}
+        <LabelledField id={`${id}-video`} label={t('panel.settings.workflow.maxVideoSec')}>
           <Input
+            id={`${id}-video`}
             type="number"
             min={1}
+            className="w-32"
             aria-label={`${t('panel.settings.workflow.maxVideoSec')} — ${stepLabel}`}
             value={step.maxVideoSec ?? ''}
             onChange={(event) => onChange({ ...step, maxVideoSec: toLimit(event.target.value) })}
           />
-        </label>
+        </LabelledField>
       ) : null}
     </li>
   );

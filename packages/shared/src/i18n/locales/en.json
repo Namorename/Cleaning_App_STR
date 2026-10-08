@@ -51,6 +51,7 @@
       "digest": "Error code: {{digest}}"
     },
     "settings": {
+      "sections": "Settings sections",
       "account": "Account",
       "signedInAs": "Signed in as {{email}}.",
       "appearance": "Appearance",
@@ -484,7 +485,8 @@
         "cancelConfirmNo": "No",
         "openWork": "How the cleaning went",
         "openRepairWork": "How the job went",
-        "openChat": "Chat",
+        "openWorkLive": "How the cleaning is going",
+        "openRepairWorkLive": "How the job is going",
         "menu": "Actions: {{name}}"
       },
       "form": {
@@ -553,9 +555,11 @@
       "authorLabel": "Asked by"
     },
     "chat": {
-      "title": "Conversation",
-      "loading": "Loading the conversation…",
-      "loadError": "Could not open the conversation",
+      "title": "Chat",
+      "open": "Chat",
+      "openUnread": "New message — open the chat: {{about}}",
+      "loading": "Loading the chat…",
+      "loadError": "Could not open the chat",
       "empty": "Nothing has been said yet",
       "audienceTask": "Seen by whoever sees the cleaning: the assignee, the cleaners of the listing and the managers",
       "audienceProblem": "Seen by whoever sees the task: the reporter, the technician and the managers",
@@ -1308,8 +1312,8 @@
     "mediaLimitReached_other": "At most {{limit}} files can be attached here",
     "mediaNotUploaded": "The file has not reached the server yet",
     "mediaUploadPending": "Files still uploading: {{count}}",
-    "threadSubjectInvalid": "A conversation is about exactly one thing",
-    "threadNotFound": "This conversation is not available",
+    "threadSubjectInvalid": "A chat is about exactly one thing",
+    "threadNotFound": "This chat is not available",
     "messageNotFound": "This message is not available",
     "messageTooLong": "A message takes at most {{limit}} characters",
     "messageEmpty": "Write something or attach a photo",

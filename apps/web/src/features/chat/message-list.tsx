@@ -29,11 +29,20 @@ interface MessageListProps {
 }
 
 /**
+ * The bubbles (5.4, «Чат»): own ones in the primary family — its tonal fill
+ * and a primary-tinted frame — others in the neutral muted one; the words on
+ * both hold 4.5:1 in either theme (the sheet's test measures it). Before,
+ * the two differed by a faint background alone.
+ */
+const OWN_BUBBLE = 'self-end border-primary/40 bg-secondary';
+const OTHERS_BUBBLE = 'self-start border-border bg-muted';
+
+/**
  * The transcript: who said what, and when. Own messages keep to the right.
  *
- * Boxed to a fixed height with its own scroll, so a long conversation does
- * not stretch the card it sits in; the box opens on the newest message and
- * follows the conversation as it grows.
+ * It fills the height its parent leaves it (the chat sheet, under the
+ * heading and over the composer) and scrolls on its own; it opens on the
+ * newest message and follows the conversation as it grows.
  */
 export function MessageList({
   messages,
@@ -57,7 +66,7 @@ export function MessageList({
   }, [newestId]);
 
   return (
-    <div ref={box} className="max-h-96 overflow-y-auto rounded-md border p-2">
+    <div ref={box} className="min-h-0 flex-1 overflow-y-auto">
       <ol className="flex flex-col gap-2">
         {messages.map((message) => {
           const isOwn = isOwnMessage(message, currentUserId);
@@ -76,7 +85,7 @@ export function MessageList({
               key={message.id}
               className={cn(
                 'flex max-w-[85%] flex-col gap-1 rounded-md border p-3 text-sm',
-                isOwn ? 'self-end bg-primary/5' : 'self-start bg-muted/40',
+                isOwn ? OWN_BUBBLE : OTHERS_BUBBLE,
               )}
             >
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">

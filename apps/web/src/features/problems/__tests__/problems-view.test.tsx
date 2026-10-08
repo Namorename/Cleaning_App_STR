@@ -71,10 +71,10 @@ vi.mock('../use-problems', () => ({
   useUnarchiveProblem: () => ({ ...idle, mutate: unarchive }),
 }));
 
-// The marks on the cards have their own test on the board; here the answer is empty.
-vi.mock('@/features/chat/use-chat', () => ({
-  useUnreadSubjects: () => ({ tasks: new Set<string>(), problems: new Set<string>() }),
-}));
+// The marks come from one company-wide answer; here it is a pair of sets the
+// test fills by hand. The board's own marks are tested on the board.
+const unread = { tasks: new Set<string>(), problems: new Set<string>() };
+vi.mock('@/features/chat/use-chat', () => ({ useUnreadSubjects: () => unread }));
 
 // The router reads the address jsdom holds; the view writes it through
 // history. «Назад» moves it a task later with `popstate`, as Next shows it.
@@ -108,6 +108,7 @@ const selected = () =>
 
 beforeEach(() => {
   window.history.pushState(null, '', '/problems');
+  unread.problems.clear();
 });
 
 describe('ProblemsView', () => {
@@ -237,6 +238,57 @@ describe('the view in the address', () => {
     );
 
     await userEvent.click(screen.getByRole('tab', { name: /Архив/ }));
+    expect(screen.getByRole('link', { name: 'Тестовая заявка' })).toHaveAttribute(
+      'href',
+      `/problems/${archived.id}?view=archive`,
+    );
+  });
+});
+
+// 5.4, «Чат»: the mark of an unread message stood on the board's cards only.
+describe('the mark of an unread message', () => {
+  /** The mark's name: the words, then whose conversation it opens. */
+  const MARK = /^Новое сообщение — открыть чат: /;
+
+  test('stands beside the title in the list, and leads to the conversation', async () => {
+    unread.problems.add(problems[1].id);
+    useProblems.mockReturnValue({ data: problems, isPending: false, isError: false });
+    render(<ProblemsView />);
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Список' }));
+
+    const marked = screen.getByRole('link', { name: 'Сломан замок' }).closest('tr') as HTMLElement;
+    expect(within(marked).getByRole('link', { name: MARK })).toHaveAttribute(
+      'href',
+      `/problems/${problems[1].id}?view=list&chat=1`,
+    );
+    expect(within(marked).getByRole('link', { name: MARK })).toHaveAccessibleName(
+      'Новое сообщение — открыть чат: Сломан замок',
+    );
+    // The title still opens the page itself.
+    expect(within(marked).getByRole('link', { name: 'Сломан замок' })).toHaveAttribute(
+      'href',
+      `/problems/${problems[1].id}?view=list`,
+    );
+    const other = screen.getByRole('link', { name: 'Течёт кран' }).closest('tr') as HTMLElement;
+    expect(within(other).queryByRole('link', { name: MARK })).not.toBeInTheDocument();
+  });
+
+  test('stands beside the title in the archive too', async () => {
+    unread.problems.add(archived.id);
+    useProblems.mockReturnValue({
+      data: [...problems, archived],
+      isPending: false,
+      isError: false,
+    });
+    render(<ProblemsView />);
+
+    await userEvent.click(screen.getByRole('tab', { name: /Архив/ }));
+
+    expect(screen.getByRole('link', { name: MARK })).toHaveAttribute(
+      'href',
+      `/problems/${archived.id}?view=archive&chat=1`,
+    );
     expect(screen.getByRole('link', { name: 'Тестовая заявка' })).toHaveAttribute(
       'href',
       `/problems/${archived.id}?view=archive`,

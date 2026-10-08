@@ -42,6 +42,37 @@ export function problemHref(id: string, view: ProblemView): string {
   return withView(`/problems/${id}`, view);
 }
 
+/**
+ * What a task's page keeps in its address: the view of «Задания» it was
+ * opened from, and whether the conversation is open beside it (5.4, «Чат»,
+ * variant B). A link with `chat=1` opens the page with the conversation open.
+ */
+export interface ProblemPageAddress {
+  view: ProblemView;
+  chat: boolean;
+}
+
+const CHAT_PARAM = 'chat';
+const CHAT_OPEN = '1';
+
+export function readProblemPageAddress(params: URLSearchParams): ProblemPageAddress {
+  return { ...readProblemsAddress(params), chat: params.get(CHAT_PARAM) === CHAT_OPEN };
+}
+
+/** The query for the state, without its `?`: the view first, then the conversation. */
+export function writeProblemPageAddress({ view, chat }: ProblemPageAddress): string {
+  const params = new URLSearchParams(writeProblemsAddress({ view }));
+  if (chat) {
+    params.set(CHAT_PARAM, CHAT_OPEN);
+  }
+  return params.toString();
+}
+
+/** A task's page with its conversation open: where the mark «Новое сообщение» leads. */
+export function problemChatHref(id: string, view: ProblemView): string {
+  return `/problems/${id}?${writeProblemPageAddress({ view, chat: true })}`;
+}
+
 /** The section on one of its views. */
 export function problemsHref(view: ProblemView): string {
   return withView('/problems', view);

@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/page-header';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { overdueRepairsByProperty } from '@/features/tasks/repairs';
 import { todayIso } from '@/lib/format-date';
 import { buildPropertyTree, rowsMatching, visibleRows } from '@/lib/property-tree';
@@ -171,7 +172,10 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
 
   // Chips, likewise, only when every month has come; the filters act on them alone.
   const chips = useChipLayers({ client, isStand, days, byId, initialAssignee });
-  const taskDialogs = useTaskDialogs({ isStand, language, bookings: bookingsRead });
+  // What somebody wrote about is marked on its chip (5.4, «Чат»): the same
+  // company-wide answer the menu counts, polled while the tab is in front.
+  const unread = useUnreadSubjects();
+  const taskDialogs = useTaskDialogs({ isStand, language, bookings: bookingsRead, unread });
 
   // A repair left behind shows in its row's first column, whatever the window (§6).
   const repairs = useLiveRepairs(client, isStand);
@@ -330,6 +334,7 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
           bookings={bookingsRead}
           chipView={chipView}
           language={language}
+          unread={unread}
           onOpenBooking={setOpened}
           onOpenTask={taskDialogs.openTask}
           onMoreTasks={taskDialogs.showCell}

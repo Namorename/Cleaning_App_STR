@@ -8,6 +8,7 @@ import { hatchImage } from '@/lib/design/hatch';
 import { formatShortDay } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
+import type { UnreadSubjects } from '@/features/chat/schema';
 import type { CalendarTask } from '@/features/tasks/schema';
 
 import type { Bar, RowLayout, Shadow } from './bars';
@@ -37,6 +38,8 @@ interface RowTrackProps {
   highlighted: number | null;
   chipView: ChipView;
   language: Language;
+  /** What the chips mark as written about (5.4, «Чат»). */
+  unread?: UnreadSubjects;
   onPoint: (bookingId: number | null) => void;
   onOpen: (booking: CalendarBooking) => void;
   onOpenTask: (task: CalendarTask, label: string) => void;
@@ -62,6 +65,7 @@ export function RowTrack({
   highlighted,
   chipView,
   language,
+  unread,
   onPoint,
   onOpen,
   onOpenTask,
@@ -123,6 +127,7 @@ export function RowTrack({
         bookings={bookings}
         view={chipView}
         language={language}
+        unread={unread}
         onOpen={onOpenTask}
         onMore={onMoreTasks}
       />

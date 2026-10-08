@@ -1,7 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { THEME_COLORS } from '@str-ops/shared';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useRef, useState } from 'react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
+import { contrastRatio } from '../../../../../../packages/shared/src/testing/color-math';
 import { chatMessageSchema, type ChatMessage } from '../schema';
 
 const TASK = '11111111-1111-4111-8111-111111111111';
@@ -54,10 +57,31 @@ vi.mock('../use-chat', () => ({
   usePhotoUrls: () => queries.photoUrls(),
 }));
 
-import { ThreadPanel } from '../thread-panel';
+import { ChatSheet } from '../chat-sheet';
 
 const loaded = <T,>(data: T) => ({ data, isPending: false, isError: false, error: null });
 const failed = (error: unknown) => ({ data: undefined, isPending: false, isError: true, error });
+
+const onClose = vi.fn();
+
+/** The sheet about a cleaning, as «Уборки» open it. */
+function renderSheet(subject: { taskId: string } | { problemId: string } = { taskId: TASK }) {
+  return render(
+    <ChatSheet subject={subject} about="Генеральная уборка · Vinohrady 12" onClose={onClose} />,
+  );
+}
+
+const sheet = () => screen.getByRole('dialog', { name: 'Чат' });
+
+/**
+ * Picks files as the browser's dialog hands them over, `accept` or not (a drag
+ * gets past it). `userEvent.upload` also plays the dialog's blur and focus, and
+ * in jsdom that hands the sheet's focus trap a target that is no element — an
+ * error after the test that no browser raises.
+ */
+function pickFiles(...files: File[]) {
+  fireEvent.change(screen.getByLabelText('Прикрепить фото'), { target: { files } });
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -77,11 +101,18 @@ beforeEach(() => {
   });
 });
 
-describe('ThreadPanel', () => {
-  test('draws the transcript with who said it and marks read what was drawn', () => {
-    render(<ThreadPanel subject={{ taskId: TASK }} />);
+describe('ChatSheet', () => {
+  // 5.4, «Чат», variant B: the conversation slides in beside its subject and
+  // says what it is about, instead of sitting at the foot of a card.
+  test('is a sheet named «Чат» that says what it is about', () => {
+    renderSheet();
 
-    expect(screen.getByRole('heading', { name: 'Разговор' })).toBeInTheDocument();
+    expect(sheet()).toHaveTextContent('Генеральная уборка · Vinohrady 12');
+  });
+
+  test('draws the transcript with who said it and marks read what was drawn', () => {
+    renderSheet();
+
     expect(screen.getByText('Ключи в боксе')).toBeInTheDocument();
     expect(screen.getByText('Поняла, спасибо')).toBeInTheDocument();
     expect(screen.getByText('Maria Test')).toBeInTheDocument();
@@ -95,25 +126,91 @@ describe('ThreadPanel', () => {
   });
 
   test('says who will see a task thread, and who a problem thread', () => {
-    const { unmount } = render(<ThreadPanel subject={{ taskId: TASK }} />);
-    expect(screen.getByText(/кому видна уборка/)).toBeInTheDocument();
+    const { unmount } = renderSheet({ taskId: TASK });
+    expect(sheet()).toHaveTextContent(/кому видна уборка/);
     unmount();
 
-    render(<ThreadPanel subject={{ problemId: TASK }} />);
-    expect(screen.getByText(/кому видно задание/)).toBeInTheDocument();
+    renderSheet({ problemId: TASK });
+    expect(sheet()).toHaveTextContent(/кому видно задание/);
+  });
+
+  // The transcript was a box of 384 px inside a card; in the sheet it takes
+  // the height there is and scrolls on its own, the composer under it.
+  test('the transcript fills the sheet and scrolls on its own, the composer at the foot', () => {
+    renderSheet();
+
+    const transcriptBox = screen.getByRole('list').parentElement as HTMLElement;
+    expect(transcriptBox).toHaveClass('min-h-0', 'flex-1', 'overflow-y-auto');
+    expect(transcriptBox).not.toHaveClass('max-h-96');
+    const composer = screen.getByLabelText('Написать…').closest('form') as HTMLElement;
+    expect(transcriptBox.compareDocumentPosition(composer)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  // Decision 14: on a phone the sheet is the whole width, nothing scrolls sideways.
+  test('takes the whole width of a phone', () => {
+    renderSheet();
+
+    expect(sheet()).toHaveClass('data-[side=right]:w-full');
+    // The sheet's own three quarters would win over it otherwise.
+    expect(sheet()).not.toHaveClass('data-[side=right]:w-3/4');
+  });
+
+  test('closes by its cross and by Escape', async () => {
+    renderSheet();
+
+    await userEvent.click(within(sheet()).getByRole('button', { name: 'Закрыть' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    await userEvent.keyboard('{Escape}');
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  // The review of 05.10: opened from a drawer's button or a menu's item — both
+  // gone by the time the sheet closes — the focus fell to the page's body, and
+  // a keyboard started again from the top. It goes where the caller says.
+  test('closed after what opened it is gone, it hands the focus where the caller says', async () => {
+    function Host() {
+      const [isOpen, setIsOpen] = useState(false);
+      const fallback = useRef<HTMLButtonElement>(null);
+      return (
+        <>
+          <button type="button" ref={fallback}>
+            Действия
+          </button>
+          {isOpen ? (
+            <ChatSheet
+              subject={{ taskId: TASK }}
+              about="Генеральная уборка · Vinohrady 12"
+              onClose={() => setIsOpen(false)}
+              returnFocus={() => fallback.current}
+            />
+          ) : (
+            <button type="button" onClick={() => setIsOpen(true)}>
+              Чат из шторки
+            </button>
+          )}
+        </>
+      );
+    }
+    render(<Host />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Чат из шторки' }));
+    await userEvent.keyboard('{Escape}');
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Действия' })).toHaveFocus());
   });
 
   test('an empty thread says so and marks nothing read', () => {
     queries.messages.mockReturnValue(loaded([]));
 
-    render(<ThreadPanel subject={{ taskId: TASK }} />);
+    renderSheet();
 
     expect(screen.getByText('Пока ничего не написано')).toBeInTheDocument();
     expect(mutations.markRead).not.toHaveBeenCalled();
   });
 
   test('sends what was typed under an id minted for the draft', async () => {
-    render(<ThreadPanel subject={{ taskId: TASK }} />);
+    renderSheet();
 
     const send = screen.getByRole('button', { name: 'Отправить' });
     expect(send).toBeDisabled();
@@ -128,7 +225,7 @@ describe('ThreadPanel', () => {
   });
 
   test('a blank message is not sent', async () => {
-    render(<ThreadPanel subject={{ taskId: TASK }} />);
+    renderSheet();
 
     await userEvent.type(screen.getByLabelText('Написать…'), '   ');
 
@@ -144,7 +241,7 @@ describe('ThreadPanel', () => {
       details: '{"limit":4000}',
     };
 
-    render(<ThreadPanel subject={{ taskId: TASK }} />);
+    renderSheet();
 
     expect(screen.getByRole('alert')).toHaveTextContent('В сообщении не больше 4000 символов');
   });
@@ -171,7 +268,7 @@ describe('ThreadPanel', () => {
       ]),
     );
 
-    render(<ThreadPanel subject={{ taskId: TASK }} />);
+    renderSheet();
 
     expect(screen.getByText('Фото в пути')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Повторить загрузку' })).not.toBeInTheDocument();
@@ -197,7 +294,7 @@ describe('ThreadPanel', () => {
       ]),
     );
 
-    render(<ThreadPanel subject={{ taskId: TASK }} />);
+    renderSheet();
 
     expect(screen.getByText('Срок вышел')).toBeInTheDocument();
     expect(screen.queryByText('Фото в пути')).not.toBeInTheDocument();
@@ -226,7 +323,7 @@ describe('ThreadPanel', () => {
       ]),
     );
 
-    render(<ThreadPanel subject={{ taskId: TASK }} />);
+    renderSheet();
 
     expect(screen.getByRole('img', { name: /Фото 1\. Загружено/ })).toHaveAttribute(
       'src',
@@ -237,10 +334,10 @@ describe('ThreadPanel', () => {
   test('declares the picked photos and sends them under the message id', async () => {
     mutations.send.mockImplementation((_variables, handlers) => handlers?.onSuccess?.());
 
-    render(<ThreadPanel subject={{ taskId: TASK }} />);
+    renderSheet();
 
     const photo = new File(['bytes'], 'photo.jpg', { type: 'image/jpeg' });
-    await userEvent.upload(screen.getByLabelText('Прикрепить фото'), photo);
+    pickFiles(photo);
 
     expect(screen.getByText('1 из 4')).toBeInTheDocument();
 
@@ -254,29 +351,22 @@ describe('ThreadPanel', () => {
     expect(attached.file).toBe(photo);
   });
 
-  test('a photo alone, with no words, may be sent', async () => {
-    render(<ThreadPanel subject={{ taskId: TASK }} />);
+  test('a photo alone, with no words, may be sent', () => {
+    renderSheet();
 
     expect(screen.getByRole('button', { name: 'Отправить' })).toBeDisabled();
 
-    await userEvent.upload(
-      screen.getByLabelText('Прикрепить фото'),
-      new File(['bytes'], 'photo.webp', { type: 'image/webp' }),
-    );
+    pickFiles(new File(['bytes'], 'photo.webp', { type: 'image/webp' }));
 
     expect(screen.getByRole('button', { name: 'Отправить' })).toBeEnabled();
   });
 
-  test('a file the server would refuse is never picked up at all', async () => {
-    render(<ThreadPanel subject={{ taskId: TASK }} />);
+  test('a file the server would refuse is never picked up at all', () => {
+    renderSheet();
 
     // `accept` only steers the dialog; a drag or "all files" gets past it, so
     // the refusal is tested the way it can actually happen.
-    await userEvent.upload(
-      screen.getByLabelText('Прикрепить фото'),
-      new File(['bytes'], 'scan.pdf', { type: 'application/pdf' }),
-      { applyAccept: false },
-    );
+    pickFiles(new File(['bytes'], 'scan.pdf', { type: 'application/pdf' }));
 
     expect(screen.getByRole('alert')).toHaveTextContent('только фото JPEG и WebP до 20 МБ');
     expect(screen.getByText('0 из 4')).toBeInTheDocument();
@@ -288,11 +378,35 @@ describe('ThreadPanel', () => {
       failed({ message: 'Thread not found', hint: 'serverErrors.threadNotFound' }),
     );
 
-    render(<ThreadPanel subject={{ taskId: TASK }} />);
+    renderSheet();
 
     const alert = screen.getByRole('alert');
-    expect(alert).toHaveTextContent('Не удалось открыть разговор');
-    expect(alert).toHaveTextContent('Этот разговор недоступен');
+    expect(alert).toHaveTextContent('Не удалось открыть чат');
+    expect(alert).toHaveTextContent('Этот чат недоступен');
     expect(screen.queryByLabelText('Написать…')).not.toBeInTheDocument();
+  });
+});
+
+describe('own and others’ messages', () => {
+  /** The message a text stands in. */
+  const bubble = (text: string) => screen.getByText(text).closest('li') as HTMLElement;
+
+  // They differed by a faint background alone (#f3f3f3 against #fbfbfb).
+  test('own are the primary family on the right, others the neutral one on the left', () => {
+    renderSheet();
+
+    expect(bubble('Ключи в боксе')).toHaveClass('self-end', 'bg-secondary', 'border-primary/40');
+    expect(bubble('Поняла, спасибо')).toHaveClass('self-start', 'bg-muted', 'border-border');
+  });
+
+  // `bg-secondary` is the theme's `secondary`, `bg-muted` its `surfaceAlt`
+  // (lib/design/theme-css.ts); the words are `text`, the author's line
+  // `textSecondary` (`text-muted-foreground`).
+  test.each(['light', 'dark'] as const)('the words on both hold 4.5:1 in the %s theme', (name) => {
+    const theme = THEME_COLORS[name];
+    for (const fill of [theme.secondary, theme.surfaceAlt]) {
+      expect(contrastRatio(theme.text, fill)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(theme.textSecondary, fill)).toBeGreaterThanOrEqual(4.5);
+    }
   });
 });

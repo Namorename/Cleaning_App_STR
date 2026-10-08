@@ -51,6 +51,7 @@
       "digest": "Kód chyby: {{digest}}"
     },
     "settings": {
+      "sections": "Oddíly nastavení",
       "account": "Účet",
       "signedInAs": "Jste přihlášeni jako {{email}}.",
       "appearance": "Vzhled",
@@ -484,7 +485,8 @@
         "cancelConfirmNo": "Ne",
         "openWork": "Jak úklid proběhl",
         "openRepairWork": "Jak práce proběhla",
-        "openChat": "Chat",
+        "openWorkLive": "Jak úklid probíhá",
+        "openRepairWorkLive": "Jak práce probíhá",
         "menu": "Akce: {{name}}"
       },
       "form": {
@@ -553,9 +555,11 @@
       "authorLabel": "Zadal:"
     },
     "chat": {
-      "title": "Konverzace",
-      "loading": "Načítáme konverzaci…",
-      "loadError": "Konverzaci se nepodařilo otevřít",
+      "title": "Chat",
+      "open": "Chat",
+      "openUnread": "Nová zpráva — otevřít chat: {{about}}",
+      "loading": "Načítáme chat…",
+      "loadError": "Chat se nepodařilo otevřít",
       "empty": "Zatím nikdo nic nenapsal",
       "audienceTask": "Vidí ti, kdo vidí úklid: přidělený pracovník, uklízečky objektu a manažeři",
       "audienceProblem": "Vidí ti, kdo vidí úkol: kdo ho nahlásil, technik a manažeři",
@@ -1326,8 +1330,8 @@
     "mediaLimitReached_other": "Sem lze přiložit nejvýše {{limit}} souborů",
     "mediaNotUploaded": "Soubor ještě nedorazil na server",
     "mediaUploadPending": "Souborů se ještě nahrává: {{count}}",
-    "threadSubjectInvalid": "Konverzace se týká právě jedné věci",
-    "threadNotFound": "Tato konverzace není dostupná",
+    "threadSubjectInvalid": "Chat se týká právě jedné věci",
+    "threadNotFound": "Tento chat není dostupný",
     "messageNotFound": "Tato zpráva není dostupná",
     "messageTooLong": "Zpráva má nejvýše {{limit}} znaků",
     "messageEmpty": "Napište něco nebo přiložte fotku",
