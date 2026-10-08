@@ -85,8 +85,12 @@ long» внутри `node_modules`. Включить `LongPathsEnabled` (от а
 
 ```powershell
 cd $env:USERPROFILE\Desktop
-git clone git@github-namorename:Namorename/Cleaning_App_STR.git "Cleaning App"
+git clone --branch main git@github-namorename:Namorename/Cleaning_App_STR.git "Cleaning App"
 ```
+
+Клонировать `main`: с переноса 2026-10-08 в нём эта инструкция, `docs/dev-notes.md`
+и миграция `20261008100000`, которая уже в облаке. Остальные ветки — на
+`origin`, их деревья заводятся заново (ниже).
 
 Путь должен совпасть со старым: `C:\Users\Roman\Desktop\Cleaning App`. От него
 зависят две вещи:
@@ -250,8 +254,9 @@ cd apps/mobile; npx eas-cli update:list --branch preview --limit 1 --json --non-
   `settings.local.json` на месте и пины совпали. Вопрос о запуске — признак, что
   хук не нашёл файл или хэш разошёлся (переводы строк: `git ls-files --eol
   scripts/cloud-read.mjs` должен дать `i/lf w/lf`).
-- голова облака совпадает с последним файлом `supabase/migrations/`, который
-  уже выкачен (по `migration list --linked`);
+- голова облака — `20261008100000` (на 2026-10-08; если с тех пор выкатывали
+  ещё, — последний файл `supabase/migrations/` в `main`), и в
+  `migration list --linked` у каждой локальной миграции есть `remote`;
 - `hostaway-get.mjs` отвечает числом, а не `401`.
 
 ## 10. Пульт: Remote Control со старого компьютера
