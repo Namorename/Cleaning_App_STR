@@ -134,17 +134,30 @@ describe('Icon', () => {
     expect(drawing.fill).toBe('none');
     expect(drawing.strokeDasharray).toBeUndefined();
   });
+
+  test('on request any meaning is drawn filled, in its own ink — an active tab’s icon', async () => {
+    await render(
+      <>
+        <Icon name="nav.myTasks" isFilled testID="home" />
+        <Icon name="nav.queue" isFilled color={light.onAccent} testID="queue" />
+      </>,
+    );
+
+    expect(drawingOf('home')).toMatchObject({
+      fill: light.text,
+      stroke: light.text,
+      className: expect.stringContaining('lucide-house'),
+    });
+    expect(drawingOf('queue')).toMatchObject({ fill: light.onAccent, stroke: light.onAccent });
+  });
 });
 
 describe('tabBarIcon', () => {
-  test('draws a tab’s icon in the navigator’s tint, left to the tab’s title for the reader', async () => {
-    const QueueIcon = tabBarIcon('nav.queue');
-    await render(
-      <View testID="tab">
-        <QueueIcon focused={false} color={light.primary} size={25} />
-      </View>,
-    );
-
+  /** The box the tab's icon draws into, and the drawing inside it. */
+  function tabIcon(): {
+    box: ReturnType<typeof screen.getByTestId>;
+    drawing: Readonly<Record<string, unknown>>;
+  } {
     const [box] = screen.getByTestId('tab', { includeHiddenElements: true }).children;
     if (box === undefined || typeof box === 'string') {
       throw new Error('the tab holds no icon');
@@ -153,11 +166,35 @@ describe('tabBarIcon', () => {
     if (drawing === undefined || typeof drawing === 'string') {
       throw new Error('the tab icon holds no drawing');
     }
-    expect(drawing.props).toMatchObject({
+    return { box, drawing: drawing.props };
+  }
+
+  test('draws a tab’s icon in the bar’s tint, left to the tab’s title for the reader', async () => {
+    const QueueIcon = tabBarIcon('nav.queue');
+    await render(
+      <View testID="tab">
+        <QueueIcon focused={false} color={light.textMuted} size={25} />
+      </View>,
+    );
+
+    const { box, drawing } = tabIcon();
+    expect(drawing).toMatchObject({
       width: 24,
-      stroke: light.primary,
+      stroke: light.textMuted,
+      fill: 'none',
       className: expect.stringContaining('lucide-inbox'),
     });
     expect(isHiddenFromAccessibility(box)).toBe(true);
+  });
+
+  test('the active tab’s icon is filled in the tint (directions.json, activeTab)', async () => {
+    const QueueIcon = tabBarIcon('nav.queue');
+    await render(
+      <View testID="tab">
+        <QueueIcon focused color={light.onAccent} size={25} />
+      </View>,
+    );
+
+    expect(tabIcon().drawing).toMatchObject({ stroke: light.onAccent, fill: light.onAccent });
   });
 });

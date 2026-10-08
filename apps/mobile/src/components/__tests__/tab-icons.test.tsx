@@ -4,10 +4,12 @@ import type { ReactNode } from 'react';
 import { View, type ColorValue } from 'react-native';
 
 import TabsLayout from '@/app/(tabs)/_layout';
+import { renderTabBar } from '@/components/tab-bar';
 
 /**
- * Each tab draws the icon of its meaning (`ICONS`, the same picture as the
- * panel's menu), in the navigator's tint and hidden behind the tab's title.
+ * The navigator draws the phone's own tab bar, and each tab the icon of its
+ * meaning (`ICONS`, the same picture as the panel's menu) in the bar's tint,
+ * filled while the tab is active, hidden behind the tab's title.
  */
 
 interface TabOptions {
@@ -18,9 +20,14 @@ interface TabOptions {
 /** What the layout gave each tab, by the tab's route name. */
 const mockScreens = new Map<string, TabOptions>();
 
+/** What the layout gave the navigator itself. */
+const mockNavigator: { tabBar?: unknown } = {};
+
 jest.mock('expo-router', () => {
-  // The tab navigator reduced to what is asserted here: the options of each tab.
-  function Tabs({ children }: { children: ReactNode }) {
+  // The tab navigator reduced to what is asserted here: its tab bar and the
+  // options of each tab.
+  function Tabs({ children, tabBar }: { children: ReactNode; tabBar?: unknown }) {
+    mockNavigator.tabBar = tabBar;
     return children;
   }
   Tabs.Screen = function Screen({ name, options }: { name: string; options: TabOptions }) {
@@ -49,11 +56,19 @@ jest.mock('@/features/auth/session', () => ({
   signOut: jest.fn(),
 }));
 
-/** The tint the navigator hands its icons in this test. */
-const TINT = THEME_COLORS.light.primary;
+/** The tints the bar hands its icons: an inactive tab's, and the active tab's on its pill. */
+const INACTIVE = THEME_COLORS.light.textMuted;
+const ACTIVE = THEME_COLORS.light.onAccent;
 
 beforeEach(() => {
   mockScreens.clear();
+  delete mockNavigator.tabBar;
+});
+
+test('the navigator draws the phone’s own tab bar', async () => {
+  await render(<TabsLayout />);
+
+  expect(mockNavigator.tabBar).toBe(renderTabBar);
 });
 
 test.each([
@@ -61,27 +76,44 @@ test.each([
   ['queue', 'inbox'],
   ['problems', 'clipboard-list'],
   ['supplies', 'package'],
-])('the tab %s draws %s in the navigator’s tint, hidden behind its title', async (tab, glyph) => {
+])('the tab %s draws %s in the bar’s tint, hidden behind its title', async (tab, glyph) => {
   // Arrange: the layout hands each tab its options.
   await render(<TabsLayout />);
   const drawIcon = mockScreens.get(tab)?.tabBarIcon;
   expect(drawIcon).toBeDefined();
 
-  // Act: the navigator draws the tab's icon, the way it calls it.
-  await render(<View testID="tab">{drawIcon?.({ focused: false, color: TINT, size: 25 })}</View>);
+  // Act: the bar draws the tab's icon, inactive and then active.
+  await render(
+    <>
+      <View testID="inactive">{drawIcon?.({ focused: false, color: INACTIVE, size: 24 })}</View>
+      <View testID="active">{drawIcon?.({ focused: true, color: ACTIVE, size: 24 })}</View>
+    </>,
+  );
 
   // Assert
-  const [box] = screen.getByTestId('tab', { includeHiddenElements: true }).children;
+  const inactive = iconIn('inactive');
+  expect(inactive.drawing).toMatchObject({
+    stroke: INACTIVE,
+    fill: 'none',
+    className: expect.stringContaining(`lucide-${glyph}`),
+  });
+  expect(isHiddenFromAccessibility(inactive.box)).toBe(true);
+  expect(iconIn('active').drawing).toMatchObject({
+    stroke: ACTIVE,
+    fill: ACTIVE,
+    className: expect.stringContaining(`lucide-${glyph}`),
+  });
+});
+
+/** The icon's box inside a holder, and what Lucide handed its drawing. */
+function iconIn(holder: string) {
+  const [box] = screen.getByTestId(holder, { includeHiddenElements: true }).children;
   if (box === undefined || typeof box === 'string') {
-    throw new Error(`the tab ${tab} draws no icon`);
+    throw new Error(`${holder} draws no icon`);
   }
   const [drawing] = box.children;
   if (drawing === undefined || typeof drawing === 'string') {
-    throw new Error(`the icon of the tab ${tab} holds no drawing`);
+    throw new Error(`the icon in ${holder} holds no drawing`);
   }
-  expect(drawing.props).toMatchObject({
-    stroke: TINT,
-    className: expect.stringContaining(`lucide-${glyph}`),
-  });
-  expect(isHiddenFromAccessibility(box)).toBe(true);
-});
+  return { box, drawing: drawing.props as Readonly<Record<string, unknown>> };
+}

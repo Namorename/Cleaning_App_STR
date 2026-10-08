@@ -140,6 +140,12 @@ export interface IconProps {
   /** A colour of its own — a status tone, the tab bar's tint — drawn instead of `tone`. */
   color?: ColorValue;
   /**
+   * Fills the drawing in its own ink, whatever the meaning: the active tab's
+   * icon (directions.json, `shape.activeTab`). The rest of the meaning's look
+   * (`ICON_STYLE`) stays.
+   */
+  isFilled?: boolean;
+  /**
    * Makes the icon an image the screen reader stops on and reads by this name.
    * Without it the icon is decoration and hidden from the reader: the words
    * beside it, or the button around it, already say what it means.
@@ -159,13 +165,15 @@ export function Icon({
   size = 'regular',
   tone = 'default',
   color,
+  isFilled = false,
   accessibilityLabel,
   testID,
 }: IconProps) {
   const theme = useTheme();
   const ink = color ?? theme[TONE_ROLE[tone]];
   const Glyph = LUCIDE_GLYPHS[ICONS[name]];
-  const glyph = <Glyph size={IconSize[size]} color={ink} {...glyphLook(name, ink)} />;
+  const look = isFilled ? { ...glyphLook(name, ink), fill: ink } : glyphLook(name, ink);
+  const glyph = <Glyph size={IconSize[size]} color={ink} {...look} />;
 
   if (accessibilityLabel === undefined) {
     return (
@@ -193,7 +201,7 @@ export function Icon({
   );
 }
 
-/** What the tab navigator hands the icon of a tab. */
+/** What the tab bar hands the icon of a tab (`components/tab-bar.tsx`). */
 export interface TabBarIconProps {
   focused: boolean;
   color: ColorValue;
@@ -201,13 +209,13 @@ export interface TabBarIconProps {
 }
 
 /**
- * A tab's icon in the navigator's tint, for `tabBarIcon`. Decorative: the tab
- * is named by its title. The navigator's own size (24 or 25 by variant) gives
- * way to the token — the bar centres the box either way. The filled icon of the
- * active tab comes with the bar's pill in 5.4 (directions.json, activeTab).
+ * A tab's icon in the tab bar's tint, for `tabBarIcon`: an outline, filled
+ * while the tab is active (directions.json, `shape.activeTab`). Decorative: the
+ * tab is named by its title. The size handed over gives way to the token — the
+ * bar centres the box either way.
  */
 export function tabBarIcon(name: IconMeaning): (props: TabBarIconProps) => ReactElement {
-  return function TabBarIcon({ color }: TabBarIconProps) {
-    return <Icon name={name} color={color} />;
+  return function TabBarIcon({ focused, color }: TabBarIconProps) {
+    return <Icon name={name} color={color} isFilled={focused} />;
   };
 }

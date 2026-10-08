@@ -2,12 +2,13 @@ import { Redirect, Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { tabBarIcon } from '@/components/icon';
+import { renderTabBar } from '@/components/tab-bar';
 import { useSession } from '@/features/auth/session';
 import { usePermissionPrompt, usePushTaps } from '@/features/push/hooks';
 import { renderSettingsButton } from '@/features/settings/settings-button';
 
-// Built once: the navigator gets the same function on every render. They take
-// the place of the navigator's placeholder glyph, in its box and its tint.
+// Built once: the navigator gets the same function on every render. The bar
+// draws each in its tint, filled on the active tab's pill.
 const TAB_ICON = {
   index: tabBarIcon('nav.myTasks'),
   queue: tabBarIcon('nav.queue'),
@@ -38,7 +39,11 @@ export default function TabsLayout() {
 
   return (
     // The gear opens the settings; signing out lives at the bottom of them.
-    <Tabs screenOptions={{ headerShown: true, headerRight: renderSettingsButton }}>
+    // The tab bar is the phone's own (components/tab-bar.tsx).
+    <Tabs
+      tabBar={renderTabBar}
+      screenOptions={{ headerShown: true, headerRight: renderSettingsButton }}
+    >
       <Tabs.Screen
         name="index"
         options={{ title: t('tabs.myTasks'), tabBarIcon: TAB_ICON.index }}
