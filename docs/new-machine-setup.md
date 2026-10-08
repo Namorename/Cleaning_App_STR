@@ -39,7 +39,7 @@
 | EAS CLI | 24.12.0 | через `npx eas-cli`; в зависимостях его нет, при расхождении — `npx eas-cli@24.12.0` |
 | Vercel CLI | 63.1.0 | через `npx vercel` |
 | Claude Code | 2.1.294, канал обновлений `latest` | нативная установка |
-| Плагин ECC | `ecc@ecc` 2.2.0 | маркетплейс `ecc` = git `https://github.com/affaan-m/ECC.git` |
+| Плагин ECC | `ecc@ecc` 2.2.3 | маркетплейс `ecc` = git `https://github.com/affaan-m/ECC.git`; на старом компьютере стоял коммит `d8409a4` (в манифесте 2.2.0, раньше метки `v2.2.0`) — точная копия невозможна, GateGuard ведёт себя так же |
 | Плагины Vercel и Expo | `vercel@claude-plugins-official` 0.50.0, `expo@claude-plugins-official` 1.13.6 | маркетплейс `claude-plugins-official` |
 | Python | 3.12.4 | не обязателен: разовые правки скриптами |
 | Google Chrome | — | драйверы puppeteer стенда и живых прогонов |
@@ -54,6 +54,9 @@
 **Длинные пути.** `git status --ignored` в деревьях упирался в «Filename too
 long» внутри `node_modules`. Включить `LongPathsEnabled` (от администратора):
 `New-ItemProperty -Path HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem -Name LongPathsEnabled -Value 1 -PropertyType DWORD -Force`.
+Проверка (без прав администратора):
+`(Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem).LongPathsEnabled`
+даёт `1`, `git config --system core.longpaths` — `true`.
 
 ## 2. «Всегда включён»
 
@@ -71,15 +74,33 @@ long» внутри `node_modules`. Включить `LongPathsEnabled` (от а
 - **Windows Update:** Параметры → Windows Update → Дополнительные параметры →
   «Период активности» вручную на рабочие и ночные часы прогонов (до 18 часов);
   на дни выката — «Приостановить обновления».
-- **Сеть — кабель**, не Wi-Fi. Если кабеля нет: Диспетчер устройств → адаптер
-  Wi-Fi → Управление электропитанием → снять «Разрешить отключение этого
-  устройства для экономии энергии».
+- **Сеть — кабель**, не Wi-Fi. Если компьютер на Wi-Fi: Диспетчер устройств →
+  адаптер Wi-Fi → Управление электропитанием → снять «Разрешить отключение
+  этого устройства для экономии энергии» — без этого адаптер отключается при
+  погасшем экране. Галку смотреть там же: `Get-NetAdapterPowerManagement` у
+  части драйверов отвечает ошибкой «A device attached to the system is not
+  functioning».
 - **Шифрование диска:** BitLocker (Windows 11 Pro) — Панель управления →
   Шифрование диска BitLocker, проверка `manage-bde -status`. Ключ
   восстановления — в учётную запись Microsoft или на бумагу, не в репозиторий
   и не в бандл.
 - **Docker Desktop** — автозапуск при входе; после перезагрузки он поднимает
   весь стек, лёгкий — `npx supabase stop`, затем `npm run db:start:light`.
+
+Проверка без прав администратора (BitLocker — только от администратора:
+`manage-bde -status`):
+
+```powershell
+(Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem).LongPathsEnabled  # 1
+powercfg /a                                              # Hibernate и Fast Startup — среди недоступных
+powercfg /query SCHEME_CURRENT SUB_SLEEP STANDBYIDLE     # Current AC Power Setting Index: 0x00000000
+powercfg /query SCHEME_CURRENT SUB_SLEEP HIBERNATEIDLE   # то же
+powercfg /qh SCHEME_CURRENT 4f971e89-eebd-4455-a8de-9e59040e7347 5ca83367-6e45-459f-a27b-476b1d01c936  # крышка, AC: 0x00000000
+Get-NetAdapter -Physical                                 # кабель: адаптер Ethernet — Up
+```
+
+Действие крышки (`LIDACTION`) скрыто: `powercfg /query` его не показывает,
+нужен `/qh` с GUID подгруппы и настройки, как выше.
 
 ## 3. Клон — в тот же путь
 
@@ -261,15 +282,35 @@ cd apps/mobile; npx eas-cli update:list --branch preview --limit 1 --json --non-
 
 ## 10. Пульт: Remote Control со старого компьютера
 
-На новом компьютере, в папке репозитория:
+На новом компьютере, из корня репозитория (не из `apps\mobile`: журналы сессий
+лежат по папке запуска, и `--continue` из другой папки разговор не найдёт).
+Рекомендуемый вариант, особенно на Wi-Fi, — обычная сессия с Remote Control:
 
 ```powershell
-claude remote-control --name str-ops-main
+claude --remote-control str-ops-main
 ```
 
-Сессию видно на claude.ai/code и в мобильном приложении Claude; со старого компьютера —
-открыть claude.ai/code в браузере и выбрать её. Вернуться к той же сессии после
-обрыва — `claude remote-control --continue` (запись живёт около 4 часов).
+Она переподключается сама, сколько бы ни длился обрыв сети, и после сна тоже.
+После перезагрузки — `claude --continue` из корня: разговор подключается к
+записанной в нём сессии Remote Control.
+
+Серверный режим — `claude remote-control --name str-ops-main` — держит
+несколько сессий сразу, но хуже переносит обрывы:
+
+- без сети около 10 минут сервер сам выходит, его запускают заново;
+- `claude remote-control --continue` (запись живёт около 4 часов) возвращает
+  только стартовую сессию сервера, а не все, что он обслуживал.
+
+В обоих режимах **окно должно оставаться открытым** (свернуть можно): закрытое
+окно или остановленный `claude` — сессия офлайн до нового запуска. Компьютер
+при этом не должен засыпать (раздел 2).
+
+`claude remote-control --help` печатает справку и **не завершается** (Claude
+Code 2.1.294) — запускать только с таймаутом, из Git Bash:
+`timeout 30 claude remote-control --help < /dev/null`.
+
+Проверка: со старого компьютера открыть claude.ai/code в браузере и выбрать
+сессию; её видно и в мобильном приложении Claude.
 
 Что через пульт не делается: `/ultrareview` (только из терминала), команды
 `eas` с меню и входом и всё из раздела 5 — для них нужно окно на самом новом
