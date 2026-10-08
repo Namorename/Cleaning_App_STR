@@ -926,7 +926,8 @@
     "myTasks": "Мои уборки",
     "queue": "Свободные",
     "problems": "Задания",
-    "supplies": "Расходники"
+    "supplies": "Расходники",
+    "position": "{{title}}, вкладка, {{index}} из {{count}}"
   },
   "settings": {
     "title": "Настройки",

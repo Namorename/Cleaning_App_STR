@@ -4,7 +4,8 @@ import {
   type BottomTabNavigationOptions,
 } from 'expo-router/tabs';
 import { use, useMemo, type ReactElement } from 'react';
-import { Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { Platform, Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 
 import { IconSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -33,6 +34,14 @@ function titleOf(options: BottomTabNavigationOptions, routeName: string): string
 }
 
 /**
+ * VoiceOver knows no tab: React Native gives the `tab` role no trait on iOS,
+ * and a tab there would be read by its title alone. As the navigator's own bar
+ * does, a tab on iOS is a button whose name says it is a tab and where it
+ * stands — in her language, where the navigator's is English.
+ */
+type TabRole = 'tab' | 'button';
+
+/**
  * The phone's tab bar (decisions.md §2, «Вход и вкладки», variant 1), given to
  * the navigator in place of its own: every tab a pill holding its icon, the
  * title under it.
@@ -44,7 +53,14 @@ function titleOf(options: BottomTabNavigationOptions, routeName: string): string
  * listens to `tabPress` — a list scrolling back to its top — keeps working.
  */
 export function TabBar({ state, descriptors, navigation, insets }: BottomTabBarProps) {
+  const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const isIos = Platform.OS === 'ios';
+  const role: TabRole = isIos ? 'button' : 'tab';
+  // The places the reader counts are the tabs she sees, not the hidden ones.
+  const shown = state.routes.flatMap((route, index) =>
+    isHidden(descriptors[route.key].options) ? [] : [{ route, index }],
+  );
   // The navigator's own bar reports its height, which `useBottomTabBarHeight`
   // hands to the screens; this one does too.
   const onHeightChange = use(BottomTabBarHeightCallbackContext);
@@ -61,13 +77,13 @@ export function TabBar({ state, descriptors, navigation, insets }: BottomTabBarP
       onLayout={handleLayout}
       style={[styles.bar, edge]}
     >
-      {state.routes.map((route, index) => {
+      {shown.map(({ route, index }, place) => {
         const { options } = descriptors[route.key];
-        if (isHidden(options)) {
-          return null;
-        }
         const isFocused = index === state.index;
         const title = titleOf(options, route.name);
+        const name =
+          options.tabBarAccessibilityLabel ??
+          (isIos ? t('tabs.position', { title, index: place + 1, count: shown.length }) : title);
 
         const onPress = () => {
           const event = navigation.emit({
@@ -87,7 +103,8 @@ export function TabBar({ state, descriptors, navigation, insets }: BottomTabBarP
           <Tab
             key={route.key}
             title={title}
-            accessibilityLabel={options.tabBarAccessibilityLabel ?? title}
+            role={role}
+            accessibilityLabel={name}
             isFocused={isFocused}
             drawIcon={options.tabBarIcon}
             onPress={onPress}
@@ -107,6 +124,7 @@ export function renderTabBar(props: BottomTabBarProps): ReactElement {
 
 interface TabProps {
   title: string;
+  role: TabRole;
   accessibilityLabel: string;
   isFocused: boolean;
   drawIcon: BottomTabNavigationOptions['tabBarIcon'];
@@ -118,6 +136,7 @@ interface TabProps {
 /** One tab, the whole of it the target: the pill with the icon, the title under it. */
 function Tab({
   title,
+  role,
   accessibilityLabel,
   isFocused,
   drawIcon,
@@ -130,7 +149,7 @@ function Tab({
 
   return (
     <Pressable
-      accessibilityRole="tab"
+      accessibilityRole={role}
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ selected: isFocused }}
       onPress={onPress}

@@ -926,7 +926,8 @@
     "myTasks": "Moje úklidy",
     "queue": "Volné",
     "problems": "Úkoly",
-    "supplies": "Materiál"
+    "supplies": "Materiál",
+    "position": "{{title}}, záložka, {{index}} z {{count}}"
   },
   "settings": {
     "title": "Nastavení",

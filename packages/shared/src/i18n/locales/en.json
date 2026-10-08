@@ -916,7 +916,8 @@
     "myTasks": "My cleanings",
     "queue": "Available",
     "problems": "Tasks",
-    "supplies": "Supplies"
+    "supplies": "Supplies",
+    "position": "{{title}}, tab, {{index}} of {{count}}"
   },
   "settings": {
     "title": "Settings",

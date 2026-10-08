@@ -1,7 +1,15 @@
 import { Redirect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { KeyboardAvoidingView, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 
 import { ActionBar } from '@/components/action-bar';
@@ -28,6 +36,10 @@ export default function SignInScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const onSubmit = useCallback(async () => {
+    // The keyboard goes, as «Go» already makes it go: with it open, a refusal
+    // under the fields can sit below what is left of the screen, and the
+    // button just turning back to «Войти» says nothing.
+    Keyboard.dismiss();
     setFailure(null);
     setIsSubmitting(true);
     try {
@@ -40,7 +52,13 @@ export default function SignInScreen() {
     } catch (caught: unknown) {
       // Which half was wrong is still never said — that would turn the form
       // into an account enumerator. What did happen is.
-      setFailure(signInFailureText(caught));
+      const refusal = signInFailureText(caught);
+      setFailure(refusal);
+      // TalkBack reads the live region below; VoiceOver has none, so on iOS
+      // the refusal is said aloud — once, not on both systems.
+      if (Platform.OS === 'ios') {
+        AccessibilityInfo.announceForAccessibility(refusal.text);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -100,7 +118,11 @@ export default function SignInScreen() {
           />
 
           {failure !== null ? (
-            <View accessibilityLiveRegion="polite" style={styles.failure}>
+            <View
+              testID="sign-in-failure"
+              accessibilityLiveRegion="polite"
+              style={styles.failure}
+            >
               <Text tone="danger">{failure.text}</Text>
               {failure.detail !== null ? (
                 // The server's own English, for a failure this build cannot

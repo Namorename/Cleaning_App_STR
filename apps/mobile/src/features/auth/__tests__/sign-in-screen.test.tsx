@@ -1,6 +1,6 @@
 import { THEME_COLORS } from '@str-ops/shared';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
-import { StyleSheet, type ViewStyle } from 'react-native';
+import { AccessibilityInfo, Keyboard, Platform, StyleSheet, type ViewStyle } from 'react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 
 import SignInScreen from '@/app/sign-in';
@@ -180,6 +180,66 @@ describe('«Войти» at the bottom', () => {
 
     await act(async () => finish());
     expect(screen.getByRole('button', { name: SIGN_IN })).toBeTruthy();
+  });
+});
+
+describe('a refusal, said where she will see and hear it', () => {
+  const REFUSAL = 'Неверная почта или пароль.';
+  let os: jest.ReplaceProperty<typeof Platform.OS> | undefined;
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+
+  beforeEach(() => {
+    announce.mockImplementation(() => {});
+    jest.mocked(signIn).mockRejectedValue({ code: 'invalid_credentials', status: 400 });
+  });
+
+  afterEach(() => {
+    os?.restore();
+    os = undefined;
+  });
+
+  test('«Войти» puts the keyboard away, so the refusal under the fields is in view', async () => {
+    const dismiss = jest.spyOn(Keyboard, 'dismiss');
+    await render(<SignInScreen />);
+    await fillIn();
+
+    await fireEvent.press(screen.getByRole('button', { name: SIGN_IN }));
+
+    expect(dismiss).toHaveBeenCalled();
+    expect(await within(form()).findByText(REFUSAL)).toBeTruthy();
+  });
+
+  test('VoiceOver says it aloud: iOS has no live region', async () => {
+    os = jest.replaceProperty(Platform, 'OS', 'ios');
+    await render(<SignInScreen />);
+    await fillIn();
+
+    await fireEvent.press(screen.getByRole('button', { name: SIGN_IN }));
+
+    await waitFor(() => expect(announce).toHaveBeenCalledWith(REFUSAL));
+  });
+
+  test('TalkBack hears it from the live region, and only from there', async () => {
+    os = jest.replaceProperty(Platform, 'OS', 'android');
+    await render(<SignInScreen />);
+    await fillIn();
+
+    await fireEvent.press(screen.getByRole('button', { name: SIGN_IN }));
+
+    expect(await within(form()).findByText(REFUSAL)).toBeTruthy();
+    expect(screen.getByTestId('sign-in-failure').props.accessibilityLiveRegion).toBe('polite');
+    expect(announce).not.toHaveBeenCalled();
+  });
+
+  test('a failure this build cannot name: a sentence she reads, the server’s own words under it', async () => {
+    jest.mocked(signIn).mockRejectedValue(new Error('Database error querying schema'));
+    await render(<SignInScreen />);
+    await fillIn();
+
+    await fireEvent.press(screen.getByRole('button', { name: SIGN_IN }));
+
+    expect(await within(form()).findByText('Database error querying schema')).toBeTruthy();
+    expect(within(form()).queryByText(REFUSAL)).toBeNull();
   });
 });
 

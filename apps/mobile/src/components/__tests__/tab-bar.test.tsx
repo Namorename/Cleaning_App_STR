@@ -2,7 +2,7 @@ import { THEME_COLORS } from '@str-ops/shared';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { withLayoutContext } from 'expo-router/build/layouts/withLayoutContext';
 import { BottomTabBarHeightCallbackContext, type BottomTabBarProps } from 'expo-router/tabs';
-import { StyleSheet, type ColorValue, type TextStyle, type ViewStyle } from 'react-native';
+import { Platform, StyleSheet, type ColorValue, type TextStyle, type ViewStyle } from 'react-native';
 
 import { FontSize, IconSize, MIN_TOUCH_TARGET, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -124,10 +124,21 @@ function titleOf(title: string) {
   return within(tab(title)).getByText(title);
 }
 
+/**
+ * Android unless a test says otherwise: there a tab is a tab. VoiceOver knows
+ * no tab role, and iOS gets its own block below.
+ */
+let os: jest.ReplaceProperty<typeof Platform.OS>;
+
 beforeEach(() => {
   jest.clearAllMocks();
   scheme.mockReturnValue('light');
   emit.mockReturnValue({ defaultPrevented: false });
+  os = jest.replaceProperty(Platform, 'OS', 'android');
+});
+
+afterEach(() => {
+  os.restore();
 });
 
 describe('what it draws', () => {
@@ -140,6 +151,23 @@ describe('what it draws', () => {
     for (const other of [MY, PROBLEMS, SUPPLIES]) {
       expect(screen.getByRole('tab', { name: other.title, selected: false })).toBeTruthy();
     }
+  });
+
+  test('a screen’s own label is its title, its own reader name and test id are the tab’s', async () => {
+    const queue: FakeTab = {
+      ...QUEUE,
+      options: {
+        tabBarLabel: 'Свободно',
+        tabBarAccessibilityLabel: 'Свободные уборки',
+        tabBarButtonTestID: 'queue-tab',
+      },
+    };
+
+    await render(<TabBar {...barProps([MY, queue], 'index')} />);
+
+    const named = screen.getByRole('tab', { name: 'Свободные уборки' });
+    expect(within(named).getByText('Свободно')).toBeTruthy();
+    expect(screen.getByTestId('queue-tab')).toBe(named);
   });
 
   test('a screen the navigator hides (expo-router’s href: null) gets no tab', async () => {
@@ -237,6 +265,41 @@ describe('what it draws', () => {
       borderTopColor: light.divider,
       paddingBottom: Spacing.xs + INSETS.bottom,
     });
+  });
+});
+
+describe('on iOS, where VoiceOver knows no tab role', () => {
+  beforeEach(() => {
+    os.replaceValue('ios');
+  });
+
+  test('each tab is a button its name calls a tab and places, the active one selected', async () => {
+    await render(<TabBar {...barProps(CLEANER_TABS, 'queue')} />);
+
+    expect(screen.queryAllByRole('tab')).toHaveLength(0);
+    expect(screen.getAllByRole('button')).toHaveLength(4);
+    expect(
+      screen.getByRole('button', { name: 'Свободные, вкладка, 2 из 4', selected: true }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Расходники, вкладка, 4 из 4', selected: false }),
+    ).toBeTruthy();
+  });
+
+  test('a hidden screen is not counted among the places', async () => {
+    await render(
+      <TabBar {...barProps([MY, hiddenByHref(), QUEUE, PROBLEMS, SUPPLIES], 'queue')} />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Свободные, вкладка, 2 из 4' })).toBeTruthy();
+  });
+
+  test('a screen’s own reader name is said as it is', async () => {
+    const queue: FakeTab = { ...QUEUE, options: { tabBarAccessibilityLabel: 'Свободные уборки' } };
+
+    await render(<TabBar {...barProps([MY, queue], 'index')} />);
+
+    expect(screen.getByRole('button', { name: 'Свободные уборки' })).toBeTruthy();
   });
 });
 
