@@ -1,4 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { THEME_COLORS, TONE_COLORS, TOUCH_TARGET } from '@str-ops/shared';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { Dimensions, StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
 import type { TaskStep } from '@/features/steps/schema';
 
@@ -796,5 +798,185 @@ describe('the words follow the kind of job', () => {
     // Assert
     expect(screen.queryByText('Заезда нет')).toBeNull();
     expect(screen.getByText('Генеральная уборка')).toBeTruthy();
+  });
+});
+
+describe('the look: «Абрикос» on the old layout', () => {
+  const PROBLEM_ID = 'c1d2e3f4-1111-4111-8111-c1d2e3f40001';
+  const light = THEME_COLORS.light;
+  const tones = TONE_COLORS.light;
+
+  function styleOf(element: { props: { style?: unknown } }): ViewStyle & TextStyle {
+    return StyleSheet.flatten(element.props.style as ViewStyle) as ViewStyle & TextStyle;
+  }
+
+  function repair(priority: 'low' | 'normal' | 'high'): CleaningTask {
+    return task({
+      type: 'maintenance',
+      reservation_id: null,
+      problem: { id: PROBLEM_ID, title: 'Течёт кран', priority },
+    });
+  }
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test('the main action is a 56 dp button in the sun-proof colours', async () => {
+    await render(
+      <TaskDetail task={task()} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />,
+    );
+
+    const start = styleOf(screen.getByRole('button', { name: 'Начать уборку' }));
+    expect(start.minHeight).toBe(TOUCH_TARGET.phoneButton);
+    expect(start.backgroundColor).toBe(light.cta);
+  });
+
+  test('every other target on the screen is at least 48 dp', async () => {
+    // Arrange: a repair of hers with every way off the screen offered.
+    await render(
+      <TaskDetail
+        task={repair('normal')}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+        onOpenProblem={jest.fn()}
+        onOpenChat={jest.fn()}
+        onReportProblem={jest.fn()}
+        onRequestSupplies={jest.fn()}
+      />,
+    );
+
+    // Assert
+    const buttons = screen.getAllByRole('button');
+    expect(buttons.length).toBeGreaterThanOrEqual(6);
+    for (const button of buttons) {
+      expect(styleOf(button).minHeight).toBeGreaterThanOrEqual(TOUCH_TARGET.phoneMin);
+    }
+  });
+
+  test('the same-day check-in is a badge in the urgent tone, with its words', async () => {
+    await render(
+      <TaskDetail
+        task={task({ priority: 1 })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    const chip = screen.getByTestId('task-urgency');
+    expect(styleOf(chip)).toMatchObject({ backgroundColor: tones.urgent.bg, borderRadius: 999 });
+    expect(within(chip).getByText(/заезд/)).toBeTruthy();
+  });
+
+  test('the kind of job is a badge with its word in the neutral tone', async () => {
+    await render(
+      <TaskDetail
+        task={task({ type: 'inspection' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    const chip = screen.getByTestId('task-urgency');
+    expect(styleOf(chip)).toMatchObject({ backgroundColor: tones.neutral.bg, borderRadius: 999 });
+    expect(within(chip).getByText('Осмотр')).toBeTruthy();
+  });
+
+  test('a repair the report calls urgent carries «Срочно» as a badge in the urgent tone', async () => {
+    await render(
+      <TaskDetail
+        task={repair('high')}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    const flag = screen.getByTestId('task-urgent');
+    expect(within(flag).getByText('Срочно')).toBeTruthy();
+    expect(styleOf(flag)).toMatchObject({ backgroundColor: tones.urgent.bg, borderRadius: 999 });
+  });
+
+  test('an ordinary repair carries no such flag', async () => {
+    await render(
+      <TaskDetail
+        task={repair('normal')}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    expect(screen.queryByText('Срочно')).toBeNull();
+  });
+
+  test('the report a repair fixes opens from its card', async () => {
+    const onOpenProblem = jest.fn();
+    await render(
+      <TaskDetail
+        task={repair('high')}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+        onOpenProblem={onOpenProblem}
+      />,
+    );
+
+    expect(screen.getByText('Течёт кран')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Открыть задание' }));
+
+    expect(onOpenProblem).toHaveBeenCalledWith(PROBLEM_ID);
+  });
+
+  test('accepting is the quieter tonal button beside the main one', async () => {
+    await render(
+      <TaskDetail task={task()} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />,
+    );
+
+    const accept = styleOf(screen.getByRole('button', { name: 'Принять' }));
+    expect(accept.minHeight).toBe(TOUCH_TARGET.phoneButton);
+    expect(accept.backgroundColor).toBe(light.secondary);
+  });
+
+  test('at the largest system font the main button still carries its whole label', async () => {
+    // Arrange: a small phone with the font turned all the way up.
+    jest
+      .spyOn(Dimensions, 'get')
+      .mockReturnValue({ width: 320, height: 640, scale: 3, fontScale: 3.1 });
+
+    // Act
+    await render(
+      <TaskDetail
+        task={task({ status: 'in_progress', started_at: '2026-11-10T08:05:00+00:00' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    // Assert: the label is never cut to a line, the box grows with it.
+    const finish = screen.getByRole('button', { name: 'Завершить уборку' });
+    const label = within(finish).getByText('Завершить уборку');
+    expect(label.props.numberOfLines).toBeUndefined();
+    expect(label.props.allowFontScaling).not.toBe(false);
+    expect(styleOf(finish).height).toBeUndefined();
+    expect(styleOf(finish).minHeight).toBe(TOUCH_TARGET.phoneButton);
   });
 });

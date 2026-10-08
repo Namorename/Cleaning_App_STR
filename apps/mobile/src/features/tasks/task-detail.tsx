@@ -1,18 +1,18 @@
+import { STATUS_TONE, problemPriorityTone } from '@str-ops/shared';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
-import {
-  FontSize,
-  MIN_TOUCH_TARGET,
-  Radius,
-  Spacing,
-  statusTone,
-  type Theme,
-} from '@/constants/theme';
+import { Badge } from '@/components/badge';
+import { Button } from '@/components/button';
+import { Card } from '@/components/card';
+import { FailureText } from '@/components/failure-text';
+import { Icon } from '@/components/icon';
+import { Skeleton, SkeletonGroup } from '@/components/skeleton';
+import { Text } from '@/components/text';
+import { BUTTON_HEIGHT, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
 import { remainingRequired, type TaskStep } from '@/features/steps/schema';
 import { StepList } from '@/features/steps/step-list';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
-import { serverErrorText } from '@/lib/server-error';
 
 import {
   formatClockTime,
@@ -64,6 +64,9 @@ interface TaskDetailProps {
  * required step still open disables the finish and says why, mirroring the
  * refusal the server would give. The start is held the same way until the
  * cleaning window opens.
+ *
+ * The owner kept this screen's layout (decisions §2, «Уборка и шаги»): the
+ * main button stays at the end of the scroll, only the look is direction A's.
  */
 export function TaskDetail({
   task,
@@ -89,7 +92,6 @@ export function TaskDetail({
   const canAccept = actions.includes('accept');
   const action = actions.find((move) => move !== 'accept') ?? null;
   const isAccepted = task.status === 'accepted' && task.assignee_id === userId;
-  const urgent = isSameDayTurnover(task);
   const window = formatWindow(task);
   const place = taskPlace(task);
   // Blank as good as absent: a listing synced without a street would otherwise
@@ -113,7 +115,6 @@ export function TaskDetail({
       false);
   const taskNote = noteText !== '' && !isNoteOnScreenAsStep ? task.notes : null;
   const remaining = steps === undefined ? 0 : remainingRequired(steps);
-  const failure = error === null ? null : serverErrorText(error);
   const isFinishBlocked = action === 'finish' && remaining > 0;
   const isStartBlocked = action === 'start' && !canStartNow(task, now);
   const isBlocked = isFinishBlocked || isStartBlocked;
@@ -152,114 +153,88 @@ export function TaskDetail({
         : t('tasks.detail.closed');
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.screen} contentContainerStyle={layout.content}>
       {/* The house, the room in it, and the street — read as one block, which
           is why they sit closer together than the facts below them. */}
-      <View style={styles.place}>
-        <Text style={styles.name}>{place.building}</Text>
-        {place.room === null ? null : <Text style={styles.room}>{place.room}</Text>}
-        {address === null ? null : <Text style={styles.meta}>{address}</Text>}
+      <View style={layout.place}>
+        <Text variant="heading">{place.building}</Text>
+        {place.room === null ? null : (
+          <Text variant="title" tone="secondary">
+            {place.room}
+          </Text>
+        )}
+        {address === null ? null : <Text tone="secondary">{address}</Text>}
       </View>
-      <Text style={styles.meta}>{formatScheduledDate(task)}</Text>
+      <Text tone="secondary">{formatScheduledDate(task)}</Text>
 
-      <View style={[styles.banner, urgent ? styles.bannerUrgent : styles.bannerNeutral]}>
-        <Text
-          style={[styles.bannerText, urgent ? styles.bannerTextUrgent : styles.bannerTextNeutral]}
-        >
-          {urgencyText(task)}
-        </Text>
-      </View>
+      <TaskFlags task={task} isUrgentFix={fix?.priority === 'high'} />
 
-      <View style={styles.facts}>
+      <Card>
         {window !== null ? (
-          <Fact label={t(jobWordKey(task.type, 'window'))} value={window} styles={styles} />
+          <Fact label={t(jobWordKey(task.type, 'window'))} value={window} />
         ) : null}
         {task.guests_count !== null ? (
-          <Fact label={t('tasks.detail.guests')} value={String(task.guests_count)} styles={styles} />
+          <Fact label={t('tasks.detail.guests')} value={String(task.guests_count)} />
         ) : null}
         {task.started_at !== null ? (
-          <Fact
-            label={t('tasks.detail.startedAt')}
-            value={formatClockTime(task.started_at)}
-            styles={styles}
-          />
+          <Fact label={t('tasks.detail.startedAt')} value={formatClockTime(task.started_at)} />
         ) : null}
         {task.completed_at !== null ? (
-          <Fact
-            label={t('tasks.detail.completedAt')}
-            value={formatClockTime(task.completed_at)}
-            styles={styles}
-          />
+          <Fact label={t('tasks.detail.completedAt')} value={formatClockTime(task.completed_at)} />
         ) : null}
-      </View>
+      </Card>
 
       {fix !== null ? (
-        <Pressable
-          accessibilityRole="button"
+        <Card
           accessibilityLabel={t('tasks.detail.openProblem')}
-          disabled={onOpenProblem === undefined}
-          onPress={() => onOpenProblem?.(fix.id)}
-          style={({ pressed }) => [styles.notes, pressed && styles.buttonPressed]}
+          onPress={onOpenProblem === undefined ? undefined : () => onOpenProblem(fix.id)}
+          style={layout.target}
         >
-          <Text style={styles.notesLabel}>{t('tasks.detail.problem')}</Text>
-          <Text style={styles.notesText}>{fix.title}</Text>
-          <Text style={styles.meta}>
+          <CardLabel text={t('tasks.detail.problem')} />
+          <Text>{fix.title}</Text>
+          <Text tone="secondary">
             {t('problems.priorityLine', { priority: t(`problems.priorities.${fix.priority}`) })}
             {' · '}
             {t('tasks.detail.openProblem')}
           </Text>
-        </Pressable>
+        </Card>
       ) : null}
 
       {notes !== null && notes.trim() !== '' ? (
-        <View style={styles.notes}>
-          <Text style={styles.notesLabel}>{t('tasks.detail.notes')}</Text>
-          <Text style={styles.notesText}>{notes}</Text>
-        </View>
+        <NoteCard label={t('tasks.detail.notes')} text={notes} />
       ) : null}
 
-      {taskNote !== null ? (
-        <View style={styles.notes}>
-          {/* Named as the step that carries the same words once she starts. */}
-          <Text style={styles.notesLabel}>{t('steps.types.task_note')}</Text>
-          <Text style={styles.notesText}>{taskNote}</Text>
-        </View>
-      ) : null}
+      {/* Named as the step that carries the same words once she starts. */}
+      {taskNote !== null ? <NoteCard label={t('steps.types.task_note')} text={taskNote} /> : null}
 
       {/* Not gated by canRaise: the office writes on a job before anyone
           takes it, and that note has to be readable from the queue. */}
       {onOpenChat !== undefined ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('tasks.detail.openChat')}
+        <Button
+          variant="outline"
+          label={t('tasks.detail.openChat')}
+          left={<Icon name="action.openChat" tone="primary" />}
           onPress={() => onOpenChat(task.id)}
-          style={({ pressed }) => [styles.secondary, pressed && styles.buttonPressed]}
-        >
-          <Text style={styles.secondaryText}>{t('tasks.detail.openChat')}</Text>
-        </Pressable>
+        />
       ) : null}
 
       {canRaise && (onReportProblem !== undefined || onRequestSupplies !== undefined) ? (
-        <View style={styles.raise}>
+        <View style={layout.raise}>
           {onReportProblem !== undefined ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('tasks.detail.reportProblem')}
+            <Button
+              variant="outline"
+              label={t('tasks.detail.reportProblem')}
+              left={<Icon name="nav.problems" tone="primary" />}
               onPress={() => onReportProblem(task.id)}
-              style={({ pressed }) => [styles.secondary, pressed && styles.buttonPressed]}
-            >
-              <Text style={styles.secondaryText}>{t('tasks.detail.reportProblem')}</Text>
-            </Pressable>
+            />
           ) : null}
           {onRequestSupplies !== undefined ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('tasks.detail.requestSupplies')}
+            <Button
+              variant="outline"
+              label={t('tasks.detail.requestSupplies')}
+              left={<Icon name="nav.supplies" tone="primary" />}
               onPress={() => onRequestSupplies(task.id)}
-              style={({ pressed }) => [styles.secondary, pressed && styles.buttonPressed]}
-            >
-              <Text style={styles.secondaryText}>{t('tasks.detail.requestSupplies')}</Text>
-            </Pressable>
+            />
           ) : null}
         </View>
       ) : null}
@@ -272,73 +247,39 @@ export function TaskDetail({
         />
       ) : null}
 
-      {task.is_parallel ? <Text style={styles.hint}>{t('tasks.detail.parallel')}</Text> : null}
+      {task.is_parallel ? <Hint text={t('tasks.detail.parallel')} /> : null}
 
-      {failure !== null ? (
-        <View accessibilityLiveRegion="polite" style={styles.failure}>
-          <Text style={styles.error}>{failure.text}</Text>
-          {failure.detail !== null ? (
-            <Text style={styles.errorDetail}>{failure.detail}</Text>
-          ) : null}
-        </View>
-      ) : null}
+      {/* The last move's failure, next to the button she retries with. */}
+      {error !== null ? <FailureText error={error} /> : null}
 
-      {isFinishBlocked ? (
-        <Text accessibilityLiveRegion="polite" style={styles.hint}>
-          {t('steps.remaining', { count: remaining })}
-        </Text>
-      ) : null}
+      {isFinishBlocked ? <Hint text={t('steps.remaining', { count: remaining })} isLive /> : null}
 
-      {isStartBlocked ? (
-        <Text accessibilityLiveRegion="polite" style={styles.hint}>
-          {formatStartNotBefore(task)}
-        </Text>
-      ) : null}
+      {isStartBlocked ? <Hint text={formatStartNotBefore(task)} isLive /> : null}
 
-      {isAccepted ? (
-        <Text accessibilityLiveRegion="polite" style={styles.hint}>
-          {t(jobWordKey(task.type, 'accepted'))}
-        </Text>
-      ) : null}
+      {isAccepted ? <Hint text={t(jobWordKey(task.type, 'accepted'))} isLive /> : null}
 
       {canAccept ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('tasks.accept')}
-          accessibilityState={{ disabled: isBusy, busy: isAccepting }}
-          disabled={isBusy}
+        // Quieter than the main button: accepting is a signal, not the job.
+        <Button
+          variant="secondary"
+          label={t('tasks.accept')}
+          isBusy={isAccepting}
+          isDisabled={isBusy && !isAccepting}
           onPress={() => onAccept(task)}
-          style={({ pressed }) => [styles.secondary, pressed && styles.buttonPressed]}
-        >
-          {isAccepting ? (
-            <ActivityIndicator color={styles.secondaryText.color} />
-          ) : (
-            <Text style={styles.secondaryText}>{t('tasks.accept')}</Text>
-          )}
-        </Pressable>
+        />
       ) : null}
 
       {actionLabel !== null ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={actionLabel}
-          accessibilityState={{ disabled: isBusy || isBlocked, busy: isBusy && !isAccepting }}
-          disabled={isBusy || isBlocked}
+        // Its own move in flight spins it; any other move, or the window or a
+        // required step, only holds it.
+        <Button
+          label={actionLabel}
+          isBusy={isBusy && !isAccepting}
+          isDisabled={isBlocked || (isBusy && isAccepting)}
           onPress={onAction}
-          style={({ pressed }) => [
-            styles.button,
-            isBlocked && styles.buttonDisabled,
-            pressed && styles.buttonPressed,
-          ]}
-        >
-          {isBusy && !isAccepting ? (
-            <ActivityIndicator color={styles.buttonText.color} />
-          ) : (
-            <Text style={styles.buttonText}>{actionLabel}</Text>
-          )}
-        </Pressable>
+        />
       ) : (
-        <Text style={styles.hint}>{idleHint}</Text>
+        <Hint text={idleHint} />
       )}
     </ScrollView>
   );
@@ -346,79 +287,141 @@ export function TaskDetail({
 
 function noop(): void {}
 
-interface FactProps {
-  label: string;
-  value: string;
-  styles: ReturnType<typeof createStyles>;
+interface TaskFlagsProps {
+  task: CleaningTask;
+  /** A repair whose report the office marked high. */
+  isUrgentFix: boolean;
 }
 
-function Fact({ label, value, styles }: FactProps) {
+/**
+ * Why the job matters, as pills: the same-day check-in in the urgent tone, or
+ * what kind of job it is; and on a repair the office marked high, «Срочно»
+ * (docs/redesign-plan.md 2.4) — a flag of its own rather than a banner.
+ */
+function TaskFlags({ task, isUrgentFix }: TaskFlagsProps) {
+  const { t } = useTranslation();
+  const tone = isSameDayTurnover(task)
+    ? STATUS_TONE['phone.checkIn.sameDay']
+    : STATUS_TONE['phone.kindBanner'];
+
   return (
-    <View style={styles.fact}>
-      <Text style={styles.factLabel}>{label}</Text>
-      <Text style={styles.factValue}>{value}</Text>
+    <View style={layout.flags}>
+      <Badge testID="task-urgency" label={urgencyText(task)} tone={tone} />
+      {isUrgentFix ? (
+        // The word the supply request uses for the same flag.
+        <Badge
+          testID="task-urgent"
+          label={t('supplies.priorities.urgent')}
+          tone={problemPriorityTone('high')}
+        />
+      ) : null}
     </View>
   );
 }
 
+interface FactProps {
+  label: string;
+  value: string;
+}
+
+/** A fact and its value on one line; at a large font the value wraps under it. */
+function Fact({ label, value }: FactProps) {
+  return (
+    <View style={layout.fact}>
+      <Text tone="secondary" style={layout.shrink}>
+        {label}
+      </Text>
+      <Text style={layout.shrink}>{value}</Text>
+    </View>
+  );
+}
+
+interface CardLabelProps {
+  text: string;
+}
+
+function CardLabel({ text }: CardLabelProps) {
+  return (
+    <Text variant="caption" tone="secondary" weight={700}>
+      {text}
+    </Text>
+  );
+}
+
+interface NoteCardProps {
+  label: string;
+  text: string;
+}
+
+function NoteCard({ label, text }: NoteCardProps) {
+  return (
+    <Card>
+      <CardLabel text={label} />
+      <Text>{text}</Text>
+    </Card>
+  );
+}
+
+interface HintProps {
+  text: string;
+  /** Said aloud when it appears: it explains why the button below waits. */
+  isLive?: boolean;
+}
+
+function Hint({ text, isLive = false }: HintProps) {
+  return (
+    <Text accessibilityLiveRegion={isLive ? 'polite' : undefined} tone="secondary" align="center">
+      {text}
+    </Text>
+  );
+}
+
+/** The skeleton's blocks: a heading line, a line of text, a chip, the facts' card. */
+const SKELETON_HEADING = 28;
+const SKELETON_LINE = 16;
+const SKELETON_CHIP = 20;
+const SKELETON_CHIP_WIDTH = 140;
+const SKELETON_CARD = 120;
+
+interface TaskDetailSkeletonProps {
+  /** What is loading, said to the reader. */
+  label: string;
+}
+
+/** The shape of a task while it loads: the place, a flag, the facts, the button. */
+export function TaskDetailSkeleton({ label }: TaskDetailSkeletonProps) {
+  const styles = useThemedStyles(createStyles);
+
+  return (
+    <View style={styles.screen}>
+      <SkeletonGroup label={label} style={layout.content}>
+        <Skeleton height={SKELETON_HEADING} width="70%" />
+        <Skeleton height={SKELETON_LINE} width="45%" />
+        <Skeleton height={SKELETON_CHIP} width={SKELETON_CHIP_WIDTH} radius={Radius.pill} />
+        <Skeleton height={SKELETON_CARD} radius={Radius.card} />
+        <Skeleton height={BUTTON_HEIGHT} radius={Radius.pill} />
+      </SkeletonGroup>
+    </View>
+  );
+}
+
+/** Sizes only: nothing here depends on the colour scheme. */
+const layout = StyleSheet.create({
+  content: { padding: Spacing.lg, gap: Spacing.md },
+  place: { gap: Spacing.xs },
+  flags: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  fact: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    columnGap: Spacing.md,
+  },
+  shrink: { flexShrink: 1 },
+  target: { minHeight: MIN_TOUCH_TARGET },
+  raise: { gap: Spacing.sm },
+});
+
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.background },
-    content: { padding: Spacing.lg, gap: Spacing.md },
-    place: { gap: Spacing.xs },
-    name: { color: theme.text, fontSize: FontSize.heading, fontWeight: '700' },
-    room: { color: theme.textSecondary, fontSize: FontSize.title, fontWeight: '600' },
-    meta: { color: theme.textSecondary, fontSize: FontSize.body },
-    banner: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
-    // As on the card: a same-day check-in is urgent, anything else neutral.
-    bannerUrgent: { backgroundColor: statusTone(theme, 'phone.checkIn.sameDay').bg },
-    bannerNeutral: { backgroundColor: statusTone(theme, 'phone.kindBanner').bg },
-    bannerText: { fontSize: FontSize.body, fontWeight: '600' },
-    bannerTextUrgent: { color: statusTone(theme, 'phone.checkIn.sameDay').fg },
-    bannerTextNeutral: { color: statusTone(theme, 'phone.kindBanner').fg },
-    facts: {
-      backgroundColor: theme.card,
-      borderRadius: Radius.lg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.divider,
-      padding: Spacing.lg,
-      gap: Spacing.sm,
-    },
-    fact: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.md },
-    factLabel: { color: theme.textSecondary, fontSize: FontSize.body },
-    factValue: { color: theme.text, fontSize: FontSize.body, fontWeight: '600' },
-    notes: {
-      backgroundColor: theme.card,
-      borderRadius: Radius.lg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.divider,
-      padding: Spacing.lg,
-      gap: Spacing.xs,
-    },
-    notesLabel: { color: theme.textSecondary, fontSize: FontSize.caption, fontWeight: '700' },
-    notesText: { color: theme.text, fontSize: FontSize.body },
-    hint: { color: theme.textSecondary, fontSize: FontSize.body, textAlign: 'center' },
-    failure: { gap: Spacing.xs },
-    error: { color: theme.danger, fontSize: FontSize.body, textAlign: 'center' },
-    errorDetail: { color: theme.textSecondary, fontSize: FontSize.caption, textAlign: 'center' },
-    button: {
-      minHeight: MIN_TOUCH_TARGET,
-      borderRadius: Radius.md,
-      backgroundColor: theme.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    buttonDisabled: { opacity: 0.5 },
-    buttonPressed: { opacity: 0.75 },
-    buttonText: { color: theme.onPrimary, fontSize: FontSize.title, fontWeight: '600' },
-    raise: { gap: Spacing.sm },
-    secondary: {
-      minHeight: MIN_TOUCH_TARGET,
-      borderRadius: Radius.md,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    secondaryText: { color: theme.primary, fontSize: FontSize.title, fontWeight: '600' },
   });

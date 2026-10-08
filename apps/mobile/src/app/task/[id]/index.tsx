@@ -1,15 +1,17 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
-import { FontSize, Spacing, type Theme } from '@/constants/theme';
+import { ErrorState } from '@/components/error-state';
+import { Text } from '@/components/text';
+import { Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
 import { SignedInRoute } from '@/features/auth/signed-in-route';
 import { useTaskSteps } from '@/features/steps/use-steps';
 import { propertyName } from '@/features/tasks/format';
 import { latestMoveError } from '@/features/tasks/moves';
-import { TaskDetail } from '@/features/tasks/task-detail';
+import { TaskDetail, TaskDetailSkeleton } from '@/features/tasks/task-detail';
 import {
   acceptVariables,
   useAcceptTask,
@@ -20,7 +22,6 @@ import {
 } from '@/features/tasks/use-tasks';
 import { useNow } from '@/hooks/use-now';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
-import { serverErrorText } from '@/lib/server-error';
 
 const Params = z.object({ id: z.string().uuid() });
 
@@ -69,17 +70,15 @@ function TaskScreen() {
   }
 
   if (query.isPending) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={styles.message.color} />
-        <Text style={styles.message}>{t('tasks.loading')}</Text>
-      </View>
-    );
+    return <TaskDetailSkeleton label={t('tasks.loading')} />;
   }
 
   if (query.error) {
-    const failure = serverErrorText(query.error);
-    return <Message text={failure.text} detail={failure.detail} styles={styles} />;
+    return (
+      <View style={styles.screen}>
+        <ErrorState error={query.error} />
+      </View>
+    );
   }
 
   if (query.data === null || query.data === undefined) {
@@ -119,30 +118,25 @@ function TaskScreen() {
 
 interface MessageProps {
   text: string;
-  /** The server's own words, when we had no translation for them. */
-  detail?: string | null;
   styles: ReturnType<typeof createStyles>;
 }
 
-function Message({ text, detail = null, styles }: MessageProps) {
+function Message({ text, styles }: MessageProps) {
   return (
-    <View style={styles.centered}>
-      <Text style={styles.message}>{text}</Text>
-      {detail !== null ? <Text style={styles.detail}>{detail}</Text> : null}
+    <View style={[styles.screen, styles.centered]}>
+      <Text tone="secondary" align="center">
+        {text}
+      </Text>
     </View>
   );
 }
 
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
+    screen: { flex: 1, backgroundColor: theme.background },
     centered: {
-      flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      gap: Spacing.sm,
       padding: Spacing.xl,
-      backgroundColor: theme.background,
     },
-    message: { fontSize: FontSize.body, color: theme.textSecondary, textAlign: 'center' },
-    detail: { fontSize: FontSize.caption, color: theme.textSecondary, textAlign: 'center' },
   });
