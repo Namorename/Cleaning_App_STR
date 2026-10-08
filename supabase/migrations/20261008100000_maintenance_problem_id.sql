@@ -13,8 +13,10 @@
 -- eight until it is taught the ninth. Apart from that column the body is the
 -- one in 20260917160000_listing_card_rooms.sql, word for word.
 --
--- A dropped function takes its grants with it, and a created one hands EXECUTE
--- to PUBLIC, so the revoke and the grant are repeated as they were.
+-- A dropped function takes its grants with it. The default privileges of
+-- 20260926100000_grants_hygiene already give a new function in public this ACL
+-- (no PUBLIC, no anon; authenticated and service_role may execute); the revoke
+-- and the grant are repeated anyway, so the migration does not lean on them.
 
 drop function public.property_maintenance_tasks(bigint, integer);
 

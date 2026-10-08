@@ -633,10 +633,23 @@ select pg_temp.check('and the room is still named on the folded row',
     where c.id = 'a6000001-0000-4000-8000-000000000020'),
   (select p.name from public.properties p where p.id = 1000000064266));
 
--- Growing a column means dropping the function and creating it again, and a
--- new function hands EXECUTE to PUBLIC. Read from the ACL itself: an unset
--- proacl IS the default grant to PUBLIC, so it is expanded with acldefault()
--- rather than let aclexplode(null) answer «nobody».
+-- Growing a column means dropping the function and creating it again, which is
+-- exactly when a flag or a grant can be lost. The ACL comes from the default
+-- privileges of 20260926100000 and from the migration's own revoke and grant;
+-- it is read from the ACL itself: an unset proacl IS the built-in grant to
+-- PUBLIC, so it is expanded with acldefault() rather than let aclexplode(null)
+-- answer «nobody».
+select pg_temp.check('it still runs with the caller''s rights',
+  (select prosecdef from pg_proc
+    where oid = 'public.property_maintenance_tasks(bigint, integer)'::regprocedure), false);
+
+-- Invoker means the rows are the caller's: a definer slip would hand every
+-- manager another company's repairs, and their reports with them.
+select pg_temp.as_boss_b();
+select pg_temp.check('a manager of another company sees none of its repairs',
+  (select count(*)::int from public.property_maintenance_tasks(900001901, 60)), 0);
+select pg_temp.as_boss();
+
 select pg_temp.check('a manager may call it',
   has_function_privilege('authenticated',
     'public.property_maintenance_tasks(bigint, integer)', 'execute'), true);
