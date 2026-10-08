@@ -1,4 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { TOUCH_TARGET } from '@str-ops/shared';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { StyleSheet, type ViewStyle } from 'react-native';
 
 import type { ChecklistModuleView } from '../schema';
 import { StepChecklist } from '../step-checklist';
@@ -113,4 +115,36 @@ test('a step whose checklist came out empty says so instead of showing nothing',
   await render(<StepChecklist modules={[]} checked={[]} onToggle={onToggle} disabled={false} />);
 
   expect(screen.getByText('Чек-лист пуст')).toBeTruthy();
+});
+
+describe('the look: «Абрикос» on the old layout', () => {
+  test('every item stays a checkbox a finger can hit, saying whether it is ticked', async () => {
+    await render(
+      <StepChecklist modules={modules} checked={['i1']} onToggle={onToggle} disabled={false} />,
+    );
+
+    const boxes = screen.getAllByRole('checkbox');
+    expect(boxes).toHaveLength(3);
+    for (const box of boxes) {
+      const row = StyleSheet.flatten(box.props.style) as ViewStyle;
+      expect(row.minHeight).toBeGreaterThanOrEqual(TOUCH_TARGET.phoneMin);
+    }
+    expect(screen.getByRole('checkbox', { name: 'Зеркало', checked: true })).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: 'Плита', checked: false })).toBeTruthy();
+  });
+
+  test('a ticked item carries the check icon, an open one an empty box', async () => {
+    await render(
+      <StepChecklist modules={modules} checked={['i1']} onToggle={onToggle} disabled={false} />,
+    );
+
+    const ticked = screen.getByRole('checkbox', { name: 'Зеркало' });
+    const tick = within(ticked).getByTestId('check-tick', { includeHiddenElements: true });
+    const [drawing] = tick.children;
+    expect(typeof drawing === 'string' ? drawing : String(drawing?.props.className)).toContain(
+      'lucide-check',
+    );
+    const open = screen.getByRole('checkbox', { name: 'Плита' });
+    expect(within(open).queryByTestId('check-tick', { includeHiddenElements: true })).toBeNull();
+  });
 });

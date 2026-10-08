@@ -1,9 +1,14 @@
+import { STATUS_TONE, statusIcon } from '@str-ops/shared';
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import { Button } from '@/components/button';
+import { Icon } from '@/components/icon';
+import { Text } from '@/components/text';
+import { Radius, Spacing, type Theme } from '@/constants/theme';
 import type { MediaItemView, MediaKind, PhotoLimits } from '@/features/media/schema';
+import { useTheme } from '@/hooks/use-theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 interface StepMediaProps {
@@ -30,6 +35,8 @@ interface StepMediaProps {
  * the step cannot be completed until every file is in, and a cleaner has to
  * see which one is holding her. The count under the button says how many
  * more the step wants.
+ *
+ * The owner kept the layout (decisions §2): the camera stays under the grid.
  */
 export function StepMedia({
   kind,
@@ -45,7 +52,6 @@ export function StepMedia({
   onRetry,
 }: StepMediaProps) {
   const { t } = useTranslation();
-  const styles = useThemedStyles(createStyles);
 
   const max = kind === 'video' ? 1 : limits.max;
   const canCapture = !disabled && !isCapturing && items.length < max;
@@ -53,17 +59,17 @@ export function StepMedia({
   const pickLabel = kind === 'video' ? t('steps.pickVideo') : t('steps.pickPhoto');
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.hint}>
+    <View style={layout.container}>
+      <Text tone="secondary">
         {kind === 'video'
           ? t('steps.videoHint', { seconds: maxVideoSec })
           : t('steps.photosHint', { count: limits.min })}
       </Text>
 
       {items.length === 0 ? (
-        <Text style={styles.empty}>{t('steps.mediaEmpty')}</Text>
+        <Text tone="secondary">{t('steps.mediaEmpty')}</Text>
       ) : (
-        <View style={styles.grid}>
+        <View style={layout.grid}>
           {items.map((item, index) => (
             <MediaTile
               key={item.id}
@@ -72,57 +78,42 @@ export function StepMedia({
               disabled={disabled}
               onRemove={onRemove}
               onRetry={onRetry}
-              styles={styles}
             />
           ))}
         </View>
       )}
 
       {kind === 'photo' ? (
-        <Text style={styles.progress}>
-          {t('steps.photosProgress', { taken: items.length, max: limits.max })}
-        </Text>
+        <Text>{t('steps.photosProgress', { taken: items.length, max: limits.max })}</Text>
       ) : null}
 
       {!disabled ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={captureLabel}
-          accessibilityState={{ disabled: !canCapture, busy: isCapturing }}
-          disabled={!canCapture}
+        <Button
+          label={captureLabel}
+          isBusy={isCapturing}
+          isDisabled={!canCapture && !isCapturing}
+          left={
+            <Icon
+              testID="capture-icon"
+              name="action.takePhoto"
+              tone={canCapture ? 'onCta' : 'muted'}
+            />
+          }
           onPress={onCapture}
-          style={({ pressed }) => [
-            styles.captureButton,
-            !canCapture && styles.captureDisabled,
-            pressed && styles.capturePressed,
-          ]}
-        >
-          {isCapturing ? (
-            <ActivityIndicator color={styles.captureText.color} />
-          ) : (
-            <Text style={styles.captureText}>{captureLabel}</Text>
-          )}
-        </Pressable>
+        />
       ) : null}
 
       {/* Second, and second in every sense: the camera is the way this is
           meant to be done, and the gallery appears only where the company
           has decided to allow it. */}
       {!disabled && canPickFromGallery ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={pickLabel}
-          accessibilityState={{ disabled: !canCapture }}
-          disabled={!canCapture}
+        <Button
+          variant="outline"
+          label={pickLabel}
+          isDisabled={!canCapture}
+          left={<Icon name="action.fromGallery" tone={canCapture ? 'primary' : 'muted'} />}
           onPress={onPickFromGallery}
-          style={({ pressed }) => [
-            styles.pickButton,
-            !canCapture && styles.captureDisabled,
-            pressed && styles.capturePressed,
-          ]}
-        >
-          <Text style={styles.pickText}>{pickLabel}</Text>
-        </Pressable>
+        />
       ) : null}
     </View>
   );
@@ -134,11 +125,11 @@ interface MediaTileProps {
   disabled: boolean;
   onRemove: (mediaId: string) => void;
   onRetry: (mediaId: string) => void;
-  styles: ReturnType<typeof createStyles>;
 }
 
-function MediaTile({ item, index, disabled, onRemove, onRetry, styles }: MediaTileProps) {
+function MediaTile({ item, index, disabled, onRemove, onRetry }: MediaTileProps) {
   const { t } = useTranslation();
+  const styles = useThemedStyles(createStyles);
   const statusText =
     item.status === 'uploaded'
       ? t('steps.mediaUploaded')
@@ -154,10 +145,10 @@ function MediaTile({ item, index, disabled, onRemove, onRetry, styles }: MediaTi
     <View style={styles.tile}>
       <View accessible accessibilityLabel={label}>
         {item.kind === 'photo' && item.uri !== null ? (
-          <Image source={{ uri: item.uri }} contentFit="cover" style={styles.picture} />
+          <Image source={{ uri: item.uri }} contentFit="cover" style={layout.picture} />
         ) : (
           <View style={styles.placeholder}>
-            <Text style={styles.placeholderText}>
+            <Text align="center">
               {item.kind === 'video'
                 ? t('steps.videoLength', { seconds: item.durationSec ?? 0 })
                 : t('steps.photoPlaceholder')}
@@ -165,105 +156,104 @@ function MediaTile({ item, index, disabled, onRemove, onRetry, styles }: MediaTi
           </View>
         )}
 
-        <View style={styles.tileFooter}>
-          {item.status === 'uploading' ? (
-            <ActivityIndicator size="small" color={styles.tileStatus.color} />
-          ) : null}
-          <Text style={[styles.tileStatus, item.status === 'failed' && styles.tileStatusFailed]}>
+        <View style={layout.tileFooter}>
+          <TileStatus status={item.status} />
+          <Text
+            variant="caption"
+            tone={item.status === 'failed' ? 'danger' : 'secondary'}
+            style={layout.shrink}
+          >
             {statusText}
           </Text>
         </View>
       </View>
 
       {!disabled ? (
-        <View style={styles.tileActions}>
+        <View style={layout.tileActions}>
           {item.status === 'failed' ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('steps.retryUpload')}
+            <Button
+              variant="secondary"
+              label={t('steps.retryUpload')}
+              left={<Icon name="action.retry" size="small" tone="onSecondary" />}
               onPress={() => onRetry(item.id)}
-              style={({ pressed }) => [styles.tileButton, pressed && styles.capturePressed]}
-            >
-              <Text style={styles.tileButtonText}>{t('steps.retryUpload')}</Text>
-            </Pressable>
+              style={layout.tileButton}
+            />
           ) : null}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('steps.removeMedia')}
+          <Button
+            variant="destructive"
+            label={t('steps.removeMedia')}
+            left={<Icon name="action.delete" size="small" tone="danger" />}
             onPress={() => onRemove(item.id)}
-            style={({ pressed }) => [styles.tileButton, pressed && styles.capturePressed]}
-          >
-            <Text style={styles.tileButtonText}>{t('steps.removeMedia')}</Text>
-          </Pressable>
+            style={layout.tileButton}
+          />
         </View>
       ) : null}
     </View>
   );
 }
 
+interface TileStatusProps {
+  status: MediaItemView['status'];
+}
+
+/** Where a file stands, beside its words: a spinner on its way, ✓ in, ⚠ stranded. */
+function TileStatus({ status }: TileStatusProps) {
+  const theme = useTheme();
+
+  if (status === 'uploading') {
+    return <ActivityIndicator size="small" color={theme.textSecondary} />;
+  }
+  const key = status === 'uploaded' ? 'media.uploaded' : 'media.failed';
+  const glyph = statusIcon(key);
+  if (glyph === null) {
+    return null;
+  }
+  return (
+    <Icon
+      testID="media-status-icon"
+      name={glyph}
+      size="small"
+      color={theme.tone[STATUS_TONE[key]].fg}
+    />
+  );
+}
+
 const TILE_SIZE = 150;
+
+/** Sizes only: nothing here depends on the colour scheme. */
+const layout = StyleSheet.create({
+  container: { gap: Spacing.md },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md },
+  picture: { width: TILE_SIZE, height: TILE_SIZE },
+  tileFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+  },
+  shrink: { flexShrink: 1 },
+  tileActions: { gap: Spacing.xs, padding: Spacing.xs },
+  // Narrower than a screen's button: two of them share a tile.
+  tileButton: { paddingHorizontal: Spacing.sm },
+});
 
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
-    container: { gap: Spacing.md },
-    hint: { color: theme.textSecondary, fontSize: FontSize.body },
-    empty: { color: theme.textSecondary, fontSize: FontSize.body, fontStyle: 'italic' },
-    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md },
     tile: {
       width: TILE_SIZE,
       backgroundColor: theme.card,
-      borderRadius: Radius.lg,
+      borderRadius: Radius.card,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.divider,
       overflow: 'hidden',
     },
-    picture: { width: TILE_SIZE, height: TILE_SIZE },
+    // Grows with its words at a large font, rather than cut them.
     placeholder: {
-      width: TILE_SIZE,
-      height: TILE_SIZE,
+      minHeight: TILE_SIZE,
+      padding: Spacing.sm,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: theme.divider,
+      backgroundColor: theme.surfaceAlt,
     },
-    placeholderText: { color: theme.text, fontSize: FontSize.body, fontWeight: '600' },
-    tileFooter: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: Spacing.xs,
-      paddingHorizontal: Spacing.sm,
-      paddingVertical: Spacing.xs,
-    },
-    tileStatus: { color: theme.textSecondary, fontSize: FontSize.caption },
-    tileStatusFailed: { color: theme.danger, fontWeight: '600' },
-    tileActions: { flexDirection: 'row', flexWrap: 'wrap' },
-    tileButton: {
-      minHeight: MIN_TOUCH_TARGET,
-      flexGrow: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: Spacing.sm,
-    },
-    tileButtonText: { color: theme.primary, fontSize: FontSize.body, fontWeight: '600' },
-    progress: { color: theme.text, fontSize: FontSize.body, fontWeight: '600' },
-    captureButton: {
-      minHeight: MIN_TOUCH_TARGET,
-      borderRadius: Radius.md,
-      backgroundColor: theme.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    captureDisabled: { opacity: 0.5 },
-    capturePressed: { opacity: 0.75 },
-    captureText: { color: theme.onPrimary, fontSize: FontSize.title, fontWeight: '600' },
-    // Outlined rather than filled: the camera is the primary way, the
-    // gallery the exception a company has opted into.
-    pickButton: {
-      minHeight: MIN_TOUCH_TARGET,
-      borderRadius: Radius.md,
-      borderWidth: 1,
-      borderColor: theme.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    pickText: { color: theme.primary, fontSize: FontSize.body, fontWeight: '600' },
   });

@@ -1,8 +1,9 @@
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { FontSize, Radius, Spacing, type Theme } from '@/constants/theme';
-import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { Text } from '@/components/text';
+import { TextField } from '@/components/text-field';
+import { Spacing } from '@/constants/theme';
 
 import { MAX_COMMENT_LENGTH } from './schema';
 
@@ -15,44 +16,25 @@ interface StepCommentProps {
 /** Free text from the cleaner: what the office should know about this flat today. */
 export function StepComment({ value, onChangeText, disabled }: StepCommentProps) {
   const { t } = useTranslation();
-  const styles = useThemedStyles(createStyles);
 
   return (
     <View style={styles.field}>
-      <TextInput
-        accessibilityLabel={t('steps.types.cleaner_comment')}
-        editable={!disabled}
+      <TextField
+        label={t('steps.types.cleaner_comment')}
+        isDisabled={disabled}
         maxLength={MAX_COMMENT_LENGTH}
         multiline
         onChangeText={onChangeText}
         placeholder={t('steps.commentPlaceholder')}
-        placeholderTextColor={styles.counter.color}
-        style={[styles.input, disabled && styles.inputDisabled]}
-        textAlignVertical="top"
         value={value}
       />
-      <Text style={styles.counter}>
+      <Text variant="caption" tone="secondary" align="right">
         {value.length} / {MAX_COMMENT_LENGTH}
       </Text>
     </View>
   );
 }
 
-const INPUT_MIN_HEIGHT = 140;
-
-const createStyles = (theme: Theme) =>
-  StyleSheet.create({
-    field: { gap: Spacing.xs },
-    input: {
-      minHeight: INPUT_MIN_HEIGHT,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-      borderRadius: Radius.md,
-      padding: Spacing.md,
-      fontSize: FontSize.title,
-      color: theme.text,
-      backgroundColor: theme.card,
-    },
-    inputDisabled: { opacity: 0.7 },
-    counter: { color: theme.textSecondary, fontSize: FontSize.caption, textAlign: 'right' },
-  });
+const styles = StyleSheet.create({
+  field: { gap: Spacing.xs },
+});

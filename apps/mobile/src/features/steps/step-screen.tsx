@@ -1,24 +1,15 @@
-import type { Json } from '@str-ops/shared';
+import { STATUS_TONE, type Json } from '@str-ops/shared';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  type TextStyle,
-} from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
-import {
-  FontSize,
-  MIN_TOUCH_TARGET,
-  Radius,
-  Spacing,
-  statusTone,
-  type Theme,
-} from '@/constants/theme';
+import { Badge } from '@/components/badge';
+import { Button } from '@/components/button';
+import { Card } from '@/components/card';
+import { FailureText } from '@/components/failure-text';
+import { Skeleton, SkeletonGroup } from '@/components/skeleton';
+import { Text } from '@/components/text';
+import { BUTTON_HEIGHT, Radius, Spacing, type Theme } from '@/constants/theme';
 import {
   canCompleteMediaStep,
   mediaKindOfStep,
@@ -28,7 +19,6 @@ import {
 } from '@/features/media/schema';
 import { formatClockTime } from '@/features/tasks/format';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
-import { serverErrorText } from '@/lib/server-error';
 
 import { STEP_STATUS_KEY, stepInstructions, stepStateText, stepTitle } from './format';
 import {
@@ -39,7 +29,6 @@ import {
   noteLines,
   remainingChecklistItems,
   stepState,
-  type StepState,
   type TaskStep,
 } from './schema';
 import { StepChecklist } from './step-checklist';
@@ -79,6 +68,9 @@ interface StepScreenProps {
  * pending step is completed (or skipped, if optional), a done or skipped one
  * can be taken back, a waived one is left as the manager left it, and a step
  * of a type this build does not know explains itself.
+ *
+ * The owner kept this screen's layout (decisions §2, «Уборка и шаги»): «Готово»
+ * stays at the end and takes her back to the task; only the look is new.
  */
 export function StepScreen({
   step,
@@ -157,8 +149,6 @@ export function StepScreen({
     }
   };
 
-  const failure = error === null ? null : serverErrorText(error);
-
   const statusLine =
     state === 'done' && step.completed_at !== null
       ? t('steps.completedAt', { time: formatClockTime(step.completed_at) })
@@ -169,21 +159,29 @@ export function StepScreen({
           : null;
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{stepTitle(step)}</Text>
-        {step.required ? <Text style={styles.required}>{t('steps.required')}</Text> : null}
+    <ScrollView style={styles.screen} contentContainerStyle={layout.content}>
+      <View style={layout.header}>
+        <Text variant="heading">{stepTitle(step)}</Text>
+        {step.required ? (
+          // A fact about the step, not an alarm: neutral, where it used to be red.
+          <Badge
+            testID="step-required"
+            label={t('steps.required')}
+            tone={STATUS_TONE['steps.required']}
+          />
+        ) : null}
       </View>
 
       {statusLine !== null ? (
-        <Text style={[styles.status, styles.statusColor[state]]}>{statusLine}</Text>
+        // Where the step stands, in its tone: done green, skipped or waived grey.
+        <Badge testID="step-status" label={statusLine} tone={STATUS_TONE[STEP_STATUS_KEY[state]]} />
       ) : null}
 
       {state === 'unsupported' ? (
-        <Text style={styles.hint}>{t('steps.unsupported')}</Text>
+        <Text tone="secondary">{t('steps.unsupported')}</Text>
       ) : step.type === 'task_note' ? (
         <>
-          <Text style={styles.hint}>{t('steps.noteHint')}</Text>
+          <Text tone="secondary">{t('steps.noteHint')}</Text>
           <StepTaskNote
             lines={lines}
             checked={checked}
@@ -192,15 +190,11 @@ export function StepScreen({
           />
         </>
       ) : step.type === 'cleaner_comment' ? (
-        <StepComment
-          value={comment}
-          onChangeText={setComment}
-          disabled={!canAct || !isPending}
-        />
+        <StepComment value={comment} onChangeText={setComment} disabled={!canAct || !isPending} />
       ) : step.type === 'checklist' ? (
         <>
-          <Text style={styles.hint}>{t('steps.checklistHint')}</Text>
-          <Text style={styles.progress}>{t('steps.checklistProgress', progress)}</Text>
+          <Text tone="secondary">{t('steps.checklistHint')}</Text>
+          <Text>{t('steps.checklistProgress', progress)}</Text>
           <StepChecklist
             modules={modules}
             checked={checkedItems}
@@ -210,7 +204,7 @@ export function StepScreen({
         </>
       ) : mediaKind !== null ? (
         <>
-          {instructions !== null ? <Instructions text={instructions} styles={styles} /> : null}
+          {instructions !== null ? <Instructions text={instructions} /> : null}
           <StepMedia
             kind={mediaKind}
             items={media}
@@ -226,55 +220,40 @@ export function StepScreen({
           />
         </>
       ) : instructions !== null ? (
-        <Instructions text={instructions} styles={styles} />
+        <Instructions text={instructions} />
       ) : null}
 
       {notice !== null ? (
-        <Text accessibilityLiveRegion="polite" style={styles.error}>
+        <Text accessibilityLiveRegion="polite" tone="danger" align="center">
           {notice}
         </Text>
       ) : null}
 
-      {failure !== null ? (
-        <View accessibilityLiveRegion="polite" style={styles.failure}>
-          <Text style={styles.error}>{failure.text}</Text>
-          {failure.detail !== null ? (
-            <Text style={styles.errorDetail}>{failure.detail}</Text>
-          ) : null}
-        </View>
-      ) : null}
+      {error !== null ? <FailureText error={error} /> : null}
 
-      {!isEditable ? <Text style={styles.hint}>{t('steps.readOnly')}</Text> : null}
+      {!isEditable ? <Text tone="secondary">{t('steps.readOnly')}</Text> : null}
 
       {isEditable && isPending ? (
-        <ActionButton
+        // Its own move in flight spins it; until the step is complete it waits.
+        <Button
           label={step.type === 'cleaner_comment' ? t('steps.save') : t('steps.done')}
-          onPress={complete}
-          disabled={!canComplete}
           isBusy={isBusy}
-          styles={styles}
+          isDisabled={!canComplete && !isBusy}
+          onPress={complete}
         />
       ) : null}
 
       {isEditable && (isPending || state === 'unsupported') && !step.required ? (
-        <ActionButton
-          label={t('steps.skip')}
-          onPress={onSkip}
-          disabled={!canAct}
-          isBusy={false}
-          secondary
-          styles={styles}
-        />
+        <Button variant="outline" label={t('steps.skip')} isDisabled={!canAct} onPress={onSkip} />
       ) : null}
 
       {isEditable && (state === 'done' || state === 'skipped') ? (
-        <ActionButton
+        <Button
+          variant="outline"
           label={t('steps.reopen')}
-          onPress={onReopen}
-          disabled={!canAct}
           isBusy={isBusy}
-          secondary
-          styles={styles}
+          isDisabled={!canAct && !isBusy}
+          onPress={onReopen}
         />
       ) : null}
     </ScrollView>
@@ -283,126 +262,54 @@ export function StepScreen({
 
 interface InstructionsProps {
   text: string;
-  styles: ReturnType<typeof createStyles>;
 }
 
-/** The manager's wording, one line under another. */
-function Instructions({ text, styles }: InstructionsProps) {
+/** The manager's wording, one line under another, large enough to read at the door. */
+function Instructions({ text }: InstructionsProps) {
   return (
-    <View style={styles.instructions}>
+    <Card>
       {noteLines(text).map((line, index) => (
-        <Text key={`${index}-${line}`} style={styles.instructionLine}>
+        <Text key={`${index}-${line}`} variant="title" weight={600}>
           {line}
         </Text>
       ))}
+    </Card>
+  );
+}
+
+/** The skeleton's blocks: the step's name, a line, the body's card. */
+const SKELETON_HEADING = 28;
+const SKELETON_LINE = 16;
+const SKELETON_CARD = 160;
+
+interface StepScreenSkeletonProps {
+  /** What is loading, said to the reader. */
+  label: string;
+}
+
+/** The shape of a step while it loads: its name, a line, its body, the button. */
+export function StepScreenSkeleton({ label }: StepScreenSkeletonProps) {
+  const styles = useThemedStyles(createStyles);
+
+  return (
+    <View style={styles.screen}>
+      <SkeletonGroup label={label} style={layout.content}>
+        <Skeleton height={SKELETON_HEADING} width="60%" />
+        <Skeleton height={SKELETON_LINE} width="80%" />
+        <Skeleton height={SKELETON_CARD} radius={Radius.card} />
+        <Skeleton height={BUTTON_HEIGHT} radius={Radius.pill} />
+      </SkeletonGroup>
     </View>
   );
 }
 
-interface ActionButtonProps {
-  label: string;
-  onPress: () => void;
-  disabled: boolean;
-  isBusy: boolean;
-  secondary?: boolean;
-  styles: ReturnType<typeof createStyles>;
-}
-
-function ActionButton({
-  label,
-  onPress,
-  disabled,
-  isBusy,
-  secondary = false,
-  styles,
-}: ActionButtonProps) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled, busy: isBusy }}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.button,
-        secondary && styles.buttonSecondary,
-        disabled && styles.buttonDisabled,
-        pressed && styles.buttonPressed,
-      ]}
-    >
-      {isBusy ? (
-        <ActivityIndicator
-          color={secondary ? styles.buttonSecondaryText.color : styles.buttonText.color}
-        />
-      ) : (
-        <Text style={secondary ? styles.buttonSecondaryText : styles.buttonText}>{label}</Text>
-      )}
-    </Pressable>
-  );
-}
-
-/** The status line in the tone of where the step stands: done green, skipped grey. */
-function statusColors(theme: Theme): Readonly<Record<StepState, TextStyle>> {
-  const colorOf = (state: StepState): TextStyle => ({
-    color: statusTone(theme, STEP_STATUS_KEY[state]).fg,
-  });
-  return {
-    done: colorOf('done'),
-    skipped: colorOf('skipped'),
-    waived: colorOf('waived'),
-    pending: colorOf('pending'),
-    unsupported: colorOf('unsupported'),
-  };
-}
-
-const createStyles = (theme: Theme) => ({
-  statusColor: statusColors(theme),
-  ...StyleSheet.create({
-    screen: { flex: 1, backgroundColor: theme.background },
-    content: { padding: Spacing.lg, gap: Spacing.md },
-    header: { gap: Spacing.xs },
-    title: { color: theme.text, fontSize: FontSize.heading, fontWeight: '700' },
-    // A fact about the step, not an alarm: neutral, where it used to be red.
-    required: {
-      alignSelf: 'flex-start',
-      color: statusTone(theme, 'steps.required').fg,
-      backgroundColor: statusTone(theme, 'steps.required').bg,
-      borderRadius: Radius.md,
-      paddingHorizontal: Spacing.sm,
-      paddingVertical: 2,
-      fontSize: FontSize.caption,
-      fontWeight: '600',
-    },
-    status: { fontSize: FontSize.body, fontWeight: '600' },
-    hint: { color: theme.textSecondary, fontSize: FontSize.body },
-    progress: { color: theme.text, fontSize: FontSize.body, fontWeight: '600' },
-    instructions: {
-      backgroundColor: theme.card,
-      borderRadius: Radius.lg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.divider,
-      padding: Spacing.lg,
-      gap: Spacing.sm,
-    },
-    instructionLine: { color: theme.text, fontSize: FontSize.title },
-    failure: { gap: Spacing.xs },
-    error: { color: theme.danger, fontSize: FontSize.body, textAlign: 'center' },
-    errorDetail: { color: theme.textSecondary, fontSize: FontSize.caption, textAlign: 'center' },
-    button: {
-      minHeight: MIN_TOUCH_TARGET,
-      borderRadius: Radius.md,
-      backgroundColor: theme.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    buttonSecondary: {
-      backgroundColor: theme.card,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-    },
-    buttonDisabled: { opacity: 0.5 },
-    buttonPressed: { opacity: 0.75 },
-    buttonText: { color: theme.onPrimary, fontSize: FontSize.title, fontWeight: '600' },
-    buttonSecondaryText: { color: theme.primary, fontSize: FontSize.title, fontWeight: '600' },
-  }),
+/** Sizes only: nothing here depends on the colour scheme. */
+const layout = StyleSheet.create({
+  content: { padding: Spacing.lg, gap: Spacing.md },
+  header: { gap: Spacing.xs },
 });
+
+const createStyles = (theme: Theme) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: theme.background },
+  });

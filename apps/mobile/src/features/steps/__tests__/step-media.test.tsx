@@ -1,4 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { THEME_COLORS, TONE_COLORS, TOUCH_TARGET } from '@str-ops/shared';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { StyleSheet, type ViewStyle } from 'react-native';
 
 import type { MediaItemView } from '@/features/media/schema';
 
@@ -202,4 +204,91 @@ test('a video step offers the gallery in its own words', async () => {
   );
 
   expect(screen.getByRole('button', { name: 'Выбрать видео из галереи' })).toBeTruthy();
+});
+
+describe('the look: «Абрикос» on the old layout', () => {
+  const light = THEME_COLORS.light;
+  const tones = TONE_COLORS.light;
+
+  function styleOf(element: { props: { style?: unknown } }): ViewStyle {
+    return StyleSheet.flatten(element.props.style as ViewStyle);
+  }
+
+  /** The Lucide glyph drawn in the icon with this test id inside `container`. */
+  function glyphIn(container: Parameters<typeof within>[0], testID: string): string {
+    const box = within(container).getByTestId(testID, { includeHiddenElements: true });
+    const [drawing] = box.children;
+    if (drawing === undefined || typeof drawing === 'string') {
+      throw new Error(`${testID} holds no drawing`);
+    }
+    return String(drawing.props.className);
+  }
+
+  test('the camera is the main button, 56 dp, with the camera icon; the gallery a framed one', async () => {
+    await render(
+      <StepMedia
+        kind="photo"
+        items={[]}
+        limits={{ min: 1, max: 4 }}
+        maxVideoSec={30}
+        isCapturing={false}
+        disabled={false}
+        {...handlers}
+        canPickFromGallery
+      />,
+    );
+
+    const capture = screen.getByRole('button', { name: 'Снять фото' });
+    expect(styleOf(capture)).toMatchObject({
+      minHeight: TOUCH_TARGET.phoneButton,
+      backgroundColor: light.cta,
+    });
+    expect(glyphIn(capture, 'capture-icon')).toContain('lucide-camera');
+    const gallery = screen.getByRole('button', { name: 'Выбрать фото из галереи' });
+    expect(styleOf(gallery)).toMatchObject({
+      minHeight: TOUCH_TARGET.phoneButton,
+      borderColor: light.primary,
+    });
+  });
+
+  test('a tile’s own buttons are big enough for a finger; removing is the destructive one', async () => {
+    await render(
+      <StepMedia
+        kind="photo"
+        items={[item({ id: 'm3', status: 'failed', uri: null })]}
+        limits={{ min: 1, max: 4 }}
+        maxVideoSec={30}
+        isCapturing={false}
+        disabled={false}
+        {...handlers}
+      />,
+    );
+
+    const retry = styleOf(screen.getByRole('button', { name: 'Повторить загрузку' }));
+    const remove = styleOf(screen.getByRole('button', { name: 'Удалить' }));
+    expect(retry.minHeight).toBeGreaterThanOrEqual(TOUCH_TARGET.phoneMin);
+    expect(remove.minHeight).toBeGreaterThanOrEqual(TOUCH_TARGET.phoneMin);
+    expect(remove.backgroundColor).toBe(tones.urgent.bg);
+  });
+
+  test('a tile shows where its file stands with an icon as well as words', async () => {
+    await render(
+      <StepMedia
+        kind="photo"
+        items={[item(), item({ id: 'm2', status: 'failed', uri: null })]}
+        limits={{ min: 1, max: 4 }}
+        maxVideoSec={30}
+        isCapturing={false}
+        disabled={false}
+        {...handlers}
+      />,
+    );
+
+    expect(glyphIn(screen.getByLabelText('Фото 1. Загружено'), 'media-status-icon')).toContain(
+      'lucide-check',
+    );
+    expect(glyphIn(screen.getByLabelText('Фото 2. Не загрузилось'), 'media-status-icon')).toContain(
+      'lucide-triangle-alert',
+    );
+  });
 });

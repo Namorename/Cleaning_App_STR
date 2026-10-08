@@ -2,10 +2,12 @@ import type { Json } from '@str-ops/shared';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
-import { FontSize, Spacing, type Theme } from '@/constants/theme';
+import { ErrorState } from '@/components/error-state';
+import { Text } from '@/components/text';
+import { Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
 import { useGalleryAllowed } from '@/features/host/use-host';
 import {
@@ -28,7 +30,7 @@ import {
   useUploadingMediaIds,
 } from '@/features/media/use-media';
 import { stepTitle } from '@/features/steps/format';
-import { StepScreen } from '@/features/steps/step-screen';
+import { StepScreen, StepScreenSkeleton } from '@/features/steps/step-screen';
 import {
   useCompleteStep,
   useOpenStep,
@@ -38,7 +40,6 @@ import {
 } from '@/features/steps/use-steps';
 import { useTask } from '@/features/tasks/use-tasks';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
-import { serverErrorText } from '@/lib/server-error';
 
 const Params = z.object({ id: z.string().uuid(), stepId: z.string().uuid() });
 
@@ -122,17 +123,15 @@ export default function StepRoute() {
   }
 
   if (steps.isPending || task.isPending) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={styles.message.color} />
-        <Text style={styles.message}>{t('tasks.loading')}</Text>
-      </View>
-    );
+    return <StepScreenSkeleton label={t('tasks.loading')} />;
   }
 
   if (steps.error) {
-    const failure = serverErrorText(steps.error);
-    return <Message text={failure.text} detail={failure.detail} styles={styles} />;
+    return (
+      <View style={styles.screen}>
+        <ErrorState error={steps.error} />
+      </View>
+    );
   }
 
   if (step === undefined) {
@@ -238,30 +237,25 @@ export default function StepRoute() {
 
 interface MessageProps {
   text: string;
-  /** The server's own words, when we had no translation for them. */
-  detail?: string | null;
   styles: ReturnType<typeof createStyles>;
 }
 
-function Message({ text, detail = null, styles }: MessageProps) {
+function Message({ text, styles }: MessageProps) {
   return (
-    <View style={styles.centered}>
-      <Text style={styles.message}>{text}</Text>
-      {detail !== null ? <Text style={styles.detail}>{detail}</Text> : null}
+    <View style={[styles.screen, styles.centered]}>
+      <Text tone="secondary" align="center">
+        {text}
+      </Text>
     </View>
   );
 }
 
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
+    screen: { flex: 1, backgroundColor: theme.background },
     centered: {
-      flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      gap: Spacing.sm,
       padding: Spacing.xl,
-      backgroundColor: theme.background,
     },
-    message: { fontSize: FontSize.body, color: theme.textSecondary, textAlign: 'center' },
-    detail: { fontSize: FontSize.caption, color: theme.textSecondary, textAlign: 'center' },
   });
