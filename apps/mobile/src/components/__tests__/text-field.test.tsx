@@ -8,6 +8,10 @@ import { TextField } from '../text-field';
 
 /** A field she types into: its name above, a hint or the error below it. */
 
+// The password field's eye is drawn by a native view; the button around it is
+// what is tested.
+jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
+
 const light = THEME_COLORS.light;
 
 function inputStyle(label: string): TextStyle {
@@ -96,6 +100,33 @@ test('a label of its own for the reader, when the visible one leans on what is a
   expect(screen.getByText('Уточнение')).toBeTruthy();
   expect(screen.getByLabelText('Мешки для мусора: уточнение')).toBeTruthy();
   expect(screen.queryByLabelText('Уточнение')).toBeNull();
+});
+
+// The sign-in's password: the frame, label and focus ring of a field, the eye
+// of the password input (components/password-input.tsx) inside it.
+test('a password field hides what she types until the eye shows it, in a field’s frame', async () => {
+  await render(
+    <TextField label="Пароль" isPassword value="Kx7mQ2pL9vRt" onChangeText={jest.fn()} />,
+  );
+
+  expect(screen.getByText('Пароль')).toBeTruthy();
+  expect(screen.getByLabelText('Пароль').props.secureTextEntry).toBe(true);
+  expect(inputStyle('Пароль')).toMatchObject({
+    minHeight: BUTTON_HEIGHT,
+    borderColor: light.border,
+  });
+
+  await fireEvent.press(screen.getByRole('button', { name: 'Показать пароль' }));
+
+  expect(screen.getByLabelText('Пароль').props.secureTextEntry).toBe(false);
+});
+
+test('a password field shows the focus ring like any other', async () => {
+  await render(<TextField label="Пароль" isPassword value="" onChangeText={jest.fn()} />);
+
+  await fireEvent(screen.getByLabelText('Пароль'), 'focus');
+
+  expect(inputStyle('Пароль').borderColor).toBe(light.focusRing);
 });
 
 test('disabled: not editable, and says so', async () => {

@@ -12,6 +12,7 @@ import { BUTTON_HEIGHT, FontSize, Radius, Spacing, type Theme } from '@/constant
 import { useTheme } from '@/hooks/use-theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
+import { PasswordInput } from './password-input';
 import { Text, useFontFace } from './text';
 
 type FocusEvent = Parameters<NonNullable<TextInputProps['onFocus']>>[0];
@@ -31,6 +32,11 @@ export interface TextFieldProps extends Omit<TextInputProps, 'style' | 'editable
   /** What is wrong with what she typed, in her language. */
   error?: string | null;
   isDisabled?: boolean;
+  /**
+   * A password: masked, with the eye that shows it (`PasswordInput`), which
+   * also decides the keyboard and keeps the text from being corrected.
+   */
+  isPassword?: boolean;
   /**
    * What the reader hears in place of the label, when the label leans on what
    * stands above it: «Уточнение» under each line of a supply request is heard
@@ -53,6 +59,7 @@ export function TextField({
   hint,
   error = null,
   isDisabled = false,
+  isPassword = false,
   accessibilityLabel,
   style,
   onFocus,
@@ -76,32 +83,34 @@ export function TextField({
     onBlur?.(event);
   };
 
+  const field = {
+    ...input,
+    ref,
+    accessibilityLabel: accessibilityLabel ?? label,
+    accessibilityLabelledBy: accessibilityLabel === undefined ? labelId : undefined,
+    accessibilityHint: hint,
+    accessibilityState: { disabled: isDisabled },
+    editable: !isDisabled,
+    onFocus: handleFocus,
+    onBlur: handleBlur,
+    placeholderTextColor: theme.textMuted,
+    selectionColor: theme.primary,
+    style: [
+      styles.input,
+      face,
+      input.multiline === true && styles.multiline,
+      isFocused && styles.focused,
+      hasError && styles.invalid,
+      isDisabled && styles.disabled,
+    ],
+  };
+
   return (
     <View style={[styles.field, style]}>
       <Text nativeID={labelId} tone="secondary">
         {label}
       </Text>
-      <TextInput
-        {...input}
-        ref={ref}
-        accessibilityLabel={accessibilityLabel ?? label}
-        accessibilityLabelledBy={accessibilityLabel === undefined ? labelId : undefined}
-        accessibilityHint={hint}
-        accessibilityState={{ disabled: isDisabled }}
-        editable={!isDisabled}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        placeholderTextColor={theme.textMuted}
-        selectionColor={theme.primary}
-        style={[
-          styles.input,
-          face,
-          input.multiline === true && styles.multiline,
-          isFocused && styles.focused,
-          hasError && styles.invalid,
-          isDisabled && styles.disabled,
-        ]}
-      />
+      {isPassword ? <PasswordInput {...field} /> : <TextInput {...field} />}
       {hasError ? (
         <Text
           variant="caption"

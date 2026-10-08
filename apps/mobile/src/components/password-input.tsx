@@ -1,5 +1,5 @@
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
-import { useState } from 'react';
+import { useState, type Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Platform,
@@ -27,7 +27,10 @@ const HIDE: SymbolViewProps['name'] = {
 export type PasswordInputProps = Omit<
   TextInputProps,
   'secureTextEntry' | 'keyboardType' | 'autoCorrect' | 'spellCheck'
->;
+> & {
+  /** Handed on to the input with the rest, as `TextField` hands its own. */
+  ref?: Ref<TextInput>;
+};
 
 /**
  * A password field with an eye that shows what was typed.
