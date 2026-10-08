@@ -52,6 +52,8 @@ export const ICONS = {
   'action.fromGallery': 'image',
   'action.showPassword': 'eye',
   'action.openChat': 'message-square',
+  /** The phone's chat: sends what is in the box. */
+  'action.send': 'send',
 
   // The glyphs of the status chips (`TONE_ICON`, `STATUS_ICON`).
   'status.nobody': 'user-round',

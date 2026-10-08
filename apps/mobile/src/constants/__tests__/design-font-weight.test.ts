@@ -30,8 +30,6 @@ const TEXT_COMPONENT = 'components/text.tsx';
 const ALLOWANCE: Readonly<Record<string, number>> = {
   'components/list-action.tsx': 1,
   'features/auth/sign-out-button.tsx': 1,
-  'features/chat/message-media.tsx': 1,
-  'features/chat/thread-view.tsx': 2,
   'features/problems/problem-card.tsx': 3,
   'features/problems/problem-detail.tsx': 5,
   'features/problems/problem-list.tsx': 1,

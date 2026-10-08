@@ -29,6 +29,7 @@ import Play from 'lucide-react-native/icons/play';
 import Plus from 'lucide-react-native/icons/plus';
 import RotateCw from 'lucide-react-native/icons/rotate-cw';
 import Search from 'lucide-react-native/icons/search';
+import Send from 'lucide-react-native/icons/send';
 import Settings from 'lucide-react-native/icons/settings';
 import StickyNote from 'lucide-react-native/icons/sticky-note';
 import Trash from 'lucide-react-native/icons/trash';
@@ -81,6 +82,7 @@ export const LUCIDE_GLYPHS = {
   image: ImageGlyph,
   eye: Eye,
   'message-square': MessageSquare,
+  send: Send,
   'user-round': UserRound,
   'user-round-check': UserRoundCheck,
   play: Play,

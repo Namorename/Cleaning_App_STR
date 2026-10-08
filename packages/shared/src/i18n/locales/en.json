@@ -1283,7 +1283,8 @@
     "pending": "Sending…",
     "unknownAuthor": "Unknown",
     "photoOnItsWay": "Photo on its way",
-    "unread": "New message"
+    "unread": "New message",
+    "refreshFailed": "Could not refresh; showing the saved messages."
   },
   "serverErrors": {
     "checklistCopySameProperty": "Source and target are the same apartment",

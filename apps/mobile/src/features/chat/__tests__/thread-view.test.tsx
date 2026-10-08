@@ -1,13 +1,17 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
-import { MIN_TOUCH_TARGET } from '@/constants/theme';
+import { BUTTON_HEIGHT, Colors, FontSize, MIN_TOUCH_TARGET } from '@/constants/theme';
+import { formatReportedAt } from '@/features/problems/format';
 
 import { chatMessageSchema, type ChatMessage } from '../schema';
 import { ThreadView } from '../thread-view';
 
-// The icon font loads through expo-font at run time; the buttons are what is tested.
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
+const light = Colors.light;
+
+function styleOf(element: { props: { style?: unknown } }): ViewStyle & TextStyle {
+  return StyleSheet.flatten(element.props.style as ViewStyle) as ViewStyle & TextStyle;
+}
 
 const THREAD = '33333333-3333-4333-8333-333333333333';
 const ME = '66666666-6666-4666-8666-666666666666';
@@ -332,4 +336,181 @@ test('an empty thread says so, and a refusal is translated with its parameters',
 
   expect(screen.getByText('Пока ничего не написано')).toBeTruthy();
   expect(screen.getByText('В сообщении не больше 4000 символов')).toBeTruthy();
+});
+
+describe('on the «Абрикос» components', () => {
+  test('send is a 56 dp icon button named «Отправить», closed while the message is empty', async () => {
+    // Arrange
+    await render(
+      <ThreadView
+        messages={transcript}
+        pending={[]}
+        currentUserId={ME}
+        error={null}
+        onSend={onSend}
+      />,
+    );
+    const send = screen.getByRole('button', { name: 'Отправить' });
+
+    // Assert: nothing to send yet.
+    expect(send).toBeDisabled();
+    expect(styleOf(send)).toMatchObject({ width: BUTTON_HEIGHT, height: BUTTON_HEIGHT });
+    // An icon, not the word on a button.
+    expect(screen.queryByText('Отправить')).toBeNull();
+
+    // Act
+    await fireEvent.changeText(screen.getByLabelText('Написать…'), 'Полотенца в шкафу');
+
+    // Assert
+    expect(screen.getByRole('button', { name: 'Отправить' })).toBeEnabled();
+  });
+
+  test('her own messages sit on the primary’s light surface, the others on the card', async () => {
+    await render(
+      <ThreadView
+        messages={transcript}
+        pending={[]}
+        currentUserId={ME}
+        error={null}
+        onSend={onSend}
+      />,
+    );
+
+    const own = styleOf(screen.getByTestId('own-message'));
+    const other = styleOf(screen.getByTestId('other-message'));
+    expect(own.backgroundColor).toBe(light.secondary);
+    expect(other.backgroundColor).toBe(light.card);
+    expect(own.alignSelf).toBe('flex-end');
+    expect(other.alignSelf).toBe('flex-start');
+  });
+
+  test('the author and the time are captions, the words body text', async () => {
+    await render(
+      <ThreadView
+        messages={transcript}
+        pending={[]}
+        currentUserId={ME}
+        error={null}
+        onSend={onSend}
+      />,
+    );
+
+    expect(styleOf(screen.getByText('Olga Manager')).fontSize).toBe(FontSize.caption);
+    const time = formatReportedAt('2026-09-18T10:00:00+00:00');
+    expect(styleOf(screen.getAllByText(time)[0]).fontSize).toBe(FontSize.caption);
+    expect(styleOf(screen.getByText('Ключи в боксе')).fontSize).toBe(FontSize.body);
+  });
+
+  test('a message on its way is told by its words and frame, not faded below contrast', async () => {
+    await render(
+      <ThreadView
+        messages={transcript}
+        pending={[{ id: '88888888-8888-4888-8888-888888888888', body: 'Уже иду' }]}
+        currentUserId={ME}
+        error={null}
+        onSend={onSend}
+      />,
+    );
+
+    const bubble = styleOf(screen.getByLabelText('Отправляется…'));
+    expect(bubble.opacity ?? 1).toBe(1);
+    expect(bubble.borderStyle).toBe('dashed');
+    expect(bubble.alignSelf).toBe('flex-end');
+  });
+
+  test('while the first messages load, their shape stands in, said as loading', async () => {
+    await render(
+      <ThreadView
+        messages={undefined}
+        pending={[]}
+        currentUserId={ME}
+        error={null}
+        onSend={onSend}
+      />,
+    );
+
+    const loading = screen.getByRole('progressbar', { name: 'Загружаем сообщения…' });
+    expect(loading.props.accessibilityState).toMatchObject({ busy: true });
+  });
+
+  test('an empty thread is the empty state, titled', async () => {
+    await render(
+      <ThreadView messages={[]} pending={[]} currentUserId={ME} error={null} onSend={onSend} />,
+    );
+
+    expect(styleOf(screen.getByText('Пока ничего не написано')).fontSize).toBe(FontSize.title);
+  });
+
+  test('messages that never loaded are the error state, the box still under it', async () => {
+    await render(
+      <ThreadView
+        messages={undefined}
+        pending={[]}
+        currentUserId={ME}
+        error={null}
+        loadError={new Error('Network request failed')}
+        onSend={onSend}
+      />,
+    );
+
+    expect(screen.queryByRole('progressbar')).toBeNull();
+    expect(screen.getByText('Не удалось выполнить действие. Попробуйте ещё раз.')).toBeTruthy();
+    expect(screen.getByText('Network request failed')).toBeTruthy();
+    expect(screen.getByLabelText('Написать…')).toBeTruthy();
+  });
+
+  test('a refresh that failed keeps the transcript, the failure said above it', async () => {
+    await render(
+      <ThreadView
+        messages={transcript}
+        pending={[]}
+        currentUserId={ME}
+        error={null}
+        loadError={new Error('Network request failed')}
+        onSend={onSend}
+      />,
+    );
+
+    expect(screen.getByText('Ключи в боксе')).toBeTruthy();
+    // Not the lists' «pull down»: the open thread asks again by itself.
+    expect(screen.getByText('Не удалось обновить, показаны сохранённые сообщения.')).toBeTruthy();
+    expect(screen.getByText('Network request failed')).toBeTruthy();
+  });
+
+  test('under her failed photo, retry is the 56 dp main button and remove a full target', async () => {
+    const failed = [
+      message({
+        id: '55555555-5555-4555-8555-555555555555',
+        author_id: ME,
+        body: '',
+        task_media: [
+          {
+            id: 'a2222222-2222-4222-8222-222222222222',
+            storage_path: 'host/chat/thread/a2222222-2222-4222-8222-222222222222.jpg',
+            uploaded_at: null,
+            created_at: '2026-09-18T10:00:01+00:00',
+          },
+        ],
+      }),
+    ];
+
+    await render(
+      <ThreadView
+        messages={failed}
+        pending={[]}
+        currentUserId={ME}
+        error={null}
+        onSend={onSend}
+        onRetryMedia={jest.fn()}
+        onRemoveMedia={jest.fn()}
+      />,
+    );
+
+    expect(styleOf(screen.getByRole('button', { name: 'Повторить загрузку' })).minHeight).toBe(
+      BUTTON_HEIGHT,
+    );
+    expect(
+      styleOf(screen.getByRole('button', { name: 'Удалить' })).minHeight,
+    ).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
+  });
 });

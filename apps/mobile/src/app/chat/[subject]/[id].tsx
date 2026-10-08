@@ -2,10 +2,12 @@ import { randomUUID } from 'expo-crypto';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
-import { FontSize, Spacing, type Theme } from '@/constants/theme';
+import { ErrorState } from '@/components/error-state';
+import { Text } from '@/components/text';
+import { Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
 import { SignedInRoute } from '@/features/auth/signed-in-route';
 import type { SendMessageVariables } from '@/features/chat/api';
@@ -38,7 +40,6 @@ import {
 } from '@/features/media/use-media';
 import { useShowingThread } from '@/features/push/use-showing-thread';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
-import { serverErrorText } from '@/lib/server-error';
 
 const Params = z.object({ subject: z.enum(CHAT_SUBJECT_KINDS), id: z.string().uuid() });
 
@@ -136,8 +137,11 @@ function ChatScreen() {
   }
 
   if (thread.error) {
-    const failure = serverErrorText(thread.error);
-    return <Message text={failure.text} detail={failure.detail} styles={styles} />;
+    return (
+      <View style={styles.screen}>
+        <ErrorState error={thread.error} />
+      </View>
+    );
   }
 
   const attachFrom = async (source: MediaSource) => {
@@ -196,7 +200,8 @@ function ChatScreen() {
       messages={messages.data}
       pending={pending}
       currentUserId={userId}
-      error={send.error ?? messages.error}
+      error={send.error}
+      loadError={messages.error}
       notice={notice}
       onSend={onSend}
       ownMedia={ownMedia}
@@ -237,29 +242,25 @@ function attachVariables(
 
 interface MessageProps {
   text: string;
-  detail?: string | null;
   styles: ReturnType<typeof createStyles>;
 }
 
-function Message({ text, detail = null, styles }: MessageProps) {
+function Message({ text, styles }: MessageProps) {
   return (
-    <View style={styles.centered}>
-      <Text style={styles.message}>{text}</Text>
-      {detail !== null ? <Text style={styles.detail}>{detail}</Text> : null}
+    <View style={[styles.screen, styles.centered]}>
+      <Text tone="secondary" align="center">
+        {text}
+      </Text>
     </View>
   );
 }
 
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
+    screen: { flex: 1, backgroundColor: theme.background },
     centered: {
-      flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      gap: Spacing.sm,
       padding: Spacing.xl,
-      backgroundColor: theme.background,
     },
-    message: { color: theme.textSecondary, fontSize: FontSize.body, textAlign: 'center' },
-    detail: { color: theme.textSecondary, fontSize: FontSize.caption, textAlign: 'center' },
   });

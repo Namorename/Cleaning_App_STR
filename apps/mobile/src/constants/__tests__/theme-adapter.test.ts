@@ -82,11 +82,29 @@ describe.each(THEME_NAMES)('%s theme', (name) => {
   // Pairs a screen draws that the token guard does not list (measured
   // 2026-10-03: the lowest is the accepted chip's outline, 3.92).
   test.each([
-    { label: 'text in her own chat bubble', fg: c.text, bg: c.tone.neutral.bg, min: AA_TEXT },
+    { label: 'text in her own chat bubble', fg: c.text, bg: c.secondary, min: AA_TEXT },
     {
-      label: 'time and author in her own chat bubble',
+      label: 'the time in her own chat bubble',
       fg: c.textSecondary,
-      bg: c.tone.neutral.bg,
+      bg: c.secondary,
+      min: AA_TEXT,
+    },
+    {
+      label: 'a stranded photo’s word in her own chat bubble',
+      fg: c.danger,
+      bg: c.secondary,
+      min: AA_TEXT,
+    },
+    {
+      label: 'text in a chat message on its way',
+      fg: c.text,
+      bg: c.tone[STATUS_TONE['chat.pending']].bg,
+      min: AA_TEXT,
+    },
+    {
+      label: '«Отправляется…» under a chat message on its way',
+      fg: c.textSecondary,
+      bg: c.tone[STATUS_TONE['chat.pending']].bg,
       min: AA_TEXT,
     },
     { label: 'the action of an urgent notice', fg: c.primary, bg: c.tone.urgent.bg, min: AA_TEXT },

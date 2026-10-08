@@ -1297,7 +1297,8 @@
     "pending": "Отправляется…",
     "unknownAuthor": "Неизвестно",
     "photoOnItsWay": "Фото в пути",
-    "unread": "Новое сообщение"
+    "unread": "Новое сообщение",
+    "refreshFailed": "Не удалось обновить, показаны сохранённые сообщения."
   },
   "serverErrors": {
     "checklistCopySameProperty": "Источник и получатель — один и тот же апартамент",
