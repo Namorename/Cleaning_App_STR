@@ -34,13 +34,21 @@ import {
 } from './schema';
 
 interface PurchaseSummaryProps {
+  /** Every request of the chosen dates: the list's search never narrows a purchase. */
   requests: SupplyRequest[];
+  /** Dates are chosen, so «every request» means every request of those dates. */
+  isDated: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-/** The same items across requests, added up, with the two files a supplier takes. */
-export function PurchaseSummary({ requests, open, onOpenChange }: PurchaseSummaryProps) {
+/**
+ * The same items across requests, added up, with the two files a supplier takes.
+ *
+ * Under its title it says what it adds up — every request, the search aside
+ * (the owner, 05.10) — and, when dates are chosen, every request of those.
+ */
+export function PurchaseSummary({ requests, isDated, open, onOpenChange }: PurchaseSummaryProps) {
   const { t } = useTranslation();
   const [scope, setScope] = useState<readonly SupplyStatus[]>(DEFAULT_PURCHASE_SCOPE);
   const lines = aggregatePurchase(requests, scope);
@@ -79,6 +87,11 @@ export function PurchaseSummary({ requests, open, onOpenChange }: PurchaseSummar
       <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>{t('panel.supplies.summary.title')}</DialogTitle>
+          <p className="text-sm font-medium">
+            {isDated
+              ? t('panel.supplies.summary.acrossDates')
+              : t('panel.supplies.summary.across')}
+          </p>
           <DialogDescription>{t('panel.supplies.summary.description')}</DialogDescription>
         </DialogHeader>
 

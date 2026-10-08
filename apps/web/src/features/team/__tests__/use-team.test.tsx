@@ -3,6 +3,9 @@ import { act, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { problemKeys } from '@/features/problems/keys';
+import { taskKeys } from '@/features/tasks/keys';
+
 import { teamKeys } from '../keys';
 import type { StaffDraft } from '../schema';
 import { useSaveStaff } from '../use-team';
@@ -63,5 +66,30 @@ describe('saving a person', () => {
     });
 
     expect(invalidate).toHaveBeenCalledWith({ queryKey: teamKeys.all });
+  });
+
+  // Switching somebody off takes her off every job nobody has started, on the
+  // server (20261004100000): the cleanings and the tasks on screen are stale.
+  it('switching somebody off refreshes the jobs too', async () => {
+    client.functions.invoke.mockResolvedValue({ data: { data: { id: DRAFT.id } }, error: null });
+    const { result, invalidate } = renderWithCache(() => useSaveStaff());
+
+    await act(async () => {
+      await result.current.mutateAsync(DRAFT);
+    });
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: taskKeys.all });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: problemKeys.all });
+  });
+
+  it('an edit of somebody who works leaves the jobs alone', async () => {
+    client.functions.invoke.mockResolvedValue({ data: { data: { id: DRAFT.id } }, error: null });
+    const { result, invalidate } = renderWithCache(() => useSaveStaff());
+
+    await act(async () => {
+      await result.current.mutateAsync({ ...DRAFT, isActive: true });
+    });
+
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: taskKeys.all });
   });
 });

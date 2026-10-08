@@ -27,8 +27,9 @@ export default function MyTasksScreen() {
   const parsed = Params.safeParse(useLocalSearchParams());
   const notice = parsed.success ? parsed.data.notice : undefined;
 
-  // Work under way first, as its own group: several cleanings run at once on
-  // a floor, and this list is how she switches between them.
+  // Work under way first, as its own section: several cleanings run at once
+  // on a floor, and this list is how she switches between them. Then a section
+  // per day, grouped here from the rows already fetched.
   const sections = useMemo(() => (data === undefined ? undefined : groupMyTasks(data)), [data]);
 
   // The marks are asked for exactly the jobs on this screen. A repair speaks

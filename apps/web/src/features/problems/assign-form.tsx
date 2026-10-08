@@ -35,9 +35,7 @@ export function AssignForm({ problem, fixTask, onAssigned }: AssignFormProps) {
   const [timeTo, setTimeTo] = useState(fixTask?.time_to ? formatClock(fixTask.time_to) : '');
 
   if (problem.property_id === null) {
-    return (
-      <p className="text-sm text-muted-foreground">{t('panel.problems.assign.noProperty')}</p>
-    );
+    return <p className="text-sm text-muted-foreground">{t('panel.problems.assign.noProperty')}</p>;
   }
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -68,7 +66,7 @@ export function AssignForm({ problem, fixTask, onAssigned }: AssignFormProps) {
           value={assigneeId}
           onChange={(event) => setAssigneeId(event.target.value)}
           required
-          className="px-3"
+          className="h-11 px-3"
         >
           <option value="">{t('panel.problems.assign.choose')}</option>
           {(staff.data ?? []).map((person) => (
@@ -78,16 +76,23 @@ export function AssignForm({ problem, fixTask, onAssigned }: AssignFormProps) {
           ))}
         </NativeSelect>
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid gap-3 sm:grid-cols-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="date">{t('panel.problems.assign.date')}</Label>
-          <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <Input
+            id="date"
+            type="date"
+            className="h-11"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="timeFrom">{t('panel.problems.assign.timeFrom')}</Label>
           <Input
             id="timeFrom"
             type="time"
+            className="h-11"
             value={timeFrom}
             onChange={(e) => setTimeFrom(e.target.value)}
           />
@@ -97,6 +102,7 @@ export function AssignForm({ problem, fixTask, onAssigned }: AssignFormProps) {
           <Input
             id="timeTo"
             type="time"
+            className="h-11"
             value={timeTo}
             onChange={(e) => setTimeTo(e.target.value)}
           />
@@ -118,7 +124,7 @@ export function AssignForm({ problem, fixTask, onAssigned }: AssignFormProps) {
       <Button
         type="submit"
         disabled={assign.isPending || assigneeId === ''}
-        className="self-start"
+        className="h-11 self-start"
       >
         {fixTask === null ? t('panel.problems.assign.submit') : t('panel.problems.assign.resubmit')}
       </Button>

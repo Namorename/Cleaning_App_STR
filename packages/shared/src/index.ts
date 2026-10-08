@@ -24,6 +24,7 @@ export {
   type PlaceParts,
   type PlaceRow,
 } from './property-path';
+export { foldForSearch, matchesAllTokens } from './search';
 export {
   FALLBACK_LANGUAGE,
   INTL_LOCALES,

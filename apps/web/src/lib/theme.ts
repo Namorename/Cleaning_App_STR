@@ -1,3 +1,5 @@
+import { yearCookie } from './cookie';
+
 /**
  * The panel's theme (decision 6 of docs/design/decisions.md): as the system,
  * light or dark, chosen in «Настройки».
@@ -17,8 +19,6 @@ export type ThemeChoice = (typeof THEME_CHOICES)[number];
 
 export const DEFAULT_THEME: ThemeChoice = 'system';
 
-const YEAR_SECONDS = 365 * 24 * 60 * 60;
-
 export function isThemeChoice(value: unknown): value is ThemeChoice {
   return THEME_CHOICES.includes(value as ThemeChoice);
 }
@@ -34,8 +34,7 @@ export function themeClass(choice: ThemeChoice): 'light' | 'dark' | undefined {
 
 /** The cookie as `document.cookie` takes it: the whole panel, for a year. */
 export function themeCookie(choice: ThemeChoice, isSecure: boolean): string {
-  const cookie = `${THEME_COOKIE}=${choice}; Path=/; Max-Age=${YEAR_SECONDS}; SameSite=Lax`;
-  return isSecure ? `${cookie}; Secure` : cookie;
+  return yearCookie(THEME_COOKIE, choice, isSecure);
 }
 
 /**

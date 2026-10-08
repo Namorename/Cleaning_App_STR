@@ -4,7 +4,7 @@ import path from 'node:path';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, test } from 'vitest';
 
-import { LOGO_SOURCES, Logo } from './logo';
+import { LOGO_MARK_SOURCES, LOGO_SOURCES, Logo } from './logo';
 
 const PUBLIC = path.resolve(__dirname, '../../public');
 
@@ -28,6 +28,17 @@ describe('Logo', () => {
       expect(picture).toHaveClass('object-contain', 'object-left');
     }
   });
+
+  test('in the strip of icons, shows the mark alone, one per theme, in a 44 px square', () => {
+    const { container } = render(<Logo alt="woom" variant="mark" />);
+    const [light, dark] = screen.getAllByRole('img', { name: 'woom' });
+
+    expect(light).toHaveAttribute('src', '/brand/logo-mark-light.svg');
+    expect(light).toHaveClass('dark:hidden');
+    expect(dark).toHaveAttribute('src', '/brand/logo-mark-dark.svg');
+    expect(dark).toHaveClass('hidden', 'dark:block');
+    expect(container.firstElementChild).toHaveClass('size-11');
+  });
 });
 
 /**
@@ -35,11 +46,13 @@ describe('Logo', () => {
  * (docs/redesign-plan.md, 6.1); what he sends has to meet the same rules.
  */
 describe('the logo files', () => {
-  test.each(Object.values(LOGO_SOURCES))('%s is served from public/', (source) => {
+  const sources = [...Object.values(LOGO_SOURCES), ...Object.values(LOGO_MARK_SOURCES)];
+
+  test.each(sources)('%s is served from public/', (source) => {
     expect(existsSync(path.join(PUBLIC, source))).toBe(true);
   });
 
-  const vectors = Object.values(LOGO_SOURCES).filter((source) => source.endsWith('.svg'));
+  const vectors = sources.filter((source) => source.endsWith('.svg'));
 
   test.each(vectors)('%s keeps its proportions and draws its words in curves', (source) => {
     const svg = readFileSync(path.join(PUBLIC, source), 'utf8');

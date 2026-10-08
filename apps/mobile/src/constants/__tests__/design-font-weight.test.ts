@@ -32,10 +32,8 @@ const ALLOWANCE: Readonly<Record<string, number>> = {
   'features/auth/sign-out-button.tsx': 1,
   'features/chat/message-media.tsx': 1,
   'features/chat/thread-view.tsx': 2,
-  'features/media/media-strip.tsx': 2,
   'features/problems/problem-card.tsx': 3,
   'features/problems/problem-detail.tsx': 5,
-  'features/problems/problem-form.tsx': 3,
   'features/problems/problem-list.tsx': 1,
   'features/push/permission-explainer.tsx': 3,
   'features/settings/password-section.tsx': 1,
@@ -48,12 +46,10 @@ const ALLOWANCE: Readonly<Record<string, number>> = {
   'features/steps/step-task-note.tsx': 1,
   'features/supplies/supply-card.tsx': 3,
   'features/supplies/supply-detail.tsx': 6,
-  'features/supplies/supply-form.tsx': 7,
   'features/supplies/supply-list.tsx': 1,
   'features/tasks/push-notice.tsx': 2,
-  'features/tasks/task-card.tsx': 8,
   'features/tasks/task-detail.tsx': 7,
-  'features/tasks/task-list.tsx': 2,
+  'features/tasks/task-list.tsx': 1,
 };
 
 const SOURCE = /\.(ts|tsx)$/;

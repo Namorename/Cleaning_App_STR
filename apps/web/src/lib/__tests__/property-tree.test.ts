@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { buildPropertyTree, visibleRows, type TreeRow } from '../property-tree';
+import { buildPropertyTree, rowsMatching, visibleRows, type TreeRow } from '../property-tree';
 
 const row = (id: number, name: string, parent: number | null = null, unit: number | null = null) =>
   ({ id, name, parent_id: parent, hostaway_unit_id: unit }) satisfies TreeRow;
@@ -105,5 +105,48 @@ describe('visibleRows', () => {
       'Anglicka 7',
       'Royal Cerna',
     ]);
+  });
+});
+
+/**
+ * A search keeps a group readable (docs/f10-plan.md, 7.1): what matched comes
+ * with its listing, and a listing that matched keeps its rooms. A part of a
+ * combined listing is a listing of its own and has to match by itself.
+ */
+describe('rowsMatching', () => {
+  const rows = [
+    row(1, 'Anglicka 7'),
+    row(10, 'Royal Cerna'),
+    row(11, 'Unit 1', 10, 7001),
+    row(12, 'Unit 2', 10, 7002),
+    row(20, 'Villa Whole'),
+    row(21, 'Villa East', 20),
+    row(22, 'Garden West', 20),
+  ];
+  const ids = (found: readonly TreeRow[]) => found.map((one) => one.id);
+  const named = (text: string) => (one: TreeRow) => one.name.includes(text);
+
+  test('a listing that matches brings all of its rooms', () => {
+    expect(ids(rowsMatching(rows, named('Royal')))).toEqual([10, 11, 12]);
+  });
+
+  test('a room that matches comes with its listing, without the other rooms', () => {
+    expect(ids(rowsMatching(rows, named('Unit 2')))).toEqual([10, 12]);
+  });
+
+  test('a listing that matches does not drag the parts of a combined listing along', () => {
+    expect(ids(rowsMatching(rows, named('Villa Whole')))).toEqual([20]);
+  });
+
+  test('a part that matches comes with its listing', () => {
+    expect(ids(rowsMatching(rows, named('Garden')))).toEqual([20, 22]);
+  });
+
+  test('nothing matches, nothing is left', () => {
+    expect(rowsMatching(rows, named('Zizkov'))).toEqual([]);
+  });
+
+  test('a room whose listing is not among the rows stands on its own', () => {
+    expect(ids(rowsMatching([row(11, 'Unit 1', 10, 7001)], named('Unit')))).toEqual([11]);
   });
 });

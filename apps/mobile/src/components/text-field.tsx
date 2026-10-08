@@ -20,6 +20,9 @@ type BlurEvent = Parameters<NonNullable<TextInputProps['onBlur']>>[0];
 /** The weight of what she types: the body weight. */
 const INPUT_WEIGHT = 600;
 
+/** A field of several lines (`multiline`): room for a few of them before it scrolls. */
+const MULTILINE_MIN_HEIGHT = 120;
+
 export interface TextFieldProps extends Omit<TextInputProps, 'style' | 'editable'> {
   /** Shown above the field, and its name for a screen reader. */
   label: string;
@@ -28,6 +31,12 @@ export interface TextFieldProps extends Omit<TextInputProps, 'style' | 'editable
   /** What is wrong with what she typed, in her language. */
   error?: string | null;
   isDisabled?: boolean;
+  /**
+   * What the reader hears in place of the label, when the label leans on what
+   * stands above it: «Уточнение» under each line of a supply request is heard
+   * as «Мешки для мусора: уточнение».
+   */
+  accessibilityLabel?: string;
   /** Layout of the whole field — a margin, a flex. */
   style?: StyleProp<ViewStyle>;
   ref?: Ref<TextInput>;
@@ -44,6 +53,7 @@ export function TextField({
   hint,
   error = null,
   isDisabled = false,
+  accessibilityLabel,
   style,
   onFocus,
   onBlur,
@@ -74,8 +84,8 @@ export function TextField({
       <TextInput
         {...input}
         ref={ref}
-        accessibilityLabel={label}
-        accessibilityLabelledBy={labelId}
+        accessibilityLabel={accessibilityLabel ?? label}
+        accessibilityLabelledBy={accessibilityLabel === undefined ? labelId : undefined}
         accessibilityHint={hint}
         accessibilityState={{ disabled: isDisabled }}
         editable={!isDisabled}
@@ -86,6 +96,7 @@ export function TextField({
         style={[
           styles.input,
           face,
+          input.multiline === true && styles.multiline,
           isFocused && styles.focused,
           hasError && styles.invalid,
           isDisabled && styles.disabled,
@@ -122,6 +133,12 @@ const createStyles = (theme: Theme) =>
       fontSize: FontSize.body,
       color: theme.text,
       backgroundColor: theme.card,
+    },
+    // Written from the top, not from the middle of the box (Android's default).
+    multiline: {
+      minHeight: MULTILINE_MIN_HEIGHT,
+      paddingVertical: Spacing.md,
+      textAlignVertical: 'top',
     },
     // Two pixels where one was: the state shows in the width as well as the colour.
     focused: { borderWidth: 2, borderColor: theme.focusRing },

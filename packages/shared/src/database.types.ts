@@ -2441,6 +2441,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      release_work_of_inactive: { Args: { p_person: string }; Returns: Json }
       remove_task_media: {
         Args: { p_id: string }
         Returns: {
@@ -2953,6 +2954,10 @@ export type Database = {
       sync_hostaway_reservations: {
         Args: { raw_rows: Json; reservation_rows: Json; unit_rows?: Json }
         Returns: Json
+      }
+      take_off_repairs: {
+        Args: { p_cause?: string; p_task_ids: string[] }
+        Returns: number
       }
       task_grace_days: { Args: never; Returns: number }
       task_horizon_days: { Args: never; Returns: number }

@@ -88,3 +88,13 @@ test('a house matches its own name without dragging its rooms along', () => {
 test('nothing matching is an empty list, not everything', () => {
   expect(filterProperties([house, room], 'nadrazni')).toEqual([]);
 });
+
+// The panel's search rule (packages/shared, `matchesAllTokens`): a cleaner on
+// a Russian keyboard types a Czech street without its marks, and one on a
+// Czech keyboard types it with them whatever the listing was saved as.
+test('case and diacritics do not count, either way round', () => {
+  const czech = { ...house, id: 9, name: 'Nádražní 6' };
+
+  expect(filterProperties([czech, room], 'NADRAZNI')).toEqual([czech]);
+  expect(filterProperties([house, room], 'vinohradská 2109')).toEqual([room]);
+});

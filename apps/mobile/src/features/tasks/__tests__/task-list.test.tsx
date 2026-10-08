@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Text } from 'react-native';
 
 import { TaskList } from '../task-list';
-import type { CleaningTask } from '../schema';
+import { calendarDay, type CleaningTask, type TaskGroup } from '../schema';
 
 const noop = () => {};
 
@@ -12,7 +12,7 @@ const baseProps = {
   emptyMessage: 'Свободных уборок нет.',
 };
 
-function task(): CleaningTask {
+function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
   return {
     id: '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b',
     status: 'unassigned',
@@ -38,6 +38,7 @@ function task(): CleaningTask {
     notes: null,
     title: null,
     title_i18n: {},
+    ...overrides,
   };
 }
 
@@ -93,7 +94,7 @@ test('a failed refresh keeps the list it had, with the failure said above it', a
   await render(
     <TaskList
       {...baseProps}
-      sections={[{ key: 'upcoming', data: [task()] }]}
+      sections={[{ kind: 'day', key: '2026-11-10', data: [task()] }]}
       isLoading={false}
       error={new Error('Network request failed')}
     />,
@@ -112,7 +113,7 @@ test('the failure line sits with what the screen puts above the cards', async ()
   await render(
     <TaskList
       {...baseProps}
-      sections={[{ key: 'upcoming', data: [task()] }]}
+      sections={[{ kind: 'day', key: '2026-11-10', data: [task()] }]}
       isLoading={false}
       error={new Error('Network request failed')}
       header={<Text>Эту уборку с вас сняли.</Text>}
@@ -153,7 +154,7 @@ test('draws what the screen puts above the cards', async () => {
   await render(
     <TaskList
       {...baseProps}
-      sections={[{ key: 'upcoming', data: [task()] }]}
+      sections={[{ kind: 'day', key: '2026-11-10', data: [task()] }]}
       isLoading={false}
       error={null}
       header={<Text>Эту уборку с вас сняли.</Text>}
@@ -168,7 +169,7 @@ test('renders the tasks it was given', async () => {
   await render(
     <TaskList
       {...baseProps}
-      sections={[{ key: 'upcoming', data: [task()] }]}
+      sections={[{ kind: 'day', key: '2026-11-10', data: [task()] }]}
       isLoading={false}
       error={null}
     />,
@@ -177,18 +178,104 @@ test('renders the tasks it was given', async () => {
   expect(screen.getByText('CZ - Nadrazni Apt 6')).toBeTruthy();
 });
 
-test('names the group of cleanings under way so she can find them', async () => {
-  await render(
-    <TaskList
-      {...baseProps}
-      sections={[
-        { key: 'running', data: [task()] },
-        { key: 'upcoming', data: [] },
-      ]}
-      isLoading={false}
-      error={null}
-    />,
-  );
+/** A section of one planned day. */
+function day(date: string, data: CleaningTask[]): TaskGroup {
+  return { kind: 'day', key: date, data };
+}
 
-  expect(screen.getByText('В работе')).toBeTruthy();
+const SECOND_ID = '9d2ff806-4bea-4aa5-be3c-1b07a629dbee';
+const THIRD_ID = 'c1d2e3f4-5a6b-4c7d-8e9f-0a1b2c3d4e5f';
+
+describe('sections by day', () => {
+  test('a heading per day, read as a heading: today, tomorrow, then the weekday and date', async () => {
+    // Arrange: dates from the phone's own calendar, as the list reads them.
+    const now = new Date();
+    await render(
+      <TaskList
+        {...baseProps}
+        sections={[
+          day(calendarDay(now), [task()]),
+          day(calendarDay(now, 1), [task({ id: SECOND_ID })]),
+          day(calendarDay(now, 2), [task({ id: THIRD_ID })]),
+        ]}
+        isLoading={false}
+        error={null}
+      />,
+    );
+
+    // Assert
+    expect(screen.getByRole('header', { name: 'Сегодня' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Завтра' })).toBeTruthy();
+    expect(screen.getAllByRole('header')).toHaveLength(3);
+    expect(screen.getAllByRole('header')[2].props.children).toMatch(
+      /^[А-Я][а-я]+, \d{1,2} [а-я]+$/,
+    );
+  });
+
+  test('the headings stay on top while the day under them scrolls', async () => {
+    await render(
+      <TaskList
+        {...baseProps}
+        sections={[day('2026-11-10', [task()]), day('2026-11-11', [task({ id: SECOND_ID })])]}
+        isLoading={false}
+        error={null}
+      />,
+    );
+
+    const sticky = screen.container.queryAll(
+      (node) => typeof node.type === 'string' && (node.props.stickyHeaderIndices?.length ?? 0) > 0,
+    );
+    expect(sticky).toHaveLength(1);
+  });
+});
+
+describe('the work under way', () => {
+  const running = task({ status: 'in_progress' });
+
+  test('is a section of its own, named so she can find it, and read as a heading', async () => {
+    await render(
+      <TaskList
+        {...baseProps}
+        sections={[
+          { kind: 'running', key: 'running', data: [running] },
+          day('2026-11-11', [task({ id: SECOND_ID })]),
+        ]}
+        isLoading={false}
+        error={null}
+      />,
+    );
+
+    expect(screen.getByRole('header', { name: 'В работе' })).toBeTruthy();
+  });
+
+  test('every card in it is the current one: several can run at once', async () => {
+    await render(
+      <TaskList
+        {...baseProps}
+        sections={[
+          { kind: 'running', key: 'running', data: [running, { ...running, id: SECOND_ID }] },
+          day('2026-11-11', [task({ id: THIRD_ID })]),
+        ]}
+        isLoading={false}
+        error={null}
+        onPress={noop}
+      />,
+    );
+
+    expect(screen.getAllByText('Сейчас')).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /^Сейчас\./ })).toHaveLength(2);
+  });
+
+  test('a card of a day is not the current one', async () => {
+    await render(
+      <TaskList
+        {...baseProps}
+        sections={[day('2026-11-11', [task()])]}
+        isLoading={false}
+        error={null}
+      />,
+    );
+
+    expect(screen.queryByText('Сейчас')).toBeNull();
+  });
 });

@@ -1,6 +1,6 @@
 import { useContext, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 
 import { MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
@@ -45,7 +45,10 @@ export function BottomSheet({ isVisible, title, onClose, children, testID }: Bot
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <View style={styles.screen}>
+      {/* The Modal draws edge to edge and the system does not shrink it for the
+          keyboard: the sheet rises by itself, or a search in it would hide its
+          rows under the keys. */}
+      <KeyboardAvoidingView behavior="padding" style={styles.screen}>
         <Pressable
           style={styles.backdrop}
           onPress={onClose}
@@ -72,7 +75,7 @@ export function BottomSheet({ isVisible, title, onClose, children, testID }: Bot
           </View>
           {children}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -11,6 +10,7 @@ import { NativeSelect } from '@/components/ui/native-select';
 import { moveAt, removeAt, replaceAt } from '@/lib/list';
 import { serverErrorText } from '@/lib/server-error';
 
+import { ListingLink } from './listing-link';
 import {
   checklistProblem,
   checklistSources,
@@ -164,7 +164,10 @@ export function ChecklistTab({ propertyId, all, listing = null }: ChecklistTabPr
 
               <ul className="flex flex-col gap-2 pl-4">
                 {section.items.map((item, itemAt) => (
-                  <li key={item.id ?? `new-${itemAt}`} className="flex flex-wrap items-center gap-2">
+                  <li
+                    key={item.id ?? `new-${itemAt}`}
+                    className="flex flex-wrap items-center gap-2"
+                  >
                     <Input
                       className="flex-1"
                       aria-label={t('panel.apartments.checklist.itemNumber', {
@@ -306,10 +309,7 @@ export function ChecklistTab({ propertyId, all, listing = null }: ChecklistTabPr
       <div className="flex flex-wrap items-end gap-2 border-t pt-3">
         <label className="flex flex-1 flex-col gap-1 text-xs text-muted-foreground">
           {t('panel.apartments.checklist.copyFrom')}
-          <NativeSelect
-            value={source}
-            onChange={(event) => setSource(event.target.value)}
-          >
+          <NativeSelect value={source} onChange={(event) => setSource(event.target.value)}>
             <option value="">{t('panel.apartments.checklist.copyPlaceholder')}</option>
             {others.map((one) => (
               <option key={one.id} value={one.id}>
@@ -345,9 +345,9 @@ function InheritedChecklist({ listing, modules }: InheritedChecklistProps) {
     <div className="flex flex-col gap-3">
       <p className="text-sm">
         {t('panel.apartments.room.checklist')}{' '}
-        <Link className="underline" href={`/apartments/${listing.id}`}>
+        <ListingLink className="underline" id={listing.id}>
           {listing.name}
-        </Link>
+        </ListingLink>
       </p>
       {modules.length === 0 ? (
         <EmptyState>{t('panel.apartments.checklist.empty')}</EmptyState>

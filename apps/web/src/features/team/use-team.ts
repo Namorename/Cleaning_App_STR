@@ -2,6 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { problemKeys } from '@/features/problems/keys';
+import { taskKeys } from '@/features/tasks/keys';
 import { useSupabase } from '@/lib/supabase/use-client';
 
 import {
@@ -45,15 +47,32 @@ function useInvalidateTeam() {
 }
 
 /**
+ * Switching somebody off takes her off every job nobody has started, on the
+ * server (20261004100000, docs/staff-disable-plan.md): the cleanings, the
+ * calendar, the tasks and the dashboard the panel holds are stale with it.
+ */
+function useInvalidateWork() {
+  const queryClient = useQueryClient();
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: taskKeys.all }),
+      queryClient.invalidateQueries({ queryKey: problemKeys.all }),
+    ]);
+}
+
+/**
  * Refreshed however it ends: manage-staff writes the profile row before
  * app_metadata, and when the second write fails the row is already changed.
+ * A person saved switched off refreshes the jobs too.
  */
 export function useSaveStaff() {
   const client = useSupabase();
   const invalidate = useInvalidateTeam();
+  const invalidateWork = useInvalidateWork();
   return useMutation({
     mutationFn: (draft: StaffDraft) => saveStaff(client, draft),
-    onSettled: invalidate,
+    onSettled: (_data, _error, draft) =>
+      Promise.all([invalidate(), draft.id !== null && !draft.isActive ? invalidateWork() : null]),
   });
 }
 

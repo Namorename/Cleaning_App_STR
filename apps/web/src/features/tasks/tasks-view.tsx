@@ -1,140 +1,90 @@
 'use client';
 
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { PageHeader } from '@/components/page-header';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { NativeSelect } from '@/components/ui/native-select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
-import { formatDay, todayIso } from '@/lib/format-date';
+import { todayIso } from '@/lib/format-date';
 import { serverErrorText } from '@/lib/server-error';
-import { useLanguage } from '@/lib/use-language';
+import { useAddressState } from '@/lib/use-address-state';
 
-import { TaskCard } from './task-card';
-import { TaskDrawer } from './task-drawer';
-import { TaskForm } from './task-form';
+import { readTasksAddress, writeTasksAddress } from './address';
+import { CancelTaskDialog } from './cancel-task-dialog';
 import {
-  EMPTY_FILTERS,
   groupTasks,
   hasFilters,
   matchesFilters,
   TASK_TABS,
-  TASK_TYPES,
   tabOf,
   type Task,
   type TaskFilters,
   type TaskTab,
 } from './schema';
+import { TaskDrawer } from './task-drawer';
+import { TaskForm } from './task-form';
+import { TasksFilters } from './tasks-filters';
+import { TasksTable } from './tasks-table';
 import { useCancelTask, useStaff, useTasks } from './use-tasks';
 
 /**
- * The section's page: three tabs, a filter bar, and the work under headings.
+ * The section's page (5.4, variant A): the filters, three tabs, and the work
+ * as a dense table under headings — a part of the day on «Сегодня», because
+ * that is how a day is worked; the day itself on the tabs that span days.
  *
- * Today is grouped by the part of the day, because that is how a day is
- * worked; the other tabs span days and are grouped by the day itself.
+ * The tab and the filters live in the address: leaving the screen and coming
+ * back with «Назад», a reload or a forwarded link find it as it was. Each new
+ * tab is a step of the history, so «Назад» also walks back through the tabs.
  */
 export function TasksView() {
   const { t } = useTranslation();
-  const language = useLanguage();
   const { data, isPending, isError, error } = useTasks();
   const unread = useUnreadSubjects();
   const staff = useStaff();
-  // The cancel lives here, not in the card: its refusal arrives after the
-  // list has refreshed, and the card that asked may have left the tab.
+  // The cancel lives here, not in the row: its refusal arrives after the
+  // list has refreshed, and the row that asked may have left the tab.
   const cancel = useCancelTask();
   const cancelFailure = cancel.isError ? serverErrorText(cancel.error) : null;
-  const [tab, setTab] = useState<TaskTab>('today');
-  const [filters, setFilters] = useState<TaskFilters>(EMPTY_FILTERS);
-  // The dialog and the drawer live only while they are open: a fresh mount is
-  // a fresh draft, which is why neither needs an effect to reset itself.
+  const [address, setAddress] = useAddressState(readTasksAddress, writeTasksAddress);
+  const { tab, filters } = address;
+  // A tab is a step «Назад» walks back; a filter is changed in place (owner, 04.10).
+  const setTab = (next: TaskTab) => setAddress({ ...address, tab: next }, 'push');
+  const setFilters = (next: TaskFilters) => setAddress({ ...address, filters: next });
+  // The dialogs and the drawer live only while they are open: a fresh mount
+  // is a fresh draft, which is why none needs an effect to reset itself.
   const [editing, setEditing] = useState<{ task: Task | null } | null>(null);
   const [reading, setReading] = useState<Task | null>(null);
+  const [confirming, setConfirming] = useState<Task | null>(null);
 
-  // One instant for the whole render, so every card agrees on what a tail is.
+  // One instant for the whole render, so every row agrees on what a tail is.
   const now = new Date();
   const today = todayIso(now);
   const tasks = (data ?? []).filter((task) => matchesFilters(task, filters));
   const inTab = (key: TaskTab) => tasks.filter((task) => tabOf(task, today) === key);
   const groups = groupTasks(inTab(tab), tab, now);
-  const isFiltered = hasFilters(filters);
 
-  const openNew = () => setEditing({ task: null });
-  const openEdit = (task: Task) => setEditing({ task });
-  const openWork = (task: Task) => setReading(task);
+  const callOff = (task: Task) => {
+    cancel.mutate(task.id);
+    setConfirming(null);
+  };
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">{t('panel.tasks.title')}</h1>
-        <Button type="button" onClick={openNew}>
-          {t('panel.tasks.actions.new')}
-        </Button>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          type="search"
-          value={filters.query}
-          onChange={(event) => setFilters({ ...filters, query: event.target.value })}
-          placeholder={t('panel.tasks.filters.search')}
-          aria-label={t('panel.tasks.filters.search')}
-          className="w-72"
-        />
-        <NativeSelect
-          aria-label={t('panel.tasks.filters.assignee')}
-          value={filters.assigneeId}
-          onChange={(event) => setFilters({ ...filters, assigneeId: event.target.value })}
-        >
-          <option value="all">{t('panel.tasks.filters.anyAssignee')}</option>
-          <option value="nobody">{t('panel.tasks.filters.nobody')}</option>
-          {(staff.data ?? []).map((person) => (
-            <option key={person.id} value={person.id}>
-              {person.full_name ?? person.id}
-            </option>
-          ))}
-        </NativeSelect>
-        <NativeSelect
-          aria-label={t('panel.tasks.filters.type')}
-          value={filters.type}
-          onChange={(event) =>
-            setFilters({ ...filters, type: event.target.value as TaskFilters['type'] })
-          }
-        >
-          <option value="all">{t('panel.tasks.filters.anyType')}</option>
-          {TASK_TYPES.map((type) => (
-            <option key={type} value={type}>
-              {t(`panel.tasks.types.${type}`)}
-            </option>
-          ))}
-        </NativeSelect>
-        <Input
-          type="date"
-          className="w-40"
-          aria-label={t('panel.tasks.filters.dateFrom')}
-          value={filters.dateFrom}
-          onChange={(event) => setFilters({ ...filters, dateFrom: event.target.value })}
-        />
-        <Input
-          type="date"
-          className="w-40"
-          aria-label={t('panel.tasks.filters.dateTo')}
-          value={filters.dateTo}
-          onChange={(event) => setFilters({ ...filters, dateTo: event.target.value })}
-        />
-        {isFiltered ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setFilters(EMPTY_FILTERS)}
-          >
-            {t('panel.tasks.filters.reset')}
+    <div className="flex flex-col gap-3">
+      <PageHeader
+        title={t('panel.tasks.title')}
+        actions={
+          <Button type="button" className="h-11 px-4" onClick={() => setEditing({ task: null })}>
+            <Plus aria-hidden="true" />
+            {t('panel.tasks.actions.new')}
           </Button>
-        ) : null}
-      </div>
+        }
+      />
+
+      <TasksFilters filters={filters} onChange={setFilters} staff={staff.data ?? []} />
 
       {cancelFailure === null ? null : (
         <p role="alert" className="text-sm text-destructive">
@@ -151,51 +101,43 @@ export function TasksView() {
         <ErrorState message={t('panel.tasks.loadError')} error={error} />
       ) : (
         <Tabs value={tab} onValueChange={(value) => setTab(value as TaskTab)}>
-          <TabsList>
+          <TabsList className="h-auto">
             {TASK_TABS.map((key) => (
-              <TabsTrigger key={key} value={key}>
+              <TabsTrigger key={key} value={key} className="min-h-11 px-3">
                 {t(`panel.tasks.tabs.${key}`)}
-                <span className="ml-1 text-xs text-muted-foreground">{inTab(key).length}</span>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {inTab(key).length}
+                </span>
               </TabsTrigger>
             ))}
           </TabsList>
-          <TabsContent value={tab} className="flex flex-col gap-4">
+          <TabsContent value={tab}>
             {groups.length === 0 ? (
               <EmptyState>
-                {isFiltered ? t('panel.tasks.emptyFiltered') : t('panel.tasks.empty')}
+                {hasFilters(filters) ? t('panel.tasks.emptyFiltered') : t('panel.tasks.empty')}
               </EmptyState>
             ) : (
-              groups.map((group) => (
-                <section key={group.key} className="flex flex-col gap-2">
-                  <h2 className="text-sm font-medium text-muted-foreground">
-                    {group.kind === 'day'
-                      ? formatDay(group.key, language)
-                      : t(`panel.tasks.groups.${group.key}`)}
-                  </h2>
-                  {group.tasks.map((task) => (
-                    <TaskCard
-                      key={task.id}
-                      task={task}
-                      now={now}
-                      onEdit={openEdit}
-                      onOpenWork={openWork}
-                      onCancel={(job) => cancel.mutate(job.id)}
-                      isCancelling={cancel.isPending && cancel.variables === task.id}
-                      hasUnread={unread.tasks.has(task.id)}
-                    />
-                  ))}
-                </section>
-              ))
+              <TasksTable
+                groups={groups}
+                now={now}
+                unread={unread.tasks}
+                onEdit={(task) => setEditing({ task })}
+                onOpenWork={setReading}
+                onCancel={setConfirming}
+              />
             )}
           </TabsContent>
         </Tabs>
       )}
 
-      {editing === null ? null : (
-        <TaskForm task={editing.task} onClose={() => setEditing(null)} />
-      )}
-      {reading === null ? null : (
-        <TaskDrawer task={reading} onClose={() => setReading(null)} />
+      {editing === null ? null : <TaskForm task={editing.task} onClose={() => setEditing(null)} />}
+      {reading === null ? null : <TaskDrawer task={reading} onClose={() => setReading(null)} />}
+      {confirming === null ? null : (
+        <CancelTaskDialog
+          task={confirming}
+          onConfirm={callOff}
+          onClose={() => setConfirming(null)}
+        />
       )}
     </div>
   );

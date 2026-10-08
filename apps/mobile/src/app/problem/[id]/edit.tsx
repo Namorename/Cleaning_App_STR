@@ -1,4 +1,4 @@
-import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
@@ -58,26 +58,24 @@ export default function EditProblemRoute() {
     );
   }
 
+  // The header and its title are the root layout's (app/_layout.tsx).
   return (
-    <>
-      <Stack.Screen options={{ title: t('problems.edit') }} />
-      <ProblemForm
-        draft={draft}
-        onChange={setDraft}
-        place={problemPlace(problem.data)}
-        isSubmitting={update.isPending && !update.isPaused}
-        submitLabel={t('problems.save')}
-        onSubmit={() =>
-          update.mutate({
-            problemId,
-            title: draft.title.trim(),
-            description: draft.description.trim(),
-            priority: draft.priority,
-          })
-        }
-        error={update.error}
-      />
-    </>
+    <ProblemForm
+      draft={draft}
+      onChange={setDraft}
+      place={problemPlace(problem.data)}
+      isSubmitting={update.isPending && !update.isPaused}
+      submitLabel={t('problems.save')}
+      onSubmit={() =>
+        update.mutate({
+          problemId,
+          title: draft.title.trim(),
+          description: draft.description.trim(),
+          priority: draft.priority,
+        })
+      }
+      error={update.error}
+    />
   );
 }
 

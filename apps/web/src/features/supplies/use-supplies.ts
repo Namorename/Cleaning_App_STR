@@ -31,7 +31,10 @@ export function useReviewSupplyRequest() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (variables: ReviewVariables) => reviewSupplyRequest(client, variables),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: supplyKeys.list() }),
+    // A refusal too: a colleague or the cleaner's phone moved the request
+    // first, and the buttons of its old status must not stay on screen. The
+    // move stays pending until the list is read again.
+    onSettled: () => queryClient.invalidateQueries({ queryKey: supplyKeys.list() }),
   });
 }
 

@@ -5,11 +5,14 @@ import { useTranslation } from 'react-i18next';
 
 import { FALLBACK_LANGUAGE, INTL_LOCALES, isSupportedLanguage } from '@str-ops/shared';
 
+import { PageHeader } from '@/components/page-header';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { overdueRepairsByProperty } from '@/features/tasks/repairs';
 import { todayIso } from '@/lib/format-date';
-import { buildPropertyTree, visibleRows } from '@/lib/property-tree';
+import { buildPropertyTree, rowsMatching, visibleRows } from '@/lib/property-tree';
+import { matchesAllTokens } from '@/lib/search';
 import { layoutRows } from './bars';
 import { BookingCard } from './booking-card';
 import { CalendarFilters } from './calendar-filters';
@@ -93,6 +96,9 @@ export function CalendarView({
   );
 }
 
+/** While a search runs every group stands open. */
+const NONE_CLOSED: ReadonlySet<number> = new Set();
+
 function toggled(ids: ReadonlySet<number>, id: number): Set<number> {
   const next = new Set(ids);
   if (next.has(id)) {
@@ -123,14 +129,23 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
   const [start, setStart] = useState(opening.start);
   const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(() => readCollapsed());
   const [opened, setOpened] = useState<CalendarBooking | null>(null);
+  const [search, setSearch] = useState('');
 
   const language = isSupportedLanguage(i18n.language) ? i18n.language : FALLBACK_LANGUAGE;
   const locale = INTL_LOCALES[language];
   const days = useMemo(() => windowDays(start, depth), [start, depth]);
   const all = useMemo(() => rowsQuery.data ?? [], [rowsQuery.data]);
   const byId = useMemo(() => new Map(all.map((one) => [one.id, one])), [all]);
-  const tree = useMemo(() => buildPropertyTree(all), [all]);
-  const rows = useMemo(() => visibleRows(tree, collapsed), [tree, collapsed]);
+  // A search keeps what is found and opens its groups, as in the registry; the
+  // groups closed before it are closed again once it is cleared.
+  const isSearching = search.trim() !== '';
+  const shown = useMemo(
+    () => (isSearching ? rowsMatching(all, (one) => matchesAllTokens(one.name, search)) : all),
+    [all, isSearching, search],
+  );
+  const closed = isSearching ? NONE_CLOSED : collapsed;
+  const tree = useMemo(() => buildPropertyTree(shown), [shown]);
+  const rows = useMemo(() => visibleRows(tree, closed), [tree, closed]);
   const rooms = all.filter((one) => one.hostaway_unit_id !== null).length;
 
   // Bars are drawn only when every month of the window has come (§1).
@@ -172,12 +187,8 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
       !repairs.isPending,
   );
 
+  // The window stays where it is: every depth opens on the same day.
   const chooseDepth = (next: Depth) => {
-    // Still where it opened: the new depth opens where it would. Paged away,
-    // the manager's window stays.
-    if (start === defaultStart(today, depth)) {
-      setStart(defaultStart(today, next));
-    }
     setDepth(next);
     writeDepth(next);
   };
@@ -192,23 +203,31 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
   };
 
   return (
-    <div className="flex h-[calc(100dvh-3rem)] min-h-0 flex-col gap-3">
-      <div className="flex flex-wrap items-baseline gap-3">
-        <h1 className="text-2xl font-semibold">{t('panel.nav.calendar')}</h1>
-        {rowsQuery.data === undefined ? null : (
-          <span className="text-sm text-muted-foreground">
-            {t('panel.calendar.counts', { listings: all.length - rooms, rooms })}
-          </span>
-        )}
-        {bookings.isPending ? (
-          <span className="text-sm text-muted-foreground">
-            {t('panel.calendar.loadingBookings')}
-          </span>
-        ) : null}
-        {chips.isPending || repairs.isPending ? (
-          <span className="text-sm text-muted-foreground">{t('panel.calendar.loadingTasks')}</span>
-        ) : null}
-      </div>
+    // The window's height less what the shell takes (`--page-chrome`, the
+    // panel's layout): the grid scrolls inside, the page does not.
+    <div className="flex h-[calc(100dvh_-_var(--page-chrome,3rem))] min-h-0 flex-col gap-3">
+      <PageHeader
+        title={t('panel.nav.calendar')}
+        meta={
+          <>
+            {rowsQuery.data === undefined ? null : (
+              <span className="text-sm text-muted-foreground">
+                {t('panel.calendar.counts', { listings: all.length - rooms, rooms })}
+              </span>
+            )}
+            {bookings.isPending ? (
+              <span className="text-sm text-muted-foreground">
+                {t('panel.calendar.loadingBookings')}
+              </span>
+            ) : null}
+            {chips.isPending || repairs.isPending ? (
+              <span className="text-sm text-muted-foreground">
+                {t('panel.calendar.loadingTasks')}
+              </span>
+            ) : null}
+          </>
+        }
+      />
 
       {bookings.isError ? (
         <ErrorState message={t('panel.calendar.bookingsError')} error={bookings.error} />
@@ -229,7 +248,7 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => setStart(defaultStart(today, depth))}
+          onClick={() => setStart(defaultStart(today))}
         >
           {t('panel.calendar.today')}
         </Button>
@@ -252,6 +271,14 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
           ›
         </Button>
         <span className="text-sm">{rangeLabel(days, locale)}</span>
+        <Input
+          type="search"
+          className="h-8 w-full sm:w-56"
+          placeholder={t('panel.calendar.search')}
+          aria-label={t('panel.calendar.search')}
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
         <div
           role="group"
           aria-label={t('panel.calendar.depthLabel')}
@@ -285,6 +312,8 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
         <LoadingState>{t('panel.calendar.loadingRows')}</LoadingState>
       ) : all.length === 0 ? (
         <EmptyState>{t('panel.calendar.empty')}</EmptyState>
+      ) : rows.length === 0 ? (
+        <EmptyState>{t('panel.calendar.noMatches')}</EmptyState>
       ) : (
         <CalendarGrid
           rows={rows}
@@ -293,7 +322,7 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
           depth={depth}
           today={today}
           locale={locale}
-          collapsed={collapsed}
+          collapsed={closed}
           onToggleGroup={toggleGroup}
           layout={layout}
           byRowDay={chips.byRowDay}

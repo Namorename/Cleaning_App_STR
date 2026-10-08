@@ -13,7 +13,6 @@ import {
   draftItemsPayload,
   draftOfRequest,
   emptySupplyDraft,
-  newItemDraft,
   type SupplyDraft,
 } from '@/features/supplies/schema';
 import { SupplyForm } from '@/features/supplies/supply-form';
@@ -49,7 +48,7 @@ export default function SupplyFormRoute() {
 
   const [requestId] = useState(() => editingId ?? randomUUID());
   const [draft, setDraft] = useState<SupplyDraft | null>(() =>
-    editingId === null ? emptySupplyDraft(randomUUID()) : null,
+    editingId === null ? emptySupplyDraft() : null,
   );
 
   const existing = useSupplyRequest(editingId ?? '');
@@ -77,9 +76,15 @@ export default function SupplyFormRoute() {
     }
   }, [isLeaving, editingId, requestId]);
 
+  // The root layout names the screen «Новая заявка»; a rewrite says what it
+  // is from the first frame, while the request is still loading too.
+  const title =
+    editingId === null ? null : <Stack.Screen options={{ title: t('supplies.editTitle') }} />;
+
   if (draft === null) {
     return (
       <View style={styles.centered}>
+        {title}
         <ActivityIndicator color={styles.message.color} />
         <Text style={styles.message}>{t('supplies.loading')}</Text>
       </View>
@@ -89,6 +94,7 @@ export default function SupplyFormRoute() {
   if (existing.data && !canEditSupplyRequest(existing.data, userId)) {
     return (
       <View style={styles.centered}>
+        {title}
         <Text style={styles.message}>{t('supplies.notEditable')}</Text>
       </View>
     );
@@ -113,15 +119,11 @@ export default function SupplyFormRoute() {
 
   return (
     <>
-      <Stack.Screen
-        options={{ title: editingId === null ? t('supplies.new') : t('supplies.edit') }}
-      />
+      {title}
       <SupplyForm
         draft={draft}
         onChange={setDraft}
-        onAddItem={() =>
-          setDraft({ ...draft, items: [...draft.items, newItemDraft(randomUUID())] })
-        }
+        newKey={randomUUID}
         place={place}
         catalog={catalog.data ?? []}
         isSubmitting={save.isPending && !save.isPaused}

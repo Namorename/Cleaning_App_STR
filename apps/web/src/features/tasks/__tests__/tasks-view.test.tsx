@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, onTestFinished, test, vi } from 'vitest';
 
@@ -120,22 +120,69 @@ vi.mock('../use-tasks', () => ({
   useSetDuration: () => ({ ...idle, mutate: setDuration }),
 }));
 
-// The conversation has its own tests; here it only has to be in the card.
+// The conversation has its own tests; here it only has to be in the drawer.
 vi.mock('@/features/chat/thread-panel', () => ({
   ThreadPanel: ({ subject }: { subject: Record<string, string> }) => (
     <section aria-label="Разговор">{Object.values(subject).join(',')}</section>
   ),
 }));
 
+// The router reads the address jsdom holds; the view writes it through
+// history, which jsdom keeps as a browser would. «Назад» moves it a task later
+// with `popstate`, and the router shows the page again — as Next does.
+vi.mock('next/navigation', async () => {
+  const { useSyncExternalStore } = await import('react');
+  const subscribe = (onChange: () => void) => {
+    window.addEventListener('popstate', onChange);
+    return () => window.removeEventListener('popstate', onChange);
+  };
+  return {
+    useSearchParams: () =>
+      new URLSearchParams(useSyncExternalStore(subscribe, () => window.location.search)),
+    usePathname: () => window.location.pathname,
+  };
+});
+
 // The marks come from one company-wide answer; here it is a pair of sets the
 // test fills by hand.
 const unread = { tasks: new Set<string>(), problems: new Set<string>() };
 vi.mock('@/features/chat/use-chat', () => ({ useUnreadSubjects: () => unread }));
 
+import { expectPageTitle } from '@/components/page-header.expect';
+
 import { TasksView } from '../tasks-view';
+
+/** The query of the page's address, without its `?`. */
+const query = () => window.location.search.slice(1);
+
+/** «Назад»: jsdom walks the history a task later and says so with `popstate`. */
+function goBack(): Promise<void> {
+  return new Promise((resolve) => {
+    window.addEventListener('popstate', () => resolve(), { once: true });
+    window.history.back();
+  });
+}
+
+/** The table row a text stands in. */
+const rowOf = (text: string) => screen.getByText(text).closest('tr') as HTMLElement;
+
+/** Opens a row's «⋯» and hands back the menu. */
+async function openMenu(row: HTMLElement): Promise<HTMLElement> {
+  await userEvent.click(within(row).getByRole('button', { name: /^Действия: / }));
+  return screen.findByRole('menu');
+}
+
+/** What a row's «⋯» offers, in order. */
+async function menuItems(row: HTMLElement): Promise<string[]> {
+  const menu = await openMenu(row);
+  return within(menu)
+    .getAllByRole('menuitem')
+    .map((item) => item.textContent ?? '');
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
+  window.history.replaceState(null, '', '/tasks');
   unread.tasks.clear();
   saveState.isError = false;
   saveState.error = null;
@@ -149,6 +196,12 @@ beforeEach(() => {
 });
 
 describe('TasksView', () => {
+  test('is headed by the common header', () => {
+    render(<TasksView />);
+
+    expectPageTitle('Уборки');
+  });
+
   test('opens on today, grouped by the part of the day, and counts every tab', () => {
     render(<TasksView />);
 
@@ -161,6 +214,62 @@ describe('TasksView', () => {
     expect(screen.getByText('Генеральная уборка')).toBeInTheDocument();
     expect(screen.getByText('09:00 – 11:00')).toBeInTheDocument();
     expect(screen.queryByText('Уборка завтра')).not.toBeInTheDocument();
+  });
+
+  // Variant A (docs/design/decisions.md §2): one line a job, the actions in «⋯».
+  test('is one table: a job a row, in the columns of variant A, with one menu each', () => {
+    render(<TasksView />);
+
+    expect(screen.getAllByRole('table')).toHaveLength(1);
+    expect(screen.getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual([
+      'Время',
+      'Объект',
+      'Тип',
+      'Название',
+      'Статус',
+      'Исполнитель',
+      'Метки',
+      'Действия',
+    ]);
+
+    const row = rowOf('Генеральная уборка');
+    expect(
+      within(row)
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent),
+    ).toEqual([
+      '09:00 – 11:00',
+      'Vinohrady 12',
+      'Уборка',
+      'Генеральная уборка',
+      'Назначена',
+      'Горничная: Maria Test',
+      '',
+      '',
+    ]);
+    // The row's one target, 44 px square (TOUCH_TARGET.panelMin).
+    expect(
+      within(row).getByRole('button', { name: 'Действия: Генеральная уборка · Vinohrady 12' }),
+    ).toHaveClass('size-11');
+    expect(within(row).getAllByRole('button')).toHaveLength(1);
+  });
+
+  // «Без исполнителя» stood twice in one card, the kind twice in an unnamed one.
+  test('says «nobody» and the kind once a row', () => {
+    useTasks.mockReturnValue({
+      data: [task({ id: id(5), title: null, time_from: '09:00:00', status: 'unassigned' })],
+      isPending: false,
+      isError: false,
+    });
+    render(<TasksView />);
+
+    const cells = within(rowOf('Vinohrady 12')).getAllByRole('cell');
+    expect(cells[2]).toHaveTextContent('Уборка');
+    expect(cells[3].textContent).toBe('');
+    expect(cells[4]).toHaveTextContent('Без исполнителя');
+    // The executor's column is a dash on screen; the words are for a reader.
+    expect(within(cells[5]).getByText('—')).toHaveAttribute('aria-hidden', 'true');
+    expect(within(cells[5]).getByText('Без исполнителя')).toHaveClass('sr-only');
   });
 
   test("puts what is left over from earlier days above today's work, under its own heading", () => {
@@ -209,6 +318,8 @@ describe('TasksView', () => {
             ),
       ),
     ).toBe(true);
+    // Labelled in words, not by its stripe alone.
+    expect(rowOf('Уборка со вчера')).toHaveTextContent('со вчера');
   });
 
   test('a cleaning of a room is labelled by its house, and found by it', async () => {
@@ -227,9 +338,8 @@ describe('TasksView', () => {
     useTasks.mockReturnValue({ data: [inRoom], isPending: false, isError: false });
     render(<TasksView />);
 
-    // Assert: the card says both, and the search for the house finds it.
-    const card = screen.getByText('Уборка комнаты').closest('[data-slot="card"]') as HTMLElement;
-    expect(card).toHaveTextContent('CZ - Vinohradska Royal — 1 - 2109');
+    // Assert: the row says both, and the search for the house finds it.
+    expect(rowOf('Уборка комнаты')).toHaveTextContent('CZ - Vinohradska Royal — 1 - 2109');
 
     await userEvent.type(
       screen.getByLabelText('Поиск по названию, объекту, исполнителю'),
@@ -242,10 +352,20 @@ describe('TasksView', () => {
     render(<TasksView />);
 
     await userEvent.click(screen.getByRole('tab', { name: /Ближайшие/ }));
-    const card = screen.getByText('Уборка завтра').closest('[data-slot="card"]') as HTMLElement;
-    expect(card).toHaveTextContent('Из брони');
+    const row = rowOf('Уборка завтра');
+    expect(row).toHaveTextContent('Из брони');
     // A task from a booking is not the manager's to call off.
-    expect(within(card).queryByRole('button', { name: 'Отменить уборку' })).not.toBeInTheDocument();
+    expect(await menuItems(row)).toEqual(['Изменить', 'Чат']);
+  });
+
+  test('a job the manager wrote is the one the menu offers to call off', async () => {
+    render(<TasksView />);
+
+    expect(await menuItems(rowOf('Вечерний осмотр'))).toEqual([
+      'Изменить',
+      'Чат',
+      'Отменить уборку',
+    ]);
   });
 
   test('filters by person and by kind', async () => {
@@ -265,14 +385,16 @@ describe('TasksView', () => {
     render(<TasksView />);
 
     // The executor is named, with the icon of what she does beside her.
-    const card = screen
-      .getByText('Генеральная уборка')
-      .closest('[data-slot="card"]') as HTMLElement;
-    expect(within(card).getByTitle('Горничная')).toHaveTextContent('Maria Test');
+    expect(within(rowOf('Генеральная уборка')).getByTitle('Горничная')).toHaveTextContent(
+      'Maria Test',
+    );
 
     await userEvent.click(screen.getByRole('tab', { name: /Ближайшие/ }));
     expect(screen.getByText('Уборка завтра')).toBeInTheDocument();
 
+    // Both ends of the range are named on screen, not only for a reader.
+    expect(screen.getByText('Дата с').tagName).toBe('LABEL');
+    expect(screen.getByText('Дата по').tagName).toBe('LABEL');
     await userEvent.type(screen.getByLabelText('Дата с'), TODAY);
     await userEvent.type(screen.getByLabelText('Дата по'), TODAY);
     expect(screen.queryByText('Уборка завтра')).not.toBeInTheDocument();
@@ -282,11 +404,24 @@ describe('TasksView', () => {
     expect(screen.getByText('Уборка завтра')).toBeInTheDocument();
   }, 20000);
 
+  test('every control of the filter bar is a 44 px target', () => {
+    render(<TasksView />);
+
+    for (const label of ['Исполнитель', 'Тип', 'Дата с', 'Дата по', /Поиск/]) {
+      expect(screen.getByLabelText(label)).toHaveClass('h-11');
+    }
+    expect(screen.getByRole('button', { name: 'Новая уборка' })).toHaveClass('h-11');
+    for (const tab of screen.getAllByRole('tab')) {
+      expect(tab).toHaveClass('min-h-11');
+    }
+  });
+
   test('says nothing was found rather than that there is no work', async () => {
     render(<TasksView />);
 
     await userEvent.type(screen.getByLabelText(/Поиск/), 'ничего такого');
     expect(screen.getByText('Ничего не найдено')).toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 
   test('writes a new task through the form', async () => {
@@ -313,17 +448,8 @@ describe('TasksView', () => {
     );
   }, 20000);
 
-  test('saves a task with no name at all, and calls it by its kind', async () => {
-    useTasks.mockReturnValue({
-      data: [task({ id: id(5), title: null, time_from: '09:00:00' })],
-      isPending: false,
-      isError: false,
-    });
+  test('saves a task with no name at all', async () => {
     render(<TasksView />);
-
-    // With no name of its own the card is headed by its kind, which the badge repeats.
-    const card = screen.getByText('Vinohrady 12').closest('[data-slot="card"]') as HTMLElement;
-    expect(within(card).getAllByText('Уборка')).toHaveLength(2);
 
     await userEvent.click(screen.getByRole('button', { name: 'Новая уборка' }));
     const dialog = await screen.findByRole('dialog');
@@ -360,11 +486,9 @@ describe('TasksView', () => {
     saveState.isError = true;
     saveState.error = { hint: 'serverErrors.taskDuplicate', details: '{"date":"2026-09-11"}' };
     render(<TasksView />);
-    const card = screen
-      .getByText('Генеральная уборка')
-      .closest('[data-slot="card"]') as HTMLElement;
 
-    await userEvent.click(within(card).getByRole('button', { name: 'Изменить' }));
+    const menu = await openMenu(rowOf('Генеральная уборка'));
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Изменить' }));
     const dialog = await screen.findByRole('dialog');
 
     expect(within(dialog).queryByRole('button', { name: 'Всё равно создать' })).toBeNull();
@@ -375,25 +499,42 @@ describe('TasksView', () => {
     );
   }, 20000);
 
-  test('calls a task off only after the question is answered', async () => {
+  test('calls a task off only after the question, which names the job, is answered', async () => {
     render(<TasksView />);
-    const card = screen.getByText('Вечерний осмотр').closest('[data-slot="card"]') as HTMLElement;
 
-    await userEvent.click(within(card).getByRole('button', { name: 'Отменить уборку' }));
+    const menu = await openMenu(rowOf('Вечерний осмотр'));
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Отменить уборку' }));
+    const question = await screen.findByRole('dialog', {
+      name: 'Отменить уборку? Она останется в истории.',
+    });
+    expect(question).toHaveTextContent('Вечерний осмотр · Vinohrady 12');
     expect(cancelTask).not.toHaveBeenCalled();
-    await userEvent.click(within(card).getByRole('button', { name: 'Да, отменить' }));
+
+    await userEvent.click(within(question).getByRole('button', { name: 'Да, отменить' }));
     expect(cancelTask).toHaveBeenCalledWith(id(2));
-  });
+  }, 20000);
+
+  test('«Нет» leaves the job as it was', async () => {
+    render(<TasksView />);
+
+    const menu = await openMenu(rowOf('Вечерний осмотр'));
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Отменить уборку' }));
+    const question = await screen.findByRole('dialog');
+    await userEvent.click(within(question).getByRole('button', { name: 'Нет' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(cancelTask).not.toHaveBeenCalled();
+  }, 20000);
 
   // The refresh that follows a refused cancel moves the job to the closed tab
-  // before the refusal arrives, so the card that asked is gone by then: the
+  // before the refusal arrives, so the row that asked is gone by then: the
   // sentence has to live in the view, or the refusal reads as a cancel that
   // worked.
-  test('tells a refused cancel above the list, after the card has moved away', () => {
+  test('tells a refused cancel above the list, after the row has moved away', () => {
     cancelState.isError = true;
     cancelState.error = { hint: 'serverErrors.taskChangedMeanwhile' };
     useTasks.mockReturnValue({
-      // Nothing is left on Today, so no card is there to carry the sentence.
+      // Nothing is left on Today, so no row is there to carry the sentence.
       data: [{ ...evening, status: 'done' }, upcoming, finished],
       isPending: false,
       isError: false,
@@ -407,20 +548,22 @@ describe('TasksView', () => {
   test('opens the conversation of a job nobody has started, without the work sections', async () => {
     render(<TasksView />);
 
-    const card = screen.getByText('Вечерний осмотр').closest('[data-slot="card"]') as HTMLElement;
-    await userEvent.click(within(card).getByRole('button', { name: 'Чат' }));
+    const menu = await openMenu(rowOf('Вечерний осмотр'));
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Чат' }));
 
     const drawer = await screen.findByRole('dialog', { name: 'Уборка' });
     expect(within(drawer).getByRole('region', { name: 'Разговор' })).toHaveTextContent(id(2));
     expect(within(drawer).queryByLabelText('Корректировка, минут')).not.toBeInTheDocument();
     expect(within(drawer).queryByText('Шаги')).not.toBeInTheDocument();
-  });
+  }, 20000);
 
   test('reads a finished cleaning and corrects the time without touching the measurement', async () => {
     render(<TasksView />);
 
     await userEvent.click(screen.getByRole('tab', { name: /Завершённые/ }));
-    await userEvent.click(screen.getByRole('button', { name: 'Как прошла уборка' }));
+    // A closed job is not edited any more: its menu only reads it.
+    expect(await menuItems(rowOf('Вчерашняя уборка'))).toEqual(['Как прошла уборка']);
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Как прошла уборка' }));
 
     const drawer = await screen.findByRole('dialog', { name: 'Как прошла уборка' });
     expect(within(drawer).getByRole('region', { name: 'Разговор' })).toHaveTextContent(id(4));
@@ -432,17 +575,137 @@ describe('TasksView', () => {
     expect(setDuration).toHaveBeenCalledWith({ taskId: id(4), minutes: 80 });
   }, 20000);
 
+  // The vocabulary (CLAUDE.md): a technician's job is «работа», not «уборка».
+  test("names a technician's job a job, in its menu and on its drawer", async () => {
+    const repair = (n: number, status: Task['status'], title: string) =>
+      task({
+        id: id(n),
+        type: 'maintenance',
+        status,
+        title,
+        problem_id: 'cccccccc-cccc-4ccc-8ccc-000000000001',
+        assignee_id: MARIA,
+        assignee: { full_name: 'Petr Test', role: 'tech' },
+      });
+    useTasks.mockReturnValue({
+      data: [repair(6, 'assigned', 'Течёт кран'), repair(7, 'done', 'Заменить лампу')],
+      isPending: false,
+      isError: false,
+    });
+    render(<TasksView />);
+
+    await userEvent.click(
+      within(await openMenu(rowOf('Течёт кран'))).getByRole('menuitem', { name: 'Чат' }),
+    );
+    const open = await screen.findByRole('dialog', { name: 'Работа' });
+    expect(open).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+
+    await userEvent.click(screen.getByRole('tab', { name: /Завершённые/ }));
+    expect(await menuItems(rowOf('Заменить лампу'))).toEqual(['Как прошла работа']);
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Как прошла работа' }));
+    expect(await screen.findByRole('dialog', { name: 'Как прошла работа' })).toBeInTheDocument();
+  }, 20000);
+
   test('marks the job somebody wrote about, and no other', () => {
     unread.tasks.add(id(2));
     render(<TasksView />);
 
-    const evening = screen
-      .getByText('Вечерний осмотр')
-      .closest('[data-slot="card"]') as HTMLElement;
-    const morning = screen
-      .getByText('Генеральная уборка')
-      .closest('[data-slot="card"]') as HTMLElement;
-    expect(within(evening).getByText('Новое сообщение')).toBeInTheDocument();
-    expect(within(morning).queryByText('Новое сообщение')).not.toBeInTheDocument();
+    expect(within(rowOf('Вечерний осмотр')).getByText('Новое сообщение')).toBeInTheDocument();
+    expect(
+      within(rowOf('Генеральная уборка')).queryByText('Новое сообщение'),
+    ).not.toBeInTheDocument();
+  });
+
+  // Decision 14: on a phone the page never scrolls sideways; the table does, in its frame.
+  test('the table scrolls sideways within its own frame', () => {
+    const { container } = render(<TasksView />);
+
+    expect(container.querySelector('[data-slot="table-container"]')).toHaveClass('overflow-x-auto');
+  });
+});
+
+describe('TasksView keeps its tab and filters in the address', () => {
+  test('opens on the tab and the filters a link names', () => {
+    window.history.replaceState(null, '', '/tasks?tab=upcoming&type=cleaning&assignee=nobody');
+
+    render(<TasksView />);
+
+    expect(screen.getByRole('tab', { name: /Ближайшие/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByLabelText('Тип')).toHaveValue('cleaning');
+    expect(screen.getByLabelText('Исполнитель')).toHaveValue('nobody');
+    expect(screen.getByText('Уборка завтра')).toBeInTheDocument();
+  });
+
+  test('writes every change into the address, and a reset takes the filters out of it', async () => {
+    render(<TasksView />);
+
+    await userEvent.click(screen.getByRole('tab', { name: /Завершённые/ }));
+    expect(query()).toBe('tab=closed');
+
+    await userEvent.selectOptions(screen.getByLabelText('Исполнитель'), 'Без исполнителя');
+    await userEvent.type(screen.getByLabelText(/Поиск/), 'окна');
+    expect(query()).toBe('tab=closed&q=%D0%BE%D0%BA%D0%BD%D0%B0&assignee=nobody');
+    expect(screen.getByLabelText(/Поиск/)).toHaveValue('окна');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Сбросить фильтры' }));
+    expect(query()).toBe('tab=closed');
+    expect(screen.getByRole('tab', { name: /Завершённые/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+  }, 20000);
+
+  // Owner, 04.10: a tab is a step «Назад» walks back; the search and the filters are not.
+  test('«Назад» from a tab returns to the tab before, with its filters, read from the address', async () => {
+    render(<TasksView />);
+    const steps = window.history.length;
+
+    await userEvent.click(screen.getByRole('tab', { name: /Ближайшие/ }));
+    await userEvent.click(screen.getByRole('tab', { name: /Завершённые/ }));
+    expect(window.history.length).toBe(steps + 2);
+    await userEvent.selectOptions(screen.getByLabelText('Тип'), 'Осмотр');
+    await userEvent.type(screen.getByLabelText(/Поиск/), 'окна');
+    expect(window.history.length).toBe(steps + 2);
+    expect(query()).toBe('tab=closed&q=%D0%BE%D0%BA%D0%BD%D0%B0&type=inspection');
+
+    await act(() => goBack());
+    expect(query()).toBe('tab=upcoming');
+    expect(screen.getByRole('tab', { name: /Ближайшие/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByLabelText('Тип')).toHaveValue('all');
+    expect(screen.getByLabelText(/Поиск/)).toHaveValue('');
+
+    await act(() => goBack());
+    expect(screen.getByRole('tab', { name: /Сегодня/ })).toHaveAttribute('aria-selected', 'true');
+  }, 20000);
+
+  // Owner, 04.10: the menu's «Уборки» and the dashboard's tile lead to the bare
+  // `/tasks` (their links are checked in sidebar.test and dashboard-view.test);
+  // the screen remembers nothing of the last visit.
+  test('the bare address opens the plain screen, whatever was filtered before', async () => {
+    const first = render(<TasksView />);
+    await userEvent.click(screen.getByRole('tab', { name: /Завершённые/ }));
+    await userEvent.selectOptions(screen.getByLabelText('Исполнитель'), 'Без исполнителя');
+    first.unmount();
+
+    window.history.pushState(null, '', '/tasks');
+    render(<TasksView />);
+
+    expect(screen.getByRole('tab', { name: /Сегодня/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByLabelText('Исполнитель')).toHaveValue('all');
+    expect(query()).toBe('');
+  });
+
+  test('a screen opened afresh on the written address is the screen that was left', async () => {
+    const first = render(<TasksView />);
+    await userEvent.click(screen.getByRole('tab', { name: /Ближайшие/ }));
+    await userEvent.selectOptions(screen.getByLabelText('Тип'), 'Осмотр');
+    first.unmount();
+
+    // «Назад» from another section, or a reload: the page mounts on the address.
+    render(<TasksView />);
+
+    expect(screen.getByRole('tab', { name: /Ближайшие/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByLabelText('Тип')).toHaveValue('inspection');
   });
 });

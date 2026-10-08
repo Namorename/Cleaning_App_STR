@@ -1,8 +1,9 @@
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import { Text } from '@/components/text';
+import { MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 import type { MediaItemView } from './schema';
@@ -45,51 +46,24 @@ export function MediaStrip({
 }: MediaStripProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
-  const canCapture = onCapture !== undefined && !disabled && !isCapturing && items.length < maxCount;
+  const canCapture =
+    onCapture !== undefined && !disabled && !isCapturing && items.length < maxCount;
 
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.row}
+    >
       {items.map((item, index) => (
-        <View
+        <StripTile
           key={item.id}
-          style={styles.tile}
-          accessible
-          accessibilityLabel={t('media.photoAccessibility', {
-            index: index + 1,
-            status: t(`media.status.${item.status}`),
-          })}
-        >
-          {item.uri !== null ? (
-            <Image source={{ uri: item.uri }} contentFit="cover" style={styles.picture} />
-          ) : (
-            <View style={[styles.picture, styles.placeholder]} />
-          )}
-          {item.status !== 'uploaded' ? (
-            <Text style={[styles.caption, item.status === 'failed' && styles.captionFailed]}>
-              {t(`media.status.${item.status}`)}
-            </Text>
-          ) : null}
-          {item.status === 'failed' && onRetry !== undefined && !disabled ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('media.retry')}
-              onPress={() => onRetry(item.id)}
-              style={styles.action}
-            >
-              <Text style={styles.actionText}>{t('media.retry')}</Text>
-            </Pressable>
-          ) : null}
-          {onRemove !== undefined && !disabled ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('media.remove')}
-              onPress={() => onRemove(item.id)}
-              style={styles.action}
-            >
-              <Text style={styles.actionText}>{t('media.remove')}</Text>
-            </Pressable>
-          ) : null}
-        </View>
+          item={item}
+          number={index + 1}
+          onRemove={disabled ? undefined : onRemove}
+          onRetry={disabled || item.status !== 'failed' ? undefined : onRetry}
+          styles={styles}
+        />
       ))}
 
       {onCapture !== undefined ? (
@@ -101,8 +75,10 @@ export function MediaStrip({
           onPress={onCapture}
           style={[styles.capture, !canCapture && styles.captureDisabled]}
         >
-          <Text style={styles.captureText}>{t('media.takePhoto')}</Text>
-          <Text style={styles.captureCount}>
+          <Text tone="primary" weight={600} align="center">
+            {t('media.takePhoto')}
+          </Text>
+          <Text variant="caption" tone="secondary">
             {t('media.count', { taken: items.length, max: maxCount })}
           </Text>
         </Pressable>
@@ -118,10 +94,94 @@ export function MediaStrip({
           onPress={onPickFromGallery}
           style={[styles.capture, styles.pick, !canCapture && styles.captureDisabled]}
         >
-          <Text style={styles.captureText}>{t('steps.pickPhoto')}</Text>
+          <Text tone="primary" weight={600} align="center">
+            {t('steps.pickPhoto')}
+          </Text>
         </Pressable>
       ) : null}
     </ScrollView>
+  );
+}
+
+interface StripTileProps {
+  item: StripItem;
+  /** Counted from one, as she counts them and as the reader says them. */
+  number: number;
+  onRemove?: (mediaId: string) => void;
+  onRetry?: (mediaId: string) => void;
+  styles: ReturnType<typeof createStyles>;
+}
+
+/**
+ * One photo and what can be done to it. The photo is one element for the
+ * reader — its number and its state — and each action a button of its own
+ * beside it: inside an element read as one, a button cannot be reached.
+ */
+function StripTile({ item, number, onRemove, onRetry, styles }: StripTileProps) {
+  const { t } = useTranslation();
+  const status = t(`media.status.${item.status}`);
+
+  return (
+    <View style={styles.tile}>
+      <View
+        accessible
+        accessibilityRole="image"
+        accessibilityLabel={t('media.photoAccessibility', { index: number, status })}
+        style={styles.photo}
+      >
+        {item.uri !== null ? (
+          <Image source={{ uri: item.uri }} contentFit="cover" style={styles.picture} />
+        ) : (
+          <View style={[styles.picture, styles.placeholder]} />
+        )}
+        {item.status !== 'uploaded' ? (
+          <Text variant="caption" tone={item.status === 'failed' ? 'danger' : 'secondary'}>
+            {status}
+          </Text>
+        ) : null}
+      </View>
+      {onRetry !== undefined ? (
+        <TileAction
+          label={t('media.retry')}
+          accessibilityLabel={t('media.retryPhoto', { index: number })}
+          onPress={() => onRetry(item.id)}
+          styles={styles}
+        />
+      ) : null}
+      {onRemove !== undefined ? (
+        <TileAction
+          label={t('media.remove')}
+          accessibilityLabel={t('media.removePhoto', { index: number })}
+          onPress={() => onRemove(item.id)}
+          styles={styles}
+        />
+      ) : null}
+    </View>
+  );
+}
+
+interface TileActionProps {
+  /** The short word under the photo. */
+  label: string;
+  /** The word and the photo's number: which of five photos it removes. */
+  accessibilityLabel: string;
+  onPress: () => void;
+  styles: ReturnType<typeof createStyles>;
+}
+
+/** An action under a photo: the tile's width and a gloved finger's height. */
+function TileAction({ label, accessibilityLabel, onPress, styles }: TileActionProps) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
+      style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+    >
+      <Text variant="caption" tone="primary">
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -130,13 +190,12 @@ const TILE_SIZE = 112;
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
     row: { gap: Spacing.sm },
-    tile: { width: TILE_SIZE, gap: Spacing.xs },
+    tile: { width: TILE_SIZE },
+    photo: { gap: Spacing.xs },
     picture: { width: TILE_SIZE, height: TILE_SIZE, borderRadius: Radius.md },
     placeholder: { backgroundColor: theme.divider },
-    caption: { color: theme.textSecondary, fontSize: FontSize.caption },
-    captionFailed: { color: theme.danger },
-    action: { minHeight: MIN_TOUCH_TARGET / 2, justifyContent: 'center' },
-    actionText: { color: theme.primary, fontSize: FontSize.caption, fontWeight: '600' },
+    action: { minHeight: MIN_TOUCH_TARGET, justifyContent: 'center' },
+    actionPressed: { opacity: 0.6 },
     capture: {
       width: TILE_SIZE,
       height: TILE_SIZE,
@@ -153,6 +212,4 @@ const createStyles = (theme: Theme) =>
     // Dashed, so the two tiles at the end of the strip do not read as the
     // same button twice: the camera is the ordinary way in.
     pick: { borderStyle: 'dashed' },
-    captureText: { color: theme.primary, fontSize: FontSize.body, fontWeight: '600', textAlign: 'center' },
-    captureCount: { color: theme.textSecondary, fontSize: FontSize.caption },
   });

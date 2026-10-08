@@ -61,6 +61,7 @@ const COUNTED = [
   'serverErrors.messagePhotoLimit',
   'serverErrors.videoTooLong',
   'steps.photosHint',
+  'supplies.itemCount',
   'panel.apartments.info.bedrooms',
   'panel.apartments.info.guestsUpTo',
 ];

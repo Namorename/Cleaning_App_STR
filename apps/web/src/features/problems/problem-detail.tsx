@@ -1,25 +1,21 @@
 'use client';
 
-import { problemPriorityTone, problemStatusTone } from '@str-ops/shared';
-import Link from 'next/link';
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { PageBackLink, PageHeader } from '@/components/page-header';
 import { Person } from '@/components/person';
+import { StatusBadge } from '@/components/status-badge';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { ThreadPanel } from '@/features/chat/thread-panel';
 import { formatDateTime, formatDay } from '@/lib/format-date';
-import { serverErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
 
+import { problemsHref, type ProblemView } from './address';
 import { AssignForm } from './assign-form';
 import { FixTaskSteps } from './fix-task-steps';
 import { formatClock } from './format';
+import { ProblemActions } from './problem-actions';
 import { ProblemPhotos } from './problem-photos';
 import {
   isProblemArchived,
@@ -29,22 +25,16 @@ import {
   type Problem,
   problemPlace,
 } from './schema';
-import {
-  useArchiveProblem,
-  useCancelProblem,
-  useProblem,
-  useProblemPhotos,
-  useReopenProblem,
-  useResolveProblem,
-  useUnarchiveProblem,
-} from './use-problems';
+import { useProblem, useProblemPhotos } from './use-problems';
 
 interface ProblemDetailProps {
   problemId: string;
+  /** The view the task was opened from: «К списку заданий» returns to it. */
+  listView?: ProblemView;
 }
 
 /** The problem's card: the report, its photos, the fix and the manager's levers. */
-export function ProblemDetail({ problemId }: ProblemDetailProps) {
+export function ProblemDetail({ problemId, listView = 'board' }: ProblemDetailProps) {
   const { t } = useTranslation();
   const problem = useProblem(problemId);
 
@@ -57,41 +47,53 @@ export function ProblemDetail({ problemId }: ProblemDetailProps) {
   if (problem.data === null) {
     return (
       <div className="flex flex-col gap-4">
-        <BackLink />
+        <BackLink href={problemsHref(listView)} />
         <EmptyState>{t('panel.problems.notFound')}</EmptyState>
       </div>
     );
   }
 
-  return <ProblemCard problem={problem.data} />;
+  return <ProblemPage problem={problem.data} backHref={problemsHref(listView)} />;
 }
 
-function BackLink() {
+/** The way back to the section's list; on its own while there is no title to head. */
+function BackLink({ href }: { href: string }) {
   const { t } = useTranslation();
-  return (
-    <Link href="/problems" className="text-sm text-muted-foreground hover:underline">
-      ← {t('panel.problems.detail.back')}
-    </Link>
-  );
+  return <PageBackLink href={href} label={t('panel.problems.detail.back')} />;
 }
 
-function ProblemCard({ problem }: { problem: Problem }) {
+/**
+ * The problem's page (5.4, variant A): a header that stays on screen with the
+ * title, the status and the levers; under it two columns — the report, and
+ * the technician's work beside it; the conversation below (its own panel is
+ * the «Чат» group's).
+ */
+function ProblemPage({ problem, backHref }: { problem: Problem; backHref: string }) {
   const { t } = useTranslation();
   const fixTask = liveFixTask(problem);
-  // Nothing to assign on a closed or archived problem; the levers below still apply.
+  // Nothing to assign on a closed or archived problem; the header's levers still apply.
   const isClosed = isProblemClosed(problem) || isProblemArchived(problem);
 
   return (
     <div className="flex flex-col gap-4">
-      <BackLink />
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold">{problem.title}</h1>
-        <Badge tone={problemStatusTone(problem.status)}>
-          {t(`problems.statuses.${problem.status}`)}
-        </Badge>
-        <Badge tone={problemPriorityTone(problem.priority)}>
-          {t(`problems.priorities.${problem.priority}`)}
-        </Badge>
+      {/* On a phone the header scrolls away with the page: stuck, it would take
+          a third of the screen. */}
+      <div data-slot="problem-head" className="bg-background py-2 md:sticky md:top-0 md:z-10">
+        <PageHeader
+          back={{ href: backHref, label: t('panel.problems.detail.back') }}
+          title={problem.title}
+          meta={
+            <>
+              <StatusBadge status={`problems.${problem.status}`}>
+                {t(`problems.statuses.${problem.status}`)}
+              </StatusBadge>
+              <StatusBadge status={`problems.priority.${problem.priority}`}>
+                {t(`problems.priorities.${problem.priority}`)}
+              </StatusBadge>
+            </>
+          }
+          actions={<ProblemActions problem={problem} />}
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -133,7 +135,6 @@ function ProblemCard({ problem }: { problem: Problem }) {
                 <FixTaskSteps taskId={fixTask.id} />
               </section>
             ) : null}
-            <ManagerActions problem={problem} />
           </CardContent>
         </Card>
 
@@ -252,118 +253,6 @@ function FixTaskSummary({ fixTask }: { fixTask: FixTask }) {
           status: t(`panel.tasks.statuses.${fixTask.status}`),
         })}
       </span>
-    </div>
-  );
-}
-
-/** Which inline question, if any, is waiting for the manager's word. */
-type PendingAction = 'cancel' | 'archive' | null;
-
-/**
- * The manager's levers, by where the problem is.
- *
- * Live: resolve, cancel, archive. Closed: reopen, archive. Archived: restore
- * only — everything else waits until the problem is back. Cancelling asks
- * for a reason, archiving asks for confirmation; both inline.
- */
-function ManagerActions({ problem }: { problem: Problem }) {
-  const { t } = useTranslation();
-  const resolve = useResolveProblem();
-  const cancel = useCancelProblem();
-  const reopen = useReopenProblem();
-  const archive = useArchiveProblem();
-  const unarchive = useUnarchiveProblem();
-  const [pending, setPending] = useState<PendingAction>(null);
-  const [reason, setReason] = useState('');
-
-  const failed = [resolve, cancel, reopen, archive, unarchive].find((mutation) => mutation.isError);
-  const failure = failed === undefined ? null : serverErrorText(failed.error);
-  const isBusy = [resolve, cancel, reopen, archive, unarchive].some(
-    (mutation) => mutation.isPending,
-  );
-  const isArchived = isProblemArchived(problem);
-  const isClosed = isProblemClosed(problem);
-
-  const archiveButton = (
-    <Button type="button" variant="ghost" disabled={isBusy} onClick={() => setPending('archive')}>
-      {t('panel.problems.actions.archive')}
-    </Button>
-  );
-
-  return (
-    <div className="flex flex-col gap-3 border-t pt-4">
-      {pending === 'cancel' ? (
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="cancelReason">{t('panel.problems.actions.cancelReason')}</Label>
-          <Textarea
-            id="cancelReason"
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            rows={3}
-          />
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={isBusy}
-              onClick={() => cancel.mutate({ problemId: problem.id, reason })}
-            >
-              {t('panel.problems.actions.cancelConfirm')}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => setPending(null)}>
-              {t('panel.problems.actions.cancelAbort')}
-            </Button>
-          </div>
-        </div>
-      ) : pending === 'archive' ? (
-        <div className="flex flex-col gap-2">
-          <p className="text-sm text-muted-foreground">{t('panel.problems.actions.archiveText')}</p>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={isBusy}
-              onClick={() => archive.mutate(problem.id, { onSettled: () => setPending(null) })}
-            >
-              {t('panel.problems.actions.archiveConfirm')}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => setPending(null)}>
-              {t('panel.problems.actions.archiveAbort')}
-            </Button>
-          </div>
-        </div>
-      ) : isArchived ? (
-        <div className="flex gap-2">
-          <Button type="button" disabled={isBusy} onClick={() => unarchive.mutate(problem.id)}>
-            {t('panel.problems.actions.unarchive')}
-          </Button>
-        </div>
-      ) : isClosed ? (
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" disabled={isBusy} onClick={() => reopen.mutate(problem.id)}>
-            {t('panel.problems.actions.reopen')}
-          </Button>
-          {archiveButton}
-        </div>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" disabled={isBusy} onClick={() => resolve.mutate(problem.id)}>
-            {t('panel.problems.actions.resolve')}
-          </Button>
-          <Button type="button" variant="outline" onClick={() => setPending('cancel')}>
-            {t('panel.problems.actions.cancel')}
-          </Button>
-          {archiveButton}
-        </div>
-      )}
-      {failure !== null ? (
-        <p role="alert" className="text-sm text-destructive">
-          {failure.text}
-          {failure.detail !== null ? (
-            <span className="block text-xs text-muted-foreground">{failure.detail}</span>
-          ) : null}
-        </p>
-      ) : null}
     </div>
   );
 }

@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -10,6 +9,7 @@ import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
 import { serverErrorText } from '@/lib/server-error';
 
+import { ListingLink } from './listing-link';
 import {
   childrenOf,
   infoDraftFrom,
@@ -72,7 +72,7 @@ export function InfoTab({ property, all }: InfoTabProps) {
   return (
     <div className="flex flex-col gap-6">
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium">{t('panel.apartments.info.fromHostaway')}</h2>
+        <h3 className="text-sm font-medium">{t('panel.apartments.info.fromHostaway')}</h3>
         <div className="grid gap-3 sm:grid-cols-3">
           <Fact label={t('panel.apartments.info.address')} value={property.address ?? '—'} />
           <Fact label={t('panel.apartments.info.city')} value={property.city ?? '—'} />
@@ -91,15 +91,17 @@ export function InfoTab({ property, all }: InfoTabProps) {
       </section>
 
       <form className="flex flex-col gap-4" onSubmit={submit}>
-        <h2 className="text-sm font-medium">{t('panel.apartments.info.ours')}</h2>
+        <h3 className="text-sm font-medium">{t('panel.apartments.info.ours')}</h3>
 
         {!draft.hasParentChoice ? (
           // A room: Hostaway names its listing, and the sync would undo a change.
           <div className="flex flex-col gap-1">
             <span className="text-sm font-medium">{t('panel.apartments.room.parent')}</span>
-            <Link className="text-sm underline" href={`/apartments/${property.parent_id}`}>
-              {parentOf(all, property)?.name ?? String(property.parent_id)}
-            </Link>
+            {property.parent_id === null ? null : (
+              <ListingLink className="text-sm underline" id={property.parent_id}>
+                {parentOf(all, property)?.name ?? String(property.parent_id)}
+              </ListingLink>
+            )}
             <p className="text-xs text-muted-foreground">{t('panel.apartments.room.parentHint')}</p>
           </div>
         ) : units.length > 0 ? null : (
@@ -108,6 +110,7 @@ export function InfoTab({ property, all }: InfoTabProps) {
             <Label htmlFor="property-parent">{t('panel.apartments.info.parent')}</Label>
             <NativeSelect
               id="property-parent"
+              className="w-full max-w-md"
               value={draft.parentId === null ? '' : String(draft.parentId)}
               onChange={(event) =>
                 setDraft({
@@ -135,9 +138,9 @@ export function InfoTab({ property, all }: InfoTabProps) {
             <ul className="flex flex-col gap-1">
               {units.map((unit) => (
                 <li key={unit.id} className="text-sm">
-                  <Link className="underline" href={`/apartments/${unit.id}`}>
+                  <ListingLink className="underline" id={unit.id}>
                     {unit.name}
-                  </Link>
+                  </ListingLink>
                 </li>
               ))}
             </ul>
@@ -148,6 +151,7 @@ export function InfoTab({ property, all }: InfoTabProps) {
           <Label htmlFor="cleaner-notes">{t('panel.apartments.info.cleanerNotes')}</Label>
           <Textarea
             id="cleaner-notes"
+            className="max-w-2xl"
             rows={3}
             value={draft.cleanerNotes}
             onChange={(event) => setDraft({ ...draft, cleanerNotes: event.target.value })}
@@ -161,6 +165,7 @@ export function InfoTab({ property, all }: InfoTabProps) {
           <Label htmlFor="internal-notes">{t('panel.apartments.info.internalNotes')}</Label>
           <Textarea
             id="internal-notes"
+            className="max-w-2xl"
             rows={3}
             value={draft.internalNotes}
             onChange={(event) => setDraft({ ...draft, internalNotes: event.target.value })}
@@ -180,7 +185,7 @@ export function InfoTab({ property, all }: InfoTabProps) {
         )}
 
         <div className="flex items-center gap-3">
-          <Button type="submit" disabled={save.isPending}>
+          <Button type="submit" className="h-11" disabled={save.isPending}>
             {save.isPending ? t('panel.apartments.info.saving') : t('panel.apartments.info.save')}
           </Button>
           {save.isSuccess && !save.isPending ? (
