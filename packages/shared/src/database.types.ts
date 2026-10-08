@@ -2387,6 +2387,7 @@ export type Database = {
           assignee_name: string
           completed_at: string
           id: string
+          problem_id: string
           property_id: number
           scheduled_date: string
           status: Database["public"]["Enums"]["task_status"]
