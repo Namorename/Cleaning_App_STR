@@ -22,7 +22,7 @@
     }
   },
   "auth": {
-    "heading": "Вход для клинеров",
+    "heading": "Вход",
     "email": "Почта",
     "password": "Пароль",
     "showPassword": "Показать пароль",

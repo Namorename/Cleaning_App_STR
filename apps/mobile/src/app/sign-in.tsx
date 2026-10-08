@@ -1,24 +1,22 @@
 import { Redirect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { KeyboardAvoidingView, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 
-import { PasswordInput } from '@/components/password-input';
-import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import { ActionBar } from '@/components/action-bar';
+import { BrandMark } from '@/components/brand-mark';
+import { Button } from '@/components/button';
+import { Text } from '@/components/text';
+import { TextField } from '@/components/text-field';
+import { Spacing, type Theme } from '@/constants/theme';
 import { signInFailureText } from '@/features/auth/failure';
 import { signIn, useSession } from '@/features/auth/session';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import type { ServerErrorText } from '@/lib/server-error';
+
+/** The bottom edge is the action bar's: it clears the home indicator itself. */
+const SAFE_EDGES: readonly Edge[] = ['top', 'left', 'right'];
 
 export default function SignInScreen() {
   const { t } = useTranslation();
@@ -52,79 +50,84 @@ export default function SignInScreen() {
     return <Redirect href="/(tabs)" />;
   }
 
-  const canSubmit = email.trim().length > 0 && password.length > 0 && !isSubmitting;
+  const hasBothFields = email.trim().length > 0 && password.length > 0;
+  const canSubmit = hasBothFields && !isSubmitting;
+
+  // «Go» on the password's keyboard is the button, with the button's rules.
+  const submitFromKeyboard = () => {
+    if (canSubmit) {
+      void onSubmit();
+    }
+  };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.container}
-      >
-        <Text style={styles.heading}>{t('auth.heading')}</Text>
-
-        <View style={styles.field}>
-          <Text style={styles.label} nativeID="email-label">
-            {t('auth.email')}
+    <SafeAreaView style={styles.safe} edges={SAFE_EDGES}>
+      {/* Padding on both systems, as the forms do: the view measures how much
+          of it the keyboard covers, so it adds nothing where the system has
+          made room, and with Android drawing edge to edge the system does
+          not. No header above it, so no offset. */}
+      <KeyboardAvoidingView behavior="padding" style={styles.screen}>
+        {/* From the top, not centred: «Войти» lives at the bottom edge, in
+            the thumb's reach, and never under the keyboard. */}
+        <ScrollView
+          testID="sign-in-form"
+          style={styles.screen}
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+        >
+          <BrandMark testID="brand-mark" style={styles.mark} />
+          <Text variant="heading" align="center" accessibilityRole="header">
+            {t('auth.heading')}
           </Text>
-          <TextInput
-            accessibilityLabelledBy="email-label"
-            accessibilityLabel={t('auth.email')}
+
+          <TextField
+            label={t('auth.email')}
             autoCapitalize="none"
             autoComplete="email"
             keyboardType="email-address"
             onChangeText={setEmail}
-            placeholderTextColor={styles.label.color}
-            style={styles.input}
             textContentType="username"
             value={email}
           />
-        </View>
-
-        <View style={styles.field}>
-          <Text style={styles.label} nativeID="password-label">
-            {t('auth.password')}
-          </Text>
-          <PasswordInput
-            accessibilityLabelledBy="password-label"
-            accessibilityLabel={t('auth.password')}
+          <TextField
+            isPassword
+            label={t('auth.password')}
             onChangeText={setPassword}
-            style={styles.input}
+            onSubmitEditing={submitFromKeyboard}
+            returnKeyType="go"
             textContentType="password"
             value={password}
           />
-        </View>
 
-        {failure !== null ? (
-          <View accessibilityLiveRegion="polite" style={styles.failure}>
-            <Text style={styles.error}>{failure.text}</Text>
-            {failure.detail !== null ? (
-              <Text style={styles.errorDetail}>{failure.detail}</Text>
-            ) : null}
-          </View>
-        ) : null}
+          {failure !== null ? (
+            <View accessibilityLiveRegion="polite" style={styles.failure}>
+              <Text tone="danger">{failure.text}</Text>
+              {failure.detail !== null ? (
+                // The server's own English, for a failure this build cannot
+                // name. Small, under the sentence she can read, so she can
+                // forward it to the manager.
+                <Text variant="caption" tone="secondary">
+                  {failure.detail}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('auth.submit')}
-          accessibilityState={{ disabled: !canSubmit, busy: isSubmitting }}
-          disabled={!canSubmit}
-          onPress={() => void onSubmit()}
-          style={({ pressed }) => [
-            styles.button,
-            !canSubmit && styles.buttonDisabled,
-            pressed && styles.buttonPressed,
-          ]}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator color={styles.buttonText.color} />
-          ) : (
-            <Text style={styles.buttonText}>{t('auth.submit')}</Text>
-          )}
-        </Pressable>
+          {/* No letter can reset it before launch: there is no mail server
+              yet, and the manager resets it in the panel (owner's decision 16). */}
+          <Text tone="secondary" align="center">
+            {t('auth.forgotPassword')}
+          </Text>
+        </ScrollView>
 
-        {/* No letter can reset it before launch: there is no mail server yet,
-            and the manager resets it in the panel (owner's decision 16). */}
-        <Text style={styles.forgot}>{t('auth.forgotPassword')}</Text>
+        <ActionBar isAtScreenEdge testID="sign-in-actions">
+          <Button
+            label={isSubmitting ? t('auth.signingIn') : t('auth.submit')}
+            onPress={() => void onSubmit()}
+            isDisabled={!hasBothFields}
+            isBusy={isSubmitting}
+          />
+        </ActionBar>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -133,41 +136,8 @@ export default function SignInScreen() {
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
     safe: { flex: 1, backgroundColor: theme.background },
-    container: { flex: 1, justifyContent: 'center', padding: Spacing.xl, gap: Spacing.lg },
-    heading: {
-      fontSize: FontSize.heading,
-      fontWeight: '700',
-      color: theme.text,
-      marginBottom: Spacing.sm,
-    },
-    field: { gap: Spacing.xs },
-    label: { fontSize: FontSize.body, color: theme.textSecondary },
-    input: {
-      minHeight: MIN_TOUCH_TARGET,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-      borderRadius: Radius.md,
-      paddingHorizontal: Spacing.md,
-      fontSize: FontSize.title,
-      // Without this the typed text falls back to black and disappears into
-      // the dark input on the very screen the cleaner starts from.
-      color: theme.text,
-      backgroundColor: theme.card,
-    },
+    screen: { flex: 1 },
+    content: { padding: Spacing.xl, gap: Spacing.lg },
+    mark: { alignSelf: 'center' },
     failure: { gap: Spacing.xs },
-    error: { color: theme.danger, fontSize: FontSize.body },
-    // The server's own English, for a failure this build cannot name. Small,
-    // under the sentence she can read, so she can forward it to the manager.
-    errorDetail: { color: theme.textSecondary, fontSize: FontSize.caption },
-    button: {
-      minHeight: MIN_TOUCH_TARGET,
-      borderRadius: Radius.md,
-      backgroundColor: theme.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    buttonDisabled: { opacity: 0.5 },
-    buttonPressed: { opacity: 0.75 },
-    buttonText: { color: theme.onPrimary, fontSize: FontSize.title, fontWeight: '600' },
-    forgot: { color: theme.textSecondary, fontSize: FontSize.body, textAlign: 'center' },
   });

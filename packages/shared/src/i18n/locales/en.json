@@ -22,7 +22,7 @@
     }
   },
   "auth": {
-    "heading": "Cleaner sign-in",
+    "heading": "Sign in",
     "email": "Email",
     "password": "Password",
     "showPassword": "Show password",

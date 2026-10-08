@@ -22,7 +22,7 @@
     }
   },
   "auth": {
-    "heading": "Přihlášení pro úklid",
+    "heading": "Přihlášení",
     "email": "E-mail",
     "password": "Heslo",
     "showPassword": "Zobrazit heslo",

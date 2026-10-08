@@ -24,10 +24,10 @@ const TEXT_COMPONENT = 'components/text.tsx';
 /**
  * Today's uses, per file (counted 2026-10-03 on redesign-phone: 84 in 29 files,
  * as on f11-native; the plan's 72 in 22 was main before F11). Down since: the
- * settings' section frame and language choice moved onto the components.
+ * settings' section frame and language choice moved onto the components, and
+ * the sign-in screen.
  */
 const ALLOWANCE: Readonly<Record<string, number>> = {
-  'app/sign-in.tsx': 2,
   'components/list-action.tsx': 1,
   'features/auth/sign-out-button.tsx': 1,
   'features/chat/message-media.tsx': 1,
