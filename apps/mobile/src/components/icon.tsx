@@ -19,14 +19,18 @@ import House from 'lucide-react-native/icons/house';
 import ImageGlyph from 'lucide-react-native/icons/image';
 import Inbox from 'lucide-react-native/icons/inbox';
 import LayoutGrid from 'lucide-react-native/icons/layout-grid';
+import Menu from 'lucide-react-native/icons/menu';
 import MessageSquare from 'lucide-react-native/icons/message-square';
 import Package from 'lucide-react-native/icons/package';
+import PanelLeftClose from 'lucide-react-native/icons/panel-left-close';
+import PanelLeftOpen from 'lucide-react-native/icons/panel-left-open';
 import Pause from 'lucide-react-native/icons/pause';
 import Play from 'lucide-react-native/icons/play';
 import Plus from 'lucide-react-native/icons/plus';
 import RotateCw from 'lucide-react-native/icons/rotate-cw';
 import Search from 'lucide-react-native/icons/search';
 import Settings from 'lucide-react-native/icons/settings';
+import StickyNote from 'lucide-react-native/icons/sticky-note';
 import Trash from 'lucide-react-native/icons/trash';
 import TriangleAlert from 'lucide-react-native/icons/triangle-alert';
 import UserRound from 'lucide-react-native/icons/user-round';
@@ -61,6 +65,9 @@ export const LUCIDE_GLYPHS = {
   house: House,
   inbox: Inbox,
   wrench: Wrench,
+  'panel-left-close': PanelLeftClose,
+  'panel-left-open': PanelLeftOpen,
+  menu: Menu,
   plus: Plus,
   'chevron-left': ChevronLeft,
   'chevron-right': ChevronRight,
@@ -84,6 +91,7 @@ export const LUCIDE_GLYPHS = {
   'circle-alert': CircleAlert,
   'triangle-alert': TriangleAlert,
   archive: Archive,
+  'sticky-note': StickyNote,
 } as const satisfies Readonly<Record<LucideIconName, LucideIcon>>;
 
 type IconLook = (typeof ICON_STYLE)[keyof typeof ICON_STYLE];
