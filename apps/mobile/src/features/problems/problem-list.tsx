@@ -1,11 +1,14 @@
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, SectionList, StyleSheet, View } from 'react-native';
 
+import { EmptyState } from '@/components/empty-state';
 import { ErrorBanner } from '@/components/error-banner';
 import { ErrorState } from '@/components/error-state';
-import { FontSize, Spacing, type Theme } from '@/constants/theme';
-import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { Skeleton, SkeletonGroup } from '@/components/skeleton';
+import { Text } from '@/components/text';
+import { Radius, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
 import { ProblemCard } from './problem-card';
 import type { Problem, ProblemGroup } from './schema';
@@ -23,7 +26,8 @@ interface ProblemListProps {
 
 /**
  * Her reports, live ones first. Loading, error and empty are three different
- * answers, all of them text a screen reader can reach.
+ * answers — the cards' shape said as loading, the error state, the empty
+ * state — all of them something a screen reader can reach.
  */
 export function ProblemList({
   sections,
@@ -35,7 +39,7 @@ export function ProblemList({
   unreadProblemIds,
 }: ProblemListProps) {
   const { t } = useTranslation();
-  const styles = useThemedStyles(createStyles);
+  const theme = useTheme();
 
   const renderItem = useCallback(
     ({ item }: { item: Problem }) => (
@@ -51,18 +55,21 @@ export function ProblemList({
   const renderSectionHeader = useCallback(
     ({ section }: { section: ProblemGroup }) =>
       section.key === 'closed' ? (
-        <Text style={styles.heading}>{t('problems.closedHeading')}</Text>
+        <Text
+          variant="caption"
+          tone="secondary"
+          weight={700}
+          accessibilityRole="header"
+          style={styles.heading}
+        >
+          {t('problems.closedHeading')}
+        </Text>
       ) : null,
-    [styles, t],
+    [t],
   );
 
   if (isLoading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={styles.message.color} />
-        <Text style={styles.message}>{t('problems.loading')}</Text>
-      </View>
-    );
+    return <ListSkeleton label={t('problems.loading')} />;
   }
 
   if (error !== null && sections === undefined) {
@@ -86,39 +93,50 @@ export function ProblemList({
       contentContainerStyle={styles.content}
       ItemSeparatorComponent={Separator}
       stickySectionHeadersEnabled={false}
-      refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
-      ListEmptyComponent={
-        <View style={styles.centered}>
-          <Text style={styles.message}>{t('problems.emptyMine')}</Text>
-        </View>
+      refreshControl={
+        // The platform's spinner is a dark tick on iOS without a tint: invisible in the dark.
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={onRefresh}
+          tintColor={theme.textSecondary}
+          colors={[theme.textSecondary]}
+        />
       }
+      ListEmptyComponent={<EmptyState title={t('problems.emptyMine')} />}
     />
   );
 }
 
 function Separator() {
-  const styles = useThemedStyles(createStyles);
   return <View style={styles.separator} />;
 }
 
-const createStyles = (theme: Theme) =>
-  StyleSheet.create({
-    content: { padding: Spacing.lg, flexGrow: 1 },
-    centered: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: Spacing.xl,
-      gap: Spacing.sm,
-    },
-    message: { color: theme.textSecondary, fontSize: FontSize.body, textAlign: 'center' },
-    heading: {
-      color: theme.textSecondary,
-      fontSize: FontSize.caption,
-      fontWeight: '700',
-      textTransform: 'uppercase',
-      paddingTop: Spacing.lg,
-      paddingBottom: Spacing.sm,
-    },
-    separator: { height: Spacing.md },
-  });
+/** Three cards' worth of shape: a title line, a line, a chip. */
+const SKELETON_CARD = 96;
+const SKELETON_CARDS = 3;
+
+interface ListSkeletonProps {
+  label: string;
+}
+
+function ListSkeleton({ label }: ListSkeletonProps) {
+  return (
+    <SkeletonGroup label={label} style={styles.skeleton}>
+      {Array.from({ length: SKELETON_CARDS }, (_, index) => (
+        <Skeleton key={index} height={SKELETON_CARD} radius={Radius.card} />
+      ))}
+    </SkeletonGroup>
+  );
+}
+
+/** Sizes only: the colours are the components'. */
+const styles = StyleSheet.create({
+  content: { padding: Spacing.lg, flexGrow: 1 },
+  heading: {
+    textTransform: 'uppercase',
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.sm,
+  },
+  separator: { height: Spacing.md },
+  skeleton: { flex: 1, padding: Spacing.lg, gap: Spacing.md },
+});

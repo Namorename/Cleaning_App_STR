@@ -1,10 +1,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
-import { FontSize, Spacing, type Theme } from '@/constants/theme';
+import { ErrorState } from '@/components/error-state';
+import { Skeleton, SkeletonGroup } from '@/components/skeleton';
+import { Text } from '@/components/text';
+import { BUTTON_HEIGHT, Radius, Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
 import { problemPlace } from '@/features/problems/format';
 import { ProblemForm } from '@/features/problems/problem-form';
@@ -41,21 +44,25 @@ export default function EditProblemRoute() {
     }
   }, [isLeaving]);
 
-  if (!problem.data || draft === null) {
+  // A report that never loaded says why, rather than loading for ever.
+  if (problem.error && !problem.data) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={styles.message.color} />
-        <Text style={styles.message}>{t('problems.loading')}</Text>
+      <View style={styles.screen}>
+        <ErrorState error={problem.error} />
       </View>
     );
   }
 
+  if (problem.data === null) {
+    return <Message text={t('problems.notFound')} styles={styles} />;
+  }
+
+  if (!problem.data || draft === null) {
+    return <FormSkeleton label={t('problems.loading')} styles={styles} />;
+  }
+
   if (!canEditProblem(problem.data, userId)) {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.message}>{t('problems.notEditable')}</Text>
-      </View>
-    );
+    return <Message text={t('problems.notEditable')} styles={styles} />;
   }
 
   // The header and its title are the root layout's (app/_layout.tsx).
@@ -79,15 +86,55 @@ export default function EditProblemRoute() {
   );
 }
 
+interface MessageProps {
+  text: string;
+  styles: ReturnType<typeof createStyles>;
+}
+
+function Message({ text, styles }: MessageProps) {
+  return (
+    <View style={[styles.screen, styles.centered]}>
+      <Text tone="secondary" align="center">
+        {text}
+      </Text>
+    </View>
+  );
+}
+
+/** The form's blocks: a label, the title field, a label, the details box, the button. */
+const SKELETON_LABEL = 16;
+const SKELETON_BOX = 120;
+
+interface FormSkeletonProps {
+  label: string;
+  styles: ReturnType<typeof createStyles>;
+}
+
+function FormSkeleton({ label, styles }: FormSkeletonProps) {
+  return (
+    <View style={styles.screen}>
+      <SkeletonGroup label={label} style={layout.content}>
+        <Skeleton height={SKELETON_LABEL} width="35%" />
+        <Skeleton height={BUTTON_HEIGHT} radius={Radius.lg} />
+        <Skeleton height={SKELETON_LABEL} width="35%" />
+        <Skeleton height={SKELETON_BOX} radius={Radius.lg} />
+        <Skeleton height={BUTTON_HEIGHT} radius={Radius.pill} />
+      </SkeletonGroup>
+    </View>
+  );
+}
+
+/** Sizes only: nothing here depends on the colour scheme. */
+const layout = StyleSheet.create({
+  content: { padding: Spacing.lg, gap: Spacing.md },
+});
+
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
+    screen: { flex: 1, backgroundColor: theme.background },
     centered: {
-      flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
       padding: Spacing.xl,
-      gap: Spacing.sm,
-      backgroundColor: theme.background,
     },
-    message: { color: theme.textSecondary, fontSize: FontSize.body, textAlign: 'center' },
   });

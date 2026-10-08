@@ -1,0 +1,211 @@
+import { fireEvent, render, screen } from '@testing-library/react-native';
+import { router } from 'expo-router';
+
+import ProblemRoute from '@/app/problem/[id]';
+
+import type { Problem } from '../schema';
+
+/**
+ * One report, wired. Who may do what is decided here: the reporter changes an
+ * open report and adds photos to it, a technician opens the work that fixes it,
+ * anyone who sees it may talk about it. The screen's own states — loading, a
+ * failure, a report that is not there — are this route's too.
+ */
+
+const ME = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
+const SOMEONE_ELSE = '8d0f7780-8536-41ef-a55c-f18e2a01ab08';
+const PROBLEM_ID = 'd1e2f3a4-1111-4111-8111-d1e2f3a40001';
+const FIX_TASK = 'b1c2d3e4-2222-4222-8222-b1c2d3e40001';
+
+const mockSession = { userId: ME as string | null };
+const mockProblemQuery: {
+  isPending: boolean;
+  error: Error | null;
+  data: Problem | null | undefined;
+} = { isPending: false, error: null, data: undefined };
+let mockGalleryAllowed = false;
+
+jest.mock('expo-router', () => ({
+  router: { push: jest.fn() },
+  useLocalSearchParams: () => ({ id: 'd1e2f3a4-1111-4111-8111-d1e2f3a40001' }),
+}));
+
+jest.mock('@/features/auth/session', () => ({ useSession: () => mockSession }));
+
+jest.mock('@/features/problems/use-problems', () => ({ useProblem: () => mockProblemQuery }));
+
+jest.mock('@/features/host/use-host', () => ({ useGalleryAllowed: () => mockGalleryAllowed }));
+
+jest.mock('@/features/media/capture', () => ({
+  capturePhoto: jest.fn(),
+  pickPhotoFromGallery: jest.fn(),
+}));
+
+jest.mock('@/features/media/use-media', () => {
+  const idle = () => ({ mutate: jest.fn(), error: null });
+  return {
+    mediaItemViews: () => [],
+    useAttachMedia: idle,
+    useRemoveMedia: idle,
+    useRememberLocalMedia: () => jest.fn(),
+    useLocalMedia: () => ({ data: {} }),
+    useMediaUrls: () => ({ data: {} }),
+    useProblemMedia: () => ({ data: [] }),
+    useUploadingMediaIds: () => new Set(),
+  };
+});
+
+function problem(overrides: Partial<Problem> = {}): Problem {
+  return {
+    id: PROBLEM_ID,
+    property_id: 412432,
+    task_id: null,
+    reported_by: ME,
+    title: 'Кран течёт',
+    description: null,
+    priority: 'normal',
+    status: 'open',
+    resolved_at: null,
+    cancelled_at: null,
+    cancel_reason: null,
+    created_at: '2026-11-10T08:00:00+00:00',
+    property: { name: 'CZ - Nadrazni Apt 6', hostaway_unit_id: null, parent: null },
+    fix_tasks: [],
+    ...overrides,
+  };
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockSession.userId = ME;
+  mockProblemQuery.isPending = false;
+  mockProblemQuery.error = null;
+  mockProblemQuery.data = problem();
+  mockGalleryAllowed = false;
+});
+
+describe('who may do what', () => {
+  test('her own open report: she may change it, and «Изменить» opens the form', async () => {
+    await render(<ProblemRoute />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Изменить' }));
+
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: '/problem/[id]/edit',
+      params: { id: PROBLEM_ID },
+    });
+    expect(screen.getByRole('button', { name: 'Снять фото' })).toBeTruthy();
+  });
+
+  test.each(['assigned', 'in_progress', 'resolved', 'cancelled'] as const)(
+    'her own report once %s is no longer hers to change',
+    async (status) => {
+      mockProblemQuery.data = problem({ status });
+
+      await render(<ProblemRoute />);
+
+      expect(screen.queryByRole('button', { name: 'Изменить' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Снять фото' })).toBeNull();
+    },
+  );
+
+  test('somebody else’s open report is read only', async () => {
+    mockProblemQuery.data = problem({ reported_by: SOMEONE_ELSE });
+
+    await render(<ProblemRoute />);
+
+    expect(screen.queryByRole('button', { name: 'Изменить' })).toBeNull();
+    expect(screen.getByText('Фото нет')).toBeTruthy();
+  });
+
+  test('the gallery is offered beside the camera only where the company allows it', async () => {
+    mockGalleryAllowed = true;
+
+    await render(<ProblemRoute />);
+
+    expect(screen.getByRole('button', { name: 'Выбрать фото из галереи' })).toBeTruthy();
+  });
+
+  test('without the company’s word there is the camera alone', async () => {
+    await render(<ProblemRoute />);
+
+    expect(screen.queryByRole('button', { name: 'Выбрать фото из галереи' })).toBeNull();
+  });
+
+  test('the technician’s own live fix task opens from the report', async () => {
+    mockProblemQuery.data = problem({
+      reported_by: SOMEONE_ELSE,
+      status: 'in_progress',
+      fix_tasks: [{ id: FIX_TASK, assignee_id: ME, status: 'in_progress' }],
+    });
+
+    await render(<ProblemRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Открыть работу техника' }));
+
+    expect(router.push).toHaveBeenCalledWith({ pathname: '/task/[id]', params: { id: FIX_TASK } });
+  });
+
+  test('a fix task that is someone else’s, or cancelled, is not offered', async () => {
+    mockProblemQuery.data = problem({
+      status: 'assigned',
+      fix_tasks: [
+        { id: FIX_TASK, assignee_id: SOMEONE_ELSE, status: 'assigned' },
+        { id: 'c1c2d3e4-3333-4333-8333-c1c2d3e40001', assignee_id: ME, status: 'cancelled' },
+      ],
+    });
+
+    await render(<ProblemRoute />);
+
+    expect(screen.queryByRole('button', { name: 'Открыть работу техника' })).toBeNull();
+  });
+
+  test('the chat of the report is always one press away', async () => {
+    mockProblemQuery.data = problem({ reported_by: SOMEONE_ELSE, status: 'resolved' });
+
+    await render(<ProblemRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Чат' }));
+
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: '/chat/[subject]/[id]',
+      params: { subject: 'problem', id: PROBLEM_ID },
+    });
+  });
+});
+
+describe('the screen’s states', () => {
+  test('before she is known, the report is not found', async () => {
+    mockSession.userId = null;
+
+    await render(<ProblemRoute />);
+
+    expect(screen.getByText('Задание не найдено')).toBeTruthy();
+  });
+
+  test('a report that is not there says so', async () => {
+    mockProblemQuery.data = null;
+
+    await render(<ProblemRoute />);
+
+    expect(screen.getByText('Задание не найдено')).toBeTruthy();
+  });
+
+  test('a report that could not load says why in her words, the server’s small under it', async () => {
+    mockProblemQuery.data = undefined;
+    mockProblemQuery.error = new Error('Network request failed');
+
+    await render(<ProblemRoute />);
+
+    expect(screen.getByText('Не удалось выполнить действие. Попробуйте ещё раз.')).toBeTruthy();
+    expect(screen.getByText('Network request failed')).toBeTruthy();
+  });
+
+  test('while the report loads, its shape stands in for it, said as loading', async () => {
+    mockProblemQuery.isPending = true;
+    mockProblemQuery.data = undefined;
+
+    await render(<ProblemRoute />);
+
+    const loading = screen.getByRole('progressbar', { name: 'Загружаем задания…' });
+    expect(loading.props.accessibilityState).toMatchObject({ busy: true });
+  });
+});

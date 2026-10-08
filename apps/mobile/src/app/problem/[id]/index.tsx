@@ -1,10 +1,12 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
-import { FontSize, Spacing, type Theme } from '@/constants/theme';
+import { ErrorState } from '@/components/error-state';
+import { Text } from '@/components/text';
+import { Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
 import { capturePhoto, pickPhotoFromGallery } from '@/features/media/capture';
 import { attachFailure } from '@/features/media/failure';
@@ -21,11 +23,10 @@ import {
   useRemoveMedia,
   useUploadingMediaIds,
 } from '@/features/media/use-media';
-import { ProblemDetail } from '@/features/problems/problem-detail';
+import { ProblemDetail, ProblemDetailSkeleton } from '@/features/problems/problem-detail';
 import { canEditProblem, ownFixTaskId } from '@/features/problems/schema';
 import { useProblem } from '@/features/problems/use-problems';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
-import { serverErrorText } from '@/lib/server-error';
 
 const Params = z.object({ id: z.string().uuid() });
 
@@ -76,17 +77,15 @@ export default function ProblemRoute() {
   }
 
   if (problem.isPending) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={styles.message.color} />
-        <Text style={styles.message}>{t('problems.loading')}</Text>
-      </View>
-    );
+    return <ProblemDetailSkeleton label={t('problems.loading')} />;
   }
 
   if (problem.error) {
-    const failure = serverErrorText(problem.error);
-    return <Message text={failure.text} detail={failure.detail} styles={styles} />;
+    return (
+      <View style={styles.screen}>
+        <ErrorState error={problem.error} />
+      </View>
+    );
   }
 
   if (problem.data === null || problem.data === undefined) {
@@ -166,29 +165,25 @@ export default function ProblemRoute() {
 
 interface MessageProps {
   text: string;
-  detail?: string | null;
   styles: ReturnType<typeof createStyles>;
 }
 
-function Message({ text, detail = null, styles }: MessageProps) {
+function Message({ text, styles }: MessageProps) {
   return (
-    <View style={styles.centered}>
-      <Text style={styles.message}>{text}</Text>
-      {detail !== null ? <Text style={styles.detail}>{detail}</Text> : null}
+    <View style={[styles.screen, styles.centered]}>
+      <Text tone="secondary" align="center">
+        {text}
+      </Text>
     </View>
   );
 }
 
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
+    screen: { flex: 1, backgroundColor: theme.background },
     centered: {
-      flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
       padding: Spacing.xl,
-      gap: Spacing.sm,
-      backgroundColor: theme.background,
     },
-    message: { color: theme.textSecondary, fontSize: FontSize.body, textAlign: 'center' },
-    detail: { color: theme.textSecondary, fontSize: FontSize.caption, textAlign: 'center' },
   });

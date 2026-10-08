@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { StyleSheet, type ViewStyle } from 'react-native';
 
 import ProblemsScreen from '@/app/(tabs)/problems';
-import { BUTTON_HEIGHT } from '@/constants/theme';
+import { BUTTON_HEIGHT, Colors, FontSize } from '@/constants/theme';
 
 import type { Problem } from '../schema';
 import { useMyProblems } from '../use-problems';
@@ -86,7 +86,8 @@ test('while the list loads she can already start a report', async () => {
 
   await render(<ProblemsScreen />);
 
-  expect(screen.getByText('Загружаем задания…')).toBeTruthy();
+  // Said as loading: the label of the skeleton that stands in.
+  expect(screen.getByRole('progressbar', { name: 'Загружаем задания…' })).toBeTruthy();
   expect(screen.getByRole('button', { name: REPORT })).toBeTruthy();
 });
 
@@ -106,4 +107,39 @@ test('an empty list still says so', async () => {
 
   expect(screen.getByText('Заданий не заявлено')).toBeTruthy();
   expect(screen.getByRole('button', { name: REPORT })).toBeTruthy();
+});
+
+describe('on the «Абрикос» components', () => {
+  test('while the list loads, its shape stands in for it, said as loading', async () => {
+    answer({ data: undefined, isPending: true });
+
+    await render(<ProblemsScreen />);
+
+    const loading = screen.getByRole('progressbar', { name: 'Загружаем задания…' });
+    expect(loading.props.accessibilityState).toMatchObject({ busy: true });
+  });
+
+  test('an empty list is the empty state, titled', async () => {
+    answer({ data: [] });
+
+    await render(<ProblemsScreen />);
+
+    const empty = StyleSheet.flatten(screen.getByText('Заданий не заявлено').props.style);
+    expect(empty.fontSize).toBe(FontSize.title);
+  });
+
+  test('closed reports stand under their heading, drawn as a caption', async () => {
+    answer({
+      data: [
+        problem(),
+        problem({ id: 'd1e2f3a4-1111-4111-8111-d1e2f3a40002', status: 'resolved' }),
+      ],
+    });
+
+    await render(<ProblemsScreen />);
+
+    const heading = StyleSheet.flatten(screen.getByText('Закрытые').props.style);
+    expect(heading.fontSize).toBe(FontSize.caption);
+    expect(heading.color).toBe(Colors.light.textSecondary);
+  });
 });

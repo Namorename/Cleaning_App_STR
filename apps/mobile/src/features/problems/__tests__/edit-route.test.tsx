@@ -63,7 +63,8 @@ test('a report that arrives after the screen opened fills the form', async () =>
   // Arrange: nothing yet.
   answer(undefined);
   const view = await render(<EditProblemRoute />);
-  expect(screen.getByText('Загружаем задания…')).toBeTruthy();
+  // Said as loading: the label of the skeleton that stands in.
+  expect(screen.getByRole('progressbar', { name: 'Загружаем задания…' })).toBeTruthy();
 
   // Act: the row arrives.
   answer(problem());
@@ -85,4 +86,37 @@ test('what she typed survives the report being fetched again under her', async (
 
   // Assert
   expect(screen.getByDisplayValue('Кран течёт сильно')).toBeTruthy();
+});
+
+describe('the wrapper on the «Абрикос» components', () => {
+  test('while the report loads, its shape stands in for the form, said as loading', async () => {
+    answer(undefined);
+
+    await render(<EditProblemRoute />);
+
+    const loading = screen.getByRole('progressbar', { name: 'Загружаем задания…' });
+    expect(loading.props.accessibilityState).toMatchObject({ busy: true });
+  });
+
+  test('a report that could not load says why instead of loading for ever', async () => {
+    jest.mocked(useProblem).mockReturnValue({
+      data: undefined,
+      error: new Error('Network request failed'),
+    } as ReturnType<typeof useProblem>);
+
+    await render(<EditProblemRoute />);
+
+    expect(screen.queryByRole('progressbar')).toBeNull();
+    expect(screen.getByText('Не удалось выполнить действие. Попробуйте ещё раз.')).toBeTruthy();
+    expect(screen.getByText('Network request failed')).toBeTruthy();
+  });
+
+  test('a report taken into work says it can no longer be changed', async () => {
+    answer(problem({ status: 'assigned' }));
+
+    await render(<EditProblemRoute />);
+
+    expect(screen.getByText('Задание уже взяли в работу — изменить его нельзя')).toBeTruthy();
+    expect(screen.queryByDisplayValue('Кран течёт')).toBeNull();
+  });
 });
