@@ -1,5 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
+
+import { BUTTON_HEIGHT, Colors, Radius } from '@/constants/theme';
 
 import { PasswordSection } from '../password-section';
 
@@ -218,4 +221,61 @@ test('behind the eye the fields still tell the password manager which one is whi
   expect(screen.getByLabelText('Текущий пароль').props.autoComplete).toBe('current-password');
   expect(screen.getByLabelText('Новый пароль').props.autoComplete).toBe('new-password');
   expect(screen.getByLabelText('Новый пароль ещё раз').props.textContentType).toBe('newPassword');
+});
+
+describe('on the «Абрикос» components', () => {
+  const light = Colors.light;
+
+  function styleOf(element: { props: { style?: unknown } }): ViewStyle & TextStyle {
+    return StyleSheet.flatten(element.props.style as ViewStyle) as ViewStyle & TextStyle;
+  }
+
+  test.each(['Текущий пароль', 'Новый пароль', 'Новый пароль ещё раз'])(
+    '«%s» is a text field: 56 dp, rounded 14, on the card, named by its label above it',
+    async (label) => {
+      await renderSection();
+
+      const field = styleOf(screen.getByLabelText(label));
+      expect(field.minHeight).toBe(BUTTON_HEIGHT);
+      expect(field.borderRadius).toBe(Radius.lg);
+      expect(field.backgroundColor).toBe(light.card);
+      expect(styleOf(screen.getByText(label)).color).toBe(light.textSecondary);
+    },
+  );
+
+  test('«Сменить пароль» is the 56 dp main button', async () => {
+    await renderSection();
+
+    const button = styleOf(screen.getByRole('button', { name: 'Сменить пароль' }));
+    expect(button.minHeight).toBe(BUTTON_HEIGHT);
+    expect(button.backgroundColor).toBe(light.cta);
+  });
+
+  test('while the change runs, the button keeps its words, busy, and a second tap sends nothing', async () => {
+    // Arrange: the check of the current password never answers.
+    mockSignInWithPassword.mockReturnValue(new Promise(() => undefined));
+    await renderSection();
+
+    // Act
+    await submit('old-secret', 'new-secret', 'new-secret');
+    await fireEvent.press(screen.getByRole('button', { name: 'Сменить пароль' }));
+
+    // Assert
+    expect(screen.getByText('Сменить пароль')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Сменить пароль' }).props.accessibilityState,
+    ).toMatchObject({ disabled: true, busy: true });
+    expect(mockSignInWithPassword).toHaveBeenCalledTimes(1);
+  });
+
+  test('a changed password is said in the done tone', async () => {
+    await renderSection();
+
+    await submit('old-secret', 'new-secret', 'new-secret');
+
+    const done = await screen.findByText(
+      'Пароль изменён. На других устройствах нужно будет войти заново.',
+    );
+    expect(styleOf(done).color).toBe(light.tone.done.fg);
+  });
 });

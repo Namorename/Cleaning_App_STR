@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 
-import { PasswordInput } from '@/components/password-input';
-import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import { Button } from '@/components/button';
+import { Text } from '@/components/text';
+import { TextField } from '@/components/text-field';
+import { Spacing } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
-import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { useTheme } from '@/hooks/use-theme';
 
 import {
   MIN_PASSWORD_LENGTH,
@@ -28,7 +30,7 @@ const EMPTY_DRAFT: PasswordDraft = { current: '', next: '', repeat: '' };
  */
 export function PasswordSection() {
   const { t } = useTranslation();
-  const styles = useThemedStyles(createStyles);
+  const theme = useTheme();
   const { session } = useSession();
   const change = useChangePassword();
   const [draft, setDraft] = useState<PasswordDraft>(EMPTY_DRAFT);
@@ -50,26 +52,20 @@ export function PasswordSection() {
   return (
     <SettingsSection title={t('settings.password.heading')}>
       <PasswordField
-        id="password-current"
         label={t('settings.password.current')}
         value={draft.current}
         onChange={(current) => setDraft((before) => ({ ...before, current }))}
         isCurrent
-        styles={styles}
       />
       <PasswordField
-        id="password-new"
         label={t('settings.password.new')}
         value={draft.next}
         onChange={(next) => setDraft((before) => ({ ...before, next }))}
-        styles={styles}
       />
       <PasswordField
-        id="password-repeat"
         label={t('settings.password.repeat')}
         value={draft.repeat}
         onChange={(repeat) => setDraft((before) => ({ ...before, repeat }))}
-        styles={styles}
       />
 
       {issue !== null ? (
@@ -82,93 +78,44 @@ export function PasswordSection() {
       ) : null}
       {change.isError ? <FailureNote failure={passwordFailureText(change.error)} /> : null}
       {change.isSuccess ? (
-        <Text accessibilityLiveRegion="polite" style={styles.done}>
+        <Text accessibilityLiveRegion="polite" color={theme.tone.done.fg}>
           {t('settings.password.changed')}
         </Text>
       ) : null}
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('settings.password.submit')}
-        accessibilityState={{ disabled: change.isPending, busy: change.isPending }}
-        disabled={change.isPending}
+      <Button
+        label={t('settings.password.submit')}
         onPress={onSubmit}
-        style={({ pressed }) => [
-          styles.button,
-          change.isPending && styles.buttonDisabled,
-          pressed && styles.buttonPressed,
-        ]}
-      >
-        {change.isPending ? (
-          <ActivityIndicator color={styles.buttonText.color} />
-        ) : (
-          <Text style={styles.buttonText}>{t('settings.password.submit')}</Text>
-        )}
-      </Pressable>
+        isBusy={change.isPending}
+        style={styles.submit}
+      />
     </SettingsSection>
   );
 }
 
 interface PasswordFieldProps {
-  id: string;
   label: string;
   value: string;
   onChange: (value: string) => void;
   /** The one she already has, for the password manager; the others are new. */
   isCurrent?: boolean;
-  styles: ReturnType<typeof createStyles>;
 }
 
-function PasswordField({
-  id,
-  label,
-  value,
-  onChange,
-  isCurrent = false,
-  styles,
-}: PasswordFieldProps) {
+/** A password as a text field: its label above, masked, with the eye that shows it. */
+function PasswordField({ label, value, onChange, isCurrent = false }: PasswordFieldProps) {
   return (
-    <View style={styles.field}>
-      <Text nativeID={id} style={styles.label}>
-        {label}
-      </Text>
-      <PasswordInput
-        accessibilityLabel={label}
-        accessibilityLabelledBy={id}
-        autoComplete={isCurrent ? 'current-password' : 'new-password'}
-        onChangeText={onChange}
-        style={styles.input}
-        textContentType={isCurrent ? 'password' : 'newPassword'}
-        value={value}
-      />
-    </View>
+    <TextField
+      isPassword
+      label={label}
+      autoComplete={isCurrent ? 'current-password' : 'new-password'}
+      onChangeText={onChange}
+      textContentType={isCurrent ? 'password' : 'newPassword'}
+      value={value}
+    />
   );
 }
 
-const createStyles = (theme: Theme) =>
-  StyleSheet.create({
-    field: { gap: Spacing.xs },
-    label: { color: theme.textSecondary, fontSize: FontSize.body },
-    input: {
-      minHeight: MIN_TOUCH_TARGET,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-      borderRadius: Radius.md,
-      paddingHorizontal: Spacing.md,
-      fontSize: FontSize.title,
-      color: theme.text,
-      backgroundColor: theme.background,
-    },
-    done: { color: theme.tone.done.fg, fontSize: FontSize.body },
-    button: {
-      minHeight: MIN_TOUCH_TARGET,
-      borderRadius: Radius.md,
-      backgroundColor: theme.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: Spacing.xs,
-    },
-    buttonDisabled: { opacity: 0.5 },
-    buttonPressed: { opacity: 0.75 },
-    buttonText: { color: theme.onPrimary, fontSize: FontSize.title, fontWeight: '600' },
-  });
+/** Sizes only: the colours are the components'. */
+const styles = StyleSheet.create({
+  submit: { marginTop: Spacing.xs },
+});

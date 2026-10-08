@@ -1,18 +1,13 @@
-import type { StatusKey } from '@str-ops/shared';
+import { statusIcon, type StatusKey } from '@str-ops/shared';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 
-import {
-  FontSize,
-  MIN_TOUCH_TARGET,
-  Radius,
-  Spacing,
-  statusTone,
-  type Theme,
-} from '@/constants/theme';
+import { Button } from '@/components/button';
+import { Icon } from '@/components/icon';
+import { Text } from '@/components/text';
+import { Radius, Spacing, statusTone } from '@/constants/theme';
 import { usePushPermission } from '@/features/push/use-push-permission';
 import { useTheme } from '@/hooks/use-theme';
-import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 /**
  * What the phone itself lets through, above her switches (docs/f11-plan.md
@@ -28,7 +23,6 @@ import { useThemedStyles } from '@/hooks/use-themed-styles';
 export function PermissionNotice() {
   const { t } = useTranslation();
   const theme = useTheme();
-  const styles = useThemedStyles(createStyles);
   const { state, offChannels, isRequesting, request } = usePushPermission();
 
   if (state === null || (state === 'granted' && offChannels.length === 0)) {
@@ -49,32 +43,25 @@ export function PermissionNotice() {
     : t('settings.notifications.permission.openSettings');
   const onAction = canAsk ? request : () => void Linking.openSettings();
   // Off or never asked is urgent; an iPhone delivering quietly is only a fact.
-  const tone = statusTone(
-    theme,
-    state === 'granted' ? 'phone.permission.channelOff' : NOTICE_STATUS[state],
-  );
+  const status: StatusKey =
+    state === 'granted' ? 'phone.permission.channelOff' : NOTICE_STATUS[state];
+  const tone = statusTone(theme, status);
+  // Colour is never the only cue: the urgent notice carries its tone's glyph.
+  const glyph = statusIcon(status);
 
   return (
     <View accessibilityLiveRegion="polite" style={[styles.notice, { backgroundColor: tone.bg }]}>
-      {lines.map((line) => (
-        <Text key={line} style={[styles.text, { color: tone.fg }]}>
-          {line}
-        </Text>
-      ))}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={actionLabel}
-        accessibilityState={{ disabled: isRequesting, busy: isRequesting }}
-        disabled={isRequesting}
-        onPress={onAction}
-        style={({ pressed }) => [styles.action, pressed && styles.pressed]}
-      >
-        {isRequesting ? (
-          <ActivityIndicator color={theme.primary} />
-        ) : (
-          <Text style={styles.actionText}>{actionLabel}</Text>
-        )}
-      </Pressable>
+      <View style={styles.message}>
+        {glyph !== null ? <Icon name={glyph} color={tone.fg} /> : null}
+        <View style={styles.lines}>
+          {lines.map((line) => (
+            <Text key={line} color={tone.fg}>
+              {line}
+            </Text>
+          ))}
+        </View>
+      </View>
+      <Button variant="secondary" label={actionLabel} onPress={onAction} isBusy={isRequesting} />
     </View>
   );
 }
@@ -91,16 +78,14 @@ const NOTICE_STATUS = {
   provisional: 'phone.permission.provisional',
 } as const satisfies Readonly<Record<keyof typeof NOTICE_KEY, StatusKey>>;
 
-const createStyles = (theme: Theme) =>
-  StyleSheet.create({
-    notice: {
-      gap: Spacing.xs,
-      borderRadius: Radius.md,
-      paddingHorizontal: Spacing.md,
-      paddingVertical: Spacing.sm,
-    },
-    text: { fontSize: FontSize.body },
-    action: { minHeight: MIN_TOUCH_TARGET, justifyContent: 'center', alignSelf: 'flex-start' },
-    actionText: { color: theme.primary, fontSize: FontSize.body, fontWeight: '600' },
-    pressed: { opacity: 0.6 },
-  });
+/** Sizes only: the colours are the tone's. */
+const styles = StyleSheet.create({
+  notice: {
+    gap: Spacing.sm,
+    borderRadius: Radius.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  message: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'flex-start' },
+  lines: { flex: 1, gap: Spacing.xs },
+});

@@ -150,8 +150,8 @@ test('a switch sends the value she wants', async () => {
   await renderScreen();
   const newCleaning = await screen.findByRole('switch', { name: 'Новая уборка' });
 
-  // Act
-  await fireEvent(newCleaning, 'valueChange', false);
+  // Act: the whole row is the switch.
+  await fireEvent.press(newCleaning);
 
   // Assert
   await waitFor(() => expect(setPreference).toHaveBeenCalledWith('cleaning_new', false));
@@ -166,8 +166,8 @@ test('a refused switch goes back and says why', async () => {
   await renderScreen();
   const digest = await screen.findByRole('switch', { name: 'Утренняя сводка' });
 
-  // Act
-  await fireEvent(digest, 'valueChange', true);
+  // Act: the whole row is the switch.
+  await fireEvent.press(digest);
 
   // Assert
   expect(await screen.findByText('Выбор не сохранился.')).toBeTruthy();

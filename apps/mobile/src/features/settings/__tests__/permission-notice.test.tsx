@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as Notifications from 'expo-notifications';
-import { Linking, Platform } from 'react-native';
+import { Linking, Platform, StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
+import { BUTTON_HEIGHT, Colors } from '@/constants/theme';
 import { registerThisPhone } from '@/features/push/registration';
 
 import { PermissionNotice } from '../permission-notice';
@@ -114,4 +115,68 @@ test('an iPhone delivering quietly says where they go', async () => {
   await render(<PermissionNotice />);
 
   expect(await screen.findByText(/только в Центр уведомлений/)).toBeTruthy();
+});
+
+describe('on the «Абрикос» components', () => {
+  const light = Colors.light;
+
+  function styleOf(element: { props: { style?: unknown } }): ViewStyle & TextStyle {
+    return StyleSheet.flatten(element.props.style as ViewStyle) as ViewStyle & TextStyle;
+  }
+
+  /** The Lucide drawings inside the notice, by their canonical names. */
+  function glyphs(name: string): number {
+    return screen.container.queryAll((node) =>
+      String(node.props.className ?? '').includes(`lucide-${name}`),
+    ).length;
+  }
+
+  test('the way to turn them on is a 56 dp button', async () => {
+    getPermissions.mockResolvedValue(neverAsked);
+
+    await render(<PermissionNotice />);
+
+    const button = await screen.findByRole('button', { name: 'Включить уведомления' });
+    expect(styleOf(button).minHeight).toBe(BUTTON_HEIGHT);
+  });
+
+  test('while the system asks, the button keeps its words, busy', async () => {
+    // Arrange: the system question stays on screen.
+    getPermissions.mockResolvedValue(neverAsked);
+    request.mockReturnValue(new Promise(() => undefined));
+    await render(<PermissionNotice />);
+
+    // Act
+    await fireEvent.press(await screen.findByRole('button', { name: 'Включить уведомления' }));
+
+    // Assert
+    expect(screen.getByText('Включить уведомления')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Включить уведомления' }).props.accessibilityState,
+    ).toMatchObject({ disabled: true, busy: true });
+  });
+
+  test('an urgent notice carries the urgent glyph beside its words, in its ink', async () => {
+    getPermissions.mockResolvedValue(refused);
+
+    await render(<PermissionNotice />);
+
+    const line = await screen.findByText(/Уведомления выключены в настройках телефона/);
+    expect(styleOf(line).color).toBe(light.tone.urgent.fg);
+    expect(glyphs('circle-alert')).toBeGreaterThan(0);
+  });
+
+  test('an iPhone delivering quietly is only a fact: no alarm glyph', async () => {
+    runOn('ios');
+    getPermissions.mockResolvedValue({
+      ...neverAsked,
+      status: 'undetermined',
+      ios: { status: Notifications.IosAuthorizationStatus.PROVISIONAL },
+    });
+
+    await render(<PermissionNotice />);
+
+    expect(await screen.findByText(/только в Центр уведомлений/)).toBeTruthy();
+    expect(glyphs('circle-alert')).toBe(0);
+  });
 });

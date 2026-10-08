@@ -1,5 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { Alert, type AlertButton } from 'react-native';
+import { Alert, StyleSheet, type AlertButton } from 'react-native';
+
+import { BUTTON_HEIGHT, Colors } from '@/constants/theme';
 
 import { signOut } from '../session';
 import { SignOutButton } from '../sign-out-button';
@@ -53,4 +55,13 @@ test('a failed sign-out is said in her language, with the raw words as a paragra
     'Не удалось выйти',
     'Не удалось выполнить действие. Попробуйте ещё раз.\n\nAuth session missing!',
   );
+});
+
+test('is the 56 dp destructive button: the urgent tint, the label in danger', async () => {
+  await render(<SignOutButton />);
+
+  const button = StyleSheet.flatten(screen.getByRole('button', { name: 'Выйти' }).props.style);
+  expect(button.minHeight).toBe(BUTTON_HEIGHT);
+  expect(button.backgroundColor).toBe(Colors.light.tone.urgent.bg);
+  expect(StyleSheet.flatten(screen.getByText('Выйти').props.style).color).toBe(Colors.light.danger);
 });

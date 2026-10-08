@@ -29,11 +29,6 @@ const TEXT_COMPONENT = 'components/text.tsx';
  */
 const ALLOWANCE: Readonly<Record<string, number>> = {
   'components/list-action.tsx': 1,
-  'features/auth/sign-out-button.tsx': 1,
-  'features/push/permission-explainer.tsx': 3,
-  'features/settings/password-section.tsx': 1,
-  'features/settings/permission-notice.tsx': 1,
-  'features/settings/push-section.tsx': 1,
   'features/tasks/push-notice.tsx': 2,
   'features/tasks/task-list.tsx': 1,
 };
