@@ -601,4 +601,56 @@ select pg_temp.check('a cleared listing note leaves the room with nothing',
   (select public.effective_cleaner_notes(p) from public.properties p
     where p.id = 1000000064266), null::text);
 
+-- ---------------------------------------------------------------------------
+--  Which report a repair fixes
+-- ---------------------------------------------------------------------------
+--
+-- A repair booked from a report talks in the report's thread, not in one of
+-- its own, so the card's job row needs the report's id to see that thread
+-- (review of 2026-10-05). It is the last column: a caller that reads the old
+-- eight by name keeps reading them.
+reset role; reset request.jwt.claims;
+insert into public.problems (id, property_id, reported_by, title) values
+  ('b6000001-0000-4000-8000-000000000004', 900001901,
+   'd6000001-0000-4000-8000-0000000000d1', 'Leaking tap');
+insert into public.tasks (id, property_id, type, status, scheduled_date, problem_id) values
+  ('a6000001-0000-4000-8000-000000000021', 900001901, 'maintenance', 'unassigned',
+   current_date, 'b6000001-0000-4000-8000-000000000004');
+
+select pg_temp.as_boss();
+
+select pg_temp.check('a repair booked from a report carries the report',
+  (select c.problem_id from public.property_maintenance_tasks(900001901, 60) c
+    where c.id = 'a6000001-0000-4000-8000-000000000021'),
+  'b6000001-0000-4000-8000-000000000004'::uuid);
+
+select pg_temp.check('a repair of its own carries none',
+  (select c.problem_id from public.property_maintenance_tasks(900001901, 60) c
+    where c.id = 'a6000001-0000-4000-8000-000000000020'), null::uuid);
+
+select pg_temp.check('and the room is still named on the folded row',
+  (select c.unit_name from public.property_maintenance_tasks(900001901, 60) c
+    where c.id = 'a6000001-0000-4000-8000-000000000020'),
+  (select p.name from public.properties p where p.id = 1000000064266));
+
+-- Growing a column means dropping the function and creating it again, and a
+-- new function hands EXECUTE to PUBLIC. Read from the ACL itself: an unset
+-- proacl IS the default grant to PUBLIC, so it is expanded with acldefault()
+-- rather than let aclexplode(null) answer «nobody».
+select pg_temp.check('a manager may call it',
+  has_function_privilege('authenticated',
+    'public.property_maintenance_tasks(bigint, integer)', 'execute'), true);
+select pg_temp.check('the server may too',
+  has_function_privilege('service_role',
+    'public.property_maintenance_tasks(bigint, integer)', 'execute'), true);
+select pg_temp.check('anon may not',
+  has_function_privilege('anon',
+    'public.property_maintenance_tasks(bigint, integer)', 'execute'), false);
+select pg_temp.check('and nothing is granted to PUBLIC',
+  (select count(*)::int
+   from pg_proc p,
+        aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+   where p.oid = 'public.property_maintenance_tasks(bigint, integer)'::regprocedure
+     and a.grantee = 0), 0);
+
 rollback;
