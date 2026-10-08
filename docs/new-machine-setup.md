@@ -39,7 +39,7 @@
 | EAS CLI | 24.12.0 | через `npx eas-cli`; в зависимостях его нет, при расхождении — `npx eas-cli@24.12.0` |
 | Vercel CLI | 63.1.0 | через `npx vercel` |
 | Claude Code | 2.1.294, канал обновлений `latest` | нативная установка |
-| Плагин ECC | `ecc@ecc` 2.2.0 | маркетплейс `ecc` = git `https://github.com/affaan-m/ECC.git` |
+| Плагин ECC | `ecc@ecc` 2.2.3 | маркетплейс `ecc` = git `https://github.com/affaan-m/ECC.git`; на старом компьютере стоял коммит `d8409a4` (в манифесте 2.2.0, раньше метки `v2.2.0`) — точная копия невозможна, GateGuard ведёт себя так же |
 | Плагины Vercel и Expo | `vercel@claude-plugins-official` 0.50.0, `expo@claude-plugins-official` 1.13.6 | маркетплейс `claude-plugins-official` |
 | Python | 3.12.4 | не обязателен: разовые правки скриптами |
 | Google Chrome | — | драйверы puppeteer стенда и живых прогонов |
