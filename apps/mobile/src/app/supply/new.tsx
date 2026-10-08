@@ -2,10 +2,12 @@ import { randomUUID } from 'expo-crypto';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
-import { FontSize, Spacing, type Theme } from '@/constants/theme';
+import { Skeleton, SkeletonGroup } from '@/components/skeleton';
+import { Text } from '@/components/text';
+import { BUTTON_HEIGHT, Radius, Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
 import { supplyPlace } from '@/features/supplies/format';
 import {
@@ -83,19 +85,20 @@ export default function SupplyFormRoute() {
 
   if (draft === null) {
     return (
-      <View style={styles.centered}>
+      <View style={styles.screen}>
         {title}
-        <ActivityIndicator color={styles.message.color} />
-        <Text style={styles.message}>{t('supplies.loading')}</Text>
+        <FormSkeleton label={t('supplies.loading')} />
       </View>
     );
   }
 
   if (existing.data && !canEditSupplyRequest(existing.data, userId)) {
     return (
-      <View style={styles.centered}>
+      <View style={[styles.screen, styles.centered]}>
         {title}
-        <Text style={styles.message}>{t('supplies.notEditable')}</Text>
+        <Text tone="secondary" align="center">
+          {t('supplies.notEditable')}
+        </Text>
       </View>
     );
   }
@@ -135,15 +138,38 @@ export default function SupplyFormRoute() {
   );
 }
 
+/** The form's blocks: the catalogue's search, three of its rows, the summary's button. */
+const SKELETON_ROW = 64;
+const SKELETON_ROWS = 3;
+
+interface FormSkeletonProps {
+  /** What is loading, said to the reader. */
+  label: string;
+}
+
+function FormSkeleton({ label }: FormSkeletonProps) {
+  return (
+    <SkeletonGroup label={label} style={layout.content}>
+      <Skeleton height={BUTTON_HEIGHT} radius={Radius.lg} />
+      {Array.from({ length: SKELETON_ROWS }, (_, index) => (
+        <Skeleton key={index} height={SKELETON_ROW} radius={Radius.card} />
+      ))}
+      <Skeleton height={BUTTON_HEIGHT} radius={Radius.pill} />
+    </SkeletonGroup>
+  );
+}
+
+/** Sizes only: nothing here depends on the colour scheme. */
+const layout = StyleSheet.create({
+  content: { padding: Spacing.lg, gap: Spacing.md },
+});
+
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
+    screen: { flex: 1, backgroundColor: theme.background },
     centered: {
-      flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
       padding: Spacing.xl,
-      gap: Spacing.sm,
-      backgroundColor: theme.background,
     },
-    message: { color: theme.textSecondary, fontSize: FontSize.body, textAlign: 'center' },
   });

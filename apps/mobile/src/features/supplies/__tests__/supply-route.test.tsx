@@ -115,8 +115,8 @@ test('a rewrite is titled «Изменить заявку», while it loads as w
   // Act
   await render(<SupplyFormRoute />);
 
-  // Assert
-  expect(screen.getByText('Загружаем заявки…')).toBeTruthy();
+  // Assert: said as loading, by the label of the skeleton that stands in.
+  expect(screen.getByRole('progressbar', { name: 'Загружаем заявки…' })).toBeTruthy();
   expect(mockTitles.at(-1)).toBe('Изменить заявку');
 });
 
@@ -124,7 +124,7 @@ test('a request that arrives after the screen opened fills the form', async () =
   // Arrange: nothing yet.
   answer(undefined);
   const view = await render(<SupplyFormRoute />);
-  expect(screen.getByText('Загружаем заявки…')).toBeTruthy();
+  expect(screen.getByRole('progressbar', { name: 'Загружаем заявки…' })).toBeTruthy();
 
   // Act: the row arrives.
   answer(request('Мешки'));
@@ -191,4 +191,18 @@ test('a new request goes under the id the phone made, picked lines with their en
     taskId: null,
     propertyId: null,
   });
+});
+
+test('a request already taken up is not hers to rewrite, and the screen says so', async () => {
+  // Arrange
+  jest.mocked(useSupplyRequest).mockReturnValue({
+    data: { ...request('Мешки'), status: 'accepted' },
+  } as ReturnType<typeof useSupplyRequest>);
+
+  // Act
+  await render(<SupplyFormRoute />);
+
+  // Assert
+  expect(screen.getByText('Заявку уже взяли в работу — изменить её нельзя')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Сохранить' })).toBeNull();
 });

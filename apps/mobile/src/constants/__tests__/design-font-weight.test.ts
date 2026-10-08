@@ -34,9 +34,6 @@ const ALLOWANCE: Readonly<Record<string, number>> = {
   'features/settings/password-section.tsx': 1,
   'features/settings/permission-notice.tsx': 1,
   'features/settings/push-section.tsx': 1,
-  'features/supplies/supply-card.tsx': 3,
-  'features/supplies/supply-detail.tsx': 6,
-  'features/supplies/supply-list.tsx': 1,
   'features/tasks/push-notice.tsx': 2,
   'features/tasks/task-list.tsx': 1,
 };
