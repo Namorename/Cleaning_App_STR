@@ -228,6 +228,15 @@ test('Android: expo-camera is built from source, so the barcode scanner stays ou
   expect(expo?.autolinking?.android?.buildFromSource).toContain('expo-camera');
 });
 
+// A recording longer than the phone's auto-lock is cut unless the app keeps the
+// screen on. expo-keep-awake is a dependency of expo and linked into the binary
+// anyway; the app declares it because its own code imports it.
+test('the screen can be kept awake while a video records', () => {
+  const { dependencies } = packageJson as { dependencies: Record<string, string> };
+
+  expect(dependencies['expo-keep-awake']).toBeDefined();
+});
+
 test('the field builds: an APK and a TestFlight build on their own channel', () => {
   const build = easJson.build as Record<
     string,
