@@ -53,7 +53,8 @@ export async function fileSize(uri: string): Promise<number> {
     const response = await fetch(uri);
     return (await response.blob()).size;
   }
-  return new File(uri).size ?? 0;
+  // 0 for a file that is not there: File.size is never null.
+  return new File(uri).size;
 }
 
 const MEDIA_DIRECTORY = 'task-media';
@@ -73,11 +74,7 @@ const MEDIA_DIRECTORY = 'task-media';
  * rename won was a coin toss. The loser got size 0, the server refused the
  * row, and the cleaner was told her file was of a kind nobody accepts.
  */
-export async function keepFile(
-  uri: string,
-  mediaId: string,
-  extension: string,
-): Promise<string> {
+export async function keepFile(uri: string, mediaId: string, extension: string): Promise<string> {
   if (Platform.OS === 'web') {
     return uri;
   }

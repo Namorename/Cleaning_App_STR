@@ -173,6 +173,7 @@ async function attachVideo(
       storagePath: row.storage_path,
       uri: variables.uri,
       mimeType: variables.mimeType,
+      byteSize: variables.byteSize,
       onProgress: (sent, total) => reportUploadProgress(variables.mediaId, sent, total),
     });
   }

@@ -144,6 +144,7 @@ describe('a video in the chain', () => {
         storagePath: 'host/task/m1.mp4',
         uri: video.uri,
         mimeType: 'video/mp4',
+        byteSize: 21_000_000,
       }),
     );
   });

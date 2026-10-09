@@ -41,8 +41,9 @@ jest.mock('expo-file-system', () => {
       return sizes.has(this.uri);
     }
 
-    get size(): number | null {
-      return sizes.get(this.uri) ?? null;
+    // As the native one: 0 for a file that is not there, never null.
+    get size(): number {
+      return sizes.get(this.uri) ?? 0;
     }
 
     async bytes(): Promise<Uint8Array> {

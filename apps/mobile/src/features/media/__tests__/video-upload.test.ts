@@ -55,6 +55,7 @@ const upload = {
   storagePath: 'host-1/task-1/m1.mp4',
   uri: record.uri,
   mimeType: 'video/mp4',
+  byteSize: 21_000_000,
 };
 
 /** What the chain handed the protocol on its last call. */
@@ -180,4 +181,30 @@ test('runs with the app’s own sense of signal and of being in front', async ()
   expect(runtime.isOnline()).toBe(false);
   onlineManager.setOnline(true);
   expect(runtime.isOnline()).toBe(true);
+});
+
+// The phone's copy is deleted once the server confirms: the file is checked
+// against the size the server registered before a byte goes up.
+test('carries the size the server registered, for the file to be checked against', async () => {
+  await uploadVideoFile(upload);
+
+  expect(handed().video.byteSize).toBe(21_000_000);
+});
+
+test('cuts the request on the wire the moment the queue loses its signal', async () => {
+  // Arrange
+  await uploadVideoFile(upload);
+  const lost = jest.fn();
+
+  // Act
+  const stop = handed().runtime.onOffline(lost);
+  onlineManager.setOnline(false);
+  onlineManager.setOnline(true);
+
+  // Assert: the loss is heard; coming back is not a loss.
+  expect(lost).toHaveBeenCalledTimes(1);
+  stop();
+  onlineManager.setOnline(false);
+  expect(lost).toHaveBeenCalledTimes(1);
+  onlineManager.setOnline(true);
 });

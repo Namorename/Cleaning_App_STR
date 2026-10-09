@@ -130,12 +130,13 @@ test('a piece cut by the app going to the background is not a failure: the uploa
       bucket: 'task-media',
       objectName: 'host/task/m1.mp4',
       contentType: 'video/mp4',
+      byteSize: TUS_CHUNK_BYTES + 10,
       uploadUrl: null,
       saveUploadUrl: async () => undefined,
       accessToken: async () => 'token',
       openSource: async () => source,
     },
-    { fetch, sleep, presence: appPresence, isOnline: () => true },
+    { fetch, sleep, presence: appPresence, isOnline: () => true, onOffline: () => () => undefined },
   );
 
   // Assert

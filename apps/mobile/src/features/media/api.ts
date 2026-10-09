@@ -212,6 +212,13 @@ const resumableRuntime: TusRuntime = {
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   presence: appPresence,
   isOnline: () => onlineManager.isOnline(),
+  // The queue's own sense of signal: a failure anywhere in the app marks it offline.
+  onOffline: (listener) =>
+    onlineManager.subscribe((isOnline) => {
+      if (!isOnline) {
+        listener();
+      }
+    }),
 };
 
 /**
@@ -238,6 +245,8 @@ export interface VideoUpload {
   storagePath: string;
   uri: string;
   mimeType: string;
+  /** The size registered by add_task_media: the file must still be that size. */
+  byteSize: number;
   onProgress?: (sent: number, total: number) => void;
 }
 
@@ -260,6 +269,7 @@ export async function uploadVideoFile(upload: VideoUpload): Promise<void> {
       bucket: MEDIA_BUCKET,
       objectName: upload.storagePath,
       contentType: upload.mimeType,
+      byteSize: upload.byteSize,
       uploadUrl: stored,
       // Only what makes a later attempt resume: a ledger that could not be
       // written costs a restart from the first byte, not this upload.
