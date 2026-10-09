@@ -161,6 +161,18 @@ function statusTextOf(item: MediaItemView, percent: number | null, t: TFunction)
     : t('steps.mediaUploadingPercent', { percent });
 }
 
+/**
+ * Why a stranded file did not get in, in a few words: the storage's code, or
+ * the kind of failure (`upload-failure.ts`). Null for a file on its way or in.
+ */
+function failureTextOf(item: MediaItemView, t: TFunction): string | null {
+  if (item.status !== 'failed' || item.failure === undefined) {
+    return null;
+  }
+  const { key, status, type } = item.failure;
+  return t(`steps.uploadReason.${key}`, { status, type });
+}
+
 function MediaTile({ item, index, disabled, onRemove, onRetry }: MediaTileProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
@@ -169,7 +181,9 @@ function MediaTile({ item, index, disabled, onRemove, onRetry }: MediaTileProps)
   // value, so the tile's own words do not say the number a second time.
   const percent = sentPercent(item);
   const statusText = statusTextOf(item, percent, t);
-  const spokenStatus = statusTextOf(item, null, t);
+  const reason = failureTextOf(item, t);
+  const spokenStatus =
+    reason === null ? statusTextOf(item, null, t) : `${statusTextOf(item, null, t)}. ${reason}`;
   const label =
     item.kind === 'video'
       ? t('steps.videoAccessibility', { status: spokenStatus })
@@ -208,6 +222,11 @@ function MediaTile({ item, index, disabled, onRemove, onRetry }: MediaTileProps)
             {statusText}
           </Text>
         </View>
+        {reason !== null ? (
+          <Text variant="caption" tone="danger" style={layout.reason}>
+            {reason}
+          </Text>
+        ) : null}
       </View>
 
       {/* Outside the tile's words, so the reader can reach it as a bar of its own. */}
@@ -305,6 +324,7 @@ const layout = StyleSheet.create({
     paddingVertical: Spacing.xs,
   },
   shrink: { flexShrink: 1 },
+  reason: { paddingHorizontal: Spacing.sm, paddingBottom: Spacing.xs },
   tileActions: { gap: Spacing.xs, padding: Spacing.xs },
   // Narrower than a screen's button: two of them share a tile.
   tileButton: { paddingHorizontal: Spacing.sm },

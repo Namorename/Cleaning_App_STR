@@ -16,7 +16,7 @@ import type { OwnMediaState, OwnMediaStates } from '@/features/chat/media-tiles'
 import { stepKeys } from '@/features/steps/keys';
 import { backoffDelay } from '@/lib/move-retry';
 import { serverErrorKey } from '@/lib/server-error';
-import { reportError } from '@/lib/sentry';
+import { noteStep, reportError } from '@/lib/sentry';
 
 import {
   addMedia,
@@ -48,6 +48,7 @@ import {
   type LocalMediaRecord,
 } from './local-store';
 import type { MediaItemView, MediaKind, TaskMedia } from './schema';
+import { uploadFailureOf, type UploadFailure } from './upload-failure';
 import {
   clearUploadProgress,
   reportUploadProgress,
@@ -215,13 +216,19 @@ async function attachAttempt(
   queryClient: QueryClient,
 ): Promise<TaskMedia> {
   beginAttachAttempt(variables.mediaId);
+  const mark = { mediaId: variables.mediaId, kind: variables.kind };
+  noteStep('media.attach', 'begun', mark);
   let row: TaskMedia;
   try {
     row = await attachMedia(variables, queryClient);
   } catch (error: unknown) {
-    throw countAttachFailure(variables.mediaId, error);
+    const kept = countAttachFailure(variables.mediaId, error);
+    const { key, status } = uploadFailureOf(kept);
+    noteStep('media.attach', 'failed', { ...mark, reason: key, status: status ?? null });
+    throw kept;
   }
   forgetAttachCount(variables.mediaId);
+  noteStep('media.attach', 'in', mark);
   return row;
 }
 
@@ -575,6 +582,43 @@ export function useFailedVideoAttach(stepId: string): Error | null {
 }
 
 /**
+ * Why each file the queue gave up on did not get in, by media id — photos
+ * and videos alike, for the step's tiles to say (night of 2026-10-10, block
+ * 1). The queue keeps a failed attempt until a retry or a removal clears it
+ * (`dropFailedAttempts`); a later failed attempt of the same file speaks over
+ * an earlier one, and a removed file says nothing.
+ */
+export function useAttachFailures(): ReadonlyMap<string, UploadFailure> {
+  const failed = useMutationState({
+    filters: { mutationKey: mediaMutationKeys.attach, status: 'error' },
+    select: (mutation) => ({
+      mediaId: (mutation.state.variables as AttachMediaVariables | undefined)?.mediaId,
+      error: mutation.state.error,
+    }),
+  });
+  const removed = useMutationState({
+    filters: {
+      mutationKey: mediaMutationKeys.remove,
+      predicate: (mutation) => mutation.state.status !== 'error',
+    },
+    select: (mutation) => (mutation.state.variables as RemoveMediaVariables | undefined)?.mediaId,
+  });
+
+  return useMemo(
+    () =>
+      new Map(
+        failed
+          .filter(
+            (entry): entry is { mediaId: string; error: Error | null } =>
+              typeof entry.mediaId === 'string' && !removed.includes(entry.mediaId),
+          )
+          .map(({ mediaId, error }) => [mediaId, uploadFailureOf(error)] as const),
+      ),
+    [failed, removed],
+  );
+}
+
+/**
  * The tiles of one step, in the order the photos were taken.
  *
  * Where the picture comes from: the file on the phone when we still have it,
@@ -600,6 +644,10 @@ export function mediaItemViews(
         item.uploaded_at !== null ? 'uploaded' : uploading.has(item.id) ? 'uploading' : 'failed',
       durationSec: item.duration_sec,
     };
+    if (view.status === 'failed') {
+      // No failed attempt in this run: the app was closed while it travelled.
+      return { ...view, failure: transfers.failures?.get(item.id) ?? uploadFailureOf(undefined) };
+    }
     if (view.status !== 'uploading') {
       return view;
     }
@@ -617,4 +665,6 @@ export interface MediaTransfers {
   waiting?: ReadonlySet<string>;
   /** The share of each file sent so far (`useUploadProgress`). */
   progress?: UploadProgress;
+  /** Why each file the queue gave up on did not get in (`useAttachFailures`). */
+  failures?: ReadonlyMap<string, UploadFailure>;
 }

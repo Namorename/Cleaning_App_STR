@@ -2,13 +2,17 @@ import { Stack, useNavigation } from 'expo-router';
 import { usePreventRemove } from 'expo-router/react-navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 
+import { Button } from '@/components/button';
 import { LoadingState } from '@/components/loading-state';
+import { Text } from '@/components/text';
+import { Spacing, type Theme } from '@/constants/theme';
 import { keepRecording, type CapturedMedia, type Recording } from '@/features/media/capture';
 import { discardFile } from '@/features/media/file';
 import type { VideoLimits } from '@/features/media/schema';
-import { reportError } from '@/lib/sentry';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { noteStep, reportError } from '@/lib/sentry';
 
 import { PermissionScreen } from './permission-screen';
 import type { RecordingEnd } from './recording';
@@ -57,6 +61,8 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
   const [isSending, setSending] = useState(false);
   const [isSent, setSent] = useState(false);
   const [sendError, setSendError] = useState<unknown>(null);
+  /** Where the preview plays from once «Отправить» moved the file under a name of ours. */
+  const [keptUri, setKeptUri] = useState<string | null>(null);
   const unsent = useRef<Unsent | null>(null);
   const isSendingNow = useRef(false);
   const isMounted = useRef(true);
@@ -76,6 +82,7 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
   useEffect(() => {
     if (isSent && !hasLeft.current) {
       hasLeft.current = true;
+      noteStep('video.send', 'leaving');
       onDone();
     }
   }, [isSent, onDone]);
@@ -133,6 +140,7 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
         limits={limits}
         onRecorded={(recording, end) => {
           unsent.current = { uri: recording.uri, kept: null };
+          setKeptUri(null);
           setSendError(null);
           setPhase({ kind: 'preview', recording, end });
         }}
@@ -142,6 +150,7 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
 
   const retake = () => {
     forget(unsent);
+    setKeptUri(null);
     setSendError(null);
     setPhase({ kind: 'camera' });
   };
@@ -150,9 +159,18 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
     isSendingNow.current = true;
     setSending(true);
     setSendError(null);
+    noteStep('video.send', 'pressed');
     try {
       const captured = unsent.current?.kept ?? (await keepRecording(phase.recording));
       unsent.current = { uri: captured.uri, kept: captured };
+      if (isMounted.current) {
+        setKeptUri(captured.uri);
+      }
+      noteStep('video.send', 'kept', {
+        mediaId: captured.id,
+        byteSize: captured.byteSize,
+        durationSec: captured.durationSec,
+      });
       await onSend(captured);
       // The queue's now: kept on the phone until the server has it.
       unsent.current = null;
@@ -160,6 +178,9 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
         setSent(true);
       }
     } catch (error: unknown) {
+      noteStep('video.send', 'failed', {
+        type: error instanceof Error ? error.name : typeof error,
+      });
       if (isMounted.current) {
         setSendError(error);
       } else {
@@ -174,17 +195,50 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
     }
   };
 
+  // Handed over: the screen goes by itself, and says so meanwhile — never an
+  // empty screen with no way out, should the way back not come.
+  if (isSent) {
+    return titled(<SentNotice onBack={onDone} />);
+  }
+
   return titled(
     <VideoPreview
       recording={phase.recording}
+      uri={keptUri ?? phase.recording.uri}
       end={phase.end}
-      isSending={isSending || isSent}
+      isSending={isSending}
       sendError={sendError}
       onRetake={retake}
       onSend={() => void send()}
     />,
   );
 }
+
+/** The recording is the queue's: what happens to it now, and the way back. */
+function SentNotice({ onBack }: { onBack: () => void }) {
+  const { t } = useTranslation();
+  const styles = useThemedStyles(createStyles);
+
+  return (
+    <View style={styles.sent}>
+      <Text align="center" accessibilityRole="alert">
+        {t('video.queued')}
+      </Text>
+      <Button label={t('video.backToStep')} onPress={onBack} />
+    </View>
+  );
+}
+
+const createStyles = (theme: Theme) =>
+  StyleSheet.create({
+    sent: {
+      flex: 1,
+      justifyContent: 'center',
+      gap: Spacing.md,
+      padding: Spacing.xl,
+      backgroundColor: theme.background,
+    },
+  });
 
 /** Delete the recording not handed over, wherever its file is now. */
 function forget(unsent: { current: Unsent | null }): void {

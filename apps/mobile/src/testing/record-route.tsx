@@ -3,7 +3,10 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { router } from 'expo-router';
 import { AppState, type AlertButton, type AppStateStatus } from 'react-native';
 
-import RecordRoute from '@/app/task/[id]/step/[stepId]/record';
+import RecordRoute, {
+  ErrorBoundary as RecordErrorBoundary,
+} from '@/app/task/[id]/step/[stepId]/record';
+import { RouteError } from '@/components/route-error';
 import type { VideoSettings } from '@/features/host/schema';
 import { keepRecording, type CapturedMedia } from '@/features/media/capture';
 import { discardFile } from '@/features/media/file';
@@ -24,7 +27,15 @@ import type { TaskStep } from '@/features/steps/schema';
  * Each file calls `setUpRecordRoute()` once, at its top.
  */
 
-export { RecordRoute, discardFile, router, activateKeepAwakeAsync, deactivateKeepAwake };
+export {
+  RecordRoute,
+  RecordErrorBoundary,
+  RouteError,
+  discardFile,
+  router,
+  activateKeepAwakeAsync,
+  deactivateKeepAwake,
+};
 
 /** The short limit: what the screen reads before the camera is not waited on longer. */
 export const SHORT_LIMIT_MS = TUS_SHORT_STALL_MS;
@@ -215,7 +226,7 @@ jest.mock('expo-router', () => ({
       return null;
     },
   },
-  router: { back: jest.fn(), push: jest.fn() },
+  router: { back: jest.fn(), push: jest.fn(), canGoBack: jest.fn(() => true) },
   useLocalSearchParams: () => ({
     id: '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b',
     stepId: 'b1c2d3e4-1111-4111-8111-b1c2d3e40001',

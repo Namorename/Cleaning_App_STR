@@ -17,6 +17,7 @@ import { toLocalRecord, type LocalMediaRecord } from '@/features/media/local-sto
 import { mediaKindOfStep, mediaOfStep, videoLimits } from '@/features/media/schema';
 import {
   mediaItemViews,
+  useAttachFailures,
   useAttachMedia,
   useFailedVideoAttach,
   useLocalMedia,
@@ -40,6 +41,10 @@ import {
 import { useTask } from '@/features/tasks/use-tasks';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { wordContext } from '@/i18n';
+
+// A screen that cannot draw says so, with «Повторить» and «Назад», and is
+// reported — rather than leaving the root to catch it (night of 2026-10-10).
+export { RouteError as ErrorBoundary } from '@/components/route-error';
 
 const Params = z.object({ id: z.string().uuid(), stepId: z.string().uuid() });
 
@@ -89,6 +94,8 @@ export default function StepRoute() {
   // What the tiles say of a file on its way: waiting for signal, how much has gone.
   const waiting = useWaitingMediaIds();
   const progress = useUploadProgress();
+  // Why each stranded tile did not get in, in a few words (night of 2026-10-10).
+  const failures = useAttachFailures();
   // A video is sent from the recording screen; its refusal comes back here.
   const videoAttachError = useFailedVideoAttach(stepId);
   const galleryAllowed = useGalleryAllowed();
@@ -116,8 +123,9 @@ export default function StepRoute() {
       mediaItemViews(stepMedia, local.data ?? {}, urls.data ?? {}, uploading, {
         waiting,
         progress,
+        failures,
       }),
-    [stepMedia, local.data, urls.data, uploading, waiting, progress],
+    [stepMedia, local.data, urls.data, uploading, waiting, progress, failures],
   );
 
   // The first opening is stamped once per visit, and only when there is

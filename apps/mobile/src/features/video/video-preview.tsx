@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { FailureText } from '@/components/failure-text';
+import { LoadingState } from '@/components/loading-state';
 import { Text } from '@/components/text';
 import { Spacing, type Theme } from '@/constants/theme';
 import type { Recording } from '@/features/media/capture';
@@ -22,6 +23,11 @@ const END_NOTICE: Readonly<Record<RecordingEnd, string | null>> = {
 
 interface VideoPreviewProps {
   recording: Recording;
+  /**
+   * Where the file is now: the camera's path, or the name of ours an
+   * «Отправить» that went no further moved it to.
+   */
+  uri: string;
   end: RecordingEnd;
   isSending: boolean;
   /** Why the last «Отправить» did not go through, or null. */
@@ -36,9 +42,15 @@ interface VideoPreviewProps {
  * The phone's own player with its own controls; it waits for her to press
  * play and keeps the sound. «Отправить» is the main button; «Переснять»
  * throws this one away and opens the camera again.
+ *
+ * While «Отправить» hands the recording over, the player is let go: its file
+ * is moving to another folder under it, and the screen is about to leave
+ * (night of 2026-10-10, block 1 — the empty screen after «Отправить»). A
+ * hand-over that fails brings it back, on the file where it now is.
  */
 export function VideoPreview({
   recording,
+  uri,
   end,
   isSending,
   sendError,
@@ -47,20 +59,11 @@ export function VideoPreview({
 }: VideoPreviewProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
-  const player = useVideoPlayer(recording.uri, (created) => {
-    created.loop = false;
-  });
   const notice = END_NOTICE[end];
 
   return (
     <View style={styles.screen}>
-      <VideoView
-        player={player}
-        nativeControls
-        contentFit="contain"
-        style={layout.video}
-        accessibilityLabel={t('video.player')}
-      />
+      {isSending ? <LoadingState label={t('video.preparing')} /> : <PreviewPlayer uri={uri} />}
       <ScrollView style={layout.panel} contentContainerStyle={layout.controls}>
         {notice !== null ? (
           <Text accessibilityRole="alert" align="center">
@@ -80,6 +83,24 @@ export function VideoPreview({
         />
       </ScrollView>
     </View>
+  );
+}
+
+/** The phone's own player; let go, with its file, when this unmounts (expo-video). */
+function PreviewPlayer({ uri }: { uri: string }) {
+  const { t } = useTranslation();
+  const player = useVideoPlayer(uri, (created) => {
+    created.loop = false;
+  });
+
+  return (
+    <VideoView
+      player={player}
+      nativeControls
+      contentFit="contain"
+      style={layout.video}
+      accessibilityLabel={t('video.player')}
+    />
   );
 }
 

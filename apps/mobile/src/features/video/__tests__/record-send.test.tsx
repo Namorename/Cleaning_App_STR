@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert, StyleSheet, type ViewStyle } from 'react-native';
 
@@ -5,7 +6,9 @@ import type { CapturedMedia } from '@/features/media/capture';
 import {
   KEPT_URI,
   RECORDED_URI,
+  RecordErrorBoundary,
   RecordRoute,
+  RouteError,
   STEP_ID,
   TASK_ID,
   deferred,
@@ -284,5 +287,81 @@ describe('leaving the preview with a recording not sent', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
 
     expect(mockLeaveGuard.isOn).toBe(false);
+  });
+});
+
+// Night of 2026-10-10, block 1: after «Отправить» the owner's phone showed an
+// empty screen and stayed there, for a cleaner and for the head technician
+// alike. The send now lets go of the player before the file moves, never
+// leaves the screen without a way out, and marks each link of the hand-over
+// for the crash report that follows a failure.
+describe('the hand-over, made sure', () => {
+  test('the player is let go while the recording is handed over, and comes back if it fails', async () => {
+    // Arrange
+    const keeping = deferred<CapturedMedia>();
+    keep.mockReturnValue(keeping.promise);
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    // Act
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    // Assert: no player over a file on its way to another folder.
+    expect(screen.queryByTestId('video-preview')).toBeNull();
+    expect(screen.getByText('Готовим видео к отправке…')).toBeTruthy();
+    await act(async () => keeping.reject(new Error('disk I/O error')));
+    expect(screen.getByTestId('video-preview')).toBeTruthy();
+  });
+
+  test('a preview back after a failed hand-over plays the kept file, not the camera’s path it left', async () => {
+    mockRemember.mockRejectedValueOnce(new Error('disk I/O error'));
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    expect(screen.getByText('disk I/O error')).toBeTruthy();
+    expect(mockPreview.source).toBe(KEPT_URI);
+  });
+
+  test('sent, the screen says the video is queued and offers the way back itself', async () => {
+    // Arrange
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    // Act
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    // Assert: it goes back by itself; should that not happen, the button does.
+    expect(router.back).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Видео в очереди: загрузится само, когда будет связь.')).toBeTruthy();
+    expect(screen.queryByTestId('video-preview')).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Вернуться к шагу' }));
+    expect(router.back).toHaveBeenCalledTimes(2);
+  });
+
+  test('each link of the hand-over is marked for the crash report, without the file’s path', async () => {
+    // Arrange
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    // Act
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    // Assert
+    const marks = jest.mocked(Sentry.addBreadcrumb).mock.calls.map(([crumb]) => crumb);
+    expect(marks.map((crumb) => `${crumb.category}:${crumb.message}`)).toEqual([
+      'video.send:pressed',
+      'video.send:kept',
+      'video.send:remembered',
+      'video.send:queued',
+      'video.send:leaving',
+    ]);
+    expect(JSON.stringify(marks)).not.toMatch(/file:\/\//);
+    expect(marks[1].data).toEqual({ mediaId: 'kept-id', byteSize: 21_000_000, durationSec: 5 });
+  });
+
+  test('the recording screen has a boundary of its own, with «Назад»', () => {
+    expect(RecordErrorBoundary).toBe(RouteError);
   });
 });
