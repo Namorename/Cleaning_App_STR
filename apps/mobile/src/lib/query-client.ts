@@ -1,6 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
-import { QueryClient, notifyManager, onlineManager, type QueryKey } from '@tanstack/react-query';
+import {
+  QueryClient,
+  notifyManager,
+  onlineManager,
+  type MutationOptions,
+  type QueryKey,
+} from '@tanstack/react-query';
 import type { PersistedClient, Persister } from '@tanstack/react-query-persist-client';
 
 import { registerChatMutations } from '@/features/chat/use-chat';
@@ -12,7 +18,7 @@ import { stepKeys } from '@/features/steps/keys';
 import { registerSupplyMutations } from '@/features/supplies/use-supplies';
 import { registerStepMutations } from '@/features/steps/use-steps';
 import { registerTaskMutations, taskKeys } from '@/features/tasks/use-tasks';
-import { moveRetryDelay, retryMove } from '@/lib/move-retry';
+import { countRefusals, isMoveRetry, moveRetryDelay, retryMove } from '@/lib/move-retry';
 
 /** Milliseconds; the cache is thrown away after this long without a refresh. */
 const CACHE_LIFETIME = 24 * 60 * 60 * 1000;
@@ -54,6 +60,24 @@ function atMost(move: Promise<unknown>, wait: number): Promise<unknown> {
  * without signal.
  */
 class AppQueryClient extends QueryClient {
+  /**
+   * Every field action's call counts its own refusals (lib/move-retry.ts,
+   * `countRefusals`), however it is made: from a screen's hook, or restored
+   * from disk with the function registered for its key. Here because this is
+   * where both get their options; a call some other `retry` decides on is left
+   * as it is.
+   */
+  override defaultMutationOptions<T extends MutationOptions<unknown, unknown, unknown, unknown>>(
+    options?: T,
+  ): T {
+    const defaulted = super.defaultMutationOptions(options);
+    const { mutationFn, retry } = defaulted;
+    if (options?._defaulted === true || mutationFn === undefined || !isMoveRetry(retry)) {
+      return defaulted;
+    }
+    return { ...defaulted, mutationFn: countRefusals(mutationFn) };
+  }
+
   override resumePausedMutations(): Promise<unknown> {
     if (!onlineManager.isOnline()) {
       return Promise.resolve();

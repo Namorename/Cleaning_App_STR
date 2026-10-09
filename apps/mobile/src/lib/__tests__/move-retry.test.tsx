@@ -21,7 +21,7 @@ import { supplyMutationKeys } from '@/features/supplies/keys';
 import { useSaveSupplyRequest } from '@/features/supplies/use-supplies';
 import { startTask } from '@/features/tasks/api';
 import { taskMutationKeys, useStartTask } from '@/features/tasks/use-tasks';
-import { stopWatchingConnection } from '@/lib/online';
+import { PROBE_INTERVAL_MS, stopWatchingConnection } from '@/lib/online';
 import { createAppQueryClient } from '@/lib/query-client';
 import { withClient } from '@/testing/restored-cache';
 
@@ -66,6 +66,11 @@ const LONG_ENOUGH_MS = 15 * 60_000;
 const STEP_MS = 5_000;
 /** Far more failures than any budget a move ever had (four, at c466bf5). */
 const MANY_FAILURES = 10;
+/**
+ * The most a move the network keeps failing is sent over LONG_ENOUGH_MS:
+ * once, then about once per look for the server — never in a loop.
+ */
+const MOST_TRIES = Math.ceil(LONG_ENOUGH_MS / PROBE_INTERVAL_MS) + 2;
 
 const TASK_ID = '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b';
 const STEP_ID = '5c6d7e8f-9a0b-4c1d-8e2f-3a4b5c6d7e8f';
@@ -126,6 +131,17 @@ function registeredRetry(mutationKey: QueryKey): unknown {
   return client.defaultMutationOptions(options).retry;
 }
 
+/** The wait before another try an action restored from disk runs with. */
+function registeredRetryDelay(mutationKey: QueryKey): unknown {
+  const options: MutationOptions<unknown, unknown, unknown, unknown> = { mutationKey };
+  return client.defaultMutationOptions(options).retryDelay;
+}
+
+/** What TanStack waits before another try with a `retryDelay` option (retryer.js). */
+function delayOf(retryDelay: unknown, failureCount: number, error: unknown): unknown {
+  return typeof retryDelay === 'function' ? retryDelay(failureCount, error) : retryDelay;
+}
+
 /** A move of the app's, with no retry of its own: the client's default decides. */
 async function makeMove(move: jest.Mock) {
   const { result } = await renderHook(
@@ -171,6 +187,19 @@ describe('restored from disk', () => {
           onlineManager.setOnline(isOnline);
           expect(willRetry(retry, failureCount, noAnswer())).toBe(true);
         }
+      }
+    },
+  );
+
+  // Sleeping out a backoff, a move is not paused, and only a paused move is
+  // on disk: closed meanwhile, the phone would forget it.
+  test.each(QUEUED)(
+    '%s: after a network failure it waits paused, not in a backoff',
+    (_name, mutationKey) => {
+      const retryDelay = registeredRetryDelay(mutationKey);
+
+      for (let failureCount = 0; failureCount <= MANY_FAILURES; failureCount += 1) {
+        expect(delayOf(retryDelay, failureCount, noAnswer())).toBe(0);
       }
     },
   );
@@ -239,6 +268,7 @@ describe.each(FIELD_ACTIONS)('%s, queued through a signal that comes and goes', 
 
     // Assert
     expect(server.mock.calls.length).toBeGreaterThan(MANY_FAILURES);
+    expect(server.mock.calls.length).toBeLessThanOrEqual(MOST_TRIES);
     expect(result.current.status).toBe('pending');
     const onDisk = dehydrate(client).mutations;
     expect(onDisk).toHaveLength(1);
@@ -258,6 +288,7 @@ test('left unanswered while the server answers its look, it is asked again and a
 
   // Assert
   expect(move.mock.calls.length).toBeGreaterThan(MANY_FAILURES);
+  expect(move.mock.calls.length).toBeLessThanOrEqual(MOST_TRIES);
   expect(result.current.status).toBe('pending');
 });
 
@@ -351,6 +382,108 @@ test('refused by the server, it gets its one more try, as before', async () => {
 
   expect(move).toHaveBeenCalledTimes(2);
   expect(result.current.error).toBe(refusal);
+});
+
+/**
+ * TanStack hands `retry` one count of every failure, outages included: after
+ * a stairwell or two the first real refusal got no try at all (the
+ * verification review of c466bf5..bc7dcc9, item 3). A move's refusals are
+ * counted apart, by the move.
+ */
+describe('refusals keep their own count', () => {
+  const OUTAGES = 5;
+  const busy = { message: 'Could not serialize access', code: '40001' };
+
+  /** The server: no answer `outages` times, then `refusals` refusals, then it goes through. */
+  function serverAfter(outages: number, refusals: number, server: jest.Mock): void {
+    server.mockReset();
+    server.mockImplementation(async () => {
+      const call = server.mock.calls.length;
+      if (call <= outages) {
+        throw noAnswer();
+      }
+      if (call <= outages + refusals) {
+        throw busy;
+      }
+      return undefined;
+    });
+  }
+
+  test('refused after several outages, a move still gets its one more try', async () => {
+    // Arrange
+    const move = jest.fn();
+    serverAfter(OUTAGES, 1, move);
+
+    // Act
+    const result = await makeMove(move);
+
+    // Assert
+    expect(move).toHaveBeenCalledTimes(OUTAGES + 2);
+    expect(result.current.status).toBe('success');
+  });
+
+  test('a message refused after several outages still gets its three more tries', async () => {
+    // Arrange
+    const server = jest.mocked(sendMessage);
+    serverAfter(OUTAGES, 3, server);
+    const { result } = await renderHook(useSendMessage, { wrapper: withClient(client) });
+
+    // Act
+    await act(async () => {
+      result.current.mutate(MESSAGE);
+    });
+    await letTimePass();
+
+    // Assert
+    expect(server).toHaveBeenCalledTimes(OUTAGES + 4);
+    expect(result.current.status).toBe('success');
+  });
+
+  test('outages after a refusal do not use up what is left of it', async () => {
+    // Arrange: refused, then the signal goes, then refused again.
+    const move = jest.fn(async () => {
+      const call = move.mock.calls.length;
+      if (call === 1) {
+        throw busy;
+      }
+      if (call <= 1 + OUTAGES) {
+        throw noAnswer();
+      }
+      throw busy;
+    });
+
+    // Act
+    const result = await makeMove(move);
+
+    // Assert: two refusals, the one more try spent on the second; then it fails.
+    expect(move).toHaveBeenCalledTimes(OUTAGES + 2);
+    expect(result.current.error).toBe(busy);
+  });
+
+  test('a move that failed for good, tapped again, gets its one more try again', async () => {
+    // Arrange: refused twice — it fails, and the screen says why.
+    const move = jest.fn();
+    serverAfter(0, 3, move);
+    const { result } = await renderHook(
+      () => useMutation({ mutationKey: ['moves', 'test'], mutationFn: move }),
+      { wrapper: withClient(client) },
+    );
+    await act(async () => {
+      result.current.mutate('t1');
+    });
+    await letTimePass(60_000);
+    expect(result.current.status).toBe('error');
+
+    // Act: she taps it again; refused once more, then it goes through.
+    await act(async () => {
+      result.current.mutate('t1');
+    });
+    await letTimePass(60_000);
+
+    // Assert
+    expect(move).toHaveBeenCalledTimes(4);
+    expect(result.current.status).toBe('success');
+  });
 });
 
 // A report and a message had three more tries before the rule above: a

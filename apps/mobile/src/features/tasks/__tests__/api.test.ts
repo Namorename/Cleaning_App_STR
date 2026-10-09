@@ -24,8 +24,21 @@ function mockNarrowing(): object {
   };
 }
 
+/** What reading the row by its id answers, after a move that matched none. */
+const mockRead: { data: unknown; error: unknown } = { data: [], error: null };
+/** Who the phone's session says is signed in; null for nobody. */
+const mockSession: { userId: string | null } = { userId: null };
+
 jest.mock('@/lib/supabase', () => ({
   supabase: {
+    auth: {
+      getSession: async () => ({
+        data: {
+          session: mockSession.userId === null ? null : { user: { id: mockSession.userId } },
+        },
+        error: null,
+      }),
+    },
     from: () => ({
       update: (patch: unknown) => {
         mockSent.patch = patch;
@@ -38,6 +51,7 @@ jest.mock('@/lib/supabase', () => ({
           }),
         };
       },
+      select: () => ({ eq: () => Promise.resolve(mockRead) }),
     }),
   },
 }));
@@ -72,6 +86,9 @@ beforeEach(() => {
   mockSent.patch = null;
   mockSent.from = null;
   mockSent.same = [];
+  mockRead.data = [];
+  mockRead.error = null;
+  mockSession.userId = null;
 });
 
 test('returns the claimed task when the update took the row', async () => {
@@ -242,5 +259,124 @@ describe('finishTask', () => {
 
     expect((refusal as Error).message).not.toMatch(/[а-яё]/i);
     expect(serverErrorText(refusal).text).toBe('Не удалось завершить уборку — обновите список.');
+  });
+});
+
+/**
+ * A move replayed from the queue after its answer was lost without signal:
+ * the first try landed, so the status filter now matches no row. That is not
+ * «taken by somebody else» nor «could not finish» — the row is read, and a
+ * row already at the move's status and hers is the move done (the
+ * verification review of c466bf5..bc7dcc9, item 6). Anything else is the
+ * refusal it always was.
+ */
+describe('a move replayed after its answer was lost', () => {
+  const CLEANER = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
+  const COLLEAGUE = '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d';
+
+  beforeEach(() => {
+    // The update matches no row: the first try already moved it.
+    mockResponse.data = [];
+    mockSession.userId = CLEANER;
+  });
+
+  /** The row as it reads now. */
+  function rowNow(changes: Record<string, unknown>): void {
+    mockRead.data = [{ ...row, ...changes }];
+  }
+
+  test('a take that already landed is hers: the task comes back', async () => {
+    rowNow({ status: 'accepted', assignee_id: CLEANER });
+
+    const claimed = await claimTask(row.id, CLEANER);
+
+    expect(claimed.status).toBe('accepted');
+    expect(claimed.assignee_id).toBe(CLEANER);
+  });
+
+  test('a take that a colleague got first is still «already taken»', async () => {
+    rowNow({ status: 'accepted', assignee_id: COLLEAGUE });
+
+    const refusal = await claimTask(row.id, CLEANER).catch((caught: unknown) => caught);
+
+    expect(serverErrorText(refusal).text).toBe('Уборку уже взяли, либо её срок истёк.');
+  });
+
+  test('an accept that already landed, on the day and in the flat she saw, is done', async () => {
+    rowNow({ status: 'accepted', assignee_id: CLEANER });
+
+    const accepted = await acceptTask(SEEN);
+
+    expect(accepted.status).toBe('accepted');
+  });
+
+  test('an accept whose job moved to another day is still refused', async () => {
+    rowNow({ status: 'accepted', assignee_id: CLEANER, scheduled_date: '2026-11-11' });
+
+    const refusal = await acceptTask(SEEN).catch((caught: unknown) => caught);
+
+    expect(serverErrorText(refusal).text).toBe(
+      'Не удалось принять уборку — её могли передать, перенести или отменить.',
+    );
+  });
+
+  test('a start that already landed is done', async () => {
+    rowNow({ status: 'in_progress', assignee_id: CLEANER });
+
+    const started = await startTask(row.id);
+
+    expect(started.status).toBe('in_progress');
+  });
+
+  test('a start on a cleaning a colleague is doing is still refused', async () => {
+    rowNow({ status: 'in_progress', assignee_id: COLLEAGUE });
+
+    const refusal = await startTask(row.id).catch((caught: unknown) => caught);
+
+    expect(serverErrorText(refusal).text).toBe('Не удалось начать уборку — обновите список.');
+  });
+
+  test('a finish that already landed is done, not «could not finish»', async () => {
+    rowNow({ status: 'done', assignee_id: CLEANER, completed_at: '2026-11-10T10:00:00+00:00' });
+
+    const finished = await finishTask(row.id);
+
+    expect(finished.status).toBe('done');
+  });
+
+  test.each([
+    ['still assigned: refused for another reason', { status: 'assigned', assignee_id: CLEANER }],
+    ['done by a colleague', { status: 'done', assignee_id: COLLEAGUE }],
+  ])('a finish on a row %s is still refused', async (_, changes) => {
+    rowNow(changes);
+
+    const refusal = await finishTask(row.id).catch((caught: unknown) => caught);
+
+    expect(serverErrorText(refusal).text).toBe('Не удалось завершить уборку — обновите список.');
+  });
+
+  test('a row she can no longer see is still refused', async () => {
+    mockRead.data = [];
+
+    const refusal = await finishTask(row.id).catch((caught: unknown) => caught);
+
+    expect(serverErrorText(refusal).text).toBe('Не удалось завершить уборку — обновите список.');
+  });
+
+  test('with nobody signed in, nothing can say the row is hers: still refused', async () => {
+    mockSession.userId = null;
+    rowNow({ status: 'in_progress', assignee_id: CLEANER });
+
+    const refusal = await startTask(row.id).catch((caught: unknown) => caught);
+
+    expect(serverErrorText(refusal).text).toBe('Не удалось начать уборку — обновите список.');
+  });
+
+  // The read failing for the network is the network's: the move waits for
+  // signal and is tried again, instead of failing with a refusal it may not be.
+  test('a read that gets no answer fails with that, not with a refusal', async () => {
+    mockRead.error = new TypeError('Network request failed');
+
+    await expect(finishTask(row.id)).rejects.toThrow('Network request failed');
   });
 });

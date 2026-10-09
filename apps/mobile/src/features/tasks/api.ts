@@ -142,16 +142,65 @@ export async function fetchTask(taskId: string): Promise<CleaningTask | null> {
   return rows[0] ?? null;
 }
 
+interface MovePatch {
+  status: TaskStatus;
+  assignee_id?: string;
+}
+
+interface SameJob {
+  scheduledDate: string;
+  propertyId: number;
+}
+
+/** Who the phone's session says is signed in; null for nobody. */
+async function signedInId(): Promise<string | null> {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) {
+    throw error;
+  }
+  return data.session?.user.id ?? null;
+}
+
+/**
+ * The row, when the move it was to make is already made: at the move's
+ * status, held by whoever made it — the one it hands the task to, or the one
+ * signed in — and, for an accept, on the day and in the flat she saw. Null
+ * when it is not, or the row is out of her sight.
+ *
+ * A move replayed from the queue after its answer was lost without signal
+ * finds no row at the status it moves from — its first try moved it — and
+ * that is not «taken by somebody else» or «could not finish» (the
+ * verification review of c466bf5..bc7dcc9, item 6). The row is read through
+ * the same select as the task's own screen; a colleague's row on one of her
+ * listings is visible to her too, hence the holder.
+ */
+async function alreadyMoved(
+  taskId: string,
+  patch: MovePatch,
+  same: SameJob | undefined,
+): Promise<CleaningTask | null> {
+  const row = await fetchTask(taskId);
+  if (row === null || row.status !== patch.status) {
+    return null;
+  }
+  const isSameJob =
+    same === undefined ||
+    (row.scheduled_date === same.scheduledDate && row.property_id === same.propertyId);
+  const mover = patch.assignee_id ?? (await signedInId());
+  return isSameJob && mover !== null && row.assignee_id === mover ? row : null;
+}
+
 /**
  * Move a task from one status to the next.
  *
  * The `status` filter on the update is what makes every move safe against a
  * stale screen and against two taps: an update that no longer matches the
  * expected status touches no row, and the caller is told rather than left to
- * believe it worked. The server refuses moves it disallows — a second start
- * with parallel work switched off, a finish without a start — with an error
- * that arrives as `error`, and stamps the clock itself: nothing about the
- * time is sent from here.
+ * believe it worked — unless the row is already where the move takes it, and
+ * hers (`alreadyMoved`): then the move is done. The server refuses moves it
+ * disallows — a second start with parallel work switched off, a finish
+ * without a start — with an error that arrives as `error`, and stamps the
+ * clock itself: nothing about the time is sent from here.
  *
  * The no-row answer is raised in the server's shape — English for the logs,
  * the reader's sentence by its key — so a screen translates it through
@@ -160,9 +209,9 @@ export async function fetchTask(taskId: string): Promise<CleaningTask | null> {
 async function moveTask(
   taskId: string,
   from: readonly TaskStatus[],
-  patch: { status: TaskStatus; assignee_id?: string },
+  patch: MovePatch,
   failureKey: string,
-  same?: { scheduledDate: string; propertyId: number },
+  same?: SameJob,
 ): Promise<CleaningTask> {
   const moving = supabase.from('tasks').update(patch).eq('id', taskId).in('status', from);
   const narrowed =
@@ -176,14 +225,18 @@ async function moveTask(
   }
 
   const moved = cleaningTaskListSchema.parse(data ?? []);
-  if (moved.length === 0) {
-    throw new RefusalError(
-      `Moving task ${taskId} from '${from.join("' or '")}' to '${patch.status}' matched no row`,
-      failureKey,
-    );
+  if (moved.length > 0) {
+    return moved[0];
   }
 
-  return moved[0];
+  const landed = await alreadyMoved(taskId, patch, same);
+  if (landed !== null) {
+    return landed;
+  }
+  throw new RefusalError(
+    `Moving task ${taskId} from '${from.join("' or '")}' to '${patch.status}' matched no row`,
+    failureKey,
+  );
 }
 
 /**
@@ -198,7 +251,9 @@ async function moveTask(
  *
  * Zero rows has two causes and the response cannot tell them apart: a
  * colleague was faster, or the task is past the day it could be done and the
- * server refused it. The message covers both rather than guessing.
+ * server refused it. The message covers both rather than guessing — once the
+ * row read back is not hers already, taken by this very take replayed after
+ * its answer was lost (`alreadyMoved`).
  */
 export function claimTask(taskId: string, cleanerId: string): Promise<CleaningTask> {
   return moveTask(
