@@ -640,7 +640,7 @@
         "phone": "Telefon",
         "role": "Role",
         "roleUnknown": "Neznámá role",
-        "roleUnknownHint": "Panel roli tohoto člověka nezná. Pro uložení vyberte roli ze seznamu.",
+        "roleUnknownHint": "Panel roli tohoto člověka nezná. Pro uložení vyberte roli ze seznamu — nahradí tu současnou.",
         "language": "Jazyk",
         "languageUnset": "Nevybráno",
         "languageHint": "V tomto jazyce chodí e-maily. V aplikaci si jazyk zvolí sám.",
@@ -653,7 +653,11 @@
         "propertiesSelectShown": "Vybrat vše ({{total}})",
         "propertiesClearShown": "Odznačit vše ({{total}})",
         "propertiesNotForRole": "Manažerovi a správci se objekty nepřiřazují — vidí všechny.",
-        "propertiesNotForTech": "Technikovi a hlavnímu technikovi se objekty nepřiřazují: úklidy nejsou jejich práce, úkoly dostávají přidělením.",
+        "propertiesNotForTech": "Technikovi a hlavnímu technikovi se objekty nepřiřazují: úklidy nejsou jejich práce, práce jim přichází přidělením.",
+        "techStillLinked_one": "Ještě na {{count}} objektu — nejdřív přiřazení odeberte.",
+        "techStillLinked_few": "Ještě na {{count}} objektech — nejdřív přiřazení odeberte.",
+        "techStillLinked_many": "Ještě na {{count}} objektu — nejdřív přiřazení odeberte.",
+        "techStillLinked_other": "Ještě na {{count}} objektech — nejdřív přiřazení odeberte.",
         "propertiesFailed": "Zaměstnanec byl uložen, ale objekty se nepodařilo otevřít.",
         "active": "Pracuje",
         "create": "Vytvořit",
@@ -691,7 +695,8 @@
         "remove": "Odebrat",
         "add": "Přidat objekt",
         "addNone": "Všechny objekty jsou už otevřené.",
-        "addButton": "Přidat"
+        "addButton": "Přidat",
+        "onlyRemove": "Této roli se objekty nepřiřazují: přiřazení lze jen odebrat."
       }
     },
     "roles": {

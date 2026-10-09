@@ -11,6 +11,7 @@ import {
   matchesRole,
   matchesSearch,
   selectedProperties,
+  showsLinks,
   staffSchema,
   unlinkedProperties,
   type CleanerLink,
@@ -169,6 +170,23 @@ describe('canHaveLinks', () => {
   test('keeps a manager out of the queue, so she does not turn up in a schedule', () => {
     expect(canHaveLinks(staff({ role: 'manager' }))).toBe(false);
     expect(canHaveLinks(staff({ role: 'admin' }))).toBe(false);
+  });
+});
+
+describe('showsLinks', () => {
+  test('shows a cleaner her listings, even when she has none yet', () => {
+    expect(showsLinks(staff(), [])).toBe(true);
+  });
+
+  // A link from before the technician rule can only be taken off
+  // (20261003110000), and the row is where it is taken off from.
+  test('shows anybody else the listings they still hold, and only then', () => {
+    const tech = staff({ id: PETR, role: 'tech' });
+
+    expect(showsLinks(tech, [link(1, { cleaner_id: PETR })])).toBe(true);
+    expect(showsLinks(tech, [link(1)])).toBe(false);
+    expect(showsLinks(staff({ role: 'manager' }), [link(1)])).toBe(true);
+    expect(showsLinks(staff({ role: 'manager' }), [])).toBe(false);
   });
 });
 

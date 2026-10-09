@@ -46,8 +46,10 @@ interface CleanersTabProps {
  * she work", this asks "who works it", and a flat with nobody on it is a flat
  * whose cleanings sit in the pool until somebody notices.
  *
- * Only cleaners and technicians are on offer. A manager in this list would
- * turn up in a schedule, which is not what putting her in the company meant.
+ * Only cleaners are on offer. A manager in this list would turn up in a
+ * schedule, which is not what putting her in the company meant; a technician
+ * or a head technician is refused by the server (techNotLinkable,
+ * 20261003110000) — cleanings are not their work.
  */
 export function CleanersTab({ propertyId, listing = null }: CleanersTabProps) {
   const { t } = useTranslation();

@@ -165,8 +165,19 @@ export function takesListings(role: StaffRole | '' | null): boolean {
   return role !== null && role !== '' && LINKABLE_ROLES.includes(role);
 }
 
+/** Whether this person is put on listings — offered them in a picker. */
 export function canHaveLinks(staff: Staff): boolean {
   return takesListings(staff.role);
+}
+
+/**
+ * Whether the row opens this person's listings: a cleaner's, to put her on
+ * more, and anybody else's while they still hold some — a link from before
+ * the technician rule, or from before a role change, can only be taken off
+ * (20261003110000), and the row is where it is taken off from.
+ */
+export function showsLinks(staff: Staff, links: readonly CleanerLink[]): boolean {
+  return canHaveLinks(staff) || countLinks(links, staff.id) > 0;
 }
 
 /** Whether this role fixes things rather than cleans them. */
@@ -185,7 +196,7 @@ export interface LinkRow {
   priority: number;
 }
 
-export function countLinks(links: CleanerLink[], cleanerId: string): number {
+export function countLinks(links: readonly CleanerLink[], cleanerId: string): number {
   return links.filter((link) => link.cleaner_id === cleanerId).length;
 }
 

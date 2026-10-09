@@ -640,7 +640,7 @@
         "phone": "Phone",
         "role": "Role",
         "roleUnknown": "Role unknown",
-        "roleUnknownHint": "The panel does not know this person's role. To save, choose a role from the list.",
+        "roleUnknownHint": "The panel does not know this person's role. To save, choose a role from the list — it replaces their current one.",
         "language": "Language",
         "languageUnset": "Not chosen",
         "languageHint": "Letters go out in this language. In the app they pick their own.",
@@ -653,7 +653,9 @@
         "propertiesSelectShown": "Select all ({{total}})",
         "propertiesClearShown": "Clear all ({{total}})",
         "propertiesNotForRole": "Managers and admins are not put on listings — they see every one.",
-        "propertiesNotForTech": "Technicians and head technicians are not put on listings: cleanings are not their work, and tasks reach them by assignment.",
+        "propertiesNotForTech": "Technicians and head technicians are not put on listings: cleanings are not their work, and work reaches them by assignment.",
+        "techStillLinked_one": "Still on {{count}} listing — take them off it first.",
+        "techStillLinked_other": "Still on {{count}} listings — take them off those first.",
         "propertiesFailed": "The person was saved, but the listings could not be opened.",
         "active": "Works here",
         "create": "Create",
@@ -691,7 +693,8 @@
         "remove": "Remove",
         "add": "Add a listing",
         "addNone": "Every listing is already open.",
-        "addButton": "Add"
+        "addButton": "Add",
+        "onlyRemove": "This role is not put on listings: its links can only be removed."
       }
     },
     "roles": {

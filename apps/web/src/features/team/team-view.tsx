@@ -25,11 +25,11 @@ import { serverErrorText } from '@/lib/server-error';
 import { LinksEditor } from './links-editor';
 import { PasswordDialog, type PasswordSubject } from './password-dialog';
 import {
-  canHaveLinks,
   countLinks,
   isInTab,
   matchesRole,
   matchesSearch,
+  showsLinks,
   STAFF_ROLES,
   TEAM_TABS,
   type Staff,
@@ -179,7 +179,7 @@ export function TeamView() {
                     : t(`common.languages.${person.preferred_language}`)}
                 </TableCell>
                 <TableCell>
-                  {canHaveLinks(person) ? (
+                  {showsLinks(person, allLinks) ? (
                     <Button
                       type="button"
                       variant="outline"

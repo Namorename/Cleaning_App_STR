@@ -63,10 +63,12 @@ const properties: Property[] = [
   { id: 1, name: 'Vinohrady 12' },
   { id: 2, name: 'Anděl 4' },
 ];
-const links: CleanerLink[] = [
+const MARIA_LINKS: CleanerLink[] = [
   { property_id: 1, cleaner_id: MARIA, mode: 'auto', priority: 1 },
   { property_id: 2, cleaner_id: MARIA, mode: 'claim', priority: 3 },
 ];
+/** Every link in the company; a test that needs more adds them. */
+const linkSet = { all: MARIA_LINKS };
 
 const NEW_PASSWORD = 'chilly-otter-42';
 
@@ -78,18 +80,21 @@ const resetPassword = vi.fn();
 const saveLinkAsync = vi.fn();
 const removeLinkAsync = vi.fn();
 const idle = { isPending: false, isError: false, error: null as unknown, reset: vi.fn() };
+/** How the last save of a person ended, as the form reads it from the mutation. */
+const staffSave = { isError: false, error: null as unknown };
 
 vi.mock('../use-team', () => ({
   useStaff: () => ({ data: roster.people, isPending: false, isError: false }),
   useProperties: () => ({ data: properties, isPending: false, isError: false }),
-  useCleanerLinks: () => ({ data: links, isPending: false, isError: false }),
-  useSaveStaff: () => ({ ...idle, mutate: saveStaff }),
+  useCleanerLinks: () => ({ data: linkSet.all, isPending: false, isError: false }),
+  useSaveStaff: () => ({ ...idle, ...staffSave, mutate: saveStaff }),
   useResetPassword: () => ({ ...idle, mutate: resetPassword }),
   useSaveCleanerLink: () => ({ ...idle, mutate: saveLink, mutateAsync: saveLinkAsync }),
   useRemoveCleanerLink: () => ({ ...idle, mutate: removeLink, mutateAsync: removeLinkAsync }),
 }));
 
 import { expectPageTitle } from '@/components/page-header.expect';
+import { ServerRefusal } from '@/lib/function-error';
 
 import { TeamView } from '../team-view';
 
@@ -102,6 +107,9 @@ const NEW_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-000000000009';
 beforeEach(() => {
   vi.clearAllMocks();
   roster.people = [maria, petr, olga, ivan, nina];
+  linkSet.all = MARIA_LINKS;
+  staffSave.isError = false;
+  staffSave.error = null;
   resetPassword.mockImplementation((id: string, options?: { onSuccess?: (a: unknown) => void }) => {
     options?.onSuccess?.({ id, password: NEW_PASSWORD, emailSent: true });
   });
@@ -547,8 +555,9 @@ describe('TeamView — the technician and the head technician (docs/tech-plan.md
         within(dialog).queryByRole('checkbox', { name: 'Vinohrady 12' }),
       ).not.toBeInTheDocument();
       expect(
+        // A technician's job is «работа» (CLAUDE.md); «Задания» are the reports.
         within(dialog).getByText(
-          'Технику и главному технику объекты не назначаются: уборки — не их работа, задания приходят назначением.',
+          'Технику и главному технику объекты не назначаются: уборки — не их работа, работа приходит назначением.',
         ),
       ).toBeInTheDocument();
     },
@@ -594,8 +603,9 @@ describe('TeamView — a role the panel does not know (docs/tech-plan.md, 3.5)',
       within(dialog).getByRole('option', { name: 'Роль неизвестна', selected: true }),
     ).toBeInTheDocument();
     expect(
+      // The role chosen is not added to the one the panel cannot read: it replaces it.
       within(dialog).getByText(
-        'Панель не знает роль этого сотрудника. Чтобы сохранить, выберите роль из списка.',
+        'Панель не знает роль этого сотрудника. Чтобы сохранить, выберите роль из списка — она заменит нынешнюю.',
       ),
     ).toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Сохранить' })).toBeDisabled();
@@ -617,5 +627,148 @@ describe('TeamView — a role the panel does not know (docs/tech-plan.md, 3.5)',
       expect.objectContaining({ id: ZOE, role: 'tech' }),
       expect.anything(),
     );
+  }, 20000);
+
+  test('Enter in a field does not save it either', async () => {
+    render(<TeamView />);
+
+    await userEvent.click(within(rowFor('Zoe Unknown')).getByRole('button', { name: 'Изменить' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText('Телефон'), '+420 000{Enter}');
+
+    expect(saveStaff).not.toHaveBeenCalled();
+  }, 20000);
+});
+
+describe('TeamView — a technician’s old listings (docs/tech-plan.md, 2.1)', () => {
+  /** A link from before the technician rule: the server lets it be taken off, and nothing else. */
+  const petrOldLink: CleanerLink = { property_id: 2, cleaner_id: PETR, mode: 'claim', priority: 1 };
+
+  test('a technician who still holds a listing has the button, to take it off', () => {
+    linkSet.all = [...MARIA_LINKS, petrOldLink];
+    render(<TeamView />);
+
+    expect(
+      within(rowFor('Petr Tech')).getByRole('button', { name: 'Объектов: 1' }),
+    ).toBeInTheDocument();
+    // A manager on no listing still has nothing to count.
+    expect(
+      within(rowFor('Olga Manager')).queryByRole('button', { name: /Объектов/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  test('his editor lists the listing and offers only to take it off', async () => {
+    linkSet.all = [...MARIA_LINKS, petrOldLink];
+    render(<TeamView />);
+
+    await userEvent.click(within(rowFor('Petr Tech')).getByRole('button', { name: 'Объектов: 1' }));
+    const sheet = await screen.findByRole('dialog');
+
+    const [row] = within(sheet).getAllByRole('listitem');
+    expect(row).toHaveTextContent('Anděl 4');
+    expect(row).toHaveTextContent('Из очереди');
+    // The server refuses any change of the terms: there is nothing to change here.
+    expect(within(sheet).queryByLabelText('Как достаётся: Anděl 4')).toBeNull();
+    expect(within(sheet).queryByLabelText('Очередь: Anděl 4')).toBeNull();
+    expect(within(sheet).queryByRole('checkbox')).toBeNull();
+    expect(within(sheet).queryByRole('button', { name: 'Добавить' })).toBeNull();
+    expect(
+      within(sheet).getByText('Этой роли объекты не назначаются: привязки можно только убрать.'),
+    ).toBeInTheDocument();
+
+    await userEvent.click(within(row).getByRole('button', { name: 'Убрать' }));
+
+    expect(removeLink).toHaveBeenCalledWith({ propertyId: 2, cleanerId: PETR });
+  });
+
+  test('a cleaner made a technician is told how many listings to take off first', async () => {
+    render(<TeamView />);
+
+    await userEvent.click(within(rowFor('Maria Test')).getByRole('button', { name: 'Изменить' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.selectOptions(within(dialog).getByLabelText('Роль'), 'Техник');
+
+    const warning = within(dialog).getByText('Ещё на 2 объектах — сначала снимите их.');
+    expect(within(dialog).getByLabelText('Роль')).toHaveAccessibleDescription(
+      warning.textContent ?? '',
+    );
+
+    // Chosen back, she is a cleaner with her listings again: nothing to warn of.
+    await userEvent.selectOptions(within(dialog).getByLabelText('Роль'), 'Горничная');
+    expect(within(dialog).queryByText(/сначала снимите/)).toBeNull();
+  }, 20000);
+
+  test('a single listing is counted in the singular, and a head technician is warned too', async () => {
+    linkSet.all = [MARIA_LINKS[0]];
+    render(<TeamView />);
+
+    await userEvent.click(within(rowFor('Maria Test')).getByRole('button', { name: 'Изменить' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.selectOptions(within(dialog).getByLabelText('Роль'), 'Главный техник');
+
+    expect(within(dialog).getByText('Ещё на 1 объекте — сначала снимите его.')).toBeInTheDocument();
+  }, 20000);
+
+  // 20261003110000 asks only a change into the role: an edit that keeps it is an edit.
+  test('a technician already, his phone corrected, is not warned of his old listing', async () => {
+    linkSet.all = [...MARIA_LINKS, petrOldLink];
+    render(<TeamView />);
+
+    await userEvent.click(within(rowFor('Petr Tech')).getByRole('button', { name: 'Изменить' }));
+    const dialog = await screen.findByRole('dialog');
+
+    expect(within(dialog).queryByText(/сначала снимите/)).toBeNull();
+  }, 20000);
+
+  test('a cleaner with listings ticked and then made a technician opens no listing', async () => {
+    render(<TeamView />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить сотрудника' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText('Имя'), 'Nova Tech');
+    await userEvent.type(within(dialog).getByLabelText('Почта (логин)'), 'nova@example.com');
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Vinohrady 12' }));
+    await userEvent.selectOptions(within(dialog).getByLabelText('Роль'), 'Техник');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
+
+    expect(saveStaff).toHaveBeenCalledWith(
+      expect.objectContaining({ id: null, role: 'tech' }),
+      expect.anything(),
+    );
+    await waitFor(() => expect(screen.getByText(NEW_PASSWORD)).toBeInTheDocument());
+    expect(saveLinkAsync).not.toHaveBeenCalled();
+  }, 20000);
+
+  test('a cleaner with listings made a technician anyway: the role is sent, no listing is closed, the refusal is read out', async () => {
+    saveStaff.mockImplementation(() => {
+      staffSave.isError = true;
+      staffSave.error = new ServerRefusal(
+        'Person still holds 2 listing links and 0 open cleanings',
+        'serverErrors.techRoleBlocked',
+        JSON.stringify({ links: 2, cleanings: 0 }),
+      );
+    });
+    const { rerender } = render(<TeamView />);
+
+    await userEvent.click(within(rowFor('Maria Test')).getByRole('button', { name: 'Изменить' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.selectOptions(within(dialog).getByLabelText('Роль'), 'Техник');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+    // The mutation's new state reaching the form, as TanStack's re-render would.
+    rerender(<TeamView />);
+
+    expect(saveStaff).toHaveBeenCalledWith(
+      expect.objectContaining({ id: MARIA, role: 'tech' }),
+      expect.anything(),
+    );
+    expect(removeLinkAsync).not.toHaveBeenCalled();
+    expect(saveLinkAsync).not.toHaveBeenCalled();
+    const alert = within(dialog)
+      .getAllByRole('alert')
+      .find((one) => one.textContent?.includes('Сначала снимите сотрудника'));
+    expect(alert).toHaveTextContent(
+      'Сначала снимите сотрудника с объектов (привязок: 2) и с открытых уборок (0): у техника уборок не бывает.',
+    );
+    expect(alert).not.toHaveTextContent('Person still holds');
   }, 20000);
 });

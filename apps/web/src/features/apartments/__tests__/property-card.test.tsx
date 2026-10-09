@@ -86,11 +86,17 @@ const person = (id: string, full_name: string, role: string) => ({
   created_at: '2026-09-01T08:00:00+00:00',
 });
 
+/** A technician and a head technician on no listing: neither is ever on offer here. */
+const PAVEL = 'bbbbbbbb-bbbb-4bbb-8bbb-000000000005';
+const GLEB = 'bbbbbbbb-bbbb-4bbb-8bbb-000000000006';
+
 const staff = [
   person(MARIA, 'Maria Test', 'cleaner'),
   person(PETR, 'Petr Tech', 'tech'),
   person(OLGA, 'Olga Manager', 'manager'),
   person(NINA, 'Nina Free', 'cleaner'),
+  person(PAVEL, 'Pavel Repair', 'tech'),
+  person(GLEB, 'Gleb Head', 'head_tech'),
 ];
 
 const links = [
@@ -456,6 +462,19 @@ describe('who works the flat', () => {
     // Petr is already in its queue, so he is not on offer either.
     expect(offered).not.toContain('Petr Tech');
     expect(offered).toContain('Nina Free');
+  });
+
+  // 20261003110000: the server refuses a technician's link (techNotLinkable) —
+  // cleanings are not their work, and their jobs reach them by assignment.
+  test('a technician or a head technician on no listing is not offered either', async () => {
+    renderCard();
+    await userEvent.click(screen.getByRole('tab', { name: 'Клинеры' }));
+
+    const offered = within(screen.getByLabelText(/Добавить исполнителя/))
+      .getAllByRole('option')
+      .map((option) => option.textContent);
+    expect(offered).not.toContain('Pavel Repair');
+    expect(offered).not.toContain('Gleb Head');
   });
 
   test('taking somebody off the flat', async () => {

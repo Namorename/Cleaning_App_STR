@@ -38,6 +38,10 @@ import {
   useSaveStaff,
 } from './use-team';
 
+/** The notes under the role, which the role field names as its description. */
+const ROLE_UNKNOWN_NOTE = 'staff-role-unknown';
+const STILL_LINKED_NOTE = 'staff-role-still-linked';
+
 interface StaffFormProps {
   /** The person being changed, or null for somebody new. */
   staff: Staff | null;
@@ -80,7 +84,8 @@ interface StaffFormProps {
  * guess (docs/tech-plan.md, 3.5): the form waits until a role is chosen on
  * purpose. A technician and a head technician are offered no listings — the
  * server refuses the link (techNotLinkable); their jobs reach them by
- * assignment.
+ * assignment. Somebody who still holds listings is told, the moment a
+ * technician's role is chosen for them, how many to take off first.
  *
  * The listings are part of hiring, not a second errand. A cleaner reads only
  * the tasks of the listings she is on — that is the `cleaner reads tasks of
@@ -116,6 +121,18 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
   const isListed = takesListings(draft.role);
   // A role the panel does not know is never saved as a guess (tech-plan 3.5).
   const isRoleKnown = draft.role !== '';
+  // Nobody becomes a technician while on a listing (techRoleBlocked,
+  // 20261003110000): the count is said before the save rather than after a
+  // refusal. Only a change into the role is refused — an edit that keeps it
+  // is an edit. The save is still allowed: the server has the last word, and
+  // its refusal (open cleanings too) is shown as it comes.
+  const isBecomingTech =
+    !isNew && isTechnicianRole(draft.role) && draft.role !== (staff.role ?? '');
+  const stillLinked = isBecomingTech ? current.length : 0;
+  const roleNotes = [
+    isRoleKnown ? null : ROLE_UNKNOWN_NOTE,
+    stillLinked === 0 ? null : STILL_LINKED_NOTE,
+  ].filter((id) => id !== null);
   const failure = save.isError ? serverErrorText(save.error) : null;
   const isBusy = save.isPending || saveLink.isPending || removeLink.isPending;
   const isReady =
@@ -231,7 +248,7 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
                 id="staff-role"
                 value={draft.role}
                 aria-invalid={!isRoleKnown}
-                aria-describedby={isRoleKnown ? undefined : 'staff-role-unknown'}
+                aria-describedby={roleNotes.length === 0 ? undefined : roleNotes.join(' ')}
                 onChange={(event) =>
                   setDraft({ ...draft, role: event.target.value as StaffDraft['role'] })
                 }
@@ -253,8 +270,14 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
           </div>
 
           {isRoleKnown ? null : (
-            <p id="staff-role-unknown" role="alert" className="text-sm text-destructive">
+            <p id={ROLE_UNKNOWN_NOTE} role="alert" className="text-sm text-destructive">
               {t('panel.team.form.roleUnknownHint')}
+            </p>
+          )}
+
+          {stillLinked === 0 ? null : (
+            <p id={STILL_LINKED_NOTE} role="alert" className="text-sm text-destructive">
+              {t('panel.team.form.techStillLinked', { count: stillLinked })}
             </p>
           )}
 
