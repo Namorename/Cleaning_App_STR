@@ -315,6 +315,13 @@ describe('what is the manager’s alone', () => {
     },
   );
 
+  test('a task without a listing says why it cannot be handed out', async () => {
+    await show(boardProblem({ property_id: null, property: null }));
+
+    expect(screen.getByText('У задания нет объекта — назначить нельзя')).toBeTruthy();
+    expect(buttons()).toEqual(['История']);
+  });
+
   test('an archived task is not handed out', async () => {
     await show(boardProblem({ archived_at: '2026-10-06T08:00:00+00:00' }));
 

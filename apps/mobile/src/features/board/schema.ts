@@ -83,12 +83,19 @@ export function isLive(problem: BoardProblem): boolean {
   return problem.archived_at === null && !isClosed(problem);
 }
 
+/** Open, out of the archive, and nobody on its repair: a task waiting to be handed out. */
+export function isWaiting(problem: BoardProblem): boolean {
+  return problem.status === 'open' && problem.archived_at === null && liveHolder(problem) === null;
+}
+
 /**
- * «Назначить»: an open task with nobody on it. Closing, cancelling and the
- * archive are the manager's (decision 1); an archived task the server refuses.
+ * «Назначить»: a waiting task with a listing. Closing, cancelling and the
+ * archive are the manager's (decision 1); an archived task, and one with no
+ * listing to schedule it at, the server refuses (problemArchived,
+ * problemNoProperty).
  */
 export function canAssign(problem: BoardProblem): boolean {
-  return problem.status === 'open' && problem.archived_at === null && liveHolder(problem) === null;
+  return isWaiting(problem) && problem.property_id !== null;
 }
 
 /** «Снять»: somebody holds the live repair — a technician, or a cleaner (decision 17). */

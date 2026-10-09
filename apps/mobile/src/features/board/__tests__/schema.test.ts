@@ -146,6 +146,10 @@ describe('what the head technician may do to a task', () => {
     expect(canTakeOff(problem)).toBe(false);
   });
 
+  test('a task without a listing is not handed out: the server cannot schedule it', () => {
+    expect(canAssign(boardProblem({ property_id: null, property: null }))).toBe(false);
+  });
+
   test('an archived task is not handed out', () => {
     expect(canAssign(boardProblem({ archived_at: '2026-10-06T08:00:00+00:00' }))).toBe(false);
   });

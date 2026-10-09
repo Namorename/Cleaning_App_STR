@@ -18,6 +18,7 @@ import {
   canAssign,
   canTakeOff,
   isLive,
+  isWaiting,
   liveRepair,
   type BoardProblem,
 } from './schema';
@@ -120,6 +121,10 @@ export function ProblemDispatch({ problemId }: ProblemDispatchProps) {
 
       {task !== null && canAssign(task) ? (
         <Button label={t('problems.dispatch.assign')} onPress={openSheet} />
+      ) : null}
+      {task !== null && isWaiting(task) && !canAssign(task) ? (
+        // Said before he chooses anybody: assign_problem refuses a task with no listing.
+        <Text tone="secondary">{t('serverErrors.problemNoProperty')}</Text>
       ) : null}
       {task !== null && canTakeOff(task) ? (
         <Button
