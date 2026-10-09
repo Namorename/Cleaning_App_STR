@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { Badge } from '@/components/badge';
+import { useScreenEdgePadding } from '@/components/bottom-inset';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { ErrorBanner } from '@/components/error-banner';
@@ -96,6 +97,9 @@ export function TaskDetail({
 }: TaskDetailProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  // The main button is last: scrolled to the end it stops clear of the
+  // system's bar, which the screen is drawn under (components/bottom-inset.ts).
+  const end = useScreenEdgePadding(Spacing.lg);
   // The reader's words: a technician's repair is work (docs/tech-plan.md §6).
   const context = wordContext();
   const actions = availableActions(task, userId);
@@ -163,7 +167,7 @@ export function TaskDetail({
         : t('tasks.detail.closed', { context });
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={layout.content}>
+    <ScrollView style={styles.screen} contentContainerStyle={[layout.content, end]}>
       {/* Error over cache, as the lists have it: the saved task stays. This
           screen has no pull-to-refresh, so the line does not ask for one. */}
       {refreshError !== null ? (

@@ -8,6 +8,7 @@ import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { forgetSavedQueries } from '@/lib/query-client';
 import { reportError } from '@/lib/sentry';
 
+import { useScreenEdgePadding } from './bottom-inset';
 import { Button } from './button';
 import { Text } from './text';
 
@@ -45,6 +46,10 @@ interface ErrorScreenProps extends ErrorBoundaryProps {
 function ErrorScreen({ error, retry, onResetSaved, onBack }: ErrorScreenProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  // A screen's own boundary is drawn under the system's bar: at a large font
+  // its buttons reach the bottom, and stop clear of it. The root's is drawn
+  // above the SafeAreaProvider and knows no inset (bottom-inset.ts).
+  const end = useScreenEdgePadding(Spacing.xl);
   const detail = describe(error);
 
   // A caught error never reaches the crash handler: this is its only way to
@@ -54,7 +59,7 @@ function ErrorScreen({ error, retry, onResetSaved, onBack }: ErrorScreenProps) {
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, end]}
       accessibilityLiveRegion="polite"
     >
       <Text variant="title" align="center" accessibilityRole="alert">

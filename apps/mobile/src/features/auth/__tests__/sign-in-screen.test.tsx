@@ -7,6 +7,7 @@ import SignInScreen from '@/app/sign-in';
 import { BUTTON_HEIGHT, Spacing } from '@/constants/theme';
 import { signIn } from '@/features/auth/session';
 import { i18n } from '@/i18n';
+import { BOTTOM_INSETS, withBottomInset } from '@/testing/insets';
 
 /**
  * The sign-in screen (decisions.md §2, «Вход и вкладки», variant 1): the mark,
@@ -49,6 +50,8 @@ const light = THEME_COLORS.light;
 const SIGN_IN = 'Войти';
 const FORGOT = 'Забыли пароль? Обратитесь к менеджеру.';
 const INSETS = { top: 47, bottom: 34, left: 0, right: 0 };
+/** The sign-in screen has no header over it. */
+const NO_HEADER = 0;
 
 const email = () => screen.getByLabelText('Почта');
 const password = () => screen.getByLabelText('Пароль');
@@ -146,6 +149,24 @@ describe('«Войти» at the bottom', () => {
     expect(mockAvoidingProps.at(-1)).toEqual(expect.objectContaining({ behavior: 'padding' }));
     const avoiding = screen.getByTestId('keyboard-avoiding');
     expect(within(avoiding).getByTestId('sign-in-actions')).toBeTruthy();
+  });
+
+  // Block 3 (2026-10-10): Android's three-button navigation bar lay over
+  // «Войти». The bar rises by the inset; with the keyboard up the keys cover
+  // the system's bar, and the lift takes the inset back — no header here, so
+  // the inset is the whole of the offset.
+  describe.each(BOTTOM_INSETS)('with a bottom inset of %i dp', (bottom) => {
+    test('stands clear of the system’s bar', async () => {
+      await render(withBottomInset(bottom, <SignInScreen />));
+
+      expect(styleOf(actions()).paddingBottom).toBe(Spacing.md + bottom);
+    });
+
+    test('sits on the keyboard, not a bar’s height above it', async () => {
+      await render(withBottomInset(bottom, <SignInScreen />));
+
+      expect(mockAvoidingProps.at(-1)?.keyboardVerticalOffset).toBe(NO_HEADER - bottom);
+    });
   });
 
   test('waits for both fields: an address of spaces is no address', async () => {

@@ -1,7 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import { Platform } from 'react-native';
 
+import { Spacing } from '@/constants/theme';
 import { SUPPORTED_LANGUAGES, deviceLanguage, i18n } from '@/i18n';
+import { BOTTOM_INSETS, scrollEndPadding, withBottomInset } from '@/testing/insets';
 import { setWordContext } from '@/testing/word-context';
 
 import { fetchMyPushPreferences, saveMyLanguage, setPushPreference } from '../api';
@@ -66,7 +69,7 @@ const KIND_LABELS = [
  * Drawn and settled: her row has arrived and the switches are on screen, so
  * no answer lands after a test has finished looking.
  */
-async function renderScreen(): Promise<QueryClient> {
+async function renderScreen(bottomInset?: number): Promise<QueryClient> {
   const client = new QueryClient({
     defaultOptions: {
       queries: { retry: false, gcTime: Infinity },
@@ -74,11 +77,12 @@ async function renderScreen(): Promise<QueryClient> {
     },
   });
   registerSettingsMutations(client);
-  await render(
+  const tree = (
     <QueryClientProvider client={client}>
       <SettingsScreen />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+  await render(bottomInset === undefined ? tree : withBottomInset(bottomInset, tree));
   await screen.findAllByRole('switch');
   return client;
 }
@@ -295,4 +299,32 @@ test('a language that could not be saved goes back to the one before, and says s
   expect(await screen.findByText('Язык не сменился.')).toBeTruthy();
   expect(screen.getByText('Own profile row was not updated')).toBeTruthy();
   expect(screen.getByRole('radio', { name: 'Русский' })).toBeSelected();
+});
+
+// Block 3 (2026-10-10): Android's three-button navigation bar lay over the
+// bottom of the settings. «Выйти» is the last thing on the screen; scrolled to
+// the end, it stops clear of the system's bar. On iOS UIKit insets this scroll
+// view itself (`contentInsetAdjustmentBehavior`), and it is not padded twice.
+describe.each(BOTTOM_INSETS)('with a bottom inset of %i dp', (bottom) => {
+  let os: { restore: () => void } | undefined;
+
+  afterEach(() => {
+    os?.restore();
+    os = undefined;
+  });
+
+  test('on Android «Выйти» scrolls clear of the system’s bar', async () => {
+    os = jest.replaceProperty(Platform, 'OS', 'android');
+    await renderScreen(bottom);
+
+    expect(screen.getByRole('button', { name: 'Выйти' })).toBeTruthy();
+    expect(scrollEndPadding()).toBe(Spacing.lg + bottom);
+  });
+
+  test('on iOS the system insets it, and the screen adds nothing', async () => {
+    os = jest.replaceProperty(Platform, 'OS', 'ios');
+    await renderScreen(bottom);
+
+    expect(scrollEndPadding()).toBe(Spacing.lg);
+  });
 });

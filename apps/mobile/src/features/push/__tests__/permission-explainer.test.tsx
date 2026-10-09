@@ -1,10 +1,11 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
-import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
+import { Platform, StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
-import { BUTTON_HEIGHT, Colors, FontSize } from '@/constants/theme';
+import { BUTTON_HEIGHT, Colors, FontSize, Spacing } from '@/constants/theme';
 import { reportError } from '@/lib/sentry';
+import { BOTTOM_INSETS, scrollEndPadding, withBottomInset } from '@/testing/insets';
 import { setWordContext } from '@/testing/word-context';
 
 import { ensureChannels } from '../channels';
@@ -172,5 +173,33 @@ describe('on the «Абрикос» components', () => {
     expect(styleOf(await screen.findByText('Не удалось включить уведомления.')).color).toBe(
       light.danger,
     );
+  });
+});
+
+// Block 3 (2026-10-10): Android's three-button navigation bar lay over the
+// bottom of the screens. «Не сейчас» is the last thing here; at a large font
+// it reaches the bottom, and scrolled to the end it stops clear of the
+// system's bar. On iOS UIKit insets this scroll view itself.
+describe.each(BOTTOM_INSETS)('with a bottom inset of %i dp', (bottom) => {
+  let os: { restore: () => void } | undefined;
+
+  afterEach(() => {
+    os?.restore();
+    os = undefined;
+  });
+
+  test('on Android «Не сейчас» scrolls clear of the system’s bar', async () => {
+    os = jest.replaceProperty(Platform, 'OS', 'android');
+    await render(withBottomInset(bottom, <PermissionExplainer />));
+
+    expect(screen.getByRole('button', { name: 'Не сейчас' })).toBeTruthy();
+    expect(scrollEndPadding()).toBe(Spacing.xl + bottom);
+  });
+
+  test('on iOS the system insets it, and the screen adds nothing', async () => {
+    os = jest.replaceProperty(Platform, 'OS', 'ios');
+    await render(withBottomInset(bottom, <PermissionExplainer />));
+
+    expect(scrollEndPadding()).toBe(Spacing.xl);
   });
 });

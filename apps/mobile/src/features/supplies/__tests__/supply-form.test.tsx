@@ -2,7 +2,8 @@ import { fireEvent, render, screen, within } from '@testing-library/react-native
 import { HeaderHeightContext } from 'expo-router/react-navigation';
 import { Alert, StyleSheet, type ViewStyle } from 'react-native';
 
-import { BUTTON_HEIGHT, MIN_TOUCH_TARGET } from '@/constants/theme';
+import { BUTTON_HEIGHT, MIN_TOUCH_TARGET, Spacing } from '@/constants/theme';
+import { BOTTOM_INSETS, bottomPaddingOf, withBottomInset } from '@/testing/insets';
 
 import { catalogLine } from '../cart';
 import {
@@ -558,5 +559,47 @@ describe('the request sheet', () => {
     const sheet = await openRequest('0 позиций');
 
     expect(sheet.getByText('Позиций пока нет — выберите их в списке')).toBeTruthy();
+  });
+});
+
+// Block 3 (2026-10-10): Android's three-button navigation bar lay over the
+// bottom of the screens. The form's bar rises by the inset; with the keyboard
+// up the keys cover the system's bar, and the lift takes the inset back.
+describe.each(BOTTOM_INSETS)('with a bottom inset of %i dp', (bottom) => {
+  const HEADER = 96;
+
+  async function renderInset() {
+    await render(
+      withBottomInset(
+        bottom,
+        <HeaderHeightContext.Provider value={HEADER}>
+          <SupplyForm
+            draft={emptySupplyDraft()}
+            onChange={jest.fn()}
+            newKey={() => 'n1'}
+            place={null}
+            catalog={catalog}
+            isSubmitting={false}
+            submitLabel={SEND}
+            onSubmit={jest.fn()}
+            error={null}
+          />
+        </HeaderHeightContext.Provider>,
+      ),
+    );
+  }
+
+  test('«Отправить заявку» stands clear of the system’s bar', async () => {
+    await renderInset();
+
+    const bar = screen.getByTestId('supply-form-actions');
+    expect(within(bar).getByRole('button', { name: SEND })).toBeTruthy();
+    expect(bottomPaddingOf(bar.props.style)).toBe(Spacing.md + bottom);
+  });
+
+  test('it sits on the keyboard, not a bar’s height above it', async () => {
+    await renderInset();
+
+    expect(mockAvoidingProps.at(-1)?.keyboardVerticalOffset).toBe(HEADER - bottom);
   });
 });

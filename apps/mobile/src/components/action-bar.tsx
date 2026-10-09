@@ -1,15 +1,17 @@
-import { useContext, useMemo, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 
 import { Spacing, type Theme } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
+
+import { useScreenEdgePadding } from './bottom-inset';
 
 export interface ActionBarProps {
   children: ReactNode;
   /**
    * Nothing under it but the edge of the screen — a form, not a tab: it clears
-   * the home indicator. Above the tab bar it does not; the tab bar has.
+   * the system's bar there (the navigation bar, the home indicator). Above the
+   * tab bar it does not; the tab bar has.
    */
   isAtScreenEdge?: boolean;
   testID?: string;
@@ -27,10 +29,7 @@ export interface ActionBarProps {
  */
 export function ActionBar({ children, isAtScreenEdge = false, testID }: ActionBarProps) {
   const styles = useThemedStyles(createStyles);
-  // Inside the root's SafeAreaProvider the bar clears the home indicator;
-  // without one (a test) it simply sits on the edge.
-  const bottomInset = useContext(SafeAreaInsetsContext)?.bottom ?? 0;
-  const edge = useMemo(() => ({ paddingBottom: Spacing.md + bottomInset }), [bottomInset]);
+  const edge = useScreenEdgePadding(Spacing.md);
 
   return (
     <View testID={testID} style={[styles.bar, isAtScreenEdge && edge]}>

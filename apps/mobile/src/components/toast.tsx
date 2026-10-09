@@ -1,12 +1,12 @@
-import { useContext, useEffect, useEffectEvent, useState } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
 import { AccessibilityInfo, Animated, Platform, StyleSheet, View } from 'react-native';
-import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 
 import { Radius, Spacing, type Theme } from '@/constants/theme';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
+import { useBottomInset } from './bottom-inset';
 import { Text } from './text';
 
 /** How long a toast stays: long enough to read a sentence twice. */
@@ -33,7 +33,8 @@ export function Toast({ message, onHide, durationMs = TOAST_DURATION_MS }: Toast
   const styles = useThemedStyles(createStyles);
   const isReduced = useReducedMotion();
   const [opacity] = useState(() => new Animated.Value(0));
-  const bottomInset = useContext(SafeAreaInsetsContext)?.bottom ?? 0;
+  // Above the system's bar, which lies over the bottom of the screen.
+  const bottomInset = useBottomInset();
   const hide = useEffectEvent(onHide);
 
   useEffect(() => {
@@ -58,7 +59,11 @@ export function Toast({ message, onHide, durationMs = TOAST_DURATION_MS }: Toast
   }
 
   return (
-    <View pointerEvents="box-none" style={[styles.host, { bottom: Spacing.lg + bottomInset }]}>
+    <View
+      testID="toast"
+      pointerEvents="box-none"
+      style={[styles.host, { bottom: Spacing.lg + bottomInset }]}
+    >
       <Animated.View
         accessible
         accessibilityRole="alert"

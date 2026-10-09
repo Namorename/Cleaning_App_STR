@@ -2,6 +2,7 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
+import { useScreenEdgePadding } from '@/components/bottom-inset';
 import { Button } from '@/components/button';
 import { FailureText } from '@/components/failure-text';
 import { LoadingState } from '@/components/loading-state';
@@ -59,12 +60,14 @@ export function VideoPreview({
 }: VideoPreviewProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  // «Переснять» clears the system's bar (components/bottom-inset.ts).
+  const edge = useScreenEdgePadding(Spacing.lg);
   const notice = END_NOTICE[end];
 
   return (
     <View style={styles.screen}>
       {isSending ? <LoadingState label={t('video.preparing')} /> : <PreviewPlayer uri={uri} />}
-      <ScrollView style={layout.panel} contentContainerStyle={layout.controls}>
+      <ScrollView style={layout.panel} contentContainerStyle={[layout.controls, edge]}>
         {notice !== null ? (
           <Text accessibilityRole="alert" align="center">
             {t(notice)}
