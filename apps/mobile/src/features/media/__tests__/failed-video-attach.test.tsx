@@ -2,6 +2,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react-native';
 
 import { createAppQueryClient } from '@/lib/query-client';
+import { signedInWithQueue, signedOutOfQueue } from '@/testing/queue-person';
 import { withClient } from '@/testing/restored-cache';
 
 import { mediaMutationKeys, useFailedVideoAttach, type AttachMediaVariables } from '../use-media';
@@ -58,10 +59,13 @@ let client: QueryClient;
 
 beforeEach(() => {
   client = createAppQueryClient();
+  // Her uploads: a move of the queue runs only with a person signed in (lib/move-queue.ts).
+  signedInWithQueue(client);
 });
 
 afterEach(() => {
   client.clear();
+  signedOutOfQueue();
   jest.useRealTimers();
 });
 

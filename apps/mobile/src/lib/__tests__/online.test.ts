@@ -163,6 +163,8 @@ describe('a move without signal', () => {
 
   test('a refusal from the server still fails after one more try, as before', async () => {
     const client = createAppQueryClient();
+    // Her move: a move of the queue runs only with a person signed in (lib/move-queue.ts).
+    signedInWithQueue(client);
     client.mount();
     const refusal = { message: 'no', hint: 'serverErrors.taskClosed', code: 'P0001' };
     const mutationFn = jest.fn<Promise<string>, [string]>().mockRejectedValue(refusal);
