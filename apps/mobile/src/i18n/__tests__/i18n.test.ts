@@ -161,6 +161,8 @@ describe('words shared by every kind of job', () => {
     // job's screen and a tap on a push about it say.
     'tasks.acceptFailedTitle',
     'tasks.acceptFailed',
+    // An accept replayed after the job moved (904d00f): his job, in his words.
+    'tasks.acceptMoved',
     'tasks.detail.notFound',
     'tasks.detail.closed',
     'tasks.pushNotice.unassigned',

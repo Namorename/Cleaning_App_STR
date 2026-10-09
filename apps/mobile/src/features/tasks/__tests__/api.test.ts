@@ -347,13 +347,32 @@ describe('a move replayed after its answer was lost', () => {
   test.each([
     ['take', () => claimTask(row.id, CLEANER)],
     ['accept', () => acceptTask(SEEN)],
-  ])('a %s on her job cancelled since is told it was cancelled', async (_, move) => {
+  ])('her %s, on her job cancelled since, is told it was cancelled', async (_, move) => {
     rowNow({ status: 'cancelled', assignee_id: CLEANER, scheduled_date: '2026-11-11' });
 
     const refusal = await move().catch((caught: unknown) => caught);
 
     expect((refusal as Error).message).not.toMatch(/[а-яё]/i);
     expect(serverErrorText(refusal)).toEqual({ text: 'Эту уборку отменили.', detail: null });
+  });
+
+  // Her job closed by the nightly sweep since: neither move landed on work that
+  // is still to be done, and each keeps its own refusal — the take's says the
+  // day may have passed. Hers is not enough to count a move as landed.
+  test.each([
+    ['take', () => claimTask(row.id, CLEANER), 'Уборку уже взяли, либо её срок истёк.'],
+    [
+      'accept',
+      () => acceptTask(SEEN),
+      'Не удалось принять уборку — её могли передать, перенести или отменить.',
+    ],
+  ])('her %s, on her job expired since, keeps its own refusal', async (_, move, text) => {
+    rowNow({ status: 'expired', assignee_id: CLEANER });
+
+    const refusal = await move().catch((caught: unknown) => caught);
+
+    expect(refusal).toBeInstanceOf(Error);
+    expect(serverErrorText(refusal)).toEqual({ text, detail: null });
   });
 
   test.each([
