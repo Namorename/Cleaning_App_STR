@@ -5,6 +5,9 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { withClient } from '@/testing/restored-cache';
 
 import { addMedia, confirmMedia, uploadMediaFile, uploadVideoFile } from '../api';
+import { discardFile } from '../file';
+import { mediaKeys } from '../keys';
+import { forgetLocalMedia } from '../local-store';
 import type { TaskMedia } from '../schema';
 import { clearUploadProgress, uploadProgressSnapshot } from '../upload-progress';
 import {
@@ -149,6 +152,59 @@ describe('a video in the chain', () => {
     await attachMedia(video);
   });
 
+  test('once the server confirmed it, the file on the phone is removed and its record let go', async () => {
+    // Arrange
+    const client = new QueryClient();
+    client.setQueryData(mediaKeys.local, { m1: { id: 'm1' } });
+
+    // Act
+    await attachMedia(video, client);
+
+    // Assert: in that order — never before the server has it.
+    expect(calls).toEqual([
+      'add',
+      'resumable:host/task/m1.mp4',
+      'confirm:m1',
+      `discard:${video.uri}`,
+      'forget:m1',
+    ]);
+    expect(client.getQueryData(mediaKeys.local)).toEqual({});
+  });
+
+  test('a video the server did not confirm keeps its file, for the next try', async () => {
+    jest.mocked(confirmMedia).mockRejectedValueOnce({ hint: 'serverErrors.mediaNotUploaded' });
+
+    await expect(attachMedia(video)).rejects.toMatchObject({
+      hint: 'serverErrors.mediaNotUploaded',
+    });
+
+    expect(discardFile).not.toHaveBeenCalled();
+    expect(forgetLocalMedia).not.toHaveBeenCalled();
+  });
+
+  test('a failed upload keeps it too', async () => {
+    jest.mocked(uploadVideoFile).mockRejectedValueOnce(new TypeError('Network request failed'));
+
+    await expect(attachMedia(video)).rejects.toThrow('Network request failed');
+
+    expect(confirmMedia).not.toHaveBeenCalled();
+    expect(discardFile).not.toHaveBeenCalled();
+  });
+
+  test('replayed after the server confirmed it, sends nothing more and lets the file go', async () => {
+    // Arrange: the file is gone already; there is nothing to send it from.
+    jest
+      .mocked(addMedia)
+      .mockResolvedValueOnce(registered({ uploaded_at: '2026-10-09T08:01:00.000Z' }));
+
+    // Act
+    await attachMedia(video);
+
+    // Assert
+    expect(uploadVideoFile).not.toHaveBeenCalled();
+    expect(calls).toEqual(['confirm:m1', `discard:${video.uri}`, 'forget:m1']);
+  });
+
   test('nothing waits for Wi-Fi: the upload sets off as soon as the attach runs', async () => {
     // Arrange: mobile data, and the queue online.
     jest.mocked(NetInfo.fetch).mockResolvedValue({
@@ -168,6 +224,16 @@ describe('a video in the chain', () => {
     // Assert
     await waitFor(() => expect(uploadVideoFile).toHaveBeenCalledTimes(1));
     expect(NetInfo.fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe('a photo in the chain', () => {
+  test('keeps its file once confirmed: its tile still shows it', async () => {
+    await attachMedia({ ...video, kind: 'photo', mimeType: 'image/jpeg', durationSec: null });
+
+    expect(uploadVideoFile).not.toHaveBeenCalled();
+    expect(discardFile).not.toHaveBeenCalled();
+    expect(forgetLocalMedia).not.toHaveBeenCalled();
   });
 });
 

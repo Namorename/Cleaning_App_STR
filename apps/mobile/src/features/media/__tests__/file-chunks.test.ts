@@ -1,4 +1,4 @@
-import { openFileChunks } from '../file';
+import { discardFile, openFileChunks } from '../file';
 
 /**
  * A video is read for its upload a piece at a time through a file handle, so
@@ -141,5 +141,17 @@ describe('openFileChunks', () => {
 
   test('a file that is not there fails, for the attempt to say so', async () => {
     await expect(openFileChunks(VIDEO)).rejects.toThrow(/No file/);
+  });
+});
+
+describe('discardFile', () => {
+  test('removes the file; removing it again, or one that never was, is not an error', () => {
+    fs.__files.set(VIDEO, 10);
+
+    discardFile(VIDEO);
+    discardFile(VIDEO);
+    discardFile('file:///documents/task-media/never.mp4');
+
+    expect(fs.__deleted).toEqual([VIDEO]);
   });
 });

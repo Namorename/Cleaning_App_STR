@@ -13,6 +13,7 @@ import { chatKeys } from '@/features/chat/keys';
 import type { OwnMediaState, OwnMediaStates } from '@/features/chat/media-tiles';
 import { stepKeys } from '@/features/steps/keys';
 import { serverErrorKey } from '@/lib/server-error';
+import { reportError } from '@/lib/sentry';
 
 import {
   addMedia,
@@ -119,15 +120,19 @@ function dropFailedAttempts(queryClient: QueryClient, mediaId: string): void {
  * confirmed row as it is.
  *
  * A photo goes up in one request. A video goes in pieces and resumes where
- * the last attempt stopped (`attachVideo`).
+ * the last attempt stopped (`attachVideo`). The query client, when given, is
+ * told of the local ledger a video's release changes.
  */
-export async function attachMedia(variables: AttachMediaVariables): Promise<TaskMedia> {
+export async function attachMedia(
+  variables: AttachMediaVariables,
+  queryClient?: QueryClient,
+): Promise<TaskMedia> {
   if (variables.message !== undefined) {
     await sendMessage(variables.message);
   }
   const row = await addMedia(variables);
   if (variables.kind === 'video') {
-    return attachVideo(row, variables);
+    return attachVideo(row, variables, queryClient);
   }
   try {
     await uploadMediaFile(row.storage_path, variables.uri, variables.mimeType);
@@ -144,28 +149,55 @@ export async function attachMedia(variables: AttachMediaVariables): Promise<Task
 }
 
 /**
- * A video's upload and confirmation.
+ * A video's upload and confirmation, then its file let go.
  *
  * Resumable (docs/tech-plan.md §7.5): sent in pieces from the address kept in
- * its local record, saying how far it has got as it goes.
+ * its local record, saying how far it has got as it goes. A row the server
+ * already confirmed is a replay after the file was let go — nothing is left
+ * to send, and nothing to send it from. Once confirmed, the file is removed
+ * from the phone: unlike a photo's, its tile never shows it, and a few
+ * videos would fill the phone's memory.
  */
-async function attachVideo(row: TaskMedia, variables: AttachMediaVariables): Promise<TaskMedia> {
-  await uploadVideoFile({
-    mediaId: variables.mediaId,
-    storagePath: row.storage_path,
-    uri: variables.uri,
-    mimeType: variables.mimeType,
-    onProgress: (sent, total) => reportUploadProgress(variables.mediaId, sent, total),
-  });
+async function attachVideo(
+  row: TaskMedia,
+  variables: AttachMediaVariables,
+  queryClient?: QueryClient,
+): Promise<TaskMedia> {
+  if (row.uploaded_at === null) {
+    await uploadVideoFile({
+      mediaId: variables.mediaId,
+      storagePath: row.storage_path,
+      uri: variables.uri,
+      mimeType: variables.mimeType,
+      onProgress: (sent, total) => reportUploadProgress(variables.mediaId, sent, total),
+    });
+  }
   const confirmed = await confirmMedia(variables.mediaId);
-  clearUploadProgress(variables.mediaId);
+  await releaseVideo(variables, queryClient);
   return confirmed;
+}
+
+/** The file and its record, gone once the server has the video. Twice is not an error. */
+async function releaseVideo(
+  variables: AttachMediaVariables,
+  queryClient: QueryClient | undefined,
+): Promise<void> {
+  discardFile(variables.uri);
+  clearUploadProgress(variables.mediaId);
+  try {
+    const store = await forgetLocalMedia(variables.mediaId);
+    queryClient?.setQueryData(mediaKeys.local, store);
+  } catch (error: unknown) {
+    // The video is in and confirmed; a ledger that could not be written only
+    // keeps the record of a file that is gone.
+    reportError(error);
+  }
 }
 
 /** Teach the query client how to replay each media action after a restart. */
 export function registerMediaMutations(queryClient: QueryClient): void {
   queryClient.setMutationDefaults(mediaMutationKeys.attach, {
-    mutationFn: (variables: AttachMediaVariables) => attachMedia(variables),
+    mutationFn: (variables: AttachMediaVariables) => attachMedia(variables, queryClient),
     scope: ATTACH_SCOPE,
     retry: ATTACH_RETRIES,
   });
@@ -241,7 +273,7 @@ export function useAttachMedia() {
 
   return useMutation<TaskMedia, Error, AttachMediaVariables>({
     mutationKey: mediaMutationKeys.attach,
-    mutationFn: attachMedia,
+    mutationFn: (variables) => attachMedia(variables, queryClient),
     scope: ATTACH_SCOPE,
     retry: ATTACH_RETRIES,
     onMutate: async (variables) => {
