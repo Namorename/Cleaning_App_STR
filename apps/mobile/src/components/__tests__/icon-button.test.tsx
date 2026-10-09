@@ -1,8 +1,11 @@
-import { THEME_COLORS, TOUCH_TARGET } from '@str-ops/shared';
+import { THEME_COLORS, THEME_NAMES, TOUCH_TARGET } from '@str-ops/shared';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet, type ViewStyle } from 'react-native';
 
-import { IconButton } from '../icon-button';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+
+import { contrastRatio } from '../../../../../packages/shared/src/testing/color-math';
+import { IconButton, type IconButtonSize } from '../icon-button';
 
 /**
  * A button that is only a picture: the chat's camera, gallery and send. It has
@@ -10,7 +13,20 @@ import { IconButton } from '../icon-button';
  * never smaller than a finger — 48 dp, or 56 for the screen's main move.
  */
 
+jest.mock('@/hooks/use-color-scheme', () => ({ useColorScheme: jest.fn(() => 'light') }));
+const scheme = jest.mocked(useColorScheme);
+
 const light = THEME_COLORS.light;
+/** WCAG 2.2 1.4.11: a control the user has to find, against what is next to it. */
+const NON_TEXT = 3;
+const SIDES: Readonly<Record<IconButtonSize, number>> = {
+  regular: TOUCH_TARGET.phoneMin,
+  large: TOUCH_TARGET.phoneButton,
+};
+
+beforeEach(() => {
+  scheme.mockReturnValue('light');
+});
 
 function boxOf(name: string): ViewStyle {
   return StyleSheet.flatten(screen.getByRole('button', { name }).props.style) as ViewStyle;
@@ -90,6 +106,45 @@ test('disabled: says so, does not press, and a primary one is drawn quiet', asyn
   expect(onPress).not.toHaveBeenCalled();
   expect(button).toBeDisabled();
   expect(boxOf('Отправить').backgroundColor).toBe(light.surfaceAlt);
+});
+
+/**
+ * The inactive fill alone is 1.04:1 against the light screen: the chat's send
+ * button vanished while the box was empty, as `Button` did (owner,
+ * 2026-10-09). Its frame is what she finds it by — 3:1 against the screen and
+ * against a card, in both themes, measured from the tokens — and the target
+ * keeps its size.
+ */
+describe.each(THEME_NAMES)('a primary one inactive, in the %s theme', (themeName) => {
+  const colors = THEME_COLORS[themeName];
+
+  test.each(Object.keys(SIDES) as IconButtonSize[])(
+    '%s: its frame stands out 3:1 from the screen and from a card, the target as large',
+    async (size) => {
+      // Arrange
+      scheme.mockReturnValue(themeName);
+
+      // Act
+      await render(
+        <IconButton
+          icon="action.send"
+          variant="primary"
+          size={size}
+          isDisabled
+          accessibilityLabel="Отправить"
+          onPress={jest.fn()}
+        />,
+      );
+
+      // Assert
+      const box = boxOf('Отправить');
+      const frame = String(box.borderColor);
+      expect(box.borderWidth).toBeGreaterThan(0);
+      expect(contrastRatio(frame, colors.bg)).toBeGreaterThanOrEqual(NON_TEXT);
+      expect(contrastRatio(frame, colors.surface)).toBeGreaterThanOrEqual(NON_TEXT);
+      expect(box).toMatchObject({ width: SIDES[size], height: SIDES[size] });
+    },
+  );
 });
 
 test('busy: says so, and a second tap does nothing', async () => {

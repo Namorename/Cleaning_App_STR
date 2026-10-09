@@ -86,6 +86,9 @@ const SIDE = StyleSheet.create({
   large: { width: BUTTON_HEIGHT, height: BUTTON_HEIGHT },
 } satisfies Readonly<Record<IconButtonSize, ViewStyle>>);
 
+/** The inactive frame's width, as `Button` draws it; inside the box, which `SIDE` sizes. */
+const FRAME_WIDTH = 2;
+
 const createStyles = (theme: Theme) => ({
   ...StyleSheet.create({
     base: {
@@ -98,8 +101,19 @@ const createStyles = (theme: Theme) => ({
     primary: { backgroundColor: theme.cta },
     plain: { backgroundColor: 'transparent' },
   } satisfies Readonly<Record<IconButtonVariant, ViewStyle>>,
+  /**
+   * Inactive, a primary one keeps a frame in `border`: the quiet fill alone
+   * is 1.04:1 against the light screen, and the chat's send button vanished
+   * while the box was empty — as `Button` did (owner, 2026-10-09). The frame
+   * is 3:1 or more against the screen and a card in both themes (WCAG 1.4.11,
+   * icon-button.test.tsx).
+   */
   disabledBox: {
-    primary: { backgroundColor: theme.surfaceAlt },
+    primary: {
+      backgroundColor: theme.surfaceAlt,
+      borderWidth: FRAME_WIDTH,
+      borderColor: theme.border,
+    },
     plain: { backgroundColor: 'transparent' },
   } satisfies Readonly<Record<IconButtonVariant, ViewStyle>>,
   pressedBox: {
