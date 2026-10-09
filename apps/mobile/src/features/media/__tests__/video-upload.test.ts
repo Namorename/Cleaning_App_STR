@@ -128,6 +128,12 @@ test('reads the file piece by piece from where the capture was kept', async () =
   expect(openFileChunks).toHaveBeenCalledWith(record.uri);
 });
 
+test('passes on how often its piece ran out of time, for the piece to be given longer', async () => {
+  await uploadVideoFile({ ...upload, stalls: 2 });
+
+  expect(handed().video.stalls).toBe(2);
+});
+
 test('passes on how far it has got', async () => {
   const onProgress = jest.fn();
 

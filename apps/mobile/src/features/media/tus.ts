@@ -28,10 +28,15 @@ export const TUS_RETRY_DELAYS_MS: readonly number[] = [1_000, 3_000, 5_000];
 
 /**
  * How long a piece may take before it is given up on: 6 MiB in two minutes
- * is some 50 KiB/s, slower than any network worth waiting on. Android's
- * OkHttp under expo/fetch would otherwise wait for ever on a silent socket.
+ * is some 420 kbit/s. Android's OkHttp under expo/fetch would otherwise wait
+ * for ever on a silent socket. fetch says nothing of the bytes on their way,
+ * so this is a deadline, not a watch on progress: a slower uplink is given
+ * twice as long after each time its piece ran out of time without a byte
+ * arriving (`stalls`), up to TUS_PATCH_STALL_MAX_MS.
  */
 export const TUS_PATCH_STALL_MS = 120_000;
+/** Ten minutes: some 84 kbit/s for 6 MiB. A piece slower than that is not waited on. */
+export const TUS_PATCH_STALL_MAX_MS = 600_000;
 /** A question or a creation carries no file: it is given up on sooner. */
 export const TUS_SHORT_STALL_MS = 30_000;
 const MS_PER_SECOND = 1000;
@@ -94,13 +99,45 @@ export interface TusUpload {
   accessToken: (refresh: boolean) => Promise<string>;
   openSource: () => Promise<TusSource>;
   onProgress?: (sent: number, total: number) => void;
+  /**
+   * How many attempts in a row ran out of time on the piece this upload is
+   * at, nothing of it arriving: each one doubles the time a piece is given
+   * (`patchStallMs`). The queue keeps the count (attach-retry.ts).
+   */
+  stalls?: number;
 }
+
+/**
+ * Why an attempt handed back without the file in, told where it was found:
+ * the queue waits for signal only when nothing answered (attach-retry.ts).
+ *
+ * - `no-answer` — the request reached nothing, or was cut as the signal went;
+ * - `timed-out` — a question or a creation got no answer in its time;
+ * - `busy` — the storage answered it could not take it now (5xx, 408, 423, 429);
+ * - `lost-place` — the storage kept losing its place: conflicts, answers
+ *   without an offset, pieces taken without the offset moving;
+ * - `stalled` — a piece ran out of time and the storage holds no more of it.
+ */
+export type TusRetryReason = 'no-answer' | 'timed-out' | 'busy' | 'lost-place' | 'stalled';
 
 /** Worth another try: the request got no answer, or the storage could not take it now. */
 export class TusRetryableError extends Error {
-  constructor(message: string) {
+  readonly reason: TusRetryReason;
+  /** The status the storage answered with, for `busy`. */
+  readonly status: number | undefined;
+  /** Where the piece that moved nothing began, for `stalled`. */
+  readonly offset: number | undefined;
+
+  constructor(
+    message: string,
+    reason: TusRetryReason,
+    details: { status?: number; offset?: number } = {},
+  ) {
     super(message);
     this.name = 'TusRetryableError';
+    this.reason = reason;
+    this.status = details.status;
+    this.offset = details.offset;
   }
 }
 
@@ -150,15 +187,23 @@ const CONFLICT = Symbol('conflict');
 const RETRIED = Symbol('retried');
 /** The app was put away mid-request and is in front again: carry on. */
 const AWAY = Symbol('away');
+/** A piece ran out of time: the storage is asked whether any of it arrived. */
+const CUT_FOR_TIME = Symbol('cut for time');
+
+/** The time a piece is given after `stalls` attempts in a row ran out of it. */
+export function patchStallMs(stalls: number): number {
+  return Math.min(TUS_PATCH_STALL_MS * 2 ** Math.max(0, stalls), TUS_PATCH_STALL_MAX_MS);
+}
 
 /**
  * Upload the file, resuming where `uploadUrl` left off.
  *
  * Resolves once the storage holds the whole file — or says it already had it.
  * Rejects with a `TusRetryableError` when the network would not carry it
- * after a few tries (or at once without signal), with a `TusRefusedError`
- * when the storage said no, and with a `TusFileError` when the file is not
- * the one registered. The file is closed either way.
+ * after a few tries (or at once without signal), or a piece ran out of time
+ * with nothing of it arriving — its `reason` says which; with a
+ * `TusRefusedError` when the storage said no, and with a `TusFileError` when
+ * the file is not the one registered. The file is closed either way.
  */
 export async function tusUpload(upload: TusUpload, runtime: TusRuntime): Promise<void> {
   const source = await upload.openSource();
@@ -178,6 +223,10 @@ class TusSession {
   private reported: number | null = null;
   /** The address kept from an earlier attempt, until it is refused once. */
   private storedUrl: string | null;
+  /** The time a piece is given in this attempt. */
+  private readonly patchStallMs: number;
+  /** Where a piece cut for time began, until the storage says how much of it arrived. */
+  private cutAt: number | null = null;
 
   constructor(
     private readonly upload: TusUpload,
@@ -185,6 +234,7 @@ class TusSession {
     private readonly source: TusSource,
   ) {
     this.storedUrl = upload.uploadUrl;
+    this.patchStallMs = patchStallMs(upload.stalls ?? 0);
   }
 
   async run(): Promise<void> {
@@ -207,6 +257,14 @@ class TusSession {
         position = { url: position.url, offset: null };
       } else if (next === AWAY) {
         position = { url: position.url, offset: null };
+      } else if (next === CUT_FOR_TIME) {
+        this.cutAt = position.offset;
+        position = { url: position.url, offset: null };
+      } else if (this.hasMovedSinceCut(position, next)) {
+        // Part of the piece cut for time arrived: the uplink is slow, not gone.
+        failures = 0;
+        detours = 0;
+        position = next;
       } else if (hasAdvanced(position, next)) {
         // A piece went through: whatever went wrong before is behind it.
         failures = 0;
@@ -216,7 +274,10 @@ class TusSession {
         detours += 1;
         // Outside the request's own tries: the attempt ends, for the queue to try later.
         if (detours > MAX_DETOURS) {
-          throw new TusRetryableError('Resumable upload keeps losing its place in storage');
+          throw new TusRetryableError(
+            'Resumable upload keeps losing its place in storage',
+            'lost-place',
+          );
         }
         // The storage says where it stands before anything more is sent.
         position = { url: next.url, offset: null };
@@ -227,14 +288,41 @@ class TusSession {
   }
 
   /**
+   * After a piece was cut for time, the storage's answer to where it stands:
+   * more than when the piece began, and the upload carries on from there;
+   * no more, and the attempt ends as a stall, for the queue to count and to
+   * give the piece longer next time. Any other answer — a new upload, the
+   * address expired — leaves nothing to compare.
+   */
+  private hasMovedSinceCut(before: Position, after: Position): boolean {
+    const cutAt = this.cutAt;
+    if (cutAt === null) {
+      return false;
+    }
+    this.cutAt = null;
+    if (after.url !== before.url || after.offset === null) {
+      return false;
+    }
+    if (after.offset > cutAt) {
+      return true;
+    }
+    throw new TusRetryableError(
+      `Resumable upload PATCH at ${cutAt} moved nothing in ${this.patchStallMs / MS_PER_SECOND} s`,
+      'stalled',
+      { offset: cutAt },
+    );
+  }
+
+  /**
    * One step, and what became of it: where the upload stands now, or that
    * the request failed for the network and waits before it is tried again —
-   * or that the app was put away and is in front again.
+   * or that the app was put away and is in front again, or that a piece ran
+   * out of time and the storage is to be asked how much of it arrived.
    */
   private async attempt(
     position: Position,
     failures: number,
-  ): Promise<Position | typeof ALREADY_THERE | typeof RETRIED | typeof AWAY> {
+  ): Promise<Position | typeof ALREADY_THERE | typeof RETRIED | typeof AWAY | typeof CUT_FOR_TIME> {
     const watch = this.runtime.presence.watchAway();
     try {
       return await this.advance(position);
@@ -247,7 +335,16 @@ class TusSession {
         await this.runtime.presence.untilInFront();
         return AWAY;
       }
-      if (!this.runtime.isOnline() || failures >= TUS_RETRY_DELAYS_MS.length) {
+      if (!this.runtime.isOnline()) {
+        throw error;
+      }
+      // A piece (the only step with both an address and an offset) out of
+      // time is no blip: its own tries are not spent on it.
+      if (error.reason === 'timed-out' && position.url !== null && position.offset !== null) {
+        await this.runtime.sleep(TUS_RETRY_DELAYS_MS[0]);
+        return CUT_FOR_TIME;
+      }
+      if (failures >= TUS_RETRY_DELAYS_MS.length) {
         throw error;
       }
       await this.runtime.sleep(TUS_RETRY_DELAYS_MS[failures]);
@@ -335,7 +432,7 @@ class TusSession {
     }
     const offset = parseOffset(answer.header('Upload-Offset'));
     if (offset === null) {
-      throw new TusRetryableError('Resumable upload HEAD answered without an offset');
+      throw new TusRetryableError('Resumable upload HEAD answered without an offset', 'lost-place');
     }
     return offset;
   }
@@ -389,8 +486,9 @@ class TusSession {
   /**
    * One request, cut when it takes longer than its kind may — a silent socket
    * would otherwise hold the upload for ever — or when the signal goes. Cut
-   * either way, it is the network's failure: the storage is asked where it
-   * stands, and the queue waits for signal.
+   * for the signal, or failed on the way, it got no answer: the queue waits
+   * for signal. Cut for time, it says so, and a piece cut that way is looked
+   * into before anything else is decided (`attempt`).
    */
   private async sendOnce(
     method: string,
@@ -401,14 +499,21 @@ class TusSession {
   ): Promise<Response> {
     const token = await this.token(refresh);
     const controller = new AbortController();
-    const stallMs = method === 'PATCH' ? TUS_PATCH_STALL_MS : TUS_SHORT_STALL_MS;
+    const stallMs = method === 'PATCH' ? this.patchStallMs : TUS_SHORT_STALL_MS;
     let cutBecause: string | null = null;
-    const cut = (why: string) => {
+    let cutReason: TusRetryReason = 'no-answer';
+    const cut = (why: string, reason: TusRetryReason) => {
       cutBecause = why;
+      cutReason = reason;
       controller.abort();
     };
-    const timer = setTimeout(() => cut(`timed out after ${stallMs / MS_PER_SECOND} s`), stallMs);
-    const stopListening = this.runtime.onOffline(() => cut('cut: the network was lost'));
+    const timer = setTimeout(
+      () => cut(`timed out after ${stallMs / MS_PER_SECOND} s`, 'timed-out'),
+      stallMs,
+    );
+    const stopListening = this.runtime.onOffline(() =>
+      cut('cut: the network was lost', 'no-answer'),
+    );
     try {
       return await this.runtime.fetch(url, {
         method,
@@ -422,10 +527,12 @@ class TusSession {
         signal: controller.signal,
       });
     } catch (error: unknown) {
-      // Kept in the message: "Network request failed" and "timed out" are how
-      // the app tells a stairwell from a server (lib/network-error.ts).
+      // The queue reads the reason; the fetch's own words stay in the message
+      // for the log, and for crash reports to tell a stairwell from a server
+      // (lib/network-error.ts).
       throw new TusRetryableError(
         `Resumable upload ${method} ${cutBecause ?? `failed: ${messageOf(error)}`}`,
+        cutReason,
       );
     } finally {
       clearTimeout(timer);
@@ -438,7 +545,7 @@ class TusSession {
       return await this.upload.accessToken(refresh);
     } catch (error: unknown) {
       if (isNetworkError(error)) {
-        throw new TusRetryableError(`Session token unavailable: ${messageOf(error)}`);
+        throw new TusRetryableError(`Session token unavailable: ${messageOf(error)}`, 'no-answer');
       }
       throw error;
     }
@@ -490,7 +597,9 @@ function isBusy(status: number): boolean {
 
 function refusal(method: string, status: number, detail: string): Error {
   const message = `Resumable upload ${method} answered ${status}${detail === '' ? '' : `: ${detail}`}`;
-  return isBusy(status) ? new TusRetryableError(message) : new TusRefusedError(status, message);
+  return isBusy(status)
+    ? new TusRetryableError(message, 'busy', { status })
+    : new TusRefusedError(status, message);
 }
 
 function answerOf(response: Response): Answer {

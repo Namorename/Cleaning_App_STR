@@ -28,7 +28,7 @@ import {
   type AddMediaVariables,
   type MediaOwnerRef,
 } from './api';
-import { countAttachFailure, retryAttach, startAttachCount } from './attach-retry';
+import { attachStalls, countAttachFailure, retryAttach, startAttachCount } from './attach-retry';
 import { discardFile } from './file';
 import { mediaKeys } from './keys';
 import {
@@ -175,6 +175,8 @@ async function attachVideo(
       mimeType: variables.mimeType,
       byteSize: variables.byteSize,
       onProgress: (sent, total) => reportUploadProgress(variables.mediaId, sent, total),
+      // A piece that ran out of time before is given longer this time.
+      stalls: attachStalls(variables.mediaId),
     });
   }
   const confirmed = await confirmMedia(variables.mediaId);

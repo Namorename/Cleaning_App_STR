@@ -2,6 +2,7 @@ import { isNetworkError } from '@/lib/network-error';
 
 import {
   TUS_CHUNK_BYTES,
+  TUS_PATCH_STALL_MAX_MS,
   TUS_PATCH_STALL_MS,
   TUS_RETRY_DELAYS_MS,
   TUS_SHORT_STALL_MS,
@@ -49,7 +50,11 @@ const HANG = Symbol('hang');
 
 /** What one request is answered with, out of the usual order. */
 type Planned =
-  Reply | Error | typeof AS_USUAL | typeof HANG | ((storage: FakeStorage) => Reply | Error);
+  | Reply
+  | Error
+  | typeof AS_USUAL
+  | typeof HANG
+  | ((storage: FakeStorage) => Reply | Error | typeof HANG);
 
 function response({ status, headers = {}, body = '' }: Reply): Response {
   const byName = new Map(
@@ -98,6 +103,9 @@ class FakeStorage {
       }
       if (reply !== AS_USUAL) {
         const answer = typeof reply === 'function' ? reply(this) : reply;
+        if (answer === HANG) {
+          return hang(init.signal);
+        }
         if (answer instanceof Error) {
           throw answer;
         }
@@ -667,6 +675,7 @@ describe('a dropped connection', () => {
     await expect(failure).rejects.toBeInstanceOf(TusRetryableError);
     const error: unknown = await failure.catch((reason: unknown) => reason);
     expect(isNetworkError(error)).toBe(true);
+    expect(error).toMatchObject({ reason: 'no-answer' });
     expect(jest.mocked(run.sleep).mock.calls).toEqual(TUS_RETRY_DELAYS_MS.map((ms) => [ms]));
     expect(storage.fetch).toHaveBeenCalledTimes(TUS_RETRY_DELAYS_MS.length + 1);
   });
@@ -745,20 +754,62 @@ describe('a dropped connection', () => {
 // Android's OkHttp under expo/fetch waits for ever by default: a socket gone
 // silent in a lift would hold the upload — and every video behind it.
 describe('a request that hangs', () => {
-  test('a piece is given up on after its time, and the storage asked where it stands', async () => {
+  // An uplink too slow for a piece in its time sends it again and again from
+  // the start: the attempt ends instead, for the queue to count (attach-retry.ts).
+  test('a piece given up on after its time, none of it arrived, ends the attempt as a stall', async () => {
     // Arrange
     jest.useFakeTimers();
     storage.plan('PATCH', HANG);
-    const video = upload();
+    const run = runtime();
 
     // Act
-    const done = tusUpload(video, runtime());
+    const failure = tusUpload(upload(), run).catch((reason: unknown) => reason);
+    await jest.advanceTimersByTimeAsync(TUS_PATCH_STALL_MS);
+    const error = await failure;
+
+    // Assert: the storage was asked where it stands, and holds what it held.
+    expect(storage.methods()).toEqual(['POST', 'PATCH', 'HEAD']);
+    expect(error).toBeInstanceOf(TusRetryableError);
+    expect(error).toMatchObject({ reason: 'stalled', offset: 0 });
+    expect(TUS_PATCH_STALL_MS).toBe(120_000);
+    expect(file.isClosed()).toBe(true);
+  });
+
+  test('a piece given up on after its time, part of it arrived, carries on from there', async () => {
+    jest.useFakeTimers();
+    storage.plan('PATCH', (self) => {
+      self.offset = 1000;
+      return HANG;
+    });
+
+    const done = tusUpload(upload(), runtime());
     await jest.advanceTimersByTimeAsync(TUS_PATCH_STALL_MS);
     await done;
 
-    // Assert
-    expect(storage.methods()).toEqual(['POST', 'PATCH', 'HEAD', 'PATCH', 'PATCH', 'PATCH']);
-    expect(TUS_PATCH_STALL_MS).toBe(120_000);
+    expect(storage.methods()).toEqual(['POST', 'PATCH', 'HEAD', 'PATCH', 'PATCH']);
+    expect(storage.patches()[1].offset).toBe(1000);
+    expect(storage.offset).toBe(SIZE);
+  });
+
+  // The queue remembers how often the piece ran out of time; each time it
+  // gets twice as long, up to ten minutes — some 80 kbit/s for 6 MiB.
+  test.each([
+    [0, 120_000],
+    [1, 240_000],
+    [2, 480_000],
+    [3, 600_000],
+    [9, 600_000],
+  ])('after %i stalls in a row a piece is given %i ms', async (stalls, ms) => {
+    jest.useFakeTimers();
+    storage.plan('PATCH', HANG);
+
+    const failure = tusUpload(upload({ stalls }), runtime()).catch((reason: unknown) => reason);
+    await jest.advanceTimersByTimeAsync(ms - 1);
+    expect(storage.methods()).toEqual(['POST', 'PATCH']);
+    await jest.advanceTimersByTimeAsync(1);
+
+    await expect(failure).resolves.toMatchObject({ reason: 'stalled' });
+    expect(TUS_PATCH_STALL_MAX_MS).toBe(600_000);
   });
 
   test('a question is given up on sooner', async () => {
@@ -808,6 +859,88 @@ describe('a request that hangs', () => {
     expect(error).toBeInstanceOf(TusRetryableError);
     expect(storage.methods()).toEqual(['POST', 'PATCH']);
     expect(run.sleep).not.toHaveBeenCalled();
+  });
+});
+
+// The queue waits for signal only on silence; anything the storage answered
+// spends a try (attach-retry.ts). The reason is told where the error is made.
+describe('why an attempt handed back', () => {
+  test('a request that reached nothing: no answer', async () => {
+    storage.fetch.mockRejectedValue(new TypeError('Network request failed'));
+
+    await expect(tusUpload(upload(), runtime())).rejects.toMatchObject({ reason: 'no-answer' });
+  });
+
+  test('a request cut because the signal went: no answer', async () => {
+    let goneOffline: () => void = () => undefined;
+    const run = runtime({
+      isOnline: () => false,
+      onOffline: jest.fn((listener: () => void) => {
+        goneOffline = listener;
+        return () => undefined;
+      }),
+    });
+    storage.plan('PATCH', HANG);
+
+    const failure = tusUpload(upload(), run).catch((reason: unknown) => reason);
+    await new Promise((resolve) => setImmediate(resolve));
+    goneOffline();
+
+    await expect(failure).resolves.toMatchObject({ reason: 'no-answer' });
+  });
+
+  test('a session token the network kept away: no answer', async () => {
+    const video = upload();
+    jest
+      .mocked(video.accessToken)
+      .mockRejectedValue({ name: 'AuthRetryableFetchError', message: 'Failed to fetch' });
+
+    await expect(tusUpload(video, runtime())).rejects.toMatchObject({ reason: 'no-answer' });
+  });
+
+  test('a question that got no answer in its time: timed out', async () => {
+    jest.useFakeTimers();
+    storage.offset = TUS_CHUNK_BYTES;
+    TUS_RETRY_DELAYS_MS.forEach(() => storage.plan('HEAD', HANG));
+    storage.plan('HEAD', HANG);
+
+    const failure = tusUpload(upload({ uploadUrl: UPLOAD_URL }), runtime()).catch(
+      (reason: unknown) => reason,
+    );
+    await jest.advanceTimersByTimeAsync((TUS_RETRY_DELAYS_MS.length + 1) * TUS_SHORT_STALL_MS);
+
+    await expect(failure).resolves.toMatchObject({ reason: 'timed-out' });
+  });
+
+  test.each([500, 503, 423, 429, 408])(
+    'a storage that kept answering it is busy (%i): busy, with its status',
+    async (status) => {
+      TUS_RETRY_DELAYS_MS.forEach(() => storage.plan('POST', { status }));
+      storage.plan('POST', { status });
+
+      const failure = tusUpload(upload(), runtime());
+
+      await expect(failure).rejects.toBeInstanceOf(TusRetryableError);
+      await expect(failure).rejects.toMatchObject({ reason: 'busy', status });
+    },
+  );
+
+  test('a storage that kept losing its place: lost place', async () => {
+    for (let i = 0; i < 4; i += 1) {
+      storage.plan('PATCH', { status: 409 });
+    }
+
+    await expect(tusUpload(upload(), runtime())).rejects.toMatchObject({ reason: 'lost-place' });
+  });
+
+  test('a storage that kept answering a question without its offset: lost place', async () => {
+    storage.offset = TUS_CHUNK_BYTES;
+    TUS_RETRY_DELAYS_MS.forEach(() => storage.plan('HEAD', { status: 200 }));
+    storage.plan('HEAD', { status: 200 });
+
+    await expect(tusUpload(upload({ uploadUrl: UPLOAD_URL }), runtime())).rejects.toMatchObject({
+      reason: 'lost-place',
+    });
   });
 });
 

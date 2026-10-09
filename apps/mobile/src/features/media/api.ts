@@ -248,6 +248,8 @@ export interface VideoUpload {
   /** The size registered by add_task_media: the file must still be that size. */
   byteSize: number;
   onProgress?: (sent: number, total: number) => void;
+  /** Attempts in a row whose piece ran out of time with nothing arriving (`attach-retry.ts`). */
+  stalls?: number;
 }
 
 /**
@@ -277,6 +279,7 @@ export async function uploadVideoFile(upload: VideoUpload): Promise<void> {
       accessToken,
       openSource: () => openFileChunks(upload.uri),
       onProgress: upload.onProgress,
+      stalls: upload.stalls,
     },
     resumableRuntime,
   );
