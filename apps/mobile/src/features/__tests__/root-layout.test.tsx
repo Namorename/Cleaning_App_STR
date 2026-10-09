@@ -58,8 +58,17 @@ function mockScreen({ name, options }: { name: string; options?: unknown }) {
   return null;
 }
 
+/** What the root handed the cache's provider: when the restore succeeded, and when it failed. */
+const mockPersistProps: { onSuccess?: () => void; onError?: () => void } = {};
+
+function mockPersistProvider(props: MockChildren & typeof mockPersistProps) {
+  mockPersistProps.onSuccess = props.onSuccess;
+  mockPersistProps.onError = props.onError;
+  return <View testID="query-cache">{props.children}</View>;
+}
+
 jest.mock('@tanstack/react-query-persist-client', () => ({
-  PersistQueryClientProvider: mockMarkedProvider('query-cache'),
+  PersistQueryClientProvider: mockPersistProvider,
 }));
 jest.mock('@/features/auth/session', () => ({
   SessionProvider: mockMarkedProvider('session'),
@@ -77,8 +86,17 @@ jest.mock('@/lib/query-client', () => ({
   createAppQueryClient: jest.fn(() => ({})),
   persistOptions: {},
   forgetSavedQueries: jest.fn(async () => {}),
+  resumeSavedMoves: jest.fn(async () => {}),
 }));
 jest.mock('@/features/auth/forget-on-sign-out', () => ({
+  // The real gate: a promise and the hand that settles it.
+  createRestoreGate: () => {
+    let open: () => void = () => undefined;
+    const done = new Promise<void>((resolve) => {
+      open = resolve;
+    });
+    return { done, open };
+  },
   forgetListsOnSignOut: jest.fn(() => () => {}),
 }));
 jest.mock('@/lib/app-focus', () => ({ subscribeFocusToAppState: jest.fn(() => () => {}) }));
@@ -142,8 +160,42 @@ test('listens for a sign-out with the app’s query client, and lets go when it 
   await unmount();
 
   // Assert
-  expect(forgetListsOnSignOut).toHaveBeenCalledWith(client);
+  expect(forgetListsOnSignOut).toHaveBeenCalledWith(client, expect.any(Promise));
   expect(stop).toHaveBeenCalledTimes(1);
+});
+
+/** Whether the promise has settled by the time the microtasks queued so far have run. */
+async function hasSettled(promise: Promise<unknown>): Promise<boolean> {
+  let isSettled = false;
+  void promise.then(() => {
+    isSettled = true;
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  return isSettled;
+}
+
+// The verification review of f3217a7..c466bf5, item 2: nothing is forgotten
+// before the cache is back from disk, or the restore would bring it back.
+test.each([
+  ['comes back', 'onSuccess'],
+  ['cannot be read', 'onError'],
+] as const)('the watch on whose lists the cache holds waits until the cache %s', async (_, how) => {
+  // Arrange
+  jest.mocked(forgetListsOnSignOut).mockClear();
+  readiness.mockReturnValue({ isReady: true, areFontsLoaded: true });
+  await render(<RootLayout />);
+  const [, restored] = jest.mocked(forgetListsOnSignOut).mock.calls[0] as unknown as [
+    unknown,
+    Promise<void>,
+  ];
+  expect(await hasSettled(restored)).toBe(false);
+
+  // Act
+  mockPersistProps[how]?.();
+
+  // Assert
+  expect(await hasSettled(restored)).toBe(true);
 });
 
 // The three screens of a report had no header at all — no title, no way back

@@ -6,7 +6,7 @@ import { StyleSheet, View } from 'react-native';
 import type { EmptyStateProps } from '@/components/empty-state';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
 
-import { BOARD_LIVE_LIMIT } from './api';
+import { BOARD_CLOSED_LIMIT, BOARD_OPEN_LIMIT } from './api';
 import { AssigneeSheet, BoardFilters } from './board-filters';
 import { BoardList } from './board-list';
 import { staffNames } from './format';
@@ -14,13 +14,19 @@ import {
   ANY_ASSIGNEE,
   activeTechnicians,
   boardSections,
+  cutBoard,
   filterBoard,
   type AssigneeFilter,
+  type BoardLimits,
   type BoardStatusFilter,
 } from './schema';
 import { useBoardArchive, useBoardProblems, useStaffDirectory } from './use-board';
 
 const NO_IDS: readonly string[] = [];
+const NO_NOTICES: readonly string[] = [];
+
+/** What the board shows of each part it reads (api.ts). */
+const LIMITS: BoardLimits = { open: BOARD_OPEN_LIMIT, closed: BOARD_CLOSED_LIMIT };
 
 /** «Все»: every task out of the archive — nothing he has to look for is hidden at first. */
 const FIRST_STATUS: BoardStatusFilter = 'all';
@@ -54,7 +60,12 @@ export function BoardScreen() {
   const shownAssignee = isAssigneeOff ? ANY_ASSIGNEE : assignee;
   const names = useMemo(() => staffNames(staff.data, t), [staff.data, t]);
   const technicians = useMemo(() => activeTechnicians(staff.data ?? []), [staff.data]);
-  const rows = isArchive ? archive.data : board.data;
+  // The board as read holds one more of each part than it shows (api.ts).
+  const live = useMemo(
+    () => (board.data === undefined ? undefined : cutBoard(board.data, LIMITS)),
+    [board.data],
+  );
+  const rows = isArchive ? archive.data : live?.problems;
   const shown = useMemo(
     () => (rows === undefined ? undefined : filterBoard(rows, { status, assignee: shownAssignee })),
     [rows, status, shownAssignee],
@@ -66,10 +77,10 @@ export function BoardScreen() {
   // is no new question to the server, and no task loses its mark under one.
   const problemIds = useMemo(
     () =>
-      board.data === undefined && archive.data === undefined
+      live === undefined && archive.data === undefined
         ? NO_IDS
-        : [...(board.data ?? []), ...(archive.data ?? [])].map((problem) => problem.id),
-    [board.data, archive.data],
+        : [...(live?.problems ?? []), ...(archive.data ?? [])].map((problem) => problem.id),
+    [live, archive.data],
   );
   const unread = useUnreadSubjects(NO_IDS, problemIds);
 
@@ -96,14 +107,23 @@ export function BoardScreen() {
     setPicking(false);
   }, []);
 
-  // The live board is read to a limit, newest first (api.ts): read that many,
-  // there may be older live tasks it does not show.
-  const isCut = !isArchive && (board.data?.length ?? 0) >= BOARD_LIVE_LIMIT;
-  const notice = isCut ? t('problems.board.limited', { limit: BOARD_LIVE_LIMIT }) : undefined;
+  // Each part of the board is read to its limit, newest first (api.ts): a
+  // part with more than it shows says so, the older ones of it not shown.
+  const notices = useMemo(() => {
+    if (isArchive || live === undefined) {
+      return NO_NOTICES;
+    }
+    return [
+      ...(live.isOpenCut ? [t('problems.board.limitedOpen', { limit: BOARD_OPEN_LIMIT })] : []),
+      ...(live.isClosedCut
+        ? [t('problems.board.limitedClosed', { limit: BOARD_CLOSED_LIMIT })]
+        : []),
+    ];
+  }, [isArchive, live, t]);
 
   const isFiltered = status !== FIRST_STATUS || shownAssignee.kind !== ANY_ASSIGNEE.kind;
   const empty: EmptyStateProps =
-    isFiltered && (board.data?.length ?? 0) > 0
+    isFiltered && (live?.problems.length ?? 0) > 0
       ? {
           title: t('problems.board.emptyFiltered'),
           action: {
@@ -140,7 +160,7 @@ export function BoardScreen() {
         empty={empty}
         onLoadMore={isArchive && archive.hasNextPage ? onLoadMore : undefined}
         isLoadingMore={archive.isFetchingNextPage}
-        notice={notice}
+        notices={notices}
       />
       <AssigneeSheet
         isVisible={isPicking}

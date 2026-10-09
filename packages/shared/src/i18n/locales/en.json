@@ -1280,6 +1280,8 @@
       "overdue": "Overdue",
       "more": "More",
       "limited": "Showing the latest {{limit}}",
+      "limitedOpen": "Not closed: showing the latest {{limit}}",
+      "limitedClosed": "Closed: showing the latest {{limit}}",
       "assigneeClosed": "Closed and archived tasks have no assignee — the filter does not apply"
     },
     "dispatch": {

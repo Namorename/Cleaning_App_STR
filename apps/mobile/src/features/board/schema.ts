@@ -166,6 +166,41 @@ export interface BoardSection {
   data: BoardProblem[];
 }
 
+/** How many of each part the board shows: not closed, and closed in the window. */
+export interface BoardLimits {
+  open: number;
+  closed: number;
+}
+
+export interface CutBoard {
+  /** What the board shows: each part to its limit, newest first, in the order read. */
+  problems: BoardProblem[];
+  /** Whether there were more of a part than it shows. */
+  isOpenCut: boolean;
+  isClosedCut: boolean;
+}
+
+/**
+ * The board as read — one more of each part than it shows (api.ts) — cut to
+ * its limits. The one more is what says a part was cut, and which: without
+ * it a part read exactly to its limit could not be told from one cut there.
+ */
+export function cutBoard(problems: readonly BoardProblem[], limits: BoardLimits): CutBoard {
+  const open = problems.filter((problem) => !isClosed(problem));
+  const closed = problems.filter(isClosed);
+  const isOpenCut = open.length > limits.open;
+  const isClosedCut = closed.length > limits.closed;
+  if (!isOpenCut && !isClosedCut) {
+    return { problems: [...problems], isOpenCut, isClosedCut };
+  }
+  const shown = new Set([...open.slice(0, limits.open), ...closed.slice(0, limits.closed)]);
+  return {
+    problems: problems.filter((problem) => shown.has(problem)),
+    isOpenCut,
+    isClosedCut,
+  };
+}
+
 /** Live tasks first, the closed ones under their heading, as her own list has them. */
 export function boardSections(problems: readonly BoardProblem[]): BoardSection[] {
   const active = problems.filter((problem) => !isClosed(problem));

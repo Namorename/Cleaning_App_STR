@@ -26,39 +26,64 @@ export const CLOSED_WINDOW_DAYS = 30;
 export const ARCHIVE_PAGE_SIZE = 50;
 
 /**
- * The most the live board reads, newest first (item 11 of the two
- * whole-branch reviews): a company that falls behind only adds to what is
- * live. Read that many, the board says only the newest are shown.
+ * The most tasks not yet closed the board shows, newest first (item 11 of
+ * the two whole-branch reviews): a company that falls behind only adds to
+ * what is live. One under the thousand rows the server returns at most for a
+ * read (`max_rows`, supabase/config.toml): the board asks for one more than
+ * it shows, and that one has to fit.
  */
-export const BOARD_LIVE_LIMIT = 500;
+export const BOARD_OPEN_LIMIT = 999;
+
+/** The most tasks closed in the window the board shows, newest first. */
+export const BOARD_CLOSED_LIMIT = 200;
 
 /** The statuses that close a task; any other — one a newer server adds too — is still work. */
-const CLOSED_STATUSES = '(resolved,cancelled)';
+const CLOSED_STATUS_LIST = ['resolved', 'cancelled'] as const;
+const CLOSED_STATUSES = `(${CLOSED_STATUS_LIST.join(',')})`;
 
 /**
- * The company's tasks still on the board, newest first: everything live,
- * and what was closed in the last thirty days — row level security draws the
- * line, for the head technician all of the company (decisions 7 and 15). A
- * company's tasks only grow, so the board does not read them all: the archive
- * is `fetchArchivePage`, on demand. «Closed in the window» is the row's last
- * change (`updated_at`, never null, touched by the closing itself), a day on
- * the phone's calendar.
+ * The company's tasks still on the board: everything not closed, then what
+ * was closed in the last thirty days, each newest first — row level security
+ * draws the line, for the head technician all of the company (decisions 7 and
+ * 15). A company's tasks only grow, so the board does not read them all: the
+ * archive is `fetchArchivePage`, on demand. «Closed in the window» is the
+ * row's last change (`updated_at`, never null, touched by the closing
+ * itself), a day on the phone's calendar.
+ *
+ * Two reads, each to its own limit and one more (the verification review of
+ * f3217a7..c466bf5, item 3): one limit on both, newest first, dropped a task
+ * still open from five weeks ago before last week's closed ones. The one more
+ * is how the board knows a part was cut (`cutBoard`); it is handed back with
+ * the rest.
  */
 export async function fetchBoardProblems(now: Date = new Date()): Promise<BoardProblem[]> {
   const since = calendarDay(now, -CLOSED_WINDOW_DAYS);
-  const { data, error } = await supabase
-    .from('problems')
-    .select(BOARD_COLUMNS)
-    .is('archived_at', null)
-    .or(`status.not.in.${CLOSED_STATUSES},updated_at.gte.${since}`)
-    .order('created_at', { ascending: false })
-    .limit(BOARD_LIVE_LIMIT);
+  const [open, closed] = await Promise.all([
+    supabase
+      .from('problems')
+      .select(BOARD_COLUMNS)
+      .is('archived_at', null)
+      .not('status', 'in', CLOSED_STATUSES)
+      .order('created_at', { ascending: false })
+      .limit(BOARD_OPEN_LIMIT + 1),
+    supabase
+      .from('problems')
+      .select(BOARD_COLUMNS)
+      .is('archived_at', null)
+      .in('status', [...CLOSED_STATUS_LIST])
+      .gte('updated_at', since)
+      .order('created_at', { ascending: false })
+      .limit(BOARD_CLOSED_LIMIT + 1),
+  ]);
 
-  if (error) {
-    throw error;
+  if (open.error) {
+    throw open.error;
+  }
+  if (closed.error) {
+    throw closed.error;
   }
 
-  return boardProblemListSchema.parse(data ?? []);
+  return boardProblemListSchema.parse([...(open.data ?? []), ...(closed.data ?? [])]);
 }
 
 /**

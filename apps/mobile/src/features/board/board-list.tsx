@@ -29,9 +29,11 @@ interface BoardListProps {
   /** «Ещё» under the list, while there is a next page to read (the archive). */
   onLoadMore?: () => void;
   isLoadingMore?: boolean;
-  /** A line above the cards, already in his language: the board read to its limit, say. */
-  notice?: string;
+  /** Lines above the cards, already in his language: a part of the board read to its limit, say. */
+  notices?: readonly string[];
 }
+
+const NO_NOTICES: readonly string[] = [];
 
 /**
  * The board's cards, live first and the closed under their heading, as her own
@@ -50,7 +52,7 @@ export function BoardList({
   empty,
   onLoadMore,
   isLoadingMore = false,
-  notice,
+  notices = NO_NOTICES,
 }: BoardListProps) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -92,14 +94,14 @@ export function BoardList({
   }
 
   const listHeader =
-    error === null && notice === undefined ? undefined : (
+    error === null && notices.length === 0 ? undefined : (
       <>
         {error === null ? null : <ErrorBanner title={t('common.refreshFailed')} error={error} />}
-        {notice === undefined ? null : (
-          <Text variant="caption" tone="secondary" style={styles.notice}>
+        {notices.map((notice) => (
+          <Text key={notice} variant="caption" tone="secondary" style={styles.notice}>
             {notice}
           </Text>
-        )}
+        ))}
       </>
     );
 

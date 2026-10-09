@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import {
   HEAD_TECH,
   PROBLEM_ID,
@@ -9,7 +12,8 @@ import {
 
 import {
   ARCHIVE_PAGE_SIZE,
-  BOARD_LIVE_LIMIT,
+  BOARD_CLOSED_LIMIT,
+  BOARD_OPEN_LIMIT,
   assignProblem,
   fetchArchivePage,
   fetchBoardProblem,
@@ -66,6 +70,9 @@ function chained(method: string): unknown[][] {
   return mockChain.filter(([name]) => name === method).map(([, ...args]) => args);
 }
 
+const OPEN_ID = 'd1e2f3a4-1111-4111-8111-d1e2f3a40101';
+const CLOSED_ID = 'd1e2f3a4-1111-4111-8111-d1e2f3a40102';
+
 const refusal = Object.assign(new Error('Repair changed while the screen was open'), {
   hint: 'serverErrors.taskChangedMeanwhile',
 });
@@ -77,44 +84,86 @@ beforeEach(() => {
 
 describe('the board', () => {
   test('reads every task newest first, with its repairs and the house', async () => {
-    mockAnswer.mockReturnValue({ data: [boardProblem()], error: null });
+    mockAnswer
+      .mockReturnValueOnce({ data: [boardProblem()], error: null })
+      .mockReturnValueOnce({ data: [], error: null });
 
     const rows = await fetchBoardProblems();
 
-    const [table, columns] = mockSelect.mock.calls[0] as [string, string];
-    expect(table).toBe('problems');
-    expect(columns).toContain('archived_at');
-    expect(columns).toContain('parent:parent_id(name)');
-    expect(columns).toContain(
-      'fix_tasks:tasks!tasks_problem_id_fkey(id, type, assignee_id, status, scheduled_date, time_from, time_to)',
-    );
-    expect(chained('order')).toEqual([['created_at', { ascending: false }]]);
+    for (const [table, columns] of mockSelect.mock.calls as [string, string][]) {
+      expect(table).toBe('problems');
+      expect(columns).toContain('archived_at');
+      expect(columns).toContain('parent:parent_id(name)');
+      expect(columns).toContain(
+        'fix_tasks:tasks!tasks_problem_id_fkey(id, type, assignee_id, status, scheduled_date, time_from, time_to)',
+      );
+    }
+    expect(chained('order')).toEqual([
+      ['created_at', { ascending: false }],
+      ['created_at', { ascending: false }],
+    ]);
     expect(rows[0].id).toBe(PROBLEM_ID);
   });
 
   // A company's tasks only grow: the board reads what is live and the last
   // month's closed work, and the archive only when it is asked for, a page at
-  // a time (brief, item 6).
-  test('reads no archive, and closed tasks only of the last thirty days', async () => {
+  // a time (brief, item 6). Two reads: a limit on one read of both would drop
+  // a task still open from five weeks ago before last week's closed ones (the
+  // verification review of f3217a7..c466bf5, item 3).
+  test('reads no archive: what is not closed, and apart, what was closed in the last thirty days', async () => {
     mockAnswer.mockReturnValue({ data: [], error: null });
 
     await fetchBoardProblems(new Date(2026, 9, 9, 12, 0));
 
-    expect(chained('is')).toEqual([['archived_at', null]]);
-    expect(chained('or')).toEqual([
-      ['status.not.in.(resolved,cancelled),updated_at.gte.2026-09-09'],
+    expect(mockSelect).toHaveBeenCalledTimes(2);
+    expect(chained('is')).toEqual([
+      ['archived_at', null],
+      ['archived_at', null],
     ]);
+    expect(chained('not')).toEqual([['status', 'in', '(resolved,cancelled)']]);
+    expect(chained('in')).toEqual([['status', ['resolved', 'cancelled']]]);
+    expect(chained('gte')).toEqual([['updated_at', '2026-09-09']]);
+    expect(chained('or')).toEqual([]);
   });
 
-  // Item 11 of the two whole-branch reviews of phone-1-2-0: what is live only
-  // grows with a company that falls behind; the board reads the newest 500.
-  test('reads at most the newest five hundred', async () => {
+  test('reads the open ones to their limit and the closed ones to theirs, one more of each', async () => {
     mockAnswer.mockReturnValue({ data: [], error: null });
 
     await fetchBoardProblems();
 
-    expect(BOARD_LIVE_LIMIT).toBe(500);
-    expect(chained('limit')).toEqual([[BOARD_LIVE_LIMIT]]);
+    expect(BOARD_OPEN_LIMIT).toBe(999);
+    expect(BOARD_CLOSED_LIMIT).toBe(200);
+    expect(chained('limit')).toEqual([[BOARD_OPEN_LIMIT + 1], [BOARD_CLOSED_LIMIT + 1]]);
+  });
+
+  // The server returns at most `max_rows` rows a read, however many are asked
+  // for: an open limit at it would never show the one more that tells a cut.
+  test('the one more open task asked for fits within what the server returns', () => {
+    const config = readFileSync(join(__dirname, '../../../../../../supabase/config.toml'), 'utf8');
+    const maxRows = Number(/^max_rows\s*=\s*(\d+)/m.exec(config)?.[1]);
+
+    expect(maxRows).toBeGreaterThan(0);
+    expect(BOARD_OPEN_LIMIT + 1).toBeLessThanOrEqual(maxRows);
+  });
+
+  test('hands back the open ones first, then the closed ones', async () => {
+    const OPEN_OLD = boardProblem({ id: OPEN_ID, created_at: '2026-08-30T08:00:00+00:00' });
+    const CLOSED_NEW = boardProblem({ id: CLOSED_ID, status: 'resolved' });
+    mockAnswer
+      .mockReturnValueOnce({ data: [OPEN_OLD], error: null })
+      .mockReturnValueOnce({ data: [CLOSED_NEW], error: null });
+
+    const rows = await fetchBoardProblems();
+
+    expect(rows.map((row) => row.id)).toEqual([OPEN_ID, CLOSED_ID]);
+  });
+
+  test('a read of either part that fails fails the board', async () => {
+    mockAnswer
+      .mockReturnValueOnce({ data: [], error: null })
+      .mockReturnValueOnce({ data: null, error: new Error('permission denied') });
+
+    await expect(fetchBoardProblems()).rejects.toThrow('permission denied');
   });
 
   test('the archive is read a page of fifty at a time, newest first', async () => {

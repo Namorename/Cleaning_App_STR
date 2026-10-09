@@ -9,7 +9,7 @@ import '@/i18n';
 
 import { navigationFonts } from '@/components/text';
 import { Colors, type ThemeName } from '@/constants/theme';
-import { forgetListsOnSignOut } from '@/features/auth/forget-on-sign-out';
+import { createRestoreGate, forgetListsOnSignOut } from '@/features/auth/forget-on-sign-out';
 import { SessionProvider } from '@/features/auth/session';
 import { ProfileLanguageGate } from '@/features/profile/language-gate';
 import { PushBridge } from '@/features/push/push-bridge';
@@ -77,9 +77,14 @@ export default function RootLayout() {
   // the server, not the radio, decides when they go out again.
   useEffect(() => watchNetwork(), []);
 
-  // Whoever signs out takes their lists with them: the next person on a
+  // Opened once the cache is back from disk: nothing is forgotten before, or
+  // the restore would bring it back.
+  const [restore] = useState(createRestoreGate);
+
+  // Whoever signs out takes their lists with them, and a session that is
+  // somebody else's forgets the lists of the one before: the next person on a
   // shared phone sees none of them before their own first read.
-  useEffect(() => forgetListsOnSignOut(queryClient), [queryClient]);
+  useEffect(() => forgetListsOnSignOut(queryClient, restore.done), [queryClient, restore]);
 
   // Until this runs the root boundary rethrows; from then on it catches. It
   // runs after the first commit of the root with the app ready: the root
@@ -108,8 +113,11 @@ export default function RootLayout() {
       // Moves tapped without signal were paused on disk; once the cache is
       // back they go through, and the lists that show them are refreshed.
       onSuccess={() => {
+        restore.open();
         void resumeSavedMoves(queryClient);
       }}
+      // Unreadable, the cache was thrown away: there is nothing to come back.
+      onError={restore.open}
     >
       <SessionProvider>
         {/*

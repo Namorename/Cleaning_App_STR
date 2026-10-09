@@ -157,37 +157,64 @@ describe('the status filter', () => {
   });
 });
 
-// Item 11 of the two whole-branch reviews of phone-1-2-0: the board reads the
-// newest 500 tasks; when it got that many, it says the list is cut there.
-describe('a board read to its limit', () => {
-  const LIMITED = 'Показаны последние 500';
+// Item 11 of the two whole-branch reviews of phone-1-2-0, and item 3 of the
+// verification review of f3217a7..c466bf5: the board reads what is not
+// closed to 999 and the month's closed work to 200, one more of each (api.ts).
+// The one more says which part was cut, and only then is anything said.
+describe('a board read to its limits', () => {
+  const OPEN_CUT = 'Незакрытые: показаны последние 999';
+  const CLOSED_CUT = 'Закрытые: показаны последние 200';
 
-  function manyTasks(count: number): BoardProblem[] {
+  function manyTasks(count: number, status: BoardProblem['status'], from = 0): BoardProblem[] {
     return Array.from({ length: count }, (_, index) =>
       boardProblem({
-        id: `d1e2f3a4-1111-4111-8111-${String(index).padStart(12, '0')}`,
-        title: `Задание ${index}`,
+        id: `d1e2f3a4-1111-4111-8111-${String(from + index).padStart(12, '0')}`,
+        title: `Задание ${from + index}`,
+        status,
       }),
     );
   }
 
-  test('says only the newest are shown', async () => {
-    answer({ data: manyTasks(500) });
+  test('one more open task than it shows: says the open ones are cut, and only them', async () => {
+    answer({ data: [...manyTasks(1000, 'open'), RESOLVED] });
 
     await render(<BoardScreen />);
 
-    expect(screen.getByText(LIMITED)).toBeTruthy();
+    expect(screen.getByText(OPEN_CUT)).toBeTruthy();
+    expect(screen.queryByText(CLOSED_CUT)).toBeNull();
   });
 
-  test('says nothing of the kind below the limit, nor in the archive', async () => {
-    answer({ data: manyTasks(499) });
-    await render(<BoardScreen />);
-    expect(screen.queryByText(LIMITED)).toBeNull();
+  test('one more closed task than it shows: says the closed ones are cut, and only them', async () => {
+    answer({ data: [OPEN, ...manyTasks(201, 'resolved', 2000)] });
 
-    answer({ data: manyTasks(500) });
+    await render(<BoardScreen />);
+
+    expect(screen.getByText(CLOSED_CUT)).toBeTruthy();
+    expect(screen.queryByText(OPEN_CUT)).toBeNull();
+    // An open task stays on the board however many were closed this month.
+    expect(titles()).toContain('Кран течёт');
+  });
+
+  test('both parts over their limits: says both', async () => {
+    answer({ data: [...manyTasks(1000, 'open'), ...manyTasks(201, 'cancelled', 2000)] });
+
+    await render(<BoardScreen />);
+
+    expect(screen.getByText(OPEN_CUT)).toBeTruthy();
+    expect(screen.getByText(CLOSED_CUT)).toBeTruthy();
+  });
+
+  test('says nothing at the limits exactly, nor in the archive', async () => {
+    answer({ data: [...manyTasks(999, 'open'), ...manyTasks(200, 'resolved', 2000)] });
+    await render(<BoardScreen />);
+    expect(screen.queryByText(OPEN_CUT)).toBeNull();
+    expect(screen.queryByText(CLOSED_CUT)).toBeNull();
+
+    answer({ data: [...manyTasks(1000, 'open'), ...manyTasks(201, 'resolved', 2000)] });
     await fireEvent.press(screen.getByRole('tab', { name: 'Архив' }));
 
-    expect(screen.queryByText(LIMITED)).toBeNull();
+    expect(screen.queryByText(OPEN_CUT)).toBeNull();
+    expect(screen.queryByText(CLOSED_CUT)).toBeNull();
   });
 });
 

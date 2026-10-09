@@ -17,9 +17,11 @@ import {
   boardSections,
   canAssign,
   canTakeOff,
+  cutBoard,
   filterBoard,
   liveRepair,
   staffListSchema,
+  type BoardProblem,
 } from '../schema';
 
 /**
@@ -232,6 +234,54 @@ describe('the filters', () => {
 
   test('an empty list has no sections', () => {
     expect(boardSections([])).toEqual([]);
+  });
+});
+
+// The board reads one more of each part than it shows (api.ts): the one more
+// says the part was cut (the verification review of f3217a7..c466bf5, item 3).
+describe('the board cut to its limits', () => {
+  const LIMITS = { open: 2, closed: 1 };
+  const ids = (problems: readonly { id: string }[]) => problems.map((problem) => problem.id);
+
+  function numbered(count: number, status: BoardProblem['status'], from: number): BoardProblem[] {
+    return Array.from({ length: count }, (_, index) =>
+      boardProblem({
+        id: `d1e2f3a4-2222-4222-8222-${String(from + index).padStart(12, '0')}`,
+        status,
+      }),
+    );
+  }
+
+  test('one more open than shown: the newest open ones stay, and the open part is said cut', () => {
+    const live = numbered(3, 'open', 0);
+    const closed = numbered(1, 'resolved', 10);
+
+    const cut = cutBoard([...live, ...closed], LIMITS);
+
+    expect(ids(cut.problems)).toEqual([live[0].id, live[1].id, closed[0].id]);
+    expect(cut.isOpenCut).toBe(true);
+    expect(cut.isClosedCut).toBe(false);
+  });
+
+  test('one more closed than shown: every open one stays, and the closed part is said cut', () => {
+    const live = numbered(1, 'in_progress', 0);
+    const closed = [...numbered(1, 'resolved', 10), ...numbered(1, 'cancelled', 11)];
+
+    const cut = cutBoard([...live, ...closed], LIMITS);
+
+    expect(ids(cut.problems)).toEqual([live[0].id, closed[0].id]);
+    expect(cut.isOpenCut).toBe(false);
+    expect(cut.isClosedCut).toBe(true);
+  });
+
+  test('exactly at the limits, nothing is cut', () => {
+    const rows = [...numbered(2, 'assigned', 0), ...numbered(1, 'resolved', 10)];
+
+    const cut = cutBoard(rows, LIMITS);
+
+    expect(cut.problems).toEqual(rows);
+    expect(cut.isOpenCut).toBe(false);
+    expect(cut.isClosedCut).toBe(false);
   });
 });
 

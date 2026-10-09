@@ -1294,6 +1294,8 @@
       "overdue": "Po termínu",
       "more": "Další",
       "limited": "Zobrazeno posledních {{limit}}",
+      "limitedOpen": "Neuzavřené: zobrazeno posledních {{limit}}",
+      "limitedClosed": "Uzavřené: zobrazeno posledních {{limit}}",
       "assigneeClosed": "Uzavřené a archivované úkoly nemají řešitele — filtr se nepoužije"
     },
     "dispatch": {
