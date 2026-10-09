@@ -1,9 +1,17 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { THEME_COLORS, TONE_COLORS, TOUCH_TARGET } from '@str-ops/shared';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
 import type { TaskStep } from '@/features/steps/schema';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { RefusalError } from '@/lib/server-error';
+import { setWordContext } from '@/testing/word-context';
 
 import { TaskDetail } from '../task-detail';
 import type { CleaningTask } from '../schema';
+
+jest.mock('@/hooks/use-color-scheme', () => ({ useColorScheme: jest.fn(() => 'light') }));
+const scheme = jest.mocked(useColorScheme);
 
 const ME = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
 /** Midday on the fixture's day: its window opened at ten. */
@@ -48,6 +56,7 @@ const actions = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  scheme.mockReturnValue('light');
 });
 
 test('shows what the cleaner needs to plan by: window, guests, notes', async () => {
@@ -233,7 +242,7 @@ describe('accepting', () => {
     expect(screen.getByText('Уборку выполняет коллега')).toBeTruthy();
   });
 
-  test('while the accept is under way, the spinner is on it, not on the start', async () => {
+  test('while the accept is under way, the start waits busy in its own fill, not greyed', async () => {
     await render(
       <TaskDetail
         task={task()}
@@ -251,8 +260,12 @@ describe('accepting', () => {
       expect.objectContaining({ busy: true }),
     );
     const start = screen.getByRole('button', { name: 'Начать уборку' });
-    expect(start).toBeDisabled();
-    expect(start).toHaveProp('accessibilityState', expect.objectContaining({ busy: false }));
+    expect(start).toHaveProp('accessibilityState', expect.objectContaining({ busy: true }));
+    expect(StyleSheet.flatten(start.props.style as ViewStyle).backgroundColor).toBe(
+      THEME_COLORS.light.cta,
+    );
+    await fireEvent.press(start);
+    expect(actions.onStart).not.toHaveBeenCalled();
   });
 
   test('does not accept twice while a move is in flight', async () => {
@@ -730,6 +743,46 @@ describe('the words follow the kind of job', () => {
     expect(screen.queryByText(/уборк/i)).toBeNull();
   });
 
+  // «Видео после работы» is an optional video step of the repair's template
+  // (owner's answer 11, docs/tech-plan.md §10): the manager sets it, and a
+  // technician who records nothing still finishes his repair.
+  test('a repair with an optional «Видео после работы» finishes without the video', async () => {
+    // Arrange
+    const repair = task({
+      type: 'maintenance',
+      reservation_id: null,
+      status: 'in_progress',
+      started_at: '2026-11-10T08:05:00+00:00',
+    });
+    const videoAfter: TaskStep = {
+      ...jobStep,
+      id: 'b1c2d3e4-3333-4333-8333-b1c2d3e40003',
+      sort_order: 2,
+      type: 'video',
+      title: 'Видео после работы',
+      required: false,
+    };
+
+    // Act
+    await render(
+      <TaskDetail
+        task={repair}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        steps={[{ ...jobStep, completed_at: '2026-11-10T08:30:00+00:00' }, videoAfter]}
+        {...actions}
+      />,
+    );
+    await fireEvent.press(screen.getByRole('button', { name: 'Завершить работу' }));
+
+    // Assert
+    expect(screen.getByRole('button', { name: /Видео после работы/ })).toBeTruthy();
+    expect(screen.queryByText(/Обязательных шагов осталось/)).toBeNull();
+    expect(actions.onFinish).toHaveBeenCalledWith(repair.id);
+  });
+
   test('a finished inspection, and one a colleague holds, say so without calling it a cleaning', async () => {
     // Arrange / Act
     await render(
@@ -796,5 +849,298 @@ describe('the words follow the kind of job', () => {
     // Assert
     expect(screen.queryByText('Заезда нет')).toBeNull();
     expect(screen.getByText('Генеральная уборка')).toBeTruthy();
+  });
+});
+
+// The technician and the head technician read the `_tech` variant of every
+// word about the job (docs/tech-plan.md §6): the session applied them.
+describe('read by a technician', () => {
+  beforeEach(async () => {
+    await setWordContext('tech');
+  });
+
+  afterEach(async () => {
+    await setWordContext(undefined);
+  });
+
+  const repair = (overrides: Partial<CleaningTask> = {}) =>
+    task({ type: 'maintenance', reservation_id: null, ...overrides });
+
+  test('his repair is work from the button to the hint under it', async () => {
+    // Arrange: under way alongside another, the last start refused.
+    const running = repair({
+      status: 'in_progress',
+      started_at: '2026-11-10T08:05:00+00:00',
+      is_parallel: true,
+    });
+
+    // Act
+    await render(
+      <TaskDetail
+        task={running}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={new RefusalError('No row moved to done', 'tasks.finishFailed')}
+        {...actions}
+      />,
+    );
+
+    // Assert
+    expect(screen.getByRole('button', { name: 'Завершить работу' })).toBeTruthy();
+    expect(screen.getByText('Окно работы')).toBeTruthy();
+    expect(screen.getByText('Шла параллельно с другой работой')).toBeTruthy();
+    expect(screen.getByText('Не удалось завершить работу — обновите список.')).toBeTruthy();
+    expect(screen.queryByText(/уборк/i)).toBeNull();
+  });
+
+  test('the office’s note on his repair is instructions for the job, not for a cleaning', async () => {
+    await render(
+      <TaskDetail
+        task={repair({ notes: 'Заменить смеситель, ключ у соседей' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    expect(screen.getByText('Указания к работе')).toBeTruthy();
+    expect(screen.getByText('Заменить смеситель, ключ у соседей')).toBeTruthy();
+    expect(screen.queryByText(/уборк/i)).toBeNull();
+  });
+
+  test('a closed repair says the job is closed', async () => {
+    await render(
+      <TaskDetail
+        task={repair({ status: 'cancelled' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    expect(screen.getByText('Работа закрыта')).toBeTruthy();
+  });
+
+  // A cleaning closed while he was still a cleaner stays in his list (§2.4):
+  // a word that has no variant of its own still says what the job was.
+  test('an old cleaning of his, closed before he became a technician, is still a cleaning', async () => {
+    await render(
+      <TaskDetail
+        task={task({ status: 'done' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    expect(screen.getByText('Уборка завершена')).toBeTruthy();
+  });
+});
+
+describe('the look: «Абрикос» on the old layout', () => {
+  const PROBLEM_ID = 'c1d2e3f4-1111-4111-8111-c1d2e3f40001';
+  const light = THEME_COLORS.light;
+  const tones = TONE_COLORS.light;
+
+  function styleOf(element: { props: { style?: unknown } }): ViewStyle & TextStyle {
+    return StyleSheet.flatten(element.props.style as ViewStyle) as ViewStyle & TextStyle;
+  }
+
+  function repair(priority: 'low' | 'normal' | 'high'): CleaningTask {
+    return task({
+      type: 'maintenance',
+      reservation_id: null,
+      problem: { id: PROBLEM_ID, title: 'Течёт кран', priority },
+    });
+  }
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test('the main action is a 56 dp button in the sun-proof colours', async () => {
+    await render(
+      <TaskDetail task={task()} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />,
+    );
+
+    const start = styleOf(screen.getByRole('button', { name: 'Начать уборку' }));
+    expect(start.minHeight).toBe(TOUCH_TARGET.phoneButton);
+    expect(start.backgroundColor).toBe(light.cta);
+  });
+
+  test('every other target on the screen is at least 48 dp', async () => {
+    // Arrange: a repair of hers with every way off the screen offered.
+    await render(
+      <TaskDetail
+        task={repair('normal')}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+        onOpenProblem={jest.fn()}
+        onOpenChat={jest.fn()}
+        onReportProblem={jest.fn()}
+        onRequestSupplies={jest.fn()}
+      />,
+    );
+
+    // Assert
+    const buttons = screen.getAllByRole('button');
+    expect(buttons.length).toBeGreaterThanOrEqual(6);
+    for (const button of buttons) {
+      expect(styleOf(button).minHeight).toBeGreaterThanOrEqual(TOUCH_TARGET.phoneMin);
+    }
+  });
+
+  test('the same-day check-in is a badge in the urgent tone, with its words', async () => {
+    await render(
+      <TaskDetail
+        task={task({ priority: 1 })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    const chip = screen.getByTestId('task-urgency');
+    expect(styleOf(chip)).toMatchObject({ backgroundColor: tones.urgent.bg, borderRadius: 999 });
+    expect(within(chip).getByText(/заезд/)).toBeTruthy();
+  });
+
+  test('the kind of job is a badge with its word in the neutral tone', async () => {
+    await render(
+      <TaskDetail
+        task={task({ type: 'inspection' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    const chip = screen.getByTestId('task-urgency');
+    expect(styleOf(chip)).toMatchObject({ backgroundColor: tones.neutral.bg, borderRadius: 999 });
+    expect(within(chip).getByText('Осмотр')).toBeTruthy();
+  });
+
+  test('a repair the report calls urgent carries «Срочно» as a badge in the urgent tone', async () => {
+    await render(
+      <TaskDetail
+        task={repair('high')}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    const flag = screen.getByTestId('task-urgent');
+    expect(within(flag).getByText('Срочно')).toBeTruthy();
+    expect(styleOf(flag)).toMatchObject({ backgroundColor: tones.urgent.bg, borderRadius: 999 });
+  });
+
+  test('an ordinary repair carries no such flag', async () => {
+    await render(
+      <TaskDetail
+        task={repair('normal')}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    expect(screen.queryByText('Срочно')).toBeNull();
+  });
+
+  test('the report a repair fixes opens from its card', async () => {
+    const onOpenProblem = jest.fn();
+    await render(
+      <TaskDetail
+        task={repair('high')}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+        onOpenProblem={onOpenProblem}
+      />,
+    );
+
+    expect(screen.getByText('Течёт кран')).toBeTruthy();
+    // Heard with its facts, not as a bare «open».
+    await fireEvent.press(
+      screen.getByRole('button', {
+        name: 'Течёт кран. Срочность: Высокая. Открыть задание',
+      }),
+    );
+
+    expect(onOpenProblem).toHaveBeenCalledWith(PROBLEM_ID);
+  });
+
+  test('dark theme: the same-day check-in badge is the dark urgent tone', async () => {
+    scheme.mockReturnValue('dark');
+
+    await render(
+      <TaskDetail
+        task={task({ priority: 1 })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    expect(styleOf(screen.getByTestId('task-urgency')).backgroundColor).toBe(
+      TONE_COLORS.dark.urgent.bg,
+    );
+  });
+
+  test('accepting is the quieter tonal button beside the main one', async () => {
+    await render(
+      <TaskDetail task={task()} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />,
+    );
+
+    const accept = styleOf(screen.getByRole('button', { name: 'Принять' }));
+    expect(accept.minHeight).toBe(TOUCH_TARGET.phoneButton);
+    expect(accept.backgroundColor).toBe(light.secondary);
+  });
+
+  // Jest draws no system font, so what is checked is the structure that lets
+  // the label grow at any font size.
+  test('the main button never cuts its label: no line limit, font scaling on, a minimum height', async () => {
+    // Act
+    await render(
+      <TaskDetail
+        task={task({ status: 'in_progress', started_at: '2026-11-10T08:05:00+00:00' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    // Assert: the label is never cut to a line, the box grows with it.
+    const finish = screen.getByRole('button', { name: 'Завершить уборку' });
+    const label = within(finish).getByText('Завершить уборку');
+    expect(label.props.numberOfLines).toBeUndefined();
+    expect(label.props.allowFontScaling).not.toBe(false);
+    expect(styleOf(finish).height).toBeUndefined();
+    expect(styleOf(finish).minHeight).toBe(TOUCH_TARGET.phoneButton);
   });
 });

@@ -4,10 +4,13 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { clearThisPhone, releaseThisPhone } from '@/features/push/api';
 import { registerThisPhone } from '@/features/push/registration';
 import { registrant, unmarkRegistered } from '@/features/push/token-store';
+import { applyWordContext } from '@/i18n';
 import { isNetworkError } from '@/lib/online';
 import { reportUnlessOffline } from '@/lib/sentry';
 import { sessionStorage } from '@/lib/secure-storage';
 import { SESSION_STORAGE_KEY, supabase } from '@/lib/supabase';
+
+import { knownRole, roleOf, wordContextOf } from './role';
 
 interface SessionState {
   session: Session | null;
@@ -17,6 +20,15 @@ interface SessionState {
 }
 
 const SessionContext = createContext<SessionState | null>(null);
+
+/**
+ * The words of the person a session belongs to (`applyWordContext`), applied
+ * before the session reaches any screen: a technician's first draw already
+ * says «работа». Nobody signed in reads the key itself.
+ */
+function applyWordsOf(session: Session | null): void {
+  applyWordContext(wordContextOf(knownRole(roleOf(session?.user ?? null))));
+}
 
 interface SessionProviderProps {
   children: ReactNode;
@@ -33,12 +45,15 @@ export function SessionProvider({ children }: SessionProviderProps) {
       if (!isMounted) {
         return;
       }
+      applyWordsOf(data.session);
       setSession(data.session);
       setIsLoading(false);
     });
 
+    // A refreshed token carries a role the office changed meanwhile.
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, next) => {
       if (isMounted) {
+        applyWordsOf(next);
         setSession(next);
       }
     });

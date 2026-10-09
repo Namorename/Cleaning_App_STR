@@ -87,6 +87,15 @@ describe('destinationOf', () => {
     });
   });
 
+  test('a new task opens the task, for the head technician to hand out', async () => {
+    const findTask = jest.fn(async () => null);
+
+    await expect(
+      destinationOf({ kind: 'problem_new', problemId: PROBLEM_ID }, findTask),
+    ).resolves.toEqual({ pathname: '/problem/[id]', params: { id: PROBLEM_ID } });
+    expect(findTask).not.toHaveBeenCalled();
+  });
+
   test('every cleaning kind has a destination', async () => {
     for (const kind of TASK_PUSH_KINDS) {
       await expect(destinationOf({ kind, taskId: TASK_ID }, found)).resolves.toBeDefined();
@@ -111,6 +120,13 @@ describe('staleAfter', () => {
   test('a chat message without its thread still makes the marks stale', () => {
     expect(staleAfter({ kind: 'chat_message', subject: 'task', id: TASK_ID })).toEqual([
       ['chat', 'unread'],
+    ]);
+  });
+
+  test('a new task makes the tasks stale — the board among them — and the jobs', () => {
+    expect(staleAfter({ kind: 'problem_new', problemId: PROBLEM_ID })).toEqual([
+      ['tasks'],
+      ['problems'],
     ]);
   });
 

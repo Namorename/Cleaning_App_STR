@@ -1,13 +1,15 @@
 import type { ErrorBoundaryProps } from 'expo-router';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, Text } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 
-import { ListAction } from '@/components/list-action';
-import { FontSize, Spacing, type Theme } from '@/constants/theme';
+import { Spacing, type Theme } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { forgetSavedQueries } from '@/lib/query-client';
 import { reportError } from '@/lib/sentry';
+
+import { Button } from './button';
+import { Text } from './text';
 
 /** The raw words shown under the sentence are for passing on, not for reading. */
 const DETAIL_LINES = 3;
@@ -23,7 +25,8 @@ const DETAIL_LINES = 3;
  *
  * Routes export it as `ErrorBoundary`; the root exports `RootRouteError`. The
  * root's boundary draws outside every provider, so this reads nothing but the
- * translations and the colour scheme.
+ * translations and the colour scheme — its `Text` and `Button` find no fonts'
+ * provider there and draw in the system font, which is always loaded.
  */
 export function RouteError({ error, retry }: ErrorBoundaryProps) {
   return <ErrorScreen error={error} retry={retry} />;
@@ -49,19 +52,27 @@ function ErrorScreen({ error, retry, onResetSaved }: ErrorScreenProps) {
       contentContainerStyle={styles.content}
       accessibilityLiveRegion="polite"
     >
-      <Text style={styles.message} accessibilityRole="alert">
+      <Text variant="title" align="center" accessibilityRole="alert">
         {t('common.screenFailed')}
       </Text>
       {detail !== '' ? (
-        <Text style={styles.detail} numberOfLines={DETAIL_LINES}>
+        <Text
+          variant="caption"
+          tone="secondary"
+          align="center"
+          numberOfLines={DETAIL_LINES}
+          selectable
+        >
           {detail}
         </Text>
       ) : null}
-      <ListAction label={t('common.retry')} onPress={() => void retry()} />
+      <Button label={t('common.retry')} onPress={() => void retry()} />
       {onResetSaved !== undefined ? (
         <>
-          <ListAction label={t('common.resetSaved')} onPress={onResetSaved} />
-          <Text style={styles.detail}>{t('common.resetSavedHint')}</Text>
+          <Button variant="secondary" label={t('common.resetSaved')} onPress={onResetSaved} />
+          <Text variant="caption" tone="secondary" align="center">
+            {t('common.resetSavedHint')}
+          </Text>
         </>
       ) : null}
     </ScrollView>
@@ -114,6 +125,4 @@ const createStyles = (theme: Theme) =>
       gap: Spacing.md,
       padding: Spacing.xl,
     },
-    message: { color: theme.text, fontSize: FontSize.title, textAlign: 'center' },
-    detail: { color: theme.textSecondary, fontSize: FontSize.caption, textAlign: 'center' },
   });

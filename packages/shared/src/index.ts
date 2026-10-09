@@ -24,6 +24,13 @@ export {
   type PlaceParts,
   type PlaceRow,
 } from './property-path';
+export { foldForSearch, matchesAllTokens } from './search';
+export {
+  STALE_CLOCK_MESSAGE,
+  STALE_CLOCK_RETRY_DELAYS_MS,
+  staleClockSafeFetch,
+  withStaleClockRetry,
+} from './supabase/stale-clock-retry';
 export {
   FALLBACK_LANGUAGE,
   INTL_LOCALES,

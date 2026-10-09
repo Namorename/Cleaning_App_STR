@@ -21,6 +21,24 @@
         "image": "macos-tahoe-26.5-xcode-26.6"
       }
     },
+    "field": {
+      "distribution": "internal",
+      "channel": "field",
+      "environment": "production",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "field-ios": {
+      "distribution": "store",
+      "channel": "field",
+      "environment": "production",
+      "autoIncrement": true,
+      "ios": {
+        "resourceClass": "medium",
+        "image": "macos-tahoe-26.5-xcode-26.6"
+      }
+    },
     "production": {
       "distribution": "store",
       "channel": "production",
@@ -36,6 +54,9 @@
   },
   "submit": {
     "testflight": {
+      "ios": {}
+    },
+    "field-ios": {
       "ios": {}
     },
     "production": {}

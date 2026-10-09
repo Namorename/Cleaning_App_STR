@@ -9,6 +9,7 @@ import {
 import { useMemo } from 'react';
 
 import { useSession } from '@/features/auth/session';
+import { retryMoveAfter } from '@/lib/move-retry';
 import { readCached } from '@/lib/read-cached';
 
 import {
@@ -41,6 +42,13 @@ const SEND_SCOPE = { id: 'chat-send' };
 const SEND_RETRIES = 3;
 
 /**
+ * A message waits out the network however long it lasts, shown under the
+ * thread as not yet sent (lib/move-retry.ts): dropped after a few failures it
+ * would vanish from there without a word. A refusal gets its three more tries.
+ */
+const retrySend = retryMoveAfter(SEND_RETRIES);
+
+/**
  * How often an open thread asks for news. No Realtime, on purpose
  * (docs/chat-plan.md): a subscription per phone in the field costs a
  * connection around the clock for a few messages a day. The poll runs only
@@ -53,7 +61,7 @@ export function registerChatMutations(queryClient: QueryClient): void {
   queryClient.setMutationDefaults(chatMutationKeys.send, {
     mutationFn: (variables: SendMessageVariables) => sendMessage(variables),
     scope: SEND_SCOPE,
-    retry: SEND_RETRIES,
+    retry: retrySend,
   });
   queryClient.setMutationDefaults(chatMutationKeys.read, {
     mutationFn: (variables: MarkReadVariables) => markThreadRead(variables),
@@ -105,7 +113,7 @@ export function useSendMessage() {
     mutationKey: chatMutationKeys.send,
     mutationFn: sendMessage,
     scope: SEND_SCOPE,
-    retry: SEND_RETRIES,
+    retry: retrySend,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: chatKeys.all });
     },

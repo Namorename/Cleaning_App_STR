@@ -1,4 +1,4 @@
-import { i18n } from '@/i18n';
+import { applyWordContext, i18n } from '@/i18n';
 
 import { RefusalError, alertMessage, serverErrorText } from '../server-error';
 
@@ -132,6 +132,54 @@ describe('a refusal the app read off an answer itself', () => {
 
     expect(failure.text).toBe('Не удалось выполнить действие. Попробуйте ещё раз.');
     expect(failure.detail).toBe('Something new');
+  });
+});
+
+// A technician reads a refusal about his job as work, not as a cleaning
+// (docs/tech-plan.md §6): the session applied his words, and every refusal
+// is read in them — a key with no variant of its own reads as it is.
+describe('read by a technician', () => {
+  beforeEach(() => {
+    applyWordContext('tech');
+  });
+
+  afterEach(() => {
+    applyWordContext(undefined);
+  });
+
+  test('a refusal of the server, with its parameters', () => {
+    const failure = serverErrorText(
+      raised(
+        'serverErrors.startTooEarly',
+        'The task cannot start before 10:00',
+        '{"time":"10:00","date":"10.11."}',
+      ),
+    );
+
+    expect(failure).toEqual({ text: 'Работу нельзя начать раньше 10:00 (10.11.)', detail: null });
+  });
+
+  test('a refusal the app read off an answer itself', () => {
+    const failure = serverErrorText(
+      new RefusalError('No row moved to in_progress', 'tasks.startFailed'),
+    );
+
+    expect(failure.text).toBe('Не удалось начать работу — обновите список.');
+  });
+
+  test('a key without a variant of its own reads as it is', () => {
+    const failure = serverErrorText(raised('serverErrors.problemNotFound', 'Problem not found'));
+
+    expect(failure.text).toBe(i18n.t('serverErrors.problemNotFound'));
+  });
+
+  test('anything else is still the one general sentence', () => {
+    const failure = serverErrorText(new Error('Network request failed'));
+
+    expect(failure).toEqual({
+      text: 'Не удалось выполнить действие. Попробуйте ещё раз.',
+      detail: 'Network request failed',
+    });
   });
 });
 

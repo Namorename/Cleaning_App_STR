@@ -1,11 +1,11 @@
 import {
   canEditSupplyRequest,
   catalogItemName,
-  clearCatalogPick,
   draftItemsPayload,
   draftOfRequest,
   emptySupplyDraft,
   filterCatalog,
+  isLineValid,
   newItemDraft,
   pickCatalogItem,
   groupSupplyRequests,
@@ -58,7 +58,7 @@ function request(overrides: Partial<SupplyRequest> = {}): SupplyRequest {
 }
 
 function draft(overrides: Partial<SupplyDraft> = {}): SupplyDraft {
-  return { ...emptySupplyDraft('k1'), ...overrides };
+  return { ...emptySupplyDraft(), ...overrides };
 }
 
 describe('parseQuantity', () => {
@@ -75,8 +75,34 @@ describe('parseQuantity', () => {
 });
 
 describe('supplyDraftIssue', () => {
+  // The cart starts empty: a line exists once something is chosen or typed.
+  test('a new request starts with no lines, normal and without a note', () => {
+    expect(emptySupplyDraft()).toEqual({ items: [], priority: 'normal', note: '' });
+  });
+
   test('an untouched form has no items yet', () => {
     expect(supplyDraftIssue(draft())).toBe('itemsRequired');
+  });
+
+  // The one rule a line is held to, by the form and by the sheet a line is typed in.
+  test('a line needs a name of its own or an entry, and a quantity above zero', () => {
+    const line = {
+      key: 'k1',
+      name: 'Мешки',
+      quantity: '2',
+      unit: 'pack' as const,
+      comment: '',
+      catalogItemId: null,
+    };
+
+    expect(isLineValid(line)).toBe(true);
+    expect(isLineValid({ ...line, name: '  ' })).toBe(false);
+    expect(isLineValid({ ...line, name: 'x'.repeat(121) })).toBe(false);
+    expect(isLineValid({ ...line, quantity: '0' })).toBe(false);
+    expect(isLineValid({ ...line, comment: 'x'.repeat(301) })).toBe(false);
+    expect(
+      isLineValid({ ...line, name: '', catalogItemId: 'c9000002-0000-4000-8000-000000000001' }),
+    ).toBe(true);
   });
 
   test('a filled line with a bad quantity is named', () => {
@@ -187,7 +213,7 @@ describe('the catalogue', () => {
     expect(catalogItemName({ ...entry, name_i18n: { en: '  ' } }, 'en')).toBe('Средство для стёкол');
   });
 
-  test('a picked line takes the name and unit from the entry, and can be cleared again', () => {
+  test('a picked line takes the name and unit from the entry', () => {
     const line = newItemDraft('k1');
     const picked = pickCatalogItem(line, entry, 'en');
 
@@ -197,7 +223,6 @@ describe('the catalogue', () => {
       unit: 'l',
       catalogItemId: entry.id,
     });
-    expect(clearCatalogPick(picked)).toEqual({ ...picked, name: '', catalogItemId: null });
   });
 
   test('a picked line needs no typed name and travels with its entry id', () => {
@@ -217,6 +242,16 @@ describe('the catalogue', () => {
     });
 
     expect(rebuilt.items[0].catalogItemId).toBe(entry.id);
+  });
+
+  // The panel's rule (packages/shared/src/search.ts): a Czech name is found
+  // from an English keyboard.
+  test('the search ignores diacritics as well', () => {
+    const czech = { ...entry, name_i18n: { cs: 'Čistič na sklo' } };
+
+    expect(filterCatalog([czech], 'cistic')).toHaveLength(1);
+    expect(filterCatalog([czech], 'ČISTIČ')).toHaveLength(1);
+    expect(filterCatalog([czech], 'стекол')).toHaveLength(1);
   });
 
   test('the search matches any language, ignoring case', () => {

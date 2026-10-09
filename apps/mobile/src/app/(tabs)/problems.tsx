@@ -1,8 +1,13 @@
 import { router } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { StyleSheet, View } from 'react-native';
 
-import { ListAction } from '@/components/list-action';
+import { ActionBar } from '@/components/action-bar';
+import { Button } from '@/components/button';
+import { isTechnician } from '@/features/auth/role';
+import { useRole } from '@/features/auth/use-role';
+import { BoardScreen } from '@/features/board/board-screen';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { ProblemList } from '@/features/problems/problem-list';
 import { groupProblems } from '@/features/problems/schema';
@@ -10,7 +15,31 @@ import { useMyProblems } from '@/features/problems/use-problems';
 
 const NO_IDS: readonly string[] = [];
 
+/**
+ * Her reports, with «Создать задание» pinned under them, above the tab bar:
+ * as the first row of the list it scrolled away, and it was missing whenever
+ * the list could not load — when she is offline, which is exactly when a
+ * report has to wait in the queue.
+ *
+ * A technician has no listings to report on from here: he raises a task from
+ * his repair, where its listing fills itself in (docs/tech-plan.md §4). He
+ * gets the list without the button.
+ *
+ * The head technician's tab is not a list of his own at all: it is the board
+ * of every task of the company, with its filters (docs/tech-plan.md §3.4, §4),
+ * and no «Создать задание» either.
+ */
 export default function ProblemsScreen() {
+  const role = useRole();
+
+  return role === 'head_tech' ? <BoardScreen /> : <MyProblems canReport={!isTechnician(role)} />;
+}
+
+interface MyProblemsProps {
+  canReport: boolean;
+}
+
+function MyProblems({ canReport }: MyProblemsProps) {
   const { t } = useTranslation();
   const { data, isPending, error, refetch, isRefetching } = useMyProblems();
 
@@ -37,15 +66,25 @@ export default function ProblemsScreen() {
   }, []);
 
   return (
-    <ProblemList
-      sections={sections}
-      isLoading={isPending}
-      error={error}
-      onRefresh={onRefresh}
-      isRefreshing={isRefetching}
-      onPress={onPress}
-      unreadProblemIds={unread.problems}
-      header={<ListAction label={t('problems.report')} onPress={onReport} />}
-    />
+    <View style={styles.screen}>
+      <ProblemList
+        sections={sections}
+        isLoading={isPending}
+        error={error}
+        onRefresh={onRefresh}
+        isRefreshing={isRefetching}
+        onPress={onPress}
+        unreadProblemIds={unread.problems}
+      />
+      {canReport ? (
+        <ActionBar>
+          <Button label={t('problems.report')} onPress={onReport} />
+        </ActionBar>
+      ) : null}
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: { flex: 1 },
+});

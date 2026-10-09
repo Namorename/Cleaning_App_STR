@@ -6,8 +6,7 @@ import type { PushKind } from '@/features/settings/schema';
 /**
  * Every push about a cleaning: each names the cleaning and nothing else.
  * problem_new (the head technician's new task, 20261003150000) names a task,
- * not a cleaning, and this build opens nothing for it: readPushData reads it
- * as nothing, the system shows it, a tap opens the app.
+ * not a cleaning: a schema of its own below.
  */
 export type TaskPushKind = Exclude<PushKind, 'chat_message' | 'daily_digest' | 'problem_new'>;
 
@@ -43,10 +42,25 @@ const chatPushSchema = z.object({
 
 const digestPushSchema = z.object({ kind: z.literal('daily_digest') });
 
-const pushDataSchema = z.union([taskPushSchema, chatPushSchema, digestPushSchema]);
+/**
+ * «Новое задание» to the head technician: the task a maid or the office
+ * reported, for him to hand out (send-push run.ts, pushData).
+ */
+const problemPushSchema = z.object({
+  kind: z.literal('problem_new'),
+  problemId: z.string().uuid(),
+});
+
+const pushDataSchema = z.union([
+  taskPushSchema,
+  chatPushSchema,
+  digestPushSchema,
+  problemPushSchema,
+]);
 
 export type TaskPushData = z.infer<typeof taskPushSchema>;
 export type ChatPushData = z.infer<typeof chatPushSchema>;
+export type ProblemPushData = z.infer<typeof problemPushSchema>;
 export type PushData = z.infer<typeof pushDataSchema>;
 
 /**

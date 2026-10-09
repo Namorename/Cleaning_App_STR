@@ -1,29 +1,35 @@
-import { useState } from 'react';
+import { HeaderHeightContext } from 'expo-router/react-navigation';
+import { use, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, FlatList, KeyboardAvoidingView, Pressable, StyleSheet, View } from 'react-native';
 
-import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import { ActionBar } from '@/components/action-bar';
+import { Button } from '@/components/button';
+import { Text } from '@/components/text';
+import { TextField } from '@/components/text-field';
+import { MIN_TOUCH_TARGET, ROW_HEIGHT, Spacing, type Theme } from '@/constants/theme';
 import { useLanguage } from '@/hooks/use-language';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { serverErrorText } from '@/lib/server-error';
 
-import { CatalogPicker } from './catalog-picker';
 import {
-  clearCatalogPick,
-  MAX_SUPPLY_ITEM_COMMENT,
-  MAX_SUPPLY_ITEM_NAME,
-  MAX_SUPPLY_NOTE,
-  pickCatalogItem,
-  SUPPLY_PRIORITIES,
-  SUPPLY_UNITS,
+  cartRows,
+  catalogLine,
+  isZeroQuantity,
+  stepQuantity,
+  withLine,
+  withoutLine,
+  withQuantity,
+  type CartRow,
+} from './cart';
+import { CartRowView } from './cart-row';
+import { LineSheet, type LineEditor } from './line-sheet';
+import { PriorityChips } from './priority-chips';
+import { RequestSheet, type LineActions } from './request-sheet';
+import {
+  catalogItemName,
+  filledItems,
+  newItemDraft,
   supplyDraftIssue,
   type CatalogItem,
   type SupplyDraft,
@@ -33,7 +39,8 @@ import {
 interface SupplyFormProps {
   draft: SupplyDraft;
   onChange: (draft: SupplyDraft) => void;
-  onAddItem: () => void;
+  /** The key of a new line; the route's, so the form stays pure. */
+  newKey: () => string;
   /** Where the supplies are for, when known; the form does not let her change it. */
   place: string | null;
   /** The company's list; empty means she types every name. */
@@ -41,24 +48,30 @@ interface SupplyFormProps {
   isSubmitting: boolean;
   submitLabel: string;
   onSubmit: () => void;
+  /** The last attempt's failure, said next to the button so she can retry. */
   error: Error | null;
 }
 
+function rowKey(row: CartRow): string {
+  return row.kind === 'line' ? `line:${row.line.key}` : `entry:${row.entry.id}`;
+}
+
 /**
- * What she needs, line by line.
+ * What she needs, as a cart (owner's variant 1, docs/design/decisions.md §2).
  *
- * Presentational: the route owns the draft. At least one filled line is what
- * the server insists on; the button stays grey until it is there. Urgency is
- * explained in words, not only by colour.
+ * The catalogue is the form: a search on top, then every entry with a stepper
+ * — a tap is one more, the number can be typed — and manual entry as the last
+ * row. A summary pinned under the list counts the lines, switches the urgency
+ * and sends; a tap on it opens the whole request with each line's comment and
+ * the note. A request of five lines is five taps, not five forms.
  *
- * With a catalogue a line starts as a pick from the list, and only the
- * quantity is typed; the unit comes with the entry. Typing stays one tap
- * away, so an incomplete list never blocks her (§Д1.3).
+ * Presentational: the route owns the draft and what is sent. The button stays
+ * grey under the rule it always had, mirroring the server's refusals.
  */
 export function SupplyForm({
   draft,
   onChange,
-  onAddItem,
+  newKey,
   place,
   catalog,
   isSubmitting,
@@ -69,330 +82,275 @@ export function SupplyForm({
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const language = useLanguage();
+  // The keyboard's top is measured from the window's, the form's from under
+  // the header: the header's height is the difference. Outside a navigator
+  // (a test) there is no header.
+  const headerHeight = use(HeaderHeightContext) ?? 0;
+  const [query, setQuery] = useState('');
+  const [editor, setEditor] = useState<LineEditor | null>(null);
+  const [isLineSheetOpen, setLineSheetOpen] = useState(false);
+  const [isRequestOpen, setRequestOpen] = useState(false);
+
   const issue = supplyDraftIssue(draft);
-  const canSubmit = issue === null && !isSubmitting;
   const failure = error === null ? null : serverErrorText(error);
-  /** Lines typed by hand although there is a list: chosen so, or loaded that way. */
-  const [manualKeys, setManualKeys] = useState<readonly string[]>(() =>
-    draft.items
-      .filter((item) => item.catalogItemId === null && item.name.trim() !== '')
-      .map((item) => item.key),
-  );
-  /** The line whose list is unfolded, if any. */
-  const [pickerKey, setPickerKey] = useState<string | null>(null);
+  const count = t('supplies.itemCount', { count: filledItems(draft).length });
+  const rows = cartRows(draft, catalog, query);
 
-  const updateItem = (key: string, patch: Partial<SupplyItemDraft>) =>
-    onChange({
-      ...draft,
-      items: draft.items.map((item) => (item.key === key ? { ...item, ...patch } : item)),
-    });
-
-  const replaceItem = (line: SupplyItemDraft) =>
-    onChange({
-      ...draft,
-      items: draft.items.map((item) => (item.key === line.key ? line : item)),
-    });
-
-  const removeItem = (key: string) =>
-    onChange({ ...draft, items: draft.items.filter((item) => item.key !== key) });
-
-  const isPicked = (item: SupplyItemDraft) =>
-    catalog.length > 0 && !manualKeys.includes(item.key);
-
-  const switchToManual = (item: SupplyItemDraft) => {
-    setManualKeys([...manualKeys, item.key]);
-    setPickerKey((current) => (current === item.key ? null : current));
-    replaceItem(clearCatalogPick(item));
+  // A line that carries her words — a comment, or a name the catalogue does
+  // not have — asks before it leaves: a step to zero took them with it, with
+  // no way back (the review of 05.10). «Отмена» keeps it, at one if it fell to
+  // zero; a tap beside the question is «Отмена» too.
+  const remove = (line: SupplyItemDraft) => {
+    const leaveIt = () => onChange(withoutLine(draft, line.key));
+    if (line.comment.trim() === '' && line.catalogItemId !== null) {
+      leaveIt();
+      return;
+    }
+    const keep = () => {
+      if (isZeroQuantity(line.quantity)) {
+        onChange(withQuantity(draft, line.key, '1'));
+      }
+    };
+    Alert.alert(
+      t('supplies.removeLineTitle', { name: line.name }),
+      t('supplies.removeLineBody'),
+      [
+        { text: t('common.cancel'), style: 'cancel', onPress: keep },
+        { text: t('supplies.removeLine'), style: 'destructive', onPress: leaveIt },
+      ],
+      { cancelable: true, onDismiss: keep },
+    );
   };
 
-  const switchToCatalog = (item: SupplyItemDraft) => {
-    setManualKeys(manualKeys.filter((key) => key !== item.key));
-    setPickerKey(item.key);
+  const actions: LineActions = {
+    step: (line, delta) => {
+      const next = stepQuantity(line.quantity, delta);
+      if (next === null) {
+        remove(line);
+      } else {
+        onChange(withQuantity(draft, line.key, next));
+      }
+    },
+    type: (line, text) => onChange(withQuantity(draft, line.key, text)),
+    leave: (line) => {
+      if (isZeroQuantity(line.quantity)) {
+        remove(line);
+      }
+    },
   };
 
-  return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-    >
-      {place !== null ? <Text style={styles.place}>{place}</Text> : null}
+  // A row at zero has no line yet: a step up or a typed number starts one.
+  // Anything typed does, a lone "0" too — she may be on her way to "0,5";
+  // leaving the field at zero takes it out again.
+  const addEntry = (entry: CatalogItem, quantity: string) =>
+    onChange(withLine(draft, catalogLine(newKey(), entry, language, quantity)));
 
-      <Text style={styles.label}>{t('supplies.itemsLabel')}</Text>
-      {draft.items.map((item, index) => {
-        const picked = isPicked(item);
-        return (
-        <View key={item.key} style={styles.item}>
-          {picked ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('supplies.pickItemAccessibility', { index: index + 1 })}
-              accessibilityState={{ expanded: pickerKey === item.key, disabled: isSubmitting }}
-              disabled={isSubmitting}
-              onPress={() => setPickerKey((current) => (current === item.key ? null : item.key))}
-              style={[styles.input, styles.pick]}
-            >
-              <Text style={item.catalogItemId === null ? styles.hint : styles.pickText}>
-                {item.catalogItemId === null ? t('supplies.pickItem') : item.name}
-              </Text>
-            </Pressable>
-          ) : (
-            <TextInput
-              accessibilityLabel={t('supplies.itemNameAccessibility', { index: index + 1 })}
-              editable={!isSubmitting}
-              maxLength={MAX_SUPPLY_ITEM_NAME}
-              onChangeText={(name) => updateItem(item.key, { name })}
-              placeholder={t('supplies.itemNamePlaceholder')}
-              placeholderTextColor={styles.hint.color}
-              style={styles.input}
-              value={item.name}
-            />
-          )}
-          {picked && pickerKey === item.key ? (
-            <CatalogPicker
-              catalog={catalog}
-              language={language}
-              onPick={(entry) => {
-                replaceItem(pickCatalogItem(item, entry, language));
-                setPickerKey(null);
-              }}
-            />
-          ) : null}
-          <View style={styles.quantityRow}>
-            <TextInput
-              accessibilityLabel={t('supplies.quantityAccessibility', { index: index + 1 })}
-              editable={!isSubmitting}
-              keyboardType="decimal-pad"
-              onChangeText={(quantity) => updateItem(item.key, { quantity })}
-              style={[styles.input, styles.quantity]}
-              value={item.quantity}
-            />
-            {picked ? (
-              <Text style={styles.unitText}>
-                {item.catalogItemId === null ? '' : t(`supplies.units.${item.unit}`)}
-              </Text>
-            ) : (
-              <View style={styles.units} accessibilityRole="radiogroup">
-                {SUPPLY_UNITS.map((unit) => {
-                  const selected = item.unit === unit;
-                  const label = t(`supplies.units.${unit}`);
-                  return (
-                    <Pressable
-                      key={unit}
-                      accessibilityRole="radio"
-                      accessibilityLabel={label}
-                      accessibilityState={{ selected, checked: selected, disabled: isSubmitting }}
-                      disabled={isSubmitting}
-                      onPress={() => updateItem(item.key, { unit })}
-                      style={[styles.chip, selected && styles.chipSelected]}
-                    >
-                      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            )}
-          </View>
-          {catalog.length > 0 ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={picked ? t('supplies.manualEntry') : t('supplies.backToCatalog')}
-              disabled={isSubmitting}
-              onPress={() => (picked ? switchToManual(item) : switchToCatalog(item))}
-              style={styles.link}
-            >
-              <Text style={styles.switchText}>
-                {picked ? t('supplies.manualEntry') : t('supplies.backToCatalog')}
-              </Text>
-            </Pressable>
-          ) : null}
-          <TextInput
-            accessibilityLabel={t('supplies.itemCommentAccessibility', { index: index + 1 })}
-            editable={!isSubmitting}
-            maxLength={MAX_SUPPLY_ITEM_COMMENT}
-            onChangeText={(comment) => updateItem(item.key, { comment })}
-            placeholder={t('supplies.itemCommentPlaceholder')}
-            placeholderTextColor={styles.hint.color}
-            style={styles.input}
-            value={item.comment}
-          />
-          {draft.items.length > 1 ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('supplies.removeItem')}
-              disabled={isSubmitting}
-              onPress={() => removeItem(item.key)}
-              style={styles.link}
-            >
-              <Text style={styles.linkText}>{t('supplies.removeItem')}</Text>
-            </Pressable>
-          ) : null}
-        </View>
-        );
-      })}
+  const stepEntry = (entry: CatalogItem, line: SupplyItemDraft | null, delta: 1 | -1) => {
+    if (line !== null) {
+      actions.step(line, delta);
+    } else if (delta === 1) {
+      addEntry(entry, '1');
+    }
+  };
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('supplies.addItem')}
-        disabled={isSubmitting}
-        onPress={onAddItem}
-        style={({ pressed }) => [styles.secondary, pressed && styles.buttonPressed]}
-      >
-        <Text style={styles.secondaryText}>{t('supplies.addItem')}</Text>
-      </Pressable>
+  const typeEntry = (entry: CatalogItem, line: SupplyItemDraft | null, text: string) => {
+    if (line !== null) {
+      actions.type(line, text);
+    } else if (text.trim() !== '') {
+      addEntry(entry, text);
+    }
+  };
 
-      <View style={styles.field}>
-        <Text style={styles.label}>{t('supplies.priorityLabel')}</Text>
-        <View style={styles.chips} accessibilityRole="radiogroup">
-          {SUPPLY_PRIORITIES.map((priority) => {
-            const selected = draft.priority === priority;
-            const label = t(`supplies.priorities.${priority}`);
-            return (
-              <Pressable
-                key={priority}
-                accessibilityRole="radio"
-                accessibilityLabel={label}
-                accessibilityState={{ selected, checked: selected, disabled: isSubmitting }}
-                disabled={isSubmitting}
-                onPress={() => onChange({ ...draft, priority })}
-                style={[styles.chip, styles.chipWide, selected && styles.chipSelected]}
-              >
-                <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        <Text style={styles.hint}>{t('supplies.priorityHint')}</Text>
-      </View>
+  const openLine = (line: SupplyItemDraft, isNew: boolean) => {
+    setEditor({ id: (editor?.id ?? 0) + 1, line, isNew });
+    setLineSheetOpen(true);
+  };
 
-      <View style={styles.field}>
-        <Text style={styles.label}>{t('supplies.noteLabel')}</Text>
-        <TextInput
-          accessibilityLabel={t('supplies.noteLabel')}
-          editable={!isSubmitting}
-          maxLength={MAX_SUPPLY_NOTE}
-          multiline
-          onChangeText={(note) => onChange({ ...draft, note })}
-          placeholder={t('supplies.notePlaceholder')}
-          placeholderTextColor={styles.hint.color}
-          style={[styles.input, styles.inputMultiline]}
-          textAlignVertical="top"
-          value={draft.note}
+  // What she searched for and did not find is the likely name.
+  const openNewLine = () => openLine({ ...newItemDraft(newKey()), name: query.trim() }, true);
+
+  const confirmLine = (line: SupplyItemDraft) => {
+    onChange(withLine(draft, line));
+    setLineSheetOpen(false);
+  };
+
+  const renderRow = ({ item }: { item: CartRow }) => {
+    if (item.kind === 'line') {
+      const { line } = item;
+      return (
+        <CartRowView
+          title={line.name}
+          unit={t(`supplies.units.${line.unit}`)}
+          value={line.quantity}
+          isInRequest
+          isDisabled={isSubmitting}
+          onStep={(delta) => actions.step(line, delta)}
+          onChangeText={(text) => actions.type(line, text)}
+          onBlur={() => actions.leave(line)}
+          onEdit={line.catalogItemId === null ? () => openLine(line, false) : undefined}
         />
-      </View>
+      );
+    }
+    const { entry, line } = item;
+    return (
+      <CartRowView
+        title={catalogItemName(entry, language)}
+        unit={t(`supplies.units.${entry.unit}`)}
+        value={line?.quantity ?? '0'}
+        isInRequest={line !== null}
+        isDisabled={isSubmitting}
+        onStep={(delta) => stepEntry(entry, line, delta)}
+        onChangeText={(text) => typeEntry(entry, line, text)}
+        onBlur={() => {
+          if (line !== null) {
+            actions.leave(line);
+          }
+        }}
+      />
+    );
+  };
 
-      {issue === 'itemInvalid' ? (
-        <Text accessibilityLiveRegion="polite" style={styles.hint}>
-          {t('supplies.itemInvalidHint')}
+  const header = (
+    <View style={styles.header}>
+      {place !== null ? <Text tone="secondary">{place}</Text> : null}
+      {catalog.length > 0 ? (
+        <TextField
+          label={t('supplies.searchCatalog')}
+          value={query}
+          onChangeText={setQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+      ) : null}
+    </View>
+  );
+
+  const footer = (
+    <>
+      {rows.length === 0 && query.trim() !== '' ? (
+        <Text tone="secondary" style={styles.noMatch}>
+          {t('supplies.catalogNoMatch')}
         </Text>
       ) : null}
-
-      {failure !== null ? (
-        <View accessibilityLiveRegion="polite" style={styles.failure}>
-          <Text style={styles.error}>{failure.text}</Text>
-          {failure.detail !== null ? (
-            <Text style={styles.errorDetail}>{failure.detail}</Text>
-          ) : null}
-        </View>
-      ) : null}
-
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={submitLabel}
-        accessibilityState={{ disabled: !canSubmit, busy: isSubmitting }}
-        disabled={!canSubmit}
-        onPress={onSubmit}
-        style={({ pressed }) => [
-          styles.button,
-          !canSubmit && styles.buttonDisabled,
-          pressed && styles.buttonPressed,
-        ]}
+        accessibilityLabel={catalog.length > 0 ? t('supplies.manualEntry') : t('supplies.addItem')}
+        disabled={isSubmitting}
+        onPress={openNewLine}
+        style={({ pressed }) => [styles.manual, pressed && styles.pressed]}
       >
-        {isSubmitting ? (
-          <ActivityIndicator color={styles.buttonText.color} />
-        ) : (
-          <Text style={styles.buttonText}>{submitLabel}</Text>
-        )}
+        <Text tone="primary" weight={700}>
+          {catalog.length > 0 ? t('supplies.manualEntry') : t('supplies.addItem')}
+        </Text>
       </Pressable>
-    </ScrollView>
+    </>
+  );
+
+  return (
+    // Padding on both systems, as the report form does: the view measures how
+    // much of it the keyboard covers, and with Android drawing edge to edge
+    // the system does not make room for it.
+    <KeyboardAvoidingView
+      style={styles.screen}
+      behavior="padding"
+      keyboardVerticalOffset={headerHeight}
+    >
+      <FlatList
+        style={styles.screen}
+        data={rows}
+        keyExtractor={rowKey}
+        renderItem={renderRow}
+        ListHeaderComponent={header}
+        ListFooterComponent={footer}
+        keyboardShouldPersistTaps="handled"
+      />
+
+      {/* Under the list rather than over it: the last row scrolls up to its
+          edge, and a summary grown by a large system font lifts the list
+          instead of covering more of it (components/action-bar.tsx). */}
+      <ActionBar isAtScreenEdge>
+        <View style={styles.summary}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={count}
+            accessibilityHint={t('supplies.showRequest')}
+            onPress={() => setRequestOpen(true)}
+            style={({ pressed }) => [styles.count, pressed && styles.pressed]}
+          >
+            <Text weight={700}>{count}</Text>
+            <Text variant="caption" tone="primary">
+              {t('supplies.showRequest')}
+            </Text>
+          </Pressable>
+          <PriorityChips
+            value={draft.priority}
+            onChange={(priority) => onChange({ ...draft, priority })}
+            isDisabled={isSubmitting}
+          />
+        </View>
+        {issue === 'itemInvalid' ? (
+          <Text variant="caption" tone="danger" accessibilityLiveRegion="polite">
+            {t('supplies.itemInvalidHint')}
+          </Text>
+        ) : null}
+        {failure !== null ? (
+          <View accessibilityLiveRegion="polite" style={styles.failure}>
+            <Text tone="danger" align="center">
+              {failure.text}
+            </Text>
+            {failure.detail !== null ? (
+              // The server's words, for passing on; a long one must not push
+              // the button off the screen.
+              <Text variant="caption" tone="secondary" align="center" numberOfLines={3}>
+                {failure.detail}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+        <Button
+          label={submitLabel}
+          onPress={onSubmit}
+          isDisabled={issue !== null}
+          isBusy={isSubmitting}
+        />
+      </ActionBar>
+
+      <LineSheet
+        isVisible={isLineSheetOpen}
+        editor={editor}
+        onConfirm={confirmLine}
+        onClose={() => setLineSheetOpen(false)}
+      />
+      <RequestSheet
+        isVisible={isRequestOpen}
+        onClose={() => setRequestOpen(false)}
+        draft={draft}
+        onChange={onChange}
+        actions={actions}
+        isDisabled={isSubmitting}
+      />
+    </KeyboardAvoidingView>
   );
 }
-
-const NOTE_MIN_HEIGHT = 96;
-const QUANTITY_WIDTH = 80;
 
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.background },
-    content: { padding: Spacing.lg, gap: Spacing.md },
-    place: { color: theme.textSecondary, fontSize: FontSize.body },
-    field: { gap: Spacing.xs },
-    label: { color: theme.textSecondary, fontSize: FontSize.caption, fontWeight: '700' },
-    hint: { color: theme.textSecondary, fontSize: FontSize.body },
-    item: {
-      backgroundColor: theme.card,
-      borderRadius: Radius.lg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.divider,
-      padding: Spacing.md,
+    header: { padding: Spacing.lg, gap: Spacing.md },
+    noMatch: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md },
+    manual: {
+      minHeight: ROW_HEIGHT,
+      justifyContent: 'center',
+      paddingHorizontal: Spacing.lg,
+    },
+    pressed: { opacity: 0.6 },
+    summary: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      justifyContent: 'space-between',
       gap: Spacing.sm,
     },
-    input: {
-      minHeight: MIN_TOUCH_TARGET,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-      borderRadius: Radius.md,
-      padding: Spacing.md,
-      fontSize: FontSize.title,
-      color: theme.text,
-      backgroundColor: theme.background,
-    },
-    inputMultiline: { minHeight: NOTE_MIN_HEIGHT, backgroundColor: theme.card },
-    quantityRow: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
-    quantity: { width: QUANTITY_WIDTH, textAlign: 'center' },
-    pick: { justifyContent: 'center' },
-    pickText: { color: theme.text, fontSize: FontSize.title },
-    unitText: { color: theme.text, fontSize: FontSize.title, fontWeight: '600' },
-    switchText: { color: theme.primary, fontSize: FontSize.body, fontWeight: '600' },
-    units: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
-    chips: { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },
-    chip: {
-      minHeight: MIN_TOUCH_TARGET,
-      paddingHorizontal: Spacing.md,
-      borderRadius: Radius.md,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-      backgroundColor: theme.background,
-      justifyContent: 'center',
-    },
-    chipWide: { paddingHorizontal: Spacing.lg, backgroundColor: theme.card },
-    chipSelected: { backgroundColor: theme.primary, borderColor: theme.primary },
-    chipText: { color: theme.text, fontSize: FontSize.body, fontWeight: '600' },
-    chipTextSelected: { color: theme.onPrimary },
-    link: { minHeight: MIN_TOUCH_TARGET, justifyContent: 'center' },
-    linkText: { color: theme.danger, fontSize: FontSize.body, fontWeight: '600' },
+    count: { minHeight: MIN_TOUCH_TARGET, justifyContent: 'center', flexShrink: 1 },
     failure: { gap: Spacing.xs },
-    error: { color: theme.danger, fontSize: FontSize.body, textAlign: 'center' },
-    errorDetail: { color: theme.textSecondary, fontSize: FontSize.caption, textAlign: 'center' },
-    button: {
-      minHeight: MIN_TOUCH_TARGET,
-      borderRadius: Radius.md,
-      backgroundColor: theme.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    buttonDisabled: { opacity: 0.5 },
-    buttonPressed: { opacity: 0.75 },
-    buttonText: { color: theme.onPrimary, fontSize: FontSize.title, fontWeight: '600' },
-    secondary: {
-      minHeight: MIN_TOUCH_TARGET,
-      borderRadius: Radius.md,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    secondaryText: { color: theme.primary, fontSize: FontSize.title, fontWeight: '600' },
   });

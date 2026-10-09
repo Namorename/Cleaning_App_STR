@@ -1,14 +1,14 @@
 import type { TFunction } from 'i18next';
 
-import { CameraDeniedError, MediaLibraryDeniedError, VideoTooLongError } from './capture';
+import { CameraDeniedError, MediaLibraryDeniedError } from './capture';
 
 /**
  * Why a file did not get attached, in the cleaner's language.
  *
  * Three screens attach media — a step of a task, a new problem report, and an
  * open one — and each used to spell out its own version of the same two
- * cases. There are four now, and four copies of a decision is how two of
- * them end up saying different things about the same refusal.
+ * cases. One decision here keeps them saying the same thing about the same
+ * refusal. A video has a recording screen of its own, with its own words.
  */
 export function attachFailure(error: unknown, t: TFunction): string {
   if (error instanceof CameraDeniedError) {
@@ -16,9 +16,6 @@ export function attachFailure(error: unknown, t: TFunction): string {
   }
   if (error instanceof MediaLibraryDeniedError) {
     return t('steps.galleryDenied');
-  }
-  if (error instanceof VideoTooLongError) {
-    return t('steps.videoTooLong', { seconds: error.maxSeconds });
   }
   return t('steps.captureFailed');
 }

@@ -1,0 +1,454 @@
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { router } from 'expo-router';
+
+import { useUnreadSubjects } from '@/features/chat/use-chat';
+import {
+  CLEANER_ANNA,
+  STAFF,
+  TECH_IVAN,
+  TECH_OLGA,
+  boardProblem,
+  repair,
+} from '@/testing/board-fixtures';
+
+import { BoardScreen } from '../board-screen';
+import type { BoardProblem, BoardReadCut } from '../schema';
+import { useBoardArchive, useBoardCut, useBoardProblems, useStaffDirectory } from '../use-board';
+
+/**
+ * The head technician's «Задания» (brief, item 1): every task of the company
+ * as a card, filtered by status — the archive a filter of its own, read only
+ * when he asks for it, a page at a time — and by who holds the live repair,
+ * chosen on a sheet. Loading, empty and failure are the components' own states.
+ */
+
+jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
+
+jest.mock('@/features/chat/use-chat', () => ({
+  useUnreadSubjects: jest.fn(() => ({
+    tasks: new Set(),
+    problems: new Set(),
+    refetch: jest.fn(),
+  })),
+}));
+
+jest.mock('../use-board', () => ({
+  useBoardProblems: jest.fn(),
+  useBoardCut: jest.fn(),
+  useBoardArchive: jest.fn(),
+  useStaffDirectory: jest.fn(),
+}));
+
+const OPEN = boardProblem({ id: 'd1e2f3a4-1111-4111-8111-d1e2f3a40001', title: 'Кран течёт' });
+const IVANS = boardProblem({
+  id: 'd1e2f3a4-1111-4111-8111-d1e2f3a40002',
+  title: 'Нет горячей воды',
+  status: 'assigned',
+  fix_tasks: [repair()],
+});
+const OLGAS = boardProblem({
+  id: 'd1e2f3a4-1111-4111-8111-d1e2f3a40003',
+  title: 'Сломан замок',
+  status: 'in_progress',
+  fix_tasks: [repair({ assignee_id: TECH_OLGA, status: 'in_progress' })],
+});
+const ANNAS = boardProblem({
+  id: 'd1e2f3a4-1111-4111-8111-d1e2f3a40004',
+  title: 'Перегорела лампа',
+  status: 'assigned',
+  fix_tasks: [repair({ assignee_id: CLEANER_ANNA })],
+});
+const RESOLVED = boardProblem({
+  id: 'd1e2f3a4-1111-4111-8111-d1e2f3a40005',
+  title: 'Скрипит дверь',
+  status: 'resolved',
+  fix_tasks: [repair({ status: 'done' })],
+});
+const ARCHIVED = boardProblem({
+  id: 'd1e2f3a4-1111-4111-8111-d1e2f3a40006',
+  title: 'Старая жалоба',
+  archived_at: '2026-10-06T08:00:00+00:00',
+});
+/** What the board reads: no archive, the closed of the last month (api.ts). */
+const BOARD = [OPEN, IVANS, OLGAS, ANNAS, RESOLVED];
+/** What «Архив» reads, on demand. */
+const ARCHIVE = [ARCHIVED];
+
+type BoardAnswer = ReturnType<typeof useBoardProblems>;
+type ArchiveAnswer = ReturnType<typeof useBoardArchive>;
+
+/** What the board's reads said of the cut (`useBoardCut`): neither part, unless told. */
+function answerCut(cut: Partial<BoardReadCut> = {}): void {
+  jest.mocked(useBoardCut).mockReturnValue({ isOpenCut: false, isClosedCut: false, ...cut });
+}
+
+function answer(overrides: Partial<BoardAnswer> = {}): void {
+  jest.mocked(useBoardProblems).mockReturnValue({
+    data: BOARD,
+    isPending: false,
+    error: null,
+    refetch: jest.fn(),
+    isRefetching: false,
+    ...overrides,
+  } as BoardAnswer);
+}
+
+function answerArchive(overrides: Partial<ArchiveAnswer> = {}): void {
+  jest.mocked(useBoardArchive).mockReturnValue({
+    data: ARCHIVE,
+    isPending: false,
+    error: null,
+    refetch: jest.fn(),
+    isRefetching: false,
+    hasNextPage: false,
+    isFetchingNextPage: false,
+    fetchNextPage: jest.fn(),
+    ...overrides,
+  } as unknown as ArchiveAnswer);
+}
+
+function titles(): string[] {
+  const [list] = screen.container.queryAll((node) => node.type === 'RCTSectionList');
+  const scope = list === undefined ? screen : within(list);
+  return [...BOARD, ...ARCHIVE]
+    .map((problem) => problem.title)
+    .filter((title) => scope.queryByText(title) !== null);
+}
+
+/** The ids the unread marks were asked for, call by call. */
+function unreadAsked(): (readonly string[])[] {
+  return jest.mocked(useUnreadSubjects).mock.calls.map(([, problemIds]) => problemIds);
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  answer();
+  answerCut();
+  answerArchive();
+  jest.mocked(useStaffDirectory).mockReturnValue({
+    data: STAFF,
+    error: null,
+    refetch: jest.fn(),
+  } as unknown as ReturnType<typeof useStaffDirectory>);
+});
+
+describe('the status filter', () => {
+  test('starts on «Все»: every task out of the archive, closed ones under their heading', async () => {
+    await render(<BoardScreen />);
+
+    expect(screen.getByRole('tab', { name: 'Все' }).props.accessibilityState).toMatchObject({
+      selected: true,
+    });
+    expect(titles()).toEqual([
+      'Кран течёт',
+      'Нет горячей воды',
+      'Сломан замок',
+      'Перегорела лампа',
+      'Скрипит дверь',
+    ]);
+    expect(screen.getByText('Закрытые')).toBeTruthy();
+  });
+
+  test.each([
+    ['Открыто', ['Кран течёт']],
+    ['Назначено', ['Нет горячей воды', 'Перегорела лампа']],
+    ['В работе', ['Сломан замок']],
+    ['Выполнено', ['Скрипит дверь']],
+    ['Архив', ['Старая жалоба']],
+  ])('«%s» shows its tasks alone', async (chip, expected) => {
+    await render(<BoardScreen />);
+
+    await fireEvent.press(screen.getByRole('tab', { name: chip }));
+
+    expect(titles()).toEqual(expected);
+  });
+});
+
+// Item 11 of the two whole-branch reviews of phone-1-2-0, and item 3 of the
+// verification review of f3217a7..c466bf5: the board reads what is not
+// closed to 999 and the month's closed work to 200, one more of each (api.ts).
+// The one more says which part was cut, and only then is anything said.
+describe('a board read to its limits', () => {
+  const OPEN_CUT = 'Незакрытые: показаны последние 999';
+  const CLOSED_CUT = 'Закрытые: показаны последние 200';
+
+  function manyTasks(count: number, status: BoardProblem['status'], from = 0): BoardProblem[] {
+    return Array.from({ length: count }, (_, index) =>
+      boardProblem({
+        id: `d1e2f3a4-1111-4111-8111-${String(from + index).padStart(12, '0')}`,
+        title: `Задание ${from + index}`,
+        status,
+      }),
+    );
+  }
+
+  test('one more open task than it shows: says the open ones are cut, and only them', async () => {
+    answer({ data: [...manyTasks(1000, 'open'), RESOLVED] });
+
+    await render(<BoardScreen />);
+
+    expect(screen.getByText(OPEN_CUT)).toBeTruthy();
+    expect(screen.queryByText(CLOSED_CUT)).toBeNull();
+  });
+
+  test('one more closed task than it shows: says the closed ones are cut, and only them', async () => {
+    answer({ data: [OPEN, ...manyTasks(201, 'resolved', 2000)] });
+
+    await render(<BoardScreen />);
+
+    expect(screen.getByText(CLOSED_CUT)).toBeTruthy();
+    expect(screen.queryByText(OPEN_CUT)).toBeNull();
+    // An open task stays on the board however many were closed this month.
+    expect(titles()).toContain('Кран течёт');
+  });
+
+  // A task closed between the two reads is handed back once (api.ts): the
+  // closed part is then exactly at its limit, and only its read knows it was
+  // cut (night journal, review of bc7dcc9..dab5237).
+  test('the closed read cut, though what came back is at the limit: says so', async () => {
+    answer({ data: [OPEN, ...manyTasks(200, 'resolved', 2000)] });
+    answerCut({ isClosedCut: true });
+
+    await render(<BoardScreen />);
+
+    expect(screen.getByText(CLOSED_CUT)).toBeTruthy();
+    expect(screen.queryByText(OPEN_CUT)).toBeNull();
+  });
+
+  test('both parts over their limits: says both', async () => {
+    answer({ data: [...manyTasks(1000, 'open'), ...manyTasks(201, 'cancelled', 2000)] });
+
+    await render(<BoardScreen />);
+
+    expect(screen.getByText(OPEN_CUT)).toBeTruthy();
+    expect(screen.getByText(CLOSED_CUT)).toBeTruthy();
+  });
+
+  test('says nothing at the limits exactly, nor in the archive', async () => {
+    answer({ data: [...manyTasks(999, 'open'), ...manyTasks(200, 'resolved', 2000)] });
+    await render(<BoardScreen />);
+    expect(screen.queryByText(OPEN_CUT)).toBeNull();
+    expect(screen.queryByText(CLOSED_CUT)).toBeNull();
+
+    answer({ data: [...manyTasks(1000, 'open'), ...manyTasks(201, 'resolved', 2000)] });
+    await fireEvent.press(screen.getByRole('tab', { name: 'Архив' }));
+
+    expect(screen.queryByText(OPEN_CUT)).toBeNull();
+    expect(screen.queryByText(CLOSED_CUT)).toBeNull();
+  });
+});
+
+// A company's tasks only grow; the archive is history he looks up, not work
+// waiting for him (brief, item 6).
+describe('the archive', () => {
+  test('is read only once «Архив» is chosen', async () => {
+    await render(<BoardScreen />);
+
+    expect(jest.mocked(useBoardArchive).mock.calls.every(([isOpen]) => isOpen === false)).toBe(
+      true,
+    );
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Архив' }));
+
+    expect(jest.mocked(useBoardArchive).mock.calls.at(-1)?.[0]).toBe(true);
+  });
+
+  test('«Ещё» reads the next page while there is one', async () => {
+    const fetchNextPage = jest.fn();
+    answerArchive({ hasNextPage: true, fetchNextPage });
+    await render(<BoardScreen />);
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Архив' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Ещё' }));
+
+    expect(fetchNextPage).toHaveBeenCalledTimes(1);
+  });
+
+  test('the last page offers no «Ещё», and the live board never does', async () => {
+    await render(<BoardScreen />);
+    expect(screen.queryByRole('button', { name: 'Ещё' })).toBeNull();
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Архив' }));
+
+    expect(screen.queryByRole('button', { name: 'Ещё' })).toBeNull();
+  });
+
+  test('while the archive loads, its shape stands in', async () => {
+    answerArchive({ data: undefined, isPending: true });
+    await render(<BoardScreen />);
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Архив' }));
+
+    expect(screen.getByRole('progressbar', { name: 'Загружаем задания…' })).toBeTruthy();
+  });
+});
+
+// One key for the marks, whatever the filters (brief, item 5): a filter is not
+// a new question to the server, and a task does not lose its mark under one.
+describe('the unread marks', () => {
+  test('are asked for the whole board and the archive held, not for what the filters leave', async () => {
+    await render(<BoardScreen />);
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Открыто' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Исполнитель: Все исполнители' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Иван Петров' }));
+
+    const whole = [...BOARD, ...ARCHIVE].map((problem) => problem.id);
+    expect(unreadAsked().length).toBeGreaterThan(1);
+    expect(unreadAsked().every((ids) => ids.join() === whole.join())).toBe(true);
+  });
+});
+
+describe('the assignee filter', () => {
+  test('the sheet offers everybody, nobody, and the active technicians — him too', async () => {
+    await render(<BoardScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Исполнитель: Все исполнители' }));
+
+    const sheet = screen.getByTestId('board-assignee-sheet');
+    expect(within(sheet).getByRole('header', { name: 'Исполнитель' })).toBeTruthy();
+    const rows = within(sheet)
+      .getAllByRole('button')
+      .map((row) => row.props.accessibilityLabel as string);
+    expect(rows).toEqual([
+      'Закрыть',
+      'Все исполнители',
+      'Без исполнителя',
+      'Иван Петров',
+      'Ольга Сидорова',
+      'Сергей Главный',
+    ]);
+  });
+
+  test('a technician narrows the board to the tasks he holds, and the sheet closes', async () => {
+    await render(<BoardScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Исполнитель: Все исполнители' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Иван Петров' }));
+
+    expect(titles()).toEqual(['Нет горячей воды']);
+    expect(screen.getByRole('button', { name: 'Исполнитель: Иван Петров' })).toBeTruthy();
+    expect(screen.queryByTestId('board-assignee-sheet')).toBeNull();
+  });
+
+  test('«Без исполнителя» is the tasks still waiting for somebody', async () => {
+    await render(<BoardScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Исполнитель: Все исполнители' }));
+    await fireEvent.press(
+      within(screen.getByTestId('board-assignee-sheet')).getByRole('button', {
+        name: 'Без исполнителя',
+      }),
+    );
+
+    expect(titles()).toEqual(['Кран течёт']);
+  });
+
+  test('the chosen one is said as selected on the sheet', async () => {
+    await render(<BoardScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Исполнитель: Все исполнители' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Ольга Сидорова' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Исполнитель: Ольга Сидорова' }));
+
+    expect(
+      screen.getByRole('button', { name: 'Ольга Сидорова' }).props.accessibilityState,
+    ).toMatchObject({ selected: true });
+  });
+
+  test('both filters together, and an empty answer offers to clear them', async () => {
+    await render(<BoardScreen />);
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Открыто' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Исполнитель: Все исполнители' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Иван Петров' }));
+
+    expect(screen.getByText('Под эти фильтры ничего не подходит')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Сбросить фильтры' }));
+    expect(titles()).toHaveLength(5);
+  });
+
+  // A closed or archived task holds nobody (archive_problem cancels the live
+  // repair), so «Выполнено» or «Архив» with a person could never show a thing.
+  test.each([
+    ['Выполнено', ['Скрипит дверь']],
+    ['Архив', ['Старая жалоба']],
+  ])(
+    '«%s» sets the person aside and says why; back on «Все» he applies again',
+    async (chip, expected) => {
+      await render(<BoardScreen />);
+      await fireEvent.press(screen.getByRole('button', { name: 'Исполнитель: Все исполнители' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Иван Петров' }));
+
+      await fireEvent.press(screen.getByRole('tab', { name: chip }));
+
+      expect(titles()).toEqual(expected);
+      const picker = screen.getByRole('button', { name: 'Исполнитель: Все исполнители' });
+      expect(picker.props.accessibilityState).toMatchObject({ disabled: true });
+      expect(
+        screen.getByText('У закрытых и архивных заданий нет исполнителя — фильтр не действует'),
+      ).toBeTruthy();
+
+      await fireEvent.press(screen.getByRole('tab', { name: 'Все' }));
+
+      expect(titles()).toEqual(['Нет горячей воды']);
+      expect(screen.getByRole('button', { name: 'Исполнитель: Иван Петров' })).toBeTruthy();
+    },
+  );
+});
+
+describe('its states', () => {
+  test('while it loads, the cards’ shape stands in, said as loading', async () => {
+    answer({ data: undefined, isPending: true });
+
+    await render(<BoardScreen />);
+
+    expect(screen.getByRole('progressbar', { name: 'Загружаем задания…' })).toBeTruthy();
+  });
+
+  test('a board that never loaded says why and offers a retry', async () => {
+    const refetch = jest.fn();
+    answer({ data: undefined, error: new Error('Network request failed'), refetch });
+
+    await render(<BoardScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Повторить' }));
+
+    expect(screen.getByText('Не удалось выполнить действие. Попробуйте ещё раз.')).toBeTruthy();
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  test('a refresh that failed keeps the board, the failure said above it', async () => {
+    answer({ error: new Error('Network request failed') });
+
+    await render(<BoardScreen />);
+
+    expect(screen.getByText('Кран течёт')).toBeTruthy();
+    expect(screen.getByText(/Не удалось обновить/)).toBeTruthy();
+  });
+
+  test('a company without tasks says so', async () => {
+    answer({ data: [] });
+
+    await render(<BoardScreen />);
+
+    expect(screen.getByText('Заданий нет')).toBeTruthy();
+  });
+
+  test('a card opens its task', async () => {
+    await render(<BoardScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Кран течёт\./ }));
+
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: '/problem/[id]',
+      params: { id: OPEN.id },
+    });
+  });
+
+  test('the names on the cards are the directory’s', async () => {
+    await render(<BoardScreen />);
+
+    expect(screen.getAllByText('Иван Петров').length).toBeGreaterThan(0);
+    expect(screen.queryByText(TECH_IVAN)).toBeNull();
+  });
+});

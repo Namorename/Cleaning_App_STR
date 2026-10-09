@@ -1,18 +1,22 @@
 import {
+  onlineManager,
   useMutation,
   useMutationState,
   useQuery,
   useQueryClient,
+  type Mutation,
   type QueryClient,
 } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 
 import { useSession } from '@/features/auth/session';
 import { sendMessage, type SendMessageVariables } from '@/features/chat/api';
 import { chatKeys } from '@/features/chat/keys';
 import type { OwnMediaState, OwnMediaStates } from '@/features/chat/media-tiles';
 import { stepKeys } from '@/features/steps/keys';
+import { backoffDelay } from '@/lib/move-retry';
 import { serverErrorKey } from '@/lib/server-error';
+import { reportError } from '@/lib/sentry';
 
 import {
   addMedia,
@@ -22,9 +26,18 @@ import {
   removeMedia,
   signedMediaUrls,
   uploadMediaFile,
+  uploadVideoFile,
   type AddMediaVariables,
   type MediaOwnerRef,
 } from './api';
+import {
+  attachStalls,
+  beginAttachAttempt,
+  countAttachFailure,
+  forgetAttachCount,
+  noteAttachProgress,
+  retryAttach,
+} from './attach-retry';
 import { discardFile } from './file';
 import { mediaKeys } from './keys';
 import {
@@ -34,7 +47,14 @@ import {
   rememberLocalMedia,
   type LocalMediaRecord,
 } from './local-store';
-import type { MediaItemView, TaskMedia } from './schema';
+import type { MediaItemView, MediaKind, TaskMedia } from './schema';
+import {
+  clearUploadProgress,
+  reportUploadProgress,
+  subscribeUploadProgress,
+  uploadProgressSnapshot,
+  type UploadProgress,
+} from './upload-progress';
 
 export const mediaMutationKeys = {
   attach: ['media', 'attach'] as const,
@@ -44,9 +64,20 @@ export const mediaMutationKeys = {
 /**
  * One task's uploads go one at a time, and so do everyone's: a stairwell's
  * worth of bandwidth is better spent finishing one photo than starting four.
+ * Videos queue apart: one takes minutes over mobile data, and the step's
+ * photos and the chat's must not stand behind it.
  */
 const ATTACH_SCOPE = { id: 'media-attach' };
-const ATTACH_RETRIES = 3;
+const VIDEO_ATTACH_SCOPE = { id: 'media-attach-video' };
+
+/**
+ * An upload in the videos' line: minutes long over mobile data, so the queue
+ * resumes it without waiting for it (lib/query-client.ts). Its scope, not its
+ * kind, says so: a video restored from disk keeps the scope it was queued with.
+ */
+export function isVideoUpload(mutation: Pick<Mutation, 'options'>): boolean {
+  return mutation.options.scope?.id === VIDEO_ATTACH_SCOPE.id;
+}
 
 export interface AttachMediaVariables extends AddMediaVariables {
   /** The file on the phone. */
@@ -109,12 +140,22 @@ function dropFailedAttempts(queryClient: QueryClient, mediaId: string): void {
  * started again from the top: the row is returned rather than duplicated,
  * the duplicate object is read as already there, the confirmation returns a
  * confirmed row as it is.
+ *
+ * A photo goes up in one request. A video goes in pieces and resumes where
+ * the last attempt stopped (`attachVideo`). The query client is told of the
+ * local ledger a video's release changes.
  */
-export async function attachMedia(variables: AttachMediaVariables): Promise<TaskMedia> {
+export async function attachMedia(
+  variables: AttachMediaVariables,
+  queryClient: QueryClient,
+): Promise<TaskMedia> {
   if (variables.message !== undefined) {
     await sendMessage(variables.message);
   }
   const row = await addMedia(variables);
+  if (variables.kind === 'video') {
+    return attachVideo(row, variables, queryClient);
+  }
   try {
     await uploadMediaFile(row.storage_path, variables.uri, variables.mimeType);
   } catch (error: unknown) {
@@ -129,15 +170,113 @@ export async function attachMedia(variables: AttachMediaVariables): Promise<Task
   return confirmMedia(variables.mediaId);
 }
 
-/** Teach the query client how to replay each media action after a restart. */
+/**
+ * A video's upload and confirmation, then its file let go.
+ *
+ * Resumable (docs/tech-plan.md §7.5): sent in pieces from the address kept in
+ * its local record, saying how far it has got as it goes. A row the server
+ * already confirmed is a replay after the file was let go — nothing is left
+ * to send, and nothing to send it from. Once confirmed, the file is removed
+ * from the phone: unlike a photo's, its tile never shows it, and a few
+ * videos would fill the phone's memory.
+ */
+async function attachVideo(
+  row: TaskMedia,
+  variables: AttachMediaVariables,
+  queryClient: QueryClient,
+): Promise<TaskMedia> {
+  if (row.uploaded_at === null) {
+    await uploadVideoFile({
+      mediaId: variables.mediaId,
+      storagePath: row.storage_path,
+      uri: variables.uri,
+      mimeType: variables.mimeType,
+      byteSize: variables.byteSize,
+      onProgress: (sent, total) => {
+        reportUploadProgress(variables.mediaId, sent, total);
+        noteAttachProgress(variables.mediaId, sent);
+      },
+      // A piece that ran out of time before is given longer this time.
+      stalls: attachStalls(variables.mediaId),
+    });
+  }
+  const confirmed = await confirmMedia(variables.mediaId);
+  await releaseVideo(variables, queryClient);
+  return confirmed;
+}
+
+/**
+ * One attempt of the queue: the chain, its failure counted — and kept as the
+ * count says it is to be told (`attach-retry.ts`). Once the file is in, its
+ * counts are let go.
+ */
+async function attachAttempt(
+  variables: AttachMediaVariables,
+  queryClient: QueryClient,
+): Promise<TaskMedia> {
+  beginAttachAttempt(variables.mediaId);
+  let row: TaskMedia;
+  try {
+    row = await attachMedia(variables, queryClient);
+  } catch (error: unknown) {
+    throw countAttachFailure(variables.mediaId, error);
+  }
+  forgetAttachCount(variables.mediaId);
+  return row;
+}
+
+/** The file and its record, gone once the server has the video. Twice is not an error. */
+async function releaseVideo(
+  variables: AttachMediaVariables,
+  queryClient: QueryClient,
+): Promise<void> {
+  discardFile(variables.uri);
+  clearUploadProgress(variables.mediaId);
+  try {
+    const store = await forgetLocalMedia(variables.mediaId);
+    queryClient.setQueryData(mediaKeys.local, store);
+  } catch (error: unknown) {
+    // The video is in and confirmed; a ledger that could not be written only
+    // keeps the record of a file that is gone.
+    reportError(error);
+  }
+}
+
+/**
+ * Teach the query client how to replay each media action after a restart.
+ *
+ * An upload is kept in the cache for the whole run, not TanStack's default
+ * five minutes: a video is handed over by the recording screen, which is gone
+ * by the time the server answers, and nothing watches the upload until she
+ * opens the step again — which is when its refusal has to be there to be said
+ * (`useFailedVideoAttach`). A retry or a removal clears the failed attempt.
+ *
+ * Settled, an action refreshes what its file's owner shows — here as well as
+ * in the hooks, whose own options override these: an action restored from
+ * disk after a restart has no hook, only these, and would otherwise leave
+ * the step's tiles saying "uploading" over a file long in (the two
+ * whole-branch reviews of phone-1-2-0, finding 1). Its scope comes back from
+ * disk with it, so a restored video keeps its own line.
+ */
 export function registerMediaMutations(queryClient: QueryClient): void {
   queryClient.setMutationDefaults(mediaMutationKeys.attach, {
-    mutationFn: (variables: AttachMediaVariables) => attachMedia(variables),
+    mutationFn: (variables: AttachMediaVariables) => attachAttempt(variables, queryClient),
     scope: ATTACH_SCOPE,
-    retry: ATTACH_RETRIES,
+    retry: retryAttach,
+    // TanStack's own wait between tries, as before, not a move's (lib/move-retry.ts):
+    // an upload that fails keeps its file and a «Повторить» tile (attach-retry.ts).
+    retryDelay: backoffDelay,
+    gcTime: Number.POSITIVE_INFINITY,
+    onSettled: (_row: unknown, _error: unknown, variables: AttachMediaVariables) =>
+      invalidateOwner(queryClient, variables),
   });
+  // Kept for the run too: a removal is what silences the later failure of
+  // its file's upload (`useFailedVideoAttach`).
   queryClient.setMutationDefaults(mediaMutationKeys.remove, {
     mutationFn: ({ mediaId }: RemoveMediaVariables) => removeMedia(mediaId),
+    gcTime: Number.POSITIVE_INFINITY,
+    onSettled: (_row: unknown, _error: unknown, variables: RemoveMediaVariables) =>
+      invalidateOwner(queryClient, variables),
   });
 }
 
@@ -203,15 +342,20 @@ function pendingRow(variables: AttachMediaVariables): TaskMedia {
   };
 }
 
-export function useAttachMedia() {
+/**
+ * The upload queue for one kind of file: photos (the default) or videos,
+ * each kind in a line of its own. A screen that sends both holds one of each.
+ */
+export function useAttachMedia(kind: MediaKind = 'photo') {
   const queryClient = useQueryClient();
 
   return useMutation<TaskMedia, Error, AttachMediaVariables>({
     mutationKey: mediaMutationKeys.attach,
-    mutationFn: attachMedia,
-    scope: ATTACH_SCOPE,
-    retry: ATTACH_RETRIES,
+    mutationFn: (variables) => attachAttempt(variables, queryClient),
+    scope: kind === 'video' ? VIDEO_ATTACH_SCOPE : ATTACH_SCOPE,
+    retry: retryAttach,
     onMutate: async (variables) => {
+      forgetAttachCount(variables.mediaId);
       dropFailedAttempts(queryClient, variables.mediaId);
       const key = mediaOwnerKey(variables);
       await queryClient.cancelQueries({ queryKey: key });
@@ -244,6 +388,7 @@ export function useRemoveMedia() {
     mutationFn: ({ mediaId }) => removeMedia(mediaId),
     onMutate: async (variables) => {
       dropFailedAttempts(queryClient, variables.mediaId);
+      clearUploadProgress(variables.mediaId);
       const key = mediaOwnerKey(variables);
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<TaskMedia[]>(key);
@@ -258,6 +403,7 @@ export function useRemoveMedia() {
       }
     },
     onSuccess: async (_row, variables) => {
+      forgetAttachCount(variables.mediaId);
       const local = (await loadLocalMedia())[variables.mediaId];
       if (local !== undefined) {
         discardFile(local.uri);
@@ -336,26 +482,139 @@ export function useUploadingMediaIds(): Set<string> {
   );
 }
 
+const NOTHING_WAITING: ReadonlySet<string> = new Set();
+
+/**
+ * The queue's sense of signal, as useSyncExternalStore reads it. Defined
+ * once: a subscribe made anew in each render is let go and taken again on
+ * every redraw — and a tile redraws as each piece of a video goes.
+ */
+function subscribeOnline(onChange: () => void): () => void {
+  return onlineManager.subscribe(onChange);
+}
+
+function isOnlineNow(): boolean {
+  return onlineManager.isOnline();
+}
+
+/** Whether the queue believes there is signal, redrawn as that changes. */
+function useIsOnline(): boolean {
+  return useSyncExternalStore(subscribeOnline, isOnlineNow);
+}
+
+/**
+ * Ids of the uploads the queue holds until there is signal again: pending,
+ * paused rather than running, and the queue without signal. Their tiles say
+ * they wait for the network, not that they are uploading. TanStack pauses an
+ * upload that waits its turn behind another of its line the same way; with
+ * signal, that one is simply on its way.
+ */
+export function useWaitingMediaIds(): ReadonlySet<string> {
+  const isOnline = useIsOnline();
+  const variables = useMutationState({
+    filters: {
+      mutationKey: mediaMutationKeys.attach,
+      status: 'pending',
+      predicate: (mutation) => mutation.state.isPaused,
+    },
+    select: (mutation) => (mutation.state.variables as AttachMediaVariables | undefined)?.mediaId,
+  });
+
+  return useMemo(
+    () =>
+      isOnline
+        ? NOTHING_WAITING
+        : new Set(variables.filter((id): id is string => typeof id === 'string')),
+    [isOnline, variables],
+  );
+}
+
+/** How far each video upload of this run has got, by media id (`upload-progress.ts`). */
+export function useUploadProgress(): UploadProgress {
+  return useSyncExternalStore(subscribeUploadProgress, uploadProgressSnapshot);
+}
+
+/**
+ * Why the queue gave up on this step's video, or null.
+ *
+ * A video is handed to the queue by the recording screen, which has gone by
+ * the time the server answers; the step's screen did not start the upload and
+ * has no mutation of its own to read the refusal from. The queue keeps the
+ * failed attempt until a retry or a removal clears it (`dropFailedAttempts`),
+ * so the step can say why its tile failed. Only the latest attempt speaks: a
+ * video recorded again after a refusal outweighs it. Photos are not read
+ * here: the step's screen starts them and reads their refusals itself.
+ */
+export function useFailedVideoAttach(stepId: string): Error | null {
+  // Every attempt of this step's videos, in the order the queue took them.
+  const attempts = useMutationState({
+    filters: {
+      mutationKey: mediaMutationKeys.attach,
+      predicate: (mutation) => {
+        const variables = mutation.state.variables as AttachMediaVariables | undefined;
+        return variables?.stepId === stepId && variables.kind === 'video';
+      },
+    },
+    select: (mutation) => ({
+      mediaId: (mutation.state.variables as AttachMediaVariables).mediaId,
+      error: mutation.state.error,
+    }),
+  });
+  // A video she removed: its upload, still running, may fail after — about
+  // a video she no longer has.
+  const removed = useMutationState({
+    filters: {
+      mutationKey: mediaMutationKeys.remove,
+      predicate: (mutation) => mutation.state.status !== 'error',
+    },
+    select: (mutation) => (mutation.state.variables as RemoveMediaVariables | undefined)?.mediaId,
+  });
+
+  const latest = attempts.filter(({ mediaId }) => !removed.includes(mediaId)).at(-1);
+  return latest?.error ?? null;
+}
+
 /**
  * The tiles of one step, in the order the photos were taken.
  *
  * Where the picture comes from: the file on the phone when we still have it,
  * otherwise a signed link. Where the item stands: confirmed by the server,
  * still travelling, or stranded — a row without a file and no upload running
- * for it, which happens when the app was killed mid-upload.
+ * for it, which happens when the app was killed mid-upload. A file still
+ * travelling also says, when the queue knows, whether it waits for signal and
+ * how much of it has gone (a video's resumable upload counts its pieces).
  */
 export function mediaItemViews(
   media: readonly TaskMedia[],
   local: Readonly<Record<string, LocalMediaRecord>>,
   urls: Readonly<Record<string, string>>,
   uploading: ReadonlySet<string>,
+  transfers: MediaTransfers = {},
 ): MediaItemView[] {
-  return media.map((item) => ({
-    id: item.id,
-    kind: item.kind,
-    uri: local[item.id]?.uri ?? urls[item.storage_path] ?? null,
-    status:
-      item.uploaded_at !== null ? 'uploaded' : uploading.has(item.id) ? 'uploading' : 'failed',
-    durationSec: item.duration_sec,
-  }));
+  return media.map((item) => {
+    const view: MediaItemView = {
+      id: item.id,
+      kind: item.kind,
+      uri: local[item.id]?.uri ?? urls[item.storage_path] ?? null,
+      status:
+        item.uploaded_at !== null ? 'uploaded' : uploading.has(item.id) ? 'uploading' : 'failed',
+      durationSec: item.duration_sec,
+    };
+    if (view.status !== 'uploading') {
+      return view;
+    }
+    return {
+      ...view,
+      isWaitingForNetwork: transfers.waiting?.has(item.id) === true,
+      progress: transfers.progress?.[item.id],
+    };
+  });
+}
+
+/** What the queue knows of the uploads under way, beyond that they are. */
+export interface MediaTransfers {
+  /** Paused until there is signal (`useWaitingMediaIds`). */
+  waiting?: ReadonlySet<string>;
+  /** The share of each file sent so far (`useUploadProgress`). */
+  progress?: UploadProgress;
 }

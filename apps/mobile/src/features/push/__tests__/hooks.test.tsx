@@ -41,6 +41,7 @@ const getPermissions = Notifications.getPermissionsAsync as jest.Mock;
 const ME = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
 const TASK_ID = '0b3f5c1e-8d2a-4f6b-9c7d-1e2f3a4b5c6d';
 const THREAD_ID = '9f8e7d6c-5b4a-4392-8170-6f5e4d3c2b1a';
+const PROBLEM_ID = '5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c8d';
 
 /** A tap on a push delivered at `date`: pushes about one thread or cleaning share an identifier. */
 function tap(identifier: string, data: unknown, date = 1_000) {
@@ -145,6 +146,19 @@ describe('usePushRefresh', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['chat', 'unread'] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['chat', 'messages', THREAD_ID] });
   });
+
+  test('a new task arriving while the head technician looks at the board refreshes it', async () => {
+    const client = new QueryClient();
+    const invalidate = jest.spyOn(client, 'invalidateQueries');
+    await renderHook(() => usePushRefresh(), { wrapper: withClient(client) });
+
+    lastListener<(n: unknown) => void>(Notifications.addNotificationReceivedListener)({
+      request: { content: { data: { kind: 'problem_new', problemId: PROBLEM_ID } } },
+    });
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['problems'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['tasks'] });
+  });
 });
 
 describe('usePushTaps', () => {
@@ -161,6 +175,20 @@ describe('usePushTaps', () => {
       }),
     );
     expect(Notifications.clearLastNotificationResponse).toHaveBeenCalled();
+  });
+
+  test('a tap on a new task opens the task', async () => {
+    const client = new QueryClient();
+    lastResponse.mockReturnValue(tap('n-10', { kind: 'problem_new', problemId: PROBLEM_ID }));
+
+    await renderHook(() => usePushTaps(ME), { wrapper: withClient(client) });
+
+    await waitFor(() =>
+      expect(router.navigate).toHaveBeenCalledWith({
+        pathname: '/problem/[id]',
+        params: { id: PROBLEM_ID },
+      }),
+    );
   });
 
   test('a tap opens its screen without waiting for the lists to refresh', async () => {

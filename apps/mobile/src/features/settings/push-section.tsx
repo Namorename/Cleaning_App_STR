@@ -1,14 +1,18 @@
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, View } from 'react-native';
 
-import { FontSize, MIN_TOUCH_TARGET, Spacing, type Theme } from '@/constants/theme';
+import { Button } from '@/components/button';
+import { Text } from '@/components/text';
+import { MIN_TOUCH_TARGET, Spacing, type Theme } from '@/constants/theme';
+import { roleOf } from '@/features/auth/role';
 import { useSession } from '@/features/auth/session';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { wordContext } from '@/i18n';
 import { serverErrorText, type ServerErrorText } from '@/lib/server-error';
 
 import { PermissionNotice } from './permission-notice';
-import { PUSH_KINDS, isPushEnabled, type PushKind, type PushPreferences } from './schema';
+import { isPushEnabled, kindsFor, type PushKind, type PushPreferences } from './schema';
 import { FailureNote, SettingsSection, failureOf } from './section';
 import { usePushPreferences, useSetPushPreference } from './use-settings';
 
@@ -19,10 +23,15 @@ import { usePushPreferences, useSetPushPreference } from './use-settings';
  * switch turned off also stops what is already waiting in the queue. What the
  * phone itself allows — the system permission, Android's channels — is a
  * layer of its own, said above the switches (docs/f11-plan.md §3.2).
+ *
+ * Only the kinds her role can receive are offered (`kindsFor`): a new task
+ * goes to the head technician alone, and nobody else sees its switch; a
+ * technician gets no switch for a cleaning, and reads the others as work.
  */
 export function PushSection() {
   const { t } = useTranslation();
-  const { userId } = useSession();
+  const { userId, session } = useSession();
+  const kinds = kindsFor(roleOf(session?.user ?? null));
   const preferences = usePushPreferences();
   const choose = useSetPushPreference();
 
@@ -39,7 +48,7 @@ export function PushSection() {
     >
       <PermissionNotice />
       {preferences.data !== undefined ? (
-        <PushSwitches preferences={preferences.data} onChange={onChange} />
+        <PushSwitches kinds={kinds} preferences={preferences.data} onChange={onChange} />
       ) : (
         <PushLoading
           failure={preferences.isError ? serverErrorText(preferences.error) : null}
@@ -54,39 +63,66 @@ export function PushSection() {
 }
 
 interface PushSwitchesProps {
+  /** The kinds offered to her, in the order they are listed. */
+  kinds: readonly PushKind[];
   preferences: PushPreferences | null;
   onChange: (kind: PushKind, enabled: boolean) => void;
 }
 
-function PushSwitches({ preferences, onChange }: PushSwitchesProps) {
+function PushSwitches({ kinds, preferences, onChange }: PushSwitchesProps) {
   const { t } = useTranslation();
+
+  return (
+    <View>
+      {kinds.map((kind) => (
+        <PushRow
+          key={kind}
+          kind={kind}
+          label={t(`settings.notifications.kinds.${kind}`, { context: wordContext() })}
+          isOn={isPushEnabled(preferences, kind)}
+          onChange={onChange}
+        />
+      ))}
+    </View>
+  );
+}
+
+interface PushRowProps {
+  kind: PushKind;
+  label: string;
+  isOn: boolean;
+  onChange: (kind: PushKind, enabled: boolean) => void;
+}
+
+/**
+ * One kind: the whole row, at least 48 dp, is the switch — for a finger
+ * anywhere on its words and for a screen reader, which hears the words, the
+ * role and the state once. The system switch in it is only its picture for the
+ * reader, and still answers a tap of its own: it claims its touch, so the row
+ * does not toggle a second time.
+ */
+function PushRow({ kind, label, isOn, onChange }: PushRowProps) {
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
 
   return (
-    <View>
-      {PUSH_KINDS.map((kind) => {
-        const label = t(`settings.notifications.kinds.${kind}`);
-        return (
-          <View key={kind} style={styles.row}>
-            {/* The switch carries the same words; read once, not twice. */}
-            <Text
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-              style={styles.rowLabel}
-            >
-              {label}
-            </Text>
-            <Switch
-              accessibilityLabel={label}
-              value={isPushEnabled(preferences, kind)}
-              onValueChange={(enabled) => onChange(kind, enabled)}
-              trackColor={{ true: theme.primary }}
-            />
-          </View>
-        );
-      })}
-    </View>
+    <Pressable
+      accessibilityRole="switch"
+      accessibilityLabel={label}
+      accessibilityState={{ checked: isOn }}
+      onPress={() => onChange(kind, !isOn)}
+      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+    >
+      <Text style={layout.label}>{label}</Text>
+      <Switch
+        testID={`push-switch-${kind}`}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        value={isOn}
+        onValueChange={(enabled) => onChange(kind, enabled)}
+        trackColor={{ true: theme.primary }}
+      />
+    </Pressable>
   );
 }
 
@@ -99,25 +135,23 @@ interface PushLoadingProps {
 /** Before her row has ever arrived: on its way, or failed with a way to ask again. */
 function PushLoading({ failure, onRetry }: PushLoadingProps) {
   const { t } = useTranslation();
-  const styles = useThemedStyles(createStyles);
 
   if (failure === null) {
-    return <Text style={styles.status}>{t('settings.notifications.loading')}</Text>;
+    return <Text tone="secondary">{t('settings.notifications.loading')}</Text>;
   }
   return (
-    <View style={styles.failed}>
+    <View style={layout.failed}>
       <FailureNote failure={{ ...failure, text: t('settings.notifications.loadFailed') }} />
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('common.retry')}
-        onPress={onRetry}
-        style={({ pressed }) => [styles.retry, pressed && styles.pressed]}
-      >
-        <Text style={styles.retryText}>{t('common.retry')}</Text>
-      </Pressable>
+      <Button variant="secondary" label={t('common.retry')} onPress={onRetry} />
     </View>
   );
 }
+
+/** Sizes only: nothing here depends on the colour scheme. */
+const layout = StyleSheet.create({
+  label: { flex: 1 },
+  failed: { gap: Spacing.sm },
+});
 
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
@@ -126,11 +160,7 @@ const createStyles = (theme: Theme) =>
       flexDirection: 'row',
       alignItems: 'center',
       gap: Spacing.md,
+      paddingVertical: Spacing.xs,
     },
-    rowLabel: { flex: 1, color: theme.text, fontSize: FontSize.body },
-    status: { color: theme.textSecondary, fontSize: FontSize.body },
-    failed: { gap: Spacing.sm },
-    retry: { minHeight: MIN_TOUCH_TARGET, justifyContent: 'center', alignSelf: 'flex-start' },
-    retryText: { color: theme.primary, fontSize: FontSize.body, fontWeight: '600' },
-    pressed: { opacity: 0.6 },
+    pressed: { backgroundColor: theme.surfaceAlt },
   });

@@ -1,7 +1,9 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
+import { StyleSheet } from 'react-native';
 
 import TabsLayout from '@/app/(tabs)/_layout';
+import { Colors, MIN_TOUCH_TARGET } from '@/constants/theme';
 
 import { SettingsButton } from '../settings-button';
 
@@ -69,4 +71,18 @@ test('the tab header carries the gear, and signing out is no longer there', asyn
   // Assert
   expect(screen.getByRole('button', { name: 'Настройки' })).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Выйти' })).toBeNull();
+});
+
+test('the gear is Lucide’s settings icon in the primary colour, on a 48 dp target', async () => {
+  await render(<SettingsButton />);
+
+  const button = screen.getByRole('button', { name: 'Настройки' });
+  expect(StyleSheet.flatten(button.props.style)).toMatchObject({
+    width: MIN_TOUCH_TARGET,
+    height: MIN_TOUCH_TARGET,
+  });
+  const [gear] = button.queryAll((node) =>
+    String(node.props.className ?? '').includes('lucide-settings'),
+  );
+  expect(gear?.props.stroke).toBe(Colors.light.primary);
 });

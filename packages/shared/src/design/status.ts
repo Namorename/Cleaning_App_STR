@@ -105,6 +105,10 @@ export const STATUS_TONE = {
   'phone.permission.provisional': 'neutral',
   'chat.unread': 'unread',
   'nav.unread': 'unread',
+  /**
+   * Read by neither app: both draw her own bubble in the `secondary` role,
+   * which is not a tone. Kept as the approved map has it.
+   */
   'chat.ownBubble': 'neutral',
   'chat.pending': 'neutral',
   'media.local': 'neutral',

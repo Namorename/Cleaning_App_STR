@@ -1,34 +1,35 @@
 import type { Json } from '@str-ops/shared';
-import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
-import { FontSize, Spacing, type Theme } from '@/constants/theme';
+import { ErrorState } from '@/components/error-state';
+import { Text } from '@/components/text';
+import { Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
-import { useGalleryAllowed } from '@/features/host/use-host';
-import {
-  capturePhoto,
-  captureVideo,
-  pickPhotoFromGallery,
-  pickVideoFromGallery,
-} from '@/features/media/capture';
+import { useGalleryAllowed, useVideoSettings } from '@/features/host/use-host';
+import { stepAttachVariables } from '@/features/media/attach-variables';
+import { capturePhoto, pickPhotoFromGallery } from '@/features/media/capture';
 import { attachFailure } from '@/features/media/failure';
 import { toLocalRecord, type LocalMediaRecord } from '@/features/media/local-store';
-import { mediaKindOfStep, mediaOfStep, videoLimitSec } from '@/features/media/schema';
+import { mediaKindOfStep, mediaOfStep, videoLimits } from '@/features/media/schema';
 import {
   mediaItemViews,
   useAttachMedia,
+  useFailedVideoAttach,
   useLocalMedia,
   useMediaUrls,
   useRememberLocalMedia,
   useRemoveMedia,
   useTaskMedia,
+  useUploadProgress,
   useUploadingMediaIds,
+  useWaitingMediaIds,
 } from '@/features/media/use-media';
 import { stepTitle } from '@/features/steps/format';
-import { StepScreen } from '@/features/steps/step-screen';
+import { StepScreen, StepScreenSkeleton } from '@/features/steps/step-screen';
 import {
   useCompleteStep,
   useOpenStep,
@@ -38,7 +39,7 @@ import {
 } from '@/features/steps/use-steps';
 import { useTask } from '@/features/tasks/use-tasks';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
-import { serverErrorText } from '@/lib/server-error';
+import { wordContext } from '@/i18n';
 
 const Params = z.object({ id: z.string().uuid(), stepId: z.string().uuid() });
 
@@ -54,7 +55,9 @@ const Params = z.object({ id: z.string().uuid(), stepId: z.string().uuid() });
  * then handed to the upload queue, which registers, uploads and confirms it
  * whenever there is signal. The screen shows each file's progress and lets
  * her complete the step once every file has arrived. The gallery appears
- * beside the camera only where the company has allowed it.
+ * beside the camera only where the company has allowed it, and only for
+ * photos. A video is recorded on a screen of its own (`step/[stepId]/record`),
+ * held to the company's numbers — and until those are known, it waits.
  */
 export default function StepRoute() {
   const { t } = useTranslation();
@@ -76,12 +79,20 @@ export default function StepRoute() {
     task.data?.status === 'in_progress' && task.data.assignee_id === userId && userId !== null;
 
   const media = useTaskMedia(taskId);
+  // Photos and videos queue apart: a video's minutes do not hold the photos.
   const attach = useAttachMedia();
+  const attachVideo = useAttachMedia('video');
   const removeMedia = useRemoveMedia();
   const rememberLocal = useRememberLocalMedia();
   const local = useLocalMedia();
   const uploading = useUploadingMediaIds();
+  // What the tiles say of a file on its way: waiting for signal, how much has gone.
+  const waiting = useWaitingMediaIds();
+  const progress = useUploadProgress();
+  // A video is sent from the recording screen; its refusal comes back here.
+  const videoAttachError = useFailedVideoAttach(stepId);
   const galleryAllowed = useGalleryAllowed();
+  const videoSettings = useVideoSettings();
   const [isCapturing, setCapturing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -90,14 +101,23 @@ export default function StepRoute() {
   const remotePaths = useMemo(
     () =>
       stepMedia
-        .filter((item) => item.uploaded_at !== null && local.data?.[item.id] === undefined)
+        .filter(
+          (item) =>
+            item.kind === 'photo' &&
+            item.uploaded_at !== null &&
+            local.data?.[item.id] === undefined,
+        )
         .map((item) => item.storage_path),
     [stepMedia, local.data],
   );
   const urls = useMediaUrls(remotePaths);
   const mediaItems = useMemo(
-    () => mediaItemViews(stepMedia, local.data ?? {}, urls.data ?? {}, uploading),
-    [stepMedia, local.data, urls.data, uploading],
+    () =>
+      mediaItemViews(stepMedia, local.data ?? {}, urls.data ?? {}, uploading, {
+        waiting,
+        progress,
+      }),
+    [stepMedia, local.data, urls.data, uploading, waiting, progress],
   );
 
   // The first opening is stamped once per visit, and only when there is
@@ -109,6 +129,15 @@ export default function StepRoute() {
       open.mutate({ taskId, stepId });
     }
   }, [step, isEditable, open, taskId, stepId]);
+
+  // The camera's screen takes a moment to come up: a second tap meanwhile
+  // would open a second camera over the first. Back on the step, it may open again.
+  const isOpeningRecorder = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      isOpeningRecorder.current = false;
+    }, []),
+  );
 
   const isLeaving = complete.isSuccess || complete.isPaused || skip.isSuccess || skip.isPaused;
   useEffect(() => {
@@ -122,17 +151,23 @@ export default function StepRoute() {
   }
 
   if (steps.isPending || task.isPending) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={styles.message.color} />
-        <Text style={styles.message}>{t('tasks.loading')}</Text>
-      </View>
-    );
+    return <StepScreenSkeleton label={t('tasks.loading', { context: wordContext() })} />;
   }
 
-  if (steps.error) {
-    const failure = serverErrorText(steps.error);
-    return <Message text={failure.text} detail={failure.detail} styles={styles} />;
+  // Steps that never loaded: the screen failed. Steps that did and only
+  // failed to refresh (TanStack keeps the data beside the error) stay on
+  // screen with the step she is filling in — her comment and ticks are kept —
+  // and the failure is said above it.
+  if (steps.error && steps.data === undefined) {
+    return (
+      <View style={styles.screen}>
+        <ErrorState
+          error={steps.error}
+          title={t('common.screenFailed')}
+          onRetry={() => void steps.refetch()}
+        />
+      </View>
+    );
   }
 
   if (step === undefined) {
@@ -149,46 +184,37 @@ export default function StepRoute() {
   };
 
   const startUpload = (record: LocalMediaRecord) => {
-    attach.mutate({
-      taskId,
-      stepId,
-      uri: record.uri,
-      mediaId: record.id,
-      kind: record.kind,
-      mimeType: record.mimeType,
-      byteSize: record.byteSize,
-      width: record.width,
-      height: record.height,
-      durationSec: record.durationSec,
-      takenAt: record.takenAt,
-      source: record.source,
-    });
+    const queue = record.kind === 'video' ? attachVideo : attach;
+    queue.mutate(stepAttachVariables(taskId, stepId, record));
+  };
+
+  const mediaKind = mediaKindOfStep(step.type);
+  const maxVideoSec = videoSettings === null ? null : videoLimits(step, videoSettings).seconds;
+
+  /** A video is recorded on its own screen, which hands it to the same queue. */
+  const openRecorder = () => {
+    if (maxVideoSec === null || isOpeningRecorder.current) {
+      return;
+    }
+    isOpeningRecorder.current = true;
+    router.push({ pathname: '/task/[id]/step/[stepId]/record', params: { id: taskId, stepId } });
   };
 
   /**
-   * Attach a file, from the camera or from the gallery.
+   * Attach a photo, from the camera or from the gallery.
    *
    * One path for both: everything after the file exists — keeping it,
    * remembering it on disk, queuing the upload — is the same, and the only
    * difference worth having is where it came from.
    */
   const attachFrom = async (source: 'camera' | 'gallery') => {
-    const kind = mediaKindOfStep(step.type);
-    if (kind === null || isCapturing) {
+    if (mediaKind !== 'photo' || isCapturing) {
       return;
     }
-    const seconds = videoLimitSec(step);
     setCapturing(true);
     setNotice(null);
     try {
-      const captured =
-        source === 'gallery'
-          ? kind === 'video'
-            ? await pickVideoFromGallery(seconds)
-            : await pickPhotoFromGallery()
-          : kind === 'video'
-            ? await captureVideo(seconds)
-            : await capturePhoto();
+      const captured = source === 'gallery' ? await pickPhotoFromGallery() : await capturePhoto();
       if (captured === null) {
         return;
       }
@@ -217,17 +243,24 @@ export default function StepRoute() {
         step={step}
         isEditable={isEditable === true}
         isBusy={complete.isPending || reopen.isPending || skip.isPending}
+        refreshError={steps.error}
         error={
-          complete.error ?? reopen.error ?? skip.error ?? attach.error ?? removeMedia.error
+          complete.error ??
+          reopen.error ??
+          skip.error ??
+          attach.error ??
+          videoAttachError ??
+          removeMedia.error
         }
         notice={notice}
         onComplete={onComplete}
         onReopen={() => reopen.mutate({ taskId, stepId })}
         onSkip={() => skip.mutate({ taskId, stepId })}
         media={mediaItems}
+        maxVideoSec={maxVideoSec}
         isCapturing={isCapturing}
         canPickFromGallery={galleryAllowed}
-        onCapture={() => void attachFrom('camera')}
+        onCapture={mediaKind === 'video' ? openRecorder : () => void attachFrom('camera')}
         onPickFromGallery={() => void attachFrom('gallery')}
         onRemoveMedia={(mediaId) => removeMedia.mutate({ taskId, mediaId })}
         onRetryMedia={onRetryMedia}
@@ -238,30 +271,25 @@ export default function StepRoute() {
 
 interface MessageProps {
   text: string;
-  /** The server's own words, when we had no translation for them. */
-  detail?: string | null;
   styles: ReturnType<typeof createStyles>;
 }
 
-function Message({ text, detail = null, styles }: MessageProps) {
+function Message({ text, styles }: MessageProps) {
   return (
-    <View style={styles.centered}>
-      <Text style={styles.message}>{text}</Text>
-      {detail !== null ? <Text style={styles.detail}>{detail}</Text> : null}
+    <View style={[styles.screen, styles.centered]}>
+      <Text tone="secondary" align="center">
+        {text}
+      </Text>
     </View>
   );
 }
 
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
+    screen: { flex: 1, backgroundColor: theme.background },
     centered: {
-      flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      gap: Spacing.sm,
       padding: Spacing.xl,
-      backgroundColor: theme.background,
     },
-    message: { fontSize: FontSize.body, color: theme.textSecondary, textAlign: 'center' },
-    detail: { fontSize: FontSize.caption, color: theme.textSecondary, textAlign: 'center' },
   });

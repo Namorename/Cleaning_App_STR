@@ -1,0 +1,99 @@
+import { useTranslation } from 'react-i18next';
+import { Pressable, StyleSheet, View } from 'react-native';
+
+import { Text } from '@/components/text';
+import { Radius, Spacing, type Theme } from '@/constants/theme';
+import { useThemedStyles } from '@/hooks/use-themed-styles';
+
+/** Bigger than the 56 dp main button: the one thing on this screen to press. */
+export const RECORD_BUTTON_SIZE = 72;
+const RING_WIDTH = 4;
+const DOT_SIZE = 56;
+const SQUARE_SIZE = 28;
+const SQUARE_RADIUS = 6;
+
+interface RecordButtonProps {
+  isRecording: boolean;
+  /** Stopped, the camera still writing the file: the button waits, saying so. */
+  isSaving?: boolean;
+  isDisabled: boolean;
+  onPress: () => void;
+}
+
+/** What the button says: start, stop, or the file still being written after «Стоп». */
+function labelKey(isRecording: boolean, isSaving: boolean): string {
+  if (isSaving) {
+    return 'video.saving';
+  }
+  return isRecording ? 'video.stop' : 'video.record';
+}
+
+/**
+ * The camera's own button: a round dot to start, a square to stop, the word
+ * under it. The shape changes with the state as well as the word, so neither
+ * colour nor reading is needed to tell them apart. Between «Стоп» and the
+ * file it keeps the square, greyed, and says «Сохраняем…» — not «Записать»,
+ * which it could not do yet (item 8 of the two whole-branch reviews).
+ */
+export function RecordButton({
+  isRecording,
+  isSaving = false,
+  isDisabled,
+  onPress,
+}: RecordButtonProps) {
+  const { t } = useTranslation();
+  const styles = useThemedStyles(createStyles);
+  const label = t(labelKey(isRecording, isSaving));
+  const isSquare = isRecording || isSaving;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: isDisabled }}
+      disabled={isDisabled}
+      onPress={onPress}
+      style={layout.target}
+    >
+      <View style={[styles.ring, isDisabled && styles.ringDisabled]}>
+        <View
+          style={[
+            isSquare ? layout.square : layout.dot,
+            isDisabled ? styles.markDisabled : styles.mark,
+          ]}
+        />
+      </View>
+      <Text variant="button" tone={isDisabled ? 'muted' : 'default'} align="center">
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+/** Sizes only: nothing here depends on the colour scheme. */
+const layout = StyleSheet.create({
+  target: {
+    minWidth: RECORD_BUTTON_SIZE,
+    minHeight: RECORD_BUTTON_SIZE,
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  dot: { width: DOT_SIZE, height: DOT_SIZE, borderRadius: Radius.pill },
+  square: { width: SQUARE_SIZE, height: SQUARE_SIZE, borderRadius: SQUARE_RADIUS },
+});
+
+const createStyles = (theme: Theme) =>
+  StyleSheet.create({
+    ring: {
+      width: RECORD_BUTTON_SIZE,
+      height: RECORD_BUTTON_SIZE,
+      borderRadius: Radius.pill,
+      borderWidth: RING_WIDTH,
+      borderColor: theme.text,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    ringDisabled: { borderColor: theme.textMuted },
+    mark: { backgroundColor: theme.danger },
+    markDisabled: { backgroundColor: theme.surfaceAlt },
+  });

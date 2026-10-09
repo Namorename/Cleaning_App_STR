@@ -1,11 +1,9 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
+
+import { Colors, MIN_TOUCH_TARGET } from '@/constants/theme';
 
 import { PasswordInput } from '../password-input';
-
-// The icon is drawn by a native view on iOS and a font on Android; neither is
-// what is tested here — the button around it is.
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 
 afterEach(() => {
   jest.restoreAllMocks();
@@ -63,4 +61,40 @@ test('typing still reaches the screen that owns the field', async () => {
 
   // Assert
   expect(onChangeText).toHaveBeenCalledWith('Kx7mQ2pL9vRt');
+});
+
+describe('the eye, on the «Абрикос» components', () => {
+  /** The Lucide drawings inside the eye's button, by their canonical names. */
+  function glyphsIn(name: string, glyph: string): number {
+    return screen
+      .getByRole('button', { name })
+      .queryAll((node) => String(node.props.className ?? '').includes(`lucide-${glyph}`)).length;
+  }
+
+  test('an open eye while the password is hidden, a struck one while it is shown', async () => {
+    // Arrange
+    await render(<PasswordInput accessibilityLabel="Пароль" value="" />);
+    expect(glyphsIn('Показать пароль', 'eye')).toBeGreaterThan(0);
+    expect(glyphsIn('Показать пароль', 'eye-off')).toBe(0);
+
+    // Act
+    await fireEvent.press(screen.getByRole('button', { name: 'Показать пароль' }));
+
+    // Assert
+    expect(glyphsIn('Скрыть пароль', 'eye-off')).toBeGreaterThan(0);
+  });
+
+  test('is a 48 dp target at the field’s end, drawn in the secondary text colour', async () => {
+    await render(<PasswordInput accessibilityLabel="Пароль" value="" />);
+
+    const eye = screen.getByRole('button', { name: 'Показать пароль' });
+    expect(StyleSheet.flatten(eye.props.style)).toMatchObject({
+      width: MIN_TOUCH_TARGET,
+      right: 0,
+    });
+    const [drawing] = eye.queryAll((node) =>
+      String(node.props.className ?? '').includes('lucide-eye'),
+    );
+    expect(drawing?.props.stroke).toBe(Colors.light.textSecondary);
+  });
 });

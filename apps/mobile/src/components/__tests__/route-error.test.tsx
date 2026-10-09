@@ -1,5 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
+import { BUTTON_HEIGHT, Colors, FontSize } from '@/constants/theme';
 import { forgetSavedQueries } from '@/lib/query-client';
 import { reportError } from '@/lib/sentry';
 
@@ -136,4 +138,35 @@ test('draws no empty detail line for an error without words', async () => {
   // Assert: the sentence and the button, nothing else to read.
   expect(screen.getByText('Не удалось показать экран. Попробуйте ещё раз.')).toBeTruthy();
   expect(screen.queryAllByText('')).toHaveLength(0);
+});
+
+describe('on the «Абрикос» components', () => {
+  const light = Colors.light;
+
+  function styleOf(element: { props: { style?: unknown } }): ViewStyle & TextStyle {
+    return StyleSheet.flatten(element.props.style as ViewStyle) as ViewStyle & TextStyle;
+  }
+
+  test('the sentence is a title, the raw words a secondary caption', async () => {
+    await render(<RouteError error={new Error('boom')} retry={jest.fn(async () => {})} />);
+
+    const sentence = styleOf(screen.getByText('Не удалось показать экран. Попробуйте ещё раз.'));
+    expect(sentence.fontSize).toBe(FontSize.title);
+    expect(sentence.color).toBe(light.text);
+    const detail = styleOf(screen.getByText('boom'));
+    expect(detail.fontSize).toBe(FontSize.caption);
+    expect(detail.color).toBe(light.textSecondary);
+  });
+
+  test('«Повторить» is the 56 dp main button; dropping the lists a quieter one', async () => {
+    markAppDrawn();
+    await render(<RootRouteError error={new Error('boom')} retry={jest.fn(async () => {})} />);
+
+    const retry = styleOf(screen.getByRole('button', { name: 'Повторить' }));
+    expect(retry.minHeight).toBe(BUTTON_HEIGHT);
+    expect(retry.backgroundColor).toBe(light.cta);
+    const reset = styleOf(screen.getByRole('button', { name: 'Сбросить сохранённые списки' }));
+    expect(reset.minHeight).toBe(BUTTON_HEIGHT);
+    expect(reset.backgroundColor).toBe(light.secondary);
+  });
 });

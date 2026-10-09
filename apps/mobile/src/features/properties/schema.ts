@@ -1,4 +1,4 @@
-import { propertyPath, splitPlace } from '@str-ops/shared';
+import { matchesAllTokens, propertyPath, splitPlace } from '@str-ops/shared';
 import { z } from 'zod';
 
 /**
@@ -49,17 +49,17 @@ export function propertyLabel(property: ReportProperty): string {
   return propertyPath(building, room);
 }
 
-/** The places whose label holds every word typed, in any order. */
+/**
+ * The places whose label holds every word typed, in any order, case and
+ * diacritics aside — the panel's search rule (`matchesAllTokens`), so
+ * "nadrazni" finds Nádražní for a cleaner on a Russian keyboard.
+ */
 export function filterProperties(
   properties: readonly ReportProperty[],
   query: string,
 ): ReportProperty[] {
-  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  if (words.length === 0) {
+  if (query.trim() === '') {
     return [...properties];
   }
-  return properties.filter((property) => {
-    const label = propertyLabel(property).toLowerCase();
-    return words.every((word) => label.includes(word));
-  });
+  return properties.filter((property) => matchesAllTokens(propertyLabel(property), query));
 }

@@ -2,10 +2,13 @@ import { randomUUID } from 'expo-crypto';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
-import { FontSize, Spacing, type Theme } from '@/constants/theme';
+import { ErrorState } from '@/components/error-state';
+import { Skeleton, SkeletonGroup } from '@/components/skeleton';
+import { Text } from '@/components/text';
+import { BUTTON_HEIGHT, Radius, Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
 import { supplyPlace } from '@/features/supplies/format';
 import {
@@ -13,7 +16,6 @@ import {
   draftItemsPayload,
   draftOfRequest,
   emptySupplyDraft,
-  newItemDraft,
   type SupplyDraft,
 } from '@/features/supplies/schema';
 import { SupplyForm } from '@/features/supplies/supply-form';
@@ -49,7 +51,7 @@ export default function SupplyFormRoute() {
 
   const [requestId] = useState(() => editingId ?? randomUUID());
   const [draft, setDraft] = useState<SupplyDraft | null>(() =>
-    editingId === null ? emptySupplyDraft(randomUUID()) : null,
+    editingId === null ? emptySupplyDraft() : null,
   );
 
   const existing = useSupplyRequest(editingId ?? '');
@@ -77,19 +79,51 @@ export default function SupplyFormRoute() {
     }
   }, [isLeaving, editingId, requestId]);
 
+  // The root layout names the screen «Новая заявка»; a rewrite says what it
+  // is from the first frame, while the request is still loading too.
+  const title =
+    editingId === null ? null : <Stack.Screen options={{ title: t('supplies.editTitle') }} />;
+
   if (draft === null) {
+    // A rewrite that cannot start: nobody to ask as (the query never runs),
+    // the request not there, or never loaded — never a skeleton for ever.
+    if (userId === null || existing.data === null) {
+      return (
+        <View style={[styles.screen, styles.centered]}>
+          {title}
+          <Text tone="secondary" align="center">
+            {t('supplies.notFound')}
+          </Text>
+        </View>
+      );
+    }
+    if (existing.error) {
+      return (
+        <View style={styles.screen}>
+          {title}
+          <ErrorState
+            error={existing.error}
+            title={t('common.screenFailed')}
+            onRetry={() => void existing.refetch()}
+          />
+        </View>
+      );
+    }
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={styles.message.color} />
-        <Text style={styles.message}>{t('supplies.loading')}</Text>
+      <View style={styles.screen}>
+        {title}
+        <FormSkeleton label={t('supplies.loading')} />
       </View>
     );
   }
 
   if (existing.data && !canEditSupplyRequest(existing.data, userId)) {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.message}>{t('supplies.notEditable')}</Text>
+      <View style={[styles.screen, styles.centered]}>
+        {title}
+        <Text tone="secondary" align="center">
+          {t('supplies.notEditable')}
+        </Text>
       </View>
     );
   }
@@ -113,15 +147,11 @@ export default function SupplyFormRoute() {
 
   return (
     <>
-      <Stack.Screen
-        options={{ title: editingId === null ? t('supplies.new') : t('supplies.edit') }}
-      />
+      {title}
       <SupplyForm
         draft={draft}
         onChange={setDraft}
-        onAddItem={() =>
-          setDraft({ ...draft, items: [...draft.items, newItemDraft(randomUUID())] })
-        }
+        newKey={randomUUID}
         place={place}
         catalog={catalog.data ?? []}
         isSubmitting={save.isPending && !save.isPaused}
@@ -133,15 +163,38 @@ export default function SupplyFormRoute() {
   );
 }
 
+/** The form's blocks: the catalogue's search, three of its rows, the summary's button. */
+const SKELETON_ROW = 64;
+const SKELETON_ROWS = 3;
+
+interface FormSkeletonProps {
+  /** What is loading, said to the reader. */
+  label: string;
+}
+
+function FormSkeleton({ label }: FormSkeletonProps) {
+  return (
+    <SkeletonGroup label={label} style={layout.content}>
+      <Skeleton height={BUTTON_HEIGHT} radius={Radius.lg} />
+      {Array.from({ length: SKELETON_ROWS }, (_, index) => (
+        <Skeleton key={index} height={SKELETON_ROW} radius={Radius.card} />
+      ))}
+      <Skeleton height={BUTTON_HEIGHT} radius={Radius.pill} />
+    </SkeletonGroup>
+  );
+}
+
+/** Sizes only: nothing here depends on the colour scheme. */
+const layout = StyleSheet.create({
+  content: { padding: Spacing.lg, gap: Spacing.md },
+});
+
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
+    screen: { flex: 1, backgroundColor: theme.background },
     centered: {
-      flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
       padding: Spacing.xl,
-      gap: Spacing.sm,
-      backgroundColor: theme.background,
     },
-    message: { color: theme.textSecondary, fontSize: FontSize.body, textAlign: 'center' },
   });

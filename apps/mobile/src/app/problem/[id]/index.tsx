@@ -1,11 +1,15 @@
-import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
-import { FontSize, Spacing, type Theme } from '@/constants/theme';
+import { ErrorState } from '@/components/error-state';
+import { Text } from '@/components/text';
+import { Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
+import { useRole } from '@/features/auth/use-role';
+import { ProblemDispatch } from '@/features/board/problem-dispatch';
 import { capturePhoto, pickPhotoFromGallery } from '@/features/media/capture';
 import { attachFailure } from '@/features/media/failure';
 import { useGalleryAllowed } from '@/features/host/use-host';
@@ -21,11 +25,10 @@ import {
   useRemoveMedia,
   useUploadingMediaIds,
 } from '@/features/media/use-media';
-import { ProblemDetail } from '@/features/problems/problem-detail';
+import { ProblemDetail, ProblemDetailSkeleton } from '@/features/problems/problem-detail';
 import { canEditProblem, ownFixTaskId } from '@/features/problems/schema';
 import { useProblem } from '@/features/problems/use-problems';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
-import { serverErrorText } from '@/lib/server-error';
 
 const Params = z.object({ id: z.string().uuid() });
 
@@ -40,6 +43,9 @@ export default function ProblemRoute() {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const { userId } = useSession();
+  // Hands the task out and takes the person off — the head technician's alone
+  // (docs/tech-plan.md §3.3); what he may do the server decides again.
+  const isDispatcher = useRole() === 'head_tech';
   const parsed = Params.safeParse(useLocalSearchParams());
   const problemId = parsed.success ? parsed.data.id : '';
 
@@ -76,17 +82,22 @@ export default function ProblemRoute() {
   }
 
   if (problem.isPending) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={styles.message.color} />
-        <Text style={styles.message}>{t('problems.loading')}</Text>
-      </View>
-    );
+    return <ProblemDetailSkeleton label={t('problems.loading')} />;
   }
 
-  if (problem.error) {
-    const failure = serverErrorText(problem.error);
-    return <Message text={failure.text} detail={failure.detail} styles={styles} />;
+  // A report that never loaded. One that did and only failed to refresh
+  // (TanStack keeps the data beside the error) stays on screen below. There
+  // is no «could not load the report» of its own: the general sentence.
+  if (problem.error && problem.data === undefined) {
+    return (
+      <View style={styles.screen}>
+        <ErrorState
+          error={problem.error}
+          title={t('common.screenFailed')}
+          onRetry={() => void problem.refetch()}
+        />
+      </View>
+    );
   }
 
   if (problem.data === null || problem.data === undefined) {
@@ -138,59 +149,55 @@ export default function ProblemRoute() {
     }
   };
 
+  // The header and its title are the root layout's (app/_layout.tsx).
   return (
-    <>
-      <Stack.Screen options={{ title: t('problems.one') }} />
-      <ProblemDetail
-        problem={problem.data}
-        photos={items}
-        canEdit={canEditProblem(problem.data, userId)}
-        onEdit={() => router.push({ pathname: '/problem/[id]/edit', params: { id: problemId } })}
-        onCapture={() => void attachFrom('camera')}
-        onPickFromGallery={galleryAllowed ? () => void attachFrom('gallery') : undefined}
-        onRemovePhoto={(mediaId) => removeMedia.mutate({ problemId, mediaId })}
-        onRetryPhoto={onRetryPhoto}
-        isCapturing={isCapturing}
-        fixTaskId={ownFixTaskId(problem.data, userId)}
-        onOpenFixTask={(taskId) => router.push({ pathname: '/task/[id]', params: { id: taskId } })}
-        onOpenChat={() =>
-          router.push({
-            pathname: '/chat/[subject]/[id]',
-            params: { subject: 'problem', id: problemId },
-          })
-        }
-        error={attach.error ?? removeMedia.error}
-        notice={notice}
-      />
-    </>
+    <ProblemDetail
+      problem={problem.data}
+      photos={items}
+      canEdit={canEditProblem(problem.data, userId)}
+      onEdit={() => router.push({ pathname: '/problem/[id]/edit', params: { id: problemId } })}
+      onCapture={() => void attachFrom('camera')}
+      onPickFromGallery={galleryAllowed ? () => void attachFrom('gallery') : undefined}
+      onRemovePhoto={(mediaId) => removeMedia.mutate({ problemId, mediaId })}
+      onRetryPhoto={onRetryPhoto}
+      isCapturing={isCapturing}
+      fixTaskId={ownFixTaskId(problem.data, userId)}
+      onOpenFixTask={(taskId) => router.push({ pathname: '/task/[id]', params: { id: taskId } })}
+      onOpenChat={() =>
+        router.push({
+          pathname: '/chat/[subject]/[id]',
+          params: { subject: 'problem', id: problemId },
+        })
+      }
+      error={attach.error ?? removeMedia.error}
+      notice={notice}
+      refreshError={problem.error}
+      dispatch={isDispatcher ? <ProblemDispatch problemId={problemId} /> : undefined}
+    />
   );
 }
 
 interface MessageProps {
   text: string;
-  detail?: string | null;
   styles: ReturnType<typeof createStyles>;
 }
 
-function Message({ text, detail = null, styles }: MessageProps) {
+function Message({ text, styles }: MessageProps) {
   return (
-    <View style={styles.centered}>
-      <Text style={styles.message}>{text}</Text>
-      {detail !== null ? <Text style={styles.detail}>{detail}</Text> : null}
+    <View style={[styles.screen, styles.centered]}>
+      <Text tone="secondary" align="center">
+        {text}
+      </Text>
     </View>
   );
 }
 
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
+    screen: { flex: 1, backgroundColor: theme.background },
     centered: {
-      flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
       padding: Spacing.xl,
-      gap: Spacing.sm,
-      backgroundColor: theme.background,
     },
-    message: { color: theme.textSecondary, fontSize: FontSize.body, textAlign: 'center' },
-    detail: { color: theme.textSecondary, fontSize: FontSize.caption, textAlign: 'center' },
   });

@@ -1,11 +1,11 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { Alert } from 'react-native';
 
 import FreeQueueScreen from '@/app/(tabs)/queue';
 import { RefusalError } from '@/lib/server-error';
 
-import type { CleaningTask } from '../schema';
+import { calendarDay, type CleaningTask } from '../schema';
 import { useClaimTask } from '../use-tasks';
 
 /**
@@ -28,7 +28,7 @@ const mockRefetch = jest.fn();
 
 jest.mock('../use-tasks', () => ({
   useFreeTasks: () => ({
-    data: [mockTask],
+    data: mockTasks,
     isPending: false,
     error: null,
     refetch: mockRefetch,
@@ -66,30 +66,43 @@ const mockTask: CleaningTask = {
   title_i18n: {},
 };
 
-interface MutateOptions {
-  onError?: (error: Error) => void;
-  onSettled?: () => void;
-}
+/** The queue as the screen gets it; a test puts other days in when it needs them. */
+const mockTasks: CleaningTask[] = [mockTask];
 
-const mutate = jest.fn();
+const SECOND_ID = '9d2ff806-4bea-4aa5-be3c-1b07a629dbee';
+
+const mutateAsync = jest.fn();
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockTasks.splice(0, mockTasks.length, mockTask);
+  mutateAsync.mockResolvedValue(undefined);
   jest
     .mocked(useClaimTask)
-    .mockReturnValue({ mutate } as unknown as ReturnType<typeof useClaimTask>);
+    .mockReturnValue({ mutateAsync } as unknown as ReturnType<typeof useClaimTask>);
 });
 
 /** Taps "Взять" and has the claim fail the way the server answered. */
 async function claimFailingWith(error: Error): Promise<jest.SpyInstance> {
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  mutateAsync.mockRejectedValueOnce(error);
   await render(<FreeQueueScreen />);
 
   await fireEvent.press(screen.getByRole('button', { name: /^Взять/ }));
-  const options = mutate.mock.calls[0][1] as MutateOptions;
-  options.onError?.(error);
+  await waitFor(() => expect(alert).toHaveBeenCalled());
 
   return alert;
+}
+
+/** A claim the test answers when it chooses. */
+function pendingClaim(): { reject: (error: Error) => void } {
+  let reject: (error: Error) => void = () => {};
+  mutateAsync.mockReturnValueOnce(
+    new Promise((_resolve, rejectClaim) => {
+      reject = rejectClaim;
+    }),
+  );
+  return { reject: (error) => reject(error) };
 }
 
 test('a claim the server refused in its own words is said in hers, with the words as a paragraph under it', async () => {
@@ -126,7 +139,7 @@ test('a free task opens before it is taken: the notes and the chat are read firs
 
   // Assert
   expect(router.push).toHaveBeenCalledWith({ pathname: '/task/[id]', params: { id: TASK_ID } });
-  expect(mutate).not.toHaveBeenCalled();
+  expect(mutateAsync).not.toHaveBeenCalled();
 });
 
 test('taking a task from the queue does not also open it', async () => {
@@ -137,9 +150,80 @@ test('taking a task from the queue does not also open it', async () => {
   await fireEvent.press(screen.getByRole('button', { name: /^Взять/ }));
 
   // Assert
-  expect(mutate).toHaveBeenCalledWith(
-    { taskId: TASK_ID, cleanerId: '7c9e6679-7425-40de-944b-e07fc1f90ae7' },
-    expect.any(Object),
-  );
+  expect(mutateAsync).toHaveBeenCalledWith({
+    taskId: TASK_ID,
+    cleanerId: '7c9e6679-7425-40de-944b-e07fc1f90ae7',
+  });
   expect(router.push).not.toHaveBeenCalled();
+});
+
+test('free work stands under its day: today, tomorrow, each a heading of its own', async () => {
+  // Arrange: one free cleaning today and one tomorrow, by the phone's calendar.
+  const now = new Date();
+  mockTasks.splice(
+    0,
+    mockTasks.length,
+    { ...mockTask, scheduled_date: calendarDay(now) },
+    { ...mockTask, id: SECOND_ID, scheduled_date: calendarDay(now, 1) },
+  );
+
+  // Act
+  await render(<FreeQueueScreen />);
+
+  // Assert
+  expect(screen.getAllByRole('header').map((heading) => heading.props.children)).toEqual([
+    'Сегодня',
+    'Завтра',
+  ]);
+  expect(screen.getAllByRole('button', { name: /^Взять/ })).toHaveLength(2);
+});
+
+test('while the claim runs, its button says so and a second tap sends nothing', async () => {
+  // Arrange: the claim is on its way — it has not settled.
+  mutateAsync.mockReturnValue(new Promise(() => {}));
+  await render(<FreeQueueScreen />);
+  const take = () => screen.getByRole('button', { name: /^Взять/ });
+
+  // Act
+  await fireEvent.press(take());
+  await fireEvent.press(take());
+
+  // Assert
+  expect(take().props.accessibilityState).toMatchObject({ busy: true });
+  expect(mutateAsync).toHaveBeenCalledTimes(1);
+});
+
+// The review of 05.10: with one shared «claiming» id and per-call callbacks,
+// a second «Взять» before the first came back dropped the first one's answer —
+// TanStack keeps only the last mutate()'s callbacks. Each claim keeps its own.
+test('two claims at once: each stays busy until its own answer, and a lost one is still said', async () => {
+  // Arrange: two free cleanings tomorrow; both claims on their way.
+  const now = new Date();
+  mockTasks.splice(
+    0,
+    mockTasks.length,
+    { ...mockTask, scheduled_date: calendarDay(now, 1) },
+    { ...mockTask, id: SECOND_ID, scheduled_date: calendarDay(now, 1) },
+  );
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  const first = pendingClaim();
+  pendingClaim();
+  await render(<FreeQueueScreen />);
+  const takes = () => screen.getAllByRole('button', { name: /^Взять/ });
+
+  // Act: take both, then the first one loses its race.
+  await fireEvent.press(takes()[0]);
+  await fireEvent.press(takes()[1]);
+  first.reject(new RefusalError('Claim matched no row: taken or past its day', 'tasks.claimTaken'));
+
+  // Assert: the first is said and asked again; the second is still on its way.
+  await waitFor(() =>
+    expect(alert).toHaveBeenCalledWith(
+      'Не получилось взять уборку',
+      'Уборку уже взяли, либо её срок истёк.',
+    ),
+  );
+  expect(mockRefetch).toHaveBeenCalled();
+  expect(takes()[0].props.accessibilityState).not.toMatchObject({ busy: true });
+  expect(takes()[1].props.accessibilityState).toMatchObject({ busy: true });
 });

@@ -1,15 +1,19 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
-import { FontSize, Spacing, type Theme } from '@/constants/theme';
+import { ErrorState } from '@/components/error-state';
+import { Text } from '@/components/text';
+import { Spacing, type Theme } from '@/constants/theme';
+import { isTechnician } from '@/features/auth/role';
 import { useSession } from '@/features/auth/session';
 import { SignedInRoute } from '@/features/auth/signed-in-route';
+import { useRole } from '@/features/auth/use-role';
 import { useTaskSteps } from '@/features/steps/use-steps';
 import { propertyName } from '@/features/tasks/format';
 import { latestMoveError } from '@/features/tasks/moves';
-import { TaskDetail } from '@/features/tasks/task-detail';
+import { TaskDetail, TaskDetailSkeleton } from '@/features/tasks/task-detail';
 import {
   acceptVariables,
   useAcceptTask,
@@ -20,7 +24,7 @@ import {
 } from '@/features/tasks/use-tasks';
 import { useNow } from '@/hooks/use-now';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
-import { serverErrorText } from '@/lib/server-error';
+import { wordContext } from '@/i18n';
 
 const Params = z.object({ id: z.string().uuid() });
 
@@ -31,8 +35,10 @@ const Params = z.object({ id: z.string().uuid() });
 export default function TaskRoute() {
   const { t } = useTranslation();
 
+  // Until the session is read nobody is known — a technician's push opens the
+  // app cold too — so the wait says a word that is nobody's.
   return (
-    <SignedInRoute loadingText={t('tasks.loading')}>
+    <SignedInRoute loadingText={t('common.loading')}>
       <TaskScreen />
     </SignedInRoute>
   );
@@ -49,6 +55,9 @@ function TaskScreen() {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const { userId } = useSession();
+  // No «Расходники» for a technician (docs/tech-plan.md §0, §4): a request
+  // sent from his job would land in a tab he does not have.
+  const canRequestSupplies = !isTechnician(useRole());
   const parsed = Params.safeParse(useLocalSearchParams());
   const taskId = parsed.success ? parsed.data.id : null;
 
@@ -65,25 +74,33 @@ function TaskScreen() {
   const error = latestMoveError([claim, accept, start, finish]);
 
   if (taskId === null || userId === null) {
-    return <Message text={t('tasks.detail.notFound')} styles={styles} />;
+    return (
+      <Message text={t('tasks.detail.notFound', { context: wordContext() })} styles={styles} />
+    );
   }
 
   if (query.isPending) {
+    return <TaskDetailSkeleton label={t('tasks.loading', { context: wordContext() })} />;
+  }
+
+  // A task that never loaded. One that did and only failed to refresh
+  // (TanStack keeps the data beside the error) stays on screen below.
+  if (query.error && query.data === undefined) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={styles.message.color} />
-        <Text style={styles.message}>{t('tasks.loading')}</Text>
+      <View style={styles.screen}>
+        <ErrorState
+          error={query.error}
+          title={t('tasks.loadFailed', { context: wordContext() })}
+          onRetry={() => void query.refetch()}
+        />
       </View>
     );
   }
 
-  if (query.error) {
-    const failure = serverErrorText(query.error);
-    return <Message text={failure.text} detail={failure.detail} styles={styles} />;
-  }
-
   if (query.data === null || query.data === undefined) {
-    return <Message text={t('tasks.detail.notFound')} styles={styles} />;
+    return (
+      <Message text={t('tasks.detail.notFound', { context: wordContext() })} styles={styles} />
+    );
   }
 
   return (
@@ -96,6 +113,7 @@ function TaskScreen() {
         isBusy={isBusy}
         isAccepting={accept.isPending}
         error={error}
+        refreshError={query.error}
         steps={steps.data}
         onClaim={(id) => claim.mutate({ taskId: id, cleanerId: userId })}
         onAccept={(task) => accept.mutate(acceptVariables(task))}
@@ -105,7 +123,11 @@ function TaskScreen() {
           router.push({ pathname: '/task/[id]/step/[stepId]', params: { id: taskId, stepId } })
         }
         onReportProblem={(id) => router.push({ pathname: '/problem/new', params: { taskId: id } })}
-        onRequestSupplies={(id) => router.push({ pathname: '/supply/new', params: { taskId: id } })}
+        onRequestSupplies={
+          canRequestSupplies
+            ? (id) => router.push({ pathname: '/supply/new', params: { taskId: id } })
+            : undefined
+        }
         onOpenProblem={(problemId) =>
           router.push({ pathname: '/problem/[id]', params: { id: problemId } })
         }
@@ -119,30 +141,25 @@ function TaskScreen() {
 
 interface MessageProps {
   text: string;
-  /** The server's own words, when we had no translation for them. */
-  detail?: string | null;
   styles: ReturnType<typeof createStyles>;
 }
 
-function Message({ text, detail = null, styles }: MessageProps) {
+function Message({ text, styles }: MessageProps) {
   return (
-    <View style={styles.centered}>
-      <Text style={styles.message}>{text}</Text>
-      {detail !== null ? <Text style={styles.detail}>{detail}</Text> : null}
+    <View style={[styles.screen, styles.centered]}>
+      <Text tone="secondary" align="center">
+        {text}
+      </Text>
     </View>
   );
 }
 
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
+    screen: { flex: 1, backgroundColor: theme.background },
     centered: {
-      flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      gap: Spacing.sm,
       padding: Spacing.xl,
-      backgroundColor: theme.background,
     },
-    message: { fontSize: FontSize.body, color: theme.textSecondary, textAlign: 'center' },
-    detail: { fontSize: FontSize.caption, color: theme.textSecondary, textAlign: 'center' },
   });

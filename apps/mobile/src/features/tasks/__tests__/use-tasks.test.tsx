@@ -1,10 +1,22 @@
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient, type MutationState } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
+import { stepKeys } from '@/features/steps/keys';
+import { createAppQueryClient } from '@/lib/query-client';
+import { authoredBy, signedInWithQueue, signedOutOfQueue } from '@/testing/queue-person';
 import { restoredFromDisk, withClient } from '@/testing/restored-cache';
 
-import { acceptTask, fetchMyTasks, fetchTask } from '../api';
-import { taskKeys, useAcceptTask, useMyTasks, useTask } from '../use-tasks';
+import { acceptTask, claimTask, fetchMyTasks, fetchTask, finishTask, startTask } from '../api';
+import {
+  taskKeys,
+  taskMutationKeys,
+  useAcceptTask,
+  useClaimTask,
+  useFinishTask,
+  useMyTasks,
+  useStartTask,
+  useTask,
+} from '../use-tasks';
 
 jest.mock('../api', () => ({
   fetchMyTasks: jest.fn(),
@@ -125,4 +137,99 @@ test('an accepted cleaning reads as accepted at once, in her list and on its scr
   expect(client.getQueryData<{ status: string }>(taskKeys.one(assigned.id))?.status).toBe(
     'accepted',
   );
+});
+
+/**
+ * A move of a cleaning refreshes the lists once (LOW-2 of the review of
+ * dab5237..cb747a5): the refresh is the move's own default
+ * (`registerTaskMutations`), the same whether the move was tapped on a screen
+ * or restored from disk. The screen's hook adds none of its own.
+ */
+describe('each move of a cleaning refreshes the lists once', () => {
+  const ROW = { ...TASK_WITHOUT_NOTE, notes: null, title: null, title_i18n: {} };
+  const TASK_ID = ROW.id;
+  /** What a move changes: the cleanings, and that cleaning's steps — each refreshed once. */
+  const ONCE_EACH = {
+    [JSON.stringify(taskKeys.all)]: 1,
+    [JSON.stringify(stepKeys.byTask(TASK_ID))]: 1,
+  };
+  const MOVES = [
+    ['take', taskMutationKeys.claim, useClaimTask, claimTask, { taskId: TASK_ID, cleanerId: ME }],
+    [
+      'accept',
+      taskMutationKeys.accept,
+      useAcceptTask,
+      acceptTask,
+      { taskId: TASK_ID, scheduledDate: ROW.scheduled_date, propertyId: ROW.property_id },
+    ],
+    ['start', taskMutationKeys.start, useStartTask, startTask, TASK_ID],
+    ['finish', taskMutationKeys.finish, useFinishTask, finishTask, TASK_ID],
+  ] as const;
+
+  let client: QueryClient;
+
+  beforeEach(() => {
+    client = createAppQueryClient();
+    signedInWithQueue(client, ME);
+  });
+
+  afterEach(() => {
+    client.clear();
+    signedOutOfQueue();
+  });
+
+  /** How many times each list was asked to refresh, by its key. */
+  function refreshesOf(refreshes: jest.SpyInstance): Record<string, number> {
+    return refreshes.mock.calls.reduce<Record<string, number>>((counts, [filters]) => {
+      const key = JSON.stringify(filters?.queryKey);
+      return { ...counts, [key]: (counts[key] ?? 0) + 1 };
+    }, {});
+  }
+
+  /** A move as the disk gives it back: waiting for signal, hers. */
+  function pausedState(variables: unknown): MutationState<unknown, Error, unknown, unknown> {
+    return {
+      context: undefined,
+      data: undefined,
+      error: null,
+      failureCount: 1,
+      failureReason: null,
+      isPaused: true,
+      status: 'pending',
+      variables,
+      submittedAt: Date.now(),
+    };
+  }
+
+  test.each(MOVES)('%s tapped on a screen', async (_name, _key, useMove, call, variables) => {
+    // Arrange
+    (call as jest.Mock).mockResolvedValue(ROW);
+    const refreshes = jest.spyOn(client, 'invalidateQueries');
+    const { result } = await renderHook(() => useMove(), { wrapper: withClient(client) });
+
+    // Act
+    await act(async () => {
+      await result.current.mutateAsync(variables as never);
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    // Assert
+    expect(refreshesOf(refreshes)).toEqual(ONCE_EACH);
+  });
+
+  test.each(MOVES)('%s restored from disk', async (_name, mutationKey, _hook, call, variables) => {
+    // Arrange
+    (call as jest.Mock).mockResolvedValue(ROW);
+    const refreshes = jest.spyOn(client, 'invalidateQueries');
+    const move = client
+      .getMutationCache()
+      .build(client, { mutationKey, ...authoredBy(ME) }, pausedState(variables));
+
+    // Act
+    await client.resumePausedMutations();
+
+    // Assert
+    expect(move.state.status).toBe('success');
+    expect(refreshesOf(refreshes)).toEqual(ONCE_EACH);
+  });
 });

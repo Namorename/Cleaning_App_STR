@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { FontSize, Radius, Spacing, type Theme } from '@/constants/theme';
-import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { Card } from '@/components/card';
+import { Text } from '@/components/text';
+import { Spacing } from '@/constants/theme';
 import { i18n } from '@/i18n';
 import { serverErrorKey, serverErrorText, type ServerErrorText } from '@/lib/server-error';
 
@@ -13,18 +14,19 @@ interface SettingsSectionProps {
   children: ReactNode;
 }
 
-/** A titled block of the settings screen; the title is a header for a screen reader. */
+/**
+ * A titled block of the settings screen — a card of the design system; the
+ * title is a header for a screen reader.
+ */
 export function SettingsSection({ title, hint, children }: SettingsSectionProps) {
-  const styles = useThemedStyles(createStyles);
-
   return (
-    <View style={styles.section}>
-      <Text accessibilityRole="header" style={styles.heading}>
+    <Card>
+      <Text variant="title" accessibilityRole="header">
         {title}
       </Text>
-      {hint !== undefined ? <Text style={styles.hint}>{hint}</Text> : null}
+      {hint !== undefined ? <Text tone="secondary">{hint}</Text> : null}
       {children}
-    </View>
+    </Card>
   );
 }
 
@@ -38,12 +40,14 @@ interface FailureNoteProps {
  * forward to the manager.
  */
 export function FailureNote({ failure }: FailureNoteProps) {
-  const styles = useThemedStyles(createStyles);
-
   return (
     <View accessibilityLiveRegion="polite" style={styles.failure}>
-      <Text style={styles.error}>{failure.text}</Text>
-      {failure.detail !== null ? <Text style={styles.errorDetail}>{failure.detail}</Text> : null}
+      <Text tone="danger">{failure.text}</Text>
+      {failure.detail !== null ? (
+        <Text variant="caption" tone="secondary">
+          {failure.detail}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -61,17 +65,7 @@ export function failureOf(error: unknown, fallbackKey: string): ServerErrorText 
     : { text: i18n.t(fallbackKey), detail: translated.detail };
 }
 
-const createStyles = (theme: Theme) =>
-  StyleSheet.create({
-    section: {
-      gap: Spacing.sm,
-      padding: Spacing.lg,
-      borderRadius: Radius.lg,
-      backgroundColor: theme.card,
-    },
-    heading: { color: theme.text, fontSize: FontSize.title, fontWeight: '700' },
-    hint: { color: theme.textSecondary, fontSize: FontSize.body },
-    failure: { gap: Spacing.xs },
-    error: { color: theme.danger, fontSize: FontSize.body },
-    errorDetail: { color: theme.textSecondary, fontSize: FontSize.caption },
-  });
+/** Sizes only: the colours are the text component's. */
+const styles = StyleSheet.create({
+  failure: { gap: Spacing.xs },
+});

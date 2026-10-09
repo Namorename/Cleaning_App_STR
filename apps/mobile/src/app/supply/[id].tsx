@@ -1,16 +1,17 @@
-import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
-import { FontSize, Spacing, type Theme } from '@/constants/theme';
+import { ErrorState } from '@/components/error-state';
+import { Text } from '@/components/text';
+import { Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
 import { canEditSupplyRequest } from '@/features/supplies/schema';
-import { SupplyDetail } from '@/features/supplies/supply-detail';
+import { SupplyDetail, SupplyDetailSkeleton } from '@/features/supplies/supply-detail';
 import { useDeleteSupplyRequest, useSupplyRequest } from '@/features/supplies/use-supplies';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
-import { serverErrorText } from '@/lib/server-error';
 
 const Params = z.object({ id: z.string().uuid() });
 
@@ -37,21 +38,32 @@ export default function SupplyRoute() {
   }
 
   if (request.isPending) {
+    return <SupplyDetailSkeleton label={t('supplies.loading')} />;
+  }
+
+  // A request that never loaded. One that did and only failed to refresh
+  // (TanStack keeps the data beside the error) stays on screen below. There
+  // is no «could not load the request» of its own: the general sentence.
+  if (request.error && request.data === undefined) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={styles.message.color} />
-        <Text style={styles.message}>{t('supplies.loading')}</Text>
+      <View style={styles.screen}>
+        <ErrorState
+          error={request.error}
+          title={t('common.screenFailed')}
+          onRetry={() => void request.refetch()}
+        />
       </View>
     );
   }
 
-  if (request.error) {
-    const failure = serverErrorText(request.error);
-    return <Message text={failure.text} detail={failure.detail} styles={styles} />;
-  }
-
   if (request.data === null || request.data === undefined) {
-    return <Message text={t('supplies.notFound')} styles={styles} />;
+    // Withdrawn: the refetch after it finds no row while the screen leaves —
+    // that is not «not found».
+    return isLeaving ? (
+      <View style={styles.screen} />
+    ) : (
+      <Message text={t('supplies.notFound')} styles={styles} />
+    );
   }
 
   const onDelete = () => {
@@ -61,46 +73,42 @@ export default function SupplyRoute() {
     ]);
   };
 
+  // Titled by the root layout: a request still loading, or one that failed,
+  // stands under the same header.
   return (
-    <>
-      <Stack.Screen options={{ title: t('supplies.one') }} />
-      <SupplyDetail
-        request={request.data}
-        canEdit={canEditSupplyRequest(request.data, userId)}
-        onEdit={() => router.push({ pathname: '/supply/new', params: { id: requestId } })}
-        onDelete={onDelete}
-        isDeleting={remove.isPending && !remove.isPaused}
-        error={remove.error}
-      />
-    </>
+    <SupplyDetail
+      request={request.data}
+      canEdit={canEditSupplyRequest(request.data, userId)}
+      onEdit={() => router.push({ pathname: '/supply/new', params: { id: requestId } })}
+      onDelete={onDelete}
+      isDeleting={remove.isPending && !remove.isPaused}
+      error={remove.error}
+      refreshError={request.error}
+    />
   );
 }
 
 interface MessageProps {
   text: string;
-  detail?: string | null;
   styles: ReturnType<typeof createStyles>;
 }
 
-function Message({ text, detail = null, styles }: MessageProps) {
+function Message({ text, styles }: MessageProps) {
   return (
-    <View style={styles.centered}>
-      <Text style={styles.message}>{text}</Text>
-      {detail !== null ? <Text style={styles.detail}>{detail}</Text> : null}
+    <View style={[styles.screen, styles.centered]}>
+      <Text tone="secondary" align="center">
+        {text}
+      </Text>
     </View>
   );
 }
 
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
+    screen: { flex: 1, backgroundColor: theme.background },
     centered: {
-      flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
       padding: Spacing.xl,
-      gap: Spacing.sm,
-      backgroundColor: theme.background,
     },
-    message: { color: theme.textSecondary, fontSize: FontSize.body, textAlign: 'center' },
-    detail: { color: theme.textSecondary, fontSize: FontSize.caption, textAlign: 'center' },
   });

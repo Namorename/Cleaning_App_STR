@@ -1,5 +1,7 @@
 import { MutationObserver, onlineManager } from '@tanstack/react-query';
 
+import { signedInWithQueue, signedOutOfQueue } from '@/testing/queue-person';
+
 import { createAppQueryClient } from '../query-client';
 import { goOffline, isNetworkError, PROBE_INTERVAL_MS, stopWatchingConnection } from '../online';
 
@@ -20,6 +22,7 @@ beforeEach(() => {
 
 afterEach(() => {
   stopWatchingConnection();
+  signedOutOfQueue();
   onlineManager.setOnline(true);
   jest.useRealTimers();
 });
@@ -36,6 +39,25 @@ describe('what counts as no signal', () => {
       'an upload that never left the phone',
       { name: 'StorageUnknownError', originalError: new TypeError('Network request failed') },
     ],
+    // expo/fetch, the app's fetch since SDK 52, rejects in its own words.
+    ['expo/fetch that could not reach anything', new TypeError('fetch failed')],
+    [
+      'an Android phone without DNS',
+      new Error(
+        'Unable to resolve host "project.supabase.co": No address associated with hostname',
+      ),
+    ],
+    [
+      'an Android phone that could not connect',
+      new Error('Failed to connect to project.supabase.co/104.18.38.10:443'),
+    ],
+    ['OkHttp giving up on a silent socket', new Error('timeout')],
+    ['an iPhone giving up on one', new Error('The request timed out.')],
+    ['expo/fetch giving up on one', new TypeError('fetch failed: timeout')],
+    [
+      'a table read whose socket went silent',
+      { message: 'TypeError: Network request timed out', details: '', hint: '', code: '' },
+    ],
   ])('%s', (_name, error) => {
     expect(isNetworkError(error)).toBe(true);
   });
@@ -47,6 +69,27 @@ describe('what counts as no signal', () => {
     ],
     ['a server that failed', { message: 'Internal Server Error', status: 500 }],
     ['a bug', new Error('undefined is not a function')],
+    // The database's own timeout is an answer from the server, not a lost socket.
+    [
+      'a statement the database cancelled',
+      { message: 'canceling statement due to statement timeout', code: '57014' },
+    ],
+    // A server's words for its own wait are an answer, whatever they say.
+    [
+      'PostgREST out of connections',
+      {
+        message: 'Timed out acquiring connection from connection pool.',
+        code: 'PGRST003',
+        details: null,
+        hint: null,
+      },
+    ],
+    ['a gateway that waited in vain', { message: 'upstream request timeout', status: 504 }],
+    ['a server that timed the request out', { message: 'Request timed out', status: 408 }],
+    [
+      'a refusal that only mentions a fetch',
+      { message: 'Edge Function: fetch failed', code: 'X1' },
+    ],
   ])('%s is not', (_name, error) => {
     expect(isNetworkError(error)).toBe(false);
   });
@@ -97,6 +140,8 @@ describe('a move without signal', () => {
     // Arrange: the server is never found by a look during this test.
     global.fetch = jest.fn().mockRejectedValue(new TypeError('Network request failed'));
     const client = createAppQueryClient();
+    // Her move, resumed when the signal is back (lib/move-queue.ts).
+    signedInWithQueue(client);
     client.mount();
     const mutationFn = failingThenFine();
     const observer = new MutationObserver(client, { mutationFn });
@@ -118,6 +163,8 @@ describe('a move without signal', () => {
 
   test('a refusal from the server still fails after one more try, as before', async () => {
     const client = createAppQueryClient();
+    // Her move: a move of the queue runs only with a person signed in (lib/move-queue.ts).
+    signedInWithQueue(client);
     client.mount();
     const refusal = { message: 'no', hint: 'serverErrors.taskClosed', code: 'P0001' };
     const mutationFn = jest.fn<Promise<string>, [string]>().mockRejectedValue(refusal);

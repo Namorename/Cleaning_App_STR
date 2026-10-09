@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 
 import { SUPPORTED_LANGUAGES, deviceLanguage, i18n } from '@/i18n';
+import { setWordContext } from '@/testing/word-context';
 
 import { fetchMyPushPreferences, saveMyLanguage, setPushPreference } from '../api';
 import { SettingsScreen } from '../settings-screen';
@@ -24,10 +25,16 @@ jest.mock('../api', () => ({
 // presses them, and the real client has no business starting in a test.
 jest.mock('@/lib/supabase', () => ({ supabase: { auth: {} } }));
 
+// «О приложении» opens the font licence through the router; nothing here opens it.
+jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
+
+/** Her role as the token carries it; a cleaner unless a test says otherwise. */
+let mockRole = 'cleaner';
+
 jest.mock('@/features/auth/session', () => ({
   useSession: () => ({
     userId: '7c9e6679-7425-40de-944b-e07fc1f90ae7',
-    session: { user: { email: 'maria@test.local' } },
+    session: { user: { email: 'maria@test.local', app_metadata: { role: mockRole } } },
   }),
   signOut: jest.fn(),
 }));
@@ -37,7 +44,10 @@ const fetchPreferences = jest.mocked(fetchMyPushPreferences);
 const setPreference = jest.mocked(setPushPreference);
 const saveLanguage = jest.mocked(saveMyLanguage);
 
-/** The push kinds in the order the screen lists them, as she reads them. */
+/** The one switch only the head technician is shown (owner's word 2026-10-03). */
+const NEW_TASK = 'Новое задание';
+
+/** Every push kind's switch, in the enum's order, as a cleaner reads it. */
 const KIND_LABELS = [
   'Новая уборка',
   'Вам назначена уборка',
@@ -75,6 +85,7 @@ async function renderScreen(): Promise<QueryClient> {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockRole = 'cleaner';
   fetchPreferences.mockResolvedValue({ profile_id: ME, muted: ['daily_digest'] });
 });
 
@@ -96,19 +107,105 @@ test('shows the three sections and the way out at the bottom', async () => {
   expect(screen.getByRole('button', { name: 'Выйти' })).toBeTruthy();
 });
 
-test('lists one switch per push kind, in order, each as the server has it', async () => {
-  // Act
-  await renderScreen();
+/** The switches on screen, top to bottom, by the words they carry. */
+function switchLabels(): string[] {
+  return screen.getAllByRole('switch').map((element) => element.props.accessibilityLabel as string);
+}
 
-  // Assert
-  await waitFor(() => expect(screen.getAllByRole('switch')).toHaveLength(KIND_LABELS.length));
-  const labels = screen
-    .getAllByRole('switch')
-    .map((element) => element.props.accessibilityLabel as string);
-  expect(labels).toEqual(KIND_LABELS);
-  expect(screen.getByRole('switch', { name: 'Утренняя сводка' })).not.toBeChecked();
-  expect(screen.getByRole('switch', { name: 'Новая уборка' })).toBeChecked();
+/**
+ * A technician's pushes are about his jobs (docs/tech-plan.md §5): seven
+ * kinds, not ten, each named as work — the session applied his words (§6).
+ */
+const TECHNICIAN_LABELS = [
+  'Вам назначена работа',
+  'Работу сняли с вас',
+  'Работа отменена',
+  'Работа перенесена',
+  'Изменилось время работы',
+  'Сообщение в чате',
+  'Утренняя сводка',
+];
+
+describe('a technician', () => {
+  beforeEach(async () => {
+    await setWordContext('tech');
+  });
+
+  afterEach(async () => {
+    await setWordContext(undefined);
+  });
+
+  test('the technician gets his seven switches, in order, each named as work', async () => {
+    // Arrange
+    mockRole = 'tech';
+
+    // Act
+    await renderScreen();
+
+    // Assert
+    await waitFor(() =>
+      expect(screen.getAllByRole('switch')).toHaveLength(TECHNICIAN_LABELS.length),
+    );
+    expect(switchLabels()).toEqual(TECHNICIAN_LABELS);
+    expect(screen.getByRole('switch', { name: 'Утренняя сводка' })).not.toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Вам назначена работа' })).toBeChecked();
+    for (const gone of ['Новая уборка', 'Свободная уборка', 'Бронь отменена во время уборки']) {
+      expect(screen.queryByText(gone, { includeHiddenElements: true })).toBeNull();
+    }
+    expect(screen.queryByText(NEW_TASK, { includeHiddenElements: true })).toBeNull();
+  });
+
+  test('the head technician gets the same, and «Новое задание» — eight switches', async () => {
+    // Arrange
+    mockRole = 'head_tech';
+
+    // Act
+    await renderScreen();
+
+    // Assert
+    await waitFor(() => expect(screen.getAllByRole('switch')).toHaveLength(8));
+    expect(switchLabels()).toEqual([
+      ...TECHNICIAN_LABELS.slice(0, 5),
+      NEW_TASK,
+      ...TECHNICIAN_LABELS.slice(5),
+    ]);
+    expect(screen.getByRole('switch', { name: NEW_TASK })).toBeChecked();
+  });
+
+  test('his switch sends the kind the server knows', async () => {
+    // Arrange
+    mockRole = 'tech';
+    setPreference.mockResolvedValue({
+      profile_id: ME,
+      muted: ['cleaning_moved', 'daily_digest'],
+    });
+    await renderScreen();
+
+    // Act
+    await fireEvent.press(await screen.findByRole('switch', { name: 'Работа перенесена' }));
+
+    // Assert
+    await waitFor(() => expect(setPreference).toHaveBeenCalledWith('cleaning_moved', false));
+  });
 });
+
+test.each(['cleaner', 'manager', 'admin'])(
+  'a %s has no new-task switch at all, and every other one in its place',
+  async (role) => {
+    // Arrange
+    mockRole = role;
+
+    // Act
+    await renderScreen();
+
+    // Assert: not a switch turned off or greyed out — no row, no words.
+    await waitFor(() => expect(screen.getAllByRole('switch')).toHaveLength(KIND_LABELS.length - 1));
+    expect(switchLabels()).toEqual(KIND_LABELS.filter((label) => label !== NEW_TASK));
+    expect(screen.queryByText(NEW_TASK, { includeHiddenElements: true })).toBeNull();
+    expect(screen.getByRole('switch', { name: 'Утренняя сводка' })).not.toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Новая уборка' })).toBeChecked();
+  },
+);
 
 test('a switch sends the value she wants', async () => {
   // Arrange
@@ -116,8 +213,8 @@ test('a switch sends the value she wants', async () => {
   await renderScreen();
   const newCleaning = await screen.findByRole('switch', { name: 'Новая уборка' });
 
-  // Act
-  await fireEvent(newCleaning, 'valueChange', false);
+  // Act: the whole row is the switch.
+  await fireEvent.press(newCleaning);
 
   // Assert
   await waitFor(() => expect(setPreference).toHaveBeenCalledWith('cleaning_new', false));
@@ -132,8 +229,8 @@ test('a refused switch goes back and says why', async () => {
   await renderScreen();
   const digest = await screen.findByRole('switch', { name: 'Утренняя сводка' });
 
-  // Act
-  await fireEvent(digest, 'valueChange', true);
+  // Act: the whole row is the switch.
+  await fireEvent.press(digest);
 
   // Assert
   expect(await screen.findByText('Выбор не сохранился.')).toBeTruthy();
@@ -144,7 +241,10 @@ test('a refused switch goes back and says why', async () => {
 test('offers every language the app speaks, each named in itself', async () => {
   await renderScreen();
 
-  const names = screen.getAllByRole('radio').map((element) => element.props.accessibilityLabel);
+  // The language row only: the theme row below it is a radio group too.
+  const names = within(screen.getByLabelText('Язык'))
+    .getAllByRole('radio')
+    .map((element) => element.props.accessibilityLabel);
 
   expect(names).toEqual(['Русский', 'English', 'Čeština']);
   expect(names).toHaveLength(SUPPORTED_LANGUAGES.length);

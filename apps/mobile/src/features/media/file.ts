@@ -1,6 +1,8 @@
 import { ImageMetadataError, stripJpegMetadata } from '@str-ops/shared';
-import { Directory, File, Paths } from 'expo-file-system';
+import { Directory, File, FileMode, Paths } from 'expo-file-system';
 import { Platform } from 'react-native';
+
+import type { TusSource } from './tus';
 
 /**
  * The bytes of a captured file, ready for upload.
@@ -17,13 +19,42 @@ export async function readFileBytes(uri: string): Promise<ArrayBuffer | Blob> {
   return new File(uri).arrayBuffer();
 }
 
+/**
+ * A captured file read a piece at a time, for a resumable upload: a video is
+ * never held whole in the app's memory (docs/tech-plan.md §7.5). On a phone
+ * through a file handle, each read seeking first; in the browser build a blob
+ * URL, sliced.
+ */
+export async function openFileChunks(uri: string): Promise<TusSource> {
+  if (Platform.OS === 'web') {
+    const blob = await (await fetch(uri)).blob();
+    return {
+      size: blob.size,
+      read: async (offset, length) =>
+        new Uint8Array(await blob.slice(offset, offset + length).arrayBuffer()),
+      close: () => undefined,
+    };
+  }
+  const file = new File(uri);
+  const handle = file.open(FileMode.ReadOnly);
+  return {
+    size: file.size,
+    read: async (offset, length) => {
+      handle.offset = offset;
+      return handle.readBytes(length);
+    },
+    close: () => handle.close(),
+  };
+}
+
 /** Size in bytes, the way the server wants it declared before the upload. */
 export async function fileSize(uri: string): Promise<number> {
   if (Platform.OS === 'web') {
     const response = await fetch(uri);
     return (await response.blob()).size;
   }
-  return new File(uri).size ?? 0;
+  // 0 for a file that is not there: File.size is never null.
+  return new File(uri).size;
 }
 
 const MEDIA_DIRECTORY = 'task-media';
@@ -43,11 +74,7 @@ const MEDIA_DIRECTORY = 'task-media';
  * rename won was a coin toss. The loser got size 0, the server refused the
  * row, and the cleaner was told her file was of a kind nobody accepts.
  */
-export async function keepFile(
-  uri: string,
-  mediaId: string,
-  extension: string,
-): Promise<string> {
+export async function keepFile(uri: string, mediaId: string, extension: string): Promise<string> {
   if (Platform.OS === 'web') {
     return uri;
   }

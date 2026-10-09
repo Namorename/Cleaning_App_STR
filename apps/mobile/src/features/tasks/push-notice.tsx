@@ -1,9 +1,12 @@
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import { IconButton } from '@/components/icon-button';
+import { Text } from '@/components/text';
+import { Radius, Spacing, statusTone } from '@/constants/theme';
 import type { PushNotice as Notice } from '@/features/push/destination';
-import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { useTheme } from '@/hooks/use-theme';
+import { wordContext } from '@/i18n';
 
 interface PushNoticeProps {
   notice: Notice;
@@ -12,43 +15,39 @@ interface PushNoticeProps {
 
 /**
  * Why a tap on a push landed on her list rather than on the cleaning: it was
- * taken off her, cancelled, or moved away from her. Said once, in words, and
- * gone when she has read it.
+ * taken off her, cancelled, or moved away from her. Said once, in words, in
+ * the urgent tone, and gone when she has read it: «Скрыть» is the close icon
+ * on a 48 dp target, named in words for the reader.
  */
 export function PushNotice({ notice, onDismiss }: PushNoticeProps) {
   const { t } = useTranslation();
-  const styles = useThemedStyles(createStyles);
+  const tone = statusTone(useTheme(), 'phone.pushNotice');
 
   return (
-    <View accessibilityLiveRegion="polite" style={styles.notice}>
-      <Text style={styles.text}>{t(`tasks.pushNotice.${notice}`)}</Text>
-      <Pressable
-        accessibilityRole="button"
+    <View accessibilityLiveRegion="polite" style={[styles.notice, { backgroundColor: tone.bg }]}>
+      <Text weight={700} color={tone.fg} style={styles.text}>
+        {t(`tasks.pushNotice.${notice}`, { context: wordContext() })}
+      </Text>
+      <IconButton
+        icon="action.close"
         accessibilityLabel={t('tasks.pushNotice.dismiss')}
         onPress={onDismiss}
-        hitSlop={Spacing.sm}
-        style={({ pressed }) => [styles.dismiss, pressed && styles.pressed]}
-      >
-        <Text style={styles.dismissText}>{t('tasks.pushNotice.dismiss')}</Text>
-      </Pressable>
+      />
     </View>
   );
 }
 
-const createStyles = (theme: Theme) =>
-  StyleSheet.create({
-    notice: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: Spacing.md,
-      marginBottom: Spacing.md,
-      borderRadius: Radius.md,
-      paddingHorizontal: Spacing.md,
-      paddingVertical: Spacing.sm,
-      backgroundColor: theme.urgentSurface,
-    },
-    text: { flex: 1, color: theme.urgentText, fontSize: FontSize.body, fontWeight: '600' },
-    dismiss: { minHeight: MIN_TOUCH_TARGET, justifyContent: 'center' },
-    dismissText: { color: theme.primary, fontSize: FontSize.body, fontWeight: '600' },
-    pressed: { opacity: 0.6 },
-  });
+/** Sizes only: the colours are the tone's. */
+const styles = StyleSheet.create({
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+    borderRadius: Radius.lg,
+    paddingLeft: Spacing.md,
+    paddingRight: Spacing.xs,
+    paddingVertical: Spacing.xs,
+  },
+  text: { flex: 1 },
+});

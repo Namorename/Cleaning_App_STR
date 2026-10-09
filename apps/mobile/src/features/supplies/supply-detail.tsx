@@ -1,10 +1,18 @@
+import { supplyPriorityTone, supplyStatusTone } from '@str-ops/shared';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import { Badge } from '@/components/badge';
+import { Button } from '@/components/button';
+import { Card } from '@/components/card';
+import { ErrorBanner } from '@/components/error-banner';
+import { FailureText } from '@/components/failure-text';
+import { Skeleton, SkeletonGroup } from '@/components/skeleton';
+import { Text } from '@/components/text';
+import { BUTTON_HEIGHT, Radius, Spacing, type Theme } from '@/constants/theme';
 import { formatReportedAt } from '@/features/problems/format';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
-import { serverErrorText } from '@/lib/server-error';
 
 import { formatQuantity, supplyPlace, supplyPriorityText, supplyStatusText } from './format';
 import type { SupplyRequest } from './schema';
@@ -17,9 +25,19 @@ interface SupplyDetailProps {
   onDelete: () => void;
   isDeleting: boolean;
   error: Error | null;
+  /**
+   * A refresh that failed over the request still on screen: said above it, the
+   * request stays (a failure to load at all is the route's error state).
+   */
+  refreshError?: Error | null;
 }
 
-/** One request, as it stands: the lines, its fate, and the manager's reason if refused. */
+/**
+ * One request, as it stands: the lines, its fate, and the manager's reason if
+ * refused. The layout is the one it had: the facts on a card — the status a
+ * pill in its own tone, «Срочно» a pill in the urgent tone — each line a card,
+ * «Изменить» the main button and withdrawing the destructive one under it.
+ */
 export function SupplyDetail({
   request,
   canEdit,
@@ -27,87 +45,91 @@ export function SupplyDetail({
   onDelete,
   isDeleting,
   error,
+  refreshError = null,
 }: SupplyDetailProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
-  const failure = error === null ? null : serverErrorText(error);
   const items = request.items.slice().sort((a, b) => a.sort_order - b.sort_order);
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>{supplyPlace(request)}</Text>
-      <Text style={styles.meta}>{formatReportedAt(request.created_at)}</Text>
+    <ScrollView style={styles.screen} contentContainerStyle={layout.content}>
+      {/* Error over cache, as the lists have it: the saved request stays. This
+          screen has no pull-to-refresh, so the line does not ask for one. */}
+      {refreshError !== null ? (
+        <ErrorBanner title={t('common.refreshFailedSaved')} error={refreshError} />
+      ) : null}
 
-      <View style={styles.facts}>
-        <Fact
-          label={t('supplies.statusLabel')}
-          value={supplyStatusText(request.status)}
-          styles={styles}
-        />
-        <Fact
-          label={t('supplies.priorityLabel')}
-          value={supplyPriorityText(request.priority)}
-          styles={styles}
-        />
+      <Text variant="heading">{supplyPlace(request)}</Text>
+      <Text tone="secondary">{formatReportedAt(request.created_at)}</Text>
+
+      <Card>
+        <Fact label={t('supplies.statusLabel')}>
+          <Badge
+            testID="supply-status"
+            label={supplyStatusText(request.status)}
+            tone={supplyStatusTone(request.status)}
+          />
+        </Fact>
+        <Fact label={t('supplies.priorityLabel')}>
+          {request.priority === 'urgent' ? (
+            <Badge
+              testID="supply-urgent"
+              label={supplyPriorityText('urgent')}
+              tone={supplyPriorityTone('urgent')}
+            />
+          ) : (
+            <Text align="right" style={layout.value}>
+              {supplyPriorityText(request.priority)}
+            </Text>
+          )}
+        </Fact>
         {request.reject_reason !== null ? (
-          <Fact label={t('supplies.rejectReason')} value={request.reject_reason} styles={styles} />
+          <Fact label={t('supplies.rejectReason')}>
+            <Text align="right" style={layout.value}>
+              {request.reject_reason}
+            </Text>
+          </Fact>
         ) : null}
-      </View>
+      </Card>
 
-      <View style={styles.block}>
-        <Text style={styles.label}>{t('supplies.itemsLabel')}</Text>
+      <View style={layout.block}>
+        <BlockLabel text={t('supplies.itemsLabel')} />
         {items.map((item) => (
-          <View key={item.id} style={styles.item}>
-            <View style={styles.itemRow}>
-              <Text style={styles.itemName}>{item.name}</Text>
-              <Text style={styles.itemQuantity}>{formatQuantity(item)}</Text>
+          <Card key={item.id} testID={`supply-line-${item.id}`}>
+            <View style={layout.line}>
+              <Text weight={700} style={layout.shrink}>
+                {item.name}
+              </Text>
+              <Text>{formatQuantity(item)}</Text>
             </View>
-            {item.comment !== null ? <Text style={styles.itemComment}>{item.comment}</Text> : null}
-          </View>
+            {item.comment !== null ? (
+              <Text variant="caption" tone="secondary">
+                {item.comment}
+              </Text>
+            ) : null}
+          </Card>
         ))}
       </View>
 
       {request.note !== null ? (
-        <View style={styles.block}>
-          <Text style={styles.label}>{t('supplies.noteLabel')}</Text>
-          <Text style={styles.body}>{request.note}</Text>
+        <View style={layout.block}>
+          <BlockLabel text={t('supplies.noteLabel')} />
+          <Text>{request.note}</Text>
         </View>
       ) : null}
 
-      {failure !== null ? (
-        <View accessibilityLiveRegion="polite" style={styles.failure}>
-          <Text style={styles.error}>{failure.text}</Text>
-          {failure.detail !== null ? (
-            <Text style={styles.errorDetail}>{failure.detail}</Text>
-          ) : null}
-        </View>
-      ) : null}
+      {/* The last move's failure, next to the buttons. */}
+      {error !== null ? <FailureText error={error} /> : null}
 
       {canEdit ? (
         <>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('supplies.edit')}
-            disabled={isDeleting}
-            onPress={onEdit}
-            style={({ pressed }) => [styles.button, pressed && styles.pressed]}
-          >
-            <Text style={styles.buttonText}>{t('supplies.edit')}</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('supplies.delete')}
-            accessibilityState={{ disabled: isDeleting, busy: isDeleting }}
-            disabled={isDeleting}
+          <Button label={t('supplies.edit')} onPress={onEdit} isDisabled={isDeleting} />
+          <Button
+            variant="destructive"
+            label={t('supplies.delete')}
             onPress={onDelete}
-            style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
-          >
-            {isDeleting ? (
-              <ActivityIndicator color={styles.secondaryText.color} />
-            ) : (
-              <Text style={styles.secondaryText}>{t('supplies.delete')}</Text>
-            )}
-          </Pressable>
+            isBusy={isDeleting}
+          />
         </>
       ) : null}
     </ScrollView>
@@ -116,76 +138,85 @@ export function SupplyDetail({
 
 interface FactProps {
   label: string;
-  value: string;
-  styles: ReturnType<typeof createStyles>;
+  children: ReactNode;
 }
 
-function Fact({ label, value, styles }: FactProps) {
+/** A fact and its value on one line; at a large font the value wraps under it. */
+function Fact({ label, children }: FactProps) {
   return (
-    <View style={styles.fact}>
-      <Text style={styles.factLabel}>{label}</Text>
-      <Text style={styles.factValue}>{value}</Text>
+    <View style={layout.fact}>
+      <Text tone="secondary" style={layout.shrink}>
+        {label}
+      </Text>
+      {children}
     </View>
   );
 }
 
+interface BlockLabelProps {
+  text: string;
+}
+
+function BlockLabel({ text }: BlockLabelProps) {
+  return (
+    <Text variant="caption" tone="secondary" weight={700}>
+      {text}
+    </Text>
+  );
+}
+
+/** The skeleton's blocks: the place, the date, the facts' card, a line, the button. */
+const SKELETON_HEADING = 28;
+const SKELETON_LINE = 16;
+const SKELETON_FACTS = 96;
+const SKELETON_ITEM = 56;
+
+interface SupplyDetailSkeletonProps {
+  /** What is loading, said to the reader. */
+  label: string;
+}
+
+/** The request's shape while it loads (the report's, `ProblemDetailSkeleton`). */
+export function SupplyDetailSkeleton({ label }: SupplyDetailSkeletonProps) {
+  const styles = useThemedStyles(createStyles);
+
+  return (
+    <View style={styles.screen}>
+      <SkeletonGroup label={label} style={layout.content}>
+        <Skeleton height={SKELETON_HEADING} width="70%" />
+        <Skeleton height={SKELETON_LINE} width="45%" />
+        <Skeleton height={SKELETON_FACTS} radius={Radius.card} />
+        <Skeleton height={SKELETON_ITEM} radius={Radius.card} />
+        <Skeleton height={BUTTON_HEIGHT} radius={Radius.pill} />
+      </SkeletonGroup>
+    </View>
+  );
+}
+
+/** Sizes only: nothing here depends on the colour scheme. */
+const layout = StyleSheet.create({
+  content: { padding: Spacing.lg, gap: Spacing.md },
+  fact: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    columnGap: Spacing.md,
+    rowGap: Spacing.xs,
+  },
+  line: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    columnGap: Spacing.md,
+    rowGap: Spacing.xs,
+  },
+  shrink: { flexShrink: 1 },
+  value: { flexShrink: 1 },
+  block: { gap: Spacing.xs },
+});
+
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.background },
-    content: { padding: Spacing.lg, gap: Spacing.md },
-    title: { color: theme.text, fontSize: FontSize.heading, fontWeight: '700' },
-    meta: { color: theme.textSecondary, fontSize: FontSize.body },
-    facts: {
-      backgroundColor: theme.card,
-      borderRadius: Radius.lg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.divider,
-      padding: Spacing.lg,
-      gap: Spacing.sm,
-    },
-    fact: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.md },
-    factLabel: { color: theme.textSecondary, fontSize: FontSize.body },
-    factValue: {
-      flex: 1,
-      color: theme.text,
-      fontSize: FontSize.body,
-      fontWeight: '600',
-      textAlign: 'right',
-    },
-    block: { gap: Spacing.xs },
-    label: { color: theme.textSecondary, fontSize: FontSize.caption, fontWeight: '700' },
-    body: { color: theme.text, fontSize: FontSize.body },
-    item: {
-      backgroundColor: theme.card,
-      borderRadius: Radius.md,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.divider,
-      padding: Spacing.md,
-      gap: Spacing.xs,
-    },
-    itemRow: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.md },
-    itemName: { flex: 1, color: theme.text, fontSize: FontSize.body, fontWeight: '600' },
-    itemQuantity: { color: theme.text, fontSize: FontSize.body },
-    itemComment: { color: theme.textSecondary, fontSize: FontSize.caption },
-    failure: { gap: Spacing.xs },
-    error: { color: theme.danger, fontSize: FontSize.body, textAlign: 'center' },
-    errorDetail: { color: theme.textSecondary, fontSize: FontSize.caption, textAlign: 'center' },
-    button: {
-      minHeight: MIN_TOUCH_TARGET,
-      borderRadius: Radius.md,
-      backgroundColor: theme.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    pressed: { opacity: 0.75 },
-    buttonText: { color: theme.onPrimary, fontSize: FontSize.title, fontWeight: '600' },
-    secondary: {
-      minHeight: MIN_TOUCH_TARGET,
-      borderRadius: Radius.md,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.danger,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    secondaryText: { color: theme.danger, fontSize: FontSize.title, fontWeight: '600' },
   });

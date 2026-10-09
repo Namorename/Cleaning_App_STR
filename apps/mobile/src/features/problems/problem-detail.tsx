@@ -1,10 +1,19 @@
+import { problemPriorityTone, problemStatusTone } from '@str-ops/shared';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { FontSize, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import { Badge } from '@/components/badge';
+import { Button } from '@/components/button';
+import { Card } from '@/components/card';
+import { ErrorBanner } from '@/components/error-banner';
+import { FailureText } from '@/components/failure-text';
+import { Icon } from '@/components/icon';
+import { Skeleton, SkeletonGroup } from '@/components/skeleton';
+import { Text } from '@/components/text';
+import { BUTTON_HEIGHT, Radius, Spacing, type Theme } from '@/constants/theme';
 import { MediaStrip, type StripItem } from '@/features/media/media-strip';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
-import { serverErrorText } from '@/lib/server-error';
 
 import { formatReportedAt, problemPlace, problemPriorityText, problemStatusText } from './format';
 import { MAX_PROBLEM_PHOTOS, type Problem } from './schema';
@@ -27,6 +36,16 @@ interface ProblemDetailProps {
   onOpenChat?: () => void;
   error: Error | null;
   notice: string | null;
+  /**
+   * A refresh that failed over the report still on screen: said above it, the
+   * report stays (a failure to load at all is the route's error state).
+   */
+  refreshError?: Error | null;
+  /**
+   * The head technician's part, under the facts: who holds the repair,
+   * «Назначить», «Снять с работы», the history (features/board).
+   */
+  dispatch?: ReactNode;
 }
 
 /**
@@ -34,7 +53,9 @@ interface ProblemDetailProps {
  *
  * Presentational: the route wires the camera and the queue in. Photos can be
  * added and taken back only while the report is open, the same rule the
- * server applies; afterwards the strip is a record.
+ * server applies; afterwards the strip is a record. The layout is the one it
+ * had (redesign-plan §4.2): the status a pill in its own tone, «Срочно» a pill
+ * of its own, the work that fixes it the main button, the rest outlined.
  */
 export function ProblemDetail({
   problem,
@@ -51,45 +72,69 @@ export function ProblemDetail({
   onOpenChat,
   error,
   notice,
+  refreshError = null,
+  dispatch,
 }: ProblemDetailProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
-  const failure = error === null ? null : serverErrorText(error);
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>{problem.title}</Text>
-      <Text style={styles.meta}>
+    <ScrollView style={styles.screen} contentContainerStyle={layout.content}>
+      {/* Error over cache, as the lists have it: the saved report stays. This
+          screen has no pull-to-refresh, so the line does not ask for one. */}
+      {refreshError !== null ? (
+        <ErrorBanner title={t('common.refreshFailedSaved')} error={refreshError} />
+      ) : null}
+
+      <Text variant="heading">{problem.title}</Text>
+      <Text tone="secondary">
         {problemPlace(problem)} · {formatReportedAt(problem.created_at)}
       </Text>
 
-      <View style={styles.facts}>
-        <Fact
-          label={t('problems.statusLabel')}
-          value={problemStatusText(problem.status)}
-          styles={styles}
+      {problem.priority === 'high' ? (
+        // The word the task screen and the supply request use for the same flag.
+        <Badge
+          testID="problem-urgent"
+          label={t('supplies.priorities.urgent')}
+          tone={problemPriorityTone('high')}
         />
-        <Fact
-          label={t('problems.priorityLabel')}
-          value={problemPriorityText(problem.priority)}
-          styles={styles}
-        />
+      ) : null}
+
+      <Card>
+        <Fact label={t('problems.statusLabel')}>
+          <Badge
+            testID="problem-status"
+            label={problemStatusText(problem.status)}
+            tone={problemStatusTone(problem.status)}
+          />
+        </Fact>
+        <Fact label={t('problems.priorityLabel')}>
+          <Text align="right" style={layout.value}>
+            {problemPriorityText(problem.priority)}
+          </Text>
+        </Fact>
         {problem.cancel_reason !== null ? (
-          <Fact label={t('problems.cancelReason')} value={problem.cancel_reason} styles={styles} />
+          <Fact label={t('problems.cancelReason')}>
+            <Text align="right" style={layout.value}>
+              {problem.cancel_reason}
+            </Text>
+          </Fact>
         ) : null}
-      </View>
+      </Card>
+
+      {dispatch}
 
       {problem.description !== null ? (
-        <View style={styles.block}>
-          <Text style={styles.label}>{t('problems.descriptionLabel')}</Text>
-          <Text style={styles.body}>{problem.description}</Text>
+        <View style={layout.block}>
+          <BlockLabel text={t('problems.descriptionLabel')} />
+          <Text>{problem.description}</Text>
         </View>
       ) : null}
 
-      <View style={styles.block}>
-        <Text style={styles.label}>{t('problems.photosLabel')}</Text>
+      <View style={layout.block}>
+        <BlockLabel text={t('problems.photosLabel')} />
         {photos.length === 0 && !canEdit ? (
-          <Text style={styles.hint}>{t('problems.noPhotos')}</Text>
+          <Text tone="secondary">{t('problems.noPhotos')}</Text>
         ) : null}
         <MediaStrip
           items={photos}
@@ -103,117 +148,104 @@ export function ProblemDetail({
       </View>
 
       {notice !== null ? (
-        <Text accessibilityLiveRegion="polite" style={styles.hint}>
+        <Text accessibilityLiveRegion="polite" tone="secondary">
           {notice}
         </Text>
       ) : null}
 
-      {failure !== null ? (
-        <View accessibilityLiveRegion="polite" style={styles.failure}>
-          <Text style={styles.error}>{failure.text}</Text>
-          {failure.detail !== null ? (
-            <Text style={styles.errorDetail}>{failure.detail}</Text>
-          ) : null}
-        </View>
-      ) : null}
+      {/* The last move's failure, next to the buttons. */}
+      {error !== null ? <FailureText error={error} /> : null}
 
       {fixTaskId !== null ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('problems.openFixTask')}
-          onPress={() => onOpenFixTask(fixTaskId)}
-          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
-        >
-          <Text style={styles.buttonText}>{t('problems.openFixTask')}</Text>
-        </Pressable>
+        <Button label={t('problems.openFixTask')} onPress={() => onOpenFixTask(fixTaskId)} />
       ) : null}
 
       {onOpenChat !== undefined ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('problems.openChat')}
+        <Button
+          variant="outline"
+          label={t('problems.openChat')}
+          left={<Icon name="action.openChat" tone="primary" />}
           onPress={onOpenChat}
-          style={({ pressed }) => [styles.secondary, pressed && styles.buttonPressed]}
-        >
-          <Text style={styles.secondaryText}>{t('problems.openChat')}</Text>
-        </Pressable>
+        />
       ) : null}
 
-      {canEdit ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('problems.edit')}
-          onPress={onEdit}
-          style={({ pressed }) => [styles.secondary, pressed && styles.buttonPressed]}
-        >
-          <Text style={styles.secondaryText}>{t('problems.edit')}</Text>
-        </Pressable>
-      ) : null}
+      {canEdit ? <Button variant="outline" label={t('problems.edit')} onPress={onEdit} /> : null}
     </ScrollView>
   );
 }
 
 interface FactProps {
   label: string;
-  value: string;
-  styles: ReturnType<typeof createStyles>;
+  children: ReactNode;
 }
 
-function Fact({ label, value, styles }: FactProps) {
+/** A fact and its value on one line; at a large font the value wraps under it. */
+function Fact({ label, children }: FactProps) {
   return (
-    <View style={styles.fact}>
-      <Text style={styles.factLabel}>{label}</Text>
-      <Text style={styles.factValue}>{value}</Text>
+    <View style={layout.fact}>
+      <Text tone="secondary" style={layout.shrink}>
+        {label}
+      </Text>
+      {children}
     </View>
   );
 }
 
+interface BlockLabelProps {
+  text: string;
+}
+
+function BlockLabel({ text }: BlockLabelProps) {
+  return (
+    <Text variant="caption" tone="secondary" weight={700}>
+      {text}
+    </Text>
+  );
+}
+
+/** The skeleton's blocks: the title, a line, the facts' card, a button. */
+const SKELETON_HEADING = 28;
+const SKELETON_LINE = 16;
+const SKELETON_CARD = 96;
+
+interface ProblemDetailSkeletonProps {
+  /** What is loading, said to the reader. */
+  label: string;
+}
+
+/** The report's shape while it loads (the task screen's, `TaskDetailSkeleton`). */
+export function ProblemDetailSkeleton({ label }: ProblemDetailSkeletonProps) {
+  const styles = useThemedStyles(createStyles);
+
+  return (
+    <View style={styles.screen}>
+      <SkeletonGroup label={label} style={layout.content}>
+        <Skeleton height={SKELETON_HEADING} width="70%" />
+        <Skeleton height={SKELETON_LINE} width="45%" />
+        <Skeleton height={SKELETON_CARD} radius={Radius.card} />
+        <Skeleton height={BUTTON_HEIGHT} radius={Radius.pill} />
+      </SkeletonGroup>
+    </View>
+  );
+}
+
+/** Sizes only: nothing here depends on the colour scheme. */
+const layout = StyleSheet.create({
+  content: { padding: Spacing.lg, gap: Spacing.md },
+  fact: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    columnGap: Spacing.md,
+    rowGap: Spacing.xs,
+  },
+  shrink: { flexShrink: 1 },
+  value: { flexShrink: 1 },
+  block: { gap: Spacing.xs },
+});
+
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.background },
-    content: { padding: Spacing.lg, gap: Spacing.md },
-    title: { color: theme.text, fontSize: FontSize.heading, fontWeight: '700' },
-    meta: { color: theme.textSecondary, fontSize: FontSize.body },
-    facts: {
-      backgroundColor: theme.card,
-      borderRadius: Radius.lg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.divider,
-      padding: Spacing.lg,
-      gap: Spacing.sm,
-    },
-    fact: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.md },
-    factLabel: { color: theme.textSecondary, fontSize: FontSize.body },
-    factValue: {
-      flex: 1,
-      color: theme.text,
-      fontSize: FontSize.body,
-      fontWeight: '600',
-      textAlign: 'right',
-    },
-    block: { gap: Spacing.xs },
-    label: { color: theme.textSecondary, fontSize: FontSize.caption, fontWeight: '700' },
-    body: { color: theme.text, fontSize: FontSize.body },
-    hint: { color: theme.textSecondary, fontSize: FontSize.body },
-    failure: { gap: Spacing.xs },
-    error: { color: theme.danger, fontSize: FontSize.body, textAlign: 'center' },
-    errorDetail: { color: theme.textSecondary, fontSize: FontSize.caption, textAlign: 'center' },
-    button: {
-      minHeight: MIN_TOUCH_TARGET,
-      borderRadius: Radius.md,
-      backgroundColor: theme.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    buttonPressed: { opacity: 0.75 },
-    buttonText: { color: theme.onPrimary, fontSize: FontSize.title, fontWeight: '600' },
-    secondary: {
-      minHeight: MIN_TOUCH_TARGET,
-      borderRadius: Radius.md,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    secondaryText: { color: theme.primary, fontSize: FontSize.title, fontWeight: '600' },
   });

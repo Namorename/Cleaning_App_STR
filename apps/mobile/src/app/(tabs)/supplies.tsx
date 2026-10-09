@@ -1,14 +1,11 @@
 import { router } from 'expo-router';
 import { useCallback, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 
-import { ListAction } from '@/components/list-action';
 import { groupSupplyRequests } from '@/features/supplies/schema';
 import { SupplyList } from '@/features/supplies/supply-list';
 import { useMySupplyRequests } from '@/features/supplies/use-supplies';
 
 export default function SuppliesScreen() {
-  const { t } = useTranslation();
   const { data, isPending, error, refetch, isRefetching } = useMySupplyRequests();
 
   const sections = useMemo(
@@ -36,7 +33,7 @@ export default function SuppliesScreen() {
       onRefresh={onRefresh}
       isRefreshing={isRefetching}
       onPress={onPress}
-      header={<ListAction label={t('supplies.request')} onPress={onRequest} />}
+      onRequest={onRequest}
     />
   );
 }

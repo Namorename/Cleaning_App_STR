@@ -1,18 +1,20 @@
 import { propertyPath, splitPlace } from '@str-ops/shared';
 
 import { localizedText } from '@/features/steps/schema';
-import { INTL_LOCALES, currentLanguage, i18n } from '@/i18n';
+import { INTL_LOCALES, currentLanguage, i18n, wordContext } from '@/i18n';
 
-import { isSameDayTurnover, startNotBefore, type CleaningTask } from './schema';
+import { calendarDay, isSameDayTurnover, startNotBefore, type CleaningTask } from './schema';
 
 /**
  * Formatters are built per language and kept: constructing an
  * `Intl.DateTimeFormat` is not free and a list rebuilds every visible row.
+ * A screen with formats of its own keeps its own cache and asks
+ * `formatterFor` with it (features/board/format.ts).
  */
 const dateFormatters = new Map<string, Intl.DateTimeFormat>();
 const timeFormatters = new Map<string, Intl.DateTimeFormat>();
 
-function formatterFor(
+export function formatterFor(
   cache: Map<string, Intl.DateTimeFormat>,
   options: Intl.DateTimeFormatOptions,
 ): Intl.DateTimeFormat {
@@ -28,18 +30,45 @@ function formatterFor(
 }
 
 /**
- * `scheduled_date` is a calendar date, not an instant. Parsing it with the
- * plain Date constructor would read it as midnight UTC and show the previous
- * day to anyone west of Greenwich, so the parts are split by hand.
+ * A calendar date — `scheduled_date`, a day in a task's history — as local
+ * midnight of that day. Parsing it with the plain Date constructor would read
+ * it as midnight UTC and show the previous day to anyone west of Greenwich, so
+ * the parts are split by hand.
  */
-export function formatScheduledDate(task: CleaningTask): string {
-  const [year, month, day] = task.scheduled_date.split('-').map(Number);
+export function parseCalendarDate(date: string): Date {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
 
+/** «пт, 9 октября»: a calendar date with its weekday, in her language. */
+export function formatCalendarDate(date: string): string {
   return formatterFor(dateFormatters, {
     day: 'numeric',
     month: 'long',
     weekday: 'short',
-  }).format(new Date(year, month - 1, day));
+  }).format(parseCalendarDate(date));
+}
+
+export function formatScheduledDate(task: CleaningTask): string {
+  return formatCalendarDate(task.scheduled_date);
+}
+
+/**
+ * The heading of a day in a list: «Сегодня», «Завтра», or else its weekday and
+ * date in her language. "Today" is the phone's own calendar date, the reading
+ * `earliestClaimableDate` uses. A heading starts with a capital, as the two
+ * words do; `Intl` writes a Russian or a Czech weekday in lower case.
+ */
+export function formatDayHeading(date: string, now: Date = new Date()): string {
+  if (date === calendarDay(now)) {
+    return i18n.t('tasks.days.today');
+  }
+  if (date === calendarDay(now, 1)) {
+    return i18n.t('tasks.days.tomorrow');
+  }
+
+  const text = formatCalendarDate(date);
+  return text.charAt(0).toLocaleUpperCase(INTL_LOCALES[currentLanguage()]) + text.slice(1);
 }
 
 /**
@@ -69,13 +98,14 @@ const KINDS_NAMED_ON_BANNER: ReadonlySet<CleaningTask['type']> = new Set([
 
 /**
  * What the job is: the title the office gave it, in her language when
- * translated, or else its kind. The panel names these jobs the same way.
+ * translated, or else its kind, in the reader's words. The panel names these
+ * jobs the same way.
  */
 function jobName(task: CleaningTask): string {
   const title = task.title?.trim() ?? '';
   return title !== ''
     ? localizedText(title, task.title_i18n, currentLanguage())
-    : i18n.t(`tasks.kinds.${task.type}`);
+    : i18n.t(`tasks.kinds.${task.type}`, { context: wordContext() });
 }
 
 /**
@@ -93,11 +123,25 @@ function jobName(task: CleaningTask): string {
  * carries no `reservation_id` at all and reads as it did before.
  */
 export function urgencyText(task: CleaningTask): string {
-  if (KINDS_NAMED_ON_BANNER.has(task.type) || task.reservation_id === null) {
+  if (isNamedByJob(task)) {
     return jobName(task);
   }
-  if (!isSameDayTurnover(task)) {
-    return i18n.t('tasks.urgency.noCheckIn');
+  return checkInText(task) ?? i18n.t('tasks.urgency.noCheckIn');
+}
+
+/** No check-in to plan around: the line names the job instead (see `urgencyText`). */
+function isNamedByJob(task: CleaningTask): boolean {
+  return KINDS_NAMED_ON_BANNER.has(task.type) || task.reservation_id === null;
+}
+
+/**
+ * The check-in a list row states under its window — the next guest arrives
+ * that day — or null when there is none to plan around. The same words as
+ * `urgencyText`, which is this or the line that takes its place.
+ */
+export function checkInText(task: CleaningTask): string | null {
+  if (isNamedByJob(task) || !isSameDayTurnover(task)) {
+    return null;
   }
 
   const time = formatDeadlineTime(task);
@@ -138,7 +182,9 @@ const CLEANING_KINDS: ReadonlySet<CleaningTask['type']> = new Set(['cleaning', '
 /**
  * The key of a word about the job, for its kind. A key rather than the text,
  * so the screen translates it through its own `t` and redraws when she
- * changes language.
+ * changes language — in the reader's words, `{ context: wordContext() }`: a
+ * technician reads a repair's words in their `_tech` variant, and the words
+ * of an old cleaning of his, which have none, as they are.
  */
 export function jobWordKey(type: CleaningTask['type'], word: JobWord): string {
   return (CLEANING_KINDS.has(type) ? CLEANING_WORDS : WORK_WORDS)[word];
@@ -152,7 +198,7 @@ export function formatClockTime(instant: string): string {
 }
 
 /** "10:00:00" as Postgres writes a time, shown as "10:00". */
-function clockTime(value: string): string {
+export function clockTime(value: string): string {
   return value.slice(0, 5);
 }
 
@@ -173,12 +219,32 @@ export function formatWindow(task: CleaningTask): string | null {
   return `${from}–${to}`;
 }
 
+/** The window as a list row draws it: the first line large, the second smaller under it. */
+export interface WindowLines {
+  first: string;
+  second: string | null;
+}
+
+/**
+ * The window split in two for a row: the start, and the end under it. With one
+ * edge unknown the other stands alone, still open on the missing side, as
+ * `formatWindow` writes it.
+ */
+export function windowLines(task: CleaningTask): WindowLines | null {
+  if (task.time_from !== null && task.time_to !== null) {
+    return { first: clockTime(task.time_from), second: `–${clockTime(task.time_to)}` };
+  }
+
+  const window = formatWindow(task);
+  return window === null ? null : { first: window, second: null };
+}
+
 /**
  * When a cleaning that cannot start yet will open, as one sentence.
  *
  * The window is a local clock time and the date is a calendar date, so both
  * are formatted from the local instant `startNotBefore` builds — never from
- * a UTC parse, for the reason given at `formatScheduledDate`.
+ * a UTC parse, for the reason given at `formatCalendarDate`.
  */
 export function formatStartNotBefore(task: CleaningTask): string {
   const opensAt = startNotBefore(task);

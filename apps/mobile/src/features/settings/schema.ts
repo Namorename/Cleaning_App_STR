@@ -1,5 +1,7 @@
-import { Constants, type Enums } from '@str-ops/shared';
+import { Constants, type AppRole, type Enums } from '@str-ops/shared';
 import { z } from 'zod';
+
+import { knownRole } from '@/features/auth/role';
 
 export type PushKind = Enums<'push_kind'>;
 
@@ -11,6 +13,44 @@ export type PushKind = Enums<'push_kind'>;
  * that silently matches nothing.
  */
 export const PUSH_KINDS: readonly PushKind[] = Constants.public.Enums.push_kind;
+
+/**
+ * The kinds sent to some roles only, each with the roles it is for; a kind
+ * not named here is offered to everybody. A new task (problem_new) goes to
+ * the head technician alone (20261003160000_head_tech_push), so nobody else
+ * is shown its switch — not a switch greyed out, no row at all (owner's word
+ * 2026-10-03, docs/tech-plan.md, decision 19).
+ */
+const KIND_ROLES: Partial<Record<PushKind, readonly AppRole[]>> = {
+  problem_new: ['head_tech'],
+};
+
+/**
+ * The kinds a role never receives. A technician and a head technician have
+ * nothing to do with cleanings (tech-plan §2): a new or a free cleaning, or a
+ * booking cancelled while one is under way, is never theirs — seven kinds
+ * for the technician, not ten (§5); the head technician has «Новое задание»
+ * on top. Assigned, taken off, cancelled, moved, new hours: their repairs.
+ */
+const NOT_FOR: Partial<Record<AppRole, readonly PushKind[]>> = {
+  tech: ['cleaning_new', 'cleaning_free', 'booking_cancelled_live'],
+  head_tech: ['cleaning_new', 'cleaning_free', 'booking_cancelled_live'],
+};
+
+/**
+ * The kinds whose switch a person with this role is shown, in the enum's
+ * order. A token without a role, or with one this build does not know, is
+ * shown only the kinds that go to everybody — the cleaner's.
+ */
+export function kindsFor(role: string | null): readonly PushKind[] {
+  const known = knownRole(role);
+  const never: readonly PushKind[] = known === null ? [] : (NOT_FOR[known] ?? []);
+  return PUSH_KINDS.filter((kind) => {
+    const roles: readonly string[] | undefined = KIND_ROLES[kind];
+    const isOffered = roles === undefined || (known !== null && roles.includes(known));
+    return isOffered && !never.includes(kind);
+  });
+}
 
 function isPushKind(value: unknown): value is PushKind {
   return typeof value === 'string' && (PUSH_KINDS as readonly string[]).includes(value);

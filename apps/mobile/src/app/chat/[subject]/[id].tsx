@@ -2,10 +2,12 @@ import { randomUUID } from 'expo-crypto';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
-import { FontSize, Spacing, type Theme } from '@/constants/theme';
+import { ErrorState } from '@/components/error-state';
+import { Text } from '@/components/text';
+import { Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
 import { SignedInRoute } from '@/features/auth/signed-in-route';
 import type { SendMessageVariables } from '@/features/chat/api';
@@ -38,7 +40,6 @@ import {
 } from '@/features/media/use-media';
 import { useShowingThread } from '@/features/push/use-showing-thread';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
-import { serverErrorText } from '@/lib/server-error';
 
 const Params = z.object({ subject: z.enum(CHAT_SUBJECT_KINDS), id: z.string().uuid() });
 
@@ -108,7 +109,8 @@ function ChatScreen() {
   const local = useLocalMedia();
   const ownMedia = useOwnMediaStates();
   const [drafts, setDrafts] = useState<LocalMediaRecord[]>([]);
-  const [isCapturing, setCapturing] = useState(false);
+  // Which way a photo is being taken right now: that button spins, the other waits.
+  const [capturing, setCapturing] = useState<MediaSource | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   // A signed link is only worth asking for when the phone no longer has the file.
@@ -135,16 +137,29 @@ function ChatScreen() {
     return <Message text={t('chat.notFound')} styles={styles} />;
   }
 
-  if (thread.error) {
-    const failure = serverErrorText(thread.error);
-    return <Message text={failure.text} detail={failure.detail} styles={styles} />;
+  // A thread the server never opened. One that opened before and only failed
+  // to refresh (TanStack keeps the data beside the error) is still the thread.
+  if (thread.error && thread.data === undefined) {
+    return (
+      <View style={styles.screen}>
+        <ErrorState
+          error={thread.error}
+          title={t('common.screenFailed')}
+          onRetry={() => void thread.refetch()}
+        />
+      </View>
+    );
   }
 
+  // Its refresh failing is said over the transcript like a failed poll — once
+  // there are messages to say it over; until then they are still loading.
+  const loadError = messages.error ?? (messages.data === undefined ? null : thread.error);
+
   const attachFrom = async (source: MediaSource) => {
-    if (isCapturing || drafts.length >= CHAT_MAX_PHOTOS) {
+    if (capturing !== null || drafts.length >= CHAT_MAX_PHOTOS) {
       return;
     }
-    setCapturing(true);
+    setCapturing(source);
     setNotice(null);
     try {
       const captured = source === 'gallery' ? await pickPhotoFromGallery() : await capturePhoto();
@@ -157,7 +172,7 @@ function ChatScreen() {
     } catch (error: unknown) {
       setNotice(attachFailure(error, t));
     } finally {
-      setCapturing(false);
+      setCapturing(null);
     }
   };
 
@@ -196,7 +211,8 @@ function ChatScreen() {
       messages={messages.data}
       pending={pending}
       currentUserId={userId}
-      error={send.error ?? messages.error}
+      error={send.error}
+      loadError={loadError}
       notice={notice}
       onSend={onSend}
       ownMedia={ownMedia}
@@ -208,7 +224,7 @@ function ChatScreen() {
       onTakePhoto={() => void attachFrom('camera')}
       onPickPhoto={() => void attachFrom('gallery')}
       onDiscardDraft={discardDraft}
-      isCapturing={isCapturing}
+      capturing={capturing}
     />
   );
 }
@@ -237,29 +253,25 @@ function attachVariables(
 
 interface MessageProps {
   text: string;
-  detail?: string | null;
   styles: ReturnType<typeof createStyles>;
 }
 
-function Message({ text, detail = null, styles }: MessageProps) {
+function Message({ text, styles }: MessageProps) {
   return (
-    <View style={styles.centered}>
-      <Text style={styles.message}>{text}</Text>
-      {detail !== null ? <Text style={styles.detail}>{detail}</Text> : null}
+    <View style={[styles.screen, styles.centered]}>
+      <Text tone="secondary" align="center">
+        {text}
+      </Text>
     </View>
   );
 }
 
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
+    screen: { flex: 1, backgroundColor: theme.background },
     centered: {
-      flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      gap: Spacing.sm,
       padding: Spacing.xl,
-      backgroundColor: theme.background,
     },
-    message: { color: theme.textSecondary, fontSize: FontSize.body, textAlign: 'center' },
-    detail: { color: theme.textSecondary, fontSize: FontSize.caption, textAlign: 'center' },
   });

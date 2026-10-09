@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { fetchArchivePage, fetchBoardProblem, fetchBoardProblems } from '@/features/board/api';
 import { fetchMessages } from '@/features/chat/api';
+import { fetchProblemEvents } from '@/features/history/api';
 import { fetchHostSettings } from '@/features/host/api';
 import { fetchProblemMedia, fetchTaskMedia } from '@/features/media/api';
 import { fetchReportProperties } from '@/features/properties/api';
@@ -108,6 +110,10 @@ const READERS: readonly (() => Promise<unknown>)[] = [
   () => fetchMyLanguage(ANY_ID),
   () => fetchMyPushPreferences(ANY_ID),
   () => fetchSupplyCatalog(),
+  () => fetchBoardProblems(),
+  () => fetchBoardProblem(ANY_ID),
+  () => fetchArchivePage(0),
+  () => fetchProblemEvents(ANY_ID),
 ];
 
 const schema = indexSchema(

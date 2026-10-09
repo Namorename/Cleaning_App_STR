@@ -1,5 +1,4 @@
-import { SymbolView, type SymbolViewProps } from 'expo-symbols';
-import { useState } from 'react';
+import { useState, type Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Platform,
@@ -11,23 +10,17 @@ import {
 } from 'react-native';
 
 import { MIN_TOUCH_TARGET } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
 
-/** The size the eye is drawn at, in Material and SF Symbols alike. */
-const ICON_SIZE = 24;
-
-const SHOW: SymbolViewProps['name'] = { ios: 'eye', android: 'visibility', web: 'visibility' };
-const HIDE: SymbolViewProps['name'] = {
-  ios: 'eye.slash',
-  android: 'visibility_off',
-  web: 'visibility_off',
-};
+import { Icon } from './icon';
 
 /** Everything a text field takes, except what the field decides for itself. */
 export type PasswordInputProps = Omit<
   TextInputProps,
   'secureTextEntry' | 'keyboardType' | 'autoCorrect' | 'spellCheck'
->;
+> & {
+  /** Handed on to the input with the rest, as `TextField` hands its own. */
+  ref?: Ref<TextInput>;
+};
 
 /**
  * A password field with an eye that shows what was typed.
@@ -35,7 +28,9 @@ export type PasswordInputProps = Omit<
  * The passwords here are generated — twelve letters and digits copied off a
  * letter or read off the manager's screen — and a masked field hides the one
  * wrong letter that makes the sign-in fail. The field opens masked every time;
- * the eye shows the text until it is pressed again.
+ * the eye shows the text until it is pressed again. The eye is Lucide's: open
+ * while the text is hidden (what a press does), struck through while it is
+ * shown, on a 48 dp target at the field's end.
  *
  * A shown password is still a password: nothing corrects, capitalises or
  * suggests it, and on Android the keyboard is told it is a visible password,
@@ -43,7 +38,6 @@ export type PasswordInputProps = Omit<
  */
 export function PasswordInput({ style, ...props }: PasswordInputProps) {
   const { t } = useTranslation();
-  const theme = useTheme();
   const [isShown, setIsShown] = useState(false);
 
   return (
@@ -63,7 +57,7 @@ export function PasswordInput({ style, ...props }: PasswordInputProps) {
         onPress={() => setIsShown((before) => !before)}
         style={({ pressed }) => [styles.eye, pressed && styles.pressed]}
       >
-        <SymbolView name={isShown ? HIDE : SHOW} size={ICON_SIZE} tintColor={theme.textSecondary} />
+        <Icon name={isShown ? 'action.hidePassword' : 'action.showPassword'} tone="secondary" />
       </Pressable>
     </View>
   );

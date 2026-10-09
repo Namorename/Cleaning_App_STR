@@ -1,3 +1,4 @@
+import { matchesAllTokens } from '@str-ops/shared';
 import { z } from 'zod';
 
 export const SUPPLY_UNITS = ['pcs', 'pack', 'l', 'kg', 'roll'] as const;
@@ -46,16 +47,14 @@ export function catalogItemName(item: Pick<CatalogItem, 'name' | 'name_i18n'>, l
   return translated !== undefined && translated.trim() !== '' ? translated : item.name;
 }
 
-/** Entries whose name, in any language, contains the query; an empty query keeps them all. */
+/**
+ * Entries whose name, in any language, holds every word of the query, case and
+ * diacritics aside — the panel's search rule (`matchesAllTokens`), so "cistic"
+ * finds Čistič. An empty query keeps them all.
+ */
 export function filterCatalog(items: readonly CatalogItem[], query: string): CatalogItem[] {
-  const needle = query.trim().toLocaleLowerCase();
-  if (needle === '') {
-    return [...items];
-  }
   return items.filter((item) =>
-    [item.name, ...Object.values(item.name_i18n)].some((name) =>
-      name.toLocaleLowerCase().includes(needle),
-    ),
+    [item.name, ...Object.values(item.name_i18n)].some((name) => matchesAllTokens(name, query)),
   );
 }
 
@@ -124,13 +123,9 @@ export function pickCatalogItem(
   return { ...line, catalogItemId: item.id, name: catalogItemName(item, language), unit: item.unit };
 }
 
-/** Back to typing: the pick is forgotten, the name field is hers again. */
-export function clearCatalogPick(line: SupplyItemDraft): SupplyItemDraft {
-  return { ...line, catalogItemId: null, name: '' };
-}
-
-export function emptySupplyDraft(firstKey: string): SupplyDraft {
-  return { items: [newItemDraft(firstKey)], priority: 'normal', note: '' };
+/** A new request: an empty cart. A line exists once she chooses or types something. */
+export function emptySupplyDraft(): SupplyDraft {
+  return { items: [], priority: 'normal', note: '' };
 }
 
 /** "1,5" and "1.5" both mean one and a half. Anything else is not a number. */
@@ -147,6 +142,21 @@ export function filledItems(draft: SupplyDraft): SupplyItemDraft[] {
   );
 }
 
+/**
+ * Whether the server will take the line, mirroring its refusals. A picked line
+ * brings its own name; only a typed one is checked for it.
+ */
+export function isLineValid(item: SupplyItemDraft): boolean {
+  const name = item.name.trim();
+  const hasName =
+    item.catalogItemId !== null || (name !== '' && name.length <= MAX_SUPPLY_ITEM_NAME);
+  return (
+    hasName &&
+    parseQuantity(item.quantity) !== null &&
+    item.comment.length <= MAX_SUPPLY_ITEM_COMMENT
+  );
+}
+
 export type SupplyDraftIssue = 'itemsRequired' | 'itemInvalid' | 'noteTooLong';
 
 /** Why the draft cannot be sent yet, mirroring the server's refusals, or null. */
@@ -155,15 +165,7 @@ export function supplyDraftIssue(draft: SupplyDraft): SupplyDraftIssue | null {
   if (items.length === 0) {
     return 'itemsRequired';
   }
-  // A picked line brings its own name; only a typed one is checked for it.
-  const bad = items.some(
-    (item) =>
-      (item.catalogItemId === null &&
-        (item.name.trim() === '' || item.name.trim().length > MAX_SUPPLY_ITEM_NAME)) ||
-      parseQuantity(item.quantity) === null ||
-      item.comment.length > MAX_SUPPLY_ITEM_COMMENT,
-  );
-  if (bad) {
+  if (!items.every(isLineValid)) {
     return 'itemInvalid';
   }
   if (draft.note.length > MAX_SUPPLY_NOTE) {

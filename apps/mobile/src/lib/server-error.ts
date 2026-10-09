@@ -1,6 +1,6 @@
 import { serverErrorOptions } from '@str-ops/shared';
 
-import { i18n } from '@/i18n';
+import { i18n, wordContext } from '@/i18n';
 
 /**
  * What a database function raised, as supabase-js hands it over.
@@ -87,17 +87,20 @@ export function serverErrorKey(error: unknown): string | null {
 /**
  * Turn a failure into something worth showing.
  *
- * A key this build knows is translated with its parameters filled in. Anything
- * else — an older function that still speaks prose, a network failure, a key
- * added after this build shipped — becomes one general sentence in the
- * reader's language, with the raw message underneath rather than thrown away.
+ * A key this build knows is translated with its parameters filled in, in the
+ * reader's words: a technician reads its `_tech` variant where there is one
+ * (docs/tech-plan.md §6). Anything else — an older function that still speaks
+ * prose, a network failure, a key added after this build shipped — becomes
+ * one general sentence in the reader's language, with the raw message
+ * underneath rather than thrown away.
  */
 export function serverErrorText(error: unknown): ServerErrorText {
   const { details, message } = asRaised(error);
   const key = serverErrorKey(error);
 
   if (key !== null) {
-    return { text: i18n.t(key, serverErrorOptions(key, parameters(details))), detail: null };
+    const options = { ...serverErrorOptions(key, parameters(details)), context: wordContext() };
+    return { text: i18n.t(key, options), detail: null };
   }
 
   return {

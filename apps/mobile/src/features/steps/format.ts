@@ -1,8 +1,9 @@
-import { Constants } from '@str-ops/shared';
+import { Constants, type StatusKey } from '@str-ops/shared';
 
-import { currentLanguage, i18n } from '@/i18n';
+import { formatClockTime } from '@/features/tasks/format';
+import { currentLanguage, i18n, wordContext } from '@/i18n';
 
-import { localizedText, type StepState, type TaskStep } from './schema';
+import { localizedText, stepState, type StepState, type TaskStep } from './schema';
 
 const KNOWN_STEP_TYPES: readonly string[] = Constants.public.Enums.workflow_step_type;
 
@@ -11,7 +12,8 @@ const KNOWN_STEP_TYPES: readonly string[] = Constants.public.Enums.workflow_step
  *
  * The manager's own wording wins when there is one — in the cleaner's
  * language if it was translated, otherwise as the manager wrote it. With no
- * wording of its own the step is named by the app's translation of its type.
+ * wording of its own the step is named by the app's translation of its type,
+ * in the reader's words (a technician's `_tech` variant, where there is one).
  * A type this build has never heard of gets a neutral word rather than a raw
  * identifier.
  */
@@ -20,7 +22,7 @@ export function stepTitle(step: TaskStep): string {
     return localizedText(step.title, step.title_i18n, currentLanguage());
   }
   if (KNOWN_STEP_TYPES.includes(step.type)) {
-    return i18n.t(`steps.types.${step.type}`);
+    return i18n.t(`steps.types.${step.type}`, { context: wordContext() });
   }
   return i18n.t('steps.types.unknown');
 }
@@ -42,3 +44,33 @@ export function stepInstructions(step: TaskStep): string | null {
 export function stepStateText(state: StepState): string {
   return i18n.t(`steps.state.${state}`);
 }
+
+/**
+ * Where a step that no longer waits stands, in words: done at a time, waived
+ * by the manager and why, skipped, or not in this build. Null while it waits.
+ */
+export function stepStatusLine(step: TaskStep): string | null {
+  const state = stepState(step);
+  if (state === 'done' && step.completed_at !== null) {
+    return i18n.t('steps.completedAt', { time: formatClockTime(step.completed_at) });
+  }
+  if (state === 'waived') {
+    return i18n.t('steps.waivedBy', { reason: step.waive_reason ?? '' });
+  }
+  if (state === 'skipped' || state === 'unsupported') {
+    return stepStateText(state);
+  }
+  return null;
+}
+
+/**
+ * Where a step stands, as a key of the tone contract (STATUS_TONE): done is
+ * green, skipped and waived are "cancelled" grey — not the green of done.
+ */
+export const STEP_STATUS_KEY = {
+  done: 'steps.done',
+  skipped: 'steps.skipped',
+  waived: 'steps.waived',
+  pending: 'steps.pending',
+  unsupported: 'steps.unsupported',
+} as const satisfies Readonly<Record<StepState, StatusKey>>;
