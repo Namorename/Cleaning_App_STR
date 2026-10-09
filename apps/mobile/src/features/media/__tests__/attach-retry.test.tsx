@@ -5,6 +5,7 @@ import { sendMessage } from '@/features/chat/api';
 import { stopWatchingConnection } from '@/lib/online';
 import { createAppQueryClient } from '@/lib/query-client';
 import { serverErrorText } from '@/lib/server-error';
+import { signedInWithQueue, signedOutOfQueue } from '@/testing/queue-person';
 import { withClient } from '@/testing/restored-cache';
 
 import { addMedia, confirmMedia, removeMedia, uploadMediaFile, uploadVideoFile } from '../api';
@@ -78,10 +79,13 @@ beforeEach(() => {
   // A look for the server finds it.
   global.fetch = jest.fn(async () => ({ ok: true }) as Response);
   client = createAppQueryClient();
+  // Her uploads, resumed when the signal is back (lib/move-queue.ts).
+  signedInWithQueue(client);
 });
 
 afterEach(() => {
   client.clear();
+  signedOutOfQueue();
   stopWatchingConnection();
   onlineManager.setOnline(true);
   jest.useRealTimers();

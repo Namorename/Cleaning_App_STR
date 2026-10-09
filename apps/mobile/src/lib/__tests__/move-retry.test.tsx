@@ -23,6 +23,7 @@ import { startTask } from '@/features/tasks/api';
 import { taskMutationKeys, useStartTask } from '@/features/tasks/use-tasks';
 import { PROBE_INTERVAL_MS, stopWatchingConnection } from '@/lib/online';
 import { createAppQueryClient } from '@/lib/query-client';
+import { signedInWithQueue, signedOutOfQueue } from '@/testing/queue-person';
 import { withClient } from '@/testing/restored-cache';
 
 /**
@@ -85,10 +86,13 @@ beforeEach(() => {
   // A look for the server finds it.
   global.fetch = jest.fn(async () => ({ ok: true }) as Response);
   client = createAppQueryClient();
+  // Her moves, resumed when the signal is back (lib/move-queue.ts).
+  signedInWithQueue(client);
 });
 
 afterEach(() => {
   client.clear();
+  signedOutOfQueue();
   stopWatchingConnection();
   onlineManager.setOnline(true);
   jest.useRealTimers();

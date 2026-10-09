@@ -3,6 +3,7 @@ import { act, renderHook } from '@testing-library/react-native';
 
 import { stopWatchingConnection } from '@/lib/online';
 import { createAppQueryClient } from '@/lib/query-client';
+import { signedInWithQueue, signedOutOfQueue } from '@/testing/queue-person';
 import { withClient } from '@/testing/restored-cache';
 
 import { ANSWERED_RETRIES, SILENT_RETRIES, STALL_RETRIES } from '../attach-retry';
@@ -160,10 +161,13 @@ beforeEach(async () => {
   );
   await rememberLocalMedia({ ...video, id: MEDIA_ID });
   client = createAppQueryClient();
+  // Her uploads, resumed when the signal is back (lib/move-queue.ts).
+  signedInWithQueue(client);
 });
 
 afterEach(() => {
   client.clear();
+  signedOutOfQueue();
   stopWatchingConnection();
   onlineManager.setOnline(true);
   jest.useRealTimers();

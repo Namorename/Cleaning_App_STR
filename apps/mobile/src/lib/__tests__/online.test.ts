@@ -1,5 +1,7 @@
 import { MutationObserver, onlineManager } from '@tanstack/react-query';
 
+import { signedInWithQueue, signedOutOfQueue } from '@/testing/queue-person';
+
 import { createAppQueryClient } from '../query-client';
 import { goOffline, isNetworkError, PROBE_INTERVAL_MS, stopWatchingConnection } from '../online';
 
@@ -20,6 +22,7 @@ beforeEach(() => {
 
 afterEach(() => {
   stopWatchingConnection();
+  signedOutOfQueue();
   onlineManager.setOnline(true);
   jest.useRealTimers();
 });
@@ -137,6 +140,8 @@ describe('a move without signal', () => {
     // Arrange: the server is never found by a look during this test.
     global.fetch = jest.fn().mockRejectedValue(new TypeError('Network request failed'));
     const client = createAppQueryClient();
+    // Her move, resumed when the signal is back (lib/move-queue.ts).
+    signedInWithQueue(client);
     client.mount();
     const mutationFn = failingThenFine();
     const observer = new MutationObserver(client, { mutationFn });
