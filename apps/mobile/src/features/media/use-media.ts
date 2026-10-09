@@ -28,7 +28,14 @@ import {
   type AddMediaVariables,
   type MediaOwnerRef,
 } from './api';
-import { attachStalls, countAttachFailure, retryAttach, startAttachCount } from './attach-retry';
+import {
+  attachStalls,
+  beginAttachAttempt,
+  countAttachFailure,
+  noteAttachProgress,
+  retryAttach,
+  startAttachCount,
+} from './attach-retry';
 import { discardFile } from './file';
 import { mediaKeys } from './keys';
 import {
@@ -174,7 +181,10 @@ async function attachVideo(
       uri: variables.uri,
       mimeType: variables.mimeType,
       byteSize: variables.byteSize,
-      onProgress: (sent, total) => reportUploadProgress(variables.mediaId, sent, total),
+      onProgress: (sent, total) => {
+        reportUploadProgress(variables.mediaId, sent, total);
+        noteAttachProgress(variables.mediaId, sent);
+      },
       // A piece that ran out of time before is given longer this time.
       stalls: attachStalls(variables.mediaId),
     });
@@ -184,11 +194,12 @@ async function attachVideo(
   return confirmed;
 }
 
-/** One attempt of the queue: the chain, its refusal counted (`attach-retry.ts`). */
+/** One attempt of the queue: the chain, its failure counted (`attach-retry.ts`). */
 async function attachAttempt(
   variables: AttachMediaVariables,
   queryClient: QueryClient,
 ): Promise<TaskMedia> {
+  beginAttachAttempt(variables.mediaId);
   try {
     return await attachMedia(variables, queryClient);
   } catch (error: unknown) {

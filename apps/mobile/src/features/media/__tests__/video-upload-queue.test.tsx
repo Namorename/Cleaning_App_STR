@@ -5,7 +5,7 @@ import { stopWatchingConnection } from '@/lib/online';
 import { createAppQueryClient } from '@/lib/query-client';
 import { withClient } from '@/testing/restored-cache';
 
-import { ANSWERED_RETRIES, STALL_RETRIES } from '../attach-retry';
+import { ANSWERED_RETRIES, SILENT_RETRIES, STALL_RETRIES } from '../attach-retry';
 import { rememberLocalMedia } from '../local-store';
 import { TUS_RETRY_DELAYS_MS } from '../tus';
 import { useAttachMedia, type AttachMediaVariables } from '../use-media';
@@ -13,10 +13,11 @@ import { useAttachMedia, type AttachMediaVariables } from '../use-media';
 /**
  * A video's upload as the queue runs it, end to end: the queue, the
  * resumable client and the app's clock, against a storage that never gets
- * better (the third pass on video, finding 3). Whatever goes wrong, the
- * number of requests in an hour is bounded — silence waits for signal, an
- * answer spends a try — and an upload that cannot go through fails, for its
- * tile to say so.
+ * better (the third pass on video, finding 3; the fourth, finding 1).
+ * Whatever goes wrong, the number of requests in an hour is bounded: an
+ * outage of the whole network waits for signal; an answer of the storage
+ * spends a try; and silence from the storage while the server answers spends
+ * one too. An upload that cannot go through fails, for its tile to say so.
  */
 
 const MEDIA_ID = 'a1b2c3d4-0000-4000-8000-000000000001';
@@ -183,6 +184,45 @@ test('a permanent outage makes one attempt’s requests in an hour, then waits f
   expect(requests).toHaveLength(TRIES_PER_ATTEMPT);
   expect(onlineManager.isOnline()).toBe(false);
   expect(result.current.status).toBe('pending');
+});
+
+// The server answers its health check, so the queue comes back online after
+// each failure — but the storage's own host is out of reach: a DNS filter, a
+// proxy, an outage that does not answer (the fourth pass on video, finding 1).
+describe('a storage host out of reach while the server answers', () => {
+  test('refusing every connection, it is given up on after its attempts, not looped on', async () => {
+    // Arrange
+    network(
+      () => Promise.reject(new TypeError('Network request failed')),
+      async () => answer(200),
+    );
+
+    // Act
+    const result = await sendAndWaitAnHour();
+
+    // Assert
+    expect(SILENT_RETRIES).toBe(4);
+    expect(requests).toHaveLength((SILENT_RETRIES + 1) * TRIES_PER_ATTEMPT);
+    expect(result.current.status).toBe('error');
+    expect(onlineManager.isOnline()).toBe(true);
+  });
+
+  test('never answering at all, it is given up on after its attempts, not looped on', async () => {
+    // Arrange
+    network(
+      (_method, signal) => silence(signal),
+      async () => answer(200),
+    );
+
+    // Act
+    const result = await sendAndWaitAnHour();
+
+    // Assert: each request was cut in its time; none is left hanging.
+    expect(requests).toHaveLength((SILENT_RETRIES + 1) * TRIES_PER_ATTEMPT);
+    expect(requests.every((request) => request.abortedAt !== null)).toBe(true);
+    expect(result.current.status).toBe('error');
+    expect(onlineManager.isOnline()).toBe(true);
+  });
 });
 
 test('a storage that answers 503 for ever is given up on after its tries, not looped on', async () => {

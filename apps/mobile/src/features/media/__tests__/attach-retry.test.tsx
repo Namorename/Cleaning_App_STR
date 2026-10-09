@@ -5,8 +5,14 @@ import { stopWatchingConnection } from '@/lib/online';
 import { createAppQueryClient } from '@/lib/query-client';
 import { withClient } from '@/testing/restored-cache';
 
-import { addMedia, uploadVideoFile } from '../api';
-import { ANSWERED_RETRIES, STALL_RETRIES, isNoSignal, retryAttach } from '../attach-retry';
+import { addMedia, confirmMedia, uploadVideoFile } from '../api';
+import {
+  ANSWERED_RETRIES,
+  SILENT_RETRIES,
+  STALL_RETRIES,
+  isNoSignal,
+  retryAttach,
+} from '../attach-retry';
 import type { TaskMedia } from '../schema';
 import { TUS_CHUNK_BYTES, TusRetryableError, type TusRetryReason } from '../tus';
 import { useAttachMedia, type AttachMediaVariables } from '../use-media';
@@ -32,7 +38,10 @@ jest.mock('../api', () => ({
   signedMediaUrls: jest.fn(),
 }));
 jest.mock('../file', () => ({ discardFile: jest.fn() }));
-jest.mock('../local-store', () => ({}));
+jest.mock('../local-store', () => ({
+  loadLocalMedia: jest.fn(async () => ({})),
+  forgetLocalMedia: jest.fn(async () => ({})),
+}));
 jest.mock('@/features/auth/session', () => ({ useSession: () => ({ userId: 'u1' }) }));
 
 const photo: AttachMediaVariables = {
@@ -224,6 +233,84 @@ describe('a video the storage keeps answering', () => {
 
     // Assert
     expect(stallsHanded()).toEqual([0, 1, 2, 3]);
+  });
+});
+
+/** The row once the server has the file. */
+const confirmedRow = { ...videoRow, uploaded_at: '2026-10-09T08:30:00.000Z' } as TaskMedia;
+
+const MEGABYTE = 1_000_000;
+
+/**
+ * Every attempt up to `failures` tells of a megabyte more of the file in
+ * storage than the one before it, then fails; the next one goes through.
+ */
+function failAfterProgress(failures: number, failure: () => Error): void {
+  let attempts = 0;
+  jest.mocked(uploadVideoFile).mockImplementation(async ({ onProgress }) => {
+    attempts += 1;
+    onProgress?.(attempts * MEGABYTE, video.byteSize);
+    if (attempts <= failures) {
+      throw failure();
+    }
+  });
+}
+
+// The server's health answers, so the queue is back online after each
+// failure; the upload's own host is out of reach (the fourth pass on video,
+// finding 1). Silence with signal on both sides of an attempt counts.
+describe('a video whose upload goes unanswered while there is signal', () => {
+  beforeEach(() => {
+    jest.mocked(addMedia).mockResolvedValue(videoRow);
+    jest.mocked(confirmMedia).mockResolvedValue(confirmedRow);
+  });
+
+  test.each<TusRetryReason>(['no-answer', 'timed-out'])(
+    '(%s) fails after four more attempts in a row',
+    async (reason) => {
+      // Arrange
+      jest.mocked(uploadVideoFile).mockImplementation(async () => {
+        throw new TusRetryableError(`Resumable upload POST: ${reason}`, reason);
+      });
+
+      // Act
+      const result = await sendVideo();
+
+      // Assert
+      expect(SILENT_RETRIES).toBe(4);
+      expect(uploadVideoFile).toHaveBeenCalledTimes(SILENT_RETRIES + 1);
+      expect(result.current.status).toBe('error');
+      expect(onlineManager.isOnline()).toBe(true);
+    },
+  );
+
+  test('an attempt that moved the upload on starts the count again', async () => {
+    failAfterProgress(
+      9,
+      () => new TusRetryableError('PATCH failed: Network request failed', 'no-answer'),
+    );
+
+    const result = await sendVideo();
+
+    expect(uploadVideoFile).toHaveBeenCalledTimes(10);
+    expect(result.current.status).toBe('success');
+  });
+
+  // A stairwell: the signal went while the attempt was on its way.
+  test('an attempt cut because the signal went is the network’s, and does not count', async () => {
+    let attempts = 0;
+    jest.mocked(uploadVideoFile).mockImplementation(async () => {
+      attempts += 1;
+      if (attempts <= 9) {
+        onlineManager.setOnline(false);
+        throw new TusRetryableError('PATCH cut: the network was lost', 'no-answer');
+      }
+    });
+
+    const result = await sendVideo();
+
+    expect(uploadVideoFile).toHaveBeenCalledTimes(10);
+    expect(result.current.status).toBe('success');
   });
 });
 
