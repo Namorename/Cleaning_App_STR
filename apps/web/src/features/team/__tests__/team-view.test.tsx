@@ -714,6 +714,30 @@ describe('TeamView — a technician’s old listings (docs/tech-plan.md, 2.1)', 
     expect(within(dialog).getByText('Ещё на 1 объекте — сначала снимите его.')).toBeInTheDocument();
   }, 20000);
 
+  // 20261003110000 refuses any change into a technician's role while links
+  // remain — from one technician's role to the other's too, not only from a cleaner's.
+  test('a technician with an old listing made head technician is warned', async () => {
+    linkSet.all = [...MARIA_LINKS, petrOldLink];
+    render(<TeamView />);
+
+    await userEvent.click(within(rowFor('Petr Tech')).getByRole('button', { name: 'Изменить' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.selectOptions(within(dialog).getByLabelText('Роль'), 'Главный техник');
+
+    expect(within(dialog).getByText(/^Ещё на 1 объекте/)).toBeInTheDocument();
+  }, 20000);
+
+  test('a manager with a listing from her cleaning days made a technician is warned', async () => {
+    linkSet.all = [...MARIA_LINKS, { property_id: 1, cleaner_id: OLGA, mode: 'auto', priority: 1 }];
+    render(<TeamView />);
+
+    await userEvent.click(within(rowFor('Olga Manager')).getByRole('button', { name: 'Изменить' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.selectOptions(within(dialog).getByLabelText('Роль'), 'Техник');
+
+    expect(within(dialog).getByText(/^Ещё на 1 объекте/)).toBeInTheDocument();
+  }, 20000);
+
   // 20261003110000 asks only a change into the role: an edit that keeps it is an edit.
   test('a technician already, his phone corrected, is not warned of his old listing', async () => {
     linkSet.all = [...MARIA_LINKS, petrOldLink];

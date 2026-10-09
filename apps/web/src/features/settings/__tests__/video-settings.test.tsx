@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -335,6 +335,51 @@ describe('the company video settings — saving', () => {
     await typeInto(LENGTH, '90');
 
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  // The form drops the draft it sent, and only that one: a save that lands
+  // after the manager typed on must not take her new numbers with it.
+  test('what is typed while a save is on its way is kept when the save lands', async () => {
+    let land: () => void = () => undefined;
+    save.mockImplementation((_patch: unknown, options?: { onSuccess?: () => void }) => {
+      saveState.isPending = true;
+      land = () => {
+        saveState.isPending = false;
+        saveState.isSuccess = true;
+        options?.onSuccess?.();
+      };
+    });
+    const { rerender } = render(<VideoSettings />);
+    await typeInto(LENGTH, '90');
+    await userEvent.click(screen.getByRole('button', { name: SAVE }));
+    // The mutation's pending state reaching the form, as TanStack's re-render would.
+    rerender(<VideoSettings />);
+
+    await typeInto(BITRATE, '3000');
+    act(() => land());
+
+    expect(screen.getByLabelText(LENGTH)).toHaveValue(90);
+    expect(screen.getByLabelText(BITRATE)).toHaveValue(3000);
+  });
+
+  // Forgetting a pending save would also forget to drop the draft it sent.
+  test('a save on its way is not forgotten by an edit, a preset or «Отменить правки»', async () => {
+    save.mockImplementation(() => {
+      saveState.isPending = true;
+    });
+    const { rerender } = render(<VideoSettings />);
+    await typeInto(LENGTH, '90');
+    await userEvent.click(screen.getByRole('button', { name: SAVE }));
+    rerender(<VideoSettings />);
+    reset.mockClear();
+
+    await typeInto(BITRATE, '3000');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Бесплатный тариф: 120 с, 2000 кбит/с, 45 МБ' }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Отменить правки' }));
+
+    expect(reset).not.toHaveBeenCalled();
   });
 
   test('a refusal goes away once the manager picks a preset', async () => {
