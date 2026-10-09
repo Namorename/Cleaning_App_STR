@@ -41,6 +41,11 @@ interface ProblemDetailProps {
    * report stays (a failure to load at all is the route's error state).
    */
   refreshError?: Error | null;
+  /**
+   * The head technician's part, under the facts: who holds the repair,
+   * «Назначить», «Снять с работы», the history (features/board).
+   */
+  dispatch?: ReactNode;
 }
 
 /**
@@ -68,6 +73,7 @@ export function ProblemDetail({
   error,
   notice,
   refreshError = null,
+  dispatch,
 }: ProblemDetailProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
@@ -115,6 +121,8 @@ export function ProblemDetail({
           </Fact>
         ) : null}
       </Card>
+
+      {dispatch}
 
       {problem.description !== null ? (
         <View style={layout.block}>

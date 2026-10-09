@@ -17,7 +17,10 @@ const SOMEONE_ELSE = '8d0f7780-8536-41ef-a55c-f18e2a01ab08';
 const PROBLEM_ID = 'd1e2f3a4-1111-4111-8111-d1e2f3a40001';
 const FIX_TASK = 'b1c2d3e4-2222-4222-8222-b1c2d3e40001';
 
-const mockSession = { userId: ME as string | null };
+const mockSession = {
+  userId: ME as string | null,
+  session: { user: { app_metadata: { role: 'cleaner' as string } } },
+};
 const mockProblemQuery: {
   isPending: boolean;
   error: Error | null;
@@ -34,6 +37,30 @@ jest.mock('expo-router', () => ({
 jest.mock('@/features/auth/session', () => ({ useSession: () => mockSession }));
 
 jest.mock('@/features/problems/use-problems', () => ({ useProblem: () => mockProblemQuery }));
+
+// The head technician's part of the screen reads the task as the board does.
+jest.mock('@/features/board/use-board', () => {
+  const idle = () => ({ mutate: jest.fn(), reset: jest.fn(), isPending: false, error: null });
+  return {
+    useBoardProblem: () => ({
+      data: {
+        id: 'd1e2f3a4-1111-4111-8111-d1e2f3a40001',
+        property_id: 412432,
+        title: 'Кран течёт',
+        priority: 'normal',
+        status: 'open',
+        archived_at: null,
+        created_at: '2026-11-10T08:00:00+00:00',
+        property: null,
+        fix_tasks: [],
+      },
+      error: null,
+    }),
+    useStaffDirectory: () => ({ data: [], error: null }),
+    useAssignProblem: idle,
+    useUnassignProblem: idle,
+  };
+});
 
 jest.mock('@/features/host/use-host', () => ({ useGalleryAllowed: () => mockGalleryAllowed }));
 
@@ -79,6 +106,7 @@ function problem(overrides: Partial<Problem> = {}): Problem {
 beforeEach(() => {
   jest.clearAllMocks();
   mockSession.userId = ME;
+  mockSession.session.user.app_metadata.role = 'cleaner';
   mockProblemQuery.isPending = false;
   mockProblemQuery.error = null;
   mockProblemQuery.data = problem();
@@ -170,6 +198,39 @@ describe('who may do what', () => {
       pathname: '/chat/[subject]/[id]',
       params: { subject: 'problem', id: PROBLEM_ID },
     });
+  });
+});
+
+// Brief, item 2: the head technician hands an open task out and takes the
+// person off a repair, and opens its history; a technician and a cleaner see
+// none of it. Cancelling, closing and the archive are the manager's, on no
+// phone at all.
+describe('the head technician’s part, by role', () => {
+  const DISPATCH = ['Назначить', 'Снять с работы', 'История'];
+  const MANAGERS = ['Отменить', 'Закрыть', 'В архив', 'Выполнено'];
+
+  test('the head technician gets «Назначить» and the history', async () => {
+    mockSession.session.user.app_metadata.role = 'head_tech';
+    mockProblemQuery.data = problem({ reported_by: SOMEONE_ELSE });
+
+    await render(<ProblemRoute />);
+
+    expect(screen.getByRole('button', { name: 'Назначить' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'История' })).toBeTruthy();
+    for (const name of MANAGERS) {
+      expect(screen.queryByRole('button', { name })).toBeNull();
+    }
+  });
+
+  test.each(['tech', 'cleaner'])('a %s sees none of it', async (role) => {
+    mockSession.session.user.app_metadata.role = role;
+
+    await render(<ProblemRoute />);
+
+    expect(screen.getByText('Кран течёт')).toBeTruthy();
+    for (const name of DISPATCH) {
+      expect(screen.queryByRole('button', { name })).toBeNull();
+    }
   });
 });
 

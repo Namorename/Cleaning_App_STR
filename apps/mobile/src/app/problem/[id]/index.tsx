@@ -8,6 +8,8 @@ import { ErrorState } from '@/components/error-state';
 import { Text } from '@/components/text';
 import { Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
+import { useRole } from '@/features/auth/use-role';
+import { ProblemDispatch } from '@/features/board/problem-dispatch';
 import { capturePhoto, pickPhotoFromGallery } from '@/features/media/capture';
 import { attachFailure } from '@/features/media/failure';
 import { useGalleryAllowed } from '@/features/host/use-host';
@@ -41,6 +43,9 @@ export default function ProblemRoute() {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const { userId } = useSession();
+  // Hands the task out and takes the person off — the head technician's alone
+  // (docs/tech-plan.md §3.3); what he may do the server decides again.
+  const isDispatcher = useRole() === 'head_tech';
   const parsed = Params.safeParse(useLocalSearchParams());
   const problemId = parsed.success ? parsed.data.id : '';
 
@@ -167,6 +172,7 @@ export default function ProblemRoute() {
       error={attach.error ?? removeMedia.error}
       notice={notice}
       refreshError={problem.error}
+      dispatch={isDispatcher ? <ProblemDispatch problemId={problemId} /> : undefined}
     />
   );
 }
