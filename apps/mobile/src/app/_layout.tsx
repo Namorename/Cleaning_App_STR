@@ -179,6 +179,15 @@ export default function RootLayout() {
                       title: t('problems.editTitle'),
                     }}
                   />
+                  {/* The head technician's history of a task (features/history). */}
+                  <Stack.Screen
+                    name="problem/[id]/history"
+                    options={{
+                      headerShown: true,
+                      headerBackTitle: t('common.back'),
+                      title: t('problems.history.title'),
+                    }}
+                  />
                   {/*
                     A supply request's two screens, titled here for the same
                     reason. The form's screen also rewrites a request that is

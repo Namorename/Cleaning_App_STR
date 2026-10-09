@@ -130,6 +130,8 @@ test.each([
   ['problem/new', 'Новое задание'],
   ['problem/[id]/index', 'Задание'],
   ['problem/[id]/edit', 'Изменить задание'],
+  // The head technician's history of a task, titled the same way.
+  ['problem/[id]/history', 'История задания'],
   ['supply/new', 'Новая заявка'],
   ['supply/[id]', 'Заявка на расходники'],
   // A video step's camera: titled by the root, since the screen may draw a

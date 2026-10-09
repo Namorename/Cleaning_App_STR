@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { fetchBoardProblem, fetchBoardProblems } from '@/features/board/api';
 import { fetchMessages } from '@/features/chat/api';
+import { fetchProblemEvents } from '@/features/history/api';
 import { fetchHostSettings } from '@/features/host/api';
 import { fetchProblemMedia, fetchTaskMedia } from '@/features/media/api';
 import { fetchReportProperties } from '@/features/properties/api';
@@ -111,6 +112,7 @@ const READERS: readonly (() => Promise<unknown>)[] = [
   () => fetchSupplyCatalog(),
   () => fetchBoardProblems(),
   () => fetchBoardProblem(ANY_ID),
+  () => fetchProblemEvents(ANY_ID),
 ];
 
 const schema = indexSchema(
