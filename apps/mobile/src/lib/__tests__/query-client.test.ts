@@ -312,7 +312,7 @@ describe('the queue on disk, and a video in it', () => {
   }
 
   /** A video waiting for signal whose upload, once resumed, takes longer than any test. */
-  function pausedVideo(client: QueryClient): jest.Mock {
+  function pausedVideo(client: QueryClient, taskId: string = TASK_ID): jest.Mock {
     const upload = jest.fn(() => new Promise<never>(() => undefined));
     client.getMutationCache().build(
       client,
@@ -322,7 +322,7 @@ describe('the queue on disk, and a video in it', () => {
         mutationFn: upload,
         ...authoredBy(),
       },
-      pausedState({ mediaId: 'v1', kind: 'video', taskId: TASK_ID }),
+      pausedState({ mediaId: 'v1', kind: 'video', taskId }),
     );
     return upload;
   }
@@ -344,9 +344,13 @@ describe('the queue on disk, and a video in it', () => {
     focusManager.setFocused(undefined);
   });
 
+  // The video is on a cleaning of its own: the claim refreshes its own
+  // cleaning's lists once it lands (`registerTaskMutations`), and on the same
+  // cleaning that would hide whether the restart refreshed anything at all.
   test('after a restart, the moves’ lists refresh without waiting for the video', async () => {
     // Arrange: a claim and a video waiting on disk; the lists they show up in.
-    const upload = pausedVideo(client);
+    const videoTaskId = '9a0b1c2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d';
+    const upload = pausedVideo(client, videoTaskId);
     client
       .getMutationCache()
       .build(
@@ -355,8 +359,8 @@ describe('the queue on disk, and a video in it', () => {
         pausedState(CLAIM),
       );
     client.setQueryData(['tasks', 'mine', 'u1'], []);
-    client.setQueryData(stepKeys.byTask(TASK_ID), []);
-    client.setQueryData(mediaKeys.byTask(TASK_ID), []);
+    client.setQueryData(stepKeys.byTask(videoTaskId), []);
+    client.setQueryData(mediaKeys.byTask(videoTaskId), []);
     client.setQueryData(mediaKeys.local, {});
     client.setQueryData(mediaKeys.urls(['host-1/p1.jpg']), { 'host-1/p1.jpg': 'https://signed' });
 
@@ -366,8 +370,8 @@ describe('the queue on disk, and a video in it', () => {
     // Assert: the video is on its way, and the lists were not held for it.
     expect(upload).toHaveBeenCalled();
     expect(client.getQueryState(['tasks', 'mine', 'u1'])?.isInvalidated).toBe(true);
-    expect(client.getQueryState(stepKeys.byTask(TASK_ID))?.isInvalidated).toBe(true);
-    expect(client.getQueryState(mediaKeys.byTask(TASK_ID))?.isInvalidated).toBe(true);
+    expect(client.getQueryState(stepKeys.byTask(videoTaskId))?.isInvalidated).toBe(true);
+    expect(client.getQueryState(mediaKeys.byTask(videoTaskId))?.isInvalidated).toBe(true);
     expect(client.getQueryState(mediaKeys.local)?.isInvalidated).toBe(true);
     // Links signed an hour ahead are not asked again: no upload changes them.
     expect(client.getQueryState(mediaKeys.urls(['host-1/p1.jpg']))?.isInvalidated).toBe(false);
@@ -520,7 +524,13 @@ describe('the queue on disk, and a video in it', () => {
 
       // Act
       const resumed = resumeSavedMoves(client);
-      await jest.advanceTimersByTimeAsync(MOVE_WAIT_MS + 1_000);
+      await jest.advanceTimersByTimeAsync(MOVE_WAIT_MS - 1_000);
+
+      // Assert: waited for so far — the lists read after it show what it did.
+      expect(client.getQueryState(['tasks', 'mine', 'u1'])?.isInvalidated).toBe(false);
+
+      // Act: the wait runs out.
+      await jest.advanceTimersByTimeAsync(2_000);
       await resumed;
 
       // Assert
