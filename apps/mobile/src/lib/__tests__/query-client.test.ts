@@ -242,6 +242,39 @@ describe('the queue on disk, and a video in it', () => {
     expect(client.getQueryState(mediaKeys.urls(['host-1/p1.jpg']))?.isInvalidated).toBe(false);
   });
 
+  // Only the video is let go of: every other move is waited for, so the lists
+  // read after it show what the move did (verification review of
+  // f3217a7..c466bf5, item 4).
+  test('after a restart, the lists wait for a slow move that is not a video', async () => {
+    // Arrange: a video and a claim on disk; the claim's server takes its time.
+    pausedVideo(client);
+    let land: () => void = () => undefined;
+    const claim = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          land = resolve;
+        }),
+    );
+    client
+      .getMutationCache()
+      .build(
+        client,
+        { mutationKey: taskMutationKeys.claim, mutationFn: claim },
+        pausedState(CLAIM),
+      );
+    client.setQueryData(['tasks', 'mine', 'u1'], []);
+
+    // Act
+    const resumed = resumeSavedMoves(client);
+    await waitFor(() => expect(claim).toHaveBeenCalled());
+
+    // Assert: nothing refreshed while the claim is on its way; refreshed once it lands.
+    expect(client.getQueryState(['tasks', 'mine', 'u1'])?.isInvalidated).toBe(false);
+    land();
+    await resumed;
+    expect(client.getQueryState(['tasks', 'mine', 'u1'])?.isInvalidated).toBe(true);
+  });
+
   /** A list on screen, read once already; returns how often it was read again. */
   async function listOnScreen(): Promise<{ reads: jest.Mock; stop: () => void }> {
     const reads = jest.fn(async () => ['fresh']);

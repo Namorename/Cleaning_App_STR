@@ -14,6 +14,7 @@ import { sendMessage, type SendMessageVariables } from '@/features/chat/api';
 import { chatKeys } from '@/features/chat/keys';
 import type { OwnMediaState, OwnMediaStates } from '@/features/chat/media-tiles';
 import { stepKeys } from '@/features/steps/keys';
+import { backoffDelay } from '@/lib/move-retry';
 import { serverErrorKey } from '@/lib/server-error';
 import { reportError } from '@/lib/sentry';
 
@@ -262,6 +263,9 @@ export function registerMediaMutations(queryClient: QueryClient): void {
     mutationFn: (variables: AttachMediaVariables) => attachAttempt(variables, queryClient),
     scope: ATTACH_SCOPE,
     retry: retryAttach,
+    // TanStack's own wait between tries, as before, not a move's (lib/move-retry.ts):
+    // an upload that fails keeps its file and a «Повторить» tile (attach-retry.ts).
+    retryDelay: backoffDelay,
     gcTime: Number.POSITIVE_INFINITY,
     onSettled: (_row: unknown, _error: unknown, variables: AttachMediaVariables) =>
       invalidateOwner(queryClient, variables),

@@ -4,7 +4,6 @@ import { QueryClient, notifyManager, onlineManager, type QueryKey } from '@tanst
 import type { PersistedClient } from '@tanstack/react-query-persist-client';
 
 import { registerChatMutations } from '@/features/chat/use-chat';
-import { SILENT_RETRIES } from '@/features/media/attach-retry';
 import { mediaKeys } from '@/features/media/keys';
 import { isVideoUpload, registerMediaMutations } from '@/features/media/use-media';
 import { registerProblemMutations } from '@/features/problems/use-problems';
@@ -13,44 +12,10 @@ import { stepKeys } from '@/features/steps/keys';
 import { registerSupplyMutations } from '@/features/supplies/use-supplies';
 import { registerStepMutations } from '@/features/steps/use-steps';
 import { registerTaskMutations, taskKeys } from '@/features/tasks/use-tasks';
-import { goOffline, isNetworkError } from '@/lib/online';
+import { moveRetryDelay, retryMove } from '@/lib/move-retry';
 
 /** Milliseconds; the cache is thrown away after this long without a refresh. */
 const CACHE_LIFETIME = 24 * 60 * 60 * 1000;
-
-/** One more try for a move the server refused or failed; a network failure waits instead. */
-const MUTATION_RETRIES = 1;
-
-/**
- * Whether a failed move is tried again.
- *
- * A failure that is the network's marks the client offline (lib/online.ts):
- * the retry then pauses on disk until the server is found again, and the move
- * goes through with nothing tapped twice. Anything else — a refusal, a server
- * error — gets its one more try and then fails, as it always did, so the
- * screen can say why.
- *
- * Bounded as an upload is (attach-retry.ts; the two whole-branch reviews of
- * phone-1-2-0, finding 3): a move left unanswered while the client still
- * believes there is signal — the server's health answers its look, the move
- * does not — fails once it has failed SILENT_RETRIES times before. Each look
- * that found the server would otherwise send it again, every fifteen seconds,
- * for ever, and the screen would never say it did not go. A failure with the
- * signal gone is the network's and never ends a move. TanStack hands this
- * only the count of all the move's failures, so an outage it waited through
- * counts among them — one for each outage, at most, since a move is tried
- * again only once there is signal.
- */
-function retryMove(failureCount: number, error: unknown): boolean {
-  if (isNetworkError(error)) {
-    if (onlineManager.isOnline() && failureCount >= SILENT_RETRIES) {
-      return false;
-    }
-    goOffline();
-    return true;
-  }
-  return failureCount < MUTATION_RETRIES;
-}
 
 const noop = () => undefined;
 
@@ -97,8 +62,10 @@ class AppQueryClient extends QueryClient {
  * — cache for tomorrow, photos queued, conflict handling — is a later step.
  *
  * Mutations are 'offlineFirst': the first attempt is made at once, and a
- * failure for lack of network pauses rather than errors (retryMove). Everything
- * else fails loudly so the screen can show why and offer a retry.
+ * failure for lack of network pauses at once rather than errors, however many
+ * came before (lib/move-retry.ts) — a queued action is never dropped by the
+ * network. Everything else fails loudly so the screen can show why and offer
+ * a retry. Uploads keep their own budgets (features/media/attach-retry.ts).
  *
  * Queries keep 'always': a list read without signal fails and says so, with
  * the cached copy on screen, exactly as before the client could tell it was
@@ -118,6 +85,7 @@ export function createAppQueryClient(): QueryClient {
       mutations: {
         networkMode: 'offlineFirst',
         retry: retryMove,
+        retryDelay: moveRetryDelay,
       },
     },
   });

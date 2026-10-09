@@ -12,7 +12,7 @@ import { TusRetryableError } from './tus';
  *
  * Silence — a fetch that reached nothing, an RPC or a resumable upload whose
  * request got no answer at all — marks the queue offline, as the app's other
- * moves do (lib/query-client.ts): the upload pauses until a look at the
+ * moves do (lib/move-retry.ts): the upload pauses until a look at the
  * server finds it, and is tried again. An outage in a stairwell must not use
  * up what a refusal is owed.
  *

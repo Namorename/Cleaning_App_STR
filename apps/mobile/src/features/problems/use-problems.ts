@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import { useSession } from '@/features/auth/session';
 import type { LocalMediaRecord } from '@/features/media/local-store';
 import { attachMedia } from '@/features/media/use-media';
+import { retryMoveAfter } from '@/lib/move-retry';
 import { readCached } from '@/lib/read-cached';
 
 import {
@@ -17,6 +18,14 @@ import { problemKeys, problemMutationKeys } from './keys';
 import { problemListSchema, problemSchema, type Problem } from './schema';
 
 const REPORT_RETRIES = 3;
+
+/**
+ * A report waits out the network however long it lasts (lib/move-retry.ts):
+ * paused, its form has already left for the report's screen, and a report
+ * dropped after a few failures would be lost without a word. A refusal gets
+ * its three more tries.
+ */
+const retryReport = retryMoveAfter(REPORT_RETRIES);
 
 export interface ReportWithPhotosVariables extends ReportProblemVariables {
   /** Captures made on the form, handed over once the report exists. */
@@ -63,7 +72,7 @@ export function registerProblemMutations(queryClient: QueryClient): void {
   queryClient.setMutationDefaults(problemMutationKeys.report, {
     mutationFn: (variables: ReportWithPhotosVariables) =>
       reportProblemWithPhotos(variables, queryClient),
-    retry: REPORT_RETRIES,
+    retry: retryReport,
   });
   queryClient.setMutationDefaults(problemMutationKeys.update, {
     mutationFn: (variables: UpdateProblemVariables) => updateProblem(variables),
@@ -130,7 +139,7 @@ export function useReportProblem() {
   return useMutation<Problem, Error, ReportWithPhotosVariables>({
     mutationKey: problemMutationKeys.report,
     mutationFn: (variables) => reportProblemWithPhotos(variables, queryClient),
-    retry: REPORT_RETRIES,
+    retry: retryReport,
     onSuccess: invalidate,
   });
 }
