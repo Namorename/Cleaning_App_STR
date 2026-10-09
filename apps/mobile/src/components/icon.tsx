@@ -15,6 +15,7 @@ import ClipboardList from 'lucide-react-native/icons/clipboard-list';
 import Clock from 'lucide-react-native/icons/clock';
 import Ellipsis from 'lucide-react-native/icons/ellipsis';
 import Eye from 'lucide-react-native/icons/eye';
+import EyeOff from 'lucide-react-native/icons/eye-off';
 import House from 'lucide-react-native/icons/house';
 import ImageGlyph from 'lucide-react-native/icons/image';
 import Inbox from 'lucide-react-native/icons/inbox';
@@ -81,6 +82,7 @@ export const LUCIDE_GLYPHS = {
   camera: Camera,
   image: ImageGlyph,
   eye: Eye,
+  'eye-off': EyeOff,
   'message-square': MessageSquare,
   send: Send,
   'user-round': UserRound,

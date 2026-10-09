@@ -1,10 +1,8 @@
 import { Redirect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
-import { FontSize, Spacing, type Theme } from '@/constants/theme';
+import { LoadingState } from '@/components/loading-state';
 import { useSession } from '@/features/auth/session';
-import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 /**
  * Entry point. Reading the stored session from the Keychain is asynchronous,
@@ -13,29 +11,11 @@ import { useThemedStyles } from '@/hooks/use-themed-styles';
  */
 export default function Index() {
   const { t } = useTranslation();
-  const styles = useThemedStyles(createStyles);
   const { userId, isLoading } = useSession();
 
   if (isLoading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={styles.message.color} />
-        <Text style={styles.message}>{t('auth.signingIn')}</Text>
-      </View>
-    );
+    return <LoadingState label={t('auth.signingIn')} />;
   }
 
   return userId === null ? <Redirect href="/sign-in" /> : <Redirect href="/(tabs)" />;
 }
-
-const createStyles = (theme: Theme) =>
-  StyleSheet.create({
-    centered: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: Spacing.sm,
-      backgroundColor: theme.background,
-    },
-    message: { fontSize: FontSize.body, color: theme.textSecondary },
-  });

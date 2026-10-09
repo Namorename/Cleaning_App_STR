@@ -8,10 +8,6 @@ import { TextField } from '../text-field';
 
 /** A field she types into: its name above, a hint or the error below it. */
 
-// The password field's eye is drawn by a native view; the button around it is
-// what is tested.
-jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
-
 const light = THEME_COLORS.light;
 
 function inputStyle(label: string): TextStyle {
@@ -135,4 +131,25 @@ test('disabled: not editable, and says so', async () => {
   const input = screen.getByLabelText('Название');
   expect(input.props.editable).toBe(false);
   expect(input.props.accessibilityState).toMatchObject({ disabled: true });
+});
+
+// A masked field of several lines does not exist on iOS (secureTextEntry is
+// ignored there once multiline is on), so a password that asked for it would
+// show its letters. The type keeps the two apart; a caller that slips past it
+// still gets one masked line.
+test('a password is one line: the type refuses `multiline` with it, and the field drops it', async () => {
+  // Arrange: what a caller around the type would hand over.
+  const both = { isPassword: true, multiline: true } as const;
+
+  // Act
+  await render(
+    // @ts-expect-error -- a password field of several lines is refused by the type.
+    <TextField label="Пароль" value="" onChangeText={jest.fn()} {...both} />,
+  );
+
+  // Assert
+  const field = screen.getByLabelText('Пароль');
+  expect(field.props.multiline).not.toBe(true);
+  expect(field.props.secureTextEntry).toBe(true);
+  expect(inputStyle('Пароль').minHeight).toBe(BUTTON_HEIGHT);
 });

@@ -1,20 +1,23 @@
 import { useCallback, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  ActivityIndicator,
   RefreshControl,
   ScrollView,
   SectionList,
   StyleSheet,
-  Text,
   View,
   type SectionListRenderItemInfo,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 
+import { EmptyState } from '@/components/empty-state';
 import { ErrorBanner } from '@/components/error-banner';
-import { FontSize, Spacing, type Theme } from '@/constants/theme';
+import { ErrorState } from '@/components/error-state';
+import { Skeleton, SkeletonGroup } from '@/components/skeleton';
+import { Radius, Spacing, type Theme } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
-import { serverErrorText } from '@/lib/server-error';
 
 import type { CleaningTask, TaskGroup } from './schema';
 import { SectionHeading } from './section-heading';
@@ -50,7 +53,8 @@ interface TaskListProps {
  * Loading, error and empty are three different answers and the cleaner needs
  * to tell them apart: "nothing to do" and "could not load" mean opposite
  * things when she is standing in a doorway deciding where to go next. All
- * three are text a screen reader can reach, not just a spinner.
+ * three are something a screen reader can reach: the cards' shape said as
+ * loading, the error state, the empty state.
  *
  * The cards stand in sections — the work under way, then one per day — whose
  * headings stay on top while the day under them scrolls (5.4, variant 1).
@@ -73,6 +77,7 @@ export function TaskList({
   header,
 }: TaskListProps) {
   const { t } = useTranslation();
+  const theme = useTheme();
   const styles = useThemedStyles(createStyles);
 
   const renderItem = useCallback(
@@ -102,37 +107,25 @@ export function TaskList({
     <RefreshControl
       refreshing={isRefreshing}
       onRefresh={onRefresh}
-      tintColor={styles.message.color}
-      colors={[styles.message.color]}
+      tintColor={theme.textSecondary}
+      colors={[theme.textSecondary]}
     />
   );
 
   if (isLoading) {
-    return (
-      <View style={[styles.screen, styles.centered]} accessibilityLiveRegion="polite">
-        <ActivityIndicator color={styles.message.color} />
-        <Text style={styles.message}>{t('tasks.loading')}</Text>
-      </View>
-    );
+    return <ListSkeleton label={t('tasks.loading')} style={styles.screen} />;
   }
 
+  // Still pulled down like the list it stands in for; «Повторить» is the way
+  // a screen reader, or a hand that does not know the gesture, asks again.
   if (error !== null && sections === undefined) {
-    const failure = serverErrorText(error);
-
-    // Pulled down like the list it stands in for, as its last line asks.
     return (
       <ScrollView
         style={styles.screen}
-        contentContainerStyle={styles.failure}
+        contentContainerStyle={layout.grow}
         refreshControl={refreshControl}
-        accessibilityLiveRegion="polite"
       >
-        <Text style={styles.errorTitle}>{t('tasks.loadFailed')}</Text>
-        <Text style={styles.message}>{failure.text}</Text>
-        {failure.detail !== null ? (
-          <Text style={styles.errorDetail}>{failure.detail}</Text>
-        ) : null}
-        <Text style={styles.message}>{t('tasks.pullToRetry')}</Text>
+        <ErrorState error={error} title={t('tasks.loadFailed')} onRetry={onRefresh} />
       </ScrollView>
     );
   }
@@ -160,11 +153,7 @@ export function TaskList({
       stickySectionHeadersEnabled
       ListHeaderComponent={listHeader}
       refreshControl={refreshControl}
-      ListEmptyComponent={
-        <View style={styles.centered}>
-          <Text style={styles.message}>{emptyMessage}</Text>
-        </View>
-      }
+      ListEmptyComponent={<EmptyState title={emptyMessage} />}
     />
   );
 }
@@ -177,12 +166,38 @@ function Separator() {
   return <View style={layout.separator} />;
 }
 
+/** A day's heading and three cards' worth of shape. */
+const SKELETON_HEADING = 20;
+const SKELETON_CARD = 96;
+const SKELETON_CARDS = 3;
+
+interface ListSkeletonProps {
+  label: string;
+  style: StyleProp<ViewStyle>;
+}
+
+function ListSkeleton({ label, style }: ListSkeletonProps) {
+  return (
+    <View style={style}>
+      <SkeletonGroup label={label} style={layout.skeleton}>
+        <Skeleton height={SKELETON_HEADING} width="40%" />
+        {Array.from({ length: SKELETON_CARDS }, (_, index) => (
+          <Skeleton key={index} height={SKELETON_CARD} radius={Radius.card} />
+        ))}
+      </SkeletonGroup>
+    </View>
+  );
+}
+
 /** Sizes only: nothing here depends on the colour scheme. */
 const layout = StyleSheet.create({
   separator: { height: Spacing.sm },
   // The first heading starts at the top edge, where it also sticks; a line
   // above the cards keeps the gutter of the list.
   listHeader: { paddingTop: Spacing.lg },
+  // The error state inside a scroll view: grows to the screen, scrolls past it at large type.
+  grow: { flexGrow: 1 },
+  skeleton: { padding: Spacing.lg, gap: Spacing.md },
 });
 
 const createStyles = (theme: Theme) =>
@@ -195,32 +210,5 @@ const createStyles = (theme: Theme) =>
       paddingHorizontal: Spacing.lg,
       paddingBottom: Spacing.lg,
       flexGrow: 1,
-    },
-    centered: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: Spacing.xl,
-      gap: Spacing.sm,
-    },
-    // `centered` inside a scroll view: grows to the screen, scrolls past it at large type.
-    failure: {
-      flexGrow: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: Spacing.xl,
-      gap: Spacing.sm,
-    },
-    message: {
-      fontSize: FontSize.body,
-      color: theme.textSecondary,
-      textAlign: 'center',
-    },
-    errorDetail: { fontSize: FontSize.caption, color: theme.textSecondary, textAlign: 'center' },
-    errorTitle: {
-      fontSize: FontSize.title,
-      fontWeight: '600',
-      color: theme.text,
-      textAlign: 'center',
     },
   });

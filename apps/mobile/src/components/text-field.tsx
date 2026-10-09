@@ -24,7 +24,7 @@ const INPUT_WEIGHT = 600;
 /** A field of several lines (`multiline`): room for a few of them before it scrolls. */
 const MULTILINE_MIN_HEIGHT = 120;
 
-export interface TextFieldProps extends Omit<TextInputProps, 'style' | 'editable'> {
+interface TextFieldBaseProps extends Omit<TextInputProps, 'style' | 'editable' | 'multiline'> {
   /** Shown above the field, and its name for a screen reader. */
   label: string;
   /** One line under the field saying what goes in it; gives way to an error. */
@@ -32,11 +32,6 @@ export interface TextFieldProps extends Omit<TextInputProps, 'style' | 'editable
   /** What is wrong with what she typed, in her language. */
   error?: string | null;
   isDisabled?: boolean;
-  /**
-   * A password: masked, with the eye that shows it (`PasswordInput`), which
-   * also decides the keyboard and keeps the text from being corrected.
-   */
-  isPassword?: boolean;
   /**
    * What the reader hears in place of the label, when the label leans on what
    * stands above it: «Уточнение» under each line of a supply request is heard
@@ -47,6 +42,28 @@ export interface TextFieldProps extends Omit<TextInputProps, 'style' | 'editable
   style?: StyleProp<ViewStyle>;
   ref?: Ref<TextInput>;
 }
+
+/**
+ * A password is one line. iOS draws a field of several lines unmasked —
+ * `secureTextEntry` is ignored once `multiline` is on — so the type does not
+ * let the two meet, and a caller that slips past it still gets one line.
+ */
+type TextFieldLines =
+  | {
+      /**
+       * A password: masked, with the eye that shows it (`PasswordInput`), which
+       * also decides the keyboard and keeps the text from being corrected.
+       */
+      isPassword: true;
+      multiline?: false;
+    }
+  | {
+      isPassword?: false;
+      /** Several lines, written from the top: a note, a description. */
+      multiline?: boolean;
+    };
+
+export type TextFieldProps = TextFieldBaseProps & TextFieldLines;
 
 /**
  * A text field: its label above, a hint or an error below. 56 dp high like a
@@ -60,6 +77,7 @@ export function TextField({
   error = null,
   isDisabled = false,
   isPassword = false,
+  multiline = false,
   accessibilityLabel,
   style,
   onFocus,
@@ -73,6 +91,7 @@ export function TextField({
   const labelId = useId();
   const [isFocused, setIsFocused] = useState(false);
   const hasError = error !== null && error !== '';
+  const isMultiline = multiline && !isPassword;
 
   const handleFocus = (event: FocusEvent) => {
     setIsFocused(true);
@@ -85,6 +104,7 @@ export function TextField({
 
   const field = {
     ...input,
+    multiline: isMultiline,
     ref,
     accessibilityLabel: accessibilityLabel ?? label,
     accessibilityLabelledBy: accessibilityLabel === undefined ? labelId : undefined,
@@ -98,7 +118,7 @@ export function TextField({
     style: [
       styles.input,
       face,
-      input.multiline === true && styles.multiline,
+      isMultiline && styles.multiline,
       isFocused && styles.focused,
       hasError && styles.invalid,
       isDisabled && styles.disabled,

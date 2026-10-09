@@ -51,6 +51,8 @@ export const ICONS = {
   'action.takePhoto': 'camera',
   'action.fromGallery': 'image',
   'action.showPassword': 'eye',
+  /** The password's eye while the password is shown: a press hides it again. */
+  'action.hidePassword': 'eye-off',
   'action.openChat': 'message-square',
   /** The phone's chat: sends what is in the box. */
   'action.send': 'send',

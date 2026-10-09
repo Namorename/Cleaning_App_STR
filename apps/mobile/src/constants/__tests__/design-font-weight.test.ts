@@ -29,8 +29,6 @@ const TEXT_COMPONENT = 'components/text.tsx';
  */
 const ALLOWANCE: Readonly<Record<string, number>> = {
   'components/list-action.tsx': 1,
-  'features/tasks/push-notice.tsx': 2,
-  'features/tasks/task-list.tsx': 1,
 };
 
 const SOURCE = /\.(ts|tsx)$/;

@@ -228,6 +228,16 @@ describe('what it draws', () => {
     expect(title.props.allowFontScaling).not.toBe(false);
   });
 
+  test('at the largest system font a title grows to one and a half times, no more', async () => {
+    // The bar is four tabs of a 320 dp screen: grown past 1.5 × 13 sp, a title
+    // is cut to its first letters and the bar takes the screen's height.
+    await render(<TabBar {...barProps(CLEANER_TABS, 'index')} />);
+
+    for (const { title } of CLEANER_TABS) {
+      expect(titleOf(title).props.maxFontSizeMultiplier).toBe(1.5);
+    }
+  });
+
   test('in the dark theme the active title is drawn at 700, an inactive one at 600', async () => {
     scheme.mockReturnValue('dark');
 

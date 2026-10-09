@@ -1,9 +1,7 @@
 import { Redirect } from 'expo-router';
 import type { ReactNode } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
-import { FontSize, Spacing, type Theme } from '@/constants/theme';
-import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { LoadingState } from '@/components/loading-state';
 
 import { useSession } from './session';
 
@@ -25,32 +23,13 @@ interface SignedInRouteProps {
  * itself is drawn only for a known user, so its hooks never run for nobody.
  */
 export function SignedInRoute({ loadingText, children }: SignedInRouteProps) {
-  const styles = useThemedStyles(createStyles);
   const { userId, isLoading } = useSession();
 
   if (isLoading) {
-    return (
-      <View style={styles.centered} accessibilityLiveRegion="polite">
-        <ActivityIndicator color={styles.message.color} />
-        <Text style={styles.message}>{loadingText}</Text>
-      </View>
-    );
+    return <LoadingState label={loadingText} />;
   }
   if (userId === null) {
     return <Redirect href="/sign-in" />;
   }
   return children;
 }
-
-const createStyles = (theme: Theme) =>
-  StyleSheet.create({
-    centered: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: Spacing.sm,
-      padding: Spacing.xl,
-      backgroundColor: theme.background,
-    },
-    message: { fontSize: FontSize.body, color: theme.textSecondary, textAlign: 'center' },
-  });

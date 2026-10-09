@@ -1,5 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { Text } from 'react-native';
+import { StyleSheet, Text, type TextStyle } from 'react-native';
+
+import { FontSize } from '@/constants/theme';
 
 import { TaskList } from '../task-list';
 import { calendarDay, type CleaningTask, type TaskGroup } from '../schema';
@@ -45,7 +47,8 @@ function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
 test('says it is loading rather than showing an empty list', async () => {
   await render(<TaskList {...baseProps} sections={undefined} isLoading error={null} />);
 
-  expect(screen.getByText('Загружаем уборки…')).toBeTruthy();
+  // Said as loading: the label of the skeleton that stands in for the cards.
+  expect(screen.getByRole('progressbar', { name: 'Загружаем уборки…' })).toBeTruthy();
   expect(screen.queryByText('Свободных уборок нет.')).toBeNull();
 });
 
@@ -65,7 +68,7 @@ test('distinguishes a failure from an empty day', async () => {
   expect(screen.queryByText('Свободных уборок нет.')).toBeNull();
 });
 
-test('a list that never loaded can be pulled down, as its line says', async () => {
+test('a list that never loaded can still be pulled down, like the list it stands in for', async () => {
   // Arrange
   const onRefresh = jest.fn();
   await render(
@@ -77,12 +80,31 @@ test('a list that never loaded can be pulled down, as its line says', async () =
       error={new Error('Network request failed')}
     />,
   );
-  expect(screen.getByText('Потяните список вниз, чтобы повторить.')).toBeTruthy();
   const pulls = screen.container.queryAll((node) => node.type === 'RCTRefreshControl');
   expect(pulls).toHaveLength(1);
 
   // Act
   await fireEvent(pulls[0], 'refresh');
+
+  // Assert
+  expect(onRefresh).toHaveBeenCalledTimes(1);
+});
+
+test('a list that never loaded offers «Повторить», which asks again', async () => {
+  // Arrange: the pull is not something a screen reader finds; a button is.
+  const onRefresh = jest.fn();
+  await render(
+    <TaskList
+      {...baseProps}
+      onRefresh={onRefresh}
+      sections={undefined}
+      isLoading={false}
+      error={new Error('Network request failed')}
+    />,
+  );
+
+  // Act
+  await fireEvent.press(screen.getByRole('button', { name: 'Повторить' }));
 
   // Assert
   expect(onRefresh).toHaveBeenCalledTimes(1);
@@ -277,5 +299,39 @@ describe('the work under way', () => {
     );
 
     expect(screen.queryByText('Сейчас')).toBeNull();
+  });
+});
+
+describe('loading, a list that never loaded and an empty one, on the «Абрикос» components', () => {
+  function styleOf(element: { props: { style?: unknown } }): TextStyle {
+    return StyleSheet.flatten(element.props.style as TextStyle);
+  }
+
+  test('while it loads, the cards’ shape stands in for them, busy', async () => {
+    await render(<TaskList {...baseProps} sections={undefined} isLoading error={null} />);
+
+    const loading = screen.getByRole('progressbar', { name: 'Загружаем уборки…' });
+    expect(loading.props.accessibilityState).toMatchObject({ busy: true });
+  });
+
+  test('a list that never loaded is the error state: titled, the reason as an alert', async () => {
+    await render(
+      <TaskList
+        {...baseProps}
+        sections={undefined}
+        isLoading={false}
+        error={new Error('Network request failed')}
+      />,
+    );
+
+    expect(styleOf(screen.getByText('Не удалось загрузить уборки')).fontSize).toBe(FontSize.title);
+    expect(screen.getByRole('alert')).toBeTruthy();
+    expect(styleOf(screen.getByText('Network request failed')).fontSize).toBe(FontSize.caption);
+  });
+
+  test('an empty list is the empty state, titled', async () => {
+    await render(<TaskList {...baseProps} sections={[]} isLoading={false} error={null} />);
+
+    expect(styleOf(screen.getByText('Свободных уборок нет.')).fontSize).toBe(FontSize.title);
   });
 });

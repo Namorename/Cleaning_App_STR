@@ -74,3 +74,16 @@ test('signed in, it shows the screen', async () => {
   expect(screen.getByText('the screen')).toBeTruthy();
   expect(mockRedirect).not.toHaveBeenCalled();
 });
+
+test('the wait is one element for the reader: a busy progress bar in the screen’s words', async () => {
+  mockSession.isLoading = true;
+
+  await render(
+    <SignedInRoute loadingText="Загружаем уборки…">
+      <Screen />
+    </SignedInRoute>,
+  );
+
+  const loading = screen.getByRole('progressbar', { name: 'Загружаем уборки…' });
+  expect(loading.props.accessibilityState).toMatchObject({ busy: true });
+});

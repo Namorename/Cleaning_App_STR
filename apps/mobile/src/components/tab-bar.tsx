@@ -18,6 +18,14 @@ const PILL_WIDTH = 60;
 const PILL_HEIGHT = 30;
 
 /**
+ * How far a tab's title follows the system font size. Four titles share a
+ * 320 dp screen: past one and a half times the caption they are cut to their
+ * first letters and the bar grows over the list, while the screens above it
+ * still grow in full.
+ */
+const TITLE_MAX_FONT_SCALE = 1.5;
+
+/**
  * Whether the navigator keeps a screen out of the bar. expo-router turns a
  * screen's `href: null` into exactly this (`build/layouts/TabsClient.js`): the
  * item styled out of the row and a button that draws nothing. The technician's
@@ -170,6 +178,7 @@ function Tab({
         weight={isFocused ? 700 : 600}
         align="center"
         numberOfLines={1}
+        maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
         ellipsizeMode="tail"
         style={styles.title}
       >
