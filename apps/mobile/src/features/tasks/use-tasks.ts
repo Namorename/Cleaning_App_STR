@@ -73,27 +73,50 @@ export function acceptVariables(task: CleaningTask): AcceptVariables {
 }
 
 /**
+ * What a move of a cleaning changes: the cleanings, and that cleaning's steps
+ * — a start is when the server copies its process into them.
+ */
+function refreshAfterMove(queryClient: QueryClient, taskId: string): void {
+  void queryClient.invalidateQueries({ queryKey: taskKeys.all });
+  void queryClient.invalidateQueries({ queryKey: stepKeys.byTask(taskId) });
+}
+
+/**
  * Teach the query client how to replay each move after a restart.
  *
  * Called once, before the persisted cache is restored; a paused mutation
  * restored without its default has nothing to run and is silently dropped.
+ *
+ * Settled, a move refreshes what it changes — here, as the uploads do: a move
+ * restored from disk has no screen of its own, and one that lands after the
+ * start stopped waiting for it (`MOVE_WAIT_MS`, lib/query-client.ts) left
+ * the lists stale until the next refresh (MEDIUM-1 of the last review). A
+ * screen's hook keeps its own options over these.
  */
 export function registerTaskMutations(queryClient: QueryClient): void {
   queryClient.setMutationDefaults(taskMutationKeys.claim, {
     mutationFn: ({ taskId, cleanerId }: ClaimVariables) => claimTask(taskId, cleanerId),
     scope: TASK_MOVES_SCOPE,
+    onSettled: (_task: unknown, _error: unknown, { taskId }: ClaimVariables) =>
+      refreshAfterMove(queryClient, taskId),
   });
   queryClient.setMutationDefaults(taskMutationKeys.accept, {
     mutationFn: (variables: AcceptVariables) => acceptTask(variables),
     scope: TASK_MOVES_SCOPE,
+    onSettled: (_task: unknown, _error: unknown, { taskId }: AcceptVariables) =>
+      refreshAfterMove(queryClient, taskId),
   });
   queryClient.setMutationDefaults(taskMutationKeys.start, {
     mutationFn: (taskId: string) => startTask(taskId),
     scope: TASK_MOVES_SCOPE,
+    onSettled: (_task: unknown, _error: unknown, taskId: string) =>
+      refreshAfterMove(queryClient, taskId),
   });
   queryClient.setMutationDefaults(taskMutationKeys.finish, {
     mutationFn: (taskId: string) => finishTask(taskId),
     scope: TASK_MOVES_SCOPE,
+    onSettled: (_task: unknown, _error: unknown, taskId: string) =>
+      refreshAfterMove(queryClient, taskId),
   });
 }
 
