@@ -1,4 +1,4 @@
-import { SIZE, THEME_COLORS, TOUCH_TARGET } from '@str-ops/shared';
+import { SIZE, THEME_COLORS, TONE_COLORS, TOUCH_TARGET } from '@str-ops/shared';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { Dimensions, StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
@@ -256,6 +256,43 @@ describe('the marks', () => {
     await render(<TaskCard task={task()} onPress={jest.fn()} />);
 
     expect(screen.queryByText('Новое сообщение')).toBeNull();
+  });
+
+  // A repair whose report the office marked high is urgent, and its card says
+  // so as the task screen does: «Срочно», a pill of its own in the urgent tone
+  // (docs/redesign-plan.md 2.4) — what a technician plans his day by.
+  const repair = (priority: 'low' | 'normal' | 'high') =>
+    task({
+      type: 'maintenance',
+      status: 'assigned',
+      assignee_id: OTHER_ID,
+      reservation_id: null,
+      problem: { id: '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d', title: 'Течёт кран', priority },
+    });
+
+  test('an urgent repair carries «Срочно» as a pill in the urgent tone', async () => {
+    await render(<TaskCard task={repair('high')} onPress={jest.fn()} />);
+
+    const flag = screen.getByTestId('task-urgent');
+    expect(within(flag).getByText('Срочно')).toBeTruthy();
+    expect(styleOf(flag)).toMatchObject({
+      backgroundColor: TONE_COLORS.light.urgent.bg,
+      borderRadius: 999,
+    });
+    // Heard once, with the row: its quiet line already says how urgent.
+    expect(screen.getByRole('button', { name: /срочность: Высокая/ })).toBeTruthy();
+  });
+
+  test.each(['normal', 'low'] as const)('a %s repair carries no such pill', async (priority) => {
+    await render(<TaskCard task={repair(priority)} />);
+
+    expect(screen.queryByText('Срочно')).toBeNull();
+  });
+
+  test('a cleaning carries no such pill', async () => {
+    await render(<TaskCard task={turnover()} />);
+
+    expect(screen.queryByTestId('task-urgent')).toBeNull();
   });
 });
 
