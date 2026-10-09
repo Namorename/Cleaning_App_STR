@@ -6,6 +6,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { Badge } from '@/components/badge';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
+import { ErrorBanner } from '@/components/error-banner';
 import { FailureText } from '@/components/failure-text';
 import { Skeleton, SkeletonGroup } from '@/components/skeleton';
 import { Text } from '@/components/text';
@@ -24,6 +25,11 @@ interface SupplyDetailProps {
   onDelete: () => void;
   isDeleting: boolean;
   error: Error | null;
+  /**
+   * A refresh that failed over the request still on screen: said above it, the
+   * request stays (a failure to load at all is the route's error state).
+   */
+  refreshError?: Error | null;
 }
 
 /**
@@ -39,6 +45,7 @@ export function SupplyDetail({
   onDelete,
   isDeleting,
   error,
+  refreshError = null,
 }: SupplyDetailProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
@@ -46,6 +53,12 @@ export function SupplyDetail({
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={layout.content}>
+      {/* Error over cache, as the lists have it: the saved request stays. This
+          screen has no pull-to-refresh, so the line does not ask for one. */}
+      {refreshError !== null ? (
+        <ErrorBanner title={t('common.refreshFailedSaved')} error={refreshError} />
+      ) : null}
+
       <Text variant="heading">{supplyPlace(request)}</Text>
       <Text tone="secondary">{formatReportedAt(request.created_at)}</Text>
 

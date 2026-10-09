@@ -25,7 +25,8 @@ const mockRequestQuery: {
   isPending: boolean;
   error: Error | null;
   data: SupplyRequest | null | undefined;
-} = { isPending: false, error: null, data: undefined };
+  refetch: jest.Mock;
+} = { isPending: false, error: null, data: undefined, refetch: jest.fn() };
 const mockRemove = {
   mutate: jest.fn(),
   isPending: false,
@@ -152,7 +153,7 @@ describe('who may do what', () => {
     expect(screen.queryByRole('button')).toBeNull();
   });
 
-  test('a withdrawal on its way holds both moves', async () => {
+  test('a withdrawal on its way spins «Удалить заявку», which takes no second tap', async () => {
     mockRemove.isPending = true;
 
     await render(<SupplyRoute />);
@@ -168,6 +169,19 @@ describe('who may do what', () => {
     await render(<SupplyRoute />);
 
     expect(router.back).toHaveBeenCalledTimes(1);
+  });
+
+  test('a withdrawal that went through leaves without saying the request is gone', async () => {
+    // Arrange: done, and the refetch after it found no row any more.
+    mockRemove.isSuccess = true;
+    mockRequestQuery.data = null;
+
+    // Act
+    await render(<SupplyRoute />);
+
+    // Assert
+    expect(router.back).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Заявка не найдена')).toBeNull();
   });
 
   test('a failed withdrawal is said on the screen, in her language', async () => {
@@ -214,6 +228,34 @@ describe('the screen’s own states', () => {
     await render(<SupplyRoute />);
 
     expect(screen.getByText(GENERAL)).toBeTruthy();
+    expect(screen.getByText('Network request failed')).toBeTruthy();
+  });
+
+  test('a request that never loaded is titled, and «Повторить» asks again', async () => {
+    // Arrange
+    mockRequestQuery.error = new Error('Network request failed');
+    mockRequestQuery.data = undefined;
+
+    // Act
+    await render(<SupplyRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Повторить' }));
+
+    // Assert: there is no «could not load the request» of its own; the general one.
+    expect(screen.getByText('Не удалось показать экран. Попробуйте ещё раз.')).toBeTruthy();
+    expect(mockRequestQuery.refetch).toHaveBeenCalledTimes(1);
+  });
+
+  test('a refresh that failed keeps the request on screen, the failure said above it', async () => {
+    // Arrange: TanStack keeps the last data when a background refetch fails.
+    mockRequestQuery.error = new Error('Network request failed');
+
+    // Act
+    await render(<SupplyRoute />);
+
+    // Assert
+    expect(screen.getByText('Мешки для мусора')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Изменить' })).toBeTruthy();
+    expect(screen.getByText('Не удалось обновить, показаны сохранённые данные.')).toBeTruthy();
     expect(screen.getByText('Network request failed')).toBeTruthy();
   });
 });

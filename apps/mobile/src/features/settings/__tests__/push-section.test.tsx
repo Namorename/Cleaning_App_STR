@@ -136,6 +136,10 @@ describe('on the «Абрикос» components', () => {
 
     // Assert
     await waitFor(() => expect(setPreference).toHaveBeenCalledWith('cleaning_new', false));
+    // And the tap stops at the switch: a control that let it bubble up to the
+    // row would flip the kind twice — off by the switch, on again by the row.
+    const claimsTouch = control.props.onStartShouldSetResponder as (() => boolean) | undefined;
+    expect(claimsTouch?.()).toBe(true);
   });
 
   test('«Повторить» is a 56 dp button', async () => {

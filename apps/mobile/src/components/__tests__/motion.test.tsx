@@ -34,6 +34,17 @@ describe('Skeleton', () => {
     expect(group.props.accessibilityState).toMatchObject({ busy: true });
   });
 
+  test('is announced when it appears, as the spinner it replaced was', async () => {
+    await render(
+      <SkeletonGroup label="Загружаем уборки…">
+        <Skeleton />
+      </SkeletonGroup>,
+    );
+
+    const group = screen.getByRole('progressbar', { name: 'Загружаем уборки…' });
+    expect(group.props.accessibilityLiveRegion).toBe('polite');
+  });
+
   test('says what is loading when the screen knows', async () => {
     await render(
       <SkeletonGroup label="Загружаем уборки…">

@@ -41,18 +41,29 @@ export default function SupplyRoute() {
     return <SupplyDetailSkeleton label={t('supplies.loading')} />;
   }
 
-  // As before, no retry here: the header's «Назад» and the list's own
-  // refresh are the way to ask again.
-  if (request.error) {
+  // A request that never loaded. One that did and only failed to refresh
+  // (TanStack keeps the data beside the error) stays on screen below. There
+  // is no «could not load the request» of its own: the general sentence.
+  if (request.error && request.data === undefined) {
     return (
       <View style={styles.screen}>
-        <ErrorState error={request.error} />
+        <ErrorState
+          error={request.error}
+          title={t('common.screenFailed')}
+          onRetry={() => void request.refetch()}
+        />
       </View>
     );
   }
 
   if (request.data === null || request.data === undefined) {
-    return <Message text={t('supplies.notFound')} styles={styles} />;
+    // Withdrawn: the refetch after it finds no row while the screen leaves —
+    // that is not «not found».
+    return isLeaving ? (
+      <View style={styles.screen} />
+    ) : (
+      <Message text={t('supplies.notFound')} styles={styles} />
+    );
   }
 
   const onDelete = () => {
@@ -72,6 +83,7 @@ export default function SupplyRoute() {
       onDelete={onDelete}
       isDeleting={remove.isPending && !remove.isPaused}
       error={remove.error}
+      refreshError={request.error}
     />
   );
 }

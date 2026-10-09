@@ -1,5 +1,4 @@
-import { supplyStatusTone } from '@str-ops/shared';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import type { ComponentProps } from 'react';
 import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
@@ -187,12 +186,21 @@ describe('on the «Абрикос» components', () => {
     expect(styleOf(screen.getByText(formatReportedAt(CREATED_AT))).color).toBe(light.textSecondary);
   });
 
-  test.each(SUPPLY_STATUSES)('the status %s is a pill in its own tone', async (status) => {
+  test.each(SUPPLY_STATUSES)('the status %s is a pill', async (status) => {
     await render(<SupplyDetail {...props({ request: request({ status }) })} />);
 
-    const pill = styleOf(screen.getByTestId('supply-status'));
-    expect(pill.backgroundColor).toBe(light.tone[supplyStatusTone(status)].bg);
-    expect(pill.borderRadius).toBe(Radius.pill);
+    expect(styleOf(screen.getByTestId('supply-status')).borderRadius).toBe(Radius.pill);
+  });
+
+  // Pinned by name, not recomputed with the function under test: a change of
+  // the contract has to change these lines too.
+  test.each([
+    ['new', 'unassigned'],
+    ['rejected', 'cancelled'],
+  ] as const)('the status %s is drawn in the %s tone', async (status, tone) => {
+    await render(<SupplyDetail {...props({ request: request({ status }) })} />);
+
+    expect(styleOf(screen.getByTestId('supply-status')).backgroundColor).toBe(light.tone[tone].bg);
   });
 
   test('urgent is the «Срочно» pill in the urgent tone; normal stays a word', async () => {
@@ -232,6 +240,11 @@ describe('on the «Абрикос» components', () => {
   test('while it is being withdrawn the delete button keeps its words beside the spinner', async () => {
     await render(<SupplyDetail {...props({ canEdit: true, isDeleting: true })} />);
 
-    expect(screen.getByText('Удалить заявку')).toBeTruthy();
+    const remove = screen.getByRole('button', { name: 'Удалить заявку' });
+    expect(within(remove).getByText('Удалить заявку')).toBeTruthy();
+    const spinners = remove.children.filter(
+      (child) => typeof child !== 'string' && child.type === 'ActivityIndicator',
+    );
+    expect(spinners).toHaveLength(1);
   });
 });

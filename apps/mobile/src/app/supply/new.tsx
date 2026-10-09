@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
+import { ErrorState } from '@/components/error-state';
 import { Skeleton, SkeletonGroup } from '@/components/skeleton';
 import { Text } from '@/components/text';
 import { BUTTON_HEIGHT, Radius, Spacing, type Theme } from '@/constants/theme';
@@ -84,6 +85,30 @@ export default function SupplyFormRoute() {
     editingId === null ? null : <Stack.Screen options={{ title: t('supplies.editTitle') }} />;
 
   if (draft === null) {
+    // A rewrite that cannot start: nobody to ask as (the query never runs),
+    // the request not there, or never loaded — never a skeleton for ever.
+    if (userId === null || existing.data === null) {
+      return (
+        <View style={[styles.screen, styles.centered]}>
+          {title}
+          <Text tone="secondary" align="center">
+            {t('supplies.notFound')}
+          </Text>
+        </View>
+      );
+    }
+    if (existing.error) {
+      return (
+        <View style={styles.screen}>
+          {title}
+          <ErrorState
+            error={existing.error}
+            title={t('common.screenFailed')}
+            onRetry={() => void existing.refetch()}
+          />
+        </View>
+      );
+    }
     return (
       <View style={styles.screen}>
         {title}

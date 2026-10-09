@@ -36,8 +36,10 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockParams,
 }));
 
+const mockSession: { userId: string | null } = { userId: ME };
+
 jest.mock('@/features/auth/session', () => ({
-  useSession: () => ({ userId: '7c9e6679-7425-40de-944b-e07fc1f90ae7' }),
+  useSession: () => mockSession,
 }));
 
 jest.mock('@/features/tasks/use-tasks', () => ({
@@ -102,8 +104,52 @@ function answer(data: SupplyRequest | undefined): void {
 
 beforeEach(() => {
   mockParams = { id: REQUEST_ID };
+  mockSession.userId = ME;
   mockCatalog = [];
   mockMutate.mockClear();
+});
+
+describe('a rewrite that cannot start from its request', () => {
+  test('a request that could not load says why, and «Повторить» asks again', async () => {
+    // Arrange
+    const refetch = jest.fn();
+    jest.mocked(useSupplyRequest).mockReturnValue({
+      data: undefined,
+      error: new Error('Network request failed'),
+      refetch,
+    } as unknown as ReturnType<typeof useSupplyRequest>);
+
+    // Act
+    await render(<SupplyFormRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Повторить' }));
+
+    // Assert: not a skeleton for ever.
+    expect(screen.queryByRole('progressbar')).toBeNull();
+    expect(screen.getByText('Network request failed')).toBeTruthy();
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  test('a request that is not there says so', async () => {
+    jest
+      .mocked(useSupplyRequest)
+      .mockReturnValue({ data: null } as unknown as ReturnType<typeof useSupplyRequest>);
+
+    await render(<SupplyFormRoute />);
+
+    expect(screen.getByText('Заявка не найдена')).toBeTruthy();
+    expect(screen.queryByRole('progressbar')).toBeNull();
+  });
+
+  // Nobody to ask as: the query never runs, TanStack calls it pending for ever.
+  test('before she is known, the request is not found, not loading for ever', async () => {
+    mockSession.userId = null;
+    answer(undefined);
+
+    await render(<SupplyFormRoute />);
+
+    expect(screen.getByText('Заявка не найдена')).toBeTruthy();
+    expect(screen.queryByRole('progressbar')).toBeNull();
+  });
 });
 
 // The root layout titles the screen «Новая заявка»; a rewrite says what it is

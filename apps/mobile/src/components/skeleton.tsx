@@ -55,6 +55,8 @@ export function SkeletonGroup({ label, children, style }: SkeletonGroupProps) {
       accessibilityRole="progressbar"
       accessibilityLabel={label ?? t('common.loading')}
       accessibilityState={{ busy: true }}
+      // Said when it appears, as the spinner it replaced on the lists was.
+      accessibilityLiveRegion="polite"
       style={[styles.group, { opacity }, style]}
     >
       {children}
