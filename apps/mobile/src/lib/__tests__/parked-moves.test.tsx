@@ -14,6 +14,7 @@ import {
   PARKED_ON_DISK,
   parkedVariablesOf,
   phoneLeftWith,
+  queuedVariables,
   savedMove,
   settleRealTime as settle,
   startApp as startAppWith,
@@ -22,9 +23,10 @@ import {
 import { signedOutOfQueue } from '@/testing/queue-person';
 
 /**
- * The moves parked on disk for their author (lib/parked-moves.ts), as the
- * review of dab5237..cb747a5 found them: two taps that send the same were one
- * move.
+ * The moves parked on disk for their author (lib/parked-moves.ts) and the
+ * turns of the queue they leave (lib/move-queue.ts), as the review of
+ * dab5237..cb747a5 found them: two taps that send the same were one move, and
+ * a move the disk refused to park held the next person's line for good.
  *
  * Who sent a call is read off the session auth holds when it is made
  * (`mockAuth.userId`): that is the token the request goes out with.
@@ -65,7 +67,9 @@ jest.mock('@/features/settings/api', () => ({
 const ANNA = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
 const BORIS = '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d';
 const ANNAS_TASK = '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b';
+const BORIS_TASK = '6a7b8c9d-0e1f-4a2b-8c3d-4e5f6a7b8c9d';
 const ANNAS_CLAIM: ClaimVariables = { taskId: ANNAS_TASK, cleanerId: ANNA };
+const BORIS_CLAIM: ClaimVariables = { taskId: BORIS_TASK, cleanerId: BORIS };
 const STEP: StepVariables = { taskId: ANNAS_TASK, stepId: 'b1c2d3e4-1111-4111-8111-b1c2d3e40001' };
 /** Between two taps of a person. */
 const TAP_GAP_MS = 1_000;
@@ -276,5 +280,63 @@ describe('one move found twice', () => {
 
     // Assert
     expect(sent).toEqual([{ what: ANNAS_TASK, by: ANNA }]);
+  });
+});
+
+/**
+ * A move of somebody else's that the disk refused to park stays in the queue
+ * (MEDIUM-2 of the review of dab5237..cb747a5): it is never sent, it holds no
+ * line of the next person's, and it is parked once the disk takes it.
+ */
+describe('a move the disk refused to park', () => {
+  const setItem = jest.mocked(AsyncStorage.setItem);
+  const write = setItem.getMockImplementation();
+
+  /** The disk refuses to write the parked store — full of videos, say. */
+  function diskFull(): void {
+    setItem.mockImplementation(async (key, value) => {
+      if (key === PARKED_ON_DISK) {
+        throw new Error('No space left on device');
+      }
+      return write?.(key, value);
+    });
+  }
+
+  /** The disk takes writes again. */
+  function diskBack(): void {
+    if (write !== undefined) {
+      setItem.mockImplementation(write);
+    }
+  }
+
+  afterEach(diskBack);
+
+  test('the next person’s move of its line still goes, it is never sent, and it is parked once the disk takes writes again', async () => {
+    // Arrange: Anna's take, restored without signal; the parked store refuses every write.
+    await phoneLeftWith([annasClaim()], ANNA);
+    onlineManager.setOnline(false);
+    await startApp();
+    await hear('INITIAL_SESSION', ANNA);
+    diskFull();
+    await hear('SIGNED_OUT', null);
+    await hear('SIGNED_IN', BORIS);
+    onlineManager.setOnline(true);
+
+    // Act: Boris takes a cleaning — the same line as Anna's take.
+    await tap(taskMutationKeys.claim, BORIS_CLAIM);
+    await nudgeQueue();
+
+    // Assert
+    expect(sent).toEqual([{ what: BORIS_TASK, by: BORIS }]);
+    expect(queuedVariables(client)).toEqual([ANNAS_CLAIM]);
+
+    // Act: the disk takes writes again.
+    diskBack();
+    await nudgeQueue();
+
+    // Assert
+    expect(await parkedVariablesOf(ANNA)).toEqual([ANNAS_CLAIM]);
+    expect(queuedVariables(client)).toEqual([]);
+    expect(sent).toEqual([{ what: BORIS_TASK, by: BORIS }]);
   });
 });

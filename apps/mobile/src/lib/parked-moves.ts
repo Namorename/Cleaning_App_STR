@@ -9,7 +9,7 @@ import {
 } from '@tanstack/react-query';
 import { z } from 'zod';
 
-import { authorIn, authorOf, setQueuePerson, waitsForSignal } from '@/lib/move-queue';
+import { authorIn, authorOf, oweParking, setQueuePerson, waitsForSignal } from '@/lib/move-queue';
 import {
   QUERY_CACHE_KEY,
   resumeSavedMoves,
@@ -104,6 +104,21 @@ async function writeParked(parked: Parked): Promise<void> {
   await AsyncStorage.setItem(PARKED_MOVES_KEY, JSON.stringify(parked));
 }
 
+/** The store's last step, settled either way: the next one waits for it. */
+let storeTurn: Promise<unknown> = Promise.resolve();
+
+/**
+ * One step on the store, after the steps before it. Each reads the store,
+ * changes it and writes it back; a sort and a retry of a parking the disk
+ * refused (`parkLeftovers`) may overlap, and two at once would each write
+ * over what the other added.
+ */
+function inTurn(step: () => Promise<void>): Promise<void> {
+  const done = storeTurn.then(step);
+  storeTurn = done.catch(() => undefined);
+  return done;
+}
+
 /** `parked` with `moves` added under their authors, none twice. */
 function withParked(parked: Parked, moves: readonly SavedMove[]): Parked {
   return moves.reduce<Parked>((all, move) => {
@@ -136,43 +151,63 @@ function isSomebodyElses(mutation: Mutation, person: string | null): boolean {
  * when it is parked may still land: its copy is sent again once its author is
  * back, as an idempotent call with the same id.
  */
-async function parkMovesNotOf(queryClient: QueryClient, person: string | null): Promise<void> {
-  const cache = queryClient.getMutationCache();
-  const moves = cache.getAll().filter((mutation) => isSomebodyElses(mutation, person));
-  if (moves.length === 0) {
-    return;
-  }
-  const { mutations } = dehydrate(queryClient, {
-    shouldDehydrateMutation: (mutation) => moves.includes(mutation),
-    shouldDehydrateQuery: () => false,
+function parkMovesNotOf(queryClient: QueryClient, person: string | null): Promise<void> {
+  return inTurn(async () => {
+    const cache = queryClient.getMutationCache();
+    const moves = cache.getAll().filter((mutation) => isSomebodyElses(mutation, person));
+    if (moves.length === 0) {
+      return;
+    }
+    const { mutations } = dehydrate(queryClient, {
+      shouldDehydrateMutation: (mutation) => moves.includes(mutation),
+      shouldDehydrateQuery: () => false,
+    });
+    await writeParked(withParked(await readParked(), savedAsWaiting(mutations)));
+    moves.forEach((mutation) => cache.remove(mutation));
   });
-  await writeParked(withParked(await readParked(), savedAsWaiting(mutations)));
-  moves.forEach((mutation) => cache.remove(mutation));
+}
+
+/**
+ * Every move of anybody but `person` parked (`parkMovesNotOf`). One the disk
+ * refuses — full of videos, say — is reported and stays in the queue, where it
+ * never runs and holds no line of hers (lib/move-queue.ts,
+ * `AppMutationCache`); its parking is owed, and tried again at the next
+ * resume of the queue (`retryOwedParking`) and at the next sort.
+ */
+async function parkLeftovers(queryClient: QueryClient, person: string | null): Promise<void> {
+  try {
+    await parkMovesNotOf(queryClient, person);
+  } catch (error: unknown) {
+    reportError(error);
+    oweParking(queryClient, (next) => parkLeftovers(queryClient, next));
+  }
 }
 
 /**
  * `person`'s parked moves back in the queue, after any of hers already in it.
  * The cache is on disk with them before the store lets go of them.
  */
-async function bringBackMovesOf(queryClient: QueryClient, person: string): Promise<void> {
-  const parked = await readParked();
-  const theirs = parked[person];
-  if (theirs === undefined) {
-    return;
-  }
-  const queued = new Set(
-    queryClient
-      .getMutationCache()
-      .getAll()
-      .filter((mutation) => mutation.state.status === 'pending')
-      .map(identityOfQueued),
-  );
-  const fresh = theirs.filter((move) => !queued.has(identityOfSaved(move)));
-  hydrate(queryClient, { mutations: [...fresh], queries: [] });
-  await saveCacheNow(queryClient);
-  await writeParked(
-    Object.fromEntries(Object.entries(parked).filter(([author]) => author !== person)),
-  );
+function bringBackMovesOf(queryClient: QueryClient, person: string): Promise<void> {
+  return inTurn(async () => {
+    const parked = await readParked();
+    const theirs = parked[person];
+    if (theirs === undefined) {
+      return;
+    }
+    const queued = new Set(
+      queryClient
+        .getMutationCache()
+        .getAll()
+        .filter((mutation) => mutation.state.status === 'pending')
+        .map(identityOfQueued),
+    );
+    const fresh = theirs.filter((move) => !queued.has(identityOfSaved(move)));
+    hydrate(queryClient, { mutations: [...fresh], queries: [] });
+    await saveCacheNow(queryClient);
+    await writeParked(
+      Object.fromEntries(Object.entries(parked).filter(([author]) => author !== person)),
+    );
+  });
 }
 
 /**
@@ -185,18 +220,15 @@ async function bringBackMovesOf(queryClient: QueryClient, person: string): Promi
  *
  * A step the disk refuses is reported and the rest goes on: a move that could
  * not be parked stays in the queue, where it never runs with anybody else's
- * session (lib/move-queue.ts, `AppMutationCache.canRun`), and is parked again
- * at the next change of person or the next start.
+ * session nor holds a line of hers (lib/move-queue.ts, `AppMutationCache`),
+ * and is parked again at the next resume of the queue, the next change of
+ * person or the next start (`parkLeftovers`).
  */
 export async function settleQueueFor(
   queryClient: QueryClient,
   person: string | null,
 ): Promise<void> {
-  try {
-    await parkMovesNotOf(queryClient, person);
-  } catch (error: unknown) {
-    reportError(error);
-  }
+  await parkLeftovers(queryClient, person);
   if (person !== null) {
     try {
       await bringBackMovesOf(queryClient, person);

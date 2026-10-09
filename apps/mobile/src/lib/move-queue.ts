@@ -80,6 +80,19 @@ export function waitsForSignal(move: QueuedMove): boolean {
 }
 
 /**
+ * A move that may run now: one sent at once or not at all, or one of the
+ * queue made by the person signed in.
+ */
+function mayRunNow(move: QueuedMove): boolean {
+  return !waitsForSignal(move) || authorOf(move) === signedIn;
+}
+
+/** The line a move waits in (TanStack's scope); undefined for a move that waits in none. */
+function lineOf(move: Mutation): string | undefined {
+  return move.options.scope?.id;
+}
+
+/**
  * A move that keeps the author it was given. A screen hands its mutation its
  * own options again on every draw (`MutationObserver.setOptions`), and they do
  * not name the author: taken as they come, the move would reach the disk with
@@ -111,10 +124,18 @@ class AuthoredMutation<TData, TError, TVariables, TOnMutateResult> extends Mutat
  *
  * Run only with its author's session: TanStack asks the cache before every
  * try (`canRun`), however the move was set off — resumed, or continued by
- * the move ahead of it in its line (`runNext`), which asks nobody else. A
- * move that is not the signed-in person's waits instead, paused; parked on
- * disk (lib/parked-moves.ts), it is out of the cache and never runs again from
+ * the move ahead of it in its line (`runNext`). A move that is not the
+ * signed-in person's waits instead, paused; parked on disk
+ * (lib/parked-moves.ts), it is out of the cache and never runs again from
  * memory: its copy on disk is the one that goes once its author is back.
+ *
+ * And whose turn it is in a line is decided here, among the moves that may
+ * run now (MEDIUM-2 of the review of dab5237..cb747a5). TanStack's own turn is
+ * the first move still to send in the line, whoever made it, and its next is
+ * the first one paused: somebody else's move the disk refused to park, left
+ * ahead in the queue, held every move of the next person's in that line for
+ * good. Here it is passed over, and never set off; the order among her own
+ * moves is TanStack's, the order they were made in.
  */
 export class AppMutationCache extends MutationCache {
   #lastMutationId = 0;
@@ -138,9 +159,30 @@ export class AppMutationCache extends MutationCache {
   }
 
   override canRun(mutation: Parameters<MutationCache['canRun']>[0]): boolean {
-    const isOfTheQueue = this.getAll().includes(mutation);
-    const isOfTheSession = !waitsForSignal(mutation) || authorOf(mutation) === signedIn;
-    return isOfTheQueue && isOfTheSession && super.canRun(mutation);
+    if (!this.getAll().includes(mutation) || !mayRunNow(mutation)) {
+      return false;
+    }
+    const line = lineOf(mutation);
+    if (line === undefined) {
+      return true;
+    }
+    // A move just set off is not pending yet: it may start when nothing is ahead of it.
+    const first = this.getAll().find(
+      (move) => lineOf(move) === line && move.state.status === 'pending' && mayRunNow(move),
+    );
+    return first === undefined || first === mutation;
+  }
+
+  override runNext(mutation: Parameters<MutationCache['runNext']>[0]): Promise<unknown> {
+    const line = lineOf(mutation);
+    const next =
+      line === undefined
+        ? undefined
+        : this.getAll().find(
+            (move) =>
+              move !== mutation && lineOf(move) === line && move.state.isPaused && mayRunNow(move),
+          );
+    return next?.continue() ?? Promise.resolve();
   }
 }
 
@@ -168,6 +210,33 @@ export function queuePersonOf(client: QueryClient): string | null | undefined {
 export function resumableFor(client: QueryClient): string | null {
   const person = queuePeople.get(client);
   return typeof person === 'string' && person === signedIn ? person : null;
+}
+
+/** Parking each client's queue still owes the disk, for the person it is sorted for. */
+const owedParkings = new WeakMap<QueryClient, (person: string) => Promise<void>>();
+
+/**
+ * The disk refused to park somebody else's moves in `client`'s queue
+ * (lib/parked-moves.ts): `park` is tried again at the next resume of the
+ * queue (`retryOwedParking`). Until then those moves wait in the queue, and
+ * never run (`AppMutationCache`).
+ */
+export function oweParking(client: QueryClient, park: (person: string) => Promise<void>): void {
+  owedParkings.set(client, park);
+}
+
+/**
+ * The parking `client`'s queue owes the disk, tried again for `person`, the
+ * one it is sorted for — once: a try the disk refuses again owes it anew.
+ * Not awaited by the resume: the moves it parks never run anyway.
+ */
+export function retryOwedParking(client: QueryClient, person: string): void {
+  const park = owedParkings.get(client);
+  if (park === undefined) {
+    return;
+  }
+  owedParkings.delete(client);
+  void park(person);
 }
 
 /**

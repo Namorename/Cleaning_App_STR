@@ -21,7 +21,13 @@ import { stepKeys } from '@/features/steps/keys';
 import { registerSupplyMutations } from '@/features/supplies/use-supplies';
 import { registerStepMutations } from '@/features/steps/use-steps';
 import { registerTaskMutations, taskKeys } from '@/features/tasks/use-tasks';
-import { AppMutationCache, authorOf, resumableFor, waitsForSignal } from '@/lib/move-queue';
+import {
+  AppMutationCache,
+  authorOf,
+  resumableFor,
+  retryOwedParking,
+  waitsForSignal,
+} from '@/lib/move-queue';
 import { countRefusals, isMoveRetry, moveRetryDelay, retryMove } from '@/lib/move-retry';
 
 /** Milliseconds; the cache is thrown away after this long without a refresh. */
@@ -66,7 +72,9 @@ function atMost(move: Promise<unknown>, wait: number): Promise<unknown> {
  * And only the moves of the person the queue is sorted for (lib/move-queue.ts,
  * `resumableFor`): nothing before the first session after the restore is
  * known and the queue sorted for it (lib/parked-moves.ts), nothing while
- * nobody is signed in, never a move of somebody else's.
+ * nobody is signed in, never a move of somebody else's. One of those the disk
+ * refused to park is parked at each resume until the disk takes it
+ * (`retryOwedParking`).
  */
 class AppQueryClient extends QueryClient {
   /**
@@ -89,7 +97,12 @@ class AppQueryClient extends QueryClient {
 
   override resumePausedMutations(): Promise<unknown> {
     const person = resumableFor(this);
-    if (!onlineManager.isOnline() || person === null) {
+    if (person === null) {
+      return Promise.resolve();
+    }
+    // Somebody else's moves the disk refused to park, parked now if it takes them.
+    retryOwedParking(this, person);
+    if (!onlineManager.isOnline()) {
       return Promise.resolve();
     }
     const paused = this.getMutationCache()
