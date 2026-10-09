@@ -711,6 +711,11 @@
         "addNone": "Všechny objekty jsou už otevřené.",
         "addButton": "Přidat",
         "onlyRemove": "Této roli se objekty nepřiřazují: přiřazení lze jen odebrat."
+      },
+      "resetConfirm": {
+        "title": "Obnovit heslo pro {{name}}?",
+        "description": "Staré heslo hned přestane platit. Nové se zobrazí na další obrazovce.",
+        "confirm": "Obnovit heslo"
       }
     },
     "roles": {

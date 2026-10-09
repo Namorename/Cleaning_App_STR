@@ -709,6 +709,11 @@
         "addNone": "Every listing is already open.",
         "addButton": "Add",
         "onlyRemove": "This role is not put on listings: its links can only be removed."
+      },
+      "resetConfirm": {
+        "title": "Reset the password for {{name}}?",
+        "description": "The old password stops working at once. The new one appears on the next screen.",
+        "confirm": "Reset password"
       }
     },
     "roles": {
