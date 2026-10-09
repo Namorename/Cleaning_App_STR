@@ -3,6 +3,7 @@ import { StyleSheet, Text, type ViewStyle } from 'react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 
 import { Spacing } from '@/constants/theme';
+import { BOTTOM_INSETS, withBottomInset } from '@/testing/insets';
 
 import { ActionBar } from '../action-bar';
 
@@ -61,4 +62,35 @@ test('above the tab bar it does not: the tab bar has already cleared it', async 
   );
 
   expect(barStyle().paddingBottom).toBe(Spacing.md);
+});
+
+// Block 3 (2026-10-10): on Android the three-button navigation bar (48 dp) or
+// the gesture bar lies over the bottom of the screen; a form's button must
+// stand clear of it, with its own margin above it.
+describe.each(BOTTOM_INSETS)('with a bottom inset of %i dp', (bottom) => {
+  test('on the screen’s edge it rises by the inset over its own margin', async () => {
+    await render(
+      withBottomInset(
+        bottom,
+        <ActionBar testID="bar" isAtScreenEdge>
+          <Text>Отправить</Text>
+        </ActionBar>,
+      ),
+    );
+
+    expect(barStyle().paddingBottom).toBe(Spacing.md + bottom);
+  });
+
+  test('above the tab bar it keeps its own margin only', async () => {
+    await render(
+      withBottomInset(
+        bottom,
+        <ActionBar testID="bar">
+          <Text>Создать задание</Text>
+        </ActionBar>,
+      ),
+    );
+
+    expect(barStyle().paddingBottom).toBe(Spacing.md);
+  });
 });
