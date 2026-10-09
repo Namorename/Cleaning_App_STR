@@ -7,7 +7,7 @@ import { TusRetryableError } from './tus';
 
 /**
  * How the upload queue tries again (review of video part 2, finding 3; the
- * third pass on video, findings 1 and 2; the fourth, finding 1).
+ * third pass on video, findings 1 and 2; the fourth, findings 1, 2 and 5).
  *
  * Silence — a fetch that reached nothing, a resumable upload whose request
  * got no answer at all — marks the queue offline, as the app's other moves
