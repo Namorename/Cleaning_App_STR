@@ -26,8 +26,9 @@ export interface VideoRecorderProps {
  *
  * The recording itself — its timing, its stops and what can go wrong — is
  * `useVideoRecording`'s; this draws it. The countdown is drawn every quarter
- * second and said to a screen reader every ten. Between «Стоп» and the file
- * the button is greyed and says «Сохраняем…»: the camera is still writing.
+ * second and said to a screen reader every ten while it records. Between
+ * «Стоп» and the file the button is greyed and says «Сохраняем…», said once to
+ * the reader, the countdown quiet: the camera is still writing.
  */
 export function VideoRecorder({ limits, onRecorded }: VideoRecorderProps) {
   const { t } = useTranslation();
@@ -35,7 +36,6 @@ export function VideoRecorder({ limits, onRecorded }: VideoRecorderProps) {
   const camera = useRef<CameraView>(null);
   const recording = useVideoRecording(camera, limits, onRecorded);
   const { elapsedMs, isRecording, isSaving } = recording;
-  const isRunning = isRecording || isSaving;
 
   const left = secondsLeft(elapsedMs, limits.seconds);
   const announcement = t('video.remaining', {
@@ -43,11 +43,22 @@ export function VideoRecorder({ limits, onRecorded }: VideoRecorderProps) {
   });
 
   // Android reads the live region below as it changes; an iPhone has none.
+  // Only while it records: once «Стоп» is pressed the countdown is over.
   useEffect(() => {
-    if (isRunning && Platform.OS === 'ios') {
+    if (isRecording && Platform.OS === 'ios') {
       AccessibilityInfo.announceForAccessibility(announcement);
     }
-  }, [announcement, isRunning]);
+  }, [announcement, isRecording]);
+
+  // The camera still writing the file is said once, as it begins: the button
+  // greys and says so, but a reader whose focus is elsewhere would not hear
+  // it (item 5 of the verification review of f3217a7..c466bf5).
+  const saving = t('video.saving');
+  useEffect(() => {
+    if (isSaving) {
+      AccessibilityInfo.announceForAccessibility(saving);
+    }
+  }, [isSaving, saving]);
 
   if (recording.failure !== null) {
     return (
@@ -86,7 +97,12 @@ export function VideoRecorder({ limits, onRecorded }: VideoRecorderProps) {
         >
           {clockText(left)}
         </Text>
-        <Text tone="secondary" align="center" accessibilityLiveRegion="polite">
+        {/* Quiet while the file is saved: the time left no longer counts down. */}
+        <Text
+          tone="secondary"
+          align="center"
+          accessibilityLiveRegion={isSaving ? 'none' : 'polite'}
+        >
           {announcement}
         </Text>
         <RecordButton

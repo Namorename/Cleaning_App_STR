@@ -231,6 +231,40 @@ describe('a recording being saved', () => {
     expect(mockCamera.recordAsync).toHaveBeenCalledTimes(1);
   });
 
+  // Item 5 of the verification review of f3217a7..c466bf5: the reader hears
+  // that it is saving once, and the countdown, stopped, is not read over it.
+  test('«Сохраняем…» is said to the reader once, however long the camera takes', async () => {
+    // Arrange
+    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+    mockCamera.stopRecording.mockImplementation(() => undefined);
+    await render(<RecordRoute />);
+
+    // Act
+    await recordFor(3_000);
+    await wait(5_000);
+
+    // Assert
+    const saying = announce.mock.calls.filter(([text]) => text === 'Сохраняем…');
+    expect(saying).toHaveLength(1);
+  });
+
+  test('while it saves, the time left is no live region and is not said', async () => {
+    // Arrange
+    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+    mockCamera.stopRecording.mockImplementation(() => undefined);
+    await render(<RecordRoute />);
+    await recordFor(3_000);
+    const before = announce.mock.calls.length;
+
+    // Act
+    await wait(5_000);
+
+    // Assert
+    const said = announce.mock.calls.slice(before).map(([text]) => text);
+    expect(said.filter((text) => text.startsWith('Осталось'))).toEqual([]);
+    expect(screen.getByText(/^Осталось/).props.accessibilityLiveRegion).toBe('none');
+  });
+
   test('a stop the camera did not hear is said again', async () => {
     // Arrange: the first stop is lost, the second hands the file over.
     mockCamera.stopRecording
