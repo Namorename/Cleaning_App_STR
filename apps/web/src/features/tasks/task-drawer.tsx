@@ -108,6 +108,10 @@ export function TaskDrawer({ task, onClose, onOpenChat }: TaskDrawerProps) {
       taskId: task.id,
       minutes: correction.trim() === '' ? null : parsed,
     });
+  // A video's link has failed and may have expired: the work is read again,
+  // which signs every file anew. Several videos failing together share the
+  // read in flight rather than cancel it.
+  const signAgain = () => work.refetch({ cancelRefetch: false });
 
   return (
     <Sheet open onOpenChange={(next) => (next ? undefined : onClose())}>
@@ -293,6 +297,7 @@ export function TaskDrawer({ task, onClose, onOpenChat }: TaskDrawerProps) {
                                 url={video.url}
                                 durationSec={video.duration_sec}
                                 label={t('panel.media.videoOf', { step: stepTitle })}
+                                onExpired={signAgain}
                               />
                             ))}
                           </div>

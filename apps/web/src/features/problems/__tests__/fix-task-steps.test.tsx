@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 /**
@@ -55,6 +55,7 @@ const fixSteps = {
   isPending: false,
   isError: false,
   error: null,
+  refetch: vi.fn(() => Promise.resolve()),
 };
 
 vi.mock('../use-problems', () => ({
@@ -70,6 +71,7 @@ const stepItem = (title: string): HTMLElement =>
 const videoRows = fixSteps.data.mediaByStep[VIDEO_STEP];
 
 beforeEach(() => {
+  vi.clearAllMocks();
   fixSteps.data.mediaByStep[VIDEO_STEP] = videoRows;
 });
 
@@ -106,5 +108,17 @@ describe('the files of a repair step', () => {
 
     expect(document.querySelector('video')).toBeNull();
     expect(screen.getByText('Видео недоступно')).toBeInTheDocument();
+  });
+
+  // The link lives an hour; the card may stand open longer.
+  test('a video whose link has expired has the steps read again', () => {
+    render(<FixTaskSteps taskId="aaaaaaaa-aaaa-4aaa-8aaa-000000000001" />);
+
+    const video = screen.getByLabelText('Видео: Видео после работы');
+    Object.defineProperty(video, 'error', { configurable: true, value: { code: 4 } });
+    fireEvent.error(video);
+
+    expect(fixSteps.refetch).toHaveBeenCalledTimes(1);
+    expect(fixSteps.refetch).toHaveBeenCalledWith({ cancelRefetch: false });
   });
 });

@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { taskSchema } from '../schema';
@@ -59,10 +59,15 @@ const work = {
   },
   isPending: false,
   isError: false,
+  refetch: vi.fn(() => Promise.resolve()),
 };
 
 beforeEach(() => {
+  vi.clearAllMocks();
   work.data.mediaByStep[VIDEO_STEP] = videoRows;
+  work.data.mediaByStep[PHOTO_STEP] = [
+    media({ id: 'm1', storage_path: 'photo.jpg', url: PHOTO_URL }),
+  ];
 });
 
 vi.mock('../use-tasks', () => ({
@@ -146,5 +151,20 @@ describe('the files of a step in the task drawer', () => {
     const item = stepItem('Видео после работы');
     expect(item.querySelector('video')).toBeNull();
     expect(within(item).getByText('Видео недоступно')).toBeInTheDocument();
+  });
+
+  // The link lives an hour; the drawer may stand open longer. Several videos
+  // failing at once share one read rather than cancel each other's.
+  test('a video whose link has expired has the work read again', () => {
+    render(<TaskDrawer task={finished} onClose={vi.fn()} onOpenChat={vi.fn()} />);
+
+    const video = within(stepItem('Видео после работы')).getByLabelText(
+      'Видео: Видео после работы',
+    );
+    Object.defineProperty(video, 'error', { configurable: true, value: { code: 4 } });
+    fireEvent.error(video);
+
+    expect(work.refetch).toHaveBeenCalledTimes(1);
+    expect(work.refetch).toHaveBeenCalledWith({ cancelRefetch: false });
   });
 });

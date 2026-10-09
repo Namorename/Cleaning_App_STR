@@ -21,13 +21,15 @@ interface ProblemPhotosProps {
   emptyText: string;
   /** Whose video this is, for a screen reader: the step's name. */
   videoLabel?: string;
+  /** Have the files signed again when a video's link fails (see `VideoTile`). */
+  onExpired?: () => Promise<unknown>;
 }
 
 const TILE_PLACEHOLDER =
   'flex size-24 items-center justify-center rounded-md border text-xs text-muted-foreground';
 
 /** Thumbnails that open the full photo in a new tab; a video plays where it stands. */
-export function ProblemPhotos({ media, emptyText, videoLabel }: ProblemPhotosProps) {
+export function ProblemPhotos({ media, emptyText, videoLabel, onExpired }: ProblemPhotosProps) {
   if (media.length === 0) {
     return <EmptyState>{emptyText}</EmptyState>;
   }
@@ -36,7 +38,7 @@ export function ProblemPhotos({ media, emptyText, videoLabel }: ProblemPhotosPro
     <ul className="flex flex-wrap gap-2">
       {media.map((item, index) => (
         <li key={item.id}>
-          <MediaTile item={item} index={index} videoLabel={videoLabel} />
+          <MediaTile item={item} index={index} videoLabel={videoLabel} onExpired={onExpired} />
         </li>
       ))}
     </ul>
@@ -48,6 +50,7 @@ interface MediaTileProps {
   /** Its place in the list, for a name when nothing better is known. */
   index: number;
   videoLabel?: string;
+  onExpired?: () => Promise<unknown>;
 }
 
 /**
@@ -55,7 +58,7 @@ interface MediaTileProps {
  * cannot be shown — a photo as a picture that opens larger, and a photo
  * storage would not sign as a line saying so.
  */
-function MediaTile({ item, index, videoLabel }: MediaTileProps) {
+function MediaTile({ item, index, videoLabel, onExpired }: MediaTileProps) {
   const { t } = useTranslation();
 
   if (item.kind === 'video') {
@@ -68,6 +71,7 @@ function MediaTile({ item, index, videoLabel }: MediaTileProps) {
             ? `${t('panel.media.video')} ${index + 1}`
             : t('panel.media.videoOf', { step: videoLabel })
         }
+        onExpired={onExpired}
       />
     );
   }

@@ -1,10 +1,32 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, test } from 'vitest';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, test, vi } from 'vitest';
 
 import { formatVideoDuration, groupByStep, stepMediaListSchema } from '../schema';
 import { VideoTile } from '../video-tile';
 
 const URL = 'https://project.supabase.co/storage/v1/object/sign/task-media/a.mp4?token=t';
+
+/** `MediaError` codes, as a browser sets them on the element before `error` fires. */
+const MEDIA_ERR = { aborted: 1, network: 2, decode: 3, unsupported: 4 } as const;
+
+/** The player fails the way a browser's does: jsdom leaves `video.error` null. */
+function failWith(code: number, label = 'Видео') {
+  const video = screen.getByLabelText(label);
+  Object.defineProperty(video, 'error', { configurable: true, value: { code } });
+  fireEvent.error(video);
+}
+
+/** A parent's refetch that answers only when the test says so. */
+function heldRefetch() {
+  let release: () => void = () => undefined;
+  const onExpired = vi.fn(
+    () =>
+      new Promise<void>((resolve) => {
+        release = resolve;
+      }),
+  );
+  return { onExpired, settle: () => act(async () => release()) };
+}
 
 describe('formatVideoDuration', () => {
   test('reads seconds as minutes and seconds', () => {
@@ -150,26 +172,29 @@ describe('VideoTile — a link signed again', () => {
 describe('VideoTile — a video that cannot be shown', () => {
   // An HEVC .mov from an iPhone does not play in Chrome: the element errors
   // with no newer link to try, and a black square with dead controls says nothing.
-  test('says it is unavailable and still offers to open it in a new tab', () => {
-    render(<VideoTile url={URL} durationSec={65} label="Видео" />);
+  test.each([MEDIA_ERR.decode, MEDIA_ERR.unsupported])(
+    'error %i: says it is unavailable and still offers to open it in a new tab',
+    (code) => {
+      render(<VideoTile url={URL} durationSec={65} label="Видео" />);
 
-    fireEvent.error(screen.getByLabelText('Видео'));
+      failWith(code);
 
-    expect(document.querySelector('video')).toBeNull();
-    expect(screen.getByText('Видео недоступно')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Открыть видео в новой вкладке' })).toHaveAttribute(
-      'href',
-      URL,
-    );
-  });
+      expect(document.querySelector('video')).toBeNull();
+      expect(screen.getByText('Видео недоступно')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Открыть видео в новой вкладке' })).toHaveAttribute(
+        'href',
+        URL,
+      );
+    },
+  );
 
   test('a link that failed after a fresh one was taken falls back the same way', () => {
     const fresh = `${URL}2`;
     const { rerender } = render(<VideoTile url={URL} durationSec={65} label="Видео" />);
     rerender(<VideoTile url={fresh} durationSec={65} label="Видео" />);
 
-    fireEvent.error(screen.getByLabelText('Видео'));
-    fireEvent.error(screen.getByLabelText('Видео'));
+    failWith(MEDIA_ERR.unsupported);
+    failWith(MEDIA_ERR.unsupported);
 
     expect(screen.getByText('Видео недоступно')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Открыть видео в новой вкладке' })).toHaveAttribute(
@@ -184,5 +209,138 @@ describe('VideoTile — a video that cannot be shown', () => {
     expect(document.querySelector('video')).toBeNull();
     expect(screen.getByText('Видео недоступно')).toBeInTheDocument();
     expect(screen.queryByRole('link')).toBeNull();
+  });
+
+  // The swap from a player to a line of text is heard, and says whose video it was.
+  test('the line that stands in for the player keeps the step’s name and is announced', () => {
+    render(<VideoTile url={URL} durationSec={65} label="Видео: Видео после работы" />);
+
+    failWith(MEDIA_ERR.unsupported, 'Видео: Видео после работы');
+
+    expect(screen.getByRole('status', { name: 'Видео: Видео после работы' })).toHaveTextContent(
+      'Видео недоступно',
+    );
+  });
+});
+
+describe('VideoTile — a failure it recovers from', () => {
+  // A dropped connection or a stopped load is not a file that cannot be
+  // played: the browser's own controls let the manager press play again.
+  test.each([MEDIA_ERR.aborted, MEDIA_ERR.network])(
+    'error %i keeps the player and its link',
+    (code) => {
+      render(<VideoTile url={URL} durationSec={65} label="Видео" />);
+
+      failWith(code);
+
+      expect(screen.getByLabelText('Видео')).toHaveAttribute('src', URL);
+      expect(screen.queryByText('Видео недоступно')).toBeNull();
+    },
+  );
+
+  test('a new link handed over after a failure is tried', () => {
+    const fresh = `${URL}2`;
+    const { rerender } = render(<VideoTile url={URL} durationSec={65} label="Видео" />);
+    failWith(MEDIA_ERR.unsupported);
+    expect(screen.getByText('Видео недоступно')).toBeInTheDocument();
+
+    rerender(<VideoTile url={fresh} durationSec={65} label="Видео" />);
+
+    expect(screen.getByLabelText('Видео')).toHaveAttribute('src', fresh);
+    expect(screen.queryByText('Видео недоступно')).toBeNull();
+  });
+
+  test('a file signed only on a later fetch is played once it has a link', () => {
+    const { rerender } = render(<VideoTile url={null} durationSec={65} label="Видео" />);
+    expect(screen.getByText('Видео недоступно')).toBeInTheDocument();
+
+    rerender(<VideoTile url={URL} durationSec={65} label="Видео" />);
+
+    expect(screen.getByLabelText('Видео')).toHaveAttribute('src', URL);
+  });
+});
+
+describe('VideoTile — a link that has expired', () => {
+  const FRESH = `${URL}-fresh`;
+
+  // A signed link lives an hour: the newest one the tile holds may be the
+  // one that failed, and only the parent can sign the file again.
+  test('asks for a fresh link before saying the video is unavailable, and plays it', async () => {
+    const { onExpired, settle } = heldRefetch();
+    const { rerender } = render(
+      <VideoTile url={URL} durationSec={65} label="Видео" onExpired={onExpired} />,
+    );
+
+    failWith(MEDIA_ERR.unsupported);
+
+    expect(onExpired).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Видео недоступно')).toBeNull();
+
+    rerender(<VideoTile url={FRESH} durationSec={65} label="Видео" onExpired={onExpired} />);
+    await settle();
+
+    expect(screen.getByLabelText('Видео')).toHaveAttribute('src', FRESH);
+    expect(screen.queryByText('Видео недоступно')).toBeNull();
+  });
+
+  test('says it is unavailable when the parent has no fresh link to give', async () => {
+    const { onExpired, settle } = heldRefetch();
+    render(<VideoTile url={URL} durationSec={65} label="Видео" onExpired={onExpired} />);
+
+    failWith(MEDIA_ERR.unsupported);
+    await settle();
+
+    expect(screen.getByText('Видео недоступно')).toBeInTheDocument();
+  });
+
+  // Every refetch signs anew: a file that cannot be played would otherwise
+  // ask, fail on the fresh link, and ask again without end.
+  test('asks once: a fresh link that fails too is unavailable without asking again', async () => {
+    const { onExpired, settle } = heldRefetch();
+    const { rerender } = render(
+      <VideoTile url={URL} durationSec={65} label="Видео" onExpired={onExpired} />,
+    );
+    failWith(MEDIA_ERR.unsupported);
+    rerender(<VideoTile url={FRESH} durationSec={65} label="Видео" onExpired={onExpired} />);
+    await settle();
+
+    failWith(MEDIA_ERR.unsupported);
+
+    expect(onExpired).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Видео недоступно')).toBeInTheDocument();
+  });
+
+  // A link that expires while the video stands paused fails on its next load
+  // as a network error, not as a file that cannot be read.
+  test('a network error asks for a fresh link too, and keeps the player meanwhile', async () => {
+    const { onExpired, settle } = heldRefetch();
+    const { rerender } = render(
+      <VideoTile url={URL} durationSec={65} label="Видео" onExpired={onExpired} />,
+    );
+
+    failWith(MEDIA_ERR.network);
+    await settle();
+
+    expect(onExpired).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText('Видео')).toHaveAttribute('src', URL);
+
+    rerender(<VideoTile url={FRESH} durationSec={65} label="Видео" onExpired={onExpired} />);
+
+    expect(screen.getByLabelText('Видео')).toHaveAttribute('src', FRESH);
+  });
+
+  test('asks again once a fresh link has played', async () => {
+    const { onExpired, settle } = heldRefetch();
+    const { rerender } = render(
+      <VideoTile url={URL} durationSec={65} label="Видео" onExpired={onExpired} />,
+    );
+    failWith(MEDIA_ERR.network);
+    rerender(<VideoTile url={FRESH} durationSec={65} label="Видео" onExpired={onExpired} />);
+    await settle();
+    fireEvent.loadedMetadata(screen.getByLabelText('Видео'));
+
+    failWith(MEDIA_ERR.network);
+
+    await waitFor(() => expect(onExpired).toHaveBeenCalledTimes(2));
   });
 });
