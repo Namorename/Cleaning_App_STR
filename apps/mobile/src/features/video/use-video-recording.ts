@@ -42,6 +42,20 @@ function releaseScreen(): void {
 }
 
 /**
+ * Let the screen sleep once the lock asked for is in place, or refused. The
+ * lock is taken asynchronously: let go before then, it would be taken after —
+ * a recording refused at once would leave the screen on with nothing to stop
+ * it.
+ */
+function releaseScreenAfter(lock: Promise<void> | null): void {
+  if (lock === null) {
+    releaseScreen();
+    return;
+  }
+  void lock.finally(releaseScreen);
+}
+
+/**
  * On an iPhone the bitrate holds only with an explicit codec, and H.264 plays
  * where HEVC may not — in Chrome on the office's Windows (docs/tech-plan.md
  * §7.1). Android records H.264 as it is.
@@ -123,6 +137,8 @@ export function useVideoRecording(
   const isInBackground = useRef(false);
   const isLeaving = useRef(false);
   const isMounted = useRef(false);
+  /** The lock against sleep asked for by the recording under way; settles either way. */
+  const screenLock = useRef<Promise<void> | null>(null);
 
   // Refs only, so the same function for the whole life of the screen. A
   // second call says the stop again; the first one's time and cause stand.
@@ -185,7 +201,7 @@ export function useVideoRecording(
     const subscription = AppState.addEventListener('change', (state) => {
       isInBackground.current = state === 'background';
       if (state === 'background') {
-        releaseScreen();
+        releaseScreenAfter(screenLock.current);
         stopWith('background');
       }
     });
@@ -198,8 +214,12 @@ export function useVideoRecording(
     if (!isRunning) {
       return;
     }
-    activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(reportError);
-    return releaseScreen;
+    const lock = activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(reportError);
+    screenLock.current = lock;
+    return () => {
+      screenLock.current = null;
+      releaseScreenAfter(lock);
+    };
   }, [isRunning]);
 
   // The countdown, the stop the camera should have made itself, and a stop said again.

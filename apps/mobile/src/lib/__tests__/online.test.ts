@@ -50,6 +50,11 @@ describe('what counts as no signal', () => {
     ],
     ['OkHttp giving up on a silent socket', new Error('timeout')],
     ['an iPhone giving up on one', new Error('The request timed out.')],
+    ['expo/fetch giving up on one', new TypeError('fetch failed: timeout')],
+    [
+      'a table read whose socket went silent',
+      { message: 'TypeError: Network request timed out', details: '', hint: '', code: '' },
+    ],
   ])('%s', (_name, error) => {
     expect(isNetworkError(error)).toBe(true);
   });
@@ -65,6 +70,22 @@ describe('what counts as no signal', () => {
     [
       'a statement the database cancelled',
       { message: 'canceling statement due to statement timeout', code: '57014' },
+    ],
+    // A server's words for its own wait are an answer, whatever they say.
+    [
+      'PostgREST out of connections',
+      {
+        message: 'Timed out acquiring connection from connection pool.',
+        code: 'PGRST003',
+        details: null,
+        hint: null,
+      },
+    ],
+    ['a gateway that waited in vain', { message: 'upstream request timeout', status: 504 }],
+    ['a server that timed the request out', { message: 'Request timed out', status: 408 }],
+    [
+      'a refusal that only mentions a fetch',
+      { message: 'Edge Function: fetch failed', code: 'X1' },
     ],
   ])('%s is not', (_name, error) => {
     expect(isNetworkError(error)).toBe(false);

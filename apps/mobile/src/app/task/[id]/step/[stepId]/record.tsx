@@ -14,7 +14,12 @@ import { stepAttachVariables } from '@/features/media/attach-variables';
 import type { CapturedMedia } from '@/features/media/capture';
 import { toLocalRecord } from '@/features/media/local-store';
 import type { VideoLimits } from '@/features/media/schema';
-import { useAttachMedia, useRememberLocalMedia, useTaskMedia } from '@/features/media/use-media';
+import {
+  useAttachMedia,
+  useRememberLocalMedia,
+  useTaskMedia,
+  useUploadingMediaIds,
+} from '@/features/media/use-media';
 import { useTaskSteps } from '@/features/steps/use-steps';
 import { useTask } from '@/features/tasks/use-tasks';
 import { recordGate } from '@/features/video/record-gate';
@@ -48,6 +53,7 @@ export default function RecordRoute() {
   const task = useTask(taskId);
   const steps = useTaskSteps(taskId);
   const media = useTaskMedia(taskId);
+  const uploadingIds = useUploadingMediaIds();
   const videoSettings = useVideoSettings();
   const attach = useAttachMedia('video');
   const rememberLocal = useRememberLocalMedia();
@@ -62,7 +68,8 @@ export default function RecordRoute() {
           stepId,
           task,
           steps,
-          media: media.data ?? [],
+          media,
+          uploadingIds,
           videoSettings,
         })
       : null;

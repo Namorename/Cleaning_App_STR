@@ -310,6 +310,28 @@ describe('a photo in the chain', () => {
 });
 
 describe('what the tiles read of the queue', () => {
+  // A tile redraws as each piece goes: the signal's listener is kept, not
+  // let go and taken again on every redraw.
+  test('the waiting ids listen to the signal once, however often they are redrawn', async () => {
+    // Arrange: the client's own listener and the hook's, taken as it is drawn.
+    const subscribe = jest.spyOn(onlineManager, 'subscribe');
+    const { rerender, unmount } = await renderHook(() => useWaitingMediaIds(), {
+      wrapper: withClient(new QueryClient()),
+    });
+    const takenAtFirst = subscribe.mock.calls.length;
+
+    // Act
+    for (let i = 0; i < 3; i += 1) {
+      await rerender({});
+    }
+
+    // Assert
+    expect(takenAtFirst).toBeGreaterThan(0);
+    expect(subscribe).toHaveBeenCalledTimes(takenAtFirst);
+    await unmount();
+    subscribe.mockRestore();
+  });
+
   test('an upload paused for lack of signal is waiting; one under way is not', async () => {
     // Arrange: one attach paused offline, one running.
     const client = new QueryClient();

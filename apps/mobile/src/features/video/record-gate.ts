@@ -23,8 +23,10 @@ export interface RecordGateInput {
   stepId: string;
   task: { isPending: boolean; data?: { status: string; assignee_id: string | null } | null };
   steps: { isPending: boolean; error: Error | null; data?: readonly TaskStep[] };
-  /** The task's media, the way the step's screen counts them. */
-  media: readonly TaskMedia[];
+  /** The task's media, the way the step's screen counts them: unknown until read. */
+  media: { isPending: boolean; error: Error | null; data?: readonly TaskMedia[] };
+  /** The media the upload queue is sending right now: their tiles hide «Удалить». */
+  uploadingIds: ReadonlySet<string>;
   videoSettings: VideoSettings | null;
 }
 
@@ -38,9 +40,13 @@ const VIDEOS_PER_STEP = 1;
  * it. In the order the step's screen meets them: her task under way, the step
  * still to do, its video not yet taken, the company's numbers known. Each
  * refusal is said in the words the step's screen uses for it.
+ *
+ * Media not read yet are not media that hold no video: the screen waits for
+ * them, or says why they could not be read. A list read before stands for
+ * them when a later read failed — it is what the step's screen shows too.
  */
 export function recordGate(input: RecordGateInput): RecordGate {
-  const { task, steps } = input;
+  const { task, steps, media } = input;
   if (!input.isParsed || input.userId === null) {
     return refused(i18n.t('steps.notFound'));
   }
@@ -61,8 +67,16 @@ export function recordGate(input: RecordGateInput): RecordGate {
   if (stepState(step) !== 'pending') {
     return refused(stepStatusLine(step) ?? i18n.t('steps.readOnly'));
   }
-  if (mediaOfStep(input.media, step.id).length >= VIDEOS_PER_STEP) {
-    return refused(i18n.t('video.alreadyRecorded'));
+  if (media.data === undefined) {
+    return media.error !== null ? { kind: 'error', error: media.error } : { kind: 'loading' };
+  }
+  const videos = mediaOfStep(media.data, step.id);
+  if (videos.length >= VIDEOS_PER_STEP) {
+    // While it uploads, the step's tile has no «Удалить» to point her to.
+    const isUploading = videos.some(
+      (video) => video.uploaded_at === null && input.uploadingIds.has(video.id),
+    );
+    return refused(i18n.t(isUploading ? 'video.stillUploading' : 'video.alreadyRecorded'));
   }
   if (input.videoSettings === null) {
     return refused(i18n.t('steps.videoSettingsUnknown'));

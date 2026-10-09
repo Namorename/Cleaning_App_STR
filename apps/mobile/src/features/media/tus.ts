@@ -1,5 +1,7 @@
 import { isNetworkError } from '@/lib/network-error';
 
+import { addressProblem, endpointProblem, locationAddress } from './tus-address';
+
 /**
  * A small client of the TUS 1.0.0 protocol, as Supabase Storage speaks it at
  * `/storage/v1/upload/resumable` (docs/tech-plan.md §7.5).
@@ -143,6 +145,7 @@ export class TusRetryableError extends Error {
 
 /** The storage refused the upload; asking again will not change its mind. */
 export class TusRefusedError extends Error {
+  /** The storage's status — or 0 for an endpoint refused here, before anything was sent. */
   readonly status: number;
 
   constructor(status: number, message: string) {
@@ -172,12 +175,12 @@ interface Position {
   offset: number | null;
 }
 
-/** A response, its body read at most once. */
+/** A response as the upload reads it, a refusal's words read under the request's limit. */
 interface Answer {
   status: number;
   header(name: string): string | null;
-  /** The body as text; empty when it cannot be read. */
-  text(): Promise<string>;
+  /** A refusal's body as text; empty for a success, or when it would not arrive in time. */
+  body: string;
 }
 
 const ALREADY_THERE = Symbol('already there');
@@ -206,6 +209,10 @@ export function patchStallMs(stalls: number): number {
  * the file is not the one registered. The file is closed either way.
  */
 export async function tusUpload(upload: TusUpload, runtime: TusRuntime): Promise<void> {
+  const problem = endpointProblem(upload.endpoint);
+  if (problem !== null) {
+    throw new TusRefusedError(0, `The resumable endpoint ${problem}`);
+  }
   const source = await upload.openSource();
   try {
     if (source.size <= 0 || source.size !== upload.byteSize) {
@@ -357,7 +364,7 @@ class TusSession {
   /** Where to begin: the address kept from before, if it is one this upload may use. */
   private async start(): Promise<Position> {
     const kept = this.storedUrl;
-    if (kept !== null && !isOwnAddress(kept, this.upload.endpoint)) {
+    if (kept !== null && addressProblem(kept, this.upload.endpoint) !== null) {
       this.storedUrl = null;
       await this.upload.saveUploadUrl(null);
       return { url: null, offset: null };
@@ -411,7 +418,7 @@ class TusSession {
       'Upload-Length': String(this.source.size),
       'Upload-Metadata': this.metadata(),
     });
-    const detail = isSuccess(answer.status) ? '' : await detailOf(answer);
+    const detail = isSuccess(answer.status) ? '' : detailOf(answer);
     // The object is there already — an earlier attempt finished after all.
     if (answer.status === 409 || /already exists/i.test(detail)) {
       return ALREADY_THERE;
@@ -428,7 +435,7 @@ class TusSession {
       return GONE;
     }
     if (!isSuccess(answer.status)) {
-      throw refusal('HEAD', answer.status, await detailOf(answer));
+      throw refusal('HEAD', answer.status, detailOf(answer));
     }
     const offset = parseOffset(answer.header('Upload-Offset'));
     if (offset === null) {
@@ -459,7 +466,7 @@ class TusSession {
       return GONE;
     }
     if (!isSuccess(answer.status)) {
-      throw refusal('PATCH', answer.status, await detailOf(answer));
+      throw refusal('PATCH', answer.status, detailOf(answer));
     }
     // An answer without its offset: the storage is asked where it stands.
     return parseOffset(answer.header('Upload-Offset')) ?? CONFLICT;
@@ -476,11 +483,11 @@ class TusSession {
     headers: Record<string, string>,
     body?: Uint8Array<ArrayBuffer>,
   ): Promise<Answer> {
-    const first = answerOf(await this.sendOnce(method, url, headers, body, false));
-    if (!(await isTokenRefused(first))) {
+    const first = await this.sendOnce(method, url, headers, body, false);
+    if (!isTokenRefused(first)) {
       return first;
     }
-    return answerOf(await this.sendOnce(method, url, headers, body, true));
+    return this.sendOnce(method, url, headers, body, true);
   }
 
   /**
@@ -489,6 +496,10 @@ class TusSession {
    * for the signal, or failed on the way, it got no answer: the queue waits
    * for signal. Cut for time, it says so, and a piece cut that way is looked
    * into before anything else is decided (`attempt`).
+   *
+   * The limit and the watch on the signal hold until the answer is read
+   * through: a refusal's words come after its headers, and are given the
+   * short limit of their own — a body that never finishes is not waited on.
    */
   private async sendOnce(
     method: string,
@@ -496,7 +507,7 @@ class TusSession {
     headers: Record<string, string>,
     body: Uint8Array<ArrayBuffer> | undefined,
     refresh: boolean,
-  ): Promise<Response> {
+  ): Promise<Answer> {
     const token = await this.token(refresh);
     const controller = new AbortController();
     const stallMs = method === 'PATCH' ? this.patchStallMs : TUS_SHORT_STALL_MS;
@@ -507,7 +518,7 @@ class TusSession {
       cutReason = reason;
       controller.abort();
     };
-    const timer = setTimeout(
+    let timer = setTimeout(
       () => cut(`timed out after ${stallMs / MS_PER_SECOND} s`, 'timed-out'),
       stallMs,
     );
@@ -515,25 +526,34 @@ class TusSession {
       cut('cut: the network was lost', 'no-answer'),
     );
     try {
-      return await this.runtime.fetch(url, {
-        method,
-        headers: {
-          ...headers,
-          'Tus-Resumable': TUS_VERSION,
-          Authorization: `Bearer ${token}`,
-          apikey: this.upload.apiKey,
-        },
-        body,
-        signal: controller.signal,
-      });
-    } catch (error: unknown) {
-      // The queue reads the reason; the fetch's own words stay in the message
-      // for the log, and for crash reports to tell a stairwell from a server
-      // (lib/network-error.ts).
-      throw new TusRetryableError(
-        `Resumable upload ${method} ${cutBecause ?? `failed: ${messageOf(error)}`}`,
-        cutReason,
-      );
+      let response: Response;
+      try {
+        response = await this.runtime.fetch(url, {
+          method,
+          headers: {
+            ...headers,
+            'Tus-Resumable': TUS_VERSION,
+            Authorization: `Bearer ${token}`,
+            apikey: this.upload.apiKey,
+          },
+          body,
+          signal: controller.signal,
+        });
+      } catch (error: unknown) {
+        // The queue reads the reason; the fetch's own words stay in the message
+        // for the log, and for crash reports to tell a stairwell from a server
+        // (lib/network-error.ts).
+        throw new TusRetryableError(
+          `Resumable upload ${method} ${cutBecause ?? `failed: ${messageOf(error)}`}`,
+          cutReason,
+        );
+      }
+      if (isSuccess(response.status)) {
+        return answerOf(response, '');
+      }
+      clearTimeout(timer);
+      timer = setTimeout(() => cut('body timed out', 'timed-out'), TUS_SHORT_STALL_MS);
+      return answerOf(response, await readBody(response, controller.signal));
     } finally {
       clearTimeout(timer);
       stopListening();
@@ -602,31 +622,42 @@ function refusal(method: string, status: number, detail: string): Error {
     : new TusRefusedError(status, message);
 }
 
-function answerOf(response: Response): Answer {
-  let text: Promise<string> | null = null;
+function answerOf(response: Response, body: string): Answer {
   return {
     status: response.status,
     header: (name) => response.headers.get(name),
-    text: () => {
-      text ??= response.text().catch(() => '');
-      return text;
-    },
+    body,
   };
+}
+
+/**
+ * The body as text: empty when it fails, or the moment the request is cut —
+ * whichever comes first, for a body that never finishes may not hear the cut.
+ */
+function readBody(response: Response, signal: AbortSignal): Promise<string> {
+  const whenCut = new Promise<string>((resolve) => {
+    if (signal.aborted) {
+      resolve('');
+      return;
+    }
+    signal.addEventListener('abort', () => resolve(''));
+  });
+  return Promise.race([response.text().catch(() => ''), whenCut]);
 }
 
 /** The storage's words for a token it will not take. */
 const TOKEN_REFUSED = /jwt|exp" ?claim|exp claim/i;
 
-async function isTokenRefused(answer: Answer): Promise<boolean> {
+function isTokenRefused(answer: Answer): boolean {
   if (answer.status === 401) {
     return true;
   }
-  return answer.status === 400 && TOKEN_REFUSED.test(await answer.text());
+  return answer.status === 400 && TOKEN_REFUSED.test(answer.body);
 }
 
 /** The storage's own words about a refusal, for the log: its `message`, or the body as it came. */
-async function detailOf(answer: Answer): Promise<string> {
-  const text = await answer.text();
+function detailOf(answer: Answer): string {
+  const text = answer.body;
   try {
     const parsed: unknown = JSON.parse(text);
     if (typeof parsed === 'object' && parsed !== null) {
@@ -651,34 +682,28 @@ function parseOffset(header: string | null): number | null {
   return Number(header.trim());
 }
 
-/** The scheme and host of an https address, or null for anything else. */
-function httpsOrigin(url: string): string | null {
-  return /^https:\/\/[^/?#]+/i.exec(url)?.[0].toLowerCase() ?? null;
-}
-
-/** An address on the endpoint's own host, over TLS: the only place a piece may go. */
-function isOwnAddress(url: string, endpoint: string): boolean {
-  const origin = httpsOrigin(endpoint);
-  return origin !== null && httpsOrigin(url) === origin;
-}
-
 /**
  * The upload's address: absolute as given, or a path read against the
- * endpoint's origin — and in either case on the endpoint's own host, over
- * TLS. Anything else is refused with the status it came with.
+ * endpoint's origin — and in either case where the pieces may go
+ * (tus-address.ts). Anything else is refused with the status it came with,
+ * and with what was wrong with it.
  */
 function resolveLocation(location: string | null, endpoint: string, status: number): string {
-  const origin = httpsOrigin(endpoint);
-  if (location !== null && origin !== null) {
-    const url = location.startsWith('/') ? `${origin}${location}` : location;
-    if (isOwnAddress(url, endpoint)) {
-      return url;
-    }
+  if (location === null || location.trim() === '') {
+    throw new TusRefusedError(
+      status,
+      `Resumable upload POST answered ${status} without a Location`,
+    );
   }
-  throw new TusRefusedError(
-    status,
-    `Resumable upload POST answered ${status} without a Location on its own host`,
-  );
+  const url = locationAddress(location.trim(), endpoint);
+  const problem = addressProblem(url, endpoint);
+  if (problem !== null) {
+    throw new TusRefusedError(
+      status,
+      `Resumable upload POST answered ${status} with a Location ${problem}`,
+    );
+  }
+  return url;
 }
 
 function messageOf(error: unknown): string {

@@ -9,6 +9,7 @@ import {
   activateKeepAwakeAsync,
   appStateListenerCount,
   deactivateKeepAwake,
+  deferred,
   discardFile,
   keep,
   mockAttach,
@@ -390,6 +391,48 @@ describe('the screen while recording', () => {
     await moveApp('background');
 
     expect(deactivateKeepAwake).toHaveBeenCalledWith(tag);
+  });
+
+  // The lock is taken asynchronously: let go before it was in place, it
+  // would be taken after — and the screen kept on with nothing recording.
+  test('a recording the camera refuses at once lets the screen sleep once the lock is in', async () => {
+    // Arrange
+    const events: string[] = [];
+    const lock = deferred<void>();
+    jest.mocked(activateKeepAwakeAsync).mockImplementation(() => {
+      events.push('asked');
+      return lock.promise.then(() => {
+        events.push('awake');
+      });
+    });
+    jest.mocked(deactivateKeepAwake).mockImplementation(async () => {
+      events.push('released');
+    });
+    await render(<RecordRoute />);
+
+    // Act: the camera refuses before the lock is in place.
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+    await act(async () => mockCamera.fail?.(new Error('Camera is in use by another app')));
+    await act(async () => lock.resolve());
+
+    // Assert
+    expect(events).toEqual(['asked', 'awake', 'released']);
+  });
+
+  test('a lock the phone would not give is let go all the same', async () => {
+    const lock = deferred<void>();
+    jest.mocked(activateKeepAwakeAsync).mockReturnValue(lock.promise);
+    await render(<RecordRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Стоп' }));
+    expect(deactivateKeepAwake).not.toHaveBeenCalled();
+    await act(async () => lock.reject(new Error('No activity to keep awake')));
+
+    expect(deactivateKeepAwake).toHaveBeenCalledTimes(1);
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'No activity to keep awake' }),
+    );
   });
 
   test('is not held awake before anything is recorded', async () => {

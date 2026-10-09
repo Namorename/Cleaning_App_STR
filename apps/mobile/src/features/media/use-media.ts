@@ -441,12 +441,22 @@ export function useUploadingMediaIds(): Set<string> {
 
 const NOTHING_WAITING: ReadonlySet<string> = new Set();
 
+/**
+ * The queue's sense of signal, as useSyncExternalStore reads it. Defined
+ * once: a subscribe made anew in each render is let go and taken again on
+ * every redraw — and a tile redraws as each piece of a video goes.
+ */
+function subscribeOnline(onChange: () => void): () => void {
+  return onlineManager.subscribe(onChange);
+}
+
+function isOnlineNow(): boolean {
+  return onlineManager.isOnline();
+}
+
 /** Whether the queue believes there is signal, redrawn as that changes. */
 function useIsOnline(): boolean {
-  return useSyncExternalStore(
-    (onChange) => onlineManager.subscribe(onChange),
-    () => onlineManager.isOnline(),
-  );
+  return useSyncExternalStore(subscribeOnline, isOnlineNow);
 }
 
 /**

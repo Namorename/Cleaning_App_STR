@@ -15,6 +15,7 @@ import {
   mockPermissions,
   mockSteps,
   mockTask,
+  mockUploading,
   mockVideo,
   moveApp,
   recordFor,
@@ -212,6 +213,57 @@ describe('what the screen needs before it records', () => {
       screen.getByText('У шага уже есть видео. Чтобы записать новое, удалите его на экране шага.'),
     ).toBeTruthy();
     expect(screen.queryByTestId('camera-preview')).toBeNull();
+  });
+
+  // While it uploads, the step's tile hides «Удалить»: telling her to delete
+  // it there would send her to a button she cannot find.
+  test('a step whose video is still uploading says so, not to delete it', async () => {
+    const uploading = stepVideo();
+    mockMedia.data = [uploading];
+    mockUploading.ids = new Set([uploading.id]);
+
+    await render(<RecordRoute />);
+
+    expect(
+      screen.getByText(
+        'У шага уже есть видео, оно ещё загружается. Когда загрузка закончится, его можно будет удалить на экране шага.',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/удалите его на экране шага/)).toBeNull();
+    expect(screen.queryByTestId('camera-preview')).toBeNull();
+  });
+
+  // Not knowing the step's media is not knowing it has no video: a camera
+  // opened then could record one the server refuses after she has made it.
+  test('while the step’s media are still being read, no camera opens yet', async () => {
+    mockMedia.isPending = true;
+    mockMedia.data = undefined;
+
+    await render(<RecordRoute />);
+
+    expect(screen.getByText('Включаем камеру…')).toBeTruthy();
+    expect(screen.queryByTestId('camera-preview')).toBeNull();
+  });
+
+  test('media that could not be read say so, and no camera opens', async () => {
+    mockMedia.error = new Error('JWT expired');
+    mockMedia.data = undefined;
+
+    await render(<RecordRoute />);
+
+    expect(screen.getByText('Не удалось выполнить действие. Попробуйте ещё раз.')).toBeTruthy();
+    expect(screen.getByText('JWT expired')).toBeTruthy();
+    expect(screen.queryByTestId('camera-preview')).toBeNull();
+  });
+
+  // Without signal the list read last is still on the phone: it is what she sees on the step.
+  test('media read before, and a refresh that failed, go by what was read', async () => {
+    mockMedia.error = new Error('Network request failed');
+    mockMedia.data = [];
+
+    await render(<RecordRoute />);
+
+    expect(screen.getByTestId('camera-preview')).toBeTruthy();
   });
 
   test('a video taken back does not hold the step', async () => {

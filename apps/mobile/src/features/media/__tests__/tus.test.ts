@@ -34,6 +34,8 @@ interface Reply {
   status: number;
   headers?: Record<string, string>;
   body?: string;
+  /** The headers arrive; the body never finishes, abort or not. */
+  isBodyStuck?: boolean;
 }
 
 interface Call {
@@ -56,7 +58,7 @@ type Planned =
   | typeof HANG
   | ((storage: FakeStorage) => Reply | Error | typeof HANG);
 
-function response({ status, headers = {}, body = '' }: Reply): Response {
+function response({ status, headers = {}, body = '', isBodyStuck = false }: Reply): Response {
   const byName = new Map(
     Object.entries(headers).map(([name, value]) => [name.toLowerCase(), value]),
   );
@@ -64,7 +66,7 @@ function response({ status, headers = {}, body = '' }: Reply): Response {
     status,
     ok: status >= 200 && status < 300,
     headers: { get: (name: string) => byName.get(name.toLowerCase()) ?? null },
-    text: async () => body,
+    text: () => (isBodyStuck ? new Promise<string>(() => undefined) : Promise.resolve(body)),
   } as unknown as Response;
 }
 
@@ -371,6 +373,90 @@ describe('the address of an upload', () => {
 
     await expect(failure).rejects.toBeInstanceOf(TusRefusedError);
     await expect(failure).rejects.toMatchObject({ status: 201 });
+  });
+
+  test.each([
+    ['on another host', 'https://elsewhere.example/upload-1', /elsewhere\.example/],
+    ['without TLS', 'http://project.supabase.co/upload-1', /https/],
+    ['of another project’s storage', 'https://other.storage.supabase.co/upload-1', /other\./],
+  ])('%s says so in the refusal', async (_name, location, words) => {
+    storage.plan('POST', { status: 201, headers: { Location: location } });
+
+    await expect(tusUpload(upload(), runtime())).rejects.toThrow(words);
+  });
+
+  test('missing says so in the refusal', async () => {
+    storage.plan('POST', { status: 201 });
+
+    await expect(tusUpload(upload(), runtime())).rejects.toThrow(/without a Location/);
+  });
+
+  // Supabase answers from the project's own storage host, which carries the
+  // same project reference under `storage.`.
+  test('on the project’s own storage host is taken', async () => {
+    const onStorageHost = 'https://project.storage.supabase.co/storage/v1/upload/resumable/s-1';
+    storage.plan('POST', (self) => {
+      self.offset = 0;
+      return { status: 201, headers: { Location: onStorageHost } };
+    });
+
+    await tusUpload(upload(), runtime());
+
+    expect(storage.patches()).toHaveLength(3);
+    expect(storage.calls[1].url).toBe(onStorageHost);
+  });
+
+  test('kept from before on the project’s storage host is asked about, not forgotten', async () => {
+    storage.offset = TUS_CHUNK_BYTES;
+    const kept = 'https://project.storage.supabase.co/storage/v1/upload/resumable/s-1';
+    const video = upload({ uploadUrl: kept });
+
+    await tusUpload(video, runtime());
+
+    expect(storage.calls[0]).toMatchObject({ method: 'HEAD', url: kept });
+    expect(video.saveUploadUrl).not.toHaveBeenCalled();
+  });
+
+  // The local stack on the machine, and the Android emulator's way to it.
+  test.each(['http://localhost:54321', 'http://127.0.0.1:54321', 'http://10.0.2.2:54321'])(
+    'of a local stack at %s may go without TLS',
+    async (base) => {
+      const endpoint = `${base}/storage/v1/upload/resumable`;
+      storage.plan('POST', (self) => {
+        self.offset = 0;
+        return { status: 201, headers: { Location: `${endpoint}/local-1` } };
+      });
+
+      await tusUpload(upload({ endpoint }), runtime());
+
+      expect(storage.calls.map((call) => call.url)).toEqual([
+        endpoint,
+        `${endpoint}/local-1`,
+        `${endpoint}/local-1`,
+        `${endpoint}/local-1`,
+      ]);
+    },
+  );
+
+  test('of a local stack is still refused on another port', async () => {
+    const endpoint = 'http://localhost:54321/storage/v1/upload/resumable';
+    storage.plan('POST', {
+      status: 201,
+      headers: { Location: 'http://localhost:9999/storage/v1/upload/resumable/local-1' },
+    });
+
+    await expect(tusUpload(upload({ endpoint }), runtime())).rejects.toBeInstanceOf(
+      TusRefusedError,
+    );
+    expect(storage.methods()).toEqual(['POST']);
+  });
+
+  test('an endpoint without TLS away from a local stack is refused before anything is sent', async () => {
+    const endpoint = 'http://project.supabase.co/storage/v1/upload/resumable';
+
+    await expect(tusUpload(upload({ endpoint }), runtime())).rejects.toThrow(/https/);
+
+    expect(storage.calls).toEqual([]);
   });
 
   test('kept from before on another host is forgotten, and a new upload made', async () => {
@@ -859,6 +945,118 @@ describe('a request that hangs', () => {
     expect(error).toBeInstanceOf(TusRetryableError);
     expect(storage.methods()).toEqual(['POST', 'PATCH']);
     expect(run.sleep).not.toHaveBeenCalled();
+  });
+});
+
+/** A runtime that counts the signal's listeners it hands out and takes back. */
+function countedRuntime() {
+  const unsubscribes: jest.Mock[] = [];
+  const run = runtime({
+    onOffline: jest.fn(() => {
+      const unsubscribe = jest.fn();
+      unsubscribes.push(unsubscribe);
+      return unsubscribe;
+    }),
+  });
+  const allLetGo = () => unsubscribes.every((unsubscribe) => unsubscribe.mock.calls.length === 1);
+  return { run, unsubscribes, allLetGo };
+}
+
+// A request's limit holds until its answer is read through: the words of a
+// refusal come after its headers, and a body that never finishes would hold
+// the upload where a silent socket no longer can.
+describe('the timers and listeners of a request', () => {
+  test('a refusal whose words never arrive is given up on after the short limit, and still refused', async () => {
+    // Arrange
+    jest.useFakeTimers();
+    storage.plan('PATCH', { status: 403, isBodyStuck: true });
+    let isSettled = false;
+
+    // Act
+    const failure = tusUpload(upload(), runtime()).catch((reason: unknown) => reason);
+    void failure.then(() => {
+      isSettled = true;
+    });
+    await jest.advanceTimersByTimeAsync(TUS_SHORT_STALL_MS - 1);
+    const settledEarly = isSettled;
+    await jest.advanceTimersByTimeAsync(1);
+
+    // Assert
+    expect(settledEarly).toBe(false);
+    const error = await failure;
+    expect(error).toBeInstanceOf(TusRefusedError);
+    expect(error).toMatchObject({ status: 403 });
+  });
+
+  test('a 400 whose words never arrive is not waited on, nor taken for an expired token', async () => {
+    jest.useFakeTimers();
+    storage.plan('PATCH', { status: 400, isBodyStuck: true });
+    const video = upload();
+
+    const failure = tusUpload(video, runtime()).catch((reason: unknown) => reason);
+    await jest.advanceTimersByTimeAsync(TUS_SHORT_STALL_MS);
+
+    await expect(failure).resolves.toMatchObject({ status: 400 });
+    expect(video.accessToken).not.toHaveBeenCalledWith(true);
+  });
+
+  test('the signal lost while a refusal’s words are on their way cuts them too', async () => {
+    // Arrange
+    let goneOffline: () => void = () => undefined;
+    const run = runtime({
+      isOnline: () => false,
+      onOffline: jest.fn((listener: () => void) => {
+        goneOffline = listener;
+        return () => {
+          goneOffline = () => undefined;
+        };
+      }),
+    });
+    storage.plan('PATCH', { status: 503, isBodyStuck: true });
+
+    // Act
+    const failure = tusUpload(upload(), run).catch((reason: unknown) => reason);
+    await new Promise((resolve) => setImmediate(resolve));
+    goneOffline();
+
+    // Assert: the storage did answer — busy — and the attempt hands back at once.
+    await expect(failure).resolves.toMatchObject({ reason: 'busy', status: 503 });
+  });
+
+  test('after an upload that went through, no timer is left and every listener is let go', async () => {
+    jest.useFakeTimers();
+    const { run, unsubscribes, allLetGo } = countedRuntime();
+
+    await tusUpload(upload(), run);
+
+    expect(unsubscribes).toHaveLength(storage.calls.length);
+    expect(allLetGo()).toBe(true);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  test.each<[string, Planned]>([
+    ['refused', { status: 403, body: '{"message":"Access denied"}' }],
+    ['refused, its words never arriving', { status: 403, isBodyStuck: true }],
+    ['cut for time with nothing arrived', HANG],
+    ['failed on the way', new TypeError('Network request failed')],
+  ])('after an upload %s, no timer is left and every listener is let go', async (_name, reply) => {
+    // Arrange
+    jest.useFakeTimers();
+    storage.plan('PATCH', reply);
+    for (let i = 0; i < TUS_RETRY_DELAYS_MS.length; i += 1) {
+      storage.plan('PATCH', reply instanceof Error ? reply : AS_USUAL);
+    }
+    const { run, unsubscribes, allLetGo } = countedRuntime();
+
+    // Act
+    const failure = tusUpload(upload(), run).catch((reason: unknown) => reason);
+    await jest.advanceTimersByTimeAsync(TUS_PATCH_STALL_MS + TUS_SHORT_STALL_MS);
+    await failure;
+
+    // Assert
+    expect(unsubscribes).toHaveLength(storage.calls.length);
+    expect(allLetGo()).toBe(true);
+    expect(jest.getTimerCount()).toBe(0);
   });
 });
 

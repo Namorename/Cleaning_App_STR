@@ -139,8 +139,15 @@ jest.mock('@/features/tasks/use-tasks', () => ({
   useTask: () => ({ isPending: mockTask.isPending, error: null, data: mockTask.data }),
 }));
 
-/** The task's media as the step's screen reads them. */
-export const mockMedia: { data: TaskMedia[] | undefined } = { data: [] };
+/** The task's media as the step's screen reads them: read, unless a test says otherwise. */
+export const mockMedia: {
+  isPending: boolean;
+  error: Error | null;
+  data: TaskMedia[] | undefined;
+} = { isPending: false, error: null, data: [] };
+
+/** The media the upload queue is sending right now, by id. */
+export const mockUploading: { ids: Set<string> } = { ids: new Set() };
 
 jest.mock('expo-camera', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -225,6 +232,7 @@ jest.mock('@/features/media/use-media', () => ({
   useAttachMedia: () => ({ mutate: mockAttach }),
   useRememberLocalMedia: () => mockRemember,
   useTaskMedia: () => mockMedia,
+  useUploadingMediaIds: () => mockUploading.ids,
 }));
 
 jest.mock('@/features/media/capture', () => ({ keepRecording: jest.fn() }));
@@ -417,7 +425,10 @@ function resetStage(): void {
   mockLeaveGuard.onPrevented = null;
   mockTask.isPending = false;
   mockTask.data = { status: 'in_progress', assignee_id: ME };
+  mockMedia.isPending = false;
+  mockMedia.error = null;
   mockMedia.data = [];
+  mockUploading.ids = new Set();
   // A minute of 720p is some 15 MB: far from the camera's 43.65 MB.
   mockFile.size = 2_500_000;
   mockCamera.stopRecording.mockImplementation(() => mockCamera.finish?.({ uri: RECORDED_URI }));
@@ -425,6 +436,9 @@ function resetStage(): void {
   mockPlayer.loop = true;
   mockPreview.source = null;
   mockPreview.props = {};
+  // The phone keeps the screen on, and lets it go, as soon as it is asked.
+  jest.mocked(activateKeepAwakeAsync).mockImplementation(async () => undefined);
+  jest.mocked(deactivateKeepAwake).mockImplementation(async () => undefined);
   // Plenty of room: 10 GB.
   mockDisk.free = 10_000_000_000;
   appStateListeners = [];
