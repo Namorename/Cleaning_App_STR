@@ -61,8 +61,12 @@ jest.mock('@/features/steps/use-steps', () => {
   };
 });
 
+/** A video the recording screen sent to this step and the server refused, if any. */
+const mockVideoAttach: { error: unknown } = { error: null };
+
 jest.mock('@/features/media/use-media', () => ({
   mediaItemViews: () => [],
+  useFailedVideoAttach: () => mockVideoAttach.error,
   useAttachMedia: () => ({ error: null, mutate: jest.fn() }),
   useRemoveMedia: () => ({ error: null, mutate: jest.fn() }),
   useRememberLocalMedia: () => jest.fn(),
@@ -92,6 +96,7 @@ beforeEach(() => {
   mockSteps.data = undefined;
   mockTask.data = undefined;
   mockVideo.settings = null;
+  mockVideoAttach.error = null;
 });
 
 test('while the steps load, their shape stands in for them, said as loading', async () => {
@@ -231,6 +236,22 @@ describe('a video step of her task under way', () => {
     await render(<StepRoute />);
 
     expect(screen.queryByRole('button', { name: /галере/ })).toBeNull();
+  });
+
+  // The video was handed to the queue from the recording screen, which has
+  // gone by the time the server answers: the step says why it was refused.
+  test('a video the server refused after she left the camera says why, in her words', async () => {
+    mockSteps.data = [videoStep()];
+    mockVideo.settings = { video_max_sec: 90, video_bitrate_kbps: 2000, video_max_mb: 45 };
+    mockVideoAttach.error = {
+      message: 'Video must be recorded with the app camera',
+      hint: 'serverErrors.videoCameraOnly',
+      details: '{}',
+    };
+
+    await render(<StepRoute />);
+
+    expect(screen.getByText('Видео снимают камерой приложения, не из галереи.')).toBeTruthy();
   });
 
   test('without the company’s settings the camera waits and nothing opens', async () => {

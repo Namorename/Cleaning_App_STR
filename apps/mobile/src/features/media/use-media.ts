@@ -337,6 +337,33 @@ export function useUploadingMediaIds(): Set<string> {
 }
 
 /**
+ * Why the queue gave up on this step's video, or null.
+ *
+ * A video is handed to the queue by the recording screen, which has gone by
+ * the time the server answers; the step's screen did not start the upload and
+ * has no mutation of its own to read the refusal from. The queue keeps the
+ * failed attempt until a retry or a removal clears it (`dropFailedAttempts`),
+ * so the step can say why its tile failed. Only the latest attempt speaks: a
+ * video recorded again after a refusal outweighs it. Photos are not read
+ * here: the step's screen starts them and reads their refusals itself.
+ */
+export function useFailedVideoAttach(stepId: string): Error | null {
+  // Every attempt of this step's videos, in the order the queue took them.
+  const attempts = useMutationState({
+    filters: {
+      mutationKey: mediaMutationKeys.attach,
+      predicate: (mutation) => {
+        const variables = mutation.state.variables as AttachMediaVariables | undefined;
+        return variables?.stepId === stepId && variables.kind === 'video';
+      },
+    },
+    select: (mutation) => mutation.state.error,
+  });
+
+  return attempts.at(-1) ?? null;
+}
+
+/**
  * The tiles of one step, in the order the photos were taken.
  *
  * Where the picture comes from: the file on the phone when we still have it,

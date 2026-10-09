@@ -1,18 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View } from 'react-native';
 
 import { LoadingState } from '@/components/loading-state';
-import { Text } from '@/components/text';
-import { Spacing, type Theme } from '@/constants/theme';
 import type { Recording } from '@/features/media/capture';
-import { attachFailure } from '@/features/media/failure';
+import { discardFile } from '@/features/media/file';
 import type { VideoLimits } from '@/features/media/schema';
-import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { reportError } from '@/lib/sentry';
 
 import { PermissionScreen } from './permission-screen';
+import type { RecordingEnd } from './recording';
 import { useRecordingPermissions } from './use-recording-permissions';
+import { VideoPreview } from './video-preview';
 import { VideoRecorder } from './video-recorder';
 
 export interface RecordScreenProps {
@@ -21,17 +19,34 @@ export interface RecordScreenProps {
   onSend: (recording: Recording) => Promise<void>;
 }
 
+type Phase = { kind: 'camera' } | { kind: 'preview'; recording: Recording; end: RecordingEnd };
+
 /**
  * A video step's recording, from the phone's permission to the queue.
  *
  * Nothing is drawn over the camera until the phone has granted both it and
- * the microphone; what it refuses is said on a screen of its own.
+ * the microphone; what it refuses is said on a screen of its own. A finished
+ * recording is watched before it is sent. The camera's file lives in the
+ * cache until «Отправить» keeps it: «Переснять» deletes it, and so does
+ * leaving the screen without sending.
  */
 export function RecordScreen({ limits, onSend }: RecordScreenProps) {
   const { t } = useTranslation();
-  const styles = useThemedStyles(createStyles);
   const permissions = useRecordingPermissions();
-  const [failure, setFailure] = useState<string | null>(null);
+  const [phase, setPhase] = useState<Phase>({ kind: 'camera' });
+  const [isSending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<unknown>(null);
+  /** The camera's file not yet handed over: deleted when she leaves without it. */
+  const unsent = useRef<string | null>(null);
+
+  useEffect(
+    () => () => {
+      if (unsent.current !== null) {
+        discardFile(unsent.current);
+      }
+    },
+    [],
+  );
 
   if (permissions.isChecking) {
     return <LoadingState label={t('video.starting')} />;
@@ -49,33 +64,47 @@ export function RecordScreen({ limits, onSend }: RecordScreenProps) {
     );
   }
 
-  const send = async (recording: Recording) => {
-    setFailure(null);
+  if (phase.kind === 'camera') {
+    return (
+      <VideoRecorder
+        limits={limits}
+        onRecorded={(recording, end) => {
+          unsent.current = recording.uri;
+          setSendError(null);
+          setPhase({ kind: 'preview', recording, end });
+        }}
+      />
+    );
+  }
+
+  const retake = () => {
+    discardFile(phase.recording.uri);
+    unsent.current = null;
+    setPhase({ kind: 'camera' });
+  };
+
+  const send = async () => {
+    setSending(true);
+    setSendError(null);
     try {
-      await onSend(recording);
+      await onSend(phase.recording);
+      // Kept under a name of ours now: the cache's copy is gone.
+      unsent.current = null;
     } catch (error: unknown) {
-      setFailure(attachFailure(error, t));
+      setSendError(error);
+    } finally {
+      setSending(false);
     }
   };
 
   return (
-    <View style={styles.screen}>
-      <VideoRecorder limits={limits} onRecorded={(recording) => void send(recording)} />
-      {failure !== null ? (
-        <Text tone="danger" align="center" accessibilityLiveRegion="polite" style={layout.failure}>
-          {failure}
-        </Text>
-      ) : null}
-    </View>
+    <VideoPreview
+      recording={phase.recording}
+      end={phase.end}
+      isSending={isSending}
+      sendError={sendError}
+      onRetake={retake}
+      onSend={() => void send()}
+    />
   );
 }
-
-/** Sizes only: nothing here depends on the colour scheme. */
-const layout = StyleSheet.create({
-  failure: { padding: Spacing.md },
-});
-
-const createStyles = (theme: Theme) =>
-  StyleSheet.create({
-    screen: { flex: 1, backgroundColor: theme.background },
-  });

@@ -12,6 +12,12 @@
 const MS_PER_SECOND = 1000;
 const TENTHS_PER_SECOND = 10;
 
+/**
+ * What ended a recording: her «Стоп», the camera's own length or size limit,
+ * or the app put away — each said differently on the preview.
+ */
+export type RecordingEnd = 'stop' | 'limit' | 'background';
+
 /** How often the reader is told the time left: every ten seconds. */
 export const ANNOUNCE_EVERY_SEC = 10;
 

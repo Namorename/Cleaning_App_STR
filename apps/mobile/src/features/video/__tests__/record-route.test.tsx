@@ -1,6 +1,13 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
-import { AccessibilityInfo, Linking, StyleSheet, type ViewStyle } from 'react-native';
+import {
+  AccessibilityInfo,
+  AppState,
+  Linking,
+  StyleSheet,
+  type AppStateStatus,
+  type ViewStyle,
+} from 'react-native';
 
 import RecordRoute from '@/app/task/[id]/step/[stepId]/record';
 import type { VideoSettings } from '@/features/host/schema';
@@ -152,6 +159,43 @@ jest.mock('@/features/media/use-media', () => ({
 jest.mock('@/features/media/capture', () => ({ keepRecording: jest.fn() }));
 jest.mock('@/features/media/file', () => ({ discardFile: jest.fn() }));
 
+/** The player of the preview: what it was given, and whether it was started. */
+const mockPlayer = { loop: true, play: jest.fn(), pause: jest.fn() };
+const mockPreview: { source: unknown; props: Record<string, unknown> } = {
+  source: null,
+  props: {},
+};
+
+jest.mock('expo-video', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const { View } = jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    useVideoPlayer: (source: unknown, setup?: (player: typeof mockPlayer) => void) => {
+      mockPreview.source = source;
+      setup?.(mockPlayer);
+      return mockPlayer;
+    },
+    VideoView: (props: Record<string, unknown>) => {
+      mockPreview.props = props;
+      return React.createElement(View, { testID: 'video-preview' });
+    },
+  };
+});
+
+/** Free space on the phone, in bytes; null where the phone cannot say. */
+const mockDisk: { free: number | null } = { free: null };
+
+jest.mock('@/features/video/disk-space', () => ({ freeDiskBytes: () => mockDisk.free }));
+
+/** Every AppState listener the screen subscribed, to tell it the app went away. */
+let appStateListeners: ((state: AppStateStatus) => void)[] = [];
+
+async function moveApp(state: AppStateStatus): Promise<void> {
+  await act(async () => {
+    appStateListeners.forEach((listener) => listener(state));
+  });
+}
+
 const keep = jest.mocked(keepRecording);
 
 function videoStep(overrides: Partial<TaskStep> = {}): TaskStep {
@@ -216,6 +260,20 @@ beforeEach(() => {
   );
   mockCamera.stopRecording.mockImplementation(() => mockCamera.finish?.({ uri: RECORDED_URI }));
   keep.mockImplementation(async ({ durationSec }) => kept(durationSec));
+  mockPlayer.loop = true;
+  mockPreview.source = null;
+  mockPreview.props = {};
+  // Plenty of room: 10 GB.
+  mockDisk.free = 10_000_000_000;
+  appStateListeners = [];
+  jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+    appStateListeners.push(listener);
+    return {
+      remove: () => {
+        appStateListeners = appStateListeners.filter((item) => item !== listener);
+      },
+    };
+  });
 });
 
 afterEach(() => {
@@ -316,18 +374,99 @@ describe('the countdown', () => {
   });
 });
 
+/** Start a recording, let it run, and stop it with «Стоп». */
+async function recordFor(ms: number): Promise<void> {
+  await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+  await wait(ms);
+  await fireEvent.press(screen.getByRole('button', { name: 'Стоп' }));
+}
+
 describe('the length of a recording', () => {
-  test('«Стоп» hands the file to the upload queue with the length our timer measured', async () => {
+  test('«Стоп» shows the recording with the length our timer measured, and sends nothing yet', async () => {
     // Arrange
     await render(<RecordRoute />);
-    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
-    await wait(12_345);
 
     // Act
-    await fireEvent.press(screen.getByRole('button', { name: 'Стоп' }));
+    await recordFor(12_345);
 
     // Assert
     expect(mockCamera.stopRecording).toHaveBeenCalled();
+    expect(screen.getByTestId('video-preview')).toBeTruthy();
+    expect(screen.getByText('Видео · 12.3 с')).toBeTruthy();
+    expect(keep).not.toHaveBeenCalled();
+    expect(mockAttach).not.toHaveBeenCalled();
+  });
+
+  // The camera stops at the limit itself; if it does not, the screen does, a
+  // moment later. Either way the length declared is the limit, never more.
+  test('a recording that reaches the limit is stopped, said so, and declared at the limit', async () => {
+    await render(<RecordRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+
+    await wait(91_000);
+
+    expect(mockCamera.stopRecording).toHaveBeenCalled();
+    expect(screen.getByText('Видео · 90 с')).toBeTruthy();
+    expect(
+      screen.getByText('Запись остановилась на пределе длины или размера файла.'),
+    ).toBeTruthy();
+  });
+
+  test('one the camera ended itself at its size limit goes straight to the preview', async () => {
+    await render(<RecordRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+    await wait(30_000);
+
+    // The camera reached maxFileSize and handed the file over without a «Стоп».
+    await act(async () => {
+      mockCamera.finish?.({ uri: RECORDED_URI });
+    });
+
+    expect(mockCamera.stopRecording).not.toHaveBeenCalled();
+    expect(screen.getByTestId('video-preview')).toBeTruthy();
+    expect(screen.getByText('Видео · 30 с')).toBeTruthy();
+    expect(
+      screen.getByText('Запись остановилась на пределе длины или размера файла.'),
+    ).toBeTruthy();
+  });
+
+  test('leaving while recording stops the camera and keeps nothing', async () => {
+    const { unmount } = await render(<RecordRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+
+    await unmount();
+    await act(async () => {
+      mockCamera.finish?.({ uri: RECORDED_URI });
+    });
+
+    expect(mockCamera.stopRecording).toHaveBeenCalled();
+    expect(discardFile).toHaveBeenCalledWith(RECORDED_URI);
+    expect(keep).not.toHaveBeenCalled();
+    expect(mockAttach).not.toHaveBeenCalled();
+  });
+});
+
+describe('the preview before sending', () => {
+  test('plays the recording with the player’s own controls, and does not start by itself', async () => {
+    await render(<RecordRoute />);
+
+    await recordFor(5_000);
+
+    expect(mockPreview.source).toBe(RECORDED_URI);
+    expect(mockPreview.props).toMatchObject({ nativeControls: true });
+    expect(mockPlayer.play).not.toHaveBeenCalled();
+    expect(mockPlayer.loop).toBe(false);
+  });
+
+  test('«Отправить» hands the file and its measured length to the upload queue, then goes back', async () => {
+    // Arrange
+    await render(<RecordRoute />);
+    await recordFor(12_345);
+
+    // Act
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    // Assert
     expect(keep).toHaveBeenCalledWith({
       uri: RECORDED_URI,
       durationSec: 12.3,
@@ -353,31 +492,192 @@ describe('the length of a recording', () => {
     expect(router.back).toHaveBeenCalled();
   });
 
-  // The camera stops at the limit itself; if it does not, the screen does, a
-  // moment later. Either way the length declared is the limit, never more.
-  test('a recording that reaches the limit is stopped and declared at the limit', async () => {
+  test('«Отправить» is the main button, 56 dp; «Переснять» the framed one under it', async () => {
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    const send = StyleSheet.flatten(
+      screen.getByRole('button', { name: 'Отправить' }).props.style as ViewStyle,
+    );
+    const retake = StyleSheet.flatten(
+      screen.getByRole('button', { name: 'Переснять' }).props.style as ViewStyle,
+    );
+    expect(send.minHeight).toBe(56);
+    expect(retake.minHeight).toBe(56);
+    expect(retake.borderWidth).toBe(2);
+  });
+
+  test('«Переснять» throws the recording away and opens the camera again', async () => {
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Переснять' }));
+
+    expect(discardFile).toHaveBeenCalledWith(RECORDED_URI);
+    expect(screen.getByTestId('camera-preview')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Записать' })).toBeTruthy();
+    expect(keep).not.toHaveBeenCalled();
+  });
+
+  test('leaving the preview without sending deletes the file', async () => {
+    const { unmount } = await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    await unmount();
+
+    expect(discardFile).toHaveBeenCalledWith(RECORDED_URI);
+    expect(mockAttach).not.toHaveBeenCalled();
+  });
+
+  test('a recording that could not be kept says so, and the preview stays', async () => {
+    keep.mockRejectedValue(new Error('The capture at file:///x measured zero bytes'));
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    expect(screen.getByText('Не удалось выполнить действие. Попробуйте ещё раз.')).toBeTruthy();
+    expect(screen.getByText('The capture at file:///x measured zero bytes')).toBeTruthy();
+    expect(screen.getByTestId('video-preview')).toBeTruthy();
+    expect(mockAttach).not.toHaveBeenCalled();
+    expect(router.back).not.toHaveBeenCalled();
+  });
+});
+
+describe('room on the phone', () => {
+  // The company's limit is 45 MB; a recording is not started without 54 MB free.
+  test('too little free space says how much is needed, and nothing is recorded', async () => {
+    mockDisk.free = 50_000_000;
+    await render(<RecordRoute />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+
+    expect(screen.getByText('Мало места на телефоне')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Для записи нужно не меньше 54 МБ свободного места, свободно 50 МБ. Освободите место и нажмите «Записать» снова.',
+      ),
+    ).toBeTruthy();
+    expect(mockCamera.recordAsync).not.toHaveBeenCalled();
+  });
+
+  test('once there is room, the same button records', async () => {
+    mockDisk.free = 50_000_000;
     await render(<RecordRoute />);
     await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
 
-    await wait(91_000);
-
-    expect(mockCamera.stopRecording).toHaveBeenCalled();
-    expect(keep).toHaveBeenCalledWith(expect.objectContaining({ durationSec: 90 }));
-  });
-
-  test('leaving while recording stops the camera and keeps nothing', async () => {
-    const { unmount } = await render(<RecordRoute />);
+    mockDisk.free = 60_000_000;
     await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
 
-    await unmount();
-    await act(async () => {
-      mockCamera.finish?.({ uri: RECORDED_URI });
-    });
+    expect(mockCamera.recordAsync).toHaveBeenCalled();
+    expect(screen.queryByText('Мало места на телефоне')).toBeNull();
+  });
+
+  // A phone that cannot say how much room it has is not stopped on a guess:
+  // the camera's own size limit still holds.
+  test('a phone that cannot tell its free space records anyway', async () => {
+    mockDisk.free = null;
+    await render(<RecordRoute />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+
+    expect(mockCamera.recordAsync).toHaveBeenCalled();
+  });
+});
+
+describe('the app put away while recording', () => {
+  test('stops the recording and shows what was recorded, with why it stopped', async () => {
+    await render(<RecordRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+    await wait(5_000);
+
+    await moveApp('background');
 
     expect(mockCamera.stopRecording).toHaveBeenCalled();
+    expect(screen.getByTestId('video-preview')).toBeTruthy();
+    expect(screen.getByText('Видео · 5 с')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Запись остановилась, когда приложение свернули. Посмотрите, что записалось.',
+      ),
+    ).toBeTruthy();
+  });
+
+  test('a recording cut off in its first second is thrown away, and she is told', async () => {
+    await render(<RecordRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+    await wait(400);
+
+    await moveApp('background');
+
     expect(discardFile).toHaveBeenCalledWith(RECORDED_URI);
-    expect(keep).not.toHaveBeenCalled();
-    expect(mockAttach).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('video-preview')).toBeNull();
+    expect(
+      screen.getByText(
+        'Запись прервалась в первую же секунду: приложение свернули. Запишите снова.',
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Записать' })).toBeTruthy();
+  });
+
+  // A look at a notification pulls the app to «inactive», not away.
+  test('a moment of «inactive» does not stop it', async () => {
+    await render(<RecordRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+
+    await moveApp('inactive');
+
+    expect(mockCamera.stopRecording).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Стоп' })).toBeTruthy();
+  });
+});
+
+describe('a camera that fails', () => {
+  test('one that does not start says so in her words, the camera’s small under them, with a retry', async () => {
+    // Arrange
+    await render(<RecordRoute />);
+    const { onMountError } = mockCamera.props as {
+      onMountError: (event: { message: string }) => void;
+    };
+
+    // Act
+    await act(async () => {
+      onMountError({ message: 'Camera is in use by another app' });
+    });
+
+    // Assert
+    expect(screen.getByText('Камера не включилась')).toBeTruthy();
+    expect(screen.getByText('Не удалось выполнить действие. Попробуйте ещё раз.')).toBeTruthy();
+    expect(screen.getByText('Camera is in use by another app')).toBeTruthy();
+    expect(screen.queryByTestId('camera-preview')).toBeNull();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Повторить' }));
+
+    expect(screen.getByTestId('camera-preview')).toBeTruthy();
+  });
+
+  test('a recording that fails says so, and the camera comes back on «Повторить»', async () => {
+    mockCamera.recordAsync.mockRejectedValue(new Error('Recording failed: no space'));
+    await render(<RecordRoute />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+
+    expect(screen.getByText('Запись не удалась')).toBeTruthy();
+    expect(screen.getByText('Recording failed: no space')).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Повторить' }));
+
+    expect(screen.getByRole('button', { name: 'Записать' })).toBeTruthy();
+  });
+
+  test('a recording that came back without a file is a failure too, not a silent nothing', async () => {
+    mockCamera.stopRecording.mockImplementation(() => mockCamera.finish?.(undefined));
+    await render(<RecordRoute />);
+
+    await recordFor(3_000);
+
+    expect(screen.getByText('Запись не удалась')).toBeTruthy();
+    expect(screen.queryByTestId('video-preview')).toBeNull();
   });
 });
 

@@ -18,6 +18,7 @@ import { mediaKindOfStep, mediaOfStep, videoLimits } from '@/features/media/sche
 import {
   mediaItemViews,
   useAttachMedia,
+  useFailedVideoAttach,
   useLocalMedia,
   useMediaUrls,
   useRememberLocalMedia,
@@ -80,6 +81,8 @@ export default function StepRoute() {
   const rememberLocal = useRememberLocalMedia();
   const local = useLocalMedia();
   const uploading = useUploadingMediaIds();
+  // A video is sent from the recording screen; its refusal comes back here.
+  const videoAttachError = useFailedVideoAttach(stepId);
   const galleryAllowed = useGalleryAllowed();
   const videoSettings = useVideoSettings();
   const [isCapturing, setCapturing] = useState(false);
@@ -205,7 +208,12 @@ export default function StepRoute() {
         isEditable={isEditable === true}
         isBusy={complete.isPending || reopen.isPending || skip.isPending}
         error={
-          complete.error ?? reopen.error ?? skip.error ?? attach.error ?? removeMedia.error
+          complete.error ??
+          reopen.error ??
+          skip.error ??
+          attach.error ??
+          videoAttachError ??
+          removeMedia.error
         }
         notice={notice}
         onComplete={onComplete}
