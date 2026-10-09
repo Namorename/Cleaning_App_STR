@@ -10,6 +10,7 @@ import {
   REFUSED,
   REFUSED_FOR_GOOD,
   GRANTED,
+  SHORT_LIMIT_MS,
   mockCamera,
   mockDisk,
   mockMedia,
@@ -23,6 +24,7 @@ import {
   setUpRecordRoute,
   stepVideo,
   videoStep,
+  wait,
 } from '@/testing/record-route';
 
 /**
@@ -270,6 +272,78 @@ describe('what the screen needs before it records', () => {
     expect(screen.getByText('Не удалось выполнить действие. Попробуйте ещё раз.')).toBeTruthy();
     expect(screen.getByText('JWT expired')).toBeTruthy();
     expect(screen.queryByTestId('camera-preview')).toBeNull();
+  });
+
+  // The fourth pass on video, finding 4: a failure she can do something about.
+  test('media that could not be read are read again on «Повторить»', async () => {
+    mockMedia.error = new Error('JWT expired');
+    mockMedia.data = undefined;
+    await render(<RecordRoute />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Повторить' }));
+
+    expect(mockMedia.refetch).toHaveBeenCalledTimes(1);
+    expect(mockSteps.refetch).not.toHaveBeenCalled();
+  });
+
+  test('a step that could not be read is read again on «Повторить»', async () => {
+    mockSteps.error = new Error('Network request failed');
+    await render(<RecordRoute />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Повторить' }));
+
+    expect(mockSteps.refetch).toHaveBeenCalledTimes(1);
+    expect(mockMedia.refetch).not.toHaveBeenCalled();
+  });
+
+  // A read whose socket went silent would hold «Включаем камеру…» for ever.
+  test('media still not read after the short limit say so, with «Повторить»', async () => {
+    // Arrange
+    mockMedia.isPending = true;
+    mockMedia.data = undefined;
+    await render(<RecordRoute />);
+
+    // Act
+    await wait(SHORT_LIMIT_MS - 1);
+    const isStillStarting = screen.queryByText('Включаем камеру…') !== null;
+    await wait(1);
+
+    // Assert
+    expect(isStillStarting).toBe(true);
+    expect(screen.getByText('Не удалось выполнить действие. Попробуйте ещё раз.')).toBeTruthy();
+    expect(screen.queryByTestId('camera-preview')).toBeNull();
+    expect(SHORT_LIMIT_MS).toBe(30_000);
+  });
+
+  test('«Повторить» after the short limit reads the media again, and waits the limit anew', async () => {
+    // Arrange
+    mockMedia.isPending = true;
+    mockMedia.data = undefined;
+    await render(<RecordRoute />);
+    await wait(SHORT_LIMIT_MS);
+
+    // Act
+    await fireEvent.press(screen.getByRole('button', { name: 'Повторить' }));
+
+    // Assert
+    expect(mockMedia.refetch).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Включаем камеру…')).toBeTruthy();
+    await wait(SHORT_LIMIT_MS);
+    expect(screen.getByRole('button', { name: 'Повторить' })).toBeTruthy();
+  });
+
+  test('media that arrive within the short limit open the camera', async () => {
+    mockMedia.isPending = true;
+    mockMedia.data = undefined;
+    await render(<RecordRoute />);
+    await wait(SHORT_LIMIT_MS - 1);
+
+    mockMedia.isPending = false;
+    mockMedia.data = [];
+    await screen.rerender(<RecordRoute />);
+    await wait(1);
+
+    expect(screen.getByTestId('camera-preview')).toBeTruthy();
   });
 
   // Without signal the list read last is still on the phone: it is what she sees on the step.

@@ -8,6 +8,7 @@ import type { VideoSettings } from '@/features/host/schema';
 import { keepRecording, type CapturedMedia } from '@/features/media/capture';
 import { discardFile } from '@/features/media/file';
 import type { TaskMedia } from '@/features/media/schema';
+import { TUS_SHORT_STALL_MS } from '@/features/media/tus';
 import type { TaskStep } from '@/features/steps/schema';
 
 /**
@@ -24,6 +25,9 @@ import type { TaskStep } from '@/features/steps/schema';
  */
 
 export { RecordRoute, discardFile, router, activateKeepAwakeAsync, deactivateKeepAwake };
+
+/** The short limit: what the screen reads before the camera is not waited on longer. */
+export const SHORT_LIMIT_MS = TUS_SHORT_STALL_MS;
 
 export const TASK_ID = '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b';
 export const STEP_ID = 'b1c2d3e4-1111-4111-8111-b1c2d3e40001';
@@ -133,10 +137,16 @@ jest.mock('@/features/auth/session', () => ({
 export const mockTask: {
   isPending: boolean;
   data: { status: string; assignee_id: string | null } | undefined;
-} = { isPending: false, data: undefined };
+  refetch: jest.Mock;
+} = { isPending: false, data: undefined, refetch: jest.fn() };
 
 jest.mock('@/features/tasks/use-tasks', () => ({
-  useTask: () => ({ isPending: mockTask.isPending, error: null, data: mockTask.data }),
+  useTask: () => ({
+    isPending: mockTask.isPending,
+    error: null,
+    data: mockTask.data,
+    refetch: mockTask.refetch,
+  }),
 }));
 
 /** The task's media as the step's screen reads them: read, unless a test says otherwise. */
@@ -144,7 +154,8 @@ export const mockMedia: {
   isPending: boolean;
   error: Error | null;
   data: TaskMedia[] | undefined;
-} = { isPending: false, error: null, data: [] };
+  refetch: jest.Mock;
+} = { isPending: false, error: null, data: [], refetch: jest.fn() };
 
 /** The media the upload queue is sending right now, by id. */
 export const mockUploading: { ids: Set<string> } = { ids: new Set() };
@@ -212,12 +223,17 @@ jest.mock('expo-router', () => ({
   useNavigation: () => mockNavigation,
 }));
 
-export const mockSteps: { isPending: boolean; error: Error | null; data: TaskStep[] | undefined } =
-  {
-    isPending: false,
-    error: null,
-    data: undefined,
-  };
+export const mockSteps: {
+  isPending: boolean;
+  error: Error | null;
+  data: TaskStep[] | undefined;
+  refetch: jest.Mock;
+} = {
+  isPending: false,
+  error: null,
+  data: undefined,
+  refetch: jest.fn(),
+};
 
 jest.mock('@/features/steps/use-steps', () => ({ useTaskSteps: () => mockSteps }));
 
@@ -407,6 +423,8 @@ function resetStage(): void {
   mockPermissions.microphone = GRANTED;
   mockPermissions.answers = { camera: GRANTED, microphone: GRANTED };
   mockPermissions.asked = [];
+  mockSteps.isPending = false;
+  mockSteps.error = null;
   mockSteps.data = [videoStep()];
   mockVideo.settings = { video_max_sec: 90, video_bitrate_kbps: 2000, video_max_mb: 45 };
   mockCamera.finish = null;
