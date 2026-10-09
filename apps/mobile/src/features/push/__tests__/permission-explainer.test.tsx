@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
 import { BUTTON_HEIGHT, Colors, FontSize } from '@/constants/theme';
+import { applyWordContext } from '@/i18n';
 import { reportError } from '@/lib/sentry';
 
 import { ensureChannels } from '../channels';
@@ -37,6 +38,21 @@ test('says why, and that the text of a message is never shown', async () => {
   expect(screen.getByText(/Текст сообщений в уведомлении не показывается/)).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Разрешить уведомления' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Не сейчас' })).toBeTruthy();
+});
+
+// A technician's pushes are about his jobs (docs/tech-plan.md §5, §6).
+test('to a technician it speaks of jobs, not cleanings', async () => {
+  applyWordContext('tech');
+
+  try {
+    await render(<PermissionExplainer />);
+
+    expect(screen.getByRole('header', { name: 'Не пропустите работу' })).toBeTruthy();
+    expect(screen.getByText(/когда вам назначат работу/)).toBeTruthy();
+    expect(screen.queryByText(/уборк/i)).toBeNull();
+  } finally {
+    applyWordContext(undefined);
+  }
 });
 
 test('"Allow": channels first, then the system question; the screen closes and the phone registers behind it', async () => {

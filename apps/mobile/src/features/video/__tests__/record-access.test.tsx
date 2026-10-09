@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Linking, StyleSheet, type ViewStyle } from 'react-native';
 
+import { applyWordContext } from '@/i18n';
 import {
   ME,
   NEVER_ASKED,
@@ -193,6 +194,21 @@ describe('what the screen needs before it records', () => {
 
     expect(screen.getByText('Шаги можно менять, только пока уборка в работе')).toBeTruthy();
     expect(screen.queryByTestId('camera-preview')).toBeNull();
+  });
+
+  // Technicians record videos too (docs/tech-plan.md §0): the refusal speaks
+  // of his job, in the words the session applied (§6).
+  test('a technician’s job not under way says so as work', async () => {
+    mockTask.data = { status: 'completed', assignee_id: ME };
+    applyWordContext('tech');
+
+    try {
+      await render(<RecordRoute />);
+
+      expect(screen.getByText('Шаги можно менять, только пока работа идёт')).toBeTruthy();
+    } finally {
+      applyWordContext(undefined);
+    }
   });
 
   test('a step already done opens no camera and says so', async () => {

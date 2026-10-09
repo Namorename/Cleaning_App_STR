@@ -18,6 +18,7 @@ import { Skeleton, SkeletonGroup } from '@/components/skeleton';
 import { Radius, Spacing, type Theme } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { wordContext } from '@/i18n';
 
 import type { CleaningTask, TaskGroup } from './schema';
 import { SectionHeading } from './section-heading';
@@ -113,7 +114,9 @@ export function TaskList({
   );
 
   if (isLoading) {
-    return <ListSkeleton label={t('tasks.loading')} style={styles.screen} />;
+    return (
+      <ListSkeleton label={t('tasks.loading', { context: wordContext() })} style={styles.screen} />
+    );
   }
 
   // Still pulled down like the list it stands in for; «Повторить» is the way
@@ -125,7 +128,11 @@ export function TaskList({
         contentContainerStyle={layout.grow}
         refreshControl={refreshControl}
       >
-        <ErrorState error={error} title={t('tasks.loadFailed')} onRetry={onRefresh} />
+        <ErrorState
+          error={error}
+          title={t('tasks.loadFailed', { context: wordContext() })}
+          onRetry={onRefresh}
+        />
       </ScrollView>
     );
   }

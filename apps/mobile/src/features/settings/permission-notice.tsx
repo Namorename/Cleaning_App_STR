@@ -8,6 +8,7 @@ import { Text } from '@/components/text';
 import { Radius, Spacing, statusTone } from '@/constants/theme';
 import { usePushPermission } from '@/features/push/use-push-permission';
 import { useTheme } from '@/hooks/use-theme';
+import { wordContext } from '@/i18n';
 
 /**
  * What the phone itself lets through, above her switches (docs/f11-plan.md
@@ -36,7 +37,7 @@ export function PermissionNotice() {
             channel: t(`settings.notifications.channels.${channel}`),
           }),
         )
-      : [t(`settings.notifications.permission.${NOTICE_KEY[state]}`)];
+      : [t(`settings.notifications.permission.${NOTICE_KEY[state]}`, { context: wordContext() })];
   const canAsk = state === 'ask';
   const actionLabel = canAsk
     ? t('settings.notifications.permission.enable')

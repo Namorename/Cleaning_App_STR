@@ -72,4 +72,31 @@ export async function applyLanguage(next: Language): Promise<void> {
   await i18n.changeLanguage(next);
 }
 
+/**
+ * The variant of the words a role reads, as an i18next context: a technician
+ * reads `key_tech` where it exists — «работа» where a cleaner reads «уборка»
+ * (docs/tech-plan.md §6) — and the key itself where it does not.
+ */
+export type WordContext = 'tech';
+
+let activeWordContext: WordContext | undefined;
+
+/**
+ * Set by the session, as the language is set by the profile: the moment it
+ * knows who signed in, before any screen draws her, and back to none when she
+ * leaves, so the next person on a shared phone does not inherit his words.
+ */
+export function applyWordContext(next: WordContext | undefined): void {
+  activeWordContext = next;
+}
+
+/**
+ * The context to read a word about the job in: `t(key, { context: wordContext() })`.
+ * Undefined reads the key itself — the cleaner's words, and anybody's before
+ * the session is known.
+ */
+export function wordContext(): WordContext | undefined {
+  return activeWordContext;
+}
+
 export { i18n };

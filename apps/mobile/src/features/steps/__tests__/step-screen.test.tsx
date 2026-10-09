@@ -3,7 +3,9 @@ import { fireEvent, render, screen, within } from '@testing-library/react-native
 import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { applyWordContext } from '@/i18n';
 
+import { stepTitle } from '../format';
 import { MAX_COMMENT_LENGTH, type TaskStep } from '../schema';
 import { StepScreen } from '../step-screen';
 
@@ -287,6 +289,60 @@ describe('outside the cleaning', () => {
 
     expect(screen.getByText('Шаг не найден или уборка уже не в работе')).toBeTruthy();
     expect(screen.queryByText('Step not found, or its task is not in progress')).toBeNull();
+  });
+});
+
+// A step of a technician's repair, in his words (docs/tech-plan.md §6).
+describe('read by a technician', () => {
+  beforeEach(() => {
+    applyWordContext('tech');
+  });
+
+  afterEach(() => {
+    applyWordContext(undefined);
+  });
+
+  test('a step he can no longer change, and a refusal, speak of work', async () => {
+    await render(
+      <StepScreen step={step()} isEditable={false} isBusy={false} error={null} {...actions} />,
+    );
+
+    expect(screen.getByText('Шаги можно менять, только пока работа идёт')).toBeTruthy();
+
+    await render(
+      <StepScreen
+        step={step()}
+        isEditable
+        isBusy={false}
+        error={Object.assign(new Error('Step not found, or its task is not in progress'), {
+          hint: 'serverErrors.stepNotFound',
+        })}
+        {...actions}
+      />,
+    );
+
+    expect(screen.getByText('Шаг не найден или работа уже не идёт')).toBeTruthy();
+  });
+
+  test('his comment for the office asks about the job', async () => {
+    await render(
+      <StepScreen
+        step={step({ type: 'cleaner_comment', title: null, instructions: null })}
+        isEditable
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    expect(screen.getByLabelText('Для менеджера').props.placeholder).toBe(
+      'Что стоит знать менеджеру об этой работе…',
+    );
+  });
+
+  test('a photo step with no title of its own is named as for anybody', () => {
+    expect(stepTitle(step({ type: 'photos_before', title: null }))).toBe('Фото до');
+    expect(stepTitle(step({ type: 'photos_after', title: null }))).toBe('Фото после');
   });
 });
 

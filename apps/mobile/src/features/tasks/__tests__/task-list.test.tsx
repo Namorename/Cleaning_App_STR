@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet, Text, type TextStyle } from 'react-native';
 
 import { FontSize } from '@/constants/theme';
+import { applyWordContext } from '@/i18n';
 
 import { TaskList } from '../task-list';
 import { calendarDay, type CleaningTask, type TaskGroup } from '../schema';
@@ -333,5 +334,36 @@ describe('loading, a list that never loaded and an empty one, on the «Абри�
     await render(<TaskList {...baseProps} sections={[]} isLoading={false} error={null} />);
 
     expect(styleOf(screen.getByText('Свободных уборок нет.')).fontSize).toBe(FontSize.title);
+  });
+});
+
+// His own work, read in his words (docs/tech-plan.md §6).
+describe('read by a technician', () => {
+  beforeEach(() => {
+    applyWordContext('tech');
+  });
+
+  afterEach(() => {
+    applyWordContext(undefined);
+  });
+
+  test('his list loads as work', async () => {
+    await render(<TaskList {...baseProps} sections={undefined} isLoading error={null} />);
+
+    expect(screen.getByRole('progressbar', { name: 'Загружаем работы…' })).toBeTruthy();
+  });
+
+  test('his list that never loaded says so as work', async () => {
+    await render(
+      <TaskList
+        {...baseProps}
+        sections={undefined}
+        isLoading={false}
+        error={new Error('Network request failed')}
+      />,
+    );
+
+    expect(screen.getByText('Не удалось загрузить работы')).toBeTruthy();
+    expect(screen.queryByText(/уборк/i)).toBeNull();
   });
 });

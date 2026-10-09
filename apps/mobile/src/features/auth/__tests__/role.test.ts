@@ -1,4 +1,6 @@
-import { roleOf } from '../role';
+import { Constants } from '@str-ops/shared';
+
+import { isTechnician, knownRole, roleOf, wordContextOf } from '../role';
 
 /**
  * The role travels in the session's token, in `app_metadata`, which only the
@@ -24,4 +26,43 @@ test('a role in user_metadata is never read', () => {
   const user = { app_metadata: {}, user_metadata: { role: 'head_tech' } };
 
   expect(roleOf(user)).toBeNull();
+});
+
+// Read off the enum: a role a migration adds is checked here without a word.
+test.each(Constants.public.Enums.app_role)('%s is a role this build knows', (role) => {
+  expect(knownRole(role)).toBe(role);
+});
+
+test('a role this build does not know, or none, reads as no role — the cleaner’s view', () => {
+  expect(knownRole('auditor')).toBeNull();
+  expect(knownRole('')).toBeNull();
+  expect(knownRole(null)).toBeNull();
+});
+
+/**
+ * The technician and the head technician have nothing to do with cleanings
+ * (docs/tech-plan.md §0, §3): their tabs, their pushes and their words are a
+ * technician's. Everyone else — the office included — sees the cleaner's.
+ */
+test.each([
+  ['tech', true],
+  ['head_tech', true],
+  ['cleaner', false],
+  ['manager', false],
+  ['admin', false],
+  [null, false],
+] as const)('%s is a technician: %s', (role, expected) => {
+  expect(isTechnician(role)).toBe(expected);
+});
+
+/** Both read the `_tech` variants (tech-plan §6); nobody else has a variant of their own. */
+test.each([
+  ['tech', 'tech'],
+  ['head_tech', 'tech'],
+  ['cleaner', undefined],
+  ['manager', undefined],
+  ['admin', undefined],
+  [null, undefined],
+] as const)('%s reads the words of context %s', (role, context) => {
+  expect(wordContextOf(role)).toBe(context);
 });

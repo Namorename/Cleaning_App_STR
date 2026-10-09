@@ -6,6 +6,7 @@ import { Text } from '@/components/text';
 import { Radius, Spacing, statusTone } from '@/constants/theme';
 import type { PushNotice as Notice } from '@/features/push/destination';
 import { useTheme } from '@/hooks/use-theme';
+import { wordContext } from '@/i18n';
 
 interface PushNoticeProps {
   notice: Notice;
@@ -25,7 +26,7 @@ export function PushNotice({ notice, onDismiss }: PushNoticeProps) {
   return (
     <View accessibilityLiveRegion="polite" style={[styles.notice, { backgroundColor: tone.bg }]}>
       <Text weight={700} color={tone.fg} style={styles.text}>
-        {t(`tasks.pushNotice.${notice}`)}
+        {t(`tasks.pushNotice.${notice}`, { context: wordContext() })}
       </Text>
       <IconButton
         icon="action.close"

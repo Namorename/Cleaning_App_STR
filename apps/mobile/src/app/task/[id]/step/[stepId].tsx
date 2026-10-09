@@ -39,6 +39,7 @@ import {
 } from '@/features/steps/use-steps';
 import { useTask } from '@/features/tasks/use-tasks';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { wordContext } from '@/i18n';
 
 const Params = z.object({ id: z.string().uuid(), stepId: z.string().uuid() });
 
@@ -150,7 +151,7 @@ export default function StepRoute() {
   }
 
   if (steps.isPending || task.isPending) {
-    return <StepScreenSkeleton label={t('tasks.loading')} />;
+    return <StepScreenSkeleton label={t('tasks.loading', { context: wordContext() })} />;
   }
 
   if (steps.error) {

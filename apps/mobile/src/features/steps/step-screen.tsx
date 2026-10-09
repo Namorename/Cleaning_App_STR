@@ -17,6 +17,7 @@ import {
   type MediaItemView,
 } from '@/features/media/schema';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { wordContext } from '@/i18n';
 
 import { STEP_STATUS_KEY, stepInstructions, stepStatusLine, stepTitle } from './format';
 import {
@@ -228,7 +229,9 @@ export function StepScreen({
 
       {error !== null ? <FailureText error={error} /> : null}
 
-      {!isEditable ? <Text tone="secondary">{t('steps.readOnly')}</Text> : null}
+      {!isEditable ? (
+        <Text tone="secondary">{t('steps.readOnly', { context: wordContext() })}</Text>
+      ) : null}
 
       {isEditable && isPending ? (
         // Its own move in flight spins it; until the step is complete it waits.

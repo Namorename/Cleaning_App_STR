@@ -4,6 +4,8 @@ import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
 import type { TaskStep } from '@/features/steps/schema';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { applyWordContext } from '@/i18n';
+import { RefusalError } from '@/lib/server-error';
 
 import { TaskDetail } from '../task-detail';
 import type { CleaningTask } from '../schema';
@@ -847,6 +849,81 @@ describe('the words follow the kind of job', () => {
     // Assert
     expect(screen.queryByText('Заезда нет')).toBeNull();
     expect(screen.getByText('Генеральная уборка')).toBeTruthy();
+  });
+});
+
+// The technician and the head technician read the `_tech` variant of every
+// word about the job (docs/tech-plan.md §6): the session applied them.
+describe('read by a technician', () => {
+  beforeEach(() => {
+    applyWordContext('tech');
+  });
+
+  afterEach(() => {
+    applyWordContext(undefined);
+  });
+
+  const repair = (overrides: Partial<CleaningTask> = {}) =>
+    task({ type: 'maintenance', reservation_id: null, ...overrides });
+
+  test('his repair is work from the button to the hint under it', async () => {
+    // Arrange: under way alongside another, the last start refused.
+    const running = repair({
+      status: 'in_progress',
+      started_at: '2026-11-10T08:05:00+00:00',
+      is_parallel: true,
+    });
+
+    // Act
+    await render(
+      <TaskDetail
+        task={running}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={new RefusalError('No row moved to done', 'tasks.finishFailed')}
+        {...actions}
+      />,
+    );
+
+    // Assert
+    expect(screen.getByRole('button', { name: 'Завершить работу' })).toBeTruthy();
+    expect(screen.getByText('Окно работы')).toBeTruthy();
+    expect(screen.getByText('Шла параллельно с другой работой')).toBeTruthy();
+    expect(screen.getByText('Не удалось завершить работу — обновите список.')).toBeTruthy();
+    expect(screen.queryByText(/уборк/i)).toBeNull();
+  });
+
+  test('a closed repair says the job is closed', async () => {
+    await render(
+      <TaskDetail
+        task={repair({ status: 'cancelled' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    expect(screen.getByText('Работа закрыта')).toBeTruthy();
+  });
+
+  // A cleaning closed while he was still a cleaner stays in his list (§2.4):
+  // a word that has no variant of its own still says what the job was.
+  test('an old cleaning of his, closed before he became a technician, is still a cleaning', async () => {
+    await render(
+      <TaskDetail
+        task={task({ status: 'done' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    expect(screen.getByText('Уборка завершена')).toBeTruthy();
   });
 });
 

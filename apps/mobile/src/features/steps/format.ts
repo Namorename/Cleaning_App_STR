@@ -1,7 +1,7 @@
 import { Constants, type StatusKey } from '@str-ops/shared';
 
 import { formatClockTime } from '@/features/tasks/format';
-import { currentLanguage, i18n } from '@/i18n';
+import { currentLanguage, i18n, wordContext } from '@/i18n';
 
 import { localizedText, stepState, type StepState, type TaskStep } from './schema';
 
@@ -12,7 +12,8 @@ const KNOWN_STEP_TYPES: readonly string[] = Constants.public.Enums.workflow_step
  *
  * The manager's own wording wins when there is one — in the cleaner's
  * language if it was translated, otherwise as the manager wrote it. With no
- * wording of its own the step is named by the app's translation of its type.
+ * wording of its own the step is named by the app's translation of its type,
+ * in the reader's words (a technician's `_tech` variant, where there is one).
  * A type this build has never heard of gets a neutral word rather than a raw
  * identifier.
  */
@@ -21,7 +22,7 @@ export function stepTitle(step: TaskStep): string {
     return localizedText(step.title, step.title_i18n, currentLanguage());
   }
   if (KNOWN_STEP_TYPES.includes(step.type)) {
-    return i18n.t(`steps.types.${step.type}`);
+    return i18n.t(`steps.types.${step.type}`, { context: wordContext() });
   }
   return i18n.t('steps.types.unknown');
 }

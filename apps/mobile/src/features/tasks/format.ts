@@ -1,7 +1,7 @@
 import { propertyPath, splitPlace } from '@str-ops/shared';
 
 import { localizedText } from '@/features/steps/schema';
-import { INTL_LOCALES, currentLanguage, i18n } from '@/i18n';
+import { INTL_LOCALES, currentLanguage, i18n, wordContext } from '@/i18n';
 
 import { calendarDay, isSameDayTurnover, startNotBefore, type CleaningTask } from './schema';
 
@@ -91,13 +91,14 @@ const KINDS_NAMED_ON_BANNER: ReadonlySet<CleaningTask['type']> = new Set([
 
 /**
  * What the job is: the title the office gave it, in her language when
- * translated, or else its kind. The panel names these jobs the same way.
+ * translated, or else its kind, in the reader's words. The panel names these
+ * jobs the same way.
  */
 function jobName(task: CleaningTask): string {
   const title = task.title?.trim() ?? '';
   return title !== ''
     ? localizedText(title, task.title_i18n, currentLanguage())
-    : i18n.t(`tasks.kinds.${task.type}`);
+    : i18n.t(`tasks.kinds.${task.type}`, { context: wordContext() });
 }
 
 /**
@@ -174,7 +175,9 @@ const CLEANING_KINDS: ReadonlySet<CleaningTask['type']> = new Set(['cleaning', '
 /**
  * The key of a word about the job, for its kind. A key rather than the text,
  * so the screen translates it through its own `t` and redraws when she
- * changes language.
+ * changes language — in the reader's words, `{ context: wordContext() }`: a
+ * technician reads a repair's words in their `_tech` variant, and the words
+ * of an old cleaning of his, which have none, as they are.
  */
 export function jobWordKey(type: CleaningTask['type'], word: JobWord): string {
   return (CLEANING_KINDS.has(type) ? CLEANING_WORDS : WORK_WORDS)[word];

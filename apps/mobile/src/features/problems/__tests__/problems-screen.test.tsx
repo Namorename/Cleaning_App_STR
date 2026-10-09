@@ -22,6 +22,17 @@ jest.mock('@/features/chat/use-chat', () => ({
 
 jest.mock('../use-problems', () => ({ useMyProblems: jest.fn() }));
 
+/** The role in her token; a cleaner unless a test says otherwise. */
+let mockRole = 'cleaner';
+
+jest.mock('@/features/auth/session', () => ({
+  useSession: () => ({
+    userId: '7c9e6679-7425-40de-944b-e07fc1f90ae7',
+    isLoading: false,
+    session: { user: { app_metadata: { role: mockRole } } },
+  }),
+}));
+
 const REPORT = 'Создать задание';
 
 function problem(overrides: Partial<Problem> = {}): Problem {
@@ -58,7 +69,31 @@ function answer(overrides: Partial<ListAnswer>): void {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockRole = 'cleaner';
   answer({});
+});
+
+// A technician has no listings to report on from here: he raises a task from
+// his repair, where its listing fills itself in (docs/tech-plan.md §4). The
+// head technician has none either. The list itself stays — what it holds is
+// the server's to decide.
+describe('the role decides the button', () => {
+  test.each(['tech', 'head_tech'])('a %s gets the list without «Создать задание»', async (role) => {
+    mockRole = role;
+
+    await render(<ProblemsScreen />);
+
+    expect(screen.getByText('Кран течёт')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: REPORT })).toBeNull();
+  });
+
+  test.each(['cleaner', 'manager', 'auditor'])('a %s keeps «Создать задание»', async (role) => {
+    mockRole = role;
+
+    await render(<ProblemsScreen />);
+
+    expect(screen.getByRole('button', { name: REPORT })).toBeTruthy();
+  });
 });
 
 test('«Создать задание» is a 56 dp button that starts a report', async () => {

@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { Alert } from 'react-native';
 
 import MyTasksScreen from '@/app/(tabs)/index';
+import { applyWordContext } from '@/i18n';
 import { RefusalError } from '@/lib/server-error';
 
 import { calendarDay, type CleaningTask } from '../schema';
@@ -232,4 +233,52 @@ test('while an accept runs, its button says so and a second tap sends nothing', 
   // Assert
   expect(accept().props.accessibilityState).toMatchObject({ busy: true });
   expect(mutateAsync).toHaveBeenCalledTimes(1);
+});
+
+// «Мои работы»: the technician's own list, in his words (docs/tech-plan.md §6).
+describe('read by a technician', () => {
+  beforeEach(() => {
+    applyWordContext('tech');
+  });
+
+  afterEach(() => {
+    applyWordContext(undefined);
+    mockParams = {};
+  });
+
+  test('nothing assigned says so without sending him to a free queue he does not have', async () => {
+    mockTasks.splice(0, mockTasks.length);
+
+    await render(<MyTasksScreen />);
+
+    expect(screen.getByText('Пока нет назначенных работ.')).toBeTruthy();
+    expect(screen.queryByText(/Свободные/)).toBeNull();
+  });
+
+  test('a refused accept is said as work', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mutateAsync.mockRejectedValue(new RefusalError('Accept matched no row', 'tasks.acceptFailed'));
+    await render(<MyTasksScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: /^Принять/ }));
+
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith(
+        'Не получилось принять работу',
+        'Не удалось принять работу — её могли передать, перенести или отменить.',
+      ),
+    );
+  });
+
+  test.each([
+    ['unassigned', 'Эту работу с вас сняли.'],
+    ['cancelled', 'Эту работу отменили.'],
+    ['movedAway', 'Работу перенесли, и в вашем списке её сейчас нет.'],
+  ])('after a tap on a push, %s: his list says what happened to the job', async (notice, text) => {
+    mockParams = { notice };
+
+    await render(<MyTasksScreen />);
+
+    expect(screen.getByText(text)).toBeTruthy();
+  });
 });

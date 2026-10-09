@@ -4,6 +4,7 @@ import { Linking, Platform, StyleSheet, type TextStyle, type ViewStyle } from 'r
 
 import { BUTTON_HEIGHT, Colors } from '@/constants/theme';
 import { registerThisPhone } from '@/features/push/registration';
+import { applyWordContext } from '@/i18n';
 
 import { PermissionNotice } from '../permission-notice';
 
@@ -76,6 +77,22 @@ test('refused: says so, and opens the phone settings', async () => {
 
   expect(openSettings).toHaveBeenCalledTimes(1);
   openSettings.mockRestore();
+});
+
+// What a technician misses without pushes is his jobs (docs/tech-plan.md §6).
+test('refused, to a technician: he will not hear about new jobs', async () => {
+  getPermissions.mockResolvedValue(refused);
+  applyWordContext('tech');
+
+  try {
+    await render(<PermissionNotice />);
+
+    expect(
+      await screen.findByText(/Без них вы не узнаете о новых работах и сообщениях/),
+    ).toBeTruthy();
+  } finally {
+    applyWordContext(undefined);
+  }
 });
 
 test('a question the phone never showed leaves the settings as the way', async () => {

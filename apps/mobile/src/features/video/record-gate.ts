@@ -7,7 +7,7 @@ import {
 } from '@/features/media/schema';
 import { stepStatusLine } from '@/features/steps/format';
 import { stepState, type TaskStep } from '@/features/steps/schema';
-import { i18n } from '@/i18n';
+import { i18n, wordContext } from '@/i18n';
 
 /** Whether the camera opens, and if not, what the screen says instead. */
 export type RecordGate =
@@ -62,10 +62,10 @@ export function recordGate(input: RecordGateInput): RecordGate {
   }
   const isHers = task.data?.status === 'in_progress' && task.data.assignee_id === input.userId;
   if (!isHers) {
-    return refused(i18n.t('steps.readOnly'));
+    return refused(i18n.t('steps.readOnly', { context: wordContext() }));
   }
   if (stepState(step) !== 'pending') {
-    return refused(stepStatusLine(step) ?? i18n.t('steps.readOnly'));
+    return refused(stepStatusLine(step) ?? i18n.t('steps.readOnly', { context: wordContext() }));
   }
   if (media.data === undefined) {
     return media.error !== null ? { kind: 'error', error: media.error } : { kind: 'loading' };

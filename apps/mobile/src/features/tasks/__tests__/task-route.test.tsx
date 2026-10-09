@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import TaskRoute from '@/app/task/[id]';
+import { applyWordContext } from '@/i18n';
 
 import type { CleaningTask } from '../schema';
 
@@ -13,7 +14,12 @@ import type { CleaningTask } from '../schema';
 
 const ME = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
 
-const mockSession = { userId: null as string | null, isLoading: true };
+const mockSession = {
+  userId: null as string | null,
+  isLoading: true,
+  /** The token's role, in `app_metadata`; none — the cleaner's view — unless a test says so. */
+  session: null as { user: { app_metadata: { role: string } } } | null,
+};
 
 /** What the task query reports; each test sets the state it is about. */
 const mockTaskQuery: {
@@ -87,6 +93,7 @@ jest.mock('@/features/steps/use-steps', () => ({
 beforeEach(() => {
   mockSession.userId = null;
   mockSession.isLoading = true;
+  mockSession.session = null;
   mockTaskQuery.isPending = true;
   mockTaskQuery.error = null;
   mockTaskQuery.data = undefined;
@@ -166,5 +173,71 @@ describe('signed in', () => {
     await render(<TaskRoute />);
 
     expect(screen.getByText('Уборка не найдена или больше не ваша')).toBeTruthy();
+  });
+});
+
+/** A job of hers under way: the moment a report or a request makes sense. */
+function running(type: CleaningTask['type']): CleaningTask {
+  return {
+    ...task(),
+    type,
+    reservation_id: null,
+    status: 'in_progress',
+    started_at: '2026-11-10T08:05:00+00:00',
+  };
+}
+
+describe('the role decides what the job offers', () => {
+  beforeEach(() => {
+    mockSession.userId = ME;
+    mockSession.isLoading = false;
+    mockTaskQuery.isPending = false;
+  });
+
+  afterEach(() => {
+    applyWordContext(undefined);
+  });
+
+  test('a cleaner raises a task and asks for supplies from her cleaning', async () => {
+    mockSession.session = { user: { app_metadata: { role: 'cleaner' } } };
+    mockTaskQuery.data = running('cleaning');
+
+    await render(<TaskRoute />);
+
+    expect(screen.getByRole('button', { name: 'Создать задание' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Запросить расходники' })).toBeTruthy();
+  });
+
+  // No «Расходники» for a technician (docs/tech-plan.md §0, §4): a request he
+  // sent from here would land in a tab he does not have.
+  test.each(['tech', 'head_tech'])(
+    'a %s raises a task from his repair, and is offered no supplies',
+    async (role) => {
+      mockSession.session = { user: { app_metadata: { role } } };
+      applyWordContext('tech');
+      mockTaskQuery.data = running('maintenance');
+
+      await render(<TaskRoute />);
+
+      expect(screen.getByRole('button', { name: 'Создать задание' })).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Запросить расходники' })).toBeNull();
+      expect(screen.queryByText(/расходник/i)).toBeNull();
+    },
+  );
+
+  test('a technician’s job loads, and goes missing, in his words', async () => {
+    mockSession.session = { user: { app_metadata: { role: 'tech' } } };
+    applyWordContext('tech');
+    mockTaskQuery.isPending = true;
+
+    await render(<TaskRoute />);
+
+    expect(screen.getByRole('progressbar', { name: 'Загружаем работы…' })).toBeTruthy();
+
+    mockTaskQuery.isPending = false;
+    mockTaskQuery.data = null;
+    await render(<TaskRoute />);
+
+    expect(screen.getByText('Работа не найдена или больше не ваша')).toBeTruthy();
   });
 });

@@ -11,6 +11,7 @@ import { groupMyTasks } from '@/features/tasks/schema';
 import { TaskList } from '@/features/tasks/task-list';
 import type { CleaningTask } from '@/features/tasks/schema';
 import { acceptVariables, useAcceptTask, useMyTasks } from '@/features/tasks/use-tasks';
+import { wordContext } from '@/i18n';
 import { alertMessage, serverErrorText } from '@/lib/server-error';
 
 const NO_IDS: readonly string[] = [];
@@ -68,7 +69,10 @@ export default function MyTasksScreen() {
       setAcceptingIds((ids) => new Set(ids).add(taskId));
       accept(acceptVariables(task))
         .catch((mutationError: unknown) => {
-          Alert.alert(t('tasks.acceptFailedTitle'), alertMessage(serverErrorText(mutationError)));
+          Alert.alert(
+            t('tasks.acceptFailedTitle', { context: wordContext() }),
+            alertMessage(serverErrorText(mutationError)),
+          );
           void refetch();
         })
         .finally(() =>
@@ -94,7 +98,8 @@ export default function MyTasksScreen() {
       acceptingTaskIds={acceptingIds}
       unreadTaskIds={unread.tasks}
       unreadProblemIds={unread.problems}
-      emptyMessage={t('tasks.emptyMine')}
+      // A technician has no free queue to be sent to (docs/tech-plan.md §4).
+      emptyMessage={t('tasks.emptyMine', { context: wordContext() })}
       header={
         notice === undefined ? undefined : (
           <PushNotice notice={notice} onDismiss={() => router.setParams({ notice: undefined })} />

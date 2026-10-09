@@ -14,6 +14,7 @@ import { BUTTON_HEIGHT, MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/
 import { remainingRequired, type TaskStep } from '@/features/steps/schema';
 import { StepList } from '@/features/steps/step-list';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { wordContext } from '@/i18n';
 
 import {
   formatClockTime,
@@ -95,6 +96,8 @@ export function TaskDetail({
 }: TaskDetailProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  // The reader's words: a technician's repair is work (docs/tech-plan.md §6).
+  const context = wordContext();
   const actions = availableActions(task, userId);
   const canAccept = actions.includes('accept');
   const action = actions.find((move) => move !== 'accept') ?? null;
@@ -134,9 +137,9 @@ export function TaskDetail({
     action === 'claim'
       ? t('tasks.claim')
       : action === 'start'
-        ? t(jobWordKey(task.type, 'start'))
+        ? t(jobWordKey(task.type, 'start'), { context })
         : action === 'finish'
-          ? t(jobWordKey(task.type, 'finish'))
+          ? t(jobWordKey(task.type, 'finish'), { context })
           : null;
 
   const onAction = () => {
@@ -154,10 +157,10 @@ export function TaskDetail({
 
   const idleHint =
     task.status === 'done'
-      ? t(jobWordKey(task.type, 'finished'))
+      ? t(jobWordKey(task.type, 'finished'), { context })
       : task.assignee_id !== null && task.assignee_id !== userId
-        ? t(jobWordKey(task.type, 'colleague'))
-        : t('tasks.detail.closed');
+        ? t(jobWordKey(task.type, 'colleague'), { context })
+        : t('tasks.detail.closed', { context });
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={layout.content}>
@@ -184,7 +187,7 @@ export function TaskDetail({
 
       <Card>
         {window !== null ? (
-          <Fact label={t(jobWordKey(task.type, 'window'))} value={window} />
+          <Fact label={t(jobWordKey(task.type, 'window'), { context })} value={window} />
         ) : null}
         {task.guests_count !== null ? (
           <Fact label={t('tasks.detail.guests')} value={String(task.guests_count)} />
@@ -260,12 +263,12 @@ export function TaskDetail({
       {showSteps ? (
         <StepList
           steps={steps}
-          heading={t(jobWordKey(task.type, 'steps'))}
+          heading={t(jobWordKey(task.type, 'steps'), { context })}
           onOpenStep={onOpenStep ?? noop}
         />
       ) : null}
 
-      {task.is_parallel ? <Hint text={t('tasks.detail.parallel')} /> : null}
+      {task.is_parallel ? <Hint text={t('tasks.detail.parallel', { context })} /> : null}
 
       {/* The last move's failure, next to the button she retries with. */}
       {error !== null ? <FailureText error={error} /> : null}
@@ -274,7 +277,7 @@ export function TaskDetail({
 
       {isStartBlocked ? <Hint text={formatStartNotBefore(task)} isLive /> : null}
 
-      {isAccepted ? <Hint text={t(jobWordKey(task.type, 'accepted'))} isLive /> : null}
+      {isAccepted ? <Hint text={t(jobWordKey(task.type, 'accepted'), { context })} isLive /> : null}
 
       {canAccept ? (
         // Quieter than the main button: accepting is a signal, not the job.

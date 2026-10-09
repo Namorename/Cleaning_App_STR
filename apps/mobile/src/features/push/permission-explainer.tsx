@@ -9,6 +9,7 @@ import { Text } from '@/components/text';
 import { Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { wordContext } from '@/i18n';
 import { reportError, reportUnlessOffline } from '@/lib/sentry';
 
 import { ensureChannels } from './channels';
@@ -61,9 +62,9 @@ export function PermissionExplainer() {
       contentInsetAdjustmentBehavior="automatic"
     >
       <Text variant="title" accessibilityRole="header">
-        {t('notifications.intro.heading')}
+        {t('notifications.intro.heading', { context: wordContext() })}
       </Text>
-      <Text>{t('notifications.intro.body')}</Text>
+      <Text>{t('notifications.intro.body', { context: wordContext() })}</Text>
       <Text tone="secondary">{t('notifications.intro.settingsHint')}</Text>
       {hasFailed ? (
         <Text accessibilityLiveRegion="polite" tone="danger">

@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from '@/components/text';
 import { TextField } from '@/components/text-field';
 import { Spacing } from '@/constants/theme';
+import { wordContext } from '@/i18n';
 
 import { MAX_COMMENT_LENGTH } from './schema';
 
@@ -31,7 +32,7 @@ export function StepComment({ value, onChangeText, disabled }: StepCommentProps)
         maxLength={MAX_COMMENT_LENGTH}
         multiline
         onChangeText={onChangeText}
-        placeholder={t('steps.commentPlaceholder')}
+        placeholder={t('steps.commentPlaceholder', { context: wordContext() })}
         value={value}
       />
       <Text variant="caption" tone="secondary" align="right">
