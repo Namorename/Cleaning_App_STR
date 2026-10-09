@@ -1,8 +1,11 @@
-import { THEME_COLORS, TONE_COLORS, TOUCH_TARGET } from '@str-ops/shared';
+import { THEME_COLORS, THEME_NAMES, TONE_COLORS, TOUCH_TARGET } from '@str-ops/shared';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet, Text, type ViewStyle } from 'react-native';
 
-import { Button } from '../button';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+
+import { contrastRatio } from '../../../../../packages/shared/src/testing/color-math';
+import { Button, type ButtonVariant } from '../button';
 
 /**
  * The button the screens will share (5.4): today it is put together by hand
@@ -10,10 +13,29 @@ import { Button } from '../button';
  * one in the sun-proof `cta` colours (decisions §3).
  */
 
+jest.mock('@/hooks/use-color-scheme', () => ({ useColorScheme: jest.fn(() => 'light') }));
+const scheme = jest.mocked(useColorScheme);
+
 const light = THEME_COLORS.light;
+const VARIANTS: readonly ButtonVariant[] = ['primary', 'secondary', 'outline', 'destructive'];
+/** WCAG 2.2 1.4.11: a control the user has to find, against what is next to it. */
+const NON_TEXT = 3;
+
+beforeEach(() => {
+  scheme.mockReturnValue('light');
+});
 
 function boxOf(name: string): ViewStyle {
   return StyleSheet.flatten(screen.getByRole('button', { name }).props.style) as ViewStyle;
+}
+
+/** What a box adds around its label: its frame and its padding, each side. */
+function edgesOf(box: ViewStyle): { vertical: unknown; horizontal: unknown } {
+  const frame = box.borderWidth ?? 0;
+  return {
+    vertical: frame + Number(box.paddingVertical ?? 0),
+    horizontal: frame + Number(box.paddingHorizontal ?? 0),
+  };
 }
 
 test('is a button named by its label, and presses', async () => {
@@ -62,6 +84,59 @@ test('disabled: says so, does not press, and is drawn quiet', async () => {
   expect(onPress).not.toHaveBeenCalled();
   expect(button.props.accessibilityState).toMatchObject({ disabled: true });
   expect(boxOf('Завершить').backgroundColor).toBe(light.surfaceAlt);
+});
+
+/**
+ * The inactive fill alone is 1.04:1 against the light screen: the button
+ * vanished (owner, 2026-10-09). Its frame is what she finds it by — 3:1
+ * against the screen and against a card, in both themes, measured from the
+ * tokens.
+ */
+describe.each(THEME_NAMES)('inactive, in the %s theme', (themeName) => {
+  const colors = THEME_COLORS[themeName];
+
+  test.each(VARIANTS)(
+    '%s: its frame stands out 3:1 from the screen and from a card',
+    async (variant) => {
+      scheme.mockReturnValue(themeName);
+      await render(<Button label="Завершить" variant={variant} isDisabled onPress={jest.fn()} />);
+
+      const box = boxOf('Завершить');
+      const frame = String(box.borderColor);
+
+      expect(box.borderWidth).toBeGreaterThan(0);
+      expect(contrastRatio(frame, colors.bg)).toBeGreaterThanOrEqual(NON_TEXT);
+      expect(contrastRatio(frame, colors.surface)).toBeGreaterThanOrEqual(NON_TEXT);
+    },
+  );
+});
+
+// The frame comes out of the padding: a box that grows when the button turns
+// active makes the screen jump under her finger.
+test.each(VARIANTS)('%s: turning active, the box keeps its size', async (variant) => {
+  await render(
+    <>
+      <Button label="Неактивная" variant={variant} isDisabled onPress={jest.fn()} />
+      <Button label="Активная" variant={variant} onPress={jest.fn()} />
+    </>,
+  );
+
+  const inactive = boxOf('Неактивная');
+  const active = boxOf('Активная');
+
+  expect(inactive.minHeight).toBe(TOUCH_TARGET.phoneButton);
+  expect(active.minHeight).toBe(TOUCH_TARGET.phoneButton);
+  expect(edgesOf(inactive)).toEqual(edgesOf(active));
+});
+
+test('busy is drawn as its own kind, not as inactive', async () => {
+  await render(<Button label="Сохранить" isBusy onPress={jest.fn()} />);
+
+  const box = boxOf('Сохранить');
+
+  expect(box.backgroundColor).toBe(light.cta);
+  expect(box.borderColor).toBeUndefined();
+  expect(StyleSheet.flatten(screen.getByText('Сохранить').props.style).color).toBe(light.onCta);
 });
 
 test('busy: says so, keeps its label, and a second tap does nothing', async () => {
