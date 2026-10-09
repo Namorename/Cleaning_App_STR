@@ -177,7 +177,7 @@ export function boardSections(problems: readonly BoardProblem[]): BoardSection[]
 }
 
 /** The roles the head technician hands work to: technicians, himself among them (decision 1). */
-const TECHNICIAN_ROLES: ReadonlySet<string> = new Set(['tech', 'head_tech']);
+export const TECHNICIAN_ROLES: ReadonlySet<string> = new Set(['tech', 'head_tech']);
 
 /** Whom «Назначить» offers, in the directory's order (by name). */
 export function activeTechnicians(staff: readonly StaffMember[]): StaffMember[] {

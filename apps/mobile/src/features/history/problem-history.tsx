@@ -42,7 +42,7 @@ export function ProblemHistory({ problemId }: ProblemHistoryProps) {
   const styles = useThemedStyles(createStyles);
   const events = useProblemEvents(problemId);
   const staff = useStaffDirectory();
-  const names = useMemo(() => staffNames(staff.data), [staff.data]);
+  const names = useMemo(() => staffNames(staff.data, t), [staff.data, t]);
 
   const lines = useMemo<Line[] | undefined>(
     () =>

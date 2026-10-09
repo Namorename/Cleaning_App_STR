@@ -1,4 +1,11 @@
-import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import {
+  useIsMutating,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query';
+import { useMemo } from 'react';
 
 import { useSession } from '@/features/auth/session';
 import { problemKeys } from '@/features/problems/keys';
@@ -53,7 +60,16 @@ export function useBoardProblems() {
   });
 }
 
-/** One task as the board reads it, for «Назначить» and «Снять» on its screen. */
+/**
+ * One task as the board reads it, for «Назначить» and «Снять» on its screen.
+ *
+ * The board's copy stands in at once, but it may be hours old — and so may a
+ * copy of the task itself kept on the phone. A hand-out decided on either
+ * would overrule what the office did since («last writer wins», tech-plan
+ * §3.3), so the task is read from the server every time the screen opens,
+ * however fresh the copy looks, and the moves wait for that read
+ * (`isFetchedAfterMount` with no error: see `ProblemDispatch`).
+ */
 export function useBoardProblem(problemId: string) {
   const { userId } = useSession();
   const queryClient = useQueryClient();
@@ -69,6 +85,7 @@ export function useBoardProblem(problemId: string) {
         .getQueryData<BoardProblem[]>(boardKeys.list(userId ?? ''))
         ?.find((problem) => problem.id === problemId),
     initialDataUpdatedAt: 0,
+    refetchOnMount: 'always',
   });
 }
 
@@ -88,10 +105,16 @@ export function useStaffDirectory() {
  * After a move, whatever came of it: the tasks (board, lists, screens, their
  * history) and the jobs — his own «Мои работы» gains a repair he gave himself.
  * A refusal refreshes too: «Это уже изменилось — экран обновлён» must be true.
+ *
+ * Returned to `onSettled`, the tasks' read keeps the move pending until it
+ * lands: the buttons stay busy until the screen shows what came of the move,
+ * not just until the server said yes. A read that fails ends the wait all the
+ * same (`invalidateQueries` does not throw), and the screen says so. His own
+ * jobs refresh beside it, not waited for.
  */
-function refreshAfterMove(queryClient: QueryClient): void {
-  void queryClient.invalidateQueries({ queryKey: problemKeys.all });
+function refreshAfterMove(queryClient: QueryClient): Promise<void> {
   void queryClient.invalidateQueries({ queryKey: taskKeys.all });
+  return queryClient.invalidateQueries({ queryKey: problemKeys.all });
 }
 
 /**
@@ -101,7 +124,36 @@ function refreshAfterMove(queryClient: QueryClient): void {
  * since. One attempt; a failure is said on the screen, nothing changes on the
  * phone until the server is read again.
  */
-const DISPATCH = { networkMode: 'always', retry: false } as const;
+const DISPATCH = { mutationKey: boardKeys.dispatch, networkMode: 'always', retry: false } as const;
+
+export interface DispatchInFlight {
+  /** A move of his is under way — on this screen, or on one he left and came back to. */
+  isMoving: boolean;
+  /**
+   * The same, read from the cache at the moment of asking: a second tap in
+   * the same frame as the first, before the screen has redrawn, finds it.
+   */
+  isMovingNow: () => boolean;
+}
+
+/**
+ * Whether «Назначить» or «Снять» is under way. Read from the mutation cache,
+ * not from the screen's own hooks: a screen opened again while a move is
+ * still pending has fresh hooks that know nothing of it, and must not offer a
+ * second one.
+ */
+export function useDispatchInFlight(): DispatchInFlight {
+  const queryClient = useQueryClient();
+  const pending = useIsMutating({ mutationKey: boardKeys.dispatch });
+
+  return useMemo(
+    () => ({
+      isMoving: pending > 0,
+      isMovingNow: () => queryClient.isMutating({ mutationKey: boardKeys.dispatch }) > 0,
+    }),
+    [pending, queryClient],
+  );
+}
 
 export function useAssignProblem() {
   const queryClient = useQueryClient();

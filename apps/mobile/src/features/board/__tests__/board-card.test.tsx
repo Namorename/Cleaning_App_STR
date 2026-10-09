@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet, type ViewStyle } from 'react-native';
 
 import { Colors } from '@/constants/theme';
+import { i18n } from '@/i18n';
 import {
   CLEANER_ANNA,
   PROBLEM_ID,
@@ -21,7 +22,7 @@ import { staffNames } from '../format';
  * frame of decision 3 — and only while somebody still has to see to it.
  */
 
-const NAMES = staffNames(STAFF);
+const NAMES = staffNames(STAFF, i18n.t);
 
 /** The pill's frame says the tone by shape, not colour alone. */
 function chipFrame(testID: string): ViewStyle {

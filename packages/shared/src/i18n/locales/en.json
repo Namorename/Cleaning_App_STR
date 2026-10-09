@@ -1288,7 +1288,11 @@
       "takeOffTitle": "Take off the job?",
       "takeOffQuestion": "{{name}}: the job will be cancelled and the task goes back to open.",
       "takeOffConfirm": "Take off",
-      "history": "History"
+      "history": "History",
+      "noProperty": "The task has no listing — it cannot be assigned",
+      "namelessTech": "Technician {{n}}",
+      "readFailed": "The task did not refresh — assigning and taking off wait for it",
+      "namesFailed": "The names did not load — taking off waits for them"
     },
     "history": {
       "title": "Task history",

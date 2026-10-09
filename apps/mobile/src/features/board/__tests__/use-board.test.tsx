@@ -1,5 +1,7 @@
-import { QueryClient, onlineManager } from '@tanstack/react-query';
+import { onlineManager, type QueryClient } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+
+import { createAppQueryClient } from '@/lib/query-client';
 
 import {
   HEAD_TECH,
@@ -94,13 +96,19 @@ describe('read through the schema on the way out', () => {
 });
 
 describe('the moves are dispatch, not field reports', () => {
+  /**
+   * The app's own client: its moves pause without signal and try a refusal
+   * again (lib/query-client.ts), so what keeps the dispatch from doing either
+   * is its own options. Reads are not retried and never collected.
+   */
   function freshClient(): QueryClient {
-    return new QueryClient({
-      defaultOptions: {
-        queries: { retry: false, gcTime: Infinity },
-        mutations: { gcTime: Infinity },
-      },
+    const client = createAppQueryClient();
+    const defaults = client.getDefaultOptions();
+    client.setDefaultOptions({
+      ...defaults,
+      queries: { ...defaults.queries, retry: false, gcTime: Infinity },
     });
+    return client;
   }
 
   afterEach(() => {
@@ -129,6 +137,27 @@ describe('the moves are dispatch, not field reports', () => {
     // Assert: tried once, never paused, never retried.
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.isPaused).toBe(false);
+    expect(assignProblem).toHaveBeenCalledTimes(1);
+  });
+
+  test('a refusal of «Назначить» is not tried again', async () => {
+    const refusal = Object.assign(new Error('refused'), { hint: 'serverErrors.repairNeedsTech' });
+    jest.mocked(assignProblem).mockRejectedValue(refusal);
+    const { result } = await renderHook(() => useAssignProblem(), {
+      wrapper: withClient(freshClient()),
+    });
+
+    await act(async () => {
+      result.current.mutate({
+        problemId: PROBLEM_ID,
+        assigneeId: TECH_IVAN,
+        scheduledDate: '2026-10-09',
+        timeFrom: null,
+        timeTo: null,
+      });
+    });
+
+    await waitFor(() => expect(result.current.error).toBe(refusal));
     expect(assignProblem).toHaveBeenCalledTimes(1);
   });
 

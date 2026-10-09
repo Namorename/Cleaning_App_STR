@@ -1,4 +1,5 @@
 import { staffNames } from '@/features/board/format';
+import { i18n } from '@/i18n';
 import {
   CLEANER_ANNA,
   HEAD_TECH,
@@ -20,7 +21,7 @@ import type { ProblemEvent } from '../schema';
  * know, or none at all, is a neutral word.
  */
 
-const NAMES = staffNames(STAFF);
+const NAMES = staffNames(STAFF, i18n.t);
 
 function event(kind: string, params: Record<string, unknown> = {}): ProblemEvent {
   return {

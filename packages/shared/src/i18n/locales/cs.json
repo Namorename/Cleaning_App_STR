@@ -1302,7 +1302,11 @@
       "takeOffTitle": "Odebrat z práce?",
       "takeOffQuestion": "{{name}}: práce bude zrušena a úkol se vrátí mezi otevřené.",
       "takeOffConfirm": "Odebrat",
-      "history": "Historie"
+      "history": "Historie",
+      "noProperty": "Úkol nemá objekt — nelze ho přidělit",
+      "namelessTech": "Technik {{n}}",
+      "readFailed": "Úkol se neobnovil — přidělit a odebrat lze až po obnovení",
+      "namesFailed": "Jména se nenačetla — odebrat z práce lze až po načtení"
     },
     "history": {
       "title": "Historie úkolu",

@@ -5,6 +5,7 @@ import { Alert, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
+import { ErrorBanner } from '@/components/error-banner';
 import { FailureText } from '@/components/failure-text';
 import { Text } from '@/components/text';
 import { Spacing } from '@/constants/theme';
@@ -25,6 +26,7 @@ import {
 import {
   useAssignProblem,
   useBoardProblem,
+  useDispatchInFlight,
   useStaffDirectory,
   useUnassignProblem,
 } from './use-board';
@@ -41,7 +43,10 @@ interface ProblemDispatchProps {
  *
  * Both moves are dispatch: sent at once or not at all, never queued; a refusal
  * is said here in his words, and the screen changes when the server has been
- * read again (use-board.ts).
+ * read again (use-board.ts). They are offered only on what the screen read
+ * from the server since it opened, never on the board's copy or one kept from
+ * before; one at a time, busy until the task is read again after it; «Снять»
+ * once the names are known, since its question names the person.
  */
 export function ProblemDispatch({ problemId }: ProblemDispatchProps) {
   const { t } = useTranslation();
@@ -50,8 +55,9 @@ export function ProblemDispatch({ problemId }: ProblemDispatchProps) {
   const staff = useStaffDirectory();
   const assign = useAssignProblem();
   const takeOff = useUnassignProblem();
+  const inFlight = useDispatchInFlight();
   const [isAssigning, setAssigning] = useState(false);
-  const names = useMemo(() => staffNames(staff.data), [staff.data]);
+  const names = useMemo(() => staffNames(staff.data, t), [staff.data, t]);
   const technicians = useMemo(
     () => (staff.data === undefined ? undefined : activeTechnicians(staff.data)),
     [staff.data],
@@ -60,14 +66,26 @@ export function ProblemDispatch({ problemId }: ProblemDispatchProps) {
   const task = problem.data ?? null;
   const repair = task === null ? null : liveRepair(task);
   const holder = repair?.assignee_id ?? null;
+  // Read from the server since the screen opened, and the last read did not fail.
+  const isCurrent = problem.isFetchedAfterMount && problem.error === null;
+  const areNamesKnown = staff.data !== undefined;
+  const namesFailure = areNamesKnown ? null : staff.error;
+  const isMoving = inFlight.isMoving || assign.isPending || takeOff.isPending;
 
   const openSheet = () => {
+    // A move under way is never forgotten: its answer and its refusal stay.
+    if (inFlight.isMovingNow()) {
+      return;
+    }
     assign.reset();
     takeOff.reset();
     setAssigning(true);
   };
 
   const onAssign = (assigneeId: string, scheduledDate: string) => {
+    if (inFlight.isMovingNow()) {
+      return;
+    }
     assign.mutate(
       {
         problemId,
@@ -93,10 +111,23 @@ export function ProblemDispatch({ problemId }: ProblemDispatchProps) {
         {
           text: t('problems.dispatch.takeOffConfirm'),
           style: 'destructive',
-          onPress: () => takeOff.mutate({ taskId: repair.id, expectedAssigneeId: holder }),
+          onPress: () => {
+            if (!inFlight.isMovingNow()) {
+              takeOff.mutate({ taskId: repair.id, expectedAssigneeId: holder });
+            }
+          },
         },
       ],
     );
+  };
+
+  const readAgain = () => {
+    if (problem.error !== null) {
+      void problem.refetch();
+    }
+    if (namesFailure !== null) {
+      void staff.refetch();
+    }
   };
 
   return (
@@ -116,21 +147,36 @@ export function ProblemDispatch({ problemId }: ProblemDispatchProps) {
         </Card>
       ) : null}
 
-      {task === null && problem.error !== null ? <FailureText error={problem.error} /> : null}
+      {problem.error !== null ? (
+        <ErrorBanner title={t('problems.dispatch.readFailed')} error={problem.error} />
+      ) : null}
+      {namesFailure !== null ? (
+        <ErrorBanner title={t('problems.dispatch.namesFailed')} error={namesFailure} />
+      ) : null}
+      {problem.error !== null || namesFailure !== null ? (
+        <Button variant="outline" label={t('common.retry')} onPress={readAgain} />
+      ) : null}
       {takeOff.error !== null ? <FailureText error={takeOff.error} /> : null}
 
       {task !== null && canAssign(task) ? (
-        <Button label={t('problems.dispatch.assign')} onPress={openSheet} />
+        <Button
+          label={t('problems.dispatch.assign')}
+          isBusy={assign.isPending}
+          // Busy in its own fill while it is its move; greyed while the other one is under way.
+          isDisabled={!isCurrent || (isMoving && !assign.isPending)}
+          onPress={openSheet}
+        />
       ) : null}
       {task !== null && isWaiting(task) && !canAssign(task) ? (
         // Said before he chooses anybody: assign_problem refuses a task with no listing.
-        <Text tone="secondary">{t('serverErrors.problemNoProperty')}</Text>
+        <Text tone="secondary">{t('problems.dispatch.noProperty')}</Text>
       ) : null}
       {task !== null && canTakeOff(task) ? (
         <Button
           variant="destructive"
           label={t('problems.dispatch.takeOff')}
           isBusy={takeOff.isPending}
+          isDisabled={!isCurrent || !areNamesKnown || (isMoving && !takeOff.isPending)}
           onPress={confirmTakeOff}
         />
       ) : null}
@@ -145,11 +191,14 @@ export function ProblemDispatch({ problemId }: ProblemDispatchProps) {
       {isAssigning ? (
         <AssignSheet
           technicians={technicians}
+          names={names}
           staffError={staff.error}
+          onRetryStaff={() => void staff.refetch()}
           meId={userId}
           isBusy={assign.isPending}
           error={assign.error}
           onAssign={onAssign}
+          // Closing the sheet leaves a move under way alone: its answer still lands.
           onClose={() => setAssigning(false)}
         />
       ) : null}

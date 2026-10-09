@@ -13,18 +13,18 @@ import { formatDayHeading } from '@/features/tasks/format';
 import { calendarDay } from '@/features/tasks/schema';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
-import { personName, staffNames } from './format';
+import { personName } from './format';
 import type { StaffMember } from './schema';
 
 /**
- * A week of days to choose from, today first. A repair handed out further
- * ahead is out of the technician's sight — no job, no task, no push — until
- * it comes within the week (docs/tech-plan.md §5, the +7 days horizon).
+ * Today and the seven days after it: the technician's horizon. A repair
+ * handed out further ahead is out of his sight — no job, no task, no push —
+ * until it comes within it (docs/tech-plan.md §5, the +7 days horizon).
  */
 const DAYS_AHEAD = 7;
 
 function weekAhead(now: Date): { value: string; label: string }[] {
-  return Array.from({ length: DAYS_AHEAD }, (_, offset) => {
+  return Array.from({ length: DAYS_AHEAD + 1 }, (_, offset) => {
     const value = calendarDay(now, offset);
     return { value, label: formatDayHeading(value, now) };
   });
@@ -33,7 +33,11 @@ function weekAhead(now: Date): { value: string; label: string }[] {
 interface AssignSheetProps {
   /** The active technicians, himself among them; undefined while the directory loads. */
   technicians: readonly StaffMember[] | undefined;
+  /** The whole directory's names (`staffNames`): a nameless technician keeps his number. */
+  names: ReadonlyMap<string, string>;
   staffError: Error | null;
+  /** Reads the directory again after it failed. */
+  onRetryStaff: () => void;
   /** The head technician himself, marked «Это вы» in the list. */
   meId: string | null;
   isBusy: boolean;
@@ -50,7 +54,9 @@ interface AssignSheetProps {
  */
 export function AssignSheet({
   technicians,
+  names,
   staffError,
+  onRetryStaff,
   meId,
   isBusy,
   error,
@@ -60,7 +66,6 @@ export function AssignSheet({
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const days = useMemo(() => weekAhead(new Date()), []);
-  const names = useMemo(() => staffNames(technicians), [technicians]);
   const [day, setDay] = useState(days[0].value);
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
 
@@ -98,7 +103,12 @@ export function AssignSheet({
             />
           ))}
         </View>
-        {staffError !== null ? <FailureText error={staffError} /> : null}
+        {staffError !== null ? (
+          <>
+            <FailureText error={staffError} />
+            <Button variant="outline" label={t('common.retry')} onPress={onRetryStaff} />
+          </>
+        ) : null}
       </ScrollView>
       {error !== null ? <FailureText error={error} /> : null}
       <Button

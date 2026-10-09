@@ -7,4 +7,6 @@ export const boardKeys = {
   list: (userId: string) => ['problems', 'board', userId] as const,
   one: (userId: string, problemId: string) => ['problems', 'board', userId, problemId] as const,
   staff: (userId: string) => ['staff', 'directory', userId] as const,
+  /** The head technician's two moves, «Назначить» and «Снять»: one key, so either blocks both. */
+  dispatch: ['board', 'dispatch'] as const,
 };

@@ -38,7 +38,7 @@ export function BoardScreen() {
   const [assignee, setAssignee] = useState<AssigneeFilter>(ANY_ASSIGNEE);
   const [isPicking, setPicking] = useState(false);
 
-  const names = useMemo(() => staffNames(staff.data), [staff.data]);
+  const names = useMemo(() => staffNames(staff.data, t), [staff.data, t]);
   const technicians = useMemo(() => activeTechnicians(staff.data ?? []), [staff.data]);
   const shown = useMemo(
     () => (board.data === undefined ? undefined : filterBoard(board.data, { status, assignee })),

@@ -1,17 +1,45 @@
+import type { TFunction } from 'i18next';
+
 import { formatDayHeading } from '@/features/tasks/format';
 import { INTL_LOCALES, currentLanguage, i18n } from '@/i18n';
 
-import type { BoardRepair, StaffMember } from './schema';
+import { TECHNICIAN_ROLES, type BoardRepair, type StaffMember } from './schema';
 
 /** Separates the parts of one line: a day and its hours, a person and a day. */
 export const PART_SEPARATOR = ' · ';
 
-/** Every named person of the directory by id. A person without a name is left out. */
-export function staffNames(staff: readonly StaffMember[] | undefined): ReadonlyMap<string, string> {
+/**
+ * Every person of the directory by id, by name, in the reader's language (`t`
+ * of the screen, so the names follow it). A technician without a name is
+ * «Техник 1», «Техник 2» … in the directory's order — by name, then id
+ * (staff_directory) — so two of them are told apart where he chooses one:
+ * never by a mail or a phone, which the directory does not even carry.
+ * Anybody else without a name is left out and reads as the neutral word
+ * (`personName`).
+ */
+export function staffNames(
+  staff: readonly StaffMember[] | undefined,
+  t: TFunction,
+): ReadonlyMap<string, string> {
+  const people = (staff ?? []).map((person) => ({
+    id: person.id,
+    name: person.full_name?.trim() ?? '',
+    isTechnician: TECHNICIAN_ROLES.has(person.role),
+  }));
+  const nameless = people
+    .filter((person) => person.name === '' && person.isTechnician)
+    .map((person) => person.id);
+
   return new Map(
-    (staff ?? [])
-      .map((person) => [person.id, person.full_name?.trim() ?? ''] as const)
-      .filter(([, name]) => name !== ''),
+    people.flatMap(({ id, name }) => {
+      if (name !== '') {
+        return [[id, name] as const];
+      }
+      const number = nameless.indexOf(id) + 1;
+      return number === 0
+        ? []
+        : [[id, t('problems.dispatch.namelessTech', { n: number })] as const];
+    }),
   );
 }
 

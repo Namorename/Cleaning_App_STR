@@ -3,7 +3,13 @@ import { render, screen } from '@testing-library/react-native';
 import ProblemsScreen from '@/app/(tabs)/problems';
 import ProblemRoute from '@/app/problem/[id]';
 import ProblemHistoryRoute from '@/app/problem/[id]/history';
-import { useBoardProblem, useBoardProblems, useStaffDirectory } from '@/features/board/use-board';
+import {
+  useAssignProblem,
+  useBoardProblem,
+  useBoardProblems,
+  useStaffDirectory,
+  useUnassignProblem,
+} from '@/features/board/use-board';
 import { useProblemEvents } from '@/features/history/use-history';
 import type { Problem } from '@/features/problems/schema';
 import {
@@ -75,8 +81,9 @@ jest.mock('@/features/board/use-board', () => {
     useBoardProblems: jest.fn(),
     useBoardProblem: jest.fn(),
     useStaffDirectory: jest.fn(),
-    useAssignProblem: idle,
-    useUnassignProblem: idle,
+    useAssignProblem: jest.fn(idle),
+    useUnassignProblem: jest.fn(idle),
+    useDispatchInFlight: jest.fn(() => ({ isMoving: false, isMovingNow: () => false })),
   };
 });
 
@@ -104,8 +111,12 @@ jest.mock('@/features/media/use-media', () => {
 });
 
 const OTHERS_TASK = 'Сломан замок у соседей';
-const MANAGERS = ['Отменить', 'Отменить задание', 'Закрыть задание', 'Выполнено', 'В архив'];
-const DISPATCH = ['Назначить', 'Снять с работы', 'История'];
+/**
+ * What anybody has on the screen of a task he reported: its edit while it is
+ * open, a photo, the conversation. Nothing of the office: no cancel, no close,
+ * no archive.
+ */
+const FIELD = ['Изменить', 'Снять фото', 'Чат'];
 
 function ownProblem(overrides: Partial<Problem> = {}): Problem {
   return {
@@ -131,6 +142,8 @@ function boardHolds(task: ReturnType<typeof boardProblem>): void {
   jest.mocked(useBoardProblem).mockReturnValue({
     data: task,
     error: null,
+    isFetchedAfterMount: true,
+    refetch: jest.fn(),
   } as unknown as ReturnType<typeof useBoardProblem>);
 }
 
@@ -175,10 +188,15 @@ beforeEach(() => {
   } as unknown as ReturnType<typeof useProblemEvents>);
 });
 
-function expectNoneOf(names: readonly string[]): void {
-  for (const name of names) {
-    expect(screen.queryByRole('button', { name })).toBeNull();
-  }
+/**
+ * Every button on screen, by name: the whole set rather than a list of what
+ * must be missing, so a lever of the manager's is caught whatever it is called.
+ */
+function buttons(): string[] {
+  return screen
+    .getAllByRole('button')
+    .map((button) => button.props.accessibilityLabel as string)
+    .sort();
 }
 
 describe('the head technician', () => {
@@ -194,10 +212,7 @@ describe('the head technician', () => {
   test('a waiting task offers «Назначить» and its history, nothing of the manager’s', async () => {
     await render(<ProblemRoute />);
 
-    expect(screen.getByRole('button', { name: 'Назначить' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'История' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Снять с работы' })).toBeNull();
-    expectNoneOf(MANAGERS);
+    expect(buttons()).toEqual([...FIELD, 'История', 'Назначить'].sort());
   });
 
   test('a held task offers «Снять с работы» instead', async () => {
@@ -205,9 +220,7 @@ describe('the head technician', () => {
 
     await render(<ProblemRoute />);
 
-    expect(screen.getByRole('button', { name: 'Снять с работы' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Назначить' })).toBeNull();
-    expectNoneOf(MANAGERS);
+    expect(buttons()).toEqual([...FIELD, 'История', 'Снять с работы'].sort());
   });
 
   test('the history is his to read', async () => {
@@ -239,7 +252,7 @@ describe.each([
     await render(<ProblemRoute />);
 
     expect(screen.getByText('Кран течёт')).toBeTruthy();
-    expectNoneOf([...DISPATCH, ...MANAGERS]);
+    expect(buttons()).toEqual(FIELD);
   });
 
   test('the history route is not his', async () => {
@@ -257,6 +270,8 @@ describe.each([
     expect(useBoardProblem).not.toHaveBeenCalled();
     expect(useStaffDirectory).not.toHaveBeenCalled();
     expect(useProblemEvents).not.toHaveBeenCalled();
+    expect(useAssignProblem).not.toHaveBeenCalled();
+    expect(useUnassignProblem).not.toHaveBeenCalled();
   });
 });
 
@@ -270,6 +285,5 @@ test('a technician still opens his own repair from the task', async () => {
 
   await render(<ProblemRoute />);
 
-  expect(screen.getByRole('button', { name: 'Открыть работу техника' })).toBeTruthy();
-  expectNoneOf(DISPATCH);
+  expect(buttons()).toEqual(['Открыть работу техника', 'Чат']);
 });
