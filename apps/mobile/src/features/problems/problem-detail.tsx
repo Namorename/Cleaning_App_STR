@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { Badge } from '@/components/badge';
+import { useScreenEdgePadding } from '@/components/bottom-inset';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { ErrorBanner } from '@/components/error-banner';
@@ -77,9 +78,12 @@ export function ProblemDetail({
 }: ProblemDetailProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  // Its buttons are last: scrolled to the end they stop clear of the system's
+  // bar, which the screen is drawn under (components/bottom-inset.ts).
+  const end = useScreenEdgePadding(Spacing.lg);
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={layout.content}>
+    <ScrollView style={styles.screen} contentContainerStyle={[layout.content, end]}>
       {/* Error over cache, as the lists have it: the saved report stays. This
           screen has no pull-to-refresh, so the line does not ask for one. */}
       {refreshError !== null ? (

@@ -1,9 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
-import { BUTTON_HEIGHT, Colors, FontSize } from '@/constants/theme';
+import { BUTTON_HEIGHT, Colors, FontSize, Spacing } from '@/constants/theme';
 import { forgetSavedQueries } from '@/lib/query-client';
 import { reportError } from '@/lib/sentry';
+import { BOTTOM_INSETS, scrollEndPadding, withBottomInset } from '@/testing/insets';
 
 import { RootRouteError, RouteError, markAppDrawn } from '../route-error';
 
@@ -170,3 +171,22 @@ describe('on the «Абрикос» components', () => {
     expect(reset.backgroundColor).toBe(light.secondary);
   });
 });
+
+// Block 3 (2026-10-10): Android's three-button navigation bar lay over the
+// bottom of the screens. A screen's own boundary draws inside the root's
+// SafeAreaProvider: at a large font its «Повторить» reaches the bottom, and
+// scrolled to the end it stops clear of the system's bar.
+test.each(BOTTOM_INSETS)(
+  'with a bottom inset of %i dp a screen’s «Повторить» scrolls clear of the system’s bar',
+  async (bottom) => {
+    await render(
+      withBottomInset(
+        bottom,
+        <RouteError error={new Error('boom')} retry={jest.fn(async () => {})} />,
+      ),
+    );
+
+    expect(screen.getByRole('button', { name: 'Повторить' })).toBeTruthy();
+    expect(scrollEndPadding()).toBe(Spacing.xl + bottom);
+  },
+);

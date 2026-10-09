@@ -3,8 +3,9 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ComponentProps } from 'react';
 import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
-import { BUTTON_HEIGHT, Colors, FontSize } from '@/constants/theme';
+import { BUTTON_HEIGHT, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { BOTTOM_INSETS, scrollEndPadding, withBottomInset } from '@/testing/insets';
 
 import { formatReportedAt } from '../format';
 import { ProblemDetail } from '../problem-detail';
@@ -255,3 +256,16 @@ describe('on the «Абрикос» components', () => {
     );
   });
 });
+
+// Block 3 (2026-10-10): Android's three-button navigation bar lay over the
+// bottom of the report. «Изменить» is the last thing on the screen; scrolled
+// to the end, it stops clear of the system's bar.
+test.each(BOTTOM_INSETS)(
+  'with a bottom inset of %i dp «Изменить» scrolls clear of the system’s bar',
+  async (bottom) => {
+    await render(withBottomInset(bottom, <ProblemDetail {...props({ canEdit: true })} />));
+
+    expect(screen.getByRole('button', { name: 'Изменить' })).toBeTruthy();
+    expect(scrollEndPadding()).toBe(Spacing.lg + bottom);
+  },
+);

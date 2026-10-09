@@ -2,7 +2,9 @@ import { THEME_COLORS, TONE_COLORS, TOUCH_TARGET } from '@str-ops/shared';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
+import { Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { BOTTOM_INSETS, scrollEndPadding, withBottomInset } from '@/testing/insets';
 import { setWordContext } from '@/testing/word-context';
 
 import { stepTitle } from '../format';
@@ -790,3 +792,21 @@ describe('the look: «Абрикос» on the old layout', () => {
     expect(styleOf(done).minHeight).toBe(TOUCH_TARGET.phoneButton);
   });
 });
+
+// Block 3 (2026-10-10): Android's three-button navigation bar lay over the
+// bottom of the step. «Пропустить» under «Готово» is the last thing on the
+// screen; scrolled to the end, it stops clear of the system's bar.
+test.each(BOTTOM_INSETS)(
+  'with a bottom inset of %i dp the last button scrolls clear of the system’s bar',
+  async (bottom) => {
+    await render(
+      withBottomInset(
+        bottom,
+        <StepScreen step={step()} isEditable isBusy={false} error={null} {...actions} />,
+      ),
+    );
+
+    expect(screen.getByRole('button', { name: 'Пропустить' })).toBeTruthy();
+    expect(scrollEndPadding()).toBe(Spacing.lg + bottom);
+  },
+);

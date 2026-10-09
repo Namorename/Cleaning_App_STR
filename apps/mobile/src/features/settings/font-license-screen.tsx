@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
+import { useScreenEdgePadding } from '@/components/bottom-inset';
 import { Card } from '@/components/card';
 import { Text } from '@/components/text';
 import { Spacing, type Theme } from '@/constants/theme';
@@ -20,11 +21,14 @@ const BLOCKS = licenseBlocks(NUNITO_LICENSE);
 export function FontLicenseScreen() {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  // The licence's end stops clear of the system's bar; UIKit insets this view
+  // on iOS by itself (components/bottom-inset.ts).
+  const end = useScreenEdgePadding(Spacing.lg, { isAdjustedOnIos: true });
 
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, end]}
       contentInsetAdjustmentBehavior="automatic"
     >
       <Text tone="secondary">{t('settings.fontLicense.intro')}</Text>

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { Badge } from '@/components/badge';
+import { useScreenEdgePadding } from '@/components/bottom-inset';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { ErrorBanner } from '@/components/error-banner';
@@ -100,6 +101,9 @@ export function StepScreen({
 }: StepScreenProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  // Its buttons are last: scrolled to the end they stop clear of the system's
+  // bar, which the screen is drawn under (components/bottom-inset.ts).
+  const end = useScreenEdgePadding(Spacing.lg);
   const state = stepState(step);
   const instructions = stepInstructions(step);
   const lines = noteLines(instructions);
@@ -161,7 +165,7 @@ export function StepScreen({
   const statusLine = stepStatusLine(step);
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={layout.content}>
+    <ScrollView style={styles.screen} contentContainerStyle={[layout.content, end]}>
       {/* Error over cache, as the task's screen has it: the saved step stays. */}
       {refreshError !== null ? (
         <ErrorBanner title={t('common.refreshFailedSaved')} error={refreshError} />

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert, FlatList, KeyboardAvoidingView, Pressable, StyleSheet, View } from 'react-native';
 
 import { ActionBar } from '@/components/action-bar';
+import { useKeyboardOffset } from '@/components/bottom-inset';
 import { Button } from '@/components/button';
 import { Text } from '@/components/text';
 import { TextField } from '@/components/text-field';
@@ -84,8 +85,9 @@ export function SupplyForm({
   const language = useLanguage();
   // The keyboard's top is measured from the window's, the form's from under
   // the header: the header's height is the difference. Outside a navigator
-  // (a test) there is no header.
-  const headerHeight = use(HeaderHeightContext) ?? 0;
+  // (a test) there is no header. Less the inset the action bar rises by
+  // (components/bottom-inset.ts).
+  const keyboardOffset = useKeyboardOffset(use(HeaderHeightContext) ?? 0);
   const [query, setQuery] = useState('');
   const [editor, setEditor] = useState<LineEditor | null>(null);
   const [isLineSheetOpen, setLineSheetOpen] = useState(false);
@@ -253,7 +255,7 @@ export function SupplyForm({
     <KeyboardAvoidingView
       style={styles.screen}
       behavior="padding"
-      keyboardVerticalOffset={headerHeight}
+      keyboardVerticalOffset={keyboardOffset}
     >
       <FlatList
         style={styles.screen}
@@ -268,7 +270,7 @@ export function SupplyForm({
       {/* Under the list rather than over it: the last row scrolls up to its
           edge, and a summary grown by a large system font lifts the list
           instead of covering more of it (components/action-bar.tsx). */}
-      <ActionBar isAtScreenEdge>
+      <ActionBar isAtScreenEdge testID="supply-form-actions">
         <View style={styles.summary}>
           <Pressable
             accessibilityRole="button"

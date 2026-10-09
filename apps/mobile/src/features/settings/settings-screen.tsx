@@ -1,5 +1,6 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
 
+import { useScreenEdgePadding } from '@/components/bottom-inset';
 import { Spacing, type Theme } from '@/constants/theme';
 import { SignOutButton } from '@/features/auth/sign-out-button';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
@@ -21,11 +22,14 @@ import { ThemeSection } from './theme-section';
  */
 export function SettingsScreen() {
   const styles = useThemedStyles(createStyles);
+  // «Выйти» is last: scrolled to the end it stops clear of the system's bar.
+  // UIKit insets this view on iOS by itself (components/bottom-inset.ts).
+  const end = useScreenEdgePadding(Spacing.lg, { isAdjustedOnIos: true });
 
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, end]}
       contentInsetAdjustmentBehavior="automatic"
       // The password fields sit low; the keyboard must not cover the one she types in.
       automaticallyAdjustKeyboardInsets
