@@ -8,6 +8,7 @@ import { roleOf } from '@/features/auth/role';
 import { useSession } from '@/features/auth/session';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { wordContext } from '@/i18n';
 import { serverErrorText, type ServerErrorText } from '@/lib/server-error';
 
 import { PermissionNotice } from './permission-notice';
@@ -24,7 +25,8 @@ import { usePushPreferences, useSetPushPreference } from './use-settings';
  * layer of its own, said above the switches (docs/f11-plan.md §3.2).
  *
  * Only the kinds her role can receive are offered (`kindsFor`): a new task
- * goes to the head technician alone, and nobody else sees its switch.
+ * goes to the head technician alone, and nobody else sees its switch; a
+ * technician gets no switch for a cleaning, and reads the others as work.
  */
 export function PushSection() {
   const { t } = useTranslation();
@@ -76,7 +78,7 @@ function PushSwitches({ kinds, preferences, onChange }: PushSwitchesProps) {
         <PushRow
           key={kind}
           kind={kind}
-          label={t(`settings.notifications.kinds.${kind}`)}
+          label={t(`settings.notifications.kinds.${kind}`, { context: wordContext() })}
           isOn={isPushEnabled(preferences, kind)}
           onChange={onChange}
         />

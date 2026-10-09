@@ -34,19 +34,50 @@ test('lists the push kinds in the order the owner approved them', () => {
   ]);
 });
 
-test('the head technician is offered every kind, a new task among them', () => {
-  expect(kindsFor('head_tech')).toEqual(PUSH_KINDS);
+/**
+ * A technician's pushes are about his own jobs (docs/tech-plan.md §5): after
+ * the rules of §2 no cleaning is ever his, so the pushes about a new or free
+ * cleaning and about a booking cancelled during one never come — seven kinds,
+ * not ten.
+ */
+const TECHNICIAN_KINDS = [
+  'cleaning_assigned',
+  'cleaning_unassigned',
+  'cleaning_cancelled',
+  'cleaning_moved',
+  'cleaning_window',
+  'chat_message',
+  'daily_digest',
+];
+
+test('the technician is offered his seven kinds, in the enum’s order', () => {
+  expect(kindsFor('tech')).toEqual(TECHNICIAN_KINDS);
+});
+
+test('the head technician is offered the same, and a new task — eight kinds', () => {
+  expect(kindsFor('head_tech')).toEqual([
+    'cleaning_assigned',
+    'cleaning_unassigned',
+    'cleaning_cancelled',
+    'cleaning_moved',
+    'cleaning_window',
+    'problem_new',
+    'chat_message',
+    'daily_digest',
+  ]);
 });
 
 // Read off the enum: a role added later is checked here without a word.
-const NOT_HEAD_TECH = Constants.public.Enums.app_role.filter((role) => role !== 'head_tech');
+const NOT_TECHNICIANS = Constants.public.Enums.app_role.filter(
+  (role) => role !== 'head_tech' && role !== 'tech',
+);
 
-test.each(NOT_HEAD_TECH)('a %s is not offered a new task, and every other kind stays', (role) => {
+test.each(NOT_TECHNICIANS)('a %s is not offered a new task, and every other kind stays', (role) => {
   expect(kindsFor(role)).toEqual(PUSH_KINDS.filter((kind) => kind !== 'problem_new'));
 });
 
-test('the roles that are not offered a new task include the cleaner, the tech and the manager', () => {
-  expect(NOT_HEAD_TECH).toEqual(expect.arrayContaining(['cleaner', 'tech', 'manager']));
+test('the roles offered every kind but a new task include the cleaner and the manager', () => {
+  expect(NOT_TECHNICIANS).toEqual(expect.arrayContaining(['cleaner', 'manager', 'admin']));
 });
 
 test('a token without a role, or with one this build does not know, is not offered a new task', () => {

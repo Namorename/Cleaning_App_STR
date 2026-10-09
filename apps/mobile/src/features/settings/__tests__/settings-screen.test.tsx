@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 
-import { SUPPORTED_LANGUAGES, deviceLanguage, i18n } from '@/i18n';
+import { SUPPORTED_LANGUAGES, applyWordContext, deviceLanguage, i18n } from '@/i18n';
 
 import { fetchMyPushPreferences, saveMyLanguage, setPushPreference } from '../api';
 import { SettingsScreen } from '../settings-screen';
@@ -46,7 +46,7 @@ const saveLanguage = jest.mocked(saveMyLanguage);
 /** The one switch only the head technician is shown (owner's word 2026-10-03). */
 const NEW_TASK = 'Новое задание';
 
-/** The push kinds in the order the screen lists them to the head technician. */
+/** Every push kind's switch, in the enum's order, as a cleaner reads it. */
 const KIND_LABELS = [
   'Новая уборка',
   'Вам назначена уборка',
@@ -111,22 +111,84 @@ function switchLabels(): string[] {
   return screen.getAllByRole('switch').map((element) => element.props.accessibilityLabel as string);
 }
 
-test('the head technician gets one switch per push kind, in order, each as the server has it', async () => {
-  // Arrange
-  mockRole = 'head_tech';
+/**
+ * A technician's pushes are about his jobs (docs/tech-plan.md §5): seven
+ * kinds, not ten, each named as work — the session applied his words (§6).
+ */
+const TECHNICIAN_LABELS = [
+  'Вам назначена работа',
+  'Работу сняли с вас',
+  'Работа отменена',
+  'Работа перенесена',
+  'Изменилось время работы',
+  'Сообщение в чате',
+  'Утренняя сводка',
+];
 
-  // Act
-  await renderScreen();
+describe('a technician', () => {
+  beforeEach(() => {
+    applyWordContext('tech');
+  });
 
-  // Assert
-  await waitFor(() => expect(screen.getAllByRole('switch')).toHaveLength(KIND_LABELS.length));
-  expect(switchLabels()).toEqual(KIND_LABELS);
-  expect(screen.getByRole('switch', { name: NEW_TASK })).toBeChecked();
-  expect(screen.getByRole('switch', { name: 'Утренняя сводка' })).not.toBeChecked();
-  expect(screen.getByRole('switch', { name: 'Новая уборка' })).toBeChecked();
+  afterEach(() => {
+    applyWordContext(undefined);
+  });
+
+  test('the technician gets his seven switches, in order, each named as work', async () => {
+    // Arrange
+    mockRole = 'tech';
+
+    // Act
+    await renderScreen();
+
+    // Assert
+    await waitFor(() =>
+      expect(screen.getAllByRole('switch')).toHaveLength(TECHNICIAN_LABELS.length),
+    );
+    expect(switchLabels()).toEqual(TECHNICIAN_LABELS);
+    expect(screen.getByRole('switch', { name: 'Утренняя сводка' })).not.toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Вам назначена работа' })).toBeChecked();
+    for (const gone of ['Новая уборка', 'Свободная уборка', 'Бронь отменена во время уборки']) {
+      expect(screen.queryByText(gone, { includeHiddenElements: true })).toBeNull();
+    }
+    expect(screen.queryByText(NEW_TASK, { includeHiddenElements: true })).toBeNull();
+  });
+
+  test('the head technician gets the same, and «Новое задание» — eight switches', async () => {
+    // Arrange
+    mockRole = 'head_tech';
+
+    // Act
+    await renderScreen();
+
+    // Assert
+    await waitFor(() => expect(screen.getAllByRole('switch')).toHaveLength(8));
+    expect(switchLabels()).toEqual([
+      ...TECHNICIAN_LABELS.slice(0, 5),
+      NEW_TASK,
+      ...TECHNICIAN_LABELS.slice(5),
+    ]);
+    expect(screen.getByRole('switch', { name: NEW_TASK })).toBeChecked();
+  });
+
+  test('his switch sends the kind the server knows', async () => {
+    // Arrange
+    mockRole = 'tech';
+    setPreference.mockResolvedValue({
+      profile_id: ME,
+      muted: ['cleaning_moved', 'daily_digest'],
+    });
+    await renderScreen();
+
+    // Act
+    await fireEvent.press(await screen.findByRole('switch', { name: 'Работа перенесена' }));
+
+    // Assert
+    await waitFor(() => expect(setPreference).toHaveBeenCalledWith('cleaning_moved', false));
+  });
 });
 
-test.each(['cleaner', 'tech', 'manager'])(
+test.each(['cleaner', 'manager', 'admin'])(
   'a %s has no new-task switch at all, and every other one in its place',
   async (role) => {
     // Arrange
