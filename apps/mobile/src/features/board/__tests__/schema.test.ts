@@ -14,7 +14,7 @@ import {
   NO_ASSIGNEE,
   activeTechnicians,
   boardProblemListSchema,
-  boardReadSchema,
+  boardReadCutSchema,
   boardSections,
   canAssign,
   canTakeOff,
@@ -239,26 +239,20 @@ describe('the filters', () => {
   });
 });
 
-// The board on disk carries what its reads said of the cut; one saved before
-// they did is its rows alone, and its cut is read off their count, as then.
-describe('the board as the phone keeps it', () => {
-  test('saved by this build: its tasks and what each read said', () => {
-    const saved = { problems: [boardProblem()], isOpenCut: false, isClosedCut: true };
-
-    const board = boardReadSchema.parse(saved);
-
-    expect(board.problems).toHaveLength(1);
-    expect(board.isClosedCut).toBe(true);
-    expect(board.isOpenCut).toBe(false);
+// What the reads said of the cut is kept apart from the rows (`boardKeys.cut`):
+// read back as it was said, and a part it does not name is not said cut.
+describe('the cut as the phone keeps it', () => {
+  test('read back as each read said it', () => {
+    expect(boardReadCutSchema.parse({ isOpenCut: false, isClosedCut: true })).toEqual({
+      isOpenCut: false,
+      isClosedCut: true,
+    });
   });
 
-  test('saved before the reads carried their cut: the rows alone, nothing said', () => {
-    const rows = [boardProblem()];
-
-    expect(boardReadSchema.parse(rows)).toEqual({
-      problems: boardProblemListSchema.parse(rows),
+  test('a part it does not name is not said cut', () => {
+    expect(boardReadCutSchema.parse({ isClosedCut: true })).toEqual({
       isOpenCut: false,
-      isClosedCut: false,
+      isClosedCut: true,
     });
   });
 });

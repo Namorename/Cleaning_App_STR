@@ -181,29 +181,32 @@ export interface CutBoard {
 }
 
 /**
- * The board as its two reads answered (api.ts): the tasks, and whether each
- * read came back with more than the board shows — counted as it answered,
- * before a task in both reads is handed back once.
+ * Whether each of the board's two reads (api.ts) came back with more than the
+ * board shows — counted as it answered, before a task in both reads is handed
+ * back once.
  */
-export interface BoardRead {
-  problems: BoardProblem[];
+export interface BoardReadCut {
   isOpenCut: boolean;
   isClosedCut: boolean;
 }
 
+/** The board as its two reads answered: the tasks, and whether each read was cut. */
+export interface BoardRead extends BoardReadCut {
+  problems: BoardProblem[];
+}
+
+/** What the reads said of the cut, as the phone keeps it (`boardKeys.cut`). */
+export const boardReadCutSchema = z.object({
+  isOpenCut: z.boolean().default(false),
+  isClosedCut: z.boolean().default(false),
+});
+
 /**
- * The board as the phone keeps it. One saved before the reads carried their
- * cut is its rows alone: nothing said, and its cut read off their count
- * (`cutBoard`), as it was then.
+ * Nothing said of the cut: none kept — a board saved before the reads said
+ * so, or none read yet. The cut is read off the rows' count (`cutBoard`), as
+ * it was then.
  */
-export const boardReadSchema = z.preprocess(
-  (data) => (Array.isArray(data) ? { problems: data } : data),
-  z.object({
-    problems: boardProblemListSchema,
-    isOpenCut: z.boolean().default(false),
-    isClosedCut: z.boolean().default(false),
-  }),
-);
+export const NOTHING_SAID_CUT: BoardReadCut = { isOpenCut: false, isClosedCut: false };
 
 /**
  * The board as read — one more of each part than it shows (api.ts) — cut to
@@ -213,7 +216,7 @@ export const boardReadSchema = z.preprocess(
  * handed back once, and the closed part can then be at its limit although its
  * read came back with one more (night journal, review of bc7dcc9..dab5237).
  * Or when it holds more than its limit: a board saved before the reads said
- * so (`boardReadSchema`).
+ * so (`NOTHING_SAID_CUT`).
  */
 export function cutBoard(board: BoardRead, limits: BoardLimits): CutBoard {
   const { problems } = board;

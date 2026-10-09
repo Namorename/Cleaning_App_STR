@@ -80,6 +80,7 @@ jest.mock('@/features/board/use-board', () => {
   const idle = () => ({ mutate: jest.fn(), reset: jest.fn(), isPending: false, error: null });
   return {
     useBoardProblems: jest.fn(),
+    useBoardCut: jest.fn(() => ({ isOpenCut: false, isClosedCut: false })),
     // The archive is read only once «Архив» is chosen: nothing held yet.
     useBoardArchive: jest.fn(() => ({
       data: undefined,
@@ -169,11 +170,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   asRole('head_tech');
   jest.mocked(useBoardProblems).mockReturnValue({
-    data: {
-      problems: [boardProblem({ id: 'd1e2f3a4-1111-4111-8111-d1e2f3a40009', title: OTHERS_TASK })],
-      isOpenCut: false,
-      isClosedCut: false,
-    },
+    data: [boardProblem({ id: 'd1e2f3a4-1111-4111-8111-d1e2f3a40009', title: OTHERS_TASK })],
     isPending: false,
     error: null,
     refetch: jest.fn(),

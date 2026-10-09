@@ -25,28 +25,25 @@ jest.mock('../use-problems', () => ({ useMyProblems: jest.fn() }));
 // The head technician's tab is the board of every task (features/board).
 jest.mock('@/features/board/use-board', () => ({
   useBoardProblems: () => ({
-    data: {
-      problems: [
-        {
-          id: 'd1e2f3a4-1111-4111-8111-d1e2f3a40009',
-          property_id: 412432,
-          title: 'Сломан замок у соседей',
-          priority: 'normal',
-          status: 'open',
-          archived_at: null,
-          created_at: '2026-11-10T08:00:00+00:00',
-          property: null,
-          fix_tasks: [],
-        },
-      ],
-      isOpenCut: false,
-      isClosedCut: false,
-    },
+    data: [
+      {
+        id: 'd1e2f3a4-1111-4111-8111-d1e2f3a40009',
+        property_id: 412432,
+        title: 'Сломан замок у соседей',
+        priority: 'normal',
+        status: 'open',
+        archived_at: null,
+        created_at: '2026-11-10T08:00:00+00:00',
+        property: null,
+        fix_tasks: [],
+      },
+    ],
     isPending: false,
     error: null,
     refetch: jest.fn(),
     isRefetching: false,
   }),
+  useBoardCut: () => ({ isOpenCut: false, isClosedCut: false }),
   // The archive is read only once «Архив» is chosen: nothing held yet.
   useBoardArchive: () => ({
     data: undefined,
