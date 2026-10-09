@@ -5,6 +5,7 @@ import {
   boardProblemListSchema,
   staffListSchema,
   type BoardProblem,
+  type BoardRead,
   type StaffMember,
 } from './schema';
 
@@ -59,9 +60,12 @@ const CLOSED_STATUSES = `(${CLOSED_STATUS_LIST.join(',')})`;
  * The two go out together, so a task closed between them can be in both:
  * it is handed back once, as the read of open tasks has it — work, until the
  * next refresh says otherwise (the verification review of c466bf5..bc7dcc9,
- * item 7).
+ * item 7). Whether each read was cut is said as it answered, before that:
+ * dropped from the closed rows, the task took a closed read cut at its limit
+ * and one more down to its limit, and the board said nothing of the cut
+ * (night journal, review of bc7dcc9..dab5237).
  */
-export async function fetchBoardProblems(now: Date = new Date()): Promise<BoardProblem[]> {
+export async function fetchBoardProblems(now: Date = new Date()): Promise<BoardRead> {
   const since = calendarDay(now, -CLOSED_WINDOW_DAYS);
   const [open, closed] = await Promise.all([
     supabase
@@ -89,11 +93,14 @@ export async function fetchBoardProblems(now: Date = new Date()): Promise<BoardP
   }
 
   const openRows = boardProblemListSchema.parse(open.data ?? []);
+  const closedRead = boardProblemListSchema.parse(closed.data ?? []);
   const openIds = new Set(openRows.map((problem) => problem.id));
-  const closedRows = boardProblemListSchema
-    .parse(closed.data ?? [])
-    .filter((problem) => !openIds.has(problem.id));
-  return [...openRows, ...closedRows];
+  const closedRows = closedRead.filter((problem) => !openIds.has(problem.id));
+  return {
+    problems: [...openRows, ...closedRows],
+    isOpenCut: openRows.length > BOARD_OPEN_LIMIT,
+    isClosedCut: closedRead.length > BOARD_CLOSED_LIMIT,
+  };
 }
 
 /**

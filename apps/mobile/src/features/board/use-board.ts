@@ -29,8 +29,10 @@ import { boardKeys } from './keys';
 import {
   boardProblemListSchema,
   boardProblemSchema,
+  boardReadSchema,
   staffListSchema,
   type BoardProblem,
+  type BoardRead,
   type StaffMember,
 } from './schema';
 
@@ -40,8 +42,21 @@ import {
  */
 const oneOrNoBoardProblemSchema = boardProblemSchema.nullable();
 
-function readBoard(data: unknown): BoardProblem[] {
-  return readCached(boardProblemListSchema, data, 'board');
+function readBoard(data: unknown): BoardRead {
+  return readCached(boardReadSchema, data, 'board');
+}
+
+/**
+ * The board's rows as the cache holds them, unread: the read with its cut
+ * (this build) or the rows alone (a build before it, `boardReadSchema`).
+ */
+function heldBoardRows(data: unknown): readonly { id?: unknown }[] {
+  if (Array.isArray(data)) {
+    return data;
+  }
+  const rows: unknown =
+    typeof data === 'object' && data !== null ? (data as { problems?: unknown }).problems : null;
+  return Array.isArray(rows) ? rows : [];
 }
 
 function readBoardProblem(data: unknown): BoardProblem | null {
@@ -97,9 +112,9 @@ export function useBoardProblem(problemId: string) {
     enabled: userId !== null && problemId !== '',
     // The board's copy stands in until the task's own arrives, raw from disk like any other.
     initialData: () =>
-      queryClient
-        .getQueryData<BoardProblem[]>(boardKeys.list(userId ?? ''))
-        ?.find((problem) => problem.id === problemId),
+      heldBoardRows(queryClient.getQueryData(boardKeys.list(userId ?? ''))).find(
+        (problem) => problem.id === problemId,
+      ) as BoardProblem | undefined,
     initialDataUpdatedAt: 0,
     refetchOnMount: 'always',
   });

@@ -169,7 +169,11 @@ beforeEach(() => {
   jest.clearAllMocks();
   asRole('head_tech');
   jest.mocked(useBoardProblems).mockReturnValue({
-    data: [boardProblem({ id: 'd1e2f3a4-1111-4111-8111-d1e2f3a40009', title: OTHERS_TASK })],
+    data: {
+      problems: [boardProblem({ id: 'd1e2f3a4-1111-4111-8111-d1e2f3a40009', title: OTHERS_TASK })],
+      isOpenCut: false,
+      isClosedCut: false,
+    },
     isPending: false,
     error: null,
     refetch: jest.fn(),

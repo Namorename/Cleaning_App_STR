@@ -21,6 +21,7 @@ import {
   fetchStaffDirectory,
   unassignProblem,
 } from '../api';
+import { isClosed, type BoardProblem } from '../schema';
 
 /**
  * The board's reads and the head technician's two moves (docs/tech-plan.md
@@ -88,7 +89,7 @@ describe('the board', () => {
       .mockReturnValueOnce({ data: [boardProblem()], error: null })
       .mockReturnValueOnce({ data: [], error: null });
 
-    const rows = await fetchBoardProblems();
+    const { problems: rows } = await fetchBoardProblems();
 
     for (const [table, columns] of mockSelect.mock.calls as [string, string][]) {
       expect(table).toBe('problems');
@@ -153,7 +154,7 @@ describe('the board', () => {
       .mockReturnValueOnce({ data: [OPEN_OLD], error: null })
       .mockReturnValueOnce({ data: [CLOSED_NEW], error: null });
 
-    const rows = await fetchBoardProblems();
+    const { problems: rows } = await fetchBoardProblems();
 
     expect(rows.map((row) => row.id)).toEqual([OPEN_ID, CLOSED_ID]);
   });
@@ -177,13 +178,64 @@ describe('the board', () => {
         error: null,
       });
 
-    const rows = await fetchBoardProblems();
+    const { problems: rows } = await fetchBoardProblems();
 
     expect(rows.map((row) => [row.id, row.status])).toEqual([
       [CLOSING, 'open'],
       [OPEN_ID, 'open'],
       [CLOSED_ID, 'resolved'],
     ]);
+  });
+
+  /** `count` tasks of one status, numbered from `from`. */
+  function numbered(count: number, status: BoardProblem['status'], from = 0): BoardProblem[] {
+    return Array.from({ length: count }, (_, index) =>
+      boardProblem({
+        id: `d1e2f3a4-3333-4333-8333-${String(from + index).padStart(12, '0')}`,
+        status,
+      }),
+    );
+  }
+
+  // Each read asks for one more than the board shows; the one more says the
+  // part was cut. Said by what each read answered.
+  test.each([
+    ['one more open', BOARD_OPEN_LIMIT + 1, BOARD_CLOSED_LIMIT, true, false],
+    ['one more closed', BOARD_OPEN_LIMIT, BOARD_CLOSED_LIMIT + 1, false, true],
+    ['each exactly to its limit', BOARD_OPEN_LIMIT, BOARD_CLOSED_LIMIT, false, false],
+  ])('%s: each read says whether it was cut', async (_, open, closed, isOpenCut, isClosedCut) => {
+    mockAnswer
+      .mockReturnValueOnce({ data: numbered(open, 'open'), error: null })
+      .mockReturnValueOnce({ data: numbered(closed, 'resolved', 5_000), error: null });
+
+    const read = await fetchBoardProblems();
+
+    expect(read.isOpenCut).toBe(isOpenCut);
+    expect(read.isClosedCut).toBe(isClosedCut);
+  });
+
+  // The task closed between the reads is in both, and handed back once: the
+  // closed part went from its limit and one more to its limit, and the board
+  // said nothing of the cut (night journal, review of bc7dcc9..dab5237). The
+  // cut is what the read answered, before anything is handed back once.
+  test('a task closed between the two reads does not hide that the closed read was cut', async () => {
+    const CLOSING = 'd1e2f3a4-1111-4111-8111-d1e2f3a40103';
+    mockAnswer
+      .mockReturnValueOnce({ data: [boardProblem({ id: CLOSING })], error: null })
+      .mockReturnValueOnce({
+        data: [
+          boardProblem({ id: CLOSING, status: 'resolved' }),
+          ...numbered(BOARD_CLOSED_LIMIT, 'resolved'),
+        ],
+        error: null,
+      });
+
+    const read = await fetchBoardProblems();
+
+    expect(read.problems.filter((problem) => problem.id === CLOSING)).toHaveLength(1);
+    expect(read.problems.filter(isClosed)).toHaveLength(BOARD_CLOSED_LIMIT);
+    expect(read.isClosedCut).toBe(true);
+    expect(read.isOpenCut).toBe(false);
   });
 
   test('a read of either part that fails fails the board', async () => {

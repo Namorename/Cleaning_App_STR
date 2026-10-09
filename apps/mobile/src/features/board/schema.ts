@@ -181,15 +181,46 @@ export interface CutBoard {
 }
 
 /**
+ * The board as its two reads answered (api.ts): the tasks, and whether each
+ * read came back with more than the board shows — counted as it answered,
+ * before a task in both reads is handed back once.
+ */
+export interface BoardRead {
+  problems: BoardProblem[];
+  isOpenCut: boolean;
+  isClosedCut: boolean;
+}
+
+/**
+ * The board as the phone keeps it. One saved before the reads carried their
+ * cut is its rows alone: nothing said, and its cut read off their count
+ * (`cutBoard`), as it was then.
+ */
+export const boardReadSchema = z.preprocess(
+  (data) => (Array.isArray(data) ? { problems: data } : data),
+  z.object({
+    problems: boardProblemListSchema,
+    isOpenCut: z.boolean().default(false),
+    isClosedCut: z.boolean().default(false),
+  }),
+);
+
+/**
  * The board as read — one more of each part than it shows (api.ts) — cut to
  * its limits. The one more is what says a part was cut, and which: without
  * it a part read exactly to its limit could not be told from one cut there.
+ * A part is cut when its read said so: a task closed between the two reads is
+ * handed back once, and the closed part can then be at its limit although its
+ * read came back with one more (night journal, review of bc7dcc9..dab5237).
+ * Or when it holds more than its limit: a board saved before the reads said
+ * so (`boardReadSchema`).
  */
-export function cutBoard(problems: readonly BoardProblem[], limits: BoardLimits): CutBoard {
+export function cutBoard(board: BoardRead, limits: BoardLimits): CutBoard {
+  const { problems } = board;
   const open = problems.filter((problem) => !isClosed(problem));
   const closed = problems.filter(isClosed);
-  const isOpenCut = open.length > limits.open;
-  const isClosedCut = closed.length > limits.closed;
+  const isOpenCut = board.isOpenCut || open.length > limits.open;
+  const isClosedCut = board.isClosedCut || closed.length > limits.closed;
   if (!isOpenCut && !isClosedCut) {
     return { problems: [...problems], isOpenCut, isClosedCut };
   }

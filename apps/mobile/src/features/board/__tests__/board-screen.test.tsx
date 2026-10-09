@@ -12,7 +12,7 @@ import {
 } from '@/testing/board-fixtures';
 
 import { BoardScreen } from '../board-screen';
-import type { BoardProblem } from '../schema';
+import type { BoardProblem, BoardRead } from '../schema';
 import { useBoardArchive, useBoardProblems, useStaffDirectory } from '../use-board';
 
 /**
@@ -70,6 +70,10 @@ const ARCHIVED = boardProblem({
 });
 /** What the board reads: no archive, the closed of the last month (api.ts). */
 const BOARD = [OPEN, IVANS, OLGAS, ANNAS, RESOLVED];
+/** The board as its reads answer: neither part said cut unless told (api.ts). */
+function read(problems: BoardProblem[], cut: Partial<BoardRead> = {}): BoardRead {
+  return { problems, isOpenCut: false, isClosedCut: false, ...cut };
+}
 /** What «Архив» reads, on demand. */
 const ARCHIVE = [ARCHIVED];
 
@@ -78,7 +82,7 @@ type ArchiveAnswer = ReturnType<typeof useBoardArchive>;
 
 function answer(overrides: Partial<BoardAnswer> = {}): void {
   jest.mocked(useBoardProblems).mockReturnValue({
-    data: BOARD,
+    data: read(BOARD),
     isPending: false,
     error: null,
     refetch: jest.fn(),
@@ -176,7 +180,7 @@ describe('a board read to its limits', () => {
   }
 
   test('one more open task than it shows: says the open ones are cut, and only them', async () => {
-    answer({ data: [...manyTasks(1000, 'open'), RESOLVED] });
+    answer({ data: read([...manyTasks(1000, 'open'), RESOLVED]) });
 
     await render(<BoardScreen />);
 
@@ -185,7 +189,7 @@ describe('a board read to its limits', () => {
   });
 
   test('one more closed task than it shows: says the closed ones are cut, and only them', async () => {
-    answer({ data: [OPEN, ...manyTasks(201, 'resolved', 2000)] });
+    answer({ data: read([OPEN, ...manyTasks(201, 'resolved', 2000)]) });
 
     await render(<BoardScreen />);
 
@@ -195,8 +199,20 @@ describe('a board read to its limits', () => {
     expect(titles()).toContain('Кран течёт');
   });
 
+  // A task closed between the two reads is handed back once (api.ts): the
+  // closed part is then exactly at its limit, and only its read knows it was
+  // cut (night journal, review of bc7dcc9..dab5237).
+  test('the closed read cut, though what came back is at the limit: says so', async () => {
+    answer({ data: read([OPEN, ...manyTasks(200, 'resolved', 2000)], { isClosedCut: true }) });
+
+    await render(<BoardScreen />);
+
+    expect(screen.getByText(CLOSED_CUT)).toBeTruthy();
+    expect(screen.queryByText(OPEN_CUT)).toBeNull();
+  });
+
   test('both parts over their limits: says both', async () => {
-    answer({ data: [...manyTasks(1000, 'open'), ...manyTasks(201, 'cancelled', 2000)] });
+    answer({ data: read([...manyTasks(1000, 'open'), ...manyTasks(201, 'cancelled', 2000)]) });
 
     await render(<BoardScreen />);
 
@@ -205,12 +221,12 @@ describe('a board read to its limits', () => {
   });
 
   test('says nothing at the limits exactly, nor in the archive', async () => {
-    answer({ data: [...manyTasks(999, 'open'), ...manyTasks(200, 'resolved', 2000)] });
+    answer({ data: read([...manyTasks(999, 'open'), ...manyTasks(200, 'resolved', 2000)]) });
     await render(<BoardScreen />);
     expect(screen.queryByText(OPEN_CUT)).toBeNull();
     expect(screen.queryByText(CLOSED_CUT)).toBeNull();
 
-    answer({ data: [...manyTasks(1000, 'open'), ...manyTasks(201, 'resolved', 2000)] });
+    answer({ data: read([...manyTasks(1000, 'open'), ...manyTasks(201, 'resolved', 2000)]) });
     await fireEvent.press(screen.getByRole('tab', { name: 'Архив' }));
 
     expect(screen.queryByText(OPEN_CUT)).toBeNull();
@@ -407,7 +423,7 @@ describe('its states', () => {
   });
 
   test('a company without tasks says so', async () => {
-    answer({ data: [] as BoardProblem[] });
+    answer({ data: read([]) });
 
     await render(<BoardScreen />);
 

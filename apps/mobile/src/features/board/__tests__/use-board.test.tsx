@@ -73,14 +73,29 @@ describe('read through the schema on the way out', () => {
 
     const { result } = await renderHook(() => useBoardProblems(), { wrapper: withClient(client) });
 
-    const [row] = result.current.data ?? [];
+    const [row] = result.current.data?.problems ?? [];
     expect(row.archived_at).toBeNull();
     expect(row.property).toEqual({ name: '1 - 2109', hostaway_unit_id: null, parent: null });
     expect(row.fix_tasks[0].scheduled_date).toBeNull();
+    // Saved before the reads carried their cut: the rows alone, nothing said.
+    expect(result.current.data?.isClosedCut).toBe(false);
   });
 
-  test('a task opened from the board starts from the board’s copy', async () => {
-    const client = restoredFromDisk(boardKeys.list(HEAD_TECH), SAVED_BOARD);
+  test('a board saved by this build keeps what its reads said of the cut', async () => {
+    const saved = { problems: SAVED_BOARD, isOpenCut: false, isClosedCut: true };
+    const client = restoredFromDisk(boardKeys.list(HEAD_TECH), saved);
+
+    const { result } = await renderHook(() => useBoardProblems(), { wrapper: withClient(client) });
+
+    expect(result.current.data?.problems).toHaveLength(1);
+    expect(result.current.data?.isClosedCut).toBe(true);
+  });
+
+  test.each([
+    ['saved by this build', { problems: SAVED_BOARD, isOpenCut: false, isClosedCut: false }],
+    ['saved as its rows alone', SAVED_BOARD],
+  ])('a task opened from the board starts from the board’s copy, %s', async (_, saved) => {
+    const client = restoredFromDisk(boardKeys.list(HEAD_TECH), saved);
 
     const { result } = await renderHook(() => useBoardProblem(PROBLEM_ID), {
       wrapper: withClient(client),
