@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -229,6 +229,15 @@ describe('a new task', () => {
     return screen.findByRole('dialog', { name: 'Новое задание' });
   }
 
+  /** A form ready to send: a listing chosen on purpose and what happened named. */
+  async function fillForm(form: HTMLElement, place = 'Vinohrady 12') {
+    await userEvent.selectOptions(within(form).getByLabelText('Объект'), place);
+    await userEvent.type(within(form).getByLabelText('Что случилось'), 'Течёт кран');
+  }
+
+  /** Who a task can be handed to depends on its listing: «Без объекта» says so. */
+  const NO_LISTING_HINT = 'Задание без объекта нельзя передать технику';
+
   test('the header offers «Новое задание», a 44 px target, on every view', async () => {
     useProblems.mockReturnValue({ data: problems, isPending: false, isError: false });
     render(<ProblemsView />);
@@ -279,7 +288,7 @@ describe('a new task', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  test('a task with no listing goes out as one, at the usual priority', async () => {
+  test('a task with no listing goes out as one, at the usual priority, when chosen so', async () => {
     useProblems.mockReturnValue({ data: problems, isPending: false, isError: false });
     window.history.pushState(null, '', '/problems?view=list');
     render(<ProblemsView />);
@@ -288,8 +297,8 @@ describe('a new task', () => {
     );
     const form = await openForm();
 
-    expect(within(form).getByLabelText('Объект')).toHaveDisplayValue('Без объекта');
     expect(within(form).getByLabelText('Срочность')).toHaveDisplayValue('Обычная');
+    await userEvent.selectOptions(within(form).getByLabelText('Объект'), 'Без объекта');
     await userEvent.type(within(form).getByLabelText('Что случилось'), 'Купить стремянку');
     await userEvent.click(within(form).getByRole('button', { name: 'Создать' }));
 
@@ -299,10 +308,45 @@ describe('a new task', () => {
     expect(push).toHaveBeenCalledWith(`/problems/${variables.problemId}?view=list`);
   });
 
+  // The reviewer, 10.10: a silent «Без объекта» made a task nobody can be
+  // sent to — assign_problem refuses one with no listing (problemNoProperty).
+  test('no listing is chosen for the manager: one is picked on purpose, «Без объекта» too', async () => {
+    useProblems.mockReturnValue({ data: problems, isPending: false, isError: false });
+    render(<ProblemsView />);
+    const form = await openForm();
+    const listing = within(form).getByLabelText('Объект');
+    const create = within(form).getByRole('button', { name: 'Создать' });
+
+    expect(listing).toHaveDisplayValue('Выберите объект');
+    await userEvent.type(within(form).getByLabelText('Что случилось'), 'Течёт кран');
+    expect(create).toBeDisabled();
+
+    await userEvent.selectOptions(listing, 'Без объекта');
+    expect(create).toBeEnabled();
+  });
+
+  test('«Без объекта» says such a task cannot be handed to a technician', async () => {
+    useProblems.mockReturnValue({ data: problems, isPending: false, isError: false });
+    render(<ProblemsView />);
+    const form = await openForm();
+    const listing = within(form).getByLabelText('Объект');
+
+    expect(within(form).queryByText(new RegExp(NO_LISTING_HINT))).not.toBeInTheDocument();
+    // The form promises a technician only for a task with a listing.
+    expect(form).toHaveAccessibleDescription(/задание с объектом можно назначить технику/);
+
+    await userEvent.selectOptions(listing, 'Без объекта');
+    expect(listing).toHaveAccessibleDescription(new RegExp(NO_LISTING_HINT));
+
+    await userEvent.selectOptions(listing, 'Karlín 3');
+    expect(within(form).queryByText(new RegExp(NO_LISTING_HINT))).not.toBeInTheDocument();
+  });
+
   test('«Создать» waits for what happened to be named', async () => {
     useProblems.mockReturnValue({ data: problems, isPending: false, isError: false });
     render(<ProblemsView />);
     const form = await openForm();
+    await userEvent.selectOptions(within(form).getByLabelText('Объект'), 'Vinohrady 12');
 
     const create = within(form).getByRole('button', { name: 'Создать' });
     expect(create).toBeDisabled();
@@ -312,11 +356,44 @@ describe('a new task', () => {
     expect(create).toBeEnabled();
   });
 
+  // The reviewer, 10.10: closed while the write was on its way, the form took
+  // its callback with it — the task was made, no page opened, and a second
+  // opening minted a new id for the same task typed again.
+  describe('while the task is on its way', () => {
+    beforeEach(() => {
+      reportState.isPending = true;
+    });
+
+    // Escape and a press outside reach the form the same way (onOpenChange);
+    // jsdom has no outside press to give, so Escape stands for both.
+    test('«Отмена» is off and Escape does not close the form', async () => {
+      useProblems.mockReturnValue({ data: problems, isPending: false, isError: false });
+      render(<ProblemsView />);
+      const form = await openForm();
+
+      expect(within(form).getByRole('button', { name: 'Отмена' })).toBeDisabled();
+      expect(within(form).getByRole('button', { name: 'Создаём…' })).toBeDisabled();
+      await userEvent.keyboard('{Escape}');
+
+      expect(screen.getByRole('dialog', { name: 'Новое задание' })).toBeInTheDocument();
+    });
+  });
+
+  test('once the write has settled, Escape closes the form again', async () => {
+    useProblems.mockReturnValue({ data: problems, isPending: false, isError: false });
+    render(<ProblemsView />);
+    await openForm();
+
+    await userEvent.keyboard('{Escape}');
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
   test('a press repeated after a refusal sends the same id', async () => {
     useProblems.mockReturnValue({ data: problems, isPending: false, isError: false });
     render(<ProblemsView />);
     const form = await openForm();
-    await userEvent.type(within(form).getByLabelText('Что случилось'), 'Течёт кран');
+    await fillForm(form);
 
     await userEvent.click(within(form).getByRole('button', { name: 'Создать' }));
     await userEvent.click(within(form).getByRole('button', { name: 'Создать' }));

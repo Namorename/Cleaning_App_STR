@@ -328,8 +328,10 @@
       "form": {
         "new": "Nový úkol",
         "title": "Nový úkol",
-        "description": "Po vytvoření se otevře stránka úkolu — tam ho můžete přiřadit.",
+        "description": "Po vytvoření se otevře stránka úkolu — tam lze úkol s objektem přiřadit technikovi.",
         "property": "Objekt",
+        "propertyPlaceholder": "Vyberte objekt",
+        "noPropertyHint": "Úkol bez objektu nelze předat technikovi: práce se přiřazuje jen k objektu.",
         "submit": "Vytvořit",
         "saving": "Vytváříme…",
         "close": "Zrušit"

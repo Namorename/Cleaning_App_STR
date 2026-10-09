@@ -328,8 +328,10 @@
       "form": {
         "new": "New task",
         "title": "New task",
-        "description": "Once it is created, the task's page opens — assign it there.",
+        "description": "Once it is created, the task's page opens — there a task with a listing can be assigned to a technician.",
         "property": "Listing",
+        "propertyPlaceholder": "Choose a listing",
+        "noPropertyHint": "A task with no listing cannot be handed to a technician: work is assigned only on a listing.",
         "submit": "Create",
         "saving": "Creating…",
         "close": "Cancel"

@@ -34,10 +34,37 @@ interface Draft {
   title: string;
   description: string;
   priority: ProblemPriority;
-  propertyId: number | null;
+  /** Undefined until the manager picks a listing or «Без объекта» on purpose. */
+  propertyId: number | null | undefined;
 }
 
-const EMPTY_DRAFT: Draft = { title: '', description: '', priority: 'normal', propertyId: null };
+const EMPTY_DRAFT: Draft = {
+  title: '',
+  description: '',
+  priority: 'normal',
+  propertyId: undefined,
+};
+
+/** The select's values for «not chosen yet» and «Без объекта»; a listing is its id. */
+const PLACE_UNSET = '';
+const PLACE_NONE = 'none';
+
+/** Ties the listing field to the sentence that says what «Без объекта» costs. */
+const NO_LISTING_HINT_ID = 'problem-no-listing-hint';
+
+function placeValue(propertyId: Draft['propertyId']): string {
+  if (propertyId === undefined) {
+    return PLACE_UNSET;
+  }
+  return propertyId === null ? PLACE_NONE : String(propertyId);
+}
+
+function placeFrom(value: string): Draft['propertyId'] {
+  if (value === PLACE_UNSET) {
+    return undefined;
+  }
+  return value === PLACE_NONE ? null : Number(value);
+}
 
 interface NewProblemDialogProps {
   /** The view the form was opened from: the new task's page returns to it. */
@@ -53,6 +80,12 @@ interface NewProblemDialogProps {
  * of its own: a press repeated after a lost answer sends the same id, and the
  * server hands back the row the first one made instead of a second task.
  * Photos stay with the phone, which takes them on the spot.
+ *
+ * The listing is chosen on purpose, «Без объекта» included: a task with no
+ * listing cannot be handed to a technician (assign_problem refuses it, and a
+ * listing cannot be added later), and the form says so when it is picked.
+ * While the write is on its way the form cannot be closed — Escape, a press
+ * outside, «Отмена» — so its answer always lands here and opens the task.
  */
 export function NewProblemDialog({ view, onClose }: NewProblemDialogProps) {
   const { t } = useTranslation();
@@ -64,8 +97,19 @@ export function NewProblemDialog({ view, onClose }: NewProblemDialogProps) {
   // Sorted and composed once per list, not once per keystroke.
   const places = useMemo(() => propertyOptions(properties.data ?? []), [properties.data]);
 
-  const isReady = draft.title.trim() !== '';
+  const isReady = draft.title.trim() !== '' && draft.propertyId !== undefined;
+  const hasNoListing = draft.propertyId === null;
   const failure = report.isError ? serverErrorText(report.error) : null;
+
+  // A close asked for while the write is on its way would take the answer —
+  // and the page it opens — with the form; the next opening would mint a new
+  // id for the same task typed again.
+  const close = () => {
+    if (!report.isPending) {
+      onClose();
+    }
+  };
+
   // An archived task is never new: from the archive, the page returns to the board.
   const backTo: ProblemView = view === 'archive' ? 'board' : view;
 
@@ -78,7 +122,7 @@ export function NewProblemDialog({ view, onClose }: NewProblemDialogProps) {
   // question, so a submit that reaches the form some other way sends nothing.
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!isReady || report.isPending) {
+    if (!isReady || report.isPending || draft.propertyId === undefined) {
       return;
     }
     report.mutate(
@@ -94,7 +138,7 @@ export function NewProblemDialog({ view, onClose }: NewProblemDialogProps) {
   };
 
   return (
-    <Dialog open onOpenChange={(next) => (next ? undefined : onClose())}>
+    <Dialog open onOpenChange={(next) => (next ? undefined : close())}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{t('panel.problems.form.title')}</DialogTitle>
@@ -106,21 +150,28 @@ export function NewProblemDialog({ view, onClose }: NewProblemDialogProps) {
             <Label htmlFor="problem-property">{t('panel.problems.form.property')}</Label>
             <NativeSelect
               id="problem-property"
-              value={draft.propertyId ?? ''}
+              value={placeValue(draft.propertyId)}
+              aria-describedby={hasNoListing ? NO_LISTING_HINT_ID : undefined}
               onChange={(event) =>
-                setDraft({
-                  ...draft,
-                  propertyId: event.target.value === '' ? null : Number(event.target.value),
-                })
+                setDraft({ ...draft, propertyId: placeFrom(event.target.value) })
               }
             >
-              <option value="">{t('problems.noProperty')}</option>
+              {/* Shown until a choice is made, and never a choice itself. */}
+              <option value={PLACE_UNSET} disabled>
+                {t('panel.problems.form.propertyPlaceholder')}
+              </option>
+              <option value={PLACE_NONE}>{t('problems.noProperty')}</option>
               {places.map((place) => (
                 <option key={place.id} value={place.id}>
                   {place.name}
                 </option>
               ))}
             </NativeSelect>
+            {hasNoListing ? (
+              <p id={NO_LISTING_HINT_ID} className="text-xs text-muted-foreground">
+                {t('panel.problems.form.noPropertyHint')}
+              </p>
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-1">
@@ -173,7 +224,13 @@ export function NewProblemDialog({ view, onClose }: NewProblemDialogProps) {
           )}
 
           <div className="flex flex-wrap justify-end gap-2">
-            <Button type="button" variant="outline" className="h-11" onClick={onClose}>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11"
+              disabled={report.isPending}
+              onClick={close}
+            >
               {t('panel.problems.form.close')}
             </Button>
             <Button type="submit" className="h-11" disabled={report.isPending || !isReady}>
