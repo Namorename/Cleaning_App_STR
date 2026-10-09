@@ -131,6 +131,14 @@ describe('the left edge asks for the past', () => {
     expect(onReachStart).not.toHaveBeenCalled();
   });
 
+  // A trackpad's swipe past the start would otherwise go back a page in the
+  // browser instead of asking for the past.
+  test('a swipe past the start stays in the grid, not the browser’s history', () => {
+    const { scroller } = renderGrid();
+
+    expect(scroller).toHaveClass('overscroll-x-contain');
+  });
+
   test('the wheel to the left away from the start only scrolls', () => {
     const { scroller, onReachStart } = renderGrid();
     scroller.scrollLeft = 300;

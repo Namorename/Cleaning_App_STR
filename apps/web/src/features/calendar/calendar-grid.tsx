@@ -339,7 +339,8 @@ export function CalendarGrid({
       role="grid"
       aria-rowcount={rows.length + 1}
       aria-colcount={days.length + 1}
-      className="relative min-h-0 flex-1 overflow-auto rounded-md border"
+      // A swipe past the start asks for the past (block 7), not the browser's back.
+      className="relative min-h-0 flex-1 overflow-auto overscroll-x-contain rounded-md border"
       onScroll={edge.onScroll}
       onWheel={edge.onWheel}
     >
