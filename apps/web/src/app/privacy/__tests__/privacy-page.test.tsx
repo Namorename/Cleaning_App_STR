@@ -98,6 +98,20 @@ function headings(): { level: number; name: string }[] {
  * docs/privacy-policy-draft.md up to its section 9.
  */
 describe('the privacy policy page', () => {
+  // Night of 2026-10-10, block 6: where the company allows the gallery, a
+  // video may come from it, with whatever its file says of where it was made.
+  test.each([
+    ['cs', /místa natočení; ta neodstraňujeme/],
+    ['en', /including where it was recorded; we do not remove it/],
+    ['ru', /включая место съёмки, — мы их не удаляем/],
+  ] as const)('%s: a video from the gallery keeps its metadata, and says so', async (language, said) => {
+    emptyOperatorEnv();
+
+    await renderPage(language);
+
+    expect(screen.getByText(said)).toBeInTheDocument();
+  });
+
   test.each(['cs', 'en', 'ru'] as const)(
     '%s: the title, then the nine sections in order',
     async (language) => {

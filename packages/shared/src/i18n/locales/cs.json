@@ -1524,7 +1524,8 @@
         }
       },
       "notCollected": "<b>Co neshromažďujeme:</b> polohu (aplikace nežádá o přístup k poloze), kontakty, údaje o zdraví. Fotografujte byty, ne lidi a doklady.",
-      "video": "Videa se natáčejí kamerou samotné aplikace: místo natáčení do souboru nezapisuje, datum a čas záznamu ano; metadata videí zvlášť neodstraňujeme (u fotografií ano)."
+      "video": "Videa se natáčejí kamerou samotné aplikace: místo natáčení do souboru nezapisuje, datum a čas záznamu ano; metadata videí zvlášť neodstraňujeme (u fotografií ano).",
+      "videoGallery": "Pokud firma povolila nahrávání z galerie, lze k práci přiložit i video z galerie telefonu. Takové video může obsahovat metadata včetně místa natočení; ta neodstraňujeme."
     },
     "basis": {
       "heading": "3. Právní základy",

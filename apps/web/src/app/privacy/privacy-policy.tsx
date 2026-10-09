@@ -111,6 +111,7 @@ function DataSection({ texts }: SectionProps) {
       />
       <p>{renderRich(texts.data.notCollected)}</p>
       <p>{texts.data.video}</p>
+      <p>{texts.data.videoGallery}</p>
     </Section>
   );
 }

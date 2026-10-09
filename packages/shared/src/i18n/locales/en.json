@@ -1498,7 +1498,8 @@
         }
       },
       "notCollected": "<b>What we do not collect:</b> location (the app does not ask for location access), contacts, health data. Photograph the apartments, not people or documents.",
-      "video": "Videos are recorded with the app’s own camera: it does not write the place of recording into the file, but it does write the date and time of recording; we do not strip video metadata separately (we do for photos)."
+      "video": "Videos are recorded with the app’s own camera: it does not write the place of recording into the file, but it does write the date and time of recording; we do not strip video metadata separately (we do for photos).",
+      "videoGallery": "If the company allows uploads from the gallery, a video from the phone’s gallery can be attached to the work too. Such a video may contain metadata, including where it was recorded; we do not remove it."
     },
     "basis": {
       "heading": "3. Legal bases",
