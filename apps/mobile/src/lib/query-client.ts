@@ -6,6 +6,7 @@ import {
   notifyManager,
   onlineManager,
   type DehydratedState,
+  type Mutation,
   type MutationOptions,
   type QueryKey,
 } from '@tanstack/react-query';
@@ -20,7 +21,7 @@ import { stepKeys } from '@/features/steps/keys';
 import { registerSupplyMutations } from '@/features/supplies/use-supplies';
 import { registerStepMutations } from '@/features/steps/use-steps';
 import { registerTaskMutations, taskKeys } from '@/features/tasks/use-tasks';
-import { AppMutationCache, authorOf, resumableFor } from '@/lib/move-queue';
+import { AppMutationCache, authorOf, resumableFor, waitsForSignal } from '@/lib/move-queue';
 import { countRefusals, isMoveRetry, moveRetryDelay, retryMove } from '@/lib/move-retry';
 
 /** Milliseconds; the cache is thrown away after this long without a refresh. */
@@ -244,6 +245,22 @@ function keepQueueOfExpired(saved: PersistedClient | undefined): PersistedClient
   return { ...saved, timestamp: now, clientState: { ...saved.clientState, queries: [] } };
 }
 
+/**
+ * Which moves the disk keeps: those paused for lack of signal, as TanStack
+ * keeps them — and the queue's moves still on their way (night journal, «not
+ * tried yet»). One whose request was on its way when the app was closed was
+ * lost: only a paused move was saved. Each is an idempotent call with an id
+ * the phone made, and a replayed take, accept, start or finish that already
+ * landed counts as done (features/tasks/api.ts, `alreadyMoved`), so sending
+ * one again is safe. A move sent at once or not at all ('always': the head
+ * technician's hand-out, a language, a password) is never saved on its way.
+ */
+export function shouldSaveMove(mutation: Mutation): boolean {
+  return (
+    mutation.state.isPaused || (mutation.state.status === 'pending' && waitsForSignal(mutation))
+  );
+}
+
 type SavedMoves = DehydratedState['mutations'];
 
 /**
@@ -267,7 +284,7 @@ function withMovesWaiting(saved: PersistedClient): PersistedClient {
 }
 
 export const queryPersister: Persister = {
-  persistClient: diskPersister.persistClient,
+  persistClient: (saved) => diskPersister.persistClient(withMovesWaiting(saved)),
   removeClient: diskPersister.removeClient,
   restoreClient: async () => keepQueueOfExpired(await diskPersister.restoreClient()),
 };
@@ -276,6 +293,7 @@ export const persistOptions = {
   persister: queryPersister,
   maxAge: CACHE_LIFETIME,
   buster: CACHE_BUSTER,
+  dehydrateOptions: { shouldDehydrateMutation: shouldSaveMove },
 };
 
 /**
@@ -291,7 +309,7 @@ export async function saveCacheNow(queryClient: QueryClient): Promise<void> {
   const saved: PersistedClient = {
     buster: CACHE_BUSTER,
     timestamp: Date.now(),
-    clientState: dehydrate(queryClient),
+    clientState: dehydrate(queryClient, persistOptions.dehydrateOptions),
   };
   await AsyncStorage.setItem(QUERY_CACHE_KEY, JSON.stringify(withMovesWaiting(saved)));
 }
