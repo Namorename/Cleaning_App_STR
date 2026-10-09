@@ -132,6 +132,9 @@ test.each([
   ['problem/[id]/edit', 'Изменить задание'],
   ['supply/new', 'Новая заявка'],
   ['supply/[id]', 'Заявка на расходники'],
+  // A video step's camera: titled by the root, since the screen may draw a
+  // permission question or a failure before the camera.
+  ['task/[id]/step/[stepId]/record', 'Запись видео'],
 ])('%s has a header titled «%s» and a way back', async (name, title) => {
   // Arrange
   readiness.mockReturnValue({ isReady: true, areFontsLoaded: true });

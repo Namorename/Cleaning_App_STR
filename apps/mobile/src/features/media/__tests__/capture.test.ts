@@ -4,7 +4,7 @@ import {
   fromBase64,
   metadataLeaks,
 } from '../../../../../../packages/shared/src/testing/image-fixtures';
-import { capturePhoto, EmptyCaptureError } from '../capture';
+import { capturePhoto, EmptyCaptureError, keepRecording } from '../capture';
 import { attachFailure } from '../failure';
 import { fileSize, keepFile } from '../file';
 
@@ -217,4 +217,58 @@ test('a photo with nothing to remove is not written again', async () => {
 
   expect(contents.get('file:///documents/task-media/kept-id.jpg')).toBe(clean);
   expect(photo?.byteSize).toBe(clean.length);
+});
+
+/**
+ * A video comes from the app's own recording screen, not from the picker: the
+ * camera reports only where it wrote the file. The length is what the screen
+ * timed, the container is the file's own, and it is declared as the camera's
+ * — the server refuses a video from anywhere else (`videoCameraOnly`).
+ */
+describe('a recording from the app’s own camera', () => {
+  const takenAt = '2026-10-09T08:00:00.000Z';
+
+  test('is kept under an id of ours, measured where it landed, with the length the screen timed', async () => {
+    sizes.set('file:///cache/Camera/recording.mp4', 31_900_000);
+
+    const video = await keepRecording({
+      uri: 'file:///cache/Camera/recording.mp4',
+      durationSec: 87.4,
+      takenAt,
+    });
+
+    expect(video).toEqual({
+      id: 'kept-id',
+      kind: 'video',
+      uri: 'file:///documents/task-media/kept-id.mp4',
+      mimeType: 'video/mp4',
+      byteSize: 31_900_000,
+      width: null,
+      height: null,
+      durationSec: 87.4,
+      takenAt,
+      source: 'camera',
+    });
+  });
+
+  test('an iPhone’s QuickTime file keeps its container', async () => {
+    sizes.set('file:///cache/Camera/recording.mov', 30_000_000);
+
+    const video = await keepRecording({
+      uri: 'file:///cache/Camera/recording.mov',
+      durationSec: 12,
+      takenAt,
+    });
+
+    expect(video.mimeType).toBe('video/quicktime');
+    expect(video.uri).toBe('file:///documents/task-media/kept-id.mov');
+  });
+
+  test('one that measures nothing is refused here, not by the server', async () => {
+    sizes.set('file:///cache/Camera/recording.mp4', 0);
+
+    await expect(
+      keepRecording({ uri: 'file:///cache/Camera/recording.mp4', durationSec: 3, takenAt }),
+    ).rejects.toBeInstanceOf(EmptyCaptureError);
+  });
 });

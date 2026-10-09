@@ -1143,6 +1143,7 @@
     "photosHint_other": "Снимите камерой не меньше {{count}} фото",
     "photosProgress": "Снято {{taken}} из {{max}}",
     "videoHint": "Запишите одно видео до {{seconds}} с",
+    "videoSettingsUnknown": "Настройки видео ещё не получены. Нужна связь — попробуйте позже.",
     "videoLength": "Видео · {{seconds}} с",
     "photoAccessibility": "Фото {{index}}. {{status}}",
     "photoPlaceholder": "Фото",
@@ -1152,9 +1153,26 @@
     "cameraDenied": "Нет доступа к камере — разрешите его в настройках телефона",
     "captureFailed": "Не удалось снять — попробуйте ещё раз",
     "pickPhoto": "Выбрать фото из галереи",
-    "pickVideo": "Выбрать видео из галереи",
-    "galleryDenied": "Доступ к галерее не разрешён",
-    "videoTooLong": "Видео длиннее {{seconds}} с — выберите короче или снимите камерой"
+    "galleryDenied": "Доступ к галерее не разрешён"
+  },
+  "video": {
+    "recordTitle": "Запись видео",
+    "starting": "Включаем камеру…",
+    "record": "Записать",
+    "stop": "Стоп",
+    "remaining_one": "Осталась {{count}} секунда",
+    "remaining_few": "Осталось {{count}} секунды",
+    "remaining_many": "Осталось {{count}} секунд",
+    "remaining_other": "Осталось {{count}} секунды",
+    "permission": {
+      "cameraTitle": "Нет доступа к камере",
+      "microphoneTitle": "Нет доступа к микрофону",
+      "bothTitle": "Нет доступа к камере и микрофону",
+      "why": "Видео записывается камерой приложения, вместе со звуком.",
+      "allow": "Разрешить доступ",
+      "inSettings": "Телефон больше не спрашивает — включите доступ в его настройках.",
+      "openSettings": "Открыть настройки"
+    }
   },
   "problems": {
     "report": "Создать задание",

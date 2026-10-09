@@ -1131,6 +1131,7 @@
     "photosHint_other": "Take at least {{count}} photos with the camera",
     "photosProgress": "Taken {{taken}} of {{max}}",
     "videoHint": "Record one video of up to {{seconds}} s",
+    "videoSettingsUnknown": "The video settings have not arrived yet. A connection is needed — try again later.",
     "videoLength": "Video · {{seconds}} s",
     "photoAccessibility": "Photo {{index}}. {{status}}",
     "photoPlaceholder": "Photo",
@@ -1140,9 +1141,24 @@
     "cameraDenied": "No access to the camera — allow it in the phone settings",
     "captureFailed": "Could not take it — please try again",
     "pickPhoto": "Choose a photo from the gallery",
-    "pickVideo": "Choose a video from the gallery",
-    "galleryDenied": "Access to the gallery was not granted",
-    "videoTooLong": "The video is longer than {{seconds}} s — choose a shorter one or record it"
+    "galleryDenied": "Access to the gallery was not granted"
+  },
+  "video": {
+    "recordTitle": "Record a video",
+    "starting": "Starting the camera…",
+    "record": "Record",
+    "stop": "Stop",
+    "remaining_one": "{{count}} second left",
+    "remaining_other": "{{count}} seconds left",
+    "permission": {
+      "cameraTitle": "No access to the camera",
+      "microphoneTitle": "No access to the microphone",
+      "bothTitle": "No access to the camera or the microphone",
+      "why": "Videos are recorded with the app’s camera, with sound.",
+      "allow": "Allow access",
+      "inSettings": "The phone no longer asks — turn the access on in its settings.",
+      "openSettings": "Open settings"
+    }
   },
   "problems": {
     "report": "Create a task",

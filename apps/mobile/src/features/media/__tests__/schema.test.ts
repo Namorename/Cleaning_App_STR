@@ -1,12 +1,11 @@
 import {
   DEFAULT_MAX_PHOTOS,
-  DEFAULT_MAX_VIDEO_SEC,
   DEFAULT_MIN_PHOTOS,
   canCompleteMediaStep,
   mediaKindOfStep,
   mediaOfStep,
   photoLimits,
-  videoLimitSec,
+  videoLimits,
   type MediaItemView,
   type TaskMedia,
 } from '../schema';
@@ -63,12 +62,47 @@ describe('limits', () => {
       min: DEFAULT_MIN_PHOTOS,
       max: DEFAULT_MAX_PHOTOS,
     });
-    expect(videoLimitSec({ max_video_sec: null })).toBe(DEFAULT_MAX_VIDEO_SEC);
   });
 
   test('keep what the manager set', () => {
     expect(photoLimits({ min_photos: 2, max_photos: 4 })).toEqual({ min: 2, max: 4 });
-    expect(videoLimitSec({ max_video_sec: 15 })).toBe(15);
+  });
+});
+
+describe('videoLimits', () => {
+  // The company's three numbers as the server keeps them by default
+  // (20261003170000_video_limits.sql); MB there is 10^6 bytes.
+  const company = { video_max_sec: 120, video_bitrate_kbps: 2000, video_max_mb: 45 };
+
+  test('a step with no length of its own records as long as the company allows', () => {
+    expect(videoLimits({ max_video_sec: null }, company)).toEqual({
+      seconds: 120,
+      maxBytes: 45_000_000,
+      bitrate: 2_000_000,
+    });
+  });
+
+  test('a step that asks for less than the company gets its own length', () => {
+    expect(videoLimits({ max_video_sec: 90 }, company).seconds).toBe(90);
+  });
+
+  // The server takes least(coalesce(step, company), company): a step written
+  // when the company allowed more does not stretch today's limit.
+  test('a company that allows less than the step wins', () => {
+    const tighter = { ...company, video_max_sec: 60 };
+
+    expect(videoLimits({ max_video_sec: 300 }, tighter).seconds).toBe(60);
+    expect(videoLimits({ max_video_sec: null }, tighter).seconds).toBe(60);
+  });
+
+  test('the size and the bitrate are the company’s, in bytes and bits per second', () => {
+    const pro = { video_max_sec: 180, video_bitrate_kbps: 4500, video_max_mb: 140 };
+
+    expect(videoLimits({ max_video_sec: 30 }, pro)).toEqual({
+      seconds: 30,
+      maxBytes: 140_000_000,
+      bitrate: 4_500_000,
+    });
   });
 });
 

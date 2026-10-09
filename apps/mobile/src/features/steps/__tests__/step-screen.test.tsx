@@ -499,6 +499,66 @@ describe('photos', () => {
   });
 });
 
+describe('video', () => {
+  const video = step({ type: 'video', title: null, instructions: null, max_video_sec: 300 });
+
+  // The route works the length out from the company and the step; the screen
+  // says what it is handed, not the step's own number.
+  test('says the length the route worked out, not the step’s own number', async () => {
+    await render(
+      <StepScreen
+        step={video}
+        isEditable
+        isBusy={false}
+        error={null}
+        maxVideoSec={120}
+        {...actions}
+      />,
+    );
+
+    expect(screen.getByText('Запишите одно видео до 120 с')).toBeTruthy();
+    expect(screen.queryByText(/300/)).toBeNull();
+  });
+
+  test('without a length from the route the camera waits', async () => {
+    const onCapture = jest.fn();
+    await render(
+      <StepScreen
+        step={video}
+        isEditable
+        isBusy={false}
+        error={null}
+        onCapture={onCapture}
+        {...actions}
+      />,
+    );
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать видео' }));
+
+    expect(onCapture).not.toHaveBeenCalled();
+  });
+
+  // A repair's «Видео после работы» is optional (owner's answer 11): no video,
+  // and the step is skipped like any other optional one.
+  test('an optional video step can be skipped without a recording', async () => {
+    await render(
+      <StepScreen
+        step={{ ...video, title: 'Видео после работы', required: false }}
+        isEditable
+        isBusy={false}
+        error={null}
+        maxVideoSec={120}
+        {...actions}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Готово' })).toBeDisabled();
+    await fireEvent.press(screen.getByRole('button', { name: 'Пропустить' }));
+
+    expect(actions.onSkip).toHaveBeenCalled();
+  });
+});
+
 describe('the look: «Абрикос» on the old layout', () => {
   const light = THEME_COLORS.light;
   const tones = TONE_COLORS.light;

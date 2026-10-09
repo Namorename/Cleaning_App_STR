@@ -9,16 +9,12 @@ import { ErrorState } from '@/components/error-state';
 import { Text } from '@/components/text';
 import { Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
-import { useGalleryAllowed } from '@/features/host/use-host';
-import {
-  capturePhoto,
-  captureVideo,
-  pickPhotoFromGallery,
-  pickVideoFromGallery,
-} from '@/features/media/capture';
+import { useGalleryAllowed, useVideoSettings } from '@/features/host/use-host';
+import { stepAttachVariables } from '@/features/media/attach-variables';
+import { capturePhoto, pickPhotoFromGallery } from '@/features/media/capture';
 import { attachFailure } from '@/features/media/failure';
 import { toLocalRecord, type LocalMediaRecord } from '@/features/media/local-store';
-import { mediaKindOfStep, mediaOfStep, videoLimitSec } from '@/features/media/schema';
+import { mediaKindOfStep, mediaOfStep, videoLimits } from '@/features/media/schema';
 import {
   mediaItemViews,
   useAttachMedia,
@@ -55,7 +51,9 @@ const Params = z.object({ id: z.string().uuid(), stepId: z.string().uuid() });
  * then handed to the upload queue, which registers, uploads and confirms it
  * whenever there is signal. The screen shows each file's progress and lets
  * her complete the step once every file has arrived. The gallery appears
- * beside the camera only where the company has allowed it.
+ * beside the camera only where the company has allowed it, and only for
+ * photos. A video is recorded on a screen of its own (`step/[stepId]/record`),
+ * held to the company's numbers — and until those are known, it waits.
  */
 export default function StepRoute() {
   const { t } = useTranslation();
@@ -83,6 +81,7 @@ export default function StepRoute() {
   const local = useLocalMedia();
   const uploading = useUploadingMediaIds();
   const galleryAllowed = useGalleryAllowed();
+  const videoSettings = useVideoSettings();
   const [isCapturing, setCapturing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -148,46 +147,35 @@ export default function StepRoute() {
   };
 
   const startUpload = (record: LocalMediaRecord) => {
-    attach.mutate({
-      taskId,
-      stepId,
-      uri: record.uri,
-      mediaId: record.id,
-      kind: record.kind,
-      mimeType: record.mimeType,
-      byteSize: record.byteSize,
-      width: record.width,
-      height: record.height,
-      durationSec: record.durationSec,
-      takenAt: record.takenAt,
-      source: record.source,
-    });
+    attach.mutate(stepAttachVariables(taskId, stepId, record));
+  };
+
+  const mediaKind = mediaKindOfStep(step.type);
+  const maxVideoSec = videoSettings === null ? null : videoLimits(step, videoSettings).seconds;
+
+  /** A video is recorded on its own screen, which hands it to the same queue. */
+  const openRecorder = () => {
+    if (maxVideoSec === null) {
+      return;
+    }
+    router.push({ pathname: '/task/[id]/step/[stepId]/record', params: { id: taskId, stepId } });
   };
 
   /**
-   * Attach a file, from the camera or from the gallery.
+   * Attach a photo, from the camera or from the gallery.
    *
    * One path for both: everything after the file exists — keeping it,
    * remembering it on disk, queuing the upload — is the same, and the only
    * difference worth having is where it came from.
    */
   const attachFrom = async (source: 'camera' | 'gallery') => {
-    const kind = mediaKindOfStep(step.type);
-    if (kind === null || isCapturing) {
+    if (mediaKind !== 'photo' || isCapturing) {
       return;
     }
-    const seconds = videoLimitSec(step);
     setCapturing(true);
     setNotice(null);
     try {
-      const captured =
-        source === 'gallery'
-          ? kind === 'video'
-            ? await pickVideoFromGallery(seconds)
-            : await pickPhotoFromGallery()
-          : kind === 'video'
-            ? await captureVideo(seconds)
-            : await capturePhoto();
+      const captured = source === 'gallery' ? await pickPhotoFromGallery() : await capturePhoto();
       if (captured === null) {
         return;
       }
@@ -224,9 +212,10 @@ export default function StepRoute() {
         onReopen={() => reopen.mutate({ taskId, stepId })}
         onSkip={() => skip.mutate({ taskId, stepId })}
         media={mediaItems}
+        maxVideoSec={maxVideoSec}
         isCapturing={isCapturing}
         canPickFromGallery={galleryAllowed}
-        onCapture={() => void attachFrom('camera')}
+        onCapture={mediaKind === 'video' ? openRecorder : () => void attachFrom('camera')}
         onPickFromGallery={() => void attachFrom('gallery')}
         onRemoveMedia={(mediaId) => removeMedia.mutate({ taskId, mediaId })}
         onRetryMedia={onRetryMedia}

@@ -741,6 +741,46 @@ describe('the words follow the kind of job', () => {
     expect(screen.queryByText(/уборк/i)).toBeNull();
   });
 
+  // «Видео после работы» is an optional video step of the repair's template
+  // (owner's answer 11, docs/tech-plan.md §10): the manager sets it, and a
+  // technician who records nothing still finishes his repair.
+  test('a repair with an optional «Видео после работы» finishes without the video', async () => {
+    // Arrange
+    const repair = task({
+      type: 'maintenance',
+      reservation_id: null,
+      status: 'in_progress',
+      started_at: '2026-11-10T08:05:00+00:00',
+    });
+    const videoAfter: TaskStep = {
+      ...jobStep,
+      id: 'b1c2d3e4-3333-4333-8333-b1c2d3e40003',
+      sort_order: 2,
+      type: 'video',
+      title: 'Видео после работы',
+      required: false,
+    };
+
+    // Act
+    await render(
+      <TaskDetail
+        task={repair}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        steps={[{ ...jobStep, completed_at: '2026-11-10T08:30:00+00:00' }, videoAfter]}
+        {...actions}
+      />,
+    );
+    await fireEvent.press(screen.getByRole('button', { name: 'Завершить работу' }));
+
+    // Assert
+    expect(screen.getByRole('button', { name: /Видео после работы/ })).toBeTruthy();
+    expect(screen.queryByText(/Обязательных шагов осталось/)).toBeNull();
+    expect(actions.onFinish).toHaveBeenCalledWith(repair.id);
+  });
+
   test('a finished inspection, and one a colleague holds, say so without calling it a cleaning', async () => {
     // Arrange / Act
     await render(

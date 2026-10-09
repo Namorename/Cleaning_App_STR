@@ -2,12 +2,28 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
-import { fetchHostSettings, type HostSettings } from '../api';
-import { useGalleryAllowed } from '../use-host';
+import { restoredFromDisk, withClient } from '@/testing/restored-cache';
+
+import { fetchHostSettings } from '../api';
+import { hostKeys } from '../keys';
+import type { HostSettings } from '../schema';
+import { useGalleryAllowed, useVideoSettings } from '../use-host';
 
 jest.mock('../api', () => ({ fetchHostSettings: jest.fn() }));
 
 const fetchSettings = fetchHostSettings as jest.MockedFunction<typeof fetchHostSettings>;
+
+/** The company as the server answers today: gallery shut, video at its defaults but the length. */
+function company(overrides: Partial<HostSettings> = {}): HostSettings {
+  return {
+    id: 'h1',
+    gallery_allowed: false,
+    video_max_sec: 90,
+    video_bitrate_kbps: 2000,
+    video_max_mb: 45,
+    ...overrides,
+  };
+}
 
 function wrapper({ children }: { children: ReactNode }) {
   // gcTime 0: the cache keeps a collection timer per query, and a test that
@@ -39,7 +55,7 @@ test('the gallery is closed while nobody has answered yet', async () => {
   expect(result.current).toBe(false);
 
   // Let the query finish rather than leaving it hanging past the test.
-  answer({ id: 'h1', gallery_allowed: true });
+  answer(company({ gallery_allowed: true }));
   await waitFor(() => expect(result.current).toBe(true));
 });
 
@@ -53,7 +69,7 @@ test('and closed when the read failed', async () => {
 });
 
 test('it opens only when the company says so', async () => {
-  fetchSettings.mockResolvedValue({ id: 'h1', gallery_allowed: true });
+  fetchSettings.mockResolvedValue(company({ gallery_allowed: true }));
 
   const { result } = await renderHook(() => useGalleryAllowed(), { wrapper });
 
@@ -61,10 +77,70 @@ test('it opens only when the company says so', async () => {
 });
 
 test('and stays closed when it says not', async () => {
-  fetchSettings.mockResolvedValue({ id: 'h1', gallery_allowed: false });
+  fetchSettings.mockResolvedValue(company({ gallery_allowed: false }));
 
   const { result } = await renderHook(() => useGalleryAllowed(), { wrapper });
 
   await waitFor(() => expect(fetchSettings).toHaveBeenCalled());
   expect(result.current).toBe(false);
+});
+
+// The length, the bitrate and the size of a recording are the company's
+// (docs/tech-plan.md §7.1). A phone that has never heard them does not guess:
+// a guess longer than the company allows is a recording the server refuses
+// after she has waited for its upload.
+describe('the video settings', () => {
+  test('are unknown until the company has answered, then its own', async () => {
+    let answer = (settings: HostSettings) => {
+      void settings;
+    };
+    fetchSettings.mockReturnValue(
+      new Promise<HostSettings>((resolve) => {
+        answer = resolve;
+      }),
+    );
+
+    const { result } = await renderHook(() => useVideoSettings(), { wrapper });
+
+    expect(result.current).toBeNull();
+
+    answer(company());
+    await waitFor(() =>
+      expect(result.current).toEqual({
+        video_max_sec: 90,
+        video_bitrate_kbps: 2000,
+        video_max_mb: 45,
+      }),
+    );
+  });
+
+  test('and stay unknown when the read failed with nothing saved', async () => {
+    fetchSettings.mockRejectedValue(new Error('offline'));
+
+    const { result } = await renderHook(() => useVideoSettings(), { wrapper });
+
+    await waitFor(() => expect(fetchSettings).toHaveBeenCalled());
+    expect(result.current).toBeNull();
+  });
+
+  // The build before this one saved the company without its video numbers.
+  // Read through the schema, that row still opens the gallery as it did and
+  // fills the numbers with the server's own defaults until the refresh lands.
+  test('a company saved by the build before video still reads, with the server’s defaults', async () => {
+    // Arrange: the refresh never answers, so the hooks read what the disk gave.
+    fetchSettings.mockReturnValue(new Promise(() => {}));
+    const client = restoredFromDisk(hostKeys.settings(), { id: 'h1', gallery_allowed: true });
+
+    // Act
+    const video = await renderHook(() => useVideoSettings(), { wrapper: withClient(client) });
+    const gallery = await renderHook(() => useGalleryAllowed(), { wrapper: withClient(client) });
+
+    // Assert
+    expect(video.result.current).toEqual({
+      video_max_sec: 120,
+      video_bitrate_kbps: 2000,
+      video_max_mb: 45,
+    });
+    expect(gallery.result.current).toBe(true);
+  });
 });

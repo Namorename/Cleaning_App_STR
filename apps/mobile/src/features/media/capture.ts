@@ -48,21 +48,6 @@ export class MediaLibraryDeniedError extends Error {
 }
 
 /**
- * A recording from the gallery that the step will not accept.
- *
- * The camera caps its own recording (`videoMaxDuration`); the gallery hands
- * over whatever was picked, so the length is checked here — before the file
- * is copied and registered, rather than as a refusal from the server after
- * an upload the cleaner waited for.
- */
-export class VideoTooLongError extends Error {
-  override readonly name = 'VideoTooLongError';
-  constructor(readonly maxSeconds: number) {
-    super(`The video is longer than ${maxSeconds} seconds`);
-  }
-}
-
-/**
  * A capture that measured zero bytes.
  *
  * The server refuses such a row, and rightly so — but it cannot say anything
@@ -226,52 +211,39 @@ export async function pickPhotoFromGallery(): Promise<CapturedMedia | null> {
   return toPhoto(asset, exifTakenAt(asset.exif) ?? new Date().toISOString(), 'gallery');
 }
 
-/** The extension the server will give the file, from what the camera said. */
+/** The container of a recording, from the file the camera wrote: QuickTime on an iPhone. */
+export function videoMimeType(uri: string): 'video/mp4' | 'video/quicktime' {
+  return /\.mov$/i.test(uri) ? 'video/quicktime' : 'video/mp4';
+}
+
+/** The extension the server will give the file, from its container. */
 function videoExtension(mimeType: string): string {
   return mimeType === 'video/quicktime' ? 'mov' : 'mp4';
 }
 
+/** What the recording screen hands over: the camera's file and what it measured. */
+export interface Recording {
+  /** Where the camera wrote the file, in the cache. */
+  uri: string;
+  /** Timed by the screen — the camera does not report it. */
+  durationSec: number;
+  /** When the recording started. */
+  takenAt: string;
+}
+
 /**
- * Record a video with the camera, no longer than the step allows.
+ * Keep a recording of the app's own camera under an id of ours, ready to be
+ * registered and uploaded like a photo.
  *
- * The length is capped by the camera itself (`videoMaxDuration`), so a
- * recording cannot come back too long. 720p is asked for where the platform
- * lets us ask (iOS); Android records at its default and the server bounds
- * the size.
+ * The camera reports only where it wrote the file (`recordAsync`): the length
+ * is what the recording screen timed, the picture's size is not known and is
+ * not declared. It is the camera's by construction — a video never comes from
+ * the gallery, which the server refuses (`videoCameraOnly`).
  */
-export async function captureVideo(maxSeconds: number): Promise<CapturedMedia | null> {
-  await ensureCameraPermission();
-
-  const result = await ImagePicker.launchCameraAsync({
-    mediaTypes: ['videos'],
-    videoMaxDuration: maxSeconds,
-    videoQuality: ImagePicker.UIImagePickerControllerQualityType.IFrame1280x720,
-  });
-  const asset = result.canceled ? null : (result.assets[0] ?? null);
-  if (asset === null) {
-    return null;
-  }
-
-  return toVideo(asset, maxSeconds, new Date().toISOString(), 'camera');
-}
-
-/** Seconds of a picked recording, or null when the picker could not measure it. */
-function measuredSeconds(asset: ImagePicker.ImagePickerAsset): number | null {
-  // The picker reports milliseconds, rounded here to a tenth of a second.
-  return typeof asset.duration === 'number' && asset.duration > 0
-    ? Math.round(asset.duration / 100) / 10
-    : null;
-}
-
-async function toVideo(
-  asset: ImagePicker.ImagePickerAsset,
-  fallbackSeconds: number,
-  takenAt: string,
-  source: MediaSource,
-): Promise<CapturedMedia> {
-  const mimeType = asset.mimeType === 'video/quicktime' ? 'video/quicktime' : 'video/mp4';
+export async function keepRecording(recording: Recording): Promise<CapturedMedia> {
+  const mimeType = videoMimeType(recording.uri);
   const id = randomUUID();
-  const uri = await keepFile(asset.uri, id, videoExtension(mimeType));
+  const uri = await keepFile(recording.uri, id, videoExtension(mimeType));
   const byteSize = await fileSize(uri);
   if (byteSize <= 0) {
     throw new EmptyCaptureError(uri);
@@ -279,40 +251,14 @@ async function toVideo(
 
   return {
     id,
-    kind: 'video' as const,
+    kind: 'video',
     uri,
     mimeType,
     byteSize,
-    width: asset.width > 0 ? asset.width : null,
-    height: asset.height > 0 ? asset.height : null,
-    durationSec: measuredSeconds(asset) ?? fallbackSeconds,
-    takenAt,
-    source,
+    width: null,
+    height: null,
+    durationSec: recording.durationSec,
+    takenAt: recording.takenAt,
+    source: 'camera',
   };
-}
-
-/**
- * Choose a video from the gallery.
- *
- * The library has no `videoMaxDuration` — that setting belongs to the
- * camera — so the length is checked here and a recording that is too long is
- * refused before anything is copied. A recording the picker could not
- * measure is let through: the server bounds the size, and refusing a file on
- * a measurement that does not exist would strand a cleaner with no way past.
- */
-export async function pickVideoFromGallery(maxSeconds: number): Promise<CapturedMedia | null> {
-  await ensureLibraryPermission();
-
-  const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos'], exif: true });
-  const asset = result.canceled ? null : (result.assets[0] ?? null);
-  if (asset === null) {
-    return null;
-  }
-
-  const seconds = measuredSeconds(asset);
-  if (seconds !== null && seconds > maxSeconds) {
-    throw new VideoTooLongError(maxSeconds);
-  }
-
-  return toVideo(asset, maxSeconds, exifTakenAt(asset.exif) ?? new Date().toISOString(), 'gallery');
 }

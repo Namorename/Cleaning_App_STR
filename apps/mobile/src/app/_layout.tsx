@@ -129,6 +129,19 @@ export default function RootLayout() {
                     name="task/[id]/step/[stepId]"
                     options={{ headerShown: true, headerBackTitle: t('common.back') }}
                   />
+                  {/*
+                    A video step's camera, the whole screen under its header.
+                    Titled here: the screen draws a permission question or a
+                    failure before it ever draws the camera.
+                  */}
+                  <Stack.Screen
+                    name="task/[id]/step/[stepId]/record"
+                    options={{
+                      headerShown: true,
+                      headerBackTitle: t('common.back'),
+                      title: t('video.recordTitle'),
+                    }}
+                  />
                   <Stack.Screen
                     name="settings"
                     options={{

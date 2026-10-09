@@ -235,7 +235,10 @@ test('and offers both once it has', async () => {
   expect(handlers.onCapture).not.toHaveBeenCalled();
 });
 
-test('a video step offers the gallery in its own words', async () => {
+// A video is shot with the app's own camera, whatever the company says about
+// the gallery (docs/tech-plan.md §7.1): the server refuses a picked one
+// (`videoCameraOnly`), so offering it would only lead to that refusal.
+test('a video step offers the camera alone, even where the gallery is open', async () => {
   await render(
     <StepMedia
       kind="video"
@@ -249,7 +252,50 @@ test('a video step offers the gallery in its own words', async () => {
     />,
   );
 
-  expect(screen.getByRole('button', { name: 'Выбрать видео из галереи' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Записать видео' })).toBeEnabled();
+  expect(screen.queryByRole('button', { name: /галере/ })).toBeNull();
+});
+
+test('the hint says the length the step will really accept', async () => {
+  await render(
+    <StepMedia
+      kind="video"
+      items={[]}
+      limits={{ min: 1, max: 1 }}
+      maxVideoSec={90}
+      isCapturing={false}
+      disabled={false}
+      {...handlers}
+    />,
+  );
+
+  expect(screen.getByText('Запишите одно видео до 90 с')).toBeTruthy();
+});
+
+// Until the company's numbers are known — never read and no signal — the
+// phone does not guess a length: the button waits, and says why.
+test('while the company’s video settings are unknown, recording waits and says why', async () => {
+  await render(
+    <StepMedia
+      kind="video"
+      items={[]}
+      limits={{ min: 1, max: 1 }}
+      maxVideoSec={null}
+      isCapturing={false}
+      disabled={false}
+      {...handlers}
+    />,
+  );
+
+  const record = screen.getByRole('button', { name: 'Записать видео' });
+  expect(record).toBeDisabled();
+  expect(
+    screen.getByText('Настройки видео ещё не получены. Нужна связь — попробуйте позже.'),
+  ).toBeTruthy();
+  expect(screen.queryByText(/Запишите одно видео/)).toBeNull();
+
+  await fireEvent.press(record);
+  expect(handlers.onCapture).not.toHaveBeenCalled();
 });
 
 describe('the look: «Абрикос» on the old layout', () => {

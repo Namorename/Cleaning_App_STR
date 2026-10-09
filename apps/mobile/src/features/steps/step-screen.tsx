@@ -14,7 +14,6 @@ import {
   canCompleteMediaStep,
   mediaKindOfStep,
   photoLimits,
-  videoLimitSec,
   type MediaItemView,
 } from '@/features/media/schema';
 import { formatClockTime } from '@/features/tasks/format';
@@ -51,6 +50,11 @@ interface StepScreenProps {
   onSkip: () => void;
   /** The photos or video of a media step, and what can be done with them. */
   media?: readonly MediaItemView[];
+  /**
+   * A video step's length, worked out by the route from the company and the
+   * step (`videoLimits`); null while the company's settings are unknown.
+   */
+  maxVideoSec?: number | null;
   isCapturing?: boolean;
   /** Only when the company allows it — `hosts.gallery_allowed`. */
   canPickFromGallery?: boolean;
@@ -82,6 +86,7 @@ export function StepScreen({
   onReopen,
   onSkip,
   media = [],
+  maxVideoSec = null,
   isCapturing = false,
   canPickFromGallery = false,
   onCapture = noop,
@@ -209,7 +214,7 @@ export function StepScreen({
             kind={mediaKind}
             items={media}
             limits={limits}
-            maxVideoSec={videoLimitSec(step)}
+            maxVideoSec={maxVideoSec}
             isCapturing={isCapturing}
             disabled={!canAct || !isPending}
             canPickFromGallery={canPickFromGallery}

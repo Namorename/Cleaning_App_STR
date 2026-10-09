@@ -1143,6 +1143,7 @@
     "photosHint_other": "Vyfoťte fotoaparátem alespoň {{count}} fotek",
     "photosProgress": "Vyfoceno {{taken}} z {{max}}",
     "videoHint": "Natočte jedno video do {{seconds}} s",
+    "videoSettingsUnknown": "Nastavení videa ještě nedorazilo. Je potřeba připojení — zkuste to později.",
     "videoLength": "Video · {{seconds}} s",
     "photoAccessibility": "Foto {{index}}. {{status}}",
     "photoPlaceholder": "Foto",
@@ -1152,9 +1153,26 @@
     "cameraDenied": "Bez přístupu k fotoaparátu — povolte ho v nastavení telefonu",
     "captureFailed": "Nepodařilo se vyfotit — zkuste to znovu",
     "pickPhoto": "Vybrat fotku z galerie",
-    "pickVideo": "Vybrat video z galerie",
-    "galleryDenied": "Přístup do galerie nebyl povolen",
-    "videoTooLong": "Video je delší než {{seconds}} s — vyberte kratší nebo ho natočte"
+    "galleryDenied": "Přístup do galerie nebyl povolen"
+  },
+  "video": {
+    "recordTitle": "Natáčení videa",
+    "starting": "Zapínáme fotoaparát…",
+    "record": "Nahrávat",
+    "stop": "Stop",
+    "remaining_one": "Zbývá {{count}} sekunda",
+    "remaining_few": "Zbývají {{count}} sekundy",
+    "remaining_many": "Zbývá {{count}} sekundy",
+    "remaining_other": "Zbývá {{count}} sekund",
+    "permission": {
+      "cameraTitle": "Bez přístupu k fotoaparátu",
+      "microphoneTitle": "Bez přístupu k mikrofonu",
+      "bothTitle": "Bez přístupu k fotoaparátu a mikrofonu",
+      "why": "Video se natáčí fotoaparátem aplikace, i se zvukem.",
+      "allow": "Povolit přístup",
+      "inSettings": "Telefon se už neptá — povolte přístup v jeho nastavení.",
+      "openSettings": "Otevřít nastavení"
+    }
   },
   "problems": {
     "report": "Vytvořit úkol",

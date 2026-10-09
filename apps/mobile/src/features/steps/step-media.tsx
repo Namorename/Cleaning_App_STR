@@ -15,11 +15,18 @@ interface StepMediaProps {
   kind: MediaKind;
   items: readonly MediaItemView[];
   limits: PhotoLimits;
-  maxVideoSec: number;
+  /**
+   * The longest video the step accepts (`videoLimits`), or null while the
+   * company's settings are unknown — and then recording waits.
+   */
+  maxVideoSec: number | null;
   /** Pressing capture is refused while the camera is already open. */
   isCapturing: boolean;
   disabled: boolean;
-  /** Only when the company allows it — `hosts.gallery_allowed`. */
+  /**
+   * Only when the company allows it — `hosts.gallery_allowed` — and for photos
+   * alone: a video is shot with the app's camera (`videoCameraOnly`).
+   */
   canPickFromGallery: boolean;
   onCapture: () => void;
   onPickFromGallery: () => void;
@@ -54,16 +61,19 @@ export function StepMedia({
   const { t } = useTranslation();
 
   const max = kind === 'video' ? 1 : limits.max;
-  const canCapture = !disabled && !isCapturing && items.length < max;
+  const isWaitingForSettings = kind === 'video' && maxVideoSec === null;
+  const canCapture = !disabled && !isCapturing && !isWaitingForSettings && items.length < max;
   const captureLabel = kind === 'video' ? t('steps.recordVideo') : t('steps.takePhoto');
-  const pickLabel = kind === 'video' ? t('steps.pickVideo') : t('steps.pickPhoto');
+  const canShowGallery = canPickFromGallery && kind === 'photo';
 
   return (
     <View style={layout.container}>
       <Text tone="secondary">
-        {kind === 'video'
-          ? t('steps.videoHint', { seconds: maxVideoSec })
-          : t('steps.photosHint', { count: limits.min })}
+        {kind === 'photo'
+          ? t('steps.photosHint', { count: limits.min })
+          : maxVideoSec === null
+            ? t('steps.videoSettingsUnknown')
+            : t('steps.videoHint', { seconds: maxVideoSec })}
       </Text>
 
       {items.length === 0 ? (
@@ -105,11 +115,11 @@ export function StepMedia({
 
       {/* Second, and second in every sense: the camera is the way this is
           meant to be done, and the gallery appears only where the company
-          has decided to allow it. */}
-      {!disabled && canPickFromGallery ? (
+          has decided to allow it — for photos; a video never comes from it. */}
+      {!disabled && canShowGallery ? (
         <Button
           variant="outline"
-          label={pickLabel}
+          label={t('steps.pickPhoto')}
           isDisabled={!canCapture}
           left={<Icon name="action.fromGallery" tone={canCapture ? 'primary' : 'muted'} />}
           onPress={onPickFromGallery}

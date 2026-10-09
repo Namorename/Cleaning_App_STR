@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import type { VideoSettings } from '@/features/host/schema';
 import type { TaskStep } from '@/features/steps/schema';
 
 /** The bucket every task photo and video lives in. Mirrors 20260907160100. */
@@ -9,13 +10,17 @@ export const MEDIA_KINDS = ['photo', 'video'] as const;
 export type MediaKind = (typeof MEDIA_KINDS)[number];
 
 /**
- * Limits the manager left unset fall back to these — the same numbers the
- * database uses (`task_media_max_photos()`, `task_media_max_video_sec()`),
- * so the button goes grey exactly where the server would refuse.
+ * Photo limits the manager left unset fall back to these — the same numbers
+ * the database uses (`task_media_max_photos()`), so the button goes grey
+ * exactly where the server would refuse. A video's limits are the company's
+ * (`videoLimits`).
  */
 export const DEFAULT_MIN_PHOTOS = 1;
 export const DEFAULT_MAX_PHOTOS = 10;
-export const DEFAULT_MAX_VIDEO_SEC = 30;
+
+/** The company's video size is in MB of 10^6 bytes, as the server counts it. */
+const BYTES_PER_MB = 1_000_000;
+const BITS_PER_KBIT = 1000;
 
 /**
  * One photo or video as the app reads it.
@@ -69,9 +74,31 @@ export function photoLimits(step: Pick<TaskStep, 'min_photos' | 'max_photos'>): 
   };
 }
 
-/** The longest video the step accepts, in seconds. */
-export function videoLimitSec(step: Pick<TaskStep, 'max_video_sec'>): number {
-  return step.max_video_sec ?? DEFAULT_MAX_VIDEO_SEC;
+/** What one recording of a step is held to. */
+export interface VideoLimits {
+  /** The longest recording the server accepts for this step. */
+  seconds: number;
+  /** The largest file, in bytes. */
+  maxBytes: number;
+  /** The video bitrate the camera aims at, in bits per second. */
+  bitrate: number;
+}
+
+/**
+ * The limits of a step's recording: the server's rule, worked out here so the
+ * camera stops exactly where the server would refuse. The length is the
+ * step's own when it has one, but never more than the company allows —
+ * `least(coalesce(step, company), company)` in `add_task_media`.
+ */
+export function videoLimits(
+  step: Pick<TaskStep, 'max_video_sec'>,
+  company: VideoSettings,
+): VideoLimits {
+  return {
+    seconds: Math.min(step.max_video_sec ?? company.video_max_sec, company.video_max_sec),
+    maxBytes: company.video_max_mb * BYTES_PER_MB,
+    bitrate: company.video_bitrate_kbps * BITS_PER_KBIT,
+  };
 }
 
 /** The media of one step that still count — taken and not taken back. */
