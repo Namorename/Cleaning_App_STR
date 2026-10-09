@@ -8,12 +8,12 @@ import { EmptyState } from '@/components/states';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
+import { useHostSettings } from '@/features/settings/use-settings';
 import { moveAt, removeAt, replaceAt } from '@/lib/list';
 import { serverErrorText } from '@/lib/server-error';
 
 import {
   DEFAULT_MAX_PHOTOS,
-  DEFAULT_MAX_VIDEO_SEC,
   DEFAULT_MIN_PHOTOS,
   STEP_CATALOGUE,
   VIDEO_SEC_CEILING,
@@ -54,6 +54,8 @@ export function WorkflowBuilder({ source, scope, propertyId }: WorkflowBuilderPr
   const { t } = useTranslation();
   const id = useId();
   const save = useSaveProcess();
+  // What an empty box on a video step means: the company's own limit.
+  const companyVideoSec = useHostSettings().data?.video_max_sec ?? null;
 
   /** Null until the manager touches it — until then the server's answer shows. */
   const [draft, setDraft] = useState<ProcessDraft | null>(null);
@@ -95,11 +97,17 @@ export function WorkflowBuilder({ source, scope, propertyId }: WorkflowBuilderPr
       <div className="flex flex-col gap-1">
         <p className="text-sm font-medium">{t('panel.settings.workflow.hint')}</p>
         <p className="text-xs text-muted-foreground">
-          {t('panel.settings.workflow.limitsHint', {
-            min: DEFAULT_MIN_PHOTOS,
-            max: DEFAULT_MAX_PHOTOS,
-            sec: DEFAULT_MAX_VIDEO_SEC,
-          })}
+          {/* Until the company's number is in, the hint names none rather than a wrong one. */}
+          {companyVideoSec === null
+            ? t('panel.settings.workflow.limitsHintNoCompany', {
+                min: DEFAULT_MIN_PHOTOS,
+                max: DEFAULT_MAX_PHOTOS,
+              })
+            : t('panel.settings.workflow.limitsHint', {
+                min: DEFAULT_MIN_PHOTOS,
+                max: DEFAULT_MAX_PHOTOS,
+                sec: companyVideoSec,
+              })}
         </p>
       </div>
 

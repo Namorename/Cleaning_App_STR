@@ -120,7 +120,8 @@
         "minPhotos": "Min photos",
         "maxPhotos": "Max photos",
         "maxVideoSec": "Max seconds",
-        "limitsHint": "An empty box means the server default: {{min}}–{{max}} photos, {{sec}} s of video.",
+        "limitsHint": "An empty box means the default: {{min}}–{{max}} photos; for video, the company's limit ({{sec}} s). A step's own limit holds only when it is shorter.",
+        "limitsHintNoCompany": "An empty box means the default: {{min}}–{{max}} photos; for video, the company's limit. A step's own limit holds only when it is shorter.",
         "save": "Save the process",
         "cancel": "Discard changes",
         "problems": {

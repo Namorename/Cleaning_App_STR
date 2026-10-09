@@ -120,7 +120,8 @@
         "minPhotos": "Min. fotek",
         "maxPhotos": "Max. fotek",
         "maxVideoSec": "Max. sekund",
-        "limitsHint": "Prázdné pole znamená výchozí hodnotu serveru: {{min}}–{{max}} fotek, {{sec}} s videa.",
+        "limitsHint": "Prázdné pole znamená výchozí hodnotu: {{min}}–{{max}} fotek; u videa limit společnosti ({{sec}} s). Vlastní limit kroku platí, jen když je kratší.",
+        "limitsHintNoCompany": "Prázdné pole znamená výchozí hodnotu: {{min}}–{{max}} fotek; u videa limit společnosti. Vlastní limit kroku platí, jen když je kratší.",
         "save": "Uložit proces",
         "cancel": "Zahodit úpravy",
         "problems": {

@@ -44,6 +44,18 @@ vi.mock('../use-workflow', () => ({
   useSaveProcess: () => ({ ...saveState, mutate: save }),
 }));
 
+// The company's own video limit is what an empty box on a video step means
+// (20261003170000); the editor reads it from the company settings.
+const hostState = {
+  data: { video_max_sec: 120 } as { video_max_sec: number } | undefined,
+  isPending: false,
+  isError: false,
+};
+
+vi.mock('@/features/settings/use-settings', () => ({
+  useHostSettings: () => hostState,
+}));
+
 vi.mock('@/features/team/use-team', () => ({
   useProperties: () => ({
     data: [
@@ -70,6 +82,9 @@ const stepCard = (title: string): HTMLElement =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  hostState.data = { video_max_sec: 120 };
+  hostState.isPending = false;
+  hostState.isError = false;
   processState.data = DEFAULT_SOURCE;
   processState.isPending = false;
   processState.isError = false;
@@ -298,6 +313,47 @@ describe('editing the steps', () => {
 
     expect(screen.getByLabelText('Обязательный')).toBeDisabled();
     expect(screen.getByText(/приложение пока не умеет этот шаг/i)).toBeInTheDocument();
+  });
+});
+
+describe('the length of a video step', () => {
+  test("an empty box is the company's limit, named in seconds", () => {
+    render(<ProcessSection />);
+
+    expect(screen.getByText(/видео — предел компании \(120 с\)/)).toBeInTheDocument();
+    // The constant 30 s the server no longer reads (20261003170000).
+    expect(screen.queryByText(/30 с/)).toBeNull();
+  });
+
+  test("the hint follows the company's number", () => {
+    hostState.data = { video_max_sec: 90 };
+
+    render(<ProcessSection />);
+
+    expect(screen.getByText(/видео — предел компании \(90 с\)/)).toBeInTheDocument();
+  });
+
+  test('before the company settings are in, the hint names no number rather than a wrong one', () => {
+    hostState.data = undefined;
+    hostState.isPending = true;
+
+    render(<ProcessSection />);
+
+    expect(screen.getByText(/видео — предел компании\./)).toBeInTheDocument();
+  });
+
+  test('a step of its own is still held to 1..600 seconds', async () => {
+    processState.data = {
+      template: template(),
+      steps: [step({ id: 's1', type: 'video', title: 'Обход на видео' })],
+    };
+    render(<ProcessSection />);
+
+    // A card is found by its type, as the editor names it in the card's header.
+    await userEvent.type(within(stepCard('Видео')).getByLabelText(/Макс\. секунд/), '601');
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Длительность видео — от 1 до 600 секунд.');
+    expect(screen.getByRole('button', { name: 'Сохранить процесс' })).toBeDisabled();
   });
 });
 
