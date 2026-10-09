@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { getResolvedLocalesAsync } from '@expo/config-plugins/build/utils/locales';
-import { SUPPORTED_LANGUAGES } from '@str-ops/shared';
+import { SUPPORTED_LANGUAGES, THEME_COLORS } from '@str-ops/shared';
 import type { ExpoConfig } from 'expo/config';
 
 import { PUSH_CHANNELS } from '@/features/push/channels';
@@ -14,7 +14,7 @@ import packageJson from '../../../package.json';
 import resolveConfig, { checkBuildEnv } from '../../../app.config';
 
 /**
- * The native build 1.1.0 as the config describes it. A mistake here is found
+ * The native build 1.2.0 as the config describes it. A mistake here is found
  * only after a forty-minute build — or by App Review — so it is read here.
  */
 
@@ -56,10 +56,10 @@ async function platformLocales(
   return localesMap;
 }
 
-test('the build is 1.1.0, and OTA updates follow the version', () => {
+test('the build is 1.2.0, and OTA updates follow the version', () => {
   const config = resolve();
 
-  expect(config.version).toBe('1.1.0');
+  expect(config.version).toBe('1.2.0');
   expect(config.runtimeVersion).toEqual({ policy: 'appVersion' });
 });
 
@@ -68,6 +68,93 @@ test('notifications: the default channel is one the app makes, and the icon exis
 
   expect(PUSH_CHANNELS).toContain(notifications?.defaultChannel);
   expect(existsSync(join(APP_ROOT, String(notifications?.icon)))).toBe(true);
+});
+
+/** Width, height and whether the image carries an alpha channel, from the PNG header. */
+function pngHeader(relative: string): { width: number; height: number; hasAlpha: boolean } {
+  const bytes = readFileSync(join(APP_ROOT, relative.replace(/^\.\//, '')));
+  // IHDR follows the 8-byte signature and its own length and type: width, height, depth, colour type.
+  const colourType = bytes[25];
+  return {
+    width: bytes.readUInt32BE(16),
+    height: bytes.readUInt32BE(20),
+    hasAlpha: colourType === 4 || colourType === 6,
+  };
+}
+
+// The redesign's native part (docs/design/decisions.md, 8–10): the name, the icon
+// and the splash are resources in the binary — an update over the air cannot change them.
+test('the name under the icon is «woom», the same in every language', async () => {
+  const config = resolve();
+
+  expect(config.name).toBe('woom');
+  for (const strings of Object.values(await platformLocales(config, 'ios'))) {
+    expect(strings).not.toHaveProperty('CFBundleDisplayName');
+  }
+});
+
+test('the app icon is the «Абрикос» mark on the theme background, 1024 px and opaque', () => {
+  const config = resolve();
+
+  expect(config.icon).toBe('./assets/images/icon.png');
+  expect(pngHeader('assets/images/icon.png')).toEqual({ width: 1024, height: 1024, hasAlpha: false });
+  expect(config.android?.adaptiveIcon?.backgroundColor).toBe(THEME_COLORS.light.bg);
+  for (const layer of ['foregroundImage', 'backgroundImage', 'monochromeImage'] as const) {
+    const path = String(config.android?.adaptiveIcon?.[layer]);
+    expect(pngHeader(path)).toMatchObject({ width: 1024, height: 1024 });
+  }
+});
+
+test('iOS: the icon comes light, dark and tinted; the light one has no alpha (App Store)', () => {
+  const icon = resolve().ios?.icon as unknown as { light: string; dark: string; tinted: string };
+
+  expect(Object.keys(icon).sort()).toEqual(['dark', 'light', 'tinted']);
+  expect(pngHeader(icon.light)).toEqual({ width: 1024, height: 1024, hasAlpha: false });
+  expect(pngHeader(icon.dark)).toMatchObject({ width: 1024, height: 1024 });
+  expect(pngHeader(icon.tinted)).toMatchObject({ width: 1024, height: 1024 });
+});
+
+test('the splash is the theme background with the mark, light and dark (decision 9)', () => {
+  const splash = plugin(resolve(), 'expo-splash-screen') as {
+    backgroundColor: string;
+    image: string;
+    dark: { backgroundColor: string; image: string };
+  };
+
+  expect(splash.backgroundColor).toBe(THEME_COLORS.light.bg);
+  expect(splash.dark.backgroundColor).toBe(THEME_COLORS.dark.bg);
+  for (const image of [splash.image, splash.dark.image]) {
+    expect(pngHeader(image)).toEqual({ width: 1024, height: 1024, hasAlpha: true });
+  }
+});
+
+test('notifications: the icon is a white silhouette and the accent is the primary colour', () => {
+  const notifications = plugin(resolve(), 'expo-notifications');
+
+  expect(notifications?.color).toBe(THEME_COLORS.light.primary);
+  expect(pngHeader(String(notifications?.icon))).toEqual({ width: 96, height: 96, hasAlpha: true });
+});
+
+// expo-camera ships as a ready library that pulls the ML Kit barcode scanner in
+// whatever its flags say (ROADMAP, «Android: ML Kit»); building it from source
+// lets the disabled scanner stay out. Checked for real only by an EAS build.
+test('Android: expo-camera is built from source, so the barcode scanner stays out', () => {
+  const { expo } = packageJson as {
+    expo?: { autolinking?: { android?: { buildFromSource?: string[] } } };
+  };
+
+  expect(expo?.autolinking?.android?.buildFromSource).toContain('expo-camera');
+});
+
+test('the field builds: an APK and a TestFlight build on their own channel', () => {
+  const build = easJson.build as Record<
+    string,
+    { channel?: string; distribution?: string; android?: { buildType?: string } }
+  >;
+
+  expect(build.field).toMatchObject({ channel: 'field', distribution: 'internal' });
+  expect(build.field.android?.buildType).toBe('apk');
+  expect(build['field-ios']).toMatchObject({ channel: 'field', distribution: 'store' });
 });
 
 test('Sentry: the plugin entry the source-map upload looks for, and no token in the config', () => {
@@ -181,6 +268,7 @@ test('iOS: every store build is made on the Xcode 26 image', () => {
   const build = easJson.build as Record<string, { ios?: { image?: string } }>;
 
   expect(build.testflight.ios?.image).toBe(XCODE_26_IMAGE);
+  expect(build['field-ios'].ios?.image).toBe(XCODE_26_IMAGE);
   expect(build.production.ios?.image).toBe(XCODE_26_IMAGE);
 });
 
