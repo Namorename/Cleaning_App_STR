@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -118,6 +118,10 @@ const repairsState = {
   error: null as unknown,
 };
 
+// The past is read before it is shown (block 7); here the reading is a promise
+// the test settles by hand. What it reads has a suite of its own.
+const pastLoad = vi.fn<(days: readonly string[]) => Promise<void>>();
+
 vi.mock('../use-calendar', () => ({
   useCalendarClient: () => ({}),
   useCalendarRows: () => rowsState,
@@ -127,6 +131,7 @@ vi.mock('../use-calendar', () => ({
   useCalendarExpired: () => expiredState,
   useCalendarCancelled: () => cancelledState,
   useLiveRepairs: () => repairsState,
+  useCalendarPastLoader: () => pastLoad,
 }));
 
 // A mark of what never happened is read narrow; its drawer reads it whole.
@@ -268,6 +273,8 @@ beforeEach(() => {
   repairsState.data = [];
   unread.tasks.clear();
   unread.problems.clear();
+  pastLoad.mockReset();
+  pastLoad.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -1328,5 +1335,168 @@ describe('the search', () => {
 
     await user.clear(searchBox());
     expect(names()).toHaveLength(SMALL.length);
+  });
+});
+
+// The owner's word of 2026-10-10 (block 7): the past up to sixty days back, on
+// demand, in chunks; the button is the way for the keyboard and the touch.
+// Today is 26 September: the window is 25 September to 1 October, the first
+// chunk 11–24 September, the limit 28 July.
+describe('the past', () => {
+  const PAST_BUTTON = 'Показать прошлое';
+  const deferred = () => {
+    let resolve: () => void = () => {};
+    let reject: (error: unknown) => void = () => {};
+    const promise = new Promise<void>((done, fail) => {
+      resolve = done;
+      reject = fail;
+    });
+    return { promise, resolve, reject };
+  };
+
+  test('is not there when the calendar opens, and nothing of it is read', () => {
+    render(<CalendarView />);
+
+    expect(days()).toHaveLength(7);
+    expect(days()[0]).toBe('2026-09-25');
+    expect(screen.getByRole('button', { name: PAST_BUTTON })).toBeEnabled();
+    expect(pastLoad).not.toHaveBeenCalled();
+  });
+
+  test('«Показать прошлое» puts two weeks before the window once they are read', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const answer = deferred();
+    pastLoad.mockReturnValueOnce(answer.promise);
+    render(<CalendarView />);
+
+    await user.click(screen.getByRole('button', { name: PAST_BUTTON }));
+
+    expect(pastLoad).toHaveBeenCalledTimes(1);
+    expect(pastLoad.mock.calls[0][0][0]).toBe('2026-09-11');
+    expect(pastLoad.mock.calls[0][0]).toHaveLength(14);
+    expect(screen.getByRole('status')).toHaveTextContent('Загружаем прошлое…');
+    expect(days()).toHaveLength(7);
+
+    await act(async () => answer.resolve());
+
+    expect(days()).toHaveLength(21);
+    expect(days()[0]).toBe('2026-09-11');
+    expect(days()[14]).toBe('2026-09-25');
+    expect(screen.queryByText('Загружаем прошлое…')).toBeNull();
+  });
+
+  test('at sixty days back the button says it is the limit, and does nothing', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<CalendarView />);
+
+    for (let press = 0; press < 5; press += 1) {
+      await user.click(screen.getByRole('button', { name: PAST_BUTTON }));
+    }
+
+    expect(days()[0]).toBe('2026-07-28');
+    const limit = screen.getByRole('button', { name: 'Прошлое — не дальше 60 дней назад' });
+    expect(limit).toBeDisabled();
+    expect(screen.queryByRole('button', { name: PAST_BUTTON })).toBeNull();
+    expect(pastLoad).toHaveBeenCalledTimes(5);
+  });
+
+  test('a chunk that fails says so, with the server’s words and a retry, and keeps what is shown', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    pastLoad.mockRejectedValueOnce({ message: 'canceling statement due to statement timeout' });
+    render(<CalendarView />);
+
+    await user.click(screen.getByRole('button', { name: PAST_BUTTON }));
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('Не удалось загрузить прошлое.');
+    expect(alert).toHaveTextContent('canceling statement due to statement timeout');
+    expect(days()).toHaveLength(7);
+
+    await user.click(screen.getByRole('button', { name: 'Повторить' }));
+
+    expect(pastLoad).toHaveBeenCalledTimes(2);
+    expect(pastLoad.mock.calls[1][0]).toEqual(pastLoad.mock.calls[0][0]);
+    expect(days()).toHaveLength(21);
+    expect(screen.queryByText('Не удалось загрузить прошлое.')).toBeNull();
+  });
+
+  test('the arrows, a depth and «Сегодня» drop it', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<CalendarView />);
+
+    await user.click(screen.getByRole('button', { name: PAST_BUTTON }));
+    await user.click(screen.getByRole('button', { name: 'Следующий период' }));
+    await user.click(screen.getByRole('button', { name: 'Предыдущий период' }));
+    expect(days()).toHaveLength(7);
+    expect(days()[0]).toBe('2026-09-25');
+
+    await user.click(screen.getByRole('button', { name: PAST_BUTTON }));
+    await user.click(screen.getByRole('button', { name: '15 дней' }));
+    expect(days()).toHaveLength(15);
+
+    await user.click(screen.getByRole('button', { name: PAST_BUTTON }));
+    await user.click(screen.getByRole('button', { name: 'Сегодня' }));
+    expect(days()).toHaveLength(15);
+    expect(days()[0]).toBe('2026-09-25');
+  });
+
+  test('shows the cancelled whatever their switch; the window keeps them behind it', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const before = calendarTask(1, '2026-09-20', { status: 'cancelled' });
+    const inWindow = calendarTask(1, '2026-09-28', { status: 'cancelled' });
+    cancelledState.data = [before, inWindow];
+    render(<CalendarView />);
+
+    await user.click(screen.getByRole('button', { name: PAST_BUTTON }));
+
+    const shown = screen.getAllByRole('button', { name: /Отменена/ });
+    expect(shown).toHaveLength(1);
+    expect(shown[0]).toHaveAttribute('data-task-chip', before.id);
+  });
+
+  test('shows the done, the live and what never happened on its days, and the bars', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    bookingsState.data = [booking(301, 1, '2026-09-14', '2026-09-17')];
+    tasksState.data = [
+      calendarTask(1, '2026-09-17', { status: 'done' }),
+      calendarTask(1, '2026-09-18', { status: 'in_progress' }),
+    ];
+    expiredState.data = [
+      {
+        id: 'eeeeeeee-0000-4000-8000-000000009001',
+        property_id: 1,
+        reservation_id: 9,
+        scheduled_date: '2026-09-12',
+        type: 'cleaning',
+        assignee_id: null,
+        assignee: null,
+      },
+    ];
+    render(<CalendarView />);
+
+    await user.click(screen.getByRole('button', { name: PAST_BUTTON }));
+
+    const cell = rowCell('Anglicka 7');
+    expect(within(cell).getByRole('button', { name: /Guest 301/ })).toBeInTheDocument();
+    expect(within(cell).getByRole('button', { name: /Выполнена/ })).toBeInTheDocument();
+    expect(within(cell).getByRole('button', { name: /В работе/ })).toBeInTheDocument();
+    expect(within(cell).getByRole('button', { name: /Не состоялась/ })).toBeInTheDocument();
+  });
+
+  test('an empty day of the past takes no new cleaning; a day of the window still does', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<CalendarView />);
+    await user.click(screen.getByRole('button', { name: PAST_BUTTON }));
+
+    // jsdom lays nothing out: the cell starts at 0; the fourth day is 14 September.
+    fireEvent.click(rowCell('Anglicka 7'), { clientX: 3 * 130 + 5 });
+    expect(screen.queryByRole('dialog', { name: 'Форма уборки' })).toBeNull();
+
+    // The first day of the window, 25 September, is the fifteenth.
+    fireEvent.click(rowCell('Anglicka 7'), { clientX: 14 * 130 + 5 });
+    expect(screen.getByRole('dialog', { name: 'Форма уборки' })).toHaveAttribute(
+      'data-day',
+      '2026-09-25',
+    );
   });
 });

@@ -128,7 +128,10 @@ describe('the bookings of the window', () => {
   test('the months ahead are the window’s, not the past’s shown before it', async () => {
     fetchCalendarBookings.mockResolvedValue([]);
     const week = windowDays('2026-10-09', 7);
-    const past = [...pastChunk('2026-09-25', '2026-10-10'), ...pastChunk('2026-10-09', '2026-10-10')];
+    const past = [
+      ...pastChunk('2026-09-25', '2026-10-10'),
+      ...pastChunk('2026-10-09', '2026-10-10'),
+    ];
 
     renderWithCache(() => useCalendarBookings(CLIENT, false, [...past, ...week], week));
 

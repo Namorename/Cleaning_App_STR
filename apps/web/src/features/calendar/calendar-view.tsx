@@ -44,10 +44,13 @@ import { useTaskDialogs } from './task-dialogs';
 import {
   useCalendarBookings,
   useCalendarClient,
+  useCalendarPastLoader,
   useCalendarRows,
   useLiveRepairs,
 } from './use-calendar';
 import { useChipLayers } from './use-chip-layers';
+import { PastButton, PastFailure, PastStatus } from './past-controls';
+import { useCalendarPast } from './use-past';
 
 interface CalendarViewProps {
   /** The stand: data from the fixture instead of the database (§5). */
@@ -134,7 +137,16 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
 
   const language = isSupportedLanguage(i18n.language) ? i18n.language : FALLBACK_LANGUAGE;
   const locale = INTL_LOCALES[language];
-  const days = useMemo(() => windowDays(start, depth), [start, depth]);
+  const shownWindow = useMemo(() => windowDays(start, depth), [start, depth]);
+  // The past on demand (block 7): none at the open; chunks before the window.
+  const past = useCalendarPast({
+    start,
+    depth,
+    today,
+    isReady: client !== null,
+    load: useCalendarPastLoader(client, isStand),
+  });
+  const days = useMemo(() => [...past.days, ...shownWindow], [past.days, shownWindow]);
   const all = useMemo(() => rowsQuery.data ?? [], [rowsQuery.data]);
   const byId = useMemo(() => new Map(all.map((one) => [one.id, one])), [all]);
   // A search keeps what is found and opens its groups, as in the registry; the
@@ -150,7 +162,7 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
   const rooms = all.filter((one) => one.hostaway_unit_id !== null).length;
 
   // Bars are drawn only when every month of the window has come (§1).
-  const bookings = useCalendarBookings(client, isStand, days);
+  const bookings = useCalendarBookings(client, isStand, days, shownWindow);
   const layout = useMemo(
     () => layoutRows(tree, bookings.data ?? [], days),
     [tree, bookings.data, days],
@@ -171,7 +183,15 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
   }, [bookings.data, days]);
 
   // Chips, likewise, only when every month has come; the filters act on them alone.
-  const chips = useChipLayers({ client, isStand, days, byId, initialAssignee });
+  const chips = useChipLayers({
+    client,
+    isStand,
+    days,
+    windowDays: shownWindow,
+    pastDays: past.days,
+    byId,
+    initialAssignee,
+  });
   // What somebody wrote about is marked on its chip (5.4, «Чат»): the same
   // company-wide answer the menu counts, polled while the tab is in front.
   const unread = useUnreadSubjects();
@@ -199,6 +219,18 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
   const chooseChipView = (next: ChipView) => {
     setChipView(next);
     writeChipView(next);
+  };
+  // «Сегодня» drops the past even when the window is already on today.
+  const goToday = () => {
+    setStart(defaultStart(today));
+    past.reset();
+  };
+  // A day of the past is there to be read: a new cleaning there would be swept
+  // as never happened the night after (block 7). The window's days still take one.
+  const newTaskOnDay = (propertyId: number, place: string, day: string) => {
+    if (day >= start) {
+      taskDialogs.newTaskOn(propertyId, place, day);
+    }
   };
   const toggleGroup = (id: number) => {
     const next = toggled(collapsed, id);
@@ -229,6 +261,7 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
                 {t('panel.calendar.loadingTasks')}
               </span>
             ) : null}
+            <PastStatus past={past} />
           </>
         }
       />
@@ -246,14 +279,10 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
       {repairs.isError ? (
         <ErrorState message={t('panel.calendar.repairsError')} error={repairs.error} />
       ) : null}
+      <PastFailure past={past} />
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setStart(defaultStart(today))}
-        >
+        <Button type="button" variant="outline" size="sm" onClick={goToday}>
           {t('panel.calendar.today')}
         </Button>
         <Button
@@ -274,6 +303,7 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
         >
           ›
         </Button>
+        <PastButton past={past} />
         <span className="text-sm">{rangeLabel(days, locale)}</span>
         <Input
           type="search"
@@ -338,8 +368,9 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
           onOpenBooking={setOpened}
           onOpenTask={taskDialogs.openTask}
           onMoreTasks={taskDialogs.showCell}
-          onEmptyDay={taskDialogs.newTaskOn}
+          onEmptyDay={newTaskOnDay}
           overscan={standOverscan(isStand, rows.length)}
+          onReachStart={past.loadMore}
         />
       )}
 

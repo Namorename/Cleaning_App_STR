@@ -46,8 +46,20 @@ describe('the past of the calendar', () => {
     expect(result.current.days).toEqual([]);
     expect(result.current.isLoading).toBe(false);
     expect(result.current.isAtLimit).toBe(false);
+    expect(result.current.isError).toBe(false);
     expect(result.current.error).toBeNull();
     expect(load).not.toHaveBeenCalled();
+  });
+
+  // Whatever a failed read hands over — even nothing — the failure is told.
+  test('a chunk refused without a reason is a failure all the same', async () => {
+    const load = vi.fn(() => Promise.reject(undefined));
+    const { result } = renderPast(load);
+
+    await act(async () => result.current.loadMore());
+
+    expect(result.current.isError).toBe(true);
+    expect(result.current.days).toEqual([]);
   });
 
   test('a chunk is shown once its data has come, not before', async () => {
@@ -102,6 +114,7 @@ describe('the past of the calendar', () => {
     load.mockRejectedValueOnce(failure);
     await act(async () => result.current.loadMore());
 
+    expect(result.current.isError).toBe(true);
     expect(result.current.error).toBe(failure);
     expect(result.current.isLoading).toBe(false);
     expect(result.current.days).toEqual(FIRST_CHUNK);
@@ -110,6 +123,7 @@ describe('the past of the calendar', () => {
 
     expect(load).toHaveBeenCalledTimes(3);
     expect(load).toHaveBeenLastCalledWith(SECOND_CHUNK);
+    expect(result.current.isError).toBe(false);
     expect(result.current.error).toBeNull();
     expect(result.current.days).toEqual([...SECOND_CHUNK, ...FIRST_CHUNK]);
   });

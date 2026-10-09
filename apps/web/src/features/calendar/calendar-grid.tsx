@@ -1,7 +1,7 @@
 'use client';
 
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { memo, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { propertyPath, STATUS_TONE, type Language } from '@str-ops/shared';
@@ -16,6 +16,7 @@ import type { VisibleRow } from '@/lib/property-tree';
 import type { RowLayout } from './bars';
 import { cellTasks, type BookingsRead, type ChipView } from './chips';
 import { dayLabel, dayWidthFor, fullDayLabel, type Depth } from './dates';
+import { shiftedScroll, useLeftEdge } from './left-edge';
 import { RowTrack } from './row-track';
 import type { CalendarBooking } from './schema';
 
@@ -61,6 +62,8 @@ interface CalendarGridProps {
   repairAlerts: ReadonlyMap<number, RepairAlert>;
   /** Rows drawn beyond the window; the stand measures «all» too (7.6). */
   overscan: number;
+  /** The days were scrolled to their start: the past is asked for (block 7). */
+  onReachStart?: () => void;
 }
 
 /**
@@ -285,14 +288,33 @@ export function CalendarGrid({
   onEmptyDay,
   repairAlerts,
   overscan,
+  onReachStart,
 }: CalendarGridProps) {
   const { t } = useTranslation();
   const scroller = useRef<HTMLDivElement>(null);
   // Pointing at one bar of a stay of several rooms lights all of them (§3).
   const [highlighted, setHighlighted] = useState<number | null>(null);
-  // The days fill the area, never narrower than their depth allows (dates.ts).
+  // The days fill the area, never narrower than their depth allows (dates.ts):
+  // the depth's days, so the past shown before them scrolls in from the left.
   const dayWidth = dayWidthFor(depth, useClientWidth(scroller) - FIRST_COLUMN);
   const width = FIRST_COLUMN + days.length * dayWidth;
+  // The past (block 7): asked for at the left edge, and put in without a jump —
+  // the scroll moves before the frame is painted.
+  const edge = useLeftEdge(onReachStart);
+  const first = days[0];
+  const last = days[days.length - 1];
+  const shown = useRef({ first, last });
+  useLayoutEffect(() => {
+    const element = scroller.current;
+    const next =
+      element === null
+        ? null
+        : shiftedScroll(shown.current, { first, last }, element.scrollLeft, dayWidth);
+    shown.current = { first, last };
+    if (element !== null && next !== null) {
+      element.scrollLeft = next;
+    }
+  }, [first, last, dayWidth]);
 
   // The compiler cannot memoize a component that holds a virtualizer, and
   // should not: the grid redraws on every scroll by design (§4). A row already
@@ -318,6 +340,8 @@ export function CalendarGrid({
       aria-rowcount={rows.length + 1}
       aria-colcount={days.length + 1}
       className="relative min-h-0 flex-1 overflow-auto rounded-md border"
+      onScroll={edge.onScroll}
+      onWheel={edge.onWheel}
     >
       <div className="relative" style={{ width, height: virtualizer.getTotalSize() }}>
         <div

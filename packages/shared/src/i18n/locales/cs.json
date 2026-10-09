@@ -958,7 +958,16 @@
       "cancelledError": "Zrušené úklidy se nepodařilo načíst.",
       "staffError": "Nepodařilo se načíst zaměstnance",
       "repairsError": "Opravy se nepodařilo načíst.",
-      "taskMissing": "Úklid se nepodařilo otevřít."
+      "taskMissing": "Úklid se nepodařilo otevřít.",
+      "past": {
+        "show": "Zobrazit minulé dny",
+        "loading": "Načítáme minulé dny…",
+        "error": "Minulé dny se nepodařilo načíst.",
+        "limit_one": "Minulost nejvýše {{count}} den zpět",
+        "limit_few": "Minulost nejvýše {{count}} dny zpět",
+        "limit_many": "Minulost nejvýše {{count}} dne zpět",
+        "limit_other": "Minulost nejvýše {{count}} dní zpět"
+      }
     }
   },
   "tabs": {

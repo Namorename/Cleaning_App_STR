@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 /**
@@ -137,6 +137,35 @@ describe('the default open', () => {
     expect(ranges(reads.expired)).toEqual(['2026-10-01..2026-11-01']);
     expect(ranges(reads.tasks, 'cancelled')).toEqual([]);
     expect(reads.tasks).toHaveBeenCalledTimes(3);
+  });
+
+  // Block 7: a chunk of the past asks for what the screen does not hold yet,
+  // and nothing ahead of it.
+  test('«Показать прошлое» asks only for the months of the chunk the screen does not hold', async () => {
+    renderCalendar();
+    await screen.findByRole('grid');
+    await waitFor(() => expect(reads.tasks).toHaveBeenCalledTimes(3));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    for (const mock of Object.values(reads)) {
+      mock.mockClear();
+    }
+
+    fireEvent.click(screen.getByRole('button', { name: 'Показать прошлое' }));
+
+    // 25 September to 8 October: September is new to what never happened and
+    // to the cancelled; October is new to the cancelled only.
+    await waitFor(() =>
+      expect(screen.getAllByRole('columnheader')[1]).toHaveAttribute('data-day', '2026-09-25'),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(ranges(reads.expired)).toEqual(['2026-09-01..2026-10-01']);
+    expect(ranges(reads.tasks, 'cancelled')).toEqual([
+      '2026-09-01..2026-10-01',
+      '2026-10-01..2026-11-01',
+    ]);
+    expect(ranges(reads.tasks, 'active')).toEqual([]);
+    expect(ranges(reads.bookings)).toEqual([]);
+    expect(reads.properties).not.toHaveBeenCalled();
   });
 
   test('draws the week from the day before today', async () => {
