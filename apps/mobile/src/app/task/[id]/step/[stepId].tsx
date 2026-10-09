@@ -78,7 +78,9 @@ export default function StepRoute() {
     task.data?.status === 'in_progress' && task.data.assignee_id === userId && userId !== null;
 
   const media = useTaskMedia(taskId);
+  // Photos and videos queue apart: a video's minutes do not hold the photos.
   const attach = useAttachMedia();
+  const attachVideo = useAttachMedia('video');
   const removeMedia = useRemoveMedia();
   const rememberLocal = useRememberLocalMedia();
   const local = useLocalMedia();
@@ -168,7 +170,8 @@ export default function StepRoute() {
   };
 
   const startUpload = (record: LocalMediaRecord) => {
-    attach.mutate(stepAttachVariables(taskId, stepId, record));
+    const queue = record.kind === 'video' ? attachVideo : attach;
+    queue.mutate(stepAttachVariables(taskId, stepId, record));
   };
 
   const mediaKind = mediaKindOfStep(step.type);

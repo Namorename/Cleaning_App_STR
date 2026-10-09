@@ -227,6 +227,52 @@ describe('a video in the chain', () => {
   });
 });
 
+// A video takes minutes over mobile data; a photo of a step or of a chat
+// message must not stand behind it.
+describe('the queues', () => {
+  test('a photo goes up while a video is still on its way', async () => {
+    // Arrange: the video registers and then takes its time.
+    jest.mocked(addMedia).mockImplementation(async (variables) => {
+      calls.push('add');
+      return variables.kind === 'video'
+        ? registered()
+        : ({ storage_path: 'host/task/p1.jpg' } as TaskMedia);
+    });
+    jest.mocked(uploadVideoFile).mockImplementationOnce(() => new Promise(() => undefined));
+    const client = new QueryClient({
+      defaultOptions: { mutations: { networkMode: 'offlineFirst' } },
+    });
+    const { result } = await renderHook(
+      () => ({ video: useAttachMedia('video'), photo: useAttachMedia() }),
+      { wrapper: withClient(client) },
+    );
+
+    // Act
+    await act(async () => {
+      result.current.video.mutate(video);
+    });
+    await waitFor(() => expect(uploadVideoFile).toHaveBeenCalled());
+    await act(async () => {
+      result.current.photo.mutate({
+        ...video,
+        mediaId: 'p1',
+        kind: 'photo',
+        mimeType: 'image/jpeg',
+        durationSec: null,
+      });
+    });
+
+    // Assert
+    await waitFor(() =>
+      expect(uploadMediaFile).toHaveBeenCalledWith('host/task/p1.jpg', video.uri, 'image/jpeg'),
+    );
+    jest.mocked(addMedia).mockImplementation(async () => {
+      calls.push('add');
+      return { storage_path: 'host/task/m1.jpg' } as TaskMedia;
+    });
+  });
+});
+
 describe('a photo in the chain', () => {
   test('keeps its file once confirmed: its tile still shows it', async () => {
     await attachMedia({ ...video, kind: 'photo', mimeType: 'image/jpeg', durationSec: null });
@@ -266,6 +312,45 @@ describe('what the tiles read of the queue', () => {
       expect([...result.current]).toEqual(['paused']);
     } finally {
       onlineManager.setOnline(true);
+    }
+  });
+
+  // TanStack pauses a mutation that waits its turn in a scope just as it
+  // pauses one without signal; only the second is «Ждёт сети».
+  test('an upload queued behind another while online is not waiting for signal', async () => {
+    // Arrange: two attaches of one scope, the first one running.
+    const client = new QueryClient();
+    const never = new Promise<TaskMedia>(() => undefined);
+    const start = (id: string) => {
+      const mutation = client.getMutationCache().build(client, {
+        mutationKey: mediaMutationKeys.attach,
+        mutationFn: () => never,
+        networkMode: 'offlineFirst',
+        scope: { id: 'media-attach' },
+      });
+      void mutation.execute({ ...video, mediaId: id });
+    };
+    await act(async () => {
+      start('running');
+      start('queued');
+    });
+    const queued = client.getMutationCache().getAll()[1];
+    expect(queued.state.isPaused).toBe(true);
+
+    // Act
+    const { result } = await renderHook(() => useWaitingMediaIds(), {
+      wrapper: withClient(client),
+    });
+
+    // Assert
+    expect([...result.current]).toEqual([]);
+
+    // And once the signal goes, the paused one says so at once.
+    await act(async () => onlineManager.setOnline(false));
+    try {
+      expect([...result.current]).toEqual(['queued']);
+    } finally {
+      await act(async () => onlineManager.setOnline(true));
     }
   });
 

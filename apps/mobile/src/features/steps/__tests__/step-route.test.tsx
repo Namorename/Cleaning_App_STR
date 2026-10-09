@@ -75,17 +75,26 @@ const mockTransfers = {
   waiting: new Set<string>(),
   progress: {} as Record<string, number>,
 };
-const mockMediaItemViews = jest.fn((..._args: unknown[]) => []);
+const mockMediaItemViews = jest.fn((..._args: unknown[]): unknown[] => []);
+
+/** The two queues the step hands files to: photos, and videos on their own. */
+const mockAttach = {
+  photo: { error: null, mutate: jest.fn() },
+  video: { error: null, mutate: jest.fn() },
+};
+
+/** The captures the phone remembers, by media id. */
+const mockLocal: { data: Record<string, unknown> } = { data: {} };
 
 jest.mock('@/features/media/use-media', () => ({
   mediaItemViews: (...args: unknown[]) => mockMediaItemViews(...args),
   useWaitingMediaIds: () => mockTransfers.waiting,
   useUploadProgress: () => mockTransfers.progress,
   useFailedVideoAttach: () => mockVideoAttach.error,
-  useAttachMedia: () => ({ error: null, mutate: jest.fn() }),
+  useAttachMedia: (kind?: string) => (kind === 'video' ? mockAttach.video : mockAttach.photo),
   useRemoveMedia: () => ({ error: null, mutate: jest.fn() }),
   useRememberLocalMedia: () => jest.fn(),
-  useLocalMedia: () => ({ data: {} }),
+  useLocalMedia: () => mockLocal,
   useMediaUrls: () => ({ data: {} }),
   useTaskMedia: () => ({ data: [] }),
   useUploadingMediaIds: () => new Set<string>(),
@@ -112,6 +121,8 @@ beforeEach(() => {
   mockTask.data = undefined;
   mockVideo.settings = null;
   mockVideoAttach.error = null;
+  mockLocal.data = {};
+  mockMediaItemViews.mockImplementation(() => []);
 });
 
 test('while the steps load, their shape stands in for them, said as loading', async () => {
@@ -309,6 +320,41 @@ describe('a video step of her task under way', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Записать видео' }));
 
     expect(router.push).toHaveBeenCalledTimes(2);
+  });
+
+  // A video sent again from its tile goes to the videos' own queue, not
+  // behind the step's photos — nor they behind it.
+  test('a video tried again from its tile goes to the videos’ queue', async () => {
+    // Arrange
+    mockSteps.data = [videoStep()];
+    mockVideo.settings = { video_max_sec: 90, video_bitrate_kbps: 2000, video_max_mb: 45 };
+    mockLocal.data = {
+      m1: {
+        id: 'm1',
+        kind: 'video',
+        uri: 'file:///documents/task-media/m1.mp4',
+        mimeType: 'video/mp4',
+        byteSize: 21_000_000,
+        width: null,
+        height: null,
+        durationSec: 12.3,
+        takenAt: '2026-10-09T08:00:00.000Z',
+        source: 'camera',
+      },
+    };
+    mockMediaItemViews.mockImplementation(() => [
+      { id: 'm1', kind: 'video', uri: null, status: 'failed', durationSec: 12.3 },
+    ]);
+    await render(<StepRoute />);
+
+    // Act
+    await fireEvent.press(screen.getByRole('button', { name: 'Повторить загрузку. Видео' }));
+
+    // Assert
+    expect(mockAttach.video.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ mediaId: 'm1', kind: 'video', stepId: STEP_ID }),
+    );
+    expect(mockAttach.photo.mutate).not.toHaveBeenCalled();
   });
 
   test('without the company’s settings the camera waits and nothing opens', async () => {

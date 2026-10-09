@@ -49,7 +49,7 @@ export default function RecordRoute() {
   const steps = useTaskSteps(taskId);
   const media = useTaskMedia(taskId);
   const videoSettings = useVideoSettings();
-  const attach = useAttachMedia();
+  const attach = useAttachMedia('video');
   const rememberLocal = useRememberLocalMedia();
   /** The limits the camera opened with; from then on the gate is not asked again. */
   const [openedWith, setOpenedWith] = useState<VideoLimits | null>(null);

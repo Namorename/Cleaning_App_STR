@@ -1,4 +1,5 @@
 import {
+  onlineManager,
   useMutation,
   useMutationState,
   useQuery,
@@ -36,7 +37,7 @@ import {
   rememberLocalMedia,
   type LocalMediaRecord,
 } from './local-store';
-import type { MediaItemView, TaskMedia } from './schema';
+import type { MediaItemView, MediaKind, TaskMedia } from './schema';
 import {
   clearUploadProgress,
   reportUploadProgress,
@@ -53,8 +54,11 @@ export const mediaMutationKeys = {
 /**
  * One task's uploads go one at a time, and so do everyone's: a stairwell's
  * worth of bandwidth is better spent finishing one photo than starting four.
+ * Videos queue apart: one takes minutes over mobile data, and the step's
+ * photos and the chat's must not stand behind it.
  */
 const ATTACH_SCOPE = { id: 'media-attach' };
+const VIDEO_ATTACH_SCOPE = { id: 'media-attach-video' };
 const ATTACH_RETRIES = 3;
 
 export interface AttachMediaVariables extends AddMediaVariables {
@@ -277,13 +281,17 @@ function pendingRow(variables: AttachMediaVariables): TaskMedia {
   };
 }
 
-export function useAttachMedia() {
+/**
+ * The upload queue for one kind of file: photos (the default) or videos,
+ * each kind in a line of its own. A screen that sends both holds one of each.
+ */
+export function useAttachMedia(kind: MediaKind = 'photo') {
   const queryClient = useQueryClient();
 
   return useMutation<TaskMedia, Error, AttachMediaVariables>({
     mutationKey: mediaMutationKeys.attach,
     mutationFn: (variables) => attachMedia(variables, queryClient),
-    scope: ATTACH_SCOPE,
+    scope: kind === 'video' ? VIDEO_ATTACH_SCOPE : ATTACH_SCOPE,
     retry: ATTACH_RETRIES,
     onMutate: async (variables) => {
       dropFailedAttempts(queryClient, variables.mediaId);
@@ -410,12 +418,25 @@ export function useUploadingMediaIds(): Set<string> {
   );
 }
 
+const NOTHING_WAITING: ReadonlySet<string> = new Set();
+
+/** Whether the queue believes there is signal, redrawn as that changes. */
+function useIsOnline(): boolean {
+  return useSyncExternalStore(
+    (onChange) => onlineManager.subscribe(onChange),
+    () => onlineManager.isOnline(),
+  );
+}
+
 /**
  * Ids of the uploads the queue holds until there is signal again: pending,
- * and paused rather than running. Their tiles say they wait for the network,
- * not that they are uploading.
+ * paused rather than running, and the queue without signal. Their tiles say
+ * they wait for the network, not that they are uploading. TanStack pauses an
+ * upload that waits its turn behind another of its line the same way; with
+ * signal, that one is simply on its way.
  */
-export function useWaitingMediaIds(): Set<string> {
+export function useWaitingMediaIds(): ReadonlySet<string> {
+  const isOnline = useIsOnline();
   const variables = useMutationState({
     filters: {
       mutationKey: mediaMutationKeys.attach,
@@ -426,8 +447,11 @@ export function useWaitingMediaIds(): Set<string> {
   });
 
   return useMemo(
-    () => new Set(variables.filter((id): id is string => typeof id === 'string')),
-    [variables],
+    () =>
+      isOnline
+        ? NOTHING_WAITING
+        : new Set(variables.filter((id): id is string => typeof id === 'string')),
+    [isOnline, variables],
   );
 }
 
