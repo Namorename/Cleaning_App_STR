@@ -5,9 +5,14 @@
  * (docs/f11-native-review.md, С-2).
  */
 
-/** What a fetch that never reached anything says, on Android, iOS and the web build. */
+/**
+ * What a fetch that never reached anything says, on Android, iOS and the web
+ * build — and expo/fetch, the app's fetch, in its own words («fetch failed»),
+ * with OkHttp's on Android beneath it: no DNS, no connection, a socket that
+ * went silent («timeout», alone: a database's «statement timeout» is an answer).
+ */
 const NO_SIGNAL =
-  /network request failed|failed to fetch|networkerror|load failed|network connection was lost|internet connection appears to be offline/i;
+  /network request failed|failed to fetch|networkerror|load failed|network connection was lost|internet connection appears to be offline|^fetch failed|unable to resolve host|failed to connect to|^timeout$|timed out/i;
 
 interface Failure {
   name?: unknown;

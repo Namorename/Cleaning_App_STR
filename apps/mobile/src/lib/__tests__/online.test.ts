@@ -36,6 +36,20 @@ describe('what counts as no signal', () => {
       'an upload that never left the phone',
       { name: 'StorageUnknownError', originalError: new TypeError('Network request failed') },
     ],
+    // expo/fetch, the app's fetch since SDK 52, rejects in its own words.
+    ['expo/fetch that could not reach anything', new TypeError('fetch failed')],
+    [
+      'an Android phone without DNS',
+      new Error(
+        'Unable to resolve host "project.supabase.co": No address associated with hostname',
+      ),
+    ],
+    [
+      'an Android phone that could not connect',
+      new Error('Failed to connect to project.supabase.co/104.18.38.10:443'),
+    ],
+    ['OkHttp giving up on a silent socket', new Error('timeout')],
+    ['an iPhone giving up on one', new Error('The request timed out.')],
   ])('%s', (_name, error) => {
     expect(isNetworkError(error)).toBe(true);
   });
@@ -47,6 +61,11 @@ describe('what counts as no signal', () => {
     ],
     ['a server that failed', { message: 'Internal Server Error', status: 500 }],
     ['a bug', new Error('undefined is not a function')],
+    // The database's own timeout is an answer from the server, not a lost socket.
+    [
+      'a statement the database cancelled',
+      { message: 'canceling statement due to statement timeout', code: '57014' },
+    ],
   ])('%s is not', (_name, error) => {
     expect(isNetworkError(error)).toBe(false);
   });

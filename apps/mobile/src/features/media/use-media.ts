@@ -28,6 +28,7 @@ import {
   type AddMediaVariables,
   type MediaOwnerRef,
 } from './api';
+import { countAttachFailure, retryAttach, startAttachCount } from './attach-retry';
 import { discardFile } from './file';
 import { mediaKeys } from './keys';
 import {
@@ -59,7 +60,6 @@ export const mediaMutationKeys = {
  */
 const ATTACH_SCOPE = { id: 'media-attach' };
 const VIDEO_ATTACH_SCOPE = { id: 'media-attach-video' };
-const ATTACH_RETRIES = 3;
 
 export interface AttachMediaVariables extends AddMediaVariables {
   /** The file on the phone. */
@@ -181,6 +181,19 @@ async function attachVideo(
   return confirmed;
 }
 
+/** One attempt of the queue: the chain, its refusal counted (`attach-retry.ts`). */
+async function attachAttempt(
+  variables: AttachMediaVariables,
+  queryClient: QueryClient,
+): Promise<TaskMedia> {
+  try {
+    return await attachMedia(variables, queryClient);
+  } catch (error: unknown) {
+    countAttachFailure(variables.mediaId, error);
+    throw error;
+  }
+}
+
 /** The file and its record, gone once the server has the video. Twice is not an error. */
 async function releaseVideo(
   variables: AttachMediaVariables,
@@ -209,9 +222,9 @@ async function releaseVideo(
  */
 export function registerMediaMutations(queryClient: QueryClient): void {
   queryClient.setMutationDefaults(mediaMutationKeys.attach, {
-    mutationFn: (variables: AttachMediaVariables) => attachMedia(variables, queryClient),
+    mutationFn: (variables: AttachMediaVariables) => attachAttempt(variables, queryClient),
     scope: ATTACH_SCOPE,
-    retry: ATTACH_RETRIES,
+    retry: retryAttach,
     gcTime: Number.POSITIVE_INFINITY,
   });
   queryClient.setMutationDefaults(mediaMutationKeys.remove, {
@@ -290,10 +303,11 @@ export function useAttachMedia(kind: MediaKind = 'photo') {
 
   return useMutation<TaskMedia, Error, AttachMediaVariables>({
     mutationKey: mediaMutationKeys.attach,
-    mutationFn: (variables) => attachMedia(variables, queryClient),
+    mutationFn: (variables) => attachAttempt(variables, queryClient),
     scope: kind === 'video' ? VIDEO_ATTACH_SCOPE : ATTACH_SCOPE,
-    retry: ATTACH_RETRIES,
+    retry: retryAttach,
     onMutate: async (variables) => {
+      startAttachCount(variables.mediaId);
       dropFailedAttempts(queryClient, variables.mediaId);
       const key = mediaOwnerKey(variables);
       await queryClient.cancelQueries({ queryKey: key });
