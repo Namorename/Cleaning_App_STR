@@ -193,11 +193,15 @@ describe('a video on its way', () => {
     );
   }
 
+  // The number is the bar's to say, as a progress bar's value: the tile's
+  // words say only what it is and that it is on its way.
   test('shows how much of it has gone, to the eye and to the reader, with its length', async () => {
     await renderVideo({ status: 'uploading', progress: 0.426 });
 
-    const tile = screen.getByLabelText('Видео. Загружается… 42 %');
-    expect(tile.props.accessibilityValue).toEqual({ min: 0, max: 100, now: 42 });
+    const tile = screen.getByLabelText('Видео. Загружается…');
+    expect(tile.props.accessibilityValue).toBeUndefined();
+    const bar = screen.getByRole('progressbar', { name: 'Видео' });
+    expect(bar.props.accessibilityValue).toEqual({ min: 0, max: 100, now: 42 });
     expect(screen.getByText('Загружается… 42 %')).toBeTruthy();
     expect(screen.getByText('Видео · 20.5 с')).toBeTruthy();
     expect(screen.getByTestId('media-progress-fill').props.style).toEqual(
@@ -211,6 +215,7 @@ describe('a video on its way', () => {
     const tile = screen.getByLabelText('Видео. Загружается…');
     expect(tile.props.accessibilityValue).toBeUndefined();
     expect(screen.queryByTestId('media-progress-fill')).toBeNull();
+    expect(screen.queryByRole('progressbar')).toBeNull();
   });
 
   test('waiting for signal says so, not that it is uploading', async () => {

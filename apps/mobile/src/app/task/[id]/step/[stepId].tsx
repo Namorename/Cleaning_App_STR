@@ -100,7 +100,12 @@ export default function StepRoute() {
   const remotePaths = useMemo(
     () =>
       stepMedia
-        .filter((item) => item.uploaded_at !== null && local.data?.[item.id] === undefined)
+        .filter(
+          (item) =>
+            item.kind === 'photo' &&
+            item.uploaded_at !== null &&
+            local.data?.[item.id] === undefined,
+        )
         .map((item) => item.storage_path),
     [stepMedia, local.data],
   );

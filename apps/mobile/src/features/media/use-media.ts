@@ -124,12 +124,12 @@ function dropFailedAttempts(queryClient: QueryClient, mediaId: string): void {
  * confirmed row as it is.
  *
  * A photo goes up in one request. A video goes in pieces and resumes where
- * the last attempt stopped (`attachVideo`). The query client, when given, is
- * told of the local ledger a video's release changes.
+ * the last attempt stopped (`attachVideo`). The query client is told of the
+ * local ledger a video's release changes.
  */
 export async function attachMedia(
   variables: AttachMediaVariables,
-  queryClient?: QueryClient,
+  queryClient: QueryClient,
 ): Promise<TaskMedia> {
   if (variables.message !== undefined) {
     await sendMessage(variables.message);
@@ -165,7 +165,7 @@ export async function attachMedia(
 async function attachVideo(
   row: TaskMedia,
   variables: AttachMediaVariables,
-  queryClient?: QueryClient,
+  queryClient: QueryClient,
 ): Promise<TaskMedia> {
   if (row.uploaded_at === null) {
     await uploadVideoFile({
@@ -198,13 +198,13 @@ async function attachAttempt(
 /** The file and its record, gone once the server has the video. Twice is not an error. */
 async function releaseVideo(
   variables: AttachMediaVariables,
-  queryClient: QueryClient | undefined,
+  queryClient: QueryClient,
 ): Promise<void> {
   discardFile(variables.uri);
   clearUploadProgress(variables.mediaId);
   try {
     const store = await forgetLocalMedia(variables.mediaId);
-    queryClient?.setQueryData(mediaKeys.local, store);
+    queryClient.setQueryData(mediaKeys.local, store);
   } catch (error: unknown) {
     // The video is in and confirmed; a ledger that could not be written only
     // keeps the record of a file that is gone.

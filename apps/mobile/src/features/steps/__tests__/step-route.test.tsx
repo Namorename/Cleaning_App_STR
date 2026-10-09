@@ -85,6 +85,10 @@ const mockAttach = {
 
 /** The captures the phone remembers, by media id. */
 const mockLocal: { data: Record<string, unknown> } = { data: {} };
+/** The task's media as the server lists them. */
+const mockTaskMedia: { data: unknown[] } = { data: [] };
+/** The paths the screen asked to have signed. */
+const mockMediaUrls = jest.fn((_paths: readonly string[]) => ({ data: {} }));
 
 jest.mock('@/features/media/use-media', () => ({
   mediaItemViews: (...args: unknown[]) => mockMediaItemViews(...args),
@@ -95,8 +99,8 @@ jest.mock('@/features/media/use-media', () => ({
   useRemoveMedia: () => ({ error: null, mutate: jest.fn() }),
   useRememberLocalMedia: () => jest.fn(),
   useLocalMedia: () => mockLocal,
-  useMediaUrls: () => ({ data: {} }),
-  useTaskMedia: () => ({ data: [] }),
+  useMediaUrls: (paths: readonly string[]) => mockMediaUrls(paths),
+  useTaskMedia: () => mockTaskMedia,
   useUploadingMediaIds: () => new Set<string>(),
 }));
 
@@ -122,6 +126,7 @@ beforeEach(() => {
   mockVideo.settings = null;
   mockVideoAttach.error = null;
   mockLocal.data = {};
+  mockTaskMedia.data = [];
   mockMediaItemViews.mockImplementation(() => []);
 });
 
@@ -355,6 +360,35 @@ describe('a video step of her task under way', () => {
       expect.objectContaining({ mediaId: 'm1', kind: 'video', stepId: STEP_ID }),
     );
     expect(mockAttach.photo.mutate).not.toHaveBeenCalled();
+  });
+
+  // A confirmed video draws no picture on its tile: a signed link for it is
+  // a request for nothing. A photo no longer on the phone still needs one.
+  test('asks for signed links of photos only', async () => {
+    mockSteps.data = [videoStep()];
+    mockVideo.settings = { video_max_sec: 90, video_bitrate_kbps: 2000, video_max_mb: 45 };
+    const row = (id: string, kind: 'photo' | 'video', path: string) => ({
+      id,
+      task_id: TASK_ID,
+      step_id: STEP_ID,
+      problem_id: null,
+      kind,
+      storage_path: path,
+      mime_type: kind === 'video' ? 'video/mp4' : 'image/jpeg',
+      duration_sec: kind === 'video' ? 12.3 : null,
+      device_taken_at: '2026-10-09T08:01:00+00:00',
+      created_at: '2026-10-09T08:01:00+00:00',
+      uploaded_at: '2026-10-09T08:02:00+00:00',
+      deleted_at: null,
+    });
+    mockTaskMedia.data = [
+      row('v1', 'video', 'host/task/v1.mp4'),
+      row('p1', 'photo', 'host/task/p1.jpg'),
+    ];
+
+    await render(<StepRoute />);
+
+    expect(mockMediaUrls).toHaveBeenLastCalledWith(['host/task/p1.jpg']);
   });
 
   test('without the company’s settings the camera waits and nothing opens', async () => {

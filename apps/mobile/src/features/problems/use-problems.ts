@@ -34,22 +34,26 @@ export interface ReportWithPhotosVariables extends ReportProblemVariables {
  */
 export async function reportProblemWithPhotos(
   variables: ReportWithPhotosVariables,
+  queryClient: QueryClient,
 ): Promise<Problem> {
   const problem = await reportProblem(variables);
   for (const photo of variables.photos) {
-    await attachMedia({
-      problemId: problem.id,
-      uri: photo.uri,
-      mediaId: photo.id,
-      kind: photo.kind,
-      mimeType: photo.mimeType,
-      byteSize: photo.byteSize,
-      width: photo.width,
-      height: photo.height,
-      durationSec: photo.durationSec,
-      takenAt: photo.takenAt,
-      source: photo.source,
-    });
+    await attachMedia(
+      {
+        problemId: problem.id,
+        uri: photo.uri,
+        mediaId: photo.id,
+        kind: photo.kind,
+        mimeType: photo.mimeType,
+        byteSize: photo.byteSize,
+        width: photo.width,
+        height: photo.height,
+        durationSec: photo.durationSec,
+        takenAt: photo.takenAt,
+        source: photo.source,
+      },
+      queryClient,
+    );
   }
   return problem;
 }
@@ -57,7 +61,8 @@ export async function reportProblemWithPhotos(
 /** Teach the query client how to replay each write after a restart. */
 export function registerProblemMutations(queryClient: QueryClient): void {
   queryClient.setMutationDefaults(problemMutationKeys.report, {
-    mutationFn: (variables: ReportWithPhotosVariables) => reportProblemWithPhotos(variables),
+    mutationFn: (variables: ReportWithPhotosVariables) =>
+      reportProblemWithPhotos(variables, queryClient),
     retry: REPORT_RETRIES,
   });
   queryClient.setMutationDefaults(problemMutationKeys.update, {
@@ -119,11 +124,12 @@ function useInvalidateProblems() {
 }
 
 export function useReportProblem() {
+  const queryClient = useQueryClient();
   const invalidate = useInvalidateProblems();
 
   return useMutation<Problem, Error, ReportWithPhotosVariables>({
     mutationKey: problemMutationKeys.report,
-    mutationFn: reportProblemWithPhotos,
+    mutationFn: (variables) => reportProblemWithPhotos(variables, queryClient),
     retry: REPORT_RETRIES,
     onSuccess: invalidate,
   });

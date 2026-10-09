@@ -134,7 +134,7 @@ describe('a video in the chain', () => {
   });
 
   test('goes through the resumable upload, not the single request', async () => {
-    await attachMedia(video);
+    await attachMedia(video, new QueryClient());
 
     expect(calls.slice(0, 3)).toEqual(['add', 'resumable:host/task/m1.mp4', 'confirm:m1']);
     expect(uploadMediaFile).not.toHaveBeenCalled();
@@ -155,7 +155,7 @@ describe('a video in the chain', () => {
       expect(uploadProgressSnapshot().m1).toBeCloseTo(1 / 3);
     });
 
-    await attachMedia(video);
+    await attachMedia(video, new QueryClient());
   });
 
   test('once the server confirmed it, the file on the phone is removed and its record let go', async () => {
@@ -180,7 +180,7 @@ describe('a video in the chain', () => {
   test('a video the server did not confirm keeps its file, for the next try', async () => {
     jest.mocked(confirmMedia).mockRejectedValueOnce({ hint: 'serverErrors.mediaNotUploaded' });
 
-    await expect(attachMedia(video)).rejects.toMatchObject({
+    await expect(attachMedia(video, new QueryClient())).rejects.toMatchObject({
       hint: 'serverErrors.mediaNotUploaded',
     });
 
@@ -191,7 +191,7 @@ describe('a video in the chain', () => {
   test('a failed upload keeps it too', async () => {
     jest.mocked(uploadVideoFile).mockRejectedValueOnce(new TypeError('Network request failed'));
 
-    await expect(attachMedia(video)).rejects.toThrow('Network request failed');
+    await expect(attachMedia(video, new QueryClient())).rejects.toThrow('Network request failed');
 
     expect(confirmMedia).not.toHaveBeenCalled();
     expect(discardFile).not.toHaveBeenCalled();
@@ -204,7 +204,7 @@ describe('a video in the chain', () => {
       .mockResolvedValueOnce(registered({ uploaded_at: '2026-10-09T08:01:00.000Z' }));
 
     // Act
-    await attachMedia(video);
+    await attachMedia(video, new QueryClient());
 
     // Assert
     expect(uploadVideoFile).not.toHaveBeenCalled();
@@ -298,7 +298,10 @@ describe('a removed file', () => {
 
 describe('a photo in the chain', () => {
   test('keeps its file once confirmed: its tile still shows it', async () => {
-    await attachMedia({ ...video, kind: 'photo', mimeType: 'image/jpeg', durationSec: null });
+    await attachMedia(
+      { ...video, kind: 'photo', mimeType: 'image/jpeg', durationSec: null },
+      new QueryClient(),
+    );
 
     expect(uploadVideoFile).not.toHaveBeenCalled();
     expect(discardFile).not.toHaveBeenCalled();
@@ -387,7 +390,7 @@ describe('what the tiles read of the queue', () => {
         onProgress?.(10, 40);
       });
       jest.mocked(confirmMedia).mockImplementationOnce(() => new Promise(() => undefined));
-      void attachMedia(video);
+      void attachMedia(video, new QueryClient());
     });
 
     await waitFor(() => expect(result.current.m1).toBe(0.25));
@@ -397,19 +400,22 @@ describe('what the tiles read of the queue', () => {
 
 describe('attachMedia', () => {
   test('registers, uploads onto the assigned path, then confirms', async () => {
-    const row = await attachMedia({
-      taskId: 't1',
-      stepId: 's1',
-      uri: 'file:///tmp/m1.jpg',
-      mediaId: 'm1',
-      kind: 'photo',
-      mimeType: 'image/jpeg',
-      byteSize: 100,
-      width: 1600,
-      height: 1200,
-      durationSec: null,
-      takenAt: '2026-09-07T10:00:00+00:00',
-    });
+    const row = await attachMedia(
+      {
+        taskId: 't1',
+        stepId: 's1',
+        uri: 'file:///tmp/m1.jpg',
+        mediaId: 'm1',
+        kind: 'photo',
+        mimeType: 'image/jpeg',
+        byteSize: 100,
+        width: 1600,
+        height: 1200,
+        durationSec: null,
+        takenAt: '2026-09-07T10:00:00+00:00',
+      },
+      new QueryClient(),
+    );
 
     expect(calls).toEqual(['add', 'upload:host/task/m1.jpg', 'confirm:m1']);
     expect(row.uploaded_at).not.toBeNull();
@@ -429,15 +435,18 @@ describe('attachMedia', () => {
   };
 
   test('a photo of a message says the message again before registering it', async () => {
-    await attachMedia({
-      ...ofMessage,
-      message: {
-        messageId: 'msg1',
-        body: 'x',
-        subject: { kind: 'task', id: 't1' },
-        mediaExpected: 1,
+    await attachMedia(
+      {
+        ...ofMessage,
+        message: {
+          messageId: 'msg1',
+          body: 'x',
+          subject: { kind: 'task', id: 't1' },
+          mediaExpected: 1,
+        },
       },
-    });
+      new QueryClient(),
+    );
 
     expect(calls).toEqual(['send', 'add', 'upload:host/task/m1.jpg', 'confirm:m1']);
   });
@@ -452,7 +461,7 @@ describe('attachMedia', () => {
         throw expired;
       });
 
-    await expect(attachMedia(ofMessage)).rejects.toBe(expired);
+    await expect(attachMedia(ofMessage, new QueryClient())).rejects.toBe(expired);
     expect(calls).not.toContain('confirm:m1');
   });
 
@@ -460,7 +469,7 @@ describe('attachMedia', () => {
     const denied = { statusCode: '403', message: 'denied' };
     jest.mocked(uploadMediaFile).mockRejectedValueOnce(denied);
 
-    await expect(attachMedia(ofMessage)).rejects.toBe(denied);
+    await expect(attachMedia(ofMessage, new QueryClient())).rejects.toBe(denied);
   });
 });
 

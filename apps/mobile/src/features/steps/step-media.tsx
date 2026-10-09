@@ -164,14 +164,16 @@ function statusTextOf(item: MediaItemView, percent: number | null, t: TFunction)
 function MediaTile({ item, index, disabled, onRemove, onRetry }: MediaTileProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
-  // A video goes up in pieces and says how far it has got: in words, to the
-  // reader as a value, and as a bar under its length.
+  // A video goes up in pieces and says how far it has got: in words to the
+  // eye, and as a bar under them — to the reader a progress bar with its
+  // value, so the tile's own words do not say the number a second time.
   const percent = sentPercent(item);
   const statusText = statusTextOf(item, percent, t);
+  const spokenStatus = statusTextOf(item, null, t);
   const label =
     item.kind === 'video'
-      ? t('steps.videoAccessibility', { status: statusText })
-      : t('steps.photoAccessibility', { index: index + 1, status: statusText });
+      ? t('steps.videoAccessibility', { status: spokenStatus })
+      : t('steps.photoAccessibility', { index: index + 1, status: spokenStatus });
   // The tile's buttons say which file they act on: «Удалить. Фото 2».
   const tileName =
     item.kind === 'video' ? t('steps.videoName') : t('steps.photoName', { index: index + 1 });
@@ -183,11 +185,7 @@ function MediaTile({ item, index, disabled, onRemove, onRetry }: MediaTileProps)
 
   return (
     <View style={styles.tile}>
-      <View
-        accessible
-        accessibilityLabel={label}
-        accessibilityValue={percent === null ? undefined : { min: 0, max: 100, now: percent }}
-      >
+      <View accessible accessibilityLabel={label}>
         {item.kind === 'photo' && item.uri !== null ? (
           <Image source={{ uri: item.uri }} contentFit="cover" style={layout.picture} />
         ) : (
@@ -200,15 +198,6 @@ function MediaTile({ item, index, disabled, onRemove, onRetry }: MediaTileProps)
           </View>
         )}
 
-        {percent !== null ? (
-          <View style={styles.progressTrack}>
-            <View
-              testID="media-progress-fill"
-              style={[styles.progressFill, { width: `${percent}%` }]}
-            />
-          </View>
-        ) : null}
-
         <View style={layout.tileFooter}>
           <TileStatus status={item.status} isWaiting={item.isWaitingForNetwork === true} />
           <Text
@@ -220,6 +209,22 @@ function MediaTile({ item, index, disabled, onRemove, onRetry }: MediaTileProps)
           </Text>
         </View>
       </View>
+
+      {/* Outside the tile's words, so the reader can reach it as a bar of its own. */}
+      {percent !== null ? (
+        <View
+          accessible
+          accessibilityRole="progressbar"
+          accessibilityLabel={tileName}
+          accessibilityValue={{ min: 0, max: 100, now: percent }}
+          style={styles.progressTrack}
+        >
+          <View
+            testID="media-progress-fill"
+            style={[styles.progressFill, { width: `${percent}%` }]}
+          />
+        </View>
+      ) : null}
 
       {/* Words only, no icon beside them: two buttons share a 150 dp tile,
           and from a font scale of 1.2 an icon took the room of the label. */}
@@ -323,7 +328,7 @@ const createStyles = (theme: Theme) =>
       justifyContent: 'center',
       backgroundColor: theme.surfaceAlt,
     },
-    // A line under the picture, not text: its height is its look.
+    // A line under the tile's words, not text: its height is its look.
     progressTrack: {
       height: PROGRESS_HEIGHT,
       backgroundColor: theme.divider,
