@@ -78,6 +78,7 @@ describe('videoLimits', () => {
     expect(videoLimits({ max_video_sec: null }, company)).toEqual({
       seconds: 120,
       maxBytes: 45_000_000,
+      cameraMaxBytes: 43_650_000,
       bitrate: 2_000_000,
     });
   });
@@ -101,8 +102,19 @@ describe('videoLimits', () => {
     expect(videoLimits({ max_video_sec: 30 }, pro)).toEqual({
       seconds: 30,
       maxBytes: 140_000_000,
+      cameraMaxBytes: 135_800_000,
       bitrate: 4_500_000,
     });
+  });
+
+  // The camera counts what it has written; the container it closes the file
+  // with comes after. Told the company's limit itself, it could hand over a
+  // file the server refuses as a few kilobytes too large (`mediaTooLarge`).
+  test('the camera stops 3 % short of the company’s size, in whole bytes', () => {
+    const odd = { ...company, video_max_mb: 7 };
+
+    expect(videoLimits({ max_video_sec: null }, odd).cameraMaxBytes).toBe(6_790_000);
+    expect(Number.isInteger(videoLimits({ max_video_sec: null }, odd).cameraMaxBytes)).toBe(true);
   });
 });
 

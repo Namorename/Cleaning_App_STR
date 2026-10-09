@@ -212,7 +212,7 @@ export function VideoRecorder({ limits, onRecorded }: VideoRecorderProps) {
     try {
       const result = await view.recordAsync({
         maxDuration: limits.seconds,
-        maxFileSize: limits.maxBytes,
+        maxFileSize: limits.cameraMaxBytes,
         ...PLATFORM_OPTIONS,
       });
       recordingCamera.current = null;

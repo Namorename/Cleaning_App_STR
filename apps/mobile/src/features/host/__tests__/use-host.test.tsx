@@ -124,9 +124,11 @@ describe('the video settings', () => {
   });
 
   // The build before this one saved the company without its video numbers.
-  // Read through the schema, that row still opens the gallery as it did and
-  // fills the numbers with the server's own defaults until the refresh lands.
-  test('a company saved by the build before video still reads, with the server’s defaults', async () => {
+  // Read through the schema, that row still opens the gallery as it did; its
+  // video numbers are unknown, not guessed — a default passed off as the
+  // company's (120 s where it set 90) is a recording the server refuses after
+  // she has waited for its upload.
+  test('a company saved by the build before video still opens the gallery, its video unknown', async () => {
     // Arrange: the refresh never answers, so the hooks read what the disk gave.
     fetchSettings.mockReturnValue(new Promise(() => {}));
     const client = restoredFromDisk(hostKeys.settings(), { id: 'h1', gallery_allowed: true });
@@ -136,11 +138,43 @@ describe('the video settings', () => {
     const gallery = await renderHook(() => useGalleryAllowed(), { wrapper: withClient(client) });
 
     // Assert
-    expect(video.result.current).toEqual({
-      video_max_sec: 120,
+    expect(video.result.current).toBeNull();
+    expect(gallery.result.current).toBe(true);
+  });
+
+  // Saved a minute ago, the old row is fresh by the hour the settings are
+  // kept for — but it lacks what this build needs, so it is asked for at once.
+  test('a company saved without its video numbers is read again at once, then known', async () => {
+    // Arrange
+    fetchSettings.mockResolvedValue(company({ gallery_allowed: true }));
+    const client = restoredFromDisk(hostKeys.settings(), { id: 'h1', gallery_allowed: true });
+
+    // Act
+    const { result } = await renderHook(() => useVideoSettings(), { wrapper: withClient(client) });
+
+    // Assert
+    await waitFor(() =>
+      expect(result.current).toEqual({
+        video_max_sec: 90,
+        video_bitrate_kbps: 2000,
+        video_max_mb: 45,
+      }),
+    );
+    expect(fetchSettings).toHaveBeenCalledTimes(1);
+  });
+
+  // A whole row, saved a minute ago, is not asked for again within the hour.
+  test('a company saved with its video numbers is not read again before the hour', async () => {
+    fetchSettings.mockResolvedValue(company());
+    const client = restoredFromDisk(hostKeys.settings(), company());
+
+    const { result } = await renderHook(() => useVideoSettings(), { wrapper: withClient(client) });
+
+    expect(result.current).toEqual({
+      video_max_sec: 90,
       video_bitrate_kbps: 2000,
       video_max_mb: 45,
     });
-    expect(gallery.result.current).toBe(true);
+    expect(fetchSettings).not.toHaveBeenCalled();
   });
 });

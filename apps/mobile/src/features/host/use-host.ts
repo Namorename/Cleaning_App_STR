@@ -5,7 +5,12 @@ import { readCached } from '@/lib/read-cached';
 
 import { fetchHostSettings } from './api';
 import { hostKeys } from './keys';
-import { hostSettingsSchema, type HostSettings, type VideoSettings } from './schema';
+import {
+  hostSettingsSchema,
+  videoSettingsOf,
+  type HostSettings,
+  type VideoSettings,
+} from './schema';
 
 /** A company setting changes about once a year; asking hourly is plenty. */
 const FRESH_FOR_MS = 60 * 60 * 1000;
@@ -13,10 +18,20 @@ const FRESH_FOR_MS = 60 * 60 * 1000;
 /**
  * The company row restored from disk is in the shape the build that saved it
  * read (`readCached`): the build before video saved it without the three
- * video numbers, which the schema fills with the server's defaults.
+ * video numbers, which the schema reads as unknown.
  */
 function readHostSettings(data: unknown): HostSettings {
   return readCached(hostSettingsSchema, data, 'company settings');
+}
+
+/**
+ * Fresh for an hour — unless the row in the cache lacks the video numbers
+ * this build needs, as one saved by the build before video does: that row is
+ * read again at once, however recently it was saved.
+ */
+function freshFor(query: { state: { data: unknown } }): number {
+  const parsed = hostSettingsSchema.safeParse(query.state.data);
+  return parsed.success && videoSettingsOf(parsed.data) !== null ? FRESH_FOR_MS : 0;
 }
 
 /** The company's settings, from the cache on disk first and refreshed hourly. */
@@ -25,7 +40,7 @@ export function useHostSettings(): UseQueryResult<HostSettings, Error> {
     queryKey: hostKeys.settings(),
     queryFn: fetchHostSettings,
     select: readHostSettings,
-    staleTime: FRESH_FOR_MS,
+    staleTime: freshFor,
   });
 }
 
@@ -46,9 +61,10 @@ export function useGalleryAllowed(): boolean {
 /**
  * The company's numbers for a recording, or null while they are unknown.
  *
- * Unknown means never read and no signal to read them now. The recording
- * waits rather than guess: a guessed length longer than the company's is a
- * video the server refuses after she has waited for its upload.
+ * Unknown means never read, or saved by a build that did not read them, and
+ * no signal to read them now. The recording waits rather than guess: a
+ * guessed length longer than the company's is a video the server refuses
+ * after she has waited for its upload.
  */
 export function useVideoSettings(): VideoSettings | null {
   const settings = useHostSettings().data;
@@ -59,9 +75,11 @@ export function useVideoSettings(): VideoSettings | null {
   // The same object while the numbers stay the same: screens hand it to effects.
   return useMemo(
     () =>
-      seconds === undefined || kbps === undefined || megabytes === undefined
-        ? null
-        : { video_max_sec: seconds, video_bitrate_kbps: kbps, video_max_mb: megabytes },
+      videoSettingsOf({
+        video_max_sec: seconds,
+        video_bitrate_kbps: kbps,
+        video_max_mb: megabytes,
+      }),
     [seconds, kbps, megabytes],
   );
 }

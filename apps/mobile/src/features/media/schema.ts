@@ -21,6 +21,14 @@ export const DEFAULT_MAX_PHOTOS = 10;
 /** The company's video size is in MB of 10^6 bytes, as the server counts it. */
 const BYTES_PER_MB = 1_000_000;
 const BITS_PER_KBIT = 1000;
+/**
+ * The share of the company's size the camera is told to stop at. The camera
+ * counts what it has written; the container it closes the file with comes
+ * after, and a file a few kilobytes over the limit is one the server refuses
+ * (`mediaTooLarge`).
+ */
+const CAMERA_SIZE_PERCENT = 97;
+const PERCENT = 100;
 
 /**
  * One photo or video as the app reads it.
@@ -78,8 +86,10 @@ export function photoLimits(step: Pick<TaskStep, 'min_photos' | 'max_photos'>): 
 export interface VideoLimits {
   /** The longest recording the server accepts for this step. */
   seconds: number;
-  /** The largest file, in bytes. */
+  /** The largest file the server accepts, in bytes. */
   maxBytes: number;
+  /** Where the camera is told to stop: 3 % under `maxBytes`, room for its container. */
+  cameraMaxBytes: number;
   /** The video bitrate the camera aims at, in bits per second. */
   bitrate: number;
 }
@@ -94,9 +104,12 @@ export function videoLimits(
   step: Pick<TaskStep, 'max_video_sec'>,
   company: VideoSettings,
 ): VideoLimits {
+  const maxBytes = company.video_max_mb * BYTES_PER_MB;
   return {
     seconds: Math.min(step.max_video_sec ?? company.video_max_sec, company.video_max_sec),
-    maxBytes: company.video_max_mb * BYTES_PER_MB,
+    maxBytes,
+    // Integer arithmetic: no binary fraction to round a byte away.
+    cameraMaxBytes: Math.floor((maxBytes * CAMERA_SIZE_PERCENT) / PERCENT),
     bitrate: company.video_bitrate_kbps * BITS_PER_KBIT,
   };
 }

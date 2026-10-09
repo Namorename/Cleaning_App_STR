@@ -315,6 +315,7 @@ describe('the camera', () => {
 
   // On an iPhone the bitrate holds only with an explicit codec, and H.264 is
   // what plays in Chrome on the office's Windows (docs/tech-plan.md §7.1).
+  // The camera stops 3 % short of the company's 45 MB: its container comes after.
   test('«Записать» starts a recording held to the step’s length and the company’s size, in H.264', async () => {
     await render(<RecordRoute />);
 
@@ -322,7 +323,7 @@ describe('the camera', () => {
 
     expect(mockCamera.recordAsync).toHaveBeenCalledWith({
       maxDuration: 90,
-      maxFileSize: 45_000_000,
+      maxFileSize: 43_650_000,
       codec: 'avc1',
     });
     expect(screen.getByRole('button', { name: 'Стоп' })).toBeTruthy();

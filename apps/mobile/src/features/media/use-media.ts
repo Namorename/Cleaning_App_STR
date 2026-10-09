@@ -194,12 +194,21 @@ async function releaseVideo(
   }
 }
 
-/** Teach the query client how to replay each media action after a restart. */
+/**
+ * Teach the query client how to replay each media action after a restart.
+ *
+ * An upload is kept in the cache for the whole run, not TanStack's default
+ * five minutes: a video is handed over by the recording screen, which is gone
+ * by the time the server answers, and nothing watches the upload until she
+ * opens the step again — which is when its refusal has to be there to be said
+ * (`useFailedVideoAttach`). A retry or a removal clears the failed attempt.
+ */
 export function registerMediaMutations(queryClient: QueryClient): void {
   queryClient.setMutationDefaults(mediaMutationKeys.attach, {
     mutationFn: (variables: AttachMediaVariables) => attachMedia(variables, queryClient),
     scope: ATTACH_SCOPE,
     retry: ATTACH_RETRIES,
+    gcTime: Number.POSITIVE_INFINITY,
   });
   queryClient.setMutationDefaults(mediaMutationKeys.remove, {
     mutationFn: ({ mediaId }: RemoveMediaVariables) => removeMedia(mediaId),
