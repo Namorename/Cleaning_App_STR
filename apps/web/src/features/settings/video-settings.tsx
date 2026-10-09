@@ -194,12 +194,13 @@ function VideoForm({ host }: { host: HostSettings }) {
 
       <SaveFailure error={save.isError ? save.error : null} />
 
+      {/* 48 px targets, as the presets (design decision 5). */}
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="submit" disabled={!canSave}>
+        <Button type="submit" className="min-h-12" disabled={!canSave}>
           {save.isPending ? t('panel.settings.saving') : t('panel.settings.video.save')}
         </Button>
         {form.draft === null ? null : (
-          <Button type="button" variant="ghost" onClick={cancel}>
+          <Button type="button" variant="ghost" className="min-h-12" onClick={cancel}>
             {t('panel.settings.workflow.cancel')}
           </Button>
         )}

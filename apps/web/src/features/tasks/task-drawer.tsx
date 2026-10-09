@@ -264,9 +264,18 @@ export function TaskDrawer({ task, onClose, onOpenChat }: TaskDrawerProps) {
                             <span className="text-xs text-muted-foreground">
                               {t('panel.tasks.work.photos', { count: photos.length })}
                             </span>
+                            {/* A photo without a link says so in its square, as a
+                                video does, so the count above is what is shown. */}
                             <div className="flex flex-wrap gap-2">
                               {photos.map((photo) =>
-                                photo.url === null ? null : (
+                                photo.url === null ? (
+                                  <span
+                                    key={photo.id}
+                                    className="flex h-20 w-20 items-center justify-center rounded-md border p-1 text-center text-xs text-muted-foreground"
+                                  >
+                                    {t('panel.media.photoUnavailable')}
+                                  </span>
+                                ) : (
                                   <a
                                     key={photo.id}
                                     href={photo.url}

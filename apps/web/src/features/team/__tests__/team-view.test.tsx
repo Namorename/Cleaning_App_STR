@@ -693,14 +693,18 @@ describe('TeamView — a technician’s old listings (docs/tech-plan.md, 2.1)', 
     const dialog = await screen.findByRole('dialog');
     await userEvent.selectOptions(within(dialog).getByLabelText('Роль'), 'Техник');
 
-    const warning = within(dialog).getByText('Ещё на 2 объектах — сначала снимите их.');
+    // It says what is taken off — the links, not the person — and where:
+    // the form stands over the row whose button opens them.
+    const warning = within(dialog).getByText(
+      'Ещё на 2 объектах. Сначала уберите эти привязки: кнопка «Объектов: 2» в строке сотрудника.',
+    );
     expect(within(dialog).getByLabelText('Роль')).toHaveAccessibleDescription(
       warning.textContent ?? '',
     );
 
     // Chosen back, she is a cleaner with her listings again: nothing to warn of.
     await userEvent.selectOptions(within(dialog).getByLabelText('Роль'), 'Горничная');
-    expect(within(dialog).queryByText(/сначала снимите/)).toBeNull();
+    expect(within(dialog).queryByText(/Сначала уберите/)).toBeNull();
   }, 20000);
 
   test('a single listing is counted in the singular, and a head technician is warned too', async () => {
@@ -711,7 +715,11 @@ describe('TeamView — a technician’s old listings (docs/tech-plan.md, 2.1)', 
     const dialog = await screen.findByRole('dialog');
     await userEvent.selectOptions(within(dialog).getByLabelText('Роль'), 'Главный техник');
 
-    expect(within(dialog).getByText('Ещё на 1 объекте — сначала снимите его.')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        'Ещё на 1 объекте. Сначала уберите эту привязку: кнопка «Объектов: 1» в строке сотрудника.',
+      ),
+    ).toBeInTheDocument();
   }, 20000);
 
   // 20261003110000 refuses any change into a technician's role while links
@@ -746,7 +754,7 @@ describe('TeamView — a technician’s old listings (docs/tech-plan.md, 2.1)', 
     await userEvent.click(within(rowFor('Petr Tech')).getByRole('button', { name: 'Изменить' }));
     const dialog = await screen.findByRole('dialog');
 
-    expect(within(dialog).queryByText(/сначала снимите/)).toBeNull();
+    expect(within(dialog).queryByText(/Сначала уберите/)).toBeNull();
   }, 20000);
 
   test('a cleaner with listings ticked and then made a technician opens no listing', async () => {

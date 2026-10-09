@@ -26,7 +26,7 @@ interface ProblemPhotosProps {
 }
 
 const TILE_PLACEHOLDER =
-  'flex size-24 items-center justify-center rounded-md border text-xs text-muted-foreground';
+  'flex size-24 items-center justify-center rounded-md border p-1 text-center text-xs text-muted-foreground';
 
 /** Thumbnails that open the full photo in a new tab; a video plays where it stands. */
 export function ProblemPhotos({ media, emptyText, videoLabel, onExpired }: ProblemPhotosProps) {
@@ -76,7 +76,7 @@ function MediaTile({ item, index, videoLabel, onExpired }: MediaTileProps) {
     );
   }
   if (item.url === null) {
-    return <span className={TILE_PLACEHOLDER}>{t('problems.noPhotos')}</span>;
+    return <span className={TILE_PLACEHOLDER}>{t('panel.media.photoUnavailable')}</span>;
   }
   return (
     <a href={item.url} target="_blank" rel="noreferrer" className="relative block size-24">

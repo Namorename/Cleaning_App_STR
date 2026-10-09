@@ -450,4 +450,13 @@ describe('the company video settings — targets', () => {
       expect(screen.getByRole('button', { name })).toHaveClass('min-h-12');
     }
   });
+
+  test('so are the save and «Отменить правки»', async () => {
+    render(<VideoSettings />);
+
+    await typeInto(LENGTH, '90');
+
+    expect(screen.getByRole('button', { name: SAVE })).toHaveClass('min-h-12');
+    expect(screen.getByRole('button', { name: 'Отменить правки' })).toHaveClass('min-h-12');
+  });
 });

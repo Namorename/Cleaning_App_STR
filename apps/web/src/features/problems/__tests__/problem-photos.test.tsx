@@ -43,8 +43,9 @@ describe('ProblemPhotos', () => {
       'src',
       'https://signed/h/p/b.mp4',
     );
-    // The photo storage would not sign.
-    expect(screen.getByText('Фото нет')).toBeInTheDocument();
+    // The photo storage would not sign: said as the task drawer says it, and
+    // as a video says it — not «Фото нет», which reads as no photo taken.
+    expect(screen.getByText('Фото недоступно')).toBeInTheDocument();
   });
 
   test('says there is nothing to show when there is nothing', () => {

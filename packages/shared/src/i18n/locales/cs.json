@@ -654,10 +654,10 @@
         "propertiesClearShown": "Odznačit vše ({{total}})",
         "propertiesNotForRole": "Manažerovi a správci se objekty nepřiřazují — vidí všechny.",
         "propertiesNotForTech": "Technikovi a hlavnímu technikovi se objekty nepřiřazují: úklidy nejsou jejich práce, práce jim přichází přidělením.",
-        "techStillLinked_one": "Ještě na {{count}} objektu — nejdřív přiřazení odeberte.",
-        "techStillLinked_few": "Ještě na {{count}} objektech — nejdřív přiřazení odeberte.",
-        "techStillLinked_many": "Ještě na {{count}} objektu — nejdřív přiřazení odeberte.",
-        "techStillLinked_other": "Ještě na {{count}} objektech — nejdřív přiřazení odeberte.",
+        "techStillLinked_one": "Ještě na {{count}} objektu. Nejdřív toto přiřazení odeberte: tlačítko „Objektů: {{count}}“ v řádku zaměstnance.",
+        "techStillLinked_few": "Ještě na {{count}} objektech. Nejdřív tato přiřazení odeberte: tlačítko „Objektů: {{count}}“ v řádku zaměstnance.",
+        "techStillLinked_many": "Ještě na {{count}} objektu. Nejdřív tato přiřazení odeberte: tlačítko „Objektů: {{count}}“ v řádku zaměstnance.",
+        "techStillLinked_other": "Ještě na {{count}} objektech. Nejdřív tato přiřazení odeberte: tlačítko „Objektů: {{count}}“ v řádku zaměstnance.",
         "propertiesFailed": "Zaměstnanec byl uložen, ale objekty se nepodařilo otevřít.",
         "active": "Pracuje",
         "create": "Vytvořit",
@@ -876,7 +876,8 @@
       "videoOf": "Video: {{step}}",
       "openVideo": "Otevřít",
       "openVideoLabel": "Otevřít video v nové kartě",
-      "videoUnavailable": "Video není k dispozici"
+      "videoUnavailable": "Video není k dispozici",
+      "photoUnavailable": "Fotka není k dispozici"
     },
     "calendar": {
       "counts": "Objektů: {{listings}} · pokojů: {{rooms}}",

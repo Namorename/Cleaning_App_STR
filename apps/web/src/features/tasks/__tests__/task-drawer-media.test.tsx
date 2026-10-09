@@ -153,6 +153,21 @@ describe('the files of a step in the task drawer', () => {
     expect(within(item).getByText('Видео недоступно')).toBeInTheDocument();
   });
 
+  // Until the fix the drawer counted such a photo in «Фото: N» and then drew
+  // nothing for it, so the count and the pictures disagreed.
+  test('a photo storage would not sign says so, and the count is what is shown', () => {
+    work.data.mediaByStep[PHOTO_STEP] = [
+      media({ id: 'm1', storage_path: 'photo.jpg', url: PHOTO_URL }),
+      media({ id: 'm4', storage_path: 'gone.jpg', url: null }),
+    ];
+    render(<TaskDrawer task={finished} onClose={vi.fn()} onOpenChat={vi.fn()} />);
+
+    const item = stepItem('Фото после уборки');
+    expect(within(item).getByText('Фото: 2')).toBeInTheDocument();
+    expect(item.querySelectorAll('img')).toHaveLength(1);
+    expect(within(item).getByText('Фото недоступно')).toBeInTheDocument();
+  });
+
   // The link lives an hour; the drawer may stand open longer. Several videos
   // failing at once share one read rather than cancel each other's.
   test('a video whose link has expired has the work read again', () => {

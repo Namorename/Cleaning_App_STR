@@ -654,8 +654,8 @@
         "propertiesClearShown": "Clear all ({{total}})",
         "propertiesNotForRole": "Managers and admins are not put on listings — they see every one.",
         "propertiesNotForTech": "Technicians and head technicians are not put on listings: cleanings are not their work, and work reaches them by assignment.",
-        "techStillLinked_one": "Still on {{count}} listing — take them off it first.",
-        "techStillLinked_other": "Still on {{count}} listings — take them off those first.",
+        "techStillLinked_one": "Still on {{count}} listing. Remove that link first: the \"Listings: {{count}}\" button in their row.",
+        "techStillLinked_other": "Still on {{count}} listings. Remove those links first: the \"Listings: {{count}}\" button in their row.",
         "propertiesFailed": "The person was saved, but the listings could not be opened.",
         "active": "Works here",
         "create": "Create",
@@ -870,7 +870,8 @@
       "videoOf": "Video: {{step}}",
       "openVideo": "Open",
       "openVideoLabel": "Open the video in a new tab",
-      "videoUnavailable": "Video unavailable"
+      "videoUnavailable": "Video unavailable",
+      "photoUnavailable": "Photo unavailable"
     },
     "calendar": {
       "counts": "Listings: {{listings}} · rooms: {{rooms}}",
