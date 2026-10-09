@@ -55,6 +55,11 @@ const CLOSED_STATUSES = `(${CLOSED_STATUS_LIST.join(',')})`;
  * still open from five weeks ago before last week's closed ones. The one more
  * is how the board knows a part was cut (`cutBoard`); it is handed back with
  * the rest.
+ *
+ * The two go out together, so a task closed between them can be in both:
+ * it is handed back once, as the read of open tasks has it — work, until the
+ * next refresh says otherwise (the verification review of c466bf5..bc7dcc9,
+ * item 7).
  */
 export async function fetchBoardProblems(now: Date = new Date()): Promise<BoardProblem[]> {
   const since = calendarDay(now, -CLOSED_WINDOW_DAYS);
@@ -83,7 +88,12 @@ export async function fetchBoardProblems(now: Date = new Date()): Promise<BoardP
     throw closed.error;
   }
 
-  return boardProblemListSchema.parse([...(open.data ?? []), ...(closed.data ?? [])]);
+  const openRows = boardProblemListSchema.parse(open.data ?? []);
+  const openIds = new Set(openRows.map((problem) => problem.id));
+  const closedRows = boardProblemListSchema
+    .parse(closed.data ?? [])
+    .filter((problem) => !openIds.has(problem.id));
+  return [...openRows, ...closedRows];
 }
 
 /**

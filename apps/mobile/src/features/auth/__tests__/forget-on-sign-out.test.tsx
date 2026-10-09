@@ -14,7 +14,12 @@ import {
 } from '@/lib/query-client';
 import { withClient } from '@/testing/restored-cache';
 
-import { CACHE_OWNER_KEY, createRestoreGate, forgetListsOnSignOut } from '../forget-on-sign-out';
+import {
+  CACHE_OWNER_KEY,
+  OWNER_CHECK_WAIT_MS,
+  createRestoreGate,
+  forgetListsOnSignOut,
+} from '../forget-on-sign-out';
 
 /**
  * A phone handed from one person to another (item 10 of the two whole-branch
@@ -128,6 +133,18 @@ async function settle(): Promise<void> {
   }
 }
 
+/** Whether the promise has settled by the time the microtasks queued so far have run. */
+async function hasSettled(promise: Promise<unknown>): Promise<boolean> {
+  let isSettled = false;
+  void promise.then(() => {
+    isSettled = true;
+  });
+  for (let round = 0; round < 5; round += 1) {
+    await Promise.resolve();
+  }
+  return isSettled;
+}
+
 beforeEach(async () => {
   await AsyncStorage.clear();
   mockAuth.listener = null;
@@ -184,6 +201,28 @@ test('anything but a sign-out or somebody else leaves the lists alone', async ()
 
   expect(client.getQueryData(problemKeys.mine())).toHaveLength(1);
   expect((await savedOnDisk()).clientState.queries).not.toEqual([]);
+});
+
+// The stamp says whose lists the disk holds. Written over lists the disk
+// would not let go of, it would call the last person's lists the next one's,
+// and no start would forget them again (the verification review of
+// c466bf5..bc7dcc9, item 4).
+test('a wipe the disk refuses leaves the stamp as it was, so the next start forgets again', async () => {
+  // Arrange: the cleaner's lists and stamp; the disk will refuse the next write.
+  forgetListsOnSignOut(client, ALREADY_IN);
+  await settle();
+  jest.mocked(AsyncStorage.setItem).mockImplementationOnce(async () => {
+    throw new Error('No space left on device');
+  });
+
+  // Act: the head technician signs in on her phone.
+  mockAuth.listener?.('SIGNED_IN', sessionOf(HEAD_TECH));
+  await settle();
+
+  // Assert: gone from memory; on disk the wipe failed, and the stamp is still hers.
+  expect(client.getQueryData(problemKeys.mine())).toBeUndefined();
+  expect((await savedOnDisk()).clientState.queries).not.toEqual([]);
+  expect(await AsyncStorage.getItem(CACHE_OWNER_KEY)).toBe(CLEANER);
 });
 
 test('stops listening when the app lets go of it', () => {
@@ -316,5 +355,79 @@ describe('the same person', () => {
 
     expect(client.getQueryData(problemKeys.mine())).toHaveLength(1);
     expect((await savedOnDisk()).clientState.queries).not.toEqual([]);
+  });
+});
+
+/**
+ * The root's cache provider counts the restore done — and lets the screens
+ * draw what it brought — only once the gate says the lists restored have been
+ * checked against whose they are (the verification review of
+ * c466bf5..bc7dcc9, item 5): otherwise the last person's lists could draw for
+ * a frame before being forgotten.
+ */
+describe('the check of whose lists came back', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  test('is done only once the cache is back and the stamp read', async () => {
+    // Arrange
+    await restart();
+    const gate = createRestoreGate();
+    forgetListsOnSignOut(client, gate.done, gate.markChecked);
+    await settle();
+    expect(await hasSettled(gate.checked)).toBe(false);
+
+    // Act
+    await restoreFromDisk();
+    gate.open();
+    await settle();
+
+    // Assert
+    expect(await hasSettled(gate.checked)).toBe(true);
+  });
+
+  test('somebody else’s session heard meanwhile: by then the lists are gone from memory', async () => {
+    // Arrange: the restore has read the disk; the head technician's session is known.
+    await restart();
+    const gate = createRestoreGate();
+    let listsWhenChecked: unknown = 'not checked';
+    forgetListsOnSignOut(client, gate.done, () => {
+      listsWhenChecked = client.getQueryData(problemKeys.mine());
+      gate.markChecked();
+    });
+    const read = (await savedOnDisk()).clientState as DehydratedState;
+    mockAuth.userId = HEAD_TECH;
+    mockAuth.listener?.('INITIAL_SESSION', sessionOf(HEAD_TECH));
+    await settle();
+
+    // Act: the restore puts what it read in memory, and says it is in.
+    hydrate(client, read);
+    gate.open();
+    await settle();
+
+    // Assert
+    expect(listsWhenChecked).toBeUndefined();
+    expect(await hasSettled(gate.checked)).toBe(true);
+  });
+
+  // A stamp that never comes back must not keep every screen waiting on the
+  // restore: past the wait the lists draw, as they did before the check.
+  test('a stamp that cannot be read in time holds nothing for long', async () => {
+    // Arrange
+    jest.useFakeTimers();
+    jest.mocked(AsyncStorage.getItem).mockImplementationOnce(() => new Promise(() => undefined));
+    const gate = createRestoreGate();
+    forgetListsOnSignOut(client, gate.done, gate.markChecked);
+
+    // Act
+    gate.open();
+    await jest.advanceTimersByTimeAsync(OWNER_CHECK_WAIT_MS - 100);
+    const isCheckedEarly = await hasSettled(gate.checked);
+    await jest.advanceTimersByTimeAsync(200);
+
+    // Assert
+    expect(isCheckedEarly).toBe(false);
+    expect(await hasSettled(gate.checked)).toBe(true);
   });
 });

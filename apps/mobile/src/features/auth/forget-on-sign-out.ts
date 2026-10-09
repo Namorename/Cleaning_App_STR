@@ -8,18 +8,51 @@ import { supabase } from '@/lib/supabase';
 /** Whose lists the cache on disk holds: the id of the last person whose session the app knew. */
 export const CACHE_OWNER_KEY = `${QUERY_CACHE_KEY}.owner`;
 
-/** Opened once the cache on disk is back in memory, or found unreadable. */
+/**
+ * The most the screens wait, once the cache is back, for its lists to be
+ * checked against whose they are. The check is a read of the stamp and work
+ * in memory, done in an instant; a stamp that never comes back must not keep
+ * the screens from drawing.
+ */
+export const OWNER_CHECK_WAIT_MS = 2_000;
+
+/** The cache's restore, as the root sees it through. */
 export interface RestoreGate {
+  /** Settles once the cache on disk is back in memory, or found unreadable. */
   done: Promise<void>;
   open: () => void;
+  /**
+   * Settles once the lists brought back have been checked against whose they
+   * are (`forgetListsOnSignOut`) — or OWNER_CHECK_WAIT_MS after `open`, should
+   * the check not come.
+   */
+  checked: Promise<void>;
+  markChecked: () => void;
 }
 
 export function createRestoreGate(): RestoreGate {
-  let open: () => void = () => undefined;
+  let openDone: () => void = () => undefined;
+  let settleChecked: () => void = () => undefined;
+  let wait: ReturnType<typeof setTimeout> | undefined;
+  let isChecked = false;
   const done = new Promise<void>((resolve) => {
-    open = resolve;
+    openDone = resolve;
   });
-  return { done, open };
+  const checked = new Promise<void>((resolve) => {
+    settleChecked = resolve;
+  });
+  const markChecked = (): void => {
+    isChecked = true;
+    clearTimeout(wait);
+    settleChecked();
+  };
+  const open = (): void => {
+    openDone();
+    if (!isChecked && wait === undefined) {
+      wait = setTimeout(markChecked, OWNER_CHECK_WAIT_MS);
+    }
+  };
+  return { done, open, checked, markChecked };
 }
 
 async function readOwner(): Promise<string | null> {
@@ -51,22 +84,36 @@ async function readOwner(): Promise<string | null> {
  * Nothing is forgotten before the cache is back from disk (`restored`): the
  * restore would bring the lists back. Until then each event waits its turn,
  * and is handled the moment the restore is in, before any screen is drawn
- * from what it brought. After that, an event is handled at once, in memory, while
- * auth is still telling the screens: the next person's first screen never
- * draws the last one's lists. The disk follows in the order the events came.
- * Listens for the rest of the app's run; returns the unsubscribe.
+ * from what it brought: `onChecked` is called once the stamp is read and
+ * every event heard so far is handled in memory, and the root holds the
+ * screens until then (`RestoreGate.checked`). After that, an event is handled
+ * at once, in memory, while auth is still telling the screens: the next
+ * person's first screen never draws the last one's lists. The disk follows in
+ * the order the events came; a stamp is written only once the lists are off
+ * the disk, so a wipe the disk refused leaves the stamp it had, and the next
+ * start forgets them again. Listens for the rest of the app's run; returns
+ * the unsubscribe.
  */
 export function forgetListsOnSignOut(
   queryClient: QueryClient,
   restored: Promise<void>,
+  onChecked: () => void = () => undefined,
 ): () => void {
   // Whose lists the cache holds; undefined until the restore is in and the stamp read.
   let owner: string | null | undefined;
   // Events that came before then, still to be handled; later ones wait behind them.
   let waiting = 0;
+
+  const checkedIfCaughtUp = (): void => {
+    if (owner !== undefined && waiting === 0) {
+      onChecked();
+    }
+  };
+
   // The disk's work, one step after the other.
   let queue: Promise<void> = Promise.all([restored, readOwner()]).then(([, saved]) => {
     owner = saved;
+    checkedIfCaughtUp();
   });
 
   const later = (step: () => void | Promise<void>): void => {
@@ -84,8 +131,12 @@ export function forgetListsOnSignOut(
       return;
     }
     owner = userId;
-    forgetLists();
-    later(() => AsyncStorage.setItem(CACHE_OWNER_KEY, userId));
+    queryClient.removeQueries();
+    // One step: the stamp only once the lists are off the disk.
+    later(async () => {
+      await forgetSavedListsOfSignedOut();
+      await AsyncStorage.setItem(CACHE_OWNER_KEY, userId);
+    });
   };
 
   const inTurn = (step: () => void): void => {
@@ -96,7 +147,11 @@ export function forgetListsOnSignOut(
     waiting += 1;
     later(() => {
       waiting -= 1;
-      step();
+      try {
+        step();
+      } finally {
+        checkedIfCaughtUp();
+      }
     });
   };
 

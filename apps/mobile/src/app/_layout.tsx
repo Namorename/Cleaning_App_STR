@@ -84,7 +84,10 @@ export default function RootLayout() {
   // Whoever signs out takes their lists with them, and a session that is
   // somebody else's forgets the lists of the one before: the next person on a
   // shared phone sees none of them before their own first read.
-  useEffect(() => forgetListsOnSignOut(queryClient, restore.done), [queryClient, restore]);
+  useEffect(
+    () => forgetListsOnSignOut(queryClient, restore.done, restore.markChecked),
+    [queryClient, restore],
+  );
 
   // Until this runs the root boundary rethrows; from then on it catches. It
   // runs after the first commit of the root with the app ready: the root
@@ -112,9 +115,14 @@ export default function RootLayout() {
       persistOptions={persistOptions}
       // Moves tapped without signal were paused on disk; once the cache is
       // back they go through, and the lists that show them are refreshed.
+      // The provider counts the restore done — and lets the screens draw what
+      // it brought — once the promise returned here settles: once the lists
+      // have been checked against whose they are, so the last person's never
+      // draw for a frame before being forgotten (`RestoreGate.checked`).
       onSuccess={() => {
         restore.open();
         void resumeSavedMoves(queryClient);
+        return restore.checked;
       }}
       // Unreadable, the cache was thrown away: there is nothing to come back.
       onError={restore.open}

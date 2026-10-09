@@ -158,6 +158,34 @@ describe('the board', () => {
     expect(rows.map((row) => row.id)).toEqual([OPEN_ID, CLOSED_ID]);
   });
 
+  // The two reads go out together: a task closed between them is in both,
+  // open in one and closed in the other (the verification review of
+  // c466bf5..bc7dcc9, item 7). Shown once — open, as work until the next
+  // refresh says otherwise.
+  test('a task closed between the two reads is shown once, as the open read has it', async () => {
+    const CLOSING = 'd1e2f3a4-1111-4111-8111-d1e2f3a40103';
+    mockAnswer
+      .mockReturnValueOnce({
+        data: [boardProblem({ id: CLOSING }), boardProblem({ id: OPEN_ID })],
+        error: null,
+      })
+      .mockReturnValueOnce({
+        data: [
+          boardProblem({ id: CLOSING, status: 'resolved' }),
+          boardProblem({ id: CLOSED_ID, status: 'resolved' }),
+        ],
+        error: null,
+      });
+
+    const rows = await fetchBoardProblems();
+
+    expect(rows.map((row) => [row.id, row.status])).toEqual([
+      [CLOSING, 'open'],
+      [OPEN_ID, 'open'],
+      [CLOSED_ID, 'resolved'],
+    ]);
+  });
+
   test('a read of either part that fails fails the board', async () => {
     mockAnswer
       .mockReturnValueOnce({ data: [], error: null })

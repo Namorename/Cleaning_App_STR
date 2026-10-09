@@ -59,7 +59,7 @@ function mockScreen({ name, options }: { name: string; options?: unknown }) {
 }
 
 /** What the root handed the cache's provider: when the restore succeeded, and when it failed. */
-const mockPersistProps: { onSuccess?: () => void; onError?: () => void } = {};
+const mockPersistProps: { onSuccess?: () => unknown; onError?: () => unknown } = {};
 
 function mockPersistProvider(props: MockChildren & typeof mockPersistProps) {
   mockPersistProps.onSuccess = props.onSuccess;
@@ -89,13 +89,18 @@ jest.mock('@/lib/query-client', () => ({
   resumeSavedMoves: jest.fn(async () => {}),
 }));
 jest.mock('@/features/auth/forget-on-sign-out', () => ({
-  // The real gate: a promise and the hand that settles it.
+  // The gate as the real one is, without its wait: two promises and the
+  // hands that settle them.
   createRestoreGate: () => {
     let open: () => void = () => undefined;
+    let markChecked: () => void = () => undefined;
     const done = new Promise<void>((resolve) => {
       open = resolve;
     });
-    return { done, open };
+    const checked = new Promise<void>((resolve) => {
+      markChecked = resolve;
+    });
+    return { done, open, checked, markChecked };
   },
   forgetListsOnSignOut: jest.fn(() => () => {}),
 }));
@@ -160,7 +165,11 @@ test('listens for a sign-out with the app’s query client, and lets go when it 
   await unmount();
 
   // Assert
-  expect(forgetListsOnSignOut).toHaveBeenCalledWith(client, expect.any(Promise));
+  expect(forgetListsOnSignOut).toHaveBeenCalledWith(
+    client,
+    expect.any(Promise),
+    expect.any(Function),
+  );
   expect(stop).toHaveBeenCalledTimes(1);
 });
 
@@ -192,9 +201,33 @@ test.each([
   expect(await hasSettled(restored)).toBe(false);
 
   // Act
-  mockPersistProps[how]?.();
+  void mockPersistProps[how]?.();
 
   // Assert
+  expect(await hasSettled(restored)).toBe(true);
+});
+
+// The verification review of c466bf5..bc7dcc9, item 5: the provider lets the
+// screens draw what it restored once its onSuccess settles — and that waits
+// for the lists to be checked against whose they are, so the last person's
+// never draw for a frame before being forgotten.
+test('the cache counts as restored only once whose lists it holds has been checked', async () => {
+  // Arrange
+  jest.mocked(forgetListsOnSignOut).mockClear();
+  readiness.mockReturnValue({ isReady: true, areFontsLoaded: true });
+  await render(<RootLayout />);
+  const [, , markChecked] = jest.mocked(forgetListsOnSignOut).mock.calls[0] as unknown as [
+    unknown,
+    unknown,
+    () => void,
+  ];
+
+  // Act
+  const restored = Promise.resolve(mockPersistProps.onSuccess?.());
+
+  // Assert: held until the check says so.
+  expect(await hasSettled(restored)).toBe(false);
+  markChecked();
   expect(await hasSettled(restored)).toBe(true);
 });
 
