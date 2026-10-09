@@ -285,17 +285,16 @@ export function TaskDrawer({ task, onClose, onOpenChat }: TaskDrawerProps) {
                         )}
                         {videos.length === 0 ? null : (
                           <div className="flex flex-wrap gap-2">
-                            {videos.map((video) =>
-                              video.url === null ? null : (
-                                <VideoTile
-                                  key={video.id}
-                                  url={video.url}
-                                  durationSec={video.duration_sec}
-                                  label={t('panel.media.videoOf', { step: stepTitle })}
-                                  className="w-20"
-                                />
-                              ),
-                            )}
+                            {/* A video without a link says so in its tile,
+                                rather than leaving the step looking unfilmed. */}
+                            {videos.map((video) => (
+                              <VideoTile
+                                key={video.id}
+                                url={video.url}
+                                durationSec={video.duration_sec}
+                                label={t('panel.media.videoOf', { step: stepTitle })}
+                              />
+                            ))}
                           </div>
                         )}
                       </li>

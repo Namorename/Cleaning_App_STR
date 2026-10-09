@@ -16,7 +16,7 @@ import type { Photo } from './api';
 export type ShownMedia = Photo & { kind?: MediaKind; duration_sec?: number | null };
 
 interface ProblemPhotosProps {
-  photos: readonly ShownMedia[];
+  media: readonly ShownMedia[];
   /** What to say when there is nothing to show. */
   emptyText: string;
   /** Whose video this is, for a screen reader: the step's name. */
@@ -27,48 +27,63 @@ const TILE_PLACEHOLDER =
   'flex size-24 items-center justify-center rounded-md border text-xs text-muted-foreground';
 
 /** Thumbnails that open the full photo in a new tab; a video plays where it stands. */
-export function ProblemPhotos({ photos, emptyText, videoLabel }: ProblemPhotosProps) {
-  const { t } = useTranslation();
-
-  if (photos.length === 0) {
+export function ProblemPhotos({ media, emptyText, videoLabel }: ProblemPhotosProps) {
+  if (media.length === 0) {
     return <EmptyState>{emptyText}</EmptyState>;
   }
 
   return (
     <ul className="flex flex-wrap gap-2">
-      {photos.map((photo, index) => (
-        <li key={photo.id}>
-          {photo.kind === 'video' ? (
-            photo.url === null ? (
-              <span className={TILE_PLACEHOLDER}>{t('panel.media.videoUnavailable')}</span>
-            ) : (
-              <VideoTile
-                url={photo.url}
-                durationSec={photo.duration_sec ?? null}
-                label={
-                  videoLabel === undefined
-                    ? `${t('panel.media.video')} ${index + 1}`
-                    : t('panel.media.videoOf', { step: videoLabel })
-                }
-                className="w-24"
-              />
-            )
-          ) : photo.url === null ? (
-            <span className={TILE_PLACEHOLDER}>{t('problems.noPhotos')}</span>
-          ) : (
-            <a href={photo.url} target="_blank" rel="noreferrer" className="relative block size-24">
-              {/* eslint-disable-next-line @next/next/no-img-element -- signed, short-lived storage links */}
-              <img
-                src={photo.url}
-                alt={`${t('panel.problems.detail.photos')} ${index + 1}`}
-                className="size-24 rounded-md border object-cover"
-                loading="lazy"
-              />
-              <PhotoSource source={photo.source} />
-            </a>
-          )}
+      {media.map((item, index) => (
+        <li key={item.id}>
+          <MediaTile item={item} index={index} videoLabel={videoLabel} />
         </li>
       ))}
     </ul>
+  );
+}
+
+interface MediaTileProps {
+  item: ShownMedia;
+  /** Its place in the list, for a name when nothing better is known. */
+  index: number;
+  videoLabel?: string;
+}
+
+/**
+ * One file as what it is: a video as a player — which says itself when it
+ * cannot be shown — a photo as a picture that opens larger, and a photo
+ * storage would not sign as a line saying so.
+ */
+function MediaTile({ item, index, videoLabel }: MediaTileProps) {
+  const { t } = useTranslation();
+
+  if (item.kind === 'video') {
+    return (
+      <VideoTile
+        url={item.url}
+        durationSec={item.duration_sec ?? null}
+        label={
+          videoLabel === undefined
+            ? `${t('panel.media.video')} ${index + 1}`
+            : t('panel.media.videoOf', { step: videoLabel })
+        }
+      />
+    );
+  }
+  if (item.url === null) {
+    return <span className={TILE_PLACEHOLDER}>{t('problems.noPhotos')}</span>;
+  }
+  return (
+    <a href={item.url} target="_blank" rel="noreferrer" className="relative block size-24">
+      {/* eslint-disable-next-line @next/next/no-img-element -- signed, short-lived storage links */}
+      <img
+        src={item.url}
+        alt={`${t('panel.problems.detail.photos')} ${index + 1}`}
+        className="size-24 rounded-md border object-cover"
+        loading="lazy"
+      />
+      <PhotoSource source={item.source} />
+    </a>
   );
 }

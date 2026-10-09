@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, test } from 'vitest';
 
 import { formatVideoDuration, groupByStep, stepMediaListSchema } from '../schema';
@@ -100,5 +100,89 @@ describe('VideoTile', () => {
     expect(link).toHaveAttribute('href', URL);
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', 'noreferrer');
+  });
+
+  // Design decision 5: every target other than the phone's main buttons is at least 48.
+  test('the link that opens it is a 48 px target', () => {
+    render(<VideoTile url={URL} durationSec={65} label="Видео" />);
+
+    const link = screen.getByRole('link', { name: 'Открыть видео в новой вкладке' });
+    expect(link).toHaveClass('min-h-12', 'min-w-12');
+  });
+
+  // A phone films upright: a square that crops would cut off the top and the bottom.
+  test('shows the whole frame, a portrait video included, in a player wide enough for its controls', () => {
+    render(<VideoTile url={URL} durationSec={65} label="Видео" />);
+
+    const video = screen.getByLabelText('Видео');
+    expect(video).toHaveClass('object-contain');
+    expect(video).not.toHaveClass('object-cover');
+    expect(video.closest('figure')).toHaveClass('w-64');
+  });
+});
+
+describe('VideoTile — a link signed again', () => {
+  const FRESH = 'https://project.supabase.co/storage/v1/object/sign/task-media/a.mp4?token=t2';
+  const FRESHER = 'https://project.supabase.co/storage/v1/object/sign/task-media/a.mp4?token=t3';
+
+  // The work queries sign every file again on each fetch; a focus refetch
+  // after the stale time would otherwise reload the player and restart it at 0:00.
+  test('keeps playing the link it started with when a refetch hands it a fresh one', () => {
+    const { rerender } = render(<VideoTile url={URL} durationSec={65} label="Видео" />);
+
+    rerender(<VideoTile url={FRESH} durationSec={65} label="Видео" />);
+
+    expect(screen.getByLabelText('Видео')).toHaveAttribute('src', URL);
+  });
+
+  // An hour on, the link it started with has expired: only then is the fresh one taken.
+  test('takes the newest link when the one it plays fails', () => {
+    const { rerender } = render(<VideoTile url={URL} durationSec={65} label="Видео" />);
+    rerender(<VideoTile url={FRESH} durationSec={65} label="Видео" />);
+    rerender(<VideoTile url={FRESHER} durationSec={65} label="Видео" />);
+
+    fireEvent.error(screen.getByLabelText('Видео'));
+
+    expect(screen.getByLabelText('Видео')).toHaveAttribute('src', FRESHER);
+  });
+});
+
+describe('VideoTile — a video that cannot be shown', () => {
+  // An HEVC .mov from an iPhone does not play in Chrome: the element errors
+  // with no newer link to try, and a black square with dead controls says nothing.
+  test('says it is unavailable and still offers to open it in a new tab', () => {
+    render(<VideoTile url={URL} durationSec={65} label="Видео" />);
+
+    fireEvent.error(screen.getByLabelText('Видео'));
+
+    expect(document.querySelector('video')).toBeNull();
+    expect(screen.getByText('Видео недоступно')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Открыть видео в новой вкладке' })).toHaveAttribute(
+      'href',
+      URL,
+    );
+  });
+
+  test('a link that failed after a fresh one was taken falls back the same way', () => {
+    const fresh = `${URL}2`;
+    const { rerender } = render(<VideoTile url={URL} durationSec={65} label="Видео" />);
+    rerender(<VideoTile url={fresh} durationSec={65} label="Видео" />);
+
+    fireEvent.error(screen.getByLabelText('Видео'));
+    fireEvent.error(screen.getByLabelText('Видео'));
+
+    expect(screen.getByText('Видео недоступно')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Открыть видео в новой вкладке' })).toHaveAttribute(
+      'href',
+      fresh,
+    );
+  });
+
+  test('a video storage would not sign says so, with nothing to open', () => {
+    render(<VideoTile url={null} durationSec={30} label="Видео" />);
+
+    expect(document.querySelector('video')).toBeNull();
+    expect(screen.getByText('Видео недоступно')).toBeInTheDocument();
+    expect(screen.queryByRole('link')).toBeNull();
   });
 });

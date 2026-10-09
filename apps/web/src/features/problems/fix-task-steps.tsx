@@ -47,7 +47,7 @@ export function FixTaskSteps({ taskId }: FixTaskStepsProps) {
               <Badge tone={STATUS_TONE[`steps.${state}`]}>{t(`steps.state.${state}`)}</Badge>
             </div>
             {media.length > 0 ? (
-              <ProblemPhotos photos={media} emptyText={t('problems.noPhotos')} videoLabel={title} />
+              <ProblemPhotos media={media} emptyText={t('problems.noPhotos')} videoLabel={title} />
             ) : null}
           </li>
         );
