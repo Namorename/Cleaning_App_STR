@@ -1,4 +1,5 @@
 import { CameraView, type CameraRecordingOptions } from 'expo-camera';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AccessibilityInfo, AppState, Platform, ScrollView, StyleSheet, View } from 'react-native';
@@ -36,6 +37,16 @@ const MS_PER_SECOND = 1000;
 const SPACE_FACTOR = 1.2;
 /** A recording cut off by the app going away is kept only from a second up. */
 const MIN_KEPT_SEC = 1;
+/**
+ * The screen's own lock against sleep while a recording runs: a phone that
+ * locks after half a minute untouched would otherwise cut a longer one.
+ */
+const KEEP_AWAKE_TAG = 'video-recording';
+
+/** Let the screen sleep again; a lock already released is not an error. */
+function releaseScreen(): void {
+  deactivateKeepAwake(KEEP_AWAKE_TAG).catch(reportError);
+}
 
 /**
  * On an iPhone the bitrate holds only with an explicit codec, and H.264 plays
@@ -114,11 +125,22 @@ export function VideoRecorder({ limits, onRecorded }: VideoRecorderProps) {
     const subscription = AppState.addEventListener('change', (state) => {
       isInBackground.current = state === 'background';
       if (state === 'background') {
+        releaseScreen();
         stop('background');
       }
     });
     return () => subscription.remove();
   }, [stop]);
+
+  // Awake from the moment a recording starts until it is over, or the screen is gone.
+  const isRecordingNow = startedAt !== null;
+  useEffect(() => {
+    if (!isRecordingNow) {
+      return;
+    }
+    activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(reportError);
+    return releaseScreen;
+  }, [isRecordingNow]);
 
   // The countdown, and the stop the camera should have made itself.
   useEffect(() => {

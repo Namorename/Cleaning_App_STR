@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { router } from 'expo-router';
 import {
   AccessibilityInfo,
@@ -181,6 +182,12 @@ jest.mock('expo-video', () => {
     },
   };
 });
+
+// The screen's own lock against sleep, at the test boundary.
+jest.mock('expo-keep-awake', () => ({
+  activateKeepAwakeAsync: jest.fn(async () => undefined),
+  deactivateKeepAwake: jest.fn(async () => undefined),
+}));
 
 /** Free space on the phone, in bytes; null where the phone cannot say. */
 const mockDisk: { free: number | null } = { free: null };
@@ -733,6 +740,92 @@ describe('the camera and the microphone', () => {
     await render(<RecordRoute />);
 
     expect(screen.getByText('Нет доступа к камере и микрофону')).toBeTruthy();
+  });
+
+  // The camera refused at the first question, then allowed in the phone's
+  // settings: the microphone behind it was never asked, and is asked now —
+  // not waited for behind «Включаем камеру…».
+  test('a camera allowed in the settings after a refusal brings the microphone’s question', async () => {
+    // Arrange
+    mockPermissions.camera = NEVER_ASKED;
+    mockPermissions.microphone = NEVER_ASKED;
+    mockPermissions.answers = { camera: REFUSED, microphone: GRANTED };
+    await render(<RecordRoute />);
+    expect(await screen.findByText('Нет доступа к камере')).toBeTruthy();
+
+    // Act: she allows the camera in the settings and comes back.
+    mockPermissions.camera = GRANTED;
+    await moveApp('active');
+
+    // Assert
+    expect(await screen.findByTestId('camera-preview')).toBeTruthy();
+    expect(mockPermissions.asked).toEqual(['camera', 'microphone']);
+  });
+
+  // A question put away without an answer leaves the permission unasked: the
+  // screen says what is missing rather than waiting for an answer nobody gives.
+  test('a microphone still unanswered after its question is named, and can be asked again', async () => {
+    mockPermissions.microphone = NEVER_ASKED;
+    mockPermissions.answers = { camera: GRANTED, microphone: NEVER_ASKED };
+
+    await render(<RecordRoute />);
+
+    expect(await screen.findByText('Нет доступа к микрофону')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Разрешить доступ' })).toBeTruthy();
+    expect(mockPermissions.asked).toContain('microphone');
+  });
+});
+
+// A phone locks itself after half a minute untouched; a recording of ninety
+// seconds would be cut by its own screen going dark.
+describe('the screen while recording', () => {
+  test('stays awake from «Записать» to «Стоп», under one tag', async () => {
+    // Arrange
+    await render(<RecordRoute />);
+    expect(activateKeepAwakeAsync).not.toHaveBeenCalled();
+
+    // Act
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+
+    // Assert
+    expect(activateKeepAwakeAsync).toHaveBeenCalledTimes(1);
+    const [tag] = jest.mocked(activateKeepAwakeAsync).mock.calls[0];
+    expect(tag).toEqual(expect.any(String));
+    expect(deactivateKeepAwake).not.toHaveBeenCalled();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Стоп' }));
+
+    expect(deactivateKeepAwake).toHaveBeenCalledWith(tag);
+  });
+
+  test('may sleep again once she leaves in the middle of a recording', async () => {
+    const { unmount } = await render(<RecordRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+    const [tag] = jest.mocked(activateKeepAwakeAsync).mock.calls[0];
+
+    await unmount();
+
+    expect(deactivateKeepAwake).toHaveBeenCalledWith(tag);
+  });
+
+  test('may sleep again the moment the app is put away, before the file is in', async () => {
+    // The camera takes its time to hand the file over.
+    mockCamera.stopRecording.mockImplementation(() => undefined);
+    await render(<RecordRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+    const [tag] = jest.mocked(activateKeepAwakeAsync).mock.calls[0];
+
+    await moveApp('background');
+
+    expect(deactivateKeepAwake).toHaveBeenCalledWith(tag);
+  });
+
+  test('is not held awake before anything is recorded', async () => {
+    const { unmount } = await render(<RecordRoute />);
+
+    await unmount();
+
+    expect(activateKeepAwakeAsync).not.toHaveBeenCalled();
   });
 });
 
