@@ -55,10 +55,14 @@ jest.mock('@/features/board/use-board', () => {
         fix_tasks: [],
       },
       error: null,
+      // Read from the server since the screen opened: the moves are offered.
+      isFetchedAfterMount: true,
+      refetch: jest.fn(),
     }),
-    useStaffDirectory: () => ({ data: [], error: null }),
+    useStaffDirectory: () => ({ data: [], error: null, refetch: jest.fn() }),
     useAssignProblem: idle,
     useUnassignProblem: idle,
+    useDispatchInFlight: () => ({ isMoving: false, isMovingNow: () => false }),
   };
 });
 
