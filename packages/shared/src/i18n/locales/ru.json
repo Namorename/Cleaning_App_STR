@@ -1135,6 +1135,8 @@
     "retryUpload": "Повторить загрузку",
     "mediaUploaded": "Загружено",
     "mediaUploading": "Загружается…",
+    "mediaUploadingPercent": "Загружается… {{percent}} %",
+    "mediaWaitingForNetwork": "Ждёт сети",
     "mediaFailed": "Не загрузилось",
     "mediaEmpty": "Пока ничего не снято",
     "photosHint_one": "Снимите камерой не меньше {{count}} фото",

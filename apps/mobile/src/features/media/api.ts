@@ -1,8 +1,13 @@
 import type { Database } from '@str-ops/shared';
+import { onlineManager } from '@tanstack/react-query';
 
+import { env } from '@/lib/env';
+import { reportError } from '@/lib/sentry';
 import { supabase } from '@/lib/supabase';
 
-import { readFileBytes } from './file';
+import { appPresence } from './app-presence';
+import { openFileChunks, readFileBytes } from './file';
+import { loadLocalMedia, rememberUploadUrl } from './local-store';
 import {
   MEDIA_BUCKET,
   taskMediaListSchema,
@@ -10,6 +15,7 @@ import {
   type MediaKind,
   type TaskMedia,
 } from './schema';
+import { tusUpload, type TusRuntime } from './tus';
 
 const MEDIA_COLUMNS =
   'id, task_id, step_id, problem_id, kind, storage_path, mime_type, duration_sec, ' +
@@ -195,6 +201,75 @@ export async function uploadMediaFile(
   if (error && !isAlreadyUploaded(error)) {
     throw error;
   }
+}
+
+/** Supabase Storage's resumable endpoint (TUS), on the project the app talks to. */
+const RESUMABLE_ENDPOINT = `${env.supabaseUrl}/storage/v1/upload/resumable`;
+
+/** The app's network, clock and place in front, as the resumable upload uses them. */
+const resumableRuntime: TusRuntime = {
+  fetch: (url, init) => fetch(url, init),
+  sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  presence: appPresence,
+  isOnline: () => onlineManager.isOnline(),
+};
+
+/**
+ * The signed-in session's token, read before every request: a long upload
+ * outlives the token it started with, and auth-js refreshes it as it reads.
+ * A refresh is asked for only once the storage has turned the token down.
+ */
+async function accessToken(refresh: boolean): Promise<string> {
+  const { data, error } = refresh
+    ? await supabase.auth.refreshSession()
+    : await supabase.auth.getSession();
+  if (error) {
+    throw error;
+  }
+  const token = data.session?.access_token;
+  if (token === undefined) {
+    throw new Error('No signed-in session to upload the video with');
+  }
+  return token;
+}
+
+export interface VideoUpload {
+  mediaId: string;
+  storagePath: string;
+  uri: string;
+  mimeType: string;
+  onProgress?: (sent: number, total: number) => void;
+}
+
+/**
+ * Put a video onto the path the server assigned, in pieces, resuming where an
+ * earlier attempt stopped (docs/tech-plan.md §7.5).
+ *
+ * The upload's address is kept in the capture's local record the moment the
+ * storage gives it, so a retry after a dropped network, a restart of the app
+ * or its return from the background asks the storage how much arrived and
+ * carries on from there. As with a photo, a file the storage already holds
+ * counts as uploaded; nothing is ever overwritten (no `x-upsert`).
+ */
+export async function uploadVideoFile(upload: VideoUpload): Promise<void> {
+  const stored = (await loadLocalMedia())[upload.mediaId]?.uploadUrl ?? null;
+  await tusUpload(
+    {
+      endpoint: RESUMABLE_ENDPOINT,
+      apiKey: env.supabasePublishableKey,
+      bucket: MEDIA_BUCKET,
+      objectName: upload.storagePath,
+      contentType: upload.mimeType,
+      uploadUrl: stored,
+      // Only what makes a later attempt resume: a ledger that could not be
+      // written costs a restart from the first byte, not this upload.
+      saveUploadUrl: (url) => rememberUploadUrl(upload.mediaId, url).catch(reportError),
+      accessToken,
+      openSource: () => openFileChunks(upload.uri),
+      onProgress: upload.onProgress,
+    },
+    resumableRuntime,
+  );
 }
 
 /**

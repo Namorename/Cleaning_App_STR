@@ -24,7 +24,9 @@ import {
   useRememberLocalMedia,
   useRemoveMedia,
   useTaskMedia,
+  useUploadProgress,
   useUploadingMediaIds,
+  useWaitingMediaIds,
 } from '@/features/media/use-media';
 import { stepTitle } from '@/features/steps/format';
 import { StepScreen, StepScreenSkeleton } from '@/features/steps/step-screen';
@@ -81,6 +83,9 @@ export default function StepRoute() {
   const rememberLocal = useRememberLocalMedia();
   const local = useLocalMedia();
   const uploading = useUploadingMediaIds();
+  // What the tiles say of a file on its way: waiting for signal, how much has gone.
+  const waiting = useWaitingMediaIds();
+  const progress = useUploadProgress();
   // A video is sent from the recording screen; its refusal comes back here.
   const videoAttachError = useFailedVideoAttach(stepId);
   const galleryAllowed = useGalleryAllowed();
@@ -99,8 +104,12 @@ export default function StepRoute() {
   );
   const urls = useMediaUrls(remotePaths);
   const mediaItems = useMemo(
-    () => mediaItemViews(stepMedia, local.data ?? {}, urls.data ?? {}, uploading),
-    [stepMedia, local.data, urls.data, uploading],
+    () =>
+      mediaItemViews(stepMedia, local.data ?? {}, urls.data ?? {}, uploading, {
+        waiting,
+        progress,
+      }),
+    [stepMedia, local.data, urls.data, uploading, waiting, progress],
   );
 
   // The first opening is stamped once per visit, and only when there is

@@ -19,11 +19,20 @@ const recordSchema = z.object({
   // said nothing, and nothing must not become a claim of 'camera'. The server
   // reads an absent source the same way.
   source: z.enum(['camera', 'gallery']).optional(),
+  // Where a resumable upload of this file stands in storage (a video's: the
+  // TUS upload's address), so a retry after a dropped network, a restart or
+  // the app's return from the background resumes rather than starts over.
+  // Defaulted: a record of the build before it has none, and still reads.
+  uploadUrl: z.string().nullable().default(null),
 });
 
 const storeSchema = z.record(z.string(), recordSchema);
 
-export type LocalMediaRecord = z.infer<typeof recordSchema>;
+/**
+ * A record as it is written: `uploadUrl` may be left out — a capture has none
+ * until its upload begins — and reads back as null.
+ */
+export type LocalMediaRecord = z.input<typeof recordSchema>;
 export type LocalMediaStore = Record<string, LocalMediaRecord>;
 
 /**
@@ -72,6 +81,20 @@ async function saveLocalMedia(store: LocalMediaStore): Promise<void> {
   await AsyncStorage.setItem(STORE_KEY, JSON.stringify(store));
 }
 
+let writes: Promise<unknown> = Promise.resolve();
+
+/**
+ * One change of the ledger at a time. Each reads the whole store and writes
+ * it back; two at once — an upload saving its address while another photo is
+ * remembered — would each write what the other had not seen, and one of them
+ * would be lost.
+ */
+function serialized<T>(change: () => Promise<T>): Promise<T> {
+  const done = writes.then(change, change);
+  writes = done.catch(() => undefined);
+  return done;
+}
+
 export function toLocalRecord(captured: CapturedMedia): LocalMediaRecord {
   return {
     id: captured.id,
@@ -87,14 +110,34 @@ export function toLocalRecord(captured: CapturedMedia): LocalMediaRecord {
   };
 }
 
-export async function rememberLocalMedia(record: LocalMediaRecord): Promise<LocalMediaStore> {
-  const store = { ...(await loadLocalMedia()), [record.id]: record };
-  await saveLocalMedia(store);
-  return store;
+export function rememberLocalMedia(record: LocalMediaRecord): Promise<LocalMediaStore> {
+  return serialized(async () => {
+    const store = { ...(await loadLocalMedia()), [record.id]: record };
+    await saveLocalMedia(store);
+    return store;
+  });
 }
 
-export async function forgetLocalMedia(mediaId: string): Promise<LocalMediaStore> {
-  const { [mediaId]: _forgotten, ...rest } = await loadLocalMedia();
-  await saveLocalMedia(rest);
-  return rest;
+export function forgetLocalMedia(mediaId: string): Promise<LocalMediaStore> {
+  return serialized(async () => {
+    const { [mediaId]: _forgotten, ...rest } = await loadLocalMedia();
+    await saveLocalMedia(rest);
+    return rest;
+  });
+}
+
+/**
+ * Keep the address of a capture's resumable upload — or let go of it (null)
+ * once the storage says it has expired. A capture the phone does not
+ * remember gets no record of its own from this.
+ */
+export function rememberUploadUrl(mediaId: string, uploadUrl: string | null): Promise<void> {
+  return serialized(async () => {
+    const store = await loadLocalMedia();
+    const record = store[mediaId];
+    if (record === undefined) {
+      return;
+    }
+    await saveLocalMedia({ ...store, [mediaId]: { ...record, uploadUrl } });
+  });
 }

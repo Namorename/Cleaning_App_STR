@@ -135,6 +135,10 @@ export interface MediaItemView {
   uri: string | null;
   status: MediaStatus;
   durationSec: number | null;
+  /** Still uploading, but paused by the queue until there is signal. */
+  isWaitingForNetwork?: boolean;
+  /** Still uploading: the share of the file sent so far, 0 to 1, where it is known. */
+  progress?: number;
 }
 
 /**

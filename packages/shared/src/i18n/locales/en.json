@@ -1125,6 +1125,8 @@
     "retryUpload": "Retry upload",
     "mediaUploaded": "Uploaded",
     "mediaUploading": "Uploading…",
+    "mediaUploadingPercent": "Uploading… {{percent}}%",
+    "mediaWaitingForNetwork": "Waiting for network",
     "mediaFailed": "Not uploaded",
     "mediaEmpty": "Nothing taken yet",
     "photosHint_one": "Take at least {{count}} photo with the camera",

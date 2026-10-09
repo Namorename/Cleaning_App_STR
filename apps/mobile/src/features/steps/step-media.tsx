@@ -1,5 +1,6 @@
 import { STATUS_TONE, statusIcon } from '@str-ops/shared';
 import { Image } from 'expo-image';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
@@ -137,15 +138,36 @@ interface MediaTileProps {
   onRetry: (mediaId: string) => void;
 }
 
+/** How much of a file on its way has gone, in whole percent; null when unknown or not moving. */
+function sentPercent(item: MediaItemView): number | null {
+  if (item.status !== 'uploading' || item.isWaitingForNetwork === true) {
+    return null;
+  }
+  return item.progress === undefined ? null : Math.floor(item.progress * 100);
+}
+
+function statusTextOf(item: MediaItemView, percent: number | null, t: TFunction): string {
+  if (item.status === 'uploaded') {
+    return t('steps.mediaUploaded');
+  }
+  if (item.status === 'failed') {
+    return t('steps.mediaFailed');
+  }
+  if (item.isWaitingForNetwork === true) {
+    return t('steps.mediaWaitingForNetwork');
+  }
+  return percent === null
+    ? t('steps.mediaUploading')
+    : t('steps.mediaUploadingPercent', { percent });
+}
+
 function MediaTile({ item, index, disabled, onRemove, onRetry }: MediaTileProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
-  const statusText =
-    item.status === 'uploaded'
-      ? t('steps.mediaUploaded')
-      : item.status === 'uploading'
-        ? t('steps.mediaUploading')
-        : t('steps.mediaFailed');
+  // A video goes up in pieces and says how far it has got: in words, to the
+  // reader as a value, and as a bar under its length.
+  const percent = sentPercent(item);
+  const statusText = statusTextOf(item, percent, t);
   const label =
     item.kind === 'video'
       ? t('steps.videoAccessibility', { status: statusText })
@@ -158,7 +180,11 @@ function MediaTile({ item, index, disabled, onRemove, onRetry }: MediaTileProps)
 
   return (
     <View style={styles.tile}>
-      <View accessible accessibilityLabel={label}>
+      <View
+        accessible
+        accessibilityLabel={label}
+        accessibilityValue={percent === null ? undefined : { min: 0, max: 100, now: percent }}
+      >
         {item.kind === 'photo' && item.uri !== null ? (
           <Image source={{ uri: item.uri }} contentFit="cover" style={layout.picture} />
         ) : (
@@ -171,8 +197,17 @@ function MediaTile({ item, index, disabled, onRemove, onRetry }: MediaTileProps)
           </View>
         )}
 
+        {percent !== null ? (
+          <View style={styles.progressTrack}>
+            <View
+              testID="media-progress-fill"
+              style={[styles.progressFill, { width: `${percent}%` }]}
+            />
+          </View>
+        ) : null}
+
         <View style={layout.tileFooter}>
-          <TileStatus status={item.status} />
+          <TileStatus status={item.status} isWaiting={item.isWaitingForNetwork === true} />
           <Text
             variant="caption"
             tone={item.status === 'failed' ? 'danger' : 'secondary'}
@@ -211,12 +246,20 @@ function MediaTile({ item, index, disabled, onRemove, onRetry }: MediaTileProps)
 
 interface TileStatusProps {
   status: MediaItemView['status'];
+  /** On its way, but held by the queue until there is signal. */
+  isWaiting: boolean;
 }
 
-/** Where a file stands, beside its words: a spinner on its way, ✓ in, ⚠ stranded. */
-function TileStatus({ status }: TileStatusProps) {
+/**
+ * Where a file stands, beside its words: a spinner on its way, ‖ waiting for
+ * signal, ✓ in, ⚠ stranded.
+ */
+function TileStatus({ status, isWaiting }: TileStatusProps) {
   const theme = useTheme();
 
+  if (status === 'uploading' && isWaiting) {
+    return <Icon testID="media-status-icon" name="status.paused" size="small" tone="secondary" />;
+  }
   if (status === 'uploading') {
     return <ActivityIndicator size="small" color={theme.textSecondary} />;
   }
@@ -236,6 +279,8 @@ function TileStatus({ status }: TileStatusProps) {
 }
 
 const TILE_SIZE = 150;
+/** The upload bar under a video's length. */
+const PROGRESS_HEIGHT = 4;
 
 /** Sizes only: nothing here depends on the colour scheme. */
 const layout = StyleSheet.create({
@@ -272,5 +317,14 @@ const createStyles = (theme: Theme) =>
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: theme.surfaceAlt,
+    },
+    // A line under the picture, not text: its height is its look.
+    progressTrack: {
+      height: PROGRESS_HEIGHT,
+      backgroundColor: theme.divider,
+    },
+    progressFill: {
+      height: PROGRESS_HEIGHT,
+      backgroundColor: theme.tone[STATUS_TONE['media.uploading']].mark,
     },
   });

@@ -1135,6 +1135,8 @@
     "retryUpload": "Zkusit nahrát znovu",
     "mediaUploaded": "Nahráno",
     "mediaUploading": "Nahrává se…",
+    "mediaUploadingPercent": "Nahrává se… {{percent}} %",
+    "mediaWaitingForNetwork": "Čeká na síť",
     "mediaFailed": "Nenahráno",
     "mediaEmpty": "Zatím nic nevyfoceno",
     "photosHint_one": "Vyfoťte fotoaparátem alespoň {{count}} fotku",

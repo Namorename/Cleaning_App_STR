@@ -178,6 +178,64 @@ test('a video step records one video and shows its length', async () => {
   expect(screen.getByRole('button', { name: 'Записать видео' })).toBeDisabled();
 });
 
+describe('a video on its way', () => {
+  function renderVideo(overrides: Partial<MediaItemView>) {
+    return render(
+      <StepMedia
+        kind="video"
+        items={[item({ kind: 'video', uri: null, durationSec: 20.5, ...overrides })]}
+        limits={{ min: 1, max: 10 }}
+        maxVideoSec={90}
+        isCapturing={false}
+        disabled={false}
+        {...handlers}
+      />,
+    );
+  }
+
+  test('shows how much of it has gone, to the eye and to the reader, with its length', async () => {
+    await renderVideo({ status: 'uploading', progress: 0.426 });
+
+    const tile = screen.getByLabelText('Видео. Загружается… 42 %');
+    expect(tile.props.accessibilityValue).toEqual({ min: 0, max: 100, now: 42 });
+    expect(screen.getByText('Загружается… 42 %')).toBeTruthy();
+    expect(screen.getByText('Видео · 20.5 с')).toBeTruthy();
+    expect(screen.getByTestId('media-progress-fill').props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ width: '42%' })]),
+    );
+  });
+
+  test('before its first piece has gone, says it is on its way, without a number', async () => {
+    await renderVideo({ status: 'uploading' });
+
+    const tile = screen.getByLabelText('Видео. Загружается…');
+    expect(tile.props.accessibilityValue).toBeUndefined();
+    expect(screen.queryByTestId('media-progress-fill')).toBeNull();
+  });
+
+  test('waiting for signal says so, not that it is uploading', async () => {
+    await renderVideo({ status: 'uploading', progress: 0.42, isWaitingForNetwork: true });
+
+    const tile = screen.getByLabelText('Видео. Ждёт сети');
+    expect(tile.props.accessibilityValue).toBeUndefined();
+    expect(screen.getByText('Ждёт сети')).toBeTruthy();
+    expect(screen.getByText('Видео · 20.5 с')).toBeTruthy();
+    // Paused, not spinning: the glyph of a pause beside the words.
+    const box = within(tile).getByTestId('media-status-icon', { includeHiddenElements: true });
+    const [drawing] = box.children;
+    expect(String(typeof drawing === 'object' ? drawing.props.className : drawing)).toContain(
+      'lucide-pause',
+    );
+  });
+
+  test('once it has arrived, the number goes', async () => {
+    await renderVideo({ status: 'uploaded', progress: 1 });
+
+    expect(screen.getByLabelText('Видео. Загружено').props.accessibilityValue).toBeUndefined();
+    expect(screen.queryByTestId('media-progress-fill')).toBeNull();
+  });
+});
+
 test('offers nothing to change once the step is closed', async () => {
   await render(
     <StepMedia

@@ -5,7 +5,7 @@ import {
   useQueryClient,
   type QueryClient,
 } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 
 import { useSession } from '@/features/auth/session';
 import { sendMessage, type SendMessageVariables } from '@/features/chat/api';
@@ -22,6 +22,7 @@ import {
   removeMedia,
   signedMediaUrls,
   uploadMediaFile,
+  uploadVideoFile,
   type AddMediaVariables,
   type MediaOwnerRef,
 } from './api';
@@ -35,6 +36,13 @@ import {
   type LocalMediaRecord,
 } from './local-store';
 import type { MediaItemView, TaskMedia } from './schema';
+import {
+  clearUploadProgress,
+  reportUploadProgress,
+  subscribeUploadProgress,
+  uploadProgressSnapshot,
+  type UploadProgress,
+} from './upload-progress';
 
 export const mediaMutationKeys = {
   attach: ['media', 'attach'] as const,
@@ -109,12 +117,18 @@ function dropFailedAttempts(queryClient: QueryClient, mediaId: string): void {
  * started again from the top: the row is returned rather than duplicated,
  * the duplicate object is read as already there, the confirmation returns a
  * confirmed row as it is.
+ *
+ * A photo goes up in one request. A video goes in pieces and resumes where
+ * the last attempt stopped (`attachVideo`).
  */
 export async function attachMedia(variables: AttachMediaVariables): Promise<TaskMedia> {
   if (variables.message !== undefined) {
     await sendMessage(variables.message);
   }
   const row = await addMedia(variables);
+  if (variables.kind === 'video') {
+    return attachVideo(row, variables);
+  }
   try {
     await uploadMediaFile(row.storage_path, variables.uri, variables.mimeType);
   } catch (error: unknown) {
@@ -127,6 +141,25 @@ export async function attachMedia(variables: AttachMediaVariables): Promise<Task
     throw error;
   }
   return confirmMedia(variables.mediaId);
+}
+
+/**
+ * A video's upload and confirmation.
+ *
+ * Resumable (docs/tech-plan.md §7.5): sent in pieces from the address kept in
+ * its local record, saying how far it has got as it goes.
+ */
+async function attachVideo(row: TaskMedia, variables: AttachMediaVariables): Promise<TaskMedia> {
+  await uploadVideoFile({
+    mediaId: variables.mediaId,
+    storagePath: row.storage_path,
+    uri: variables.uri,
+    mimeType: variables.mimeType,
+    onProgress: (sent, total) => reportUploadProgress(variables.mediaId, sent, total),
+  });
+  const confirmed = await confirmMedia(variables.mediaId);
+  clearUploadProgress(variables.mediaId);
+  return confirmed;
 }
 
 /** Teach the query client how to replay each media action after a restart. */
@@ -337,6 +370,32 @@ export function useUploadingMediaIds(): Set<string> {
 }
 
 /**
+ * Ids of the uploads the queue holds until there is signal again: pending,
+ * and paused rather than running. Their tiles say they wait for the network,
+ * not that they are uploading.
+ */
+export function useWaitingMediaIds(): Set<string> {
+  const variables = useMutationState({
+    filters: {
+      mutationKey: mediaMutationKeys.attach,
+      status: 'pending',
+      predicate: (mutation) => mutation.state.isPaused,
+    },
+    select: (mutation) => (mutation.state.variables as AttachMediaVariables | undefined)?.mediaId,
+  });
+
+  return useMemo(
+    () => new Set(variables.filter((id): id is string => typeof id === 'string')),
+    [variables],
+  );
+}
+
+/** How far each video upload of this run has got, by media id (`upload-progress.ts`). */
+export function useUploadProgress(): UploadProgress {
+  return useSyncExternalStore(subscribeUploadProgress, uploadProgressSnapshot);
+}
+
+/**
  * Why the queue gave up on this step's video, or null.
  *
  * A video is handed to the queue by the recording screen, which has gone by
@@ -369,20 +428,41 @@ export function useFailedVideoAttach(stepId: string): Error | null {
  * Where the picture comes from: the file on the phone when we still have it,
  * otherwise a signed link. Where the item stands: confirmed by the server,
  * still travelling, or stranded — a row without a file and no upload running
- * for it, which happens when the app was killed mid-upload.
+ * for it, which happens when the app was killed mid-upload. A file still
+ * travelling also says, when the queue knows, whether it waits for signal and
+ * how much of it has gone (a video's resumable upload counts its pieces).
  */
 export function mediaItemViews(
   media: readonly TaskMedia[],
   local: Readonly<Record<string, LocalMediaRecord>>,
   urls: Readonly<Record<string, string>>,
   uploading: ReadonlySet<string>,
+  transfers: MediaTransfers = {},
 ): MediaItemView[] {
-  return media.map((item) => ({
-    id: item.id,
-    kind: item.kind,
-    uri: local[item.id]?.uri ?? urls[item.storage_path] ?? null,
-    status:
-      item.uploaded_at !== null ? 'uploaded' : uploading.has(item.id) ? 'uploading' : 'failed',
-    durationSec: item.duration_sec,
-  }));
+  return media.map((item) => {
+    const view: MediaItemView = {
+      id: item.id,
+      kind: item.kind,
+      uri: local[item.id]?.uri ?? urls[item.storage_path] ?? null,
+      status:
+        item.uploaded_at !== null ? 'uploaded' : uploading.has(item.id) ? 'uploading' : 'failed',
+      durationSec: item.duration_sec,
+    };
+    if (view.status !== 'uploading') {
+      return view;
+    }
+    return {
+      ...view,
+      isWaitingForNetwork: transfers.waiting?.has(item.id) === true,
+      progress: transfers.progress?.[item.id],
+    };
+  });
+}
+
+/** What the queue knows of the uploads under way, beyond that they are. */
+export interface MediaTransfers {
+  /** Paused until there is signal (`useWaitingMediaIds`). */
+  waiting?: ReadonlySet<string>;
+  /** The share of each file sent so far (`useUploadProgress`). */
+  progress?: UploadProgress;
 }

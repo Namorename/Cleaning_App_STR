@@ -1,6 +1,21 @@
-import { addMedia, uploadMediaFile } from '../api';
+import NetInfo from '@react-native-community/netinfo';
+import { QueryClient, onlineManager } from '@tanstack/react-query';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
+
+import { withClient } from '@/testing/restored-cache';
+
+import { addMedia, confirmMedia, uploadMediaFile, uploadVideoFile } from '../api';
 import type { TaskMedia } from '../schema';
-import { attachMedia, mediaItemViews } from '../use-media';
+import { clearUploadProgress, uploadProgressSnapshot } from '../upload-progress';
+import {
+  attachMedia,
+  mediaItemViews,
+  mediaMutationKeys,
+  useAttachMedia,
+  useUploadProgress,
+  useWaitingMediaIds,
+  type AttachMediaVariables,
+} from '../use-media';
 
 const calls: string[] = [];
 
@@ -19,6 +34,16 @@ jest.mock('../api', () => ({
   uploadMediaFile: jest.fn(async (path: string) => {
     calls.push(`upload:${path}`);
   }),
+  uploadVideoFile: jest.fn(
+    async ({
+      storagePath,
+    }: {
+      storagePath: string;
+      onProgress?: (s: number, t: number) => void;
+    }) => {
+      calls.push(`resumable:${storagePath}`);
+    },
+  ),
   confirmMedia: jest.fn(async (id: string) => {
     calls.push(`confirm:${id}`);
     return { id, uploaded_at: '2026-09-07T10:00:05+00:00' };
@@ -28,16 +53,172 @@ jest.mock('../api', () => ({
   signedMediaUrls: jest.fn(),
 }));
 
-jest.mock('../file', () => ({ discardFile: jest.fn() }));
+jest.mock('../file', () => ({
+  discardFile: jest.fn((uri: string) => {
+    calls.push(`discard:${uri}`);
+  }),
+}));
 jest.mock('../local-store', () => ({
   loadLocalMedia: jest.fn(async () => ({})),
   rememberLocalMedia: jest.fn(),
-  forgetLocalMedia: jest.fn(),
+  forgetLocalMedia: jest.fn(async (id: string) => {
+    calls.push(`forget:${id}`);
+    return {};
+  }),
 }));
 jest.mock('@/features/auth/session', () => ({ useSession: () => ({ userId: 'u1' }) }));
 
 beforeEach(() => {
   calls.length = 0;
+  jest.clearAllMocks();
+});
+
+/** A video of a step, as the recording screen hands it to the queue. */
+const video: AttachMediaVariables = {
+  taskId: 't1',
+  stepId: 's1',
+  uri: 'file:///documents/task-media/m1.mp4',
+  mediaId: 'm1',
+  kind: 'video',
+  mimeType: 'video/mp4',
+  byteSize: 21_000_000,
+  width: null,
+  height: null,
+  durationSec: 12.3,
+  takenAt: '2026-10-09T08:00:00.000Z',
+  source: 'camera',
+};
+
+/** The row add_task_media answers with: a file still on its way, unless said otherwise. */
+function registered(overrides: Partial<TaskMedia> = {}): TaskMedia {
+  return {
+    id: 'm1',
+    task_id: 't1',
+    step_id: 's1',
+    problem_id: null,
+    kind: 'video',
+    storage_path: 'host/task/m1.mp4',
+    mime_type: 'video/mp4',
+    duration_sec: 12.3,
+    device_taken_at: video.takenAt,
+    created_at: video.takenAt,
+    uploaded_at: null,
+    deleted_at: null,
+    ...overrides,
+  };
+}
+
+describe('a video in the chain', () => {
+  beforeEach(() => {
+    jest.mocked(addMedia).mockImplementation(async () => {
+      calls.push('add');
+      return registered();
+    });
+  });
+
+  afterEach(() => {
+    clearUploadProgress('m1');
+    // Back to the photo row the rest of this file registers.
+    jest.mocked(addMedia).mockImplementation(async () => {
+      calls.push('add');
+      return { storage_path: 'host/task/m1.jpg' } as TaskMedia;
+    });
+  });
+
+  test('goes through the resumable upload, not the single request', async () => {
+    await attachMedia(video);
+
+    expect(calls.slice(0, 3)).toEqual(['add', 'resumable:host/task/m1.mp4', 'confirm:m1']);
+    expect(uploadMediaFile).not.toHaveBeenCalled();
+    expect(uploadVideoFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mediaId: 'm1',
+        storagePath: 'host/task/m1.mp4',
+        uri: video.uri,
+        mimeType: 'video/mp4',
+      }),
+    );
+  });
+
+  test('says how far it has got, for the tile to show', async () => {
+    jest.mocked(uploadVideoFile).mockImplementationOnce(async ({ onProgress }) => {
+      onProgress?.(7_000_000, 21_000_000);
+      expect(uploadProgressSnapshot().m1).toBeCloseTo(1 / 3);
+    });
+
+    await attachMedia(video);
+  });
+
+  test('nothing waits for Wi-Fi: the upload sets off as soon as the attach runs', async () => {
+    // Arrange: mobile data, and the queue online.
+    jest.mocked(NetInfo.fetch).mockResolvedValue({
+      type: 'cellular',
+      isConnected: true,
+    } as Awaited<ReturnType<typeof NetInfo.fetch>>);
+    const client = new QueryClient({
+      defaultOptions: { mutations: { networkMode: 'offlineFirst' } },
+    });
+    const { result } = await renderHook(() => useAttachMedia(), { wrapper: withClient(client) });
+
+    // Act
+    await act(async () => {
+      result.current.mutate(video);
+    });
+
+    // Assert
+    await waitFor(() => expect(uploadVideoFile).toHaveBeenCalledTimes(1));
+    expect(NetInfo.fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe('what the tiles read of the queue', () => {
+  test('an upload paused for lack of signal is waiting; one under way is not', async () => {
+    // Arrange: one attach paused offline, one running.
+    const client = new QueryClient();
+    const never = new Promise<TaskMedia>(() => undefined);
+    const start = (id: string, networkMode: 'online' | 'always') => {
+      const mutation = client.getMutationCache().build(client, {
+        mutationKey: mediaMutationKeys.attach,
+        mutationFn: () => never,
+        networkMode,
+      });
+      void mutation.execute({ ...video, mediaId: id });
+    };
+    onlineManager.setOnline(false);
+    try {
+      await act(async () => {
+        start('paused', 'online');
+        start('running', 'always');
+      });
+
+      // Act
+      const { result } = await renderHook(() => useWaitingMediaIds(), {
+        wrapper: withClient(client),
+      });
+
+      // Assert
+      expect([...result.current]).toEqual(['paused']);
+    } finally {
+      onlineManager.setOnline(true);
+    }
+  });
+
+  test('the progress of an upload reaches the screen as it changes', async () => {
+    const { result } = await renderHook(() => useUploadProgress());
+    expect(result.current.m1).toBeUndefined();
+
+    await act(async () => {
+      jest.mocked(addMedia).mockResolvedValueOnce(registered());
+      jest.mocked(uploadVideoFile).mockImplementationOnce(async ({ onProgress }) => {
+        onProgress?.(10, 40);
+      });
+      jest.mocked(confirmMedia).mockImplementationOnce(() => new Promise(() => undefined));
+      void attachMedia(video);
+    });
+
+    await waitFor(() => expect(result.current.m1).toBe(0.25));
+    clearUploadProgress('m1');
+  });
 });
 
 describe('attachMedia', () => {
@@ -153,5 +334,37 @@ describe('mediaItemViews', () => {
     expect(mediaItemViews([base], {}, {}, new Set(['m1']))[0].status).toBe('uploading');
     expect(mediaItemViews([base], {}, {}, new Set())[0].status).toBe('failed');
     expect(mediaItemViews([uploaded], {}, {}, new Set())[0].status).toBe('uploaded');
+  });
+
+  test('a file on its way says how far it has got, and whether it waits for signal', () => {
+    // Arrange
+    const media = [
+      { ...base, id: 'sending', kind: 'video' as const },
+      { ...base, id: 'waiting', kind: 'video' as const },
+      { ...base, id: 'arrived', kind: 'video' as const, uploaded_at: '2026-10-09T08:01:00Z' },
+    ];
+
+    // Act
+    const [sending, waiting, arrived] = mediaItemViews(
+      media,
+      {},
+      {},
+      new Set(['sending', 'waiting']),
+      { waiting: new Set(['waiting']), progress: { sending: 0.4, waiting: 0.7, arrived: 1 } },
+    );
+
+    // Assert
+    expect(sending).toMatchObject({
+      status: 'uploading',
+      progress: 0.4,
+      isWaitingForNetwork: false,
+    });
+    expect(waiting).toMatchObject({
+      status: 'uploading',
+      progress: 0.7,
+      isWaitingForNetwork: true,
+    });
+    expect(arrived.status).toBe('uploaded');
+    expect(arrived.progress).toBeUndefined();
   });
 });

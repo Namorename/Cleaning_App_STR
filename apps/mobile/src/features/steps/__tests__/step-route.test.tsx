@@ -64,8 +64,17 @@ jest.mock('@/features/steps/use-steps', () => {
 /** A video the recording screen sent to this step and the server refused, if any. */
 const mockVideoAttach: { error: unknown } = { error: null };
 
+/** What the queue says of the uploads under way: paused for signal, and how far each has got. */
+const mockTransfers = {
+  waiting: new Set<string>(),
+  progress: {} as Record<string, number>,
+};
+const mockMediaItemViews = jest.fn((..._args: unknown[]) => []);
+
 jest.mock('@/features/media/use-media', () => ({
-  mediaItemViews: () => [],
+  mediaItemViews: (...args: unknown[]) => mockMediaItemViews(...args),
+  useWaitingMediaIds: () => mockTransfers.waiting,
+  useUploadProgress: () => mockTransfers.progress,
   useFailedVideoAttach: () => mockVideoAttach.error,
   useAttachMedia: () => ({ error: null, mutate: jest.fn() }),
   useRemoveMedia: () => ({ error: null, mutate: jest.fn() }),
@@ -252,6 +261,22 @@ describe('a video step of her task under way', () => {
     await render(<StepRoute />);
 
     expect(screen.getByText('Видео снимают камерой приложения, не из галереи.')).toBeTruthy();
+  });
+
+  // The tile of a video on its way says how far it has got, or that it waits
+  // for signal: the screen hands it what the queue knows.
+  test('hands the tiles what the queue knows of each upload under way', async () => {
+    mockSteps.data = [videoStep()];
+    mockVideo.settings = { video_max_sec: 90, video_bitrate_kbps: 2000, video_max_mb: 45 };
+    mockTransfers.waiting = new Set(['m1']);
+    mockTransfers.progress = { m1: 0.5 };
+
+    await render(<StepRoute />);
+
+    expect(mockMediaItemViews).toHaveBeenLastCalledWith([], {}, {}, expect.any(Set), {
+      waiting: mockTransfers.waiting,
+      progress: mockTransfers.progress,
+    });
   });
 
   test('without the company’s settings the camera waits and nothing opens', async () => {
