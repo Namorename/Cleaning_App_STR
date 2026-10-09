@@ -15,17 +15,61 @@ vi.mock('@/lib/supabase/server', () => ({
     auth: { getUser: async () => ({ data: { user: signedIn } }) },
   }),
 }));
-vi.mock('next/headers', () => ({ cookies: async () => ({ get: () => undefined }) }));
+const jar = new Map<string, string>();
+vi.mock('next/headers', () => ({
+  cookies: async () => ({
+    get: (name: string) => (jar.has(name) ? { name, value: jar.get(name) } : undefined),
+  }),
+}));
 
 const redirect = vi.fn((url: string) => {
   throw new Error(`redirect:${url}`);
 });
 vi.mock('next/navigation', () => ({ redirect: (url: string) => redirect(url) }));
 
+import { LanguageSync } from '@/components/language-sync';
+
 import PanelLayout from '../(panel)/layout';
 
 beforeEach(() => {
   redirect.mockClear();
+  jar.clear();
+});
+
+/** Every element of a tree the layout returned, without rendering it. */
+function elementsOf(node: unknown): { type: unknown; props: Record<string, unknown> }[] {
+  if (Array.isArray(node)) {
+    return node.flatMap(elementsOf);
+  }
+  if (node === null || typeof node !== 'object' || !('props' in node)) {
+    return [];
+  }
+  const element = node as { type: unknown; props: Record<string, unknown> };
+  return [element, ...elementsOf(element.props.children)];
+}
+
+// The sign-in sets the cookie from the profile and moves on into the panel
+// without a reload: the shell, rendered afresh with that cookie, is where the
+// open page learns the language (components/language-sync.tsx).
+describe('the panel’s language', () => {
+  test('the shell hands the page the language of the cookie it was rendered with', async () => {
+    signedIn = { email: 'office@test.local', app_metadata: { role: 'manager' } };
+    jar.set('lang', 'cs');
+
+    const shell = await PanelLayout({ children: null });
+
+    const sync = elementsOf(shell).find((element) => element.type === LanguageSync);
+    expect(sync?.props.language).toBe('cs');
+  });
+
+  test('no cookie is the panel’s default language', async () => {
+    signedIn = { email: 'office@test.local', app_metadata: { role: 'admin' } };
+
+    const shell = await PanelLayout({ children: null });
+
+    const sync = elementsOf(shell).find((element) => element.type === LanguageSync);
+    expect(sync?.props.language).toBe('ru');
+  });
 });
 
 describe('the panel’s shell', () => {
