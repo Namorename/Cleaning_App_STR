@@ -32,10 +32,6 @@ export function noteSignedIn(userId: string | null): void {
   signedIn = userId;
 }
 
-export function signedInPerson(): string | null {
-  return signedIn;
-}
-
 /** As much of a move's options as the queue reads. */
 interface MoveOptions {
   meta?: MutationMeta;
@@ -81,10 +77,13 @@ export function waitsForSignal(move: QueuedMove): boolean {
 
 /**
  * A move that may run now: one sent at once or not at all, or one of the
- * queue made by the person signed in.
+ * queue made by the person signed in. With nobody signed in, none of the
+ * queue's (LOW-1 of the review of dab5237..cb747a5): a move made then has no
+ * author either, and has no session to go with — it waits for the first
+ * person signed in, whose it becomes (`adoptMovesWithoutAuthor`).
  */
 function mayRunNow(move: QueuedMove): boolean {
-  return !waitsForSignal(move) || authorOf(move) === signedIn;
+  return !waitsForSignal(move) || (signedIn !== null && authorOf(move) === signedIn);
 }
 
 /** The line a move waits in (TanStack's scope); undefined for a move that waits in none. */
@@ -196,10 +195,6 @@ const queuePeople = new WeakMap<QueryClient, string | null>();
  */
 export function setQueuePerson(client: QueryClient, person: string | null): void {
   queuePeople.set(client, person);
-}
-
-export function queuePersonOf(client: QueryClient): string | null | undefined {
-  return queuePeople.get(client);
 }
 
 /**

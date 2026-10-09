@@ -16,7 +16,9 @@ import { acceptVariables, useAcceptTask, useClaimTask } from '../use-tasks';
  * answer was lost without signal, and the office moved the job back to
  * «assigned», to another day or flat — or the office moved it before her move
  * arrived. Either way the job is hers, and «a colleague took it» or «given to
- * someone else, cancelled» would be a lie. Through the app's own client: the
+ * someone else, cancelled» would be a lie. So would any refusal once her job
+ * is started or done, and «already taken» once it is cancelled (LOW-6 of the
+ * review of dab5237..cb747a5). Through the app's own client: the
  * queue, its retries and its pause without signal, against a server held here
  * as one row.
  */
@@ -198,6 +200,7 @@ async function acceptHook() {
 
 const MOVED_TEXT =
   'Уборку перенесли на другой день или в другое место — проверьте её и примите снова.';
+const CANCELLED_TEXT = 'Эту уборку отменили.';
 
 describe('«Взять» replayed after the office moved the job', () => {
   beforeEach(() => {
@@ -258,6 +261,38 @@ describe('«Взять» replayed after the office moved the job', () => {
       'Уборку уже взяли, либо её срок истёк.',
     );
   });
+
+  test.each([
+    ['started', 'in_progress'],
+    ['done', 'done'],
+  ])('hers and %s since: the take landed, no refusal', async (_name, status) => {
+    // Arrange: her job, moved past the take by the time it is replayed.
+    mockServer.row = { ...CARD, status, assignee_id: CLEANER };
+    const result = await claimHook();
+
+    // Act
+    await act(async () => {
+      result.current.mutate({ taskId: CARD.id, cleanerId: CLEANER });
+    });
+    await letTimePass();
+
+    // Assert
+    expect(result.current.status).toBe('success');
+    expect(result.current.data).toMatchObject({ assignee_id: CLEANER, status });
+  });
+
+  test('hers and cancelled since: told it was cancelled, not «already taken»', async () => {
+    officeMovesIt({ status: 'cancelled' });
+    const result = await claimHook();
+
+    await act(async () => {
+      result.current.mutate({ taskId: CARD.id, cleanerId: CLEANER });
+    });
+    await letTimePass();
+
+    expect(result.current.status).toBe('error');
+    expect(serverErrorText(result.current.error)).toEqual({ text: CANCELLED_TEXT, detail: null });
+  });
 });
 
 describe('«Принять» replayed after the office moved the job', () => {
@@ -312,11 +347,8 @@ describe('«Принять» replayed after the office moved the job', () => {
     expect(serverErrorText(result.current.error).text).toBe(MOVED_TEXT);
   });
 
-  test.each([
-    ['given to a colleague', { assignee_id: COLLEAGUE }],
-    ['cancelled', { status: 'cancelled' }],
-  ])('%s, it is still «given away, moved or cancelled»', async (_name, changes) => {
-    officeMovesIt(changes);
+  test('given to a colleague, it is still «given away, moved or cancelled»', async () => {
+    officeMovesIt({ assignee_id: COLLEAGUE });
     const result = await acceptHook();
 
     await act(async () => {
@@ -327,6 +359,41 @@ describe('«Принять» replayed after the office moved the job', () => {
     expect(serverErrorText(result.current.error).text).toBe(
       'Не удалось принять уборку — её могли передать, перенести или отменить.',
     );
+  });
+
+  test.each([
+    ['started', 'in_progress'],
+    ['done', 'done'],
+  ])(
+    'hers and %s since, on the day and in the flat she saw: the accept landed',
+    async (_name, status) => {
+      // Arrange: her job, moved past the accept by the time it is replayed.
+      mockServer.row = { ...CARD, status };
+      const result = await acceptHook();
+
+      // Act
+      await act(async () => {
+        result.current.mutate(SHE_SAW);
+      });
+      await letTimePass();
+
+      // Assert
+      expect(result.current.status).toBe('success');
+      expect(result.current.data).toMatchObject({ assignee_id: CLEANER, status });
+    },
+  );
+
+  test('hers and cancelled since: told it was cancelled', async () => {
+    officeMovesIt({ status: 'cancelled' });
+    const result = await acceptHook();
+
+    await act(async () => {
+      result.current.mutate(SHE_SAW);
+    });
+    await letTimePass();
+
+    expect(result.current.status).toBe('error');
+    expect(serverErrorText(result.current.error)).toEqual({ text: CANCELLED_TEXT, detail: null });
   });
 });
 

@@ -331,7 +331,6 @@ describe('a move replayed after its answer was lost', () => {
 
   test.each([
     ['given to a colleague', { status: 'assigned', assignee_id: COLLEAGUE }],
-    ['cancelled', { status: 'cancelled', assignee_id: CLEANER, scheduled_date: '2026-11-11' }],
     ['still assigned on her day: refused for another reason', { assignee_id: CLEANER }],
   ])('an accept on a job %s is still «given away, moved or cancelled»', async (_, changes) => {
     rowNow(changes);
@@ -343,10 +342,25 @@ describe('a move replayed after its answer was lost', () => {
     );
   });
 
+  // Her job cancelled since: told so, in the words of her push about it — not
+  // «already taken», nor «given away» (LOW-6 of the review of dab5237..cb747a5).
+  test.each([
+    ['take', () => claimTask(row.id, CLEANER)],
+    ['accept', () => acceptTask(SEEN)],
+  ])('a %s on her job cancelled since is told it was cancelled', async (_, move) => {
+    rowNow({ status: 'cancelled', assignee_id: CLEANER, scheduled_date: '2026-11-11' });
+
+    const refusal = await move().catch((caught: unknown) => caught);
+
+    expect((refusal as Error).message).not.toMatch(/[а-яё]/i);
+    expect(serverErrorText(refusal)).toEqual({ text: 'Эту уборку отменили.', detail: null });
+  });
+
   test.each([
     ['moved back to assigned by the office', { status: 'assigned' }],
     ['on another day', { status: 'assigned', scheduled_date: '2026-11-12' }],
     ['already under way', { status: 'in_progress' }],
+    ['done', { status: 'done' }],
   ])('a take that landed, the job since %s, is hers: no refusal', async (_, changes) => {
     rowNow({ assignee_id: CLEANER, ...changes });
 

@@ -25,8 +25,10 @@ import { signedOutOfQueue } from '@/testing/queue-person';
 /**
  * The moves parked on disk for their author (lib/parked-moves.ts) and the
  * turns of the queue they leave (lib/move-queue.ts), as the review of
- * dab5237..cb747a5 found them: two taps that send the same were one move, and
- * a move the disk refused to park held the next person's line for good.
+ * dab5237..cb747a5 found them: two taps that send the same were one move, a
+ * move the disk refused to park held the next person's line for good, a store
+ * that could not be read was written over, and a move made with nobody signed
+ * in went out with no session.
  *
  * Who sent a call is read off the session auth holds when it is made
  * (`mockAuth.userId`): that is the token the request goes out with.
@@ -71,6 +73,7 @@ const BORIS_TASK = '6a7b8c9d-0e1f-4a2b-8c3d-4e5f6a7b8c9d';
 const ANNAS_CLAIM: ClaimVariables = { taskId: ANNAS_TASK, cleanerId: ANNA };
 const BORIS_CLAIM: ClaimVariables = { taskId: BORIS_TASK, cleanerId: BORIS };
 const STEP: StepVariables = { taskId: ANNAS_TASK, stepId: 'b1c2d3e4-1111-4111-8111-b1c2d3e40001' };
+const UNREADABLE_ON_DISK = `${PARKED_ON_DISK}.unreadable`;
 /** Between two taps of a person. */
 const TAP_GAP_MS = 1_000;
 
@@ -338,5 +341,53 @@ describe('a move the disk refused to park', () => {
     expect(await parkedVariablesOf(ANNA)).toEqual([ANNAS_CLAIM]);
     expect(queuedVariables(client)).toEqual([]);
     expect(sent).toEqual([{ what: BORIS_TASK, by: BORIS }]);
+  });
+});
+
+/**
+ * A store that cannot be read is taken as empty, and the next parking writes
+ * over it: what it held is kept aside first — the latest such text only
+ * (LOW-3 of the review of dab5237..cb747a5).
+ */
+describe('a parked store that cannot be read', () => {
+  test.each([
+    ['not JSON', '{"7c9e6679'],
+    ['not a store', '["a list"]'],
+  ])('%s: kept aside before the next parking writes over it', async (_name, raw) => {
+    // Arrange: an earlier unreadable store already kept aside.
+    await AsyncStorage.setItem(UNREADABLE_ON_DISK, 'an older unreadable store');
+    await AsyncStorage.setItem(PARKED_ON_DISK, raw);
+    await phoneLeftWith([annasClaim()], ANNA);
+    await startApp();
+
+    // Act
+    await hear('SIGNED_IN', BORIS);
+
+    // Assert
+    expect(await AsyncStorage.getItem(UNREADABLE_ON_DISK)).toBe(raw);
+    expect(await parkedVariablesOf(ANNA)).toEqual([ANNAS_CLAIM]);
+  });
+});
+
+/** A move made while nobody is signed in has no session to go with (LOW-1). */
+describe('nobody signed in', () => {
+  test('a move made then is not sent, and goes with the session of the first person signed in', async () => {
+    // Arrange
+    await startApp();
+
+    // Act
+    await tap(taskMutationKeys.claim, ANNAS_CLAIM);
+    await client.resumePausedMutations();
+    await settle();
+
+    // Assert
+    expect(sent).toEqual([]);
+
+    // Act
+    await hear('SIGNED_IN', ANNA);
+    await nudgeQueue();
+
+    // Assert
+    expect(sent).toEqual([{ what: ANNAS_TASK, by: ANNA }]);
   });
 });

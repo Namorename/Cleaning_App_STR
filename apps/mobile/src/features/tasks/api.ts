@@ -174,6 +174,25 @@ function isOpen(status: TaskStatus): boolean {
   return (OPEN_STATUSES as readonly TaskStatus[]).includes(status);
 }
 
+/** Where a job is once its work has begun: past a take and past an accept. */
+const WORK_BEGUN = ['in_progress', 'done'] as const satisfies readonly TaskStatus[];
+
+function isWorkBegun(status: TaskStatus): boolean {
+  return (WORK_BEGUN as readonly TaskStatus[]).includes(status);
+}
+
+/**
+ * The sentence for her own job found cancelled: the one the task screen's
+ * notice shows when it is (`tasks.pushNotice`), in a technician's words too.
+ * A replayed take or accept that finds it so is told exactly that, never
+ * «already taken» (LOW-6 of the review of dab5237..cb747a5).
+ */
+const CANCELLED_KEY = 'tasks.pushNotice.cancelled';
+
+function refuseCancelled(row: CleaningTask): never {
+  throw new RefusalError(`Task ${row.id} is cancelled`, CANCELLED_KEY);
+}
+
 /** A start or a finish is done when the row is at the status it moves to. */
 function atStatus(status: TaskStatus): Move['landed'] {
   return (row) => (row.status === status ? row : null);
@@ -277,14 +296,21 @@ async function moveTask(taskId: string, move: Move): Promise<CleaningTask> {
  * finds the job where the office has put it since — back to 'assigned', on
  * another day or in another flat — or the office gave it to her before the
  * take arrived. Either way it is hers, and «already taken» would be a lie
- * (night journal, review of bc7dcc9..dab5237).
+ * (night journal, review of bc7dcc9..dab5237). So it would be for her job
+ * started or done since — the take landed too — and for one cancelled since,
+ * which she is told was cancelled (LOW-6 of the review of dab5237..cb747a5).
  */
 export function claimTask(taskId: string, cleanerId: string): Promise<CleaningTask> {
   return moveTask(taskId, {
     from: ['unassigned'],
     patch: { assignee_id: cleanerId, status: 'accepted' },
     failureKey: 'tasks.claimTaken',
-    landed: (row) => (isOpen(row.status) ? row : null),
+    landed: (row) => {
+      if (row.status === 'cancelled') {
+        refuseCancelled(row);
+      }
+      return isOpen(row.status) || isWorkBegun(row.status) ? row : null;
+    },
   });
 }
 
@@ -315,9 +341,19 @@ export interface AcceptVariables {
  * without a word, and an accept the server never took (the move first) would
  * resolve as if it had. Neither needs the server; this one is true in both
  * orders.
+ *
+ * Her job started or done since, wherever it stands now: there is nothing
+ * left to accept, and the accept counts as landed. Cancelled since: she is
+ * told it was cancelled (LOW-6 of the review of dab5237..cb747a5).
  */
 function acceptLanded(same: SameJob): Move['landed'] {
   return (row) => {
+    if (row.status === 'cancelled') {
+      refuseCancelled(row);
+    }
+    if (isWorkBegun(row.status)) {
+      return row;
+    }
     if (!isOpen(row.status)) {
       return null;
     }

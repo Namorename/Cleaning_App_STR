@@ -71,36 +71,60 @@ function identityOfQueued(mutation: Mutation): string {
 }
 
 /**
+ * Where the text of a store that could not be read is kept before the store
+ * is written over: the latest such text, so it never grows.
+ */
+const UNREADABLE_PARKED_KEY = `${PARKED_MOVES_KEY}.unreadable`;
+
+/** The store as read: its moves, and its text when not all of it could be read. */
+interface ParkedStore {
+  parked: Parked;
+  unreadable: string | null;
+}
+
+/**
  * What is parked. A store that cannot be read is reported and taken as empty:
  * what cannot be read cannot be restored either. Each move is read like
  * outside input; one that is not a move is dropped.
  */
-async function readParked(): Promise<Parked> {
+async function readParked(): Promise<ParkedStore> {
   const raw = await AsyncStorage.getItem(PARKED_MOVES_KEY);
   if (raw === null) {
-    return {};
+    return { parked: {}, unreadable: null };
   }
   let stored: unknown;
   try {
     stored = JSON.parse(raw);
   } catch (error: unknown) {
     reportError(error);
-    return {};
+    return { parked: {}, unreadable: raw };
   }
   const parsed = parkedSchema.safeParse(stored);
   if (!parsed.success) {
     reportError(parsed.error);
-    return {};
+    return { parked: {}, unreadable: raw };
   }
-  return Object.fromEntries(
-    Object.entries(parsed.data).map(([author, moves]) => [
+  const entries = Object.entries(parsed.data);
+  const parked = Object.fromEntries(
+    entries.map(([author, moves]) => [
       author,
       moves.filter((move): move is SavedMove => savedMoveSchema.safeParse(move).success),
     ]),
   );
+  const isWhole = entries.every(([author, moves]) => parked[author].length === moves.length);
+  return { parked, unreadable: isWhole ? null : raw };
 }
 
-async function writeParked(parked: Parked): Promise<void> {
+/**
+ * `parked` written over the store `read` came from. A store that could not be
+ * read whole held every other author's moves, or some of them: its text is
+ * kept aside first (LOW-3 of the review of dab5237..cb747a5), and a disk that
+ * refuses to keep it leaves the store as it was.
+ */
+async function writeParked(read: ParkedStore, parked: Parked): Promise<void> {
+  if (read.unreadable !== null) {
+    await AsyncStorage.setItem(UNREADABLE_PARKED_KEY, read.unreadable);
+  }
   await AsyncStorage.setItem(PARKED_MOVES_KEY, JSON.stringify(parked));
 }
 
@@ -162,7 +186,8 @@ function parkMovesNotOf(queryClient: QueryClient, person: string | null): Promis
       shouldDehydrateMutation: (mutation) => moves.includes(mutation),
       shouldDehydrateQuery: () => false,
     });
-    await writeParked(withParked(await readParked(), savedAsWaiting(mutations)));
+    const store = await readParked();
+    await writeParked(store, withParked(store.parked, savedAsWaiting(mutations)));
     moves.forEach((mutation) => cache.remove(mutation));
   });
 }
@@ -189,8 +214,8 @@ async function parkLeftovers(queryClient: QueryClient, person: string | null): P
  */
 function bringBackMovesOf(queryClient: QueryClient, person: string): Promise<void> {
   return inTurn(async () => {
-    const parked = await readParked();
-    const theirs = parked[person];
+    const store = await readParked();
+    const theirs = store.parked[person];
     if (theirs === undefined) {
       return;
     }
@@ -205,7 +230,8 @@ function bringBackMovesOf(queryClient: QueryClient, person: string): Promise<voi
     hydrate(queryClient, { mutations: [...fresh], queries: [] });
     await saveCacheNow(queryClient);
     await writeParked(
-      Object.fromEntries(Object.entries(parked).filter(([author]) => author !== person)),
+      store,
+      Object.fromEntries(Object.entries(store.parked).filter(([author]) => author !== person)),
     );
   });
 }
