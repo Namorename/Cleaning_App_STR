@@ -112,6 +112,11 @@ async function callManageStaff(
  * not pretend otherwise by putting the field in the edit form.
  */
 export async function saveStaff(client: Client, draft: StaffDraft): Promise<StaffAccount> {
+  // The form never gets here without a role; this line is for the day
+  // somebody calls it from elsewhere (docs/tech-plan.md, 3.5).
+  if (draft.role === '') {
+    throw new Error('A person is saved only with a role the panel knows');
+  }
   const phone = draft.phone.trim();
   const staff = {
     fullName: draft.fullName.trim(),

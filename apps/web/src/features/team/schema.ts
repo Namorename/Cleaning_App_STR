@@ -2,8 +2,12 @@ import { z } from 'zod';
 
 import { foldForSearch } from '@/lib/search';
 
-export const STAFF_ROLES = ['cleaner', 'tech', 'manager', 'admin'] as const;
+/** `app_role` as the panel hands it out — the list `manage-staff` accepts. */
+export const STAFF_ROLES = ['cleaner', 'tech', 'head_tech', 'manager', 'admin'] as const;
 export type StaffRole = (typeof STAFF_ROLES)[number];
+
+/** The two who fix things: jobs reach them by assignment, never through a listing. */
+export const TECHNICIAN_ROLES: readonly StaffRole[] = ['tech', 'head_tech'];
 
 export const LANGUAGES = ['ru', 'en', 'cs'] as const;
 export type Language = (typeof LANGUAGES)[number];
@@ -14,11 +18,13 @@ export type AssignmentMode = (typeof ASSIGNMENT_MODES)[number];
 /**
  * Who can be put on a listing.
  *
- * The link says who does the work there, so it is offered to the people who
- * do work: a manager is not a queue member, and putting her in one would make
- * her turn up in the phone's schedule.
+ * The link says who cleans there, so it is offered to the cleaners only: a
+ * manager is not a queue member, and putting her in one would make her turn
+ * up in the phone's schedule; a technician or a head technician is refused by
+ * the server (`techNotLinkable`, 20261003110000) — cleanings are not their
+ * work, and their jobs reach them by assignment.
  */
-export const LINKABLE_ROLES: readonly StaffRole[] = ['cleaner', 'tech'];
+export const LINKABLE_ROLES: readonly StaffRole[] = ['cleaner'];
 
 /** 1 is the listing's main cleaner; the ceiling matches `save_property_cleaner`. */
 export const MIN_PRIORITY = 1;
@@ -30,13 +36,19 @@ export const MAX_PRIORITY = 99;
  * `role` and `preferred_language` fall back rather than throw: a value the
  * panel does not know yet — a role added by a later migration — must not blank
  * the whole list.
+ *
+ * An unknown role falls back to null — "a role this panel does not know" —
+ * and never to a known one. It used to read as `cleaner`, and the first save
+ * of the form would then have made the person a cleaner (docs/tech-plan.md,
+ * 3.5); the form refuses to save a person whose role it does not know until a
+ * role is chosen on purpose.
  */
 export const staffSchema = z.object({
   id: z.uuid(),
   full_name: z.string().nullable(),
   email: z.string().nullable(),
   phone: z.string().nullable(),
-  role: z.enum(STAFF_ROLES).catch('cleaner'),
+  role: z.enum(STAFF_ROLES).nullable().catch(null),
   preferred_language: z.enum(LANGUAGES).nullable().catch(null),
   is_active: z.boolean(),
   created_at: z.string(),
@@ -81,7 +93,8 @@ export interface StaffDraft {
   fullName: string;
   email: string;
   phone: string;
-  role: StaffRole;
+  /** Empty means the person's role is one the panel does not know: nothing chosen yet. */
+  role: StaffRole | '';
   /** Empty means nothing has been chosen — not "English". */
   language: Language | '';
   isActive: boolean;
@@ -106,7 +119,7 @@ export function draftFrom(staff: Staff | null): StaffDraft {
     fullName: staff.full_name ?? '',
     email: staff.email ?? '',
     phone: staff.phone ?? '',
-    role: staff.role,
+    role: staff.role ?? '',
     language: staff.preferred_language ?? '',
     isActive: staff.is_active,
   };
@@ -147,8 +160,18 @@ export function matchesRole(staff: Staff, role: StaffRole | ''): boolean {
   return role === '' || staff.role === role;
 }
 
+/** Whether this role is put on listings; an unknown role (empty or null) is not. */
+export function takesListings(role: StaffRole | '' | null): boolean {
+  return role !== null && role !== '' && LINKABLE_ROLES.includes(role);
+}
+
 export function canHaveLinks(staff: Staff): boolean {
-  return LINKABLE_ROLES.includes(staff.role);
+  return takesListings(staff.role);
+}
+
+/** Whether this role fixes things rather than cleans them. */
+export function isTechnicianRole(role: StaffRole | '' | null): boolean {
+  return role !== null && role !== '' && TECHNICIAN_ROLES.includes(role);
 }
 
 // ---------------------------------------------------------------------------

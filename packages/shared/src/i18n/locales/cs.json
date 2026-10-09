@@ -639,6 +639,8 @@
         "emailLocked": "E-mail je přihlašovací jméno a mění se jen přes podporu.",
         "phone": "Telefon",
         "role": "Role",
+        "roleUnknown": "Neznámá role",
+        "roleUnknownHint": "Panel roli tohoto člověka nezná. Pro uložení vyberte roli ze seznamu.",
         "language": "Jazyk",
         "languageUnset": "Nevybráno",
         "languageHint": "V tomto jazyce chodí e-maily. V aplikaci si jazyk zvolí sám.",
@@ -651,6 +653,7 @@
         "propertiesSelectShown": "Vybrat vše ({{total}})",
         "propertiesClearShown": "Odznačit vše ({{total}})",
         "propertiesNotForRole": "Manažerovi a správci se objekty nepřiřazují — vidí všechny.",
+        "propertiesNotForTech": "Technikovi a hlavnímu technikovi se objekty nepřiřazují: úklidy nejsou jejich práce, úkoly dostávají přidělením.",
         "propertiesFailed": "Zaměstnanec byl uložen, ale objekty se nepodařilo otevřít.",
         "active": "Pracuje",
         "create": "Vytvořit",
@@ -694,6 +697,7 @@
     "roles": {
       "cleaner": "Uklízečka",
       "tech": "Technik",
+      "head_tech": "Hlavní technik",
       "manager": "Manažer",
       "admin": "Administrátor",
       "unknown": "Zaměstnanec"

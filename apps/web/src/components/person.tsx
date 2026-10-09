@@ -1,6 +1,14 @@
 'use client';
 
-import { Briefcase, ShieldCheck, SprayCan, User, Wrench, type LucideIcon } from 'lucide-react';
+import {
+  Briefcase,
+  HardHat,
+  ShieldCheck,
+  SprayCan,
+  User,
+  Wrench,
+  type LucideIcon,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/lib/utils';
@@ -16,6 +24,7 @@ import { cn } from '@/lib/utils';
 const ROLE_ICONS: Record<string, LucideIcon> = {
   cleaner: SprayCan,
   tech: Wrench,
+  head_tech: HardHat,
   manager: Briefcase,
   admin: ShieldCheck,
 };

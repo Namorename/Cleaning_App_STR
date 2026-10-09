@@ -37,6 +37,27 @@ const olga = person({
 });
 // Somebody who left: no login was ever made for her, and she is switched off.
 const ivan = person({ id: IVAN, full_name: 'Ivan Gone', is_active: false });
+// A cleaner on no listing yet: her drawer offers the whole catalogue.
+const NINA = 'bbbbbbbb-bbbb-4bbb-8bbb-000000000005';
+const nina = person({ id: NINA, full_name: 'Nina Free', email: 'nina@example.com' });
+const GLEB = 'bbbbbbbb-bbbb-4bbb-8bbb-000000000006';
+const gleb = person({
+  id: GLEB,
+  full_name: 'Gleb Head',
+  email: 'gleb@example.com',
+  role: 'head_tech',
+});
+// A role a later migration may add: the panel does not know it.
+const ZOE = 'bbbbbbbb-bbbb-4bbb-8bbb-000000000007';
+const zoe = person({
+  id: ZOE,
+  full_name: 'Zoe Unknown',
+  email: 'zoe@example.com',
+  role: 'inspector',
+});
+
+/** Who the section lists; a test that needs more people adds them. */
+const roster = { people: [maria, petr, olga, ivan, nina] };
 
 const properties: Property[] = [
   { id: 1, name: 'Vinohrady 12' },
@@ -59,7 +80,7 @@ const removeLinkAsync = vi.fn();
 const idle = { isPending: false, isError: false, error: null as unknown, reset: vi.fn() };
 
 vi.mock('../use-team', () => ({
-  useStaff: () => ({ data: [maria, petr, olga, ivan], isPending: false, isError: false }),
+  useStaff: () => ({ data: roster.people, isPending: false, isError: false }),
   useProperties: () => ({ data: properties, isPending: false, isError: false }),
   useCleanerLinks: () => ({ data: links, isPending: false, isError: false }),
   useSaveStaff: () => ({ ...idle, mutate: saveStaff }),
@@ -80,6 +101,7 @@ const NEW_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-000000000009';
 
 beforeEach(() => {
   vi.clearAllMocks();
+  roster.people = [maria, petr, olga, ivan, nina];
   resetPassword.mockImplementation((id: string, options?: { onSuccess?: (a: unknown) => void }) => {
     options?.onSuccess?.({ id, password: NEW_PASSWORD, emailSent: true });
   });
@@ -107,9 +129,9 @@ describe('TeamView', () => {
   test('opens on the people who are working, and counts every tab', () => {
     render(<TeamView />);
 
-    expect(screen.getByRole('tab', { name: /Работают/ })).toHaveTextContent('3');
+    expect(screen.getByRole('tab', { name: /Работают/ })).toHaveTextContent('4');
     expect(screen.getByRole('tab', { name: /Отключённые/ })).toHaveTextContent('1');
-    expect(screen.getByRole('tab', { name: /Все/ })).toHaveTextContent('4');
+    expect(screen.getByRole('tab', { name: /Все/ })).toHaveTextContent('5');
 
     expect(rowFor('Maria Test')).toBeInTheDocument();
     expect(screen.queryByText('Ivan Gone')).not.toBeInTheDocument();
@@ -341,8 +363,8 @@ describe('TeamView — listings are chosen while the person is hired', () => {
   test('several listings are ticked and opened by one press', async () => {
     render(<TeamView />);
 
-    // Petr is on nothing, so the whole catalogue is on offer in his drawer.
-    await userEvent.click(within(rowFor('Petr Tech')).getByRole('button', { name: 'Объектов: 0' }));
+    // Nina is on nothing, so the whole catalogue is on offer in her drawer.
+    await userEvent.click(within(rowFor('Nina Free')).getByRole('button', { name: 'Объектов: 0' }));
     const sheet = await screen.findByRole('dialog');
 
     await userEvent.click(within(sheet).getByRole('checkbox', { name: 'Vinohrady 12' }));
@@ -352,13 +374,13 @@ describe('TeamView — listings are chosen while the person is hired', () => {
     await waitFor(() => expect(saveLinkAsync).toHaveBeenCalledTimes(2));
     expect(saveLinkAsync).toHaveBeenCalledWith({
       propertyId: 1,
-      cleanerId: PETR,
+      cleanerId: NINA,
       mode: 'claim',
       priority: 1,
     });
     expect(saveLinkAsync).toHaveBeenCalledWith({
       propertyId: 2,
-      cleanerId: PETR,
+      cleanerId: NINA,
       mode: 'claim',
       priority: 1,
     });
@@ -369,7 +391,7 @@ describe('TeamView — listings are chosen while the person is hired', () => {
     saveLinkAsync.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('offline'));
     render(<TeamView />);
 
-    await userEvent.click(within(rowFor('Petr Tech')).getByRole('button', { name: 'Объектов: 0' }));
+    await userEvent.click(within(rowFor('Nina Free')).getByRole('button', { name: 'Объектов: 0' }));
     const sheet = await screen.findByRole('dialog');
     await userEvent.click(within(sheet).getByRole('button', { name: 'Выбрать все (2)' }));
     await userEvent.click(within(sheet).getByRole('button', { name: 'Добавить' }));
@@ -386,7 +408,7 @@ describe('TeamView — listings are chosen while the person is hired', () => {
     await waitFor(() => expect(saveLinkAsync).toHaveBeenCalledTimes(1));
     expect(saveLinkAsync).toHaveBeenCalledWith({
       propertyId: 2,
-      cleanerId: PETR,
+      cleanerId: NINA,
       mode: 'claim',
       priority: 1,
     });
@@ -395,7 +417,7 @@ describe('TeamView — listings are chosen while the person is hired', () => {
   test('the list of listings can be searched', async () => {
     render(<TeamView />);
 
-    await userEvent.click(within(rowFor('Petr Tech')).getByRole('button', { name: 'Объектов: 0' }));
+    await userEvent.click(within(rowFor('Nina Free')).getByRole('button', { name: 'Объектов: 0' }));
     const sheet = await screen.findByRole('dialog');
 
     await userEvent.type(within(sheet).getByLabelText('Поиск по названию'), 'vino');
@@ -410,7 +432,7 @@ describe('TeamView — listings are chosen while the person is hired', () => {
   test('a search that matches nothing says so', async () => {
     render(<TeamView />);
 
-    await userEvent.click(within(rowFor('Petr Tech')).getByRole('button', { name: 'Объектов: 0' }));
+    await userEvent.click(within(rowFor('Nina Free')).getByRole('button', { name: 'Объектов: 0' }));
     const sheet = await screen.findByRole('dialog');
 
     await userEvent.type(within(sheet).getByLabelText('Поиск по названию'), 'улица которой нет');
@@ -421,7 +443,7 @@ describe('TeamView — listings are chosen while the person is hired', () => {
   test('a listing ticked and then searched out of sight is still opened', async () => {
     render(<TeamView />);
 
-    await userEvent.click(within(rowFor('Petr Tech')).getByRole('button', { name: 'Объектов: 0' }));
+    await userEvent.click(within(rowFor('Nina Free')).getByRole('button', { name: 'Объектов: 0' }));
     const sheet = await screen.findByRole('dialog');
 
     await userEvent.click(within(sheet).getByRole('checkbox', { name: 'Anděl 4' }));
@@ -434,7 +456,7 @@ describe('TeamView — listings are chosen while the person is hired', () => {
     await waitFor(() =>
       expect(saveLinkAsync).toHaveBeenCalledWith({
         propertyId: 2,
-        cleanerId: PETR,
+        cleanerId: NINA,
         mode: 'claim',
         priority: 1,
       }),
@@ -444,7 +466,7 @@ describe('TeamView — listings are chosen while the person is hired', () => {
   test('nothing ticked, nothing to press', async () => {
     render(<TeamView />);
 
-    await userEvent.click(within(rowFor('Petr Tech')).getByRole('button', { name: 'Объектов: 0' }));
+    await userEvent.click(within(rowFor('Nina Free')).getByRole('button', { name: 'Объектов: 0' }));
     const sheet = await screen.findByRole('dialog');
 
     expect(within(sheet).getByRole('button', { name: 'Добавить' })).toBeDisabled();
@@ -472,5 +494,128 @@ describe('TeamView — listings are chosen while the person is hired', () => {
     await waitFor(() => expect(saveStaff).toHaveBeenCalled());
     expect(saveLinkAsync).not.toHaveBeenCalled();
     expect(removeLinkAsync).not.toHaveBeenCalled();
+  }, 20000);
+});
+
+describe('TeamView — the technician and the head technician (docs/tech-plan.md, 3 and 4)', () => {
+  test('the list shows the head technician by her role', () => {
+    roster.people = [...roster.people, gleb];
+    render(<TeamView />);
+
+    expect(within(rowFor('Gleb Head')).getByTitle('Главный техник')).toBeInTheDocument();
+  });
+
+  test('the role filter finds the head technician', async () => {
+    roster.people = [...roster.people, gleb];
+    render(<TeamView />);
+
+    await userEvent.selectOptions(screen.getByLabelText('Роль'), 'Главный техник');
+
+    expect(screen.getByText('Gleb Head')).toBeInTheDocument();
+    expect(screen.queryByText('Petr Tech')).not.toBeInTheDocument();
+  });
+
+  test('the form offers the head technician, and sends the role as chosen', async () => {
+    render(<TeamView />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить сотрудника' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText('Имя'), 'Gleb Head');
+    await userEvent.type(within(dialog).getByLabelText('Почта (логин)'), 'gleb@example.com');
+    await userEvent.selectOptions(within(dialog).getByLabelText('Роль'), 'Главный техник');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
+
+    expect(saveStaff).toHaveBeenCalledWith(
+      expect.objectContaining({ id: null, role: 'head_tech' }),
+      expect.anything(),
+    );
+    // Nothing to open: no listing goes with the role.
+    await waitFor(() => expect(screen.getByText(NEW_PASSWORD)).toBeInTheDocument());
+    expect(saveLinkAsync).not.toHaveBeenCalled();
+  }, 20000);
+
+  test.each(['Техник', 'Главный техник'])(
+    'a %s is offered no listings, and is told why',
+    async (role) => {
+      render(<TeamView />);
+
+      await userEvent.click(screen.getByRole('button', { name: 'Добавить сотрудника' }));
+      const dialog = await screen.findByRole('dialog');
+      await userEvent.selectOptions(within(dialog).getByLabelText('Роль'), role);
+
+      expect(
+        within(dialog).queryByRole('checkbox', { name: 'Vinohrady 12' }),
+      ).not.toBeInTheDocument();
+      expect(
+        within(dialog).getByText(
+          'Технику и главному технику объекты не назначаются: уборки — не их работа, задания приходят назначением.',
+        ),
+      ).toBeInTheDocument();
+    },
+    20000,
+  );
+
+  test('the row of a technician has no listings to count', () => {
+    roster.people = [...roster.people, gleb];
+    render(<TeamView />);
+
+    expect(
+      within(rowFor('Petr Tech')).queryByRole('button', { name: /Объектов/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(rowFor('Gleb Head')).queryByRole('button', { name: /Объектов/ }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe('TeamView — a role the panel does not know (docs/tech-plan.md, 3.5)', () => {
+  beforeEach(() => {
+    roster.people = [...roster.people, zoe];
+  });
+
+  test('is not shown as a cleaner, nor counted as one', async () => {
+    render(<TeamView />);
+
+    expect(within(rowFor('Zoe Unknown')).getByTitle('Сотрудник')).toBeInTheDocument();
+    expect(within(rowFor('Zoe Unknown')).queryByTitle('Горничная')).not.toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText('Роль'), 'Горничная');
+    expect(screen.queryByText('Zoe Unknown')).not.toBeInTheDocument();
+  });
+
+  test('opens the form with no role chosen, and the form will not save it', async () => {
+    render(<TeamView />);
+
+    await userEvent.click(within(rowFor('Zoe Unknown')).getByRole('button', { name: 'Изменить' }));
+    const dialog = await screen.findByRole('dialog');
+
+    expect(within(dialog).getByLabelText('Роль')).toHaveValue('');
+    expect(
+      within(dialog).getByRole('option', { name: 'Роль неизвестна', selected: true }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        'Панель не знает роль этого сотрудника. Чтобы сохранить, выберите роль из списка.',
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Сохранить' })).toBeDisabled();
+
+    await userEvent.type(within(dialog).getByLabelText('Телефон'), '+420 000');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+    expect(saveStaff).not.toHaveBeenCalled();
+  }, 20000);
+
+  test('saves once a role is chosen on purpose', async () => {
+    render(<TeamView />);
+
+    await userEvent.click(within(rowFor('Zoe Unknown')).getByRole('button', { name: 'Изменить' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.selectOptions(within(dialog).getByLabelText('Роль'), 'Техник');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+
+    expect(saveStaff).toHaveBeenCalledWith(
+      expect.objectContaining({ id: ZOE, role: 'tech' }),
+      expect.anything(),
+    );
   }, 20000);
 });
