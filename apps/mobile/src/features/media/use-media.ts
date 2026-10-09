@@ -32,9 +32,9 @@ import {
   attachStalls,
   beginAttachAttempt,
   countAttachFailure,
+  forgetAttachCount,
   noteAttachProgress,
   retryAttach,
-  startAttachCount,
 } from './attach-retry';
 import { discardFile } from './file';
 import { mediaKeys } from './keys';
@@ -194,18 +194,24 @@ async function attachVideo(
   return confirmed;
 }
 
-/** One attempt of the queue: the chain, its failure counted (`attach-retry.ts`). */
+/**
+ * One attempt of the queue: the chain, its failure counted — and kept as the
+ * count says it is to be told (`attach-retry.ts`). Once the file is in, its
+ * counts are let go.
+ */
 async function attachAttempt(
   variables: AttachMediaVariables,
   queryClient: QueryClient,
 ): Promise<TaskMedia> {
   beginAttachAttempt(variables.mediaId);
+  let row: TaskMedia;
   try {
-    return await attachMedia(variables, queryClient);
+    row = await attachMedia(variables, queryClient);
   } catch (error: unknown) {
-    countAttachFailure(variables.mediaId, error);
-    throw error;
+    throw countAttachFailure(variables.mediaId, error);
   }
+  forgetAttachCount(variables.mediaId);
+  return row;
 }
 
 /** The file and its record, gone once the server has the video. Twice is not an error. */
@@ -324,7 +330,7 @@ export function useAttachMedia(kind: MediaKind = 'photo') {
     scope: kind === 'video' ? VIDEO_ATTACH_SCOPE : ATTACH_SCOPE,
     retry: retryAttach,
     onMutate: async (variables) => {
-      startAttachCount(variables.mediaId);
+      forgetAttachCount(variables.mediaId);
       dropFailedAttempts(queryClient, variables.mediaId);
       const key = mediaOwnerKey(variables);
       await queryClient.cancelQueries({ queryKey: key });
@@ -372,6 +378,7 @@ export function useRemoveMedia() {
       }
     },
     onSuccess: async (_row, variables) => {
+      forgetAttachCount(variables.mediaId);
       const local = (await loadLocalMedia())[variables.mediaId];
       if (local !== undefined) {
         discardFile(local.uri);

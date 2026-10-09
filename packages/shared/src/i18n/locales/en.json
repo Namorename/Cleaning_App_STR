@@ -1203,6 +1203,7 @@
     "stay": "Stay",
     "alreadyRecorded": "This step already has its video. To record a new one, delete it on the step’s screen.",
     "stillUploading": "This step already has its video, and it is still uploading. Once the upload is over, you can delete it on the step’s screen.",
+    "uploadTooSlow": "The connection is too slow to send the video. Connect to Wi-Fi or find a spot with better internet, then tap “Retry upload”.",
     "permission": {
       "cameraTitle": "No access to the camera",
       "microphoneTitle": "No access to the microphone",

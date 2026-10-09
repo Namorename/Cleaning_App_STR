@@ -1,6 +1,7 @@
 import { onlineManager } from '@tanstack/react-query';
 
 import { goOffline, isNetworkError } from '@/lib/online';
+import { RefusalError } from '@/lib/server-error';
 
 import { TusRetryableError } from './tus';
 
@@ -16,15 +17,18 @@ import { TusRetryableError } from './tus';
  *
  * Every way an upload can fail is bounded, so none of them loops for ever.
  * Each has its own count, per file, from the moment the file is handed to
- * the queue (`startAttachCount`); once a count is spent the upload fails —
- * its tile offers «Повторить» and «Удалить», and the step says why:
+ * the queue until it is in or removed (`forgetAttachCount`); once a count is
+ * spent the upload fails — its tile offers «Повторить» and «Удалить», and
+ * the step says why:
  *
  * - a refusal — three more tries;
  * - a storage busy, or one that kept losing its place — eight more;
  * - a piece that ran out of time with nothing of it arriving — three more,
  *   each given twice as long (`attachStalls`, tus.ts `patchStallMs`). The
  *   count is of stalls in a row on one piece: a stall on a later piece means
- *   the earlier one went through, and starts it again;
+ *   the earlier one went through, and starts it again. Spent, it says the
+ *   connection is too slow to send the video (`UploadTooSlowError`): a piece
+ *   given ten minutes moved nothing, some 84 kbit/s up at best;
  * - a resumable upload left unanswered although there was signal — when the
  *   attempt began and when it ended — and that moved nothing: four more in a
  *   row. The look for the server goes to its health check, not to the
@@ -32,7 +36,9 @@ import { TusRetryableError } from './tus';
  *   that does not answer) would otherwise be found "online" again and again.
  *   Without signal at either end it was the network's, and counts for nothing.
  *
- * Any progress of the file into storage starts the count of silence again.
+ * Any progress of the file into storage starts the counts of refusals,
+ * answers and silence again: a storage that trips now and then is not one
+ * that will never take the file. Stalls keep their own rule, above.
  *
  * TanStack hands the retry decision only the count of failures, outages
  * included, so the failures are counted here, each failed attempt marked
@@ -88,6 +94,18 @@ const countsByMedia = new Map<string, Counts>();
 /** Which failure of its kind a failed attempt was, and how many its kind may have. */
 const failureNumber = new WeakMap<object, { count: number; limit: number }>();
 
+/**
+ * A video whose piece kept running out of time, each try given longer, with
+ * nothing of it arriving: her connection is too slow to send it. Said in her
+ * language; the last stall's words stay in the message, for the log.
+ */
+export class UploadTooSlowError extends RefusalError {
+  constructor(stall: Error) {
+    super(`Video upload gave up, the connection too slow: ${stall.message}`, 'video.uploadTooSlow');
+    this.name = 'UploadTooSlowError';
+  }
+}
+
 /** No signal: the request got no answer at all. */
 export function isNoSignal(error: unknown): boolean {
   if (error instanceof TusRetryableError) {
@@ -129,8 +147,11 @@ function counted(counts: Counts, budget: Budget, error: unknown): Counts {
   return { ...counts, stalled: isSamePiece ? counts.stalled + 1 : 1, stalledAt: offset };
 }
 
-/** A file handed to the queue afresh — by the screen, or a retry from its tile. */
-export function startAttachCount(mediaId: string): void {
+/**
+ * The file's counts let go: handed to the queue afresh — by the screen, or a
+ * retry from its tile — and once it is in, or removed.
+ */
+export function forgetAttachCount(mediaId: string): void {
   countsByMedia.delete(mediaId);
 }
 
@@ -145,29 +166,41 @@ export function beginAttachAttempt(mediaId: string): void {
 
 /**
  * The storage said how much of the file it holds. More than it said last is
- * progress: the silence counted so far is behind it.
+ * progress: the refusals, answers and silence counted so far are behind it.
  */
 export function noteAttachProgress(mediaId: string, sent: number): void {
   const counts = countsOf(mediaId);
   const hasMoved = counts.sent !== null && sent > counts.sent;
   countsByMedia.set(
     mediaId,
-    hasMoved ? { ...counts, sent, silent: 0, hasMoved: true } : { ...counts, sent },
+    hasMoved
+      ? { ...counts, sent, refused: 0, answered: 0, silent: 0, hasMoved: true }
+      : { ...counts, sent },
   );
 }
 
-/** An attempt of the file's upload failed: it is counted against its kind. */
-export function countAttachFailure(mediaId: string, error: unknown): void {
+/**
+ * An attempt of the file's upload failed: it is counted against its kind.
+ * Returns the failure as the queue is to keep it — the same one, or, the
+ * stalls spent, one that says the connection is too slow.
+ */
+export function countAttachFailure(mediaId: string, error: unknown): unknown {
   if (typeof error !== 'object' || error === null) {
-    return;
+    return error;
   }
   const budget = budgetOf(error, countsOf(mediaId));
   if (budget === null) {
-    return;
+    return error;
   }
   const counts = counted(countsOf(mediaId), budget, error);
   countsByMedia.set(mediaId, counts);
-  failureNumber.set(error, { count: counts[budget], limit: LIMITS[budget] });
+  const number = { count: counts[budget], limit: LIMITS[budget] };
+  const kept =
+    budget === 'stalled' && number.count > number.limit && error instanceof Error
+      ? new UploadTooSlowError(error)
+      : error;
+  failureNumber.set(kept, number);
+  return kept;
 }
 
 /**

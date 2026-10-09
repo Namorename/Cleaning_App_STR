@@ -3,28 +3,33 @@ import { act, renderHook } from '@testing-library/react-native';
 
 import { stopWatchingConnection } from '@/lib/online';
 import { createAppQueryClient } from '@/lib/query-client';
+import { serverErrorText } from '@/lib/server-error';
 import { withClient } from '@/testing/restored-cache';
 
-import { addMedia, confirmMedia, uploadVideoFile } from '../api';
+import { addMedia, confirmMedia, removeMedia, uploadVideoFile } from '../api';
 import {
   ANSWERED_RETRIES,
+  ATTACH_RETRIES,
   SILENT_RETRIES,
   STALL_RETRIES,
+  attachStalls,
   isNoSignal,
   retryAttach,
 } from '../attach-retry';
 import type { TaskMedia } from '../schema';
-import { TUS_CHUNK_BYTES, TusRetryableError, type TusRetryReason } from '../tus';
-import { useAttachMedia, type AttachMediaVariables } from '../use-media';
+import { TUS_CHUNK_BYTES, TusRefusedError, TusRetryableError, type TusRetryReason } from '../tus';
+import { useAttachMedia, useRemoveMedia, type AttachMediaVariables } from '../use-media';
 
 /**
  * How the upload queue tries again (review of video part 2, finding 3; the
- * third pass on video, findings 1 and 2). Silence — a request that got no
- * answer at all — marks the queue offline, as the app's other moves do, and
- * waits for signal without spending a try. Anything the storage answered
- * spends one: a refusal of three more, a storage busy or lost of eight, a
- * piece that ran out of time without a byte arriving of three. Then the
- * upload fails, and its tile offers «Повторить» and «Удалить».
+ * third pass on video, findings 1 and 2; the fourth, findings 1, 2 and 5).
+ * Silence — a request that got no answer at all — marks the queue offline, as
+ * the app's other moves do, and waits for signal. Anything the storage
+ * answered spends a try: a refusal of three more, a storage busy or lost of
+ * eight, a piece that ran out of time without a byte arriving of three. So
+ * does silence from the storage while there is signal, four more in a row.
+ * Then the upload fails, and its tile offers «Повторить» and «Удалить».
+ * Progress starts the counts again; a file that is in or removed lets them go.
  */
 
 jest.mock('@/features/chat/api', () => ({ sendMessage: jest.fn() }));
@@ -217,6 +222,21 @@ describe('a video the storage keeps answering', () => {
     expect(result.current.status).toBe('error');
   });
 
+  // Under some 84 kbit/s up, a piece cannot arrive even in ten minutes: the
+  // step says why, not the general sentence.
+  test('stalled until it fails, it says the connection is too slow to send the video', async () => {
+    jest.mocked(uploadVideoFile).mockImplementation(async () => {
+      throw new TusRetryableError('PATCH moved nothing', 'stalled', { offset: 0 });
+    });
+
+    const result = await sendVideo();
+
+    expect(serverErrorText(result.current.error)).toEqual({
+      text: 'Связь слишком медленная, чтобы отправить видео. Подключитесь к Wi-Fi или найдите место, где интернет лучше, и нажмите «Повторить загрузку».',
+      detail: null,
+    });
+  });
+
   test('tried again from its tile, a stalled video starts afresh', async () => {
     // Arrange: the queue gave up on it.
     jest.mocked(uploadVideoFile).mockImplementation(async () => {
@@ -311,6 +331,78 @@ describe('a video whose upload goes unanswered while there is signal', () => {
 
     expect(uploadVideoFile).toHaveBeenCalledTimes(10);
     expect(result.current.status).toBe('success');
+  });
+});
+
+// The fourth pass on video, finding 2: progress is what tells a storage that
+// trips now and then from one that will never take the file.
+describe('the counts of a video’s upload', () => {
+  beforeEach(() => {
+    jest.mocked(addMedia).mockResolvedValue(videoRow);
+    jest.mocked(confirmMedia).mockResolvedValue(confirmedRow);
+  });
+
+  test('a storage busy between pieces that go through gets its tries again', async () => {
+    failAfterProgress(
+      ANSWERED_RETRIES + 3,
+      () => new TusRetryableError('PATCH answered 503', 'busy', { status: 503 }),
+    );
+
+    const result = await sendVideo();
+
+    expect(uploadVideoFile).toHaveBeenCalledTimes(ANSWERED_RETRIES + 4);
+    expect(result.current.status).toBe('success');
+  });
+
+  test('a refusal between pieces that go through gets its tries again', async () => {
+    failAfterProgress(ATTACH_RETRIES + 3, () => new TusRefusedError(403, 'PATCH answered 403'));
+
+    const result = await sendVideo();
+
+    expect(uploadVideoFile).toHaveBeenCalledTimes(ATTACH_RETRIES + 4);
+    expect(result.current.status).toBe('success');
+  });
+
+  test('once the video is in, its counts are let go', async () => {
+    // Arrange: two stalls on the first piece, then it goes through.
+    const stall = () => new TusRetryableError('PATCH moved nothing', 'stalled', { offset: 0 });
+    jest
+      .mocked(uploadVideoFile)
+      .mockRejectedValueOnce(stall())
+      .mockRejectedValueOnce(stall())
+      .mockResolvedValue(undefined);
+
+    // Act
+    const result = await sendVideo();
+
+    // Assert
+    expect(result.current.status).toBe('success');
+    expect(attachStalls(video.mediaId)).toBe(0);
+  });
+
+  test('once the video is removed, its counts are let go', async () => {
+    // Arrange: the queue gave up on it after its stalls.
+    jest.mocked(uploadVideoFile).mockImplementation(async () => {
+      throw new TusRetryableError('PATCH moved nothing', 'stalled', { offset: 0 });
+    });
+    jest
+      .mocked(removeMedia)
+      .mockResolvedValue({ ...videoRow, deleted_at: confirmedRow.uploaded_at });
+    await sendVideo();
+    expect(attachStalls(video.mediaId)).toBe(STALL_RETRIES + 1);
+    const { result: removal } = await renderHook(() => useRemoveMedia(), {
+      wrapper: withClient(client),
+    });
+
+    // Act: she presses «Удалить».
+    await act(async () => {
+      removal.current.mutate({ taskId: 't1', mediaId: video.mediaId });
+    });
+    await letTimePass();
+
+    // Assert
+    expect(removal.current.status).toBe('success');
+    expect(attachStalls(video.mediaId)).toBe(0);
   });
 });
 
