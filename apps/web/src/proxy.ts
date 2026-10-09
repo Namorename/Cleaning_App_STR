@@ -7,6 +7,14 @@ import { isPanelRole, roleOf } from '@/lib/session';
 const PUBLIC_PATHS = ['/login'];
 
 /**
+ * Pages for everyone, signed in or not, and nobody is sent away from them
+ * (decision 17, docs/f11-plan.md: the privacy policy App Store Connect links
+ * to). Unlike the sign-in page, a manager stays on them too. Exact paths only:
+ * `/privacyx` and `/privacy/x` are the panel's like any other address.
+ */
+const OPEN_PATHS: ReadonlySet<string> = new Set(['/privacy']);
+
+/**
  * A redirect that still carries the session cookies.
  *
  * Refresh tokens rotate: the moment getUser() exchanged one, the browser's
@@ -23,13 +31,18 @@ function redirectKeepingCookies(url: URL, from: NextResponse): NextResponse {
 
 /**
  * Runs before every page: keeps the Supabase session fresh and sends anyone
- * who is not a manager to the sign-in page.
+ * who is not a manager to the sign-in page — every page but the open ones.
  *
  * The guard here is convenience, not security — row level security decides
  * what the browser may read either way. The redirect keeps a cleaner who
  * opens the panel by mistake from seeing an empty shell.
  */
 export async function proxy(request: NextRequest) {
+  // No session to keep fresh and no one to redirect: Auth is not asked at all.
+  if (OPEN_PATHS.has(request.nextUrl.pathname)) {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(publicEnv.supabaseUrl, publicEnv.supabaseKey, {

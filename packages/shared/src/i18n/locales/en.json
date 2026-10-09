@@ -1426,5 +1426,216 @@
     "camera": "The app uses the camera to take photos and videos of the work, before and after it.",
     "microphone": "The app records sound with the videos of the work.",
     "photos": "The app attaches the photos you choose from your library to checklist steps, tasks and chat messages."
+  },
+  "privacy": {
+    "metaTitle": "Privacy policy — woom",
+    "title": "Privacy policy of the woom app",
+    "otherLanguages": "This page in other languages",
+    "effective": "<b>Effective from:</b> {{date}}",
+    "intro": "This policy explains which of your personal data we process when you work in the woom app (the phone app for cleaners and technicians) and in the web panel for managers, why, for how long, and what rights you have.",
+    "fill": {
+      "template": "[to fill in: {{what}}]",
+      "statement": "[{{statement}} — to fill in: confirm]",
+      "operatorName": "company name or the operator’s name",
+      "operatorId": "number",
+      "operatorAddress": "address",
+      "contactEmail": "e-mail address for data questions",
+      "date": "date",
+      "deadline": "date — the owner decides",
+      "accountDeletedBy": "who deletes accounts",
+      "accountRetention": "how many months after the switch-off",
+      "vercelRegion": "region — check in the Vercel project",
+      "sentryRegion": "region — choose when creating the Sentry project",
+      "serverLogRetention": "period",
+      "exportFormat": "CSV or JSON — the owner decides"
+    },
+    "operator": {
+      "heading": "1. Who processes your data",
+      "text": "Controller (správce osobních údajů): {{name}}, IČO {{id}}, {{address}}. For questions about your data, write to {{email}}."
+    },
+    "data": {
+      "heading": "2. What data we process and why",
+      "columns": {
+        "what": "What",
+        "examples": "Examples",
+        "why": "Why"
+      },
+      "rows": {
+        "account": {
+          "what": "Account",
+          "examples": "name, e-mail, phone number, role (cleaner, technician, manager), app language, password (stored only as a hash)",
+          "why": "signing in to the app, organising the work, contacting you"
+        },
+        "work": {
+          "what": "Work data",
+          "examples": "the cleanings and jobs assigned to you, start and finish times, checklist step marks, your comments, the “accepted” mark",
+          "why": "organising cleanings, quality control, recording the work done"
+        },
+        "media": {
+          "what": "Photos and videos",
+          "examples": "photos and videos of apartments before and after cleaning, photos for tasks",
+          "why": "proof of the work done and of the apartment’s condition"
+        },
+        "chat": {
+          "what": "Messages in the app",
+          "examples": "message texts and photos, the author’s name and role, the read mark",
+          "why": "discussing cleanings and tasks with the manager and colleagues"
+        },
+        "requests": {
+          "what": "Tasks and requests",
+          "examples": "tasks (your reports of faults in an apartment), requests for supplies",
+          "why": "fixing faults, supplies"
+        },
+        "device": {
+          "what": "Device data",
+          "examples": "push notification token, platform (iOS or Android), phone language, app version, which notifications you turned off",
+          "why": "delivering notifications about your work"
+        },
+        "technical": {
+          "what": "Technical data",
+          "examples": "app crash reports, server logs (sign-in time, IP address)",
+          "why": "fixing errors, security"
+        }
+      },
+      "notCollected": "<b>What we do not collect:</b> location (the app does not ask for location access), contacts, health data. Photograph the apartments, not people or documents.",
+      "video": "Videos are recorded with the app’s own camera: it does not write the place of recording into the file, but it does write the date and time of recording; we do not strip video metadata separately (we do for photos)."
+    },
+    "basis": {
+      "heading": "3. Legal bases",
+      "contract": "<b>Performance of a contract</b> with you (čl. 6 odst. 1 písm. b) GDPR) — your account, work data, photos and videos of the work, messages about the work, notifications about the work.",
+      "interest": "<b>Legitimate interest</b> of the company (čl. 6 odst. 1 písm. f) GDPR) — quality control, the security of the system, crash reports. You can object to this processing (section 7).",
+      "permission": "<b>Your permission on the phone</b> — showing push notifications. You can withdraw it in the phone’s settings; individual kinds of notifications are turned off in the app itself, in “Settings”."
+    },
+    "recipients": {
+      "heading": "4. Who receives your data",
+      "intro": "Your data is seen only by those who need it for work:",
+      "managers": "<b>your company’s managers</b> — all of the company’s work data;",
+      "staff": "<b>a cleaner or a technician</b> — their own cleanings and jobs, available work at their properties, and the messages about them. Other people’s work data and the data of another company’s employees are not accessible.",
+      "processors": "Technically, the data is processed by our suppliers (zpracovatelé), with whom {{agreements}}:",
+      "agreements": "data processing agreements have been concluded",
+      "columns": {
+        "vendor": "Supplier",
+        "role": "What it does",
+        "location": "Where"
+      },
+      "vendors": {
+        "supabase": {
+          "name": "Supabase",
+          "role": "database, sign-in, storage of photos and videos, server functions",
+          "location": "EU (Frankfurt)"
+        },
+        "vercel": {
+          "name": "Vercel",
+          "role": "hosting the web panel"
+        },
+        "expo": {
+          "name": "Expo (650 Industries)",
+          "role": "app updates, delivery of push notifications",
+          "location": "USA"
+        },
+        "google": {
+          "name": "Google (Firebase Cloud Messaging)",
+          "role": "delivery of push notifications to Android",
+          "location": "USA"
+        },
+        "apple": {
+          "name": "Apple (APNs, TestFlight)",
+          "role": "delivery of push notifications to iPhone, installing the app",
+          "location": "USA"
+        },
+        "sentry": {
+          "name": "Sentry (Functional Software)",
+          "role": "app crash reports"
+        }
+      },
+      "transfers": "Transfers to the USA are based on the European Commission’s decision on the EU-U.S. Data Privacy Framework or on standard contractual clauses — {{basis}}.",
+      "transferBasis": "the basis has been checked for each supplier",
+      "noSale": "The data is not sold and not passed on for advertising."
+    },
+    "retention": {
+      "heading": "5. How long we keep data",
+      "columns": {
+        "data": "Data",
+        "period": "Period"
+      },
+      "rows": {
+        "media": {
+          "data": "Photos and videos of cleanings and tasks",
+          "period": "90 days after the cleaning or task is closed"
+        },
+        "chatPhotos": {
+          "data": "Photos in messages",
+          "period": "90 days after the cleaning or task the conversation belongs to is closed; in a private conversation with the office, 90 days after sending"
+        },
+        "records": {
+          "data": "Cleanings, tasks, messages (texts), requests",
+          "period": "<b>Currently without a time limit.</b> By {{date}}, we are introducing automatic deletion 12 months after a cleaning or task is closed. Until then, we delete manually at your request (section 7)"
+        },
+        "journal": {
+          "data": "Activity log",
+          "period": "<b>Currently without a time limit.</b> Deletion after 24 months is being introduced together with the previous item"
+        },
+        "account": {
+          "data": "Account",
+          "period": "while you work with us; after you leave, see “If you no longer work with us” below"
+        },
+        "pushToken": {
+          "data": "Push notification token",
+          "period": "while the app is installed and you are signed in to it; deleted when you sign out, when another person signs in on the same phone, and when the phone stops accepting notifications"
+        },
+        "crashReports": {
+          "data": "Crash reports",
+          "period": "30 days"
+        },
+        "serverLogs": {
+          "data": "Server logs",
+          "period": "according to the supplier’s rules, {{period}}"
+        }
+      },
+      "leaving": "<b>If you no longer work with us.</b> A manager switches off your account in the panel. From that moment, it has no access to the company’s data. Technically, you can still sign in to the app, but after signing in you will see nothing work-related — no cleanings, properties, messages or photos; only your own account (name, language) is visible. By {{date}}, we will add a block on signing in to a switched-off account.",
+      "deletion": "Deleting an account is currently a <b>manual step</b>; it is carried out by {{who}} at your request or {{when}}. There is no automatic deletion yet; it will come together with the retention periods above. On deletion:",
+      "afterSwitchOff": "{{months}} after the switch-off",
+      "months_one": "{{count}} month",
+      "months_other": "{{count}} months",
+      "deletionEffects": {
+        "chat": "your messages in conversations about cleanings and tasks remain, but <b>instead of your name</b> they will show “Former employee”;",
+        "office": "your private conversation with the office is deleted entirely, together with its photos;",
+        "work": "in the cleanings and steps you carried out, the times and marks remain, but not you as the one who carried them out;",
+        "requests": "your tasks and requests for supplies remain — they are still being dealt with — with “Former employee” as the author;",
+        "push": "push notification tokens and notification choices are deleted together with the account."
+      }
+    },
+    "notifications": {
+      "heading": "6. Push notifications",
+      "text": "The app sends notifications about your work: a new, cancelled or moved cleaning, an assignment, a new message and so on. On the lock screen, a notification about a message shows the property and the author, but <b>not the text of the message</b>. Individual kinds of notifications are turned off in the app’s “Settings”, all of them at once in the phone’s settings."
+    },
+    "rights": {
+      "heading": "7. Your rights",
+      "intro": "You have the right to:",
+      "items": {
+        "access": "get a copy of your data (přístup);",
+        "rectification": "have inaccurate data corrected;",
+        "erasure": "request the deletion of data that is no longer needed or is processed unlawfully;",
+        "restriction": "restrict processing;",
+        "portability": "receive your data in a machine-readable form (přenositelnost);",
+        "objection": "object to processing based on legitimate interest."
+      },
+      "contact": "Write to {{email}}; we will reply within a month. We currently carry out deletion and export of data <b>manually</b>, on your e-mail: there is no “delete my data” or “download my data” button in the app yet. We will send the export as a file in the machine-readable format {{format}}.",
+      "complaint": "You can also lodge a complaint with the supervisory authority: <b>Úřad pro ochranu osobních údajů</b>, Pplk. Sochora 27, 170 00 Praha 7, {{website}}."
+    },
+    "security": {
+      "heading": "8. How we protect data",
+      "items": {
+        "https": "Connections are encrypted (HTTPS).",
+        "roles": "Access is separated by roles at the database level: each row is visible only to those who are meant to see it.",
+        "passwords": "Passwords are stored only as a hash; on the phone, the session is kept in secure storage (Keychain / Keystore).",
+        "media": "Photos and videos are kept in private storage and are handed out only after a permission check.",
+        "decisions": "The system makes no automated decisions that have legal effects for you."
+      }
+    },
+    "changes": {
+      "heading": "9. Changes",
+      "text": "We update this policy when the processing of data changes. The date of the latest version is at the top of the page."
+    }
   }
 }

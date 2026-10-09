@@ -1452,5 +1452,218 @@
     "camera": "Aplikace fotoaparátem pořizuje fotky a videa práce — před ní a po ní.",
     "microphone": "Aplikace nahrává zvuk k videím z práce.",
     "photos": "Aplikace připojí fotky, které vyberete v galerii, ke krokům checklistu, úkolům a zprávám v chatu."
+  },
+  "privacy": {
+    "metaTitle": "Zásady ochrany osobních údajů — woom",
+    "title": "Zásady ochrany osobních údajů aplikace woom",
+    "otherLanguages": "Tato stránka v dalších jazycích",
+    "effective": "<b>Platí od:</b> {{date}}",
+    "intro": "Tyto zásady vysvětlují, jaké vaše osobní údaje zpracováváme, když pracujete v aplikaci woom (aplikace pro uklízečky a techniky v telefonu) a ve webovém panelu pro manažery, proč, jak dlouho a jaká máte práva.",
+    "fill": {
+      "template": "[doplnit: {{what}}]",
+      "statement": "[{{statement}} — doplnit: potvrdit]",
+      "operatorName": "obchodní firma nebo jméno",
+      "operatorId": "číslo",
+      "operatorAddress": "adresa",
+      "contactEmail": "e-mail pro dotazy k osobním údajům",
+      "date": "datum",
+      "deadline": "termín — rozhodne majitel",
+      "accountDeletedBy": "kdo účty maže",
+      "accountRetention": "kolik měsíců po deaktivaci",
+      "vercelRegion": "region — ověřit v projektu Vercel",
+      "sentryRegion": "region — zvolit při založení projektu Sentry",
+      "serverLogRetention": "doba",
+      "exportFormat": "CSV nebo JSON — rozhodne majitel"
+    },
+    "operator": {
+      "heading": "1. Kdo vaše údaje zpracovává",
+      "text": "Správce osobních údajů: {{name}}, IČO {{id}}, {{address}}. S dotazy k osobním údajům pište na {{email}}."
+    },
+    "data": {
+      "heading": "2. Jaké údaje zpracováváme a proč",
+      "columns": {
+        "what": "Co",
+        "examples": "Příklady",
+        "why": "Proč"
+      },
+      "rows": {
+        "account": {
+          "what": "Uživatelský účet",
+          "examples": "jméno, e-mail, telefon, role (uklízečka, technik, manažer), jazyk aplikace, heslo (uložené jen jako hash)",
+          "why": "přihlášení do aplikace, organizace práce, spojení s vámi"
+        },
+        "work": {
+          "what": "Pracovní údaje",
+          "examples": "úklidy a práce, které vám byly přiděleny, čas zahájení a dokončení, odškrtnuté kroky checklistu, vaše komentáře, označení „přijato“",
+          "why": "organizace úklidů, kontrola kvality, evidence odvedené práce"
+        },
+        "media": {
+          "what": "Fotografie a videa",
+          "examples": "snímky a videa bytů před úklidem a po něm, fotografie k úkolům",
+          "why": "doložení odvedené práce a stavu bytu"
+        },
+        "chat": {
+          "what": "Zprávy v aplikaci",
+          "examples": "texty a fotografie zpráv, jméno a role autora, označení o přečtení",
+          "why": "domluva o úklidech a úkolech s manažerem a kolegy"
+        },
+        "requests": {
+          "what": "Úkoly a žádosti",
+          "examples": "úkoly (vaše zprávy o poruchách v bytě), žádosti o spotřební materiál",
+          "why": "odstraňování poruch, zásobování"
+        },
+        "device": {
+          "what": "Údaje o zařízení",
+          "examples": "token push oznámení, platforma (iOS nebo Android), jazyk telefonu, verze aplikace, která oznámení jste vypnuli",
+          "why": "doručování oznámení o práci"
+        },
+        "technical": {
+          "what": "Technické údaje",
+          "examples": "záznamy o pádech aplikace, protokoly serveru (čas přihlášení, IP adresa)",
+          "why": "oprava chyb, bezpečnost"
+        }
+      },
+      "notCollected": "<b>Co neshromažďujeme:</b> polohu (aplikace nežádá o přístup k poloze), kontakty, údaje o zdraví. Fotografujte byty, ne lidi a doklady.",
+      "video": "Videa se natáčejí kamerou samotné aplikace: místo natáčení do souboru nezapisuje, datum a čas záznamu ano; metadata videí zvlášť neodstraňujeme (u fotografií ano)."
+    },
+    "basis": {
+      "heading": "3. Právní základy",
+      "contract": "<b>Plnění smlouvy</b> s vámi (čl. 6 odst. 1 písm. b) GDPR) — uživatelský účet, pracovní údaje, fotografie a videa práce, zprávy o práci, oznámení o práci.",
+      "interest": "<b>Oprávněný zájem</b> společnosti (čl. 6 odst. 1 písm. f) GDPR) — kontrola kvality, bezpečnost systému, záznamy o pádech. Proti takovému zpracování můžete vznést námitku (oddíl 7).",
+      "permission": "<b>Vaše povolení v telefonu</b> — zobrazování push oznámení. Můžete ho odvolat v nastavení telefonu; jednotlivé druhy oznámení se vypínají přímo v aplikaci, v „Nastavení“."
+    },
+    "recipients": {
+      "heading": "4. Kdo vaše údaje dostává",
+      "intro": "Vaše údaje vidí jen ti, kdo je potřebují pro práci:",
+      "managers": "<b>manažeři vaší společnosti</b> — všechny pracovní údaje společnosti;",
+      "staff": "<b>uklízečka nebo technik</b> — své úklidy a práce, volnou práci na svých objektech a zprávy k nim. Cizí pracovní údaje a údaje zaměstnanců jiné společnosti přístupné nejsou.",
+      "processors": "Technicky údaje zpracovávají naši dodavatelé (zpracovatelé), se kterými {{agreements}}:",
+      "agreements": "jsou uzavřeny smlouvy o zpracování osobních údajů",
+      "columns": {
+        "vendor": "Dodavatel",
+        "role": "Co dělá",
+        "location": "Kde"
+      },
+      "vendors": {
+        "supabase": {
+          "name": "Supabase",
+          "role": "databáze, přihlašování, ukládání fotografií a videí, serverové funkce",
+          "location": "EU (Frankfurt)"
+        },
+        "vercel": {
+          "name": "Vercel",
+          "role": "provoz webového panelu"
+        },
+        "expo": {
+          "name": "Expo (650 Industries)",
+          "role": "aktualizace aplikace, doručování push oznámení",
+          "location": "USA"
+        },
+        "google": {
+          "name": "Google (Firebase Cloud Messaging)",
+          "role": "doručování push oznámení na Android",
+          "location": "USA"
+        },
+        "apple": {
+          "name": "Apple (APNs, TestFlight)",
+          "role": "doručování push oznámení na iPhone, instalace aplikace",
+          "location": "USA"
+        },
+        "sentry": {
+          "name": "Sentry (Functional Software)",
+          "role": "záznamy o pádech aplikace"
+        }
+      },
+      "transfers": "Předávání do USA probíhá na základě rozhodnutí Evropské komise o rámci EU-U.S. Data Privacy Framework nebo standardních smluvních doložek — {{basis}}.",
+      "transferBasis": "základ je ověřen u každého dodavatele",
+      "noSale": "Údaje neprodáváme a nepředáváme pro reklamu."
+    },
+    "retention": {
+      "heading": "5. Jak dlouho údaje uchováváme",
+      "columns": {
+        "data": "Údaje",
+        "period": "Doba"
+      },
+      "rows": {
+        "media": {
+          "data": "Fotografie a videa úklidů a úkolů",
+          "period": "90 dní po uzavření úklidu nebo úkolu"
+        },
+        "chatPhotos": {
+          "data": "Fotografie ve zprávách",
+          "period": "90 dní po uzavření úklidu nebo úkolu, ke kterému konverzace patří; v soukromé konverzaci s kanceláří 90 dní po odeslání"
+        },
+        "records": {
+          "data": "Úklidy, úkoly, zprávy (texty), žádosti",
+          "period": "<b>Nyní bez časového omezení.</b> Automatické mazání 12 měsíců po uzavření úklidu nebo úkolu zavedeme do {{date}}. Do té doby na vaši žádost mažeme ručně (oddíl 7)"
+        },
+        "journal": {
+          "data": "Protokol činností",
+          "period": "<b>Nyní bez časového omezení.</b> Mazání po 24 měsících zavedeme spolu s předchozí položkou"
+        },
+        "account": {
+          "data": "Uživatelský účet",
+          "period": "dokud s námi pracujete; po odchodu viz „Pokud s námi už nepracujete“ níže"
+        },
+        "pushToken": {
+          "data": "Token push oznámení",
+          "period": "dokud je aplikace nainstalovaná a jste v ní přihlášeni; maže se při odhlášení, při přihlášení jiné osoby na stejném telefonu a když telefon přestane přijímat oznámení"
+        },
+        "crashReports": {
+          "data": "Záznamy o pádech",
+          "period": "30 dní"
+        },
+        "serverLogs": {
+          "data": "Protokoly serveru",
+          "period": "podle pravidel dodavatele, {{period}}"
+        }
+      },
+      "leaving": "<b>Pokud s námi už nepracujete.</b> Manažer váš účet v panelu deaktivuje. Od té chvíle nemá přístup k údajům společnosti. Přihlásit se do aplikace technicky ještě lze, ale po přihlášení neuvidíte nic pracovního — žádné úklidy, objekty, zprávy ani fotografie; vidíte jen svůj vlastní účet (jméno, jazyk). Zákaz samotného přihlášení k deaktivovanému účtu doplníme do {{date}}.",
+      "deletion": "Smazání účtu je zatím <b>ruční krok</b>, provádí ho {{who}} na vaši žádost nebo {{when}}. Automatické mazání zatím není, přijde spolu s dobami uchování výše. Při smazání:",
+      "afterSwitchOff": "{{months}} po deaktivaci",
+      "months_one": "{{count}} měsíc",
+      "months_few": "{{count}} měsíce",
+      "months_many": "{{count}} měsíce",
+      "months_other": "{{count}} měsíců",
+      "deletionEffects": {
+        "chat": "vaše zprávy v konverzacích o úklidech a úkolech zůstanou, ale <b>místo vašeho jména</b> u nich bude „Bývalý zaměstnanec“;",
+        "office": "vaše soukromá konverzace s kanceláří se smaže celá, i s fotografiemi;",
+        "work": "v úklidech a krocích, které jste prováděli, zůstanou časy a označení, ale ne vy jako ten, kdo je provedl;",
+        "requests": "vaše úkoly a žádosti o spotřební materiál zůstanou — dál se jimi zabýváme — s autorem „Bývalý zaměstnanec“;",
+        "push": "tokeny push oznámení a nastavení oznámení se smažou spolu s účtem."
+      }
+    },
+    "notifications": {
+      "heading": "6. Push oznámení",
+      "text": "Aplikace posílá oznámení o vaší práci: nový, zrušený nebo přesunutý úklid, přidělení, nová zpráva apod. Na zamčené obrazovce oznámení o zprávě ukazuje objekt a autora, ale <b>ne text zprávy</b>. Jednotlivé druhy oznámení se vypínají v „Nastavení“ aplikace, všechna najednou v nastavení telefonu."
+    },
+    "rights": {
+      "heading": "7. Vaše práva",
+      "intro": "Máte právo:",
+      "items": {
+        "access": "získat kopii svých údajů (přístup);",
+        "rectification": "opravit nesprávné údaje;",
+        "erasure": "požadovat výmaz údajů, které už nejsou potřeba nebo se zpracovávají protiprávně;",
+        "restriction": "omezit zpracování;",
+        "portability": "získat své údaje ve strojově čitelné podobě (přenositelnost);",
+        "objection": "vznést námitku proti zpracování na základě oprávněného zájmu."
+      },
+      "contact": "Pište na {{email}}; odpovíme do jednoho měsíce. Výmaz a export údajů nyní provádíme <b>ručně</b>, na základě vašeho e-mailu: tlačítko „smazat moje údaje“ nebo „stáhnout moje údaje“ v aplikaci zatím není. Export vám pošleme jako soubor ve strojově čitelném formátu {{format}}.",
+      "complaint": "Můžete také podat stížnost u dozorového úřadu: <b>Úřad pro ochranu osobních údajů</b>, Pplk. Sochora 27, 170 00 Praha 7, {{website}}."
+    },
+    "security": {
+      "heading": "8. Jak údaje chráníme",
+      "items": {
+        "https": "Spojení jsou šifrovaná (HTTPS).",
+        "roles": "Přístup je rozdělen podle rolí na úrovni databáze: každý řádek vidí jen ti, komu je určen.",
+        "passwords": "Hesla se ukládají jen jako hash; v telefonu je relace uložena v zabezpečeném úložišti (Keychain / Keystore).",
+        "media": "Fotografie a videa jsou v neveřejném úložišti a vydávají se jen po ověření oprávnění.",
+        "decisions": "Systém nečiní automatizovaná rozhodnutí, která by pro vás měla právní účinky."
+      }
+    },
+    "changes": {
+      "heading": "9. Změny",
+      "text": "Tyto zásady aktualizujeme, když se změní zpracování údajů. Datum poslední verze je nahoře na stránce."
+    }
   }
 }

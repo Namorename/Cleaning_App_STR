@@ -69,6 +69,56 @@ describe('the way to the sign-in page', () => {
 });
 
 /**
+ * Decision 17 (docs/f11-plan.md): the privacy policy is a public page on the
+ * panel's domain. App Store Connect links to it, so a visitor who never signed
+ * in must read it, and so must a manager — without being sent to the
+ * dashboard as the sign-in page sends them.
+ */
+describe('the privacy policy', () => {
+  test.each(['/privacy', '/privacy?lang=en'])(
+    'opens %s to a visitor who is not signed in',
+    async (path) => {
+      expect(await redirectOf(path)).toBeNull();
+    },
+  );
+
+  test.each(['/privacy', '/privacy?lang=ru'])('opens %s to a signed-in manager', async (path) => {
+    auth.user = { app_metadata: { role: 'manager' } };
+
+    expect(await redirectOf(path)).toBeNull();
+  });
+
+  test('opens to a signed-in cleaner as well', async () => {
+    auth.user = { app_metadata: { role: 'cleaner' } };
+
+    expect(await redirectOf('/privacy?lang=cs')).toBeNull();
+  });
+
+  test.each(['/privacyx', '/privacy/x', '/privacy-policy'])(
+    'opens the exact path only: %s still asks for the sign-in',
+    async (path) => {
+      const target = await redirectOf(path);
+
+      expect(target?.pathname).toBe('/login');
+      expect(target?.searchParams.get('next')).toBe(path);
+    },
+  );
+
+  test('leaves the dashboard behind the sign-in', async () => {
+    const target = await redirectOf('/dashboard');
+
+    expect(target?.pathname).toBe('/login');
+    expect(target?.searchParams.get('next')).toBe('/dashboard');
+  });
+
+  test('still sends a manager from the sign-in page to the dashboard', async () => {
+    auth.user = { app_metadata: { role: 'manager' } };
+
+    expect((await redirectOf('/login'))?.pathname).toBe('/dashboard');
+  });
+});
+
+/**
  * Which requests the sign-in guard sees at all, by Next's own reading of the
  * matcher. The logo sits on the sign-in card, so its files must reach a
  * visitor who has not signed in (docs/redesign-plan.md, 6.1) — the raster
