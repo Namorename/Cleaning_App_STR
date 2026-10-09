@@ -1,15 +1,18 @@
 'use client';
 
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PageHeader } from '@/components/page-header';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAddressState } from '@/lib/use-address-state';
 
 import { readProblemsAddress, writeProblemsAddress, type ProblemView } from './address';
+import { NewProblemDialog } from './new-problem-dialog';
 import { ProblemsArchive } from './problems-archive';
 import { ProblemsBoard } from './problems-board';
 import { ProblemsTable } from './problems-table';
@@ -22,10 +25,14 @@ import { useProblems } from './use-problems';
  * The view is in the address (owner, 05.10): a bare `/problems` is the board,
  * a change of view is a step «Назад» walks back, and a task opened from a view
  * returns to it.
+ *
+ * «Новое задание» stands in the header on every view (the owner, 09.10: the
+ * panel had no way to create a task); the form lives only while it is open.
  */
 export function ProblemsView() {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
   const [address, setAddress] = useAddressState(readProblemsAddress, writeProblemsAddress);
   const { view } = address;
   const { data, isPending, isError, error } = useProblems();
@@ -41,14 +48,20 @@ export function ProblemsView() {
       <PageHeader
         title={t('panel.problems.title')}
         actions={
-          <Input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t('panel.problems.searchPlaceholder')}
-            aria-label={t('panel.problems.searchPlaceholder')}
-            className="h-11 w-full sm:w-72"
-          />
+          <>
+            <Input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t('panel.problems.searchPlaceholder')}
+              aria-label={t('panel.problems.searchPlaceholder')}
+              className="h-11 w-full sm:w-72"
+            />
+            <Button type="button" className="h-11 px-4" onClick={() => setIsCreating(true)}>
+              <Plus aria-hidden="true" />
+              {t('panel.problems.form.new')}
+            </Button>
+          </>
         }
       />
 
@@ -88,6 +101,8 @@ export function ProblemsView() {
           </TabsContent>
         </Tabs>
       )}
+
+      {isCreating ? <NewProblemDialog view={view} onClose={() => setIsCreating(false)} /> : null}
     </div>
   );
 }

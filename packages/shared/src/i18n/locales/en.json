@@ -319,6 +319,15 @@
       "archive": {
         "empty": "The archive is empty",
         "hint": "Archived tasks are hidden from the staff and stay off the board. A restored task comes back in the status it had."
+      },
+      "form": {
+        "new": "New task",
+        "title": "New task",
+        "description": "Once it is created, the task's page opens — assign it there.",
+        "property": "Listing",
+        "submit": "Create",
+        "saving": "Creating…",
+        "close": "Cancel"
       }
     },
     "supplies": {

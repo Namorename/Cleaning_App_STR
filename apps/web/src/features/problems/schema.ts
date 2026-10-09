@@ -6,6 +6,10 @@ import { matchesAllTokens } from '@/lib/search';
 export const PROBLEM_PRIORITIES = ['low', 'normal', 'high'] as const;
 export type ProblemPriority = (typeof PROBLEM_PRIORITIES)[number];
 
+/** The same numbers the database checks (problem_title_max_length, problem_description_max_length). */
+export const MAX_PROBLEM_TITLE = 200;
+export const MAX_PROBLEM_DESCRIPTION = 4000;
+
 export const PROBLEM_STATUSES = ['open', 'assigned', 'in_progress', 'resolved', 'cancelled'] as const;
 export type ProblemStatus = (typeof PROBLEM_STATUSES)[number];
 
