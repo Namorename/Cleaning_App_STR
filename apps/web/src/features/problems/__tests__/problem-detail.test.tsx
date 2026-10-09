@@ -179,7 +179,7 @@ beforeEach(() => {
           waived_at: null,
         },
       ],
-      photosByStep: {},
+      mediaByStep: {},
     }),
   );
   queries.staff.mockReturnValue(

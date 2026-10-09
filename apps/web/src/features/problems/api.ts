@@ -1,7 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@str-ops/shared';
 
-import { withSignedUrls } from '@/lib/media';
+import {
+  groupByStep,
+  STEP_MEDIA_COLUMNS,
+  stepMediaListSchema,
+  type StepMedia,
+} from '@/features/media/schema';
+import { withSignedUrls, type WithUrl } from '@/lib/media';
 
 import {
   mediaListSchema,
@@ -73,11 +79,11 @@ export async function fetchProblemPhotos(client: Client, problemId: string): Pro
 
 export interface FixTaskSteps {
   steps: TaskStep[];
-  /** The photos the technician took, keyed by the step they belong to. */
-  photosByStep: Record<string, Photo[]>;
+  /** The photos and videos the technician took, keyed by the step they belong to. */
+  mediaByStep: Record<string, WithUrl<StepMedia>[]>;
 }
 
-/** The snapshot of steps the fix task carries, with the photos taken on each. */
+/** The snapshot of steps the fix task carries, with the photos and videos taken on each. */
 export async function fetchFixTaskSteps(client: Client, taskId: string): Promise<FixTaskSteps> {
   const [stepsResult, mediaResult] = await Promise.all([
     client
@@ -89,7 +95,7 @@ export async function fetchFixTaskSteps(client: Client, taskId: string): Promise
       .order('sort_order', { ascending: true }),
     client
       .from('task_media')
-      .select('id, step_id, storage_path, created_at, source')
+      .select(STEP_MEDIA_COLUMNS)
       .eq('task_id', taskId)
       .is('deleted_at', null)
       .is('purged_at', null)
@@ -103,15 +109,11 @@ export async function fetchFixTaskSteps(client: Client, taskId: string): Promise
     throw mediaResult.error;
   }
 
-  const photos = await withSignedUrls(client, mediaListSchema.parse(mediaResult.data ?? []));
-  const photosByStep = photos.reduce<Record<string, Photo[]>>((groups, photo) => {
-    if (photo.step_id === null) {
-      return groups;
-    }
-    return { ...groups, [photo.step_id]: [...(groups[photo.step_id] ?? []), photo] };
-  }, {});
-
-  return { steps: taskStepListSchema.parse(stepsResult.data ?? []), photosByStep };
+  const media = await withSignedUrls(client, stepMediaListSchema.parse(mediaResult.data ?? []));
+  return {
+    steps: taskStepListSchema.parse(stepsResult.data ?? []),
+    mediaByStep: groupByStep(media),
+  };
 }
 
 /** Active people of the company a problem can be handed to. */

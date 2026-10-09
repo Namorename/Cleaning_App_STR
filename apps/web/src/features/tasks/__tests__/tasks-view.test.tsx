@@ -108,7 +108,7 @@ vi.mock('../use-tasks', () => ({
           waived_at: null,
         },
       ],
-      photosByStep: {},
+      mediaByStep: {},
     },
     isPending: false,
     isError: false,

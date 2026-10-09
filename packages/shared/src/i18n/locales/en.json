@@ -839,7 +839,13 @@
     },
     "media": {
       "fromGallery": "from gallery",
-      "sourceUnknown": "source not stated"
+      "sourceUnknown": "source not stated",
+      "video": "Video",
+      "videoDuration": "Video · {{duration}}",
+      "videoOf": "Video: {{step}}",
+      "openVideo": "Open",
+      "openVideoLabel": "Open the video in a new tab",
+      "videoUnavailable": "Video unavailable"
     },
     "calendar": {
       "counts": "Listings: {{listings}} · rooms: {{rooms}}",

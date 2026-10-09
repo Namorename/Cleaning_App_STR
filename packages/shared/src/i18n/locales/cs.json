@@ -843,7 +843,13 @@
     },
     "media": {
       "fromGallery": "z galerie",
-      "sourceUnknown": "zdroj neuveden"
+      "sourceUnknown": "zdroj neuveden",
+      "video": "Video",
+      "videoDuration": "Video · {{duration}}",
+      "videoOf": "Video: {{step}}",
+      "openVideo": "Otevřít",
+      "openVideoLabel": "Otevřít video v nové kartě",
+      "videoUnavailable": "Video není k dispozici"
     },
     "calendar": {
       "counts": "Objektů: {{listings}} · pokojů: {{rooms}}",

@@ -843,7 +843,13 @@
     },
     "media": {
       "fromGallery": "из галереи",
-      "sourceUnknown": "источник не указан"
+      "sourceUnknown": "источник не указан",
+      "video": "Видео",
+      "videoDuration": "Видео · {{duration}}",
+      "videoOf": "Видео: {{step}}",
+      "openVideo": "Открыть",
+      "openVideoLabel": "Открыть видео в новой вкладке",
+      "videoUnavailable": "Видео недоступно"
     },
     "calendar": {
       "counts": "Объектов: {{listings}} · комнат: {{rooms}}",

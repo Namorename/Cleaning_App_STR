@@ -1,6 +1,7 @@
 'use client';
 
 import { PhotoSource } from '@/features/media/photo-source';
+import { VideoTile } from '@/features/media/video-tile';
 import { STATUS_TONE } from '@str-ops/shared';
 import { MessageSquare } from 'lucide-react';
 import Link from 'next/link';
@@ -62,8 +63,8 @@ function stepState(step: {
 }
 
 /**
- * A job up close, once it has been worked: the steps, the photos, the
- * problems it turned up, and how long it is counted as.
+ * A job up close, once it has been worked: the steps, the photos and videos,
+ * the problems it turned up, and how long it is counted as.
  *
  * The conversation is not in here any more (5.4, «Чат», variant B): it has a
  * sheet of its own, which every job's row opens; the drawer's «Чат»
@@ -239,7 +240,9 @@ export function TaskDrawer({ task, onClose, onOpenChat }: TaskDrawerProps) {
                 <ol className="flex flex-col gap-2">
                   {work.data.steps.map((step, index) => {
                     const state = stepState(step);
-                    const photos = work.data.photosByStep[step.id] ?? [];
+                    const media = work.data.mediaByStep[step.id] ?? [];
+                    const photos = media.filter((item) => item.kind === 'photo');
+                    const videos = media.filter((item) => item.kind === 'video');
                     const stepTitle =
                       step.title_i18n?.[language] ?? step.title ?? t(`steps.types.${step.type}`);
                     return (
@@ -279,6 +282,21 @@ export function TaskDrawer({ task, onClose, onOpenChat }: TaskDrawerProps) {
                               )}
                             </div>
                           </>
+                        )}
+                        {videos.length === 0 ? null : (
+                          <div className="flex flex-wrap gap-2">
+                            {videos.map((video) =>
+                              video.url === null ? null : (
+                                <VideoTile
+                                  key={video.id}
+                                  url={video.url}
+                                  durationSec={video.duration_sec}
+                                  label={t('panel.media.videoOf', { step: stepTitle })}
+                                  className="w-20"
+                                />
+                              ),
+                            )}
+                          </div>
                         )}
                       </li>
                     );
