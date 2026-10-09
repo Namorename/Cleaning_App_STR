@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Icon } from '@/components/icon';
 import { Text } from '@/components/text';
 import { MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 interface CheckRowProps {
@@ -30,6 +31,7 @@ export function CheckRow({
   isDisabled,
   onToggle,
 }: CheckRowProps) {
+  const theme = useTheme();
   const styles = useThemedStyles(createStyles);
 
   return (
@@ -48,7 +50,9 @@ export function CheckRow({
         ) : null}
       </View>
       <View style={styles.words}>
-        <Text variant="title" weight={600} tone={isChecked ? 'secondary' : 'default'}>
+        {/* Quieter once ticked, never heavier: the secondary colour without
+            the secondary tone, which the light theme steps up a weight. */}
+        <Text variant="title" weight={600} color={isChecked ? theme.textSecondary : undefined}>
           {label}
         </Text>
         {note !== undefined ? (

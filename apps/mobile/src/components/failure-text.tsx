@@ -5,6 +5,9 @@ import { serverErrorText } from '@/lib/server-error';
 
 import { Text } from './text';
 
+/** The server's own words are for passing on, not for reading: a few lines at most. */
+const DETAIL_LINES = 3;
+
 export interface FailureTextProps {
   /** The failure as it came: a refusal the app knows is translated, anything else is not. */
   error: unknown;
@@ -27,7 +30,13 @@ export function FailureText({ error }: FailureTextProps) {
         {failure.text}
       </Text>
       {failure.detail !== null ? (
-        <Text variant="caption" tone="secondary" align="center" selectable>
+        <Text
+          variant="caption"
+          tone="secondary"
+          align="center"
+          numberOfLines={DETAIL_LINES}
+          selectable
+        >
           {failure.detail}
         </Text>
       ) : null}

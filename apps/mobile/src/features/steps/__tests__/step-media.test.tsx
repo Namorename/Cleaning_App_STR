@@ -72,12 +72,58 @@ test('says where each photo stands and counts them', async () => {
   expect(screen.getByLabelText('Фото 3. Не загрузилось')).toBeTruthy();
   expect(screen.getByText('Снято 3 из 4')).toBeTruthy();
 
-  // Only the stranded one can be retried; every one can be taken back.
-  await fireEvent.press(screen.getByRole('button', { name: 'Повторить загрузку' }));
+  // Only the stranded one can be retried; every one can be taken back. Each
+  // button is named with its tile, so the reader knows which photo it acts on.
+  expect(screen.getAllByRole('button', { name: /^Повторить загрузку/ })).toHaveLength(1);
+  await fireEvent.press(screen.getByRole('button', { name: 'Повторить загрузку. Фото 3' }));
   expect(handlers.onRetry).toHaveBeenCalledWith('m3');
 
-  await fireEvent.press(screen.getAllByRole('button', { name: 'Удалить' })[1]);
+  await fireEvent.press(screen.getByRole('button', { name: 'Удалить. Фото 2' }));
   expect(handlers.onRemove).toHaveBeenCalledWith('m2');
+});
+
+test('a video tile’s button is named with the video', async () => {
+  await render(
+    <StepMedia
+      kind="video"
+      items={[item({ kind: 'video', uri: null, durationSec: 20.5, status: 'failed' })]}
+      limits={{ min: 1, max: 1 }}
+      maxVideoSec={30}
+      isCapturing={false}
+      disabled={false}
+      {...handlers}
+    />,
+  );
+
+  await fireEvent.press(screen.getByRole('button', { name: 'Удалить. Видео' }));
+  expect(handlers.onRemove).toHaveBeenCalledWith('m1');
+  expect(screen.getByRole('button', { name: 'Повторить загрузку. Видео' })).toBeTruthy();
+});
+
+test('while the camera is open, the camera button spins and the gallery waits', async () => {
+  await render(
+    <StepMedia
+      kind="photo"
+      items={[]}
+      limits={{ min: 1, max: 4 }}
+      maxVideoSec={30}
+      isCapturing
+      disabled={false}
+      {...handlers}
+      canPickFromGallery
+    />,
+  );
+
+  const camera = screen.getByRole('button', { name: 'Снять фото' });
+  const gallery = screen.getByRole('button', { name: 'Выбрать фото из галереи' });
+  expect(camera.props.accessibilityState).toMatchObject({ busy: true });
+  expect(gallery).toBeDisabled();
+  expect(gallery.props.accessibilityState).toMatchObject({ busy: false });
+
+  await fireEvent.press(camera);
+  await fireEvent.press(gallery);
+  expect(handlers.onCapture).not.toHaveBeenCalled();
+  expect(handlers.onPickFromGallery).not.toHaveBeenCalled();
 });
 
 // A tile whose picture is not here yet (its signed link still on the way)
@@ -264,11 +310,31 @@ describe('the look: «Абрикос» on the old layout', () => {
       />,
     );
 
-    const retry = styleOf(screen.getByRole('button', { name: 'Повторить загрузку' }));
-    const remove = styleOf(screen.getByRole('button', { name: 'Удалить' }));
+    const retry = styleOf(screen.getByRole('button', { name: 'Повторить загрузку. Фото 1' }));
+    const remove = styleOf(screen.getByRole('button', { name: 'Удалить. Фото 1' }));
     expect(retry.minHeight).toBeGreaterThanOrEqual(TOUCH_TARGET.phoneMin);
     expect(remove.minHeight).toBeGreaterThanOrEqual(TOUCH_TARGET.phoneMin);
     expect(remove.backgroundColor).toBe(tones.urgent.bg);
+  });
+
+  test('a tile’s buttons carry their words alone: no icon to crowd them at a large font', async () => {
+    await render(
+      <StepMedia
+        kind="photo"
+        items={[item({ id: 'm3', status: 'failed', uri: null })]}
+        limits={{ min: 1, max: 4 }}
+        maxVideoSec={30}
+        isCapturing={false}
+        disabled={false}
+        {...handlers}
+      />,
+    );
+
+    // The button holds its label and nothing beside it.
+    for (const name of ['Повторить загрузку. Фото 1', 'Удалить. Фото 1']) {
+      const button = screen.getByRole('button', { name });
+      expect(button.children).toHaveLength(1);
+    }
   });
 
   test('a tile shows where its file stands with an icon as well as words', async () => {

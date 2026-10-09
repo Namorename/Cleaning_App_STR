@@ -1,9 +1,14 @@
 import { THEME_COLORS, TONE_COLORS, TOUCH_TARGET } from '@str-ops/shared';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
-import { Dimensions, StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
+import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
+
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 import { MAX_COMMENT_LENGTH, type TaskStep } from '../schema';
 import { StepScreen } from '../step-screen';
+
+jest.mock('@/hooks/use-color-scheme', () => ({ useColorScheme: jest.fn(() => 'light') }));
+const scheme = jest.mocked(useColorScheme);
 
 function step(overrides: Partial<TaskStep> = {}): TaskStep {
   return {
@@ -40,6 +45,7 @@ const actions = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  scheme.mockReturnValue('light');
 });
 
 describe('confirmation', () => {
@@ -137,12 +143,103 @@ describe('cleaner comment', () => {
     expect(save).toBeDisabled();
 
     await fireEvent.changeText(
-      screen.getByLabelText('Комментарий'),
+      screen.getByLabelText('Для менеджера'),
       '  Лампа в коридоре перегорела ',
     );
     await fireEvent.press(screen.getByRole('button', { name: 'Сохранить' }));
 
     expect(actions.onComplete).toHaveBeenCalledWith({ text: 'Лампа в коридоре перегорела' });
+  });
+});
+
+describe('while a move is in flight', () => {
+  const light = THEME_COLORS.light;
+
+  test('«Готово» spins in its own fill, and a second press sends nothing', async () => {
+    await render(<StepScreen step={step()} isEditable isBusy error={null} {...actions} />);
+
+    const done = screen.getByRole('button', { name: 'Готово' });
+    await fireEvent.press(done);
+
+    expect(actions.onComplete).not.toHaveBeenCalled();
+    expect(done.props.accessibilityState).toMatchObject({ busy: true });
+    const fill = StyleSheet.flatten(done.props.style as ViewStyle).backgroundColor;
+    expect(fill).toBe(light.cta);
+  });
+
+  test('«Пропустить» sends nothing', async () => {
+    await render(<StepScreen step={step()} isEditable isBusy error={null} {...actions} />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Пропустить' }));
+
+    expect(actions.onSkip).not.toHaveBeenCalled();
+  });
+
+  test('«Вернуть в работу» sends nothing', async () => {
+    await render(
+      <StepScreen
+        step={step({ completed_at: '2026-09-05T10:00:00+00:00' })}
+        isEditable
+        isBusy
+        error={null}
+        {...actions}
+      />,
+    );
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Вернуть в работу' }));
+
+    expect(actions.onReopen).not.toHaveBeenCalled();
+  });
+
+  test('the checkboxes of a note and of a checklist are closed', async () => {
+    const { rerender } = await render(
+      <StepScreen
+        step={step({ type: 'task_note', title: null, instructions: 'a\nb' })}
+        isEditable
+        isBusy
+        error={null}
+        {...actions}
+      />,
+    );
+    expect(screen.getByRole('checkbox', { name: 'a' })).toBeDisabled();
+
+    await rerender(
+      <StepScreen
+        step={step({
+          type: 'checklist',
+          title: null,
+          instructions: null,
+          config: {
+            modules: [
+              {
+                id: 'm1',
+                title: 'Ванная',
+                items: [{ id: 'i1', title: 'Зеркало', is_optional: false }],
+              },
+            ],
+          },
+        })}
+        isEditable
+        isBusy
+        error={null}
+        {...actions}
+      />,
+    );
+    expect(screen.getByRole('checkbox', { name: 'Зеркало' })).toBeDisabled();
+  });
+
+  test('the comment cannot be typed into', async () => {
+    await render(
+      <StepScreen
+        step={step({ type: 'cleaner_comment', title: null, instructions: null })}
+        isEditable
+        isBusy
+        error={null}
+        {...actions}
+      />,
+    );
+
+    expect(screen.getByLabelText('Для менеджера').props.editable).toBe(false);
   });
 });
 
@@ -380,7 +477,7 @@ describe('photos', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Снять фото' }));
     expect(onCapture).toHaveBeenCalled();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Удалить' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Удалить. Фото 1' }));
     expect(onRemoveMedia).toHaveBeenCalledWith('m1');
   });
 
@@ -508,8 +605,8 @@ describe('the look: «Абрикос» on the old layout', () => {
     );
 
     // The name of the field is on screen, not only read out.
-    expect(screen.getByText('Комментарий')).toBeTruthy();
-    const field = screen.getByLabelText('Комментарий');
+    expect(screen.getByText('Для менеджера')).toBeTruthy();
+    const field = screen.getByLabelText('Для менеджера');
     expect(field.props.maxLength).toBe(MAX_COMMENT_LENGTH);
     expect(field.props.multiline).toBe(true);
     expect(styleOf(field).borderColor).toBe(light.border);
@@ -527,19 +624,48 @@ describe('the look: «Абрикос» on the old layout', () => {
       />,
     );
 
-    expect(screen.getByLabelText('Комментарий').props.editable).toBe(false);
+    expect(screen.getByLabelText('Для менеджера').props.editable).toBe(false);
   });
 
-  test('at the largest system font «Готово» still carries its whole label', async () => {
-    // Arrange: a small phone with the font turned all the way up.
-    jest
-      .spyOn(Dimensions, 'get')
-      .mockReturnValue({ width: 320, height: 640, scale: 3, fontScale: 3.1 });
+  test('the field does not repeat the step’s own name above it', async () => {
+    // A comment step without a title of its own is headed «Комментарий».
+    await render(
+      <StepScreen
+        step={step({ type: 'cleaner_comment', title: null, instructions: null })}
+        isEditable
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
 
-    // Act
+    expect(screen.getAllByText('Комментарий')).toHaveLength(1);
+    expect(screen.getByLabelText('Для менеджера')).toBeTruthy();
+  });
+
+  test('dark theme: a required step’s badge is the dark neutral tone', async () => {
+    scheme.mockReturnValue('dark');
+
+    await render(
+      <StepScreen
+        step={step({ required: true })}
+        isEditable
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    expect(styleOf(screen.getByTestId('step-required')).backgroundColor).toBe(
+      TONE_COLORS.dark.neutral.bg,
+    );
+  });
+
+  // Jest draws no system font, so what is checked is the structure that lets
+  // the label grow at any font size.
+  test('«Готово» never cuts its label: no line limit, font scaling on, a minimum height', async () => {
     await render(<StepScreen step={step()} isEditable isBusy={false} error={null} {...actions} />);
 
-    // Assert
     const done = screen.getByRole('button', { name: 'Готово' });
     const label = within(done).getByText('Готово');
     expect(label.props.numberOfLines).toBeUndefined();

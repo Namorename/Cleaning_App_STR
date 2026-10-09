@@ -22,10 +22,17 @@ test('an unknown failure: the general sentence in the danger colour, the server�
   expect(screen.getByText('Network request failed')).toBeTruthy();
 });
 
+test('the server’s words are for passing on: three lines at most', async () => {
+  await render(<FailureText error={new Error('relation "x" does not exist\n'.repeat(20))} />);
+
+  expect(screen.getByText(/relation "x" does not exist/).props.numberOfLines).toBe(3);
+});
+
 test('a refusal the app knows is said in her words, with nothing raw under it', async () => {
   await render(
     <FailureText error={new RefusalError('Claim matched no row', 'tasks.claimTaken')} />,
   );
 
+  expect(screen.getByText('Уборку уже взяли, либо её срок истёк.')).toBeTruthy();
   expect(screen.queryByText('Claim matched no row')).toBeNull();
 });

@@ -130,8 +130,9 @@ export const Colors: Readonly<Record<ThemeName, Theme>> = {
 
 /**
  * The colours of a status, by what it means rather than by its colour: the
- * contract (`STATUS_TONE`) decides that a same-day check-in is urgent and her
- * own chat bubble neutral, and no screen decides it again.
+ * contract (`STATUS_TONE`) decides that a same-day check-in is urgent and a
+ * message on its way neutral, and no screen decides it again. (Her own chat
+ * bubble is not a status: it is drawn in the `secondary` role.)
  */
 export function statusTone(theme: Theme, key: StatusKey): ToneColors {
   return theme.tone[STATUS_TONE[key]];

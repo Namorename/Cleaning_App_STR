@@ -43,17 +43,15 @@ function ProblemCardComponent({ problem, onPress, hasUnread = false }: ProblemCa
 
   return (
     <Card accessibilityLabel={label} onPress={() => onPress(problem.id)}>
-      <View style={styles.header}>
-        <Text variant="title" numberOfLines={2} style={styles.title}>
-          {problem.title}
-        </Text>
-        <View style={styles.marks}>
-          {hasUnread ? <Badge label={t('chat.unread')} tone={STATUS_TONE['chat.unread']} /> : null}
-          <Badge testID="problem-status" label={status} tone={problemStatusTone(problem.status)} />
-          {isUrgent ? (
-            <Badge testID="problem-urgent" label={urgent} tone={problemPriorityTone('high')} />
-          ) : null}
-        </View>
+      <Text variant="title" numberOfLines={2}>
+        {problem.title}
+      </Text>
+      <View testID="problem-marks" style={styles.marks}>
+        {hasUnread ? <Badge label={t('chat.unread')} tone={STATUS_TONE['chat.unread']} /> : null}
+        <Badge testID="problem-status" label={status} tone={problemStatusTone(problem.status)} />
+        {isUrgent ? (
+          <Badge testID="problem-urgent" label={urgent} tone={problemPriorityTone('high')} />
+        ) : null}
       </View>
       <Text tone="secondary">
         {place} · {when}
@@ -71,9 +69,8 @@ export const ProblemCard = memo(ProblemCardComponent);
 
 /** Sizes only: the colours are the components'. */
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.md },
-  title: { flex: 1 },
-  // The pills stack at the right, the new-message mark first as before: in a
-  // row, three of them would leave the title no room at 320 dp.
-  marks: { gap: Spacing.xs },
+  // The pills under the title, the new-message mark first as before, wrapping
+  // when they do not fit: beside it, at 320 dp and a large font, they left the
+  // title a sliver of the card.
+  marks: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
 });

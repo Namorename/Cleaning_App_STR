@@ -72,7 +72,8 @@ describe.each(THEME_NAMES)('%s theme', (name) => {
 
   test('reads a tone by its meaning', () => {
     expect(statusTone(c, 'phone.checkIn.sameDay')).toBe(TONE_COLORS[name].urgent);
-    expect(statusTone(c, 'chat.ownBubble')).toBe(TONE_COLORS[name][STATUS_TONE['chat.ownBubble']]);
+    // A key the phone draws by (thread-view.tsx: a message on its way).
+    expect(statusTone(c, 'chat.pending')).toBe(TONE_COLORS[name][STATUS_TONE['chat.pending']]);
   });
 
   test('the scrim is the token colour at the token alpha', () => {

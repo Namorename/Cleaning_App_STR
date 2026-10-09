@@ -32,7 +32,7 @@ interface TaskDetailProps {
   /** The clock the start button is judged against; ticks in the route. */
   now: Date;
   isBusy: boolean;
-  /** The busy move is the accept: its own button spins, the main one only waits. */
+  /** The busy move is the accept: its own button spins, not greyed by the other moves. */
   isAccepting?: boolean;
   /** The last action's failure, shown next to the button so she can retry. */
   error: Error | null;
@@ -198,8 +198,13 @@ export function TaskDetail({
       </Card>
 
       {fix !== null ? (
+        // Heard with its facts, as the report's card in her list is.
         <Card
-          accessibilityLabel={t('tasks.detail.openProblem')}
+          accessibilityLabel={[
+            fix.title,
+            t('problems.priorityLine', { priority: t(`problems.priorities.${fix.priority}`) }),
+            t('tasks.detail.openProblem'),
+          ].join('. ')}
           onPress={onOpenProblem === undefined ? undefined : () => onOpenProblem(fix.id)}
           style={layout.target}
         >
@@ -283,12 +288,13 @@ export function TaskDetail({
       ) : null}
 
       {actionLabel !== null ? (
-        // Its own move in flight spins it; any other move, or the window or a
-        // required step, only holds it.
+        // Any move in flight — its own or the accept beside it — holds it busy
+        // in its own fill rather than greying it for a moment; the window or a
+        // required step greys it.
         <Button
           label={actionLabel}
-          isBusy={isBusy && !isAccepting}
-          isDisabled={isBlocked || (isBusy && isAccepting)}
+          isBusy={isBusy && !isBlocked}
+          isDisabled={isBlocked}
           onPress={onAction}
         />
       ) : (

@@ -44,6 +44,12 @@ export default function EditProblemRoute() {
     }
   }, [isLeaving]);
 
+  // Nothing to ask for, or nobody to ask as: the query never runs, and a
+  // skeleton would stand there for ever.
+  if (!parsed.success || userId === null) {
+    return <Message text={t('problems.notFound')} styles={styles} />;
+  }
+
   // A report that never loaded says why, rather than loading for ever.
   if (problem.error && !problem.data) {
     return (

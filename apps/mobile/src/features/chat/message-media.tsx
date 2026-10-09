@@ -70,20 +70,21 @@ export function MessageMedia({ tiles, onRetry, onRemove }: MessageMediaProps) {
                 </Text>
               ) : null}
             </View>
+            {/* Her bubble is the tonal `secondary` fill, so neither button can
+                be: retry is the main move in the cta fill, remove is framed. */}
             {canRetry ? (
               <Button
-                variant="secondary"
                 label={t('media.retry')}
-                left={<Icon name="action.retry" size="small" tone="onSecondary" />}
+                left={<Icon name="action.retry" size="small" tone="onCta" />}
                 onPress={() => onRetry(tile.id)}
                 style={layout.tileButton}
               />
             ) : null}
             {canRemove ? (
               <Button
-                variant="destructive"
+                variant="outline"
                 label={t('media.remove')}
-                left={<Icon name="action.delete" size="small" tone="danger" />}
+                left={<Icon name="action.delete" size="small" tone="primary" />}
                 onPress={() => onRemove(tile.id)}
                 style={layout.tileButton}
               />

@@ -1,11 +1,15 @@
 import { THEME_COLORS, TONE_COLORS, TOUCH_TARGET } from '@str-ops/shared';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
-import { Dimensions, StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
+import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
 import type { TaskStep } from '@/features/steps/schema';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 import { TaskDetail } from '../task-detail';
 import type { CleaningTask } from '../schema';
+
+jest.mock('@/hooks/use-color-scheme', () => ({ useColorScheme: jest.fn(() => 'light') }));
+const scheme = jest.mocked(useColorScheme);
 
 const ME = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
 /** Midday on the fixture's day: its window opened at ten. */
@@ -50,6 +54,7 @@ const actions = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  scheme.mockReturnValue('light');
 });
 
 test('shows what the cleaner needs to plan by: window, guests, notes', async () => {
@@ -235,7 +240,7 @@ describe('accepting', () => {
     expect(screen.getByText('Уборку выполняет коллега')).toBeTruthy();
   });
 
-  test('while the accept is under way, the spinner is on it, not on the start', async () => {
+  test('while the accept is under way, the start waits busy in its own fill, not greyed', async () => {
     await render(
       <TaskDetail
         task={task()}
@@ -253,8 +258,12 @@ describe('accepting', () => {
       expect.objectContaining({ busy: true }),
     );
     const start = screen.getByRole('button', { name: 'Начать уборку' });
-    expect(start).toBeDisabled();
-    expect(start).toHaveProp('accessibilityState', expect.objectContaining({ busy: false }));
+    expect(start).toHaveProp('accessibilityState', expect.objectContaining({ busy: true }));
+    expect(StyleSheet.flatten(start.props.style as ViewStyle).backgroundColor).toBe(
+      THEME_COLORS.light.cta,
+    );
+    await fireEvent.press(start);
+    expect(actions.onStart).not.toHaveBeenCalled();
   });
 
   test('does not accept twice while a move is in flight', async () => {
@@ -938,9 +947,33 @@ describe('the look: «Абрикос» on the old layout', () => {
     );
 
     expect(screen.getByText('Течёт кран')).toBeTruthy();
-    await fireEvent.press(screen.getByRole('button', { name: 'Открыть задание' }));
+    // Heard with its facts, not as a bare «open».
+    await fireEvent.press(
+      screen.getByRole('button', {
+        name: 'Течёт кран. Срочность: Высокая. Открыть задание',
+      }),
+    );
 
     expect(onOpenProblem).toHaveBeenCalledWith(PROBLEM_ID);
+  });
+
+  test('dark theme: the same-day check-in badge is the dark urgent tone', async () => {
+    scheme.mockReturnValue('dark');
+
+    await render(
+      <TaskDetail
+        task={task({ priority: 1 })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    expect(styleOf(screen.getByTestId('task-urgency')).backgroundColor).toBe(
+      TONE_COLORS.dark.urgent.bg,
+    );
   });
 
   test('accepting is the quieter tonal button beside the main one', async () => {
@@ -953,12 +986,9 @@ describe('the look: «Абрикос» on the old layout', () => {
     expect(accept.backgroundColor).toBe(light.secondary);
   });
 
-  test('at the largest system font the main button still carries its whole label', async () => {
-    // Arrange: a small phone with the font turned all the way up.
-    jest
-      .spyOn(Dimensions, 'get')
-      .mockReturnValue({ width: 320, height: 640, scale: 3, fontScale: 3.1 });
-
+  // Jest draws no system font, so what is checked is the structure that lets
+  // the label grow at any font size.
+  test('the main button never cuts its label: no line limit, font scaling on, a minimum height', async () => {
     // Act
     await render(
       <TaskDetail

@@ -18,6 +18,7 @@ import { IconButton } from '@/components/icon-button';
 import { Skeleton, SkeletonGroup } from '@/components/skeleton';
 import { Text, useFontFace } from '@/components/text';
 import { BUTTON_HEIGHT, FontSize, Radius, Spacing, type Theme } from '@/constants/theme';
+import type { MediaSource } from '@/features/media/capture';
 import type { LocalMediaRecord, LocalMediaStore } from '@/features/media/local-store';
 import { MediaStrip } from '@/features/media/media-strip';
 import { formatReportedAt } from '@/features/problems/format';
@@ -66,7 +67,8 @@ interface ThreadViewProps {
   onTakePhoto?: () => void;
   onPickPhoto?: () => void;
   onDiscardDraft?: (mediaId: string) => void;
-  isCapturing?: boolean;
+  /** Where a photo is being taken from right now, if anywhere. */
+  capturing?: MediaSource | null;
 }
 
 /** A row of the transcript: a message the server has, or one still on its way. */
@@ -155,7 +157,7 @@ export function ThreadView({
   onTakePhoto,
   onPickPhoto,
   onDiscardDraft,
-  isCapturing = false,
+  capturing = null,
 }: ThreadViewProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
@@ -261,7 +263,7 @@ export function ThreadView({
               max={CHAT_MAX_PHOTOS}
               onTakePhoto={onTakePhoto}
               onPickPhoto={onPickPhoto}
-              isCapturing={isCapturing}
+              capturing={capturing}
             />
           </View>
         ) : null}

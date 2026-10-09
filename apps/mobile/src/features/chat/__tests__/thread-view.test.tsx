@@ -3,9 +3,13 @@ import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
 import { BUTTON_HEIGHT, Colors, FontSize, MIN_TOUCH_TARGET } from '@/constants/theme';
 import { formatReportedAt } from '@/features/problems/format';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 import { chatMessageSchema, type ChatMessage } from '../schema';
 import { ThreadView } from '../thread-view';
+
+jest.mock('@/hooks/use-color-scheme', () => ({ useColorScheme: jest.fn(() => 'light') }));
+const scheme = jest.mocked(useColorScheme);
 
 const light = Colors.light;
 
@@ -46,6 +50,7 @@ const onSend = jest.fn();
 
 beforeEach(() => {
   jest.clearAllMocks();
+  scheme.mockReturnValue('light');
   // The transcript's dates are fixed, so the clock has to be: what a tile of a
   // photo says now depends on how old its message is.
   jest.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-18T10:10:00+00:00'));
@@ -550,5 +555,112 @@ describe('on the «Абрикос» components', () => {
     expect(
       styleOf(screen.getByRole('button', { name: 'Удалить' })).minHeight,
     ).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
+  });
+
+  test.each(['light', 'dark'] as const)(
+    '%s theme: retry and remove under her photo stand out from her bubble',
+    async (name) => {
+      // Arrange: her own message, its photo stranded.
+      scheme.mockReturnValue(name);
+      const theme = Colors[name];
+      const failed = [
+        message({
+          id: '55555555-5555-4555-8555-555555555555',
+          author_id: ME,
+          body: '',
+          task_media: [
+            {
+              id: 'a2222222-2222-4222-8222-222222222222',
+              storage_path: 'host/chat/thread/a2222222-2222-4222-8222-222222222222.jpg',
+              uploaded_at: null,
+              created_at: '2026-09-18T10:00:01+00:00',
+            },
+          ],
+        }),
+      ];
+
+      // Act
+      await render(
+        <ThreadView
+          messages={failed}
+          pending={[]}
+          currentUserId={ME}
+          error={null}
+          onSend={onSend}
+          onRetryMedia={jest.fn()}
+          onRemoveMedia={jest.fn()}
+        />,
+      );
+
+      // Assert: the main move in the cta fill; remove framed, not a second tonal fill.
+      const bubble = styleOf(screen.getByTestId('own-message')).backgroundColor;
+      const retry = styleOf(screen.getByRole('button', { name: 'Повторить загрузку' }));
+      const remove = styleOf(screen.getByRole('button', { name: 'Удалить' }));
+      expect(bubble).toBe(theme.secondary);
+      expect(retry.backgroundColor).toBe(theme.cta);
+      expect(retry.backgroundColor).not.toBe(bubble);
+      expect(remove.backgroundColor).not.toBe(bubble);
+      expect(remove.borderWidth).toBeGreaterThan(0);
+      expect(remove.borderColor).not.toBe(bubble);
+    },
+  );
+
+  test('dark theme: her bubble on the dark primary tint, the others on the dark card', async () => {
+    scheme.mockReturnValue('dark');
+
+    await render(
+      <ThreadView
+        messages={transcript}
+        pending={[]}
+        currentUserId={ME}
+        error={null}
+        onSend={onSend}
+      />,
+    );
+
+    expect(styleOf(screen.getByTestId('own-message')).backgroundColor).toBe(Colors.dark.secondary);
+    expect(styleOf(screen.getByTestId('other-message')).backgroundColor).toBe(Colors.dark.card);
+  });
+
+  test('while the camera is open, only the camera spins; the gallery just waits', async () => {
+    await render(
+      <ThreadView
+        messages={transcript}
+        pending={[]}
+        currentUserId={ME}
+        error={null}
+        onSend={onSend}
+        onTakePhoto={jest.fn()}
+        onPickPhoto={jest.fn()}
+        capturing="camera"
+      />,
+    );
+
+    const camera = screen.getByRole('button', { name: 'Снять фото' });
+    const gallery = screen.getByRole('button', { name: 'Выбрать фото из галереи' });
+    expect(camera.props.accessibilityState).toMatchObject({ busy: true });
+    expect(gallery).toBeDisabled();
+    expect(gallery.props.accessibilityState).toMatchObject({ busy: false });
+  });
+
+  test('while the gallery is open, only the gallery spins; the camera just waits', async () => {
+    await render(
+      <ThreadView
+        messages={transcript}
+        pending={[]}
+        currentUserId={ME}
+        error={null}
+        onSend={onSend}
+        onTakePhoto={jest.fn()}
+        onPickPhoto={jest.fn()}
+        capturing="gallery"
+      />,
+    );
+
+    const camera = screen.getByRole('button', { name: 'Снять фото' });
+    const gallery = screen.getByRole('button', { name: 'Выбрать фото из галереи' });
+    expect(gallery.props.accessibilityState).toMatchObject({ busy: true });
+    expect(camera).toBeDisabled();
+    expect(camera.props.accessibilityState).toMatchObject({ busy: false });
   });
 });

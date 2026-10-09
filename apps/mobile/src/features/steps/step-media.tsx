@@ -140,6 +140,11 @@ function MediaTile({ item, index, disabled, onRemove, onRetry }: MediaTileProps)
     item.kind === 'video'
       ? t('steps.videoAccessibility', { status: statusText })
       : t('steps.photoAccessibility', { index: index + 1, status: statusText });
+  // The tile's buttons say which file they act on: «Удалить. Фото 2».
+  const tileName =
+    item.kind === 'video' ? t('steps.videoName') : t('steps.photoName', { index: index + 1 });
+  const retryLabel = t('steps.retryUpload');
+  const removeLabel = t('steps.removeMedia');
 
   return (
     <View style={styles.tile}>
@@ -168,21 +173,23 @@ function MediaTile({ item, index, disabled, onRemove, onRetry }: MediaTileProps)
         </View>
       </View>
 
+      {/* Words only, no icon beside them: two buttons share a 150 dp tile,
+          and from a font scale of 1.2 an icon took the room of the label. */}
       {!disabled ? (
         <View style={layout.tileActions}>
           {item.status === 'failed' ? (
             <Button
               variant="secondary"
-              label={t('steps.retryUpload')}
-              left={<Icon name="action.retry" size="small" tone="onSecondary" />}
+              label={retryLabel}
+              accessibilityLabel={`${retryLabel}. ${tileName}`}
               onPress={() => onRetry(item.id)}
               style={layout.tileButton}
             />
           ) : null}
           <Button
             variant="destructive"
-            label={t('steps.removeMedia')}
-            left={<Icon name="action.delete" size="small" tone="danger" />}
+            label={removeLabel}
+            accessibilityLabel={`${removeLabel}. ${tileName}`}
             onPress={() => onRemove(item.id)}
             style={layout.tileButton}
           />

@@ -109,7 +109,8 @@ function ChatScreen() {
   const local = useLocalMedia();
   const ownMedia = useOwnMediaStates();
   const [drafts, setDrafts] = useState<LocalMediaRecord[]>([]);
-  const [isCapturing, setCapturing] = useState(false);
+  // Which way a photo is being taken right now: that button spins, the other waits.
+  const [capturing, setCapturing] = useState<MediaSource | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   // A signed link is only worth asking for when the phone no longer has the file.
@@ -155,10 +156,10 @@ function ChatScreen() {
   const loadError = messages.error ?? (messages.data === undefined ? null : thread.error);
 
   const attachFrom = async (source: MediaSource) => {
-    if (isCapturing || drafts.length >= CHAT_MAX_PHOTOS) {
+    if (capturing !== null || drafts.length >= CHAT_MAX_PHOTOS) {
       return;
     }
-    setCapturing(true);
+    setCapturing(source);
     setNotice(null);
     try {
       const captured = source === 'gallery' ? await pickPhotoFromGallery() : await capturePhoto();
@@ -171,7 +172,7 @@ function ChatScreen() {
     } catch (error: unknown) {
       setNotice(attachFailure(error, t));
     } finally {
-      setCapturing(false);
+      setCapturing(null);
     }
   };
 
@@ -223,7 +224,7 @@ function ChatScreen() {
       onTakePhoto={() => void attachFrom('camera')}
       onPickPhoto={() => void attachFrom('gallery')}
       onDiscardDraft={discardDraft}
-      isCapturing={isCapturing}
+      capturing={capturing}
     />
   );
 }

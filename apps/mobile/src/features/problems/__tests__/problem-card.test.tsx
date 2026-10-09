@@ -1,12 +1,20 @@
 import { problemStatusTone } from '@str-ops/shared';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
 import { Colors, FontSize, Radius } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 import { formatReportedAt } from '../format';
 import { ProblemCard } from '../problem-card';
 import { PROBLEM_STATUSES, type Problem } from '../schema';
+
+jest.mock('@/hooks/use-color-scheme', () => ({ useColorScheme: jest.fn(() => 'light') }));
+const scheme = jest.mocked(useColorScheme);
+
+beforeEach(() => {
+  scheme.mockReturnValue('light');
+});
 
 /**
  * A report in her list. The whole card is one button the reader hears as
@@ -120,6 +128,38 @@ describe('on the «Абрикос» components', () => {
     expect(
       screen.getByRole('button', { name: 'Кран течёт. CZ - Nadrazni Apt 6. Открыто. Срочно' }),
     ).toBeTruthy();
+  });
+
+  test('the pills wrap in a row under the title, which keeps the card’s whole width', async () => {
+    // At 320 dp and a large font a column of pills beside the title left it
+    // a sliver; under it, they wrap instead.
+    await render(
+      <ProblemCard problem={problem({ priority: 'high' })} onPress={jest.fn()} hasUnread />,
+    );
+
+    const marks = screen.getByTestId('problem-marks');
+    expect(styleOf(marks)).toMatchObject({ flexDirection: 'row', flexWrap: 'wrap' });
+    expect(within(marks).queryByText('Кран течёт')).toBeNull();
+    expect(within(marks).getByText('Срочно')).toBeTruthy();
+    expect(within(marks).getByText('Открыто')).toBeTruthy();
+    expect(within(marks).getByText('Новое сообщение')).toBeTruthy();
+    // Nothing between the title and the card lays it out in a row beside them.
+    const card = screen.getByRole('button');
+    let node = screen.getByText('Кран течёт').parent;
+    while (node !== null && node !== card) {
+      expect(styleOf(node).flexDirection).not.toBe('row');
+      node = node.parent;
+    }
+  });
+
+  test('dark theme: the status pill is the dark tone of its status', async () => {
+    scheme.mockReturnValue('dark');
+
+    await render(<ProblemCard problem={problem({ status: 'resolved' })} onPress={jest.fn()} />);
+
+    expect(styleOf(screen.getByTestId('problem-status')).backgroundColor).toBe(
+      Colors.dark.tone[problemStatusTone('resolved')].bg,
+    );
   });
 
   test('a normal priority has no pill, only its line', async () => {

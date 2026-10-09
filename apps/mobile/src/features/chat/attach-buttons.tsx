@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
 import { IconButton } from '@/components/icon-button';
+import type { MediaSource } from '@/features/media/capture';
 
 interface AttachButtonsProps {
   /** Photos already chosen for the next message. */
@@ -9,7 +10,8 @@ interface AttachButtonsProps {
   max: number;
   onTakePhoto: () => void;
   onPickPhoto?: () => void;
-  isCapturing: boolean;
+  /** Where a photo is being taken from right now: that button spins, the other waits. */
+  capturing: MediaSource | null;
 }
 
 /**
@@ -25,7 +27,7 @@ export function AttachButtons({
   max,
   onTakePhoto,
   onPickPhoto,
-  isCapturing,
+  capturing,
 }: AttachButtonsProps) {
   const { t } = useTranslation();
   const isFull = taken >= max;
@@ -37,8 +39,8 @@ export function AttachButtons({
         icon="action.takePhoto"
         accessibilityLabel={t('media.takePhoto')}
         accessibilityValue={count}
-        isDisabled={isFull}
-        isBusy={isCapturing}
+        isDisabled={isFull || capturing === 'gallery'}
+        isBusy={capturing === 'camera'}
         onPress={onTakePhoto}
       />
       {onPickPhoto !== undefined ? (
@@ -46,8 +48,8 @@ export function AttachButtons({
           icon="action.fromGallery"
           accessibilityLabel={t('steps.pickPhoto')}
           accessibilityValue={count}
-          isDisabled={isFull}
-          isBusy={isCapturing}
+          isDisabled={isFull || capturing === 'camera'}
+          isBusy={capturing === 'gallery'}
           onPress={onPickPhoto}
         />
       ) : null}

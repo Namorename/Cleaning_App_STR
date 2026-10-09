@@ -4,6 +4,7 @@ import type { ComponentProps } from 'react';
 import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
 import { BUTTON_HEIGHT, Colors, FontSize } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 import { formatReportedAt } from '../format';
 import { ProblemDetail } from '../problem-detail';
@@ -14,6 +15,13 @@ import type { Problem } from '../schema';
  * decide (canEdit, fixTaskId, onPickFromGallery); this screen shows exactly
  * those moves and the facts of the report.
  */
+
+jest.mock('@/hooks/use-color-scheme', () => ({ useColorScheme: jest.fn(() => 'light') }));
+const scheme = jest.mocked(useColorScheme);
+
+beforeEach(() => {
+  scheme.mockReturnValue('light');
+});
 
 const light = Colors.light;
 const CREATED_AT = '2026-11-10T08:00:00+00:00';
@@ -232,5 +240,18 @@ describe('on the «Абрикос» components', () => {
       expect(quiet.borderColor).toBe(light.primary);
       expect(quiet.backgroundColor).toBe('transparent');
     }
+  });
+
+  test('dark theme: the status pill and «Срочно» are the dark tones', async () => {
+    scheme.mockReturnValue('dark');
+
+    await render(<ProblemDetail {...props({ problem: problem({ priority: 'high' }) })} />);
+
+    expect(styleOf(screen.getByTestId('problem-status')).backgroundColor).toBe(
+      Colors.dark.tone[problemStatusTone('open')].bg,
+    );
+    expect(styleOf(screen.getByTestId('problem-urgent')).backgroundColor).toBe(
+      Colors.dark.tone.urgent.bg,
+    );
   });
 });
