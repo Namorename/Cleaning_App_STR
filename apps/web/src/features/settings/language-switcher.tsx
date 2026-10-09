@@ -1,13 +1,12 @@
 'use client';
 
 import { isSupportedLanguage } from '@str-ops/shared';
-import { useRouter } from 'next/navigation';
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
-import { applyLanguageChoice, PANEL_LANGUAGES } from '@/lib/language';
+import { PANEL_LANGUAGES } from '@/lib/language';
 import { serverErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
 
@@ -23,13 +22,16 @@ interface LanguageSwitcherProps {
  *
  * The choice is the person's, not this browser's: it is written to her
  * profile first, the same column the phone writes, and the sign-in applies it
- * in any other browser. Only once the profile has it does the panel change —
- * the cookie for the server's pages, <html lang>, the dictionary, and a
- * refresh for what the server renders. A refusal changes nothing and says so.
+ * in any other browser. Only once the profile has it does the panel change
+ * (`useSaveMyLanguage`, which does it even if this page is left meanwhile).
+ * A refusal changes nothing and says so.
+ *
+ * While the save is on its way the select says it is busy rather than being
+ * `disabled`: a control disabled under the hand drops the keyboard's focus to
+ * the page. A second choice then is not sent, and the first one stays shown.
  */
 export function LanguageSwitcher({ userId }: LanguageSwitcherProps) {
-  const { t, i18n } = useTranslation();
-  const router = useRouter();
+  const { t } = useTranslation();
   const language = useLanguage();
   const save = useSaveMyLanguage();
   const id = useId();
@@ -43,16 +45,7 @@ export function LanguageSwitcher({ userId }: LanguageSwitcherProps) {
     if (!isSupportedLanguage(value) || value === language || save.isPending) {
       return;
     }
-    save.mutate(
-      { userId, language: value },
-      {
-        onSuccess: () => {
-          applyLanguageChoice(document, value);
-          void i18n.changeLanguage(value);
-          router.refresh();
-        },
-      },
-    );
+    save.mutate({ userId, language: value });
   };
 
   return (
@@ -60,9 +53,9 @@ export function LanguageSwitcher({ userId }: LanguageSwitcherProps) {
       <Label htmlFor={id}>{t('panel.settings.language.label')}</Label>
       <NativeSelect
         id={id}
-        className="self-start"
+        className="self-start aria-disabled:cursor-progress aria-disabled:opacity-50"
         value={shown}
-        disabled={save.isPending}
+        aria-disabled={save.isPending ? true : undefined}
         aria-describedby={hintId}
         onChange={(event) => choose(event.target.value)}
       >

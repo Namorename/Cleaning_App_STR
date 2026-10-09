@@ -96,20 +96,52 @@ describe('LanguageSwitcher', () => {
     expect(api.saveMyLanguage).not.toHaveBeenCalled();
   });
 
-  test('says it is saving while the profile is written, and takes no second choice then', async () => {
+  // The reviewer, 10.10: a select made `disabled` under the hand drops the
+  // focus to the page; it says it is busy instead, and keeps the focus.
+  test('says it is saving while the profile is written, keeps the focus, and takes no second choice then', async () => {
     let finish: () => void = () => undefined;
     api.saveMyLanguage.mockImplementation(
       () => new Promise<void>((resolve) => (finish = () => resolve())),
     );
     renderSwitcher();
+    await userEvent.click(choice('Язык'));
 
     await userEvent.selectOptions(choice('Язык'), 'en');
 
     expect(await screen.findByRole('status')).toHaveTextContent('Сохраняем…');
-    expect(choice('Язык')).toBeDisabled();
-    // The choice stays shown while it is on its way.
+    expect(choice('Язык')).toHaveAttribute('aria-disabled', 'true');
+    expect(choice('Язык')).toBeEnabled();
+    expect(choice('Язык')).toHaveFocus();
+    // The choice stays shown while it is on its way, and a second one is not sent.
     expect(choice('Язык')).toHaveValue('en');
+    await userEvent.selectOptions(choice('Язык'), 'cs');
+    expect(choice('Язык')).toHaveValue('en');
+    expect(api.saveMyLanguage).toHaveBeenCalledTimes(1);
+
     finish();
-    expect(await screen.findByRole('combobox', { name: 'Language' })).toBeEnabled();
+    const settled = await screen.findByRole('combobox', { name: 'Language' });
+    await waitFor(() => expect(settled).not.toHaveAttribute('aria-disabled'));
+    expect(settled).toHaveFocus();
+  });
+
+  // The reviewer, 10.10: the panel changed only if the switcher was still on
+  // screen when the profile answered. The profile has the choice by then, so
+  // the panel follows it wherever the manager has gone meanwhile.
+  test('a save that lands after the switcher has left still changes the panel', async () => {
+    let finish: () => void = () => undefined;
+    api.saveMyLanguage.mockImplementation(
+      () => new Promise<void>((resolve) => (finish = () => resolve())),
+    );
+    const { unmount } = renderSwitcher();
+    await userEvent.selectOptions(choice('Язык'), 'en');
+    await screen.findByRole('status');
+
+    unmount();
+    finish();
+
+    await waitFor(() => expect(i18n.language).toBe('en'));
+    expect(document.cookie).toContain(`${LANGUAGE_COOKIE}=en`);
+    expect(document.documentElement.lang).toBe('en');
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 });
