@@ -6,7 +6,7 @@ import { describe, expect, test } from 'vitest';
  * Where the panel makes its Supabase clients, read off the sources.
  *
  * PostgREST is read and written only by the browser's client, the one handed
- * `staleClockSafeFetch` (stale-clock-retry.ts). The server's client (layout,
+ * `staleClockSafeFetch` (packages/shared stale-clock-retry.ts). The server's client (layout,
  * settings, sign-in) and the proxy's talk to Auth alone. A new client, or a
  * table read on the server, would meet PostgREST's stale clock unprotected —
  * and a server-side retry needs more than that wrapper (see its header).

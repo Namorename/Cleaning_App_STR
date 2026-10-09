@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
   STALE_CLOCK_RETRY_DELAYS_MS,
   withStaleClockRetry,
-} from '@/lib/supabase/stale-clock-retry';
+} from '@str-ops/shared';
 
 const REST = 'https://project.supabase.co/rest/v1/problems?select=id';
 const RPC = 'https://project.supabase.co/rest/v1/rpc/assign_problem';
