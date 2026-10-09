@@ -94,6 +94,9 @@ const READERS: readonly ((client: never) => Promise<unknown>)[] = [
   (client) => problems.fetchFixTaskSteps(client, ANY_ID),
   (client) => problems.fetchStaff(client),
   (client) => settings.fetchHostSettings(client),
+  (client) => settings.fetchMyLanguage(client, ANY_ID),
+  // A write, but it asks its row back: the select it sends is guarded too.
+  (client) => settings.saveMyLanguage(client, ANY_ID, 'ru'),
   (client) => supplies.fetchCatalog(client),
   (client) => supplies.fetchCompanyLanguage(client),
   (client) => supplies.fetchSupplyRequests(client),

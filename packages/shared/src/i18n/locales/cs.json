@@ -146,6 +146,11 @@
           "confirmation": "Potvrzení",
           "cleaner_comment": "Komentář uklízečky"
         }
+      },
+      "language": {
+        "label": "Jazyk",
+        "hint": "Uloží se do vašeho profilu: v tomto jazyce se panel otevře i v jiném prohlížeči.",
+        "saveFailed": "Jazyk se nepodařilo změnit."
       }
     },
     "login": {

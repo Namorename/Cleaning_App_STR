@@ -18,11 +18,14 @@ import {
   type SettingsSection,
 } from './address';
 import { HostToggles } from './host-toggles';
+import { LanguageSwitcher } from './language-switcher';
 import { ThemeSwitcher } from './theme-switcher';
 import { VideoSettings } from './video-settings';
 
 interface SettingsViewProps {
   email: string;
+  /** The signed-in person: her profile keeps the panel's language. */
+  userId: string;
   /** The theme this browser keeps (the cookie, read by the page). */
   theme: ThemeChoice;
   onSignOut: () => Promise<void>;
@@ -56,7 +59,7 @@ function sectionHref(section: SettingsSection): string {
  * editor holds a draft until it is saved, and a look at «Компания» in the
  * middle of an edit must not throw it away.
  */
-export function SettingsView({ email, theme, onSignOut }: SettingsViewProps) {
+export function SettingsView({ email, userId, theme, onSignOut }: SettingsViewProps) {
   const { t } = useTranslation();
   const [address, setAddress] = useAddressState(readSettingsAddress, writeSettingsAddress);
 
@@ -67,9 +70,16 @@ export function SettingsView({ email, theme, onSignOut }: SettingsViewProps) {
   };
 
   const sections: Record<SettingsSection, { description: string | null; body: ReactNode }> = {
+    // The language is the person's (her profile), so it is the account's, not
+    // the look of this one browser; the way out stays last.
     account: {
       description: t('panel.settings.signedInAs', { email }),
-      body: <SignOut onSignOut={onSignOut} />,
+      body: (
+        <>
+          <LanguageSwitcher userId={userId} />
+          <SignOut onSignOut={onSignOut} />
+        </>
+      ),
     },
     appearance: {
       description: t('panel.settings.appearanceHint'),

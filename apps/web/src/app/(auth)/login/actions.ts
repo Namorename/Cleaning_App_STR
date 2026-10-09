@@ -1,7 +1,12 @@
 'use server';
 
+import type { Language } from '@str-ops/shared';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
+import { fetchMyLanguage, type Client } from '@/features/settings/api';
+import { YEAR_SECONDS } from '@/lib/cookie';
+import { LANGUAGE_COOKIE } from '@/lib/language';
 import { safeNext } from '@/lib/safe-next';
 import { isPanelRole, roleOf } from '@/lib/session';
 import { createClient } from '@/lib/supabase/server';
@@ -18,6 +23,31 @@ export interface SignInState {
    * person got right. The password is never sent back: retyping it is the point.
    */
   email: string;
+}
+
+/**
+ * The language the person keeps in her profile becomes this browser's: chosen
+ * in «Настройки → Аккаунт» elsewhere, the panel opens in it here. No choice,
+ * or a read that failed, leaves the cookie as it was — the language never
+ * stands between a manager and the panel, so the failure ends here on purpose.
+ */
+async function applyProfileLanguage(supabase: Client, userId: string): Promise<void> {
+  let language: Language | null;
+  try {
+    language = await fetchMyLanguage(supabase, userId);
+  } catch {
+    return;
+  }
+  if (language === null) {
+    return;
+  }
+  const isSecure = (await headers()).get('x-forwarded-proto') === 'https';
+  (await cookies()).set(LANGUAGE_COOKIE, language, {
+    path: '/',
+    maxAge: YEAR_SECONDS,
+    sameSite: 'lax',
+    secure: isSecure,
+  });
 }
 
 /**
@@ -46,6 +76,7 @@ export async function signIn(_previous: SignInState, formData: FormData): Promis
     return { issue: 'notManager', email: typed };
   }
 
+  await applyProfileLanguage(supabase, data.user.id);
   redirect(safeNext(formData.get('next')));
 }
 

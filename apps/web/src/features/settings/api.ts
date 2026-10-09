@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '@str-ops/shared';
+import { isSupportedLanguage, type Database, type Language } from '@str-ops/shared';
 
 import { hostSettingsSchema, type HostSettings, type HostSettingsPatch } from './schema';
 
@@ -48,5 +48,52 @@ export async function saveHostSettings(client: Client, patch: HostSettingsPatch)
   });
   if (error) {
     throw error;
+  }
+}
+
+/**
+ * The language the signed-in person keeps in her profile, or null when she
+ * never chose one — or chose a code this build has no dictionary for. The
+ * same column the phone writes and the pushes are worded by; `id` is hers, and
+ * the policy «read own profile» answers for it.
+ */
+export async function fetchMyLanguage(client: Client, userId: string): Promise<Language | null> {
+  const { data, error } = await client
+    .from('profiles')
+    .select('preferred_language')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) {
+    throw error;
+  }
+  const code = data?.preferred_language ?? null;
+  return code !== null && isSupportedLanguage(code) ? code : null;
+}
+
+/**
+ * Her language, written on her own profile — as the phone does it
+ * (apps/mobile/src/features/settings/api.ts): the policy «update own profile»
+ * lets it through and the enum turns away a code no app has a file for.
+ *
+ * The row is asked back because an update that matched nothing is not an
+ * error to PostgREST, and a language that silently did not stick would come
+ * back on the next sign-in.
+ */
+export async function saveMyLanguage(
+  client: Client,
+  userId: string,
+  language: Language,
+): Promise<void> {
+  const { data, error } = await client
+    .from('profiles')
+    .update({ preferred_language: language })
+    .eq('id', userId)
+    .select('id')
+    .maybeSingle();
+  if (error) {
+    throw error;
+  }
+  if (data === null) {
+    throw new Error('Own profile row was not updated');
   }
 }

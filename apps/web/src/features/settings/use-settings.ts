@@ -1,10 +1,12 @@
 'use client';
 
+import type { Language } from '@str-ops/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { teamKeys } from '@/features/team/keys';
 import { useSupabase } from '@/lib/supabase/use-client';
 
-import { fetchHostSettings, saveHostSettings } from './api';
+import { fetchHostSettings, saveHostSettings, saveMyLanguage } from './api';
 import { settingsKeys } from './keys';
 import type { HostSettingsPatch } from './schema';
 
@@ -25,5 +27,19 @@ export function useSaveHostSettings() {
   return useMutation({
     mutationFn: (patch: HostSettingsPatch) => saveHostSettings(client, patch),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: settingsKeys.all }),
+  });
+}
+
+/**
+ * The signed-in person's language, written on her profile. «Команда» lists
+ * everybody's language, hers included, so its list is read again.
+ */
+export function useSaveMyLanguage() {
+  const client = useSupabase();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, language }: { userId: string; language: Language }) =>
+      saveMyLanguage(client, userId, language),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: teamKeys.all }),
   });
 }

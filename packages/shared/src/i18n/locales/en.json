@@ -146,6 +146,11 @@
           "confirmation": "Confirmation",
           "cleaner_comment": "Cleaner's comment"
         }
+      },
+      "language": {
+        "label": "Language",
+        "hint": "Kept in your profile: the panel opens in this language in any other browser too.",
+        "saveFailed": "The language was not changed."
       }
     },
     "login": {
