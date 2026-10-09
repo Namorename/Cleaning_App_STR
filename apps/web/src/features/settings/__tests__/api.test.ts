@@ -36,6 +36,25 @@ describe('saveHostSettings', () => {
     expect(rpc).toHaveBeenCalledWith('update_host_settings', { p_gallery_allowed: true });
   });
 
+  // `toHaveBeenCalledWith` takes a key set to undefined for a key left out.
+  // The keys are the contract — a missing one means "leave it alone" — so
+  // they are compared as they are.
+  test.each([
+    [
+      { videoMaxSec: 90, videoBitrateKbps: 2000, videoMaxMb: 45 },
+      ['p_video_max_sec', 'p_video_bitrate_kbps', 'p_video_max_mb'],
+    ],
+    [{ galleryAllowed: false }, ['p_gallery_allowed']],
+    [{ parallelStartAllowed: true }, ['p_parallel_start_allowed']],
+  ])('sends exactly the keys of the patch %o', async (patch, keys) => {
+    const { client, rpc } = rpcClient();
+
+    await saveHostSettings(client, patch);
+
+    const [, args] = rpc.mock.calls[0] as unknown as [string, Record<string, unknown>];
+    expect(Object.keys(args).sort()).toEqual([...keys].sort());
+  });
+
   test('a refusal is thrown as the server sent it, for serverErrorText to read', async () => {
     const refusal = { message: 'x', hint: 'serverErrors.videoSettingOutOfRange', details: '{}' };
     const client = { rpc: () => Promise.resolve({ data: null, error: refusal }) } as never;

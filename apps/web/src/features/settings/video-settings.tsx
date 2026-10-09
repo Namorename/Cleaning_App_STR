@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ErrorState, LoadingState } from '@/components/states';
@@ -93,55 +93,89 @@ export function VideoSettings() {
   );
 }
 
+interface FormState {
+  /** Null until the manager touches a field — until then the company's numbers show. */
+  draft: VideoDraft | null;
+  /**
+   * What the notes under the fields describe: the draft as it stood when the
+   * manager last left a field or pressed a preset; null follows the company.
+   * The notes are a live region, and one that changed on every key would read
+   * out a size for 4, 45, 450 and 4500 in turn.
+   */
+  settled: VideoDraft | null;
+}
+
+const UNTOUCHED: FormState = { draft: null, settled: null };
+
 /**
  * The three numbers, saved together and only they: the switches of
  * «Компания» stay out of the call, which `update_host_settings` reads as
  * "leave them alone". The bounds are checked here before the server checks
- * them again; a preset only fills the fields — the save is still a press.
+ * them again; a preset only fills the fields — the save is still a press, or
+ * Enter in a field.
+ *
+ * Every change of the draft forgets how the last save ended, so neither a
+ * «Сохранено» nor a refusal outlives the numbers it was about. A save that
+ * lands drops the draft it sent — unless the manager has typed on since.
  */
 function VideoForm({ host }: { host: HostSettings }) {
   const { t } = useTranslation();
   const id = useId();
   const save = useSaveHostSettings();
-  /** Null until the manager touches a field — until then the company's numbers show. */
-  const [draft, setDraft] = useState<VideoDraft | null>(null);
+  const [form, setForm] = useState<FormState>(UNTOUCHED);
 
-  const shown = draft ?? draftFromHost(host);
+  const company = draftFromHost(host);
+  const shown = form.draft ?? company;
   const limits = limitsOf(shown);
+  const canSave = form.draft !== null && limits !== null && !save.isPending;
 
-  const submit = () => {
-    if (limits === null) {
+  /** A pending save is left alone: forgetting it would also forget to drop its draft. */
+  const forgetLastSave = () => {
+    if (!save.isPending) {
+      save.reset();
+    }
+  };
+
+  const edit = (field: VideoField, value: string) => {
+    forgetLastSave();
+    setForm((current) => ({
+      ...current,
+      draft: { ...(current.draft ?? company), [field]: value },
+    }));
+  };
+
+  const pickPreset = (preset: VideoPreset) => {
+    forgetLastSave();
+    const next = draftOf(VIDEO_PRESETS[preset]);
+    setForm({ draft: next, settled: next });
+  };
+
+  const cancel = () => {
+    forgetLastSave();
+    setForm(UNTOUCHED);
+  };
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canSave || limits === null) {
       return;
     }
+    const sent = form.draft;
     save.mutate(
       {
         videoMaxSec: limits.maxSec,
         videoBitrateKbps: limits.bitrateKbps,
         videoMaxMb: limits.maxMb,
       },
-      { onSuccess: () => setDraft(null) },
+      { onSuccess: () => setForm((current) => (current.draft === sent ? UNTOUCHED : current)) },
     );
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-2">
-        {PRESETS.map((preset) => (
-          <Button
-            key={preset}
-            type="button"
-            variant="outline"
-            className="h-auto min-h-8 py-1 text-left whitespace-normal"
-            onClick={() => setDraft(draftOf(VIDEO_PRESETS[preset]))}
-          >
-            {t(`panel.settings.video.presets.${preset}`, {
-              sec: VIDEO_PRESETS[preset].maxSec,
-              kbps: VIDEO_PRESETS[preset].bitrateKbps,
-              mb: VIDEO_PRESETS[preset].maxMb,
-            })}
-          </Button>
-        ))}
-      </div>
+    // The bounds are this form's own, said in the manager's language under
+    // each field; the browser's validation bubbles would say them again in its.
+    <form className="flex flex-col gap-4" noValidate onSubmit={submit}>
+      <PresetButtons onPick={pickPreset} />
 
       <div className="grid gap-3 sm:grid-cols-3">
         {VIDEO_FIELDS.map((field) => (
@@ -150,34 +184,56 @@ function VideoForm({ host }: { host: HostSettings }) {
             id={`${id}-${field}`}
             field={field}
             value={shown[field]}
-            onChange={(value) => setDraft({ ...shown, [field]: value })}
+            onChange={(value) => edit(field, value)}
+            onBlur={() => setForm((current) => ({ ...current, settled: current.draft }))}
           />
         ))}
       </div>
 
-      <SizeNotes draft={shown} />
+      <SizeNotes draft={form.settled ?? company} />
 
       <SaveFailure error={save.isError ? save.error : null} />
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button
-          type="button"
-          disabled={draft === null || limits === null || save.isPending}
-          onClick={submit}
-        >
+        <Button type="submit" disabled={!canSave}>
           {save.isPending ? t('panel.settings.saving') : t('panel.settings.video.save')}
         </Button>
-        {draft === null ? null : (
-          <Button type="button" variant="ghost" onClick={() => setDraft(null)}>
+        {form.draft === null ? null : (
+          <Button type="button" variant="ghost" onClick={cancel}>
             {t('panel.settings.workflow.cancel')}
           </Button>
         )}
-        {save.isSuccess && draft === null && !save.isPending ? (
+        {save.isSuccess && form.draft === null && !save.isPending ? (
           <span role="status" className="text-sm text-muted-foreground">
             {t('panel.settings.saved')}
           </span>
         ) : null}
       </div>
+    </form>
+  );
+}
+
+/** The two presets of the plan; a press fills the fields and saves nothing. */
+function PresetButtons({ onPick }: { onPick: (preset: VideoPreset) => void }) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {PRESETS.map((preset) => (
+        <Button
+          key={preset}
+          type="button"
+          variant="outline"
+          className="h-auto min-h-12 py-1 text-left whitespace-normal"
+          onClick={() => onPick(preset)}
+        >
+          {t(`panel.settings.video.presets.${preset}`, {
+            sec: VIDEO_PRESETS[preset].maxSec,
+            kbps: VIDEO_PRESETS[preset].bitrateKbps,
+            mb: VIDEO_PRESETS[preset].maxMb,
+          })}
+        </Button>
+      ))}
     </div>
   );
 }
@@ -187,10 +243,12 @@ interface VideoFieldInputProps {
   field: VideoField;
   value: string;
   onChange: (value: string) => void;
+  /** The manager has left the field: the notes may speak about it now. */
+  onBlur: () => void;
 }
 
 /** One number, with its bounds said under it — in red once the value is outside them. */
-function VideoFieldInput({ id, field, value, onChange }: VideoFieldInputProps) {
+function VideoFieldInput({ id, field, value, onChange, onBlur }: VideoFieldInputProps) {
   const { t } = useTranslation();
   const isInvalid = videoFieldValue(field, value) === null;
   const ruleId = `${id}-rule`;
@@ -211,6 +269,7 @@ function VideoFieldInput({ id, field, value, onChange }: VideoFieldInputProps) {
         aria-invalid={isInvalid}
         aria-describedby={ruleId}
         onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
       />
       <p
         id={ruleId}
@@ -226,9 +285,13 @@ function VideoFieldInput({ id, field, value, onChange }: VideoFieldInputProps) {
 }
 
 /**
- * What the numbers come to, and two warnings — neither a refusal: a
+ * What the numbers come to, a warning and a note — neither a refusal: a
  * full-length video larger than the file limit (the camera then stops early,
- * at the limit), and a file limit above what Supabase's free plan uploads.
+ * at the limit) is a warning; a file limit above what Supabase's free plan
+ * uploads is said plainly — the plan is the owner's choice, not a fault.
+ *
+ * A live region: it is handed the draft as it stood when a field was left,
+ * not as it stands mid-word (see `FormState.settled`).
  */
 function SizeNotes({ draft }: { draft: VideoDraft }) {
   const { t } = useTranslation();
@@ -248,7 +311,7 @@ function SizeNotes({ draft }: { draft: VideoDraft }) {
         </p>
       )}
       {mb === null || mb <= FREE_PLAN_FILE_MB ? null : (
-        <p className="font-medium text-destructive">
+        <p className="text-muted-foreground">
           {t('panel.settings.video.freePlan', { mb: FREE_PLAN_FILE_MB })}
         </p>
       )}
