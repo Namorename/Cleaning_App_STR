@@ -65,6 +65,22 @@
       "parallelStartHint": "On: a cleaner may have several cleanings under way at once — that is how a floor is done, one person across every room. Off: the time measurement assumes one cleaning at a time.",
       "gallery": "Allow uploads from the gallery",
       "galleryHint": "Off: photos and video are taken with the camera, on the spot. On: a cleaner may attach a file from the gallery — including one taken in another flat or a week ago, and then the media is no longer evidence of the state of the flat at the time of the cleaning. Applies to cleanings and to tasks alike.",
+      "video": {
+        "title": "Video",
+        "hint": "For the «Video» step of cleanings and repairs. A video is recorded only with the app's camera, at 720p, no longer and no larger than these limits; the gallery stays closed to video whatever its switch says. A step may set a length limit of its own — only a shorter one.",
+        "maxSec": "Video length, s",
+        "bitrateKbps": "Bitrate, kbit/s",
+        "maxMb": "File limit, MB",
+        "bounds": "A whole number from {{min}} to {{max}}.",
+        "presets": {
+          "free": "Free plan: {{sec}} s, {{kbps}} kbit/s, {{mb}} MB",
+          "pro": "Pro: {{sec}} s, {{kbps}} kbit/s, {{mb}} MB — on the Pro plan only"
+        },
+        "fullSize": "A full-length video at this bitrate is about {{mb}} MB.",
+        "overFile": "That is more than the file limit ({{mb}} MB): recording will stop early, after about {{sec}} s.",
+        "freePlan": "On Supabase's free plan one file is at most {{mb}} MB for the whole project: a higher limit works only on Pro.",
+        "save": "Save video settings"
+      },
       "workflow": {
         "title": "Process",
         "hint": "Cleaners see these steps in this order in the app.",

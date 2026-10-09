@@ -5,7 +5,9 @@ import { hostSettingsSchema, type HostSettings, type HostSettingsPatch } from '.
 
 export type Client = SupabaseClient<Database>;
 
-const HOST_COLUMNS = 'id, name, parallel_start_allowed, gallery_allowed';
+const HOST_COLUMNS =
+  'id, name, parallel_start_allowed, gallery_allowed, ' +
+  'video_max_sec, video_bitrate_kbps, video_max_mb';
 
 /**
  * The company the reader belongs to.
@@ -24,11 +26,13 @@ export async function fetchHostSettings(client: Client): Promise<HostSettings | 
 }
 
 /**
- * Write the switches the caller names, and only those.
+ * Write the settings the caller names, and only those.
  *
  * A key left off the patch is left off the JSON, so the parameter falls back
  * to its null default and the RPC keeps whatever the column held. The table
- * itself is read-only to clients — this function is the only way in.
+ * itself is read-only to clients — this function is the only way in. A video
+ * number out of bounds is refused with `videoSettingOutOfRange` and the field
+ * and bounds in `details`.
  */
 export async function saveHostSettings(client: Client, patch: HostSettingsPatch): Promise<void> {
   const { error } = await client.rpc('update_host_settings', {
@@ -36,6 +40,11 @@ export async function saveHostSettings(client: Client, patch: HostSettingsPatch)
       ? {}
       : { p_parallel_start_allowed: patch.parallelStartAllowed }),
     ...(patch.galleryAllowed === undefined ? {} : { p_gallery_allowed: patch.galleryAllowed }),
+    ...(patch.videoMaxSec === undefined ? {} : { p_video_max_sec: patch.videoMaxSec }),
+    ...(patch.videoBitrateKbps === undefined
+      ? {}
+      : { p_video_bitrate_kbps: patch.videoBitrateKbps }),
+    ...(patch.videoMaxMb === undefined ? {} : { p_video_max_mb: patch.videoMaxMb }),
   });
   if (error) {
     throw error;

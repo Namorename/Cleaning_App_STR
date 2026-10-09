@@ -65,6 +65,22 @@
       "parallelStartHint": "Zapnuto: uklízečka může mít rozdělaných několik úklidů najednou — tak se uklízí po patrech, jeden člověk ve všech pokojích. Vypnuto: měření času počítá s jedním úklidem naráz.",
       "gallery": "Povolit nahrávání z galerie",
       "galleryHint": "Vypnuto: fotky a video se pořizují jen fotoaparátem a přímo na místě. Zapnuto: uklízečka může přiložit hotový soubor z galerie — i pořízený v jiném bytě nebo před týdnem, a pak médium přestává být důkazem o stavu bytu v době úklidu. Platí pro úklidy i pro úkoly.",
+      "video": {
+        "title": "Video",
+        "hint": "Pro krok „Video“ v úklidech a opravách. Video se natáčí jen kamerou aplikace, v 720p, ne déle a ne větší než tyto limity; galerie zůstává pro video zavřená bez ohledu na svůj přepínač. Krok může mít vlastní limit délky — jen kratší.",
+        "maxSec": "Délka videa, s",
+        "bitrateKbps": "Datový tok, kbit/s",
+        "maxMb": "Limit souboru, MB",
+        "bounds": "Celé číslo od {{min}} do {{max}}.",
+        "presets": {
+          "free": "Bezplatný tarif: {{sec}} s, {{kbps}} kbit/s, {{mb}} MB",
+          "pro": "Pro: {{sec}} s, {{kbps}} kbit/s, {{mb}} MB — jen v tarifu Pro"
+        },
+        "fullSize": "Video v plné délce má při tomto datovém toku asi {{mb}} MB.",
+        "overFile": "To je víc než limit souboru ({{mb}} MB): nahrávání skončí dřív, asi po {{sec}} s.",
+        "freePlan": "V bezplatném tarifu Supabase je jeden soubor nejvýš {{mb}} MB pro celý projekt: vyšší limit funguje jen v tarifu Pro.",
+        "save": "Uložit nastavení videa"
+      },
       "workflow": {
         "title": "Proces",
         "hint": "Uklízečky vidí tyto kroky v tomto pořadí v aplikaci.",

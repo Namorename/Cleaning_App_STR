@@ -15,6 +15,10 @@ vi.mock('@/features/workflow/process-section', async () => {
     ProcessSection: () => createElement('input', { 'aria-label': 'Черновик процесса' }),
   };
 });
+vi.mock('../video-settings', async () => {
+  const { createElement } = await import('react');
+  return { VideoSettings: () => createElement('p', null, 'Пределы видео компании') };
+});
 
 // The router reads the address jsdom holds; the view writes it through
 // history, which jsdom keeps as a browser would. «Назад» moves it a task later
@@ -112,6 +116,19 @@ describe('the page', () => {
     render(view());
 
     expect(within(section('Оформление') as HTMLElement).getByLabelText('Тема')).toBeInTheDocument();
+  });
+
+  // docs/tech-plan.md, 9: «Настройки → Процесс → Видео».
+  test('the video of the company is set in the process, after its steps', () => {
+    window.history.replaceState(null, '', '/settings?section=process');
+
+    render(view());
+
+    const process = section('Процесс') as HTMLElement;
+    const steps = within(process).getByLabelText('Черновик процесса');
+    const video = within(process).getByText('Пределы видео компании');
+    expect(steps.compareDocumentPosition(video) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(section('Компания')).toBeNull();
   });
 
   test('a section the panel does not know opens the account', () => {
