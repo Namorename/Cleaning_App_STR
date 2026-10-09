@@ -9,12 +9,17 @@ import { discardFile } from '../file';
 import { mediaKeys } from '../keys';
 import { forgetLocalMedia } from '../local-store';
 import type { TaskMedia } from '../schema';
-import { clearUploadProgress, uploadProgressSnapshot } from '../upload-progress';
+import {
+  clearUploadProgress,
+  reportUploadProgress,
+  uploadProgressSnapshot,
+} from '../upload-progress';
 import {
   attachMedia,
   mediaItemViews,
   mediaMutationKeys,
   useAttachMedia,
+  useRemoveMedia,
   useUploadProgress,
   useWaitingMediaIds,
   type AttachMediaVariables,
@@ -270,6 +275,23 @@ describe('the queues', () => {
       calls.push('add');
       return { storage_path: 'host/task/m1.jpg' } as TaskMedia;
     });
+  });
+});
+
+describe('a removed file', () => {
+  test('takes its progress with it', async () => {
+    // Arrange: a video part of the way up.
+    reportUploadProgress('m1', 7_000_000, 21_000_000);
+    const client = new QueryClient();
+    const { result } = await renderHook(() => useRemoveMedia(), { wrapper: withClient(client) });
+
+    // Act
+    await act(async () => {
+      result.current.mutate({ taskId: 't1', mediaId: 'm1' });
+    });
+
+    // Assert
+    expect(uploadProgressSnapshot().m1).toBeUndefined();
   });
 });
 

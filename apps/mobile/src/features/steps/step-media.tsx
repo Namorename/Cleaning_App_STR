@@ -177,6 +177,9 @@ function MediaTile({ item, index, disabled, onRemove, onRetry }: MediaTileProps)
     item.kind === 'video' ? t('steps.videoName') : t('steps.photoName', { index: index + 1 });
   const retryLabel = t('steps.retryUpload');
   const removeLabel = t('steps.removeMedia');
+  // A video's upload runs on in the queue whatever the screen says; removed
+  // under it, the row would go and the upload fail. It can go once it is in.
+  const canRemove = !(item.kind === 'video' && item.status === 'uploading');
 
   return (
     <View style={styles.tile}>
@@ -231,13 +234,15 @@ function MediaTile({ item, index, disabled, onRemove, onRetry }: MediaTileProps)
               style={layout.tileButton}
             />
           ) : null}
-          <Button
-            variant="destructive"
-            label={removeLabel}
-            accessibilityLabel={`${removeLabel}. ${tileName}`}
-            onPress={() => onRemove(item.id)}
-            style={layout.tileButton}
-          />
+          {canRemove ? (
+            <Button
+              variant="destructive"
+              label={removeLabel}
+              accessibilityLabel={`${removeLabel}. ${tileName}`}
+              onPress={() => onRemove(item.id)}
+              style={layout.tileButton}
+            />
+          ) : null}
         </View>
       ) : null}
     </View>

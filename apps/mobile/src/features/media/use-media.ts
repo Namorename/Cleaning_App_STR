@@ -227,8 +227,11 @@ export function registerMediaMutations(queryClient: QueryClient): void {
     retry: retryAttach,
     gcTime: Number.POSITIVE_INFINITY,
   });
+  // Kept for the run too: a removal is what silences the later failure of
+  // its file's upload (`useFailedVideoAttach`).
   queryClient.setMutationDefaults(mediaMutationKeys.remove, {
     mutationFn: ({ mediaId }: RemoveMediaVariables) => removeMedia(mediaId),
+    gcTime: Number.POSITIVE_INFINITY,
   });
 }
 
@@ -340,6 +343,7 @@ export function useRemoveMedia() {
     mutationFn: ({ mediaId }) => removeMedia(mediaId),
     onMutate: async (variables) => {
       dropFailedAttempts(queryClient, variables.mediaId);
+      clearUploadProgress(variables.mediaId);
       const key = mediaOwnerKey(variables);
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<TaskMedia[]>(key);
@@ -495,10 +499,23 @@ export function useFailedVideoAttach(stepId: string): Error | null {
         return variables?.stepId === stepId && variables.kind === 'video';
       },
     },
-    select: (mutation) => mutation.state.error,
+    select: (mutation) => ({
+      mediaId: (mutation.state.variables as AttachMediaVariables).mediaId,
+      error: mutation.state.error,
+    }),
+  });
+  // A video she removed: its upload, still running, may fail after — about
+  // a video she no longer has.
+  const removed = useMutationState({
+    filters: {
+      mutationKey: mediaMutationKeys.remove,
+      predicate: (mutation) => mutation.state.status !== 'error',
+    },
+    select: (mutation) => (mutation.state.variables as RemoveMediaVariables | undefined)?.mediaId,
   });
 
-  return attempts.at(-1) ?? null;
+  const latest = attempts.filter(({ mediaId }) => !removed.includes(mediaId)).at(-1);
+  return latest?.error ?? null;
 }
 
 /**

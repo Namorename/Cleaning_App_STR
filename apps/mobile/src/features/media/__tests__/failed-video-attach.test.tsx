@@ -129,6 +129,39 @@ test('a newer video sent to the step outweighs an older refusal', async () => {
   expect(result.current).toBeNull();
 });
 
+// She removed the video; its upload, still running, failed afterwards — the
+// row was gone under it. That failure is about a video she no longer has.
+test('a video removed meanwhile does not speak of its upload’s later failure', async () => {
+  // Arrange: the upload is on its way.
+  let failUpload: (error: Error) => void = () => undefined;
+  const upload = client.getMutationCache().build(client, {
+    mutationKey: mediaMutationKeys.attach,
+    mutationFn: () =>
+      new Promise((_resolve, reject: (error: Error) => void) => {
+        failUpload = reject;
+      }),
+    retry: false,
+  });
+  const running = upload.execute(variables()).catch(() => undefined);
+  const removal = client.getMutationCache().build(client, {
+    mutationKey: mediaMutationKeys.remove,
+    mutationFn: async () => ({}),
+  });
+
+  // Act: removed, then the upload fails.
+  await act(async () => {
+    await removal.execute({ taskId: 't1', mediaId: 'm1' });
+    failUpload(new Error('row gone'));
+    await running;
+  });
+  const { result } = await renderHook(() => useFailedVideoAttach(STEP), {
+    wrapper: withClient(client),
+  });
+
+  // Assert
+  expect(result.current).toBeNull();
+});
+
 test('and nothing while nothing was refused', async () => {
   const { result } = await renderHook(() => useFailedVideoAttach(STEP), {
     wrapper: withClient(client),

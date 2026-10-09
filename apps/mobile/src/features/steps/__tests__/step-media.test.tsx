@@ -228,6 +228,27 @@ describe('a video on its way', () => {
     );
   });
 
+  // Its upload runs on in the queue whatever the screen says: «Удалить» would
+  // take the row away under it. Once in, or failed, it can be removed.
+  test('offers no «Удалить» while it is on its way, and does once it is in', async () => {
+    const { rerender } = await renderVideo({ status: 'uploading', progress: 0.4 });
+
+    expect(screen.queryByRole('button', { name: 'Удалить. Видео' })).toBeNull();
+
+    await rerender(
+      <StepMedia
+        kind="video"
+        items={[item({ kind: 'video', uri: null, durationSec: 20.5, status: 'uploaded' })]}
+        limits={{ min: 1, max: 10 }}
+        maxVideoSec={90}
+        isCapturing={false}
+        disabled={false}
+        {...handlers}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Удалить. Видео' })).toBeTruthy();
+  });
+
   test('once it has arrived, the number goes', async () => {
     await renderVideo({ status: 'uploaded', progress: 1 });
 
