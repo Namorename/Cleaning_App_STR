@@ -2,6 +2,8 @@ import { THEME_COLORS, TONE_COLORS, TOUCH_TARGET } from '@str-ops/shared';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { StyleSheet, type ViewStyle } from 'react-native';
 
+import { setWordContext } from '@/testing/word-context';
+
 import type { TaskStep } from '../schema';
 import { StepList } from '../step-list';
 
@@ -61,6 +63,19 @@ test('names each step by the manager wording, or by its type when there is none'
 
   expect(screen.getByText('Финальная проверка')).toBeTruthy();
   expect(screen.getByText('Комментарий')).toBeTruthy();
+});
+
+// A technician reads the `_tech` variant of a step's name (docs/tech-plan.md §6).
+test('a technician’s note step is instructions for the job', async () => {
+  await setWordContext('tech');
+  try {
+    await render(<StepList steps={[step({ type: 'task_note' })]} onOpenStep={jest.fn()} />);
+
+    expect(screen.getByText('Указания к работе')).toBeTruthy();
+    expect(screen.queryByText('Указания к уборке')).toBeNull();
+  } finally {
+    await setWordContext(undefined);
+  }
 });
 
 test('marks a required step and says where each step stands', async () => {

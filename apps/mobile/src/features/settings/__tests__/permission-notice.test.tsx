@@ -4,7 +4,7 @@ import { Linking, Platform, StyleSheet, type TextStyle, type ViewStyle } from 'r
 
 import { BUTTON_HEIGHT, Colors } from '@/constants/theme';
 import { registerThisPhone } from '@/features/push/registration';
-import { applyWordContext } from '@/i18n';
+import { setWordContext } from '@/testing/word-context';
 
 import { PermissionNotice } from '../permission-notice';
 
@@ -82,7 +82,7 @@ test('refused: says so, and opens the phone settings', async () => {
 // What a technician misses without pushes is his jobs (docs/tech-plan.md §6).
 test('refused, to a technician: he will not hear about new jobs', async () => {
   getPermissions.mockResolvedValue(refused);
-  applyWordContext('tech');
+  await setWordContext('tech');
 
   try {
     await render(<PermissionNotice />);
@@ -91,7 +91,7 @@ test('refused, to a technician: he will not hear about new jobs', async () => {
       await screen.findByText(/Без них вы не узнаете о новых работах и сообщениях/),
     ).toBeTruthy();
   } finally {
-    applyWordContext(undefined);
+    await setWordContext(undefined);
   }
 });
 

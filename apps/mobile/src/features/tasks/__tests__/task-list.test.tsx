@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet, Text, type TextStyle } from 'react-native';
 
 import { FontSize } from '@/constants/theme';
-import { applyWordContext } from '@/i18n';
+import { setWordContext } from '@/testing/word-context';
 
 import { TaskList } from '../task-list';
 import { calendarDay, type CleaningTask, type TaskGroup } from '../schema';
@@ -339,12 +339,12 @@ describe('loading, a list that never loaded and an empty one, on the «Абри�
 
 // His own work, read in his words (docs/tech-plan.md §6).
 describe('read by a technician', () => {
-  beforeEach(() => {
-    applyWordContext('tech');
+  beforeEach(async () => {
+    await setWordContext('tech');
   });
 
-  afterEach(() => {
-    applyWordContext(undefined);
+  afterEach(async () => {
+    await setWordContext(undefined);
   });
 
   test('his list loads as work', async () => {

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import TaskRoute from '@/app/task/[id]';
-import { applyWordContext } from '@/i18n';
+import { setWordContext } from '@/testing/word-context';
 
 import type { CleaningTask } from '../schema';
 
@@ -103,8 +103,16 @@ beforeEach(() => {
 test('opened before the session is read, it waits instead of saying the cleaning is gone', async () => {
   await render(<TaskRoute />);
 
-  expect(screen.getByText('Загружаем уборки…')).toBeTruthy();
+  expect(screen.getByText('Загрузка…')).toBeTruthy();
   expect(screen.queryByText('Уборка не найдена или больше не ваша')).toBeNull();
+});
+
+// Nobody is known yet — a technician's push opens the app cold too — so the
+// word is nobody's: not «Загружаем уборки…» to a man come to fix a boiler.
+test('the wait before the session says a neutral word, not a cleaning', async () => {
+  await render(<TaskRoute />);
+
+  expect(screen.queryByText(/уборк|работ/i)).toBeNull();
 });
 
 describe('signed in', () => {
@@ -194,8 +202,8 @@ describe('the role decides what the job offers', () => {
     mockTaskQuery.isPending = false;
   });
 
-  afterEach(() => {
-    applyWordContext(undefined);
+  afterEach(async () => {
+    await setWordContext(undefined);
   });
 
   test('a cleaner raises a task and asks for supplies from her cleaning', async () => {
@@ -214,7 +222,7 @@ describe('the role decides what the job offers', () => {
     'a %s raises a task from his repair, and is offered no supplies',
     async (role) => {
       mockSession.session = { user: { app_metadata: { role } } };
-      applyWordContext('tech');
+      await setWordContext('tech');
       mockTaskQuery.data = running('maintenance');
 
       await render(<TaskRoute />);
@@ -227,7 +235,7 @@ describe('the role decides what the job offers', () => {
 
   test('a technician’s job loads, and goes missing, in his words', async () => {
     mockSession.session = { user: { app_metadata: { role: 'tech' } } };
-    applyWordContext('tech');
+    await setWordContext('tech');
     mockTaskQuery.isPending = true;
 
     await render(<TaskRoute />);

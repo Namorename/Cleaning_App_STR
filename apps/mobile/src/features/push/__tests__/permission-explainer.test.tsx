@@ -4,8 +4,8 @@ import { router } from 'expo-router';
 import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
 import { BUTTON_HEIGHT, Colors, FontSize } from '@/constants/theme';
-import { applyWordContext } from '@/i18n';
 import { reportError } from '@/lib/sentry';
+import { setWordContext } from '@/testing/word-context';
 
 import { ensureChannels } from '../channels';
 import { PermissionExplainer } from '../permission-explainer';
@@ -42,7 +42,7 @@ test('says why, and that the text of a message is never shown', async () => {
 
 // A technician's pushes are about his jobs (docs/tech-plan.md §5, §6).
 test('to a technician it speaks of jobs, not cleanings', async () => {
-  applyWordContext('tech');
+  await setWordContext('tech');
 
   try {
     await render(<PermissionExplainer />);
@@ -51,7 +51,7 @@ test('to a technician it speaks of jobs, not cleanings', async () => {
     expect(screen.getByText(/когда вам назначат работу/)).toBeTruthy();
     expect(screen.queryByText(/уборк/i)).toBeNull();
   } finally {
-    applyWordContext(undefined);
+    await setWordContext(undefined);
   }
 });
 

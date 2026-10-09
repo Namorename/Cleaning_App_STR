@@ -35,8 +35,10 @@ const Params = z.object({ id: z.string().uuid() });
 export default function TaskRoute() {
   const { t } = useTranslation();
 
+  // Until the session is read nobody is known — a technician's push opens the
+  // app cold too — so the wait says a word that is nobody's.
   return (
-    <SignedInRoute loadingText={t('tasks.loading', { context: wordContext() })}>
+    <SignedInRoute loadingText={t('common.loading')}>
       <TaskScreen />
     </SignedInRoute>
   );

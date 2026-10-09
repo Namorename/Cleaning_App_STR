@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
 import { act, render, screen, waitFor } from '@testing-library/react-native';
+import { useTranslation } from 'react-i18next';
 import { Text } from 'react-native';
 
 import { applyWordContext, i18n, wordContext } from '@/i18n';
@@ -135,6 +136,48 @@ test('signing out takes his words back; the next person signs in with her own', 
   // Assert
   expect(await screen.findByText('Не удалось начать уборку — обновите список.')).toBeTruthy();
   expect(wordContext()).toBeUndefined();
+});
+
+/**
+ * A screen as every screen reads its words: through i18next, not through the
+ * session. Drawn as a child of the provider, it is not drawn again when the
+ * session changes — only when the words do.
+ */
+function ScreenWords() {
+  const { t } = useTranslation();
+  return <Text>{t('tasks.loading', { context: wordContext() })}</Text>;
+}
+
+test('a screen already drawn turns to his words when the office makes him a technician', async () => {
+  // Arrange: a cleaner's screen is up.
+  mockAuth.stored = sessionAs('cleaner');
+  await render(
+    <SessionProvider>
+      <ScreenWords />
+    </SessionProvider>,
+  );
+  expect(await screen.findByText('Загружаем уборки…')).toBeTruthy();
+
+  // Act: the refreshed token says he is a technician now.
+  await act(async () => mockAuth.listener?.('TOKEN_REFRESHED', sessionAs('tech')));
+
+  // Assert
+  expect(await screen.findByText('Загружаем работы…')).toBeTruthy();
+  expect(screen.queryByText('Загружаем уборки…')).toBeNull();
+});
+
+test('and back, when he is a cleaner again', async () => {
+  mockAuth.stored = sessionAs('tech');
+  await render(
+    <SessionProvider>
+      <ScreenWords />
+    </SessionProvider>,
+  );
+  expect(await screen.findByText('Загружаем работы…')).toBeTruthy();
+
+  await act(async () => mockAuth.listener?.('TOKEN_REFRESHED', sessionAs('cleaner')));
+
+  expect(await screen.findByText('Загружаем уборки…')).toBeTruthy();
 });
 
 test('a role changed by the office arrives with the refreshed token', async () => {

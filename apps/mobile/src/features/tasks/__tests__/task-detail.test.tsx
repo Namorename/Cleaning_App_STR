@@ -4,8 +4,8 @@ import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
 import type { TaskStep } from '@/features/steps/schema';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { applyWordContext } from '@/i18n';
 import { RefusalError } from '@/lib/server-error';
+import { setWordContext } from '@/testing/word-context';
 
 import { TaskDetail } from '../task-detail';
 import type { CleaningTask } from '../schema';
@@ -855,12 +855,12 @@ describe('the words follow the kind of job', () => {
 // The technician and the head technician read the `_tech` variant of every
 // word about the job (docs/tech-plan.md §6): the session applied them.
 describe('read by a technician', () => {
-  beforeEach(() => {
-    applyWordContext('tech');
+  beforeEach(async () => {
+    await setWordContext('tech');
   });
 
-  afterEach(() => {
-    applyWordContext(undefined);
+  afterEach(async () => {
+    await setWordContext(undefined);
   });
 
   const repair = (overrides: Partial<CleaningTask> = {}) =>
@@ -891,6 +891,23 @@ describe('read by a technician', () => {
     expect(screen.getByText('Окно работы')).toBeTruthy();
     expect(screen.getByText('Шла параллельно с другой работой')).toBeTruthy();
     expect(screen.getByText('Не удалось завершить работу — обновите список.')).toBeTruthy();
+    expect(screen.queryByText(/уборк/i)).toBeNull();
+  });
+
+  test('the office’s note on his repair is instructions for the job, not for a cleaning', async () => {
+    await render(
+      <TaskDetail
+        task={repair({ notes: 'Заменить смеситель, ключ у соседей' })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    expect(screen.getByText('Указания к работе')).toBeTruthy();
+    expect(screen.getByText('Заменить смеситель, ключ у соседей')).toBeTruthy();
     expect(screen.queryByText(/уборк/i)).toBeNull();
   });
 

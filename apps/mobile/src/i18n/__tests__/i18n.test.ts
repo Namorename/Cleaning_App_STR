@@ -150,6 +150,8 @@ describe('words shared by every kind of job', () => {
     'steps.commentPlaceholder',
     'steps.types.photos_before',
     'steps.types.photos_after',
+    // The office's note on the job, as a step and above it (2026-10-09).
+    'steps.types.task_note',
     'serverErrors.parallelStartOff',
     'serverErrors.startTooEarly',
     'serverErrors.stepNotFound',
@@ -215,6 +217,72 @@ describe('words shared by every kind of job', () => {
     );
 
     expect(cleaning).toEqual([]);
+  });
+
+  // The lists above are what somebody thought of; this finds what nobody did.
+  // A word of the phone whose Russian names a cleaning is read by a technician
+  // too — unless no screen of his ever shows it, and then it is named here
+  // with the reason (`steps.types.task_note`, «Указания к уборке» on his
+  // repair, was missed until 2026-10-09).
+  const NOT_READ_BY_TECHNICIANS = [
+    // The free queue and «Взять»: he has no «Свободные» (docs/tech-plan.md §4).
+    'tasks.claimAccessibility',
+    'tasks.claimFailedTitle',
+    'tasks.claimTaken',
+    'tasks.emptyQueue',
+    // Pushes he never receives; his settings hide them (features/settings/schema.ts).
+    'settings.notifications.kinds.cleaning_new',
+    'settings.notifications.kinds.cleaning_free',
+    'settings.notifications.kinds.booking_cancelled_live',
+    // A cleaning's own words, chosen by the kind of job (`jobWordKey`): a
+    // repair or an inspection reads `tasks.work.*` instead.
+    'tasks.start',
+    'tasks.finish',
+    'tasks.detail.window',
+    'tasks.detail.finished',
+    'tasks.detail.accepted',
+    'tasks.detail.colleague',
+    'steps.heading',
+    // What a cleaning kind is called: an old cleaning of his is still one (§2.4).
+    'tasks.kinds.cleaning',
+    'tasks.kinds.midstay',
+    // Refusals of the office's moves — save_task, set_property_status,
+    // «Команда»: the panel meets them, never his phone.
+    'serverErrors.propertyHasOpenTasks',
+    'serverErrors.taskDateRequired',
+    'serverErrors.taskDuplicate',
+    'serverErrors.taskMovedMeanwhile',
+    'serverErrors.techNotLinkable',
+    'serverErrors.cleaningNotForTech',
+    'serverErrors.techRoleBlocked',
+  ];
+
+  /**
+   * Not the phone's screens: the panel's words, and the copy `send-push`
+   * keeps of `push.*`, which names a repair by its own `titleWork`.
+   */
+  const NOT_THE_PHONES_SCREENS = /^(panel|push)\./;
+
+  /** The phrases of Russian that name a cleaning in any of their forms. */
+  function namesACleaning(phrase: string): boolean {
+    return formsOf(ru, phrase).some((path) => CLEANING_WORD.ru.test(valueOf(ru, path) ?? ''));
+  }
+
+  test('every word of the phone that names a cleaning has his variant, or a reason he never reads it', () => {
+    const missing = phrases(ru).filter(
+      (phrase) =>
+        !NOT_THE_PHONES_SCREENS.test(phrase) &&
+        !phrase.endsWith('_tech') &&
+        !NOT_READ_BY_TECHNICIANS.includes(phrase) &&
+        namesACleaning(phrase) &&
+        formsOf(ru, `${phrase}_tech`).length === 0,
+    );
+
+    expect(missing).toEqual([]);
+  });
+
+  test('every key excused above still exists and still names a cleaning', () => {
+    expect(NOT_READ_BY_TECHNICIANS.filter((phrase) => !namesACleaning(phrase))).toEqual([]);
   });
 
   test.each([

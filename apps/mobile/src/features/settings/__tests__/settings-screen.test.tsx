@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 
-import { SUPPORTED_LANGUAGES, applyWordContext, deviceLanguage, i18n } from '@/i18n';
+import { SUPPORTED_LANGUAGES, deviceLanguage, i18n } from '@/i18n';
+import { setWordContext } from '@/testing/word-context';
 
 import { fetchMyPushPreferences, saveMyLanguage, setPushPreference } from '../api';
 import { SettingsScreen } from '../settings-screen';
@@ -126,12 +127,12 @@ const TECHNICIAN_LABELS = [
 ];
 
 describe('a technician', () => {
-  beforeEach(() => {
-    applyWordContext('tech');
+  beforeEach(async () => {
+    await setWordContext('tech');
   });
 
-  afterEach(() => {
-    applyWordContext(undefined);
+  afterEach(async () => {
+    await setWordContext(undefined);
   });
 
   test('the technician gets his seven switches, in order, each named as work', async () => {

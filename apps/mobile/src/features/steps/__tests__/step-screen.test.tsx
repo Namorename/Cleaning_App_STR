@@ -3,7 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react-native
 import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { applyWordContext } from '@/i18n';
+import { setWordContext } from '@/testing/word-context';
 
 import { stepTitle } from '../format';
 import { MAX_COMMENT_LENGTH, type TaskStep } from '../schema';
@@ -294,12 +294,12 @@ describe('outside the cleaning', () => {
 
 // A step of a technician's repair, in his words (docs/tech-plan.md §6).
 describe('read by a technician', () => {
-  beforeEach(() => {
-    applyWordContext('tech');
+  beforeEach(async () => {
+    await setWordContext('tech');
   });
 
-  afterEach(() => {
-    applyWordContext(undefined);
+  afterEach(async () => {
+    await setWordContext(undefined);
   });
 
   test('a step he can no longer change, and a refusal, speak of work', async () => {

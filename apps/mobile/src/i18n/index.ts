@@ -40,12 +40,23 @@ export function deviceLanguage(): Language {
   }
 }
 
+/**
+ * Emitted on the i18next instance when the reader's words change
+ * (`applyWordContext`). Every component that shows translated text redraws on
+ * it through `useTranslation`, as on a new language.
+ */
+const WORD_CONTEXT_CHANGED = 'wordContextChanged';
+
 void i18n.use(initReactI18next).init({
   resources: translationResources,
   lng: deviceLanguage(),
   fallbackLng: FALLBACK_LANGUAGE,
   // React escapes on render, and there is no HTML here to escape into.
   interpolation: { escapeValue: false },
+  // A screen redraws on a new language and on new words for the same one: a
+  // role the office changed while she is signed in, or the session read after
+  // the first draw of a cold start.
+  react: { bindI18n: `languageChanged ${WORD_CONTEXT_CHANGED}` },
   // i18next prints a vendor notice through console.info on every init. It is
   // noise in the test output and a log line in a shipped build.
   showSupportNotice: false,
@@ -85,9 +96,17 @@ let activeWordContext: WordContext | undefined;
  * Set by the session, as the language is set by the profile: the moment it
  * knows who signed in, before any screen draws her, and back to none when she
  * leaves, so the next person on a shared phone does not inherit his words.
+ *
+ * A change redraws every screen that reads words (`useTranslation`), so one
+ * already on screen follows a role the office changed meanwhile. The same
+ * words again redraw nothing: the session applies them on every token refresh.
  */
 export function applyWordContext(next: WordContext | undefined): void {
+  if (activeWordContext === next) {
+    return;
+  }
   activeWordContext = next;
+  i18n.emit(WORD_CONTEXT_CHANGED, next);
 }
 
 /**

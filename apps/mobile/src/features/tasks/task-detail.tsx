@@ -225,8 +225,11 @@ export function TaskDetail({
         <NoteCard label={t('tasks.detail.notes')} text={notes} />
       ) : null}
 
-      {/* Named as the step that carries the same words once she starts. */}
-      {taskNote !== null ? <NoteCard label={t('steps.types.task_note')} text={taskNote} /> : null}
+      {/* Named as the step that carries the same words once she starts —
+          in the reader's words, as `stepTitle` names the step. */}
+      {taskNote !== null ? (
+        <NoteCard label={t('steps.types.task_note', { context })} text={taskNote} />
+      ) : null}
 
       {/* Not gated by canRaise: the office writes on a job before anyone
           takes it, and that note has to be readable from the queue. */}

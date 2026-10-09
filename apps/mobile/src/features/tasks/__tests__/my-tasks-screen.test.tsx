@@ -3,8 +3,8 @@ import { router } from 'expo-router';
 import { Alert } from 'react-native';
 
 import MyTasksScreen from '@/app/(tabs)/index';
-import { applyWordContext } from '@/i18n';
 import { RefusalError } from '@/lib/server-error';
+import { setWordContext } from '@/testing/word-context';
 
 import { calendarDay, type CleaningTask } from '../schema';
 import { useAcceptTask } from '../use-tasks';
@@ -237,12 +237,12 @@ test('while an accept runs, its button says so and a second tap sends nothing', 
 
 // «Мои работы»: the technician's own list, in his words (docs/tech-plan.md §6).
 describe('read by a technician', () => {
-  beforeEach(() => {
-    applyWordContext('tech');
+  beforeEach(async () => {
+    await setWordContext('tech');
   });
 
-  afterEach(() => {
-    applyWordContext(undefined);
+  afterEach(async () => {
+    await setWordContext(undefined);
     mockParams = {};
   });
 
