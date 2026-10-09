@@ -1,7 +1,9 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+import { privacyLanguageOf } from '@/app/privacy/language';
 import { publicEnv } from '@/lib/env';
+import { PAGE_LANGUAGE_HEADER } from '@/lib/page-language';
 import { isPanelRole, roleOf } from '@/lib/session';
 
 const PUBLIC_PATHS = ['/login'];
@@ -11,8 +13,13 @@ const PUBLIC_PATHS = ['/login'];
  * (decision 17, docs/f11-plan.md: the privacy policy App Store Connect links
  * to). Unlike the sign-in page, a manager stays on them too. Exact paths only:
  * `/privacyx` and `/privacy/x` are the panel's like any other address.
+ *
+ * Each speaks the language of its own address, not the panel's cookie: the
+ * reader here is the page's own, so <html lang> and the page cannot disagree.
  */
-const OPEN_PATHS: ReadonlySet<string> = new Set(['/privacy']);
+const OPEN_PATHS: ReadonlyMap<string, (searchParams: URLSearchParams) => string> = new Map([
+  ['/privacy', privacyLanguageOf],
+]);
 
 /**
  * A redirect that still carries the session cookies.
@@ -39,8 +46,12 @@ function redirectKeepingCookies(url: URL, from: NextResponse): NextResponse {
  */
 export async function proxy(request: NextRequest) {
   // No session to keep fresh and no one to redirect: Auth is not asked at all.
-  if (OPEN_PATHS.has(request.nextUrl.pathname)) {
-    return NextResponse.next({ request });
+  // The page's language goes on to the root layout, for <html lang>.
+  const pageLanguage = OPEN_PATHS.get(request.nextUrl.pathname);
+  if (pageLanguage !== undefined) {
+    const headers = new Headers(request.headers);
+    headers.set(PAGE_LANGUAGE_HEADER, pageLanguage(request.nextUrl.searchParams));
+    return NextResponse.next({ request: { headers } });
   }
 
   let response = NextResponse.next({ request });

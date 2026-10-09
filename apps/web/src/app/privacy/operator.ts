@@ -1,4 +1,8 @@
 // A build error, not a leak, if a client component ever imports this module.
+// Next aliases 'server-only' to its own copy at build time, so the package is
+// not declared in apps/web/package.json; declaring it is a later clean-up (a
+// lock change here would collide with the phone branch's). A test holds this
+// line in place (__tests__/operator.test.ts).
 import 'server-only';
 
 /**
