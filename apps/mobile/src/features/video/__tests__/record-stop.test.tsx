@@ -212,7 +212,9 @@ describe('the length of a recording', () => {
 // Between «Стоп» and the file the camera is still writing: nothing else is
 // started, and a stop it did not hear is said again.
 describe('a recording being saved', () => {
-  test('«Записать» waits, greyed, until the camera has handed the file over', async () => {
+  // Item 8 of the two whole-branch reviews of phone-1-2-0: the greyed button
+  // says what is happening — to the eye and to the reader — not «Записать».
+  test('the button says «Сохраняем…», greyed, until the camera has handed the file over', async () => {
     // Arrange: the camera takes its time.
     mockCamera.stopRecording.mockImplementation(() => undefined);
     await render(<RecordRoute />);
@@ -221,8 +223,10 @@ describe('a recording being saved', () => {
     await recordFor(3_000);
 
     // Assert
-    const button = screen.getByRole('button', { name: 'Записать' });
+    const button = screen.getByRole('button', { name: 'Сохраняем…' });
     expect(button.props.accessibilityState).toMatchObject({ disabled: true });
+    expect(screen.getByText('Сохраняем…')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Записать' })).toBeNull();
     await fireEvent.press(button);
     expect(mockCamera.recordAsync).toHaveBeenCalledTimes(1);
   });

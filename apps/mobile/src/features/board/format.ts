@@ -9,7 +9,7 @@ import {
 } from '@/features/tasks/format';
 import { i18n } from '@/i18n';
 
-import { TECHNICIAN_ROLES, type BoardRepair, type StaffMember } from './schema';
+import { isStaffTechnician, type BoardRepair, type StaffMember } from './schema';
 
 /** Separates the parts of one line: a day and its hours, a person and a day. */
 export const PART_SEPARATOR = ' · ';
@@ -30,7 +30,7 @@ export function staffNames(
   const people = (staff ?? []).map((person) => ({
     id: person.id,
     name: person.full_name?.trim() ?? '',
-    isTechnician: TECHNICIAN_ROLES.has(person.role),
+    isTechnician: isStaffTechnician(person),
   }));
   const nameless = people
     .filter((person) => person.name === '' && person.isTechnician)

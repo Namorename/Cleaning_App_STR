@@ -9,6 +9,7 @@ import {
 
 import {
   ARCHIVE_PAGE_SIZE,
+  BOARD_LIVE_LIMIT,
   assignProblem,
   fetchArchivePage,
   fetchBoardProblem,
@@ -103,6 +104,17 @@ describe('the board', () => {
     expect(chained('or')).toEqual([
       ['status.not.in.(resolved,cancelled),updated_at.gte.2026-09-09'],
     ]);
+  });
+
+  // Item 11 of the two whole-branch reviews of phone-1-2-0: what is live only
+  // grows with a company that falls behind; the board reads the newest 500.
+  test('reads at most the newest five hundred', async () => {
+    mockAnswer.mockReturnValue({ data: [], error: null });
+
+    await fetchBoardProblems();
+
+    expect(BOARD_LIVE_LIMIT).toBe(500);
+    expect(chained('limit')).toEqual([[BOARD_LIVE_LIMIT]]);
   });
 
   test('the archive is read a page of fifty at a time, newest first', async () => {

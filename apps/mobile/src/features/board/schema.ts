@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { isTechnician, knownRole } from '@/features/auth/role';
 import { PROBLEM_PRIORITIES, PROBLEM_STATUSES } from '@/features/problems/schema';
 
 /**
@@ -176,10 +177,17 @@ export function boardSections(problems: readonly BoardProblem[]): BoardSection[]
   ];
 }
 
-/** The roles the head technician hands work to: technicians, himself among them (decision 1). */
-export const TECHNICIAN_ROLES: ReadonlySet<string> = new Set(['tech', 'head_tech']);
+/**
+ * Whether a person of the directory is one the head technician hands work to:
+ * a technician, himself among them (decision 1). Asked of the role module, the
+ * one list of technicians on the phone (item 9 of the two whole-branch
+ * reviews); a role this build does not know is nobody's technician.
+ */
+export function isStaffTechnician(person: Pick<StaffMember, 'role'>): boolean {
+  return isTechnician(knownRole(person.role));
+}
 
 /** Whom «Назначить» offers, in the directory's order (by name). */
 export function activeTechnicians(staff: readonly StaffMember[]): StaffMember[] {
-  return staff.filter((person) => person.is_active && TECHNICIAN_ROLES.has(person.role));
+  return staff.filter((person) => person.is_active && isStaffTechnician(person));
 }

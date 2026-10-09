@@ -1197,6 +1197,7 @@
     "starting": "Включаем камеру…",
     "record": "Записать",
     "stop": "Стоп",
+    "saving": "Сохраняем…",
     "remaining_one": "Осталась {{count}} секунда",
     "remaining_few": "Осталось {{count}} секунды",
     "remaining_many": "Осталось {{count}} секунд",
@@ -1292,6 +1293,7 @@
       "hoursUntil": "до {{time}}",
       "overdue": "Просрочено",
       "more": "Ещё",
+      "limited": "Показаны последние {{limit}}",
       "assigneeClosed": "У закрытых и архивных заданий нет исполнителя — фильтр не действует"
     },
     "dispatch": {

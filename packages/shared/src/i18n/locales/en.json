@@ -1185,6 +1185,7 @@
     "starting": "Starting the camera…",
     "record": "Record",
     "stop": "Stop",
+    "saving": "Saving…",
     "remaining_one": "{{count}} second left",
     "remaining_other": "{{count}} seconds left",
     "lowSpaceTitle": "Not enough space on the phone",
@@ -1278,6 +1279,7 @@
       "hoursUntil": "until {{time}}",
       "overdue": "Overdue",
       "more": "More",
+      "limited": "Showing the latest {{limit}}",
       "assigneeClosed": "Closed and archived tasks have no assignee — the filter does not apply"
     },
     "dispatch": {

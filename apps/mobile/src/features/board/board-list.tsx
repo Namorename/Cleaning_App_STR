@@ -29,6 +29,8 @@ interface BoardListProps {
   /** «Ещё» under the list, while there is a next page to read (the archive). */
   onLoadMore?: () => void;
   isLoadingMore?: boolean;
+  /** A line above the cards, already in his language: the board read to its limit, say. */
+  notice?: string;
 }
 
 /**
@@ -48,6 +50,7 @@ export function BoardList({
   empty,
   onLoadMore,
   isLoadingMore = false,
+  notice,
 }: BoardListProps) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -89,7 +92,16 @@ export function BoardList({
   }
 
   const listHeader =
-    error === null ? undefined : <ErrorBanner title={t('common.refreshFailed')} error={error} />;
+    error === null && notice === undefined ? undefined : (
+      <>
+        {error === null ? null : <ErrorBanner title={t('common.refreshFailed')} error={error} />}
+        {notice === undefined ? null : (
+          <Text variant="caption" tone="secondary" style={styles.notice}>
+            {notice}
+          </Text>
+        )}
+      </>
+    );
 
   return (
     <SectionList
@@ -157,5 +169,6 @@ const styles = StyleSheet.create({
   },
   separator: { height: Spacing.md },
   more: { marginTop: Spacing.lg },
+  notice: { marginBottom: Spacing.md },
   skeleton: { flex: 1, padding: Spacing.lg, gap: Spacing.md },
 });

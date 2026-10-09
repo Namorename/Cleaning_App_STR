@@ -27,7 +27,7 @@ export interface VideoRecorderProps {
  * The recording itself — its timing, its stops and what can go wrong — is
  * `useVideoRecording`'s; this draws it. The countdown is drawn every quarter
  * second and said to a screen reader every ten. Between «Стоп» and the file
- * the button is greyed: the camera is still writing.
+ * the button is greyed and says «Сохраняем…»: the camera is still writing.
  */
 export function VideoRecorder({ limits, onRecorded }: VideoRecorderProps) {
   const { t } = useTranslation();
@@ -91,6 +91,7 @@ export function VideoRecorder({ limits, onRecorded }: VideoRecorderProps) {
         </Text>
         <RecordButton
           isRecording={isRecording}
+          isSaving={isSaving}
           isDisabled={!recording.isReady || isSaving}
           onPress={isRecording ? recording.stop : () => void recording.record()}
         />

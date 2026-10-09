@@ -6,6 +6,7 @@ import { StyleSheet, View } from 'react-native';
 import type { EmptyStateProps } from '@/components/empty-state';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
 
+import { BOARD_LIVE_LIMIT } from './api';
 import { AssigneeSheet, BoardFilters } from './board-filters';
 import { BoardList } from './board-list';
 import { staffNames } from './format';
@@ -95,6 +96,11 @@ export function BoardScreen() {
     setPicking(false);
   }, []);
 
+  // The live board is read to a limit, newest first (api.ts): read that many,
+  // there may be older live tasks it does not show.
+  const isCut = !isArchive && (board.data?.length ?? 0) >= BOARD_LIVE_LIMIT;
+  const notice = isCut ? t('problems.board.limited', { limit: BOARD_LIVE_LIMIT }) : undefined;
+
   const isFiltered = status !== FIRST_STATUS || shownAssignee.kind !== ANY_ASSIGNEE.kind;
   const empty: EmptyStateProps =
     isFiltered && (board.data?.length ?? 0) > 0
@@ -134,6 +140,7 @@ export function BoardScreen() {
         empty={empty}
         onLoadMore={isArchive && archive.hasNextPage ? onLoadMore : undefined}
         isLoadingMore={archive.isFetchingNextPage}
+        notice={notice}
       />
       <AssigneeSheet
         isVisible={isPicking}

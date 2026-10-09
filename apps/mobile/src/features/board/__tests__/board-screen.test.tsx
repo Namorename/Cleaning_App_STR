@@ -157,6 +157,40 @@ describe('the status filter', () => {
   });
 });
 
+// Item 11 of the two whole-branch reviews of phone-1-2-0: the board reads the
+// newest 500 tasks; when it got that many, it says the list is cut there.
+describe('a board read to its limit', () => {
+  const LIMITED = 'Показаны последние 500';
+
+  function manyTasks(count: number): BoardProblem[] {
+    return Array.from({ length: count }, (_, index) =>
+      boardProblem({
+        id: `d1e2f3a4-1111-4111-8111-${String(index).padStart(12, '0')}`,
+        title: `Задание ${index}`,
+      }),
+    );
+  }
+
+  test('says only the newest are shown', async () => {
+    answer({ data: manyTasks(500) });
+
+    await render(<BoardScreen />);
+
+    expect(screen.getByText(LIMITED)).toBeTruthy();
+  });
+
+  test('says nothing of the kind below the limit, nor in the archive', async () => {
+    answer({ data: manyTasks(499) });
+    await render(<BoardScreen />);
+    expect(screen.queryByText(LIMITED)).toBeNull();
+
+    answer({ data: manyTasks(500) });
+    await fireEvent.press(screen.getByRole('tab', { name: 'Архив' }));
+
+    expect(screen.queryByText(LIMITED)).toBeNull();
+  });
+});
+
 // A company's tasks only grow; the archive is history he looks up, not work
 // waiting for him (brief, item 6).
 describe('the archive', () => {

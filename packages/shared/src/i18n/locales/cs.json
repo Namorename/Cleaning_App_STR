@@ -1197,6 +1197,7 @@
     "starting": "Zapínáme fotoaparát…",
     "record": "Nahrávat",
     "stop": "Stop",
+    "saving": "Ukládáme…",
     "remaining_one": "Zbývá {{count}} sekunda",
     "remaining_few": "Zbývají {{count}} sekundy",
     "remaining_many": "Zbývá {{count}} sekundy",
@@ -1292,6 +1293,7 @@
       "hoursUntil": "do {{time}}",
       "overdue": "Po termínu",
       "more": "Další",
+      "limited": "Zobrazeno posledních {{limit}}",
       "assigneeClosed": "Uzavřené a archivované úkoly nemají řešitele — filtr se nepoužije"
     },
     "dispatch": {

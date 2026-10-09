@@ -14,19 +14,37 @@ const SQUARE_RADIUS = 6;
 
 interface RecordButtonProps {
   isRecording: boolean;
+  /** Stopped, the camera still writing the file: the button waits, saying so. */
+  isSaving?: boolean;
   isDisabled: boolean;
   onPress: () => void;
+}
+
+/** What the button says: start, stop, or the file still being written after «Стоп». */
+function labelKey(isRecording: boolean, isSaving: boolean): string {
+  if (isSaving) {
+    return 'video.saving';
+  }
+  return isRecording ? 'video.stop' : 'video.record';
 }
 
 /**
  * The camera's own button: a round dot to start, a square to stop, the word
  * under it. The shape changes with the state as well as the word, so neither
- * colour nor reading is needed to tell them apart.
+ * colour nor reading is needed to tell them apart. Between «Стоп» and the
+ * file it keeps the square, greyed, and says «Сохраняем…» — not «Записать»,
+ * which it could not do yet (item 8 of the two whole-branch reviews).
  */
-export function RecordButton({ isRecording, isDisabled, onPress }: RecordButtonProps) {
+export function RecordButton({
+  isRecording,
+  isSaving = false,
+  isDisabled,
+  onPress,
+}: RecordButtonProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
-  const label = isRecording ? t('video.stop') : t('video.record');
+  const label = t(labelKey(isRecording, isSaving));
+  const isSquare = isRecording || isSaving;
 
   return (
     <Pressable
@@ -40,7 +58,7 @@ export function RecordButton({ isRecording, isDisabled, onPress }: RecordButtonP
       <View style={[styles.ring, isDisabled && styles.ringDisabled]}>
         <View
           style={[
-            isRecording ? layout.square : layout.dot,
+            isSquare ? layout.square : layout.dot,
             isDisabled ? styles.markDisabled : styles.mark,
           ]}
         />

@@ -25,6 +25,13 @@ export const CLOSED_WINDOW_DAYS = 30;
 /** How many archived tasks one «Ещё» brings. */
 export const ARCHIVE_PAGE_SIZE = 50;
 
+/**
+ * The most the live board reads, newest first (item 11 of the two
+ * whole-branch reviews): a company that falls behind only adds to what is
+ * live. Read that many, the board says only the newest are shown.
+ */
+export const BOARD_LIVE_LIMIT = 500;
+
 /** The statuses that close a task; any other — one a newer server adds too — is still work. */
 const CLOSED_STATUSES = '(resolved,cancelled)';
 
@@ -44,7 +51,8 @@ export async function fetchBoardProblems(now: Date = new Date()): Promise<BoardP
     .select(BOARD_COLUMNS)
     .is('archived_at', null)
     .or(`status.not.in.${CLOSED_STATUSES},updated_at.gte.${since}`)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(BOARD_LIVE_LIMIT);
 
   if (error) {
     throw error;
