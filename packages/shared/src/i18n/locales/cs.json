@@ -1043,6 +1043,8 @@
     "acceptFailedTitle_tech": "Práci se nepodařilo přijmout",
     "acceptFailed": "Úklid se nepodařilo přijmout — mohl být předán jinému, přesunut nebo zrušen.",
     "acceptFailed_tech": "Práci se nepodařilo přijmout — mohla být předána jinému, přesunuta nebo zrušena.",
+    "acceptMoved": "Úklid byl přesunut na jiný den nebo jinam — zkontrolujte ho a přijměte znovu.",
+    "acceptMoved_tech": "Práce byla přesunuta na jiný den nebo jinam — zkontrolujte ji a přijměte znovu.",
     "startFailed": "Úklid se nepodařilo začít — obnovte seznam.",
     "startFailed_tech": "Práci se nepodařilo začít — obnovte seznam.",
     "finishFailed": "Úklid se nepodařilo dokončit — obnovte seznam.",

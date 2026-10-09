@@ -310,14 +310,49 @@ describe('a move replayed after its answer was lost', () => {
     expect(accepted.status).toBe('accepted');
   });
 
-  test('an accept whose job moved to another day is still refused', async () => {
-    rowNow({ status: 'accepted', assignee_id: CLEANER, scheduled_date: '2026-11-11' });
+  // Moved by the office since: hers, so not «given away or cancelled» — and
+  // not accepted for a day she never saw either (night journal, review of
+  // bc7dcc9..dab5237; the real client's both orders: replay-after-office-move).
+  test.each([
+    ['another day, back to assigned', { status: 'assigned', scheduled_date: '2026-11-11' }],
+    ['another flat', { status: 'assigned', property_id: 412433 }],
+    ['another day, accepted there since', { status: 'accepted', scheduled_date: '2026-11-11' }],
+  ])('an accept whose job moved to %s is told it was moved', async (_, changes) => {
+    rowNow({ assignee_id: CLEANER, ...changes });
+
+    const refusal = await acceptTask(SEEN).catch((caught: unknown) => caught);
+
+    expect((refusal as Error).message).not.toMatch(/[а-яё]/i);
+    expect(serverErrorText(refusal)).toEqual({
+      text: 'Уборку перенесли на другой день или в другое место — проверьте её и примите снова.',
+      detail: null,
+    });
+  });
+
+  test.each([
+    ['given to a colleague', { status: 'assigned', assignee_id: COLLEAGUE }],
+    ['cancelled', { status: 'cancelled', assignee_id: CLEANER, scheduled_date: '2026-11-11' }],
+    ['still assigned on her day: refused for another reason', { assignee_id: CLEANER }],
+  ])('an accept on a job %s is still «given away, moved or cancelled»', async (_, changes) => {
+    rowNow(changes);
 
     const refusal = await acceptTask(SEEN).catch((caught: unknown) => caught);
 
     expect(serverErrorText(refusal).text).toBe(
       'Не удалось принять уборку — её могли передать, перенести или отменить.',
     );
+  });
+
+  test.each([
+    ['moved back to assigned by the office', { status: 'assigned' }],
+    ['on another day', { status: 'assigned', scheduled_date: '2026-11-12' }],
+    ['already under way', { status: 'in_progress' }],
+  ])('a take that landed, the job since %s, is hers: no refusal', async (_, changes) => {
+    rowNow({ assignee_id: CLEANER, ...changes });
+
+    const claimed = await claimTask(row.id, CLEANER);
+
+    expect(claimed.assignee_id).toBe(CLEANER);
   });
 
   test('a start that already landed is done', async () => {

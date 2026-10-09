@@ -1033,6 +1033,8 @@
     "acceptFailedTitle_tech": "Could not accept the job",
     "acceptFailed": "Could not accept the cleaning — it may have been reassigned, moved or cancelled.",
     "acceptFailed_tech": "Could not accept the job — it may have been reassigned, moved or cancelled.",
+    "acceptMoved": "The cleaning was moved to another day or place — check it and accept it again.",
+    "acceptMoved_tech": "The job was moved to another day or place — check it and accept it again.",
     "startFailed": "Could not start the cleaning — refresh the list.",
     "startFailed_tech": "Could not start the job — refresh the list.",
     "finishFailed": "Could not finish the cleaning — refresh the list.",
