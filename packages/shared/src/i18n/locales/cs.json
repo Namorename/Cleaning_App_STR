@@ -7,6 +7,7 @@
     "close": "Zavřít",
     "loading": "Načítání…",
     "refreshFailed": "Nepodařilo se obnovit, zobrazeno uložené. Stáhněte dolů a zkuste to znovu.",
+    "refreshFailedSaved": "Nepodařilo se obnovit, zobrazují se uložená data.",
     "resetSaved": "Vymazat uložené seznamy",
     "resetSavedHint": "Seznamy se načtou znovu. Akce čekající na připojení zůstanou zachovány.",
     "languages": {

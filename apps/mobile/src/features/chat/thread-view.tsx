@@ -163,10 +163,10 @@ export function ThreadView({
 
   // Newest at the bottom, drawn from the bottom: an inverted list opens on
   // the latest message with no scroll-to-end and stays put while it polls.
-  const rows =
-    messages === undefined
-      ? []
-      : rowsOf(messages, pending, { currentUserId, ownMedia, local, urls }).reverse();
+  // What she has said is drawn even before, or without, the transcript: a
+  // message written while it cannot load must show somewhere.
+  const rows = rowsOf(messages ?? [], pending, { currentUserId, ownMedia, local, urls }).reverse();
+  const hasNothingToShow = messages === undefined && rows.length === 0;
   const isEmpty = body.trim() === '' && drafts.length === 0;
 
   const send = () => {
@@ -177,53 +177,54 @@ export function ThreadView({
     setBody('');
   };
 
-  const transcript =
-    messages === undefined ? (
-      loadError !== null ? (
-        <ErrorState error={loadError} />
-      ) : (
-        <ThreadSkeleton label={t('chat.loading')} />
-      )
-    ) : rows.length === 0 ? (
-      <EmptyState title={t('chat.empty')} />
+  // The error state only when there is nothing at all to show.
+  const transcript = hasNothingToShow ? (
+    loadError !== null ? (
+      <ErrorState error={loadError} />
     ) : (
-      <FlatList
-        data={rows}
-        inverted
-        keyExtractor={(row) => row.key}
-        contentContainerStyle={layout.list}
-        renderItem={({ item }) =>
-          item.kind === 'message' ? (
-            <MessageBubble
-              message={item.message}
-              tiles={item.tiles}
-              isOwn={isOwnMessage(item.message, currentUserId)}
-              onRetryMedia={onRetryMedia}
-              onRemoveMedia={onRemoveMedia}
-            />
-          ) : (
-            <View
-              accessibilityLabel={t('chat.pending')}
-              style={[layout.bubble, layout.own, styles.pending]}
-            >
-              {item.body !== '' ? <Text>{item.body}</Text> : null}
-              <MessageMedia tiles={item.tiles} />
-              <Text variant="caption" tone="secondary">
-                {t('chat.pending')}
-              </Text>
-            </View>
-          )
-        }
-      />
-    );
+      <ThreadSkeleton label={t('chat.loading')} />
+    )
+  ) : rows.length === 0 ? (
+    <EmptyState title={t('chat.empty')} />
+  ) : (
+    <FlatList
+      data={rows}
+      inverted
+      keyExtractor={(row) => row.key}
+      contentContainerStyle={layout.list}
+      renderItem={({ item }) =>
+        item.kind === 'message' ? (
+          <MessageBubble
+            message={item.message}
+            tiles={item.tiles}
+            isOwn={isOwnMessage(item.message, currentUserId)}
+            onRetryMedia={onRetryMedia}
+            onRemoveMedia={onRemoveMedia}
+          />
+        ) : (
+          <View
+            accessibilityLabel={t('chat.pending')}
+            style={[layout.bubble, layout.own, styles.pending]}
+          >
+            {item.body !== '' ? <Text>{item.body}</Text> : null}
+            <MessageMedia tiles={item.tiles} />
+            <Text variant="caption" tone="secondary">
+              {t('chat.pending')}
+            </Text>
+          </View>
+        )
+      }
+    />
+  );
 
   return (
     <KeyboardAvoidingView
       style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      {/* Error over cache: the saved messages stay, the failure is said above them. */}
-      {messages !== undefined && loadError !== null ? (
+      {/* Error over cache: the saved messages — or only her own on their way —
+          stay, the failure is said above them. */}
+      {!hasNothingToShow && loadError !== null ? (
         <View style={layout.banner}>
           <ErrorBanner title={t('chat.refreshFailed')} error={loadError} />
         </View>

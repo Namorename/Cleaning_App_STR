@@ -6,6 +6,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { Badge } from '@/components/badge';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
+import { ErrorBanner } from '@/components/error-banner';
 import { FailureText } from '@/components/failure-text';
 import { Icon } from '@/components/icon';
 import { Skeleton, SkeletonGroup } from '@/components/skeleton';
@@ -35,6 +36,11 @@ interface ProblemDetailProps {
   onOpenChat?: () => void;
   error: Error | null;
   notice: string | null;
+  /**
+   * A refresh that failed over the report still on screen: said above it, the
+   * report stays (a failure to load at all is the route's error state).
+   */
+  refreshError?: Error | null;
 }
 
 /**
@@ -61,12 +67,19 @@ export function ProblemDetail({
   onOpenChat,
   error,
   notice,
+  refreshError = null,
 }: ProblemDetailProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={layout.content}>
+      {/* Error over cache, as the lists have it: the saved report stays. This
+          screen has no pull-to-refresh, so the line does not ask for one. */}
+      {refreshError !== null ? (
+        <ErrorBanner title={t('common.refreshFailedSaved')} error={refreshError} />
+      ) : null}
+
       <Text variant="heading">{problem.title}</Text>
       <Text tone="secondary">
         {problemPlace(problem)} · {formatReportedAt(problem.created_at)}

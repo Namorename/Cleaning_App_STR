@@ -22,7 +22,8 @@ const mockProblemQuery: {
   isPending: boolean;
   error: Error | null;
   data: Problem | null | undefined;
-} = { isPending: false, error: null, data: undefined };
+  refetch: jest.Mock;
+} = { isPending: false, error: null, data: undefined, refetch: jest.fn() };
 let mockGalleryAllowed = false;
 
 jest.mock('expo-router', () => ({
@@ -196,6 +197,34 @@ describe('the screen’s states', () => {
     await render(<ProblemRoute />);
 
     expect(screen.getByText('Не удалось выполнить действие. Попробуйте ещё раз.')).toBeTruthy();
+    expect(screen.getByText('Network request failed')).toBeTruthy();
+  });
+
+  test('a report that never loaded is titled, and «Повторить» asks again', async () => {
+    // Arrange
+    mockProblemQuery.data = undefined;
+    mockProblemQuery.error = new Error('Network request failed');
+
+    // Act
+    await render(<ProblemRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Повторить' }));
+
+    // Assert: there is no «could not load the report» of its own; the general one.
+    expect(screen.getByText('Не удалось показать экран. Попробуйте ещё раз.')).toBeTruthy();
+    expect(mockProblemQuery.refetch).toHaveBeenCalledTimes(1);
+  });
+
+  test('a refresh that failed keeps the report on screen, the failure said above it', async () => {
+    // Arrange: TanStack keeps the last data when a background refetch fails.
+    mockProblemQuery.error = new Error('Network request failed');
+
+    // Act
+    await render(<ProblemRoute />);
+
+    // Assert
+    expect(screen.getByText('Кран течёт')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Изменить' })).toBeTruthy();
+    expect(screen.getByText('Не удалось обновить, показаны сохранённые данные.')).toBeTruthy();
     expect(screen.getByText('Network request failed')).toBeTruthy();
   });
 

@@ -136,13 +136,23 @@ function ChatScreen() {
     return <Message text={t('chat.notFound')} styles={styles} />;
   }
 
-  if (thread.error) {
+  // A thread the server never opened. One that opened before and only failed
+  // to refresh (TanStack keeps the data beside the error) is still the thread.
+  if (thread.error && thread.data === undefined) {
     return (
       <View style={styles.screen}>
-        <ErrorState error={thread.error} />
+        <ErrorState
+          error={thread.error}
+          title={t('common.screenFailed')}
+          onRetry={() => void thread.refetch()}
+        />
       </View>
     );
   }
+
+  // Its refresh failing is said over the transcript like a failed poll — once
+  // there are messages to say it over; until then they are still loading.
+  const loadError = messages.error ?? (messages.data === undefined ? null : thread.error);
 
   const attachFrom = async (source: MediaSource) => {
     if (isCapturing || drafts.length >= CHAT_MAX_PHOTOS) {
@@ -201,7 +211,7 @@ function ChatScreen() {
       pending={pending}
       currentUserId={userId}
       error={send.error}
-      loadError={messages.error}
+      loadError={loadError}
       notice={notice}
       onSend={onSend}
       ownMedia={ownMedia}

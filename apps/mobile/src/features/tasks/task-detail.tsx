@@ -5,6 +5,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { Badge } from '@/components/badge';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
+import { ErrorBanner } from '@/components/error-banner';
 import { FailureText } from '@/components/failure-text';
 import { Icon } from '@/components/icon';
 import { Skeleton, SkeletonGroup } from '@/components/skeleton';
@@ -35,6 +36,11 @@ interface TaskDetailProps {
   isAccepting?: boolean;
   /** The last action's failure, shown next to the button so she can retry. */
   error: Error | null;
+  /**
+   * A refresh that failed over the task still on screen: said above it, the
+   * task stays (a failure to load at all is the route's error state).
+   */
+  refreshError?: Error | null;
   /** The task's process, once it has started. Undefined while loading. */
   steps?: readonly TaskStep[];
   onClaim: (taskId: string) => void;
@@ -75,6 +81,7 @@ export function TaskDetail({
   isBusy,
   isAccepting = false,
   error,
+  refreshError = null,
   steps,
   onClaim,
   onAccept,
@@ -154,6 +161,12 @@ export function TaskDetail({
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={layout.content}>
+      {/* Error over cache, as the lists have it: the saved task stays. This
+          screen has no pull-to-refresh, so the line does not ask for one. */}
+      {refreshError !== null ? (
+        <ErrorBanner title={t('common.refreshFailedSaved')} error={refreshError} />
+      ) : null}
+
       {/* The house, the room in it, and the street — read as one block, which
           is why they sit closer together than the facts below them. */}
       <View style={layout.place}>

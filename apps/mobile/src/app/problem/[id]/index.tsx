@@ -80,10 +80,17 @@ export default function ProblemRoute() {
     return <ProblemDetailSkeleton label={t('problems.loading')} />;
   }
 
-  if (problem.error) {
+  // A report that never loaded. One that did and only failed to refresh
+  // (TanStack keeps the data beside the error) stays on screen below. There
+  // is no «could not load the report» of its own: the general sentence.
+  if (problem.error && problem.data === undefined) {
     return (
       <View style={styles.screen}>
-        <ErrorState error={problem.error} />
+        <ErrorState
+          error={problem.error}
+          title={t('common.screenFailed')}
+          onRetry={() => void problem.refetch()}
+        />
       </View>
     );
   }
@@ -159,6 +166,7 @@ export default function ProblemRoute() {
       }
       error={attach.error ?? removeMedia.error}
       notice={notice}
+      refreshError={problem.error}
     />
   );
 }

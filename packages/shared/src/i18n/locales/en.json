@@ -7,6 +7,7 @@
     "close": "Close",
     "loading": "Loading…",
     "refreshFailed": "Could not refresh; showing what was saved. Pull down to try again.",
+    "refreshFailedSaved": "Could not refresh; showing the saved data.",
     "resetSaved": "Reset saved lists",
     "resetSavedHint": "The lists will load again. Actions waiting for a connection are kept.",
     "languages": {

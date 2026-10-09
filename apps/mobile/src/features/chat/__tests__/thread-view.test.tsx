@@ -459,6 +459,44 @@ describe('on the «Абрикос» components', () => {
     expect(screen.getByLabelText('Написать…')).toBeTruthy();
   });
 
+  test('a message she sent while the messages cannot load is still on screen', async () => {
+    // Arrange / Act: nothing ever loaded, and she wrote anyway.
+    await render(
+      <ThreadView
+        messages={undefined}
+        pending={[{ id: '88888888-8888-4888-8888-888888888888', body: 'Уже иду' }]}
+        currentUserId={ME}
+        error={null}
+        loadError={new Error('Network request failed')}
+        onSend={onSend}
+      />,
+    );
+
+    // Assert: her words in their dashed bubble, the failure said above them.
+    expect(screen.getByText('Уже иду')).toBeTruthy();
+    expect(screen.getByLabelText('Отправляется…')).toBeTruthy();
+    expect(screen.getByText('Не удалось обновить, показаны сохранённые сообщения.')).toBeTruthy();
+    // The banner's reason only: no error state in place of the transcript.
+    expect(screen.getAllByText('Не удалось выполнить действие. Попробуйте ещё раз.')).toHaveLength(
+      1,
+    );
+  });
+
+  test('a message she sent before the first messages arrive is shown, not a skeleton', async () => {
+    await render(
+      <ThreadView
+        messages={undefined}
+        pending={[{ id: '88888888-8888-4888-8888-888888888888', body: 'Уже иду' }]}
+        currentUserId={ME}
+        error={null}
+        onSend={onSend}
+      />,
+    );
+
+    expect(screen.getByText('Уже иду')).toBeTruthy();
+    expect(screen.queryByRole('progressbar')).toBeNull();
+  });
+
   test('a refresh that failed keeps the transcript, the failure said above it', async () => {
     await render(
       <ThreadView

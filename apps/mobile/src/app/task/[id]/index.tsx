@@ -73,10 +73,16 @@ function TaskScreen() {
     return <TaskDetailSkeleton label={t('tasks.loading')} />;
   }
 
-  if (query.error) {
+  // A task that never loaded. One that did and only failed to refresh
+  // (TanStack keeps the data beside the error) stays on screen below.
+  if (query.error && query.data === undefined) {
     return (
       <View style={styles.screen}>
-        <ErrorState error={query.error} />
+        <ErrorState
+          error={query.error}
+          title={t('tasks.loadFailed')}
+          onRetry={() => void query.refetch()}
+        />
       </View>
     );
   }
@@ -95,6 +101,7 @@ function TaskScreen() {
         isBusy={isBusy}
         isAccepting={accept.isPending}
         error={error}
+        refreshError={query.error}
         steps={steps.data}
         onClaim={(id) => claim.mutate({ taskId: id, cleanerId: userId })}
         onAccept={(task) => accept.mutate(acceptVariables(task))}
