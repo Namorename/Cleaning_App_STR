@@ -1,6 +1,7 @@
 import {
   AS_USUAL,
   HANG,
+  SIZE,
   UPLOAD_URL,
   runtime,
   setUpTusStorage,
@@ -68,19 +69,46 @@ describe('the timers and listeners of a request', () => {
     expect(error).toMatchObject({ status: 403 });
   });
 
-  test('a 400 whose words never arrive is not waited on, nor taken for an expired token', async () => {
+  // Supabase tells of a token past its time in a 400's words: words that
+  // never came may have said just that (the fourth pass on video, finding 3).
+  test('a 400 whose words never arrive is not waited on, and is sent again once with a fresh token', async () => {
+    // Arrange
     jest.useFakeTimers();
     storage.plan('PATCH', { status: 400, isBodyStuck: true });
     const video = upload();
 
-    const failure = tusUpload(video, runtime()).catch((reason: unknown) => reason);
+    // Act
+    const done = tusUpload(video, runtime());
     await jest.advanceTimersByTimeAsync(TUS_SHORT_STALL_MS);
+    await done;
 
-    await expect(failure).resolves.toMatchObject({ status: 400 });
-    expect(video.accessToken).not.toHaveBeenCalledWith(true);
+    // Assert
+    expect(video.accessToken).toHaveBeenCalledWith(true);
+    const [cut, again] = storage.calls.filter((call) => call.method === 'PATCH');
+    expect(again.headers.Authorization).toMatch(/^Bearer fresh-/);
+    expect(again.headers['Upload-Offset']).toBe(cut.headers['Upload-Offset']);
+    expect(storage.offset).toBe(SIZE);
   });
 
-  test('the signal lost while a refusal’s words are on their way cuts them too', async () => {
+  test('a 400 whose words never arrive after the fresh token either is a refusal, not a loop', async () => {
+    jest.useFakeTimers();
+    storage.plan('PATCH', { status: 400, isBodyStuck: true });
+    storage.plan('PATCH', { status: 400, isBodyStuck: true });
+    const video = upload();
+
+    const failure = tusUpload(video, runtime()).catch((reason: unknown) => reason);
+    await jest.advanceTimersByTimeAsync(2 * TUS_SHORT_STALL_MS);
+
+    await expect(failure).resolves.toBeInstanceOf(TusRefusedError);
+    await expect(failure).resolves.toMatchObject({ status: 400 });
+    expect(jest.mocked(video.accessToken).mock.calls.filter(([refresh]) => refresh)).toHaveLength(
+      1,
+    );
+  });
+
+  // The headers came; the connection did not hold for the words. Nothing was
+  // said that can be read, and a 503 cut so is not the storage being busy.
+  test('the signal lost while a refusal’s words are on their way: no answer, not busy', async () => {
     // Arrange
     let goneOffline: () => void = () => undefined;
     const run = runtime({
@@ -99,8 +127,30 @@ describe('the timers and listeners of a request', () => {
     await new Promise((resolve) => setImmediate(resolve));
     goneOffline();
 
-    // Assert: the storage did answer — busy — and the attempt hands back at once.
-    await expect(failure).resolves.toMatchObject({ reason: 'busy', status: 503 });
+    // Assert: the attempt hands back at once, for the queue to wait for signal.
+    const error = await failure;
+    expect(error).toBeInstanceOf(TusRetryableError);
+    expect(error).toMatchObject({ reason: 'no-answer' });
+  });
+
+  test('a refusal whose words fail on their way while there is signal: no answer, not busy', async () => {
+    TUS_RETRY_DELAYS_MS.forEach(() => storage.plan('POST', { status: 503, isBodyLost: true }));
+    storage.plan('POST', { status: 503, isBodyLost: true });
+
+    const failure = tusUpload(upload(), runtime());
+
+    await expect(failure).rejects.toBeInstanceOf(TusRetryableError);
+    await expect(failure).rejects.toMatchObject({ reason: 'no-answer' });
+  });
+
+  test('a 400 whose words fail on their way is no answer either, not a refusal', async () => {
+    storage.plan('PATCH', { status: 400, isBodyLost: true });
+    const run = runtime();
+
+    await tusUpload(upload(), run);
+
+    expect(run.sleep).toHaveBeenCalledWith(TUS_RETRY_DELAYS_MS[0]);
+    expect(storage.offset).toBe(SIZE);
   });
 
   test('after an upload that went through, no timer is left and every listener is let go', async () => {

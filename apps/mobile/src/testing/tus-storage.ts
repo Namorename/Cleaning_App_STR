@@ -32,6 +32,8 @@ export interface Reply {
   body?: string;
   /** The headers arrive; the body never finishes, abort or not. */
   isBodyStuck?: boolean;
+  /** The headers arrive; the connection fails while the body is read. */
+  isBodyLost?: boolean;
 }
 
 interface Call {
@@ -54,15 +56,29 @@ export type Planned =
   | typeof HANG
   | ((storage: FakeStorage) => Reply | Error | typeof HANG);
 
-function response({ status, headers = {}, body = '', isBodyStuck = false }: Reply): Response {
+function response({
+  status,
+  headers = {},
+  body = '',
+  isBodyStuck = false,
+  isBodyLost = false,
+}: Reply): Response {
   const byName = new Map(
     Object.entries(headers).map(([name, value]) => [name.toLowerCase(), value]),
   );
+  const text = () => {
+    if (isBodyStuck) {
+      return new Promise<string>(() => undefined);
+    }
+    return isBodyLost
+      ? Promise.reject(new TypeError('Network request failed'))
+      : Promise.resolve(body);
+  };
   return {
     status,
     ok: status >= 200 && status < 300,
     headers: { get: (name: string) => byName.get(name.toLowerCase()) ?? null },
-    text: () => (isBodyStuck ? new Promise<string>(() => undefined) : Promise.resolve(body)),
+    text,
   } as unknown as Response;
 }
 

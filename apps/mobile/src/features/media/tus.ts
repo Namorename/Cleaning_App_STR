@@ -113,7 +113,8 @@ export interface TusUpload {
  * Why an attempt handed back without the file in, told where it was found:
  * the queue waits for signal only when nothing answered (attach-retry.ts).
  *
- * - `no-answer` — the request reached nothing, or was cut as the signal went;
+ * - `no-answer` — the request reached nothing, or was cut as the signal went,
+ *   or the words of its answer were lost on the way;
  * - `timed-out` — a question or a creation got no answer in its time;
  * - `busy` — the storage answered it could not take it now (5xx, 408, 423, 429);
  * - `lost-place` — the storage kept losing its place: conflicts, answers
@@ -181,6 +182,14 @@ interface Answer {
   header(name: string): string | null;
   /** A refusal's body as text; empty for a success, or when it would not arrive in time. */
   body: string;
+  /** A refusal whose words did not arrive in their time: what they said is not known. */
+  isCut: boolean;
+}
+
+/** A refusal's words as read: whole, or cut short — by the request's limit, the signal, a failure. */
+interface Words {
+  text: string;
+  isWhole: boolean;
 }
 
 const ALREADY_THERE = Symbol('already there');
@@ -474,8 +483,9 @@ class TusSession {
 
   /**
    * A request with a fresh token, made again once with a refreshed one when
-   * the storage turned the token down: 401, or — as Supabase Storage answers
-   * a token past its time — 400 in the JWT's own words.
+   * the storage may have turned the token down: 401, or — as Supabase Storage
+   * answers a token past its time — 400 in the JWT's own words, or a 400
+   * whose words never arrived to say otherwise.
    */
   private async send(
     method: string,
@@ -484,7 +494,7 @@ class TusSession {
     body?: Uint8Array<ArrayBuffer>,
   ): Promise<Answer> {
     const first = await this.sendOnce(method, url, headers, body, false);
-    if (!isTokenRefused(first)) {
+    if (!mayBeTokenRefused(first)) {
       return first;
     }
     return this.sendOnce(method, url, headers, body, true);
@@ -500,6 +510,10 @@ class TusSession {
    * The limit and the watch on the signal hold until the answer is read
    * through: a refusal's words come after its headers, and are given the
    * short limit of their own — a body that never finishes is not waited on.
+   * Words lost on the way — the signal gone, the connection failed while
+   * they were read — leave nothing said that can be read: no answer, not a
+   * storage busy or a refusal. Words that ran out of time leave the status,
+   * marked cut (`Answer.isCut`).
    */
   private async sendOnce(
     method: string,
@@ -511,11 +525,10 @@ class TusSession {
     const token = await this.token(refresh);
     const controller = new AbortController();
     const stallMs = method === 'PATCH' ? this.patchStallMs : TUS_SHORT_STALL_MS;
-    let cutBecause: string | null = null;
-    let cutReason: TusRetryReason = 'no-answer';
+    const wasCut: Cut = { why: null, reason: 'no-answer' };
     const cut = (why: string, reason: TusRetryReason) => {
-      cutBecause = why;
-      cutReason = reason;
+      wasCut.why = why;
+      wasCut.reason = reason;
       controller.abort();
     };
     let timer = setTimeout(
@@ -544,16 +557,17 @@ class TusSession {
         // for the log, and for crash reports to tell a stairwell from a server
         // (lib/network-error.ts).
         throw new TusRetryableError(
-          `Resumable upload ${method} ${cutBecause ?? `failed: ${messageOf(error)}`}`,
-          cutReason,
+          `Resumable upload ${method} ${wasCut.why ?? `failed: ${messageOf(error)}`}`,
+          wasCut.reason,
         );
       }
       if (isSuccess(response.status)) {
-        return answerOf(response, '');
+        return answerOf(response, WHOLE_SILENCE);
       }
       clearTimeout(timer);
       timer = setTimeout(() => cut('body timed out', 'timed-out'), TUS_SHORT_STALL_MS);
-      return answerOf(response, await readBody(response, controller.signal));
+      const words = await readBody(response, controller.signal);
+      return answerOf(response, heardWords(method, response.status, words, wasCut));
     } finally {
       clearTimeout(timer);
       stopListening();
@@ -622,37 +636,69 @@ function refusal(method: string, status: number, detail: string): Error {
     : new TusRefusedError(status, message);
 }
 
-function answerOf(response: Response, body: string): Answer {
+/** Why a request was cut, once it is: for the log, and for the queue (`TusRetryReason`). */
+interface Cut {
+  why: string | null;
+  reason: TusRetryReason;
+}
+
+/**
+ * A refusal's words as they were heard — or no answer at all, when they were
+ * lost on the way (the signal gone, the read failed) rather than out of time.
+ */
+function heardWords(method: string, status: number, words: Words, cut: Cut): Words {
+  if (words.isWhole || cut.reason === 'timed-out') {
+    return words;
+  }
+  throw new TusRetryableError(
+    `Resumable upload ${method} answered ${status}, its words lost: ${cut.why ?? 'the read failed'}`,
+    'no-answer',
+  );
+}
+
+/** A success's body is not read: nothing in it is wanted. */
+const WHOLE_SILENCE: Words = { text: '', isWhole: true };
+/** Words that did not arrive whole. */
+const CUT_SHORT: Words = { text: '', isWhole: false };
+
+function answerOf(response: Response, words: Words): Answer {
   return {
     status: response.status,
     header: (name) => response.headers.get(name),
-    body,
+    body: words.text,
+    isCut: !words.isWhole,
   };
 }
 
 /**
- * The body as text: empty when it fails, or the moment the request is cut —
- * whichever comes first, for a body that never finishes may not hear the cut.
+ * The body as text — or cut short when it fails, or the moment the request
+ * is cut, whichever comes first: a body that never finishes may not hear
+ * the cut.
  */
-function readBody(response: Response, signal: AbortSignal): Promise<string> {
-  const whenCut = new Promise<string>((resolve) => {
+function readBody(response: Response, signal: AbortSignal): Promise<Words> {
+  const whenCut = new Promise<Words>((resolve) => {
     if (signal.aborted) {
-      resolve('');
+      resolve(CUT_SHORT);
       return;
     }
-    signal.addEventListener('abort', () => resolve(''));
+    signal.addEventListener('abort', () => resolve(CUT_SHORT));
   });
-  return Promise.race([response.text().catch(() => ''), whenCut]);
+  const read = response.text().then(
+    (text): Words => ({ text, isWhole: true }),
+    () => CUT_SHORT,
+  );
+  return Promise.race([read, whenCut]);
 }
 
 /** The storage's words for a token it will not take. */
 const TOKEN_REFUSED = /jwt|exp" ?claim|exp claim/i;
 
-function isTokenRefused(answer: Answer): boolean {
+/** A token turned down — or a 400 whose words, cut, cannot say it was not. */
+function mayBeTokenRefused(answer: Answer): boolean {
   if (answer.status === 401) {
     return true;
   }
-  return answer.status === 400 && TOKEN_REFUSED.test(answer.body);
+  return answer.status === 400 && (answer.isCut || TOKEN_REFUSED.test(answer.body));
 }
 
 /** The storage's own words about a refusal, for the log: its `message`, or the body as it came. */
