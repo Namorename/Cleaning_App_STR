@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { inflateSync } from 'node:zlib';
 
 import { getResolvedLocalesAsync } from '@expo/config-plugins/build/utils/locales';
 import { SUPPORTED_LANGUAGES, THEME_COLORS } from '@str-ops/shared';
@@ -82,6 +83,62 @@ function pngHeader(relative: string): { width: number; height: number; hasAlpha:
   };
 }
 
+type Rgba = [number, number, number, number];
+
+/** Decodes an 8-bit RGB or RGBA PNG into a pixel reader. Enough for our own icons. */
+function decodePng(relative: string): { width: number; height: number; at(x: number, y: number): Rgba } {
+  const bytes = readFileSync(join(APP_ROOT, relative.replace(/^\.\//, '')));
+  const { width, height } = pngHeader(relative);
+  const channels = bytes[25] === 6 ? 4 : 3;
+  const idat: Buffer[] = [];
+  for (let at = 8; at < bytes.length; ) {
+    const length = bytes.readUInt32BE(at);
+    if (bytes.toString('latin1', at + 4, at + 8) === 'IDAT') {
+      idat.push(bytes.subarray(at + 8, at + 8 + length));
+    }
+    at += 12 + length;
+  }
+  const raw = inflateSync(Buffer.concat(idat));
+  const stride = width * channels;
+  const rows: Uint8Array[] = [];
+  let previous = new Uint8Array(stride);
+  for (let line = 0; line < height; line += 1) {
+    const filter = raw[line * (stride + 1)];
+    const data = raw.subarray(line * (stride + 1) + 1, (line + 1) * (stride + 1));
+    const row = new Uint8Array(stride);
+    for (let i = 0; i < stride; i += 1) {
+      const left = i >= channels ? row[i - channels] : 0;
+      const up = previous[i];
+      const upLeft = i >= channels ? previous[i - channels] : 0;
+      const guess = left + up - upLeft;
+      const paeth =
+        Math.abs(guess - left) <= Math.abs(guess - up) && Math.abs(guess - left) <= Math.abs(guess - upLeft)
+          ? left
+          : Math.abs(guess - up) <= Math.abs(guess - upLeft)
+            ? up
+            : upLeft;
+      const predictor = [0, left, up, (left + up) >> 1, paeth][filter];
+      row[i] = (data[i] + predictor) & 0xff;
+    }
+    rows.push(row);
+    previous = row;
+  }
+  return {
+    width,
+    height,
+    at(x, y) {
+      const row = rows[y];
+      const at = x * channels;
+      return [row[at], row[at + 1], row[at + 2], channels === 4 ? row[at + 3] : 255];
+    },
+  };
+}
+
+function hex(colour: string): Rgba {
+  const value = Number.parseInt(colour.slice(1), 16);
+  return [(value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff, 255];
+}
+
 // The redesign's native part (docs/design/decisions.md, 8–10): the name, the icon
 // and the splash are resources in the binary — an update over the air cannot change them.
 test('the name under the icon is «woom», the same in every language', async () => {
@@ -103,6 +160,11 @@ test('the app icon is the «Абрикос» mark on the theme background, 1024 
     const path = String(config.android?.adaptiveIcon?.[layer]);
     expect(pngHeader(path)).toMatchObject({ width: 1024, height: 1024 });
   }
+  // The pixels, not only the names: the background image overrides backgroundColor on the launcher.
+  expect(decodePng('assets/images/icon.png').at(0, 0)).toEqual(hex(THEME_COLORS.light.bg));
+  expect(
+    decodePng(String(config.android?.adaptiveIcon?.backgroundImage)).at(512, 512),
+  ).toEqual(hex(THEME_COLORS.light.bg));
 });
 
 test('iOS: the icon comes light, dark and tinted; the light one has no alpha (App Store)', () => {
@@ -111,7 +173,14 @@ test('iOS: the icon comes light, dark and tinted; the light one has no alpha (Ap
   expect(Object.keys(icon).sort()).toEqual(['dark', 'light', 'tinted']);
   expect(pngHeader(icon.light)).toEqual({ width: 1024, height: 1024, hasAlpha: false });
   expect(pngHeader(icon.dark)).toMatchObject({ width: 1024, height: 1024 });
-  expect(pngHeader(icon.tinted)).toMatchObject({ width: 1024, height: 1024 });
+  // Expo flattens the tinted icon onto white (withIosIcons: removeTransparency for every
+  // appearance but dark), so a white mark on transparency would ship as a blank white tile.
+  // It must already be opaque: a light mark on a dark ground.
+  expect(pngHeader(icon.tinted)).toEqual({ width: 1024, height: 1024, hasAlpha: false });
+  const [red, green, blue] = decodePng(icon.tinted).at(0, 0);
+  expect(Math.max(red, green, blue)).toBeLessThan(40);
+  const [markRed] = decodePng(icon.tinted).at(512, 400);
+  expect(markRed).toBeGreaterThan(200);
 });
 
 test('the splash is the theme background with the mark, light and dark (decision 9)', () => {
@@ -133,6 +202,19 @@ test('notifications: the icon is a white silhouette and the accent is the primar
 
   expect(notifications?.color).toBe(THEME_COLORS.light.primary);
   expect(pngHeader(String(notifications?.icon))).toEqual({ width: 96, height: 96, hasAlpha: true });
+  // Android draws only the alpha of a notification icon: every visible pixel is white.
+  const image = decodePng(String(notifications?.icon));
+  let visible = 0;
+  for (let y = 0; y < image.height; y += 1) {
+    for (let x = 0; x < image.width; x += 1) {
+      const [red, green, blue, alpha] = image.at(x, y);
+      if (alpha > 0) {
+        visible += 1;
+        expect([red, green, blue]).toEqual([255, 255, 255]);
+      }
+    }
+  }
+  expect(visible).toBeGreaterThan(0);
 });
 
 // expo-camera ships as a ready library that pulls the ML Kit barcode scanner in
@@ -152,9 +234,20 @@ test('the field builds: an APK and a TestFlight build on their own channel', () 
     { channel?: string; distribution?: string; android?: { buildType?: string } }
   >;
 
-  expect(build.field).toMatchObject({ channel: 'field', distribution: 'internal' });
+  expect(build.field).toMatchObject({
+    channel: 'field',
+    distribution: 'internal',
+    environment: 'production',
+  });
   expect(build.field.android?.buildType).toBe('apk');
-  expect(build['field-ios']).toMatchObject({ channel: 'field', distribution: 'store' });
+  // A store build without autoIncrement fails only at upload, on a duplicate build number.
+  expect(build['field-ios']).toMatchObject({
+    channel: 'field',
+    distribution: 'store',
+    environment: 'production',
+    autoIncrement: true,
+  });
+  expect((easJson.submit as Record<string, unknown>)['field-ios']).toBeDefined();
 });
 
 test('Sentry: the plugin entry the source-map upload looks for, and no token in the config', () => {
@@ -345,11 +438,11 @@ test('iOS: urgent pushes may break through a Focus, and no export paperwork is a
 // word 2026-09-30): length, size and bitrate are the app's to set, and it
 // writes no location into the file. Native, so it has to be in this build.
 //
-// The barcode switch keeps ZXing out of the iOS build only. Android links the
-// prebuilt expo-camera library, whose own dependencies bring ML Kit whatever
-// the switch says; only building the module from source would honour it, and
-// that can be checked in a real build alone — left for the redesign build.
-test('the in-app camera is in the build, records sound, and leaves the iOS barcode scanner out', () => {
+// The barcode switch keeps ZXing out of the iOS build. On Android the prebuilt
+// expo-camera library would bring ML Kit whatever the switch says; since 1.2.0
+// the module is built from source (the buildFromSource test above), which lets
+// the switch keep the scanner out there too — checked for real by a build alone.
+test('the in-app camera is in the build, records sound, and its barcode scanner is switched off', () => {
   const camera = plugin(resolve(), 'expo-camera');
 
   expect(packageJson.dependencies['expo-camera']).toBeDefined();
