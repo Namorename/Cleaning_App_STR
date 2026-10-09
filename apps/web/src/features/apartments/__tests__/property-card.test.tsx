@@ -482,11 +482,38 @@ describe('who works the flat', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Клинеры' }));
 
     const row = screen.getAllByRole('listitem')[0];
-    await userEvent.click(within(row).getByRole('button', { name: 'Убрать' }));
+    // The button says whom it takes off, and is a 48 px target.
+    const remove = within(row).getByRole('button', { name: 'Убрать: Maria Test' });
+    expect(remove).toHaveClass('min-h-12');
+    await userEvent.click(remove);
 
     await waitFor(() =>
       expect(removeLink).toHaveBeenCalledWith({ propertyId: WHOLE, cleanerId: MARIA }),
     );
+  });
+
+  // 20261003110000: the server refuses any change to a technician's link
+  // (techNotLinkable); an old one, from before the rule, can only be taken off.
+  test('a technician’s old link is shown by its mode and can only be taken off', async () => {
+    renderCard();
+    await userEvent.click(screen.getByRole('tab', { name: 'Клинеры' }));
+
+    const row = screen
+      .getAllByRole('listitem')
+      .find((item) => item.textContent?.includes('Petr Tech')) as HTMLElement;
+    expect(row).toHaveTextContent('Из очереди');
+    expect(within(row).queryByLabelText('Как достаётся: Petr Tech')).toBeNull();
+    expect(within(row).queryByLabelText('Очередь: Petr Tech')).toBeNull();
+    // A cleaner on the same flat keeps her terms to change.
+    expect(screen.getByLabelText('Как достаётся: Maria Test')).toBeInTheDocument();
+    expect(screen.getByLabelText('Очередь: Maria Test')).toBeInTheDocument();
+
+    await userEvent.click(within(row).getByRole('button', { name: 'Убрать: Petr Tech' }));
+
+    await waitFor(() =>
+      expect(removeLink).toHaveBeenCalledWith({ propertyId: WHOLE, cleanerId: PETR }),
+    );
+    expect(saveLink).not.toHaveBeenCalled();
   });
 });
 

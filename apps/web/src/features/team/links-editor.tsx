@@ -5,8 +5,6 @@ import { useTranslation } from 'react-i18next';
 
 import { EmptyState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { NativeSelect } from '@/components/ui/native-select';
 import {
   Sheet,
   SheetContent,
@@ -16,18 +14,9 @@ import {
 } from '@/components/ui/sheet';
 import { serverErrorText } from '@/lib/server-error';
 
+import { LinkTerms, RemoveLinkButton } from './link-controls';
 import { PropertyPicker } from './property-picker';
-import {
-  ASSIGNMENT_MODES,
-  canHaveLinks,
-  linksOf,
-  MAX_PRIORITY,
-  MIN_PRIORITY,
-  unlinkedProperties,
-  type AssignmentMode,
-  type LinkRow,
-  type Staff,
-} from './schema';
+import { canHaveLinks, linksOf, MIN_PRIORITY, unlinkedProperties, type Staff } from './schema';
 import { useCleanerLinks, useProperties, useRemoveCleanerLink, useSaveCleanerLink } from './use-team';
 
 interface LinksEditorProps {
@@ -128,36 +117,27 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
                   >
                     <span className="min-w-32 flex-1 text-sm font-medium">{row.name}</span>
 
-                    {isLinkable ? (
-                      <LinkTerms
-                        row={row}
-                        onChange={(mode, priority) =>
-                          save.mutate({
-                            propertyId: row.propertyId,
-                            cleanerId: staff.id,
-                            mode,
-                            priority,
-                          })
-                        }
-                      />
-                    ) : (
-                      // The terms of an old link are not changed: the server
-                      // would refuse it, and taking it off is all that is left.
-                      <span className="text-xs text-muted-foreground">
-                        {t(`panel.team.links.modes.${row.mode}`)}
-                      </span>
-                    )}
+                    <LinkTerms
+                      name={row.name}
+                      mode={row.mode}
+                      priority={row.priority}
+                      isEditable={isLinkable}
+                      onChange={(mode, priority) =>
+                        save.mutate({
+                          propertyId: row.propertyId,
+                          cleanerId: staff.id,
+                          mode,
+                          priority,
+                        })
+                      }
+                    />
 
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
+                    <RemoveLinkButton
+                      name={row.name}
+                      onRemove={() =>
                         remove.mutate({ propertyId: row.propertyId, cleanerId: staff.id })
                       }
-                    >
-                      {t('panel.team.links.remove')}
-                    </Button>
+                    />
                   </li>
                 ))}
               </ul>
@@ -205,54 +185,5 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
         )}
       </SheetContent>
     </Sheet>
-  );
-}
-
-interface LinkTermsProps {
-  row: LinkRow;
-  /** The terms as the manager just set them: the mode and the place in the queue. */
-  onChange: (mode: AssignmentMode, priority: number) => void;
-}
-
-/** How a listing reaches this cleaner, and her place in its queue — each written as it changes. */
-function LinkTerms({ row, onChange }: LinkTermsProps) {
-  const { t } = useTranslation();
-
-  return (
-    <>
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-        {t('panel.team.links.mode')}
-        <NativeSelect
-          aria-label={t('panel.team.links.modeFor', { name: row.name })}
-          value={row.mode}
-          onChange={(event) => onChange(event.target.value as AssignmentMode, row.priority)}
-        >
-          {ASSIGNMENT_MODES.map((mode) => (
-            <option key={mode} value={mode}>
-              {t(`panel.team.links.modes.${mode}`)}
-            </option>
-          ))}
-        </NativeSelect>
-      </label>
-
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-        {t('panel.team.links.priority')}
-        <Input
-          type="number"
-          className="w-20"
-          aria-label={t('panel.team.links.priorityFor', { name: row.name })}
-          min={MIN_PRIORITY}
-          max={MAX_PRIORITY}
-          defaultValue={row.priority}
-          onBlur={(event) => {
-            const next = Number(event.target.value);
-            if (next === row.priority || Number.isNaN(next)) {
-              return;
-            }
-            onChange(row.mode, next);
-          }}
-        />
-      </label>
-    </>
   );
 }

@@ -691,6 +691,7 @@
         "priority": "Position",
         "priorityFor": "Position: {{name}}",
         "remove": "Remove",
+        "removeFor": "Remove: {{name}}",
         "add": "Add a listing",
         "addNone": "Every listing is already open.",
         "addButton": "Add",

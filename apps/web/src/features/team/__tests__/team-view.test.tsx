@@ -299,7 +299,8 @@ describe('TeamView', () => {
     const sheet = await screen.findByRole('dialog');
     const [first] = within(sheet).getAllByRole('listitem');
 
-    await userEvent.click(within(first).getByRole('button', { name: 'Убрать' }));
+    // Each row's button says which listing it takes her off.
+    await userEvent.click(within(first).getByRole('button', { name: 'Убрать: Vinohrady 12' }));
 
     expect(removeLink).toHaveBeenCalledWith({ propertyId: 1, cleanerId: MARIA });
   });
@@ -648,9 +649,10 @@ describe('TeamView — a technician’s old listings (docs/tech-plan.md, 2.1)', 
     linkSet.all = [...MARIA_LINKS, petrOldLink];
     render(<TeamView />);
 
-    expect(
-      within(rowFor('Petr Tech')).getByRole('button', { name: 'Объектов: 1' }),
-    ).toBeInTheDocument();
+    // The one way to his old links: a 48 px target (design decision 5).
+    expect(within(rowFor('Petr Tech')).getByRole('button', { name: 'Объектов: 1' })).toHaveClass(
+      'min-h-12',
+    );
     // A manager on no listing still has nothing to count.
     expect(
       within(rowFor('Olga Manager')).queryByRole('button', { name: /Объектов/ }),
@@ -676,7 +678,10 @@ describe('TeamView — a technician’s old listings (docs/tech-plan.md, 2.1)', 
       within(sheet).getByText('Этой роли объекты не назначаются: привязки можно только убрать.'),
     ).toBeInTheDocument();
 
-    await userEvent.click(within(row).getByRole('button', { name: 'Убрать' }));
+    // The row's only action: named after the listing, and a 48 px target.
+    const remove = within(row).getByRole('button', { name: 'Убрать: Anděl 4' });
+    expect(remove).toHaveClass('min-h-12');
+    await userEvent.click(remove);
 
     expect(removeLink).toHaveBeenCalledWith({ propertyId: 2, cleanerId: PETR });
   });

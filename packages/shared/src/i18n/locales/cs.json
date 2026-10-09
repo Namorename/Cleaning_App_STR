@@ -693,6 +693,7 @@
         "priority": "Pořadí",
         "priorityFor": "Pořadí: {{name}}",
         "remove": "Odebrat",
+        "removeFor": "Odebrat: {{name}}",
         "add": "Přidat objekt",
         "addNone": "Všechny objekty jsou už otevřené.",
         "addButton": "Přidat",

@@ -180,16 +180,20 @@ export function TeamView() {
                 </TableCell>
                 <TableCell>
                   {showsLinks(person, allLinks) ? (
+                    // A 48 px target (design decision 5): for somebody not put on
+                    // listings it is the one way to the links left to take off,
+                    // and the form's warning sends the manager here.
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
+                      className="min-h-12"
                       onClick={() => setLinksFor(person)}
                     >
-                      {/* `total`, not `count`: i18next would read `count` as a
-                          request for plural forms, and the three files have to
-                          carry identical keys — Russian has four forms where
-                          English has two. */}
+                      {/* `total`, not `count`: «Объектов: N» only labels the
+                          number, and a label stays one plain key (the rule of
+                          the phone's i18n test); `count` would send i18next
+                          looking for plural forms the files do not carry. */}
                       {t('panel.team.links.count', { total: countLinks(allLinks, person.id) })}
                     </Button>
                   ) : (

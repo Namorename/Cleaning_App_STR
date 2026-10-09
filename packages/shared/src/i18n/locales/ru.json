@@ -693,6 +693,7 @@
         "priority": "Очередь",
         "priorityFor": "Очередь: {{name}}",
         "remove": "Убрать",
+        "removeFor": "Убрать: {{name}}",
         "add": "Добавить объект",
         "addNone": "Все объекты уже открыты.",
         "addButton": "Добавить",

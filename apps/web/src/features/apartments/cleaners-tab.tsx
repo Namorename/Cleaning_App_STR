@@ -6,16 +6,9 @@ import { useTranslation } from 'react-i18next';
 import { Person } from '@/components/person';
 import { EmptyState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
-import {
-  ASSIGNMENT_MODES,
-  canHaveLinks,
-  MAX_PRIORITY,
-  MIN_PRIORITY,
-  type AssignmentMode,
-  type Staff,
-} from '@/features/team/schema';
+import { LinkTerms, RemoveLinkButton } from '@/features/team/link-controls';
+import { canHaveLinks, MIN_PRIORITY, type Staff } from '@/features/team/schema';
 import {
   useCleanerLinks,
   useRemoveCleanerLink,
@@ -49,7 +42,9 @@ interface CleanersTabProps {
  * Only cleaners are on offer. A manager in this list would turn up in a
  * schedule, which is not what putting her in the company meant; a technician
  * or a head technician is refused by the server (techNotLinkable,
- * 20261003110000) — cleanings are not their work.
+ * 20261003110000) — cleanings are not their work. One who still holds a link
+ * from before that rule is listed with its mode, and the link can only be
+ * taken off, as in «Команда».
  */
 export function CleanersTab({ propertyId, listing = null }: CleanersTabProps) {
   const { t } = useTranslation();
@@ -148,60 +143,23 @@ export function CleanersTab({ propertyId, listing = null }: CleanersTabProps) {
                   <Person name={name} role={person?.role} />
                 </span>
 
-                <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-                  {t('panel.team.links.mode')}
-                  <NativeSelect
-                    aria-label={t('panel.team.links.modeFor', { name })}
-                    value={link.mode}
-                    onChange={(event) =>
-                      save.mutate({
-                        propertyId,
-                        cleanerId: link.cleaner_id,
-                        mode: event.target.value as AssignmentMode,
-                        priority: link.priority,
-                      })
-                    }
-                  >
-                    {ASSIGNMENT_MODES.map((mode) => (
-                      <option key={mode} value={mode}>
-                        {t(`panel.team.links.modes.${mode}`)}
-                      </option>
-                    ))}
-                  </NativeSelect>
-                </label>
+                {/* A technician's link from before the rule: its terms are not
+                    changed — the server would refuse it — only taken off. A
+                    person the list does not know is not offered a change either. */}
+                <LinkTerms
+                  name={name}
+                  mode={link.mode}
+                  priority={link.priority}
+                  isEditable={person !== undefined && canHaveLinks(person)}
+                  onChange={(mode, priority) =>
+                    save.mutate({ propertyId, cleanerId: link.cleaner_id, mode, priority })
+                  }
+                />
 
-                <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-                  {t('panel.team.links.priority')}
-                  <Input
-                    type="number"
-                    className="w-20"
-                    aria-label={t('panel.team.links.priorityFor', { name })}
-                    min={MIN_PRIORITY}
-                    max={MAX_PRIORITY}
-                    defaultValue={link.priority}
-                    onBlur={(event) => {
-                      const next = Number(event.target.value);
-                      if (next === link.priority || Number.isNaN(next)) {
-                        return;
-                      }
-                      save.mutate({
-                        propertyId,
-                        cleanerId: link.cleaner_id,
-                        mode: link.mode,
-                        priority: next,
-                      });
-                    }}
-                  />
-                </label>
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => remove.mutate({ propertyId, cleanerId: link.cleaner_id })}
-                >
-                  {t('panel.team.links.remove')}
-                </Button>
+                <RemoveLinkButton
+                  name={name}
+                  onRemove={() => remove.mutate({ propertyId, cleanerId: link.cleaner_id })}
+                />
               </li>
             );
           })}
