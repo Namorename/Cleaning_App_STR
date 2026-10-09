@@ -1,10 +1,13 @@
+import type { QueryClient } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { Text, View } from 'react-native';
 
 import RootLayout, { ErrorBoundary } from '@/app/_layout';
 import { markAppDrawn } from '@/components/route-error';
+import { forgetListsOnSignOut } from '@/features/auth/forget-on-sign-out';
 import { useAppReady } from '@/lib/app-ready';
+import { createAppQueryClient } from '@/lib/query-client';
 
 /**
  * The root layout's ready gate. Until the font is in and her theme restored
@@ -75,6 +78,9 @@ jest.mock('@/lib/query-client', () => ({
   persistOptions: {},
   forgetSavedQueries: jest.fn(async () => {}),
 }));
+jest.mock('@/features/auth/forget-on-sign-out', () => ({
+  forgetListsOnSignOut: jest.fn(() => () => {}),
+}));
 jest.mock('@/lib/app-focus', () => ({ subscribeFocusToAppState: jest.fn(() => () => {}) }));
 jest.mock('@/lib/network', () => ({ watchNetwork: jest.fn(() => () => {}) }));
 jest.mock('expo-system-ui', () => ({ setBackgroundColorAsync: jest.fn(async () => undefined) }));
@@ -119,6 +125,25 @@ test('once ready the providers and the stack mount, and from then on the root bo
   expect(markAppDrawn).toHaveBeenCalledTimes(1);
   await render(<ErrorBoundary error={new Error('later')} retry={jest.fn(async () => {})} />);
   expect(screen.getByText(SCREEN_FAILED)).toBeTruthy();
+});
+
+// Item 10 of the two whole-branch reviews of phone-1-2-0: the app's one query
+// client forgets the lists of whoever signs out, for the whole run.
+test('listens for a sign-out with the app’s query client, and lets go when it unmounts', async () => {
+  // Arrange
+  const client = { name: 'the app’s client' };
+  jest.mocked(createAppQueryClient).mockReturnValueOnce(client as unknown as QueryClient);
+  const stop = jest.fn();
+  jest.mocked(forgetListsOnSignOut).mockReturnValueOnce(stop);
+  readiness.mockReturnValue({ isReady: false, areFontsLoaded: false });
+
+  // Act
+  const { unmount } = await render(<RootLayout />);
+  await unmount();
+
+  // Assert
+  expect(forgetListsOnSignOut).toHaveBeenCalledWith(client);
+  expect(stop).toHaveBeenCalledTimes(1);
 });
 
 // The three screens of a report had no header at all — no title, no way back

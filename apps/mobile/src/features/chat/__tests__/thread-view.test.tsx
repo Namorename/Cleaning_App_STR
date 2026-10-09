@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { HeaderHeightContext } from 'expo-router/react-navigation';
 import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
 import { BUTTON_HEIGHT, Colors, FontSize, MIN_TOUCH_TARGET } from '@/constants/theme';
@@ -10,6 +11,30 @@ import { ThreadView } from '../thread-view';
 
 jest.mock('@/hooks/use-color-scheme', () => ({ useColorScheme: jest.fn(() => 'light') }));
 const scheme = jest.mocked(useColorScheme);
+
+/**
+ * The keyboard is native, so what is checked is what the thread asks of React
+ * Native's KeyboardAvoidingView: the props it was drawn with are recorded.
+ */
+const mockAvoidingProps: { behavior?: string; keyboardVerticalOffset?: number }[] = [];
+jest.mock('react-native/Libraries/Components/Keyboard/KeyboardAvoidingView', () => {
+  const { createElement } = jest.requireActual('react');
+  const { View } = jest.requireActual('react-native');
+  function MockKeyboardAvoidingView(props: {
+    behavior?: string;
+    keyboardVerticalOffset?: number;
+    children?: unknown;
+  }) {
+    // The two props only: a failure prints what was recorded, and the
+    // thread's whole tree under `children` is too much to print.
+    mockAvoidingProps.push({
+      behavior: props.behavior,
+      keyboardVerticalOffset: props.keyboardVerticalOffset,
+    });
+    return createElement(View, null, props.children);
+  }
+  return { __esModule: true, default: MockKeyboardAvoidingView };
+});
 
 const light = Colors.light;
 
@@ -54,6 +79,25 @@ beforeEach(() => {
   // The transcript's dates are fixed, so the clock has to be: what a tile of a
   // photo says now depends on how old its message is.
   jest.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-18T10:10:00+00:00'));
+});
+
+// The two whole-branch reviews of phone-1-2-0, finding 6: the box she types
+// in rides above the keyboard on both systems, under the chat's header.
+test('the composer rides above the keyboard, the header counted in', async () => {
+  const HEADER = 96;
+  await render(
+    <HeaderHeightContext.Provider value={HEADER}>
+      <ThreadView
+        messages={transcript}
+        pending={[]}
+        currentUserId={ME}
+        error={null}
+        onSend={onSend}
+      />
+    </HeaderHeightContext.Provider>,
+  );
+
+  expect(mockAvoidingProps.at(-1)).toEqual({ behavior: 'padding', keyboardVerticalOffset: HEADER });
 });
 
 test('draws the transcript, naming the others and not herself', async () => {

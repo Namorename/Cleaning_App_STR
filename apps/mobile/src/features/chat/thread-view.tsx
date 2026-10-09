@@ -1,14 +1,8 @@
 import { STATUS_TONE } from '@str-ops/shared';
-import { useState } from 'react';
+import { HeaderHeightContext } from 'expo-router/react-navigation';
+import { use, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { FlatList, KeyboardAvoidingView, StyleSheet, TextInput, View } from 'react-native';
 
 import { EmptyState } from '@/components/empty-state';
 import { ErrorBanner } from '@/components/error-banner';
@@ -162,6 +156,10 @@ export function ThreadView({
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const [body, setBody] = useState('');
+  // The keyboard's top is measured from the window's, the thread's from under
+  // the header: the header's height is the difference (problem-form.tsx).
+  // Outside a navigator (a test) there is no header.
+  const headerHeight = use(HeaderHeightContext) ?? 0;
 
   // Newest at the bottom, drawn from the bottom: an inverted list opens on
   // the latest message with no scroll-to-end and stays put while it polls.
@@ -220,9 +218,13 @@ export function ThreadView({
   );
 
   return (
+    // Padding on both systems: the view measures how much of it the keyboard
+    // covers, so it adds nothing where the system has already made room, and
+    // with Android drawing edge to edge the system does not.
     <KeyboardAvoidingView
       style={styles.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior="padding"
+      keyboardVerticalOffset={headerHeight}
     >
       {/* Error over cache: the saved messages — or only her own on their way —
           stay, the failure is said above them. */}

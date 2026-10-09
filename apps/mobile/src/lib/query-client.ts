@@ -214,17 +214,42 @@ export const persistOptions = {
  * itself, and there is no queue in it left to keep.
  */
 export async function forgetSavedQueries(): Promise<void> {
-  const saved = await readSavedClient();
-  if (saved === null) {
+  const cleared = await savedWithoutLists();
+  if (cleared === null) {
     return;
   }
-  const cleared: PersistedClient = {
-    ...saved,
-    clientState: { ...saved.clientState, queries: [] },
-  };
 
   void queryPersister.persistClient(cleared);
   await AsyncStorage.setItem(QUERY_CACHE_KEY, JSON.stringify(cleared));
+}
+
+/**
+ * Forget the lists of whoever signed out — in memory and on disk — and keep
+ * the moves waiting for signal (item 10 of the two whole-branch reviews of
+ * phone-1-2-0). Some lists are not keyed by the person («Задания», the
+ * supplies): the next person on a shared phone would see the last one's
+ * before their own first read. What becomes of the last person's queued
+ * moves is the owner's to decide; until then they stay, as «reset saved
+ * lists» keeps them.
+ *
+ * Written straight to disk and not through the persister: the client is
+ * alive, and the persister's own write, made a moment later on the queries'
+ * removal, is of the cache as it now is. The direct one stands if the app is
+ * closed before that moment. The queue on disk is left as it was saved, so a
+ * sign-out before the cache is restored loses none of it.
+ */
+export async function forgetListsOfSignedOut(queryClient: QueryClient): Promise<void> {
+  queryClient.removeQueries();
+  const cleared = await savedWithoutLists();
+  if (cleared !== null) {
+    await AsyncStorage.setItem(QUERY_CACHE_KEY, JSON.stringify(cleared));
+  }
+}
+
+/** What is saved on disk without its lists; null when nothing readable is saved. */
+async function savedWithoutLists(): Promise<PersistedClient | null> {
+  const saved = await readSavedClient();
+  return saved === null ? null : { ...saved, clientState: { ...saved.clientState, queries: [] } };
 }
 
 async function readSavedClient(): Promise<PersistedClient | null> {

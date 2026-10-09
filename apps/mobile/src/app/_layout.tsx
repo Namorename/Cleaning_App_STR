@@ -9,6 +9,7 @@ import '@/i18n';
 
 import { navigationFonts } from '@/components/text';
 import { Colors, type ThemeName } from '@/constants/theme';
+import { forgetListsOnSignOut } from '@/features/auth/forget-on-sign-out';
 import { SessionProvider } from '@/features/auth/session';
 import { ProfileLanguageGate } from '@/features/profile/language-gate';
 import { PushBridge } from '@/features/push/push-bridge';
@@ -75,6 +76,10 @@ export default function RootLayout() {
   // Losing the network pauses the moves at once instead of after a failure;
   // the server, not the radio, decides when they go out again.
   useEffect(() => watchNetwork(), []);
+
+  // Whoever signs out takes their lists with them: the next person on a
+  // shared phone sees none of them before their own first read.
+  useEffect(() => forgetListsOnSignOut(queryClient), [queryClient]);
 
   // Until this runs the root boundary rethrows; from then on it catches. It
   // runs after the first commit of the root with the app ready: the root
