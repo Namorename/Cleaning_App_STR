@@ -345,8 +345,9 @@ describe('the disk', () => {
 
   test('a move both in the saved queue and parked comes back once', async () => {
     // Arrange: the app was closed between parking a move and dropping it from the queue.
-    await phoneLeftWith([annasClaim()], ANNA);
-    await AsyncStorage.setItem(PARKED_ON_DISK, JSON.stringify({ [ANNA]: [annasClaim()] }));
+    const claim = annasClaim();
+    await phoneLeftWith([claim], ANNA);
+    await AsyncStorage.setItem(PARKED_ON_DISK, JSON.stringify({ [ANNA]: [claim] }));
     await startApp();
 
     // Act

@@ -27,9 +27,8 @@ import { reportError } from '@/lib/sentry';
  * (`forgetSavedQueries`), not a sign-out.
  *
  * Written first, dropped from the queue second: an app closed in between
- * leaves a move in both places, never in neither. Each is told apart by its
- * key and what it sends (`hashKey`, as lib/move-retry.ts tells a move), so the
- * copy found twice comes back once.
+ * leaves a move in both places, never in neither. The copy found twice comes
+ * back once (`identityOf`).
  */
 export const PARKED_MOVES_KEY = `${QUERY_CACHE_KEY}.parked`;
 
@@ -46,12 +45,29 @@ const savedMoveSchema = z.looseObject({
 
 const parkedSchema = z.record(z.string(), z.array(z.unknown()));
 
-function identityOf(mutationKey: unknown, variables: unknown): string {
-  return hashKey([mutationKey ?? null, variables]);
+/**
+ * One move, wherever it is found: its key, what it sends, and when it was
+ * tapped. TanStack stamps `submittedAt` once, when the move is set off; saving
+ * it as waiting, parking it and restoring it keep the stamp — so the copy of
+ * one move in the queue and in the store is the same move, a move saved by an
+ * older build included. Two taps that send the same are two moves (MEDIUM-1 of
+ * the review of dab5237..cb747a5): her push switched off, on and off again is
+ * three choices, and the last one stands.
+ */
+function identityOf(mutationKey: unknown, variables: unknown, submittedAt: unknown): string {
+  return hashKey([mutationKey ?? null, variables, submittedAt ?? null]);
 }
 
 function identityOfSaved(move: SavedMove): string {
-  return identityOf(move.mutationKey, move.state.variables);
+  return identityOf(move.mutationKey, move.state.variables, move.state.submittedAt);
+}
+
+function identityOfQueued(mutation: Mutation): string {
+  return identityOf(
+    mutation.options.mutationKey,
+    mutation.state.variables,
+    mutation.state.submittedAt,
+  );
 }
 
 /**
@@ -149,7 +165,7 @@ async function bringBackMovesOf(queryClient: QueryClient, person: string): Promi
       .getMutationCache()
       .getAll()
       .filter((mutation) => mutation.state.status === 'pending')
-      .map((mutation) => identityOf(mutation.options.mutationKey, mutation.state.variables)),
+      .map(identityOfQueued),
   );
   const fresh = theirs.filter((move) => !queued.has(identityOfSaved(move)));
   hydrate(queryClient, { mutations: [...fresh], queries: [] });
