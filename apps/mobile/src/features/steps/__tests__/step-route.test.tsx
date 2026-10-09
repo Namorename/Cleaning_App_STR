@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import StepRoute from '@/app/task/[id]/step/[stepId]';
@@ -26,6 +26,9 @@ jest.mock('@/features/auth/session', () => ({
   useSession: () => ({ userId: '7c9e6679-7425-40de-944b-e07fc1f90ae7', isLoading: false }),
 }));
 
+/** What the screen does when it is in front again; called by a test to bring it back. */
+const mockFocus: { effect: (() => void) | null } = { effect: null };
+
 jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
   router: { back: jest.fn(), push: jest.fn() },
@@ -33,6 +36,9 @@ jest.mock('expo-router', () => ({
     id: '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b',
     stepId: 'b1c2d3e4-1111-4111-8111-b1c2d3e40001',
   }),
+  useFocusEffect: (effect: () => void) => {
+    mockFocus.effect = effect;
+  },
 }));
 
 /** The task the step belongs to; undefined unless a test makes it hers and under way. */
@@ -277,6 +283,32 @@ describe('a video step of her task under way', () => {
       waiting: mockTransfers.waiting,
       progress: mockTransfers.progress,
     });
+  });
+
+  // The camera's screen takes a moment to come up; a second tap meanwhile
+  // would put a second camera on top of the first.
+  test('a second tap before the camera is up opens nothing more', async () => {
+    mockSteps.data = [videoStep()];
+    mockVideo.settings = { video_max_sec: 90, video_bitrate_kbps: 2000, video_max_mb: 45 };
+    await render(<StepRoute />);
+    const button = screen.getByRole('button', { name: 'Записать видео' });
+
+    await fireEvent.press(button);
+    await fireEvent.press(button);
+
+    expect(router.push).toHaveBeenCalledTimes(1);
+  });
+
+  test('back on the step, the button opens the camera again', async () => {
+    mockSteps.data = [videoStep()];
+    mockVideo.settings = { video_max_sec: 90, video_bitrate_kbps: 2000, video_max_mb: 45 };
+    await render(<StepRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать видео' }));
+
+    await act(async () => mockFocus.effect?.());
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать видео' }));
+
+    expect(router.push).toHaveBeenCalledTimes(2);
   });
 
   test('without the company’s settings the camera waits and nothing opens', async () => {

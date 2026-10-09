@@ -1,6 +1,6 @@
 import type { Json } from '@str-ops/shared';
-import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import { z } from 'zod';
@@ -122,6 +122,15 @@ export default function StepRoute() {
     }
   }, [step, isEditable, open, taskId, stepId]);
 
+  // The camera's screen takes a moment to come up: a second tap meanwhile
+  // would open a second camera over the first. Back on the step, it may open again.
+  const isOpeningRecorder = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      isOpeningRecorder.current = false;
+    }, []),
+  );
+
   const isLeaving = complete.isSuccess || complete.isPaused || skip.isSuccess || skip.isPaused;
   useEffect(() => {
     if (isLeaving) {
@@ -167,9 +176,10 @@ export default function StepRoute() {
 
   /** A video is recorded on its own screen, which hands it to the same queue. */
   const openRecorder = () => {
-    if (maxVideoSec === null) {
+    if (maxVideoSec === null || isOpeningRecorder.current) {
       return;
     }
+    isOpeningRecorder.current = true;
     router.push({ pathname: '/task/[id]/step/[stepId]/record', params: { id: taskId, stepId } });
   };
 

@@ -1,8 +1,9 @@
 import { Constants, type StatusKey } from '@str-ops/shared';
 
+import { formatClockTime } from '@/features/tasks/format';
 import { currentLanguage, i18n } from '@/i18n';
 
-import { localizedText, type StepState, type TaskStep } from './schema';
+import { localizedText, stepState, type StepState, type TaskStep } from './schema';
 
 const KNOWN_STEP_TYPES: readonly string[] = Constants.public.Enums.workflow_step_type;
 
@@ -41,6 +42,24 @@ export function stepInstructions(step: TaskStep): string | null {
 
 export function stepStateText(state: StepState): string {
   return i18n.t(`steps.state.${state}`);
+}
+
+/**
+ * Where a step that no longer waits stands, in words: done at a time, waived
+ * by the manager and why, skipped, or not in this build. Null while it waits.
+ */
+export function stepStatusLine(step: TaskStep): string | null {
+  const state = stepState(step);
+  if (state === 'done' && step.completed_at !== null) {
+    return i18n.t('steps.completedAt', { time: formatClockTime(step.completed_at) });
+  }
+  if (state === 'waived') {
+    return i18n.t('steps.waivedBy', { reason: step.waive_reason ?? '' });
+  }
+  if (state === 'skipped' || state === 'unsupported') {
+    return stepStateText(state);
+  }
+  return null;
 }
 
 /**

@@ -16,10 +16,9 @@ import {
   photoLimits,
   type MediaItemView,
 } from '@/features/media/schema';
-import { formatClockTime } from '@/features/tasks/format';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
-import { STEP_STATUS_KEY, stepInstructions, stepStateText, stepTitle } from './format';
+import { STEP_STATUS_KEY, stepInstructions, stepStatusLine, stepTitle } from './format';
 import {
   checkedItemIds,
   checkedLines,
@@ -154,14 +153,7 @@ export function StepScreen({
     }
   };
 
-  const statusLine =
-    state === 'done' && step.completed_at !== null
-      ? t('steps.completedAt', { time: formatClockTime(step.completed_at) })
-      : state === 'waived'
-        ? t('steps.waivedBy', { reason: step.waive_reason ?? '' })
-        : state === 'skipped' || state === 'unsupported'
-          ? stepStateText(state)
-          : null;
+  const statusLine = stepStatusLine(step);
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={layout.content}>

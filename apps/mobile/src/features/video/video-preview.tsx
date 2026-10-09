@@ -16,6 +16,8 @@ const END_NOTICE: Readonly<Record<RecordingEnd, string | null>> = {
   stop: null,
   limit: 'video.limitReached',
   background: 'video.backgroundStopped',
+  // Neither her «Стоп» nor a limit: no cause is named that may not be the one.
+  interrupted: 'video.interrupted',
 };
 
 interface VideoPreviewProps {

@@ -1,4 +1,10 @@
-import { announcedSecondsLeft, clockText, measuredSeconds, secondsLeft } from '../recording';
+import {
+  announcedSecondsLeft,
+  cameraEnd,
+  clockText,
+  measuredSeconds,
+  secondsLeft,
+} from '../recording';
 
 describe('measuredSeconds', () => {
   test('is the time between asking and stopping, to a tenth of a second', () => {
@@ -38,5 +44,26 @@ describe('the countdown', () => {
     expect(clockText(65)).toBe('1:05');
     expect(clockText(9)).toBe('0:09');
     expect(clockText(0)).toBe('0:00');
+  });
+});
+
+// The camera ends a recording itself at either limit, and also when a call or
+// the system takes it: only the first two are a limit.
+describe('cameraEnd', () => {
+  const CAP = 43_650_000;
+
+  test('within a second of the length limit, it was the limit', () => {
+    expect(cameraEnd(89, 90, 1_000_000, CAP)).toBe('limit');
+    expect(cameraEnd(88.9, 90, 1_000_000, CAP)).toBe('interrupted');
+  });
+
+  test('from 95 % of the size cap up, it was the limit', () => {
+    expect(cameraEnd(30, 90, 41_467_500, CAP)).toBe('limit');
+    expect(cameraEnd(30, 90, 41_467_499, CAP)).toBe('interrupted');
+  });
+
+  test('a size that could not be read leaves only the length to say', () => {
+    expect(cameraEnd(30, 90, null, CAP)).toBe('interrupted');
+    expect(cameraEnd(89.5, 90, null, CAP)).toBe('limit');
   });
 });

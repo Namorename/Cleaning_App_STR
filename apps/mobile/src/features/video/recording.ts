@@ -14,9 +14,37 @@ const TENTHS_PER_SECOND = 10;
 
 /**
  * What ended a recording: her «Стоп», the camera's own length or size limit,
- * or the app put away — each said differently on the preview.
+ * the app put away, or anything else that stopped the camera before either
+ * limit — a call, the system taking the camera, a screen opened over it.
+ * Each is said differently on the preview.
  */
-export type RecordingEnd = 'stop' | 'limit' | 'background';
+export type RecordingEnd = 'stop' | 'limit' | 'background' | 'interrupted';
+
+/** Within this of the length limit, a recording the camera ended itself ended at the limit. */
+export const NEAR_LIMIT_SEC = 1;
+/** From this share of the camera's size cap up, it ended at the cap. */
+const NEAR_CAP_PERCENT = 95;
+const PERCENT = 100;
+
+/**
+ * Why the camera ended a recording nobody stopped: at its length or size
+ * limit, or before either — interrupted. The size is the file's, or null
+ * where it could not be read; then only the length can say it was a limit.
+ */
+export function cameraEnd(
+  durationSec: number,
+  limitSec: number,
+  fileBytes: number | null,
+  capBytes: number,
+): 'limit' | 'interrupted' {
+  if (durationSec >= limitSec - NEAR_LIMIT_SEC) {
+    return 'limit';
+  }
+  if (fileBytes !== null && fileBytes * PERCENT >= capBytes * NEAR_CAP_PERCENT) {
+    return 'limit';
+  }
+  return 'interrupted';
+}
 
 /** How often the reader is told the time left: every ten seconds. */
 export const ANNOUNCE_EVERY_SEC = 10;

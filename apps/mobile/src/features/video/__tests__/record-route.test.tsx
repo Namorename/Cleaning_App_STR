@@ -1,11 +1,14 @@
+import * as Sentry from '@sentry/react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { router } from 'expo-router';
 import {
   AccessibilityInfo,
+  Alert,
   AppState,
   Linking,
   StyleSheet,
+  type AlertButton,
   type AppStateStatus,
   type ViewStyle,
 } from 'react-native';
@@ -14,6 +17,7 @@ import RecordRoute from '@/app/task/[id]/step/[stepId]/record';
 import type { VideoSettings } from '@/features/host/schema';
 import { keepRecording, type CapturedMedia } from '@/features/media/capture';
 import { discardFile } from '@/features/media/file';
+import type { TaskMedia } from '@/features/media/schema';
 import type { TaskStep } from '@/features/steps/schema';
 
 /**
@@ -73,12 +77,72 @@ const mockCamera: {
   recordAsync: jest.Mock;
   stopRecording: jest.Mock;
   finish: ((value: { uri: string } | undefined) => void) | null;
+  fail: ((error: Error) => void) | null;
 } = {
   props: {},
   recordAsync: jest.fn(),
   stopRecording: jest.fn(),
   finish: null,
+  fail: null,
 };
+
+/** The navigation around the screen: who listens for her leaving, and what was dispatched. */
+type NavigationListener = (event: unknown) => void;
+const mockNavigation = {
+  listeners: new Map<string, Set<NavigationListener>>(),
+  addListener: jest.fn((event: string, listener: NavigationListener) => {
+    const listeners = mockNavigation.listeners.get(event) ?? new Set<NavigationListener>();
+    listeners.add(listener);
+    mockNavigation.listeners.set(event, listeners);
+    return () => listeners.delete(listener);
+  }),
+  dispatch: jest.fn(),
+};
+
+/** Tell the screen she is leaving it, or another screen covered it. */
+async function navigationEvent(event: 'beforeRemove' | 'blur'): Promise<void> {
+  await act(async () => {
+    mockNavigation.listeners.get(event)?.forEach((listener) => listener({ data: {} }));
+  });
+}
+
+/** The title the screen gave its header last. */
+const mockHeader: { title: unknown } = { title: undefined };
+
+/** The guard against leaving: whether it is on, and what it does when she tries. */
+const mockLeaveGuard: {
+  isOn: boolean;
+  onPrevented: ((options: { data: { action: unknown } }) => void) | null;
+} = { isOn: false, onPrevented: null };
+
+jest.mock('expo-router/react-navigation', () => ({
+  usePreventRemove: (
+    isOn: boolean,
+    onPrevented: (options: { data: { action: unknown } }) => void,
+  ) => {
+    mockLeaveGuard.isOn = isOn;
+    mockLeaveGuard.onPrevented = onPrevented;
+  },
+}));
+
+const ME = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
+
+jest.mock('@/features/auth/session', () => ({
+  useSession: () => ({ userId: '7c9e6679-7425-40de-944b-e07fc1f90ae7', isLoading: false }),
+}));
+
+/** The task the step belongs to: hers and under way unless a test says otherwise. */
+const mockTask: {
+  isPending: boolean;
+  data: { status: string; assignee_id: string | null } | undefined;
+} = { isPending: false, data: undefined };
+
+jest.mock('@/features/tasks/use-tasks', () => ({
+  useTask: () => ({ isPending: mockTask.isPending, error: null, data: mockTask.data }),
+}));
+
+/** The task's media as the step's screen reads them. */
+const mockMedia: { data: TaskMedia[] | undefined } = { data: [] };
 
 jest.mock('expo-camera', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -129,12 +193,18 @@ jest.mock('expo-camera', () => {
 });
 
 jest.mock('expo-router', () => ({
-  Stack: { Screen: () => null },
+  Stack: {
+    Screen: ({ options }: { options?: { title?: unknown } }) => {
+      mockHeader.title = options?.title;
+      return null;
+    },
+  },
   router: { back: jest.fn(), push: jest.fn() },
   useLocalSearchParams: () => ({
     id: '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b',
     stepId: 'b1c2d3e4-1111-4111-8111-b1c2d3e40001',
   }),
+  useNavigation: () => mockNavigation,
 }));
 
 const mockSteps: { isPending: boolean; error: Error | null; data: TaskStep[] | undefined } = {
@@ -155,10 +225,18 @@ const mockRemember = jest.fn(async () => undefined);
 jest.mock('@/features/media/use-media', () => ({
   useAttachMedia: () => ({ mutate: mockAttach }),
   useRememberLocalMedia: () => mockRemember,
+  useTaskMedia: () => mockMedia,
 }));
 
 jest.mock('@/features/media/capture', () => ({ keepRecording: jest.fn() }));
-jest.mock('@/features/media/file', () => ({ discardFile: jest.fn() }));
+
+/** The size of the file the camera handed over, in bytes: small unless a test says. */
+const mockFile: { size: number } = { size: 0 };
+
+jest.mock('@/features/media/file', () => ({
+  discardFile: jest.fn(),
+  fileSize: jest.fn(async () => mockFile.size),
+}));
 
 /** The player of the preview: what it was given, and whether it was started. */
 const mockPlayer = { loop: true, play: jest.fn(), pause: jest.fn() };
@@ -258,13 +336,24 @@ beforeEach(() => {
   mockSteps.data = [videoStep()];
   mockVideo.settings = { video_max_sec: 90, video_bitrate_kbps: 2000, video_max_mb: 45 };
   mockCamera.finish = null;
+  mockCamera.fail = null;
   // A recording runs until it is stopped: stopping is what hands the file over.
   mockCamera.recordAsync.mockImplementation(
     () =>
-      new Promise((resolve) => {
+      new Promise((resolve, reject) => {
         mockCamera.finish = resolve;
+        mockCamera.fail = reject;
       }),
   );
+  mockNavigation.listeners.clear();
+  mockHeader.title = undefined;
+  mockLeaveGuard.isOn = false;
+  mockLeaveGuard.onPrevented = null;
+  mockTask.isPending = false;
+  mockTask.data = { status: 'in_progress', assignee_id: ME };
+  mockMedia.data = [];
+  // A minute of 720p is some 15 MB: far from the camera's 43.65 MB.
+  mockFile.size = 2_500_000;
   mockCamera.stopRecording.mockImplementation(() => mockCamera.finish?.({ uri: RECORDED_URI }));
   keep.mockImplementation(async ({ durationSec }) => kept(durationSec));
   mockPlayer.loop = true;
@@ -426,6 +515,7 @@ describe('the length of a recording', () => {
     await wait(30_000);
 
     // The camera reached maxFileSize and handed the file over without a «Стоп».
+    mockFile.size = 43_500_000;
     await act(async () => {
       mockCamera.finish?.({ uri: RECORDED_URI });
     });
@@ -436,6 +526,39 @@ describe('the length of a recording', () => {
     expect(
       screen.getByText('Запись остановилась на пределе длины или размера файла.'),
     ).toBeTruthy();
+  });
+
+  test('one the camera ended itself within a second of the length limit was the limit', async () => {
+    await render(<RecordRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+    await wait(89_200);
+
+    await act(async () => {
+      mockCamera.finish?.({ uri: RECORDED_URI });
+    });
+
+    expect(screen.getByText('Видео · 89.2 с')).toBeTruthy();
+    expect(
+      screen.getByText('Запись остановилась на пределе длины или размера файла.'),
+    ).toBeTruthy();
+  });
+
+  // A call coming in, the system taking the camera: it ends by itself, far
+  // from both limits, and the screen does not blame a limit for it.
+  test('one the camera ended itself far from both limits is said plainly, not as a limit', async () => {
+    await render(<RecordRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+    await wait(30_000);
+
+    await act(async () => {
+      mockCamera.finish?.({ uri: RECORDED_URI });
+    });
+
+    expect(screen.getByTestId('video-preview')).toBeTruthy();
+    expect(screen.getByText('Запись остановилась. Посмотрите, что записалось.')).toBeTruthy();
+    expect(
+      screen.queryByText('Запись остановилась на пределе длины или размера файла.'),
+    ).toBeNull();
   });
 
   test('leaving while recording stops the camera and keeps nothing', async () => {
@@ -451,6 +574,101 @@ describe('the length of a recording', () => {
     expect(discardFile).toHaveBeenCalledWith(RECORDED_URI);
     expect(keep).not.toHaveBeenCalled();
     expect(mockAttach).not.toHaveBeenCalled();
+  });
+
+  // Stopped once the view is gone, the camera may answer with an error of its
+  // own; stopped as she leaves, the view is still there to stop.
+  test('leaving while recording stops the camera as she leaves, while its view is still there', async () => {
+    const { unmount } = await render(<RecordRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+
+    await navigationEvent('beforeRemove');
+
+    expect(mockCamera.stopRecording).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('camera-preview')).toBeTruthy();
+    await unmount();
+  });
+
+  test('a camera that refuses a recording cut by her leaving is not a fault to report', async () => {
+    // The camera answers a stop on leaving with an error of its own.
+    mockCamera.stopRecording.mockImplementation(() =>
+      mockCamera.fail?.(new Error('Camera unmounted during recording')),
+    );
+    const { unmount } = await render(<RecordRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+
+    await navigationEvent('beforeRemove');
+    await unmount();
+
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
+  test('a screen opened over the camera stops the recording too', async () => {
+    await render(<RecordRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+
+    await navigationEvent('blur');
+
+    expect(mockCamera.stopRecording).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Between «Стоп» and the file the camera is still writing: nothing else is
+// started, and a stop it did not hear is said again.
+describe('a recording being saved', () => {
+  test('«Записать» waits, greyed, until the camera has handed the file over', async () => {
+    // Arrange: the camera takes its time.
+    mockCamera.stopRecording.mockImplementation(() => undefined);
+    await render(<RecordRoute />);
+
+    // Act
+    await recordFor(3_000);
+
+    // Assert
+    const button = screen.getByRole('button', { name: 'Записать' });
+    expect(button.props.accessibilityState).toMatchObject({ disabled: true });
+    await fireEvent.press(button);
+    expect(mockCamera.recordAsync).toHaveBeenCalledTimes(1);
+  });
+
+  test('a stop the camera did not hear is said again', async () => {
+    // Arrange: the first stop is lost, the second hands the file over.
+    mockCamera.stopRecording
+      .mockImplementationOnce(() => undefined)
+      .mockImplementation(() => mockCamera.finish?.({ uri: RECORDED_URI }));
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+    expect(screen.queryByTestId('video-preview')).toBeNull();
+
+    // Act
+    await wait(2_500);
+
+    // Assert
+    expect(mockCamera.stopRecording).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId('video-preview')).toBeTruthy();
+    // The length is what she stopped at, not when the camera finally answered.
+    expect(screen.getByText('Видео · 5 с')).toBeTruthy();
+  });
+
+  test('a camera that never hands the file over ends in a failure, not a frozen button', async () => {
+    // Arrange
+    mockCamera.stopRecording.mockImplementation(() => undefined);
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    // Act
+    await wait(10_000);
+
+    // Assert
+    expect(screen.getByText('Запись не удалась')).toBeTruthy();
+    expect(Sentry.captureException).toHaveBeenCalled();
+
+    // A file that turns up after all is not kept.
+    await act(async () => {
+      mockCamera.finish?.({ uri: RECORDED_URI });
+    });
+    expect(discardFile).toHaveBeenCalledWith(RECORDED_URI);
+    expect(screen.queryByTestId('video-preview')).toBeNull();
   });
 });
 
@@ -550,6 +768,186 @@ describe('the preview before sending', () => {
     expect(mockAttach).not.toHaveBeenCalled();
     expect(router.back).not.toHaveBeenCalled();
   });
+
+  test('the header says the recording is being watched, and recording again on «Переснять»', async () => {
+    await render(<RecordRoute />);
+    expect(mockHeader.title).toBe('Запись видео');
+
+    await recordFor(5_000);
+    expect(mockHeader.title).toBe('Просмотр видео');
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Переснять' }));
+    expect(mockHeader.title).toBe('Запись видео');
+  });
+
+  test('a sent recording, the screen left after it, deletes nothing', async () => {
+    const { unmount } = await render(<RecordRoute />);
+    await recordFor(5_000);
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    await unmount();
+
+    expect(discardFile).not.toHaveBeenCalled();
+  });
+});
+
+/** A promise and the hand that settles it, for a step that takes its time. */
+function deferred<T>() {
+  let settle: { resolve: (value: T) => void; reject: (error: Error) => void } = {
+    resolve: () => undefined,
+    reject: () => undefined,
+  };
+  const promise = new Promise<T>((resolve, reject) => {
+    settle = { resolve, reject };
+  });
+  return { promise, ...settle };
+}
+
+const KEPT_URI = 'file:///documents/task-media/kept-id.mp4';
+
+// The camera's file is moved under a name of ours before it is remembered:
+// after that, the camera's path is empty, and the kept file is the video.
+describe('«Отправить» that did not go through', () => {
+  test('is tried again with the kept file, not the camera’s path it has left', async () => {
+    // Arrange: the ledger on disk could not be written the first time.
+    mockRemember.mockRejectedValueOnce(new Error('disk I/O error'));
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+    expect(screen.getByText('disk I/O error')).toBeTruthy();
+
+    // Act
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    // Assert
+    expect(keep).toHaveBeenCalledTimes(1);
+    expect(mockAttach).toHaveBeenCalledWith(
+      expect.objectContaining({ uri: KEPT_URI, mediaId: 'kept-id' }),
+    );
+    expect(router.back).toHaveBeenCalled();
+  });
+
+  test('left behind, it deletes the kept file', async () => {
+    mockRemember.mockRejectedValueOnce(new Error('disk I/O error'));
+    const { unmount } = await render(<RecordRoute />);
+    await recordFor(5_000);
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    await unmount();
+
+    expect(discardFile).toHaveBeenCalledWith(KEPT_URI);
+  });
+
+  test('recorded again instead, it deletes the kept file', async () => {
+    mockRemember.mockRejectedValueOnce(new Error('disk I/O error'));
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Переснять' }));
+
+    expect(discardFile).toHaveBeenCalledWith(KEPT_URI);
+    expect(screen.getByRole('button', { name: 'Записать' })).toBeTruthy();
+  });
+});
+
+describe('while the recording is being sent', () => {
+  test('«Переснять» waits', async () => {
+    const keeping = deferred<CapturedMedia>();
+    keep.mockReturnValue(keeping.promise);
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    expect(
+      screen.getByRole('button', { name: 'Переснять' }).props.accessibilityState,
+    ).toMatchObject({ disabled: true });
+    await act(async () => keeping.resolve(kept(5)));
+  });
+
+  test('the screen gone meanwhile deletes nothing, and the video still reaches the queue', async () => {
+    // Arrange
+    const keeping = deferred<CapturedMedia>();
+    keep.mockReturnValue(keeping.promise);
+    const { unmount } = await render(<RecordRoute />);
+    await recordFor(5_000);
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    // Act
+    await unmount();
+    await act(async () => keeping.resolve(kept(5)));
+
+    // Assert
+    expect(discardFile).not.toHaveBeenCalled();
+    expect(mockAttach).toHaveBeenCalledWith(expect.objectContaining({ uri: KEPT_URI }));
+    // Nothing more to leave: going back now would close the step's screen too.
+    expect(router.back).not.toHaveBeenCalled();
+  });
+
+  test('a send that fails after the screen is gone deletes the kept file', async () => {
+    const keeping = deferred<CapturedMedia>();
+    keep.mockReturnValue(keeping.promise);
+    mockRemember.mockRejectedValueOnce(new Error('disk I/O error'));
+    const { unmount } = await render(<RecordRoute />);
+    await recordFor(5_000);
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    await unmount();
+    await act(async () => keeping.resolve(kept(5)));
+
+    expect(discardFile).toHaveBeenCalledWith(KEPT_URI);
+    expect(mockAttach).not.toHaveBeenCalled();
+  });
+});
+
+/** The buttons of the question asked last, and a press on one of them by its word. */
+function pressInAlert(alert: jest.SpyInstance, word: string): void {
+  const buttons = (alert.mock.calls.at(-1)?.[2] ?? []) as AlertButton[];
+  const button = buttons.find((item) => item.text === word);
+  if (button === undefined) {
+    throw new Error(`No «${word}» in the question`);
+  }
+  button.onPress?.();
+}
+
+// The back button and an iPhone's edge swipe both leave the screen; a
+// recording watched but not sent is lost with it unless she meant that.
+describe('leaving the preview with a recording not sent', () => {
+  test('asks first: «Остаться» keeps her there, «Не сохранять» lets her go', async () => {
+    // Arrange
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+    expect(mockLeaveGuard.isOn).toBe(true);
+    const back = { type: 'GO_BACK' };
+
+    // Act
+    await act(async () => mockLeaveGuard.onPrevented?.({ data: { action: back } }));
+
+    // Assert
+    expect(alert).toHaveBeenCalledWith(
+      'Видео не отправлено',
+      'Если уйти, запись удалится с телефона.',
+      expect.any(Array),
+      expect.anything(),
+    );
+    pressInAlert(alert, 'Остаться');
+    expect(mockNavigation.dispatch).not.toHaveBeenCalled();
+    pressInAlert(alert, 'Не сохранять');
+    expect(mockNavigation.dispatch).toHaveBeenCalledWith(back);
+    alert.mockRestore();
+  });
+
+  test('nothing is asked on the camera, nor once the recording is sent', async () => {
+    await render(<RecordRoute />);
+    expect(mockLeaveGuard.isOn).toBe(false);
+
+    await recordFor(5_000);
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    expect(mockLeaveGuard.isOn).toBe(false);
+  });
 });
 
 describe('room on the phone', () => {
@@ -628,6 +1026,40 @@ describe('the app put away while recording', () => {
     expect(screen.getByRole('button', { name: 'Записать' })).toBeTruthy();
   });
 
+  // The rule is «under a second»: a second exactly is kept, nine tenths are not.
+  test('a recording cut off at a second exactly is kept', async () => {
+    await render(<RecordRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+    await wait(1_000);
+
+    await moveApp('background');
+
+    expect(discardFile).not.toHaveBeenCalled();
+    expect(screen.getByTestId('video-preview')).toBeTruthy();
+    expect(screen.getByText('Видео · 1 с')).toBeTruthy();
+  });
+
+  test('a recording cut off at nine tenths of a second is not', async () => {
+    await render(<RecordRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+    await wait(900);
+
+    await moveApp('background');
+
+    expect(discardFile).toHaveBeenCalledWith(RECORDED_URI);
+    expect(screen.queryByTestId('video-preview')).toBeNull();
+  });
+
+  test('the screen stops listening to the app once it is gone', async () => {
+    const { unmount } = await render(<RecordRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+    expect(appStateListeners.length).toBeGreaterThan(0);
+
+    await unmount();
+
+    expect(appStateListeners).toEqual([]);
+  });
+
   // A look at a notification pulls the app to «inactive», not away.
   test('a moment of «inactive» does not stop it', async () => {
     await render(<RecordRoute />);
@@ -685,7 +1117,35 @@ describe('a camera that fails', () => {
     await recordFor(3_000);
 
     expect(screen.getByText('Запись не удалась')).toBeTruthy();
+    expect(screen.getByText('Не удалось выполнить действие. Попробуйте ещё раз.')).toBeTruthy();
     expect(screen.queryByTestId('video-preview')).toBeNull();
+    expect(Sentry.captureException).toHaveBeenCalled();
+  });
+
+  // Another app holding the camera is the commonest cause; the report says how often.
+  test('a camera that does not start is reported, as a failed recording is', async () => {
+    await render(<RecordRoute />);
+    const { onMountError } = mockCamera.props as {
+      onMountError: (event: { message: string }) => void;
+    };
+
+    await act(async () => {
+      onMountError({ message: 'Camera is in use by another app' });
+    });
+
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Camera is in use by another app' }),
+    );
+  });
+
+  test('a recording that fails is reported', async () => {
+    const failure = new Error('Recording failed: no space');
+    mockCamera.recordAsync.mockRejectedValue(failure);
+    await render(<RecordRoute />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
+
+    expect(Sentry.captureException).toHaveBeenCalledWith(failure);
   });
 });
 
@@ -850,4 +1310,75 @@ describe('what the screen needs before it records', () => {
     expect(screen.getByText('Шаг не найден')).toBeTruthy();
     expect(screen.queryByTestId('camera-preview')).toBeNull();
   });
+
+  // The same rules as the step's own button, for a screen reached some other
+  // way — a link, a screen kept in the history: no camera for a recording the
+  // server would refuse.
+  test('a task not hers, or not under way, opens no camera and says why', async () => {
+    mockTask.data = { status: 'completed', assignee_id: ME };
+
+    await render(<RecordRoute />);
+
+    expect(screen.getByText('Шаги можно менять, только пока уборка в работе')).toBeTruthy();
+    expect(screen.queryByTestId('camera-preview')).toBeNull();
+  });
+
+  test('a step already done opens no camera and says so', async () => {
+    mockSteps.data = [videoStep({ completed_at: '2026-10-09T08:05:00+00:00' })];
+
+    await render(<RecordRoute />);
+
+    expect(screen.getByText(/^Выполнен в /)).toBeTruthy();
+    expect(screen.queryByTestId('camera-preview')).toBeNull();
+  });
+
+  test('a step that has its video already opens no camera and says what to do', async () => {
+    mockMedia.data = [stepVideo()];
+
+    await render(<RecordRoute />);
+
+    expect(
+      screen.getByText('У шага уже есть видео. Чтобы записать новое, удалите его на экране шага.'),
+    ).toBeTruthy();
+    expect(screen.queryByTestId('camera-preview')).toBeNull();
+  });
+
+  test('a video taken back does not hold the step', async () => {
+    mockMedia.data = [stepVideo({ deleted_at: '2026-10-09T08:03:00+00:00' })];
+
+    await render(<RecordRoute />);
+
+    expect(screen.getByTestId('camera-preview')).toBeTruthy();
+  });
+
+  // The video she sends lands in the step's list before the screen is gone:
+  // the camera, once open, is not swapped for a refusal under her.
+  test('once open, the camera stays though the step’s video arrives meanwhile', async () => {
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    mockMedia.data = [stepVideo()];
+    await screen.rerender(<RecordRoute />);
+
+    expect(screen.getByTestId('video-preview')).toBeTruthy();
+  });
 });
+
+/** A video of the step as the server lists it. */
+function stepVideo(overrides: Partial<TaskMedia> = {}): TaskMedia {
+  return {
+    id: 'a1b2c3d4-0000-4000-8000-000000000001',
+    task_id: TASK_ID,
+    step_id: STEP_ID,
+    problem_id: null,
+    kind: 'video',
+    storage_path: `${TASK_ID}/a1b2c3d4-0000-4000-8000-000000000001.mp4`,
+    mime_type: 'video/mp4',
+    duration_sec: 12.3,
+    device_taken_at: '2026-10-09T08:01:00+00:00',
+    created_at: '2026-10-09T08:01:00+00:00',
+    uploaded_at: null,
+    deleted_at: null,
+    ...overrides,
+  };
+}

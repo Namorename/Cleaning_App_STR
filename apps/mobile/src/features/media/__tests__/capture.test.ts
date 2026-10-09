@@ -271,4 +271,18 @@ describe('a recording from the app’s own camera', () => {
       keepRecording({ uri: 'file:///cache/Camera/recording.mp4', durationSec: 3, takenAt }),
     ).rejects.toBeInstanceOf(EmptyCaptureError);
   });
+
+  // Nothing to send and nothing to try again with: the empty file it was
+  // moved into is not left behind in the app's documents.
+  test('one that measures nothing leaves no kept file behind', async () => {
+    sizes.set('file:///cache/Camera/recording.mp4', 0);
+
+    await keepRecording({
+      uri: 'file:///cache/Camera/recording.mp4',
+      durationSec: 3,
+      takenAt,
+    }).catch(() => undefined);
+
+    expect(sizes.has('file:///documents/task-media/kept-id.mp4')).toBe(false);
+  });
 });

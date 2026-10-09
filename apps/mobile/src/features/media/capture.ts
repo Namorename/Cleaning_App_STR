@@ -2,7 +2,7 @@ import { randomUUID } from 'expo-crypto';
 import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 
-import { fileSize, keepFile, stripKeptPhoto } from './file';
+import { discardFile, fileSize, keepFile, stripKeptPhoto } from './file';
 import type { MediaKind } from './schema';
 
 /**
@@ -246,6 +246,8 @@ export async function keepRecording(recording: Recording): Promise<CapturedMedia
   const uri = await keepFile(recording.uri, id, videoExtension(mimeType));
   const byteSize = await fileSize(uri);
   if (byteSize <= 0) {
+    // Nothing to send and nothing to send again: not left in the documents.
+    discardFile(uri);
     throw new EmptyCaptureError(uri);
   }
 
