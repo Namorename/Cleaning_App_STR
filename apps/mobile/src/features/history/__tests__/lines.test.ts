@@ -9,6 +9,7 @@ import {
   TECH_IVAN,
   TECH_OLGA,
 } from '@/testing/board-fixtures';
+import { pinToday } from '@/testing/clock';
 
 import { historyWhat, historyWho } from '../lines';
 import type { ProblemEvent } from '../schema';
@@ -22,6 +23,16 @@ import type { ProblemEvent } from '../schema';
  */
 
 const NAMES = staffNames(STAFF, i18n.t);
+
+// The dates below were written on 9 October 2026: a day of another year
+// names its year, one of this year does not.
+beforeAll(() => {
+  pinToday(new Date(2026, 9, 9, 12, 0));
+});
+
+afterAll(() => {
+  jest.useRealTimers();
+});
 
 function event(kind: string, params: Record<string, unknown> = {}): ProblemEvent {
   return {
@@ -109,7 +120,19 @@ describe('what happened', () => {
       NAMES,
     );
 
-    expect(line).toBe('Перенесено · пт, 9 октября → сб, 10 октября · 09:00–');
+    expect(line).toBe('Перенесено · пт, 9 октября → сб, 10 октября · с 09:00');
+  });
+
+  test('hours with an end only read «до»', () => {
+    expect(
+      historyWhat(event('rescheduled', { date: '2026-10-10', time_to: '12:00:00' }), NAMES),
+    ).toBe('Перенесено · сб, 10 октября · до 12:00');
+  });
+
+  test('a day of another year names its year', () => {
+    expect(historyWhat(event('assigned', { to: TECH_IVAN, date: '2025-12-30' }), NAMES)).toBe(
+      'Назначено: Иван Петров · вт, 30 декабря 2025 г.',
+    );
   });
 
   test('attempt_cancelled names the person it held, when it held one', () => {
@@ -158,8 +181,37 @@ describe('the people in it', () => {
     );
   });
 
-  test('who did it: by name, or the neutral word for the system or a deleted person', () => {
+  // A string that is no calendar date would be an invalid Date, and Intl
+  // throws a RangeError on it: the screen would fall over on one odd row.
+  test.each(['yesterday', '2026-10-09T08:00:00Z', '09.10.2026', ''])(
+    'a day written as «%s» is left out, not thrown on',
+    (date) => {
+      expect(
+        historyWhat(
+          event('reassigned', { from: TECH_IVAN, to: TECH_OLGA, from_date: date, date }),
+          NAMES,
+        ),
+      ).toBe('Передано: Иван Петров → Ольга Сидорова');
+    },
+  );
+
+  test('a day moved from an odd one names only the day it went to', () => {
+    expect(
+      historyWhat(event('rescheduled', { from_date: 'soon', date: '2026-10-10' }), NAMES),
+    ).toBe('Перенесено · сб, 10 октября');
+  });
+
+  test('hours that are no clock time are left out', () => {
+    expect(
+      historyWhat(event('rescheduled', { date: '2026-10-10', time_from: 'morning' }), NAMES),
+    ).toBe('Перенесено · сб, 10 октября');
+  });
+
+  test('who did it: by name; nobody is the system; somebody unknown is «Сотрудник»', () => {
     expect(historyWho(event('accepted'), NAMES)).toBe('Сергей Главный');
-    expect(historyWho({ ...event('accepted'), actor_id: null }, NAMES)).toBe('Сотрудник');
+    expect(historyWho({ ...event('accepted'), actor_id: null }, NAMES)).toBe('Система');
+    expect(
+      historyWho({ ...event('accepted'), actor_id: 'f0f0f0f0-0000-4000-8000-000000000000' }, NAMES),
+    ).toBe('Сотрудник');
   });
 });

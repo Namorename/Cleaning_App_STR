@@ -5,6 +5,7 @@ import ProblemRoute from '@/app/problem/[id]';
 import ProblemHistoryRoute from '@/app/problem/[id]/history';
 import {
   useAssignProblem,
+  useBoardArchive,
   useBoardProblem,
   useBoardProblems,
   useStaffDirectory,
@@ -79,6 +80,17 @@ jest.mock('@/features/board/use-board', () => {
   const idle = () => ({ mutate: jest.fn(), reset: jest.fn(), isPending: false, error: null });
   return {
     useBoardProblems: jest.fn(),
+    // The archive is read only once «Архив» is chosen: nothing held yet.
+    useBoardArchive: jest.fn(() => ({
+      data: undefined,
+      isPending: true,
+      error: null,
+      refetch: jest.fn(),
+      isRefetching: false,
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: jest.fn(),
+    })),
     useBoardProblem: jest.fn(),
     useStaffDirectory: jest.fn(),
     useAssignProblem: jest.fn(idle),
@@ -267,6 +279,7 @@ describe.each([
     await render(<ProblemHistoryRoute />);
 
     expect(useBoardProblems).not.toHaveBeenCalled();
+    expect(useBoardArchive).not.toHaveBeenCalled();
     expect(useBoardProblem).not.toHaveBeenCalled();
     expect(useStaffDirectory).not.toHaveBeenCalled();
     expect(useProblemEvents).not.toHaveBeenCalled();

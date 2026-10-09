@@ -43,6 +43,17 @@ jest.mock('@/features/board/use-board', () => ({
     refetch: jest.fn(),
     isRefetching: false,
   }),
+  // The archive is read only once «Архив» is chosen: nothing held yet.
+  useBoardArchive: () => ({
+    data: undefined,
+    isPending: true,
+    error: null,
+    refetch: jest.fn(),
+    isRefetching: false,
+    hasNextPage: false,
+    isFetchingNextPage: false,
+    fetchNextPage: jest.fn(),
+  }),
   useStaffDirectory: () => ({ data: [], error: null, refetch: jest.fn() }),
 }));
 

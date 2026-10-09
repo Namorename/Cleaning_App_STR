@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { fetchBoardProblem, fetchBoardProblems } from '@/features/board/api';
+import { fetchArchivePage, fetchBoardProblem, fetchBoardProblems } from '@/features/board/api';
 import { fetchMessages } from '@/features/chat/api';
 import { fetchProblemEvents } from '@/features/history/api';
 import { fetchHostSettings } from '@/features/host/api';
@@ -112,6 +112,7 @@ const READERS: readonly (() => Promise<unknown>)[] = [
   () => fetchSupplyCatalog(),
   () => fetchBoardProblems(),
   () => fetchBoardProblem(ANY_ID),
+  () => fetchArchivePage(0),
   () => fetchProblemEvents(ANY_ID),
 ];
 

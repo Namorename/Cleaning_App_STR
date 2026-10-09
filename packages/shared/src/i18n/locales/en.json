@@ -1273,7 +1273,12 @@
       "archived": "Archived",
       "empty": "No tasks",
       "emptyFiltered": "Nothing matches these filters",
-      "resetFilters": "Clear filters"
+      "resetFilters": "Clear filters",
+      "hoursFrom": "from {{time}}",
+      "hoursUntil": "until {{time}}",
+      "overdue": "Overdue",
+      "more": "More",
+      "assigneeClosed": "Closed and archived tasks have no assignee — the filter does not apply"
     },
     "dispatch": {
       "assignee": "Assignee",
@@ -1317,7 +1322,8 @@
       "reopened": "Task reopened",
       "archived": "Task archived",
       "unarchived": "Task restored from the archive",
-      "unknown": "Another event"
+      "unknown": "Another event",
+      "system": "System"
     }
   },
   "supplies": {

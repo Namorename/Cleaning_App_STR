@@ -8,14 +8,14 @@ import { ErrorState } from '@/components/error-state';
 import { Skeleton, SkeletonGroup } from '@/components/skeleton';
 import { Text } from '@/components/text';
 import { Spacing, type Theme } from '@/constants/theme';
-import { formatLongDate, staffNames } from '@/features/board/format';
+import { staffNames } from '@/features/board/format';
 import { useStaffDirectory } from '@/features/board/use-board';
 import { formatReportedAt } from '@/features/problems/format';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
-import { historyWhat, historyWho } from './lines';
-import { FIRST_EVENT, JOURNAL_START, type ProblemEvent } from './schema';
+import { historySince, historyWhat, historyWho } from './lines';
+import { FIRST_EVENT, type ProblemEvent } from './schema';
 import { useProblemEvents } from './use-history';
 
 interface ProblemHistoryProps {
@@ -62,7 +62,7 @@ export function ProblemHistory({ problemId }: ProblemHistoryProps) {
     void refetchStaff();
   }, [refetchEvents, refetchStaff]);
 
-  const since = t('problems.history.since', { date: formatLongDate(JOURNAL_START) });
+  const since = historySince();
 
   if (events.isPending) {
     return (

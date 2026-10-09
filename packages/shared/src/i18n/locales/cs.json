@@ -1287,7 +1287,12 @@
       "archived": "V archivu",
       "empty": "Žádné úkoly",
       "emptyFiltered": "Těmto filtrům nic neodpovídá",
-      "resetFilters": "Zrušit filtry"
+      "resetFilters": "Zrušit filtry",
+      "hoursFrom": "od {{time}}",
+      "hoursUntil": "do {{time}}",
+      "overdue": "Po termínu",
+      "more": "Další",
+      "assigneeClosed": "Uzavřené a archivované úkoly nemají řešitele — filtr se nepoužije"
     },
     "dispatch": {
       "assignee": "Řešitel",
@@ -1331,7 +1336,8 @@
       "reopened": "Úkol znovu otevřen",
       "archived": "Úkol archivován",
       "unarchived": "Úkol obnoven z archivu",
-      "unknown": "Jiná událost"
+      "unknown": "Jiná událost",
+      "system": "Systém"
     }
   },
   "supplies": {

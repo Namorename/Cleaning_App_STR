@@ -1,9 +1,15 @@
 import { z } from 'zod';
 
-import { PART_SEPARATOR, formatDay, formatHours, personName } from '@/features/board/format';
+import {
+  PART_SEPARATOR,
+  formatDay,
+  formatHours,
+  formatLongDate,
+  personName,
+} from '@/features/board/format';
 import { i18n } from '@/i18n';
 
-import type { ProblemEvent } from './schema';
+import { JOURNAL_START, type ProblemEvent } from './schema';
 
 /**
  * The words of a task's history (brief, item 3). The server writes ids, days,
@@ -15,15 +21,33 @@ import type { ProblemEvent } from './schema';
 
 const text = z.string().optional().catch(undefined);
 
+/**
+ * A day as the migrations write it, `YYYY-MM-DD`. Anything else would be an
+ * invalid Date, and Intl throws a RangeError on one: dropped, like any odd
+ * parameter, the line names no day.
+ */
+const calendarDay = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .optional()
+  .catch(undefined);
+
+/** A time as Postgres writes it, `HH:MM` or `HH:MM:SS`. */
+const clockTime = z
+  .string()
+  .regex(/^\d{2}:\d{2}(:\d{2})?$/)
+  .optional()
+  .catch(undefined);
+
 const paramsSchema = z.object({
   to: text,
   from: text,
   assignee: text,
   cause: text,
-  date: text,
-  from_date: text,
-  time_from: text,
-  time_to: text,
+  date: calendarDay,
+  from_date: calendarDay,
+  time_from: clockTime,
+  time_to: clockTime,
 });
 
 type Params = z.infer<typeof paramsSchema>;
@@ -127,7 +151,18 @@ export function historyWhat(event: ProblemEvent, names: Names): string {
   }
 }
 
-/** Who did it: by name, or the neutral word for the system or somebody since deleted. */
+/**
+ * Who did it: by name; nobody at all — a trigger, the generator, the switch
+ * of an account — is «Система»; a person the directory does not know is the
+ * neutral «Сотрудник».
+ */
 export function historyWho(event: ProblemEvent, names: Names): string {
-  return personName(names, event.actor_id);
+  return event.actor_id === null
+    ? i18n.t('problems.history.system')
+    : personName(names, event.actor_id);
+}
+
+/** Where every history begins: the journal started with the rollout (docs/tech-plan.md §3.1). */
+export function historySince(): string {
+  return i18n.t('problems.history.since', { date: formatLongDate(JOURNAL_START) });
 }

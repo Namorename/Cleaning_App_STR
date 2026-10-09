@@ -1,3 +1,4 @@
+import { calendarDay } from '@/features/tasks/schema';
 import { supabase } from '@/lib/supabase';
 
 import {
@@ -18,16 +19,54 @@ const BOARD_COLUMNS =
   'property:properties(name, hostaway_unit_id, parent:parent_id(name)), ' +
   'fix_tasks:tasks!tasks_problem_id_fkey(id, type, assignee_id, status, scheduled_date, time_from, time_to)';
 
+/** How long a closed task stays on the board: the last month's work. */
+export const CLOSED_WINDOW_DAYS = 30;
+
+/** How many archived tasks one «Ещё» brings. */
+export const ARCHIVE_PAGE_SIZE = 50;
+
+/** The statuses that close a task; any other — one a newer server adds too — is still work. */
+const CLOSED_STATUSES = '(resolved,cancelled)';
+
 /**
- * Every task of the company, newest first. Row level security draws the line:
- * for the head technician that is all of them, the archive too (decisions 7
- * and 15).
+ * The company's tasks still on the board, newest first: everything live,
+ * and what was closed in the last thirty days — row level security draws the
+ * line, for the head technician all of the company (decisions 7 and 15). A
+ * company's tasks only grow, so the board does not read them all: the archive
+ * is `fetchArchivePage`, on demand. «Closed in the window» is the row's last
+ * change (`updated_at`, never null, touched by the closing itself), a day on
+ * the phone's calendar.
  */
-export async function fetchBoardProblems(): Promise<BoardProblem[]> {
+export async function fetchBoardProblems(now: Date = new Date()): Promise<BoardProblem[]> {
+  const since = calendarDay(now, -CLOSED_WINDOW_DAYS);
   const { data, error } = await supabase
     .from('problems')
     .select(BOARD_COLUMNS)
+    .is('archived_at', null)
+    .or(`status.not.in.${CLOSED_STATUSES},updated_at.gte.${since}`)
     .order('created_at', { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return boardProblemListSchema.parse(data ?? []);
+}
+
+/**
+ * One page of the archive (decision 7), newest first; `page` counts from 0.
+ * Ordered to the id as well, so a page boundary never repeats or skips a task
+ * created in the same instant as another.
+ */
+export async function fetchArchivePage(page: number): Promise<BoardProblem[]> {
+  const first = page * ARCHIVE_PAGE_SIZE;
+  const { data, error } = await supabase
+    .from('problems')
+    .select(BOARD_COLUMNS)
+    .not('archived_at', 'is', null)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .range(first, first + ARCHIVE_PAGE_SIZE - 1);
 
   if (error) {
     throw error;

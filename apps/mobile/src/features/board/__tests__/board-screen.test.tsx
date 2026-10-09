@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
+import { useUnreadSubjects } from '@/features/chat/use-chat';
 import {
   CLEANER_ANNA,
   STAFF,
@@ -12,23 +13,28 @@ import {
 
 import { BoardScreen } from '../board-screen';
 import type { BoardProblem } from '../schema';
-import { useBoardProblems, useStaffDirectory } from '../use-board';
+import { useBoardArchive, useBoardProblems, useStaffDirectory } from '../use-board';
 
 /**
  * The head technician's «Задания» (brief, item 1): every task of the company
- * as a card, filtered by status — the archive a filter of its own — and by who
- * holds the live repair, chosen on a sheet. Loading, empty and failure are the
- * components' own states.
+ * as a card, filtered by status — the archive a filter of its own, read only
+ * when he asks for it, a page at a time — and by who holds the live repair,
+ * chosen on a sheet. Loading, empty and failure are the components' own states.
  */
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
 jest.mock('@/features/chat/use-chat', () => ({
-  useUnreadSubjects: () => ({ tasks: new Set(), problems: new Set(), refetch: jest.fn() }),
+  useUnreadSubjects: jest.fn(() => ({
+    tasks: new Set(),
+    problems: new Set(),
+    refetch: jest.fn(),
+  })),
 }));
 
 jest.mock('../use-board', () => ({
   useBoardProblems: jest.fn(),
+  useBoardArchive: jest.fn(),
   useStaffDirectory: jest.fn(),
 }));
 
@@ -62,9 +68,13 @@ const ARCHIVED = boardProblem({
   title: 'Старая жалоба',
   archived_at: '2026-10-06T08:00:00+00:00',
 });
-const BOARD = [OPEN, IVANS, OLGAS, ANNAS, RESOLVED, ARCHIVED];
+/** What the board reads: no archive, the closed of the last month (api.ts). */
+const BOARD = [OPEN, IVANS, OLGAS, ANNAS, RESOLVED];
+/** What «Архив» reads, on demand. */
+const ARCHIVE = [ARCHIVED];
 
 type BoardAnswer = ReturnType<typeof useBoardProblems>;
+type ArchiveAnswer = ReturnType<typeof useBoardArchive>;
 
 function answer(overrides: Partial<BoardAnswer> = {}): void {
   jest.mocked(useBoardProblems).mockReturnValue({
@@ -77,15 +87,37 @@ function answer(overrides: Partial<BoardAnswer> = {}): void {
   } as BoardAnswer);
 }
 
+function answerArchive(overrides: Partial<ArchiveAnswer> = {}): void {
+  jest.mocked(useBoardArchive).mockReturnValue({
+    data: ARCHIVE,
+    isPending: false,
+    error: null,
+    refetch: jest.fn(),
+    isRefetching: false,
+    hasNextPage: false,
+    isFetchingNextPage: false,
+    fetchNextPage: jest.fn(),
+    ...overrides,
+  } as unknown as ArchiveAnswer);
+}
+
 function titles(): string[] {
   const [list] = screen.container.queryAll((node) => node.type === 'RCTSectionList');
   const scope = list === undefined ? screen : within(list);
-  return BOARD.map((problem) => problem.title).filter((title) => scope.queryByText(title) !== null);
+  return [...BOARD, ...ARCHIVE]
+    .map((problem) => problem.title)
+    .filter((title) => scope.queryByText(title) !== null);
+}
+
+/** The ids the unread marks were asked for, call by call. */
+function unreadAsked(): (readonly string[])[] {
+  return jest.mocked(useUnreadSubjects).mock.calls.map(([, problemIds]) => problemIds);
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
   answer();
+  answerArchive();
   jest.mocked(useStaffDirectory).mockReturnValue({
     data: STAFF,
     error: null,
@@ -122,6 +154,67 @@ describe('the status filter', () => {
     await fireEvent.press(screen.getByRole('tab', { name: chip }));
 
     expect(titles()).toEqual(expected);
+  });
+});
+
+// A company's tasks only grow; the archive is history he looks up, not work
+// waiting for him (brief, item 6).
+describe('the archive', () => {
+  test('is read only once «Архив» is chosen', async () => {
+    await render(<BoardScreen />);
+
+    expect(jest.mocked(useBoardArchive).mock.calls.every(([isOpen]) => isOpen === false)).toBe(
+      true,
+    );
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Архив' }));
+
+    expect(jest.mocked(useBoardArchive).mock.calls.at(-1)?.[0]).toBe(true);
+  });
+
+  test('«Ещё» reads the next page while there is one', async () => {
+    const fetchNextPage = jest.fn();
+    answerArchive({ hasNextPage: true, fetchNextPage });
+    await render(<BoardScreen />);
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Архив' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Ещё' }));
+
+    expect(fetchNextPage).toHaveBeenCalledTimes(1);
+  });
+
+  test('the last page offers no «Ещё», and the live board never does', async () => {
+    await render(<BoardScreen />);
+    expect(screen.queryByRole('button', { name: 'Ещё' })).toBeNull();
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Архив' }));
+
+    expect(screen.queryByRole('button', { name: 'Ещё' })).toBeNull();
+  });
+
+  test('while the archive loads, its shape stands in', async () => {
+    answerArchive({ data: undefined, isPending: true });
+    await render(<BoardScreen />);
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Архив' }));
+
+    expect(screen.getByRole('progressbar', { name: 'Загружаем задания…' })).toBeTruthy();
+  });
+});
+
+// One key for the marks, whatever the filters (brief, item 5): a filter is not
+// a new question to the server, and a task does not lose its mark under one.
+describe('the unread marks', () => {
+  test('are asked for the whole board and the archive held, not for what the filters leave', async () => {
+    await render(<BoardScreen />);
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Открыто' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Исполнитель: Все исполнители' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Иван Петров' }));
+
+    const whole = [...BOARD, ...ARCHIVE].map((problem) => problem.id);
+    expect(unreadAsked().length).toBeGreaterThan(1);
+    expect(unreadAsked().every((ids) => ids.join() === whole.join())).toBe(true);
   });
 });
 
@@ -193,6 +286,34 @@ describe('the assignee filter', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Сбросить фильтры' }));
     expect(titles()).toHaveLength(5);
   });
+
+  // A closed or archived task holds nobody (archive_problem cancels the live
+  // repair), so «Выполнено» or «Архив» with a person could never show a thing.
+  test.each([
+    ['Выполнено', ['Скрипит дверь']],
+    ['Архив', ['Старая жалоба']],
+  ])(
+    '«%s» sets the person aside and says why; back on «Все» he applies again',
+    async (chip, expected) => {
+      await render(<BoardScreen />);
+      await fireEvent.press(screen.getByRole('button', { name: 'Исполнитель: Все исполнители' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Иван Петров' }));
+
+      await fireEvent.press(screen.getByRole('tab', { name: chip }));
+
+      expect(titles()).toEqual(expected);
+      const picker = screen.getByRole('button', { name: 'Исполнитель: Все исполнители' });
+      expect(picker.props.accessibilityState).toMatchObject({ disabled: true });
+      expect(
+        screen.getByText('У закрытых и архивных заданий нет исполнителя — фильтр не действует'),
+      ).toBeTruthy();
+
+      await fireEvent.press(screen.getByRole('tab', { name: 'Все' }));
+
+      expect(titles()).toEqual(['Нет горячей воды']);
+      expect(screen.getByRole('button', { name: 'Исполнитель: Иван Петров' })).toBeTruthy();
+    },
+  );
 });
 
 describe('its states', () => {

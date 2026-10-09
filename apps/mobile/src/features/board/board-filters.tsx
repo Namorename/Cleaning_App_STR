@@ -55,7 +55,13 @@ function isSameFilter(a: AssigneeFilter, b: AssigneeFilter): boolean {
 interface BoardFiltersProps {
   status: BoardStatusFilter;
   onStatusChange: (status: BoardStatusFilter) => void;
+  /** The person the board is filtered by now: «all» while the filter is set aside. */
   assignee: AssigneeFilter;
+  /**
+   * A closed or archived task holds nobody, so under «Выполнено» and «Архив»
+   * the person filter could only empty the board: it is set aside, and says so.
+   */
+  isAssigneeOff: boolean;
   names: ReadonlyMap<string, string>;
   onPickAssignee: () => void;
 }
@@ -65,6 +71,7 @@ export function BoardFilters({
   status,
   onStatusChange,
   assignee,
+  isAssigneeOff,
   names,
   onPickAssignee,
 }: BoardFiltersProps) {
@@ -87,12 +94,21 @@ export function BoardFilters({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={label}
+        accessibilityState={{ disabled: isAssigneeOff }}
+        disabled={isAssigneeOff}
         onPress={onPickAssignee}
         style={({ pressed }) => [styles.picker, pressed && styles.pressed]}
       >
-        <Text style={styles.pickerText}>{label}</Text>
+        <Text tone={isAssigneeOff ? 'secondary' : 'default'} style={styles.pickerText}>
+          {label}
+        </Text>
         <Icon name="action.expand" size="small" tone="secondary" />
       </Pressable>
+      {isAssigneeOff ? (
+        <Text variant="caption" tone="secondary">
+          {t('problems.board.assigneeClosed')}
+        </Text>
+      ) : null}
     </View>
   );
 }

@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import ProblemHistoryRoute from '@/app/problem/[id]/history';
 import { formatReportedAt } from '@/features/problems/format';
 import { HEAD_TECH, PROBLEM_ID, REPAIR_ID, STAFF, TECH_IVAN } from '@/testing/board-fixtures';
+import { pinToday } from '@/testing/clock';
 
 import type { ProblemEvent } from '../schema';
 import { useProblemEvents } from '../use-history';
@@ -75,6 +76,15 @@ function answer(overrides: Partial<EventsAnswer> = {}): void {
   } as EventsAnswer);
 }
 
+// Written on 9 October 2026: the days of this year are named without it.
+beforeAll(() => {
+  pinToday(new Date(2026, 9, 9, 12, 0));
+});
+
+afterAll(() => {
+  jest.useRealTimers();
+});
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockRole = 'head_tech';
@@ -91,7 +101,7 @@ describe('the head technician', () => {
     expect(lines).toEqual([
       `Иван Петров. Задание заведено. ${formatReportedAt(STORY[0].created_at)}`,
       `Сергей Главный. Назначено: Иван Петров · ср, 7 октября. ${formatReportedAt(STORY[1].created_at)}`,
-      `Сотрудник. Иван Петров: работа снята — учётка отключена. ${formatReportedAt(STORY[2].created_at)}`,
+      `Система. Иван Петров: работа снята — учётка отключена. ${formatReportedAt(STORY[2].created_at)}`,
     ]);
   });
 

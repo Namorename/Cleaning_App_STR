@@ -1,4 +1,5 @@
 import {
+  useInfiniteQuery,
   useIsMutating,
   useMutation,
   useQuery,
@@ -6,6 +7,7 @@ import {
   type QueryClient,
 } from '@tanstack/react-query';
 import { useMemo } from 'react';
+import { z } from 'zod';
 
 import { useSession } from '@/features/auth/session';
 import { problemKeys } from '@/features/problems/keys';
@@ -13,7 +15,9 @@ import { taskKeys } from '@/features/tasks/use-tasks';
 import { readCached } from '@/lib/read-cached';
 
 import {
+  ARCHIVE_PAGE_SIZE,
   assignProblem,
+  fetchArchivePage,
   fetchBoardProblem,
   fetchBoardProblems,
   fetchStaffDirectory,
@@ -48,13 +52,25 @@ function readStaff(data: unknown): StaffMember[] {
   return readCached(staffListSchema, data, 'staff');
 }
 
+/** The archive's pages as the infinite query keeps them, each page read through the schema. */
+const archivePagesSchema = z.object({
+  pages: z.array(boardProblemListSchema),
+  pageParams: z.array(z.unknown()),
+});
+
+/** The archive's pages, one list in their order. */
+function readArchive(data: unknown): BoardProblem[] {
+  return readCached(archivePagesSchema, data, 'board archive').pages.flat();
+}
+
 /** Every task of the company, for the head technician's «Задания». */
 export function useBoardProblems() {
   const { userId } = useSession();
 
   return useQuery({
     queryKey: boardKeys.list(userId ?? ''),
-    queryFn: fetchBoardProblems,
+    // Called bare: the query's own context is not the day the window counts from.
+    queryFn: () => fetchBoardProblems(),
     select: readBoard,
     enabled: userId !== null,
   });
@@ -86,6 +102,24 @@ export function useBoardProblem(problemId: string) {
         ?.find((problem) => problem.id === problemId),
     initialDataUpdatedAt: 0,
     refetchOnMount: 'always',
+  });
+}
+
+/**
+ * The archive (decision 7), read only once he opens it (`isOpen`) and then a
+ * page at a time: a full page means there may be more, «Ещё» reads it.
+ */
+export function useBoardArchive(isOpen: boolean) {
+  const { userId } = useSession();
+
+  return useInfiniteQuery({
+    queryKey: boardKeys.archive(userId ?? ''),
+    queryFn: ({ pageParam }) => fetchArchivePage(pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage: readonly unknown[], pages) =>
+      lastPage.length < ARCHIVE_PAGE_SIZE ? undefined : pages.length,
+    select: readArchive,
+    enabled: userId !== null && isOpen,
   });
 }
 

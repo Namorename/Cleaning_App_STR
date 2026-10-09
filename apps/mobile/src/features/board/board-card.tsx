@@ -9,10 +9,18 @@ import { Icon } from '@/components/icon';
 import { Text } from '@/components/text';
 import { Spacing } from '@/constants/theme';
 import { problemPlace, problemStatusText } from '@/features/problems/format';
+import { calendarDay } from '@/features/tasks/schema';
 import { useTheme } from '@/hooks/use-theme';
 
 import { personName, repairWhen } from './format';
-import { isLive, liveRepair, type BoardProblem } from './schema';
+import { isLive, liveRepair, type BoardProblem, type BoardRepair } from './schema';
+
+/** A live repair whose day is behind the phone's today: still undone, and late. */
+function isOverdue(repair: BoardRepair | null, now: Date): boolean {
+  return (
+    repair !== null && repair.scheduled_date !== null && repair.scheduled_date < calendarDay(now)
+  );
+}
 
 interface BoardCardProps {
   problem: BoardProblem;
@@ -28,8 +36,10 @@ interface BoardCardProps {
  * status in its tone, the place, who holds the live repair and its day. A task
  * nobody holds while it still waits says «Без исполнителя» in the unassigned
  * tone — dashed, with the dashed person (decision 3) — and a closed one says
- * nothing of a person: it waits for nobody. One card, one button, as her own
- * list has it.
+ * nothing of a person: it waits for nobody. Red is for what still needs doing
+ * (decision 3): «Срочно» and «Просрочено» — a live repair whose day has
+ * passed — only while the task is live, never on a closed or archived one.
+ * One card, one button, as her own list has it.
  */
 function BoardCardComponent({ problem, names, onPress, hasUnread = false }: BoardCardProps) {
   const { t } = useTranslation();
@@ -41,13 +51,16 @@ function BoardCardComponent({ problem, names, onPress, hasUnread = false }: Boar
   const isWaiting = holder === null && isLive(problem);
   const nobody = t('problems.board.nobody');
   const when = repair === null ? null : repairWhen(repair);
-  const isUrgent = problem.priority === 'high';
+  const isUrgent = problem.priority === 'high' && isLive(problem);
   const urgent = t('supplies.priorities.urgent');
+  const overdue =
+    isLive(problem) && isOverdue(repair, new Date()) ? t('problems.board.overdue') : null;
   const archived = problem.archived_at === null ? null : t('problems.board.archived');
   const label = [
     problem.title,
     place,
     status,
+    overdue,
     person ?? (isWaiting ? nobody : null),
     when,
     isUrgent ? urgent : null,
@@ -65,6 +78,13 @@ function BoardCardComponent({ problem, names, onPress, hasUnread = false }: Boar
       <View style={styles.marks}>
         {hasUnread ? <Badge label={t('chat.unread')} tone={STATUS_TONE['chat.unread']} /> : null}
         <Badge label={status} tone={problemStatusTone(problem.status)} />
+        {overdue === null ? null : (
+          <Badge
+            testID="board-overdue"
+            label={overdue}
+            tone={STATUS_TONE['calendar.overdueRepair']}
+          />
+        )}
         {isUrgent ? <Badge label={urgent} tone={problemPriorityTone('high')} /> : null}
         {archived === null ? null : (
           <Badge

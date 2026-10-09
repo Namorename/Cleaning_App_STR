@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet, type ViewStyle } from 'react-native';
 
 import { Colors } from '@/constants/theme';
+import { calendarDay } from '@/features/tasks/schema';
 import { i18n } from '@/i18n';
 import {
   CLEANER_ANNA,
@@ -101,13 +102,90 @@ test('a person the directory does not know is a neutral word, never an id', asyn
   expect(screen.getByText('Сотрудник')).toBeTruthy();
 });
 
-test('an urgent task and an archived one carry their pills', async () => {
-  const problem = boardProblem({ priority: 'high', archived_at: '2026-10-06T08:00:00+00:00' });
+test('an urgent task carries «Срочно» while somebody still has to see to it', async () => {
+  await render(
+    <BoardCard problem={boardProblem({ priority: 'high' })} names={NAMES} onPress={jest.fn()} />,
+  );
+
+  expect(screen.getByText('Срочно')).toBeTruthy();
+});
+
+// Red is for what still needs doing (decision 3): a closed or archived task
+// is history, however urgent it was.
+test.each([
+  ['archived', { archived_at: '2026-10-06T08:00:00+00:00' }],
+  ['resolved', { status: 'resolved' as const, fix_tasks: [repair({ status: 'done' })] }],
+  ['cancelled', { status: 'cancelled' as const }],
+])('an urgent task that is %s says nothing urgent', async (_kind, overrides) => {
+  const problem = boardProblem({ priority: 'high', ...overrides });
 
   await render(<BoardCard problem={problem} names={NAMES} onPress={jest.fn()} />);
 
-  expect(screen.getByText('Срочно')).toBeTruthy();
+  expect(screen.queryByText('Срочно')).toBeNull();
+});
+
+test('an archived task carries its pill', async () => {
+  const problem = boardProblem({ archived_at: '2026-10-06T08:00:00+00:00' });
+
+  await render(<BoardCard problem={problem} names={NAMES} onPress={jest.fn()} />);
+
   expect(screen.getByText('В архиве')).toBeTruthy();
+});
+
+describe('a repair whose day has passed', () => {
+  const yesterday = calendarDay(new Date(), -1);
+
+  test('is «Просрочено» in the overdue tone — solid, not the dashed «Без исполнителя»', async () => {
+    const problem = boardProblem({
+      status: 'assigned',
+      fix_tasks: [repair({ scheduled_date: yesterday })],
+    });
+
+    await render(<BoardCard problem={problem} names={NAMES} onPress={jest.fn()} />);
+
+    expect(screen.getByText('Просрочено')).toBeTruthy();
+    expect(chipFrame('board-overdue')).toMatchObject({
+      borderStyle: 'solid',
+      borderColor: Colors.light.tone.overdue.border,
+    });
+    expect(screen.getByRole('button').props.accessibilityLabel).toContain('Просрочено');
+  });
+
+  test('waiting for nobody since then is overdue too', async () => {
+    const problem = boardProblem({
+      fix_tasks: [repair({ assignee_id: null, status: 'unassigned', scheduled_date: yesterday })],
+    });
+
+    await render(<BoardCard problem={problem} names={NAMES} onPress={jest.fn()} />);
+
+    expect(screen.getByText('Просрочено')).toBeTruthy();
+  });
+
+  test.each([
+    ['today', boardProblem({ status: 'assigned', fix_tasks: [repair()] })],
+    [
+      'done',
+      boardProblem({
+        status: 'resolved',
+        fix_tasks: [repair({ status: 'done', scheduled_date: yesterday })],
+      }),
+    ],
+  ])('is not overdue when it is %s', async (_when, problem) => {
+    await render(<BoardCard problem={problem} names={NAMES} onPress={jest.fn()} />);
+
+    expect(screen.queryByText('Просрочено')).toBeNull();
+  });
+});
+
+test('hours with a start only read «с 10:00»', async () => {
+  const problem = boardProblem({
+    status: 'assigned',
+    fix_tasks: [repair({ time_from: '10:00:00' })],
+  });
+
+  await render(<BoardCard problem={problem} names={NAMES} onPress={jest.fn()} />);
+
+  expect(screen.getByText('Сегодня · с 10:00')).toBeTruthy();
 });
 
 test('a press opens the task', async () => {

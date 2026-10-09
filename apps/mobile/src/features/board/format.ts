@@ -1,7 +1,13 @@
 import type { TFunction } from 'i18next';
 
-import { formatDayHeading } from '@/features/tasks/format';
-import { INTL_LOCALES, currentLanguage, i18n } from '@/i18n';
+import {
+  clockTime,
+  formatCalendarDate,
+  formatDayHeading,
+  formatterFor,
+  parseCalendarDate,
+} from '@/features/tasks/format';
+import { i18n } from '@/i18n';
 
 import { TECHNICIAN_ROLES, type BoardRepair, type StaffMember } from './schema';
 
@@ -52,17 +58,21 @@ export function personName(names: ReadonlyMap<string, string>, id: string | null
   return (id === null ? undefined : names.get(id)) ?? i18n.t('problems.unknownPerson');
 }
 
-/** "10:00:00" as Postgres writes a time, shown as "10:00". */
-function clockTime(value: string): string {
-  return value.slice(0, 5);
-}
-
-/** The hours of a repair, as much of them as is known, or null for none. */
+/**
+ * The hours of a repair, as much of them as is known, or null for none:
+ * «10:00–12:00», «с 10:00», «до 12:00» — an open dash reads as a typo.
+ */
 export function formatHours(from: string | null, to: string | null): string | null {
-  if (from === null && to === null) {
-    return null;
+  if (from !== null && to !== null) {
+    return `${clockTime(from)}–${clockTime(to)}`;
   }
-  return `${from === null ? '' : clockTime(from)}–${to === null ? '' : clockTime(to)}`;
+  if (from !== null) {
+    return i18n.t('problems.board.hoursFrom', { time: clockTime(from) });
+  }
+  if (to !== null) {
+    return i18n.t('problems.board.hoursUntil', { time: clockTime(to) });
+  }
+  return null;
 }
 
 /** The day and hours of a live repair, the way her lists name a day: «Сегодня · 10:00–12:00». */
@@ -75,34 +85,25 @@ export function repairWhen(repair: BoardRepair): string | null {
   return hours === null ? day : `${day}${PART_SEPARATOR}${hours}`;
 }
 
-const dayFormatters = new Map<string, Intl.DateTimeFormat>();
+const dayWithYearFormatters = new Map<string, Intl.DateTimeFormat>();
 const longDateFormatters = new Map<string, Intl.DateTimeFormat>();
-
-function formatterFor(
-  cache: Map<string, Intl.DateTimeFormat>,
-  options: Intl.DateTimeFormatOptions,
-): Intl.DateTimeFormat {
-  const locale = INTL_LOCALES[currentLanguage()];
-  const formatter = cache.get(locale) ?? new Intl.DateTimeFormat(locale, options);
-  cache.set(locale, formatter);
-  return formatter;
-}
 
 /**
  * A calendar date as a date, not as «today»: a history is read days later.
- * Split by hand — `new Date('2026-10-09')` is midnight UTC, the day before to
- * anyone west of Greenwich.
+ * «пт, 9 октября»; a day of another year than now names it — «вт, 30 декабря
+ * 2025 г.» — or a December entry read in January would seem a year younger.
  */
-function calendarDate(date: string): Date {
-  const [year, month, day] = date.split('-').map(Number);
-  return new Date(year, month - 1, day);
-}
-
-/** «пт, 9 октября». */
-export function formatDay(date: string): string {
-  return formatterFor(dayFormatters, { weekday: 'short', day: 'numeric', month: 'long' }).format(
-    calendarDate(date),
-  );
+export function formatDay(date: string, now: Date = new Date()): string {
+  const day = parseCalendarDate(date);
+  if (day.getFullYear() === now.getFullYear()) {
+    return formatCalendarDate(date);
+  }
+  return formatterFor(dayWithYearFormatters, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(day);
 }
 
 /** «3 октября 2026 г.». */
@@ -111,5 +112,5 @@ export function formatLongDate(date: string): string {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-  }).format(calendarDate(date));
+  }).format(parseCalendarDate(date));
 }

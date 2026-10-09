@@ -1,4 +1,4 @@
-import { onlineManager, type QueryClient } from '@tanstack/react-query';
+import { QueryClient, onlineManager } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { createAppQueryClient } from '@/lib/query-client';
@@ -14,6 +14,7 @@ import { restoredFromDisk, withClient } from '@/testing/restored-cache';
 
 import {
   assignProblem,
+  fetchArchivePage,
   fetchBoardProblem,
   fetchBoardProblems,
   fetchStaffDirectory,
@@ -22,6 +23,7 @@ import {
 import { boardKeys } from '../keys';
 import {
   useAssignProblem,
+  useBoardArchive,
   useBoardProblem,
   useBoardProblems,
   useStaffDirectory,
@@ -29,6 +31,8 @@ import {
 } from '../use-board';
 
 jest.mock('../api', () => ({
+  ARCHIVE_PAGE_SIZE: 50,
+  fetchArchivePage: jest.fn(),
   fetchBoardProblems: jest.fn(),
   fetchBoardProblem: jest.fn(),
   fetchStaffDirectory: jest.fn(),
@@ -60,6 +64,7 @@ beforeEach(() => {
   jest.mocked(fetchBoardProblems).mockReturnValue(new Promise(() => {}));
   jest.mocked(fetchBoardProblem).mockReturnValue(new Promise(() => {}));
   jest.mocked(fetchStaffDirectory).mockReturnValue(new Promise(() => {}));
+  jest.mocked(fetchArchivePage).mockReturnValue(new Promise(() => {}));
 });
 
 describe('read through the schema on the way out', () => {
@@ -92,6 +97,65 @@ describe('read through the schema on the way out', () => {
     });
 
     await waitFor(() => expect(result.current.error?.message).toMatch(/^Cached staff unreadable/));
+  });
+});
+
+describe('the archive, read on demand, a page at a time', () => {
+  /** A task put away, its id numbered so a page of them has fifty different ones. */
+  function archived(index: number) {
+    return boardProblem({
+      id: `d1e2f3a4-1111-4111-8111-${String(index).padStart(12, '0')}`,
+      archived_at: '2026-10-06T08:00:00+00:00',
+    });
+  }
+
+  function client(): QueryClient {
+    return new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+  }
+
+  test('nothing is read before he opens the archive', async () => {
+    await renderHook(() => useBoardArchive(false), { wrapper: withClient(client()) });
+
+    expect(fetchArchivePage).not.toHaveBeenCalled();
+  });
+
+  test('a full page offers the next one; a short page is the last', async () => {
+    // Arrange
+    jest
+      .mocked(fetchArchivePage)
+      .mockResolvedValueOnce(Array.from({ length: 50 }, (_, index) => archived(index)))
+      .mockResolvedValueOnce([archived(50), archived(51)]);
+    const { result } = await renderHook(() => useBoardArchive(true), {
+      wrapper: withClient(client()),
+    });
+    await waitFor(() => expect(result.current.data).toHaveLength(50));
+    expect(result.current.hasNextPage).toBe(true);
+
+    // Act: «Ещё».
+    await act(async () => {
+      await result.current.fetchNextPage();
+    });
+
+    // Assert
+    await waitFor(() => expect(result.current.data).toHaveLength(52));
+    expect(jest.mocked(fetchArchivePage).mock.calls.map(([page]) => page)).toEqual([0, 1]);
+    expect(result.current.hasNextPage).toBe(false);
+  });
+
+  test('pages saved in an older shape read with defaults', async () => {
+    const saved = {
+      pages: [SAVED_BOARD.map((row) => ({ ...row, archived_at: '2026-10-06T08:00:00+00:00' }))],
+      pageParams: [0],
+    };
+    const restored = restoredFromDisk(boardKeys.archive(HEAD_TECH), saved);
+
+    const { result } = await renderHook(() => useBoardArchive(true), {
+      wrapper: withClient(restored),
+    });
+
+    const [row] = result.current.data ?? [];
+    expect(row.property).toEqual({ name: '1 - 2109', hostaway_unit_id: null, parent: null });
+    expect(row.fix_tasks[0].scheduled_date).toBeNull();
   });
 });
 

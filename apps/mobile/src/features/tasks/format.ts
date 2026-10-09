@@ -8,11 +8,13 @@ import { calendarDay, isSameDayTurnover, startNotBefore, type CleaningTask } fro
 /**
  * Formatters are built per language and kept: constructing an
  * `Intl.DateTimeFormat` is not free and a list rebuilds every visible row.
+ * A screen with formats of its own keeps its own cache and asks
+ * `formatterFor` with it (features/board/format.ts).
  */
 const dateFormatters = new Map<string, Intl.DateTimeFormat>();
 const timeFormatters = new Map<string, Intl.DateTimeFormat>();
 
-function formatterFor(
+export function formatterFor(
   cache: Map<string, Intl.DateTimeFormat>,
   options: Intl.DateTimeFormatOptions,
 ): Intl.DateTimeFormat {
@@ -28,18 +30,23 @@ function formatterFor(
 }
 
 /**
- * `scheduled_date` is a calendar date, not an instant. Parsing it with the
- * plain Date constructor would read it as midnight UTC and show the previous
- * day to anyone west of Greenwich, so the parts are split by hand.
+ * A calendar date — `scheduled_date`, a day in a task's history — as local
+ * midnight of that day. Parsing it with the plain Date constructor would read
+ * it as midnight UTC and show the previous day to anyone west of Greenwich, so
+ * the parts are split by hand.
  */
-function formatCalendarDate(date: string): string {
+export function parseCalendarDate(date: string): Date {
   const [year, month, day] = date.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
 
+/** «пт, 9 октября»: a calendar date with its weekday, in her language. */
+export function formatCalendarDate(date: string): string {
   return formatterFor(dateFormatters, {
     day: 'numeric',
     month: 'long',
     weekday: 'short',
-  }).format(new Date(year, month - 1, day));
+  }).format(parseCalendarDate(date));
 }
 
 export function formatScheduledDate(task: CleaningTask): string {
@@ -191,7 +198,7 @@ export function formatClockTime(instant: string): string {
 }
 
 /** "10:00:00" as Postgres writes a time, shown as "10:00". */
-function clockTime(value: string): string {
+export function clockTime(value: string): string {
   return value.slice(0, 5);
 }
 

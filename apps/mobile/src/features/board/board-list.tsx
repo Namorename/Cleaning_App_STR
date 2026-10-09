@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RefreshControl, SectionList, StyleSheet, View } from 'react-native';
 
+import { Button } from '@/components/button';
 import { EmptyState, type EmptyStateProps } from '@/components/empty-state';
 import { ErrorBanner } from '@/components/error-banner';
 import { ErrorState } from '@/components/error-state';
@@ -25,6 +26,9 @@ interface BoardListProps {
   unreadProblemIds?: ReadonlySet<string>;
   /** What an empty answer says: no tasks at all, or none under the filters. */
   empty: EmptyStateProps;
+  /** «Ещё» under the list, while there is a next page to read (the archive). */
+  onLoadMore?: () => void;
+  isLoadingMore?: boolean;
 }
 
 /**
@@ -42,6 +46,8 @@ export function BoardList({
   onPress,
   unreadProblemIds,
   empty,
+  onLoadMore,
+  isLoadingMore = false,
 }: BoardListProps) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -104,6 +110,17 @@ export function BoardList({
         />
       }
       ListEmptyComponent={<EmptyState {...empty} />}
+      ListFooterComponent={
+        onLoadMore === undefined ? undefined : (
+          <Button
+            variant="outline"
+            label={t('problems.board.more')}
+            isBusy={isLoadingMore}
+            onPress={onLoadMore}
+            style={styles.more}
+          />
+        )
+      }
     />
   );
 }
@@ -139,5 +156,6 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.sm,
   },
   separator: { height: Spacing.md },
+  more: { marginTop: Spacing.lg },
   skeleton: { flex: 1, padding: Spacing.lg, gap: Spacing.md },
 });
