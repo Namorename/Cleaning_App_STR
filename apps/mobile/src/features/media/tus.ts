@@ -46,7 +46,10 @@ const MS_PER_SECOND = 1000;
 const TUS_VERSION = '1.0.0';
 /** The same as supabase-js gives a single upload. */
 const CACHE_CONTROL_SECONDS = '3600';
-/** Conflicts, expired addresses or pieces that moved nothing in a row before the attempt gives up. */
+/**
+ * Conflicts, expired addresses or pieces that moved nothing in a row — or
+ * uploads made anew in one attempt, in a row or not — before it gives up.
+ */
 const MAX_DETOURS = 3;
 
 /** The file being uploaded, read a piece at a time. */
@@ -257,6 +260,12 @@ class TusSession {
     let position = await this.start();
     let failures = 0;
     let detours = 0;
+    // Uploads made anew in this attempt: the address gone (404, 410) or
+    // refused. Unlike the other detours, progress does not start this count
+    // again — an upload the storage forgets after each piece moves on every
+    // time, and would have its first pieces sent for ever (item 7 of the two
+    // whole-branch reviews of phone-1-2-0).
+    let renewals = 0;
 
     for (;;) {
       if (position.offset !== null && position.offset >= this.source.size) {
@@ -288,8 +297,9 @@ class TusSession {
         position = next;
       } else if (isDetour(position, next)) {
         detours += 1;
+        renewals += isRenewal(position, next) ? 1 : 0;
         // Outside the request's own tries: the attempt ends, for the queue to try later.
-        if (detours > MAX_DETOURS) {
+        if (detours > MAX_DETOURS || renewals > MAX_DETOURS) {
           throw new TusRetryableError(
             'Resumable upload keeps losing its place in storage',
             'lost-place',
@@ -607,6 +617,11 @@ class TusSession {
 /** A piece was taken: the storage holds more than it did before this request. */
 function hasAdvanced(before: Position, after: Position): boolean {
   return before.offset !== null && after.offset !== null && after.offset > before.offset;
+}
+
+/** The upload's address let go — gone, expired or refused — and a new upload to be made. */
+function isRenewal(before: Position, after: Position): boolean {
+  return before.url !== null && after.url === null;
 }
 
 /**

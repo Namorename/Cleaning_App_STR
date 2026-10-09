@@ -1,15 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient, notifyManager, onlineManager, type QueryKey } from '@tanstack/react-query';
 import type { PersistedClient } from '@tanstack/react-query-persist-client';
 
 import { registerChatMutations } from '@/features/chat/use-chat';
-import { registerMediaMutations } from '@/features/media/use-media';
+import { SILENT_RETRIES } from '@/features/media/attach-retry';
+import { mediaKeys } from '@/features/media/keys';
+import { isVideoUpload, registerMediaMutations } from '@/features/media/use-media';
 import { registerProblemMutations } from '@/features/problems/use-problems';
 import { registerSettingsMutations } from '@/features/settings/use-settings';
+import { stepKeys } from '@/features/steps/keys';
 import { registerSupplyMutations } from '@/features/supplies/use-supplies';
 import { registerStepMutations } from '@/features/steps/use-steps';
-import { registerTaskMutations } from '@/features/tasks/use-tasks';
+import { registerTaskMutations, taskKeys } from '@/features/tasks/use-tasks';
 import { goOffline, isNetworkError } from '@/lib/online';
 
 /** Milliseconds; the cache is thrown away after this long without a refresh. */
@@ -26,13 +29,62 @@ const MUTATION_RETRIES = 1;
  * goes through with nothing tapped twice. Anything else — a refusal, a server
  * error — gets its one more try and then fails, as it always did, so the
  * screen can say why.
+ *
+ * Bounded as an upload is (attach-retry.ts; the two whole-branch reviews of
+ * phone-1-2-0, finding 3): a move left unanswered while the client still
+ * believes there is signal — the server's health answers its look, the move
+ * does not — fails once it has failed SILENT_RETRIES times before. Each look
+ * that found the server would otherwise send it again, every fifteen seconds,
+ * for ever, and the screen would never say it did not go. A failure with the
+ * signal gone is the network's and never ends a move. TanStack hands this
+ * only the count of all the move's failures, so an outage it waited through
+ * counts among them — one for each outage, at most, since a move is tried
+ * again only once there is signal.
  */
 function retryMove(failureCount: number, error: unknown): boolean {
   if (isNetworkError(error)) {
+    if (onlineManager.isOnline() && failureCount >= SILENT_RETRIES) {
+      return false;
+    }
     goOffline();
     return true;
   }
   return failureCount < MUTATION_RETRIES;
+}
+
+const noop = () => undefined;
+
+/**
+ * TanStack's client, except that a video does not hold the lists.
+ *
+ * Before it refreshes the lists when the app comes to the front — and before
+ * its step on reconnect, which refetches no list here: they read with
+ * networkMode 'always' — TanStack resumes the queue paused meanwhile and waits
+ * for all of it; so does the start (`resumeSavedMoves`). A video takes
+ * minutes over mobile data, and every list on the phone would wait as long
+ * (the two whole-branch reviews of phone-1-2-0, finding 1). The videos' line
+ * is resumed with the rest and not waited for:
+ * each upload refreshes its own step's lists once it is in
+ * (`registerMediaMutations`). Otherwise as TanStack's own: nothing is resumed
+ * without signal.
+ */
+class AppQueryClient extends QueryClient {
+  override resumePausedMutations(): Promise<unknown> {
+    if (!onlineManager.isOnline()) {
+      return Promise.resolve();
+    }
+    const paused = this.getMutationCache()
+      .getAll()
+      .filter((mutation) => mutation.state.isPaused);
+    return notifyManager.batch(() =>
+      Promise.all(
+        paused.map((mutation) => {
+          const run = mutation.continue().catch(noop);
+          return isVideoUpload(mutation) ? undefined : run;
+        }),
+      ),
+    );
+  }
 }
 
 /**
@@ -53,7 +105,7 @@ function retryMove(failureCount: number, error: unknown): boolean {
  * offline — a spinner that waits for the network would read as a hang.
  */
 export function createAppQueryClient(): QueryClient {
-  const queryClient = new QueryClient({
+  const queryClient = new AppQueryClient({
     defaultOptions: {
       queries: {
         // A cleaner's phone drops to no signal inside stairwells more often
@@ -81,6 +133,33 @@ export function createAppQueryClient(): QueryClient {
   registerSettingsMutations(queryClient);
 
   return queryClient;
+}
+
+/** Signed links (`mediaKeys.urls`): good for an hour, and no upload changes them. */
+const SIGNED_LINKS = mediaKeys.urls([]);
+
+function isSignedLinks(key: QueryKey): boolean {
+  return SIGNED_LINKS.every((part, index) => key[index] === part);
+}
+
+/**
+ * Once the cache is back from disk: the moves tapped without signal go
+ * through, and the lists they change are refreshed — the cleanings, their
+ * steps and the files on them. A move restored from disk has no screen of its
+ * own to refresh them. The videos' line is not waited for (`AppQueryClient`):
+ * each video refreshes its step when it is in. Signed links are left as they
+ * are: asking them again would only load every picture again.
+ */
+export async function resumeSavedMoves(queryClient: QueryClient): Promise<void> {
+  await queryClient.resumePausedMutations();
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: taskKeys.all }),
+    queryClient.invalidateQueries({ queryKey: stepKeys.all }),
+    queryClient.invalidateQueries({
+      queryKey: mediaKeys.all,
+      predicate: (query) => !isSignedLinks(query.queryKey),
+    }),
+  ]);
 }
 
 /** Where the cache lives on disk: the lists she saw and the moves waiting for signal. */

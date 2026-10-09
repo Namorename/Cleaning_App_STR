@@ -4,6 +4,7 @@ import {
   useMutationState,
   useQuery,
   useQueryClient,
+  type Mutation,
   type QueryClient,
 } from '@tanstack/react-query';
 import { useMemo, useSyncExternalStore } from 'react';
@@ -67,6 +68,15 @@ export const mediaMutationKeys = {
  */
 const ATTACH_SCOPE = { id: 'media-attach' };
 const VIDEO_ATTACH_SCOPE = { id: 'media-attach-video' };
+
+/**
+ * An upload in the videos' line: minutes long over mobile data, so the queue
+ * resumes it without waiting for it (lib/query-client.ts). Its scope, not its
+ * kind, says so: a video restored from disk keeps the scope it was queued with.
+ */
+export function isVideoUpload(mutation: Pick<Mutation, 'options'>): boolean {
+  return mutation.options.scope?.id === VIDEO_ATTACH_SCOPE.id;
+}
 
 export interface AttachMediaVariables extends AddMediaVariables {
   /** The file on the phone. */
@@ -239,6 +249,13 @@ async function releaseVideo(
  * by the time the server answers, and nothing watches the upload until she
  * opens the step again — which is when its refusal has to be there to be said
  * (`useFailedVideoAttach`). A retry or a removal clears the failed attempt.
+ *
+ * Settled, an action refreshes what its file's owner shows — here as well as
+ * in the hooks, whose own options override these: an action restored from
+ * disk after a restart has no hook, only these, and would otherwise leave
+ * the step's tiles saying "uploading" over a file long in (the two
+ * whole-branch reviews of phone-1-2-0, finding 1). Its scope comes back from
+ * disk with it, so a restored video keeps its own line.
  */
 export function registerMediaMutations(queryClient: QueryClient): void {
   queryClient.setMutationDefaults(mediaMutationKeys.attach, {
@@ -246,12 +263,16 @@ export function registerMediaMutations(queryClient: QueryClient): void {
     scope: ATTACH_SCOPE,
     retry: retryAttach,
     gcTime: Number.POSITIVE_INFINITY,
+    onSettled: (_row: unknown, _error: unknown, variables: AttachMediaVariables) =>
+      invalidateOwner(queryClient, variables),
   });
   // Kept for the run too: a removal is what silences the later failure of
   // its file's upload (`useFailedVideoAttach`).
   queryClient.setMutationDefaults(mediaMutationKeys.remove, {
     mutationFn: ({ mediaId }: RemoveMediaVariables) => removeMedia(mediaId),
     gcTime: Number.POSITIVE_INFINITY,
+    onSettled: (_row: unknown, _error: unknown, variables: RemoveMediaVariables) =>
+      invalidateOwner(queryClient, variables),
   });
 }
 

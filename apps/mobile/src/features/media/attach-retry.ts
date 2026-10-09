@@ -7,13 +7,14 @@ import { TusRetryableError } from './tus';
 
 /**
  * How the upload queue tries again (review of video part 2, finding 3; the
- * third pass on video, findings 1 and 2; the fourth, findings 1, 2 and 5).
+ * third pass on video, findings 1 and 2; the fourth, findings 1, 2 and 5; the
+ * two whole-branch reviews of phone-1-2-0, finding 3 and item 7).
  *
- * Silence — a fetch that reached nothing, a resumable upload whose request
- * got no answer at all — marks the queue offline, as the app's other moves
- * do (lib/query-client.ts): the upload pauses until a look at the server
- * finds it, and is tried again. An outage in a stairwell must not use up
- * what a refusal is owed.
+ * Silence — a fetch that reached nothing, an RPC or a resumable upload whose
+ * request got no answer at all — marks the queue offline, as the app's other
+ * moves do (lib/query-client.ts): the upload pauses until a look at the
+ * server finds it, and is tried again. An outage in a stairwell must not use
+ * up what a refusal is owed.
  *
  * Every way an upload can fail is bounded, so none of them loops for ever.
  * Each has its own count, per file, from the moment the file is handed to
@@ -29,16 +30,21 @@ import { TusRetryableError } from './tus';
  *   the earlier one went through, and starts it again. Spent, it says the
  *   connection is too slow to send the video (`UploadTooSlowError`): a piece
  *   given ten minutes moved nothing, some 84 kbit/s up at best;
- * - a resumable upload left unanswered although there was signal — when the
- *   attempt began and when it ended — and that moved nothing: four more in a
- *   row. The look for the server goes to its health check, not to the
- *   storage; a storage host out of reach (a DNS filter, a proxy, an outage
- *   that does not answer) would otherwise be found "online" again and again.
- *   Without signal at either end it was the network's, and counts for nothing.
+ * - any request of the upload left unanswered although there was signal —
+ *   when the attempt began and when it ended — in an attempt that moved
+ *   nothing: four more in a row. A photo, a chat photo's message and the
+ *   registration and confirmation of either count the same as a video's
+ *   pieces; a photo goes in one request and never moves part of the way. The
+ *   look for the server goes to its health check, not to the storage; a
+ *   storage host out of reach (a DNS filter, a proxy, an outage that does not
+ *   answer) would otherwise be found "online" again and again. Without signal
+ *   at either end it was the network's, and counts for nothing.
  *
- * Any progress of the file into storage starts the counts of refusals,
- * answers and silence again: a storage that trips now and then is not one
- * that will never take the file. Stalls keep their own rule, above.
+ * Progress of the file into storage — more of it held than the storage has
+ * ever said before — starts the counts of refusals, answers and silence
+ * again: a storage that trips now and then is not one that will never take
+ * the file. Pieces sent again to an upload the storage forgot and made anew
+ * are not progress. Stalls keep their own rule, above.
  *
  * TanStack hands the retry decision only the count of failures, outages
  * included, so the failures are counted here, each failed attempt marked
@@ -70,8 +76,8 @@ interface Counts {
   silent: number;
   /** Where the piece that stalled last began. */
   stalledAt: number | null;
-  /** How much of the file the storage held when it last said; null before it said. */
-  sent: number | null;
+  /** The most of the file the storage has said it holds; null before it said. */
+  most: number | null;
   /** Whether the attempt under way began with signal. */
   hasBegunOnline: boolean;
   /** Whether the attempt under way moved the file on. */
@@ -84,7 +90,7 @@ const NONE: Counts = {
   stalled: 0,
   silent: 0,
   stalledAt: null,
-  sent: null,
+  most: null,
   hasBegunOnline: false,
   hasMoved: false,
 };
@@ -120,16 +126,13 @@ function countsOf(mediaId: string): Counts {
 
 /**
  * The count a failure is charged to, or null for none: silence counts only
- * from the resumable upload, with signal on both sides of an attempt that
- * moved nothing — anything else silent is the network's.
+ * with signal on both sides of an attempt that moved nothing — whichever
+ * request of the chain it was — and anything else silent is the network's.
  */
 function budgetOf(error: unknown, counts: Counts): Budget | null {
   if (isNoSignal(error)) {
     const isSilentWithSignal =
-      error instanceof TusRetryableError &&
-      counts.hasBegunOnline &&
-      onlineManager.isOnline() &&
-      !counts.hasMoved;
+      counts.hasBegunOnline && onlineManager.isOnline() && !counts.hasMoved;
     return isSilentWithSignal ? 'silent' : null;
   }
   if (!(error instanceof TusRetryableError)) {
@@ -165,17 +168,20 @@ export function beginAttachAttempt(mediaId: string): void {
 }
 
 /**
- * The storage said how much of the file it holds. More than it said last is
- * progress: the refusals, answers and silence counted so far are behind it.
+ * The storage said how much of the file it holds. More than it has ever said
+ * is progress: the refusals, answers and silence counted so far are behind
+ * it. An upload the storage forgot starts again from nothing, and its pieces
+ * sent again move it on without getting the file any further in (item 7).
  */
 export function noteAttachProgress(mediaId: string, sent: number): void {
   const counts = countsOf(mediaId);
-  const hasMoved = counts.sent !== null && sent > counts.sent;
+  const hasMoved = counts.most !== null && sent > counts.most;
+  const most = counts.most === null ? sent : Math.max(counts.most, sent);
   countsByMedia.set(
     mediaId,
     hasMoved
-      ? { ...counts, sent, refused: 0, answered: 0, silent: 0, hasMoved: true }
-      : { ...counts, sent },
+      ? { ...counts, most, refused: 0, answered: 0, silent: 0, hasMoved: true }
+      : { ...counts, most },
   );
 }
 

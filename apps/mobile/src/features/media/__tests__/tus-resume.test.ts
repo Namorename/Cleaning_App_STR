@@ -1,4 +1,5 @@
 import {
+  AS_USUAL,
   SECOND_URL,
   SIZE,
   UPLOAD_URL,
@@ -7,6 +8,7 @@ import {
   setUpTusStorage,
   storage,
   upload,
+  type FakeStorage,
 } from '@/testing/tus-storage';
 
 import { TUS_CHUNK_BYTES, TusRefusedError, TusRetryableError, tusUpload } from '../tus';
@@ -192,6 +194,31 @@ describe('a storage that loses its place', () => {
     await expect(tusUpload(upload(), runtime())).rejects.toThrow(/losing its place/);
 
     expect(storage.patches()).toHaveLength(4);
+  });
+
+  // The two whole-branch reviews of phone-1-2-0, item 7: an upload the storage
+  // forgets after each piece it takes moves on every time, and progress would
+  // otherwise start the count again — the first piece sent for ever.
+  test('an upload the storage keeps forgetting is made anew three times at most, progress or not', async () => {
+    // Arrange: each new upload takes its first piece, then is gone (404).
+    const forget = (self: FakeStorage) => {
+      self.offset = null;
+      return { status: 404 };
+    };
+    for (let i = 0; i < 20; i += 1) {
+      storage.plan('PATCH', AS_USUAL);
+      storage.plan('PATCH', forget);
+    }
+
+    // Act
+    const failure = tusUpload(upload(), runtime());
+
+    // Assert: the attempt ends for the queue to count, as a place lost.
+    await expect(failure).rejects.toMatchObject({
+      name: 'TusRetryableError',
+      reason: 'lost-place',
+    });
+    expect(storage.methods().filter((method) => method === 'POST')).toHaveLength(4);
   });
 });
 

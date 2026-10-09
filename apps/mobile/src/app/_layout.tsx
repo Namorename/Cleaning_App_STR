@@ -18,7 +18,7 @@ import { subscribeFocusToAppState } from '@/lib/app-focus';
 import { markAppDrawn } from '@/components/route-error';
 import { FontsReadyProvider } from '@/lib/fonts-ready';
 import { watchNetwork } from '@/lib/network';
-import { createAppQueryClient, persistOptions } from '@/lib/query-client';
+import { createAppQueryClient, persistOptions, resumeSavedMoves } from '@/lib/query-client';
 import { useSystemBackground } from '@/lib/theme-preference';
 
 // The last net under every screen: once the app has drawn, a render error
@@ -103,9 +103,7 @@ export default function RootLayout() {
       // Moves tapped without signal were paused on disk; once the cache is
       // back they go through, and the lists that show them are refreshed.
       onSuccess={() => {
-        void queryClient
-          .resumePausedMutations()
-          .then(() => queryClient.invalidateQueries({ queryKey: ['tasks'] }));
+        void resumeSavedMoves(queryClient);
       }}
     >
       <SessionProvider>

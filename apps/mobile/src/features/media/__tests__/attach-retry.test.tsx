@@ -1,12 +1,13 @@
 import { onlineManager, type QueryClient } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react-native';
 
+import { sendMessage } from '@/features/chat/api';
 import { stopWatchingConnection } from '@/lib/online';
 import { createAppQueryClient } from '@/lib/query-client';
 import { serverErrorText } from '@/lib/server-error';
 import { withClient } from '@/testing/restored-cache';
 
-import { addMedia, confirmMedia, removeMedia, uploadVideoFile } from '../api';
+import { addMedia, confirmMedia, removeMedia, uploadMediaFile, uploadVideoFile } from '../api';
 import {
   ANSWERED_RETRIES,
   ATTACH_RETRIES,
@@ -334,6 +335,84 @@ describe('a video whose upload goes unanswered while there is signal', () => {
   });
 });
 
+/** The row add_task_media answers a photo with. */
+const photoRow = {
+  id: 'p1',
+  storage_path: 'host-1/task-1/p1.jpg',
+  kind: 'photo',
+  uploaded_at: null,
+} as TaskMedia;
+
+/** Start the photo's upload from its queue and let the clock run. */
+async function sendPhoto(variables: AttachMediaVariables = photo) {
+  const { result } = await renderHook(() => useAttachMedia(), { wrapper: withClient(client) });
+  await act(async () => {
+    result.current.mutate(variables);
+  });
+  await letTimePass();
+  return result;
+}
+
+// The two whole-branch reviews of phone-1-2-0, finding 3: a photo whose
+// request goes unanswered while the server answers its health check meets the
+// same silence a video does, and is given up on after the same count — its
+// tile then offers «Повторить» instead of a spinner that never ends.
+describe('a photo whose upload goes unanswered while there is signal', () => {
+  beforeEach(() => {
+    jest.mocked(addMedia).mockResolvedValue(photoRow);
+    jest.mocked(confirmMedia).mockResolvedValue({ ...photoRow, uploaded_at: 'now' } as TaskMedia);
+  });
+
+  test('fails after four more attempts in a row', async () => {
+    // Arrange
+    jest.mocked(uploadMediaFile).mockRejectedValue(new TypeError('Network request failed'));
+
+    // Act
+    const result = await sendPhoto();
+
+    // Assert
+    expect(uploadMediaFile).toHaveBeenCalledTimes(SILENT_RETRIES + 1);
+    expect(result.current.status).toBe('error');
+    expect(onlineManager.isOnline()).toBe(true);
+  });
+
+  test('of a chat message whose words go unanswered, fails the same way', async () => {
+    // Arrange: the message is said again before its photo, and never arrives.
+    jest.mocked(sendMessage).mockRejectedValue(new TypeError('Network request failed'));
+    const chatPhoto: AttachMediaVariables = {
+      ...photo,
+      taskId: undefined,
+      stepId: undefined,
+      messageId: 'msg-1',
+      message: { messageId: 'msg-1', body: '', subject: { kind: 'task', id: 't1' } },
+    };
+
+    // Act
+    const result = await sendPhoto(chatPhoto);
+
+    // Assert
+    expect(sendMessage).toHaveBeenCalledTimes(SILENT_RETRIES + 1);
+    expect(result.current.status).toBe('error');
+  });
+
+  // A stairwell: the signal went while the photo was on its way.
+  test('an attempt cut because the signal went is the network’s, and does not count', async () => {
+    let attempts = 0;
+    jest.mocked(uploadMediaFile).mockImplementation(async () => {
+      attempts += 1;
+      if (attempts <= 9) {
+        onlineManager.setOnline(false);
+        throw new TypeError('Network request failed');
+      }
+    });
+
+    const result = await sendPhoto();
+
+    expect(uploadMediaFile).toHaveBeenCalledTimes(10);
+    expect(result.current.status).toBe('success');
+  });
+});
+
 // The fourth pass on video, finding 2: progress is what tells a storage that
 // trips now and then from one that will never take the file.
 describe('the counts of a video’s upload', () => {
@@ -361,6 +440,23 @@ describe('the counts of a video’s upload', () => {
 
     expect(uploadVideoFile).toHaveBeenCalledTimes(ATTACH_RETRIES + 4);
     expect(result.current.status).toBe('success');
+  });
+
+  // Item 7 of the two whole-branch reviews: a storage that forgets the upload
+  // after each piece has the video start again from nothing every attempt. Its
+  // pieces arrive again and again, but the storage never holds more of the
+  // file than it once did: that is not progress, and the tries are spent.
+  test('a storage that keeps forgetting the upload gets no tries back for pieces sent again', async () => {
+    jest.mocked(uploadVideoFile).mockImplementation(async ({ onProgress }) => {
+      onProgress?.(0, video.byteSize);
+      onProgress?.(TUS_CHUNK_BYTES, video.byteSize);
+      throw new TusRetryableError('Resumable upload keeps losing its place', 'lost-place');
+    });
+
+    const result = await sendVideo();
+
+    expect(uploadVideoFile).toHaveBeenCalledTimes(ANSWERED_RETRIES + 1);
+    expect(result.current.status).toBe('error');
   });
 
   test('once the video is in, its counts are let go', async () => {

@@ -1,8 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { QueryClient, dehydrate } from '@tanstack/react-query';
+import {
+  QueryClient,
+  QueryObserver,
+  dehydrate,
+  focusManager,
+  onlineManager,
+  type MutationState,
+} from '@tanstack/react-query';
 import { persistQueryClientRestore } from '@tanstack/react-query-persist-client';
+import { waitFor } from '@testing-library/react-native';
 
+import { mediaKeys } from '@/features/media/keys';
+import { mediaMutationKeys } from '@/features/media/use-media';
 import { settingsMutationKeys } from '@/features/settings/keys';
+import { stepKeys } from '@/features/steps/keys';
 import { taskMutationKeys } from '@/features/tasks/use-tasks';
 
 import {
@@ -11,6 +22,7 @@ import {
   forgetSavedQueries,
   persistOptions,
   queryPersister,
+  resumeSavedMoves,
 } from '../query-client';
 
 /**
@@ -145,4 +157,143 @@ test('with nothing saved, writes nothing', async () => {
 
   // Assert
   expect(await AsyncStorage.getItem(QUERY_CACHE_KEY)).toBeNull();
+});
+
+/**
+ * A video takes minutes over mobile data, and the lists must not wait for it
+ * (the two whole-branch reviews of phone-1-2-0, finding 1). TanStack resumes
+ * the paused queue and only then refreshes the lists — on a restart, when the
+ * signal comes back and when the app comes to the front. A video's line is
+ * resumed with the rest and not waited for: its own upload refreshes its
+ * step's lists when it is in.
+ */
+describe('the queue on disk, and a video in it', () => {
+  const TASK_ID = '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b';
+
+  function pausedState(variables: unknown): MutationState<unknown, Error, unknown, unknown> {
+    return {
+      context: undefined,
+      data: undefined,
+      error: null,
+      failureCount: 1,
+      failureReason: null,
+      isPaused: true,
+      status: 'pending',
+      variables,
+      submittedAt: Date.now(),
+    };
+  }
+
+  /** A video waiting for signal whose upload, once resumed, takes longer than any test. */
+  function pausedVideo(client: QueryClient): jest.Mock {
+    const upload = jest.fn(() => new Promise<never>(() => undefined));
+    client.getMutationCache().build(
+      client,
+      {
+        mutationKey: mediaMutationKeys.attach,
+        scope: { id: 'media-attach-video' },
+        mutationFn: upload,
+      },
+      pausedState({ mediaId: 'v1', kind: 'video', taskId: TASK_ID }),
+    );
+    return upload;
+  }
+
+  let client: QueryClient;
+
+  beforeEach(() => {
+    onlineManager.setOnline(true);
+    client = createAppQueryClient();
+  });
+
+  afterEach(() => {
+    client.unmount();
+    client.clear();
+    onlineManager.setOnline(true);
+    focusManager.setFocused(undefined);
+  });
+
+  test('after a restart, the moves’ lists refresh without waiting for the video', async () => {
+    // Arrange: a claim and a video waiting on disk; the lists they show up in.
+    const upload = pausedVideo(client);
+    client
+      .getMutationCache()
+      .build(
+        client,
+        { mutationKey: taskMutationKeys.claim, mutationFn: async () => undefined },
+        pausedState(CLAIM),
+      );
+    client.setQueryData(['tasks', 'mine', 'u1'], []);
+    client.setQueryData(stepKeys.byTask(TASK_ID), []);
+    client.setQueryData(mediaKeys.byTask(TASK_ID), []);
+    client.setQueryData(mediaKeys.local, {});
+    client.setQueryData(mediaKeys.urls(['host-1/p1.jpg']), { 'host-1/p1.jpg': 'https://signed' });
+
+    // Act
+    await resumeSavedMoves(client);
+
+    // Assert: the video is on its way, and the lists were not held for it.
+    expect(upload).toHaveBeenCalled();
+    expect(client.getQueryState(['tasks', 'mine', 'u1'])?.isInvalidated).toBe(true);
+    expect(client.getQueryState(stepKeys.byTask(TASK_ID))?.isInvalidated).toBe(true);
+    expect(client.getQueryState(mediaKeys.byTask(TASK_ID))?.isInvalidated).toBe(true);
+    expect(client.getQueryState(mediaKeys.local)?.isInvalidated).toBe(true);
+    // Links signed an hour ahead are not asked again: no upload changes them.
+    expect(client.getQueryState(mediaKeys.urls(['host-1/p1.jpg']))?.isInvalidated).toBe(false);
+  });
+
+  /** A list on screen, read once already; returns how often it was read again. */
+  async function listOnScreen(): Promise<{ reads: jest.Mock; stop: () => void }> {
+    const reads = jest.fn(async () => ['fresh']);
+    const observer = new QueryObserver(client, {
+      queryKey: ['tasks', 'mine', 'u1'],
+      queryFn: reads,
+      staleTime: 0,
+    });
+    const stop = observer.subscribe(() => undefined);
+    await waitFor(() => expect(reads).toHaveBeenCalledTimes(1));
+    reads.mockClear();
+    return { reads, stop };
+  }
+
+  // What TanStack waits for before it refreshes anything — on reconnect, on
+  // focus, at start — settles while the video is still on its way. (The lists
+  // read with networkMode 'always', so a reconnect alone refetches none of
+  // them; the front and the start do.)
+  test('the queue resumed, the video sets off and nothing waits for it', async () => {
+    // Arrange
+    const upload = pausedVideo(client);
+    const settled = jest.fn();
+
+    // Act
+    void client.resumePausedMutations().then(settled);
+
+    // Assert
+    await waitFor(() => expect(settled).toHaveBeenCalled());
+    expect(upload).toHaveBeenCalled();
+  });
+
+  test('without signal, nothing is resumed', async () => {
+    const upload = pausedVideo(client);
+    onlineManager.setOnline(false);
+
+    await client.resumePausedMutations();
+
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  test('back in front, the lists refresh while a video in the queue goes up', async () => {
+    // Arrange
+    client.mount();
+    const list = await listOnScreen();
+    pausedVideo(client);
+
+    // Act
+    focusManager.setFocused(false);
+    focusManager.setFocused(true);
+
+    // Assert
+    await waitFor(() => expect(list.reads).toHaveBeenCalledTimes(1));
+    list.stop();
+  });
 });
