@@ -2,6 +2,7 @@ import type { QueryKey } from '@tanstack/react-query';
 
 import { chatKeys } from '@/features/chat/keys';
 import type { ChatSubjectKind } from '@/features/chat/schema';
+import { problemKeys } from '@/features/problems/keys';
 import { stepKeys } from '@/features/steps/keys';
 import type { CleaningTask } from '@/features/tasks/schema';
 
@@ -13,6 +14,7 @@ export type PushNotice = (typeof PUSH_NOTICES)[number];
 
 export type PushDestination =
   | { pathname: '/task/[id]'; params: { id: string } }
+  | { pathname: '/problem/[id]'; params: { id: string } }
   | { pathname: '/chat/[subject]/[id]'; params: { subject: ChatSubjectKind; id: string } }
   | { pathname: '/(tabs)'; params?: { notice: PushNotice } };
 
@@ -54,6 +56,9 @@ export async function destinationOf(
       return { pathname: '/chat/[subject]/[id]', params: { subject: data.subject, id: data.id } };
     case 'daily_digest':
       return { pathname: '/(tabs)' };
+    case 'problem_new':
+      // The task's own screen, where the head technician hands it out.
+      return { pathname: '/problem/[id]', params: { id: data.problemId } };
     default:
       return taskDestination(data, findTask);
   }
@@ -78,7 +83,9 @@ async function taskDestination(
 /**
  * What a push makes stale on the phone: the next look at those screens asks
  * the server rather than the cache. Data that cannot be read refreshes the
- * cleanings, the one list every push may touch.
+ * cleanings, the one list every push may touch. A new task refreshes the
+ * tasks — the head technician's board and its screens sit under them — and
+ * his jobs beside them.
  */
 export function staleAfter(data: PushData | null): QueryKey[] {
   if (data === null || data.kind === 'daily_digest') {
@@ -88,6 +95,9 @@ export function staleAfter(data: PushData | null): QueryKey[] {
     return data.threadId === undefined
       ? [chatKeys.unreadAll]
       : [chatKeys.unreadAll, chatKeys.messages(data.threadId)];
+  }
+  if (data.kind === 'problem_new') {
+    return [TASKS, problemKeys.all];
   }
   return [TASKS, stepKeys.all];
 }

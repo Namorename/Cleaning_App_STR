@@ -6,6 +6,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { Badge } from '@/components/badge';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
+import { ErrorBanner } from '@/components/error-banner';
 import { FailureText } from '@/components/failure-text';
 import { Skeleton, SkeletonGroup } from '@/components/skeleton';
 import { Text } from '@/components/text';
@@ -43,6 +44,8 @@ interface StepScreenProps {
   isEditable: boolean;
   isBusy: boolean;
   error: Error | null;
+  /** The steps failed to refresh: said above the step, which stays as it was loaded. */
+  refreshError?: Error | null;
   /** A sentence already in her language — the camera refused, say. */
   notice?: string | null;
   onComplete: (payload: Json) => void;
@@ -81,6 +84,7 @@ export function StepScreen({
   isEditable,
   isBusy,
   error,
+  refreshError = null,
   notice = null,
   onComplete,
   onReopen,
@@ -158,6 +162,11 @@ export function StepScreen({
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={layout.content}>
+      {/* Error over cache, as the task's screen has it: the saved step stays. */}
+      {refreshError !== null ? (
+        <ErrorBanner title={t('common.refreshFailedSaved')} error={refreshError} />
+      ) : null}
+
       <View style={layout.header}>
         <Text variant="heading">{stepTitle(step)}</Text>
         {step.required ? (

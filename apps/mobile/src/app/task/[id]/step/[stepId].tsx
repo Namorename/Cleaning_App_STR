@@ -154,10 +154,18 @@ export default function StepRoute() {
     return <StepScreenSkeleton label={t('tasks.loading', { context: wordContext() })} />;
   }
 
-  if (steps.error) {
+  // Steps that never loaded: the screen failed. Steps that did and only
+  // failed to refresh (TanStack keeps the data beside the error) stay on
+  // screen with the step she is filling in — her comment and ticks are kept —
+  // and the failure is said above it.
+  if (steps.error && steps.data === undefined) {
     return (
       <View style={styles.screen}>
-        <ErrorState error={steps.error} />
+        <ErrorState
+          error={steps.error}
+          title={t('common.screenFailed')}
+          onRetry={() => void steps.refetch()}
+        />
       </View>
     );
   }
@@ -235,6 +243,7 @@ export default function StepRoute() {
         step={step}
         isEditable={isEditable === true}
         isBusy={complete.isPending || reopen.isPending || skip.isPending}
+        refreshError={steps.error}
         error={
           complete.error ??
           reopen.error ??

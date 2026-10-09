@@ -16,10 +16,16 @@ const TASK_ID = '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b';
 const STEP_ID = 'b1c2d3e4-1111-4111-8111-b1c2d3e40001';
 
 /** What the steps query reports; each test sets the state it is about. */
-const mockSteps: { isPending: boolean; error: Error | null; data: TaskStep[] | undefined } = {
+const mockSteps: {
+  isPending: boolean;
+  error: Error | null;
+  data: TaskStep[] | undefined;
+  refetch: jest.Mock;
+} = {
   isPending: true,
   error: null,
   data: undefined,
+  refetch: jest.fn(),
 };
 
 jest.mock('@/features/auth/session', () => ({
@@ -149,6 +155,75 @@ test('steps that could not load say why in her words, the server’s small under
   expect(screen.getByRole('alert')).toBeTruthy();
   expect(screen.getByText('Не удалось выполнить действие. Попробуйте ещё раз.')).toBeTruthy();
   expect(screen.getByText('Network request failed')).toBeTruthy();
+});
+
+// The two whole-branch reviews of phone-1-2-0, finding 4: steps that never
+// loaded are a screen that failed; steps that did and only failed to refresh
+// stay on screen — the step she is filling in with them — and the failure is
+// said above.
+describe('a read of the steps that fails', () => {
+  const ME = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
+  const SCREEN_FAILED = 'Не удалось показать экран. Попробуйте ещё раз.';
+  const REFRESH_FAILED = 'Не удалось обновить, показаны сохранённые данные.';
+
+  const commentStep: TaskStep = {
+    id: STEP_ID,
+    task_id: TASK_ID,
+    sort_order: 2,
+    type: 'cleaner_comment',
+    required: true,
+    title: 'Комментарий',
+    instructions: null,
+    started_at: '2026-10-09T08:00:00+00:00',
+    completed_at: null,
+    completed_by: null,
+    title_i18n: {},
+    instructions_i18n: {},
+    config: {},
+    min_photos: null,
+    max_photos: null,
+    max_video_sec: null,
+    payload: {},
+    skipped_at: null,
+    skip_reason: null,
+    waived_at: null,
+    waive_reason: null,
+  };
+
+  beforeEach(() => {
+    mockSteps.isPending = false;
+    mockTask.data = { status: 'in_progress', assignee_id: ME };
+  });
+
+  test('before the steps ever loaded, says the screen failed and offers to try again', async () => {
+    // Arrange
+    mockSteps.error = new Error('Network request failed');
+
+    // Act
+    await render(<StepRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Повторить' }));
+
+    // Assert
+    expect(screen.getByText(SCREEN_FAILED)).toBeTruthy();
+    expect(mockSteps.refetch).toHaveBeenCalledTimes(1);
+  });
+
+  test('after they loaded, keeps the step and her unsent comment, the failure said above', async () => {
+    // Arrange: she has started typing.
+    mockSteps.data = [commentStep];
+    await render(<StepRoute />);
+    await fireEvent.changeText(screen.getByLabelText('Для менеджера'), 'Пятно на диване');
+
+    // Act: a refresh of the steps fails; the saved ones are still there.
+    mockSteps.error = new Error('Network request failed');
+    await screen.rerender(<StepRoute />);
+
+    // Assert
+    expect(screen.getByText(REFRESH_FAILED)).toBeTruthy();
+    expect(screen.getByDisplayValue('Пятно на диване')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Сохранить' })).toBeTruthy();
+    expect(screen.queryByText(SCREEN_FAILED)).toBeNull();
+  });
 });
 
 test('a step that is not among the task’s says so', async () => {

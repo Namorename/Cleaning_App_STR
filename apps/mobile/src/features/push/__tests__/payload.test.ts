@@ -20,8 +20,21 @@ test('the cleaning kinds are every push kind but the chat message, the digest an
   expect([...TASK_PUSH_KINDS].sort()).toEqual([...expected].sort());
 });
 
-test('a new task, which this build does not open yet, reads as nothing', () => {
-  expect(readPushData({ kind: 'problem_new', problemId: PROBLEM_ID })).toBeNull();
+// The head technician's «Новое задание» (the two whole-branch reviews of
+// phone-1-2-0, finding 5): send-push names the task, run.ts pushData.
+test('a new task names the task', () => {
+  expect(readPushData({ kind: 'problem_new', problemId: PROBLEM_ID })).toEqual({
+    kind: 'problem_new',
+    problemId: PROBLEM_ID,
+  });
+});
+
+test.each([
+  ['without its id', { kind: 'problem_new' }],
+  ['with an id that is not one', { kind: 'problem_new', problemId: 'problem-1' }],
+  ['naming a cleaning instead', { kind: 'problem_new', taskId: TASK_ID }],
+])('a new task %s reads as nothing', (_name, data) => {
+  expect(readPushData(data)).toBeNull();
 });
 
 test.each(TASK_PUSH_KINDS)('a %s push names the cleaning', (kind) => {
