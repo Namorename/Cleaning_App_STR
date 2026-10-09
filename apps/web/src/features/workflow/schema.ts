@@ -68,15 +68,19 @@ export function isVideoStep(type: StepType): boolean {
 }
 
 /**
- * What the server puts in when a step names no limit of its own.
+ * What the server puts in when a photo step names no limit of its own.
  *
- * `task_media_max_photos()` and `task_media_max_video_sec()`, plus the one
- * photo `complete_task_step` insists on. Named here so the editor can tell
- * the manager what an empty box means rather than leaving her to guess.
+ * `task_media_max_photos()`, plus the one photo `complete_task_step` insists
+ * on. Named here so the editor can tell the manager what an empty box means
+ * rather than leaving her to guess.
+ *
+ * A video step has no constant: an empty box is the company's
+ * `hosts.video_max_sec` (20261003170000, «Настройки → Процесс → Видео»), and
+ * a step's own limit holds only when it is shorter — add_task_media takes the
+ * lesser of the two. The editor reads the company's number to say so.
  */
 export const DEFAULT_MIN_PHOTOS = 1;
 export const DEFAULT_MAX_PHOTOS = 10;
-export const DEFAULT_MAX_VIDEO_SEC = 30;
 
 /** The bounds the table itself enforces. */
 export const MIN_PHOTOS_FLOOR = 0;

@@ -55,6 +55,15 @@ export function serverErrorHint(error: unknown): string | null {
   return typeof hint === 'string' ? hint : null;
 }
 
+/**
+ * The parameters a refusal carries in `details`, as sent: what a caller
+ * branches on — the field a bound belongs to — where `serverErrorText` is
+ * what it shows. Empty when there are none or they are not a JSON object.
+ */
+export function serverErrorParams(error: unknown): Record<string, unknown> {
+  return parameters(asRaised(error).details);
+}
+
 /** The i18n key a refusal carries, when it carries one this build knows. */
 export function serverErrorKey(error: unknown): string | null {
   const { hint, details } = asRaised(error);

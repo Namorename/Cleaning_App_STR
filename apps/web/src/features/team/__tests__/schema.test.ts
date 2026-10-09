@@ -11,6 +11,7 @@ import {
   matchesRole,
   matchesSearch,
   selectedProperties,
+  showsLinks,
   staffSchema,
   unlinkedProperties,
   type CleanerLink,
@@ -50,10 +51,17 @@ const properties: Property[] = [
 ];
 
 describe('staffSchema', () => {
-  test('keeps a row whose role a later migration added, rather than blanking the list', () => {
+  // docs/tech-plan.md, 3.5: read as a cleaner, the first save of the form
+  // would have made the person one.
+  test('keeps a row whose role a later migration added, without reading it as a cleaner', () => {
     const parsed = staff({ role: 'inspector' });
 
-    expect(parsed.role).toBe('cleaner');
+    expect(parsed.id).toBe(MARIA);
+    expect(parsed.role).toBeNull();
+  });
+
+  test('knows the head technician (20261003100000)', () => {
+    expect(staff({ role: 'head_tech' }).role).toBe('head_tech');
   });
 
   test('treats a language the panel does not speak as no choice at all', () => {
@@ -66,6 +74,10 @@ describe('staffSchema', () => {
 describe('draftFrom', () => {
   test('starts a new person from the empty draft', () => {
     expect(draftFrom(null)).toEqual(EMPTY_DRAFT);
+  });
+
+  test('leaves a role the panel does not know unchosen, not a cleaner', () => {
+    expect(draftFrom(staff({ role: 'inspector' })).role).toBe('');
   });
 
   test('turns the nulls of a row into the empty strings a form can hold', () => {
@@ -140,14 +152,41 @@ describe('matchesRole', () => {
 });
 
 describe('canHaveLinks', () => {
-  test('offers listings to the people who do the work there', () => {
+  test('offers listings to the cleaners, who do the cleanings there', () => {
     expect(canHaveLinks(staff({ role: 'cleaner' }))).toBe(true);
-    expect(canHaveLinks(staff({ role: 'tech' }))).toBe(true);
+  });
+
+  // 20261003110000: the server refuses the link (techNotLinkable) — cleanings
+  // are not a technician's work, and his jobs reach him by assignment.
+  test('offers none to a technician or a head technician', () => {
+    expect(canHaveLinks(staff({ role: 'tech' }))).toBe(false);
+    expect(canHaveLinks(staff({ role: 'head_tech' }))).toBe(false);
+  });
+
+  test('offers none to somebody whose role the panel does not know', () => {
+    expect(canHaveLinks(staff({ role: 'inspector' }))).toBe(false);
   });
 
   test('keeps a manager out of the queue, so she does not turn up in a schedule', () => {
     expect(canHaveLinks(staff({ role: 'manager' }))).toBe(false);
     expect(canHaveLinks(staff({ role: 'admin' }))).toBe(false);
+  });
+});
+
+describe('showsLinks', () => {
+  test('shows a cleaner her listings, even when she has none yet', () => {
+    expect(showsLinks(staff(), [])).toBe(true);
+  });
+
+  // A link from before the technician rule can only be taken off
+  // (20261003110000), and the row is where it is taken off from.
+  test('shows anybody else the listings they still hold, and only then', () => {
+    const tech = staff({ id: PETR, role: 'tech' });
+
+    expect(showsLinks(tech, [link(1, { cleaner_id: PETR })])).toBe(true);
+    expect(showsLinks(tech, [link(1)])).toBe(false);
+    expect(showsLinks(staff({ role: 'manager' }), [link(1)])).toBe(true);
+    expect(showsLinks(staff({ role: 'manager' }), [])).toBe(false);
   });
 });
 

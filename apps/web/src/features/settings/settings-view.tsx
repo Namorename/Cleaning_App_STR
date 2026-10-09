@@ -19,6 +19,7 @@ import {
 } from './address';
 import { HostToggles } from './host-toggles';
 import { ThemeSwitcher } from './theme-switcher';
+import { VideoSettings } from './video-settings';
 
 interface SettingsViewProps {
   email: string;
@@ -75,7 +76,17 @@ export function SettingsView({ email, theme, onSignOut }: SettingsViewProps) {
       body: <ThemeSwitcher initial={theme} />,
     },
     company: { description: t('panel.settings.companyHint'), body: <HostToggles /> },
-    process: { description: null, body: <ProcessSection /> },
+    // «Процесс → Видео» (docs/tech-plan.md, 9): the company's video limits
+    // after the steps they hold the video step to.
+    process: {
+      description: null,
+      body: (
+        <>
+          <ProcessSection />
+          <VideoSettings />
+        </>
+      ),
+    },
   };
 
   return (

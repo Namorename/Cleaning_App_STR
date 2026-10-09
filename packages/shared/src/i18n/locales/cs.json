@@ -69,6 +69,22 @@
       "parallelStartHint": "Zapnuto: uklízečka může mít rozdělaných několik úklidů najednou — tak se uklízí po patrech, jeden člověk ve všech pokojích. Vypnuto: měření času počítá s jedním úklidem naráz.",
       "gallery": "Povolit nahrávání z galerie",
       "galleryHint": "Vypnuto: fotky a video se pořizují jen fotoaparátem a přímo na místě. Zapnuto: uklízečka může přiložit hotový soubor z galerie — i pořízený v jiném bytě nebo před týdnem, a pak médium přestává být důkazem o stavu bytu v době úklidu. Platí pro úklidy i pro úkoly.",
+      "video": {
+        "title": "Video",
+        "hint": "Pro krok „Video“ v úklidech a opravách. Video se natáčí jen kamerou aplikace, v 720p, ne déle a ne větší než tyto limity; galerie zůstává pro video zavřená bez ohledu na svůj přepínač. Krok může mít vlastní limit délky — jen kratší.",
+        "maxSec": "Délka videa, s",
+        "bitrateKbps": "Datový tok, kbit/s",
+        "maxMb": "Limit souboru, MB",
+        "bounds": "Celé číslo od {{min}} do {{max}}.",
+        "presets": {
+          "free": "Bezplatný tarif: {{sec}} s, {{kbps}} kbit/s, {{mb}} MB",
+          "pro": "Pro: {{sec}} s, {{kbps}} kbit/s, {{mb}} MB — jen v tarifu Pro"
+        },
+        "fullSize": "Video v plné délce má při tomto datovém toku asi {{mb}} MB.",
+        "overFile": "To je víc než limit souboru ({{mb}} MB): nahrávání skončí dřív, asi po {{sec}} s.",
+        "freePlan": "V bezplatném tarifu Supabase je jeden soubor nejvýš {{mb}} MB pro celý projekt: vyšší limit funguje jen v tarifu Pro.",
+        "save": "Uložit nastavení videa"
+      },
       "workflow": {
         "title": "Proces",
         "hint": "Uklízečky vidí tyto kroky v tomto pořadí v aplikaci.",
@@ -108,7 +124,8 @@
         "minPhotos": "Min. fotek",
         "maxPhotos": "Max. fotek",
         "maxVideoSec": "Max. sekund",
-        "limitsHint": "Prázdné pole znamená výchozí hodnotu serveru: {{min}}–{{max}} fotek, {{sec}} s videa.",
+        "limitsHint": "Prázdné pole znamená výchozí hodnotu: {{min}}–{{max}} fotek; u videa limit společnosti ({{sec}} s). Vlastní limit kroku platí, jen když je kratší.",
+        "limitsHintNoCompany": "Prázdné pole znamená výchozí hodnotu: {{min}}–{{max}} fotek; u videa limit společnosti. Vlastní limit kroku platí, jen když je kratší.",
         "save": "Uložit proces",
         "cancel": "Zahodit úpravy",
         "problems": {
@@ -626,6 +643,8 @@
         "emailLocked": "E-mail je přihlašovací jméno a mění se jen přes podporu.",
         "phone": "Telefon",
         "role": "Role",
+        "roleUnknown": "Neznámá role",
+        "roleUnknownHint": "Panel roli tohoto člověka nezná. Pro uložení vyberte roli ze seznamu — nahradí tu současnou.",
         "language": "Jazyk",
         "languageUnset": "Nevybráno",
         "languageHint": "V tomto jazyce chodí e-maily. V aplikaci si jazyk zvolí sám.",
@@ -638,6 +657,11 @@
         "propertiesSelectShown": "Vybrat vše ({{total}})",
         "propertiesClearShown": "Odznačit vše ({{total}})",
         "propertiesNotForRole": "Manažerovi a správci se objekty nepřiřazují — vidí všechny.",
+        "propertiesNotForTech": "Technikovi a hlavnímu technikovi se objekty nepřiřazují: úklidy nejsou jejich práce, práce jim přichází přidělením.",
+        "techStillLinked_one": "Ještě na {{count}} objektu. Nejdřív toto přiřazení odeberte: tlačítko „Objektů: {{count}}“ v řádku zaměstnance.",
+        "techStillLinked_few": "Ještě na {{count}} objektech. Nejdřív tato přiřazení odeberte: tlačítko „Objektů: {{count}}“ v řádku zaměstnance.",
+        "techStillLinked_many": "Ještě na {{count}} objektu. Nejdřív tato přiřazení odeberte: tlačítko „Objektů: {{count}}“ v řádku zaměstnance.",
+        "techStillLinked_other": "Ještě na {{count}} objektech. Nejdřív tato přiřazení odeberte: tlačítko „Objektů: {{count}}“ v řádku zaměstnance.",
         "propertiesFailed": "Zaměstnanec byl uložen, ale objekty se nepodařilo otevřít.",
         "active": "Pracuje",
         "create": "Vytvořit",
@@ -673,14 +697,17 @@
         "priority": "Pořadí",
         "priorityFor": "Pořadí: {{name}}",
         "remove": "Odebrat",
+        "removeFor": "Odebrat: {{name}}",
         "add": "Přidat objekt",
         "addNone": "Všechny objekty jsou už otevřené.",
-        "addButton": "Přidat"
+        "addButton": "Přidat",
+        "onlyRemove": "Této roli se objekty nepřiřazují: přiřazení lze jen odebrat."
       }
     },
     "roles": {
       "cleaner": "Uklízečka",
       "tech": "Technik",
+      "head_tech": "Hlavní technik",
       "manager": "Manažer",
       "admin": "Administrátor",
       "unknown": "Zaměstnanec"
@@ -847,7 +874,14 @@
     },
     "media": {
       "fromGallery": "z galerie",
-      "sourceUnknown": "zdroj neuveden"
+      "sourceUnknown": "zdroj neuveden",
+      "video": "Video",
+      "videoDuration": "Video · {{duration}}",
+      "videoOf": "Video: {{step}}",
+      "openVideo": "Otevřít",
+      "openVideoLabel": "Otevřít video v nové kartě",
+      "videoUnavailable": "Video není k dispozici",
+      "photoUnavailable": "Fotka není k dispozici"
     },
     "calendar": {
       "counts": "Objektů: {{listings}} · pokojů: {{rooms}}",

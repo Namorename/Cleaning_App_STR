@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from 'vitest';
 
 import { formatDay } from '../format-date';
 import { i18n, languageFromCookie } from '../i18n';
-import { serverErrorText } from '../server-error';
+import { serverErrorParams, serverErrorText } from '../server-error';
 
 /** An error as supabase-js hands a database refusal over. */
 function raised(hint: string, message: string, details: string) {
@@ -92,5 +92,24 @@ describe('languageFromCookie', () => {
     expect(languageFromCookie('cs')).toBe('cs');
     expect(languageFromCookie('de')).toBe('ru');
     expect(languageFromCookie(undefined)).toBe('ru');
+  });
+});
+
+describe('serverErrorParams', () => {
+  test('hands over what the refusal carries in details, as sent', () => {
+    const error = raised(
+      'serverErrors.videoSettingOutOfRange',
+      'video_max_mb 151 is outside 5..150',
+      JSON.stringify({ field: 'video_max_mb', min: 5, max: 150 }),
+    );
+
+    expect(serverErrorParams(error)).toEqual({ field: 'video_max_mb', min: 5, max: 150 });
+  });
+
+  test('is empty when details are missing or not an object', () => {
+    expect(serverErrorParams(new Error('offline'))).toEqual({});
+    expect(serverErrorParams(raised('serverErrors.unknown', 'x', 'not json'))).toEqual({});
+    expect(serverErrorParams(raised('serverErrors.unknown', 'x', '[1, 2]'))).toEqual({});
+    expect(serverErrorParams(null)).toEqual({});
   });
 });
