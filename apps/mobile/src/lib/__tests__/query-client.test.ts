@@ -14,9 +14,11 @@ import { mediaKeys } from '@/features/media/keys';
 import { mediaMutationKeys } from '@/features/media/use-media';
 import { settingsMutationKeys } from '@/features/settings/keys';
 import { stepKeys } from '@/features/steps/keys';
+import { claimTask } from '@/features/tasks/api';
 import { taskMutationKeys } from '@/features/tasks/use-tasks';
 
 import {
+  MOVE_WAIT_MS,
   QUERY_CACHE_KEY,
   createAppQueryClient,
   forgetSavedQueries,
@@ -24,6 +26,11 @@ import {
   queryPersister,
   resumeSavedMoves,
 } from '../query-client';
+
+jest.mock('@/features/tasks/api', () => ({
+  ...jest.requireActual('@/features/tasks/api'),
+  claimTask: jest.fn(),
+}));
 
 /**
  * "Reset saved lists" on the root error screen.
@@ -36,35 +43,52 @@ import {
 
 const CLAIM = { taskId: '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b', cleanerId: 'u1' };
 
-/** What the app keeps on disk: one list the screen cannot draw, one claim waiting for signal. */
-async function saveCacheWithPausedClaim(): Promise<void> {
+/**
+ * What the app keeps on disk: one list the screen cannot draw, one claim
+ * waiting for signal — or none, `isClaimQueued` false — saved by a build
+ * with `buster`.
+ */
+async function saveCacheWithPausedClaim({
+  buster = persistOptions.buster,
+  isClaimQueued = true,
+}: { buster?: string; isClaimQueued?: boolean } = {}): Promise<void> {
   const client = new QueryClient({ defaultOptions: { queries: { gcTime: Infinity } } });
   client.setQueryData(['tasks', 'mine', 'u1'], [{ id: 'not-a-task', broken: true }]);
-  client.getMutationCache().build(
-    client,
-    { mutationKey: taskMutationKeys.claim },
-    {
-      context: undefined,
-      data: undefined,
-      error: null,
-      failureCount: 0,
-      failureReason: null,
-      isPaused: true,
-      status: 'pending',
-      variables: CLAIM,
-      submittedAt: Date.now(),
-    },
-  );
+  if (isClaimQueued) {
+    client.getMutationCache().build(
+      client,
+      { mutationKey: taskMutationKeys.claim },
+      {
+        context: undefined,
+        data: undefined,
+        error: null,
+        failureCount: 0,
+        failureReason: null,
+        isPaused: true,
+        status: 'pending',
+        variables: CLAIM,
+        submittedAt: Date.now(),
+      },
+    );
+  }
 
   await AsyncStorage.setItem(
     QUERY_CACHE_KEY,
-    JSON.stringify({
-      buster: persistOptions.buster,
-      timestamp: Date.now(),
-      clientState: dehydrate(client),
-    }),
+    JSON.stringify({ buster, timestamp: Date.now(), clientState: dehydrate(client) }),
   );
   client.clear();
+}
+
+/** The next launch: a client of the app's, restored from disk as the root layout restores it. */
+async function launch(): Promise<QueryClient> {
+  const client = createAppQueryClient();
+  await persistQueryClientRestore({
+    queryClient: client,
+    persister: queryPersister,
+    buster: persistOptions.buster,
+    maxAge: persistOptions.maxAge,
+  });
+  return client;
 }
 
 beforeEach(async () => {
@@ -157,6 +181,106 @@ test('with nothing saved, writes nothing', async () => {
 
   // Assert
   expect(await AsyncStorage.getItem(QUERY_CACHE_KEY)).toBeNull();
+});
+
+/**
+ * The cache lives a day: lists older than that are not worth showing. The
+ * queue saved with them is a different matter — TanStack throws an expired
+ * cache away whole, and a «Готово» tapped without signal on Friday was gone
+ * on Monday (the verification review of c466bf5..bc7dcc9, item 1). An
+ * expired cache comes back without its lists and with its queue.
+ */
+describe('a cache older than its day', () => {
+  const FRIDAY = new Date('2026-10-09T16:00:00Z').getTime();
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const MONDAY = FRIDAY + 3 * DAY_MS;
+
+  beforeEach(() => {
+    jest.useFakeTimers({ now: FRIDAY });
+    onlineManager.setOnline(true);
+    jest.mocked(claimTask).mockReset();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  test('a take queued on Friday comes back on Monday without the lists, and goes through', async () => {
+    // Arrange
+    await saveCacheWithPausedClaim();
+    jest.setSystemTime(MONDAY);
+    jest.mocked(claimTask).mockResolvedValue({ id: CLAIM.taskId } as never);
+
+    // Act
+    const client = await launch();
+
+    // Assert: the claim is back, paused; the lists are not.
+    expect(client.getQueryCache().getAll()).toHaveLength(0);
+    const [claim] = client.getMutationCache().getAll();
+    expect(claim.state.variables).toEqual(CLAIM);
+    expect(claim.state.isPaused).toBe(true);
+
+    // Act: the start resumes what was restored.
+    await resumeSavedMoves(client);
+
+    // Assert
+    expect(claimTask).toHaveBeenCalledWith(CLAIM.taskId, CLAIM.cleanerId);
+    expect(claim.state.status).toBe('success');
+    client.clear();
+  });
+
+  test('a day and a minute old, the lists are dropped and the queue kept', async () => {
+    await saveCacheWithPausedClaim();
+    jest.setSystemTime(FRIDAY + DAY_MS + 60_000);
+
+    const client = await launch();
+
+    expect(client.getQueryCache().getAll()).toHaveLength(0);
+    expect(client.getMutationCache().getAll()).toHaveLength(1);
+    client.clear();
+  });
+
+  test('within its day, the lists come back with the queue, as before', async () => {
+    await saveCacheWithPausedClaim();
+    jest.setSystemTime(FRIDAY + DAY_MS - 60_000);
+
+    const client = await launch();
+
+    expect(client.getQueryCache().getAll()).toHaveLength(1);
+    expect(client.getMutationCache().getAll()).toHaveLength(1);
+    client.clear();
+  });
+
+  test('with nothing queued, it is thrown away from disk, as before', async () => {
+    await saveCacheWithPausedClaim({ isClaimQueued: false });
+    jest.setSystemTime(MONDAY);
+
+    const client = await launch();
+
+    expect(client.getQueryCache().getAll()).toHaveLength(0);
+    expect(await AsyncStorage.getItem(QUERY_CACHE_KEY)).toBeNull();
+    client.clear();
+  });
+
+  // A bump says the saved shapes can no longer be read: the queue goes with
+  // them, as it always has (persistOptions.buster).
+  test.each([
+    ['within its day', FRIDAY + 60_000],
+    ['older than its day', MONDAY],
+  ])(
+    'saved by a build with another buster, %s, it is thrown away whole, as before',
+    async (_, now) => {
+      await saveCacheWithPausedClaim({ buster: 'tasks-v5' });
+      jest.setSystemTime(now);
+
+      const client = await launch();
+
+      expect(client.getQueryCache().getAll()).toHaveLength(0);
+      expect(client.getMutationCache().getAll()).toHaveLength(0);
+      expect(await AsyncStorage.getItem(QUERY_CACHE_KEY)).toBeNull();
+      client.clear();
+    },
+  );
 });
 
 /**
@@ -328,5 +452,73 @@ describe('the queue on disk, and a video in it', () => {
     // Assert
     await waitFor(() => expect(list.reads).toHaveBeenCalledTimes(1));
     list.stop();
+  });
+
+  /**
+   * A move the network keeps failing is never dropped now (lib/move-retry.ts),
+   * and its promise never settles while it waits; every refresh TanStack makes
+   * on focus or reconnect waited behind it (the verification review of
+   * c466bf5..bc7dcc9, item 2). Each move is waited for a while, then the
+   * lists go ahead and the move keeps going in the queue.
+   */
+  describe('a move that never settles', () => {
+    /** A claim restored from disk whose server never answers. */
+    function stuckClaim(): jest.Mock {
+      const claim = jest.fn(() => new Promise<never>(() => undefined));
+      client
+        .getMutationCache()
+        .build(
+          client,
+          { mutationKey: taskMutationKeys.claim, mutationFn: claim },
+          pausedState(CLAIM),
+        );
+      return claim;
+    }
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    test('back in front, the lists wait for it a while, then refresh; the move stays queued', async () => {
+      // Arrange
+      jest.useFakeTimers();
+      client.mount();
+      const list = await listOnScreen();
+      const claim = stuckClaim();
+
+      // Act
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+      await jest.advanceTimersByTimeAsync(MOVE_WAIT_MS - 1_000);
+
+      // Assert: on its way, and waited for so far.
+      expect(claim).toHaveBeenCalledTimes(1);
+      expect(list.reads).not.toHaveBeenCalled();
+
+      // Act: the wait runs out.
+      await jest.advanceTimersByTimeAsync(2_000);
+
+      // Assert
+      expect(list.reads).toHaveBeenCalledTimes(1);
+      const [move] = client.getMutationCache().getAll();
+      expect(move.state.status).toBe('pending');
+      list.stop();
+    });
+
+    test('at a restart, the lists of the moves refresh once the wait runs out', async () => {
+      // Arrange
+      jest.useFakeTimers();
+      stuckClaim();
+      client.setQueryData(['tasks', 'mine', 'u1'], []);
+
+      // Act
+      const resumed = resumeSavedMoves(client);
+      await jest.advanceTimersByTimeAsync(MOVE_WAIT_MS + 1_000);
+      await resumed;
+
+      // Assert
+      expect(client.getQueryState(['tasks', 'mine', 'u1'])?.isInvalidated).toBe(true);
+      expect(client.getMutationCache().getAll()[0].state.status).toBe('pending');
+    });
   });
 });
