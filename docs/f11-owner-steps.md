@@ -14,19 +14,19 @@ Terminal, из папки `C:\Users\Roman\Desktop\Cleaning App\apps\mobile`. Ч�
 
 ### Android — Firebase и FCM
 
-- [ ] **1.** https://console.firebase.google.com → «Add project» → имя, например
+- [x] **1.** (сделано к выкату 2026-10-02: push на Android доходит — ранбук F11, раздел 7) https://console.firebase.google.com → «Add project» → имя, например
   «STR Ops» → Google Analytics можно выключить.
-- [ ] **2.** В проекте — значок Android → package name ровно
+- [x] **2.** В проекте — значок Android → package name ровно
   **`cz.strops.cleaner`** → Register app → скачать **`google-services.json`**.
   Шаги «Add Firebase SDK» пропустить.
-- [ ] **3.** Положить файл в EAS (не в репозиторий — он публичный):
+- [x] **3.** Положить файл в EAS (не в репозиторий — он публичный):
   ```
   npx eas-cli env:set --name GOOGLE_SERVICES_JSON --type file --value .\google-services.json --visibility secret --environment preview --environment production
   ```
   Файл потом хранить вне папки проекта.
-- [ ] **4.** Firebase → шестерёнка → Project settings → Service accounts →
+- [x] **4.** Firebase → шестерёнка → Project settings → Service accounts →
   «Generate new private key» → скачается JSON. **Это секрет.**
-- [ ] **5.** Загрузить его в EAS — либо в своём окне:
+- [x] **5.** Загрузить его в EAS — либо в своём окне:
   `npx eas-cli credentials -p android` → профиль `preview` → Google Service
   Account → «Manage your Google Service Account Key for Push Notifications
   (FCM V1)» → Set up → «Upload a new service account key» → путь к JSON;
@@ -70,7 +70,8 @@ F11 на Android они не нужны. Шаг 6 (оплата) сделан р
 
 ## Ждёт моей части
 
-- [ ] **13. Первая сборка iOS** — в день выката, шаг 8 ранбука (после `db push`:
+- [ ] **13. Первая сборка iOS** — **с 2026-10-09: сборка 1.2.0 профилем `field-ios`, по
+  `docs/ios-launch-checklist.md` (ветка `phone-1-2-0`); текст ниже — исходный план F11.** — в день выката, шаг 8 ранбука (после `db push`:
   сборка 1.1.0 ходит в новую схему). Профиль уже есть; в своём окне:
   `npx eas-cli build -p ios --profile testflight`. Вход Apple ID, код 2FA, выбор
   команды; на вопрос «Setup Push Notifications for your project?» — **да**
@@ -83,7 +84,8 @@ F11 на Android они не нужны. Шаг 6 (оплата) сделан р
 - [ ] **15.** После записи — ключ App Store Connect API (если Apple одобрила шаг
   7): `npx eas-cli credentials -p ios` → «App Store Connect: Manage your API Key»
   → создать. Дальше сборки и отправки идут без 2FA.
-- [ ] **16. Токен Expo для отправки push** — после деплоя функции `send-push`
+- [x] **16. Токен Expo для отправки push** (сделано 2026-10-02: токен робота до 13:00 UTC, Enhanced
+  security ~17:25 после первого дошедшего push — ранбук F11, раздел 7) — после деплоя функции `send-push`
   (скажу когда): expo.dev → аккаунт `namorenames-team` → Settings → робот
   (Robot users) с наименьшей ролью → токен → секрет функции в Supabase. Только
   **после** этого — переключатель «Enhanced security for push notifications» в
