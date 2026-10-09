@@ -42,6 +42,6 @@ export function problemPriorityText(priority: ProblemPriority): string {
  * to the dash: they have to, or the panel's search stops finding what was
  * reported here.
  */
-export function problemPlace(problem: Problem): string {
+export function problemPlace(problem: Pick<Problem, 'property'>): string {
   return propertyPathOf(problem.property ?? null) ?? i18n.t('problems.noProperty');
 }

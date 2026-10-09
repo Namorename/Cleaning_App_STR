@@ -7,6 +7,7 @@ import { ActionBar } from '@/components/action-bar';
 import { Button } from '@/components/button';
 import { isTechnician } from '@/features/auth/role';
 import { useRole } from '@/features/auth/use-role';
+import { BoardScreen } from '@/features/board/board-screen';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { ProblemList } from '@/features/problems/problem-list';
 import { groupProblems } from '@/features/problems/schema';
@@ -21,13 +22,26 @@ const NO_IDS: readonly string[] = [];
  * report has to wait in the queue.
  *
  * A technician has no listings to report on from here: he raises a task from
- * his repair, where its listing fills itself in (docs/tech-plan.md §4) — and
- * the head technician has none either. They get the list without the button.
+ * his repair, where its listing fills itself in (docs/tech-plan.md §4). He
+ * gets the list without the button.
+ *
+ * The head technician's tab is not a list of his own at all: it is the board
+ * of every task of the company, with its filters (docs/tech-plan.md §3.4, §4),
+ * and no «Создать задание» either.
  */
 export default function ProblemsScreen() {
+  const role = useRole();
+
+  return role === 'head_tech' ? <BoardScreen /> : <MyProblems canReport={!isTechnician(role)} />;
+}
+
+interface MyProblemsProps {
+  canReport: boolean;
+}
+
+function MyProblems({ canReport }: MyProblemsProps) {
   const { t } = useTranslation();
   const { data, isPending, error, refetch, isRefetching } = useMyProblems();
-  const canReport = !isTechnician(useRole());
 
   const sections = useMemo(() => (data === undefined ? undefined : groupProblems(data)), [data]);
 

@@ -22,6 +22,30 @@ jest.mock('@/features/chat/use-chat', () => ({
 
 jest.mock('../use-problems', () => ({ useMyProblems: jest.fn() }));
 
+// The head technician's tab is the board of every task (features/board).
+jest.mock('@/features/board/use-board', () => ({
+  useBoardProblems: () => ({
+    data: [
+      {
+        id: 'd1e2f3a4-1111-4111-8111-d1e2f3a40009',
+        property_id: 412432,
+        title: 'Сломан замок у соседей',
+        priority: 'normal',
+        status: 'open',
+        archived_at: null,
+        created_at: '2026-11-10T08:00:00+00:00',
+        property: null,
+        fix_tasks: [],
+      },
+    ],
+    isPending: false,
+    error: null,
+    refetch: jest.fn(),
+    isRefetching: false,
+  }),
+  useStaffDirectory: () => ({ data: [], error: null, refetch: jest.fn() }),
+}));
+
 /** The role in her token; a cleaner unless a test says otherwise. */
 let mockRole = 'cleaner';
 
@@ -75,25 +99,46 @@ beforeEach(() => {
 
 // A technician has no listings to report on from here: he raises a task from
 // his repair, where its listing fills itself in (docs/tech-plan.md §4). The
-// head technician has none either. The list itself stays — what it holds is
-// the server's to decide.
+// list itself stays — what it holds is the server's to decide. The head
+// technician has no button either, and instead of a list, the board.
 describe('the role decides the button', () => {
-  test.each(['tech', 'head_tech'])('a %s gets the list without «Создать задание»', async (role) => {
-    mockRole = role;
+  test('a technician gets his list without «Создать задание», and no board', async () => {
+    mockRole = 'tech';
 
     await render(<ProblemsScreen />);
 
     expect(screen.getByText('Кран течёт')).toBeTruthy();
     expect(screen.queryByRole('button', { name: REPORT })).toBeNull();
+    expect(screen.queryByText('Сломан замок у соседей')).toBeNull();
+    expect(screen.queryByLabelText('Статус')).toBeNull();
   });
 
-  test.each(['cleaner', 'manager', 'auditor'])('a %s keeps «Создать задание»', async (role) => {
-    mockRole = role;
+  // Every task of the company with its filters (docs/tech-plan.md §4), not
+  // the list of his own: brief, item 1.
+  test('the head technician gets the board of every task, with its filters', async () => {
+    mockRole = 'head_tech';
 
     await render(<ProblemsScreen />);
 
-    expect(screen.getByRole('button', { name: REPORT })).toBeTruthy();
+    expect(screen.getByText('Сломан замок у соседей')).toBeTruthy();
+    expect(screen.getByLabelText('Статус').props.accessibilityRole).toBe('tablist');
+    expect(screen.getByRole('button', { name: 'Исполнитель: Все исполнители' })).toBeTruthy();
+    expect(screen.queryByText('Кран течёт')).toBeNull();
+    expect(screen.queryByRole('button', { name: REPORT })).toBeNull();
+    expect(useMyProblems).not.toHaveBeenCalled();
   });
+
+  test.each(['cleaner', 'manager', 'auditor'])(
+    'a %s keeps «Создать задание», and no board',
+    async (role) => {
+      mockRole = role;
+
+      await render(<ProblemsScreen />);
+
+      expect(screen.getByRole('button', { name: REPORT })).toBeTruthy();
+      expect(screen.queryByText('Сломан замок у соседей')).toBeNull();
+    },
+  );
 });
 
 test('«Создать задание» is a 56 dp button that starts a report', async () => {
