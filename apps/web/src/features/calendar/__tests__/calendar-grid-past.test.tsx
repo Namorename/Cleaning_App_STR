@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, test, vi } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import type { Property } from '@/features/tasks/schema';
 import { buildPropertyTree, visibleRows } from '@/lib/property-tree';
@@ -47,7 +47,11 @@ const DAY = DAY_WIDTH[7];
 
 const noop = () => {};
 
-function grid(days: readonly string[], onReachStart = vi.fn()) {
+interface GridOptions {
+  revealPast?: boolean;
+}
+
+function grid(days: readonly string[], onReachStart: () => void, options: GridOptions = {}) {
   const collapsed = new Set<number>();
   return (
     <CalendarGrid
@@ -71,15 +75,31 @@ function grid(days: readonly string[], onReachStart = vi.fn()) {
       repairAlerts={new Map()}
       overscan={2}
       onReachStart={onReachStart}
+      revealPast={options.revealPast}
     />
   );
 }
 
-function renderGrid(days: readonly string[] = WEEK) {
-  const onReachStart = vi.fn();
-  const view = render(grid(days, onReachStart));
-  return { ...view, onReachStart, scroller: screen.getByRole('grid') };
+/** jsdom lays nothing out: the grid is given how wide its days are and how wide it is. */
+function setLayout(element: HTMLElement, scrollWidth: number, clientWidth: number) {
+  Object.defineProperty(element, 'scrollWidth', { configurable: true, value: scrollWidth });
+  Object.defineProperty(element, 'clientWidth', { configurable: true, value: clientWidth });
 }
+
+/** The grid, its days wider than it unless a test says otherwise; `show` keeps the same handler. */
+function renderGrid(days: readonly string[] = WEEK, options: GridOptions = {}) {
+  const onReachStart = vi.fn();
+  const view = render(grid(days, onReachStart, options));
+  const scroller = screen.getByRole('grid');
+  setLayout(scroller, 5000, 1000);
+  const show = (next: readonly string[], nextOptions: GridOptions = {}) =>
+    view.rerender(grid(next, onReachStart, nextOptions));
+  return { onReachStart, scroller, show };
+}
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('the left edge asks for the past', () => {
   test('a scroll — the scrollbar or the keys — that lands on the start', () => {
@@ -150,12 +170,57 @@ describe('the left edge asks for the past', () => {
   });
 });
 
+// Review of 2026-10-10 (HIGH): a scroll the grid did not get from the manager
+// — the past dropped, the window resized — is not the manager at the start.
+describe('a scroll the manager did not make asks nothing', () => {
+  test('the past dropped — «Сегодня», an arrow, a depth — bringing the scroll to the start', () => {
+    const { scroller, onReachStart, show } = renderGrid([...PAST, ...WEEK]);
+    scroller.scrollLeft = PAST.length * DAY;
+    fireEvent.scroll(scroller);
+
+    show(WEEK);
+    scroller.scrollLeft = 0;
+    fireEvent.scroll(scroller);
+
+    expect(onReachStart).not.toHaveBeenCalled();
+  });
+
+  test('a wider window in which the days fit, which puts the scroll at the start', () => {
+    const { scroller, onReachStart } = renderGrid();
+    scroller.scrollLeft = 300;
+    fireEvent.scroll(scroller);
+
+    setLayout(scroller, 1000, 1000);
+    scroller.scrollLeft = 0;
+    fireEvent.scroll(scroller);
+
+    expect(onReachStart).not.toHaveBeenCalled();
+  });
+
+  // A trackpad's fling runs on after a chunk lands: one fling, one chunk.
+  test('just after a chunk lands the edge waits a moment, then asks again', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-10T10:00:00Z'));
+    const { scroller, onReachStart, show } = renderGrid();
+
+    show([...PAST, ...WEEK]);
+    scroller.scrollLeft = 0;
+    fireEvent.scroll(scroller);
+    fireEvent.wheel(scroller, { deltaX: -60 });
+    expect(onReachStart).not.toHaveBeenCalled();
+
+    vi.setSystemTime(new Date('2026-10-10T10:00:01Z'));
+    fireEvent.wheel(scroller, { deltaX: -60 });
+    expect(onReachStart).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('the days on screen stay where they were', () => {
   test('when days are put before the window', () => {
-    const { scroller, rerender } = renderGrid();
+    const { scroller, show } = renderGrid();
     scroller.scrollLeft = 50;
 
-    rerender(grid([...PAST, ...WEEK]));
+    show([...PAST, ...WEEK]);
 
     expect(scroller.scrollLeft).toBe(50 + PAST.length * DAY);
     expect(
@@ -167,30 +232,41 @@ describe('the days on screen stay where they were', () => {
   });
 
   test('when the past before the window is dropped', () => {
-    const { scroller, rerender } = renderGrid([...PAST, ...WEEK]);
+    const { scroller, show } = renderGrid([...PAST, ...WEEK]);
     scroller.scrollLeft = 50 + PAST.length * DAY;
 
-    rerender(grid(WEEK));
+    show(WEEK);
 
     expect(scroller.scrollLeft).toBe(50);
   });
 
   test('the putting of days before the window is no scroll to the start', () => {
-    const { scroller, rerender, onReachStart } = renderGrid();
+    const { scroller, show, onReachStart } = renderGrid();
     scroller.scrollLeft = 0;
 
-    rerender(grid([...PAST, ...WEEK]));
+    show([...PAST, ...WEEK]);
     fireEvent.scroll(scroller);
 
     expect(onReachStart).not.toHaveBeenCalled();
   });
 
   test('an arrow — another window — leaves the scroll as it was', () => {
-    const { scroller, rerender } = renderGrid();
+    const { scroller, show } = renderGrid();
     scroller.scrollLeft = 50;
 
-    rerender(grid(windowDays('2026-10-02', 7)));
+    show(windowDays('2026-10-02', 7));
 
     expect(scroller.scrollLeft).toBe(50);
+  });
+
+  // Review of 2026-10-10: a press of «Показать прошлое» where the whole window
+  // fits would put the chunk out of sight; asked by a press, it is shown.
+  test('except a chunk asked for by a press, which is brought into view', () => {
+    const { scroller, show } = renderGrid();
+    scroller.scrollLeft = 50;
+
+    show([...PAST, ...WEEK], { revealPast: true });
+
+    expect(scroller.scrollLeft).toBe(0);
   });
 });

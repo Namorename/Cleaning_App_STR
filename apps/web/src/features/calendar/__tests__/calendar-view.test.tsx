@@ -1375,6 +1375,8 @@ describe('the past', () => {
     expect(pastLoad.mock.calls[0][0][0]).toBe('2026-09-11');
     expect(pastLoad.mock.calls[0][0]).toHaveLength(14);
     expect(screen.getByRole('status')).toHaveTextContent('Загружаем прошлое…');
+    // The status line says it; the button stays a plain button.
+    expect(screen.getByRole('button', { name: PAST_BUTTON })).not.toHaveAttribute('aria-busy');
     expect(days()).toHaveLength(7);
 
     await act(async () => answer.resolve());
@@ -1395,9 +1397,34 @@ describe('the past', () => {
 
     expect(days()[0]).toBe('2026-07-28');
     const limit = screen.getByRole('button', { name: 'Прошлое — не дальше 60 дней назад' });
-    expect(limit).toBeDisabled();
+    // Disabled for the reader, yet the keyboard's focus stays on it (review 2026-10-10).
+    expect(limit).toHaveAttribute('aria-disabled', 'true');
+    expect(limit).not.toBeDisabled();
+    expect(limit).toHaveFocus();
+    await user.click(limit);
     expect(screen.queryByRole('button', { name: PAST_BUTTON })).toBeNull();
     expect(pastLoad).toHaveBeenCalledTimes(5);
+  });
+
+  // Review of 2026-10-10: where the window fits, a press that kept the view
+  // would show nothing new; the edge keeps the day under the cursor.
+  test('a press brings the chunk into view; the edge keeps the day at the edge', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<CalendarView />);
+    const grid = screen.getByRole('grid');
+    grid.scrollLeft = 50;
+
+    await user.click(screen.getByRole('button', { name: PAST_BUTTON }));
+    expect(days()[0]).toBe('2026-09-11');
+    expect(grid.scrollLeft).toBe(0);
+
+    // The edge waits a moment after a chunk lands (a trackpad's fling).
+    vi.setSystemTime(new Date('2026-09-26T10:00:05Z'));
+    fireEvent.wheel(grid, { deltaX: -60 });
+    await act(async () => {});
+
+    expect(days()[0]).toBe('2026-08-28');
+    expect(grid.scrollLeft).toBe(14 * 130);
   });
 
   test('a chunk that fails says so, with the server’s words and a retry, and keeps what is shown', async () => {

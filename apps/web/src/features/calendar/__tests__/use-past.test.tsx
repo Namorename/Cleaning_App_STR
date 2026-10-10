@@ -56,7 +56,7 @@ describe('the past of the calendar', () => {
     const load = vi.fn(() => Promise.reject(undefined));
     const { result } = renderPast(load);
 
-    await act(async () => result.current.loadMore());
+    await act(async () => result.current.loadMore('edge'));
 
     expect(result.current.isError).toBe(true);
     expect(result.current.days).toEqual([]);
@@ -67,7 +67,7 @@ describe('the past of the calendar', () => {
     const load = vi.fn(() => answer.promise);
     const { result } = renderPast(load);
 
-    act(() => result.current.loadMore());
+    act(() => result.current.loadMore('edge'));
 
     expect(load).toHaveBeenCalledWith(FIRST_CHUNK);
     expect(result.current.isLoading).toBe(true);
@@ -83,8 +83,8 @@ describe('the past of the calendar', () => {
     const load = vi.fn(async () => {});
     const { result } = renderPast(load);
 
-    await act(async () => result.current.loadMore());
-    await act(async () => result.current.loadMore());
+    await act(async () => result.current.loadMore('edge'));
+    await act(async () => result.current.loadMore('edge'));
 
     expect(load).toHaveBeenLastCalledWith(SECOND_CHUNK);
     expect(result.current.days).toEqual([...SECOND_CHUNK, ...FIRST_CHUNK]);
@@ -96,9 +96,9 @@ describe('the past of the calendar', () => {
     const load = vi.fn(() => answer.promise);
     const { result } = renderPast(load);
 
-    act(() => result.current.loadMore());
-    act(() => result.current.loadMore());
-    act(() => result.current.loadMore());
+    act(() => result.current.loadMore('edge'));
+    act(() => result.current.loadMore('edge'));
+    act(() => result.current.loadMore('edge'));
     await act(async () => answer.resolve());
 
     expect(load).toHaveBeenCalledTimes(1);
@@ -109,17 +109,17 @@ describe('the past of the calendar', () => {
     const failure = { message: 'canceling statement due to statement timeout' };
     const load = vi.fn(async () => {});
     const { result } = renderPast(load);
-    await act(async () => result.current.loadMore());
+    await act(async () => result.current.loadMore('edge'));
 
     load.mockRejectedValueOnce(failure);
-    await act(async () => result.current.loadMore());
+    await act(async () => result.current.loadMore('edge'));
 
     expect(result.current.isError).toBe(true);
     expect(result.current.error).toBe(failure);
     expect(result.current.isLoading).toBe(false);
     expect(result.current.days).toEqual(FIRST_CHUNK);
 
-    await act(async () => result.current.loadMore());
+    await act(async () => result.current.loadMore('edge'));
 
     expect(load).toHaveBeenCalledTimes(3);
     expect(load).toHaveBeenLastCalledWith(SECOND_CHUNK);
@@ -133,14 +133,14 @@ describe('the past of the calendar', () => {
     const { result } = renderPast(load);
 
     for (let press = 0; press < 5; press += 1) {
-      await act(async () => result.current.loadMore());
+      await act(async () => result.current.loadMore('edge'));
     }
 
     expect(result.current.days[0]).toBe('2026-08-11');
     expect(result.current.days).toHaveLength(59);
     expect(result.current.isAtLimit).toBe(true);
 
-    await act(async () => result.current.loadMore());
+    await act(async () => result.current.loadMore('edge'));
     expect(load).toHaveBeenCalledTimes(5);
   });
 
@@ -148,7 +148,7 @@ describe('the past of the calendar', () => {
     const load = vi.fn(async () => {});
     const { result } = renderPast(load, { isReady: false });
 
-    act(() => result.current.loadMore());
+    act(() => result.current.loadMore('edge'));
 
     expect(load).not.toHaveBeenCalled();
     expect(result.current.isLoading).toBe(false);
@@ -157,12 +157,12 @@ describe('the past of the calendar', () => {
   test('a new window drops the past, and a chunk still on its way stays unshown', async () => {
     const load = vi.fn(async () => {});
     const { result, rerender } = renderPast(load);
-    await act(async () => result.current.loadMore());
+    await act(async () => result.current.loadMore('edge'));
     expect(result.current.days).toHaveLength(14);
 
     const late = deferred();
     load.mockImplementationOnce(() => late.promise);
-    act(() => result.current.loadMore());
+    act(() => result.current.loadMore('edge'));
 
     rerender({ start: '2026-10-02', depth: 7, isReady: true, load });
     expect(result.current.days).toEqual([]);
@@ -174,10 +174,24 @@ describe('the past of the calendar', () => {
     expect(result.current.days).toEqual([]);
   });
 
+  // Review of 2026-10-10: a press must show what it brought; the edge keeps
+  // the day under the cursor.
+  test('a chunk asked for by a press is to be brought into view; one asked at the edge is not', async () => {
+    const load = vi.fn(async () => {});
+    const { result } = renderPast(load);
+    expect(result.current.shouldReveal).toBe(false);
+
+    await act(async () => result.current.loadMore('button'));
+    expect(result.current.shouldReveal).toBe(true);
+
+    await act(async () => result.current.loadMore('edge'));
+    expect(result.current.shouldReveal).toBe(false);
+  });
+
   test('another depth is another window too', async () => {
     const load = vi.fn(async () => {});
     const { result, rerender } = renderPast(load);
-    await act(async () => result.current.loadMore());
+    await act(async () => result.current.loadMore('edge'));
 
     rerender({ start: START, depth: 30, isReady: true, load });
 
@@ -187,7 +201,7 @@ describe('the past of the calendar', () => {
   test('dropped on demand: «Сегодня» on the window it is already on', async () => {
     const load = vi.fn(async () => {});
     const { result } = renderPast(load);
-    await act(async () => result.current.loadMore());
+    await act(async () => result.current.loadMore('edge'));
 
     act(() => result.current.reset());
 

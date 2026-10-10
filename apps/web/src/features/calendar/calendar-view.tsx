@@ -370,7 +370,8 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
           onMoreTasks={taskDialogs.showCell}
           onEmptyDay={newTaskOnDay}
           overscan={standOverscan(isStand, rows.length)}
-          onReachStart={past.loadMore}
+          onReachStart={() => past.loadMore('edge')}
+          revealPast={past.shouldReveal}
         />
       )}
 

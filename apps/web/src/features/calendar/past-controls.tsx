@@ -15,29 +15,26 @@ interface PastControlsProps {
 /**
  * «Показать прошлое» (the owner's word of 2026-10-10, block 7): the way to the
  * past for the keyboard and the touch, beside the left edge's own. At sixty
- * days back it says that is the limit, and does nothing.
+ * days back it says that is the limit and does nothing — disabled for the
+ * reader (`aria-disabled`) but still focusable, so the keyboard's focus is
+ * not dropped on the last press (review 2026-10-10). While a chunk loads it
+ * stays as it is: the status line says so, and a second press asks nothing.
  */
 export function PastButton({ past }: PastControlsProps) {
   const { t } = useTranslation();
-
-  if (past.isAtLimit) {
-    return (
-      <Button type="button" variant="outline" size="sm" disabled>
-        {t('panel.calendar.past.limit', { count: PAST_LIMIT_DAYS })}
-      </Button>
-    );
-  }
   return (
     <Button
       type="button"
       variant="outline"
       size="sm"
-      // Kept pressable while a chunk loads: a disabled button would drop the
-      // keyboard's focus; a second press asks nothing more.
-      aria-busy={past.isLoading || undefined}
-      onClick={past.loadMore}
+      disabled={past.isAtLimit}
+      focusableWhenDisabled
+      className="aria-disabled:opacity-50"
+      onClick={() => past.loadMore('button')}
     >
-      {t('panel.calendar.past.show')}
+      {past.isAtLimit
+        ? t('panel.calendar.past.limit', { count: PAST_LIMIT_DAYS })
+        : t('panel.calendar.past.show')}
     </Button>
   );
 }
@@ -61,7 +58,7 @@ export function PastFailure({ past }: PastControlsProps) {
   return (
     <div className="flex flex-wrap items-start gap-2">
       <ErrorState message={t('panel.calendar.past.error')} error={past.error} />
-      <Button type="button" variant="outline" size="sm" onClick={past.loadMore}>
+      <Button type="button" variant="outline" size="sm" onClick={() => past.loadMore('button')}>
         {t('common.retry')}
       </Button>
     </div>

@@ -17,6 +17,9 @@ interface PastOptions {
   load: (days: readonly string[]) => Promise<unknown>;
 }
 
+/** Who asked for a chunk: a press of a button, or the grid's left edge. */
+export type PastOrigin = 'button' | 'edge';
+
 export interface CalendarPast {
   /** The days shown before the window, oldest first; none until asked for. */
   days: readonly string[];
@@ -28,8 +31,13 @@ export interface CalendarPast {
   error: unknown;
   /** Sixty days before today is shown: there is no more past to ask for. */
   isAtLimit: boolean;
+  /**
+   * The last chunk shown was asked for by a press: the grid brings it into
+   * view. One asked at the edge keeps the day under the cursor.
+   */
+  shouldReveal: boolean;
   /** Asks for the next chunk: once at a time, never past the limit. */
-  loadMore: () => void;
+  loadMore: (origin: PastOrigin) => void;
   /** Drops the past: «Сегодня» on the window it is already on. */
   reset: () => void;
 }
@@ -42,6 +50,8 @@ interface PastState {
   pending: object | null;
   /** The last chunk's failure, boxed: a read may fail with nothing to say. */
   failure: { error: unknown } | null;
+  /** The last chunk shown came from a press. */
+  isRevealed: boolean;
 }
 
 const emptyFor = (window: string): PastState => ({
@@ -49,6 +59,7 @@ const emptyFor = (window: string): PastState => ({
   days: [],
   pending: null,
   failure: null,
+  isRevealed: false,
 });
 
 /**
@@ -69,7 +80,7 @@ export function useCalendarPast({ start, depth, today, isReady, load }: PastOpti
 
   const next = pastChunk(current.days[0] ?? start, today);
 
-  const loadMore = () => {
+  const loadMore = (origin: PastOrigin) => {
     if (!isReady || current.pending !== null || next.length === 0) {
       return;
     }
@@ -78,7 +89,14 @@ export function useCalendarPast({ start, depth, today, isReady, load }: PastOpti
     load(next).then(
       () =>
         setState((now) =>
-          now.pending === token ? { ...now, days: [...next, ...now.days], pending: null } : now,
+          now.pending === token
+            ? {
+                ...now,
+                days: [...next, ...now.days],
+                pending: null,
+                isRevealed: origin === 'button',
+              }
+            : now,
         ),
       (error: unknown) =>
         setState((now) =>
@@ -93,6 +111,7 @@ export function useCalendarPast({ start, depth, today, isReady, load }: PastOpti
     isError: current.failure !== null,
     error: current.failure === null ? null : current.failure.error,
     isAtLimit: next.length === 0,
+    shouldReveal: current.isRevealed,
     loadMore,
     reset: () => setState(emptyFor(windowKey)),
   };

@@ -16,7 +16,7 @@ import type { VisibleRow } from '@/lib/property-tree';
 import type { RowLayout } from './bars';
 import { cellTasks, type BookingsRead, type ChipView } from './chips';
 import { dayLabel, dayWidthFor, fullDayLabel, type Depth } from './dates';
-import { shiftedScroll, useLeftEdge } from './left-edge';
+import { pastChange, shiftedScroll, useLeftEdge } from './left-edge';
 import { RowTrack } from './row-track';
 import type { CalendarBooking } from './schema';
 
@@ -64,6 +64,8 @@ interface CalendarGridProps {
   overscan: number;
   /** The days were scrolled to their start: the past is asked for (block 7). */
   onReachStart?: () => void;
+  /** The last chunk of the past was asked for by a press: it is brought into view. */
+  revealPast?: boolean;
 }
 
 /**
@@ -289,6 +291,7 @@ export function CalendarGrid({
   repairAlerts,
   overscan,
   onReachStart,
+  revealPast = false,
 }: CalendarGridProps) {
   const { t } = useTranslation();
   const scroller = useRef<HTMLDivElement>(null);
@@ -301,20 +304,25 @@ export function CalendarGrid({
   // The past (block 7): asked for at the left edge, and put in without a jump —
   // the scroll moves before the frame is painted.
   const edge = useLeftEdge(onReachStart);
+  const { settle } = edge;
   const first = days[0];
   const last = days[days.length - 1];
   const shown = useRef({ first, last });
   useLayoutEffect(() => {
     const element = scroller.current;
-    const next =
-      element === null
-        ? null
-        : shiftedScroll(shown.current, { first, last }, element.scrollLeft, dayWidth);
+    const before = shown.current;
     shown.current = { first, last };
-    if (element !== null && next !== null) {
+    if (element === null) {
+      return;
+    }
+    const next = shiftedScroll(before, { first, last }, element.scrollLeft, dayWidth, revealPast);
+    if (next !== null) {
       element.scrollLeft = next;
     }
-  }, [first, last, dayWidth]);
+    // Where the grid put the scroll — or the browser clamped it — is not the
+    // manager reaching the start.
+    settle(element.scrollLeft, pastChange(before, { first, last }) > 0);
+  }, [first, last, dayWidth, revealPast, settle]);
 
   // The compiler cannot memoize a component that holds a virtualizer, and
   // should not: the grid redraws on every scroll by design (§4). A row already
