@@ -1,6 +1,7 @@
 'use client';
 
 import { problemStatusTone } from '@str-ops/shared';
+import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { StatusBadge } from '@/components/status-badge';
@@ -11,12 +12,15 @@ import type { ProblemsAddress } from './address';
 import { menuMoves } from './board-moves';
 import { ProblemCard } from './problem-card';
 import type { BoardStatus, Problem } from './schema';
+import { ShowMoreButton, useShowMore, WHOLE, type PageSize } from './show-more';
 import type { CardDrag, ColumnDrop } from './use-board-drag';
 
 interface BoardColumnProps {
   status: BoardStatus;
-  /** The cards in this column. */
+  /** The cards in this column, in the order they show. */
   problems: Problem[];
+  /** How many show at first and with each «Показать ещё»; all of them by default. */
+  page?: PageSize;
   /** A search narrows the board: an empty column then says "nothing found". */
   isFiltered: boolean;
   /** The dragged card may be dropped here. */
@@ -38,10 +42,14 @@ interface BoardColumnProps {
  * outlined in the primary colour, dashed (the review of 05.10: a faint ring
  * alone was below 3:1); the card over it turns the outline solid. No words
  * in the head — the owner (05.10) found «Можно сюда» one sign too many.
+ *
+ * A column given a page shows that many cards and «Показать ещё» under them
+ * (owner, 10.10); the head still counts them all.
  */
 export function BoardColumn({
   status,
   problems,
+  page = WHOLE,
   isFiltered,
   isDroppable,
   isOver,
@@ -53,9 +61,12 @@ export function BoardColumn({
 }: BoardColumnProps) {
   const { t } = useTranslation();
   const heading = t(`problems.statuses.${status}`);
+  const cardsRef = useRef<HTMLElement>(null);
+  const paging = useShowMore(problems.length, page, cardsRef, ':scope > article');
 
   return (
     <section
+      ref={cardsRef}
       aria-label={heading}
       onDragEnter={drop.onDragEnter}
       onDragOver={drop.onDragOver}
@@ -85,19 +96,22 @@ export function BoardColumn({
             : t('panel.problems.board.columnEmpty')}
         </p>
       ) : (
-        problems.map((problem) => (
-          <ProblemCard
-            key={problem.id}
-            problem={problem}
-            moves={menuMoves(problem)}
-            onMove={onMove}
-            hasUnread={unread.has(problem.id)}
-            from={from}
-            onDragStart={drag.onDragStart}
-            onDragEnd={drag.onDragEnd}
-          />
-        ))
+        problems
+          .slice(0, paging.shown)
+          .map((problem) => (
+            <ProblemCard
+              key={problem.id}
+              problem={problem}
+              moves={menuMoves(problem)}
+              onMove={onMove}
+              hasUnread={unread.has(problem.id)}
+              from={from}
+              onDragStart={drag.onDragStart}
+              onDragEnd={drag.onDragEnd}
+            />
+          ))
       )}
+      <ShowMoreButton more={paging.more} total={problems.length} onPress={paging.showMore} />
     </section>
   );
 }

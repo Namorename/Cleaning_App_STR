@@ -244,6 +244,7 @@
         "dateTo": "Reported until",
         "reset": "Clear the filters"
       },
+      "showMore": "Show {{more}} more ({{total}} in all)",
       "loading": "Loading tasks…",
       "loadError": "Could not load the tasks",
       "notFound": "Task not found",

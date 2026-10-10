@@ -244,6 +244,7 @@
         "dateTo": "Nahlášeno do",
         "reset": "Zrušit filtry"
       },
+      "showMore": "Zobrazit více: {{more}} (celkem {{total}})",
       "loading": "Načítáme úkoly…",
       "loadError": "Úkoly se nepodařilo načíst",
       "notFound": "Úkol nenalezen",

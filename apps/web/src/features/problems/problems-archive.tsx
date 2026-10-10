@@ -2,6 +2,7 @@
 
 import { problemStatusTone } from '@str-ops/shared';
 import Link from 'next/link';
+import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/states';
@@ -16,6 +17,7 @@ import { useLanguage } from '@/lib/use-language';
 import { problemChatHref, problemHref, type ProblemsAddress } from './address';
 import { EMPTY_PROBLEM_FILTERS, type ProblemFilters } from './filters';
 import { problemPlace, type Problem } from './schema';
+import { ARCHIVE_PAGE, ShowMoreButton, useShowMore } from './show-more';
 import { useUnarchiveProblem } from './use-problems';
 
 interface ProblemsArchiveProps {
@@ -31,6 +33,9 @@ interface ProblemsArchiveProps {
  * Problems the manager put away: still openable, one click from coming back.
  * An archived problem may still be written about; its mark leads to the
  * conversation, as in the list.
+ *
+ * The archive only grows, so it shows a page at a time (owner, 10.10), newest
+ * reported first; «Показать ещё» under it brings the older ones.
  */
 export function ProblemsArchive({
   problems,
@@ -43,6 +48,8 @@ export function ProblemsArchive({
   const unarchive = useUnarchiveProblem();
   const failure = unarchive.isError ? serverErrorText(unarchive.error) : null;
   const from: ProblemsAddress = { view: 'archive', filters };
+  const listRef = useRef<HTMLUListElement>(null);
+  const paging = useShowMore(problems.length, ARCHIVE_PAGE, listRef, ':scope > li');
 
   if (problems.length === 0) {
     return (
@@ -55,8 +62,8 @@ export function ProblemsArchive({
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">{t('panel.problems.archive.hint')}</p>
-      <ul className="flex flex-col gap-2">
-        {problems.map((problem) => (
+      <ul ref={listRef} className="flex flex-col gap-2">
+        {problems.slice(0, paging.shown).map((problem) => (
           <li
             key={problem.id}
             className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3 text-sm"
@@ -94,6 +101,7 @@ export function ProblemsArchive({
           </li>
         ))}
       </ul>
+      <ShowMoreButton more={paging.more} total={problems.length} onPress={paging.showMore} />
       {failure !== null ? (
         <p role="alert" className="text-sm text-destructive">
           {failure.text}

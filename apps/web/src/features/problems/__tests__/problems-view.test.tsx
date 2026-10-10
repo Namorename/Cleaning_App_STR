@@ -617,6 +617,85 @@ describe('the filters', () => {
   });
 });
 
+// 10.10, the owner: the page must not grow without end, and old tasks stay
+// within reach — «Показать ещё» on «Выполнено», the list and the archive.
+describe('a page at a time', () => {
+  const MINUTE_MS = 60 * 1000;
+
+  /** `count` tasks, newest reported first as the server reads them; «N» resolved later the larger N. */
+  function many(count: number, patch: (n: number) => Record<string, unknown>): Problem[] {
+    return Array.from({ length: count }, (_, index) => {
+      const n = index + 1;
+      return problemSchema.parse({
+        ...problems[0],
+        id: `77777777-0000-4000-8000-${String(n).padStart(12, '0')}`,
+        title: `Лампа ${n}`,
+        created_at: new Date(Date.UTC(2026, 8, 30) - n * MINUTE_MS).toISOString(),
+        ...patch(n),
+      });
+    });
+  }
+
+  const resolvedAt = (n: number) => new Date(Date.UTC(2026, 9, 1) + n * MINUTE_MS).toISOString();
+
+  test('the filters narrow «Выполнено» first, then it shows the newest of what is left', async () => {
+    const resolved = many(25, (n) => ({
+      status: 'resolved',
+      resolved_at: resolvedAt(n),
+      property: { name: n % 2 === 1 ? 'Karlín 3' : 'Vinohrady 12' },
+    }));
+    useProblems.mockReturnValue({ data: resolved, isPending: false, isError: false });
+    render(<ProblemsView />);
+
+    await userEvent.selectOptions(screen.getByLabelText('Объект'), 'Karlín 3');
+
+    const done = within(screen.getByRole('region', { name: 'Выполнено' }));
+    expect(done.getByText('13')).toBeInTheDocument();
+    expect(done.getAllByRole('article')).toHaveLength(10);
+    expect(done.getAllByRole('link').map((link) => link.textContent)).toEqual(
+      [25, 23, 21, 19, 17, 15, 13, 11, 9, 7].map((n) => `Лампа ${n}`),
+    );
+    expect(done.getByRole('button', { name: 'Показать ещё 3 (всего 13)' })).toBeInTheDocument();
+  });
+
+  test('the list shows fifty rows, newest reported first, and fifty more each press', async () => {
+    useProblems.mockReturnValue({
+      data: many(60, () => ({})),
+      isPending: false,
+      isError: false,
+    });
+    window.history.pushState(null, '', '/problems?view=list');
+    render(<ProblemsView />);
+
+    const rows = () => screen.getAllByRole('link', { name: /^Лампа / });
+    expect(rows()).toHaveLength(50);
+    expect(rows()[0]).toHaveTextContent('Лампа 1');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Показать ещё 10 (всего 60)' }));
+    expect(rows()).toHaveLength(60);
+    expect(screen.getByRole('link', { name: 'Лампа 51' })).toHaveFocus();
+    expect(screen.queryByRole('button', { name: /Показать ещё/ })).toBeNull();
+  });
+
+  test('the archive shows twenty, and twenty more each press', async () => {
+    useProblems.mockReturnValue({
+      data: many(25, () => ({ archived_at: '2026-10-02T10:00:00+00:00' })),
+      isPending: false,
+      isError: false,
+    });
+    window.history.pushState(null, '', '/problems?view=archive');
+    render(<ProblemsView />);
+
+    const rows = () => screen.getAllByRole('link', { name: /^Лампа / });
+    expect(rows()).toHaveLength(20);
+    expect(screen.getByRole('tab', { name: /Архив/ })).toHaveTextContent('25');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Показать ещё 5 (всего 25)' }));
+    expect(rows()).toHaveLength(25);
+    expect(screen.getByRole('link', { name: 'Лампа 21' })).toHaveFocus();
+  });
+});
+
 // 5.4, «Чат»: the mark of an unread message stood on the board's cards only.
 describe('the mark of an unread message', () => {
   /** The mark's name: the words, then whose conversation it opens. */
