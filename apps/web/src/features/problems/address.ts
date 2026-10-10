@@ -5,6 +5,7 @@ import {
   EMPTY_PROBLEM_FILTERS,
   NO_ASSIGNEE,
   NO_PLACE,
+  withOrderedDates,
   type PlaceFilter,
   type ProblemFilters,
 } from './filters';
@@ -72,8 +73,9 @@ function writePlace(place: PlaceFilter): string | null {
 /**
  * The address as the screen's state. Each value is checked on its own: an old
  * or hand-edited link loses the part that makes no sense and keeps the rest,
- * rather than failing the screen. Whether a place or a person is one some task
- * names is known only once the tasks are read (`knownFilters`).
+ * rather than failing the screen; two days the wrong way round are the days
+ * between them. Whether a place or a person is one some task names is known
+ * only once the tasks are read (`knownFilters`).
  */
 export function readProblemsAddress(params: URLSearchParams): ProblemsAddress {
   const valid = <T>(schema: z.ZodType<T>, name: string, fallback: T): T => {
@@ -82,13 +84,13 @@ export function readProblemsAddress(params: URLSearchParams): ProblemsAddress {
   };
   return {
     view: readProblemsView(params.get(PARAM.view)),
-    filters: {
+    filters: withOrderedDates({
       query: params.get(PARAM.query) ?? EMPTY_PROBLEM_FILTERS.query,
       place: readPlace(params.get(PARAM.place)),
       assigneeId: valid(assigneeSchema, PARAM.assignee, EMPTY_PROBLEM_FILTERS.assigneeId),
       dateFrom: valid(daySchema, PARAM.dateFrom, EMPTY_PROBLEM_FILTERS.dateFrom),
       dateTo: valid(daySchema, PARAM.dateTo, EMPTY_PROBLEM_FILTERS.dateTo),
-    },
+    }),
   };
 }
 

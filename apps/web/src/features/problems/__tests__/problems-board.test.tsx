@@ -390,9 +390,8 @@ describe('ProblemsBoard layout', () => {
   });
 });
 
-// The owner, 10.10: «Столбец "выполнено" будет со временем иметь очень много
-// заданий ... чтобы страница не росла слишком сильно по вертикали, при этом
-// что можно было увидеть старые задачи при необходимости.»
+// The owner, 10.10: «Выполнено» will hold very many tasks in time; the page
+// must not grow too tall, yet the old ones must stay within reach.
 describe('the «Выполнено» column', () => {
   const HOUR_MS = 60 * 60 * 1000;
   const MINUTE_MS = 60 * 1000;

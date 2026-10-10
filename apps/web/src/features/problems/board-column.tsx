@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 
 import type { ProblemsAddress } from './address';
 import { menuMoves } from './board-moves';
+import { filtersKey } from './filters';
 import { ProblemCard } from './problem-card';
 import type { BoardStatus, Problem } from './schema';
 import { ShowMoreButton, useShowMore, WHOLE, type PageSize } from './show-more';
@@ -62,7 +63,13 @@ export function BoardColumn({
   const { t } = useTranslation();
   const heading = t(`problems.statuses.${status}`);
   const cardsRef = useRef<HTMLElement>(null);
-  const paging = useShowMore(problems.length, page, cardsRef, ':scope > article');
+  const paging = useShowMore({
+    total: problems.length,
+    page,
+    listRef: cardsRef,
+    itemSelector: ':scope > article',
+    resetKey: filtersKey(from.filters),
+  });
 
   return (
     <section

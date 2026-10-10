@@ -15,6 +15,7 @@ import {
   hasProblemFilters,
   NO_ASSIGNEE,
   NO_PLACE,
+  withOrderedDates,
   type AssigneeOption,
   type PlaceFilter,
   type PlaceOption,
@@ -66,7 +67,10 @@ export function ProblemsFilters({ filters, onChange, places, people }: ProblemsF
   const { t } = useTranslation();
   const id = useId();
   const field = (name: string) => `${id}-${name}`;
-  const set = (patch: Partial<ProblemFilters>) => onChange({ ...filters, ...patch });
+  // `min` and `max` hold the picker only; a day typed past the other end
+  // turns the range round rather than emptying the screen.
+  const set = (patch: Partial<ProblemFilters>) =>
+    onChange(withOrderedDates({ ...filters, ...patch }));
 
   return (
     <div data-slot="problems-filters" className="flex flex-wrap items-end gap-3">

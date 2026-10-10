@@ -499,8 +499,8 @@ describe('the view in the address', () => {
   });
 });
 
-// 10.10, the owner: «Во вкладке задания должны быть фильтры, по объекту,
-// исполнителю, дате.» One bar for the board, the list and the archive.
+// 10.10, the owner: the tasks' section needs filters by listing, by assignee
+// and by date. One bar for the board, the list and the archive.
 describe('the filters', () => {
   const KARLIN = 'Karl%C3%ADn+3';
   const PETR = '55555555-5555-4555-8555-555555555555';
@@ -615,6 +615,17 @@ describe('the filters', () => {
     expect(screen.queryByRole('button', { name: 'Сбросить фильтры' })).not.toBeInTheDocument();
     expect(titles()).toEqual(['Течёт кран', 'Сломан замок']);
   });
+
+  // The review of 2981da8..db36705: such a link emptied the board.
+  test('a link whose dates are the wrong way round keeps the days between them', () => {
+    window.history.pushState(null, '', '/problems?from=2026-09-09&to=2026-09-08');
+
+    render(<ProblemsView />);
+
+    expect(screen.getByLabelText('Заявлено с')).toHaveValue('2026-09-08');
+    expect(screen.getByLabelText('Заявлено по')).toHaveValue('2026-09-09');
+    expect(titles()).toEqual(['Течёт кран', 'Сломан замок']);
+  });
 });
 
 // 10.10, the owner: the page must not grow without end, and old tasks stay
@@ -693,6 +704,53 @@ describe('a page at a time', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Показать ещё 5 (всего 25)' }));
     expect(rows()).toHaveLength(25);
     expect(screen.getByRole('link', { name: 'Лампа 21' })).toHaveFocus();
+  });
+
+  // The review of 2981da8..db36705: «Выполнено» opened to thirty stayed at
+  // thirty through a filter and back. Each new set of filters starts a page anew.
+  test('a change of the filters or the search starts «Выполнено» on its first page again', async () => {
+    const resolved = many(45, (n) => ({
+      status: 'resolved',
+      resolved_at: resolvedAt(n),
+      property: { name: n % 2 === 1 ? 'Karlín 3' : 'Vinohrady 12' },
+    }));
+    useProblems.mockReturnValue({ data: resolved, isPending: false, isError: false });
+    render(<ProblemsView />);
+    const done = () => within(screen.getByRole('region', { name: 'Выполнено' }));
+
+    await userEvent.click(done().getByRole('button', { name: 'Показать ещё 20 (всего 45)' }));
+    expect(done().getAllByRole('article')).toHaveLength(30);
+
+    await userEvent.selectOptions(screen.getByLabelText('Объект'), 'Karlín 3');
+    expect(done().getAllByRole('article')).toHaveLength(10);
+    await userEvent.click(done().getByRole('button', { name: 'Показать ещё 13 (всего 23)' }));
+    expect(done().getAllByRole('article')).toHaveLength(23);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Сбросить фильтры' }));
+    expect(done().getAllByRole('article')).toHaveLength(10);
+    expect(done().getByRole('button', { name: 'Показать ещё 20 (всего 45)' })).toBeInTheDocument();
+
+    await userEvent.click(done().getByRole('button', { name: 'Показать ещё 20 (всего 45)' }));
+    await userEvent.type(screen.getByRole('searchbox'), 'Лампа');
+    expect(done().getAllByRole('article')).toHaveLength(10);
+  });
+
+  test('a change of the filters starts the list on its first page again', async () => {
+    useProblems.mockReturnValue({
+      data: many(60, (n) => ({ property: { name: n <= 55 ? 'Karlín 3' : 'Vinohrady 12' } })),
+      isPending: false,
+      isError: false,
+    });
+    window.history.pushState(null, '', '/problems?view=list');
+    render(<ProblemsView />);
+    const rows = () => screen.getAllByRole('link', { name: /^Лампа / });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Показать ещё 10 (всего 60)' }));
+    expect(rows()).toHaveLength(60);
+
+    await userEvent.selectOptions(screen.getByLabelText('Объект'), 'Karlín 3');
+    expect(rows()).toHaveLength(50);
+    expect(screen.getByRole('button', { name: 'Показать ещё 5 (всего 55)' })).toBeInTheDocument();
   });
 });
 

@@ -5,7 +5,7 @@ import { todayIn } from '@/lib/format-date';
 import { isProblemClosed, liveFixTask, matchesQuery, problemPlace, type Problem } from './schema';
 
 /**
- * The filters of «Задания» (owner, 10.10: «по объекту, исполнителю, дате»):
+ * The filters of «Задания» (owner, 10.10: by listing, by assignee, by date):
  * one bar over the board, the list and the archive, kept in the address.
  */
 
@@ -58,6 +58,29 @@ export function hasProblemFilters(filters: ProblemFilters): boolean {
     filters.dateFrom !== '' ||
     filters.dateTo !== ''
   );
+}
+
+/**
+ * The two days with the earlier first. A range typed past its other end, or
+ * linked the wrong way round, means the days between them — not an empty
+ * screen (the review of 2981da8..db36705). Unchanged filters come back as they
+ * were.
+ */
+export function withOrderedDates(filters: ProblemFilters): ProblemFilters {
+  const { dateFrom, dateTo } = filters;
+  // `YYYY-MM-DD` sorts as it reads, so a string compare is a date compare.
+  return dateFrom !== '' && dateTo !== '' && dateFrom > dateTo
+    ? { ...filters, dateFrom: dateTo, dateTo: dateFrom }
+    : filters;
+}
+
+/**
+ * One string for a set of filters: a paged list starts again on its first
+ * page whenever it changes.
+ */
+export function filtersKey({ query, place, assigneeId, dateFrom, dateTo }: ProblemFilters): string {
+  const placeName = place.kind === 'place' ? place.name : '';
+  return JSON.stringify([query, place.kind, placeName, assigneeId, dateFrom, dateTo]);
 }
 
 /**

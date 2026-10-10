@@ -66,6 +66,13 @@ describe('the address of «Задания»', () => {
     expect(read('place=&assignee=nobody')).toEqual(special);
   });
 
+  // The review of 2981da8..db36705: such a link emptied the board.
+  test('a range written the wrong way round is read the right way round', () => {
+    expect(read('from=2026-10-10&to=2026-10-01')).toEqual(
+      at('board', { dateFrom: '2026-10-01', dateTo: '2026-10-10' }),
+    );
+  });
+
   test('a value the address cannot mean is ignored, never thrown, and the rest stays', () => {
     expect(read('view=list&assignee=petr&from=yesterday&to=2026-13-40&q=kran')).toEqual(
       at('list', { query: 'kran' }),

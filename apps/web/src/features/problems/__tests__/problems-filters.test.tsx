@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, test, vi } from 'vitest';
 
@@ -90,6 +90,27 @@ describe('the filter bar of «Задания»', () => {
 
     expect(screen.getByLabelText('Заявлено с')).toHaveAttribute('max', '2026-10-09');
     expect(screen.getByLabelText('Заявлено по')).toHaveAttribute('min', '2026-10-01');
+  });
+
+  // `min` and `max` hold only the picker: a date typed past the other end
+  // made the range empty (the review of 2981da8..db36705).
+  test('a day typed past the other end turns the range round instead of emptying it', () => {
+    const start = { ...EMPTY_PROBLEM_FILTERS, dateFrom: '2026-10-01', dateTo: '2026-10-05' };
+    const onChange = renderBar(start);
+
+    fireEvent.change(screen.getByLabelText('Заявлено с'), { target: { value: '2026-10-09' } });
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...start,
+      dateFrom: '2026-10-05',
+      dateTo: '2026-10-09',
+    });
+
+    fireEvent.change(screen.getByLabelText('Заявлено по'), { target: { value: '2026-09-20' } });
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...start,
+      dateFrom: '2026-09-20',
+      dateTo: '2026-10-01',
+    });
   });
 
   test('«Сбросить фильтры» stands there only while something is set, and clears it all', async () => {

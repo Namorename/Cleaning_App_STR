@@ -21,7 +21,7 @@ import { formatDateTime } from '@/lib/format-date';
 import { useLanguage } from '@/lib/use-language';
 
 import { problemChatHref, problemHref, type ProblemsAddress } from './address';
-import { EMPTY_PROBLEM_FILTERS, type ProblemFilters } from './filters';
+import { EMPTY_PROBLEM_FILTERS, filtersKey, type ProblemFilters } from './filters';
 import { liveFixTask, problemPlace, type Problem } from './schema';
 import { LIST_PAGE, ShowMoreButton, useShowMore } from './show-more';
 
@@ -45,7 +45,13 @@ export function ProblemsTable({ problems, filters = EMPTY_PROBLEM_FILTERS }: Pro
   const unread = useUnreadSubjects();
   const from: ProblemsAddress = { view: 'list', filters };
   const tableRef = useRef<HTMLDivElement>(null);
-  const paging = useShowMore(problems.length, LIST_PAGE, tableRef, 'tbody > tr');
+  const paging = useShowMore({
+    total: problems.length,
+    page: LIST_PAGE,
+    listRef: tableRef,
+    itemSelector: 'tbody > tr',
+    resetKey: filtersKey(filters),
+  });
 
   return (
     <div className="flex flex-col gap-3">

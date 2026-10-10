@@ -15,7 +15,7 @@ import { serverErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
 
 import { problemChatHref, problemHref, type ProblemsAddress } from './address';
-import { EMPTY_PROBLEM_FILTERS, type ProblemFilters } from './filters';
+import { EMPTY_PROBLEM_FILTERS, filtersKey, type ProblemFilters } from './filters';
 import { problemPlace, type Problem } from './schema';
 import { ARCHIVE_PAGE, ShowMoreButton, useShowMore } from './show-more';
 import { useUnarchiveProblem } from './use-problems';
@@ -49,7 +49,13 @@ export function ProblemsArchive({
   const failure = unarchive.isError ? serverErrorText(unarchive.error) : null;
   const from: ProblemsAddress = { view: 'archive', filters };
   const listRef = useRef<HTMLUListElement>(null);
-  const paging = useShowMore(problems.length, ARCHIVE_PAGE, listRef, ':scope > li');
+  const paging = useShowMore({
+    total: problems.length,
+    page: ARCHIVE_PAGE,
+    listRef,
+    itemSelector: ':scope > li',
+    resetKey: filtersKey(filters),
+  });
 
   if (problems.length === 0) {
     return (

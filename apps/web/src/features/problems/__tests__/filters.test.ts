@@ -8,6 +8,7 @@ import {
   matchesProblemFilters,
   NO_PLACE,
   placeOptions,
+  withOrderedDates,
   type ProblemFilters,
 } from '../filters';
 import { problemSchema, type Problem } from '../schema';
@@ -178,6 +179,20 @@ describe('the filters of «Задания»', () => {
         ),
       ).toBe(true);
       expect(matchesProblemFilters(pastMidnight, filters({ dateTo: '2026-09-30' }))).toBe(false);
+    });
+
+    // The review of 2981da8..db36705: a range typed or linked the wrong way
+    // round emptied the board. The two days are the range, whichever comes first.
+    test('a range given the wrong way round is read the right way round', () => {
+      const inverted = filters({ query: 'кран', dateFrom: '2026-10-09', dateTo: '2026-10-01' });
+
+      expect(withOrderedDates(inverted)).toEqual(
+        filters({ query: 'кран', dateFrom: '2026-10-01', dateTo: '2026-10-09' }),
+      );
+      const ordered = filters({ dateFrom: '2026-10-01', dateTo: '2026-10-09' });
+      expect(withOrderedDates(ordered)).toBe(ordered);
+      const openEnded = filters({ dateFrom: '2026-10-09' });
+      expect(withOrderedDates(openEnded)).toBe(openEnded);
     });
   });
 
