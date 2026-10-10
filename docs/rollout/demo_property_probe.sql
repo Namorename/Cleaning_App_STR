@@ -1,4 +1,4 @@
--- Before and after docs/rollout/demo-property.sql, and again once the owner has
+-- Before and after docs/one-off-writes/demo-property.sql, and again once the owner has
 -- linked the demo cleaner and made her cleanings. Read-only, one statement, no
 -- names, e-mails or phones of people:
 --

@@ -13,7 +13,7 @@
 --   made-up name and address, in English for the reviewer.
 --
 -- Run once, the owner confirming the tool call:
---   npx supabase db query --linked -f docs/rollout/demo-property.sql
+--   npx supabase db query --linked -f docs/one-off-writes/demo-property.sql
 -- A second run inserts nothing and returns no row. Before and after:
 --   node scripts/cloud-read.mjs docs/rollout/demo_property_probe.sql
 -- The launch reset keeps this row and what hangs on it (docs/launch-reset.md).
