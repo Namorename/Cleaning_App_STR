@@ -38,6 +38,13 @@ export function themeCookie(choice: ThemeChoice, isSecure: boolean): string {
 }
 
 /**
+ * Said on the document whenever the choice changes: the lever in the menu and
+ * the choice in «Настройки» are one setting, and each shows what the other did
+ * (night of 2026-10-10).
+ */
+const THEME_EVENT = 'str-ops:theme';
+
+/**
  * The choice in the browser: <html> takes its class at once, and the cookie
  * tells the server for every page after. A later render of the root layout
  * reads the same cookie, so React and this function never disagree.
@@ -50,4 +57,30 @@ export function applyThemeChoice(doc: Document, choice: ThemeChoice): void {
     root.classList.add(name);
   }
   doc.cookie = themeCookie(choice, doc.location?.protocol === 'https:');
+  // Read by whatever draws the choice anew on this page (`shownThemeChoice`).
+  root.dataset.themeChoice = choice;
+  doc.dispatchEvent(new CustomEvent<ThemeChoice>(THEME_EVENT, { detail: choice }));
+}
+
+/**
+ * The choice in force on this page: the last one made here, or — none made
+ * yet — the one the server read from the cookie. The menu draws its lever anew
+ * when it folds, and the layout's cookie is the page's first (night of
+ * 2026-10-10, seen on the stand).
+ */
+export function shownThemeChoice(doc: Document, fromServer: ThemeChoice): ThemeChoice {
+  const made = doc.documentElement.dataset.themeChoice;
+  return isThemeChoice(made) ? made : fromServer;
+}
+
+/** Hear every change of the choice, wherever it is made. Returns the way to stop. */
+export function onThemeChoice(doc: Document, listener: (choice: ThemeChoice) => void): () => void {
+  const heard = (event: Event) => {
+    const { detail } = event as CustomEvent<unknown>;
+    if (isThemeChoice(detail)) {
+      listener(detail);
+    }
+  };
+  doc.addEventListener(THEME_EVENT, heard);
+  return () => doc.removeEventListener(THEME_EVENT, heard);
 }

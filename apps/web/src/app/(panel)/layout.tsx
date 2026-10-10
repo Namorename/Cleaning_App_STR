@@ -8,6 +8,7 @@ import { Sidebar } from '@/components/sidebar';
 import { LANGUAGE_COOKIE, languageFromCookie } from '@/lib/language';
 import { isPanelRole, roleOf } from '@/lib/session';
 import { SIDEBAR_COOKIE, sidebarFromCookie } from '@/lib/sidebar-state';
+import { THEME_COOKIE, themeFromCookie } from '@/lib/theme';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -39,12 +40,17 @@ export default async function PanelLayout({ children }: { children: ReactNode })
   const cookieStore = await cookies();
   const sidebar = sidebarFromCookie(cookieStore.get(SIDEBAR_COOKIE)?.value);
   const language = languageFromCookie(cookieStore.get(LANGUAGE_COOKIE)?.value);
+  const theme = themeFromCookie(cookieStore.get(THEME_COOKIE)?.value);
 
   return (
     <div className="flex min-h-full flex-1 flex-col md:flex-row">
       <LanguageSync language={language} />
-      <MobileNav email={user?.email ?? ''} />
-      <Sidebar email={user?.email ?? ''} isInitiallyCollapsed={sidebar === 'collapsed'} />
+      <MobileNav email={user?.email ?? ''} theme={theme} />
+      <Sidebar
+        email={user?.email ?? ''}
+        isInitiallyCollapsed={sidebar === 'collapsed'}
+        theme={theme}
+      />
       <main className="min-h-0 min-w-0 flex-1 p-4 [--page-chrome:5.5rem] md:p-6 md:[--page-chrome:3rem]">
         {children}
       </main>

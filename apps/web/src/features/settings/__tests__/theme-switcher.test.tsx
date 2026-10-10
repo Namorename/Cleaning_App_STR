@@ -1,8 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, test } from 'vitest';
 
-import { THEME_COOKIE } from '@/lib/theme';
+import { applyThemeChoice, THEME_COOKIE } from '@/lib/theme';
 
 import { ThemeSwitcher } from '../theme-switcher';
 
@@ -31,4 +31,14 @@ describe('ThemeSwitcher', () => {
     expect(document.documentElement).toHaveClass('dark');
     expect(document.cookie).toContain(`${THEME_COOKIE}=dark`);
   });
+});
+
+// Night of 2026-10-10: the lever in the menu and this choice are one setting.
+test('a press of the lever in the menu shows here at once', () => {
+  render(<ThemeSwitcher initial="system" />);
+
+  act(() => applyThemeChoice(document, 'dark'));
+
+  expect(screen.getByRole('combobox', { name: 'Тема' })).toHaveValue('dark');
+  document.documentElement.classList.remove('light', 'dark');
 });
