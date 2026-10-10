@@ -1225,7 +1225,20 @@
     "cameraDenied": "Bez přístupu k fotoaparátu — povolte ho v nastavení telefonu",
     "captureFailed": "Nepodařilo se vyfotit — zkuste to znovu",
     "pickPhoto": "Vybrat fotku z galerie",
-    "galleryDenied": "Přístup do galerie nebyl povolen"
+    "galleryDenied": "Přístup do galerie nebyl povolen",
+    "uploadReason": {
+      "tooLarge": "Soubor je větší, než úložiště přijme (413)",
+      "refused": "Úložiště odmítlo: {{status}}",
+      "server": "Server soubor nepřijal",
+      "noNetwork": "Bez připojení",
+      "timedOut": "Server neodpověděl včas",
+      "busy": "Úložiště je přetížené: {{status}}",
+      "lostPlace": "Nahrávání se přerušilo, zkuste to znovu",
+      "tooSlow": "Připojení je příliš pomalé",
+      "fileUnreadable": "Soubor v telefonu nelze přečíst",
+      "interrupted": "Nahrávání bylo přerušeno",
+      "other": "Chyba: {{type}}"
+    }
   },
   "video": {
     "recordTitle": "Natáčení videa",
@@ -1249,6 +1262,10 @@
     "player": "Přehrání záznamu",
     "send": "Odeslat",
     "retake": "Natočit znovu",
+    "preparing": "Připravujeme video k odeslání…",
+    "queued": "Video je ve frontě: nahraje se samo, až bude připojení.",
+    "backToStep": "Zpět ke kroku",
+    "recordingLost": "Záznam se neuložil. Natočte video znovu.",
     "leaveTitle": "Video nebylo odesláno",
     "leaveBody": "Když odejdete, záznam se z telefonu smaže.",
     "discard": "Neukládat",

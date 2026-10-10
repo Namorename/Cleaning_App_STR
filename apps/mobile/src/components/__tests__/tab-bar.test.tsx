@@ -6,6 +6,7 @@ import { Platform, StyleSheet, type ColorValue, type TextStyle, type ViewStyle }
 
 import { FontSize, IconSize, MIN_TOUCH_TARGET, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { BOTTOM_INSETS } from '@/testing/insets';
 
 import { TabBar } from '../tab-bar';
 
@@ -276,6 +277,19 @@ describe('what it draws', () => {
       paddingBottom: Spacing.xs + INSETS.bottom,
     });
   });
+
+  // Block 3 (2026-10-10): the three-button navigation bar lies over the bottom
+  // of the screen. The bar takes the inset the navigator measured — it is the
+  // one thing on a tab screen that does; the lists above it do not.
+  test.each(BOTTOM_INSETS)(
+    'with a bottom inset of %i dp the tabs stand clear of the system’s bar',
+    async (bottom) => {
+      const props = barProps(CLEANER_TABS, 'index');
+      await render(<TabBar {...props} insets={{ ...props.insets, bottom }} />);
+
+      expect(styleOf(bar()).paddingBottom).toBe(Spacing.xs + bottom);
+    },
+  );
 });
 
 describe('on iOS, where VoiceOver knows no tab role', () => {

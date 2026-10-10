@@ -2,9 +2,11 @@ import { THEME_COLORS, TONE_COLORS, TOUCH_TARGET } from '@str-ops/shared';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
+import { Spacing } from '@/constants/theme';
 import type { TaskStep } from '@/features/steps/schema';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { RefusalError } from '@/lib/server-error';
+import { BOTTOM_INSETS, scrollEndPadding, withBottomInset } from '@/testing/insets';
 import { setWordContext } from '@/testing/word-context';
 
 import { TaskDetail } from '../task-detail';
@@ -1144,3 +1146,21 @@ describe('the look: «Абрикос» on the old layout', () => {
     expect(styleOf(finish).minHeight).toBe(TOUCH_TARGET.phoneButton);
   });
 });
+
+// Block 3 (2026-10-10): Android's three-button navigation bar lay over the
+// bottom of the task. The main button is the last thing on the screen;
+// scrolled to the end, it stops clear of the system's bar.
+test.each(BOTTOM_INSETS)(
+  'with a bottom inset of %i dp the main button scrolls clear of the system’s bar',
+  async (bottom) => {
+    await render(
+      withBottomInset(
+        bottom,
+        <TaskDetail task={task()} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />,
+      ),
+    );
+
+    expect(screen.getByRole('button', { name: 'Начать уборку' })).toBeTruthy();
+    expect(scrollEndPadding()).toBe(Spacing.lg + bottom);
+  },
+);

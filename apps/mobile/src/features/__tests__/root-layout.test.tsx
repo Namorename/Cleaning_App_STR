@@ -75,7 +75,12 @@ jest.mock('@/features/auth/session', () => ({
 }));
 jest.mock('@/features/profile/language-gate', () => ({ ProfileLanguageGate: mockPassThrough }));
 jest.mock('@/features/push/push-bridge', () => ({ PushBridge: () => null }));
-jest.mock('react-native-safe-area-context', () => ({ SafeAreaProvider: mockPassThrough }));
+// The provider passes its children through; the rest of the module is the
+// library's own, so what reads the insets finds none, as above any provider.
+jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context'),
+  SafeAreaProvider: mockPassThrough,
+}));
 jest.mock('expo-router', () => {
   const Stack = Object.assign(mockStack, { Screen: mockScreen });
   const stock = { dark: false, colors: {}, fonts: {} };

@@ -1,9 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import ProblemHistoryRoute from '@/app/problem/[id]/history';
+import { Spacing } from '@/constants/theme';
 import { formatReportedAt } from '@/features/problems/format';
 import { HEAD_TECH, PROBLEM_ID, REPAIR_ID, STAFF, TECH_IVAN } from '@/testing/board-fixtures';
 import { pinToday } from '@/testing/clock';
+import { BOTTOM_INSETS, scrollEndPadding, withBottomInset } from '@/testing/insets';
 
 import type { ProblemEvent } from '../schema';
 import { useProblemEvents } from '../use-history';
@@ -166,3 +168,16 @@ describe('anybody else', () => {
     expect(useProblemEvents).not.toHaveBeenCalled();
   });
 });
+
+// Block 3 (2026-10-10): Android's three-button navigation bar lay over the
+// bottom of the screens. The story's last line, scrolled to the end, stops
+// clear of the system's bar.
+test.each(BOTTOM_INSETS)(
+  'with a bottom inset of %i dp the last line scrolls clear of the system’s bar',
+  async (bottom) => {
+    await render(withBottomInset(bottom, <ProblemHistoryRoute />));
+
+    expect(screen.getAllByTestId('history-line').length).toBeGreaterThan(0);
+    expect(scrollEndPadding()).toBe(Spacing.lg + bottom);
+  },
+);

@@ -1,4 +1,4 @@
-import type { ErrorBoundaryProps } from 'expo-router';
+import { router, type ErrorBoundaryProps } from 'expo-router';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet } from 'react-native';
@@ -8,6 +8,7 @@ import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { forgetSavedQueries } from '@/lib/query-client';
 import { reportError } from '@/lib/sentry';
 
+import { useScreenEdgePadding } from './bottom-inset';
 import { Button } from './button';
 import { Text } from './text';
 
@@ -29,17 +30,26 @@ const DETAIL_LINES = 3;
  * provider there and draw in the system font, which is always loaded.
  */
 export function RouteError({ error, retry }: ErrorBoundaryProps) {
-  return <ErrorScreen error={error} retry={retry} />;
+  // A screen that fails on every retry — a step, the recording screen — must
+  // not leave her nowhere to go but closing the app (night of 2026-10-10).
+  const onBack = router.canGoBack() ? () => router.back() : undefined;
+  return <ErrorScreen error={error} retry={retry} onBack={onBack} />;
 }
 
 interface ErrorScreenProps extends ErrorBoundaryProps {
   /** Only the root has it: drop the saved lists, then draw again. */
   onResetSaved?: () => void;
+  /** A screen opened over another: back to it. The root has nothing under it. */
+  onBack?: () => void;
 }
 
-function ErrorScreen({ error, retry, onResetSaved }: ErrorScreenProps) {
+function ErrorScreen({ error, retry, onResetSaved, onBack }: ErrorScreenProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  // A screen's own boundary is drawn under the system's bar: at a large font
+  // its buttons reach the bottom, and stop clear of it. The root's is drawn
+  // above the SafeAreaProvider and knows no inset (bottom-inset.ts).
+  const end = useScreenEdgePadding(Spacing.xl);
   const detail = describe(error);
 
   // A caught error never reaches the crash handler: this is its only way to
@@ -49,7 +59,7 @@ function ErrorScreen({ error, retry, onResetSaved }: ErrorScreenProps) {
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, end]}
       accessibilityLiveRegion="polite"
     >
       <Text variant="title" align="center" accessibilityRole="alert">
@@ -67,6 +77,9 @@ function ErrorScreen({ error, retry, onResetSaved }: ErrorScreenProps) {
         </Text>
       ) : null}
       <Button label={t('common.retry')} onPress={() => void retry()} />
+      {onBack !== undefined ? (
+        <Button variant="outline" label={t('common.back')} onPress={onBack} />
+      ) : null}
       {onResetSaved !== undefined ? (
         <>
           <Button variant="secondary" label={t('common.resetSaved')} onPress={onResetSaved} />

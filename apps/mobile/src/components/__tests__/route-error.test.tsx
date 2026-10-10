@@ -1,15 +1,18 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { router } from 'expo-router';
 import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
-import { BUTTON_HEIGHT, Colors, FontSize } from '@/constants/theme';
+import { BUTTON_HEIGHT, Colors, FontSize, Spacing } from '@/constants/theme';
 import { forgetSavedQueries } from '@/lib/query-client';
 import { reportError } from '@/lib/sentry';
+import { BOTTOM_INSETS, scrollEndPadding, withBottomInset } from '@/testing/insets';
 
 import { RootRouteError, RouteError, markAppDrawn } from '../route-error';
 
 // The real one reaches for the disk; here it only has to be seen being asked.
 jest.mock('@/lib/query-client', () => ({ forgetSavedQueries: jest.fn(async () => {}) }));
 jest.mock('@/lib/sentry', () => ({ reportError: jest.fn() }));
+jest.mock('expo-router', () => ({ router: { back: jest.fn(), canGoBack: jest.fn(() => false) } }));
 
 test('says the screen failed in her language and keeps the raw words small underneath', async () => {
   // Arrange
@@ -170,3 +173,55 @@ describe('on the «Абрикос» components', () => {
     expect(reset.backgroundColor).toBe(light.secondary);
   });
 });
+
+// Night of 2026-10-10, block 1: a screen that fails on every retry — the
+// recording screen, a step — left her nowhere to go but closing the app.
+describe('«Назад» from a screen that failed', () => {
+  test('a screen opened over another offers «Назад» to it', async () => {
+    // Arrange
+    jest.mocked(router.canGoBack).mockReturnValue(true);
+    await render(<RouteError error={new Error('boom')} retry={jest.fn(async () => {})} />);
+
+    // Act
+    await fireEvent.press(screen.getByRole('button', { name: 'Назад' }));
+
+    // Assert
+    expect(router.back).toHaveBeenCalledTimes(1);
+  });
+
+  test('a screen with nowhere to go back to offers no «Назад»', async () => {
+    jest.mocked(router.canGoBack).mockReturnValue(false);
+
+    await render(<RouteError error={new Error('boom')} retry={jest.fn(async () => {})} />);
+
+    expect(screen.queryByRole('button', { name: 'Назад' })).toBeNull();
+  });
+
+  test('the root offers none: nothing is under it', async () => {
+    markAppDrawn();
+    jest.mocked(router.canGoBack).mockReturnValue(true);
+
+    await render(<RootRouteError error={new Error('boom')} retry={jest.fn(async () => {})} />);
+
+    expect(screen.queryByRole('button', { name: 'Назад' })).toBeNull();
+  });
+});
+
+// Block 3 (2026-10-10): Android's three-button navigation bar lay over the
+// bottom of the screens. A screen's own boundary draws inside the root's
+// SafeAreaProvider: at a large font its «Повторить» reaches the bottom, and
+// scrolled to the end it stops clear of the system's bar.
+test.each(BOTTOM_INSETS)(
+  'with a bottom inset of %i dp a screen’s «Повторить» scrolls clear of the system’s bar',
+  async (bottom) => {
+    await render(
+      withBottomInset(
+        bottom,
+        <RouteError error={new Error('boom')} retry={jest.fn(async () => {})} />,
+      ),
+    );
+
+    expect(screen.getByRole('button', { name: 'Повторить' })).toBeTruthy();
+    expect(scrollEndPadding()).toBe(Spacing.xl + bottom);
+  },
+);

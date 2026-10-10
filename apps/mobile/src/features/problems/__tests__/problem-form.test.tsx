@@ -2,8 +2,9 @@ import { fireEvent, render, screen, within } from '@testing-library/react-native
 import { HeaderHeightContext } from 'expo-router/react-navigation';
 import { StyleSheet, type ViewStyle } from 'react-native';
 
-import { BUTTON_HEIGHT } from '@/constants/theme';
+import { BUTTON_HEIGHT, Spacing } from '@/constants/theme';
 import type { ReportProperty } from '@/features/properties/schema';
+import { BOTTOM_INSETS, bottomPaddingOf, withBottomInset } from '@/testing/insets';
 
 import { ProblemForm } from '../problem-form';
 import { EMPTY_PROBLEM_DRAFT, type ProblemDraft } from '../schema';
@@ -224,4 +225,44 @@ test('the button rides above the keyboard, the header counted in', async () => {
   expect(mockAvoidingProps.at(-1)).toEqual(
     expect.objectContaining({ behavior: 'padding', keyboardVerticalOffset: HEADER }),
   );
+});
+
+// Block 3 (2026-10-10): Android's three-button navigation bar lay over the
+// bottom of the screens. The form's bar rises by the inset; with the keyboard
+// up the keys cover the system's bar, and the lift takes the inset back.
+describe.each(BOTTOM_INSETS)('with a bottom inset of %i dp', (bottom) => {
+  const HEADER = 96;
+
+  async function renderInset() {
+    await render(
+      withBottomInset(
+        bottom,
+        <HeaderHeightContext.Provider value={HEADER}>
+          <ProblemForm
+            draft={EMPTY_PROBLEM_DRAFT}
+            onChange={jest.fn()}
+            place={null}
+            isSubmitting={false}
+            submitLabel={SEND}
+            onSubmit={jest.fn()}
+            error={null}
+          />
+        </HeaderHeightContext.Provider>,
+      ),
+    );
+  }
+
+  test('«Отправить» stands clear of the system’s bar', async () => {
+    await renderInset();
+
+    const bar = screen.getByTestId('problem-form-actions');
+    expect(within(bar).getByRole('button', { name: SEND })).toBeTruthy();
+    expect(bottomPaddingOf(bar.props.style)).toBe(Spacing.md + bottom);
+  });
+
+  test('it sits on the keyboard, not a bar’s height above it', async () => {
+    await renderInset();
+
+    expect(mockAvoidingProps.at(-1)?.keyboardVerticalOffset).toBe(HEADER - bottom);
+  });
 });

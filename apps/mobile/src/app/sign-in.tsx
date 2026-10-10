@@ -13,6 +13,7 @@ import {
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 
 import { ActionBar } from '@/components/action-bar';
+import { useKeyboardOffset } from '@/components/bottom-inset';
 import { BrandMark } from '@/components/brand-mark';
 import { Button } from '@/components/button';
 import { Text } from '@/components/text';
@@ -23,7 +24,7 @@ import { signIn, useSession } from '@/features/auth/session';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import type { ServerErrorText } from '@/lib/server-error';
 
-/** The bottom edge is the action bar's: it clears the home indicator itself. */
+/** The bottom edge is the action bar's: it clears the system's bar itself. */
 const SAFE_EDGES: readonly Edge[] = ['top', 'left', 'right'];
 
 export default function SignInScreen() {
@@ -34,6 +35,7 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
   const [failure, setFailure] = useState<ServerErrorText | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const keyboardOffset = useKeyboardOffset();
 
   const onSubmit = useCallback(async () => {
     // The keyboard goes, as «Go» already makes it go: with it open, a refusal
@@ -83,8 +85,13 @@ export default function SignInScreen() {
       {/* Padding on both systems, as the forms do: the view measures how much
           of it the keyboard covers, so it adds nothing where the system has
           made room, and with Android drawing edge to edge the system does
-          not. No header above it, so no offset. */}
-      <KeyboardAvoidingView behavior="padding" style={styles.screen}>
+          not. No header above it: the offset only takes back the inset the
+          action bar rises by (components/bottom-inset.ts). */}
+      <KeyboardAvoidingView
+        behavior="padding"
+        keyboardVerticalOffset={keyboardOffset}
+        style={styles.screen}
+      >
         {/* From the top, not centred: «Войти» lives at the bottom edge, in
             the thumb's reach, and never under the keyboard. */}
         <ScrollView

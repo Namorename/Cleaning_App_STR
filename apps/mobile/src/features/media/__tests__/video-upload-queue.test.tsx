@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react-native';
 import { onlineManager, type QueryClient } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react-native';
 
@@ -9,6 +10,7 @@ import { withClient } from '@/testing/restored-cache';
 import { ANSWERED_RETRIES, SILENT_RETRIES, STALL_RETRIES } from '../attach-retry';
 import { rememberLocalMedia } from '../local-store';
 import { TUS_RETRY_DELAYS_MS } from '../tus';
+import { uploadFailureOf } from '../upload-failure';
 import { useAttachMedia, type AttachMediaVariables } from '../use-media';
 
 /**
@@ -271,4 +273,30 @@ test('a piece that never moves fails the upload after four tries of growing leng
     120_000, 240_000, 480_000, 600_000,
   ]);
   expect(result.current.status).toBe('error');
+});
+
+// Night of 2026-10-10, block 1: a 105.9 MB video of the owner's was turned
+// down — the company allowed 140 MB, the project's plan takes 50 — and its
+// tile said only «Не загрузилось». The queue gives up after its tries, the
+// tile can name the storage's answer, and each attempt is marked for the
+// crash report, by id and kind, never by path.
+test('a video the storage turns down as too large fails with that reason, its attempts marked', async () => {
+  // Arrange: the storage refuses the upload's creation, as Supabase does above the plan's limit.
+  network(
+    async (method) => (method === 'POST' ? answer(413) : answer(500)),
+    async () => answer(200),
+  );
+
+  // Act
+  const result = await sendAndWaitAnHour();
+
+  // Assert
+  expect(result.current.status).toBe('error');
+  expect(uploadFailureOf(result.current.error)).toEqual({ key: 'tooLarge' });
+  const marks = jest.mocked(Sentry.addBreadcrumb).mock.calls.map(([crumb]) => crumb);
+  expect(marks.filter((crumb) => crumb.message === 'failed').at(-1)).toMatchObject({
+    category: 'media.attach',
+    data: { mediaId: MEDIA_ID, kind: 'video', reason: 'tooLarge' },
+  });
+  expect(JSON.stringify(marks)).not.toMatch(/file:\/\//);
 });

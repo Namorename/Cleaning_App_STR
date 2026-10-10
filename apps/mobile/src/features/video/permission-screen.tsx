@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Linking, ScrollView, StyleSheet } from 'react-native';
 
+import { useScreenEdgePadding } from '@/components/bottom-inset';
 import { Button } from '@/components/button';
 import { Text } from '@/components/text';
 import { Spacing, type Theme } from '@/constants/theme';
@@ -36,9 +37,11 @@ function titleKey(missing: readonly RecordingPermission[]): string {
 export function PermissionScreen({ missing, canAsk, onAsk }: PermissionScreenProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  // The last button clears the system's bar (components/bottom-inset.ts).
+  const end = useScreenEdgePadding(Spacing.xl);
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={layout.content}>
+    <ScrollView style={styles.screen} contentContainerStyle={[layout.content, end]}>
       <Text variant="title" align="center" accessibilityRole="alert">
         {t(titleKey(missing))}
       </Text>

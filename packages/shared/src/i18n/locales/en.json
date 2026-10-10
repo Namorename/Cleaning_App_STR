@@ -1211,7 +1211,20 @@
     "cameraDenied": "No access to the camera — allow it in the phone settings",
     "captureFailed": "Could not take it — please try again",
     "pickPhoto": "Choose a photo from the gallery",
-    "galleryDenied": "Access to the gallery was not granted"
+    "galleryDenied": "Access to the gallery was not granted",
+    "uploadReason": {
+      "tooLarge": "The file is larger than the storage accepts (413)",
+      "refused": "The storage refused: {{status}}",
+      "server": "The server did not accept the file",
+      "noNetwork": "No connection",
+      "timedOut": "The server did not answer in time",
+      "busy": "The storage is busy: {{status}}",
+      "lostPlace": "The upload lost its place, try again",
+      "tooSlow": "The connection is too slow",
+      "fileUnreadable": "The file on the phone cannot be read",
+      "interrupted": "The upload was interrupted",
+      "other": "Error: {{type}}"
+    }
   },
   "video": {
     "recordTitle": "Record a video",
@@ -1233,6 +1246,10 @@
     "player": "Watch the recording",
     "send": "Send",
     "retake": "Record again",
+    "preparing": "Getting the video ready to send…",
+    "queued": "The video is queued: it will upload by itself when there is a connection.",
+    "backToStep": "Back to the step",
+    "recordingLost": "The recording was not saved. Record the video again.",
     "leaveTitle": "The video has not been sent",
     "leaveBody": "If you leave, the recording is deleted from the phone.",
     "discard": "Don’t keep",

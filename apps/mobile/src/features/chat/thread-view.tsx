@@ -4,6 +4,7 @@ import { use, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FlatList, KeyboardAvoidingView, StyleSheet, TextInput, View } from 'react-native';
 
+import { useKeyboardOffset, useScreenEdgePadding } from '@/components/bottom-inset';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorBanner } from '@/components/error-banner';
 import { ErrorState } from '@/components/error-state';
@@ -158,8 +159,10 @@ export function ThreadView({
   const [body, setBody] = useState('');
   // The keyboard's top is measured from the window's, the thread's from under
   // the header: the header's height is the difference (problem-form.tsx).
-  // Outside a navigator (a test) there is no header.
-  const headerHeight = use(HeaderHeightContext) ?? 0;
+  // Outside a navigator (a test) there is no header. Less the inset the box
+  // rises by over the system's bar (components/bottom-inset.ts).
+  const keyboardOffset = useKeyboardOffset(use(HeaderHeightContext) ?? 0);
+  const composerEdge = useScreenEdgePadding(Spacing.md);
 
   // Newest at the bottom, drawn from the bottom: an inverted list opens on
   // the latest message with no scroll-to-end and stays put while it polls.
@@ -224,7 +227,7 @@ export function ThreadView({
     <KeyboardAvoidingView
       style={styles.screen}
       behavior="padding"
-      keyboardVerticalOffset={headerHeight}
+      keyboardVerticalOffset={keyboardOffset}
     >
       {/* Error over cache: the saved messages — or only her own on their way —
           stay, the failure is said above them. */}
@@ -257,7 +260,7 @@ export function ThreadView({
         </View>
       ) : null}
 
-      <View style={styles.composer}>
+      <View testID="chat-composer" style={[styles.composer, composerEdge]}>
         {onTakePhoto !== undefined ? (
           <View style={layout.attach}>
             <AttachButtons

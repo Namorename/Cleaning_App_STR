@@ -100,6 +100,51 @@ test('a video tile’s button is named with the video', async () => {
   expect(screen.getByRole('button', { name: 'Повторить загрузку. Видео' })).toBeTruthy();
 });
 
+// Night of 2026-10-10, block 1: a stranded tile said only «Не загрузилось»;
+// now it says why in a few words — the storage's code, or the kind of failure.
+test('a stranded tile says why, to the eye and to the reader', async () => {
+  await render(
+    <StepMedia
+      kind="photo"
+      items={[
+        item({ id: 'm1', status: 'failed', failure: { key: 'tooLarge' } }),
+        item({ id: 'm2', status: 'failed', failure: { key: 'refused', status: 403 } }),
+        item({ id: 'm3', status: 'failed', failure: { key: 'other', type: 'RangeError' } }),
+        item({ id: 'm4', status: 'failed', failure: { key: 'interrupted' } }),
+      ]}
+      limits={{ min: 1, max: 4 }}
+      maxVideoSec={30}
+      isCapturing={false}
+      disabled={false}
+      {...handlers}
+    />,
+  );
+
+  expect(screen.getByText('Файл больше, чем принимает хранилище (413)')).toBeTruthy();
+  expect(screen.getByText('Хранилище отказало: 403')).toBeTruthy();
+  expect(screen.getByText('Ошибка: RangeError')).toBeTruthy();
+  expect(screen.getByText('Загрузка прервалась')).toBeTruthy();
+  expect(
+    screen.getByLabelText('Фото 1. Не загрузилось. Файл больше, чем принимает хранилище (413)'),
+  ).toBeTruthy();
+});
+
+test('a tile on its way or in says nothing of why', async () => {
+  await render(
+    <StepMedia
+      kind="photo"
+      items={[item({ id: 'm1', status: 'uploading' }), item({ id: 'm2' })]}
+      limits={{ min: 1, max: 4 }}
+      maxVideoSec={30}
+      isCapturing={false}
+      disabled={false}
+      {...handlers}
+    />,
+  );
+
+  expect(screen.queryByText('Загрузка прервалась')).toBeNull();
+});
+
 test('while the camera is open, the camera button spins and the gallery waits', async () => {
   await render(
     <StepMedia

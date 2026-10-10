@@ -27,6 +27,11 @@ import { recordGate } from '@/features/video/record-gate';
 import { RecordScreen } from '@/features/video/record-screen';
 import { useOverdue } from '@/features/video/use-overdue';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { noteStep } from '@/lib/sentry';
+
+// A screen that cannot draw says so, with «Повторить» and «Назад», and is
+// reported — rather than leaving the root to catch it (night of 2026-10-10).
+export { RouteError as ErrorBoundary } from '@/components/route-error';
 
 const Params = z.object({ id: z.string().uuid(), stepId: z.string().uuid() });
 
@@ -114,7 +119,18 @@ export default function RecordRoute() {
   const send = async (captured: CapturedMedia) => {
     const record = toLocalRecord(captured);
     await rememberLocal(record);
+    noteStep('video.send', 'remembered');
     attach.mutate(stepAttachVariables(taskId, stepId, record));
+    noteStep('video.send', 'queued');
+  };
+
+  /** Back to the step — or, opened with nothing under it, to the step itself. */
+  const goBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace({ pathname: '/task/[id]/step/[stepId]', params: { id: taskId, stepId } });
   };
 
   if (limits !== null) {
@@ -143,11 +159,6 @@ export default function RecordRoute() {
   }
 
   return <LoadingState label={t('video.starting')} />;
-}
-
-/** Back to the step, once the recording is the queue's. */
-function goBack(): void {
-  router.back();
 }
 
 const createStyles = (theme: Theme) =>

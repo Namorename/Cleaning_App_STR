@@ -3,6 +3,8 @@ import { z } from 'zod';
 import type { VideoSettings } from '@/features/host/schema';
 import type { TaskStep } from '@/features/steps/schema';
 
+import type { UploadFailure } from './upload-failure';
+
 /** The bucket every task photo and video lives in. Mirrors 20260907160100. */
 export const MEDIA_BUCKET = 'task-media';
 
@@ -152,6 +154,8 @@ export interface MediaItemView {
   isWaitingForNetwork?: boolean;
   /** Still uploading: the share of the file sent so far, 0 to 1, where it is known. */
   progress?: number;
+  /** Stranded: why, in a few words for the tile (`upload-failure.ts`). */
+  failure?: UploadFailure;
 }
 
 /**

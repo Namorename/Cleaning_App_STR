@@ -1,7 +1,8 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
-import StepRoute from '@/app/task/[id]/step/[stepId]';
+import StepRoute, { ErrorBoundary } from '@/app/task/[id]/step/[stepId]';
+import { RouteError } from '@/components/route-error';
 import type { VideoSettings } from '@/features/host/schema';
 
 import type { TaskStep } from '../schema';
@@ -80,6 +81,7 @@ const mockVideoAttach: { error: unknown } = { error: null };
 const mockTransfers = {
   waiting: new Set<string>(),
   progress: {} as Record<string, number>,
+  failures: new Map<string, unknown>(),
 };
 const mockMediaItemViews = jest.fn((..._args: unknown[]): unknown[] => []);
 
@@ -100,6 +102,7 @@ jest.mock('@/features/media/use-media', () => ({
   mediaItemViews: (...args: unknown[]) => mockMediaItemViews(...args),
   useWaitingMediaIds: () => mockTransfers.waiting,
   useUploadProgress: () => mockTransfers.progress,
+  useAttachFailures: () => mockTransfers.failures,
   useFailedVideoAttach: () => mockVideoAttach.error,
   useAttachMedia: (kind?: string) => (kind === 'video' ? mockAttach.video : mockAttach.photo),
   useRemoveMedia: () => ({ error: null, mutate: jest.fn() }),
@@ -362,17 +365,19 @@ describe('a video step of her task under way', () => {
 
   // The tile of a video on its way says how far it has got, or that it waits
   // for signal: the screen hands it what the queue knows.
-  test('hands the tiles what the queue knows of each upload under way', async () => {
+  test('hands the tiles what the queue knows of each upload under way, and why the stranded failed', async () => {
     mockSteps.data = [videoStep()];
     mockVideo.settings = { video_max_sec: 90, video_bitrate_kbps: 2000, video_max_mb: 45 };
     mockTransfers.waiting = new Set(['m1']);
     mockTransfers.progress = { m1: 0.5 };
+    mockTransfers.failures = new Map([['m2', { key: 'tooLarge' }]]);
 
     await render(<StepRoute />);
 
     expect(mockMediaItemViews).toHaveBeenLastCalledWith([], {}, {}, expect.any(Set), {
       waiting: mockTransfers.waiting,
       progress: mockTransfers.progress,
+      failures: mockTransfers.failures,
     });
   });
 
@@ -474,4 +479,10 @@ describe('a video step of her task under way', () => {
 
     expect(router.push).not.toHaveBeenCalled();
   });
+});
+
+// Night of 2026-10-10, block 1: a step that fails to draw says so with
+// «Повторить» and «Назад», rather than leaving the root to catch it.
+test('the step has a boundary of its own', () => {
+  expect(ErrorBoundary).toBe(RouteError);
 });

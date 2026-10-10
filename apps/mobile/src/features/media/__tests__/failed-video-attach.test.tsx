@@ -5,7 +5,12 @@ import { createAppQueryClient } from '@/lib/query-client';
 import { signedInWithQueue, signedOutOfQueue } from '@/testing/queue-person';
 import { withClient } from '@/testing/restored-cache';
 
-import { mediaMutationKeys, useFailedVideoAttach, type AttachMediaVariables } from '../use-media';
+import {
+  mediaMutationKeys,
+  useAttachFailures,
+  useFailedVideoAttach,
+  type AttachMediaVariables,
+} from '../use-media';
 
 jest.mock('@/features/chat/api', () => ({ sendMessage: jest.fn() }));
 jest.mock('../api', () => ({}));
@@ -172,4 +177,54 @@ test('and nothing while nothing was refused', async () => {
   });
 
   expect(result.current).toBeNull();
+});
+
+// Each stranded tile says why its file did not get in (night of 2026-10-10,
+// block 1): read from the queue's failed attempts by media id, photos and
+// videos alike; a later attempt of the same file speaks over an earlier one,
+// and a removed file says nothing.
+describe('useAttachFailures', () => {
+  test('names each file’s last failure, by media id', async () => {
+    // Arrange
+    await failedAttach(
+      client,
+      variables(),
+      Object.assign(new Error('Payload too large'), { statusCode: '413' }),
+    );
+    await failedAttach(client, variables({ kind: 'photo', mediaId: 'p1' }), new RangeError('x'));
+    await failedAttach(
+      client,
+      variables({ kind: 'photo', mediaId: 'p1' }),
+      new TypeError('Network request failed'),
+    );
+
+    // Act
+    const { result } = await renderHook(() => useAttachFailures(), {
+      wrapper: withClient(client),
+    });
+
+    // Assert
+    expect(result.current.get('m1')).toEqual({ key: 'tooLarge' });
+    expect(result.current.get('p1')).toEqual({ key: 'noNetwork' });
+  });
+
+  test('a file removed meanwhile says nothing of its failure', async () => {
+    // Arrange
+    await failedAttach(client, variables(), new RangeError('x'));
+    const removal = client.getMutationCache().build(client, {
+      mutationKey: mediaMutationKeys.remove,
+      mutationFn: async () => ({}),
+    });
+    await act(async () => {
+      await removal.execute({ taskId: 't1', mediaId: 'm1' });
+    });
+
+    // Act
+    const { result } = await renderHook(() => useAttachFailures(), {
+      wrapper: withClient(client),
+    });
+
+    // Assert
+    expect(result.current.has('m1')).toBe(false);
+  });
 });
