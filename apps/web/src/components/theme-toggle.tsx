@@ -5,7 +5,7 @@ import { Moon, Sun } from 'lucide-react';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { applyThemeChoice, onThemeChoice, type ThemeChoice } from '@/lib/theme';
+import { applyThemeChoice, onThemeChoice, shownThemeChoice, type ThemeChoice } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
 interface ThemeToggleProps {
@@ -41,7 +41,10 @@ function useSystemIsDark(): boolean {
  */
 export function ThemeToggle({ initial, isCompact = false }: ThemeToggleProps) {
   const { t } = useTranslation();
-  const [choice, setChoice] = useState<ThemeChoice>(initial);
+  // Drawn anew (the menu folded), it shows the choice made since, not the page's first.
+  const [choice, setChoice] = useState<ThemeChoice>(() =>
+    typeof document === 'undefined' ? initial : shownThemeChoice(document, initial),
+  );
   const systemIsDark = useSystemIsDark();
   const isDark = choice === 'dark' || (choice === 'system' && systemIsDark);
   const label = t('panel.nav.darkMode');
@@ -57,7 +60,8 @@ export function ThemeToggle({ initial, isCompact = false }: ThemeToggleProps) {
         'group/lever relative inline-flex shrink-0 cursor-pointer items-center rounded-full border border-border p-0.5 shadow-inner outline-none',
         'transition-colors duration-300 ease-out motion-reduce:transition-none',
         'focus-visible:ring-3 focus-visible:ring-ring/50',
-        'data-unchecked:bg-muted data-checked:bg-primary',
+        // Day: a warm, light track; night: the brand colour.
+        'data-unchecked:bg-accent data-checked:bg-primary',
         // A gloved finger's target, wider than the lever it moves.
         'after:absolute after:-inset-x-1 after:-inset-y-2.5',
         isCompact ? 'h-6 w-11' : 'h-8 w-14',
@@ -66,14 +70,14 @@ export function ThemeToggle({ initial, isCompact = false }: ThemeToggleProps) {
       <Sun
         aria-hidden="true"
         className={cn(
-          'absolute text-muted-foreground transition-opacity group-data-checked/lever:opacity-60 group-data-unchecked/lever:opacity-0',
+          'absolute text-primary-foreground transition-opacity group-data-checked/lever:opacity-80 group-data-unchecked/lever:opacity-0',
           isCompact ? 'left-1 size-3' : 'left-1.5 size-4',
         )}
       />
       <Moon
         aria-hidden="true"
         className={cn(
-          'absolute text-muted-foreground transition-opacity group-data-checked/lever:opacity-0 group-data-unchecked/lever:opacity-60',
+          'absolute text-muted-foreground transition-opacity group-data-checked/lever:opacity-0 group-data-unchecked/lever:opacity-80',
           isCompact ? 'right-1 size-3' : 'right-1.5 size-4',
         )}
       />

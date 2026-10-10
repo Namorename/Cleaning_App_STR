@@ -57,7 +57,20 @@ export function applyThemeChoice(doc: Document, choice: ThemeChoice): void {
     root.classList.add(name);
   }
   doc.cookie = themeCookie(choice, doc.location?.protocol === 'https:');
+  // Read by whatever draws the choice anew on this page (`shownThemeChoice`).
+  root.dataset.themeChoice = choice;
   doc.dispatchEvent(new CustomEvent<ThemeChoice>(THEME_EVENT, { detail: choice }));
+}
+
+/**
+ * The choice in force on this page: the last one made here, or — none made
+ * yet — the one the server read from the cookie. The menu draws its lever anew
+ * when it folds, and the layout's cookie is the page's first (night of
+ * 2026-10-10, seen on the stand).
+ */
+export function shownThemeChoice(doc: Document, fromServer: ThemeChoice): ThemeChoice {
+  const made = doc.documentElement.dataset.themeChoice;
+  return isThemeChoice(made) ? made : fromServer;
 }
 
 /** Hear every change of the choice, wherever it is made. Returns the way to stop. */

@@ -23,6 +23,7 @@ describe('ThemeToggle', () => {
 
   afterEach(() => {
     document.documentElement.classList.remove('light', 'dark');
+    delete document.documentElement.dataset.themeChoice;
     document.cookie = `${THEME_COOKIE}=; Path=/; Max-Age=0`;
     vi.unstubAllGlobals();
   });
@@ -75,6 +76,21 @@ describe('ThemeToggle', () => {
     render(<ThemeToggle initial="light" />);
 
     act(() => applyThemeChoice(document, 'dark'));
+
+    expect(screen.getByRole('switch', { name: 'Тёмная тема' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+  });
+
+  // Seen on the stand, night of 2026-10-10: folding the menu draws the lever
+  // anew, and it took the page's first theme, not the one chosen since.
+  test('a lever drawn anew after a press shows the theme chosen since', async () => {
+    const { unmount } = render(<ThemeToggle initial="light" />);
+    await userEvent.click(screen.getByRole('switch', { name: 'Тёмная тема' }));
+    unmount();
+
+    render(<ThemeToggle initial="light" isCompact />);
 
     expect(screen.getByRole('switch', { name: 'Тёмная тема' })).toHaveAttribute(
       'aria-checked',
