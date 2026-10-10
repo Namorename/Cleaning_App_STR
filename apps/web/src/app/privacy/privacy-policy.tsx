@@ -146,7 +146,7 @@ function RecipientsSection({ texts, values }: SectionProps) {
         <li>{renderRich(texts.recipients.managers)}</li>
         <li>{renderRich(texts.recipients.staff)}</li>
       </ul>
-      <p>{renderRich(texts.recipients.processors, { agreements: values.processingAgreements })}</p>
+      <p>{texts.recipients.processors}</p>
       <PolicyTable
         labelledBy={headingId(4)}
         columns={[columns.vendor, columns.role, columns.location]}
@@ -156,6 +156,9 @@ function RecipientsSection({ texts, values }: SectionProps) {
           cells: [vendor.role, vendor.location],
         }))}
       />
+      {/* Agreements stand with four of them; Google's and Apple's terms are said as they are
+          (owner's word of 2026-10-10, docs/privacy-dpa-links.md). */}
+      <p>{renderRich(texts.recipients.terms, { agreements: values.processingAgreements })}</p>
       <p>{renderRich(texts.recipients.transfers, { basis: values.transferBasis })}</p>
       <p>{texts.recipients.noSale}</p>
     </Section>

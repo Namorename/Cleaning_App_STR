@@ -114,6 +114,39 @@ describe('the privacy policy page', () => {
     expect(screen.getByText(said)).toBeInTheDocument();
   });
 
+  // Owner's word of 2026-10-10: data processing agreements stand with Supabase,
+  // Vercel, Expo and Sentry (docs/privacy-dpa-links.md). Google's processing
+  // terms are part of the Firebase terms; with Apple there is no agreement of
+  // its own, the Apple Developer Program terms apply. The page must not put
+  // the two under «with whom agreements have been concluded».
+  test.each([
+    [
+      'cs',
+      'Technicky údaje zpracovávají naši dodavatelé (zpracovatelé):',
+      'Se společnostmi Supabase, Vercel, Expo a Sentry jsou uzavřeny smlouvy o zpracování osobních údajů. U společnosti Google (Firebase Cloud Messaging) jsou podmínky zpracování údajů součástí podmínek Firebase. Se společností Apple samostatná smlouva o zpracování uzavřena není: platí podmínky Apple Developer Program.',
+    ],
+    [
+      'en',
+      'Technically, the data is processed by our suppliers (zpracovatelé):',
+      'With Supabase, Vercel, Expo and Sentry, data processing agreements have been concluded. For Google (Firebase Cloud Messaging), the data processing terms are part of the Firebase terms. There is no separate data processing agreement with Apple: the Apple Developer Program terms apply.',
+    ],
+    [
+      'ru',
+      'Технически данные обрабатывают наши поставщики (zpracovatelé):',
+      'С Supabase, Vercel, Expo и Sentry заключены договоры об обработке данных. У Google (Firebase Cloud Messaging) условия обработки данных входят в условия Firebase. С Apple отдельного договора об обработке данных нет: действуют условия Apple Developer Program.',
+    ],
+  ] as const)(
+    '%s: agreements are claimed with the four that have them, and Google and Apple are said as they are',
+    async (language, processors, terms) => {
+      emptyOperatorEnv();
+
+      await renderPage(language);
+
+      expect(screen.getByText(processors)).toBeInTheDocument();
+      expect(screen.getByText(terms)).toBeInTheDocument();
+    },
+  );
+
   test.each(['cs', 'en', 'ru'] as const)(
     '%s: the title, then the nine sections in order',
     async (language) => {

@@ -40,7 +40,11 @@ export interface PrivacySettings {
   readonly serverLogRetention: LocalizedText | null;
   /** The file a person's data is exported to on request. */
   readonly exportFormat: 'CSV' | 'JSON' | null;
-  /** `true` once data processing agreements are signed with every supplier. */
+  /**
+   * `true` once data processing agreements stand with Supabase, Vercel, Expo
+   * and Sentry. Google's terms are part of Firebase's and Apple has none of its
+   * own (the Developer Program terms apply); the policy says so in words.
+   */
   readonly processingAgreementsSigned: true | null;
   /** `true` once the basis of every transfer to the USA is checked. */
   readonly transferBasisChecked: true | null;
