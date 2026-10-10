@@ -9,6 +9,7 @@ import {
   applyThemeChoice,
   isThemeChoice,
   onThemeChoice,
+  shownThemeChoice,
   THEME_CHOICES,
   type ThemeChoice,
 } from '@/lib/theme';
@@ -24,7 +25,10 @@ interface ThemeSwitcherProps {
  */
 export function ThemeSwitcher({ initial }: ThemeSwitcherProps) {
   const { t } = useTranslation();
-  const [choice, setChoice] = useState<ThemeChoice>(initial);
+  // Back on the page after the lever was pressed: the choice made since, not the cached one.
+  const [choice, setChoice] = useState<ThemeChoice>(() =>
+    typeof document === 'undefined' ? initial : shownThemeChoice(document, initial),
+  );
   const id = useId();
 
   // The lever in the menu is the same setting: what it chooses shows here.

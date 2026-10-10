@@ -42,3 +42,14 @@ test('a press of the lever in the menu shows here at once', () => {
   expect(screen.getByRole('combobox', { name: 'Тема' })).toHaveValue('dark');
   document.documentElement.classList.remove('light', 'dark');
 });
+
+// Review of 2981da8..db36705: back on «Настройки» after a press of the lever,
+// the page's cached choice was the old one.
+test('drawn again after the lever was pressed, it shows the choice made since', () => {
+  document.documentElement.dataset.themeChoice = 'dark';
+
+  render(<ThemeSwitcher initial="system" />);
+
+  expect(screen.getByRole('combobox', { name: 'Тема' })).toHaveValue('dark');
+  delete document.documentElement.dataset.themeChoice;
+});

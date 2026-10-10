@@ -98,6 +98,20 @@ describe('ThemeToggle', () => {
     );
   });
 
+  // Review of 2981da8..db36705: on «as the system» with a dark system the lever
+  // flipped after hydration and slid across on every page load.
+  test('the knob does not slide when the page opens, only when the theme is moved', async () => {
+    render(<ThemeToggle initial="light" />);
+    const knob = document.querySelector('[data-slot="theme-lever-knob"]');
+    expect(knob?.className).not.toContain('transition-transform');
+
+    await userEvent.click(screen.getByRole('switch', { name: 'Тёмная тема' }));
+
+    expect(document.querySelector('[data-slot="theme-lever-knob"]')?.className).toContain(
+      'transition-transform',
+    );
+  });
+
   test('in the folded menu it is the lever alone, still named', () => {
     render(<ThemeToggle initial="light" isCompact />);
 
