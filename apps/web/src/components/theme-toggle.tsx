@@ -49,7 +49,18 @@ export function ThemeToggle({ initial, isCompact = false }: ThemeToggleProps) {
   const isDark = choice === 'dark' || (choice === 'system' && systemIsDark);
   const label = t('panel.nav.darkMode');
 
-  useEffect(() => onThemeChoice(document, setChoice), []);
+  // It slides only once the theme is moved: a lever that flips into place as
+  // the page wakes (as the system, at night) is not to glide across each load.
+  const [isMoving, setMoving] = useState(false);
+
+  useEffect(
+    () =>
+      onThemeChoice(document, (next) => {
+        setMoving(true);
+        setChoice(next);
+      }),
+    [],
+  );
 
   const lever = (
     <SwitchPrimitive.Root
@@ -58,7 +69,7 @@ export function ThemeToggle({ initial, isCompact = false }: ThemeToggleProps) {
       aria-label={label}
       className={cn(
         'group/lever relative inline-flex shrink-0 cursor-pointer items-center rounded-full border border-border p-0.5 shadow-inner outline-none',
-        'transition-colors duration-300 ease-out motion-reduce:transition-none',
+        isMoving && 'transition-colors duration-300 ease-out motion-reduce:transition-none',
         'focus-visible:ring-3 focus-visible:ring-ring/50',
         // Day: a warm, light track; night: the brand colour.
         'data-unchecked:bg-accent data-checked:bg-primary',
@@ -85,8 +96,9 @@ export function ThemeToggle({ initial, isCompact = false }: ThemeToggleProps) {
         data-slot="theme-lever-knob"
         className={cn(
           'pointer-events-none relative z-10 flex items-center justify-center rounded-full bg-background shadow-md ring-1 ring-border',
-          'transition-transform duration-300 ease-out motion-reduce:transition-none',
-          isCompact ? 'size-5 data-checked:translate-x-5' : 'size-7 data-checked:translate-x-6',
+          isMoving && 'transition-transform duration-300 ease-out motion-reduce:transition-none',
+          // Its travel: the track inside its border and padding, less the knob.
+          isCompact ? 'size-5 data-checked:translate-x-4.5' : 'size-7 data-checked:translate-x-5.5',
         )}
       >
         {isDark ? (
