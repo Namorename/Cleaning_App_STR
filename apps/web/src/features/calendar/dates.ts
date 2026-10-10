@@ -95,9 +95,14 @@ export function pastLimit(today: string): string {
 /**
  * The days of the next chunk of the past before `first`, the first day shown,
  * oldest first: two weeks, fewer near the limit, none at it — nor when the
- * window itself starts before it.
+ * window itself starts before it, nor after today: the past is what lies
+ * before today, and a window moved ahead has none next to it (final review
+ * of 2026-10-10).
  */
 export function pastChunk(first: string, today: string): string[] {
+  if (first > today) {
+    return [];
+  }
   const count = Math.min(PAST_CHUNK_DAYS, Math.max(0, daysBetween(pastLimit(today), first)));
   return Array.from({ length: count }, (_, at) => addDays(first, at - count));
 }

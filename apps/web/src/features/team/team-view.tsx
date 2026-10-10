@@ -30,6 +30,7 @@ import {
   isInTab,
   matchesRole,
   matchesSearch,
+  nameOf,
   showsLinks,
   STAFF_ROLES,
   TEAM_TABS,
@@ -260,9 +261,4 @@ export function TeamView() {
       )}
     </div>
   );
-}
-
-/** A person as the dialogs name her: the name, else the login. */
-function nameOf(person: Staff): string {
-  return person.full_name ?? person.email ?? '';
 }

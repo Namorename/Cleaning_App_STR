@@ -210,6 +210,21 @@ describe('ProblemDetail', () => {
     );
   });
 
+  // 10.10: a task opened from a filtered view returns to it, filters and all.
+  test('«К списку заданий» returns to the filtered view the task was opened from', () => {
+    window.history.replaceState(
+      null,
+      '',
+      `/problems/${PROBLEM_ID}?view=list&place=Karl%C3%ADn+3&assignee=nobody`,
+    );
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    expect(screen.getByRole('link', { name: 'К списку заданий' })).toHaveAttribute(
+      'href',
+      '/problems?view=list&place=Karl%C3%ADn+3&assignee=nobody',
+    );
+  });
+
   test('is headed by the common header, with the way back to the list', () => {
     render(<ProblemDetail problemId={PROBLEM_ID} />);
 

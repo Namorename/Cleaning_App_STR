@@ -178,6 +178,7 @@
       "calendar": "Calendar",
       "unread": "Unread: {{count}}",
       "collapse": "Collapse the menu",
+      "darkMode": "Dark theme",
       "expand": "Expand the menu",
       "open": "Open the menu",
       "groups": {
@@ -234,6 +235,17 @@
       "viewList": "List",
       "empty": "No tasks",
       "emptyFiltered": "Nothing found",
+      "filters": {
+        "place": "Listing",
+        "anyPlace": "Any listing",
+        "assignee": "Executor",
+        "anyAssignee": "Anyone",
+        "nobody": "Unassigned",
+        "dateFrom": "Reported from",
+        "dateTo": "Reported until",
+        "reset": "Clear the filters"
+      },
+      "showMore": "Show {{more}} more ({{total}} in all)",
       "loading": "Loading tasks…",
       "loadError": "Could not load the tasks",
       "notFound": "Task not found",
@@ -721,6 +733,15 @@
         "title": "Reset the password for {{name}}?",
         "description": "The old password stops working at once. The new one appears on the next screen.",
         "confirm": "Reset password"
+      },
+      "confirm": {
+        "saveTitle": "Save the changes for {{name}}?",
+        "disable": "The account is switched off: cleanings and jobs not yet started are freed and the listing links are taken off. Switching it back on does not bring them back.",
+        "role": "The role changes: “{{from}}” → “{{to}}”.",
+        "unlink": "Listing links taken off: {{total}}.",
+        "unlinkTitle": "{{name}}: remove the listing “{{property}}”?",
+        "unlinkDescription": "Free cleanings of this listing stop showing in the app and are no longer handed out automatically. Cleanings already assigned stay as they are.",
+        "unlinkFinal": "This link cannot be put back: this role is not put on listings."
       }
     },
     "roles": {

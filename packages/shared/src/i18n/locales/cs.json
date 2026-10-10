@@ -178,6 +178,7 @@
       "calendar": "Kalendář",
       "unread": "Nepřečtené: {{count}}",
       "collapse": "Sbalit nabídku",
+      "darkMode": "Tmavý motiv",
       "expand": "Rozbalit nabídku",
       "open": "Otevřít nabídku",
       "groups": {
@@ -234,6 +235,17 @@
       "viewList": "Seznam",
       "empty": "Žádné úkoly",
       "emptyFiltered": "Nic nenalezeno",
+      "filters": {
+        "place": "Objekt",
+        "anyPlace": "Jakýkoli objekt",
+        "assignee": "Vykonavatel",
+        "anyAssignee": "Kdokoli",
+        "nobody": "Nepřiřazeno",
+        "dateFrom": "Nahlášeno od",
+        "dateTo": "Nahlášeno do",
+        "reset": "Zrušit filtry"
+      },
+      "showMore": "Zobrazit více: {{more}} (celkem {{total}})",
       "loading": "Načítáme úkoly…",
       "loadError": "Úkoly se nepodařilo načíst",
       "notFound": "Úkol nenalezen",
@@ -723,6 +735,15 @@
         "title": "Obnovit heslo pro {{name}}?",
         "description": "Staré heslo hned přestane platit. Nové se zobrazí na další obrazovce.",
         "confirm": "Obnovit heslo"
+      },
+      "confirm": {
+        "saveTitle": "Uložit změny pro {{name}}?",
+        "disable": "Účet se vypne: dosud nezahájené úklidy a práce se uvolní a přiřazení k objektům se odeberou. Opětovné zapnutí je nevrátí.",
+        "role": "Role se změní: „{{from}}“ → „{{to}}“.",
+        "unlink": "Odeberou se přiřazení k objektům: {{total}}.",
+        "unlinkTitle": "{{name}}: odebrat objekt „{{property}}“?",
+        "unlinkDescription": "Volné úklidy tohoto objektu přestanou být v aplikaci vidět a nebudou se přidělovat samy. Už přidělené úklidy zůstanou, jak jsou.",
+        "unlinkFinal": "Toto přiřazení nepůjde vrátit: této roli se objekty nepřiřazují."
       }
     },
     "roles": {

@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
 import { serverErrorText } from '@/lib/server-error';
 
+import { ConfirmDialog } from './confirm-dialog';
 import { PropertyPicker } from './property-picker';
 import {
   draftFrom,
@@ -23,6 +24,7 @@ import {
   LANGUAGES,
   linkChanges,
   MIN_PRIORITY,
+  nameOf,
   selectedProperties,
   STAFF_ROLES,
   takesListings,
@@ -30,6 +32,7 @@ import {
   type StaffAccount,
   type StaffDraft,
 } from './schema';
+import { lossesOf, type StaffLoss } from './staff-losses';
 import {
   useCleanerLinks,
   useProperties,
@@ -107,6 +110,8 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
   /** Null until the manager touches the list — until then it mirrors what is stored. */
   const [chosen, setChosen] = useState<number[] | null>(null);
   const [linkFailure, setLinkFailure] = useState<string | null>(null);
+  /** What the save would take away, while the manager is asked about it. */
+  const [asking, setAsking] = useState<StaffLoss[] | null>(null);
 
   const isNew = staff === null;
   const allLinks = useMemo(() => links.data ?? [], [links.data]);
@@ -185,13 +190,40 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
     onCreated(account, { name: draft.fullName.trim(), email: draft.email.trim() }, warning);
   };
 
+  const send = () => {
+    setLinkFailure(null);
+    save.mutate(draft, { onSuccess: (account) => void finish(account) });
+  };
+
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!isReady) {
       return;
     }
-    setLinkFailure(null);
-    save.mutate(draft, { onSuccess: (account) => void finish(account) });
+    // What cannot be given back is asked about first (the owner, 10.10). The
+    // listings count only where the form writes them: a role off listings
+    // closes none here.
+    const unlinked = isListed ? linkChanges(current, selection).removed.length : 0;
+    const losses = staff === null ? [] : lossesOf(staff, draft, unlinked);
+    if (losses.length > 0) {
+      setAsking(losses);
+      return;
+    }
+    send();
+  };
+
+  const lossLine = (loss: StaffLoss): string => {
+    switch (loss.kind) {
+      case 'disable':
+        return t('panel.team.confirm.disable');
+      case 'role':
+        return t('panel.team.confirm.role', {
+          from: t(`panel.roles.${loss.from}`),
+          to: t(`panel.roles.${loss.to}`),
+        });
+      case 'unlink':
+        return t('panel.team.confirm.unlink', { total: loss.total });
+    }
   };
 
   return (
@@ -359,6 +391,21 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
             </Button>
           </div>
         </form>
+
+        {asking === null || staff === null ? null : (
+          <ConfirmDialog
+            title={t('panel.team.confirm.saveTitle', {
+              name: nameOf(staff),
+            })}
+            lines={asking.map(lossLine)}
+            confirmLabel={t('panel.team.form.save')}
+            onConfirm={() => {
+              setAsking(null);
+              send();
+            }}
+            onClose={() => setAsking(null)}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

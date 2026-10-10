@@ -22,6 +22,10 @@ interface PastControlsProps {
  */
 export function PastButton({ past }: PastControlsProps) {
   const { t } = useTranslation();
+  // A window moved past today has no past next to it: the arrows go back.
+  if (past.isAhead) {
+    return null;
+  }
   return (
     <Button
       type="button"

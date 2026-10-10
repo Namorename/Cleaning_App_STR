@@ -31,6 +31,8 @@ export interface CalendarPast {
   error: unknown;
   /** Sixty days before today is shown: there is no more past to ask for. */
   isAtLimit: boolean;
+  /** The window starts after today: there is no past next to it. */
+  isAhead: boolean;
   /**
    * The last chunk shown was asked for by a press: the grid brings it into
    * view. One asked at the edge keeps the day under the cursor.
@@ -111,6 +113,7 @@ export function useCalendarPast({ start, depth, today, isReady, load }: PastOpti
     isError: current.failure !== null,
     error: current.failure === null ? null : current.failure.error,
     isAtLimit: next.length === 0,
+    isAhead: start > today,
     shouldReveal: current.isRevealed,
     loadMore,
     reset: () => setState(emptyFor(windowKey)),

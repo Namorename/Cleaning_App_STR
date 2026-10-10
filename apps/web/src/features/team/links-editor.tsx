@@ -14,9 +14,17 @@ import {
 } from '@/components/ui/sheet';
 import { serverErrorText } from '@/lib/server-error';
 
+import { ConfirmDialog } from './confirm-dialog';
 import { LinkTerms, RemoveLinkButton } from './link-controls';
 import { PropertyPicker } from './property-picker';
-import { canHaveLinks, linksOf, MIN_PRIORITY, unlinkedProperties, type Staff } from './schema';
+import {
+  canHaveLinks,
+  linksOf,
+  MIN_PRIORITY,
+  nameOf,
+  unlinkedProperties,
+  type Staff,
+} from './schema';
 import { useCleanerLinks, useProperties, useRemoveCleanerLink, useSaveCleanerLink } from './use-team';
 
 interface LinksEditorProps {
@@ -48,8 +56,12 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
   const save = useSaveCleanerLink();
   const remove = useRemoveCleanerLink();
   const [adding, setAdding] = useState<number[]>([]);
+  // The listing «Убрать» was pressed on: nothing is taken off until the answer
+  // (the owner, 10.10 — a technician cannot be put back on it at all).
+  const [unlinking, setUnlinking] = useState<{ propertyId: number; name: string } | null>(null);
 
   const isLinkable = canHaveLinks(staff);
+  const personName = nameOf(staff);
   const allProperties = properties.data ?? [];
   const allLinks = links.data ?? [];
   const rows = linksOf(allLinks, allProperties, staff.id);
@@ -95,7 +107,7 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
       <SheetContent className="gap-4 overflow-y-auto p-4 sm:max-w-lg">
         <SheetHeader className="p-0">
           <SheetTitle>
-            {t('panel.team.links.title', { name: staff.full_name ?? staff.email ?? '' })}
+            {t('panel.team.links.title', { name: personName })}
           </SheetTitle>
           <SheetDescription>
             {isLinkable ? t('panel.team.links.description') : t('panel.team.links.onlyRemove')}
@@ -134,9 +146,7 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
 
                     <RemoveLinkButton
                       name={row.name}
-                      onRemove={() =>
-                        remove.mutate({ propertyId: row.propertyId, cleanerId: staff.id })
-                      }
+                      onRemove={() => setUnlinking({ propertyId: row.propertyId, name: row.name })}
                     />
                   </li>
                 ))}
@@ -182,6 +192,30 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
               </div>
             )}
           </div>
+        )}
+
+        {unlinking === null ? null : (
+          <ConfirmDialog
+            title={t('panel.team.confirm.unlinkTitle', {
+              name: personName,
+              property: unlinking.name,
+            })}
+            // A role off listings cannot be put back on one: that, not the
+            // free cleanings, is what the manager needs to hear.
+            lines={[
+              t(
+                isLinkable
+                  ? 'panel.team.confirm.unlinkDescription'
+                  : 'panel.team.confirm.unlinkFinal',
+              ),
+            ]}
+            confirmLabel={t('panel.team.links.remove')}
+            onConfirm={() => {
+              setUnlinking(null);
+              remove.mutate({ propertyId: unlinking.propertyId, cleanerId: staff.id });
+            }}
+            onClose={() => setUnlinking(null)}
+          />
         )}
       </SheetContent>
     </Sheet>

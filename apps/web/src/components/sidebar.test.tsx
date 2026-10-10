@@ -208,6 +208,8 @@ describe('Sidebar folded to a strip of icons', () => {
       'Объекты',
       'Команда',
       'Настройки',
+      // The theme lever (night of 2026-10-10), above the toggle.
+      'Тёмная тема',
       'Развернуть меню',
     ]);
   });
@@ -239,8 +241,8 @@ describe('Sidebar folded to a strip of icons', () => {
     render(<Sidebar email="manager.test@example.com" />);
     const toggle = screen.getByRole('button', { name: 'Свернуть меню' });
 
-    // Through the eight sections, then the toggle under them.
-    for (let step = 0; step < 9 && document.activeElement !== toggle; step += 1) {
+    // Through the eight sections and the theme lever, then the toggle under them.
+    for (let step = 0; step < 10 && document.activeElement !== toggle; step += 1) {
       await userEvent.tab();
     }
     expect(toggle).toHaveFocus();
@@ -282,5 +284,27 @@ describe('Sidebar folded to a strip of icons', () => {
     expect(
       screen.getByRole('button', { name: 'Развернуть меню' }).querySelector('svg'),
     ).toHaveClass(`lucide-${ICONS['nav.expand']}`);
+  });
+});
+
+// Night of 2026-10-10: the day and the night theme a press away, in the menu.
+describe('Sidebar and the theme', () => {
+  test('the open menu offers the night theme on a lever, by its name', () => {
+    render(<Sidebar email="manager.test@example.com" theme="light" />);
+
+    expect(screen.getByRole('switch', { name: 'Тёмная тема' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    expect(screen.getByText('Тёмная тема')).toBeInTheDocument();
+  });
+
+  test('the folded strip keeps the lever, its name in a tooltip', () => {
+    render(<Sidebar email="manager.test@example.com" theme="dark" isInitiallyCollapsed />);
+
+    expect(screen.getByRole('switch', { name: 'Тёмная тема' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
   });
 });

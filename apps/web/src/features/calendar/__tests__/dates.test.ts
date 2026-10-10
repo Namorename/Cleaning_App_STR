@@ -123,6 +123,12 @@ describe('the next chunk of the past', () => {
     expect(chunk[chunk.length - 1]).toBe('2026-10-08');
   });
 
+  // Final review of 2026-10-10: a window moved past today has no past next to it.
+  test('has none for a window that starts after today', () => {
+    expect(pastChunk('2026-10-25', '2026-10-10')).toEqual([]);
+    expect(pastChunk('2026-10-11', '2026-10-10')).toEqual([]);
+  });
+
   test('stops at sixty days before today', () => {
     expect(PAST_LIMIT_DAYS).toBe(60);
     expect(pastLimit('2026-10-10')).toBe('2026-08-11');
