@@ -196,6 +196,84 @@ describe('the board on disk', () => {
   });
 });
 
+/**
+ * A refresh cancels the read under way, but its request runs on and may answer
+ * after the newer one (the review of 7553530..8a58d77, LOW): the cut is said
+ * only by the read whose rows the board keeps.
+ */
+describe('the cut, said by the read the board keeps', () => {
+  const OPEN = boardProblem({ id: 'd1e2f3a4-1111-4111-8111-d1e2f3a40001', status: 'open' });
+  const CUT: BoardRead = { problems: [OPEN], isOpenCut: true, isClosedCut: true };
+  const WHOLE: BoardRead = { problems: [OPEN], isOpenCut: false, isClosedCut: false };
+  const NOTHING_CUT = { isOpenCut: false, isClosedCut: false };
+
+  function client(): QueryClient {
+    return new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+  }
+
+  /** A read that answers only when told; told, it is let finish whatever it does then. */
+  function heldRead(): { read: Promise<BoardRead>; answer: (read: BoardRead) => Promise<void> } {
+    let resolve: (read: BoardRead) => void = () => undefined;
+    const read = new Promise<BoardRead>((settle) => {
+      resolve = settle;
+    });
+    const answer = async (answered: BoardRead): Promise<void> => {
+      resolve(answered);
+      await read;
+      await new Promise((settle) => setTimeout(settle, 0));
+    };
+    return { read, answer };
+  }
+
+  /** The board on screen, its first read answered with `first`, and a refresh under way. */
+  async function boardRefreshing(first: BoardRead) {
+    const live = client();
+    const older = heldRead();
+    jest.mocked(fetchBoardProblems).mockResolvedValueOnce(first).mockReturnValueOnce(older.read);
+    const { result } = await renderHook(() => ({ board: useBoardProblems(), cut: useBoardCut() }), {
+      wrapper: withClient(live),
+    });
+    await waitFor(() => expect(result.current.board.isSuccess).toBe(true));
+    await act(async () => {
+      void result.current.board.refetch();
+    });
+    await waitFor(() => expect(fetchBoardProblems).toHaveBeenCalledTimes(2));
+    return { live, result, answerOlder: older.answer };
+  }
+
+  test('an older read that answers after the newer one leaves the newer one’s cut', async () => {
+    // Arrange: a board read once, cut; a refresh under way.
+    const { live, result, answerOlder } = await boardRefreshing(CUT);
+    jest.mocked(fetchBoardProblems).mockResolvedValueOnce(WHOLE);
+
+    // Act: a second pull cancels the first and is answered; then the first answers.
+    await act(async () => {
+      await result.current.board.refetch();
+    });
+    await waitFor(() => expect(result.current.cut).toEqual(NOTHING_CUT));
+    await act(() => answerOlder(CUT));
+
+    // Assert
+    expect(live.getQueryData(boardKeys.cut(HEAD_TECH))).toEqual(NOTHING_CUT);
+  });
+
+  test('a newer read that fails leaves the cut as it was, the older one’s answer unheard', async () => {
+    // Arrange: a board read once, whole; a refresh under way.
+    const { live, result, answerOlder } = await boardRefreshing(WHOLE);
+    jest.mocked(fetchBoardProblems).mockRejectedValueOnce(new TypeError('Network request failed'));
+
+    // Act: a second pull cancels the first and fails; then the first answers.
+    await act(async () => {
+      await result.current.board.refetch();
+    });
+    await waitFor(() => expect(result.current.board.isError).toBe(true));
+    await act(() => answerOlder(CUT));
+
+    // Assert
+    expect(live.getQueryData(boardKeys.cut(HEAD_TECH))).toEqual(NOTHING_CUT);
+  });
+});
+
 describe('the archive, read on demand, a page at a time', () => {
   /** A task put away, its id numbered so a page of them has fifty different ones. */
   function archived(index: number) {
