@@ -1797,8 +1797,9 @@
       "intro": "Your data is seen only by those who need it for work:",
       "managers": "<b>your company’s managers</b> — all of the company’s work data;",
       "staff": "<b>a cleaner or a technician</b> — their own cleanings and jobs, available work at their properties, and the messages about them. Other people’s work data and the data of another company’s employees are not accessible.",
-      "processors": "Technically, the data is processed by our suppliers (zpracovatelé), with whom {{agreements}}:",
+      "processors": "Technically, the data is processed by our suppliers (zpracovatelé):",
       "agreements": "data processing agreements have been concluded",
+      "terms": "With Supabase, Vercel, Expo and Sentry, {{agreements}}. For Google (Firebase Cloud Messaging), the data processing terms are part of the Firebase terms. There is no separate data processing agreement with Apple: the Apple Developer Program terms apply.",
       "columns": {
         "vendor": "Supplier",
         "role": "What it does",

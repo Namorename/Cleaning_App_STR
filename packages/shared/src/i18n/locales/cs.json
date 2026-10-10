@@ -1831,8 +1831,9 @@
       "intro": "Vaše údaje vidí jen ti, kdo je potřebují pro práci:",
       "managers": "<b>manažeři vaší společnosti</b> — všechny pracovní údaje společnosti;",
       "staff": "<b>uklízečka nebo technik</b> — své úklidy a práce, volnou práci na svých objektech a zprávy k nim. Cizí pracovní údaje a údaje zaměstnanců jiné společnosti přístupné nejsou.",
-      "processors": "Technicky údaje zpracovávají naši dodavatelé (zpracovatelé), se kterými {{agreements}}:",
+      "processors": "Technicky údaje zpracovávají naši dodavatelé (zpracovatelé):",
       "agreements": "jsou uzavřeny smlouvy o zpracování osobních údajů",
+      "terms": "Se společnostmi Supabase, Vercel, Expo a Sentry {{agreements}}. U společnosti Google (Firebase Cloud Messaging) jsou podmínky zpracování údajů součástí podmínek Firebase. Se společností Apple samostatná smlouva o zpracování uzavřena není: platí podmínky Apple Developer Program.",
       "columns": {
         "vendor": "Dodavatel",
         "role": "Co dělá",
