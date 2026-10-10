@@ -1260,6 +1260,7 @@
     "tooLargeForStorage": "Video má {{size}} MB, úložiště ale přijme soubory nejvýš do {{limit}} MB. Stiskněte „Natočit znovu“ a natočte kratší video.",
     "galleryTitle": "Video z galerie",
     "openingGallery": "Otevíráme galerii…",
+    "preparingGallery": "Připravujeme video… Nezavírejte aplikaci.",
     "pickAnother": "Vybrat jiné",
     "leaveBodyGallery": "Pokud odejdete, video se neodešle. V galerii zůstane.",
     "galleryTooLong": "Toto video je delší než {{limit}} s. Vyberte kratší nebo natočte kamerou.",

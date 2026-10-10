@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 
 import type { PickedVideo } from '@/features/media/capture';
 import {
@@ -64,6 +64,7 @@ test('the gallery opens instead of the camera, and nothing is asked of the camer
 });
 
 test('while the gallery is open the screen says so', async () => {
+  const os = jest.replaceProperty(Platform, 'OS', 'android');
   const choosing = deferred<PickedVideo | null>();
   pick.mockReturnValue(choosing.promise);
 
@@ -71,6 +72,22 @@ test('while the gallery is open the screen says so', async () => {
 
   expect(screen.getByText('Открываем галерею…')).toBeTruthy();
   await act(async () => choosing.resolve(null));
+  os.restore();
+});
+
+// On an iPhone the gallery's sheet covers the screen while she chooses, and
+// the screen shows only once she has chosen — while the picker compresses the
+// video (capture.ts), which takes as long as the video does.
+test('on an iPhone, the wait after the choice says the video is being prepared', async () => {
+  const os = jest.replaceProperty(Platform, 'OS', 'ios');
+  const choosing = deferred<PickedVideo | null>();
+  pick.mockReturnValue(choosing.promise);
+
+  await render(<RecordRoute />);
+
+  expect(screen.getByText('Готовим видео… Не закрывайте приложение.')).toBeTruthy();
+  await act(async () => choosing.resolve(null));
+  os.restore();
 });
 
 test('«Отправить» sends it to the same queue, declared as from the gallery', async () => {

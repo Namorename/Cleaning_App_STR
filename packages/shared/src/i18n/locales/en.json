@@ -1244,6 +1244,7 @@
     "tooLargeForStorage": "The video is {{size}} MB, and the storage takes files of up to {{limit}} MB. Press “Record again” and record a shorter video.",
     "galleryTitle": "Video from the gallery",
     "openingGallery": "Opening the gallery…",
+    "preparingGallery": "Preparing the video… Keep the app open.",
     "pickAnother": "Choose another",
     "leaveBodyGallery": "If you leave, the video will not be sent. It stays in the gallery.",
     "galleryTooLong": "This video is longer than {{limit}} s. Choose a shorter one or record with the camera.",

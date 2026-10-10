@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet } from 'react-native';
+import { Platform, ScrollView, StyleSheet } from 'react-native';
 
 import { useScreenEdgePadding } from '@/components/bottom-inset';
 import { Button } from '@/components/button';
@@ -89,7 +89,11 @@ export function GalleryPhase({ limits, onPicked, onLeave }: GalleryPhaseProps) {
   }, [attempt]);
 
   if (state.kind === 'picking') {
-    return <LoadingState label={t('video.openingGallery')} />;
+    // An iPhone's gallery covers this screen while she chooses; it shows
+    // again once she has chosen, while the picker compresses the video
+    // (features/media/capture.ts) — as long as the video takes.
+    const label = Platform.OS === 'ios' ? 'video.preparingGallery' : 'video.openingGallery';
+    return <LoadingState label={t(label)} />;
   }
 
   const again = () => {
