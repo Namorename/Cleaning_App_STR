@@ -43,7 +43,9 @@ const VIDEOS_PER_STEP = 1;
  *
  * Media not read yet are not media that hold no video: the screen waits for
  * them, or says why they could not be read. A list read before stands for
- * them when a later read failed — it is what the step's screen shows too.
+ * them when a later read failed — it is what the step's screen shows too. So
+ * do the steps: without signal the step's screen keeps those it read and
+ * offers «Записать видео», and what she records waits in the queue.
  */
 export function recordGate(input: RecordGateInput): RecordGate {
   const { task, steps, media } = input;
@@ -53,7 +55,7 @@ export function recordGate(input: RecordGateInput): RecordGate {
   if (steps.isPending || task.isPending) {
     return { kind: 'loading' };
   }
-  if (steps.error !== null) {
+  if (steps.error !== null && steps.data === undefined) {
     return { kind: 'error', error: steps.error };
   }
   const step = steps.data?.find((item) => item.id === input.stepId);
