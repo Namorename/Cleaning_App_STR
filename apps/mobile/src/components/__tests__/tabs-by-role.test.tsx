@@ -240,9 +240,11 @@ test.each([
  * The cache is back from disk before it is checked against whose it is
  * (features/auth/forget-on-sign-out.ts): a session known in between drew the
  * last person's lists for a frame (docs/post-launch-cleanup.md). Until the
- * check is done the provider says it is still restoring, and no tab is drawn.
+ * check is done the provider says it is still restoring: no tab is drawn,
+ * and the wait is said — to the eye and to the reader — in the words the
+ * entry screen used a moment before (app/index.tsx), never a blank screen.
  */
-test('signed in while the lists brought back are still being checked: no tab is drawn yet', async () => {
+test('signed in while the lists brought back are still being checked: no tab yet, the wait said', async () => {
   // Arrange
   signInAs('cleaner');
   mockScreens.length = 0;
@@ -256,4 +258,7 @@ test('signed in while the lists brought back are still being checked: no tab is 
 
   // Assert
   expect(mockScreens).toEqual([]);
+  const loading = screen.getByRole('progressbar', { name: 'Входим…' });
+  expect(loading.props.accessibilityState).toMatchObject({ busy: true });
+  expect(screen.getByText('Входим…')).toBeTruthy();
 });
