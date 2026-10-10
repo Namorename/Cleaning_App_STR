@@ -57,14 +57,11 @@ export const PRIVACY_SETTINGS: PrivacySettings = {
   // The operator, on a letter to the address in section 1 (the sentence says how).
   accountDeletedBy: { cs: 'správce', en: 'the controller', ru: 'оператор' },
   accountRetentionMonths: 6,
-  // The project's functions run in iad1 (`vercel inspect` of the production
-  // deployment, x-vercel-id); iad1 is Vercel's default region, Washington, D.C.
+  // The project's functions run in fra1, Frankfurt, beside the database: pinned
+  // in apps/web/vercel.json (owner, 2026-10-10, Pro plan). Before it they ran in
+  // iad1, Vercel's default. A test keeps the two in step.
   // https://vercel.com/docs/functions/configuring-functions/region
-  vercelRegion: {
-    cs: 'USA (Washington, D.C., iad1)',
-    en: 'USA (Washington, D.C., iad1)',
-    ru: 'США (Вашингтон, iad1)',
-  },
+  vercelRegion: { cs: 'EU (Frankfurt)', en: 'EU (Frankfurt)', ru: 'ЕС (Франкфурт)' },
   // The DSN's ingest host is in .de.sentry.io: Sentry's EU region, Frankfurt.
   // https://docs.sentry.io/organization/data-storage-location/
   sentryRegion: { cs: 'EU (Frankfurt)', en: 'EU (Frankfurt)', ru: 'ЕС (Франкфурт)' },
@@ -78,7 +75,10 @@ export const PRIVACY_SETTINGS: PrivacySettings = {
     ru: 'не дольше 7 дней',
   },
   exportFormat: 'CSV',
-  // The owner accepts the suppliers' agreements himself (docs/privacy-dpa-links.md).
-  processingAgreementsSigned: null,
-  transferBasisChecked: null,
+  // Confirmed by the owner on 2026-10-10, 21:00: Sentry's agreement accepted in
+  // its settings, Supabase's and Vercel's part of their terms, Expo's in its
+  // terms' processing section; each carries the standard contractual clauses
+  // (docs/privacy-dpa-links.md).
+  processingAgreementsSigned: true,
+  transferBasisChecked: true,
 };

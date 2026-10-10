@@ -1,10 +1,16 @@
 # Политика: договоры с поставщиками и откуда взяты значения
 
 Ветка `privacy-settings-1010`, 2026-10-10. Значения страницы `/privacy` лежат в
-`apps/web/src/app/privacy/settings.ts`. Два утверждения там оставлены `null`:
-`processingAgreementsSigned` и `transferBasisChecked`. Их ставит владелец, когда
-сам примет договоры ниже. Пока они `null`, страница показывает их жирной
-заглушкой «вписать: подтвердить».
+`apps/web/src/app/privacy/settings.ts`.
+
+**21:00 — владелец подтвердил:**
+- DPA Sentry принят вручную (Organization Settings → Legal & Compliance);
+- договоры Supabase и Vercel входят в их условия;
+- у Expo — раздел условий об обработке данных;
+- Vercel Pro оплачен.
+
+Поэтому `processingAgreementsSigned` и `transferBasisChecked` стоят `true`, а функции
+панели закреплены во Франкфурте (`apps/web/vercel.json`, `regions: ["fra1"]`).
 
 ## Договоры об обработке данных (DPA)
 
@@ -21,7 +27,8 @@ DPA не принят, клиент не должен отправлять в с
 
 ## Откуда взяты значения
 
-- **vercelRegion — США (Вашингтон, iad1).** Функции прод-деплоя работают в `iad1`.
+- **vercelRegion — ЕС (Франкфурт), с 2026-10-10.** `apps/web/vercel.json` задаёт `regions: ["fra1"]`;
+  тест страницы сверяет его со значением политики. До этого функции прод-деплоя работали в `iad1`.
   Это видно в `npx vercel inspect <деплой> --cwd apps/web` и в заголовке `x-vercel-id`:
   `fra1::iad1::…`, где fra1 — точка входа, iad1 — функция. `iad1` — регион по
   умолчанию у новых проектов: https://vercel.com/docs/functions/configuring-functions/region.

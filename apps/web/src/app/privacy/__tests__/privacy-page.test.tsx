@@ -1,5 +1,7 @@
 import type { Language } from '@str-ops/shared';
 import { render, screen, within } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { expectPageTitle } from '@/components/page-header.expect';
@@ -437,22 +439,22 @@ describe('the values the owner gave', () => {
       signInBlockDate: '2026-11-30',
       accountRetentionMonths: 6,
       exportFormat: 'CSV',
-      processingAgreementsSigned: null,
-      transferBasisChecked: null,
+      // Confirmed by the owner on 2026-10-10, 21:00 (docs/privacy-dpa-links.md).
+      processingAgreementsSigned: true,
+      transferBasisChecked: true,
     });
   });
 
   test.each(['cs', 'en', 'ru'] as const)(
-    '%s: only the two statements the owner confirms himself are left to fill in',
+    '%s: with the operator\'s details set, nothing is left to fill in',
     (language) => {
       const { container } = render(
         <PrivacyPolicy language={language} operator={EVERYONE_KNOWN} settings={PRIVACY_SETTINGS} />,
       );
 
-      const marked = [...container.querySelectorAll('strong')].filter((element) =>
-        element.textContent?.includes(MARKER[language]),
-      );
-      expect(marked).toHaveLength(2);
+      expect(container.querySelectorAll('[data-placeholder]')).toHaveLength(0);
+      expect(container.textContent).not.toContain(MARKER[language]);
+      expect(container.textContent).not.toMatch(/\[|\]/);
     },
   );
 
@@ -484,11 +486,11 @@ describe('the values the owner gave', () => {
   });
 
   test.each([
-    ['ru', 'США (Вашингтон, iad1)', 'ЕС (Франкфурт)'],
-    ['en', 'USA (Washington, D.C., iad1)', 'EU (Frankfurt)'],
-    ['cs', 'USA (Washington, D.C., iad1)', 'EU (Frankfurt)'],
+    ['ru', 'ЕС (Франкфурт)', 'ЕС (Франкфурт)'],
+    ['en', 'EU (Frankfurt)', 'EU (Frankfurt)'],
+    ['cs', 'EU (Frankfurt)', 'EU (Frankfurt)'],
   ] as const)(
-    '%s: the panel runs in the USA, the crash reports stay in the EU',
+    '%s: the panel and the crash reports stay in the EU',
     (language, vercel, sentry) => {
       render(
         <PrivacyPolicy language={language} operator={EVERYONE_KNOWN} settings={PRIVACY_SETTINGS} />,
@@ -512,5 +514,23 @@ describe('the values the owner gave', () => {
     );
 
     expect(screen.getByRole('main').textContent).toContain(text);
+  });
+});
+
+// The policy says where the panel's functions run; the project says it in
+// apps/web/vercel.json (fra1, Frankfurt, since 2026-10-10). One cannot change
+// without the other.
+describe('the region the policy names is the region the panel is deployed to', () => {
+  test('vercel.json pins the functions to fra1, and the policy says Frankfurt', () => {
+    const config = JSON.parse(
+      readFileSync(path.resolve(__dirname, '../../../../vercel.json'), 'utf8'),
+    ) as { regions?: string[] };
+
+    expect(config.regions).toEqual(['fra1']);
+    expect(PRIVACY_SETTINGS.vercelRegion).toEqual({
+      cs: 'EU (Frankfurt)',
+      en: 'EU (Frankfurt)',
+      ru: 'ЕС (Франкфурт)',
+    });
   });
 });
