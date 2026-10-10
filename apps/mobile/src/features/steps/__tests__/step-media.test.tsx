@@ -129,6 +129,41 @@ test('a stranded tile says why, to the eye and to the reader', async () => {
   ).toBeTruthy();
 });
 
+// At the largest font the tile, 150 dp wide, grows downward: its reason
+// wraps under its words, never cut to a line or held to a height (block 8 of
+// the night of 2026-10-10).
+test('a stranded tile’s reason wraps at a large font: no line limit, no height above it', async () => {
+  await render(
+    <StepMedia
+      kind="video"
+      items={[
+        item({
+          id: 'm1',
+          kind: 'video',
+          uri: null,
+          durationSec: 12,
+          status: 'failed',
+          failure: { key: 'tooLarge' },
+        }),
+      ]}
+      limits={{ min: 1, max: 4 }}
+      maxVideoSec={30}
+      isCapturing={false}
+      disabled={false}
+      {...handlers}
+    />,
+  );
+
+  const reason = screen.getByText('Файл больше, чем принимает хранилище (413)');
+  expect(reason.props.numberOfLines).toBeUndefined();
+  const heights: unknown[] = [];
+  for (let node = reason.parent; node !== null; node = node.parent) {
+    const style: ViewStyle = StyleSheet.flatten(node.props.style as ViewStyle) ?? {};
+    heights.push(style.height, style.maxHeight);
+  }
+  expect(heights.filter((height) => height !== undefined)).toEqual([]);
+});
+
 test('a tile on its way or in says nothing of why', async () => {
   await render(
     <StepMedia

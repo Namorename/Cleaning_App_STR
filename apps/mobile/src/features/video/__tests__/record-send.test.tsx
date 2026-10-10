@@ -2,7 +2,9 @@ import * as Sentry from '@sentry/react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert, StyleSheet, type ViewStyle } from 'react-native';
 
+import { Spacing } from '@/constants/theme';
 import type { CapturedMedia } from '@/features/media/capture';
+import { BOTTOM_INSETS, scrollEndPadding, withBottomInset } from '@/testing/insets';
 import {
   KEPT_URI,
   RECORDED_URI,
@@ -384,6 +386,23 @@ describe('the hand-over, made sure', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Вернуться к шагу' }));
     expect(router.back).toHaveBeenCalledTimes(2);
   });
+
+  // At the largest font on a 320 dp phone the notice and its button can be
+  // taller than the screen: they scroll rather than being cut at either end,
+  // and the button stops clear of the system's bar (components/bottom-inset.ts).
+  test.each(BOTTOM_INSETS)(
+    'the notice scrolls, «Вернуться к шагу» clear of a bottom bar of %i dp',
+    async (bottom) => {
+      await render(withBottomInset(bottom, <RecordRoute />));
+      await recordFor(5_000);
+
+      await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+      await wait(1_500);
+
+      expect(screen.getByRole('button', { name: 'Вернуться к шагу' })).toBeTruthy();
+      expect(scrollEndPadding()).toBe(Spacing.xl + bottom);
+    },
+  );
 
   test('the file is moved only once the player is gone from the screen', async () => {
     // Arrange: what was on screen the moment the file began to move.

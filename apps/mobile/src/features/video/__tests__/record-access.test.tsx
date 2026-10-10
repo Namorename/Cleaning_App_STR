@@ -288,6 +288,7 @@ describe('what the screen needs before it records', () => {
 
   test('a step that could not be read is read again on «Повторить»', async () => {
     mockSteps.error = new Error('Network request failed');
+    mockSteps.data = undefined;
     await render(<RecordRoute />);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Повторить' }));
@@ -342,6 +343,17 @@ describe('what the screen needs before it records', () => {
     mockMedia.data = [];
     await screen.rerender(<RecordRoute />);
     await wait(1);
+
+    expect(screen.getByTestId('camera-preview')).toBeTruthy();
+  });
+
+  // Without signal the step's own screen keeps the steps it read and offers
+  // «Записать видео» (step/[stepId].tsx); the camera opens as it would there,
+  // and what she records waits in the queue for signal.
+  test('steps read before, and a refresh that failed, go by what was read', async () => {
+    mockSteps.error = new Error('Network request failed');
+
+    await render(<RecordRoute />);
 
     expect(screen.getByTestId('camera-preview')).toBeTruthy();
   });

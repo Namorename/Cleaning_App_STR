@@ -207,8 +207,8 @@ export function resumableFor(client: QueryClient): string | null {
   return typeof person === 'string' && person === signedIn ? person : null;
 }
 
-/** Parking each client's queue still owes the disk, for the person it is sorted for. */
-const owedParkings = new WeakMap<QueryClient, (person: string) => Promise<void>>();
+/** Parking each client's queue still owes the disk. */
+const owedParkings = new WeakMap<QueryClient, () => Promise<void>>();
 
 /**
  * The disk refused to park somebody else's moves in `client`'s queue
@@ -216,22 +216,23 @@ const owedParkings = new WeakMap<QueryClient, (person: string) => Promise<void>>
  * queue (`retryOwedParking`). Until then those moves wait in the queue, and
  * never run (`AppMutationCache`).
  */
-export function oweParking(client: QueryClient, park: (person: string) => Promise<void>): void {
+export function oweParking(client: QueryClient, park: () => Promise<void>): void {
   owedParkings.set(client, park);
 }
 
 /**
- * The parking `client`'s queue owes the disk, tried again for `person`, the
- * one it is sorted for — once: a try the disk refuses again owes it anew.
- * Not awaited by the resume: the moves it parks never run anyway.
+ * The parking `client`'s queue owes the disk, tried again — once: a try the
+ * disk refuses again owes it anew. Whom it parks for is read when its turn on
+ * the disk comes, not now (lib/parked-moves.ts): by then the person may have
+ * changed. Not awaited by the resume: the moves it parks never run anyway.
  */
-export function retryOwedParking(client: QueryClient, person: string): void {
+export function retryOwedParking(client: QueryClient): void {
   const park = owedParkings.get(client);
   if (park === undefined) {
     return;
   }
   owedParkings.delete(client);
-  void park(person);
+  void park();
 }
 
 /**

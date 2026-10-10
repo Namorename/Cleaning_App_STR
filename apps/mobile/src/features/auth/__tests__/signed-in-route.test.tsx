@@ -1,3 +1,4 @@
+import { IsRestoringProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react-native';
 import { Text } from 'react-native';
 
@@ -86,4 +87,29 @@ test('the wait is one element for the reader: a busy progress bar in the screen�
 
   const loading = screen.getByRole('progressbar', { name: 'Загружаем уборки…' });
   expect(loading.props.accessibilityState).toMatchObject({ busy: true });
+});
+
+/**
+ * The cache is back from disk before it is checked against whose it is
+ * (features/auth/forget-on-sign-out.ts): a session known in between drew the
+ * last person's lists for a frame (docs/post-launch-cleanup.md). Until the
+ * check is done the provider says it is still restoring, and the screen waits.
+ */
+test('signed in while the lists brought back are still being checked: it waits, and says so', async () => {
+  // Arrange
+  mockSession.userId = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
+
+  // Act
+  await render(
+    <IsRestoringProvider value>
+      <SignedInRoute loadingText="Загружаем уборки…">
+        <Screen />
+      </SignedInRoute>
+    </IsRestoringProvider>,
+  );
+
+  // Assert
+  expect(screen.getByText('Загружаем уборки…')).toBeTruthy();
+  expect(screen.queryByText('the screen')).toBeNull();
+  expect(mockRedirect).not.toHaveBeenCalled();
 });
