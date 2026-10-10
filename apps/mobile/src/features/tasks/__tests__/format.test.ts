@@ -14,29 +14,36 @@ import {
 } from '../format';
 import type { CleaningTask } from '../schema';
 
-// The question before a finish, in the reader's words (owner's word of
-// 2026-10-10, 23:45): a technician finishes the task his repair answers, a
-// cleaner her cleaning.
-describe('the question before a finish', () => {
+// The finish, in the reader's words (owner's word of 2026-10-11, 00:40): the
+// question before a finish repeats the button word for word — a cleaner
+// finishes her cleaning, whatever the job; a technician the task.
+describe('the finish button and the question before it', () => {
+  const JOBS = ['cleaning', 'midstay', 'inspection', 'maintenance'] as const;
+
   test.each([
-    ['ru', 'Завершить задание?'],
-    ['en', 'Finish the task?'],
-    ['cs', 'Dokončit úkol?'],
-  ])('%s: a technician is asked whether to finish the task', (language, question) => {
+    ['ru', 'Завершить уборку'],
+    ['en', 'Finish cleaning'],
+    ['cs', 'Dokončit úklid'],
+  ])('%s: a cleaner presses «%s» and is asked it back, on every job', (language, button) => {
     const t = i18n.getFixedT(language);
 
-    expect(t(jobWordKey('maintenance', 'finishQuestion'), { context: 'tech' })).toBe(question);
+    for (const job of JOBS) {
+      expect(t(jobWordKey(job, 'finish'))).toBe(button);
+      expect(t(jobWordKey(job, 'finishQuestion'))).toBe(`${button}?`);
+    }
   });
 
   test.each([
-    ['ru', 'Завершить уборку?'],
-    ['en', 'Finish the cleaning?'],
-    ['cs', 'Dokončit úklid?'],
-  ])('%s: a cleaner is asked whether to finish the cleaning', (language, question) => {
+    ['ru', 'Завершить задание'],
+    ['en', 'Finish the task'],
+    ['cs', 'Dokončit úkol'],
+  ])('%s: a technician presses «%s» and is asked it back', (language, button) => {
     const t = i18n.getFixedT(language);
 
-    expect(t(jobWordKey('cleaning', 'finishQuestion'))).toBe(question);
-    expect(t(jobWordKey('midstay', 'finishQuestion'))).toBe(question);
+    for (const job of ['inspection', 'maintenance'] as const) {
+      expect(t(jobWordKey(job, 'finish'), { context: 'tech' })).toBe(button);
+      expect(t(jobWordKey(job, 'finishQuestion'), { context: 'tech' })).toBe(`${button}?`);
+    }
   });
 });
 

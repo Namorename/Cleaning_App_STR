@@ -51,8 +51,6 @@ type Phase =
       end: RecordingEnd;
       /** A gallery file's own type; a recording's is read from its name. */
       mimeType?: string;
-      /** The picker's other copies of a gallery choice: they go once the video is kept. */
-      pickerCopies?: readonly string[];
     };
 
 /** The recording not yet handed over: where its file is, and what was kept of it. */
@@ -60,6 +58,11 @@ interface Unsent {
   uri: string;
   /** Kept under a name of ours by an «Отправить» that went no further. */
   kept: CapturedMedia | null;
+  /**
+   * The picker's other copies of a gallery choice: they go with the video —
+   * once it is kept, or with it when it is let go (owner's word of 2026-10-11, 00:40).
+   */
+  pickerCopies: readonly string[];
 }
 
 /**
@@ -174,10 +177,10 @@ export function RecordScreen({ limits, onSend, onDone, source = 'camera' }: Reco
       mimeType?: string,
       pickerCopies?: readonly string[],
     ) => {
-      unsent.current = { uri: recording.uri, kept: null };
+      unsent.current = { uri: recording.uri, kept: null, pickerCopies: pickerCopies ?? [] };
       setKeptUri(null);
       setSendError(null);
-      setPhase({ kind: 'preview', recording, end, mimeType, pickerCopies });
+      setPhase({ kind: 'preview', recording, end, mimeType });
     };
     return titled(
       isFromGallery ? (
@@ -220,12 +223,11 @@ export function RecordScreen({ limits, onSend, onDone, source = 'camera' }: Reco
         (await (isFromGallery
           ? keepRecording(phase.recording, 'gallery', phase.mimeType)
           : keepRecording(phase.recording)));
-      unsent.current = { uri: captured.uri, kept: captured };
-      if (wasKept === null) {
-        // Kept under a name of ours: the picker's other copies of this choice
-        // go now, those and nothing else (owner's word of 2026-10-10, 23:45).
-        phase.pickerCopies?.forEach((copy) => discardFile(copy));
-      }
+      // Kept under a name of ours: the picker's other copies of this choice
+      // go now, those and nothing else (owner's word of 2026-10-10, 23:45),
+      // and nothing is left of them to go again.
+      unsent.current?.pickerCopies.forEach((copy) => discardFile(copy));
+      unsent.current = { uri: captured.uri, kept: captured, pickerCopies: [] };
       if (isMounted.current) {
         setKeptUri(captured.uri);
       }
@@ -374,6 +376,9 @@ const createStyles = (theme: Theme) =>
 function forget(unsent: { current: Unsent | null }): void {
   if (unsent.current !== null) {
     discardFile(unsent.current.uri);
+    // A gallery choice let go of takes the picker's copies of it along
+    // (owner's word of 2026-10-11, 00:40).
+    unsent.current.pickerCopies.forEach((copy) => discardFile(copy));
   }
   unsent.current = null;
 }

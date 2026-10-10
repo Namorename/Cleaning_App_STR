@@ -12,6 +12,7 @@ import {
   keepRecording,
   MediaLibraryDeniedError,
   pickVideoFromGallery,
+  VideoNotCompressedError,
 } from '../capture';
 import { attachFailure } from '../failure';
 import { discardFile, fileSize, keepFile, readFileBytes } from '../file';
@@ -571,10 +572,12 @@ describe('a video from the gallery', () => {
   });
 
   /**
-   * An iPhone that cannot compress the chosen video (owner's word of
-   * 2026-10-10, 23:45): the gallery is asked again for the original, which is
-   * held to the same checks of format, length and size, and refused in the
-   * same words when it is too large.
+   * An iPhone that cannot compress the chosen video (owner's words of
+   * 2026-10-10, 23:45 and 2026-10-11, 00:40): the choice ends with a failure of
+   * its own, which the screen says before it opens the gallery again; the
+   * copy the failed attempt left goes. Asked for the original, the gallery
+   * hands the video as it is, held to the same checks and refused in the same
+   * words.
    */
   describe('a compression the iPhone cannot make', () => {
     const FOLDER = 'file:///cache/ImagePicker/';
@@ -584,58 +587,59 @@ describe('a video from the gallery', () => {
     }
 
     test.each(['ERR_FAILED_TO_TRANSCODE_VIDEO', 'ERR_UNSUPPORTED_VIDEO_EXPORT_PRESET'])(
-      '%s: the gallery is asked again for the original, as it is',
+      '%s: the choice ends as not compressed, and the gallery is not opened again here',
       async (code) => {
         runOn('ios');
-        picker.launchImageLibraryAsync.mockRejectedValueOnce(failing(code)).mockResolvedValueOnce({
-          canceled: false,
-          assets: [
-            {
-              uri: `${FOLDER}clip.MOV`,
-              duration: 20_000,
-              fileSize: 60_000_000,
-              mimeType: 'video/quicktime',
-            },
-          ],
-        });
+        picker.launchImageLibraryAsync.mockRejectedValueOnce(failing(code));
 
-        const picked = await pickVideoFromGallery();
-
-        expect(picker.launchImageLibraryAsync).toHaveBeenCalledTimes(2);
-        expect(picker.launchImageLibraryAsync).toHaveBeenLastCalledWith({
-          mediaTypes: ['videos'],
-          quality: 1,
-        });
-        expect(picked).toMatchObject({
-          uri: `${FOLDER}clip.MOV`,
-          byteSize: 60_000_000,
-          mimeType: 'video/quicktime',
-          isCompressed: false,
-        });
+        await expect(pickVideoFromGallery()).rejects.toBeInstanceOf(VideoNotCompressedError);
+        expect(picker.launchImageLibraryAsync).toHaveBeenCalledTimes(1);
       },
     );
 
-    test('the copy the failed compression left is named with this choice', async () => {
+    test('the copy the failed attempt left goes with it, and nothing older', async () => {
       runOn('ios');
-      picker.launchImageLibraryAsync
-        .mockImplementationOnce(async () => {
-          sizes.set(`${FOLDER}original.MOV`, 1_000);
-          throw failing('ERR_FAILED_TO_TRANSCODE_VIDEO');
-        })
-        .mockImplementationOnce(async () => {
-          sizes.set(`${FOLDER}again.MOV`, 1_000);
-          return {
-            canceled: false,
-            assets: [{ uri: `${FOLDER}again.MOV`, duration: 20_000, fileSize: 1_000 }],
-          };
-        });
+      sizes.set(`${FOLDER}earlier.MOV`, 900);
+      picker.launchImageLibraryAsync.mockImplementationOnce(async () => {
+        sizes.set(`${FOLDER}original.MOV`, 1_000);
+        throw failing('ERR_FAILED_TO_TRANSCODE_VIDEO');
+      });
 
-      const picked = await pickVideoFromGallery();
+      await pickVideoFromGallery().catch(() => undefined);
 
-      expect(picked?.pickerCopies).toEqual([`${FOLDER}original.MOV`]);
+      expect(sizes.has(`${FOLDER}original.MOV`)).toBe(false);
+      expect(sizes.has(`${FOLDER}earlier.MOV`)).toBe(true);
     });
 
-    test('any other failure of the gallery is said as it was, with no second try', async () => {
+    test('asked for the original, the gallery hands the video as it is', async () => {
+      runOn('ios');
+      picker.launchImageLibraryAsync.mockResolvedValueOnce({
+        canceled: false,
+        assets: [
+          {
+            uri: `${FOLDER}clip.MOV`,
+            duration: 20_000,
+            fileSize: 60_000_000,
+            mimeType: 'video/quicktime',
+          },
+        ],
+      });
+
+      const picked = await pickVideoFromGallery('original');
+
+      expect(picker.launchImageLibraryAsync).toHaveBeenCalledWith({
+        mediaTypes: ['videos'],
+        quality: 1,
+      });
+      expect(picked).toMatchObject({
+        uri: `${FOLDER}clip.MOV`,
+        byteSize: 60_000_000,
+        mimeType: 'video/quicktime',
+        isCompressed: false,
+      });
+    });
+
+    test('any other failure of the gallery is said as it was', async () => {
       runOn('ios');
       picker.launchImageLibraryAsync.mockRejectedValueOnce(failing('ERR_FAILED_TO_PICK_VIDEO'));
 
@@ -644,15 +648,23 @@ describe('a video from the gallery', () => {
       });
       expect(picker.launchImageLibraryAsync).toHaveBeenCalledTimes(1);
     });
+  });
 
-    test('backing out of the second gallery is nothing chosen', async () => {
-      runOn('ios');
-      picker.launchImageLibraryAsync
-        .mockRejectedValueOnce(failing('ERR_FAILED_TO_TRANSCODE_VIDEO'))
-        .mockResolvedValueOnce({ canceled: true, assets: null });
-
-      await expect(pickVideoFromGallery()).resolves.toBeNull();
+  // Owner's word of 2026-10-11, 00:40: a choice that ends without a video
+  // lets go of what it made in the picker's folder — that and nothing else.
+  test('backing out of the gallery lets go of what this choice made there, and only it', async () => {
+    const FOLDER = 'file:///cache/ImagePicker/';
+    runOn('ios');
+    sizes.set(`${FOLDER}earlier.MOV`, 900);
+    picker.launchImageLibraryAsync.mockImplementationOnce(async () => {
+      sizes.set(`${FOLDER}half.MOV`, 1_000);
+      return { canceled: true, assets: null };
     });
+
+    await expect(pickVideoFromGallery()).resolves.toBeNull();
+
+    expect(sizes.has(`${FOLDER}half.MOV`)).toBe(false);
+    expect(sizes.has(`${FOLDER}earlier.MOV`)).toBe(true);
   });
 
   test('a file that does not say its size or type is measured and named by its container', async () => {

@@ -8,7 +8,11 @@ import { FailureText } from '@/components/failure-text';
 import { LoadingState } from '@/components/loading-state';
 import { Text } from '@/components/text';
 import { Spacing, type Theme } from '@/constants/theme';
-import { pickVideoFromGallery, type PickedVideo } from '@/features/media/capture';
+import {
+  pickVideoFromGallery,
+  type GalleryVideoForm,
+  type PickedVideo,
+} from '@/features/media/capture';
 import { discardFile } from '@/features/media/file';
 import type { VideoLimits } from '@/features/media/schema';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
@@ -27,7 +31,14 @@ export interface GalleryPhaseProps {
 type State =
   | { kind: 'picking' }
   | { kind: 'refused'; refusal: GalleryRefusal }
+  | { kind: 'notCompressed' }
   | { kind: 'failed'; error: unknown };
+
+/** A chosen video let go of, with the picker's copies of the same choice — those and nothing else. */
+function letGo(video: PickedVideo): void {
+  discardFile(video.uri);
+  video.pickerCopies.forEach((copy) => discardFile(copy));
+}
 
 /**
  * A video step's video chosen from the gallery, where the company allows the
@@ -46,6 +57,9 @@ export function GalleryPhase({ limits, onPicked, onLeave }: GalleryPhaseProps) {
   const edge = useScreenEdgePadding(Spacing.xl);
   const [state, setState] = useState<State>({ kind: 'picking' });
   const [attempt, setAttempt] = useState(0);
+  // After an iPhone could not compress the chosen video, the next choice is
+  // asked for as it is (owner's word of 2026-10-11, 00:40).
+  const [form, setForm] = useState<GalleryVideoForm>('compressed');
   // What the answer is handed to: the latest, without opening the gallery again.
   const latest = useRef({ limits, onPicked, onLeave });
   useEffect(() => {
@@ -54,12 +68,12 @@ export function GalleryPhase({ limits, onPicked, onLeave }: GalleryPhaseProps) {
 
   useEffect(() => {
     let isCurrent = true;
-    pickVideoFromGallery().then(
+    pickVideoFromGallery(form).then(
       (video) => {
         if (!isCurrent) {
-          // The screen went while the gallery was open: the copy is nobody's.
+          // The screen went while the gallery was open: the copies are nobody's.
           if (video !== null) {
-            discardFile(video.uri);
+            letGo(video);
           }
           return;
         }
@@ -72,21 +86,26 @@ export function GalleryPhase({ limits, onPicked, onLeave }: GalleryPhaseProps) {
           latest.current.onPicked(video);
           return;
         }
-        discardFile(video.uri);
+        letGo(video);
         noteStep('video.gallery', 'refused', { reason: refusal.key });
         setState({ kind: 'refused', refusal });
       },
       (error: unknown) => {
-        if (isCurrent) {
-          reportError(error);
-          setState({ kind: 'failed', error });
+        if (!isCurrent) {
+          return;
         }
+        if (isNotCompressed(error)) {
+          setState({ kind: 'notCompressed' });
+          return;
+        }
+        reportError(error);
+        setState({ kind: 'failed', error });
       },
     );
     return () => {
       isCurrent = false;
     };
-  }, [attempt]);
+  }, [attempt, form]);
 
   if (state.kind === 'picking') {
     // An iPhone's gallery covers this screen while she chooses; it shows
@@ -100,6 +119,23 @@ export function GalleryPhase({ limits, onPicked, onLeave }: GalleryPhaseProps) {
     setState({ kind: 'picking' });
     setAttempt((count) => count + 1);
   };
+
+  if (state.kind === 'notCompressed') {
+    const asOriginal = () => {
+      setState({ kind: 'picking' });
+      setForm('original');
+      setAttempt((count) => count + 1);
+    };
+    return (
+      <ScrollView style={styles.screen} contentContainerStyle={[layout.content, edge]}>
+        <Text accessibilityRole="alert" align="center">
+          {t('video.compressionFailed')}
+        </Text>
+        <Button label={t('steps.pickVideo')} onPress={asOriginal} />
+        <Button variant="outline" label={t('common.back')} onPress={onLeave} />
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={[layout.content, edge]}>
@@ -123,6 +159,11 @@ export function GalleryPhase({ limits, onPicked, onLeave }: GalleryPhaseProps) {
 /** The phone would not let the app into the gallery (`MediaLibraryDeniedError`). */
 function isLibraryDenied(error: unknown): boolean {
   return error instanceof Error && error.name === 'MediaLibraryDeniedError';
+}
+
+/** An iPhone could not compress the chosen video (`VideoNotCompressedError`). */
+function isNotCompressed(error: unknown): boolean {
+  return error instanceof Error && error.name === 'VideoNotCompressedError';
 }
 
 /** Sizes only: nothing here depends on the colour scheme. */

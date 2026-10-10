@@ -290,9 +290,22 @@ export interface PickedVideo extends Recording {
   /**
    * The picker's other copies of this choice in its folder of the cache — an
    * iPhone's copy of the original, made before it compressed — for the screen
-   * to let go of once the video is kept (owner's word of 2026-10-10, 23:45).
+   * to let go of with the video: once it is kept, refused, chosen again or
+   * left (owner's words of 2026-10-10, 23:45 and 2026-10-11, 00:40).
    */
   pickerCopies: readonly string[];
+}
+
+/** How the gallery is asked for the video: compressed on an iPhone, or as it is. */
+export type GalleryVideoForm = 'compressed' | 'original';
+
+/**
+ * An iPhone could not compress the chosen video. The choice ends here: the
+ * screen says so before it asks the gallery again for the original
+ * (owner's word of 2026-10-11, 00:40).
+ */
+export class VideoNotCompressedError extends Error {
+  override readonly name = 'VideoNotCompressedError';
 }
 
 /** The video as the gallery holds it: Android always, an iPhone when it cannot compress it. */
@@ -323,16 +336,40 @@ function isCompressionFailure(error: unknown): boolean {
 }
 
 /**
- * The gallery asked for a video: on an iPhone compressed, and — when the
- * iPhone cannot compress the one chosen (owner's word of 2026-10-10, 23:45) —
- * asked again for the original, held then to the same checks and refused in
- * the same words. Every other failure is said as it was.
+ * The videos that appeared in the picker's folder while she chose, other than
+ * the one handed over (if any): the copies of this choice, and nothing older.
+ * None when the folder could not be read before or after — what was there
+ * already cannot then be told from what this choice made.
  */
-async function launchVideoGallery(): Promise<{
-  result: ImagePicker.ImagePickerResult;
-  isCompressed: boolean;
-}> {
-  if (Platform.OS !== 'ios') {
+function pickerCopiesOf(
+  before: ReadonlyMap<string, string> | null,
+  handedOver: string | null,
+): readonly string[] {
+  const after = before === null ? null : pickerFolderVideos();
+  if (before === null || after === null) {
+    return [];
+  }
+  const handedOverName = handedOver === null ? null : fileName(handedOver);
+  return [...after]
+    .filter(([name]) => !before.has(name) && name !== handedOverName)
+    .map(([, uri]) => uri);
+}
+
+/** A choice that ends without a video lets go of what it made in the picker's folder. */
+function letGoOfCopies(before: ReadonlyMap<string, string> | null): void {
+  pickerCopiesOf(before, null).forEach((copy) => discardFile(copy));
+}
+
+/**
+ * The gallery asked for a video, as `form` says: compressed on an iPhone
+ * unless the original is asked for; Android's picker has no such setting. An
+ * iPhone that cannot compress the chosen video ends the choice with
+ * `VideoNotCompressedError`; every other failure is said as it was.
+ */
+async function launchVideoGallery(
+  form: GalleryVideoForm,
+): Promise<{ result: ImagePicker.ImagePickerResult; isCompressed: boolean }> {
+  if (Platform.OS !== 'ios' || form === 'original') {
     return {
       result: await ImagePicker.launchImageLibraryAsync(ORIGINAL_VIDEO),
       isCompressed: false,
@@ -348,31 +385,8 @@ async function launchVideoGallery(): Promise<{
       throw error;
     }
     noteStep('video.gallery', 'uncompressed', { code: (error as { code: string }).code });
-    return {
-      result: await ImagePicker.launchImageLibraryAsync(ORIGINAL_VIDEO),
-      isCompressed: false,
-    };
+    throw new VideoNotCompressedError('The iPhone could not compress the chosen video');
   }
-}
-
-/**
- * The videos that appeared in the picker's folder while she chose, other than
- * the one handed over: the copies of this choice, and nothing older. None
- * when the folder could not be read before or after — what was there already
- * cannot then be told from what this choice made.
- */
-function pickerCopiesOf(
-  before: ReadonlyMap<string, string> | null,
-  handedOver: string,
-): readonly string[] {
-  const after = before === null ? null : pickerFolderVideos();
-  if (before === null || after === null) {
-    return [];
-  }
-  const handedOverName = fileName(handedOver);
-  return [...after]
-    .filter(([name]) => !before.has(name) && name !== handedOverName)
-    .map(([, uri]) => uri);
 }
 
 /**
@@ -381,20 +395,34 @@ function pickerCopiesOf(
  * Only reachable where the company allows the gallery, and only once the
  * phone has let the app into the photos — asked here, before the gallery
  * opens. The picker hands over a copy in the app's cache — on an iPhone
- * compressed (`launchVideoGallery`) — with the length and type its file says;
- * a size it does not say is measured. The moment it is chosen stands for when
- * it was taken: a video's own date is not read here, and the manager who
- * opened the gallery accepted that a file from it may not be of this
- * cleaning. Resolves to null when she backs out of the gallery. Nothing is
- * deleted here: the picker's other copies are named (`pickerCopies`).
+ * compressed unless `form` asks for the original (`launchVideoGallery`) — with
+ * the length and type its file says; a size it does not say is measured. The
+ * moment it is chosen stands for when it was taken: a video's own date is not
+ * read here, and the manager who opened the gallery accepted that a file from
+ * it may not be of this cleaning. Resolves to null when she backs out of the
+ * gallery. A choice that ends here without a video — backed out of, or not
+ * compressed — lets go of what it made in the picker's folder; one that ends
+ * with a video names its copies (`pickerCopies`) for the screen.
  */
-export async function pickVideoFromGallery(): Promise<PickedVideo | null> {
+export async function pickVideoFromGallery(
+  form: GalleryVideoForm = 'compressed',
+): Promise<PickedVideo | null> {
   await ensureLibraryPermission();
 
   const before = pickerFolderVideos();
-  const { result, isCompressed } = await launchVideoGallery();
+  let picked: Awaited<ReturnType<typeof launchVideoGallery>>;
+  try {
+    picked = await launchVideoGallery(form);
+  } catch (error: unknown) {
+    if (error instanceof VideoNotCompressedError) {
+      letGoOfCopies(before);
+    }
+    throw error;
+  }
+  const { result, isCompressed } = picked;
   const asset = result.canceled ? null : (result.assets[0] ?? null);
   if (asset === null) {
+    letGoOfCopies(before);
     return null;
   }
 

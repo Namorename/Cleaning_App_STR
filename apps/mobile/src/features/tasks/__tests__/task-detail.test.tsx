@@ -725,7 +725,8 @@ describe('the words follow the kind of job', () => {
     expect(screen.getByText('Обслуживание')).toBeTruthy();
   });
 
-  test('an inspection under way lists its steps and finishes as work', async () => {
+  // Owner's word of 2026-10-11, 00:40: whatever the job, a cleaner finishes her cleaning.
+  test('an inspection under way lists its steps as work, and she finishes it as her cleaning', async () => {
     // Arrange
     const inspection = task({
       type: 'inspection',
@@ -748,8 +749,8 @@ describe('the words follow the kind of job', () => {
 
     // Assert
     expect(screen.getByText('Шаги работы')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Завершить работу' })).toBeTruthy();
-    expect(screen.queryByText(/уборк/i)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Завершить уборку' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Завершить работу' })).toBeNull();
   });
 
   // «Видео после работы» is an optional video step of the repair's template
@@ -784,7 +785,7 @@ describe('the words follow the kind of job', () => {
         {...actions}
       />,
     );
-    await fireEvent.press(screen.getByRole('button', { name: 'Завершить работу' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Завершить уборку' }));
     await confirmFinish();
 
     // Assert
@@ -896,8 +897,8 @@ describe('read by a technician', () => {
       />,
     );
 
-    // Assert
-    expect(screen.getByRole('button', { name: 'Завершить работу' })).toBeTruthy();
+    // Assert: he finishes the task (owner's word of 2026-10-11, 00:40).
+    expect(screen.getByRole('button', { name: 'Завершить задание' })).toBeTruthy();
     expect(screen.getByText('Окно работы')).toBeTruthy();
     expect(screen.getByText('Шла параллельно с другой работой')).toBeTruthy();
     expect(screen.getByText('Не удалось завершить работу — обновите список.')).toBeTruthy();
@@ -1285,23 +1286,25 @@ describe('the question before a finish', () => {
     expect(screen.queryByRole('button', { name: 'Отмена' })).toBeNull();
   });
 
-  test('an inspection or a repair is asked about as work', async () => {
+  // Owner's word of 2026-10-11, 00:40: the question repeats the button word
+  // for word — a cleaner's on any job is her cleaning.
+  test('a cleaner’s inspection is asked back in the button’s words', async () => {
     await renderRunning({ ...running, type: 'inspection' });
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Завершить работу' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Завершить уборку' }));
 
-    expect(screen.getByRole('header', { name: 'Завершить работу?' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Завершить уборку?' })).toBeTruthy();
     await confirmFinish();
     expect(actions.onFinish).toHaveBeenCalledWith(running.id);
   });
 
-  // Owner's word of 2026-10-10, 23:45: a technician finishes the task.
-  test('a technician’s repair asks whether to finish the task, with no word of cleaning', async () => {
+  // Owner's word of 2026-10-11, 00:40: a technician finishes the task, button and question.
+  test('a technician’s repair asks back «Завершить задание», with no word of cleaning', async () => {
     await setWordContext('tech');
     try {
       await renderRunning({ ...running, type: 'maintenance', reservation_id: null });
 
-      await fireEvent.press(screen.getByRole('button', { name: 'Завершить работу' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Завершить задание' }));
 
       expect(screen.getByRole('header', { name: 'Завершить задание?' })).toBeTruthy();
       expect(screen.queryByText(/уборк/i)).toBeNull();
