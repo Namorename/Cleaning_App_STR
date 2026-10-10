@@ -1231,6 +1231,7 @@
     "preparing": "Připravujeme video k odeslání…",
     "queued": "Video je ve frontě: nahraje se samo, až bude připojení.",
     "backToStep": "Zpět ke kroku",
+    "recordingLost": "Záznam se neuložil. Natočte video znovu.",
     "leaveTitle": "Video nebylo odesláno",
     "leaveBody": "Když odejdete, záznam se z telefonu smaže.",
     "discard": "Neukládat",

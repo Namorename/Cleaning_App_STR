@@ -26,6 +26,7 @@ import {
   recordFor,
   router,
   setUpRecordRoute,
+  wait,
 } from '@/testing/record-route';
 
 /**
@@ -332,12 +333,76 @@ describe('the hand-over, made sure', () => {
     // Act
     await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
 
-    // Assert: it goes back by itself; should that not happen, the button does.
+    // Assert: it goes back by itself. The button comes only if the screen is
+    // still there a moment later — never during the way out, where a second
+    // «back» would close the step's screen too (review of d0a2738..ec46320).
     expect(router.back).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Видео в очереди: загрузится само, когда будет связь.')).toBeTruthy();
     expect(screen.queryByTestId('video-preview')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Вернуться к шагу' })).toBeNull();
+    await wait(1_500);
     await fireEvent.press(screen.getByRole('button', { name: 'Вернуться к шагу' }));
     expect(router.back).toHaveBeenCalledTimes(2);
+  });
+
+  test('the file is moved only once the player is gone from the screen', async () => {
+    // Arrange: what was on screen the moment the file began to move.
+    let isPlayerThere: boolean | null = null;
+    keep.mockImplementation(async ({ durationSec }) => {
+      isPlayerThere = screen.queryByTestId('video-preview') !== null;
+      return kept(durationSec);
+    });
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    // Act
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    // Assert
+    expect(isPlayerThere).toBe(false);
+  });
+
+  test('with nowhere to go back to, the way back is the step itself', async () => {
+    jest.mocked(router.canGoBack).mockReturnValue(false);
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    expect(router.back).not.toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith({
+      pathname: '/task/[id]/step/[stepId]',
+      params: { id: TASK_ID, stepId: STEP_ID },
+    });
+  });
+
+  test('a hand-over that failed is reported, not only marked', async () => {
+    const failure = new Error('disk I/O error');
+    mockRemember.mockRejectedValueOnce(failure);
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    expect(Sentry.captureException).toHaveBeenCalledWith(failure);
+  });
+
+  test('a recording lost on its way to the documents offers no dead player, only «Переснять»', async () => {
+    keep.mockRejectedValueOnce(
+      Object.assign(new Error('The capture measured zero bytes'), { name: 'EmptyCaptureError' }),
+    );
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    expect(screen.queryByTestId('video-preview')).toBeNull();
+    expect(screen.getByText('Запись не сохранилась. Переснимите видео.')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Отправить' }).props.accessibilityState,
+    ).toMatchObject({ disabled: true });
+    await fireEvent.press(screen.getByRole('button', { name: 'Переснять' }));
+    expect(screen.getByTestId('camera-preview')).toBeTruthy();
   });
 
   test('each link of the hand-over is marked for the crash report, without the file’s path', async () => {

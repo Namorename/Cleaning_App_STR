@@ -124,6 +124,15 @@ export default function RecordRoute() {
     noteStep('video.send', 'queued');
   };
 
+  /** Back to the step — or, opened with nothing under it, to the step itself. */
+  const goBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace({ pathname: '/task/[id]/step/[stepId]', params: { id: taskId, stepId } });
+  };
+
   if (limits !== null) {
     return <RecordScreen limits={limits} onSend={send} onDone={goBack} />;
   }
@@ -150,11 +159,6 @@ export default function RecordRoute() {
   }
 
   return <LoadingState label={t('video.starting')} />;
-}
-
-/** Back to the step, once the recording is the queue's. */
-function goBack(): void {
-  router.back();
 }
 
 const createStyles = (theme: Theme) =>

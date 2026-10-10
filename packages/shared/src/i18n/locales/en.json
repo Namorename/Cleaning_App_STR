@@ -1217,6 +1217,7 @@
     "preparing": "Getting the video ready to send…",
     "queued": "The video is queued: it will upload by itself when there is a connection.",
     "backToStep": "Back to the step",
+    "recordingLost": "The recording was not saved. Record the video again.",
     "leaveTitle": "The video has not been sent",
     "leaveBody": "If you leave, the recording is deleted from the phone.",
     "discard": "Don’t keep",
