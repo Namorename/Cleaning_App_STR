@@ -967,7 +967,14 @@
       "cancelledError": "Could not load the cancelled cleanings.",
       "staffError": "Could not load the staff",
       "repairsError": "Could not load the repairs.",
-      "taskMissing": "The cleaning could not be opened."
+      "taskMissing": "The cleaning could not be opened.",
+      "past": {
+        "show": "Show past days",
+        "loading": "Loading past days…",
+        "error": "Could not load the past days.",
+        "limit_one": "The past goes back {{count}} day at most",
+        "limit_other": "The past goes back {{count}} days at most"
+      }
     }
   },
   "tabs": {

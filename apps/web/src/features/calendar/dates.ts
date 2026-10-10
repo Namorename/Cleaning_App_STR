@@ -74,6 +74,35 @@ export function openingWindow(
 }
 
 /**
+ * How far back the past reaches (the owner's word of 2026-10-10, block 7):
+ * sixty days before today, by the calendar's own today.
+ */
+export const PAST_LIMIT_DAYS = 60;
+
+/**
+ * The past comes in chunks of two weeks. Shorter than any month, so a chunk
+ * needs at most one month the screen does not hold yet — the data is read by
+ * calendar month (§1); two weeks of the default week is a screen and more for
+ * one press; and the sixty days are five presses at most.
+ */
+export const PAST_CHUNK_DAYS = 14;
+
+/** The earliest day the past reaches. */
+export function pastLimit(today: string): string {
+  return addDays(today, -PAST_LIMIT_DAYS);
+}
+
+/**
+ * The days of the next chunk of the past before `first`, the first day shown,
+ * oldest first: two weeks, fewer near the limit, none at it — nor when the
+ * window itself starts before it.
+ */
+export function pastChunk(first: string, today: string): string[] {
+  const count = Math.min(PAST_CHUNK_DAYS, Math.max(0, daysBetween(pastLimit(today), first)));
+  return Array.from({ length: count }, (_, at) => addDays(first, at - count));
+}
+
+/**
  * The calendar months the window touches, `YYYY-MM` — what the data is keyed
  * by, so the arrows reuse what they have already read (§1, «Окно — месяцами»).
  */

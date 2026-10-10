@@ -12,6 +12,10 @@ import {
   monthsOf,
   neighbourMonths,
   openingWindow,
+  PAST_CHUNK_DAYS,
+  PAST_LIMIT_DAYS,
+  pastChunk,
+  pastLimit,
   windowDays,
 } from '../dates';
 
@@ -104,6 +108,43 @@ describe('the width of a day', () => {
   test('is the least width while the area is not measured yet', () => {
     expect(dayWidthFor(30, 0)).toBe(32);
     expect(dayWidthFor(30, -240)).toBe(32);
+  });
+});
+
+// The owner's word of 2026-10-10 (block 7): the past on demand, in chunks,
+// never further back than sixty days before today.
+describe('the next chunk of the past', () => {
+  test('is the two weeks before the first day shown, oldest first', () => {
+    const chunk = pastChunk('2026-10-09', '2026-10-10');
+
+    expect(chunk).toHaveLength(PAST_CHUNK_DAYS);
+    expect(PAST_CHUNK_DAYS).toBe(14);
+    expect(chunk[0]).toBe('2026-09-25');
+    expect(chunk[chunk.length - 1]).toBe('2026-10-08');
+  });
+
+  test('stops at sixty days before today', () => {
+    expect(PAST_LIMIT_DAYS).toBe(60);
+    expect(pastLimit('2026-10-10')).toBe('2026-08-11');
+    expect(pastChunk('2026-08-14', '2026-10-10')).toEqual([
+      '2026-08-11',
+      '2026-08-12',
+      '2026-08-13',
+    ]);
+  });
+
+  test('is empty at the limit, and when the window itself starts before it', () => {
+    expect(pastChunk('2026-08-11', '2026-10-10')).toEqual([]);
+    expect(pastChunk('2026-07-01', '2026-10-10')).toEqual([]);
+  });
+
+  // The data is read by calendar month: a chunk shorter than any month needs
+  // at most one month the screen does not hold yet.
+  test('never touches more than two calendar months', () => {
+    for (let at = 0; at < 366; at += 1) {
+      const first = addDays('2026-01-01', at);
+      expect(monthsOf(pastChunk(first, addDays(first, 30))).length).toBeLessThanOrEqual(2);
+    }
   });
 });
 
