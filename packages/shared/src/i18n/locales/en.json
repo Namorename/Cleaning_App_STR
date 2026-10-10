@@ -1029,6 +1029,8 @@
     "accept": "Accept",
     "start": "Start cleaning",
     "finish": "Finish cleaning",
+    "finishQuestion": "Finish the cleaning?",
+    "finishConfirm": "Finish",
     "claimAccessibility": "Take cleaning: {{property}}, {{date}}",
     "acceptAccessibility": "Accept: {{property}}, {{date}}",
     "claimFailedTitle": "Could not take the cleaning",
@@ -1071,6 +1073,8 @@
       "start_tech": "Start work",
       "finish": "Finish work",
       "finish_tech": "Finish work",
+      "finishQuestion": "Finish the work?",
+      "finishQuestion_tech": "Finish the work?",
       "window": "Work window",
       "window_tech": "Work window",
       "finished": "Work finished",
@@ -1103,6 +1107,16 @@
       "fixBanner": "{{property}} · priority: {{priority}}",
       "notFound": "Cleaning not found, or no longer yours",
       "notFound_tech": "Job not found, or no longer yours"
+    },
+    "done": {
+      "heading_one": "Done in the last {{count}} day",
+      "heading_other": "Done in the last {{count}} days",
+      "more": "Show more",
+      "empty": "Nothing was finished in this time",
+      "loading": "Loading finished jobs…",
+      "loadFailed": "Could not load finished jobs",
+      "completedAt": "Finished {{date}}, {{time}}",
+      "completedOn": "Finished {{date}}"
     },
     "pushNotice": {
       "unassigned": "This cleaning was taken off you.",

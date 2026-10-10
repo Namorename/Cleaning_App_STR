@@ -1039,6 +1039,8 @@
     "accept": "Принять",
     "start": "Начать уборку",
     "finish": "Завершить уборку",
+    "finishQuestion": "Завершить уборку?",
+    "finishConfirm": "Завершить",
     "claimAccessibility": "Взять уборку: {{property}}, {{date}}",
     "acceptAccessibility": "Принять: {{property}}, {{date}}",
     "claimFailedTitle": "Не получилось взять уборку",
@@ -1081,6 +1083,8 @@
       "start_tech": "Начать работу",
       "finish": "Завершить работу",
       "finish_tech": "Завершить работу",
+      "finishQuestion": "Завершить работу?",
+      "finishQuestion_tech": "Завершить работу?",
       "window": "Окно работы",
       "window_tech": "Окно работы",
       "finished": "Работа завершена",
@@ -1113,6 +1117,18 @@
       "fixBanner": "{{property}} · срочность: {{priority}}",
       "notFound": "Уборка не найдена или больше не ваша",
       "notFound_tech": "Работа не найдена или больше не ваша"
+    },
+    "done": {
+      "heading_one": "Выполненные за {{count}} день",
+      "heading_few": "Выполненные за {{count}} дня",
+      "heading_many": "Выполненные за {{count}} дней",
+      "heading_other": "Выполненные за {{count}} дня",
+      "more": "Показать ещё",
+      "empty": "За этот срок ничего не завершено",
+      "loading": "Загружаем выполненные…",
+      "loadFailed": "Не удалось загрузить выполненные",
+      "completedAt": "Завершена {{date}}, {{time}}",
+      "completedOn": "Завершена {{date}}"
     },
     "pushNotice": {
       "unassigned": "Эту уборку с вас сняли.",

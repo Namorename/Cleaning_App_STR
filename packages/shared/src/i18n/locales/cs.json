@@ -1039,6 +1039,8 @@
     "accept": "Přijmout",
     "start": "Začít úklid",
     "finish": "Dokončit úklid",
+    "finishQuestion": "Dokončit úklid?",
+    "finishConfirm": "Dokončit",
     "claimAccessibility": "Vzít úklid: {{property}}, {{date}}",
     "acceptAccessibility": "Přijmout: {{property}}, {{date}}",
     "claimFailedTitle": "Úklid se nepodařilo vzít",
@@ -1081,6 +1083,8 @@
       "start_tech": "Začít práci",
       "finish": "Dokončit práci",
       "finish_tech": "Dokončit práci",
+      "finishQuestion": "Dokončit práci?",
+      "finishQuestion_tech": "Dokončit práci?",
       "window": "Časové okno",
       "window_tech": "Časové okno",
       "finished": "Práce dokončena",
@@ -1113,6 +1117,18 @@
       "fixBanner": "{{property}} · priorita: {{priority}}",
       "notFound": "Úklid nenalezen, nebo už není váš",
       "notFound_tech": "Práce nenalezena, nebo už není vaše"
+    },
+    "done": {
+      "heading_one": "Hotové za poslední {{count}} den",
+      "heading_few": "Hotové za poslední {{count}} dny",
+      "heading_many": "Hotové za posledních {{count}} dne",
+      "heading_other": "Hotové za posledních {{count}} dní",
+      "more": "Zobrazit další",
+      "empty": "Za tuto dobu nebylo nic dokončeno",
+      "loading": "Načítáme dokončené…",
+      "loadFailed": "Dokončené se nepodařilo načíst",
+      "completedAt": "Dokončeno {{date}}, {{time}}",
+      "completedOn": "Dokončeno {{date}}"
     },
     "pushNotice": {
       "unassigned": "Tento úklid vám byl odebrán.",

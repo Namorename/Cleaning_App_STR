@@ -153,12 +153,20 @@ export function checkInText(task: CleaningTask): string | null {
 
 /** A word a screen says about the job itself, rather than about its place or time. */
 export type JobWord =
-  'start' | 'finish' | 'window' | 'finished' | 'accepted' | 'colleague' | 'steps';
+  | 'start'
+  | 'finish'
+  | 'finishQuestion'
+  | 'window'
+  | 'finished'
+  | 'accepted'
+  | 'colleague'
+  | 'steps';
 
 /** A cleaning, and a mid-stay cleaning, are called what they are. */
 const CLEANING_WORDS: Readonly<Record<JobWord, string>> = {
   start: 'tasks.start',
   finish: 'tasks.finish',
+  finishQuestion: 'tasks.finishQuestion',
   window: 'tasks.detail.window',
   finished: 'tasks.detail.finished',
   accepted: 'tasks.detail.accepted',
@@ -170,6 +178,7 @@ const CLEANING_WORDS: Readonly<Record<JobWord, string>> = {
 const WORK_WORDS: Readonly<Record<JobWord, string>> = {
   start: 'tasks.work.start',
   finish: 'tasks.work.finish',
+  finishQuestion: 'tasks.work.finishQuestion',
   window: 'tasks.work.window',
   finished: 'tasks.work.finished',
   accepted: 'tasks.work.accepted',

@@ -141,6 +141,8 @@ describe('words shared by every kind of job', () => {
     'tasks.detail.parallel',
     'tasks.work.start',
     'tasks.work.finish',
+    // The question before a finish (owner, 2026-10-10).
+    'tasks.work.finishQuestion',
     'tasks.work.window',
     'tasks.work.finished',
     'tasks.work.colleague',
@@ -240,6 +242,7 @@ describe('words shared by every kind of job', () => {
     // repair or an inspection reads `tasks.work.*` instead.
     'tasks.start',
     'tasks.finish',
+    'tasks.finishQuestion',
     'tasks.detail.window',
     'tasks.detail.finished',
     'tasks.detail.accepted',
