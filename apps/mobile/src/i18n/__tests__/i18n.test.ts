@@ -362,8 +362,10 @@ describe('the names of the two sections', () => {
   };
   const CLEANINGS_SIDE = /^(tabs\.myTasks|tasks\.|steps\.|panel\.tasks\.|panel\.calendar\.)/;
   const NAMES_A_TASK = /problem/i;
-  // «Уборка пришла из брони или из задания».
-  const ALSO_A_TASK = ['panel.tasks.form.generatedHint'];
+  // «Уборка пришла из брони или из задания»; and the technician's question
+  // before he finishes a repair — finishing it closes the task it came from
+  // (owner's word of 2026-10-10, 23:45: «Завершить задание?»).
+  const ALSO_A_TASK = ['panel.tasks.form.generatedHint', 'tasks.work.finishQuestion_tech'];
 
   test.each(['ru', 'en', 'cs'])(
     '%s says «task» on the cleanings’ side only of what was a problem',

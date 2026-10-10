@@ -51,6 +51,8 @@ type Phase =
       end: RecordingEnd;
       /** A gallery file's own type; a recording's is read from its name. */
       mimeType?: string;
+      /** The picker's other copies of a gallery choice: they go once the video is kept. */
+      pickerCopies?: readonly string[];
     };
 
 /** The recording not yet handed over: where its file is, and what was kept of it. */
@@ -166,17 +168,24 @@ export function RecordScreen({ limits, onSend, onDone, source = 'camera' }: Reco
   );
 
   if (phase.kind === 'camera') {
-    const toPreview = (recording: Recording, end: RecordingEnd, mimeType?: string) => {
+    const toPreview = (
+      recording: Recording,
+      end: RecordingEnd,
+      mimeType?: string,
+      pickerCopies?: readonly string[],
+    ) => {
       unsent.current = { uri: recording.uri, kept: null };
       setKeptUri(null);
       setSendError(null);
-      setPhase({ kind: 'preview', recording, end, mimeType });
+      setPhase({ kind: 'preview', recording, end, mimeType, pickerCopies });
     };
     return titled(
       isFromGallery ? (
         <GalleryPhase
           limits={limits}
-          onPicked={(video: PickedVideo) => toPreview(video, 'stop', video.mimeType)}
+          onPicked={(video: PickedVideo) =>
+            toPreview(video, 'stop', video.mimeType, video.pickerCopies)
+          }
           onLeave={onDone}
         />
       ) : (
@@ -205,12 +214,18 @@ export function RecordScreen({ limits, onSend, onDone, source = 'camera' }: Reco
     noteStep('video.send', 'pressed');
     try {
       await isPlayerGone;
+      const wasKept = unsent.current?.kept ?? null;
       const captured =
-        unsent.current?.kept ??
+        wasKept ??
         (await (isFromGallery
           ? keepRecording(phase.recording, 'gallery', phase.mimeType)
           : keepRecording(phase.recording)));
       unsent.current = { uri: captured.uri, kept: captured };
+      if (wasKept === null) {
+        // Kept under a name of ours: the picker's other copies of this choice
+        // go now, those and nothing else (owner's word of 2026-10-10, 23:45).
+        phase.pickerCopies?.forEach((copy) => discardFile(copy));
+      }
       if (isMounted.current) {
         setKeptUri(captured.uri);
       }

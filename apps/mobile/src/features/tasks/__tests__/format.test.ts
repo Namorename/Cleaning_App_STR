@@ -1,15 +1,44 @@
+import { i18n } from '@/i18n';
+
 import {
   checkInText,
   formatDayHeading,
   formatDeadlineTime,
   formatScheduledDate,
   formatWindow,
+  jobWordKey,
   propertyName,
   taskPlace,
   urgencyText,
   windowLines,
 } from '../format';
 import type { CleaningTask } from '../schema';
+
+// The question before a finish, in the reader's words (owner's word of
+// 2026-10-10, 23:45): a technician finishes the task his repair answers, a
+// cleaner her cleaning.
+describe('the question before a finish', () => {
+  test.each([
+    ['ru', 'Завершить задание?'],
+    ['en', 'Finish the task?'],
+    ['cs', 'Dokončit úkol?'],
+  ])('%s: a technician is asked whether to finish the task', (language, question) => {
+    const t = i18n.getFixedT(language);
+
+    expect(t(jobWordKey('maintenance', 'finishQuestion'), { context: 'tech' })).toBe(question);
+  });
+
+  test.each([
+    ['ru', 'Завершить уборку?'],
+    ['en', 'Finish the cleaning?'],
+    ['cs', 'Dokončit úklid?'],
+  ])('%s: a cleaner is asked whether to finish the cleaning', (language, question) => {
+    const t = i18n.getFixedT(language);
+
+    expect(t(jobWordKey('cleaning', 'finishQuestion'))).toBe(question);
+    expect(t(jobWordKey('midstay', 'finishQuestion'))).toBe(question);
+  });
+});
 
 /** A room of a multi-unit listing, as the query joins it. */
 const ROOM = {

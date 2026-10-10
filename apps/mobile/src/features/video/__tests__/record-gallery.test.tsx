@@ -42,9 +42,13 @@ function picked(overrides: Partial<PickedVideo> = {}): PickedVideo {
     byteSize: 12_000_000,
     mimeType: 'video/mp4',
     isCompressed: false,
+    pickerCopies: [],
     ...overrides,
   };
 }
+
+/** The original an iPhone's picker copied before it compressed the chosen video. */
+const PICKER_COPY = 'file:///cache/ImagePicker/original.MOV';
 
 beforeEach(() => {
   mockParams.from = 'gallery';
@@ -109,6 +113,34 @@ test('«Отправить» sends it to the same queue, declared as from the ga
     expect.objectContaining({ taskId: TASK_ID, stepId: STEP_ID, source: 'gallery' }),
   );
   expect(router.back).toHaveBeenCalledTimes(1);
+});
+
+// Owner's word of 2026-10-10, 23:45: once the chosen video is kept under a
+// name of ours, the picker's own copy of it goes — that copy and nothing else.
+describe('the picker’s own copy of the choice', () => {
+  test('goes once the video is kept, and only it', async () => {
+    pick.mockResolvedValue(picked({ pickerCopies: [PICKER_COPY] }));
+    keep.mockImplementation(async () => ({ ...kept(20), source: 'gallery' }));
+    await render(<RecordRoute />);
+    expect(discardFile).not.toHaveBeenCalled();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    expect(keep).toHaveBeenCalledTimes(1);
+    expect(discardFile).toHaveBeenCalledTimes(1);
+    expect(discardFile).toHaveBeenCalledWith(PICKER_COPY);
+  });
+
+  test('stays when the video could not be kept', async () => {
+    pick.mockResolvedValue(picked({ pickerCopies: [PICKER_COPY] }));
+    keep.mockRejectedValue(new Error('disk I/O error'));
+    await render(<RecordRoute />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    expect(screen.getByText('disk I/O error')).toBeTruthy();
+    expect(discardFile).not.toHaveBeenCalledWith(PICKER_COPY);
+  });
 });
 
 test('a video longer than the step allows is refused in her words, with another try and the way back', async () => {

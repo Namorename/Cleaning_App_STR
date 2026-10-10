@@ -127,6 +127,40 @@ export async function stripKeptPhoto(uri: string): Promise<void> {
   }
 }
 
+/** The folder of the cache the gallery's picker hands its copies over from (expo-image-picker). */
+const PICKER_DIRECTORY = 'ImagePicker';
+const VIDEO_FILE = /\.(mov|mp4|m4v|qt)$/i;
+
+/**
+ * The videos in the picker's own folder of the cache, by file name; null
+ * when the folder cannot be read. Only read, never changed: what goes from
+ * it is decided by the caller, one file at a time (`pickVideoFromGallery`).
+ */
+export function pickerFolderVideos(): ReadonlyMap<string, string> | null {
+  if (Platform.OS === 'web') {
+    return null;
+  }
+  try {
+    const folder = new Directory(Paths.cache, PICKER_DIRECTORY);
+    if (!folder.exists) {
+      return new Map();
+    }
+    return new Map(
+      folder
+        .list()
+        .filter((entry): entry is File => entry instanceof File && VIDEO_FILE.test(entry.uri))
+        .map((file) => [fileName(file.uri), file.uri]),
+    );
+  } catch {
+    return null;
+  }
+}
+
+/** The last part of a path: a file's name. */
+export function fileName(uri: string): string {
+  return uri.slice(uri.lastIndexOf('/') + 1);
+}
+
 /** Remove a kept file; a file already gone is not an error. */
 export function discardFile(uri: string): void {
   if (Platform.OS === 'web') {

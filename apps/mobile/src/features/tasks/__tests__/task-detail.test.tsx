@@ -1295,14 +1295,15 @@ describe('the question before a finish', () => {
     expect(actions.onFinish).toHaveBeenCalledWith(running.id);
   });
 
-  test('a technician’s repair is asked about as his work, with no word of cleaning', async () => {
+  // Owner's word of 2026-10-10, 23:45: a technician finishes the task.
+  test('a technician’s repair asks whether to finish the task, with no word of cleaning', async () => {
     await setWordContext('tech');
     try {
       await renderRunning({ ...running, type: 'maintenance', reservation_id: null });
 
       await fireEvent.press(screen.getByRole('button', { name: 'Завершить работу' }));
 
-      expect(screen.getByRole('header', { name: 'Завершить работу?' })).toBeTruthy();
+      expect(screen.getByRole('header', { name: 'Завершить задание?' })).toBeTruthy();
       expect(screen.queryByText(/уборк/i)).toBeNull();
     } finally {
       await setWordContext(undefined);
