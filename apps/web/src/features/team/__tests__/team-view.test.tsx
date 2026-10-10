@@ -768,6 +768,10 @@ describe('TeamView — a technician’s old listings (docs/tech-plan.md, 2.1)', 
     const question = await screen.findByRole('dialog', {
       name: 'Petr Tech: убрать объект «Anděl 4»?',
     });
+    // His role is put on no listing: what the question warns of is that it is final.
+    expect(question).toHaveAccessibleDescription(
+      'Вернуть эту привязку будет нельзя: этой роли объекты не назначаются.',
+    );
     await userEvent.click(within(question).getByRole('button', { name: 'Убрать' }));
 
     expect(removeLink).toHaveBeenCalledWith({ propertyId: 2, cleanerId: PETR });
@@ -941,7 +945,31 @@ describe('TeamView — what cannot be undone asks first', () => {
         screen.queryByRole('dialog', { name: 'Сохранить изменения для Maria Test?' }),
       ).not.toBeInTheDocument(),
     );
-    expect(within(form).getByRole('checkbox', { name: 'Работает' })).not.toBeChecked();
+    // The form itself is still open, with the draft and the focus back on «Сохранить».
+    const still = screen.getByRole('dialog', { name: 'Изменить сотрудника' });
+    expect(still).toBeInTheDocument();
+    expect(within(still).getByRole('checkbox', { name: 'Работает' })).not.toBeChecked();
+    await waitFor(() =>
+      expect(within(still).getByRole('button', { name: 'Сохранить' })).toHaveFocus(),
+    );
+    expect(saveStaff).not.toHaveBeenCalled();
+  }, 20000);
+
+  test('Escape closes only the question; the form stays and nothing is sent', async () => {
+    render(<TeamView />);
+    const form = await openEdit('Maria Test');
+    await userEvent.click(within(form).getByRole('checkbox', { name: 'Работает' }));
+    await userEvent.click(within(form).getByRole('button', { name: 'Сохранить' }));
+    await screen.findByRole('dialog', { name: 'Сохранить изменения для Maria Test?' });
+
+    await userEvent.keyboard('{Escape}');
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: 'Сохранить изменения для Maria Test?' }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole('dialog', { name: 'Изменить сотрудника' })).toBeInTheDocument();
     expect(saveStaff).not.toHaveBeenCalled();
   }, 20000);
 
@@ -1034,6 +1062,9 @@ describe('TeamView — what cannot be undone asks first', () => {
         screen.queryByRole('dialog', { name: 'Maria Test: убрать объект «Anděl 4»?' }),
       ).not.toBeInTheDocument(),
     );
+    // The sheet stays, with the listing still on it.
+    const still = screen.getByRole('dialog', { name: 'Объекты: Maria Test' });
+    expect(within(still).getByRole('button', { name: 'Убрать: Anděl 4' })).toBeInTheDocument();
     expect(removeLink).not.toHaveBeenCalled();
   }, 20000);
 });

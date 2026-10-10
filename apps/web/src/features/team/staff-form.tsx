@@ -24,6 +24,7 @@ import {
   LANGUAGES,
   linkChanges,
   MIN_PRIORITY,
+  nameOf,
   selectedProperties,
   STAFF_ROLES,
   takesListings,
@@ -394,7 +395,7 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
         {asking === null || staff === null ? null : (
           <ConfirmDialog
             title={t('panel.team.confirm.saveTitle', {
-              name: staff.full_name ?? staff.email ?? '',
+              name: nameOf(staff),
             })}
             lines={asking.map(lossLine)}
             confirmLabel={t('panel.team.form.save')}

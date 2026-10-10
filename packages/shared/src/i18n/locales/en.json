@@ -740,7 +740,8 @@
         "role": "The role changes: “{{from}}” → “{{to}}”.",
         "unlink": "Listing links taken off: {{total}}.",
         "unlinkTitle": "{{name}}: remove the listing “{{property}}”?",
-        "unlinkDescription": "Free cleanings of this listing stop showing in the app and are no longer handed out automatically. Cleanings already assigned stay as they are."
+        "unlinkDescription": "Free cleanings of this listing stop showing in the app and are no longer handed out automatically. Cleanings already assigned stay as they are.",
+        "unlinkFinal": "This link cannot be put back: this role is not put on listings."
       }
     },
     "roles": {

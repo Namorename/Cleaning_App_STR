@@ -17,7 +17,14 @@ import { serverErrorText } from '@/lib/server-error';
 import { ConfirmDialog } from './confirm-dialog';
 import { LinkTerms, RemoveLinkButton } from './link-controls';
 import { PropertyPicker } from './property-picker';
-import { canHaveLinks, linksOf, MIN_PRIORITY, unlinkedProperties, type Staff } from './schema';
+import {
+  canHaveLinks,
+  linksOf,
+  MIN_PRIORITY,
+  nameOf,
+  unlinkedProperties,
+  type Staff,
+} from './schema';
 import { useCleanerLinks, useProperties, useRemoveCleanerLink, useSaveCleanerLink } from './use-team';
 
 interface LinksEditorProps {
@@ -54,7 +61,7 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
   const [unlinking, setUnlinking] = useState<{ propertyId: number; name: string } | null>(null);
 
   const isLinkable = canHaveLinks(staff);
-  const personName = staff.full_name ?? staff.email ?? '';
+  const personName = nameOf(staff);
   const allProperties = properties.data ?? [];
   const allLinks = links.data ?? [];
   const rows = linksOf(allLinks, allProperties, staff.id);
@@ -100,7 +107,7 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
       <SheetContent className="gap-4 overflow-y-auto p-4 sm:max-w-lg">
         <SheetHeader className="p-0">
           <SheetTitle>
-            {t('panel.team.links.title', { name: staff.full_name ?? staff.email ?? '' })}
+            {t('panel.team.links.title', { name: personName })}
           </SheetTitle>
           <SheetDescription>
             {isLinkable ? t('panel.team.links.description') : t('panel.team.links.onlyRemove')}
@@ -193,7 +200,15 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
               name: personName,
               property: unlinking.name,
             })}
-            lines={[t('panel.team.confirm.unlinkDescription')]}
+            // A role off listings cannot be put back on one: that, not the
+            // free cleanings, is what the manager needs to hear.
+            lines={[
+              t(
+                isLinkable
+                  ? 'panel.team.confirm.unlinkDescription'
+                  : 'panel.team.confirm.unlinkFinal',
+              ),
+            ]}
             confirmLabel={t('panel.team.links.remove')}
             onConfirm={() => {
               setUnlinking(null);

@@ -263,3 +263,8 @@ export function unlinkedProperties(
   );
   return properties.filter((property) => !taken.has(property.id));
 }
+
+/** A person as the dialogs name her: the name, else the login. */
+export function nameOf(person: Staff): string {
+  return person.full_name ?? person.email ?? '';
+}

@@ -742,7 +742,8 @@
         "role": "Role se změní: „{{from}}“ → „{{to}}“.",
         "unlink": "Odeberou se přiřazení k objektům: {{total}}.",
         "unlinkTitle": "{{name}}: odebrat objekt „{{property}}“?",
-        "unlinkDescription": "Volné úklidy tohoto objektu přestanou být v aplikaci vidět a nebudou se přidělovat samy. Už přidělené úklidy zůstanou, jak jsou."
+        "unlinkDescription": "Volné úklidy tohoto objektu přestanou být v aplikaci vidět a nebudou se přidělovat samy. Už přidělené úklidy zůstanou, jak jsou.",
+        "unlinkFinal": "Toto přiřazení nepůjde vrátit: této roli se objekty nepřiřazují."
       }
     },
     "roles": {

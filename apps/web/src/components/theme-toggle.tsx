@@ -76,7 +76,8 @@ export function ThemeToggle({ initial, isCompact = false }: ThemeToggleProps) {
         // A third smaller than the first lever (the owner, 10.10), the same in
         // the menu and the folded strip: 22×38.
         'h-5.5 w-9.5',
-        // A gloved finger's target, 46×46, wider than the lever it moves.
+        // A gloved finger's target, wider than the lever it moves: 44×44, the
+        // inset counted from inside the border (36×20).
         'after:absolute after:-inset-x-1 after:-inset-y-3',
       )}
     >
