@@ -1,4 +1,5 @@
 import { THEME_COLORS } from '@str-ops/shared';
+import { IsRestoringProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react-native';
 import { withLayoutContext } from 'expo-router/build/layouts/withLayoutContext';
 import type { BottomTabBarProps } from 'expo-router/tabs';
@@ -233,4 +234,26 @@ test.each([
     throw new Error('the icon holds no drawing');
   }
   expect(drawing.props.className).toContain(`lucide-${glyph}`);
+});
+
+/**
+ * The cache is back from disk before it is checked against whose it is
+ * (features/auth/forget-on-sign-out.ts): a session known in between drew the
+ * last person's lists for a frame (docs/post-launch-cleanup.md). Until the
+ * check is done the provider says it is still restoring, and no tab is drawn.
+ */
+test('signed in while the lists brought back are still being checked: no tab is drawn yet', async () => {
+  // Arrange
+  signInAs('cleaner');
+  mockScreens.length = 0;
+
+  // Act
+  await render(
+    <IsRestoringProvider value>
+      <TabsLayout />
+    </IsRestoringProvider>,
+  );
+
+  // Assert
+  expect(mockScreens).toEqual([]);
 });
