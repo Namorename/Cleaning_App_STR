@@ -1232,6 +1232,7 @@
     "queued": "Video je ve frontě: nahraje se samo, až bude připojení.",
     "backToStep": "Zpět ke kroku",
     "recordingLost": "Záznam se neuložil. Natočte video znovu.",
+    "tooLargeForStorage": "Video má {{size}} MB, úložiště ale přijme soubory nejvýš do {{limit}} MB. Stiskněte „Natočit znovu“ a natočte kratší video.",
     "leaveTitle": "Video nebylo odesláno",
     "leaveBody": "Když odejdete, záznam se z telefonu smaže.",
     "discard": "Neukládat",

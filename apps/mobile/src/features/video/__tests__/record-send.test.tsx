@@ -158,6 +158,46 @@ describe('the preview before sending', () => {
 
 // The camera's file is moved under a name of ours before it is remembered:
 // after that, the camera's path is empty, and the kept file is the video.
+describe('a recording larger than the storage takes', () => {
+  test('is refused before the queue, says why in her language, and «Переснять» stays', async () => {
+    // Arrange: the company allows 140 MB, the storage on its plan takes 50.
+    keep.mockImplementation(async ({ durationSec }) => ({
+      ...kept(durationSec),
+      byteSize: 105_900_000,
+    }));
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    // Act
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    // Assert
+    expect(
+      screen.getByText(
+        'Видео весит 106 МБ, а хранилище принимает файлы не больше 50 МБ. Нажмите «Переснять» и запишите видео короче.',
+      ),
+    ).toBeTruthy();
+    expect(mockRemember).not.toHaveBeenCalled();
+    expect(mockAttach).not.toHaveBeenCalled();
+    expect(router.back).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Переснять' })).toBeTruthy();
+  });
+
+  test('a file right at the storage limit goes to the queue', async () => {
+    keep.mockImplementation(async ({ durationSec }) => ({
+      ...kept(durationSec),
+      byteSize: 50_000_000,
+    }));
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    expect(mockAttach).toHaveBeenCalledWith(expect.objectContaining({ byteSize: 50_000_000 }));
+    expect(router.back).toHaveBeenCalled();
+  });
+});
+
 describe('«Отправить» that did not go through', () => {
   test('is tried again with the kept file, not the camera’s path it has left', async () => {
     // Arrange: the ledger on disk could not be written the first time.

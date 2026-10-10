@@ -11,6 +11,7 @@ import { Spacing, type Theme } from '@/constants/theme';
 import { keepRecording, type CapturedMedia, type Recording } from '@/features/media/capture';
 import { discardFile } from '@/features/media/file';
 import type { VideoLimits } from '@/features/media/schema';
+import { assertStorageTakes } from '@/features/media/storage-limit';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { noteStep, reportError } from '@/lib/sentry';
 
@@ -193,6 +194,9 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
         byteSize: captured.byteSize,
         durationSec: captured.durationSec,
       });
+      // Refused here, with «Переснять» at hand, rather than by the storage
+      // after the person has left the step.
+      assertStorageTakes(captured.byteSize);
       await onSend(captured);
       // The queue's now: kept on the phone until the server has it.
       unsent.current = null;
