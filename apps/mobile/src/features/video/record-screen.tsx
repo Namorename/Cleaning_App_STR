@@ -8,13 +8,20 @@ import { Button } from '@/components/button';
 import { LoadingState } from '@/components/loading-state';
 import { Text } from '@/components/text';
 import { Spacing, type Theme } from '@/constants/theme';
-import { keepRecording, type CapturedMedia, type Recording } from '@/features/media/capture';
+import {
+  keepRecording,
+  type CapturedMedia,
+  type MediaSource,
+  type PickedVideo,
+  type Recording,
+} from '@/features/media/capture';
 import { discardFile } from '@/features/media/file';
 import type { VideoLimits } from '@/features/media/schema';
 import { assertStorageTakes, TooLargeForStorageError } from '@/features/media/storage-limit';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { noteStep, reportError } from '@/lib/sentry';
 
+import { GalleryPhase } from './gallery-phase';
 import { PermissionScreen } from './permission-screen';
 import { RecordHeader } from './record-header';
 import type { RecordingEnd } from './recording';
@@ -28,9 +35,22 @@ export interface RecordScreenProps {
   onSend: (captured: CapturedMedia) => Promise<void>;
   /** Leave the screen: once the recording is the queue's, or on the header's «Назад». */
   onDone: () => void;
+  /**
+   * Where the video comes from: the app's own camera, or — where the company
+   * allows the gallery — a file chosen from it (night of 2026-10-10, block 6).
+   */
+  source?: MediaSource;
 }
 
-type Phase = { kind: 'camera' } | { kind: 'preview'; recording: Recording; end: RecordingEnd };
+type Phase =
+  | { kind: 'camera' }
+  | {
+      kind: 'preview';
+      recording: Recording;
+      end: RecordingEnd;
+      /** A gallery file's own type; a recording's is read from its name. */
+      mimeType?: string;
+    };
 
 /** The recording not yet handed over: where its file is, and what was kept of it. */
 interface Unsent {
@@ -58,11 +78,11 @@ interface Unsent {
  * screen going: the queue keeps it, or, when the send fails with nobody left
  * to try again, the send deletes it.
  */
-export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
+export function RecordScreen({ limits, onSend, onDone, source = 'camera' }: RecordScreenProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const navigation = useNavigation();
-  const permissions = useRecordingPermissions();
+  const isFromGallery = source === 'gallery';
   const [phase, setPhase] = useState<Phase>({ kind: 'camera' });
   const [isSending, setSending] = useState(false);
   const [isSent, setSent] = useState(false);
@@ -115,7 +135,7 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
     }
     Alert.alert(
       t('video.leaveTitle'),
-      t('video.leaveBody'),
+      t(isFromGallery ? 'video.leaveBodyGallery' : 'video.leaveBody'),
       [
         { text: t('video.stay'), style: 'cancel' },
         {
@@ -131,40 +151,36 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
   const titled = (body: ReactNode) => (
     <View style={styles.screen}>
       <RecordHeader
-        title={t(phase.kind === 'preview' ? 'video.previewTitle' : 'video.recordTitle')}
+        title={t(
+          phase.kind === 'preview'
+            ? 'video.previewTitle'
+            : isFromGallery
+              ? 'video.galleryTitle'
+              : 'video.recordTitle',
+        )}
         onBack={isSent ? undefined : onDone}
       />
       {body}
     </View>
   );
 
-  if (permissions.isChecking) {
-    return titled(<LoadingState label={t('video.starting')} />);
-  }
-
-  if (permissions.missing.length > 0) {
-    return titled(
-      <PermissionScreen
-        missing={permissions.missing}
-        canAsk={permissions.canAsk}
-        onAsk={() => {
-          permissions.ask().catch(reportError);
-        }}
-      />,
-    );
-  }
-
   if (phase.kind === 'camera') {
+    const toPreview = (recording: Recording, end: RecordingEnd, mimeType?: string) => {
+      unsent.current = { uri: recording.uri, kept: null };
+      setKeptUri(null);
+      setSendError(null);
+      setPhase({ kind: 'preview', recording, end, mimeType });
+    };
     return titled(
-      <VideoRecorder
-        limits={limits}
-        onRecorded={(recording, end) => {
-          unsent.current = { uri: recording.uri, kept: null };
-          setKeptUri(null);
-          setSendError(null);
-          setPhase({ kind: 'preview', recording, end });
-        }}
-      />,
+      isFromGallery ? (
+        <GalleryPhase
+          limits={limits}
+          onPicked={(video: PickedVideo) => toPreview(video, 'stop', video.mimeType)}
+          onLeave={onDone}
+        />
+      ) : (
+        <CameraPhase limits={limits} onRecorded={(recording, end) => toPreview(recording, end)} />
+      ),
     );
   }
 
@@ -188,7 +204,11 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
     noteStep('video.send', 'pressed');
     try {
       await isPlayerGone;
-      const captured = unsent.current?.kept ?? (await keepRecording(phase.recording));
+      const captured =
+        unsent.current?.kept ??
+        (await (isFromGallery
+          ? keepRecording(phase.recording, 'gallery', phase.mimeType)
+          : keepRecording(phase.recording)));
       unsent.current = { uri: captured.uri, kept: captured };
       if (isMounted.current) {
         setKeptUri(captured.uri);
@@ -246,10 +266,43 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
       end={phase.end}
       isSending={isSending}
       sendError={sendError}
+      retakeLabel={t(isFromGallery ? 'video.pickAnother' : 'video.retake')}
       onRetake={retake}
       onSend={() => void send()}
     />,
   );
+}
+
+/**
+ * The app's own camera: nothing is drawn over it until the phone has granted
+ * both it and the microphone, and what it refuses is said on a screen of its
+ * own. Asked only on this way in — never for a video from the gallery.
+ */
+function CameraPhase({
+  limits,
+  onRecorded,
+}: {
+  limits: VideoLimits;
+  onRecorded: (recording: Recording, end: RecordingEnd) => void;
+}) {
+  const { t } = useTranslation();
+  const permissions = useRecordingPermissions();
+
+  if (permissions.isChecking) {
+    return <LoadingState label={t('video.starting')} />;
+  }
+  if (permissions.missing.length > 0) {
+    return (
+      <PermissionScreen
+        missing={permissions.missing}
+        canAsk={permissions.canAsk}
+        onAsk={() => {
+          permissions.ask().catch(reportError);
+        }}
+      />
+    );
+  }
+  return <VideoRecorder limits={limits} onRecorded={onRecorded} />;
 }
 
 /** How long the screen may take to leave by itself before it offers the way back. */

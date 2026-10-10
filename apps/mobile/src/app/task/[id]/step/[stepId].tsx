@@ -2,7 +2,7 @@ import type { Json } from '@str-ops/shared';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
 import { ErrorState } from '@/components/error-state';
@@ -205,12 +205,36 @@ export default function StepRoute() {
   const maxVideoSec = videoSettings === null ? null : videoLimits(step, videoSettings).seconds;
 
   /** A video is recorded on its own screen, which hands it to the same queue. */
-  const openRecorder = () => {
+  const openVideo = (from: 'camera' | 'gallery') => {
     if (maxVideoSec === null || isOpeningRecorder.current) {
       return;
     }
     isOpeningRecorder.current = true;
-    router.push({ pathname: '/task/[id]/step/[stepId]/record', params: { id: taskId, stepId } });
+    router.push({
+      pathname: '/task/[id]/step/[stepId]/record',
+      params: from === 'gallery' ? { id: taskId, stepId, from } : { id: taskId, stepId },
+    });
+  };
+
+  /**
+   * Where the company allows the gallery, a video may come from it too
+   * (night of 2026-10-10, block 6): she is asked first. Otherwise the camera.
+   */
+  const openRecorder = () => {
+    if (!galleryAllowed) {
+      openVideo('camera');
+      return;
+    }
+    Alert.alert(
+      t('video.sourceTitle'),
+      undefined,
+      [
+        { text: t('video.fromCamera'), onPress: () => openVideo('camera') },
+        { text: t('video.fromGallery'), onPress: () => openVideo('gallery') },
+        { text: t('common.cancel'), style: 'cancel' },
+      ],
+      { cancelable: true },
+    );
   };
 
   /**

@@ -9,9 +9,9 @@ import { LoadingState } from '@/components/loading-state';
 import { Text } from '@/components/text';
 import { Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
-import { useVideoSettings } from '@/features/host/use-host';
+import { useGalleryAllowed, useVideoSettings } from '@/features/host/use-host';
 import { stepAttachVariables } from '@/features/media/attach-variables';
-import type { CapturedMedia } from '@/features/media/capture';
+import type { CapturedMedia, MediaSource } from '@/features/media/capture';
 import { toLocalRecord } from '@/features/media/local-store';
 import type { VideoLimits } from '@/features/media/schema';
 import { TUS_SHORT_STALL_MS } from '@/features/media/tus';
@@ -34,7 +34,12 @@ import { noteStep } from '@/lib/sentry';
 // reported — rather than leaving the root to catch it (night of 2026-10-10).
 export { RouteError as ErrorBoundary } from '@/components/route-error';
 
-const Params = z.object({ id: z.string().uuid(), stepId: z.string().uuid() });
+const Params = z.object({
+  id: z.string().uuid(),
+  stepId: z.string().uuid(),
+  // Where the video comes from (night of 2026-10-10, block 6); the camera unless said.
+  from: z.enum(['camera', 'gallery']).optional(),
+});
 
 /**
  * How long the screen waits for the task, its steps and its media before it
@@ -77,8 +82,15 @@ export default function RecordRoute() {
   const videoSettings = useVideoSettings();
   const attach = useAttachMedia('video');
   const rememberLocal = useRememberLocalMedia();
+  const galleryAllowed = useGalleryAllowed();
   /** The limits the camera opened with; from then on the gate is not asked again. */
   const [openedWith, setOpenedWith] = useState<VideoLimits | null>(null);
+  /**
+   * The gallery only where the company allows it, decided as the screen opens:
+   * a switch turned off meanwhile does not take the gallery from under her.
+   */
+  const [source, setSource] = useState<MediaSource>('camera');
+  const wantsGallery = parsed.success && parsed.data.from === 'gallery' && galleryAllowed;
 
   const gate =
     openedWith === null
@@ -98,6 +110,7 @@ export default function RecordRoute() {
   // Latched in the render that opens it: state adjusted while rendering, no effect.
   if (openedWith === null && limits !== null) {
     setOpenedWith(limits);
+    setSource(wantsGallery ? 'gallery' : 'camera');
   }
 
   // A read that never ends is not waited on past the short limit.
@@ -135,12 +148,24 @@ export default function RecordRoute() {
   };
 
   if (limits !== null) {
-    return <RecordScreen limits={limits} onSend={send} onDone={goBack} />;
+    return (
+      <RecordScreen
+        limits={limits}
+        source={openedWith === null ? (wantsGallery ? 'gallery' : 'camera') : source}
+        onSend={send}
+        onDone={goBack}
+      />
+    );
   }
 
   // The screen's own header (the system's is hidden here, see RecordHeader),
   // over whatever it says before the camera.
-  const header = <RecordHeader title={t('video.recordTitle')} onBack={goBack} />;
+  const header = (
+    <RecordHeader
+      title={t(wantsGallery ? 'video.galleryTitle' : 'video.recordTitle')}
+      onBack={goBack}
+    />
+  );
 
   if (gate?.kind === 'error' || wait.isOverdue) {
     return (

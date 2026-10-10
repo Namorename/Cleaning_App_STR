@@ -8,7 +8,7 @@ import RecordRoute, {
 } from '@/app/task/[id]/step/[stepId]/record';
 import { RouteError } from '@/components/route-error';
 import type { VideoSettings } from '@/features/host/schema';
-import { keepRecording, type CapturedMedia } from '@/features/media/capture';
+import { keepRecording, pickVideoFromGallery, type CapturedMedia } from '@/features/media/capture';
 import { discardFile } from '@/features/media/file';
 import type { TaskMedia } from '@/features/media/schema';
 import { TUS_SHORT_STALL_MS } from '@/features/media/tus';
@@ -233,6 +233,7 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({
     id: '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b',
     stepId: 'b1c2d3e4-1111-4111-8111-b1c2d3e40001',
+    ...(mockParams.from === undefined ? {} : { from: mockParams.from }),
   }),
   useNavigation: () => mockNavigation,
 }));
@@ -251,9 +252,18 @@ export const mockSteps: {
 
 jest.mock('@/features/steps/use-steps', () => ({ useTaskSteps: () => mockSteps }));
 
-export const mockVideo: { settings: VideoSettings | null } = { settings: null };
+export const mockVideo: { settings: VideoSettings | null; galleryAllowed: boolean } = {
+  settings: null,
+  galleryAllowed: false,
+};
 
-jest.mock('@/features/host/use-host', () => ({ useVideoSettings: () => mockVideo.settings }));
+jest.mock('@/features/host/use-host', () => ({
+  useVideoSettings: () => mockVideo.settings,
+  useGalleryAllowed: () => mockVideo.galleryAllowed,
+}));
+
+/** The route's own parameters beyond the task and the step: where the video comes from. */
+export const mockParams: { from: string | undefined } = { from: undefined };
 
 export const mockAttach = jest.fn();
 export const mockRemember = jest.fn(async () => undefined);
@@ -265,7 +275,10 @@ jest.mock('@/features/media/use-media', () => ({
   useUploadingMediaIds: () => mockUploading.ids,
 }));
 
-jest.mock('@/features/media/capture', () => ({ keepRecording: jest.fn() }));
+jest.mock('@/features/media/capture', () => ({
+  keepRecording: jest.fn(),
+  pickVideoFromGallery: jest.fn(),
+}));
 
 /** The size of the file the camera handed over, in bytes: small unless a test says. */
 export const mockFile: { size: number } = { size: 0 };
@@ -324,6 +337,7 @@ export async function moveApp(state: AppStateStatus): Promise<void> {
 }
 
 export const keep = jest.mocked(keepRecording);
+export const pick = jest.mocked(pickVideoFromGallery);
 
 export function videoStep(overrides: Partial<TaskStep> = {}): TaskStep {
   return {
@@ -441,6 +455,9 @@ function resetStage(): void {
   mockSteps.error = null;
   mockSteps.data = [videoStep()];
   mockVideo.settings = { video_max_sec: 90, video_bitrate_kbps: 2000, video_max_mb: 45 };
+  mockVideo.galleryAllowed = false;
+  mockParams.from = undefined;
+  pick.mockResolvedValue(null);
   mockCamera.finish = null;
   mockCamera.fail = null;
   // A recording runs until it is stopped: stopping is what hands the file over.
