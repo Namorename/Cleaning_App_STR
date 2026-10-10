@@ -12,7 +12,7 @@ import { Spacing, type Theme } from '@/constants/theme';
 import { keepRecording, type CapturedMedia, type Recording } from '@/features/media/capture';
 import { discardFile } from '@/features/media/file';
 import type { VideoLimits } from '@/features/media/schema';
-import { assertStorageTakes } from '@/features/media/storage-limit';
+import { assertStorageTakes, TooLargeForStorageError } from '@/features/media/storage-limit';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { noteStep, reportError } from '@/lib/sentry';
 
@@ -208,7 +208,10 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
       const type = error instanceof Error ? error.name : typeof error;
       noteStep('video.send', 'failed', { type });
       // A caught failure is an event of its own: the marks above go with it.
-      reportError(error);
+      // A file too big for the storage is a refusal she acts on, not a crash.
+      if (!(error instanceof TooLargeForStorageError)) {
+        reportError(error);
+      }
       if (isMounted.current) {
         // Moved and found empty: there is no file left to play or to send.
         setFileLost(type === 'EmptyCaptureError');

@@ -97,12 +97,26 @@ describe('videoLimits', () => {
   });
 
   test('the size and the bitrate are the company’s, in bytes and bits per second', () => {
+    const roomy = { video_max_sec: 180, video_bitrate_kbps: 4500, video_max_mb: 50 };
+
+    expect(videoLimits({ max_video_sec: 30 }, roomy)).toEqual({
+      seconds: 30,
+      maxBytes: 50_000_000,
+      cameraMaxBytes: 48_500_000,
+      bitrate: 4_500_000,
+    });
+  });
+
+  // 09.10 the company allowed 140 MB on Supabase Free, which takes 50 in one
+  // upload: a 105.9 MB recording was made and then refused. The camera stops
+  // where the storage would refuse, whichever is lower.
+  test('the size stops at what the storage takes, even when the company allows more', () => {
     const pro = { video_max_sec: 180, video_bitrate_kbps: 4500, video_max_mb: 140 };
 
-    expect(videoLimits({ max_video_sec: 30 }, pro)).toEqual({
-      seconds: 30,
-      maxBytes: 140_000_000,
-      cameraMaxBytes: 135_800_000,
+    expect(videoLimits({ max_video_sec: null }, pro)).toEqual({
+      seconds: 180,
+      maxBytes: 50_000_000,
+      cameraMaxBytes: 48_500_000,
       bitrate: 4_500_000,
     });
   });

@@ -158,8 +158,6 @@ describe('the preview before sending', () => {
   });
 });
 
-// The camera's file is moved under a name of ours before it is remembered:
-// after that, the camera's path is empty, and the kept file is the video.
 describe('a recording larger than the storage takes', () => {
   test('is refused before the queue, says why in her language, and «Переснять» stays', async () => {
     // Arrange: the company allows 140 MB, the storage on its plan takes 50.
@@ -185,6 +183,23 @@ describe('a recording larger than the storage takes', () => {
     expect(screen.getByRole('button', { name: 'Переснять' })).toBeTruthy();
   });
 
+  // A refusal she can act on is not a crash: each press would otherwise send
+  // the same event again.
+  test('is not reported as a crash', async () => {
+    keep.mockImplementation(async ({ durationSec }) => ({
+      ...kept(durationSec),
+      byteSize: 105_900_000,
+    }));
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+    expect(discardFile).not.toHaveBeenCalled();
+  });
+
   test('a file right at the storage limit goes to the queue', async () => {
     keep.mockImplementation(async ({ durationSec }) => ({
       ...kept(durationSec),
@@ -200,6 +215,8 @@ describe('a recording larger than the storage takes', () => {
   });
 });
 
+// The camera's file is moved under a name of ours before it is remembered:
+// after that, the camera's path is empty, and the kept file is the video.
 describe('«Отправить» that did not go through', () => {
   test('is tried again with the kept file, not the camera’s path it has left', async () => {
     // Arrange: the ledger on disk could not be written the first time.
