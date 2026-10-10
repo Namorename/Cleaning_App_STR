@@ -1610,6 +1610,6 @@
   "iosPermissions": {
     "camera": "The app uses the camera to take photos and videos of the work, before and after it.",
     "microphone": "The app records sound with the videos of the work.",
-    "photos": "The app attaches the photos you choose from your library to checklist steps, tasks and chat messages."
+    "photos": "The app attaches the photos you choose from your library to checklist steps, tasks and chat messages, and the videos you choose to checklist steps."
   }
 }

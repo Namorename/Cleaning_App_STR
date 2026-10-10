@@ -1640,6 +1640,6 @@
   "iosPermissions": {
     "camera": "Aplikace fotoaparátem pořizuje fotky a videa práce — před ní a po ní.",
     "microphone": "Aplikace nahrává zvuk k videím z práce.",
-    "photos": "Aplikace připojí fotky, které vyberete v galerii, ke krokům checklistu, úkolům a zprávám v chatu."
+    "photos": "Aplikace připojí fotky, které vyberete v galerii, ke krokům checklistu, úkolům a zprávám v chatu, a vybraná videa ke krokům checklistu."
   }
 }

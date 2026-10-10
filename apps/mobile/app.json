@@ -69,7 +69,7 @@
         {
           "cameraPermission": "The app uses the camera to take photos and videos of the work, before and after it.",
           "microphonePermission": "The app records sound with the videos of the work.",
-          "photosPermission": "The app attaches the photos you choose from your library to checklist steps, tasks and chat messages."
+          "photosPermission": "The app attaches the photos you choose from your library to checklist steps, tasks and chat messages, and the videos you choose to checklist steps."
         }
       ],
       [
