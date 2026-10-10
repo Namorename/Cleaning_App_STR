@@ -39,12 +39,14 @@ function DoneCardComponent({ task, onPress }: DoneCardProps) {
   const fix = task.type === 'maintenance' ? (task.problem ?? null) : null;
   const name = fix === null ? propertyName(task) : fix.title;
   const finished = finishedLine(task, t);
+  // A repair is said with its flat: the label replaces the lines drawn on the row.
+  const spoken = fix === null ? [name, finished] : [name, propertyName(task), finished];
 
   return (
     <Pressable
       testID="done-card"
       accessibilityRole="button"
-      accessibilityLabel={`${name}. ${finished}`}
+      accessibilityLabel={spoken.join('. ')}
       onPress={() => onPress(task.id)}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >

@@ -8,9 +8,8 @@ import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { PUSH_NOTICES } from '@/features/push/destination';
 import { DoneFooter } from '@/features/tasks/done-footer';
 import { PushNotice } from '@/features/tasks/push-notice';
-import { groupMyTasks, type TaskGroup } from '@/features/tasks/schema';
+import { groupMyTasks, type CleaningTask, type TaskGroup } from '@/features/tasks/schema';
 import { TaskList } from '@/features/tasks/task-list';
-import type { CleaningTask } from '@/features/tasks/schema';
 import {
   acceptVariables,
   useAcceptTask,
@@ -139,6 +138,7 @@ export default function MyTasksScreen() {
           error={done.error}
           hasMore={done.hasNextPage}
           isLoadingMore={done.isFetchingNextPage}
+          isRetrying={done.isFetching && !done.isFetchingNextPage}
           onOpen={() => setDoneOpen(true)}
           onMore={() => void fetchNextPage()}
           onRetry={() => void refetchDone()}

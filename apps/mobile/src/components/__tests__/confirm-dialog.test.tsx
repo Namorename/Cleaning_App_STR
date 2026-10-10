@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
-import { AccessibilityInfo, StyleSheet, type ViewStyle } from 'react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { AccessibilityInfo, Platform, StyleSheet, type ViewStyle } from 'react-native';
 
 import { BUTTON_HEIGHT, Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -82,6 +82,23 @@ test('«Завершить» answers yes, once, however fast it is tapped twice'
   expect(onCancel).not.toHaveBeenCalled();
 });
 
+// Two taps in one frame: the second comes before the first answer is drawn,
+// so the held buttons cannot stop it — the dialog's own memory of the answer does.
+test('two taps in the same frame still answer once', async () => {
+  const { onConfirm, onCancel } = await renderDialog();
+  const confirm = screen.getByRole('button', { name: 'Завершить' });
+  const cancel = screen.getByRole('button', { name: 'Отмена' });
+
+  await act(async () => {
+    fireEvent.press(confirm);
+    fireEvent.press(confirm);
+    fireEvent.press(cancel);
+  });
+
+  expect(onConfirm).toHaveBeenCalledTimes(1);
+  expect(onCancel).not.toHaveBeenCalled();
+});
+
 test('after a yes both buttons are held, so a tap on «Отмена» cannot follow it', async () => {
   const { onCancel } = await renderDialog();
 
@@ -146,6 +163,18 @@ test('shown, the screen reader is taken to the question', async () => {
   expect(send).toHaveBeenCalledTimes(1);
   expect(send).toHaveBeenCalledWith(expect.anything(), 'focus');
   send.mockRestore();
+});
+
+test('in the web preview, shown, it asks the reader for nothing it does not have', async () => {
+  const send = jest.spyOn(AccessibilityInfo, 'sendAccessibilityEvent').mockImplementation(() => {});
+  jest.replaceProperty(Platform, 'OS', 'web');
+  await renderDialog();
+
+  await fireEvent(screen.getByTestId('confirm-dialog'), 'show');
+
+  expect(send).not.toHaveBeenCalled();
+  expect(screen.getByRole('header', { name: 'Завершить уборку?' })).toBeTruthy();
+  jest.restoreAllMocks();
 });
 
 test('the card holds the reader inside it on iOS', async () => {

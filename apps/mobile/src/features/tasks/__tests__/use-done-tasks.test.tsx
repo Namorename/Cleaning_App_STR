@@ -3,10 +3,18 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { restoredFromDisk, withClient } from '@/testing/restored-cache';
 
-import { fetchMyDoneTasks, fetchTask } from '../api';
+import { fetchMyDoneTasks, fetchTask, finishTask, startTask } from '../api';
 import { DONE_PAGE_SIZE } from '../done';
 import type { CleaningTask } from '../schema';
-import { taskKeys, useMyDoneTasks, useTask } from '../use-tasks';
+import {
+  refreshTaskLists,
+  registerTaskMutations,
+  taskKeys,
+  useFinishTask,
+  useMyDoneTasks,
+  useStartTask,
+  useTask,
+} from '../use-tasks';
 
 /**
  * «Выполненные» (owner, 2026-10-10): read only once she opens it, a page at a
@@ -159,4 +167,48 @@ test('a finished job opened from the list shows at once, from the page it is on'
 
   expect(result.current.data?.status).toBe('done');
   expect(result.current.data?.id).toBe(doneTask(7).id);
+});
+
+// Only a finish adds to «Выполненные» (review of cf165f3, M1): a step tap, a
+// take or a start refreshing every page she has opened would be reads for
+// nothing, and a failure among them would be said under a list that did not change.
+describe('what reads an open «Выполненные» again', () => {
+  async function openedWith(client: QueryClient) {
+    fetchDone.mockResolvedValue([doneTask(1)]);
+    const hook = await renderHook(
+      () => ({ done: useMyDoneTasks(true), start: useStartTask(), finish: useFinishTask() }),
+      { wrapper: withClient(client) },
+    );
+    await waitFor(() => expect(hook.result.current.done.data).toHaveLength(1));
+    return hook;
+  }
+
+  test('the lists refreshed after a step or a take leave it as it was', async () => {
+    const client = freshClient();
+    await openedWith(client);
+
+    await act(async () => {
+      await refreshTaskLists(client);
+    });
+
+    expect(fetchDone).toHaveBeenCalledTimes(1);
+  });
+
+  test('a start leaves it; a finish reads it again', async () => {
+    const client = freshClient();
+    registerTaskMutations(client);
+    jest.mocked(startTask).mockResolvedValue(doneTask(2));
+    jest.mocked(finishTask).mockResolvedValue(doneTask(2));
+    const { result } = await openedWith(client);
+
+    await act(async () => {
+      await result.current.start.mutateAsync(doneTask(2).id);
+    });
+    expect(fetchDone).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await result.current.finish.mutateAsync(doneTask(2).id);
+    });
+    await waitFor(() => expect(fetchDone).toHaveBeenCalledTimes(2));
+  });
 });

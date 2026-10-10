@@ -32,10 +32,12 @@ insert into public.properties (id, name, timezone, check_in_time, check_out_time
   (900000901, 'Left behind', 'UTC', '15:00', '10:00'),
   (900000902, 'Still hers',  'UTC', '15:00', '10:00');
 
--- Maria cleans only the second listing now; Olga cleaned the first.
+-- Maria cleans only the second listing now; Olga cleaned the first and
+-- cleans the second beside her.
 insert into public.property_cleaners (property_id, cleaner_id, mode) values
   (900000902, 'a0000000-0000-4000-8000-000000000901', 'claim'),
-  (900000901, 'a0000000-0000-4000-8000-000000000902', 'claim');
+  (900000901, 'a0000000-0000-4000-8000-000000000902', 'claim'),
+  (900000902, 'a0000000-0000-4000-8000-000000000902', 'claim');
 
 insert into public.tasks (property_id, type, status, assignee_id, scheduled_date,
                           started_at, completed_at, notes) values
@@ -51,6 +53,9 @@ insert into public.tasks (property_id, type, status, assignee_id, scheduled_date
   (900000901, 'cleaning', 'done', 'a0000000-0000-4000-8000-000000000902',
    current_date - 5, now() - interval '5 days 2 hours', now() - interval '5 days',
    'a colleague''s, on the listing she left'),
+  (900000902, 'cleaning', 'done', 'a0000000-0000-4000-8000-000000000902',
+   current_date - 1, now() - interval '1 day 2 hours', now() - interval '1 day',
+   'a colleague''s, on her listing'),
   (900000901, 'maintenance', 'done', 'a0000000-0000-4000-8000-000000000903',
    current_date - 3, now() - interval '3 days 2 hours', now() - interval '3 days',
    'his repair');
@@ -107,6 +112,12 @@ select pg_temp.check('older than the window: still hers by right, left out by th
   pg_temp.visible('hers, before the window'), true);
 select pg_temp.check('a colleague''s finished cleaning on a listing she left is not shown',
   pg_temp.visible('a colleague''s, on the listing she left'), false);
+-- Why the phone reads by assignee: on a listing she cleans, the row policies
+-- show her a colleague's finished cleaning too, and that is not her history.
+select pg_temp.check('a colleague''s finished cleaning on her listing is visible to her',
+  pg_temp.visible('a colleague''s, on her listing'), true);
+select pg_temp.check('and is not in her «Выполненные», which the read takes by assignee',
+  position('a colleague''s' in pg_temp.done_list('a0000000-0000-4000-8000-000000000901')), 0);
 
 -- ---------- the technician ----------
 reset role;

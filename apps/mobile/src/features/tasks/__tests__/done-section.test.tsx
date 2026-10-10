@@ -32,6 +32,7 @@ const mockDone: {
   data: CleaningTask[] | undefined;
   error: Error | null;
   hasNextPage: boolean;
+  isFetching: boolean;
   isFetchingNextPage: boolean;
   fetchNextPage: jest.Mock;
   refetch: jest.Mock;
@@ -39,6 +40,7 @@ const mockDone: {
   data: undefined,
   error: null,
   hasNextPage: false,
+  isFetching: false,
   isFetchingNextPage: false,
   fetchNextPage: jest.fn(),
   refetch: jest.fn(),
@@ -124,6 +126,7 @@ beforeEach(() => {
   mockDone.data = [job()];
   mockDone.error = null;
   mockDone.hasNextPage = false;
+  mockDone.isFetching = false;
   mockDone.isFetchingNextPage = false;
 });
 
@@ -226,6 +229,17 @@ test('a read that failed says so, and «Повторить» asks again', async 
   expect(mockDone.refetch).toHaveBeenCalledTimes(1);
 });
 
+test('while it asks again, «Повторить» is held', async () => {
+  mockDone.data = undefined;
+  mockDone.error = new Error('Network request failed');
+  mockDone.isFetching = true;
+  await render(<MyTasksScreen />);
+  await openDone();
+
+  const retry = screen.getByRole('button', { name: 'Повторить' });
+  expect(retry.props.accessibilityState).toMatchObject({ busy: true });
+});
+
 test('with nothing open, her empty list still says so above what she finished', async () => {
   mockOpen.splice(0, mockOpen.length);
   await render(<MyTasksScreen />);
@@ -255,7 +269,10 @@ test('a technician’s finished repair is named by what was fixed, never as a cl
     await render(<MyTasksScreen />);
     await openDone();
 
-    expect(screen.getByRole('button', { name: /^Течёт смеситель\. Завершена/ })).toBeTruthy();
+    // Said with its flat, which the row draws on a line of its own.
+    expect(
+      screen.getByRole('button', { name: /^Течёт смеситель\. CZ - Nadrazni Apt 6\. Завершена/ }),
+    ).toBeTruthy();
     expect(screen.queryByText(/уборк/i)).toBeNull();
   } finally {
     await setWordContext(undefined);

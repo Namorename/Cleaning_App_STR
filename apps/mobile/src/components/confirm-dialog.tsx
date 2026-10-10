@@ -1,6 +1,14 @@
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AccessibilityInfo, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 
 import { Radius, Spacing, type Theme } from '@/constants/theme';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
@@ -80,8 +88,10 @@ export function ConfirmDialog({
     reply();
   };
 
+  // react-native-web has no sendAccessibilityEvent, and its Modal traps the
+  // focus itself: the web preview would fall to the error screen instead.
   const focusQuestion = () => {
-    if (questionRef.current !== null) {
+    if (Platform.OS !== 'web' && questionRef.current !== null) {
       AccessibilityInfo.sendAccessibilityEvent(questionRef.current, 'focus');
     }
   };

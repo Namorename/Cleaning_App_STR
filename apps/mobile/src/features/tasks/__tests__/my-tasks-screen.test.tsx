@@ -45,6 +45,7 @@ jest.mock('../use-tasks', () => ({
     data: undefined,
     error: null,
     hasNextPage: false,
+    isFetching: false,
     isFetchingNextPage: false,
     fetchNextPage: jest.fn(),
     refetch: jest.fn(),

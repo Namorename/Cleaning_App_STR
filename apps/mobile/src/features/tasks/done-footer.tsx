@@ -16,6 +16,8 @@ interface DoneFooterProps {
   error: Error | null;
   hasMore: boolean;
   isLoadingMore: boolean;
+  /** «Повторить» pressed and the read is on its way again. */
+  isRetrying: boolean;
   onOpen: () => void;
   onMore: () => void;
   onRetry: () => void;
@@ -34,6 +36,7 @@ export function DoneFooter({
   error,
   hasMore,
   isLoadingMore,
+  isRetrying,
   onOpen,
   onMore,
   onRetry,
@@ -55,7 +58,7 @@ export function DoneFooter({
         <Text variant="title" accessibilityRole="header">
           {heading}
         </Text>
-        <DoneState tasks={tasks} error={error} onRetry={onRetry} />
+        <DoneState tasks={tasks} error={error} isRetrying={isRetrying} onRetry={onRetry} />
       </View>
     );
   }
@@ -83,11 +86,12 @@ export function DoneFooter({
 interface DoneStateProps {
   tasks: readonly CleaningTask[] | undefined;
   error: Error | null;
+  isRetrying: boolean;
   onRetry: () => void;
 }
 
 /** Before the first page, or a window with nothing in it. */
-function DoneState({ tasks, error, onRetry }: DoneStateProps) {
+function DoneState({ tasks, error, isRetrying, onRetry }: DoneStateProps) {
   const { t } = useTranslation();
 
   if (tasks !== undefined) {
@@ -98,7 +102,12 @@ function DoneState({ tasks, error, onRetry }: DoneStateProps) {
       <View style={layout.failure} accessibilityLiveRegion="polite">
         <Text tone="danger">{t('tasks.done.loadFailed')}</Text>
         <FailureText error={error} />
-        <Button variant="secondary" label={t('common.retry')} onPress={onRetry} />
+        <Button
+          variant="secondary"
+          label={t('common.retry')}
+          isBusy={isRetrying}
+          onPress={onRetry}
+        />
       </View>
     );
   }
