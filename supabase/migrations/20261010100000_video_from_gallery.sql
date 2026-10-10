@@ -1,6 +1,6 @@
--- A video from the gallery where the company allows the gallery (owner's word,
--- night of 2026-10-10, block 6). NOT APPLIED: prepared on the branch
--- video-gallery-setting, for the owner to decide.
+-- A video from the gallery where the company allows the gallery (prepared the
+-- night of 2026-10-10, block 6; the owner said yes in his plan of 2026-10-10,
+-- block 4). Probe before and after the push: docs/rollout/gallery_video_probe.sql.
 --
 -- Until now add_task_media refused every video whose source was the gallery
 -- (videoCameraOnly, 20261003170000), whatever hosts.gallery_allowed said, though

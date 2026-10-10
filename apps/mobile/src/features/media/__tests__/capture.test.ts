@@ -223,8 +223,8 @@ test('a photo with nothing to remove is not written again', async () => {
 /**
  * A video comes from the app's own recording screen, not from the picker: the
  * camera reports only where it wrote the file. The length is what the screen
- * timed, the container is the file's own, and it is declared as the camera's
- * — the server refuses a video from anywhere else (`videoCameraOnly`).
+ * timed, the container is the file's own, and it is declared as the camera's;
+ * a video picked from the gallery is declared as the gallery's (below).
  */
 describe('a recording from the app’s own camera', () => {
   const takenAt = '2026-10-09T08:00:00.000Z';

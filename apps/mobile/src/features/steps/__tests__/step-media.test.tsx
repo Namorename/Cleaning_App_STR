@@ -364,9 +364,9 @@ test('and offers both once it has', async () => {
   expect(handlers.onCapture).not.toHaveBeenCalled();
 });
 
-// A video is shot with the app's own camera, whatever the company says about
-// the gallery (docs/tech-plan.md §7.1): the server refuses a picked one
-// (`videoCameraOnly`), so offering it would only lead to that refusal.
+// A video step keeps one button: where the company allows the gallery, the
+// step's screen asks after it whether to record or to pick
+// (app/task/[id]/step/[stepId].tsx), so the tile offers no gallery of its own.
 test('a video step offers the camera alone, even where the gallery is open', async () => {
   await render(
     <StepMedia
