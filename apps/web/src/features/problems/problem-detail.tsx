@@ -45,14 +45,15 @@ interface ProblemDetailProps {
 /**
  * The problem's card: the report, its photos, the fix and the manager's levers.
  *
- * The address carries the view of «Задания» the task was opened from — «К
- * списку заданий» returns to it — and whether its conversation is open.
+ * The address carries the view of «Задания» the task was opened from, with its
+ * filters — «К списку заданий» returns to it — and whether its conversation is
+ * open.
  */
 export function ProblemDetail({ problemId }: ProblemDetailProps) {
   const { t } = useTranslation();
   const problem = useProblem(problemId);
   const chat = useChatAddress();
-  const backHref = problemsHref(chat.address.view);
+  const backHref = problemsHref(chat.address);
 
   if (problem.isPending) {
     return <LoadingState>{t('panel.problems.loading')}</LoadingState>;

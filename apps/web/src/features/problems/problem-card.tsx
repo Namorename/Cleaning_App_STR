@@ -20,7 +20,7 @@ import { formatShortDay } from '@/lib/format-date';
 import { useLanguage } from '@/lib/use-language';
 import { cn } from '@/lib/utils';
 
-import { problemHref } from './address';
+import { problemHref, type ProblemsFrom } from './address';
 import { isDraggable, liveFixTask, problemPlace, type BoardStatus, type Problem } from './schema';
 
 interface ProblemCardProps {
@@ -34,6 +34,8 @@ interface ProblemCardProps {
   onDragEnd?: () => void;
   /** Somebody said something about this breakage that the manager has not read. */
   hasUnread?: boolean;
+  /** The board as it is filtered: the card's page carries it back. */
+  from?: ProblemsFrom;
 }
 
 /**
@@ -52,6 +54,7 @@ export function ProblemCard({
   onDragStart,
   onDragEnd,
   hasUnread = false,
+  from = 'board',
 }: ProblemCardProps) {
   const { t } = useTranslation();
   const language = useLanguage();
@@ -82,7 +85,7 @@ export function ProblemCard({
       <div className="flex items-start justify-between gap-2">
         <Link
           id={titleId}
-          href={problemHref(problem.id, 'board')}
+          href={problemHref(problem.id, from)}
           className="font-medium outline-none after:absolute after:inset-0 after:rounded-lg"
         >
           {problem.title}

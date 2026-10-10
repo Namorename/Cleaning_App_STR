@@ -13,13 +13,18 @@ import { formatDateTime } from '@/lib/format-date';
 import { serverErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
 
-import { problemChatHref, problemHref } from './address';
+import { problemChatHref, problemHref, type ProblemsAddress } from './address';
+import { EMPTY_PROBLEM_FILTERS, type ProblemFilters } from './filters';
 import { problemPlace, type Problem } from './schema';
 import { useUnarchiveProblem } from './use-problems';
 
 interface ProblemsArchiveProps {
   /** Only the archived ones; the caller splits them off. */
   problems: Problem[];
+  /** True while a search or a filter narrows them: empty then says "nothing found". */
+  isFiltered?: boolean;
+  /** What the archive is filtered by: a task's page carries it back. */
+  filters?: ProblemFilters;
 }
 
 /**
@@ -27,15 +32,24 @@ interface ProblemsArchiveProps {
  * An archived problem may still be written about; its mark leads to the
  * conversation, as in the list.
  */
-export function ProblemsArchive({ problems }: ProblemsArchiveProps) {
+export function ProblemsArchive({
+  problems,
+  isFiltered = false,
+  filters = EMPTY_PROBLEM_FILTERS,
+}: ProblemsArchiveProps) {
   const { t } = useTranslation();
   const language = useLanguage();
   const unread = useUnreadSubjects();
   const unarchive = useUnarchiveProblem();
   const failure = unarchive.isError ? serverErrorText(unarchive.error) : null;
+  const from: ProblemsAddress = { view: 'archive', filters };
 
   if (problems.length === 0) {
-    return <EmptyState>{t('panel.problems.archive.empty')}</EmptyState>;
+    return (
+      <EmptyState>
+        {isFiltered ? t('panel.problems.emptyFiltered') : t('panel.problems.archive.empty')}
+      </EmptyState>
+    );
   }
 
   return (
@@ -49,20 +63,14 @@ export function ProblemsArchive({ problems }: ProblemsArchiveProps) {
           >
             <div className="flex flex-col gap-1">
               <div className="flex flex-wrap items-center gap-2">
-                <Link
-                  href={problemHref(problem.id, 'archive')}
-                  className="font-medium hover:underline"
-                >
+                <Link href={problemHref(problem.id, from)} className="font-medium hover:underline">
                   {problem.title}
                 </Link>
                 <Badge tone={problemStatusTone(problem.status)}>
                   {t(`problems.statuses.${problem.status}`)}
                 </Badge>
                 {unread.problems.has(problem.id) ? (
-                  <UnreadChatLink
-                    href={problemChatHref(problem.id, 'archive')}
-                    about={problem.title}
-                  />
+                  <UnreadChatLink href={problemChatHref(problem.id, from)} about={problem.title} />
                 ) : null}
               </div>
               <span className="text-muted-foreground">

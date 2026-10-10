@@ -19,11 +19,14 @@ import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { formatDateTime } from '@/lib/format-date';
 import { useLanguage } from '@/lib/use-language';
 
-import { problemChatHref, problemHref } from './address';
+import { problemChatHref, problemHref, type ProblemsAddress } from './address';
+import { EMPTY_PROBLEM_FILTERS, type ProblemFilters } from './filters';
 import { liveFixTask, problemPlace, type Problem } from './schema';
 
 interface ProblemsTableProps {
   problems: Problem[];
+  /** What the list is filtered by: a task's page carries it back. */
+  filters?: ProblemFilters;
 }
 
 /**
@@ -31,10 +34,11 @@ interface ProblemsTableProps {
  * wrote about carries «Новое сообщение» beside its title — a link to its
  * page with the conversation open (5.4, «Чат»).
  */
-export function ProblemsTable({ problems }: ProblemsTableProps) {
+export function ProblemsTable({ problems, filters = EMPTY_PROBLEM_FILTERS }: ProblemsTableProps) {
   const { t } = useTranslation();
   const language = useLanguage();
   const unread = useUnreadSubjects();
+  const from: ProblemsAddress = { view: 'list', filters };
 
   return (
     <div className="overflow-x-auto rounded-lg border">
@@ -58,14 +62,14 @@ export function ProblemsTable({ problems }: ProblemsTableProps) {
                 <TableCell>
                   <div className="flex flex-wrap items-center gap-x-2">
                     <Link
-                      href={problemHref(problem.id, 'list')}
+                      href={problemHref(problem.id, from)}
                       className="font-medium hover:underline"
                     >
                       {problem.title}
                     </Link>
                     {unread.problems.has(problem.id) ? (
                       <UnreadChatLink
-                        href={problemChatHref(problem.id, 'list')}
+                        href={problemChatHref(problem.id, from)}
                         about={problem.title}
                       />
                     ) : null}

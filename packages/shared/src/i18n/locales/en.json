@@ -234,6 +234,16 @@
       "viewList": "List",
       "empty": "No tasks",
       "emptyFiltered": "Nothing found",
+      "filters": {
+        "place": "Listing",
+        "anyPlace": "Any listing",
+        "assignee": "Executor",
+        "anyAssignee": "Anyone",
+        "nobody": "Unassigned",
+        "dateFrom": "Reported from",
+        "dateTo": "Reported until",
+        "reset": "Clear the filters"
+      },
       "loading": "Loading tasks…",
       "loadError": "Could not load the tasks",
       "notFound": "Task not found",

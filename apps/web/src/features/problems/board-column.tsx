@@ -7,6 +7,7 @@ import { StatusBadge } from '@/components/status-badge';
 import { TONE_MARK_BG } from '@/lib/design/tone-classes';
 import { cn } from '@/lib/utils';
 
+import type { ProblemsAddress } from './address';
 import { menuMoves } from './board-moves';
 import { ProblemCard } from './problem-card';
 import type { BoardStatus, Problem } from './schema';
@@ -27,6 +28,8 @@ interface BoardColumnProps {
   onMove: (problem: Problem, status: BoardStatus) => void;
   /** The breakages somebody wrote about that the manager has not read. */
   unread: ReadonlySet<string>;
+  /** The board as it is filtered: a card's page carries it back. */
+  from: ProblemsAddress;
 }
 
 /**
@@ -46,6 +49,7 @@ export function BoardColumn({
   drag,
   onMove,
   unread,
+  from,
 }: BoardColumnProps) {
   const { t } = useTranslation();
   const heading = t(`problems.statuses.${status}`);
@@ -88,6 +92,7 @@ export function BoardColumn({
             moves={menuMoves(problem)}
             onMove={onMove}
             hasUnread={unread.has(problem.id)}
+            from={from}
             onDragStart={drag.onDragStart}
             onDragEnd={drag.onDragEnd}
           />

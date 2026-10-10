@@ -20,7 +20,7 @@ import { propertyOptions } from '@/features/tasks/schema';
 import { useProperties } from '@/features/tasks/use-tasks';
 import { serverErrorText } from '@/lib/server-error';
 
-import { problemHref, type ProblemView } from './address';
+import { problemHref, type ProblemsAddress } from './address';
 import {
   MAX_PROBLEM_DESCRIPTION,
   MAX_PROBLEM_TITLE,
@@ -67,8 +67,8 @@ function placeFrom(value: string): Draft['propertyId'] {
 }
 
 interface NewProblemDialogProps {
-  /** The view the form was opened from: the new task's page returns to it. */
-  view: ProblemView;
+  /** The view the form was opened from, with its filters: the new task's page returns to it. */
+  from: ProblemsAddress;
   onClose: () => void;
 }
 
@@ -87,7 +87,7 @@ interface NewProblemDialogProps {
  * While the write is on its way the form cannot be closed — Escape, a press
  * outside, «Отмена» — so its answer always lands here and opens the task.
  */
-export function NewProblemDialog({ view, onClose }: NewProblemDialogProps) {
+export function NewProblemDialog({ from, onClose }: NewProblemDialogProps) {
   const { t } = useTranslation();
   const router = useRouter();
   const properties = useProperties();
@@ -111,7 +111,7 @@ export function NewProblemDialog({ view, onClose }: NewProblemDialogProps) {
   };
 
   // An archived task is never new: from the archive, the page returns to the board.
-  const backTo: ProblemView = view === 'archive' ? 'board' : view;
+  const backTo: ProblemsAddress = from.view === 'archive' ? { ...from, view: 'board' } : from;
 
   const opened = (problem: Pick<Problem, 'id'>) => {
     onClose();

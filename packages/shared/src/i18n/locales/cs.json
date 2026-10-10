@@ -234,6 +234,16 @@
       "viewList": "Seznam",
       "empty": "Žádné úkoly",
       "emptyFiltered": "Nic nenalezeno",
+      "filters": {
+        "place": "Objekt",
+        "anyPlace": "Jakýkoli objekt",
+        "assignee": "Vykonavatel",
+        "anyAssignee": "Kdokoli",
+        "nobody": "Nepřiřazeno",
+        "dateFrom": "Nahlášeno od",
+        "dateTo": "Nahlášeno do",
+        "reset": "Zrušit filtry"
+      },
       "loading": "Načítáme úkoly…",
       "loadError": "Úkoly se nepodařilo načíst",
       "notFound": "Úkol nenalezen",

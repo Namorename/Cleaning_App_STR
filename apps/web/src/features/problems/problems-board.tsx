@@ -4,17 +4,21 @@ import { useTranslation } from 'react-i18next';
 
 import { useUnreadSubjects } from '@/features/chat/use-chat';
 
+import type { ProblemsAddress } from './address';
 import { BoardColumn } from './board-column';
 import { AssignMoveDialog, ConfirmMoveDialog } from './board-dialogs';
 import { isDragMove } from './board-moves';
+import { EMPTY_PROBLEM_FILTERS, type ProblemFilters } from './filters';
 import { BOARD_STATUSES, liveFixTask, type Problem } from './schema';
 import { useBoardDrag } from './use-board-drag';
 import { useBoardMoves, type BoardMoves } from './use-board-moves';
 
 interface ProblemsBoardProps {
   problems: Problem[];
-  /** True while a search narrows the board: an empty column then says "nothing found". */
+  /** True while a search or a filter narrows the board: an empty column then says "nothing found". */
   isFiltered?: boolean;
+  /** What the board is filtered by: a card's page carries it back. */
+  filters?: ProblemFilters;
 }
 
 /**
@@ -36,7 +40,11 @@ interface ProblemsBoardProps {
  * The four columns stay side by side and the board scrolls sideways inside
  * its frame on a narrow screen (decision 14).
  */
-export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardProps) {
+export function ProblemsBoard({
+  problems,
+  isFiltered = false,
+  filters = EMPTY_PROBLEM_FILTERS,
+}: ProblemsBoardProps) {
   const unread = useUnreadSubjects();
   const moves = useBoardMoves();
   const drag = useBoardDrag({
@@ -44,6 +52,7 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
     onMove: moves.moveTo,
     onRefused: moves.refuse,
   });
+  const from: ProblemsAddress = { view: 'board', filters };
 
   return (
     <div className="flex flex-col gap-3">
@@ -64,6 +73,7 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
               drag={drag.card}
               onMove={moves.moveTo}
               unread={unread.problems}
+              from={from}
             />
           ))}
         </div>
