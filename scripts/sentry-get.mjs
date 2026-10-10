@@ -2,9 +2,9 @@
 //   node scripts/sentry-get.mjs <path> --pick a,b.c | --count | --event [frames]
 //
 // GET only. There is no method option: every request this file makes is a GET
-// to https://de.sentry.io/api/0/<path>. The region is the one the phone's DSN
-// names (its host is o<id>.ingest.de.sentry.io), and an EU organization answers
-// only there.
+// to https://de.sentry.io/api/0/<path>, redirects refused. The region is the
+// one the phone's DSN names (its host is o<id>.ingest.de.sentry.io), and an EU
+// organization answers only there.
 //
 // The token is a read-only user token the owner keeps in
 // ~/.str-ops/sentry-read-token.txt, outside the repository. It is never
@@ -12,17 +12,20 @@
 //
 // {org}, {project} and {projectId} in the path are filled in at run time from
 // the only organization and project the token can see (the EAS variables
-// SENTRY_ORG and SENTRY_PROJECT name the same pair), and every place the slugs
-// appear in a response is printed back as the placeholder: the reports never
-// carry them.
+// SENTRY_ORG and SENTRY_PROJECT name the same pair). The two slugs are looked
+// up on every run and printed back as the placeholders wherever a response
+// carries them, in any case: the reports never carry them.
 //
-// Nothing is printed raw. --pick prints the named (dotted) fields of each
-// item, --count the number of items, --event a summary of one event (release
-// tags, exception, the top frames of each stack) without the user, the
-// breadcrumbs, the request or the device: those can carry personal data.
+// Nothing is printed whole. --count prints the number of items; --event a
+// summary of one event (release tags, exception, the top frames of each stack)
+// without the user, the breadcrumbs, the request or the device; --pick exactly
+// the (dotted) fields it is given — asking it for `user`, `tags`, `entries`,
+// `request` or `contexts` prints what those hold, personal data included, so
+// such a pick is for a local filter, never for a report.
 //
 // Self-contained on purpose, like scripts/hostaway-get.mjs: a pinned hash of
-// this file must describe everything it runs.
+// this file must describe everything it runs. apiUrl() is a copy of that
+// file's; scripts/__tests__/sentry-get.test.mjs keeps the two equal.
 
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -31,6 +34,7 @@ import { pathToFileURL } from 'node:url';
 
 const LIVE_BASE_URL = 'https://de.sentry.io/api/0';
 const DEFAULT_FRAMES = 8;
+const REQUEST_TIMEOUT_MS = 30_000;
 const EVENT_TAGS = ['release', 'dist', 'environment', 'level', 'handled', 'mechanism', 'os', 'os.name'];
 
 function fail(message) {
@@ -103,18 +107,27 @@ function escapeRegExp(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** The text with every resolved slug turned back into its placeholder. */
+/**
+ * The text with every resolved slug turned back into its placeholder: in any
+ * case (Sentry's short ids are the project slug in capitals), wherever no
+ * letter or digit touches it (so `acme_prod` and `ACME-12` give it up too),
+ * the longer slug first (a project named after its organization).
+ */
 export function redact(text, names) {
-  let out = text;
-  for (const [key, value] of [
-    ['org', names.org],
+  const slugs = [
     ['project', names.project],
-  ]) {
-    if (typeof value === 'string' && value.length > 0) {
-      out = out.replace(new RegExp(`\\b${escapeRegExp(value)}\\b`, 'g'), `{${key}}`);
-    }
-  }
-  return out;
+    ['org', names.org],
+  ]
+    .filter(([, value]) => typeof value === 'string' && value.length > 0)
+    .sort((a, b) => b[1].length - a[1].length);
+  return slugs.reduce(
+    (out, [key, value]) =>
+      out.replace(
+        new RegExp(`(?<![A-Za-z0-9])${escapeRegExp(value)}(?![A-Za-z0-9])`, 'gi'),
+        `{${key}}`,
+      ),
+    text,
+  );
 }
 
 function readPath(item, dotted) {
@@ -140,7 +153,9 @@ function frameOf(frame) {
 /**
  * One event without the person: its id and time, the release tags, and for
  * each exception the type, the message, how it was caught and the top frames
- * of the stack (Sentry lists frames oldest first, so the top is the end).
+ * of the stack (Sentry lists frames oldest first, so the top is the end). The
+ * title and the exception's message are the app's own text: read them before
+ * quoting them.
  */
 export function eventSummary(event, frames = DEFAULT_FRAMES) {
   const tags = Object.fromEntries(
@@ -164,36 +179,44 @@ export function eventSummary(event, frames = DEFAULT_FRAMES) {
   };
 }
 
-function parseArgs(argv) {
-  const usage = 'usage: node scripts/sentry-get.mjs <path> --pick a,b.c | --count | --event [frames]';
+const USAGE = 'usage: node scripts/sentry-get.mjs <path> --pick a,b.c | --count | --event [frames]';
+
+/** The path and the one way to print it; anything else is refused. */
+export function parseArgs(argv) {
   const [path, ...rest] = argv;
   if (!path || path.startsWith('-')) {
-    fail(usage);
+    return { error: USAGE };
   }
-  const options = { path, pick: null, count: false, event: null };
+  const modes = [];
+  let pick = null;
+  let frames = DEFAULT_FRAMES;
   for (let i = 0; i < rest.length; i += 1) {
-    if (rest[i] === '--pick' && rest[i + 1]) {
-      options.pick = rest[i + 1].split(',').map((field) => field.trim()).filter(Boolean);
+    const arg = rest[i];
+    if (arg === '--pick' && rest[i + 1]) {
+      pick = rest[i + 1].split(',').map((field) => field.trim()).filter(Boolean);
+      modes.push('pick');
       i += 1;
-    } else if (rest[i] === '--count') {
-      options.count = true;
-    } else if (rest[i] === '--event') {
-      const frames = Number(rest[i + 1]);
-      options.event = Number.isInteger(frames) && frames > 0 ? frames : DEFAULT_FRAMES;
-      if (options.event === frames) {
+    } else if (arg === '--count') {
+      modes.push('count');
+    } else if (arg === '--event') {
+      modes.push('event');
+      const next = Number(rest[i + 1]);
+      const isFrames = rest[i + 1] !== undefined && Number.isInteger(next) && next > 0;
+      if (isFrames) {
+        frames = next;
         i += 1;
       }
     } else {
-      fail(`unknown option ${rest[i]}`);
+      return { error: `unknown option ${arg}` };
     }
   }
-  if (!options.pick && !options.count && !options.event) {
-    fail(`nothing is printed raw; give --pick, --count or --event (${usage})`);
+  if (modes.length !== 1) {
+    return { error: `give exactly one of --pick, --count or --event (${USAGE})` };
   }
   if (apiUrl(LIVE_BASE_URL, fillPath(path, { org: 'o', project: 'p', projectId: '1' })) === null) {
-    fail('the path is relative to /api/0, e.g. organizations/{org}/issues/?limit=5');
+    return { error: 'the path is relative to /api/0, e.g. organizations/{org}/issues/?limit=5' };
   }
-  return options;
+  return { path, mode: modes[0], pick, frames };
 }
 
 async function getJson(base, token, path) {
@@ -201,7 +224,12 @@ async function getJson(base, token, path) {
   if (url === null) {
     fail('the path is relative to /api/0, e.g. organizations/{org}/issues/?limit=5');
   }
-  const response = await fetch(url, { method: 'GET', headers: { Authorization: `Bearer ${token}` } });
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${token}` },
+    redirect: 'error',
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
   if (response.status === 401 || response.status === 403) {
     fail(`Sentry refused the stored token (${response.status}); it needs org:read, project:read and event:read`);
   }
@@ -215,47 +243,60 @@ async function getJson(base, token, path) {
   return response.json();
 }
 
-function onlyOne(items, what) {
-  if (!Array.isArray(items) || items.length !== 1) {
-    fail(`the token sees ${Array.isArray(items) ? items.length : 0} ${what}; exactly one is expected`);
+/** The one item of a list, or null; a path that needs it fails instead. */
+function theOnly(items, what, isNeeded) {
+  if (Array.isArray(items) && items.length === 1) {
+    return items[0];
   }
-  return items[0];
+  const seen = Array.isArray(items) ? items.length : 0;
+  if (isNeeded) {
+    fail(`the token sees ${seen} ${what}; exactly one is expected`);
+  }
+  process.stderr.write(`sentry-get: the token sees ${seen} ${what}; their slugs are not redacted\n`);
+  return null;
 }
 
+// Looked up on every run, placeholders or not: the slugs are what the output
+// must never carry, and only a run that knows them can take them out.
 async function resolveNames(base, token, path) {
-  const names = {};
-  if (!/\{(org|project|projectId)\}/.test(path)) {
-    return names;
+  const needsOrg = /\{(org|project|projectId)\}/.test(path);
+  const needsProject = /\{(project|projectId)\}/.test(path);
+  const org = theOnly(await getJson(base, token, 'organizations/'), 'organizations', needsOrg);
+  if (org === null) {
+    return {};
   }
-  names.org = onlyOne(await getJson(base, token, 'organizations/'), 'organizations').slug;
-  if (/\{(project|projectId)\}/.test(path)) {
-    const project = onlyOne(await getJson(base, token, `organizations/${names.org}/projects/`), 'projects');
-    names.project = project.slug;
-    names.projectId = String(project.id);
-  }
-  return names;
+  const projects = await getJson(base, token, `organizations/${org.slug}/projects/`);
+  const project = theOnly(projects, 'projects', needsProject);
+  return project === null
+    ? { org: org.slug }
+    : { org: org.slug, project: project.slug, projectId: String(project.id) };
 }
 
-async function main(options) {
+function shown(result, options) {
+  if (options.mode === 'count') {
+    return Array.isArray(result) ? result.length : result == null ? 0 : 1;
+  }
+  if (options.mode === 'event') {
+    return eventSummary(result, options.frames);
+  }
+  return pickFields(result, options.pick);
+}
+
+async function main(argv) {
+  const options = parseArgs(argv);
+  if (options.error) {
+    fail(options.error);
+  }
   const base = baseUrl();
   const token = storedToken();
   const names = await resolveNames(base, token, options.path);
   const result = await getJson(base, token, fillPath(options.path, names));
-  const shown = options.count
-    ? Array.isArray(result)
-      ? result.length
-      : result == null
-        ? 0
-        : 1
-    : options.event
-      ? eventSummary(result, options.event)
-      : pickFields(result, options.pick);
-  process.stdout.write(`${redact(JSON.stringify(shown, null, 2), names)}\n`);
+  process.stdout.write(`${redact(JSON.stringify(shown(result, options), null, 2), names)}\n`);
 }
 
 // Run as a script only: the tests import the helpers and send nothing.
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  main(parseArgs(process.argv.slice(2))).catch((error) =>
+  main(process.argv.slice(2)).catch((error) =>
     fail(error instanceof Error ? error.message : String(error)),
   );
 }
