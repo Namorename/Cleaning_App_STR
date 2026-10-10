@@ -128,6 +128,19 @@ describe('the past of the calendar', () => {
     expect(result.current.days).toEqual([...SECOND_CHUNK, ...FIRST_CHUNK]);
   });
 
+  // Final review of 2026-10-10: «Показать прошлое» on a window moved past
+  // today loaded today and the days after it as «the past».
+  test('a window that starts after today has no past, and asks for none', async () => {
+    const load = vi.fn(async () => {});
+    const { result } = renderPast(load, { start: '2026-10-25' });
+
+    await act(async () => result.current.loadMore('button'));
+
+    expect(result.current.isAhead).toBe(true);
+    expect(load).not.toHaveBeenCalled();
+    expect(result.current.days).toEqual([]);
+  });
+
   test('stops at sixty days before today, and says it has', async () => {
     const load = vi.fn(async () => {});
     const { result } = renderPast(load);
