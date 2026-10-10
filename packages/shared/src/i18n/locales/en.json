@@ -1879,7 +1879,7 @@
         }
       },
       "leaving": "<b>If you no longer work with us.</b> A manager switches off your account in the panel. From that moment, it has no access to the company’s data. Technically, you can still sign in to the app, but after signing in you will see nothing work-related — no cleanings, properties, messages or photos; only your own account (name, language) is visible. By {{date}}, we will add a block on signing in to a switched-off account.",
-      "deletion": "Deleting an account is currently a <b>manual step</b>; it is carried out by {{who}} at your request or {{when}}. There is no automatic deletion yet; it will come together with the retention periods above. On deletion:",
+      "deletion": "Deleting an account is currently a <b>manual step</b>; it is carried out by {{who}} at your request by e-mail to the address in section 1, or {{when}}. There is no automatic deletion yet; it will come together with the retention periods above. On deletion:",
       "afterSwitchOff": "{{months}} after the switch-off",
       "months_one": "{{count}} month",
       "months_other": "{{count}} months",

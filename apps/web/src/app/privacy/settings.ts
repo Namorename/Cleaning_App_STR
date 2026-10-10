@@ -46,16 +46,39 @@ export interface PrivacySettings {
   readonly transferBasisChecked: true | null;
 }
 
+/**
+ * The owner's values of 2026-10-10. Where one was looked up rather than given,
+ * the source is beside it.
+ */
 export const PRIVACY_SETTINGS: PrivacySettings = {
-  effectiveDate: null,
-  automaticDeletionDate: null,
-  signInBlockDate: null,
-  accountDeletedBy: null,
-  accountRetentionMonths: null,
-  vercelRegion: null,
-  sentryRegion: null,
-  serverLogRetention: null,
-  exportFormat: null,
-  processingAgreementsSigned: null,
-  transferBasisChecked: null,
+  effectiveDate: '2026-10-12',
+  automaticDeletionDate: '2027-03-31',
+  signInBlockDate: '2026-11-30',
+  // The operator, on a letter to the address in section 1 (the sentence says how).
+  accountDeletedBy: { cs: 'správce', en: 'the controller', ru: 'оператор' },
+  accountRetentionMonths: 6,
+  // The project's functions run in fra1, Frankfurt, beside the database: pinned
+  // in apps/web/vercel.json (owner, 2026-10-10, Pro plan). Before it they ran in
+  // iad1, Vercel's default. A test keeps the two in step.
+  // https://vercel.com/docs/functions/configuring-functions/region
+  vercelRegion: { cs: 'EU (Frankfurt)', en: 'EU (Frankfurt)', ru: 'ЕС (Франкфурт)' },
+  // The DSN's ingest host is in .de.sentry.io: Sentry's EU region, Frankfurt.
+  // https://docs.sentry.io/organization/data-storage-location/
+  sentryRegion: { cs: 'EU (Frankfurt)', en: 'EU (Frankfurt)', ru: 'ЕС (Франкфурт)' },
+  // Supabase keeps API and database logs 1 day on Free, 7 on Pro
+  // (https://supabase.com/pricing); Vercel its runtime logs 1 hour on Hobby,
+  // 1 day on Pro (https://vercel.com/docs/logs/runtime). Seven days holds on
+  // either plan.
+  serverLogRetention: {
+    cs: 'nejvýše 7 dní',
+    en: 'no longer than 7 days',
+    ru: 'не дольше 7 дней',
+  },
+  exportFormat: 'CSV',
+  // Confirmed by the owner on 2026-10-10, 21:00: Sentry's agreement accepted in
+  // its settings, Supabase's and Vercel's part of their terms, Expo's in its
+  // terms' processing section; each carries the standard contractual clauses
+  // (docs/privacy-dpa-links.md).
+  processingAgreementsSigned: true,
+  transferBasisChecked: true,
 };

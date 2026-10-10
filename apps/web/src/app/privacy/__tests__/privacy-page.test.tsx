@@ -1,5 +1,7 @@
 import type { Language } from '@str-ops/shared';
 import { render, screen, within } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { expectPageTitle } from '@/components/page-header.expect';
@@ -11,7 +13,7 @@ vi.mock('server-only', () => ({}));
 import PrivacyPage, { generateMetadata } from '../page';
 import { PrivacyPolicy } from '../privacy-policy';
 import type { OperatorDetails } from '../operator';
-import type { PrivacySettings } from '../settings';
+import { PRIVACY_SETTINGS, type PrivacySettings } from '../settings';
 
 const OPERATOR_ENV = [
   'PRIVACY_OPERATOR_NAME',
@@ -422,7 +424,112 @@ describe('the values only the owner knows', () => {
     const vercel = within(vendors).getByRole('rowheader', { name: 'Vercel' }).closest('tr');
     expect(vercel).toHaveTextContent('ЕС (Франкфурт)');
     expect(screen.getByRole('main').textContent).toContain(
-      'его выполняет администратор компании по вашему запросу',
+      'его выполняет администратор компании по вашему письму на адрес из раздела 1',
     );
+  });
+});
+
+// The owner's values of 2026-10-10; the two statements confirmed at 21:00.
+describe('the values the owner gave', () => {
+  test('as published', () => {
+    expect(PRIVACY_SETTINGS).toMatchObject({
+      effectiveDate: '2026-10-12',
+      automaticDeletionDate: '2027-03-31',
+      signInBlockDate: '2026-11-30',
+      accountRetentionMonths: 6,
+      exportFormat: 'CSV',
+      // Confirmed by the owner on 2026-10-10, 21:00 (docs/privacy-dpa-links.md).
+      processingAgreementsSigned: true,
+      transferBasisChecked: true,
+    });
+  });
+
+  test.each(['cs', 'en', 'ru'] as const)(
+    '%s: with the operator\'s details set, nothing is left to fill in',
+    (language) => {
+      const { container } = render(
+        <PrivacyPolicy language={language} operator={EVERYONE_KNOWN} settings={PRIVACY_SETTINGS} />,
+      );
+
+      expect(container.querySelectorAll('[data-placeholder]')).toHaveLength(0);
+      expect(container.textContent).not.toContain(MARKER[language]);
+      expect(container.textContent).not.toMatch(/\[|\]/);
+    },
+  );
+
+  test('in force from 12 October 2026', () => {
+    render(<PrivacyPolicy language="en" operator={EVERYONE_KNOWN} settings={PRIVACY_SETTINGS} />);
+
+    expect(screen.getByRole('main').textContent).toContain('Effective from: 12 Oct 2026');
+  });
+
+  test.each([
+    [
+      'ru',
+      'его выполняет оператор по вашему письму на адрес из раздела 1 или через 6 месяцев после отключения',
+    ],
+    [
+      'en',
+      'it is carried out by the controller at your request by e-mail to the address in section 1, or 6 months after the switch-off',
+    ],
+    [
+      'cs',
+      'provádí ho správce na vaši žádost zaslanou e-mailem na adresu z oddílu 1, nebo 6 měsíců po deaktivaci',
+    ],
+  ] as const)('%s: the operator deletes an account on a letter, or six months on', (language, text) => {
+    render(
+      <PrivacyPolicy language={language} operator={EVERYONE_KNOWN} settings={PRIVACY_SETTINGS} />,
+    );
+
+    expect(screen.getByRole('main').textContent).toContain(text);
+  });
+
+  test.each([
+    ['ru', 'ЕС (Франкфурт)', 'ЕС (Франкфурт)'],
+    ['en', 'EU (Frankfurt)', 'EU (Frankfurt)'],
+    ['cs', 'EU (Frankfurt)', 'EU (Frankfurt)'],
+  ] as const)(
+    '%s: the panel and the crash reports stay in the EU',
+    (language, vercel, sentry) => {
+      render(
+        <PrivacyPolicy language={language} operator={EVERYONE_KNOWN} settings={PRIVACY_SETTINGS} />,
+      );
+
+      const vendors = screen.getAllByRole('table')[1];
+      const row = (name: string) =>
+        within(vendors).getByRole('rowheader', { name }).closest('tr');
+      expect(row('Vercel')).toHaveTextContent(vercel);
+      expect(row('Sentry (Functional Software)')).toHaveTextContent(sentry);
+    },
+  );
+
+  test.each([
+    ['ru', 'по правилам поставщика, не дольше 7 дней'],
+    ['en', 'according to the supplier’s rules, no longer than 7 days'],
+    ['cs', 'podle pravidel dodavatele, nejvýše 7 dní'],
+  ] as const)('%s: the suppliers keep server logs for a week at most', (language, text) => {
+    render(
+      <PrivacyPolicy language={language} operator={EVERYONE_KNOWN} settings={PRIVACY_SETTINGS} />,
+    );
+
+    expect(screen.getByRole('main').textContent).toContain(text);
+  });
+});
+
+// The policy says where the panel's functions run; the project says it in
+// apps/web/vercel.json (fra1, Frankfurt, since 2026-10-10). One cannot change
+// without the other.
+describe('the region the policy names is the region the panel is deployed to', () => {
+  test('vercel.json pins the functions to fra1, and the policy says Frankfurt', () => {
+    const config = JSON.parse(
+      readFileSync(path.resolve(__dirname, '../../../../vercel.json'), 'utf8'),
+    ) as { regions?: string[] };
+
+    expect(config.regions).toEqual(['fra1']);
+    expect(PRIVACY_SETTINGS.vercelRegion).toEqual({
+      cs: 'EU (Frankfurt)',
+      en: 'EU (Frankfurt)',
+      ru: 'ЕС (Франкфурт)',
+    });
   });
 });
