@@ -33,3 +33,17 @@ export function applyLanguageChoice(doc: Document, language: Language): void {
   doc.documentElement.lang = language;
   doc.cookie = languageCookie(language, doc.location?.protocol === 'https:');
 }
+
+/**
+ * The language a page is written in, for <html lang>: the page's own when the
+ * proxy names one (`lib/page-language.ts`, the public privacy policy), else
+ * the panel's, from the cookie. A value the panel does not speak is ignored.
+ */
+export function documentLanguage(
+  pageLanguage: string | null | undefined,
+  cookie: string | undefined,
+): Language {
+  return typeof pageLanguage === 'string' && isSupportedLanguage(pageLanguage)
+    ? pageLanguage
+    : languageFromCookie(cookie);
+}
