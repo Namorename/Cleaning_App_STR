@@ -3,6 +3,7 @@ import { Constants, type TaskStatus, type TaskType } from '@str-ops/shared';
 import { RefusalError } from '@/lib/server-error';
 import { supabase } from '@/lib/supabase';
 
+import { DONE_PAGE_SIZE } from './done';
 import { cleaningTaskListSchema, earliestClaimableDate, type CleaningTask } from './schema';
 
 // The joined listing name is what the cleaner actually recognises; the numeric
@@ -89,6 +90,40 @@ export async function fetchMyTasks(cleanerId: string): Promise<CleaningTask[]> {
     .in('status', OPEN_STATUSES)
     .order('scheduled_date', { ascending: true })
     .order('priority', { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return cleaningTaskListSchema.parse(data ?? []);
+}
+
+/**
+ * One page of «Выполненные»: her own finished jobs since `since`, newest
+ * first; `page` counts from 0. Ordered to the id as well, so a page boundary
+ * never repeats or skips a job finished in the same instant as another.
+ *
+ * Her own by the assignee, not by the listing: the row policies also show her
+ * a colleague's finished cleaning on a listing she cleans, and that is not
+ * her history. A finish stamped by nobody (a service write, no
+ * `completed_at`) has no day to fall in the window and is left out.
+ */
+export async function fetchMyDoneTasks(
+  cleanerId: string,
+  page: number,
+  since: string,
+): Promise<CleaningTask[]> {
+  const first = page * DONE_PAGE_SIZE;
+  const { data, error } = await supabase
+    .from('tasks')
+    .select(TASK_COLUMNS)
+    .in('type', MY_TASK_TYPES)
+    .eq('assignee_id', cleanerId)
+    .eq('status', 'done')
+    .gte('completed_at', since)
+    .order('completed_at', { ascending: false })
+    .order('id', { ascending: false })
+    .range(first, first + DONE_PAGE_SIZE - 1);
 
   if (error) {
     throw error;

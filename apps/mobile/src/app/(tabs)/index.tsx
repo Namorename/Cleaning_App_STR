@@ -6,11 +6,17 @@ import { z } from 'zod';
 
 import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { PUSH_NOTICES } from '@/features/push/destination';
+import { DoneFooter } from '@/features/tasks/done-footer';
 import { PushNotice } from '@/features/tasks/push-notice';
-import { groupMyTasks } from '@/features/tasks/schema';
+import { groupMyTasks, type TaskGroup } from '@/features/tasks/schema';
 import { TaskList } from '@/features/tasks/task-list';
 import type { CleaningTask } from '@/features/tasks/schema';
-import { acceptVariables, useAcceptTask, useMyTasks } from '@/features/tasks/use-tasks';
+import {
+  acceptVariables,
+  useAcceptTask,
+  useMyDoneTasks,
+  useMyTasks,
+} from '@/features/tasks/use-tasks';
 import { wordContext } from '@/i18n';
 import { alertMessage, serverErrorText } from '@/lib/server-error';
 
@@ -27,11 +33,28 @@ export default function MyTasksScreen() {
   const [acceptingIds, setAcceptingIds] = useState<ReadonlySet<string>>(NO_ACCEPTS);
   const parsed = Params.safeParse(useLocalSearchParams());
   const notice = parsed.success ? parsed.data.notice : undefined;
+  // «Выполненные» (owner, 2026-10-10): read only once she asks for them.
+  const [isDoneOpen, setDoneOpen] = useState(false);
+  const done = useMyDoneTasks(isDoneOpen);
 
   // Work under way first, as its own section: several cleanings run at once
   // on a floor, and this list is how she switches between them. Then a section
-  // per day, grouped here from the rows already fetched.
-  const sections = useMemo(() => (data === undefined ? undefined : groupMyTasks(data)), [data]);
+  // per day, grouped here from the rows already fetched — and, once she has
+  // opened them, what she finished, under the last day. A job just finished
+  // can be in both reads for a moment; it is shown where it is still open.
+  const sections = useMemo(() => {
+    if (data === undefined) {
+      return undefined;
+    }
+    const open = groupMyTasks(data);
+    const openIds = new Set(data.map((task) => task.id));
+    const finished = (done.data ?? []).filter((task) => !openIds.has(task.id));
+    if (!isDoneOpen || finished.length === 0) {
+      return open;
+    }
+    const doneSection: TaskGroup = { kind: 'done', key: 'done', data: finished };
+    return [...open, doneSection];
+  }, [data, done.data, isDoneOpen]);
 
   // The marks are asked for exactly the jobs on this screen. A repair speaks
   // in its report's thread, so its report is asked about too.
@@ -48,10 +71,14 @@ export default function MyTasksScreen() {
   );
   const unread = useUnreadSubjects(taskIds, problemIds);
 
+  const { refetch: refetchDone, fetchNextPage } = done;
   const onRefresh = useCallback(() => {
     void refetch();
     unread.refetch();
-  }, [refetch, unread]);
+    if (isDoneOpen) {
+      void refetchDone();
+    }
+  }, [refetch, unread, isDoneOpen, refetchDone]);
 
   const onPress = useCallback((taskId: string) => {
     router.push({ pathname: '/task/[id]', params: { id: taskId } });
@@ -104,6 +131,18 @@ export default function MyTasksScreen() {
         notice === undefined ? undefined : (
           <PushNotice notice={notice} onDismiss={() => router.setParams({ notice: undefined })} />
         )
+      }
+      footer={
+        <DoneFooter
+          isOpen={isDoneOpen}
+          tasks={done.data}
+          error={done.error}
+          hasMore={done.hasNextPage}
+          isLoadingMore={done.isFetchingNextPage}
+          onOpen={() => setDoneOpen(true)}
+          onMore={() => void fetchNextPage()}
+          onRetry={() => void refetchDone()}
+        />
       }
     />
   );

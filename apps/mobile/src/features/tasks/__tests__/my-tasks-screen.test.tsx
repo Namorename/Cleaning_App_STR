@@ -40,6 +40,15 @@ jest.mock('../use-tasks', () => ({
     refetch: mockRefetch,
     isRefetching: false,
   }),
+  // «Выполненные» stay closed here: done-section.test.tsx is about them.
+  useMyDoneTasks: () => ({
+    data: undefined,
+    error: null,
+    hasNextPage: false,
+    isFetchingNextPage: false,
+    fetchNextPage: jest.fn(),
+    refetch: jest.fn(),
+  }),
   useAcceptTask: jest.fn(),
   // What an accept sends is the screen's real contract, not something to fake.
   acceptVariables: jest.requireActual('../use-tasks').acceptVariables,
