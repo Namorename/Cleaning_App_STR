@@ -117,6 +117,9 @@ export function GalleryPhase({ limits, onPicked, onLeave }: GalleryPhaseProps) {
 
   const again = () => {
     setState({ kind: 'picking' });
+    // Only the choice the iPhone could not compress goes as it is: another
+    // choice is asked for compressed again (review of a1fb2de).
+    setForm('compressed');
     setAttempt((count) => count + 1);
   };
 
