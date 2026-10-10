@@ -42,7 +42,11 @@ test.each([
     { key: 'video.galleryTooLarge', limit: 45 },
   ],
   ['a length its file does not say', picked({ durationSec: 0 }), { key: 'video.galleryNoLength' }],
-  ['a format the storage does not keep', picked({ mimeType: 'video/webm' }), { key: 'video.galleryFormat' }],
+  [
+    'a format the storage does not keep',
+    picked({ mimeType: 'video/webm' }),
+    { key: 'video.galleryFormat' },
+  ],
 ])('%s', (_label, video, expected) => {
   expect(galleryVideoRefusal(video, LIMITS)).toEqual(expected);
 });

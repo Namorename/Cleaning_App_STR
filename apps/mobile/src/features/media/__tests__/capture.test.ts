@@ -343,7 +343,11 @@ describe('a video from the gallery', () => {
     sizes.set('file:///cache/ImagePicker/clip.mov', 30_000_000);
 
     const video = await keepRecording(
-      { uri: 'file:///cache/ImagePicker/clip.mov', durationSec: 12, takenAt: '2026-10-10T08:00:00.000Z' },
+      {
+        uri: 'file:///cache/ImagePicker/clip.mov',
+        durationSec: 12,
+        takenAt: '2026-10-10T08:00:00.000Z',
+      },
       'gallery',
       'video/quicktime',
     );

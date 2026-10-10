@@ -33,6 +33,8 @@ interface VideoPreviewProps {
   isSending: boolean;
   /** Why the last «Отправить» did not go through, or null. */
   sendError: unknown;
+  /** «Переснять» for a recording, «Выбрать другое» for a file from the gallery. */
+  retakeLabel?: string;
   onRetake: () => void;
   onSend: () => void;
 }
@@ -55,6 +57,7 @@ export function VideoPreview({
   end,
   isSending,
   sendError,
+  retakeLabel,
   onRetake,
   onSend,
 }: VideoPreviewProps) {
@@ -95,7 +98,7 @@ export function VideoPreview({
         />
         <Button
           variant="outline"
-          label={t('video.retake')}
+          label={retakeLabel ?? t('video.retake')}
           isDisabled={isSending}
           onPress={onRetake}
         />

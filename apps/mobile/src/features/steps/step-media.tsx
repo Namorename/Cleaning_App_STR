@@ -26,7 +26,8 @@ interface StepMediaProps {
   disabled: boolean;
   /**
    * Only when the company allows it — `hosts.gallery_allowed` — and for photos
-   * alone: a video is shot with the app's camera (`videoCameraOnly`).
+   * alone: a video's gallery is asked about when «Записать видео» is pressed
+   * (the step's screen, night of 2026-10-10, block 6).
    */
   canPickFromGallery: boolean;
   onCapture: () => void;
@@ -116,7 +117,7 @@ export function StepMedia({
 
       {/* Second, and second in every sense: the camera is the way this is
           meant to be done, and the gallery appears only where the company
-          has decided to allow it — for photos; a video never comes from it. */}
+          has decided to allow it — for photos; a video is asked about instead. */}
       {!disabled && canShowGallery ? (
         <Button
           variant="outline"

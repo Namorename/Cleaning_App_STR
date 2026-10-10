@@ -9,7 +9,11 @@ export type { PickedVideo };
 
 /** Why a chosen video cannot be sent, as a key of `video.*` and the number to meet. */
 export interface GalleryRefusal {
-  key: 'video.galleryTooLong' | 'video.galleryTooLarge' | 'video.galleryNoLength' | 'video.galleryFormat';
+  key:
+    | 'video.galleryTooLong'
+    | 'video.galleryTooLarge'
+    | 'video.galleryNoLength'
+    | 'video.galleryFormat';
   limit?: number;
 }
 
@@ -21,7 +25,10 @@ export interface GalleryRefusal {
  * larger than the company's size. A camera recording is held to these by the
  * camera itself; a chosen file is held here. Null when it may go.
  */
-export function galleryVideoRefusal(video: PickedVideo, limits: VideoLimits): GalleryRefusal | null {
+export function galleryVideoRefusal(
+  video: PickedVideo,
+  limits: VideoLimits,
+): GalleryRefusal | null {
   if (!KEPT_TYPES.includes(video.mimeType.toLowerCase())) {
     return { key: 'video.galleryFormat' };
   }

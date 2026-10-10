@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
+import { Alert } from 'react-native';
 
 import StepRoute, { ErrorBoundary } from '@/app/task/[id]/step/[stepId]';
 import { RouteError } from '@/components/route-error';
@@ -113,11 +114,14 @@ jest.mock('@/features/media/use-media', () => ({
   useUploadingMediaIds: () => new Set<string>(),
 }));
 
+/** Whether the company allows the gallery: for photos, and for videos since block 6. */
+const mockGallery = { allowed: true };
+
 /** What the company says about video; null until it has been read. */
 const mockVideo: { settings: VideoSettings | null } = { settings: null };
 
 jest.mock('@/features/host/use-host', () => ({
-  useGalleryAllowed: () => true,
+  useGalleryAllowed: () => mockGallery.allowed,
   useVideoSettings: () => mockVideo.settings,
 }));
 
@@ -308,6 +312,8 @@ describe('a video step of her task under way', () => {
   beforeEach(() => {
     mockSteps.isPending = false;
     mockTask.data = { status: 'in_progress', assignee_id: ME };
+    // The camera alone, as before the gallery was open to videos.
+    mockGallery.allowed = false;
   });
 
   test('records on the app’s own screen, to the length the company and the step allow', async () => {
@@ -338,13 +344,59 @@ describe('a video step of her task under way', () => {
 
   // The company has opened its gallery (the mock above says so): photos may
   // come from it, a video never does.
-  test('offers no gallery, whatever the company allows for photos', async () => {
+  test('offers no gallery button of its own, whatever the company allows', async () => {
+    mockGallery.allowed = true;
     mockSteps.data = [videoStep()];
     mockVideo.settings = { video_max_sec: 90, video_bitrate_kbps: 2000, video_max_mb: 45 };
 
     await render(<StepRoute />);
 
     expect(screen.queryByRole('button', { name: /галере/ })).toBeNull();
+  });
+
+  // Night of 2026-10-10, block 6: where the company allows the gallery, a
+  // video may come from it — she is asked first, before any camera opens.
+  test('where the gallery is open, asks first: the camera or the gallery', async () => {
+    // Arrange
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    mockGallery.allowed = true;
+    mockSteps.data = [videoStep()];
+    mockVideo.settings = { video_max_sec: 90, video_bitrate_kbps: 2000, video_max_mb: 45 };
+    await render(<StepRoute />);
+
+    // Act
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать видео' }));
+
+    // Assert: nothing opens until she answers.
+    expect(router.push).not.toHaveBeenCalled();
+    const [title, , buttons] = alert.mock.calls[0];
+    expect(title).toBe('Видео для шага');
+    const words = (buttons ?? []).map((button) => button.text);
+    expect(words).toEqual(['Снять на камеру', 'Выбрать из галереи', 'Отмена']);
+    await act(async () => buttons?.find((b) => b.text === 'Выбрать из галереи')?.onPress?.());
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: '/task/[id]/step/[stepId]/record',
+      params: { id: TASK_ID, stepId: STEP_ID, from: 'gallery' },
+    });
+    alert.mockRestore();
+  });
+
+  test('«Снять на камеру» opens the camera as before', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    mockGallery.allowed = true;
+    mockSteps.data = [videoStep()];
+    mockVideo.settings = { video_max_sec: 90, video_bitrate_kbps: 2000, video_max_mb: 45 };
+    await render(<StepRoute />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Записать видео' }));
+    const buttons = alert.mock.calls[0][2] ?? [];
+    await act(async () => buttons.find((b) => b.text === 'Снять на камеру')?.onPress?.());
+
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: '/task/[id]/step/[stepId]/record',
+      params: { id: TASK_ID, stepId: STEP_ID },
+    });
+    alert.mockRestore();
   });
 
   // The video was handed to the queue from the recording screen, which has
