@@ -223,6 +223,15 @@
   пусто); `vercel inspect | grep` в цикле не работает — формат не совпадает.
   Хвост лога сборки `npm error …` ничего не говорит — нужна часть после
   «Creating an optimized production build».
+- **Адреса панели (с 10.10).** Проект Vercel — `woom`, боевой адрес —
+  `https://woom-bnb.vercel.app` (домен проекта); проверки прода (`/login` 200,
+  `/dashboard` без входа — 307 на `/login`, `/privacy` 200) — только на нём.
+  Старый алиас `cleaning-app-str-web-xi.vercel.app` пока уводит туда же, но
+  Vercel его не гарантирует, как и старые `cleaning-app-str-web-git-…`.
+  Адрес превью ветки — из `npx vercel ls --cwd apps/web -m
+  githubCommitRef=<ветка>` или `npx vercel alias ls --cwd apps/web`, вручную не
+  собирать. Превью и адреса деплоев закрыты входом Vercel (302 на SSO); публичен
+  только боевой адрес.
 
 ## Ветки и документы
 
