@@ -24,22 +24,24 @@ there is no public sign-up. The app speaks English, Czech and Russian.
 Окно **What to Test** открывается само, когда сборку добавляют во внешнюю группу.
 
 ```text
-Sign in with the demo account from the review information. On "My cleanings", open the cleaning
-at "Demo Apartment", tap "Start cleaning" and go through the checklist: take a photo, record a
-short video (or choose one from the gallery where offered), tick the remaining steps. Tap
-"Finish cleaning" and confirm. Below the list, open "Done in the last 30 days" and open the
-finished cleaning. From a cleaning, try "Create a task" and "Request supplies". In Settings,
-switch the language and open "Privacy policy". With airplane mode on, start or finish a cleaning:
-the action waits and is sent when the connection returns.
+Sign in with the demo account from the review information. "My cleanings" lists the demo
+cleanings at "Demo Apartment", one for each of the next days. Open today's cleaning, tap
+"Start cleaning" and go through its steps: tick the checklist, take the photos after cleaning,
+record a short video, read the instructions, write a comment and confirm. Tap "Finish
+cleaning" and confirm in the dialog. Below the list, open "Done in the last 30 days" and open
+the finished cleaning. From a cleaning, try "Create a task" and "Chat". In Settings, switch the
+language and open "Privacy policy". A cleaning planned for a later day can be accepted but
+started only on its day.
 ```
 
 ### Beta App Review Information → Notes (Review Notes)
 
 ```text
 woom is used only by the employees of one company; their accounts are issued by the company's
-manager in the web panel, so there is no sign-up screen. The demo account is a cleaner linked to
-a single demo listing ("Demo Apartment", Demo Street 1, Prague) with demo cleanings and no real
-guests, bookings or addresses.
+manager in the web panel, so there is no sign-up screen, and the employer deletes an account on
+request by e-mail (see the privacy policy). The demo account is a cleaner linked to a single demo
+listing ("Demo Apartment", Demo Street 1, Prague) with one demo cleaning for each of the next
+days and no real guests, bookings or addresses.
 
 Permissions: the camera and microphone are used only to take photos and record videos of the work
 in checklist steps and tasks; the photo library only to attach photos and videos the user picks;
@@ -57,8 +59,23 @@ Privacy policy: https://woom-bnb.vercel.app/privacy?lang=en
 - **Sign-in required** — включить; **User Name** и **Password** — демо-горничной. Учётка не должна
   истекать, пока идёт рецензия.
 
-До отправки владелец заводит в панели демо-горничную, привязывает её к «Demo Apartment» и ставит
-2–3 уборки на ближайшие дни (`docs/launch-reset.md`, «Демо-объект для Apple»).
+**Демо-данные: что должно быть до отправки** (проверено чтением облака 2026-10-10):
+
+- Есть: «Demo Apartment», активная демо-горничная, привязанная только к нему.
+- **Не так:** её три уборки стоят на 20, 22 и 25 октября.
+  - Горничная видит работу только на 7 дней вперёд: даже свои уборки дальше этого срока ей не
+    показываются. До 13.10 рецензент увидит пустой список.
+  - Начать уборку можно только в её день, не раньше времени начала окна.
+- Нужно: по уборке **на каждый день с 11 по 18 октября**, окно с 00:00, назначены на
+  демо-горничную. Рецензия идёт от одного до нескольких дней, и в любой из них у рецензента будет
+  «сегодняшняя» уборка.
+- Прошедшие незавершённые уборки ночью закрываются сами — это нормально.
+- Шаги уборки берутся из шаблона компании: чек-лист, фото после, видео, указания, комментарий,
+  подтверждение. Отдельного чек-листа у демо-объекта нет — это нормально.
+
+**Какую сборку отправлять:** сборку 2 из ветки `ios-build-1-2-0` (`6e181a1`). Сборка 1 (`0505011`)
+слушает канал `field`, получает обновления только оттуда, и в ней нет кнопки галереи для видео,
+ссылки на политику и вопросов «Удалить» и «Снять с работы».
 
 ## 2. Путь: внутренний TestFlight → внешний
 
