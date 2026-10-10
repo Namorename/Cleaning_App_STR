@@ -146,6 +146,11 @@
           "confirmation": "Potvrzení",
           "cleaner_comment": "Komentář uklízečky"
         }
+      },
+      "language": {
+        "label": "Jazyk",
+        "hint": "Uloží se do vašeho profilu: v tomto jazyce se panel otevře i v jiném prohlížeči.",
+        "saveFailed": "Jazyk se nepodařilo změnit."
       }
     },
     "login": {
@@ -319,6 +324,17 @@
       "archive": {
         "empty": "Archiv je prázdný",
         "hint": "Archivované úkoly zaměstnanci nevidí a na nástěnce nejsou. Obnovený úkol se vrátí ve stejném stavu."
+      },
+      "form": {
+        "new": "Nový úkol",
+        "title": "Nový úkol",
+        "description": "Po vytvoření se otevře stránka úkolu — tam lze úkol s objektem přiřadit technikovi.",
+        "property": "Objekt",
+        "propertyPlaceholder": "Vyberte objekt",
+        "noPropertyHint": "Úkol bez objektu nelze předat technikovi: práce se přiřazuje jen k objektu.",
+        "submit": "Vytvořit",
+        "saving": "Vytváříme…",
+        "close": "Zrušit"
       }
     },
     "supplies": {
@@ -702,6 +718,11 @@
         "addNone": "Všechny objekty jsou už otevřené.",
         "addButton": "Přidat",
         "onlyRemove": "Této roli se objekty nepřiřazují: přiřazení lze jen odebrat."
+      },
+      "resetConfirm": {
+        "title": "Obnovit heslo pro {{name}}?",
+        "description": "Staré heslo hned přestane platit. Nové se zobrazí na další obrazovce.",
+        "confirm": "Obnovit heslo"
       }
     },
     "roles": {
@@ -958,7 +979,16 @@
       "cancelledError": "Zrušené úklidy se nepodařilo načíst.",
       "staffError": "Nepodařilo se načíst zaměstnance",
       "repairsError": "Opravy se nepodařilo načíst.",
-      "taskMissing": "Úklid se nepodařilo otevřít."
+      "taskMissing": "Úklid se nepodařilo otevřít.",
+      "past": {
+        "show": "Zobrazit minulé dny",
+        "loading": "Načítáme minulé dny…",
+        "error": "Minulé dny se nepodařilo načíst.",
+        "limit_one": "Minulost nejvýše {{count}} den zpět",
+        "limit_few": "Minulost nejvýše {{count}} dny zpět",
+        "limit_many": "Minulost nejvýše {{count}} dne zpět",
+        "limit_other": "Minulost nejvýše {{count}} dní zpět"
+      }
     }
   },
   "tabs": {

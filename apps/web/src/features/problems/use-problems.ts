@@ -15,10 +15,12 @@ import {
   fetchProblems,
   fetchStaff,
   reopenProblem,
+  reportProblem,
   resolveProblem,
   unarchiveProblem,
   unassignProblem,
   type AssignProblemVariables,
+  type ReportProblemVariables,
 } from './api';
 import { problemKeys } from './keys';
 
@@ -75,6 +77,16 @@ function useInvalidateProblems() {
       queryClient.invalidateQueries({ queryKey: problemKeys.all }),
       queryClient.invalidateQueries({ queryKey: taskKeys.all }),
     ]);
+}
+
+/** «Новое задание»: the board and the list show the new row once the write settles. */
+export function useReportProblem() {
+  const client = useSupabase();
+  const invalidate = useInvalidateProblems();
+  return useMutation({
+    mutationFn: (variables: ReportProblemVariables) => reportProblem(client, variables),
+    onSuccess: invalidate,
+  });
 }
 
 export function useAssignProblem() {

@@ -1,4 +1,5 @@
-const YEAR_SECONDS = 365 * 24 * 60 * 60;
+/** How long a choice is kept; the server sets the same age when it writes one (the sign-in). */
+export const YEAR_SECONDS = 365 * 24 * 60 * 60;
 
 /**
  * A choice this browser keeps for the whole panel — the theme, the menu's

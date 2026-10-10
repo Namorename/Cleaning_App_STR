@@ -19,6 +19,14 @@ vi.mock('../video-settings', async () => {
   const { createElement } = await import('react');
   return { VideoSettings: () => createElement('p', null, 'Пределы видео компании') };
 });
+// The language writes the profile; its own test covers it. Here it says whose.
+vi.mock('../language-switcher', async () => {
+  const { createElement } = await import('react');
+  return {
+    LanguageSwitcher: ({ userId }: { userId: string }) =>
+      createElement('p', null, `Язык профиля ${userId}`),
+  };
+});
 
 // The router reads the address jsdom holds; the view writes it through
 // history, which jsdom keeps as a browser would. «Назад» moves it a task later
@@ -40,8 +48,10 @@ import { expectPageTitle } from '@/components/page-header.expect';
 
 import { SettingsView } from '../settings-view';
 
+const USER = '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b';
+
 const view = () => (
-  <SettingsView email="manager.test@example.com" theme="system" onSignOut={vi.fn()} />
+  <SettingsView email="manager.test@example.com" userId={USER} theme="system" onSignOut={vi.fn()} />
 );
 
 /** The query of the page's address, without its `?`. */
@@ -94,6 +104,17 @@ describe('the page', () => {
     expect(section('Оформление')).toBeNull();
     expect(section('Компания')).toBeNull();
     expect(section('Процесс')).toBeNull();
+  });
+
+  // The language is the person's, kept in her profile: it belongs to the
+  // account, beside the way out, not to the look of this one browser.
+  test('the account holds the language of the signed-in person, above the way out', () => {
+    render(view());
+
+    const account = section('Аккаунт') as HTMLElement;
+    const language = within(account).getByText(`Язык профиля ${USER}`);
+    const signOut = within(account).getByRole('button', { name: 'Выйти' });
+    expect(language.compareDocumentPosition(signOut)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   test('the address names the section: it is open and its link marked', () => {

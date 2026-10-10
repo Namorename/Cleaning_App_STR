@@ -146,6 +146,11 @@
           "confirmation": "Confirmation",
           "cleaner_comment": "Cleaner's comment"
         }
+      },
+      "language": {
+        "label": "Language",
+        "hint": "Kept in your profile: the panel opens in this language in any other browser too.",
+        "saveFailed": "The language was not changed."
       }
     },
     "login": {
@@ -319,6 +324,17 @@
       "archive": {
         "empty": "The archive is empty",
         "hint": "Archived tasks are hidden from the staff and stay off the board. A restored task comes back in the status it had."
+      },
+      "form": {
+        "new": "New task",
+        "title": "New task",
+        "description": "Once it is created, the task's page opens — there a task with a listing can be assigned to a technician.",
+        "property": "Listing",
+        "propertyPlaceholder": "Choose a listing",
+        "noPropertyHint": "A task with no listing cannot be handed to a technician: work is assigned only on a listing.",
+        "submit": "Create",
+        "saving": "Creating…",
+        "close": "Cancel"
       }
     },
     "supplies": {
@@ -700,6 +716,11 @@
         "addNone": "Every listing is already open.",
         "addButton": "Add",
         "onlyRemove": "This role is not put on listings: its links can only be removed."
+      },
+      "resetConfirm": {
+        "title": "Reset the password for {{name}}?",
+        "description": "The old password stops working at once. The new one appears on the next screen.",
+        "confirm": "Reset password"
       }
     },
     "roles": {
@@ -946,7 +967,14 @@
       "cancelledError": "Could not load the cancelled cleanings.",
       "staffError": "Could not load the staff",
       "repairsError": "Could not load the repairs.",
-      "taskMissing": "The cleaning could not be opened."
+      "taskMissing": "The cleaning could not be opened.",
+      "past": {
+        "show": "Show past days",
+        "loading": "Loading past days…",
+        "error": "Could not load the past days.",
+        "limit_one": "The past goes back {{count}} day at most",
+        "limit_other": "The past goes back {{count}} days at most"
+      }
     }
   },
   "tabs": {

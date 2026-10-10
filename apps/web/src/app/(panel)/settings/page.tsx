@@ -20,5 +20,12 @@ export default async function SettingsPage() {
   } = await supabase.auth.getUser();
   const theme = themeFromCookie((await cookies()).get(THEME_COOKIE)?.value);
 
-  return <SettingsView email={user?.email ?? ''} theme={theme} onSignOut={signOut} />;
+  return (
+    <SettingsView
+      email={user?.email ?? ''}
+      userId={user?.id ?? ''}
+      theme={theme}
+      onSignOut={signOut}
+    />
+  );
 }

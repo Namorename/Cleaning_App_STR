@@ -208,15 +208,87 @@ describe('TeamView', () => {
     await userEvent.click(
       within(rowFor('Maria Test')).getByRole('button', { name: 'Сбросить пароль' }),
     );
+    const question = await screen.findByRole('dialog', {
+      name: 'Сбросить пароль для Maria Test?',
+    });
+    await userEvent.click(within(question).getByRole('button', { name: 'Сбросить пароль' }));
 
     expect(resetPassword).toHaveBeenCalledWith(MARIA, expect.anything());
-    const dialog = await screen.findByRole('dialog');
+    const dialog = await screen.findByRole('dialog', { name: 'Пароль для Maria Test' });
     expect(within(dialog).getByText('Пароль для Maria Test')).toBeInTheDocument();
     expect(within(dialog).getByText(NEW_PASSWORD)).toBeInTheDocument();
     expect(within(dialog).getByText('maria@example.com')).toBeInTheDocument();
     expect(
       within(dialog).getByText('Письмо с логином и паролем отправлено на maria@example.com.'),
     ).toBeInTheDocument();
+  });
+
+  // The owner, 09.10: one press used to set a new password, and the old one
+  // stopped working before anybody was asked.
+  describe('a reset asks first', () => {
+    const askFor = async (name: string) => {
+      const row = within(rowFor(name)).getByRole('button', { name: 'Сбросить пароль' });
+      await userEvent.click(row);
+      const question = await screen.findByRole('dialog', {
+        name: `Сбросить пароль для ${name}?`,
+      });
+      return { row, question };
+    };
+
+    test('names the person, and sends nothing yet', async () => {
+      render(<TeamView />);
+
+      const { question } = await askFor('Maria Test');
+
+      expect(question).toHaveAccessibleDescription(
+        'Старый пароль сразу перестанет работать. Новый появится на следующем экране.',
+      );
+      expect(resetPassword).not.toHaveBeenCalled();
+    });
+
+    test('opens with the focus on «Отмена»', async () => {
+      render(<TeamView />);
+
+      const { question } = await askFor('Maria Test');
+
+      await waitFor(() =>
+        expect(within(question).getByRole('button', { name: 'Отмена' })).toHaveFocus(),
+      );
+    });
+
+    test('«Отмена» closes it with nothing changed, and the focus goes back to the row', async () => {
+      render(<TeamView />);
+      const { row, question } = await askFor('Maria Test');
+
+      await userEvent.click(within(question).getByRole('button', { name: 'Отмена' }));
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(resetPassword).not.toHaveBeenCalled();
+      await waitFor(() => expect(row).toHaveFocus());
+    });
+
+    test('Escape closes it with nothing changed', async () => {
+      render(<TeamView />);
+      await askFor('Maria Test');
+
+      await userEvent.keyboard('{Escape}');
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+      expect(resetPassword).not.toHaveBeenCalled();
+    });
+
+    test('the answer «Сбросить пароль» resets once, for that person', async () => {
+      render(<TeamView />);
+      const { question } = await askFor('Petr Tech');
+
+      await userEvent.click(within(question).getByRole('button', { name: 'Сбросить пароль' }));
+
+      expect(resetPassword).toHaveBeenCalledTimes(1);
+      expect(resetPassword).toHaveBeenCalledWith(PETR, expect.anything());
+      expect(
+        await screen.findByRole('dialog', { name: 'Пароль для Petr Tech' }),
+      ).toBeInTheDocument();
+    });
   });
 
   test('cannot reset a password for somebody who never had a login', async () => {

@@ -24,6 +24,7 @@ import { serverErrorText } from '@/lib/server-error';
 
 import { LinksEditor } from './links-editor';
 import { PasswordDialog, type PasswordSubject } from './password-dialog';
+import { ResetPasswordDialog } from './reset-password-dialog';
 import {
   countLinks,
   isInTab,
@@ -65,6 +66,8 @@ export function TeamView() {
   const [editing, setEditing] = useState<Editing>(null);
   const [linksFor, setLinksFor] = useState<Staff | null>(null);
   const [password, setPassword] = useState<PasswordSubject | null>(null);
+  // Whose reset is being asked about: nothing is sent until the answer.
+  const [resetFor, setResetFor] = useState<Staff | null>(null);
 
   const everybody = staff.data ?? [];
   // The filters narrow before the tabs count: a count that disagrees with the
@@ -82,10 +85,14 @@ export function TeamView() {
       onSuccess: (account) =>
         setPassword({
           account,
-          name: person.full_name ?? person.email ?? '',
+          name: nameOf(person),
           email: person.email ?? '',
         }),
     });
+  };
+  const confirmReset = (person: Staff) => {
+    setResetFor(null);
+    askForPassword(person);
   };
 
   return (
@@ -207,7 +214,7 @@ export function TeamView() {
                       variant="outline"
                       size="sm"
                       disabled={reset.isPending || person.email === null}
-                      onClick={() => askForPassword(person)}
+                      onClick={() => setResetFor(person)}
                     >
                       {t('panel.team.resetPassword')}
                     </Button>
@@ -240,9 +247,22 @@ export function TeamView() {
 
       {linksFor === null ? null : <LinksEditor staff={linksFor} onClose={() => setLinksFor(null)} />}
 
+      {resetFor === null ? null : (
+        <ResetPasswordDialog
+          name={nameOf(resetFor)}
+          onConfirm={() => confirmReset(resetFor)}
+          onClose={() => setResetFor(null)}
+        />
+      )}
+
       {password === null ? null : (
         <PasswordDialog subject={password} onClose={() => setPassword(null)} />
       )}
     </div>
   );
+}
+
+/** A person as the dialogs name her: the name, else the login. */
+function nameOf(person: Staff): string {
+  return person.full_name ?? person.email ?? '';
 }
