@@ -83,7 +83,7 @@ export default function SupplyFormRoute() {
   // The root layout names the screen «Новая заявка»; a rewrite says what it
   // is from the first frame, while the request is still loading too — once,
   // and never on the way back after «Сохранить» (hooks/use-screen-title).
-  useScreenTitle(editingId === null ? undefined : t('supplies.editTitle'));
+  useScreenTitle(editingId === null || isLeaving ? undefined : t('supplies.editTitle'));
 
   if (draft === null) {
     // A rewrite that cannot start: nobody to ask as (the query never runs),

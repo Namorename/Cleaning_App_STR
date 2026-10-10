@@ -38,7 +38,8 @@ const mockFocus: { effect: (() => void) | null } = { effect: null };
 
 /**
  * The screen's place in the stack: who listens for it leaving, and what it
- * set on the header. Going back tells the listeners first, as the router does.
+ * set on the header. expo-router queues a back and runs it after the draw,
+ * so `router.back` here tells no listener: `beforeRemove` comes late.
  */
 type Listener = () => void;
 const mockNavigation = {
@@ -55,10 +56,7 @@ const mockNavigation = {
 
 jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
-  router: {
-    back: jest.fn(() => mockNavigation.listeners.get('beforeRemove')?.forEach((fn) => fn())),
-    push: jest.fn(),
-  },
+  router: { back: jest.fn(), push: jest.fn() },
   useNavigation: () => mockNavigation,
   useLocalSearchParams: () => ({
     id: '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b',
@@ -507,12 +505,11 @@ describe('a video step of her task under way', () => {
   });
 });
 
-// Night of 2026-10-10, block 1: a step that fails to draw says so with
-// «Повторить» and «Назад», rather than leaving the root to catch it.
 // «Выполнено» takes her back by itself, and the answers that come in during
 // the way back redraw the screen. On Android a header touched in the pop's
 // moment brings the app down (Sentry, 2026-10-09 and 10-10), so the title is
-// set once, and not again once the screen is leaving.
+// set once, and not again from the draw that decides to leave — before the
+// queued back has told anyone.
 describe('the header of a step that leaves by itself', () => {
   const ME = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
   const step: TaskStep = {
@@ -573,6 +570,8 @@ describe('the header of a step that leaves by itself', () => {
   });
 });
 
+// Night of 2026-10-10, block 1: a step that fails to draw says so with
+// «Повторить» and «Назад», rather than leaving the root to catch it.
 test('the step has a boundary of its own', () => {
   expect(ErrorBoundary).toBe(RouteError);
 });

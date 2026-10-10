@@ -81,8 +81,11 @@ export default function StepRoute() {
   const skip = useSkipStep();
 
   const step = steps.data?.find((item) => item.id === stepId);
-  // Set once, never on the way back after «Выполнено» (hooks/use-screen-title).
-  useScreenTitle(step === undefined ? undefined : stepTitle(step));
+  const isLeaving = complete.isSuccess || complete.isPaused || skip.isSuccess || skip.isPaused;
+  // Set once, and frozen from the draw that decides to leave: the router's
+  // back is queued, so `beforeRemove` alone comes a moment late
+  // (hooks/use-screen-title).
+  useScreenTitle(step === undefined || isLeaving ? undefined : stepTitle(step));
   const isEditable =
     task.data?.status === 'in_progress' && task.data.assignee_id === userId && userId !== null;
 
@@ -150,7 +153,6 @@ export default function StepRoute() {
     }, []),
   );
 
-  const isLeaving = complete.isSuccess || complete.isPaused || skip.isSuccess || skip.isPaused;
   useEffect(() => {
     if (isLeaving) {
       router.back();

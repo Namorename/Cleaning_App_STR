@@ -26,7 +26,10 @@ jest.mock('expo-crypto', () => ({ randomUUID: () => 'f1a2b3c4-1111-4111-8111-f1a
 const mockTitles: unknown[] = [];
 let mockParams: Record<string, string> = {};
 
-/** The screen's place in the stack; going back tells the listeners first, as the router does. */
+/**
+ * The screen's place in the stack. expo-router queues a back and runs it after
+ * the draw, so `router.back` here tells no listener: `beforeRemove` comes late.
+ */
 type Listener = () => void;
 const mockNavigation = {
   listeners: new Map<string, Set<Listener>>(),
@@ -40,14 +43,11 @@ const mockNavigation = {
   },
 };
 
-jest.mock('expo-router', () => {
-  const leave = () => mockNavigation.listeners.get('beforeRemove')?.forEach((fn) => fn());
-  return {
-    router: { back: jest.fn(leave), replace: jest.fn(leave) },
-    useLocalSearchParams: () => mockParams,
-    useNavigation: () => mockNavigation,
-  };
-});
+jest.mock('expo-router', () => ({
+  router: { back: jest.fn(), replace: jest.fn() },
+  useLocalSearchParams: () => mockParams,
+  useNavigation: () => mockNavigation,
+}));
 
 const mockSession: { userId: string | null } = { userId: ME };
 
