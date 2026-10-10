@@ -4,6 +4,7 @@ import { persistQueryClientRestore } from '@tanstack/react-query-persist-client'
 import { renderHook, waitFor } from '@testing-library/react-native';
 
 import { problemKeys } from '@/features/problems/keys';
+import { letGoAfterSessionEnded } from '@/features/push/pending-release';
 import { useMyProblems } from '@/features/problems/use-problems';
 import { taskMutationKeys } from '@/features/tasks/use-tasks';
 import {
@@ -61,6 +62,9 @@ jest.mock('@/lib/supabase', () => ({
 }));
 jest.mock('@/features/auth/session', () => ({
   useSession: () => ({ userId: mockAuth.userId }),
+}));
+jest.mock('@/features/push/pending-release', () => ({
+  letGoAfterSessionEnded: jest.fn(async () => undefined),
 }));
 jest.mock('@/features/problems/api', () => ({
   ...jest.requireActual('@/features/problems/api'),
@@ -149,6 +153,7 @@ async function hasSettled(promise: Promise<unknown>): Promise<boolean> {
 
 beforeEach(async () => {
   await AsyncStorage.clear();
+  jest.mocked(letGoAfterSessionEnded).mockClear();
   mockAuth.listener = null;
   mockAuth.userId = CLEANER;
   client = createAppQueryClient();
@@ -172,6 +177,24 @@ test('signing out forgets the lists in memory and on disk, and parks her moves w
   expect(client.getQueryCache().getAll()).toHaveLength(0);
   await waitFor(async () => expect(await parkedVariablesOf(CLEANER)).toEqual([CLAIM]));
   expect(client.getMutationCache().getAll()).toHaveLength(0);
+});
+
+// Owner's word of 2026-10-11, 00:40: a session that ends without the button —
+// a refused refresh, a new password — lets go of the phone's push token too.
+test('signing out lets go of the phone’s push token, whatever ended the session', async () => {
+  forgetListsOnSignOut(client, ALREADY_IN);
+
+  mockAuth.listener?.('SIGNED_OUT', null);
+
+  await waitFor(() => expect(letGoAfterSessionEnded).toHaveBeenCalledTimes(1));
+});
+
+test('anything but a sign-out leaves the push token alone', async () => {
+  forgetListsOnSignOut(client, ALREADY_IN);
+
+  mockAuth.listener?.('TOKEN_REFRESHED', { user: { id: CLEANER } });
+
+  expect(letGoAfterSessionEnded).not.toHaveBeenCalled();
 });
 
 test('signed in as somebody else, no list of the one before is shown before the first read', async () => {

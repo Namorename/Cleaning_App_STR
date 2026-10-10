@@ -1,4 +1,4 @@
-import { useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { onlineManager, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
@@ -14,6 +14,7 @@ import { destinationOf, staleAfter } from './destination';
 import { isNewTap } from './followed-taps';
 import { useLastResponse } from './last-response';
 import { readPushData, type PushData } from './payload';
+import { flushPendingRelease } from './pending-release';
 import { needsAsking, readPermissionState } from './permission';
 import { registerThisPhone } from './registration';
 import { isRegisteredFor } from './token-store';
@@ -63,6 +64,34 @@ export function usePushRegistration(userId: string | null): void {
       ensureChannels().catch(reportError);
     }
   }, [language]);
+}
+
+/**
+ * Sends a token waiting to be let go of after a sign-out nobody heard
+ * (pending-release.ts): at the start, on coming back to the app and on coming
+ * back online — signed in or not (owner's word of 2026-10-11, 00:40).
+ */
+export function usePendingRelease(): void {
+  useEffect(() => {
+    if (!hasPushes) {
+      return;
+    }
+    void flushPendingRelease();
+    const appState = AppState.addEventListener('change', (status) => {
+      if (status === 'active') {
+        void flushPendingRelease();
+      }
+    });
+    const online = onlineManager.subscribe((isOnline) => {
+      if (isOnline) {
+        void flushPendingRelease();
+      }
+    });
+    return () => {
+      appState.remove();
+      online();
+    };
+  }, []);
 }
 
 function refresh(client: QueryClient, data: PushData | null): Promise<void[]> {

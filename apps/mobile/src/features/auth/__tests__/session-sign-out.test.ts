@@ -43,6 +43,17 @@ jest.mock('@/features/push/registration', () => ({
 jest.mock('@/features/push/token-store', () => ({
   registrant: jest.fn(() => 'me'),
   unmarkRegistered: jest.fn(),
+  beginSignOut: jest.fn(() => calls.push('begin')),
+  endSignOut: jest.fn(() => calls.push('end')),
+}));
+
+jest.mock('@/features/push/pending-release', () => ({
+  keepThisPhonePending: jest.fn(async () => {
+    calls.push('keep');
+  }),
+  flushPendingRelease: jest.fn(async () => {
+    calls.push('flush');
+  }),
 }));
 
 const mockRelease = jest.mocked(releaseThisPhone);
@@ -77,7 +88,38 @@ beforeEach(() => {
 test('lets go of the phone before signing out, and clears it once she is out', async () => {
   await signOut();
 
-  expect(calls).toEqual(['release', 'signOut', 'clear']);
+  expect(calls).toEqual(['begin', 'release', 'signOut', 'clear', 'flush', 'end']);
+});
+
+// Owner's word of 2026-10-11, 00:40: a let-go the server did not confirm is
+// kept to be sent again, before the phone forgets its token.
+test('no signal, the session gone and the let-go unconfirmed: the token waits to be let go of', async () => {
+  mockRelease.mockResolvedValue('unconfirmed');
+  mockSignOut.mockImplementation(async () => {
+    calls.push('signOut');
+    return { error: noSignal };
+  });
+
+  await expect(signOut()).resolves.toBeUndefined();
+
+  expect(calls).toEqual(['begin', 'signOut', 'keep', 'clear', 'flush', 'end']);
+});
+
+test('a let-go the server heard keeps nothing to send again', async () => {
+  await signOut();
+
+  expect(calls).not.toContain('keep');
+});
+
+test('still in after a let-go nobody heard: nothing waits, the phone keeps its token', async () => {
+  mockRelease.mockResolvedValue('unconfirmed');
+  mockSignOut.mockResolvedValue({ error: noSignal });
+  storedSession.mockResolvedValue('{"access_token":"expired"}');
+
+  await expect(signOut()).rejects.toBe(noSignal);
+
+  expect(calls).not.toContain('keep');
+  expect(calls.at(-1)).toBe('end');
 });
 
 test('no signal, and the session is gone: she is signed out, nothing failed, the phone is cleared', async () => {

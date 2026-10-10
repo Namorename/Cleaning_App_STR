@@ -2,8 +2,14 @@ import type { Session } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { clearThisPhone, releaseThisPhone } from '@/features/push/api';
+import { flushPendingRelease, keepThisPhonePending } from '@/features/push/pending-release';
 import { registerThisPhone } from '@/features/push/registration';
-import { registrant, unmarkRegistered } from '@/features/push/token-store';
+import {
+  beginSignOut,
+  endSignOut,
+  registrant,
+  unmarkRegistered,
+} from '@/features/push/token-store';
 import { applyWordContext } from '@/i18n';
 import { isNetworkError } from '@/lib/online';
 import { reportUnlessOffline } from '@/lib/sentry';
@@ -105,20 +111,34 @@ export async function signIn(email: string, password: string): Promise<void> {
  */
 export async function signOut(): Promise<void> {
   const person = registrant();
-  const release = await releaseThisPhone();
-  const { error } = await supabase.auth.signOut();
-  const isOut =
-    error === null ||
-    (isNetworkError(error) && (await sessionStorage.getItem(SESSION_STORAGE_KEY)) === null);
-  if (isOut) {
-    await clearThisPhone();
-    return;
-  }
-  if (release === 'released') {
-    unmarkRegistered();
-    if (person !== null) {
-      registerThisPhone(person).catch(reportUnlessOffline);
+  // The session ends during this call: its own let-go is this one, not the
+  // listener's (pending-release.ts, letGoAfterSessionEnded).
+  beginSignOut();
+  try {
+    const release = await releaseThisPhone();
+    const { error } = await supabase.auth.signOut();
+    const isOut =
+      error === null ||
+      (isNetworkError(error) && (await sessionStorage.getItem(SESSION_STORAGE_KEY)) === null);
+    if (isOut) {
+      // A let-go the server did not hear waits to be sent again, with no
+      // session, before the phone forgets its token (owner's word of
+      // 2026-10-11, 00:40).
+      if (release === 'unconfirmed') {
+        await keepThisPhonePending();
+      }
+      await clearThisPhone();
+      await flushPendingRelease();
+      return;
     }
+    if (release === 'released') {
+      unmarkRegistered();
+      if (person !== null) {
+        registerThisPhone(person).catch(reportUnlessOffline);
+      }
+    }
+    throw error;
+  } finally {
+    endSignOut();
   }
-  throw error;
 }

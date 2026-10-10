@@ -1,7 +1,13 @@
 import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 
-import { FORGET_TIMEOUT_MS, clearThisPhone, registerPushToken, releaseThisPhone } from '../api';
+import {
+  FORGET_TIMEOUT_MS,
+  clearThisPhone,
+  registerPushToken,
+  releasePushToken,
+  releaseThisPhone,
+} from '../api';
 import { rememberToken, signOutsSoFar, trackRegistration } from '../token-store';
 
 /**
@@ -143,6 +149,46 @@ describe('releaseThisPhone', () => {
 
       await expect(releasing).resolves.toBe('released');
       expect(mockRpc).toHaveBeenCalledWith('unregister_push_token', { p_token: TOKEN });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+});
+
+// Owner's word of 2026-10-11, 00:40: a token kept after a sign-out nobody
+// heard is let go of with no session (pending-release.ts).
+describe('releasePushToken — no session needed', () => {
+  const SINCE = '2026-10-11T07:00:00.000Z';
+
+  test('asks the server with the token and the moment, and says it was heard', async () => {
+    rpcAnswering(Promise.resolve({ error: null }));
+
+    await expect(releasePushToken(TOKEN, SINCE)).resolves.toBe(true);
+
+    expect(mockRpc).toHaveBeenCalledWith('release_push_token', { p_token: TOKEN, p_since: SINCE });
+  });
+
+  test('a refusal is not heard', async () => {
+    rpcAnswering(Promise.resolve({ error: { message: 'refused' } }));
+
+    await expect(releasePushToken(TOKEN, SINCE)).resolves.toBe(false);
+  });
+
+  test('no signal is not heard, and nothing is thrown', async () => {
+    rpcAnswering(Promise.reject(new TypeError('Network request failed')));
+
+    await expect(releasePushToken(TOKEN, SINCE)).resolves.toBe(false);
+  });
+
+  test('no answer in time is not heard', async () => {
+    jest.useFakeTimers();
+    try {
+      rpcAnswering(new Promise(() => undefined));
+
+      const releasing = releasePushToken(TOKEN, SINCE);
+      await jest.advanceTimersByTimeAsync(FORGET_TIMEOUT_MS);
+
+      await expect(releasing).resolves.toBe(false);
     } finally {
       jest.useRealTimers();
     }

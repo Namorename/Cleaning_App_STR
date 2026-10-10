@@ -1,4 +1,4 @@
-import { QueryClient, QueryObserver } from '@tanstack/react-query';
+import { QueryClient, QueryObserver, onlineManager } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import * as Sentry from '@sentry/react-native';
 import * as Notifications from 'expo-notifications';
@@ -11,11 +11,13 @@ import { withClient } from '@/testing/restored-cache';
 import { isNewTap } from '../followed-taps';
 import {
   TAP_LOOKUP_TIMEOUT_MS,
+  usePendingRelease,
   usePermissionPrompt,
   usePushRefresh,
   usePushRegistration,
   usePushTaps,
 } from '../hooks';
+import { flushPendingRelease } from '../pending-release';
 import { registerThisPhone } from '../registration';
 import { isRegisteredFor } from '../token-store';
 
@@ -26,6 +28,7 @@ import { isRegisteredFor } from '../token-store';
  */
 
 jest.mock('../registration', () => ({ registerThisPhone: jest.fn(async () => true) }));
+jest.mock('../pending-release', () => ({ flushPendingRelease: jest.fn(async () => undefined) }));
 jest.mock('@/features/tasks/api', () => ({ fetchTask: jest.fn(async () => null) }));
 jest.mock('../token-store', () => ({ isRegisteredFor: jest.fn(() => true) }));
 jest.mock('expo-router', () => ({
@@ -64,6 +67,41 @@ beforeEach(() => {
   lastResponse.mockReturnValue(null);
   registered.mockReturnValue(true);
   canDismiss.mockReturnValue(false);
+});
+
+// Owner's word of 2026-10-11, 00:40: a token waiting to be let go of is sent
+// at the start, on coming back to the app and on coming back online —
+// signed in or not.
+describe('usePendingRelease', () => {
+  afterEach(() => {
+    onlineManager.setOnline(true);
+  });
+
+  test('sends what waits at the start, with nobody signed in', async () => {
+    await renderHook(() => usePendingRelease());
+
+    expect(flushPendingRelease).toHaveBeenCalledTimes(1);
+  });
+
+  test('sends it again on coming back to the app', async () => {
+    await renderHook(() => usePendingRelease());
+    jest.mocked(flushPendingRelease).mockClear();
+
+    lastListener<(status: string) => void>(AppState.addEventListener, 1)('active');
+
+    expect(flushPendingRelease).toHaveBeenCalledTimes(1);
+  });
+
+  test('sends it again when the signal comes back, and not when it goes', async () => {
+    await renderHook(() => usePendingRelease());
+    jest.mocked(flushPendingRelease).mockClear();
+
+    await act(async () => onlineManager.setOnline(false));
+    expect(flushPendingRelease).not.toHaveBeenCalled();
+    await act(async () => onlineManager.setOnline(true));
+
+    expect(flushPendingRelease).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('usePushRegistration', () => {

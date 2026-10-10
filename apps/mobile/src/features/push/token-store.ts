@@ -26,6 +26,22 @@ export function signOutsSoFar(): number {
   return signOuts;
 }
 
+/** The button's own sign-outs under way: it lets go of the phone itself (session.tsx). */
+let signingOut = 0;
+
+export function beginSignOut(): void {
+  signingOut += 1;
+}
+
+export function endSignOut(): void {
+  signingOut = Math.max(0, signingOut - 1);
+}
+
+/** A sign-out by the button is under way: a session ending meanwhile is its doing. */
+export function isSigningOut(): boolean {
+  return signingOut > 0;
+}
+
 export async function rememberToken(token: string): Promise<void> {
   await SecureStore.setItemAsync(TOKEN_KEY, token);
 }

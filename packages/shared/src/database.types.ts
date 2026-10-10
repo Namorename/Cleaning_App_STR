@@ -2442,6 +2442,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      release_push_token: {
+        Args: { p_since: string; p_token: string }
+        Returns: undefined
+      }
       release_work_of_inactive: { Args: { p_person: string }; Returns: Json }
       remove_task_media: {
         Args: { p_id: string }

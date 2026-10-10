@@ -222,13 +222,18 @@ select pg_temp.check('but is by authenticated and service_role, as before',
 drop function public.grants_probe_fn();
 drop sequence public.grants_probe_seq;
 
--- ---------- functions: nothing in public is anon's to call ----------
+-- ---------- functions: nothing in public is anon's to call, but one ----------
 --
 -- anon holds USAGE on public, so every function PUBLIC may execute is an
 -- /rpc/<name> endpoint for anyone holding the publishable key. The functions
 -- that are members of an extension are the extension's to govern and are left
 -- out; the application's own must each have said who may call them.
-select pg_temp.check('no function of ours in public is executable by anon',
+--
+-- One is anon's by design (owner's word of 2026-10-11, 00:40): a phone that
+-- signed out without signal lets go of its push token with no session left
+-- (20261011100000_push_release, supabase/tests/push_release.sql). Anything
+-- else here is a leak.
+select pg_temp.check('no function of ours in public is executable by anon but the release',
   (select coalesce(string_agg(p.oid::regprocedure::text, ', ' order by 1), '')
    from pg_proc p
    where p.pronamespace = 'public'::regnamespace
@@ -236,7 +241,7 @@ select pg_temp.check('no function of ours in public is executable by anon',
                      where d.classid = 'pg_proc'::regclass and d.objid = p.oid
                        and d.deptype = 'e')
      and has_function_privilege('anon', p.oid, 'EXECUTE')),
-  '');
+  'release_push_token(text,timestamp with time zone)');
 
 select pg_temp.check('none carries PUBLIC in its ACL, written or built in',
   (select coalesce(string_agg(p.oid::regprocedure::text, ', ' order by 1), '')
