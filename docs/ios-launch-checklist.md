@@ -144,7 +144,7 @@ App Store Connect → TestFlight → External Testing → «+» группа →
 - **Sign-in required → да, демо-учётка.** Демо-компания в облаке **не создана** (решение владельца
   09.10): без неё рецензенту придётся дать учётку настоящей компании, а это настоящие брони, имена
   гостей и коды дверей. Пока демо-компании нет, внешний TestFlight не отправлять.
-- **Privacy Policy URL** — `https://<домен панели>/privacy`. Страница готова в ветке `privacy-page`
+- **Privacy Policy URL** — `https://woom-bnb.vercel.app/privacy`. Страница готова в ветке `privacy-page`
   (превью Vercel), в `main` — после того как владелец впишет реквизиты (переменные Vercel, см.
   `docs/privacy-policy-draft.md`).
 

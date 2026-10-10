@@ -37,7 +37,8 @@ npm run test:web && npm run typecheck:web
 
 Вход только для ролей `manager` и `admin` (роль читается из `app_metadata`);
 остальных панель отправляет на `/login`. Переводы у панели и приложения
-общие: `packages/shared/src/i18n/locales`. Деплой — Vercel: Root Directory
+общие: `packages/shared/src/i18n/locales`. Деплой — Vercel (проект `woom`,
+боевой адрес `https://woom-bnb.vercel.app`): Root Directory
 `apps/web`, те же две переменные `NEXT_PUBLIC_*` в настройках проекта, и
 включённый переключатель «Include source files outside of the Root Directory
 in the Build Step» — без него Vercel не видит `packages/shared` и корневой
