@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AccessibilityInfo, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
+import { useScreenEdgePadding } from '@/components/bottom-inset';
 import { ErrorState } from '@/components/error-state';
 import { Text } from '@/components/text';
 import { Spacing, type Theme } from '@/constants/theme';
@@ -33,6 +34,8 @@ export interface VideoRecorderProps {
 export function VideoRecorder({ limits, onRecorded }: VideoRecorderProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  // «Записать» clears the system's bar (components/bottom-inset.ts).
+  const end = useScreenEdgePadding(Spacing.lg);
   const camera = useRef<CameraView>(null);
   const recording = useVideoRecording(camera, limits, onRecorded);
   const { elapsedMs, isRecording, isSaving } = recording;
@@ -86,7 +89,7 @@ export function VideoRecorder({ limits, onRecorded }: VideoRecorderProps) {
         onMountError={recording.onMountError}
       />
       {/* At the largest font the panel scrolls and the camera's view shrinks. */}
-      <ScrollView style={styles.panel} contentContainerStyle={layout.controls}>
+      <ScrollView style={styles.panel} contentContainerStyle={[layout.controls, end]}>
         {recording.trouble !== null ? <RecorderNotice trouble={recording.trouble} /> : null}
         {/* The clock is for the eye; the reader hears the words under it. */}
         <Text

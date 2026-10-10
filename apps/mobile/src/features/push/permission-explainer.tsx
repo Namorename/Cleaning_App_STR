@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet } from 'react-native';
 
+import { useScreenEdgePadding } from '@/components/bottom-inset';
 import { Button } from '@/components/button';
 import { Text } from '@/components/text';
 import { Spacing, type Theme } from '@/constants/theme';
@@ -33,6 +34,10 @@ export function PermissionExplainer() {
   const { userId } = useSession();
   const [isAsking, setAsking] = useState(false);
   const [hasFailed, setFailed] = useState(false);
+  // «Не сейчас» is last: at a large font it reaches the bottom, and scrolled to
+  // the end it stops clear of the system's bar. UIKit insets this view on iOS
+  // by itself (components/bottom-inset.ts).
+  const end = useScreenEdgePadding(Spacing.xl, { isAdjustedOnIos: true });
 
   const onAllow = async () => {
     setAsking(true);
@@ -58,7 +63,7 @@ export function PermissionExplainer() {
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={layout.content}
+      contentContainerStyle={[layout.content, end]}
       contentInsetAdjustmentBehavior="automatic"
     >
       <Text variant="title" accessibilityRole="header">

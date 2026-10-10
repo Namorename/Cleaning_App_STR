@@ -3,6 +3,7 @@ import { Constants, type TaskStatus, type TaskType } from '@str-ops/shared';
 import { RefusalError } from '@/lib/server-error';
 import { supabase } from '@/lib/supabase';
 
+import { DONE_PAGE_SIZE } from './done';
 import { cleaningTaskListSchema, earliestClaimableDate, type CleaningTask } from './schema';
 
 // The joined listing name is what the cleaner actually recognises; the numeric
@@ -98,6 +99,40 @@ export async function fetchMyTasks(cleanerId: string): Promise<CleaningTask[]> {
 }
 
 /**
+ * One page of «Выполненные»: her own finished jobs since `since`, newest
+ * first; `page` counts from 0. Ordered to the id as well, so a page boundary
+ * never repeats or skips a job finished in the same instant as another.
+ *
+ * Her own by the assignee, not by the listing: the row policies also show her
+ * a colleague's finished cleaning on a listing she cleans, and that is not
+ * her history. A finish stamped by nobody (a service write, no
+ * `completed_at`) has no day to fall in the window and is left out.
+ */
+export async function fetchMyDoneTasks(
+  cleanerId: string,
+  page: number,
+  since: string,
+): Promise<CleaningTask[]> {
+  const first = page * DONE_PAGE_SIZE;
+  const { data, error } = await supabase
+    .from('tasks')
+    .select(TASK_COLUMNS)
+    .in('type', MY_TASK_TYPES)
+    .eq('assignee_id', cleanerId)
+    .eq('status', 'done')
+    .gte('completed_at', since)
+    .order('completed_at', { ascending: false })
+    .order('id', { ascending: false })
+    .range(first, first + DONE_PAGE_SIZE - 1);
+
+  if (error) {
+    throw error;
+  }
+
+  return cleaningTaskListSchema.parse(data ?? []);
+}
+
+/**
  * Free tasks on the listings this cleaner is linked to.
  *
  * The link itself is enforced by row level security: an unassigned task on a
@@ -152,6 +187,52 @@ interface SameJob {
   propertyId: number;
 }
 
+/**
+ * One move of a task: the statuses it moves from, what it writes, the key of
+ * its refusal, and — for an accept — the day and the flat she saw.
+ */
+interface Move {
+  from: readonly TaskStatus[];
+  patch: MovePatch;
+  failureKey: string;
+  same?: SameJob;
+  /**
+   * Her row as read back after the move matched none: the row when the move
+   * is done already, null when the move's own refusal stands. May raise a
+   * refusal of its own, with its own sentence.
+   */
+  landed: (row: CleaningTask) => CleaningTask | null;
+}
+
+/** A job still to be done; a take that landed leaves it at one of these, whatever the office did since. */
+function isOpen(status: TaskStatus): boolean {
+  return (OPEN_STATUSES as readonly TaskStatus[]).includes(status);
+}
+
+/** Where a job is once its work has begun: past a take and past an accept. */
+const WORK_BEGUN = ['in_progress', 'done'] as const satisfies readonly TaskStatus[];
+
+function isWorkBegun(status: TaskStatus): boolean {
+  return (WORK_BEGUN as readonly TaskStatus[]).includes(status);
+}
+
+/**
+ * The sentence for her own job found cancelled: the one the task screen's
+ * notice shows when it is (`tasks.pushNotice`), in a technician's words too.
+ * A replayed take or accept that finds it so is told exactly that, never
+ * «already taken» (LOW-6 of the review of dab5237..cb747a5).
+ */
+const CANCELLED_KEY = 'tasks.pushNotice.cancelled';
+
+function refuseCancelled(row: CleaningTask): never {
+  throw new RefusalError(`Task ${row.id} is cancelled`, CANCELLED_KEY);
+}
+
+/** A start or a finish is done when the row is at the status it moves to. */
+function atStatus(status: TaskStatus): Move['landed'] {
+  return (row) => (row.status === status ? row : null);
+}
+
 /** Who the phone's session says is signed in; null for nobody. */
 async function signedInId(): Promise<string | null> {
   const { data, error } = await supabase.auth.getSession();
@@ -162,10 +243,10 @@ async function signedInId(): Promise<string | null> {
 }
 
 /**
- * The row, when the move it was to make is already made: at the move's
- * status, held by whoever made it — the one it hands the task to, or the one
- * signed in — and, for an accept, on the day and in the flat she saw. Null
- * when it is not, or the row is out of her sight.
+ * The row, when the move it was to make is already made: held by whoever
+ * made it — the one it hands the task to, or the one signed in — and as the
+ * move's own `landed` reads it. Null when it is not, or the row is out of her
+ * sight.
  *
  * A move replayed from the queue after its answer was lost without signal
  * finds no row at the status it moves from — its first try moved it — and
@@ -173,21 +254,19 @@ async function signedInId(): Promise<string | null> {
  * verification review of c466bf5..bc7dcc9, item 6). The row is read through
  * the same select as the task's own screen; a colleague's row on one of her
  * listings is visible to her too, hence the holder.
+ *
+ * A failure of the read is thrown as it came, the server's own shape and all:
+ * the screens put every move's failure through `serverErrorText`, and one
+ * that is the network's pauses the move until there is signal
+ * (lib/move-retry.ts) instead of refusing it.
  */
-async function alreadyMoved(
-  taskId: string,
-  patch: MovePatch,
-  same: SameJob | undefined,
-): Promise<CleaningTask | null> {
+async function alreadyMoved(taskId: string, move: Move): Promise<CleaningTask | null> {
   const row = await fetchTask(taskId);
-  if (row === null || row.status !== patch.status) {
+  if (row === null) {
     return null;
   }
-  const isSameJob =
-    same === undefined ||
-    (row.scheduled_date === same.scheduledDate && row.property_id === same.propertyId);
-  const mover = patch.assignee_id ?? (await signedInId());
-  return isSameJob && mover !== null && row.assignee_id === mover ? row : null;
+  const mover = move.patch.assignee_id ?? (await signedInId());
+  return mover !== null && row.assignee_id === mover ? move.landed(row) : null;
 }
 
 /**
@@ -206,13 +285,8 @@ async function alreadyMoved(
  * the reader's sentence by its key — so a screen translates it through
  * `serverErrorText` like any refusal and never shows the log line.
  */
-async function moveTask(
-  taskId: string,
-  from: readonly TaskStatus[],
-  patch: MovePatch,
-  failureKey: string,
-  same?: SameJob,
-): Promise<CleaningTask> {
+async function moveTask(taskId: string, move: Move): Promise<CleaningTask> {
+  const { from, patch, failureKey, same } = move;
   const moving = supabase.from('tasks').update(patch).eq('id', taskId).in('status', from);
   const narrowed =
     same === undefined
@@ -229,7 +303,7 @@ async function moveTask(
     return moved[0];
   }
 
-  const landed = await alreadyMoved(taskId, patch, same);
+  const landed = await alreadyMoved(taskId, move);
   if (landed !== null) {
     return landed;
   }
@@ -252,16 +326,27 @@ async function moveTask(
  * Zero rows has two causes and the response cannot tell them apart: a
  * colleague was faster, or the task is past the day it could be done and the
  * server refused it. The message covers both rather than guessing — once the
- * row read back is not hers already, taken by this very take replayed after
- * its answer was lost (`alreadyMoved`).
+ * row read back is not hers (`alreadyMoved`). Hers at any status of a job
+ * still to be done, the take landed: replayed after its answer was lost, it
+ * finds the job where the office has put it since — back to 'assigned', on
+ * another day or in another flat — or the office gave it to her before the
+ * take arrived. Either way it is hers, and «already taken» would be a lie
+ * (night journal, review of bc7dcc9..dab5237). So it would be for her job
+ * started or done since — the take landed too — and for one cancelled since,
+ * which she is told was cancelled (LOW-6 of the review of dab5237..cb747a5).
  */
 export function claimTask(taskId: string, cleanerId: string): Promise<CleaningTask> {
-  return moveTask(
-    taskId,
-    ['unassigned'],
-    { assignee_id: cleanerId, status: 'accepted' },
-    'tasks.claimTaken',
-  );
+  return moveTask(taskId, {
+    from: ['unassigned'],
+    patch: { assignee_id: cleanerId, status: 'accepted' },
+    failureKey: 'tasks.claimTaken',
+    landed: (row) => {
+      if (row.status === 'cancelled') {
+        refuseCancelled(row);
+      }
+      return isOpen(row.status) || isWorkBegun(row.status) ? row : null;
+    },
+  });
 }
 
 /**
@@ -278,6 +363,47 @@ export interface AcceptVariables {
 }
 
 /**
+ * Her accept, read back after it matched no row (`alreadyMoved`).
+ *
+ * Accepted on the day and in the flat she saw: done. Still hers and still to
+ * be done, but on another day or in another flat: the job was moved, and she
+ * is told exactly that (`tasks.acceptMoved`) — not «given to someone else or
+ * cancelled». The row cannot say which came first, her accept or the move,
+ * and the sentence claims neither: her accept landed and the move reset it,
+ * or the move came first and her accept never landed — in both the job is now
+ * somewhere she has not accepted, and waits for her accept there. A success
+ * was the other choice, and a quiet one: the card would slip to its new day
+ * without a word, and an accept the server never took (the move first) would
+ * resolve as if it had. Neither needs the server; this one is true in both
+ * orders.
+ *
+ * Her job started or done since, wherever it stands now: there is nothing
+ * left to accept, and the accept counts as landed. Cancelled since: she is
+ * told it was cancelled (LOW-6 of the review of dab5237..cb747a5).
+ */
+function acceptLanded(same: SameJob): Move['landed'] {
+  return (row) => {
+    if (row.status === 'cancelled') {
+      refuseCancelled(row);
+    }
+    if (isWorkBegun(row.status)) {
+      return row;
+    }
+    if (!isOpen(row.status)) {
+      return null;
+    }
+    if (row.scheduled_date !== same.scheduledDate || row.property_id !== same.propertyId) {
+      throw new RefusalError(
+        `Task ${row.id} moved to ${row.scheduled_date} at ${row.property_id}; ` +
+          `the accept was for ${same.scheduledDate} at ${same.propertyId}`,
+        'tasks.acceptMoved',
+      );
+    }
+    return row.status === 'accepted' ? row : null;
+  };
+}
+
+/**
  * Tell the office she will do it.
  *
  * A signal, not a lock: nothing waits for it, and the start does not require
@@ -289,27 +415,42 @@ export interface AcceptVariables {
  * office moving the job puts it back to 'assigned'. So the day and the flat
  * she saw are part of the match. An accept tapped on a card that has not
  * caught up with a move, or replayed from the queue after one, finds no row
- * instead of accepting a day she never saw.
+ * instead of accepting a day she never saw — and she is told it was moved
+ * (`acceptLanded`).
  *
- * Zero rows: given to someone else, cancelled, moved to another day or flat,
- * or carried out of the week she sees.
+ * Zero rows otherwise: given to someone else, cancelled, or carried out of the
+ * week she sees.
  */
 export function acceptTask({
   taskId,
   scheduledDate,
   propertyId,
 }: AcceptVariables): Promise<CleaningTask> {
-  return moveTask(taskId, ['assigned', 'accepted'], { status: 'accepted' }, 'tasks.acceptFailed', {
-    scheduledDate,
-    propertyId,
+  const same = { scheduledDate, propertyId };
+  return moveTask(taskId, {
+    from: ['assigned', 'accepted'],
+    patch: { status: 'accepted' },
+    failureKey: 'tasks.acceptFailed',
+    same,
+    landed: acceptLanded(same),
   });
 }
 
 /** Accepted or not: a cleaner who forgot to accept can still work at the door. */
 export function startTask(taskId: string): Promise<CleaningTask> {
-  return moveTask(taskId, ['assigned', 'accepted'], { status: 'in_progress' }, 'tasks.startFailed');
+  return moveTask(taskId, {
+    from: ['assigned', 'accepted'],
+    patch: { status: 'in_progress' },
+    failureKey: 'tasks.startFailed',
+    landed: atStatus('in_progress'),
+  });
 }
 
 export function finishTask(taskId: string): Promise<CleaningTask> {
-  return moveTask(taskId, ['in_progress'], { status: 'done' }, 'tasks.finishFailed');
+  return moveTask(taskId, {
+    from: ['in_progress'],
+    patch: { status: 'done' },
+    failureKey: 'tasks.finishFailed',
+    landed: atStatus('done'),
+  });
 }

@@ -14,6 +14,7 @@ import {
   NO_ASSIGNEE,
   activeTechnicians,
   boardProblemListSchema,
+  boardReadCutSchema,
   boardSections,
   canAssign,
   canTakeOff,
@@ -22,6 +23,7 @@ import {
   liveRepair,
   staffListSchema,
   type BoardProblem,
+  type BoardRead,
 } from '../schema';
 
 /**
@@ -237,11 +239,34 @@ describe('the filters', () => {
   });
 });
 
+// What the reads said of the cut is kept apart from the rows (`boardKeys.cut`):
+// read back as it was said, and a part it does not name is not said cut.
+describe('the cut as the phone keeps it', () => {
+  test('read back as each read said it', () => {
+    expect(boardReadCutSchema.parse({ isOpenCut: false, isClosedCut: true })).toEqual({
+      isOpenCut: false,
+      isClosedCut: true,
+    });
+  });
+
+  test('a part it does not name is not said cut', () => {
+    expect(boardReadCutSchema.parse({ isClosedCut: true })).toEqual({
+      isOpenCut: false,
+      isClosedCut: true,
+    });
+  });
+});
+
 // The board reads one more of each part than it shows (api.ts): the one more
 // says the part was cut (the verification review of f3217a7..c466bf5, item 3).
 describe('the board cut to its limits', () => {
   const LIMITS = { open: 2, closed: 1 };
   const ids = (problems: readonly { id: string }[]) => problems.map((problem) => problem.id);
+
+  /** The board as its reads answered; neither said cut unless told. */
+  function read(problems: BoardProblem[], cut: Partial<BoardRead> = {}): BoardRead {
+    return { problems, isOpenCut: false, isClosedCut: false, ...cut };
+  }
 
   function numbered(count: number, status: BoardProblem['status'], from: number): BoardProblem[] {
     return Array.from({ length: count }, (_, index) =>
@@ -256,7 +281,7 @@ describe('the board cut to its limits', () => {
     const live = numbered(3, 'open', 0);
     const closed = numbered(1, 'resolved', 10);
 
-    const cut = cutBoard([...live, ...closed], LIMITS);
+    const cut = cutBoard(read([...live, ...closed]), LIMITS);
 
     expect(ids(cut.problems)).toEqual([live[0].id, live[1].id, closed[0].id]);
     expect(cut.isOpenCut).toBe(true);
@@ -267,7 +292,7 @@ describe('the board cut to its limits', () => {
     const live = numbered(1, 'in_progress', 0);
     const closed = [...numbered(1, 'resolved', 10), ...numbered(1, 'cancelled', 11)];
 
-    const cut = cutBoard([...live, ...closed], LIMITS);
+    const cut = cutBoard(read([...live, ...closed]), LIMITS);
 
     expect(ids(cut.problems)).toEqual([live[0].id, closed[0].id]);
     expect(cut.isOpenCut).toBe(false);
@@ -277,12 +302,31 @@ describe('the board cut to its limits', () => {
   test('exactly at the limits, nothing is cut', () => {
     const rows = [...numbered(2, 'assigned', 0), ...numbered(1, 'resolved', 10)];
 
-    const cut = cutBoard(rows, LIMITS);
+    const cut = cutBoard(read(rows), LIMITS);
 
     expect(cut.problems).toEqual(rows);
     expect(cut.isOpenCut).toBe(false);
     expect(cut.isClosedCut).toBe(false);
   });
+
+  // A task closed between the two reads is handed back once (api.ts): the
+  // closed part is then at its limit although its read came back with one
+  // more. The read says so, and the board says so.
+  test.each([
+    ['the closed', { isClosedCut: true }, false, true],
+    ['the open', { isOpenCut: true }, true, false],
+  ] as const)(
+    '%s read said cut is said cut, though what is handed back is at the limit',
+    (_, said, isOpenCut, isClosedCut) => {
+      const rows = [...numbered(2, 'assigned', 0), ...numbered(1, 'resolved', 10)];
+
+      const cut = cutBoard(read(rows, said), LIMITS);
+
+      expect(cut.problems).toEqual(rows);
+      expect(cut.isOpenCut).toBe(isOpenCut);
+      expect(cut.isClosedCut).toBe(isClosedCut);
+    },
+  );
 });
 
 describe('the technicians he hands work to', () => {

@@ -985,7 +985,11 @@
       "saveFailed": "Motiv se změnil, ale neuložil se: po restartu se vrátí předchozí."
     },
     "about": {
-      "heading": "O aplikaci"
+      "heading": "O aplikaci",
+      "version": "Verze",
+      "embedded": "vestavěná sestava",
+      "update": "aktualizace {{id}}",
+      "channel": "kanál {{channel}}"
     },
     "fontLicense": {
       "title": "Licence písma",
@@ -1035,6 +1039,8 @@
     "accept": "Přijmout",
     "start": "Začít úklid",
     "finish": "Dokončit úklid",
+    "finishQuestion": "Dokončit úklid?",
+    "finishConfirm": "Dokončit",
     "claimAccessibility": "Vzít úklid: {{property}}, {{date}}",
     "acceptAccessibility": "Přijmout: {{property}}, {{date}}",
     "claimFailedTitle": "Úklid se nepodařilo vzít",
@@ -1043,6 +1049,8 @@
     "acceptFailedTitle_tech": "Práci se nepodařilo přijmout",
     "acceptFailed": "Úklid se nepodařilo přijmout — mohl být předán jinému, přesunut nebo zrušen.",
     "acceptFailed_tech": "Práci se nepodařilo přijmout — mohla být předána jinému, přesunuta nebo zrušena.",
+    "acceptMoved": "Úklid byl přesunut na jiný den nebo jinam — zkontrolujte ho a přijměte znovu.",
+    "acceptMoved_tech": "Práce byla přesunuta na jiný den nebo jinam — zkontrolujte ji a přijměte znovu.",
     "startFailed": "Úklid se nepodařilo začít — obnovte seznam.",
     "startFailed_tech": "Práci se nepodařilo začít — obnovte seznam.",
     "finishFailed": "Úklid se nepodařilo dokončit — obnovte seznam.",
@@ -1075,6 +1083,8 @@
       "start_tech": "Začít práci",
       "finish": "Dokončit práci",
       "finish_tech": "Dokončit práci",
+      "finishQuestion": "Dokončit práci?",
+      "finishQuestion_tech": "Dokončit práci?",
       "window": "Časové okno",
       "window_tech": "Časové okno",
       "finished": "Práce dokončena",
@@ -1107,6 +1117,18 @@
       "fixBanner": "{{property}} · priorita: {{priority}}",
       "notFound": "Úklid nenalezen, nebo už není váš",
       "notFound_tech": "Práce nenalezena, nebo už není vaše"
+    },
+    "done": {
+      "heading_one": "Hotové za poslední {{count}} den",
+      "heading_few": "Hotové za poslední {{count}} dny",
+      "heading_many": "Hotové za posledních {{count}} dne",
+      "heading_other": "Hotové za posledních {{count}} dní",
+      "more": "Zobrazit další",
+      "empty": "Za tuto dobu nebylo nic dokončeno",
+      "loading": "Načítáme dokončené…",
+      "loadFailed": "Dokončené se nepodařilo načíst",
+      "completedAt": "Dokončeno {{date}}, {{time}}",
+      "completedOn": "Dokončeno {{date}}"
     },
     "pushNotice": {
       "unassigned": "Tento úklid vám byl odebrán.",
@@ -1189,7 +1211,20 @@
     "cameraDenied": "Bez přístupu k fotoaparátu — povolte ho v nastavení telefonu",
     "captureFailed": "Nepodařilo se vyfotit — zkuste to znovu",
     "pickPhoto": "Vybrat fotku z galerie",
-    "galleryDenied": "Přístup do galerie nebyl povolen"
+    "galleryDenied": "Přístup do galerie nebyl povolen",
+    "uploadReason": {
+      "tooLarge": "Soubor je větší, než úložiště přijme (413)",
+      "refused": "Úložiště odmítlo: {{status}}",
+      "server": "Server soubor nepřijal",
+      "noNetwork": "Bez připojení",
+      "timedOut": "Server neodpověděl včas",
+      "busy": "Úložiště je přetížené: {{status}}",
+      "lostPlace": "Nahrávání se přerušilo, zkuste to znovu",
+      "tooSlow": "Připojení je příliš pomalé",
+      "fileUnreadable": "Soubor v telefonu nelze přečíst",
+      "interrupted": "Nahrávání bylo přerušeno",
+      "other": "Chyba: {{type}}"
+    }
   },
   "video": {
     "recordTitle": "Natáčení videa",
@@ -1213,6 +1248,22 @@
     "player": "Přehrání záznamu",
     "send": "Odeslat",
     "retake": "Natočit znovu",
+    "preparing": "Připravujeme video k odeslání…",
+    "queued": "Video je ve frontě: nahraje se samo, až bude připojení.",
+    "backToStep": "Zpět ke kroku",
+    "recordingLost": "Záznam se neuložil. Natočte video znovu.",
+    "tooLargeForStorage": "Video má {{size}} MB, úložiště ale přijme soubory nejvýš do {{limit}} MB. Stiskněte „Natočit znovu“ a natočte kratší video.",
+    "galleryTitle": "Video z galerie",
+    "openingGallery": "Otevíráme galerii…",
+    "pickAnother": "Vybrat jiné",
+    "leaveBodyGallery": "Pokud odejdete, video se neodešle. V galerii zůstane.",
+    "galleryTooLong": "Toto video je delší než {{limit}} s. Vyberte kratší nebo natočte kamerou.",
+    "galleryTooLarge": "Toto video je větší než {{limit}} MB. Vyberte menší nebo natočte kamerou.",
+    "galleryNoLength": "Délku tohoto videa se nepodařilo zjistit. Vyberte jiné nebo natočte kamerou.",
+    "galleryFormat": "Toto video nelze použít: musí být ve formátu MP4 nebo MOV. Vyberte jiné nebo natočte kamerou.",
+    "sourceTitle": "Video ke kroku",
+    "fromCamera": "Natočit kamerou",
+    "fromGallery": "Vybrat z galerie",
     "leaveTitle": "Video nebylo odesláno",
     "leaveBody": "Když odejdete, záznam se z telefonu smaže.",
     "discard": "Neukládat",

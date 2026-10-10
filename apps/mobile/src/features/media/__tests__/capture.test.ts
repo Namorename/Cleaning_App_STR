@@ -4,7 +4,7 @@ import {
   fromBase64,
   metadataLeaks,
 } from '../../../../../../packages/shared/src/testing/image-fixtures';
-import { capturePhoto, EmptyCaptureError, keepRecording } from '../capture';
+import { capturePhoto, EmptyCaptureError, keepRecording, pickVideoFromGallery } from '../capture';
 import { attachFailure } from '../failure';
 import { fileSize, keepFile } from '../file';
 
@@ -223,8 +223,8 @@ test('a photo with nothing to remove is not written again', async () => {
 /**
  * A video comes from the app's own recording screen, not from the picker: the
  * camera reports only where it wrote the file. The length is what the screen
- * timed, the container is the file's own, and it is declared as the camera's
- * — the server refuses a video from anywhere else (`videoCameraOnly`).
+ * timed, the container is the file's own, and it is declared as the camera's;
+ * a video picked from the gallery is declared as the gallery's (below).
  */
 describe('a recording from the app’s own camera', () => {
   const takenAt = '2026-10-09T08:00:00.000Z';
@@ -285,5 +285,78 @@ describe('a recording from the app’s own camera', () => {
     }).catch(() => undefined);
 
     expect(sizes.has('file:///documents/task-media/kept-id.mp4')).toBe(false);
+  });
+});
+
+// Night of 2026-10-10, block 6: a video chosen from the gallery, where the
+// company allows the gallery. The picker hands over a copy in the app's cache;
+// it is kept like a recording, and says it came from the gallery.
+describe('a video from the gallery', () => {
+  const picker = jest.requireMock('expo-image-picker') as { launchImageLibraryAsync: jest.Mock };
+
+  test('asks the gallery for videos only, and reads what the file says of itself', async () => {
+    picker.launchImageLibraryAsync.mockResolvedValueOnce({
+      canceled: false,
+      assets: [
+        {
+          uri: 'file:///cache/ImagePicker/clip.mp4',
+          duration: 20_500,
+          fileSize: 12_000_000,
+          mimeType: 'video/mp4',
+        },
+      ],
+    });
+
+    const picked = await pickVideoFromGallery();
+
+    expect(picker.launchImageLibraryAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ mediaTypes: ['videos'] }),
+    );
+    expect(picked).toEqual({
+      uri: 'file:///cache/ImagePicker/clip.mp4',
+      durationSec: 20.5,
+      byteSize: 12_000_000,
+      mimeType: 'video/mp4',
+      takenAt: expect.any(String),
+    });
+  });
+
+  test('a file that does not say its size or type is measured and named by its container', async () => {
+    sizes.set('file:///cache/ImagePicker/clip.mov', 9_000_000);
+    picker.launchImageLibraryAsync.mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ uri: 'file:///cache/ImagePicker/clip.mov', duration: 4_000 }],
+    });
+
+    const picked = await pickVideoFromGallery();
+
+    expect(picked).toMatchObject({ byteSize: 9_000_000, mimeType: 'video/quicktime' });
+  });
+
+  test('backing out of the gallery is nothing chosen, not a failure', async () => {
+    picker.launchImageLibraryAsync.mockResolvedValueOnce({ canceled: true, assets: null });
+
+    await expect(pickVideoFromGallery()).resolves.toBeNull();
+  });
+
+  test('is kept under an id of ours, in its own container, declared as from the gallery', async () => {
+    sizes.set('file:///cache/ImagePicker/clip.mov', 30_000_000);
+
+    const video = await keepRecording(
+      {
+        uri: 'file:///cache/ImagePicker/clip.mov',
+        durationSec: 12,
+        takenAt: '2026-10-10T08:00:00.000Z',
+      },
+      'gallery',
+      'video/quicktime',
+    );
+
+    expect(video).toMatchObject({
+      uri: 'file:///documents/task-media/kept-id.mov',
+      mimeType: 'video/quicktime',
+      byteSize: 30_000_000,
+      source: 'gallery',
+    });
   });
 });

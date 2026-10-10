@@ -53,6 +53,19 @@ export function reportError(error: unknown): void {
   Sentry.captureException(error);
 }
 
+/** What a mark carries: ids, sizes, counts and kinds — never a path, a name or a text she typed. */
+export type StepData = Readonly<Record<string, string | number | boolean | null>>;
+
+/**
+ * A step on the way to whatever happens next, kept for the crash report that
+ * may follow (a breadcrumb); a no-op when reporting is off. The empty screen
+ * after «Отправить» on 2026-10-09 left nothing to read but the owner's words:
+ * the hand-over of a video is marked link by link.
+ */
+export function noteStep(category: string, message: string, data?: StepData): void {
+  Sentry.addBreadcrumb({ category, message, data, level: 'info' });
+}
+
 /** The same, except no signal: that is the stairwell, not a fault — the next try goes through. */
 export function reportUnlessOffline(error: unknown): void {
   if (!isNetworkError(error)) {

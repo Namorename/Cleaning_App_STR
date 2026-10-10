@@ -20,7 +20,7 @@ import {
   type BoardLimits,
   type BoardStatusFilter,
 } from './schema';
-import { useBoardArchive, useBoardProblems, useStaffDirectory } from './use-board';
+import { useBoardArchive, useBoardCut, useBoardProblems, useStaffDirectory } from './use-board';
 
 const NO_IDS: readonly string[] = [];
 const NO_NOTICES: readonly string[] = [];
@@ -49,6 +49,7 @@ const HOLDS_NOBODY: ReadonlySet<BoardStatusFilter> = new Set(['resolved', 'archi
 export function BoardScreen() {
   const { t } = useTranslation();
   const board = useBoardProblems();
+  const readCut = useBoardCut();
   const [status, setStatus] = useState<BoardStatusFilter>(FIRST_STATUS);
   const isArchive = status === 'archived';
   const archive = useBoardArchive(isArchive);
@@ -62,8 +63,9 @@ export function BoardScreen() {
   const technicians = useMemo(() => activeTechnicians(staff.data ?? []), [staff.data]);
   // The board as read holds one more of each part than it shows (api.ts).
   const live = useMemo(
-    () => (board.data === undefined ? undefined : cutBoard(board.data, LIMITS)),
-    [board.data],
+    () =>
+      board.data === undefined ? undefined : cutBoard({ problems: board.data, ...readCut }, LIMITS),
+    [board.data, readCut],
   );
   const rows = isArchive ? archive.data : live?.problems;
   const shown = useMemo(

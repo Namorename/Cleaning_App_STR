@@ -1,7 +1,14 @@
-import { QueryClient, onlineManager } from '@tanstack/react-query';
+import {
+  QueryClient,
+  dehydrate,
+  hydrate,
+  onlineManager,
+  type DehydratedState,
+} from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { createAppQueryClient } from '@/lib/query-client';
+import { readCached } from '@/lib/read-cached';
 
 import {
   HEAD_TECH,
@@ -21,9 +28,11 @@ import {
   unassignProblem,
 } from '../api';
 import { boardKeys } from '../keys';
+import { boardProblemListSchema, cutBoard, type BoardProblem, type BoardRead } from '../schema';
 import {
   useAssignProblem,
   useBoardArchive,
+  useBoardCut,
   useBoardProblem,
   useBoardProblems,
   useStaffDirectory,
@@ -68,15 +77,18 @@ beforeEach(() => {
 });
 
 describe('read through the schema on the way out', () => {
-  test('a board saved in an older shape reads with defaults', async () => {
+  test('a board saved in an older shape reads with defaults, and nothing said cut', async () => {
     const client = restoredFromDisk(boardKeys.list(HEAD_TECH), SAVED_BOARD);
 
-    const { result } = await renderHook(() => useBoardProblems(), { wrapper: withClient(client) });
+    const { result } = await renderHook(() => ({ board: useBoardProblems(), cut: useBoardCut() }), {
+      wrapper: withClient(client),
+    });
 
-    const [row] = result.current.data ?? [];
+    const [row] = result.current.board.data ?? [];
     expect(row.archived_at).toBeNull();
     expect(row.property).toEqual({ name: '1 - 2109', hostaway_unit_id: null, parent: null });
     expect(row.fix_tasks[0].scheduled_date).toBeNull();
+    expect(result.current.cut).toEqual({ isOpenCut: false, isClosedCut: false });
   });
 
   test('a task opened from the board starts from the board’s copy', async () => {
@@ -97,6 +109,90 @@ describe('read through the schema on the way out', () => {
     });
 
     await waitFor(() => expect(result.current.error?.message).toMatch(/^Cached staff unreadable/));
+  });
+});
+
+/**
+ * What this build keeps on disk under a key the installed build reads (1.2.0
+ * at dab5237) is in that build's shape: rolled back, the older bundle reads
+ * the board as its rows (the review of cb747a5..7553530, MEDIUM). What the
+ * reads said of the cut is kept under a key of its own, and comes back with
+ * the board after a restart.
+ */
+describe('the board on disk', () => {
+  const OPEN = boardProblem({ id: 'd1e2f3a4-1111-4111-8111-d1e2f3a40001', status: 'open' });
+  const closed = (index: number) =>
+    boardProblem({
+      id: `d1e2f3a4-2222-4222-8222-${String(index).padStart(12, '0')}`,
+      status: 'resolved',
+    });
+  /** Small limits, so the closed part below is exactly at its limit. */
+  const LIMITS = { open: 5, closed: 2 };
+  /**
+   * A task closed between the two reads, handed back once (api.ts): the
+   * closed part is at its limit, and only its read knows it was cut.
+   */
+  const DEDUPLICATED: BoardRead = {
+    problems: [OPEN, closed(1), closed(2)],
+    isOpenCut: false,
+    isClosedCut: true,
+  };
+
+  function client(): QueryClient {
+    return new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+  }
+
+  /** The app closed and started again: the cache through the disk, as the persister keeps it. */
+  function restarted(before: QueryClient): QueryClient {
+    const onDisk = JSON.parse(JSON.stringify(dehydrate(before))) as DehydratedState;
+    const after = client();
+    hydrate(after, onDisk);
+    return after;
+  }
+
+  /** The board as its screen cuts it (board-screen.tsx). */
+  function useCutBoard() {
+    const board = useBoardProblems();
+    const cut = useBoardCut();
+    return board.data === undefined
+      ? undefined
+      : cutBoard({ problems: board.data, ...cut }, LIMITS);
+  }
+
+  test('the board under its key is its rows alone, as the installed build reads it', async () => {
+    // Arrange
+    jest.mocked(fetchBoardProblems).mockResolvedValue(DEDUPLICATED);
+    const live = client();
+    const { result } = await renderHook(() => useBoardProblems(), { wrapper: withClient(live) });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    // Act: rolled back, the older bundle starts from this disk.
+    const held = restarted(live).getQueryData<BoardProblem[]>(boardKeys.list(HEAD_TECH));
+
+    // Assert: its `select` and its task screen's copy (dab5237's use-board.ts).
+    expect(readCached(boardProblemListSchema, held, 'board')).toHaveLength(3);
+    expect(held?.find((problem) => problem.id === OPEN.id)?.title).toBe(OPEN.title);
+  });
+
+  test('a closed read cut, though what came back is at its limit: said so, and after a restart', async () => {
+    // Arrange
+    jest.mocked(fetchBoardProblems).mockResolvedValue(DEDUPLICATED);
+    const live = client();
+
+    // Act
+    const first = await renderHook(useCutBoard, { wrapper: withClient(live) });
+    await waitFor(() => expect(first.result.current).toBeDefined());
+
+    // Assert
+    expect(first.result.current).toMatchObject({ isOpenCut: false, isClosedCut: true });
+
+    // Act: a restart, its refresh not answered yet.
+    jest.mocked(fetchBoardProblems).mockReturnValue(new Promise(() => {}));
+    const second = await renderHook(useCutBoard, { wrapper: withClient(restarted(live)) });
+
+    // Assert
+    expect(second.result.current).toMatchObject({ isOpenCut: false, isClosedCut: true });
+    expect(second.result.current?.problems).toHaveLength(3);
   });
 });
 

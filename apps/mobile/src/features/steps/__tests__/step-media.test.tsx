@@ -100,6 +100,51 @@ test('a video tile’s button is named with the video', async () => {
   expect(screen.getByRole('button', { name: 'Повторить загрузку. Видео' })).toBeTruthy();
 });
 
+// Night of 2026-10-10, block 1: a stranded tile said only «Не загрузилось»;
+// now it says why in a few words — the storage's code, or the kind of failure.
+test('a stranded tile says why, to the eye and to the reader', async () => {
+  await render(
+    <StepMedia
+      kind="photo"
+      items={[
+        item({ id: 'm1', status: 'failed', failure: { key: 'tooLarge' } }),
+        item({ id: 'm2', status: 'failed', failure: { key: 'refused', status: 403 } }),
+        item({ id: 'm3', status: 'failed', failure: { key: 'other', type: 'RangeError' } }),
+        item({ id: 'm4', status: 'failed', failure: { key: 'interrupted' } }),
+      ]}
+      limits={{ min: 1, max: 4 }}
+      maxVideoSec={30}
+      isCapturing={false}
+      disabled={false}
+      {...handlers}
+    />,
+  );
+
+  expect(screen.getByText('Файл больше, чем принимает хранилище (413)')).toBeTruthy();
+  expect(screen.getByText('Хранилище отказало: 403')).toBeTruthy();
+  expect(screen.getByText('Ошибка: RangeError')).toBeTruthy();
+  expect(screen.getByText('Загрузка прервалась')).toBeTruthy();
+  expect(
+    screen.getByLabelText('Фото 1. Не загрузилось. Файл больше, чем принимает хранилище (413)'),
+  ).toBeTruthy();
+});
+
+test('a tile on its way or in says nothing of why', async () => {
+  await render(
+    <StepMedia
+      kind="photo"
+      items={[item({ id: 'm1', status: 'uploading' }), item({ id: 'm2' })]}
+      limits={{ min: 1, max: 4 }}
+      maxVideoSec={30}
+      isCapturing={false}
+      disabled={false}
+      {...handlers}
+    />,
+  );
+
+  expect(screen.queryByText('Загрузка прервалась')).toBeNull();
+});
+
 test('while the camera is open, the camera button spins and the gallery waits', async () => {
   await render(
     <StepMedia
@@ -319,9 +364,9 @@ test('and offers both once it has', async () => {
   expect(handlers.onCapture).not.toHaveBeenCalled();
 });
 
-// A video is shot with the app's own camera, whatever the company says about
-// the gallery (docs/tech-plan.md §7.1): the server refuses a picked one
-// (`videoCameraOnly`), so offering it would only lead to that refusal.
+// A video step keeps one button: where the company allows the gallery, the
+// step's screen asks after it whether to record or to pick
+// (app/task/[id]/step/[stepId].tsx), so the tile offers no gallery of its own.
 test('a video step offers the camera alone, even where the gallery is open', async () => {
   await render(
     <StepMedia

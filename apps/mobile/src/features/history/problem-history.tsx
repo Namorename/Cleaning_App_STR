@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
+import { useScreenEdgePadding } from '@/components/bottom-inset';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorBanner } from '@/components/error-banner';
 import { ErrorState } from '@/components/error-state';
@@ -40,6 +41,9 @@ export function ProblemHistory({ problemId }: ProblemHistoryProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  // The last line, scrolled to the end, stops clear of the system's bar
+  // (components/bottom-inset.ts).
+  const end = useScreenEdgePadding(Spacing.lg);
   const events = useProblemEvents(problemId);
   const staff = useStaffDirectory();
   const names = useMemo(() => staffNames(staff.data, t), [staff.data, t]);
@@ -90,7 +94,7 @@ export function ProblemHistory({ problemId }: ProblemHistoryProps) {
   return (
     <FlatList
       style={styles.screen}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, end]}
       data={lines ?? []}
       keyExtractor={(line) => String(line.id)}
       renderItem={({ item }) => <HistoryLine line={item} />}

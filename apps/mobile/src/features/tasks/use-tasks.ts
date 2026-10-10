@@ -1,4 +1,11 @@
-import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query';
+import { z } from 'zod';
 
 import { useSession } from '@/features/auth/session';
 import { stepKeys } from '@/features/steps/keys';
@@ -10,11 +17,13 @@ import {
   type AcceptVariables,
   claimTask,
   fetchFreeTasks,
+  fetchMyDoneTasks,
   fetchMyTasks,
   fetchTask,
   finishTask,
   startTask,
 } from './api';
+import { DONE_PAGE_SIZE, doneSince } from './done';
 import { cleaningTaskListSchema, cleaningTaskSchema, type CleaningTask } from './schema';
 
 /**
@@ -33,9 +42,50 @@ function readTask(data: unknown): CleaningTask | null {
   return readCached(oneOrNoTaskSchema, data, 'task');
 }
 
+/** «Выполненные» as the infinite query keeps them, each page read through the schema. */
+const donePagesSchema = z.object({
+  pages: z.array(cleaningTaskListSchema),
+  pageParams: z.array(z.unknown()),
+});
+
+/**
+ * Her finished jobs, one list in their order. A job a later page repeats —
+ * a finish that landed between two pages moved the rest down by one — is
+ * shown where it came first.
+ */
+function readDone(data: unknown): CleaningTask[] {
+  const seen = new Set<string>();
+  return readCached(donePagesSchema, data, 'done tasks')
+    .pages.flat()
+    .filter((task) => {
+      if (seen.has(task.id)) {
+        return false;
+      }
+      seen.add(task.id);
+      return true;
+    });
+}
+
+/**
+ * The rows a cached list holds, raw as the disk gave them: a list is an array,
+ * «Выполненные» are pages of arrays.
+ */
+function cachedRows(data: unknown): unknown[] {
+  if (Array.isArray(data)) {
+    return data;
+  }
+  const pages = (data as { pages?: unknown } | undefined)?.pages;
+  return Array.isArray(pages) ? pages.flatMap((page) => (Array.isArray(page) ? page : [])) : [];
+}
+
+/** The second part of the key of «Выполненные». */
+const DONE_KEY = 'done';
+
 export const taskKeys = {
   all: ['tasks'] as const,
   mine: (cleanerId: string) => ['tasks', 'mine', cleanerId] as const,
+  // Under 'tasks', refreshed by a finish only (`refreshTaskLists`).
+  done: (cleanerId: string) => ['tasks', DONE_KEY, cleanerId] as const,
   free: () => ['tasks', 'free'] as const,
   one: (taskId: string) => ['tasks', 'one', taskId] as const,
 };
@@ -73,27 +123,71 @@ export function acceptVariables(task: CleaningTask): AcceptVariables {
 }
 
 /**
+ * The lists of jobs and each job's own read — and «Выполненные» only when
+ * asked (`withDone`): only a finish adds to them. A take, a start or a step
+ * tap refreshing every page of history she has opened would be reads for
+ * nothing, and a failure among them would be said under a list that did not
+ * change.
+ */
+export function refreshTaskLists(
+  queryClient: QueryClient,
+  { withDone = false }: { withDone?: boolean } = {},
+): Promise<void> {
+  return queryClient.invalidateQueries({
+    queryKey: taskKeys.all,
+    predicate: withDone ? undefined : (query) => query.queryKey[1] !== DONE_KEY,
+  });
+}
+
+/**
+ * What a move of a cleaning changes: the cleanings, and that cleaning's steps
+ * — a start is when the server copies its process into them, and a steps
+ * query fetched a moment earlier, empty, would otherwise show no steps until
+ * it went stale. A finish adds to «Выполненные» as well.
+ */
+function refreshAfterMove(queryClient: QueryClient, taskId: string, withDone = false): void {
+  void refreshTaskLists(queryClient, { withDone });
+  void queryClient.invalidateQueries({ queryKey: stepKeys.byTask(taskId) });
+}
+
+/**
  * Teach the query client how to replay each move after a restart.
  *
  * Called once, before the persisted cache is restored; a paused mutation
  * restored without its default has nothing to run and is silently dropped.
+ *
+ * Settled, a move refreshes what it changes — here, as the uploads do: a move
+ * restored from disk has no screen of its own, and one that lands after the
+ * start stopped waiting for it (`MOVE_WAIT_MS`, lib/query-client.ts) left
+ * the lists stale until the next refresh (MEDIUM-1 of the last review). This
+ * is the only refresh of a move, from a screen too: a screen's hook keeps its
+ * own options over these, merged, and refreshing there as well asked every
+ * list twice (LOW-2 of the review of dab5237..cb747a5).
  */
 export function registerTaskMutations(queryClient: QueryClient): void {
   queryClient.setMutationDefaults(taskMutationKeys.claim, {
     mutationFn: ({ taskId, cleanerId }: ClaimVariables) => claimTask(taskId, cleanerId),
     scope: TASK_MOVES_SCOPE,
+    onSettled: (_task: unknown, _error: unknown, { taskId }: ClaimVariables) =>
+      refreshAfterMove(queryClient, taskId),
   });
   queryClient.setMutationDefaults(taskMutationKeys.accept, {
     mutationFn: (variables: AcceptVariables) => acceptTask(variables),
     scope: TASK_MOVES_SCOPE,
+    onSettled: (_task: unknown, _error: unknown, { taskId }: AcceptVariables) =>
+      refreshAfterMove(queryClient, taskId),
   });
   queryClient.setMutationDefaults(taskMutationKeys.start, {
     mutationFn: (taskId: string) => startTask(taskId),
     scope: TASK_MOVES_SCOPE,
+    onSettled: (_task: unknown, _error: unknown, taskId: string) =>
+      refreshAfterMove(queryClient, taskId),
   });
   queryClient.setMutationDefaults(taskMutationKeys.finish, {
     mutationFn: (taskId: string) => finishTask(taskId),
     scope: TASK_MOVES_SCOPE,
+    onSettled: (_task: unknown, _error: unknown, taskId: string) =>
+      refreshAfterMove(queryClient, taskId, true),
   });
 }
 
@@ -105,6 +199,25 @@ export function useMyTasks() {
     queryFn: () => fetchMyTasks(userId as string),
     select: readTasks,
     enabled: userId !== null,
+  });
+}
+
+/**
+ * «Выполненные» (owner, 2026-10-10): read only once she opens them (`isOpen`),
+ * so her open list never waits on them, and then a page at a time: a full
+ * page means there may be more, «Показать ещё» reads it.
+ */
+export function useMyDoneTasks(isOpen: boolean) {
+  const { userId } = useSession();
+
+  return useInfiniteQuery({
+    queryKey: taskKeys.done(userId ?? 'anonymous'),
+    queryFn: ({ pageParam }) => fetchMyDoneTasks(userId as string, pageParam, doneSince()),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage: readonly unknown[], pages) =>
+      lastPage.length < DONE_PAGE_SIZE ? undefined : pages.length,
+    select: readDone,
+    enabled: userId !== null && isOpen,
   });
 }
 
@@ -134,28 +247,11 @@ export function useTask(taskId: string) {
     // and let the fetch confirm, rather than a spinner over known data.
     initialData: () =>
       queryClient
-        .getQueriesData<CleaningTask[]>({ queryKey: taskKeys.all })
-        .flatMap(([, tasks]) => (Array.isArray(tasks) ? tasks : []))
-        .find((task) => task.id === taskId),
+        .getQueriesData({ queryKey: taskKeys.all })
+        .flatMap(([, data]) => cachedRows(data))
+        .find((task): task is CleaningTask => (task as { id?: unknown } | null)?.id === taskId),
     initialDataUpdatedAt: 0,
   });
-}
-
-/**
- * Refresh everything a move can have changed.
- *
- * The steps as well as the tasks: starting a task is the moment the server
- * copies its process into task_steps, and a steps query fetched a moment
- * earlier — empty, because there was nothing yet — would otherwise sit in the
- * cache showing no steps until it happened to go stale.
- */
-function useInvalidateTasks() {
-  const queryClient = useQueryClient();
-
-  return () => {
-    void queryClient.invalidateQueries({ queryKey: taskKeys.all });
-    void queryClient.invalidateQueries({ queryKey: stepKeys.all });
-  };
 }
 
 /**
@@ -163,18 +259,16 @@ function useInvalidateTasks() {
  *
  * Deliberately not optimistic: a claim can legitimately lose to a colleague
  * who tapped first, and showing the task as hers and then snatching it back
- * reads as a bug. The list refreshes once the server has decided.
+ * reads as a bug. The list refreshes once the server has decided — by the
+ * move's default (`registerTaskMutations`), as for every move below.
  */
 export function useClaimTask() {
-  const invalidate = useInvalidateTasks();
-
   // The variables are the same shape registerTaskMutations expects, so a
   // claim paused without signal replays after a restart with both ids intact.
   return useMutation<CleaningTask, Error, ClaimVariables>({
     mutationKey: taskMutationKeys.claim,
     mutationFn: ({ taskId, cleanerId }) => claimTask(taskId, cleanerId),
     scope: TASK_MOVES_SCOPE,
-    onSuccess: invalidate,
   });
 }
 
@@ -188,21 +282,16 @@ export function useClaimTask() {
  */
 export function useAcceptTask() {
   const queryClient = useQueryClient();
-  const invalidate = useInvalidateTasks();
 
   return useMutation<CleaningTask, Error, AcceptVariables>({
     mutationKey: taskMutationKeys.accept,
     mutationFn: acceptTask,
     scope: TASK_MOVES_SCOPE,
     // The row the server answered with goes into every copy at once: the
-    // refetch below can take seconds on a weak signal, and until it lands the
-    // card would offer "accept" again as if the tap had done nothing.
-    onSuccess: (accepted) => {
-      writeTask(queryClient, accepted);
-      invalidate();
-    },
-    // Refused: somebody changed it. The lists and its screen show what it is now.
-    onError: invalidate,
+    // refetch the move's default asks for can take seconds on a weak signal,
+    // and until it lands the card would offer "accept" again as if the tap had
+    // done nothing. Refused, the same refetch shows what the cleaning is now.
+    onSuccess: (accepted) => writeTask(queryClient, accepted),
   });
 }
 
@@ -215,23 +304,17 @@ function writeTask(queryClient: QueryClient, task: CleaningTask): void {
 }
 
 export function useStartTask() {
-  const invalidate = useInvalidateTasks();
-
   return useMutation<CleaningTask, Error, string>({
     mutationKey: taskMutationKeys.start,
     mutationFn: startTask,
     scope: TASK_MOVES_SCOPE,
-    onSuccess: invalidate,
   });
 }
 
 export function useFinishTask() {
-  const invalidate = useInvalidateTasks();
-
   return useMutation<CleaningTask, Error, string>({
     mutationKey: taskMutationKeys.finish,
     mutationFn: finishTask,
     scope: TASK_MOVES_SCOPE,
-    onSuccess: invalidate,
   });
 }

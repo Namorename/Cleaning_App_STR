@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { QueryClient } from '@tanstack/react-query';
 
+import { adoptMovesWithoutAuthor, noteSignedIn } from '@/lib/move-queue';
+import { settleQueueFor } from '@/lib/parked-moves';
 import { QUERY_CACHE_KEY, forgetSavedListsOfSignedOut } from '@/lib/query-client';
 import { reportError } from '@/lib/sentry';
 import { supabase } from '@/lib/supabase';
@@ -69,7 +71,19 @@ async function readOwner(): Promise<string | null> {
  * Whoever signs out takes their lists with them, in memory and on disk
  * (`forgetSavedListsOfSignedOut`): from the button in the settings, or
  * because auth let the session go — an account switched off, a refresh
- * refused. The moves waiting for signal stay.
+ * refused.
+ *
+ * And the queue of moves belongs to its author (owner's decision of
+ * 2026-10-09; lib/move-queue.ts, lib/parked-moves.ts). Every event tells the
+ * queue at once who is signed in (`noteSignedIn`): a move runs only with its
+ * author's session. On a sign-out, and once the first session after the
+ * restore is known and at every change of person after it, the queue is
+ * sorted for the person now signed in (`settleQueueFor`): everybody else's
+ * moves parked on disk, hers back from it, then hers resumed — also for the
+ * same person signing in again, whose stamp is already on the cache. A start
+ * that knows no session sorts nothing and resumes nothing. A move saved by a
+ * build before moves had authors is the stamp's person's; with no stamp, the
+ * first person's signed in after the restore.
  *
  * auth-js may let a session go while it starts, before the root layout
  * listens (the verification review of f3217a7..c466bf5, item 2). So the cache
@@ -91,8 +105,9 @@ async function readOwner(): Promise<string | null> {
  * person's first screen never draws the last one's lists. The disk follows in
  * the order the events came; a stamp is written only once the lists are off
  * the disk, so a wipe the disk refused leaves the stamp it had, and the next
- * start forgets them again. Listens for the rest of the app's run; returns
- * the unsubscribe.
+ * start forgets them again. The queue is sorted in the same order, each time
+ * after the lists of the same event. Listens for the rest of the app's run;
+ * returns the unsubscribe.
  */
 export function forgetListsOnSignOut(
   queryClient: QueryClient,
@@ -103,6 +118,10 @@ export function forgetListsOnSignOut(
   let owner: string | null | undefined;
   // Events that came before then, still to be handled; later ones wait behind them.
   let waiting = 0;
+  // Whom the queue was last sorted for; undefined until the first time after the restore.
+  let queueOf: string | null | undefined;
+  // Who takes the moves saved with no author: the stamp's person, else the first one signed in.
+  let heir: string | null = null;
 
   const checkedIfCaughtUp = (): void => {
     if (owner !== undefined && waiting === 0) {
@@ -113,6 +132,10 @@ export function forgetListsOnSignOut(
   // The disk's work, one step after the other.
   let queue: Promise<void> = Promise.all([restored, readOwner()]).then(([, saved]) => {
     owner = saved;
+    heir = saved;
+    if (saved !== null) {
+      adoptMovesWithoutAuthor(queryClient, saved);
+    }
     checkedIfCaughtUp();
   });
 
@@ -139,6 +162,21 @@ export function forgetListsOnSignOut(
     });
   };
 
+  // The queue sorted for `person` on disk, in turn: once per change of person.
+  const sortQueueFor = (person: string | null): void => {
+    if (person === queueOf) {
+      return;
+    }
+    queueOf = person;
+    later(async () => {
+      if (person !== null) {
+        heir = heir ?? person;
+        adoptMovesWithoutAuthor(queryClient, heir);
+      }
+      await settleQueueFor(queryClient, person);
+    });
+  };
+
   const inTurn = (step: () => void): void => {
     if (owner !== undefined && waiting === 0) {
       step();
@@ -157,12 +195,20 @@ export function forgetListsOnSignOut(
 
   const { data } = supabase.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT') {
-      inTurn(forgetLists);
+      noteSignedIn(null);
+      inTurn(() => {
+        forgetLists();
+        sortQueueFor(null);
+      });
       return;
     }
     const userId = session?.user.id;
+    noteSignedIn(userId ?? null);
     if (userId !== undefined) {
-      inTurn(() => claimFor(userId));
+      inTurn(() => {
+        claimFor(userId);
+        sortQueueFor(userId);
+      });
     }
   });
   return () => data.subscription.unsubscribe();

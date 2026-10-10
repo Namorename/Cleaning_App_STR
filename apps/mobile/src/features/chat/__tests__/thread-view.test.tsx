@@ -1,10 +1,11 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { HeaderHeightContext } from 'expo-router/react-navigation';
 import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
-import { BUTTON_HEIGHT, Colors, FontSize, MIN_TOUCH_TARGET } from '@/constants/theme';
+import { BUTTON_HEIGHT, Colors, FontSize, MIN_TOUCH_TARGET, Spacing } from '@/constants/theme';
 import { formatReportedAt } from '@/features/problems/format';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { BOTTOM_INSETS, bottomPaddingOf, withBottomInset } from '@/testing/insets';
 
 import { chatMessageSchema, type ChatMessage } from '../schema';
 import { ThreadView } from '../thread-view';
@@ -98,6 +99,45 @@ test('the composer rides above the keyboard, the header counted in', async () =>
   );
 
   expect(mockAvoidingProps.at(-1)).toEqual({ behavior: 'padding', keyboardVerticalOffset: HEADER });
+});
+
+// Block 3 (2026-10-10): Android's three-button navigation bar lay over the box
+// she types in and its «Отправить». The composer rises by the inset; with the
+// keyboard up the keys cover the system's bar, and the lift takes the inset
+// back, so the box sits on the keys, not a bar's height above them.
+describe.each(BOTTOM_INSETS)('with a bottom inset of %i dp', (bottom) => {
+  const HEADER = 96;
+
+  async function renderInset() {
+    await render(
+      withBottomInset(
+        bottom,
+        <HeaderHeightContext.Provider value={HEADER}>
+          <ThreadView
+            messages={transcript}
+            pending={[]}
+            currentUserId={ME}
+            error={null}
+            onSend={onSend}
+          />
+        </HeaderHeightContext.Provider>,
+      ),
+    );
+  }
+
+  test('the box and «Отправить» stand clear of the system’s bar', async () => {
+    await renderInset();
+
+    const composer = screen.getByTestId('chat-composer');
+    expect(within(composer).getByRole('button', { name: 'Отправить' })).toBeTruthy();
+    expect(bottomPaddingOf(composer.props.style)).toBe(Spacing.md + bottom);
+  });
+
+  test('it sits on the keyboard, not a bar’s height above it', async () => {
+    await renderInset();
+
+    expect(mockAvoidingProps.at(-1)?.keyboardVerticalOffset).toBe(HEADER - bottom);
+  });
 });
 
 test('draws the transcript, naming the others and not herself', async () => {

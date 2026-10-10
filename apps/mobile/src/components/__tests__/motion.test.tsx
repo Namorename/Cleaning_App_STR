@@ -2,7 +2,9 @@ import { THEME_COLORS } from '@str-ops/shared';
 import { act, render, screen } from '@testing-library/react-native';
 import { AccessibilityInfo, Animated, StyleSheet, type ViewStyle } from 'react-native';
 
+import { Spacing } from '@/constants/theme';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
+import { BOTTOM_INSETS, withBottomInset } from '@/testing/insets';
 
 import { Skeleton, SkeletonGroup } from '../skeleton';
 import { TOAST_DURATION_MS, Toast } from '../toast';
@@ -127,4 +129,16 @@ describe('Toast', () => {
     await render(<Toast message="Два" onHide={jest.fn()} />);
     expect(timing).not.toHaveBeenCalled();
   });
+
+  // Block 3 (2026-10-10): over the bottom of the screen, but above the
+  // system's bar — the three-button navigation bar would hide it.
+  test.each(BOTTOM_INSETS)(
+    'with a bottom inset of %i dp it floats clear of the system’s bar',
+    async (bottom) => {
+      await render(withBottomInset(bottom, <Toast message="Тема сохранена" onHide={jest.fn()} />));
+
+      const host = StyleSheet.flatten(screen.getByTestId('toast').props.style) as ViewStyle;
+      expect(host.bottom).toBe(Spacing.lg + bottom);
+    },
+  );
 });

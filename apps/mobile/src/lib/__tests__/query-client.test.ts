@@ -16,6 +16,7 @@ import { settingsMutationKeys } from '@/features/settings/keys';
 import { stepKeys } from '@/features/steps/keys';
 import { claimTask } from '@/features/tasks/api';
 import { taskMutationKeys } from '@/features/tasks/use-tasks';
+import { authoredBy, signedInWithQueue, signedOutOfQueue } from '@/testing/queue-person';
 
 import {
   MOVE_WAIT_MS,
@@ -57,7 +58,7 @@ async function saveCacheWithPausedClaim({
   if (isClaimQueued) {
     client.getMutationCache().build(
       client,
-      { mutationKey: taskMutationKeys.claim },
+      { mutationKey: taskMutationKeys.claim, ...authoredBy() },
       {
         context: undefined,
         data: undefined,
@@ -202,6 +203,7 @@ describe('a cache older than its day', () => {
   });
 
   afterEach(() => {
+    signedOutOfQueue();
     jest.useRealTimers();
   });
 
@@ -220,7 +222,8 @@ describe('a cache older than its day', () => {
     expect(claim.state.variables).toEqual(CLAIM);
     expect(claim.state.isPaused).toBe(true);
 
-    // Act: the start resumes what was restored.
+    // Act: her session known, the start resumes what was restored.
+    signedInWithQueue(client);
     await resumeSavedMoves(client);
 
     // Assert
@@ -309,7 +312,7 @@ describe('the queue on disk, and a video in it', () => {
   }
 
   /** A video waiting for signal whose upload, once resumed, takes longer than any test. */
-  function pausedVideo(client: QueryClient): jest.Mock {
+  function pausedVideo(client: QueryClient, taskId: string = TASK_ID): jest.Mock {
     const upload = jest.fn(() => new Promise<never>(() => undefined));
     client.getMutationCache().build(
       client,
@@ -317,8 +320,9 @@ describe('the queue on disk, and a video in it', () => {
         mutationKey: mediaMutationKeys.attach,
         scope: { id: 'media-attach-video' },
         mutationFn: upload,
+        ...authoredBy(),
       },
-      pausedState({ mediaId: 'v1', kind: 'video', taskId: TASK_ID }),
+      pausedState({ mediaId: 'v1', kind: 'video', taskId }),
     );
     return upload;
   }
@@ -328,28 +332,35 @@ describe('the queue on disk, and a video in it', () => {
   beforeEach(() => {
     onlineManager.setOnline(true);
     client = createAppQueryClient();
+    // Her queue, sorted for her (lib/move-queue.ts): her moves are the ones resumed.
+    signedInWithQueue(client);
   });
 
   afterEach(() => {
     client.unmount();
     client.clear();
+    signedOutOfQueue();
     onlineManager.setOnline(true);
     focusManager.setFocused(undefined);
   });
 
+  // The video is on a cleaning of its own: the claim refreshes its own
+  // cleaning's lists once it lands (`registerTaskMutations`), and on the same
+  // cleaning that would hide whether the restart refreshed anything at all.
   test('after a restart, the moves’ lists refresh without waiting for the video', async () => {
     // Arrange: a claim and a video waiting on disk; the lists they show up in.
-    const upload = pausedVideo(client);
+    const videoTaskId = '9a0b1c2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d';
+    const upload = pausedVideo(client, videoTaskId);
     client
       .getMutationCache()
       .build(
         client,
-        { mutationKey: taskMutationKeys.claim, mutationFn: async () => undefined },
+        { mutationKey: taskMutationKeys.claim, mutationFn: async () => undefined, ...authoredBy() },
         pausedState(CLAIM),
       );
     client.setQueryData(['tasks', 'mine', 'u1'], []);
-    client.setQueryData(stepKeys.byTask(TASK_ID), []);
-    client.setQueryData(mediaKeys.byTask(TASK_ID), []);
+    client.setQueryData(stepKeys.byTask(videoTaskId), []);
+    client.setQueryData(mediaKeys.byTask(videoTaskId), []);
     client.setQueryData(mediaKeys.local, {});
     client.setQueryData(mediaKeys.urls(['host-1/p1.jpg']), { 'host-1/p1.jpg': 'https://signed' });
 
@@ -359,8 +370,8 @@ describe('the queue on disk, and a video in it', () => {
     // Assert: the video is on its way, and the lists were not held for it.
     expect(upload).toHaveBeenCalled();
     expect(client.getQueryState(['tasks', 'mine', 'u1'])?.isInvalidated).toBe(true);
-    expect(client.getQueryState(stepKeys.byTask(TASK_ID))?.isInvalidated).toBe(true);
-    expect(client.getQueryState(mediaKeys.byTask(TASK_ID))?.isInvalidated).toBe(true);
+    expect(client.getQueryState(stepKeys.byTask(videoTaskId))?.isInvalidated).toBe(true);
+    expect(client.getQueryState(mediaKeys.byTask(videoTaskId))?.isInvalidated).toBe(true);
     expect(client.getQueryState(mediaKeys.local)?.isInvalidated).toBe(true);
     // Links signed an hour ahead are not asked again: no upload changes them.
     expect(client.getQueryState(mediaKeys.urls(['host-1/p1.jpg']))?.isInvalidated).toBe(false);
@@ -383,7 +394,7 @@ describe('the queue on disk, and a video in it', () => {
       .getMutationCache()
       .build(
         client,
-        { mutationKey: taskMutationKeys.claim, mutationFn: claim },
+        { mutationKey: taskMutationKeys.claim, mutationFn: claim, ...authoredBy() },
         pausedState(CLAIM),
       );
     client.setQueryData(['tasks', 'mine', 'u1'], []);
@@ -469,7 +480,7 @@ describe('the queue on disk, and a video in it', () => {
         .getMutationCache()
         .build(
           client,
-          { mutationKey: taskMutationKeys.claim, mutationFn: claim },
+          { mutationKey: taskMutationKeys.claim, mutationFn: claim, ...authoredBy() },
           pausedState(CLAIM),
         );
       return claim;
@@ -513,12 +524,54 @@ describe('the queue on disk, and a video in it', () => {
 
       // Act
       const resumed = resumeSavedMoves(client);
-      await jest.advanceTimersByTimeAsync(MOVE_WAIT_MS + 1_000);
+      await jest.advanceTimersByTimeAsync(MOVE_WAIT_MS - 1_000);
+
+      // Assert: waited for so far — the lists read after it show what it did.
+      expect(client.getQueryState(['tasks', 'mine', 'u1'])?.isInvalidated).toBe(false);
+
+      // Act: the wait runs out.
+      await jest.advanceTimersByTimeAsync(2_000);
       await resumed;
 
       // Assert
       expect(client.getQueryState(['tasks', 'mine', 'u1'])?.isInvalidated).toBe(true);
       expect(client.getMutationCache().getAll()[0].state.status).toBe('pending');
     });
+  });
+
+  /**
+   * A move goes out only with its author's session (owner's decision of
+   * 2026-10-09). Somebody else's is parked on disk as soon as the queue is
+   * sorted (lib/parked-moves.ts); one left in the queue — the disk refused to
+   * park it — is still never sent: not resumed, and not set off by her own
+   * move ahead of it in their line, which TanStack continues without asking
+   * the client (`runNext`).
+   */
+  test('somebody else’s move left in the queue is not resumed, nor set off by hers ahead of it', async () => {
+    // Arrange: her take, then somebody else's, in the same line.
+    const hers = jest.fn(async () => undefined);
+    const theirs = jest.fn(async () => undefined);
+    const cache = client.getMutationCache();
+    cache.build(
+      client,
+      { mutationKey: taskMutationKeys.claim, mutationFn: hers, ...authoredBy() },
+      pausedState(CLAIM),
+    );
+    cache.build(
+      client,
+      { mutationKey: taskMutationKeys.claim, mutationFn: theirs, ...authoredBy('u2') },
+      pausedState({ ...CLAIM, cleanerId: 'u2' }),
+    );
+
+    // Act
+    await client.resumePausedMutations();
+    await waitFor(() => expect(hers).toHaveBeenCalledTimes(1));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // Assert
+    expect(theirs).not.toHaveBeenCalled();
+    expect(cache.getAll()[1].state).toEqual(
+      expect.objectContaining({ status: 'pending', isPaused: true }),
+    );
   });
 });

@@ -1,10 +1,13 @@
 import { STATUS_TONE, problemPriorityTone } from '@str-ops/shared';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { Badge } from '@/components/badge';
+import { useScreenEdgePadding } from '@/components/bottom-inset';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { ErrorBanner } from '@/components/error-banner';
 import { FailureText } from '@/components/failure-text';
 import { Icon } from '@/components/icon';
@@ -22,6 +25,7 @@ import {
   formatStartNotBefore,
   formatWindow,
   jobWordKey,
+  propertyName,
   taskPlace,
   urgencyText,
 } from './format';
@@ -96,6 +100,11 @@ export function TaskDetail({
 }: TaskDetailProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  // The question before a finish (owner, 2026-10-10): open while it is asked.
+  const [isAskingToFinish, setAskingToFinish] = useState(false);
+  // The main button is last: scrolled to the end it stops clear of the
+  // system's bar, which the screen is drawn under (components/bottom-inset.ts).
+  const end = useScreenEdgePadding(Spacing.lg);
   // The reader's words: a technician's repair is work (docs/tech-plan.md §6).
   const context = wordContext();
   const actions = availableActions(task, userId);
@@ -151,8 +160,21 @@ export function TaskDetail({
     } else if (action === 'start') {
       onStart(task.id);
     } else {
-      onFinish(task.id);
+      // A finish cannot be taken back: asked first, after the checks above —
+      // a required step still open never gets as far as the question.
+      setAskingToFinish(true);
     }
+  };
+
+  // Yes: the finish goes out as it always did — to the queue of moves, where
+  // one made without signal waits for it. The dialog answers once, and a move
+  // that started meanwhile, or a step reopened, still holds it.
+  const onConfirmFinish = () => {
+    setAskingToFinish(false);
+    if (isBusy || isBlocked || action !== 'finish') {
+      return;
+    }
+    onFinish(task.id);
   };
 
   const idleHint =
@@ -163,7 +185,7 @@ export function TaskDetail({
         : t('tasks.detail.closed', { context });
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={layout.content}>
+    <ScrollView style={styles.screen} contentContainerStyle={[layout.content, end]}>
       {/* Error over cache, as the lists have it: the saved task stays. This
           screen has no pull-to-refresh, so the line does not ask for one. */}
       {refreshError !== null ? (
@@ -306,6 +328,15 @@ export function TaskDetail({
       ) : (
         <Hint text={idleHint} />
       )}
+
+      <ConfirmDialog
+        isVisible={isAskingToFinish}
+        title={t(jobWordKey(task.type, 'finishQuestion'), { context })}
+        message={propertyName(task)}
+        confirmLabel={t('tasks.finishConfirm')}
+        onConfirm={onConfirmFinish}
+        onCancel={() => setAskingToFinish(false)}
+      />
     </ScrollView>
   );
 }

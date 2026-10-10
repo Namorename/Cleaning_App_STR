@@ -2,8 +2,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import {
   QueryClient,
+  dehydrate,
   notifyManager,
   onlineManager,
+  type DehydratedState,
+  type Mutation,
   type MutationOptions,
   type QueryKey,
 } from '@tanstack/react-query';
@@ -18,6 +21,13 @@ import { stepKeys } from '@/features/steps/keys';
 import { registerSupplyMutations } from '@/features/supplies/use-supplies';
 import { registerStepMutations } from '@/features/steps/use-steps';
 import { registerTaskMutations, taskKeys } from '@/features/tasks/use-tasks';
+import {
+  AppMutationCache,
+  authorOf,
+  resumableFor,
+  retryOwedParking,
+  waitsForSignal,
+} from '@/lib/move-queue';
 import { countRefusals, isMoveRetry, moveRetryDelay, retryMove } from '@/lib/move-retry';
 
 /** Milliseconds; the cache is thrown away after this long without a refresh. */
@@ -58,6 +68,13 @@ function atMost(move: Promise<unknown>, wait: number): Promise<unknown> {
  * item 2). Past the wait the lists go ahead; the move keeps going, and stays
  * in the queue until it lands. Otherwise as TanStack's own: nothing is resumed
  * without signal.
+ *
+ * And only the moves of the person the queue is sorted for (lib/move-queue.ts,
+ * `resumableFor`): nothing before the first session after the restore is
+ * known and the queue sorted for it (lib/parked-moves.ts), nothing while
+ * nobody is signed in, never a move of somebody else's. One of those the disk
+ * refused to park is parked at each resume until the disk takes it
+ * (`retryOwedParking`).
  */
 class AppQueryClient extends QueryClient {
   /**
@@ -79,12 +96,18 @@ class AppQueryClient extends QueryClient {
   }
 
   override resumePausedMutations(): Promise<unknown> {
+    const person = resumableFor(this);
+    if (person === null) {
+      return Promise.resolve();
+    }
+    // Somebody else's moves the disk refused to park, parked now if it takes them.
+    retryOwedParking(this, person);
     if (!onlineManager.isOnline()) {
       return Promise.resolve();
     }
     const paused = this.getMutationCache()
       .getAll()
-      .filter((mutation) => mutation.state.isPaused);
+      .filter((mutation) => mutation.state.isPaused && authorOf(mutation) === person);
     return notifyManager.batch(() =>
       Promise.all(
         paused.map((mutation) => {
@@ -117,6 +140,8 @@ class AppQueryClient extends QueryClient {
  */
 export function createAppQueryClient(): QueryClient {
   const queryClient = new AppQueryClient({
+    // Each move stamped with its author, and run only with its author's session.
+    mutationCache: new AppMutationCache(),
     defaultOptions: {
       queries: {
         // A cleaner's phone drops to no signal inside stairwells more often
@@ -155,13 +180,16 @@ function isSignedLinks(key: QueryKey): boolean {
 }
 
 /**
- * Once the cache is back from disk: the moves tapped without signal go
- * through, and the lists they change are refreshed — the cleanings, their
- * steps and the files on them. A move restored from disk has no screen of its
- * own to refresh them. The videos' line is not waited for, and any other move
- * for MOVE_WAIT_MS at most (`AppQueryClient`): each video refreshes its step
- * when it is in. Signed links are left as they are: asking them again would
- * only load every picture again.
+ * Once the queue is sorted for the person signed in (lib/parked-moves.ts —
+ * after the restore, and after every change of person): her moves tapped
+ * without signal go through, and the lists they change are refreshed — the
+ * cleanings, their steps and the files on them. A move restored from disk has
+ * no screen of its own to refresh them. The videos' line is not waited for,
+ * and any other move for MOVE_WAIT_MS at most (`AppQueryClient`): a move that
+ * lands later refreshes what it changes itself, by its default (each video
+ * its step, a cleaning's and a step's moves the cleanings and its steps).
+ * Signed links are left as they are: asking them again would only load every
+ * picture again.
  */
 export async function resumeSavedMoves(queryClient: QueryClient): Promise<void> {
   await queryClient.resumePausedMutations();
@@ -230,8 +258,46 @@ function keepQueueOfExpired(saved: PersistedClient | undefined): PersistedClient
   return { ...saved, timestamp: now, clientState: { ...saved.clientState, queries: [] } };
 }
 
+/**
+ * Which moves the disk keeps: those paused for lack of signal, as TanStack
+ * keeps them — and the queue's moves still on their way (night journal, «not
+ * tried yet»). One whose request was on its way when the app was closed was
+ * lost: only a paused move was saved. Each is an idempotent call with an id
+ * the phone made, and a replayed take, accept, start or finish that already
+ * landed counts as done (features/tasks/api.ts, `alreadyMoved`), so sending
+ * one again is safe. A move sent at once or not at all ('always': the head
+ * technician's hand-out, a language, a password) is never saved on its way.
+ */
+export function shouldSaveMove(mutation: Mutation): boolean {
+  return (
+    mutation.state.isPaused || (mutation.state.status === 'pending' && waitsForSignal(mutation))
+  );
+}
+
+type SavedMoves = DehydratedState['mutations'];
+
+/**
+ * The moves as the disk keeps them: every one still to send saved as waiting,
+ * so the next start resumes it. Restored as on its way — `isPaused` false — a
+ * move is never resumed, and holds its line for good.
+ */
+export function savedAsWaiting(moves: SavedMoves): SavedMoves {
+  return moves.map((move) =>
+    move.state.status === 'pending' && !move.state.isPaused
+      ? { ...move, state: { ...move.state, isPaused: true } }
+      : move,
+  );
+}
+
+function withMovesWaiting(saved: PersistedClient): PersistedClient {
+  const { mutations } = saved.clientState;
+  return Array.isArray(mutations)
+    ? { ...saved, clientState: { ...saved.clientState, mutations: savedAsWaiting(mutations) } }
+    : saved;
+}
+
 export const queryPersister: Persister = {
-  persistClient: diskPersister.persistClient,
+  persistClient: (saved) => diskPersister.persistClient(withMovesWaiting(saved)),
   removeClient: diskPersister.removeClient,
   restoreClient: async () => keepQueueOfExpired(await diskPersister.restoreClient()),
 };
@@ -240,7 +306,26 @@ export const persistOptions = {
   persister: queryPersister,
   maxAge: CACHE_LIFETIME,
   buster: CACHE_BUSTER,
+  dehydrateOptions: { shouldDehydrateMutation: shouldSaveMove },
 };
+
+/**
+ * The cache written now, as the persister writes it, and awaited: for a step
+ * that must know the queue is on disk before it lets go of another copy
+ * (lib/parked-moves.ts). The persister's own write is throttled and awaited by
+ * nobody. One it began before the step read the disk was handed to the disk
+ * before this one (only a microtask stands between its start and its write);
+ * one it begins after the change this write is for is taken from the cache
+ * as changed, and holds the change too.
+ */
+export async function saveCacheNow(queryClient: QueryClient): Promise<void> {
+  const saved: PersistedClient = {
+    buster: CACHE_BUSTER,
+    timestamp: Date.now(),
+    clientState: dehydrate(queryClient, persistOptions.dehydrateOptions),
+  };
+  await AsyncStorage.setItem(QUERY_CACHE_KEY, JSON.stringify(withMovesWaiting(saved)));
+}
 
 /**
  * Drop the saved lists and keep the moves waiting for signal.
@@ -279,9 +364,9 @@ export async function forgetSavedQueries(): Promise<void> {
  * whole-branch reviews of phone-1-2-0; features/auth/forget-on-sign-out.ts,
  * which forgets them in memory). Some lists are not keyed by the person
  * («Задания», the supplies): the next person on a shared phone would see the
- * last one's before their own first read. What becomes of the last person's
- * queued moves is the owner's to decide; until then they stay, as «reset
- * saved lists» keeps them.
+ * last one's before their own first read. The last person's queued moves are
+ * not this one's to touch: they are parked for their author, in the step that
+ * follows (lib/parked-moves.ts).
  *
  * Written straight to disk and not through the persister: the client is
  * alive, and the persister's own write, made a moment later on the queries'

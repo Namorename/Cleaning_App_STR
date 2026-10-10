@@ -572,4 +572,31 @@ describe('mediaItemViews', () => {
     expect(arrived.status).toBe('uploaded');
     expect(arrived.progress).toBeUndefined();
   });
+
+  test('a stranded file says why: its last failure, or that it was interrupted', () => {
+    // Arrange: one turned down by the storage, one whose upload the app's
+    // closing cut off (no failure known), one on its way, one in.
+    const media = [
+      { ...base, id: 'refused', kind: 'video' as const },
+      { ...base, id: 'cut' },
+      { ...base, id: 'sending' },
+      { ...base, id: 'arrived', uploaded_at: '2026-10-09T08:01:00Z' },
+    ];
+    const failures = new Map([
+      ['refused', { key: 'tooLarge' as const }],
+      ['sending', { key: 'noNetwork' as const }],
+      ['arrived', { key: 'noNetwork' as const }],
+    ]);
+
+    // Act
+    const [refused, cut, sending, arrived] = mediaItemViews(media, {}, {}, new Set(['sending']), {
+      failures,
+    });
+
+    // Assert: only a stranded tile says why; one on its way or in says nothing of an old try.
+    expect(refused.failure).toEqual({ key: 'tooLarge' });
+    expect(cut.failure).toEqual({ key: 'interrupted' });
+    expect(sending.failure).toBeUndefined();
+    expect(arrived.failure).toBeUndefined();
+  });
 });

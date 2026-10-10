@@ -2,8 +2,9 @@ import { fireEvent, render, screen, within } from '@testing-library/react-native
 import type { ComponentProps } from 'react';
 import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
-import { BUTTON_HEIGHT, Colors, FontSize, Radius } from '@/constants/theme';
+import { BUTTON_HEIGHT, Colors, FontSize, Radius, Spacing } from '@/constants/theme';
 import { formatReportedAt } from '@/features/problems/format';
+import { BOTTOM_INSETS, scrollEndPadding, withBottomInset } from '@/testing/insets';
 
 import { SUPPLY_STATUSES, type SupplyRequest } from '../schema';
 import { SupplyDetail } from '../supply-detail';
@@ -248,3 +249,16 @@ describe('on the «Абрикос» components', () => {
     expect(spinners).toHaveLength(1);
   });
 });
+
+// Block 3 (2026-10-10): Android's three-button navigation bar lay over the
+// bottom of the request. «Удалить заявку» is the last thing on the screen;
+// scrolled to the end, it stops clear of the system's bar.
+test.each(BOTTOM_INSETS)(
+  'with a bottom inset of %i dp «Удалить заявку» scrolls clear of the system’s bar',
+  async (bottom) => {
+    await render(withBottomInset(bottom, <SupplyDetail {...props({ canEdit: true })} />));
+
+    expect(screen.getByRole('button', { name: 'Удалить заявку' })).toBeTruthy();
+    expect(scrollEndPadding()).toBe(Spacing.lg + bottom);
+  },
+);

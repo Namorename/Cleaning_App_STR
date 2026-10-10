@@ -9,9 +9,9 @@ import { LoadingState } from '@/components/loading-state';
 import { Text } from '@/components/text';
 import { Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
-import { useVideoSettings } from '@/features/host/use-host';
+import { useGalleryAllowed, useVideoSettings } from '@/features/host/use-host';
 import { stepAttachVariables } from '@/features/media/attach-variables';
-import type { CapturedMedia } from '@/features/media/capture';
+import type { CapturedMedia, MediaSource } from '@/features/media/capture';
 import { toLocalRecord } from '@/features/media/local-store';
 import type { VideoLimits } from '@/features/media/schema';
 import { TUS_SHORT_STALL_MS } from '@/features/media/tus';
@@ -24,11 +24,22 @@ import {
 import { useTaskSteps } from '@/features/steps/use-steps';
 import { useTask } from '@/features/tasks/use-tasks';
 import { recordGate } from '@/features/video/record-gate';
+import { RecordHeader } from '@/features/video/record-header';
 import { RecordScreen } from '@/features/video/record-screen';
 import { useOverdue } from '@/features/video/use-overdue';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { noteStep } from '@/lib/sentry';
 
-const Params = z.object({ id: z.string().uuid(), stepId: z.string().uuid() });
+// A screen that cannot draw says so, with «Повторить» and «Назад», and is
+// reported — rather than leaving the root to catch it (night of 2026-10-10).
+export { RouteError as ErrorBoundary } from '@/components/route-error';
+
+const Params = z.object({
+  id: z.string().uuid(),
+  stepId: z.string().uuid(),
+  // Where the video comes from (night of 2026-10-10, block 6); the camera unless said.
+  from: z.enum(['camera', 'gallery']).optional(),
+});
 
 /**
  * How long the screen waits for the task, its steps and its media before it
@@ -71,8 +82,15 @@ export default function RecordRoute() {
   const videoSettings = useVideoSettings();
   const attach = useAttachMedia('video');
   const rememberLocal = useRememberLocalMedia();
+  const galleryAllowed = useGalleryAllowed();
   /** The limits the camera opened with; from then on the gate is not asked again. */
   const [openedWith, setOpenedWith] = useState<VideoLimits | null>(null);
+  /**
+   * The gallery only where the company allows it, decided as the screen opens:
+   * a switch turned off meanwhile does not take the gallery from under her.
+   */
+  const [source, setSource] = useState<MediaSource>('camera');
+  const wantsGallery = parsed.success && parsed.data.from === 'gallery' && galleryAllowed;
 
   const gate =
     openedWith === null
@@ -92,6 +110,7 @@ export default function RecordRoute() {
   // Latched in the render that opens it: state adjusted while rendering, no effect.
   if (openedWith === null && limits !== null) {
     setOpenedWith(limits);
+    setSource(wantsGallery ? 'gallery' : 'camera');
   }
 
   // A read that never ends is not waited on past the short limit.
@@ -114,16 +133,44 @@ export default function RecordRoute() {
   const send = async (captured: CapturedMedia) => {
     const record = toLocalRecord(captured);
     await rememberLocal(record);
+    noteStep('video.send', 'remembered');
     attach.mutate(stepAttachVariables(taskId, stepId, record));
+    noteStep('video.send', 'queued');
+  };
+
+  /** Back to the step — or, opened with nothing under it, to the step itself. */
+  const goBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace({ pathname: '/task/[id]/step/[stepId]', params: { id: taskId, stepId } });
   };
 
   if (limits !== null) {
-    return <RecordScreen limits={limits} onSend={send} onDone={goBack} />;
+    return (
+      <RecordScreen
+        limits={limits}
+        source={openedWith === null ? (wantsGallery ? 'gallery' : 'camera') : source}
+        onSend={send}
+        onDone={goBack}
+      />
+    );
   }
+
+  // The screen's own header (the system's is hidden here, see RecordHeader),
+  // over whatever it says before the camera.
+  const header = (
+    <RecordHeader
+      title={t(wantsGallery ? 'video.galleryTitle' : 'video.recordTitle')}
+      onBack={goBack}
+    />
+  );
 
   if (gate?.kind === 'error' || wait.isOverdue) {
     return (
       <View style={styles.screen}>
+        {header}
         <ErrorState
           error={gate?.kind === 'error' ? gate.error : NOT_READ_IN_TIME}
           onRetry={readAgain}
@@ -134,26 +181,30 @@ export default function RecordRoute() {
 
   if (gate?.kind === 'refused') {
     return (
-      <View style={[styles.screen, styles.centered]}>
-        <Text tone="secondary" align="center">
-          {gate.text}
-        </Text>
+      <View style={styles.screen}>
+        {header}
+        <View style={styles.centered}>
+          <Text tone="secondary" align="center">
+            {gate.text}
+          </Text>
+        </View>
       </View>
     );
   }
 
-  return <LoadingState label={t('video.starting')} />;
-}
-
-/** Back to the step, once the recording is the queue's. */
-function goBack(): void {
-  router.back();
+  return (
+    <View style={styles.screen}>
+      {header}
+      <LoadingState label={t('video.starting')} />
+    </View>
+  );
 }
 
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.background },
     centered: {
+      flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
       padding: Spacing.xl,

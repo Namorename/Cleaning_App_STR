@@ -80,6 +80,7 @@ jest.mock('@/features/board/use-board', () => {
   const idle = () => ({ mutate: jest.fn(), reset: jest.fn(), isPending: false, error: null });
   return {
     useBoardProblems: jest.fn(),
+    useBoardCut: jest.fn(() => ({ isOpenCut: false, isClosedCut: false })),
     // The archive is read only once «Архив» is chosen: nothing held yet.
     useBoardArchive: jest.fn(() => ({
       data: undefined,

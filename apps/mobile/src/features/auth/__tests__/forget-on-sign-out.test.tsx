@@ -12,6 +12,8 @@ import {
   persistOptions,
   queryPersister,
 } from '@/lib/query-client';
+import { parkedVariablesOf } from '@/testing/phone-queue';
+import { signedOutOfQueue } from '@/testing/queue-person';
 import { withClient } from '@/testing/restored-cache';
 
 import {
@@ -26,9 +28,9 @@ import {
  * reviews of phone-1-2-0). Signing out forgets the lists of whoever left — in
  * memory and on disk — so the next person, whatever their role, sees none of
  * them before their own first read: some lists are not keyed by the person
- * («Задания», the supplies). The moves still waiting for signal are kept, as
- * the root's «reset saved lists» keeps them; what becomes of a previous
- * person's queued moves on a shared phone is the owner's to decide.
+ * («Задания», the supplies). The moves still waiting for signal are not lost:
+ * they are parked on disk for their author (owner's decision of 2026-10-09;
+ * queue-of-author.test.tsx says the rest).
  *
  * A sign-out can come before anything listens — auth-js lets a session go
  * while it starts, before the root layout is drawn — so the cache on disk is
@@ -155,9 +157,10 @@ beforeEach(async () => {
 
 afterEach(() => {
   client.clear();
+  signedOutOfQueue();
 });
 
-test('signing out forgets the lists in memory and on disk, and keeps the moves waiting for signal', async () => {
+test('signing out forgets the lists in memory and on disk, and parks her moves waiting for signal', async () => {
   // Arrange
   forgetListsOnSignOut(client, ALREADY_IN);
 
@@ -167,8 +170,8 @@ test('signing out forgets the lists in memory and on disk, and keeps the moves w
   // Assert
   await waitFor(async () => expect((await savedOnDisk()).clientState.queries).toEqual([]));
   expect(client.getQueryCache().getAll()).toHaveLength(0);
-  expect(client.getMutationCache().getAll()).toHaveLength(1);
-  expect((await savedOnDisk()).clientState.mutations).toHaveLength(1);
+  await waitFor(async () => expect(await parkedVariablesOf(CLEANER)).toEqual([CLAIM]));
+  expect(client.getMutationCache().getAll()).toHaveLength(0);
 });
 
 test('signed in as somebody else, no list of the one before is shown before the first read', async () => {
@@ -182,12 +185,12 @@ test('signed in as somebody else, no list of the one before is shown before the 
   // Act
   const { result } = await renderHook(() => useMyProblems(), { wrapper: withClient(client) });
 
-  // Assert: none in memory, none on disk, the stamp his.
+  // Assert: none in memory, none on disk, the stamp his; her take parked for her.
   expect(result.current.data).toBeUndefined();
   expect(result.current.isPending).toBe(true);
   await waitFor(async () => expect(await AsyncStorage.getItem(CACHE_OWNER_KEY)).toBe(HEAD_TECH));
   expect((await savedOnDisk()).clientState.queries).toEqual([]);
-  expect((await savedOnDisk()).clientState.mutations).toHaveLength(1);
+  await waitFor(async () => expect(await parkedVariablesOf(CLEANER)).toEqual([CLAIM]));
 });
 
 test('anything but a sign-out or somebody else leaves the lists alone', async () => {
@@ -252,12 +255,12 @@ describe('a sign-out nobody heard', () => {
     mockAuth.listener?.('SIGNED_IN', sessionOf(HEAD_TECH));
     const { result } = await renderHook(() => useMyProblems(), { wrapper: withClient(client) });
 
-    // Assert
+    // Assert: her take is not his to send — parked for her.
     expect(result.current.data).toBeUndefined();
     await waitFor(async () => expect(await AsyncStorage.getItem(CACHE_OWNER_KEY)).toBe(HEAD_TECH));
     expect((await savedOnDisk()).clientState.queries).toEqual([]);
-    expect(client.getMutationCache().getAll()).toHaveLength(1);
-    expect((await savedOnDisk()).clientState.mutations).toHaveLength(1);
+    await waitFor(async () => expect(await parkedVariablesOf(CLEANER)).toEqual([CLAIM]));
+    expect(client.getMutationCache().getAll()).toHaveLength(0);
   });
 
   // The restore has read the disk and not yet put it in memory when the
@@ -279,9 +282,10 @@ describe('a sign-out nobody heard', () => {
 
     // Assert
     expect(client.getQueryData(problemKeys.mine())).toBeUndefined();
-    expect(client.getMutationCache().getAll()).toHaveLength(1);
     await waitFor(async () => expect(await AsyncStorage.getItem(CACHE_OWNER_KEY)).toBe(HEAD_TECH));
     expect((await savedOnDisk()).clientState.queries).toEqual([]);
+    await waitFor(async () => expect(await parkedVariablesOf(CLEANER)).toEqual([CLAIM]));
+    expect(client.getMutationCache().getAll()).toHaveLength(0);
   });
 
   test('a sign-out heard before the cache is back still forgets what the restore brings', async () => {
@@ -298,7 +302,8 @@ describe('a sign-out nobody heard', () => {
 
     expect(client.getQueryData(problemKeys.mine())).toBeUndefined();
     await waitFor(async () => expect((await savedOnDisk()).clientState.queries).toEqual([]));
-    expect(client.getMutationCache().getAll()).toHaveLength(1);
+    await waitFor(async () => expect(await parkedVariablesOf(CLEANER)).toEqual([CLAIM]));
+    expect(client.getMutationCache().getAll()).toHaveLength(0);
   });
 
   test('a cache stamped by nobody is taken for somebody else’s: the first session forgets it', async () => {

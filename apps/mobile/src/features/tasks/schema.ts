@@ -149,7 +149,9 @@ export function availableActions(task: CleaningTask, userId: string): readonly T
  */
 export type TaskGroup =
   | { readonly kind: 'running'; readonly key: 'running'; readonly data: CleaningTask[] }
-  | { readonly kind: 'day'; readonly key: string; readonly data: CleaningTask[] };
+  | { readonly kind: 'day'; readonly key: string; readonly data: CleaningTask[] }
+  // «Выполненные» below her open list (owner, 2026-10-10): read on demand.
+  | { readonly kind: 'done'; readonly key: 'done'; readonly data: CleaningTask[] };
 
 /**
  * One section per planned day, the nearest first.

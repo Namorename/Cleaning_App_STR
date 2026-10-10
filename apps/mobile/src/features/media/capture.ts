@@ -232,16 +232,20 @@ export interface Recording {
 }
 
 /**
- * Keep a recording of the app's own camera under an id of ours, ready to be
- * registered and uploaded like a photo.
+ * Keep a video under an id of ours, ready to be registered and uploaded like a
+ * photo: a recording of the app's own camera, or — where the company allows
+ * the gallery — a copy the gallery handed over (night of 2026-10-10, block 6).
  *
  * The camera reports only where it wrote the file (`recordAsync`): the length
  * is what the recording screen timed, the picture's size is not known and is
- * not declared. It is the camera's by construction — a video never comes from
- * the gallery, which the server refuses (`videoCameraOnly`).
+ * not declared. A file from the gallery brings its length and type from its
+ * own metadata (`pickVideoFromGallery`), and says where it came from.
  */
-export async function keepRecording(recording: Recording): Promise<CapturedMedia> {
-  const mimeType = videoMimeType(recording.uri);
+export async function keepRecording(
+  recording: Recording,
+  source: MediaSource = 'camera',
+  mimeType: string = videoMimeType(recording.uri),
+): Promise<CapturedMedia> {
   const id = randomUUID();
   const uri = await keepFile(recording.uri, id, videoExtension(mimeType));
   const byteSize = await fileSize(uri);
@@ -261,6 +265,42 @@ export async function keepRecording(recording: Recording): Promise<CapturedMedia
     height: null,
     durationSec: recording.durationSec,
     takenAt: recording.takenAt,
-    source: 'camera',
+    source,
+  };
+}
+
+const MS_PER_SECOND = 1000;
+
+/** A video chosen from the gallery: where its copy is, and what its file says of it. */
+export interface PickedVideo extends Recording {
+  byteSize: number;
+  mimeType: string;
+}
+
+/**
+ * Choose a video from the gallery (night of 2026-10-10, block 6).
+ *
+ * Only reachable where the company allows the gallery. The picker hands over
+ * a copy in the app's cache, with the length and type its file says; a size
+ * it does not say is measured. The moment it is chosen stands for when it
+ * was taken: a video's own date is not read here, and the manager who opened
+ * the gallery accepted that a file from it may not be of this cleaning.
+ * Resolves to null when she backs out of the gallery.
+ */
+export async function pickVideoFromGallery(): Promise<PickedVideo | null> {
+  await ensureLibraryPermission();
+
+  const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos'], quality: 1 });
+  const asset = result.canceled ? null : (result.assets[0] ?? null);
+  if (asset === null) {
+    return null;
+  }
+
+  return {
+    uri: asset.uri,
+    durationSec: (asset.duration ?? 0) / MS_PER_SECOND,
+    takenAt: new Date().toISOString(),
+    byteSize: asset.fileSize ?? (await fileSize(asset.uri)),
+    mimeType: asset.mimeType ?? videoMimeType(asset.uri),
   };
 }

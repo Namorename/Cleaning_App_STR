@@ -19,7 +19,7 @@ import { subscribeFocusToAppState } from '@/lib/app-focus';
 import { markAppDrawn } from '@/components/route-error';
 import { FontsReadyProvider } from '@/lib/fonts-ready';
 import { watchNetwork } from '@/lib/network';
-import { createAppQueryClient, persistOptions, resumeSavedMoves } from '@/lib/query-client';
+import { createAppQueryClient, persistOptions } from '@/lib/query-client';
 import { useSystemBackground } from '@/lib/theme-preference';
 
 // The last net under every screen: once the app has drawn, a render error
@@ -114,14 +114,15 @@ export default function RootLayout() {
       client={queryClient}
       persistOptions={persistOptions}
       // Moves tapped without signal were paused on disk; once the cache is
-      // back they go through, and the lists that show them are refreshed.
-      // The provider counts the restore done — and lets the screens draw what
-      // it brought — once the promise returned here settles: once the lists
-      // have been checked against whose they are, so the last person's never
-      // draw for a frame before being forgotten (`RestoreGate.checked`).
+      // back and the person signed in is known, hers go through and the lists
+      // that show them are refreshed — nobody else's (`forgetListsOnSignOut`
+      // sorts the queue: lib/parked-moves.ts). The provider counts the
+      // restore done — and lets the screens draw what it brought — once the
+      // promise returned here settles: once the lists have been checked
+      // against whose they are, so the last person's never draw for a frame
+      // before being forgotten (`RestoreGate.checked`).
       onSuccess={() => {
         restore.open();
-        void resumeSavedMoves(queryClient);
         return restore.checked;
       }}
       // Unreadable, the cache was thrown away: there is nothing to come back.
@@ -149,17 +150,14 @@ export default function RootLayout() {
                     options={{ headerShown: true, headerBackTitle: t('common.back') }}
                   />
                   {/*
-                    A video step's camera, the whole screen under its header.
-                    Titled here: the screen draws a permission question or a
-                    failure before it ever draws the camera.
+                    A video step's camera draws its own header, in every state
+                    (features/video/record-header): on Android the system's,
+                    updated in the moment «Отправить» takes the screen off the
+                    stack, brought the app down (Sentry, 2026-10-09 and 10-10).
                   */}
                   <Stack.Screen
                     name="task/[id]/step/[stepId]/record"
-                    options={{
-                      headerShown: true,
-                      headerBackTitle: t('common.back'),
-                      title: t('video.recordTitle'),
-                    }}
+                    options={{ headerShown: false }}
                   />
                   <Stack.Screen
                     name="settings"

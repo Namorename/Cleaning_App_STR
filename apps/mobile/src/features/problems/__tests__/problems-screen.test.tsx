@@ -43,6 +43,7 @@ jest.mock('@/features/board/use-board', () => ({
     refetch: jest.fn(),
     isRefetching: false,
   }),
+  useBoardCut: () => ({ isOpenCut: false, isClosedCut: false }),
   // The archive is read only once «Архив» is chosen: nothing held yet.
   useBoardArchive: () => ({
     data: undefined,

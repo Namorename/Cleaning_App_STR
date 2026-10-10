@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@str-ops/shared';
+import { staleClockSafeFetch, type Database } from '@str-ops/shared';
 
 import { env } from '@/lib/env';
 import { sessionStorage } from '@/lib/secure-storage';
@@ -15,8 +15,14 @@ export const SESSION_STORAGE_KEY = `sb-${new URL(env.supabaseUrl).hostname.split
  * The app talks to Supabase as the signed-in cleaner, never as service_role.
  * Every row it can reach is decided by row level security, so the client
  * carries no authority of its own.
+ *
+ * Its requests go through `staleClockSafeFetch`, as the panel's do: a read or
+ * a write PostgREST refused for its own stale clock (401 "JWT issued at
+ * future", the first requests after a fresh token) is sent again
+ * (packages/shared stale-clock-retry.ts).
  */
 export const supabase = createClient<Database>(env.supabaseUrl, env.supabasePublishableKey, {
+  global: { fetch: staleClockSafeFetch },
   auth: {
     storage: sessionStorage,
     storageKey: SESSION_STORAGE_KEY,

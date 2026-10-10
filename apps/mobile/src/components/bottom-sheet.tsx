@@ -1,12 +1,12 @@
-import { useContext, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { KeyboardAvoidingView, Modal, Pressable, StyleSheet, View } from 'react-native';
-import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 
 import { MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
+import { useKeyboardOffset, useScreenEdgePadding } from './bottom-inset';
 import { Text } from './text';
 
 /** The grab bar at the top of the sheet: a cue, not a control. */
@@ -32,9 +32,11 @@ export function BottomSheet({ isVisible, title, onClose, children, testID }: Bot
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   const isReduced = useReducedMotion();
-  // Inside the root's SafeAreaProvider the sheet clears the home indicator;
-  // without one (a test) it simply sits on the edge.
-  const bottomInset = useContext(SafeAreaInsetsContext)?.bottom ?? 0;
+  // The Modal draws edge to edge, under the system's bar: the sheet's last
+  // row rises by it, and the keyboard's lift takes it back (bottom-inset.ts).
+  // No header over a Modal.
+  const edge = useScreenEdgePadding(Spacing.lg);
+  const keyboardOffset = useKeyboardOffset();
 
   return (
     <Modal
@@ -48,14 +50,18 @@ export function BottomSheet({ isVisible, title, onClose, children, testID }: Bot
       {/* The Modal draws edge to edge and the system does not shrink it for the
           keyboard: the sheet rises by itself, or a search in it would hide its
           rows under the keys. */}
-      <KeyboardAvoidingView behavior="padding" style={styles.screen}>
+      <KeyboardAvoidingView
+        behavior="padding"
+        keyboardVerticalOffset={keyboardOffset}
+        style={styles.screen}
+      >
         <Pressable
           style={styles.backdrop}
           onPress={onClose}
           accessible={false}
           importantForAccessibility="no"
         />
-        <View style={[styles.sheet, { paddingBottom: Spacing.lg + bottomInset }]}>
+        <View testID="bottom-sheet-panel" style={[styles.sheet, edge]}>
           <View style={styles.handle} accessibilityElementsHidden importantForAccessibility="no" />
           <View style={styles.header}>
             <Text variant="title" accessibilityRole="header" style={styles.title}>

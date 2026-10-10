@@ -181,15 +181,49 @@ export interface CutBoard {
 }
 
 /**
+ * Whether each of the board's two reads (api.ts) came back with more than the
+ * board shows — counted as it answered, before a task in both reads is handed
+ * back once.
+ */
+export interface BoardReadCut {
+  isOpenCut: boolean;
+  isClosedCut: boolean;
+}
+
+/** The board as its two reads answered: the tasks, and whether each read was cut. */
+export interface BoardRead extends BoardReadCut {
+  problems: BoardProblem[];
+}
+
+/** What the reads said of the cut, as the phone keeps it (`boardKeys.cut`). */
+export const boardReadCutSchema = z.object({
+  isOpenCut: z.boolean().default(false),
+  isClosedCut: z.boolean().default(false),
+});
+
+/**
+ * Nothing said of the cut: none kept — a board saved before the reads said
+ * so, or none read yet. The cut is read off the rows' count (`cutBoard`), as
+ * it was then.
+ */
+export const NOTHING_SAID_CUT: BoardReadCut = { isOpenCut: false, isClosedCut: false };
+
+/**
  * The board as read — one more of each part than it shows (api.ts) — cut to
  * its limits. The one more is what says a part was cut, and which: without
  * it a part read exactly to its limit could not be told from one cut there.
+ * A part is cut when its read said so: a task closed between the two reads is
+ * handed back once, and the closed part can then be at its limit although its
+ * read came back with one more (night journal, review of bc7dcc9..dab5237).
+ * Or when it holds more than its limit: a board saved before the reads said
+ * so (`NOTHING_SAID_CUT`).
  */
-export function cutBoard(problems: readonly BoardProblem[], limits: BoardLimits): CutBoard {
+export function cutBoard(board: BoardRead, limits: BoardLimits): CutBoard {
+  const { problems } = board;
   const open = problems.filter((problem) => !isClosed(problem));
   const closed = problems.filter(isClosed);
-  const isOpenCut = open.length > limits.open;
-  const isClosedCut = closed.length > limits.closed;
+  const isOpenCut = board.isOpenCut || open.length > limits.open;
+  const isClosedCut = board.isClosedCut || closed.length > limits.closed;
   if (!isOpenCut && !isClosedCut) {
     return { problems: [...problems], isOpenCut, isClosedCut };
   }

@@ -23,6 +23,7 @@ import { startTask } from '@/features/tasks/api';
 import { taskMutationKeys, useStartTask } from '@/features/tasks/use-tasks';
 import { PROBE_INTERVAL_MS, stopWatchingConnection } from '@/lib/online';
 import { createAppQueryClient } from '@/lib/query-client';
+import { signedInWithQueue, signedOutOfQueue } from '@/testing/queue-person';
 import { withClient } from '@/testing/restored-cache';
 
 /**
@@ -85,10 +86,13 @@ beforeEach(() => {
   // A look for the server finds it.
   global.fetch = jest.fn(async () => ({ ok: true }) as Response);
   client = createAppQueryClient();
+  // Her moves, resumed when the signal is back (lib/move-queue.ts).
+  signedInWithQueue(client);
 });
 
 afterEach(() => {
   client.clear();
+  signedOutOfQueue();
   stopWatchingConnection();
   onlineManager.setOnline(true);
   jest.useRealTimers();
@@ -439,7 +443,38 @@ describe('refusals keep their own count', () => {
     expect(result.current.status).toBe('success');
   });
 
+  // A move with one more try cannot show it — its second refusal fails
+  // however the outages are counted — so a message, with three: refused, the
+  // signal gone, refused again, then through. Counted by TanStack, or with the
+  // outages as refusals, the second refusal is past the three and it fails.
   test('outages after a refusal do not use up what is left of it', async () => {
+    // Arrange
+    const server: jest.Mock = jest.mocked(sendMessage);
+    server.mockReset();
+    server.mockImplementation(async () => {
+      const call = server.mock.calls.length;
+      if (call === 1 || call === OUTAGES + 2) {
+        throw busy;
+      }
+      if (call <= OUTAGES + 1) {
+        throw noAnswer();
+      }
+      return undefined;
+    });
+    const { result } = await renderHook(useSendMessage, { wrapper: withClient(client) });
+
+    // Act
+    await act(async () => {
+      result.current.mutate({ ...MESSAGE, messageId: '0b1c2d3e-4f5a-4b6c-8d7e-9f0a1b2c3d4e' });
+    });
+    await letTimePass();
+
+    // Assert
+    expect(server).toHaveBeenCalledTimes(OUTAGES + 3);
+    expect(result.current.status).toBe('success');
+  });
+
+  test('nor do outages give a refusal back: refused again after them, a move fails', async () => {
     // Arrange: refused, then the signal goes, then refused again.
     const move = jest.fn(async () => {
       const call = move.mock.calls.length;
@@ -483,6 +518,35 @@ describe('refusals keep their own count', () => {
     // Assert
     expect(move).toHaveBeenCalledTimes(4);
     expect(result.current.status).toBe('success');
+  });
+
+  // A move is its key and what it sends (`countRefusals`): counted by the key
+  // alone, the second cleaning's first refusal would be the first's second,
+  // and would end it.
+  test('two moves of one kind on their way at once keep their counts apart', async () => {
+    // Arrange: each refused once, then through.
+    const refused = new Set<string>();
+    const move = jest.fn(async (taskId: string) => {
+      if (!refused.has(taskId)) {
+        refused.add(taskId);
+        throw { message: 'Could not serialize access', code: '40001' };
+      }
+    });
+    const useMove = () => useMutation({ mutationKey: ['moves', 'test'], mutationFn: move });
+    const first = await renderHook(useMove, { wrapper: withClient(client) });
+    const second = await renderHook(useMove, { wrapper: withClient(client) });
+
+    // Act
+    await act(async () => {
+      first.result.current.mutate('t2');
+      second.result.current.mutate('t3');
+    });
+    await letTimePass(60_000);
+
+    // Assert
+    expect(move).toHaveBeenCalledTimes(4);
+    expect(first.result.current.status).toBe('success');
+    expect(second.result.current.status).toBe('success');
   });
 });
 

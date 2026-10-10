@@ -12,8 +12,8 @@ import {
 } from '@/testing/board-fixtures';
 
 import { BoardScreen } from '../board-screen';
-import type { BoardProblem } from '../schema';
-import { useBoardArchive, useBoardProblems, useStaffDirectory } from '../use-board';
+import type { BoardProblem, BoardReadCut } from '../schema';
+import { useBoardArchive, useBoardCut, useBoardProblems, useStaffDirectory } from '../use-board';
 
 /**
  * The head technician's «Задания» (brief, item 1): every task of the company
@@ -34,6 +34,7 @@ jest.mock('@/features/chat/use-chat', () => ({
 
 jest.mock('../use-board', () => ({
   useBoardProblems: jest.fn(),
+  useBoardCut: jest.fn(),
   useBoardArchive: jest.fn(),
   useStaffDirectory: jest.fn(),
 }));
@@ -76,6 +77,11 @@ const ARCHIVE = [ARCHIVED];
 type BoardAnswer = ReturnType<typeof useBoardProblems>;
 type ArchiveAnswer = ReturnType<typeof useBoardArchive>;
 
+/** What the board's reads said of the cut (`useBoardCut`): neither part, unless told. */
+function answerCut(cut: Partial<BoardReadCut> = {}): void {
+  jest.mocked(useBoardCut).mockReturnValue({ isOpenCut: false, isClosedCut: false, ...cut });
+}
+
 function answer(overrides: Partial<BoardAnswer> = {}): void {
   jest.mocked(useBoardProblems).mockReturnValue({
     data: BOARD,
@@ -117,6 +123,7 @@ function unreadAsked(): (readonly string[])[] {
 beforeEach(() => {
   jest.clearAllMocks();
   answer();
+  answerCut();
   answerArchive();
   jest.mocked(useStaffDirectory).mockReturnValue({
     data: STAFF,
@@ -193,6 +200,19 @@ describe('a board read to its limits', () => {
     expect(screen.queryByText(OPEN_CUT)).toBeNull();
     // An open task stays on the board however many were closed this month.
     expect(titles()).toContain('Кран течёт');
+  });
+
+  // A task closed between the two reads is handed back once (api.ts): the
+  // closed part is then exactly at its limit, and only its read knows it was
+  // cut (night journal, review of bc7dcc9..dab5237).
+  test('the closed read cut, though what came back is at the limit: says so', async () => {
+    answer({ data: [OPEN, ...manyTasks(200, 'resolved', 2000)] });
+    answerCut({ isClosedCut: true });
+
+    await render(<BoardScreen />);
+
+    expect(screen.getByText(CLOSED_CUT)).toBeTruthy();
+    expect(screen.queryByText(OPEN_CUT)).toBeNull();
   });
 
   test('both parts over their limits: says both', async () => {
@@ -407,7 +427,7 @@ describe('its states', () => {
   });
 
   test('a company without tasks says so', async () => {
-    answer({ data: [] as BoardProblem[] });
+    answer({ data: [] });
 
     await render(<BoardScreen />);
 

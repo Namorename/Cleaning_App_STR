@@ -7,7 +7,7 @@ import {
 } from '@tanstack/react-query';
 
 import { useSession } from '@/features/auth/session';
-import { taskKeys } from '@/features/tasks/use-tasks';
+import { refreshTaskLists } from '@/features/tasks/use-tasks';
 
 import {
   completeStep,
@@ -38,19 +38,38 @@ export const stepMutationKeys = {
   skip: ['steps', 'skip'] as const,
 };
 
-/** Teach the query client how to replay each step action after a restart. */
+/** What a step action changes: that task's steps, and the task list's count. */
+function refreshAfterStep(queryClient: QueryClient, { taskId }: StepVariables): void {
+  void queryClient.invalidateQueries({ queryKey: stepKeys.byTask(taskId) });
+  void refreshTaskLists(queryClient);
+}
+
+/**
+ * Teach the query client how to replay each step action after a restart.
+ *
+ * Settled, an action refreshes what it changes, as the screen's own hook does
+ * (`useStepMutation`, whose options override these): an action restored from
+ * disk has no screen, and one that lands after the start stopped waiting for
+ * it (`MOVE_WAIT_MS`) left the lists stale (MEDIUM-1 of the last review).
+ */
 export function registerStepMutations(queryClient: QueryClient): void {
+  const onSettled = (_step: unknown, _error: unknown, variables: StepVariables) =>
+    refreshAfterStep(queryClient, variables);
   queryClient.setMutationDefaults(stepMutationKeys.open, {
     mutationFn: (variables: StepVariables) => openStep(variables),
+    onSettled,
   });
   queryClient.setMutationDefaults(stepMutationKeys.complete, {
     mutationFn: (variables: CompleteStepVariables) => completeStep(variables),
+    onSettled,
   });
   queryClient.setMutationDefaults(stepMutationKeys.reopen, {
     mutationFn: (variables: StepVariables) => reopenStep(variables),
+    onSettled,
   });
   queryClient.setMutationDefaults(stepMutationKeys.skip, {
     mutationFn: (variables: SkipStepVariables) => skipStep(variables),
+    onSettled,
   });
 }
 
@@ -104,7 +123,7 @@ function useStepMutation<TVariables extends StepVariables>(
     },
     onSettled: (_data, _error, variables) => {
       void queryClient.invalidateQueries({ queryKey: stepKeys.byTask(variables.taskId) });
-      void queryClient.invalidateQueries({ queryKey: taskKeys.all });
+      void refreshTaskLists(queryClient);
     },
   });
 }

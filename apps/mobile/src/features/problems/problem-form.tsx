@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ActionBar } from '@/components/action-bar';
+import { useKeyboardOffset } from '@/components/bottom-inset';
 import { Button } from '@/components/button';
 import { Text } from '@/components/text';
 import { TextField } from '@/components/text-field';
@@ -88,8 +89,9 @@ export function ProblemForm({
   const styles = useThemedStyles(createStyles);
   // The keyboard's top is measured from the window's, the form's from under
   // the header: the header's height is the difference. Outside a navigator
-  // (a test) there is no header.
-  const headerHeight = use(HeaderHeightContext) ?? 0;
+  // (a test) there is no header. Less the inset the action bar rises by
+  // (components/bottom-inset.ts).
+  const keyboardOffset = useKeyboardOffset(use(HeaderHeightContext) ?? 0);
   const failure = error === null ? null : serverErrorText(error);
 
   return (
@@ -99,7 +101,7 @@ export function ProblemForm({
     <KeyboardAvoidingView
       style={styles.screen}
       behavior="padding"
-      keyboardVerticalOffset={headerHeight}
+      keyboardVerticalOffset={keyboardOffset}
     >
       <ScrollView
         style={styles.screen}
@@ -185,7 +187,7 @@ export function ProblemForm({
         </View>
       </ScrollView>
 
-      <ActionBar isAtScreenEdge>
+      <ActionBar isAtScreenEdge testID="problem-form-actions">
         {failure !== null ? (
           <View accessibilityLiveRegion="polite" style={styles.failure}>
             <Text tone="danger" align="center">

@@ -11,6 +11,7 @@ import { act, renderHook } from '@testing-library/react-native';
 import { stepKeys } from '@/features/steps/keys';
 import { stopWatchingConnection } from '@/lib/online';
 import { createAppQueryClient, resumeSavedMoves } from '@/lib/query-client';
+import { signedInWithQueue, signedOutOfQueue } from '@/testing/queue-person';
 import { withClient } from '@/testing/restored-cache';
 import { SIZE, storage } from '@/testing/tus-storage';
 
@@ -113,6 +114,7 @@ async function letTimePass(ms: number): Promise<void> {
  */
 async function queueWithoutSignal(): Promise<DehydratedState> {
   const before = createAppQueryClient();
+  signedInWithQueue(before);
   onlineManager.setOnline(false);
   mockRpc.mockRejectedValue(new TypeError('Network request failed'));
   const { result: photos } = await renderHook(() => useAttachMedia(), {
@@ -169,6 +171,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   after?.clear();
+  signedOutOfQueue();
   stopWatchingConnection();
   onlineManager.setOnline(true);
   jest.useRealTimers();
@@ -179,6 +182,8 @@ describe('a video restored from disk after a restart', () => {
     const onDisk = await queueWithoutSignal();
     after = createAppQueryClient();
     hydrate(after, onDisk);
+    // Her session known after the restart, and the queue sorted for her.
+    signedInWithQueue(after);
     const refreshed = jest.spyOn(after, 'invalidateQueries');
     // The photo's registration never answers: its line is held for as long as the test runs.
     mockRpc.mockImplementation(async (name: string, args: { p_id: string }) => {

@@ -75,7 +75,12 @@ jest.mock('@/features/auth/session', () => ({
 }));
 jest.mock('@/features/profile/language-gate', () => ({ ProfileLanguageGate: mockPassThrough }));
 jest.mock('@/features/push/push-bridge', () => ({ PushBridge: () => null }));
-jest.mock('react-native-safe-area-context', () => ({ SafeAreaProvider: mockPassThrough }));
+// The provider passes its children through; the rest of the module is the
+// library's own, so what reads the insets finds none, as above any provider.
+jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context'),
+  SafeAreaProvider: mockPassThrough,
+}));
 jest.mock('expo-router', () => {
   const Stack = Object.assign(mockStack, { Screen: mockScreen });
   const stock = { dark: false, colors: {}, fonts: {} };
@@ -244,9 +249,6 @@ test.each([
   ['problem/[id]/history', 'История задания'],
   ['supply/new', 'Новая заявка'],
   ['supply/[id]', 'Заявка на расходники'],
-  // A video step's camera: titled by the root, since the screen may draw a
-  // permission question or a failure before the camera.
-  ['task/[id]/step/[stepId]/record', 'Запись видео'],
 ])('%s has a header titled «%s» and a way back', async (name, title) => {
   // Arrange
   readiness.mockReturnValue({ isReady: true, areFontsLoaded: true });
@@ -257,5 +259,18 @@ test.each([
   // Assert
   expect(mockScreenOptions.get(name)).toEqual(
     expect.objectContaining({ headerShown: true, headerBackTitle: 'Назад', title }),
+  );
+});
+
+// A video step's camera draws its own header (features/video/record-header):
+// the system's one, updated in the moment «Отправить» takes the screen off
+// the stack, brought the app down on Android (Sentry, 2026-10-09 and 10-10).
+test('the camera of a video step has no header of the system’s', async () => {
+  readiness.mockReturnValue({ isReady: true, areFontsLoaded: true });
+
+  await render(<RootLayout />);
+
+  expect(mockScreenOptions.get('task/[id]/step/[stepId]/record')).toEqual(
+    expect.objectContaining({ headerShown: false }),
   );
 });

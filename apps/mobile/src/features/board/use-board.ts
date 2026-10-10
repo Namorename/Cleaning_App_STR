@@ -1,4 +1,5 @@
 import {
+  skipToken,
   useInfiniteQuery,
   useIsMutating,
   useMutation,
@@ -11,7 +12,7 @@ import { z } from 'zod';
 
 import { useSession } from '@/features/auth/session';
 import { problemKeys } from '@/features/problems/keys';
-import { taskKeys } from '@/features/tasks/use-tasks';
+import { refreshTaskLists } from '@/features/tasks/use-tasks';
 import { readCached } from '@/lib/read-cached';
 
 import {
@@ -27,10 +28,13 @@ import {
 } from './api';
 import { boardKeys } from './keys';
 import {
+  NOTHING_SAID_CUT,
   boardProblemListSchema,
   boardProblemSchema,
+  boardReadCutSchema,
   staffListSchema,
   type BoardProblem,
+  type BoardReadCut,
   type StaffMember,
 } from './schema';
 
@@ -42,6 +46,10 @@ const oneOrNoBoardProblemSchema = boardProblemSchema.nullable();
 
 function readBoard(data: unknown): BoardProblem[] {
   return readCached(boardProblemListSchema, data, 'board');
+}
+
+function readBoardCut(data: unknown): BoardReadCut {
+  return readCached(boardReadCutSchema, data, 'board cut');
 }
 
 function readBoardProblem(data: unknown): BoardProblem | null {
@@ -63,17 +71,47 @@ function readArchive(data: unknown): BoardProblem[] {
   return readCached(archivePagesSchema, data, 'board archive').pages.flat();
 }
 
-/** Every task of the company, for the head technician's «Задания». */
+/**
+ * Every task of the company, for the head technician's «Задания».
+ *
+ * The rows are kept as they always were, an array under `boardKeys.list`:
+ * an earlier bundle — this update rolled back — reads that key as one, and a
+ * board of another shape there broke its select, and its task screen at a
+ * push tap (the review of cb747a5..7553530, MEDIUM). What the reads said of
+ * the cut is written beside them, by the same read, under a key of its own
+ * (`useBoardCut`).
+ */
 export function useBoardProblems() {
   const { userId } = useSession();
+  const queryClient = useQueryClient();
+  const person = userId ?? '';
 
   return useQuery({
-    queryKey: boardKeys.list(userId ?? ''),
-    // Called bare: the query's own context is not the day the window counts from.
-    queryFn: () => fetchBoardProblems(),
+    queryKey: boardKeys.list(person),
+    queryFn: async () => {
+      // Called bare: the query's own context is not the day the window counts from.
+      const { problems, isOpenCut, isClosedCut } = await fetchBoardProblems();
+      queryClient.setQueryData<BoardReadCut>(boardKeys.cut(person), { isOpenCut, isClosedCut });
+      return problems;
+    },
     select: readBoard,
     enabled: userId !== null,
   });
+}
+
+/**
+ * What the board's last read said of the cut, part by part — kept with the
+ * board, and back with it after a restart. Never read by itself: the
+ * board's read writes it (`useBoardProblems`). Nothing kept is nothing said.
+ */
+export function useBoardCut(): BoardReadCut {
+  const { userId } = useSession();
+  const { data } = useQuery({
+    queryKey: boardKeys.cut(userId ?? ''),
+    queryFn: skipToken,
+    select: readBoardCut,
+  });
+  return data ?? NOTHING_SAID_CUT;
 }
 
 /**
@@ -147,7 +185,7 @@ export function useStaffDirectory() {
  * jobs refresh beside it, not waited for.
  */
 function refreshAfterMove(queryClient: QueryClient): Promise<void> {
-  void queryClient.invalidateQueries({ queryKey: taskKeys.all });
+  void refreshTaskLists(queryClient);
   return queryClient.invalidateQueries({ queryKey: problemKeys.all });
 }
 

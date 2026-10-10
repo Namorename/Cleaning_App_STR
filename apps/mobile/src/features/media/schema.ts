@@ -3,6 +3,9 @@ import { z } from 'zod';
 import type { VideoSettings } from '@/features/host/schema';
 import type { TaskStep } from '@/features/steps/schema';
 
+import { STORAGE_FILE_LIMIT_MB } from './storage-limit';
+import type { UploadFailure } from './upload-failure';
+
 /** The bucket every task photo and video lives in. Mirrors 20260907160100. */
 export const MEDIA_BUCKET = 'task-media';
 
@@ -86,7 +89,7 @@ export function photoLimits(step: Pick<TaskStep, 'min_photos' | 'max_photos'>): 
 export interface VideoLimits {
   /** The longest recording the server accepts for this step. */
   seconds: number;
-  /** The largest file the server accepts, in bytes. */
+  /** The largest file the server and the storage both accept, in bytes. */
   maxBytes: number;
   /** Where the camera is told to stop: 3 % under `maxBytes`, room for its container. */
   cameraMaxBytes: number;
@@ -104,7 +107,9 @@ export function videoLimits(
   step: Pick<TaskStep, 'max_video_sec'>,
   company: VideoSettings,
 ): VideoLimits {
-  const maxBytes = company.video_max_mb * BYTES_PER_MB;
+  // The storage takes no more than its own limit in one upload, whatever the
+  // company allows (140 on Supabase Free, 09.10): the camera stops there too.
+  const maxBytes = Math.min(company.video_max_mb, STORAGE_FILE_LIMIT_MB) * BYTES_PER_MB;
   return {
     seconds: Math.min(step.max_video_sec ?? company.video_max_sec, company.video_max_sec),
     maxBytes,
@@ -152,6 +157,8 @@ export interface MediaItemView {
   isWaitingForNetwork?: boolean;
   /** Still uploading: the share of the file sent so far, 0 to 1, where it is known. */
   progress?: number;
+  /** Stranded: why, in a few words for the tile (`upload-failure.ts`). */
+  failure?: UploadFailure;
 }
 
 /**

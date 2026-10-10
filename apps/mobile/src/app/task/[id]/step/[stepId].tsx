@@ -1,8 +1,8 @@
 import type { Json } from '@str-ops/shared';
-import { Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
 import { ErrorState } from '@/components/error-state';
@@ -17,6 +17,7 @@ import { toLocalRecord, type LocalMediaRecord } from '@/features/media/local-sto
 import { mediaKindOfStep, mediaOfStep, videoLimits } from '@/features/media/schema';
 import {
   mediaItemViews,
+  useAttachFailures,
   useAttachMedia,
   useFailedVideoAttach,
   useLocalMedia,
@@ -38,8 +39,13 @@ import {
   useTaskSteps,
 } from '@/features/steps/use-steps';
 import { useTask } from '@/features/tasks/use-tasks';
+import { useScreenTitle } from '@/hooks/use-screen-title';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { wordContext } from '@/i18n';
+
+// A screen that cannot draw says so, with «Повторить» and «Назад», and is
+// reported — rather than leaving the root to catch it (night of 2026-10-10).
+export { RouteError as ErrorBoundary } from '@/components/route-error';
 
 const Params = z.object({ id: z.string().uuid(), stepId: z.string().uuid() });
 
@@ -75,6 +81,11 @@ export default function StepRoute() {
   const skip = useSkipStep();
 
   const step = steps.data?.find((item) => item.id === stepId);
+  const isLeaving = complete.isSuccess || complete.isPaused || skip.isSuccess || skip.isPaused;
+  // Set once, and frozen from the draw that decides to leave: the router's
+  // back is queued, so `beforeRemove` alone comes a moment late
+  // (hooks/use-screen-title).
+  useScreenTitle(step === undefined || isLeaving ? undefined : stepTitle(step));
   const isEditable =
     task.data?.status === 'in_progress' && task.data.assignee_id === userId && userId !== null;
 
@@ -89,6 +100,8 @@ export default function StepRoute() {
   // What the tiles say of a file on its way: waiting for signal, how much has gone.
   const waiting = useWaitingMediaIds();
   const progress = useUploadProgress();
+  // Why each stranded tile did not get in, in a few words (night of 2026-10-10).
+  const failures = useAttachFailures();
   // A video is sent from the recording screen; its refusal comes back here.
   const videoAttachError = useFailedVideoAttach(stepId);
   const galleryAllowed = useGalleryAllowed();
@@ -116,8 +129,9 @@ export default function StepRoute() {
       mediaItemViews(stepMedia, local.data ?? {}, urls.data ?? {}, uploading, {
         waiting,
         progress,
+        failures,
       }),
-    [stepMedia, local.data, urls.data, uploading, waiting, progress],
+    [stepMedia, local.data, urls.data, uploading, waiting, progress, failures],
   );
 
   // The first opening is stamped once per visit, and only when there is
@@ -139,7 +153,6 @@ export default function StepRoute() {
     }, []),
   );
 
-  const isLeaving = complete.isSuccess || complete.isPaused || skip.isSuccess || skip.isPaused;
   useEffect(() => {
     if (isLeaving) {
       router.back();
@@ -192,12 +205,36 @@ export default function StepRoute() {
   const maxVideoSec = videoSettings === null ? null : videoLimits(step, videoSettings).seconds;
 
   /** A video is recorded on its own screen, which hands it to the same queue. */
-  const openRecorder = () => {
+  const openVideo = (from: 'camera' | 'gallery') => {
     if (maxVideoSec === null || isOpeningRecorder.current) {
       return;
     }
     isOpeningRecorder.current = true;
-    router.push({ pathname: '/task/[id]/step/[stepId]/record', params: { id: taskId, stepId } });
+    router.push({
+      pathname: '/task/[id]/step/[stepId]/record',
+      params: from === 'gallery' ? { id: taskId, stepId, from } : { id: taskId, stepId },
+    });
+  };
+
+  /**
+   * Where the company allows the gallery, a video may come from it too
+   * (night of 2026-10-10, block 6): she is asked first. Otherwise the camera.
+   */
+  const openRecorder = () => {
+    if (!galleryAllowed) {
+      openVideo('camera');
+      return;
+    }
+    Alert.alert(
+      t('video.sourceTitle'),
+      undefined,
+      [
+        { text: t('video.fromCamera'), onPress: () => openVideo('camera') },
+        { text: t('video.fromGallery'), onPress: () => openVideo('gallery') },
+        { text: t('common.cancel'), style: 'cancel' },
+      ],
+      { cancelable: true },
+    );
   };
 
   /**
@@ -236,36 +273,33 @@ export default function StepRoute() {
   };
 
   return (
-    <>
-      <Stack.Screen options={{ title: stepTitle(step) }} />
-      <StepScreen
-        key={step.id}
-        step={step}
-        isEditable={isEditable === true}
-        isBusy={complete.isPending || reopen.isPending || skip.isPending}
-        refreshError={steps.error}
-        error={
-          complete.error ??
-          reopen.error ??
-          skip.error ??
-          attach.error ??
-          videoAttachError ??
-          removeMedia.error
-        }
-        notice={notice}
-        onComplete={onComplete}
-        onReopen={() => reopen.mutate({ taskId, stepId })}
-        onSkip={() => skip.mutate({ taskId, stepId })}
-        media={mediaItems}
-        maxVideoSec={maxVideoSec}
-        isCapturing={isCapturing}
-        canPickFromGallery={galleryAllowed}
-        onCapture={mediaKind === 'video' ? openRecorder : () => void attachFrom('camera')}
-        onPickFromGallery={() => void attachFrom('gallery')}
-        onRemoveMedia={(mediaId) => removeMedia.mutate({ taskId, mediaId })}
-        onRetryMedia={onRetryMedia}
-      />
-    </>
+    <StepScreen
+      key={step.id}
+      step={step}
+      isEditable={isEditable === true}
+      isBusy={complete.isPending || reopen.isPending || skip.isPending}
+      refreshError={steps.error}
+      error={
+        complete.error ??
+        reopen.error ??
+        skip.error ??
+        attach.error ??
+        videoAttachError ??
+        removeMedia.error
+      }
+      notice={notice}
+      onComplete={onComplete}
+      onReopen={() => reopen.mutate({ taskId, stepId })}
+      onSkip={() => skip.mutate({ taskId, stepId })}
+      media={mediaItems}
+      maxVideoSec={maxVideoSec}
+      isCapturing={isCapturing}
+      canPickFromGallery={galleryAllowed}
+      onCapture={mediaKind === 'video' ? openRecorder : () => void attachFrom('camera')}
+      onPickFromGallery={() => void attachFrom('gallery')}
+      onRemoveMedia={(mediaId) => removeMedia.mutate({ taskId, mediaId })}
+      onRetryMedia={onRetryMedia}
+    />
   );
 }
 
