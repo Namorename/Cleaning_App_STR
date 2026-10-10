@@ -208,3 +208,21 @@ test('no fixed height: large system text grows the card, and it scrolls past the
   expect(styleOf('confirm-dialog-card').height).toBeUndefined();
   expect(screen.getByTestId('confirm-dialog-scroll')).toBeTruthy();
 });
+
+test('a destructive yes is drawn as one: the urgent tone, never a solid red', async () => {
+  await render(
+    <ConfirmDialog
+      isVisible
+      title="Снять с работы?"
+      confirmLabel="Снять"
+      variant="destructive"
+      onConfirm={jest.fn()}
+      onCancel={jest.fn()}
+    />,
+  );
+
+  const yes = StyleSheet.flatten(
+    screen.getByRole('button', { name: 'Снять' }).props.style,
+  ) as ViewStyle;
+  expect(yes.backgroundColor).toBe(Colors.light.tone.urgent.bg);
+});

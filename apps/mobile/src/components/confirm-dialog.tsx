@@ -29,6 +29,8 @@ export interface ConfirmDialogProps {
   confirmLabel: string;
   /** «Отмена» unless the screen says otherwise. */
   cancelLabel?: string;
+  /** A yes that takes something away is drawn as one: the urgent tone, never a solid red. */
+  variant?: 'primary' | 'destructive';
   onConfirm: () => void;
   onCancel: () => void;
   testID?: string;
@@ -53,6 +55,7 @@ export function ConfirmDialog({
   message,
   confirmLabel,
   cancelLabel,
+  variant = 'primary',
   onConfirm,
   onCancel,
   testID = 'confirm-dialog',
@@ -126,6 +129,7 @@ export function ConfirmDialog({
             {message === undefined ? null : <Text tone="secondary">{message}</Text>}
             <View style={styles.buttons}>
               <Button
+                variant={variant}
                 label={confirmLabel}
                 isDisabled={hasAnswered}
                 onPress={() => answer(onConfirm)}

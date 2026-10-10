@@ -366,38 +366,56 @@ describe('a video step of her task under way', () => {
     expect(screen.getByText('Запишите одно видео до 45 с')).toBeTruthy();
   });
 
-  // The company has opened its gallery (the mock above says so): photos may
-  // come from it, a video never does.
-  test('offers no gallery button of its own, whatever the company allows', async () => {
-    mockGallery.allowed = true;
-    mockSteps.data = [videoStep()];
-    mockVideo.settings = { video_max_sec: 90, video_bitrate_kbps: 2000, video_max_mb: 45 };
+  // The owner did not find the gallery for a video (2026-10-10, 19:55): it was
+  // asked about only after «Записать видео», in the system's dialog, and not at
+  // all once the step held its video. Now it is a button of its own, as for
+  // photos, wherever the company has opened the gallery — for whoever holds
+  // the job, a cleaner or the head technician: the role is not asked.
+  describe.each(['cleaner', 'head_tech'])('read by a %s', () => {
+    test('the gallery open: «Выбрать видео из галереи» beside «Записать видео»', async () => {
+      mockGallery.allowed = true;
+      mockSteps.data = [videoStep()];
+      mockVideo.settings = { video_max_sec: 90, video_bitrate_kbps: 2000, video_max_mb: 45 };
 
-    await render(<StepRoute />);
+      await render(<StepRoute />);
 
-    expect(screen.queryByRole('button', { name: /галере/ })).toBeNull();
+      expect(screen.getByRole('button', { name: 'Записать видео' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Выбрать видео из галереи' })).toBeTruthy();
+    });
+
+    test('the gallery closed: no gallery button, the camera only', async () => {
+      mockGallery.allowed = false;
+      mockSteps.data = [videoStep()];
+      mockVideo.settings = { video_max_sec: 90, video_bitrate_kbps: 2000, video_max_mb: 45 };
+
+      await render(<StepRoute />);
+
+      expect(screen.getByRole('button', { name: 'Записать видео' })).toBeTruthy();
+      expect(screen.queryByRole('button', { name: /галере/ })).toBeNull();
+    });
+
+    test('the company’s settings not read yet: no gallery button either', async () => {
+      // Never read: the hook answers no gallery, and the camera waits for the numbers.
+      mockGallery.allowed = false;
+      mockSteps.data = [videoStep()];
+      mockVideo.settings = null;
+
+      await render(<StepRoute />);
+
+      expect(screen.queryByRole('button', { name: /галере/ })).toBeNull();
+    });
   });
 
-  // Night of 2026-10-10, block 6: where the company allows the gallery, a
-  // video may come from it — she is asked first, before any camera opens.
-  test('where the gallery is open, asks first: the camera or the gallery', async () => {
-    // Arrange
+  test('«Выбрать видео из галереи» opens the gallery way of the same screen, asking nothing', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     mockGallery.allowed = true;
     mockSteps.data = [videoStep()];
     mockVideo.settings = { video_max_sec: 90, video_bitrate_kbps: 2000, video_max_mb: 45 };
     await render(<StepRoute />);
 
-    // Act
-    await fireEvent.press(screen.getByRole('button', { name: 'Записать видео' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Выбрать видео из галереи' }));
 
-    // Assert: nothing opens until she answers.
-    expect(router.push).not.toHaveBeenCalled();
-    const [title, , buttons] = alert.mock.calls[0];
-    expect(title).toBe('Видео для шага');
-    const words = (buttons ?? []).map((button) => button.text);
-    expect(words).toEqual(['Снять на камеру', 'Выбрать из галереи', 'Отмена']);
-    await act(async () => buttons?.find((b) => b.text === 'Выбрать из галереи')?.onPress?.());
+    expect(alert).not.toHaveBeenCalled();
     expect(router.push).toHaveBeenCalledWith({
       pathname: '/task/[id]/step/[stepId]/record',
       params: { id: TASK_ID, stepId: STEP_ID, from: 'gallery' },
@@ -405,7 +423,7 @@ describe('a video step of her task under way', () => {
     alert.mockRestore();
   });
 
-  test('«Снять на камеру» opens the camera as before', async () => {
+  test('«Записать видео» opens the camera at once, the gallery open or not', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     mockGallery.allowed = true;
     mockSteps.data = [videoStep()];
@@ -413,9 +431,8 @@ describe('a video step of her task under way', () => {
     await render(<StepRoute />);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Записать видео' }));
-    const buttons = alert.mock.calls[0][2] ?? [];
-    await act(async () => buttons.find((b) => b.text === 'Снять на камеру')?.onPress?.());
 
+    expect(alert).not.toHaveBeenCalled();
     expect(router.push).toHaveBeenCalledWith({
       pathname: '/task/[id]/step/[stepId]/record',
       params: { id: TASK_ID, stepId: STEP_ID },

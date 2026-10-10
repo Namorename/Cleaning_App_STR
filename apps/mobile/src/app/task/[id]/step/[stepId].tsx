@@ -2,14 +2,14 @@ import type { Json } from '@str-ops/shared';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
 import { ErrorState } from '@/components/error-state';
 import { Text } from '@/components/text';
 import { Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
-import { useGalleryAllowed, useVideoSettings } from '@/features/host/use-host';
+import { ON_OPEN_FRESH_MS, useGalleryAllowed, useVideoSettings } from '@/features/host/use-host';
 import { stepAttachVariables } from '@/features/media/attach-variables';
 import { capturePhoto, pickPhotoFromGallery } from '@/features/media/capture';
 import { attachFailure } from '@/features/media/failure';
@@ -61,9 +61,10 @@ const Params = z.object({ id: z.string().uuid(), stepId: z.string().uuid() });
  * then handed to the upload queue, which registers, uploads and confirms it
  * whenever there is signal. The screen shows each file's progress and lets
  * her complete the step once every file has arrived. The gallery appears
- * beside the camera only where the company has allowed it, and only for
- * photos. A video is recorded on a screen of its own (`step/[stepId]/record`),
- * held to the company's numbers — and until those are known, it waits.
+ * beside the camera only where the company has allowed it, for photos and for
+ * a video. A video is recorded, or chosen, on a screen of its own
+ * (`step/[stepId]/record`), held to the company's numbers — and until those
+ * are known, it waits.
  */
 export default function StepRoute() {
   const { t } = useTranslation();
@@ -104,8 +105,10 @@ export default function StepRoute() {
   const failures = useAttachFailures();
   // A video is sent from the recording screen; its refusal comes back here.
   const videoAttachError = useFailedVideoAttach(stepId);
-  const galleryAllowed = useGalleryAllowed();
-  const videoSettings = useVideoSettings();
+  // Read again as the step opens when the copy is older than a few minutes:
+  // a company that has just opened its gallery reaches the step at once.
+  const galleryAllowed = useGalleryAllowed(ON_OPEN_FRESH_MS);
+  const videoSettings = useVideoSettings(ON_OPEN_FRESH_MS);
   const [isCapturing, setCapturing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -217,27 +220,6 @@ export default function StepRoute() {
   };
 
   /**
-   * Where the company allows the gallery, a video may come from it too
-   * (night of 2026-10-10, block 6): she is asked first. Otherwise the camera.
-   */
-  const openRecorder = () => {
-    if (!galleryAllowed) {
-      openVideo('camera');
-      return;
-    }
-    Alert.alert(
-      t('video.sourceTitle'),
-      undefined,
-      [
-        { text: t('video.fromCamera'), onPress: () => openVideo('camera') },
-        { text: t('video.fromGallery'), onPress: () => openVideo('gallery') },
-        { text: t('common.cancel'), style: 'cancel' },
-      ],
-      { cancelable: true },
-    );
-  };
-
-  /**
    * Attach a photo, from the camera or from the gallery.
    *
    * One path for both: everything after the file exists — keeping it,
@@ -295,8 +277,15 @@ export default function StepRoute() {
       maxVideoSec={maxVideoSec}
       isCapturing={isCapturing}
       canPickFromGallery={galleryAllowed}
-      onCapture={mediaKind === 'video' ? openRecorder : () => void attachFrom('camera')}
-      onPickFromGallery={() => void attachFrom('gallery')}
+      // A video from the gallery has a button of its own, as a photo has
+      // (owner, 2026-10-10, 19:55): the question after «Записать видео» was
+      // not found, and could not be asked once the step held its video.
+      onCapture={
+        mediaKind === 'video' ? () => openVideo('camera') : () => void attachFrom('camera')
+      }
+      onPickFromGallery={
+        mediaKind === 'video' ? () => openVideo('gallery') : () => void attachFrom('gallery')
+      }
       onRemoveMedia={(mediaId) => removeMedia.mutate({ taskId, mediaId })}
       onRetryMedia={onRetryMedia}
     />

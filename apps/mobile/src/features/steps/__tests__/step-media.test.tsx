@@ -78,8 +78,33 @@ test('says where each photo stands and counts them', async () => {
   await fireEvent.press(screen.getByRole('button', { name: 'Повторить загрузку. Фото 3' }));
   expect(handlers.onRetry).toHaveBeenCalledWith('m3');
 
+  // A removal is asked about first (owner, 2026-10-10), the tile named under the question.
   await fireEvent.press(screen.getByRole('button', { name: 'Удалить. Фото 2' }));
+  expect(handlers.onRemove).not.toHaveBeenCalled();
+  expect(screen.getByRole('header', { name: 'Удалить фото?' })).toBeTruthy();
+  expect(screen.getAllByText('Фото 2').length).toBeGreaterThan(0);
+  await fireEvent.press(screen.getByRole('button', { name: 'Удалить' }));
   expect(handlers.onRemove).toHaveBeenCalledWith('m2');
+});
+
+test('«Отмена» keeps the photo', async () => {
+  await render(
+    <StepMedia
+      kind="photo"
+      items={[item({ id: 'm1' })]}
+      limits={{ min: 1, max: 4 }}
+      maxVideoSec={30}
+      isCapturing={false}
+      disabled={false}
+      {...handlers}
+    />,
+  );
+
+  await fireEvent.press(screen.getByRole('button', { name: 'Удалить. Фото 1' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Отмена' }));
+
+  expect(handlers.onRemove).not.toHaveBeenCalled();
+  expect(screen.queryByRole('header', { name: 'Удалить фото?' })).toBeNull();
 });
 
 test('a video tile’s button is named with the video', async () => {
@@ -95,9 +120,11 @@ test('a video tile’s button is named with the video', async () => {
     />,
   );
 
-  await fireEvent.press(screen.getByRole('button', { name: 'Удалить. Видео' }));
-  expect(handlers.onRemove).toHaveBeenCalledWith('m1');
   expect(screen.getByRole('button', { name: 'Повторить загрузку. Видео' })).toBeTruthy();
+  await fireEvent.press(screen.getByRole('button', { name: 'Удалить. Видео' }));
+  expect(screen.getByRole('header', { name: 'Удалить видео?' })).toBeTruthy();
+  await fireEvent.press(screen.getByRole('button', { name: 'Удалить' }));
+  expect(handlers.onRemove).toHaveBeenCalledWith('m1');
 });
 
 // Night of 2026-10-10, block 1: a stranded tile said only «Не загрузилось»;
@@ -364,10 +391,10 @@ test('and offers both once it has', async () => {
   expect(handlers.onCapture).not.toHaveBeenCalled();
 });
 
-// A video step keeps one button: where the company allows the gallery, the
-// step's screen asks after it whether to record or to pick
-// (app/task/[id]/step/[stepId].tsx), so the tile offers no gallery of its own.
-test('a video step offers the camera alone, even where the gallery is open', async () => {
+// A video step offers the gallery as a photo step does, where the company
+// has opened it (owner, 2026-10-10, 19:55): it was asked about only after
+// «Записать видео», and the owner did not find it.
+test('a video step offers the gallery beside the camera, where it is open', async () => {
   await render(
     <StepMedia
       kind="video"
@@ -382,7 +409,46 @@ test('a video step offers the camera alone, even where the gallery is open', asy
   );
 
   expect(screen.getByRole('button', { name: 'Записать видео' })).toBeEnabled();
+  const gallery = screen.getByRole('button', { name: 'Выбрать видео из галереи' });
+  expect(gallery).toBeEnabled();
+  await fireEvent.press(gallery);
+  expect(handlers.onPickFromGallery).toHaveBeenCalledTimes(1);
+  expect(handlers.onCapture).not.toHaveBeenCalled();
+});
+
+test('a video step offers the camera alone where the gallery is closed', async () => {
+  await render(
+    <StepMedia
+      kind="video"
+      items={[]}
+      limits={{ min: 1, max: 1 }}
+      maxVideoSec={30}
+      isCapturing={false}
+      disabled={false}
+      {...handlers}
+    />,
+  );
+
+  expect(screen.getByRole('button', { name: 'Записать видео' })).toBeEnabled();
   expect(screen.queryByRole('button', { name: /галере/ })).toBeNull();
+});
+
+test('a video step that holds its video holds both: the video is removed first', async () => {
+  await render(
+    <StepMedia
+      kind="video"
+      items={[item({ kind: 'video', uri: null, durationSec: 20.5 })]}
+      limits={{ min: 1, max: 1 }}
+      maxVideoSec={30}
+      isCapturing={false}
+      disabled={false}
+      {...handlers}
+      canPickFromGallery
+    />,
+  );
+
+  expect(screen.getByRole('button', { name: 'Записать видео' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Выбрать видео из галереи' })).toBeDisabled();
 });
 
 test('the hint says the length the step will really accept', async () => {
