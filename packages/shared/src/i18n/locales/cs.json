@@ -735,6 +735,14 @@
         "title": "Obnovit heslo pro {{name}}?",
         "description": "Staré heslo hned přestane platit. Nové se zobrazí na další obrazovce.",
         "confirm": "Obnovit heslo"
+      },
+      "confirm": {
+        "saveTitle": "Uložit změny pro {{name}}?",
+        "disable": "Účet se vypne: dosud nezahájené úklidy a práce se uvolní a přiřazení k objektům se odeberou. Opětovné zapnutí je nevrátí.",
+        "role": "Role se změní: „{{from}}“ → „{{to}}“.",
+        "unlink": "Odeberou se přiřazení k objektům: {{total}}.",
+        "unlinkTitle": "{{name}}: odebrat objekt „{{property}}“?",
+        "unlinkDescription": "Volné úklidy tohoto objektu přestanou být v aplikaci vidět a nebudou se přidělovat samy. Už přidělené úklidy zůstanou, jak jsou."
       }
     },
     "roles": {

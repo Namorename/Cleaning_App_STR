@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/sheet';
 import { serverErrorText } from '@/lib/server-error';
 
+import { ConfirmDialog } from './confirm-dialog';
 import { LinkTerms, RemoveLinkButton } from './link-controls';
 import { PropertyPicker } from './property-picker';
 import { canHaveLinks, linksOf, MIN_PRIORITY, unlinkedProperties, type Staff } from './schema';
@@ -48,8 +49,12 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
   const save = useSaveCleanerLink();
   const remove = useRemoveCleanerLink();
   const [adding, setAdding] = useState<number[]>([]);
+  // The listing «Убрать» was pressed on: nothing is taken off until the answer
+  // (the owner, 10.10 — a technician cannot be put back on it at all).
+  const [unlinking, setUnlinking] = useState<{ propertyId: number; name: string } | null>(null);
 
   const isLinkable = canHaveLinks(staff);
+  const personName = staff.full_name ?? staff.email ?? '';
   const allProperties = properties.data ?? [];
   const allLinks = links.data ?? [];
   const rows = linksOf(allLinks, allProperties, staff.id);
@@ -134,9 +139,7 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
 
                     <RemoveLinkButton
                       name={row.name}
-                      onRemove={() =>
-                        remove.mutate({ propertyId: row.propertyId, cleanerId: staff.id })
-                      }
+                      onRemove={() => setUnlinking({ propertyId: row.propertyId, name: row.name })}
                     />
                   </li>
                 ))}
@@ -182,6 +185,22 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
               </div>
             )}
           </div>
+        )}
+
+        {unlinking === null ? null : (
+          <ConfirmDialog
+            title={t('panel.team.confirm.unlinkTitle', {
+              name: personName,
+              property: unlinking.name,
+            })}
+            lines={[t('panel.team.confirm.unlinkDescription')]}
+            confirmLabel={t('panel.team.links.remove')}
+            onConfirm={() => {
+              setUnlinking(null);
+              remove.mutate({ propertyId: unlinking.propertyId, cleanerId: staff.id });
+            }}
+            onClose={() => setUnlinking(null)}
+          />
         )}
       </SheetContent>
     </Sheet>

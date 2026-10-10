@@ -733,6 +733,14 @@
         "title": "Reset the password for {{name}}?",
         "description": "The old password stops working at once. The new one appears on the next screen.",
         "confirm": "Reset password"
+      },
+      "confirm": {
+        "saveTitle": "Save the changes for {{name}}?",
+        "disable": "The account is switched off: cleanings and jobs not yet started are freed and the listing links are taken off. Switching it back on does not bring them back.",
+        "role": "The role changes: “{{from}}” → “{{to}}”.",
+        "unlink": "Listing links taken off: {{total}}.",
+        "unlinkTitle": "{{name}}: remove the listing “{{property}}”?",
+        "unlinkDescription": "Free cleanings of this listing stop showing in the app and are no longer handed out automatically. Cleanings already assigned stay as they are."
       }
     },
     "roles": {

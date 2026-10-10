@@ -112,6 +112,20 @@ describe('ThemeToggle', () => {
     );
   });
 
+  // The owner, 10.10: a third smaller than the first lever (32×56, knob 28), in
+  // the same place; the folded strip draws the same lever, only without its name.
+  test('is the small lever, 22×38 with an 18 px knob, open and folded alike', () => {
+    const { unmount } = render(<ThemeToggle initial="light" />);
+    expect(screen.getByRole('switch', { name: 'Тёмная тема' })).toHaveClass('h-5.5', 'w-9.5');
+    expect(document.querySelector('[data-slot="theme-lever-knob"]')).toHaveClass('size-4.5');
+    unmount();
+
+    render(<ThemeToggle initial="light" isCompact />);
+
+    expect(screen.getByRole('switch', { name: 'Тёмная тема' })).toHaveClass('h-5.5', 'w-9.5');
+    expect(document.querySelector('[data-slot="theme-lever-knob"]')).toHaveClass('size-4.5');
+  });
+
   test('in the folded menu it is the lever alone, still named', () => {
     render(<ThemeToggle initial="light" isCompact />);
 

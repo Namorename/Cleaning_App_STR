@@ -73,41 +73,34 @@ export function ThemeToggle({ initial, isCompact = false }: ThemeToggleProps) {
         'focus-visible:ring-3 focus-visible:ring-ring/50',
         // Day: a warm, light track; night: the brand colour.
         'data-unchecked:bg-accent data-checked:bg-primary',
-        // A gloved finger's target, wider than the lever it moves.
-        'after:absolute after:-inset-x-1 after:-inset-y-2.5',
-        isCompact ? 'h-6 w-11' : 'h-8 w-14',
+        // A third smaller than the first lever (the owner, 10.10), the same in
+        // the menu and the folded strip: 22×38.
+        'h-5.5 w-9.5',
+        // A gloved finger's target, 46×46, wider than the lever it moves.
+        'after:absolute after:-inset-x-1 after:-inset-y-3',
       )}
     >
       <Sun
         aria-hidden="true"
-        className={cn(
-          'absolute text-primary-foreground transition-opacity group-data-checked/lever:opacity-80 group-data-unchecked/lever:opacity-0',
-          isCompact ? 'left-1 size-3' : 'left-1.5 size-4',
-        )}
+        className="absolute left-1 size-2.5 text-primary-foreground transition-opacity group-data-checked/lever:opacity-80 group-data-unchecked/lever:opacity-0"
       />
       <Moon
         aria-hidden="true"
-        className={cn(
-          'absolute text-muted-foreground transition-opacity group-data-checked/lever:opacity-0 group-data-unchecked/lever:opacity-80',
-          isCompact ? 'right-1 size-3' : 'right-1.5 size-4',
-        )}
+        className="absolute right-1 size-2.5 text-muted-foreground transition-opacity group-data-checked/lever:opacity-0 group-data-unchecked/lever:opacity-80"
       />
       <SwitchPrimitive.Thumb
         data-slot="theme-lever-knob"
         className={cn(
           'pointer-events-none relative z-10 flex items-center justify-center rounded-full bg-background shadow-md ring-1 ring-border',
           isMoving && 'transition-transform duration-300 ease-out motion-reduce:transition-none',
-          // Its travel: the track inside its border and padding, less the knob.
-          isCompact ? 'size-5 data-checked:translate-x-4.5' : 'size-7 data-checked:translate-x-5.5',
+          // Its travel: the track inside its border and padding (32), less the knob (18).
+          'size-4.5 data-checked:translate-x-3.5',
         )}
       >
         {isDark ? (
-          <Moon
-            aria-hidden="true"
-            className={cn('text-primary', isCompact ? 'size-3' : 'size-4')}
-          />
+          <Moon aria-hidden="true" className="size-2.5 text-primary" />
         ) : (
-          <Sun aria-hidden="true" className={cn('text-primary', isCompact ? 'size-3' : 'size-4')} />
+          <Sun aria-hidden="true" className="size-2.5 text-primary" />
         )}
       </SwitchPrimitive.Thumb>
     </SwitchPrimitive.Root>

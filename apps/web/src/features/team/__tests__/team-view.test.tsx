@@ -102,6 +102,12 @@ import { TeamView } from '../team-view';
 const rowFor = (name: string): HTMLElement =>
   screen.getAllByRole('row').find((row) => row.textContent?.includes(name)) as HTMLElement;
 
+/** The question before an edit that cannot be undone, answered «Сохранить». */
+const confirmSave = async (name: string) => {
+  const question = await screen.findByRole('dialog', { name: `Сохранить изменения для ${name}?` });
+  await userEvent.click(within(question).getByRole('button', { name: 'Сохранить' }));
+};
+
 const NEW_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-000000000009';
 
 beforeEach(() => {
@@ -373,6 +379,10 @@ describe('TeamView', () => {
 
     // Each row's button says which listing it takes her off.
     await userEvent.click(within(first).getByRole('button', { name: 'Убрать: Vinohrady 12' }));
+    const question = await screen.findByRole('dialog', {
+      name: 'Maria Test: убрать объект «Vinohrady 12»?',
+    });
+    await userEvent.click(within(question).getByRole('button', { name: 'Убрать' }));
 
     expect(removeLink).toHaveBeenCalledWith({ propertyId: 1, cleanerId: MARIA });
   });
@@ -432,6 +442,7 @@ describe('TeamView — listings are chosen while the person is hired', () => {
 
     await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Anděl 4' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+    await confirmSave('Maria Test');
 
     await waitFor(() =>
       expect(removeLinkAsync).toHaveBeenCalledWith({ propertyId: 2, cleanerId: MARIA }),
@@ -754,6 +765,10 @@ describe('TeamView — a technician’s old listings (docs/tech-plan.md, 2.1)', 
     const remove = within(row).getByRole('button', { name: 'Убрать: Anděl 4' });
     expect(remove).toHaveClass('min-h-12');
     await userEvent.click(remove);
+    const question = await screen.findByRole('dialog', {
+      name: 'Petr Tech: убрать объект «Anděl 4»?',
+    });
+    await userEvent.click(within(question).getByRole('button', { name: 'Убрать' }));
 
     expect(removeLink).toHaveBeenCalledWith({ propertyId: 2, cleanerId: PETR });
   });
@@ -863,6 +878,7 @@ describe('TeamView — a technician’s old listings (docs/tech-plan.md, 2.1)', 
     const dialog = await screen.findByRole('dialog');
     await userEvent.selectOptions(within(dialog).getByLabelText('Роль'), 'Техник');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+    await confirmSave('Maria Test');
     // The mutation's new state reaching the form, as TanStack's re-render would.
     rerender(<TeamView />);
 
@@ -879,5 +895,145 @@ describe('TeamView — a technician’s old listings (docs/tech-plan.md, 2.1)', 
       'Сначала снимите сотрудника с объектов (привязок: 2) и с открытых уборок (0): у техника уборок не бывает.',
     );
     expect(alert).not.toHaveTextContent('Person still holds');
+  }, 20000);
+});
+
+// The owner, 10.10: switching an account off, a new role and taking a person off
+// a listing cannot be undone by the panel — each used to happen on one press.
+describe('TeamView — what cannot be undone asks first', () => {
+  const openEdit = async (name: string) => {
+    await userEvent.click(within(rowFor(name)).getByRole('button', { name: 'Изменить' }));
+    return screen.findByRole('dialog');
+  };
+
+  test('switching an account off names the person, says what goes, and sends nothing yet', async () => {
+    render(<TeamView />);
+    const form = await openEdit('Maria Test');
+
+    await userEvent.click(within(form).getByRole('checkbox', { name: 'Работает' }));
+    await userEvent.click(within(form).getByRole('button', { name: 'Сохранить' }));
+
+    const question = await screen.findByRole('dialog', {
+      name: 'Сохранить изменения для Maria Test?',
+    });
+    expect(question).toHaveTextContent(
+      'Учётка отключится: ещё не начатые уборки и работы освободятся, привязки к объектам снимутся. Если включить её снова, они не вернутся.',
+    );
+    expect(saveStaff).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(within(question).getByRole('button', { name: 'Отмена' })).toHaveFocus(),
+    );
+  }, 20000);
+
+  test('«Отмена» leaves the form open with the draft, and nothing is sent', async () => {
+    render(<TeamView />);
+    const form = await openEdit('Maria Test');
+    await userEvent.click(within(form).getByRole('checkbox', { name: 'Работает' }));
+    await userEvent.click(within(form).getByRole('button', { name: 'Сохранить' }));
+    const question = await screen.findByRole('dialog', {
+      name: 'Сохранить изменения для Maria Test?',
+    });
+
+    await userEvent.click(within(question).getByRole('button', { name: 'Отмена' }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: 'Сохранить изменения для Maria Test?' }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(within(form).getByRole('checkbox', { name: 'Работает' })).not.toBeChecked();
+    expect(saveStaff).not.toHaveBeenCalled();
+  }, 20000);
+
+  test('the answer «Сохранить» switches the account off, once', async () => {
+    render(<TeamView />);
+    const form = await openEdit('Maria Test');
+    await userEvent.click(within(form).getByRole('checkbox', { name: 'Работает' }));
+    await userEvent.click(within(form).getByRole('button', { name: 'Сохранить' }));
+
+    await confirmSave('Maria Test');
+
+    await waitFor(() => expect(saveStaff).toHaveBeenCalledTimes(1));
+    expect(saveStaff).toHaveBeenCalledWith(
+      expect.objectContaining({ id: MARIA, isActive: false }),
+      expect.anything(),
+    );
+  }, 20000);
+
+  test('a new role says from which to which before it is sent', async () => {
+    render(<TeamView />);
+    const form = await openEdit('Petr Tech');
+    await userEvent.selectOptions(within(form).getByLabelText('Роль'), 'Главный техник');
+    await userEvent.click(within(form).getByRole('button', { name: 'Сохранить' }));
+
+    const question = await screen.findByRole('dialog', {
+      name: 'Сохранить изменения для Petr Tech?',
+    });
+    expect(question).toHaveTextContent('Роль сменится: «Техник» → «Главный техник».');
+    expect(saveStaff).not.toHaveBeenCalled();
+
+    await confirmSave('Petr Tech');
+
+    await waitFor(() =>
+      expect(saveStaff).toHaveBeenCalledWith(
+        expect.objectContaining({ id: PETR, role: 'head_tech' }),
+        expect.anything(),
+      ),
+    );
+  }, 20000);
+
+  test('a listing unticked on the form is counted in the question', async () => {
+    render(<TeamView />);
+    const form = await openEdit('Maria Test');
+    await userEvent.click(within(form).getByRole('checkbox', { name: 'Anděl 4' }));
+    await userEvent.click(within(form).getByRole('button', { name: 'Сохранить' }));
+
+    const question = await screen.findByRole('dialog', {
+      name: 'Сохранить изменения для Maria Test?',
+    });
+    expect(question).toHaveTextContent('Снимутся привязки к объектам: 1.');
+    expect(removeLinkAsync).not.toHaveBeenCalled();
+  }, 20000);
+
+  test('switching somebody back on, or a new phone, asks nothing', async () => {
+    roster.people = [maria, ivan];
+    render(<TeamView />);
+    await userEvent.click(screen.getByRole('tab', { name: /Все/ }));
+    const form = await openEdit('Ivan Gone');
+
+    await userEvent.click(within(form).getByRole('checkbox', { name: 'Работает' }));
+    await userEvent.type(within(form).getByLabelText('Телефон'), '+420 000');
+    await userEvent.click(within(form).getByRole('button', { name: 'Сохранить' }));
+
+    await waitFor(() => expect(saveStaff).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole('dialog', { name: /Сохранить изменения/ })).not.toBeInTheDocument();
+  }, 20000);
+
+  test('«Убрать» names the person and the listing, opens on «Отмена», and takes nothing off yet', async () => {
+    render(<TeamView />);
+    await userEvent.click(within(rowFor('Maria Test')).getByRole('button', { name: 'Объектов: 2' }));
+    const sheet = await screen.findByRole('dialog');
+
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Убрать: Anděl 4' }));
+
+    const question = await screen.findByRole('dialog', {
+      name: 'Maria Test: убрать объект «Anděl 4»?',
+    });
+    expect(question).toHaveAccessibleDescription(
+      'Свободные уборки этого объекта перестанут быть видны в приложении и не будут назначаться сами. Уже назначенные уборки останутся как есть.',
+    );
+    await waitFor(() =>
+      expect(within(question).getByRole('button', { name: 'Отмена' })).toHaveFocus(),
+    );
+    expect(removeLink).not.toHaveBeenCalled();
+
+    await userEvent.click(within(question).getByRole('button', { name: 'Отмена' }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: 'Maria Test: убрать объект «Anděl 4»?' }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(removeLink).not.toHaveBeenCalled();
   }, 20000);
 });
