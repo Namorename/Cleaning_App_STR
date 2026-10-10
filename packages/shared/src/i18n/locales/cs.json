@@ -1913,7 +1913,7 @@
         }
       },
       "leaving": "<b>Pokud s námi už nepracujete.</b> Manažer váš účet v panelu deaktivuje. Od té chvíle nemá přístup k údajům společnosti. Přihlásit se do aplikace technicky ještě lze, ale po přihlášení neuvidíte nic pracovního — žádné úklidy, objekty, zprávy ani fotografie; vidíte jen svůj vlastní účet (jméno, jazyk). Zákaz samotného přihlášení k deaktivovanému účtu doplníme do {{date}}.",
-      "deletion": "Smazání účtu je zatím <b>ruční krok</b>, provádí ho {{who}} na vaši žádost nebo {{when}}. Automatické mazání zatím není, přijde spolu s dobami uchování výše. Při smazání:",
+      "deletion": "Smazání účtu je zatím <b>ruční krok</b>, provádí ho {{who}} na vaši žádost zaslanou e-mailem na adresu z oddílu 1, nebo {{when}}. Automatické mazání zatím není, přijde spolu s dobami uchování výše. Při smazání:",
       "afterSwitchOff": "{{months}} po deaktivaci",
       "months_one": "{{count}} měsíc",
       "months_few": "{{count}} měsíce",

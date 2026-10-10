@@ -46,16 +46,39 @@ export interface PrivacySettings {
   readonly transferBasisChecked: true | null;
 }
 
+/**
+ * The owner's values of 2026-10-10. Where one was looked up rather than given,
+ * the source is beside it.
+ */
 export const PRIVACY_SETTINGS: PrivacySettings = {
-  effectiveDate: null,
-  automaticDeletionDate: null,
-  signInBlockDate: null,
-  accountDeletedBy: null,
-  accountRetentionMonths: null,
-  vercelRegion: null,
-  sentryRegion: null,
-  serverLogRetention: null,
-  exportFormat: null,
+  effectiveDate: '2026-10-12',
+  automaticDeletionDate: '2027-03-31',
+  signInBlockDate: '2026-11-30',
+  // The operator, on a letter to the address in section 1 (the sentence says how).
+  accountDeletedBy: { cs: 'správce', en: 'the controller', ru: 'оператор' },
+  accountRetentionMonths: 6,
+  // The project's functions run in iad1 (`vercel inspect` of the production
+  // deployment, x-vercel-id); iad1 is Vercel's default region, Washington, D.C.
+  // https://vercel.com/docs/functions/configuring-functions/region
+  vercelRegion: {
+    cs: 'USA (Washington, D.C., iad1)',
+    en: 'USA (Washington, D.C., iad1)',
+    ru: 'США (Вашингтон, iad1)',
+  },
+  // The DSN's ingest host is in .de.sentry.io: Sentry's EU region, Frankfurt.
+  // https://docs.sentry.io/organization/data-storage-location/
+  sentryRegion: { cs: 'EU (Frankfurt)', en: 'EU (Frankfurt)', ru: 'ЕС (Франкфурт)' },
+  // Supabase keeps API and database logs 1 day on Free, 7 on Pro
+  // (https://supabase.com/pricing); Vercel its runtime logs 1 hour on Hobby,
+  // 1 day on Pro (https://vercel.com/docs/logs/runtime). Seven days holds on
+  // either plan.
+  serverLogRetention: {
+    cs: 'nejvýše 7 dní',
+    en: 'no longer than 7 days',
+    ru: 'не дольше 7 дней',
+  },
+  exportFormat: 'CSV',
+  // The owner accepts the suppliers' agreements himself (docs/privacy-dpa-links.md).
   processingAgreementsSigned: null,
   transferBasisChecked: null,
 };

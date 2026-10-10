@@ -11,7 +11,7 @@ vi.mock('server-only', () => ({}));
 import PrivacyPage, { generateMetadata } from '../page';
 import { PrivacyPolicy } from '../privacy-policy';
 import type { OperatorDetails } from '../operator';
-import type { PrivacySettings } from '../settings';
+import { PRIVACY_SETTINGS, type PrivacySettings } from '../settings';
 
 const OPERATOR_ENV = [
   'PRIVACY_OPERATOR_NAME',
@@ -422,7 +422,95 @@ describe('the values only the owner knows', () => {
     const vercel = within(vendors).getByRole('rowheader', { name: 'Vercel' }).closest('tr');
     expect(vercel).toHaveTextContent('ЕС (Франкфурт)');
     expect(screen.getByRole('main').textContent).toContain(
-      'его выполняет администратор компании по вашему запросу',
+      'его выполняет администратор компании по вашему письму на адрес из раздела 1',
     );
+  });
+});
+
+// The owner's values of 2026-10-10. Only the two statements stay open: the
+// owner accepts the suppliers' agreements himself and then confirms them.
+describe('the values the owner gave', () => {
+  test('as published', () => {
+    expect(PRIVACY_SETTINGS).toMatchObject({
+      effectiveDate: '2026-10-12',
+      automaticDeletionDate: '2027-03-31',
+      signInBlockDate: '2026-11-30',
+      accountRetentionMonths: 6,
+      exportFormat: 'CSV',
+      processingAgreementsSigned: null,
+      transferBasisChecked: null,
+    });
+  });
+
+  test.each(['cs', 'en', 'ru'] as const)(
+    '%s: only the two statements the owner confirms himself are left to fill in',
+    (language) => {
+      const { container } = render(
+        <PrivacyPolicy language={language} operator={EVERYONE_KNOWN} settings={PRIVACY_SETTINGS} />,
+      );
+
+      const marked = [...container.querySelectorAll('strong')].filter((element) =>
+        element.textContent?.includes(MARKER[language]),
+      );
+      expect(marked).toHaveLength(2);
+    },
+  );
+
+  test('in force from 12 October 2026', () => {
+    render(<PrivacyPolicy language="en" operator={EVERYONE_KNOWN} settings={PRIVACY_SETTINGS} />);
+
+    expect(screen.getByRole('main').textContent).toContain('Effective from: 12 Oct 2026');
+  });
+
+  test.each([
+    [
+      'ru',
+      'его выполняет оператор по вашему письму на адрес из раздела 1 или через 6 месяцев после отключения',
+    ],
+    [
+      'en',
+      'it is carried out by the controller at your request by e-mail to the address in section 1, or 6 months after the switch-off',
+    ],
+    [
+      'cs',
+      'provádí ho správce na vaši žádost zaslanou e-mailem na adresu z oddílu 1, nebo 6 měsíců po deaktivaci',
+    ],
+  ] as const)('%s: the operator deletes an account on a letter, or six months on', (language, text) => {
+    render(
+      <PrivacyPolicy language={language} operator={EVERYONE_KNOWN} settings={PRIVACY_SETTINGS} />,
+    );
+
+    expect(screen.getByRole('main').textContent).toContain(text);
+  });
+
+  test.each([
+    ['ru', 'США (Вашингтон, iad1)', 'ЕС (Франкфурт)'],
+    ['en', 'USA (Washington, D.C., iad1)', 'EU (Frankfurt)'],
+    ['cs', 'USA (Washington, D.C., iad1)', 'EU (Frankfurt)'],
+  ] as const)(
+    '%s: the panel runs in the USA, the crash reports stay in the EU',
+    (language, vercel, sentry) => {
+      render(
+        <PrivacyPolicy language={language} operator={EVERYONE_KNOWN} settings={PRIVACY_SETTINGS} />,
+      );
+
+      const vendors = screen.getAllByRole('table')[1];
+      const row = (name: string) =>
+        within(vendors).getByRole('rowheader', { name }).closest('tr');
+      expect(row('Vercel')).toHaveTextContent(vercel);
+      expect(row('Sentry (Functional Software)')).toHaveTextContent(sentry);
+    },
+  );
+
+  test.each([
+    ['ru', 'по правилам поставщика, не дольше 7 дней'],
+    ['en', 'according to the supplier’s rules, no longer than 7 days'],
+    ['cs', 'podle pravidel dodavatele, nejvýše 7 dní'],
+  ] as const)('%s: the suppliers keep server logs for a week at most', (language, text) => {
+    render(
+      <PrivacyPolicy language={language} operator={EVERYONE_KNOWN} settings={PRIVACY_SETTINGS} />,
+    );
+
+    expect(screen.getByRole('main').textContent).toContain(text);
   });
 });
