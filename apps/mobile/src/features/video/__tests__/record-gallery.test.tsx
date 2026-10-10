@@ -214,6 +214,22 @@ describe('a video the iPhone could not compress', () => {
     expect(screen.getByTestId('video-preview')).toBeTruthy();
   });
 
+  // Review of a1fb2de: only the choice the iPhone could not compress goes as
+  // it is; «Выбрать другое» after its refusal asks for a compressed one again.
+  test('an original refused as too large leaves the next choice compressed', async () => {
+    pick
+      .mockRejectedValueOnce(notCompressed)
+      .mockResolvedValueOnce(picked({ byteSize: 46_000_000 }))
+      .mockResolvedValueOnce(picked());
+    await render(<RecordRoute />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Выбрать видео из галереи' }));
+    expect(pick).toHaveBeenLastCalledWith('original');
+    await fireEvent.press(screen.getByRole('button', { name: 'Выбрать другое' }));
+
+    expect(pick).toHaveBeenLastCalledWith('compressed');
+  });
+
   test('the way back goes back to the step', async () => {
     pick.mockRejectedValueOnce(notCompressed);
     await render(<RecordRoute />);
