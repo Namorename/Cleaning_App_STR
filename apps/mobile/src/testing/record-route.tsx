@@ -226,7 +226,7 @@ jest.mock('expo-router', () => ({
       return null;
     },
   },
-  router: { back: jest.fn(), push: jest.fn(), canGoBack: jest.fn(() => true) },
+  router: { back: jest.fn(), push: jest.fn(), replace: jest.fn(), canGoBack: jest.fn(() => true) },
   useLocalSearchParams: () => ({
     id: '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b',
     stepId: 'b1c2d3e4-1111-4111-8111-b1c2d3e40001',

@@ -63,6 +63,10 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
   const [sendError, setSendError] = useState<unknown>(null);
   /** Where the preview plays from once «Отправить» moved the file under a name of ours. */
   const [keptUri, setKeptUri] = useState<string | null>(null);
+  /** The file is gone: moved, then found empty. Nothing to play, nothing to send. */
+  const [isFileLost, setFileLost] = useState(false);
+  /** Settled by the commit after a press of «Отправить»: the preview's player is gone then. */
+  const committed = useRef<(() => void) | null>(null);
   const unsent = useRef<Unsent | null>(null);
   const isSendingNow = useRef(false);
   const isMounted = useRef(true);
@@ -72,11 +76,22 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
     isMounted.current = true;
     return () => {
       isMounted.current = false;
+      // A send waiting for its commit goes on without one: the screen is gone.
+      committed.current?.();
+      committed.current = null;
       if (!isSendingNow.current) {
         forget(unsent);
       }
     };
   }, []);
+
+  // After every commit: a send waiting for the preview's player to be gone
+  // goes on. Effects of a commit run after the clean-ups of what it unmounted,
+  // the player's release among them (review of d0a2738..ec46320).
+  useEffect(() => {
+    committed.current?.();
+    committed.current = null;
+  });
 
   // Handed over: back to the step, once the guard below has stood down.
   useEffect(() => {
@@ -151,16 +166,23 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
   const retake = () => {
     forget(unsent);
     setKeptUri(null);
+    setFileLost(false);
     setSendError(null);
     setPhase({ kind: 'camera' });
   };
 
   const send = async () => {
+    // The preview's player is let go in the commit this press causes; the
+    // file is not moved from under it before that commit is in.
+    const isPlayerGone = new Promise<void>((resolve) => {
+      committed.current = resolve;
+    });
     isSendingNow.current = true;
     setSending(true);
     setSendError(null);
     noteStep('video.send', 'pressed');
     try {
+      await isPlayerGone;
       const captured = unsent.current?.kept ?? (await keepRecording(phase.recording));
       unsent.current = { uri: captured.uri, kept: captured };
       if (isMounted.current) {
@@ -178,10 +200,13 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
         setSent(true);
       }
     } catch (error: unknown) {
-      noteStep('video.send', 'failed', {
-        type: error instanceof Error ? error.name : typeof error,
-      });
+      const type = error instanceof Error ? error.name : typeof error;
+      noteStep('video.send', 'failed', { type });
+      // A caught failure is an event of its own: the marks above go with it.
+      reportError(error);
       if (isMounted.current) {
+        // Moved and found empty: there is no file left to play or to send.
+        setFileLost(type === 'EmptyCaptureError');
         setSendError(error);
       } else {
         // Nobody is left to try again.
@@ -201,10 +226,12 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
     return titled(<SentNotice onBack={onDone} />);
   }
 
+  const previewUri = isFileLost ? null : (keptUri ?? phase.recording.uri);
+
   return titled(
     <VideoPreview
       recording={phase.recording}
-      uri={keptUri ?? phase.recording.uri}
+      uri={previewUri}
       end={phase.end}
       isSending={isSending}
       sendError={sendError}
@@ -214,17 +241,30 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
   );
 }
 
-/** The recording is the queue's: what happens to it now, and the way back. */
+/** How long the screen may take to leave by itself before it offers the way back. */
+const BACK_FALLBACK_MS = 1_500;
+
+/**
+ * The recording is the queue's: what happens to it now, and — only if the
+ * screen is still here a moment later — the way back. Offered at once, a tap
+ * during the way out would go back a second time, past the step.
+ */
 function SentNotice({ onBack }: { onBack: () => void }) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const [isStillHere, setStillHere] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setStillHere(true), BACK_FALLBACK_MS);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <View style={styles.sent}>
       <Text align="center" accessibilityRole="alert">
         {t('video.queued')}
       </Text>
-      <Button label={t('video.backToStep')} onPress={onBack} />
+      {isStillHere ? <Button label={t('video.backToStep')} onPress={onBack} /> : null}
     </View>
   );
 }

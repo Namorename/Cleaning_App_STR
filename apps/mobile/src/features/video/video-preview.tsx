@@ -26,9 +26,9 @@ interface VideoPreviewProps {
   recording: Recording;
   /**
    * Where the file is now: the camera's path, or the name of ours an
-   * «Отправить» that went no further moved it to.
+   * «Отправить» that went no further moved it to — or null once it is lost.
    */
-  uri: string;
+  uri: string | null;
   end: RecordingEnd;
   isSending: boolean;
   /** Why the last «Отправить» did not go through, or null. */
@@ -66,7 +66,17 @@ export function VideoPreview({
 
   return (
     <View style={styles.screen}>
-      {isSending ? <LoadingState label={t('video.preparing')} /> : <PreviewPlayer uri={uri} />}
+      {isSending ? (
+        <LoadingState label={t('video.preparing')} />
+      ) : uri === null ? (
+        <View style={styles.lost}>
+          <Text align="center" accessibilityRole="alert">
+            {t('video.recordingLost')}
+          </Text>
+        </View>
+      ) : (
+        <PreviewPlayer uri={uri} />
+      )}
       <ScrollView style={layout.panel} contentContainerStyle={[layout.controls, edge]}>
         {notice !== null ? (
           <Text accessibilityRole="alert" align="center">
@@ -77,7 +87,12 @@ export function VideoPreview({
           {t('steps.videoLength', { seconds: recording.durationSec })}
         </Text>
         {sendError !== null ? <FailureText error={sendError} /> : null}
-        <Button label={t('video.send')} isBusy={isSending} onPress={onSend} />
+        <Button
+          label={t('video.send')}
+          isBusy={isSending}
+          isDisabled={uri === null}
+          onPress={onSend}
+        />
         <Button
           variant="outline"
           label={t('video.retake')}
@@ -118,4 +133,5 @@ const layout = StyleSheet.create({
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.background },
+    lost: { flex: 1, justifyContent: 'center', padding: Spacing.xl },
   });
