@@ -21,9 +21,9 @@
 | Expo (650 Industries) | Отдельной страницы DPA нет; условия обработки — Terms §3.2, https://expo.dev/terms | Встроены в условия; отдельный DPA — через https://expo.dev/contact (в Trust Center: «MSA and DPA terms are available», https://expo.dev/trust) | SCC (модуль 2) в Terms §3.2; Data Privacy Framework (https://expo.dev/privacy) |
 | Sentry | https://sentry.io/legal/dpa/ | **Не автоматически.** Organization Settings → **Legal & Compliance** → принять (только роль Owner или Billing); инструкция: https://docs.sentry.io/security-legal-pii/security/terms/ | SCC (модули 2 и 3) как запасное основание к Data Privacy Framework |
 
-**Sentry — срочно.** Условия Sentry (Terms §4.4, https://sentry.io/terms/): пока
-DPA не принят, клиент не должен отправлять в сервис персональные данные. Отчёты
-о сбоях могут содержать id пользователя.
+**Sentry.** Условия Sentry (Terms §4.4, https://sentry.io/terms/): без принятого DPA
+в сервис нельзя отправлять персональные данные. Отчёты о сбоях могут содержать id
+пользователя. DPA принят владельцем 2026-10-10.
 
 ## Откуда взяты значения
 
@@ -32,8 +32,8 @@ DPA не принят, клиент не должен отправлять в с
   Это видно в `npx vercel inspect <деплой> --cwd apps/web` и в заголовке `x-vercel-id`:
   `fra1::iad1::…`, где fra1 — точка входа, iad1 — функция. `iad1` — регион по
   умолчанию у новых проектов: https://vercel.com/docs/functions/configuring-functions/region.
-  Сменить на Франкфурт: проект → Settings → Functions → Function Regions → `fra1`.
-  Это решение владельца; после смены поменять и значение.
+  `vercel.json` главнее настройки Function Regions в панели Vercel. Регион меняется
+  только в нём, и вместе с ним — значение политики (тест следит).
 - **sentryRegion — ЕС (Франкфурт).** Хост приёма в DSN оканчивается на `.de.sentry.io`,
   то есть это регион ЕС. Его данные хранятся во Франкфурте:
   https://docs.sentry.io/organization/data-storage-location/ и
@@ -46,7 +46,8 @@ DPA не принят, клиент не должен отправлять в с
   - Семь дней верны на обоих тарифах.
   - Отдельно: журнал аудита входа Supabase может писаться в таблицу базы
     `auth.audit_log_entries` без срока хранения. Это настройка Authentication →
-    Audit Logs: https://supabase.com/docs/guides/auth/audit-logs.
+    Audit Logs: https://supabase.com/docs/guides/auth/audit-logs. На 2026-10-10 таблица
+    пуста (0 строк, проверено `scripts/cloud-read.mjs`): журнал в базу не пишется.
 
 ## На что обратить внимание
 

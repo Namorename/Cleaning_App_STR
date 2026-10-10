@@ -110,8 +110,7 @@ Sentry (User Settings → Personal Tokens), файл удалить, пин `scr
 - **`task/[id]/index.tsx`** ещё задаёт заголовок через `<Stack.Screen options>` (перерисовка раз в
   30 с) — перевести на `useScreenTitle`, как экран шага.
 - **Source maps OTA** в Sentry не выгружены (`npx sentry-expo-upload-sourcemaps dist` в окне владельца).
-- **`/privacy`:** 11 значений `PRIVACY_SETTINGS` (`apps/web/src/app/privacy/settings.ts`) пустые — на
-  странице плейсхолдеры «[вписать: …]»; регионы известны: Vercel Functions — `iad1` (Вашингтон, США),
-  Sentry — EU (`de.sentry.io`).
+- **`/privacy`:** все 11 значений `PRIVACY_SETTINGS` вписаны 2026-10-10 (`docs/privacy-dpa-links.md`);
+  функции панели с того же дня во Франкфурте (`apps/web/vercel.json`, `fra1`), Sentry — EU (`de.sentry.io`).
 - **Демо-объект Apple** (`900000000001`) и демо-горничную убрать, когда внешний TestFlight больше не
   нужен рецензенту.

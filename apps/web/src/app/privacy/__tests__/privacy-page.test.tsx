@@ -429,8 +429,7 @@ describe('the values only the owner knows', () => {
   });
 });
 
-// The owner's values of 2026-10-10. Only the two statements stay open: the
-// owner accepts the suppliers' agreements himself and then confirms them.
+// The owner's values of 2026-10-10; the two statements confirmed at 21:00.
 describe('the values the owner gave', () => {
   test('as published', () => {
     expect(PRIVACY_SETTINGS).toMatchObject({
