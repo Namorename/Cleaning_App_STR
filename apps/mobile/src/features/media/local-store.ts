@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { z } from 'zod';
 
 import type { CapturedMedia } from './capture';
+import { storedMediaPath } from './media-path';
 
 const STORE_KEY = 'str-ops.media-local';
 
@@ -66,6 +67,11 @@ export async function loadLocalMedia(): Promise<LocalMediaStore> {
  * dropped instead of kept, so she is offered a fresh shot rather than a loop.
  * Nothing recoverable is lost — the size is exactly what this record failed to
  * learn. Unreadable reads as empty, as the store has always treated it.
+ *
+ * A file is read by its place in the documents (`storedMediaPath`): a record
+ * an older build wrote with the full path of its install reads the same as one
+ * written now, and the full path of this run is made where the file is used
+ * (iPhone risk 1, docs/ios-first-device-checklist.md).
  */
 export function readLocalMediaStore(data: unknown): LocalMediaStore {
   const parsed = storeSchema.safeParse(data);
@@ -73,7 +79,9 @@ export function readLocalMediaStore(data: unknown): LocalMediaStore {
     return {};
   }
   return Object.fromEntries(
-    Object.entries(parsed.data).filter(([, record]) => record.byteSize > 0),
+    Object.entries(parsed.data)
+      .filter(([, record]) => record.byteSize > 0)
+      .map(([id, record]) => [id, { ...record, uri: storedMediaPath(record.uri) }]),
   );
 }
 
@@ -99,7 +107,7 @@ export function toLocalRecord(captured: CapturedMedia): LocalMediaRecord {
   return {
     id: captured.id,
     kind: captured.kind,
-    uri: captured.uri,
+    uri: storedMediaPath(captured.uri),
     mimeType: captured.mimeType,
     byteSize: captured.byteSize,
     width: captured.width,
@@ -115,6 +123,34 @@ export function rememberLocalMedia(record: LocalMediaRecord): Promise<LocalMedia
     const store = { ...(await loadLocalMedia()), [record.id]: record };
     await saveLocalMedia(store);
     return store;
+  });
+}
+
+/**
+ * The ledger an older build wrote with full paths, written again with each
+ * file's place in the documents (iPhone risk 1) — once, at the start: every
+ * record is kept as the store reads it, and a ledger with nothing to move, or
+ * one that cannot be read, is not written at all.
+ */
+export function migrateLocalMediaStore(): Promise<void> {
+  return serialized(async () => {
+    const raw = await AsyncStorage.getItem(STORE_KEY);
+    if (raw === null) {
+      return;
+    }
+    let data: unknown;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      return;
+    }
+    const parsed = storeSchema.safeParse(data);
+    const isMoved =
+      parsed.success &&
+      Object.values(parsed.data).some((record) => record.uri !== storedMediaPath(record.uri));
+    if (isMoved) {
+      await saveLocalMedia(readLocalMediaStore(data));
+    }
   });
 }
 

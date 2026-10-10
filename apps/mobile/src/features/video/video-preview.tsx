@@ -9,6 +9,7 @@ import { LoadingState } from '@/components/loading-state';
 import { Text } from '@/components/text';
 import { Spacing, type Theme } from '@/constants/theme';
 import type { Recording } from '@/features/media/capture';
+import { mediaFileUri } from '@/features/media/media-path';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 import type { RecordingEnd } from './recording';
@@ -107,10 +108,13 @@ export function VideoPreview({
   );
 }
 
-/** The phone's own player; let go, with its file, when this unmounts (expo-video). */
+/**
+ * The phone's own player; let go, with its file, when this unmounts (expo-video).
+ * A kept video is played from the documents of this run (`mediaFileUri`).
+ */
 function PreviewPlayer({ uri }: { uri: string }) {
   const { t } = useTranslation();
-  const player = useVideoPlayer(uri, (created) => {
+  const player = useVideoPlayer(mediaFileUri(uri), (created) => {
     created.loop = false;
   });
 

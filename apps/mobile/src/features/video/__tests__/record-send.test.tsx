@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert, StyleSheet, type ViewStyle } from 'react-native';
 
 import type { CapturedMedia } from '@/features/media/capture';
+import { mediaFileUri } from '@/features/media/media-path';
 import {
   KEPT_URI,
   RECORDED_URI,
@@ -72,7 +73,8 @@ describe('the preview before sending', () => {
     expect(mockAttach).toHaveBeenCalledWith({
       taskId: TASK_ID,
       stepId: STEP_ID,
-      uri: 'file:///documents/task-media/kept-id.mp4',
+      // The queue is handed its place in the documents (iPhone risk 1).
+      uri: 'task-media/kept-id.mp4',
       mediaId: 'kept-id',
       kind: 'video',
       mimeType: 'video/mp4',
@@ -385,7 +387,8 @@ describe('the hand-over, made sure', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
 
     expect(screen.getByText('disk I/O error')).toBeTruthy();
-    expect(mockPreview.source).toBe(KEPT_URI);
+    // Played from the documents of this run.
+    expect(mockPreview.source).toBe(mediaFileUri(KEPT_URI));
   });
 
   test('sent, the screen says the video is queued and offers the way back itself', async () => {

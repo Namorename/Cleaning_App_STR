@@ -1264,6 +1264,7 @@
     "leaveBodyGallery": "Pokud odejdete, video se neodešle. V galerii zůstane.",
     "galleryTooLong": "Toto video je delší než {{limit}} s. Vyberte kratší nebo natočte kamerou.",
     "galleryTooLarge": "Toto video je větší než {{limit}} MB. Vyberte menší nebo natočte kamerou.",
+    "galleryTooLargeCompressed": "I po zmenšení je toto video větší než {{limit}} MB. Vyberte kratší nebo natočte kamerou.",
     "galleryNoLength": "Délku tohoto videa se nepodařilo zjistit. Vyberte jiné nebo natočte kamerou.",
     "galleryFormat": "Toto video nelze použít: musí být ve formátu MP4 nebo MOV. Vyberte jiné nebo natočte kamerou.",
     "sourceTitle": "Video ke kroku",

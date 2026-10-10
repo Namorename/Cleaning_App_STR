@@ -10,6 +10,7 @@ import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Icon } from '@/components/icon';
 import { Text } from '@/components/text';
 import { Radius, Spacing, type Theme } from '@/constants/theme';
+import { mediaFileUri } from '@/features/media/media-path';
 import type { MediaItemView, MediaKind, PhotoLimits } from '@/features/media/schema';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
@@ -230,7 +231,11 @@ function MediaTile({ item, index, disabled, onAskRemove, onRetry }: MediaTilePro
     <View style={styles.tile}>
       <View accessible accessibilityLabel={label}>
         {item.kind === 'photo' && item.uri !== null ? (
-          <Image source={{ uri: item.uri }} contentFit="cover" style={layout.picture} />
+          <Image
+            source={{ uri: mediaFileUri(item.uri) }}
+            contentFit="cover"
+            style={layout.picture}
+          />
         ) : (
           <View style={styles.placeholder}>
             <Text align="center">

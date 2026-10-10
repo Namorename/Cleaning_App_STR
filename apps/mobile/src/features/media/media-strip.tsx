@@ -8,6 +8,7 @@ import { Text } from '@/components/text';
 import { MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
+import { mediaFileUri } from './media-path';
 import type { MediaItemView } from './schema';
 
 /** A tile of the strip: a server-tracked file, or a capture not yet handed over. */
@@ -164,7 +165,11 @@ function StripTile({ item, number, onRemove, onRetry, styles }: StripTileProps) 
         style={styles.photo}
       >
         {item.uri !== null ? (
-          <Image source={{ uri: item.uri }} contentFit="cover" style={styles.picture} />
+          <Image
+            source={{ uri: mediaFileUri(item.uri) }}
+            contentFit="cover"
+            style={styles.picture}
+          />
         ) : (
           <View style={[styles.picture, styles.placeholder]} />
         )}

@@ -43,7 +43,8 @@ export const SHORT_LIMIT_MS = TUS_SHORT_STALL_MS;
 export const TASK_ID = '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b';
 export const STEP_ID = 'b1c2d3e4-1111-4111-8111-b1c2d3e40001';
 export const RECORDED_URI = 'file:///cache/Camera/recording.mp4';
-export const KEPT_URI = 'file:///documents/task-media/kept-id.mp4';
+/** Where `keepRecording` keeps it: its place in the documents, not a full path (iPhone risk 1). */
+export const KEPT_URI = 'task-media/kept-id.mp4';
 export const ME = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
 
 type Permission = {

@@ -4,9 +4,17 @@ import {
   fromBase64,
   metadataLeaks,
 } from '../../../../../../packages/shared/src/testing/image-fixtures';
-import { capturePhoto, EmptyCaptureError, keepRecording, pickVideoFromGallery } from '../capture';
+import { Platform } from 'react-native';
+
+import {
+  capturePhoto,
+  EmptyCaptureError,
+  keepRecording,
+  MediaLibraryDeniedError,
+  pickVideoFromGallery,
+} from '../capture';
 import { attachFailure } from '../failure';
-import { fileSize, keepFile } from '../file';
+import { discardFile, fileSize, keepFile, readFileBytes } from '../file';
 
 /**
  * A capture is measured where it landed, not where it was sent.
@@ -48,6 +56,10 @@ jest.mock('expo-file-system', () => {
 
     async bytes(): Promise<Uint8Array> {
       return contents.get(this.uri) ?? new Uint8Array(sizes.get(this.uri) ?? 0);
+    }
+
+    async arrayBuffer(): Promise<ArrayBuffer> {
+      return (await this.bytes()).slice().buffer;
     }
 
     write(content: Uint8Array): void {
@@ -121,6 +133,7 @@ jest.mock('expo-image-picker', () => ({
   launchImageLibraryAsync: jest.fn(),
   UIImagePickerControllerQualityType: { IFrame1280x720: 1 },
   MediaTypeOptions: { Images: 'Images', Videos: 'Videos' },
+  VideoExportPreset: { Passthrough: 0, H264_1280x720: 6 },
 }));
 
 /** The mock's own maps, so a test can put a file on this filesystem. */
@@ -139,8 +152,44 @@ test('a kept file is measured after it has arrived, not while it is moving', asy
 
   const kept = await keepFile('file:///cache/photo.jpg', 'kept-id', 'jpg');
 
-  expect(kept).toBe('file:///documents/task-media/kept-id.jpg');
+  // Remembered by its place in the documents, not by the install's full path
+  // (iPhone risk 1): the size is read from the documents of this run.
+  expect(kept).toBe('task-media/kept-id.jpg');
   expect(await fileSize(kept)).toBe(4096);
+});
+
+/**
+ * A kept file named the way a build before this one remembered it — the full
+ * path, inside the folder of the install it ran in. A new build on an iPhone
+ * may run in another folder; the file moved with the documents, so it is
+ * looked for there (docs/ios-first-device-checklist.md, risk 1).
+ */
+describe('a kept file remembered by an older build', () => {
+  const OLD_PATH =
+    'file:///var/mobile/Containers/Data/Application/OLD-UUID/Documents/task-media/kept-id.jpg';
+
+  beforeEach(() => {
+    sizes.set('file:///documents/task-media/kept-id.jpg', 4096);
+  });
+
+  test('is measured where it is now', async () => {
+    await expect(fileSize(OLD_PATH)).resolves.toBe(4096);
+  });
+
+  test('is read for its upload where it is now', async () => {
+    const body = await readFileBytes(OLD_PATH);
+
+    expect((body as ArrayBuffer).byteLength).toBe(4096);
+  });
+
+  test('is removed where it is now, as is one remembered by its place', () => {
+    discardFile(OLD_PATH);
+    expect(sizes.has('file:///documents/task-media/kept-id.jpg')).toBe(false);
+
+    sizes.set('file:///documents/task-media/kept-id.jpg', 4096);
+    discardFile('task-media/kept-id.jpg');
+    expect(sizes.has('file:///documents/task-media/kept-id.jpg')).toBe(false);
+  });
 });
 
 test('the source is gone once the move has finished', async () => {
@@ -157,7 +206,7 @@ test('a photo carries the size it really has', async () => {
   const photo = await capturePhoto();
 
   expect(photo?.byteSize).toBe(250_000);
-  expect(photo?.uri).toBe('file:///documents/task-media/kept-id.jpg');
+  expect(photo?.uri).toBe('task-media/kept-id.jpg');
   expect(photo?.mimeType).toBe('image/jpeg');
 });
 
@@ -241,7 +290,7 @@ describe('a recording from the app’s own camera', () => {
     expect(video).toEqual({
       id: 'kept-id',
       kind: 'video',
-      uri: 'file:///documents/task-media/kept-id.mp4',
+      uri: 'task-media/kept-id.mp4',
       mimeType: 'video/mp4',
       byteSize: 31_900_000,
       width: null,
@@ -262,7 +311,7 @@ describe('a recording from the app’s own camera', () => {
     });
 
     expect(video.mimeType).toBe('video/quicktime');
-    expect(video.uri).toBe('file:///documents/task-media/kept-id.mov');
+    expect(video.uri).toBe('task-media/kept-id.mov');
   });
 
   test('one that measures nothing is refused here, not by the server', async () => {
@@ -294,7 +343,107 @@ describe('a recording from the app’s own camera', () => {
 describe('a video from the gallery', () => {
   const picker = jest.requireMock('expo-image-picker') as { launchImageLibraryAsync: jest.Mock };
 
+  const library = jest.requireMock('expo-image-picker') as {
+    getMediaLibraryPermissionsAsync: jest.Mock;
+    requestMediaLibraryPermissionsAsync: jest.Mock;
+  };
+
+  let os: jest.ReplaceProperty<typeof Platform.OS> | undefined;
+  const runOn = (platform: typeof Platform.OS) => {
+    os = jest.replaceProperty(Platform, 'OS', platform);
+  };
+
+  afterEach(() => {
+    os?.restore();
+    os = undefined;
+    picker.launchImageLibraryAsync.mockReset();
+  });
+
+  /**
+   * An iPhone's camera films 4K HEVC: a minute from the roll is far past the
+   * storage's 50 MB (docs/ios-first-device-checklist.md, risk 3). The iPhone's
+   * picker compresses it to 720p H.264 as it hands it over; the checks of the
+   * step still hold what comes out (gallery-video.ts).
+   */
+  test('on an iPhone, asks for the video compressed to 720p H.264, and says it was', async () => {
+    runOn('ios');
+    picker.launchImageLibraryAsync.mockResolvedValueOnce({
+      canceled: false,
+      assets: [
+        {
+          uri: 'file:///cache/ImagePicker/clip.mp4',
+          duration: 20_000,
+          fileSize: 9_000_000,
+          mimeType: 'video/mp4',
+        },
+      ],
+    });
+
+    const picked = await pickVideoFromGallery();
+
+    expect(picker.launchImageLibraryAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ mediaTypes: ['videos'], videoExportPreset: 6 }),
+    );
+    expect(picked).toMatchObject({
+      byteSize: 9_000_000,
+      mimeType: 'video/mp4',
+      isCompressed: true,
+    });
+  });
+
+  test('on Android, asks the gallery as before: no preset, the file as it is', async () => {
+    runOn('android');
+    picker.launchImageLibraryAsync.mockResolvedValueOnce({
+      canceled: false,
+      assets: [
+        {
+          uri: 'content://media/clip.mp4',
+          duration: 20_000,
+          fileSize: 9_000_000,
+          mimeType: 'video/mp4',
+        },
+      ],
+    });
+
+    const picked = await pickVideoFromGallery();
+
+    expect(picker.launchImageLibraryAsync).toHaveBeenCalledWith({
+      mediaTypes: ['videos'],
+      quality: 1,
+    });
+    expect(picked).toMatchObject({ uri: 'content://media/clip.mp4', isCompressed: false });
+  });
+
+  test('asks for the photos before the gallery opens', async () => {
+    const asked: string[] = [];
+    library.getMediaLibraryPermissionsAsync.mockImplementationOnce(async () => {
+      asked.push('current');
+      return { granted: false };
+    });
+    library.requestMediaLibraryPermissionsAsync.mockImplementationOnce(async () => {
+      asked.push('request');
+      return { granted: true };
+    });
+    picker.launchImageLibraryAsync.mockImplementationOnce(async () => {
+      asked.push('gallery');
+      return { canceled: true, assets: null };
+    });
+
+    await pickVideoFromGallery();
+
+    expect(asked).toEqual(['current', 'request', 'gallery']);
+  });
+
+  test('photos not allowed: the gallery does not open, and the screen is told why', async () => {
+    library.getMediaLibraryPermissionsAsync.mockResolvedValueOnce({ granted: false });
+    library.requestMediaLibraryPermissionsAsync.mockResolvedValueOnce({ granted: false });
+
+    await expect(pickVideoFromGallery()).rejects.toBeInstanceOf(MediaLibraryDeniedError);
+    expect(picker.launchImageLibraryAsync).not.toHaveBeenCalled();
+  });
+
   test('asks the gallery for videos only, and reads what the file says of itself', async () => {
+    runOn('ios');
     picker.launchImageLibraryAsync.mockResolvedValueOnce({
       canceled: false,
       assets: [
@@ -318,6 +467,7 @@ describe('a video from the gallery', () => {
       byteSize: 12_000_000,
       mimeType: 'video/mp4',
       takenAt: expect.any(String),
+      isCompressed: true,
     });
   });
 
@@ -353,7 +503,7 @@ describe('a video from the gallery', () => {
     );
 
     expect(video).toMatchObject({
-      uri: 'file:///documents/task-media/kept-id.mov',
+      uri: 'task-media/kept-id.mov',
       mimeType: 'video/quicktime',
       byteSize: 30_000_000,
       source: 'gallery',

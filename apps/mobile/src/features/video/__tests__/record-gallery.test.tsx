@@ -41,6 +41,7 @@ function picked(overrides: Partial<PickedVideo> = {}): PickedVideo {
     takenAt: '2026-10-10T08:00:00.000Z',
     byteSize: 12_000_000,
     mimeType: 'video/mp4',
+    isCompressed: false,
     ...overrides,
   };
 }
@@ -122,6 +123,21 @@ test('larger than the company allows, it says the size to meet', async () => {
   expect(backs).toHaveLength(2);
   await fireEvent.press(backs[1]);
   expect(router.back).toHaveBeenCalledTimes(1);
+});
+
+// An iPhone's picker hands the video over compressed (capture.ts): one still
+// too large after that is told so, and a shorter one is what can help.
+test('compressed by the iPhone and still too large, it says so and asks for a shorter one', async () => {
+  pick.mockResolvedValue(picked({ byteSize: 46_000_000, isCompressed: true }));
+
+  await render(<RecordRoute />);
+
+  expect(
+    screen.getByText(
+      'Даже после сжатия это видео больше 45 МБ. Выберите видео покороче или снимите на камеру.',
+    ),
+  ).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Выбрать другое' })).toBeTruthy();
 });
 
 test('a format the storage does not keep is refused before anything is sent', async () => {

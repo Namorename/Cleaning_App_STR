@@ -1248,6 +1248,7 @@
     "leaveBodyGallery": "If you leave, the video will not be sent. It stays in the gallery.",
     "galleryTooLong": "This video is longer than {{limit}} s. Choose a shorter one or record with the camera.",
     "galleryTooLarge": "This video is larger than {{limit}} MB. Choose a smaller one or record with the camera.",
+    "galleryTooLargeCompressed": "Even compressed, this video is larger than {{limit}} MB. Choose a shorter one or record with the camera.",
     "galleryNoLength": "The length of this video could not be read. Choose another or record with the camera.",
     "galleryFormat": "This video will not do: it has to be MP4 or MOV. Choose another or record with the camera.",
     "sourceTitle": "Video for the step",

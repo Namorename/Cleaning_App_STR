@@ -12,6 +12,7 @@ export interface GalleryRefusal {
   key:
     | 'video.galleryTooLong'
     | 'video.galleryTooLarge'
+    | 'video.galleryTooLargeCompressed'
     | 'video.galleryNoLength'
     | 'video.galleryFormat';
   limit?: number;
@@ -22,8 +23,11 @@ export interface GalleryRefusal {
  * anything is registered (night of 2026-10-10, block 6): a container the
  * storage does not keep, a length its file does not say, longer than the
  * step and the company allow (`limits.seconds`, the smaller of the two),
- * larger than the company's size. A camera recording is held to these by the
- * camera itself; a chosen file is held here. Null when it may go.
+ * larger than the company's size — `limits.maxBytes`, never past the storage's
+ * 50 MB. A camera recording is held to these by the camera itself; a chosen
+ * file is held here. A file an iPhone's picker already compressed and still
+ * too large is told so: a smaller one of that length is not to be had, a
+ * shorter one is. Null when it may go.
  */
 export function galleryVideoRefusal(
   video: PickedVideo,
@@ -39,7 +43,10 @@ export function galleryVideoRefusal(
     return { key: 'video.galleryTooLong', limit: limits.seconds };
   }
   if (video.byteSize > limits.maxBytes) {
-    return { key: 'video.galleryTooLarge', limit: Math.floor(limits.maxBytes / BYTES_PER_MB) };
+    return {
+      key: video.isCompressed ? 'video.galleryTooLargeCompressed' : 'video.galleryTooLarge',
+      limit: Math.floor(limits.maxBytes / BYTES_PER_MB),
+    };
   }
   return null;
 }

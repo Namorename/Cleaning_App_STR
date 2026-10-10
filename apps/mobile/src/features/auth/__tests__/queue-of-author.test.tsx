@@ -81,7 +81,8 @@ function photoOf(mediaId: string, taskId: string): AttachMediaVariables {
   return {
     taskId,
     stepId: 'b1c2d3e4-1111-4111-8111-b1c2d3e40001',
-    uri: `file:///documents/task-media/${mediaId}.jpg`,
+    // A kept photo by its place in the documents, as this build queues it (iPhone risk 1).
+    uri: `task-media/${mediaId}.jpg`,
     mediaId,
     kind: 'photo',
     mimeType: 'image/jpeg',
