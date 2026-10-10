@@ -975,7 +975,11 @@
       "saveFailed": "The theme changed but was not saved: after a restart the previous one comes back."
     },
     "about": {
-      "heading": "About the app"
+      "heading": "About the app",
+      "version": "Version",
+      "embedded": "built-in bundle",
+      "update": "update {{id}}",
+      "channel": "channel {{channel}}"
     },
     "fontLicense": {
       "title": "Font license",

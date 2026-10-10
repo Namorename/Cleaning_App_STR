@@ -1,5 +1,5 @@
 import type { Json } from '@str-ops/shared';
-import { Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
@@ -39,6 +39,7 @@ import {
   useTaskSteps,
 } from '@/features/steps/use-steps';
 import { useTask } from '@/features/tasks/use-tasks';
+import { useScreenTitle } from '@/hooks/use-screen-title';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { wordContext } from '@/i18n';
 
@@ -80,6 +81,8 @@ export default function StepRoute() {
   const skip = useSkipStep();
 
   const step = steps.data?.find((item) => item.id === stepId);
+  // Set once, never on the way back after «Выполнено» (hooks/use-screen-title).
+  useScreenTitle(step === undefined ? undefined : stepTitle(step));
   const isEditable =
     task.data?.status === 'in_progress' && task.data.assignee_id === userId && userId !== null;
 
@@ -244,36 +247,33 @@ export default function StepRoute() {
   };
 
   return (
-    <>
-      <Stack.Screen options={{ title: stepTitle(step) }} />
-      <StepScreen
-        key={step.id}
-        step={step}
-        isEditable={isEditable === true}
-        isBusy={complete.isPending || reopen.isPending || skip.isPending}
-        refreshError={steps.error}
-        error={
-          complete.error ??
-          reopen.error ??
-          skip.error ??
-          attach.error ??
-          videoAttachError ??
-          removeMedia.error
-        }
-        notice={notice}
-        onComplete={onComplete}
-        onReopen={() => reopen.mutate({ taskId, stepId })}
-        onSkip={() => skip.mutate({ taskId, stepId })}
-        media={mediaItems}
-        maxVideoSec={maxVideoSec}
-        isCapturing={isCapturing}
-        canPickFromGallery={galleryAllowed}
-        onCapture={mediaKind === 'video' ? openRecorder : () => void attachFrom('camera')}
-        onPickFromGallery={() => void attachFrom('gallery')}
-        onRemoveMedia={(mediaId) => removeMedia.mutate({ taskId, mediaId })}
-        onRetryMedia={onRetryMedia}
-      />
-    </>
+    <StepScreen
+      key={step.id}
+      step={step}
+      isEditable={isEditable === true}
+      isBusy={complete.isPending || reopen.isPending || skip.isPending}
+      refreshError={steps.error}
+      error={
+        complete.error ??
+        reopen.error ??
+        skip.error ??
+        attach.error ??
+        videoAttachError ??
+        removeMedia.error
+      }
+      notice={notice}
+      onComplete={onComplete}
+      onReopen={() => reopen.mutate({ taskId, stepId })}
+      onSkip={() => skip.mutate({ taskId, stepId })}
+      media={mediaItems}
+      maxVideoSec={maxVideoSec}
+      isCapturing={isCapturing}
+      canPickFromGallery={galleryAllowed}
+      onCapture={mediaKind === 'video' ? openRecorder : () => void attachFrom('camera')}
+      onPickFromGallery={() => void attachFrom('gallery')}
+      onRemoveMedia={(mediaId) => removeMedia.mutate({ taskId, mediaId })}
+      onRetryMedia={onRetryMedia}
+    />
   );
 }
 

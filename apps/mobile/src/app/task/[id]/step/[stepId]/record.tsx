@@ -24,6 +24,7 @@ import {
 import { useTaskSteps } from '@/features/steps/use-steps';
 import { useTask } from '@/features/tasks/use-tasks';
 import { recordGate } from '@/features/video/record-gate';
+import { RecordHeader } from '@/features/video/record-header';
 import { RecordScreen } from '@/features/video/record-screen';
 import { useOverdue } from '@/features/video/use-overdue';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
@@ -137,9 +138,14 @@ export default function RecordRoute() {
     return <RecordScreen limits={limits} onSend={send} onDone={goBack} />;
   }
 
+  // The screen's own header (the system's is hidden here, see RecordHeader),
+  // over whatever it says before the camera.
+  const header = <RecordHeader title={t('video.recordTitle')} onBack={goBack} />;
+
   if (gate?.kind === 'error' || wait.isOverdue) {
     return (
       <View style={styles.screen}>
+        {header}
         <ErrorState
           error={gate?.kind === 'error' ? gate.error : NOT_READ_IN_TIME}
           onRetry={readAgain}
@@ -150,21 +156,30 @@ export default function RecordRoute() {
 
   if (gate?.kind === 'refused') {
     return (
-      <View style={[styles.screen, styles.centered]}>
-        <Text tone="secondary" align="center">
-          {gate.text}
-        </Text>
+      <View style={styles.screen}>
+        {header}
+        <View style={styles.centered}>
+          <Text tone="secondary" align="center">
+            {gate.text}
+          </Text>
+        </View>
       </View>
     );
   }
 
-  return <LoadingState label={t('video.starting')} />;
+  return (
+    <View style={styles.screen}>
+      {header}
+      <LoadingState label={t('video.starting')} />
+    </View>
+  );
 }
 
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.background },
     centered: {
+      flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
       padding: Spacing.xl,

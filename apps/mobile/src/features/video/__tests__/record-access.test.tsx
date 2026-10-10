@@ -20,6 +20,7 @@ import {
   mockVideo,
   moveApp,
   recordFor,
+  router,
   setUpRecordRoute,
   stepVideo,
   videoStep,
@@ -166,6 +167,38 @@ describe('the camera and the microphone', () => {
 });
 
 describe('what the screen needs before it records', () => {
+  // The screen draws its own header (features/video/record-header.tsx), not
+  // the system's: every state of it has the title and the way back.
+  test.each([
+    [
+      'refused',
+      () => {
+        mockVideo.settings = null;
+      },
+    ],
+    [
+      'still reading',
+      () => {
+        mockMedia.isPending = true;
+        mockMedia.data = undefined;
+      },
+    ],
+    [
+      'failed to read',
+      () => {
+        mockMedia.error = new Error('JWT expired');
+        mockMedia.data = undefined;
+      },
+    ],
+  ])('%s, it has its header and «Назад»', async (_state, arrange) => {
+    arrange();
+    await render(<RecordRoute />);
+
+    expect(screen.getByRole('header', { name: 'Запись видео' })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Назад' }));
+    expect(router.back).toHaveBeenCalledTimes(1);
+  });
+
   test('without the company’s settings it says why and shows no camera', async () => {
     mockVideo.settings = null;
 

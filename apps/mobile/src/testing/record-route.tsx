@@ -112,6 +112,9 @@ export const mockNavigation = {
     return () => listeners.delete(listener);
   }),
   dispatch: jest.fn(),
+  /** The header of the system's: the screen must never touch it (it draws its own). */
+  setOptions: jest.fn(),
+  isFocused: () => true,
 };
 
 /** Tell the screen she is leaving it, or another screen covered it. */
@@ -449,6 +452,8 @@ function resetStage(): void {
       }),
   );
   mockNavigation.listeners.clear();
+  // A step under the screen, unless a test takes it away (clearAllMocks keeps a return value).
+  jest.mocked(router.canGoBack).mockReturnValue(true);
   mockHeader.title = undefined;
   mockLeaveGuard.isOn = false;
   mockLeaveGuard.onPrevented = null;

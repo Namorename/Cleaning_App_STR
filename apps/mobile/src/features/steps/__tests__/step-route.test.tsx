@@ -36,9 +36,30 @@ jest.mock('@/features/auth/session', () => ({
 /** What the screen does when it is in front again; called by a test to bring it back. */
 const mockFocus: { effect: (() => void) | null } = { effect: null };
 
+/**
+ * The screen's place in the stack: who listens for it leaving, and what it
+ * set on the header. Going back tells the listeners first, as the router does.
+ */
+type Listener = () => void;
+const mockNavigation = {
+  listeners: new Map<string, Set<Listener>>(),
+  setOptions: jest.fn(),
+  isFocused: () => true,
+  addListener: jest.fn((event: string, listener: Listener) => {
+    const listeners = mockNavigation.listeners.get(event) ?? new Set<Listener>();
+    listeners.add(listener);
+    mockNavigation.listeners.set(event, listeners);
+    return () => listeners.delete(listener);
+  }),
+};
+
 jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
-  router: { back: jest.fn(), push: jest.fn() },
+  router: {
+    back: jest.fn(() => mockNavigation.listeners.get('beforeRemove')?.forEach((fn) => fn())),
+    push: jest.fn(),
+  },
+  useNavigation: () => mockNavigation,
   useLocalSearchParams: () => ({
     id: '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b',
     stepId: 'b1c2d3e4-1111-4111-8111-b1c2d3e40001',
@@ -57,6 +78,9 @@ jest.mock('@/features/tasks/use-tasks', () => ({
   useTask: () => ({ isPending: false, error: null, data: mockTask.data }),
 }));
 
+/** Whether the server has answered «Выполнено»; a test turns it on. */
+const mockComplete = { isSuccess: false };
+
 jest.mock('@/features/steps/use-steps', () => {
   const idle = () => ({
     isPending: false,
@@ -68,7 +92,7 @@ jest.mock('@/features/steps/use-steps', () => {
   return {
     useTaskSteps: () => mockSteps,
     useOpenStep: idle,
-    useCompleteStep: idle,
+    useCompleteStep: () => ({ ...idle(), isSuccess: mockComplete.isSuccess }),
     useReopenStep: idle,
     useSkipStep: idle,
   };
@@ -137,6 +161,8 @@ beforeEach(() => {
   mockLocal.data = {};
   mockTaskMedia.data = [];
   mockMediaItemViews.mockImplementation(() => []);
+  mockComplete.isSuccess = false;
+  mockNavigation.listeners.clear();
 });
 
 test('while the steps load, their shape stands in for them, said as loading', async () => {
@@ -483,6 +509,70 @@ describe('a video step of her task under way', () => {
 
 // Night of 2026-10-10, block 1: a step that fails to draw says so with
 // «Повторить» and «Назад», rather than leaving the root to catch it.
+// «Выполнено» takes her back by itself, and the answers that come in during
+// the way back redraw the screen. On Android a header touched in the pop's
+// moment brings the app down (Sentry, 2026-10-09 and 10-10), so the title is
+// set once, and not again once the screen is leaving.
+describe('the header of a step that leaves by itself', () => {
+  const ME = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
+  const step: TaskStep = {
+    id: STEP_ID,
+    task_id: TASK_ID,
+    sort_order: 2,
+    type: 'cleaner_comment',
+    required: true,
+    title: 'Комментарий',
+    instructions: null,
+    started_at: '2026-10-09T08:00:00+00:00',
+    completed_at: null,
+    completed_by: null,
+    title_i18n: {},
+    instructions_i18n: {},
+    config: {},
+    min_photos: null,
+    max_photos: null,
+    max_video_sec: null,
+    payload: {},
+    skipped_at: null,
+    skip_reason: null,
+    waived_at: null,
+    waive_reason: null,
+  };
+
+  beforeEach(() => {
+    mockSteps.isPending = false;
+    mockSteps.data = [step];
+    mockTask.data = { status: 'in_progress', assignee_id: ME };
+  });
+
+  test('is set once, not on every redraw', async () => {
+    const { rerender } = await render(<StepRoute />);
+    await rerender(<StepRoute />);
+    await rerender(<StepRoute />);
+
+    expect(mockNavigation.setOptions).toHaveBeenCalledTimes(1);
+    expect(mockNavigation.setOptions).toHaveBeenCalledWith({ title: 'Комментарий' });
+  });
+
+  test('done, back first: the redraws of the way back leave it alone', async () => {
+    // Arrange
+    const { rerender } = await render(<StepRoute />);
+    mockNavigation.setOptions.mockClear();
+
+    // Act: the server answers, the screen goes back, the steps come in again.
+    mockComplete.isSuccess = true;
+    await rerender(<StepRoute />);
+    expect(router.back).toHaveBeenCalledTimes(1);
+    mockSteps.data = [
+      { ...step, title: 'Комментарий горничной', completed_at: '2026-10-09T08:05:00+00:00' },
+    ];
+    await rerender(<StepRoute />);
+
+    // Assert
+    expect(mockNavigation.setOptions).not.toHaveBeenCalled();
+  });
+});
+
 test('the step has a boundary of its own', () => {
   expect(ErrorBoundary).toBe(RouteError);
 });

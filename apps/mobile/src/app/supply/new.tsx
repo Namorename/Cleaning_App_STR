@@ -1,5 +1,5 @@
 import { randomUUID } from 'expo-crypto';
-import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
@@ -26,6 +26,7 @@ import {
 } from '@/features/supplies/use-supplies';
 import { propertyName } from '@/features/tasks/format';
 import { useTask } from '@/features/tasks/use-tasks';
+import { useScreenTitle } from '@/hooks/use-screen-title';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 const Params = z.object({
@@ -80,9 +81,9 @@ export default function SupplyFormRoute() {
   }, [isLeaving, editingId, requestId]);
 
   // The root layout names the screen «Новая заявка»; a rewrite says what it
-  // is from the first frame, while the request is still loading too.
-  const title =
-    editingId === null ? null : <Stack.Screen options={{ title: t('supplies.editTitle') }} />;
+  // is from the first frame, while the request is still loading too — once,
+  // and never on the way back after «Сохранить» (hooks/use-screen-title).
+  useScreenTitle(editingId === null ? undefined : t('supplies.editTitle'));
 
   if (draft === null) {
     // A rewrite that cannot start: nobody to ask as (the query never runs),
@@ -90,7 +91,6 @@ export default function SupplyFormRoute() {
     if (userId === null || existing.data === null) {
       return (
         <View style={[styles.screen, styles.centered]}>
-          {title}
           <Text tone="secondary" align="center">
             {t('supplies.notFound')}
           </Text>
@@ -100,7 +100,6 @@ export default function SupplyFormRoute() {
     if (existing.error) {
       return (
         <View style={styles.screen}>
-          {title}
           <ErrorState
             error={existing.error}
             title={t('common.screenFailed')}
@@ -111,7 +110,6 @@ export default function SupplyFormRoute() {
     }
     return (
       <View style={styles.screen}>
-        {title}
         <FormSkeleton label={t('supplies.loading')} />
       </View>
     );
@@ -120,7 +118,6 @@ export default function SupplyFormRoute() {
   if (existing.data && !canEditSupplyRequest(existing.data, userId)) {
     return (
       <View style={[styles.screen, styles.centered]}>
-        {title}
         <Text tone="secondary" align="center">
           {t('supplies.notEditable')}
         </Text>
@@ -146,20 +143,17 @@ export default function SupplyFormRoute() {
   };
 
   return (
-    <>
-      {title}
-      <SupplyForm
-        draft={draft}
-        onChange={setDraft}
-        newKey={randomUUID}
-        place={place}
-        catalog={catalog.data ?? []}
-        isSubmitting={save.isPending && !save.isPaused}
-        submitLabel={editingId === null ? t('supplies.submit') : t('supplies.save')}
-        onSubmit={onSubmit}
-        error={save.error}
-      />
-    </>
+    <SupplyForm
+      draft={draft}
+      onChange={setDraft}
+      newKey={randomUUID}
+      place={place}
+      catalog={catalog.data ?? []}
+      isSubmitting={save.isPending && !save.isPaused}
+      submitLabel={editingId === null ? t('supplies.submit') : t('supplies.save')}
+      onSubmit={onSubmit}
+      error={save.error}
+    />
   );
 }
 

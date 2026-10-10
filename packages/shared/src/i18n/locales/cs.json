@@ -985,7 +985,11 @@
       "saveFailed": "Motiv se změnil, ale neuložil se: po restartu se vrátí předchozí."
     },
     "about": {
-      "heading": "O aplikaci"
+      "heading": "O aplikaci",
+      "version": "Verze",
+      "embedded": "vestavěná sestava",
+      "update": "aktualizace {{id}}",
+      "channel": "kanál {{channel}}"
     },
     "fontLicense": {
       "title": "Licence písma",

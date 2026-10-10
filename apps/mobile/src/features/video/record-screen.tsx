@@ -1,4 +1,4 @@
-import { Stack, useNavigation } from 'expo-router';
+import { useNavigation } from 'expo-router';
 import { usePreventRemove } from 'expo-router/react-navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +16,7 @@ import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { noteStep, reportError } from '@/lib/sentry';
 
 import { PermissionScreen } from './permission-screen';
+import { RecordHeader } from './record-header';
 import type { RecordingEnd } from './recording';
 import { useRecordingPermissions } from './use-recording-permissions';
 import { VideoPreview } from './video-preview';
@@ -25,7 +26,7 @@ export interface RecordScreenProps {
   limits: VideoLimits;
   /** Remember the kept recording and hand it to the upload queue; throws when it could not. */
   onSend: (captured: CapturedMedia) => Promise<void>;
-  /** Leave the screen, once the recording is the queue's. */
+  /** Leave the screen: once the recording is the queue's, or on the header's «Назад». */
   onDone: () => void;
 }
 
@@ -43,7 +44,10 @@ interface Unsent {
  *
  * Nothing is drawn over the camera until the phone has granted both it and
  * the microphone; what it refuses is said on a screen of its own. A finished
- * recording is watched before it is sent, under a header that says so.
+ * recording is watched before it is sent, under a header that says so — the
+ * screen's own (`RecordHeader`): nothing it draws reaches the system's header,
+ * which on Android brought the app down when touched during the way back
+ * after «Отправить».
  *
  * The file lives in the camera's cache until «Отправить» moves it under a
  * name of ours; from then on that kept file is the recording, and an
@@ -56,6 +60,7 @@ interface Unsent {
  */
 export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
   const { t } = useTranslation();
+  const styles = useThemedStyles(createStyles);
   const navigation = useNavigation();
   const permissions = useRecordingPermissions();
   const [phase, setPhase] = useState<Phase>({ kind: 'camera' });
@@ -124,14 +129,13 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
   });
 
   const titled = (body: ReactNode) => (
-    <>
-      <Stack.Screen
-        options={{
-          title: t(phase.kind === 'preview' ? 'video.previewTitle' : 'video.recordTitle'),
-        }}
+    <View style={styles.screen}>
+      <RecordHeader
+        title={t(phase.kind === 'preview' ? 'video.previewTitle' : 'video.recordTitle')}
+        onBack={isSent ? undefined : onDone}
       />
       {body}
-    </>
+    </View>
   );
 
   if (permissions.isChecking) {
@@ -278,6 +282,7 @@ function SentNotice({ onBack }: { onBack: () => void }) {
 
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
+    screen: { flex: 1, backgroundColor: theme.background },
     sent: {
       flex: 1,
       justifyContent: 'center',
