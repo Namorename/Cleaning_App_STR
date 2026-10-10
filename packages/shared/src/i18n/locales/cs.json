@@ -989,7 +989,9 @@
       "version": "Verze",
       "embedded": "vestavěná sestava",
       "update": "aktualizace {{id}}",
-      "channel": "kanál {{channel}}"
+      "channel": "kanál {{channel}}",
+      "privacy": "Zásady ochrany osobních údajů",
+      "privacyHint": "Otevře se v prohlížeči"
     },
     "fontLicense": {
       "title": "Licence písma",
@@ -1188,6 +1190,8 @@
     "takePhoto": "Vyfotit",
     "recordVideo": "Natočit video",
     "removeMedia": "Odstranit",
+    "removePhotoQuestion": "Odstranit fotku?",
+    "removeVideoQuestion": "Odstranit video?",
     "retryUpload": "Zkusit nahrát znovu",
     "mediaUploaded": "Nahráno",
     "mediaUploading": "Nahrává se…",
@@ -1211,6 +1215,7 @@
     "cameraDenied": "Bez přístupu k fotoaparátu — povolte ho v nastavení telefonu",
     "captureFailed": "Nepodařilo se vyfotit — zkuste to znovu",
     "pickPhoto": "Vybrat fotku z galerie",
+    "pickVideo": "Vybrat video z galerie",
     "galleryDenied": "Přístup do galerie nebyl povolen",
     "uploadReason": {
       "tooLarge": "Soubor je větší, než úložiště přijme (413)",

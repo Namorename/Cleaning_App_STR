@@ -256,6 +256,8 @@ export function ThreadView({
             items={drafts.map((draft) => ({ id: draft.id, uri: draft.uri, status: 'local' }))}
             maxCount={CHAT_MAX_PHOTOS}
             onRemove={onDiscardDraft}
+            // A draft never left the phone: taken back at once, to send another.
+            isRemovalAsked={false}
           />
         </View>
       ) : null}

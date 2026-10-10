@@ -137,10 +137,10 @@ test('a job a later page repeats is shown once', async () => {
     await result.current.fetchNextPage();
   });
 
-  await waitFor(() => expect(fetchDone).toHaveBeenCalledTimes(2));
-  await waitFor(() => expect(result.current.isFetchingNextPage).toBe(false));
+  // Waited for by what it shows: the flag of the next page can read false
+  // before its fetch has even begun (a run under load, 2026-10-10).
+  await waitFor(() => expect(result.current.data).toHaveLength(DONE_PAGE_SIZE + 1));
   const ids = result.current.data?.map((task) => task.id) ?? [];
-  expect(ids).toHaveLength(DONE_PAGE_SIZE + 1);
   expect(new Set(ids).size).toBe(ids.length);
 });
 

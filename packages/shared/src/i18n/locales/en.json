@@ -979,7 +979,9 @@
       "version": "Version",
       "embedded": "built-in bundle",
       "update": "update {{id}}",
-      "channel": "channel {{channel}}"
+      "channel": "channel {{channel}}",
+      "privacy": "Privacy policy",
+      "privacyHint": "Opens in the browser"
     },
     "fontLicense": {
       "title": "Font license",
@@ -1176,6 +1178,8 @@
     "takePhoto": "Take a photo",
     "recordVideo": "Record a video",
     "removeMedia": "Remove",
+    "removePhotoQuestion": "Remove the photo?",
+    "removeVideoQuestion": "Remove the video?",
     "retryUpload": "Retry upload",
     "mediaUploaded": "Uploaded",
     "mediaUploading": "Uploading…",
@@ -1197,6 +1201,7 @@
     "cameraDenied": "No access to the camera — allow it in the phone settings",
     "captureFailed": "Could not take it — please try again",
     "pickPhoto": "Choose a photo from the gallery",
+    "pickVideo": "Choose a video from the gallery",
     "galleryDenied": "Access to the gallery was not granted",
     "uploadReason": {
       "tooLarge": "The file is larger than the storage accepts (413)",

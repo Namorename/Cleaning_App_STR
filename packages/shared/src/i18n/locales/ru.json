@@ -989,7 +989,9 @@
       "version": "Версия",
       "embedded": "встроенная сборка",
       "update": "обновление {{id}}",
-      "channel": "канал {{channel}}"
+      "channel": "канал {{channel}}",
+      "privacy": "Политика конфиденциальности",
+      "privacyHint": "Откроется в браузере"
     },
     "fontLicense": {
       "title": "Лицензия шрифта",
@@ -1188,6 +1190,8 @@
     "takePhoto": "Снять фото",
     "recordVideo": "Записать видео",
     "removeMedia": "Удалить",
+    "removePhotoQuestion": "Удалить фото?",
+    "removeVideoQuestion": "Удалить видео?",
     "retryUpload": "Повторить загрузку",
     "mediaUploaded": "Загружено",
     "mediaUploading": "Загружается…",
@@ -1211,6 +1215,7 @@
     "cameraDenied": "Нет доступа к камере — разрешите его в настройках телефона",
     "captureFailed": "Не удалось снять — попробуйте ещё раз",
     "pickPhoto": "Выбрать фото из галереи",
+    "pickVideo": "Выбрать видео из галереи",
     "galleryDenied": "Доступ к галерее не разрешён",
     "uploadReason": {
       "tooLarge": "Файл больше, чем принимает хранилище (413)",

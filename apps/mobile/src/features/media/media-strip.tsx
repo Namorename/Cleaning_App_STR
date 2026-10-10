@@ -1,7 +1,9 @@
 import { Image } from 'expo-image';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Text } from '@/components/text';
 import { MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
@@ -26,6 +28,11 @@ interface MediaStripProps {
   onRetry?: (mediaId: string) => void;
   isCapturing?: boolean;
   disabled?: boolean;
+  /**
+   * Whether «Удалить» asks first (owner, 2026-10-10): yes for a photo that is
+   * or will be on the server; no for the chat's draft, which never left the phone.
+   */
+  isRemovalAsked?: boolean;
 }
 
 /**
@@ -43,9 +50,21 @@ export function MediaStrip({
   onRetry,
   isCapturing = false,
   disabled = false,
+  isRemovalAsked = true,
 }: MediaStripProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  // The photo a removal is asked about; kept while the question fades out.
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [isAsking, setAsking] = useState(false);
+  const askRemove =
+    onRemove === undefined || !isRemovalAsked
+      ? onRemove
+      : (mediaId: string) => {
+          setRemovingId(mediaId);
+          setAsking(true);
+        };
+  const removingNumber = items.findIndex((item) => item.id === removingId) + 1;
   const canCapture =
     onCapture !== undefined && !disabled && !isCapturing && items.length < maxCount;
 
@@ -60,7 +79,7 @@ export function MediaStrip({
           key={item.id}
           item={item}
           number={index + 1}
-          onRemove={disabled ? undefined : onRemove}
+          onRemove={disabled ? undefined : askRemove}
           onRetry={disabled || item.status !== 'failed' ? undefined : onRetry}
           styles={styles}
         />
@@ -99,6 +118,21 @@ export function MediaStrip({
           </Text>
         </Pressable>
       ) : null}
+
+      <ConfirmDialog
+        isVisible={isAsking}
+        title={t('steps.removePhotoQuestion')}
+        message={removingNumber > 0 ? t('steps.photoName', { index: removingNumber }) : undefined}
+        confirmLabel={t('media.remove')}
+        variant="destructive"
+        onConfirm={() => {
+          setAsking(false);
+          if (removingId !== null) {
+            onRemove?.(removingId);
+          }
+        }}
+        onCancel={() => setAsking(false)}
+      />
     </ScrollView>
   );
 }

@@ -30,13 +30,41 @@ test('each photo is announced with its number and its state', async () => {
   expect(screen.getByLabelText('Фото 2. Будет отправлено')).toBeTruthy();
 });
 
-test('removing names the photo, and hands back its id', async () => {
+test('removing names the photo, asks first, and hands back its id', async () => {
   const onRemove = jest.fn();
   await render(<MediaStrip items={items} maxCount={5} onRemove={onRemove} />);
 
   await fireEvent.press(screen.getByRole('button', { name: 'Удалить фото 2' }));
+  expect(onRemove).not.toHaveBeenCalled();
+  expect(screen.getByRole('header', { name: 'Удалить фото?' })).toBeTruthy();
+  expect(screen.getByText('Фото 2')).toBeTruthy();
+  await fireEvent.press(screen.getByRole('button', { name: 'Удалить' }));
 
   expect(onRemove).toHaveBeenCalledWith('m2');
+});
+
+test('«Отмена» keeps the photo', async () => {
+  const onRemove = jest.fn();
+  await render(<MediaStrip items={items} maxCount={5} onRemove={onRemove} />);
+
+  await fireEvent.press(screen.getByRole('button', { name: 'Удалить фото 2' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Отмена' }));
+
+  expect(onRemove).not.toHaveBeenCalled();
+});
+
+// A photo not sent yet — the chat's draft — goes without a question: nothing
+// of it has left the phone, and taking it back is the way to send another.
+test('a draft not sent yet goes at once where the screen says so', async () => {
+  const onRemove = jest.fn();
+  await render(
+    <MediaStrip items={items} maxCount={5} onRemove={onRemove} isRemovalAsked={false} />,
+  );
+
+  await fireEvent.press(screen.getByRole('button', { name: 'Удалить фото 2' }));
+
+  expect(onRemove).toHaveBeenCalledWith('m2');
+  expect(screen.queryByRole('header', { name: 'Удалить фото?' })).toBeNull();
 });
 
 test('a retry names the photo, and is offered only where the upload failed', async () => {

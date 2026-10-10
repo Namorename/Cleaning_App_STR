@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
 import { Spacing } from '@/constants/theme';
 import { SUPPORTED_LANGUAGES, deviceLanguage, i18n } from '@/i18n';
@@ -97,6 +97,19 @@ beforeEach(() => {
 // the phone's own language.
 afterEach(async () => {
   await i18n.changeLanguage(deviceLanguage());
+});
+
+// The policy the stores ask for (owner, 2026-10-10), on the panel's address,
+// in the language she reads the app in; the browser opens it, not the app.
+test('«О приложении» opens the privacy policy in the browser, in her language', async () => {
+  const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+  await i18n.changeLanguage('cs');
+  await renderScreen();
+
+  await fireEvent.press(screen.getByRole('button', { name: /^Zásady ochrany osobních údajů/ }));
+
+  expect(open).toHaveBeenCalledWith('https://woom-bnb.vercel.app/privacy?lang=cs');
+  open.mockRestore();
 });
 
 test('shows the three sections and the way out at the bottom', async () => {
