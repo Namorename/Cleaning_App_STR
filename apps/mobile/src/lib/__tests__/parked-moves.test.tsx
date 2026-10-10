@@ -120,10 +120,15 @@ async function nudgeQueue(): Promise<void> {
   await settle();
 }
 
-/** A move tapped on a screen: its key, what it sends. */
-async function tap<T>(mutationKey: readonly unknown[], variables: T): Promise<void> {
+/** A move tapped on a screen: its key, what it sends — in the queue at once, its call on its way. */
+function tapNow<T>(mutationKey: readonly unknown[], variables: T): void {
   const move = new MutationObserver<unknown, Error, T>(client, { mutationKey });
   move.mutate(variables).catch(() => undefined);
+}
+
+/** A move tapped on a screen, and whatever it sets off done. */
+async function tap<T>(mutationKey: readonly unknown[], variables: T): Promise<void> {
+  tapNow(mutationKey, variables);
   await settle();
 }
 
@@ -341,6 +346,40 @@ describe('a move the disk refused to park', () => {
     expect(await parkedVariablesOf(ANNA)).toEqual([ANNAS_CLAIM]);
     expect(queuedVariables(client)).toEqual([]);
     expect(sent).toEqual([{ what: BORIS_TASK, by: BORIS }]);
+  });
+
+  /**
+   * The parking owed is retried at a resume, for the person the queue is
+   * sorted for — read when its turn on the disk comes, not when it was asked
+   * for (the review of 7553530..8a58d77, LOW): asked for Boris and run once
+   * Anna had signed in, it parked her fresh moves, and her sort brought them
+   * straight back.
+   */
+  test('asked for at his resume and run once she has signed in: none of her moves go to the store', async () => {
+    // Arrange: Anna's take, left in the queue under Boris's session: the disk refused to park it.
+    await phoneLeftWith([annasClaim()], ANNA);
+    onlineManager.setOnline(false);
+    jest.mocked(skipStep).mockRejectedValue(new TypeError('Network request failed'));
+    await startApp();
+    diskFull();
+    await hear('SIGNED_IN', BORIS);
+    diskBack();
+    const writesBefore = setItem.mock.calls.length;
+
+    // Act: his queue resumed, the parking asked for; before its turn, Anna signs in and skips a step.
+    void client.resumePausedMutations();
+    mockAuth.userId = ANNA;
+    mockAuth.listener?.('SIGNED_IN', { user: { id: ANNA } });
+    tapNow(stepMutationKeys.skip, STEP);
+    await settle();
+
+    // Assert: both her moves wait in the queue for signal; neither was ever in the store.
+    const parkedForAnna = setItem.mock.calls
+      .slice(writesBefore)
+      .filter(([key]) => key === PARKED_ON_DISK)
+      .flatMap(([, value]) => (JSON.parse(value) as Record<string, unknown[]>)[ANNA] ?? []);
+    expect(parkedForAnna).toEqual([]);
+    expect(queuedVariables(client)).toEqual([ANNAS_CLAIM, STEP]);
   });
 });
 

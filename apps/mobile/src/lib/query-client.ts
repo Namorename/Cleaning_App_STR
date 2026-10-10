@@ -101,7 +101,7 @@ class AppQueryClient extends QueryClient {
       return Promise.resolve();
     }
     // Somebody else's moves the disk refused to park, parked now if it takes them.
-    retryOwedParking(this, person);
+    retryOwedParking(this);
     if (!onlineManager.isOnline()) {
       return Promise.resolve();
     }

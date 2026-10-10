@@ -9,7 +9,14 @@ import {
 } from '@tanstack/react-query';
 import { z } from 'zod';
 
-import { authorIn, authorOf, oweParking, setQueuePerson, waitsForSignal } from '@/lib/move-queue';
+import {
+  authorIn,
+  authorOf,
+  oweParking,
+  resumableFor,
+  setQueuePerson,
+  waitsForSignal,
+} from '@/lib/move-queue';
 import {
   QUERY_CACHE_KEY,
   resumeSavedMoves,
@@ -168,15 +175,40 @@ function isSomebodyElses(mutation: Mutation, person: string | null): boolean {
 }
 
 /**
- * Every move of the queue made by somebody other than `person` — waiting or
- * on its way — goes to the disk, saved as waiting, and only then out of the
- * queue. The cache on disk follows with the persister's next write; a copy
- * still there if the app is closed first comes back once. A move on its way
- * when it is parked may still land: its copy is sent again once its author is
- * back, as an idempotent call with the same id.
+ * Whom a parking is for, read when its step on the store runs: a person, or
+ * nobody (null — every move with an author is parked); undefined when there is
+ * nobody to park for yet, and the step does nothing.
  */
-function parkMovesNotOf(queryClient: QueryClient, person: string | null): Promise<void> {
+type ParkingFor = () => string | null | undefined;
+
+/**
+ * Whom a parking owed is for when its turn comes: the person the queue is
+ * sorted for, while she is still the one signed in (`resumableFor`). Read
+ * then, not when the retry was asked for (the review of 7553530..8a58d77,
+ * LOW): asked for at his resume and run once she had signed in, it parked her
+ * fresh moves, and her sort brought them straight back. In the middle of a
+ * change of person there is nobody yet: the sort for the next one parks
+ * everybody else's itself.
+ */
+function sortedPersonNow(queryClient: QueryClient): string | undefined {
+  return resumableFor(queryClient) ?? undefined;
+}
+
+/**
+ * Every move of the queue made by somebody other than the person `parkingFor`
+ * names when the step runs — waiting or on its way — goes to the disk, saved
+ * as waiting, and only then out of the queue. The cache on disk follows with
+ * the persister's next write; a copy still there if the app is closed first
+ * comes back once. A move on its way when it is parked may still land: its
+ * copy is sent again once its author is back, as an idempotent call with the
+ * same id.
+ */
+function parkMovesNotOf(queryClient: QueryClient, parkingFor: ParkingFor): Promise<void> {
   return inTurn(async () => {
+    const person = parkingFor();
+    if (person === undefined) {
+      return;
+    }
     const cache = queryClient.getMutationCache();
     const moves = cache.getAll().filter((mutation) => isSomebodyElses(mutation, person));
     if (moves.length === 0) {
@@ -193,18 +225,19 @@ function parkMovesNotOf(queryClient: QueryClient, person: string | null): Promis
 }
 
 /**
- * Every move of anybody but `person` parked (`parkMovesNotOf`). One the disk
- * refuses — full of videos, say — is reported and stays in the queue, where it
- * never runs and holds no line of hers (lib/move-queue.ts,
- * `AppMutationCache`); its parking is owed, and tried again at the next
- * resume of the queue (`retryOwedParking`) and at the next sort.
+ * Every move of anybody but the person `parkingFor` names parked
+ * (`parkMovesNotOf`). One the disk refuses — full of videos, say — is
+ * reported and stays in the queue, where it never runs and holds no line of
+ * hers (lib/move-queue.ts, `AppMutationCache`); its parking is owed, and tried
+ * again at the next resume of the queue (`retryOwedParking`), for whoever the
+ * queue is sorted for then (`sortedPersonNow`), and at the next sort.
  */
-async function parkLeftovers(queryClient: QueryClient, person: string | null): Promise<void> {
+async function parkLeftovers(queryClient: QueryClient, parkingFor: ParkingFor): Promise<void> {
   try {
-    await parkMovesNotOf(queryClient, person);
+    await parkMovesNotOf(queryClient, parkingFor);
   } catch (error: unknown) {
     reportError(error);
-    oweParking(queryClient, (next) => parkLeftovers(queryClient, next));
+    oweParking(queryClient, () => parkLeftovers(queryClient, () => sortedPersonNow(queryClient)));
   }
 }
 
@@ -254,7 +287,7 @@ export async function settleQueueFor(
   queryClient: QueryClient,
   person: string | null,
 ): Promise<void> {
-  await parkLeftovers(queryClient, person);
+  await parkLeftovers(queryClient, () => person);
   if (person !== null) {
     try {
       await bringBackMovesOf(queryClient, person);
