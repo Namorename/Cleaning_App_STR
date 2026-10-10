@@ -1238,7 +1238,7 @@
     "stay": "Zůstat",
     "alreadyRecorded": "Tento krok už video má. Chcete-li natočit nové, smažte ho na obrazovce kroku.",
     "stillUploading": "Tento krok už video má a to se ještě nahrává. Až nahrávání skončí, můžete ho smazat na obrazovce kroku.",
-    "uploadTooSlow": "Připojení je na odeslání videa příliš pomalé. Připojte se k Wi-Fi nebo najděte místo s lepším internetem a klepněte na „Zkusit nahrát znovu“.",
+    "uploadTooSlow": "Připojení je příliš pomalé: video se odesílalo asi půl hodiny a neodeslalo se. Připojte se k Wi-Fi nebo najděte místo s lepším internetem a klepněte na „Zkusit nahrát znovu“.",
     "permission": {
       "cameraTitle": "Bez přístupu k fotoaparátu",
       "microphoneTitle": "Bez přístupu k mikrofonu",
