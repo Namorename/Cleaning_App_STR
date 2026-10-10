@@ -37,6 +37,7 @@ test('removing names the photo, asks first, and hands back its id', async () => 
   await fireEvent.press(screen.getByRole('button', { name: 'Удалить фото 2' }));
   expect(onRemove).not.toHaveBeenCalled();
   expect(screen.getByRole('header', { name: 'Удалить фото?' })).toBeTruthy();
+  expect(screen.getByText('Фото 2')).toBeTruthy();
   await fireEvent.press(screen.getByRole('button', { name: 'Удалить' }));
 
   expect(onRemove).toHaveBeenCalledWith('m2');

@@ -63,8 +63,10 @@ export function StepMedia({
   onRetry,
 }: StepMediaProps) {
   const { t } = useTranslation();
-  // The file a removal is asked about, and the name the question says.
+  // The file a removal is asked about, and the name the question says; kept
+  // while the question fades out, so its words do not go before it does.
   const [removing, setRemoving] = useState<{ id: string; name: string } | null>(null);
+  const [isAsking, setAsking] = useState(false);
 
   const max = kind === 'video' ? 1 : limits.max;
   const isWaitingForSettings = kind === 'video' && maxVideoSec === null;
@@ -92,7 +94,10 @@ export function StepMedia({
               item={item}
               index={index}
               disabled={disabled}
-              onAskRemove={(id, name) => setRemoving({ id, name })}
+              onAskRemove={(id, name) => {
+                setRemoving({ id, name });
+                setAsking(true);
+              }}
               onRetry={onRetry}
             />
           ))}
@@ -136,19 +141,18 @@ export function StepMedia({
       {/* A removal is asked about first (owner, 2026-10-10): a file that has
           gone up is gone from the step for good. */}
       <ConfirmDialog
-        isVisible={removing !== null}
+        isVisible={isAsking}
         title={kind === 'video' ? t('steps.removeVideoQuestion') : t('steps.removePhotoQuestion')}
         message={removing?.name}
         confirmLabel={t('steps.removeMedia')}
         variant="destructive"
         onConfirm={() => {
-          const asked = removing;
-          setRemoving(null);
-          if (asked !== null) {
-            onRemove(asked.id);
+          setAsking(false);
+          if (removing !== null) {
+            onRemove(removing.id);
           }
         }}
-        onCancel={() => setRemoving(null)}
+        onCancel={() => setAsking(false)}
       />
     </View>
   );

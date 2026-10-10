@@ -58,8 +58,10 @@ export function ProblemDispatch({ problemId }: ProblemDispatchProps) {
   const takeOff = useUnassignProblem();
   const inFlight = useDispatchInFlight();
   const [isAssigning, setAssigning] = useState(false);
-  // The take-off asked about: the repair and the person the question named.
+  // The take-off asked about: the repair and the person the question named,
+  // kept while the question fades out.
   const [takeOffAsked, setTakeOffAsked] = useState<TakeOffTarget | null>(null);
+  const [isAskingTakeOff, setAskingTakeOff] = useState(false);
   const names = useMemo(() => staffNames(staff.data, t), [staff.data, t]);
   const technicians = useMemo(
     () => (staff.data === undefined ? undefined : activeTechnicians(staff.data)),
@@ -111,13 +113,13 @@ export function ProblemDispatch({ problemId }: ProblemDispatchProps) {
       return;
     }
     setTakeOffAsked({ taskId: repair.id, assigneeId: holder });
+    setAskingTakeOff(true);
   };
 
   const takeOffAnswered = () => {
-    const target = takeOffAsked;
-    setTakeOffAsked(null);
-    if (target !== null && !inFlight.isMovingNow()) {
-      takeOff.mutate({ taskId: target.taskId, expectedAssigneeId: target.assigneeId });
+    setAskingTakeOff(false);
+    if (takeOffAsked !== null && !inFlight.isMovingNow()) {
+      takeOff.mutate({ taskId: takeOffAsked.taskId, expectedAssigneeId: takeOffAsked.assigneeId });
     }
   };
 
@@ -204,7 +206,7 @@ export function ProblemDispatch({ problemId }: ProblemDispatchProps) {
       ) : null}
 
       <ConfirmDialog
-        isVisible={takeOffAsked !== null}
+        isVisible={isAskingTakeOff}
         title={t('problems.dispatch.takeOffTitle')}
         message={
           takeOffAsked === null
@@ -216,7 +218,7 @@ export function ProblemDispatch({ problemId }: ProblemDispatchProps) {
         confirmLabel={t('problems.dispatch.takeOffConfirm')}
         variant="destructive"
         onConfirm={takeOffAnswered}
-        onCancel={() => setTakeOffAsked(null)}
+        onCancel={() => setAskingTakeOff(false)}
       />
     </View>
   );

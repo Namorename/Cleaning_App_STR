@@ -142,9 +142,19 @@ const mockGallery = { allowed: true };
 /** What the company says about video; null until it has been read. */
 const mockVideo: { settings: VideoSettings | null } = { settings: null };
 
+/** How fresh the screen asked the company's settings to be, by each hook. */
+const mockFreshness = { gallery: jest.fn(), video: jest.fn() };
+
 jest.mock('@/features/host/use-host', () => ({
-  useGalleryAllowed: () => mockGallery.allowed,
-  useVideoSettings: () => mockVideo.settings,
+  ON_OPEN_FRESH_MS: jest.requireActual('@/features/host/use-host').ON_OPEN_FRESH_MS,
+  useGalleryAllowed: (freshWithinMs?: number) => {
+    mockFreshness.gallery(freshWithinMs);
+    return mockGallery.allowed;
+  },
+  useVideoSettings: (freshWithinMs?: number) => {
+    mockFreshness.video(freshWithinMs);
+    return mockVideo.settings;
+  },
 }));
 
 jest.mock('@/features/media/capture', () => ({
@@ -370,8 +380,19 @@ describe('a video step of her task under way', () => {
   // asked about only after «Записать видео», in the system's dialog, and not at
   // all once the step held its video. Now it is a button of its own, as for
   // photos, wherever the company has opened the gallery — for whoever holds
-  // the job, a cleaner or the head technician: the role is not asked.
-  describe.each(['cleaner', 'head_tech'])('read by a %s', () => {
+  // the job: nothing on this way reads the role, a cleaner's and the head
+  // technician's step are the same screen.
+  describe('the gallery button of a video step', () => {
+    test('the step asks for the company read as it opens, not the hour-old copy', async () => {
+      const { ON_OPEN_FRESH_MS } = jest.requireActual('@/features/host/use-host');
+      mockSteps.data = [videoStep()];
+
+      await render(<StepRoute />);
+
+      expect(mockFreshness.gallery).toHaveBeenCalledWith(ON_OPEN_FRESH_MS);
+      expect(mockFreshness.video).toHaveBeenCalledWith(ON_OPEN_FRESH_MS);
+    });
+
     test('the gallery open: «Выбрать видео из галереи» beside «Записать видео»', async () => {
       mockGallery.allowed = true;
       mockSteps.data = [videoStep()];

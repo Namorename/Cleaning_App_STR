@@ -54,12 +54,17 @@ export function MediaStrip({
 }: MediaStripProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
-  // The photo a removal is asked about.
+  // The photo a removal is asked about; kept while the question fades out.
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [isAsking, setAsking] = useState(false);
   const askRemove =
     onRemove === undefined || !isRemovalAsked
       ? onRemove
-      : (mediaId: string) => setRemovingId(mediaId);
+      : (mediaId: string) => {
+          setRemovingId(mediaId);
+          setAsking(true);
+        };
+  const removingNumber = items.findIndex((item) => item.id === removingId) + 1;
   const canCapture =
     onCapture !== undefined && !disabled && !isCapturing && items.length < maxCount;
 
@@ -115,18 +120,18 @@ export function MediaStrip({
       ) : null}
 
       <ConfirmDialog
-        isVisible={removingId !== null}
+        isVisible={isAsking}
         title={t('steps.removePhotoQuestion')}
+        message={removingNumber > 0 ? t('steps.photoName', { index: removingNumber }) : undefined}
         confirmLabel={t('media.remove')}
         variant="destructive"
         onConfirm={() => {
-          const asked = removingId;
-          setRemovingId(null);
-          if (asked !== null) {
-            onRemove?.(asked);
+          setAsking(false);
+          if (removingId !== null) {
+            onRemove?.(removingId);
           }
         }}
-        onCancel={() => setRemovingId(null)}
+        onCancel={() => setAsking(false)}
       />
     </ScrollView>
   );
