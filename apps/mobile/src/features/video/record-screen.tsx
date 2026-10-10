@@ -2,8 +2,9 @@ import { Stack, useNavigation } from 'expo-router';
 import { usePreventRemove } from 'expo-router/react-navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet } from 'react-native';
 
+import { useScreenEdgePadding } from '@/components/bottom-inset';
 import { Button } from '@/components/button';
 import { LoadingState } from '@/components/loading-state';
 import { Text } from '@/components/text';
@@ -248,10 +249,15 @@ const BACK_FALLBACK_MS = 1_500;
  * The recording is the queue's: what happens to it now, and — only if the
  * screen is still here a moment later — the way back. Offered at once, a tap
  * during the way out would go back a second time, past the step.
+ *
+ * Centred, and scrolling when taller than the screen — at the largest font on
+ * a small phone — rather than cut at either end; the button stops clear of
+ * the system's bar (components/bottom-inset.ts).
  */
 function SentNotice({ onBack }: { onBack: () => void }) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const end = useScreenEdgePadding(Spacing.xl);
   const [isStillHere, setStillHere] = useState(false);
 
   useEffect(() => {
@@ -260,24 +266,28 @@ function SentNotice({ onBack }: { onBack: () => void }) {
   }, []);
 
   return (
-    <View style={styles.sent}>
+    <ScrollView style={styles.sent} contentContainerStyle={[layout.sentContent, end]}>
       <Text align="center" accessibilityRole="alert">
         {t('video.queued')}
       </Text>
       {isStillHere ? <Button label={t('video.backToStep')} onPress={onBack} /> : null}
-    </View>
+    </ScrollView>
   );
 }
 
+/** Sizes only: nothing here depends on the colour scheme. */
+const layout = StyleSheet.create({
+  sentContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    gap: Spacing.md,
+    padding: Spacing.xl,
+  },
+});
+
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
-    sent: {
-      flex: 1,
-      justifyContent: 'center',
-      gap: Spacing.md,
-      padding: Spacing.xl,
-      backgroundColor: theme.background,
-    },
+    sent: { flex: 1, backgroundColor: theme.background },
   });
 
 /** Delete the recording not handed over, wherever its file is now. */
