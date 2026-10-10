@@ -8,7 +8,9 @@ const BYTES_PER_MB = 1_000_000;
  *
  * Supabase Free refuses anything bigger with 413, whatever the bucket's own
  * limit and the company's `video_max_mb` say (on 09.10 the company allowed 140
- * and a 105.9 MB video never got in). Raise it with the plan.
+ * and a 105.9 MB video never got in). Counted in 10^6 bytes like the company's
+ * setting: should the storage mean 50 MiB, this is 2.4 MB on the safe side.
+ * The camera stops here too (`videoLimits`). Raise it with the plan.
  */
 export const STORAGE_FILE_LIMIT_MB = 50;
 
