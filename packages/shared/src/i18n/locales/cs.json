@@ -178,6 +178,7 @@
       "calendar": "Kalendář",
       "unread": "Nepřečtené: {{count}}",
       "collapse": "Sbalit nabídku",
+      "darkMode": "Tmavý motiv",
       "expand": "Rozbalit nabídku",
       "open": "Otevřít nabídku",
       "groups": {

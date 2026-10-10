@@ -178,6 +178,7 @@
       "calendar": "Calendar",
       "unread": "Unread: {{count}}",
       "collapse": "Collapse the menu",
+      "darkMode": "Dark theme",
       "expand": "Expand the menu",
       "open": "Open the menu",
       "groups": {

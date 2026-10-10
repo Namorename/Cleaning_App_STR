@@ -119,3 +119,15 @@ describe('MobileNav', () => {
     );
   });
 });
+
+// Night of 2026-10-10: on a phone the lever is in the same menu, under the sections.
+test('the menu on a phone offers the night theme on a lever', async () => {
+  render(<MobileNav email="manager.test@example.com" theme="dark" />);
+
+  const sheet = await openSheet();
+
+  expect(within(sheet).getByRole('switch', { name: 'Тёмная тема' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+});
