@@ -1,6 +1,7 @@
 import { randomUUID } from 'expo-crypto';
 import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
+import { Platform } from 'react-native';
 
 import { discardFile, fileSize, keepFile, stripKeptPhoto } from './file';
 import type { MediaKind } from './schema';
@@ -232,16 +233,20 @@ export interface Recording {
 }
 
 /**
- * Keep a recording of the app's own camera under an id of ours, ready to be
- * registered and uploaded like a photo.
+ * Keep a video under an id of ours, ready to be registered and uploaded like a
+ * photo: a recording of the app's own camera, or — where the company allows
+ * the gallery — a copy the gallery handed over (night of 2026-10-10, block 6).
  *
  * The camera reports only where it wrote the file (`recordAsync`): the length
  * is what the recording screen timed, the picture's size is not known and is
- * not declared. It is the camera's by construction — a video never comes from
- * the gallery, which the server refuses (`videoCameraOnly`).
+ * not declared. A file from the gallery brings its length and type from its
+ * own metadata (`pickVideoFromGallery`), and says where it came from.
  */
-export async function keepRecording(recording: Recording): Promise<CapturedMedia> {
-  const mimeType = videoMimeType(recording.uri);
+export async function keepRecording(
+  recording: Recording,
+  source: MediaSource = 'camera',
+  mimeType: string = videoMimeType(recording.uri),
+): Promise<CapturedMedia> {
   const id = randomUUID();
   const uri = await keepFile(recording.uri, id, videoExtension(mimeType));
   const byteSize = await fileSize(uri);
@@ -261,6 +266,65 @@ export async function keepRecording(recording: Recording): Promise<CapturedMedia
     height: null,
     durationSec: recording.durationSec,
     takenAt: recording.takenAt,
-    source: 'camera',
+    source,
+  };
+}
+
+const MS_PER_SECOND = 1000;
+
+/** A video chosen from the gallery: where its copy is, and what its file says of it. */
+export interface PickedVideo extends Recording {
+  byteSize: number;
+  mimeType: string;
+  /** Handed over compressed to 720p H.264 (an iPhone's picker): a size still too large says so. */
+  isCompressed: boolean;
+}
+
+/**
+ * How the gallery is asked for a video. An iPhone films 4K HEVC, and a minute
+ * of it is far past the storage's 50 MB (docs/ios-first-device-checklist.md,
+ * risk 3): its picker compresses the copy to 720p H.264 as it hands it over —
+ * an `.mp4`, in the storage's own terms. Android's picker has no such setting
+ * and is asked as before. Only JavaScript: the setting is the picker's own.
+ */
+function galleryVideoOptions(): ImagePicker.ImagePickerOptions {
+  if (Platform.OS !== 'ios') {
+    return { mediaTypes: ['videos'], quality: 1 };
+  }
+  return {
+    mediaTypes: ['videos'],
+    quality: 1,
+    videoExportPreset: ImagePicker.VideoExportPreset.H264_1280x720,
+  };
+}
+
+/**
+ * Choose a video from the gallery (night of 2026-10-10, block 6).
+ *
+ * Only reachable where the company allows the gallery, and only once the
+ * phone has let the app into the photos — asked here, before the gallery
+ * opens. The picker hands over a copy in the app's cache — on an iPhone
+ * compressed (`galleryVideoOptions`) — with the length and type its file says;
+ * a size it does not say is measured. The moment it is chosen stands for when
+ * it was taken: a video's own date is not read here, and the manager who
+ * opened the gallery accepted that a file from it may not be of this
+ * cleaning. Resolves to null when she backs out of the gallery.
+ */
+export async function pickVideoFromGallery(): Promise<PickedVideo | null> {
+  await ensureLibraryPermission();
+
+  const result = await ImagePicker.launchImageLibraryAsync(galleryVideoOptions());
+  const asset = result.canceled ? null : (result.assets[0] ?? null);
+  if (asset === null) {
+    return null;
+  }
+
+  return {
+    uri: asset.uri,
+    durationSec: (asset.duration ?? 0) / MS_PER_SECOND,
+    takenAt: new Date().toISOString(),
+    byteSize: asset.fileSize ?? (await fileSize(asset.uri)),
+    mimeType: asset.mimeType ?? videoMimeType(asset.uri),
+    isCompressed: Platform.OS === 'ios',
   };
 }

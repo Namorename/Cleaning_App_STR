@@ -16,7 +16,7 @@ import {
   fetchSupplyCatalog,
   fetchSupplyRequest,
 } from '@/features/supplies/api';
-import { fetchFreeTasks, fetchMyTasks, fetchTask } from '@/features/tasks/api';
+import { fetchFreeTasks, fetchMyDoneTasks, fetchMyTasks, fetchTask } from '@/features/tasks/api';
 
 import {
   complaintsIn,
@@ -95,6 +95,8 @@ const ANY_ID = '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b';
 /** Every read the app makes. A reader added without a line here goes unguarded. */
 const READERS: readonly (() => Promise<unknown>)[] = [
   () => fetchMyTasks(ANY_ID),
+  // «Выполненные» on «Мои» (2026-10-10).
+  () => fetchMyDoneTasks(ANY_ID, 0, '2026-09-10T22:00:00.000Z'),
   () => fetchFreeTasks(),
   () => fetchTask(ANY_ID),
   () => fetchMyProblems(),

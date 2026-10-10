@@ -12,7 +12,7 @@ import { z } from 'zod';
 
 import { useSession } from '@/features/auth/session';
 import { problemKeys } from '@/features/problems/keys';
-import { taskKeys } from '@/features/tasks/use-tasks';
+import { refreshTaskLists } from '@/features/tasks/use-tasks';
 import { readCached } from '@/lib/read-cached';
 
 import {
@@ -205,7 +205,7 @@ export function useStaffDirectory() {
  * jobs refresh beside it, not waited for.
  */
 function refreshAfterMove(queryClient: QueryClient): Promise<void> {
-  void queryClient.invalidateQueries({ queryKey: taskKeys.all });
+  void refreshTaskLists(queryClient);
   return queryClient.invalidateQueries({ queryKey: problemKeys.all });
 }
 

@@ -46,8 +46,9 @@ jest.mock('expo-file-system', () => {
   class MockFile {
     readonly uri: string;
 
-    constructor(path: string) {
-      this.uri = path;
+    // A path, or a directory and a name in it, as the real constructor takes them.
+    constructor(base: string | { uri: string }, name?: string) {
+      this.uri = typeof base === 'string' ? base : `${base.uri}${name ?? ''}`;
     }
 
     get exists(): boolean {
@@ -77,8 +78,14 @@ jest.mock('expo-file-system', () => {
 
   return {
     File: MockFile,
-    Directory: class {},
-    Paths: {},
+    // The documents a kept file is looked for in (features/media/media-path.ts).
+    Directory: class {
+      readonly uri: string;
+      constructor(base: string, name: string) {
+        this.uri = `${base}${name}/`;
+      }
+    },
+    Paths: { document: 'file:///documents/' },
     FileMode: { ReadOnly: 'r' },
     __files: files,
     __handles: handles,

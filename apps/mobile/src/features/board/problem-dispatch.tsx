@@ -1,10 +1,11 @@
 import { router } from 'expo-router';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { ErrorBanner } from '@/components/error-banner';
 import { FailureText } from '@/components/failure-text';
 import { Text } from '@/components/text';
@@ -57,6 +58,10 @@ export function ProblemDispatch({ problemId }: ProblemDispatchProps) {
   const takeOff = useUnassignProblem();
   const inFlight = useDispatchInFlight();
   const [isAssigning, setAssigning] = useState(false);
+  // The take-off asked about: the repair and the person the question named,
+  // kept while the question fades out.
+  const [takeOffAsked, setTakeOffAsked] = useState<TakeOffTarget | null>(null);
+  const [isAskingTakeOff, setAskingTakeOff] = useState(false);
   const names = useMemo(() => staffNames(staff.data, t), [staff.data, t]);
   const technicians = useMemo(
     () => (staff.data === undefined ? undefined : activeTechnicians(staff.data)),
@@ -99,26 +104,23 @@ export function ProblemDispatch({ problemId }: ProblemDispatchProps) {
     );
   };
 
+  // Asked in the app's own dialog (owner, 2026-10-10), not the system's
+  // Alert. The person is the one the question named: a refresh while it is
+  // open does not change whom «Снять» takes off — the server refuses a repair
+  // that has changed hands meanwhile (taskChangedMeanwhile).
   const confirmTakeOff = () => {
     if (repair === null || holder === null) {
       return;
     }
-    Alert.alert(
-      t('problems.dispatch.takeOffTitle'),
-      t('problems.dispatch.takeOffQuestion', { name: personName(names, holder) }),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('problems.dispatch.takeOffConfirm'),
-          style: 'destructive',
-          onPress: () => {
-            if (!inFlight.isMovingNow()) {
-              takeOff.mutate({ taskId: repair.id, expectedAssigneeId: holder });
-            }
-          },
-        },
-      ],
-    );
+    setTakeOffAsked({ taskId: repair.id, assigneeId: holder });
+    setAskingTakeOff(true);
+  };
+
+  const takeOffAnswered = () => {
+    setAskingTakeOff(false);
+    if (takeOffAsked !== null && !inFlight.isMovingNow()) {
+      takeOff.mutate({ taskId: takeOffAsked.taskId, expectedAssigneeId: takeOffAsked.assigneeId });
+    }
   };
 
   const readAgain = () => {
@@ -202,8 +204,30 @@ export function ProblemDispatch({ problemId }: ProblemDispatchProps) {
           onClose={() => setAssigning(false)}
         />
       ) : null}
+
+      <ConfirmDialog
+        isVisible={isAskingTakeOff}
+        title={t('problems.dispatch.takeOffTitle')}
+        message={
+          takeOffAsked === null
+            ? undefined
+            : t('problems.dispatch.takeOffQuestion', {
+                name: personName(names, takeOffAsked.assigneeId),
+              })
+        }
+        confirmLabel={t('problems.dispatch.takeOffConfirm')}
+        variant="destructive"
+        onConfirm={takeOffAnswered}
+        onCancel={() => setAskingTakeOff(false)}
+      />
     </View>
   );
+}
+
+/** The repair a take-off was asked about, and the person it named. */
+interface TakeOffTarget {
+  taskId: string;
+  assigneeId: string;
 }
 
 interface RepairDayProps {

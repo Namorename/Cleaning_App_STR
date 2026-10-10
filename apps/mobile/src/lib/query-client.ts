@@ -14,6 +14,8 @@ import type { PersistedClient, Persister } from '@tanstack/react-query-persist-c
 
 import { registerChatMutations } from '@/features/chat/use-chat';
 import { mediaKeys } from '@/features/media/keys';
+import { migrateLocalMediaStore } from '@/features/media/local-store';
+import { withStoredMediaPaths } from '@/features/media/stored-paths';
 import { isVideoUpload, registerMediaMutations } from '@/features/media/use-media';
 import { registerProblemMutations } from '@/features/problems/use-problems';
 import { registerSettingsMutations } from '@/features/settings/use-settings';
@@ -29,6 +31,7 @@ import {
   waitsForSignal,
 } from '@/lib/move-queue';
 import { countRefusals, isMoveRetry, moveRetryDelay, retryMove } from '@/lib/move-retry';
+import { reportError } from '@/lib/sentry';
 
 /** Milliseconds; the cache is thrown away after this long without a refresh. */
 const CACHE_LIFETIME = 24 * 60 * 60 * 1000;
@@ -296,10 +299,36 @@ function withMovesWaiting(saved: PersistedClient): PersistedClient {
     : saved;
 }
 
+/**
+ * The files of the saved queue and of the ledger of captures, by their places
+ * in the documents (iPhone risk 1, docs/ios-first-device-checklist.md): what a
+ * build before this one saved with the full path of its install is moved here,
+ * at the start, before anything is resumed — and written back that way with
+ * the persister's next write. A step that fails is reported and the restore
+ * goes on with what was read: every file is also looked for where it is when
+ * it is used (features/media/media-path.ts), so nothing waits on this.
+ */
+async function withFilesInPlace(
+  saved: PersistedClient | undefined,
+): Promise<PersistedClient | undefined> {
+  try {
+    await migrateLocalMediaStore();
+  } catch (error: unknown) {
+    reportError(error);
+  }
+  try {
+    return withStoredMediaPaths(saved);
+  } catch (error: unknown) {
+    reportError(error);
+    return saved;
+  }
+}
+
 export const queryPersister: Persister = {
   persistClient: (saved) => diskPersister.persistClient(withMovesWaiting(saved)),
   removeClient: diskPersister.removeClient,
-  restoreClient: async () => keepQueueOfExpired(await diskPersister.restoreClient()),
+  restoreClient: async () =>
+    withFilesInPlace(keepQueueOfExpired(await diskPersister.restoreClient())),
 };
 
 export const persistOptions = {

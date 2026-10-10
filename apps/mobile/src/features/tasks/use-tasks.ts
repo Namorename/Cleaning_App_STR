@@ -1,4 +1,11 @@
-import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query';
+import { z } from 'zod';
 
 import { useSession } from '@/features/auth/session';
 import { stepKeys } from '@/features/steps/keys';
@@ -10,11 +17,13 @@ import {
   type AcceptVariables,
   claimTask,
   fetchFreeTasks,
+  fetchMyDoneTasks,
   fetchMyTasks,
   fetchTask,
   finishTask,
   startTask,
 } from './api';
+import { DONE_PAGE_SIZE, doneSince } from './done';
 import { cleaningTaskListSchema, cleaningTaskSchema, type CleaningTask } from './schema';
 
 /**
@@ -33,9 +42,50 @@ function readTask(data: unknown): CleaningTask | null {
   return readCached(oneOrNoTaskSchema, data, 'task');
 }
 
+/** «Выполненные» as the infinite query keeps them, each page read through the schema. */
+const donePagesSchema = z.object({
+  pages: z.array(cleaningTaskListSchema),
+  pageParams: z.array(z.unknown()),
+});
+
+/**
+ * Her finished jobs, one list in their order. A job a later page repeats —
+ * a finish that landed between two pages moved the rest down by one — is
+ * shown where it came first.
+ */
+function readDone(data: unknown): CleaningTask[] {
+  const seen = new Set<string>();
+  return readCached(donePagesSchema, data, 'done tasks')
+    .pages.flat()
+    .filter((task) => {
+      if (seen.has(task.id)) {
+        return false;
+      }
+      seen.add(task.id);
+      return true;
+    });
+}
+
+/**
+ * The rows a cached list holds, raw as the disk gave them: a list is an array,
+ * «Выполненные» are pages of arrays.
+ */
+function cachedRows(data: unknown): unknown[] {
+  if (Array.isArray(data)) {
+    return data;
+  }
+  const pages = (data as { pages?: unknown } | undefined)?.pages;
+  return Array.isArray(pages) ? pages.flatMap((page) => (Array.isArray(page) ? page : [])) : [];
+}
+
+/** The second part of the key of «Выполненные». */
+const DONE_KEY = 'done';
+
 export const taskKeys = {
   all: ['tasks'] as const,
   mine: (cleanerId: string) => ['tasks', 'mine', cleanerId] as const,
+  // Under 'tasks', refreshed by a finish only (`refreshTaskLists`).
+  done: (cleanerId: string) => ['tasks', DONE_KEY, cleanerId] as const,
   free: () => ['tasks', 'free'] as const,
   one: (taskId: string) => ['tasks', 'one', taskId] as const,
 };
@@ -73,13 +123,30 @@ export function acceptVariables(task: CleaningTask): AcceptVariables {
 }
 
 /**
+ * The lists of jobs and each job's own read — and «Выполненные» only when
+ * asked (`withDone`): only a finish adds to them. A take, a start or a step
+ * tap refreshing every page of history she has opened would be reads for
+ * nothing, and a failure among them would be said under a list that did not
+ * change.
+ */
+export function refreshTaskLists(
+  queryClient: QueryClient,
+  { withDone = false }: { withDone?: boolean } = {},
+): Promise<void> {
+  return queryClient.invalidateQueries({
+    queryKey: taskKeys.all,
+    predicate: withDone ? undefined : (query) => query.queryKey[1] !== DONE_KEY,
+  });
+}
+
+/**
  * What a move of a cleaning changes: the cleanings, and that cleaning's steps
  * — a start is when the server copies its process into them, and a steps
  * query fetched a moment earlier, empty, would otherwise show no steps until
- * it went stale.
+ * it went stale. A finish adds to «Выполненные» as well.
  */
-function refreshAfterMove(queryClient: QueryClient, taskId: string): void {
-  void queryClient.invalidateQueries({ queryKey: taskKeys.all });
+function refreshAfterMove(queryClient: QueryClient, taskId: string, withDone = false): void {
+  void refreshTaskLists(queryClient, { withDone });
   void queryClient.invalidateQueries({ queryKey: stepKeys.byTask(taskId) });
 }
 
@@ -120,7 +187,7 @@ export function registerTaskMutations(queryClient: QueryClient): void {
     mutationFn: (taskId: string) => finishTask(taskId),
     scope: TASK_MOVES_SCOPE,
     onSettled: (_task: unknown, _error: unknown, taskId: string) =>
-      refreshAfterMove(queryClient, taskId),
+      refreshAfterMove(queryClient, taskId, true),
   });
 }
 
@@ -132,6 +199,25 @@ export function useMyTasks() {
     queryFn: () => fetchMyTasks(userId as string),
     select: readTasks,
     enabled: userId !== null,
+  });
+}
+
+/**
+ * «Выполненные» (owner, 2026-10-10): read only once she opens them (`isOpen`),
+ * so her open list never waits on them, and then a page at a time: a full
+ * page means there may be more, «Показать ещё» reads it.
+ */
+export function useMyDoneTasks(isOpen: boolean) {
+  const { userId } = useSession();
+
+  return useInfiniteQuery({
+    queryKey: taskKeys.done(userId ?? 'anonymous'),
+    queryFn: ({ pageParam }) => fetchMyDoneTasks(userId as string, pageParam, doneSince()),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage: readonly unknown[], pages) =>
+      lastPage.length < DONE_PAGE_SIZE ? undefined : pages.length,
+    select: readDone,
+    enabled: userId !== null && isOpen,
   });
 }
 
@@ -161,9 +247,9 @@ export function useTask(taskId: string) {
     // and let the fetch confirm, rather than a spinner over known data.
     initialData: () =>
       queryClient
-        .getQueriesData<CleaningTask[]>({ queryKey: taskKeys.all })
-        .flatMap(([, tasks]) => (Array.isArray(tasks) ? tasks : []))
-        .find((task) => task.id === taskId),
+        .getQueriesData({ queryKey: taskKeys.all })
+        .flatMap(([, data]) => cachedRows(data))
+        .find((task): task is CleaningTask => (task as { id?: unknown } | null)?.id === taskId),
     initialDataUpdatedAt: 0,
   });
 }

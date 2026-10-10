@@ -2,6 +2,7 @@ import { ImageMetadataError, stripJpegMetadata } from '@str-ops/shared';
 import { Directory, File, FileMode, Paths } from 'expo-file-system';
 import { Platform } from 'react-native';
 
+import { KEPT_MEDIA_DIRECTORY, mediaFileUri, storedMediaPath } from './media-path';
 import type { TusSource } from './tus';
 
 /**
@@ -10,13 +11,17 @@ import type { TusSource } from './tus';
  * On a phone the file is read through expo-file-system; in the browser build
  * (development and the driven test run) the picker hands over a blob URL,
  * which only fetch can read.
+ *
+ * Every function here takes a file as it is remembered — a kept file by its
+ * place in the documents, or by the full path an older build kept — and looks
+ * for it where it is in this run (`mediaFileUri`).
  */
 export async function readFileBytes(uri: string): Promise<ArrayBuffer | Blob> {
   if (Platform.OS === 'web') {
     const response = await fetch(uri);
     return response.blob();
   }
-  return new File(uri).arrayBuffer();
+  return new File(mediaFileUri(uri)).arrayBuffer();
 }
 
 /**
@@ -35,7 +40,7 @@ export async function openFileChunks(uri: string): Promise<TusSource> {
       close: () => undefined,
     };
   }
-  const file = new File(uri);
+  const file = new File(mediaFileUri(uri));
   const handle = file.open(FileMode.ReadOnly);
   return {
     size: file.size,
@@ -54,16 +59,16 @@ export async function fileSize(uri: string): Promise<number> {
     return (await response.blob()).size;
   }
   // 0 for a file that is not there: File.size is never null.
-  return new File(uri).size;
+  return new File(mediaFileUri(uri)).size;
 }
-
-const MEDIA_DIRECTORY = 'task-media';
 
 /**
  * Move a capture out of the cache, where the system may clear it before the
  * upload gets its turn, into the app's own documents under a name of ours.
  *
- * Returns the new uri. The browser has no such place; its blob URL is
+ * Returns where it is kept, the way it is to be remembered: its place in the
+ * documents, `task-media/<id>.<ext>`, never the full path of this install
+ * (`storedMediaPath`). The browser has no such place; its blob URL is
  * returned as it is.
  *
  * The move is awaited, and that is the whole point of this function being
@@ -78,13 +83,13 @@ export async function keepFile(uri: string, mediaId: string, extension: string):
   if (Platform.OS === 'web') {
     return uri;
   }
-  const directory = new Directory(Paths.document, MEDIA_DIRECTORY);
+  const directory = new Directory(Paths.document, KEPT_MEDIA_DIRECTORY);
   if (!directory.exists) {
     directory.create({ intermediates: true, idempotent: true });
   }
   const kept = new File(directory, `${mediaId}.${extension}`);
   await new File(uri).move(kept);
-  return kept.uri;
+  return storedMediaPath(kept.uri);
 }
 
 /**
@@ -106,7 +111,7 @@ export async function stripKeptPhoto(uri: string): Promise<void> {
     // A blob URL of the browser build; the canvas that made it writes no metadata.
     return;
   }
-  const file = new File(uri);
+  const file = new File(mediaFileUri(uri));
   const bytes = await file.bytes();
   let clean: Uint8Array;
   try {
@@ -128,7 +133,7 @@ export function discardFile(uri: string): void {
     return;
   }
   try {
-    const file = new File(uri);
+    const file = new File(mediaFileUri(uri));
     if (file.exists) {
       file.delete();
     }

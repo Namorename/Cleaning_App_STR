@@ -20,6 +20,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { wordContext } from '@/i18n';
 
+import { DoneCard } from './done-card';
 import type { CleaningTask, TaskGroup } from './schema';
 import { SectionHeading } from './section-heading';
 import { TaskCard } from './task-card';
@@ -48,6 +49,8 @@ interface TaskListProps {
   unreadProblemIds?: ReadonlySet<string>;
   /** Drawn above the cards: a line about what a tapped push could not open. */
   header?: ReactElement;
+  /** Drawn below the cards: «Выполненные» on her own list (owner, 2026-10-10). */
+  footer?: ReactElement;
 }
 
 /**
@@ -76,28 +79,40 @@ export function TaskList({
   unreadTaskIds,
   unreadProblemIds,
   header,
+  footer,
 }: TaskListProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
 
   const renderItem = useCallback(
-    ({ item, section }: SectionListRenderItemInfo<CleaningTask, TaskGroup>) => (
-      <TaskCard
-        task={item}
-        onClaim={onClaim}
-        onAccept={onAccept}
-        onPress={onPress}
-        isClaiming={claimingTaskIds?.has(item.id) ?? false}
-        isAccepting={acceptingTaskIds?.has(item.id) ?? false}
-        hasUnread={
-          (unreadTaskIds?.has(item.id) ?? false) ||
-          (item.problem != null && (unreadProblemIds?.has(item.problem.id) ?? false))
-        }
-        isNow={section.kind === 'running'}
-      />
-    ),
-    [onClaim, onAccept, onPress, claimingTaskIds, acceptingTaskIds, unreadTaskIds, unreadProblemIds],
+    ({ item, section }: SectionListRenderItemInfo<CleaningTask, TaskGroup>) =>
+      section.kind === 'done' ? (
+        <DoneCard task={item} onPress={onPress ?? noop} />
+      ) : (
+        <TaskCard
+          task={item}
+          onClaim={onClaim}
+          onAccept={onAccept}
+          onPress={onPress}
+          isClaiming={claimingTaskIds?.has(item.id) ?? false}
+          isAccepting={acceptingTaskIds?.has(item.id) ?? false}
+          hasUnread={
+            (unreadTaskIds?.has(item.id) ?? false) ||
+            (item.problem != null && (unreadProblemIds?.has(item.problem.id) ?? false))
+          }
+          isNow={section.kind === 'running'}
+        />
+      ),
+    [
+      onClaim,
+      onAccept,
+      onPress,
+      claimingTaskIds,
+      acceptingTaskIds,
+      unreadTaskIds,
+      unreadProblemIds,
+    ],
   );
 
   const keyExtractor = useCallback((item: CleaningTask) => item.id, []);
@@ -140,11 +155,19 @@ export function TaskList({
   // Error over cache: a refresh that failed still has the list from the last
   // time it loaded, kept on the phone. The list stays, and a line above it
   // says what happened; the error screen above is for a list never loaded.
+  // Nothing open, and only what she finished below: the empty list still
+  // says so, above it — the list's own empty state is drawn only when no
+  // section is.
+  const isOnlyDone =
+    sections !== undefined &&
+    sections.length > 0 &&
+    sections.every((section) => section.kind === 'done');
   const listHeader =
-    error === null && header === undefined ? undefined : (
+    error === null && header === undefined && !isOnlyDone ? undefined : (
       <View style={layout.listHeader}>
         {error === null ? null : <ErrorBanner title={t('common.refreshFailed')} error={error} />}
         {header}
+        {isOnlyDone ? <EmptyState title={emptyMessage} /> : null}
       </View>
     );
 
@@ -161,9 +184,12 @@ export function TaskList({
       ListHeaderComponent={listHeader}
       refreshControl={refreshControl}
       ListEmptyComponent={<EmptyState title={emptyMessage} />}
+      ListFooterComponent={footer}
     />
   );
 }
+
+function noop(): void {}
 
 function renderSectionHeader({ section }: { section: TaskGroup }) {
   return <SectionHeading section={section} />;

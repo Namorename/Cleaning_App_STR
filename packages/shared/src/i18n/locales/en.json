@@ -975,7 +975,13 @@
       "saveFailed": "The theme changed but was not saved: after a restart the previous one comes back."
     },
     "about": {
-      "heading": "About the app"
+      "heading": "About the app",
+      "version": "Version",
+      "embedded": "built-in bundle",
+      "update": "update {{id}}",
+      "channel": "channel {{channel}}",
+      "privacy": "Privacy policy",
+      "privacyHint": "Opens in the browser"
     },
     "fontLicense": {
       "title": "Font license",
@@ -1025,6 +1031,8 @@
     "accept": "Accept",
     "start": "Start cleaning",
     "finish": "Finish cleaning",
+    "finishQuestion": "Finish the cleaning?",
+    "finishConfirm": "Finish",
     "claimAccessibility": "Take cleaning: {{property}}, {{date}}",
     "acceptAccessibility": "Accept: {{property}}, {{date}}",
     "claimFailedTitle": "Could not take the cleaning",
@@ -1067,6 +1075,8 @@
       "start_tech": "Start work",
       "finish": "Finish work",
       "finish_tech": "Finish work",
+      "finishQuestion": "Finish the work?",
+      "finishQuestion_tech": "Finish the work?",
       "window": "Work window",
       "window_tech": "Work window",
       "finished": "Work finished",
@@ -1099,6 +1109,16 @@
       "fixBanner": "{{property}} · priority: {{priority}}",
       "notFound": "Cleaning not found, or no longer yours",
       "notFound_tech": "Job not found, or no longer yours"
+    },
+    "done": {
+      "heading_one": "Done in the last {{count}} day",
+      "heading_other": "Done in the last {{count}} days",
+      "more": "Show more",
+      "empty": "Nothing was finished in this time",
+      "loading": "Loading finished jobs…",
+      "loadFailed": "Could not load finished jobs",
+      "completedAt": "Finished {{date}}, {{time}}",
+      "completedOn": "Finished {{date}}"
     },
     "pushNotice": {
       "unassigned": "This cleaning was taken off you.",
@@ -1158,6 +1178,8 @@
     "takePhoto": "Take a photo",
     "recordVideo": "Record a video",
     "removeMedia": "Remove",
+    "removePhotoQuestion": "Remove the photo?",
+    "removeVideoQuestion": "Remove the video?",
     "retryUpload": "Retry upload",
     "mediaUploaded": "Uploaded",
     "mediaUploading": "Uploading…",
@@ -1179,6 +1201,7 @@
     "cameraDenied": "No access to the camera — allow it in the phone settings",
     "captureFailed": "Could not take it — please try again",
     "pickPhoto": "Choose a photo from the gallery",
+    "pickVideo": "Choose a video from the gallery",
     "galleryDenied": "Access to the gallery was not granted",
     "uploadReason": {
       "tooLarge": "The file is larger than the storage accepts (413)",
@@ -1219,6 +1242,19 @@
     "backToStep": "Back to the step",
     "recordingLost": "The recording was not saved. Record the video again.",
     "tooLargeForStorage": "The video is {{size}} MB, and the storage takes files of up to {{limit}} MB. Press “Record again” and record a shorter video.",
+    "galleryTitle": "Video from the gallery",
+    "openingGallery": "Opening the gallery…",
+    "preparingGallery": "Preparing the video… Keep the app open.",
+    "pickAnother": "Choose another",
+    "leaveBodyGallery": "If you leave, the video will not be sent. It stays in the gallery.",
+    "galleryTooLong": "This video is longer than {{limit}} s. Choose a shorter one or record with the camera.",
+    "galleryTooLarge": "This video is larger than {{limit}} MB. Choose a smaller one or record with the camera.",
+    "galleryTooLargeCompressed": "Even compressed, this video is larger than {{limit}} MB. Choose a shorter one or record with the camera.",
+    "galleryNoLength": "The length of this video could not be read. Choose another or record with the camera.",
+    "galleryFormat": "This video will not do: it has to be MP4 or MOV. Choose another or record with the camera.",
+    "sourceTitle": "Video for the step",
+    "fromCamera": "Record with the camera",
+    "fromGallery": "Choose from the gallery",
     "leaveTitle": "The video has not been sent",
     "leaveBody": "If you leave, the recording is deleted from the phone.",
     "discard": "Don’t keep",

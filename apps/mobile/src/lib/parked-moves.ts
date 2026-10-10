@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-query';
 import { z } from 'zod';
 
+import { storedMediaPathsOfMoves } from '@/features/media/stored-paths';
 import {
   authorIn,
   authorOf,
@@ -92,7 +93,10 @@ interface ParkedStore {
 /**
  * What is parked. A store that cannot be read is reported and taken as empty:
  * what cannot be read cannot be restored either. Each move is read like
- * outside input; one that is not a move is dropped.
+ * outside input; one that is not a move is dropped. The files a move names
+ * are read by their places in the documents, as the restored queue reads them
+ * (features/media/stored-paths.ts): a move parked by an older build with the
+ * full path of its install comes back sendable, and as the same move.
  */
 async function readParked(): Promise<ParkedStore> {
   const raw = await AsyncStorage.getItem(PARKED_MOVES_KEY);
@@ -115,7 +119,9 @@ async function readParked(): Promise<ParkedStore> {
   const parked = Object.fromEntries(
     entries.map(([author, moves]) => [
       author,
-      moves.filter((move): move is SavedMove => savedMoveSchema.safeParse(move).success),
+      storedMediaPathsOfMoves(
+        moves.filter((move): move is SavedMove => savedMoveSchema.safeParse(move).success),
+      ),
     ]),
   );
   const isWhole = entries.every(([author, moves]) => parked[author].length === moves.length);
