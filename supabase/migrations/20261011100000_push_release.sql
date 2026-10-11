@@ -18,10 +18,11 @@
 --
 -- `p_since` is the phone's own clock. A phone running behind lets go of
 -- nothing (the binding then waits for the next sign-in on that phone, which
--- moves it); one running ahead could undo a registration made on the same
--- phone within that lead — the phone clears its pending release on any
--- registration of the same token, so only a registration whose answer was lost
--- is exposed.
+-- moves it), and the phone takes the call as heard. One running ahead could
+-- undo a registration made on the same phone within that lead: the phone
+-- settles its pending release once a registration of the same token is heard,
+-- so what stays exposed is a registration whose answer was lost, or whose
+-- settle failed, landing within the lead. Both need a skewed clock.
 --
 -- anon is granted EXECUTE on this one function: the call has no session to
 -- run as. It is the single exception to 20260825030000_revoke_anon (anon holds

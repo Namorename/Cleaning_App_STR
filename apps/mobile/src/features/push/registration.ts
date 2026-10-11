@@ -7,7 +7,7 @@ import { deviceLanguage } from '@/i18n';
 
 import { registerPushToken } from './api';
 import { ensureChannels } from './channels';
-import { settlePendingRelease } from './pending-release';
+import { flushPendingRelease, keepReleasePending, settlePendingRelease } from './pending-release';
 import {
   isRegisteredFor,
   markRegistered,
@@ -82,12 +82,17 @@ async function register(
     language: deviceLanguage(),
     appVersion: Constants.expoConfig?.version ?? null,
   });
+  if (signOutsSoFar() !== signOuts) {
+    // She signed out while the call was out: it bound the token to her again
+    // after the sign-out's release. It waits to be let go of once more, from
+    // now (review of 86122ac).
+    await keepReleasePending(token).catch(() => undefined);
+    void flushPendingRelease();
+    return false;
+  }
   // The binding moved to whoever registered: a release of this token kept
   // after a sign-out nobody heard has nothing left to undo.
   await settlePendingRelease(token).catch(() => undefined);
-  if (signOutsSoFar() !== signOuts) {
-    return false;
-  }
   markRegistered(userId);
   return true;
 }

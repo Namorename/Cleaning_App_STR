@@ -1,4 +1,5 @@
 import { clearThisPhone, releaseThisPhone } from '@/features/push/api';
+import { keepThisPhonePending } from '@/features/push/pending-release';
 import { registerThisPhone } from '@/features/push/registration';
 import { registrant, unmarkRegistered } from '@/features/push/token-store';
 import { sessionStorage } from '@/lib/secure-storage';
@@ -103,6 +104,18 @@ test('no signal, the session gone and the let-go unconfirmed: the token waits to
   await expect(signOut()).resolves.toBeUndefined();
 
   expect(calls).toEqual(['begin', 'signOut', 'keep', 'clear', 'flush', 'end']);
+});
+
+// Review of 86122ac: a Keychain that refuses to keep the token does not make
+// a sign-out that already happened look failed.
+test('a Keychain that refuses to keep the token still leaves her signed out and the phone cleared', async () => {
+  mockRelease.mockResolvedValue('unconfirmed');
+  mockSignOut.mockResolvedValue({ error: noSignal });
+  jest.mocked(keepThisPhonePending).mockRejectedValueOnce(new Error('keychain locked'));
+
+  await expect(signOut()).resolves.toBeUndefined();
+
+  expect(mockClear).toHaveBeenCalledTimes(1);
 });
 
 test('a let-go the server heard keeps nothing to send again', async () => {

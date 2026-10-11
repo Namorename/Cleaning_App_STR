@@ -124,11 +124,13 @@ export async function signOut(): Promise<void> {
       // A let-go the server did not hear waits to be sent again, with no
       // session, before the phone forgets its token (owner's word of
       // 2026-10-11, 00:40).
+      // A Keychain that refuses does not undo a sign-out that happened
+      // (review of 86122ac); the send is not waited for — she is out.
       if (release === 'unconfirmed') {
-        await keepThisPhonePending();
+        await keepThisPhonePending().catch(() => undefined);
       }
       await clearThisPhone();
-      await flushPendingRelease();
+      void flushPendingRelease();
       return;
     }
     if (release === 'released') {

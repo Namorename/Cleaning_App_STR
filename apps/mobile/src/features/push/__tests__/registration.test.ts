@@ -4,7 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 import { registerPushToken } from '../api';
-import { settlePendingRelease } from '../pending-release';
+import { flushPendingRelease, keepReleasePending, settlePendingRelease } from '../pending-release';
 import { registerThisPhone } from '../registration';
 import { forgetRegistration, isRegisteredFor } from '../token-store';
 
@@ -23,7 +23,11 @@ async function until(check: () => boolean): Promise<void> {
  */
 
 jest.mock('../api', () => ({ registerPushToken: jest.fn(async () => undefined) }));
-jest.mock('../pending-release', () => ({ settlePendingRelease: jest.fn(async () => undefined) }));
+jest.mock('../pending-release', () => ({
+  settlePendingRelease: jest.fn(async () => undefined),
+  keepReleasePending: jest.fn(async () => undefined),
+  flushPendingRelease: jest.fn(async () => undefined),
+}));
 
 jest.mock('expo-constants', () => ({
   __esModule: true,
@@ -189,6 +193,22 @@ test('a registration still on its way when she signs out does not land after it'
   await expect(registerThisPhone('me')).resolves.toBe(false);
 
   expect(mockRegister).not.toHaveBeenCalled();
+});
+
+// Review of 86122ac: a registration whose server call was already out when
+// she signed out lands after the sign-out's release — the token is bound to
+// her again, and must wait to be let go of once more, not be settled.
+test('a registration landing on the server after a sign-out keeps its token waiting to be let go of', async () => {
+  jest.mocked(settlePendingRelease).mockClear();
+  mockRegister.mockImplementationOnce(async () => {
+    await forgetRegistration();
+  });
+
+  await expect(registerThisPhone('me')).resolves.toBe(false);
+
+  expect(settlePendingRelease).not.toHaveBeenCalled();
+  expect(keepReleasePending).toHaveBeenCalledWith('ExponentPushToken[test]');
+  expect(flushPendingRelease).toHaveBeenCalled();
 });
 
 // After the first «Allow» the system dialog closes and the app is back in
