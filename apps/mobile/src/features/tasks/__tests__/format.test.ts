@@ -45,6 +45,15 @@ describe('the finish button and the question before it', () => {
       expect(t(jobWordKey(job, 'finishQuestion'), { context: 'tech' })).toBe(`${button}?`);
     }
   });
+
+  // Owner's word of 2026-10-12: a finish that fails names what he finishes.
+  test.each([
+    ['ru', 'Не удалось завершить задание — обновите список.'],
+    ['en', 'Could not finish the task — refresh the list.'],
+    ['cs', 'Úkol se nepodařilo dokončit — obnovte seznam.'],
+  ])('%s: a technician’s finish that fails says «%s»', (language, failure) => {
+    expect(i18n.getFixedT(language)('tasks.finishFailed', { context: 'tech' })).toBe(failure);
+  });
 });
 
 /** A room of a multi-unit listing, as the query joins it. */

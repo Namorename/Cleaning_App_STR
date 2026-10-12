@@ -1046,7 +1046,7 @@
     "startFailed": "Could not start the cleaning — refresh the list.",
     "startFailed_tech": "Could not start the job — refresh the list.",
     "finishFailed": "Could not finish the cleaning — refresh the list.",
-    "finishFailed_tech": "Could not finish the job — refresh the list.",
+    "finishFailed_tech": "Could not finish the task — refresh the list.",
     "unnamedProperty": "Listing {{id}}",
     "cardAccessibility": "{{property}}. {{date}}. {{urgency}}",
     "now": "Now",
