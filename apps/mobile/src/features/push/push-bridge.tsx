@@ -10,7 +10,7 @@ import { usePendingRelease, usePushRefresh, usePushRegistration } from './hooks'
  */
 export function PushBridge() {
   const { userId } = useSession();
-  usePendingRelease();
+  usePendingRelease(userId);
   usePushRegistration(userId);
   usePushRefresh();
   return null;

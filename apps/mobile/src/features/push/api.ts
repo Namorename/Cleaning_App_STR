@@ -136,12 +136,15 @@ function unregister(token: string): Promise<boolean> {
 
 /**
  * Lets go of a token kept after a sign-out nobody heard (pending-release.ts):
- * with no session, as anon — the server lets go only if nobody bound the token
- * again after `since` (20261011100000_push_release). Resolves to whether the
- * server heard; never throws.
+ * with no session, as anon, in the name of the one who signed out — the
+ * server lets go only while the token is still bound to her
+ * (20261011100000_push_release). Resolves to whether the server heard; never
+ * throws.
  */
-export function releasePushToken(token: string, since: string): Promise<boolean> {
+export function releasePushToken(token: string, profileId: string): Promise<boolean> {
   return heard((signal) =>
-    supabase.rpc('release_push_token', { p_token: token, p_since: since }).abortSignal(signal),
+    supabase
+      .rpc('release_push_token', { p_token: token, p_profile_id: profileId })
+      .abortSignal(signal),
   );
 }

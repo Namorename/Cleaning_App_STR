@@ -73,6 +73,19 @@ test('registers the phone with its token, platform, language and version, and re
   await expect(SecureStore.getItemAsync('push-token')).resolves.toBe('ExponentPushToken[test]');
 });
 
+// Owner's word of 2026-10-12: a release names whose the token was, and a
+// session that ends without the button has no session left to ask — the
+// phone keeps the name with the token from the moment it registers.
+test('remembers whom the token was registered for, before the server hears of it', async () => {
+  mockRegister.mockImplementationOnce(async () => {
+    await expect(SecureStore.getItemAsync('push-token-owner')).resolves.toBe('me');
+  });
+
+  await expect(registerThisPhone('me')).resolves.toBe(true);
+
+  await expect(SecureStore.getItemAsync('push-token-owner')).resolves.toBe('me');
+});
+
 // Owner's word of 2026-10-11, 00:40: a token waiting to be let go of after a
 // sign-out nobody heard is settled by a registration of the same token — the
 // binding moved to whoever registered.
@@ -207,7 +220,7 @@ test('a registration landing on the server after a sign-out keeps its token wait
   await expect(registerThisPhone('me')).resolves.toBe(false);
 
   expect(settlePendingRelease).not.toHaveBeenCalled();
-  expect(keepReleasePending).toHaveBeenCalledWith('ExponentPushToken[test]');
+  expect(keepReleasePending).toHaveBeenCalledWith('ExponentPushToken[test]', 'me');
   expect(flushPendingRelease).toHaveBeenCalled();
 });
 

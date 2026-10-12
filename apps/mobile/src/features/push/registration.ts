@@ -73,9 +73,10 @@ async function register(
   if (signOutsSoFar() !== signOuts) {
     return false;
   }
-  // Kept before the server hears of it: a sign-out while the call is on its
-  // way lets go of this token rather than finding nothing.
-  await rememberToken(token);
+  // Kept before the server hears of it, with whom it is for: a sign-out while
+  // the call is on its way lets go of this token, in her name, rather than
+  // finding nothing.
+  await rememberToken(token, userId);
   await registerPushToken({
     token,
     platform: Platform.OS === 'ios' ? 'ios' : 'android',
@@ -84,9 +85,9 @@ async function register(
   });
   if (signOutsSoFar() !== signOuts) {
     // She signed out while the call was out: it bound the token to her again
-    // after the sign-out's release. It waits to be let go of once more, from
-    // now (review of 86122ac).
-    await keepReleasePending(token).catch(() => undefined);
+    // after the sign-out's release. It waits to be let go of once more, in
+    // her name (review of 86122ac).
+    await keepReleasePending(token, userId).catch(() => undefined);
     void flushPendingRelease();
     return false;
   }

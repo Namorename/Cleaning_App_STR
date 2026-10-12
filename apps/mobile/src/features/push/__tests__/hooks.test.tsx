@@ -69,31 +69,36 @@ beforeEach(() => {
   canDismiss.mockReturnValue(false);
 });
 
-// Owner's word of 2026-10-11, 00:40: a token waiting to be let go of is sent
-// at the start, on coming back to the app and on coming back online —
-// signed in or not.
+// Owner's words of 2026-10-11, 00:40 and 2026-10-12: a token waiting to be let
+// go of is sent at the start, on coming back to the app and on coming back
+// online — signed in or not; who is signed in now is said, so the release of
+// someone back on the phone is dropped rather than sent.
 describe('usePendingRelease', () => {
+  const ANNA = 'a8f12001-0000-4000-8000-000000000001';
+
   afterEach(() => {
     onlineManager.setOnline(true);
   });
 
   test('sends what waits at the start, with nobody signed in', async () => {
-    await renderHook(() => usePendingRelease());
+    await renderHook(() => usePendingRelease(null));
 
     expect(flushPendingRelease).toHaveBeenCalledTimes(1);
+    expect(flushPendingRelease).toHaveBeenCalledWith(null);
   });
 
-  test('sends it again on coming back to the app', async () => {
-    await renderHook(() => usePendingRelease());
+  test('sends it again on coming back to the app, naming who is signed in now', async () => {
+    await renderHook(() => usePendingRelease(ANNA));
     jest.mocked(flushPendingRelease).mockClear();
 
     lastListener<(status: string) => void>(AppState.addEventListener, 1)('active');
 
     expect(flushPendingRelease).toHaveBeenCalledTimes(1);
+    expect(flushPendingRelease).toHaveBeenCalledWith(ANNA);
   });
 
   test('sends it again when the signal comes back, and not when it goes', async () => {
-    await renderHook(() => usePendingRelease());
+    await renderHook(() => usePendingRelease(ANNA));
     jest.mocked(flushPendingRelease).mockClear();
 
     await act(async () => onlineManager.setOnline(false));
@@ -101,6 +106,19 @@ describe('usePendingRelease', () => {
     await act(async () => onlineManager.setOnline(true));
 
     expect(flushPendingRelease).toHaveBeenCalledTimes(1);
+    expect(flushPendingRelease).toHaveBeenCalledWith(ANNA);
+  });
+
+  test('a sign-in sends it again, naming who signed in', async () => {
+    const { rerender } = await renderHook(
+      ({ person }: { person: string | null }) => usePendingRelease(person),
+      { initialProps: { person: null as string | null } },
+    );
+    jest.mocked(flushPendingRelease).mockClear();
+
+    await rerender({ person: ANNA });
+
+    expect(flushPendingRelease).toHaveBeenCalledWith(ANNA);
   });
 });
 

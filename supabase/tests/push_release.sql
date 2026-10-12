@@ -1,17 +1,17 @@
--- A phone let go of after a sign-out it could not confirm (owner's word of
--- 2026-10-11, 00:40). Run: npm run test:rls
+-- A phone let go of after a sign-out it could not confirm (owner's words of
+-- 2026-10-11, 00:40 and 2026-10-12, 18:20). Run: npm run test:rls
 -- Runs inside a transaction and rolls back — the database stays clean.
 --
 -- The phone signs out without signal: the session is gone, the server still
--- sends her pushes to it. The phone keeps the token as "to be let go of" and
--- sends release_push_token(token, since) when it can — with no session, so as
--- anon. What is being protected:
--- - the release undoes only the binding the sign-out left: a token bound again
---   after `since` (someone signed in on the phone, or she did) stays bound;
--- - the call says nothing: no row, no error, the same for a token that is
---   there and one that is not;
--- - anon gets this one function and nothing else in public, and still no
---   right on push_tokens itself.
+-- sends her pushes to it. The phone keeps the token, and whose it was, as "to
+-- be let go of" and sends release_push_token(token, profile_id) when it can —
+-- with no session, so as anon. What is being protected:
+-- - the release undoes only her binding: a token bound to anyone else (the
+--   next person who signed in on the phone) stays bound — no clock decides;
+-- - the call says nothing: no row, no error, the same for her token, someone
+--   else's and one that is not there;
+-- - anon gets this one function, EXECUTE and nothing more, nothing else in
+--   public, and still no right on push_tokens itself.
 --
 -- Fixture ids live in the a8f120xx range.
 begin;
@@ -33,12 +33,12 @@ values
 update public.profiles set host_id = 'a8f12000-0000-4000-8000-00000000000a'
 where id in ('a8f12001-0000-4000-8000-000000000001', 'a8f12002-0000-4000-8000-000000000002');
 
--- Anna's phone, registered an hour ago; Bara's, registered just now.
-insert into public.push_tokens (token, profile_id, host_id, platform, updated_at) values
+-- Anna's phone, and the phone Bara signed in on after Anna left it.
+insert into public.push_tokens (token, profile_id, host_id, platform) values
   ('ExponentPushToken[release-anna]', 'a8f12001-0000-4000-8000-000000000001',
-   'a8f12000-0000-4000-8000-00000000000a', 'ios', now() - interval '1 hour'),
+   'a8f12000-0000-4000-8000-00000000000a', 'ios'),
   ('ExponentPushToken[release-bara]', 'a8f12002-0000-4000-8000-000000000002',
-   'a8f12000-0000-4000-8000-00000000000a', 'android', now());
+   'a8f12000-0000-4000-8000-00000000000a', 'android');
 
 create or replace function pg_temp.check(label text, got anyelement, want anyelement)
 returns void language plpgsql as $fn$
@@ -57,16 +57,29 @@ $fn$;
 -- ---------- what anon may do ----------
 
 select pg_temp.check('anon may let a phone go',
-  has_function_privilege('anon', 'public.release_push_token(text, timestamptz)', 'EXECUTE'), true);
+  has_function_privilege('anon', 'public.release_push_token(text, uuid)', 'EXECUTE'), true);
 select pg_temp.check('a signed-in phone may too',
-  has_function_privilege('authenticated', 'public.release_push_token(text, timestamptz)', 'EXECUTE'),
+  has_function_privilege('authenticated', 'public.release_push_token(text, uuid)', 'EXECUTE'),
   true);
+select pg_temp.check('the function written in the ACL: EXECUTE for anon, and nothing for PUBLIC',
+  (select string_agg(
+            case when a.grantee = 0 then 'PUBLIC' else a.grantee::regrole::text end
+              || ':' || a.privilege_type,
+            ', ' order by 1)
+   from pg_proc p, aclexplode(p.proacl) a
+   where p.oid = 'public.release_push_token(text, uuid)'::regprocedure
+     and (a.grantee = 0 or a.grantee = 'anon'::regrole)),
+  'anon:EXECUTE');
 select pg_temp.check('anon may call nothing else in public',
   (select coalesce(string_agg(p.oid::regprocedure::text, ', ' order by 1), '')
    from pg_proc p
    where p.pronamespace = 'public'::regnamespace
      and has_function_privilege('anon', p.oid, 'EXECUTE')),
-  'release_push_token(text,timestamp with time zone)');
+  'release_push_token(text,uuid)');
+select pg_temp.check('no release by the clock is left behind',
+  (select count(*)::int from pg_proc p
+   where p.pronamespace = 'public'::regnamespace and p.proname = 'release_push_token'),
+  1);
 select pg_temp.check('anon still has no right on push_tokens',
   has_table_privilege('anon', 'public.push_tokens', 'SELECT,INSERT,UPDATE,DELETE'), false);
 
@@ -75,18 +88,39 @@ select pg_temp.check('anon still has no right on push_tokens',
 set local role anon;
 set local request.jwt.claims = '{"role":"anon"}';
 
--- Bound again after the sign-out (Bara signed in just now): stays.
-select public.release_push_token('ExponentPushToken[release-bara]', now() - interval '30 minutes');
--- Bound before the sign-out: goes.
-select public.release_push_token('ExponentPushToken[release-anna]', now() - interval '30 minutes');
+-- Bara's phone, let go of in Anna's name: Bara's binding stays.
+select public.release_push_token('ExponentPushToken[release-bara]',
+                                 'a8f12001-0000-4000-8000-000000000001');
+-- Anna's phone, in her own name: it goes.
+select public.release_push_token('ExponentPushToken[release-anna]',
+                                 'a8f12001-0000-4000-8000-000000000001');
 
 reset role;
 set local request.jwt.claims = '{}';
 
-select pg_temp.check('a token bound before the sign-out is let go',
+select pg_temp.check('her own token, in her name, is let go',
   pg_temp.bound('ExponentPushToken[release-anna]'), false);
-select pg_temp.check('a token bound again after it stays',
+select pg_temp.check('a token bound to someone else stays',
   pg_temp.bound('ExponentPushToken[release-bara]'), true);
+
+-- ---------- a phone signed in as someone else lets go the same way ----------
+
+-- Bara signed in on Anna's old phone before its release went out: the
+-- client then calls as Bara. Anna's binding goes all the same.
+insert into public.push_tokens (token, profile_id, host_id, platform) values
+  ('ExponentPushToken[release-anna-2]', 'a8f12001-0000-4000-8000-000000000001',
+   'a8f12000-0000-4000-8000-00000000000a', 'ios');
+
+set local role authenticated;
+set local request.jwt.claims =
+  '{"sub":"a8f12002-0000-4000-8000-000000000002","role":"authenticated"}';
+select public.release_push_token('ExponentPushToken[release-anna-2]',
+                                 'a8f12001-0000-4000-8000-000000000001');
+reset role;
+set local request.jwt.claims = '{}';
+
+select pg_temp.check('signed in as Bara, the phone lets go of Anna''s token in her name',
+  pg_temp.bound('ExponentPushToken[release-anna-2]'), false);
 
 -- ---------- it says nothing ----------
 
@@ -98,23 +132,39 @@ set local role anon;
 set local request.jwt.claims = '{"role":"anon"}';
 
 insert into answers
-select 'replay', public.release_push_token('ExponentPushToken[release-anna]', now())::text,
-       pg_typeof(public.release_push_token('ExponentPushToken[release-anna]', now()))::text;
+select 'own, again',
+       public.release_push_token('ExponentPushToken[release-anna]',
+                                 'a8f12001-0000-4000-8000-000000000001')::text,
+       pg_typeof(public.release_push_token('ExponentPushToken[release-anna]',
+                                           'a8f12001-0000-4000-8000-000000000001'))::text;
 insert into answers
-select 'unknown', public.release_push_token('ExponentPushToken[never-was]', now())::text,
-       pg_typeof(public.release_push_token('ExponentPushToken[never-was]', now()))::text;
+select 'someone else''s',
+       public.release_push_token('ExponentPushToken[release-bara]',
+                                 'a8f12001-0000-4000-8000-000000000001')::text,
+       pg_typeof(public.release_push_token('ExponentPushToken[release-bara]',
+                                           'a8f12001-0000-4000-8000-000000000001'))::text;
+insert into answers
+select 'unknown',
+       public.release_push_token('ExponentPushToken[never-was]',
+                                 'a8f12001-0000-4000-8000-000000000001')::text,
+       pg_typeof(public.release_push_token('ExponentPushToken[never-was]',
+                                           'a8f12001-0000-4000-8000-000000000001'))::text;
 insert into answers
 select 'nothing said', public.release_push_token(null, null)::text,
        pg_typeof(public.release_push_token(null, null))::text;
+insert into answers
+select 'no name', public.release_push_token('ExponentPushToken[release-bara]', null)::text,
+       pg_typeof(public.release_push_token('ExponentPushToken[release-bara]', null))::text;
 
 reset role;
 set local request.jwt.claims = '{}';
 
-select pg_temp.check('a replay, a token nobody has and a call with nothing all answer alike',
+select pg_temp.check('her token again, someone else''s, an unknown one and an empty call answer alike',
   (select string_agg(label || ':' || coalesce(said, 'null') || ':' || kind, ', ' order by label)
    from answers),
-  'nothing said:null:void, replay:null:void, unknown:null:void');
-select pg_temp.check('a call that said nothing left Bara bound',
+  'no name:null:void, nothing said:null:void, own, again:null:void, '
+  || 'someone else''s:null:void, unknown:null:void');
+select pg_temp.check('nothing said, no name or the wrong name left Bara bound',
   pg_temp.bound('ExponentPushToken[release-bara]'), true);
 
 -- ---------- anon cannot read what it let go of ----------

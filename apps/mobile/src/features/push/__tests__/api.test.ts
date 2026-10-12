@@ -24,6 +24,8 @@ jest.mock('@/lib/supabase', () => ({
 }));
 
 const TOKEN = 'ExponentPushToken[abc]';
+/** Whom the phone registered the token for: the one who signs out. */
+const OWNER = 'a8f12001-0000-4000-8000-000000000001';
 
 /** `rpc(name, args).abortSignal(signal)`, answering `result`. */
 function rpcAnswering(result: Promise<{ error: unknown }>) {
@@ -37,6 +39,7 @@ beforeEach(async () => {
   jest.mocked(Notifications.dismissAllNotificationsAsync).mockClear();
   jest.mocked(Notifications.clearLastNotificationResponse).mockClear();
   await SecureStore.deleteItemAsync('push-token');
+  await SecureStore.deleteItemAsync('push-token-owner');
 });
 
 describe('registerPushToken', () => {
@@ -75,7 +78,7 @@ describe('registerPushToken', () => {
  */
 describe('releaseThisPhone', () => {
   test('lets go of the token this phone registered, says the server heard, and keeps the record', async () => {
-    await rememberToken(TOKEN);
+    await rememberToken(TOKEN, OWNER);
     const { abortSignal } = rpcAnswering(Promise.resolve({ error: null }));
 
     await expect(releaseThisPhone()).resolves.toBe('released');
@@ -92,7 +95,7 @@ describe('releaseThisPhone', () => {
   });
 
   test('a failure does not stop her signing out: it says the server did not hear', async () => {
-    await rememberToken(TOKEN);
+    await rememberToken(TOKEN, OWNER);
     rpcAnswering(Promise.resolve({ error: { message: 'TypeError: Network request failed' } }));
 
     await expect(releaseThisPhone()).resolves.toBe('unconfirmed');
@@ -103,7 +106,7 @@ describe('releaseThisPhone', () => {
   test('a server that does not answer is given up on after a few seconds', async () => {
     jest.useFakeTimers();
     try {
-      await rememberToken(TOKEN);
+      await rememberToken(TOKEN, OWNER);
       const { abortSignal } = rpcAnswering(new Promise(() => undefined));
 
       const releasing = releaseThisPhone();
@@ -129,7 +132,7 @@ describe('releaseThisPhone', () => {
     rpcAnswering(Promise.resolve({ error: null }));
 
     const releasing = releaseThisPhone();
-    await rememberToken(TOKEN);
+    await rememberToken(TOKEN, OWNER);
     finish();
 
     await expect(releasing).resolves.toBe('released');
@@ -140,7 +143,7 @@ describe('releaseThisPhone', () => {
     jest.useFakeTimers();
     try {
       // The token is written before the server call that never answers.
-      await rememberToken(TOKEN);
+      await rememberToken(TOKEN, OWNER);
       trackRegistration('me', new Promise<boolean>(() => undefined));
       rpcAnswering(Promise.resolve({ error: null }));
 
@@ -155,29 +158,31 @@ describe('releaseThisPhone', () => {
   });
 });
 
-// Owner's word of 2026-10-11, 00:40: a token kept after a sign-out nobody
-// heard is let go of with no session (pending-release.ts).
+// Owner's words of 2026-10-11, 00:40 and 2026-10-12: a token kept after a
+// sign-out nobody heard is let go of with no session, in the name of the one
+// who signed out (pending-release.ts).
 describe('releasePushToken — no session needed', () => {
-  const SINCE = '2026-10-11T07:00:00.000Z';
-
-  test('asks the server with the token and the moment, and says it was heard', async () => {
+  test('asks the server with the token and whose it is, and says it was heard', async () => {
     rpcAnswering(Promise.resolve({ error: null }));
 
-    await expect(releasePushToken(TOKEN, SINCE)).resolves.toBe(true);
+    await expect(releasePushToken(TOKEN, OWNER)).resolves.toBe(true);
 
-    expect(mockRpc).toHaveBeenCalledWith('release_push_token', { p_token: TOKEN, p_since: SINCE });
+    expect(mockRpc).toHaveBeenCalledWith('release_push_token', {
+      p_token: TOKEN,
+      p_profile_id: OWNER,
+    });
   });
 
   test('a refusal is not heard', async () => {
     rpcAnswering(Promise.resolve({ error: { message: 'refused' } }));
 
-    await expect(releasePushToken(TOKEN, SINCE)).resolves.toBe(false);
+    await expect(releasePushToken(TOKEN, OWNER)).resolves.toBe(false);
   });
 
   test('no signal is not heard, and nothing is thrown', async () => {
     rpcAnswering(Promise.reject(new TypeError('Network request failed')));
 
-    await expect(releasePushToken(TOKEN, SINCE)).resolves.toBe(false);
+    await expect(releasePushToken(TOKEN, OWNER)).resolves.toBe(false);
   });
 
   test('no answer in time is not heard', async () => {
@@ -185,7 +190,7 @@ describe('releasePushToken — no session needed', () => {
     try {
       rpcAnswering(new Promise(() => undefined));
 
-      const releasing = releasePushToken(TOKEN, SINCE);
+      const releasing = releasePushToken(TOKEN, OWNER);
       await jest.advanceTimersByTimeAsync(FORGET_TIMEOUT_MS);
 
       await expect(releasing).resolves.toBe(false);
@@ -196,13 +201,14 @@ describe('releasePushToken — no session needed', () => {
 });
 
 describe('clearThisPhone — once she is out', () => {
-  test('the phone forgets the token, and counts the sign-out', async () => {
-    await rememberToken(TOKEN);
+  test('the phone forgets the token and whose it was, and counts the sign-out', async () => {
+    await rememberToken(TOKEN, OWNER);
     const before = signOutsSoFar();
 
     await clearThisPhone();
 
     await expect(SecureStore.getItemAsync('push-token')).resolves.toBeNull();
+    await expect(SecureStore.getItemAsync('push-token-owner')).resolves.toBeNull();
     expect(signOutsSoFar()).toBe(before + 1);
   });
 

@@ -68,30 +68,32 @@ export function usePushRegistration(userId: string | null): void {
 
 /**
  * Sends a token waiting to be let go of after a sign-out nobody heard
- * (pending-release.ts): at the start, on coming back to the app and on coming
- * back online — signed in or not (owner's word of 2026-10-11, 00:40).
+ * (pending-release.ts): at the start, on coming back to the app, on coming
+ * back online and on a sign-in — signed in or not (owner's words of
+ * 2026-10-11, 00:40 and 2026-10-12). Who is signed in is said with it: her
+ * own release, back on the phone, is dropped rather than sent.
  */
-export function usePendingRelease(): void {
+export function usePendingRelease(userId: string | null): void {
   useEffect(() => {
     if (!hasPushes) {
       return;
     }
-    void flushPendingRelease();
+    void flushPendingRelease(userId);
     const appState = AppState.addEventListener('change', (status) => {
       if (status === 'active') {
-        void flushPendingRelease();
+        void flushPendingRelease(userId);
       }
     });
     const online = onlineManager.subscribe((isOnline) => {
       if (isOnline) {
-        void flushPendingRelease();
+        void flushPendingRelease(userId);
       }
     });
     return () => {
       appState.remove();
       online();
     };
-  }, []);
+  }, [userId]);
 }
 
 function refresh(client: QueryClient, data: PushData | null): Promise<void[]> {
