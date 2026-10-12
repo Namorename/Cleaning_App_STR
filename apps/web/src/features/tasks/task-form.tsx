@@ -155,7 +155,7 @@ export function TaskForm({ task, initial, onClose }: TaskFormProps) {
         </DialogHeader>
 
         <form className="flex flex-col gap-4" onSubmit={submit}>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1">
               <Label htmlFor="task-property">{t('panel.tasks.form.property')}</Label>
               <NativeSelect
@@ -215,7 +215,7 @@ export function TaskForm({ task, initial, onClose }: TaskFormProps) {
           </div>
 
           <div className="flex flex-col gap-1">
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="flex flex-col gap-1">
                 <Label htmlFor="task-date">{t('panel.tasks.form.date')}</Label>
                 <Input

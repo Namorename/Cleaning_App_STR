@@ -140,8 +140,8 @@ export function neighbourMonths(months: readonly string[]): string[] {
 
 /**
  * The least width of a day column, by depth. A week reads a chip in full
- * (about 130 px, §4); a month shows a dot per chip in about 30 px, and
- * scrolls sideways only when thirty of those do not fit.
+ * (about 130 px, §4); a month cuts a chip short in about 30 px (chips.ts,
+ * `chipCapacity`), and scrolls sideways only when thirty of those do not fit.
  */
 export const DAY_WIDTH: Readonly<Record<Depth, number>> = {
   3: 200,

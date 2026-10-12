@@ -11,15 +11,15 @@ import { TaskChips } from '../task-chips';
 
 /**
  * 5.4, «Чат»: a job somebody wrote about carries «Новое сообщение» in the
- * calendar too. A chip is small, so the mark is a picture beside its dot, or
- * a pip on the dot itself; the words are in its name and its tooltip.
+ * calendar too. A chip is small, so the mark is a picture beside its dot, at
+ * every depth; the words are in its name and its tooltip.
  */
 
 const ANNA = '11111111-1111-4111-8111-111111111111';
 const PROBLEM = 'cccccccc-cccc-4ccc-8ccc-000000000001';
 const DAYS = ['2026-09-28', '2026-09-29', '2026-09-30'];
-/** Thirty days: a cell this narrow shows dots. */
-const DOT_WIDTH = 30;
+/** Thirty days: a cell this narrow cuts a chip short. */
+const NARROW_WIDTH = 30;
 /** A week: a cell this wide shows a chip in full. */
 const FULL_WIDTH = 140;
 const WORDS = 'Новое сообщение';
@@ -108,24 +108,19 @@ describe('the mark of an unread message on a chip', () => {
     },
   );
 
-  test('a dot carries a pip of the unread tone, the words in its name', () => {
-    chips(DOT_WIDTH);
+  // Thirty days drew bare dots with a pip on them until the owner's report of
+  // 2026-10-12; a chip cut short is still a chip, and carries the same picture.
+  test.each(['full', 'compact'] as const)(
+    'at thirty days a %s chip carries the picture too, the words in its name',
+    (view) => {
+      chips(NARROW_WIDTH, view);
 
-    const dot = chipOf('Anna');
-    expect(dot).toHaveAccessibleName(new RegExp(`${WORDS}$`));
-    expect(dot.querySelector('[data-slot="chip-unread"]')).toHaveClass('bg-tone-unread-mark');
-    expect(chipOf('Iva').querySelector('[data-slot="chip-unread"]')).toBeNull();
-  });
-
-  // The review of 05.10: a 6 px pip 4 px out of a 7 px dot ran 2 px into the
-  // next dot, which painted over it. 4 px, 1 px out, its 1 px ring: within the gap.
-  test('the pip keeps to the gap between two dots', () => {
-    chips(DOT_WIDTH);
-
-    const pip = chipOf('Anna').querySelector('[data-slot="chip-unread"]');
-    expect(pip).toHaveClass('size-1', '-top-px', '-right-px', 'ring-1');
-    expect(pip).not.toHaveClass('size-1.5');
-  });
+      const chip = chipOf('Anna');
+      expect(chip).toHaveAccessibleName(new RegExp(`${WORDS}$`));
+      expect(chip.querySelector(`svg.${GLYPH}`)).toHaveAttribute('aria-hidden', 'true');
+      expect(chipOf('Iva').querySelector(`svg.${GLYPH}`)).toBeNull();
+    },
+  );
 });
 
 describe('the mark of an unread message behind «+N»', () => {
