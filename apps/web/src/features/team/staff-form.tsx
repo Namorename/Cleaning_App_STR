@@ -263,7 +263,7 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1">
               <Label htmlFor="staff-phone">{t('panel.team.form.phone')}</Label>
               <Input

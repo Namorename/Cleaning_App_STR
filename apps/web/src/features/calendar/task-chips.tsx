@@ -20,9 +20,19 @@ import { chipCapacity, isBookingChanged, type BookingsRead, type ChipView } from
 /** The line of chips under the track of bars (see `row-track.tsx`). */
 export const CHIP_TOP = 24;
 const CHIP_HEIGHT = 16;
-const DOT_SIZE = 7;
-const DOT_GAP = 2;
+/** A compact chip shows less, and is a size smaller (the owner's report of 2026-10-12). */
+const COMPACT_CHIP_HEIGHT = 14;
 const MORE_WIDTH = 24;
+/** «+N» beside a chip cut short: its digits in the small type, and no more. */
+const TIGHT_MORE_WIDTH = 14;
+/** Past this a tight «+N» reads «9+»: «+11» in 13 px was cut to «+1». */
+const TIGHT_MORE_MAX = 9;
+/**
+ * A chip narrower than this has no room for the unread picture and a name
+ * beside its dot — the frame, the dot, the picture and their gaps take about
+ * 26 px, a letter and its ellipsis about 14 more: a pip marks it, in its corner.
+ */
+const PIP_BELOW = 40;
 
 /**
  * A status's dot, in its status's tone (`STATUS_TONE`, 5.2). What never
@@ -37,9 +47,10 @@ function dotClass(task: CalendarTask, isOverdue: boolean): string {
   if (task.status === 'cancelled') {
     return cn('rounded-none', TONE_MARK_BG.cancelled);
   }
-  // An overdue repair's dot is a framed square: not only red (§6).
+  // An overdue repair's dot is a framed square: not only red (§6). 2 px, not
+  // the theme's rounded-sm (8.4 px), which rounds an 8 px dot into a ring.
   return cn(
-    isOverdue ? 'rounded-sm border-2 border-tone-overdue-mark' : 'rounded-full',
+    isOverdue ? 'rounded-[2px] border-2 border-tone-overdue-mark' : 'rounded-full',
     TONE_MARK_BG[taskStatusTone(task.status)],
   );
 }
@@ -209,10 +220,12 @@ interface TaskChipsProps {
 }
 
 /**
- * The chips of one row (docs/f10-plan.md, 7.4, §4): a week reads a chip in
- * full, thirty days a dot; what does not fit is «+N», which lists them all.
- * Compact, a chip is its dot and its person, and the rest — the window, SDT,
- * the type — is in its tooltip and label.
+ * The chips of one row (docs/f10-plan.md, 7.4, §4); what does not fit is
+ * «+N», which lists them all. Full, a chip reads its lead, its window and SDT;
+ * compact, it is its dot and its person, as wide as they are, and the rest is
+ * in its tooltip and label. The depth changes only the width: fifteen and
+ * thirty days cut a chip short — its lead or its person, to an ellipsis —
+ * never to a bare dot (the owner's report of 2026-10-12).
  */
 export function TaskChips({
   rowId,
@@ -229,6 +242,9 @@ export function TaskChips({
   const { t } = useTranslation();
   const textOf = useChipText(language, unread);
   const capacity = chipCapacity(dayWidth, view);
+  const isCompact = capacity.mode === 'compact';
+  const moreWidth = capacity.isTight ? TIGHT_MORE_WIDTH : MORE_WIDTH;
+  const chipHeight = isCompact ? COMPACT_CHIP_HEIGHT : CHIP_HEIGHT;
 
   return days.map((day, at) => {
     const tasks = cells[at] ?? [];
@@ -238,76 +254,8 @@ export function TaskChips({
     const shown = tasks.slice(0, capacity.count);
     const rest = tasks.length - shown.length;
     const cellLeft = at * dayWidth;
-    // After the dots, «+N» takes what is left of the cell and no more: at
-    // thirty days a wider one lay over the next day's first dot.
-    const dotsEnd = DOT_GAP + shown.length * (DOT_SIZE + DOT_GAP);
-    const more =
-      rest === 0 ? null : (
-        <button
-          type="button"
-          title={t('panel.calendar.moreTasks', { count: rest })}
-          className={cn(
-            'absolute overflow-hidden rounded text-center leading-none whitespace-nowrap text-muted-foreground hover:bg-accent',
-            capacity.mode === 'dot' ? 'text-[9px]' : 'px-0.5 text-[10px]',
-          )}
-          style={
-            capacity.mode === 'dot'
-              ? {
-                  left: cellLeft + dotsEnd,
-                  width: dayWidth - dotsEnd - 1,
-                  top: CHIP_TOP,
-                  height: CHIP_HEIGHT,
-                }
-              : { left: cellLeft + dayWidth - MORE_WIDTH, top: CHIP_TOP, height: CHIP_HEIGHT }
-          }
-          onClick={() => onMore(day, tasks)}
-        >
-          {`+${rest}`}
-        </button>
-      );
-
-    if (capacity.mode === 'dot') {
-      return (
-        <Fragment key={day}>
-          {shown.map((task, k) => {
-            const isChanged = isBookingChanged(task, bookings);
-            const text = textOf(task, isChanged, rowId);
-            return (
-              <ChipLinkOrButton
-                key={task.id}
-                task={task}
-                label={text.label}
-                onOpen={onOpen}
-                className={cn(
-                  'absolute',
-                  dotClass(task, text.isOverdue),
-                  isChanged && 'ring-2 ring-tone-in-progress-mark',
-                )}
-                style={{
-                  left: cellLeft + DOT_GAP + k * (DOT_SIZE + DOT_GAP),
-                  top: CHIP_TOP + (CHIP_HEIGHT - DOT_SIZE) / 2,
-                  width: DOT_SIZE,
-                  height: DOT_SIZE,
-                }}
-              >
-                {/* No room beside a dot: the pip sits on its corner — 4 px, 1 px
-                    out and its 1 px ring, within the 2 px gap to the next dot. */}
-                {text.hasUnread ? (
-                  <span
-                    aria-hidden="true"
-                    data-slot="chip-unread"
-                    className="absolute -top-px -right-px size-1 rounded-full bg-tone-unread-mark ring-1 ring-background"
-                  />
-                ) : null}
-              </ChipLinkOrButton>
-            );
-          })}
-          {more}
-        </Fragment>
-      );
-    }
-
-    const slot = (dayWidth - 4 - (rest > 0 ? MORE_WIDTH : 0)) / shown.length;
+    const slot = (dayWidth - 4 - (rest > 0 ? moreWidth : 0)) / shown.length;
+    const hasRoomForPicture = slot - 2 >= PIP_BELOW;
     return (
       <Fragment key={day}>
         {shown.map((task, k) => {
@@ -320,21 +268,44 @@ export function TaskChips({
               label={text.label}
               onOpen={onOpen}
               className={cn(
-                'absolute flex items-center gap-1 overflow-hidden rounded-sm border bg-background px-1 text-[10px] leading-none whitespace-nowrap hover:bg-accent',
+                'absolute flex items-center overflow-hidden rounded-sm border bg-background text-[10px] leading-none whitespace-nowrap hover:bg-accent',
+                capacity.isTight ? 'gap-0.5 px-px' : isCompact ? 'gap-1 px-0.5' : 'gap-1 px-1',
                 chipClass(task, text.isOverdue),
                 isChanged && 'ring-2 ring-tone-in-progress-mark',
               )}
               style={{
                 left: cellLeft + 2 + k * slot,
-                width: slot - 2,
-                top: CHIP_TOP,
-                height: CHIP_HEIGHT,
+                // A compact chip is as wide as its dot and its name, the slot its limit.
+                ...(isCompact ? { maxWidth: slot - 2 } : { width: slot - 2 }),
+                top: CHIP_TOP + (CHIP_HEIGHT - chipHeight) / 2,
+                height: chipHeight,
                 backgroundImage: task.status === 'expired' ? hatchImage('notHappened') : undefined,
               }}
             >
-              <span aria-hidden className={cn('size-2 shrink-0', dotClass(task, false))} />
-              {text.hasUnread ? <UnreadGlyph /> : null}
-              {capacity.mode === 'compact' ? (
+              {/* Where the words may not show — compact, or cut short — the dot
+                  is the overdue repair's framed square, as thirty days' dots were. */}
+              <span
+                aria-hidden
+                data-slot="chip-dot"
+                className={cn(
+                  'size-2 shrink-0',
+                  dotClass(task, (capacity.isTight || isCompact) && text.isOverdue),
+                )}
+              />
+              {/* Too narrow for the picture, the pip: 4 px, 1 px in from the
+                  corner — clear of the rounded edge and of most of the dot. */}
+              {text.hasUnread ? (
+                hasRoomForPicture ? (
+                  <UnreadGlyph />
+                ) : (
+                  <span
+                    aria-hidden="true"
+                    data-slot="chip-unread"
+                    className="absolute top-px right-px size-1 rounded-full bg-tone-unread-mark ring-1 ring-background"
+                  />
+                )
+              ) : null}
+              {isCompact ? (
                 <span className={cn('truncate', text.isNobody && 'text-tone-unassigned-fg')}>
                   {text.person}
                 </span>
@@ -343,21 +314,46 @@ export function TaskChips({
                   <span className={cn('truncate', text.isNobody && 'text-tone-unassigned-fg')}>
                     {text.lead}
                   </span>
-                  {text.window === null ? null : (
-                    <span className="shrink-0 text-muted-foreground">{text.window}</span>
+                  {/* Cut short, a chip reads its lead: the window and SDT squeezed
+                      beside it showed as stray letters; they are in its tooltip. */}
+                  {capacity.isTight ? null : (
+                    <>
+                      {text.window === null ? null : (
+                        <span className="shrink-0 text-muted-foreground">{text.window}</span>
+                      )}
+                      {text.isSdt ? (
+                        <span className="shrink-0 rounded-sm bg-tone-urgent-bg px-0.5 text-[9px] text-tone-urgent-fg">
+                          {t('panel.calendar.sdtMark')}
+                        </span>
+                      ) : null}
+                      {isChanged ? <span aria-hidden>⚠</span> : null}
+                    </>
                   )}
-                  {text.isSdt ? (
-                    <span className="shrink-0 rounded-sm bg-tone-urgent-bg px-0.5 text-[9px] text-tone-urgent-fg">
-                      {t('panel.calendar.sdtMark')}
-                    </span>
-                  ) : null}
-                  {isChanged ? <span aria-hidden>⚠</span> : null}
                 </>
               )}
             </ChipLinkOrButton>
           );
         })}
-        {more}
+        {rest === 0 ? null : (
+          <button
+            type="button"
+            title={t('panel.calendar.moreTasks', { count: rest })}
+            className={cn(
+              'absolute overflow-hidden rounded text-center leading-none whitespace-nowrap text-muted-foreground hover:bg-accent',
+              capacity.isTight ? 'text-[9px]' : 'px-0.5 text-[10px]',
+            )}
+            style={{
+              left: cellLeft + dayWidth - moreWidth,
+              // Cut short, «+N» keeps to its own cell: wider, it lay over the next day.
+              width: capacity.isTight ? moreWidth - 1 : undefined,
+              top: CHIP_TOP,
+              height: CHIP_HEIGHT,
+            }}
+            onClick={() => onMore(day, tasks)}
+          >
+            {capacity.isTight && rest > TIGHT_MORE_MAX ? `${TIGHT_MORE_MAX}+` : `+${rest}`}
+          </button>
+        )}
       </Fragment>
     );
   });
