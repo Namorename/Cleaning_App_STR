@@ -142,6 +142,18 @@ describe('the mark of an unread message on a chip', () => {
     },
   );
 
+  // Beside the dot and the picture a chip needs about 26 px of its own; below
+  // 40 its name got a sliver, and the pip leaves the name that room.
+  test('a chip under 40 px takes the pip, from 40 px the picture', () => {
+    const narrow = chips(45);
+    expect(chipOf('Anna').querySelector('[data-slot="chip-unread"]')).not.toBeNull();
+    narrow.unmount();
+
+    chips(46);
+    expect(chipOf('Anna').querySelector(`svg.${GLYPH}`)).not.toBeNull();
+    expect(chipOf('Anna').querySelector('[data-slot="chip-unread"]')).toBeNull();
+  });
+
   test('the pip keeps to the corner, clear of the dot it stands by', () => {
     chips(NARROW_WIDTH);
 

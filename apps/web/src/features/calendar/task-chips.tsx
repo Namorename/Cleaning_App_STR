@@ -28,10 +28,11 @@ const TIGHT_MORE_WIDTH = 14;
 /** Past this a tight «+N» reads «9+»: «+11» in 13 px was cut to «+1». */
 const TIGHT_MORE_MAX = 9;
 /**
- * A chip narrower than this has no room for the unread picture beside its
- * dot (12 px beside «+N» at thirty days): a pip marks it, in its corner.
+ * A chip narrower than this has no room for the unread picture and a name
+ * beside its dot — the frame, the dot, the picture and their gaps take about
+ * 26 px, a letter and its ellipsis about 14 more: a pip marks it, in its corner.
  */
-const PIP_BELOW = 32;
+const PIP_BELOW = 40;
 
 /**
  * A status's dot, in its status's tone (`STATUS_TONE`, 5.2). What never
