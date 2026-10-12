@@ -33,7 +33,7 @@ export function TaskDeparture({ reservationId }: TaskDepartureProps) {
   const guest = useReservationGuest(reservationId);
 
   return (
-    <dl className="grid gap-3 rounded-md border px-3 py-2 text-sm sm:grid-cols-2">
+    <dl className="grid grid-cols-1 gap-3 rounded-md border px-3 py-2 text-sm sm:grid-cols-2">
       <div className="flex flex-col gap-0.5">
         <dt className="text-xs text-muted-foreground">{t('panel.tasks.form.guest')}</dt>
         <dd>{guestLabel(guest, t)}</dd>

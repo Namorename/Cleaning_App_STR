@@ -78,6 +78,39 @@ describe('a chip at every depth', () => {
   });
 });
 
+// §6: an overdue repair reads without colour. A full chip says «Просрочен»
+// in its words; where the words may not show — a compact chip at any depth,
+// any chip cut short — the dot is a framed square, as thirty days' dots were.
+describe('an overdue repair', () => {
+  const repair = () =>
+    task(DAYS[0], {
+      type: 'maintenance',
+      problem_id: 'cccccccc-cccc-4ccc-8ccc-000000000001',
+      problem: { title: 'Течёт кран', priority: 'normal' },
+    });
+  const dot = () =>
+    screen.getByRole('link', { name: /Течёт кран/ }).querySelector('[data-slot="chip-dot"]');
+
+  test.each([
+    ['full', 32],
+    ['compact', 200],
+    ['compact', 130],
+    ['compact', 64],
+    ['compact', 32],
+  ] as const)('%s at %i px: its dot is a framed square', (view, width) => {
+    chips([repair()], width, view);
+
+    expect(dot()).toHaveClass('rounded-sm', 'border-2', 'border-tone-overdue-mark');
+  });
+
+  test('a full chip with room says it in words, and its dot stays round', () => {
+    chips([repair()], 130, 'full');
+
+    expect(screen.getByRole('link', { name: /Течёт кран/ })).toHaveTextContent('Просрочен');
+    expect(dot()).toHaveClass('rounded-full');
+  });
+});
+
 describe('a compact chip', () => {
   test('is as wide as what it shows, its slot the limit', () => {
     chips([task(DAYS[0])], 200, 'compact');
@@ -123,25 +156,16 @@ describe('a chip cut short', () => {
     expect(screen.getByText('10:00–15:00')).toHaveClass('shrink-0');
   });
 
-  // §6: an overdue repair reads without colour. Its dot was a framed square
-  // when thirty days drew dots; cut short, its words may not show, so the
-  // square stays. A week reads the words, and its dot stays round as it was.
-  test('an overdue repair’s dot stays a framed square when its words are cut short', () => {
-    const repair = () =>
-      task(DAYS[0], {
-        type: 'maintenance',
-        problem_id: 'cccccccc-cccc-4ccc-8ccc-000000000001',
-        problem: { title: 'Течёт кран', priority: 'normal' },
-      });
-    const dot = () =>
-      screen.getByRole('link', { name: /Течёт кран/ }).querySelector('[data-slot="chip-dot"]');
+  test('past nine at thirty days «+N» reads «9+», the count in its tooltip', () => {
+    const many = () => Array.from({ length: 12 }, () => task(DAYS[1]));
 
-    const narrow = chips([repair()], 32, 'full');
-    expect(dot()).toHaveClass('rounded-sm', 'border-2', 'border-tone-overdue-mark');
+    const narrow = chips(many(), 32, 'full');
+    const more = screen.getByRole('button', { name: '9+' });
+    expect(more).toHaveAttribute('title', expect.stringContaining('11'));
     narrow.unmount();
 
-    chips([repair()], 130, 'full');
-    expect(dot()).toHaveClass('rounded-full');
+    chips(many(), 130, 'full');
+    expect(screen.getByRole('button', { name: '+11' })).toBeInTheDocument();
   });
 
   test.each(['full', 'compact'] as const)(

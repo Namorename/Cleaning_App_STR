@@ -25,6 +25,8 @@ const COMPACT_CHIP_HEIGHT = 14;
 const MORE_WIDTH = 24;
 /** «+N» beside a chip cut short: its digits in the small type, and no more. */
 const TIGHT_MORE_WIDTH = 14;
+/** Past this a tight «+N» reads «9+»: «+11» in 13 px was cut to «+1». */
+const TIGHT_MORE_MAX = 9;
 
 /**
  * A status's dot, in its status's tone (`STATUS_TONE`, 5.2). What never
@@ -272,17 +274,29 @@ export function TaskChips({
                 backgroundImage: task.status === 'expired' ? hatchImage('notHappened') : undefined,
               }}
             >
-              {/* Cut short, the words «Просрочена» may not show: the dot keeps
-                  the overdue repair's framed square, as thirty days' dots did. */}
+              {/* Where the words may not show — compact, or cut short — the dot
+                  is the overdue repair's framed square, as thirty days' dots were. */}
               <span
                 aria-hidden
                 data-slot="chip-dot"
                 className={cn(
                   'size-2 shrink-0',
-                  dotClass(task, capacity.isTight && text.isOverdue),
+                  dotClass(task, (capacity.isTight || isCompact) && text.isOverdue),
                 )}
               />
-              {text.hasUnread ? <UnreadGlyph /> : null}
+              {/* Cut short — 12 px beside «+N» at thirty days — a chip has no
+                  room for the picture: the pip sits in its corner instead. */}
+              {text.hasUnread ? (
+                capacity.isTight ? (
+                  <span
+                    aria-hidden="true"
+                    data-slot="chip-unread"
+                    className="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-tone-unread-mark ring-1 ring-background"
+                  />
+                ) : (
+                  <UnreadGlyph />
+                )
+              ) : null}
               {isCompact ? (
                 <span className={cn('truncate', text.isNobody && 'text-tone-unassigned-fg')}>
                   {text.person}
@@ -329,7 +343,7 @@ export function TaskChips({
             }}
             onClick={() => onMore(day, tasks)}
           >
-            {`+${rest}`}
+            {capacity.isTight && rest > TIGHT_MORE_MAX ? `${TIGHT_MORE_MAX}+` : `+${rest}`}
           </button>
         )}
       </Fragment>

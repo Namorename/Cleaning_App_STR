@@ -109,18 +109,46 @@ describe('the mark of an unread message on a chip', () => {
   );
 
   // Thirty days drew bare dots with a pip on them until the owner's report of
-  // 2026-10-12; a chip cut short is still a chip, and carries the same picture.
+  // 2026-10-12. A chip cut short has no room for the picture beside its dot —
+  // beside «+N» it is 12 px wide — so it keeps the pip, in its own corner.
   test.each(['full', 'compact'] as const)(
-    'at thirty days a %s chip carries the picture too, the words in its name',
+    'at thirty days a %s chip carries the pip, the words in its name',
     (view) => {
       chips(NARROW_WIDTH, view);
 
       const chip = chipOf('Anna');
       expect(chip).toHaveAccessibleName(new RegExp(`${WORDS}$`));
-      expect(chip.querySelector(`svg.${GLYPH}`)).toHaveAttribute('aria-hidden', 'true');
-      expect(chipOf('Iva').querySelector(`svg.${GLYPH}`)).toBeNull();
+      expect(chip.querySelector('[data-slot="chip-unread"]')).toHaveClass(
+        'absolute',
+        'bg-tone-unread-mark',
+      );
+      expect(chip.querySelector(`svg.${GLYPH}`)).toBeNull();
+      expect(chipOf('Iva').querySelector('[data-slot="chip-unread"]')).toBeNull();
     },
   );
+
+  test('a chip squeezed beside «+N» at thirty days keeps its pip', () => {
+    const crowded = [written, task(DAYS[0]), task(DAYS[0])];
+    render(
+      <TaskChips
+        rowId={1}
+        cells={[crowded, [], []]}
+        days={DAYS}
+        dayWidth={NARROW_WIDTH}
+        bookings={null}
+        view="full"
+        language="ru"
+        unread={unread}
+        onOpen={vi.fn()}
+        onMore={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: '+2' })).toBeInTheDocument();
+    expect(chipOf('Anna').querySelector('[data-slot="chip-unread"]')).toHaveClass(
+      'bg-tone-unread-mark',
+    );
+  });
 });
 
 describe('the mark of an unread message behind «+N»', () => {
