@@ -19,10 +19,20 @@
 --     known, or whose;
 --   - a call that says nothing (either argument null) does nothing.
 --
+-- What no server rule can tell: she herself signing in on the phone again and
+-- binding the same token, with her old release still to come. The phone keeps
+-- that one — it drops her pending release once she is back on it, and her
+-- registration waits for a release already on the wire (pending-release.ts).
+--
 -- anon is granted EXECUTE on this one function: the call has no session to
 -- run as. It is the single exception to 20260825030000_revoke_anon (anon holds
 -- nothing else in public, and still nothing on push_tokens), pinned by its
 -- exact signature in supabase/tests/table_grants.sql and push_release.sql.
+
+-- The draft by the clock never left the stand; were it ever applied
+-- anywhere, it must not stay beside this one as a second, anon-callable
+-- overload (review of 0ed1980).
+drop function if exists public.release_push_token(text, timestamptz);
 
 create or replace function public.release_push_token(p_token text, p_profile_id uuid)
 returns void

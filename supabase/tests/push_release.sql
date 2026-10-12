@@ -33,10 +33,13 @@ values
 update public.profiles set host_id = 'a8f12000-0000-4000-8000-00000000000a'
 where id in ('a8f12001-0000-4000-8000-000000000001', 'a8f12002-0000-4000-8000-000000000002');
 
--- Anna's phone, and the phone Bara signed in on after Anna left it.
+-- Anna's phone and her tablet, and the phone Bara signed in on after Anna
+-- left it.
 insert into public.push_tokens (token, profile_id, host_id, platform) values
   ('ExponentPushToken[release-anna]', 'a8f12001-0000-4000-8000-000000000001',
    'a8f12000-0000-4000-8000-00000000000a', 'ios'),
+  ('ExponentPushToken[release-anna-b]', 'a8f12001-0000-4000-8000-000000000001',
+   'a8f12000-0000-4000-8000-00000000000a', 'android'),
   ('ExponentPushToken[release-bara]', 'a8f12002-0000-4000-8000-000000000002',
    'a8f12000-0000-4000-8000-00000000000a', 'android');
 
@@ -76,6 +79,12 @@ select pg_temp.check('anon may call nothing else in public',
    where p.pronamespace = 'public'::regnamespace
      and has_function_privilege('anon', p.oid, 'EXECUTE')),
   'release_push_token(text,uuid)');
+-- Callable by anyone with the publishable key: it runs as its owner, so it
+-- must not read a caller's search_path (review of 0ed1980).
+select pg_temp.check('it runs as its owner, with an empty search_path',
+  (select p.prosecdef::text || ' ' || coalesce(array_to_string(p.proconfig, ','), '')
+   from pg_proc p where p.oid = 'public.release_push_token(text, uuid)'::regprocedure),
+  'true search_path=""');
 select pg_temp.check('no release by the clock is left behind',
   (select count(*)::int from pg_proc p
    where p.pronamespace = 'public'::regnamespace and p.proname = 'release_push_token'),
@@ -100,6 +109,10 @@ set local request.jwt.claims = '{}';
 
 select pg_temp.check('her own token, in her name, is let go',
   pg_temp.bound('ExponentPushToken[release-anna]'), false);
+-- The token is the key: a name alone lets go of nothing (review of 0ed1980 —
+-- a release by profile alone would clear every phone she has).
+select pg_temp.check('her other phone, not named, stays bound',
+  pg_temp.bound('ExponentPushToken[release-anna-b]'), true);
 select pg_temp.check('a token bound to someone else stays',
   pg_temp.bound('ExponentPushToken[release-bara]'), true);
 
@@ -155,6 +168,10 @@ select 'nothing said', public.release_push_token(null, null)::text,
 insert into answers
 select 'no name', public.release_push_token('ExponentPushToken[release-bara]', null)::text,
        pg_typeof(public.release_push_token('ExponentPushToken[release-bara]', null))::text;
+insert into answers
+select 'no token',
+       public.release_push_token(null, 'a8f12002-0000-4000-8000-000000000002')::text,
+       pg_typeof(public.release_push_token(null, 'a8f12002-0000-4000-8000-000000000002'))::text;
 
 reset role;
 set local request.jwt.claims = '{}';
@@ -162,10 +179,12 @@ set local request.jwt.claims = '{}';
 select pg_temp.check('her token again, someone else''s, an unknown one and an empty call answer alike',
   (select string_agg(label || ':' || coalesce(said, 'null') || ':' || kind, ', ' order by label)
    from answers),
-  'no name:null:void, nothing said:null:void, own, again:null:void, '
+  'no name:null:void, no token:null:void, nothing said:null:void, own, again:null:void, '
   || 'someone else''s:null:void, unknown:null:void');
-select pg_temp.check('nothing said, no name or the wrong name left Bara bound',
+select pg_temp.check('nothing said, no name, no token or the wrong name left Bara bound',
   pg_temp.bound('ExponentPushToken[release-bara]'), true);
+select pg_temp.check('and Anna''s other phone too',
+  pg_temp.bound('ExponentPushToken[release-anna-b]'), true);
 
 -- ---------- anon cannot read what it let go of ----------
 
