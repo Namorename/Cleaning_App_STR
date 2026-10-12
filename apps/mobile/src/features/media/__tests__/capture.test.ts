@@ -12,6 +12,7 @@ import {
   keepRecording,
   MediaLibraryDeniedError,
   pickVideoFromGallery,
+  VideoNotCompressedError,
 } from '../capture';
 import { attachFailure } from '../failure';
 import { discardFile, fileSize, keepFile, readFileBytes } from '../file';
@@ -88,6 +89,9 @@ jest.mock('expo-file-system', () => {
     }
   }
 
+  // A folder that cannot be read, for the tests that say so.
+  const unreadable = { isOn: false };
+
   class MockDirectory {
     readonly uri: string;
     readonly exists = true;
@@ -99,14 +103,25 @@ jest.mock('expo-file-system', () => {
     create(): void {
       // Always there in this filesystem.
     }
+
+    /** The files right in this folder, as the native listing gives them. */
+    list(): MockFile[] {
+      if (unreadable.isOn) {
+        throw new Error(`cannot list ${this.uri}`);
+      }
+      return [...sizes.keys()]
+        .filter((uri) => uri.startsWith(this.uri) && !uri.slice(this.uri.length).includes('/'))
+        .map((uri) => new MockFile(uri));
+    }
   }
 
   return {
     File: MockFile,
     Directory: MockDirectory,
-    Paths: { document: 'file:///documents/' },
+    Paths: { document: 'file:///documents/', cache: 'file:///cache/' },
     __sizes: sizes,
     __contents: contents,
+    __unreadable: unreadable,
   };
 });
 
@@ -137,9 +152,14 @@ jest.mock('expo-image-picker', () => ({
 }));
 
 /** The mock's own maps, so a test can put a file on this filesystem. */
-const { __sizes: sizes, __contents: contents } = jest.requireMock('expo-file-system') as {
+const {
+  __sizes: sizes,
+  __contents: contents,
+  __unreadable: unreadable,
+} = jest.requireMock('expo-file-system') as {
   __sizes: Map<string, number>;
   __contents: Map<string, Uint8Array>;
+  __unreadable: { isOn: boolean };
 };
 
 beforeEach(() => {
@@ -468,7 +488,221 @@ describe('a video from the gallery', () => {
       mimeType: 'video/mp4',
       takenAt: expect.any(String),
       isCompressed: true,
+      pickerCopies: [],
     });
+  });
+
+  /**
+   * An iPhone's picker copies the chosen video into its own folder of the
+   * cache before it compresses it, and hands over the compressed file only:
+   * the copy, the size of the original, stays there choice after choice
+   * (review of a065d08). It is named here — a video that appeared in the
+   * picker's folder during this choice, other than the file handed over — for
+   * the screen to let go of once the video is kept (owner's word of
+   * 2026-10-10, 23:45). The cache is never swept.
+   */
+  describe('the picker’s own copy of the choice', () => {
+    const FOLDER = 'file:///cache/ImagePicker/';
+
+    afterEach(() => {
+      unreadable.isOn = false;
+    });
+
+    function handsOver(file: string, made: readonly string[]) {
+      return async () => {
+        made.forEach((uri) => sizes.set(uri, 1_000));
+        return {
+          canceled: false,
+          assets: [{ uri: file, duration: 20_000, fileSize: 30_000_000, mimeType: 'video/mp4' }],
+        };
+      };
+    }
+
+    test('is the video that appeared beside the one handed over, and only it', async () => {
+      runOn('ios');
+      sizes.set(`${FOLDER}earlier.MOV`, 900);
+      sizes.set(`${FOLDER}earlier.jpg`, 10);
+      picker.launchImageLibraryAsync.mockImplementationOnce(
+        handsOver(`${FOLDER}compressed.mp4`, [
+          `${FOLDER}original.MOV`,
+          `${FOLDER}compressed.mp4`,
+          `${FOLDER}a-photo.jpg`,
+        ]),
+      );
+
+      const picked = await pickVideoFromGallery();
+
+      expect(picked?.pickerCopies).toEqual([`${FOLDER}original.MOV`]);
+    });
+
+    test('nothing is deleted while she chooses', async () => {
+      runOn('ios');
+      picker.launchImageLibraryAsync.mockImplementationOnce(
+        handsOver(`${FOLDER}compressed.mp4`, [`${FOLDER}original.MOV`, `${FOLDER}compressed.mp4`]),
+      );
+
+      await pickVideoFromGallery();
+
+      expect(sizes.has(`${FOLDER}original.MOV`)).toBe(true);
+      expect(sizes.has(`${FOLDER}compressed.mp4`)).toBe(true);
+    });
+
+    test('on Android, where the picker hands over its only copy, there is none', async () => {
+      runOn('android');
+      picker.launchImageLibraryAsync.mockImplementationOnce(
+        handsOver(`${FOLDER}clip.mp4`, [`${FOLDER}clip.mp4`]),
+      );
+
+      const picked = await pickVideoFromGallery();
+
+      expect(picked?.pickerCopies).toEqual([]);
+    });
+
+    test('a folder that cannot be read names none, and the choice still goes', async () => {
+      runOn('ios');
+      unreadable.isOn = true;
+      picker.launchImageLibraryAsync.mockImplementationOnce(
+        handsOver(`${FOLDER}compressed.mp4`, [`${FOLDER}original.MOV`, `${FOLDER}compressed.mp4`]),
+      );
+
+      const picked = await pickVideoFromGallery();
+
+      expect(picked).toMatchObject({ uri: `${FOLDER}compressed.mp4`, pickerCopies: [] });
+    });
+  });
+
+  /**
+   * An iPhone that cannot compress the chosen video (owner's words of
+   * 2026-10-10, 23:45 and 2026-10-11, 00:40): the choice ends with a failure of
+   * its own, which the screen says before it opens the gallery again; the
+   * copy the failed attempt left goes. Asked for the original, the gallery
+   * hands the video as it is, held to the same checks and refused in the same
+   * words.
+   */
+  describe('a compression the iPhone cannot make', () => {
+    const FOLDER = 'file:///cache/ImagePicker/';
+
+    function failing(code: string) {
+      return Object.assign(new Error('The video could not be compressed'), { code });
+    }
+
+    test.each(['ERR_FAILED_TO_TRANSCODE_VIDEO', 'ERR_UNSUPPORTED_VIDEO_EXPORT_PRESET'])(
+      '%s: the choice ends as not compressed, and the gallery is not opened again here',
+      async (code) => {
+        runOn('ios');
+        picker.launchImageLibraryAsync.mockRejectedValueOnce(failing(code));
+
+        await expect(pickVideoFromGallery()).rejects.toBeInstanceOf(VideoNotCompressedError);
+        expect(picker.launchImageLibraryAsync).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    test('the copy the failed attempt left goes with it, and nothing older', async () => {
+      runOn('ios');
+      sizes.set(`${FOLDER}earlier.MOV`, 900);
+      picker.launchImageLibraryAsync.mockImplementationOnce(async () => {
+        sizes.set(`${FOLDER}original.MOV`, 1_000);
+        throw failing('ERR_FAILED_TO_TRANSCODE_VIDEO');
+      });
+
+      await pickVideoFromGallery().catch(() => undefined);
+
+      expect(sizes.has(`${FOLDER}original.MOV`)).toBe(false);
+      expect(sizes.has(`${FOLDER}earlier.MOV`)).toBe(true);
+    });
+
+    test('asked for the original, the gallery hands the video as it is', async () => {
+      runOn('ios');
+      picker.launchImageLibraryAsync.mockResolvedValueOnce({
+        canceled: false,
+        assets: [
+          {
+            uri: `${FOLDER}clip.MOV`,
+            duration: 20_000,
+            fileSize: 60_000_000,
+            mimeType: 'video/quicktime',
+          },
+        ],
+      });
+
+      const picked = await pickVideoFromGallery('original');
+
+      expect(picker.launchImageLibraryAsync).toHaveBeenCalledWith({
+        mediaTypes: ['videos'],
+        quality: 1,
+      });
+      expect(picked).toMatchObject({
+        uri: `${FOLDER}clip.MOV`,
+        byteSize: 60_000_000,
+        mimeType: 'video/quicktime',
+        isCompressed: false,
+      });
+    });
+
+    test('any other failure of the gallery is said as it was', async () => {
+      runOn('ios');
+      picker.launchImageLibraryAsync.mockRejectedValueOnce(failing('ERR_FAILED_TO_PICK_VIDEO'));
+
+      await expect(pickVideoFromGallery()).rejects.toMatchObject({
+        code: 'ERR_FAILED_TO_PICK_VIDEO',
+      });
+      expect(picker.launchImageLibraryAsync).toHaveBeenCalledTimes(1);
+    });
+
+    // Owner's word of 2026-10-12: a pick that fails once the picker has made
+    // its copy lets go of that copy too — still only what this choice made.
+    test.each(['ios', 'android'] as const)(
+      'on %s, a pick that fails after its copy lets go of that copy, and nothing older',
+      async (platform) => {
+        runOn(platform);
+        sizes.set(`${FOLDER}earlier.MOV`, 900);
+        picker.launchImageLibraryAsync.mockImplementationOnce(async () => {
+          sizes.set(`${FOLDER}original.MOV`, 1_000);
+          throw failing('ERR_FAILED_TO_PICK_VIDEO');
+        });
+
+        await expect(pickVideoFromGallery()).rejects.toMatchObject({
+          code: 'ERR_FAILED_TO_PICK_VIDEO',
+        });
+
+        expect(sizes.has(`${FOLDER}original.MOV`)).toBe(false);
+        expect(sizes.has(`${FOLDER}earlier.MOV`)).toBe(true);
+      },
+    );
+
+    test('a failed pick in a folder that cannot be read deletes nothing', async () => {
+      runOn('ios');
+      unreadable.isOn = true;
+      picker.launchImageLibraryAsync.mockImplementationOnce(async () => {
+        sizes.set(`${FOLDER}original.MOV`, 1_000);
+        throw failing('ERR_FAILED_TO_PICK_VIDEO');
+      });
+
+      try {
+        await pickVideoFromGallery().catch(() => undefined);
+
+        expect(sizes.has(`${FOLDER}original.MOV`)).toBe(true);
+      } finally {
+        unreadable.isOn = false;
+      }
+    });
+  });
+
+  // Owner's word of 2026-10-11, 00:40: a choice that ends without a video
+  // lets go of what it made in the picker's folder — that and nothing else.
+  test('backing out of the gallery lets go of what this choice made there, and only it', async () => {
+    const FOLDER = 'file:///cache/ImagePicker/';
+    runOn('ios');
+    sizes.set(`${FOLDER}earlier.MOV`, 900);
+    picker.launchImageLibraryAsync.mockImplementationOnce(async () => {
+      sizes.set(`${FOLDER}half.MOV`, 1_000);
+      return { canceled: true, assets: null };
+    });
+
+    await expect(pickVideoFromGallery()).resolves.toBeNull();
+
+    expect(sizes.has(`${FOLDER}half.MOV`)).toBe(false);
+    expect(sizes.has(`${FOLDER}earlier.MOV`)).toBe(true);
   });
 
   test('a file that does not say its size or type is measured and named by its container', async () => {

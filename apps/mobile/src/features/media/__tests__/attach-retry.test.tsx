@@ -228,7 +228,8 @@ describe('a video the storage keeps answering', () => {
   });
 
   // Under some 84 kbit/s up, a piece cannot arrive even in ten minutes: the
-  // step says why, not the general sentence.
+  // step says why, not the general sentence — and that it tried for about
+  // half an hour (docs/post-launch-cleanup.md), so nobody waits for more.
   test('stalled until it fails, it says the connection is too slow to send the video', async () => {
     jest.mocked(uploadVideoFile).mockImplementation(async () => {
       throw new TusRetryableError('PATCH moved nothing', 'stalled', { offset: 0 });
@@ -237,7 +238,7 @@ describe('a video the storage keeps answering', () => {
     const result = await sendVideo();
 
     expect(serverErrorText(result.current.error)).toEqual({
-      text: 'Связь слишком медленная, чтобы отправить видео. Подключитесь к Wi-Fi или найдите место, где интернет лучше, и нажмите «Повторить загрузку».',
+      text: 'Связь слишком медленная: видео отправлялось около получаса и так и не ушло. Подключитесь к Wi-Fi или найдите место, где интернет лучше, и нажмите «Повторить загрузку».',
       detail: null,
     });
   });

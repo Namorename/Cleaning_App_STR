@@ -2,8 +2,9 @@ import { useNavigation } from 'expo-router';
 import { usePreventRemove } from 'expo-router/react-navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 
+import { useScreenEdgePadding } from '@/components/bottom-inset';
 import { Button } from '@/components/button';
 import { LoadingState } from '@/components/loading-state';
 import { Text } from '@/components/text';
@@ -57,6 +58,11 @@ interface Unsent {
   uri: string;
   /** Kept under a name of ours by an «Отправить» that went no further. */
   kept: CapturedMedia | null;
+  /**
+   * The picker's other copies of a gallery choice: they go with the video —
+   * once it is kept, or with it when it is let go (owner's word of 2026-10-11, 00:40).
+   */
+  pickerCopies: readonly string[];
 }
 
 /**
@@ -165,8 +171,13 @@ export function RecordScreen({ limits, onSend, onDone, source = 'camera' }: Reco
   );
 
   if (phase.kind === 'camera') {
-    const toPreview = (recording: Recording, end: RecordingEnd, mimeType?: string) => {
-      unsent.current = { uri: recording.uri, kept: null };
+    const toPreview = (
+      recording: Recording,
+      end: RecordingEnd,
+      mimeType?: string,
+      pickerCopies?: readonly string[],
+    ) => {
+      unsent.current = { uri: recording.uri, kept: null, pickerCopies: pickerCopies ?? [] };
       setKeptUri(null);
       setSendError(null);
       setPhase({ kind: 'preview', recording, end, mimeType });
@@ -175,7 +186,9 @@ export function RecordScreen({ limits, onSend, onDone, source = 'camera' }: Reco
       isFromGallery ? (
         <GalleryPhase
           limits={limits}
-          onPicked={(video: PickedVideo) => toPreview(video, 'stop', video.mimeType)}
+          onPicked={(video: PickedVideo) =>
+            toPreview(video, 'stop', video.mimeType, video.pickerCopies)
+          }
           onLeave={onDone}
         />
       ) : (
@@ -204,12 +217,17 @@ export function RecordScreen({ limits, onSend, onDone, source = 'camera' }: Reco
     noteStep('video.send', 'pressed');
     try {
       await isPlayerGone;
+      const wasKept = unsent.current?.kept ?? null;
       const captured =
-        unsent.current?.kept ??
+        wasKept ??
         (await (isFromGallery
           ? keepRecording(phase.recording, 'gallery', phase.mimeType)
           : keepRecording(phase.recording)));
-      unsent.current = { uri: captured.uri, kept: captured };
+      // Kept under a name of ours: the picker's other copies of this choice
+      // go now, those and nothing else (owner's word of 2026-10-10, 23:45),
+      // and nothing is left of them to go again.
+      unsent.current?.pickerCopies.forEach((copy) => discardFile(copy));
+      unsent.current = { uri: captured.uri, kept: captured, pickerCopies: [] };
       if (isMounted.current) {
         setKeptUri(captured.uri);
       }
@@ -312,10 +330,15 @@ const BACK_FALLBACK_MS = 1_500;
  * The recording is the queue's: what happens to it now, and — only if the
  * screen is still here a moment later — the way back. Offered at once, a tap
  * during the way out would go back a second time, past the step.
+ *
+ * Centred, and scrolling when taller than the screen — at the largest font on
+ * a small phone — rather than cut at either end; the button stops clear of
+ * the system's bar (components/bottom-inset.ts).
  */
 function SentNotice({ onBack }: { onBack: () => void }) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const end = useScreenEdgePadding(Spacing.xl);
   const [isStillHere, setStillHere] = useState(false);
 
   useEffect(() => {
@@ -324,31 +347,38 @@ function SentNotice({ onBack }: { onBack: () => void }) {
   }, []);
 
   return (
-    <View style={styles.sent}>
+    <ScrollView style={styles.sent} contentContainerStyle={[layout.sentContent, end]}>
       <Text align="center" accessibilityRole="alert">
         {t('video.queued')}
       </Text>
       {isStillHere ? <Button label={t('video.backToStep')} onPress={onBack} /> : null}
-    </View>
+    </ScrollView>
   );
 }
+
+/** Sizes only: nothing here depends on the colour scheme. */
+const layout = StyleSheet.create({
+  sentContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    gap: Spacing.md,
+    padding: Spacing.xl,
+  },
+});
 
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.background },
-    sent: {
-      flex: 1,
-      justifyContent: 'center',
-      gap: Spacing.md,
-      padding: Spacing.xl,
-      backgroundColor: theme.background,
-    },
+    sent: { flex: 1, backgroundColor: theme.background },
   });
 
 /** Delete the recording not handed over, wherever its file is now. */
 function forget(unsent: { current: Unsent | null }): void {
   if (unsent.current !== null) {
     discardFile(unsent.current.uri);
+    // A gallery choice let go of takes the picker's copies of it along
+    // (owner's word of 2026-10-11, 00:40).
+    unsent.current.pickerCopies.forEach((copy) => discardFile(copy));
   }
   unsent.current = null;
 }

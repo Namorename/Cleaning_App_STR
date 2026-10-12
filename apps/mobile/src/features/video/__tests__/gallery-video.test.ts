@@ -23,6 +23,7 @@ function picked(overrides: Partial<PickedVideo> = {}): PickedVideo {
     byteSize: 10_000_000,
     mimeType: 'video/mp4',
     isCompressed: false,
+    pickerCopies: [],
     ...overrides,
   };
 }

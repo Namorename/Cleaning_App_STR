@@ -1,3 +1,4 @@
+import { useIsRestoring } from '@tanstack/react-query';
 import { Redirect } from 'expo-router';
 import type { ReactNode } from 'react';
 
@@ -21,15 +22,24 @@ interface SignedInRouteProps {
  * found", which is false; so it waits, and says so. Signed out, it leads to
  * the sign-in screen: signing out from settings ends here too. The screen
  * itself is drawn only for a known user, so its hooks never run for nobody.
+ *
+ * Nor before the lists brought back from disk have been checked against whose
+ * they are (`useIsRestoring`, the root's `RestoreGate.checked`): a session
+ * known in between drew the last person's lists for a frame
+ * (docs/post-launch-cleanup.md).
  */
 export function SignedInRoute({ loadingText, children }: SignedInRouteProps) {
   const { userId, isLoading } = useSession();
+  const isRestoring = useIsRestoring();
 
   if (isLoading) {
     return <LoadingState label={loadingText} />;
   }
   if (userId === null) {
     return <Redirect href="/sign-in" />;
+  }
+  if (isRestoring) {
+    return <LoadingState label={loadingText} />;
   }
   return children;
 }

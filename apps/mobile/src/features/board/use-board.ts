@@ -71,6 +71,23 @@ function readArchive(data: unknown): BoardProblem[] {
   return readCached(archivePagesSchema, data, 'board archive').pages.flat();
 }
 
+/** The number of the board's newest read, per client and person (`startBoardRead`). */
+const newestBoardReads = new WeakMap<QueryClient, ReadonlyMap<string, number>>();
+
+/**
+ * A read of `person`'s board begins; whether it is still the newest when it
+ * answers. A refresh cancels the read under way, but its request runs on and
+ * may answer after the newer one (the review of 7553530..8a58d77, LOW): only
+ * the newest read is the one whose rows the board keeps, and only it may say
+ * what was cut.
+ */
+function startBoardRead(queryClient: QueryClient, person: string): () => boolean {
+  const reads = newestBoardReads.get(queryClient) ?? new Map<string, number>();
+  const read = (reads.get(person) ?? 0) + 1;
+  newestBoardReads.set(queryClient, new Map(reads).set(person, read));
+  return () => newestBoardReads.get(queryClient)?.get(person) === read;
+}
+
 /**
  * Every task of the company, for the head technician's «Задания».
  *
@@ -79,7 +96,7 @@ function readArchive(data: unknown): BoardProblem[] {
  * board of another shape there broke its select, and its task screen at a
  * push tap (the review of cb747a5..7553530, MEDIUM). What the reads said of
  * the cut is written beside them, by the same read, under a key of its own
- * (`useBoardCut`).
+ * (`useBoardCut`) — by the newest read only (`startBoardRead`).
  */
 export function useBoardProblems() {
   const { userId } = useSession();
@@ -89,9 +106,12 @@ export function useBoardProblems() {
   return useQuery({
     queryKey: boardKeys.list(person),
     queryFn: async () => {
+      const isNewest = startBoardRead(queryClient, person);
       // Called bare: the query's own context is not the day the window counts from.
       const { problems, isOpenCut, isClosedCut } = await fetchBoardProblems();
-      queryClient.setQueryData<BoardReadCut>(boardKeys.cut(person), { isOpenCut, isClosedCut });
+      if (isNewest()) {
+        queryClient.setQueryData<BoardReadCut>(boardKeys.cut(person), { isOpenCut, isClosedCut });
+      }
       return problems;
     },
     select: readBoard,
