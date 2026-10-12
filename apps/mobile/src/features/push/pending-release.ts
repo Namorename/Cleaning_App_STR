@@ -3,7 +3,13 @@ import { Platform } from 'react-native';
 import { z } from 'zod';
 
 import { clearThisPhone, releasePushToken } from './api';
-import { isSigningOut, registrant, rememberedOwner, rememberedToken } from './token-store';
+import {
+  forgetRegistration,
+  isSigningOut,
+  registrant,
+  rememberedOwner,
+  rememberedToken,
+} from './token-store';
 
 /**
  * A phone let go of after a sign-out nobody heard (owner's words of
@@ -100,17 +106,26 @@ export function flushPendingRelease(signedIn: string | null = null): Promise<voi
     isAskedAgain = true;
     return sending;
   }
-  sending = sendWhileAsked().finally(() => {
-    sending = null;
-  });
+  sending = sendWhileAsked();
+  return sending;
+}
+
+/** The release on its way, if any: a registration waits for it (registration.ts). */
+export function releaseOnItsWay(): Promise<void> | null {
   return sending;
 }
 
 async function sendWhileAsked(): Promise<void> {
-  do {
-    isAskedAgain = false;
-    await sendOnce(signedInNow).catch(() => undefined);
-  } while (isAskedAgain);
+  try {
+    do {
+      isAskedAgain = false;
+      await sendOnce(signedInNow).catch(() => undefined);
+    } while (isAskedAgain);
+  } finally {
+    // In the same turn as the last look at the flag: an ask cannot fall
+    // between the two and be lost (review of b674010).
+    sending = null;
+  }
 }
 
 async function sendOnce(signedIn: string | null): Promise<void> {
@@ -147,6 +162,10 @@ export async function letGoAfterSessionEnded(): Promise<void> {
   }
   try {
     if ((await rememberedToken()) === null) {
+      // No token yet — a registration may still be waiting for one. It must
+      // not land now: the next person to sign in would get the token bound
+      // to them, with her name kept beside it (review of b674010).
+      await forgetRegistration();
       return;
     }
     await keepThisPhonePending();

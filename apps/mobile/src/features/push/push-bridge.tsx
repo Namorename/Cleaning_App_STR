@@ -9,8 +9,8 @@ import { usePendingRelease, usePushRefresh, usePushRegistration } from './hooks'
  * refreshing what it is about. Draws nothing.
  */
 export function PushBridge() {
-  const { userId } = useSession();
-  usePendingRelease(userId);
+  const { userId, isLoading } = useSession();
+  usePendingRelease(isLoading ? undefined : userId);
   usePushRegistration(userId);
   usePushRefresh();
   return null;

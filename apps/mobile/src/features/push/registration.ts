@@ -7,7 +7,12 @@ import { deviceLanguage } from '@/i18n';
 
 import { registerPushToken } from './api';
 import { ensureChannels } from './channels';
-import { flushPendingRelease, keepReleasePending, settlePendingRelease } from './pending-release';
+import {
+  flushPendingRelease,
+  keepReleasePending,
+  releaseOnItsWay,
+  settlePendingRelease,
+} from './pending-release';
 import {
   isRegisteredFor,
   markRegistered,
@@ -77,6 +82,9 @@ async function register(
   // the call is on its way lets go of this token, in her name, rather than
   // finding nothing.
   await rememberToken(token, userId);
+  // A release of her old binding may be on the wire (she signed in again
+  // while it was sent): told first, her new binding would go with it.
+  await releaseOnItsWay();
   await registerPushToken({
     token,
     platform: Platform.OS === 'ios' ? 'ios' : 'android',

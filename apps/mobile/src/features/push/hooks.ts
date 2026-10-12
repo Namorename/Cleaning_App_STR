@@ -71,11 +71,13 @@ export function usePushRegistration(userId: string | null): void {
  * (pending-release.ts): at the start, on coming back to the app, on coming
  * back online and on a sign-in — signed in or not (owner's words of
  * 2026-10-11, 00:40 and 2026-10-12). Who is signed in is said with it: her
- * own release, back on the phone, is dropped rather than sent.
+ * own release, back on the phone, is dropped rather than sent. `undefined`
+ * while the stored session is still being read: nothing is sent until it is
+ * known who is signed in (review of b674010).
  */
-export function usePendingRelease(userId: string | null): void {
+export function usePendingRelease(userId: string | null | undefined): void {
   useEffect(() => {
-    if (!hasPushes) {
+    if (!hasPushes || userId === undefined) {
       return;
     }
     void flushPendingRelease(userId);

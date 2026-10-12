@@ -8,6 +8,7 @@ import {
   keepThisPhonePending,
   letGoAfterSessionEnded,
   pendingRelease,
+  releaseOnItsWay,
   settlePendingRelease,
 } from '../pending-release';
 import {
@@ -15,6 +16,7 @@ import {
   endSignOut,
   markRegistered,
   rememberToken,
+  signOutsSoFar,
   unmarkRegistered,
 } from '../token-store';
 
@@ -168,6 +170,23 @@ describe('sending it', () => {
     await expect(pendingRelease()).resolves.toBeNull();
   });
 
+  // Review of b674010: the run asked for meanwhile reads who is signed in as
+  // the latest ask said — her sign-in, while her own release was on its way.
+  test('asked again by her sign-in while one is on its way: the next run drops her release unsent', async () => {
+    await keepReleasePending(TOKEN, ANNA);
+    let askedMeanwhile: Promise<void> | null = null;
+    release.mockImplementationOnce(async () => {
+      askedMeanwhile = flushPendingRelease(ANNA);
+      return false;
+    });
+
+    await flushPendingRelease(null);
+    await askedMeanwhile;
+
+    expect(release).toHaveBeenCalledTimes(1);
+    await expect(pendingRelease()).resolves.toBeNull();
+  });
+
   test('a release kept meanwhile for a later sign-out is not forgotten with the earlier one', async () => {
     await keepReleasePending(TOKEN, ANNA);
     release
@@ -247,10 +266,44 @@ describe('a session that ends without the button', () => {
     await expect(pendingRelease()).resolves.toBeNull();
   });
 
-  test('with no token on the phone, keeps nothing and clears nothing', async () => {
+  // Review of b674010: a registration still waiting for its token must not
+  // land after the session ended — the next person to sign in would get the
+  // token bound to them, with her name kept beside it.
+  test('with no token on the phone yet, keeps nothing, clears nothing, and a registration on its way does not land', async () => {
+    const before = signOutsSoFar();
+
     await letGoAfterSessionEnded();
 
     expect(clear).not.toHaveBeenCalled();
     await expect(pendingRelease()).resolves.toBeNull();
+    expect(signOutsSoFar()).toBe(before + 1);
+  });
+
+  test('a token nobody can be named for is not kept — the server could not tell it was hers — and the phone is cleared', async () => {
+    await SecureStore.setItemAsync('push-token', TOKEN);
+
+    await letGoAfterSessionEnded();
+
+    expect(clear).toHaveBeenCalledTimes(1);
+    expect(release).not.toHaveBeenCalled();
+    await expect(pendingRelease()).resolves.toBeNull();
+  });
+});
+
+// Review of b674010: her registration after a sign-in must not race a release
+// of her old binding already on the wire — it waits for it.
+describe('a release on its way', () => {
+  test('is there while the send is out, and gone once it is heard', async () => {
+    await keepReleasePending(TOKEN, ANNA);
+    let seenMeanwhile: Promise<void> | null = null;
+    release.mockImplementationOnce(async () => {
+      seenMeanwhile = releaseOnItsWay();
+      return true;
+    });
+
+    await flushPendingRelease();
+
+    expect(seenMeanwhile).not.toBeNull();
+    expect(releaseOnItsWay()).toBeNull();
   });
 });

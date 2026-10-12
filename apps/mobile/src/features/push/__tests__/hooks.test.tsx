@@ -87,6 +87,14 @@ describe('usePendingRelease', () => {
     expect(flushPendingRelease).toHaveBeenCalledWith(null);
   });
 
+  // Review of b674010: before the stored session is read the phone cannot
+  // tell her own release, back on the phone, from someone else's.
+  test('sends nothing while it is not yet known who is signed in', async () => {
+    await renderHook(() => usePendingRelease(undefined));
+
+    expect(flushPendingRelease).not.toHaveBeenCalled();
+  });
+
   test('sends it again on coming back to the app, naming who is signed in now', async () => {
     await renderHook(() => usePendingRelease(ANNA));
     jest.mocked(flushPendingRelease).mockClear();

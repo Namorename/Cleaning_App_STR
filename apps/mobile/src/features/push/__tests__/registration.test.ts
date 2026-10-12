@@ -4,7 +4,12 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 import { registerPushToken } from '../api';
-import { flushPendingRelease, keepReleasePending, settlePendingRelease } from '../pending-release';
+import {
+  flushPendingRelease,
+  keepReleasePending,
+  releaseOnItsWay,
+  settlePendingRelease,
+} from '../pending-release';
 import { registerThisPhone } from '../registration';
 import { forgetRegistration, isRegisteredFor } from '../token-store';
 
@@ -27,6 +32,7 @@ jest.mock('../pending-release', () => ({
   settlePendingRelease: jest.fn(async () => undefined),
   keepReleasePending: jest.fn(async () => undefined),
   flushPendingRelease: jest.fn(async () => undefined),
+  releaseOnItsWay: jest.fn(() => null),
 }));
 
 jest.mock('expo-constants', () => ({
@@ -71,6 +77,23 @@ test('registers the phone with its token, platform, language and version, and re
     appVersion: '1.1.0',
   });
   await expect(SecureStore.getItemAsync('push-token')).resolves.toBe('ExponentPushToken[test]');
+});
+
+// Review of b674010: she signed in again while a release of her old binding
+// was on the wire; told to the server first, her new binding would go with it.
+test('waits for a release on its way before the server hears of the phone', async () => {
+  let landRelease: () => void = () => undefined;
+  jest
+    .mocked(releaseOnItsWay)
+    .mockReturnValueOnce(new Promise<void>((resolve) => (landRelease = resolve)));
+
+  const registering = registerThisPhone('me');
+  await new Promise((resolve) => setImmediate(resolve));
+  expect(mockRegister).not.toHaveBeenCalled();
+
+  landRelease();
+  await expect(registering).resolves.toBe(true);
+  expect(mockRegister).toHaveBeenCalledTimes(1);
 });
 
 // Owner's word of 2026-10-12: a release names whose the token was, and a
