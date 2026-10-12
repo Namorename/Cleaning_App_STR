@@ -100,7 +100,9 @@ describe('an overdue repair', () => {
   ] as const)('%s at %i px: its dot is a framed square', (view, width) => {
     chips([repair()], width, view);
 
-    expect(dot()).toHaveClass('rounded-sm', 'border-2', 'border-tone-overdue-mark');
+    // 2 px: the theme's rounded-sm (8.4 px) made an 8 px dot a ring again.
+    expect(dot()).toHaveClass('rounded-[2px]', 'border-2', 'border-tone-overdue-mark');
+    expect(dot()).not.toHaveClass('rounded-sm');
   });
 
   test('a full chip with room says it in words, and its dot stays round', () => {

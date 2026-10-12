@@ -27,6 +27,11 @@ const MORE_WIDTH = 24;
 const TIGHT_MORE_WIDTH = 14;
 /** Past this a tight «+N» reads «9+»: «+11» in 13 px was cut to «+1». */
 const TIGHT_MORE_MAX = 9;
+/**
+ * A chip narrower than this has no room for the unread picture beside its
+ * dot (12 px beside «+N» at thirty days): a pip marks it, in its corner.
+ */
+const PIP_BELOW = 32;
 
 /**
  * A status's dot, in its status's tone (`STATUS_TONE`, 5.2). What never
@@ -41,9 +46,10 @@ function dotClass(task: CalendarTask, isOverdue: boolean): string {
   if (task.status === 'cancelled') {
     return cn('rounded-none', TONE_MARK_BG.cancelled);
   }
-  // An overdue repair's dot is a framed square: not only red (§6).
+  // An overdue repair's dot is a framed square: not only red (§6). 2 px, not
+  // the theme's rounded-sm (8.4 px), which rounds an 8 px dot into a ring.
   return cn(
-    isOverdue ? 'rounded-sm border-2 border-tone-overdue-mark' : 'rounded-full',
+    isOverdue ? 'rounded-[2px] border-2 border-tone-overdue-mark' : 'rounded-full',
     TONE_MARK_BG[taskStatusTone(task.status)],
   );
 }
@@ -248,6 +254,7 @@ export function TaskChips({
     const rest = tasks.length - shown.length;
     const cellLeft = at * dayWidth;
     const slot = (dayWidth - 4 - (rest > 0 ? moreWidth : 0)) / shown.length;
+    const hasRoomForPicture = slot - 2 >= PIP_BELOW;
     return (
       <Fragment key={day}>
         {shown.map((task, k) => {
@@ -284,17 +291,17 @@ export function TaskChips({
                   dotClass(task, (capacity.isTight || isCompact) && text.isOverdue),
                 )}
               />
-              {/* Cut short — 12 px beside «+N» at thirty days — a chip has no
-                  room for the picture: the pip sits in its corner instead. */}
+              {/* Too narrow for the picture, the pip: 4 px, 1 px in from the
+                  corner — clear of the rounded edge and of most of the dot. */}
               {text.hasUnread ? (
-                capacity.isTight ? (
+                hasRoomForPicture ? (
+                  <UnreadGlyph />
+                ) : (
                   <span
                     aria-hidden="true"
                     data-slot="chip-unread"
-                    className="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-tone-unread-mark ring-1 ring-background"
+                    className="absolute top-px right-px size-1 rounded-full bg-tone-unread-mark ring-1 ring-background"
                   />
-                ) : (
-                  <UnreadGlyph />
                 )
               ) : null}
               {isCompact ? (

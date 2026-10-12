@@ -20,6 +20,8 @@ const PROBLEM = 'cccccccc-cccc-4ccc-8ccc-000000000001';
 const DAYS = ['2026-09-28', '2026-09-29', '2026-09-30'];
 /** Thirty days: a cell this narrow cuts a chip short. */
 const NARROW_WIDTH = 30;
+/** Fifteen days: cut short in full, yet room for the picture. */
+const FIFTEEN_DAYS_WIDTH = 64;
 /** A week: a cell this wide shows a chip in full. */
 const FULL_WIDTH = 140;
 const WORDS = 'Новое сообщение';
@@ -126,6 +128,30 @@ describe('the mark of an unread message on a chip', () => {
       expect(chipOf('Iva').querySelector('[data-slot="chip-unread"]')).toBeNull();
     },
   );
+
+  // The pip is for a chip too narrow for the picture, not for every chip cut
+  // short: at fifteen days a full chip is 58 px and the picture fits.
+  test.each(['full', 'compact'] as const)(
+    'at fifteen days a %s chip carries the picture, as wider ones do',
+    (view) => {
+      chips(FIFTEEN_DAYS_WIDTH, view);
+
+      const chip = chipOf('Anna');
+      expect(chip.querySelector(`svg.${GLYPH}`)).toHaveAttribute('aria-hidden', 'true');
+      expect(chip.querySelector('[data-slot="chip-unread"]')).toBeNull();
+    },
+  );
+
+  test('the pip keeps to the corner, clear of the dot it stands by', () => {
+    chips(NARROW_WIDTH);
+
+    expect(chipOf('Anna').querySelector('[data-slot="chip-unread"]')).toHaveClass(
+      'top-px',
+      'right-px',
+      'size-1',
+      'ring-1',
+    );
+  });
 
   test('a chip squeezed beside «+N» at thirty days keeps its pip', () => {
     const crowded = [written, task(DAYS[0]), task(DAYS[0])];
