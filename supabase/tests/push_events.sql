@@ -216,6 +216,12 @@ select pg_temp.check('free work moved within the week: already known, silence', 
 -- 2026-09-29): its audience starts from property_cleaners — the listing, or
 -- the listing a room belongs to — not from every phone of the company. Tomas
 -- and the office have phones and work no listing: nobody asks about them.
+-- The narrowing is the plan's to keep, and a plan follows the statistics:
+-- read over the tables as they stand here, not over a stand never analysed
+-- — on an empty one (a new machine, 2026-10-12) the planner asked the rule
+-- eleven times. Production has its statistics; so does this measure.
+analyze public.property_cleaners, public.push_tokens, public.profiles, public.properties,
+  public.tasks;
 set local track_functions = 'all';
 create or replace function pg_temp.rule_calls() returns bigint language sql as $fn$
   select coalesce(sum(f.calls), 0) from pg_stat_xact_user_functions f

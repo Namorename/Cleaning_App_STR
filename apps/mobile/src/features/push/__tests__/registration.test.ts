@@ -4,6 +4,12 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 import { registerPushToken } from '../api';
+import {
+  flushPendingRelease,
+  keepReleasePending,
+  releaseOnItsWay,
+  settlePendingRelease,
+} from '../pending-release';
 import { registerThisPhone } from '../registration';
 import { forgetRegistration, isRegisteredFor } from '../token-store';
 
@@ -22,6 +28,12 @@ async function until(check: () => boolean): Promise<void> {
  */
 
 jest.mock('../api', () => ({ registerPushToken: jest.fn(async () => undefined) }));
+jest.mock('../pending-release', () => ({
+  settlePendingRelease: jest.fn(async () => undefined),
+  keepReleasePending: jest.fn(async () => undefined),
+  flushPendingRelease: jest.fn(async () => undefined),
+  releaseOnItsWay: jest.fn(() => null),
+}));
 
 jest.mock('expo-constants', () => ({
   __esModule: true,
@@ -65,6 +77,56 @@ test('registers the phone with its token, platform, language and version, and re
     appVersion: '1.1.0',
   });
   await expect(SecureStore.getItemAsync('push-token')).resolves.toBe('ExponentPushToken[test]');
+});
+
+// Review of b674010: she signed in again while a release of her old binding
+// was on the wire; told to the server first, her new binding would go with it.
+test('waits for a release on its way before the server hears of the phone', async () => {
+  let landRelease: () => void = () => undefined;
+  jest
+    .mocked(releaseOnItsWay)
+    .mockReturnValueOnce(new Promise<void>((resolve) => (landRelease = resolve)));
+
+  const registering = registerThisPhone('me');
+  await new Promise((resolve) => setImmediate(resolve));
+  expect(mockRegister).not.toHaveBeenCalled();
+
+  landRelease();
+  await expect(registering).resolves.toBe(true);
+  expect(mockRegister).toHaveBeenCalledTimes(1);
+});
+
+// Owner's word of 2026-10-12: a release names whose the token was, and a
+// session that ends without the button has no session left to ask — the
+// phone keeps the name with the token from the moment it registers.
+test('remembers whom the token was registered for, before the server hears of it', async () => {
+  mockRegister.mockImplementationOnce(async () => {
+    await expect(SecureStore.getItemAsync('push-token-owner')).resolves.toBe('me');
+  });
+
+  await expect(registerThisPhone('me')).resolves.toBe(true);
+
+  await expect(SecureStore.getItemAsync('push-token-owner')).resolves.toBe('me');
+});
+
+// Owner's word of 2026-10-11, 00:40: a token waiting to be let go of after a
+// sign-out nobody heard is settled by a registration of the same token — the
+// binding moved to whoever registered.
+test('a registration that lands settles the release its token was waiting for', async () => {
+  jest.mocked(settlePendingRelease).mockClear();
+
+  await registerThisPhone('me');
+
+  expect(settlePendingRelease).toHaveBeenCalledWith('ExponentPushToken[test]');
+});
+
+test('a registration the server refused settles nothing', async () => {
+  jest.mocked(settlePendingRelease).mockClear();
+  mockRegister.mockRejectedValueOnce(new Error('refused'));
+
+  await expect(registerThisPhone('me')).rejects.toThrow('refused');
+
+  expect(settlePendingRelease).not.toHaveBeenCalled();
 });
 
 test('the channels exist before the token is asked for', async () => {
@@ -167,6 +229,22 @@ test('a registration still on its way when she signs out does not land after it'
   await expect(registerThisPhone('me')).resolves.toBe(false);
 
   expect(mockRegister).not.toHaveBeenCalled();
+});
+
+// Review of 86122ac: a registration whose server call was already out when
+// she signed out lands after the sign-out's release — the token is bound to
+// her again, and must wait to be let go of once more, not be settled.
+test('a registration landing on the server after a sign-out keeps its token waiting to be let go of', async () => {
+  jest.mocked(settlePendingRelease).mockClear();
+  mockRegister.mockImplementationOnce(async () => {
+    await forgetRegistration();
+  });
+
+  await expect(registerThisPhone('me')).resolves.toBe(false);
+
+  expect(settlePendingRelease).not.toHaveBeenCalled();
+  expect(keepReleasePending).toHaveBeenCalledWith('ExponentPushToken[test]', 'me');
+  expect(flushPendingRelease).toHaveBeenCalled();
 });
 
 // After the first «Allow» the system dialog closes and the app is back in
