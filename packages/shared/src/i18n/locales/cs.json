@@ -1056,7 +1056,7 @@
     "startFailed": "Úklid se nepodařilo začít — obnovte seznam.",
     "startFailed_tech": "Práci se nepodařilo začít — obnovte seznam.",
     "finishFailed": "Úklid se nepodařilo dokončit — obnovte seznam.",
-    "finishFailed_tech": "Práci se nepodařilo dokončit — obnovte seznam.",
+    "finishFailed_tech": "Úkol se nepodařilo dokončit — obnovte seznam.",
     "unnamedProperty": "Objekt {{id}}",
     "cardAccessibility": "{{property}}. {{date}}. {{urgency}}",
     "now": "Teď",

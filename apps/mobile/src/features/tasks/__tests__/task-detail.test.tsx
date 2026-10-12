@@ -901,7 +901,7 @@ describe('read by a technician', () => {
     expect(screen.getByRole('button', { name: 'Завершить задание' })).toBeTruthy();
     expect(screen.getByText('Окно работы')).toBeTruthy();
     expect(screen.getByText('Шла параллельно с другой работой')).toBeTruthy();
-    expect(screen.getByText('Не удалось завершить работу — обновите список.')).toBeTruthy();
+    expect(screen.getByText('Не удалось завершить задание — обновите список.')).toBeTruthy();
     expect(screen.queryByText(/уборк/i)).toBeNull();
   });
 

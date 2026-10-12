@@ -329,9 +329,15 @@ const COMPRESSION_FAILURES: ReadonlySet<string> = new Set([
   'ERR_UNSUPPORTED_VIDEO_EXPORT_PRESET',
 ]);
 
+/** What the picker says when the chosen video could not be handed over — its copy may be made. */
+const PICK_FAILURE = 'ERR_FAILED_TO_PICK_VIDEO';
+
+function errorCode(error: unknown): unknown {
+  return typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : null;
+}
+
 function isCompressionFailure(error: unknown): boolean {
-  const code =
-    typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : null;
+  const code = errorCode(error);
   return typeof code === 'string' && COMPRESSION_FAILURES.has(code);
 }
 
@@ -400,8 +406,9 @@ async function launchVideoGallery(
  * moment it is chosen stands for when it was taken: a video's own date is not
  * read here, and the manager who opened the gallery accepted that a file from
  * it may not be of this cleaning. Resolves to null when she backs out of the
- * gallery. A choice that ends here without a video — backed out of, or not
- * compressed — lets go of what it made in the picker's folder; one that ends
+ * gallery. A choice that ends here without a video — backed out of, not
+ * compressed, or not handed over (`ERR_FAILED_TO_PICK_VIDEO`, owner's word of
+ * 2026-10-12) — lets go of what it made in the picker's folder; one that ends
  * with a video names its copies (`pickerCopies`) for the screen.
  */
 export async function pickVideoFromGallery(
@@ -414,7 +421,7 @@ export async function pickVideoFromGallery(
   try {
     picked = await launchVideoGallery(form);
   } catch (error: unknown) {
-    if (error instanceof VideoNotCompressedError) {
+    if (error instanceof VideoNotCompressedError || errorCode(error) === PICK_FAILURE) {
       letGoOfCopies(before);
     }
     throw error;

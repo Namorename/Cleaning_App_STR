@@ -648,6 +648,44 @@ describe('a video from the gallery', () => {
       });
       expect(picker.launchImageLibraryAsync).toHaveBeenCalledTimes(1);
     });
+
+    // Owner's word of 2026-10-12: a pick that fails once the picker has made
+    // its copy lets go of that copy too — still only what this choice made.
+    test.each(['ios', 'android'] as const)(
+      'on %s, a pick that fails after its copy lets go of that copy, and nothing older',
+      async (platform) => {
+        runOn(platform);
+        sizes.set(`${FOLDER}earlier.MOV`, 900);
+        picker.launchImageLibraryAsync.mockImplementationOnce(async () => {
+          sizes.set(`${FOLDER}original.MOV`, 1_000);
+          throw failing('ERR_FAILED_TO_PICK_VIDEO');
+        });
+
+        await expect(pickVideoFromGallery()).rejects.toMatchObject({
+          code: 'ERR_FAILED_TO_PICK_VIDEO',
+        });
+
+        expect(sizes.has(`${FOLDER}original.MOV`)).toBe(false);
+        expect(sizes.has(`${FOLDER}earlier.MOV`)).toBe(true);
+      },
+    );
+
+    test('a failed pick in a folder that cannot be read deletes nothing', async () => {
+      runOn('ios');
+      unreadable.isOn = true;
+      picker.launchImageLibraryAsync.mockImplementationOnce(async () => {
+        sizes.set(`${FOLDER}original.MOV`, 1_000);
+        throw failing('ERR_FAILED_TO_PICK_VIDEO');
+      });
+
+      try {
+        await pickVideoFromGallery().catch(() => undefined);
+
+        expect(sizes.has(`${FOLDER}original.MOV`)).toBe(true);
+      } finally {
+        unreadable.isOn = false;
+      }
+    });
   });
 
   // Owner's word of 2026-10-11, 00:40: a choice that ends without a video
