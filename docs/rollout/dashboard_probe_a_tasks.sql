@@ -1,0 +1,37 @@
+-- dashboard probe A: tasks per type - volume, statuses, fill of every nullable column (counts only, no text)
+select
+  case when property_id = 900000000001 then 'DEMO ' else '' end || type::text as type,
+  count(*) as n,
+  count(*) filter (where status = 'done') as done,
+  count(*) filter (where status = 'cancelled') as cancelled,
+  count(*) filter (where status = 'expired') as expired,
+  count(*) filter (where status in ('unassigned','assigned','accepted','in_progress','paused','blocked')) as open,
+  count(*) filter (where status = 'unassigned') as unassigned,
+  count(*) filter (where status = 'paused') as paused,
+  count(*) filter (where status = 'blocked') as blocked,
+  count(assignee_id) as f_assignee,
+  count(started_at) as f_started,
+  count(started_at) filter (where status = 'done') as done_f_started,
+  count(completed_at) as f_completed,
+  count(completed_at) filter (where status = 'done') as done_f_completed,
+  count(completed_by) filter (where status = 'done') as done_f_completed_by,
+  count(created_by) as f_created_by,
+  count(due_at) as f_due,
+  count(time_from) as f_time_from,
+  count(time_to) as f_time_to,
+  count(duration_override_min) as f_dur_override,
+  count(guests_count) as f_guests,
+  count(measured_minutes) as f_measured,
+  count(is_short_measurement) as f_short_meas,
+  count(*) filter (where coalesce(notes, '') <> '') as f_notes,
+  count(pinned_departure) as f_pinned,
+  count(problem_id) as f_problem,
+  count(reservation_id) as f_reservation,
+  count(*) filter (where coalesce(title, '') <> '') as f_title,
+  count(*) filter (where is_parallel) as parallel,
+  min(priority) as prio_min, max(priority) as prio_max, count(distinct priority) as prio_distinct,
+  min(scheduled_date) as sched_min, max(scheduled_date) as sched_max,
+  min(created_at)::date as created_min, max(created_at)::date as created_max
+from public.tasks
+group by 1
+order by 1;
