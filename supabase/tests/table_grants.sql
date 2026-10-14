@@ -64,6 +64,9 @@ insert into wanted values
   -- The history of a task (20261003140000): triggers write it, the manager
   -- and the head technician read it, nobody edits it.
   ('problem_events',       'SELECT'),
+  -- The history of a cleaning (20261015100000): triggers write it, the
+  -- manager reads it, nobody edits it.
+  ('task_events',          'SELECT'),
   ('supply_requests',      'SELECT'),
   ('supply_request_items', 'SELECT'),
   ('supply_catalog_items',  'SELECT'),

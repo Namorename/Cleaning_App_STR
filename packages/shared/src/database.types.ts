@@ -1177,6 +1177,68 @@ export type Database = {
           },
         ]
       }
+      task_events: {
+        Row: {
+          actor_id: string | null
+          at: string
+          cause: string | null
+          host_id: string
+          id: number
+          kind: Database["public"]["Enums"]["task_event_kind"]
+          params: Json
+          task_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          at?: string
+          cause?: string | null
+          host_id: string
+          id?: never
+          kind: Database["public"]["Enums"]["task_event_kind"]
+          params?: Json
+          task_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          at?: string
+          cause?: string | null
+          host_id?: string
+          id?: never
+          kind?: Database["public"]["Enums"]["task_event_kind"]
+          params?: Json
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_events_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "expired_tasks_review"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_media: {
         Row: {
           byte_size: number
@@ -2442,6 +2504,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      release_push_token: {
+        Args: { p_profile_id: string; p_token: string }
+        Returns: undefined
+      }
       release_work_of_inactive: { Args: { p_person: string }; Returns: Json }
       remove_task_media: {
         Args: { p_id: string }
@@ -3312,6 +3378,19 @@ export type Database = {
         | "fulfilled"
         | "rejected"
       supply_unit: "pcs" | "pack" | "l" | "kg" | "roll"
+      task_event_kind:
+        | "created"
+        | "assigned"
+        | "reassigned"
+        | "unassigned"
+        | "accepted"
+        | "started"
+        | "completed"
+        | "cancelled"
+        | "expired"
+        | "moved"
+        | "reopened"
+        | "status_changed"
       task_status:
         | "unassigned"
         | "assigned"
@@ -3519,6 +3598,20 @@ export const Constants = {
         "rejected",
       ],
       supply_unit: ["pcs", "pack", "l", "kg", "roll"],
+      task_event_kind: [
+        "created",
+        "assigned",
+        "reassigned",
+        "unassigned",
+        "accepted",
+        "started",
+        "completed",
+        "cancelled",
+        "expired",
+        "moved",
+        "reopened",
+        "status_changed",
+      ],
       task_status: [
         "unassigned",
         "assigned",
