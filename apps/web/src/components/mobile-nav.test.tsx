@@ -29,6 +29,7 @@ import { MobileNav } from './mobile-nav';
 
 const ROUTES = [
   '/dashboard',
+  '/analytics',
   '/calendar',
   '/tasks',
   '/problems',

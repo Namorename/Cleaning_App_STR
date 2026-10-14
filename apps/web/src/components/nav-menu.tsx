@@ -4,6 +4,7 @@ import {
   BrushCleaning,
   Building2,
   Calendar,
+  ChartColumn,
   ClipboardList,
   LayoutGrid,
   Package,
@@ -23,6 +24,7 @@ import { cn } from '@/lib/utils';
 
 type NavKey =
   | 'dashboard'
+  | 'analytics'
   | 'calendar'
   | 'tasks'
   | 'problems'
@@ -56,6 +58,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
     key: 'work',
     items: [
       { href: '/dashboard', key: 'dashboard', icon: LayoutGrid },
+      { href: '/analytics', key: 'analytics', icon: ChartColumn },
       { href: '/calendar', key: 'calendar', icon: Calendar },
       { href: '/tasks', key: 'tasks', icon: BrushCleaning },
       { href: '/problems', key: 'problems', icon: ClipboardList },

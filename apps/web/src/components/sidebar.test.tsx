@@ -66,6 +66,7 @@ describe('Sidebar', () => {
     // and by whom; Settings on its own under both groups.
     expect(linkTexts(within(nav).getByRole('group', { name: 'Работа' }))).toEqual([
       'Дашборд',
+      'Аналитика',
       'Календарь',
       'Уборки',
       'Задания',
@@ -90,6 +91,7 @@ describe('Sidebar', () => {
       screen.getAllByRole('link').map((link) => link.getAttribute('href')),
     ).toEqual([
       '/dashboard',
+      '/analytics',
       '/calendar',
       '/tasks',
       '/problems',
@@ -178,7 +180,16 @@ describe('Sidebar folded to a strip of icons', () => {
     );
     expect(screen.getByRole('complementary')).toHaveAttribute('data-state', 'collapsed');
     // Out of sight, still the links' names.
-    const names = ['Дашборд', 'Календарь', 'Уборки', 'Задания', 'Заявки', 'Объекты', 'Команда'];
+    const names = [
+      'Дашборд',
+      'Аналитика',
+      'Календарь',
+      'Уборки',
+      'Задания',
+      'Заявки',
+      'Объекты',
+      'Команда',
+    ];
     for (const name of [...names, 'Настройки']) {
       const link = screen.getByRole('link', { name });
       expect(within(link).getByText(name)).toHaveClass('sr-only');
@@ -201,6 +212,7 @@ describe('Sidebar folded to a strip of icons', () => {
 
     expect(screen.getAllByRole('tooltip').map((tip) => tip.textContent)).toEqual([
       'Дашборд',
+      'Аналитика',
       'Календарь',
       'Уборки',
       'Задания',
@@ -241,8 +253,8 @@ describe('Sidebar folded to a strip of icons', () => {
     render(<Sidebar email="manager.test@example.com" />);
     const toggle = screen.getByRole('button', { name: 'Свернуть меню' });
 
-    // Through the eight sections and the theme lever, then the toggle under them.
-    for (let step = 0; step < 10 && document.activeElement !== toggle; step += 1) {
+    // Through the nine sections and the theme lever, then the toggle under them.
+    for (let step = 0; step < 11 && document.activeElement !== toggle; step += 1) {
       await userEvent.tab();
     }
     expect(toggle).toHaveFocus();
