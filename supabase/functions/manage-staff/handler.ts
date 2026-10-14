@@ -29,8 +29,9 @@ export type Language = (typeof LANGUAGES)[number];
 /**
  * The language somebody new is created with when the request names none (the
  * owner's decision of 14.10): the panel in production before this deploy sends
- * null for «not chosen». Creation only — an edit that names no language leaves
- * a person already on the team without one, as she was.
+ * null for «not chosen». Creation only: an edit writes the language it was
+ * sent, and a missing one is written as null — "not chosen" — exactly as
+ * before this change. The panel always sends a person's stored language.
  */
 export const NEW_STAFF_LANGUAGE: Language = "en";
 
