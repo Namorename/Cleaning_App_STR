@@ -106,7 +106,11 @@ export async function signIn(email: string, password: string): Promise<void> {
 export async function signOut(): Promise<void> {
   const person = registrant();
   const release = await releaseThisPhone();
-  const { error } = await supabase.auth.signOut();
+  // This phone's session only (owner's word of 2026-10-14): auth-js ends
+  // every session of the account by default, and leaving the demo account
+  // on one phone would sign App Review out on another. What the phone
+  // forgets is the same either way.
+  const { error } = await supabase.auth.signOut({ scope: 'local' });
   const isOut =
     error === null ||
     (isNetworkError(error) && (await sessionStorage.getItem(SESSION_STORAGE_KEY)) === null);
