@@ -18,7 +18,7 @@ interface LanguageSwitcherProps {
 }
 
 /**
- * The panel's language: Русский, English, Čeština — each in its own words.
+ * The panel's language: English, Čeština, Русский — each in its own words.
  *
  * The choice is the person's, not this browser's: it is written to her
  * profile first, the same column the phone writes, and the sign-in applies it

@@ -96,7 +96,8 @@ function headings(): { level: number; name: string }[] {
 
 /**
  * Decision 17 (docs/f11-plan.md): the privacy policy is a public page of the
- * panel, Czech first, with English and Russian; the text is
+ * panel in Czech, English and Russian — English first and by default since the
+ * owner's decision of 14.10; the text is
  * docs/privacy-policy-draft.md up to its section 9.
  */
 describe('the privacy policy page', () => {
@@ -163,25 +164,39 @@ describe('the privacy policy page', () => {
     },
   );
 
-  test('speaks Czech when the address names no language', async () => {
+  // The owner's decision of 14.10: English unless the address names another.
+  test('speaks English when the address names no language', async () => {
     emptyOperatorEnv();
 
     await renderPage();
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(PAGE.cs.title);
-    expect(screen.getByRole('main')).toHaveAttribute('lang', 'cs');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(PAGE.en.title);
+    expect(screen.getByRole('main')).toHaveAttribute('lang', 'en');
   });
 
-  test.each([['de'], [['en', 'ru']], ['']])(
-    'speaks Czech when the address names a language it does not have: %j',
+  test.each([['de'], [['en', 'ru']], [''], ['CS']])(
+    'speaks English when the address names a language it does not have: %j',
     async (lang) => {
       emptyOperatorEnv();
 
       await renderPage(lang);
 
-      expect(screen.getByRole('main')).toHaveAttribute('lang', 'cs');
+      expect(screen.getByRole('main')).toHaveAttribute('lang', 'en');
     },
   );
+
+  test('from Russian, leads to English and Czech, English first', async () => {
+    emptyOperatorEnv();
+
+    await renderPage('ru');
+
+    const languages = screen.getByRole('navigation', { name: 'Эта страница на других языках' });
+    expect(
+      within(languages)
+        .getAllByRole('link')
+        .map((link) => link.textContent),
+    ).toEqual(['English', 'Čeština']);
+  });
 
   test('leads to the other two languages, each named in its own', async () => {
     emptyOperatorEnv();
@@ -225,10 +240,10 @@ describe('the privacy policy page', () => {
     },
   );
 
-  test('the browser tab is Czech by default', async () => {
+  test('the browser tab is English by default', async () => {
     const metadata = await generateMetadata({ searchParams: Promise.resolve({}) });
 
-    expect(metadata.title).toBe(PAGE.cs.tab);
+    expect(metadata.title).toBe(PAGE.en.tab);
   });
 
   test('every table heads its columns and its rows', async () => {

@@ -155,6 +155,7 @@
     },
     "login": {
       "subtitle": "Panel manažera",
+      "language": "Jazyk",
       "email": "E-mail",
       "password": "Heslo",
       "showPassword": "Zobrazit heslo",

@@ -62,13 +62,13 @@ describe('the panel’s language', () => {
     expect(sync?.props.language).toBe('cs');
   });
 
-  test('no cookie is the panel’s default language', async () => {
+  test('no cookie is the panel’s default language, English', async () => {
     signedIn = { email: 'office@test.local', app_metadata: { role: 'admin' } };
 
     const shell = await PanelLayout({ children: null });
 
     const sync = elementsOf(shell).find((element) => element.type === LanguageSync);
-    expect(sync?.props.language).toBe('ru');
+    expect(sync?.props.language).toBe('en');
   });
 });
 

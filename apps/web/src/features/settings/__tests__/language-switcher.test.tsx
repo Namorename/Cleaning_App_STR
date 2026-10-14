@@ -42,14 +42,14 @@ afterEach(async () => {
 });
 
 describe('LanguageSwitcher', () => {
-  test('offers the three languages, each in its own words, starting from the one on screen', () => {
+  test('offers the three languages, each in its own words, English first, starting from the one on screen', () => {
     renderSwitcher();
 
     expect(choice('Язык')).toHaveValue('ru');
     expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
-      'Русский',
       'English',
       'Čeština',
+      'Русский',
     ]);
   });
 

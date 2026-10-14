@@ -26,6 +26,14 @@ export type StaffRole = (typeof STAFF_ROLES)[number];
 export const LANGUAGES = ["en", "ru", "cs"] as const;
 export type Language = (typeof LANGUAGES)[number];
 
+/**
+ * The language somebody new is created with when the request names none (the
+ * owner's decision of 14.10): the panel in production before this deploy sends
+ * null for «not chosen». Creation only — an edit that names no language leaves
+ * a person already on the team without one, as she was.
+ */
+export const NEW_STAFF_LANGUAGE: Language = "en";
+
 /** The roles that may open this door at all. */
 const PANEL_ROLES: readonly string[] = ["manager", "admin"];
 
@@ -251,11 +259,15 @@ function readProfile(payload: Record<string, unknown>, isCreate: boolean): Staff
     refuse(400, "isActive must be sent as a boolean", "serverErrors.staffPayloadInvalid");
   }
 
+  // Somebody new reads English unless another language was picked; an edit
+  // writes what it was sent, so nobody already on the team is switched.
+  const chosen = language as Language | null;
+
   return {
     fullName,
     phone,
     role: role as StaffRole,
-    language: language as Language | null,
+    language: isCreate ? (chosen ?? NEW_STAFF_LANGUAGE) : chosen,
     isActive: isCreate ? true : (active as boolean),
   };
 }

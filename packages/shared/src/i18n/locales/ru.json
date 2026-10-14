@@ -155,6 +155,7 @@
     },
     "login": {
       "subtitle": "Панель менеджера",
+      "language": "Язык",
       "email": "Эл. почта",
       "password": "Пароль",
       "showPassword": "Показать пароль",

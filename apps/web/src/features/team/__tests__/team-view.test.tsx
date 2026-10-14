@@ -344,6 +344,71 @@ describe('TeamView', () => {
     );
   }, 20000);
 
+  // The owner's decision of 14.10: somebody new reads English unless the
+  // manager picks another language for her.
+  test('a new person is created in English unless another language is picked', async () => {
+    render(<TeamView />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить сотрудника' }));
+    const dialog = await screen.findByRole('dialog');
+    const language = within(dialog).getByLabelText('Язык');
+
+    expect(language).toHaveValue('en');
+    // «Не выбран» would be English anyway once the server makes the account.
+    expect(within(language).queryByRole('option', { name: 'Не выбран' })).not.toBeInTheDocument();
+    expect(
+      within(language)
+        .getAllByRole('option')
+        .map((option) => option.textContent),
+    ).toEqual(['English', 'Čeština', 'Русский']);
+
+    await userEvent.type(within(dialog).getByLabelText('Имя'), 'Nova Cleaner');
+    await userEvent.type(within(dialog).getByLabelText('Почта (логин)'), 'nova@example.com');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
+
+    expect(saveStaff).toHaveBeenCalledWith(
+      expect.objectContaining({ id: null, language: 'en' }),
+      expect.anything(),
+    );
+  }, 20000);
+
+  test('a new person can be given Czech instead', async () => {
+    render(<TeamView />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить сотрудника' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.selectOptions(within(dialog).getByLabelText('Язык'), 'cs');
+    await userEvent.type(within(dialog).getByLabelText('Имя'), 'Nova Cleaner');
+    await userEvent.type(within(dialog).getByLabelText('Почта (логин)'), 'nova@example.com');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Создать' }));
+
+    expect(saveStaff).toHaveBeenCalledWith(
+      expect.objectContaining({ id: null, language: 'cs' }),
+      expect.anything(),
+    );
+  }, 20000);
+
+  // Existing profiles are not changed: a person with no language keeps none.
+  test('an edit of somebody with no language keeps «Не выбран», and sends no language', async () => {
+    render(<TeamView />);
+
+    await userEvent.click(within(rowFor('Nina Free')).getByRole('button', { name: 'Изменить' }));
+    const dialog = await screen.findByRole('dialog');
+    const language = within(dialog).getByLabelText('Язык');
+
+    expect(language).toHaveValue('');
+    expect(within(language).getByRole('option', { name: 'Не выбран' })).toBeInTheDocument();
+
+    await userEvent.clear(within(dialog).getByLabelText('Телефон'));
+    await userEvent.type(within(dialog).getByLabelText('Телефон'), '+420 777 000 111');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+
+    expect(saveStaff).toHaveBeenCalledWith(
+      expect.objectContaining({ id: NINA, language: '' }),
+      expect.anything(),
+    );
+  }, 20000);
+
   test('will not create a person with no name or no address', async () => {
     render(<TeamView />);
 

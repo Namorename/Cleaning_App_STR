@@ -258,7 +258,7 @@ otp_expiry = 3600
 # its dashboard copy — otherwise a template that works locally can still post
 # an empty letter in production.
 [auth.email.template.recovery]
-subject = "STR Ops: доступ · access · přístup"
+subject = "STR Ops: access · přístup · доступ"
 content_path = "./supabase/templates/recovery.html"
 
 # Uncomment to customize notification email template
