@@ -17,6 +17,8 @@ const state = vi.hoisted(() => ({
 const setCookie = vi.fn();
 const signOut = vi.fn();
 const profileReads: unknown[][] = [];
+/** The `lang` cookie the request came with: what the guest picked on the sign-in page. */
+const guestCookie = vi.hoisted(() => ({ value: undefined as string | undefined }));
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: async () => ({
@@ -44,7 +46,15 @@ vi.mock('@/lib/supabase/server', () => ({
   }),
 }));
 vi.mock('next/headers', () => ({
-  cookies: async () => ({ set: setCookie, get: () => undefined, getAll: () => [] }),
+  cookies: async () => ({
+    set: setCookie,
+    get: (name: string) =>
+      name === 'lang' && guestCookie.value !== undefined
+        ? { name, value: guestCookie.value }
+        : undefined,
+    getAll: () =>
+      guestCookie.value === undefined ? [] : [{ name: 'lang', value: guestCookie.value }],
+  }),
   headers: async () => ({
     get: (name: string) => (name === 'x-forwarded-proto' ? state.proto : null),
   }),
@@ -73,6 +83,7 @@ beforeEach(() => {
   state.role = 'manager';
   state.profile = { data: { preferred_language: 'cs' }, error: null };
   state.proto = 'https';
+  guestCookie.value = undefined;
 });
 
 describe('signing in', () => {
@@ -114,6 +125,25 @@ describe('signing in', () => {
     await expect(signIn({ issue: null, email: '' }, form())).rejects.toThrow('redirect:/problems');
 
     expect(setCookie).not.toHaveBeenCalledWith('lang', expect.anything(), expect.anything());
+  });
+
+  // The owner's decision of 14.10: a guest reads English, or what she picked on
+  // the sign-in page; once signed in, the profile's choice is the one that holds.
+  test('the profile’s Czech replaces a language picked on the sign-in page', async () => {
+    guestCookie.value = 'ru';
+
+    await expect(signIn({ issue: null, email: '' }, form())).rejects.toThrow('redirect:/problems');
+
+    expect(setCookie).toHaveBeenCalledWith('lang', 'cs', expect.objectContaining({ path: '/' }));
+  });
+
+  test('a profile with no choice keeps the language picked on the sign-in page', async () => {
+    guestCookie.value = 'ru';
+    state.profile = { data: { preferred_language: null }, error: null };
+
+    await expect(signIn({ issue: null, email: '' }, form())).rejects.toThrow('redirect:/problems');
+
+    expect(setCookie).not.toHaveBeenCalled();
   });
 
   test('somebody the panel is not for is signed out before any language is read', async () => {

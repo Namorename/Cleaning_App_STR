@@ -8,12 +8,19 @@ import { yearCookie } from './cookie';
  */
 export const LANGUAGE_COOKIE = 'lang';
 
-/** The panel speaks the company's language by default; the cookie overrides it. */
-export const DEFAULT_PANEL_LANGUAGE: Language = 'ru';
+/**
+ * English unless somebody chose otherwise (the owner's decision of 14.10): a
+ * guest on the sign-in page, a 404 or an error page reads English on any
+ * device. A choice is the cookie alone — set by the switcher on the sign-in
+ * page, by Settings → Account, or by the sign-in from the profile. The
+ * browser's own language (Accept-Language) is deliberately not read.
+ */
+export const DEFAULT_PANEL_LANGUAGE: Language = 'en';
 
-/** The choice «Настройки → Аккаунт» offers, the company's language first. */
-export const PANEL_LANGUAGES: readonly Language[] = ['ru', 'en', 'cs'];
+/** The choice the sign-in page and Settings → Account offer, the default first. */
+export const PANEL_LANGUAGES: readonly Language[] = ['en', 'cs', 'ru'];
 
+/** The cookie's language when it names one the panel speaks, else English. */
 export function languageFromCookie(value: string | undefined): Language {
   return value !== undefined && isSupportedLanguage(value) ? value : DEFAULT_PANEL_LANGUAGE;
 }
@@ -24,10 +31,10 @@ export function languageCookie(language: Language, isSecure: boolean): string {
 }
 
 /**
- * The browser's half of a language chosen in «Настройки»: <html> says it at
- * once, and the cookie tells the server for every page after — the root
- * layout reads it before the first paint. The dictionary itself is switched
- * by the caller, which holds the i18next instance.
+ * The browser's half of a language chosen in Settings or on the sign-in
+ * page: <html> says it at once, and the cookie tells the server for every page
+ * after — the root layout reads it before the first paint. The dictionary
+ * itself is switched by the caller, which holds the i18next instance.
  */
 export function applyLanguageChoice(doc: Document, language: Language): void {
   doc.documentElement.lang = language;

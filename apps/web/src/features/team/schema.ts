@@ -9,8 +9,16 @@ export type StaffRole = (typeof STAFF_ROLES)[number];
 /** The two who fix things: jobs reach them by assignment, never through a listing. */
 export const TECHNICIAN_ROLES: readonly StaffRole[] = ['tech', 'head_tech'];
 
-export const LANGUAGES = ['ru', 'en', 'cs'] as const;
+/** The form's order: the default first, as everywhere in the panel. */
+export const LANGUAGES = ['en', 'cs', 'ru'] as const;
 export type Language = (typeof LANGUAGES)[number];
+
+/**
+ * The language somebody new is created with (the owner's decision of 14.10):
+ * the app and the push texts read it until a manager, or she herself in the
+ * app's settings, picks another. `manage-staff` falls back to the same.
+ */
+export const NEW_STAFF_LANGUAGE: Language = 'en';
 
 export const ASSIGNMENT_MODES = ['auto', 'claim'] as const;
 export type AssignmentMode = (typeof ASSIGNMENT_MODES)[number];
@@ -95,7 +103,10 @@ export interface StaffDraft {
   phone: string;
   /** Empty means the person's role is one the panel does not know: nothing chosen yet. */
   role: StaffRole | '';
-  /** Empty means nothing has been chosen — not "English". */
+  /**
+   * Empty means nothing has been chosen — not "English". Only a person already
+   * on the team can be without one: somebody new starts from English.
+   */
   language: Language | '';
   isActive: boolean;
 }
@@ -106,7 +117,7 @@ export const EMPTY_DRAFT: StaffDraft = {
   email: '',
   phone: '',
   role: 'cleaner',
-  language: '',
+  language: NEW_STAFF_LANGUAGE,
   isActive: true,
 };
 

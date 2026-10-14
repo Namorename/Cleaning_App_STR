@@ -30,6 +30,8 @@ import PanelNotFound from '../(panel)/not-found';
  */
 describe('the panel’s 404', () => {
   test('says the page is not there, with the way to the dashboard', async () => {
+    cookieJar.set(LANGUAGE_COOKIE, 'ru');
+
     render(await PanelNotFound());
 
     expectPageTitle('Страница не найдена');
@@ -58,6 +60,23 @@ describe('the panel’s 404', () => {
 
     // notFound(): Next renders the nearest not-found — the panel's, in its shell.
     expect((thrown as { digest?: string } | undefined)?.digest).toMatch(/404/);
+  });
+
+  // The owner's decision of 14.10: a guest who chose nothing reads English.
+  test('a guest with no cookie reads it in English, inside the shell', async () => {
+    render(await PanelNotFound());
+
+    expectPageTitle('Page not found');
+    expect(screen.getByRole('link', { name: 'To the dashboard' })).toHaveAttribute(
+      'href',
+      '/dashboard',
+    );
+  });
+
+  test('a guest with no cookie reads it in English, outside the shell', async () => {
+    render(await RootNotFound());
+
+    expectPageTitle('Page not found');
   });
 
   test('outside the shell, the same page stands under the logo', async () => {

@@ -88,10 +88,10 @@ describe('serverErrorText', () => {
 });
 
 describe('languageFromCookie', () => {
-  test('takes a supported language from the cookie and Russian otherwise', () => {
+  test('takes a supported language from the cookie and English otherwise', () => {
     expect(languageFromCookie('cs')).toBe('cs');
-    expect(languageFromCookie('de')).toBe('ru');
-    expect(languageFromCookie(undefined)).toBe('ru');
+    expect(languageFromCookie('de')).toBe('en');
+    expect(languageFromCookie(undefined)).toBe('en');
   });
 });
 

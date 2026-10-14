@@ -322,7 +322,9 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
                 setDraft({ ...draft, language: event.target.value as StaffDraft['language'] })
               }
             >
-              <option value="">{t('panel.team.form.languageUnset')}</option>
+              {/* Somebody new is created in English unless another is picked
+                  (NEW_STAFF_LANGUAGE): «not chosen» would be English anyway. */}
+              {isNew ? null : <option value="">{t('panel.team.form.languageUnset')}</option>}
               {LANGUAGES.map((language) => (
                 <option key={language} value={language}>
                   {t(`common.languages.${language}`)}

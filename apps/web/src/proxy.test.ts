@@ -141,25 +141,33 @@ describe('the privacy policy', () => {
 
 /**
  * The language the page itself speaks, handed to the root layout for
- * `<html lang>`: the policy's is its address's (`?lang=`, Czech by default),
- * not the panel's cookie. Next forwards a request header the proxy sets as
- * `x-middleware-request-<name>` on the response.
+ * `<html lang>`: the policy's is its address's (`?lang=`, English by default —
+ * the owner's decision of 14.10), not the panel's cookie. Next forwards a
+ * request header the proxy sets as `x-middleware-request-<name>` on the response.
  */
 describe('the privacy policy’s language for <html lang>', () => {
-  async function forwardedLanguage(pathAndQuery: string): Promise<string | null> {
-    const response = await proxy(new NextRequest(`${ORIGIN}${pathAndQuery}`));
+  async function forwardedLanguage(
+    pathAndQuery: string,
+    headers: Record<string, string> = {},
+  ): Promise<string | null> {
+    const response = await proxy(new NextRequest(`${ORIGIN}${pathAndQuery}`, { headers }));
     return response.headers.get(`x-middleware-request-${PAGE_LANGUAGE_HEADER}`);
   }
 
   test.each([
-    ['/privacy', 'cs'],
+    ['/privacy', 'en'],
+    ['/privacy?lang=cs', 'cs'],
     ['/privacy?lang=en', 'en'],
     ['/privacy?lang=ru', 'ru'],
-    ['/privacy?lang=xx', 'cs'],
-    ['/privacy?lang=EN', 'cs'],
-    ['/privacy?lang=en&lang=ru', 'cs'],
+    ['/privacy?lang=xx', 'en'],
+    ['/privacy?lang=EN', 'en'],
+    ['/privacy?lang=en&lang=ru', 'en'],
   ])('%s is read as %s, as the page reads it', async (path, language) => {
     expect(await forwardedLanguage(path)).toBe(language);
+  });
+
+  test('a browser that asks for Russian, with no cookie and no `?lang=`, still reads English', async () => {
+    expect(await forwardedLanguage('/privacy', { 'accept-language': 'ru-RU,ru;q=0.9' })).toBe('en');
   });
 
   test('keeps the visitor’s own headers on the way', async () => {

@@ -6,6 +6,7 @@ import {
   draftFrom,
   EMPTY_DRAFT,
   isInTab,
+  LANGUAGES,
   linkChanges,
   linksOf,
   matchesRole,
@@ -74,6 +75,16 @@ describe('staffSchema', () => {
 describe('draftFrom', () => {
   test('starts a new person from the empty draft', () => {
     expect(draftFrom(null)).toEqual(EMPTY_DRAFT);
+  });
+
+  // The owner's decision of 14.10: somebody new reads English until a manager
+  // or she herself picks another language.
+  test('a new person starts in English', () => {
+    expect(EMPTY_DRAFT.language).toBe('en');
+  });
+
+  test('the form offers English first, then Czech and Russian', () => {
+    expect(LANGUAGES).toEqual(['en', 'cs', 'ru']);
   });
 
   test('leaves a role the panel does not know unchosen, not a cleaner', () => {
