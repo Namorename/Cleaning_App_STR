@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/react-native';
 
-import { initSentry, readSentryDsn, reportError } from '../sentry';
+import { initSentry, readSentryDsn, reportError, reportSignInRefusal } from '../sentry';
 
 /**
  * Crash reports from the field, and nothing about the people in them.
@@ -85,4 +85,14 @@ test('an error is handed to the reporter', () => {
   reportError(error);
 
   expect(Sentry.captureException).toHaveBeenCalledWith(error);
+});
+
+test('a refused sign-in is a message at info level, with its code and status only', () => {
+  reportSignInRefusal({ code: 'invalid_credentials', status: '400' });
+
+  expect(Sentry.captureMessage).toHaveBeenCalledWith('Sign-in refused', {
+    level: 'info',
+    tags: { code: 'invalid_credentials', status: '400' },
+  });
+  expect(Sentry.captureException).not.toHaveBeenCalled();
 });

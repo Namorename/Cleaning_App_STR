@@ -25,7 +25,7 @@ const calls: string[] = [];
 
 jest.mock('@/lib/supabase', () => ({
   SESSION_STORAGE_KEY: 'sb-project-auth-token',
-  supabase: { auth: { signOut: () => mockSignOut() } },
+  supabase: { auth: { signOut: (...args: unknown[]) => mockSignOut(...args) } },
 }));
 
 jest.mock('@/lib/secure-storage', () => ({
@@ -90,6 +90,19 @@ test('lets go of the phone before signing out, and clears it once she is out', a
   await signOut();
 
   expect(calls).toEqual(['begin', 'release', 'signOut', 'clear', 'flush', 'end']);
+});
+
+// Owner's word of 2026-10-14, 21:35: leaving on one phone ends that phone's
+// session only. auth-js signs out of every phone by default, so leaving the
+// demo account on one phone would have signed Apple's reviewer out of it on
+// another. What the phone itself forgets does not change.
+test('signs out of this phone only, and clears it as before', async () => {
+  await signOut();
+
+  expect(mockSignOut).toHaveBeenCalledTimes(1);
+  expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
+  expect(calls).toEqual(['begin', 'release', 'signOut', 'clear', 'flush', 'end']);
+  expect(mockClear).toHaveBeenCalledTimes(1);
 });
 
 // Owner's word of 2026-10-11, 00:40: a let-go the server did not confirm is
