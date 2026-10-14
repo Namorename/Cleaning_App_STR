@@ -2186,6 +2186,27 @@ export type Database = {
           work_minutes_avg: number
         }[]
       }
+      analytics_series: {
+        Args: {
+          p_assignee_ids?: string[]
+          p_bucket?: string
+          p_from: string
+          p_include_test?: boolean
+          p_priorities?: Database["public"]["Enums"]["problem_priority"][]
+          p_problem_statuses?: Database["public"]["Enums"]["problem_status"][]
+          p_property_ids?: number[]
+          p_task_statuses?: Database["public"]["Enums"]["task_status"][]
+          p_to: string
+        }
+        Returns: {
+          bucket: string
+          checkouts: number
+          cleanings_done: number
+          cleanings_planned: number
+          problems_created: number
+          problems_resolved: number
+        }[]
+      }
       analytics_summary: {
         Args: {
           p_assignee_ids?: string[]

@@ -334,6 +334,34 @@
       "errors": {
         "summary": "Ukazatele se nepodařilo načíst",
         "table": "Tabulku se nepodařilo načíst"
+      },
+      "filters": {
+        "label": "Filtry",
+        "listings": "Objekty",
+        "people": "Pracovníci",
+        "cleaningStatus": "Stav úklidu",
+        "taskStatus": "Stav úkolu",
+        "urgency": "Naléhavost",
+        "remove": "Zrušit filtr: {{name}}",
+        "clear": "Zrušit všechny filtry"
+      },
+      "charts": {
+        "dynamics": "Úklidy a odjezdy",
+        "problems": "Vytvořené a vyřešené úkoly",
+        "byDay": "Po dnech",
+        "byWeek": "Po týdnech",
+        "done": "Hotové úklidy",
+        "checkouts": "Odjezdy",
+        "created": "Vytvořené úkoly",
+        "resolved": "Vyřešené úkoly",
+        "day": "{{day}}: {{values}}. Zobrazit jen tento den",
+        "week": "Týden od {{day}}: {{values}}. Zobrazit jen tento týden",
+        "byListing": "Hotové úklidy podle objektů",
+        "byCleaner": "Hotové úklidy podle uklízeček",
+        "byUrgency": "Vytvořené úkoly podle naléhavosti",
+        "empty": "Za toto období není co zobrazit",
+        "hint": "Klepnutím na pruh filtrujete celou stránku, dalším klepnutím filtr zrušíte; klepnutím na sloupec zobrazíte jen ten den nebo týden.",
+        "loading": "Načítání…"
       }
     },
     "problems": {

@@ -35,8 +35,22 @@ export const summarySchema = z.object({
   problems_resolved: count,
   problems_open: count,
   urgency_avg: measure,
+  /** Tasks created in the period by urgency (20261015120000). */
+  problems_by_priority: z.object({ low: count, normal: count, high: count }),
 });
 export type Summary = z.infer<typeof summarySchema>;
+
+/** The figures of one day or one week (analytics_series, 20261015120000). */
+export const seriesPointSchema = z.object({
+  bucket: z.iso.date(),
+  cleanings_done: count,
+  cleanings_planned: count,
+  checkouts: count,
+  problems_created: count,
+  problems_resolved: count,
+});
+export type SeriesPoint = z.infer<typeof seriesPointSchema>;
+export type SeriesBucket = 'day' | 'week';
 
 const total = { total_count: count };
 

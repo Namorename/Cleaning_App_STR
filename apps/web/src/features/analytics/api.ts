@@ -2,8 +2,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@str-ops/shared';
 
 import {
+  seriesPointSchema,
   summarySchema,
   TABLE_SCHEMAS,
+  type SeriesBucket,
+  type SeriesPoint,
   type AnalyticsQuery,
   type AnalyticsRows,
   type AnalyticsTable,
@@ -68,6 +71,22 @@ export async function fetchSummary(client: Client, query: AnalyticsQuery): Promi
     throw error;
   }
   return summarySchema.parse(data);
+}
+
+/** The period day by day or week by week, every bucket present. */
+export async function fetchSeries(
+  client: Client,
+  query: AnalyticsQuery,
+  bucket: SeriesBucket,
+): Promise<SeriesPoint[]> {
+  const { data, error } = await client.rpc('analytics_series', {
+    ...rpcArgs(query),
+    p_bucket: bucket,
+  });
+  if (error) {
+    throw error;
+  }
+  return seriesPointSchema.array().parse(data ?? []);
 }
 
 export async function fetchTablePage<T extends AnalyticsTable>(

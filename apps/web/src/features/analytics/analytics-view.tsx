@@ -10,8 +10,13 @@ import { publicEnv } from '@/lib/env';
 import { todayIn } from '@/lib/format-date';
 import { useAddressState } from '@/lib/use-address-state';
 
+import { useProperties, useStaff } from '@/features/tasks/use-tasks';
+
 import { readAnalyticsAddress, resolvePeriod, writeAnalyticsAddress } from './address';
+import { AnalyticsCharts } from './analytics-charts';
 import { AnalyticsTable } from './analytics-table';
+import { FiltersBar } from './filters-bar';
+import { personLabel } from './format';
 import { KpiTiles } from './kpi-tiles';
 import { isLocalStand } from './local-stand';
 import { PeriodBar } from './period-bar';
@@ -54,6 +59,17 @@ export function AnalyticsView() {
   const current = useAnalyticsSummary(query);
   const before = useAnalyticsSummary(previousQuery);
 
+  // What the filters offer: the listings (rooms are counted under them) and
+  // the people who clean and repair.
+  const properties = useProperties();
+  const staff = useStaff();
+  const listings = (properties.data ?? [])
+    .filter((property) => property.hostaway_unit_id === null)
+    .map((property) => ({ id: String(property.id), label: property.name }));
+  const people = (staff.data ?? [])
+    .filter((person) => person.role !== 'manager' && person.role !== 'admin')
+    .map((person) => ({ id: person.id, label: personLabel(person.full_name, address.names) }));
+
   return (
     <div className="flex flex-col gap-4">
       <PageHeader title={t('panel.nav.analytics')} />
@@ -64,6 +80,13 @@ export function AnalyticsView() {
         previous={previous}
         isLocalStand={isLocal}
         onChange={(next) => setAddress(next)}
+      />
+
+      <FiltersBar
+        filters={address.filters}
+        listings={listings}
+        people={people}
+        onChange={(filters) => setAddress({ ...address, filters })}
       />
 
       {current.isError ? (
@@ -78,6 +101,14 @@ export function AnalyticsView() {
       ) : null}
 
       <KpiTiles current={current.data} previous={previous === null ? null : before.data} />
+
+      <AnalyticsCharts
+        address={address}
+        query={query}
+        period={period}
+        summary={current.data}
+        onChange={(next) => setAddress(next)}
+      />
 
       <Tabs
         value={address.table}

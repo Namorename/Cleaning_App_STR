@@ -4,9 +4,9 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { useSupabase } from '@/lib/supabase/use-client';
 
-import { fetchSummary, fetchTablePage } from './api';
+import { fetchSeries, fetchSummary, fetchTablePage } from './api';
 import { analyticsKeys } from './keys';
-import type { AnalyticsQuery, AnalyticsTable, TablePage } from './schema';
+import type { AnalyticsQuery, AnalyticsTable, SeriesBucket, TablePage } from './schema';
 
 /**
  * Figures of a closed period do not change; today's change slowly. Five
@@ -25,8 +25,23 @@ export function useAnalyticsSummary(query: AnalyticsQuery | null) {
   });
 }
 
+/** The period by day or by week, for the charts. */
+export function useAnalyticsSeries(query: AnalyticsQuery, bucket: SeriesBucket) {
+  const client = useSupabase();
+  return useQuery({
+    queryKey: analyticsKeys.series(query, bucket),
+    queryFn: () => fetchSeries(client, query, bucket),
+    staleTime: STALE_MS,
+    placeholderData: keepPreviousData,
+  });
+}
+
 /** One page of a table; the page before stays on the screen while the next loads. */
-export function useAnalyticsTable(table: AnalyticsTable, query: AnalyticsQuery, page: TablePage) {
+export function useAnalyticsTable<T extends AnalyticsTable>(
+  table: T,
+  query: AnalyticsQuery,
+  page: TablePage,
+) {
   const client = useSupabase();
   return useQuery({
     queryKey: analyticsKeys.table(table, query, page),

@@ -334,6 +334,34 @@
       "errors": {
         "summary": "The figures could not be loaded",
         "table": "The table could not be loaded"
+      },
+      "filters": {
+        "label": "Filters",
+        "listings": "Listings",
+        "people": "People",
+        "cleaningStatus": "Cleaning status",
+        "taskStatus": "Task status",
+        "urgency": "Urgency",
+        "remove": "Remove the filter: {{name}}",
+        "clear": "Clear all filters"
+      },
+      "charts": {
+        "dynamics": "Cleanings and checkouts",
+        "problems": "Tasks created and resolved",
+        "byDay": "By day",
+        "byWeek": "By week",
+        "done": "Cleanings done",
+        "checkouts": "Checkouts",
+        "created": "Tasks created",
+        "resolved": "Tasks resolved",
+        "day": "{{day}}: {{values}}. Show this day only",
+        "week": "Week of {{day}}: {{values}}. Show this week only",
+        "byListing": "Cleanings done by listing",
+        "byCleaner": "Cleanings done by cleaner",
+        "byUrgency": "Tasks created by urgency",
+        "empty": "Nothing to draw for this period",
+        "hint": "Click a bar to filter the whole page by it, and again to let go; click a column to see only that day or week.",
+        "loading": "Loading…"
       }
     },
     "problems": {

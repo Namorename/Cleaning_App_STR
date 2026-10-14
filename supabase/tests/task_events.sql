@@ -116,8 +116,11 @@ create or replace function pg_temp.last_event(n integer) returns public.task_eve
 language sql as $fn$
   select e.* from public.task_events e
   where e.task_id = pg_temp.tid(n) order by e.at desc, e.id desc limit 1 $fn$;
+-- The events of this suite's company: the same number whoever counts (RLS),
+-- whatever else the stand holds.
 create or replace function pg_temp.event_count() returns integer language sql as $fn$
-  select count(*)::int from public.task_events $fn$;
+  select count(*)::int from public.task_events
+  where host_id = 'b4400000-0000-4000-8000-00000000000a' $fn$;
 
 -- ---------------------------------------------------------------------------
 --  The table: append-only, read by the manager, written by nobody

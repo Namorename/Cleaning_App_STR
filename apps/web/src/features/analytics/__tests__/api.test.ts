@@ -27,6 +27,7 @@ const SUMMARY = {
   problems_resolved: 2,
   problems_open: 2,
   urgency_avg: 2,
+  problems_by_priority: { low: 1, normal: 1, high: 1 },
 };
 
 function listingRow(id: number, total: number) {

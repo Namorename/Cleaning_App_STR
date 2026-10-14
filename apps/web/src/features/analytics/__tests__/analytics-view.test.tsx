@@ -21,7 +21,13 @@ const SUMMARY: Summary = {
   problems_resolved: 2,
   problems_open: 2,
   urgency_avg: 2,
+  problems_by_priority: { low: 1, normal: 1, high: 1 },
 };
+
+const SERIES = [
+  { bucket: '2026-10-01', cleanings_done: 2, cleanings_planned: 2, checkouts: 1, problems_created: 0, problems_resolved: 0 },
+  { bucket: '2026-10-02', cleanings_done: 3, cleanings_planned: 3, checkouts: 2, problems_created: 1, problems_resolved: 0 },
+];
 
 const EMPTY: Summary = {
   ...SUMMARY,
@@ -69,7 +75,38 @@ vi.mock('../use-analytics', () => ({
     isError: false,
     error: null,
   }),
-  useAnalyticsTable: () => ({ data: state.table, isError: false, error: null }),
+  useAnalyticsTable: (table: string) => ({
+    data:
+      table === 'cleaningsByCleaner'
+        ? {
+            rows: [
+              {
+                person_id: '11111111-1111-4111-8111-111111111111',
+                full_name: 'Anna Novak',
+                done: 3,
+                done_midstay: 0,
+                planned: 3,
+                minutes_median: 45,
+                minutes_avg: 45,
+                photo_share: 0.5,
+                listings: 1,
+                total_count: 1,
+              },
+            ],
+            total: 1,
+          }
+        : state.table,
+    isError: false,
+    error: null,
+  }),
+  useAnalyticsSeries: () => ({ data: SERIES, isError: false, error: null }),
+}));
+
+vi.mock('@/features/tasks/use-tasks', () => ({
+  useProperties: () => ({
+    data: [{ id: 1, name: 'Old Town flat', parent_id: null, hostaway_unit_id: null, status: 'active', timezone: 'Europe/Prague' }],
+  }),
+  useStaff: () => ({ data: [] }),
 }));
 
 const fetchWholeTable = vi.fn(async () => [ROW]);
@@ -131,6 +168,21 @@ describe('AnalyticsView', () => {
     const [fileName, rows] = downloadCsv.mock.calls[0] as [string, unknown[][]];
     expect(fileName).toBe('analytics-cleanings-by-property-2026-10-01_2026-10-31.csv');
     expect(rows[1]).toEqual(['Old Town flat', 4, 3, 1, 1, 0, 45, 50]);
+  });
+
+  test('a click on a listing bar filters the whole page to it, and a chip lets it go', () => {
+    render(<AnalyticsView />);
+    fireEvent.click(screen.getByRole('button', { name: /^Old Town flat\s*3$/ }));
+    expect(new URLSearchParams(window.location.search).get('prop')).toBe('1');
+    fireEvent.click(screen.getByRole('button', { name: 'Снять фильтр: Old Town flat' }));
+    expect(new URLSearchParams(window.location.search).get('prop')).toBeNull();
+  });
+
+  test('a click on a day narrows the period to that day', () => {
+    render(<AnalyticsView />);
+    fireEvent.click(screen.getAllByRole('button', { name: /Показать только этот день/ })[0]);
+    const params = new URLSearchParams(window.location.search);
+    expect([params.get('from'), params.get('to')]).toEqual(['2026-10-01', '2026-10-01']);
   });
 
   test('offers the demo listings only on the local stand', () => {
