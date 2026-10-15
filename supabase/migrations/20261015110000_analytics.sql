@@ -18,7 +18,8 @@
 --     a checkout is a live booking on its departure_date, a listing-local date
 --     from Hostaway, whatever day it was booked or the guest came; live means
 --     new or modified, not an owner's block, not the office's '#' booking
---     (the generator's rule, 20260926102000);
+--     (the generator's rule, 20260926102000); it frees the rooms the booking
+--     holds, and a flat with no rooms is one room (owner, 2026-10-15);
 --     occupancy counts nights: a booking's nights inside the period, room by
 --     room for a multi-room listing, over the listing's rooms × days;
 --     a task (problem) is created, resolved, cancelled on the local day of its
@@ -28,6 +29,16 @@
 -- - A room is counted under its listing (parent_id when hostaway_unit_id is
 --   set). The demo listings — ids 900000000000–999999999999, the band of the
 --   App Store demo — stay out unless p_include_test is true.
+--
+-- - The archive (owner, 2026-10-15). A task the manager put away
+--   (archive_problem: the panel's «delete», nothing is deleted) counts only if
+--   it was resolved before it was put away; one closed without a resolution —
+--   cancelled, a duplicate, a test put away while open — is no task at all,
+--   in any figure of any period. An archived listing keeps its checkouts,
+--   cleanings and tasks unless p_hide_archived is true; occupancy leaves it
+--   out either way, because the days it was in work are not recorded and a
+--   period of empty nights would be a lie. p_hide_archived null means the
+--   caller said nothing: nothing is hidden.
 --
 -- - Cleanings are 'cleaning' and 'midstay' tasks that answer no problem; the
 --   mid-stay ones are also given apart. The duration of a done cleaning is the
@@ -97,7 +108,8 @@ create or replace function public.analytics_cleaning_rows(
   p_property_ids   bigint[],
   p_assignee_ids   uuid[],
   p_task_statuses  public.task_status[],
-  p_include_test   boolean
+  p_include_test   boolean,
+  p_hide_archived  boolean
 )
 returns table (
   task_id        uuid,
@@ -147,18 +159,21 @@ as $$
              and t.completed_at >= (p_from - 1)::timestamp at time zone 'UTC'
              and t.completed_at < (p_to + 2)::timestamp at time zone 'UTC'))
     and (p_include_test or not public.analytics_is_test_listing(l.id))
+    and (not coalesce(p_hide_archived, false) or l.status <> 'archived')
     and (p_property_ids is null or l.id = any (p_property_ids))
     and (p_task_statuses is null or t.status = any (p_task_statuses))
     and (p_assignee_ids is null or coalesce(t.completed_by, t.assignee_id) = any (p_assignee_ids))
 $$;
 
--- The live bookings that leave in the period, with the rooms they free.
+-- The live bookings that leave in the period, with the rooms they free: the
+-- rooms the booking holds, and a flat with no rooms is one.
 create or replace function public.analytics_checkout_rows(
-  p_host          uuid,
-  p_from          date,
-  p_to            date,
-  p_property_ids  bigint[],
-  p_include_test  boolean
+  p_host           uuid,
+  p_from           date,
+  p_to             date,
+  p_property_ids   bigint[],
+  p_include_test   boolean,
+  p_hide_archived  boolean
 )
 returns table (reservation_id bigint, listing_id bigint, departure_date date, rooms integer)
 language sql
@@ -168,7 +183,8 @@ as $$
   select r.id,
          l.id,
          r.departure_date,
-         (select count(*)::integer from public.reservation_units u where u.reservation_id = r.id)
+         greatest(1, (select count(*) from public.reservation_units u
+                      where u.reservation_id = r.id))::integer
   from public.reservations r
   join public.properties p on p.id = r.property_id
   join public.properties l
@@ -179,10 +195,12 @@ as $$
     and not r.is_block
     and not public.is_service_booking(r.guest_name)
     and (p_include_test or not public.analytics_is_test_listing(l.id))
+    and (not coalesce(p_hide_archived, false) or l.status <> 'archived')
     and (p_property_ids is null or l.id = any (p_property_ids))
 $$;
 
 -- Each listing's room-nights taken in the period, over the room-nights it had.
+-- An archived listing is left out: the days it was in work are not recorded.
 create or replace function public.analytics_occupancy_rows(
   p_host          uuid,
   p_from          date,
@@ -226,7 +244,8 @@ as $$
   left join taken t on t.listing_id = l.id
 $$;
 
--- Every task (problem) created by the end of the period, on local days.
+-- Every task (problem) created by the end of the period, on local days —
+-- but not one put away without a resolution (see the header).
 create or replace function public.analytics_problem_rows(
   p_host              uuid,
   p_from              date,
@@ -235,7 +254,8 @@ create or replace function public.analytics_problem_rows(
   p_assignee_ids      uuid[],
   p_problem_statuses  public.problem_status[],
   p_priorities        public.problem_priority[],
-  p_include_test      boolean
+  p_include_test      boolean,
+  p_hide_archived     boolean
 )
 returns table (
   problem_id        uuid,
@@ -269,7 +289,11 @@ as $$
   cross join lateral (select coalesce(p.timezone, 'Europe/Prague') as zone) z
   where pr.host_id = p_host
     and pr.created_at < (p_to + 2)::timestamp at time zone 'UTC'
+    -- In the archive, only what was resolved before it was put away.
+    and (pr.archived_at is null
+         or (pr.status = 'resolved' and pr.resolved_at <= pr.archived_at))
     and (p_include_test or l.id is null or not public.analytics_is_test_listing(l.id))
+    and (not coalesce(p_hide_archived, false) or l.id is null or l.status <> 'archived')
     and (p_property_ids is null or l.id = any (p_property_ids))
     and (p_problem_statuses is null or pr.status = any (p_problem_statuses))
     and (p_priorities is null or pr.priority = any (p_priorities))
@@ -290,7 +314,8 @@ create or replace function public.analytics_summary(
   p_task_statuses     public.task_status[] default null,
   p_problem_statuses  public.problem_status[] default null,
   p_priorities        public.problem_priority[] default null,
-  p_include_test      boolean default false
+  p_include_test      boolean default false,
+  p_hide_archived     boolean default null
 )
 returns jsonb
 language plpgsql
@@ -322,11 +347,11 @@ begin
       as minutes_avg
   into v_cleanings
   from public.analytics_cleaning_rows(v_host, p_from, p_to, p_property_ids, p_assignee_ids,
-                                      p_task_statuses, p_include_test) c;
+                                      p_task_statuses, p_include_test, p_hide_archived) c;
 
   select count(*) as checkouts, coalesce(sum(k.rooms), 0) as rooms
   into v_checkouts
-  from public.analytics_checkout_rows(v_host, p_from, p_to, p_property_ids, p_include_test) k;
+  from public.analytics_checkout_rows(v_host, p_from, p_to, p_property_ids, p_include_test, p_hide_archived) k;
 
   select coalesce(sum(o.occupied_nights), 0) as occupied,
          coalesce(sum(o.available_nights), 0) as available
@@ -344,7 +369,7 @@ begin
     avg(pr.urgency) filter (where pr.created_day between p_from and p_to) as urgency_avg
   into v_problems
   from public.analytics_problem_rows(v_host, p_from, p_to, p_property_ids, p_assignee_ids,
-                                     p_problem_statuses, p_priorities, p_include_test) pr;
+                                     p_problem_statuses, p_priorities, p_include_test, p_hide_archived) pr;
 
   return jsonb_build_object(
     'cleanings_done', v_cleanings.done,
@@ -370,7 +395,7 @@ $$;
 
 comment on function public.analytics_summary(date, date, bigint[], uuid[], public.task_status[],
                                              public.problem_status[], public.problem_priority[],
-                                             boolean) is
+                                             boolean, boolean) is
   'The key figures of the Analytics page for one period, for the manager '
   '(20261015110000).';
 
@@ -386,7 +411,8 @@ create or replace function public.analytics_cleanings_by_property(
   p_priorities        public.problem_priority[] default null,
   p_include_test      boolean default false,
   p_limit             integer default 50,
-  p_offset            integer default 0
+  p_offset            integer default 0,
+  p_hide_archived     boolean default null
 )
 returns table (
   listing_id      bigint,
@@ -431,7 +457,7 @@ begin
            count(*) filter (where c.status = 'done' and c.done_day between p_from and p_to
                               and c.has_photo) as with_photo
     from public.analytics_cleaning_rows(v_host, p_from, p_to, p_property_ids, p_assignee_ids,
-                                        p_task_statuses, p_include_test) c
+                                        p_task_statuses, p_include_test, p_hide_archived) c
     group by c.listing_id
   )
   select g.listing_id,
@@ -464,7 +490,8 @@ create or replace function public.analytics_cleanings_by_cleaner(
   p_priorities        public.problem_priority[] default null,
   p_include_test      boolean default false,
   p_limit             integer default 50,
-  p_offset            integer default 0
+  p_offset            integer default 0,
+  p_hide_archived     boolean default null
 )
 returns table (
   person_id       uuid,
@@ -490,7 +517,7 @@ begin
   return query
   with c as (
     select * from public.analytics_cleaning_rows(v_host, p_from, p_to, p_property_ids,
-                                                 p_assignee_ids, p_task_statuses, p_include_test)
+                                                 p_assignee_ids, p_task_statuses, p_include_test, p_hide_archived)
   ),
   -- A done cleaning counts for who finished it; a planned one for who holds it.
   x as (
@@ -549,7 +576,8 @@ create or replace function public.analytics_checkouts_by_property(
   p_priorities        public.problem_priority[] default null,
   p_include_test      boolean default false,
   p_limit             integer default 50,
-  p_offset            integer default 0
+  p_offset            integer default 0,
+  p_hide_archived     boolean default null
 )
 returns table (
   listing_id        bigint,
@@ -573,7 +601,7 @@ begin
   return query
   with k as (
     select kr.listing_id, count(*)::integer as checkouts, sum(kr.rooms)::integer as rooms
-    from public.analytics_checkout_rows(v_host, p_from, p_to, p_property_ids, p_include_test) kr
+    from public.analytics_checkout_rows(v_host, p_from, p_to, p_property_ids, p_include_test, p_hide_archived) kr
     group by kr.listing_id
   ),
   o as (
@@ -615,7 +643,8 @@ create or replace function public.analytics_problems_by_property(
   p_priorities        public.problem_priority[] default null,
   p_include_test      boolean default false,
   p_limit             integer default 50,
-  p_offset            integer default 0
+  p_offset            integer default 0,
+  p_hide_archived     boolean default null
 )
 returns table (
   listing_id            bigint,
@@ -650,7 +679,7 @@ begin
            avg(pr.hours_to_resolve) filter (where pr.status = 'resolved'
                                               and pr.resolved_day between p_from and p_to) as h_avg
     from public.analytics_problem_rows(v_host, p_from, p_to, p_property_ids, p_assignee_ids,
-                                       p_problem_statuses, p_priorities, p_include_test) pr
+                                       p_problem_statuses, p_priorities, p_include_test, p_hide_archived) pr
     group by pr.listing_id
   )
   select g.listing_id,
@@ -680,7 +709,8 @@ create or replace function public.analytics_problems_by_technician(
   p_priorities        public.problem_priority[] default null,
   p_include_test      boolean default false,
   p_limit             integer default 50,
-  p_offset            integer default 0
+  p_offset            integer default 0,
+  p_hide_archived     boolean default null
 )
 returns table (
   person_id             uuid,
@@ -705,7 +735,7 @@ begin
   with pr as (
     select * from public.analytics_problem_rows(v_host, p_from, p_to, p_property_ids,
                                                 p_assignee_ids, p_problem_statuses, p_priorities,
-                                                p_include_test)
+                                                p_include_test, p_hide_archived)
   ),
   rep as (
     select coalesce(t.completed_by, t.assignee_id) as person_id,
@@ -769,47 +799,47 @@ $$;
 revoke all on function public.analytics_is_test_listing(bigint) from public, anon, authenticated;
 revoke all on function public.analytics_guard(date, date) from public, anon, authenticated;
 revoke all on function public.analytics_cleaning_rows(uuid, date, date, bigint[], uuid[],
-  public.task_status[], boolean) from public, anon, authenticated;
-revoke all on function public.analytics_checkout_rows(uuid, date, date, bigint[], boolean)
+  public.task_status[], boolean, boolean) from public, anon, authenticated;
+revoke all on function public.analytics_checkout_rows(uuid, date, date, bigint[], boolean, boolean)
   from public, anon, authenticated;
 revoke all on function public.analytics_occupancy_rows(uuid, date, date, bigint[], boolean)
   from public, anon, authenticated;
 revoke all on function public.analytics_problem_rows(uuid, date, date, bigint[], uuid[],
-  public.problem_status[], public.problem_priority[], boolean) from public, anon, authenticated;
+  public.problem_status[], public.problem_priority[], boolean, boolean) from public, anon, authenticated;
 
 revoke all on function public.analytics_summary(date, date, bigint[], uuid[], public.task_status[],
-  public.problem_status[], public.problem_priority[], boolean) from public, anon;
+  public.problem_status[], public.problem_priority[], boolean, boolean) from public, anon;
 revoke all on function public.analytics_cleanings_by_property(date, date, bigint[], uuid[],
   public.task_status[], public.problem_status[], public.problem_priority[], boolean, integer,
-  integer) from public, anon;
+  integer, boolean) from public, anon;
 revoke all on function public.analytics_cleanings_by_cleaner(date, date, bigint[], uuid[],
   public.task_status[], public.problem_status[], public.problem_priority[], boolean, integer,
-  integer) from public, anon;
+  integer, boolean) from public, anon;
 revoke all on function public.analytics_checkouts_by_property(date, date, bigint[], uuid[],
   public.task_status[], public.problem_status[], public.problem_priority[], boolean, integer,
-  integer) from public, anon;
+  integer, boolean) from public, anon;
 revoke all on function public.analytics_problems_by_property(date, date, bigint[], uuid[],
   public.task_status[], public.problem_status[], public.problem_priority[], boolean, integer,
-  integer) from public, anon;
+  integer, boolean) from public, anon;
 revoke all on function public.analytics_problems_by_technician(date, date, bigint[], uuid[],
   public.task_status[], public.problem_status[], public.problem_priority[], boolean, integer,
-  integer) from public, anon;
+  integer, boolean) from public, anon;
 
 grant execute on function public.analytics_summary(date, date, bigint[], uuid[],
-  public.task_status[], public.problem_status[], public.problem_priority[], boolean)
+  public.task_status[], public.problem_status[], public.problem_priority[], boolean, boolean)
   to authenticated;
 grant execute on function public.analytics_cleanings_by_property(date, date, bigint[], uuid[],
   public.task_status[], public.problem_status[], public.problem_priority[], boolean, integer,
-  integer) to authenticated;
+  integer, boolean) to authenticated;
 grant execute on function public.analytics_cleanings_by_cleaner(date, date, bigint[], uuid[],
   public.task_status[], public.problem_status[], public.problem_priority[], boolean, integer,
-  integer) to authenticated;
+  integer, boolean) to authenticated;
 grant execute on function public.analytics_checkouts_by_property(date, date, bigint[], uuid[],
   public.task_status[], public.problem_status[], public.problem_priority[], boolean, integer,
-  integer) to authenticated;
+  integer, boolean) to authenticated;
 grant execute on function public.analytics_problems_by_property(date, date, bigint[], uuid[],
   public.task_status[], public.problem_status[], public.problem_priority[], boolean, integer,
-  integer) to authenticated;
+  integer, boolean) to authenticated;
 grant execute on function public.analytics_problems_by_technician(date, date, bigint[], uuid[],
   public.task_status[], public.problem_status[], public.problem_priority[], boolean, integer,
-  integer) to authenticated;
+  integer, boolean) to authenticated;

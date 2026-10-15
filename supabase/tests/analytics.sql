@@ -10,9 +10,12 @@
 --   - a checkout belongs to the day the guest leaves (departure_date, a
 --     listing-local date), whenever the booking was made or the guest came;
 --     cancelled bookings, owner's blocks and the office's '#' bookings are not
---     checkouts; rooms of a multi-room listing are counted apart;
+--     checkouts; a checkout frees its rooms, and a flat is one room;
 --   - occupancy splits nights by period (a September night is September's);
 --   - the demo listings (ids 900000000000–999999999999) stay out unless asked;
+--   - a task in the archive counts only if it was resolved before it was put
+--     away; an archived listing counts unless the archive is hidden, but not
+--     in occupancy;
 --   - tables come a page at a time with the total beside them.
 --
 -- Dates are built from the previous month (M = its first day), so every
@@ -313,8 +316,8 @@ select pg_temp.check('M''s month: a stay begun the month before, the Almaty 01:0
   (pg_temp.cur()->>'checkouts')::int, 3);
 select pg_temp.check('the month before: only the stay that left on its last day',
   (pg_temp.prev()->>'checkouts')::int, 1);
-select pg_temp.check('rooms freed in the house are counted apart',
-  (pg_temp.cur()->>'rooms_released')::int, 2);
+select pg_temp.check('rooms freed: one for each flat, two for the house',
+  (pg_temp.cur()->>'rooms_released')::int, 4);
 select pg_temp.check('a period of one day: M itself has the Almaty checkout alone',
   (pg_temp.summary(pg_temp.m(), pg_temp.m())->>'checkouts')::int, 1);
 select pg_temp.check('the last day of the month before has the house''s first stay',
@@ -429,7 +432,7 @@ select pg_temp.check('filtered to Petra, the people table is Petra alone',
 select pg_temp.check('checkouts by listing, with rooms',
   (select array_agg(listing_name || ' ' || checkouts || '/' || rooms_released order by listing_id)
    from public.analytics_checkouts_by_property(pg_temp.m(), pg_temp.e())),
-  array['Prague flat 1/0', 'Almaty flat 1/0', 'House 1/2']);
+  array['Prague flat 1/1', 'Almaty flat 1/1', 'House 1/2']);
 select pg_temp.check('and the occupancy of each listing over ten days',
   (select array_agg(listing_name || ' ' || occupied_nights || '/' || available_nights order by listing_id)
    from public.analytics_checkouts_by_property(pg_temp.m(), pg_temp.m() + 9)),
@@ -445,6 +448,136 @@ select pg_temp.check('tasks by technician: repairs done, tasks resolved, mean mi
   (select array_agg(full_name || ' ' || repairs_done || '/' || problems_resolved || '/' || work_minutes_avg)
    from public.analytics_problems_by_technician(pg_temp.m(), pg_temp.e())),
   array['Tomas 2/2/45.0']);
+reset role;
+
+-- ---------------------------------------------------------------------------
+--  The archive: tasks a manager put away, a listing taken out of work
+-- ---------------------------------------------------------------------------
+
+-- A task in the archive is a task of its period only if it was resolved
+-- before it was put away; one closed without a resolution — cancelled, a
+-- duplicate, a test put away while open — is no task at all, not even in the
+-- open count of an earlier day.
+select set_config('request.jwt.claims', '{}', true);
+insert into public.problems (id, host_id, reported_by, title, property_id, priority, status,
+                             created_at, resolved_at, cancelled_at, archived_at)
+values
+  -- Resolved, then put away: counts.
+  ('b5505001-0000-4000-8000-000000000007', 'b5500000-0000-4000-8000-00000000000a', pg_temp.anna(),
+   'Tap', 900055001, 'high', 'resolved',
+   pg_temp.at(pg_temp.m() + 4, '09:00', 'Europe/Prague'),
+   pg_temp.at(pg_temp.m() + 5, '09:00', 'Europe/Prague'), null,
+   pg_temp.at(pg_temp.m() + 6, '09:00', 'Europe/Prague')),
+  -- A duplicate, cancelled and put away.
+  ('b5505001-0000-4000-8000-000000000008', 'b5500000-0000-4000-8000-00000000000a', pg_temp.anna(),
+   'Tap again', 900055001, 'low', 'cancelled',
+   pg_temp.at(pg_temp.m() + 4, '10:00', 'Europe/Prague'), null,
+   pg_temp.at(pg_temp.m() + 4, '11:00', 'Europe/Prague'),
+   pg_temp.at(pg_temp.m() + 4, '12:00', 'Europe/Prague')),
+  -- A test report put away while still open.
+  ('b5505001-0000-4000-8000-000000000009', 'b5500000-0000-4000-8000-00000000000a', pg_temp.anna(),
+   'Test', 900055001, 'low', 'open',
+   pg_temp.at(pg_temp.m() + 4, '10:00', 'Europe/Prague'), null, null,
+   pg_temp.at(pg_temp.m() + 5, '10:00', 'Europe/Prague')),
+  -- Put away first, marked resolved only after: not resolved before the archive.
+  ('b5505001-0000-4000-8000-000000000010', 'b5500000-0000-4000-8000-00000000000a', pg_temp.anna(),
+   'Late', 900055001, 'normal', 'resolved',
+   pg_temp.at(pg_temp.m() + 4, '10:00', 'Europe/Prague'),
+   pg_temp.at(pg_temp.m() + 7, '10:00', 'Europe/Prague'), null,
+   pg_temp.at(pg_temp.m() + 5, '10:00', 'Europe/Prague'));
+
+select pg_temp.as_boss();
+select pg_temp.check('the archive: the task resolved before it was put away counts, the rest do not',
+  array[(pg_temp.cur()->>'problems_created')::int, (pg_temp.cur()->>'problems_resolved')::int,
+        (pg_temp.cur()->>'problems_open')::int],
+  array[4, 3, 2]);
+select pg_temp.check('and their urgency: high, low, normal and the resolved high one',
+  (pg_temp.cur()->>'urgency_avg')::numeric, 2.25);
+select pg_temp.check('open at the end of M + 4: not the test put away the day after',
+  (pg_temp.summary(pg_temp.m() + 4, pg_temp.m() + 4)->>'problems_open')::int, 3);
+select pg_temp.check('nor in the table by listing',
+  (select created || '/' || resolved || '/' || open_end
+   from public.analytics_problems_by_property(pg_temp.m(), pg_temp.e()) where listing_id = 900055001),
+  '2/2/1');
+reset role;
+
+-- A flat taken out of work: its checkout, cleaning and task stay in the
+-- figures unless the manager hides the archive. Its occupancy stays out either
+-- way — when it was in work is not recorded, and a whole period of empty
+-- nights would be a lie.
+insert into public.properties (id, host_id, name, timezone) values
+  (900055003, 'b5500000-0000-4000-8000-00000000000a', 'Old flat', 'Europe/Prague');
+insert into public.reservations
+  (id, host_id, property_id, arrival_date, departure_date, status, is_block, guest_name, check_out_time)
+values
+  (900055110, 'b5500000-0000-4000-8000-00000000000a', 900055003,
+   pg_temp.m() + 5, pg_temp.m() + 6, 'new', false, 'Guest', '10:00');
+insert into public.tasks (id, host_id, property_id, type, status, scheduled_date, assignee_id,
+                          started_at, completed_at, completed_by)
+values
+  ('b5504001-0000-4000-8000-000000000010', 'b5500000-0000-4000-8000-00000000000a', 900055003,
+   'cleaning', 'done', pg_temp.m() + 6, pg_temp.petra(),
+   pg_temp.at(pg_temp.m() + 6, '12:00', 'Europe/Prague') - interval '60 minutes',
+   pg_temp.at(pg_temp.m() + 6, '12:00', 'Europe/Prague'), pg_temp.petra());
+insert into public.problems (id, host_id, reported_by, title, property_id, priority, status, created_at)
+values
+  ('b5505001-0000-4000-8000-000000000011', 'b5500000-0000-4000-8000-00000000000a', pg_temp.petra(),
+   'Boiler', 900055003, 'normal', 'open', pg_temp.at(pg_temp.m() + 6, '09:00', 'Europe/Prague'));
+update public.properties set status = 'archived' where id = 900055003;
+
+select pg_temp.as_boss();
+select pg_temp.check('an archived flat counts: its checkout, its room, its cleaning, its task',
+  (select array[(s->>'checkouts')::int, (s->>'rooms_released')::int, (s->>'cleanings_done')::int,
+                (s->>'problems_created')::int, (s->>'problems_open')::int]
+   from pg_temp.cur() s),
+  array[4, 5, 6, 5, 3]);
+select pg_temp.check('the same with the archive asked for in so many words (null is "not hidden")',
+  (select array[(s->>'checkouts')::int, (s->>'cleanings_done')::int]
+   from public.analytics_summary(pg_temp.m(), pg_temp.e(), p_hide_archived => null) s),
+  array[4, 6]);
+select pg_temp.check('the archive hidden: the flat is gone, the task with no listing stays',
+  (select array[(s->>'checkouts')::int, (s->>'rooms_released')::int, (s->>'cleanings_done')::int,
+                (s->>'problems_created')::int, (s->>'problems_resolved')::int,
+                (s->>'problems_open')::int]
+   from public.analytics_summary(pg_temp.m(), pg_temp.e(), p_hide_archived => true) s),
+  array[3, 4, 5, 4, 3, 2]);
+select pg_temp.check('its occupancy stays out, hidden or not',
+  (select array[(s->>'occupied_nights')::numeric, (s->>'available_nights')::numeric]
+   from pg_temp.summary(pg_temp.m(), pg_temp.m() + 9) s),
+  array[6, 40]::numeric[]);
+select pg_temp.check('in the checkouts table: its checkout and room, no occupancy',
+  (select listing_name || ' ' || checkouts || '/' || rooms_released || '/' || available_nights
+          || '/' || coalesce(occupancy::text, '-')
+   from public.analytics_checkouts_by_property(pg_temp.m(), pg_temp.e()) where listing_id = 900055003),
+  'Old flat 1/1/0/-');
+select pg_temp.check('every table hides it when asked',
+  (select array[
+     (select count(*)::int from public.analytics_cleanings_by_property(pg_temp.m(), pg_temp.e(),
+        p_hide_archived => true) where listing_id = 900055003),
+     (select count(*)::int from public.analytics_checkouts_by_property(pg_temp.m(), pg_temp.e(),
+        p_hide_archived => true) where listing_id = 900055003),
+     (select count(*)::int from public.analytics_problems_by_property(pg_temp.m(), pg_temp.e(),
+        p_hide_archived => true) where listing_id = 900055003),
+     (select count(*)::int from public.analytics_problems_by_property(pg_temp.m(), pg_temp.e(),
+        p_hide_archived => true) where listing_id is null)]),
+  array[0, 0, 0, 1]);
+select pg_temp.check('the people tables hide its work too',
+  (select array[
+     (select done from public.analytics_cleanings_by_cleaner(pg_temp.m(), pg_temp.e())
+      where person_id = pg_temp.petra()),
+     (select done from public.analytics_cleanings_by_cleaner(pg_temp.m(), pg_temp.e(),
+        p_hide_archived => true) where person_id = pg_temp.petra()),
+     (select count(*)::int from public.analytics_problems_by_technician(pg_temp.m(), pg_temp.e(),
+        p_hide_archived => true))]),
+  array[2, 1, 1]);
+select pg_temp.check('the series follows the summary, with the archive and without it',
+  (select array[sum(cleanings_done)::int, sum(checkouts)::int, sum(problems_created)::int,
+                sum(problems_resolved)::int]
+   from public.analytics_series(pg_temp.m(), pg_temp.e())) ||
+  (select array[sum(cleanings_done)::int, sum(checkouts)::int, sum(problems_created)::int,
+                sum(problems_resolved)::int]
+   from public.analytics_series(pg_temp.m(), pg_temp.e(), p_hide_archived => true)),
+  array[6, 4, 5, 3, 5, 3, 4, 3]);
 reset role;
 
 -- ---------------------------------------------------------------------------

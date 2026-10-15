@@ -10,6 +10,9 @@
 -- - analytics_summary gains problems_by_priority: the tasks created in the
 --   period, low / normal / high — the bar a manager clicks to filter by
 --   urgency. The rest of its body is 20261015110000's, unchanged.
+--
+-- - Both take p_hide_archived, as every function of 20261015110000 does:
+--   true leaves the archived listings out, null leaves everything in.
 
 create or replace function public.analytics_summary(
   p_from              date,
@@ -19,7 +22,8 @@ create or replace function public.analytics_summary(
   p_task_statuses     public.task_status[] default null,
   p_problem_statuses  public.problem_status[] default null,
   p_priorities        public.problem_priority[] default null,
-  p_include_test      boolean default false
+  p_include_test      boolean default false,
+  p_hide_archived     boolean default null
 )
 returns jsonb
 language plpgsql
@@ -51,11 +55,11 @@ begin
       as minutes_avg
   into v_cleanings
   from public.analytics_cleaning_rows(v_host, p_from, p_to, p_property_ids, p_assignee_ids,
-                                      p_task_statuses, p_include_test) c;
+                                      p_task_statuses, p_include_test, p_hide_archived) c;
 
   select count(*) as checkouts, coalesce(sum(k.rooms), 0) as rooms
   into v_checkouts
-  from public.analytics_checkout_rows(v_host, p_from, p_to, p_property_ids, p_include_test) k;
+  from public.analytics_checkout_rows(v_host, p_from, p_to, p_property_ids, p_include_test, p_hide_archived) k;
 
   select coalesce(sum(o.occupied_nights), 0) as occupied,
          coalesce(sum(o.available_nights), 0) as available
@@ -76,7 +80,7 @@ begin
     count(*) filter (where pr.created_day between p_from and p_to and pr.urgency = 3) as created_high
   into v_problems
   from public.analytics_problem_rows(v_host, p_from, p_to, p_property_ids, p_assignee_ids,
-                                     p_problem_statuses, p_priorities, p_include_test) pr;
+                                     p_problem_statuses, p_priorities, p_include_test, p_hide_archived) pr;
 
   return jsonb_build_object(
     'cleanings_done', v_cleanings.done,
@@ -113,7 +117,8 @@ create or replace function public.analytics_series(
   p_task_statuses     public.task_status[] default null,
   p_problem_statuses  public.problem_status[] default null,
   p_priorities        public.problem_priority[] default null,
-  p_include_test      boolean default false
+  p_include_test      boolean default false,
+  p_hide_archived     boolean default null
 )
 returns table (
   bucket             date,
@@ -147,7 +152,7 @@ begin
   ),
   c as (
     select * from public.analytics_cleaning_rows(v_host, p_from, p_to, p_property_ids,
-                                                 p_assignee_ids, p_task_statuses, p_include_test)
+                                                 p_assignee_ids, p_task_statuses, p_include_test, p_hide_archived)
   ),
   done_d as (
     select c.done_day as day, count(*) as n from c where c.status = 'done' group by c.done_day
@@ -160,13 +165,13 @@ begin
   ),
   checkouts_d as (
     select k.departure_date as day, count(*) as n
-    from public.analytics_checkout_rows(v_host, p_from, p_to, p_property_ids, p_include_test) k
+    from public.analytics_checkout_rows(v_host, p_from, p_to, p_property_ids, p_include_test, p_hide_archived) k
     group by k.departure_date
   ),
   pr as (
     select * from public.analytics_problem_rows(v_host, p_from, p_to, p_property_ids,
                                                 p_assignee_ids, p_problem_statuses, p_priorities,
-                                                p_include_test)
+                                                p_include_test, p_hide_archived)
   ),
   created_d as (
     select pr.created_day as day, count(*) as n from pr group by pr.created_day
@@ -194,13 +199,13 @@ $$;
 
 comment on function public.analytics_series(date, date, text, bigint[], uuid[], public.task_status[],
                                             public.problem_status[], public.problem_priority[],
-                                            boolean) is
+                                            boolean, boolean) is
   'The figures of the Analytics page day by day or week by week, for the manager '
   '(20261015120000).';
 
 revoke all on function public.analytics_series(date, date, text, bigint[], uuid[],
-  public.task_status[], public.problem_status[], public.problem_priority[], boolean)
+  public.task_status[], public.problem_status[], public.problem_priority[], boolean, boolean)
   from public, anon;
 grant execute on function public.analytics_series(date, date, text, bigint[], uuid[],
-  public.task_status[], public.problem_status[], public.problem_priority[], boolean)
+  public.task_status[], public.problem_status[], public.problem_priority[], boolean, boolean)
   to authenticated;
