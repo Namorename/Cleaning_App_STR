@@ -1,6 +1,5 @@
 'use client';
 
-import { Constants } from '@str-ops/shared';
 import { useTranslation } from 'react-i18next';
 
 import { ErrorState } from '@/components/states';
@@ -9,17 +8,21 @@ import { formatDay, formatShortDay } from '@/lib/format-date';
 import { useLanguage } from '@/lib/use-language';
 
 import type { AnalyticsAddress } from './address';
-import { BarList, type BarItem } from './charts/bar-list';
+import {
+  chartQueries,
+  cleanerBars,
+  listingBars,
+  seriesBucket,
+  TOP_PAGE,
+  urgencyBars,
+  urgencySummary,
+} from './chart-data';
+import { BarList } from './charts/bar-list';
 import { ColumnChart, type ColumnPoint, type ColumnSeries } from './charts/column-chart';
-import { formatNumber, personLabel } from './format';
-import { periodDays, type Period } from './period';
+import { formatNumber } from './format';
+import type { Period } from './period';
 import type { AnalyticsFilters, AnalyticsQuery, SeriesBucket, SeriesPoint, Summary } from './schema';
 import { useAnalyticsSeries, useAnalyticsSummary, useAnalyticsTable } from './use-analytics';
-
-/** Longer than this, the columns are weeks: a day apiece would be too thin to click. */
-const DAYS_BY_DAY = 60;
-/** The bars of a "by listing" or "by cleaner" chart: the busiest, the table has the rest. */
-const TOP_BARS = 8;
 
 const KEY = 'panel.analytics.charts.';
 
@@ -52,17 +55,12 @@ interface AnalyticsChartsProps {
 export function AnalyticsCharts({ address, query, period, summary, onChange }: AnalyticsChartsProps) {
   const { t } = useTranslation();
   const language = useLanguage();
-  const bucket: SeriesBucket = periodDays(period) > DAYS_BY_DAY ? 'week' : 'day';
+  const bucket: SeriesBucket = seriesBucket(period);
   const series = useAnalyticsSeries(query, bucket);
-  const top = { limit: TOP_BARS, offset: 0 };
-  // A bar list is not filtered by its own bars: the others stay to be added.
-  const without = (part: Partial<AnalyticsFilters>): AnalyticsQuery => ({
-    ...query,
-    filters: { ...query.filters, ...part },
-  });
-  const byListing = useAnalyticsTable('cleaningsByProperty', without({ propertyIds: [] }), top);
-  const byCleaner = useAnalyticsTable('cleaningsByCleaner', without({ personIds: [] }), top);
-  const byUrgency = useAnalyticsSummary(without({ priorities: [] }));
+  const queries = chartQueries(query);
+  const byListing = useAnalyticsTable('cleaningsByProperty', queries.byListing, TOP_PAGE);
+  const byCleaner = useAnalyticsTable('cleaningsByCleaner', queries.byCleaner, TOP_PAGE);
+  const byUrgency = useAnalyticsSummary(queries.byUrgency);
 
   const setFilters = (filters: AnalyticsFilters) => onChange({ ...address, filters });
 
@@ -104,32 +102,13 @@ export function AnalyticsCharts({ address, query, period, summary, onChange }: A
   const named = (names: readonly ColumnSeries[]) =>
     names.map((one) => ({ ...one, name: t(`${KEY}${one.name}`) }));
 
-  const listingBars: BarItem[] = (byListing.data?.rows ?? [])
-    .filter((row) => row.done > 0)
-    .map((row) => ({
-      id: String(row.listing_id),
-      label: row.listing_name,
-      value: row.done,
-      valueText: formatNumber(row.done, language),
-    }));
-  const cleanerBars: BarItem[] = (byCleaner.data?.rows ?? [])
-    .filter((row) => row.done > 0)
-    .map((row) => ({
-      id: row.person_id,
-      label: personLabel(row.full_name, address.names),
-      value: row.done,
-      valueText: formatNumber(row.done, language),
-    }));
-  const urgency: Summary | undefined = address.filters.priorities.length === 0 ? summary : byUrgency.data;
-  const urgencyBars: BarItem[] =
-    urgency === undefined
-      ? []
-      : Constants.public.Enums.problem_priority.map((priority) => ({
-          id: priority,
-          label: t(`problems.priorities.${priority}`),
-          value: urgency.problems_by_priority[priority],
-          valueText: formatNumber(urgency.problems_by_priority[priority], language),
-        }));
+  const listingItems = listingBars(byListing.data?.rows ?? [], language);
+  const cleanerItems = cleanerBars(byCleaner.data?.rows ?? [], address.names, language);
+  const urgencyItems = urgencyBars(
+    urgencySummary(address.filters, summary, byUrgency.data),
+    (key, values) => t(key, values),
+    language,
+  );
 
   return (
     <div className="flex flex-col gap-3">
@@ -156,7 +135,7 @@ export function AnalyticsCharts({ address, query, period, summary, onChange }: A
         <BarList
           title={t(`${KEY}byListing`)}
           status={status(byListing)}
-          items={listingBars}
+          items={listingItems}
           selected={address.filters.propertyIds.map(String)}
           onToggle={(id) =>
             setFilters({ ...address.filters, propertyIds: toggled(address.filters.propertyIds, Number(id)) })
@@ -166,7 +145,7 @@ export function AnalyticsCharts({ address, query, period, summary, onChange }: A
         <BarList
           title={t(`${KEY}byCleaner`)}
           status={status(byCleaner)}
-          items={cleanerBars}
+          items={cleanerItems}
           selected={address.filters.personIds}
           onToggle={(id) =>
             setFilters({ ...address.filters, personIds: toggled(address.filters.personIds, id) })
@@ -175,7 +154,7 @@ export function AnalyticsCharts({ address, query, period, summary, onChange }: A
         />
         <BarList
           title={t(`${KEY}byUrgency`)}
-          items={urgencyBars}
+          items={urgencyItems}
           selected={address.filters.priorities}
           onToggle={(id) =>
             setFilters({
