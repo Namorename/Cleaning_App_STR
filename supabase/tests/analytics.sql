@@ -462,12 +462,12 @@ select set_config('request.jwt.claims', '{}', true);
 insert into public.problems (id, host_id, reported_by, title, property_id, priority, status,
                              created_at, resolved_at, cancelled_at, archived_at)
 values
-  -- Resolved, then put away: counts.
+  -- Resolved, then put away the same moment (the edge of "before"): counts.
   ('b5505001-0000-4000-8000-000000000007', 'b5500000-0000-4000-8000-00000000000a', pg_temp.anna(),
    'Tap', 900055001, 'high', 'resolved',
    pg_temp.at(pg_temp.m() + 4, '09:00', 'Europe/Prague'),
    pg_temp.at(pg_temp.m() + 5, '09:00', 'Europe/Prague'), null,
-   pg_temp.at(pg_temp.m() + 6, '09:00', 'Europe/Prague')),
+   pg_temp.at(pg_temp.m() + 5, '09:00', 'Europe/Prague')),
   -- A duplicate, cancelled and put away.
   ('b5505001-0000-4000-8000-000000000008', 'b5500000-0000-4000-8000-00000000000a', pg_temp.anna(),
    'Tap again', 900055001, 'low', 'cancelled',
@@ -485,8 +485,22 @@ values
    pg_temp.at(pg_temp.m() + 4, '10:00', 'Europe/Prague'),
    pg_temp.at(pg_temp.m() + 7, '10:00', 'Europe/Prague'), null,
    pg_temp.at(pg_temp.m() + 5, '10:00', 'Europe/Prague'));
+-- A repair done on the duplicate before it was put away: no work of a task.
+insert into public.tasks (id, host_id, property_id, type, status, scheduled_date, assignee_id,
+                          started_at, completed_at, completed_by, problem_id)
+values
+  ('b5504002-0000-4000-8000-000000000008', 'b5500000-0000-4000-8000-00000000000a', 900055001,
+   'maintenance', 'done', pg_temp.m() + 4, pg_temp.tomas(),
+   pg_temp.at(pg_temp.m() + 4, '10:15', 'Europe/Prague'),
+   pg_temp.at(pg_temp.m() + 4, '10:45', 'Europe/Prague'), pg_temp.tomas(),
+   'b5505001-0000-4000-8000-000000000008');
 
 select pg_temp.as_boss();
+select pg_temp.check('a repair of a task put away unresolved is not counted for the technician',
+  (select repairs_done || '/' || problems_resolved
+   from public.analytics_problems_by_technician(pg_temp.m(), pg_temp.e())
+   where person_id = pg_temp.tomas()),
+  '2/2');
 select pg_temp.check('the archive: the task resolved before it was put away counts, the rest do not',
   array[(pg_temp.cur()->>'problems_created')::int, (pg_temp.cur()->>'problems_resolved')::int,
         (pg_temp.cur()->>'problems_open')::int],
@@ -523,6 +537,11 @@ insert into public.problems (id, host_id, reported_by, title, property_id, prior
 values
   ('b5505001-0000-4000-8000-000000000011', 'b5500000-0000-4000-8000-00000000000a', pg_temp.petra(),
    'Boiler', 900055003, 'normal', 'open', pg_temp.at(pg_temp.m() + 6, '09:00', 'Europe/Prague'));
+-- Its repair, given to Tomas and still open.
+insert into public.tasks (id, host_id, property_id, type, status, scheduled_date, assignee_id, problem_id)
+values
+  ('b5504002-0000-4000-8000-000000000011', 'b5500000-0000-4000-8000-00000000000a', 900055003,
+   'maintenance', 'assigned', pg_temp.m() + 7, pg_temp.tomas(), 'b5505001-0000-4000-8000-000000000011');
 update public.properties set status = 'archived' where id = 900055003;
 
 select pg_temp.as_boss();
@@ -578,6 +597,33 @@ select pg_temp.check('the series follows the summary, with the archive and witho
                 sum(problems_resolved)::int]
    from public.analytics_series(pg_temp.m(), pg_temp.e(), p_hide_archived => true)),
   array[6, 4, 5, 3, 5, 3, 4, 3]);
+reset role;
+
+-- The technicians' "open now" means now, whatever the period: a repair still
+-- open on a task reported today counts in last month's table too.
+select set_config('request.jwt.claims', '{}', true);
+insert into public.problems (id, host_id, reported_by, title, property_id, priority, status, created_at)
+values
+  ('b5505001-0000-4000-8000-000000000012', 'b5500000-0000-4000-8000-00000000000a', pg_temp.anna(),
+   'Window', 900055001, 'normal', 'open', now());
+insert into public.tasks (id, host_id, property_id, type, status, scheduled_date, assignee_id, problem_id)
+values
+  ('b5504002-0000-4000-8000-000000000012', 'b5500000-0000-4000-8000-00000000000a', 900055001,
+   'maintenance', 'assigned', current_date, pg_temp.tomas(), 'b5505001-0000-4000-8000-000000000012');
+
+select pg_temp.as_boss();
+select pg_temp.check('open now: the Boiler repair and today''s, in last month''s table',
+  (select repairs_done || '/' || repairs_open
+   from public.analytics_problems_by_technician(pg_temp.m(), pg_temp.e())
+   where person_id = pg_temp.tomas()),
+  '2/2');
+select pg_temp.check('the archive hidden: the Boiler repair is not open work any more',
+  (select repairs_done || '/' || repairs_open
+   from public.analytics_problems_by_technician(pg_temp.m(), pg_temp.e(), p_hide_archived => true)
+   where person_id = pg_temp.tomas()),
+  '2/1');
+select pg_temp.check('today''s task is still not a task of last month',
+  (pg_temp.cur()->>'problems_created')::int, 5);
 reset role;
 
 -- ---------------------------------------------------------------------------

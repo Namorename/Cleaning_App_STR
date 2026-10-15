@@ -1984,8 +1984,8 @@ export type Database = {
       analytics_checkout_rows: {
         Args: {
           p_from: string
-          p_host: string
           p_hide_archived: boolean
+          p_host: string
           p_include_test: boolean
           p_property_ids: number[]
           p_to: string
@@ -2026,8 +2026,8 @@ export type Database = {
         Args: {
           p_assignee_ids: string[]
           p_from: string
-          p_host: string
           p_hide_archived: boolean
+          p_host: string
           p_include_test: boolean
           p_property_ids: number[]
           p_task_statuses: Database["public"]["Enums"]["task_status"][]
@@ -2124,8 +2124,8 @@ export type Database = {
         Args: {
           p_assignee_ids: string[]
           p_from: string
-          p_host: string
           p_hide_archived: boolean
+          p_host: string
           p_include_test: boolean
           p_priorities: Database["public"]["Enums"]["problem_priority"][]
           p_problem_statuses: Database["public"]["Enums"]["problem_status"][]

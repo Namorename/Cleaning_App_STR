@@ -30,6 +30,9 @@
 --   set). The demo listings — ids 900000000000–999999999999, the band of the
 --   App Store demo — stay out unless p_include_test is true.
 --
+-- - The technicians' repairs_open is the work open now, whatever the period
+--   (owner, 2026-10-15); every other figure belongs to the period.
+--
 -- - The archive (owner, 2026-10-15). A task the manager put away
 --   (archive_problem: the panel's «delete», nothing is deleted) counts only if
 --   it was resolved before it was put away; one closed without a resolution —
@@ -732,10 +735,14 @@ declare
   v_host uuid := public.analytics_guard(p_from, p_to);
 begin
   return query
+  -- The tasks up to today, not to the end of the period: repairs_open is the
+  -- work open now (owner, 2026-10-15), and a task reported after the period
+  -- may hold some. The other figures count repairs done in the period, which
+  -- only a task made by then can have.
   with pr as (
-    select * from public.analytics_problem_rows(v_host, p_from, p_to, p_property_ids,
-                                                p_assignee_ids, p_problem_statuses, p_priorities,
-                                                p_include_test, p_hide_archived)
+    select * from public.analytics_problem_rows(v_host, p_from, greatest(p_to, current_date),
+                                                p_property_ids, p_assignee_ids, p_problem_statuses,
+                                                p_priorities, p_include_test, p_hide_archived)
   ),
   rep as (
     select coalesce(t.completed_by, t.assignee_id) as person_id,
