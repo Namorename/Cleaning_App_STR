@@ -56,7 +56,14 @@ describe('readAnalyticsAddress', () => {
       taskStatuses: ['done'],
       problemStatuses: ['open'],
       priorities: ['high', 'low'],
+      hideArchived: false,
     });
+  });
+
+  it('shows the archived listings unless the address hides them', () => {
+    expect(read('').filters.hideArchived).toBe(false);
+    expect(read('arch=1').filters.hideArchived).toBe(true);
+    expect(read('arch=yes').filters.hideArchived).toBe(false);
   });
 });
 
@@ -73,11 +80,16 @@ describe('writeAnalyticsAddress', () => {
       compare: false,
       names: 'initials' as const,
       table: 'checkoutsByProperty' as const,
-      filters: { ...DEFAULT_ANALYTICS_ADDRESS.filters, propertyIds: [12], priorities: ['high' as const] },
+      filters: {
+        ...DEFAULT_ANALYTICS_ADDRESS.filters,
+        propertyIds: [12],
+        priorities: ['high' as const],
+        hideArchived: true,
+      },
     };
     const query = writeAnalyticsAddress(address);
     expect(query).toBe(
-      'from=2026-09-01&to=2026-09-15&cmp=0&names=initials&tab=checkoutsByProperty&prop=12&urg=high',
+      'from=2026-09-01&to=2026-09-15&cmp=0&names=initials&tab=checkoutsByProperty&prop=12&urg=high&arch=1',
     );
     expect(read(query)).toEqual(address);
   });

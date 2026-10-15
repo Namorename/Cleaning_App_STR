@@ -4,7 +4,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { useSupabase } from '@/lib/supabase/use-client';
 
-import { fetchSeries, fetchSummary, fetchTablePage } from './api';
+import { fetchListings, fetchSeries, fetchSummary, fetchTablePage } from './api';
 import { analyticsKeys } from './keys';
 import type { AnalyticsQuery, AnalyticsTable, SeriesBucket, TablePage } from './schema';
 
@@ -21,6 +21,16 @@ export function useAnalyticsSummary(query: AnalyticsQuery | null) {
     queryKey: query === null ? analyticsKeys.all : analyticsKeys.summary(query),
     queryFn: () => fetchSummary(client, query as AnalyticsQuery),
     enabled: query !== null,
+    staleTime: STALE_MS,
+  });
+}
+
+/** Every listing for the filter, the archived ones too. */
+export function useAnalyticsListings() {
+  const client = useSupabase();
+  return useQuery({
+    queryKey: analyticsKeys.listings(),
+    queryFn: () => fetchListings(client),
     staleTime: STALE_MS,
   });
 }

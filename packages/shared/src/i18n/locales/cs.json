@@ -312,7 +312,7 @@
         "urgencyAvg": "Průměrná naléhavost",
         "hoursToResolveAvg": "Průměrná doba vyřešení, h",
         "repairsDone": "Hotové práce",
-        "repairsOpen": "Rozpracované práce",
+        "repairsOpen": "Nyní otevřeno",
         "problemsResolved": "Vyřešené úkoly",
         "workMinutesAvg": "Průměrná práce, min"
       },
@@ -343,7 +343,10 @@
         "taskStatus": "Stav úkolu",
         "urgency": "Naléhavost",
         "remove": "Zrušit filtr: {{name}}",
-        "clear": "Zrušit všechny filtry"
+        "clear": "Zrušit všechny filtry",
+        "hideArchived": "Skrýt archivované",
+        "formerEmployee": "Bývalý zaměstnanec",
+        "archivedListing": "{{name}} (v archivu)"
       },
       "charts": {
         "dynamics": "Úklidy a odjezdy",

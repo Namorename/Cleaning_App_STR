@@ -312,7 +312,7 @@
         "urgencyAvg": "Средняя срочность",
         "hoursToResolveAvg": "Среднее время решения, ч",
         "repairsDone": "Работ выполнено",
-        "repairsOpen": "Работ в процессе",
+        "repairsOpen": "Сейчас открыто",
         "problemsResolved": "Заданий решено",
         "workMinutesAvg": "Средняя работа, мин"
       },
@@ -343,7 +343,10 @@
         "taskStatus": "Статус задания",
         "urgency": "Срочность",
         "remove": "Снять фильтр: {{name}}",
-        "clear": "Сбросить все фильтры"
+        "clear": "Сбросить все фильтры",
+        "hideArchived": "Скрыть архивные",
+        "formerEmployee": "Бывший сотрудник",
+        "archivedListing": "{{name}} (в архиве)"
       },
       "charts": {
         "dynamics": "Уборки и чекауты",

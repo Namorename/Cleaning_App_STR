@@ -1,6 +1,20 @@
 import { describe, expect, it } from 'vitest';
 
+import { i18n } from '@/lib/i18n';
+
 import { COLUMNS, exportFileName, exportRows, type ColumnContext } from '../columns';
+
+describe('the technicians table', () => {
+  // repairs_open is counted now, not at the end of the period (owner, 2026-10-15).
+  it('says its open repairs are the ones open now, in every language', () => {
+    const header = (language: string) => i18n.getFixedT(language)('panel.analytics.columns.repairsOpen');
+    expect([header('en'), header('cs'), header('ru')]).toEqual([
+      'Open now',
+      'Nyní otevřeno',
+      'Сейчас открыто',
+    ]);
+  });
+});
 
 const context = (names: ColumnContext['names'] = 'full'): ColumnContext => ({
   language: 'en',

@@ -55,6 +55,7 @@ const PARAM = {
   taskStatuses: 'st',
   problemStatuses: 'pst',
   priorities: 'urg',
+  hideArchived: 'arch',
 } as const;
 
 const presetSchema = z.enum(PERIOD_PRESETS);
@@ -110,6 +111,7 @@ export function readAnalyticsAddress(params: URLSearchParams): AnalyticsAddress 
       taskStatuses: listOf<TaskStatus>(params.get(PARAM.taskStatuses), taskStatusSchema),
       problemStatuses: listOf<ProblemStatus>(params.get(PARAM.problemStatuses), problemStatusSchema),
       priorities: listOf<ProblemPriority>(params.get(PARAM.priorities), prioritySchema),
+      hideArchived: params.get(PARAM.hideArchived) === '1',
     },
   };
 }
@@ -135,6 +137,7 @@ export function writeAnalyticsAddress(address: AnalyticsAddress): string {
     [PARAM.taskStatuses, filters.taskStatuses.join(',')],
     [PARAM.problemStatuses, filters.problemStatuses.join(',')],
     [PARAM.priorities, filters.priorities.join(',')],
+    [PARAM.hideArchived, filters.hideArchived ? '1' : ''],
   ];
   // URLSearchParams' own encoding: useAddressState matches its echo by it.
   return new URLSearchParams(entries.filter(([, value]) => value !== '')).toString();

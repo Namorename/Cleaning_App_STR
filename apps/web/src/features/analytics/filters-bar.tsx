@@ -2,7 +2,7 @@
 
 import { Constants } from '@str-ops/shared';
 import { X } from 'lucide-react';
-import { useId } from 'react';
+import { useEffect, useId, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -21,16 +21,66 @@ interface FilterGroupProps {
   onChange: (next: string[]) => void;
 }
 
-/** One filter: a disclosure with a checkbox per value; none ticked means "all". */
+/**
+ * One filter: a disclosure with a checkbox per value; none ticked means "all".
+ * It closes on Escape (the focus goes back to its button) and on a press
+ * anywhere outside it, so opening the next filter closes this one.
+ */
 function FilterGroup({ label, options, selected, onChange }: FilterGroupProps) {
   const id = useId();
+  const [isOpen, setIsOpen] = useState(false);
+  const root = useRef<HTMLDetailsElement>(null);
+  const button = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+    const closeOutside = (event: Event) => {
+      if (!root.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', closeOutside);
+    return () => document.removeEventListener('pointerdown', closeOutside);
+  }, [isOpen]);
+
+  const closeOnEscape = (event: KeyboardEvent) => {
+    if (event.key === 'Escape' && isOpen) {
+      event.preventDefault();
+      setIsOpen(false);
+      button.current?.focus();
+    }
+  };
+  // The keyboard's way out: the focus moving on to something else. A focus
+  // that just leaves (Safari ticks a checkbox without focusing it) is not one.
+  const closeOnFocusAway = (event: FocusEvent) => {
+    const next = event.relatedTarget as Node | null;
+    if (isOpen && next !== null && !root.current?.contains(next)) {
+      setIsOpen(false);
+    }
+  };
   const toggle = (value: string) =>
     onChange(
       selected.includes(value) ? selected.filter((one) => one !== value) : [...selected, value],
     );
   return (
-    <details className="group relative">
-      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 rounded-lg px-3 text-sm ring-1 ring-foreground/15 hover:bg-muted/60">
+    <details
+      ref={root}
+      open={isOpen}
+      onKeyDown={closeOnEscape}
+      onBlur={closeOnFocusAway}
+      className="group relative"
+    >
+      <summary
+        ref={button}
+        // The page holds the state: the browser's own toggle would undo it.
+        onClick={(event) => {
+          event.preventDefault();
+          setIsOpen((open) => !open);
+        }}
+        className="flex min-h-11 cursor-pointer list-none items-center gap-1 rounded-lg px-3 text-sm ring-1 ring-foreground/15 hover:bg-muted/60"
+      >
         {label}
         {selected.length === 0 ? null : (
           <span className="rounded-full bg-primary px-1.5 text-xs text-primary-foreground">
@@ -63,17 +113,30 @@ function FilterGroup({ label, options, selected, onChange }: FilterGroupProps) {
 
 interface FiltersBarProps {
   filters: AnalyticsFilters;
+  /** The listings the filter offers. */
   listings: readonly FilterOption[];
+  /** Every listing, the archived ones the switch hides too: the names a chip can show. */
+  listingNames: readonly FilterOption[];
+  /** The people the filter offers: those who clean and repair. */
   people: readonly FilterOption[];
+  /** Everyone on the team now, managers too: the names a chip can show; null while loading. */
+  staff: readonly FilterOption[] | null;
   onChange: (next: AnalyticsFilters) => void;
 }
 
 /**
- * The page's filters — listing, person, cleaning status, task status, urgency
- * — and a chip for every value in force, each with its own way out. A chart
- * that is clicked sets the same filters (cross-filter).
+ * The page's filters — listing, person, cleaning status, task status, urgency,
+ * the archived listings — and a chip for every value in force, each with its
+ * own way out. A chart that is clicked sets the same filters (cross-filter).
  */
-export function FiltersBar({ filters, listings, people, onChange }: FiltersBarProps) {
+export function FiltersBar({
+  filters,
+  listings,
+  listingNames,
+  people,
+  staff,
+  onChange,
+}: FiltersBarProps) {
   const { t } = useTranslation();
   const KEY = 'panel.analytics.filters.';
 
@@ -93,12 +156,18 @@ export function FiltersBar({ filters, listings, people, onChange }: FiltersBarPr
   const chips = [
     ...filters.propertyIds.map((value) => ({
       key: `prop-${value}`,
-      label: listings.find((one) => one.id === String(value))?.label ?? String(value),
+      label: listingNames.find((one) => one.id === String(value))?.label ?? String(value),
       remove: () => onChange({ ...filters, propertyIds: filters.propertyIds.filter((v) => v !== value) }),
     })),
     ...filters.personIds.map((value) => ({
       key: `ppl-${value}`,
-      label: people.find((one) => one.id === value)?.label ?? value,
+      // Somebody no longer on the team (a chart still counts her work) is
+      // named as what she is, never by an id.
+      label:
+        people.find((one) => one.id === value)?.label ??
+        staff?.find((one) => one.id === value)?.label ??
+        // Until the team has loaded, nobody can be called a former employee.
+        (staff === null ? t('panel.analytics.charts.loading') : t(`${KEY}formerEmployee`)),
       remove: () => onChange({ ...filters, personIds: filters.personIds.filter((v) => v !== value) }),
     })),
     ...filters.taskStatuses.map((value) => ({
@@ -158,6 +227,15 @@ export function FiltersBar({ filters, listings, people, onChange }: FiltersBarPr
             onChange({ ...filters, priorities: next as AnalyticsFilters['priorities'] })
           }
         />
+        <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-3 text-sm ring-1 ring-foreground/15 hover:bg-muted/60">
+          <input
+            type="checkbox"
+            className="size-4"
+            checked={filters.hideArchived}
+            onChange={() => onChange({ ...filters, hideArchived: !filters.hideArchived })}
+          />
+          {t(`${KEY}hideArchived`)}
+        </label>
       </div>
       {chips.length === 0 ? null : (
         <ul className="flex flex-wrap items-center gap-2">

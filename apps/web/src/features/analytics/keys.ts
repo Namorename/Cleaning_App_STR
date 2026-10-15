@@ -8,4 +8,5 @@ export const analyticsKeys = {
     ['analytics', 'table', table, query, page] as const,
   series: (query: AnalyticsQuery, bucket: SeriesBucket) =>
     ['analytics', 'series', query, bucket] as const,
+  listings: () => ['analytics', 'listings'] as const,
 };

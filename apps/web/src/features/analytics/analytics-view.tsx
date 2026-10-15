@@ -10,7 +10,7 @@ import { publicEnv } from '@/lib/env';
 import { todayIn } from '@/lib/format-date';
 import { useAddressState } from '@/lib/use-address-state';
 
-import { useProperties, useStaff } from '@/features/tasks/use-tasks';
+import { useStaff } from '@/features/tasks/use-tasks';
 
 import { readAnalyticsAddress, resolvePeriod, writeAnalyticsAddress } from './address';
 import { AnalyticsCharts } from './analytics-charts';
@@ -22,7 +22,7 @@ import { isLocalStand } from './local-stand';
 import { PeriodBar } from './period-bar';
 import { previousPeriod } from './period';
 import { ANALYTICS_TABLES, type AnalyticsQuery, type AnalyticsTable as TableName, type Summary } from './schema';
-import { useAnalyticsSummary } from './use-analytics';
+import { useAnalyticsListings, useAnalyticsSummary } from './use-analytics';
 
 /** Nothing was counted: no cleaning, checkout, night or task in the period. */
 export function isEmptySummary(summary: Summary): boolean {
@@ -59,16 +59,28 @@ export function AnalyticsView() {
   const current = useAnalyticsSummary(query);
   const before = useAnalyticsSummary(previousQuery);
 
-  // What the filters offer: the listings (rooms are counted under them) and
-  // the people who clean and repair.
-  const properties = useProperties();
-  const staff = useStaff();
-  const listings = (properties.data ?? [])
-    .filter((property) => property.hostaway_unit_id === null)
-    .map((property) => ({ id: String(property.id), label: property.name }));
-  const people = (staff.data ?? [])
-    .filter((person) => person.role !== 'manager' && person.role !== 'admin')
-    .map((person) => ({ id: person.id, label: personLabel(person.full_name, address.names) }));
+  // What the filters offer: the listings (rooms are counted under them; the
+  // archived ones too, marked, unless the switch hides them) and the people
+  // who clean and repair. A chip names anybody still on the team.
+  const allListings = (useAnalyticsListings().data ?? []).map((listing) => ({
+    id: String(listing.id),
+    isArchived: listing.status === 'archived',
+    label:
+      listing.status === 'archived'
+        ? t('panel.analytics.filters.archivedListing', { name: listing.name })
+        : listing.name,
+  }));
+  const listings = allListings.filter((listing) => !(address.filters.hideArchived && listing.isArchived));
+  const team = useStaff().data;
+  const staff =
+    team === undefined
+      ? null
+      : team.map((person) => ({
+          id: person.id,
+          role: person.role,
+          label: personLabel(person.full_name, address.names),
+        }));
+  const people = (staff ?? []).filter((person) => person.role !== 'manager' && person.role !== 'admin');
 
   return (
     <div className="flex flex-col gap-4">
@@ -85,7 +97,9 @@ export function AnalyticsView() {
       <FiltersBar
         filters={address.filters}
         listings={listings}
+        listingNames={allListings}
         people={people}
+        staff={staff}
         onChange={(filters) => setAddress({ ...address, filters })}
       />
 

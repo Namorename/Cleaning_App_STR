@@ -2,9 +2,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@str-ops/shared';
 
 import {
+  listingSchema,
   seriesPointSchema,
   summarySchema,
   TABLE_SCHEMAS,
+  type Listing,
   type SeriesBucket,
   type SeriesPoint,
   type AnalyticsQuery,
@@ -43,6 +45,7 @@ interface RpcArgs {
   p_task_statuses?: TaskStatus[];
   p_problem_statuses?: ProblemStatus[];
   p_priorities?: ProblemPriority[];
+  p_hide_archived?: boolean;
 }
 
 /** A list that names nothing is "all": left out, so the server's default (null) holds. */
@@ -58,11 +61,29 @@ export function rpcArgs({ period, filters, includeTest }: AnalyticsQuery): RpcAr
     p_task_statuses: some(filters.taskStatuses),
     p_problem_statuses: some(filters.problemStatuses),
     p_priorities: some(filters.priorities),
+    // Off is the server's default (null, nothing hidden): only "on" is said.
+    p_hide_archived: filters.hideArchived ? true : undefined,
   };
   const named = Object.fromEntries(
     Object.entries(optional).filter(([, value]) => value !== undefined),
   ) as Partial<RpcArgs>;
   return { p_from: period.from, p_to: period.to, p_include_test: includeTest, ...named };
+}
+
+/**
+ * Every listing the filter can offer, the archived ones too — the page counts
+ * them unless told to hide them. Rooms are counted under their listing.
+ */
+export async function fetchListings(client: Client): Promise<Listing[]> {
+  const { data, error } = await client
+    .from('properties')
+    .select('id, name, status')
+    .is('hostaway_unit_id', null)
+    .order('name', { ascending: true });
+  if (error) {
+    throw error;
+  }
+  return listingSchema.array().parse(data ?? []);
 }
 
 export async function fetchSummary(client: Client, query: AnalyticsQuery): Promise<Summary> {

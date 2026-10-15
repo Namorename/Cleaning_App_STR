@@ -1,5 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+
+import { i18n, languageFromCookie } from '@/lib/i18n';
 
 import type { AnalyticsQuery, Summary, TableSlice } from '../schema';
 
@@ -63,17 +65,35 @@ const ROW = {
   total_count: 1,
 };
 
-const state: { current: Summary; previous: Summary; table: TableSlice<typeof ROW> } = {
+const state: {
+  current: Summary;
+  previous: Summary;
+  table: TableSlice<typeof ROW>;
+  queries: AnalyticsQuery[];
+} = {
   current: SUMMARY,
   previous: { ...SUMMARY, cleanings_done: 4 },
   table: { rows: [ROW], total: 1 },
+  queries: [],
 };
 
 vi.mock('../use-analytics', () => ({
-  useAnalyticsSummary: (query: AnalyticsQuery | null) => ({
-    data: query === null ? undefined : query.period.to < '2026-10-01' ? state.previous : state.current,
-    isError: false,
-    error: null,
+  useAnalyticsSummary: (query: AnalyticsQuery | null) => {
+    if (query !== null) {
+      state.queries.push(query);
+    }
+    return {
+      data: query === null ? undefined : query.period.to < '2026-10-01' ? state.previous : state.current,
+      isError: false,
+      error: null,
+    };
+  },
+  // Every listing, the archived ones too: the page counts them unless hidden.
+  useAnalyticsListings: () => ({
+    data: [
+      { id: 1, name: 'Old Town flat', status: 'active' },
+      { id: 2, name: 'Gone flat', status: 'archived' },
+    ],
   }),
   useAnalyticsTable: (table: string) => ({
     data:
@@ -136,8 +156,58 @@ beforeEach(() => {
   window.history.replaceState(null, '', '/analytics?p=thisMonth');
   state.current = SUMMARY;
   state.table = { rows: [ROW], total: 1 };
+  state.queries = [];
   fetchWholeTable.mockClear();
   downloadCsv.mockClear();
+});
+
+describe('AnalyticsView in the panel’s own language', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('ru');
+  });
+
+  test('speaks the language the panel opens in without a choice: English', async () => {
+    // What the panel's layout gives the page when no language was picked.
+    await i18n.changeLanguage(languageFromCookie(undefined));
+    render(<AnalyticsView />);
+    expect(screen.getByRole('heading', { name: 'Analytics' })).toBeInTheDocument();
+    const tiles = screen.getByRole('region', { name: 'Key figures' });
+    expect(within(tiles).getByText('Cleanings done')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Hide archived' })).not.toBeChecked();
+  });
+});
+
+describe('AnalyticsView and the archive', () => {
+  test('offers an archived listing by its name, and the switch hides it from the page', () => {
+    render(<AnalyticsView />);
+    fireEvent.click(screen.getByText('Объекты', { selector: 'summary' }));
+    expect(screen.getByRole('checkbox', { name: 'Gone flat (в архиве)' })).toBeInTheDocument();
+    expect(state.queries.every((query) => !query.filters.hideArchived)).toBe(true);
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Скрыть архивные' }));
+    expect(new URLSearchParams(window.location.search).get('arch')).toBe('1');
+    expect(state.queries.at(-1)?.filters.hideArchived).toBe(true);
+    expect(screen.queryByRole('checkbox', { name: 'Gone flat (в архиве)' })).not.toBeInTheDocument();
+  });
+
+  test('a chip for an archived listing names it, hidden by the switch or not', () => {
+    window.history.replaceState(null, '', '/analytics?p=thisMonth&prop=2');
+    const { unmount } = render(<AnalyticsView />);
+    expect(screen.getByRole('button', { name: 'Снять фильтр: Gone flat (в архиве)' })).toBeInTheDocument();
+    unmount();
+
+    window.history.replaceState(null, '', '/analytics?p=thisMonth&prop=2&arch=1');
+    render(<AnalyticsView />);
+    expect(screen.getByRole('button', { name: 'Снять фильтр: Gone flat (в архиве)' })).toBeInTheDocument();
+  });
+
+  test('somebody no longer on the team reads as a former employee, not as an id', () => {
+    const gone = '33333333-3333-4333-8333-333333333333';
+    window.history.replaceState(null, '', `/analytics?p=thisMonth&ppl=${gone}`);
+    render(<AnalyticsView />);
+    expect(screen.getByRole('button', { name: 'Снять фильтр: Бывший сотрудник' })).toBeInTheDocument();
+    expect(screen.queryByText(gone)).not.toBeInTheDocument();
+  });
 });
 
 describe('AnalyticsView', () => {

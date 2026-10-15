@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { fetchSummary, fetchTablePage, fetchWholeTable, rpcArgs, WHOLE_TABLE_PAGE } from '../api';
+import {
+  fetchListings,
+  fetchSummary,
+  fetchTablePage,
+  fetchWholeTable,
+  rpcArgs,
+  WHOLE_TABLE_PAGE,
+} from '../api';
 import { NO_FILTERS, type AnalyticsQuery } from '../schema';
 
 const query: AnalyticsQuery = {
@@ -74,6 +81,7 @@ describe('rpcArgs', () => {
           taskStatuses: ['done'],
           problemStatuses: ['open'],
           priorities: ['high'],
+          hideArchived: false,
         },
       }),
     ).toEqual({
@@ -86,6 +94,50 @@ describe('rpcArgs', () => {
       p_problem_statuses: ['open'],
       p_priorities: ['high'],
     });
+  });
+
+  it('asks to hide the archived listings only when the switch is on', () => {
+    expect(rpcArgs({ ...query, filters: { ...NO_FILTERS, hideArchived: true } })).toEqual({
+      p_from: '2026-10-01',
+      p_to: '2026-10-31',
+      p_include_test: false,
+      p_hide_archived: true,
+    });
+    // Off is the server's default (null): nothing is sent.
+    expect(rpcArgs(query)).not.toHaveProperty('p_hide_archived');
+  });
+});
+
+describe('fetchListings', () => {
+  function clientWith(rows: unknown) {
+    const calls: unknown[][] = [];
+    const chain = {
+      select: (...args: unknown[]) => (calls.push(['select', ...args]), chain),
+      is: (...args: unknown[]) => (calls.push(['is', ...args]), chain),
+      order: async (...args: unknown[]) => (calls.push(['order', ...args]), { data: rows, error: null }),
+    };
+    const from = vi.fn(() => chain);
+    return { client: { from } as never, from, calls };
+  }
+
+  it('reads every listing, the archived ones too, with its status — rooms are not listings', async () => {
+    const rows = [
+      { id: 1, name: 'Old Town flat', status: 'active' },
+      { id: 2, name: 'Gone flat', status: 'archived' },
+    ];
+    const { client, from, calls } = clientWith(rows);
+    await expect(fetchListings(client)).resolves.toEqual(rows);
+    expect(from).toHaveBeenCalledWith('properties');
+    expect(calls).toEqual([
+      ['select', 'id, name, status'],
+      ['is', 'hostaway_unit_id', null],
+      ['order', 'name', { ascending: true }],
+    ]);
+  });
+
+  it('fails on a status it does not know', async () => {
+    const { client } = clientWith([{ id: 1, name: 'Old Town flat', status: 'sold' }]);
+    await expect(fetchListings(client)).rejects.toThrow();
   });
 });
 

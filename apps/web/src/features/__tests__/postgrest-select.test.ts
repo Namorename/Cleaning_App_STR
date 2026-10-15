@@ -89,6 +89,9 @@ const READERS: readonly ((client: never) => Promise<unknown>)[] = [
   // Analytics reads through RPCs: no select string, the arguments are typed.
   (client) => analytics.fetchSummary(client, ANY_QUERY),
   (client) => analytics.fetchTablePage(client, 'cleaningsByProperty', ANY_QUERY, { limit: 25, offset: 0 }),
+  (client) => analytics.fetchSeries(client, ANY_QUERY, 'day'),
+  // The listings the filter offers: a select string, guarded like any other.
+  (client) => analytics.fetchListings(client),
   (client) => apartments.fetchRegistry(client),
   (client) => apartments.fetchProperty(client, ANY_PROPERTY),
   (client) => apartments.fetchOpenCleanings(client),

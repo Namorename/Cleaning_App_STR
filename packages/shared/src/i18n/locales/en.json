@@ -312,7 +312,7 @@
         "urgencyAvg": "Mean urgency",
         "hoursToResolveAvg": "Mean hours to resolve",
         "repairsDone": "Repairs done",
-        "repairsOpen": "Repairs in progress",
+        "repairsOpen": "Open now",
         "problemsResolved": "Tasks resolved",
         "workMinutesAvg": "Mean work, min"
       },
@@ -343,7 +343,10 @@
         "taskStatus": "Task status",
         "urgency": "Urgency",
         "remove": "Remove the filter: {{name}}",
-        "clear": "Clear all filters"
+        "clear": "Clear all filters",
+        "hideArchived": "Hide archived",
+        "formerEmployee": "Former employee",
+        "archivedListing": "{{name}} (archived)"
       },
       "charts": {
         "dynamics": "Cleanings and checkouts",

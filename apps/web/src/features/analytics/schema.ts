@@ -1,4 +1,4 @@
-import type { Database } from '@str-ops/shared';
+import { Constants, type Database } from '@str-ops/shared';
 import { z } from 'zod';
 
 import type { Period } from './period';
@@ -147,6 +147,8 @@ export interface AnalyticsFilters {
   taskStatuses: readonly TaskStatus[];
   problemStatuses: readonly ProblemStatus[];
   priorities: readonly ProblemPriority[];
+  /** The archived listings left out; off by default — they count (owner, 2026-10-15). */
+  hideArchived: boolean;
 }
 
 export const NO_FILTERS: AnalyticsFilters = {
@@ -155,7 +157,16 @@ export const NO_FILTERS: AnalyticsFilters = {
   taskStatuses: [],
   problemStatuses: [],
   priorities: [],
+  hideArchived: false,
 };
+
+/** A listing the filter offers: every one, the archived too (rooms are counted under theirs). */
+export const listingSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  status: z.enum(Constants.public.Enums.property_status),
+});
+export type Listing = z.infer<typeof listingSchema>;
 
 /** One question to the server: a period, the filters, the demo listings or not. */
 export interface AnalyticsQuery {

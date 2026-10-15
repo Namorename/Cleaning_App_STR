@@ -1,6 +1,6 @@
 'use client';
 
-import type { KeyboardEvent } from 'react';
+import { useRef, useState, type KeyboardEvent } from 'react';
 
 import { niceMax, share, ticks } from './geometry';
 
@@ -35,11 +35,31 @@ const BOTTOM = 22;
 /** At least 24 px: the smallest target WCAG 2.5.8 allows. */
 const SLOT = 24;
 
+/** Where an arrow key, Home or End takes the focus from column `at` of `count`. */
+function stepFrom(key: string, at: number, count: number): number | null {
+  switch (key) {
+    case 'ArrowRight':
+      return Math.min(at + 1, count - 1);
+    case 'ArrowLeft':
+      return Math.max(at - 1, 0);
+    case 'Home':
+      return 0;
+    case 'End':
+      return count - 1;
+    default:
+      return null;
+  }
+}
+
 /**
  * Columns by day or by week, the series side by side in each slot. Every
- * slot is a button: a click or Enter narrows the page to that day or week.
+ * slot is a button: a click, Enter or Space narrows the page to that day or
+ * week. The chart is one stop of the Tab key; the arrow keys, Home and End
+ * walk its columns (a roving tab stop), so a month is not thirty Tabs.
  */
 export function ColumnChart({ title, series, points, onSelect }: ColumnChartProps) {
+  const [active, setActive] = useState(0);
+  const slots = useRef<(SVGGElement | null)[]>([]);
   const top = niceMax(Math.max(0, ...points.flatMap((point) => point.values)));
   const width = AXIS + Math.max(points.length, 1) * SLOT;
   const plot = HEIGHT - BOTTOM;
@@ -47,12 +67,25 @@ export function ColumnChart({ title, series, points, onSelect }: ColumnChartProp
   // A label under every n-th column, so they do not run into each other: a
   // short date is wider than one slot.
   const every = points.length <= 3 ? 1 : Math.max(2, Math.ceil(points.length / 10));
+  // New data may bring fewer columns: the stop stays on one that is there.
+  const stop = Math.min(active, Math.max(points.length - 1, 0));
 
-  const pick = (event: KeyboardEvent, key: string) => {
+  const onKey = (event: KeyboardEvent, at: number) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      onSelect(key);
+      onSelect(points[at].key);
+      return;
     }
+    const next = stepFrom(event.key, at, points.length);
+    if (next !== null) {
+      event.preventDefault();
+      setActive(next);
+      slots.current[next]?.focus();
+    }
+  };
+  const onClick = (at: number) => {
+    setActive(at);
+    onSelect(points[at].key);
   };
 
   return (
@@ -83,11 +116,14 @@ export function ColumnChart({ title, series, points, onSelect }: ColumnChartProp
             return (
               <g
                 key={point.key}
+                ref={(element) => {
+                  slots.current[index] = element;
+                }}
                 role="button"
-                tabIndex={0}
+                tabIndex={index === stop ? 0 : -1}
                 aria-label={point.description}
-                onClick={() => onSelect(point.key)}
-                onKeyDown={(event) => pick(event, point.key)}
+                onClick={() => onClick(index)}
+                onKeyDown={(event) => onKey(event, index)}
                 className="group/slot cursor-pointer outline-none"
               >
                 {/* The focus is drawn: a ring around the slot, not a tint. */}
