@@ -17,6 +17,7 @@ import { useStaff } from '@/features/tasks/use-tasks';
 import { readAnalyticsAddress, resolvePeriod, writeAnalyticsAddress } from './address';
 import { AnalyticsCharts } from './analytics-charts';
 import { AnalyticsTable } from './analytics-table';
+import { reportPdfName } from './file-names';
 import { FiltersBar } from './filters-bar';
 import { personLabel } from './format';
 import { KpiTiles } from './kpi-tiles';
@@ -56,6 +57,8 @@ export function AnalyticsView() {
   // who clean and repair. A chip names anybody still on the team.
   const listingsQuery = useAnalyticsListings();
   const listingsRead = listingsQuery.data;
+  // The files are named by a listing's own name, not the chip's words (file-names.ts).
+  const listingName = (id: number) => listingsRead?.find((listing) => listing.id === id)?.name;
   const allListings = (listingsRead ?? []).map((listing) => ({
     id: String(listing.id),
     isArchived: listing.status === 'archived',
@@ -108,6 +111,7 @@ export function AnalyticsView() {
     language,
     t: (key, values) => t(key, values),
     lookups,
+    fileName: reportPdfName({ period, filters: address.filters, listingName }),
   });
 
   return (
@@ -186,6 +190,7 @@ export function AnalyticsView() {
                 query={query}
                 period={period}
                 names={address.names}
+                listingName={listingName}
               />
             ) : null}
           </TabsContent>

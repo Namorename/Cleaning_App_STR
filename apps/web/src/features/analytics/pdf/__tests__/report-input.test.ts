@@ -31,6 +31,7 @@ function request(client: PdfRequest['client'], filters: AnalyticsFilters, compar
     language: 'en',
     t: i18n.getFixedT('en'),
     lookups: LOOKUPS,
+    fileName: 'woom-analytics-report_2026-10-01_to_2026-10-31.pdf',
   };
 }
 

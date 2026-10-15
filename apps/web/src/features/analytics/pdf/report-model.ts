@@ -192,11 +192,6 @@ export interface ReportModel {
   notes: string[];
 }
 
-/** "woom-analytics_2026-10-01_2026-10-31.pdf" */
-export function reportFileName(period: Period): string {
-  return `woom-analytics_${period.from}_${period.to}.pdf`;
-}
-
 /** The moment the report was made, in the company's time (Prague). */
 export function formatGeneratedAt(at: Date, language: Language): string {
   return dateFormat(INTL_LOCALES[language], {
