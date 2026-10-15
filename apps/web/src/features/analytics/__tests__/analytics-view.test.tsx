@@ -169,6 +169,13 @@ vi.mock('@/lib/export-table', () => ({
 
 vi.mock('@/lib/supabase/use-client', () => ({ useSupabase: () => ({}) }));
 
+const downloadAnalyticsPdf = vi.fn(async (request: { fileName: string }) => {
+  void request;
+});
+vi.mock('../pdf/download', () => ({
+  downloadAnalyticsPdf: (request: { fileName: string }) => downloadAnalyticsPdf(request),
+}));
+
 vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(window.location.search),
 }));
@@ -192,6 +199,7 @@ beforeEach(() => {
   state.picksFail = false;
   fetchWholeTable.mockClear();
   downloadCsv.mockClear();
+  downloadAnalyticsPdf.mockClear();
 });
 
 describe('AnalyticsView in the panel’s own language', () => {
@@ -291,8 +299,28 @@ describe('AnalyticsView', () => {
     await waitFor(() => expect(downloadCsv).toHaveBeenCalledTimes(1));
     expect(fetchWholeTable).toHaveBeenCalledTimes(1);
     const [fileName, rows] = downloadCsv.mock.calls[0] as [string, unknown[][]];
-    expect(fileName).toBe('analytics-cleanings-by-property-2026-10-01_2026-10-31.csv');
+    expect(fileName).toBe('woom-analytics_cleanings-by-property_2026-10-01_to_2026-10-31.csv');
     expect(rows[1]).toEqual(['Old Town flat', 4, 3, 1, 1, 0, 45, 50]);
+  });
+
+  test('a table file filtered to a listing says so in Latin letters, whatever the page language', async () => {
+    window.history.replaceState(null, '', '/analytics?p=thisMonth&prop=2');
+    render(<AnalyticsView />);
+    fireEvent.click(screen.getByRole('button', { name: 'Скачать CSV' }));
+    await waitFor(() => expect(downloadCsv).toHaveBeenCalledTimes(1));
+    expect(downloadCsv.mock.calls[0][0]).toBe(
+      'woom-analytics_cleanings-by-property_2026-10-01_to_2026-10-31_property-gone-flat.csv',
+    );
+  });
+
+  test('the PDF is asked for under the report’s own file name', async () => {
+    window.history.replaceState(null, '', `/analytics?p=thisMonth&prop=1&ppl=${EVA}`);
+    render(<AnalyticsView />);
+    fireEvent.click(screen.getByRole('button', { name: 'Скачать PDF' }));
+    await waitFor(() => expect(downloadAnalyticsPdf).toHaveBeenCalledTimes(1));
+    expect(downloadAnalyticsPdf.mock.calls[0][0].fileName).toBe(
+      'woom-analytics-report_2026-10-01_to_2026-10-31_property-old-town-flat_person-44444444.pdf',
+    );
   });
 
   test('a click on a listing bar filters the whole page to it, and a chip lets it go', () => {

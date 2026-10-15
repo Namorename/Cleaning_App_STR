@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { i18n } from '@/lib/i18n';
 
-import { COLUMNS, exportFileName, exportRows, type ColumnContext } from '../columns';
+import { COLUMNS, exportRows, type ColumnContext } from '../columns';
 
 describe('the technicians table', () => {
   // repairs_open is counted now, not at the end of the period (owner, 2026-10-15).
@@ -106,13 +106,5 @@ describe('the screen cells', () => {
     expect(listing.text(row, context())).toBe('Flat');
     expect(minutes.text(row, context())).toBe('45.3');
     expect(photos.text(row, context())).toBe('33.3%');
-  });
-});
-
-describe('exportFileName', () => {
-  it('names the file by the table and the period', () => {
-    expect(exportFileName('checkoutsByProperty', { from: '2026-10-01', to: '2026-10-31' }, 'csv')).toBe(
-      'analytics-checkouts-by-property-2026-10-01_2026-10-31.csv',
-    );
   });
 });
