@@ -197,6 +197,9 @@ describe('the proxy matcher', () => {
     '/brand/logo-dark.svg',
     '/brand/logo-light@2x.png',
     '/brand/logo-dark@2x.png',
+    // The PDF report's fonts: public files (SIL OFL), fetched on a press.
+    '/fonts/nunito/Nunito-SemiBold.ttf',
+    '/fonts/nunito/Nunito-ExtraBold.ttf',
   ])('lets %s through without the sign-in check', (pathname) => {
     expect(unstable_doesMiddlewareMatch({ config, url: `${ORIGIN}${pathname}` })).toBe(false);
   });

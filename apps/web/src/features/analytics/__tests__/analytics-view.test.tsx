@@ -176,6 +176,7 @@ describe('AnalyticsView in the panel’s own language', () => {
     const tiles = screen.getByRole('region', { name: 'Key figures' });
     expect(within(tiles).getByText('Cleanings done')).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: 'Hide archived' })).not.toBeChecked();
+    expect(screen.getByRole('button', { name: 'Download PDF' })).toBeEnabled();
   });
 
   test('gives the cancelled tasks a figure of their own, outside the others', async () => {
