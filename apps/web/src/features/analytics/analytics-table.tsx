@@ -20,7 +20,8 @@ import { useLanguage } from '@/lib/use-language';
 import { cn } from '@/lib/utils';
 
 import { fetchWholeTable } from './api';
-import { COLUMNS, exportFileName, exportRows, type Column, type ColumnContext } from './columns';
+import { COLUMNS, exportRows, type Column, type ColumnContext } from './columns';
+import { tableFileName, type FileNameScope } from './file-names';
 import { formatNumber } from './format';
 import type { Period } from './period';
 import type { AnalyticsQuery, AnalyticsRows, AnalyticsTable as TableName, NameMode } from './schema';
@@ -34,6 +35,8 @@ interface AnalyticsTableProps {
   query: AnalyticsQuery;
   period: Period;
   names: NameMode;
+  /** A listing's own name, for the file's: Latin letters whatever the page's language. */
+  listingName: FileNameScope['listingName'];
 }
 
 function rowKey(row: AnalyticsRows[TableName], index: number): string {
@@ -48,7 +51,7 @@ function rowKey(row: AnalyticsRows[TableName], index: number): string {
  * spreadsheet: the export reads every page from the server, so it holds what
  * the filters hold, not only what is on the screen.
  */
-export function AnalyticsTable({ table, query, period, names }: AnalyticsTableProps) {
+export function AnalyticsTable({ table, query, period, names, listingName }: AnalyticsTableProps) {
   const { t } = useTranslation();
   const language = useLanguage();
   const client = useSupabase();
@@ -58,6 +61,8 @@ export function AnalyticsTable({ table, query, period, names }: AnalyticsTablePr
   const read = useAnalyticsTable(table, query, { limit: TABLE_PAGE_SIZE, offset });
 
   const context: ColumnContext = { language, names, t: (key) => t(key) };
+  // The file says the period and the listing or person filter (file-names.ts).
+  const fileScope: FileNameScope = { period, filters: query.filters, listingName };
   const columns = COLUMNS[table] as readonly Column<AnalyticsRows[TableName]>[];
   const title = t(`panel.analytics.tables.${table}`);
 
@@ -67,9 +72,9 @@ export function AnalyticsTable({ table, query, period, names }: AnalyticsTablePr
     try {
       const rows = exportRows(table, await fetchWholeTable(client, table, query), context);
       if (kind === 'csv') {
-        downloadCsv(exportFileName(table, period, 'csv'), rows);
+        downloadCsv(tableFileName(table, fileScope, 'csv'), rows);
       } else {
-        downloadXlsx(exportFileName(table, period, 'xlsx'), title.slice(0, 31), rows);
+        downloadXlsx(tableFileName(table, fileScope, 'xlsx'), title.slice(0, 31), rows);
       }
     } catch (error: unknown) {
       setExportError(error);

@@ -19,6 +19,8 @@ export interface PdfRequest {
   language: Language;
   t: Translate;
   lookups: ReportLookups;
+  /** The file's name, made by the page (file-names.ts): it knows the listings' own names. */
+  fileName: string;
 }
 
 async function readTables(client: SupabaseClient<Database>, query: AnalyticsQuery): Promise<ReportTables> {

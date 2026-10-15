@@ -7,7 +7,6 @@ import {
   buildReportModel,
   describeFilters,
   formatGeneratedAt,
-  reportFileName,
   splitHeadingWord,
   splitLongWord,
 } from '../report-model';
@@ -26,13 +25,8 @@ import {
   SUMMARY,
 } from './fixtures';
 
-describe('the file and the moment', () => {
-  test('the file is named after the period', () => {
-    expect(reportFileName({ from: '2026-10-01', to: '2026-10-31' })).toBe(
-      'woom-analytics_2026-10-01_2026-10-31.pdf',
-    );
-  });
-
+// The file's name is file-names.ts's (owner, 2026-10-16), held in file-names.test.ts.
+describe('the moment', () => {
   test('the moment of making is told in Prague time, summer or winter', () => {
     expect(formatGeneratedAt(new Date('2026-10-15T18:41:00Z'), 'en')).toBe('15 Oct 2026, 20:41');
     expect(formatGeneratedAt(new Date('2026-12-01T12:05:00Z'), 'en')).toBe('1 Dec 2026, 13:05');
