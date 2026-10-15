@@ -7,12 +7,10 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 
+import { listingFilterLabel, personFilterLabel, type FilterOption } from './filter-labels';
 import { NO_FILTERS, type AnalyticsFilters } from './schema';
 
-export interface FilterOption {
-  id: string;
-  label: string;
-}
+export type { FilterOption } from './filter-labels';
 
 interface FilterGroupProps {
   label: string;
@@ -156,18 +154,12 @@ export function FiltersBar({
   const chips = [
     ...filters.propertyIds.map((value) => ({
       key: `prop-${value}`,
-      label: listingNames.find((one) => one.id === String(value))?.label ?? String(value),
+      label: listingFilterLabel(value, listingNames),
       remove: () => onChange({ ...filters, propertyIds: filters.propertyIds.filter((v) => v !== value) }),
     })),
     ...filters.personIds.map((value) => ({
       key: `ppl-${value}`,
-      // Somebody no longer on the team (a chart still counts her work) is
-      // named as what she is, never by an id.
-      label:
-        people.find((one) => one.id === value)?.label ??
-        staff?.find((one) => one.id === value)?.label ??
-        // Until the team has loaded, nobody can be called a former employee.
-        (staff === null ? t('panel.analytics.charts.loading') : t(`${KEY}formerEmployee`)),
+      label: personFilterLabel(value, people, staff, (key, values) => t(key, values)),
       remove: () => onChange({ ...filters, personIds: filters.personIds.filter((v) => v !== value) }),
     })),
     ...filters.taskStatuses.map((value) => ({

@@ -8,7 +8,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { COMPANY_TIME_ZONE } from '@/features/problems/filters';
 import { publicEnv } from '@/lib/env';
 import { todayIn } from '@/lib/format-date';
+import { useSupabase } from '@/lib/supabase/use-client';
 import { useAddressState } from '@/lib/use-address-state';
+import { useLanguage } from '@/lib/use-language';
 
 import { useStaff } from '@/features/tasks/use-tasks';
 
@@ -19,24 +21,13 @@ import { FiltersBar } from './filters-bar';
 import { personLabel } from './format';
 import { KpiTiles } from './kpi-tiles';
 import { isLocalStand } from './local-stand';
+import { PdfButton } from './pdf-button';
+import type { PdfRequest } from './pdf/report-input';
 import { PeriodBar } from './period-bar';
 import { previousPeriod } from './period';
-import { ANALYTICS_TABLES, type AnalyticsQuery, type AnalyticsTable as TableName, type Summary } from './schema';
+import { ANALYTICS_TABLES, type AnalyticsQuery, type AnalyticsTable as TableName } from './schema';
+import { isEmptySummary } from './summary';
 import { useAnalyticsListings, useAnalyticsSummary } from './use-analytics';
-
-/** Nothing was counted: no cleaning, checkout, night or task in the period, nor a cancelled one. */
-export function isEmptySummary(summary: Summary): boolean {
-  return (
-    summary.cleanings_done === 0 &&
-    summary.cleanings_planned === 0 &&
-    summary.checkouts === 0 &&
-    summary.occupied_nights === 0 &&
-    summary.problems_created === 0 &&
-    summary.problems_resolved === 0 &&
-    summary.problems_open === 0 &&
-    summary.problems_cancelled === 0
-  );
-}
 
 /**
  * The owner's Analytics page (docs/dashboard-metrics.md, step 1): a period
@@ -63,7 +54,8 @@ export function AnalyticsView() {
   // What the filters offer: the listings (rooms are counted under them; the
   // archived ones too, marked, unless the switch hides them) and the people
   // who clean and repair. A chip names anybody still on the team.
-  const allListings = (useAnalyticsListings().data ?? []).map((listing) => ({
+  const listingsRead = useAnalyticsListings().data;
+  const allListings = (listingsRead ?? []).map((listing) => ({
     id: String(listing.id),
     isArchived: listing.status === 'archived',
     label:
@@ -83,9 +75,32 @@ export function AnalyticsView() {
         }));
   const people = (staff ?? []).filter((person) => person.role !== 'manager' && person.role !== 'admin');
 
+  const client = useSupabase();
+  const language = useLanguage();
+  // The report of the page as it is: its period, comparison, filters and names.
+  const pdfRequest = (): PdfRequest => ({
+    client,
+    period,
+    previous,
+    filters: address.filters,
+    names: address.names,
+    language,
+    t: (key, values) => t(key, values),
+    lookups: { listingNames: allListings, people, staff },
+  });
+
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title={t('panel.nav.analytics')} />
+      <PageHeader
+        title={t('panel.nav.analytics')}
+        actions={
+          // The report names its filters: it waits for the figures, the team and the listings.
+          <PdfButton
+            request={pdfRequest}
+            disabled={current.data === undefined || staff === null || listingsRead === undefined}
+          />
+        }
+      />
 
       <PeriodBar
         address={address}
