@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { beforeAll, describe, expect, test } from 'vitest';
 
+import { NO_FILTERS } from '../../schema';
 import { registerReportFonts, type FontSources } from '../fonts';
 import { ReportDocument } from '../report-document';
 import { buildReportModel } from '../report-model';
@@ -69,6 +70,21 @@ describe('the report as a PDF', () => {
         }),
       );
       expect(pageCount(long)).toBeGreaterThan(pageCount(short) + 2);
+    },
+    RENDER_MS,
+  );
+
+  test(
+    'a bar list longer than a page runs on over the pages instead of being cut',
+    async () => {
+      const rows = Array.from({ length: 70 }, (_, at) => listingRow(100 + at, `Flat ${at + 1}`, 1));
+      const tables = { ...reportInput('en').tables, cleaningsByProperty: rows };
+      const plain = await render(reportInput('en', { tables }));
+      const picked = await render(
+        reportInput('en', { tables, filters: { ...NO_FILTERS, propertyIds: rows.map((row) => row.listing_id) } }),
+      );
+      // Seventy bars are some three pages of their own.
+      expect(pageCount(picked)).toBeGreaterThanOrEqual(pageCount(plain) + 2);
     },
     RENDER_MS,
   );

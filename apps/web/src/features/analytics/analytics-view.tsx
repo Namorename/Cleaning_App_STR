@@ -21,7 +21,7 @@ import { FiltersBar } from './filters-bar';
 import { personLabel } from './format';
 import { KpiTiles } from './kpi-tiles';
 import { isLocalStand } from './local-stand';
-import { PdfButton } from './pdf-button';
+import { PdfButton, type LookupsFailure } from './pdf-button';
 import type { PdfRequest } from './pdf/report-input';
 import { PeriodBar } from './period-bar';
 import { previousPeriod } from './period';
@@ -54,7 +54,8 @@ export function AnalyticsView() {
   // What the filters offer: the listings (rooms are counted under them; the
   // archived ones too, marked, unless the switch hides them) and the people
   // who clean and repair. A chip names anybody still on the team.
-  const listingsRead = useAnalyticsListings().data;
+  const listingsQuery = useAnalyticsListings();
+  const listingsRead = listingsQuery.data;
   const allListings = (listingsRead ?? []).map((listing) => ({
     id: String(listing.id),
     isArchived: listing.status === 'archived',
@@ -64,7 +65,8 @@ export function AnalyticsView() {
         : listing.name,
   }));
   const listings = allListings.filter((listing) => !(address.filters.hideArchived && listing.isArchived));
-  const team = useStaff().data;
+  const teamQuery = useStaff();
+  const team = teamQuery.data;
   const staff =
     team === undefined
       ? null
@@ -74,6 +76,25 @@ export function AnalyticsView() {
           label: personLabel(person.full_name, address.names),
         }));
   const people = (staff ?? []).filter((person) => person.role !== 'manager' && person.role !== 'admin');
+  const lookups = { listingNames: allListings, people, staff };
+
+  // The report names its listings and people: a list that never came is said
+  // under the button, with a press to load it again — not a silent grey button.
+  // While it is asked again TanStack clears the error (pending, fetching — or
+  // paused, with no network), so a failure behind it keeps the reason and the
+  // busy press on the screen.
+  const isAsking = (read: { isFetching: boolean; isPaused: boolean }) => read.isFetching || read.isPaused;
+  const unloaded = [listingsQuery, teamQuery].filter(
+    (read) => read.data === undefined && (read.isError || (isAsking(read) && read.errorUpdateCount > 0)),
+  );
+  const lookupsFailed: LookupsFailure | null =
+    unloaded.length === 0
+      ? null
+      : {
+          error: unloaded.find((read) => read.error !== null)?.error ?? null,
+          retry: () => unloaded.forEach((read) => void read.refetch()),
+          isRetrying: unloaded.some(isAsking),
+        };
 
   const client = useSupabase();
   const language = useLanguage();
@@ -86,7 +107,7 @@ export function AnalyticsView() {
     names: address.names,
     language,
     t: (key, values) => t(key, values),
-    lookups: { listingNames: allListings, people, staff },
+    lookups,
   });
 
   return (
@@ -98,6 +119,7 @@ export function AnalyticsView() {
           <PdfButton
             request={pdfRequest}
             disabled={current.data === undefined || staff === null || listingsRead === undefined}
+            lookupsFailed={lookupsFailed}
           />
         }
       />
@@ -137,6 +159,7 @@ export function AnalyticsView() {
         query={query}
         period={period}
         summary={current.data}
+        lookups={lookups}
         onChange={(next) => setAddress(next)}
       />
 

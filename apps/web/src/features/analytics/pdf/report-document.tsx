@@ -6,6 +6,7 @@ import {
   REPORT_INK as INK,
   splitHeadingWord,
   type BarChartModel,
+  type BarModel,
   type ColumnChartModel,
   type KpiModel,
   type ReportModel,
@@ -250,33 +251,55 @@ function ColumnChartView({ chart }: { chart: ColumnChartModel }) {
   );
 }
 
-/** Bars a line each; the ones the page is filtered to marked, the rest dimmed, as on the screen. */
-function BarChartView({ chart }: { chart: BarChartModel }) {
-  const anySelected = chart.items.some((item) => item.selected);
+/** One bar: its name and figure, and the bar under them, never cut in two. */
+function BarRow({ item, chart, anySelected }: { item: BarModel; chart: BarChartModel; anySelected: boolean }) {
   return (
-    <View style={[styles.card, styles.barCard]}>
-      <Text style={styles.cardTitle}>{chart.title}</Text>
-      {chart.emptyText !== null ? (
-        <Text style={styles.muted}>{chart.emptyText}</Text>
+    <View style={styles.barRow} wrap={false}>
+      <View style={styles.barHead}>
+        <Text style={[styles.barLabel, item.selected ? styles.barSelected : {}]}>{item.label}</Text>
+        <Text style={styles.barValue}>{item.valueText}</Text>
+      </View>
+      <View style={styles.barTrack}>
+        <View
+          style={{
+            height: 4,
+            borderRadius: 2,
+            width: `${share(item.value, chart.top) * 100}%`,
+            backgroundColor: anySelected && !item.selected ? INK.divider : chart.color,
+          }}
+        />
+      </View>
+    </View>
+  );
+}
+
+/**
+ * Bars a line each; the ones the page is filtered to marked, the rest dimmed,
+ * as on the screen. A list of the whole width (`isWide`) may run on over the
+ * pages: its title is kept with its first bar (minPresenceAhead does not hold
+ * a card's first child), and a bar is never cut in two.
+ */
+function BarChartView({ chart, isWide }: { chart: BarChartModel; isWide: boolean }) {
+  const anySelected = chart.items.some((item) => item.selected);
+  const [first, ...rest] = chart.items;
+  const title = <Text style={styles.cardTitle}>{chart.title}</Text>;
+  return (
+    <View style={isWide ? styles.card : [styles.card, styles.barCard]}>
+      {chart.emptyText !== null || first === undefined ? (
+        <View wrap={false}>
+          {title}
+          <Text style={styles.muted}>{chart.emptyText}</Text>
+        </View>
       ) : (
-        chart.items.map((item, at) => (
-          <View key={`${item.label}-${at}`} style={styles.barRow}>
-            <View style={styles.barHead}>
-              <Text style={[styles.barLabel, item.selected ? styles.barSelected : {}]}>{item.label}</Text>
-              <Text style={styles.barValue}>{item.valueText}</Text>
-            </View>
-            <View style={styles.barTrack}>
-              <View
-                style={{
-                  height: 4,
-                  borderRadius: 2,
-                  width: `${share(item.value, chart.top) * 100}%`,
-                  backgroundColor: anySelected && !item.selected ? INK.divider : chart.color,
-                }}
-              />
-            </View>
+        <>
+          <View wrap={false}>
+            {title}
+            <BarRow item={first} chart={chart} anySelected={anySelected} />
           </View>
-        ))
+          {rest.map((item, at) => (
+            <BarRow key={`${item.label}-${at}`} item={item} chart={chart} anySelected={anySelected} />
+          ))}
+        </>
       )}
       {chart.note === null ? null : <Text style={styles.tiny}>{chart.note}</Text>}
     </View>
@@ -292,11 +315,15 @@ function Charts({ model }: { model: ReportModel }) {
       {model.columnCharts.map((chart) => (
         <ColumnChartView key={chart.title} chart={chart} />
       ))}
-      <View style={styles.bars} wrap={false}>
-        {model.barCharts.map((chart) => (
-          <BarChartView key={chart.title} chart={chart} />
-        ))}
-      </View>
+      {model.barListsStacked ? (
+        model.barCharts.map((chart) => <BarChartView key={chart.title} chart={chart} isWide />)
+      ) : (
+        <View style={styles.bars} wrap={false}>
+          {model.barCharts.map((chart) => (
+            <BarChartView key={chart.title} chart={chart} isWide={false} />
+          ))}
+        </View>
+      )}
     </View>
   );
 }
