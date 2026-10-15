@@ -68,5 +68,62 @@ describe('PdfButton', () => {
   test('nothing to make before the figures have loaded', () => {
     render(<PdfButton request={() => REQUEST as never} disabled />);
     expect(screen.getByRole('button', { name: 'Download PDF' })).toBeDisabled();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  test('listings or a team that did not load: it says why, and a press loads them again', () => {
+    const retry = vi.fn();
+    render(
+      <PdfButton
+        request={() => REQUEST as never}
+        disabled
+        lookupsFailed={{ error: new Error('Failed to fetch'), retry, isRetrying: false }}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Download PDF' })).toBeDisabled();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The report needs the listings and the people, and they did not load.',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(retry).toHaveBeenCalledTimes(1);
+    expect(downloadAnalyticsPdf).not.toHaveBeenCalled();
+  });
+
+  test('while they load again it says so aloud, keeps the focus and takes no second press', () => {
+    const retry = vi.fn();
+    render(
+      <PdfButton
+        request={() => REQUEST as never}
+        disabled
+        lookupsFailed={{ error: new Error('Failed to fetch'), retry, isRetrying: true }}
+      />,
+    );
+
+    const again = screen.getByRole('button', { name: 'Loading…' });
+    // Not disabled: a disabled button drops the keyboard's focus.
+    expect(again).toBeEnabled();
+    expect(again).toHaveAttribute('aria-disabled', 'true');
+    again.focus();
+    fireEvent.click(again);
+    expect(retry).not.toHaveBeenCalled();
+    expect(again).toHaveFocus();
+    expect(screen.getByRole('status')).toHaveTextContent('Loading…');
+  });
+
+  test.each([
+    ['cs', 'Report potřebuje objekty a pracovníky a ty se nepodařilo načíst.', 'Zkusit znovu'],
+    ['ru', 'Для отчёта нужны объекты и сотрудники, а они не загрузились.', 'Повторить'],
+  ])('says why in %s too', async (language, why, again) => {
+    await i18n.changeLanguage(language);
+    render(
+      <PdfButton
+        request={() => REQUEST as never}
+        disabled
+        lookupsFailed={{ error: new Error('Failed to fetch'), retry: vi.fn(), isRetrying: false }}
+      />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent(why);
+    expect(screen.getByRole('button', { name: again })).toBeEnabled();
   });
 });

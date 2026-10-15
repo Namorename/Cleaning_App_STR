@@ -46,16 +46,21 @@ export function useAnalyticsSeries(query: AnalyticsQuery, bucket: SeriesBucket) 
   });
 }
 
-/** One page of a table; the page before stays on the screen while the next loads. */
+/**
+ * One page of a table; the page before stays on the screen while the next
+ * loads. Idle while `query` is null.
+ */
 export function useAnalyticsTable<T extends AnalyticsTable>(
   table: T,
-  query: AnalyticsQuery,
+  query: AnalyticsQuery | null,
   page: TablePage,
 ) {
   const client = useSupabase();
   return useQuery({
-    queryKey: analyticsKeys.table(table, query, page),
-    queryFn: () => fetchTablePage(client, table, query, page),
+    // Idle under a key of its own: nothing that refreshes the analytics wakes it.
+    queryKey: query === null ? [...analyticsKeys.all, 'idle', table] : analyticsKeys.table(table, query, page),
+    queryFn: () => fetchTablePage(client, table, query as AnalyticsQuery, page),
+    enabled: query !== null,
     staleTime: STALE_MS,
     placeholderData: keepPreviousData,
   });

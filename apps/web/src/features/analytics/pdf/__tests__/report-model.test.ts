@@ -11,7 +11,20 @@ import {
   splitHeadingWord,
   splitLongWord,
 } from '../report-model';
-import { ANNA, days, EMPTY, GONE, LOOKUPS, reportInput as input } from './fixtures';
+import { isInReportFont } from '../font-coverage';
+import {
+  ANNA,
+  CLEANER_ROW,
+  days,
+  EMPTY,
+  EVA,
+  GONE,
+  LISTING_ROW,
+  listingRow,
+  LOOKUPS,
+  reportInput as input,
+  SUMMARY,
+} from './fixtures';
 
 describe('the file and the moment', () => {
   test('the file is named after the period', () => {
@@ -158,6 +171,67 @@ describe('buildReportModel', () => {
     expect(model.barCharts[2].items.map((item) => item.selected)).toEqual([false, false, true]);
   });
 
+  test('a cleaner picked outside the busiest bars is added after them, marked; the rest dimmed', () => {
+    const eva = { ...CLEANER_ROW, person_id: EVA, full_name: 'Eva Dvořák', done: 1 };
+    const model = buildReportModel(
+      input('en', {
+        filters: { ...NO_FILTERS, personIds: [EVA] },
+        lookups: { ...LOOKUPS, people: [...LOOKUPS.people, { id: EVA, label: 'Eva Dvořák' }] },
+        // The table is read with the filter: it holds the picked cleaner's own row.
+        tables: { ...input('en').tables, cleaningsByCleaner: [eva] },
+      }),
+    );
+    expect(model.barCharts[1].items).toEqual([
+      { label: 'Anna Novak', value: 3, valueText: '3', selected: false },
+      { label: 'Eva Dvořák', value: 1, valueText: '1', selected: true },
+    ]);
+  });
+
+  test('a pick with nothing done still has her bar, so the list is drawn, not called empty', () => {
+    const model = buildReportModel(
+      input('en', {
+        filters: { ...NO_FILTERS, personIds: [ANNA] },
+        bars: { byListing: [LISTING_ROW], byCleaner: [], urgency: SUMMARY },
+        tables: { ...input('en').tables, cleaningsByCleaner: [] },
+      }),
+    );
+    expect(model.barCharts[1].items).toEqual([{ label: 'Anna Novak', value: 0, valueText: '0', selected: true }]);
+    expect(model.barCharts[1].emptyText).toBeNull();
+  });
+
+  test('a listing picked outside the busiest eight: the note names the picks too', () => {
+    const busiest = Array.from({ length: 8 }, (_, at) => listingRow(10 + at, `Flat ${at + 1}`, 20 - at));
+    const quiet = listingRow(1, 'Old Town flat', 1);
+    const model = buildReportModel(
+      input('en', {
+        filters: { ...NO_FILTERS, propertyIds: [1] },
+        bars: { byListing: busiest, byCleaner: [CLEANER_ROW], urgency: SUMMARY },
+        tables: { ...input('en').tables, cleaningsByProperty: [quiet] },
+      }),
+    );
+    const [byListing] = model.barCharts;
+    expect(byListing.items).toHaveLength(9);
+    expect(byListing.items.at(-1)).toEqual({ label: 'Old Town flat', value: 1, valueText: '1', selected: true });
+    expect(byListing.items.slice(0, 8).every((item) => !item.selected)).toBe(true);
+    expect(byListing.note).toBe('The 8 busiest and the ones the report is filtered to; the tables have every row.');
+    expect(buildReportModel(input('en', { bars: { ...input('en').bars, byListing: busiest } })).barCharts[0].note).toBe(
+      'The 8 busiest; the tables have every row.',
+    );
+  });
+
+  test('bar lists too long to stand side by side on a page go one under another', () => {
+    expect(buildReportModel(input('en')).barListsStacked).toBe(false);
+    const picked = Array.from({ length: 30 }, (_, at) => listingRow(100 + at, `Flat ${at + 1}`, 1));
+    const model = buildReportModel(
+      input('en', {
+        filters: { ...NO_FILTERS, propertyIds: picked.map((row) => row.listing_id) },
+        tables: { ...input('en').tables, cleaningsByProperty: picked },
+      }),
+    );
+    expect(model.barCharts[0].items).toHaveLength(31);
+    expect(model.barListsStacked).toBe(true);
+  });
+
   test('a series with nothing in it says so instead of drawing empty columns', () => {
     const quiet = days(7).map((point) => ({
       ...point,
@@ -243,5 +317,59 @@ describe('buildReportModel', () => {
     if (language !== 'en') {
       expect(model.title).not.toBe('woom · Analytics report');
     }
+  });
+});
+
+/** Every string of the model, however deep, and the page line. */
+function textsOf(value: unknown): string[] {
+  if (typeof value === 'string') {
+    return [value];
+  }
+  if (typeof value === 'function') {
+    return [(value as (page: number, total: number) => string)(1, 2)];
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap(textsOf);
+  }
+  if (value !== null && typeof value === 'object') {
+    return Object.values(value).flatMap(textsOf);
+  }
+  return [];
+}
+
+describe('the letters of the report and its font', () => {
+  test('emoji and signs the font has not are left out of names, never drawn as gaps', () => {
+    const listing = listingRow(1, 'Old Town ★ flat 🏠');
+    const anna = { ...CLEANER_ROW, full_name: 'Anna 💐 Novák' };
+    const model = buildReportModel(
+      input('en', {
+        filters: { ...NO_FILTERS, propertyIds: [1] },
+        lookups: { ...LOOKUPS, listingNames: [{ id: '1', label: 'Old Town ★ flat 🏠' }] },
+        bars: { byListing: [listing], byCleaner: [anna], urgency: SUMMARY },
+        tables: { ...input('en').tables, cleaningsByProperty: [listing], cleaningsByCleaner: [anna] },
+      }),
+    );
+    expect(model.barCharts[0].items[0].label).toBe('Old Town flat');
+    expect(model.barCharts[1].items[0].label).toBe('Anna Novák');
+    expect(model.tables[0].rows[0][0]).toBe('Old Town flat');
+    expect(model.tables[1].rows[0][0]).toBe('Anna Novák');
+    expect(model.filters[0].value).toBe('Old Town flat');
+  });
+
+  // Every field goes through the fitting; that the report's own words lose
+  // nothing to it is held in font-coverage.test.ts.
+  test.each(['en', 'cs', 'ru'] as const)('every text the PDF draws is fitted to its font, in %s', (language) => {
+    const model = buildReportModel(
+      input(language, {
+        filters: { ...NO_FILTERS, personIds: [ANNA, GONE], priorities: ['high'], hideArchived: true },
+        lookups: { ...LOOKUPS, listingNames: [{ id: '1', label: 'Žlutý dům → 🌻 Старый город' }] },
+        bars: { byListing: [listingRow(1, 'Žlutý dům → 🌻 Старый город')], byCleaner: [CLEANER_ROW], urgency: SUMMARY },
+      }),
+    );
+    const outside = textsOf(model).flatMap((text) =>
+      [...text].filter((letter) => !isInReportFont(letter.codePointAt(0) ?? 0)),
+    );
+    expect(outside).toEqual([]);
+    expect(model.barCharts[0].items[0].label).toBe('Žlutý dům Старый город');
   });
 });

@@ -3,10 +3,18 @@ import { INTL_LOCALES, THEME_COLORS, TONE_COLORS, type Language } from '@str-ops
 import { COMPANY_TIME_ZONE } from '@/features/problems/filters';
 import { dateFormat, formatDay, formatShortDay } from '@/lib/format-date';
 
-import { cleanerBars, listingBars, TOP_BARS, urgencyBars, type BarDatum } from '../chart-data';
+import {
+  cleanerBars,
+  listingBars,
+  pickedCleanerBars,
+  pickedListingBars,
+  TOP_BARS,
+  urgencyBars,
+  type BarDatum,
+} from '../chart-data';
 import { niceMax, ticks } from '../charts/geometry';
 import { COLUMNS, type Column, type ColumnContext } from '../columns';
-import { listingFilterLabel, personFilterLabel, type FilterOption } from '../filter-labels';
+import { listingFilterLabel, personFilterLabel, type FilterLookups } from '../filter-labels';
 import { changeOf, formatChange, formatNumber, type Change } from '../format';
 import { TILE_KEY, TILES, type Translate } from '../kpi-spec';
 import type { Period } from '../period';
@@ -21,6 +29,7 @@ import {
   type Summary,
 } from '../schema';
 import { isEmptySummary } from '../summary';
+import { fitToFont } from './font-coverage';
 
 /**
  * The Analytics report as text and numbers, before any drawing: the page's
@@ -55,14 +64,11 @@ const LONG_HEADING_WORD = 7;
 const HEADING_PIECE = 4;
 /** At most this many day or week labels under a column chart. */
 const AXIS_LABELS = 10;
+/** More bars than this in one list and the three lists no longer fit a page side by side. */
+const BARS_SIDE_BY_SIDE = 20;
 
-/** Who and what the filters name: the listings, the people offered, everyone on the team. */
-export interface ReportLookups {
-  listingNames: readonly FilterOption[];
-  people: readonly FilterOption[];
-  /** Null while the team loads; the page waits for it before it offers the report. */
-  staff: readonly FilterOption[] | null;
-}
+/** Who and what the filters name; the page waits for the team before it offers the report. */
+export type ReportLookups = FilterLookups;
 
 export type ReportTables = { [T in AnalyticsTable]: readonly AnalyticsRows[T][] };
 
@@ -175,6 +181,11 @@ export interface ReportModel {
   chartsTitle: string;
   columnCharts: ColumnChartModel[];
   barCharts: BarChartModel[];
+  /**
+   * A list too long for a page (many picks beyond the busiest): the lists go
+   * one under another and may run on over the pages, rather than being cut.
+   */
+  barListsStacked: boolean;
   tablesTitle: string;
   tables: TableModel[];
   notesTitle: string;
@@ -307,35 +318,83 @@ function columnChart(
   };
 }
 
+/** A bar list's bars: the busiest, and after them the picks they leave out. */
+interface BarSet {
+  shown: readonly BarDatum[];
+  picked: readonly BarDatum[];
+}
+
 /**
- * A bar list; one whose bars are all zero says so instead of drawing them. A
- * list is not filtered by its own bars (the page's cross-filter), so the ones
- * the page is filtered to are marked.
+ * A bar list; one whose bars are all zero and none picked says so instead of
+ * drawing them. A list is not filtered by its own bars (the page's
+ * cross-filter), so the ones the page is filtered to are marked — and a pick
+ * outside the busiest is added after them, as on the screen.
  */
 function barChart(
   title: string,
-  bars: readonly BarDatum[],
+  bars: BarSet,
   selected: readonly string[],
-  note: string | null,
+  notes: { busiest: string; withPicks: string } | null,
   emptyText: string,
 ): BarChartModel {
-  const items = bars.some((bar) => bar.value > 0)
-    ? bars.map(({ id, label, value, valueText }) => ({ label, value, valueText, selected: selected.includes(id) }))
+  const all = [...bars.shown, ...bars.picked];
+  const items = all.some((bar) => bar.value > 0 || selected.includes(bar.id))
+    ? all.map(({ id, label, value, valueText }) => ({ label, value, valueText, selected: selected.includes(id) }))
     : [];
+  const note =
+    notes === null || bars.shown.length < TOP_BARS ? null : bars.picked.length > 0 ? notes.withPicks : notes.busiest;
   return {
     title,
     color: REPORT_INK.primary,
     items,
     top: niceMax(Math.max(0, ...items.map((item) => item.value))),
-    note: items.length >= TOP_BARS ? note : null,
+    note: items.length === 0 ? null : note,
     emptyText: items.length === 0 ? emptyText : null,
   };
 }
 
+/**
+ * The listing and cleaner bars with their picks. A pick's own row is in the
+ * table the report reads with the page's filter, or among the busiest.
+ */
+function pickedBars(input: ReportInput): { byListing: BarSet; byCleaner: BarSet } {
+  const { language, names, bars, filters, tables, lookups, t } = input;
+  const listings = listingBars(bars.byListing, language);
+  const cleaners = cleanerBars(bars.byCleaner, names, language);
+  return {
+    byListing: {
+      shown: listings,
+      picked: pickedListingBars(
+        listings,
+        filters.propertyIds,
+        [...bars.byListing, ...tables.cleaningsByProperty],
+        lookups.listingNames,
+        language,
+      ),
+    },
+    byCleaner: {
+      shown: cleaners,
+      picked: pickedCleanerBars(
+        cleaners,
+        filters.personIds,
+        [...bars.byCleaner, ...tables.cleaningsByCleaner],
+        names,
+        lookups,
+        t,
+        language,
+      ),
+    },
+  };
+}
+
 function charts(input: ReportInput): Pick<ReportModel, 'columnCharts' | 'barCharts'> {
-  const { t, language, names, bars, filters } = input;
+  const { t, language, bars, filters } = input;
   const empty = t(`${CHARTS}empty`);
-  const busiest = t(`${PDF}topBars`, { count: TOP_BARS });
+  const notes = {
+    busiest: t(`${PDF}topBars`, { count: TOP_BARS }),
+    withPicks: t(`${PDF}topBarsPicked`, { count: TOP_BARS }),
+  };
+  const picked = pickedBars(input);
   return {
     columnCharts: [
       columnChart(input, 'dynamics', ['done', 'checkouts'], [REPORT_INK.chart1, REPORT_INK.chart2], (point) => [
@@ -348,15 +407,15 @@ function charts(input: ReportInput): Pick<ReportModel, 'columnCharts' | 'barChar
       ]),
     ],
     barCharts: [
+      barChart(t(`${CHARTS}byListing`), picked.byListing, filters.propertyIds.map(String), notes, empty),
+      barChart(t(`${CHARTS}byCleaner`), picked.byCleaner, filters.personIds, notes, empty),
       barChart(
-        t(`${CHARTS}byListing`),
-        listingBars(bars.byListing, language),
-        filters.propertyIds.map(String),
-        busiest,
+        t(`${CHARTS}byUrgency`),
+        { shown: urgencyBars(bars.urgency, t, language), picked: [] },
+        filters.priorities,
+        null,
         empty,
       ),
-      barChart(t(`${CHARTS}byCleaner`), cleanerBars(bars.byCleaner, names, language), filters.personIds, busiest, empty),
-      barChart(t(`${CHARTS}byUrgency`), urgencyBars(bars.urgency, t, language), filters.priorities, null, empty),
     ],
   };
 }
@@ -376,6 +435,23 @@ function table<T extends AnalyticsTable>(input: ReportInput, key: T): TableModel
   };
 }
 
+/**
+ * Every text of the model as the font draws it (fitToFont): the names from
+ * the data above all — a listing's emoji — and the words of Intl too.
+ */
+function fitted<T>(value: T): T {
+  if (typeof value === 'string') {
+    return fitToFont(value) as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map(fitted) as T;
+  }
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, one]) => [key, fitted(one)])) as T;
+  }
+  return value;
+}
+
 export function buildReportModel(input: ReportInput): ReportModel {
   const { t, language, period, previous } = input;
   const title = `woom · ${t(`${PDF}title`)}`;
@@ -391,8 +467,9 @@ export function buildReportModel(input: ReportInput): ReportModel {
     empty === null
       ? { kpis: kpis(input), ...charts(input), tables: ANALYTICS_TABLES.map((key) => table(input, key)) }
       : { kpis: [], columnCharts: [], barCharts: [], tables: [] };
+  const barListsStacked = content.barCharts.some((chart) => chart.items.length > BARS_SIDE_BY_SIDE);
 
-  return {
+  return fitted({
     language,
     title,
     runningHead: `${title} · ${own.from} – ${own.to}`,
@@ -402,7 +479,7 @@ export function buildReportModel(input: ReportInput): ReportModel {
     filters: describeFilters(input.filters, input.lookups, t),
     noFiltersText: t(`${PDF}noFilters`),
     generatedLine: t(`${PDF}generated`, { date: formatGeneratedAt(input.generatedAt, language) }),
-    pageText: (page, total) => t(`${PDF}page`, { page, total }),
+    pageText: (page, total) => fitToFont(t(`${PDF}page`, { page, total })),
     empty,
     kpiTitle: t(`${TILE_KEY}label`),
     chartsTitle: t(`${PDF}charts`),
@@ -410,5 +487,6 @@ export function buildReportModel(input: ReportInput): ReportModel {
     notesTitle: t(`${PDF}notesTitle`),
     notes,
     ...content,
-  };
+    barListsStacked,
+  });
 }

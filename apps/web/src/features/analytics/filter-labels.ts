@@ -6,6 +6,14 @@ export interface FilterOption {
   label: string;
 }
 
+/** Who and what the filters name: the listings, the people offered, everyone on the team. */
+export interface FilterLookups {
+  listingNames: readonly FilterOption[];
+  people: readonly FilterOption[];
+  /** Null while the team loads. */
+  staff: readonly FilterOption[] | null;
+}
+
 /** A listing named as the filter names it; an id nobody knows stays an id. */
 export function listingFilterLabel(id: number, listingNames: readonly FilterOption[]): string {
   return listingNames.find((one) => one.id === String(id))?.label ?? String(id);

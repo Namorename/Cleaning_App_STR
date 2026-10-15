@@ -199,12 +199,34 @@ describe('the proxy matcher', () => {
     '/brand/logo-dark@2x.png',
     // The PDF report's fonts: public files (SIL OFL), fetched on a press.
     '/fonts/nunito/Nunito-SemiBold.ttf',
+    '/fonts/nunito/Nunito-Bold.ttf',
     '/fonts/nunito/Nunito-ExtraBold.ttf',
   ])('lets %s through without the sign-in check', (pathname) => {
     expect(unstable_doesMiddlewareMatch({ config, url: `${ORIGIN}${pathname}` })).toBe(false);
   });
 
   test.each(['/login', '/dashboard', '/settings', '/brand'])('still guards %s', (pathname) => {
+    expect(unstable_doesMiddlewareMatch({ config, url: `${ORIGIN}${pathname}` })).toBe(true);
+  });
+
+  // Only the three font files pass by their exact path (owner, 2026-10-16):
+  // a .ttf anywhere else, or anything else beside them, still meets the guard.
+  test.each([
+    '/analytics',
+    '/analytics/report.ttf',
+    '/report.ttf',
+    '/fonts',
+    '/fonts/nunito',
+    '/fonts/nunito/OFL.txt',
+    '/fonts/nunito/Other.ttf',
+    '/fonts/other/Nunito-Bold.ttf',
+    '/fonts/nunito/Nunito-Bold.ttf/analytics',
+    '/fonts/nunito/Nunito-Bold.ttf.json',
+    '/fonts/nunito/Nunito-Bold.TTF',
+    '/fonts/nunito/nunito-bold.ttf',
+    '//fonts/nunito/Nunito-Bold.ttf',
+    '/x/fonts/nunito/Nunito-Bold.ttf',
+  ])('guards %s beside the fonts', (pathname) => {
     expect(unstable_doesMiddlewareMatch({ config, url: `${ORIGIN}${pathname}` })).toBe(true);
   });
 });
