@@ -16,9 +16,10 @@
 --                                     ones (analytics_summary, analytics_series and the five
 --                                     analytics_*_by_* tables);
 --                     definer false — analytics_is_test_listing and the four analytics_*_rows.
---                   md5 prefix and length of prosrc (2026-10-15, local stack, the three files
---                   applied in a rolled-back transaction; files by sha256 prefix
---                   20261015100000 e989ca81, 20261015110000 dc610c17, 20261015120000 c3517375):
+--                   md5 prefix and length of prosrc (2026-10-15 evening, branch c0c299d: the
+--                   three files applied in a rolled-back transaction on the local stand with
+--                   the cloud's schema; files by sha256 prefix
+--                   20261015100000 e989ca81, 20261015110000 39c91be6, 20261015120000 811c6d89):
 --                     analytics_checkout_rows           c77b8dc5   783
 --                     analytics_checkouts_by_property   b0d460e2  1343
 --                     analytics_cleaning_rows           e6d5e1e1  1753
@@ -27,11 +28,11 @@
 --                     analytics_guard                   6fe837e2   645
 --                     analytics_is_test_listing         fb178b7a    53
 --                     analytics_occupancy_rows          cd895d61  1250
---                     analytics_problem_rows            19f6edbe  1709
---                     analytics_problems_by_property    1604d2e4  1706
---                     analytics_problems_by_technician  18a0dba4  3269
---                     analytics_series                  17591522  2490
---                     analytics_summary                 ee04e104  4091
+--                     analytics_problem_rows            67b62651  1837
+--                     analytics_problems_by_property    969da76d  1752
+--                     analytics_problems_by_technician  61863c21  3276
+--                     analytics_series                  b0abe0cd  2497
+--                     analytics_summary                 a897178c  4533
 --                     journal_task_change               c4f65f2d  6460
 --                   Files with another sha256 — recompute before the push
 --                   (dashboard-rollout.md, «Перед push», step 3), never after.

@@ -1,6 +1,7 @@
 # Выкат: дашборд владельца — журнал уборок и страница «Аналитика»
 
-**Статус: план, ничего не выполнено** (2026-10-15). Запись в облако (`db push`, откат), деплой
+**Статус: план, в облаке ничего не выполнено** (2026-10-15; вечером — предполёт только чтением,
+§1.6: сухой прогон называет ровно три файла, на копии схемы облака они ложатся без ошибок). Запись в облако (`db push`, откат), деплой
 `manage-staff` и вставка шаблона письма — только словом владельца. Агент без вопросов делает лишь
 чтение: `scripts/cloud-read.mjs`, сухой прогон, `curl` с публичным ключом.
 
@@ -14,6 +15,10 @@
 | `20261015100000_task_events` | тип `task_event_kind`, таблица `task_events` (RLS: читает только менеджер своей компании; клиенты не пишут — `revoke all`, затем `select`), функция-триггер `journal_task_change` (definer), два триггера на `tasks`: `after insert`, `after update` статуса, исполнителя, дня, объекта | `lock_timeout 3s`; создание триггера берёт на `tasks` короткую SHARE ROW EXCLUSIVE (чтения не стоят, запись ждёт миг); строк не пишет — журнал с момента выката, прошлое не восстанавливается |
 | `20261015110000_analytics` | 13 функций: служебные `analytics_is_test_listing`, `analytics_guard` и четыре `analytics_*_rows` — без прав у клиентов; шесть публичных (`analytics_summary` и пять таблиц `analytics_*_by_*`) — `execute` только у `authenticated`, внутри — `is_manager()` | только `create function`; таблиц не трогает, ничего не пишет |
 | `20261015120000_analytics_series` | `analytics_summary` заново (тот же список аргументов, плюс `problems_by_priority` в ответе), новая `analytics_series` (`execute` у `authenticated`) | то же |
+
+Отменённые задания (решение владельца 15.10 18:55, коммит `c0c299d`): строковая
+`analytics_problem_rows` получила последний аргумент `p_cancelled boolean` (служебная, без прав у
+клиентов), в ответе `analytics_summary` (обе миграции) — `problems_cancelled`.
 
 У всех публичных функций последний аргумент `p_hide_archived boolean default null`: `null` —
 «ничего не скрывать» (правило CLAUDE.md «новый аргумент RPC»), панель шлёт его только включённым.
@@ -57,7 +62,8 @@
    Без них `db push` откажет сам («Remote migration versions not found in local migrations
    directory») — застава закрыта, не открыта.
 3. **Ожидаемые md5 функций** вписаны в шапку `docs/rollout/postpush_dashboard.sql` (метка
-   `functions`) 15.10 для файлов с sha256 `e989ca81…`, `dc610c17…`, `c3517375…`. Сверить
+   `functions`) 15.10 вечером для файлов ветки `c0c299d` с sha256 `e989ca81…` (100000),
+   `39c91be6…` (110000), `811c6d89…` (120000). Сверить
    `sha256sum` трёх файлов в дереве push; если файлы с тех пор менялись — пересчитать и вписать
    заново: тело — текст между `$$` в файле (для
    `analytics_summary` — из `20261015120000`, он последний). Способ — накатить три файла в
@@ -72,6 +78,28 @@
 5. **Проба «до»:** `node scripts/cloud-read.mjs docs/rollout/postpush_dashboard.sql` — голова
    `20261011100000`, у функций `overloads` 0 и пустые поля, `journal_table.exists` false,
    `triggers` и `kinds` — null.
+6. **Предполёт 15.10 вечером — выполнен, только чтение** (ветка `c0c299d`, дерево `dashboard-1014`):
+   - `npx supabase migration list --linked` — 109 миграций совпадают, голова облака
+     `20261011100000`, только локальные — ровно `20261015100000`, `20261015110000`,
+     `20261015120000`, только облачных нет. Значит, правленые на месте 110000 и 120000 в облаке
+     не записывались ни в какой версии. Из дерева без `supabase/.temp/pooler-url` CLI отвечает
+     «IPv6 is not supported» — файл скопирован из корня репозитория (`link` не запускался).
+   - Облачные копии `20261010100000`, `20261011100000` побайтно равны `origin/phone-1-2-0`.
+   - `npx supabase db push --linked --skip-vault --dry-run` — `"dryRun": true`, `migrations` —
+     ровно три файла дашборда по порядку; голова облака после него — по-прежнему
+     `20261011100000` (`cloud-read`).
+   - **Копия схемы облака:** на локальном стенде в откатываемой транзакции сняты первые версии
+     трёх миграций; отпечаток схемы `public` (по md5 на объект: 157 функций, 26 таблиц, 172
+     ограничения, 88 индексов, 40 триггеров, 52 политики, 18 перечислений, RLS) совпал с облаком
+     (тот же запрос через `cloud-read`), кроме `touch_updated_at()` — в облаке её тело с CR в
+     концах строк, текст тот же; миграции дашборда её не трогают.
+   - На этой копии три файла накатились **без ошибок**; проба `postpush_dashboard.sql` в той же
+     транзакции — все метки как в шапке (голова `20261015120000`, 14 функций по одной, права,
+     таблица, триггеры, виды). Наборы на копии: `task_events` 36/36, `analytics` 67/67,
+     `analytics_series` 9/9; `table_grants` — 26 зелёных и одна красная: `release_push_token`
+     доступна `anon`. Это не дашборд: функция облачной `20261011100000_push_release`, в облаке
+     так и задумано, а набор в `main` и в ветке дашборда ещё не знает о ней (в `phone-1-2-0` он
+     её ждёт). После слияния `phone-1-2-0` в `main` красная уйдёт.
 
 ## 2. Застава и push — только словом владельца «пушим»
 
@@ -182,7 +210,7 @@ drop function public.analytics_cleaning_rows(uuid, date, date, bigint[], uuid[],
 drop function public.analytics_checkout_rows(uuid, date, date, bigint[], boolean, boolean);
 drop function public.analytics_occupancy_rows(uuid, date, date, bigint[], boolean);
 drop function public.analytics_problem_rows(uuid, date, date, bigint[], uuid[], public.problem_status[],
-  public.problem_priority[], boolean, boolean);
+  public.problem_priority[], boolean, boolean, boolean);
 drop function public.analytics_guard(date, date);
 drop function public.analytics_is_test_listing(bigint);
 ```
