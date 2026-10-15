@@ -278,11 +278,11 @@ select pg_temp.check('M: the Almaty checkout, and the two cleanings finished aft
   (select array[checkouts, cleanings_done, cleanings_planned]
    from public.analytics_series(pg_temp.m(), pg_temp.m() + 9) where bucket = pg_temp.m()),
   array[1, 2, 1]);
-select pg_temp.check('the series adds up to the summary',
+select pg_temp.check('the series adds up to the summary: no cancelled task among the created',
   (select array[sum(cleanings_done)::int, sum(checkouts)::int, sum(problems_created)::int,
                 sum(problems_resolved)::int]
    from public.analytics_series(pg_temp.m(), pg_temp.e())),
-  array[5, 3, 3, 2]);
+  array[5, 3, 2, 2]);
 select pg_temp.check('a week series starts its buckets on Mondays',
   (select bool_and(extract(isodow from bucket) = 1)
    from public.analytics_series(pg_temp.m(), pg_temp.e(), p_bucket => 'week')),
@@ -298,9 +298,9 @@ select pg_temp.check('the series takes the filters too',
 select pg_temp.check('a bucket it does not know is refused',
   pg_temp.refusal_hint($q$select * from public.analytics_series(current_date - 7, current_date, p_bucket => 'year')$q$),
   'serverErrors.analyticsPeriodInvalid');
-select pg_temp.check('tasks created in the period by urgency',
+select pg_temp.check('tasks created in the period by urgency: not the cancelled normal one',
   (pg_temp.cur()->'problems_by_priority'),
-  jsonb_build_object('low', 1, 'normal', 1, 'high', 1));
+  jsonb_build_object('low', 1, 'normal', 0, 'high', 1));
 reset role;
 
 select pg_temp.as_anna();

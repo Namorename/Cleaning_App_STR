@@ -24,7 +24,7 @@ import { previousPeriod } from './period';
 import { ANALYTICS_TABLES, type AnalyticsQuery, type AnalyticsTable as TableName, type Summary } from './schema';
 import { useAnalyticsListings, useAnalyticsSummary } from './use-analytics';
 
-/** Nothing was counted: no cleaning, checkout, night or task in the period. */
+/** Nothing was counted: no cleaning, checkout, night or task in the period, nor a cancelled one. */
 export function isEmptySummary(summary: Summary): boolean {
   return (
     summary.cleanings_done === 0 &&
@@ -33,7 +33,8 @@ export function isEmptySummary(summary: Summary): boolean {
     summary.occupied_nights === 0 &&
     summary.problems_created === 0 &&
     summary.problems_resolved === 0 &&
-    summary.problems_open === 0
+    summary.problems_open === 0 &&
+    summary.problems_cancelled === 0
   );
 }
 

@@ -34,6 +34,8 @@ export const summarySchema = z.object({
   problems_created: count,
   problems_resolved: count,
   problems_open: count,
+  /** Cancelled in the period, outside the archive; in no other figure. */
+  problems_cancelled: count,
   urgency_avg: measure,
   /** Tasks created in the period by urgency (20261015120000). */
   problems_by_priority: z.object({ low: count, normal: count, high: count }),

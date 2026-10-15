@@ -82,6 +82,15 @@ const TILES: readonly TileSpec[] = [
     hint: (_s, _language, t) => t(`${KEY}problemsOpenHint`),
   },
   {
+    // Not a task of the other figures (owner, 2026-10-15), so counted apart.
+    key: 'problemsCancelled',
+    value: (s) => s.problems_cancelled,
+    show: count,
+    change: 'relative',
+    better: 'none',
+    hint: (_s, _language, t) => t(`${KEY}problemsCancelledHint`),
+  },
+  {
     key: 'urgencyAvg',
     value: (s) => s.urgency_avg,
     show: (value, language) => formatNumber(value, language, 2),

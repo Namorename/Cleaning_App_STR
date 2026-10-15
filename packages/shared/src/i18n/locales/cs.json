@@ -264,6 +264,8 @@
         "problemsResolved": "Vyřešené úkoly",
         "problemsOpen": "Otevřené úkoly",
         "problemsOpenHint": "na konci období",
+        "problemsCancelled": "Zrušené úkoly",
+        "problemsCancelledHint": "podle dne zrušení; v ostatních číslech nejsou",
         "urgencyAvg": "Průměrná naléhavost",
         "urgencyHint": "nízká 1 · běžná 2 · vysoká 3",
         "cleaningMinutesMedian": "Medián doby úklidu",

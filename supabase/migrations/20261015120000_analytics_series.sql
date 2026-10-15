@@ -9,7 +9,9 @@
 --
 -- - analytics_summary gains problems_by_priority: the tasks created in the
 --   period, low / normal / high — the bar a manager clicks to filter by
---   urgency. The rest of its body is 20261015110000's, unchanged.
+--   urgency; a cancelled task is not among them (20261015110000's rule). The
+--   rest of its body is 20261015110000's, unchanged, problems_cancelled with
+--   it.
 --
 -- - Both take p_hide_archived, as every function of 20261015110000 does:
 --   true leaves the archived listings out, null leaves everything in.
@@ -37,6 +39,7 @@ declare
   v_checkouts  record;
   v_occupancy  record;
   v_problems   record;
+  v_cancelled  bigint;
 begin
   select
     count(*) filter (where c.status = 'done' and c.done_day between p_from and p_to) as done,
@@ -80,7 +83,14 @@ begin
     count(*) filter (where pr.created_day between p_from and p_to and pr.urgency = 3) as created_high
   into v_problems
   from public.analytics_problem_rows(v_host, p_from, p_to, p_property_ids, p_assignee_ids,
-                                     p_problem_statuses, p_priorities, p_include_test, p_hide_archived) pr;
+                                     p_problem_statuses, p_priorities, p_include_test, p_hide_archived,
+                                     false) pr;
+
+  select count(*) filter (where pr.cancelled_day between p_from and p_to)
+  into v_cancelled
+  from public.analytics_problem_rows(v_host, p_from, p_to, p_property_ids, p_assignee_ids,
+                                     p_problem_statuses, p_priorities, p_include_test, p_hide_archived,
+                                     true) pr;
 
   return jsonb_build_object(
     'cleanings_done', v_cleanings.done,
@@ -99,6 +109,7 @@ begin
     'problems_created', v_problems.created,
     'problems_resolved', v_problems.resolved,
     'problems_open', v_problems.open_end,
+    'problems_cancelled', v_cancelled,
     'urgency_avg', round(v_problems.urgency_avg, 2),
     'problems_by_priority', jsonb_build_object(
       'low', v_problems.created_low,
@@ -171,7 +182,7 @@ begin
   pr as (
     select * from public.analytics_problem_rows(v_host, p_from, p_to, p_property_ids,
                                                 p_assignee_ids, p_problem_statuses, p_priorities,
-                                                p_include_test, p_hide_archived)
+                                                p_include_test, p_hide_archived, false)
   ),
   created_d as (
     select pr.created_day as day, count(*) as n from pr group by pr.created_day

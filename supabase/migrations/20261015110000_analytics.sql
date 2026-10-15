@@ -33,15 +33,21 @@
 -- - The technicians' repairs_open is the work open now, whatever the period
 --   (owner, 2026-10-15); every other figure belongs to the period.
 --
--- - The archive (owner, 2026-10-15). A task the manager put away
---   (archive_problem: the panel's «delete», nothing is deleted) counts only if
---   it was resolved before it was put away; one closed without a resolution —
---   cancelled, a duplicate, a test put away while open — is no task at all,
---   in any figure of any period. An archived listing keeps its checkouts,
---   cleanings and tasks unless p_hide_archived is true; occupancy leaves it
---   out either way, because the days it was in work are not recorded and a
---   period of empty nights would be a lie. p_hide_archived null means the
---   caller said nothing: nothing is hidden.
+-- - A task closed without a resolution is no task (owner, 2026-10-15). One
+--   the manager put away (archive_problem: the panel's «delete», nothing is
+--   deleted) counts only if it was resolved before it was put away. One
+--   cancelled (cancel_problem; a duplicate or a mistake is cancelled, it has
+--   no status of its own) counts in no figure of any period: not created,
+--   resolved, open at the end of an earlier day, in the mean urgency, the
+--   series or a technician's work. The cancelled ones outside the archive
+--   are counted apart, problems_cancelled, on the local day they were
+--   cancelled; one cancelled and put away is in no figure at all.
+--
+-- - An archived listing keeps its checkouts, cleanings and tasks unless
+--   p_hide_archived is true; occupancy leaves it out either way, because the
+--   days it was in work are not recorded and a period of empty nights would
+--   be a lie. p_hide_archived null means the caller said nothing: nothing is
+--   hidden.
 --
 -- - Cleanings are 'cleaning' and 'midstay' tasks that answer no problem; the
 --   mid-stay ones are also given apart. The duration of a done cleaning is the
@@ -247,8 +253,10 @@ as $$
   left join taken t on t.listing_id = l.id
 $$;
 
--- Every task (problem) created by the end of the period, on local days —
--- but not one put away without a resolution (see the header).
+-- Every task (problem) created by the end of the period, on local days: the
+-- tasks that count, or with p_cancelled the ones cancelled outside the
+-- archive — never one closed without a resolution among the first (see the
+-- header).
 create or replace function public.analytics_problem_rows(
   p_host              uuid,
   p_from              date,
@@ -258,7 +266,8 @@ create or replace function public.analytics_problem_rows(
   p_problem_statuses  public.problem_status[],
   p_priorities        public.problem_priority[],
   p_include_test      boolean,
-  p_hide_archived     boolean
+  p_hide_archived     boolean,
+  p_cancelled         boolean
 )
 returns table (
   problem_id        uuid,
@@ -292,9 +301,11 @@ as $$
   cross join lateral (select coalesce(p.timezone, 'Europe/Prague') as zone) z
   where pr.host_id = p_host
     and pr.created_at < (p_to + 2)::timestamp at time zone 'UTC'
-    -- In the archive, only what was resolved before it was put away.
+    -- In the archive, only what was resolved before it was put away — so a
+    -- cancelled one comes only from outside it, and only when asked for.
     and (pr.archived_at is null
          or (pr.status = 'resolved' and pr.resolved_at <= pr.archived_at))
+    and (pr.status = 'cancelled') = p_cancelled
     and (p_include_test or l.id is null or not public.analytics_is_test_listing(l.id))
     and (not coalesce(p_hide_archived, false) or l.id is null or l.status <> 'archived')
     and (p_property_ids is null or l.id = any (p_property_ids))
@@ -332,6 +343,7 @@ declare
   v_checkouts  record;
   v_occupancy  record;
   v_problems   record;
+  v_cancelled  bigint;
 begin
   select
     count(*) filter (where c.status = 'done' and c.done_day between p_from and p_to) as done,
@@ -372,7 +384,14 @@ begin
     avg(pr.urgency) filter (where pr.created_day between p_from and p_to) as urgency_avg
   into v_problems
   from public.analytics_problem_rows(v_host, p_from, p_to, p_property_ids, p_assignee_ids,
-                                     p_problem_statuses, p_priorities, p_include_test, p_hide_archived) pr;
+                                     p_problem_statuses, p_priorities, p_include_test, p_hide_archived,
+                                     false) pr;
+
+  select count(*) filter (where pr.cancelled_day between p_from and p_to)
+  into v_cancelled
+  from public.analytics_problem_rows(v_host, p_from, p_to, p_property_ids, p_assignee_ids,
+                                     p_problem_statuses, p_priorities, p_include_test, p_hide_archived,
+                                     true) pr;
 
   return jsonb_build_object(
     'cleanings_done', v_cleanings.done,
@@ -391,6 +410,7 @@ begin
     'problems_created', v_problems.created,
     'problems_resolved', v_problems.resolved,
     'problems_open', v_problems.open_end,
+    'problems_cancelled', v_cancelled,
     'urgency_avg', round(v_problems.urgency_avg, 2)
   );
 end;
@@ -682,7 +702,8 @@ begin
            avg(pr.hours_to_resolve) filter (where pr.status = 'resolved'
                                               and pr.resolved_day between p_from and p_to) as h_avg
     from public.analytics_problem_rows(v_host, p_from, p_to, p_property_ids, p_assignee_ids,
-                                       p_problem_statuses, p_priorities, p_include_test, p_hide_archived) pr
+                                       p_problem_statuses, p_priorities, p_include_test, p_hide_archived,
+                                       false) pr
     group by pr.listing_id
   )
   select g.listing_id,
@@ -742,7 +763,7 @@ begin
   with pr as (
     select * from public.analytics_problem_rows(v_host, p_from, greatest(p_to, current_date),
                                                 p_property_ids, p_assignee_ids, p_problem_statuses,
-                                                p_priorities, p_include_test, p_hide_archived)
+                                                p_priorities, p_include_test, p_hide_archived, false)
   ),
   rep as (
     select coalesce(t.completed_by, t.assignee_id) as person_id,
@@ -812,7 +833,8 @@ revoke all on function public.analytics_checkout_rows(uuid, date, date, bigint[]
 revoke all on function public.analytics_occupancy_rows(uuid, date, date, bigint[], boolean)
   from public, anon, authenticated;
 revoke all on function public.analytics_problem_rows(uuid, date, date, bigint[], uuid[],
-  public.problem_status[], public.problem_priority[], boolean, boolean) from public, anon, authenticated;
+  public.problem_status[], public.problem_priority[], boolean, boolean, boolean)
+  from public, anon, authenticated;
 
 revoke all on function public.analytics_summary(date, date, bigint[], uuid[], public.task_status[],
   public.problem_status[], public.problem_priority[], boolean, boolean) from public, anon;

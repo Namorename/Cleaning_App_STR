@@ -264,6 +264,8 @@
         "problemsResolved": "Заданий решено",
         "problemsOpen": "Заданий открыто",
         "problemsOpenHint": "на конец периода",
+        "problemsCancelled": "Заданий отменено",
+        "problemsCancelledHint": "по дню отмены; в другие цифры не входят",
         "urgencyAvg": "Средняя срочность",
         "urgencyHint": "низкая 1 · обычная 2 · высокая 3",
         "cleaningMinutesMedian": "Медиана времени уборки",

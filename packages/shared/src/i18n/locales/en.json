@@ -264,6 +264,8 @@
         "problemsResolved": "Tasks resolved",
         "problemsOpen": "Tasks open",
         "problemsOpenHint": "at the end of the period",
+        "problemsCancelled": "Tasks cancelled",
+        "problemsCancelledHint": "by the day they were cancelled; not in the other figures",
         "urgencyAvg": "Average urgency",
         "urgencyHint": "low 1 · normal 2 · high 3",
         "cleaningMinutesMedian": "Median cleaning time",

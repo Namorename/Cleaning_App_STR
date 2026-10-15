@@ -33,6 +33,7 @@ const SUMMARY = {
   problems_created: 3,
   problems_resolved: 2,
   problems_open: 2,
+  problems_cancelled: 1,
   urgency_avg: 2,
   problems_by_priority: { low: 1, normal: 1, high: 1 },
 };
@@ -150,6 +151,12 @@ describe('fetchSummary', () => {
 
   it('fails on a figure it cannot read rather than show a zero', async () => {
     const { client } = clientAnswering(() => ({ ...SUMMARY, checkouts: 'many' }));
+    await expect(fetchSummary(client, query)).rejects.toThrow();
+  });
+
+  it('fails on an answer without the cancelled tasks rather than show none', async () => {
+    const { problems_cancelled: _cancelled, ...withoutCancelled } = SUMMARY;
+    const { client } = clientAnswering(() => withoutCancelled);
     await expect(fetchSummary(client, query)).rejects.toThrow();
   });
 

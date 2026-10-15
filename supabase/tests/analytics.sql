@@ -14,8 +14,9 @@
 --   - occupancy splits nights by period (a September night is September's);
 --   - the demo listings (ids 900000000000–999999999999) stay out unless asked;
 --   - a task in the archive counts only if it was resolved before it was put
---     away; an archived listing counts unless the archive is hidden, but not
---     in occupancy;
+--     away; a cancelled one outside it is no task either, but is counted
+--     apart on the day it was cancelled; an archived listing counts unless
+--     the archive is hidden, but not in occupancy;
 --   - tables come a page at a time with the total beside them.
 --
 -- Dates are built from the previous month (M = its first day), so every
@@ -243,8 +244,9 @@ values
   ('b5505001-0000-4000-8000-000000000003', 'b5500000-0000-4000-8000-00000000000a', pg_temp.petra(),
    'Door', 900055002, 'low', 'open',
    pg_temp.at(pg_temp.m() + 3, '09:00', 'Asia/Almaty'), null, null),
+  -- Cancelled: no task of the figures, high so that its urgency would show.
   ('b5505001-0000-4000-8000-000000000004', 'b5500000-0000-4000-8000-00000000000a', pg_temp.anna(),
-   'Chair', 900055010, 'normal', 'cancelled',
+   'Chair', 900055010, 'high', 'cancelled',
    pg_temp.at(pg_temp.m() + 1, '10:00', 'Europe/Prague'), null,
    pg_temp.at(pg_temp.m() + 1, '11:00', 'Europe/Prague')),
   ('b5505001-0000-4000-8000-000000000005', 'b5500000-0000-4000-8000-00000000000a', pg_temp.anna(),
@@ -346,13 +348,15 @@ select pg_temp.check('one done cleaning in five has a photo',
 --  Tasks: created, resolved, open at the end; urgency 1–3
 -- ---------------------------------------------------------------------------
 
-select pg_temp.check('created, resolved and still open at the end of M''s month',
+select pg_temp.check('created, resolved and still open at the end of M''s month: not the cancelled one',
   array[(pg_temp.cur()->>'problems_created')::int, (pg_temp.cur()->>'problems_resolved')::int,
         (pg_temp.cur()->>'problems_open')::int],
-  array[3, 2, 2]);
+  array[2, 2, 2]);
+select pg_temp.check('the cancelled one is counted apart, on the day it was cancelled',
+  (pg_temp.cur()->>'problems_cancelled')::int, 1);
 select pg_temp.check('open at the end of the month before: one open, one resolved later',
   (pg_temp.prev()->>'problems_open')::int, 2);
-select pg_temp.check('average urgency of those created: high, low, normal',
+select pg_temp.check('average urgency of those created: high and low, not the cancelled high one',
   (pg_temp.cur()->>'urgency_avg')::numeric, 2.0);
 
 -- ---------------------------------------------------------------------------
@@ -381,10 +385,11 @@ select pg_temp.check('expired alone: planned one, done none',
    from public.analytics_summary(pg_temp.m(), pg_temp.e(),
                                  p_task_statuses => array['expired'::public.task_status]) s),
   array[1, 0]);
-select pg_temp.check('high urgency alone: one created',
-  (public.analytics_summary(pg_temp.m(), pg_temp.e(),
-                            p_priorities => array['high'::public.problem_priority])->>'problems_created')::int,
-  1);
+select pg_temp.check('high urgency alone: one created, one cancelled',
+  (select array[(s->>'problems_created')::int, (s->>'problems_cancelled')::int]
+   from public.analytics_summary(pg_temp.m(), pg_temp.e(),
+                                 p_priorities => array['high'::public.problem_priority]) s),
+  array[1, 1]);
 select pg_temp.check('open tasks alone: one created in the month is still open',
   (public.analytics_summary(pg_temp.m(), pg_temp.e(),
                             p_problem_statuses => array['open'::public.problem_status])->>'problems_created')::int,
@@ -392,7 +397,7 @@ select pg_temp.check('open tasks alone: one created in the month is still open',
 select pg_temp.check('the demo listing comes in only when asked',
   (select array[(s->>'checkouts')::int, (s->>'cleanings_done')::int, (s->>'problems_created')::int]
    from public.analytics_summary(pg_temp.m(), pg_temp.e(), p_include_test => true) s),
-  array[4, 6, 4]);
+  array[4, 6, 3]);
 
 -- ---------------------------------------------------------------------------
 --  Tables, a page at a time
@@ -438,11 +443,11 @@ select pg_temp.check('and the occupancy of each listing over ten days',
    from public.analytics_checkouts_by_property(pg_temp.m(), pg_temp.m() + 9)),
   array['Prague flat 2/10', 'Almaty flat 0/10', 'House 4/20']);
 
-select pg_temp.check('tasks by listing: created, resolved, open at the end',
+select pg_temp.check('tasks by listing: created, resolved, open at the end; no row for the cancelled one',
   (select array_agg(coalesce(listing_name, '(none)') || ' ' || created || '/' || resolved || '/' || open_end
                     order by listing_id nulls first)
    from public.analytics_problems_by_property(pg_temp.m(), pg_temp.e())),
-  array['(none) 0/1/0', 'Prague flat 1/1/1', 'Almaty flat 1/0/1', 'House 1/0/0']);
+  array['(none) 0/1/0', 'Prague flat 1/1/1', 'Almaty flat 1/0/1']);
 
 select pg_temp.check('tasks by technician: repairs done, tasks resolved, mean minutes of work',
   (select array_agg(full_name || ' ' || repairs_done || '/' || problems_resolved || '/' || work_minutes_avg)
@@ -504,9 +509,11 @@ select pg_temp.check('a repair of a task put away unresolved is not counted for 
 select pg_temp.check('the archive: the task resolved before it was put away counts, the rest do not',
   array[(pg_temp.cur()->>'problems_created')::int, (pg_temp.cur()->>'problems_resolved')::int,
         (pg_temp.cur()->>'problems_open')::int],
-  array[4, 3, 2]);
-select pg_temp.check('and their urgency: high, low, normal and the resolved high one',
-  (pg_temp.cur()->>'urgency_avg')::numeric, 2.25);
+  array[3, 3, 2]);
+select pg_temp.check('and their urgency: high, low and the resolved high one',
+  (pg_temp.cur()->>'urgency_avg')::numeric, 2.33);
+select pg_temp.check('the duplicate cancelled and put away is not among the cancelled either',
+  (pg_temp.cur()->>'problems_cancelled')::int, 1);
 select pg_temp.check('open at the end of M + 4: not the test put away the day after',
   (pg_temp.summary(pg_temp.m() + 4, pg_temp.m() + 4)->>'problems_open')::int, 3);
 select pg_temp.check('nor in the table by listing',
@@ -549,7 +556,7 @@ select pg_temp.check('an archived flat counts: its checkout, its room, its clean
   (select array[(s->>'checkouts')::int, (s->>'rooms_released')::int, (s->>'cleanings_done')::int,
                 (s->>'problems_created')::int, (s->>'problems_open')::int]
    from pg_temp.cur() s),
-  array[4, 5, 6, 5, 3]);
+  array[4, 5, 6, 4, 3]);
 select pg_temp.check('the same with the archive asked for in so many words (null is "not hidden")',
   (select array[(s->>'checkouts')::int, (s->>'cleanings_done')::int]
    from public.analytics_summary(pg_temp.m(), pg_temp.e(), p_hide_archived => null) s),
@@ -559,7 +566,7 @@ select pg_temp.check('the archive hidden: the flat is gone, the task with no lis
                 (s->>'problems_created')::int, (s->>'problems_resolved')::int,
                 (s->>'problems_open')::int]
    from public.analytics_summary(pg_temp.m(), pg_temp.e(), p_hide_archived => true) s),
-  array[3, 4, 5, 4, 3, 2]);
+  array[3, 4, 5, 3, 3, 2]);
 select pg_temp.check('its occupancy stays out, hidden or not',
   (select array[(s->>'occupied_nights')::numeric, (s->>'available_nights')::numeric]
    from pg_temp.summary(pg_temp.m(), pg_temp.m() + 9) s),
@@ -596,7 +603,7 @@ select pg_temp.check('the series follows the summary, with the archive and witho
   (select array[sum(cleanings_done)::int, sum(checkouts)::int, sum(problems_created)::int,
                 sum(problems_resolved)::int]
    from public.analytics_series(pg_temp.m(), pg_temp.e(), p_hide_archived => true)),
-  array[6, 4, 5, 3, 5, 3, 4, 3]);
+  array[6, 4, 4, 3, 5, 3, 3, 3]);
 reset role;
 
 -- The technicians' "open now" means now, whatever the period: a repair still
@@ -623,7 +630,103 @@ select pg_temp.check('the archive hidden: the Boiler repair is not open work any
    where person_id = pg_temp.tomas()),
   '2/1');
 select pg_temp.check('today''s task is still not a task of last month',
-  (pg_temp.cur()->>'problems_created')::int, 5);
+  (pg_temp.cur()->>'problems_created')::int, 4);
+reset role;
+
+-- ---------------------------------------------------------------------------
+--  Cancelled tasks outside the archive
+-- ---------------------------------------------------------------------------
+
+-- The archive's rule for every task closed without a resolution: cancelled —
+-- a duplicate, a mistake — it is no task of any figure, not even of the open
+-- count of a day it was still open, nor of a technician's work. It is counted
+-- apart, as cancelled, on the day it was cancelled.
+select set_config('request.jwt.claims', '{}', true);
+insert into public.problems (id, host_id, reported_by, title, property_id, priority, status,
+                             created_at, resolved_at, cancelled_at)
+values
+  -- Reported the month before, cancelled in M's month.
+  ('b5505001-0000-4000-8000-000000000013', 'b5500000-0000-4000-8000-00000000000a', pg_temp.anna(),
+   'Shelf', 900055001, 'low', 'cancelled',
+   pg_temp.at(pg_temp.m() - 3, '09:00', 'Europe/Prague'), null,
+   pg_temp.at(pg_temp.m() + 2, '09:00', 'Europe/Prague')),
+  -- Reported in M's month, cancelled after it.
+  ('b5505001-0000-4000-8000-000000000014', 'b5500000-0000-4000-8000-00000000000a', pg_temp.petra(),
+   'Mirror', 900055002, 'normal', 'cancelled',
+   pg_temp.at(pg_temp.m() + 5, '09:00', 'Asia/Almaty'), null,
+   pg_temp.at(pg_temp.e() + 1, '09:00', 'Asia/Almaty'));
+-- A repair Tomas finished on the shelf before it was cancelled.
+insert into public.tasks (id, host_id, property_id, type, status, scheduled_date, assignee_id,
+                          started_at, completed_at, completed_by, problem_id)
+values
+  ('b5504002-0000-4000-8000-000000000013', 'b5500000-0000-4000-8000-00000000000a', 900055001,
+   'maintenance', 'done', pg_temp.m() + 1, pg_temp.tomas(),
+   pg_temp.at(pg_temp.m() + 1, '11:00', 'Europe/Prague'),
+   pg_temp.at(pg_temp.m() + 1, '11:30', 'Europe/Prague'), pg_temp.tomas(),
+   'b5505001-0000-4000-8000-000000000013');
+
+select pg_temp.as_boss();
+select pg_temp.check('M''s month: the same tasks, two cancelled in it (the chair and the shelf)',
+  array[(pg_temp.cur()->>'problems_created')::int, (pg_temp.cur()->>'problems_resolved')::int,
+        (pg_temp.cur()->>'problems_open')::int, (pg_temp.cur()->>'problems_cancelled')::int],
+  array[4, 3, 3, 2]);
+select pg_temp.check('the month before: the shelf was not open at its end, nor cancelled in it',
+  array[(pg_temp.prev()->>'problems_open')::int, (pg_temp.prev()->>'problems_cancelled')::int],
+  array[2, 0]);
+select pg_temp.check('the mirror is cancelled in the month it was cancelled',
+  (pg_temp.summary(pg_temp.e() + 1, pg_temp.e() + 1)->>'problems_cancelled')::int, 1);
+select pg_temp.check('the task status filter: cancelled alone has no task but its cancelled ones',
+  (select array[(s->>'problems_created')::int, (s->>'problems_open')::int, (s->>'problems_cancelled')::int]
+   from public.analytics_summary(pg_temp.m(), pg_temp.e(),
+                                 p_problem_statuses => array['cancelled'::public.problem_status]) s),
+  array[0, 0, 2]);
+select pg_temp.check('and open alone has none cancelled',
+  (public.analytics_summary(pg_temp.m(), pg_temp.e(),
+                            p_problem_statuses => array['open'::public.problem_status])->>'problems_cancelled')::int,
+  0);
+select pg_temp.check('a listing filter takes the cancelled ones too',
+  (public.analytics_summary(pg_temp.m(), pg_temp.e(),
+                            p_property_ids => array[900055001::bigint])->>'problems_cancelled')::int,
+  1);
+select pg_temp.check('the repair of a cancelled task is no work of the technician''s',
+  (select repairs_done || '/' || problems_resolved
+   from public.analytics_problems_by_technician(pg_temp.m(), pg_temp.e())
+   where person_id = pg_temp.tomas()),
+  '2/2');
+select pg_temp.check('nor a task of its listing''s row',
+  (select created || '/' || resolved || '/' || open_end
+   from public.analytics_problems_by_property(pg_temp.m(), pg_temp.e()) where listing_id = 900055001),
+  '2/2/1');
+select pg_temp.check('nor of the series',
+  (select array[sum(problems_created)::int, sum(problems_resolved)::int]
+   from public.analytics_series(pg_temp.m(), pg_temp.e())),
+  array[4, 3]);
+reset role;
+
+-- One cancelled at 01:30 in Almaty — the evening before in UTC — and one on
+-- the flat taken out of work.
+select set_config('request.jwt.claims', '{}', true);
+insert into public.problems (id, host_id, reported_by, title, property_id, priority, status,
+                             created_at, resolved_at, cancelled_at)
+values
+  ('b5505001-0000-4000-8000-000000000015', 'b5500000-0000-4000-8000-00000000000a', pg_temp.petra(),
+   'Vase', 900055002, 'normal', 'cancelled',
+   pg_temp.at(pg_temp.m() + 9, '09:00', 'Asia/Almaty'), null,
+   pg_temp.at(pg_temp.m() + 10, '01:30', 'Asia/Almaty')),
+  ('b5505001-0000-4000-8000-000000000016', 'b5500000-0000-4000-8000-00000000000a', pg_temp.petra(),
+   'Pipe', 900055003, 'normal', 'cancelled',
+   pg_temp.at(pg_temp.m() + 7, '09:00', 'Europe/Prague'), null,
+   pg_temp.at(pg_temp.m() + 8, '09:00', 'Europe/Prague'));
+
+select pg_temp.as_boss();
+select pg_temp.check('a task is cancelled on its listing''s day: 01:30 in Almaty, not the evening before',
+  array[(pg_temp.summary(pg_temp.m() + 9, pg_temp.m() + 9)->>'problems_cancelled')::int,
+        (pg_temp.summary(pg_temp.m() + 10, pg_temp.m() + 10)->>'problems_cancelled')::int],
+  array[0, 1]);
+select pg_temp.check('the archive hidden: the one cancelled on the flat out of work is gone from them',
+  array[(pg_temp.cur()->>'problems_cancelled')::int,
+        (public.analytics_summary(pg_temp.m(), pg_temp.e(), p_hide_archived => true)->>'problems_cancelled')::int],
+  array[4, 3]);
 reset role;
 
 -- ---------------------------------------------------------------------------

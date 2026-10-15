@@ -2123,6 +2123,7 @@ export type Database = {
       analytics_problem_rows: {
         Args: {
           p_assignee_ids: string[]
+          p_cancelled: boolean
           p_from: string
           p_hide_archived: boolean
           p_host: string

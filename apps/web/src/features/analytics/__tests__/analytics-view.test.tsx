@@ -22,6 +22,7 @@ const SUMMARY: Summary = {
   problems_created: 3,
   problems_resolved: 2,
   problems_open: 2,
+  problems_cancelled: 1,
   urgency_avg: 2,
   problems_by_priority: { low: 1, normal: 1, high: 1 },
 };
@@ -48,6 +49,7 @@ const EMPTY: Summary = {
   problems_created: 0,
   problems_resolved: 0,
   problems_open: 0,
+  problems_cancelled: 0,
   urgency_avg: null,
 };
 
@@ -175,6 +177,17 @@ describe('AnalyticsView in the panel’s own language', () => {
     expect(within(tiles).getByText('Cleanings done')).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: 'Hide archived' })).not.toBeChecked();
   });
+
+  test('gives the cancelled tasks a figure of their own, outside the others', async () => {
+    await i18n.changeLanguage(languageFromCookie(undefined));
+    render(<AnalyticsView />);
+    const tiles = screen.getByRole('region', { name: 'Key figures' });
+    const cancelled = within(tiles).getByText('Tasks cancelled').parentElement as HTMLElement;
+    expect(within(cancelled).getByText('1')).toBeInTheDocument();
+    expect(
+      within(cancelled).getByText('by the day they were cancelled; not in the other figures'),
+    ).toBeInTheDocument();
+  });
 });
 
 describe('AnalyticsView and the archive', () => {
@@ -227,6 +240,16 @@ describe('AnalyticsView', () => {
     state.current = EMPTY;
     render(<AnalyticsView />);
     expect(screen.getByText('За этот период считать нечего')).toBeInTheDocument();
+  });
+
+  test('a period whose only tasks were cancelled is not empty', () => {
+    state.current = { ...EMPTY, problems_cancelled: 2 };
+    render(<AnalyticsView />);
+    expect(screen.queryByText('За этот период считать нечего')).not.toBeInTheDocument();
+    const tiles = screen.getByRole('region', { name: 'Ключевые показатели' });
+    const cancelled = within(tiles).getByText('Заданий отменено').parentElement as HTMLElement;
+    expect(within(cancelled).getByText('2')).toBeInTheDocument();
+    expect(within(cancelled).getByText('по дню отмены; в другие цифры не входят')).toBeInTheDocument();
   });
 
   test('downloads the whole table, not only the page on the screen', async () => {
