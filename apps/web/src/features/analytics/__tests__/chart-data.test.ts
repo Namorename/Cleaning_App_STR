@@ -6,6 +6,9 @@ import {
   chartQueries,
   cleanerBars,
   listingBars,
+  pickedCleanerBars,
+  pickedListingBars,
+  picksOutside,
   seriesBucket,
   TOP_BARS,
   urgencyBars,
@@ -138,5 +141,70 @@ describe('the bars', () => {
     const other = { ...SUMMARY, problems_by_priority: { low: 9, normal: 9, high: 9 } };
     expect(urgencySummary(NO_FILTERS, SUMMARY, other)).toBe(SUMMARY);
     expect(urgencySummary({ ...NO_FILTERS, priorities: ['low'] }, SUMMARY, other)).toBe(other);
+  });
+});
+
+describe('the bars of what the page is filtered to', () => {
+  const ANNA = '11111111-1111-4111-8111-111111111111';
+  const EVA = '22222222-2222-4222-8222-222222222222';
+  const GONE = '33333333-3333-4333-8333-333333333333';
+  const t = i18n.getFixedT('en');
+  const LOOKUPS = {
+    people: [
+      { id: ANNA, label: 'Anna Novak' },
+      { id: EVA, label: 'Eva Dvořák' },
+    ],
+    staff: [
+      { id: ANNA, label: 'Anna Novak' },
+      { id: EVA, label: 'Eva Dvořák' },
+    ],
+  };
+  const LISTING_NAMES = [
+    { id: '1', label: 'Old Town flat' },
+    { id: '7', label: 'Gone flat (archived)' },
+  ];
+
+  test('a cleaner picked outside the busiest bars gets her own bar after them', () => {
+    const rows = [cleanerRow(ANNA, 'Anna Novak', 5), cleanerRow(EVA, 'Eva Dvořák', 1)];
+    const shown = cleanerBars(rows.slice(0, 1), 'full', 'en');
+    expect(pickedCleanerBars(shown, [ANNA, EVA], rows, 'full', LOOKUPS, t, 'en')).toEqual([
+      { id: EVA, label: 'Eva Dvořák', value: 1, valueText: '1' },
+    ]);
+  });
+
+  test('a pick with nothing done keeps her bar, at nought, named as the page names her', () => {
+    const rows = [cleanerRow(EVA, 'Eva Dvořák', 0)];
+    expect(pickedCleanerBars([], [EVA], rows, 'initials', LOOKUPS, t, 'en')).toEqual([
+      { id: EVA, label: 'E. D.', value: 0, valueText: '0' },
+    ]);
+  });
+
+  test('a pick with no row at all is named as her chip names her, at nought', () => {
+    expect(pickedCleanerBars([], [EVA, GONE], [], 'full', LOOKUPS, t, 'en')).toEqual([
+      { id: EVA, label: 'Eva Dvořák', value: 0, valueText: '0' },
+      { id: GONE, label: 'Former employee', value: 0, valueText: '0' },
+    ]);
+  });
+
+  test('nothing is added when every pick is among the bars, or nothing is picked', () => {
+    const rows = [cleanerRow(ANNA, 'Anna Novak', 5)];
+    const shown = cleanerBars(rows, 'full', 'en');
+    expect(pickedCleanerBars(shown, [ANNA], rows, 'full', LOOKUPS, t, 'en')).toEqual([]);
+    expect(pickedCleanerBars(shown, [], rows, 'full', LOOKUPS, t, 'en')).toEqual([]);
+  });
+
+  test('a listing picked outside the busiest bars gets its own bar, from its row or its chip', () => {
+    const shown = listingBars([listingRow(1, 'Old Town flat', 9)], 'en');
+    const rows = [listingRow(1, 'Old Town flat', 9), listingRow(5, 'Quiet flat', 2)];
+    expect(pickedListingBars(shown, [1, 5, 7], rows, LISTING_NAMES, 'en')).toEqual([
+      { id: '5', label: 'Quiet flat', value: 2, valueText: '2' },
+      { id: '7', label: 'Gone flat (archived)', value: 0, valueText: '0' },
+    ]);
+  });
+
+  test('the picks whose rows the busiest page does not hold are read apart', () => {
+    expect(picksOutside([ANNA, EVA], [ANNA])).toEqual([EVA]);
+    expect(picksOutside([ANNA], [ANNA, EVA])).toEqual([]);
+    expect(picksOutside([], [])).toEqual([]);
   });
 });

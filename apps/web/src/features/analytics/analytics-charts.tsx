@@ -12,6 +12,9 @@ import {
   chartQueries,
   cleanerBars,
   listingBars,
+  pickedCleanerBars,
+  pickedListingBars,
+  picksOutside,
   seriesBucket,
   TOP_PAGE,
   urgencyBars,
@@ -19,9 +22,17 @@ import {
 } from './chart-data';
 import { BarList } from './charts/bar-list';
 import { ColumnChart, type ColumnPoint, type ColumnSeries } from './charts/column-chart';
+import type { FilterLookups } from './filter-labels';
 import { formatNumber } from './format';
 import type { Period } from './period';
-import type { AnalyticsFilters, AnalyticsQuery, SeriesBucket, SeriesPoint, Summary } from './schema';
+import type {
+  AnalyticsFilters,
+  AnalyticsQuery,
+  AnalyticsRows,
+  SeriesBucket,
+  SeriesPoint,
+  Summary,
+} from './schema';
 import { useAnalyticsSeries, useAnalyticsSummary, useAnalyticsTable } from './use-analytics';
 
 const KEY = 'panel.analytics.charts.';
@@ -40,11 +51,38 @@ function toggled<T>(values: readonly T[], value: T): T[] {
   return values.includes(value) ? values.filter((one) => one !== value) : [...values, value];
 }
 
+type BarTable = 'cleaningsByProperty' | 'cleaningsByCleaner';
+
+/**
+ * The rows of a bar list's picks: the busiest page's, and — when that page
+ * does not hold every pick — the picks' own, read apart with the page's
+ * filter through the same table function. Until those come, `isReady` is
+ * false and no pick bar is drawn rather than a wrong one.
+ */
+function usePickRows<T extends BarTable>(
+  table: T,
+  query: AnalyticsQuery,
+  picked: readonly string[],
+  busiest: readonly AnalyticsRows[T][] | undefined,
+  idOf: (row: AnalyticsRows[T]) => string,
+) {
+  const isNeeded = busiest !== undefined && picksOutside(picked, busiest.map(idOf)).length > 0;
+  const read = useAnalyticsTable(table, isNeeded ? query : null, { limit: Math.max(picked.length, 1), offset: 0 });
+  const isReady = !isNeeded || (read.data !== undefined && !read.isPlaceholderData);
+  return {
+    rows: [...(busiest ?? []), ...(isNeeded && isReady ? (read.data?.rows ?? []) : [])],
+    isReady,
+    failed: isNeeded && read.isError ? read : null,
+  };
+}
+
 interface AnalyticsChartsProps {
   address: AnalyticsAddress;
   query: AnalyticsQuery;
   period: Period;
   summary: Summary | undefined;
+  /** How a pick with no row of its own is named: as its chip names it. */
+  lookups: FilterLookups;
   onChange: (next: AnalyticsAddress) => void;
 }
 
@@ -52,7 +90,7 @@ interface AnalyticsChartsProps {
  * The charts of the page (step 2): the period by day or week, and the bars a
  * click turns into a filter of the whole page — the cross-filter.
  */
-export function AnalyticsCharts({ address, query, period, summary, onChange }: AnalyticsChartsProps) {
+export function AnalyticsCharts({ address, query, period, summary, lookups, onChange }: AnalyticsChartsProps) {
   const { t } = useTranslation();
   const language = useLanguage();
   const bucket: SeriesBucket = seriesBucket(period);
@@ -61,6 +99,20 @@ export function AnalyticsCharts({ address, query, period, summary, onChange }: A
   const byListing = useAnalyticsTable('cleaningsByProperty', queries.byListing, TOP_PAGE);
   const byCleaner = useAnalyticsTable('cleaningsByCleaner', queries.byCleaner, TOP_PAGE);
   const byUrgency = useAnalyticsSummary(queries.byUrgency);
+  const listingPicks = usePickRows(
+    'cleaningsByProperty',
+    query,
+    address.filters.propertyIds.map(String),
+    byListing.data?.rows,
+    (row) => String(row.listing_id),
+  );
+  const cleanerPicks = usePickRows(
+    'cleaningsByCleaner',
+    query,
+    address.filters.personIds,
+    byCleaner.data?.rows,
+    (row) => row.person_id,
+  );
 
   const setFilters = (filters: AnalyticsFilters) => onChange({ ...address, filters });
 
@@ -83,6 +135,10 @@ export function AnalyticsCharts({ address, query, period, summary, onChange }: A
         ? { loading: t('panel.analytics.charts.loading') }
         : undefined;
 
+  // The picks' own rows did not come: the busiest bars stay, and why is said under them.
+  const picksFailure = (failed: { error: unknown } | null) =>
+    failed === null ? undefined : <ErrorState message={t('panel.analytics.errors.table')} error={failed.error} />;
+
   const points = (
     pick: (point: SeriesPoint) => number[],
     names: readonly ColumnSeries[],
@@ -102,8 +158,30 @@ export function AnalyticsCharts({ address, query, period, summary, onChange }: A
   const named = (names: readonly ColumnSeries[]) =>
     names.map((one) => ({ ...one, name: t(`${KEY}${one.name}`) }));
 
-  const listingItems = listingBars(byListing.data?.rows ?? [], language);
-  const cleanerItems = cleanerBars(byCleaner.data?.rows ?? [], address.names, language);
+  // The busiest bars, and after them a bar for each pick they leave out
+  // (owner, 2026-10-16) — the PDF draws the same (report-model.ts).
+  const listingShown = listingBars(byListing.data?.rows ?? [], language);
+  const listingItems = [
+    ...listingShown,
+    ...(listingPicks.isReady
+      ? pickedListingBars(listingShown, address.filters.propertyIds, listingPicks.rows, lookups.listingNames, language)
+      : []),
+  ];
+  const cleanerShown = cleanerBars(byCleaner.data?.rows ?? [], address.names, language);
+  const cleanerItems = [
+    ...cleanerShown,
+    ...(cleanerPicks.isReady
+      ? pickedCleanerBars(
+          cleanerShown,
+          address.filters.personIds,
+          cleanerPicks.rows,
+          address.names,
+          lookups,
+          (key, values) => t(key, values),
+          language,
+        )
+      : []),
+  ];
   const urgencyItems = urgencyBars(
     urgencySummary(address.filters, summary, byUrgency.data),
     (key, values) => t(key, values),
@@ -135,6 +213,7 @@ export function AnalyticsCharts({ address, query, period, summary, onChange }: A
         <BarList
           title={t(`${KEY}byListing`)}
           status={status(byListing)}
+          note={picksFailure(listingPicks.failed)}
           items={listingItems}
           selected={address.filters.propertyIds.map(String)}
           onToggle={(id) =>
@@ -145,6 +224,7 @@ export function AnalyticsCharts({ address, query, period, summary, onChange }: A
         <BarList
           title={t(`${KEY}byCleaner`)}
           status={status(byCleaner)}
+          note={picksFailure(cleanerPicks.failed)}
           items={cleanerItems}
           selected={address.filters.personIds}
           onToggle={(id) =>

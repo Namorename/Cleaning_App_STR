@@ -23,6 +23,8 @@ interface BarListProps {
   emptyText: string;
   /** While the bars load, or why they did not: said in place of the bars. */
   status?: { loading: string } | { error: ReactNode };
+  /** Said under the bars that did load: a part of them that did not. */
+  note?: ReactNode;
 }
 
 /**
@@ -30,7 +32,7 @@ interface BarListProps {
  * bar (and a second click lets it go). The figure is written beside the bar,
  * so the length is never the only way to read it.
  */
-export function BarList({ title, items, selected, onToggle, emptyText, status }: BarListProps) {
+export function BarList({ title, items, selected, onToggle, emptyText, status, note }: BarListProps) {
   const top = niceMax(Math.max(0, ...items.map((item) => item.value)));
   return (
     <section
@@ -81,6 +83,7 @@ export function BarList({ title, items, selected, onToggle, emptyText, status }:
           })}
         </ul>
       )}
+      {status === undefined ? note : null}
     </section>
   );
 }
