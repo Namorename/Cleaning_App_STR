@@ -97,6 +97,29 @@ describe('the address as a reviewer types it (App Review rejection of 2026-10-13
     expect(sent).not.toContain('Invalid login credentials');
   });
 
+  // A reviewer's demo account and a cleaner's own account take the same road:
+  // the screen has no branch for either.
+  test.each([
+    [
+      'a demo account as App Review pastes it',
+      ' App.Review.Demo@Gmail.COM',
+      'app.review.demo@gmail.com',
+    ],
+    ['a cleaner typing her own address', 'Jana.Novakova@Seznam.cz  ', 'jana.novakova@seznam.cz'],
+  ])('%s signs in with the address in lower case', async (_who, typed, sent) => {
+    // Arrange
+    await render(<SignInScreen />);
+    await fireEvent.changeText(screen.getByLabelText('Почта'), typed);
+    await fireEvent.changeText(password(), 'Kx7mQ2pL9vRt');
+
+    // Act
+    await fireEvent.press(screen.getByRole('button', { name: 'Войти' }));
+
+    // Assert
+    await waitFor(() => expect(signIn).toHaveBeenCalledWith(sent, 'Kx7mQ2pL9vRt'));
+    expect(Sentry.captureMessage).not.toHaveBeenCalled();
+  });
+
   test('a sign-in that goes through reports nothing', async () => {
     // Arrange
     await render(<SignInScreen />);
