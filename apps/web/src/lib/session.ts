@@ -34,14 +34,18 @@ export function panelAccessOf(role: string | null): PanelAccess | null {
   return role === 'head_tech' ? 'knowledge' : null;
 }
 
-/** The pages of a knowledge-only access: the section and the person's own settings. */
-const KNOWLEDGE_PATHS = ['/knowledge', '/settings'];
-
-/** Whether a page is one this access reaches. Paths only: the query is the page's. */
+/**
+ * Whether a page is one this access reaches. Paths only: the query is the
+ * page's. The knowledge-only access reaches the section with whatever comes
+ * under it, and Settings itself — its sections live in the query, and a page
+ * someone puts under it later is not his by default.
+ */
 export function isPathOpenTo(access: PanelAccess, pathname: string): boolean {
   return (
     access === 'full' ||
-    KNOWLEDGE_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))
+    pathname === '/knowledge' ||
+    pathname.startsWith('/knowledge/') ||
+    pathname === '/settings'
   );
 }
 

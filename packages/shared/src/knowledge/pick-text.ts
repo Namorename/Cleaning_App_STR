@@ -32,7 +32,12 @@ export function pickKbText(
       return { ...original, isOriginal: true };
     }
     const translation = translations[language];
-    if (translation !== undefined && translation.title.trim() !== '') {
+    // A title without a text would hide the original's text from the reader.
+    const isComplete =
+      translation !== undefined &&
+      translation.title.trim() !== '' &&
+      (translation.body.trim() !== '' || original.body.trim() === '');
+    if (isComplete) {
       return { language, title: translation.title, body: translation.body, isOriginal: false };
     }
   }

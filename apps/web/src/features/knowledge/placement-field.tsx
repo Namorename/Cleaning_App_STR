@@ -9,6 +9,9 @@ import { PropertyPicker } from '@/features/team/property-picker';
 import { buildingsOf, placeIndex, placeLabel } from './places';
 import { KB_SCOPES, type KbScope, type Place } from './schema';
 
+// A building's article names one listing (save_kb_article); the server says so
+// if more places are left from «Выбранные объекты».
+
 interface PlacementFieldProps {
   scope: KbScope;
   propertyIds: readonly number[];
@@ -45,22 +48,16 @@ export function PlacementField({
     .map((place) => ({ id: place.id, name: placeLabel(index, place.id) ?? place.name }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const setScope = (next: KbScope) => {
-    if (next === 'company') {
-      onChange({ scope: next, propertyIds: [] });
-    } else if (next === 'building') {
-      const kept = buildings.find((building) => propertyIds.includes(building.id));
-      onChange({ scope: next, propertyIds: kept === undefined ? [] : [kept.id] });
-    } else {
-      onChange({ scope: next, propertyIds: [...propertyIds] });
-    }
-  };
+  // The places stay through a change of mind: «Вся компания» sends none
+  // (api.ts), and a place out of the writer's sight is never dropped by a click.
+  const setScope = (next: KbScope) => onChange({ scope: next, propertyIds: [...propertyIds] });
+  const chosenBuilding = buildings.find((building) => shown.includes(building.id));
 
   return (
     <fieldset className="flex flex-col gap-3 rounded-lg border p-3">
       <legend className="px-1 text-sm font-medium">{t('panel.knowledge.editor.placement')}</legend>
 
-      <div role="radiogroup" className="flex flex-wrap gap-x-4 gap-y-2">
+      <div className="flex flex-wrap gap-x-4 gap-y-2">
         {KB_SCOPES.map((option) => (
           <label key={option} className="flex min-h-11 items-center gap-2 text-sm">
             <input
@@ -91,7 +88,7 @@ export function PlacementField({
           ) : (
             <NativeSelect
               id={`${baseId}-building`}
-              value={shown[0] === undefined ? '' : String(shown[0])}
+              value={chosenBuilding === undefined ? '' : String(chosenBuilding.id)}
               className="sm:w-80"
               onChange={(event) =>
                 onChange({

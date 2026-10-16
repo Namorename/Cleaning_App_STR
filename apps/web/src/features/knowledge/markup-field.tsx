@@ -83,7 +83,7 @@ export function MarkupField({ id, label, value, onChange, lang }: MarkupFieldPro
         {label}
       </label>
       <div
-        role="toolbar"
+        role="group"
         aria-label={t('panel.knowledge.editor.toolbar.label')}
         aria-controls={id}
         className="flex flex-wrap gap-1"
@@ -94,7 +94,7 @@ export function MarkupField({ id, label, value, onChange, lang }: MarkupFieldPro
             type="button"
             variant="outline"
             size="sm"
-            className="h-9"
+            className="h-11"
             onClick={() => apply(mark)}
           >
             <Icon aria-hidden="true" />

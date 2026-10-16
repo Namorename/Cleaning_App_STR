@@ -87,7 +87,18 @@ describe('the head technician', () => {
     },
   );
 
-  test.each(['/', '/dashboard', '/tasks?tab=closed', '/problems', '/team', '/knowledgebase'])(
+  test.each([
+    '/',
+    '/dashboard',
+    '/tasks?tab=closed',
+    '/problems',
+    '/team',
+    '/knowledgebase',
+    '/KNOWLEDGE',
+    '/settings/company',
+    '/knowledge/../dashboard',
+    '/knowledge/%2e%2e/dashboard',
+  ])(
     'goes from %s to the knowledge base',
     async (path) => {
       const target = await redirectOf(path);

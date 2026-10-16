@@ -30,7 +30,7 @@ interface SettingsViewProps {
    * The office sees every section; the head technician, who reaches the panel
    * for the knowledge base (the owner's decision of 2026-10-17), his own two.
    */
-  access?: PanelAccess;
+  access: PanelAccess;
   /** The signed-in person: her profile keeps the panel's language. */
   userId: string;
   /** The theme this browser keeps (the cookie, read by the page). */
@@ -71,7 +71,7 @@ function sectionHref(section: SettingsSection): string {
  */
 export function SettingsView({
   email,
-  access = 'full',
+  access,
   userId,
   theme,
   onSignOut,
@@ -86,7 +86,7 @@ export function SettingsView({
     : DEFAULT_SETTINGS_ADDRESS.section;
 
   const open = (section: SettingsSection) => {
-    if (section !== current) {
+    if (section !== address.section) {
       setAddress({ section }, 'push');
     }
   };

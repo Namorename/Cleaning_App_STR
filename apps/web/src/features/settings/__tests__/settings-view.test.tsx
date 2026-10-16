@@ -51,7 +51,13 @@ import { SettingsView } from '../settings-view';
 const USER = '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b';
 
 const view = () => (
-  <SettingsView email="manager.test@example.com" userId={USER} theme="system" onSignOut={vi.fn()} />
+  <SettingsView
+    email="manager.test@example.com"
+    access="full"
+    userId={USER}
+    theme="system"
+    onSignOut={vi.fn()}
+  />
 );
 
 /** The query of the page's address, without its `?`. */

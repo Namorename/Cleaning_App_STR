@@ -75,8 +75,9 @@ export function ArticleEditor({ articleId, onClose, onCreated }: ArticleEditorPr
   const initial = loaded === null ? emptyDraft(newId, language) : draftOf(loaded);
   return (
     <EditorForm
-      // A new version from the server (a save, a colleague's) starts the form afresh.
-      key={`${initial.id}:${loaded?.rev ?? 0}`}
+      // One form an article: a refetch — a colleague's save, the window
+      // regaining focus — does not throw away what is being typed.
+      key={initial.id}
       initial={initial}
       article={loaded}
       places={places.data ?? []}
@@ -99,12 +100,19 @@ function BackButton({ onClose }: { onClose: () => void }) {
 
 interface EditorFormProps {
   initial: ArticleDraft;
-  /** The article as the server has it; null for a new one. */
+  /** The article as the server has it now; null while the address says «new». */
   article: Article | null;
   places: readonly Place[];
   isPlacesPending: boolean;
   onClose: () => void;
   onCreated: (id: string) => void;
+}
+
+/** What the form stands on: the draft last read or saved, and the article it was. */
+interface Baseline {
+  draft: ArticleDraft;
+  /** The article's updated_at as the screen knows it; null for one never saved. */
+  token: string | null;
 }
 
 function EditorForm({
@@ -118,14 +126,19 @@ function EditorForm({
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState(initial);
+  const [baseline, setBaseline] = useState<Baseline>({
+    draft: initial,
+    token: article?.updated_at ?? null,
+  });
   const [tab, setTab] = useState<Language>(initial.language);
   const [failure, setFailure] = useState<unknown>(null);
+  const [isJustSaved, setIsJustSaved] = useState(false);
   const save = useSaveArticle();
   const setStatus = useSetArticleStatus();
   const restore = useRestoreRevision();
 
-  const isNew = article === null;
-  const isDirty = isNew || !isSameDraft(draft, initial);
+  const isUnsaved = baseline.token === null;
+  const isDirty = isUnsaved || !isSameDraft(draft, baseline.draft);
   const isBusy = save.isPending || setStatus.isPending || restore.isPending;
   const hasTitle = draft.title.trim() !== '';
   const status: KbStatus = article?.status ?? 'draft';
@@ -133,16 +146,26 @@ function EditorForm({
   const error = failure === null ? null : serverErrorText(failure);
   const isConflict = serverErrorKey(failure) === 'serverErrors.kbArticleChanged';
 
+  /** The form afresh from what the server has now: after a version comes back, or a conflict. */
+  const resetFromServer = async () => {
+    await queryClient.refetchQueries({ queryKey: knowledgeKeys.article(draft.id) });
+    const fresh = queryClient.getQueryData<Article | null>(knowledgeKeys.article(draft.id));
+    if (fresh !== undefined && fresh !== null) {
+      const next = draftOf(fresh);
+      setDraft(next);
+      setBaseline({ draft: next, token: fresh.updated_at });
+    }
+  };
+
   /** Writes what is on screen, if anything changed; false when the server refused. */
   const persist = async (): Promise<boolean> => {
     if (!isDirty) {
       return true;
     }
+    const sent = draft;
     try {
-      await save.mutateAsync({ draft, expectedRev: article?.rev ?? null });
-      if (isNew) {
-        onCreated(draft.id);
-      }
+      const written = await save.mutateAsync({ draft: sent, expectedUpdatedAt: baseline.token });
+      setBaseline({ draft: sent, token: written.updated_at });
       return true;
     } catch (caught) {
       setFailure(caught);
@@ -150,9 +173,20 @@ function EditorForm({
     }
   };
 
+  // A new article is opened by its id only once the whole action is done: the
+  // address change replaces this form, and a refusal must still be on screen.
+  const opened = () => {
+    if (article === null) {
+      onCreated(draft.id);
+    }
+  };
+
   const onSave = async () => {
     setFailure(null);
-    await persist();
+    if (await persist()) {
+      setIsJustSaved(true);
+      opened();
+    }
   };
 
   // Publishing an edited article saves it first: what goes out is what is on screen.
@@ -162,29 +196,37 @@ function EditorForm({
       return;
     }
     try {
-      await setStatus.mutateAsync({ id: draft.id, status: next });
+      const written = await setStatus.mutateAsync({ id: draft.id, status: next });
+      setBaseline((current) => ({ ...current, token: written.updated_at }));
+      opened();
     } catch (caught) {
       setFailure(caught);
     }
   };
 
   const onRestore = async (rev: number) => {
-    if (article === null) {
+    if (baseline.token === null) {
       return;
     }
     setFailure(null);
     try {
-      await restore.mutateAsync({ id: article.id, rev, expectedRev: article.rev });
+      await restore.mutateAsync({ id: draft.id, rev, expectedUpdatedAt: baseline.token });
+      await resetFromServer();
     } catch (caught) {
       setFailure(caught);
     }
   };
 
-  // Somebody saved it meanwhile: read it again, which starts the form afresh.
+  // Somebody saved it meanwhile: the latest version replaces what is on screen.
   const reload = () => {
     setFailure(null);
-    void queryClient.invalidateQueries({ queryKey: knowledgeKeys.article(draft.id) });
+    void resetFromServer();
     void queryClient.invalidateQueries({ queryKey: knowledgeKeys.revisions(draft.id) });
+  };
+
+  const change = (next: ArticleDraft) => {
+    setIsJustSaved(false);
+    setDraft(next);
   };
 
   return (
@@ -205,14 +247,14 @@ function EditorForm({
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,26rem)] xl:items-start">
         <div className="flex min-w-0 flex-col gap-4">
-          <TextEditor draft={draft} onChange={setDraft} tab={tab} onTabChange={setTab} />
+          <TextEditor draft={draft} onChange={change} tab={tab} onTabChange={setTab} />
 
           <PlacementField
             scope={draft.scope}
             propertyIds={draft.propertyIds}
             places={places}
             isPlacesPending={isPlacesPending}
-            onChange={({ scope, propertyIds }) => setDraft({ ...draft, scope, propertyIds })}
+            onChange={({ scope, propertyIds }) => change({ ...draft, scope, propertyIds })}
           />
 
           <div className="flex flex-col gap-2">
@@ -263,24 +305,26 @@ function EditorForm({
                   </Button>
                 </>
               )}
-              {!isNew && isDirty ? (
+              {!isUnsaved && isDirty ? (
                 <Button
                   type="button"
                   variant="ghost"
                   className="h-11"
                   disabled={isBusy}
-                  onClick={() => setDraft(initial)}
+                  onClick={() => change(baseline.draft)}
                 >
                   {t('panel.knowledge.editor.discard')}
                 </Button>
               ) : null}
             </div>
             <p role="status" className="text-xs text-muted-foreground">
-              {!isNew && isDirty
+              {!isUnsaved && isDirty
                 ? t('panel.knowledge.editor.unsaved')
-                : status === 'published'
-                  ? null
-                  : t('panel.knowledge.editor.publishHint')}
+                : isJustSaved
+                  ? t('panel.knowledge.editor.saved')
+                  : status === 'published'
+                    ? null
+                    : t('panel.knowledge.editor.publishHint')}
             </p>
             {error === null ? null : (
               <div role="alert" className="flex flex-col gap-2 text-sm text-destructive">

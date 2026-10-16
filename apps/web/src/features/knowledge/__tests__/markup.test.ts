@@ -144,6 +144,40 @@ describe('parseKbMarkup: inside a line', () => {
     ]);
   });
 
+  test('parentheses inside an address stay with it; an unpaired one after it does not', () => {
+    expect(parseKbMarkup('[w](https://en.wikipedia.org/wiki/Foo_(bar)) (see https://x.cz/a_(b))')).toEqual([
+      {
+        kind: 'paragraph',
+        lines: [
+          [
+            link('w', 'https://en.wikipedia.org/wiki/Foo_(bar)'),
+            text(' (see '),
+            link('https://x.cz/a_(b)', 'https://x.cz/a_(b)'),
+            text(')'),
+          ],
+        ],
+      },
+    ]);
+  });
+
+  test('a line separator inside a list item keeps it an item', () => {
+    expect(parseKbMarkup('- one more')).toEqual([
+      { kind: 'bullets', items: [[text('one more')]] },
+    ]);
+  });
+
+  // Each of these used to send the reader back over the whole line.
+  test.each([
+    ['a long run of spaces before the end', `a${' '.repeat(19998)}b`],
+    ['a long run after a bullet', `- ${' '.repeat(19990)}x`],
+    ['thousands of addresses with no end', 'https://'.repeat(2500)],
+    ['thousands of short ones', 'https://a.b/'.repeat(1700)],
+  ])('%s is read in one pass', (_name, source) => {
+    const started = performance.now();
+    parseKbMarkup(source);
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
+
   // Thousands of openers whose closer is far away or never comes: each one
   // must not search the rest of the line again.
   test('a long line of unmatched marks is read in one pass', () => {
@@ -184,6 +218,10 @@ describe('isSafeHttpsUrl', () => {
     'https://example..com',
     'https://-example.com',
     'https://example.com:99999',
+    'https://exam‮ple.com',
+    'https://exam​ple.com',
+    'https://example.com／path',
+    'https://example．com',
     `https://example.com/${'a'.repeat(2048)}`,
   ])('refuses %s', (url) => {
     expect(isSafeHttpsUrl(url)).toBe(false);
@@ -221,6 +259,13 @@ describe('pickKbText', () => {
 
   test('then the original', () => {
     expect(pickKbText(original, {}, 'cs')).toEqual({ ...original, isOriginal: true });
+  });
+
+  test('a translation with a title and no text does not hide the original’s text', () => {
+    expect(pickKbText(original, { cs: { title: 'Kotel', body: ' ' } }, 'cs')).toEqual({
+      ...original,
+      isOriginal: true,
+    });
   });
 
   test('a translation without a title is no translation', () => {

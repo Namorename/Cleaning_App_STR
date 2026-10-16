@@ -23,6 +23,8 @@ const ARTICLE_ID = '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b';
 const DRAFT_ID = '11111111-1111-4111-8111-111111111111';
 const OLD_ID = '22222222-2222-4222-8222-222222222222';
 const BOSS = '44444444-4444-4444-8444-444444444444';
+/** The article's updated_at after a write of this screen. */
+const SAVED_AT = '2026-10-17T09:30:00.123456+00:00';
 
 const places: Place[] = [
   { id: 1, name: 'Flat one', parent_id: null, hostaway_unit_id: null, status: 'active' },
@@ -96,9 +98,9 @@ const titles = () =>
 beforeEach(() => {
   window.history.replaceState(null, '', '/knowledge');
   state.article = article;
-  saveArticle.mockReset().mockResolvedValue({ id: ARTICLE_ID, rev: 5, status: 'published' });
-  setStatus.mockReset().mockResolvedValue({ id: ARTICLE_ID, rev: 5, status: 'draft' });
-  restore.mockReset().mockResolvedValue({ id: ARTICLE_ID, rev: 5, status: 'published' });
+  saveArticle.mockReset().mockResolvedValue({ id: ARTICLE_ID, rev: 5, status: 'published', updated_at: SAVED_AT });
+  setStatus.mockReset().mockResolvedValue({ id: ARTICLE_ID, rev: 5, status: 'draft', updated_at: SAVED_AT });
+  restore.mockReset().mockResolvedValue({ id: ARTICLE_ID, rev: 5, status: 'published', updated_at: SAVED_AT });
 });
 
 describe('the list', () => {
@@ -163,8 +165,8 @@ describe('a new article', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
 
     expect(saveArticle).toHaveBeenCalledTimes(1);
-    const [{ draft, expectedRev }] = saveArticle.mock.calls[0];
-    expect(expectedRev).toBeNull();
+    const [{ draft, expectedUpdatedAt }] = saveArticle.mock.calls[0];
+    expect(expectedUpdatedAt).toBeNull();
     expect(draft).toMatchObject({
       language: 'ru',
       title: 'Пылесос',
@@ -187,6 +189,42 @@ describe('a new article', () => {
     expect(saveArticle.mock.calls[0][0].draft.translations).toEqual({
       en: { title: 'Vacuum cleaner', body: '' },
     });
+  });
+});
+
+describe('a new article published at once', () => {
+  test('a refusal to publish stays on screen, and the address still says «new»', async () => {
+    setStatus.mockRejectedValue({
+      message: 'A published article needs a place',
+      hint: 'serverErrors.kbTargetsMissing',
+      details: '',
+      code: '23514',
+    });
+    renderView();
+    await userEvent.click(screen.getByRole('button', { name: 'Новая статья' }));
+    await userEvent.type(screen.getByLabelText('Заголовок'), 'Пылесос');
+    fireEvent.change(screen.getByLabelText('Текст'), { target: { value: 'В шкафу.' } });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Опубликовать' }));
+
+    expect(saveArticle).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Перед публикацией выберите, где показывать статью',
+    );
+    expect(window.location.search).toBe('?article=new');
+  });
+
+  test('once published, it is opened by its own id', async () => {
+    renderView();
+    await userEvent.click(screen.getByRole('button', { name: 'Новая статья' }));
+    await userEvent.type(screen.getByLabelText('Заголовок'), 'Пылесос');
+    fireEvent.change(screen.getByLabelText('Текст'), { target: { value: 'В шкафу.' } });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Опубликовать' }));
+
+    const { draft } = saveArticle.mock.calls[0][0];
+    expect(setStatus).toHaveBeenCalledWith({ id: draft.id, status: 'published' });
+    await waitFor(() => expect(window.location.search).toBe(`?article=${draft.id}`));
   });
 });
 
@@ -223,12 +261,30 @@ describe('an article that is out', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Снять с публикации' }));
 
     expect(saveArticle).toHaveBeenCalledTimes(1);
-    expect(saveArticle.mock.calls[0][0].expectedRev).toBe(4);
+    expect(saveArticle.mock.calls[0][0].expectedUpdatedAt).toBe('2026-10-17T08:00:00Z');
     expect(saveArticle.mock.calls[0][0].draft.body).toBe('В подвале.');
     expect(setStatus).toHaveBeenCalledWith({ id: ARTICLE_ID, status: 'draft' });
     expect(saveArticle.mock.invocationCallOrder[0]).toBeLessThan(
       setStatus.mock.invocationCallOrder[0],
     );
+  });
+
+  // A refetch — the window regaining focus, a colleague's save — must not throw
+  // away what is being typed, nor make the screen look newer than it is.
+  test('a newer article read meanwhile keeps the draft, and the save says which one it was', async () => {
+    const view = renderView();
+    fireEvent.change(screen.getByLabelText('Текст'), { target: { value: 'Моя правка' } });
+
+    state.article = { ...article, rev: 5, updated_at: '2026-10-17T09:00:00Z', body: 'Чужая правка' };
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <KnowledgeView />
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByLabelText('Текст')).toHaveValue('Моя правка');
+    await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(saveArticle.mock.calls[0][0].expectedUpdatedAt).toBe('2026-10-17T08:00:00Z');
   });
 
   test('archived as it is, with nothing to save first', async () => {
@@ -263,7 +319,11 @@ describe('an article that is out', () => {
 
     const restoreOne = screen.getByRole('button', { name: 'Вернуть версию 1' });
     await userEvent.click(restoreOne);
-    expect(restore).toHaveBeenCalledWith({ id: ARTICLE_ID, rev: 1, expectedRev: 4 });
+    expect(restore).toHaveBeenCalledWith({
+      id: ARTICLE_ID,
+      rev: 1,
+      expectedUpdatedAt: '2026-10-17T08:00:00Z',
+    });
 
     fireEvent.change(screen.getByLabelText('Текст'), { target: { value: 'Правка' } });
     expect(screen.getByRole('button', { name: 'Вернуть версию 1' })).toHaveAttribute(

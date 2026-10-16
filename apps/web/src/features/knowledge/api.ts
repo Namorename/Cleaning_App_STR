@@ -96,13 +96,13 @@ export async function fetchPeople(client: Client): Promise<Person[]> {
 
 /**
  * Creates (a draft) or rewrites an article. The id was minted by the panel, so
- * a retry after a lost answer finds its own article. `expectedRev` is the
- * version the screen showed; null for a new article asks nothing.
+ * a retry after a lost answer finds its own article. `expectedUpdatedAt` is the
+ * article the screen showed (its updated_at); null for a new article asks nothing.
  */
 export async function saveArticle(
   client: Client,
   draft: ArticleDraft,
-  expectedRev: number | null,
+  expectedUpdatedAt: string | null,
 ): Promise<Written> {
   const { data, error } = await client.rpc('save_kb_article', {
     p_id: draft.id,
@@ -112,7 +112,7 @@ export async function saveArticle(
     p_translations: translationsPayload(draft),
     p_scope: draft.scope,
     p_property_ids: draft.scope === 'company' ? [] : [...draft.propertyIds],
-    p_expected_rev: expectedRev ?? undefined,
+    p_expected_updated_at: expectedUpdatedAt ?? undefined,
   });
   if (error) {
     throw error;
@@ -141,12 +141,12 @@ export async function restoreRevision(
   client: Client,
   id: string,
   rev: number,
-  expectedRev: number,
+  expectedUpdatedAt: string,
 ): Promise<Written> {
   const { data, error } = await client.rpc('restore_kb_revision', {
     p_article_id: id,
     p_rev: rev,
-    p_expected_rev: expectedRev,
+    p_expected_updated_at: expectedUpdatedAt,
   });
   if (error) {
     throw error;

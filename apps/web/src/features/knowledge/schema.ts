@@ -43,6 +43,8 @@ export const writtenSchema = z.object({
   id: z.string(),
   rev: z.number(),
   status: z.enum(KB_STATUSES),
+  /** What the screen sends back as the article it showed (p_expected_updated_at). */
+  updated_at: z.string(),
 });
 export type Written = z.infer<typeof writtenSchema>;
 
@@ -133,16 +135,20 @@ function keptTranslations(draft: ArticleDraft): [Language, KbTextDraft][] {
   );
 }
 
-/** Whether saving would change nothing: the same text, translations and places. */
+/**
+ * Whether saving would change nothing: the same text, translations and places,
+ * as the server would keep them — titles trimmed, and no places for an
+ * article of the whole company (the ones held while choosing do not count).
+ */
 export function isSameDraft(a: ArticleDraft, b: ArticleDraft): boolean {
   const content = (draft: ArticleDraft) =>
     JSON.stringify([
       draft.language,
-      draft.title,
+      draft.title.trim(),
       draft.body,
       draft.scope,
-      ascending(draft.propertyIds),
-      keptTranslations(draft),
+      draft.scope === 'company' ? [] : ascending(draft.propertyIds),
+      keptTranslations(draft).map(([language, text]) => [language, text.title.trim(), text.body]),
     ]);
   return content(a) === content(b);
 }

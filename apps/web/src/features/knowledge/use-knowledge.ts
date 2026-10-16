@@ -75,14 +75,15 @@ function useInvalidateArticle() {
 
 export interface SaveVariables {
   draft: ArticleDraft;
-  expectedRev: number | null;
+  expectedUpdatedAt: string | null;
 }
 
 export function useSaveArticle() {
   const client = useSupabase();
   const invalidate = useInvalidateArticle();
   return useMutation({
-    mutationFn: ({ draft, expectedRev }: SaveVariables) => saveArticle(client, draft, expectedRev),
+    mutationFn: ({ draft, expectedUpdatedAt }: SaveVariables) =>
+      saveArticle(client, draft, expectedUpdatedAt),
     onSuccess: (written) => invalidate(written.id),
   });
 }
@@ -102,8 +103,8 @@ export function useRestoreRevision() {
   const client = useSupabase();
   const invalidate = useInvalidateArticle();
   return useMutation({
-    mutationFn: ({ id, rev, expectedRev }: { id: string; rev: number; expectedRev: number }) =>
-      restoreRevision(client, id, rev, expectedRev),
+    mutationFn: ({ id, rev, expectedUpdatedAt }: { id: string; rev: number; expectedUpdatedAt: string }) =>
+      restoreRevision(client, id, rev, expectedUpdatedAt),
     onSettled: (_written, _error, { id }) => invalidate(id),
   });
 }

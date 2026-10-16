@@ -165,6 +165,21 @@ describe('signing in', () => {
     );
   });
 
+  test('his settings are a way back he keeps; a path that climbs out is not', async () => {
+    state.role = 'head_tech';
+    const settings = form();
+    settings.set('next', '/settings?section=appearance');
+    const climbing = form();
+    climbing.set('next', '/knowledge/../dashboard');
+
+    await expect(signIn({ issue: null, email: '' }, settings)).rejects.toThrow(
+      'redirect:/settings?section=appearance',
+    );
+    await expect(signIn({ issue: null, email: '' }, climbing)).rejects.toThrow(
+      'redirect:/knowledge',
+    );
+  });
+
   test.each(['cleaner', 'tech'])('a %s is still turned away', async (role) => {
     state.role = role;
 

@@ -7,9 +7,17 @@ import { useTranslation } from 'react-i18next';
 /** The phone's width the preview is drawn at (an iPhone 14–16, 390 pt). */
 const PHONE_WIDTH_CLASS = 'max-w-[390px]';
 
-/** The host a link opens, written beside it: the reader sees where she is going. */
+/**
+ * The host a link opens, written beside it: the reader sees where she is
+ * going. The browser's own reading, so a look-alike letter in a name shows as
+ * the punycode it is (xn--…).
+ */
 function hostOf(href: string): string {
-  return href.replace(/^https:\/\//i, '').split(/[/?#]/, 1)[0];
+  try {
+    return new URL(href).hostname;
+  } catch {
+    return href.replace(/^https:\/\//i, '').split(/[/?#]/, 1)[0];
+  }
 }
 
 function Line({ line }: { line: KbLine }) {

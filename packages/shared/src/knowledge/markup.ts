@@ -13,10 +13,11 @@
  * - `> ` starts a line of an important note;
  * - `**bold**` inside a line, opening and closing on a non-space;
  * - `[text](https://…)`, and a bare `https://…` address — https only, checked
- *   by `isSafeHttpsUrl`.
+ *   by `isSafeHttpsUrl`; parentheses inside an address are kept in pairs.
  *
- * Runs in one pass over each line: a mark whose pair is far away, or never
- * comes, does not send the reader back over the rest of the line.
+ * Every scan is bounded: a mark whose pair is far away, or never comes, does
+ * not send the reader back over the rest of the line, and an address is never
+ * looked for past its longest allowed length.
  *
  * No regular expression here needs more than ES2018 without look-behind:
  * Hermes reads this file on the phone.
@@ -49,15 +50,22 @@ export const KB_MARKS = {
 export const KB_URL_MAX_LENGTH = 2048;
 
 const HTTPS = 'https://';
-const UNSAFE_IN_URL = /[\s\u0000-\u001f\u007f<>"`\\{}|^]/;
+/**
+ * Never in an address: spaces and control characters, the characters HTML and
+ * shells give a meaning to, and the invisible, bidirectional and full-width
+ * ones a host could hide behind (U+202E would turn the domain shown around).
+ */
+const UNSAFE_IN_URL =
+  /[\s\u0000-\u001f\u007f<>"`\\{}|^­؜᠎ -⁯　-〿﻿＀-￯]/;
 const HOST_LABEL = /^[a-z0-9¡-￿]([a-z0-9¡-￿-]*[a-z0-9¡-￿])?$/;
 const PORT = /^\d{1,5}$/;
 const MAX_PORT = 65535;
 
 /**
  * An address the apps may open: https, a host with a dot, no user or password
- * before it, no spaces or control characters, at most 2048 characters. One
- * rule for both apps; the phone has no full `URL`, so it is read by hand.
+ * before it, no spaces, control or invisible characters, at most 2048
+ * characters. One rule for both apps; the phone has no full `URL`, so it is
+ * read by hand.
  */
 export function isSafeHttpsUrl(candidate: string): boolean {
   if (candidate.length > KB_URL_MAX_LENGTH || UNSAFE_IN_URL.test(candidate)) {
@@ -89,10 +97,11 @@ interface ClassifiedLine {
   text: string;
 }
 
-const BULLET = /^[-*] +(.*)$/;
-const NUMBERED = /^(\d{1,3})\. +(.*)$/;
-const STEP = /^(\d{1,3})\) +(.*)$/;
-const IMPORTANT = /^> ?(.*)$/;
+// [\s\S], not a dot: a line may hold U+2028 or U+2029, which a dot does not match.
+const BULLET = /^[-*] +([\s\S]*)$/;
+const NUMBERED = /^(\d{1,3})\. +([\s\S]*)$/;
+const STEP = /^(\d{1,3})\) +([\s\S]*)$/;
+const IMPORTANT = /^> ?([\s\S]*)$/;
 const INDENT = /^[ \t]{0,3}/;
 
 function classify(raw: string): ClassifiedLine {
@@ -120,9 +129,19 @@ const isSpace = (char: string | undefined): boolean => char === undefined || /\s
 const isWordChar = (char: string | undefined): boolean =>
   char !== undefined && /[0-9A-Za-zÀ-￿]/.test(char);
 
-/** Characters that end a sentence rather than an address. */
-const TRAILING_PUNCTUATION = '.,;:!?)]}\'"';
+/** Characters that end a sentence rather than an address; `)` only when unpaired. */
+const TRAILING_PUNCTUATION = '.,;:!?]}\'"';
 const URL_STOP = /[\s<>"`]/;
+
+function count(text: string, char: string): number {
+  let found = 0;
+  for (const one of text) {
+    if (one === char) {
+      found += 1;
+    }
+  }
+  return found;
+}
 
 /**
  * Where the next `needle` is at or after `from`, remembered: the reader moves
@@ -132,7 +151,7 @@ const URL_STOP = /[\s<>"`]/;
 function forwardFinder(line: string, needle: string): (from: number) => number {
   let found = -2;
   return (from) => {
-    if (found === -1 || (found >= from && found !== -2)) {
+    if (found === -1 || found >= from) {
       return found;
     }
     found = line.indexOf(needle, from);
@@ -140,11 +159,60 @@ function forwardFinder(line: string, needle: string): (from: number) => number {
   };
 }
 
+/**
+ * The address of `[text](…)` opening at `start`, up to its closing bracket —
+ * parentheses inside it kept in pairs — or null. Looks no further than the
+ * longest address allowed, and stops at a space.
+ */
+function bracketedAddress(line: string, start: number): { href: string; end: number } | null {
+  const limit = Math.min(line.length, start + KB_URL_MAX_LENGTH + 1);
+  let depth = 0;
+  for (let at = start; at < limit; at += 1) {
+    const char = line[at];
+    if (char === '(') {
+      depth += 1;
+    } else if (char === ')') {
+      if (depth === 0) {
+        return { href: line.slice(start, at), end: at + 1 };
+      }
+      depth -= 1;
+    } else if (isSpace(char)) {
+      return null;
+    }
+  }
+  return null;
+}
+
+/** An https address starting at `at`, without the punctuation that follows it. */
+function bareAddressAt(line: string, at: number): string | null {
+  if (line.slice(at, at + HTTPS.length).toLowerCase() !== HTTPS) {
+    return null;
+  }
+  const limit = Math.min(line.length, at + KB_URL_MAX_LENGTH + 1);
+  let end = at + HTTPS.length;
+  while (end < limit && !URL_STOP.test(line[end])) {
+    end += 1;
+  }
+  if (end - at > KB_URL_MAX_LENGTH) {
+    return null;
+  }
+  while (end > at + HTTPS.length) {
+    const last = line[end - 1];
+    const isUnpairedClose =
+      last === ')' && count(line.slice(at, end), '(') < count(line.slice(at, end), ')');
+    if (!isUnpairedClose && !TRAILING_PUNCTUATION.includes(last)) {
+      break;
+    }
+    end -= 1;
+  }
+  const href = line.slice(at, end);
+  return isSafeHttpsUrl(href) ? href : null;
+}
+
 function readLine(line: string): KbInline[] {
   const pieces: KbInline[] = [];
   const nextStars = forwardFinder(line, '**');
   const nextBracket = forwardFinder(line, ']');
-  const nextParen = forwardFinder(line, ')');
   let plain = '';
   let at = 0;
 
@@ -162,12 +230,11 @@ function readLine(line: string): KbInline[] {
 
     if (char === '[') {
       const close = nextBracket(at + 1);
-      if (close !== -1 && line[close + 1] === '(') {
-        const end = nextParen(close + 2);
-        const label = line.slice(at + 1, close);
-        const href = end === -1 ? '' : line.slice(close + 2, end).trim();
-        if (end !== -1 && label.trim() !== '' && !label.includes('[') && isSafeHttpsUrl(href)) {
-          emit({ kind: 'link', text: label, href }, end + 1);
+      const label = close === -1 ? '' : line.slice(at + 1, close);
+      if (close !== -1 && line[close + 1] === '(' && label.trim() !== '' && !label.includes('[')) {
+        const address = bracketedAddress(line, close + 2);
+        if (address !== null && isSafeHttpsUrl(address.href)) {
+          emit({ kind: 'link', text: label, href: address.href }, address.end);
           continue;
         }
       }
@@ -195,22 +262,6 @@ function readLine(line: string): KbInline[] {
   return pieces;
 }
 
-/** An https address starting at `at`, without the punctuation that follows it. */
-function bareAddressAt(line: string, at: number): string | null {
-  if (line.slice(at, at + HTTPS.length).toLowerCase() !== HTTPS) {
-    return null;
-  }
-  let end = at + HTTPS.length;
-  while (end < line.length && !URL_STOP.test(line[end])) {
-    end += 1;
-  }
-  while (end > at + HTTPS.length && TRAILING_PUNCTUATION.includes(line[end - 1])) {
-    end -= 1;
-  }
-  const href = line.slice(at, end);
-  return isSafeHttpsUrl(href) ? href : null;
-}
-
 /** The text as blocks to draw. Never throws: what is not markup is text. */
 export function parseKbMarkup(source: string): KbBlock[] {
   const blocks: KbBlock[] = [];
@@ -234,7 +285,8 @@ export function parseKbMarkup(source: string): KbBlock[] {
   };
 
   for (const raw of source.replace(/\r\n?/g, '\n').split('\n')) {
-    const trimmed = raw.replace(/\s+$/, '');
+    // trimEnd, not a regular expression: /\s+$/ backtracks over a long run of spaces.
+    const trimmed = raw.trimEnd();
     if (trimmed === '') {
       close();
       continue;

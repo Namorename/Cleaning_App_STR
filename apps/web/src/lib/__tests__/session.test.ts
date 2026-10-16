@@ -57,7 +57,16 @@ describe('isPathOpenTo', () => {
     expect(isPathOpenTo('knowledge', '/knowledge')).toBe(true);
     expect(isPathOpenTo('knowledge', '/knowledge/anything')).toBe(true);
     expect(isPathOpenTo('knowledge', '/settings')).toBe(true);
-    for (const path of ['/', '/dashboard', '/tasks', '/problems', '/team', '/knowledgebase']) {
+    for (const path of [
+      '/',
+      '/dashboard',
+      '/tasks',
+      '/problems',
+      '/team',
+      '/knowledgebase',
+      '/KNOWLEDGE',
+      '/settings/company',
+    ]) {
       expect(isPathOpenTo('knowledge', path)).toBe(false);
     }
   });
