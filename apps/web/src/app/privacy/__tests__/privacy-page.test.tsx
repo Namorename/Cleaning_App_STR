@@ -256,8 +256,9 @@ describe('the privacy policy page', () => {
     expect(tables.map((table) => within(table).getAllByRole('columnheader').length)).toEqual([
       3, 3, 2,
     ]);
+    // Section 2 gained the work log on 2026-10-16 (owner's decision of 15.10).
     expect(tables.map((table) => within(table).getAllByRole('rowheader').length)).toEqual([
-      7, 6, 8,
+      8, 6, 8,
     ]);
     expect(within(tables[1]).getByRole('rowheader', { name: 'Supabase' })).toBeInTheDocument();
   });
@@ -481,7 +482,8 @@ describe('the values only the owner knows', () => {
 describe('the values the owner gave', () => {
   test('as published', () => {
     expect(PRIVACY_SETTINGS).toMatchObject({
-      effectiveDate: '2026-10-12',
+      // Moved to the day the work log was published (owner's decision of 16.10).
+      effectiveDate: '2026-10-16',
       automaticDeletionDate: '2027-03-31',
       signInBlockDate: '2026-11-30',
       accountRetentionMonths: 6,
@@ -505,10 +507,10 @@ describe('the values the owner gave', () => {
     },
   );
 
-  test('in force from 12 October 2026', () => {
+  test('in force from 16 October 2026', () => {
     render(<PrivacyPolicy language="en" operator={EVERYONE_KNOWN} settings={PRIVACY_SETTINGS} />);
 
-    expect(screen.getByRole('main').textContent).toContain('Effective from: 12 Oct 2026');
+    expect(screen.getByRole('main').textContent).toContain('Effective from: 16 Oct 2026');
   });
 
   test.each([
