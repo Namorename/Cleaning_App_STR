@@ -1,4 +1,4 @@
-import { signInFailureText } from '../failure';
+import { refusalTags, signInFailureText } from '../failure';
 
 /**
  * The screen answered "wrong email or password" to everything it caught, so a
@@ -46,4 +46,42 @@ test('a failure that is not an object at all does not crash the screen', () => {
   const failure = signInFailureText('boom');
 
   expect(failure.text.length).toBeGreaterThan(0);
+});
+
+describe('what the report of a refused sign-in carries', () => {
+  // Apple's reviewer could not sign in on 2026-10-13 and nothing said why:
+  // the screen reported nothing. The report names the failure by auth's code
+  // and status alone — never what was typed, nor the server's own words.
+
+  test('a wrong pair: its code and status, as text', () => {
+    const tags = refusalTags({
+      name: 'AuthApiError',
+      code: 'invalid_credentials',
+      status: 400,
+      message: 'Invalid login credentials',
+    });
+
+    expect(tags).toEqual({ code: 'invalid_credentials', status: '400' });
+  });
+
+  test('a dead network has no code', () => {
+    const tags = refusalTags({
+      name: 'AuthRetryableFetchError',
+      status: 0,
+      message: 'Failed to fetch',
+    });
+
+    expect(tags).toEqual({ code: 'none', status: '0' });
+  });
+
+  test('a failure that is not an object says nothing it does not know', () => {
+    expect(refusalTags('boom')).toEqual({ code: 'none', status: 'none' });
+    expect(refusalTags(null)).toEqual({ code: 'none', status: 'none' });
+  });
+
+  test('a code or status of an unexpected shape is not passed on', () => {
+    const tags = refusalTags({ code: { text: 'anna@example.cz' }, status: '400 anna@example.cz' });
+
+    expect(tags).toEqual({ code: 'none', status: 'none' });
+  });
 });
