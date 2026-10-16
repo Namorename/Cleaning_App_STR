@@ -163,6 +163,7 @@ select jsonb_build_object(
       'demo', count(*) filter (where id = 900000000001),
       'in_test_band', count(*) filter (where id between 900000000000 and 999999999999),
       'named_hotel', count(*) filter (where lower(name) = 'hotel'),
+      'hotel_id_taken', count(*) filter (where id = 800000000001),
       'demo_children', count(*) filter (where parent_id = 900000000001))
     from public.properties),
   'demo_property_rows', jsonb_build_object(

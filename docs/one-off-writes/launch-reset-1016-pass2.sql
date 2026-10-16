@@ -27,7 +27,7 @@ declare
   c_bound      constant date   := date '2026-10-15';
   c_demo       constant bigint := 900000000001;
   c_keep_email constant text   := 'wagnerstays@gmail.com';
-  -- The owner's choices (plan, «Вопросы»); the values are the plan's recommendation.
+  -- The owner's answers of 2026-10-16 to the plan's questions 2 and 5.
   c_drop_raw_bookings  constant boolean := true;
   c_drop_reset_events  constant boolean := true;
   v_started timestamptz := clock_timestamp();

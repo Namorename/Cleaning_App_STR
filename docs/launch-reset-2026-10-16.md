@@ -283,7 +283,12 @@ git (`git rev-parse` в домашней папке: «not a git repository»), 
 - Генератор рождает уборки только из броней (`20260927120000_pinned_rooms.sql:568-595`), а у
   «Hotel» их не будет.
 - Периодических работ по объектам нет.
-- id `900000000002` лежит вне диапазонов листингов (98 352–597 582) и комнат (10¹² + id).
+- id `800000000001` (решение владельца 16.10: «Hotel» входит в статистику).
+  - Он лежит выше всех листингов Hostaway (98 352–601 842, медиана 355 788) и ниже комнат
+    (10¹² + id, сейчас 1 000 000 018 007–1 000 000 064 305).
+  - Он вне тестовой полосы аналитики `900000000000…999999999999`.
+  - Других особых диапазонов в коде нет: синки, генератор, RLS и приложения номера объектов
+    по величине не делят (проверено 16.10).
 
 **Техники и главный техник.**
 - Задание на «Hotel» создаёт **менеджер в панели**: `report_problem` с объектом доступен
@@ -296,28 +301,38 @@ git (`git rev-parse` в домашней папке: «not a git repository»), 
 - Главный техник видит все задания и их ремонты. Объект он видит, как только на нём есть
   задание.
 - Создать задание на «Hotel» ни техник, ни главный техник не могут: кнопки нет, а
-  `report_problem` их откажет. Если это нужно — правка `resolve_report_property` (вопрос 6).
+  `report_problem` их откажет. Решение владельца 16.10: правок нет.
 
-**Аналитика.**
-- С id из полосы `900000000000…999999999999` «Hotel» сам выпадает из всех метрик: уборки,
-  чекауты, занятость, задания и через них таблица техников, ряды, PDF. Это `p_include_test`
-  = false, как у демо, кода править не нужно.
-- В списке-фильтре объектов он будет виден: `fetchListings`,
-  `apps/web/src/features/analytics/api.ts:77-87`, берёт все объекты, кроме комнат. Так сейчас
-  виден и демо; выбор даёт нули.
-- Если его надо скрыть и в фильтре — правка панели (не сделана): в `fetchListings`
-  `.lt('id', 900000000000)` или фильтр `allListings` в `analytics-view.tsx:62`, с тестом.
-  Push в `main` — это прод панели, поэтому только отдельной веткой.
-- Цена полосы: ремонты на «Hotel» не попадут в цифры техников. Если их нужно считать —
-  id вне полосы (например `800000000001`) и правка `analytics_occupancy_rows`, чтобы объект
-  без броней не занижал занятость (вопрос 6). Делить на ноль ничего не будет, отношения
-  защищены `nullif`.
+**Аналитика** (id вне тестовой полосы — «Hotel» считается везде; правок панели нет).
+- **Задания и ремонты** на «Hotel» входят в цифры заданий и в таблицу техников
+  (`analytics_problem_rows`).
+- **Уборок и чекаутов** у него нет: ни одной строки в цифрах уборок.
+- **Занятость** — общая доля, а не среднее по объектам: сумма занятых ночей делится на сумму
+  доступных (`analytics_occupancy_rows`, `20261015110000_analytics.sql:225-252`).
+  - У каждого объекта не в архиве доступно `max(1, комнат)` мест в день.
+  - «Hotel» добавляет одно пустое место в день. Сейчас считается 80 объектов, 102 места в день.
+  - Замер по облаку 16.10 за 15.10–13.11: 52,35 % без «Hotel», 51,84 % с ним, то есть
+    −0,51 п. п. (≈ −1 % от величины). То же в рядах по дням и в PDF.
+- **Таблица по объектам** (`analytics_checkouts_by_property`): строка «Hotel» с 0 чекаутов и
+  0 % занятости, внизу списка.
+- **Фильтр объектов:** «Hotel» виден (`fetchListings` берёт все объекты, кроме комнат).
+  Выбор только его даст задания и ремонты, а занятость — 0 %.
+- **Делить на ноль ничего не будет:** отношения защищены `nullif`.
+- **Предложение (не сделано).** Миграция с условием `and l.synced_at is not null` в CTE
+  `listings` функции `analytics_occupancy_rows`, то есть занятость только по объектам, которые
+  прислал Hostaway.
+  - У всех настоящих объектов `synced_at` заполнен (объектов без него, кроме демо, 0 — облако
+    16.10), у «Hotel» он пуст.
+  - Задания и техники от этого не меняются, а строка «Hotel» из таблицы по объектам уйдёт:
+    чекаутов у него нет.
+  - Альтернатива — флаг `properties.excluded_from_stats` из `docs/dashboard-metrics.md` §3,
+    но он исключил бы и задания.
 
 **SQL создания** — `docs/one-off-writes/launch-reset-1016-hotel.sql` (не выполнялся):
 
 ```sql
 insert into public.properties (id, name, city, country_code, timezone, status)
-values (900000000002, 'Hotel', 'Prague', 'CZ', 'Europe/Prague', 'active')
+values (800000000001, 'Hotel', 'Prague', 'CZ', 'Europe/Prague', 'active')
 on conflict (id) do nothing
 returning id, name, timezone, parent_id, hostaway_unit_id, status;
 ```
@@ -337,7 +352,7 @@ returning id, name, timezone, parent_id, hostaway_unit_id, status;
 | 1 | `npx supabase db query --linked -f docs/one-off-writes/launch-reset-1016-pass1-media.sql` | через 2–5 мин `node scripts/cloud-read.mjs docs/rollout/launch_reset_1016_after.sql`: `media.marked_unpurged` 0, `media.marked_files` 0, `storage.objects` 0, `storage.orphans` 0 |
 | 2 | `npx supabase db query --linked -f docs/one-off-writes/launch-reset-1016-pass2.sql` | `launch_reset_1016_after.sql`: `tasks.before_bound` 0, `tasks.repairs` 0, `problems` 0, `problem_events` 0, `supply` 0, `demo` 0, `auth_users` 1, `profiles` 1, `keep` 1, `links` 0, `push_tokens` 0, `chat.threads_on_gone` 0, `media.rows_on_gone` 0, `reservations.ended_before_bound` 0, `raw_without_booking` 0, `tasks.assignee_without_profile` 0, `task_events.unassigned_system` 0 |
 | 2.1 | Владелец входит в панель под Wagnerstays | календарь, уборки с 15.10, «Задания» пусты, «Команда» пуста |
-| 3 | `npx supabase db query --linked -f docs/one-off-writes/launch-reset-1016-hotel.sql` | вернула строку; `after.sql`: `hotel` 1 |
+| 3 | `npx supabase db query --linked -f docs/one-off-writes/launch-reset-1016-hotel.sql` | вернула строку; `after.sql`: `hotel.exists` 1, `never_synced` true, `in_analytics_test_band` false, `bookings` 0, `tasks` 0 |
 | 4 | 22.10 после 04:40 UTC (если этап 2 был раньше 21.10): `npx supabase db query --linked -f docs/one-off-writes/launch-reset-1016-pass3-returned.sql` | `reservations.ended_before_bound` 0, `tasks.on_ended_booking` 0 |
 | 5 | Запись в «Журнал» ниже: момент каждого прохода, ответы проб, дата удаления копии | — |
 
@@ -438,6 +453,19 @@ returning id, name, timezone, parent_id, hostaway_unit_id, status;
 
 ## 9. Вопросы владельцу
 
+**Ответы владельца 16.10** (перед этапом 2):
+
+1. Вернувшиеся брони принять; проход 3 — позже, отдельным запросом.
+2. Сырые копии удаляемых броней удалить в проходе 2 (`c_drop_raw_bookings = true`).
+3. Журнал вебхуков не трогать.
+4. Шаг `photos_after` в шаблоне `0f0951a9` не менять.
+5. Записи журнала, созданные самой очисткой, удалить в той же транзакции
+   (`c_drop_reset_events = true`).
+6. «Hotel» виден в фильтре и входит в статистику, id `800000000001`; правок панели нет.
+7. Роль учётки Wagnerstays не менять.
+
+Вопросы, как они стояли:
+
 1. **Возврат прошлых броней.** Принять поток (повторять проход 3 по мере надобности) или
    сделать правку синка (миграция: `sync_hostaway_reservations` не вставляет новую бронь с
    выездом раньше даты начала истории, хранимой у компании)? Рекомендация — правка, отдельным
@@ -452,7 +480,7 @@ returning id, name, timezone, parent_id, hostaway_unit_id, status;
    старого плана). Убрать в этапе 2?
 5. **События, которые пишет сама очистка** (снятие тестовых людей с 12 отменённых уборок).
    Удалять их в той же транзакции? Рекомендация — да; переключатель `c_drop_reset_events`.
-6. **«Hotel» и аналитика.** id `900000000002` (вне всех цифр, ремонты тоже) или вне полосы с
+6. **«Hotel» и аналитика.** id в тестовой полосе (вне всех цифр, ремонты тоже) или вне полосы с
    правкой занятости (ремонты считаются у техников)? Прятать ли его в фильтре объектов?
    Нужно ли главному технику самому создавать задания на «Hotel»?
 7. **Роль admin для Wagnerstays** — по-прежнему открыто.

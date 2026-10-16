@@ -24,6 +24,12 @@ select jsonb_build_object(
     from auth.users u join public.profiles p on p.id = u.id
     where lower(u.email) = 'wagnerstays@gmail.com'),
   'hosts', (select count(*) from public.hosts),
+  -- The Hotel's id (docs/one-off-writes/launch-reset-1016-hotel.sql): free before the insert, and
+  -- above every Hostaway listing id, below every room id (10^12 + unit id).
+  'hotel_id', jsonb_build_object(
+      'taken', (select count(*) from public.properties where id = 800000000001),
+      'max_listing', (select max(id) from public.properties where id < 800000000000),
+      'min_room', (select min(id) from public.properties where id >= 1000000000000)),
   'postgres_can_delete_auth_users', has_table_privilege('postgres', 'auth.users', 'DELETE'),
   'cron', (select jsonb_object_agg(j.jobname, j.active) from cron.job j),
   'webhooks_last_30d', (select jsonb_build_object(

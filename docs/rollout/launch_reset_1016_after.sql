@@ -7,7 +7,8 @@
 --     chat.threads_on_gone 0, media.rows_on_gone 0, storage.objects 0 (+ files of staying rows),
 --     storage.orphans 0, reservations.ended_before_bound — 0 right after, then the bookings the
 --     nightly sync and webhooks bring back (pass 3), tasks.on_ended_booking 0;
---   after the Hotel insert: hotel 1.
+--   after the Hotel insert: hotel.exists 1, never_synced true, in_analytics_test_band false,
+--     bookings 0, tasks 0, links 0.
 with b as (
   select date '2026-10-15' as bound, 900000000001::bigint as demo
 )
@@ -29,7 +30,18 @@ select jsonb_build_object(
   'supply', (select count(*) from public.supply_requests) + (select count(*) from public.supply_request_items),
   'demo', (select count(*) from public.properties where id = 900000000001)
           + (select count(*) from public.tasks where property_id = 900000000001),
-  'hotel', (select count(*) from public.properties where name = 'Hotel'),
+  'hotel', (select jsonb_build_object(
+      'exists', count(*),
+      'named_hotel_elsewhere', (select count(*) from public.properties x
+                                where lower(x.name) = 'hotel' and x.id <> 800000000001),
+      'status', max(h.status::text),
+      'timezone', max(h.timezone),
+      'never_synced', bool_and(h.synced_at is null),
+      'in_analytics_test_band', bool_or(h.id between 900000000000 and 999999999999),
+      'bookings', (select count(*) from public.reservations r where r.property_id = 800000000001),
+      'tasks', (select count(*) from public.tasks t where t.property_id = 800000000001),
+      'links', (select count(*) from public.property_cleaners c where c.property_id = 800000000001))
+    from public.properties h where h.id = 800000000001),
   'reservations', (select jsonb_build_object(
       'all', count(*),
       'ended_before_bound', count(*) filter (where r.departure_date < b.bound),
