@@ -104,7 +104,7 @@ describe('Sidebar', () => {
     ]);
   });
 
-  // The owner's decision of 2026-10-17: the head technician writes the
+  // The owner's decision of 2026-10-16: the head technician writes the
   // knowledge base, and the rest of the panel is not his.
   test('shows the head technician the knowledge base and his settings, nothing else', () => {
     render(<Sidebar email="head.test@example.com" access="knowledge" />);

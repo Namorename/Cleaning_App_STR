@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useLanguage } from '@/lib/use-language';
 
 /**
- * Access codes stay out of articles (the owner's decision 3 of 2026-10-17;
+ * Access codes stay out of articles (the owner's decision 3 of 2026-10-16;
  * their own closed block is F27). Always on screen while an article is
  * written, in all three languages — whoever writes, in whichever language,
  * reads it in hers — the panel's own first.

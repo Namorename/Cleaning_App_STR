@@ -95,7 +95,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // Signed in on the sign-in page, or the head technician on a page that is
-  // not his (the owner's decision of 2026-10-17): to where the access lands.
+  // not his (the owner's decision of 2026-10-16): to where the access lands.
   if (access !== null && (isPublic || !isPathOpenTo(access, pathname))) {
     const url = request.nextUrl.clone();
     url.pathname = homeOf(access);

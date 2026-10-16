@@ -80,7 +80,7 @@ beforeEach(() => {
   window.history.replaceState(null, '', '/settings');
 });
 
-// The owner's decision of 2026-10-17: the head technician reaches the panel
+// The owner's decision of 2026-10-16: the head technician reaches the panel
 // for the knowledge base; of the settings, only his own are his.
 describe('the head technician’s settings', () => {
   const headView = () => (

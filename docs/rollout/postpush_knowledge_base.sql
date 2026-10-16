@@ -21,7 +21,7 @@
 --                                         "field staff read the translations of the articles they read"
 --                 kb_article_revisions    "office reads every version"
 --   functions   13 rows, overloads 1 each, config {search_path=""}; md5 prefix and length of
---               prosrc (2026-10-17, the file with sha256 3b534b93cfab804b… applied in a
+--               prosrc (2026-10-16, the file with sha256 b172e52f0814f8c5… applied in a
 --               rolled-back transaction on the local stand; a file with another sha256 —
 --               recompute before the push, never after):
 --                 kb_article_for_writer    dd0dd9eb   610  definer false

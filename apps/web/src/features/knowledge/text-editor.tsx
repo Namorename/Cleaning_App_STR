@@ -41,7 +41,7 @@ function withText(draft: ArticleDraft, language: Language, text: KbTextDraft): A
 /**
  * The article's words: the language the author writes in (required), and a
  * tab for it and for each other language — those are translations, each
- * optional (the owner's decision 4 of 2026-10-17).
+ * optional (the owner's decision 4 of 2026-10-16).
  */
 export function TextEditor({ draft, onChange, tab, onTabChange }: TextEditorProps) {
   const { t } = useTranslation();

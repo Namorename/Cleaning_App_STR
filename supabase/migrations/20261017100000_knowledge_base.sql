@@ -1,7 +1,7 @@
 -- The knowledge base, step 1: articles, the places they belong to, their
 -- translations and their versions (docs/knowledge-base-step1.md; the plan is
 -- docs/knowledge-base-plan.md, §2 and §5.7, narrowed by the owner's decisions
--- of 2026-10-17).
+-- of 2026-10-16).
 --
 -- Text only. No pictures, video, files or PDFs (they will join task_media as
 -- a new owner), no search, no access codes (F27), no hints in a cleaning, and
@@ -308,7 +308,7 @@ as $$
 $$;
 
 comment on function public.kb_reader_property_ids() is
-  'Places whose knowledge base articles a cleaner (by link) or a technician (by the work he holds now) reads, with the house above and a linked house''s rooms (decision 5 of 2026-10-17, 20261017100000).';
+  'Places whose knowledge base articles a cleaner (by link) or a technician (by the work he holds now) reads, with the house above and a linked house''s rooms (decision 5 of 2026-10-16, 20261017100000).';
 
 -- The published articles a cleaner or a technician reads: the company's, and
 -- those of her places.

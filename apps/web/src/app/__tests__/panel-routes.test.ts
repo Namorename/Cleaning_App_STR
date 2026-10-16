@@ -5,7 +5,7 @@ import { describe, expect, test } from 'vitest';
 
 /**
  * The head technician reaches /knowledge and /settings alone (the owner's
- * decision of 2026-10-17), and only the proxy keeps him there: the shell lets
+ * decision of 2026-10-16), and only the proxy keeps him there: the shell lets
  * him in, and no page asks the role itself. The proxy's matcher passes a path
  * ending in .png and the like without the check, so a page whose dynamic
  * segment takes any text would open to him that way. Today's two dynamic

@@ -25,7 +25,7 @@ describe('isPanelRole', () => {
   });
 });
 
-// The owner's decision of 2026-10-17: the head technician writes and publishes
+// The owner's decision of 2026-10-16: the head technician writes and publishes
 // the knowledge base, so the panel opens to him — that section alone and his
 // own settings. The rest stays the office's.
 describe('panelAccessOf', () => {

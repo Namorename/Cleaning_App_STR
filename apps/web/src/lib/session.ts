@@ -22,7 +22,7 @@ export function isPanelRole(role: string | null): role is PanelRole {
 /**
  * How much of the panel a person reaches: all of it for the office, the
  * knowledge base alone for the head technician (the owner's decision of
- * 2026-10-17 — he writes and publishes it), nothing for anybody else. Row
+ * 2026-10-16 — he writes and publishes it), nothing for anybody else. Row
  * level security decides what each may read and write either way.
  */
 export type PanelAccess = 'full' | 'knowledge';

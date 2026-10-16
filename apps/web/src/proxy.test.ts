@@ -71,7 +71,7 @@ describe('the way to the sign-in page', () => {
 });
 
 /**
- * The owner's decision of 2026-10-17: the head technician writes the knowledge
+ * The owner's decision of 2026-10-16: the head technician writes the knowledge
  * base in the panel. He reaches that section and his own settings; any other
  * page sends him to the knowledge base, with nothing of the address carried.
  */

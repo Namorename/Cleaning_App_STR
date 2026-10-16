@@ -4,7 +4,7 @@
 -- Runs inside a transaction and rolls back — the database stays clean.
 --
 -- What is being protected: an article is the company's instruction for a
--- place, and it reaches only the people the owner named (2026-10-17, decision
+-- place, and it reaches only the people the owner named (2026-10-16, decision
 -- 5): a cleaner reads the articles of the places she is linked to, a
 -- technician those of the places where he holds work right now, the head
 -- technician and the managers read everything of their company. Only the

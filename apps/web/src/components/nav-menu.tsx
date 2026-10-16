@@ -79,7 +79,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
 ];
 
 /**
- * The head technician's menu (the owner's decision of 2026-10-17): the
+ * The head technician's menu (the owner's decision of 2026-10-16): the
  * knowledge base he writes, and his settings below it.
  */
 const KNOWLEDGE_ONLY: readonly NavItem[] = NAV_GROUPS.flatMap((group) => group.items).filter(

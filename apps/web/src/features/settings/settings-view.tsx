@@ -28,7 +28,7 @@ interface SettingsViewProps {
   email: string;
   /**
    * The office sees every section; the head technician, who reaches the panel
-   * for the knowledge base (the owner's decision of 2026-10-17), his own two.
+   * for the knowledge base (the owner's decision of 2026-10-16), his own two.
    */
   access: PanelAccess;
   /** The signed-in person: her profile keeps the panel's language. */

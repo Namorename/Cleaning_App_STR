@@ -17,7 +17,7 @@ import { createClient } from '@/lib/supabase/server';
  * Checks the role a second time, after the proxy: a page rendered on the
  * server must not depend on a request filter it cannot see. The head
  * technician gets the menu of the knowledge base alone (the owner's decision
- * of 2026-10-17); which page he may open is the proxy's to say, so for him
+ * of 2026-10-16); which page he may open is the proxy's to say, so for him
  * this check is not a second one — `app/__tests__/panel-routes.test.ts` makes
  * every new page a decision about him instead. Reads the menu's
  * width from its cookie, so the first paint has the menu as it was left.

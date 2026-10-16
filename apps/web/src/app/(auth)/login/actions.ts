@@ -79,7 +79,7 @@ export async function signIn(_previous: SignInState, formData: FormData): Promis
 
   await applyProfileLanguage(supabase, data.user.id);
   // The way back when it is a page this person reaches; the head technician's
-  // otherwise is the knowledge base (the owner's decision of 2026-10-17).
+  // otherwise is the knowledge base (the owner's decision of 2026-10-16).
   const next = safeNext(formData.get('next'));
   const nextPath = next.split(/[?#]/, 1)[0];
   redirect(isPathOpenTo(access, nextPath) ? next : homeOf(access));

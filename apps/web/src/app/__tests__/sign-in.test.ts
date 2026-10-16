@@ -146,7 +146,7 @@ describe('signing in', () => {
     expect(setCookie).not.toHaveBeenCalled();
   });
 
-  // The owner's decision of 2026-10-17: the head technician writes the
+  // The owner's decision of 2026-10-16: the head technician writes the
   // knowledge base in the panel, and nothing else of it is his.
   test('the head technician is let in, to the knowledge base whatever the way back said', async () => {
     state.role = 'head_tech';

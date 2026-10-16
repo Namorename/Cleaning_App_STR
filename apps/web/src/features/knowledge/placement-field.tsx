@@ -21,7 +21,7 @@ interface PlacementFieldProps {
 }
 
 /**
- * Where an article shows (the owner's decision 2 of 2026-10-17): the whole
+ * Where an article shows (the owner's decision 2 of 2026-10-16): the whole
  * company, one building — its rooms with it — or places chosen one by one.
  *
  * A place the writer does not see stays as it is: the head technician reads

@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
  * role: the shell decides who is let in, from `app_metadata` (CLAUDE.md), and
  * row level security decides what a write may do. The head technician works in
  * the phone (docs/tech-plan.md §10, answer 2: «Работает в телефоне»); since the
- * owner's decision of 2026-10-17 the panel opens to him for the knowledge base
+ * owner's decision of 2026-10-16 the panel opens to him for the knowledge base
  * alone, and the proxy keeps him off these pages.
  */
 let signedIn: { email: string; app_metadata: Record<string, unknown> } | null = null;
@@ -92,7 +92,7 @@ describe('the panel’s shell', () => {
     await expect(PanelLayout({ children: null })).rejects.toThrow('redirect:/login');
   });
 
-  // The owner's decision of 2026-10-17: the head technician writes the
+  // The owner's decision of 2026-10-16: the head technician writes the
   // knowledge base here. The shell lets him in with a menu of that section and
   // his settings; the proxy keeps him off every other page.
   test('lets the head technician in to the knowledge base alone', async () => {
