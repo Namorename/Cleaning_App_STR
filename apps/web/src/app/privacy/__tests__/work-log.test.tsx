@@ -156,7 +156,8 @@ const CLAIMS: Record<
     readers:
       'Manažeři vaší společnosti vidí celý záznam; hlavní technik vidí navíc část o úkolech a opravách. Ostatní pracovníci ho nevidí a v aplikaci ho nikdo nemůže změnit.',
     period: 'Každý záznam uchováváme 24 měsíců od události, potom ho smažeme.',
-    deletion: 'Pokud bude váš účet smazán (oddíl 5), záznamy zůstanou, ale už v nich nebude vaše jméno.',
+    deletion:
+      'Pokud bude váš účet smazán (oddíl 5), záznamy zůstanou, ale už v nich nebude vaše jméno.',
   },
   ru: {
     lead: 'Журнал работы.',
