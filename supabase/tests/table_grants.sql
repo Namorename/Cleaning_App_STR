@@ -67,6 +67,13 @@ insert into wanted values
   -- The history of a cleaning (20261015100000): triggers write it, the
   -- manager reads it, nobody edits it.
   ('task_events',          'SELECT'),
+  -- The knowledge base (20261017100000): the managers and the head
+  -- technician write through save_kb_article, set_kb_article_status and
+  -- restore_kb_revision; the versions are kept by triggers.
+  ('kb_articles',             'SELECT'),
+  ('kb_article_targets',      'SELECT'),
+  ('kb_article_translations', 'SELECT'),
+  ('kb_article_revisions',    'SELECT'),
   ('supply_requests',      'SELECT'),
   ('supply_request_items', 'SELECT'),
   ('supply_catalog_items',  'SELECT'),
