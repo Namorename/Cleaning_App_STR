@@ -12,6 +12,7 @@ import { NO_FILTERS } from '../analytics/schema';
 import * as apartments from '../apartments/api';
 import * as calendar from '../calendar/api';
 import * as chat from '../chat/api';
+import * as knowledge from '../knowledge/api';
 import * as problems from '../problems/api';
 import * as settings from '../settings/api';
 import * as supplies from '../supplies/api';
@@ -102,6 +103,12 @@ const READERS: readonly ((client: never) => Promise<unknown>)[] = [
   (client) => apartments.fetchChecklistOwner(client, ANY_PROPERTY),
   (client) => calendar.fetchCalendarBookings(client, '2026-09-01', '2026-10-01'),
   (client) => chat.fetchMessages(client, ANY_ID),
+  (client) => knowledge.fetchArticles(client),
+  (client) => knowledge.fetchArticle(client, ANY_ID),
+  (client) => knowledge.fetchRevisions(client, ANY_ID),
+  (client) => knowledge.fetchPlaces(client),
+  // The names behind the versions come through an RPC: no select string.
+  (client) => knowledge.fetchPeople(client),
   (client) => problems.fetchProblems(client),
   (client) => problems.fetchProblem(client, ANY_ID),
   (client) => problems.fetchProblemPhotos(client, ANY_ID),
@@ -191,6 +198,23 @@ describe('every read the panel makes', () => {
   // notice one select fewer.
   test('includes the office note, read from its own table', () => {
     expect(recorded.some((entry) => entry.table === 'property_internal_notes')).toBe(true);
+  });
+
+  // The knowledge base embeds its places and translations through the
+  // composite keys (host_id, article_id): one path each, so no 300.
+  test('includes the knowledge base: articles with places and translations, and versions', () => {
+    const tables = recorded.map((entry) => entry.table);
+
+    expect(tables).toContain('kb_articles');
+    expect(tables).toContain('kb_article_revisions');
+    expect(
+      recorded.some(
+        (entry) =>
+          entry.table === 'kb_articles' &&
+          entry.select.includes('kb_article_targets') &&
+          entry.select.includes('kb_article_translations'),
+      ),
+    ).toBe(true);
   });
 
   test('names one relationship per embed and only columns the schema has', () => {

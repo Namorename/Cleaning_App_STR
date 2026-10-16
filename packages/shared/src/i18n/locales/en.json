@@ -175,6 +175,7 @@
       "supplies": "Supply requests",
       "tasks": "Cleanings",
       "team": "Team",
+      "knowledge": "Knowledge base",
       "apartments": "Listings",
       "settings": "Settings",
       "calendar": "Calendar",
@@ -1161,6 +1162,114 @@
         "limit_one": "The past goes back {{count}} day at most",
         "limit_other": "The past goes back {{count}} days at most"
       }
+    },
+    "knowledge": {
+      "new": "New article",
+      "loading": "Loading the articles…",
+      "loadError": "Could not load the articles.",
+      "empty": "No articles yet.",
+      "emptyFiltered": "No article matches the filters.",
+      "filters": {
+        "status": "Status",
+        "place": "Place",
+        "anyPlace": "All places",
+        "company": "Whole company"
+      },
+      "statusFilter": {
+        "current": "Drafts and published",
+        "draft": "Drafts",
+        "published": "Published",
+        "archived": "Archive"
+      },
+      "status": {
+        "draft": "Draft",
+        "published": "Published",
+        "archived": "Archived"
+      },
+      "columns": {
+        "title": "Title",
+        "status": "Status",
+        "where": "Where",
+        "languages": "Languages",
+        "updated": "Updated"
+      },
+      "where": {
+        "company": "Whole company",
+        "none": "No place yet",
+        "more": "+{{count}} more",
+        "hidden": "Places out of your sight: {{count}}"
+      },
+      "languages": {
+        "en": "English",
+        "ru": "Russian",
+        "cs": "Czech"
+      },
+      "originalMark": "original",
+      "editor": {
+        "back": "All articles",
+        "loading": "Loading the article…",
+        "loadError": "Could not load the article.",
+        "notFound": "There is no such article, or it is not yours to see.",
+        "version": "Version {{rev}}",
+        "language": "Written in",
+        "languageHint": "The language the author writes in. The other two are translations, each optional.",
+        "languageTabs": "Languages",
+        "noTranslation": "no translation",
+        "title": "Title",
+        "body": "Text",
+        "translationHint": "Optional. With both fields empty there is no translation, and a reader sees English or the original.",
+        "formatHelp": "Marks: **bold**, “- ” a list, “1. ” a numbered list, “1) ” a step, “> ” important, [text](https://…) a link. HTML stays plain text.",
+        "codeWarning": "Never write access codes here — door, key box or Wi-Fi codes. Everyone who reads the article would see them.",
+        "codeWarningLabel": "No access codes in articles",
+        "toolbar": {
+          "label": "Formatting",
+          "bold": "Bold",
+          "bullets": "Bulleted list",
+          "numbered": "Numbered list",
+          "steps": "Steps",
+          "link": "Link",
+          "linkText": "link text",
+          "important": "Important"
+        },
+        "preview": "Preview: as on the phone",
+        "previewEmpty": "The text will show here.",
+        "placement": "Where it shows",
+        "scope": {
+          "company": "Whole company",
+          "building": "One building",
+          "properties": "Chosen places"
+        },
+        "scopeHint": {
+          "company": "Every cleaner and technician of the company reads it.",
+          "building": "Shows in the building and in every room of it.",
+          "properties": "Shows in the places ticked; a building ticked shows in its rooms too."
+        },
+        "building": "Building",
+        "chooseBuilding": "Choose a building",
+        "noBuildings": "The company has no building with rooms.",
+        "hiddenPlaces": "Places out of your sight, kept as they are: {{count}}",
+        "save": "Save",
+        "saved": "Saved",
+        "unsaved": "Unsaved changes",
+        "discard": "Drop the changes",
+        "reload": "Load the latest version",
+        "publish": "Publish",
+        "unpublish": "Unpublish",
+        "archive": "To the archive",
+        "unarchive": "Back from the archive",
+        "publishHint": "Published, it reaches the phones of the people who work there."
+      },
+      "history": {
+        "title": "Versions",
+        "loadError": "Could not load the versions.",
+        "empty": "No versions yet: save the article.",
+        "current": "current",
+        "unknownAuthor": "unknown author",
+        "restore": "Bring back",
+        "restoreLabel": "Bring back version {{rev}}",
+        "restoreHint": "A version brought back becomes the newest one; the versions in between stay.",
+        "saveFirst": "Save or drop your changes first."
+      }
     }
   },
   "tabs": {
@@ -1694,6 +1803,10 @@
     "unread": "New message",
     "refreshFailed": "Could not refresh; showing the saved messages."
   },
+  "knowledge": {
+    "important": "Important",
+    "step": "Step {{number}}"
+  },
   "serverErrors": {
     "checklistCopySameProperty": "Source and target are the same apartment",
     "checklistItemsLeft": "Not every required checklist item is ticked",
@@ -1810,7 +1923,19 @@
     "mailTooSoon": "A letter has just gone to this address. Try again in a minute.",
     "mailNotConfigured": "Sending email is not configured.",
     "hostNotFound": "The company was not found.",
-    "analyticsPeriodInvalid": "The period must start before it ends and last at most {{maxDays}} days."
+    "analyticsPeriodInvalid": "The period must start before it ends and last at most {{maxDays}} days.",
+    "kbArticleNotFound": "Article not found",
+    "kbArticleChanged": "Someone saved this article meanwhile. Load the latest version and make your change again.",
+    "kbArticleInvalid": "The article was sent in the wrong shape",
+    "kbTitleRequired": "The article needs a title",
+    "kbTitleTooLong": "A title is at most {{max}} characters",
+    "kbBodyTooLong": "A text is at most {{max}} characters",
+    "kbBodyRequired": "A published article needs a text",
+    "kbTranslationTitleMissing": "The translation ({{language}}) has a text but no title",
+    "kbTargetsInvalid": "An article for the whole company names no places",
+    "kbTargetsMissing": "Choose where the article shows before publishing it",
+    "kbBuildingInvalid": "Choose one building: a listing with rooms under it",
+    "kbRevisionNotFound": "That version is not there"
   },
   "push": {
     "cleaning_new": {

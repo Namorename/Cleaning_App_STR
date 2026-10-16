@@ -74,6 +74,40 @@ beforeEach(() => {
   window.history.replaceState(null, '', '/settings');
 });
 
+// The owner's decision of 2026-10-17: the head technician reaches the panel
+// for the knowledge base; of the settings, only his own are his.
+describe('the head technician’s settings', () => {
+  const headView = () => (
+    <SettingsView
+      email="head.test@example.com"
+      userId={USER}
+      theme="system"
+      access="knowledge"
+      onSignOut={vi.fn()}
+    />
+  );
+
+  test('lists his account and the look, not the company’s', () => {
+    render(headView());
+
+    expect(within(submenu()).getAllByRole('link').map((link) => link.textContent)).toEqual([
+      'Аккаунт',
+      'Оформление',
+    ]);
+    expect(screen.queryByText('Переключатели компании')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Черновик процесса')).not.toBeInTheDocument();
+  });
+
+  test('a link to a company section opens his account instead', () => {
+    window.history.replaceState(null, '', '/settings?section=company');
+
+    render(headView());
+
+    expect(section('Аккаунт')).toHaveTextContent('Вы вошли как head.test@example.com.');
+    expect(section('Компания')).toBeNull();
+  });
+});
+
 describe('the page', () => {
   test('is headed by the common header, the submenu lists its sections as links', () => {
     render(view());

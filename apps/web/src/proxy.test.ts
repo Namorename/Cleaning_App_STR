@@ -71,6 +71,44 @@ describe('the way to the sign-in page', () => {
 });
 
 /**
+ * The owner's decision of 2026-10-17: the head technician writes the knowledge
+ * base in the panel. He reaches that section and his own settings; any other
+ * page sends him to the knowledge base, with nothing of the address carried.
+ */
+describe('the head technician', () => {
+  beforeEach(() => {
+    auth.user = { app_metadata: { role: 'head_tech' } };
+  });
+
+  test.each(['/knowledge', '/knowledge?status=draft&article=new', '/settings'])(
+    'passes through to %s',
+    async (path) => {
+      expect(await redirectOf(path)).toBeNull();
+    },
+  );
+
+  test.each(['/', '/dashboard', '/tasks?tab=closed', '/problems', '/team', '/knowledgebase'])(
+    'goes from %s to the knowledge base',
+    async (path) => {
+      const target = await redirectOf(path);
+
+      expect(target?.pathname).toBe('/knowledge');
+      expect(target?.search).toBe('');
+    },
+  );
+
+  test('goes from the sign-in page to the knowledge base, not the dashboard', async () => {
+    expect((await redirectOf('/login?next=%2Fdashboard'))?.pathname).toBe('/knowledge');
+  });
+
+  test.each(['cleaner', 'tech'])('a %s still meets the sign-in', async (role) => {
+    auth.user = { app_metadata: { role } };
+
+    expect((await redirectOf('/knowledge'))?.pathname).toBe('/login');
+  });
+});
+
+/**
  * Decision 17 (docs/f11-plan.md): the privacy policy is a public page on the
  * panel's domain. App Store Connect links to it, so a visitor who never signed
  * in must read it, and so must a manager — without being sent to the

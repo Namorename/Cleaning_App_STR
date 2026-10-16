@@ -75,6 +75,7 @@ describe('Sidebar', () => {
     expect(linkTexts(within(nav).getByRole('group', { name: 'Справочники' }))).toEqual([
       'Объекты',
       'Команда',
+      'База знаний',
     ]);
 
     const settings = within(nav).getByRole('link', { name: 'Настройки' });
@@ -98,8 +99,19 @@ describe('Sidebar', () => {
       '/supplies',
       '/apartments',
       '/team',
+      '/knowledge',
       '/settings',
     ]);
+  });
+
+  // The owner's decision of 2026-10-17: the head technician writes the
+  // knowledge base, and the rest of the panel is not his.
+  test('shows the head technician the knowledge base and his settings, nothing else', () => {
+    render(<Sidebar email="head.test@example.com" access="knowledge" />);
+    const nav = screen.getByRole('navigation', { name: 'Разделы' });
+
+    expect(linkTexts(nav)).toEqual(['База знаний', 'Настройки']);
+    expect(within(nav).queryByRole('group', { name: 'Работа' })).not.toBeInTheDocument();
   });
 
   test('draws each section’s icon from the shared map, out of the screen reader’s way', () => {
@@ -189,6 +201,7 @@ describe('Sidebar folded to a strip of icons', () => {
       'Заявки',
       'Объекты',
       'Команда',
+      'База знаний',
     ];
     for (const name of [...names, 'Настройки']) {
       const link = screen.getByRole('link', { name });

@@ -146,6 +146,34 @@ describe('signing in', () => {
     expect(setCookie).not.toHaveBeenCalled();
   });
 
+  // The owner's decision of 2026-10-17: the head technician writes the
+  // knowledge base in the panel, and nothing else of it is his.
+  test('the head technician is let in, to the knowledge base whatever the way back said', async () => {
+    state.role = 'head_tech';
+
+    await expect(signIn({ issue: null, email: '' }, form())).rejects.toThrow('redirect:/knowledge');
+    expect(signOut).not.toHaveBeenCalled();
+  });
+
+  test('a way back into the knowledge base is kept for him', async () => {
+    state.role = 'head_tech';
+    const data = form();
+    data.set('next', '/knowledge?status=draft');
+
+    await expect(signIn({ issue: null, email: '' }, data)).rejects.toThrow(
+      'redirect:/knowledge?status=draft',
+    );
+  });
+
+  test.each(['cleaner', 'tech'])('a %s is still turned away', async (role) => {
+    state.role = role;
+
+    await expect(signIn({ issue: null, email: '' }, form())).resolves.toEqual({
+      issue: 'notManager',
+      email: 'manager@test.local',
+    });
+  });
+
   test('somebody the panel is not for is signed out before any language is read', async () => {
     state.role = 'cleaner';
 
