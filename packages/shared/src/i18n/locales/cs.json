@@ -1947,6 +1947,11 @@
           "examples": "úkoly (vaše zprávy o poruchách v bytě), žádosti o spotřební materiál",
           "why": "odstraňování poruch, zásobování"
         },
+        "workLog": {
+          "what": "Záznam práce",
+          "examples": "co se dělo s úklidy, úkoly a opravami, kdo to udělal a kdy",
+          "why": "přehledy pro majitele společnosti, vyjasnění sporných případů"
+        },
         "device": {
           "what": "Údaje o zařízení",
           "examples": "token push oznámení, platforma (iOS nebo Android), jazyk telefonu, verze aplikace, která oznámení jste vypnuli",
@@ -1957,6 +1962,12 @@
           "examples": "záznamy o pádech aplikace, protokoly serveru (čas přihlášení, IP adresa)",
           "why": "oprava chyb, bezpečnost"
         }
+      },
+      "workLog": {
+        "intro": "<b>Záznam práce.</b> Aplikace vede záznam o tom, co se děje s prací v ní:",
+        "cleanings": "<b>úklidy</b> — včetně úklidů během pobytu, kontrol a oprav, které zadá přímo manažer: vytvoření, přidělení někomu nebo odebrání, přijetí, zahájení, dokončení, zrušení, propadnutí, přesunutí na jiný den nebo jiné místo, znovuotevření;",
+        "tasks": "<b>úkoly</b> (zprávy o poruchách) <b>a opravy k nim</b>: nahlášení, přidělení někomu nebo odebrání, přesunutí na jiný den nebo čas, přijetí, zahájení, dokončení, vyřešení, zrušení, znovuotevření, přesunutí do archivu nebo zpět.",
+        "details": "Každý záznam obsahuje, kdo to udělal (váš účet, účet manažera, nebo systém), komu byla práce přidělena nebo komu odebrána, kdy změna dorazila na náš server, a dotčená data, místa, naléhavost a stavy. Nezaznamenává žádný text, který píšete, žádné fotografie ani videa a žádnou polohu. Záznam používáme pro přehledy pro majitele společnosti (kolik práce bylo hotovo, jak rychle byla přidělena) a k vyjasnění sporných případů (kdo měl úklid v jeho den, kdy byl dokončen). Manažeři vaší společnosti vidí celý záznam; hlavní technik vidí navíc část o úkolech a opravách. Ostatní pracovníci ho nevidí a v aplikaci ho nikdo nemůže změnit. Každý záznam uchováváme 24 měsíců od události, potom ho smažeme. Pokud bude váš účet smazán (oddíl 5), záznamy zůstanou, ale už v nich nebude vaše jméno."
       },
       "notCollected": "<b>Co neshromažďujeme:</b> polohu (aplikace nežádá o přístup k poloze), kontakty, údaje o zdraví. Fotografujte byty, ne lidi a doklady.",
       "video": "Videa se natáčejí kamerou samotné aplikace: místo natáčení do souboru nezapisuje, datum a čas záznamu ano; metadata videí zvlášť neodstraňujeme (u fotografií ano).",

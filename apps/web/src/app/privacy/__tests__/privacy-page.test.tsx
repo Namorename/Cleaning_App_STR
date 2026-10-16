@@ -256,8 +256,9 @@ describe('the privacy policy page', () => {
     expect(tables.map((table) => within(table).getAllByRole('columnheader').length)).toEqual([
       3, 3, 2,
     ]);
+    // Section 2 gained the work log on 2026-10-16 (owner's decision of 15.10).
     expect(tables.map((table) => within(table).getAllByRole('rowheader').length)).toEqual([
-      7, 6, 8,
+      8, 6, 8,
     ]);
     expect(within(tables[1]).getByRole('rowheader', { name: 'Supabase' })).toBeInTheDocument();
   });

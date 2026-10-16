@@ -24,7 +24,16 @@ interface SectionProps {
 
 const LIST_CLASS = 'flex list-disc flex-col gap-1 pl-5';
 
-const DATA_ROWS = ['account', 'work', 'media', 'chat', 'requests', 'device', 'technical'] as const;
+const DATA_ROWS = [
+  'account',
+  'work',
+  'media',
+  'chat',
+  'requests',
+  'workLog',
+  'device',
+  'technical',
+] as const;
 
 const RETENTION_ROWS = [
   'media',
@@ -96,6 +105,26 @@ function OperatorSection({ texts, values }: SectionProps) {
   );
 }
 
+/**
+ * The work log under section 2's table: the two journals of the database —
+ * `task_events` (cleanings and every job set up without a task) and
+ * `problem_events` (tasks and their repairs) — said as one log
+ * (owner's decision of 15.10, docs/privacy-policy-draft.md).
+ */
+function WorkLog({ texts }: Pick<SectionProps, 'texts'>) {
+  const { intro, cleanings, tasks, details } = texts.data.workLog;
+  return (
+    <>
+      <p>{renderRich(intro)}</p>
+      <ul className={LIST_CLASS}>
+        <li>{renderRich(cleanings)}</li>
+        <li>{renderRich(tasks)}</li>
+      </ul>
+      <p>{details}</p>
+    </>
+  );
+}
+
 function DataSection({ texts }: SectionProps) {
   const { columns, rows } = texts.data;
   return (
@@ -109,6 +138,7 @@ function DataSection({ texts }: SectionProps) {
           cells: [rows[key].examples, rows[key].why],
         }))}
       />
+      <WorkLog texts={texts} />
       <p>{renderRich(texts.data.notCollected)}</p>
       <p>{texts.data.video}</p>
       <p>{texts.data.videoGallery}</p>
