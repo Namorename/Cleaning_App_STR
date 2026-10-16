@@ -1251,6 +1251,7 @@
         "save": "Save",
         "saved": "Saved",
         "unsaved": "Unsaved changes",
+        "leaveConfirm": "You have unsaved changes. Leave and lose them?",
         "discard": "Drop the changes",
         "reload": "Load the latest version",
         "publish": "Publish",

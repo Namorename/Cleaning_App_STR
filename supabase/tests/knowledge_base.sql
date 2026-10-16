@@ -5,7 +5,8 @@
 --
 -- What is being protected: an article is the company's instruction for a
 -- place, and it reaches only the people the owner named (2026-10-16, decision
--- 5): a cleaner reads the articles of the places she is linked to, a
+-- 5, widened on 2026-10-17): a cleaner reads the articles of the places she is
+-- linked to and of those where she holds work right now (a stand-in shift), a
 -- technician those of the places where he holds work right now, the head
 -- technician and the managers read everything of their company. Only the
 -- managers and the head technician write and publish. Drafts and the archive
@@ -71,7 +72,13 @@ values
    '{"full_name":"Room Tech"}'::jsonb, '{"role":"tech"}'::jsonb),
   ('d6600013-0000-4000-8000-0000000000dd','00000000-0000-0000-0000-000000000000',
    'authenticated','authenticated','paused.tech.kb@test.local','x',now(),now(),
-   '{"full_name":"Paused Tech"}'::jsonb, '{"role":"tech"}'::jsonb);
+   '{"full_name":"Paused Tech"}'::jsonb, '{"role":"tech"}'::jsonb),
+  ('d6600014-0000-4000-8000-0000000000de','00000000-0000-0000-0000-000000000000',
+   'authenticated','authenticated','house.standin.kb@test.local','x',now(),now(),
+   '{"full_name":"House Stand-in"}'::jsonb, '{"role":"cleaner"}'::jsonb),
+  ('d6600015-0000-4000-8000-0000000000df','00000000-0000-0000-0000-000000000000',
+   'authenticated','authenticated','archived.tech.kb@test.local','x',now(),now(),
+   '{"full_name":"Archived Tech"}'::jsonb, '{"role":"tech"}'::jsonb);
 
 update public.profiles set host_id = 'b6600000-0000-4000-8000-00000000000a'
 where id::text like 'd66000%' and id not in ('d6600010-0000-4000-8000-0000000000da',
@@ -79,13 +86,20 @@ where id::text like 'd66000%' and id not in ('d6600010-0000-4000-8000-0000000000
 update public.profiles set host_id = 'b6600000-0000-4000-8000-00000000000b'
 where id in ('d6600010-0000-4000-8000-0000000000da', 'd6600011-0000-4000-8000-0000000000db');
 
--- Company A: three flats, a house of two rooms. Company B: one flat.
+-- Company A: three flats, a house of two rooms, and four flats where the
+-- stand-in's work is over or never counted (flat seven is archived). Company
+-- B: one flat.
 insert into public.properties (id, host_id, name, timezone) values
   (900066001, 'b6600000-0000-4000-8000-00000000000a', 'Flat one', 'UTC'),
   (900066002, 'b6600000-0000-4000-8000-00000000000a', 'Flat two', 'UTC'),
   (900066003, 'b6600000-0000-4000-8000-00000000000a', 'Flat three', 'UTC'),
+  (900066004, 'b6600000-0000-4000-8000-00000000000a', 'Flat four', 'UTC'),
+  (900066005, 'b6600000-0000-4000-8000-00000000000a', 'Flat five', 'UTC'),
+  (900066006, 'b6600000-0000-4000-8000-00000000000a', 'Flat six', 'UTC'),
   (900066010, 'b6600000-0000-4000-8000-00000000000a', 'The house', 'UTC'),
   (900066020, 'b6600000-0000-4000-8000-00000000000b', 'Flat of B', 'UTC');
+insert into public.properties (id, host_id, name, timezone, status) values
+  (900066007, 'b6600000-0000-4000-8000-00000000000a', 'Flat seven', 'UTC', 'archived');
 insert into public.properties (id, host_id, hostaway_unit_id, parent_id, name, timezone) values
   (public.property_id_for_unit(66011), 'b6600000-0000-4000-8000-00000000000a', 66011, 900066010,
    'Room one', 'UTC'),
@@ -125,7 +139,32 @@ insert into public.tasks (host_id, property_id, type, status, assignee_id, sched
   ('b6600000-0000-4000-8000-00000000000a', 900066003, 'maintenance', 'paused',
    'd6600013-0000-4000-8000-0000000000dd', current_date),
   ('b6600000-0000-4000-8000-00000000000a', 900066001, 'maintenance', 'expired',
-   'd6600013-0000-4000-8000-0000000000dd', current_date - 2);
+   'd6600013-0000-4000-8000-0000000000dd', current_date - 2),
+  -- Stand-in, besides flat two: a paused inspection in room two; a cleaning
+  -- done on flat four, one cancelled on flat five, one expired on flat six,
+  -- and one still assigned on flat seven, archived since.
+  ('b6600000-0000-4000-8000-00000000000a', public.property_id_for_unit(66012), 'inspection',
+   'paused', 'd6600005-0000-4000-8000-0000000000d5', current_date),
+  ('b6600000-0000-4000-8000-00000000000a', 900066004, 'cleaning', 'done',
+   'd6600005-0000-4000-8000-0000000000d5', current_date - 1),
+  ('b6600000-0000-4000-8000-00000000000a', 900066005, 'cleaning', 'cancelled',
+   'd6600005-0000-4000-8000-0000000000d5', current_date),
+  ('b6600000-0000-4000-8000-00000000000a', 900066006, 'cleaning', 'expired',
+   'd6600005-0000-4000-8000-0000000000d5', current_date - 2),
+  ('b6600000-0000-4000-8000-00000000000a', 900066007, 'cleaning', 'assigned',
+   'd6600005-0000-4000-8000-0000000000d5', current_date),
+  -- House stand-in: a cleaning of the whole house. Archived tech: a repair he
+  -- holds on flat seven, and one on the house as a whole.
+  ('b6600000-0000-4000-8000-00000000000a', 900066010, 'cleaning', 'accepted',
+   'd6600014-0000-4000-8000-0000000000de', current_date),
+  ('b6600000-0000-4000-8000-00000000000a', 900066007, 'maintenance', 'accepted',
+   'd6600015-0000-4000-8000-0000000000df', current_date),
+  ('b6600000-0000-4000-8000-00000000000a', 900066010, 'maintenance', 'accepted',
+   'd6600015-0000-4000-8000-0000000000df', current_date),
+  -- Off: a cleaning of flat two she paused before she was switched off. Work
+  -- under way stays hers (profiles_release_work frees only what nobody started).
+  ('b6600000-0000-4000-8000-00000000000a', 900066002, 'cleaning', 'paused',
+   'd6600008-0000-4000-8000-0000000000d8', current_date);
 
 update public.profiles set is_active = false
 where id in ('d6600008-0000-4000-8000-0000000000d8', 'd6600009-0000-4000-8000-0000000000d9');
@@ -347,10 +386,6 @@ select pg_temp.as_user('d6600004-0000-4000-8000-0000000000d4');
 select pg_temp.check('a cleaner linked to one room reads the house above it, not the other room',
   pg_temp.titles(), 'building, company');
 
-select pg_temp.as_user('d6600005-0000-4000-8000-0000000000d5');
-select pg_temp.check('a cleaner on a stand-in shift, not linked, reads the company''s alone',
-  pg_temp.titles(), 'company');
-
 select pg_temp.as_user('d6600006-0000-4000-8000-0000000000d6');
 select pg_temp.check('a technician reads the place of the work he holds, not of a cancelled one',
   pg_temp.titles(), 'company, f2');
@@ -370,14 +405,70 @@ select pg_temp.as_user('d6600013-0000-4000-8000-0000000000dd');
 select pg_temp.check('paused work counts as held; expired work does not',
   pg_temp.titles(), 'company, f3, multi f1 f3');
 
+-- A stand-in shift (the owner's decision of 2026-10-17): the places of the
+-- work a cleaner holds now open as a link does — the house above a room, the
+-- rooms under a house. Drafts and the archive stay in the office; work done,
+-- cancelled or expired, and work on an archived place, open nothing.
+select pg_temp.as_user('d6600001-0000-4000-8000-0000000000d1');
+select pg_temp.save('a6600050-0000-4000-8000-0000000000f0', 'draft f2', 'Not yet.',
+                    'properties', '{900066002}', '{"ru": {"title": "черновик f2", "body": "Нет."}}');
+select pg_temp.save('a6600051-0000-4000-8000-0000000000f1', 'archived f2', 'Old fuses.',
+                    'properties', '{900066002}');
+select pg_temp.publish('a6600051-0000-4000-8000-0000000000f1');
+select null::void from public.set_kb_article_status('a6600051-0000-4000-8000-0000000000f1', 'archived');
+select pg_temp.save('a6600052-0000-4000-8000-0000000000f2', 'f4 f5 f6 f7', 'Elsewhere.',
+                    'properties', '{900066004,900066005,900066006,900066007}');
+select pg_temp.publish('a6600052-0000-4000-8000-0000000000f2');
+
+select pg_temp.as_user('d6600005-0000-4000-8000-0000000000d5');
+select pg_temp.check('a cleaner on a stand-in shift reads the published articles of the places of her work',
+  pg_temp.titles(), 'building, company, f2, r2');
+select pg_temp.check('a room of hers opens the house above it, and work over or archived opens nothing',
+  (select string_agg(x::text, ', ' order by x) from public.kb_reader_property_ids() as x),
+  '900066002, 900066010, 1000000066012');
+select pg_temp.check('of the places of an article, only hers',
+  (select string_agg(property_id::text, ', ' order by property_id) from public.kb_article_targets),
+  '900066002, 900066010, 1000000066012');
+select pg_temp.check('no translation of a draft, and no version of anything',
+  (select string_agg(title, ', ' order by title collate "C") from public.kb_article_translations)
+  || '|' || (select count(*)::int from public.kb_article_revisions), 'компания|0');
+
+select pg_temp.as_user('d6600014-0000-4000-8000-0000000000de');
+select pg_temp.check('a stand-in cleaning of a whole house opens its rooms, as a link to it does',
+  pg_temp.titles(), 'building, company, r2');
+select pg_temp.check('its rooms, not a part of it',
+  (select string_agg(x::text, ', ' order by x) from public.kb_reader_property_ids() as x),
+  '900066010, 1000000066011, 1000000066012');
+
+select pg_temp.as_user('d6600015-0000-4000-8000-0000000000df');
+select pg_temp.check('a technician''s work on an archived place still counts, as before',
+  pg_temp.titles(), 'building, company, f4 f5 f6 f7');
+select pg_temp.check('and his work on a whole house opens the house, never its rooms',
+  (select string_agg(x::text, ', ' order by x) from public.kb_reader_property_ids() as x),
+  '900066007, 900066010');
+
+-- The shift over, the place closes again at once.
+select pg_temp.as_owner();
+update public.tasks set status = 'done', completed_at = now()
+where assignee_id = 'd6600005-0000-4000-8000-0000000000d5' and property_id = 900066002;
+select pg_temp.as_user('d6600005-0000-4000-8000-0000000000d5');
+select pg_temp.check('her cleaning done, the stand-in no longer reads that place',
+  pg_temp.titles(), 'building, company, r2');
+
 select pg_temp.as_user('d6600003-0000-4000-8000-0000000000d3');
 select pg_temp.check('a link to a house opens its rooms, not a part of it',
   (select string_agg(x::text, ', ' order by x) from public.kb_reader_property_ids() as x),
   '900066001, 900066010, 1000000066011, 1000000066012');
 
+select pg_temp.as_owner();
+select pg_temp.check('a cleaner switched off still holds the cleaning she paused',
+  (select count(*)::int from public.tasks
+   where assignee_id = 'd6600008-0000-4000-8000-0000000000d8' and status = 'paused'), 1);
 select pg_temp.as_user('d6600008-0000-4000-8000-0000000000d8');
 select pg_temp.check('a cleaner switched off reads nothing',
   pg_temp.titles() || '|' || (select count(*)::int from public.kb_article_translations), '|0');
+select pg_temp.check('and the rule names her no place, though the work is still hers',
+  (select count(*)::int from public.kb_reader_property_ids()), 0);
 
 select pg_temp.as_user('d6600009-0000-4000-8000-0000000000d9');
 select pg_temp.check('a manager switched off reads nothing',

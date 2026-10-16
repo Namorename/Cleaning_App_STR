@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import Link from 'next/link';
+import { afterEach, beforeEach, describe, expect, test, vi, type MockInstance } from 'vitest';
 
 import type { Article, ArticleRow, Place, Revision } from '../schema';
 
@@ -63,7 +64,9 @@ const revisions: Revision[] = [
 ];
 
 const state = {
-  article: article as Article | null,
+  article: article as Article | undefined | null,
+  /** The last read of the article failed; what was read before stays, as TanStack keeps it. */
+  articleError: null as Error | null,
 };
 const saveArticle = vi.fn();
 const setStatus = vi.fn();
@@ -73,7 +76,11 @@ const done = { isPending: false, isError: false, error: null };
 vi.mock('../use-knowledge', () => ({
   useArticles: () => ({ ...done, data: rows }),
   useArticle: (id: string | null) =>
-    id === null ? { ...done, data: undefined } : { ...done, data: state.article },
+    id === null
+      ? { ...done, data: undefined }
+      : state.articleError === null
+        ? { ...done, data: state.article }
+        : { isPending: false, isError: true, error: state.articleError, data: state.article },
   usePlaces: () => ({ ...done, data: places }),
   useRevisions: () => ({ ...done, data: revisions }),
   usePeople: () => ({ ...done, data: [{ id: BOSS, full_name: 'Boss' }] }),
@@ -98,6 +105,7 @@ const titles = () =>
 beforeEach(() => {
   window.history.replaceState(null, '', '/knowledge');
   state.article = article;
+  state.articleError = null;
   saveArticle.mockReset().mockResolvedValue({ id: ARTICLE_ID, rev: 5, status: 'published', updated_at: SAVED_AT });
   setStatus.mockReset().mockResolvedValue({ id: ARTICLE_ID, rev: 5, status: 'draft', updated_at: SAVED_AT });
   restore.mockReset().mockResolvedValue({ id: ARTICLE_ID, rev: 5, status: 'published', updated_at: SAVED_AT });
@@ -143,17 +151,15 @@ describe('the list', () => {
 });
 
 describe('a new article', () => {
-  test('opens the editor with the warning about codes in three languages, the panel’s first', async () => {
+  test('opens the editor with the warning about codes in the panel’s language alone', async () => {
     renderView();
 
     await userEvent.click(screen.getByRole('button', { name: 'Новая статья' }));
 
     const warning = screen.getByRole('note', { name: 'Никаких кодов доступа в статьях' });
-    const lines = within(warning).getAllByRole('listitem');
-    expect(lines.map((line) => line.getAttribute('lang'))).toEqual(['ru', 'en', 'cs']);
-    expect(lines[0]).toHaveTextContent('Не пишите сюда коды доступа');
-    expect(lines[1]).toHaveTextContent('Never write access codes here');
-    expect(lines[2]).toHaveTextContent('Nepište sem přístupové kódy');
+    expect(warning).toHaveTextContent('Не пишите сюда коды доступа');
+    expect(warning).not.toHaveTextContent('Never write access codes here');
+    expect(warning).not.toHaveTextContent('Nepište sem přístupové kódy');
   });
 
   test('is written in the panel’s language for the whole company, and saved under its new id', async () => {
@@ -344,5 +350,166 @@ describe('an article that is out', () => {
     expect([...saveArticle.mock.calls[0][0].draft.propertyIds].sort((a, b) => a - b)).toEqual([
       1, 10, 999,
     ]);
+  });
+});
+
+// The owner's decision of 2026-10-17: leaving an edit unsaved — a link of the
+// panel, «Все статьи», the tab closed — is asked first.
+describe('leaving an article with unsaved changes', () => {
+  const QUESTION = 'Есть несохранённые изменения. Уйти и потерять их?';
+  const follow = vi.fn();
+  let confirm: MockInstance<Window['confirm']>;
+
+  /** The view with a link of the panel's menu beside it; held as Link handles the press. */
+  const withMenu = () => (
+    <QueryClientProvider client={new QueryClient()}>
+      <Link
+        href="/tasks"
+        onClick={(event) => {
+          event.preventDefault();
+          follow();
+        }}
+      >
+        Уборки
+      </Link>
+      <KnowledgeView />
+    </QueryClientProvider>
+  );
+  const renderWithMenu = () => render(withMenu());
+
+  const closeTab = () => {
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+  };
+
+  beforeEach(() => {
+    window.history.replaceState(null, '', `/knowledge?article=${ARTICLE_ID}`);
+    follow.mockReset();
+    confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+  });
+
+  afterEach(() => {
+    confirm.mockRestore();
+  });
+
+  test('a link of the panel asks first, and the edit stays when the answer is no', async () => {
+    renderWithMenu();
+    fireEvent.change(screen.getByLabelText('Текст'), { target: { value: 'В подвале.' } });
+
+    await userEvent.click(screen.getByRole('link', { name: 'Уборки' }));
+
+    expect(confirm).toHaveBeenCalledWith(QUESTION);
+    expect(follow).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Текст')).toHaveValue('В подвале.');
+  });
+
+  test('and goes when the answer is yes', async () => {
+    confirm.mockReturnValue(true);
+    renderWithMenu();
+    fireEvent.change(screen.getByLabelText('Текст'), { target: { value: 'В подвале.' } });
+
+    await userEvent.click(screen.getByRole('link', { name: 'Уборки' }));
+
+    expect(follow).toHaveBeenCalledTimes(1);
+  });
+
+  test('nothing changed, nothing is asked', async () => {
+    renderWithMenu();
+
+    await userEvent.click(screen.getByRole('link', { name: 'Уборки' }));
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(follow).toHaveBeenCalledTimes(1);
+    expect(closeTab()).toBe(false);
+  });
+
+  test('«Все статьи» asks the same, and goes back to the list only on yes', async () => {
+    renderWithMenu();
+    fireEvent.change(screen.getByLabelText('Текст'), { target: { value: 'В подвале.' } });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Все статьи' }));
+    expect(confirm).toHaveBeenCalledWith(QUESTION);
+    expect(window.location.search).toBe(`?article=${ARTICLE_ID}`);
+    expect(screen.getByLabelText('Текст')).toHaveValue('В подвале.');
+
+    confirm.mockReturnValue(true);
+    await userEvent.click(screen.getByRole('button', { name: 'Все статьи' }));
+    expect(window.location.search).toBe('');
+    expect(titles()).toEqual(['Котёл', 'Правила']);
+  });
+
+  test('closing the tab is asked while the edit is unsaved, and not once it is saved', async () => {
+    renderWithMenu();
+    fireEvent.change(screen.getByLabelText('Текст'), { target: { value: 'В подвале.' } });
+    expect(closeTab()).toBe(true);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Сохранено'));
+    expect(closeTab()).toBe(false);
+  });
+
+  test('«Отменить правки» leaves nothing to ask about', async () => {
+    renderWithMenu();
+    fireEvent.change(screen.getByLabelText('Текст'), { target: { value: 'В подвале.' } });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Отменить правки' }));
+    await userEvent.click(screen.getByRole('link', { name: 'Уборки' }));
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(follow).toHaveBeenCalledTimes(1);
+  });
+
+  test('a save the server refused still asks: nothing was kept', async () => {
+    saveArticle.mockRejectedValue({
+      message: 'A published article needs a text',
+      hint: 'serverErrors.kbBodyRequired',
+      details: '',
+      code: '23514',
+    });
+    renderWithMenu();
+    fireEvent.change(screen.getByLabelText('Текст'), { target: { value: ' ' } });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    await screen.findByRole('alert');
+
+    expect(closeTab()).toBe(true);
+    await userEvent.click(screen.getByRole('link', { name: 'Уборки' }));
+    expect(confirm).toHaveBeenCalledWith(QUESTION);
+  });
+
+  // A read again on the window's focus fails (a lost connection, an expired
+  // session): TanStack keeps the article it had and says error. The form —
+  // and what was typed into it — must stay.
+  test('a failed read again keeps the form and what was typed', async () => {
+    const view = renderWithMenu();
+    fireEvent.change(screen.getByLabelText('Текст'), { target: { value: 'Моя правка' } });
+
+    state.articleError = new Error('Failed to fetch');
+    view.rerender(withMenu());
+
+    expect(screen.getByLabelText('Текст')).toHaveValue('Моя правка');
+    expect(closeTab()).toBe(true);
+  });
+
+  test('an article that could not be read at all says so', () => {
+    state.article = undefined;
+    state.articleError = new Error('Failed to fetch');
+    renderWithMenu();
+
+    expect(screen.getByText('Не удалось загрузить статью.')).toBeInTheDocument();
+  });
+
+  test('a new article asks once something is typed in it', async () => {
+    window.history.replaceState(null, '', '/knowledge?article=new');
+    renderWithMenu();
+    expect(closeTab()).toBe(false);
+
+    await userEvent.type(screen.getByLabelText('Заголовок'), 'Пылесос');
+    await userEvent.click(screen.getByRole('link', { name: 'Уборки' }));
+
+    expect(confirm).toHaveBeenCalledWith(QUESTION);
+    expect(follow).not.toHaveBeenCalled();
   });
 });

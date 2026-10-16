@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { serverErrorKey, serverErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
+import { useLeaveGuard } from '@/lib/use-leave-guard';
 
 import { CodeWarning } from './code-warning';
 import { KbPreview } from './kb-preview';
@@ -47,7 +48,8 @@ interface ArticleEditorProps {
  * One article, written and placed (docs/knowledge-base-step1.md, «Панель»):
  * the warning about access codes, the original and its translations in tabs,
  * where it shows, the preview as the phone will draw it, the status, and the
- * versions. Only «Сохранить» writes — a new article does not exist until then.
+ * versions. Only «Сохранить» writes — a new article does not exist until then —
+ * and leaving with changes unsaved is asked first (useLeaveGuard).
  */
 export function ArticleEditor({ articleId, onClose, onCreated }: ArticleEditorProps) {
   const { t } = useTranslation();
@@ -59,7 +61,9 @@ export function ArticleEditor({ articleId, onClose, onCreated }: ArticleEditorPr
   if (articleId !== null && article.isPending) {
     return <LoadingState>{t('panel.knowledge.editor.loading')}</LoadingState>;
   }
-  if (articleId !== null && article.isError) {
+  // A failed read again — the window's focus, a lost connection — keeps the
+  // article read before, as TanStack does, and the form with what is typed.
+  if (articleId !== null && article.isError && article.data === undefined) {
     return <ErrorState message={t('panel.knowledge.editor.loadError')} error={article.error} />;
   }
   const loaded = articleId === null ? null : (article.data ?? null);
@@ -138,8 +142,11 @@ function EditorForm({
   const restore = useRestoreRevision();
 
   const isUnsaved = baseline.token === null;
-  const isDirty = isUnsaved || !isSameDraft(draft, baseline.draft);
+  const hasEdits = !isSameDraft(draft, baseline.draft);
+  const isDirty = isUnsaved || hasEdits;
   const isBusy = save.isPending || setStatus.isPending || restore.isPending;
+  // Only what was typed is asked about: a new article left untouched loses nothing.
+  const confirmLeave = useLeaveGuard(hasEdits, t('panel.knowledge.editor.leaveConfirm'));
   const hasTitle = draft.title.trim() !== '';
   const status: KbStatus = article?.status ?? 'draft';
   const shown = textIn(draft, tab);
@@ -232,7 +239,13 @@ function EditorForm({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <BackButton onClose={onClose} />
+        <BackButton
+          onClose={() => {
+            if (confirmLeave()) {
+              onClose();
+            }
+          }}
+        />
         <Badge variant={status === 'published' ? 'default' : 'outline'}>
           {t(`panel.knowledge.status.${status}`)}
         </Badge>

@@ -1,7 +1,7 @@
 -- The knowledge base, step 1: articles, the places they belong to, their
 -- translations and their versions (docs/knowledge-base-step1.md; the plan is
 -- docs/knowledge-base-plan.md, §2 and §5.7, narrowed by the owner's decisions
--- of 2026-10-16).
+-- of 2026-10-16 and 2026-10-17).
 --
 -- Text only. No pictures, video, files or PDFs (they will join task_media as
 -- a new owner), no search, no access codes (F27), no hints in a cleaning, and
@@ -25,13 +25,14 @@
 -- - a manager and the head technician: every article of their company,
 --   drafts and the archive included, with its places, translations and
 --   versions;
--- - a cleaner: the published articles of the whole company and of the places
---   she is linked to (property_cleaners) — the house above a linked room, and
---   the rooms under a linked house, as cleans_property reads them. A cleaning
---   handed to her on a place she is not linked to opens nothing more;
--- - a technician: the same, for the places of the work he holds now (a task
---   assigned to him and not yet done, cancelled or expired), and the house
---   above them;
+-- - a cleaner: the published articles of the whole company, of the places
+--   she is linked to (property_cleaners), and of the places of the work she
+--   holds now on a stand-in shift (a task assigned to her and not yet done,
+--   cancelled or expired, on a place not archived; 2026-10-17) — each with
+--   the house above a room and the rooms under a house, as cleans_property
+--   reads a link;
+-- - a technician: the same, for the places of the work he holds now, and the
+--   house above them;
 -- - a person switched off, another company, anon: nothing.
 -- The rule is two definer sets, kb_reader_property_ids() and
 -- kb_staff_article_ids(), behind `= any (array(...))` — built once a
@@ -263,11 +264,20 @@ create trigger kb_translations_version
 
 -- ---------- who reads ----------
 
--- The places whose articles a cleaner or a technician reads: hers by link,
--- his by the work he holds now, the house above any of them, and the rooms
--- under a house she is linked to. Empty for anybody else and for a person
--- switched off. No company filter inside: a target is of its article's
--- company by its keys, and the policies keep host_id = current_host_id().
+-- The places whose articles a cleaner or a technician reads. Hers: the places
+-- she is linked to, and those of the work she holds now — a stand-in shift —
+-- unless the place of that work is itself archived; each with the house above
+-- it and, for a house, the rooms under it, as a link has always opened them
+-- (whether that house or those rooms are archived is not asked, as for a
+-- link). His: the places of the work he holds now, archived or not, with the
+-- house above them. Work held now is a task of any kind assigned to that
+-- person and not yet done, cancelled or expired, however far ahead it is
+-- planned: the open statuses of the phone's list of her own work
+-- (fetchMyTasks) less 'unassigned', which nobody holds; the phone's horizon
+-- does not narrow it. Empty for anybody else and for a person switched off,
+-- work still hers included. No company filter inside: a target is of its
+-- article's company by its keys, and the policies keep host_id =
+-- current_host_id().
 create function public.kb_reader_property_ids()
 returns setof bigint
 language sql
@@ -280,17 +290,28 @@ as $$
     from public.profiles p
     where p.id = (select auth.uid()) and p.is_active
   ),
-  tie as (
+  held as (
+    select t.property_id as id, me.role
+    from public.tasks t
+    join me on me.id = t.assignee_id
+    where t.status in ('assigned', 'accepted', 'in_progress', 'paused', 'blocked')
+  ),
+  hers as (
     select pc.property_id as id
     from public.property_cleaners pc
     join me on me.id = pc.cleaner_id
     where me.role = 'cleaner'
     union
-    select t.property_id
-    from public.tasks t
-    join me on me.id = t.assignee_id
-    where me.role = 'tech'
-      and t.status in ('assigned', 'accepted', 'in_progress', 'paused', 'blocked')
+    select held.id
+    from held
+    join public.properties p on p.id = held.id
+    where held.role = 'cleaner'
+      and p.status <> 'archived'
+  ),
+  tie as (
+    select hers.id from hers
+    union
+    select held.id from held where held.role = 'tech'
   )
   select tie.id from tie
   union
@@ -301,14 +322,12 @@ as $$
   union
   select r.id
   from public.properties r
-  join public.property_cleaners pc on pc.property_id = r.parent_id
-  join me on me.id = pc.cleaner_id
-  where me.role = 'cleaner'
-    and r.hostaway_unit_id is not null;
+  join hers on hers.id = r.parent_id
+  where r.hostaway_unit_id is not null;
 $$;
 
 comment on function public.kb_reader_property_ids() is
-  'Places whose knowledge base articles a cleaner (by link) or a technician (by the work he holds now) reads, with the house above and a linked house''s rooms (decision 5 of 2026-10-16, 20261017100000).';
+  'Places whose knowledge base articles a cleaner (by link, or by the work she holds now on a place not archived) or a technician (by the work he holds now) reads, with the house above, and the rooms under a house of hers (decision 5 of 2026-10-16 and decision 1 of 2026-10-17, 20261017100000).';
 
 -- The published articles a cleaner or a technician reads: the company's, and
 -- those of her places.

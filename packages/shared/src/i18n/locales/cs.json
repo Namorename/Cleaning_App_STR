@@ -1265,6 +1265,7 @@
         "save": "Uložit",
         "saved": "Uloženo",
         "unsaved": "Neuložené změny",
+        "leaveConfirm": "Máte neuložené změny. Odejít a přijít o ně?",
         "discard": "Zahodit změny",
         "reload": "Načíst poslední verzi",
         "publish": "Zveřejnit",
