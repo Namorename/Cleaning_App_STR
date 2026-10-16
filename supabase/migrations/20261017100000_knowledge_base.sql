@@ -607,21 +607,24 @@ begin
       using errcode = 'check_violation', hint = 'serverErrors.kbBuildingInvalid';
   end if;
 
-  select a.* into v_article
-  from public.kb_articles a
-  where a.id = p_id
-  for update;
-
-  if found and v_article.host_id is distinct from v_host then
-    raise exception 'Article % not found', p_id
-      using errcode = 'check_violation', hint = 'serverErrors.kbArticleNotFound';
-  end if;
+  -- A new id writes a draft. One that is taken — this article saved before, a
+  -- retry racing its own first save, or another company's — is the update below,
+  -- which tells them apart.
+  insert into public.kb_articles (id, host_id, status, scope, language, title, body,
+                                  created_by, updated_by)
+  values (p_id, v_host, 'draft', p_scope, p_language, v_title, v_body, v_me, v_me)
+  on conflict (id) do nothing;
 
   if not found then
-    insert into public.kb_articles (id, host_id, status, scope, language, title, body,
-                                    created_by, updated_by)
-    values (p_id, v_host, 'draft', p_scope, p_language, v_title, v_body, v_me, v_me);
-  else
+    select a.* into v_article
+    from public.kb_articles a
+    where a.id = p_id and a.host_id = v_host
+    for update;
+    if not found then
+      raise exception 'Article % not found', p_id
+        using errcode = 'check_violation', hint = 'serverErrors.kbArticleNotFound';
+    end if;
+
     if p_expected_rev is not null and v_article.rev <> p_expected_rev then
       raise exception 'Article % is at version %, the screen showed %', p_id, v_article.rev, p_expected_rev
         using errcode = 'check_violation', hint = 'serverErrors.kbArticleChanged',

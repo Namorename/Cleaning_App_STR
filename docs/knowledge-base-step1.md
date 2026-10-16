@@ -159,7 +159,7 @@
    облачных нет. Из дерева без `supabase/.temp/pooler-url` CLI отвечает «IPv6» — скопировать
    файл из корня репозитория.
 4. **md5 функций.** Вписаны в шапку `docs/rollout/postpush_knowledge_base.sql` для файла с
-   sha256 `f986558fa3ad02ae…`. `sha256sum` файла в дереве push; другой — пересчитать **до**
+   sha256 `40890dde431d89a1…`. `sha256sum` файла в дереве push; другой — пересчитать **до**
    push: файл в откатываемой транзакции на стенде, `left(md5(prosrc), 8)` и
    `length(prosrc)`, `position(chr(13) in prosrc) = 0` (без CR).
 5. **Проба «до»:** `node scripts/cloud-read.mjs docs/rollout/postpush_knowledge_base.sql` —

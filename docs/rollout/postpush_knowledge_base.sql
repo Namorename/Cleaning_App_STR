@@ -21,7 +21,7 @@
 --                                         "field staff read the translations of the articles they read"
 --                 kb_article_revisions    "office reads every version"
 --   functions   13 rows, overloads 1 each, config {search_path=""}; md5 prefix and length of
---               prosrc (2026-10-17, the file with sha256 f986558fa3ad02ae… applied in a
+--               prosrc (2026-10-17, the file with sha256 40890dde431d89a1… applied in a
 --               rolled-back transaction on the local stand; a file with another sha256 —
 --               recompute before the push, never after):
 --                 kb_article_for_writer    dd0dd9eb   610  definer false
@@ -35,7 +35,7 @@
 --                 kb_translations_version  fe937c77   420  definer false
 --                 kb_write_translations    11d57b5a   556  definer false
 --                 restore_kb_revision      7feb0427  1484  definer true
---                 save_kb_article          a3c933fe  4386  definer true
+--                 save_kb_article          78a1329d  4590  definer true
 --                 set_kb_article_status    ab5058b0   800  definer true
 --               execute (anon / authenticated / PUBLIC): ["authenticated"] for the three writes
 --               and the two readers' rules; [] for the other eight.
