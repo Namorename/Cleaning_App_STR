@@ -335,3 +335,141 @@ Vercel → проект панели → Settings → Environment Variables: к�
 
 Пункты «Что решить до публикации» выше (юрист, DPA, вебхук `convex.site`,
 уведомление гостей) страница не закрывает: она готова к ним, а не вместо них.
+
+---
+
+## Журнал работы сотрудников — черновик абзаца (2026-10-15, переписан по фактам вечером; на странице не опубликован)
+
+> **Только черновик.** В текст страницы `/privacy` (`apps/web/src/app/privacy/`) не внесён —
+> по слову владельца 15.10. Срок хранения — **24 месяца** (решение владельца 15.10 18:55).
+> Вносить на страницу, когда журнал уборок `20261015100000_task_events` применён в облаке
+> (`docs/rollout/dashboard-rollout.md`); журнал заданий там уже с 03.10. Порядок языков — как
+> на странице: английский по умолчанию, затем чешский и русский.
+
+### Факты из кода, на которых стоит текст
+
+Журналов два. Оба пишут только триггеры базы (журнал заданий — ещё и функция отключения
+сотрудника); клиент не может ни писать, ни править, ни удалять — у `authenticated` только
+`select`, и тот под политикой.
+
+| | Журнал уборок `task_events` | Журнал заданий `problem_events` |
+|---|---|---|
+| Миграция | `20261015100000_task_events` — **ещё не в облаке** | `20261003140000_problem_events` — в облаке с 03.10.2026; события отключения сотрудника — `20261004100000_staff_disable` |
+| Для каких записей | каждая строка `tasks` без `problem_id` (условие триггеров `new.problem_id is null`): уборки, уборки во время проживания (мид-стей), осмотры и ремонты, которые менеджер завёл сам, без задания | задания (`problems`, сообщения о поломках) и ремонты по ним (`tasks` с `problem_id` и типом `maintenance`; условие триггера `new.problem_id is not null and new.type = 'maintenance'`) |
+| События | создана, назначена, переназначена, снята с человека, принята, начата, завершена, отменена, просрочена, перенесена (день или объект), возвращена, другой переход статуса | сообщено, назначено, переназначено, снято с человека, перенесено (день или часы), принято, начато, завершено, попытка отменена, снято с работы, другой переход статуса, решено, отменено, открыто снова, убрано в архив, возвращено из архива |
+| Что в строке | кто (`actor_id` — учётная запись; пусто — система); когда (`at` — момент записи на сервере); почему — у отмены, снятия и переноса (`cause`: менеджер, главный техник, сам сотрудник, учётка отключена, бронь отменена, объект недоступен, бронь изменилась, система); параметры `params` — id людей (кому дали, у кого сняли, кто держал), даты, id объектов, статусы | кто (`actor_id`); когда (`created_at`); параметры `params` — id людей, даты и часы работы, срочность, id объекта, статусы |
+| Кто видит | **только менеджеры** своей компании (политика `managers read task events`) | менеджеры **и главный техник** своей компании (политики `managers read problem events`, `head tech reads problem events`) |
+
+- **Чего в журналах нет:** текста (причину отмены, которую пишет менеджер, хранит само
+  задание — `cancel_reason`, — а не журнал), фото и видео, местоположения, данных телефона.
+  Горничные и техники журналы не видят: в приложении телефона их нет, политики для них нет.
+- **Время** — момент, когда изменение дошло до сервера: без сети это время синхронизации, а
+  не нажатия.
+- **Отключение учётки** журнал не меняет: события по-прежнему ведут к человеку. **После
+  удаления учётки** события остаются, ссылка на автора обнуляется (`actor_id → set null`), а
+  id людей в параметрах остаются, но имени по ним уже не найти. События удалённой уборки или
+  задания уходят вместе с ними (`on delete cascade`).
+- **Удаления по сроку пока нет** ни у одного журнала (F24 не сделан). Обещание «храним 24
+  месяца» тем не менее верно, пока самым старым событиям меньше 24 месяцев: `problem_events`
+  пишется с 03.10.2026, `task_events` — со дня выката. **Чистку по сроку сделать до
+  03.10.2028** (F24, вместе с журналом действий из раздела 5). Если страница выйдет, а
+  чистки к тому сроку не будет, фразу о сроке снять.
+
+### Срок
+
+**24 месяца с момента события**, затем удаление (решение владельца 15.10). Отчёты сравнивают
+год с прошлым годом — нужен год истории и запас; спорные случаи всплывают в пределах недель
+или месяцев; тот же срок обещан в разделе 5 для журнала действий, и одна чистка F24 закроет
+все три журнала. Цифры отчётов, уже отправленных владельцу, удаление журнала не меняет.
+
+### Текст для раздела 2
+
+**Новая строка таблицы** (после «Задания и заявки»):
+
+| Язык | Что | Примеры | Зачем |
+|---|---|---|---|
+| en | **Work log** | what happened to cleanings, tasks and repairs, who did it and when | reports to the company's owner, sorting out disputed cases |
+| cs | **Záznam práce** | co se dělo s úklidy, úkoly a opravami, kdo to udělal a kdy | přehledy pro majitele společnosti, vyjasnění sporných případů |
+| ru | **Журнал работы** | что происходило с уборками, заданиями и ремонтами, кто это сделал и когда | отчёты владельцу компании, разбор спорных случаев |
+
+**Абзац под таблицей.**
+
+**English**
+
+> **Work log.** The app keeps a log of what happens to the work in it:
+>
+> - **cleanings** — including cleanings during a stay, inspections and repairs a manager sets
+>   up directly: created, given to someone or taken off them, accepted, started, finished,
+>   cancelled, expired, moved to another day or place, reopened;
+> - **tasks** (reports of faults) **and the repairs done on them**: reported, given to someone
+>   or taken off them, moved to another day or time, accepted, started, finished, resolved,
+>   cancelled, reopened, put in the archive or brought back.
+>
+> Each entry records who did it (your account, a manager's or the system), whom the work was
+> given to or taken from, when the change reached our server, and the dates, places, urgency
+> and statuses involved. It records no text you write, no photos or videos and no location. We
+> use the log for reports to the company's owner (how much work was done, how quickly it was
+> handed out) and to sort out disputed cases (who had a cleaning on its day, when it was
+> finished). The managers of your company see the whole log; the head technician also sees
+> the part about tasks and repairs. Other staff cannot see it, and nobody can change it in the
+> app. We keep each entry for 24 months from the event and then delete it. If your account is
+> deleted (section 5), the entries stay but no longer name you.
+
+**Čeština**
+
+> **Záznam práce.** Aplikace vede záznam o tom, co se děje s prací v ní:
+>
+> - **úklidy** — včetně úklidů během pobytu, kontrol a oprav, které zadá přímo manažer:
+>   vytvoření, přidělení někomu nebo odebrání, přijetí, zahájení, dokončení, zrušení,
+>   propadnutí, přesunutí na jiný den nebo jiné místo, znovuotevření;
+> - **úkoly** (zprávy o poruchách) **a opravy k nim**: nahlášení, přidělení někomu nebo
+>   odebrání, přesunutí na jiný den nebo čas, přijetí, zahájení, dokončení, vyřešení, zrušení,
+>   znovuotevření, přesunutí do archivu nebo zpět.
+>
+> Každý záznam obsahuje, kdo to udělal (váš účet, účet manažera, nebo systém), komu byla práce
+> přidělena nebo komu odebrána, kdy změna dorazila na náš server, a dotčená data, místa,
+> naléhavost a stavy. Nezaznamenává žádný text, který píšete, žádné fotografie ani videa a
+> žádnou polohu. Záznam používáme pro přehledy pro majitele společnosti (kolik práce bylo
+> hotovo, jak rychle byla přidělena) a k vyjasnění sporných případů (kdo měl úklid v jeho den,
+> kdy byl dokončen). Manažeři vaší společnosti vidí celý záznam; hlavní technik vidí navíc
+> část o úkolech a opravách. Ostatní pracovníci ho nevidí a v aplikaci ho nikdo nemůže změnit.
+> Každý záznam uchováváme 24 měsíců od události, potom ho smažeme. Pokud bude váš účet smazán
+> (oddíl 5), záznamy zůstanou, ale už v nich nebude vaše jméno.
+
+**Русский**
+
+> **Журнал работы.** Приложение ведёт журнал того, что происходит с работой в нём:
+>
+> - **уборки** — включая уборки во время проживания, осмотры и ремонты, которые менеджер
+>   заводит сам: создана, назначена кому-то или снята, принята, начата, завершена, отменена,
+>   просрочена, перенесена на другой день или объект, возвращена в работу;
+> - **задания** (сообщения о поломках) **и ремонты по ним**: сообщено, назначено кому-то или
+>   снято, перенесено на другой день или время, принято, начато, завершено, решено, отменено,
+>   открыто снова, убрано в архив или возвращено.
+>
+> В каждой записи — кто это сделал (ваша учётная запись, учётная запись менеджера или
+> система), кому работу дали или у кого сняли, когда изменение дошло до нашего сервера, а
+> также даты, объекты, срочность и статусы. Тексты, которые вы пишете, фото, видео и
+> местоположение в журнал не попадают. Журнал нужен для отчётов владельцу компании (сколько
+> работы сделано, как быстро её раздают) и для разбора спорных случаев (у кого была уборка в
+> её день, когда её завершили). Менеджеры вашей компании видят весь журнал; главный техник —
+> ещё и часть о заданиях и ремонтах. Другие сотрудники его не видят, и изменить его в
+> приложении нельзя никому. Каждую запись храним 24 месяца с момента события, затем
+> удаляем. Если вашу учётную запись удалят (раздел 5), записи останутся, но без вашего имени.
+
+### Что ещё поменять на странице вместе с абзацем
+
+- **Раздел 3, «Законный интерес»:** дописать «отчёты владельцу компании и разбор спорных
+  случаев по журналу работы» (возражение — раздел 7, как и сейчас).
+- **Раздел 4, кто получает:** ничего — журнал не уходит за пределы базы (обработчик — тот же
+  хостинг базы, что уже назван).
+- **Раздел 5, таблица сроков:** строка «Журнал работы (уборки, задания, ремонты) | 24 месяца
+  с момента события, затем удаление».
+- **Раздел 5, «При удалении»:** пункт «в журнале работы ваши действия остаются, но без вашего
+  имени» — так работает `actor_id → set null`.
+
+### Вопрос владельцу
+
+Показать абзац юристу вместе с остальной политикой (§ 316 zákoník práce — контроль
+работников)? Журнал не следит за местом и временем человека вне работы, но записывает, кто и
+когда что сделал с работой, — это ровно то, что юрист должен увидеть.
