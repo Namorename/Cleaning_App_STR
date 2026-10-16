@@ -328,6 +328,30 @@
         "xlsx": "Stáhnout Excel",
         "failed": "Tabulku se nepodařilo stáhnout"
       },
+      "pdf": {
+        "download": "Stáhnout PDF",
+        "preparing": "Připravuje se PDF…",
+        "failed": "PDF se nepodařilo vytvořit",
+        "title": "Přehled analytiky",
+        "period": "Období: {{from}} – {{to}}",
+        "generated": "Vytvořeno {{date}} podle pražského času",
+        "page": "Strana {{page}} z {{total}}",
+        "noFilters": "Žádné: všechny objekty, pracovníci, stavy a naléhavosti",
+        "archived": "Archivované objekty",
+        "archivedHidden": "skryté",
+        "charts": "Grafy",
+        "topBars": "{{count}} nejvytíženějších; tabulky mají všechny řádky.",
+        "topBarsPicked": "{{count}} nejvytíženějších a ty, na které je report filtrován; tabulky mají všechny řádky.",
+        "lookupsFailed": "Report potřebuje objekty a pracovníky a ty se nepodařilo načíst.",
+        "notesTitle": "Jak se čísla počítají",
+        "notes": {
+          "done": "Hotové úklidy se počítají podle dne dokončení v časovém pásmu objektu; plánované podle dne úklidu.",
+          "checkout": "Odjezd se počítá podle dne odjezdu hosta, ať byla rezervace vytvořena kdykoli; byt uvolní jeden pokoj.",
+          "cancelled": "Zrušené úkoly jsou uvedeny zvlášť a nejsou v žádném jiném čísle; úkol z archivu se počítá, jen pokud byl vyřešen dřív.",
+          "demo": "Ukázkové a testovací objekty nejsou zahrnuty.",
+          "change": "Změna porovnává číslo s předchozím obdobím; podíl se mění v procentních bodech."
+        }
+      },
       "empty": {
         "title": "Za toto období není co počítat",
         "body": "Čísla se objeví, jakmile se budou zapisovat úklidy, odjezdy a úkoly. Historie začíná spuštěním aplikace.",

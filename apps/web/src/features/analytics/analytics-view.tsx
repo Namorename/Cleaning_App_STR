@@ -8,35 +8,27 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { COMPANY_TIME_ZONE } from '@/features/problems/filters';
 import { publicEnv } from '@/lib/env';
 import { todayIn } from '@/lib/format-date';
+import { useSupabase } from '@/lib/supabase/use-client';
 import { useAddressState } from '@/lib/use-address-state';
+import { useLanguage } from '@/lib/use-language';
 
 import { useStaff } from '@/features/tasks/use-tasks';
 
 import { readAnalyticsAddress, resolvePeriod, writeAnalyticsAddress } from './address';
 import { AnalyticsCharts } from './analytics-charts';
 import { AnalyticsTable } from './analytics-table';
+import { reportPdfName } from './file-names';
 import { FiltersBar } from './filters-bar';
 import { personLabel } from './format';
 import { KpiTiles } from './kpi-tiles';
 import { isLocalStand } from './local-stand';
+import { PdfButton, type LookupsFailure } from './pdf-button';
+import type { PdfRequest } from './pdf/report-input';
 import { PeriodBar } from './period-bar';
 import { previousPeriod } from './period';
-import { ANALYTICS_TABLES, type AnalyticsQuery, type AnalyticsTable as TableName, type Summary } from './schema';
+import { ANALYTICS_TABLES, type AnalyticsQuery, type AnalyticsTable as TableName } from './schema';
+import { isEmptySummary } from './summary';
 import { useAnalyticsListings, useAnalyticsSummary } from './use-analytics';
-
-/** Nothing was counted: no cleaning, checkout, night or task in the period, nor a cancelled one. */
-export function isEmptySummary(summary: Summary): boolean {
-  return (
-    summary.cleanings_done === 0 &&
-    summary.cleanings_planned === 0 &&
-    summary.checkouts === 0 &&
-    summary.occupied_nights === 0 &&
-    summary.problems_created === 0 &&
-    summary.problems_resolved === 0 &&
-    summary.problems_open === 0 &&
-    summary.problems_cancelled === 0
-  );
-}
 
 /**
  * The owner's Analytics page (docs/dashboard-metrics.md, step 1): a period
@@ -63,7 +55,11 @@ export function AnalyticsView() {
   // What the filters offer: the listings (rooms are counted under them; the
   // archived ones too, marked, unless the switch hides them) and the people
   // who clean and repair. A chip names anybody still on the team.
-  const allListings = (useAnalyticsListings().data ?? []).map((listing) => ({
+  const listingsQuery = useAnalyticsListings();
+  const listingsRead = listingsQuery.data;
+  // The files are named by a listing's own name, not the chip's words (file-names.ts).
+  const listingName = (id: number) => listingsRead?.find((listing) => listing.id === id)?.name;
+  const allListings = (listingsRead ?? []).map((listing) => ({
     id: String(listing.id),
     isArchived: listing.status === 'archived',
     label:
@@ -72,7 +68,8 @@ export function AnalyticsView() {
         : listing.name,
   }));
   const listings = allListings.filter((listing) => !(address.filters.hideArchived && listing.isArchived));
-  const team = useStaff().data;
+  const teamQuery = useStaff();
+  const team = teamQuery.data;
   const staff =
     team === undefined
       ? null
@@ -82,10 +79,54 @@ export function AnalyticsView() {
           label: personLabel(person.full_name, address.names),
         }));
   const people = (staff ?? []).filter((person) => person.role !== 'manager' && person.role !== 'admin');
+  const lookups = { listingNames: allListings, people, staff };
+
+  // The report names its listings and people: a list that never came is said
+  // under the button, with a press to load it again — not a silent grey button.
+  // While it is asked again TanStack clears the error (pending, fetching — or
+  // paused, with no network), so a failure behind it keeps the reason and the
+  // busy press on the screen.
+  const isAsking = (read: { isFetching: boolean; isPaused: boolean }) => read.isFetching || read.isPaused;
+  const unloaded = [listingsQuery, teamQuery].filter(
+    (read) => read.data === undefined && (read.isError || (isAsking(read) && read.errorUpdateCount > 0)),
+  );
+  const lookupsFailed: LookupsFailure | null =
+    unloaded.length === 0
+      ? null
+      : {
+          error: unloaded.find((read) => read.error !== null)?.error ?? null,
+          retry: () => unloaded.forEach((read) => void read.refetch()),
+          isRetrying: unloaded.some(isAsking),
+        };
+
+  const client = useSupabase();
+  const language = useLanguage();
+  // The report of the page as it is: its period, comparison, filters and names.
+  const pdfRequest = (): PdfRequest => ({
+    client,
+    period,
+    previous,
+    filters: address.filters,
+    names: address.names,
+    language,
+    t: (key, values) => t(key, values),
+    lookups,
+    fileName: reportPdfName({ period, filters: address.filters, listingName }),
+  });
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title={t('panel.nav.analytics')} />
+      <PageHeader
+        title={t('panel.nav.analytics')}
+        actions={
+          // The report names its filters: it waits for the figures, the team and the listings.
+          <PdfButton
+            request={pdfRequest}
+            disabled={current.data === undefined || staff === null || listingsRead === undefined}
+            lookupsFailed={lookupsFailed}
+          />
+        }
+      />
 
       <PeriodBar
         address={address}
@@ -122,6 +163,7 @@ export function AnalyticsView() {
         query={query}
         period={period}
         summary={current.data}
+        lookups={lookups}
         onChange={(next) => setAddress(next)}
       />
 
@@ -148,6 +190,7 @@ export function AnalyticsView() {
                 query={query}
                 period={period}
                 names={address.names}
+                listingName={listingName}
               />
             ) : null}
           </TabsContent>

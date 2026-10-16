@@ -155,7 +155,9 @@ describe('fetchSummary', () => {
   });
 
   it('fails on an answer without the cancelled tasks rather than show none', async () => {
-    const { problems_cancelled: _cancelled, ...withoutCancelled } = SUMMARY;
+    const withoutCancelled = Object.fromEntries(
+      Object.entries(SUMMARY).filter(([key]) => key !== 'problems_cancelled'),
+    );
     const { client } = clientAnswering(() => withoutCancelled);
     await expect(fetchSummary(client, query)).rejects.toThrow();
   });

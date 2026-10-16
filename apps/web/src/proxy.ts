@@ -104,5 +104,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)'],
+  // Static files pass: images, and the PDF report's three public fonts (SIL
+  // OFL) by their exact path — no other .ttf, nothing else beside them.
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|fonts/nunito/Nunito-(?:SemiBold|Bold|ExtraBold)\\.ttf$|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+  ],
 };

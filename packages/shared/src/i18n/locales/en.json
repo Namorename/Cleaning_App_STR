@@ -328,6 +328,30 @@
         "xlsx": "Download Excel",
         "failed": "The table could not be downloaded"
       },
+      "pdf": {
+        "download": "Download PDF",
+        "preparing": "Preparing the PDF…",
+        "failed": "The PDF could not be made",
+        "title": "Analytics report",
+        "period": "Period: {{from}} – {{to}}",
+        "generated": "Generated {{date}}, Prague time",
+        "page": "Page {{page}} of {{total}}",
+        "noFilters": "None: every listing, person, status and urgency",
+        "archived": "Archived listings",
+        "archivedHidden": "hidden",
+        "charts": "Charts",
+        "topBars": "The {{count}} busiest; the tables have every row.",
+        "topBarsPicked": "The {{count}} busiest and the ones the report is filtered to; the tables have every row.",
+        "lookupsFailed": "The report needs the listings and the people, and they did not load.",
+        "notesTitle": "How the figures are counted",
+        "notes": {
+          "done": "Cleanings done count on the day they were finished, in the listing's own time zone; cleanings planned, on the day of the cleaning.",
+          "checkout": "A checkout counts on the guest's day of departure, whenever the booking was made; a flat frees one room.",
+          "cancelled": "Cancelled tasks are shown apart and are in no other figure; a task put in the archive counts only if it was resolved before.",
+          "demo": "Demo and test listings are not included.",
+          "change": "A change compares a figure with the period before; a share moves in percentage points."
+        }
+      },
       "empty": {
         "title": "Nothing to count in this period",
         "body": "Figures appear as cleanings, checkouts and tasks are recorded. The history starts with the launch of the app.",

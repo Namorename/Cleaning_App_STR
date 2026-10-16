@@ -3,7 +3,6 @@ import type { Language } from '@str-ops/shared';
 import type { CellValue } from '@/lib/csv';
 
 import { formatNumber, formatPercent, personLabel } from './format';
-import type { Period } from './period';
 import type { AnalyticsRows, AnalyticsTable, NameMode } from './schema';
 
 /** What a cell needs besides its row: the language, how names are shown, the dictionary. */
@@ -142,10 +141,4 @@ export function exportRows<T extends AnalyticsTable>(
     columns.map((column) => context.t(column.header)),
     ...rows.map((row) => columns.map((column) => column.cell(row, context))),
   ];
-}
-
-/** "analytics-checkouts-by-property-2026-10-01_2026-10-31.csv" */
-export function exportFileName(table: AnalyticsTable, period: Period, extension: string): string {
-  const kebab = table.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
-  return `analytics-${kebab}-${period.from}_${period.to}.${extension}`;
 }
