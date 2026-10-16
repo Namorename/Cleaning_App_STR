@@ -1933,7 +1933,7 @@
         "intro": "<b>Work log.</b> The app keeps a log of what happens to the work in it:",
         "cleanings": "<b>cleanings</b> — including cleanings during a stay, inspections and repairs a manager sets up directly: created, given to someone or taken off them, accepted, started, finished, cancelled, expired, moved to another day or place, reopened;",
         "tasks": "<b>tasks</b> (reports of faults) <b>and the repairs done on them</b>: reported, given to someone or taken off them, moved to another day or time, accepted, started, finished, resolved, cancelled, reopened, put in the archive or brought back.",
-        "details": "Each entry records who made the change (your account, a colleague’s, a manager’s or the head technician’s, or the system), whom the work was given to or taken from, the reason for a cancellation, a take-off or a move (for example, that an account was switched off or a booking was cancelled), when the change reached our server, and the dates, repair visit hours, places, urgency and statuses involved. It records no text you write, no photos or videos and no geolocation of your phone. We use the log for reports to the company’s owner (how much work was done, how quickly it was handed out) and to sort out disputed cases (who had a cleaning on its day, when it was finished). The managers of your company see the whole log; the head technician also sees the part about tasks and the repairs done on them. Other staff cannot see it, and nobody can change it in the app. For now the log is kept without a time limit: automatic deletion of entries older than 24 months is being introduced (section 5). If your account is deleted (section 5), the entries stay but are no longer linked to your account: where an entry records whom the work was given to or taken from, only the deleted account’s identifier remains, and it no longer leads to your name."
+        "details": "Each entry records who made the change (your account, a colleague’s, a manager’s or the head technician’s, or the system), when the change reached our server and, depending on the change, who held the work or whom it was given to or taken from, the reason for a cancellation, a take-off or a move (for example, that an account was switched off or a booking was cancelled), and the dates, repair visit hours, properties, urgency and statuses involved. It records no text you write, no photos or videos and no geolocation of your phone. We use the log for reports to the company’s owner (how much work was done, how quickly it was handed out) and to sort out disputed cases (who had a cleaning on its day, when it was finished). The managers of your company see the whole log; the head technician sees only the part about tasks and the repairs done on them. Other staff cannot see it, and nobody can change it in the app. For now the log is kept without a time limit: automatic deletion of entries older than 24 months is being introduced (section 5). If your account is deleted (section 5), the entries stay but are no longer linked to your account: where an entry records who held the work or whom it was given to or taken from, only the deleted account’s identifier remains, and it no longer leads to your name."
       },
       "notCollected": "<b>What we do not collect:</b> location (the app does not ask for location access), contacts, health data. Photograph the apartments, not people or documents.",
       "video": "Videos are recorded with the app’s own camera: it does not write the place of recording into the file, but it does write the date and time of recording; we do not strip video metadata separately (we do for photos).",
@@ -2014,7 +2014,7 @@
         },
         "journal": {
           "data": "Work log",
-          "period": "<b>Currently without a time limit.</b> Automatic deletion of entries older than 24 months is being introduced"
+          "period": "<b>Currently without a time limit.</b> Automatic deletion of entries older than 24 months is being introduced. An entry is also deleted together with the cleaning or task it belongs to"
         },
         "account": {
           "data": "Account",
@@ -2042,6 +2042,7 @@
         "chat": "your messages in conversations about cleanings and tasks remain, but <b>instead of your name</b> they will show “Former employee”;",
         "office": "your private conversation with the office is deleted entirely, together with its photos;",
         "work": "in the cleanings and steps you carried out, the times and marks remain, but not you as the one who carried them out;",
+        "journal": "in the work log, the entries stay but are no longer linked to your account: only the deleted account’s identifier remains in them, and it no longer leads to your name;",
         "requests": "your tasks and requests for supplies remain — they are still being dealt with — with “Former employee” as the author;",
         "push": "push notification tokens and notification choices are deleted together with the account."
       }

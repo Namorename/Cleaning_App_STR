@@ -177,65 +177,77 @@ const CLAIMS: Record<
     actor:
       'Each entry records who made the change (your account, a colleague’s, a manager’s or the head technician’s, or the system)',
     cause:
-      'the reason for a cancellation, a take-off or a move (for example, that an account was switched off or a booking was cancelled)',
-    hours: 'the dates, repair visit hours, places, urgency and statuses involved.',
+      'depending on the change, who held the work or whom it was given to or taken from, the reason for a cancellation, a take-off or a move (for example, that an account was switched off or a booking was cancelled)',
+    hours: 'the dates, repair visit hours, properties, urgency and statuses involved.',
     noText: 'It records no text you write, no photos or videos and no geolocation of your phone.',
     readers:
-      'The managers of your company see the whole log; the head technician also sees the part about tasks and the repairs done on them. Other staff cannot see it, and nobody can change it in the app.',
+      'The managers of your company see the whole log; the head technician sees only the part about tasks and the repairs done on them. Other staff cannot see it, and nobody can change it in the app.',
     period:
       'For now the log is kept without a time limit: automatic deletion of entries older than 24 months is being introduced (section 5).',
     deletion:
-      'If your account is deleted (section 5), the entries stay but are no longer linked to your account: where an entry records whom the work was given to or taken from, only the deleted account’s identifier remains, and it no longer leads to your name.',
+      'If your account is deleted (section 5), the entries stay but are no longer linked to your account: where an entry records who held the work or whom it was given to or taken from, only the deleted account’s identifier remains, and it no longer leads to your name.',
   },
   cs: {
     lead: 'Záznam práce.',
     actor:
       'Každý záznam obsahuje, kdo změnu provedl (váš účet, účet kolegy, manažera nebo hlavního technika, nebo systém)',
     cause:
-      'důvod zrušení, odebrání nebo přesunu (například že byl účet deaktivován nebo rezervace zrušena)',
-    hours: 'dotčená data, hodiny návštěvy opravy, místa, naléhavost a stavy.',
+      'podle druhu změny i to, kdo práci měl nebo komu byla přidělena či odebrána, důvod zrušení, odebrání nebo přesunu (například že byl účet deaktivován nebo rezervace zrušena)',
+    hours: 'dotčená data, hodiny návštěvy opravy, objekty, naléhavost a stavy.',
     noText:
       'Nezaznamenává žádný text, který píšete, žádné fotografie ani videa a žádnou geolokaci telefonu.',
     readers:
-      'Manažeři vaší společnosti vidí celý záznam; hlavní technik vidí navíc část o úkolech a opravách k nim. Ostatní pracovníci ho nevidí a v aplikaci ho nikdo nemůže změnit.',
+      'Manažeři vaší společnosti vidí celý záznam; hlavní technik vidí jen část o úkolech a opravách k nim. Ostatní pracovníci ho nevidí a v aplikaci ho nikdo nemůže změnit.',
     period:
       'Zatím záznam uchováváme bez časového omezení: automatické mazání záznamů starších než 24 měsíců zavádíme (oddíl 5).',
     deletion:
-      'Pokud bude váš účet smazán (oddíl 5), záznamy zůstanou, ale už nebudou spojeny s vaším účtem: kde záznam uvádí, komu byla práce přidělena nebo odebrána, zůstane jen identifikátor smazaného účtu, který už nevede k vašemu jménu.',
+      'Pokud bude váš účet smazán (oddíl 5), záznamy zůstanou, ale už nebudou spojeny s vaším účtem: kde záznam uvádí, kdo práci měl nebo komu byla přidělena či odebrána, zůstane jen identifikátor smazaného účtu, který už nevede k vašemu jménu.',
   },
   ru: {
     lead: 'Журнал работы.',
     actor:
       'В каждой записи — кто внёс изменение (ваша учётная запись, учётная запись коллеги, менеджера или главного техника либо система)',
     cause:
-      'причина отмены, снятия или переноса (например, что учётную запись отключили или бронь отменили)',
+      'в зависимости от изменения — у кого была работа или кому её дали либо у кого сняли, причина отмены, снятия или переноса (например, что учётную запись отключили или бронь отменили)',
     hours: 'а также даты, часы визита по ремонту, объекты, срочность и статусы.',
     noText: 'Тексты, которые вы пишете, фото, видео и геолокация телефона в журнал не попадают.',
     readers:
-      'Менеджеры вашей компании видят весь журнал; главный техник — ещё и часть о заданиях и ремонтах по ним. Другие сотрудники его не видят, и изменить его в приложении нельзя никому.',
+      'Менеджеры вашей компании видят весь журнал; главный техник — только часть о заданиях и ремонтах по ним. Другие сотрудники его не видят, и изменить его в приложении нельзя никому.',
     period:
       'Пока журнал хранится без ограничения срока: автоматическое удаление записей старше 24 месяцев вводится (раздел 5).',
     deletion:
-      'Если вашу учётную запись удалят (раздел 5), записи останутся, но больше не будут связаны с вашей учётной записью: там, где запись говорит, кому работу дали или у кого сняли, останется только идентификатор удалённой учётной записи, и он уже не ведёт к вашему имени.',
+      'Если вашу учётную запись удалят (раздел 5), записи останутся, но больше не будут связаны с вашей учётной записью: там, где запись говорит, у кого была работа или кому её дали либо у кого сняли, останется только идентификатор удалённой учётной записи, и он уже не ведёт к вашему имени.',
   },
 };
 
 /** Section 5's row: the same name, and the same honest period — no deletion runs yet. */
-const RETENTION: Record<Language, { period: string; oldName: string; promise: string }> = {
+const RETENTION: Record<
+  Language,
+  { period: string; cascade: string; effect: string; oldName: string; promise: string }
+> = {
   en: {
     period:
       'Currently without a time limit. Automatic deletion of entries older than 24 months is being introduced',
+    cascade: 'An entry is also deleted together with the cleaning or task it belongs to',
+    effect:
+      'in the work log, the entries stay but are no longer linked to your account: only the deleted account’s identifier remains in them, and it no longer leads to your name;',
     oldName: 'Activity log',
     promise: 'and then delete it',
   },
   cs: {
     period: 'Nyní bez časového omezení. Automatické mazání záznamů starších než 24 měsíců zavádíme',
+    cascade: 'Záznam se maže také spolu s úklidem nebo úkolem, ke kterému patří',
+    effect:
+      'v záznamu práce záznamy zůstanou, ale už nebudou spojeny s vaším účtem: zůstane v nich jen identifikátor smazaného účtu, který už nevede k vašemu jménu;',
     oldName: 'Protokol činností',
     promise: 'potom ho smažeme',
   },
   ru: {
     period:
       'Сейчас — без ограничения срока. Автоматическое удаление записей старше 24 месяцев вводится',
+    cascade: 'Запись удаляется и вместе с уборкой или заданием, к которым относится',
+    effect:
+      'в журнале работы записи останутся, но больше не будут связаны с вашей учётной записью: в них останется только идентификатор удалённой учётной записи, и он уже не ведёт к вашему имени;',
     oldName: 'Журнал действий',
     promise: 'затем удаляем',
   },
@@ -348,6 +360,11 @@ describe('the rest of the page agrees with the paragraph', () => {
       const table = within(section(5)).getByRole('table');
       const row = within(table).getByRole('rowheader', { name: ROW[language].what }).closest('tr');
       expect(row).toHaveTextContent(RETENTION[language].period);
+      expect(row).toHaveTextContent(RETENTION[language].cascade);
+      const effects = within(section(5))
+        .getAllByRole('listitem')
+        .map((item) => item.textContent);
+      expect(effects).toContain(RETENTION[language].effect);
       expect(main.textContent).not.toContain(RETENTION[language].oldName);
       expect(main.textContent).not.toContain(RETENTION[language].promise);
     },
@@ -410,6 +427,33 @@ describe('the work log text matches the journals in the schema', () => {
       'managers read problem events',
     ]);
     expect(ALL_SQL).not.toMatch(/(alter|drop) policy [^;]* on public\.(task|problem)_events/);
+  });
+
+  test('nothing deletes entries by age; an entry goes with its cleaning or task', () => {
+    // Section 5 and the paragraph say the log is kept without a time limit for now.
+    expect(withoutComments(ALL_SQL)).not.toMatch(/delete\s+from\s+public\.(task|problem)_events/);
+    expect(tableBody(TASK_EVENTS_SQL, 'task_events')).toMatch(
+      /task_id\s+uuid not null references public\.tasks \(id\) on delete cascade/,
+    );
+    expect(tableBody(PROBLEM_EVENTS_SQL, 'problem_events')).toMatch(
+      /problem_id\s+uuid not null references public\.problems \(id\) on delete cascade/,
+    );
+  });
+
+  test('the read policies ask the role and keep the company', () => {
+    const companyOnly = String.raw`\s+and host_id = \(?(?:select )?public\.current_host_id\(\)\)?\)`;
+    expect(TASK_EVENTS_SQL).toMatch(
+      new RegExp(
+        String.raw`create policy "managers read task events"\s+on public\.task_events for select\s+to authenticated\s+using \(\(select public\.is_manager\(\)\)` +
+          companyOnly,
+      ),
+    );
+    expect(PROBLEM_EVENTS_SQL).toMatch(
+      new RegExp(
+        String.raw`create policy "head tech reads problem events"\s+on public\.problem_events for select\s+to authenticated\s+using \(\(select public\.is_head_tech\(\)\)` +
+          companyOnly,
+      ),
+    );
   });
 
   test('nobody writes or changes a journal from the app: clients may only read', () => {
