@@ -1890,7 +1890,7 @@
       "rows": {
         "account": {
           "what": "Account",
-          "examples": "name, e-mail, phone number, role (cleaner, technician, manager), app language, password (stored only as a hash)",
+          "examples": "name, e-mail, phone number, role (cleaner, technician, head technician, manager), app language, password (stored only as a hash)",
           "why": "signing in to the app, organising the work, contacting you"
         },
         "work": {
@@ -1933,7 +1933,7 @@
         "intro": "<b>Work log.</b> The app keeps a log of what happens to the work in it:",
         "cleanings": "<b>cleanings</b> — including cleanings during a stay, inspections and repairs a manager sets up directly: created, given to someone or taken off them, accepted, started, finished, cancelled, expired, moved to another day or place, reopened;",
         "tasks": "<b>tasks</b> (reports of faults) <b>and the repairs done on them</b>: reported, given to someone or taken off them, moved to another day or time, accepted, started, finished, resolved, cancelled, reopened, put in the archive or brought back.",
-        "details": "Each entry records who did it (your account, a manager’s or the system), whom the work was given to or taken from, when the change reached our server, and the dates, places, urgency and statuses involved. It records no text you write, no photos or videos and no location. We use the log for reports to the company’s owner (how much work was done, how quickly it was handed out) and to sort out disputed cases (who had a cleaning on its day, when it was finished). The managers of your company see the whole log; the head technician also sees the part about tasks and repairs. Other staff cannot see it, and nobody can change it in the app. We keep each entry for 24 months from the event and then delete it. If your account is deleted (section 5), the entries stay but no longer name you."
+        "details": "Each entry records who made the change (your account, a colleague’s, a manager’s or the head technician’s, or the system), whom the work was given to or taken from, the reason for a cancellation, a take-off or a move (for example, that an account was switched off or a booking was cancelled), when the change reached our server, and the dates, repair visit hours, places, urgency and statuses involved. It records no text you write, no photos or videos and no geolocation of your phone. We use the log for reports to the company’s owner (how much work was done, how quickly it was handed out) and to sort out disputed cases (who had a cleaning on its day, when it was finished). The managers of your company see the whole log; the head technician also sees the part about tasks and the repairs done on them. Other staff cannot see it, and nobody can change it in the app. For now the log is kept without a time limit: automatic deletion of entries older than 24 months is being introduced (section 5). If your account is deleted (section 5), the entries stay but are no longer linked to your account: where an entry records whom the work was given to or taken from, only the deleted account’s identifier remains, and it no longer leads to your name."
       },
       "notCollected": "<b>What we do not collect:</b> location (the app does not ask for location access), contacts, health data. Photograph the apartments, not people or documents.",
       "video": "Videos are recorded with the app’s own camera: it does not write the place of recording into the file, but it does write the date and time of recording; we do not strip video metadata separately (we do for photos).",
@@ -1942,13 +1942,14 @@
     "basis": {
       "heading": "3. Legal bases",
       "contract": "<b>Performance of a contract</b> with you (čl. 6 odst. 1 písm. b) GDPR) — your account, work data, photos and videos of the work, messages about the work, notifications about the work.",
-      "interest": "<b>Legitimate interest</b> of the company (čl. 6 odst. 1 písm. f) GDPR) — quality control, the security of the system, crash reports. You can object to this processing (section 7).",
+      "interest": "<b>Legitimate interest</b> of the company (čl. 6 odst. 1 písm. f) GDPR) — quality control, the security of the system, crash reports, reports to the company’s owner and sorting out disputed cases from the work log. You can object to this processing (section 7).",
       "permission": "<b>Your permission on the phone</b> — showing push notifications. You can withdraw it in the phone’s settings; individual kinds of notifications are turned off in the app itself, in “Settings”."
     },
     "recipients": {
       "heading": "4. Who receives your data",
       "intro": "Your data is seen only by those who need it for work:",
       "managers": "<b>your company’s managers</b> — all of the company’s work data;",
+      "headTech": "<b>the head technician</b> — all of the company’s tasks and the repairs done on them, with their photos, checklist marks and messages, and the part of the work log about them;",
       "staff": "<b>a cleaner or a technician</b> — their own cleanings and jobs, available work at their properties, and the messages about them. Other people’s work data and the data of another company’s employees are not accessible.",
       "processors": "Technically, the data is processed by our suppliers (zpracovatelé):",
       "agreements": "data processing agreements have been concluded",
@@ -2012,8 +2013,8 @@
           "period": "<b>Currently without a time limit.</b> By {{date}}, we are introducing automatic deletion 12 months after a cleaning or task is closed. Until then, we delete manually at your request (section 7)"
         },
         "journal": {
-          "data": "Activity log",
-          "period": "<b>Currently without a time limit.</b> Deletion after 24 months is being introduced together with the previous item"
+          "data": "Work log",
+          "period": "<b>Currently without a time limit.</b> Automatic deletion of entries older than 24 months is being introduced"
         },
         "account": {
           "data": "Account",

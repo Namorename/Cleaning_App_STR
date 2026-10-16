@@ -174,6 +174,7 @@ function RecipientsSection({ texts, values }: SectionProps) {
       <p>{texts.recipients.intro}</p>
       <ul className={LIST_CLASS}>
         <li>{renderRich(texts.recipients.managers)}</li>
+        <li>{renderRich(texts.recipients.headTech)}</li>
         <li>{renderRich(texts.recipients.staff)}</li>
       </ul>
       <p>{texts.recipients.processors}</p>

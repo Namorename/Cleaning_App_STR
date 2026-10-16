@@ -55,7 +55,8 @@ export interface PrivacySettings {
  * the source is beside it.
  */
 export const PRIVACY_SETTINGS: PrivacySettings = {
-  effectiveDate: '2026-10-12',
+  // The day the work log was published (owner's decision of 2026-10-16).
+  effectiveDate: '2026-10-16',
   automaticDeletionDate: '2027-03-31',
   signInBlockDate: '2026-11-30',
   // The operator, on a letter to the address in section 1 (the sentence says how).
