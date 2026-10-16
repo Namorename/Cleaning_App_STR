@@ -232,6 +232,7 @@ describe('Sidebar folded to a strip of icons', () => {
       'Заявки',
       'Объекты',
       'Команда',
+      'База знаний',
       'Настройки',
       // The theme lever (night of 2026-10-10), above the toggle.
       'Тёмная тема',
@@ -266,8 +267,8 @@ describe('Sidebar folded to a strip of icons', () => {
     render(<Sidebar email="manager.test@example.com" />);
     const toggle = screen.getByRole('button', { name: 'Свернуть меню' });
 
-    // Through the nine sections and the theme lever, then the toggle under them.
-    for (let step = 0; step < 11 && document.activeElement !== toggle; step += 1) {
+    // Through the ten sections and the theme lever, then the toggle under them.
+    for (let step = 0; step < 12 && document.activeElement !== toggle; step += 1) {
       await userEvent.tab();
     }
     expect(toggle).toHaveFocus();
