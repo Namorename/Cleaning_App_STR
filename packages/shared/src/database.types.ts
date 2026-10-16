@@ -1177,6 +1177,68 @@ export type Database = {
           },
         ]
       }
+      task_events: {
+        Row: {
+          actor_id: string | null
+          at: string
+          cause: string | null
+          host_id: string
+          id: number
+          kind: Database["public"]["Enums"]["task_event_kind"]
+          params: Json
+          task_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          at?: string
+          cause?: string | null
+          host_id: string
+          id?: never
+          kind: Database["public"]["Enums"]["task_event_kind"]
+          params?: Json
+          task_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          at?: string
+          cause?: string | null
+          host_id?: string
+          id?: never
+          kind?: Database["public"]["Enums"]["task_event_kind"]
+          params?: Json
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_events_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "expired_tasks_review"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_media: {
         Row: {
           byte_size: number
@@ -1919,6 +1981,256 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      analytics_checkout_rows: {
+        Args: {
+          p_from: string
+          p_hide_archived: boolean
+          p_host: string
+          p_include_test: boolean
+          p_property_ids: number[]
+          p_to: string
+        }
+        Returns: {
+          departure_date: string
+          listing_id: number
+          reservation_id: number
+          rooms: number
+        }[]
+      }
+      analytics_checkouts_by_property: {
+        Args: {
+          p_assignee_ids?: string[]
+          p_from: string
+          p_hide_archived?: boolean
+          p_include_test?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_priorities?: Database["public"]["Enums"]["problem_priority"][]
+          p_problem_statuses?: Database["public"]["Enums"]["problem_status"][]
+          p_property_ids?: number[]
+          p_task_statuses?: Database["public"]["Enums"]["task_status"][]
+          p_to: string
+        }
+        Returns: {
+          available_nights: number
+          checkouts: number
+          listing_id: number
+          listing_name: string
+          occupancy: number
+          occupied_nights: number
+          rooms_released: number
+          total_count: number
+        }[]
+      }
+      analytics_cleaning_rows: {
+        Args: {
+          p_assignee_ids: string[]
+          p_from: string
+          p_hide_archived: boolean
+          p_host: string
+          p_include_test: boolean
+          p_property_ids: number[]
+          p_task_statuses: Database["public"]["Enums"]["task_status"][]
+          p_to: string
+        }
+        Returns: {
+          assignee_id: string
+          completed_by: string
+          done_day: string
+          has_photo: boolean
+          listing_id: number
+          minutes: number
+          scheduled_date: string
+          status: Database["public"]["Enums"]["task_status"]
+          task_id: string
+          type: Database["public"]["Enums"]["task_type"]
+        }[]
+      }
+      analytics_cleanings_by_cleaner: {
+        Args: {
+          p_assignee_ids?: string[]
+          p_from: string
+          p_hide_archived?: boolean
+          p_include_test?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_priorities?: Database["public"]["Enums"]["problem_priority"][]
+          p_problem_statuses?: Database["public"]["Enums"]["problem_status"][]
+          p_property_ids?: number[]
+          p_task_statuses?: Database["public"]["Enums"]["task_status"][]
+          p_to: string
+        }
+        Returns: {
+          done: number
+          done_midstay: number
+          full_name: string
+          listings: number
+          minutes_avg: number
+          minutes_median: number
+          person_id: string
+          photo_share: number
+          planned: number
+          total_count: number
+        }[]
+      }
+      analytics_cleanings_by_property: {
+        Args: {
+          p_assignee_ids?: string[]
+          p_from: string
+          p_hide_archived?: boolean
+          p_include_test?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_priorities?: Database["public"]["Enums"]["problem_priority"][]
+          p_problem_statuses?: Database["public"]["Enums"]["problem_status"][]
+          p_property_ids?: number[]
+          p_task_statuses?: Database["public"]["Enums"]["task_status"][]
+          p_to: string
+        }
+        Returns: {
+          cancelled: number
+          done: number
+          done_midstay: number
+          expired: number
+          listing_id: number
+          listing_name: string
+          minutes_avg: number
+          minutes_median: number
+          photo_share: number
+          planned: number
+          total_count: number
+        }[]
+      }
+      analytics_guard: {
+        Args: { p_from: string; p_to: string }
+        Returns: string
+      }
+      analytics_is_test_listing: { Args: { p_id: number }; Returns: boolean }
+      analytics_occupancy_rows: {
+        Args: {
+          p_from: string
+          p_host: string
+          p_include_test: boolean
+          p_property_ids: number[]
+          p_to: string
+        }
+        Returns: {
+          available_nights: number
+          listing_id: number
+          occupied_nights: number
+        }[]
+      }
+      analytics_problem_rows: {
+        Args: {
+          p_assignee_ids: string[]
+          p_cancelled: boolean
+          p_from: string
+          p_hide_archived: boolean
+          p_host: string
+          p_include_test: boolean
+          p_priorities: Database["public"]["Enums"]["problem_priority"][]
+          p_problem_statuses: Database["public"]["Enums"]["problem_status"][]
+          p_property_ids: number[]
+          p_to: string
+        }
+        Returns: {
+          archived_day: string
+          cancelled_day: string
+          created_day: string
+          hours_to_resolve: number
+          listing_id: number
+          problem_id: string
+          resolved_day: string
+          status: Database["public"]["Enums"]["problem_status"]
+          urgency: number
+        }[]
+      }
+      analytics_problems_by_property: {
+        Args: {
+          p_assignee_ids?: string[]
+          p_from: string
+          p_hide_archived?: boolean
+          p_include_test?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_priorities?: Database["public"]["Enums"]["problem_priority"][]
+          p_problem_statuses?: Database["public"]["Enums"]["problem_status"][]
+          p_property_ids?: number[]
+          p_task_statuses?: Database["public"]["Enums"]["task_status"][]
+          p_to: string
+        }
+        Returns: {
+          created: number
+          hours_to_resolve_avg: number
+          listing_id: number
+          listing_name: string
+          open_end: number
+          resolved: number
+          total_count: number
+          urgency_avg: number
+        }[]
+      }
+      analytics_problems_by_technician: {
+        Args: {
+          p_assignee_ids?: string[]
+          p_from: string
+          p_hide_archived?: boolean
+          p_include_test?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_priorities?: Database["public"]["Enums"]["problem_priority"][]
+          p_problem_statuses?: Database["public"]["Enums"]["problem_status"][]
+          p_property_ids?: number[]
+          p_task_statuses?: Database["public"]["Enums"]["task_status"][]
+          p_to: string
+        }
+        Returns: {
+          full_name: string
+          hours_to_resolve_avg: number
+          person_id: string
+          problems_resolved: number
+          repairs_done: number
+          repairs_open: number
+          total_count: number
+          work_minutes_avg: number
+        }[]
+      }
+      analytics_series: {
+        Args: {
+          p_assignee_ids?: string[]
+          p_bucket?: string
+          p_from: string
+          p_hide_archived?: boolean
+          p_include_test?: boolean
+          p_priorities?: Database["public"]["Enums"]["problem_priority"][]
+          p_problem_statuses?: Database["public"]["Enums"]["problem_status"][]
+          p_property_ids?: number[]
+          p_task_statuses?: Database["public"]["Enums"]["task_status"][]
+          p_to: string
+        }
+        Returns: {
+          bucket: string
+          checkouts: number
+          cleanings_done: number
+          cleanings_planned: number
+          problems_created: number
+          problems_resolved: number
+        }[]
+      }
+      analytics_summary: {
+        Args: {
+          p_assignee_ids?: string[]
+          p_from: string
+          p_hide_archived?: boolean
+          p_include_test?: boolean
+          p_priorities?: Database["public"]["Enums"]["problem_priority"][]
+          p_problem_statuses?: Database["public"]["Enums"]["problem_status"][]
+          p_property_ids?: number[]
+          p_task_statuses?: Database["public"]["Enums"]["task_status"][]
+          p_to: string
+        }
+        Returns: Json
+      }
       archive_problem: {
         Args: { p_id: string }
         Returns: {
@@ -2440,6 +2752,10 @@ export type Database = {
           p_platform: string
           p_token: string
         }
+        Returns: undefined
+      }
+      release_push_token: {
+        Args: { p_profile_id: string; p_token: string }
         Returns: undefined
       }
       release_work_of_inactive: { Args: { p_person: string }; Returns: Json }
@@ -3312,6 +3628,19 @@ export type Database = {
         | "fulfilled"
         | "rejected"
       supply_unit: "pcs" | "pack" | "l" | "kg" | "roll"
+      task_event_kind:
+        | "created"
+        | "assigned"
+        | "reassigned"
+        | "unassigned"
+        | "accepted"
+        | "started"
+        | "completed"
+        | "cancelled"
+        | "expired"
+        | "moved"
+        | "reopened"
+        | "status_changed"
       task_status:
         | "unassigned"
         | "assigned"
@@ -3519,6 +3848,20 @@ export const Constants = {
         "rejected",
       ],
       supply_unit: ["pcs", "pack", "l", "kg", "roll"],
+      task_event_kind: [
+        "created",
+        "assigned",
+        "reassigned",
+        "unassigned",
+        "accepted",
+        "started",
+        "completed",
+        "cancelled",
+        "expired",
+        "moved",
+        "reopened",
+        "status_changed",
+      ],
       task_status: [
         "unassigned",
         "assigned",

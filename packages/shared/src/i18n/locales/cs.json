@@ -170,6 +170,7 @@
     "nav": {
       "label": "Sekce",
       "dashboard": "Přehled",
+      "analytics": "Analytika",
       "problems": "Úkoly",
       "supplies": "Žádosti o materiál",
       "tasks": "Úklidy",
@@ -227,6 +228,145 @@
         "supplies": "Žádosti o materiál se nepodařilo načíst.",
         "repairs": "Opravy se nepodařilo načíst.",
         "offWork": "Úklidy vypnutých se nepodařilo načíst."
+      }
+    },
+    "analytics": {
+      "period": {
+        "label": "Období",
+        "from": "Od",
+        "to": "Do",
+        "presets": {
+          "7d": "7 dní",
+          "30d": "30 dní",
+          "90d": "90 dní",
+          "thisMonth": "Tento měsíc",
+          "lastMonth": "Minulý měsíc"
+        },
+        "invalid": "Zvolte období, které začíná dřív, než končí, a trvá nejvýše {{max}} dní.",
+        "compare": "Porovnat s předchozím obdobím",
+        "comparedWith": "Porovnání s {{from}} – {{to}}"
+      },
+      "names": {
+        "label": "Jména",
+        "full": "Celá jména",
+        "initials": "Iniciály"
+      },
+      "includeTest": "Včetně ukázkových objektů (lokální prostředí)",
+      "tiles": {
+        "label": "Hlavní ukazatele",
+        "cleaningsDone": "Hotové úklidy",
+        "cleaningsDoneHint": "podle dne dokončení",
+        "midstay": "z toho během pobytu: {{count}}",
+        "cleaningsPlanned": "Naplánované úklidy",
+        "cleaningsPlannedHint": "podle dne úklidu",
+        "checkouts": "Odjezdy",
+        "roomsReleased": "uvolněné pokoje: {{count}}",
+        "problemsResolved": "Vyřešené úkoly",
+        "problemsOpen": "Otevřené úkoly",
+        "problemsOpenHint": "na konci období",
+        "problemsCancelled": "Zrušené úkoly",
+        "problemsCancelledHint": "podle dne zrušení; v ostatních číslech nejsou",
+        "urgencyAvg": "Průměrná naléhavost",
+        "urgencyHint": "nízká 1 · běžná 2 · vysoká 3",
+        "cleaningMinutesMedian": "Medián doby úklidu",
+        "cleaningMinutesHint": "průměr {{value}}",
+        "photoShare": "Úklidy s fotkami",
+        "occupancy": "Obsazenost",
+        "occupancyHint": "{{occupied}} z {{available}} nocí"
+      },
+      "value": {
+        "minutes": "{{value}} min"
+      },
+      "change": {
+        "points": "{{value}} p. b.",
+        "none": "není s čím porovnat",
+        "label": "Změna oproti předchozímu období: {{value}}"
+      },
+      "tables": {
+        "label": "Tabulky",
+        "cleaningsByProperty": "Úklidy podle objektů",
+        "cleaningsByCleaner": "Úklidy podle uklízeček",
+        "checkoutsByProperty": "Odjezdy podle objektů",
+        "problemsByProperty": "Úkoly podle objektů",
+        "problemsByTechnician": "Úkoly podle techniků"
+      },
+      "columns": {
+        "listing": "Objekt",
+        "noListing": "Bez objektu",
+        "person": "Pracovník",
+        "planned": "Naplánováno",
+        "done": "Hotovo",
+        "doneMidstay": "Během pobytu",
+        "expired": "Propadlé",
+        "cancelled": "Zrušeno",
+        "minutesMedian": "Medián, min",
+        "minutesAvg": "Průměr, min",
+        "photoShare": "S fotkami, %",
+        "listings": "Objektů",
+        "checkouts": "Odjezdů",
+        "roomsReleased": "Uvolněné pokoje",
+        "occupiedNights": "Obsazené noci",
+        "availableNights": "Dostupné noci",
+        "occupancy": "Obsazenost, %",
+        "created": "Vytvořeno",
+        "resolved": "Vyřešeno",
+        "openEnd": "Otevřeno na konci",
+        "urgencyAvg": "Průměrná naléhavost",
+        "hoursToResolveAvg": "Průměrná doba vyřešení, h",
+        "repairsDone": "Hotové práce",
+        "repairsOpen": "Nyní otevřeno",
+        "problemsResolved": "Vyřešené úkoly",
+        "workMinutesAvg": "Průměrná práce, min"
+      },
+      "pagination": {
+        "range": "{{from}}–{{to}} z {{total}}",
+        "previous": "Předchozí stránka",
+        "next": "Další stránka"
+      },
+      "export": {
+        "csv": "Stáhnout CSV",
+        "xlsx": "Stáhnout Excel",
+        "failed": "Tabulku se nepodařilo stáhnout"
+      },
+      "empty": {
+        "title": "Za toto období není co počítat",
+        "body": "Čísla se objeví, jakmile se budou zapisovat úklidy, odjezdy a úkoly. Historie začíná spuštěním aplikace.",
+        "table": "Za toto období nejsou žádné řádky"
+      },
+      "errors": {
+        "summary": "Ukazatele se nepodařilo načíst",
+        "table": "Tabulku se nepodařilo načíst"
+      },
+      "filters": {
+        "label": "Filtry",
+        "listings": "Objekty",
+        "people": "Pracovníci",
+        "cleaningStatus": "Stav úklidu",
+        "taskStatus": "Stav úkolu",
+        "urgency": "Naléhavost",
+        "remove": "Zrušit filtr: {{name}}",
+        "clear": "Zrušit všechny filtry",
+        "hideArchived": "Skrýt archivované",
+        "formerEmployee": "Bývalý zaměstnanec",
+        "archivedListing": "{{name}} (v archivu)"
+      },
+      "charts": {
+        "dynamics": "Úklidy a odjezdy",
+        "problems": "Vytvořené a vyřešené úkoly",
+        "byDay": "Po dnech",
+        "byWeek": "Po týdnech",
+        "done": "Hotové úklidy",
+        "checkouts": "Odjezdy",
+        "created": "Vytvořené úkoly",
+        "resolved": "Vyřešené úkoly",
+        "day": "{{day}}: {{values}}. Zobrazit jen tento den",
+        "week": "Týden od {{day}}: {{values}}. Zobrazit jen tento týden",
+        "byListing": "Hotové úklidy podle objektů",
+        "byCleaner": "Hotové úklidy podle uklízeček",
+        "byUrgency": "Vytvořené úkoly podle naléhavosti",
+        "empty": "Za toto období není co zobrazit",
+        "hint": "Klepnutím na pruh filtrujete celou stránku, dalším klepnutím filtr zrušíte; klepnutím na sloupec zobrazíte jen ten den nebo týden.",
+        "loading": "Načítání…"
       }
     },
     "problems": {
@@ -1677,7 +1817,8 @@
     "mailNotSent": "E-mail se nepodařilo odeslat.",
     "mailTooSoon": "Na tuhle adresu právě odešel e-mail. Zkuste to za minutu.",
     "mailNotConfigured": "Odesílání e-mailů není nastavené.",
-    "hostNotFound": "Společnost nebyla nalezena."
+    "hostNotFound": "Společnost nebyla nalezena.",
+    "analyticsPeriodInvalid": "Období musí začínat dřív, než končí, a trvat nejvýše {{maxDays}} dní."
   },
   "push": {
     "cleaning_new": {

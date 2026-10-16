@@ -14,6 +14,8 @@
 export const ICONS = {
   // The panel's menu (decisions §4) and the phone's tabs.
   'nav.dashboard': 'layout-grid',
+  /** The owner's figures over a period (`/analytics`). */
+  'nav.analytics': 'chart-column',
   'nav.calendar': 'calendar',
   /** «Уборки» (`/tasks`). */
   'nav.tasks': 'brush-cleaning',

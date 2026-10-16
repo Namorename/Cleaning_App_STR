@@ -170,6 +170,7 @@
     "nav": {
       "label": "Sections",
       "dashboard": "Dashboard",
+      "analytics": "Analytics",
       "problems": "Tasks",
       "supplies": "Supply requests",
       "tasks": "Cleanings",
@@ -227,6 +228,145 @@
         "supplies": "Could not load the supply requests.",
         "repairs": "Could not load the repairs.",
         "offWork": "Could not load the cleanings of switched-off staff."
+      }
+    },
+    "analytics": {
+      "period": {
+        "label": "Period",
+        "from": "From",
+        "to": "To",
+        "presets": {
+          "7d": "7 days",
+          "30d": "30 days",
+          "90d": "90 days",
+          "thisMonth": "This month",
+          "lastMonth": "Last month"
+        },
+        "invalid": "Choose a period that starts before it ends and lasts at most {{max}} days.",
+        "compare": "Compare with the previous period",
+        "comparedWith": "Compared with {{from}} – {{to}}"
+      },
+      "names": {
+        "label": "Names",
+        "full": "Full names",
+        "initials": "Initials"
+      },
+      "includeTest": "Include demo listings (local stand)",
+      "tiles": {
+        "label": "Key figures",
+        "cleaningsDone": "Cleanings done",
+        "cleaningsDoneHint": "by the day they were finished",
+        "midstay": "of them mid-stay: {{count}}",
+        "cleaningsPlanned": "Cleanings planned",
+        "cleaningsPlannedHint": "by the day of the cleaning",
+        "checkouts": "Checkouts",
+        "roomsReleased": "rooms freed: {{count}}",
+        "problemsResolved": "Tasks resolved",
+        "problemsOpen": "Tasks open",
+        "problemsOpenHint": "at the end of the period",
+        "problemsCancelled": "Tasks cancelled",
+        "problemsCancelledHint": "by the day they were cancelled; not in the other figures",
+        "urgencyAvg": "Average urgency",
+        "urgencyHint": "low 1 · normal 2 · high 3",
+        "cleaningMinutesMedian": "Median cleaning time",
+        "cleaningMinutesHint": "mean {{value}}",
+        "photoShare": "Cleanings with photos",
+        "occupancy": "Occupancy",
+        "occupancyHint": "{{occupied}} of {{available}} nights"
+      },
+      "value": {
+        "minutes": "{{value}} min"
+      },
+      "change": {
+        "points": "{{value}} pp",
+        "none": "nothing to compare with",
+        "label": "Change against the previous period: {{value}}"
+      },
+      "tables": {
+        "label": "Tables",
+        "cleaningsByProperty": "Cleanings by listing",
+        "cleaningsByCleaner": "Cleanings by cleaner",
+        "checkoutsByProperty": "Checkouts by listing",
+        "problemsByProperty": "Tasks by listing",
+        "problemsByTechnician": "Tasks by technician"
+      },
+      "columns": {
+        "listing": "Listing",
+        "noListing": "No listing",
+        "person": "Person",
+        "planned": "Planned",
+        "done": "Done",
+        "doneMidstay": "Mid-stay done",
+        "expired": "Expired",
+        "cancelled": "Cancelled",
+        "minutesMedian": "Median, min",
+        "minutesAvg": "Mean, min",
+        "photoShare": "With photos, %",
+        "listings": "Listings",
+        "checkouts": "Checkouts",
+        "roomsReleased": "Rooms freed",
+        "occupiedNights": "Nights taken",
+        "availableNights": "Nights available",
+        "occupancy": "Occupancy, %",
+        "created": "Created",
+        "resolved": "Resolved",
+        "openEnd": "Open at the end",
+        "urgencyAvg": "Mean urgency",
+        "hoursToResolveAvg": "Mean hours to resolve",
+        "repairsDone": "Repairs done",
+        "repairsOpen": "Open now",
+        "problemsResolved": "Tasks resolved",
+        "workMinutesAvg": "Mean work, min"
+      },
+      "pagination": {
+        "range": "{{from}}–{{to}} of {{total}}",
+        "previous": "Previous page",
+        "next": "Next page"
+      },
+      "export": {
+        "csv": "Download CSV",
+        "xlsx": "Download Excel",
+        "failed": "The table could not be downloaded"
+      },
+      "empty": {
+        "title": "Nothing to count in this period",
+        "body": "Figures appear as cleanings, checkouts and tasks are recorded. The history starts with the launch of the app.",
+        "table": "No rows for this period"
+      },
+      "errors": {
+        "summary": "The figures could not be loaded",
+        "table": "The table could not be loaded"
+      },
+      "filters": {
+        "label": "Filters",
+        "listings": "Listings",
+        "people": "People",
+        "cleaningStatus": "Cleaning status",
+        "taskStatus": "Task status",
+        "urgency": "Urgency",
+        "remove": "Remove the filter: {{name}}",
+        "clear": "Clear all filters",
+        "hideArchived": "Hide archived",
+        "formerEmployee": "Former employee",
+        "archivedListing": "{{name}} (archived)"
+      },
+      "charts": {
+        "dynamics": "Cleanings and checkouts",
+        "problems": "Tasks created and resolved",
+        "byDay": "By day",
+        "byWeek": "By week",
+        "done": "Cleanings done",
+        "checkouts": "Checkouts",
+        "created": "Tasks created",
+        "resolved": "Tasks resolved",
+        "day": "{{day}}: {{values}}. Show this day only",
+        "week": "Week of {{day}}: {{values}}. Show this week only",
+        "byListing": "Cleanings done by listing",
+        "byCleaner": "Cleanings done by cleaner",
+        "byUrgency": "Tasks created by urgency",
+        "empty": "Nothing to draw for this period",
+        "hint": "Click a bar to filter the whole page by it, and again to let go; click a column to see only that day or week.",
+        "loading": "Loading…"
       }
     },
     "problems": {
@@ -1645,7 +1785,8 @@
     "mailNotSent": "The letter could not be sent.",
     "mailTooSoon": "A letter has just gone to this address. Try again in a minute.",
     "mailNotConfigured": "Sending email is not configured.",
-    "hostNotFound": "The company was not found."
+    "hostNotFound": "The company was not found.",
+    "analyticsPeriodInvalid": "The period must start before it ends and last at most {{maxDays}} days."
   },
   "push": {
     "cleaning_new": {

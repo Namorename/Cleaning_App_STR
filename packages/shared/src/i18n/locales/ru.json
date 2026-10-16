@@ -170,6 +170,7 @@
     "nav": {
       "label": "Разделы",
       "dashboard": "Дашборд",
+      "analytics": "Аналитика",
       "problems": "Задания",
       "supplies": "Заявки",
       "tasks": "Уборки",
@@ -227,6 +228,145 @@
         "supplies": "Не удалось загрузить заявки.",
         "repairs": "Не удалось загрузить ремонты.",
         "offWork": "Не удалось загрузить уборки отключённых."
+      }
+    },
+    "analytics": {
+      "period": {
+        "label": "Период",
+        "from": "С",
+        "to": "По",
+        "presets": {
+          "7d": "7 дней",
+          "30d": "30 дней",
+          "90d": "90 дней",
+          "thisMonth": "Этот месяц",
+          "lastMonth": "Прошлый месяц"
+        },
+        "invalid": "Выберите период, который начинается раньше, чем заканчивается, и длится не больше {{max}} дней.",
+        "compare": "Сравнить с предыдущим периодом",
+        "comparedWith": "Сравнение с {{from}} – {{to}}"
+      },
+      "names": {
+        "label": "Имена",
+        "full": "Полностью",
+        "initials": "Инициалы"
+      },
+      "includeTest": "С демо-объектами (локальный стенд)",
+      "tiles": {
+        "label": "Ключевые показатели",
+        "cleaningsDone": "Уборок выполнено",
+        "cleaningsDoneHint": "по дню завершения",
+        "midstay": "из них во время проживания: {{count}}",
+        "cleaningsPlanned": "Уборок запланировано",
+        "cleaningsPlannedHint": "по дню уборки",
+        "checkouts": "Чекаутов",
+        "roomsReleased": "комнат освобождено: {{count}}",
+        "problemsResolved": "Заданий решено",
+        "problemsOpen": "Заданий открыто",
+        "problemsOpenHint": "на конец периода",
+        "problemsCancelled": "Заданий отменено",
+        "problemsCancelledHint": "по дню отмены; в другие цифры не входят",
+        "urgencyAvg": "Средняя срочность",
+        "urgencyHint": "низкая 1 · обычная 2 · высокая 3",
+        "cleaningMinutesMedian": "Медиана времени уборки",
+        "cleaningMinutesHint": "среднее {{value}}",
+        "photoShare": "Уборок с фото",
+        "occupancy": "Загрузка объектов",
+        "occupancyHint": "{{occupied}} из {{available}} ночей"
+      },
+      "value": {
+        "minutes": "{{value}} мин"
+      },
+      "change": {
+        "points": "{{value}} п. п.",
+        "none": "не с чем сравнить",
+        "label": "Изменение к предыдущему периоду: {{value}}"
+      },
+      "tables": {
+        "label": "Таблицы",
+        "cleaningsByProperty": "Уборки по объектам",
+        "cleaningsByCleaner": "Уборки по горничным",
+        "checkoutsByProperty": "Чекауты по объектам",
+        "problemsByProperty": "Задания по объектам",
+        "problemsByTechnician": "Задания по техникам"
+      },
+      "columns": {
+        "listing": "Объект",
+        "noListing": "Без объекта",
+        "person": "Сотрудник",
+        "planned": "Запланировано",
+        "done": "Выполнено",
+        "doneMidstay": "Во время проживания",
+        "expired": "Просрочено",
+        "cancelled": "Отменено",
+        "minutesMedian": "Медиана, мин",
+        "minutesAvg": "Среднее, мин",
+        "photoShare": "С фото, %",
+        "listings": "Объектов",
+        "checkouts": "Чекаутов",
+        "roomsReleased": "Комнат освобождено",
+        "occupiedNights": "Ночей занято",
+        "availableNights": "Ночей доступно",
+        "occupancy": "Загрузка, %",
+        "created": "Создано",
+        "resolved": "Решено",
+        "openEnd": "Открыто на конец",
+        "urgencyAvg": "Средняя срочность",
+        "hoursToResolveAvg": "Среднее время решения, ч",
+        "repairsDone": "Работ выполнено",
+        "repairsOpen": "Сейчас открыто",
+        "problemsResolved": "Заданий решено",
+        "workMinutesAvg": "Средняя работа, мин"
+      },
+      "pagination": {
+        "range": "{{from}}–{{to}} из {{total}}",
+        "previous": "Предыдущая страница",
+        "next": "Следующая страница"
+      },
+      "export": {
+        "csv": "Скачать CSV",
+        "xlsx": "Скачать Excel",
+        "failed": "Не удалось скачать таблицу"
+      },
+      "empty": {
+        "title": "За этот период считать нечего",
+        "body": "Цифры появятся, когда будут записаны уборки, чекауты и задания. История начинается с запуска приложения.",
+        "table": "За этот период строк нет"
+      },
+      "errors": {
+        "summary": "Не удалось загрузить показатели",
+        "table": "Не удалось загрузить таблицу"
+      },
+      "filters": {
+        "label": "Фильтры",
+        "listings": "Объекты",
+        "people": "Сотрудники",
+        "cleaningStatus": "Статус уборки",
+        "taskStatus": "Статус задания",
+        "urgency": "Срочность",
+        "remove": "Снять фильтр: {{name}}",
+        "clear": "Сбросить все фильтры",
+        "hideArchived": "Скрыть архивные",
+        "formerEmployee": "Бывший сотрудник",
+        "archivedListing": "{{name}} (в архиве)"
+      },
+      "charts": {
+        "dynamics": "Уборки и чекауты",
+        "problems": "Задания созданные и решённые",
+        "byDay": "По дням",
+        "byWeek": "По неделям",
+        "done": "Уборок выполнено",
+        "checkouts": "Чекаутов",
+        "created": "Заданий создано",
+        "resolved": "Заданий решено",
+        "day": "{{day}}: {{values}}. Показать только этот день",
+        "week": "Неделя с {{day}}: {{values}}. Показать только эту неделю",
+        "byListing": "Выполненные уборки по объектам",
+        "byCleaner": "Выполненные уборки по горничным",
+        "byUrgency": "Созданные задания по срочности",
+        "empty": "За этот период рисовать нечего",
+        "hint": "Нажмите на полосу, чтобы отфильтровать по ней всю страницу, и ещё раз, чтобы снять; нажмите на столбец, чтобы оставить только этот день или неделю.",
+        "loading": "Загрузка…"
       }
     },
     "problems": {
@@ -1677,7 +1817,8 @@
     "mailNotSent": "Письмо отправить не удалось.",
     "mailTooSoon": "На этот адрес только что уходило письмо. Попробуйте через минуту.",
     "mailNotConfigured": "Отправка почты не настроена.",
-    "hostNotFound": "Компания не найдена."
+    "hostNotFound": "Компания не найдена.",
+    "analyticsPeriodInvalid": "Период должен начинаться раньше, чем заканчивается, и длиться не больше {{maxDays}} дней."
   },
   "push": {
     "cleaning_new": {

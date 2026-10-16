@@ -7,6 +7,8 @@ import {
   complaintsIn,
   indexSchema,
 } from '../../../../../packages/shared/src/testing/postgrest-select';
+import * as analytics from '../analytics/api';
+import { NO_FILTERS } from '../analytics/schema';
 import * as apartments from '../apartments/api';
 import * as calendar from '../calendar/api';
 import * as chat from '../chat/api';
@@ -77,7 +79,19 @@ const ANY_PROPERTY = 1;
 const ANY_RESERVATION = 1;
 
 /** Every read the panel makes. A reader added without a line here goes unguarded. */
+const ANY_QUERY = {
+  period: { from: '2026-09-01', to: '2026-09-30' },
+  filters: NO_FILTERS,
+  includeTest: false,
+};
+
 const READERS: readonly ((client: never) => Promise<unknown>)[] = [
+  // Analytics reads through RPCs: no select string, the arguments are typed.
+  (client) => analytics.fetchSummary(client, ANY_QUERY),
+  (client) => analytics.fetchTablePage(client, 'cleaningsByProperty', ANY_QUERY, { limit: 25, offset: 0 }),
+  (client) => analytics.fetchSeries(client, ANY_QUERY, 'day'),
+  // The listings the filter offers: a select string, guarded like any other.
+  (client) => analytics.fetchListings(client),
   (client) => apartments.fetchRegistry(client),
   (client) => apartments.fetchProperty(client, ANY_PROPERTY),
   (client) => apartments.fetchOpenCleanings(client),
