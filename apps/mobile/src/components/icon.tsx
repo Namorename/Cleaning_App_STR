@@ -5,6 +5,7 @@ import BrushCleaning from 'lucide-react-native/icons/brush-cleaning';
 import Building2 from 'lucide-react-native/icons/building-2';
 import Calendar from 'lucide-react-native/icons/calendar';
 import Camera from 'lucide-react-native/icons/camera';
+import ChartColumn from 'lucide-react-native/icons/chart-column';
 import Check from 'lucide-react-native/icons/check';
 import ChevronDown from 'lucide-react-native/icons/chevron-down';
 import ChevronLeft from 'lucide-react-native/icons/chevron-left';
@@ -57,6 +58,7 @@ import { TONE_ROLE, type TextTone } from './text';
  */
 export const LUCIDE_GLYPHS = {
   'layout-grid': LayoutGrid,
+  'chart-column': ChartColumn,
   calendar: Calendar,
   'brush-cleaning': BrushCleaning,
   'clipboard-list': ClipboardList,
