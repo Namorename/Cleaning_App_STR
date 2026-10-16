@@ -9,6 +9,9 @@ const host: HostSettings = {
   name: 'Primary host',
   parallel_start_allowed: true,
   gallery_allowed: false,
+  video_max_sec: 120,
+  video_bitrate_kbps: 2000,
+  video_max_mb: 45,
 };
 
 const settingsState = {

@@ -19,7 +19,8 @@
 
   Three languages, because the company works in three and the mailer does not
   know which one this person reads: her language lives in her profile, and auth
-  has never heard of it. Labels are stacked, values printed once.
+  has never heard of it. Labels are stacked, values printed once. English
+  leads, then Czech and Russian (the owner's decision of 14.10).
 
   No reset link. The letter carries the password itself, and a second way in
   would only be a second thing to explain.
@@ -31,32 +32,32 @@
       <p style="margin: 0 0 20px; font-size: 18px; font-weight: 600;">STR Ops</p>
 
       <p style="margin: 0 0 20px; font-size: 15px; line-height: 1.5;">
-        Доступ в приложение STR Ops.<br />
         Your access to the STR Ops app.<br />
-        Přístup do aplikace STR Ops.
+        Přístup do aplikace STR Ops.<br />
+        Доступ в приложение STR Ops.
       </p>
 
       <div style="padding: 12px 14px; background: #f4f5f7; border-radius: 8px; margin: 0 0 10px;">
-        <div style="font-size: 12px; color: #6b7280; margin: 0 0 4px;">Логин · Login · Přihlašovací jméno</div>
+        <div style="font-size: 12px; color: #6b7280; margin: 0 0 4px;">Login · Přihlašovací jméno · Логин</div>
         <div style="font-size: 16px; font-weight: 600; word-break: break-all;">{{ .Email }}</div>
       </div>
 
       <div style="padding: 12px 14px; background: #f4f5f7; border-radius: 8px; margin: 0 0 20px;">
-        <div style="font-size: 12px; color: #6b7280; margin: 0 0 4px;">Пароль · Password · Heslo</div>
+        <div style="font-size: 12px; color: #6b7280; margin: 0 0 4px;">Password · Heslo · Пароль</div>
         <div style="font-size: 20px; font-weight: 700; letter-spacing: 0.5px; font-family: 'SF Mono', Menlo, Consolas, monospace; word-break: break-all;">{{ .Data.initial_password }}</div>
       </div>
 
       <p style="margin: 0 0 8px; font-size: 13px; color: #6b7280; line-height: 1.5;">
-        Это письмо приходит и на новую учётную запись, и на смену пароля. Если
-        пароль сменили — прежний больше не работает.
-      </p>
-      <p style="margin: 0 0 8px; font-size: 13px; color: #6b7280; line-height: 1.5;">
         This letter is sent both for a new account and for a changed password.
         If the password was changed, the previous one no longer works.
       </p>
-      <p style="margin: 0; font-size: 13px; color: #6b7280; line-height: 1.5;">
+      <p style="margin: 0 0 8px; font-size: 13px; color: #6b7280; line-height: 1.5;">
         Tento e-mail chodí při založení účtu i při změně hesla. Pokud bylo heslo
         změněno, předchozí už neplatí.
+      </p>
+      <p style="margin: 0; font-size: 13px; color: #6b7280; line-height: 1.5;">
+        Это письмо приходит и на новую учётную запись, и на смену пароля. Если
+        пароль сменили — прежний больше не работает.
       </p>
     </div>
   </body>

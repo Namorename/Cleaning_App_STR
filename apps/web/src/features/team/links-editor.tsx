@@ -5,8 +5,6 @@ import { useTranslation } from 'react-i18next';
 
 import { EmptyState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { NativeSelect } from '@/components/ui/native-select';
 import {
   Sheet,
   SheetContent,
@@ -16,14 +14,15 @@ import {
 } from '@/components/ui/sheet';
 import { serverErrorText } from '@/lib/server-error';
 
+import { ConfirmDialog } from './confirm-dialog';
+import { LinkTerms, RemoveLinkButton } from './link-controls';
 import { PropertyPicker } from './property-picker';
 import {
-  ASSIGNMENT_MODES,
+  canHaveLinks,
   linksOf,
-  MAX_PRIORITY,
   MIN_PRIORITY,
+  nameOf,
   unlinkedProperties,
-  type AssignmentMode,
   type Staff,
 } from './schema';
 import { useCleanerLinks, useProperties, useRemoveCleanerLink, useSaveCleanerLink } from './use-team';
@@ -44,6 +43,11 @@ interface LinksEditorProps {
  * The refusal that matters here is "this listing already hands its work to
  * somebody" — only one person can be the automatic cleaner. It names her, so
  * the manager knows whose link to change first.
+ *
+ * Somebody who is not put on listings — a technician with a link from before
+ * the rule, a cleaner since made a manager — still has the links listed, and
+ * each can only be taken off: the server refuses a technician any new link and
+ * any change of an old one (20261003110000), and nobody else is offered one.
  */
 export function LinksEditor({ staff, onClose }: LinksEditorProps) {
   const { t } = useTranslation();
@@ -52,7 +56,12 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
   const save = useSaveCleanerLink();
   const remove = useRemoveCleanerLink();
   const [adding, setAdding] = useState<number[]>([]);
+  // The listing «Убрать» was pressed on: nothing is taken off until the answer
+  // (the owner, 10.10 — a technician cannot be put back on it at all).
+  const [unlinking, setUnlinking] = useState<{ propertyId: number; name: string } | null>(null);
 
+  const isLinkable = canHaveLinks(staff);
+  const personName = nameOf(staff);
   const allProperties = properties.data ?? [];
   const allLinks = links.data ?? [];
   const rows = linksOf(allLinks, allProperties, staff.id);
@@ -98,9 +107,11 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
       <SheetContent className="gap-4 overflow-y-auto p-4 sm:max-w-lg">
         <SheetHeader className="p-0">
           <SheetTitle>
-            {t('panel.team.links.title', { name: staff.full_name ?? staff.email ?? '' })}
+            {t('panel.team.links.title', { name: personName })}
           </SheetTitle>
-          <SheetDescription>{t('panel.team.links.description')}</SheetDescription>
+          <SheetDescription>
+            {isLinkable ? t('panel.team.links.description') : t('panel.team.links.onlyRemove')}
+          </SheetDescription>
         </SheetHeader>
 
         {links.isPending || properties.isPending ? (
@@ -118,94 +129,59 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
                   >
                     <span className="min-w-32 flex-1 text-sm font-medium">{row.name}</span>
 
-                    <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-                      {t('panel.team.links.mode')}
-                      <NativeSelect
-                        aria-label={t('panel.team.links.modeFor', { name: row.name })}
-                        value={row.mode}
-                        onChange={(event) =>
-                          save.mutate({
-                            propertyId: row.propertyId,
-                            cleanerId: staff.id,
-                            mode: event.target.value as AssignmentMode,
-                            priority: row.priority,
-                          })
-                        }
-                      >
-                        {ASSIGNMENT_MODES.map((mode) => (
-                          <option key={mode} value={mode}>
-                            {t(`panel.team.links.modes.${mode}`)}
-                          </option>
-                        ))}
-                      </NativeSelect>
-                    </label>
-
-                    <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-                      {t('panel.team.links.priority')}
-                      <Input
-                        type="number"
-                        className="w-20"
-                        aria-label={t('panel.team.links.priorityFor', { name: row.name })}
-                        min={MIN_PRIORITY}
-                        max={MAX_PRIORITY}
-                        defaultValue={row.priority}
-                        onBlur={(event) => {
-                          const next = Number(event.target.value);
-                          if (next === row.priority || Number.isNaN(next)) {
-                            return;
-                          }
-                          save.mutate({
-                            propertyId: row.propertyId,
-                            cleanerId: staff.id,
-                            mode: row.mode,
-                            priority: next,
-                          });
-                        }}
-                      />
-                    </label>
-
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        remove.mutate({ propertyId: row.propertyId, cleanerId: staff.id })
+                    <LinkTerms
+                      name={row.name}
+                      mode={row.mode}
+                      priority={row.priority}
+                      isEditable={isLinkable}
+                      onChange={(mode, priority) =>
+                        save.mutate({
+                          propertyId: row.propertyId,
+                          cleanerId: staff.id,
+                          mode,
+                          priority,
+                        })
                       }
-                    >
-                      {t('panel.team.links.remove')}
-                    </Button>
+                    />
+
+                    <RemoveLinkButton
+                      name={row.name}
+                      onRemove={() => setUnlinking({ propertyId: row.propertyId, name: row.name })}
+                    />
                   </li>
                 ))}
               </ul>
             )}
 
-            <div className="flex flex-col gap-2 border-t pt-3">
-              <span className="text-xs text-muted-foreground">{t('panel.team.links.add')}</span>
-              {available.length === 0 ? (
-                <EmptyState>{t('panel.team.links.addNone')}</EmptyState>
-              ) : (
-                <>
-                  {/* Ticking, not picking one at a time: a new cleaner is put on
-                      a street or a building, and that is five listings, not one
-                      listing five times over. */}
-                  <PropertyPicker
-                    properties={available}
-                    selected={adding}
-                    isPending={false}
-                    onChange={setAdding}
-                  />
-                  <div className="flex justify-end">
-                    <Button
-                      type="button"
-                      disabled={adding.length === 0 || save.isPending}
-                      onClick={add}
-                    >
-                      {t('panel.team.links.addButton')}
-                    </Button>
-                  </div>
-                </>
-              )}
-            </div>
+            {isLinkable ? (
+              <div className="flex flex-col gap-2 border-t pt-3">
+                <span className="text-xs text-muted-foreground">{t('panel.team.links.add')}</span>
+                {available.length === 0 ? (
+                  <EmptyState>{t('panel.team.links.addNone')}</EmptyState>
+                ) : (
+                  <>
+                    {/* Ticking, not picking one at a time: a new cleaner is put on
+                        a street or a building, and that is five listings, not one
+                        listing five times over. */}
+                    <PropertyPicker
+                      properties={available}
+                      selected={adding}
+                      isPending={false}
+                      onChange={setAdding}
+                    />
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        disabled={adding.length === 0 || save.isPending}
+                        onClick={add}
+                      >
+                        {t('panel.team.links.addButton')}
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : null}
 
             {failure === null ? null : (
               <div role="alert" className="flex flex-col gap-1">
@@ -216,6 +192,30 @@ export function LinksEditor({ staff, onClose }: LinksEditorProps) {
               </div>
             )}
           </div>
+        )}
+
+        {unlinking === null ? null : (
+          <ConfirmDialog
+            title={t('panel.team.confirm.unlinkTitle', {
+              name: personName,
+              property: unlinking.name,
+            })}
+            // A role off listings cannot be put back on one: that, not the
+            // free cleanings, is what the manager needs to hear.
+            lines={[
+              t(
+                isLinkable
+                  ? 'panel.team.confirm.unlinkDescription'
+                  : 'panel.team.confirm.unlinkFinal',
+              ),
+            ]}
+            confirmLabel={t('panel.team.links.remove')}
+            onConfirm={() => {
+              setUnlinking(null);
+              remove.mutate({ propertyId: unlinking.propertyId, cleanerId: staff.id });
+            }}
+            onClose={() => setUnlinking(null)}
+          />
         )}
       </SheetContent>
     </Sheet>

@@ -14,6 +14,8 @@
 export const ICONS = {
   // The panel's menu (decisions §4) and the phone's tabs.
   'nav.dashboard': 'layout-grid',
+  /** The owner's figures over a period (`/analytics`). */
+  'nav.analytics': 'chart-column',
   'nav.calendar': 'calendar',
   /** «Уборки» (`/tasks`). */
   'nav.tasks': 'brush-cleaning',
@@ -24,6 +26,12 @@ export const ICONS = {
   /** «Объекты». */
   'nav.apartments': 'building-2',
   'nav.team': 'users',
+  /**
+   * «База знаний» in the panel (the owner's decision of 2026-10-16). The
+   * phone's note glyph for now: a new picture would need the phone's own
+   * import (`LUCIDE_GLYPHS`) and the phone stays untouched in step 1.
+   */
+  'nav.knowledge': 'sticky-note',
   'nav.settings': 'settings',
   /** The phone: «Мои уборки». */
   'nav.myTasks': 'house',

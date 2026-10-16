@@ -24,12 +24,14 @@ import { serverErrorText } from '@/lib/server-error';
 
 import { LinksEditor } from './links-editor';
 import { PasswordDialog, type PasswordSubject } from './password-dialog';
+import { ResetPasswordDialog } from './reset-password-dialog';
 import {
-  canHaveLinks,
   countLinks,
   isInTab,
   matchesRole,
   matchesSearch,
+  nameOf,
+  showsLinks,
   STAFF_ROLES,
   TEAM_TABS,
   type Staff,
@@ -65,6 +67,8 @@ export function TeamView() {
   const [editing, setEditing] = useState<Editing>(null);
   const [linksFor, setLinksFor] = useState<Staff | null>(null);
   const [password, setPassword] = useState<PasswordSubject | null>(null);
+  // Whose reset is being asked about: nothing is sent until the answer.
+  const [resetFor, setResetFor] = useState<Staff | null>(null);
 
   const everybody = staff.data ?? [];
   // The filters narrow before the tabs count: a count that disagrees with the
@@ -82,10 +86,14 @@ export function TeamView() {
       onSuccess: (account) =>
         setPassword({
           account,
-          name: person.full_name ?? person.email ?? '',
+          name: nameOf(person),
           email: person.email ?? '',
         }),
     });
+  };
+  const confirmReset = (person: Staff) => {
+    setResetFor(null);
+    askForPassword(person);
   };
 
   return (
@@ -179,17 +187,21 @@ export function TeamView() {
                     : t(`common.languages.${person.preferred_language}`)}
                 </TableCell>
                 <TableCell>
-                  {canHaveLinks(person) ? (
+                  {showsLinks(person, allLinks) ? (
+                    // A 48 px target (design decision 5): for somebody not put on
+                    // listings it is the one way to the links left to take off,
+                    // and the form's warning sends the manager here.
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
+                      className="min-h-12"
                       onClick={() => setLinksFor(person)}
                     >
-                      {/* `total`, not `count`: i18next would read `count` as a
-                          request for plural forms, and the three files have to
-                          carry identical keys — Russian has four forms where
-                          English has two. */}
+                      {/* `total`, not `count`: «Объектов: N» only labels the
+                          number, and a label stays one plain key (the rule of
+                          the phone's i18n test); `count` would send i18next
+                          looking for plural forms the files do not carry. */}
                       {t('panel.team.links.count', { total: countLinks(allLinks, person.id) })}
                     </Button>
                   ) : (
@@ -203,7 +215,7 @@ export function TeamView() {
                       variant="outline"
                       size="sm"
                       disabled={reset.isPending || person.email === null}
-                      onClick={() => askForPassword(person)}
+                      onClick={() => setResetFor(person)}
                     >
                       {t('panel.team.resetPassword')}
                     </Button>
@@ -235,6 +247,14 @@ export function TeamView() {
       )}
 
       {linksFor === null ? null : <LinksEditor staff={linksFor} onClose={() => setLinksFor(null)} />}
+
+      {resetFor === null ? null : (
+        <ResetPasswordDialog
+          name={nameOf(resetFor)}
+          onConfirm={() => confirmReset(resetFor)}
+          onClose={() => setResetFor(null)}
+        />
+      )}
 
       {password === null ? null : (
         <PasswordDialog subject={password} onClose={() => setPassword(null)} />

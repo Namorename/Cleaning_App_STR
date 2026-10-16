@@ -16,19 +16,23 @@ import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
 import { serverErrorText } from '@/lib/server-error';
 
+import { ConfirmDialog } from './confirm-dialog';
 import { PropertyPicker } from './property-picker';
 import {
   draftFrom,
+  isTechnicianRole,
   LANGUAGES,
   linkChanges,
-  LINKABLE_ROLES,
   MIN_PRIORITY,
+  nameOf,
   selectedProperties,
   STAFF_ROLES,
+  takesListings,
   type Staff,
   type StaffAccount,
   type StaffDraft,
 } from './schema';
+import { lossesOf, type StaffLoss } from './staff-losses';
 import {
   useCleanerLinks,
   useProperties,
@@ -36,6 +40,10 @@ import {
   useSaveCleanerLink,
   useSaveStaff,
 } from './use-team';
+
+/** The notes under the role, which the role field names as its description. */
+const ROLE_UNKNOWN_NOTE = 'staff-role-unknown';
+const STILL_LINKED_NOTE = 'staff-role-still-linked';
 
 interface StaffFormProps {
   /** The person being changed, or null for somebody new. */
@@ -75,6 +83,13 @@ interface StaffFormProps {
  * the server in her own language — one clear refusal beats a list whose
  * contents depend on who is reading it.
  *
+ * A role the panel does not know is shown as unknown and never saved as a
+ * guess (docs/tech-plan.md, 3.5): the form waits until a role is chosen on
+ * purpose. A technician and a head technician are offered no listings — the
+ * server refuses the link (techNotLinkable); their jobs reach them by
+ * assignment. Somebody who still holds listings is told, the moment a
+ * technician's role is chosen for them, how many to take off first.
+ *
  * The listings are part of hiring, not a second errand. A cleaner reads only
  * the tasks of the listings she is on — that is the `cleaner reads tasks of
  * her listings` policy, not a rule the panel invents — so somebody created
@@ -95,6 +110,8 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
   /** Null until the manager touches the list — until then it mirrors what is stored. */
   const [chosen, setChosen] = useState<number[] | null>(null);
   const [linkFailure, setLinkFailure] = useState<string | null>(null);
+  /** What the save would take away, while the manager is asked about it. */
+  const [asking, setAsking] = useState<StaffLoss[] | null>(null);
 
   const isNew = staff === null;
   const allLinks = useMemo(() => links.data ?? [], [links.data]);
@@ -106,10 +123,25 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
 
   // The picker follows the role being chosen, not the one on file: a person
   // being turned into a manager stops being offered listings straight away.
-  const takesListings = LINKABLE_ROLES.includes(draft.role);
+  const isListed = takesListings(draft.role);
+  // A role the panel does not know is never saved as a guess (tech-plan 3.5).
+  const isRoleKnown = draft.role !== '';
+  // Nobody becomes a technician while on a listing (techRoleBlocked,
+  // 20261003110000): the count is said before the save rather than after a
+  // refusal. Only a change into the role is refused — an edit that keeps it
+  // is an edit. The save is still allowed: the server has the last word, and
+  // its refusal (open cleanings too) is shown as it comes.
+  const isBecomingTech =
+    !isNew && isTechnicianRole(draft.role) && draft.role !== (staff.role ?? '');
+  const stillLinked = isBecomingTech ? current.length : 0;
+  const roleNotes = [
+    isRoleKnown ? null : ROLE_UNKNOWN_NOTE,
+    stillLinked === 0 ? null : STILL_LINKED_NOTE,
+  ].filter((id) => id !== null);
   const failure = save.isError ? serverErrorText(save.error) : null;
   const isBusy = save.isPending || saveLink.isPending || removeLink.isPending;
-  const isReady = draft.fullName.trim() !== '' && (!isNew || draft.email.trim() !== '') && !isBusy;
+  const isReady =
+    draft.fullName.trim() !== '' && (!isNew || draft.email.trim() !== '') && isRoleKnown && !isBusy;
 
   /**
    * Open and close the listings, and report a failure instead of throwing it.
@@ -119,7 +151,7 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
    * text for whoever can still show it.
    */
   const applyLinks = async (cleanerId: string): Promise<string | null> => {
-    if (!takesListings) {
+    if (!isListed) {
       return null;
     }
 
@@ -158,10 +190,40 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
     onCreated(account, { name: draft.fullName.trim(), email: draft.email.trim() }, warning);
   };
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const send = () => {
     setLinkFailure(null);
     save.mutate(draft, { onSuccess: (account) => void finish(account) });
+  };
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!isReady) {
+      return;
+    }
+    // What cannot be given back is asked about first (the owner, 10.10). The
+    // listings count only where the form writes them: a role off listings
+    // closes none here.
+    const unlinked = isListed ? linkChanges(current, selection).removed.length : 0;
+    const losses = staff === null ? [] : lossesOf(staff, draft, unlinked);
+    if (losses.length > 0) {
+      setAsking(losses);
+      return;
+    }
+    send();
+  };
+
+  const lossLine = (loss: StaffLoss): string => {
+    switch (loss.kind) {
+      case 'disable':
+        return t('panel.team.confirm.disable');
+      case 'role':
+        return t('panel.team.confirm.role', {
+          from: t(`panel.roles.${loss.from}`),
+          to: t(`panel.roles.${loss.to}`),
+        });
+      case 'unlink':
+        return t('panel.team.confirm.unlink', { total: loss.total });
+    }
   };
 
   return (
@@ -201,7 +263,7 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1">
               <Label htmlFor="staff-phone">{t('panel.team.form.phone')}</Label>
               <Input
@@ -217,10 +279,19 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
               <NativeSelect
                 id="staff-role"
                 value={draft.role}
+                aria-invalid={!isRoleKnown}
+                aria-describedby={roleNotes.length === 0 ? undefined : roleNotes.join(' ')}
                 onChange={(event) =>
                   setDraft({ ...draft, role: event.target.value as StaffDraft['role'] })
                 }
               >
+                {/* Without this option the browser would show the first role
+                    as chosen while the draft holds none. */}
+                {isRoleKnown ? null : (
+                  <option value="" disabled>
+                    {t('panel.team.form.roleUnknown')}
+                  </option>
+                )}
                 {STAFF_ROLES.map((role) => (
                   <option key={role} value={role}>
                     {t(`panel.roles.${role}`)}
@@ -229,6 +300,18 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
               </NativeSelect>
             </div>
           </div>
+
+          {isRoleKnown ? null : (
+            <p id={ROLE_UNKNOWN_NOTE} role="alert" className="text-sm text-destructive">
+              {t('panel.team.form.roleUnknownHint')}
+            </p>
+          )}
+
+          {stillLinked === 0 ? null : (
+            <p id={STILL_LINKED_NOTE} role="alert" className="text-sm text-destructive">
+              {t('panel.team.form.techStillLinked', { count: stillLinked })}
+            </p>
+          )}
 
           <div className="flex flex-col gap-1">
             <Label htmlFor="staff-language">{t('panel.team.form.language')}</Label>
@@ -239,7 +322,9 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
                 setDraft({ ...draft, language: event.target.value as StaffDraft['language'] })
               }
             >
-              <option value="">{t('panel.team.form.languageUnset')}</option>
+              {/* Somebody new is created in English unless another is picked
+                  (NEW_STAFF_LANGUAGE): «not chosen» would be English anyway. */}
+              {isNew ? null : <option value="">{t('panel.team.form.languageUnset')}</option>}
               {LANGUAGES.map((language) => (
                 <option key={language} value={language}>
                   {t(`common.languages.${language}`)}
@@ -249,7 +334,7 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
             <p className="text-xs text-muted-foreground">{t('panel.team.form.languageHint')}</p>
           </div>
 
-          {takesListings ? (
+          {isListed ? (
             <fieldset className="flex flex-col gap-2">
               <legend className="text-sm font-medium">{t('panel.team.form.properties')}</legend>
               <p className="text-xs text-muted-foreground">{t('panel.team.form.propertiesHint')}</p>
@@ -260,9 +345,11 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
                 onChange={setChosen}
               />
             </fieldset>
-          ) : (
+          ) : !isRoleKnown ? null : (
             <p className="text-xs text-muted-foreground">
-              {t('panel.team.form.propertiesNotForRole')}
+              {isTechnicianRole(draft.role)
+                ? t('panel.team.form.propertiesNotForTech')
+                : t('panel.team.form.propertiesNotForRole')}
             </p>
           )}
 
@@ -306,6 +393,21 @@ export function StaffForm({ staff, onCreated, onClose }: StaffFormProps) {
             </Button>
           </div>
         </form>
+
+        {asking === null || staff === null ? null : (
+          <ConfirmDialog
+            title={t('panel.team.confirm.saveTitle', {
+              name: nameOf(staff),
+            })}
+            lines={asking.map(lossLine)}
+            confirmLabel={t('panel.team.form.save')}
+            onConfirm={() => {
+              setAsking(null);
+              send();
+            }}
+            onClose={() => setAsking(null)}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

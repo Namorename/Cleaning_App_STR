@@ -1,6 +1,7 @@
 'use client';
 
 import { PhotoSource } from '@/features/media/photo-source';
+import { VideoTile } from '@/features/media/video-tile';
 import { STATUS_TONE } from '@str-ops/shared';
 import { MessageSquare } from 'lucide-react';
 import Link from 'next/link';
@@ -62,8 +63,8 @@ function stepState(step: {
 }
 
 /**
- * A job up close, once it has been worked: the steps, the photos, the
- * problems it turned up, and how long it is counted as.
+ * A job up close, once it has been worked: the steps, the photos and videos,
+ * the problems it turned up, and how long it is counted as.
  *
  * The conversation is not in here any more (5.4, «Чат», variant B): it has a
  * sheet of its own, which every job's row opens; the drawer's «Чат»
@@ -107,6 +108,10 @@ export function TaskDrawer({ task, onClose, onOpenChat }: TaskDrawerProps) {
       taskId: task.id,
       minutes: correction.trim() === '' ? null : parsed,
     });
+  // A video's link has failed and may have expired: the work is read again,
+  // which signs every file anew. Several videos failing together share the
+  // read in flight rather than cancel it.
+  const signAgain = () => work.refetch({ cancelRefetch: false });
 
   return (
     <Sheet open onOpenChange={(next) => (next ? undefined : onClose())}>
@@ -239,7 +244,9 @@ export function TaskDrawer({ task, onClose, onOpenChat }: TaskDrawerProps) {
                 <ol className="flex flex-col gap-2">
                   {work.data.steps.map((step, index) => {
                     const state = stepState(step);
-                    const photos = work.data.photosByStep[step.id] ?? [];
+                    const media = work.data.mediaByStep[step.id] ?? [];
+                    const photos = media.filter((item) => item.kind === 'photo');
+                    const videos = media.filter((item) => item.kind === 'video');
                     const stepTitle =
                       step.title_i18n?.[language] ?? step.title ?? t(`steps.types.${step.type}`);
                     return (
@@ -257,9 +264,18 @@ export function TaskDrawer({ task, onClose, onOpenChat }: TaskDrawerProps) {
                             <span className="text-xs text-muted-foreground">
                               {t('panel.tasks.work.photos', { count: photos.length })}
                             </span>
+                            {/* A photo without a link says so in its square, as a
+                                video does, so the count above is what is shown. */}
                             <div className="flex flex-wrap gap-2">
                               {photos.map((photo) =>
-                                photo.url === null ? null : (
+                                photo.url === null ? (
+                                  <span
+                                    key={photo.id}
+                                    className="flex h-20 w-20 items-center justify-center rounded-md border p-1 text-center text-xs text-muted-foreground"
+                                  >
+                                    {t('panel.media.photoUnavailable')}
+                                  </span>
+                                ) : (
                                   <a
                                     key={photo.id}
                                     href={photo.url}
@@ -279,6 +295,21 @@ export function TaskDrawer({ task, onClose, onOpenChat }: TaskDrawerProps) {
                               )}
                             </div>
                           </>
+                        )}
+                        {videos.length === 0 ? null : (
+                          <div className="flex flex-wrap gap-2">
+                            {/* A video without a link says so in its tile,
+                                rather than leaving the step looking unfilmed. */}
+                            {videos.map((video) => (
+                              <VideoTile
+                                key={video.id}
+                                url={video.url}
+                                durationSec={video.duration_sec}
+                                label={t('panel.media.videoOf', { step: stepTitle })}
+                                onExpired={signAgain}
+                              />
+                            ))}
+                          </div>
                         )}
                       </li>
                     );

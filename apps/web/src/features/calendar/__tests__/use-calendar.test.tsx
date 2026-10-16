@@ -10,9 +10,19 @@ vi.mock('../api', () => ({
   fetchCalendarBookings: (...args: unknown[]) => fetchCalendarBookings(...args),
 }));
 
-import { windowDays } from '../dates';
+const fetchTasksBetween = vi.fn();
+const fetchExpiredBetween = vi.fn();
+vi.mock('@/features/tasks/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/tasks/api')>()),
+  fetchTasksBetween: (...args: unknown[]) => fetchTasksBetween(...args),
+  fetchExpiredBetween: (...args: unknown[]) => fetchExpiredBetween(...args),
+}));
+
+import { act } from '@testing-library/react';
+
+import { pastChunk, windowDays } from '../dates';
 import type { CalendarBooking } from '../schema';
-import { useCalendarBookings } from '../use-calendar';
+import { useCalendarBookings, useCalendarPastLoader } from '../use-calendar';
 
 /**
  * The bookings layer is read month by month (docs/f10-plan.md, §1): the
@@ -46,11 +56,16 @@ function renderWithCache<T>(hook: () => T) {
 const asked = () =>
   fetchCalendarBookings.mock.calls.map((call) => `${String(call[1])}..${String(call[2])}`).sort();
 
+// One client for the page’s life, as the panel’s own hook hands out.
+const CLIENT = {} as never;
+
 // 28 September to 4 October: two months.
 const DAYS = windowDays('2026-09-28', 7);
 
 beforeEach(() => {
   fetchCalendarBookings.mockReset();
+  fetchTasksBetween.mockReset();
+  fetchExpiredBetween.mockReset();
 });
 
 describe('the bookings of the window', () => {
@@ -106,5 +121,93 @@ describe('the bookings of the window', () => {
     renderWithCache(() => useCalendarBookings(null, false, DAYS));
 
     expect(fetchCalendarBookings).not.toHaveBeenCalled();
+  });
+
+  // Block 7: the past shown is read, but nothing is read ahead of it — the
+  // month before the past is only asked when the past reaches it.
+  test('the months ahead are the window’s, not the past’s shown before it', async () => {
+    fetchCalendarBookings.mockResolvedValue([]);
+    const week = windowDays('2026-10-09', 7);
+    const past = [
+      ...pastChunk('2026-09-25', '2026-10-10'),
+      ...pastChunk('2026-10-09', '2026-10-10'),
+    ];
+
+    renderWithCache(() => useCalendarBookings(CLIENT, false, [...past, ...week], week));
+
+    await waitFor(() => expect(fetchCalendarBookings).toHaveBeenCalledTimes(3));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(asked()).toEqual([
+      '2026-09-01..2026-10-01',
+      '2026-10-01..2026-11-01',
+      '2026-11-01..2026-12-01',
+    ]);
+  });
+});
+
+/**
+ * A chunk of the past (block 7) is read before it is shown: every layer its
+ * days draw, for the months they touch — what the screen already holds is
+ * not asked again.
+ */
+describe('the loader of the past', () => {
+  const CHUNK = pastChunk('2026-10-09', '2026-10-10');
+  const tasksAsked = (taskClass: string) =>
+    fetchTasksBetween.mock.calls
+      .filter((call) => call[3] === taskClass)
+      .map((call) => `${String(call[1])}..${String(call[2])}`)
+      .sort();
+  const expiredAsked = () =>
+    fetchExpiredBetween.mock.calls.map((call) => `${String(call[1])}..${String(call[2])}`).sort();
+
+  beforeEach(() => {
+    fetchCalendarBookings.mockResolvedValue([]);
+    fetchTasksBetween.mockResolvedValue([]);
+    fetchExpiredBetween.mockResolvedValue([]);
+  });
+
+  test('reads the bars, the live and the done, what never happened and the cancelled of its months', async () => {
+    const { result } = renderWithCache(() => useCalendarPastLoader(CLIENT, false));
+
+    await act(async () => {
+      await result.current(CHUNK);
+    });
+
+    const months = ['2026-09-01..2026-10-01', '2026-10-01..2026-11-01'];
+    expect(asked()).toEqual(months);
+    expect(tasksAsked('active')).toEqual(months);
+    expect(tasksAsked('cancelled')).toEqual(months);
+    expect(expiredAsked()).toEqual(months);
+  });
+
+  test('asks nothing the screen already holds', async () => {
+    const { result } = renderWithCache(() => ({
+      bookings: useCalendarBookings(CLIENT, false, windowDays('2026-10-09', 7)),
+      load: useCalendarPastLoader(CLIENT, false),
+    }));
+    await waitFor(() => expect(result.current.bookings.data).toBeDefined());
+    await waitFor(() => expect(fetchCalendarBookings).toHaveBeenCalledTimes(3));
+
+    await act(async () => {
+      await result.current.load(CHUNK);
+    });
+
+    // September was read ahead and October is shown: no booking is asked again.
+    expect(fetchCalendarBookings).toHaveBeenCalledTimes(3);
+  });
+
+  test('one read that fails fails the chunk', async () => {
+    const failure = { message: 'canceling statement due to statement timeout' };
+    fetchExpiredBetween.mockRejectedValue(failure);
+    const { result } = renderWithCache(() => useCalendarPastLoader(CLIENT, false));
+
+    let caught: unknown = null;
+    await act(async () => {
+      await result.current(CHUNK).catch((error: unknown) => {
+        caught = error;
+      });
+    });
+
+    expect(caught).toBe(failure);
   });
 });

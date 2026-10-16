@@ -66,6 +66,7 @@ describe('Sidebar', () => {
     // and by whom; Settings on its own under both groups.
     expect(linkTexts(within(nav).getByRole('group', { name: 'Работа' }))).toEqual([
       'Дашборд',
+      'Аналитика',
       'Календарь',
       'Уборки',
       'Задания',
@@ -74,6 +75,7 @@ describe('Sidebar', () => {
     expect(linkTexts(within(nav).getByRole('group', { name: 'Справочники' }))).toEqual([
       'Объекты',
       'Команда',
+      'База знаний',
     ]);
 
     const settings = within(nav).getByRole('link', { name: 'Настройки' });
@@ -90,14 +92,26 @@ describe('Sidebar', () => {
       screen.getAllByRole('link').map((link) => link.getAttribute('href')),
     ).toEqual([
       '/dashboard',
+      '/analytics',
       '/calendar',
       '/tasks',
       '/problems',
       '/supplies',
       '/apartments',
       '/team',
+      '/knowledge',
       '/settings',
     ]);
+  });
+
+  // The owner's decision of 2026-10-16: the head technician writes the
+  // knowledge base, and the rest of the panel is not his.
+  test('shows the head technician the knowledge base and his settings, nothing else', () => {
+    render(<Sidebar email="head.test@example.com" access="knowledge" />);
+    const nav = screen.getByRole('navigation', { name: 'Разделы' });
+
+    expect(linkTexts(nav)).toEqual(['База знаний', 'Настройки']);
+    expect(within(nav).queryByRole('group', { name: 'Работа' })).not.toBeInTheDocument();
   });
 
   test('draws each section’s icon from the shared map, out of the screen reader’s way', () => {
@@ -178,7 +192,17 @@ describe('Sidebar folded to a strip of icons', () => {
     );
     expect(screen.getByRole('complementary')).toHaveAttribute('data-state', 'collapsed');
     // Out of sight, still the links' names.
-    const names = ['Дашборд', 'Календарь', 'Уборки', 'Задания', 'Заявки', 'Объекты', 'Команда'];
+    const names = [
+      'Дашборд',
+      'Аналитика',
+      'Календарь',
+      'Уборки',
+      'Задания',
+      'Заявки',
+      'Объекты',
+      'Команда',
+      'База знаний',
+    ];
     for (const name of [...names, 'Настройки']) {
       const link = screen.getByRole('link', { name });
       expect(within(link).getByText(name)).toHaveClass('sr-only');
@@ -201,13 +225,17 @@ describe('Sidebar folded to a strip of icons', () => {
 
     expect(screen.getAllByRole('tooltip').map((tip) => tip.textContent)).toEqual([
       'Дашборд',
+      'Аналитика',
       'Календарь',
       'Уборки',
       'Задания',
       'Заявки',
       'Объекты',
       'Команда',
+      'База знаний',
       'Настройки',
+      // The theme lever (night of 2026-10-10), above the toggle.
+      'Тёмная тема',
       'Развернуть меню',
     ]);
   });
@@ -239,8 +267,8 @@ describe('Sidebar folded to a strip of icons', () => {
     render(<Sidebar email="manager.test@example.com" />);
     const toggle = screen.getByRole('button', { name: 'Свернуть меню' });
 
-    // Through the eight sections, then the toggle under them.
-    for (let step = 0; step < 9 && document.activeElement !== toggle; step += 1) {
+    // Through the ten sections and the theme lever, then the toggle under them.
+    for (let step = 0; step < 12 && document.activeElement !== toggle; step += 1) {
       await userEvent.tab();
     }
     expect(toggle).toHaveFocus();
@@ -282,5 +310,27 @@ describe('Sidebar folded to a strip of icons', () => {
     expect(
       screen.getByRole('button', { name: 'Развернуть меню' }).querySelector('svg'),
     ).toHaveClass(`lucide-${ICONS['nav.expand']}`);
+  });
+});
+
+// Night of 2026-10-10: the day and the night theme a press away, in the menu.
+describe('Sidebar and the theme', () => {
+  test('the open menu offers the night theme on a lever, by its name', () => {
+    render(<Sidebar email="manager.test@example.com" theme="light" />);
+
+    expect(screen.getByRole('switch', { name: 'Тёмная тема' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    expect(screen.getByText('Тёмная тема')).toBeInTheDocument();
+  });
+
+  test('the folded strip keeps the lever, its name in a tooltip', () => {
+    render(<Sidebar email="manager.test@example.com" theme="dark" isInitiallyCollapsed />);
+
+    expect(screen.getByRole('switch', { name: 'Тёмная тема' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
   });
 });

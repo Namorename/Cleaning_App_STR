@@ -7,21 +7,32 @@ import { InPlaceLink } from '@/components/in-place-link';
 import { PageHeader } from '@/components/page-header';
 import { SignOut } from '@/components/sign-out';
 import { ProcessSection } from '@/features/workflow/process-section';
+import type { PanelAccess } from '@/lib/session';
 import type { ThemeChoice } from '@/lib/theme';
 import { useAddressState } from '@/lib/use-address-state';
 import { cn } from '@/lib/utils';
 
 import {
+  DEFAULT_SETTINGS_ADDRESS,
   readSettingsAddress,
   SETTINGS_SECTIONS,
   writeSettingsAddress,
   type SettingsSection,
 } from './address';
 import { HostToggles } from './host-toggles';
+import { LanguageSwitcher } from './language-switcher';
 import { ThemeSwitcher } from './theme-switcher';
+import { VideoSettings } from './video-settings';
 
 interface SettingsViewProps {
   email: string;
+  /**
+   * The office sees every section; the head technician, who reaches the panel
+   * for the knowledge base (the owner's decision of 2026-10-16), his own two.
+   */
+  access: PanelAccess;
+  /** The signed-in person: her profile keeps the panel's language. */
+  userId: string;
   /** The theme this browser keeps (the cookie, read by the page). */
   theme: ThemeChoice;
   onSignOut: () => Promise<void>;
@@ -34,6 +45,9 @@ const SECTION_TITLE_KEY: Record<SettingsSection, string> = {
   company: 'panel.settings.company',
   process: 'panel.settings.workflow.title',
 };
+
+/** A person's own sections: what the head technician's settings hold. */
+const PERSONAL_SECTIONS: readonly SettingsSection[] = ['account', 'appearance'];
 
 /** The address of a section, as its link carries it. */
 function sectionHref(section: SettingsSection): string {
@@ -55,9 +69,21 @@ function sectionHref(section: SettingsSection): string {
  * editor holds a draft until it is saved, and a look at «Компания» in the
  * middle of an edit must not throw it away.
  */
-export function SettingsView({ email, theme, onSignOut }: SettingsViewProps) {
+export function SettingsView({
+  email,
+  access,
+  userId,
+  theme,
+  onSignOut,
+}: SettingsViewProps) {
   const { t } = useTranslation();
   const [address, setAddress] = useAddressState(readSettingsAddress, writeSettingsAddress);
+  const shown: readonly SettingsSection[] =
+    access === 'full' ? SETTINGS_SECTIONS : PERSONAL_SECTIONS;
+  // A link to a section that is not his opens his account.
+  const current = shown.includes(address.section)
+    ? address.section
+    : DEFAULT_SETTINGS_ADDRESS.section;
 
   const open = (section: SettingsSection) => {
     if (section !== address.section) {
@@ -66,16 +92,33 @@ export function SettingsView({ email, theme, onSignOut }: SettingsViewProps) {
   };
 
   const sections: Record<SettingsSection, { description: string | null; body: ReactNode }> = {
+    // The language is the person's (her profile), so it is the account's, not
+    // the look of this one browser; the way out stays last.
     account: {
       description: t('panel.settings.signedInAs', { email }),
-      body: <SignOut onSignOut={onSignOut} />,
+      body: (
+        <>
+          <LanguageSwitcher userId={userId} />
+          <SignOut onSignOut={onSignOut} />
+        </>
+      ),
     },
     appearance: {
       description: t('panel.settings.appearanceHint'),
       body: <ThemeSwitcher initial={theme} />,
     },
     company: { description: t('panel.settings.companyHint'), body: <HostToggles /> },
-    process: { description: null, body: <ProcessSection /> },
+    // «Процесс → Видео» (docs/tech-plan.md, 9): the company's video limits
+    // after the steps they hold the video step to.
+    process: {
+      description: null,
+      body: (
+        <>
+          <ProcessSection />
+          <VideoSettings />
+        </>
+      ),
+    },
   };
 
   return (
@@ -86,8 +129,8 @@ export function SettingsView({ email, theme, onSignOut }: SettingsViewProps) {
         <nav aria-label={t('panel.settings.sections')} className="lg:sticky lg:top-4">
           {/* On a phone the four sit in a row and wrap; from lg, a column. */}
           <ul className="flex flex-wrap gap-1 lg:flex-col">
-            {SETTINGS_SECTIONS.map((section) => {
-              const isCurrent = section === address.section;
+            {shown.map((section) => {
+              const isCurrent = section === current;
               return (
                 <li key={section}>
                   <InPlaceLink
@@ -109,12 +152,12 @@ export function SettingsView({ email, theme, onSignOut }: SettingsViewProps) {
         </nav>
 
         <div className="min-w-0">
-          {SETTINGS_SECTIONS.map((section) => (
+          {shown.map((section) => (
             <SettingsPanel
               key={section}
               title={t(SECTION_TITLE_KEY[section])}
               description={sections[section].description}
-              isHidden={section !== address.section}
+              isHidden={section !== current}
             >
               {sections[section].body}
             </SettingsPanel>

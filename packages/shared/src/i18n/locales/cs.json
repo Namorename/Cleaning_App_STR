@@ -69,6 +69,22 @@
       "parallelStartHint": "Zapnuto: uklízečka může mít rozdělaných několik úklidů najednou — tak se uklízí po patrech, jeden člověk ve všech pokojích. Vypnuto: měření času počítá s jedním úklidem naráz.",
       "gallery": "Povolit nahrávání z galerie",
       "galleryHint": "Vypnuto: fotky a video se pořizují jen fotoaparátem a přímo na místě. Zapnuto: uklízečka může přiložit hotový soubor z galerie — i pořízený v jiném bytě nebo před týdnem, a pak médium přestává být důkazem o stavu bytu v době úklidu. Platí pro úklidy i pro úkoly.",
+      "video": {
+        "title": "Video",
+        "hint": "Pro krok „Video“ v úklidech a opravách. Video se natáčí jen kamerou aplikace, v 720p, ne déle a ne větší než tyto limity; galerie zůstává pro video zavřená bez ohledu na svůj přepínač. Krok může mít vlastní limit délky — jen kratší.",
+        "maxSec": "Délka videa, s",
+        "bitrateKbps": "Datový tok, kbit/s",
+        "maxMb": "Limit souboru, MB",
+        "bounds": "Celé číslo od {{min}} do {{max}}.",
+        "presets": {
+          "free": "Bezplatný tarif: {{sec}} s, {{kbps}} kbit/s, {{mb}} MB",
+          "pro": "Pro: {{sec}} s, {{kbps}} kbit/s, {{mb}} MB — jen v tarifu Pro"
+        },
+        "fullSize": "Video v plné délce má při tomto datovém toku asi {{mb}} MB.",
+        "overFile": "To je víc než limit souboru ({{mb}} MB): nahrávání skončí dřív, asi po {{sec}} s.",
+        "freePlan": "V bezplatném tarifu Supabase je jeden soubor nejvýš {{mb}} MB pro celý projekt: vyšší limit funguje jen v tarifu Pro.",
+        "save": "Uložit nastavení videa"
+      },
       "workflow": {
         "title": "Proces",
         "hint": "Uklízečky vidí tyto kroky v tomto pořadí v aplikaci.",
@@ -108,7 +124,8 @@
         "minPhotos": "Min. fotek",
         "maxPhotos": "Max. fotek",
         "maxVideoSec": "Max. sekund",
-        "limitsHint": "Prázdné pole znamená výchozí hodnotu serveru: {{min}}–{{max}} fotek, {{sec}} s videa.",
+        "limitsHint": "Prázdné pole znamená výchozí hodnotu: {{min}}–{{max}} fotek; u videa limit společnosti ({{sec}} s). Vlastní limit kroku platí, jen když je kratší.",
+        "limitsHintNoCompany": "Prázdné pole znamená výchozí hodnotu: {{min}}–{{max}} fotek; u videa limit společnosti. Vlastní limit kroku platí, jen když je kratší.",
         "save": "Uložit proces",
         "cancel": "Zahodit úpravy",
         "problems": {
@@ -129,10 +146,16 @@
           "confirmation": "Potvrzení",
           "cleaner_comment": "Komentář uklízečky"
         }
+      },
+      "language": {
+        "label": "Jazyk",
+        "hint": "Uloží se do vašeho profilu: v tomto jazyce se panel otevře i v jiném prohlížeči.",
+        "saveFailed": "Jazyk se nepodařilo změnit."
       }
     },
     "login": {
       "subtitle": "Panel manažera",
+      "language": "Jazyk",
       "email": "E-mail",
       "password": "Heslo",
       "showPassword": "Zobrazit heslo",
@@ -147,15 +170,18 @@
     "nav": {
       "label": "Sekce",
       "dashboard": "Přehled",
+      "analytics": "Analytika",
       "problems": "Úkoly",
       "supplies": "Žádosti o materiál",
       "tasks": "Úklidy",
       "team": "Tým",
+      "knowledge": "Znalostní báze",
       "apartments": "Objekty",
       "settings": "Nastavení",
       "calendar": "Kalendář",
       "unread": "Nepřečtené: {{count}}",
       "collapse": "Sbalit nabídku",
+      "darkMode": "Tmavý motiv",
       "expand": "Rozbalit nabídku",
       "open": "Otevřít nabídku",
       "groups": {
@@ -205,6 +231,169 @@
         "offWork": "Úklidy vypnutých se nepodařilo načíst."
       }
     },
+    "analytics": {
+      "period": {
+        "label": "Období",
+        "from": "Od",
+        "to": "Do",
+        "presets": {
+          "7d": "7 dní",
+          "30d": "30 dní",
+          "90d": "90 dní",
+          "thisMonth": "Tento měsíc",
+          "lastMonth": "Minulý měsíc"
+        },
+        "invalid": "Zvolte období, které začíná dřív, než končí, a trvá nejvýše {{max}} dní.",
+        "compare": "Porovnat s předchozím obdobím",
+        "comparedWith": "Porovnání s {{from}} – {{to}}"
+      },
+      "names": {
+        "label": "Jména",
+        "full": "Celá jména",
+        "initials": "Iniciály"
+      },
+      "includeTest": "Včetně ukázkových objektů (lokální prostředí)",
+      "tiles": {
+        "label": "Hlavní ukazatele",
+        "cleaningsDone": "Hotové úklidy",
+        "cleaningsDoneHint": "podle dne dokončení",
+        "midstay": "z toho během pobytu: {{count}}",
+        "cleaningsPlanned": "Naplánované úklidy",
+        "cleaningsPlannedHint": "podle dne úklidu",
+        "checkouts": "Odjezdy",
+        "roomsReleased": "uvolněné pokoje: {{count}}",
+        "problemsResolved": "Vyřešené úkoly",
+        "problemsOpen": "Otevřené úkoly",
+        "problemsOpenHint": "na konci období",
+        "problemsCancelled": "Zrušené úkoly",
+        "problemsCancelledHint": "podle dne zrušení; v ostatních číslech nejsou",
+        "urgencyAvg": "Průměrná naléhavost",
+        "urgencyHint": "nízká 1 · běžná 2 · vysoká 3",
+        "cleaningMinutesMedian": "Medián doby úklidu",
+        "cleaningMinutesHint": "průměr {{value}}",
+        "photoShare": "Úklidy s fotkami",
+        "occupancy": "Obsazenost",
+        "occupancyHint": "{{occupied}} z {{available}} nocí"
+      },
+      "value": {
+        "minutes": "{{value}} min"
+      },
+      "change": {
+        "points": "{{value}} p. b.",
+        "none": "není s čím porovnat",
+        "label": "Změna oproti předchozímu období: {{value}}"
+      },
+      "tables": {
+        "label": "Tabulky",
+        "cleaningsByProperty": "Úklidy podle objektů",
+        "cleaningsByCleaner": "Úklidy podle uklízeček",
+        "checkoutsByProperty": "Odjezdy podle objektů",
+        "problemsByProperty": "Úkoly podle objektů",
+        "problemsByTechnician": "Úkoly podle techniků"
+      },
+      "columns": {
+        "listing": "Objekt",
+        "noListing": "Bez objektu",
+        "person": "Pracovník",
+        "planned": "Naplánováno",
+        "done": "Hotovo",
+        "doneMidstay": "Během pobytu",
+        "expired": "Propadlé",
+        "cancelled": "Zrušeno",
+        "minutesMedian": "Medián, min",
+        "minutesAvg": "Průměr, min",
+        "photoShare": "S fotkami, %",
+        "listings": "Objektů",
+        "checkouts": "Odjezdů",
+        "roomsReleased": "Uvolněné pokoje",
+        "occupiedNights": "Obsazené noci",
+        "availableNights": "Dostupné noci",
+        "occupancy": "Obsazenost, %",
+        "created": "Vytvořeno",
+        "resolved": "Vyřešeno",
+        "openEnd": "Otevřeno na konci",
+        "urgencyAvg": "Průměrná naléhavost",
+        "hoursToResolveAvg": "Průměrná doba vyřešení, h",
+        "repairsDone": "Hotové práce",
+        "repairsOpen": "Nyní otevřeno",
+        "problemsResolved": "Vyřešené úkoly",
+        "workMinutesAvg": "Průměrná práce, min"
+      },
+      "pagination": {
+        "range": "{{from}}–{{to}} z {{total}}",
+        "previous": "Předchozí stránka",
+        "next": "Další stránka"
+      },
+      "export": {
+        "csv": "Stáhnout CSV",
+        "xlsx": "Stáhnout Excel",
+        "failed": "Tabulku se nepodařilo stáhnout"
+      },
+      "pdf": {
+        "download": "Stáhnout PDF",
+        "preparing": "Připravuje se PDF…",
+        "failed": "PDF se nepodařilo vytvořit",
+        "title": "Přehled analytiky",
+        "period": "Období: {{from}} – {{to}}",
+        "generated": "Vytvořeno {{date}} podle pražského času",
+        "page": "Strana {{page}} z {{total}}",
+        "noFilters": "Žádné: všechny objekty, pracovníci, stavy a naléhavosti",
+        "archived": "Archivované objekty",
+        "archivedHidden": "skryté",
+        "charts": "Grafy",
+        "topBars": "{{count}} nejvytíženějších; tabulky mají všechny řádky.",
+        "topBarsPicked": "{{count}} nejvytíženějších a ty, na které je report filtrován; tabulky mají všechny řádky.",
+        "lookupsFailed": "Report potřebuje objekty a pracovníky a ty se nepodařilo načíst.",
+        "notesTitle": "Jak se čísla počítají",
+        "notes": {
+          "done": "Hotové úklidy se počítají podle dne dokončení v časovém pásmu objektu; plánované podle dne úklidu.",
+          "checkout": "Odjezd se počítá podle dne odjezdu hosta, ať byla rezervace vytvořena kdykoli; byt uvolní jeden pokoj.",
+          "cancelled": "Zrušené úkoly jsou uvedeny zvlášť a nejsou v žádném jiném čísle; úkol z archivu se počítá, jen pokud byl vyřešen dřív.",
+          "demo": "Ukázkové a testovací objekty nejsou zahrnuty.",
+          "change": "Změna porovnává číslo s předchozím obdobím; podíl se mění v procentních bodech."
+        }
+      },
+      "empty": {
+        "title": "Za toto období není co počítat",
+        "body": "Čísla se objeví, jakmile se budou zapisovat úklidy, odjezdy a úkoly. Historie začíná spuštěním aplikace.",
+        "table": "Za toto období nejsou žádné řádky"
+      },
+      "errors": {
+        "summary": "Ukazatele se nepodařilo načíst",
+        "table": "Tabulku se nepodařilo načíst"
+      },
+      "filters": {
+        "label": "Filtry",
+        "listings": "Objekty",
+        "people": "Pracovníci",
+        "cleaningStatus": "Stav úklidu",
+        "taskStatus": "Stav úkolu",
+        "urgency": "Naléhavost",
+        "remove": "Zrušit filtr: {{name}}",
+        "clear": "Zrušit všechny filtry",
+        "hideArchived": "Skrýt archivované",
+        "formerEmployee": "Bývalý zaměstnanec",
+        "archivedListing": "{{name}} (v archivu)"
+      },
+      "charts": {
+        "dynamics": "Úklidy a odjezdy",
+        "problems": "Vytvořené a vyřešené úkoly",
+        "byDay": "Po dnech",
+        "byWeek": "Po týdnech",
+        "done": "Hotové úklidy",
+        "checkouts": "Odjezdy",
+        "created": "Vytvořené úkoly",
+        "resolved": "Vyřešené úkoly",
+        "day": "{{day}}: {{values}}. Zobrazit jen tento den",
+        "week": "Týden od {{day}}: {{values}}. Zobrazit jen tento týden",
+        "byListing": "Hotové úklidy podle objektů",
+        "byCleaner": "Hotové úklidy podle uklízeček",
+        "byUrgency": "Vytvořené úkoly podle naléhavosti",
+        "empty": "Za toto období není co zobrazit",
+        "hint": "Klepnutím na pruh filtrujete celou stránku, dalším klepnutím filtr zrušíte; klepnutím na sloupec zobrazíte jen ten den nebo týden.",
+        "loading": "Načítání…"
+      }
+    },
     "problems": {
       "title": "Úkoly",
       "searchPlaceholder": "Hledat podle názvu nebo objektu",
@@ -212,6 +401,17 @@
       "viewList": "Seznam",
       "empty": "Žádné úkoly",
       "emptyFiltered": "Nic nenalezeno",
+      "filters": {
+        "place": "Objekt",
+        "anyPlace": "Jakýkoli objekt",
+        "assignee": "Vykonavatel",
+        "anyAssignee": "Kdokoli",
+        "nobody": "Nepřiřazeno",
+        "dateFrom": "Nahlášeno od",
+        "dateTo": "Nahlášeno do",
+        "reset": "Zrušit filtry"
+      },
+      "showMore": "Zobrazit více: {{more}} (celkem {{total}})",
       "loading": "Načítáme úkoly…",
       "loadError": "Úkoly se nepodařilo načíst",
       "notFound": "Úkol nenalezen",
@@ -302,6 +502,17 @@
       "archive": {
         "empty": "Archiv je prázdný",
         "hint": "Archivované úkoly zaměstnanci nevidí a na nástěnce nejsou. Obnovený úkol se vrátí ve stejném stavu."
+      },
+      "form": {
+        "new": "Nový úkol",
+        "title": "Nový úkol",
+        "description": "Po vytvoření se otevře stránka úkolu — tam lze úkol s objektem přiřadit technikovi.",
+        "property": "Objekt",
+        "propertyPlaceholder": "Vyberte objekt",
+        "noPropertyHint": "Úkol bez objektu nelze předat technikovi: práce se přiřazuje jen k objektu.",
+        "submit": "Vytvořit",
+        "saving": "Vytváříme…",
+        "close": "Zrušit"
       }
     },
     "supplies": {
@@ -626,6 +837,8 @@
         "emailLocked": "E-mail je přihlašovací jméno a mění se jen přes podporu.",
         "phone": "Telefon",
         "role": "Role",
+        "roleUnknown": "Neznámá role",
+        "roleUnknownHint": "Panel roli tohoto člověka nezná. Pro uložení vyberte roli ze seznamu — nahradí tu současnou.",
         "language": "Jazyk",
         "languageUnset": "Nevybráno",
         "languageHint": "V tomto jazyce chodí e-maily. V aplikaci si jazyk zvolí sám.",
@@ -638,6 +851,11 @@
         "propertiesSelectShown": "Vybrat vše ({{total}})",
         "propertiesClearShown": "Odznačit vše ({{total}})",
         "propertiesNotForRole": "Manažerovi a správci se objekty nepřiřazují — vidí všechny.",
+        "propertiesNotForTech": "Technikovi a hlavnímu technikovi se objekty nepřiřazují: úklidy nejsou jejich práce, práce jim přichází přidělením.",
+        "techStillLinked_one": "Ještě na {{count}} objektu. Nejdřív toto přiřazení odeberte: tlačítko „Objektů: {{count}}“ v řádku zaměstnance.",
+        "techStillLinked_few": "Ještě na {{count}} objektech. Nejdřív tato přiřazení odeberte: tlačítko „Objektů: {{count}}“ v řádku zaměstnance.",
+        "techStillLinked_many": "Ještě na {{count}} objektu. Nejdřív tato přiřazení odeberte: tlačítko „Objektů: {{count}}“ v řádku zaměstnance.",
+        "techStillLinked_other": "Ještě na {{count}} objektech. Nejdřív tato přiřazení odeberte: tlačítko „Objektů: {{count}}“ v řádku zaměstnance.",
         "propertiesFailed": "Zaměstnanec byl uložen, ale objekty se nepodařilo otevřít.",
         "active": "Pracuje",
         "create": "Vytvořit",
@@ -673,14 +891,31 @@
         "priority": "Pořadí",
         "priorityFor": "Pořadí: {{name}}",
         "remove": "Odebrat",
+        "removeFor": "Odebrat: {{name}}",
         "add": "Přidat objekt",
         "addNone": "Všechny objekty jsou už otevřené.",
-        "addButton": "Přidat"
+        "addButton": "Přidat",
+        "onlyRemove": "Této roli se objekty nepřiřazují: přiřazení lze jen odebrat."
+      },
+      "resetConfirm": {
+        "title": "Obnovit heslo pro {{name}}?",
+        "description": "Staré heslo hned přestane platit. Nové se zobrazí na další obrazovce.",
+        "confirm": "Obnovit heslo"
+      },
+      "confirm": {
+        "saveTitle": "Uložit změny pro {{name}}?",
+        "disable": "Účet se vypne: dosud nezahájené úklidy a práce se uvolní a přiřazení k objektům se odeberou. Opětovné zapnutí je nevrátí.",
+        "role": "Role se změní: „{{from}}“ → „{{to}}“.",
+        "unlink": "Odeberou se přiřazení k objektům: {{total}}.",
+        "unlinkTitle": "{{name}}: odebrat objekt „{{property}}“?",
+        "unlinkDescription": "Volné úklidy tohoto objektu přestanou být v aplikaci vidět a nebudou se přidělovat samy. Už přidělené úklidy zůstanou, jak jsou.",
+        "unlinkFinal": "Toto přiřazení nepůjde vrátit: této roli se objekty nepřiřazují."
       }
     },
     "roles": {
       "cleaner": "Uklízečka",
       "tech": "Technik",
+      "head_tech": "Hlavní technik",
       "manager": "Manažer",
       "admin": "Administrátor",
       "unknown": "Zaměstnanec"
@@ -847,7 +1082,14 @@
     },
     "media": {
       "fromGallery": "z galerie",
-      "sourceUnknown": "zdroj neuveden"
+      "sourceUnknown": "zdroj neuveden",
+      "video": "Video",
+      "videoDuration": "Video · {{duration}}",
+      "videoOf": "Video: {{step}}",
+      "openVideo": "Otevřít",
+      "openVideoLabel": "Otevřít video v nové kartě",
+      "videoUnavailable": "Video není k dispozici",
+      "photoUnavailable": "Fotka není k dispozici"
     },
     "calendar": {
       "counts": "Objektů: {{listings}} · pokojů: {{rooms}}",
@@ -924,7 +1166,125 @@
       "cancelledError": "Zrušené úklidy se nepodařilo načíst.",
       "staffError": "Nepodařilo se načíst zaměstnance",
       "repairsError": "Opravy se nepodařilo načíst.",
-      "taskMissing": "Úklid se nepodařilo otevřít."
+      "taskMissing": "Úklid se nepodařilo otevřít.",
+      "past": {
+        "show": "Zobrazit minulé dny",
+        "loading": "Načítáme minulé dny…",
+        "error": "Minulé dny se nepodařilo načíst.",
+        "limit_one": "Minulost nejvýše {{count}} den zpět",
+        "limit_few": "Minulost nejvýše {{count}} dny zpět",
+        "limit_many": "Minulost nejvýše {{count}} dne zpět",
+        "limit_other": "Minulost nejvýše {{count}} dní zpět"
+      }
+    },
+    "knowledge": {
+      "new": "Nový článek",
+      "loading": "Načítáme články…",
+      "loadError": "Články se nepodařilo načíst.",
+      "empty": "Zatím žádné články.",
+      "emptyFiltered": "Filtrům neodpovídá žádný článek.",
+      "filters": {
+        "status": "Stav",
+        "place": "Místo",
+        "anyPlace": "Všechna místa",
+        "company": "Celá firma"
+      },
+      "statusFilter": {
+        "current": "Koncepty a zveřejněné",
+        "draft": "Koncepty",
+        "published": "Zveřejněné",
+        "archived": "Archiv"
+      },
+      "status": {
+        "draft": "Koncept",
+        "published": "Zveřejněno",
+        "archived": "Archivováno"
+      },
+      "columns": {
+        "title": "Název",
+        "status": "Stav",
+        "where": "Kde",
+        "languages": "Jazyky",
+        "updated": "Upraveno"
+      },
+      "where": {
+        "company": "Celá firma",
+        "none": "Místo zatím nevybráno",
+        "more": "a další {{count}}",
+        "hidden": "Míst mimo váš přístup: {{count}}"
+      },
+      "languages": {
+        "en": "Angličtina",
+        "ru": "Ruština",
+        "cs": "Čeština"
+      },
+      "originalMark": "originál",
+      "editor": {
+        "back": "Všechny články",
+        "loading": "Načítáme článek…",
+        "loadError": "Článek se nepodařilo načíst.",
+        "notFound": "Takový článek neexistuje nebo ho nevidíte.",
+        "version": "Verze {{rev}}",
+        "language": "Jazyk originálu",
+        "languageHint": "Jazyk, ve kterém autor píše. Další dva jsou překlady, každý nepovinný.",
+        "languageTabs": "Jazyky",
+        "noTranslation": "bez překladu",
+        "title": "Název",
+        "body": "Text",
+        "translationHint": "Nepovinné. Když jsou obě pole prázdná, překlad není a čtenář uvidí angličtinu nebo originál.",
+        "formatHelp": "Značky: **tučně**, „- “ seznam, „1. “ číslovaný seznam, „1) “ krok, „> “ důležité, [text](https://…) odkaz. HTML zůstane prostým textem.",
+        "codeWarning": "Nepište sem přístupové kódy — kódy dveří, schránek na klíče ani Wi-Fi. Viděl by je každý, kdo článek čte.",
+        "codeWarningLabel": "Žádné přístupové kódy v článcích",
+        "toolbar": {
+          "label": "Formátování",
+          "bold": "Tučně",
+          "bullets": "Odrážky",
+          "numbered": "Číslovaný seznam",
+          "steps": "Kroky",
+          "link": "Odkaz",
+          "linkText": "text odkazu",
+          "important": "Důležité"
+        },
+        "preview": "Náhled: jako v telefonu",
+        "previewEmpty": "Tady se zobrazí text.",
+        "placement": "Kde se zobrazí",
+        "scope": {
+          "company": "Celá firma",
+          "building": "Jedna budova",
+          "properties": "Vybrané objekty"
+        },
+        "scopeHint": {
+          "company": "Čtou ho všechny uklízečky a všichni technici firmy.",
+          "building": "Zobrazí se v budově a ve všech jejích pokojích.",
+          "properties": "Zobrazí se na zaškrtnutých objektech; u zaškrtnuté budovy i ve všech jejích pokojích."
+        },
+        "building": "Budova",
+        "chooseBuilding": "Vyberte budovu",
+        "noBuildings": "Firma nemá žádnou budovu s pokoji.",
+        "hiddenPlaces": "Místa mimo váš přístup, zůstanou beze změny: {{count}}",
+        "save": "Uložit",
+        "saved": "Uloženo",
+        "unsaved": "Neuložené změny",
+        "leaveConfirm": "Máte neuložené změny. Odejít a přijít o ně?",
+        "discard": "Zahodit změny",
+        "reload": "Načíst poslední verzi",
+        "publish": "Zveřejnit",
+        "unpublish": "Zrušit zveřejnění",
+        "archive": "Do archivu",
+        "unarchive": "Vrátit z archivu",
+        "publishHint": "Zveřejněný článek se dostane do telefonů lidí, kteří tam pracují."
+      },
+      "history": {
+        "title": "Verze",
+        "loadError": "Verze se nepodařilo načíst.",
+        "empty": "Zatím žádné verze: uložte článek.",
+        "current": "aktuální",
+        "unknownAuthor": "neznámý autor",
+        "restore": "Obnovit",
+        "restoreLabel": "Obnovit verzi {{rev}}",
+        "restoreHint": "Obnovená verze se stane nejnovější; verze mezi tím zůstanou v historii.",
+        "saveFirst": "Nejdřív uložte nebo zahoďte změny."
+      }
     }
   },
   "tabs": {
@@ -1504,6 +1864,10 @@
     "unread": "Nová zpráva",
     "refreshFailed": "Nepodařilo se obnovit, zobrazují se uložené zprávy."
   },
+  "knowledge": {
+    "important": "Důležité",
+    "step": "Krok {{number}}"
+  },
   "serverErrors": {
     "checklistCopySameProperty": "Zdroj a cíl jsou tentýž apartmán",
     "checklistItemsLeft": "Nejsou odškrtnuty všechny povinné položky kontrolního seznamu",
@@ -1631,7 +1995,20 @@
     "mailNotSent": "E-mail se nepodařilo odeslat.",
     "mailTooSoon": "Na tuhle adresu právě odešel e-mail. Zkuste to za minutu.",
     "mailNotConfigured": "Odesílání e-mailů není nastavené.",
-    "hostNotFound": "Společnost nebyla nalezena."
+    "hostNotFound": "Společnost nebyla nalezena.",
+    "analyticsPeriodInvalid": "Období musí začínat dřív, než končí, a trvat nejvýše {{maxDays}} dní.",
+    "kbArticleNotFound": "Článek nenalezen",
+    "kbArticleChanged": "Článek mezitím uložil někdo jiný. Načtěte poslední verzi a změnu proveďte znovu.",
+    "kbArticleInvalid": "Článek byl odeslán v nesprávném tvaru",
+    "kbTitleRequired": "Článek musí mít název",
+    "kbTitleTooLong": "Název může mít nejvýše {{max}} znaků",
+    "kbBodyTooLong": "Text může mít nejvýše {{max}} znaků",
+    "kbBodyRequired": "Zveřejněný článek musí mít text",
+    "kbTranslationTitleMissing": "Překlad ({{language}}) má text, ale nemá název",
+    "kbTargetsInvalid": "Článek pro celou firmu se k objektům nepřiřazuje",
+    "kbTargetsMissing": "Před zveřejněním vyberte, kde se článek zobrazí",
+    "kbBuildingInvalid": "Vyberte jednu budovu — objekt s pokoji",
+    "kbRevisionNotFound": "Taková verze neexistuje"
   },
   "push": {
     "cleaning_new": {
@@ -1700,5 +2077,233 @@
     "camera": "Aplikace fotoaparátem pořizuje fotky a videa práce — před ní a po ní.",
     "microphone": "Aplikace nahrává zvuk k videím z práce.",
     "photos": "Aplikace připojí fotky, které vyberete v galerii, ke krokům checklistu, úkolům a zprávám v chatu."
+  },
+  "privacy": {
+    "metaTitle": "Zásady ochrany osobních údajů — woom",
+    "title": "Zásady ochrany osobních údajů aplikace woom",
+    "otherLanguages": "Tato stránka v dalších jazycích",
+    "effective": "<b>Platí od:</b> {{date}}",
+    "intro": "Tyto zásady vysvětlují, jaké vaše osobní údaje zpracováváme, když pracujete v aplikaci woom (aplikace pro uklízečky a techniky v telefonu) a ve webovém panelu pro manažery, proč, jak dlouho a jaká máte práva.",
+    "fill": {
+      "template": "[doplnit: {{what}}]",
+      "statement": "[{{statement}} — doplnit: potvrdit]",
+      "operatorName": "obchodní firma nebo jméno",
+      "operatorId": "číslo",
+      "operatorAddress": "adresa",
+      "contactEmail": "e-mail pro dotazy k osobním údajům",
+      "date": "datum",
+      "deadline": "termín — rozhodne majitel",
+      "accountDeletedBy": "kdo účty maže",
+      "accountRetention": "kolik měsíců po deaktivaci",
+      "vercelRegion": "region — ověřit v projektu Vercel",
+      "sentryRegion": "region — zvolit při založení projektu Sentry",
+      "serverLogRetention": "doba",
+      "exportFormat": "CSV nebo JSON — rozhodne majitel"
+    },
+    "operator": {
+      "heading": "1. Kdo vaše údaje zpracovává",
+      "text": "Správce osobních údajů: {{name}}, IČO {{id}}, {{address}}. S dotazy k osobním údajům pište na {{email}}."
+    },
+    "data": {
+      "heading": "2. Jaké údaje zpracováváme a proč",
+      "columns": {
+        "what": "Co",
+        "examples": "Příklady",
+        "why": "Proč"
+      },
+      "rows": {
+        "account": {
+          "what": "Uživatelský účet",
+          "examples": "jméno, e-mail, telefon, role (uklízečka, technik, hlavní technik, manažer), jazyk aplikace, heslo (uložené jen jako hash)",
+          "why": "přihlášení do aplikace, organizace práce, spojení s vámi"
+        },
+        "work": {
+          "what": "Pracovní údaje",
+          "examples": "úklidy a práce, které vám byly přiděleny, čas zahájení a dokončení, odškrtnuté kroky checklistu, vaše komentáře, označení „přijato“",
+          "why": "organizace úklidů, kontrola kvality, evidence odvedené práce"
+        },
+        "media": {
+          "what": "Fotografie a videa",
+          "examples": "snímky a videa bytů před úklidem a po něm, fotografie k úkolům",
+          "why": "doložení odvedené práce a stavu bytu"
+        },
+        "chat": {
+          "what": "Zprávy v aplikaci",
+          "examples": "texty a fotografie zpráv, jméno a role autora, označení o přečtení",
+          "why": "domluva o úklidech a úkolech s manažerem a kolegy"
+        },
+        "requests": {
+          "what": "Úkoly a žádosti",
+          "examples": "úkoly (vaše zprávy o poruchách v bytě), žádosti o spotřební materiál",
+          "why": "odstraňování poruch, zásobování"
+        },
+        "workLog": {
+          "what": "Záznam práce",
+          "examples": "co se dělo s úklidy, úkoly a opravami, kdo to udělal a kdy",
+          "why": "přehledy pro majitele společnosti, vyjasnění sporných případů"
+        },
+        "device": {
+          "what": "Údaje o zařízení",
+          "examples": "token push oznámení, platforma (iOS nebo Android), jazyk telefonu, verze aplikace, která oznámení jste vypnuli",
+          "why": "doručování oznámení o práci"
+        },
+        "technical": {
+          "what": "Technické údaje",
+          "examples": "záznamy o pádech aplikace, protokoly serveru (čas přihlášení, IP adresa)",
+          "why": "oprava chyb, bezpečnost"
+        }
+      },
+      "workLog": {
+        "intro": "<b>Záznam práce.</b> Aplikace vede záznam o tom, co se děje s prací v ní:",
+        "cleanings": "<b>úklidy</b> — včetně úklidů během pobytu, kontrol a oprav, které zadá přímo manažer: vytvoření, přidělení někomu nebo odebrání, přijetí, zahájení, dokončení, zrušení, propadnutí, přesunutí na jiný den nebo jiné místo, znovuotevření;",
+        "tasks": "<b>úkoly</b> (zprávy o poruchách) <b>a opravy k nim</b>: nahlášení, přidělení někomu nebo odebrání, přesunutí na jiný den nebo čas, přijetí, zahájení, dokončení, vyřešení, zrušení, znovuotevření, přesunutí do archivu nebo zpět.",
+        "details": "Každý záznam obsahuje, kdo změnu provedl (váš účet, účet kolegy, manažera nebo hlavního technika, nebo systém), kdy změna dorazila na náš server, a podle druhu změny i to, kdo práci měl nebo komu byla přidělena či odebrána, důvod zrušení, odebrání nebo přesunu (například že byl účet deaktivován nebo rezervace zrušena) a dotčená data, hodiny návštěvy opravy, objekty, naléhavost a stavy. Nezaznamenává žádný text, který píšete, žádné fotografie ani videa a žádnou geolokaci telefonu. Záznam používáme pro přehledy pro majitele společnosti (kolik práce bylo hotovo, jak rychle byla přidělena) a k vyjasnění sporných případů (kdo měl úklid v jeho den, kdy byl dokončen). Manažeři vaší společnosti vidí celý záznam; hlavní technik vidí jen část o úkolech a opravách k nim. Ostatní pracovníci ho nevidí a v aplikaci ho nikdo nemůže změnit. Zatím záznam uchováváme bez časového omezení: automatické mazání záznamů starších než 24 měsíců zavádíme (oddíl 5). Pokud bude váš účet smazán (oddíl 5), záznamy zůstanou, ale už nebudou spojeny s vaším účtem: kde záznam uvádí, kdo práci měl nebo komu byla přidělena či odebrána, zůstane jen identifikátor smazaného účtu, který už nevede k vašemu jménu."
+      },
+      "notCollected": "<b>Co neshromažďujeme:</b> polohu (aplikace nežádá o přístup k poloze), kontakty, údaje o zdraví. Fotografujte byty, ne lidi a doklady.",
+      "video": "Videa se natáčejí kamerou samotné aplikace: místo natáčení do souboru nezapisuje, datum a čas záznamu ano; metadata videí zvlášť neodstraňujeme (u fotografií ano).",
+      "videoGallery": "Pokud firma povolila nahrávání z galerie, lze k práci přiložit i video z galerie telefonu. Takové video může obsahovat metadata včetně místa natočení; ta neodstraňujeme."
+    },
+    "basis": {
+      "heading": "3. Právní základy",
+      "contract": "<b>Plnění smlouvy</b> s vámi (čl. 6 odst. 1 písm. b) GDPR) — uživatelský účet, pracovní údaje, fotografie a videa práce, zprávy o práci, oznámení o práci.",
+      "interest": "<b>Oprávněný zájem</b> společnosti (čl. 6 odst. 1 písm. f) GDPR) — kontrola kvality, bezpečnost systému, záznamy o pádech, přehledy pro majitele společnosti a vyjasnění sporných případů ze záznamu práce. Proti takovému zpracování můžete vznést námitku (oddíl 7).",
+      "permission": "<b>Vaše povolení v telefonu</b> — zobrazování push oznámení. Můžete ho odvolat v nastavení telefonu; jednotlivé druhy oznámení se vypínají přímo v aplikaci, v „Nastavení“."
+    },
+    "recipients": {
+      "heading": "4. Kdo vaše údaje dostává",
+      "intro": "Vaše údaje vidí jen ti, kdo je potřebují pro práci:",
+      "managers": "<b>manažeři vaší společnosti</b> — všechny pracovní údaje společnosti;",
+      "headTech": "<b>hlavní technik</b> — všechny úkoly společnosti a opravy k nim, včetně fotografií, odškrtnutých kroků a zpráv, a část záznamu práce o nich;",
+      "staff": "<b>uklízečka nebo technik</b> — své úklidy a práce, volnou práci na svých objektech a zprávy k nim. Cizí pracovní údaje a údaje zaměstnanců jiné společnosti přístupné nejsou.",
+      "processors": "Technicky údaje zpracovávají naši dodavatelé (zpracovatelé):",
+      "agreements": "jsou uzavřeny smlouvy o zpracování osobních údajů",
+      "terms": "Se společnostmi Supabase, Vercel, Expo a Sentry {{agreements}}. U společnosti Google (Firebase Cloud Messaging) jsou podmínky zpracování údajů součástí podmínek Firebase. Se společností Apple samostatná smlouva o zpracování uzavřena není: platí podmínky Apple Developer Program.",
+      "columns": {
+        "vendor": "Dodavatel",
+        "role": "Co dělá",
+        "location": "Kde"
+      },
+      "vendors": {
+        "supabase": {
+          "name": "Supabase",
+          "role": "databáze, přihlašování, ukládání fotografií a videí, serverové funkce",
+          "location": "EU (Frankfurt)"
+        },
+        "vercel": {
+          "name": "Vercel",
+          "role": "provoz webového panelu"
+        },
+        "expo": {
+          "name": "Expo (650 Industries)",
+          "role": "aktualizace aplikace, doručování push oznámení",
+          "location": "USA"
+        },
+        "google": {
+          "name": "Google (Firebase Cloud Messaging)",
+          "role": "doručování push oznámení na Android",
+          "location": "USA"
+        },
+        "apple": {
+          "name": "Apple (APNs, TestFlight)",
+          "role": "doručování push oznámení na iPhone, instalace aplikace",
+          "location": "USA"
+        },
+        "sentry": {
+          "name": "Sentry (Functional Software)",
+          "role": "záznamy o pádech aplikace"
+        }
+      },
+      "transfers": "Předávání do USA probíhá na základě rozhodnutí Evropské komise o rámci EU-U.S. Data Privacy Framework nebo standardních smluvních doložek — {{basis}}.",
+      "transferBasis": "základ je ověřen u každého dodavatele",
+      "noSale": "Údaje neprodáváme a nepředáváme pro reklamu."
+    },
+    "retention": {
+      "heading": "5. Jak dlouho údaje uchováváme",
+      "columns": {
+        "data": "Údaje",
+        "period": "Doba"
+      },
+      "rows": {
+        "media": {
+          "data": "Fotografie a videa úklidů a úkolů",
+          "period": "90 dní po uzavření úklidu nebo úkolu"
+        },
+        "chatPhotos": {
+          "data": "Fotografie ve zprávách",
+          "period": "90 dní po uzavření úklidu nebo úkolu, ke kterému konverzace patří; v soukromé konverzaci s kanceláří 90 dní po odeslání"
+        },
+        "records": {
+          "data": "Úklidy, úkoly, zprávy (texty), žádosti",
+          "period": "<b>Nyní bez časového omezení.</b> Automatické mazání 12 měsíců po uzavření úklidu nebo úkolu zavedeme do {{date}}. Do té doby na vaši žádost mažeme ručně (oddíl 7)"
+        },
+        "journal": {
+          "data": "Záznam práce",
+          "period": "<b>Nyní bez časového omezení.</b> Automatické mazání záznamů starších než 24 měsíců zavádíme. Záznam se maže také spolu s úklidem nebo úkolem, ke kterému patří"
+        },
+        "account": {
+          "data": "Uživatelský účet",
+          "period": "dokud s námi pracujete; po odchodu viz „Pokud s námi už nepracujete“ níže"
+        },
+        "pushToken": {
+          "data": "Token push oznámení",
+          "period": "dokud je aplikace nainstalovaná a jste v ní přihlášeni; maže se při odhlášení, při přihlášení jiné osoby na stejném telefonu a když telefon přestane přijímat oznámení"
+        },
+        "crashReports": {
+          "data": "Záznamy o pádech",
+          "period": "30 dní"
+        },
+        "serverLogs": {
+          "data": "Protokoly serveru",
+          "period": "podle pravidel dodavatele, {{period}}"
+        }
+      },
+      "leaving": "<b>Pokud s námi už nepracujete.</b> Manažer váš účet v panelu deaktivuje. Od té chvíle nemá přístup k údajům společnosti. Přihlásit se do aplikace technicky ještě lze, ale po přihlášení neuvidíte nic pracovního — žádné úklidy, objekty, zprávy ani fotografie; vidíte jen svůj vlastní účet (jméno, jazyk). Zákaz samotného přihlášení k deaktivovanému účtu doplníme do {{date}}.",
+      "deletion": "Smazání účtu je zatím <b>ruční krok</b>, provádí ho {{who}} na vaši žádost zaslanou e-mailem na adresu z oddílu 1, nebo {{when}}. Automatické mazání zatím není, přijde spolu s dobami uchování výše. Při smazání:",
+      "afterSwitchOff": "{{months}} po deaktivaci",
+      "months_one": "{{count}} měsíc",
+      "months_few": "{{count}} měsíce",
+      "months_many": "{{count}} měsíce",
+      "months_other": "{{count}} měsíců",
+      "deletionEffects": {
+        "chat": "vaše zprávy v konverzacích o úklidech a úkolech zůstanou, ale <b>místo vašeho jména</b> u nich bude „Bývalý zaměstnanec“;",
+        "office": "vaše soukromá konverzace s kanceláří se smaže celá, i s fotografiemi;",
+        "work": "v úklidech a krocích, které jste prováděli, zůstanou časy a označení, ale ne vy jako ten, kdo je provedl;",
+        "journal": "v záznamu práce záznamy zůstanou, ale už nebudou spojeny s vaším účtem: zůstane v nich jen identifikátor smazaného účtu, který už nevede k vašemu jménu;",
+        "requests": "vaše úkoly a žádosti o spotřební materiál zůstanou — dál se jimi zabýváme — s autorem „Bývalý zaměstnanec“;",
+        "push": "tokeny push oznámení a nastavení oznámení se smažou spolu s účtem."
+      }
+    },
+    "notifications": {
+      "heading": "6. Push oznámení",
+      "text": "Aplikace posílá oznámení o vaší práci: nový, zrušený nebo přesunutý úklid, přidělení, nová zpráva apod. Na zamčené obrazovce oznámení o zprávě ukazuje objekt a autora, ale <b>ne text zprávy</b>. Jednotlivé druhy oznámení se vypínají v „Nastavení“ aplikace, všechna najednou v nastavení telefonu."
+    },
+    "rights": {
+      "heading": "7. Vaše práva",
+      "intro": "Máte právo:",
+      "items": {
+        "access": "získat kopii svých údajů (přístup);",
+        "rectification": "opravit nesprávné údaje;",
+        "erasure": "požadovat výmaz údajů, které už nejsou potřeba nebo se zpracovávají protiprávně;",
+        "restriction": "omezit zpracování;",
+        "portability": "získat své údaje ve strojově čitelné podobě (přenositelnost);",
+        "objection": "vznést námitku proti zpracování na základě oprávněného zájmu."
+      },
+      "contact": "Pište na {{email}}; odpovíme do jednoho měsíce. Výmaz a export údajů nyní provádíme <b>ručně</b>, na základě vašeho e-mailu: tlačítko „smazat moje údaje“ nebo „stáhnout moje údaje“ v aplikaci zatím není. Export vám pošleme jako soubor ve strojově čitelném formátu {{format}}.",
+      "complaint": "Můžete také podat stížnost u dozorového úřadu: <b>Úřad pro ochranu osobních údajů</b>, Pplk. Sochora 27, 170 00 Praha 7, {{website}}."
+    },
+    "security": {
+      "heading": "8. Jak údaje chráníme",
+      "items": {
+        "https": "Spojení jsou šifrovaná (HTTPS).",
+        "roles": "Přístup je rozdělen podle rolí na úrovni databáze: každý řádek vidí jen ti, komu je určen.",
+        "passwords": "Hesla se ukládají jen jako hash; v telefonu je relace uložena v zabezpečeném úložišti (Keychain / Keystore).",
+        "media": "Fotografie a videa jsou v neveřejném úložišti a vydávají se jen po ověření oprávnění.",
+        "decisions": "Systém nečiní automatizovaná rozhodnutí, která by pro vás měla právní účinky."
+      }
+    },
+    "changes": {
+      "heading": "9. Změny",
+      "text": "Tyto zásady aktualizujeme, když se změní zpracování údajů. Datum poslední verze je nahoře na stránce."
+    }
   }
 }

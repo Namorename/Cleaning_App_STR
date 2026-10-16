@@ -6,15 +6,22 @@ import { useTranslation } from 'react-i18next';
 
 import { Logo } from '@/components/logo';
 import { NavMenu, StripTooltip, navRowClass } from '@/components/nav-menu';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { Separator } from '@/components/ui/separator';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import type { PanelAccess } from '@/lib/session';
 import { rememberSidebar } from '@/lib/sidebar-state';
+import type { ThemeChoice } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
 interface SidebarProps {
   email: string;
+  /** The office's whole menu, or the knowledge base alone (the layout reads it from the role). */
+  access?: PanelAccess;
   /** The width the manager left the menu at: the `sidebar` cookie, read by the layout. */
   isInitiallyCollapsed?: boolean;
+  /** The theme chosen: the `theme` cookie, read by the layout (the lever, night of 2026-10-10). */
+  theme?: ThemeChoice;
 }
 
 /**
@@ -32,7 +39,12 @@ interface SidebarProps {
  * the same width. Below `md` the phone's top bar takes its place
  * (`mobile-nav.tsx`, decision 14).
  */
-export function Sidebar({ email, isInitiallyCollapsed = false }: SidebarProps) {
+export function Sidebar({
+  email,
+  access = 'full',
+  isInitiallyCollapsed = false,
+  theme = 'system',
+}: SidebarProps) {
   const { t } = useTranslation();
   const [isCollapsed, setIsCollapsed] = useState(isInitiallyCollapsed);
   const navId = useId();
@@ -59,9 +71,21 @@ export function Sidebar({ email, isInitiallyCollapsed = false }: SidebarProps) {
           variant={isCollapsed ? 'mark' : 'full'}
           className="mb-4 shrink-0"
         />
-        <NavMenu id={navId} isCollapsed={isCollapsed} />
+        <NavMenu id={navId} access={access} isCollapsed={isCollapsed} />
         <div className="mt-4 flex flex-col gap-2">
           <Separator />
+          {/* The day and the night theme a press away (night of 2026-10-10). */}
+          {isCollapsed ? (
+            <StripTooltip
+              label={t('panel.nav.darkMode')}
+              isCollapsed
+              render={<span className="flex size-11 items-center justify-center" />}
+            >
+              <ThemeToggle initial={theme} isCompact />
+            </StripTooltip>
+          ) : (
+            <ThemeToggle initial={theme} />
+          )}
           <StripTooltip
             label={toggleLabel}
             isCollapsed={isCollapsed}

@@ -24,8 +24,8 @@ vi.mock('@/lib/design/hatch', () => ({
 
 const ANNA = '11111111-1111-4111-8111-111111111111';
 const DAYS = ['2026-09-28', '2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02'];
-/** Thirty days: a cell this narrow shows dots. */
-const DOT_WIDTH = 30;
+/** Thirty days: a cell this narrow cuts a chip short; it keeps its dot. */
+const NARROW_WIDTH = 30;
 /** A week: a cell this wide shows a chip in full. */
 const FULL_WIDTH = 140;
 
@@ -73,8 +73,12 @@ function chips(tasks: CalendarTask[], dayWidth: number, view: 'full' | 'compact'
   );
 }
 
+/** The status dot on the chip a status names. */
+const dotOf = (name: RegExp) =>
+  screen.getByRole('button', { name }).querySelector('[data-slot="chip-dot"]');
+
 describe('the marks of the chips', () => {
-  test('a dot takes the mark of its status’s tone', () => {
+  test('a chip’s dot takes the mark of its status’s tone, at thirty days too', () => {
     chips(
       [
         task(DAYS[0], { status: 'unassigned', assignee_id: null, assignee: null }),
@@ -83,34 +87,28 @@ describe('the marks of the chips', () => {
         task(DAYS[3], { status: 'done' }),
         task(DAYS[4], { status: 'blocked' }),
       ],
-      DOT_WIDTH,
+      NARROW_WIDTH,
     );
 
-    expect(screen.getByRole('button', { name: /Без исполнителя/ })).toHaveClass(
-      'bg-tone-unassigned-mark',
-    );
-    expect(screen.getByRole('button', { name: /Назначена/ })).toHaveClass('bg-tone-assigned-mark');
-    expect(screen.getByRole('button', { name: /В работе/ })).toHaveClass(
-      'bg-tone-in-progress-mark',
-    );
-    expect(screen.getByRole('button', { name: /Выполнена/ })).toHaveClass('bg-tone-done-mark');
-    expect(screen.getByRole('button', { name: /Заблокирована/ })).toHaveClass(
-      'bg-tone-urgent-mark',
-    );
+    expect(dotOf(/Без исполнителя/)).toHaveClass('bg-tone-unassigned-mark');
+    expect(dotOf(/Назначена/)).toHaveClass('bg-tone-assigned-mark');
+    expect(dotOf(/В работе/)).toHaveClass('bg-tone-in-progress-mark');
+    expect(dotOf(/Выполнена/)).toHaveClass('bg-tone-done-mark');
+    expect(dotOf(/Заблокирована/)).toHaveClass('bg-tone-urgent-mark');
   });
 
   test('what never happened is a hollow ring of its tone, the cancelled a pale square', () => {
     chips(
       [task(DAYS[0], { status: 'expired' }), task(DAYS[1], { status: 'cancelled' })],
-      DOT_WIDTH,
+      NARROW_WIDTH,
     );
 
-    const lapsed = screen.getByRole('button', { name: /Не состоялась/ });
-    expect(lapsed).toHaveClass('rounded-full', 'border-2', 'border-tone-not-happened-mark');
-    expect(screen.getByRole('button', { name: /Отменена/ })).toHaveClass(
-      'rounded-none',
-      'bg-tone-cancelled-mark',
+    expect(dotOf(/Не состоялась/)).toHaveClass(
+      'rounded-full',
+      'border-2',
+      'border-tone-not-happened-mark',
     );
+    expect(dotOf(/Отменена/)).toHaveClass('rounded-none', 'bg-tone-cancelled-mark');
   });
 
   test('the chip of what never happened is hatched in its own tone (45°, HATCH_ANGLE)', () => {

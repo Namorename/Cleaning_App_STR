@@ -229,7 +229,10 @@ Deno.test("a role and a language the app does not have are refused", async () =>
   assertEquals((await refusalOf(badLang)).error.hint, "serverErrors.staffLanguageInvalid");
 });
 
-Deno.test("a person may be created without a language — nothing has been chosen yet", async () => {
+// The owner's decision of 14.10: somebody new reads English until a manager or
+// she herself picks another language. A panel that sends no language — the one
+// still in production between this deploy and its own — gets English too.
+Deno.test("a person created without a language reads English", async () => {
   let profile: StaffProfile | null = null;
   const handler = createStaffHandler(
     deps({
@@ -244,8 +247,42 @@ Deno.test("a person may be created without a language — nothing has been chose
     post({ action: "create", staff: { email: "a@example.com", fullName: "Anna", role: "tech" } }),
   );
   assertEquals(response.status, 200);
-  assertEquals(profile!.language, null);
+  assertEquals(profile!.language, "en");
   assertEquals(profile!.phone, null);
+});
+
+Deno.test("a person created with an explicit null language reads English too", async () => {
+  let profile: StaffProfile | null = null;
+  const handler = createStaffHandler(
+    deps({
+      createStaff: (input) => {
+        profile = input.profile;
+        return Promise.resolve({ id: "new-1", sent: true, failureKey: null });
+      },
+    }),
+  );
+
+  const response = await handler(
+    post({ action: "create", staff: { ...NEW_STAFF, language: null } }),
+  );
+  assertEquals(response.status, 200);
+  assertEquals(profile!.language, "en");
+});
+
+Deno.test("a language the manager picked for somebody new is kept", async () => {
+  let profile: StaffProfile | null = null;
+  const handler = createStaffHandler(
+    deps({
+      createStaff: (input) => {
+        profile = input.profile;
+        return Promise.resolve({ id: "new-1", sent: true, failureKey: null });
+      },
+    }),
+  );
+
+  const response = await handler(post({ action: "create", staff: { ...NEW_STAFF, language: "cs" } }));
+  assertEquals(response.status, 200);
+  assertEquals(profile!.language, "cs");
 });
 
 Deno.test("a manager cannot mint an admin", async () => {
@@ -290,6 +327,26 @@ Deno.test("a manager edits somebody on the team", async () => {
   assertEquals(await response.json(), { success: true, data: { id: "s-1" } });
   assertEquals(received!.profile.role, "tech");
   assertEquals(received!.profile.language, "cs");
+});
+
+// English is the default for somebody new only: an edit of a person who never
+// chose a language does not quietly choose English for her.
+Deno.test("an edit without a language leaves it unchosen", async () => {
+  let received: { id: string; profile: StaffProfile } | null = null;
+  const handler = createStaffHandler(
+    deps({
+      updateStaff: (input) => {
+        received = input;
+        return Promise.resolve();
+      },
+    }),
+  );
+
+  const response = await handler(
+    post({ action: "update", id: "s-1", staff: { ...EDIT, language: null } }),
+  );
+  assertEquals(response.status, 200);
+  assertEquals(received!.profile.language, null);
 });
 
 Deno.test("a manager hires a head technician, and makes somebody one", async () => {

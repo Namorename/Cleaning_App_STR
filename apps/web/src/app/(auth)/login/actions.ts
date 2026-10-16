@@ -1,9 +1,14 @@
 'use server';
 
+import type { Language } from '@str-ops/shared';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
+import { fetchMyLanguage, type Client } from '@/features/settings/api';
+import { YEAR_SECONDS } from '@/lib/cookie';
+import { LANGUAGE_COOKIE } from '@/lib/language';
 import { safeNext } from '@/lib/safe-next';
-import { isPanelRole, roleOf } from '@/lib/session';
+import { homeOf, isPathOpenTo, panelAccessOf, roleOf } from '@/lib/session';
 import { createClient } from '@/lib/supabase/server';
 
 export type SignInIssue = 'invalid' | 'notManager' | 'missing';
@@ -18,6 +23,31 @@ export interface SignInState {
    * person got right. The password is never sent back: retyping it is the point.
    */
   email: string;
+}
+
+/**
+ * The language the person keeps in her profile becomes this browser's: chosen
+ * in «Настройки → Аккаунт» elsewhere, the panel opens in it here. No choice,
+ * or a read that failed, leaves the cookie as it was — the language never
+ * stands between a manager and the panel, so the failure ends here on purpose.
+ */
+async function applyProfileLanguage(supabase: Client, userId: string): Promise<void> {
+  let language: Language | null;
+  try {
+    language = await fetchMyLanguage(supabase, userId);
+  } catch {
+    return;
+  }
+  if (language === null) {
+    return;
+  }
+  const isSecure = (await headers()).get('x-forwarded-proto') === 'https';
+  (await cookies()).set(LANGUAGE_COOKIE, language, {
+    path: '/',
+    maxAge: YEAR_SECONDS,
+    sameSite: 'lax',
+    secure: isSecure,
+  });
 }
 
 /**
@@ -41,12 +71,18 @@ export async function signIn(_previous: SignInState, formData: FormData): Promis
     return { issue: 'invalid', email: typed };
   }
 
-  if (!isPanelRole(roleOf(data.user))) {
+  const access = panelAccessOf(roleOf(data.user));
+  if (access === null) {
     await supabase.auth.signOut();
     return { issue: 'notManager', email: typed };
   }
 
-  redirect(safeNext(formData.get('next')));
+  await applyProfileLanguage(supabase, data.user.id);
+  // The way back when it is a page this person reaches; the head technician's
+  // otherwise is the knowledge base (the owner's decision of 2026-10-16).
+  const next = safeNext(formData.get('next'));
+  const nextPath = next.split(/[?#]/, 1)[0];
+  redirect(isPathOpenTo(access, nextPath) ? next : homeOf(access));
 }
 
 export async function signOut(): Promise<void> {

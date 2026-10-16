@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 
 import { SettingsView } from '@/features/settings/settings-view';
+import { panelAccessOf, roleOf } from '@/lib/session';
 import { createClient } from '@/lib/supabase/server';
 import { THEME_COOKIE, themeFromCookie } from '@/lib/theme';
 
@@ -20,5 +21,15 @@ export default async function SettingsPage() {
   } = await supabase.auth.getUser();
   const theme = themeFromCookie((await cookies()).get(THEME_COOKIE)?.value);
 
-  return <SettingsView email={user?.email ?? ''} theme={theme} onSignOut={signOut} />;
+  return (
+    <SettingsView
+      email={user?.email ?? ''}
+      // The narrower sections when the role says nothing (the shell has let
+      // nobody without one in anyway).
+      access={panelAccessOf(roleOf(user)) ?? 'knowledge'}
+      userId={user?.id ?? ''}
+      theme={theme}
+      onSignOut={signOut}
+    />
+  );
 }

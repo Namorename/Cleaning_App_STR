@@ -1,0 +1,135 @@
+import { act, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeAll, describe, expect, test, vi } from 'vitest';
+
+import { applyThemeChoice, THEME_COOKIE } from '@/lib/theme';
+
+import { ThemeToggle } from './theme-toggle';
+
+/**
+ * The quick switch between the day and the night theme in the menu (the
+ * owner's word, night of 2026-10-10): a lever, one press, the whole panel.
+ */
+describe('ThemeToggle', () => {
+  // jsdom has no PointerEvent; Base UI's switch builds one on a press (as in ui/primitives.test).
+  beforeAll(() => {
+    if (typeof window.PointerEvent !== 'function') {
+      Object.defineProperty(window, 'PointerEvent', {
+        configurable: true,
+        value: class PointerEvent extends MouseEvent {},
+      });
+    }
+  });
+
+  afterEach(() => {
+    document.documentElement.classList.remove('light', 'dark');
+    delete document.documentElement.dataset.themeChoice;
+    document.cookie = `${THEME_COOKIE}=; Path=/; Max-Age=0`;
+    vi.unstubAllGlobals();
+  });
+
+  test('is a switch named for the night theme, off in the day theme', () => {
+    render(<ThemeToggle initial="light" />);
+
+    const lever = screen.getByRole('switch', { name: 'Тёмная тема' });
+    expect(lever).toHaveAttribute('aria-checked', 'false');
+  });
+
+  test('one press turns the panel dark and keeps it for the next visit', async () => {
+    render(<ThemeToggle initial="light" />);
+
+    await userEvent.click(screen.getByRole('switch', { name: 'Тёмная тема' }));
+
+    expect(document.documentElement).toHaveClass('dark');
+    expect(document.cookie).toContain(`${THEME_COOKIE}=dark`);
+    expect(screen.getByRole('switch', { name: 'Тёмная тема' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+  });
+
+  test('and the next press back to the day theme', async () => {
+    render(<ThemeToggle initial="dark" />);
+
+    await userEvent.click(screen.getByRole('switch', { name: 'Тёмная тема' }));
+
+    expect(document.documentElement).toHaveClass('light');
+    expect(document.documentElement).not.toHaveClass('dark');
+    expect(document.cookie).toContain(`${THEME_COOKIE}=light`);
+  });
+
+  test('as the system says, it stands where the system is: dark at night', () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
+    );
+
+    render(<ThemeToggle initial="system" />);
+
+    expect(screen.getByRole('switch', { name: 'Тёмная тема' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+  });
+
+  test('a choice made in «Настройки» moves the lever too', () => {
+    render(<ThemeToggle initial="light" />);
+
+    act(() => applyThemeChoice(document, 'dark'));
+
+    expect(screen.getByRole('switch', { name: 'Тёмная тема' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+  });
+
+  // Seen on the stand, night of 2026-10-10: folding the menu draws the lever
+  // anew, and it took the page's first theme, not the one chosen since.
+  test('a lever drawn anew after a press shows the theme chosen since', async () => {
+    const { unmount } = render(<ThemeToggle initial="light" />);
+    await userEvent.click(screen.getByRole('switch', { name: 'Тёмная тема' }));
+    unmount();
+
+    render(<ThemeToggle initial="light" isCompact />);
+
+    expect(screen.getByRole('switch', { name: 'Тёмная тема' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+  });
+
+  // Review of 2981da8..db36705: on «as the system» with a dark system the lever
+  // flipped after hydration and slid across on every page load.
+  test('the knob does not slide when the page opens, only when the theme is moved', async () => {
+    render(<ThemeToggle initial="light" />);
+    const knob = document.querySelector('[data-slot="theme-lever-knob"]');
+    expect(knob?.className).not.toContain('transition-transform');
+
+    await userEvent.click(screen.getByRole('switch', { name: 'Тёмная тема' }));
+
+    expect(document.querySelector('[data-slot="theme-lever-knob"]')?.className).toContain(
+      'transition-transform',
+    );
+  });
+
+  // The owner, 10.10: a third smaller than the first lever (32×56, knob 28), in
+  // the same place; the folded strip draws the same lever, only without its name.
+  test('is the small lever, 22×38 with an 18 px knob, open and folded alike', () => {
+    const { unmount } = render(<ThemeToggle initial="light" />);
+    expect(screen.getByRole('switch', { name: 'Тёмная тема' })).toHaveClass('h-5.5', 'w-9.5');
+    expect(document.querySelector('[data-slot="theme-lever-knob"]')).toHaveClass('size-4.5');
+    unmount();
+
+    render(<ThemeToggle initial="light" isCompact />);
+
+    expect(screen.getByRole('switch', { name: 'Тёмная тема' })).toHaveClass('h-5.5', 'w-9.5');
+    expect(document.querySelector('[data-slot="theme-lever-knob"]')).toHaveClass('size-4.5');
+  });
+
+  test('in the folded menu it is the lever alone, still named', () => {
+    render(<ThemeToggle initial="light" isCompact />);
+
+    expect(screen.getByRole('switch', { name: 'Тёмная тема' })).toBeInTheDocument();
+    expect(screen.queryByText('Тёмная тема')).toBeNull();
+  });
+});

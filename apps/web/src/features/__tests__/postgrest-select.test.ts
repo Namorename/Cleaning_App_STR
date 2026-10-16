@@ -7,9 +7,12 @@ import {
   complaintsIn,
   indexSchema,
 } from '../../../../../packages/shared/src/testing/postgrest-select';
+import * as analytics from '../analytics/api';
+import { NO_FILTERS } from '../analytics/schema';
 import * as apartments from '../apartments/api';
 import * as calendar from '../calendar/api';
 import * as chat from '../chat/api';
+import * as knowledge from '../knowledge/api';
 import * as problems from '../problems/api';
 import * as settings from '../settings/api';
 import * as supplies from '../supplies/api';
@@ -77,7 +80,19 @@ const ANY_PROPERTY = 1;
 const ANY_RESERVATION = 1;
 
 /** Every read the panel makes. A reader added without a line here goes unguarded. */
+const ANY_QUERY = {
+  period: { from: '2026-09-01', to: '2026-09-30' },
+  filters: NO_FILTERS,
+  includeTest: false,
+};
+
 const READERS: readonly ((client: never) => Promise<unknown>)[] = [
+  // Analytics reads through RPCs: no select string, the arguments are typed.
+  (client) => analytics.fetchSummary(client, ANY_QUERY),
+  (client) => analytics.fetchTablePage(client, 'cleaningsByProperty', ANY_QUERY, { limit: 25, offset: 0 }),
+  (client) => analytics.fetchSeries(client, ANY_QUERY, 'day'),
+  // The listings the filter offers: a select string, guarded like any other.
+  (client) => analytics.fetchListings(client),
   (client) => apartments.fetchRegistry(client),
   (client) => apartments.fetchProperty(client, ANY_PROPERTY),
   (client) => apartments.fetchOpenCleanings(client),
@@ -88,12 +103,21 @@ const READERS: readonly ((client: never) => Promise<unknown>)[] = [
   (client) => apartments.fetchChecklistOwner(client, ANY_PROPERTY),
   (client) => calendar.fetchCalendarBookings(client, '2026-09-01', '2026-10-01'),
   (client) => chat.fetchMessages(client, ANY_ID),
+  (client) => knowledge.fetchArticles(client),
+  (client) => knowledge.fetchArticle(client, ANY_ID),
+  (client) => knowledge.fetchRevisions(client, ANY_ID),
+  (client) => knowledge.fetchPlaces(client),
+  // The names behind the versions come through an RPC: no select string.
+  (client) => knowledge.fetchPeople(client),
   (client) => problems.fetchProblems(client),
   (client) => problems.fetchProblem(client, ANY_ID),
   (client) => problems.fetchProblemPhotos(client, ANY_ID),
   (client) => problems.fetchFixTaskSteps(client, ANY_ID),
   (client) => problems.fetchStaff(client),
   (client) => settings.fetchHostSettings(client),
+  (client) => settings.fetchMyLanguage(client, ANY_ID),
+  // A write, but it asks its row back: the select it sends is guarded too.
+  (client) => settings.saveMyLanguage(client, ANY_ID, 'ru'),
   (client) => supplies.fetchCatalog(client),
   (client) => supplies.fetchCompanyLanguage(client),
   (client) => supplies.fetchSupplyRequests(client),
@@ -174,6 +198,23 @@ describe('every read the panel makes', () => {
   // notice one select fewer.
   test('includes the office note, read from its own table', () => {
     expect(recorded.some((entry) => entry.table === 'property_internal_notes')).toBe(true);
+  });
+
+  // The knowledge base embeds its places and translations through the
+  // composite keys (host_id, article_id): one path each, so no 300.
+  test('includes the knowledge base: articles with places and translations, and versions', () => {
+    const tables = recorded.map((entry) => entry.table);
+
+    expect(tables).toContain('kb_articles');
+    expect(tables).toContain('kb_article_revisions');
+    expect(
+      recorded.some(
+        (entry) =>
+          entry.table === 'kb_articles' &&
+          entry.select.includes('kb_article_targets') &&
+          entry.select.includes('kb_article_translations'),
+      ),
+    ).toBe(true);
   });
 
   test('names one relationship per embed and only columns the schema has', () => {

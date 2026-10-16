@@ -390,6 +390,102 @@ describe('ProblemsBoard layout', () => {
   });
 });
 
+// The owner, 10.10: «Выполнено» will hold very many tasks in time; the page
+// must not grow too tall, yet the old ones must stay within reach.
+describe('the «Выполнено» column', () => {
+  const HOUR_MS = 60 * 60 * 1000;
+  const MINUTE_MS = 60 * 1000;
+  const at = (origin: number, offset: number) => new Date(origin + offset).toISOString();
+
+  /**
+   * `count` resolved tasks, handed over as the server reads them — newest
+   * reported first — while «Лампа N» was resolved later the larger its N.
+   */
+  function resolvedTasks(count: number): Problem[] {
+    return Array.from({ length: count }, (_, index) => {
+      const n = index + 1;
+      return problemSchema.parse({
+        ...base,
+        id: `77777777-0000-4000-8000-${String(n).padStart(12, '0')}`,
+        title: `Лампа ${n}`,
+        status: 'resolved',
+        created_at: at(Date.UTC(2026, 8, 30), -n * HOUR_MS),
+        resolved_at: at(Date.UTC(2026, 9, 1), n * MINUTE_MS),
+        fix_tasks: [],
+      });
+    });
+  }
+
+  const shownTitles = () =>
+    within(column('Выполнено'))
+      .getAllByRole('article')
+      .map((one) => within(one).getByRole('link').textContent);
+  const lamps = (...numbers: number[]) => numbers.map((n) => `Лампа ${n}`);
+  const range = (from: number, to: number) =>
+    Array.from({ length: from - to + 1 }, (_, index) => from - index);
+
+  test('shows the ten resolved last, newest first, and keeps the whole count in its head', () => {
+    render(<ProblemsBoard problems={resolvedTasks(25)} />);
+
+    expect(shownTitles()).toEqual(lamps(...range(25, 16)));
+    expect(within(column('Выполнено')).getByText('25')).toBeInTheDocument();
+  });
+
+  test('«Показать ещё» says how many more and how many in all, and shows them', async () => {
+    render(<ProblemsBoard problems={resolvedTasks(25)} />);
+
+    const more = within(column('Выполнено')).getByRole('button', {
+      name: 'Показать ещё 15 (всего 25)',
+    });
+    expect(more).toHaveClass('h-11');
+    await userEvent.click(more);
+
+    expect(shownTitles()).toEqual(lamps(...range(25, 1)));
+    expect(within(column('Выполнено')).queryByRole('button', { name: /Показать ещё/ })).toBeNull();
+  });
+
+  test('each press shows twenty more, until all are there', async () => {
+    render(<ProblemsBoard problems={resolvedTasks(45)} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Показать ещё 20 (всего 45)' }));
+    expect(shownTitles()).toHaveLength(30);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Показать ещё 15 (всего 45)' }));
+    expect(shownTitles()).toHaveLength(45);
+    expect(screen.queryByRole('button', { name: /Показать ещё/ })).toBeNull();
+  });
+
+  // From the keyboard: the button is reached and pressed like any other, and
+  // the reader lands on the first card it brought rather than on nothing.
+  test('works from the keyboard, and takes the focus to the first card it showed', async () => {
+    render(<ProblemsBoard problems={resolvedTasks(25)} />);
+
+    within(column('Выполнено'))
+      .getByRole('button', { name: /Показать ещё/ })
+      .focus();
+    await userEvent.keyboard('{Enter}');
+
+    expect(within(card('Лампа 15')).getByRole('link', { name: 'Лампа 15' })).toHaveFocus();
+  });
+
+  test('leaves the other three columns whole', () => {
+    const open = Array.from({ length: 15 }, (_, index) =>
+      problemSchema.parse({
+        ...base,
+        id: `11111111-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+        title: `Кран ${index + 1}`,
+        status: 'open',
+        fix_tasks: [],
+      }),
+    );
+    render(<ProblemsBoard problems={[...open, ...resolvedTasks(12)]} />);
+
+    expect(within(column('Открыто')).getAllByRole('article')).toHaveLength(15);
+    expect(within(column('Открыто')).queryByRole('button', { name: /Показать ещё/ })).toBeNull();
+    expect(shownTitles()).toHaveLength(10);
+  });
+});
+
 // The page's «перенос только мышью»: every move the mouse can make, the card's
 // menu makes too — from the keyboard, on a touch screen.
 describe('ProblemsBoard card menu', () => {

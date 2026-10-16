@@ -2,6 +2,7 @@
 
 import { problemStatusTone } from '@str-ops/shared';
 import Link from 'next/link';
+import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/states';
@@ -13,56 +14,76 @@ import { formatDateTime } from '@/lib/format-date';
 import { serverErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
 
-import { problemChatHref, problemHref } from './address';
+import { problemChatHref, problemHref, type ProblemsAddress } from './address';
+import { EMPTY_PROBLEM_FILTERS, filtersKey, type ProblemFilters } from './filters';
 import { problemPlace, type Problem } from './schema';
+import { ARCHIVE_PAGE, ShowMoreButton, useShowMore } from './show-more';
 import { useUnarchiveProblem } from './use-problems';
 
 interface ProblemsArchiveProps {
   /** Only the archived ones; the caller splits them off. */
   problems: Problem[];
+  /** True while a search or a filter narrows them: empty then says "nothing found". */
+  isFiltered?: boolean;
+  /** What the archive is filtered by: a task's page carries it back. */
+  filters?: ProblemFilters;
 }
 
 /**
  * Problems the manager put away: still openable, one click from coming back.
  * An archived problem may still be written about; its mark leads to the
  * conversation, as in the list.
+ *
+ * The archive only grows, so it shows a page at a time (owner, 10.10), newest
+ * reported first; «Показать ещё» under it brings the older ones.
  */
-export function ProblemsArchive({ problems }: ProblemsArchiveProps) {
+export function ProblemsArchive({
+  problems,
+  isFiltered = false,
+  filters = EMPTY_PROBLEM_FILTERS,
+}: ProblemsArchiveProps) {
   const { t } = useTranslation();
   const language = useLanguage();
   const unread = useUnreadSubjects();
   const unarchive = useUnarchiveProblem();
   const failure = unarchive.isError ? serverErrorText(unarchive.error) : null;
+  const from: ProblemsAddress = { view: 'archive', filters };
+  const listRef = useRef<HTMLUListElement>(null);
+  const paging = useShowMore({
+    total: problems.length,
+    page: ARCHIVE_PAGE,
+    listRef,
+    itemSelector: ':scope > li',
+    resetKey: filtersKey(filters),
+  });
 
   if (problems.length === 0) {
-    return <EmptyState>{t('panel.problems.archive.empty')}</EmptyState>;
+    return (
+      <EmptyState>
+        {isFiltered ? t('panel.problems.emptyFiltered') : t('panel.problems.archive.empty')}
+      </EmptyState>
+    );
   }
 
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">{t('panel.problems.archive.hint')}</p>
-      <ul className="flex flex-col gap-2">
-        {problems.map((problem) => (
+      <ul ref={listRef} className="flex flex-col gap-2">
+        {problems.slice(0, paging.shown).map((problem) => (
           <li
             key={problem.id}
             className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3 text-sm"
           >
             <div className="flex flex-col gap-1">
               <div className="flex flex-wrap items-center gap-2">
-                <Link
-                  href={problemHref(problem.id, 'archive')}
-                  className="font-medium hover:underline"
-                >
+                <Link href={problemHref(problem.id, from)} className="font-medium hover:underline">
                   {problem.title}
                 </Link>
                 <Badge tone={problemStatusTone(problem.status)}>
                   {t(`problems.statuses.${problem.status}`)}
                 </Badge>
                 {unread.problems.has(problem.id) ? (
-                  <UnreadChatLink
-                    href={problemChatHref(problem.id, 'archive')}
-                    about={problem.title}
-                  />
+                  <UnreadChatLink href={problemChatHref(problem.id, from)} about={problem.title} />
                 ) : null}
               </div>
               <span className="text-muted-foreground">
@@ -86,6 +107,7 @@ export function ProblemsArchive({ problems }: ProblemsArchiveProps) {
           </li>
         ))}
       </ul>
+      <ShowMoreButton more={paging.more} total={problems.length} onPress={paging.showMore} />
       {failure !== null ? (
         <p role="alert" className="text-sm text-destructive">
           {failure.text}

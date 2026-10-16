@@ -45,6 +45,8 @@ export {
 } from './i18n';
 // The design system; its own index lists what it exports.
 export * from './design';
+// The knowledge base's text format and which language a reader sees.
+export * from './knowledge';
 
 import type { Tables, Enums } from './database.types';
 

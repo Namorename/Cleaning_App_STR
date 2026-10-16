@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import { Nunito } from 'next/font/google';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import type { ReactNode } from 'react';
 
-import { LANGUAGE_COOKIE, languageFromCookie } from '@/lib/language';
+import { documentLanguage, LANGUAGE_COOKIE, languageFromCookie } from '@/lib/language';
+import { PAGE_LANGUAGE_HEADER } from '@/lib/page-language';
 import { THEME_COOKIE, themeClass, themeFromCookie } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
@@ -32,12 +33,16 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const cookieStore = await cookies();
-  const language = languageFromCookie(cookieStore.get(LANGUAGE_COOKIE)?.value);
+  const languageCookie = cookieStore.get(LANGUAGE_COOKIE)?.value;
+  const language = languageFromCookie(languageCookie);
   const theme = themeFromCookie(cookieStore.get(THEME_COOKIE)?.value);
+  // The public privacy page speaks its address's language, which the proxy
+  // forwards; the panel's own strings stay in the manager's language.
+  const pageLanguage = (await headers()).get(PAGE_LANGUAGE_HEADER);
 
   return (
     <html
-      lang={language}
+      lang={documentLanguage(pageLanguage, languageCookie)}
       className={cn('h-full antialiased', nunito.variable, themeClass(theme))}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">

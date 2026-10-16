@@ -4,17 +4,22 @@ import { useTranslation } from 'react-i18next';
 
 import { useUnreadSubjects } from '@/features/chat/use-chat';
 
+import type { ProblemsAddress } from './address';
 import { BoardColumn } from './board-column';
 import { AssignMoveDialog, ConfirmMoveDialog } from './board-dialogs';
 import { isDragMove } from './board-moves';
-import { BOARD_STATUSES, liveFixTask, type Problem } from './schema';
+import { EMPTY_PROBLEM_FILTERS, type ProblemFilters } from './filters';
+import { BOARD_STATUSES, liveFixTask, type BoardStatus, type Problem } from './schema';
+import { RESOLVED_PAGE } from './show-more';
 import { useBoardDrag } from './use-board-drag';
 import { useBoardMoves, type BoardMoves } from './use-board-moves';
 
 interface ProblemsBoardProps {
   problems: Problem[];
-  /** True while a search narrows the board: an empty column then says "nothing found". */
+  /** True while a search or a filter narrows the board: an empty column then says "nothing found". */
   isFiltered?: boolean;
+  /** What the board is filtered by: a card's page carries it back. */
+  filters?: ProblemFilters;
 }
 
 /**
@@ -35,8 +40,16 @@ interface ProblemsBoardProps {
  *
  * The four columns stay side by side and the board scrolls sideways inside
  * its frame on a narrow screen (decision 14).
+ *
+ * «Выполнено» only grows (owner, 10.10): it shows the tasks resolved last,
+ * newest first, a page at a time; the other three columns show every card.
+ * The filters have narrowed `problems` before any page is cut.
  */
-export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardProps) {
+export function ProblemsBoard({
+  problems,
+  isFiltered = false,
+  filters = EMPTY_PROBLEM_FILTERS,
+}: ProblemsBoardProps) {
   const unread = useUnreadSubjects();
   const moves = useBoardMoves();
   const drag = useBoardDrag({
@@ -44,6 +57,7 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
     onMove: moves.moveTo,
     onRefused: moves.refuse,
   });
+  const from: ProblemsAddress = { view: 'board', filters };
 
   return (
     <div className="flex flex-col gap-3">
@@ -56,7 +70,8 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
             <BoardColumn
               key={status}
               status={status}
-              problems={problems.filter((problem) => problem.status === status)}
+              problems={columnOf(problems, status)}
+              page={status === 'resolved' ? RESOLVED_PAGE : undefined}
               isFiltered={isFiltered}
               isDroppable={drag.isDroppable(status)}
               isOver={drag.isOver(status)}
@@ -64,6 +79,7 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
               drag={drag.card}
               onMove={moves.moveTo}
               unread={unread.problems}
+              from={from}
             />
           ))}
         </div>
@@ -72,6 +88,19 @@ export function ProblemsBoard({ problems, isFiltered = false }: ProblemsBoardPro
       <BoardQuestions moves={moves} />
     </div>
   );
+}
+
+/** When a task was resolved; one without the stamp counts from its report. */
+function resolvedTime(problem: Problem): number {
+  return Date.parse(problem.resolved_at ?? problem.created_at);
+}
+
+/** A column's cards in its order: «Выполнено» newest resolved first, the rest as read. */
+function columnOf(problems: readonly Problem[], status: BoardStatus): Problem[] {
+  const cards = problems.filter((problem) => problem.status === status);
+  return status === 'resolved'
+    ? [...cards].sort((left, right) => resolvedTime(right) - resolvedTime(left))
+    : cards;
 }
 
 /**

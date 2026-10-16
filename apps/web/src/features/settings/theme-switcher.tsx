@@ -1,11 +1,18 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
-import { applyThemeChoice, isThemeChoice, THEME_CHOICES, type ThemeChoice } from '@/lib/theme';
+import {
+  applyThemeChoice,
+  isThemeChoice,
+  onThemeChoice,
+  shownThemeChoice,
+  THEME_CHOICES,
+  type ThemeChoice,
+} from '@/lib/theme';
 
 interface ThemeSwitcherProps {
   /** The choice the server read from the cookie. */
@@ -18,8 +25,14 @@ interface ThemeSwitcherProps {
  */
 export function ThemeSwitcher({ initial }: ThemeSwitcherProps) {
   const { t } = useTranslation();
-  const [choice, setChoice] = useState<ThemeChoice>(initial);
+  // Back on the page after the lever was pressed: the choice made since, not the cached one.
+  const [choice, setChoice] = useState<ThemeChoice>(() =>
+    typeof document === 'undefined' ? initial : shownThemeChoice(document, initial),
+  );
   const id = useId();
+
+  // The lever in the menu is the same setting: what it chooses shows here.
+  useEffect(() => onThemeChoice(document, setChoice), []);
 
   const choose = (value: string) => {
     if (!isThemeChoice(value)) {

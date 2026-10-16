@@ -15,6 +15,18 @@ vi.mock('@/features/workflow/process-section', async () => {
     ProcessSection: () => createElement('input', { 'aria-label': 'Черновик процесса' }),
   };
 });
+vi.mock('../video-settings', async () => {
+  const { createElement } = await import('react');
+  return { VideoSettings: () => createElement('p', null, 'Пределы видео компании') };
+});
+// The language writes the profile; its own test covers it. Here it says whose.
+vi.mock('../language-switcher', async () => {
+  const { createElement } = await import('react');
+  return {
+    LanguageSwitcher: ({ userId }: { userId: string }) =>
+      createElement('p', null, `Язык профиля ${userId}`),
+  };
+});
 
 // The router reads the address jsdom holds; the view writes it through
 // history, which jsdom keeps as a browser would. «Назад» moves it a task later
@@ -36,8 +48,16 @@ import { expectPageTitle } from '@/components/page-header.expect';
 
 import { SettingsView } from '../settings-view';
 
+const USER = '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b';
+
 const view = () => (
-  <SettingsView email="manager.test@example.com" theme="system" onSignOut={vi.fn()} />
+  <SettingsView
+    email="manager.test@example.com"
+    access="full"
+    userId={USER}
+    theme="system"
+    onSignOut={vi.fn()}
+  />
 );
 
 /** The query of the page's address, without its `?`. */
@@ -58,6 +78,40 @@ const section = (name: string) => screen.queryByRole('region', { name });
 
 beforeEach(() => {
   window.history.replaceState(null, '', '/settings');
+});
+
+// The owner's decision of 2026-10-16: the head technician reaches the panel
+// for the knowledge base; of the settings, only his own are his.
+describe('the head technician’s settings', () => {
+  const headView = () => (
+    <SettingsView
+      email="head.test@example.com"
+      userId={USER}
+      theme="system"
+      access="knowledge"
+      onSignOut={vi.fn()}
+    />
+  );
+
+  test('lists his account and the look, not the company’s', () => {
+    render(headView());
+
+    expect(within(submenu()).getAllByRole('link').map((link) => link.textContent)).toEqual([
+      'Аккаунт',
+      'Оформление',
+    ]);
+    expect(screen.queryByText('Переключатели компании')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Черновик процесса')).not.toBeInTheDocument();
+  });
+
+  test('a link to a company section opens his account instead', () => {
+    window.history.replaceState(null, '', '/settings?section=company');
+
+    render(headView());
+
+    expect(section('Аккаунт')).toHaveTextContent('Вы вошли как head.test@example.com.');
+    expect(section('Компания')).toBeNull();
+  });
 });
 
 describe('the page', () => {
@@ -92,6 +146,17 @@ describe('the page', () => {
     expect(section('Процесс')).toBeNull();
   });
 
+  // The language is the person's, kept in her profile: it belongs to the
+  // account, beside the way out, not to the look of this one browser.
+  test('the account holds the language of the signed-in person, above the way out', () => {
+    render(view());
+
+    const account = section('Аккаунт') as HTMLElement;
+    const language = within(account).getByText(`Язык профиля ${USER}`);
+    const signOut = within(account).getByRole('button', { name: 'Выйти' });
+    expect(language.compareDocumentPosition(signOut)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
   test('the address names the section: it is open and its link marked', () => {
     window.history.replaceState(null, '', '/settings?section=company');
 
@@ -112,6 +177,19 @@ describe('the page', () => {
     render(view());
 
     expect(within(section('Оформление') as HTMLElement).getByLabelText('Тема')).toBeInTheDocument();
+  });
+
+  // docs/tech-plan.md, 9: «Настройки → Процесс → Видео».
+  test('the video of the company is set in the process, after its steps', () => {
+    window.history.replaceState(null, '', '/settings?section=process');
+
+    render(view());
+
+    const process = section('Процесс') as HTMLElement;
+    const steps = within(process).getByLabelText('Черновик процесса');
+    const video = within(process).getByText('Пределы видео компании');
+    expect(steps.compareDocumentPosition(video) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(section('Компания')).toBeNull();
   });
 
   test('a section the panel does not know opens the account', () => {

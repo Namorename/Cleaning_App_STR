@@ -365,6 +365,198 @@ export type Database = {
         }
         Relationships: []
       }
+      kb_article_revisions: {
+        Row: {
+          article_id: string
+          body: string
+          created_at: string
+          edited_by: string | null
+          host_id: string
+          language: Database["public"]["Enums"]["app_language"]
+          rev: number
+          title: string
+          translations: Json
+        }
+        Insert: {
+          article_id: string
+          body: string
+          created_at?: string
+          edited_by?: string | null
+          host_id: string
+          language: Database["public"]["Enums"]["app_language"]
+          rev: number
+          title: string
+          translations?: Json
+        }
+        Update: {
+          article_id?: string
+          body?: string
+          created_at?: string
+          edited_by?: string | null
+          host_id?: string
+          language?: Database["public"]["Enums"]["app_language"]
+          rev?: number
+          title?: string
+          translations?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kb_article_revisions_edited_by_fkey"
+            columns: ["edited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kb_article_revisions_host_id_article_id_fkey"
+            columns: ["host_id", "article_id"]
+            isOneToOne: false
+            referencedRelation: "kb_articles"
+            referencedColumns: ["host_id", "id"]
+          },
+        ]
+      }
+      kb_article_targets: {
+        Row: {
+          article_id: string
+          host_id: string
+          property_id: number
+        }
+        Insert: {
+          article_id: string
+          host_id: string
+          property_id: number
+        }
+        Update: {
+          article_id?: string
+          host_id?: string
+          property_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kb_article_targets_host_id_article_id_fkey"
+            columns: ["host_id", "article_id"]
+            isOneToOne: false
+            referencedRelation: "kb_articles"
+            referencedColumns: ["host_id", "id"]
+          },
+          {
+            foreignKeyName: "kb_article_targets_host_id_property_id_fkey"
+            columns: ["host_id", "property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["host_id", "id"]
+          },
+        ]
+      }
+      kb_article_translations: {
+        Row: {
+          article_id: string
+          body: string
+          host_id: string
+          language: Database["public"]["Enums"]["app_language"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          article_id: string
+          body?: string
+          host_id: string
+          language: Database["public"]["Enums"]["app_language"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          article_id?: string
+          body?: string
+          host_id?: string
+          language?: Database["public"]["Enums"]["app_language"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kb_article_translations_host_id_article_id_fkey"
+            columns: ["host_id", "article_id"]
+            isOneToOne: false
+            referencedRelation: "kb_articles"
+            referencedColumns: ["host_id", "id"]
+          },
+        ]
+      }
+      kb_articles: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          host_id: string
+          id: string
+          language: Database["public"]["Enums"]["app_language"]
+          published_at: string | null
+          rev: number
+          rev_stamp: string | null
+          scope: Database["public"]["Enums"]["kb_scope"]
+          status: Database["public"]["Enums"]["kb_status"]
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          host_id: string
+          id: string
+          language: Database["public"]["Enums"]["app_language"]
+          published_at?: string | null
+          rev?: number
+          rev_stamp?: string | null
+          scope: Database["public"]["Enums"]["kb_scope"]
+          status?: Database["public"]["Enums"]["kb_status"]
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          host_id?: string
+          id?: string
+          language?: Database["public"]["Enums"]["app_language"]
+          published_at?: string | null
+          rev?: number
+          rev_stamp?: string | null
+          scope?: Database["public"]["Enums"]["kb_scope"]
+          status?: Database["public"]["Enums"]["kb_status"]
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kb_articles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kb_articles_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kb_articles_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       problem_events: {
         Row: {
           actor_id: string | null
@@ -1177,6 +1369,68 @@ export type Database = {
           },
         ]
       }
+      task_events: {
+        Row: {
+          actor_id: string | null
+          at: string
+          cause: string | null
+          host_id: string
+          id: number
+          kind: Database["public"]["Enums"]["task_event_kind"]
+          params: Json
+          task_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          at?: string
+          cause?: string | null
+          host_id: string
+          id?: never
+          kind: Database["public"]["Enums"]["task_event_kind"]
+          params?: Json
+          task_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          at?: string
+          cause?: string | null
+          host_id?: string
+          id?: never
+          kind?: Database["public"]["Enums"]["task_event_kind"]
+          params?: Json
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_events_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "expired_tasks_review"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_media: {
         Row: {
           byte_size: number
@@ -1919,6 +2173,256 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      analytics_checkout_rows: {
+        Args: {
+          p_from: string
+          p_hide_archived: boolean
+          p_host: string
+          p_include_test: boolean
+          p_property_ids: number[]
+          p_to: string
+        }
+        Returns: {
+          departure_date: string
+          listing_id: number
+          reservation_id: number
+          rooms: number
+        }[]
+      }
+      analytics_checkouts_by_property: {
+        Args: {
+          p_assignee_ids?: string[]
+          p_from: string
+          p_hide_archived?: boolean
+          p_include_test?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_priorities?: Database["public"]["Enums"]["problem_priority"][]
+          p_problem_statuses?: Database["public"]["Enums"]["problem_status"][]
+          p_property_ids?: number[]
+          p_task_statuses?: Database["public"]["Enums"]["task_status"][]
+          p_to: string
+        }
+        Returns: {
+          available_nights: number
+          checkouts: number
+          listing_id: number
+          listing_name: string
+          occupancy: number
+          occupied_nights: number
+          rooms_released: number
+          total_count: number
+        }[]
+      }
+      analytics_cleaning_rows: {
+        Args: {
+          p_assignee_ids: string[]
+          p_from: string
+          p_hide_archived: boolean
+          p_host: string
+          p_include_test: boolean
+          p_property_ids: number[]
+          p_task_statuses: Database["public"]["Enums"]["task_status"][]
+          p_to: string
+        }
+        Returns: {
+          assignee_id: string
+          completed_by: string
+          done_day: string
+          has_photo: boolean
+          listing_id: number
+          minutes: number
+          scheduled_date: string
+          status: Database["public"]["Enums"]["task_status"]
+          task_id: string
+          type: Database["public"]["Enums"]["task_type"]
+        }[]
+      }
+      analytics_cleanings_by_cleaner: {
+        Args: {
+          p_assignee_ids?: string[]
+          p_from: string
+          p_hide_archived?: boolean
+          p_include_test?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_priorities?: Database["public"]["Enums"]["problem_priority"][]
+          p_problem_statuses?: Database["public"]["Enums"]["problem_status"][]
+          p_property_ids?: number[]
+          p_task_statuses?: Database["public"]["Enums"]["task_status"][]
+          p_to: string
+        }
+        Returns: {
+          done: number
+          done_midstay: number
+          full_name: string
+          listings: number
+          minutes_avg: number
+          minutes_median: number
+          person_id: string
+          photo_share: number
+          planned: number
+          total_count: number
+        }[]
+      }
+      analytics_cleanings_by_property: {
+        Args: {
+          p_assignee_ids?: string[]
+          p_from: string
+          p_hide_archived?: boolean
+          p_include_test?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_priorities?: Database["public"]["Enums"]["problem_priority"][]
+          p_problem_statuses?: Database["public"]["Enums"]["problem_status"][]
+          p_property_ids?: number[]
+          p_task_statuses?: Database["public"]["Enums"]["task_status"][]
+          p_to: string
+        }
+        Returns: {
+          cancelled: number
+          done: number
+          done_midstay: number
+          expired: number
+          listing_id: number
+          listing_name: string
+          minutes_avg: number
+          minutes_median: number
+          photo_share: number
+          planned: number
+          total_count: number
+        }[]
+      }
+      analytics_guard: {
+        Args: { p_from: string; p_to: string }
+        Returns: string
+      }
+      analytics_is_test_listing: { Args: { p_id: number }; Returns: boolean }
+      analytics_occupancy_rows: {
+        Args: {
+          p_from: string
+          p_host: string
+          p_include_test: boolean
+          p_property_ids: number[]
+          p_to: string
+        }
+        Returns: {
+          available_nights: number
+          listing_id: number
+          occupied_nights: number
+        }[]
+      }
+      analytics_problem_rows: {
+        Args: {
+          p_assignee_ids: string[]
+          p_cancelled: boolean
+          p_from: string
+          p_hide_archived: boolean
+          p_host: string
+          p_include_test: boolean
+          p_priorities: Database["public"]["Enums"]["problem_priority"][]
+          p_problem_statuses: Database["public"]["Enums"]["problem_status"][]
+          p_property_ids: number[]
+          p_to: string
+        }
+        Returns: {
+          archived_day: string
+          cancelled_day: string
+          created_day: string
+          hours_to_resolve: number
+          listing_id: number
+          problem_id: string
+          resolved_day: string
+          status: Database["public"]["Enums"]["problem_status"]
+          urgency: number
+        }[]
+      }
+      analytics_problems_by_property: {
+        Args: {
+          p_assignee_ids?: string[]
+          p_from: string
+          p_hide_archived?: boolean
+          p_include_test?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_priorities?: Database["public"]["Enums"]["problem_priority"][]
+          p_problem_statuses?: Database["public"]["Enums"]["problem_status"][]
+          p_property_ids?: number[]
+          p_task_statuses?: Database["public"]["Enums"]["task_status"][]
+          p_to: string
+        }
+        Returns: {
+          created: number
+          hours_to_resolve_avg: number
+          listing_id: number
+          listing_name: string
+          open_end: number
+          resolved: number
+          total_count: number
+          urgency_avg: number
+        }[]
+      }
+      analytics_problems_by_technician: {
+        Args: {
+          p_assignee_ids?: string[]
+          p_from: string
+          p_hide_archived?: boolean
+          p_include_test?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_priorities?: Database["public"]["Enums"]["problem_priority"][]
+          p_problem_statuses?: Database["public"]["Enums"]["problem_status"][]
+          p_property_ids?: number[]
+          p_task_statuses?: Database["public"]["Enums"]["task_status"][]
+          p_to: string
+        }
+        Returns: {
+          full_name: string
+          hours_to_resolve_avg: number
+          person_id: string
+          problems_resolved: number
+          repairs_done: number
+          repairs_open: number
+          total_count: number
+          work_minutes_avg: number
+        }[]
+      }
+      analytics_series: {
+        Args: {
+          p_assignee_ids?: string[]
+          p_bucket?: string
+          p_from: string
+          p_hide_archived?: boolean
+          p_include_test?: boolean
+          p_priorities?: Database["public"]["Enums"]["problem_priority"][]
+          p_problem_statuses?: Database["public"]["Enums"]["problem_status"][]
+          p_property_ids?: number[]
+          p_task_statuses?: Database["public"]["Enums"]["task_status"][]
+          p_to: string
+        }
+        Returns: {
+          bucket: string
+          checkouts: number
+          cleanings_done: number
+          cleanings_planned: number
+          problems_created: number
+          problems_resolved: number
+        }[]
+      }
+      analytics_summary: {
+        Args: {
+          p_assignee_ids?: string[]
+          p_from: string
+          p_hide_archived?: boolean
+          p_include_test?: boolean
+          p_priorities?: Database["public"]["Enums"]["problem_priority"][]
+          p_problem_statuses?: Database["public"]["Enums"]["problem_status"][]
+          p_property_ids?: number[]
+          p_task_statuses?: Database["public"]["Enums"]["task_status"][]
+          p_to: string
+        }
+        Returns: Json
+      }
       archive_problem: {
         Args: { p_id: string }
         Returns: {
@@ -2230,6 +2734,53 @@ export type Database = {
             Returns: boolean
           }
         | { Args: { guest_name: string }; Returns: boolean }
+      kb_article_for_writer: {
+        Args: { p_id: string }
+        Returns: {
+          body: string
+          created_at: string
+          created_by: string | null
+          host_id: string
+          id: string
+          language: Database["public"]["Enums"]["app_language"]
+          published_at: string | null
+          rev: number
+          rev_stamp: string | null
+          scope: Database["public"]["Enums"]["kb_scope"]
+          status: Database["public"]["Enums"]["kb_status"]
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "kb_articles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      kb_assert_publishable: {
+        Args: {
+          p_body: string
+          p_places: number
+          p_scope: Database["public"]["Enums"]["kb_scope"]
+        }
+        Returns: undefined
+      }
+      kb_checked_translations: {
+        Args: {
+          p_language: Database["public"]["Enums"]["app_language"]
+          p_translations: Json
+        }
+        Returns: Json
+      }
+      kb_reader_property_ids: { Args: never; Returns: number[] }
+      kb_snapshot: { Args: { p_article: string }; Returns: undefined }
+      kb_staff_article_ids: { Args: never; Returns: string[] }
+      kb_write_translations: {
+        Args: { p_article: string; p_host: string; p_translations: Json }
+        Returns: undefined
+      }
       mark_task_media_purged: { Args: { p_ids: string[] }; Returns: number }
       mark_thread_read: {
         Args: { p_thread_id: string; p_up_to?: string }
@@ -2629,6 +3180,35 @@ export type Database = {
         }
         Returns: string
       }
+      restore_kb_revision: {
+        Args: {
+          p_article_id: string
+          p_expected_updated_at?: string
+          p_rev: number
+        }
+        Returns: {
+          body: string
+          created_at: string
+          created_by: string | null
+          host_id: string
+          id: string
+          language: Database["public"]["Enums"]["app_language"]
+          published_at: string | null
+          rev: number
+          rev_stamp: string | null
+          scope: Database["public"]["Enums"]["kb_scope"]
+          status: Database["public"]["Enums"]["kb_status"]
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "kb_articles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       review_supply_request: {
         Args: {
           p_id: string
@@ -2655,6 +3235,40 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "supply_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      save_kb_article: {
+        Args: {
+          p_body: string
+          p_expected_updated_at?: string
+          p_id: string
+          p_language: Database["public"]["Enums"]["app_language"]
+          p_property_ids: number[]
+          p_scope: Database["public"]["Enums"]["kb_scope"]
+          p_title: string
+          p_translations: Json
+        }
+        Returns: {
+          body: string
+          created_at: string
+          created_by: string | null
+          host_id: string
+          id: string
+          language: Database["public"]["Enums"]["app_language"]
+          published_at: string | null
+          rev: number
+          rev_stamp: string | null
+          scope: Database["public"]["Enums"]["kb_scope"]
+          status: Database["public"]["Enums"]["kb_status"]
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "kb_articles"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -2845,6 +3459,34 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "chat_messages"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_kb_article_status: {
+        Args: {
+          p_id: string
+          p_status: Database["public"]["Enums"]["kb_status"]
+        }
+        Returns: {
+          body: string
+          created_at: string
+          created_by: string | null
+          host_id: string
+          id: string
+          language: Database["public"]["Enums"]["app_language"]
+          published_at: string | null
+          rev: number
+          rev_stamp: string | null
+          scope: Database["public"]["Enums"]["kb_scope"]
+          status: Database["public"]["Enums"]["kb_status"]
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "kb_articles"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -3269,6 +3911,8 @@ export type Database = {
       app_role: "cleaner" | "tech" | "head_tech" | "manager" | "admin"
       assignment_mode: "auto" | "claim"
       chat_thread_kind: "task" | "problem" | "direct"
+      kb_scope: "company" | "building" | "properties"
+      kb_status: "draft" | "published" | "archived"
       media_kind: "photo" | "video"
       media_source: "camera" | "gallery" | "unknown"
       problem_event_kind:
@@ -3316,6 +3960,19 @@ export type Database = {
         | "fulfilled"
         | "rejected"
       supply_unit: "pcs" | "pack" | "l" | "kg" | "roll"
+      task_event_kind:
+        | "created"
+        | "assigned"
+        | "reassigned"
+        | "unassigned"
+        | "accepted"
+        | "started"
+        | "completed"
+        | "cancelled"
+        | "expired"
+        | "moved"
+        | "reopened"
+        | "status_changed"
       task_status:
         | "unassigned"
         | "assigned"
@@ -3472,6 +4129,8 @@ export const Constants = {
       app_role: ["cleaner", "tech", "head_tech", "manager", "admin"],
       assignment_mode: ["auto", "claim"],
       chat_thread_kind: ["task", "problem", "direct"],
+      kb_scope: ["company", "building", "properties"],
+      kb_status: ["draft", "published", "archived"],
       media_kind: ["photo", "video"],
       media_source: ["camera", "gallery", "unknown"],
       problem_event_kind: [
@@ -3523,6 +4182,20 @@ export const Constants = {
         "rejected",
       ],
       supply_unit: ["pcs", "pack", "l", "kg", "roll"],
+      task_event_kind: [
+        "created",
+        "assigned",
+        "reassigned",
+        "unassigned",
+        "accepted",
+        "started",
+        "completed",
+        "cancelled",
+        "expired",
+        "moved",
+        "reopened",
+        "status_changed",
+      ],
       task_status: [
         "unassigned",
         "assigned",

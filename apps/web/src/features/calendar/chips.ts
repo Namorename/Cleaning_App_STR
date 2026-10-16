@@ -205,22 +205,13 @@ export function cellTasks<T extends TreeRow>(
   return isFolded ? [...found].sort(byWindow) : [...found];
 }
 
-const DOTS_PER_CELL = 2;
 /** A chip read in full needs about a week's column (§4: about 130 px). */
 const FULL_CHIP_WIDTH = 130;
-/**
- * A column narrower than a whole chip shows dots (§4: 30 days, about 30 px).
- * Columns stretch to the screen since 7.5b, and a chip squeezed below its
- * width read as its first letters (the branch preflight of 2026-09-27).
- */
-const DOT_BELOW = FULL_CHIP_WIDTH;
 /**
  * A compact chip is the status dot and a name (the owner's request of
  * 2026-09-26): half a week's column, so fifteen days still read a name.
  */
 const COMPACT_CHIP_WIDTH = 64;
-/** Compact, a column narrower than one compact chip shows dots. */
-const COMPACT_DOT_BELOW = COMPACT_CHIP_WIDTH;
 
 /** How a chip reads: in full, or the status and the person alone. */
 export const CHIP_VIEWS = ['full', 'compact'] as const;
@@ -231,19 +222,28 @@ export function isChipView(value: unknown): value is ChipView {
 }
 
 export interface ChipCapacity {
-  mode: 'dot' | 'full' | 'compact';
+  /** The view the manager chose: the same at every depth. */
+  mode: ChipView;
   count: number;
+  /** The column is narrower than one whole chip: its words are cut short. */
+  isTight: boolean;
 }
 
+/**
+ * How the chips of a cell read, by the width of its day and the view chosen.
+ * The depth changes only the width and so the ellipsis: a chip below its
+ * whole width is cut short, never a bare dot. Full chips used to fall to dots
+ * below a week's column and compact ones only below their own, so at fifteen
+ * days «Полный» showed dots where «Компактный» showed names (the owner's
+ * report of 2026-10-12).
+ */
 export function chipCapacity(dayWidth: number, view: ChipView = 'full'): ChipCapacity {
-  if (view === 'compact') {
-    return dayWidth < COMPACT_DOT_BELOW
-      ? { mode: 'dot', count: DOTS_PER_CELL }
-      : { mode: 'compact', count: Math.max(1, Math.floor(dayWidth / COMPACT_CHIP_WIDTH)) };
-  }
-  return dayWidth < DOT_BELOW
-    ? { mode: 'dot', count: DOTS_PER_CELL }
-    : { mode: 'full', count: Math.max(1, Math.floor(dayWidth / FULL_CHIP_WIDTH)) };
+  const chipWidth = view === 'compact' ? COMPACT_CHIP_WIDTH : FULL_CHIP_WIDTH;
+  return {
+    mode: view,
+    count: Math.max(1, Math.floor(dayWidth / chipWidth)),
+    isTight: dayWidth < chipWidth,
+  };
 }
 
 const collator = new Intl.Collator(undefined, { sensitivity: 'base' });

@@ -1,6 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@str-ops/shared';
 
+import {
+  groupByStep,
+  STEP_MEDIA_COLUMNS,
+  stepMediaListSchema,
+  type StepMedia,
+} from '@/features/media/schema';
 import { cancelLiveTask } from '@/lib/cancel-live-task';
 import { fetchAllPages } from '@/lib/fetch-all-pages';
 import { todayIso } from '@/lib/format-date';
@@ -299,22 +305,13 @@ export interface TaskStep {
   waived_at: string | null;
 }
 
-export interface TaskMedia {
-  id: string;
-  step_id: string | null;
-  storage_path: string;
-  created_at: string;
-  /** What the app said about where the file came from. A claim, not a proof. */
-  source: 'camera' | 'gallery' | 'unknown';
-}
-
 export interface TaskWork {
   steps: TaskStep[];
-  /** The photos taken on the task, keyed by the step they belong to. */
-  photosByStep: Record<string, WithUrl<TaskMedia>[]>;
+  /** The photos and videos taken on the task, keyed by the step they belong to. */
+  mediaByStep: Record<string, WithUrl<StepMedia>[]>;
 }
 
-/** What the cleaner actually did: the steps she was given, and what she photographed. */
+/** What the cleaner actually did: the steps she was given, and what she photographed or filmed. */
 export async function fetchTaskWork(client: Client, taskId: string): Promise<TaskWork> {
   const [stepsResult, mediaResult] = await Promise.all([
     client
@@ -326,7 +323,7 @@ export async function fetchTaskWork(client: Client, taskId: string): Promise<Tas
       .order('sort_order', { ascending: true }),
     client
       .from('task_media')
-      .select('id, step_id, storage_path, created_at, source')
+      .select(STEP_MEDIA_COLUMNS)
       .eq('task_id', taskId)
       .is('deleted_at', null)
       .is('purged_at', null)
@@ -340,15 +337,8 @@ export async function fetchTaskWork(client: Client, taskId: string): Promise<Tas
     throw mediaResult.error;
   }
 
-  const photos = await withSignedUrls(client, (mediaResult.data ?? []) as TaskMedia[]);
-  const photosByStep = photos.reduce<Record<string, WithUrl<TaskMedia>[]>>((groups, photo) => {
-    if (photo.step_id === null) {
-      return groups;
-    }
-    return { ...groups, [photo.step_id]: [...(groups[photo.step_id] ?? []), photo] };
-  }, {});
-
-  return { steps: (stepsResult.data ?? []) as TaskStep[], photosByStep };
+  const media = await withSignedUrls(client, stepMediaListSchema.parse(mediaResult.data ?? []));
+  return { steps: (stepsResult.data ?? []) as TaskStep[], mediaByStep: groupByStep(media) };
 }
 
 /**

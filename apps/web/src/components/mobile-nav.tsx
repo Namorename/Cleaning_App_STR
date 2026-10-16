@@ -6,11 +6,18 @@ import { useTranslation } from 'react-i18next';
 
 import { Logo } from '@/components/logo';
 import { NavMenu } from '@/components/nav-menu';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
+import type { PanelAccess } from '@/lib/session';
+import type { ThemeChoice } from '@/lib/theme';
 
 interface MobileNavProps {
   email: string;
+  /** The office's whole menu, or the knowledge base alone (the layout reads it from the role). */
+  access?: PanelAccess;
+  /** The theme chosen: the `theme` cookie, read by the layout (the lever, night of 2026-10-10). */
+  theme?: ThemeChoice;
 }
 
 /**
@@ -23,7 +30,7 @@ interface MobileNavProps {
  * closes it as well. A dot on the closed button says a conversation waits;
  * the counts themselves are on the sections inside.
  */
-export function MobileNav({ email }: MobileNavProps) {
+export function MobileNav({ email, access = 'full', theme = 'system' }: MobileNavProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const unread = useUnreadSubjects();
@@ -51,7 +58,8 @@ export function MobileNav({ email }: MobileNavProps) {
         >
           <SheetTitle className="sr-only">{t('panel.nav.label')}</SheetTitle>
           <Logo alt={t('panel.title')} className="h-10 shrink-0" />
-          <NavMenu onNavigate={() => setIsOpen(false)} />
+          <NavMenu access={access} onNavigate={() => setIsOpen(false)} />
+          <ThemeToggle initial={theme} />
           <span className="truncate text-xs text-muted-foreground" title={email}>
             {email}
           </span>

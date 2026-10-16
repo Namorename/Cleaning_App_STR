@@ -134,19 +134,21 @@ function combineMonths<T extends { id: string | number }>(
 }
 
 /**
- * A layer of the window's days, read month by month. The month on either
- * side is read ahead, because the next arrow lands there.
+ * A layer of the days shown, read month by month. The month on either side
+ * of `aheadOf` — the window — is read ahead, because the next arrow lands
+ * there; null reads nothing ahead. The past shown before the window (block 7)
+ * is read, but not ahead of it: the month before it waits for its chunk.
  */
 function useMonthLayer<T extends { id: string | number }>(
   query: MonthQuery<T>,
   client: Client | null,
   isStand: boolean,
   days: readonly string[],
-  isReadAhead = true,
+  aheadOf: readonly string[] | null,
 ): MonthLayer<T> {
   const queryClient = useQueryClient();
   const months = monthsOf(days);
-  const ahead = isReadAhead ? neighbourMonths(months).join(' ') : '';
+  const ahead = aheadOf === null ? '' : neighbourMonths(monthsOf(aheadOf)).join(' ');
 
   const layer = useQueries({
     queries: months.map((month) => query(client, isStand, month)),
@@ -165,22 +167,24 @@ function useMonthLayer<T extends { id: string | number }>(
   return layer;
 }
 
-/** The live bookings of the window's days (7.3). */
+/** The live bookings of the days shown (7.3); read ahead of `aheadOf`, the window. */
 export function useCalendarBookings(
   client: Client | null,
   isStand: boolean,
   days: readonly string[],
+  aheadOf: readonly string[] = days,
 ): BookingsLayer {
-  return useMonthLayer(bookingsQuery, client, isStand, days);
+  return useMonthLayer(bookingsQuery, client, isStand, days, aheadOf);
 }
 
-/** The live and done tasks of the window's days (7.4). */
+/** The live and done tasks of the days shown (7.4); read ahead of `aheadOf`, the window. */
 export function useCalendarTasks(
   client: Client | null,
   isStand: boolean,
   days: readonly string[],
+  aheadOf: readonly string[] = days,
 ): TasksLayer {
-  return useMonthLayer(tasksQuery, client, isStand, days);
+  return useMonthLayer(tasksQuery, client, isStand, days, aheadOf);
 }
 
 /**
@@ -231,7 +235,7 @@ export function useCalendarExpired(
   isStand: boolean,
   days: readonly string[],
 ): MonthLayer<ExpiredTask> {
-  return useMonthLayer(expiredQuery, client, isStand, days, false);
+  return useMonthLayer(expiredQuery, client, isStand, days, null);
 }
 
 /**
@@ -244,7 +248,35 @@ export function useCalendarCancelled(
   days: readonly string[],
   isShown: boolean,
 ): TasksLayer {
-  return useMonthLayer(cancelledQuery, isShown ? client : null, isStand, days, false);
+  return useMonthLayer(cancelledQuery, isShown ? client : null, isStand, days, null);
+}
+
+/**
+ * Reads a chunk of the past before it is shown (the owner's word of
+ * 2026-10-10, block 7): every layer its days draw — the bars, the live and the
+ * done, what never happened, and the cancelled, which the past shows whatever
+ * their switch says — for the months the chunk touches, into the same cache
+ * the layers read from. What is already held is not asked again; one read
+ * that fails fails the chunk, and nothing of it is shown.
+ */
+export function useCalendarPastLoader(client: Client | null, isStand: boolean) {
+  const queryClient = useQueryClient();
+
+  const ensure = <T>(query: MonthQuery<T>, month: string) => {
+    const { queryKey, queryFn, staleTime } = query(client, isStand, month);
+    return queryClient.ensureQueryData({ queryKey, queryFn, staleTime });
+  };
+
+  return async (days: readonly string[]): Promise<void> => {
+    await Promise.all(
+      monthsOf(days).flatMap((month) => [
+        ensure(bookingsQuery, month),
+        ensure(tasksQuery, month),
+        ensure(expiredQuery, month),
+        ensure(cancelledQuery, month),
+      ]),
+    );
+  };
 }
 
 /**

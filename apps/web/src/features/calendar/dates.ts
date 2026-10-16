@@ -74,6 +74,40 @@ export function openingWindow(
 }
 
 /**
+ * How far back the past reaches (the owner's word of 2026-10-10, block 7):
+ * sixty days before today, by the calendar's own today.
+ */
+export const PAST_LIMIT_DAYS = 60;
+
+/**
+ * The past comes in chunks of two weeks. Shorter than any month, so a chunk
+ * needs at most one month the screen does not hold yet — the data is read by
+ * calendar month (§1); two weeks of the default week is a screen and more for
+ * one press; and the sixty days are five presses at most.
+ */
+export const PAST_CHUNK_DAYS = 14;
+
+/** The earliest day the past reaches. */
+export function pastLimit(today: string): string {
+  return addDays(today, -PAST_LIMIT_DAYS);
+}
+
+/**
+ * The days of the next chunk of the past before `first`, the first day shown,
+ * oldest first: two weeks, fewer near the limit, none at it — nor when the
+ * window itself starts before it, nor after today: the past is what lies
+ * before today, and a window moved ahead has none next to it (final review
+ * of 2026-10-10).
+ */
+export function pastChunk(first: string, today: string): string[] {
+  if (first > today) {
+    return [];
+  }
+  const count = Math.min(PAST_CHUNK_DAYS, Math.max(0, daysBetween(pastLimit(today), first)));
+  return Array.from({ length: count }, (_, at) => addDays(first, at - count));
+}
+
+/**
  * The calendar months the window touches, `YYYY-MM` — what the data is keyed
  * by, so the arrows reuse what they have already read (§1, «Окно — месяцами»).
  */
@@ -106,8 +140,8 @@ export function neighbourMonths(months: readonly string[]): string[] {
 
 /**
  * The least width of a day column, by depth. A week reads a chip in full
- * (about 130 px, §4); a month shows a dot per chip in about 30 px, and
- * scrolls sideways only when thirty of those do not fit.
+ * (about 130 px, §4); a month cuts a chip short in about 30 px (chips.ts,
+ * `chipCapacity`), and scrolls sideways only when thirty of those do not fit.
  */
 export const DAY_WIDTH: Readonly<Record<Depth, number>> = {
   3: 200,

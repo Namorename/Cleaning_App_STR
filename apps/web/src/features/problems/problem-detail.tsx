@@ -45,14 +45,15 @@ interface ProblemDetailProps {
 /**
  * The problem's card: the report, its photos, the fix and the manager's levers.
  *
- * The address carries the view of «Задания» the task was opened from — «К
- * списку заданий» returns to it — and whether its conversation is open.
+ * The address carries the view of «Задания» the task was opened from, with its
+ * filters — «К списку заданий» returns to it — and whether its conversation is
+ * open.
  */
 export function ProblemDetail({ problemId }: ProblemDetailProps) {
   const { t } = useTranslation();
   const problem = useProblem(problemId);
   const chat = useChatAddress();
-  const backHref = problemsHref(chat.address.view);
+  const backHref = problemsHref(chat.address);
 
   if (problem.isPending) {
     return <LoadingState>{t('panel.problems.loading')}</LoadingState>;
@@ -301,7 +302,7 @@ function ReportPhotos({ problemId }: { problemId: string }) {
   if (photos.isError) {
     return <ErrorState message={t('panel.problems.loadError')} error={photos.error} />;
   }
-  return <ProblemPhotos photos={photos.data} emptyText={t('panel.problems.detail.noPhotos')} />;
+  return <ProblemPhotos media={photos.data} emptyText={t('panel.problems.detail.noPhotos')} />;
 }
 
 type Translate = (key: string, options?: Record<string, string>) => string;

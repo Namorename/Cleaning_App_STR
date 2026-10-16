@@ -9,12 +9,14 @@ import {
   collapseExpired,
   chipCapacity,
   chipGroup,
+  CHIP_VIEWS,
   isBookingChanged,
   matchesChipFilters,
   type BookingsRead,
   offListAssignees,
   tasksByRowDay,
 } from '../chips';
+import { dayWidthFor, DEPTHS } from '../dates';
 import type { CalendarBooking } from '../schema';
 
 /**
@@ -328,25 +330,25 @@ describe('the chips of a cell', () => {
 
 describe('how many chips a cell has room for', () => {
   test('a week reads a chip in full; wider columns take more', () => {
-    expect(chipCapacity(130)).toEqual({ mode: 'full', count: 1 });
-    expect(chipCapacity(200)).toEqual({ mode: 'full', count: 1 });
-    expect(chipCapacity(320)).toEqual({ mode: 'full', count: 2 });
+    expect(chipCapacity(130)).toEqual({ mode: 'full', count: 1, isTight: false });
+    expect(chipCapacity(200)).toEqual({ mode: 'full', count: 1, isTight: false });
+    expect(chipCapacity(320)).toEqual({ mode: 'full', count: 2, isTight: false });
   });
 
-  test('fifteen and thirty days show up to two dots', () => {
-    expect(chipCapacity(64)).toEqual({ mode: 'dot', count: 2 });
-    expect(chipCapacity(32)).toEqual({ mode: 'dot', count: 2 });
+  test('fifteen and thirty days read one chip in full, cut short', () => {
+    expect(chipCapacity(64)).toEqual({ mode: 'full', count: 1, isTight: true });
+    expect(chipCapacity(32)).toEqual({ mode: 'full', count: 1, isTight: true });
   });
 
   test('a compact chip — a dot and a name — takes half a week’s column', () => {
-    expect(chipCapacity(130, 'compact')).toEqual({ mode: 'compact', count: 2 });
-    expect(chipCapacity(200, 'compact')).toEqual({ mode: 'compact', count: 3 });
-    expect(chipCapacity(320, 'compact')).toEqual({ mode: 'compact', count: 5 });
+    expect(chipCapacity(130, 'compact')).toEqual({ mode: 'compact', count: 2, isTight: false });
+    expect(chipCapacity(200, 'compact')).toEqual({ mode: 'compact', count: 3, isTight: false });
+    expect(chipCapacity(320, 'compact')).toEqual({ mode: 'compact', count: 5, isTight: false });
   });
 
-  test('compact, fifteen days read a name; thirty still show dots', () => {
-    expect(chipCapacity(64, 'compact')).toEqual({ mode: 'compact', count: 1 });
-    expect(chipCapacity(32, 'compact')).toEqual({ mode: 'dot', count: 2 });
+  test('compact, fifteen days read a name; thirty read it cut short', () => {
+    expect(chipCapacity(64, 'compact')).toEqual({ mode: 'compact', count: 1, isTight: false });
+    expect(chipCapacity(32, 'compact')).toEqual({ mode: 'compact', count: 1, isTight: true });
   });
 });
 
@@ -438,16 +440,45 @@ describe('the filters and the closed chips', () => {
   });
 });
 
-// The branch preflight of 2026-09-27: stretched columns gave chips too narrow
-// for a name. A chip is drawn only where a whole one fits; below, dots.
-describe('a chip needs its whole width', () => {
-  test("full chips from a week's column up, dots below it", () => {
-    expect(chipCapacity(120)).toEqual({ mode: 'dot', count: 2 });
-    expect(chipCapacity(130)).toEqual({ mode: 'full', count: 1 });
+// The owner's report of 2026-10-12: at fifteen days «Полный» showed dots and
+// «Компактный» names — the views inside out, for full chips fell to dots
+// below a week's column and compact ones only below their own. The view is the
+// manager's at every depth: the depth changes the width and the ellipsis,
+// never a chip for a dot.
+describe('the chosen view holds at every depth', () => {
+  /** The area the days share: unmeasured, a laptop, a desktop, a wide screen. */
+  const SPARES = [0, 760, 1400, 2080];
+
+  test.each(DEPTHS)('%i days read the chips in the view the manager chose', (depth) => {
+    for (const spare of SPARES) {
+      for (const view of CHIP_VIEWS) {
+        expect(chipCapacity(dayWidthFor(depth, spare), view).mode).toBe(view);
+      }
+    }
   });
 
-  test('compact chips from their own width up, dots below it', () => {
-    expect(chipCapacity(56, 'compact')).toEqual({ mode: 'dot', count: 2 });
-    expect(chipCapacity(64, 'compact')).toEqual({ mode: 'compact', count: 1 });
+  test('three days and a week read as they did', () => {
+    expect(chipCapacity(dayWidthFor(3, 0))).toEqual({ mode: 'full', count: 1, isTight: false });
+    expect(chipCapacity(dayWidthFor(3, 0), 'compact')).toEqual({
+      mode: 'compact',
+      count: 3,
+      isTight: false,
+    });
+    expect(chipCapacity(dayWidthFor(7, 0))).toEqual({ mode: 'full', count: 1, isTight: false });
+    expect(chipCapacity(dayWidthFor(7, 0), 'compact')).toEqual({
+      mode: 'compact',
+      count: 2,
+      isTight: false,
+    });
+  });
+
+  test('a column narrower than a whole chip cuts the chip short, in either view', () => {
+    expect(chipCapacity(dayWidthFor(15, 760))).toEqual({ mode: 'full', count: 1, isTight: true });
+    expect(chipCapacity(dayWidthFor(30, 760))).toEqual({ mode: 'full', count: 1, isTight: true });
+    expect(chipCapacity(dayWidthFor(30, 760), 'compact')).toEqual({
+      mode: 'compact',
+      count: 1,
+      isTight: true,
+    });
   });
 });

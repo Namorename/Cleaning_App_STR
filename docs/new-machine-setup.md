@@ -182,7 +182,9 @@ git clone --branch main git@github-namorename:Namorename/Cleaning_App_STR.git "C
    `npx supabase link --project-ref <ref из README.md>`.
 4. **EAS:** `cd apps/mobile`, `npx eas-cli login`, проверка `npx eas-cli whoami`.
 5. **Vercel:** `npx vercel login`; без `apps/web/.vercel/` из бандла —
-   `npx vercel link --cwd apps/web` (проект `cleaning-app-str-web`).
+   `npx vercel link --cwd apps/web` (проект `woom`; до 10.10 назывался
+   `cleaning-app-str-web` — старая привязка с этим именем работает, CLI ищет
+   проект по `projectId`).
    `VERCEL_OIDC_TOKEN` в `apps/web/.env.local` короткоживущий — обновляется
    `npx vercel env pull --cwd apps/web`.
 6. **Claude Code:** `claude`, затем `/login`. Плагины: `/plugin marketplace add
