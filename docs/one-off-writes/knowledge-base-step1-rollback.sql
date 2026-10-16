@@ -19,10 +19,10 @@ do $$
 begin
   perform set_config('lock_timeout', '3s', true);
 
-  drop function public.restore_kb_revision(uuid, integer, integer);
+  drop function public.restore_kb_revision(uuid, integer, timestamptz);
   drop function public.set_kb_article_status(uuid, public.kb_status);
   drop function public.save_kb_article(uuid, public.app_language, text, text, jsonb,
-                                       public.kb_scope, bigint[], integer);
+                                       public.kb_scope, bigint[], timestamptz);
   drop function public.kb_assert_publishable(text, public.kb_scope, integer);
   drop function public.kb_write_translations(uuid, uuid, jsonb);
   drop function public.kb_checked_translations(public.app_language, jsonb);

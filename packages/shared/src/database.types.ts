@@ -3181,7 +3181,11 @@ export type Database = {
         Returns: string
       }
       restore_kb_revision: {
-        Args: { p_article_id: string; p_expected_rev?: number; p_rev: number }
+        Args: {
+          p_article_id: string
+          p_expected_updated_at?: string
+          p_rev: number
+        }
         Returns: {
           body: string
           created_at: string
@@ -3238,7 +3242,7 @@ export type Database = {
       save_kb_article: {
         Args: {
           p_body: string
-          p_expected_rev?: number
+          p_expected_updated_at?: string
           p_id: string
           p_language: Database["public"]["Enums"]["app_language"]
           p_property_ids: number[]

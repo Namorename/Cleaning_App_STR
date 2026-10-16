@@ -47,13 +47,18 @@
 -- are read-only to every client: revoke all, then select. The id of a new
 -- article is minted by the panel, so a save retried after a lost answer finds
 -- its own article instead of writing a second one. A save from a screen older
--- than the article is refused when the screen says which version it showed
--- (p_expected_rev; null asks nothing). An id of another company's article is
--- "not found", never overwritten.
+-- than the article is refused when the screen says which article it showed
+-- (p_expected_updated_at: every write moves updated_at — the text, a
+-- translation, a place, the status; null asks nothing), unless what is stored
+-- is exactly what the same writer sends — her own save, retried. An id of
+-- another company's article is "not found", never overwritten.
 --
 -- Versions are the triggers' work, not the RPCs': whoever writes the text or
 -- a translation — an RPC, a service script — makes a version. One write is
--- one version however many rows it touches: the stamp of a write is the
+-- one version however many rows it touches (two statements sent in one
+-- simple-protocol message, as `db query -f` sends a file, count as one): the
+-- stamp of a write — kept as an md5, so readers learn nothing of the
+-- cluster's transaction counter — is the
 -- transaction and the statement the client sent, and the article keeps the
 -- stamp of the write that made its current version. A change of places or of
 -- status is no new version of the text.
@@ -187,7 +192,7 @@ language plpgsql
 set search_path = ''
 as $$
 declare
-  v_stamp constant text := pg_current_xact_id()::text || '/' || statement_timestamp()::text;
+  v_stamp constant text := md5(pg_current_xact_id()::text || '/' || statement_timestamp()::text);
 begin
   if tg_op = 'INSERT' then
     new.rev := 1;
@@ -215,7 +220,7 @@ set search_path = ''
 as $$
 begin
   if new.rev_stamp is not distinct from
-       pg_current_xact_id()::text || '/' || statement_timestamp()::text then
+       md5(pg_current_xact_id()::text || '/' || statement_timestamp()::text) then
     perform public.kb_snapshot(new.id);
   end if;
   return null;
@@ -230,7 +235,7 @@ language plpgsql
 set search_path = ''
 as $$
 declare
-  v_stamp constant text := pg_current_xact_id()::text || '/' || statement_timestamp()::text;
+  v_stamp constant text := md5(pg_current_xact_id()::text || '/' || statement_timestamp()::text);
   v_article uuid := case when tg_op = 'DELETE' then old.article_id else new.article_id end;
 begin
   update public.kb_articles a
@@ -352,25 +357,25 @@ create policy "office reads every article"
   on public.kb_articles for select
   to authenticated
   using (((select public.is_manager()) or (select public.is_head_tech()))
-         and host_id = public.current_host_id());
+         and host_id = (select public.current_host_id()));
 
 create policy "field staff read the published articles of their places"
   on public.kb_articles for select
   to authenticated
-  using (host_id = public.current_host_id()
+  using (host_id = (select public.current_host_id())
          and id = any (array(select public.kb_staff_article_ids())));
 
 create policy "office reads every place of an article"
   on public.kb_article_targets for select
   to authenticated
   using (((select public.is_manager()) or (select public.is_head_tech()))
-         and host_id = public.current_host_id());
+         and host_id = (select public.current_host_id()));
 
 -- Her own places of an article she reads, not the others it names.
 create policy "field staff read their places of the articles they read"
   on public.kb_article_targets for select
   to authenticated
-  using (host_id = public.current_host_id()
+  using (host_id = (select public.current_host_id())
          and article_id = any (array(select public.kb_staff_article_ids()))
          and property_id = any (array(select public.kb_reader_property_ids())));
 
@@ -378,19 +383,19 @@ create policy "office reads every translation"
   on public.kb_article_translations for select
   to authenticated
   using (((select public.is_manager()) or (select public.is_head_tech()))
-         and host_id = public.current_host_id());
+         and host_id = (select public.current_host_id()));
 
 create policy "field staff read the translations of the articles they read"
   on public.kb_article_translations for select
   to authenticated
-  using (host_id = public.current_host_id()
+  using (host_id = (select public.current_host_id())
          and article_id = any (array(select public.kb_staff_article_ids())));
 
 create policy "office reads every version"
   on public.kb_article_revisions for select
   to authenticated
   using (((select public.is_manager()) or (select public.is_head_tech()))
-         and host_id = public.current_host_id());
+         and host_id = (select public.current_host_id()));
 
 -- ---------- writes ----------
 
@@ -430,7 +435,7 @@ comment on function public.kb_article_for_writer(uuid) is
 create function public.kb_checked_translations(p_language public.app_language, p_translations jsonb)
 returns jsonb
 language plpgsql
-immutable
+stable
 set search_path = ''
 as $$
 declare
@@ -446,7 +451,10 @@ begin
   end if;
 
   for v_language, v_entry in select e.key, e.value from jsonb_each(coalesce(p_translations, '{}'::jsonb)) e loop
-    if v_language not in ('en', 'ru', 'cs') or v_language = p_language::text
+    -- The apps' languages are the enum's: one added there is taken here too.
+    if not exists (select 1 from unnest(enum_range(null::public.app_language)) l
+                   where l::text = v_language)
+       or v_language = p_language::text
        or jsonb_typeof(v_entry) <> 'object'
        or jsonb_typeof(coalesce(v_entry -> 'title', '""'::jsonb)) <> 'string'
        or jsonb_typeof(coalesce(v_entry -> 'body', '""'::jsonb)) <> 'string' then
@@ -539,8 +547,10 @@ create function public.save_kb_article(
   p_translations  jsonb,
   p_scope         public.kb_scope,
   p_property_ids  bigint[],
-  -- The version the screen showed. Null, the default, asks nothing.
-  p_expected_rev  integer default null
+  -- The article as the screen showed it: its updated_at, which every write
+  -- moves — the text, a translation, a place, the status. Null, the default,
+  -- asks nothing.
+  p_expected_updated_at  timestamptz default null
 )
 returns public.kb_articles
 language plpgsql
@@ -625,10 +635,23 @@ begin
         using errcode = 'check_violation', hint = 'serverErrors.kbArticleNotFound';
     end if;
 
-    if p_expected_rev is not null and v_article.rev <> p_expected_rev then
-      raise exception 'Article % is at version %, the screen showed %', p_id, v_article.rev, p_expected_rev
-        using errcode = 'check_violation', hint = 'serverErrors.kbArticleChanged',
-              detail = jsonb_build_object('rev', v_article.rev)::text;
+    if p_expected_updated_at is not null and v_article.updated_at <> p_expected_updated_at then
+      -- The writer's own save, retried after its answer was lost: what is
+      -- stored is what she sends, and it is that save, not a colleague's.
+      if v_article.updated_by is not distinct from v_me
+         and (v_article.language, v_article.title, v_article.body, v_article.scope)
+             = (p_language, v_title, v_body, p_scope)
+         and v_places = array(select t.property_id from public.kb_article_targets t
+                              where t.article_id = p_id order by 1)
+         and v_clean = coalesce((select jsonb_object_agg(t.language::text,
+                                         jsonb_build_object('title', t.title, 'body', t.body))
+                                 from public.kb_article_translations t
+                                 where t.article_id = p_id), '{}'::jsonb) then
+        return v_article;
+      end if;
+      raise exception 'Article % was written at %, the screen showed %',
+                      p_id, v_article.updated_at, p_expected_updated_at
+        using errcode = 'check_violation', hint = 'serverErrors.kbArticleChanged';
     end if;
     if v_article.status = 'published' then
       perform public.kb_assert_publishable(v_body, p_scope, cardinality(v_places));
@@ -653,8 +676,8 @@ begin
 end;
 $$;
 
-comment on function public.save_kb_article(uuid, public.app_language, text, text, jsonb, public.kb_scope, bigint[], integer) is
-  'Creates (as a draft) or rewrites a knowledge base article: its original, translations and places. A manager or the head technician; idempotent by the id the panel minted; p_expected_rev null asks nothing (20261017100000).';
+comment on function public.save_kb_article(uuid, public.app_language, text, text, jsonb, public.kb_scope, bigint[], timestamptz) is
+  'Creates (as a draft) or rewrites a knowledge base article: its original, translations and places. A manager or the head technician; idempotent by the id the panel minted; p_expected_updated_at null asks nothing (20261017100000).';
 
 create function public.set_kb_article_status(p_id uuid, p_status public.kb_status)
 returns public.kb_articles
@@ -698,8 +721,8 @@ comment on function public.set_kb_article_status(uuid, public.kb_status) is
 create function public.restore_kb_revision(
   p_article_id    uuid,
   p_rev           integer,
-  -- The version the screen showed. Null, the default, asks nothing.
-  p_expected_rev  integer default null
+  -- The article as the screen showed it (its updated_at). Null, the default, asks nothing.
+  p_expected_updated_at  timestamptz default null
 )
 returns public.kb_articles
 language plpgsql
@@ -712,10 +735,10 @@ declare
 begin
   v_article := public.kb_article_for_writer(p_article_id);
 
-  if p_expected_rev is not null and v_article.rev <> p_expected_rev then
-    raise exception 'Article % is at version %, the screen showed %', p_article_id, v_article.rev, p_expected_rev
-      using errcode = 'check_violation', hint = 'serverErrors.kbArticleChanged',
-            detail = jsonb_build_object('rev', v_article.rev)::text;
+  if p_expected_updated_at is not null and v_article.updated_at <> p_expected_updated_at then
+    raise exception 'Article % was written at %, the screen showed %',
+                    p_article_id, v_article.updated_at, p_expected_updated_at
+      using errcode = 'check_violation', hint = 'serverErrors.kbArticleChanged';
   end if;
 
   select r.* into v_revision
@@ -745,8 +768,8 @@ begin
 end;
 $$;
 
-comment on function public.restore_kb_revision(uuid, integer, integer) is
-  'Brings a version of a knowledge base article back as its newest version, text and translations; a manager or the head technician; p_expected_rev null asks nothing (20261017100000).';
+comment on function public.restore_kb_revision(uuid, integer, timestamptz) is
+  'Brings a version of a knowledge base article back as its newest version, text and translations; a manager or the head technician; p_expected_updated_at null asks nothing (20261017100000).';
 
 -- ---------- who may call what ----------
 
@@ -769,14 +792,14 @@ grant execute on function public.kb_reader_property_ids() to authenticated, serv
 grant execute on function public.kb_staff_article_ids() to authenticated, service_role;
 
 revoke all on function public.save_kb_article(uuid, public.app_language, text, text, jsonb,
-                                              public.kb_scope, bigint[], integer)
+                                              public.kb_scope, bigint[], timestamptz)
   from public, anon;
 revoke all on function public.set_kb_article_status(uuid, public.kb_status) from public, anon;
-revoke all on function public.restore_kb_revision(uuid, integer, integer) from public, anon;
+revoke all on function public.restore_kb_revision(uuid, integer, timestamptz) from public, anon;
 grant execute on function public.save_kb_article(uuid, public.app_language, text, text, jsonb,
-                                                 public.kb_scope, bigint[], integer)
+                                                 public.kb_scope, bigint[], timestamptz)
   to authenticated, service_role;
 grant execute on function public.set_kb_article_status(uuid, public.kb_status)
   to authenticated, service_role;
-grant execute on function public.restore_kb_revision(uuid, integer, integer)
+grant execute on function public.restore_kb_revision(uuid, integer, timestamptz)
   to authenticated, service_role;

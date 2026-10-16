@@ -65,7 +65,13 @@ values
    '{"full_name":"Boss B"}'::jsonb, '{"role":"manager"}'::jsonb),
   ('d6600011-0000-4000-8000-0000000000db','00000000-0000-0000-0000-000000000000',
    'authenticated','authenticated','cleaner.b.kb@test.local','x',now(),now(),
-   '{"full_name":"Cleaner B"}'::jsonb, '{"role":"cleaner"}'::jsonb);
+   '{"full_name":"Cleaner B"}'::jsonb, '{"role":"cleaner"}'::jsonb),
+  ('d6600012-0000-4000-8000-0000000000dc','00000000-0000-0000-0000-000000000000',
+   'authenticated','authenticated','room.tech.kb@test.local','x',now(),now(),
+   '{"full_name":"Room Tech"}'::jsonb, '{"role":"tech"}'::jsonb),
+  ('d6600013-0000-4000-8000-0000000000dd','00000000-0000-0000-0000-000000000000',
+   'authenticated','authenticated','paused.tech.kb@test.local','x',now(),now(),
+   '{"full_name":"Paused Tech"}'::jsonb, '{"role":"tech"}'::jsonb);
 
 update public.profiles set host_id = 'b6600000-0000-4000-8000-00000000000a'
 where id::text like 'd66000%' and id not in ('d6600010-0000-4000-8000-0000000000da',
@@ -84,7 +90,9 @@ insert into public.properties (id, host_id, hostaway_unit_id, parent_id, name, t
   (public.property_id_for_unit(66011), 'b6600000-0000-4000-8000-00000000000a', 66011, 900066010,
    'Room one', 'UTC'),
   (public.property_id_for_unit(66012), 'b6600000-0000-4000-8000-00000000000a', 66012, 900066010,
-   'Room two', 'UTC');
+   'Room two', 'UTC'),
+  -- A part (no unit): a listing of its own, which a link to the house does not open.
+  (900066013, 'b6600000-0000-4000-8000-00000000000a', null, 900066010, 'Part of the house', 'UTC');
 
 -- Linked: flat one, and the house as a whole (so both of its rooms).
 -- Room: room one alone (so the house above it). Off: flat one, before she
@@ -107,7 +115,17 @@ insert into public.tasks (host_id, property_id, type, status, assignee_id, sched
   ('b6600000-0000-4000-8000-00000000000a', 900066001, 'maintenance', 'cancelled',
    'd6600006-0000-4000-8000-0000000000d6', current_date),
   ('b6600000-0000-4000-8000-00000000000a', 900066003, 'maintenance', 'done',
-   'd6600007-0000-4000-8000-0000000000d7', current_date - 1);
+   'd6600007-0000-4000-8000-0000000000d7', current_date - 1),
+  -- Room tech: in progress in room one, blocked on flat two.
+  ('b6600000-0000-4000-8000-00000000000a', public.property_id_for_unit(66011), 'maintenance',
+   'in_progress', 'd6600012-0000-4000-8000-0000000000dc', current_date),
+  ('b6600000-0000-4000-8000-00000000000a', 900066002, 'maintenance', 'blocked',
+   'd6600012-0000-4000-8000-0000000000dc', current_date),
+  -- Paused tech: paused on flat three, an expired one on flat one.
+  ('b6600000-0000-4000-8000-00000000000a', 900066003, 'maintenance', 'paused',
+   'd6600013-0000-4000-8000-0000000000dd', current_date),
+  ('b6600000-0000-4000-8000-00000000000a', 900066001, 'maintenance', 'expired',
+   'd6600013-0000-4000-8000-0000000000dd', current_date - 2);
 
 update public.profiles set is_active = false
 where id in ('d6600008-0000-4000-8000-0000000000d8', 'd6600009-0000-4000-8000-0000000000d9');
@@ -194,14 +212,14 @@ select pg_temp.check('the three writes are a signed-in client''s to call, not an
                      order by r, f)
    from unnest(array['anon', 'authenticated']) r
    cross join unnest(array[
-     'public.save_kb_article(uuid, public.app_language, text, text, jsonb, public.kb_scope, bigint[], integer)',
+     'public.save_kb_article(uuid, public.app_language, text, text, jsonb, public.kb_scope, bigint[], timestamptz)',
      'public.set_kb_article_status(uuid, public.kb_status)',
-     'public.restore_kb_revision(uuid, integer, integer)']) f),
-  'anon public.restore_kb_revision(uuid, integer, integer) false, '
-  || 'anon public.save_kb_article(uuid, public.app_language, text, text, jsonb, public.kb_scope, bigint[], integer) false, '
+     'public.restore_kb_revision(uuid, integer, timestamptz)']) f),
+  'anon public.restore_kb_revision(uuid, integer, timestamptz) false, '
+  || 'anon public.save_kb_article(uuid, public.app_language, text, text, jsonb, public.kb_scope, bigint[], timestamptz) false, '
   || 'anon public.set_kb_article_status(uuid, public.kb_status) false, '
-  || 'authenticated public.restore_kb_revision(uuid, integer, integer) true, '
-  || 'authenticated public.save_kb_article(uuid, public.app_language, text, text, jsonb, public.kb_scope, bigint[], integer) true, '
+  || 'authenticated public.restore_kb_revision(uuid, integer, timestamptz) true, '
+  || 'authenticated public.save_kb_article(uuid, public.app_language, text, text, jsonb, public.kb_scope, bigint[], timestamptz) true, '
   || 'authenticated public.set_kb_article_status(uuid, public.kb_status) true');
 
 select pg_temp.check('the readers'' rules run inside every policy, for every reader',
@@ -343,6 +361,19 @@ select pg_temp.check('its place and the company''s translation',
 select pg_temp.as_user('d6600007-0000-4000-8000-0000000000d7');
 select pg_temp.check('a technician whose work there is done reads the company''s alone',
   pg_temp.titles(), 'company');
+
+select pg_temp.as_user('d6600012-0000-4000-8000-0000000000dc');
+select pg_temp.check('work in progress in a room opens the house above it; blocked work counts as held',
+  pg_temp.titles(), 'building, company, f2');
+
+select pg_temp.as_user('d6600013-0000-4000-8000-0000000000dd');
+select pg_temp.check('paused work counts as held; expired work does not',
+  pg_temp.titles(), 'company, f3, multi f1 f3');
+
+select pg_temp.as_user('d6600003-0000-4000-8000-0000000000d3');
+select pg_temp.check('a link to a house opens its rooms, not a part of it',
+  (select string_agg(x::text, ', ' order by x) from public.kb_reader_property_ids() as x),
+  '900066001, 900066010, 1000000066011, 1000000066012');
 
 select pg_temp.as_user('d6600008-0000-4000-8000-0000000000d8');
 select pg_temp.check('a cleaner switched off reads nothing',
@@ -584,25 +615,52 @@ select pg_temp.check('a new place or status is no new version of the text',
       where article_id = 'a6600040-0000-4000-8000-0000000000e0'),
   '4 4');
 
+-- The screen says which article it showed by its updated_at, which every write
+-- moves — places and status too. One transaction has one now(), so an older
+-- screen is written as an older time.
 select pg_temp.check('a save made from an older screen is refused',
   pg_temp.refusal($$select null::void from public.save_kb_article(
     p_id => 'a6600040-0000-4000-8000-0000000000e0', p_language => 'en', p_title => 'V1',
     p_body => 'stale', p_translations => '{}', p_scope => 'properties',
-    p_property_ids => '{900066001}', p_expected_rev => 3)$$),
+    p_property_ids => '{900066001}', p_expected_updated_at => '2000-01-01')$$),
   '23514 serverErrors.kbArticleChanged');
+select pg_temp.check('even when it changes nothing but the places',
+  pg_temp.refusal($$select null::void from public.save_kb_article(
+    p_id => 'a6600040-0000-4000-8000-0000000000e0', p_language => 'en', p_title => 'V1',
+    p_body => 'three', p_translations => '{"cs": {"title": "V1 cs", "body": "tři"}, "ru": {"title": "V1 ru", "body": "три"}}',
+    p_scope => 'properties', p_property_ids => '{900066001,900066002}',
+    p_expected_updated_at => '2000-01-01')$$),
+  '23514 serverErrors.kbArticleChanged');
+select pg_temp.check('her own save retried after a lost answer is that save, not a conflict',
+  pg_temp.refusal($$select null::void from public.save_kb_article(
+    p_id => 'a6600040-0000-4000-8000-0000000000e0', p_language => 'en', p_title => 'V1',
+    p_body => 'three', p_translations => '{"cs": {"title": "V1 cs", "body": "tři"}, "ru": {"title": "V1 ru", "body": "три"}}',
+    p_scope => 'properties', p_property_ids => '{900066001}',
+    p_expected_updated_at => '2000-01-01')$$),
+  'no refusal');
 select pg_temp.check('one made from the current one goes through',
   pg_temp.refusal($$select null::void from public.save_kb_article(
     p_id => 'a6600040-0000-4000-8000-0000000000e0', p_language => 'en', p_title => 'V1',
     p_body => 'three', p_translations => '{"cs": {"title": "V1 cs", "body": "tři"}, "ru": {"title": "V1 ru", "body": "три"}}',
-    p_scope => 'properties', p_property_ids => '{900066001}', p_expected_rev => 4)$$),
+    p_scope => 'properties', p_property_ids => '{900066001}',
+    p_expected_updated_at => (select updated_at from public.kb_articles
+                              where id = 'a6600040-0000-4000-8000-0000000000e0'))$$),
   'no refusal');
 
 -- The head technician brings version 1 back: a new version with its text.
 select pg_temp.as_user('d6600002-0000-4000-8000-0000000000d2');
-select pg_temp.check('bringing back from an older screen is refused too',
-  pg_temp.refusal($$select public.restore_kb_revision('a6600040-0000-4000-8000-0000000000e0', 1, 3)$$),
+select pg_temp.check('the same text from a colleague’s older screen is still a conflict',
+  pg_temp.refusal($$select null::void from public.save_kb_article(
+    p_id => 'a6600040-0000-4000-8000-0000000000e0', p_language => 'en', p_title => 'V1',
+    p_body => 'three', p_translations => '{"cs": {"title": "V1 cs", "body": "tři"}, "ru": {"title": "V1 ru", "body": "три"}}',
+    p_scope => 'properties', p_property_ids => '{900066001}',
+    p_expected_updated_at => '2000-01-01')$$),
   '23514 serverErrors.kbArticleChanged');
-select null::void from public.restore_kb_revision('a6600040-0000-4000-8000-0000000000e0', 1, 4);
+select pg_temp.check('bringing back from an older screen is refused too',
+  pg_temp.refusal($$select public.restore_kb_revision('a6600040-0000-4000-8000-0000000000e0', 1, '2000-01-01')$$),
+  '23514 serverErrors.kbArticleChanged');
+select null::void from public.restore_kb_revision('a6600040-0000-4000-8000-0000000000e0', 1,
+  (select updated_at from public.kb_articles where id = 'a6600040-0000-4000-8000-0000000000e0'));
 select pg_temp.check('version 1 brought back is version 5, with the text and translations of 1',
   (select rev || ' ' || title || '/' || body || '/' || status::text
    from public.kb_articles where id = 'a6600040-0000-4000-8000-0000000000e0') || ' '
@@ -618,13 +676,27 @@ select pg_temp.check('and the versions before it are as they were',
    where article_id = 'a6600040-0000-4000-8000-0000000000e0'),
   '1=one, 2=two, 3=two, 4=three, 5=one');
 
--- The trigger keeps the versions, whoever writes: a service write too.
+-- A published article keeps a text when a version is brought back, too.
+select pg_temp.as_user('d6600001-0000-4000-8000-0000000000d1');
+select pg_temp.save('a6600041-0000-4000-8000-0000000000e1', 'E', '', 'company', '{}');
+select pg_temp.save('a6600041-0000-4000-8000-0000000000e1', 'E', 'Text', 'company', '{}');
+select pg_temp.publish('a6600041-0000-4000-8000-0000000000e1');
+select pg_temp.check('an empty version is not brought back over a published article',
+  pg_temp.refusal($$select public.restore_kb_revision('a6600041-0000-4000-8000-0000000000e1', 1)$$),
+  '23514 serverErrors.kbBodyRequired');
+
+-- The trigger keeps the versions, whoever writes: a service script too.
 select pg_temp.as_owner();
+set local role service_role;
 update public.kb_articles set body = 'by the service' where id = 'a6600040-0000-4000-8000-0000000000e0';
-select pg_temp.check('a write past the RPCs is a version as well',
+reset role;
+select pg_temp.check('a write of service_role past the RPCs is a version as well',
   (select rev from public.kb_articles where id = 'a6600040-0000-4000-8000-0000000000e0') || ' '
   || (select body from public.kb_article_revisions
       where article_id = 'a6600040-0000-4000-8000-0000000000e0' and rev = 6),
   '6 by the service');
+select pg_temp.check('and the stamp it keeps says nothing of the transaction counter',
+  (select rev_stamp ~ '^[0-9a-f]{32}$' from public.kb_articles
+   where id = 'a6600040-0000-4000-8000-0000000000e0'), true);
 
 rollback;

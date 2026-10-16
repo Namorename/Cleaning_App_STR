@@ -52,11 +52,15 @@
 
 | RPC | Что делает | Отказы (ключ `hint`) |
 |---|---|---|
-| `save_kb_article(p_id, p_language, p_title, p_body, p_translations, p_scope, p_property_ids, p_expected_rev default null)` | создаёт черновиком или переписывает статью, переводы и места; идемпотентна по id панели | `managerOrHeadTechOnly`, `kbArticleInvalid`, `kbTitleRequired`, `kbTitleTooLong`, `kbBodyTooLong`, `translationsInvalid`, `kbTranslationTitleMissing`, `kbTargetsInvalid`, `propertyNotFound`, `kbBuildingInvalid`, `kbArticleNotFound` (id чужой компании), `kbArticleChanged` (экран старше статьи), у опубликованной — `kbBodyRequired`, `kbTargetsMissing` |
+| `save_kb_article(p_id, p_language, p_title, p_body, p_translations, p_scope, p_property_ids, p_expected_updated_at default null)` | создаёт черновиком или переписывает статью, переводы и места; идемпотентна по id панели | `managerOrHeadTechOnly`, `kbArticleInvalid`, `kbTitleRequired`, `kbTitleTooLong`, `kbBodyTooLong`, `translationsInvalid`, `kbTranslationTitleMissing`, `kbTargetsInvalid`, `propertyNotFound`, `kbBuildingInvalid`, `kbArticleNotFound` (id чужой компании), `kbArticleChanged` (экран старше статьи), у опубликованной — `kbBodyRequired`, `kbTargetsMissing` |
 | `set_kb_article_status(p_id, p_status)` | публикует, снимает с публикации (в черновик), архивирует, возвращает из архива | `managerOrHeadTechOnly`, `kbArticleNotFound`, при публикации `kbBodyRequired`, `kbTargetsMissing` |
-| `restore_kb_revision(p_article_id, p_rev, p_expected_rev default null)` | возвращает версию текста новой версией | `managerOrHeadTechOnly`, `kbArticleNotFound`, `kbArticleChanged`, `kbRevisionNotFound`, у опубликованной — `kbBodyRequired` |
+| `restore_kb_revision(p_article_id, p_rev, p_expected_updated_at default null)` | возвращает версию текста новой версией | `managerOrHeadTechOnly`, `kbArticleNotFound`, `kbArticleChanged`, `kbRevisionNotFound`, у опубликованной — `kbBodyRequired` |
 
-`p_expected_rev` — правило CLAUDE.md про новый аргумент: `null` значит «вызывающий ничего
+Экран называет статью её `updated_at`: его двигает любая запись — текст, перевод, место,
+статус, — так что чужая правка мест тоже не будет молча затёрта (находка обзора, M1). Если
+хранится ровно то, что присылает тот же автор, это его же запись, повторённая после
+потерянного ответа, — отказа нет.
+`p_expected_updated_at` — правило CLAUDE.md про новый аргумент: `null` значит «вызывающий ничего
 не сказал», проверки нет. Тексты ошибок в базе английские, на экран — по ключу через
 `serverErrorText()` (ключи `serverErrors.kb*` в трёх `locales`).
 
@@ -159,7 +163,7 @@
    облачных нет. Из дерева без `supabase/.temp/pooler-url` CLI отвечает «IPv6» — скопировать
    файл из корня репозитория.
 4. **md5 функций.** Вписаны в шапку `docs/rollout/postpush_knowledge_base.sql` для файла с
-   sha256 `40890dde431d89a1…`. `sha256sum` файла в дереве push; другой — пересчитать **до**
+   sha256 `3b534b93cfab804b…`. `sha256sum` файла в дереве push; другой — пересчитать **до**
    push: файл в откатываемой транзакции на стенде, `left(md5(prosrc), 8)` и
    `length(prosrc)`, `position(chr(13) in prosrc) = 0` (без CR).
 5. **Проба «до»:** `node scripts/cloud-read.mjs docs/rollout/postpush_knowledge_base.sql` —

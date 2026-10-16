@@ -21,21 +21,21 @@
 --                                         "field staff read the translations of the articles they read"
 --                 kb_article_revisions    "office reads every version"
 --   functions   13 rows, overloads 1 each, config {search_path=""}; md5 prefix and length of
---               prosrc (2026-10-17, the file with sha256 40890dde431d89a1… applied in a
+--               prosrc (2026-10-17, the file with sha256 3b534b93cfab804b… applied in a
 --               rolled-back transaction on the local stand; a file with another sha256 —
 --               recompute before the push, never after):
 --                 kb_article_for_writer    dd0dd9eb   610  definer false
---                 kb_articles_snapshot     0ee4184c   194  definer false
---                 kb_articles_version      6a43e8ab   609  definer false
+--                 kb_articles_snapshot     92d18ebd   199  definer false
+--                 kb_articles_version      5a844e45   614  definer false
 --                 kb_assert_publishable    3b880df4   394  definer false
---                 kb_checked_translations  3969f650  2100  definer false
+--                 kb_checked_translations  d5efc163  2269  definer false
 --                 kb_reader_property_ids   26e459a1   842  definer true
 --                 kb_snapshot              9bb3049c   775  definer false
 --                 kb_staff_article_ids     1576bc36   434  definer true
---                 kb_translations_version  fe937c77   420  definer false
+--                 kb_translations_version  c88e17fd   425  definer false
 --                 kb_write_translations    11d57b5a   556  definer false
---                 restore_kb_revision      7feb0427  1484  definer true
---                 save_kb_article          78a1329d  4590  definer true
+--                 restore_kb_revision      c7c1e606  1471  definer true
+--                 save_kb_article          72d8f429  5433  definer true
 --                 set_kb_article_status    ab5058b0   800  definer true
 --               execute (anon / authenticated / PUBLIC): ["authenticated"] for the three writes
 --               and the two readers' rules; [] for the other eight.
