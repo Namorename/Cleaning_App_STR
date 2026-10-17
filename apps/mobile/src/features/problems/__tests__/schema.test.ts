@@ -56,6 +56,13 @@ describe('canEditProblem', () => {
     expect(canEditProblem(problem(), ME)).toBe(true);
   });
 
+  // A task from a guest review has nobody who reported it (docs/reviews-to-tasks.md §2.5).
+  test('a task nobody reported is read, and edited by nobody', () => {
+    const parsed = problemSchema.parse({ ...problem(), reported_by: null });
+    expect(parsed.reported_by).toBeNull();
+    expect(canEditProblem(parsed, ME)).toBe(false);
+  });
+
   test('nobody edits once it has been picked up', () => {
     expect(canEditProblem(problem({ status: 'assigned' }), ME)).toBe(false);
   });
