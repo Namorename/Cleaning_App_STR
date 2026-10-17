@@ -21,16 +21,16 @@ import { useTranslation } from 'react-i18next';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
-import { useCandidateCount } from '@/features/reviews/use-reviews';
 import { cn } from '@/lib/utils';
+import { useCandidateCount } from '@/features/reviews/use-reviews';
 
 type NavKey =
   | 'dashboard'
   | 'analytics'
+  | 'reviews'
   | 'calendar'
   | 'tasks'
   | 'problems'
-  | 'reviews'
   | 'supplies'
   | 'apartments'
   | 'team'

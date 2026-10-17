@@ -3163,6 +3163,42 @@ export type Database = {
           unit_name: string
         }[]
       }
+      reject_review_finding: {
+        Args: {
+          p_finding_id: string
+          p_reason: Database["public"]["Enums"]["review_reject_reason"]
+        }
+        Returns: {
+          confidence: number | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decided_mode: string | null
+          detector: string
+          evidence: string | null
+          evidence_source: string | null
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["review_finding_kind"]
+          problem_id: string | null
+          property_id: number | null
+          reject_reason: Database["public"]["Enums"]["review_reject_reason"] | null
+          review_id: string
+          status: Database["public"]["Enums"]["review_finding_status"]
+          still_relevant: string
+          subject: string
+          summary: string
+          summary_i18n: Json
+          updated_at: string
+          urgency: Database["public"]["Enums"]["problem_priority"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "review_findings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       review_kind_gives_task: {
         Args: { p_kind: Database["public"]["Enums"]["review_finding_kind"] }
         Returns: boolean
@@ -3224,42 +3260,6 @@ export type Database = {
           p_token: string
         }
         Returns: undefined
-      }
-      reject_review_finding: {
-        Args: {
-          p_finding_id: string
-          p_reason: Database["public"]["Enums"]["review_reject_reason"]
-        }
-        Returns: {
-          confidence: number | null
-          created_at: string
-          decided_at: string | null
-          decided_by: string | null
-          decided_mode: string | null
-          detector: string
-          evidence: string | null
-          evidence_source: string | null
-          host_id: string
-          id: string
-          kind: Database["public"]["Enums"]["review_finding_kind"]
-          problem_id: string | null
-          property_id: number | null
-          reject_reason: Database["public"]["Enums"]["review_reject_reason"] | null
-          review_id: string
-          status: Database["public"]["Enums"]["review_finding_status"]
-          still_relevant: string
-          subject: string
-          summary: string
-          summary_i18n: Json
-          updated_at: string
-          urgency: Database["public"]["Enums"]["problem_priority"]
-        }
-        SetofOptions: {
-          from: "*"
-          to: "review_findings"
-          isOneToOne: true
-          isSetofReturn: false
-        }
       }
       release_push_token: {
         Args: { p_profile_id: string; p_token: string }
