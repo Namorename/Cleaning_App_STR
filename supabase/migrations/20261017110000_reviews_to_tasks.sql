@@ -14,6 +14,13 @@
 -- rating, the listing, the month and the anonymised text stay; the text for
 -- 18 months. No guest name is ever stored.
 --
+-- The PMS's own id of a review leads to its booking through the PMS, so it
+-- goes with the booking (the owner's decision of 2026-10-18). A review is
+-- known by its key instead: an HMAC of that id under a secret of the
+-- sync-reviews function, which never enters the database. A repeated load
+-- meets the review by the key, a hiding is still seen, and the key alone
+-- leads to no booking.
+--
 -- What it adds (sections below follow the steps):
 --   step 0  public.guest_reviews (ratings, no text), public.review_settings,
 --           raw.review_runs, ingest_guest_reviews(), review_sync_watermark()
@@ -23,7 +30,8 @@
 --   step 2  the texts on guest_reviews (names replaced before they arrive),
 --           kept 18 months — only once the guest notice is published, never
 --           for a review hidden on the channel or a place in the archive,
---           erased at once when texts are switched off
+--           erased at once when texts are switched off; review_load_state(),
+--           so the load asks the PMS only for what is still missing
 --   step 3  public.review_findings, apply_review_findings() (the model's
 --           reading and the rules' in one queue), the decision (candidate /
 --           task / duplicate / already fixed), the manager's approve (to a
@@ -57,11 +65,18 @@ create table public.guest_reviews (
   id                      uuid primary key default gen_random_uuid(),
   host_id                 uuid not null references public.hosts (id) on delete restrict,
   source                  public.review_source not null,
-  -- The review's id in the PMS: the key a repeated load meets again, so a
-  -- review is stored once however often it is read. Nothing in our database
-  -- carries it — it names a booking only through the PMS itself; after 18
-  -- months it becomes 'purged:<id>'.
-  external_id             text not null,
+  -- The key a repeated load meets the review by, so it is stored once however
+  -- often it is read (the owner's decision of 2026-10-18): HMAC-SHA256 of
+  -- '<source>:<the PMS's id>' under the secret REVIEW_ID_HMAC_SECRET of
+  -- sync-reviews. The secret never enters the database, so the key alone
+  -- leads to no review in the PMS and no booking. After 18 months it becomes
+  -- 'purged:<our id>' (purge_review_data).
+  external_key            text not null
+                          check (external_key ~ '^([0-9a-f]{64}|purged:[0-9a-f-]{36})$'),
+  -- The review's own id in the PMS. It finds the booking through the PMS, so
+  -- it lives as the booking does: only while the stay is exact (the cut
+  -- clears both).
+  external_id             text,
   -- The listing as the PMS names it; ours when we have the row.
   external_listing_id     text not null,
   property_id             bigint references public.properties (id) on delete set null,
@@ -94,10 +109,11 @@ create table public.guest_reviews (
   external_updated_at     timestamptz,
   created_at              timestamptz not null default now(),
   updated_at              timestamptz not null default now(),
-  constraint guest_reviews_one_per_source unique (host_id, source, external_id),
+  constraint guest_reviews_one_per_source unique (host_id, source, external_key),
   constraint guest_reviews_room_needs_listing check (room_id is null or property_id is not null),
   constraint guest_reviews_booking_only_while_exact
-    check (stay_exact or (reservation_id is null and external_reservation_id is null))
+    check (stay_exact or (reservation_id is null and external_reservation_id is null
+                          and external_id is null))
 );
 
 comment on table public.guest_reviews is
@@ -166,6 +182,10 @@ create table public.review_settings (
   tasks_enabled        boolean not null default false,
   -- step 4: the model reads the texts. Terms accepted, key in the secrets.
   model_enabled        boolean not null default false,
+  -- The oldest review the model reads: 14 days before it was switched on
+  -- (the owner's decision of 2026-10-18), set by update_review_settings each
+  -- time it goes on. Older texts keep the rules' reading.
+  model_since          timestamptz,
   -- Variant C: kinds whose findings become problems without a manager. Only
   -- an admin puts a kind here (the owner's decision of 2026-10-17).
   auto_kinds           text[] not null default '{}',
@@ -182,7 +202,9 @@ create table public.review_settings (
   constraint review_settings_texts_need_notice
     check (not texts_enabled or notice_published_at is not null),
   constraint review_settings_model_needs_texts
-    check (not model_enabled or texts_enabled)
+    check (not model_enabled or texts_enabled),
+  constraint review_settings_model_has_since
+    check (not model_enabled or model_since is not null)
 );
 
 comment on table public.review_settings is
@@ -255,9 +277,15 @@ as $$
 $$;
 
 /**
- * Where the next daily load starts: the newest watermark of a run that
- * finished. Null before the first one — the function then loads the history
- * (12 months, the owner's decision of 2026-10-16) in portions.
+ * Where the next daily load starts: the newest watermark a run wrote. Null
+ * before the first one — the function then loads the history (12 months, the
+ * owner's decision of 2026-10-16) in portions.
+ *
+ * The run decides, not its error codes: one that wants its window read again
+ * — a review held back until its guest's names can be read, a booking it
+ * could not ask — writes no watermark. A run with only lasting faults (a row
+ * the PMS sends broken every day) still moves on; is_ok says so to the
+ * screen's "updated at" line.
  */
 create or replace function public.review_sync_watermark(
   p_source  public.review_source,
@@ -274,7 +302,6 @@ as $$
   where r.host_id = coalesce(p_host_id, public.default_host_id())
     and r.source = p_source
     and r.stage = 'sync'
-    and r.is_ok
 $$;
 
 /**
@@ -365,8 +392,11 @@ end;
 $$;
 
 /**
- * One portion of normalized reviews from an adapter, upserted by the PMS's own
- * id. A repeated load meets the same rows and changes only what changed.
+ * One portion of normalized reviews from an adapter, upserted by their key
+ * (external_key, the HMAC sync-reviews makes of the PMS's id). A repeated
+ * load meets the same rows and changes only what changed — after the cut
+ * too, when the PMS's id itself is gone. A row without a well-formed key
+ * stops the whole portion: stored, it could never be met again.
  *
  * `p_rows` is a JSON array of the neutral review (docs/reviews-to-tasks.md
  * §2.3). Text fields are stored only while `texts_enabled` is on, and arrive
@@ -380,15 +410,16 @@ $$;
  * owner's decision of 2026-10-17): one hidden since an earlier load loses
  * its text here, at the first load that sees it hidden.
  *
- * The stay: a new row comes with its exact days and its booking, and keeps
- * them only while it is unsettled (cut_review_stay_links, at the end of the
- * portion: a review whose text is not kept has nothing to wait for and is
- * cut at once). A row already cut is met again by its key and gets its
- * rating and flags; its days and its booking never come back.
+ * The stay: a new row comes with its exact days, its booking and the PMS's
+ * id, and keeps them only while it is unsettled (cut_review_stay_links, at
+ * the end of the portion: a review whose text is not kept has nothing to wait
+ * for and is cut at once). A row already cut is met again by its key and
+ * gets its rating and flags; its days, its booking and the PMS's id never
+ * come back.
  *
  * `p_host_id` default null means "the one company there is" (F25 phase B
- * passes it). `p_watermark` null means "this portion is not the end of the
- * load": only the last portion of a run moves the watermark.
+ * passes it). `p_watermark` null means "do not move the watermark": a portion
+ * before the last, or a run that wants its window read again.
  */
 create or replace function public.ingest_guest_reviews(
   p_source    public.review_source,
@@ -422,6 +453,12 @@ begin
     raise exception 'Run errors must be a JSON array'
       using errcode = 'invalid_parameter_value', hint = 'serverErrors.reviewRowsInvalid';
   end if;
+  if exists (select 1 from jsonb_array_elements(p_rows) as e (item)
+             where jsonb_typeof(e.item) is distinct from 'object'
+                or coalesce(e.item ->> 'external_key', '') !~ '^[0-9a-f]{64}$') then
+    raise exception 'Every review row needs its external_key: 64 hexadecimal characters'
+      using errcode = 'invalid_parameter_value', hint = 'serverErrors.reviewRowsInvalid';
+  end if;
 
   -- Locked for share: an admin switching texts off (FOR UPDATE in
   -- update_review_settings) waits for this portion to end, or this portion
@@ -437,20 +474,20 @@ begin
   with incoming as (
     -- One row per review even if a page boundary repeated it: ON CONFLICT
     -- DO UPDATE refuses to touch a row twice in one statement.
-    select distinct on (r.external_id) r.*
+    select distinct on (r.external_key) r.*
     from jsonb_to_recordset(p_rows) as r (
-      external_id text, external_listing_id text, listing_id bigint, room_id bigint,
-      external_reservation_id text, reservation_id bigint, channel public.review_channel,
-      rating numeric, category_ratings jsonb, arrival_date date, departure_date date,
-      submitted_at timestamptz, is_hidden boolean, has_public_text boolean,
-      has_private_text boolean, has_host_reply boolean, external_updated_at timestamptz,
-      public_text text, private_text text, category_comments jsonb, language text
+      external_key text, external_id text, external_listing_id text, listing_id bigint,
+      room_id bigint, external_reservation_id text, reservation_id bigint,
+      channel public.review_channel, rating numeric, category_ratings jsonb,
+      arrival_date date, departure_date date, submitted_at timestamptz, is_hidden boolean,
+      has_public_text boolean, has_private_text boolean, has_host_reply boolean,
+      external_updated_at timestamptz, public_text text, private_text text,
+      category_comments jsonb, language text
     )
-    where r.external_id is not null
-      and r.submitted_at is not null
+    where r.submitted_at is not null
       and public.review_retention_ends(r.submitted_at) > current_date
       and not public.analytics_is_test_listing(coalesce(r.listing_id, -1))
-    order by r.external_id, r.external_updated_at desc nulls last
+    order by r.external_key, r.external_updated_at desc nulls last
   ),
   -- Ours only within this company: in F25 phase B ids of two PMS accounts
   -- may meet, and a review must never land on another company's flat.
@@ -466,12 +503,13 @@ begin
   ),
   written as (
     insert into public.guest_reviews as g (
-      host_id, source, external_id, external_listing_id, property_id, room_id,
+      host_id, source, external_key, external_id, external_listing_id, property_id, room_id,
       external_reservation_id, reservation_id, channel, rating, category_ratings,
       arrival_date, departure_date, submitted_at, is_hidden, has_public_text,
       has_private_text, has_host_reply, external_updated_at
     )
-    select v_host, p_source, r.external_id, r.external_listing_id, r.our_listing,
+    select v_host, p_source, r.external_key, nullif(btrim(r.external_id), ''),
+           r.external_listing_id, r.our_listing,
            case when r.our_listing is null then null else r.our_room end,
            r.external_reservation_id, r.our_reservation, coalesce(r.channel, 'other'),
            r.rating, coalesce(r.category_ratings, '{}'::jsonb), r.arrival_date,
@@ -479,7 +517,7 @@ begin
            coalesce(r.has_public_text, false), coalesce(r.has_private_text, false),
            coalesce(r.has_host_reply, false), r.external_updated_at
     from resolved r
-    on conflict (host_id, source, external_id) do update
+    on conflict (host_id, source, external_key) do update
       set rating              = excluded.rating,
           category_ratings    = excluded.category_ratings,
           is_hidden           = excluded.is_hidden,
@@ -494,7 +532,9 @@ begin
           property_id         = coalesce(excluded.property_id, g.property_id),
           room_id             = coalesce(excluded.room_id, g.room_id),
           reservation_id      = case when g.stay_exact
-                                     then coalesce(excluded.reservation_id, g.reservation_id) end
+                                     then coalesce(excluded.reservation_id, g.reservation_id) end,
+          -- Fixed by the key it hashes to, so never a change to compare below.
+          external_id         = case when g.stay_exact then coalesce(excluded.external_id, g.external_id) end
       where (g.rating, g.category_ratings, g.is_hidden, g.has_public_text,
              g.has_private_text, g.has_host_reply, g.property_id, g.room_id, g.reservation_id)
             is distinct from
@@ -519,8 +559,8 @@ begin
     where g.host_id = v_host
       and g.source = p_source
       and g.is_hidden
-      and g.external_id in (select r.external_id
-                            from jsonb_to_recordset(p_rows) as r (external_id text))));
+      and g.external_key in (select r.external_key
+                             from jsonb_to_recordset(p_rows) as r (external_key text))));
 
   -- step 2: the texts, only while they may be kept (see below).
   if v_texts then
@@ -536,17 +576,20 @@ begin
     where g.host_id = v_host
       and g.source = p_source
       and g.stay_exact
-      and g.external_id in (select r.external_id
-                            from jsonb_to_recordset(p_rows) as r (external_id text))));
+      and g.external_key in (select r.external_key
+                             from jsonb_to_recordset(p_rows) as r (external_key text))));
 
   -- The run's journal: one row per portion, the last one carries the
   -- watermark. The lock is the generator's: never wait on a purge.
   begin
     lock table raw.review_runs in row exclusive mode nowait;
     -- Never ahead of now: a watermark from the future (a date bug, infinity)
-    -- would win max() for good, and every later run would read nothing.
+    -- would win max() for good, and every later run would read nothing. And
+    -- none at all when none was given — least() would turn a null into now()
+    -- and move the watermark for a portion before the last.
     insert into raw.review_runs (host_id, source, stage, watermark, is_ok, counts, errors)
-    values (v_host, p_source, 'sync', least(p_watermark, now()),
+    values (v_host, p_source, 'sync',
+            case when p_watermark is not null then least(p_watermark, now()) end,
             jsonb_array_length(coalesce(p_errors, '[]')) = 0,
             jsonb_build_object('received', v_total, 'inserted', v_inserted,
                                'updated', v_updated, 'unchanged_or_skipped', v_skipped,
@@ -686,21 +729,59 @@ create index guest_reviews_to_analyse_idx on public.guest_reviews (host_id, subm
     and (public_text is not null or private_text is not null or category_comments is not null);
 
 /**
- * The texts of a portion, written only by ingest_guest_reviews and only while
- * the company keeps texts. Names are replaced by the adapter before the row
- * is sent; this function cannot check that and does not pretend to.
+ * Whether a review may keep a text at all, by the company's switches — one
+ * answer for store_review_texts (what is written) and review_load_state
+ * (what sync-reviews asks the PMS for).
  *
  * Only stays that began on or after the day the guest notice went live: the
  * guest had the line about reviews before writing one. Not the submission
  * date — Booking takes reviews up to three months after departure, and a
  * guest who stayed before the notice never saw it. A stay without a known
  * arrival keeps no text. This also keeps the history and the weekly re-read
- * of 100 days from turning old texts into findings.
+ * of 100 days from turning old texts into findings. The exact arrival while
+ * there is one; after the cut, what it said then. A stay cut before the
+ * notice had a date says nothing; its month still answers when the whole
+ * month came after the notice (the first of the month is never later than
+ * the real day).
  *
  * Never for a review hidden on the channel, nor for a place in the archive:
- * those keep their ratings only (the owner's decisions of 2026-10-17). Read
- * against the switch itself; ingest_guest_reviews holds the settings row for
- * share, so a load and an admin switching texts off never pass each other.
+ * those keep their ratings only (the owner's decisions of 2026-10-17); nor
+ * past the text's 18 months.
+ *
+ * Internal: no grants.
+ */
+create or replace function public.review_text_allowed(
+  p_review   public.guest_reviews,
+  p_settings public.review_settings
+)
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$
+  select coalesce(p_settings.texts_enabled, false)
+     and p_settings.notice_published_at is not null
+     and coalesce(case when p_review.stay_exact
+                       then p_review.arrival_date
+                            >= (p_settings.notice_published_at at time zone 'Europe/Prague')::date
+                       else coalesce(p_review.stay_after_notice,
+                                     p_review.arrival_date
+                                     >= (p_settings.notice_published_at at time zone 'Europe/Prague')::date)
+                  end, false)
+     and (p_review.text_purge_after is null or p_review.text_purge_after > current_date)
+     and not p_review.is_hidden
+     and not exists (select 1 from public.properties p
+                     where p.id in (p_review.property_id, p_review.room_id) and p.status = 'archived')
+$$;
+
+/**
+ * The texts of a portion, written only by ingest_guest_reviews and only while
+ * the company keeps texts. Names are replaced by the adapter before the row
+ * is sent; this function cannot check that and does not pretend to.
+ *
+ * Only where review_text_allowed() says a text may be kept. Read against the
+ * switch itself; ingest_guest_reviews holds the settings row for share, so a
+ * load and an admin switching texts off never pass each other.
  *
  * Bounded, not refused: a text past its column keeps its beginning and says
  * so (text_truncated) — one long review must not cost the whole portion and
@@ -723,7 +804,7 @@ security definer
 set search_path = ''
 as $$
   with incoming as (
-    select r.external_id,
+    select r.external_key,
            nullif(btrim(r.public_text), '') as public_text,
            nullif(btrim(r.private_text), '') as private_text,
            case when jsonb_typeof(r.category_comments) = 'object' then
@@ -731,7 +812,7 @@ as $$
               from jsonb_each_text(r.category_comments) as c
               where nullif(btrim(c.value), '') is not null)
            end as category_comments
-    from jsonb_to_recordset(p_rows) as r (external_id text, public_text text,
+    from jsonb_to_recordset(p_rows) as r (external_key text, public_text text,
                                           private_text text, category_comments jsonb)
   )
   update public.guest_reviews g
@@ -749,26 +830,54 @@ as $$
   from incoming i, public.review_settings s
   where g.host_id = p_host_id
     and g.source = p_source
-    and g.external_id = i.external_id
+    and g.external_key = i.external_key
     and s.host_id = p_host_id
-    and s.texts_enabled
-    and s.notice_published_at is not null
-    -- The exact arrival while there is one; after the cut, what it said then.
-    -- A stay cut before the notice had a date says nothing; its month still
-    -- answers when the whole month came after the notice (the first of the
-    -- month is never later than the real day).
-    and case when g.stay_exact
-             then g.arrival_date >= (s.notice_published_at at time zone 'Europe/Prague')::date
-             else coalesce(g.stay_after_notice,
-                           g.arrival_date >= (s.notice_published_at at time zone 'Europe/Prague')::date,
-                           false) end
-    and (g.text_purge_after is null or g.text_purge_after > current_date)
-    and not g.is_hidden
-    and not exists (select 1 from public.properties p
-                    where p.id in (g.property_id, g.room_id) and p.status = 'archived')
+    and public.review_text_allowed(g, s)
     and ((g.public_text is null and i.public_text is not null)
          or (g.private_text is null and i.private_text is not null)
          or (g.category_comments is null and i.category_comments is not null))
+$$;
+
+/**
+ * What sync-reviews needs to know of the reviews it read, by their keys, so
+ * that it asks the PMS only for what is still missing (the owner's decisions
+ * of 2026-10-18): a booking read for the guest's names only while a part of
+ * the text is still to be kept, a room only while the stay is exact and its
+ * room unknown. A key it does not return is a review not stored yet.
+ *
+ * Flags only, never a text, a date or an id.
+ */
+create or replace function public.review_load_state(
+  p_source  public.review_source,
+  p_keys    text[],
+  p_host_id uuid default null
+)
+returns table (
+  external_key  text,
+  public_kept   boolean,
+  private_kept  boolean,
+  comments_kept boolean,
+  text_allowed  boolean,
+  stay_exact    boolean,
+  room_known    boolean
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select g.external_key,
+         g.public_text is not null,
+         g.private_text is not null,
+         g.category_comments is not null,
+         public.review_text_allowed(g, s),
+         g.stay_exact,
+         g.room_id is not null
+  from public.guest_reviews g
+  left join public.review_settings s on s.host_id = g.host_id
+  where g.host_id = coalesce(p_host_id, public.default_host_id())
+    and g.source = p_source
+    and g.external_key = any (coalesce(p_keys, '{}'))
 $$;
 
 /**
@@ -828,10 +937,11 @@ $$;
  * Stays are cut by their own job (purge_review_stays), not here: a failure
  * of one must not skip the other for the night.
  *
- * The key, on the text's day (review_retention_ends): the PMS's id of the
- * review becomes 'purged:<our id>'. What is left — the rating, its
- * categories, the place, the channel, the month — is statistics. A load never
- * brings the key back: ingest_guest_reviews skips such reviews.
+ * The key, on the text's day (review_retention_ends): the HMAC of the PMS's
+ * id becomes 'purged:<our id>' (the id itself went with the stay's cut, long
+ * before). What is left — the rating, its categories, the place, the channel,
+ * the month — is statistics. A load never brings the key back:
+ * ingest_guest_reviews skips such reviews.
  */
 create or replace function public.purge_review_data()
 returns jsonb
@@ -859,10 +969,11 @@ begin
                         and (f.evidence is not null or f.summary_i18n <> '{}'::jsonb)))));
 
   update public.guest_reviews g
-  set external_id         = 'purged:' || g.id::text,
+  set external_key        = 'purged:' || g.id::text,
+      external_id         = null,
       external_updated_at = null
   where public.review_retention_ends(g.submitted_at) <= current_date
-    and g.external_id not like 'purged:%';
+    and g.external_key not like 'purged:%';
   get diagnostics v_keys = row_count;
 
   return v_erased || jsonb_build_object('keys', v_keys);
@@ -1111,18 +1222,21 @@ $$;
  * each whose stay is still exact and that
  * - is settled — no finding waits for a manager, and its kept text, if any,
  *   has been read by both readers: the rules always (classify-reviews runs
- *   them after the model), and the model while it is on (a review it gave up
- *   on after three failures counts as read) — the rules' "already fixed"
- *   needs the exact day as much as the model's findings do;
+ *   them after the model), and the model while it is on and the review is
+ *   within its reach (model_since; a review it gave up on after three
+ *   failures counts as read) — the rules' "already fixed" needs the exact
+ *   day as much as the model's findings do;
  * - or has come to its last day,
  * keeps its place, its rating and its month and loses the rest. Arrival,
  * departure, the day it was sent, the row's own day, when it was read and
  * the PMS's own clock become the first of their month or go — its findings'
  * created_at too, written the day it was read (review_findings_dates keeps
  * later ones to the month), and updated_at from now on (guest_reviews_touch).
- * The booking (ours, and the PMS's id) goes. For good: stay_exact is false
- * and nothing sets it back; ingest_guest_reviews never restores a booking or
- * a day on such a row.
+ * The booking (ours, and the PMS's id of it) goes, and the PMS's id of the
+ * review with it (the owner's decision of 2026-10-18): from then on the
+ * review is known by its HMAC key alone. For good: stay_exact is false and
+ * nothing sets it back; ingest_guest_reviews never restores a booking, an id
+ * or a day on such a row.
  *
  * The work log is not touched: when a manager or the job decided, when a
  * problem was made and what became of it stay exact. They date the work; the
@@ -1168,6 +1282,7 @@ begin
                          or g.category_comments is not null)
                         and (g.rules_version is null
                              or (coalesce(s.model_enabled, false)
+                                 and g.submitted_at >= s.model_since
                                  and g.analysed_at is null and g.analysis_attempts < 3)))))
   ),
   cut as (
@@ -1176,6 +1291,7 @@ begin
         stay_after_notice       = due.after_notice,
         reservation_id          = null,
         external_reservation_id = null,
+        external_id             = null,
         external_updated_at     = null,
         arrival_date            = date_trunc('month', g.arrival_date::timestamp)::date,
         departure_date          = date_trunc('month', g.departure_date::timestamp)::date,
@@ -1286,6 +1402,8 @@ security definer
 set search_path = ''
 as $$
 declare
+  -- Problems auto makes in a Prague day (the owner's decision of 2026-10-18).
+  c_auto_daily_cap constant integer := 5;
   v_finding  public.review_findings;
   v_review   public.guest_reviews;
   v_settings public.review_settings;
@@ -1370,7 +1488,11 @@ begin
   -- takes them for three months), and on a place where nothing was reported
   -- since the guest left — open or already solved, by anyone: a staff report
   -- has no kind to compare, so a human looks. "Since the guest left" needs
-  -- the exact day: a stay cut to its month never goes on its own.
+  -- the exact day: a stay cut to its month never goes on its own. And at most
+  -- five a Prague day (the owner's decision of 2026-10-18): a model gone
+  -- wrong fills the manager's queue, not the technicians' day. The count is
+  -- taken under the company's lock, so two runs at once cannot both make the
+  -- fifth; the place lock above is always taken first.
   if coalesce(v_settings.tasks_enabled, false)
      and v_review.stay_exact
      and v_status = 'active'
@@ -1385,9 +1507,16 @@ begin
          and ((pr.archived_at is null and pr.status in ('open', 'assigned', 'in_progress'))
               or pr.created_at::date >= coalesce(v_review.departure_date, (v_review.submitted_at at time zone 'Europe/Prague')::date))
      ) then
-    perform public.create_review_problem(
-      p_finding_id, v_finding.summary, v_finding.summary_i18n, v_finding.urgency, 'auto');
-    return 'task_created';
+    perform pg_advisory_xact_lock(hashtextextended('review-auto:' || v_finding.host_id, 0));
+    if (select count(*) from public.review_findings f
+        where f.host_id = v_finding.host_id
+          and f.decided_mode = 'auto'
+          and f.decided_at >= date_trunc('day', now() at time zone 'Europe/Prague')
+                              at time zone 'Europe/Prague') < c_auto_daily_cap then
+      perform public.create_review_problem(
+        p_finding_id, v_finding.summary, v_finding.summary_i18n, v_finding.urgency, 'auto');
+      return 'task_created';
+    end if;
   end if;
 
   -- 7. Otherwise a manager decides.
@@ -2150,6 +2279,11 @@ begin
       texts_enabled       = coalesce(p_texts_enabled, texts_enabled),
       tasks_enabled       = coalesce(p_tasks_enabled, tasks_enabled),
       model_enabled       = v_model,
+      -- Each time the model goes on it reads back 14 days and no further (the
+      -- owner's decision of 2026-10-18 for the first time; the same for a
+      -- later one, so a month off never comes back as a month of cards).
+      model_since         = case when v_model and not v_row.model_enabled
+                                 then now() - interval '14 days' else model_since end,
       auto_kinds          = coalesce(p_auto_kinds, auto_kinds),
       daily_model_cap     = coalesce(p_daily_model_cap, daily_model_cap),
       min_confidence      = coalesce(p_min_confidence, min_confidence),
@@ -2224,9 +2358,12 @@ grant execute on function public.apply_review_findings(uuid, text, text, jsonb) 
 grant execute on function public.purge_review_data() to service_role;
 revoke all on function public.purge_review_stays() from public, anon, authenticated;
 grant execute on function public.purge_review_stays() to service_role;
+revoke all on function public.review_load_state(public.review_source, text[], uuid) from public, anon, authenticated;
+grant execute on function public.review_load_state(public.review_source, text[], uuid) to service_role;
 
 -- Internal: called only from the functions above, which run as their owner.
 revoke all on function public.store_review_texts(uuid, public.review_source, jsonb) from public, anon, authenticated, service_role;
+revoke all on function public.review_text_allowed(public.guest_reviews, public.review_settings) from public, anon, authenticated, service_role;
 revoke all on function public.erase_review_texts(uuid[]) from public, anon, authenticated, service_role;
 revoke all on function public.review_retention_ends(timestamptz) from public, anon, authenticated, service_role;
 revoke all on function public.review_stay_link_ends(timestamptz) from public, anon, authenticated, service_role;

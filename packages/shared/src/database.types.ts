@@ -338,7 +338,8 @@ export type Database = {
           channel: Database["public"]["Enums"]["review_channel"]
           created_at: string
           departure_date: string | null
-          external_id: string
+          external_id: string | null
+          external_key: string
           external_listing_id: string
           external_reservation_id: string | null
           external_updated_at: string | null
@@ -375,7 +376,8 @@ export type Database = {
           channel: Database["public"]["Enums"]["review_channel"]
           created_at?: string
           departure_date?: string | null
-          external_id: string
+          external_id?: string | null
+          external_key: string
           external_listing_id: string
           external_reservation_id?: string | null
           external_updated_at?: string | null
@@ -412,7 +414,8 @@ export type Database = {
           channel?: Database["public"]["Enums"]["review_channel"]
           created_at?: string
           departure_date?: string | null
-          external_id?: string
+          external_id?: string | null
+          external_key?: string
           external_listing_id?: string
           external_reservation_id?: string | null
           external_updated_at?: string | null
@@ -1262,6 +1265,7 @@ export type Database = {
           host_id: string
           min_confidence: number
           model_enabled: boolean
+          model_since: string | null
           notice_published_at: string | null
           sync_enabled: boolean
           tasks_enabled: boolean
@@ -1275,6 +1279,7 @@ export type Database = {
           host_id: string
           min_confidence?: number
           model_enabled?: boolean
+          model_since?: string | null
           notice_published_at?: string | null
           sync_enabled?: boolean
           tasks_enabled?: boolean
@@ -1288,6 +1293,7 @@ export type Database = {
           host_id?: string
           min_confidence?: number
           model_enabled?: boolean
+          model_since?: string | null
           notice_published_at?: string | null
           sync_enabled?: boolean
           tasks_enabled?: boolean
@@ -4058,6 +4064,7 @@ export type Database = {
           host_id: string
           min_confidence: number
           model_enabled: boolean
+          model_since: string | null
           notice_published_at: string | null
           sync_enabled: boolean
           tasks_enabled: boolean

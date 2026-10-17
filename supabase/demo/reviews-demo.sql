@@ -5,6 +5,17 @@
 -- The screen then shows candidates of three kinds (one urgent, one from the
 -- rules with no wording), a task made from a review with a second review
 -- linked to it, a statistic, a finding set aside, and the line "updated at".
+
+-- The key sync-reviews makes of a PMS id (HMAC-SHA256), here under a secret
+-- for the local stand only; the cloud's never enters any database.
+create function pg_temp.demo_review_key(p_id text)
+returns text
+language sql
+immutable
+as $$
+  select encode(extensions.hmac('hostaway:' || p_id, 'local-demo-review-id-secret-not-for-the-cloud', 'sha256'), 'hex')
+$$;
+
 do $$
 declare
   v_host    uuid := public.default_host_id();
@@ -35,41 +46,41 @@ begin
         notice_published_at = coalesce(review_settings.notice_published_at, now() - interval '60 days');
 
   perform public.ingest_guest_reviews('hostaway', jsonb_build_array(
-    jsonb_build_object('external_id', 'demo-review-1', 'external_listing_id', v_places[1]::text, 'listing_id', v_places[1],
+    jsonb_build_object('external_key', pg_temp.demo_review_key('demo-review-1'), 'external_id', 'demo-review-1', 'external_listing_id', v_places[1]::text, 'listing_id', v_places[1],
       'external_reservation_id', '90000001', 'channel', 'airbnb', 'rating', 4,
       'category_ratings', '{"cleanliness": 9, "checkin": 8, "accuracy": 6}'::jsonb,
       'arrival_date', current_date - 6, 'departure_date', current_date - 3, 'submitted_at', now() - v_ago,
       'has_public_text', true, 'has_private_text', true,
       'public_text', 'Nice location and a clean flat. The kitchen smelled of gas in the evening, which worried us.',
       'private_text', 'Please check the stove: there was a gas smell near it twice.'),
-    jsonb_build_object('external_id', 'demo-review-2', 'external_listing_id', v_places[2]::text, 'listing_id', v_places[2],
+    jsonb_build_object('external_key', pg_temp.demo_review_key('demo-review-2'), 'external_id', 'demo-review-2', 'external_listing_id', v_places[2]::text, 'listing_id', v_places[2],
       'external_reservation_id', '90000002', 'channel', 'booking', 'rating', 6,
       'category_ratings', '{"cleanliness": 8, "facilities": 5, "staff": 9}'::jsonb,
       'arrival_date', current_date - 8, 'departure_date', current_date - 5, 'submitted_at', now() - 2 * v_ago,
       'has_public_text', true, 'public_text', 'There was no hot water in the shower for two days. [GUEST] called and nobody came.'),
-    jsonb_build_object('external_id', 'demo-review-3', 'external_listing_id', v_places[3]::text, 'listing_id', v_places[3],
+    jsonb_build_object('external_key', pg_temp.demo_review_key('demo-review-3'), 'external_id', 'demo-review-3', 'external_listing_id', v_places[3]::text, 'listing_id', v_places[3],
       'channel', 'airbnb', 'rating', 7, 'arrival_date', current_date - 10, 'departure_date', current_date - 7,
       'submitted_at', now() - 3 * v_ago, 'has_public_text', true,
       'public_text', 'Lovely place. The heating did not work in the bedroom, we used the oven to warm up.'),
-    jsonb_build_object('external_id', 'demo-review-4', 'external_listing_id', v_places[4]::text, 'listing_id', v_places[4],
+    jsonb_build_object('external_key', pg_temp.demo_review_key('demo-review-4'), 'external_id', 'demo-review-4', 'external_listing_id', v_places[4]::text, 'listing_id', v_places[4],
       'channel', 'booking', 'rating', 5, 'arrival_date', current_date - 12, 'departure_date', current_date - 9,
       'submitted_at', now() - 4 * v_ago, 'has_public_text', true,
       'public_text', 'We saw cockroaches in the bathroom at night. The bed was comfortable.'),
-    jsonb_build_object('external_id', 'demo-review-5', 'external_listing_id', v_places[2]::text, 'listing_id', v_places[2],
+    jsonb_build_object('external_key', pg_temp.demo_review_key('demo-review-5'), 'external_id', 'demo-review-5', 'external_listing_id', v_places[2]::text, 'listing_id', v_places[2],
       'channel', 'airbnb', 'rating', 7, 'arrival_date', current_date - 5, 'departure_date', current_date - 2,
       'submitted_at', now() - 6 * interval '1 hour', 'has_public_text', true,
       'public_text', 'Good stay, but again no warm water in the morning.'),
-    jsonb_build_object('external_id', 'demo-review-6', 'external_listing_id', v_places[1]::text, 'listing_id', v_places[1],
+    jsonb_build_object('external_key', pg_temp.demo_review_key('demo-review-6'), 'external_id', 'demo-review-6', 'external_listing_id', v_places[1]::text, 'listing_id', v_places[1],
       'channel', 'airbnb', 'rating', 10, 'arrival_date', current_date - 9, 'departure_date', current_date - 6,
       'submitted_at', now() - 5 * v_ago, 'has_public_text', true,
       'public_text', 'Perfect stay, spotless and quiet. Thank you!'),
-    jsonb_build_object('external_id', 'demo-review-7', 'external_listing_id', v_places[3]::text, 'listing_id', v_places[3],
+    jsonb_build_object('external_key', pg_temp.demo_review_key('demo-review-7'), 'external_id', 'demo-review-7', 'external_listing_id', v_places[3]::text, 'listing_id', v_places[3],
       'channel', 'vrbo', 'rating', 8, 'departure_date', current_date - 20, 'submitted_at', now() - 15 * v_ago,
       'has_public_text', true)
   ), now(), v_host);
 
   -- Readings of the model, as classify-reviews applies them, then of the rules.
-  select id into v_r from public.guest_reviews where external_id = 'demo-review-1';
+  select id into v_r from public.guest_reviews where external_key = pg_temp.demo_review_key('demo-review-1');
   perform public.apply_review_findings(v_r, 'claude-haiku-5-5@prompt-v1', 'en', jsonb_build_array(
     jsonb_build_object('kind', 'safety', 'subject', 'other', 'urgency', 'high', 'still_relevant', 'likely',
       'confidence', 0.93, 'evidence', 'there was a gas smell near it twice', 'evidence_source', 'private',
@@ -78,7 +89,7 @@ begin
       'summary_i18n', jsonb_build_object('en', 'Clean flat', 'cs', 'Čistý byt', 'ru', 'Чистая квартира'))));
   perform public.apply_review_findings(v_r, 'rules-v1', null, '[]'::jsonb);
 
-  select id into v_r from public.guest_reviews where external_id = 'demo-review-2';
+  select id into v_r from public.guest_reviews where external_key = pg_temp.demo_review_key('demo-review-2');
   perform public.apply_review_findings(v_r, 'claude-haiku-5-5@prompt-v1', 'en', jsonb_build_array(
     jsonb_build_object('kind', 'repair', 'subject', 'hot_water', 'urgency', 'normal', 'still_relevant', 'likely',
       'confidence', 0.9, 'evidence', 'There was no hot water in the shower for two days.', 'evidence_source', 'public',
@@ -86,12 +97,12 @@ begin
   perform public.apply_review_findings(v_r, 'rules-v1', null, '[]'::jsonb);
 
   -- The rules alone, the model away: a card without words.
-  select id into v_r from public.guest_reviews where external_id = 'demo-review-3';
+  select id into v_r from public.guest_reviews where external_key = pg_temp.demo_review_key('demo-review-3');
   perform public.apply_review_findings(v_r, 'rules-v1', null, jsonb_build_array(
     jsonb_build_object('kind', 'repair', 'subject', 'heating', 'confidence', 0.7,
       'evidence', 'The heating did not work in the bedroom', 'evidence_source', 'public')));
 
-  select id into v_r from public.guest_reviews where external_id = 'demo-review-4';
+  select id into v_r from public.guest_reviews where external_key = pg_temp.demo_review_key('demo-review-4');
   perform public.apply_review_findings(v_r, 'claude-haiku-5-5@prompt-v1', 'en', jsonb_build_array(
     jsonb_build_object('kind', 'pests', 'subject', 'other', 'urgency', 'normal', 'still_relevant', 'likely',
       'confidence', 0.88, 'evidence', 'We saw cockroaches in the bathroom at night.', 'evidence_source', 'public',
@@ -103,10 +114,10 @@ begin
   -- A task made from review 2 by the manager; review 5 about the same joins it.
   perform set_config('request.jwt.claims', json_build_object('sub', v_manager, 'role', 'authenticated')::text, true);
   select f.id into v_f from public.review_findings f join public.guest_reviews g on g.id = f.review_id
-  where g.external_id = 'demo-review-2';
+  where g.external_key = pg_temp.demo_review_key('demo-review-2');
   perform public.approve_review_finding(v_f);
   perform set_config('request.jwt.claims', '{}', true);
-  select id into v_r from public.guest_reviews where external_id = 'demo-review-5';
+  select id into v_r from public.guest_reviews where external_key = pg_temp.demo_review_key('demo-review-5');
   perform public.apply_review_findings(v_r, 'claude-haiku-5-5@prompt-v1', 'en', jsonb_build_array(
     jsonb_build_object('kind', 'repair', 'subject', 'hot_water', 'confidence', 0.85,
       'evidence', 'again no warm water in the morning', 'evidence_source', 'public',
@@ -114,7 +125,7 @@ begin
   perform public.apply_review_findings(v_r, 'rules-v1', null, '[]'::jsonb);
 
   -- Praise: read, nothing found, the stay cut to its month at once.
-  select id into v_r from public.guest_reviews where external_id = 'demo-review-6';
+  select id into v_r from public.guest_reviews where external_key = pg_temp.demo_review_key('demo-review-6');
   perform public.apply_review_findings(v_r, 'claude-haiku-5-5@prompt-v1', 'en', '[]'::jsonb);
   perform public.apply_review_findings(v_r, 'rules-v1', null, '[]'::jsonb);
 

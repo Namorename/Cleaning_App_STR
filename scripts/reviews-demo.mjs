@@ -38,7 +38,8 @@ const read = (path) => `${readFileSync(path, 'utf8')}\n`;
 const hasSchema = psql("select to_regclass('public.guest_reviews') is not null;") === 't';
 
 const COUNTS = `
-select 'reviews ' || count(*) from public.guest_reviews where external_id like 'demo-review-%';
+select 'reviews ' || count(*) from public.guest_reviews
+ where external_key in (select pg_temp.demo_review_key('demo-review-' || n) from generate_series(1, 7) as n);
 select 'finding ' || status || ' ' || count(*) from public.review_findings group by status order by status;
 select 'tasks from reviews ' || count(*) from public.problems where source = 'review';
 `;
