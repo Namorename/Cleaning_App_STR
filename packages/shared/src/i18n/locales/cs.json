@@ -1273,11 +1273,38 @@
         "staff": "personál"
       },
       "reason": {
-        "false_positive": "Nejde o skutečnou závadu",
+        "false_positive": "Nejde o skutečnou poruchu",
         "not_property": "Netýká se našeho objektu",
         "already_fixed": "Už opraveno",
         "duplicate": "Duplikát",
         "not_worth": "Nestojí za výjezd"
+      },
+      "kind": {
+        "repair": "Oprava",
+        "safety": "Bezpečnost",
+        "pests": "Škůdci",
+        "access": "Přístup",
+        "cleaning": "Úklid",
+        "supplies": "Spotřební materiál",
+        "noise": "Hluk",
+        "neighbourhood": "Okolí",
+        "wish": "Přání",
+        "other": "Jiné"
+      },
+      "subject": {
+        "hot_water": "teplá voda",
+        "heating": "topení",
+        "air_conditioning": "klimatizace",
+        "plumbing_leak": "únik vody, baterie",
+        "drain_toilet": "odpad, WC",
+        "electric": "elektřina",
+        "appliance": "spotřebič",
+        "internet_tv": "internet, TV",
+        "lock_door": "zámek, dveře",
+        "window_blind": "okno, žaluzie",
+        "furniture": "nábytek",
+        "mould_damp": "plíseň, vlhkost",
+        "other": "jiné"
       }
     }
   },
@@ -2268,35 +2295,6 @@
     "changes": {
       "heading": "9. Změny",
       "text": "Tyto zásady aktualizujeme, když se změní zpracování údajů. Datum poslední verze je nahoře na stránce."
-    }
-  },
-  "reviews": {
-    "kind": {
-      "repair": "Oprava",
-      "safety": "Bezpečnost",
-      "pests": "Škůdci",
-      "access": "Přístup",
-      "cleaning": "Úklid",
-      "supplies": "Spotřební materiál",
-      "noise": "Hluk",
-      "neighbourhood": "Okolí",
-      "wish": "Přání",
-      "other": "Jiné"
-    },
-    "subject": {
-      "hot_water": "teplá voda",
-      "heating": "topení",
-      "air_conditioning": "klimatizace",
-      "plumbing_leak": "únik vody, baterie",
-      "drain_toilet": "odpad, WC",
-      "electric": "elektřina",
-      "appliance": "spotřebič",
-      "internet_tv": "internet, TV",
-      "lock_door": "zámek, dveře",
-      "window_blind": "okno, žaluzie",
-      "furniture": "nábytek",
-      "mould_damp": "plíseň, vlhkost",
-      "other": "jiné"
     }
   }
 }

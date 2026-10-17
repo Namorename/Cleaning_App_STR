@@ -33,6 +33,20 @@ export const boardProblemSchema = z.object({
   id: z.string().uuid(),
   property_id: z.number().nullable(),
   title: z.string(),
+  // A task from a guest review (problems/review-source.ts): absent while its
+  // switch is off, and from a phone's saved copy of an older build.
+  source: z.enum(['staff', 'review']).catch('staff').optional(),
+  title_i18n: z.record(z.string(), z.string()).nullable().catch(null).optional(),
+  review_facts: z
+    .object({
+      kind: z.string(),
+      subject: z.string(),
+      channel: z.string().nullable().default(null),
+      departure_month: z.string().nullable().default(null),
+    })
+    .nullable()
+    .catch(null)
+    .optional(),
   priority: z.enum(PROBLEM_PRIORITIES),
   status: z.enum(PROBLEM_STATUSES),
   archived_at: z.string().nullable().default(null),

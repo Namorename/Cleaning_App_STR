@@ -3,7 +3,13 @@ import { z } from 'zod';
 export const PROBLEM_PRIORITIES = ['low', 'normal', 'high'] as const;
 export type ProblemPriority = (typeof PROBLEM_PRIORITIES)[number];
 
-export const PROBLEM_STATUSES = ['open', 'assigned', 'in_progress', 'resolved', 'cancelled'] as const;
+export const PROBLEM_STATUSES = [
+  'open',
+  'assigned',
+  'in_progress',
+  'resolved',
+  'cancelled',
+] as const;
 export type ProblemStatus = (typeof PROBLEM_STATUSES)[number];
 
 /** The same numbers the database checks (problem_*_max_length, problem_max_photos). */
@@ -23,6 +29,20 @@ export const problemSchema = z.object({
   // (docs/reviews-to-tasks.md §2.5), and so nobody may edit it as its reporter.
   reported_by: z.string().uuid().nullable(),
   title: z.string(),
+  // A task from a guest review (problems/review-source.ts): absent while its
+  // switch is off, and from a phone's saved copy of an older build.
+  source: z.enum(['staff', 'review']).catch('staff').optional(),
+  title_i18n: z.record(z.string(), z.string()).nullable().catch(null).optional(),
+  review_facts: z
+    .object({
+      kind: z.string(),
+      subject: z.string(),
+      channel: z.string().nullable().default(null),
+      departure_month: z.string().nullable().default(null),
+    })
+    .nullable()
+    .catch(null)
+    .optional(),
   description: z.string().nullable(),
   priority: z.enum(PROBLEM_PRIORITIES),
   status: z.enum(PROBLEM_STATUSES),

@@ -37,7 +37,7 @@ export function FindingCard({ finding, language }: FindingCardProps) {
   const { t } = useTranslation();
   const review = finding.review;
   const words = findingWords(finding, language);
-  const what = `${t(`reviews.kind.${finding.kind}`)} · ${t(`reviews.subject.${finding.subject}`)}`;
+  const what = `${t(`panel.reviews.kind.${finding.kind}`)} · ${t(`panel.reviews.subject.${finding.subject}`)}`;
   const isOpenToDecide = ['candidate', 'dropped', 'already_fixed'].includes(finding.status);
 
   return (
@@ -200,7 +200,7 @@ function Decide({ finding, words }: { finding: Finding; words: string | null }) 
   const approve = useApproveFinding();
   const reject = useRejectFinding();
   const [title, setTitle] = useState(
-    words ?? `${t(`reviews.kind.${finding.kind}`)}: ${t(`reviews.subject.${finding.subject}`)}`,
+    words ?? `${t(`panel.reviews.kind.${finding.kind}`)}: ${t(`panel.reviews.subject.${finding.subject}`)}`,
   );
   const [priority, setPriority] = useState(finding.urgency);
   const [description, setDescription] = useState('');

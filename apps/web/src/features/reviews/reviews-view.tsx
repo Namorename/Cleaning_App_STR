@@ -205,7 +205,7 @@ function AddByHand({ reviewId }: { reviewId: string }) {
           <NativeSelect value={kind} onChange={(e) => setKind(e.target.value as FindingKind)}>
             {TASK_KINDS.map((k) => (
               <option key={k} value={k}>
-                {t(`reviews.kind.${k}`)}
+                {t(`panel.reviews.kind.${k}`)}
               </option>
             ))}
           </NativeSelect>
@@ -215,7 +215,7 @@ function AddByHand({ reviewId }: { reviewId: string }) {
           <NativeSelect value={subject} onChange={(e) => setSubject(e.target.value)}>
             {SUBJECTS.map((s) => (
               <option key={s} value={s}>
-                {t(`reviews.subject.${s}`)}
+                {t(`panel.reviews.subject.${s}`)}
               </option>
             ))}
           </NativeSelect>
@@ -294,7 +294,7 @@ function SettingsPanel({ isAdmin }: { isAdmin: boolean }) {
         ) : (
           value.auto_kinds.map((kind) => (
             <span key={kind} className="flex items-center gap-2">
-              {t(`reviews.kind.${kind}`)}
+              {t(`panel.reviews.kind.${kind}`)}
               <Button
                 size="sm"
                 variant="outline"

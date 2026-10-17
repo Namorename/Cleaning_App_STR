@@ -1259,11 +1259,38 @@
         "staff": "staff"
       },
       "reason": {
-        "false_positive": "Not a real problem",
+        "false_positive": "Not a real fault",
         "not_property": "Not about our place",
         "already_fixed": "Already fixed",
         "duplicate": "A duplicate",
         "not_worth": "Not worth a visit"
+      },
+      "kind": {
+        "repair": "Repair",
+        "safety": "Safety",
+        "pests": "Pests",
+        "access": "Access",
+        "cleaning": "Cleaning",
+        "supplies": "Supplies",
+        "noise": "Noise",
+        "neighbourhood": "Neighbourhood",
+        "wish": "Wish",
+        "other": "Other"
+      },
+      "subject": {
+        "hot_water": "hot water",
+        "heating": "heating",
+        "air_conditioning": "air conditioning",
+        "plumbing_leak": "leak, taps",
+        "drain_toilet": "drain, toilet",
+        "electric": "electricity",
+        "appliance": "appliance",
+        "internet_tv": "internet, TV",
+        "lock_door": "lock, door",
+        "window_blind": "window, blind",
+        "furniture": "furniture",
+        "mould_damp": "mould, damp",
+        "other": "other"
       }
     }
   },
@@ -2232,35 +2259,6 @@
     "changes": {
       "heading": "9. Changes",
       "text": "We update this policy when the processing of data changes. The date of the latest version is at the top of the page."
-    }
-  },
-  "reviews": {
-    "kind": {
-      "repair": "Repair",
-      "safety": "Safety",
-      "pests": "Pests",
-      "access": "Access",
-      "cleaning": "Cleaning",
-      "supplies": "Supplies",
-      "noise": "Noise",
-      "neighbourhood": "Neighbourhood",
-      "wish": "Wish",
-      "other": "Other"
-    },
-    "subject": {
-      "hot_water": "hot water",
-      "heating": "heating",
-      "air_conditioning": "air conditioning",
-      "plumbing_leak": "leak, taps",
-      "drain_toilet": "drain, toilet",
-      "electric": "electricity",
-      "appliance": "appliance",
-      "internet_tv": "internet, TV",
-      "lock_door": "lock, door",
-      "window_blind": "window, blind",
-      "furniture": "furniture",
-      "mould_damp": "mould, damp",
-      "other": "other"
     }
   }
 }

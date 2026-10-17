@@ -1278,6 +1278,33 @@
         "already_fixed": "Уже починено",
         "duplicate": "Дубликат",
         "not_worth": "Не стоит выезда"
+      },
+      "kind": {
+        "repair": "Ремонт",
+        "safety": "Безопасность",
+        "pests": "Вредители",
+        "access": "Доступ",
+        "cleaning": "Уборка",
+        "supplies": "Расходники",
+        "noise": "Шум",
+        "neighbourhood": "Район",
+        "wish": "Пожелание",
+        "other": "Другое"
+      },
+      "subject": {
+        "hot_water": "горячая вода",
+        "heating": "отопление",
+        "air_conditioning": "кондиционер",
+        "plumbing_leak": "протечка, краны",
+        "drain_toilet": "слив, унитаз",
+        "electric": "электрика",
+        "appliance": "бытовая техника",
+        "internet_tv": "интернет, ТВ",
+        "lock_door": "замок, дверь",
+        "window_blind": "окно, жалюзи",
+        "furniture": "мебель",
+        "mould_damp": "плесень, сырость",
+        "other": "другое"
       }
     }
   },
@@ -2268,35 +2295,6 @@
     "changes": {
       "heading": "9. Изменения",
       "text": "Мы обновляем эту политику, когда меняется обработка данных. Дата последней редакции — вверху страницы."
-    }
-  },
-  "reviews": {
-    "kind": {
-      "repair": "Ремонт",
-      "safety": "Безопасность",
-      "pests": "Вредители",
-      "access": "Доступ",
-      "cleaning": "Уборка",
-      "supplies": "Расходники",
-      "noise": "Шум",
-      "neighbourhood": "Район",
-      "wish": "Пожелание",
-      "other": "Другое"
-    },
-    "subject": {
-      "hot_water": "горячая вода",
-      "heating": "отопление",
-      "air_conditioning": "кондиционер",
-      "plumbing_leak": "протечка, краны",
-      "drain_toilet": "слив, унитаз",
-      "electric": "электрика",
-      "appliance": "бытовая техника",
-      "internet_tv": "интернет, ТВ",
-      "lock_door": "замок, дверь",
-      "window_blind": "окно, жалюзи",
-      "furniture": "мебель",
-      "mould_damp": "плесень, сырость",
-      "other": "другое"
     }
   }
 }
