@@ -13,10 +13,28 @@
 --           for a review's problem, push_on_problem_reported() that still
 --           reaches the head technicians when nobody reported it
 --   step 2  the texts on guest_reviews (names replaced before they arrive),
---           kept 18 months — only once the guest notice is published
---   step 3  public.review_findings, apply_review_findings(), the decision
---           (candidate / task / duplicate / already fixed), the manager's
---           approve and reject, the settings RPC
+--           kept 18 months — only once the guest notice is published, never
+--           for a review hidden on the channel or a place in the archive,
+--           erased at once when texts are switched off; the link between a
+--           rating and its stay goes after 18 months too
+--   step 3  public.review_findings, apply_review_findings() (the model's
+--           reading and the rules' in one queue), the decision (candidate /
+--           task / duplicate / already fixed), the manager's approve (to a
+--           technician or to the open column) and reject, the card's list of
+--           problems on the place, the settings RPC
+--
+-- The owner's decisions of 2026-10-17 are in docs/reviews-to-tasks.md §9.
+--
+-- Cutting into steps: several bodies here are the END state and name objects
+-- of a later step (plpgsql resolves them only when it runs, so creation
+-- would pass and the first call fail). Each step's migration carries its
+-- own version and the later step does `create or replace`:
+--   step 0  ingest_guest_reviews without the text branch and without the
+--           erase of hidden reviews (no text columns yet);
+--   step 2  ingest with both; erase_review_texts and purge_review_data on
+--           guest_reviews only — no review_findings yet;
+--   step 3  erase_review_texts and purge_review_data as below (findings'
+--           fragments and wording, the problem's departure day).
 --   all     row security (manager and admin of the company only), grants,
 --           pg_cron jobs
 --
@@ -112,7 +130,8 @@ create table public.review_settings (
   tasks_enabled        boolean not null default false,
   -- step 4: the model reads the texts. Terms accepted, key in the secrets.
   model_enabled        boolean not null default false,
-  -- Variant C: kinds whose findings become problems without a manager.
+  -- Variant C: kinds whose findings become problems without a manager. Only
+  -- an admin puts a kind here (the owner's decision of 2026-10-17).
   auto_kinds           text[] not null default '{}',
   -- A ceiling on model calls a day, whatever a bug in a loop would like.
   daily_model_cap      integer not null default 50 check (daily_model_cap between 0 and 500),
@@ -157,6 +176,25 @@ create table raw.review_runs (
 
 create index review_runs_ran_at_idx on raw.review_runs (ran_at);
 revoke all on raw.review_runs from public, anon, authenticated;
+
+/**
+ * The day a review's text and its link to the stay go (the owner's decisions
+ * of 2026-10-16 and 2026-10-17): 18 months from the first of the month it was
+ * sent in, Prague time. A whole month goes in one night, so nothing left on
+ * the row — not even updated_at, which the purge itself sets — tells the day
+ * it was sent. Kept 17 to 18 months, never longer than the guest notice says.
+ *
+ * Internal: no grants.
+ */
+create or replace function public.review_retention_ends(p_submitted_at timestamptz)
+returns date
+language sql
+stable
+parallel safe
+set search_path = ''
+as $$
+  select (date_trunc('month', p_submitted_at at time zone 'Europe/Prague') + interval '18 months')::date
+$$;
 
 /**
  * Where the next daily load starts: the newest watermark of a run that
@@ -276,7 +314,14 @@ $$;
  * §2.3). Text fields are stored only while `texts_enabled` is on, and arrive
  * with names already replaced by the adapter; otherwise they are dropped here
  * and only the "has text" flags stay. A listing in the test band
- * (analytics_is_test_listing) is skipped, not stored.
+ * (analytics_is_test_listing) is skipped, not stored; so is a review whose
+ * retention is over (review_retention_ends) — its link to the stay is
+ * already gone (purge_review_data), and loading it again would bring the
+ * link back.
+ *
+ * A review hidden on the channel keeps its rating, never its text (the
+ * owner's decision of 2026-10-17): one hidden since an earlier load loses
+ * its text here, at the first load that sees it hidden.
  *
  * `p_host_id` default null means "the one company there is" (F25 phase B
  * passes it). `p_watermark` null means "this portion is not the end of the
@@ -314,8 +359,13 @@ begin
       using errcode = 'invalid_parameter_value', hint = 'serverErrors.reviewRowsInvalid';
   end if;
 
+  -- Locked for share: an admin switching texts off (FOR UPDATE in
+  -- update_review_settings) waits for this portion to end, or this portion
+  -- waits for the switch and reads it. Either way the switch's erase sees
+  -- every text a portion kept.
   select coalesce(s.texts_enabled, false) into v_texts
-  from public.review_settings s where s.host_id = v_host;
+  from public.review_settings s where s.host_id = v_host
+  for share;
   v_texts := coalesce(v_texts, false);
 
   v_total := jsonb_array_length(p_rows);
@@ -334,6 +384,7 @@ begin
     )
     where r.external_id is not null
       and r.submitted_at is not null
+      and public.review_retention_ends(r.submitted_at) > current_date
       and not public.analytics_is_test_listing(coalesce(r.listing_id, -1))
     order by r.external_id, r.external_updated_at desc nulls last
   ),
@@ -391,6 +442,18 @@ begin
   from written;
 
   v_skipped := v_total - v_inserted - v_updated;
+
+  -- step 2: hidden since an earlier load — the text goes now. (A review
+  -- older than the daily overlap is seen again by the Sunday re-read of 100
+  -- days; the nightly purge sweeps whatever a load missed.)
+  perform public.erase_review_texts(array(
+    select g.id
+    from public.guest_reviews g
+    where g.host_id = v_host
+      and g.source = p_source
+      and g.is_hidden
+      and g.external_id in (select r.external_id
+                            from jsonb_to_recordset(p_rows) as r (external_id text))));
 
   -- step 2: the texts, only while they may be kept (see below).
   if v_texts then
@@ -503,9 +566,13 @@ alter table public.guest_reviews
                                             or jsonb_typeof(category_comments) = 'object'),
   -- ISO code of the text's language, from the model (Hostaway has none).
   add column language          text check (language ~ '^[a-z]{2,3}$'),
-  -- The texts go at this date (18 months, the owner's decision 7); the
-  -- ratings stay.
+  -- The texts go at this date (18 months counted in whole months,
+  -- review_retention_ends; the owner's decision 7); the ratings stay.
   add column text_purge_after  date,
+  -- A text longer than its column keeps its beginning; the card says so and
+  -- points to the channel for the rest. None in the data of 2026-10-17 came
+  -- near (public 1 222, private 1 000 characters at most).
+  add column text_truncated    boolean not null default false,
   -- The model's reading. Set only by the model: a rules-only reading (the
   -- fallback when the model is down) leaves it null, so the model still reads
   -- the review once it is back.
@@ -522,11 +589,14 @@ alter table public.guest_reviews
     check ((public_text is null and private_text is null and category_comments is null)
            or text_purge_after is not null);
 
--- What classify-reviews reads: stored text not yet read. The "has text"
--- flags are not enough — the history of step 0 has them and no text.
+-- What classify-reviews reads: every stored text the model has not read —
+-- not only the ones the rules flagged. The "has text" flags are not enough:
+-- the history of step 0 has them and no text. Newest first, so a backlog
+-- (the model switched on after weeks of rules alone) never holds back
+-- today's reviews.
 create index guest_reviews_to_analyse_idx on public.guest_reviews (host_id, submitted_at desc)
   where analysed_at is null and analysis_attempts < 3
-    and (public_text is not null or private_text is not null);
+    and (public_text is not null or private_text is not null or category_comments is not null);
 
 /**
  * The texts of a portion, written only by ingest_guest_reviews and only while
@@ -540,8 +610,20 @@ create index guest_reviews_to_analyse_idx on public.guest_reviews (host_id, subm
  * arrival keeps no text. This also keeps the history and the weekly re-read
  * of 100 days from turning old texts into findings.
  *
+ * Never for a review hidden on the channel, nor for a place in the archive:
+ * those keep their ratings only (the owner's decisions of 2026-10-17). Read
+ * against the switch itself; ingest_guest_reviews holds the settings row for
+ * share, so a load and an admin switching texts off never pass each other.
+ *
+ * Bounded, not refused: a text past its column keeps its beginning and says
+ * so (text_truncated) — one long review must not cost the whole portion and
+ * stop the watermark. A category comment is kept only as text, 1 000
+ * characters each.
+ *
  * A part that comes later (a private text after the public one) is added; a
- * part already kept is not rewritten.
+ * part already kept is not rewritten. Either way the review goes back to its
+ * readers: the model reads it again whole, and adds only findings it did not
+ * have.
  */
 create or replace function public.store_review_texts(
   p_host_id uuid,
@@ -553,33 +635,62 @@ language sql
 security definer
 set search_path = ''
 as $$
+  with incoming as (
+    select r.external_id,
+           nullif(btrim(r.public_text), '') as public_text,
+           nullif(btrim(r.private_text), '') as private_text,
+           case when jsonb_typeof(r.category_comments) = 'object' then
+             (select jsonb_object_agg(c.key, left(btrim(c.value), 1000))
+              from jsonb_each_text(r.category_comments) as c
+              where nullif(btrim(c.value), '') is not null)
+           end as category_comments
+    from jsonb_to_recordset(p_rows) as r (external_id text, public_text text,
+                                          private_text text, category_comments jsonb)
+  )
   update public.guest_reviews g
-  set public_text       = coalesce(g.public_text, nullif(btrim(r.public_text), '')),
-      private_text      = coalesce(g.private_text, nullif(btrim(r.private_text), '')),
-      category_comments = coalesce(g.category_comments, r.category_comments),
-      text_purge_after  = coalesce(g.text_purge_after, (g.submitted_at + interval '18 months')::date)
-  from jsonb_to_recordset(p_rows) as r (external_id text, public_text text,
-                                        private_text text, category_comments jsonb),
-       public.review_settings s
+  set public_text       = coalesce(g.public_text, left(i.public_text, 8000)),
+      private_text      = coalesce(g.private_text, left(i.private_text, 4000)),
+      category_comments = coalesce(g.category_comments, i.category_comments),
+      text_truncated    = g.text_truncated
+                          or (g.public_text is null and coalesce(char_length(i.public_text) > 8000, false))
+                          or (g.private_text is null and coalesce(char_length(i.private_text) > 4000, false)),
+      text_purge_after  = coalesce(g.text_purge_after, public.review_retention_ends(g.submitted_at)),
+      analysed_at       = null,
+      rules_version     = null,
+      analysis_attempts = 0,
+      analysis_error    = null
+  from incoming i, public.review_settings s
   where g.host_id = p_host_id
     and g.source = p_source
-    and g.external_id = r.external_id
+    and g.external_id = i.external_id
     and s.host_id = p_host_id
+    and s.texts_enabled
     and s.notice_published_at is not null
     and g.arrival_date >= (s.notice_published_at at time zone 'Europe/Prague')::date
     and (g.text_purge_after is null or g.text_purge_after > current_date)
-    and ((g.public_text is null and nullif(btrim(r.public_text), '') is not null)
-         or (g.private_text is null and nullif(btrim(r.private_text), '') is not null)
-         or (g.category_comments is null and r.category_comments is not null))
+    and not g.is_hidden
+    and not exists (select 1 from public.properties p
+                    where p.id in (g.property_id, g.room_id) and p.status = 'archived')
+    and ((g.public_text is null and i.public_text is not null)
+         or (g.private_text is null and i.private_text is not null)
+         or (g.category_comments is null and i.category_comments is not null))
 $$;
 
 /**
- * The nightly purge of texts past their date, of the fragments quoted from
- * them, and of the model's paraphrase where it is not a problem's title: a
- * finding that made no work keeps only its kind and subject code. A problem's
- * title stays — it is the work order, worded without names or quotes.
+ * A review's texts go, and everything drawn from them: the fragments, and
+ * the model's paraphrase on every finding — a finding keeps its kind and
+ * subject, which the screen names from the locales. A problem keeps its own
+ * title: that is the work order, worded without names or quotes, and lives
+ * on the problem, not here. A finding filed by hand keeps the manager's
+ * words, which never came from the text.
+ *
+ * One path for every reason a text goes: its 18 months are over, the review
+ * was hidden on the channel, the company switched texts off, the place went
+ * to the archive.
+ *
+ * Internal: no grants.
  */
-create or replace function public.purge_review_texts()
+create or replace function public.erase_review_texts(p_review_ids uuid[])
 returns jsonb
 language plpgsql
 security definer
@@ -589,24 +700,100 @@ declare
   v_reviews  integer;
   v_findings integer;
 begin
+  -- The reviews first, in one order — as apply_review_findings takes its
+  -- review before its findings — so the two never wait on each other
+  -- crosswise, and a reading in flight finishes before its text goes.
+  perform 1 from public.guest_reviews g where g.id = any (p_review_ids) order by g.id for update;
+
   update public.review_findings f
-  set evidence     = null,
-      summary      = case when f.problem_id is null then f.subject else f.summary end,
-      summary_i18n = case when f.problem_id is null
-                          then jsonb_build_object('en', f.subject) else f.summary_i18n end
-  from public.guest_reviews g
-  where f.review_id = g.id
-    and g.text_purge_after <= current_date
-    and (f.evidence is not null or (f.problem_id is null and f.summary <> f.subject));
+  set evidence = null, summary = f.subject, summary_i18n = '{}'::jsonb
+  where f.review_id = any (p_review_ids)
+    and f.detector <> 'manual'
+    and (f.evidence is not null or f.summary <> f.subject or f.summary_i18n <> '{}'::jsonb);
   get diagnostics v_findings = row_count;
 
   update public.guest_reviews g
-  set public_text = null, private_text = null, category_comments = null
-  where g.text_purge_after <= current_date
+  set public_text = null, private_text = null, category_comments = null, text_truncated = false
+  where g.id = any (p_review_ids)
     and (g.public_text is not null or g.private_text is not null or g.category_comments is not null);
   get diagnostics v_reviews = row_count;
 
   return jsonb_build_object('reviews', v_reviews, 'findings', v_findings);
+end;
+$$;
+
+/**
+ * The nightly purge.
+ *
+ * Texts, and what was drawn from them, where they may no longer be: past
+ * their 18 months; hidden on the channel since; on a place gone to the
+ * archive; of a company whose texts are off (the switch erases at once —
+ * this sweeps a load that raced it).
+ *
+ * The link between a rating and its stay, on the text's day (the owner's
+ * decision of 2026-10-17; review_retention_ends): the rating keeps its
+ * place, its channel, its categories and the month; which review it was
+ * (the PMS's id) and which booking — the ids and every exact day, the row's
+ * own created_at and the departure day on the problem it made among them —
+ * go. A load never brings it back: ingest_guest_reviews skips such reviews.
+ */
+create or replace function public.purge_review_data()
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_erased jsonb;
+  v_links  integer;
+begin
+  v_erased := public.erase_review_texts(array(
+    select g.id
+    from public.guest_reviews g
+    left join public.review_settings s on s.host_id = g.host_id
+    where (g.text_purge_after <= current_date
+           or g.is_hidden
+           or not coalesce(s.texts_enabled, false)
+           or exists (select 1 from public.properties p
+                      where p.id in (g.property_id, g.room_id) and p.status = 'archived'))
+      and (g.public_text is not null or g.private_text is not null or g.category_comments is not null
+           or exists (select 1 from public.review_findings f
+                      where f.review_id = g.id
+                        and f.detector <> 'manual'
+                        and (f.evidence is not null or f.summary_i18n <> '{}'::jsonb)))));
+
+  with gone as (
+    update public.guest_reviews g
+    set external_id             = 'purged:' || g.id::text,
+        external_reservation_id = null,
+        reservation_id          = null,
+        external_updated_at     = null,
+        arrival_date            = date_trunc('month', g.arrival_date)::date,
+        departure_date          = date_trunc('month', g.departure_date)::date,
+        submitted_at            = date_trunc('month', g.submitted_at at time zone 'Europe/Prague')
+                                  at time zone 'Europe/Prague',
+        created_at              = date_trunc('month', g.created_at at time zone 'Europe/Prague')
+                                  at time zone 'Europe/Prague'
+    where public.review_retention_ends(g.submitted_at) <= current_date
+      and g.external_id not like 'purged:%'
+    returning g.id
+  ),
+  -- The work order stays, its day of departure becomes the month: through
+  -- the finding that made it, it would otherwise name the stay.
+  facts as (
+    update public.problems pr
+    set review_facts = jsonb_set(pr.review_facts, '{departure_date}',
+                                 to_jsonb(date_trunc('month', (pr.review_facts ->> 'departure_date')::date)::date))
+    from public.review_findings f
+    where f.review_id in (select gone.id from gone)
+      and f.status = 'task_created'
+      and pr.id = f.problem_id
+      and pr.review_facts ->> 'departure_date' is not null
+    returning pr.id
+  )
+  select count(*) into v_links from gone;
+
+  return v_erased || jsonb_build_object('links', v_links);
 end;
 $$;
 
@@ -665,7 +852,11 @@ create table public.review_findings (
   urgency         public.problem_priority not null default 'normal',
   still_relevant  text not null default 'unclear'
                   check (still_relevant in ('likely', 'fixed_during_stay', 'unclear')),
-  -- In the company's language; the three languages beside it.
+  -- The model's words: in the company's language, the three languages
+  -- beside it. The rules write no words, and a purge takes them away: then
+  -- summary is the subject code and summary_i18n is {} — the screen names
+  -- the kind and the subject, and the manager writes the title. By hand:
+  -- the manager's title.
   summary         text not null check (char_length(btrim(summary)) between 1 and 200),
   summary_i18n    jsonb not null check (jsonb_typeof(summary_i18n) = 'object'),
   -- The anonymised fragment the finding rests on. Manager and admin only;
@@ -803,15 +994,20 @@ $$;
  * whoever approved, null for the job) and the push to the head technicians.
  * report_problem itself is not touched (docs §4.5).
  *
+ * The description is the manager's own words, never the model's: the
+ * technician reads the short wording, the kind, the subject and the day the
+ * guest left, nothing longer from the review (the owner's decision 3).
+ *
  * Internal: no grants. Callers hold the place's lock and have checked the
  * finding.
  */
 create or replace function public.create_review_problem(
-  p_finding_id uuid,
-  p_title      text,
-  p_title_i18n jsonb,
-  p_priority   public.problem_priority,
-  p_mode       text
+  p_finding_id  uuid,
+  p_title       text,
+  p_title_i18n  jsonb,
+  p_priority    public.problem_priority,
+  p_mode        text,
+  p_description text default null
 )
 returns uuid
 language plpgsql
@@ -832,17 +1028,25 @@ begin
     raise exception 'Finding % has no place to send anyone to', p_finding_id
       using errcode = 'check_violation', hint = 'serverErrors.reviewFindingNoPlace';
   end if;
+  -- A place in the archive keeps ratings only, never work (the owner's
+  -- decision of 2026-10-17) — the room, or the building it hangs under.
+  if exists (select 1 from public.properties p
+             where p.id in (v_finding.property_id, public.review_place_family(v_finding.property_id))
+               and p.status = 'archived') then
+    raise exception 'Finding % is about a place in the archive', p_finding_id
+      using errcode = 'check_violation', hint = 'serverErrors.reviewPlaceArchived';
+  end if;
 
-  perform public.validate_problem_text(p_title, null);
+  perform public.validate_problem_text(p_title, p_description);
   if p_title_i18n is not null and not public.is_localized_text(p_title_i18n) then
     raise exception 'Title translations are not valid localized text'
       using errcode = 'invalid_parameter_value', hint = 'serverErrors.localizedTextInvalid';
   end if;
 
   insert into public.problems (id, host_id, property_id, reported_by, title, title_i18n,
-                               priority, source, review_facts)
+                               description, priority, source, review_facts)
   values (v_id, v_finding.host_id, v_finding.property_id, null, btrim(p_title), p_title_i18n,
-          p_priority, 'review',
+          nullif(btrim(p_description), ''), p_priority, 'review',
           jsonb_build_object('kind', v_finding.kind, 'subject', v_finding.subject,
                              'channel', v_review.channel,
                              'departure_date', v_review.departure_date));
@@ -988,8 +1192,21 @@ $$;
  * would become the title technicians read. The evidence is kept only for a
  * review whose text is kept (it is purged with it).
  *
- * A rules-only reading (rules-*) marks rules_version and leaves the review
- * open for the model.
+ * Two readers, one queue (the hybrid of 2026-10-16: the rules always, the
+ * model on every text, a disagreement to the manager). classify-reviews
+ * applies the model's reading first and the rules' after it:
+ * - the rules write no words (summary = subject, summary_i18n = {}), never
+ *   make a problem alone (decide rule 6), and add a card only for a kind the
+ *   model — or a manager by hand — said nothing of in this review: that is
+ *   the disagreement;
+ * - a rules-only reading (the model away, off, or over its ceiling) marks
+ *   rules_version and leaves the review open for the model;
+ * - when the model reads after the rules, a rules card nobody decided gives
+ *   way: the same kind and subject takes the model's reading in place (even
+ *   one a rule set aside), another subject still waiting is set aside as
+ *   dropped (counted as "superseded"). A card a manager decided stays.
+ * - a reading that lands after the kept text was erased keeps its cards
+ *   without words or fragment.
  */
 create or replace function public.apply_review_findings(
   p_review_id uuid,
@@ -1004,10 +1221,15 @@ set search_path = ''
 as $$
 declare
   v_review   public.guest_reviews;
+  v_is_rules boolean := p_detector like 'rules-%';
+  v_has_text boolean;
+  v_words    boolean;
   v_language text;
   v_ids      uuid[];
+  v_kinds    public.review_finding_kind[];
   v_id       uuid;
   v_valid    integer;
+  v_n        integer;
   v_code     text;
   v_status   public.review_finding_status;
   v_counts   jsonb := '{}'::jsonb;
@@ -1023,6 +1245,15 @@ begin
   end if;
 
   select h.default_language::text into v_language from public.hosts h where h.id = v_review.host_id;
+
+  -- The fragment only while the text it quotes is kept. The model's words
+  -- only while the text they came from is: a reading that lands after the
+  -- kept text was erased (hidden, switched off, archived, expired — it was
+  -- kept once, so it has a purge date) keeps its cards and loses its words,
+  -- as erase_review_texts would have left them.
+  v_has_text := v_review.public_text is not null or v_review.private_text is not null
+                or v_review.category_comments is not null;
+  v_words := not v_is_rules and not (v_review.text_purge_after is not null and not v_has_text);
 
   -- Read as text, checked, normalised; stored first and decided after (a FOR
   -- loop runs its query through a cursor, and a cursor may not hold an INSERT
@@ -1055,27 +1286,36 @@ begin
   valid as (
     select case when p.kind_text = any (enum_range(null::public.review_finding_kind)::text[])
                 then p.kind_text::public.review_finding_kind end as kind,
-           p.subject, p.urgency, p.still_relevant, p.summary_i18n, p.evidence_source, p.confidence,
-           coalesce(p.summary_i18n ->> v_language, p.summary_i18n ->> 'en',
-                    p.summary_i18n ->> 'cs', p.summary_i18n ->> 'ru') as summary,
-           case when v_review.text_purge_after is not null then left(p.raw_evidence, 300) end as evidence
+           p.subject, p.urgency, p.still_relevant, p.evidence_source, p.confidence,
+           -- The rules write no words: the screen names kind and subject.
+           case when v_words then p.summary_i18n else '{}'::jsonb end as summary_i18n,
+           case when v_words
+                then coalesce(p.summary_i18n ->> v_language, p.summary_i18n ->> 'en',
+                              p.summary_i18n ->> 'cs', p.summary_i18n ->> 'ru')
+                else p.subject end as summary,
+           case when v_has_text then left(p.raw_evidence, 300) end as evidence
     from parsed p
     where p.kind_text = any (enum_range(null::public.review_finding_kind)::text[])
-      and p.summary_i18n <> '{}'::jsonb
+      and (v_is_rules or p.summary_i18n <> '{}'::jsonb)
       -- Technicians read this as the title: no link, no address, no quote. A
       -- short neutral phrase ("no hot water") may well be the guest's words
       -- too; a long one copied whole, or the fragment pasted in, is a quote.
-      and not exists (
+      and (v_is_rules or not exists (
         select 1 from jsonb_each_text(p.summary_i18n) as s (k, v)
         where s.v ~* '(https?:|www\.|@)'
            or (char_length(s.v) >= 40
                and position(lower(s.v) in lower(coalesce(p.raw_evidence, ''))) > 0)
            or (char_length(coalesce(p.raw_evidence, '')) >= 30
-               and position(lower(p.raw_evidence) in lower(s.v)) > 0))
+               and position(lower(p.raw_evidence) in lower(s.v)) > 0)))
   ),
   deduped as (
     select distinct on (v.kind, v.subject) v.*
     from valid v
+    -- Where the model (or a manager) spoke about a kind, the rules add
+    -- nothing to it: no second card for one complaint.
+    where not (v_is_rules and exists (
+      select 1 from public.review_findings f
+      where f.review_id = p_review_id and f.kind = v.kind and f.detector not like 'rules-%'))
     order by v.kind, v.subject, v.confidence desc nulls last
   ),
   stored as (
@@ -1087,15 +1327,52 @@ begin
            d.kind, d.subject, d.urgency, d.still_relevant, d.summary, d.summary_i18n,
            d.evidence, d.evidence_source, d.confidence, p_detector
     from deduped d
-    on conflict (review_id, kind, subject) do nothing
+    -- The model meets a rules card about the same kind and subject that no
+    -- person has decided — still waiting, or set aside by a rule (below the
+    -- floor, say, at the rules' confidence): the card takes the model's
+    -- reading and is decided again below. One a manager decided, or the job
+    -- made a problem of, stays as it is.
+    on conflict (review_id, kind, subject) do update
+      set urgency         = excluded.urgency,
+          still_relevant  = excluded.still_relevant,
+          summary         = excluded.summary,
+          summary_i18n    = excluded.summary_i18n,
+          evidence        = excluded.evidence,
+          evidence_source = excluded.evidence_source,
+          confidence      = excluded.confidence,
+          detector        = excluded.detector,
+          status          = 'candidate',
+          decided_mode    = null,
+          decided_by      = null,
+          decided_at      = null,
+          problem_id      = null
+      where not v_is_rules and rf.detector like 'rules-%'
+        and (rf.status = 'candidate' or rf.decided_mode = 'rule')
     returning rf.id
   )
-  select coalesce(array_agg(id), '{}'), (select count(*) from valid)
-    into v_ids, v_valid
+  select coalesce(array_agg(id), '{}'),
+         (select count(*) from valid),
+         (select array_agg(distinct v.kind) from valid v)
+    into v_ids, v_valid, v_kinds
   from stored;
 
   if jsonb_array_length(p_findings) > v_valid then
     v_counts := jsonb_build_object('invalid', jsonb_array_length(p_findings) - v_valid);
+  end if;
+
+  -- A rules card still waiting about a kind the model has now read, under
+  -- another subject, gives way to the model's own finding.
+  if not v_is_rules and v_kinds is not null then
+    update public.review_findings f
+    set status = 'dropped', decided_mode = 'rule', decided_at = now()
+    where f.review_id = p_review_id
+      and f.detector like 'rules-%'
+      and f.status = 'candidate'
+      and f.kind = any (v_kinds);
+    get diagnostics v_n = row_count;
+    if v_n > 0 then
+      v_counts := v_counts || jsonb_build_object('superseded', v_n);
+    end if;
   end if;
 
   foreach v_id in array v_ids loop
@@ -1110,7 +1387,7 @@ begin
     v_code := null;
   end if;
 
-  if p_detector like 'rules-%' then
+  if v_is_rules then
     update public.guest_reviews
     set rules_version = p_detector, language = coalesce(language, v_code)
     where id = p_review_id;
@@ -1130,6 +1407,17 @@ $$;
  * counted, with a code. After three the review leaves the model's queue
  * (guest_reviews_to_analyse_idx) and stops taking the daily ceiling; the
  * manager still has it under «Все отзывы».
+ *
+ * A code starting with "service_" says the model's service failed — down,
+ * overloaded, the key refused, the spending limit reached — not this review:
+ * it is recorded and never counted, so an outage of three days does not push
+ * every review out of the queue. Which it is, classify-reviews tells by the
+ * next review: a failure, then a failure on another review, is the service —
+ * the run stops and journals it (log_review_run); a failure, then a success,
+ * was the first review's own — that one is marked with a counted code. So a
+ * review that always fails (a timeout on its text) never sits at the head of
+ * the queue for ever. The rules' reading of the day stands, and the model
+ * reads the queue when it is back.
  */
 create or replace function public.mark_review_analysis_failed(
   p_review_id uuid,
@@ -1141,7 +1429,8 @@ security definer
 set search_path = ''
 as $$
   update public.guest_reviews
-  set analysis_attempts = analysis_attempts + 1,
+  set analysis_attempts = analysis_attempts
+                          + case when p_error like 'service\_%' then 0 else 1 end,
       analysis_error    = case when p_error ~ '^[a-z0-9_.:-]{1,80}$' then p_error else 'unknown' end
   where id = p_review_id and analysed_at is null
   returning analysis_attempts
@@ -1149,14 +1438,27 @@ $$;
 
 /**
  * The manager says yes: a problem is made of the finding — or, with
- * `p_link_problem_id`, the finding joins a problem already open on the same
- * place. Idempotent: a second press returns the finding as the first left it.
+ * `p_link_problem_id`, the finding joins a problem on the same place: one
+ * still open (duplicate), or one solved since the guest left (already
+ * fixed); the card lists both kinds (review_place_problems).
+ *
+ * The problem goes to the technician the manager picks (`p_assignee_id`,
+ * through assign_problem — the board's own lever, so the repair, its journal
+ * and the technician's push follow), or, without one, to «Открытые» for the
+ * head technician (the owner's decision of 2026-10-17).
+ *
+ * Idempotent: a second press returns the finding as the first left it — and
+ * so ignores a person or a day it brings; so does a link (the problem
+ * linked to has its own). A day without a person means nothing either.
  */
 create or replace function public.approve_review_finding(
   p_finding_id      uuid,
   p_title           text default null,
   p_priority        public.problem_priority default null,
-  p_link_problem_id uuid default null
+  p_link_problem_id uuid default null,
+  p_description     text default null,
+  p_assignee_id     uuid default null,
+  p_scheduled_date  date default null
 )
 returns public.review_findings
 language plpgsql
@@ -1165,9 +1467,12 @@ set search_path = ''
 as $$
 declare
   v_finding public.review_findings;
+  v_review  public.guest_reviews;
+  v_since   date;
   v_enabled boolean;
   v_link    public.problems;
   v_twin    uuid;
+  v_problem uuid;
 begin
   if not public.is_manager() then
     raise exception 'Only a manager decides about findings'
@@ -1200,6 +1505,9 @@ begin
       using errcode = 'check_violation', hint = 'serverErrors.reviewTasksDisabled';
   end if;
 
+  select * into v_review from public.guest_reviews where id = v_finding.review_id;
+  v_since := coalesce(v_review.departure_date, v_review.submitted_at::date);
+
   perform pg_advisory_xact_lock(
     hashtextextended('review-place:' || public.review_place_family(v_finding.property_id), 0));
 
@@ -1207,15 +1515,19 @@ begin
     select * into v_link from public.problems
     where id = p_link_problem_id and host_id = v_finding.host_id;
     if not found
-       or v_link.archived_at is not null
-       or v_link.status not in ('open', 'assigned', 'in_progress')
        or public.review_place_family(v_link.property_id)
-          is distinct from public.review_place_family(v_finding.property_id) then
+          is distinct from public.review_place_family(v_finding.property_id)
+       or not ((v_link.archived_at is null and v_link.status in ('open', 'assigned', 'in_progress'))
+               or (v_link.status = 'resolved'
+                   and coalesce(v_link.resolved_at::date >= v_since, false))) then
       raise exception 'Problem % cannot take this finding', p_link_problem_id
         using errcode = 'check_violation', hint = 'serverErrors.reviewLinkInvalid';
     end if;
     update public.review_findings
-    set status = 'duplicate', problem_id = v_link.id, decided_mode = 'manager',
+    set status = case when v_link.status = 'resolved'
+                      then 'already_fixed'::public.review_finding_status
+                      else 'duplicate'::public.review_finding_status end,
+        problem_id = v_link.id, decided_mode = 'manager',
         decided_by = (select auth.uid()), decided_at = now()
     where id = p_finding_id
     returning * into v_finding;
@@ -1232,18 +1544,84 @@ begin
             detail = jsonb_build_object('problem_id', v_twin)::text;
   end if;
 
+  -- No words to offer (a rules card, or one whose text was erased): the
+  -- screen fills the title from the kind and the subject in the manager's
+  -- language, and the manager may change it.
+  if v_finding.summary_i18n = '{}'::jsonb and nullif(btrim(p_title), '') is null then
+    raise exception 'Finding % has no wording; it needs a title', p_finding_id
+      using errcode = 'check_violation', hint = 'serverErrors.reviewTitleRequired';
+  end if;
+
   -- The manager's own title is in the company's language and has no
   -- translations; the model's comes with all three.
-  perform public.create_review_problem(
+  v_problem := public.create_review_problem(
     p_finding_id,
     coalesce(nullif(btrim(p_title), ''), v_finding.summary),
     case when nullif(btrim(p_title), '') is null then v_finding.summary_i18n end,
     coalesce(p_priority, v_finding.urgency),
-    'manager');
+    'manager',
+    p_description);
+
+  -- Sent at once, or left in «Открытые». assign_problem checks the person
+  -- (an active member of the company) and the day; a refusal there undoes
+  -- the problem too — one press, one outcome.
+  if p_assignee_id is not null then
+    perform public.assign_problem(v_problem, p_assignee_id, p_scheduled_date);
+  end if;
 
   select * into v_finding from public.review_findings where id = p_finding_id;
   return v_finding;
 end;
+$$;
+
+/**
+ * The card's neighbours: the problems on the finding's place family that are
+ * open now, or were reported or solved since the guest left — the family and
+ * the day the decision looks at, so the manager sees what the job saw. Open
+ * ones first, at most 20. `can_link` says which approve_review_finding takes
+ * as a link (open — «то же самое»; solved since the guest left — «уже
+ * починено»); a cancelled one is listed for what it tells, not to link.
+ * Manager and admin of the company only; for anyone else, nothing.
+ */
+create or replace function public.review_place_problems(p_finding_id uuid)
+returns table (
+  id          uuid,
+  property_id bigint,
+  title       text,
+  title_i18n  jsonb,
+  source      public.problem_source,
+  status      public.problem_status,
+  priority    public.problem_priority,
+  created_at  timestamptz,
+  resolved_at timestamptz,
+  is_open     boolean,
+  can_link    boolean
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select pr.id, pr.property_id, pr.title, pr.title_i18n, pr.source, pr.status, pr.priority,
+         pr.created_at, pr.resolved_at,
+         pr.archived_at is null and pr.status in ('open', 'assigned', 'in_progress') as is_open,
+         (pr.archived_at is null and pr.status in ('open', 'assigned', 'in_progress'))
+           or (pr.status = 'resolved'
+               and coalesce(pr.resolved_at::date >= coalesce(g.departure_date, g.submitted_at::date),
+                            false)) as can_link
+  from public.review_findings f
+  join public.guest_reviews g on g.id = f.review_id
+  join public.problems pr
+    on pr.host_id = f.host_id
+   and public.review_place_family(pr.property_id) = public.review_place_family(f.property_id)
+  where f.id = p_finding_id
+    and (select public.is_manager())
+    and f.host_id = (select public.current_host_id())
+    and ((pr.archived_at is null and pr.status in ('open', 'assigned', 'in_progress'))
+         or pr.created_at::date >= coalesce(g.departure_date, g.submitted_at::date)
+         or pr.resolved_at::date >= coalesce(g.departure_date, g.submitted_at::date))
+  order by is_open desc, pr.created_at desc
+  limit 20
 $$;
 
 /**
@@ -1253,11 +1631,14 @@ $$;
  * once, through the same path as any other.
  */
 create or replace function public.add_review_finding(
-  p_review_id uuid,
-  p_kind      public.review_finding_kind,
-  p_subject   text,
-  p_title     text,
-  p_priority  public.problem_priority default 'normal'
+  p_review_id      uuid,
+  p_kind           public.review_finding_kind,
+  p_subject        text,
+  p_title          text,
+  p_priority       public.problem_priority default 'normal',
+  p_description    text default null,
+  p_assignee_id    uuid default null,
+  p_scheduled_date date default null
 )
 returns public.review_findings
 language plpgsql
@@ -1288,7 +1669,7 @@ begin
       using errcode = 'check_violation', hint = 'serverErrors.reviewSubjectUnknown',
             detail = jsonb_build_object('subject', p_subject)::text;
   end if;
-  perform public.validate_problem_text(p_title, null);
+  perform public.validate_problem_text(p_title, p_description);
 
   insert into public.review_findings (host_id, review_id, property_id, kind, subject, urgency,
                                       summary, summary_i18n, confidence, detector)
@@ -1301,7 +1682,10 @@ begin
     select id into v_id from public.review_findings
     where review_id = p_review_id and kind = p_kind and subject = p_subject;
   end if;
-  return public.approve_review_finding(v_id, p_title, p_priority);
+  return public.approve_review_finding(v_id, p_title, p_priority,
+                                       p_description    => p_description,
+                                       p_assignee_id    => p_assignee_id,
+                                       p_scheduled_date => p_scheduled_date);
 end;
 $$;
 
@@ -1381,9 +1765,14 @@ $$;
 /**
  * The company's switches. Null means "not part of this call", as in
  * update_host_settings. The gates (texts, model, tasks, the notice) are the
- * admin's: they follow the owner's actions, not a manager's preference. A kind
- * goes to auto only with its record (≥ 50 decisions, ≥ 90 % in 60 days);
- * taking it back is always allowed.
+ * admin's: they follow the owner's actions, not a manager's preference. So is
+ * auto (the owner's decision of 2026-10-17): only an admin puts a kind into
+ * it, and only with its record (≥ 50 decisions, ≥ 90 % in 60 days); a
+ * manager may take a kind out — a brake, never an accelerator.
+ *
+ * Texts off erases the texts kept so far, at once, with what was drawn from
+ * them (the owner's decision of 2026-10-17), and takes the model off with
+ * them unless the same call asks otherwise (which is then refused).
  */
 create or replace function public.update_review_settings(
   p_sync_enabled        boolean default null,
@@ -1401,27 +1790,31 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_host    uuid := public.current_host_id();
-  v_row     public.review_settings;
-  v_kind    text;
-  v_record  record;
+  v_host     uuid := public.current_host_id();
+  v_row      public.review_settings;
+  v_kind     text;
+  v_record   record;
+  v_model    boolean;
   v_is_admin boolean := public.auth_role() = 'admin' and public.is_active_user();
 begin
   if not public.is_manager() then
     raise exception 'Only a manager changes review settings'
       using errcode = 'insufficient_privilege', hint = 'serverErrors.forbidden';
   end if;
-  -- The gates and the money are the admin's: the ceiling on model calls and
-  -- the confidence floor decide what is paid for and what reaches people.
-  if not v_is_admin and (p_texts_enabled is not null or p_model_enabled is not null
-                         or p_tasks_enabled is not null or p_notice_published_at is not null
-                         or p_daily_model_cap is not null or p_min_confidence is not null) then
-    raise exception 'Only an admin switches the review gates'
-      using errcode = 'insufficient_privilege', hint = 'serverErrors.reviewGateAdminOnly';
-  end if;
 
   insert into public.review_settings (host_id) values (v_host) on conflict do nothing;
   select * into v_row from public.review_settings where host_id = v_host for update;
+
+  -- The gates and the money are the admin's: the ceiling on model calls and
+  -- the confidence floor decide what is paid for and what reaches people;
+  -- auto decides what reaches a technician with nobody looking.
+  if not v_is_admin and (p_texts_enabled is not null or p_model_enabled is not null
+                         or p_tasks_enabled is not null or p_notice_published_at is not null
+                         or p_daily_model_cap is not null or p_min_confidence is not null
+                         or (p_auto_kinds is not null and not (p_auto_kinds <@ v_row.auto_kinds))) then
+    raise exception 'Only an admin switches the review gates'
+      using errcode = 'insufficient_privilege', hint = 'serverErrors.reviewGateAdminOnly';
+  end if;
 
   -- The notice's date is set once, never ahead of now: moving it earlier would
   -- widen the stays whose texts are kept.
@@ -1438,8 +1831,11 @@ begin
     raise exception 'Texts need the published guest notice'
       using errcode = 'check_violation', hint = 'serverErrors.reviewTextsNeedNotice';
   end if;
-  if coalesce(p_model_enabled, v_row.model_enabled)
-     and not coalesce(p_texts_enabled, v_row.texts_enabled) then
+  -- Texts off with nothing said about the model: the model goes off too, it
+  -- would have nothing to read.
+  v_model := case when p_texts_enabled is false and p_model_enabled is null then false
+                  else coalesce(p_model_enabled, v_row.model_enabled) end;
+  if v_model and not coalesce(p_texts_enabled, v_row.texts_enabled) then
     raise exception 'The model needs the texts switched on'
       using errcode = 'check_violation', hint = 'serverErrors.reviewModelNeedsTexts';
   end if;
@@ -1467,7 +1863,7 @@ begin
   set sync_enabled        = coalesce(p_sync_enabled, sync_enabled),
       texts_enabled       = coalesce(p_texts_enabled, texts_enabled),
       tasks_enabled       = coalesce(p_tasks_enabled, tasks_enabled),
-      model_enabled       = coalesce(p_model_enabled, model_enabled),
+      model_enabled       = v_model,
       auto_kinds          = coalesce(p_auto_kinds, auto_kinds),
       daily_model_cap     = coalesce(p_daily_model_cap, daily_model_cap),
       min_confidence      = coalesce(p_min_confidence, min_confidence),
@@ -1475,6 +1871,15 @@ begin
       updated_by          = (select auth.uid())
   where host_id = v_host
   returning * into v_row;
+
+  -- Texts off: what was kept goes now, not in 18 months. A load running at
+  -- this moment stores nothing more (store_review_texts reads the switch);
+  -- the nightly purge sweeps whatever raced it.
+  if p_texts_enabled is false then
+    perform public.erase_review_texts(array(
+      select g.id from public.guest_reviews g where g.host_id = v_host));
+  end if;
+
   return v_row;
 end;
 $$;
@@ -1512,7 +1917,7 @@ create policy "managers read review settings"
 revoke all on function public.review_sync_watermark(public.review_source, uuid) from public, anon, authenticated;
 revoke all on function public.ingest_guest_reviews(public.review_source, jsonb, timestamptz, uuid, jsonb) from public, anon, authenticated;
 revoke all on function public.apply_review_findings(uuid, text, text, jsonb) from public, anon, authenticated;
-revoke all on function public.purge_review_texts() from public, anon, authenticated;
+revoke all on function public.purge_review_data() from public, anon, authenticated;
 revoke all on function public.reserve_review_model_calls(public.review_source, integer, uuid) from public, anon, authenticated;
 revoke all on function public.mark_review_analysis_failed(uuid, text) from public, anon, authenticated;
 grant execute on function public.reserve_review_model_calls(public.review_source, integer, uuid) to service_role;
@@ -1524,11 +1929,13 @@ grant execute on function public.review_model_calls_left(public.review_source, u
 grant execute on function public.review_sync_watermark(public.review_source, uuid) to service_role;
 grant execute on function public.ingest_guest_reviews(public.review_source, jsonb, timestamptz, uuid, jsonb) to service_role;
 grant execute on function public.apply_review_findings(uuid, text, text, jsonb) to service_role;
-grant execute on function public.purge_review_texts() to service_role;
+grant execute on function public.purge_review_data() to service_role;
 
 -- Internal: called only from the functions above, which run as their owner.
 revoke all on function public.store_review_texts(uuid, public.review_source, jsonb) from public, anon, authenticated, service_role;
-revoke all on function public.create_review_problem(uuid, text, jsonb, public.problem_priority, text) from public, anon, authenticated, service_role;
+revoke all on function public.erase_review_texts(uuid[]) from public, anon, authenticated, service_role;
+revoke all on function public.review_retention_ends(timestamptz) from public, anon, authenticated, service_role;
+revoke all on function public.create_review_problem(uuid, text, jsonb, public.problem_priority, text, text) from public, anon, authenticated, service_role;
 revoke all on function public.decide_review_finding(uuid) from public, anon, authenticated, service_role;
 revoke all on function public.review_kind_record(uuid, public.review_finding_kind) from public, anon, authenticated, service_role;
 revoke all on function public.review_place_family(bigint) from public, anon, authenticated, service_role;
@@ -1538,13 +1945,15 @@ revoke all on function public.review_subjects() from public, anon;
 grant execute on function public.review_subjects() to authenticated, service_role;
 revoke all on function public.review_kind_gives_task(public.review_finding_kind) from public, anon;
 
--- The manager's buttons.
-revoke all on function public.approve_review_finding(uuid, text, public.problem_priority, uuid) from public, anon;
-revoke all on function public.add_review_finding(uuid, public.review_finding_kind, text, text, public.problem_priority) from public, anon;
-grant execute on function public.add_review_finding(uuid, public.review_finding_kind, text, text, public.problem_priority) to authenticated;
+-- The manager's buttons, and the card's list (manager-only inside).
+revoke all on function public.approve_review_finding(uuid, text, public.problem_priority, uuid, text, uuid, date) from public, anon;
+revoke all on function public.add_review_finding(uuid, public.review_finding_kind, text, text, public.problem_priority, text, uuid, date) from public, anon;
+grant execute on function public.add_review_finding(uuid, public.review_finding_kind, text, text, public.problem_priority, text, uuid, date) to authenticated;
 revoke all on function public.reject_review_finding(uuid, public.review_reject_reason) from public, anon;
 revoke all on function public.update_review_settings(boolean, boolean, boolean, boolean, text[], integer, numeric, timestamptz) from public, anon;
-grant execute on function public.approve_review_finding(uuid, text, public.problem_priority, uuid) to authenticated;
+revoke all on function public.review_place_problems(uuid) from public, anon;
+grant execute on function public.review_place_problems(uuid) to authenticated;
+grant execute on function public.approve_review_finding(uuid, text, public.problem_priority, uuid, text, uuid, date) to authenticated;
 grant execute on function public.reject_review_finding(uuid, public.review_reject_reason) to authenticated;
 grant execute on function public.update_review_settings(boolean, boolean, boolean, boolean, text[], integer, numeric, timestamptz) to authenticated;
 grant execute on function public.review_kind_gives_task(public.review_finding_kind) to authenticated, service_role;
@@ -1568,10 +1977,11 @@ select cron.schedule(
   $$select public.invoke_edge_function('classify-reviews')$$
 );
 
+-- Texts, what was drawn from them, and the link of a rating to its stay.
 select cron.schedule(
-  'purge-review-texts',
+  'purge-review-data',
   '5 5 * * *',
-  $$select public.purge_review_texts()$$
+  $$select public.purge_review_data()$$
 );
 
 select cron.schedule(

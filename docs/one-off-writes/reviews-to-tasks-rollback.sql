@@ -50,7 +50,7 @@ begin
   perform cron.unschedule(j.jobid)
   from cron.job j
   where j.jobname in ('sync-reviews-daily', 'classify-reviews-daily',
-                      'purge-review-texts', 'purge-review-runs');
+                      'purge-review-data', 'purge-review-runs');
 
   -- The push trigger as 20261003160000 left it — the body byte for byte, so
   -- md5(prosrc) after the rollback is the one the probe of that day knows.
@@ -91,15 +91,17 @@ $fn$;
   -- The functions, before the tables and types they name.
   drop function if exists public.update_review_settings(boolean, boolean, boolean, boolean, text[], integer, numeric, timestamptz);
   drop function if exists public.reject_review_finding(uuid, public.review_reject_reason);
-  drop function if exists public.add_review_finding(uuid, public.review_finding_kind, text, text, public.problem_priority);
-  drop function if exists public.approve_review_finding(uuid, text, public.problem_priority, uuid);
+  drop function if exists public.add_review_finding(uuid, public.review_finding_kind, text, text, public.problem_priority, text, uuid, date);
+  drop function if exists public.approve_review_finding(uuid, text, public.problem_priority, uuid, text, uuid, date);
+  drop function if exists public.review_place_problems(uuid);
   drop function if exists public.apply_review_findings(uuid, text, text, jsonb);
   drop function if exists public.decide_review_finding(uuid);
-  drop function if exists public.create_review_problem(uuid, text, jsonb, public.problem_priority, text);
+  drop function if exists public.create_review_problem(uuid, text, jsonb, public.problem_priority, text, text);
   drop function if exists public.review_kind_record(uuid, public.review_finding_kind);
   drop function if exists public.review_place_family(bigint);
   drop function if exists public.review_kind_gives_task(public.review_finding_kind);
-  drop function if exists public.purge_review_texts();
+  drop function if exists public.purge_review_data();
+  drop function if exists public.erase_review_texts(uuid[]);
   drop function if exists public.store_review_texts(uuid, public.review_source, jsonb);
   drop function if exists public.ingest_guest_reviews(public.review_source, jsonb, timestamptz, uuid, jsonb);
   drop function if exists public.mark_review_analysis_failed(uuid, text);
@@ -108,6 +110,7 @@ $fn$;
   drop function if exists public.review_model_calls_left(public.review_source, uuid);
   drop function if exists public.log_review_run(public.review_source, text, boolean, jsonb, jsonb, uuid);
   drop function if exists public.review_sync_watermark(public.review_source, uuid);
+  drop function if exists public.review_retention_ends(timestamptz);
 
   -- The tables (texts and findings go with them), then the types.
   drop table if exists public.review_findings;
