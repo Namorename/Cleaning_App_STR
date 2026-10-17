@@ -21,7 +21,7 @@
     "fn:serve": "supabase functions serve",
     "fn:deploy": "supabase functions deploy",
     "test:rls": "node scripts/test-rls.mjs",
-    "test:fn": "deno test --allow-read supabase/functions/",
+    "test:fn": "deno test --allow-read --allow-env supabase/functions/",
     "test:scripts": "node --test \"scripts/__tests__/*.test.mjs\"",
     "test:mobile": "npm run test -w @str-ops/mobile",
     "typecheck:mobile": "npm run typecheck -w @str-ops/mobile",
