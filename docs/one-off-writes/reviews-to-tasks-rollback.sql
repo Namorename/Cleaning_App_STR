@@ -1,8 +1,6 @@
 -- Rollback of 20261017110000_reviews_to_tasks (docs/reviews-to-tasks.md, §7 «Откат»).
 -- A WRITE to the cloud: only on the owner's word, never in 03:00–04:40 UTC.
--- Written for the end state of the draft; when the draft is cut into per-step
--- migrations, each step's rollback is the matching slice of this file, newest
--- step first.
+-- One file for the one migration of the feature (all of its steps).
 --
 -- Order:
 --   1. the clients first: the panel and the phone of step 1 read
@@ -110,6 +108,8 @@ $fn$;
   drop function if exists public.review_model_calls_left(public.review_source, uuid);
   drop function if exists public.log_review_run(public.review_source, text, boolean, jsonb, jsonb, uuid);
   drop function if exists public.review_sync_watermark(public.review_source, uuid);
+  drop function if exists public.cut_review_stay_links(uuid[]);
+  drop function if exists public.review_stay_link_ends(timestamptz);
   drop function if exists public.review_retention_ends(timestamptz);
 
   -- The tables (texts and findings go with them), then the types.
