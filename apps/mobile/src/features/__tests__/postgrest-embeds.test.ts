@@ -5,6 +5,7 @@ import { fetchArchivePage, fetchBoardProblem, fetchBoardProblems } from '@/featu
 import { fetchMessages } from '@/features/chat/api';
 import { fetchProblemEvents } from '@/features/history/api';
 import { fetchHostSettings } from '@/features/host/api';
+import { fetchKbArticles, fetchKbPlace } from '@/features/knowledge/api';
 import { fetchProblemMedia, fetchTaskMedia } from '@/features/media/api';
 import { fetchReportProperties } from '@/features/properties/api';
 import { fetchMyProblems, fetchProblem } from '@/features/problems/api';
@@ -116,6 +117,9 @@ const READERS: readonly (() => Promise<unknown>)[] = [
   () => fetchBoardProblem(ANY_ID),
   () => fetchArchivePage(0),
   () => fetchProblemEvents(ANY_ID),
+  // The knowledge base, step 2 (docs/knowledge-base-step2.md).
+  () => fetchKbArticles(),
+  () => fetchKbPlace(1),
 ];
 
 const schema = indexSchema(

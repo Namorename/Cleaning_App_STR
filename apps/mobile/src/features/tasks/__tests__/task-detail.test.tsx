@@ -1,6 +1,6 @@
 import { THEME_COLORS, TONE_COLORS, TOUCH_TARGET } from '@str-ops/shared';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
-import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type TextStyle, type ViewStyle } from 'react-native';
 
 import { Spacing } from '@/constants/theme';
 import type { TaskStep } from '@/features/steps/schema';
@@ -74,6 +74,22 @@ test('shows what the cleaner needs to plan by: window, guests, notes', async () 
   expect(screen.getByText(/10:00–15:00/)).toBeTruthy();
   expect(screen.getByText('4')).toBeTruthy();
   expect(screen.getByText('Ключ в ящике 4325')).toBeTruthy();
+});
+
+test('carries the property’s instructions the route hands it', async () => {
+  await render(
+    <TaskDetail
+      task={task()}
+      userId={ME}
+      now={NOW}
+      isBusy={false}
+      error={null}
+      instructions={<View testID="property-instructions" />}
+      {...actions}
+    />,
+  );
+
+  expect(screen.getByTestId('property-instructions')).toBeTruthy();
 });
 
 test("shows the office's note on the job before it starts, apart from the listing's", async () => {

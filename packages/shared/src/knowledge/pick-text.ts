@@ -1,4 +1,4 @@
-import { FALLBACK_LANGUAGE, type Language } from '../i18n';
+import type { Language } from '../i18n';
 
 /** An article's text in one language. */
 export interface KbText {
@@ -17,29 +17,26 @@ export interface KbTextChoice extends KbOriginal {
 }
 
 /**
- * Which text of an article a reader sees: hers, else English (the product's
- * default language, the owner's decision of 2026-10-14), else the original.
- * A translation without a title is not there — the server keeps none, and an
- * editor's draft may still hold one.
+ * Which text of an article a reader sees: hers, else the author's own (the
+ * owner's decision of 2026-10-17 for the phone, step 2 — never a third
+ * language in between). A translation without a title is not there — the
+ * server keeps none, and an editor's draft may still hold one.
  */
 export function pickKbText(
   original: KbOriginal,
   translations: Partial<Readonly<Record<Language, KbText>>>,
   wanted: Language,
 ): KbTextChoice {
-  for (const language of [wanted, FALLBACK_LANGUAGE]) {
-    if (language === original.language) {
-      return { ...original, isOriginal: true };
-    }
-    const translation = translations[language];
-    // A title without a text would hide the original's text from the reader.
-    const isComplete =
-      translation !== undefined &&
-      translation.title.trim() !== '' &&
-      (translation.body.trim() !== '' || original.body.trim() === '');
-    if (isComplete) {
-      return { language, title: translation.title, body: translation.body, isOriginal: false };
-    }
+  if (wanted === original.language) {
+    return { ...original, isOriginal: true };
   }
-  return { ...original, isOriginal: true };
+  const translation = translations[wanted];
+  // A title without a text would hide the original's text from the reader.
+  const isComplete =
+    translation !== undefined &&
+    translation.title.trim() !== '' &&
+    (translation.body.trim() !== '' || original.body.trim() === '');
+  return isComplete
+    ? { language: wanted, title: translation.title, body: translation.body, isOriginal: false }
+    : { ...original, isOriginal: true };
 }

@@ -63,6 +63,16 @@ function task(): CleaningTask {
   };
 }
 
+// The place's instructions are a block of their own, with their own reads and
+// tests (features/knowledge); here it only says which place it was given.
+jest.mock('@/features/knowledge/place-instructions', () => {
+  const { Text } = jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    PlaceInstructions: ({ propertyId }: { propertyId: number | null }) => (
+      <Text>{`instructions of ${String(propertyId)}`}</Text>
+    ),
+  };
+});
 jest.mock('@/features/auth/session', () => ({
   useSession: () => mockSession,
 }));
@@ -176,6 +186,16 @@ describe('signed in', () => {
     // No pull-to-refresh on this screen, so not the lists' «pull down».
     expect(screen.getByText('Не удалось обновить, показаны сохранённые данные.')).toBeTruthy();
     expect(screen.getByText('Network request failed')).toBeTruthy();
+  });
+
+  test('the instructions shown are those of the cleaning’s own place', async () => {
+    mockTaskQuery.isPending = false;
+    mockTaskQuery.error = null;
+    mockTaskQuery.data = task();
+
+    await render(<TaskRoute />);
+
+    expect(screen.getByText('instructions of 412432')).toBeTruthy();
   });
 
   test('a cleaning that is not hers any more says so', async () => {

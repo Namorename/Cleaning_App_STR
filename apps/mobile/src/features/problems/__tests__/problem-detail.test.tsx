@@ -1,7 +1,7 @@
 import { problemStatusTone } from '@str-ops/shared';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ComponentProps } from 'react';
-import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type TextStyle, type ViewStyle } from 'react-native';
 
 import { BUTTON_HEIGHT, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -86,6 +86,14 @@ describe('today’s screen', () => {
     expect(screen.getByText('Обычная')).toBeTruthy();
     expect(screen.getByText('Подробности')).toBeTruthy();
     expect(screen.getByText('Под раковиной')).toBeTruthy();
+  });
+
+  test('carries the property’s instructions the route hands it', async () => {
+    await render(
+      <ProblemDetail {...props({ instructions: <View testID="property-instructions" /> })} />,
+    );
+
+    expect(screen.getByTestId('property-instructions')).toBeTruthy();
   });
 
   test('a cancelled report says why', async () => {

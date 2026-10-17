@@ -1,5 +1,5 @@
 import { STATUS_TONE, problemPriorityTone } from '@str-ops/shared';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
@@ -61,6 +61,12 @@ interface TaskDetailProps {
   onOpenProblem?: (problemId: string) => void;
   /** The conversation about this job. Offered to whoever can see the job at all. */
   onOpenChat?: (taskId: string) => void;
+  /**
+   * The place's instructions from the knowledge base, under its notes
+   * (features/knowledge/place-instructions.tsx): the route builds them, and
+   * they draw nothing until there is something to read.
+   */
+  instructions?: ReactNode;
 }
 
 /**
@@ -97,6 +103,7 @@ export function TaskDetail({
   onRequestSupplies,
   onOpenProblem,
   onOpenChat,
+  instructions,
 }: TaskDetailProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
@@ -246,6 +253,8 @@ export function TaskDetail({
       {notes !== null && notes.trim() !== '' ? (
         <NoteCard label={t('tasks.detail.notes')} text={notes} />
       ) : null}
+
+      {instructions}
 
       {/* Named as the step that carries the same words once she starts —
           in the reader's words, as `stepTitle` names the step. */}

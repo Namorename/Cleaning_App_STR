@@ -47,6 +47,12 @@ interface ProblemDetailProps {
    * «Назначить», «Снять с работы», the history (features/board).
    */
   dispatch?: ReactNode;
+  /**
+   * The place's instructions from the knowledge base, under the facts
+   * (features/knowledge/place-instructions.tsx): the route builds them, and
+   * they draw nothing until there is something to read.
+   */
+  instructions?: ReactNode;
 }
 
 /**
@@ -75,6 +81,7 @@ export function ProblemDetail({
   notice,
   refreshError = null,
   dispatch,
+  instructions,
 }: ProblemDetailProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
@@ -127,6 +134,8 @@ export function ProblemDetail({
       </Card>
 
       {dispatch}
+
+      {instructions}
 
       {problem.description !== null ? (
         <View style={layout.block}>

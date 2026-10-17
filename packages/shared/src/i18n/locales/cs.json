@@ -1866,7 +1866,27 @@
   },
   "knowledge": {
     "important": "Důležité",
-    "step": "Krok {{number}}"
+    "step": "Krok {{number}}",
+    "title": "Znalostní báze",
+    "placeBlock": "Pokyny k objektu",
+    "articleCount_one": "{{count}} článek",
+    "articleCount_few": "{{count}} články",
+    "articleCount_many": "{{count}} článku",
+    "articleCount_other": "{{count}} článků",
+    "openPlaceHint": "Otevře seznam článků",
+    "allArticles": "Všechny články znalostní báze",
+    "sectionHint": "Pokyny k objektům a obecná pravidla firmy",
+    "search": "Hledat v článcích",
+    "searchHint": "Hledá v názvech a textu",
+    "loading": "Načítáme články…",
+    "loadError": "Články se nepodařilo načíst. Zkontrolujte připojení a zkuste to znovu.",
+    "empty": "Zatím žádné články",
+    "emptyHint": "Až manažer zveřejní pokyny, objeví se tady.",
+    "noMatches": "Nic nenalezeno",
+    "placeEmpty": "Pro tento objekt nejsou žádné články",
+    "notFound": "Článek neexistuje nebo už pro vás není dostupný",
+    "originalOnly": "Překlad do vašeho jazyka není — zobrazen originál",
+    "opensInBrowser": "Otevře se v prohlížeči"
   },
   "serverErrors": {
     "checklistCopySameProperty": "Zdroj a cíl jsou tentýž apartmán",
