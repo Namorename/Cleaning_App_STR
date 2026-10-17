@@ -14,6 +14,8 @@ vi.mock('next/navigation', () => ({
 // test fills by hand.
 const unread = { tasks: new Set<string>(), problems: new Set<string>() };
 vi.mock('@/features/chat/use-chat', () => ({ useUnreadSubjects: () => unread }));
+// The reviews' count is a query of its own; here it says nothing waits.
+vi.mock('@/features/reviews/use-reviews', () => ({ useCandidateCount: () => ({ data: 0 }) }));
 
 afterEach(() => {
   unread.tasks.clear();
@@ -70,6 +72,7 @@ describe('Sidebar', () => {
       'Календарь',
       'Уборки',
       'Задания',
+      'Отзывы',
       'Заявки',
     ]);
     expect(linkTexts(within(nav).getByRole('group', { name: 'Справочники' }))).toEqual([
@@ -95,6 +98,7 @@ describe('Sidebar', () => {
       '/calendar',
       '/tasks',
       '/problems',
+      '/reviews',
       '/supplies',
       '/apartments',
       '/team',
@@ -186,6 +190,7 @@ describe('Sidebar folded to a strip of icons', () => {
       'Календарь',
       'Уборки',
       'Задания',
+      'Отзывы',
       'Заявки',
       'Объекты',
       'Команда',
@@ -216,6 +221,7 @@ describe('Sidebar folded to a strip of icons', () => {
       'Календарь',
       'Уборки',
       'Задания',
+      'Отзывы',
       'Заявки',
       'Объекты',
       'Команда',
@@ -253,8 +259,8 @@ describe('Sidebar folded to a strip of icons', () => {
     render(<Sidebar email="manager.test@example.com" />);
     const toggle = screen.getByRole('button', { name: 'Свернуть меню' });
 
-    // Through the nine sections and the theme lever, then the toggle under them.
-    for (let step = 0; step < 11 && document.activeElement !== toggle; step += 1) {
+    // Through the ten sections and the theme lever, then the toggle under them.
+    for (let step = 0; step < 12 && document.activeElement !== toggle; step += 1) {
       await userEvent.tab();
     }
     expect(toggle).toHaveFocus();

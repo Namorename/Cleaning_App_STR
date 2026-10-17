@@ -13,6 +13,7 @@ import * as apartments from '../apartments/api';
 import * as calendar from '../calendar/api';
 import * as chat from '../chat/api';
 import * as problems from '../problems/api';
+import * as reviews from '../reviews/api';
 import * as settings from '../settings/api';
 import * as supplies from '../supplies/api';
 import * as tasks from '../tasks/api';
@@ -107,6 +108,10 @@ const READERS: readonly ((client: never) => Promise<unknown>)[] = [
   (client) => problems.fetchProblemPhotos(client, ANY_ID),
   (client) => problems.fetchFixTaskSteps(client, ANY_ID),
   (client) => problems.fetchStaff(client),
+  (client) => reviews.fetchFindings(client, ['candidate']),
+  (client) => reviews.fetchCandidateCount(client),
+  (client) => reviews.fetchReviews(client),
+  (client) => reviews.fetchSettings(client),
   (client) => settings.fetchHostSettings(client),
   (client) => settings.fetchMyLanguage(client, ANY_ID),
   // A write, but it asks its row back: the select it sends is guarded too.

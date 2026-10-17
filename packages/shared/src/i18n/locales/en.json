@@ -186,7 +186,9 @@
       "groups": {
         "work": "Work",
         "reference": "Directory"
-      }
+      },
+      "reviews": "Reviews",
+      "toReview": "To review: {{count}}"
     },
     "dashboard": {
       "tiles": {
@@ -1161,6 +1163,108 @@
         "limit_one": "The past goes back {{count}} day at most",
         "limit_other": "The past goes back {{count}} days at most"
       }
+    },
+    "reviews": {
+      "title": "Reviews",
+      "updated": "Updated {{at}}",
+      "stale": "No clean run since {{at}}",
+      "neverRan": "Not loaded yet",
+      "hidden": "hidden on the channel",
+      "addByHand": "Create a task from this review",
+      "kindLabel": "Kind",
+      "subjectLabel": "What",
+      "tabs": {
+        "found": "Found",
+        "accepted": "Accepted",
+        "rejected": "Rejected",
+        "linked": "Linked and fixed",
+        "dropped": "Set aside",
+        "all": "All reviews",
+        "settings": "Settings"
+      },
+      "empty": {
+        "found": "Nothing waits for a decision.",
+        "accepted": "No tasks made from reviews yet.",
+        "rejected": "Nothing rejected.",
+        "linked": "Nothing linked.",
+        "dropped": "Nothing set aside.",
+        "all": "No reviews loaded yet."
+      },
+      "card": {
+        "urgent": "Urgent",
+        "noPlace": "No place",
+        "noWords": "No wording — write the title yourself",
+        "byModel": "model",
+        "byRules": "rules",
+        "monthOnly": "Stay: {{month}} (exact dates are gone)",
+        "noRating": "no rating",
+        "booking": "Hostaway booking #{{id}}",
+        "noText": "No text kept for this review.",
+        "fullReview": "The review in full (anonymised)",
+        "privateOnly": "Private, to the host only:",
+        "truncated": "Shortened — the whole text is on the channel.",
+        "onPlace": "Tasks on the place since the guest left",
+        "source": {
+          "public": "public review",
+          "private": "private, to the host only",
+          "category_comment": "category comment"
+        }
+      },
+      "decide": {
+        "title": "Task title",
+        "priority": "Priority",
+        "assignee": "Send to",
+        "toOpen": "Open column (head technician hands it out)",
+        "date": "Day",
+        "description": "Note for the technician",
+        "createOpen": "Create task",
+        "createAssigned": "Create and send",
+        "linkTo": "Same as, or already fixed by",
+        "same": "Same as",
+        "fixed": "Already fixed",
+        "link": "Link",
+        "rejectReason": "Reason",
+        "reject": "Reject"
+      },
+      "settings": {
+        "adminOnly": "Only an admin changes these switches.",
+        "sync_enabled": "Load ratings from Hostaway daily",
+        "texts_enabled": "Keep review texts (needs the guest notice)",
+        "tasks_enabled": "Create tasks from reviews",
+        "model_enabled": "Read texts with the model",
+        "noNotice": "Guest notice: not published yet",
+        "notice": "Guest notice published {{at}}",
+        "cap": "Model calls a day at most: {{cap}}; confidence floor: {{floor}}",
+        "auto": "Kinds created at once, without approval",
+        "autoNone": "None — every finding waits for a manager",
+        "autoOff": "Back to approval"
+      },
+      "channel": {
+        "airbnb": "Airbnb",
+        "booking": "Booking.com",
+        "vrbo": "Vrbo",
+        "direct": "Direct",
+        "google": "Google",
+        "other": "Other channel"
+      },
+      "category": {
+        "cleanliness": "cleanliness",
+        "accuracy": "accuracy",
+        "checkin": "check-in",
+        "communication": "communication",
+        "location": "location",
+        "value": "value",
+        "comfort": "comfort",
+        "facilities": "facilities",
+        "staff": "staff"
+      },
+      "reason": {
+        "false_positive": "Not a real problem",
+        "not_property": "Not about our place",
+        "already_fixed": "Already fixed",
+        "duplicate": "A duplicate",
+        "not_worth": "Not worth a visit"
+      }
     }
   },
   "tabs": {
@@ -1593,6 +1697,10 @@
       "unarchived": "Task restored from the archive",
       "unknown": "Another event",
       "system": "System"
+    },
+    "source": {
+      "review": "From a guest review",
+      "reviewLeft": "Guest left in {{month}}"
     }
   },
   "supplies": {
@@ -1810,7 +1918,29 @@
     "mailTooSoon": "A letter has just gone to this address. Try again in a minute.",
     "mailNotConfigured": "Sending email is not configured.",
     "hostNotFound": "The company was not found.",
-    "analyticsPeriodInvalid": "The period must start before it ends and last at most {{maxDays}} days."
+    "analyticsPeriodInvalid": "The period must start before it ends and last at most {{maxDays}} days.",
+    "forbidden": "You are not allowed to do this.",
+    "localizedTextInvalid": "The translations are not valid.",
+    "reviewRowsInvalid": "The reviews could not be read.",
+    "reviewNotFound": "This review was not found.",
+    "reviewFindingsInvalid": "The reading could not be stored.",
+    "reviewFindingNoPlace": "This finding has no place to send anyone to.",
+    "reviewPlaceArchived": "The place is in the archive: ratings only, no tasks.",
+    "reviewFindingNotFound": "This finding was not found.",
+    "reviewFindingDecided": "This finding has already been decided.",
+    "reviewTasksDisabled": "Tasks from reviews are switched off.",
+    "reviewLinkInvalid": "This task cannot take the finding.",
+    "reviewDuplicateOpen": "An open task from a review is already about the same — link it instead.",
+    "reviewTitleRequired": "Write a title for the task.",
+    "reviewKindNoTask": "This kind never makes a task.",
+    "reviewSubjectUnknown": "Unknown subject.",
+    "reviewRejectReasonMissing": "Choose a reason.",
+    "reviewFindingWorkStarted": "Somebody has been sent already: close the task by hand.",
+    "reviewGateAdminOnly": "Only an admin changes this switch.",
+    "reviewNoticeDateFixed": "The notice date is set once and not in the future.",
+    "reviewTextsNeedNotice": "Texts need the published guest notice first.",
+    "reviewModelNeedsTexts": "The model needs the texts switched on.",
+    "reviewAutoNotEarned": "This kind has not earned auto yet: {{approved}} of {{decisions}} approved."
   },
   "push": {
     "cleaning_new": {
@@ -2102,6 +2232,35 @@
     "changes": {
       "heading": "9. Changes",
       "text": "We update this policy when the processing of data changes. The date of the latest version is at the top of the page."
+    }
+  },
+  "reviews": {
+    "kind": {
+      "repair": "Repair",
+      "safety": "Safety",
+      "pests": "Pests",
+      "access": "Access",
+      "cleaning": "Cleaning",
+      "supplies": "Supplies",
+      "noise": "Noise",
+      "neighbourhood": "Neighbourhood",
+      "wish": "Wish",
+      "other": "Other"
+    },
+    "subject": {
+      "hot_water": "hot water",
+      "heating": "heating",
+      "air_conditioning": "air conditioning",
+      "plumbing_leak": "leak, taps",
+      "drain_toilet": "drain, toilet",
+      "electric": "electricity",
+      "appliance": "appliance",
+      "internet_tv": "internet, TV",
+      "lock_door": "lock, door",
+      "window_blind": "window, blind",
+      "furniture": "furniture",
+      "mould_damp": "mould, damp",
+      "other": "other"
     }
   }
 }

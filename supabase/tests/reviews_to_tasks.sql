@@ -536,6 +536,17 @@ begin
      and not exists (select 1 from raw.review_runs where counts ? 'read' and counts ? 'model_calls')
   then raise notice 'ok the end-of-run journal never counts calls twice'; else raise exception 'FAIL log'; end if;
 
+  -- 16b. the screen's line: when each job last ran clean, for a manager only.
+  perform public.log_review_run('hostaway', 'classify', false, '{}'::jsonb, '[{"code": "service_overloaded", "count": 1}]'::jsonb, v_host);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_manager, 'role', 'authenticated')::text, true);
+  if (select last_ok_at is not null and last_run_at >= last_ok_at from public.review_run_status() where stage = 'sync')
+     and (select last_run_at is not null and last_ok_at is not null from public.review_run_status() where stage = 'classify')
+  then raise notice 'ok the manager sees when each job last ran and last ran clean'; else raise exception 'FAIL run status'; end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_cleaner, 'role', 'authenticated')::text, true);
+  if not exists (select 1 from public.review_run_status())
+  then raise notice 'ok a cleaner gets no run status'; else raise exception 'FAIL cleaner run status'; end if;
+  perform set_config('request.jwt.claims', '{}', true);
+
   -- 17. a review the model cannot read leaves the queue after three tries.
   perform public.mark_review_analysis_failed(v_r3, 'model_bad_json');
   perform public.mark_review_analysis_failed(v_r3, 'model_bad_json');

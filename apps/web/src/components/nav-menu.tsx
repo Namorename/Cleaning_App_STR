@@ -7,6 +7,7 @@ import {
   ChartColumn,
   ClipboardList,
   LayoutGrid,
+  MessageSquare,
   Package,
   Settings,
   Users,
@@ -20,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
+import { useCandidateCount } from '@/features/reviews/use-reviews';
 import { cn } from '@/lib/utils';
 
 type NavKey =
@@ -28,6 +30,7 @@ type NavKey =
   | 'calendar'
   | 'tasks'
   | 'problems'
+  | 'reviews'
   | 'supplies'
   | 'apartments'
   | 'team'
@@ -62,6 +65,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
       { href: '/calendar', key: 'calendar', icon: Calendar },
       { href: '/tasks', key: 'tasks', icon: BrushCleaning },
       { href: '/problems', key: 'problems', icon: ClipboardList },
+      { href: '/reviews', key: 'reviews', icon: MessageSquare },
       { href: '/supplies', key: 'supplies', icon: Package },
     ],
   },
@@ -117,15 +121,17 @@ export function StripTooltip({ label, isCollapsed, render, children }: StripTool
 interface UnreadCountProps {
   count: number;
   isCollapsed: boolean;
+  /** What the number counts: waiting conversations, or findings waiting for a decision. */
+  labelKey: string;
 }
 
 /** How many conversations wait under a section; on a folded icon, a small badge at its corner. */
-function UnreadCount({ count, isCollapsed }: UnreadCountProps) {
+function UnreadCount({ count, isCollapsed, labelKey }: UnreadCountProps) {
   const { t } = useTranslation();
 
   return (
     <span
-      aria-label={t('panel.nav.unread', { count })}
+      aria-label={t(labelKey, { count })}
       className={cn(
         'rounded-full bg-primary font-medium text-primary-foreground',
         isCollapsed
@@ -175,7 +181,13 @@ function NavList({ items, pathname, unreadBy, isCollapsed, onNavigate, className
                 aria-hidden="true"
               />
               <span className={cn('min-w-0 truncate', isCollapsed && 'sr-only')}>{label}</span>
-              {count > 0 ? <UnreadCount count={count} isCollapsed={isCollapsed} /> : null}
+              {count > 0 ? (
+                <UnreadCount
+                  count={count}
+                  isCollapsed={isCollapsed}
+                  labelKey={key === 'reviews' ? 'panel.nav.toReview' : 'panel.nav.unread'}
+                />
+              ) : null}
             </StripTooltip>
           </li>
         );
@@ -233,11 +245,14 @@ export function NavMenu({ isCollapsed = false, onNavigate, id, className }: NavM
   const { t } = useTranslation();
   const pathname = usePathname();
   const unread = useUnreadSubjects();
+  // The candidates from guest reviews: a count in the menu instead of a push (the owner's decision 7).
+  const candidates = useCandidateCount();
   // How many conversations wait under each section. Threads hang off jobs
   // and breakages, so the count sits on the section that lists them.
   const unreadBy: UnreadCounts = {
     tasks: unread.tasks.size,
     problems: unread.problems.size,
+    reviews: candidates.data ?? 0,
   };
   const rows = { pathname, unreadBy, isCollapsed, onNavigate };
 

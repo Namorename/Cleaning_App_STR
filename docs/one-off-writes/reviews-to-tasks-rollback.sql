@@ -92,6 +92,7 @@ $fn$;
   drop function if exists public.add_review_finding(uuid, public.review_finding_kind, text, text, public.problem_priority, text, uuid, date);
   drop function if exists public.approve_review_finding(uuid, text, public.problem_priority, uuid, text, uuid, date);
   drop function if exists public.review_place_problems(uuid);
+  drop function if exists public.review_run_status();
   drop function if exists public.apply_review_findings(uuid, text, text, jsonb);
   drop function if exists public.decide_review_finding(uuid);
   drop function if exists public.create_review_problem(uuid, text, jsonb, public.problem_priority, text, text);

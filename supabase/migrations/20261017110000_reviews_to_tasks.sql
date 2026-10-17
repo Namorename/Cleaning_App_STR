@@ -1875,6 +1875,31 @@ as $$
 $$;
 
 /**
+ * When each job last ran, and last ran clean — the «Отзывы» screen's line
+ * "updated at", and its warning when a day has gone by without a clean run
+ * (docs §3.3). raw.review_runs is not exposed through PostgREST; this hands
+ * a manager of the company the times and nothing else (no counts, no codes).
+ * The model's bookings are classify rows too and are left out.
+ */
+create or replace function public.review_run_status()
+returns table (stage text, last_run_at timestamptz, last_ok_at timestamptz)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select s.stage, max(r.ran_at), max(r.ran_at) filter (where r.is_ok)
+  from (values ('sync'), ('classify')) as s (stage)
+  left join raw.review_runs r
+    on r.stage = s.stage
+   and r.host_id = (select public.current_host_id())
+   and not (r.counts ? 'reserved')
+  where (select public.is_manager())
+  group by s.stage
+  order by s.stage desc
+$$;
+
+/**
  * «Создать задание из отзыва» by hand, on the «Отзывы» screen: works without
  * the rules and without the model. The manager names the kind, the subject
  * and the title; the finding is stored as the manual reader's and approved at
@@ -2228,6 +2253,8 @@ revoke all on function public.reject_review_finding(uuid, public.review_reject_r
 revoke all on function public.update_review_settings(boolean, boolean, boolean, boolean, text[], integer, numeric, timestamptz) from public, anon;
 revoke all on function public.review_place_problems(uuid) from public, anon;
 grant execute on function public.review_place_problems(uuid) to authenticated;
+revoke all on function public.review_run_status() from public, anon;
+grant execute on function public.review_run_status() to authenticated;
 grant execute on function public.approve_review_finding(uuid, text, public.problem_priority, uuid, text, uuid, date) to authenticated;
 grant execute on function public.reject_review_finding(uuid, public.review_reject_reason) to authenticated;
 grant execute on function public.update_review_settings(boolean, boolean, boolean, boolean, text[], integer, numeric, timestamptz) to authenticated;

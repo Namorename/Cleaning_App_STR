@@ -242,6 +242,22 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
   );
 }
 
+/** «Из отзыва гостя · Airbnb · гость выехал: 2026-10» — the facts a task from a review carries, no quote. */
+function reviewLine(
+  problem: Problem,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string {
+  const facts = problem.review_facts;
+  const parts = [t('problems.source.review')];
+  if (facts?.channel) {
+    parts.push(t(`panel.reviews.channel.${facts.channel}`));
+  }
+  if (facts?.departure_month) {
+    parts.push(t('problems.source.reviewLeft', { month: facts.departure_month }));
+  }
+  return parts.join(' · ');
+}
+
 function ReportMeta({ problem }: { problem: Problem }) {
   const { t } = useTranslation();
   const language = useLanguage();
@@ -262,6 +278,7 @@ function ReportMeta({ problem }: { problem: Problem }) {
         })}
       </dd>
       {problem.task_id !== null ? <dd>{t('panel.problems.detail.fromTask')}</dd> : null}
+      {problem.source === 'review' ? <dd>{reviewLine(problem, t)}</dd> : null}
       {problem.resolved_at !== null ? (
         <dd>
           {t('panel.problems.detail.resolvedAt', {
