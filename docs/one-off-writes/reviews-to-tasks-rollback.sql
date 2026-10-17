@@ -48,7 +48,7 @@ begin
   perform cron.unschedule(j.jobid)
   from cron.job j
   where j.jobname in ('sync-reviews-daily', 'classify-reviews-daily',
-                      'purge-review-data', 'purge-review-runs');
+                      'purge-review-stays', 'purge-review-data', 'purge-review-runs');
 
   -- The push trigger as 20261003160000 left it — the body byte for byte, so
   -- md5(prosrc) after the rollback is the one the probe of that day knows.
@@ -99,6 +99,7 @@ $fn$;
   drop function if exists public.review_place_family(bigint);
   drop function if exists public.review_kind_gives_task(public.review_finding_kind);
   drop function if exists public.purge_review_data();
+  drop function if exists public.purge_review_stays();
   drop function if exists public.erase_review_texts(uuid[]);
   drop function if exists public.store_review_texts(uuid, public.review_source, jsonb);
   drop function if exists public.ingest_guest_reviews(public.review_source, jsonb, timestamptz, uuid, jsonb);
@@ -117,6 +118,10 @@ $fn$;
   drop table if exists public.guest_reviews;
   drop table if exists public.review_settings;
   drop table if exists raw.review_runs;
+  -- The trigger functions and the month helper, after the tables they served.
+  drop function if exists public.review_findings_dates();
+  drop function if exists public.guest_reviews_touch();
+  drop function if exists public.review_month_of(timestamptz);
   -- After the table: its CHECK on subject calls it.
   drop function if exists public.review_subjects();
   drop type if exists public.review_reject_reason;

@@ -136,6 +136,20 @@ declare
 begin
   perform set_config('request.jwt.claims', '{}', true);
 
+  -- 0a. the last day: two years of review times, one every 7 hours. The
+  -- sweep runs at 05:00 UTC on the day review_stay_link_ends() names: never
+  -- 90 days or more after the review, and always on the first of a month.
+  select count(*) into v_n
+  from generate_series(timestamptz '2026-01-01 00:00+00', timestamptz '2027-12-31 23:00+00',
+                       interval '7 hours') as t
+  where (public.review_stay_link_ends(t)::timestamp + time '05:00') at time zone 'UTC' - t >= interval '90 days'
+     or (public.review_stay_link_ends(t)::timestamp + time '05:00') at time zone 'UTC' - t < interval '58 days'
+     or extract(day from public.review_stay_link_ends(t)) <> 1;
+  if v_n = 0
+     and public.review_stay_link_ends(timestamptz '2026-01-31 23:30 Europe/Prague') = date '2026-04-01'
+     and public.review_stay_link_ends(timestamptz '2026-02-01 00:30 Europe/Prague') = date '2026-05-01'
+  then raise notice 'ok the last day comes before day 90, on the first of a month, by the Prague day'; else raise exception 'FAIL last day (% out of bounds)', v_n; end if;
+
   -- 0. a stay from before the notice keeps its rating, never its text; with
   -- nothing to read, it is cut to its month at once.
   perform public.ingest_guest_reviews('hostaway', jsonb_build_array(
@@ -160,7 +174,7 @@ begin
       'listing_id', v_l1, 'channel', 'airbnb', 'rating', 8,
       'category_ratings', '{"cleanliness": 10}'::jsonb, 'arrival_date', current_date - 5,
       'departure_date', current_date - 3, 'submitted_at', now() - interval '1 day',
-      'reservation_id', v_res, 'external_reservation_id', 'R-1',
+      'reservation_id', v_res, 'external_reservation_id', 'R-1', 'external_updated_at', now() - interval '20 hours',
       'has_public_text', true, 'public_text', 'The shower had no hot water. [GUEST] was told.'),
     jsonb_build_object('external_id', 'suite-test', 'external_listing_id', '900000000001',
       'listing_id', 900000000001, 'channel', 'booking', 'rating', 10,
@@ -237,6 +251,7 @@ begin
      and (select subject from public.review_findings where review_id = v_r1 and kind = 'cleaning') = 'other'
      and not ((select summary_i18n from public.review_findings where review_id = v_r1 and subject = 'hot_water') ? 'de')
   then raise notice 'ok language, subject and translations normalised'; else raise exception 'FAIL normalise'; end if;
+  perform public.apply_review_findings(v_r1, 'rules-v1', null, '[]'::jsonb);
   if (select stay_exact and reservation_id = v_res from public.guest_reviews where id = v_r1)
   then raise notice 'ok read, but a candidate waits: the days and the booking stay'; else raise exception 'FAIL exact while a candidate waits'; end if;
 
@@ -274,6 +289,9 @@ begin
      and v_review.departure_date = date_trunc('month', (current_date - 3)::timestamp)::date
      and v_review.arrival_date = date_trunc('month', (current_date - 5)::timestamp)::date
      and v_review.public_text is not null and v_review.property_id = v_l1
+     and v_review.external_updated_at is null
+     and extract(day from v_review.analysed_at at time zone 'Europe/Prague') = 1
+     and extract(day from v_review.updated_at at time zone 'Europe/Prague') = 1
      and not exists (select 1 from public.review_findings
                      where review_id = v_r1 and extract(day from created_at at time zone 'Europe/Prague') <> 1)
   then raise notice 'ok decided: the days and the booking go, the place, the month and the text stay'; else raise exception 'FAIL cut at decision %', row_to_json(v_review); end if;
@@ -318,7 +336,10 @@ begin
      and (select problem_id from public.review_findings where review_id = v_r2) = v_problem.id
      and (select evidence is null from public.review_findings where review_id = v_r2)
      and (select not stay_exact from public.guest_reviews where id = v_r2)
-  then raise notice 'ok the same trouble joins the open problem, the stay cut or not; no fragment without a kept text'; else raise exception 'FAIL duplicate %', v_out; end if;
+     and (select extract(day from created_at at time zone 'Europe/Prague') = 1
+                 and extract(day from updated_at at time zone 'Europe/Prague') = 1
+          from public.review_findings where review_id = v_r2)
+  then raise notice 'ok the same trouble joins the open problem, the stay cut or not; a finding after the cut keeps only the month'; else raise exception 'FAIL duplicate %', v_out; end if;
 
   -- 8. a rules finding on a room waits, writes no words, and leaves the review to the model.
   perform public.ingest_guest_reviews('hostaway', jsonb_build_array(
@@ -384,13 +405,19 @@ begin
     jsonb_build_object('kind', 'repair', 'subject', 'electric', 'confidence', 0.9,
       'summary_i18n', '{"en": "Socket by the bed is dead", "cs": "Zásuvka u postele nefunguje", "ru": "Не работает розетка у кровати"}'::jsonb)));
   if v_out = '{"task_created": 1}'::jsonb and (select decided_mode from public.review_findings where review_id = v_r) = 'auto'
-     and (select not stay_exact from public.guest_reviews where id = v_r)
+     and (select stay_exact from public.guest_reviews where id = v_r)
+  then raise notice 'ok the model read it, the rules not yet: the days stay'; else raise exception 'FAIL exact before the rules %', v_out; end if;
+  perform public.apply_review_findings(v_r, 'rules-v1', null, '[]'::jsonb);
+  if (select not stay_exact from public.guest_reviews where id = v_r)
   then raise notice 'ok a fresh exact stay on a clean place makes its problem at once, and is cut after'; else raise exception 'FAIL auto %', v_out; end if;
   select id into v_r from public.guest_reviews where external_id = 'suite-7';
   v_out := public.apply_review_findings(v_r, 'claude-haiku-5-5@prompt-v1', 'en', jsonb_build_array(
     jsonb_build_object('kind', 'repair', 'subject', 'electric', 'confidence', 0.9,
       'summary_i18n', '{"en": "Socket by the sofa is dead", "cs": "Zásuvka u gauče nefunguje", "ru": "Не работает розетка у дивана"}'::jsonb)));
   if v_out = '{"candidate": 1}'::jsonb then raise notice 'ok an old review waits for the manager even in auto'; else raise exception 'FAIL old auto %', v_out; end if;
+  -- Cut at load (no text), its day put back by hand: only the cut itself
+  -- stands between it and auto now.
+  update public.guest_reviews set submitted_at = now() where external_id = 'suite-cut-auto';
   select id into v_r from public.guest_reviews where external_id = 'suite-cut-auto';
   v_out := public.apply_review_findings(v_r, 'claude-haiku-5-5@prompt-v1', 'en', jsonb_build_array(
     jsonb_build_object('kind', 'repair', 'subject', 'electric', 'confidence', 0.9,
@@ -519,6 +546,41 @@ begin
      and (select analysis_error from public.guest_reviews where id = v_r3) = 'unknown'
   then raise notice 'ok failures counted with a code, never free text'; else raise exception 'FAIL attempts'; end if;
 
+  -- 17b. with the model on, the rules' reading alone settles nothing; the
+  -- model giving up after three tries does.
+  perform public.ingest_guest_reviews('hostaway', jsonb_build_array(
+    jsonb_build_object('external_id', 'suite-wait', 'external_listing_id', v_l8::text,
+      'listing_id', v_l8, 'channel', 'airbnb', 'rating', 9, 'arrival_date', current_date - 4,
+      'departure_date', current_date - 2, 'submitted_at', now(), 'has_public_text', true,
+      'public_text', 'All good.')), now(), v_host);
+  select id into v_r from public.guest_reviews where external_id = 'suite-wait';
+  perform public.apply_review_findings(v_r, 'rules-v1', null, '[]'::jsonb);
+  if (select stay_exact from public.guest_reviews where id = v_r)
+  then raise notice 'ok the rules read it, the model is on and has not: the days stay'; else raise exception 'FAIL exact waiting for the model'; end if;
+  perform public.mark_review_analysis_failed(v_r, 'model_bad_json');
+  perform public.mark_review_analysis_failed(v_r, 'model_bad_json');
+  if (select stay_exact from public.guest_reviews where id = v_r)
+  then raise notice 'ok two failures leave it waiting'; else raise exception 'FAIL cut after two failures'; end if;
+  perform public.mark_review_analysis_failed(v_r, 'model_bad_json');
+  if (select not stay_exact from public.guest_reviews where id = v_r)
+  then raise notice 'ok the third failure takes it off the queue, and its days go'; else raise exception 'FAIL exact after three failures'; end if;
+
+  -- 17c. the same review the model never read, and the admin switches the model off: settled at once.
+  perform public.ingest_guest_reviews('hostaway', jsonb_build_array(
+    jsonb_build_object('external_id', 'suite-model-off', 'external_listing_id', v_l8::text,
+      'listing_id', v_l8, 'channel', 'booking', 'rating', 9, 'arrival_date', current_date - 4,
+      'departure_date', current_date - 2, 'submitted_at', now(), 'has_public_text', true,
+      'public_text', 'Nice flat.')), now(), v_host);
+  select id into v_r from public.guest_reviews where external_id = 'suite-model-off';
+  perform public.apply_review_findings(v_r, 'rules-v1', null, '[]'::jsonb);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
+  perform public.update_review_settings(p_model_enabled => false);
+  perform set_config('request.jwt.claims', '{}', true);
+  if (select not stay_exact from public.guest_reviews where id = v_r)
+     and (select stay_exact from public.guest_reviews where external_id = 'suite-1') is false
+  then raise notice 'ok the model off: a review the rules have read is settled at once'; else raise exception 'FAIL cut at model off'; end if;
+  update public.review_settings set model_enabled = true where host_id = v_host;
+
   -- 19. a text past its column keeps its beginning and says so; a bad comment field costs only itself.
   v_out := public.ingest_guest_reviews('hostaway', jsonb_build_array(
     jsonb_build_object('external_id', 'suite-long', 'external_listing_id', v_l5::text,
@@ -621,6 +683,7 @@ begin
   perform public.apply_review_findings(v_r, 'claude-haiku-5-5@prompt-v1', 'en', jsonb_build_array(
     jsonb_build_object('kind', 'repair', 'subject', 'plumbing_leak', 'confidence', 0.9,
       'summary_i18n', '{"en": "Shower head leaks", "cs": "Sprchová hlavice kape", "ru": "Течёт лейка душа"}'::jsonb)));
+  perform public.apply_review_findings(v_r, 'rules-v1', null, '[]'::jsonb);
   select * into v_f from public.review_findings where review_id = v_r;
   v_fixed2 := gen_random_uuid();
   insert into public.problems (id, host_id, property_id, reported_by, title, status, resolved_at)
@@ -698,6 +761,7 @@ begin
   perform public.apply_review_findings(v_r, 'claude-haiku-5-5@prompt-v1', 'en', jsonb_build_array(
     jsonb_build_object('kind', 'repair', 'subject', 'internet_tv', 'confidence', 0.9,
       'summary_i18n', '{"en": "Wi-Fi keeps dropping", "cs": "Wi-Fi vypadává", "ru": "Пропадает Wi-Fi"}'::jsonb)));
+  perform public.apply_review_findings(v_r, 'rules-v1', null, '[]'::jsonb);
   select * into v_f from public.review_findings where review_id = v_r;
   perform set_config('request.jwt.claims', json_build_object('sub', v_manager, 'role', 'authenticated')::text, true);
   v_hint := null;
@@ -711,7 +775,9 @@ begin
   then raise notice 'ok with exact days a repair from before the guest left is not on the card'; else raise exception 'FAIL exact list %', v_hint; end if;
   perform set_config('request.jwt.claims', '{}', true);
   update public.guest_reviews set submitted_at = submitted_at - interval '4 months' where id = v_r;
-  perform public.purge_review_data();
+  perform public.purge_review_stays();
+  if (select stay_exact from public.guest_reviews where id = v_r4)
+  then raise notice 'ok the sweep leaves a waiting card with days left as it is'; else raise exception 'FAIL sweep took a waiting card'; end if;
   select * into v_review from public.guest_reviews where id = v_r;
   perform set_config('request.jwt.claims', json_build_object('sub', v_manager, 'role', 'authenticated')::text, true);
   if not v_review.stay_exact and v_review.departure_date = v_month and v_review.stay_after_notice
@@ -805,8 +871,11 @@ begin
       'public_text', 'Lovely stay.')), now(), v_host);
   select id into v_r from public.guest_reviews where external_id = 'suite-late';
   perform public.apply_review_findings(v_r, 'claude-haiku-5-5@prompt-v1', 'en', '[]'::jsonb);
+  if (select stay_exact from public.guest_reviews where id = v_r)
+  then raise notice 'ok the model found nothing, the rules have not read it: the days stay for them'; else raise exception 'FAIL cut before the rules'; end if;
+  perform public.apply_review_findings(v_r, 'rules-v1', null, '[]'::jsonb);
   if (select not stay_exact and stay_after_notice from public.guest_reviews where id = v_r)
-  then raise notice 'ok read and nothing found: the stay is cut at once'; else raise exception 'FAIL cut after an empty reading'; end if;
+  then raise notice 'ok both readers found nothing: the stay is cut at once'; else raise exception 'FAIL cut after an empty reading'; end if;
   perform public.ingest_guest_reviews('hostaway', jsonb_build_array(
     jsonb_build_object('external_id', 'suite-late', 'external_listing_id', v_l6::text,
       'listing_id', v_l6, 'channel', 'airbnb', 'rating', 8, 'arrival_date', current_date - 4,

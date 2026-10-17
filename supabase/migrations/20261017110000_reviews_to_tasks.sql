@@ -116,9 +116,42 @@ create index guest_reviews_room_idx on public.guest_reviews (room_id)
 create index guest_reviews_exact_idx on public.guest_reviews (host_id, submitted_at)
   where stay_exact;
 
+/**
+ * The first moment of the month `p_at` falls in, Prague time: what a cut
+ * review keeps of any time on it.
+ *
+ * Internal: no grants.
+ */
+create or replace function public.review_month_of(p_at timestamptz)
+returns timestamptz
+language sql
+stable
+parallel safe
+set search_path = ''
+as $$
+  select date_trunc('month', p_at at time zone 'Europe/Prague') at time zone 'Europe/Prague'
+$$;
+
+/**
+ * updated_at for a review: the moment of the change while the stay is exact,
+ * its month once the stay is cut — the cut's own write, a load a day later,
+ * a late text: none of them may stamp the day back on a row that keeps only
+ * its month.
+ */
+create or replace function public.guest_reviews_touch()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  new.updated_at := case when new.stay_exact then now() else public.review_month_of(now()) end;
+  return new;
+end;
+$$;
+
 create trigger guest_reviews_touch
   before update on public.guest_reviews
-  for each row execute function public.touch_updated_at();
+  for each row execute function public.guest_reviews_touch();
 
 -- What a company has switched on. Every switch is off until somebody turns it
 -- on: the order of steps is the order these go true.
@@ -453,7 +486,8 @@ begin
           has_public_text     = excluded.has_public_text,
           has_private_text    = excluded.has_private_text,
           has_host_reply      = excluded.has_host_reply,
-          external_updated_at = excluded.external_updated_at,
+          -- The PMS's own clock dates the review too: gone with the cut.
+          external_updated_at = case when g.stay_exact then excluded.external_updated_at end,
           -- Learned later, never forgotten: a booking that left the window
           -- keeps the link the row already had — while the stay is exact.
           -- Once cut, the booking stays gone whatever the PMS sends again.
@@ -720,9 +754,14 @@ as $$
     and s.texts_enabled
     and s.notice_published_at is not null
     -- The exact arrival while there is one; after the cut, what it said then.
+    -- A stay cut before the notice had a date says nothing; its month still
+    -- answers when the whole month came after the notice (the first of the
+    -- month is never later than the real day).
     and case when g.stay_exact
              then g.arrival_date >= (s.notice_published_at at time zone 'Europe/Prague')::date
-             else coalesce(g.stay_after_notice, false) end
+             else coalesce(g.stay_after_notice,
+                           g.arrival_date >= (s.notice_published_at at time zone 'Europe/Prague')::date,
+                           false) end
     and (g.text_purge_after is null or g.text_purge_after > current_date)
     and not g.is_hidden
     and not exists (select 1 from public.properties p
@@ -786,9 +825,8 @@ $$;
  * archive; of a company whose texts are off (the switch erases at once —
  * this sweeps a load that raced it).
  *
- * Stays: every review settled since, or whose review_stay_link_ends() has
- * come, keeps its month and its place and loses its days and its booking
- * (cut_review_stay_links — the owner's decision of 2026-10-17, late).
+ * Stays are cut by their own job (purge_review_stays), not here: a failure
+ * of one must not skip the other for the night.
  *
  * The key, on the text's day (review_retention_ends): the PMS's id of the
  * review becomes 'purged:<our id>'. What is left — the rating, its
@@ -803,7 +841,6 @@ set search_path = ''
 as $$
 declare
   v_erased jsonb;
-  v_cut    integer;
   v_keys   integer;
 begin
   v_erased := public.erase_review_texts(array(
@@ -821,11 +858,6 @@ begin
                         and f.detector <> 'manual'
                         and (f.evidence is not null or f.summary_i18n <> '{}'::jsonb)))));
 
-  -- Settled since the last cut (the model switched off, a race with a load),
-  -- or at the end of its days: the stay goes to its month.
-  v_cut := public.cut_review_stay_links(array(
-    select g.id from public.guest_reviews g where g.stay_exact));
-
   update public.guest_reviews g
   set external_id         = 'purged:' || g.id::text,
       external_updated_at = null
@@ -833,7 +865,27 @@ begin
     and g.external_id not like 'purged:%';
   get diagnostics v_keys = row_count;
 
-  return v_erased || jsonb_build_object('cut', v_cut, 'keys', v_keys);
+  return v_erased || jsonb_build_object('keys', v_keys);
+end;
+$$;
+
+/**
+ * The nightly sweep of stays (job purge-review-stays, 05:00 UTC): every
+ * review settled since the last cut — a race with a load, a switch — and
+ * every one whose review_stay_link_ends() has come keeps its month and its
+ * place and loses its days and its booking (cut_review_stay_links — the
+ * owner's decision of 2026-10-17, late). A review with a finding still
+ * waiting and days left keeps them.
+ */
+create or replace function public.purge_review_stays()
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  return public.cut_review_stay_links(array(
+    select g.id from public.guest_reviews g where g.stay_exact));
 end;
 $$;
 
@@ -934,9 +986,33 @@ create index review_findings_problem_idx on public.review_findings (problem_id)
 create index review_findings_property_idx on public.review_findings (property_id)
   where property_id is not null;
 
-create trigger review_findings_touch
-  before update on public.review_findings
-  for each row execute function public.touch_updated_at();
+/**
+ * A finding's own times, the moment of the write while its review's stay is
+ * exact; the month once it is cut — a finding stored after the cut (the
+ * rules after the model, a late text, one filed by hand) must not stamp the
+ * review's day back through its created_at. decided_at is the work log's
+ * and stays exact (cut_review_stay_links).
+ */
+create or replace function public.review_findings_dates()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if exists (select 1 from public.guest_reviews g where g.id = new.review_id and not g.stay_exact) then
+    new.created_at := public.review_month_of(new.created_at);
+    new.updated_at := public.review_month_of(now());
+  else
+    new.updated_at := now();
+  end if;
+  return new;
+end;
+$$;
+
+create trigger review_findings_dates
+  before insert or update on public.review_findings
+  for each row execute function public.review_findings_dates();
 
 /** The kinds that make a problem for a technician (the owner's decision 2). */
 create or replace function public.review_kind_gives_task(p_kind public.review_finding_kind)
@@ -1034,22 +1110,29 @@ $$;
  * unsettled, and never past review_stay_link_ends(). Of the reviews given,
  * each whose stay is still exact and that
  * - is settled — no finding waits for a manager, and its kept text, if any,
- *   has been read: by the model while the model is on (a review it gave up
- *   on after three failures counts as read), by the rules otherwise;
+ *   has been read by both readers: the rules always (classify-reviews runs
+ *   them after the model), and the model while it is on (a review it gave up
+ *   on after three failures counts as read) — the rules' "already fixed"
+ *   needs the exact day as much as the model's findings do;
  * - or has come to its last day,
  * keeps its place, its rating and its month and loses the rest. Arrival,
- * departure, the day it was sent and the row's own day become the first of
- * their month — its findings' created_at too, written the day it was read —
- * and the booking (ours, and the PMS's id) goes. For good: stay_exact is
- * false and nothing sets it back; ingest_guest_reviews never restores a
- * booking on such a row.
+ * departure, the day it was sent, the row's own day, when it was read and
+ * the PMS's own clock become the first of their month or go — its findings'
+ * created_at too, written the day it was read (review_findings_dates keeps
+ * later ones to the month), and updated_at from now on (guest_reviews_touch).
+ * The booking (ours, and the PMS's id) goes. For good: stay_exact is false
+ * and nothing sets it back; ingest_guest_reviews never restores a booking or
+ * a day on such a row.
  *
- * The work log is not touched: when a manager decided, when a problem was
- * made and what became of it stay exact. They date the work; the day of a
- * review can be guessed from them only to within days.
+ * The work log is not touched: when a manager or the job decided, when a
+ * problem was made and what became of it stay exact. They date the work; the
+ * day of a review can be guessed from them only to within days.
  *
- * Callers hold the reviews or let this take them, in id order: the job's
- * reading, a manager's decision, the load, the switches, the nightly sweep.
+ * Two statements on purpose: the reviews are locked first, in id order —
+ * waiting, if need be, for a reading or a decision on them to commit — and
+ * whether each is settled is read after, in a snapshot that sees what that
+ * reading or decision wrote. A subquery in a locking statement would keep
+ * the snapshot from before the wait and miss a candidate just stored.
  *
  * Internal: no grants.
  */
@@ -1066,6 +1149,11 @@ begin
     return 0;
   end if;
 
+  perform 1 from public.guest_reviews g
+  where g.id = any (p_review_ids) and g.stay_exact
+  order by g.id
+  for update;
+
   with due as (
     select g.id,
            g.arrival_date >= (s.notice_published_at at time zone 'Europe/Prague')::date as after_notice
@@ -1078,11 +1166,9 @@ begin
                            where f.review_id = g.id and f.status = 'candidate')
                and not ((g.public_text is not null or g.private_text is not null
                          or g.category_comments is not null)
-                        and g.analysed_at is null
                         and (g.rules_version is null
-                             or (coalesce(s.model_enabled, false) and g.analysis_attempts < 3)))))
-    order by g.id
-    for update of g
+                             or (coalesce(s.model_enabled, false)
+                                 and g.analysed_at is null and g.analysis_attempts < 3)))))
   ),
   cut as (
     update public.guest_reviews g
@@ -1090,12 +1176,12 @@ begin
         stay_after_notice       = due.after_notice,
         reservation_id          = null,
         external_reservation_id = null,
+        external_updated_at     = null,
         arrival_date            = date_trunc('month', g.arrival_date::timestamp)::date,
         departure_date          = date_trunc('month', g.departure_date::timestamp)::date,
-        submitted_at            = date_trunc('month', g.submitted_at at time zone 'Europe/Prague')
-                                  at time zone 'Europe/Prague',
-        created_at              = date_trunc('month', g.created_at at time zone 'Europe/Prague')
-                                  at time zone 'Europe/Prague'
+        submitted_at            = public.review_month_of(g.submitted_at),
+        created_at              = public.review_month_of(g.created_at),
+        analysed_at             = public.review_month_of(g.analysed_at)
     from due
     where g.id = due.id
     returning g.id
@@ -1104,8 +1190,7 @@ begin
 
   if cardinality(v_cut) > 0 then
     update public.review_findings f
-    set created_at = date_trunc('month', f.created_at at time zone 'Europe/Prague')
-                     at time zone 'Europe/Prague'
+    set created_at = public.review_month_of(f.created_at)
     where f.review_id = any (v_cut);
   end if;
 
@@ -1266,7 +1351,7 @@ begin
     where pr.host_id = v_finding.host_id
       and pr.source = 'review'
       and pr.status = 'resolved'
-      and pr.resolved_at::date >= coalesce(v_review.departure_date, v_review.submitted_at::date)
+      and pr.resolved_at::date >= coalesce(v_review.departure_date, (v_review.submitted_at at time zone 'Europe/Prague')::date)
       and public.review_place_family(pr.property_id) = v_family
       and pr.review_facts ->> 'kind' = v_finding.kind::text
       and pr.review_facts ->> 'subject' = v_finding.subject
@@ -1298,7 +1383,7 @@ begin
        where pr.host_id = v_finding.host_id
          and public.review_place_family(pr.property_id) = v_family
          and ((pr.archived_at is null and pr.status in ('open', 'assigned', 'in_progress'))
-              or pr.created_at::date >= coalesce(v_review.departure_date, v_review.submitted_at::date))
+              or pr.created_at::date >= coalesce(v_review.departure_date, (v_review.submitted_at at time zone 'Europe/Prague')::date))
      ) then
     perform public.create_review_problem(
       p_finding_id, v_finding.summary, v_finding.summary_i18n, v_finding.urgency, 'auto');
@@ -1530,7 +1615,9 @@ begin
     where id = p_review_id;
   else
     update public.guest_reviews
-    set analysed_version = p_detector, analysed_at = now(), analysis_error = null,
+    -- A cut review read again (a late text) keeps only the month of it.
+    set analysed_version = p_detector, analysis_error = null,
+        analysed_at = case when stay_exact then now() else public.review_month_of(now()) end,
         language = coalesce(v_code, language)
     where id = p_review_id;
   end if;
@@ -1565,16 +1652,27 @@ create or replace function public.mark_review_analysis_failed(
   p_error     text
 )
 returns integer
-language sql
+language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  v_attempts integer;
+begin
   update public.guest_reviews
   set analysis_attempts = analysis_attempts
                           + case when p_error like 'service\_%' then 0 else 1 end,
       analysis_error    = case when p_error ~ '^[a-z0-9_.:-]{1,80}$' then p_error else 'unknown' end
   where id = p_review_id and analysed_at is null
-  returning analysis_attempts
+  returning analysis_attempts into v_attempts;
+
+  -- The third failure takes the review off the model's queue: with the rules
+  -- read and no candidate, nothing waits on its days any more.
+  if v_attempts >= 3 then
+    perform public.cut_review_stay_links(array[p_review_id]);
+  end if;
+  return v_attempts;
+end;
 $$;
 
 /**
@@ -1654,7 +1752,7 @@ begin
   end if;
 
   select * into v_review from public.guest_reviews where id = v_finding.review_id;
-  v_since := coalesce(v_review.departure_date, v_review.submitted_at::date);
+  v_since := coalesce(v_review.departure_date, (v_review.submitted_at at time zone 'Europe/Prague')::date);
 
   perform pg_advisory_xact_lock(
     hashtextextended('review-place:' || public.review_place_family(v_finding.property_id), 0));
@@ -1759,7 +1857,7 @@ as $$
          pr.archived_at is null and pr.status in ('open', 'assigned', 'in_progress') as is_open,
          (pr.archived_at is null and pr.status in ('open', 'assigned', 'in_progress'))
            or (pr.status = 'resolved'
-               and coalesce(pr.resolved_at::date >= coalesce(g.departure_date, g.submitted_at::date),
+               and coalesce(pr.resolved_at::date >= coalesce(g.departure_date, (g.submitted_at at time zone 'Europe/Prague')::date),
                             false)) as can_link
   from public.review_findings f
   join public.guest_reviews g on g.id = f.review_id
@@ -1770,8 +1868,8 @@ as $$
     and (select public.is_manager())
     and f.host_id = (select public.current_host_id())
     and ((pr.archived_at is null and pr.status in ('open', 'assigned', 'in_progress'))
-         or pr.created_at::date >= coalesce(g.departure_date, g.submitted_at::date)
-         or pr.resolved_at::date >= coalesce(g.departure_date, g.submitted_at::date))
+         or pr.created_at::date >= coalesce(g.departure_date, (g.submitted_at at time zone 'Europe/Prague')::date)
+         or pr.resolved_at::date >= coalesce(g.departure_date, (g.submitted_at at time zone 'Europe/Prague')::date))
   order by is_open desc, pr.created_at desc
   limit 20
 $$;
@@ -2099,6 +2197,8 @@ grant execute on function public.review_sync_watermark(public.review_source, uui
 grant execute on function public.ingest_guest_reviews(public.review_source, jsonb, timestamptz, uuid, jsonb) to service_role;
 grant execute on function public.apply_review_findings(uuid, text, text, jsonb) to service_role;
 grant execute on function public.purge_review_data() to service_role;
+revoke all on function public.purge_review_stays() from public, anon, authenticated;
+grant execute on function public.purge_review_stays() to service_role;
 
 -- Internal: called only from the functions above, which run as their owner.
 revoke all on function public.store_review_texts(uuid, public.review_source, jsonb) from public, anon, authenticated, service_role;
@@ -2106,6 +2206,10 @@ revoke all on function public.erase_review_texts(uuid[]) from public, anon, auth
 revoke all on function public.review_retention_ends(timestamptz) from public, anon, authenticated, service_role;
 revoke all on function public.review_stay_link_ends(timestamptz) from public, anon, authenticated, service_role;
 revoke all on function public.cut_review_stay_links(uuid[]) from public, anon, authenticated, service_role;
+revoke all on function public.review_month_of(timestamptz) from public, anon, authenticated, service_role;
+-- Trigger functions: a trigger fires them whoever writes; nobody calls them.
+revoke all on function public.guest_reviews_touch() from public, anon, authenticated, service_role;
+revoke all on function public.review_findings_dates() from public, anon, authenticated, service_role;
 revoke all on function public.create_review_problem(uuid, text, jsonb, public.problem_priority, text, text) from public, anon, authenticated, service_role;
 revoke all on function public.decide_review_finding(uuid) from public, anon, authenticated, service_role;
 revoke all on function public.review_kind_record(uuid, public.review_finding_kind) from public, anon, authenticated, service_role;
@@ -2159,8 +2263,14 @@ select cron.alter_job(j.jobid, active => false)
 from cron.job j
 where j.jobname in ('sync-reviews-daily', 'classify-reviews-daily');
 
--- Texts and what was drawn from them, stays cut to their month, keys after
--- 18 months.
+-- Stays cut to their month: settled since, or at their last day.
+select cron.schedule(
+  'purge-review-stays',
+  '0 5 * * *',
+  $$select public.purge_review_stays()$$
+);
+
+-- Texts and what was drawn from them, keys after 18 months.
 select cron.schedule(
   'purge-review-data',
   '5 5 * * *',
