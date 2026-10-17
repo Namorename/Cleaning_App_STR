@@ -44,7 +44,9 @@ export const problemSchema = z.object({
   id: z.uuid(),
   property_id: z.number().nullable(),
   task_id: z.uuid().nullable(),
-  reported_by: z.uuid(),
+  // Null for a task found in a guest review: nobody on the staff reported it
+  // (docs/reviews-to-tasks.md §2.5). The reporter's name then shows as unknown.
+  reported_by: z.uuid().nullable(),
   title: z.string(),
   description: z.string().nullable(),
   priority: z.enum(PROBLEM_PRIORITIES),

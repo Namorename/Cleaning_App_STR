@@ -59,6 +59,14 @@ describe('problemSchema', () => {
     expect(bare.fix_tasks).toEqual([]);
   });
 
+  // A task from a guest review has nobody who reported it (docs/reviews-to-tasks.md
+  // §2.5): one such row must not take the whole list down.
+  test('parses a task nobody reported', () => {
+    const parsed = problemSchema.parse({ ...row, reported_by: null, reporter: null });
+    expect(parsed.reported_by).toBeNull();
+    expect(parsed.reporter).toBeNull();
+  });
+
   test('rejects a status the panel does not know', () => {
     expect(() => problemSchema.parse({ ...row, status: 'lost' })).toThrow();
   });
