@@ -12,28 +12,35 @@ import type { FindingInput, RunError } from "./types.ts";
 
 const QUEUE_COLUMNS =
   "id, channel, departure_date, room_id, rating, category_ratings, public_text, private_text, " +
-  "category_comments, rules_version, analysed_at, analysis_attempts";
+  "category_comments, rules_version, analysed_at, analysis_attempts, submitted_at";
 
 /**
  * A kept text, and a reader that has not read it: one `or` of `and`s, so the
- * filter is a single PostgREST parameter (has text) × (rules unread, or model
- * unread with tries left).
+ * filter is a single PostgREST parameter (has text) × (rules unread, or —
+ * while the model is on — model unread with tries left and within its reach,
+ * so an older text never takes a place in the queue it cannot use).
  */
 const HAS_TEXT = ["public_text.not.is.null", "private_text.not.is.null", "category_comments.not.is.null"];
-const UNREAD = ["rules_version.is.null", "and(analysed_at.is.null,analysis_attempts.lt.3)"];
-export const QUEUE_FILTER = HAS_TEXT.flatMap((text) => UNREAD.map((unread) => `and(${text},${unread})`))
-  .join(",");
+
+export function queueFilter(modelSince: string | null): string {
+  const unread = ["rules_version.is.null"];
+  if (modelSince !== null) {
+    const since = new Date(modelSince).toISOString();
+    unread.push(`and(analysed_at.is.null,analysis_attempts.lt.3,submitted_at.gte.${since})`);
+  }
+  return HAS_TEXT.flatMap((text) => unread.map((reader) => `and(${text},${reader})`)).join(",");
+}
 
 export function createClassifyStore(client: SupabaseClient, hostId: string): ReviewClassifyStore {
   return {
     settings: () => readSettings(client, hostId),
 
-    async queue(limit: number) {
+    async queue(limit: number, modelSince: string | null) {
       const { data, error } = await client
         .from("guest_reviews")
         .select(QUEUE_COLUMNS)
         .eq("host_id", hostId)
-        .or(QUEUE_FILTER)
+        .or(queueFilter(modelSince))
         .order("submitted_at", { ascending: false })
         .limit(limit);
       if (error) fail("Reading the queue", error);

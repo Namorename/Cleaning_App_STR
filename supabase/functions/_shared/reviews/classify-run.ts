@@ -10,6 +10,9 @@
  *   has already counted what it took.
  * - Rules are free and read every review the rules have not read, whatever
  *   the model does; a review the model reads later gets its words then.
+ * - The model reads back only to review_settings.model_since: 14 days before
+ *   it went on (the owner's decision of 2026-10-18). An older text keeps the
+ *   rules' reading, and the database counts it as read (cut_review_stay_links).
  * - A failure is the service's or the review's (classify.ts). An unknown one
  *   is judged by the next review: a failure again — the service; the run
  *   stops calling the model, and neither review spends an attempt. A success
@@ -53,13 +56,17 @@ export interface QueuedReview {
   readonly rules_version: string | null;
   readonly analysed_at: string | null;
   readonly analysis_attempts: number;
+  readonly submitted_at: string;
 }
 
 /** What a run reads from the database and writes into it. */
 export interface ReviewClassifyStore {
   settings(): Promise<ReviewSettings | null>;
-  /** Reviews with a kept text the rules or the model have not read, newest first. */
-  queue(limit: number): Promise<readonly QueuedReview[]>;
+  /**
+   * Reviews with a kept text the rules have not read, or — with `modelSince`
+   * — the model has not read and that were sent since then; newest first.
+   */
+  queue(limit: number, modelSince: string | null): Promise<readonly QueuedReview[]>;
   /** Books up to `wanted` model calls under today's ceiling; how many were granted. */
   reserveCalls(wanted: number): Promise<number>;
   apply(
@@ -115,8 +122,10 @@ export function modelInputOf(review: QueuedReview): ModelInput {
   };
 }
 
-function needsModel(review: QueuedReview): boolean {
-  return review.analysed_at === null && review.analysis_attempts < 3;
+/** Unread by the model, with tries left, and within its reach (`since`, null while it is off). */
+function needsModel(review: QueuedReview, since: string | null): boolean {
+  return since !== null && review.analysed_at === null && review.analysis_attempts < 3 &&
+    Date.parse(review.submitted_at) >= Date.parse(since);
 }
 
 function add(into: Record<string, number>, counts: Readonly<Record<string, number>>): void {
@@ -144,10 +153,11 @@ export async function runReviewClassify(deps: ReviewClassifyDeps): Promise<Class
     return OFF;
   }
 
-  const queue = await store.queue(QUEUE_LIMIT);
-  const reader = settings.model_enabled ? model : null;
+  const since = settings.model_enabled && model !== null ? settings.model_since : null;
+  const queue = await store.queue(QUEUE_LIMIT, since);
+  const reader = since !== null ? model : null;
   const forbidden = reader !== null ? await store.forbiddenWords() : [];
-  const wanted = reader !== null ? queue.filter(needsModel).length : 0;
+  const wanted = reader !== null ? queue.filter((review) => needsModel(review, since)).length : 0;
   let calls = wanted > 0 ? await store.reserveCalls(wanted) : 0;
   const booked = calls;
 
@@ -177,7 +187,7 @@ export async function runReviewClassify(deps: ReviewClassifyDeps): Promise<Class
   };
 
   for (const review of queue) {
-    if (reader !== null && stoppedModel === null && calls > 0 && needsModel(review)) {
+    if (reader !== null && stoppedModel === null && calls > 0 && needsModel(review, since)) {
       calls -= 1;
       const input = modelInputOf(review);
       try {

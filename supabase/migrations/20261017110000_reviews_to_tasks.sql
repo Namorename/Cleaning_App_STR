@@ -419,14 +419,18 @@ $$;
  *
  * `p_host_id` default null means "the one company there is" (F25 phase B
  * passes it). `p_watermark` null means "do not move the watermark": a portion
- * before the last, or a run that wants its window read again.
+ * before the last, or a run that wants its window read again. `p_counts`
+ * default null means "the run has no numbers of its own"; given, they join
+ * the journal row (booking reads, reviews held for their names, texts sent
+ * without), never over the database's own counts.
  */
 create or replace function public.ingest_guest_reviews(
   p_source    public.review_source,
   p_rows      jsonb,
   p_watermark timestamptz default null,
   p_host_id   uuid default null,
-  p_errors    jsonb default '[]'::jsonb
+  p_errors    jsonb default '[]'::jsonb,
+  p_counts    jsonb default null
 )
 returns jsonb
 language plpgsql
@@ -451,6 +455,10 @@ begin
   -- back a portion already upserted.
   if jsonb_typeof(coalesce(p_errors, '[]'::jsonb)) is distinct from 'array' then
     raise exception 'Run errors must be a JSON array'
+      using errcode = 'invalid_parameter_value', hint = 'serverErrors.reviewRowsInvalid';
+  end if;
+  if p_counts is not null and jsonb_typeof(p_counts) is distinct from 'object' then
+    raise exception 'Run counts must be a JSON object'
       using errcode = 'invalid_parameter_value', hint = 'serverErrors.reviewRowsInvalid';
   end if;
   if exists (select 1 from jsonb_array_elements(p_rows) as e (item)
@@ -591,9 +599,10 @@ begin
     values (v_host, p_source, 'sync',
             case when p_watermark is not null then least(p_watermark, now()) end,
             jsonb_array_length(coalesce(p_errors, '[]')) = 0,
-            jsonb_build_object('received', v_total, 'inserted', v_inserted,
-                               'updated', v_updated, 'unchanged_or_skipped', v_skipped,
-                               'cut', v_cut),
+            coalesce(p_counts, '{}'::jsonb)
+            || jsonb_build_object('received', v_total, 'inserted', v_inserted,
+                                  'updated', v_updated, 'unchanged_or_skipped', v_skipped,
+                                  'cut', v_cut),
             coalesce(p_errors, '[]'::jsonb));
     v_logged := true;
   exception when lock_not_available then
@@ -2341,7 +2350,7 @@ create policy "managers read review settings"
 -- The job's functions: the service role only (they write raw.review_runs or
 -- decide for the company).
 revoke all on function public.review_sync_watermark(public.review_source, uuid) from public, anon, authenticated;
-revoke all on function public.ingest_guest_reviews(public.review_source, jsonb, timestamptz, uuid, jsonb) from public, anon, authenticated;
+revoke all on function public.ingest_guest_reviews(public.review_source, jsonb, timestamptz, uuid, jsonb, jsonb) from public, anon, authenticated;
 revoke all on function public.apply_review_findings(uuid, text, text, jsonb) from public, anon, authenticated;
 revoke all on function public.purge_review_data() from public, anon, authenticated;
 revoke all on function public.reserve_review_model_calls(public.review_source, integer, uuid) from public, anon, authenticated;
@@ -2353,7 +2362,7 @@ revoke all on function public.review_model_calls_left(public.review_source, uuid
 grant execute on function public.log_review_run(public.review_source, text, boolean, jsonb, jsonb, uuid) to service_role;
 grant execute on function public.review_model_calls_left(public.review_source, uuid) to service_role;
 grant execute on function public.review_sync_watermark(public.review_source, uuid) to service_role;
-grant execute on function public.ingest_guest_reviews(public.review_source, jsonb, timestamptz, uuid, jsonb) to service_role;
+grant execute on function public.ingest_guest_reviews(public.review_source, jsonb, timestamptz, uuid, jsonb, jsonb) to service_role;
 grant execute on function public.apply_review_findings(uuid, text, text, jsonb) to service_role;
 grant execute on function public.purge_review_data() to service_role;
 revoke all on function public.purge_review_stays() from public, anon, authenticated;

@@ -145,12 +145,24 @@ Deno.test("an answer outside the asked window means the filter did not hold: the
   assertEquals(error.code, "source_filter_ignored");
 });
 
-Deno.test("the room of a building's stay comes from the booking; several rooms name none", async () => {
+Deno.test("the booking gives the room of a building's stay and the guest's names; several rooms name none", async () => {
   const review = normalizeHostawayReview(hostawayReview());
   const one = clientWith([
-    { status: "success", result: { id: 80000001, reservationUnit: [{ listingUnitId: 61011 }] } },
+    {
+      status: "success",
+      result: {
+        id: 80000001,
+        reservationUnit: [{ listingUnitId: 61011 }],
+        guestName: "Synthetic Booker",
+        guestFirstName: "Synthetic",
+        guestLastName: "Booker",
+      },
+    },
   ]);
-  assertEquals(await new HostawayReviewAdapter(one.client).roomOf(review), ROOM_ID_BASE + 61011);
+  assertEquals(await new HostawayReviewAdapter(one.client).bookingOf(review), {
+    roomId: ROOM_ID_BASE + 61011,
+    guestNames: ["Synthetic Booker", "Synthetic", "Booker"],
+  });
   assert(one.urls.some((u) => u.endsWith("reservations/80000001?includeResources=1")));
 
   const two = clientWith([
@@ -159,5 +171,18 @@ Deno.test("the room of a building's stay comes from the booking; several rooms n
       result: { reservationUnit: [{ listingUnitId: 61011 }, { listingUnitId: 61012 }] },
     },
   ]);
-  assertEquals(await new HostawayReviewAdapter(two.client).roomOf(review), null);
+  assertEquals(await new HostawayReviewAdapter(two.client).bookingOf(review), {
+    roomId: null,
+    guestNames: [],
+  });
+});
+
+Deno.test("a review without a booking asks nothing", async () => {
+  const review = normalizeHostawayReview(hostawayReview({ reservationId: null }));
+  const none = clientWith([]);
+  assertEquals(await new HostawayReviewAdapter(none.client).bookingOf(review), {
+    roomId: null,
+    guestNames: [],
+  });
+  assertEquals(none.urls, []);
 });

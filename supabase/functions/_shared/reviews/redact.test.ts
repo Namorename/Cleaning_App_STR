@@ -31,6 +31,40 @@ Deno.test("names, contacts, codes and the place leave the text before it goes an
   assertEquals(redactText(out, NAMES), out, "redacting twice changes the text");
 });
 
+Deno.test("a name goes in every part, ending and spelling a guest gives it", () => {
+  const names = {
+    guest: ["Kateřina Dvořáková", "Marek Novák", "Мария Иванова", "Eva"],
+    staff: ["Hanka", "Petr", "Olga"],
+    places: [],
+  };
+  const text = [
+    "Kateřino, díky! Dvořákové se líbilo, Dvorakova taky. KATEŘINA.",
+    "Markovi a Nováka jsme potkali, Novákovi děkujeme, Nováková ok.",
+    "Спасибо от Марии и Ивановой, Марией довольны.",
+    "S Evou jsme byli spokojeni, Evě se líbilo.",
+    "Olze, Hance a Petře díky, Petrovi taky.",
+  ].join(" ");
+  const out = redactText(text, names);
+
+  for (
+    const leaked of [
+      "Kateř", "Dvoř", "Dvorak", "KATE", "Mark", "Novák", "Мари", "Иванов", "Evou", "Evě",
+      "Olz", "Hanc", "Petř", "Petr",
+    ]
+  ) {
+    assert(!out.includes(leaked), `"${leaked}" left in the text`);
+  }
+  assertStringIncludes(out, "[GUEST], díky!");
+  assertStringIncludes(out, "[STAFF], [STAFF] a [STAFF] díky");
+  assertEquals(redactText(out, names), out, "redacting twice changes the text");
+});
+
+Deno.test("the forms of a name never take ordinary words in lower case", () => {
+  const names = { guest: ["Eva Market", "Will"], staff: [], places: [] };
+  const text = "we will come back, the market was near, even so.";
+  assertEquals(redactText(text, names), text);
+});
+
 Deno.test("Czech and Russian greetings take the name after them", () => {
   assertEquals(redactText("Děkujeme Martino, vše super.", NAMES), "Děkujeme [NAME], vše super.");
   assertEquals(redactText("Спасибо Ивану за помощь.", NAMES), "Спасибо [NAME] за помощь.");

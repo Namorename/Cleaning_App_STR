@@ -2,10 +2,11 @@
  * The Hostaway adapter for guest reviews (docs/reviews-to-tasks.md §2.4).
  *
  * It reads through the shared client (`_shared/hostaway.ts`, not changed for
- * this): `listAll` for the list, `getObject` for the one booking whose room
- * a review of a building needs. What it hands on is the neutral row of
- * types.ts; the guest's names travel beside it only to be stripped from the
- * texts, and are never part of a row.
+ * this): `listAll` for the list, `getObject` for a review's booking — the
+ * room of a stay on a building, and the guest's names as the booking holds
+ * them (the owner's decision of 2026-10-18). What it hands on is the neutral
+ * row of types.ts; the guest's names travel beside it only to be stripped
+ * from the texts, and are never part of a row.
  *
  * Hostaway quietly ignores a parameter it does not know, so the adapter
  * checks the answer against the question: a review of another type, or one
@@ -15,14 +16,15 @@
 
 import type { HostawayClient } from "../hostaway.ts";
 import {
+  type BookingFacts,
   CATEGORY_KEYS,
   type FetchedReviews,
   isOneOf,
-  type NeutralReviewRow,
   type ReviewChannel,
   type ReviewSourceAdapter,
   ReviewSourceError,
   type SourceReview,
+  type SourceRow,
 } from "./types.ts";
 
 export const REVIEWS_ENDPOINT = "reviews";
@@ -142,7 +144,7 @@ export function normalizeHostawayReview(raw: unknown): SourceReview {
   const publicText = text(raw.publicReview);
   const privateText = text(raw.privateFeedback);
 
-  const row: NeutralReviewRow = {
+  const row: SourceRow = {
     external_id: String(id),
     external_listing_id: String(listing),
     listing_id: listing,
@@ -229,13 +231,17 @@ export class HostawayReviewAdapter implements ReviewSourceAdapter {
   }
 
   /**
-   * The room of a stay on a building: Hostaway names it on the booking
-   * (`reservationUnit[].listingUnitId`), also for a past booking we no longer
-   * hold. A booking of several rooms names no one room: null, the building.
+   * A review's booking, also a past one we no longer hold, in one request:
+   * - the room of a stay on a building (`reservationUnit[].listingUnitId`);
+   *   a booking of several rooms names no one room: null, the building;
+   * - the guest's names as the booking has them (`guestName`,
+   *   `guestFirstName`, `guestLastName`), to strip from the texts. They stay
+   *   in this object, in memory, for the run.
+   * A review without a booking has neither.
    */
-  async roomOf(review: SourceReview): Promise<number | null> {
+  async bookingOf(review: SourceReview): Promise<BookingFacts> {
     if (review.row.reservation_id === null) {
-      return null;
+      return { roomId: null, guestNames: [] };
     }
     const booking = await this.#client.getObject(
       `reservations/${review.row.reservation_id}?includeResources=1`,
@@ -245,6 +251,9 @@ export class HostawayReviewAdapter implements ReviewSourceAdapter {
       .map((unit) => (isRecord(unit) ? positiveInteger(unit.listingUnitId) : null))
       .filter((unit): unit is number => unit !== null);
     const distinct = [...new Set(ids)];
-    return distinct.length === 1 ? ROOM_ID_BASE + distinct[0] : null;
+    return {
+      roomId: distinct.length === 1 ? ROOM_ID_BASE + distinct[0] : null,
+      guestNames: names(booking.guestName, booking.guestFirstName, booking.guestLastName),
+    };
   }
 }

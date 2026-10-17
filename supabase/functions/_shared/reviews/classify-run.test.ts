@@ -12,6 +12,7 @@ const SETTINGS: ReviewSettings = {
   texts_enabled: true,
   tasks_enabled: false,
   model_enabled: true,
+  model_since: "2026-10-01T06:00:00Z",
   daily_model_cap: 50,
   notice_published_at: "2026-09-01T00:00:00Z",
 };
@@ -30,6 +31,7 @@ function queued(id: string, overrides: Partial<QueuedReview> = {}): QueuedReview
     rules_version: null,
     analysed_at: null,
     analysis_attempts: 0,
+    submitted_at: "2026-10-14T09:00:00Z",
     ...overrides,
   };
 }
@@ -39,9 +41,13 @@ function classifyStore(queue: QueuedReview[], settings: ReviewSettings = SETTING
   const failed: Array<[string, string]> = [];
   const logs: Array<{ isOk: boolean; counts: Readonly<Record<string, number>> }> = [];
   let wantedSeen = 0;
+  const sinceAsked: Array<string | null> = [];
   const store: ReviewClassifyStore = {
     settings: () => Promise.resolve(settings),
-    queue: () => Promise.resolve(queue),
+    queue: (_limit, modelSince) => {
+      sinceAsked.push(modelSince);
+      return Promise.resolve(queue);
+    },
     reserveCalls: (wanted) => {
       wantedSeen = wanted;
       return Promise.resolve(Math.min(wanted, granted));
@@ -60,7 +66,7 @@ function classifyStore(queue: QueuedReview[], settings: ReviewSettings = SETTING
       return Promise.resolve();
     },
   };
-  return { store, applied, failed, logs, wanted: () => wantedSeen };
+  return { store, applied, failed, logs, sinceAsked, wanted: () => wantedSeen };
 }
 
 const GOOD_ANSWER = {
@@ -110,6 +116,27 @@ Deno.test("no key, or the model off: the rules read alone, no call is booked", a
     assertEquals(run.applied, [["a", RULES_DETECTOR]]);
     assertEquals(run.wanted(), 0);
   }
+});
+
+Deno.test("the model reads back to model_since and no further: an older text keeps the rules' reading", async () => {
+  const run = classifyStore([
+    queued("fresh"),
+    queued("old", { submitted_at: "2026-09-20T09:00:00Z" }),
+  ]);
+  const model = scriptedModel([GOOD_ANSWER, GOOD_ANSWER]);
+  const summary = await runReviewClassify({ store: run.store, model });
+
+  assertEquals(run.sinceAsked, [SETTINGS.model_since]);
+  assertEquals(run.wanted(), 1);
+  assertEquals(model.calls, 1);
+  assertEquals(run.applied, [["fresh", MODEL_DETECTOR], ["fresh", RULES_DETECTOR], ["old", RULES_DETECTOR]]);
+  assertEquals(summary.modelRead, 1);
+});
+
+Deno.test("with the model off the queue is asked for the rules' reviews only", async () => {
+  const run = classifyStore([queued("a")], { ...SETTINGS, model_enabled: false });
+  await runReviewClassify({ store: run.store, model: scriptedModel([GOOD_ANSWER]) });
+  assertEquals(run.sinceAsked, [null]);
 });
 
 Deno.test("texts off: nothing to read", async () => {

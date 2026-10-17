@@ -4,8 +4,9 @@
  * lists mirror the database's enums and review_subjects(); the database
  * checks every value again, so a drift here costs a finding, never a row.
  *
- * No guest name is ever part of a row. An adapter reads the names only to
- * strip them from the texts, in memory (redact.ts), and drops them.
+ * No guest name is ever part of a row. An adapter reads the names — from the
+ * review, and from its booking (the owner's decision of 2026-10-18) — only
+ * to strip them from the texts, in memory (redact.ts), and drops them.
  */
 
 export const REVIEW_CHANNELS = ["airbnb", "booking", "vrbo", "direct", "google", "other"] as const;
@@ -77,6 +78,9 @@ export interface ReviewTexts {
 
 /** One row for ingest_guest_reviews(). Dates are `YYYY-MM-DD`, times ISO 8601 UTC. */
 export interface NeutralReviewRow {
+  /** HMAC of the PMS's id (key.ts): what a repeated load meets the review by. */
+  readonly external_key: string;
+  /** The PMS's id: the database keeps it only while the stay is exact. */
   readonly external_id: string;
   readonly external_listing_id: string;
   readonly listing_id: number | null;
@@ -100,14 +104,24 @@ export interface NeutralReviewRow {
   readonly category_comments?: Readonly<Record<string, string>> | null;
 }
 
+/** A row as an adapter reads it: the key is the load's to add (key.ts). */
+export type SourceRow = Omit<NeutralReviewRow, "external_key">;
+
 /** A review as an adapter read it. `row` carries no text; `texts` and the names live in memory only. */
 export interface SourceReview {
-  readonly row: NeutralReviewRow;
+  readonly row: SourceRow;
   readonly texts: ReviewTexts;
-  /** The guest's names as the PMS gave them: used to strip them from the texts, then dropped. */
+  /** The guest's names as the review gave them: used to strip them from the texts, then dropped. */
   readonly guestNames: readonly string[];
   /** The listing's names in the PMS, stripped from the texts too. */
   readonly listingNames: readonly string[];
+}
+
+/** What a review's booking tells: its room, and the guest's names — in memory only. */
+export interface BookingFacts {
+  /** Our id of the room on a building, or null when the booking names none. */
+  readonly roomId: number | null;
+  readonly guestNames: readonly string[];
 }
 
 export interface FetchedReviews {
@@ -121,8 +135,8 @@ export interface ReviewSourceAdapter {
   readonly source: "hostaway";
   /** Published guest reviews sent in [since, until). */
   fetchPublished(since: Date, until: Date): Promise<FetchedReviews>;
-  /** The room a stay took on a listing with rooms; null when the PMS does not say. */
-  roomOf(review: SourceReview): Promise<number | null>;
+  /** The booking of a review that has one: its room and the guest's names. Throws when it cannot be read. */
+  bookingOf(review: SourceReview): Promise<BookingFacts>;
 }
 
 /** A failure of the source with a code for the run's journal — never a review's text. */
@@ -139,6 +153,8 @@ export interface ReviewSettings {
   readonly texts_enabled: boolean;
   readonly tasks_enabled: boolean;
   readonly model_enabled: boolean;
+  /** The oldest review the model reads (14 days before it went on); null while it never was. */
+  readonly model_since: string | null;
   readonly daily_model_cap: number;
   readonly notice_published_at: string | null;
 }

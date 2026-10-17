@@ -50,7 +50,8 @@ create function pg_temp.ingest(
   p_rows      jsonb,
   p_watermark timestamptz default null,
   p_host_id   uuid default null,
-  p_errors    jsonb default '[]'::jsonb
+  p_errors    jsonb default '[]'::jsonb,
+  p_counts    jsonb default null
 )
 returns jsonb
 language sql
@@ -62,7 +63,7 @@ as $$
                                                                       pg_temp.review_key(t.item ->> 'external_id'))
                                     else t.item end order by t.n)
               from jsonb_array_elements(p_rows) with ordinality as t (item, n)), '[]'::jsonb),
-    p_watermark, p_host_id, p_errors)
+    p_watermark, p_host_id, p_errors, p_counts)
 $$;
 
 insert into public.hosts (id, name, default_language) values
@@ -350,10 +351,21 @@ begin
   perform pg_temp.ingest('hostaway', '[]'::jsonb, now() - interval '2 days', v_other,
                          '[{"code": "source_bad_row", "count": 1}]'::jsonb);
   perform pg_temp.ingest('hostaway', '[]'::jsonb, null, v_other,
-                         '[{"code": "review_held_for_names", "count": 1}]'::jsonb);
+                         '[{"code": "review_held_for_names", "count": 1}]'::jsonb,
+                         '{"held_for_names": 1, "inserted": 99}'::jsonb);
   if public.review_sync_watermark('hostaway', v_other) = now() - interval '2 days'
      and (select count(*) from raw.review_runs where host_id = v_other and stage = 'sync' and not is_ok) = 2
   then raise notice 'ok a held run keeps the watermark; a lasting fault does not stop it'; else raise exception 'FAIL watermark by the run %', public.review_sync_watermark('hostaway', v_other); end if;
+  if exists (select 1 from raw.review_runs
+             where host_id = v_other and stage = 'sync' and watermark is null
+               and counts ->> 'held_for_names' = '1' and counts ->> 'inserted' = '0')
+  then raise notice 'ok the run''s own counts join the journal, never over the database''s'; else raise exception 'FAIL run counts'; end if;
+  v_failed := false;
+  begin
+    perform pg_temp.ingest('hostaway', '[]'::jsonb, null, v_other, '[]'::jsonb, '[1]'::jsonb);
+  exception when invalid_parameter_value then v_failed := true;
+  end;
+  if v_failed then raise notice 'ok counts that are not an object are refused'; else raise exception 'FAIL counts arg'; end if;
 
   -- 4. one reading: a candidate, a statistic, one below the floor, two bad items skipped.
   v_out := public.apply_review_findings(v_r1, 'claude-haiku-5-5@prompt-v1', 'en-US', jsonb_build_array(
@@ -663,7 +675,11 @@ begin
   exception when check_violation then v_failed := true;
   end;
   if v_failed then raise notice 'ok a staff problem without a reporter is refused'; else raise exception 'FAIL staff reporter'; end if;
-  if not has_function_privilege('authenticated', 'public.ingest_guest_reviews(public.review_source, jsonb, timestamptz, uuid, jsonb)', 'execute')
+  if not has_function_privilege('authenticated', 'public.ingest_guest_reviews(public.review_source, jsonb, timestamptz, uuid, jsonb, jsonb)', 'execute')
+     and not has_function_privilege('authenticated', 'public.review_load_state(public.review_source, text[], uuid)', 'execute')
+     and not has_function_privilege('anon', 'public.review_load_state(public.review_source, text[], uuid)', 'execute')
+     and has_function_privilege('service_role', 'public.review_load_state(public.review_source, text[], uuid)', 'execute')
+     and not has_function_privilege('service_role', 'public.review_text_allowed(public.guest_reviews, public.review_settings)', 'execute')
      and not has_function_privilege('authenticated', 'public.apply_review_findings(uuid, text, text, jsonb)', 'execute')
      and not has_function_privilege('authenticated', 'public.decide_review_finding(uuid)', 'execute')
      and not has_function_privilege('authenticated', 'public.create_review_problem(uuid, text, jsonb, public.problem_priority, text, text)', 'execute')

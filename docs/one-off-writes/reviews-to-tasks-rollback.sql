@@ -106,7 +106,7 @@ $fn$;
   drop function if exists public.store_review_texts(uuid, public.review_source, jsonb);
   -- Before the tables: its arguments are their row types.
   drop function if exists public.review_text_allowed(public.guest_reviews, public.review_settings);
-  drop function if exists public.ingest_guest_reviews(public.review_source, jsonb, timestamptz, uuid, jsonb);
+  drop function if exists public.ingest_guest_reviews(public.review_source, jsonb, timestamptz, uuid, jsonb, jsonb);
   drop function if exists public.mark_review_analysis_failed(uuid, text);
   drop function if exists public.review_open_twin(uuid);
   drop function if exists public.reserve_review_model_calls(public.review_source, integer, uuid);

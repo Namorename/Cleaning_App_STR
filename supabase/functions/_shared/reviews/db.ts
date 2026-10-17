@@ -8,13 +8,27 @@
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 
-import type { IngestResult, ReviewSyncStore } from "./sync.ts";
+import type { IngestResult, ReviewSyncStore, RunCounts, StoredReview } from "./sync.ts";
 import type { NeutralReviewRow, ReviewSettings, RunError } from "./types.ts";
 
 export const SOURCE = "hostaway";
 
 const SETTINGS_COLUMNS =
-  "sync_enabled, texts_enabled, tasks_enabled, model_enabled, daily_model_cap, notice_published_at";
+  "sync_enabled, texts_enabled, tasks_enabled, model_enabled, model_since, daily_model_cap, " +
+  "notice_published_at";
+
+/** Keys asked of review_load_state at once: a run reads ≈ 30 a day, a Sunday ≈ 1 000. */
+const STATE_PORTION = 500;
+
+interface LoadStateRow {
+  readonly external_key: string;
+  readonly public_kept: boolean;
+  readonly private_kept: boolean;
+  readonly comments_kept: boolean;
+  readonly text_allowed: boolean;
+  readonly stay_exact: boolean;
+  readonly room_known: boolean;
+}
 
 export function fail(what: string, error: { message: string }): never {
   throw new Error(`${what} failed: ${error.message}`);
@@ -81,13 +95,42 @@ export function createSyncStore(client: SupabaseClient, hostId: string): ReviewS
 
     redactionNames: () => readNames(client, hostId),
 
-    async ingest(rows: readonly NeutralReviewRow[], watermark: Date | null, errors: readonly RunError[]) {
+    async loadState(keys: readonly string[]) {
+      const state = new Map<string, StoredReview>();
+      for (let i = 0; i < keys.length; i += STATE_PORTION) {
+        const { data, error } = await client.rpc("review_load_state", {
+          p_source: SOURCE,
+          p_keys: keys.slice(i, i + STATE_PORTION),
+          p_host_id: hostId,
+        });
+        if (error) fail("review_load_state", error);
+        for (const row of (data ?? []) as LoadStateRow[]) {
+          state.set(row.external_key, {
+            publicKept: row.public_kept,
+            privateKept: row.private_kept,
+            commentsKept: row.comments_kept,
+            textAllowed: row.text_allowed,
+            stayExact: row.stay_exact,
+            roomKnown: row.room_known,
+          });
+        }
+      }
+      return state;
+    },
+
+    async ingest(
+      rows: readonly NeutralReviewRow[],
+      watermark: Date | null,
+      errors: readonly RunError[],
+      counts: RunCounts | null,
+    ) {
       const { data, error } = await client.rpc("ingest_guest_reviews", {
         p_source: SOURCE,
         p_rows: rows,
         p_watermark: watermark?.toISOString() ?? null,
         p_host_id: hostId,
         p_errors: errors,
+        p_counts: counts,
       });
       if (error) fail("ingest_guest_reviews", error);
       const result = (data ?? {}) as Partial<IngestResult>;
