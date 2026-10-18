@@ -1,3 +1,8 @@
+-- CANCELLED 2026-10-18 (owner): do not run. Pass 3 now has the bound 2026-10-18, takes cleanings
+-- and bookings together and runs once, on 2026-10-25 after 04:40 UTC, by the owner's word that
+-- day (docs/launch-reset-2026-10-16.md, «Проход 3 с границей 18.10»). This script, kept as it was,
+-- would refuse that bound anyway: bookings of 15-17.10 have cleanings.
+--
 -- Launch reset of 2026-10-16, stage 2, pass 3: bookings that ended before 2026-10-15 and came back
 -- after pass 2 (docs/launch-reset-2026-10-16.md, «Синк»).
 --
