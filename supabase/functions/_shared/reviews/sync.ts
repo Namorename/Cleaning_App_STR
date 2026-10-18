@@ -22,10 +22,13 @@
  * - A text never goes before its booking is read. When the booking cannot be
  *   read — the PMS fails, or the run's ceiling of booking reads is spent —
  *   the review waits whole: nothing of it is sent, and the run writes no
- *   watermark, so the next run reads the same window and asks again. A
- *   review waits so for NAME_HOLD_DAYS from when it was sent; then it goes
- *   with the names it carries itself, and with no name known at all, without
- *   its text. Never with a name left in.
+ *   watermark, so the next run reads the same window and asks again. Behind
+ *   the ceiling it waits as long as it takes: the booking is there, the run
+ *   only ran out of reads. Behind a failure it waits NAME_HOLD_DAYS from when
+ *   it was sent; then it goes with the names it carries itself, and with no
+ *   usable name known at all, without its text. Never with a name left in.
+ *   A booking the PMS no longer has (404) is gone, not failing: the review
+ *   goes with its own names at once.
  * - A room is asked only for a review of a building whose text may be kept:
  *   only those can become work.
  * - Only the last portion moves the watermark: a run cut short reads the
@@ -33,7 +36,7 @@
  */
 
 import type { ReviewKeyer } from "./key.ts";
-import { redactText, type RedactionNames } from "./redact.ts";
+import { hasUsableName, redactText, type RedactionNames } from "./redact.ts";
 import {
   type BookingFacts,
   countErrors,
@@ -53,10 +56,16 @@ export const SUNDAY_REREAD_DAYS = 100;
 export const PORTION_SIZE = 500;
 /** A bound on the PMS calls for bookings in one run; ≈ 10–15 a day are expected (docs §5). */
 export const MAX_BOOKING_LOOKUPS = 30;
-/** Failed booking reads after which the run stops asking: the PMS is down, not the booking. */
+/** Failed booking reads in a row after which the run stops asking: the PMS is down, not the booking. */
 export const BOOKING_FAILURES_TO_STOP = 2;
-/** How long a review may wait for its booking before it goes with the names it carries. */
+/** How long a review may wait behind a failing booking before it goes with the names it carries. */
 export const NAME_HOLD_DAYS = 7;
+/**
+ * Characters of one text redacted at most. Longer than any column keeps
+ * (8 000), so the database still sees a text was cut and says so, and short
+ * enough that the contact patterns stay quick.
+ */
+export const MAX_REDACTED_CHARS = 16_000;
 
 const DAY_MS = 86_400_000;
 
@@ -161,9 +170,14 @@ function mayKeepText(settings: ReviewSettings, review: SourceReview): boolean {
   return Date.parse(`${review.row.arrival_date}T00:00:00Z`) >= notice - DAY_MS;
 }
 
-/** A part of the text is still to be kept: a new review, or a part that came later. */
+function hasText(texts: ReviewTexts): boolean {
+  return texts.publicText !== null || texts.privateText !== null ||
+    Object.keys(texts.categoryComments).length > 0;
+}
+
+/** A part of the text is still to be kept: a new review with a text, or a part that came later. */
 function wantsText(settings: ReviewSettings, review: SourceReview, stored: StoredReview | undefined): boolean {
-  if (!sendsTexts(settings, review)) {
+  if (!sendsTexts(settings, review) || !hasText(review.texts)) {
     return false;
   }
   if (stored === undefined) {
@@ -192,12 +206,13 @@ function wantsRoom(
 }
 
 function redactTexts(texts: ReviewTexts, names: RedactionNames): Partial<NeutralReviewRow> {
+  const redact = (value: string) => redactText(value.slice(0, MAX_REDACTED_CHARS), names);
   const comments = Object.fromEntries(
-    Object.entries(texts.categoryComments).map(([key, value]) => [key, redactText(value, names)]),
+    Object.entries(texts.categoryComments).map(([key, value]) => [key, redact(value)]),
   );
   return {
-    public_text: texts.publicText === null ? null : redactText(texts.publicText, names),
-    private_text: texts.privateText === null ? null : redactText(texts.privateText, names),
+    public_text: texts.publicText === null ? null : redact(texts.publicText),
+    private_text: texts.privateText === null ? null : redact(texts.privateText),
     category_comments: Object.keys(comments).length > 0 ? comments : null,
   };
 }
@@ -214,28 +229,47 @@ function codeOf(error: unknown): string {
   return error instanceof ReviewSourceError ? error.code : "source_unavailable";
 }
 
+/**
+ * Why a booking was not read this run: it failed, the run stopped asking
+ * after failures in a row, or the run's ceiling of reads is spent.
+ */
+type BookingMissing = "failed" | "stopped" | "capped";
+
+const MISSING_CODES: Readonly<Record<BookingMissing, string>> = {
+  failed: "booking_lookup_failed",
+  stopped: "booking_lookups_stopped",
+  capped: "booking_lookup_capped",
+};
+
 /** The booking reads of one run: a ceiling, and a stop once the PMS keeps failing. */
 class BookingReader {
   lookups = 0;
-  #failures = 0;
+  #failuresInARow = 0;
   readonly codes: string[] = [];
 
   constructor(readonly adapter: ReviewSourceAdapter, readonly max: number) {}
 
-  /** The booking, or null when it could not be read this run (the code is kept). */
-  async read(review: SourceReview): Promise<BookingFacts | null> {
-    if (this.lookups >= this.max || this.#failures >= BOOKING_FAILURES_TO_STOP) {
-      this.codes.push("booking_lookup_capped");
-      return null;
+  /** The booking, or why it could not be read this run (the code is kept). */
+  async read(review: SourceReview): Promise<BookingFacts | BookingMissing> {
+    const missing: BookingMissing | null = this.#failuresInARow >= BOOKING_FAILURES_TO_STOP
+      ? "stopped"
+      : this.lookups >= this.max
+      ? "capped"
+      : null;
+    if (missing !== null) {
+      this.codes.push(MISSING_CODES[missing]);
+      return missing;
     }
     this.lookups += 1;
     try {
-      return await this.adapter.bookingOf(review);
+      const booking = await this.adapter.bookingOf(review);
+      this.#failuresInARow = 0;
+      return booking;
     } catch {
       // Only the code: the error may quote the PMS's answer.
-      this.#failures += 1;
-      this.codes.push("booking_lookup_failed");
-      return null;
+      this.#failuresInARow += 1;
+      this.codes.push(MISSING_CODES.failed);
+      return "failed";
     }
   }
 }
@@ -293,17 +327,20 @@ async function prepareRows(
     const text = wantsText(settings, review, stored);
     const room = wantsRoom(settings, review, stored, buildings);
     const asks = review.row.reservation_id !== null && (text || room);
-    const booking = asks ? await bookings.read(review) : null;
-    const unread = asks && booking === null;
-    const mayWait = now.getTime() - Date.parse(review.row.submitted_at) <= NAME_HOLD_DAYS * DAY_MS;
+    const read = asks ? await bookings.read(review) : null;
+    const booking = typeof read === "object" ? read : null;
+    // Behind the ceiling a review waits whatever its age; behind a failure, for its days.
+    const waits = typeof read === "string" &&
+      (read === "capped" ||
+        now.getTime() - Date.parse(review.row.submitted_at) <= NAME_HOLD_DAYS * DAY_MS);
 
-    if (text && unread && mayWait) {
+    if (text && waits) {
       // The whole review waits for its booking: the next run reads it again.
       heldForNames += 1;
       readAgain = true;
       continue;
     }
-    if (room && unread && mayWait) {
+    if (room && waits) {
       readAgain = true;
     }
 
@@ -314,7 +351,7 @@ async function prepareRows(
     };
     if (text) {
       const guest = [...review.guestNames, ...(booking?.guestNames ?? [])];
-      if (guest.length === 0) {
+      if (!hasUsableName(guest)) {
         // No name known to take out: the text does not go at all.
         textsWithoutNames += 1;
       } else {

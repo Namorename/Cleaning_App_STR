@@ -177,6 +177,27 @@ Deno.test("the booking gives the room of a building's stay and the guest's names
   });
 });
 
+Deno.test("a booking Hostaway no longer has is gone, not failing; a broken answer still fails", async () => {
+  const review = normalizeHostawayReview(hostawayReview());
+  const answering = (status: number) => {
+    const fetchImpl = (input: string | URL | Request): Promise<Response> => {
+      const url = typeof input === "string" ? input : input.toString();
+      const body = url.endsWith("accessTokens") ? { access_token: "test-token" } : { status: "fail" };
+      return Promise.resolve(new Response(JSON.stringify(body), { status: url.endsWith("accessTokens") ? 200 : status }));
+    };
+    return new HostawayClient({ accountId: "1", apiKey: "test" }, {
+      fetchImpl,
+      sleep: () => Promise.resolve(),
+      now: () => 0,
+    });
+  };
+  assertEquals(await new HostawayReviewAdapter(answering(404)).bookingOf(review), {
+    roomId: null,
+    guestNames: [],
+  });
+  await assertRejects(() => new HostawayReviewAdapter(answering(400)).bookingOf(review));
+});
+
 Deno.test("a review without a booking asks nothing", async () => {
   const review = normalizeHostawayReview(hostawayReview({ reservationId: null }));
   const none = clientWith([]);

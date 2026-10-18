@@ -1,6 +1,6 @@
 import { assert, assertEquals, assertStringIncludes } from "jsr:@std/assert@1";
 
-import { redactText } from "./redact.ts";
+import { hasUsableName, redactText } from "./redact.ts";
 
 // Synthetic texts and names only.
 
@@ -60,9 +60,44 @@ Deno.test("a name goes in every part, ending and spelling a guest gives it", () 
 });
 
 Deno.test("the forms of a name never take ordinary words in lower case", () => {
-  const names = { guest: ["Eva Market", "Will"], staff: [], places: [] };
+  const names = { guest: ["Eva Market", "Will", "will smith"], staff: [], places: [] };
   const text = "we will come back, the market was near, even so.";
   assertEquals(redactText(text, names), text);
+});
+
+Deno.test("a name the PMS writes in capitals, with odd marks or another composition still goes", () => {
+  const nfd = "Nováková".normalize("NFD");
+  const names = { guest: ["ANNA NOVÁKOVÁ", "Petra/Tom (Ann)", `Jana ${nfd}`, "Łukasz"], staff: [], places: [] };
+  const text = [
+    "Anna and Nováková, Novakova too.",
+    "Petra, Tom and Ann.",
+    `Jana ${"Novákové"} and ${"Novákové".normalize("NFD")}.`,
+    "Łukasz and Lukasz.",
+  ].join(" ");
+  const out = redactText(text, names);
+  for (const leaked of ["Anna", "Novák", "Novak", "Petra", "Tom", "Ann", "Jana", "ukasz"]) {
+    assert(!out.includes(leaked), `"${leaked}" left in the text`);
+  }
+});
+
+Deno.test("the declined forms of Czech, Polish and Ukrainian names go too", () => {
+  const names = {
+    guest: ["Jiří Novotný", "Jan Kowalski", "Марія Іван", "Олена Dvořákovi"],
+    staff: [],
+    places: [],
+  };
+  const text = "Jiřího a Novotného, Novotnému díky. Kowalskiego, Kowalskiemu. " +
+    "Марії, Марією, Іванові, Олені, Олено. Dvořákových, Dvořákovými.";
+  const out = redactText(text, names);
+  for (const leaked of ["Jiř", "Novotn", "Kowalsk", "Марі", "Іван", "Олен", "Dvořák"]) {
+    assert(!out.includes(leaked), `"${leaked}" left in the text`);
+  }
+});
+
+Deno.test("a name of no letters is no name: nothing to take out", () => {
+  assertEquals(hasUsableName([]), false);
+  assertEquals(hasUsableName(["-", "?", "J.", " "]), false);
+  assertEquals(hasUsableName(["-", "Jo"]), true);
 });
 
 Deno.test("Czech and Russian greetings take the name after them", () => {

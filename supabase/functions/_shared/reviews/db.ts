@@ -30,6 +30,24 @@ interface LoadStateRow {
   readonly room_known: boolean;
 }
 
+const LOAD_STATE_FLAGS = [
+  "public_kept",
+  "private_kept",
+  "comments_kept",
+  "text_allowed",
+  "stay_exact",
+  "room_known",
+] as const;
+
+export function isLoadStateRow(row: unknown): row is LoadStateRow {
+  if (typeof row !== "object" || row === null) {
+    return false;
+  }
+  const value = row as Record<string, unknown>;
+  return typeof value.external_key === "string" &&
+    LOAD_STATE_FLAGS.every((flag) => typeof value[flag] === "boolean");
+}
+
 export function fail(what: string, error: { message: string }): never {
   throw new Error(`${what} failed: ${error.message}`);
 }
@@ -104,7 +122,11 @@ export function createSyncStore(client: SupabaseClient, hostId: string): ReviewS
           p_host_id: hostId,
         });
         if (error) fail("review_load_state", error);
-        for (const row of (data ?? []) as LoadStateRow[]) {
+        for (const row of (data ?? []) as unknown[]) {
+          if (!isLoadStateRow(row)) {
+            // A renamed column would read as "nothing kept" and re-send every text.
+            throw new Error("review_load_state returned a row of an unexpected shape");
+          }
           state.set(row.external_key, {
             publicKept: row.public_kept,
             privateKept: row.private_kept,

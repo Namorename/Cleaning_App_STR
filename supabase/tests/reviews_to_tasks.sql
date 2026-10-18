@@ -362,10 +362,14 @@ begin
   then raise notice 'ok the run''s own counts join the journal, never over the database''s'; else raise exception 'FAIL run counts'; end if;
   v_failed := false;
   begin
-    perform pg_temp.ingest('hostaway', '[]'::jsonb, null, v_other, '[]'::jsonb, '[1]'::jsonb);
+    perform pg_temp.ingest('hostaway', jsonb_build_array(
+      jsonb_build_object('external_id', 'suite-counts', 'external_listing_id', v_l1::text,
+        'listing_id', v_l1, 'channel', 'airbnb', 'submitted_at', now())),
+      null, v_host, '[]'::jsonb, '[1]'::jsonb);
   exception when invalid_parameter_value then v_failed := true;
   end;
-  if v_failed then raise notice 'ok counts that are not an object are refused'; else raise exception 'FAIL counts arg'; end if;
+  if v_failed and not exists (select 1 from public.guest_reviews where external_key = pg_temp.review_key('suite-counts'))
+  then raise notice 'ok counts that are not an object are refused before anything is written'; else raise exception 'FAIL counts arg'; end if;
 
   -- 4. one reading: a candidate, a statistic, one below the floor, two bad items skipped.
   v_out := public.apply_review_findings(v_r1, 'claude-haiku-5-5@prompt-v1', 'en-US', jsonb_build_array(

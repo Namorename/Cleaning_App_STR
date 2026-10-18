@@ -270,6 +270,57 @@ Deno.test("the PMS failing twice stops the booking reads for the run; a ceiling 
   ]);
 });
 
+Deno.test("a name of no letters is no name: the text does not go as if redacted", async () => {
+  const { store, calls } = syncStore(SETTINGS, new Date("2026-10-14T00:00:00Z"));
+  const src = adapter([source("junk", {}, "Kettle broken, Kateřina.", ["-"])], {
+    junk: { roomId: null, guestNames: ["?"] },
+  });
+  const summary = await runReviewSync({ store, adapter: src.value, keyOf, now: () => NOW });
+  assertEquals(calls[0].rows[0].public_text, undefined);
+  assertEquals(summary.textsWithoutNames, 1);
+  assertEquals(summary.withTexts, 0);
+});
+
+Deno.test("a review with a rating and no text asks no booking and never waits", async () => {
+  const { store, calls } = syncStore(SETTINGS, new Date("2026-10-14T00:00:00Z"));
+  const bare: SourceReview = {
+    ...source("bare", { has_public_text: false }),
+    texts: { publicText: null, privateText: null, categoryComments: {} },
+  };
+  const src = adapter([bare], { bare: new Error("down") });
+  const summary = await runReviewSync({ store, adapter: src.value, keyOf, now: () => NOW });
+  assertEquals(src.bookingCalls, []);
+  assertEquals(calls[0].rows.map((row) => row.external_id), ["bare"]);
+  assertEquals([summary.heldForNames, summary.textsWithoutNames, summary.readAgain], [0, 0, false]);
+});
+
+Deno.test("only failures in a row stop the reads, and the stop has its own code", async () => {
+  const { store, calls } = syncStore(SETTINGS, new Date("2026-10-14T00:00:00Z"));
+  const src = adapter(["1", "2", "3", "4", "5"].map((id) => source(id)), {
+    "1": new Error("down"),
+    "3": new Error("down"),
+    "4": new Error("down"),
+  });
+  await runReviewSync({ store, adapter: src.value, keyOf, now: () => NOW });
+  // 1 fails, 2 reads (the count starts again), 3 and 4 fail, 5 is not asked.
+  assertEquals(src.bookingCalls, ["1", "2", "3", "4"]);
+  assertEquals(calls[0].errors, [
+    { code: "booking_lookup_failed", count: 3 },
+    { code: "booking_lookups_stopped", count: 1 },
+    { code: "review_held_for_names", count: 4 },
+  ]);
+});
+
+Deno.test("behind the ceiling an old review waits too: its booking is there, the run ran out of reads", async () => {
+  const { store, calls } = syncStore(SETTINGS, new Date("2026-10-14T00:00:00Z"));
+  const old = { submitted_at: "2026-09-20T09:00:00Z", arrival_date: "2026-09-10" };
+  const src = adapter([source("1"), source("old", old)]);
+  const summary = await runReviewSync({ store, adapter: src.value, keyOf, now: () => NOW, maxBookingLookups: 1 });
+  assertEquals(calls[0].rows.map((row) => row.external_id), ["1"]);
+  assertEquals(summary.heldForNames, 1);
+  assertEquals(calls[0].watermark, null);
+});
+
 Deno.test("a room is asked only while a building's stay is exact and its room unknown", async () => {
   const known = new Map([[await keyOf("known"), { ...FULL_STORED, roomKnown: true }]]);
   const { store, calls } = syncStore(SETTINGS, new Date("2026-10-14T00:00:00Z"), {

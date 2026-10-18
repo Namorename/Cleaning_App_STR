@@ -104,8 +104,14 @@ export interface NeutralReviewRow {
   readonly category_comments?: Readonly<Record<string, string>> | null;
 }
 
-/** A row as an adapter reads it: the key is the load's to add (key.ts). */
-export type SourceRow = Omit<NeutralReviewRow, "external_key">;
+/**
+ * A row as an adapter reads it: the key is the load's to add (key.ts), and it
+ * has no place for a text — texts travel apart, raw, until redact.ts.
+ */
+export type SourceRow = Omit<
+  NeutralReviewRow,
+  "external_key" | "public_text" | "private_text" | "category_comments"
+>;
 
 /** A review as an adapter read it. `row` carries no text; `texts` and the names live in memory only. */
 export interface SourceReview {

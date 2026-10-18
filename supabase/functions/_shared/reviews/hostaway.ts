@@ -14,7 +14,7 @@
  * a code rather than loading the wrong window.
  */
 
-import type { HostawayClient } from "../hostaway.ts";
+import { type HostawayClient, HostawayError } from "../hostaway.ts";
 import {
   type BookingFacts,
   CATEGORY_KEYS,
@@ -45,6 +45,9 @@ const CHANNEL_BY_ID: Readonly<Record<number, ReviewChannel>> = {
 
 /** Our id of a room: 10¹² + Hostaway's listingUnitId (property_id_for_unit). */
 export const ROOM_ID_BASE = 1_000_000_000_000;
+
+/** The shared client's message for a booking Hostaway no longer has (`_shared/hostaway.ts`, not retried). */
+const BOOKING_GONE = /\bHTTP 404\b/;
 
 type Raw = Record<string, unknown>;
 
@@ -237,15 +240,25 @@ export class HostawayReviewAdapter implements ReviewSourceAdapter {
    * - the guest's names as the booking has them (`guestName`,
    *   `guestFirstName`, `guestLastName`), to strip from the texts. They stay
    *   in this object, in memory, for the run.
-   * A review without a booking has neither.
+   * A review without a booking has neither; so has one whose booking Hostaway
+   * no longer has (404): it is gone, not failing, and asking again tomorrow
+   * would only hold the review back.
    */
   async bookingOf(review: SourceReview): Promise<BookingFacts> {
     if (review.row.reservation_id === null) {
       return { roomId: null, guestNames: [] };
     }
-    const booking = await this.#client.getObject(
-      `reservations/${review.row.reservation_id}?includeResources=1`,
-    );
+    let booking: Record<string, unknown>;
+    try {
+      booking = await this.#client.getObject(
+        `reservations/${review.row.reservation_id}?includeResources=1`,
+      );
+    } catch (error: unknown) {
+      if (error instanceof HostawayError && BOOKING_GONE.test(error.message)) {
+        return { roomId: null, guestNames: [] };
+      }
+      throw error;
+    }
     const units = Array.isArray(booking.reservationUnit) ? booking.reservationUnit : [];
     const ids = units
       .map((unit) => (isRecord(unit) ? positiveInteger(unit.listingUnitId) : null))

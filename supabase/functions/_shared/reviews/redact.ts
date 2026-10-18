@@ -96,20 +96,33 @@ const GREETING_RE = new RegExp(
  * takes them in capitals.
  */
 const NAME_ENDINGS = [
-  // cs / sk
+  // cs / sk ("Novotný" → "Novotného", "Jiří" → "Jiřího", "Dvořákovi" → "Dvořákových")
   "a", "e", "é", "ě", "i", "í", "o", "u", "ú", "y", "ý", "ou", "ej", "em", "ovi", "ům", "ách",
-  "ech", "ová", "ové", "ovou", "ův", "ova", "ovo", "ovy", "ým", "ých", "ými",
-  // pl
-  "ą", "ę", "owi",
-  // ru / uk
+  "ech", "ová", "ové", "ovou", "ův", "ova", "ovo", "ovy", "ým", "ých", "ými", "ého", "ému",
+  "ím", "ího", "ímu", "ových", "ovými",
+  // pl ("Kowalski" → "Kowalskiego")
+  "ą", "ę", "owi", "iego", "iemu", "im",
+  // ru / uk ("Марія" → "Марії", "Марією"; "Іван" → "Іванові")
   "а", "я", "у", "ю", "е", "и", "ы", "ой", "ей", "ою", "ею", "ом", "ем", "ём", "ым", "им",
-  "ах", "ях", "ами", "ова", "ову", "овой", "ина", "ину", "иной", "ович", "овна", "евич", "евна",
+  "ыми", "ах", "ях", "ами", "ова", "ову", "овой", "ина", "ину", "иной", "ович", "овна", "евич",
+  "евна", "і", "ї", "є", "о", "ові", "єю",
   // de / en
   "s", "n", "ns",
 ];
 
 /** The final letter a stem drops before an ending: "Anna" → "Ann-ou", "Мария" → "Мари-ей", "Игорь" → "Игор-ем". */
-const DROPS_BEFORE_ENDING = /[aeiouyáéěíóúůýаяоеёиуыюэйь]$/iu;
+const DROPS_BEFORE_ENDING = /[aeiouyáéěíóúůýаяоеёиуыюэйьіїє]$/iu;
+
+/** Letters NFD does not take apart: "Łukasz" is written "Lukasz" just as often. */
+const UNFOLDED: Readonly<Record<string, string>> = {
+  ł: "l",
+  Ł: "L",
+  ø: "o",
+  Ø: "O",
+  đ: "d",
+  Đ: "D",
+  ß: "ss",
+};
 
 /** Czech and Slovak drop the e of a last syllable: "Marek" → "Mark-a", "Pavel" → "Pavl-a". */
 const MOBILE_E = /^(.*\p{L})e(\p{L})$/u;
@@ -125,7 +138,8 @@ const SOFTENED_ENDINGS = ["e", "ě", "i"];
 
 /** The accents off: what a guest without a Czech keyboard writes ("Nováková" → "Novakova"). */
 function fold(word: string): string {
-  return word.normalize("NFD").replace(/\p{M}/gu, "").normalize("NFC");
+  return word.normalize("NFD").replace(/\p{M}/gu, "").replace(/[łŁøØđĐß]/gu, (ch) => UNFOLDED[ch])
+    .normalize("NFC");
 }
 
 function letterCount(word: string): number {
@@ -134,6 +148,37 @@ function letterCount(word: string): number {
 
 function capitalised(word: string): string {
   return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
+/** The parts of a name: anything that is not a letter divides them ("Anna/Tom", "(Ann)", "O'Brien"). */
+function nameParts(name: string): string[] {
+  return name.normalize("NFC").split(/[^\p{L}]+/u).filter((part) => letterCount(part) >= 2);
+}
+
+/**
+ * There is a name to take out at all: one part of two letters or more. A
+ * PMS that writes "-" or "J" for the guest gives none, and then a text must
+ * not go out as if it had been redacted.
+ */
+export function hasUsableName(names: readonly string[]): boolean {
+  return names.some((name) => nameParts(name).length > 0);
+}
+
+/**
+ * The ways a part is written in a text: with a capital, in capitals (by the
+ * stem patterns), without accents — and as the PMS wrote it when that starts
+ * with a capital ("McDonald"). Never in lower case: a PMS that wrote
+ * "will smith" must not take "we will come back" with it, and one that wrote
+ * "ANNA" still takes "Anna".
+ */
+function writtenForms(part: string): Set<string> {
+  const lower = part.toLowerCase();
+  const forms = new Set([capitalised(lower), capitalised(fold(lower))]);
+  if (part.charAt(0) !== part.charAt(0).toLowerCase()) {
+    forms.add(part);
+    forms.add(fold(part));
+  }
+  return forms;
 }
 
 const ENDINGS = [...new Set([...NAME_ENDINGS, ...NAME_ENDINGS.map(fold)])]
@@ -164,18 +209,14 @@ function softenedStems(stems: readonly string[]): string[] {
 
 /**
  * One pattern a word of a name may appear as: each part of two letters or
- * more, as given, with a capital, without accents, each with its endings —
- * and all of it in capitals too.
+ * more, in the forms writtenForms() gives, each with its endings — and all
+ * of it in capitals too.
  */
 function namePatterns(names: readonly string[]): string[] {
   const patterns = new Set<string>();
   for (const name of names) {
-    for (const word of name.split(/[\s\-'’.,]+/u)) {
-      if (letterCount(word) < 2) {
-        continue;
-      }
-      const forms = new Set([word, capitalised(word), fold(word), capitalised(fold(word))]);
-      for (const form of forms) {
+    for (const part of nameParts(name)) {
+      for (const form of writtenForms(part)) {
         const stems = stemsOf(form);
         for (const stem of stems) {
           patterns.add(`${escapeRegExp(stem)}(?:${ENDINGS_LOWER})?`);
@@ -219,9 +260,13 @@ function replacePhrases(text: string, phrases: readonly string[], placeholder: s
   return text.replace(pattern, placeholder);
 }
 
-/** One text, redacted. Idempotent: a placeholder is never taken for a name. */
+/**
+ * One text, redacted. Idempotent: a placeholder is never taken for a name.
+ * Composed (NFC) first, as the names are: an accent typed as a separate mark
+ * must not hide a name.
+ */
 export function redactText(text: string, names: RedactionNames): string {
-  let out = text;
+  let out = text.normalize("NFC");
   out = out.replace(URL_RE, "[URL]");
   out = out.replace(EMAIL_RE, "[EMAIL]");
   out = out.replace(HANDLE_RE, "[NAME]");
