@@ -483,3 +483,23 @@ describe('AnalyticsView and a long list ticked whole', () => {
     expect(state.queries.at(-1)?.filters.propertyIds).toEqual([]);
   });
 });
+
+describe('AnalyticsView, a whole list and the charts', () => {
+  test('a chart click elsewhere leaves the ticks of a whole list on screen', () => {
+    state.listings = {
+      ...state.listings,
+      data: Array.from({ length: 10 }, (_, index) => ({ id: index + 1, name: `Flat ${index + 1}`, status: 'active' })),
+    };
+    render(<AnalyticsView />);
+    fireEvent.click(screen.getByText('Объекты', { selector: 'summary' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Выбрать всё' }));
+    fireEvent.pointerDown(document.body);
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Показать только этот день/ })[0]);
+    expect(new URLSearchParams(window.location.search).get('from')).toBe('2026-10-01');
+    expect(new URLSearchParams(window.location.search).has('prop')).toBe(false);
+
+    fireEvent.click(screen.getByText('Объекты', { selector: 'summary' }));
+    expect(screen.getByText('Выбрано 10 из 10')).toBeInTheDocument();
+  });
+});

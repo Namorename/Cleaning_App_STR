@@ -2,7 +2,12 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
-import { MultiSelectFilter, SHORT_LIST_MAX, type MultiSelectOption } from './multi-select-filter';
+import {
+  MultiSelectFilter,
+  placementFor,
+  SHORT_LIST_MAX,
+  type MultiSelectOption,
+} from './multi-select-filter';
 
 // The suite reads in Russian (vitest.setup.ts).
 const LONG: readonly MultiSelectOption[] = [
@@ -125,7 +130,7 @@ describe('MultiSelectFilter', () => {
     expect(counter()).toHaveTextContent('Выбрано 1 из 12');
   });
 
-  test('with nothing typed the buttons act on the whole list, and an id it does not offer stays', () => {
+  test('with nothing typed the buttons act on the whole choice, an id no longer offered too', () => {
     const onChange = vi.fn();
     render(<Harness initial={['gone', '4']} onChange={onChange} />);
     open();
@@ -136,8 +141,29 @@ describe('MultiSelectFilter', () => {
     expect(screen.getAllByRole('checkbox').every((box) => (box as HTMLInputElement).checked)).toBe(true);
 
     fireEvent.click(clearAll());
-    expect(onChange).toHaveBeenLastCalledWith(['gone']);
+    expect(onChange).toHaveBeenLastCalledWith([]);
     expect(counter()).toHaveTextContent('Выбрано 0 из 12');
+  });
+
+  test('a search keeps an id no longer offered, as it keeps every hidden tick', () => {
+    const onChange = vi.fn();
+    render(<Harness initial={['gone', '1']} onChange={onChange} />);
+    open();
+    type('vinohradska');
+    fireEvent.click(clearAll());
+    expect(onChange).toHaveBeenLastCalledWith(['gone']);
+  });
+
+  test('an id no longer offered still narrows: the counter never says all are counted then', () => {
+    const onChange = vi.fn();
+    render(<Harness initial={['gone']} wholeMeansAll onChange={onChange} />);
+    expect(summary()).toHaveTextContent('Объекты1');
+    open();
+    expect(counter()).toHaveTextContent(/^Выбрано 0 из 12$/);
+    expect(clearAll()).not.toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(clearAll());
+    expect(onChange).toHaveBeenLastCalledWith([]);
+    expect(counter()).toHaveTextContent('Выбрано 0 из 12 — учитываются все');
   });
 
   test('a button with nothing left to change is off', () => {
@@ -210,5 +236,21 @@ describe('MultiSelectFilter', () => {
     type('zizkov');
     // fireEvent answers false when the handler prevented the default.
     expect(fireEvent.keyDown(searchBox(), { key: 'Enter' })).toBe(false);
+  });
+});
+
+describe('placementFor', () => {
+  test('a list that fits stays under its button, 288 px wide', () => {
+    expect(placementFor({ left: 16 }, 1280)).toEqual({ width: 288, left: 0 });
+    expect(placementFor({ left: 150 }, 470)).toEqual({ width: 288, left: 0 });
+  });
+
+  test('a button far right on a phone: the list moves left to keep 16 px from the edge', () => {
+    // 300 + 288 = 588, past 470 − 16 = 454 by 134.
+    expect(placementFor({ left: 300 }, 470)).toEqual({ width: 288, left: -134 });
+  });
+
+  test('a window narrower than the list: the list takes the window less its margins', () => {
+    expect(placementFor({ left: 16 }, 300)).toEqual({ width: 268, left: 0 });
   });
 });

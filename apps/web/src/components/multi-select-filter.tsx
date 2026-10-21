@@ -44,7 +44,7 @@ function isFinePointer(): boolean {
  * left when the button sits so far right that the list would leave the window
  * (a phone ~470 px wide, a button that wrapped to the end of its row).
  */
-function placementFor(button: DOMRect, windowWidth: number): CSSProperties {
+export function placementFor(button: Pick<DOMRect, 'left'>, windowWidth: number): CSSProperties {
   const width = Math.min(PANEL_WIDTH_PX, windowWidth - 2 * EDGE_GUTTER_PX);
   const overflow = button.left + width - (windowWidth - EDGE_GUTTER_PX);
   return { width, left: overflow > 0 ? -overflow : 0 };
@@ -53,7 +53,11 @@ function placementFor(button: DOMRect, windowWidth: number): CSSProperties {
 interface MultiSelectFilterProps {
   label: string;
   options: readonly MultiSelectOption[];
-  /** The ids ticked; it may hold ids the options no longer offer, and they stay. */
+  /**
+   * The ids ticked. It may hold ids the options no longer offer (an archived
+   * listing the page hides): a search keeps them, «Deselect all» with nothing
+   * typed lets them go with the rest.
+   */
   selected: readonly string[];
   onChange: (next: string[]) => void;
   /**
@@ -73,12 +77,12 @@ interface MultiSelectFilterProps {
  * One filter of a page: a button that opens a checkbox per value.
  *
  * A long list (more than `SHORT_LIST_MAX`, and not a fixed set) gets a
- * search over it and two buttons. The search finds every word typed, in any order, case and
- * diacritics aside (`matchesAllTokens`); it hides rows and never unticks one.
- * «Select all» and «Deselect all» act on the rows in sight only, so a value
- * ticked and then searched out of sight stays as it was — with nothing typed,
- * they act on the whole list. The search and the buttons stay above the rows
- * while the rows scroll.
+ * search over it and two buttons. The search finds every word typed, in any
+ * order, case and diacritics aside (`matchesAllTokens`); it hides rows and
+ * never unticks one. «Select all» and «Deselect all» act on the rows in sight
+ * only, so a value ticked and then searched out of sight stays as it was —
+ * with nothing typed, they act on the whole list. The search and the buttons
+ * stay above the rows while the rows scroll.
  *
  * It closes on Escape (the focus goes back to its button), on a press
  * anywhere outside it, and when the focus moves on to something else; the
@@ -106,6 +110,11 @@ export function MultiSelectFilter({
   const shown = isLong ? options.filter((option) => matchesAllTokens(option.label, query)) : options;
   const toTick = shown.filter((option) => !chosen.has(option.id)).map((option) => option.id);
   const toUntick = new Set(shown.filter((option) => chosen.has(option.id)).map((option) => option.id));
+  // With nothing typed «Deselect all» is the whole choice, ids no longer offered too:
+  // one left behind would narrow the page to a value nobody can see or untick.
+  const isSearching = isLong && query.trim() !== '';
+  const canUntick = isSearching ? toUntick.size > 0 : selected.length > 0;
+  const untick = () => onChange(isSearching ? selected.filter((one) => !toUntick.has(one)) : []);
   const tickedCount = options.filter((option) => chosen.has(option.id)).length;
   const isWhole = options.length > 0 && tickedCount === options.length;
   const badge = wholeMeansAll && isLong && isWhole ? 0 : selected.length;
@@ -125,8 +134,18 @@ export function MultiSelectFilter({
         setQuery('');
       }
     };
+    // A phone turned while the list is open: the list is placed again.
+    const placeAgain = () => {
+      if (button.current !== null) {
+        setPlacement(placementFor(button.current.getBoundingClientRect(), window.innerWidth));
+      }
+    };
     document.addEventListener('pointerdown', closeOutside);
-    return () => document.removeEventListener('pointerdown', closeOutside);
+    window.addEventListener('resize', placeAgain);
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside);
+      window.removeEventListener('resize', placeAgain);
+    };
   }, [isOpen]);
 
   useEffect(() => {
@@ -154,7 +173,7 @@ export function MultiSelectFilter({
     onChange(chosen.has(value) ? selected.filter((one) => one !== value) : [...selected, value]);
 
   const counter =
-    wholeMeansAll && tickedCount === 0
+    wholeMeansAll && selected.length === 0
       ? t('panel.listFilter.noneSelectedAll', { total: options.length })
       : t('panel.listFilter.selected', { chosen: tickedCount, total: options.length });
 
@@ -223,9 +242,9 @@ export function MultiSelectFilter({
                 type="button"
                 variant="outline"
                 className="h-11 flex-1"
-                disabled={toUntick.size === 0}
+                disabled={!canUntick}
                 focusableWhenDisabled
-                onClick={() => onChange(selected.filter((one) => !toUntick.has(one)))}
+                onClick={untick}
               >
                 {t('panel.listFilter.clearAll')}
               </Button>
@@ -235,10 +254,13 @@ export function MultiSelectFilter({
             </p>
           </div>
         ) : null}
-        <fieldset className="flex max-h-72 min-h-0 flex-col gap-1 overflow-y-auto p-2">
+        {/* min-w-0: a fieldset is as wide as its longest name otherwise, past the list's edge. */}
+        <fieldset className="flex max-h-72 min-h-0 min-w-0 flex-col gap-1 overflow-y-auto p-2">
           <legend className="sr-only">{label}</legend>
           {shown.length === 0 ? (
-            <p className="px-2 py-3 text-sm text-muted-foreground">{t('panel.listFilter.noMatch')}</p>
+            <p role="status" className="px-2 py-3 text-sm text-muted-foreground">
+              {t('panel.listFilter.noMatch')}
+            </p>
           ) : (
             shown.map((option) => (
               <label

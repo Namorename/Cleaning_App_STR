@@ -190,7 +190,23 @@ export function AnalyticsView() {
         period={period}
         summary={current.data}
         lookups={lookups}
-        onChange={(next) => setAddress(next)}
+        onChange={(next) =>
+          // A list the charts did not touch comes back with its ticks.
+          setAddress({
+            ...next,
+            filters: {
+              ...next.filters,
+              propertyIds:
+                next.filters.propertyIds === filters.propertyIds
+                  ? address.filters.propertyIds
+                  : next.filters.propertyIds,
+              personIds:
+                next.filters.personIds === filters.personIds
+                  ? address.filters.personIds
+                  : next.filters.personIds,
+            },
+          })
+        }
       />
 
       <Tabs
