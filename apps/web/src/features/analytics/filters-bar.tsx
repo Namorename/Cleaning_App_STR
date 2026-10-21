@@ -2,112 +2,16 @@
 
 import { Constants } from '@str-ops/shared';
 import { X } from 'lucide-react';
-import { useEffect, useId, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { MultiSelectFilter } from '@/components/multi-select-filter';
 import { Button } from '@/components/ui/button';
 
 import { listingFilterLabel, personFilterLabel, type FilterOption } from './filter-labels';
 import { NO_FILTERS, type AnalyticsFilters } from './schema';
+import { wholeAsAll } from './whole-lists';
 
 export type { FilterOption } from './filter-labels';
-
-interface FilterGroupProps {
-  label: string;
-  options: readonly FilterOption[];
-  selected: readonly string[];
-  onChange: (next: string[]) => void;
-}
-
-/**
- * One filter: a disclosure with a checkbox per value; none ticked means "all".
- * It closes on Escape (the focus goes back to its button) and on a press
- * anywhere outside it, so opening the next filter closes this one.
- */
-function FilterGroup({ label, options, selected, onChange }: FilterGroupProps) {
-  const id = useId();
-  const [isOpen, setIsOpen] = useState(false);
-  const root = useRef<HTMLDetailsElement>(null);
-  const button = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    if (!isOpen) {
-      return undefined;
-    }
-    const closeOutside = (event: Event) => {
-      if (!root.current?.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('pointerdown', closeOutside);
-    return () => document.removeEventListener('pointerdown', closeOutside);
-  }, [isOpen]);
-
-  const closeOnEscape = (event: KeyboardEvent) => {
-    if (event.key === 'Escape' && isOpen) {
-      event.preventDefault();
-      setIsOpen(false);
-      button.current?.focus();
-    }
-  };
-  // The keyboard's way out: the focus moving on to something else. A focus
-  // that just leaves (Safari ticks a checkbox without focusing it) is not one.
-  const closeOnFocusAway = (event: FocusEvent) => {
-    const next = event.relatedTarget as Node | null;
-    if (isOpen && next !== null && !root.current?.contains(next)) {
-      setIsOpen(false);
-    }
-  };
-  const toggle = (value: string) =>
-    onChange(
-      selected.includes(value) ? selected.filter((one) => one !== value) : [...selected, value],
-    );
-  return (
-    <details
-      ref={root}
-      open={isOpen}
-      onKeyDown={closeOnEscape}
-      onBlur={closeOnFocusAway}
-      className="group relative"
-    >
-      <summary
-        ref={button}
-        // The page holds the state: the browser's own toggle would undo it.
-        onClick={(event) => {
-          event.preventDefault();
-          setIsOpen((open) => !open);
-        }}
-        className="flex min-h-11 cursor-pointer list-none items-center gap-1 rounded-lg px-3 text-sm ring-1 ring-foreground/15 hover:bg-muted/60"
-      >
-        {label}
-        {selected.length === 0 ? null : (
-          <span className="rounded-full bg-primary px-1.5 text-xs text-primary-foreground">
-            {selected.length}
-          </span>
-        )}
-      </summary>
-      <fieldset className="absolute z-20 mt-1 flex max-h-72 w-64 flex-col gap-1 overflow-y-auto rounded-lg bg-popover p-2 shadow-md ring-1 ring-foreground/10">
-        <legend className="sr-only">{label}</legend>
-        {options.map((option) => (
-          <label
-            key={option.id}
-            htmlFor={`${id}-${option.id}`}
-            className="flex min-h-11 items-center gap-2 rounded px-2 text-sm hover:bg-muted/60"
-          >
-            <input
-              id={`${id}-${option.id}`}
-              type="checkbox"
-              className="size-4"
-              checked={selected.includes(option.id)}
-              onChange={() => toggle(option.id)}
-            />
-            <span className="truncate">{option.label}</span>
-          </label>
-        ))}
-      </fieldset>
-    </details>
-  );
-}
 
 interface FiltersBarProps {
   filters: AnalyticsFilters;
@@ -151,13 +55,22 @@ export function FiltersBar({
     label: t(`problems.priorities.${priority}`),
   }));
 
+  // A list ticked whole narrows nothing (whole-lists.ts): it has no chips.
+  const chipListings = wholeAsAll(
+    filters.propertyIds,
+    listings.map((option) => Number(option.id)),
+  );
+  const chipPeople = wholeAsAll(
+    filters.personIds,
+    people.map((option) => option.id),
+  );
   const chips = [
-    ...filters.propertyIds.map((value) => ({
+    ...chipListings.map((value) => ({
       key: `prop-${value}`,
       label: listingFilterLabel(value, listingNames),
       remove: () => onChange({ ...filters, propertyIds: filters.propertyIds.filter((v) => v !== value) }),
     })),
-    ...filters.personIds.map((value) => ({
+    ...chipPeople.map((value) => ({
       key: `ppl-${value}`,
       label: personFilterLabel(value, people, staff, (key, values) => t(key, values)),
       remove: () => onChange({ ...filters, personIds: filters.personIds.filter((v) => v !== value) }),
@@ -183,37 +96,42 @@ export function FiltersBar({
   return (
     <section aria-label={t(`${KEY}label`)} className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-2">
-        <FilterGroup
+        <MultiSelectFilter
           label={t(`${KEY}listings`)}
           options={listings}
           selected={filters.propertyIds.map(String)}
           onChange={(next) => onChange({ ...filters, propertyIds: next.map(Number) })}
+          wholeMeansAll
         />
-        <FilterGroup
+        <MultiSelectFilter
           label={t(`${KEY}people`)}
           options={people}
           selected={filters.personIds}
           onChange={(next) => onChange({ ...filters, personIds: next })}
+          wholeMeansAll
         />
-        <FilterGroup
+        <MultiSelectFilter
           label={t(`${KEY}cleaningStatus`)}
           options={taskStatuses}
+          isFixedSet
           selected={filters.taskStatuses}
           onChange={(next) =>
             onChange({ ...filters, taskStatuses: next as AnalyticsFilters['taskStatuses'] })
           }
         />
-        <FilterGroup
+        <MultiSelectFilter
           label={t(`${KEY}taskStatus`)}
           options={problemStatuses}
+          isFixedSet
           selected={filters.problemStatuses}
           onChange={(next) =>
             onChange({ ...filters, problemStatuses: next as AnalyticsFilters['problemStatuses'] })
           }
         />
-        <FilterGroup
+        <MultiSelectFilter
           label={t(`${KEY}urgency`)}
           options={priorities}
+          isFixedSet
           selected={filters.priorities}
           onChange={(next) =>
             onChange({ ...filters, priorities: next as AnalyticsFilters['priorities'] })

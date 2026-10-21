@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 
 import { FiltersBar, type FilterOption } from '../filters-bar';
@@ -140,5 +140,33 @@ describe('FiltersBar', () => {
     expect(onChange).toHaveBeenLastCalledWith({ ...NO_FILTERS, propertyIds: [2], hideArchived: true });
     fireEvent.click(screen.getByRole('button', { name: 'Сбросить все фильтры' }));
     expect(onChange).toHaveBeenLastCalledWith(NO_FILTERS);
+  });
+
+  test('a long list ticked whole narrows nothing: no chips, no count on its button', () => {
+    const many = Array.from({ length: 10 }, (_, index) => ({ id: String(index + 1), label: `Flat ${index + 1}` }));
+    render(
+      <FiltersBar
+        filters={{ ...NO_FILTERS, propertyIds: many.map((one) => Number(one.id)) }}
+        listings={many}
+        listingNames={many}
+        people={PEOPLE}
+        staff={STAFF}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /^Снять фильтр/ })).not.toBeInTheDocument();
+    expect(screen.getByText('Объекты', { selector: 'summary' })).toHaveTextContent(/^Объекты$/);
+  });
+
+  test('a short list ticked whole keeps its chips, as it always did', () => {
+    bar({ ...NO_FILTERS, priorities: ['low', 'normal', 'high'] });
+    expect(screen.getByRole('button', { name: 'Снять фильтр: Низкая' })).toBeInTheDocument();
+  });
+
+  test('the statuses never get a search, however many there are', () => {
+    bar();
+    fireEvent.click(screen.getByText('Статус уборки', { selector: 'summary' }));
+    expect(within(group('Статус уборки')).getAllByRole('checkbox')).toHaveLength(9);
+    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
   });
 });

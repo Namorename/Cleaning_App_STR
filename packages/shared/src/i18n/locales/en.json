@@ -230,6 +230,15 @@
         "offWork": "Could not load the cleanings of switched-off staff."
       }
     },
+    "listFilter": {
+      "search": "Search",
+      "searchIn": "Search: {{name}}",
+      "selectAll": "Select all",
+      "clearAll": "Deselect all",
+      "selected": "{{chosen}} of {{total}} selected",
+      "noneSelectedAll": "0 of {{total}} selected — all are counted",
+      "noMatch": "Nothing found"
+    },
     "analytics": {
       "period": {
         "label": "Period",
