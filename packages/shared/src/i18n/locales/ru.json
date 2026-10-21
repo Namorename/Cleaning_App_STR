@@ -230,6 +230,15 @@
         "offWork": "Не удалось загрузить уборки отключённых."
       }
     },
+    "listFilter": {
+      "search": "Поиск",
+      "searchIn": "Поиск: {{name}}",
+      "selectAll": "Выбрать всё",
+      "clearAll": "Убрать всё",
+      "selected": "Выбрано {{chosen}} из {{total}}",
+      "noneSelectedAll": "Выбрано 0 из {{total}} — учитываются все",
+      "noMatch": "Ничего не найдено"
+    },
     "analytics": {
       "period": {
         "label": "Период",

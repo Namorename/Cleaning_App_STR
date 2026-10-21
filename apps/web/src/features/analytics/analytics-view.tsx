@@ -14,7 +14,12 @@ import { useLanguage } from '@/lib/use-language';
 
 import { useStaff } from '@/features/tasks/use-tasks';
 
-import { readAnalyticsAddress, resolvePeriod, writeAnalyticsAddress } from './address';
+import {
+  readAnalyticsAddress,
+  resolvePeriod,
+  writeAnalyticsAddress,
+  type AnalyticsAddress,
+} from './address';
 import { AnalyticsCharts } from './analytics-charts';
 import { AnalyticsTable } from './analytics-table';
 import { reportPdfName } from './file-names';
@@ -29,6 +34,12 @@ import { previousPeriod } from './period';
 import { ANALYTICS_TABLES, type AnalyticsQuery, type AnalyticsTable as TableName } from './schema';
 import { isEmptySummary } from './summary';
 import { useAnalyticsListings, useAnalyticsSummary } from './use-analytics';
+import { wholeListsAsAll, type FilterChoices } from './whole-lists';
+
+/** The people the filters offer: those who clean and repair, not the office. */
+function isFieldRole(role: string): boolean {
+  return role !== 'manager' && role !== 'admin';
+}
 
 /**
  * The owner's Analytics page (docs/dashboard-metrics.md, step 1): a period
@@ -37,7 +48,28 @@ import { useAnalyticsListings, useAnalyticsSummary } from './use-analytics';
  */
 export function AnalyticsView() {
   const { t } = useTranslation();
-  const [address, setAddress] = useAddressState(readAnalyticsAddress, writeAnalyticsAddress);
+
+  // What the filters offer: the listings (rooms are counted under them; the
+  // archived ones too, marked, unless the switch hides them) and the people
+  // who clean and repair. A chip names anybody still on the team.
+  const listingsQuery = useAnalyticsListings();
+  const listingsRead = listingsQuery.data;
+  const teamQuery = useStaff();
+  const team = teamQuery.data;
+  const choices: FilterChoices = {
+    listings: (listingsRead ?? []).map((listing) => ({
+      id: listing.id,
+      isArchived: listing.status === 'archived',
+    })),
+    personIds: (team ?? []).filter((person) => isFieldRole(person.role)).map((person) => person.id),
+  };
+
+  // A listing or person list ticked whole is "all" to everything but the
+  // ticks themselves: the address, the server, the charts, the report.
+  const [address, setAddress] = useAddressState(readAnalyticsAddress, (value: AnalyticsAddress) =>
+    writeAnalyticsAddress({ ...value, filters: wholeListsAsAll(value.filters, choices) }),
+  );
+  const filters = wholeListsAsAll(address.filters, choices);
   const isLocal = isLocalStand(publicEnv.supabaseUrl);
 
   const today = todayIn(COMPANY_TIME_ZONE);
@@ -45,18 +77,13 @@ export function AnalyticsView() {
   const previous = address.compare ? previousPeriod(period) : null;
   const includeTest = isLocal && address.includeTest;
 
-  const query: AnalyticsQuery = { period, filters: address.filters, includeTest };
+  const query: AnalyticsQuery = { period, filters, includeTest };
   const previousQuery: AnalyticsQuery | null =
     previous === null ? null : { ...query, period: previous };
 
   const current = useAnalyticsSummary(query);
   const before = useAnalyticsSummary(previousQuery);
 
-  // What the filters offer: the listings (rooms are counted under them; the
-  // archived ones too, marked, unless the switch hides them) and the people
-  // who clean and repair. A chip names anybody still on the team.
-  const listingsQuery = useAnalyticsListings();
-  const listingsRead = listingsQuery.data;
   // The files are named by a listing's own name, not the chip's words (file-names.ts).
   const listingName = (id: number) => listingsRead?.find((listing) => listing.id === id)?.name;
   const allListings = (listingsRead ?? []).map((listing) => ({
@@ -68,8 +95,6 @@ export function AnalyticsView() {
         : listing.name,
   }));
   const listings = allListings.filter((listing) => !(address.filters.hideArchived && listing.isArchived));
-  const teamQuery = useStaff();
-  const team = teamQuery.data;
   const staff =
     team === undefined
       ? null
@@ -78,7 +103,7 @@ export function AnalyticsView() {
           role: person.role,
           label: personLabel(person.full_name, address.names),
         }));
-  const people = (staff ?? []).filter((person) => person.role !== 'manager' && person.role !== 'admin');
+  const people = (staff ?? []).filter((person) => isFieldRole(person.role));
   const lookups = { listingNames: allListings, people, staff };
 
   // The report names its listings and people: a list that never came is said
@@ -106,12 +131,12 @@ export function AnalyticsView() {
     client,
     period,
     previous,
-    filters: address.filters,
+    filters,
     names: address.names,
     language,
     t: (key, values) => t(key, values),
     lookups,
-    fileName: reportPdfName({ period, filters: address.filters, listingName }),
+    fileName: reportPdfName({ period, filters, listingName }),
   });
 
   return (
@@ -159,12 +184,29 @@ export function AnalyticsView() {
       <KpiTiles current={current.data} previous={previous === null ? null : before.data} />
 
       <AnalyticsCharts
-        address={address}
+        // A bar picked from a whole list narrows to that bar alone.
+        address={{ ...address, filters }}
         query={query}
         period={period}
         summary={current.data}
         lookups={lookups}
-        onChange={(next) => setAddress(next)}
+        onChange={(next) =>
+          // A list the charts did not touch comes back with its ticks.
+          setAddress({
+            ...next,
+            filters: {
+              ...next.filters,
+              propertyIds:
+                next.filters.propertyIds === filters.propertyIds
+                  ? address.filters.propertyIds
+                  : next.filters.propertyIds,
+              personIds:
+                next.filters.personIds === filters.personIds
+                  ? address.filters.personIds
+                  : next.filters.personIds,
+            },
+          })
+        }
       />
 
       <Tabs

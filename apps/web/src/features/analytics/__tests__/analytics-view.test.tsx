@@ -442,3 +442,64 @@ describe('AnalyticsView', () => {
     expect(screen.queryByText('С демо-объектами (локальный стенд)')).not.toBeInTheDocument();
   });
 });
+
+describe('AnalyticsView and a long list ticked whole', () => {
+  // Ten listings: a list long enough for the search and its two buttons.
+  const MANY = Array.from({ length: 10 }, (_, index) => ({
+    id: index + 1,
+    name: `Flat ${index + 1}`,
+    status: 'active',
+  }));
+
+  test('«Выбрать всё» keeps the ticks on screen, and the link and the server are told "all"', () => {
+    state.listings = { ...state.listings, data: MANY };
+    render(<AnalyticsView />);
+    fireEvent.click(screen.getByText('Объекты', { selector: 'summary' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Выбрать всё' }));
+
+    expect(screen.getByRole('checkbox', { name: 'Flat 7' })).toBeChecked();
+    expect(screen.getByText('Выбрано 10 из 10')).toBeInTheDocument();
+    expect(new URLSearchParams(window.location.search).has('prop')).toBe(false);
+    expect(state.queries.at(-1)?.filters.propertyIds).toEqual([]);
+    expect(screen.queryByRole('button', { name: /^Снять фильтр/ })).not.toBeInTheDocument();
+  });
+
+  test('one tick taken off a whole list narrows the page to the rest, in the link too', () => {
+    state.listings = { ...state.listings, data: MANY };
+    render(<AnalyticsView />);
+    fireEvent.click(screen.getByText('Объекты', { selector: 'summary' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Выбрать всё' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Flat 7' }));
+
+    const rest = MANY.map((listing) => listing.id).filter((id) => id !== 7);
+    expect(new URLSearchParams(window.location.search).get('prop')).toBe(rest.join(','));
+    expect(state.queries.at(-1)?.filters.propertyIds).toEqual(rest);
+  });
+
+  test('a link that names every listing reads as all', () => {
+    state.listings = { ...state.listings, data: MANY };
+    window.history.replaceState(null, '', `/analytics?p=thisMonth&prop=${MANY.map((one) => one.id).join(',')}`);
+    render(<AnalyticsView />);
+    expect(state.queries.at(-1)?.filters.propertyIds).toEqual([]);
+  });
+});
+
+describe('AnalyticsView, a whole list and the charts', () => {
+  test('a chart click elsewhere leaves the ticks of a whole list on screen', () => {
+    state.listings = {
+      ...state.listings,
+      data: Array.from({ length: 10 }, (_, index) => ({ id: index + 1, name: `Flat ${index + 1}`, status: 'active' })),
+    };
+    render(<AnalyticsView />);
+    fireEvent.click(screen.getByText('Объекты', { selector: 'summary' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Выбрать всё' }));
+    fireEvent.pointerDown(document.body);
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Показать только этот день/ })[0]);
+    expect(new URLSearchParams(window.location.search).get('from')).toBe('2026-10-01');
+    expect(new URLSearchParams(window.location.search).has('prop')).toBe(false);
+
+    fireEvent.click(screen.getByText('Объекты', { selector: 'summary' }));
+    expect(screen.getByText('Выбрано 10 из 10')).toBeInTheDocument();
+  });
+});

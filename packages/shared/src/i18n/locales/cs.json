@@ -230,6 +230,15 @@
         "offWork": "Úklidy vypnutých se nepodařilo načíst."
       }
     },
+    "listFilter": {
+      "search": "Hledat",
+      "searchIn": "Hledat: {{name}}",
+      "selectAll": "Vybrat vše",
+      "clearAll": "Odznačit vše",
+      "selected": "Vybráno {{chosen}} z {{total}}",
+      "noneSelectedAll": "Vybráno 0 z {{total}} — počítají se všechny",
+      "noMatch": "Nic nenalezeno"
+    },
     "analytics": {
       "period": {
         "label": "Období",
