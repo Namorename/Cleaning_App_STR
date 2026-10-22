@@ -20,7 +20,7 @@ import { discardFile } from '@/features/media/file';
 import type { VideoLimits } from '@/features/media/schema';
 import { assertStorageTakes, TooLargeForStorageError } from '@/features/media/storage-limit';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
-import { noteStep, reportError } from '@/lib/sentry';
+import { noteStep, reportError, reportMediaTrouble } from '@/lib/sentry';
 
 import { GalleryPhase } from './gallery-phase';
 import { PermissionScreen } from './permission-screen';
@@ -103,6 +103,8 @@ export function RecordScreen({ limits, onSend, onDone, source = 'camera' }: Reco
   const isSendingNow = useRef(false);
   const isMounted = useRef(true);
   const hasLeft = useRef(false);
+  /** The kept file whose size was last reported: told once, however often «Отправить» is pressed. */
+  const reportedTooLarge = useRef<string | null>(null);
 
   useEffect(() => {
     isMounted.current = true;
@@ -249,8 +251,15 @@ export function RecordScreen({ limits, onSend, onDone, source = 'camera' }: Reco
       const type = error instanceof Error ? error.name : typeof error;
       noteStep('video.send', 'failed', { type });
       // A caught failure is an event of its own: the marks above go with it.
-      // A file too big for the storage is a refusal she acts on, not a crash.
-      if (!(error instanceof TooLargeForStorageError)) {
+      // A file too big for the storage is a refusal she acts on, not a crash:
+      // told once per file, as a refusal with its numbers (reportTooLarge).
+      const kept = unsent.current?.kept ?? null;
+      if (error instanceof TooLargeForStorageError) {
+        if (kept !== null && reportedTooLarge.current !== kept.id) {
+          reportedTooLarge.current = kept.id;
+          reportTooLarge(kept, source, limits);
+        }
+      } else {
         reportError(error);
       }
       if (isMounted.current) {
@@ -371,6 +380,24 @@ const createStyles = (theme: Theme) =>
     screen: { flex: 1, backgroundColor: theme.background },
     sent: { flex: 1, backgroundColor: theme.background },
   });
+
+/**
+ * A video the storage would not take, told to Sentry with its numbers
+ * (lib/sentry.ts, reportMediaTrouble): she reads the refusal on the preview,
+ * and until 22.10 nobody else learnt of it.
+ */
+function reportTooLarge(kept: CapturedMedia, source: MediaSource, limits: VideoLimits): void {
+  reportMediaTrouble(
+    'Video too large for the storage',
+    { reason: 'video.tooLargeForStorage', kind: 'video', source },
+    {
+      byteSize: kept.byteSize,
+      durationSec: kept.durationSec,
+      mimeType: kept.mimeType,
+      limitBytes: limits.maxBytes,
+    },
+  );
+}
 
 /** Delete the recording not handed over, wherever its file is now. */
 function forget(unsent: { current: Unsent | null }): void {

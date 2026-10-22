@@ -15,6 +15,9 @@ import {
   SILENT_RETRIES,
   STALL_RETRIES,
   attachStalls,
+  countAttachFailure,
+  forgetAttachCount,
+  isFinalAttachFailure,
   isNoSignal,
   retryAttach,
 } from '../attach-retry';
@@ -548,4 +551,29 @@ test('tried again from its tile, an upload starts its count afresh', async () =>
 
   // Assert
   expect(attach).toHaveBeenCalledTimes(8);
+});
+
+// The queue reports a file to Sentry when it gives up on it (22.10), and only then.
+describe('the last failure a file is owed', () => {
+  const MEDIA = 'final-media-id';
+
+  afterEach(() => forgetAttachCount(MEDIA));
+
+  test('is the one past its kind’s tries, not any before it', () => {
+    const verdicts = Array.from({ length: ATTACH_RETRIES + 1 }, () =>
+      isFinalAttachFailure(countAttachFailure(MEDIA, new TusRefusedError(403, 'refused'))),
+    );
+
+    expect(verdicts).toEqual([...Array<boolean>(ATTACH_RETRIES).fill(false), true]);
+  });
+
+  test('silence without signal is never the last', () => {
+    onlineManager.setOnline(false);
+    try {
+      const silence = countAttachFailure(MEDIA, new TusRetryableError('silent', 'no-answer'));
+      expect(isFinalAttachFailure(silence)).toBe(false);
+    } finally {
+      onlineManager.setOnline(true);
+    }
+  });
 });

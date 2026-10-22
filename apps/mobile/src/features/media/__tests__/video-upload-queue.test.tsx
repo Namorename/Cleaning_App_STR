@@ -300,3 +300,29 @@ test('a video the storage turns down as too large fails with that reason, its at
   });
   expect(JSON.stringify(marks)).not.toMatch(/file:\/\//);
 });
+
+// 22.10: a queue that gave up said so on her tile only; the marks above reach
+// Sentry only with some later error. Its last failure is now an event of its
+// own — once, with the reason, the storage's status and the file's numbers.
+test('a video the queue gives up on is reported once, with why and what it was', async () => {
+  network(
+    async (method) => (method === 'POST' ? answer(413) : answer(500)),
+    async () => answer(200),
+  );
+
+  await sendAndWaitAnHour();
+
+  expect(Sentry.captureMessage).toHaveBeenCalledTimes(1);
+  expect(Sentry.captureMessage).toHaveBeenCalledWith('Media upload gave up', {
+    level: 'warning',
+    tags: { reason: 'tooLarge', kind: 'video', source: 'camera', owner: 'step', status: '413' },
+    extra: expect.objectContaining({
+      errorName: 'TusRefusedError',
+      byteSize: video.byteSize,
+      durationSec: 12.3,
+      mimeType: 'video/mp4',
+    }),
+    fingerprint: ['media-trouble', 'Media upload gave up', 'tooLarge'],
+  });
+  expect(JSON.stringify(jest.mocked(Sentry.captureMessage).mock.calls)).not.toMatch(/file:\/\//);
+});

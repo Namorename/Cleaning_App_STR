@@ -1,6 +1,12 @@
 import * as Sentry from '@sentry/react-native';
 
-import { initSentry, readSentryDsn, reportError, reportSignInRefusal } from '../sentry';
+import {
+  initSentry,
+  readSentryDsn,
+  reportError,
+  reportMediaTrouble,
+  reportSignInRefusal,
+} from '../sentry';
 
 /**
  * Crash reports from the field, and nothing about the people in them.
@@ -93,6 +99,22 @@ test('a refused sign-in is a message at info level, with its code and status onl
   expect(Sentry.captureMessage).toHaveBeenCalledWith('Sign-in refused', {
     level: 'info',
     tags: { code: 'invalid_credentials', status: '400' },
+  });
+  expect(Sentry.captureException).not.toHaveBeenCalled();
+});
+
+test('a file the phone would not send is a warning, one issue per reason, with its numbers', () => {
+  reportMediaTrouble(
+    'Gallery video refused',
+    { reason: 'video.galleryTooLarge', kind: 'video', source: 'gallery' },
+    { byteSize: 61_000_000, durationSec: 31.5, limitBytes: 50_000_000 },
+  );
+
+  expect(Sentry.captureMessage).toHaveBeenCalledWith('Gallery video refused', {
+    level: 'warning',
+    tags: { reason: 'video.galleryTooLarge', kind: 'video', source: 'gallery' },
+    extra: { byteSize: 61_000_000, durationSec: 31.5, limitBytes: 50_000_000 },
+    fingerprint: ['media-trouble', 'Gallery video refused', 'video.galleryTooLarge'],
   });
   expect(Sentry.captureException).not.toHaveBeenCalled();
 });

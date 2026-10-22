@@ -16,7 +16,7 @@ import {
 import { discardFile } from '@/features/media/file';
 import type { VideoLimits } from '@/features/media/schema';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
-import { noteStep, reportError } from '@/lib/sentry';
+import { noteStep, reportError, reportMediaTrouble, type StepData } from '@/lib/sentry';
 
 import { galleryVideoRefusal, type GalleryRefusal } from './gallery-video';
 
@@ -88,6 +88,11 @@ export function GalleryPhase({ limits, onPicked, onLeave }: GalleryPhaseProps) {
         }
         letGo(video);
         noteStep('video.gallery', 'refused', { reason: refusal.key });
+        reportMediaTrouble(
+          'Gallery video refused',
+          { reason: refusal.key, kind: 'video', source: 'gallery' },
+          galleryFacts(video, latest.current.limits),
+        );
         setState({ kind: 'refused', refusal });
       },
       (error: unknown) => {
@@ -153,6 +158,18 @@ export function GalleryPhase({ limits, onPicked, onLeave }: GalleryPhaseProps) {
       <Button variant="outline" label={t('common.back')} onPress={onLeave} />
     </ScrollView>
   );
+}
+
+/** What decided a refusal: the file's numbers and the step's, nothing of what is in it. */
+function galleryFacts(video: PickedVideo, limits: VideoLimits): StepData {
+  return {
+    byteSize: video.byteSize,
+    durationSec: video.durationSec,
+    mimeType: video.mimeType,
+    isCompressed: video.isCompressed,
+    limitSec: limits.seconds,
+    limitBytes: limits.maxBytes,
+  };
 }
 
 /** An iPhone could not compress the chosen video (`VideoNotCompressedError`). */

@@ -217,6 +217,17 @@ export function attachStalls(mediaId: string): number {
   return countsOf(mediaId).stalled;
 }
 
+/**
+ * Whether this failure is the last of its kind the file is owed: the queue
+ * will not try again on its own, and the tile now offers «Повторить». Read
+ * from the count `countAttachFailure` kept with it; silence without signal is
+ * never the last.
+ */
+export function isFinalAttachFailure(error: unknown): boolean {
+  const number = typeof error === 'object' && error !== null ? failureNumber.get(error) : undefined;
+  return number !== undefined && number.count > number.limit;
+}
+
 /** TanStack's `retry` for the upload queue. */
 export function retryAttach(failureCount: number, error: unknown): boolean {
   const number = typeof error === 'object' && error !== null ? failureNumber.get(error) : undefined;

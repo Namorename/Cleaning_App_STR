@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert, Platform } from 'react-native';
 
@@ -255,6 +256,29 @@ test('a video longer than the step allows is refused in her words, with another 
 
   expect(pick).toHaveBeenCalledTimes(2);
   expect(screen.getByTestId('video-preview')).toBeTruthy();
+});
+
+// 22.10: a refusal she read on her own screen reached nobody else. It goes to
+// Sentry as a refusal, with the file's numbers and the step's.
+test('a refused video is reported with its size, length and the limits it missed', async () => {
+  pick.mockResolvedValueOnce(picked({ durationSec: 120, byteSize: 30_000_000 }));
+
+  await render(<RecordRoute />);
+
+  expect(Sentry.captureMessage).toHaveBeenCalledWith('Gallery video refused', {
+    level: 'warning',
+    tags: { reason: 'video.galleryTooLong', kind: 'video', source: 'gallery' },
+    extra: {
+      byteSize: 30_000_000,
+      durationSec: 120,
+      mimeType: 'video/mp4',
+      isCompressed: false,
+      limitSec: 90,
+      limitBytes: 45_000_000,
+    },
+    fingerprint: ['media-trouble', 'Gallery video refused', 'video.galleryTooLong'],
+  });
+  expect(Sentry.captureException).not.toHaveBeenCalled();
 });
 
 test('larger than the company allows, it says the size to meet', async () => {

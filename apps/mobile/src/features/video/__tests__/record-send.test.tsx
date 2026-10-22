@@ -208,6 +208,28 @@ describe('a recording larger than the storage takes', () => {
     expect(discardFile).not.toHaveBeenCalled();
   });
 
+  // 22.10: maids said "the video does not upload", and nothing of this refusal
+  // reached anyone but her. Told once per file, with the numbers that decided it.
+  test('is reported once as a refusal, with its size and length', async () => {
+    keep.mockImplementation(async ({ durationSec }) => ({
+      ...kept(durationSec),
+      byteSize: 105_900_000,
+    }));
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    expect(Sentry.captureMessage).toHaveBeenCalledTimes(1);
+    expect(Sentry.captureMessage).toHaveBeenCalledWith('Video too large for the storage', {
+      level: 'warning',
+      tags: { reason: 'video.tooLargeForStorage', kind: 'video', source: 'camera' },
+      extra: expect.objectContaining({ byteSize: 105_900_000, limitBytes: 45_000_000 }),
+      fingerprint: ['media-trouble', 'Video too large for the storage', 'video.tooLargeForStorage'],
+    });
+  });
+
   test('a file right at the storage limit goes to the queue', async () => {
     keep.mockImplementation(async ({ durationSec }) => ({
       ...kept(durationSec),
