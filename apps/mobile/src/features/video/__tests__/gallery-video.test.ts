@@ -79,7 +79,7 @@ describe('a video the gallery already compressed', () => {
     ).toEqual({ key: 'video.galleryFormat' });
   });
 
-  test('the size is the smaller of the company’s and the storage’s 50 MB', () => {
+  test('the size is the limit it is given: the smaller of the company’s and the storage’s', () => {
     const generous: VideoLimits = { ...LIMITS, maxBytes: 50_000_000 };
 
     expect(

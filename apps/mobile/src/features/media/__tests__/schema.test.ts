@@ -106,12 +106,26 @@ describe('videoLimits', () => {
   // upload: a 105.9 MB recording was made and then refused. The camera stops
   // where the storage would refuse, whichever is lower.
   test('the size stops at what the storage takes, even when the company allows more', () => {
+    // More than the server lets a company set (150): the phone holds the line all the same.
+    const beyond = { video_max_sec: 180, video_bitrate_kbps: 4500, video_max_mb: 200 };
+
+    expect(videoLimits(beyond)).toEqual({
+      seconds: 180,
+      maxBytes: 150_000_000,
+      cameraMaxBytes: 145_500_000,
+      bitrate: 4_500_000,
+    });
+  });
+
+  // 22.10, on Pro: the company's 140 MB is what the camera and the gallery are
+  // held to, no longer the 50 of Supabase Free.
+  test('on Pro the company’s own size is the limit', () => {
     const pro = { video_max_sec: 180, video_bitrate_kbps: 4500, video_max_mb: 140 };
 
     expect(videoLimits(pro)).toEqual({
       seconds: 180,
-      maxBytes: 50_000_000,
-      cameraMaxBytes: 48_500_000,
+      maxBytes: 140_000_000,
+      cameraMaxBytes: 135_800_000,
       bitrate: 4_500_000,
     });
   });
