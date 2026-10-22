@@ -86,19 +86,22 @@ export function noteStep(category: string, message: string, data?: StepData): vo
  * mark reaches Sentry only with some later error of the same run: maids said
  * "the video does not upload" and the reports held nothing but two iPhones
  * refused the photos (docs/video-upload-1022.md). Grouped by what happened and
- * why, so each reason is one issue with its own count. Tags are kinds and
- * codes, facts are sizes, lengths and limits — never a path, a name or a text.
+ * why — and by `detail`, where one reason covers several causes (a server's
+ * refusal, say, by its key) — so each cause is one issue with its own count.
+ * Tags are kinds and codes, facts are sizes, lengths and limits — never a
+ * path, a name or a text.
  */
 export function reportMediaTrouble(
   what: string,
   tags: Readonly<Record<string, string>>,
   facts: StepData,
+  detail: readonly string[] = [],
 ): void {
   Sentry.captureMessage(what, {
     level: 'warning',
     tags,
     extra: facts,
-    fingerprint: ['media-trouble', what, tags.reason ?? ''],
+    fingerprint: ['media-trouble', what, tags.reason ?? '', ...detail],
   });
 }
 

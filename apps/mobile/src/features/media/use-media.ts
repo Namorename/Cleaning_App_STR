@@ -263,7 +263,9 @@ function ownerKind(owner: MediaOwnerRef): 'chat' | 'problem' | 'step' {
  * The queue gave up on a file: told to Sentry once, with what it was and why
  * (lib/sentry.ts, reportMediaTrouble). The server's refusal goes as its key
  * (`serverErrors.videoTooLong`, say), never as its text; the storage's answer
- * as its HTTP status.
+ * as its HTTP status. The tile's reason folds causes together — every refusal
+ * of the server is `server`, every status but 413 `refused` — so the key, the
+ * status and the error's name are tags too, and part of the issue's identity.
  */
 function reportGaveUp(
   variables: AttachMediaVariables,
@@ -271,6 +273,9 @@ function reportGaveUp(
   reason: string,
   status: number | null,
 ): void {
+  const serverKey = serverErrorKey(error) ?? 'none';
+  const statusTag = status === null ? 'none' : String(status);
+  const errorName = error instanceof Error ? error.name : typeof error;
   reportMediaTrouble(
     'Media upload gave up',
     {
@@ -278,16 +283,17 @@ function reportGaveUp(
       kind: variables.kind,
       source: variables.source ?? 'unknown',
       owner: ownerKind(variables),
-      status: status === null ? 'none' : String(status),
+      status: statusTag,
+      serverKey,
+      error: errorName,
     },
     {
-      serverKey: serverErrorKey(error),
-      errorName: error instanceof Error ? error.name : typeof error,
       byteSize: variables.byteSize,
       durationSec: variables.durationSec,
       mimeType: variables.mimeType,
       isOnline: onlineManager.isOnline(),
     },
+    [serverKey, statusTag, errorName],
   );
 }
 

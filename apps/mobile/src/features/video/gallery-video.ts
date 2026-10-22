@@ -24,7 +24,7 @@ export interface GalleryRefusal {
  * storage does not keep, a length its file does not say, longer than the
  * step and the company allow (`limits.seconds`, the smaller of the two),
  * larger than the company's size — `limits.maxBytes`, never past the storage's
- * 50 MB. A camera recording is held to these by the camera itself; a chosen
+ * own limit (`STORAGE_FILE_LIMIT_MB`). A camera recording is held to these by the camera itself; a chosen
  * file is held here. A file an iPhone's picker already compressed and still
  * too large is told so: a smaller one of that length is not to be had, a
  * shorter one is. Null when it may go.

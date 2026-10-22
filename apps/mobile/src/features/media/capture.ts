@@ -305,7 +305,7 @@ const ORIGINAL_VIDEO: ImagePicker.ImagePickerOptions = { mediaTypes: ['videos'],
 
 /**
  * The video as an iPhone's gallery is asked for it. An iPhone films 4K HEVC,
- * and a minute of it is far past the storage's 50 MB
+ * and a minute of it is far past what the storage takes in one upload
  * (docs/ios-first-device-checklist.md, risk 3): its picker compresses the copy
  * to 720p H.264 as it hands it over — an `.mp4`, in the storage's own terms.
  * Only JavaScript: the setting is the picker's own. Built when asked, not at
@@ -391,8 +391,9 @@ async function launchVideoGallery(
  * Choose a video from the gallery (night of 2026-10-10, block 6).
  *
  * Only reachable where the company allows the gallery; the system's picker
- * needs no access to the photos (above). The picker hands over a copy in the app's cache — on an iPhone
- * compressed unless `form` asks for the original (`launchVideoGallery`) — with
+ * needs no access to the photos (above). The picker hands over a copy in the
+ * app's cache — on an iPhone compressed unless `form` asks for the original
+ * (`launchVideoGallery`) — with
  * the length and type its file says; a size it does not say is measured. The
  * moment it is chosen stands for when it was taken: a video's own date is not
  * read here, and the manager who opened the gallery accepted that a file from

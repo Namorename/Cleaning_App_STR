@@ -315,14 +315,61 @@ test('a video the queue gives up on is reported once, with why and what it was',
   expect(Sentry.captureMessage).toHaveBeenCalledTimes(1);
   expect(Sentry.captureMessage).toHaveBeenCalledWith('Media upload gave up', {
     level: 'warning',
-    tags: { reason: 'tooLarge', kind: 'video', source: 'camera', owner: 'step', status: '413' },
+    tags: {
+      reason: 'tooLarge',
+      kind: 'video',
+      source: 'camera',
+      owner: 'step',
+      status: '413',
+      serverKey: 'none',
+      error: 'TusRefusedError',
+    },
     extra: expect.objectContaining({
-      errorName: 'TusRefusedError',
       byteSize: video.byteSize,
       durationSec: 12.3,
       mimeType: 'video/mp4',
     }),
-    fingerprint: ['media-trouble', 'Media upload gave up', 'tooLarge'],
+    fingerprint: [
+      'media-trouble',
+      'Media upload gave up',
+      'tooLarge',
+      'none',
+      '413',
+      'TusRefusedError',
+    ],
   });
   expect(JSON.stringify(jest.mocked(Sentry.captureMessage).mock.calls)).not.toMatch(/file:\/\//);
+});
+
+// Review of 80169d8: every refusal of the server is `server` on her tile, and
+// one issue for all of them would hide which. Its key is a tag and part of the
+// issue's identity; its text never leaves the phone.
+test('a registration the server refuses is reported by the refusal’s key, not its text', async () => {
+  network(
+    async () => answer(500),
+    async () => answer(200),
+  );
+  mockRpc.mockImplementation(async () => ({
+    data: null,
+    error: {
+      code: 'P0001',
+      message: 'A file of this type is not accepted for this step',
+      details: null,
+      hint: 'serverErrors.mediaTypeInvalid',
+    },
+  }));
+
+  await sendAndWaitAnHour();
+
+  expect(Sentry.captureMessage).toHaveBeenCalledTimes(1);
+  const [, context] = jest.mocked(Sentry.captureMessage).mock.calls[0] as [
+    string,
+    { tags: Record<string, string>; fingerprint: string[] },
+  ];
+  expect(context.tags).toMatchObject({
+    reason: 'server',
+    serverKey: 'serverErrors.mediaTypeInvalid',
+  });
+  expect(context.fingerprint).toContain('serverErrors.mediaTypeInvalid');
+  expect(JSON.stringify(context)).not.toMatch(/not accepted/);
 });
