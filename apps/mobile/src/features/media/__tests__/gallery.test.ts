@@ -1,4 +1,4 @@
-import { MediaLibraryDeniedError, exifTakenAt } from '../capture';
+import { CameraDeniedError, exifTakenAt } from '../capture';
 import { attachFailure } from '../failure';
 
 jest.mock('expo-crypto', () => ({ randomUUID: () => 'generated-id' }));
@@ -53,7 +53,7 @@ describe('telling the cleaner why nothing was attached', () => {
     params === undefined ? key : `${key}:${JSON.stringify(params)}`) as never;
 
   test('each refusal has its own words', () => {
-    expect(attachFailure(new MediaLibraryDeniedError('no'), t)).toBe('steps.galleryDenied');
+    expect(attachFailure(new CameraDeniedError('no'), t)).toBe('steps.cameraDenied');
   });
 
   test('and anything else falls back to the general one', () => {

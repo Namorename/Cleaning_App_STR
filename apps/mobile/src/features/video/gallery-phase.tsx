@@ -146,10 +146,6 @@ export function GalleryPhase({ limits, onPicked, onLeave }: GalleryPhaseProps) {
         <Text accessibilityRole="alert" align="center">
           {t(state.refusal.key, { limit: state.refusal.limit })}
         </Text>
-      ) : isLibraryDenied(state.error) ? (
-        <Text accessibilityRole="alert" align="center">
-          {t('steps.galleryDenied')}
-        </Text>
       ) : (
         <FailureText error={state.error} />
       )}
@@ -157,11 +153,6 @@ export function GalleryPhase({ limits, onPicked, onLeave }: GalleryPhaseProps) {
       <Button variant="outline" label={t('common.back')} onPress={onLeave} />
     </ScrollView>
   );
-}
-
-/** The phone would not let the app into the gallery (`MediaLibraryDeniedError`). */
-function isLibraryDenied(error: unknown): boolean {
-  return error instanceof Error && error.name === 'MediaLibraryDeniedError';
 }
 
 /** An iPhone could not compress the chosen video (`VideoNotCompressedError`). */

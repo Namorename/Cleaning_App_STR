@@ -53,10 +53,6 @@ export class CameraDeniedError extends Error {
   override readonly name = 'CameraDeniedError';
 }
 
-export class MediaLibraryDeniedError extends Error {
-  override readonly name = 'MediaLibraryDeniedError';
-}
-
 /**
  * A capture that measured zero bytes.
  *
@@ -84,16 +80,14 @@ async function ensureCameraPermission(): Promise<void> {
   }
 }
 
-async function ensureLibraryPermission(): Promise<void> {
-  const current = await ImagePicker.getMediaLibraryPermissionsAsync();
-  if (current.granted) {
-    return;
-  }
-  const requested = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (!requested.granted) {
-    throw new MediaLibraryDeniedError('Media library permission was not granted');
-  }
-}
+// The gallery is opened without asking for the photos. Both pickers are the
+// system's own and run outside the app — PHPicker on an iPhone, the photo
+// picker on Android — and hand over only the file she chose, so neither needs
+// the app to be let into the library (expo-image-picker asks for nothing in
+// `launchImageLibraryAsync`). Asking first was a gate of our own, and a
+// «Не разрешать» once said shut the gallery for good: the phone does not ask
+// twice. 19–22.10 two iPhones met it 58 times, and one cleaner could send no
+// video at all (docs/video-upload-1022.md).
 
 /**
  * When the photograph was actually taken, if it says so.
@@ -206,8 +200,6 @@ export async function capturePhoto(): Promise<CapturedMedia | null> {
  * quietly claiming that it is.
  */
 export async function pickPhotoFromGallery(): Promise<CapturedMedia | null> {
-  await ensureLibraryPermission();
-
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['images'],
     quality: 1,
@@ -398,9 +390,8 @@ async function launchVideoGallery(
 /**
  * Choose a video from the gallery (night of 2026-10-10, block 6).
  *
- * Only reachable where the company allows the gallery, and only once the
- * phone has let the app into the photos — asked here, before the gallery
- * opens. The picker hands over a copy in the app's cache — on an iPhone
+ * Only reachable where the company allows the gallery; the system's picker
+ * needs no access to the photos (above). The picker hands over a copy in the app's cache — on an iPhone
  * compressed unless `form` asks for the original (`launchVideoGallery`) — with
  * the length and type its file says; a size it does not say is measured. The
  * moment it is chosen stands for when it was taken: a video's own date is not
@@ -414,8 +405,6 @@ async function launchVideoGallery(
 export async function pickVideoFromGallery(
   form: GalleryVideoForm = 'compressed',
 ): Promise<PickedVideo | null> {
-  await ensureLibraryPermission();
-
   const before = pickerFolderVideos();
   let picked: Awaited<ReturnType<typeof launchVideoGallery>>;
   try {

@@ -1,6 +1,6 @@
 import type { TFunction } from 'i18next';
 
-import { CameraDeniedError, MediaLibraryDeniedError } from './capture';
+import { CameraDeniedError } from './capture';
 
 /**
  * Why a file did not get attached, in the cleaner's language.
@@ -13,9 +13,6 @@ import { CameraDeniedError, MediaLibraryDeniedError } from './capture';
 export function attachFailure(error: unknown, t: TFunction): string {
   if (error instanceof CameraDeniedError) {
     return t('steps.cameraDenied');
-  }
-  if (error instanceof MediaLibraryDeniedError) {
-    return t('steps.galleryDenied');
   }
   return t('steps.captureFailed');
 }

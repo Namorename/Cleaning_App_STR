@@ -10,7 +10,7 @@ import {
   capturePhoto,
   EmptyCaptureError,
   keepRecording,
-  MediaLibraryDeniedError,
+  pickPhotoFromGallery,
   pickVideoFromGallery,
   VideoNotCompressedError,
 } from '../capture';
@@ -434,32 +434,49 @@ describe('a video from the gallery', () => {
     expect(picked).toMatchObject({ uri: 'content://media/clip.mp4', isCompressed: false });
   });
 
-  test('asks for the photos before the gallery opens', async () => {
-    const asked: string[] = [];
-    library.getMediaLibraryPermissionsAsync.mockImplementationOnce(async () => {
-      asked.push('current');
-      return { granted: false };
-    });
-    library.requestMediaLibraryPermissionsAsync.mockImplementationOnce(async () => {
-      asked.push('request');
-      return { granted: true };
-    });
-    picker.launchImageLibraryAsync.mockImplementationOnce(async () => {
-      asked.push('gallery');
-      return { canceled: true, assets: null };
-    });
+  // 19–22.10: two iPhones that had once said «Не разрешать» to the photos never
+  // saw the gallery again. The system's picker needs no such access.
+  test('the gallery opens without asking for the photos', async () => {
+    library.getMediaLibraryPermissionsAsync.mockClear();
+    library.requestMediaLibraryPermissionsAsync.mockClear();
+    picker.launchImageLibraryAsync.mockResolvedValueOnce({ canceled: true, assets: null });
 
     await pickVideoFromGallery();
 
-    expect(asked).toEqual(['current', 'request', 'gallery']);
+    expect(picker.launchImageLibraryAsync).toHaveBeenCalledTimes(1);
+    expect(library.getMediaLibraryPermissionsAsync).not.toHaveBeenCalled();
+    expect(library.requestMediaLibraryPermissionsAsync).not.toHaveBeenCalled();
   });
 
-  test('photos not allowed: the gallery does not open, and the screen is told why', async () => {
+  test('photos refused on the phone: the gallery hands over the video all the same', async () => {
     library.getMediaLibraryPermissionsAsync.mockResolvedValueOnce({ granted: false });
     library.requestMediaLibraryPermissionsAsync.mockResolvedValueOnce({ granted: false });
+    picker.launchImageLibraryAsync.mockResolvedValueOnce({
+      canceled: false,
+      assets: [
+        {
+          uri: 'content://media/clip.mp4',
+          duration: 12_000,
+          fileSize: 9_000_000,
+          mimeType: 'video/mp4',
+        },
+      ],
+    });
 
-    await expect(pickVideoFromGallery()).rejects.toBeInstanceOf(MediaLibraryDeniedError);
-    expect(picker.launchImageLibraryAsync).not.toHaveBeenCalled();
+    await expect(pickVideoFromGallery()).resolves.toMatchObject({
+      uri: 'content://media/clip.mp4',
+      durationSec: 12,
+    });
+  });
+
+  test('a photo from the gallery is not asked for the photos either', async () => {
+    library.requestMediaLibraryPermissionsAsync.mockClear();
+    picker.launchImageLibraryAsync.mockResolvedValueOnce({ canceled: true, assets: null });
+
+    await expect(pickPhotoFromGallery()).resolves.toBeNull();
+
+    expect(picker.launchImageLibraryAsync).toHaveBeenCalledTimes(1);
+    expect(library.requestMediaLibraryPermissionsAsync).not.toHaveBeenCalled();
   });
 
   test('asks the gallery for videos only, and reads what the file says of itself', async () => {
