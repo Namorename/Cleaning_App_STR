@@ -74,8 +74,8 @@ describe('videoLimits', () => {
   // (20261003170000_video_limits.sql); MB there is 10^6 bytes.
   const company = { video_max_sec: 120, video_bitrate_kbps: 2000, video_max_mb: 45 };
 
-  test('a step with no length of its own records as long as the company allows', () => {
-    expect(videoLimits({ max_video_sec: null }, company)).toEqual({
+  test('a recording is as long as the company allows', () => {
+    expect(videoLimits(company)).toEqual({
       seconds: 120,
       maxBytes: 45_000_000,
       cameraMaxBytes: 43_650_000,
@@ -83,24 +83,19 @@ describe('videoLimits', () => {
     });
   });
 
-  test('a step that asks for less than the company gets its own length', () => {
-    expect(videoLimits({ max_video_sec: 90 }, company).seconds).toBe(90);
-  });
-
-  // The server takes least(coalesce(step, company), company): a step written
-  // when the company allowed more does not stretch today's limit.
-  test('a company that allows less than the step wins', () => {
-    const tighter = { ...company, video_max_sec: 60 };
-
-    expect(videoLimits({ max_video_sec: 300 }, tighter).seconds).toBe(60);
-    expect(videoLimits({ max_video_sec: null }, tighter).seconds).toBe(60);
+  // 22.10: started cleanings kept the 90 and 120 s their steps copied from
+  // the process, under the company's new 180. The company's number of now is
+  // the one limit, raised or lowered (add_task_media, 20261023100000).
+  test('the length follows the company, raised or lowered', () => {
+    expect(videoLimits({ ...company, video_max_sec: 180 }).seconds).toBe(180);
+    expect(videoLimits({ ...company, video_max_sec: 60 }).seconds).toBe(60);
   });
 
   test('the size and the bitrate are the company’s, in bytes and bits per second', () => {
     const roomy = { video_max_sec: 180, video_bitrate_kbps: 4500, video_max_mb: 50 };
 
-    expect(videoLimits({ max_video_sec: 30 }, roomy)).toEqual({
-      seconds: 30,
+    expect(videoLimits(roomy)).toEqual({
+      seconds: 180,
       maxBytes: 50_000_000,
       cameraMaxBytes: 48_500_000,
       bitrate: 4_500_000,
@@ -113,7 +108,7 @@ describe('videoLimits', () => {
   test('the size stops at what the storage takes, even when the company allows more', () => {
     const pro = { video_max_sec: 180, video_bitrate_kbps: 4500, video_max_mb: 140 };
 
-    expect(videoLimits({ max_video_sec: null }, pro)).toEqual({
+    expect(videoLimits(pro)).toEqual({
       seconds: 180,
       maxBytes: 50_000_000,
       cameraMaxBytes: 48_500_000,
@@ -127,8 +122,8 @@ describe('videoLimits', () => {
   test('the camera stops 3 % short of the company’s size, in whole bytes', () => {
     const odd = { ...company, video_max_mb: 7 };
 
-    expect(videoLimits({ max_video_sec: null }, odd).cameraMaxBytes).toBe(6_790_000);
-    expect(Number.isInteger(videoLimits({ max_video_sec: null }, odd).cameraMaxBytes)).toBe(true);
+    expect(videoLimits(odd).cameraMaxBytes).toBe(6_790_000);
+    expect(Number.isInteger(videoLimits(odd).cameraMaxBytes)).toBe(true);
   });
 });
 

@@ -87,7 +87,7 @@ export function photoLimits(step: Pick<TaskStep, 'min_photos' | 'max_photos'>): 
 
 /** What one recording of a step is held to. */
 export interface VideoLimits {
-  /** The longest recording the server accepts for this step. */
+  /** The longest recording the server accepts: the company's length. */
   seconds: number;
   /** The largest file the server and the storage both accept, in bytes. */
   maxBytes: number;
@@ -98,20 +98,20 @@ export interface VideoLimits {
 }
 
 /**
- * The limits of a step's recording: the server's rule, worked out here so the
- * camera stops exactly where the server would refuse. The length is the
- * step's own when it has one, but never more than the company allows —
- * `least(coalesce(step, company), company)` in `add_task_media`.
+ * The limits of a recording: the server's rule, worked out here so the camera
+ * stops exactly where the server would refuse. All three are the company's
+ * numbers as last read, for every unfinished cleaning. A step's
+ * `max_video_sec` is no limit: it is the copy the step took of the process
+ * when the cleaning started, and on 22.10 the copies of 90 and 120 s held 25
+ * started cleanings below the company's new 180 s. `add_task_media` reads
+ * the company the same way (20261023100000).
  */
-export function videoLimits(
-  step: Pick<TaskStep, 'max_video_sec'>,
-  company: VideoSettings,
-): VideoLimits {
+export function videoLimits(company: VideoSettings): VideoLimits {
   // The storage takes no more than its own limit in one upload, whatever the
   // company allows (140 on Supabase Free, 09.10): the camera stops there too.
   const maxBytes = Math.min(company.video_max_mb, STORAGE_FILE_LIMIT_MB) * BYTES_PER_MB;
   return {
-    seconds: Math.min(step.max_video_sec ?? company.video_max_sec, company.video_max_sec),
+    seconds: company.video_max_sec,
     maxBytes,
     // Integer arithmetic: no binary fraction to round a byte away.
     cameraMaxBytes: Math.floor((maxBytes * CAMERA_SIZE_PERCENT) / PERCENT),

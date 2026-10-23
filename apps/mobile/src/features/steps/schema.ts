@@ -46,6 +46,10 @@ export const taskStepSchema = z.object({
   // Limits of a media step; null where the manager left the default.
   min_photos: z.number().int().nullable(),
   max_photos: z.number().int().nullable(),
+  // The process's video length as the step copied it at the start. No limit
+  // any more: a video is held to the company's numbers of now (videoLimits).
+  // Still read, so the cached shape and the older builds' select stay as
+  // they are.
   max_video_sec: z.number().int().nullable(),
   started_at: z.string().nullable(),
   completed_at: z.string().nullable(),
