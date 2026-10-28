@@ -539,3 +539,34 @@ npx deno run --node-modules-dir=none --no-lock --allow-net=127.0.0.1,registry.np
 
 Документация: `npm run web` и открыть `http://localhost:3000/developers` (без входа). «Попробовать»
 на ней ходит в API проекта из `.env.local`; к стенд-серверу — через curl выше.
+
+### Проверки (28.10)
+
+| Проверка | Итог |
+| --- | --- |
+| SQL-набор `api_v1.sql` на стенде, откат | 123 / 123 |
+| Все SQL-наборы с миграцией (`check-all`) | 37 / 44 наборов, 1743 проверки; 7 красных (`chat`, `problems`, `reservation_units`, `table_grants`, `task_generation`, `task_media`, `video_limits`) падают так же без миграции API — стенд расходится с main (синтетика, `release_push_token`, созревшие медиа) |
+| Deno, все функции (`npm run test:fn`) | 300 / 300 (из них API 53) |
+| HTTP-контракт на стенде (`api-stand-server.ts contract`) | 31 / 31 ответ по схеме спецификации |
+| Панель: vitest / tsc / eslint | 2105 / 2105; чисто; чисто |
+| Телефон: тест переводов | 60 / 60 |
+| Spectral (`npm run api:lint`) | без замечаний |
+
+Независимый обзор: два свежих ревьюера, код и база — CRITICAL нет. HIGH один: коды в свободном тексте
+заданий. Исправлен вместе с MEDIUM; что оставлено — в отчёте владельцу.
+
+### Слияние с другими ветками
+
+`git merge-tree` с HEAD этой ветки; номер `20261028100000` идёт после черновиков всех трёх веток.
+- `reviews-to-tasks-1017`: без конфликтов. Общие файлы — `package.json`, переводы, `table_grants.sql`.
+  Тест паритета потребует вписать 32 функции и 3 таблицы отзывов в `coverage.json`. Задания из отзывов
+  без автора: схема Task уже допускает `reported_by: null`.
+- `knowledge-base-step1-1017`: два конфликта — `settings/page.tsx` и `settings-view.tsx`. Обе ветки
+  фильтруют секции: там `access` (главный техник видит свои две), здесь `isAdmin` (API). Сводить так:
+  `shown = access === 'full' ? SETTINGS_SECTIONS.filter((s) => s !== 'api' || isAdmin) : PERSONAL_SECTIONS`.
+  Общие ещё `proxy.ts` и его тест (оба добавляют открытые пути), переводы, `table_grants.sql`. Паритет
+  потребует 13 функций и 4 таблицы базы знаний.
+- `video-upload-1022`: конфликт только в `docs/ios-launch-checklist.md` — он есть и между main и этой
+  веткой, API ни при чём. Общие — `CLAUDE.md`, переводы, `table_grants.sql`. Паритет потребует
+  `release_push_token`.
+- Ветки ручного времени уборки 28.10 нет ни локально, ни на origin — сверить, когда появится.

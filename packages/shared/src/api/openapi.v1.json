@@ -3004,9 +3004,12 @@
             "description": "The cleaning during which it was reported."
           },
           "reported_by": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
-            "description": "Who reported it; for a task made through the API, the admin who made the key."
+            "description": "Who reported it; for a task made through the API, the admin who made the key. Null for a task woom raised itself (planned: tasks from guest reviews)."
           },
           "archived": {
             "type": "boolean"

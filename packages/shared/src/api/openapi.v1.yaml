@@ -1198,7 +1198,7 @@ components:
         status: { type: string, enum: [open, assigned, in_progress, resolved, cancelled] }
         property_id: { type: [integer, "null"] }
         cleaning_id: { type: [string, "null"], format: uuid, description: "The cleaning during which it was reported." }
-        reported_by: { type: string, format: uuid, description: "Who reported it; for a task made through the API, the admin who made the key." }
+        reported_by: { type: [string, "null"], format: uuid, description: "Who reported it; for a task made through the API, the admin who made the key. Null for a task woom raised itself (planned: tasks from guest reviews)." }
         archived: { type: boolean }
         cancel_reason: { type: [string, "null"] }
         work: { $ref: "#/components/schemas/TaskWork" }
