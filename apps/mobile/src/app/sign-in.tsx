@@ -19,9 +19,10 @@ import { Button } from '@/components/button';
 import { Text } from '@/components/text';
 import { TextField } from '@/components/text-field';
 import { Spacing, type Theme } from '@/constants/theme';
-import { signInFailureText } from '@/features/auth/failure';
+import { refusalTags, signInFailureText } from '@/features/auth/failure';
 import { signIn, useSession } from '@/features/auth/session';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { reportSignInRefusal } from '@/lib/sentry';
 import type { ServerErrorText } from '@/lib/server-error';
 
 /** The bottom edge is the action bar's: it clears the system's bar itself. */
@@ -49,8 +50,9 @@ export default function SignInScreen() {
       // dialog, out of a letter, off a note. A trailing space picked up on the
       // way is invisible in a masked field and reads as a wrong password. No
       // generated password has one — the alphabet has no whitespace in it —
-      // so nothing correct is lost by dropping it.
-      await signIn(email.trim(), password.trim());
+      // so nothing correct is lost by dropping it. The address goes in lower
+      // case: a capital a keyboard or a paste slipped in is still her address.
+      await signIn(email.trim().toLowerCase(), password.trim());
     } catch (caught: unknown) {
       // Which half was wrong is still never said — that would turn the form
       // into an account enumerator. What did happen is.
@@ -61,6 +63,11 @@ export default function SignInScreen() {
       if (Platform.OS === 'ios') {
         AccessibilityInfo.announceForAccessibility(refusal.text);
       }
+      // Heard of, by code and status only: App Review's refusal of 2026-10-13
+      // left no trace anywhere. No signal is reported too, as status 0, on
+      // purpose: a network that never reaches auth is what a refusal like
+      // that one would need to show, and the report waits for the signal.
+      reportSignInRefusal(refusalTags(caught));
     } finally {
       setIsSubmitting(false);
     }
@@ -109,6 +116,9 @@ export default function SignInScreen() {
             label={t('auth.email')}
             autoCapitalize="none"
             autoComplete="email"
+            // An address is not a word: iOS would "correct" it as one.
+            autoCorrect={false}
+            spellCheck={false}
             keyboardType="email-address"
             onChangeText={setEmail}
             textContentType="username"

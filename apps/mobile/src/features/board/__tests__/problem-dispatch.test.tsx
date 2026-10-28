@@ -1,7 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
-import { Alert, type AlertButton } from 'react-native';
 
 import { formatDayHeading } from '@/features/tasks/format';
 import { calendarDay } from '@/features/tasks/schema';
@@ -51,14 +50,9 @@ jest.mock('@/features/auth/session', () => ({
   useSession: () => ({ userId: '7c9e6679-7425-40de-944b-e07fc1f90ae7' }),
 }));
 
-/** A press on one of the buttons of the question asked last, by its word. */
-function pressInAlert(alert: jest.SpyInstance, word: string): void {
-  const choices = (alert.mock.calls.at(-1)?.[2] ?? []) as AlertButton[];
-  const choice = choices.find((item) => item.text === word);
-  if (choice === undefined) {
-    throw new Error(`No «${word}» in the question`);
-  }
-  choice.onPress?.();
+/** A press on one of the buttons of the question on screen, by its word. */
+async function pressInQuestion(word: string): Promise<void> {
+  await fireEvent.press(screen.getByRole('button', { name: word }));
 }
 
 function refusal(hint: string): Error {
@@ -328,17 +322,16 @@ describe('a task whose repair somebody holds', () => {
   });
 
   test('asks first, then takes off the person the screen showed', async () => {
-    const alert = jest.spyOn(Alert, 'alert');
     await show(held);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Снять с работы' }));
-    expect(alert).toHaveBeenCalledWith(
-      'Снять с работы?',
-      'Иван Петров: работа будет отменена, задание вернётся в открытые.',
-      expect.any(Array),
-    );
+    // The app's own question (owner, 2026-10-10), not the system's Alert.
+    expect(screen.getByRole('header', { name: 'Снять с работы?' })).toBeTruthy();
+    expect(
+      screen.getByText('Иван Петров: работа будет отменена, задание вернётся в открытые.'),
+    ).toBeTruthy();
     expect(unassignProblem).not.toHaveBeenCalled();
-    pressInAlert(alert, 'Снять');
+    await pressInQuestion('Снять');
 
     await waitFor(() => expect(unassignProblem).toHaveBeenCalledTimes(1));
     expect(jest.mocked(unassignProblem).mock.calls[0][0]).toEqual({
@@ -348,7 +341,6 @@ describe('a task whose repair somebody holds', () => {
   });
 
   test('a cleaner on a repair can be taken off too (decision 17)', async () => {
-    const alert = jest.spyOn(Alert, 'alert');
     await show(
       boardProblem({
         status: 'in_progress',
@@ -357,7 +349,7 @@ describe('a task whose repair somebody holds', () => {
     );
 
     await fireEvent.press(screen.getByRole('button', { name: 'Снять с работы' }));
-    pressInAlert(alert, 'Снять');
+    await pressInQuestion('Снять');
 
     await waitFor(() =>
       expect(jest.mocked(unassignProblem).mock.calls[0]?.[0]).toEqual({
@@ -368,12 +360,11 @@ describe('a task whose repair somebody holds', () => {
   });
 
   test('a repair that changed meanwhile is said so, translated, and asked once', async () => {
-    const alert = jest.spyOn(Alert, 'alert');
     jest.mocked(unassignProblem).mockRejectedValue(refusal('serverErrors.taskChangedMeanwhile'));
     await show(held);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Снять с работы' }));
-    pressInAlert(alert, 'Снять');
+    await pressInQuestion('Снять');
 
     expect(await screen.findByText('Это уже изменилось — экран обновлён')).toBeTruthy();
     expect(unassignProblem).toHaveBeenCalledTimes(1);
@@ -454,13 +445,12 @@ describe('a move under way', () => {
   });
 
   test('«Снять с работы» waits busy until the task is read again', async () => {
-    const alert = jest.spyOn(Alert, 'alert');
     await show(olgas);
     const reread = deferred<BoardProblem>();
     jest.mocked(fetchBoardProblem).mockReturnValueOnce(reread.promise);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Снять с работы' }));
-    pressInAlert(alert, 'Снять');
+    await pressInQuestion('Снять');
     await waitFor(() => expect(fetchBoardProblem).toHaveBeenCalledTimes(2));
     await nextTurn();
 
@@ -473,7 +463,6 @@ describe('a move under way', () => {
   });
 
   test('a move still under way when he comes back keeps the buttons off', async () => {
-    const alert = jest.spyOn(Alert, 'alert');
     const answer = deferred<undefined>();
     jest.mocked(unassignProblem).mockReturnValueOnce(answer.promise);
     jest.mocked(fetchBoardProblem).mockResolvedValue(olgas);
@@ -482,7 +471,7 @@ describe('a move under way', () => {
     await readLanded(queryClient);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Снять с работы' }));
-    pressInAlert(alert, 'Снять');
+    await pressInQuestion('Снять');
     await waitFor(() => expect(unassignProblem).toHaveBeenCalled());
     await first.unmount();
     await draw(queryClient);
@@ -651,5 +640,32 @@ describe('what is the manager’s alone', () => {
     await show(boardProblem({ archived_at: '2026-10-06T08:00:00+00:00' }));
 
     expect(buttons()).toEqual(['История']);
+  });
+});
+
+describe('the question before a take-off', () => {
+  const held = boardProblem({ status: 'assigned', fix_tasks: [repair()] });
+
+  test('«Отмена» takes nobody off', async () => {
+    await show(held);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Снять с работы' }));
+    await pressInQuestion('Отмена');
+
+    expect(unassignProblem).not.toHaveBeenCalled();
+    expect(screen.queryByRole('header', { name: 'Снять с работы?' })).toBeNull();
+  });
+
+  test('«Снять» is answered once, however fast it is tapped twice', async () => {
+    await show(held);
+    await fireEvent.press(screen.getByRole('button', { name: 'Снять с работы' }));
+
+    const yes = screen.getByRole('button', { name: 'Снять' });
+    await act(async () => {
+      fireEvent.press(yes);
+      fireEvent.press(yes);
+    });
+
+    await waitFor(() => expect(unassignProblem).toHaveBeenCalledTimes(1));
   });
 });

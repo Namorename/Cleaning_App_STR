@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   forgetLocalMedia,
   loadLocalMedia,
+  migrateLocalMediaStore,
   rememberLocalMedia,
   rememberUploadUrl,
   toLocalRecord,
@@ -104,6 +105,75 @@ test('reads a corrupted store as empty rather than failing', async () => {
   await AsyncStorage.setItem('str-ops.media-local', '{not json');
 
   await expect(loadLocalMedia()).resolves.toEqual({});
+});
+
+describe('where a kept file is remembered (iPhone risk 1)', () => {
+  const OLD_INSTALL = 'file:///var/mobile/Containers/Data/Application/OLD-UUID/Documents/';
+  const kept = { ...captured, uri: `${OLD_INSTALL}task-media/m1.jpg` };
+
+  test('a new record is remembered by its place in the documents', async () => {
+    await rememberLocalMedia(toLocalRecord({ ...captured, uri: 'task-media/m1.jpg' }));
+
+    const raw = JSON.parse((await AsyncStorage.getItem('str-ops.media-local')) ?? '{}');
+    expect(raw.m1.uri).toBe('task-media/m1.jpg');
+  });
+
+  test('a capture handed over with a full path is still remembered relative', () => {
+    expect(toLocalRecord(kept).uri).toBe('task-media/m1.jpg');
+  });
+
+  test('an old record with a full path reads, relative, and loses nothing else', async () => {
+    // Arrange: written by a build that kept the full path, in another install's folder.
+    await AsyncStorage.setItem('str-ops.media-local', JSON.stringify({ m1: kept }));
+
+    // Act
+    const store = await loadLocalMedia();
+
+    // Assert
+    expect(store).toEqual({ m1: { ...remembered, uri: 'task-media/m1.jpg' } });
+  });
+
+  test('the old ledger is rewritten on disk once, and nothing is lost', async () => {
+    // Arrange: an old photo and an old video half-way through its upload.
+    const video = {
+      ...captured,
+      id: 'v1',
+      kind: 'video' as const,
+      uri: `${OLD_INSTALL}task-media/v1.mov`,
+      uploadUrl: UPLOAD_URL,
+    };
+    await AsyncStorage.setItem('str-ops.media-local', JSON.stringify({ m1: kept, v1: video }));
+
+    // Act
+    await migrateLocalMediaStore();
+
+    // Assert
+    const raw = JSON.parse((await AsyncStorage.getItem('str-ops.media-local')) ?? '{}');
+    expect(raw).toEqual({
+      m1: { ...remembered, uri: 'task-media/m1.jpg' },
+      v1: { ...video, uri: 'task-media/v1.mov' },
+    });
+  });
+
+  test('a ledger already relative is not written again', async () => {
+    await rememberLocalMedia(toLocalRecord({ ...captured, uri: 'task-media/m1.jpg' }));
+    // The storage mock's own function, counted rather than replaced: the
+    // writes of the tests before it are on it too.
+    const setItem = jest.mocked(AsyncStorage.setItem);
+    const writesBefore = setItem.mock.calls.length;
+
+    await migrateLocalMediaStore();
+
+    expect(setItem.mock.calls.length).toBe(writesBefore);
+  });
+
+  test('an unreadable ledger is left as it is for the store to read as empty', async () => {
+    await AsyncStorage.setItem('str-ops.media-local', '{not json');
+
+    await migrateLocalMediaStore();
+
+    expect(await AsyncStorage.getItem('str-ops.media-local')).toBe('{not json');
+  });
 });
 
 test('drops a capture the old build remembered as zero bytes', async () => {

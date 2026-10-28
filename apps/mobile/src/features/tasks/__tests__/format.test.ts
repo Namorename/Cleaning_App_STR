@@ -1,15 +1,60 @@
+import { i18n } from '@/i18n';
+
 import {
   checkInText,
   formatDayHeading,
   formatDeadlineTime,
   formatScheduledDate,
   formatWindow,
+  jobWordKey,
   propertyName,
   taskPlace,
   urgencyText,
   windowLines,
 } from '../format';
 import type { CleaningTask } from '../schema';
+
+// The finish, in the reader's words (owner's word of 2026-10-11, 00:40): the
+// question before a finish repeats the button word for word — a cleaner
+// finishes her cleaning, whatever the job; a technician the task.
+describe('the finish button and the question before it', () => {
+  const JOBS = ['cleaning', 'midstay', 'inspection', 'maintenance'] as const;
+
+  test.each([
+    ['ru', 'Завершить уборку'],
+    ['en', 'Finish cleaning'],
+    ['cs', 'Dokončit úklid'],
+  ])('%s: a cleaner presses «%s» and is asked it back, on every job', (language, button) => {
+    const t = i18n.getFixedT(language);
+
+    for (const job of JOBS) {
+      expect(t(jobWordKey(job, 'finish'))).toBe(button);
+      expect(t(jobWordKey(job, 'finishQuestion'))).toBe(`${button}?`);
+    }
+  });
+
+  test.each([
+    ['ru', 'Завершить задание'],
+    ['en', 'Finish the task'],
+    ['cs', 'Dokončit úkol'],
+  ])('%s: a technician presses «%s» and is asked it back', (language, button) => {
+    const t = i18n.getFixedT(language);
+
+    for (const job of ['inspection', 'maintenance'] as const) {
+      expect(t(jobWordKey(job, 'finish'), { context: 'tech' })).toBe(button);
+      expect(t(jobWordKey(job, 'finishQuestion'), { context: 'tech' })).toBe(`${button}?`);
+    }
+  });
+
+  // Owner's word of 2026-10-12: a finish that fails names what he finishes.
+  test.each([
+    ['ru', 'Не удалось завершить задание — обновите список.'],
+    ['en', 'Could not finish the task — refresh the list.'],
+    ['cs', 'Úkol se nepodařilo dokončit — obnovte seznam.'],
+  ])('%s: a technician’s finish that fails says «%s»', (language, failure) => {
+    expect(i18n.getFixedT(language)('tasks.finishFailed', { context: 'tech' })).toBe(failure);
+  });
+});
 
 /** A room of a multi-unit listing, as the query joins it. */
 const ROOM = {

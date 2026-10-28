@@ -1,4 +1,4 @@
-import { useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { onlineManager, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
@@ -14,6 +14,7 @@ import { destinationOf, staleAfter } from './destination';
 import { isNewTap } from './followed-taps';
 import { useLastResponse } from './last-response';
 import { readPushData, type PushData } from './payload';
+import { flushPendingRelease } from './pending-release';
 import { needsAsking, readPermissionState } from './permission';
 import { registerThisPhone } from './registration';
 import { isRegisteredFor } from './token-store';
@@ -63,6 +64,38 @@ export function usePushRegistration(userId: string | null): void {
       ensureChannels().catch(reportError);
     }
   }, [language]);
+}
+
+/**
+ * Sends a token waiting to be let go of after a sign-out nobody heard
+ * (pending-release.ts): at the start, on coming back to the app, on coming
+ * back online and on a sign-in — signed in or not (owner's words of
+ * 2026-10-11, 00:40 and 2026-10-12). Who is signed in is said with it: her
+ * own release, back on the phone, is dropped rather than sent. `undefined`
+ * while the stored session is still being read: nothing is sent until it is
+ * known who is signed in (review of b674010).
+ */
+export function usePendingRelease(userId: string | null | undefined): void {
+  useEffect(() => {
+    if (!hasPushes || userId === undefined) {
+      return;
+    }
+    void flushPendingRelease(userId);
+    const appState = AppState.addEventListener('change', (status) => {
+      if (status === 'active') {
+        void flushPendingRelease(userId);
+      }
+    });
+    const online = onlineManager.subscribe((isOnline) => {
+      if (isOnline) {
+        void flushPendingRelease(userId);
+      }
+    });
+    return () => {
+      appState.remove();
+      online();
+    };
+  }, [userId]);
 }
 
 function refresh(client: QueryClient, data: PushData | null): Promise<void[]> {

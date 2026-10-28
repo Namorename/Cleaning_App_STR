@@ -74,6 +74,9 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b' }),
 }));
 
+/** The finish move: its mutate is where the queue of moves begins. */
+const mockFinish = { isPending: false, error: null, submittedAt: 0, mutate: jest.fn() };
+
 jest.mock('@/features/tasks/use-tasks', () => {
   const idle = () => ({ isPending: false, error: null, submittedAt: 0, mutate: jest.fn() });
   return {
@@ -82,7 +85,7 @@ jest.mock('@/features/tasks/use-tasks', () => {
     useClaimTask: idle,
     useAcceptTask: idle,
     useStartTask: idle,
-    useFinishTask: idle,
+    useFinishTask: () => mockFinish,
   };
 });
 
@@ -98,6 +101,7 @@ beforeEach(() => {
   mockTaskQuery.error = null;
   mockTaskQuery.data = undefined;
   mockTaskQuery.refetch.mockClear();
+  mockFinish.mutate.mockClear();
 });
 
 test('opened before the session is read, it waits instead of saying the cleaning is gone', async () => {
@@ -247,5 +251,55 @@ describe('the role decides what the job offers', () => {
     await render(<TaskRoute />);
 
     expect(screen.getByText('Работа не найдена или больше не ваша')).toBeTruthy();
+  });
+});
+
+// The question comes before the move (owner, 2026-10-10): only «Завершить»
+// hands the finish to the queue of moves — the same mutate as before, which
+// keeps a finish made without signal until the signal returns.
+describe('the finish is asked about before it is queued', () => {
+  beforeEach(() => {
+    mockSession.userId = ME;
+    mockSession.isLoading = false;
+    mockSession.session = { user: { app_metadata: { role: 'cleaner' } } };
+    mockTaskQuery.isPending = false;
+    mockTaskQuery.data = running('cleaning');
+  });
+
+  test('nothing is queued until «Завершить», then one finish of this cleaning', async () => {
+    await render(<TaskRoute />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Завершить уборку' }));
+    expect(mockFinish.mutate).not.toHaveBeenCalled();
+
+    const yes = screen.getByRole('button', { name: 'Завершить' });
+    await fireEvent.press(yes);
+    await fireEvent.press(yes);
+
+    expect(mockFinish.mutate).toHaveBeenCalledTimes(1);
+    expect(mockFinish.mutate).toHaveBeenCalledWith('3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b');
+  });
+
+  test('«Отмена» queues nothing', async () => {
+    await render(<TaskRoute />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Завершить уборку' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Отмена' }));
+
+    expect(mockFinish.mutate).not.toHaveBeenCalled();
+  });
+
+  test('while the finish waits in the queue, its button is held and asks nothing', async () => {
+    mockFinish.isPending = true;
+    try {
+      await render(<TaskRoute />);
+
+      await fireEvent.press(screen.getByRole('button', { name: 'Завершить уборку' }));
+
+      expect(screen.queryByRole('button', { name: 'Отмена' })).toBeNull();
+      expect(mockFinish.mutate).not.toHaveBeenCalled();
+    } finally {
+      mockFinish.isPending = false;
+    }
   });
 });

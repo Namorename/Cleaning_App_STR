@@ -1,13 +1,16 @@
 import { STATUS_TONE, statusIcon } from '@str-ops/shared';
 import { Image } from 'expo-image';
 import type { TFunction } from 'i18next';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Icon } from '@/components/icon';
 import { Text } from '@/components/text';
 import { Radius, Spacing, type Theme } from '@/constants/theme';
+import { mediaFileUri } from '@/features/media/media-path';
 import type { MediaItemView, MediaKind, PhotoLimits } from '@/features/media/schema';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
@@ -25,8 +28,9 @@ interface StepMediaProps {
   isCapturing: boolean;
   disabled: boolean;
   /**
-   * Only when the company allows it — `hosts.gallery_allowed` — and for photos
-   * alone: a video is shot with the app's camera (`videoCameraOnly`).
+   * Only when the company allows it — `hosts.gallery_allowed` — for photos and,
+   * since the owner looked for it (2026-10-10, 19:55), for a video as well: a
+   * button of its own beside the camera, no longer a question after it.
    */
   canPickFromGallery: boolean;
   onCapture: () => void;
@@ -60,12 +64,16 @@ export function StepMedia({
   onRetry,
 }: StepMediaProps) {
   const { t } = useTranslation();
+  // The file a removal is asked about, and the name the question says; kept
+  // while the question fades out, so its words do not go before it does.
+  const [removing, setRemoving] = useState<{ id: string; name: string } | null>(null);
+  const [isAsking, setAsking] = useState(false);
 
   const max = kind === 'video' ? 1 : limits.max;
   const isWaitingForSettings = kind === 'video' && maxVideoSec === null;
   const canCapture = !disabled && !isCapturing && !isWaitingForSettings && items.length < max;
   const captureLabel = kind === 'video' ? t('steps.recordVideo') : t('steps.takePhoto');
-  const canShowGallery = canPickFromGallery && kind === 'photo';
+  const galleryLabel = kind === 'video' ? t('steps.pickVideo') : t('steps.pickPhoto');
 
   return (
     <View style={layout.container}>
@@ -87,7 +95,10 @@ export function StepMedia({
               item={item}
               index={index}
               disabled={disabled}
-              onRemove={onRemove}
+              onAskRemove={(id, name) => {
+                setRemoving({ id, name });
+                setAsking(true);
+              }}
               onRetry={onRetry}
             />
           ))}
@@ -116,16 +127,34 @@ export function StepMedia({
 
       {/* Second, and second in every sense: the camera is the way this is
           meant to be done, and the gallery appears only where the company
-          has decided to allow it — for photos; a video never comes from it. */}
-      {!disabled && canShowGallery ? (
+          has decided to allow it. Held with the camera once the step is full:
+          a video step's one video is removed before another is chosen. */}
+      {!disabled && canPickFromGallery ? (
         <Button
           variant="outline"
-          label={t('steps.pickPhoto')}
+          label={galleryLabel}
           isDisabled={!canCapture}
           left={<Icon name="action.fromGallery" tone={canCapture ? 'primary' : 'muted'} />}
           onPress={onPickFromGallery}
         />
       ) : null}
+
+      {/* A removal is asked about first (owner, 2026-10-10): a file that has
+          gone up is gone from the step for good. */}
+      <ConfirmDialog
+        isVisible={isAsking}
+        title={kind === 'video' ? t('steps.removeVideoQuestion') : t('steps.removePhotoQuestion')}
+        message={removing?.name}
+        confirmLabel={t('steps.removeMedia')}
+        variant="destructive"
+        onConfirm={() => {
+          setAsking(false);
+          if (removing !== null) {
+            onRemove(removing.id);
+          }
+        }}
+        onCancel={() => setAsking(false)}
+      />
     </View>
   );
 }
@@ -134,7 +163,8 @@ interface MediaTileProps {
   item: MediaItemView;
   index: number;
   disabled: boolean;
-  onRemove: (mediaId: string) => void;
+  /** «Удалить» pressed: the screen asks first, naming the tile. */
+  onAskRemove: (mediaId: string, tileName: string) => void;
   onRetry: (mediaId: string) => void;
 }
 
@@ -173,7 +203,7 @@ function failureTextOf(item: MediaItemView, t: TFunction): string | null {
   return t(`steps.uploadReason.${key}`, { status, type });
 }
 
-function MediaTile({ item, index, disabled, onRemove, onRetry }: MediaTileProps) {
+function MediaTile({ item, index, disabled, onAskRemove, onRetry }: MediaTileProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   // A video goes up in pieces and says how far it has got: in words to the
@@ -201,7 +231,11 @@ function MediaTile({ item, index, disabled, onRemove, onRetry }: MediaTileProps)
     <View style={styles.tile}>
       <View accessible accessibilityLabel={label}>
         {item.kind === 'photo' && item.uri !== null ? (
-          <Image source={{ uri: item.uri }} contentFit="cover" style={layout.picture} />
+          <Image
+            source={{ uri: mediaFileUri(item.uri) }}
+            contentFit="cover"
+            style={layout.picture}
+          />
         ) : (
           <View style={styles.placeholder}>
             <Text align="center">
@@ -263,7 +297,7 @@ function MediaTile({ item, index, disabled, onRemove, onRetry }: MediaTileProps)
               variant="destructive"
               label={removeLabel}
               accessibilityLabel={`${removeLabel}. ${tileName}`}
-              onPress={() => onRemove(item.id)}
+              onPress={() => onAskRemove(item.id, tileName)}
               style={layout.tileButton}
             />
           ) : null}

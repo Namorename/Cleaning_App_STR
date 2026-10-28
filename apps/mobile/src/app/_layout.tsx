@@ -150,17 +150,14 @@ export default function RootLayout() {
                     options={{ headerShown: true, headerBackTitle: t('common.back') }}
                   />
                   {/*
-                    A video step's camera, the whole screen under its header.
-                    Titled here: the screen draws a permission question or a
-                    failure before it ever draws the camera.
+                    A video step's camera draws its own header, in every state
+                    (features/video/record-header): on Android the system's,
+                    updated in the moment «Отправить» takes the screen off the
+                    stack, brought the app down (Sentry, 2026-10-09 and 10-10).
                   */}
                   <Stack.Screen
                     name="task/[id]/step/[stepId]/record"
-                    options={{
-                      headerShown: true,
-                      headerBackTitle: t('common.back'),
-                      title: t('video.recordTitle'),
-                    }}
+                    options={{ headerShown: false }}
                   />
                   <Stack.Screen
                     name="settings"

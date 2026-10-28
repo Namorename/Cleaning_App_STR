@@ -535,7 +535,9 @@ describe('photos', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Снять фото' }));
     expect(onCapture).toHaveBeenCalled();
 
+    // Asked first (owner, 2026-10-10): «Удалить» in the question removes it.
     await fireEvent.press(screen.getByRole('button', { name: 'Удалить. Фото 1' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Удалить' }));
     expect(onRemoveMedia).toHaveBeenCalledWith('m1');
   });
 

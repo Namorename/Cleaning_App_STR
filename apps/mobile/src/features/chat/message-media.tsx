@@ -9,6 +9,8 @@ import { Radius, Spacing, type Theme } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
+import { mediaFileUri } from '@/features/media/media-path';
+
 import type { MessageTile } from './media-tiles';
 
 interface MessageMediaProps {
@@ -53,7 +55,7 @@ export function MessageMedia({ tiles, onRetry, onRemove }: MessageMediaProps) {
             >
               {tile.uri !== null ? (
                 <Image
-                  source={{ uri: tile.uri }}
+                  source={{ uri: mediaFileUri(tile.uri) }}
                   contentFit="cover"
                   style={[styles.picture, size]}
                 />

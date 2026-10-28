@@ -61,6 +61,11 @@ beforeEach(() => {
   scheme.mockReturnValue('light');
 });
 
+/** A finish is asked about first (owner, 2026-10-10): «Завершить» answers yes. */
+async function confirmFinish(): Promise<void> {
+  await fireEvent.press(screen.getByRole('button', { name: 'Завершить' }));
+}
+
 test('shows what the cleaner needs to plan by: window, guests, notes', async () => {
   await render(
     <TaskDetail task={task()} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />,
@@ -294,6 +299,7 @@ test('offers to finish a task she has started', async () => {
   );
 
   await fireEvent.press(screen.getByRole('button', { name: 'Завершить уборку' }));
+  await confirmFinish();
 
   expect(actions.onFinish).toHaveBeenCalledWith('3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b');
   expect(screen.queryByRole('button', { name: 'Начать уборку' })).toBeNull();
@@ -610,6 +616,7 @@ describe('the process', () => {
     );
 
     await fireEvent.press(screen.getByRole('button', { name: 'Завершить уборку' }));
+    await confirmFinish();
 
     expect(actions.onFinish).toHaveBeenCalledWith(running.id);
     expect(screen.queryByText(/Обязательных шагов осталось/)).toBeNull();
@@ -718,7 +725,8 @@ describe('the words follow the kind of job', () => {
     expect(screen.getByText('Обслуживание')).toBeTruthy();
   });
 
-  test('an inspection under way lists its steps and finishes as work', async () => {
+  // Owner's word of 2026-10-11, 00:40: whatever the job, a cleaner finishes her cleaning.
+  test('an inspection under way lists its steps as work, and she finishes it as her cleaning', async () => {
     // Arrange
     const inspection = task({
       type: 'inspection',
@@ -741,8 +749,8 @@ describe('the words follow the kind of job', () => {
 
     // Assert
     expect(screen.getByText('Шаги работы')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Завершить работу' })).toBeTruthy();
-    expect(screen.queryByText(/уборк/i)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Завершить уборку' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Завершить работу' })).toBeNull();
   });
 
   // «Видео после работы» is an optional video step of the repair's template
@@ -777,7 +785,8 @@ describe('the words follow the kind of job', () => {
         {...actions}
       />,
     );
-    await fireEvent.press(screen.getByRole('button', { name: 'Завершить работу' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Завершить уборку' }));
+    await confirmFinish();
 
     // Assert
     expect(screen.getByRole('button', { name: /Видео после работы/ })).toBeTruthy();
@@ -888,11 +897,11 @@ describe('read by a technician', () => {
       />,
     );
 
-    // Assert
-    expect(screen.getByRole('button', { name: 'Завершить работу' })).toBeTruthy();
+    // Assert: he finishes the task (owner's word of 2026-10-11, 00:40).
+    expect(screen.getByRole('button', { name: 'Завершить задание' })).toBeTruthy();
     expect(screen.getByText('Окно работы')).toBeTruthy();
     expect(screen.getByText('Шла параллельно с другой работой')).toBeTruthy();
-    expect(screen.getByText('Не удалось завершить работу — обновите список.')).toBeTruthy();
+    expect(screen.getByText('Не удалось завершить задание — обновите список.')).toBeTruthy();
     expect(screen.queryByText(/уборк/i)).toBeNull();
   });
 
@@ -1164,3 +1173,143 @@ test.each(BOTTOM_INSETS)(
     expect(scrollEndPadding()).toBe(Spacing.lg + bottom);
   },
 );
+
+// A finish cannot be taken back (owner, 2026-10-10): the screen asks first, in
+// the app's own dialog, and the move goes out only on «Завершить» — to the
+// queue as before, so a finish without signal still waits there for it.
+describe('the question before a finish', () => {
+  const running = task({ status: 'in_progress', started_at: '2026-11-10T08:05:00+00:00' });
+
+  async function renderRunning(job: CleaningTask = running, isBusy = false): Promise<void> {
+    await render(
+      <TaskDetail task={job} userId={ME} now={NOW} isBusy={isBusy} error={null} {...actions} />,
+    );
+  }
+
+  test('asks «Завершить уборку?» with the place, and finishes nothing yet', async () => {
+    await renderRunning();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Завершить уборку' }));
+
+    expect(screen.getByRole('header', { name: 'Завершить уборку?' })).toBeTruthy();
+    expect(screen.getAllByText('CZ - Nadrazni Apt 6').length).toBeGreaterThan(1);
+    expect(screen.getByRole('button', { name: 'Отмена' })).toBeTruthy();
+    expect(actions.onFinish).not.toHaveBeenCalled();
+  });
+
+  test('«Завершить» sends the finish, once, however fast it is tapped twice', async () => {
+    await renderRunning();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Завершить уборку' }));
+    const yes = screen.getByRole('button', { name: 'Завершить' });
+    await fireEvent.press(yes);
+    await fireEvent.press(yes);
+
+    expect(actions.onFinish).toHaveBeenCalledTimes(1);
+    expect(actions.onFinish).toHaveBeenCalledWith(running.id);
+    expect(screen.queryByRole('header', { name: 'Завершить уборку?' })).toBeNull();
+  });
+
+  test('«Отмена» leaves the cleaning running, and the question can be asked again', async () => {
+    await renderRunning();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Завершить уборку' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Отмена' }));
+
+    expect(actions.onFinish).not.toHaveBeenCalled();
+    expect(screen.queryByRole('header', { name: 'Завершить уборку?' })).toBeNull();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Завершить уборку' }));
+    await confirmFinish();
+    expect(actions.onFinish).toHaveBeenCalledTimes(1);
+  });
+
+  test('a finish already on its way asks nothing', async () => {
+    await renderRunning(running, true);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Завершить уборку' }));
+
+    expect(screen.queryByRole('header', { name: 'Завершить уборку?' })).toBeNull();
+    expect(actions.onFinish).not.toHaveBeenCalled();
+  });
+
+  test('the required steps are checked before it: a held finish asks nothing', async () => {
+    const open: TaskStep = {
+      id: 'b1c2d3e4-1111-4111-8111-b1c2d3e40001',
+      task_id: running.id,
+      sort_order: 1,
+      type: 'confirmation',
+      required: true,
+      title: 'Проверить окна',
+      title_i18n: {},
+      instructions: null,
+      instructions_i18n: {},
+      config: {},
+      min_photos: null,
+      max_photos: null,
+      max_video_sec: null,
+      started_at: null,
+      completed_at: null,
+      completed_by: null,
+      payload: {},
+      skipped_at: null,
+      skip_reason: null,
+      waived_at: null,
+      waive_reason: null,
+    };
+    await render(
+      <TaskDetail
+        task={running}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        steps={[open]}
+        {...actions}
+      />,
+    );
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Завершить уборку' }));
+
+    expect(screen.queryByRole('header', { name: 'Завершить уборку?' })).toBeNull();
+    expect(actions.onFinish).not.toHaveBeenCalled();
+  });
+
+  test('a start and a take are not asked about', async () => {
+    await render(
+      <TaskDetail task={task()} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />,
+    );
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Начать уборку' }));
+
+    expect(actions.onStart).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: 'Отмена' })).toBeNull();
+  });
+
+  // Owner's word of 2026-10-11, 00:40: the question repeats the button word
+  // for word — a cleaner's on any job is her cleaning.
+  test('a cleaner’s inspection is asked back in the button’s words', async () => {
+    await renderRunning({ ...running, type: 'inspection' });
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Завершить уборку' }));
+
+    expect(screen.getByRole('header', { name: 'Завершить уборку?' })).toBeTruthy();
+    await confirmFinish();
+    expect(actions.onFinish).toHaveBeenCalledWith(running.id);
+  });
+
+  // Owner's word of 2026-10-11, 00:40: a technician finishes the task, button and question.
+  test('a technician’s repair asks back «Завершить задание», with no word of cleaning', async () => {
+    await setWordContext('tech');
+    try {
+      await renderRunning({ ...running, type: 'maintenance', reservation_id: null });
+
+      await fireEvent.press(screen.getByRole('button', { name: 'Завершить задание' }));
+
+      expect(screen.getByRole('header', { name: 'Завершить задание?' })).toBeTruthy();
+      expect(screen.queryByText(/уборк/i)).toBeNull();
+    } finally {
+      await setWordContext(undefined);
+    }
+  });
+});

@@ -7,7 +7,7 @@ import {
 } from '@tanstack/react-query';
 
 import { useSession } from '@/features/auth/session';
-import { taskKeys } from '@/features/tasks/use-tasks';
+import { refreshTaskLists } from '@/features/tasks/use-tasks';
 
 import {
   completeStep,
@@ -41,7 +41,7 @@ export const stepMutationKeys = {
 /** What a step action changes: that task's steps, and the task list's count. */
 function refreshAfterStep(queryClient: QueryClient, { taskId }: StepVariables): void {
   void queryClient.invalidateQueries({ queryKey: stepKeys.byTask(taskId) });
-  void queryClient.invalidateQueries({ queryKey: taskKeys.all });
+  void refreshTaskLists(queryClient);
 }
 
 /**
@@ -123,7 +123,7 @@ function useStepMutation<TVariables extends StepVariables>(
     },
     onSettled: (_data, _error, variables) => {
       void queryClient.invalidateQueries({ queryKey: stepKeys.byTask(variables.taskId) });
-      void queryClient.invalidateQueries({ queryKey: taskKeys.all });
+      void refreshTaskLists(queryClient);
     },
   });
 }

@@ -83,7 +83,7 @@ test('a registration whose server call is on its way when she signs out is let g
 });
 
 test('a sign-out that failed offline keeps the token, so the one that succeeds lets go of it', async () => {
-  await rememberToken('ExponentPushToken[abc]');
+  await rememberToken('ExponentPushToken[abc]', 'A');
 
   // Offline, and the access token expired while the app slept: auth-js keeps the session.
   mockServer.online = false;

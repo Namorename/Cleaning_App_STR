@@ -53,6 +53,20 @@ export function reportError(error: unknown): void {
   Sentry.captureException(error);
 }
 
+/**
+ * A sign-in auth turned down, as a message rather than an error: nothing broke,
+ * but a refusal nobody hears of cannot be told from no attempt at all (App
+ * Review, 2026-10-13). Tagged by auth's code and the HTTP status only
+ * (features/auth/failure.ts, refusalTags) — never the address, the password or
+ * the server's text.
+ */
+export function reportSignInRefusal(tags: Readonly<{ code: string; status: string }>): void {
+  Sentry.captureMessage('Sign-in refused', {
+    level: 'info',
+    tags: { code: tags.code, status: tags.status },
+  });
+}
+
 /** What a mark carries: ids, sizes, counts and kinds — never a path, a name or a text she typed. */
 export type StepData = Readonly<Record<string, string | number | boolean | null>>;
 

@@ -20,6 +20,7 @@ import {
   mockVideo,
   moveApp,
   recordFor,
+  router,
   setUpRecordRoute,
   stepVideo,
   videoStep,
@@ -166,6 +167,38 @@ describe('the camera and the microphone', () => {
 });
 
 describe('what the screen needs before it records', () => {
+  // The screen draws its own header (features/video/record-header.tsx), not
+  // the system's: every state of it has the title and the way back.
+  test.each([
+    [
+      'refused',
+      () => {
+        mockVideo.settings = null;
+      },
+    ],
+    [
+      'still reading',
+      () => {
+        mockMedia.isPending = true;
+        mockMedia.data = undefined;
+      },
+    ],
+    [
+      'failed to read',
+      () => {
+        mockMedia.error = new Error('JWT expired');
+        mockMedia.data = undefined;
+      },
+    ],
+  ])('%s, it has its header and «Назад»', async (_state, arrange) => {
+    arrange();
+    await render(<RecordRoute />);
+
+    expect(screen.getByRole('header', { name: 'Запись видео' })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Назад' }));
+    expect(router.back).toHaveBeenCalledTimes(1);
+  });
+
   test('without the company’s settings it says why and shows no camera', async () => {
     mockVideo.settings = null;
 
@@ -288,6 +321,7 @@ describe('what the screen needs before it records', () => {
 
   test('a step that could not be read is read again on «Повторить»', async () => {
     mockSteps.error = new Error('Network request failed');
+    mockSteps.data = undefined;
     await render(<RecordRoute />);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Повторить' }));
@@ -342,6 +376,17 @@ describe('what the screen needs before it records', () => {
     mockMedia.data = [];
     await screen.rerender(<RecordRoute />);
     await wait(1);
+
+    expect(screen.getByTestId('camera-preview')).toBeTruthy();
+  });
+
+  // Without signal the step's own screen keeps the steps it read and offers
+  // «Записать видео» (step/[stepId].tsx); the camera opens as it would there,
+  // and what she records waits in the queue for signal.
+  test('steps read before, and a refresh that failed, go by what was read', async () => {
+    mockSteps.error = new Error('Network request failed');
+
+    await render(<RecordRoute />);
 
     expect(screen.getByTestId('camera-preview')).toBeTruthy();
   });

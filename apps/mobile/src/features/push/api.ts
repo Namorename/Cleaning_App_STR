@@ -106,7 +106,9 @@ async function within(promise: Promise<unknown> | null, ms: number): Promise<voi
 }
 
 /** Resolves to whether the server heard; a refusal, no signal or no answer in time is `false`. */
-async function unregister(token: string): Promise<boolean> {
+async function heard(
+  call: (signal: AbortSignal) => PromiseLike<{ error: unknown }>,
+): Promise<boolean> {
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<boolean>((resolve) => {
@@ -115,15 +117,34 @@ async function unregister(token: string): Promise<boolean> {
       resolve(false);
     }, FORGET_TIMEOUT_MS);
   });
-  const call = Promise.resolve(
-    supabase.rpc('unregister_push_token', { p_token: token }).abortSignal(controller.signal),
-  ).then(
+  const answer = Promise.resolve(call(controller.signal)).then(
     ({ error }) => error === null,
     () => false,
   );
   try {
-    return await Promise.race([call, timeout]);
+    return await Promise.race([answer, timeout]);
   } finally {
     clearTimeout(timer);
   }
+}
+
+function unregister(token: string): Promise<boolean> {
+  return heard((signal) =>
+    supabase.rpc('unregister_push_token', { p_token: token }).abortSignal(signal),
+  );
+}
+
+/**
+ * Lets go of a token kept after a sign-out nobody heard (pending-release.ts):
+ * with no session, as anon, in the name of the one who signed out — the
+ * server lets go only while the token is still bound to her
+ * (20261011100000_push_release). Resolves to whether the server heard; never
+ * throws.
+ */
+export function releasePushToken(token: string, profileId: string): Promise<boolean> {
+  return heard((signal) =>
+    supabase
+      .rpc('release_push_token', { p_token: token, p_profile_id: profileId })
+      .abortSignal(signal),
+  );
 }
