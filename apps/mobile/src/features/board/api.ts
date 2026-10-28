@@ -1,3 +1,4 @@
+import { REVIEW_SOURCE_COLUMNS } from '@/features/problems/review-source';
 import { calendarDay } from '@/features/tasks/schema';
 import { supabase } from '@/lib/supabase';
 
@@ -16,7 +17,9 @@ import {
  * names come from `staff_directory` (20261003120000).
  */
 const BOARD_COLUMNS =
-  'id, property_id, title, priority, status, archived_at, created_at, ' +
+  'id, property_id, title, ' +
+  REVIEW_SOURCE_COLUMNS +
+  'priority, status, archived_at, created_at, ' +
   'property:properties(name, hostaway_unit_id, parent:parent_id(name)), ' +
   'fix_tasks:tasks!tasks_problem_id_fkey(id, type, assignee_id, status, scheduled_date, time_from, time_to)';
 

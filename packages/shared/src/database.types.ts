@@ -326,6 +326,166 @@ export type Database = {
           },
         ]
       }
+      guest_reviews: {
+        Row: {
+          analysed_at: string | null
+          analysed_version: string | null
+          analysis_attempts: number
+          analysis_error: string | null
+          arrival_date: string | null
+          category_comments: Json | null
+          category_ratings: Json
+          channel: Database["public"]["Enums"]["review_channel"]
+          created_at: string
+          departure_date: string | null
+          external_id: string | null
+          external_key: string
+          external_listing_id: string
+          external_reservation_id: string | null
+          external_updated_at: string | null
+          has_host_reply: boolean
+          has_private_text: boolean
+          has_public_text: boolean
+          host_id: string
+          id: string
+          is_hidden: boolean
+          language: string | null
+          private_text: string | null
+          property_id: number | null
+          public_text: string | null
+          rating: number | null
+          reservation_id: number | null
+          room_id: number | null
+          rules_version: string | null
+          source: Database["public"]["Enums"]["review_source"]
+          stay_after_notice: boolean | null
+          stay_exact: boolean
+          submitted_at: string
+          text_purge_after: string | null
+          text_truncated: boolean
+          updated_at: string
+        }
+        Insert: {
+          analysed_at?: string | null
+          analysed_version?: string | null
+          analysis_attempts?: number
+          analysis_error?: string | null
+          arrival_date?: string | null
+          category_comments?: Json | null
+          category_ratings?: Json
+          channel: Database["public"]["Enums"]["review_channel"]
+          created_at?: string
+          departure_date?: string | null
+          external_id?: string | null
+          external_key: string
+          external_listing_id: string
+          external_reservation_id?: string | null
+          external_updated_at?: string | null
+          has_host_reply?: boolean
+          has_private_text?: boolean
+          has_public_text?: boolean
+          host_id: string
+          id?: string
+          is_hidden?: boolean
+          language?: string | null
+          private_text?: string | null
+          property_id?: number | null
+          public_text?: string | null
+          rating?: number | null
+          reservation_id?: number | null
+          room_id?: number | null
+          rules_version?: string | null
+          source: Database["public"]["Enums"]["review_source"]
+          stay_after_notice?: boolean | null
+          stay_exact?: boolean
+          submitted_at: string
+          text_purge_after?: string | null
+          text_truncated?: boolean
+          updated_at?: string
+        }
+        Update: {
+          analysed_at?: string | null
+          analysed_version?: string | null
+          analysis_attempts?: number
+          analysis_error?: string | null
+          arrival_date?: string | null
+          category_comments?: Json | null
+          category_ratings?: Json
+          channel?: Database["public"]["Enums"]["review_channel"]
+          created_at?: string
+          departure_date?: string | null
+          external_id?: string | null
+          external_key?: string
+          external_listing_id?: string
+          external_reservation_id?: string | null
+          external_updated_at?: string | null
+          has_host_reply?: boolean
+          has_private_text?: boolean
+          has_public_text?: boolean
+          host_id?: string
+          id?: string
+          is_hidden?: boolean
+          language?: string | null
+          private_text?: string | null
+          property_id?: number | null
+          public_text?: string | null
+          rating?: number | null
+          reservation_id?: number | null
+          room_id?: number | null
+          rules_version?: string | null
+          source?: Database["public"]["Enums"]["review_source"]
+          stay_after_notice?: boolean | null
+          stay_exact?: boolean
+          submitted_at?: string
+          text_purge_after?: string | null
+          text_truncated?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_reviews_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_reviews_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_reviews_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "report_properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_reviews_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_reviews_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_reviews_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "report_properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hosts: {
         Row: {
           created_at: string
@@ -637,11 +797,14 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          review_facts: Json | null
+          source: Database["public"]["Enums"]["problem_source"]
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         Insert: {
@@ -654,11 +817,14 @@ export type Database = {
           id: string
           priority?: Database["public"]["Enums"]["problem_priority"]
           property_id?: number | null
-          reported_by: string
+          reported_by?: string | null
           resolved_at?: string | null
+          review_facts?: Json | null
+          source?: Database["public"]["Enums"]["problem_source"]
           status?: Database["public"]["Enums"]["problem_status"]
           task_id?: string | null
           title: string
+          title_i18n?: Json | null
           updated_at?: string
         }
         Update: {
@@ -671,11 +837,14 @@ export type Database = {
           id?: string
           priority?: Database["public"]["Enums"]["problem_priority"]
           property_id?: number | null
-          reported_by?: string
+          reported_by?: string | null
           resolved_at?: string | null
+          review_facts?: Json | null
+          source?: Database["public"]["Enums"]["problem_source"]
           status?: Database["public"]["Enums"]["problem_status"]
           task_id?: string | null
           title?: string
+          title_i18n?: Json | null
           updated_at?: string
         }
         Relationships: [
@@ -1159,6 +1328,184 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "report_properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      review_findings: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decided_mode: string | null
+          detector: string
+          evidence: string | null
+          evidence_source: string | null
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["review_finding_kind"]
+          problem_id: string | null
+          property_id: number | null
+          reject_reason: Database["public"]["Enums"]["review_reject_reason"] | null
+          review_id: string
+          status: Database["public"]["Enums"]["review_finding_status"]
+          still_relevant: string
+          subject: string
+          summary: string
+          summary_i18n: Json
+          updated_at: string
+          urgency: Database["public"]["Enums"]["problem_priority"]
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decided_mode?: string | null
+          detector: string
+          evidence?: string | null
+          evidence_source?: string | null
+          host_id: string
+          id?: string
+          kind: Database["public"]["Enums"]["review_finding_kind"]
+          problem_id?: string | null
+          property_id?: number | null
+          reject_reason?: Database["public"]["Enums"]["review_reject_reason"] | null
+          review_id: string
+          status?: Database["public"]["Enums"]["review_finding_status"]
+          still_relevant?: string
+          subject: string
+          summary: string
+          summary_i18n: Json
+          updated_at?: string
+          urgency?: Database["public"]["Enums"]["problem_priority"]
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decided_mode?: string | null
+          detector?: string
+          evidence?: string | null
+          evidence_source?: string | null
+          host_id?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["review_finding_kind"]
+          problem_id?: string | null
+          property_id?: number | null
+          reject_reason?: Database["public"]["Enums"]["review_reject_reason"] | null
+          review_id?: string
+          status?: Database["public"]["Enums"]["review_finding_status"]
+          still_relevant?: string
+          subject?: string
+          summary?: string
+          summary_i18n?: Json
+          updated_at?: string
+          urgency?: Database["public"]["Enums"]["problem_priority"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_findings_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_findings_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_findings_problem_id_fkey"
+            columns: ["problem_id"]
+            isOneToOne: false
+            referencedRelation: "problems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_findings_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_findings_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "report_properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_findings_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "guest_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      review_settings: {
+        Row: {
+          auto_kinds: string[]
+          daily_model_cap: number
+          host_id: string
+          min_confidence: number
+          model_enabled: boolean
+          model_since: string | null
+          notice_published_at: string | null
+          sync_enabled: boolean
+          tasks_enabled: boolean
+          texts_enabled: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          auto_kinds?: string[]
+          daily_model_cap?: number
+          host_id: string
+          min_confidence?: number
+          model_enabled?: boolean
+          model_since?: string | null
+          notice_published_at?: string | null
+          sync_enabled?: boolean
+          tasks_enabled?: boolean
+          texts_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          auto_kinds?: string[]
+          daily_model_cap?: number
+          host_id?: string
+          min_confidence?: number
+          model_enabled?: boolean
+          model_since?: string | null
+          notice_published_at?: string | null
+          sync_enabled?: boolean
+          tasks_enabled?: boolean
+          texts_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_settings_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2131,6 +2478,48 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      add_review_finding: {
+        Args: {
+          p_assignee_id?: string
+          p_description?: string
+          p_kind: Database["public"]["Enums"]["review_finding_kind"]
+          p_priority?: Database["public"]["Enums"]["problem_priority"]
+          p_review_id: string
+          p_scheduled_date?: string
+          p_subject: string
+          p_title: string
+        }
+        Returns: {
+          confidence: number | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decided_mode: string | null
+          detector: string
+          evidence: string | null
+          evidence_source: string | null
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["review_finding_kind"]
+          problem_id: string | null
+          property_id: number | null
+          reject_reason: Database["public"]["Enums"]["review_reject_reason"] | null
+          review_id: string
+          status: Database["public"]["Enums"]["review_finding_status"]
+          still_relevant: string
+          subject: string
+          summary: string
+          summary_i18n: Json
+          updated_at: string
+          urgency: Database["public"]["Enums"]["problem_priority"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "review_findings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       add_task_media: {
         Args: {
           p_byte_size: number
@@ -2423,6 +2812,47 @@ export type Database = {
         }
         Returns: Json
       }
+      approve_review_finding: {
+        Args: {
+          p_assignee_id?: string
+          p_description?: string
+          p_finding_id: string
+          p_link_problem_id?: string
+          p_priority?: Database["public"]["Enums"]["problem_priority"]
+          p_scheduled_date?: string
+          p_title?: string
+        }
+        Returns: {
+          confidence: number | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decided_mode: string | null
+          detector: string
+          evidence: string | null
+          evidence_source: string | null
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["review_finding_kind"]
+          problem_id: string | null
+          property_id: number | null
+          reject_reason: Database["public"]["Enums"]["review_reject_reason"] | null
+          review_id: string
+          status: Database["public"]["Enums"]["review_finding_status"]
+          still_relevant: string
+          subject: string
+          summary: string
+          summary_i18n: Json
+          updated_at: string
+          urgency: Database["public"]["Enums"]["problem_priority"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "review_findings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       archive_problem: {
         Args: { p_id: string }
         Returns: {
@@ -2435,11 +2865,14 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          review_facts: Json | null
+          source: Database["public"]["Enums"]["problem_source"]
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         SetofOptions: {
@@ -2487,11 +2920,14 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          review_facts: Json | null
+          source: Database["public"]["Enums"]["problem_source"]
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         SetofOptions: {
@@ -2519,11 +2955,14 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          review_facts: Json | null
+          source: Database["public"]["Enums"]["problem_source"]
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         SetofOptions: {
@@ -2885,11 +3324,14 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          review_facts: Json | null
+          source: Database["public"]["Enums"]["problem_source"]
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         SetofOptions: {
@@ -2911,11 +3353,14 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          review_facts: Json | null
+          source: Database["public"]["Enums"]["problem_source"]
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         SetofOptions: {
@@ -2962,6 +3407,74 @@ export type Database = {
           title: string
           unit_name: string
         }[]
+      }
+      reject_review_finding: {
+        Args: {
+          p_finding_id: string
+          p_reason: Database["public"]["Enums"]["review_reject_reason"]
+        }
+        Returns: {
+          confidence: number | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decided_mode: string | null
+          detector: string
+          evidence: string | null
+          evidence_source: string | null
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["review_finding_kind"]
+          problem_id: string | null
+          property_id: number | null
+          reject_reason: Database["public"]["Enums"]["review_reject_reason"] | null
+          review_id: string
+          status: Database["public"]["Enums"]["review_finding_status"]
+          still_relevant: string
+          subject: string
+          summary: string
+          summary_i18n: Json
+          updated_at: string
+          urgency: Database["public"]["Enums"]["problem_priority"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "review_findings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      review_kind_gives_task: {
+        Args: { p_kind: Database["public"]["Enums"]["review_finding_kind"] }
+        Returns: boolean
+      }
+      review_place_problems: {
+        Args: { p_finding_id: string }
+        Returns: {
+          can_link: boolean
+          created_at: string
+          id: string
+          is_open: boolean
+          priority: Database["public"]["Enums"]["problem_priority"]
+          property_id: number
+          resolved_at: string
+          source: Database["public"]["Enums"]["problem_source"]
+          status: Database["public"]["Enums"]["problem_status"]
+          title: string
+          title_i18n: Json
+        }[]
+      }
+      review_run_status: {
+        Args: never
+        Returns: {
+          last_ok_at: string
+          last_run_at: string
+          stage: string
+        }[]
+      }
+      review_subjects: {
+        Args: never
+        Returns: string[]
       }
       purge_push_history: { Args: never; Returns: undefined }
       push_digest_hour: { Args: never; Returns: number }
@@ -3041,11 +3554,14 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          review_facts: Json | null
+          source: Database["public"]["Enums"]["problem_source"]
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         SetofOptions: {
@@ -3112,11 +3628,14 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          review_facts: Json | null
+          source: Database["public"]["Enums"]["problem_source"]
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         SetofOptions: {
@@ -3155,11 +3674,14 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          review_facts: Json | null
+          source: Database["public"]["Enums"]["problem_source"]
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         SetofOptions: {
@@ -3747,11 +4269,14 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          review_facts: Json | null
+          source: Database["public"]["Enums"]["problem_source"]
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         SetofOptions: {
@@ -3773,11 +4298,14 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          review_facts: Json | null
+          source: Database["public"]["Enums"]["problem_source"]
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         SetofOptions: {
@@ -3832,16 +4360,51 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          review_facts: Json | null
+          source: Database["public"]["Enums"]["problem_source"]
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         SetofOptions: {
           from: "*"
           to: "problems"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      update_review_settings: {
+        Args: {
+          p_auto_kinds?: string[]
+          p_daily_model_cap?: number
+          p_min_confidence?: number
+          p_model_enabled?: boolean
+          p_notice_published_at?: string
+          p_sync_enabled?: boolean
+          p_tasks_enabled?: boolean
+          p_texts_enabled?: boolean
+        }
+        Returns: {
+          auto_kinds: string[]
+          daily_model_cap: number
+          host_id: string
+          min_confidence: number
+          model_enabled: boolean
+          model_since: string | null
+          notice_published_at: string | null
+          sync_enabled: boolean
+          tasks_enabled: boolean
+          texts_enabled: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "review_settings"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -3939,6 +4502,7 @@ export type Database = {
         | "in_progress"
         | "resolved"
         | "cancelled"
+      problem_source: "staff" | "review"
       property_status: "active" | "maintenance" | "archived"
       push_kind:
         | "cleaning_new"
@@ -3953,6 +4517,39 @@ export type Database = {
         | "chat_message"
         | "daily_digest"
       supply_priority: "normal" | "urgent"
+      review_channel:
+        | "airbnb"
+        | "booking"
+        | "vrbo"
+        | "direct"
+        | "google"
+        | "other"
+      review_finding_kind:
+        | "repair"
+        | "safety"
+        | "pests"
+        | "access"
+        | "cleaning"
+        | "supplies"
+        | "noise"
+        | "neighbourhood"
+        | "wish"
+        | "other"
+      review_finding_status:
+        | "candidate"
+        | "task_created"
+        | "duplicate"
+        | "already_fixed"
+        | "rejected"
+        | "no_task"
+        | "dropped"
+      review_reject_reason:
+        | "false_positive"
+        | "not_property"
+        | "already_fixed"
+        | "duplicate"
+        | "not_worth"
+      review_source: "hostaway"
       supply_request_status:
         | "new"
         | "accepted"
@@ -4159,6 +4756,7 @@ export const Constants = {
         "resolved",
         "cancelled",
       ],
+      problem_source: ["staff", "review"],
       property_status: ["active", "maintenance", "archived"],
       push_kind: [
         "cleaning_new",
@@ -4174,6 +4772,36 @@ export const Constants = {
         "daily_digest",
       ],
       supply_priority: ["normal", "urgent"],
+      review_channel: ["airbnb", "booking", "vrbo", "direct", "google", "other"],
+      review_finding_kind: [
+        "repair",
+        "safety",
+        "pests",
+        "access",
+        "cleaning",
+        "supplies",
+        "noise",
+        "neighbourhood",
+        "wish",
+        "other",
+      ],
+      review_finding_status: [
+        "candidate",
+        "task_created",
+        "duplicate",
+        "already_fixed",
+        "rejected",
+        "no_task",
+        "dropped",
+      ],
+      review_reject_reason: [
+        "false_positive",
+        "not_property",
+        "already_fixed",
+        "duplicate",
+        "not_worth",
+      ],
+      review_source: ["hostaway"],
       supply_request_status: [
         "new",
         "accepted",

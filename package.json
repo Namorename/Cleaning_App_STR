@@ -21,7 +21,7 @@
     "fn:serve": "supabase functions serve",
     "fn:deploy": "supabase functions deploy",
     "test:rls": "node scripts/test-rls.mjs",
-    "test:fn": "deno test --allow-read supabase/functions/",
+    "test:fn": "deno test --allow-read --allow-env supabase/functions/",
     "test:scripts": "node --test \"scripts/__tests__/*.test.mjs\"",
     "api:docs": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/api-docs.mts",
     "api:lint": "spectral lint packages/shared/src/api/openapi.v1.json --ruleset .spectral.yaml --fail-severity=warn",

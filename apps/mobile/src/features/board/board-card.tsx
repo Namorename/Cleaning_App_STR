@@ -14,6 +14,7 @@ import { useTheme } from '@/hooks/use-theme';
 
 import { personName, repairWhen } from './format';
 import { isLive, liveRepair, type BoardProblem, type BoardRepair } from './schema';
+import { reviewLabel, shownTitle } from '@/features/problems/review-source';
 
 /** A live repair whose day is behind the phone's today: still undone, and late. */
 function isOverdue(repair: BoardRepair | null, now: Date): boolean {
@@ -42,7 +43,9 @@ interface BoardCardProps {
  * One card, one button, as her own list has it.
  */
 function BoardCardComponent({ problem, names, onPress, hasUnread = false }: BoardCardProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const title = shownTitle(problem, i18n.language);
+  const fromReview = reviewLabel(problem, t);
   const repair = liveRepair(problem);
   const holder = repair?.assignee_id ?? null;
   const status = problemStatusText(problem.status);
@@ -57,7 +60,8 @@ function BoardCardComponent({ problem, names, onPress, hasUnread = false }: Boar
     isLive(problem) && isOverdue(repair, new Date()) ? t('problems.board.overdue') : null;
   const archived = problem.archived_at === null ? null : t('problems.board.archived');
   const label = [
-    problem.title,
+    title,
+    fromReview,
     place,
     status,
     overdue,
@@ -73,8 +77,9 @@ function BoardCardComponent({ problem, names, onPress, hasUnread = false }: Boar
   return (
     <Card accessibilityLabel={label} onPress={() => onPress(problem.id)}>
       <Text variant="title" numberOfLines={2}>
-        {problem.title}
+        {title}
       </Text>
+      {fromReview === null ? null : <Text tone="secondary">{fromReview}</Text>}
       <View style={styles.marks}>
         {hasUnread ? <Badge label={t('chat.unread')} tone={STATUS_TONE['chat.unread']} /> : null}
         <Badge label={status} tone={problemStatusTone(problem.status)} />

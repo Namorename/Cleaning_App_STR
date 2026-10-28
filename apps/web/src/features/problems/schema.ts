@@ -10,7 +10,13 @@ export type ProblemPriority = (typeof PROBLEM_PRIORITIES)[number];
 export const MAX_PROBLEM_TITLE = 200;
 export const MAX_PROBLEM_DESCRIPTION = 4000;
 
-export const PROBLEM_STATUSES = ['open', 'assigned', 'in_progress', 'resolved', 'cancelled'] as const;
+export const PROBLEM_STATUSES = [
+  'open',
+  'assigned',
+  'in_progress',
+  'resolved',
+  'cancelled',
+] as const;
 export type ProblemStatus = (typeof PROBLEM_STATUSES)[number];
 
 /** The board's columns, left to right; cancelled problems live in the list only. */
@@ -44,8 +50,23 @@ export const problemSchema = z.object({
   id: z.uuid(),
   property_id: z.number().nullable(),
   task_id: z.uuid().nullable(),
-  reported_by: z.uuid(),
+  // Null for a task found in a guest review: nobody on the staff reported it
+  // (docs/reviews-to-tasks.md §2.5). The reporter's name then shows as unknown.
+  reported_by: z.uuid().nullable(),
   title: z.string(),
+  /** A task from a guest review: what a technician may know of it, never a quote (docs/reviews-to-tasks.md §2.6). */
+  source: z.enum(['staff', 'review']).catch('staff').default('staff'),
+  title_i18n: z.record(z.string(), z.string()).nullable().catch(null).default(null),
+  review_facts: z
+    .object({
+      kind: z.string(),
+      subject: z.string(),
+      channel: z.string().nullable().default(null),
+      departure_month: z.string().nullable().default(null),
+    })
+    .nullable()
+    .catch(null)
+    .default(null),
   description: z.string().nullable(),
   priority: z.enum(PROBLEM_PRIORITIES),
   status: z.enum(PROBLEM_STATUSES),
