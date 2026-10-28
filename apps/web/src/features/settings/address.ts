@@ -1,7 +1,10 @@
 import { z } from 'zod';
 
-/** The sections of «Настройки», in the order the submenu lists them. */
-export const SETTINGS_SECTIONS = ['account', 'appearance', 'company', 'process'] as const;
+/**
+ * The sections of «Настройки», in the order the submenu lists them. «API» is
+ * an admin's only (docs/api-v1.md §11): the view leaves it out for a manager.
+ */
+export const SETTINGS_SECTIONS = ['account', 'appearance', 'company', 'process', 'api'] as const;
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
 /**

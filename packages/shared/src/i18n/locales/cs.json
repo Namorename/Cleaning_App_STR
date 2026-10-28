@@ -147,6 +147,260 @@
           "cleaner_comment": "Komentář uklízečky"
         }
       },
+      "api": {
+        "title": "API",
+        "description": "Klíče pro vaše skripty, AI agenty a integrace. Klíč patří této firmě a dělá jen to, co mu dovolují jeho oprávnění. Sekci vidí jen administrátoři.",
+        "docs": "Dokumentace API",
+        "create": "Vytvořit klíč",
+        "loading": "Načítáme klíče…",
+        "loadError": "Klíče se nepodařilo načíst.",
+        "empty": "Zatím žádné klíče.",
+        "columns": {
+          "name": "Klíč",
+          "access": "Přístup",
+          "properties": "Objekty",
+          "expires": "Platnost",
+          "lastUsed": "Naposledy použit",
+          "state": "Stav",
+          "actions": "Akce"
+        },
+        "state": {
+          "active": "Platný",
+          "expired": "Vypršel",
+          "revoked": "Zrušen",
+          "suspended": "Pozastaven",
+          "suspendedHint": "Administrátor, který ho vytvořil, už není aktivní administrátor. Klíč znovu začne fungovat, pokud se to vrátí; jinak ho zrušte a vytvořte nový."
+        },
+        "never": "Bez omezení",
+        "neverUsed": "Zatím nepoužit",
+        "allProperties": "Všechny objekty",
+        "properties_one": "{{count}} objekt",
+        "properties_few": "{{count}} objekty",
+        "properties_many": "{{count}} objektu",
+        "properties_other": "{{count}} objektů",
+        "edit": "Změnit",
+        "revoke": "Zrušit",
+        "revokeTitle": "Zrušit klíč «{{name}}»?",
+        "revokeLine1": "Všechny skripty a agenti s tímto klíčem okamžitě přestanou fungovat.",
+        "revokeLine2": "Zrušený klíč už nelze obnovit.",
+        "form": {
+          "createTitle": "Nový klíč API",
+          "editTitle": "Změnit klíč «{{name}}»",
+          "name": "Název",
+          "nameHint": "Kdo nebo co ho používá, např. «Skript týdenního přehledu».",
+          "preset": "Přístup",
+          "presets": {
+            "read_only": {
+              "label": "Jen čtení",
+              "hint": "Všechna běžná oprávnění ke čtení, i ta, která do API přibudou později. Bez osobních údajů a bez zápisu."
+            },
+            "operator": {
+              "label": "Operátor",
+              "hint": "Jen čtení a k tomu vytváření úkolů a přidělování úkolů a úklidů."
+            },
+            "full": {
+              "label": "Plný přístup",
+              "hint": "Všechna oprávnění včetně citlivých a všechna, která přibudou později."
+            },
+            "custom": {
+              "label": "Vlastní výběr",
+              "hint": "Přesně zaškrtnutá oprávnění, nová se nepřidávají sama."
+            }
+          },
+          "sensitive": "Citlivé",
+          "sensitiveHint": "Osobní údaje nebo adresy objektů: nikdy nejsou součástí «Jen čtení» ani «Operátor», zapínají se ručně.",
+          "extraTitle": "Přidat citlivá oprávnění",
+          "scopesTitle": "Oprávnění",
+          "search": "Hledat oprávnění",
+          "noMatch": "Nic neodpovídá.",
+          "gives": "S tímto nastavením klíč může:",
+          "givesNothing": "Zaškrtněte aspoň jedno oprávnění.",
+          "expiry": "Platnost",
+          "expiry30": "30 dní",
+          "expiry90": "90 dní",
+          "expiry365": "Rok",
+          "expiryNever": "Bez omezení",
+          "restrict": "Jen některé objekty",
+          "restrictHint": "Budova zahrnuje své pokoje. Takto omezený klíč nevidí úkoly bez objektu.",
+          "fullWarning": "Plný přístup je jako heslo administrátora: čte jména zaměstnanců a adresy objektů a umí zapisovat. Uložte ho do úložiště tajemství.",
+          "confirmName": "Pro potvrzení napište název klíče, «{{name}}»",
+          "appliesNow": "Změny platí od dalšího požadavku klíče.",
+          "save": "Uložit",
+          "saving": "Ukládáme…",
+          "creating": "Vytváříme…"
+        },
+        "created": {
+          "title": "Zkopírujte klíč hned teď",
+          "hint": "Zobrazí se jen jednou. woom uchovává jen jeho otisk a znovu ho ukázat nedokáže.",
+          "copy": "Kopírovat",
+          "copied": "Zkopírováno",
+          "done": "Klíč mám uložený"
+        },
+        "groups": {
+          "properties": "Objekty",
+          "cleanings": "Úklidy",
+          "tasks": "Úkoly",
+          "staff": "Zaměstnanci",
+          "bookings": "Rezervace",
+          "media": "Média",
+          "settings": "Nastavení",
+          "checklists": "Kontrolní seznamy",
+          "supplies": "Spotřební materiál",
+          "analytics": "Analytika",
+          "chat": "Chat",
+          "webhooks": "Webhooky"
+        },
+        "scopes": {
+          "properties": {
+            "read": {
+              "label": "Čtení objektů",
+              "hint": "Nabídky a jejich pokoje; kódy dveří jsou z názvů skryté."
+            },
+            "read_address": {
+              "label": "Čtení adres",
+              "hint": "Adresa každého objektu. S kódem dveří otevře byt."
+            },
+            "write": {
+              "label": "Změna objektů",
+              "hint": "Stav objektu: v provozu, v údržbě, v archivu. Přibude později."
+            }
+          },
+          "cleanings": {
+            "read": {
+              "label": "Čtení úklidů",
+              "hint": "Úklidy, kontroly, úklidy během pobytu a opravy: den, stav, kdo je dělá."
+            },
+            "assign": {
+              "label": "Přidělování úklidů",
+              "hint": "Přidělit úklid člověku nebo ho z něj sundat, podle pravidel panelu."
+            },
+            "create": {
+              "label": "Vytváření úklidů",
+              "hint": "Zapsat úklid ručně. Přibude později."
+            },
+            "cancel": {
+              "label": "Rušení úklidů",
+              "hint": "Zrušit úklid. Přibude později."
+            },
+            "read_steps": {
+              "label": "Čtení kroků úklidu",
+              "hint": "Kontrolní seznamy a výsledky kroků. Přibude později."
+            }
+          },
+          "tasks": {
+            "read": {
+              "label": "Čtení úkolů",
+              "hint": "Co hlásí tým, a oprava, která se kvůli tomu dělá."
+            },
+            "create": {
+              "label": "Vytváření úkolů",
+              "hint": "Zapsat úkol pro technika jménem administrátora, který klíč vytvořil."
+            },
+            "assign": {
+              "label": "Přidělování úkolů",
+              "hint": "Přidělit opravu úkolu technikovi na den."
+            },
+            "update": {
+              "label": "Změna úkolů",
+              "hint": "Upravit, archivovat nebo sundat z člověka. Přibude později."
+            },
+            "resolve": {
+              "label": "Vyřešení úkolů",
+              "hint": "Označit úkol jako vyřešený nebo ho znovu otevřít. Přibude později."
+            },
+            "cancel": {
+              "label": "Rušení úkolů",
+              "hint": "Uzavřít úkol bez opravy. Přibude později."
+            }
+          },
+          "staff": {
+            "read": {
+              "label": "Čtení zaměstnanců",
+              "hint": "Lidé podle id, role a toho, zda pracují. Bez jmen, e-mailů a telefonů."
+            },
+            "read_names": {
+              "label": "Čtení jmen zaměstnanců",
+              "hint": "Celé jméno každého člověka: osobní údaje."
+            },
+            "write": {
+              "label": "Správa uklízeček a techniků",
+              "hint": "Účty terénních pracovníků, nikdy administrátorů a manažerů. Přibude později."
+            }
+          },
+          "bookings": {
+            "read": {
+              "label": "Čtení rezervací",
+              "hint": "Data, objekt, pokoje, kanál, stav a počet hostů. Nikdy host ani cena."
+            },
+            "read_prices": {
+              "label": "Čtení cen rezervací",
+              "hint": "Cena každé rezervace. Přibude později."
+            }
+          },
+          "media": {
+            "read": {
+              "label": "Čtení údajů o médiích",
+              "hint": "Jaké fotky a videa má úklid nebo úkol: druh, velikost, délka, krok. Bez samotných souborů."
+            },
+            "download": {
+              "label": "Stahování médií",
+              "hint": "Odkazy na samotné fotky a videa. Přibude později."
+            }
+          },
+          "settings": {
+            "read": {
+              "label": "Čtení nastavení",
+              "hint": "Jazyk firmy, limity videa a přepínače."
+            },
+            "write": {
+              "label": "Změna nastavení",
+              "hint": "Přepínače a limity firmy. Přibude později."
+            }
+          },
+          "checklists": {
+            "read": {
+              "label": "Čtení kontrolních seznamů",
+              "hint": "Procesy a kontrolní seznamy objektů. Přibude později."
+            },
+            "write": {
+              "label": "Změna kontrolních seznamů",
+              "hint": "Úprava procesů a kontrolních seznamů. Přibude později."
+            }
+          },
+          "supplies": {
+            "read": {
+              "label": "Čtení spotřebního materiálu",
+              "hint": "Žádosti o materiál a katalog. Přibude později."
+            },
+            "write": {
+              "label": "Vyřizování spotřebního materiálu",
+              "hint": "Přijímat a vyřizovat žádosti. Přibude později."
+            }
+          },
+          "analytics": {
+            "read": {
+              "label": "Čtení analytiky",
+              "hint": "Čísla stránky «Analytika». Přibude později."
+            }
+          },
+          "chat": {
+            "read": {
+              "label": "Čtení chatu",
+              "hint": "Zprávy týmového chatu. Přibude později."
+            },
+            "write": {
+              "label": "Psaní do chatu",
+              "hint": "Posílat zprávy týmu. Přibude později."
+            }
+          },
+          "webhooks": {
+            "manage": {
+              "label": "Správa webhooků",
+              "hint": "Kam woom posílá události jako «úkol vytvořen». Přibude později."
+            }
+          }
+        }
+      },
       "language": {
         "label": "Jazyk",
         "hint": "Uloží se do vašeho profilu: v tomto jazyce se panel otevře i v jiném prohlížeči.",
@@ -1845,6 +2099,18 @@
     "staffPayloadInvalid": "Panel poslal požadavek, kterému server nerozumí.",
     "staffSelfChange": "Vlastní roli ani vlastní přístup měnit nelze — požádejte kolegu.",
     "adminRoleForbidden": "Roli administrátora může udělit jen administrátor.",
+    "adminOnly": "Klíče API spravuje jen administrátor.",
+    "apiKeyNameInvalid": "Klíč potřebuje název o 1 až 80 znacích.",
+    "apiPresetInvalid": "Vyberte přístup klíče.",
+    "apiScopeUnknown": "Oprávnění «{{scope}}» neexistuje.",
+    "apiScopeForbidden": "Oprávnění «{{scope}}» nelze dát žádnému klíči.",
+    "apiScopeNotYetAvailable": "Oprávnění «{{scope}}» je rezervované: jeho operace zatím neexistují.",
+    "apiScopesEmpty": "Zaškrtněte aspoň jedno oprávnění.",
+    "apiPropertiesEmpty": "Vyberte aspoň jeden objekt, nebo povolte všechny.",
+    "apiFullAccessUnconfirmed": "Pro potvrzení plného přístupu napište název klíče.",
+    "apiExpiryInvalid": "Klíč platí nejvýš rok, nebo bez omezení.",
+    "apiKeyNotFound": "Tento klíč už neexistuje.",
+    "apiKeyRevoked": "Zrušený klíč nelze změnit.",
     "staffNoEmail": "Tenhle účet nemá adresu, kam poslat e-mail.",
     "notSignedIn": "Nejste přihlášeni. Přihlaste se znovu.",
     "mailNotSent": "E-mail se nepodařilo odeslat.",

@@ -363,9 +363,11 @@ API — те же, что в интерфейсе (`docs/rename-table.md`): Task
 
 ## 9. Документация
 
-- Единый источник — `packages/shared/src/api/openapi.v1.yaml` (OpenAPI 3.1).
-- Страница — `/developers` в панели, открыта без входа. Рядом `/developers/openapi.yaml` для агентов
-  и генераторов клиентов.
+- Единый источник — `packages/shared/src/api/openapi.v1.yaml` (OpenAPI 3.1, пишется руками).
+  `npm run api:docs` собирает из него `openapi.v1.json`: таблицы реестра, `security` из `x-woom-scope`,
+  заголовки ответов, примеры curl/JS/Python. Тест паритета падает, если JSON устарел.
+- Страница — `/developers` в панели, открыта без входа. Рядом `/developers/openapi.json` для агентов
+  и генераторов клиентов (с адресом проекта в `servers`).
 - Отрисовщик выбран по лицензии, размеру и отсутствию платного сервиса (размеры — `npm view`,
   28.10):
 
@@ -418,9 +420,11 @@ API — те же, что в интерфейсе (`docs/rename-table.md`): Task
 - **Контрактные тесты:**
   - `supabase/functions/api/contract.test.ts` (`npm run test:fn`): маршруты обработчика и операции
     спецификации совпадают один к одному, методы, пути, права и обязательные параметры;
-  - ответы обработчика на подставной базе проверяются схемами спецификации (Ajv 2020);
-  - `scripts/api-contract.mjs` гоняет каждую операцию против запущенного на стенде API и проверяет
-    живые ответы и ошибки той же схемой.
+  - ответы обработчика на подставной базе проверяются схемами спецификации. Проверщик —
+    `packages/shared/src/api/schema-check.ts`: подмножество JSON Schema без новых зависимостей,
+    неизвестное ключевое слово — ошибка, а не тишина;
+  - `scripts/api-stand-server.ts contract` гоняет операции и типичные ошибки по HTTP против стенда
+    (тот же обработчик, база — транзакция, которая не коммитится) и проверяет живые ответы той же схемой.
 - **Правило** в CLAUDE.md и шаблон `.github/pull_request_template.md`: новая функция продукта в том же
   изменении добавляет:
   - метод API;
@@ -488,4 +492,44 @@ API — те же, что в интерфейсе (`docs/rename-table.md`): Task
 
 ## 14. Состояние реализации
 
-Заполняется по ходу работы в этой ветке.
+Сделано в ветке `public-api-v1-1028`, ничего не выкачено. Миграция стояла только на локальном стенде,
+внутри транзакций, которые откатывались.
+
+| Часть | Где |
+| --- | --- |
+| Миграция | `supabase/migrations/20261028100000_public_api_v1.sql`; откат — `docs/one-off-writes/api-v1-rollback.sql` |
+| Реестр прав | `packages/shared/src/api/registry.json` (+ `registry.ts`, `registry-data.ts`) |
+| Функция API | `supabase/functions/api/` (`handler.ts`, `routes.ts`, `params.ts`, `cursor.ts`, `problem.ts`, `index.ts`) |
+| Выпуск ключей | `supabase/functions/api-keys/`, общий `supabase/functions/_shared/api-key.ts` |
+| Спецификация | `packages/shared/src/api/openapi.v1.yaml` → `openapi.v1.json` (`npm run api:docs`), `.spectral.yaml` (`npm run api:lint`) |
+| Паритет | `packages/shared/src/api/coverage.json`, `docs/api-coverage.md`, `parity.ts`, тест `apps/web/src/features/api-keys/__tests__/api-parity.test.ts` |
+| Панель | `apps/web/src/features/api-keys/` (раздел «Настройки → API»), `/developers` |
+| Стенд | `npm run api:stand` (SQL-набор в транзакции), `node scripts/api-stand.mjs check-all`, `scripts/api-stand-server.ts serve\|contract` |
+
+### Проверить локально (Windows PowerShell, из корня копии репозитория)
+
+```powershell
+# SQL: миграция и набор api_v1.sql на стенде, откат в конце
+npm run api:stand
+
+# HTTP: тот же обработчик, база — транзакция стенда, которую никто не коммитит.
+# Окно 1 — сервер (Ctrl+C откатывает всё; сам выключится через 20 минут):
+npx deno run --node-modules-dir=none --no-lock --allow-net=127.0.0.1,registry.npmjs.org --allow-read --allow-write --allow-env --allow-sys scripts/api-stand-server.ts serve --keys-out "$env:TEMP\woom-api-keys.json"
+
+# Окно 2 — запросы:
+$keys = Get-Content "$env:TEMP\woom-api-keys.json" | ConvertFrom-Json
+# Windows PowerShell 5.1 не экранирует кавычки для внешних программ, поэтому в -d они записаны как \"
+curl.exe -s http://127.0.0.1:8787/v1/me -H "Authorization: Bearer $($keys.read_only)"
+curl.exe -s "http://127.0.0.1:8787/v1/cleanings?limit=2" -H "Authorization: Bearer $($keys.read_only)"
+curl.exe -s -X POST http://127.0.0.1:8787/v1/tasks -H "Authorization: Bearer $($keys.read_only)" -H "Content-Type: application/json" -H "Idempotency-Key: try-1" -d '{\"title\":\"x\"}'
+curl.exe -s -X POST http://127.0.0.1:8787/v1/tasks -H "Authorization: Bearer $($keys.operator)" -H "Content-Type: application/json" -H "Idempotency-Key: try-2" -d '{\"title\":\"Dripping tap\",\"priority\":\"high\"}'
+
+# Всё сразу, с проверкой каждого ответа по спецификации:
+npx deno run --node-modules-dir=none --no-lock --allow-net=127.0.0.1,registry.npmjs.org --allow-read --allow-write --allow-env --allow-sys scripts/api-stand-server.ts contract
+```
+
+Ключи стенда (`read_only`, `operator`, `full`, `custom`, `house`, `other`) живут только в файле и в
+транзакции. После Ctrl+C их больше нет.
+
+Документация: `npm run web` и открыть `http://localhost:3000/developers` (без входа). «Попробовать»
+на ней ходит в API проекта из `.env.local`; к стенд-серверу — через curl выше.

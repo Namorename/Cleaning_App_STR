@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 
 import { SettingsView } from '@/features/settings/settings-view';
+import { roleOf } from '@/lib/session';
 import { createClient } from '@/lib/supabase/server';
 import { THEME_COOKIE, themeFromCookie } from '@/lib/theme';
 
@@ -26,6 +27,7 @@ export default async function SettingsPage() {
       userId={user?.id ?? ''}
       theme={theme}
       onSignOut={signOut}
+      isAdmin={roleOf(user) === 'admin'}
     />
   );
 }

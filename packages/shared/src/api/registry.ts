@@ -72,8 +72,8 @@ export function effectiveScopes(
     .sort();
 }
 
-/** The i18n key of a scope's label: `settings.api.scopes.<group>.<action>`. */
+/** The i18n key of a scope's label and hint: `panel.settings.api.scopes.<group>.<action>`. */
 export function scopeLabelKey(id: string): string {
   const [group, action] = id.split(':');
-  return `settings.api.scopes.${group}.${action}`;
+  return `panel.settings.api.scopes.${group}.${action}`;
 }

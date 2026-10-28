@@ -176,6 +176,29 @@
 - **Сценарии состязательных предполётов живут в репозитории.**
   `.claude/workflows/*.js` — прогон перед выкатом схемного этапа (решение
   2026-09-18); новый предполёт кладётся рядом, а не в скретчпад.
+- **Паритет API: всё новое сразу попадает в публичный API (решение владельца
+  2026-10-28, `docs/api-v1.md`).** Новая функция продукта в том же изменении:
+  - метод API v1: функция `api_v1_*` в миграции (только `service_role`, `host_id`
+    из ключа, запись — через ту же функцию, что у панели), строка в
+    `supabase/functions/api/routes.ts`, операция в
+    `packages/shared/src/api/openapi.v1.yaml`;
+  - право в `packages/shared/src/api/registry.json` с уровнем чувствительности,
+    та же строка в блоке `-- api-scopes:begin/end` миграции, перевод en/cs/ru в
+    `panel.settings.api.scopes.*`;
+  - страница документации: `npm run api:docs` (таблицы, примеры, `security`),
+    `npm run api:lint`;
+  - контрактный тест: `supabase/functions/api/contract.test.ts`, а запись или
+    новое чтение — ещё и `scripts/api-stand-server.ts contract` на стенде.
+
+  Если API не нужен — запись `internal` с причиной в
+  `packages/shared/src/api/coverage.json`. Сторожит
+  `apps/web/src/features/api-keys/__tests__/api-parity.test.ts` (обычный
+  `npm run test:web`): падает на публичной функции или таблице без записи, на
+  операции без права, на праве без операции, документации или перевода, на
+  расхождении блоков `api-scopes` с реестром. Запретный список
+  (`registry.json → forbidden`) не выдаётся ни одному ключу; гостей, почт и
+  телефонов сотрудников, кодов дверей в ответах нет; в Hostaway API не пишет.
+  Чек-лист слияния — `.github/pull_request_template.md`.
 
 ## Правила ECC
 

@@ -186,6 +186,54 @@ describe('the privacy policy’s language for <html lang>', () => {
 });
 
 /**
+ * docs/api-v1.md §9: the public API's reference and its spec file live on the
+ * panel's domain, for anyone who integrates — no account in the panel needed,
+ * and a manager reading them is not sent to the dashboard.
+ */
+describe('the public API reference', () => {
+  const OPEN = ['/developers', '/developers/openapi.json'];
+
+  test.each(OPEN)('opens %s to a visitor who is not signed in, without asking Auth', async (path) => {
+    expect(await redirectOf(path)).toBeNull();
+    expect(getUser).not.toHaveBeenCalled();
+  });
+
+  test.each(OPEN)('opens %s to a signed-in manager, without asking Auth', async (path) => {
+    auth.user = { app_metadata: { role: 'manager' } };
+
+    expect(await redirectOf(path)).toBeNull();
+    expect(getUser).not.toHaveBeenCalled();
+  });
+
+  test.each(OPEN)('names English for %s, whatever the address or the browser asks', async (path) => {
+    const response = await proxy(
+      new NextRequest(`${ORIGIN}${path}?lang=ru`, { headers: { 'accept-language': 'cs-CZ' } }),
+    );
+
+    expect(response.headers.get(`x-middleware-request-${PAGE_LANGUAGE_HEADER}`)).toBe('en');
+  });
+
+  test.each([
+    '/developersx',
+    '/developers/x',
+    '/developers/openapi.yaml',
+    '/developers/openapi.json/x',
+    '/Developers',
+    '/developers/',
+  ])('opens the exact paths only: %s still asks for the sign-in', async (path) => {
+    const target = await redirectOf(path);
+
+    expect(getUser).toHaveBeenCalledTimes(1);
+    // NextURL keeps a trailing slash it was given: `/login/` for `/developers/`.
+    expect(target?.pathname).toMatch(/^\/login\/?$/);
+  });
+
+  test.each(OPEN)('runs the proxy for %s, so the open path is decided here', (pathname) => {
+    expect(unstable_doesMiddlewareMatch({ config, url: `${ORIGIN}${pathname}` })).toBe(true);
+  });
+});
+
+/**
  * Which requests the sign-in guard sees at all, by Next's own reading of the
  * matcher. The logo sits on the sign-in card, so its files must reach a
  * visitor who has not signed in (docs/redesign-plan.md, 6.1) — the raster
