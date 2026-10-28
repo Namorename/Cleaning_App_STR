@@ -21,7 +21,7 @@
     "add_task_media": {
       "status": "internal",
       "reason": "phone-only flow of the cleaner at work (task steps): photo/video of a step, row before file",
-      "defined_in": "20261003170000_video_limits.sql"
+      "defined_in": "20261023100000_video_limits_live.sql"
     },
     "analytics_checkout_rows": {
       "status": "internal",
@@ -1240,7 +1240,7 @@
     "snapshot_task_steps": {
       "status": "internal",
       "reason": "trigger function: copies the process template into a task when it starts",
-      "defined_in": "20260907130000_workflow_step_translations.sql"
+      "defined_in": "20261023100000_video_limits_live.sql"
     },
     "staff_directory": {
       "status": "internal",
