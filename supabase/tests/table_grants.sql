@@ -76,6 +76,15 @@ insert into wanted values
   -- the tokens of other people's phones are not hers to read, and her own is
   -- written by register_push_token/unregister_push_token.
   ('push_tokens',          ''),
+  -- The public API (20261028100000): keys, their journal, the request log,
+  -- rate windows and idempotency keys are the API functions' alone. The panel
+  -- reaches keys through list_api_keys/update_api_key/revoke_api_key.
+  ('api_scopes',           ''),
+  ('api_keys',             ''),
+  ('api_key_events',       ''),
+  ('api_request_log',      ''),
+  ('api_rate_windows',     ''),
+  ('api_idempotency',      ''),
   -- Which pushes a person switched off: she reads her own row for the settings
   -- screen and writes it through set_push_preference.
   ('push_preferences',     'SELECT');

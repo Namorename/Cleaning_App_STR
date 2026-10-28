@@ -1,0 +1,1430 @@
+{
+  "version": 1,
+  "functions": {
+    "add_message_media": {
+      "status": "planned",
+      "scope": "chat:write",
+      "reason": "registers a photo slot on a chat message (row before file)",
+      "defined_in": "20260926101000_media_rpc_one_owner.sql"
+    },
+    "add_problem_media": {
+      "status": "internal",
+      "reason": "phone upload pipeline: registers, confirms or withdraws a Storage slot (row before file); the API only reads media (photo of a reported task)",
+      "defined_in": "20260926101000_media_rpc_one_owner.sql"
+    },
+    "add_task_media": {
+      "status": "internal",
+      "reason": "phone-only flow of the cleaner at work (task steps): photo/video of a step, row before file",
+      "defined_in": "20261003170000_video_limits.sql"
+    },
+    "analytics_checkout_rows": {
+      "status": "internal",
+      "reason": "analytics building block; execute revoked from clients, called only inside analytics_* readers",
+      "defined_in": "20261015110000_analytics.sql"
+    },
+    "analytics_checkouts_by_property": {
+      "status": "planned",
+      "scope": "analytics:read",
+      "reason": "Analytics table: check-outs, released rooms and occupancy per listing",
+      "defined_in": "20261015110000_analytics.sql"
+    },
+    "analytics_cleaning_rows": {
+      "status": "internal",
+      "reason": "analytics building block; execute revoked from clients, called only inside analytics_* readers",
+      "defined_in": "20261015110000_analytics.sql"
+    },
+    "analytics_cleanings_by_cleaner": {
+      "status": "planned",
+      "scope": "analytics:read",
+      "reason": "Analytics table: cleanings per cleaner (returns full_name; gate it with staff:read_names)",
+      "defined_in": "20261015110000_analytics.sql"
+    },
+    "analytics_cleanings_by_property": {
+      "status": "planned",
+      "scope": "analytics:read",
+      "reason": "Analytics table: planned/done/expired/cancelled cleanings and durations per listing",
+      "defined_in": "20261015110000_analytics.sql"
+    },
+    "analytics_guard": {
+      "status": "internal",
+      "reason": "analytics access check (manager only, period bounds); execute revoked from clients",
+      "defined_in": "20261015110000_analytics.sql"
+    },
+    "analytics_is_test_listing": {
+      "status": "internal",
+      "reason": "analytics filter for the demo listing band; execute revoked from clients",
+      "defined_in": "20261015110000_analytics.sql"
+    },
+    "analytics_occupancy_rows": {
+      "status": "internal",
+      "reason": "analytics building block; execute revoked from clients, called only inside analytics_* readers",
+      "defined_in": "20261015110000_analytics.sql"
+    },
+    "analytics_problem_rows": {
+      "status": "internal",
+      "reason": "analytics building block; execute revoked from clients, called only inside analytics_* readers",
+      "defined_in": "20261015110000_analytics.sql"
+    },
+    "analytics_problems_by_property": {
+      "status": "planned",
+      "scope": "analytics:read",
+      "reason": "Analytics table: tasks (problems) created/resolved/open per listing",
+      "defined_in": "20261015110000_analytics.sql"
+    },
+    "analytics_problems_by_technician": {
+      "status": "planned",
+      "scope": "analytics:read",
+      "reason": "Analytics table: repairs and resolved tasks per technician (returns full_name; gate it with staff:read_names)",
+      "defined_in": "20261015110000_analytics.sql"
+    },
+    "analytics_series": {
+      "status": "planned",
+      "scope": "analytics:read",
+      "reason": "Analytics figures day by day or week by week",
+      "defined_in": "20261015120000_analytics_series.sql"
+    },
+    "analytics_summary": {
+      "status": "planned",
+      "scope": "analytics:read",
+      "reason": "Analytics key figures for one period",
+      "defined_in": "20261015120000_analytics_series.sql"
+    },
+    "api_act_as": {
+      "status": "internal",
+      "reason": "API plumbing: runs the rest of a write as the key's maker; callable by no role.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_allows_booking": {
+      "status": "internal",
+      "reason": "API plumbing: the property restriction of a key, for bookings.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_allows_property": {
+      "status": "internal",
+      "reason": "API plumbing: the property restriction of a key.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_authorize": {
+      "status": "internal",
+      "reason": "API plumbing: the key behind a digest, with the scope an operation needs.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_booking_json": {
+      "status": "internal",
+      "reason": "API plumbing: what a booking looks like in the API.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_channel": {
+      "status": "internal",
+      "reason": "API plumbing: names Hostaway's channel numbers.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_check_key_fields": {
+      "status": "internal",
+      "reason": "API plumbing: checks a key's name, preset, scopes and properties.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_cleaning_json": {
+      "status": "internal",
+      "reason": "API plumbing: what a cleaning looks like in the API.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_effective_scopes": {
+      "status": "internal",
+      "reason": "API plumbing: the scopes a preset gives today.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_gate": {
+      "status": "internal",
+      "reason": "API plumbing: authenticates a request and counts it against the rate limits.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_hm": {
+      "status": "internal",
+      "reason": "API plumbing: HH:MM.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_idempotency_claim": {
+      "status": "internal",
+      "reason": "API plumbing: claims or replays an Idempotency-Key.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_idempotency_store": {
+      "status": "internal",
+      "reason": "API plumbing: keeps the answer of a write for its Idempotency-Key.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_key_fields_json": {
+      "status": "internal",
+      "reason": "API plumbing: a key's journalled fields.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_key_public_json": {
+      "status": "internal",
+      "reason": "API plumbing: what the panel shows of a key.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_key_state": {
+      "status": "internal",
+      "reason": "API plumbing: active, revoked, expired or suspended.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_log_request": {
+      "status": "internal",
+      "reason": "API plumbing: the request log, without bodies or personal data.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_mask_codes": {
+      "status": "internal",
+      "reason": "API plumbing: masks door codes in names and free text (F27).",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_media_json": {
+      "status": "internal",
+      "reason": "API plumbing: what media metadata looks like in the API.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_not_found": {
+      "status": "internal",
+      "reason": "API plumbing: the not-found refusal.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_property_json": {
+      "status": "internal",
+      "reason": "API plumbing: what a property looks like in the API, codes masked.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_require": {
+      "status": "internal",
+      "reason": "API plumbing: a second scope inside one operation.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_require_admin": {
+      "status": "internal",
+      "reason": "API plumbing: only an admin manages keys.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_safe_property_name": {
+      "status": "internal",
+      "reason": "API plumbing: masks door codes in property names (F27).",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_staff_json": {
+      "status": "internal",
+      "reason": "API plumbing: what a member of staff looks like in the API.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_task_json": {
+      "status": "internal",
+      "reason": "API plumbing: what a task looks like in the API.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_ts": {
+      "status": "internal",
+      "reason": "API plumbing: ISO 8601 UTC timestamps.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_v1_assign_cleaning": {
+      "status": "exposed",
+      "scope": "cleanings:assign",
+      "operations": [
+        "assignCleaning"
+      ],
+      "reason": "The assignCleaning operation of API v1.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_v1_assign_task": {
+      "status": "exposed",
+      "scope": "tasks:assign",
+      "operations": [
+        "assignTask"
+      ],
+      "reason": "The assignTask operation of API v1.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_v1_create_task": {
+      "status": "exposed",
+      "scope": "tasks:create",
+      "operations": [
+        "createTask"
+      ],
+      "reason": "The createTask operation of API v1.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_v1_get_booking": {
+      "status": "exposed",
+      "scope": "bookings:read",
+      "operations": [
+        "getBooking"
+      ],
+      "reason": "The getBooking operation of API v1.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_v1_get_cleaning": {
+      "status": "exposed",
+      "scope": "cleanings:read",
+      "operations": [
+        "getCleaning"
+      ],
+      "reason": "The getCleaning operation of API v1.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_v1_get_me": {
+      "status": "exposed",
+      "operations": [
+        "getMe"
+      ],
+      "reason": "The getMe operation: any working key may ask about itself.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_v1_get_property": {
+      "status": "exposed",
+      "scope": "properties:read",
+      "operations": [
+        "getProperty"
+      ],
+      "reason": "The getProperty operation of API v1.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_v1_get_settings": {
+      "status": "exposed",
+      "scope": "settings:read",
+      "operations": [
+        "getSettings"
+      ],
+      "reason": "The getSettings operation of API v1.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_v1_get_staff_member": {
+      "status": "exposed",
+      "scope": "staff:read",
+      "operations": [
+        "getStaffMember"
+      ],
+      "reason": "The getStaffMember operation of API v1.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_v1_get_task": {
+      "status": "exposed",
+      "scope": "tasks:read",
+      "operations": [
+        "getTask"
+      ],
+      "reason": "The getTask operation of API v1.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_v1_list_bookings": {
+      "status": "exposed",
+      "scope": "bookings:read",
+      "operations": [
+        "listBookings"
+      ],
+      "reason": "The listBookings operation of API v1.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_v1_list_cleaning_media": {
+      "status": "exposed",
+      "scope": "media:read",
+      "operations": [
+        "listCleaningMedia"
+      ],
+      "reason": "The listCleaningMedia operation of API v1.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_v1_list_cleanings": {
+      "status": "exposed",
+      "scope": "cleanings:read",
+      "operations": [
+        "listCleanings"
+      ],
+      "reason": "The listCleanings operation of API v1.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_v1_list_properties": {
+      "status": "exposed",
+      "scope": "properties:read",
+      "operations": [
+        "listProperties"
+      ],
+      "reason": "The listProperties operation of API v1.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_v1_list_staff": {
+      "status": "exposed",
+      "scope": "staff:read",
+      "operations": [
+        "listStaff"
+      ],
+      "reason": "The listStaff operation of API v1.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_v1_list_task_media": {
+      "status": "exposed",
+      "scope": "media:read",
+      "operations": [
+        "listTaskMedia"
+      ],
+      "reason": "The listTaskMedia operation of API v1.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_v1_list_tasks": {
+      "status": "exposed",
+      "scope": "tasks:read",
+      "operations": [
+        "listTasks"
+      ],
+      "reason": "The listTasks operation of API v1.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "archive_problem": {
+      "status": "planned",
+      "scope": "tasks:update",
+      "reason": "moves a task (problem) to the archive and cancels its live repair; reversible by unarchive_problem",
+      "defined_in": "20260910120000_problem_reopen_archive.sql"
+    },
+    "archive_supply_catalog_item": {
+      "status": "planned",
+      "scope": "supplies:write",
+      "reason": "takes a supply catalogue entry off the phone list or puts it back",
+      "defined_in": "20260910120100_supply_catalog.sql"
+    },
+    "assign_problem": {
+      "status": "exposed",
+      "scope": "tasks:assign",
+      "reason": "hands a task (problem) to a technician by creating its repair",
+      "defined_in": "20261003130000_head_tech_dispatch.sql",
+      "operations": [
+        "createTask",
+        "assignTask"
+      ]
+    },
+    "auth_role": {
+      "status": "internal",
+      "reason": "auth/RLS helper: role of the active caller from profiles",
+      "defined_in": "20260824190100_profiles.sql"
+    },
+    "can_read_task_media": {
+      "status": "internal",
+      "reason": "Storage policy helper of the task-media bucket (read)",
+      "defined_in": "20260907160100_task_media.sql"
+    },
+    "can_upload_task_media": {
+      "status": "internal",
+      "reason": "Storage policy helper of the task-media bucket (upload onto a waiting row)",
+      "defined_in": "20260907160100_task_media.sql"
+    },
+    "cancel_problem": {
+      "status": "planned",
+      "scope": "tasks:cancel",
+      "reason": "closes a task (problem) without a fix; its live repair is cancelled",
+      "defined_in": "20260908130000_problems.sql"
+    },
+    "cascade_delete_property_units": {
+      "status": "internal",
+      "reason": "trigger function: deletes the rooms of a deleted listing",
+      "defined_in": "20260912120000_property_units.sql"
+    },
+    "chat_body_max_length": {
+      "status": "internal",
+      "reason": "chat limit constant used by send_message",
+      "defined_in": "20260918120000_chat.sql"
+    },
+    "chat_max_photos": {
+      "status": "internal",
+      "reason": "chat limit constant used by add_message_media",
+      "defined_in": "20260918120000_chat.sql"
+    },
+    "chat_media_upload_window": {
+      "status": "internal",
+      "reason": "chat limit constant: how long a message photo may wait for its file",
+      "defined_in": "20260924120000_chat_media_expiry.sql"
+    },
+    "chat_media_written_meanwhile": {
+      "status": "internal",
+      "reason": "replay-race helper of add_message_media; execute revoked from clients",
+      "defined_in": "20260924110000_chat_rpc_race.sql"
+    },
+    "chat_participates": {
+      "status": "internal",
+      "reason": "auth/RLS helper: is the caller in the audience of a thread",
+      "defined_in": "20261003120000_head_tech_read.sql"
+    },
+    "chat_participates_as": {
+      "status": "internal",
+      "reason": "push plumbing: chat audience check for a given person, service_role only",
+      "defined_in": "20261003120000_head_tech_read.sql"
+    },
+    "chat_touch_thread": {
+      "status": "internal",
+      "reason": "trigger function: moves the tail of a thread on a new message",
+      "defined_in": "20260918120000_chat.sql"
+    },
+    "chat_unread_threads": {
+      "status": "planned",
+      "scope": "chat:read",
+      "reason": "threads with messages the caller has not read",
+      "defined_in": "20261003160000_head_tech_push.sql"
+    },
+    "claim_push_batch": {
+      "status": "internal",
+      "reason": "push plumbing: send-push leases due outbox groups, service_role only",
+      "defined_in": "20261003160000_head_tech_push.sql"
+    },
+    "claim_push_receipts": {
+      "status": "internal",
+      "reason": "push plumbing: send-push picks tickets due for Expo receipts, service_role only",
+      "defined_in": "20260928140000_push_sender.sql"
+    },
+    "claim_webhook_events": {
+      "status": "internal",
+      "reason": "Hostaway webhook processing (process-webhook-events), service_role only",
+      "defined_in": "20260827200000_reservations_rpc.sql"
+    },
+    "cleaning_turnover_on": {
+      "status": "internal",
+      "reason": "cleaning generator helper; cleanings come from Hostaway bookings (next check-in, deadline and window)",
+      "defined_in": "20260926160000_pinned_cleaning.sql"
+    },
+    "cleans_property": {
+      "status": "internal",
+      "reason": "auth/RLS helper: does the caller clean this listing",
+      "defined_in": "20260912140000_unit_assignment.sql"
+    },
+    "cleans_property_as": {
+      "status": "internal",
+      "reason": "push plumbing: listing link check for a given person, service_role only",
+      "defined_in": "20260928120000_participation_core.sql"
+    },
+    "complete_task_step": {
+      "status": "internal",
+      "reason": "phone-only flow of the cleaner at work (task steps): completes a step",
+      "defined_in": "20260907160100_task_media.sql"
+    },
+    "confirm_task_media": {
+      "status": "internal",
+      "reason": "phone upload pipeline: registers, confirms or withdraws a Storage slot (row before file); the API only reads media",
+      "defined_in": "20260924120000_chat_media_expiry.sql"
+    },
+    "copy_property_checklist": {
+      "status": "planned",
+      "scope": "checklists:write",
+      "reason": "replaces a listing's checklist with a copy of another listing's",
+      "defined_in": "20260907120000_property_checklists.sql"
+    },
+    "create_api_key": {
+      "status": "internal",
+      "reason": "forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "current_host_id": {
+      "status": "internal",
+      "reason": "auth/RLS helper: tenant of the caller",
+      "defined_in": "20260905094000_tenant_host_id.sql"
+    },
+    "default_host_id": {
+      "status": "internal",
+      "reason": "tenant default of host_id columns (single-company phase A); internal plumbing",
+      "defined_in": "20260905094000_tenant_host_id.sql"
+    },
+    "delete_supply_request": {
+      "status": "internal",
+      "reason": "forbidden: irreversible delete (hard delete of a new supply request by its author)",
+      "defined_in": "20260908130200_supply_requests.sql"
+    },
+    "effective_cleaner_notes": {
+      "status": "internal",
+      "reason": "forbidden: door/access codes (computed cleaner note of a listing carries key-box and access codes)",
+      "defined_in": "20260917150000_room_cleaner_notes.sql"
+    },
+    "enqueue_daily_digest": {
+      "status": "internal",
+      "reason": "scheduler job: queues the 07:00 push summary",
+      "defined_in": "20261003160000_head_tech_push.sql"
+    },
+    "expire_stale_tasks": {
+      "status": "internal",
+      "reason": "scheduler job: closes cleanings the day has passed by, service_role only",
+      "defined_in": "20260923130000_problem_mirror_current_attempt.sql"
+    },
+    "forget_push_token": {
+      "status": "internal",
+      "reason": "forbidden: push tokens (drops a device token reported gone by Expo)",
+      "defined_in": "20260928140000_push_sender.sql"
+    },
+    "generate_cleaning_tasks": {
+      "status": "internal",
+      "reason": "Hostaway sync, Hostaway stays the source of truth: generator of cleanings from bookings, service_role only",
+      "defined_in": "20260927120000_pinned_rooms.sql"
+    },
+    "guard_cleaning_assignee": {
+      "status": "internal",
+      "reason": "trigger function: no technician on a cleaning, mid-stay or inspection",
+      "defined_in": "20261003110000_tech_rules.sql"
+    },
+    "guard_link_role": {
+      "status": "internal",
+      "reason": "trigger function: technicians hold no listing links",
+      "defined_in": "20261003110000_tech_rules.sql"
+    },
+    "guard_link_works": {
+      "status": "internal",
+      "reason": "trigger function: a switched-off person holds no listing links",
+      "defined_in": "20261004100000_staff_disable.sql"
+    },
+    "guard_person_works": {
+      "status": "internal",
+      "reason": "trigger function: no live job is written with a switched-off person",
+      "defined_in": "20261004100000_staff_disable.sql"
+    },
+    "guard_profile_privileges": {
+      "status": "internal",
+      "reason": "trigger function: stops staff from raising their own role or reactivating themselves",
+      "defined_in": "20260924175000_deactivated_cannot_escalate.sql"
+    },
+    "guard_property_hierarchy": {
+      "status": "internal",
+      "reason": "trigger function: keeps the listing parent/room hierarchy valid",
+      "defined_in": "20260907120200_error_keys.sql"
+    },
+    "guard_property_link_cycles": {
+      "status": "internal",
+      "reason": "orphan trigger function: re-created by 20260907120200 after its table property_links was dropped; no trigger uses it",
+      "defined_in": "20260907120200_error_keys.sql"
+    },
+    "guard_task_fields": {
+      "status": "internal",
+      "reason": "trigger function: which task fields each role may change",
+      "defined_in": "20261003130000_head_tech_dispatch.sql"
+    },
+    "guard_task_transitions": {
+      "status": "internal",
+      "reason": "trigger function: allowed task status transitions",
+      "defined_in": "20261003130000_head_tech_dispatch.sql"
+    },
+    "guard_tech_role_change": {
+      "status": "internal",
+      "reason": "trigger function: no role change to technician while holding links or open cleanings",
+      "defined_in": "20261003110000_tech_rules.sql"
+    },
+    "handle_new_user": {
+      "status": "internal",
+      "reason": "trigger function: creates the profile of a new auth.users row",
+      "defined_in": "20260911120000_staff_accounts.sql"
+    },
+    "head_tech_dispatching": {
+      "status": "internal",
+      "reason": "guard helper: marks a head-technician dispatch inside assign_problem/unassign_problem",
+      "defined_in": "20261003130000_head_tech_dispatch.sql"
+    },
+    "head_tech_property_ids": {
+      "status": "internal",
+      "reason": "auth/RLS helper: listings the head technician may read",
+      "defined_in": "20261003120000_head_tech_read.sql"
+    },
+    "invoke_edge_function": {
+      "status": "internal",
+      "reason": "scheduler plumbing: pg_cron calls an Edge Function with the service key read from Vault, service_role only",
+      "defined_in": "20260827210000_scheduled_jobs.sql"
+    },
+    "is_active_user": {
+      "status": "internal",
+      "reason": "auth/RLS helper: caller is an active profile",
+      "defined_in": "20260824190100_profiles.sql"
+    },
+    "is_head_tech": {
+      "status": "internal",
+      "reason": "auth/RLS helper: caller is the active head technician",
+      "defined_in": "20261003120000_head_tech_read.sql"
+    },
+    "is_localized_text": {
+      "status": "internal",
+      "reason": "validation helper of translated names (x_i18n) used by write RPCs",
+      "defined_in": "20260907110000_localized_text.sql"
+    },
+    "is_manager": {
+      "status": "internal",
+      "reason": "auth/RLS helper: caller is an active manager or admin",
+      "defined_in": "20260924175000_deactivated_cannot_escalate.sql"
+    },
+    "is_service_booking": {
+      "status": "internal",
+      "reason": "PostgREST computed field: the \"#\" service-booking flag derived from the guest name (guest names are forbidden); the flag may ride on bookings:read, the function is not called",
+      "defined_in": "20260926140000_service_booking_field.sql"
+    },
+    "journal_problem_change": {
+      "status": "internal",
+      "reason": "trigger function: writes problem_events for a task (problem)",
+      "defined_in": "20261003140000_problem_events.sql"
+    },
+    "journal_repair_change": {
+      "status": "internal",
+      "reason": "trigger function: writes problem_events for repairs",
+      "defined_in": "20261004100000_staff_disable.sql"
+    },
+    "journal_task_change": {
+      "status": "internal",
+      "reason": "trigger function: writes task_events for cleanings",
+      "defined_in": "20261015100000_task_events.sql"
+    },
+    "list_api_key_events": {
+      "status": "internal",
+      "reason": "forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "list_api_keys": {
+      "status": "internal",
+      "reason": "forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "mark_task_media_purged": {
+      "status": "internal",
+      "reason": "retention job (purge-task-media): marks purged files, service_role only",
+      "defined_in": "20260907160200_task_media_purge.sql"
+    },
+    "mark_thread_read": {
+      "status": "planned",
+      "scope": "chat:write",
+      "reason": "moves the caller's read marker of a thread (a write, so not under chat:read)",
+      "defined_in": "20260918120000_chat.sql"
+    },
+    "mark_webhook_events": {
+      "status": "internal",
+      "reason": "Hostaway webhook processing (process-webhook-events), service_role only",
+      "defined_in": "20260827200000_reservations_rpc.sql"
+    },
+    "mirror_problem_status": {
+      "status": "internal",
+      "reason": "trigger function: mirrors the repair state onto its problem",
+      "defined_in": "20260923130000_problem_mirror_current_attempt.sql"
+    },
+    "open_cleanings_by_listing": {
+      "status": "internal",
+      "reason": "panel registry counter of open cleanings per listing; derivable from GET /v1/cleanings",
+      "defined_in": "20260928110000_task_accept.sql"
+    },
+    "open_task_step": {
+      "status": "internal",
+      "reason": "phone-only flow of the cleaner at work (task steps): stamps the first opening of a step",
+      "defined_in": "20260905110300_task_steps.sql"
+    },
+    "open_thread": {
+      "status": "planned",
+      "scope": "chat:write",
+      "reason": "finds or opens the chat thread of a cleaning, task or staff member (replayable)",
+      "defined_in": "20260918120000_chat.sql"
+    },
+    "problem_description_max_length": {
+      "status": "internal",
+      "reason": "validation limit constant of report_problem/update_problem",
+      "defined_in": "20260908130000_problems.sql"
+    },
+    "problem_for_dispatch": {
+      "status": "internal",
+      "reason": "lock-and-check helper of assign_problem/unassign_problem; execute revoked from clients",
+      "defined_in": "20261003130000_head_tech_dispatch.sql"
+    },
+    "problem_for_manager": {
+      "status": "internal",
+      "reason": "lock-and-check helper of the manager problem RPCs; execute revoked from clients",
+      "defined_in": "20261003130000_head_tech_dispatch.sql"
+    },
+    "problem_max_photos": {
+      "status": "internal",
+      "reason": "validation limit constant of add_problem_media",
+      "defined_in": "20260908130100_problem_media.sql"
+    },
+    "problem_title_max_length": {
+      "status": "internal",
+      "reason": "validation limit constant of report_problem/update_problem",
+      "defined_in": "20260908130000_problems.sql"
+    },
+    "property_checklist_snapshot": {
+      "status": "planned",
+      "scope": "checklists:read",
+      "reason": "a listing's checklist shaped as a step config",
+      "defined_in": "20260907120000_property_checklists.sql"
+    },
+    "property_id_for_unit": {
+      "status": "internal",
+      "reason": "Hostaway sync, Hostaway stays the source of truth: maps a listingUnit to its properties.id",
+      "defined_in": "20260912120000_property_units.sql"
+    },
+    "property_maintenance_tasks": {
+      "status": "internal",
+      "reason": "panel listing-card read of repairs; the same rows come from GET /v1/cleanings filtered by property",
+      "defined_in": "20261008100000_maintenance_problem_id.sql"
+    },
+    "property_open_cleanings": {
+      "status": "internal",
+      "reason": "panel confirmation figure before set_property_status; derivable from GET /v1/cleanings",
+      "defined_in": "20260928110000_task_accept.sql"
+    },
+    "property_problems": {
+      "status": "internal",
+      "reason": "panel listing-card read of reports; the same rows come from GET /v1/tasks filtered by property",
+      "defined_in": "20260917160000_listing_card_rooms.sql"
+    },
+    "purge_push_history": {
+      "status": "internal",
+      "reason": "scheduler job: nightly purge of the push queue and tickets",
+      "defined_in": "20260928140000_push_sender.sql"
+    },
+    "push_digest_hour": {
+      "status": "internal",
+      "reason": "push plumbing: constant of the push queue and sender",
+      "defined_in": "20260928130000_push_events.sql"
+    },
+    "push_history_kept": {
+      "status": "internal",
+      "reason": "push plumbing: constant of the push queue and sender",
+      "defined_in": "20260928140000_push_sender.sql"
+    },
+    "push_lease": {
+      "status": "internal",
+      "reason": "push plumbing: constant of the push queue and sender",
+      "defined_in": "20260928140000_push_sender.sql"
+    },
+    "push_lifetime": {
+      "status": "internal",
+      "reason": "push plumbing: constant of the push queue and sender",
+      "defined_in": "20260928130000_push_events.sql"
+    },
+    "push_on_booking_status": {
+      "status": "internal",
+      "reason": "trigger function: queues a push when a booking stops being live during its cleaning",
+      "defined_in": "20260928130000_push_events.sql"
+    },
+    "push_on_chat_message": {
+      "status": "internal",
+      "reason": "trigger function: queues pushes for a new chat message",
+      "defined_in": "20261003160000_head_tech_push.sql"
+    },
+    "push_on_problem_reported": {
+      "status": "internal",
+      "reason": "trigger function: queues problem_new pushes for head technicians",
+      "defined_in": "20261003160000_head_tech_push.sql"
+    },
+    "push_on_task_change": {
+      "status": "internal",
+      "reason": "trigger function: queues pushes for changes of cleanings and repairs",
+      "defined_in": "20261003160000_head_tech_push.sql"
+    },
+    "push_quiet_end": {
+      "status": "internal",
+      "reason": "push plumbing: constant of the push queue and sender",
+      "defined_in": "20260928130000_push_events.sql"
+    },
+    "push_quiet_start": {
+      "status": "internal",
+      "reason": "push plumbing: constant of the push queue and sender",
+      "defined_in": "20260928130000_push_events.sql"
+    },
+    "push_receipt_delay": {
+      "status": "internal",
+      "reason": "push plumbing: constant of the push queue and sender",
+      "defined_in": "20260928140000_push_sender.sql"
+    },
+    "push_send_after": {
+      "status": "internal",
+      "reason": "push plumbing: constant of the push queue and sender",
+      "defined_in": "20260928130000_push_events.sql"
+    },
+    "push_settle": {
+      "status": "internal",
+      "reason": "push plumbing: constant of the push queue and sender",
+      "defined_in": "20260928130000_push_events.sql"
+    },
+    "push_timezone": {
+      "status": "internal",
+      "reason": "push plumbing: constant of the push queue and sender",
+      "defined_in": "20260928130000_push_events.sql"
+    },
+    "push_tokens_per_person": {
+      "status": "internal",
+      "reason": "push plumbing: constant of the push queue and sender",
+      "defined_in": "20260928100000_push_recipients.sql"
+    },
+    "record_push_receipts": {
+      "status": "internal",
+      "reason": "push plumbing: send-push stores Expo receipts, service_role only",
+      "defined_in": "20260928140000_push_sender.sql"
+    },
+    "record_push_results": {
+      "status": "internal",
+      "reason": "push plumbing: send-push settles sent groups and tickets, service_role only",
+      "defined_in": "20260928140000_push_sender.sql"
+    },
+    "record_webhook_event": {
+      "status": "internal",
+      "reason": "Hostaway webhook intake (hostaway-webhook), service_role only",
+      "defined_in": "20260828090000_webhook_event_id_from_data.sql"
+    },
+    "register_push_token": {
+      "status": "internal",
+      "reason": "forbidden: push tokens (the signed-in phone registers its Expo token)",
+      "defined_in": "20260928100000_push_recipients.sql"
+    },
+    "release_work_of_inactive": {
+      "status": "internal",
+      "reason": "staff-deactivation cascade called by the profiles trigger; execute revoked from clients",
+      "defined_in": "20261004100000_staff_disable.sql"
+    },
+    "release_work_on_deactivation": {
+      "status": "internal",
+      "reason": "trigger function: takes a switched-off person off unstarted work",
+      "defined_in": "20261004100000_staff_disable.sql"
+    },
+    "remove_task_media": {
+      "status": "internal",
+      "reason": "phone upload pipeline: registers, confirms or withdraws a Storage slot (row before file); the API only reads media",
+      "defined_in": "20260924100000_chat_media.sql"
+    },
+    "reopen_problem": {
+      "status": "planned",
+      "scope": "tasks:resolve",
+      "reason": "puts a closed task (problem) back on the board (undo of resolve)",
+      "defined_in": "20260910120000_problem_reopen_archive.sql"
+    },
+    "reopen_task_step": {
+      "status": "internal",
+      "reason": "phone-only flow of the cleaner at work (task steps): takes a step back to not done",
+      "defined_in": "20260905110300_task_steps.sql"
+    },
+    "report_problem": {
+      "status": "exposed",
+      "scope": "tasks:create",
+      "reason": "creates a task (problem); replayable by client id",
+      "defined_in": "20260908130000_problems.sql",
+      "operations": [
+        "createTask"
+      ]
+    },
+    "reservation_cleaning_window": {
+      "status": "internal",
+      "reason": "cleaning generator helper; cleanings come from Hostaway bookings (cleaning window of a booking); revoked from authenticated",
+      "defined_in": "20260926102000_generator_service_bookings.sql"
+    },
+    "reservation_rooms": {
+      "status": "internal",
+      "reason": "cleaning generator helper; cleanings come from Hostaway bookings (rooms a booking took)",
+      "defined_in": "20260927120000_pinned_rooms.sql"
+    },
+    "resolve_checklist_property": {
+      "status": "planned",
+      "scope": "checklists:read",
+      "reason": "the listing whose checklist applies (own or parent)",
+      "defined_in": "20260907120000_property_checklists.sql"
+    },
+    "resolve_problem": {
+      "status": "planned",
+      "scope": "tasks:resolve",
+      "reason": "closes a task (problem) as fixed",
+      "defined_in": "20260908130000_problems.sql"
+    },
+    "resolve_report_property": {
+      "status": "internal",
+      "reason": "helper of report_problem: resolves the listing and checks the reporter may report there",
+      "defined_in": "20260908130000_problems.sql"
+    },
+    "resolve_workflow_template": {
+      "status": "planned",
+      "scope": "checklists:read",
+      "reason": "the process template a cleaning on this listing follows",
+      "defined_in": "20260905110200_workflow_templates.sql"
+    },
+    "review_supply_request": {
+      "status": "planned",
+      "scope": "supplies:write",
+      "reason": "moves a supply request along new/accepted/ordered/fulfilled or rejects it",
+      "defined_in": "20260908130200_supply_requests.sql"
+    },
+    "revoke_api_key": {
+      "status": "internal",
+      "reason": "forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "save_property_checklist": {
+      "status": "planned",
+      "scope": "checklists:write",
+      "reason": "saves a listing's whole checklist (modules and items)",
+      "defined_in": "20260907120000_property_checklists.sql"
+    },
+    "save_property_cleaner": {
+      "status": "planned",
+      "scope": "staff:write",
+      "reason": "links a cleaner to a listing or changes the link mode (property_cleaners)",
+      "defined_in": "20260911120000_staff_accounts.sql"
+    },
+    "save_supply_catalog_item": {
+      "status": "planned",
+      "scope": "supplies:write",
+      "reason": "creates or rewrites a supply catalogue entry (replayable)",
+      "defined_in": "20260910120100_supply_catalog.sql"
+    },
+    "save_supply_request": {
+      "status": "planned",
+      "scope": "supplies:write",
+      "reason": "creates or rewrites a new supply request (replayable)",
+      "defined_in": "20260910120100_supply_catalog.sql"
+    },
+    "save_task": {
+      "status": "exposed",
+      "scope": "cleanings:assign",
+      "reason": "creates or edits a cleaning (tasks row); the API calls it to assign one (also the future cleanings:create path)",
+      "defined_in": "20261003110000_tech_rules.sql",
+      "operations": [
+        "assignCleaning"
+      ]
+    },
+    "save_workflow_template": {
+      "status": "planned",
+      "scope": "checklists:write",
+      "reason": "saves a whole process template, header and steps",
+      "defined_in": "20260907130000_workflow_step_translations.sql"
+    },
+    "send_message": {
+      "status": "planned",
+      "scope": "chat:write",
+      "reason": "sends a chat message (replayable)",
+      "defined_in": "20260924110000_chat_rpc_race.sql"
+    },
+    "set_property_status": {
+      "status": "planned",
+      "scope": "properties:write",
+      "reason": "takes a listing out of service or back; cascades to its open cleanings",
+      "defined_in": "20260928110000_task_accept.sql"
+    },
+    "set_push_preference": {
+      "status": "internal",
+      "reason": "push plumbing: the signed-in person switches one of her own push events on or off",
+      "defined_in": "20260928100000_push_recipients.sql"
+    },
+    "short_cleaning_threshold": {
+      "status": "internal",
+      "reason": "constant of a generated column (too-short cleaning duration)",
+      "defined_in": "20260905100000_task_lifecycle.sql"
+    },
+    "skip_task_step": {
+      "status": "internal",
+      "reason": "phone-only flow of the cleaner at work (task steps): skips an optional step",
+      "defined_in": "20260907120200_error_keys.sql"
+    },
+    "snapshot_task_steps": {
+      "status": "internal",
+      "reason": "trigger function: copies the process template into a task when it starts",
+      "defined_in": "20260907130000_workflow_step_translations.sql"
+    },
+    "staff_directory": {
+      "status": "internal",
+      "reason": "phone board people picker for the head technician; the API reads profiles under staff:read/staff:read_names",
+      "defined_in": "20261003120000_head_tech_read.sql"
+    },
+    "staff_property_ids": {
+      "status": "internal",
+      "reason": "auth/RLS helper: listings an active non-manager may read",
+      "defined_in": "20260924140000_staff_property_ids.sql"
+    },
+    "stamp_task_author": {
+      "status": "internal",
+      "reason": "trigger function: stamps created_by on a task",
+      "defined_in": "20260910140000_task_title_author.sql"
+    },
+    "supply_item_name_max_length": {
+      "status": "internal",
+      "reason": "validation limit constant of save_supply_request",
+      "defined_in": "20260908130200_supply_requests.sql"
+    },
+    "supply_note_max_length": {
+      "status": "internal",
+      "reason": "validation limit constant of save_supply_request",
+      "defined_in": "20260908130200_supply_requests.sql"
+    },
+    "sync_hostaway_listings": {
+      "status": "internal",
+      "reason": "Hostaway sync, Hostaway stays the source of truth (sync-listings), service_role only",
+      "defined_in": "20260912120000_property_units.sql"
+    },
+    "sync_hostaway_reservations": {
+      "status": "internal",
+      "reason": "Hostaway sync, Hostaway stays the source of truth (sync-reservations), service_role only",
+      "defined_in": "20260912130000_reservation_units.sql"
+    },
+    "sync_profile_email": {
+      "status": "internal",
+      "reason": "trigger function: mirrors the auth.users email into profiles",
+      "defined_in": "20260911120000_staff_accounts.sql"
+    },
+    "take_off_repairs": {
+      "status": "internal",
+      "reason": "helper of unassign_problem and of the deactivation cascade; execute revoked from clients",
+      "defined_in": "20261004100000_staff_disable.sql"
+    },
+    "task_grace_days": {
+      "status": "internal",
+      "reason": "constant of the cleaner's time window (grace after the day)",
+      "defined_in": "20260904120100_expire_stale_tasks.sql"
+    },
+    "task_horizon_days": {
+      "status": "internal",
+      "reason": "constant of the cleaner's time window (days ahead)",
+      "defined_in": "20260904140000_task_horizon.sql"
+    },
+    "task_is_beyond_horizon": {
+      "status": "internal",
+      "reason": "auth/RLS helper: task is beyond the cleaner's horizon",
+      "defined_in": "20260904140000_task_horizon.sql"
+    },
+    "task_is_stale": {
+      "status": "internal",
+      "reason": "auth/RLS helper: task is past its grace period",
+      "defined_in": "20260904120100_expire_stale_tasks.sql"
+    },
+    "task_media_extension": {
+      "status": "internal",
+      "reason": "media helper: file extension by kind for the Storage path",
+      "defined_in": "20260907160100_task_media.sql"
+    },
+    "task_media_max_bytes": {
+      "status": "internal",
+      "reason": "media limit constant used by the upload checks",
+      "defined_in": "20260907160100_task_media.sql"
+    },
+    "task_media_max_photos": {
+      "status": "internal",
+      "reason": "media limit constant used by the upload checks",
+      "defined_in": "20260907160100_task_media.sql"
+    },
+    "task_media_max_video_sec": {
+      "status": "internal",
+      "reason": "media limit constant used by the upload checks",
+      "defined_in": "20260907160100_task_media.sql"
+    },
+    "task_media_retention_days": {
+      "status": "internal",
+      "reason": "retention constant of purge-task-media",
+      "defined_in": "20260907160200_task_media_purge.sql"
+    },
+    "task_media_to_purge": {
+      "status": "internal",
+      "reason": "retention job (purge-task-media): next batch of files to remove, service_role only",
+      "defined_in": "20260924120000_chat_media_expiry.sql"
+    },
+    "task_media_video_tolerance_sec": {
+      "status": "internal",
+      "reason": "media limit constant used by the upload checks",
+      "defined_in": "20261003170000_video_limits.sql"
+    },
+    "task_media_written_meanwhile": {
+      "status": "internal",
+      "reason": "replay-race helper of the media RPCs; execute revoked from clients",
+      "defined_in": "20260918170000_media_rpc_race.sql"
+    },
+    "task_note_line_count": {
+      "status": "internal",
+      "reason": "phone-only flow of the cleaner at work (task steps): counts note lines to tick, service_role only",
+      "defined_in": "20260905110300_task_steps.sql"
+    },
+    "task_start_not_before": {
+      "status": "internal",
+      "reason": "start-gate helper of the cleaner flow (earliest start instant)",
+      "defined_in": "20260908120000_task_start_window.sql"
+    },
+    "task_step_for_update": {
+      "status": "internal",
+      "reason": "phone-only flow of the cleaner at work (task steps): lock-and-check helper, service_role only",
+      "defined_in": "20260907120200_error_keys.sql"
+    },
+    "task_title_max_length": {
+      "status": "internal",
+      "reason": "validation limit constant of save_task",
+      "defined_in": "20260910140000_task_title_author.sql"
+    },
+    "touch_updated_at": {
+      "status": "internal",
+      "reason": "trigger function: stamps updated_at",
+      "defined_in": "20260824190000_helpers.sql"
+    },
+    "unarchive_problem": {
+      "status": "planned",
+      "scope": "tasks:update",
+      "reason": "brings an archived task (problem) back",
+      "defined_in": "20260910120000_problem_reopen_archive.sql"
+    },
+    "unassign_problem": {
+      "status": "planned",
+      "scope": "tasks:update",
+      "reason": "takes the person off a repair; the task waits again",
+      "defined_in": "20261004100000_staff_disable.sql"
+    },
+    "unregister_push_token": {
+      "status": "internal",
+      "reason": "forbidden: push tokens (the signed-in phone lets go of its token)",
+      "defined_in": "20260928100000_push_recipients.sql"
+    },
+    "update_api_key": {
+      "status": "internal",
+      "reason": "forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "update_host_settings": {
+      "status": "planned",
+      "scope": "settings:write",
+      "reason": "writes the company's switches and video limits",
+      "defined_in": "20261003170000_video_limits.sql"
+    },
+    "update_problem": {
+      "status": "planned",
+      "scope": "tasks:update",
+      "reason": "the reporter corrects her own open task (problem)",
+      "defined_in": "20260908130000_problems.sql"
+    },
+    "validate_problem_text": {
+      "status": "internal",
+      "reason": "validation helper of the problem writes; execute revoked from clients",
+      "defined_in": "20260908130000_problems.sql"
+    },
+    "validate_task_step_payload": {
+      "status": "internal",
+      "reason": "phone-only flow of the cleaner at work (task steps): validates a step answer, service_role only",
+      "defined_in": "20260907160100_task_media.sql"
+    },
+    "waive_task_step": {
+      "status": "internal",
+      "reason": "manager waiver of a required step inside the step flow; no client calls it and no planned scope writes steps",
+      "defined_in": "20260907120200_error_keys.sql"
+    },
+    "workflow_scope_for": {
+      "status": "internal",
+      "reason": "process helper: maps a task type to its workflow scope",
+      "defined_in": "20260905110200_workflow_templates.sql"
+    },
+    "workflow_supported_step_types": {
+      "status": "internal",
+      "reason": "process helper: step types the current app build can complete",
+      "defined_in": "20260907160100_task_media.sql"
+    }
+  },
+  "tables": {
+    "api_idempotency": {
+      "status": "internal",
+      "reason": "API plumbing: kept answers of writes.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_key_events": {
+      "status": "internal",
+      "reason": "forbidden: api_keys:manage - the journal of key changes.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_keys": {
+      "status": "internal",
+      "reason": "forbidden: api_keys:manage - the key store (digests only).",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_rate_windows": {
+      "status": "internal",
+      "reason": "API plumbing: rate limit windows.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_request_log": {
+      "status": "internal",
+      "reason": "API plumbing: the request log.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "api_scopes": {
+      "status": "internal",
+      "reason": "API plumbing: the database's copy of the scope registry.",
+      "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "chat_messages": {
+      "status": "planned",
+      "scope": "chat:read",
+      "reason": "messages of the chat threads",
+      "defined_in": "20260918120000_chat.sql"
+    },
+    "chat_reads": {
+      "status": "planned",
+      "scope": "chat:read",
+      "reason": "per-reader read markers of chat threads",
+      "defined_in": "20260918120000_chat.sql"
+    },
+    "chat_threads": {
+      "status": "planned",
+      "scope": "chat:read",
+      "reason": "chat threads, one per cleaning, task or staff member",
+      "defined_in": "20260918120000_chat.sql"
+    },
+    "checklist_items": {
+      "status": "planned",
+      "scope": "checklists:read",
+      "reason": "items of a listing checklist (with translations)",
+      "defined_in": "20260907120000_property_checklists.sql"
+    },
+    "checklist_modules": {
+      "status": "planned",
+      "scope": "checklists:read",
+      "reason": "modules of a listing checklist (with translations)",
+      "defined_in": "20260907120000_property_checklists.sql"
+    },
+    "expired_tasks_review": {
+      "status": "internal",
+      "reason": "A view for the panel's review of expired cleanings; GET /v1/cleanings?status=expired serves the same rows.",
+      "defined_in": "20260917140000_expired_review_place.sql"
+    },
+    "hosts": {
+      "status": "exposed",
+      "scope": "settings:read",
+      "reason": "the company: language, video limits, gallery, parallel start",
+      "defined_in": "20260905094000_tenant_host_id.sql",
+      "operations": [
+        "getSettings"
+      ]
+    },
+    "problem_events": {
+      "status": "planned",
+      "scope": "analytics:read",
+      "reason": "history journal of a task (problem) and its repairs, written by triggers",
+      "defined_in": "20261003140000_problem_events.sql"
+    },
+    "problems": {
+      "status": "exposed",
+      "scope": "tasks:read",
+      "reason": "tasks (problems) reported from the field",
+      "defined_in": "20260908130000_problems.sql",
+      "operations": [
+        "listTasks",
+        "getTask",
+        "createTask",
+        "assignTask"
+      ]
+    },
+    "profiles": {
+      "status": "exposed",
+      "scope": "staff:read",
+      "reason": "staff accounts: id, role, is_active (full_name under staff:read_names; no email/phone)",
+      "defined_in": "20260824190100_profiles.sql",
+      "operations": [
+        "listStaff",
+        "getStaffMember"
+      ]
+    },
+    "properties": {
+      "status": "exposed",
+      "scope": "properties:read",
+      "reason": "listings and rooms (door codes masked from names; address under properties:read_address)",
+      "defined_in": "20260824190200_properties.sql",
+      "operations": [
+        "listProperties",
+        "getProperty"
+      ]
+    },
+    "property_cleaners": {
+      "status": "planned",
+      "scope": "staff:write",
+      "reason": "which cleaners work a listing and in which mode",
+      "defined_in": "20260901140000_task_assignment.sql"
+    },
+    "property_internal_notes": {
+      "status": "internal",
+      "reason": "office-only note of a listing (\"never leaves the manager panel\"); free text that may hold access details",
+      "defined_in": "20260924130000_property_internal_notes.sql"
+    },
+    "push_preferences": {
+      "status": "internal",
+      "reason": "push plumbing: a person's own muted push events, read only by herself",
+      "defined_in": "20260928100000_push_recipients.sql"
+    },
+    "push_tokens": {
+      "status": "internal",
+      "reason": "forbidden: push tokens of devices",
+      "defined_in": "20260928100000_push_recipients.sql"
+    },
+    "report_properties": {
+      "status": "internal",
+      "reason": "A view for the phone: the properties a person may report on; GET /v1/properties serves a key.",
+      "defined_in": "20260917100000_report_properties.sql"
+    },
+    "reservation_units": {
+      "status": "exposed",
+      "scope": "bookings:read",
+      "reason": "rooms a booking holds",
+      "defined_in": "20260912130000_reservation_units.sql",
+      "operations": [
+        "listBookings",
+        "getBooking"
+      ]
+    },
+    "reservations": {
+      "status": "exposed",
+      "scope": "bookings:read",
+      "reason": "Hostaway bookings (no guest names/contacts/prices)",
+      "defined_in": "20260824190300_reservations.sql",
+      "operations": [
+        "listBookings",
+        "getBooking"
+      ]
+    },
+    "supply_catalog_items": {
+      "status": "planned",
+      "scope": "supplies:read",
+      "reason": "supply catalogue shown on the phone",
+      "defined_in": "20260910120100_supply_catalog.sql"
+    },
+    "supply_request_items": {
+      "status": "planned",
+      "scope": "supplies:read",
+      "reason": "lines of a supply request",
+      "defined_in": "20260908130200_supply_requests.sql"
+    },
+    "supply_requests": {
+      "status": "planned",
+      "scope": "supplies:read",
+      "reason": "supply requests from cleaners",
+      "defined_in": "20260908130200_supply_requests.sql"
+    },
+    "task_events": {
+      "status": "planned",
+      "scope": "analytics:read",
+      "reason": "history journal of a cleaning, written by triggers",
+      "defined_in": "20261015100000_task_events.sql"
+    },
+    "task_media": {
+      "status": "exposed",
+      "scope": "media:read",
+      "reason": "photo/video metadata of cleanings, tasks and messages",
+      "defined_in": "20260907160100_task_media.sql",
+      "operations": [
+        "listCleaningMedia",
+        "listTaskMedia"
+      ]
+    },
+    "task_steps": {
+      "status": "planned",
+      "scope": "cleanings:read_steps",
+      "reason": "the steps of a cleaning and their answers",
+      "defined_in": "20260905110300_task_steps.sql"
+    },
+    "tasks": {
+      "status": "exposed",
+      "scope": "cleanings:read",
+      "reason": "cleanings, inspections and repairs",
+      "defined_in": "20260824190400_tasks.sql",
+      "operations": [
+        "listCleanings",
+        "getCleaning",
+        "assignCleaning"
+      ]
+    },
+    "workflow_steps": {
+      "status": "planned",
+      "scope": "checklists:read",
+      "reason": "steps of a process template",
+      "defined_in": "20260905110200_workflow_templates.sql"
+    },
+    "workflow_templates": {
+      "status": "planned",
+      "scope": "checklists:read",
+      "reason": "process templates a cleaning follows",
+      "defined_in": "20260905110200_workflow_templates.sql"
+    }
+  }
+}

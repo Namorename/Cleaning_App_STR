@@ -147,6 +147,259 @@
           "cleaner_comment": "Cleaner's comment"
         }
       },
+      "api": {
+        "title": "API",
+        "description": "Keys for your scripts, AI agents and integrations. A key belongs to this company and does only what its scopes allow. Only admins see this section.",
+        "docs": "API documentation",
+        "create": "Create key",
+        "loading": "Loading keys…",
+        "loadError": "The keys could not be loaded.",
+        "empty": "No keys yet.",
+        "columns": {
+          "name": "Key",
+          "access": "Access",
+          "properties": "Properties",
+          "expires": "Expires",
+          "lastUsed": "Last used",
+          "state": "State",
+          "actions": "Actions"
+        },
+        "state": {
+          "active": "Active",
+          "expired": "Expired",
+          "revoked": "Revoked",
+          "suspended": "Suspended",
+          "suspendedHint": "The admin who made it is no longer an active admin. It works again if they are; otherwise revoke it and make a new one."
+        },
+        "never": "Never",
+        "neverUsed": "Not used yet",
+        "allProperties": "All properties",
+        "properties_one": "{{count}} property",
+        "properties_other": "{{count}} properties",
+        "edit": "Change",
+        "revoke": "Revoke",
+        "revokeTitle": "Revoke the key «{{name}}»?",
+        "revokeLine1": "Every script and agent using it stops at once.",
+        "revokeLine2": "A revoked key cannot be brought back.",
+        "form": {
+          "createTitle": "New API key",
+          "editTitle": "Change the key «{{name}}»",
+          "name": "Name",
+          "nameHint": "Who or what uses it, e.g. «Weekly report script».",
+          "preset": "Access",
+          "presets": {
+            "read_only": {
+              "label": "Read only",
+              "hint": "Every ordinary read scope, and those added to the API later. No personal data, no writes."
+            },
+            "operator": {
+              "label": "Operator",
+              "hint": "Read only, plus creating tasks and assigning tasks and cleanings."
+            },
+            "full": {
+              "label": "Full access",
+              "hint": "Every scope, sensitive ones included, and every scope added later."
+            },
+            "custom": {
+              "label": "Custom",
+              "hint": "Exactly the scopes you tick, nothing added later."
+            }
+          },
+          "sensitive": "Sensitive",
+          "sensitiveHint": "Personal data or the addresses of properties: never part of Read only or Operator, switched on by hand.",
+          "extraTitle": "Add sensitive scopes",
+          "scopesTitle": "Scopes",
+          "search": "Search scopes",
+          "noMatch": "No scope matches.",
+          "gives": "With these settings the key may:",
+          "givesNothing": "Tick at least one scope.",
+          "expiry": "Expires",
+          "expiry30": "In 30 days",
+          "expiry90": "In 90 days",
+          "expiry365": "In a year",
+          "expiryNever": "Never",
+          "restrict": "Only some properties",
+          "restrictHint": "A building brings its rooms. A key limited so does not see tasks of no property.",
+          "fullWarning": "Full access is like an admin's password: it reads the staff's names and the addresses of properties, and it writes. Keep it in a secret store.",
+          "confirmName": "Type the key's name, «{{name}}», to confirm",
+          "appliesNow": "Changes apply to the key's next request.",
+          "save": "Save",
+          "saving": "Saving…",
+          "creating": "Creating…"
+        },
+        "created": {
+          "title": "Copy the key now",
+          "hint": "It is shown once. woom keeps only a hash of it and cannot show it again.",
+          "copy": "Copy",
+          "copied": "Copied",
+          "copyFailed": "Could not copy: select the key and copy it by hand.",
+          "done": "I have saved it"
+        },
+        "groups": {
+          "properties": "Properties",
+          "cleanings": "Cleanings",
+          "tasks": "Tasks",
+          "staff": "Staff",
+          "bookings": "Bookings",
+          "media": "Media",
+          "settings": "Settings",
+          "checklists": "Checklists",
+          "supplies": "Supplies",
+          "analytics": "Analytics",
+          "chat": "Chat",
+          "webhooks": "Webhooks"
+        },
+        "scopes": {
+          "properties": {
+            "read": {
+              "label": "Read properties",
+              "hint": "Listings and their rooms; door codes are masked out of the names."
+            },
+            "read_address": {
+              "label": "Read addresses",
+              "hint": "The street address of each property. With a door code it opens a flat."
+            },
+            "write": {
+              "label": "Change properties",
+              "hint": "Set a property active, in maintenance or archived. Coming later."
+            }
+          },
+          "cleanings": {
+            "read": {
+              "label": "Read cleanings",
+              "hint": "Cleanings, inspections, mid-stay cleanings and repair work: day, status, who does them."
+            },
+            "assign": {
+              "label": "Assign cleanings",
+              "hint": "Hand a cleaning to a person or take it off them, by the panel's rules."
+            },
+            "create": {
+              "label": "Create cleanings",
+              "hint": "Write a cleaning by hand. Coming later."
+            },
+            "cancel": {
+              "label": "Cancel cleanings",
+              "hint": "Call a cleaning off. Coming later."
+            },
+            "read_steps": {
+              "label": "Read cleaning steps",
+              "hint": "Checklists and the results of each step. Coming later."
+            }
+          },
+          "tasks": {
+            "read": {
+              "label": "Read tasks",
+              "hint": "What the team reports, and the repair work done for it."
+            },
+            "create": {
+              "label": "Create tasks",
+              "hint": "Write a task for a technician, in the name of the admin who made the key."
+            },
+            "assign": {
+              "label": "Assign tasks",
+              "hint": "Hand a task's repair to a technician for a day."
+            },
+            "update": {
+              "label": "Change tasks",
+              "hint": "Edit, archive or take a task off. Coming later."
+            },
+            "resolve": {
+              "label": "Resolve tasks",
+              "hint": "Mark a task resolved or open it again. Coming later."
+            },
+            "cancel": {
+              "label": "Cancel tasks",
+              "hint": "Close a task without a fix. Coming later."
+            }
+          },
+          "staff": {
+            "read": {
+              "label": "Read staff",
+              "hint": "People by id, role and whether they work. No names, e-mails or phone numbers."
+            },
+            "read_names": {
+              "label": "Read staff names",
+              "hint": "The full name of each person: personal data."
+            },
+            "write": {
+              "label": "Manage cleaners and technicians",
+              "hint": "Accounts of field staff, never of admins or managers. Coming later."
+            }
+          },
+          "bookings": {
+            "read": {
+              "label": "Read bookings",
+              "hint": "Dates, property, rooms, channel, status and number of guests. Never the guest or the price."
+            },
+            "read_prices": {
+              "label": "Read booking prices",
+              "hint": "The price of each booking. Coming later."
+            }
+          },
+          "media": {
+            "read": {
+              "label": "Read media details",
+              "hint": "Which photos and videos a cleaning or a task has: kind, size, length, step. Not the files."
+            },
+            "download": {
+              "label": "Download media",
+              "hint": "Links to the photos and videos themselves. Coming later."
+            }
+          },
+          "settings": {
+            "read": {
+              "label": "Read settings",
+              "hint": "The company's language, video limits and switches."
+            },
+            "write": {
+              "label": "Change settings",
+              "hint": "The company's switches and limits. Coming later."
+            }
+          },
+          "checklists": {
+            "read": {
+              "label": "Read checklists",
+              "hint": "Processes and checklists of properties. Coming later."
+            },
+            "write": {
+              "label": "Change checklists",
+              "hint": "Edit processes and checklists. Coming later."
+            }
+          },
+          "supplies": {
+            "read": {
+              "label": "Read supplies",
+              "hint": "Requests for supplies and the catalogue. Coming later."
+            },
+            "write": {
+              "label": "Handle supplies",
+              "hint": "Accept and fulfil requests. Coming later."
+            }
+          },
+          "analytics": {
+            "read": {
+              "label": "Read analytics",
+              "hint": "The figures of the Analytics page. Coming later."
+            }
+          },
+          "chat": {
+            "read": {
+              "label": "Read chat",
+              "hint": "Messages of the team's chat. Coming later."
+            },
+            "write": {
+              "label": "Write in chat",
+              "hint": "Send messages to the team. Coming later."
+            }
+          },
+          "webhooks": {
+            "manage": {
+              "label": "Manage webhooks",
+              "hint": "Where woom sends events such as «task created». Coming later."
+            }
+          }
+        }
+      },
       "language": {
         "label": "Language",
         "hint": "Kept in your profile: the panel opens in this language in any other browser too.",
@@ -1851,6 +2104,18 @@
     "staffPayloadInvalid": "The panel sent a request the server did not understand.",
     "staffSelfChange": "You cannot change your own role or switch yourself off — ask a colleague.",
     "adminRoleForbidden": "Only an admin can hand out the admin role.",
+    "adminOnly": "Only an admin may manage API keys.",
+    "apiKeyNameInvalid": "A key needs a name of 1 to 80 characters.",
+    "apiPresetInvalid": "Choose the key's access.",
+    "apiScopeUnknown": "There is no scope «{{scope}}».",
+    "apiScopeForbidden": "The scope «{{scope}}» can never be given to a key.",
+    "apiScopeNotYetAvailable": "The scope «{{scope}}» is reserved: its operations do not exist yet.",
+    "apiScopesEmpty": "Tick at least one scope.",
+    "apiPropertiesEmpty": "Choose at least one property, or allow all of them.",
+    "apiFullAccessUnconfirmed": "Type the key's name to confirm full access.",
+    "apiExpiryInvalid": "A key expires within a year, or never.",
+    "apiKeyNotFound": "This key is not there any more.",
+    "apiKeyRevoked": "A revoked key cannot be changed.",
     "staffNoEmail": "This account has no address to write to.",
     "notSignedIn": "You are not signed in. Sign in again.",
     "mailNotSent": "The letter could not be sent.",

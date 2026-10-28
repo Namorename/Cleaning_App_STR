@@ -438,3 +438,15 @@ verify_jwt = false
 # у базы настоящие роль и тенант звонящего
 # (supabase/functions/manage-staff/handler.ts).
 verify_jwt = false
+
+[functions.api]
+# The public API v1 (docs/api-v1.md). An API key is not a Supabase token, so
+# the gateway must let it through; the function hashes the key and asks the
+# database (api_gate) before anything else (supabase/functions/api/handler.ts).
+verify_jwt = false
+
+[functions.api-keys]
+# Issues API keys for the panel. Off for the reason manage-staff gives: a
+# browser preflight carries no Authorization header. The function checks the
+# admin's token itself (supabase/functions/api-keys/handler.ts).
+verify_jwt = false

@@ -19,6 +19,11 @@ vi.mock('../video-settings', async () => {
   const { createElement } = await import('react');
   return { VideoSettings: () => createElement('p', null, 'Пределы видео компании') };
 });
+// The API keys read the database; their own test covers them (features/api-keys).
+vi.mock('@/features/api-keys/api-keys-section', async () => {
+  const { createElement } = await import('react');
+  return { ApiKeysSection: () => createElement('p', null, 'Ключи API компании') };
+});
 // The language writes the profile; its own test covers it. Here it says whose.
 vi.mock('../language-switcher', async () => {
   const { createElement } = await import('react');
@@ -222,5 +227,30 @@ describe('the layout', () => {
     for (const link of within(submenu()).getAllByRole('link')) {
       expect(link).toHaveClass('min-h-11');
     }
+  });
+});
+
+describe('the API section (docs/api-v1.md §11)', () => {
+  const adminView = () => (
+    <SettingsView email="admin.test@example.com" userId={USER} theme="system" onSignOut={vi.fn()} isAdmin />
+  );
+
+  test('a manager has no API section, and its address opens the account', () => {
+    window.history.replaceState(null, '', '/settings?section=api');
+    render(view());
+
+    expect(within(submenu()).queryByRole('link', { name: 'API' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Ключи API компании')).not.toBeInTheDocument();
+    expect(section('Аккаунт')).toBeInTheDocument();
+  });
+
+  test('an admin has it last in the submenu, with the keys in it', () => {
+    window.history.replaceState(null, '', '/settings?section=api');
+    render(adminView());
+
+    const links = within(submenu()).getAllByRole('link');
+    expect(links.at(-1)).toHaveTextContent('API');
+    expect(section('API')).toBeInTheDocument();
+    expect(screen.getByText('Ключи API компании')).toBeInTheDocument();
   });
 });

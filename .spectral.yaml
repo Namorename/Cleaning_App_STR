@@ -1,0 +1,55 @@
+# Lint of the public API's spec (docs/api-v1.md §9): npm run api:lint
+# The OpenAPI rules, and woom's own: every operation names its scope and
+# carries curl, JavaScript and Python samples, every error is problem+json,
+# every POST asks for an Idempotency-Key.
+extends: ["spectral:oas"]
+rules:
+  # OpenAPI 3.1 lets a non-OAuth scheme list role names in a security
+  # requirement (§4.8.30.1); the rule still reads every list as OAuth scopes.
+  # woom-security-scheme below keeps the part of it that matters: the scheme.
+  oas3-operation-security-defined: off
+  woom-security-scheme:
+    description: Every operation is secured by the bearer API key.
+    severity: error
+    given: "$.paths[*][get,post,put,patch,delete].security[*]"
+    then:
+      field: bearerAuth
+      function: defined
+  woom-operation-scope:
+    description: Every operation says which scope it needs (null only for getMe).
+    severity: error
+    given: "$.paths[*][get,post,put,patch,delete]"
+    then:
+      field: x-woom-scope
+      function: defined
+  woom-code-samples:
+    description: Every operation has curl, JavaScript and Python samples.
+    severity: error
+    given: "$.paths[*][get,post,put,patch,delete]"
+    then:
+      field: x-codeSamples
+      function: length
+      functionOptions:
+        min: 3
+  woom-problem-json:
+    description: Every error answer is application/problem+json.
+    severity: error
+    given: "$.paths[*][*].responses[?(@property.match(/^[45]/))].content"
+    then:
+      field: application/problem+json
+      function: truthy
+  woom-idempotency-key:
+    description: Every POST asks for an Idempotency-Key.
+    severity: error
+    given: "$.paths[*].post"
+    then:
+      field: parameters
+      function: schema
+      functionOptions:
+        schema:
+          type: array
+          contains:
+            type: object
+            required: [name]
+            properties:
+              name: { const: Idempotency-Key }
