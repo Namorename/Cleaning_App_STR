@@ -249,6 +249,10 @@ test.each([
   ['problem/[id]/history', 'История задания'],
   ['supply/new', 'Новая заявка'],
   ['supply/[id]', 'Заявка на расходники'],
+  // The knowledge base (step 2): a list, a place's instructions, one article.
+  ['knowledge/index', 'База знаний'],
+  ['knowledge/place/[id]', 'Инструкции объекта'],
+  ['knowledge/article/[id]', 'База знаний'],
 ])('%s has a header titled «%s» and a way back', async (name, title) => {
   // Arrange
   readiness.mockReturnValue({ isReady: true, areFontsLoaded: true });

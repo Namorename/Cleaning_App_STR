@@ -10,6 +10,7 @@ import { Spacing, type Theme } from '@/constants/theme';
 import { useSession } from '@/features/auth/session';
 import { useRole } from '@/features/auth/use-role';
 import { ProblemDispatch } from '@/features/board/problem-dispatch';
+import { PlaceInstructions } from '@/features/knowledge/place-instructions';
 import { capturePhoto, pickPhotoFromGallery } from '@/features/media/capture';
 import { attachFailure } from '@/features/media/failure';
 import { useGalleryAllowed } from '@/features/host/use-host';
@@ -173,6 +174,7 @@ export default function ProblemRoute() {
       notice={notice}
       refreshError={problem.error}
       dispatch={isDispatcher ? <ProblemDispatch problemId={problemId} /> : undefined}
+      instructions={<PlaceInstructions propertyId={problem.data.property_id} />}
     />
   );
 }

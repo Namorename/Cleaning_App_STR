@@ -184,6 +184,26 @@ test('with nothing saved, writes nothing', async () => {
   expect(await AsyncStorage.getItem(QUERY_CACHE_KEY)).toBeNull();
 });
 
+// The knowledge base's articles are long texts in three languages, read with
+// signal only until its offline step (docs/knowledge-base-step2.md): a list
+// that asks not to be saved stays off the disk; every other list is saved.
+test('a list marked not to be saved stays off the disk, and the rest is saved as before', async () => {
+  // Arrange
+  const client = new QueryClient({ defaultOptions: { queries: { gcTime: Infinity } } });
+  await client.fetchQuery({ queryKey: ['tasks', 'mine'], queryFn: () => [] });
+  await client.fetchQuery({
+    queryKey: ['knowledge', 'articles'],
+    queryFn: () => [],
+    meta: { persist: false },
+  });
+
+  // Act
+  const saved = dehydrate(client, persistOptions.dehydrateOptions);
+
+  // Assert
+  expect(saved.queries.map((query) => query.queryKey)).toEqual([['tasks', 'mine']]);
+});
+
 /**
  * The cache lives a day: lists older than that are not worth showing. The
  * queue saved with them is a different matter — TanStack throws an expired

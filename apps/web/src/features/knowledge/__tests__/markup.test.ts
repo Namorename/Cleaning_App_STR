@@ -248,16 +248,16 @@ describe('pickKbText', () => {
     expect(pickKbText(original, translations, 'ru')).toEqual({ ...original, isOriginal: true });
   });
 
-  test('then English', () => {
+  // The owner's decision of 2026-10-17 (step 2): the phone's language if there
+  // is a translation, else the author's — never a third language in between.
+  test('without a translation in her language, the original, not English', () => {
     expect(pickKbText(original, { en: translations.en }, 'cs')).toEqual({
-      language: 'en',
-      title: 'Boiler',
-      body: 'In the hall.',
-      isOriginal: false,
+      ...original,
+      isOriginal: true,
     });
   });
 
-  test('then the original', () => {
+  test('the original with no translation at all', () => {
     expect(pickKbText(original, {}, 'cs')).toEqual({ ...original, isOriginal: true });
   });
 

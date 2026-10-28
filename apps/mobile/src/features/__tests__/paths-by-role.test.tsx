@@ -43,6 +43,16 @@ import {
 let mockRole = 'head_tech';
 let mockUserId = HEAD_TECH;
 
+// The place's instructions are a block of their own, with their own reads and
+// tests (features/knowledge); here it only says which place it was given.
+jest.mock('@/features/knowledge/place-instructions', () => {
+  const { Text } = jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    PlaceInstructions: ({ propertyId }: { propertyId: number | null }) => (
+      <Text>{`instructions of ${String(propertyId)}`}</Text>
+    ),
+  };
+});
 jest.mock('expo-router', () => ({
   router: { push: jest.fn() },
   useLocalSearchParams: () => ({ id: 'd1e2f3a4-1111-4111-8111-d1e2f3a40001' }),
