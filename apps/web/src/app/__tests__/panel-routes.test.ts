@@ -24,6 +24,7 @@ const DECIDED = [
   'dashboard',
   'knowledge',
   'problems',
+  'reviews',
   'settings',
   'supplies',
   'tasks',
