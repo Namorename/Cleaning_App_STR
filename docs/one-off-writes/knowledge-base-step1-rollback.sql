@@ -1,4 +1,4 @@
--- Rollback of 20261017100000_knowledge_base (docs/knowledge-base-step1.md, «Откат»).
+-- Rollback of 20261029100000_knowledge_base (docs/knowledge-base-step1.md, «Откат»).
 -- A WRITE to the cloud: only on the owner's word, never in 03:00–04:40 UTC.
 --
 -- Order (the doc says it in full):
@@ -9,7 +9,7 @@
 --      (the doc gives the read that does it) — this file DROPS them;
 --   3. this file, one statement:
 --        npx supabase db query --linked -f docs/one-off-writes/knowledge-base-step1-rollback.sql
---   4. the history: npx supabase migration repair --status reverted 20261017100000 --linked
+--   4. the history: npx supabase migration repair --status reverted 20261029100000 --linked
 --   5. the probe: node scripts/cloud-read.mjs docs/rollout/postpush_knowledge_base.sql —
 --      every label empty or false, the head back where it was.
 --

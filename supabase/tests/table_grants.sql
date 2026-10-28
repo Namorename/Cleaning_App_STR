@@ -61,7 +61,7 @@ insert into wanted values
   ('checklist_items',      'SELECT'),
   ('task_media',           'SELECT'),
   ('problems',             'SELECT'),
-  -- Guest reviews and what was found in them (20261017110000): the jobs
+  -- Guest reviews and what was found in them (20261029110000): the jobs
   -- write through ingest_guest_reviews and apply_review_findings, the office
   -- through approve/reject/add_review_finding and update_review_settings.
   ('guest_reviews',        'SELECT'),
@@ -73,7 +73,7 @@ insert into wanted values
   -- The history of a cleaning (20261015100000): triggers write it, the
   -- manager reads it, nobody edits it.
   ('task_events',          'SELECT'),
-  -- The knowledge base (20261017100000): the managers and the head
+  -- The knowledge base (20261029100000): the managers and the head
   -- technician write through save_kb_article, set_kb_article_status and
   -- restore_kb_revision; the versions are kept by triggers.
   ('kb_articles',             'SELECT'),

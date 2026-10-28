@@ -4,7 +4,7 @@ import type { TFunction } from 'i18next';
  * Tasks from guest reviews on the phone (docs/reviews-to-tasks.md §2.7, §4.5),
  * behind one switch.
  *
- * Off until migration 20261017110000 is in the cloud: a select of a column the
+ * Off until migration 20261029110000 is in the cloud: a select of a column the
  * server does not have answers 42703 and empties the screen, so while this is
  * false the phone asks for nothing new and shows nothing new. The OTA that
  * follows the migration turns it on; review_settings.tasks_enabled goes on

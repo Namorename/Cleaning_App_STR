@@ -1,4 +1,4 @@
--- Rollback of 20261017110000_reviews_to_tasks (docs/reviews-to-tasks.md, §7 «Откат»).
+-- Rollback of 20261029110000_reviews_to_tasks (docs/reviews-to-tasks.md, §7 «Откат»).
 -- A WRITE to the cloud: only on the owner's word, never in 03:00–04:40 UTC.
 -- One file for the one migration of the feature (all of its steps).
 --
@@ -13,7 +13,7 @@
 --        wait until no run of sync-reviews / classify-reviews is in flight;
 --   3. this file, one statement:
 --        npx supabase db query --linked -f docs/one-off-writes/reviews-to-tasks-rollback.sql
---   4. the history: npx supabase migration repair --status reverted 20261017110000 --linked
+--   4. the history: npx supabase migration repair --status reverted 20261029110000 --linked
 --   5. the Edge Functions sync-reviews and classify-reviews: delete them from
 --      the dashboard (nothing calls them once the cron jobs are gone);
 --   6. the probe: node scripts/cloud-read.mjs with the checks of the design's

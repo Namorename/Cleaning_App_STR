@@ -8,9 +8,10 @@
 -- reads them, only a manager writes them, and the old panel's call leaves
 -- them alone. add_task_media holds a video to them: from the gallery only
 -- where the company opened the gallery (20261010100000),
--- no larger than the company allows, no longer than the step or the company
--- allows with a small tolerance — and a phone on 1.1.0, which sends exactly
--- today's arguments, is held by the new rules without changing anything.
+-- no larger than the company allows, no longer than the company allows with
+-- a small tolerance, whatever the step copied (20261023100000) — and a
+-- phone on 1.1.0, which sends exactly today's arguments, is held by the new
+-- rules without changing anything.
 -- Photos are as they were.
 --
 -- Fixture ids live in the 9000350xx range and under b35….
@@ -205,10 +206,11 @@ select pg_temp.check('nor one longer than the company allows',
   pg_temp.video(4, 3, 30000000, 123), 'serverErrors.videoTooLong {"limit": 120}');
 select pg_temp.check('but a second over is the phone''s timer, not a longer video',
   pg_temp.video(5, 3, 30000000, 121.5), 'no refusal');
-select pg_temp.check('a step''s own shorter length still holds',
-  pg_temp.video(6, 10, 5000000, 33), 'serverErrors.videoTooLong {"limit": 30}');
-select pg_temp.check('with the same tolerance',
-  pg_temp.video(7, 10, 5000000, 31), 'no refusal');
+-- 20261023100000: a step's length is the copy it took of the process at the
+-- start and holds nothing; the company's number of the moment does
+-- (video_limits_live.sql).
+select pg_temp.check('a step''s own shorter length no longer holds',
+  pg_temp.video(6, 10, 5000000, 100), 'no refusal');
 select pg_temp.check('a step asking for more than the company allows gets the company''s',
   pg_temp.video(8, 11, 30000000, 150), 'serverErrors.videoTooLong {"limit": 120}');
 -- With the gallery closed, a build that does not say where a file came from

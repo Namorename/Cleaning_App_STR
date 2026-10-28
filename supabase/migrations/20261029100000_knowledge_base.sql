@@ -97,7 +97,7 @@ create table public.kb_articles (
 );
 
 comment on table public.kb_articles is
-  'Knowledge base articles (20261017100000): the original text in its author''s language, the status and where it shows. Written through save_kb_article, set_kb_article_status and restore_kb_revision only.';
+  'Knowledge base articles (20261029100000): the original text in its author''s language, the status and where it shows. Written through save_kb_article, set_kb_article_status and restore_kb_revision only.';
 comment on column public.kb_articles.rev_stamp is
   'Internal: the write (transaction and statement) that made the current version; one write is one version.';
 
@@ -119,7 +119,7 @@ create table public.kb_article_targets (
 create index kb_article_targets_property_idx on public.kb_article_targets (property_id);
 
 comment on table public.kb_article_targets is
-  'The places of an article whose scope is a building or chosen places. An article on a house shows in its rooms and parts (20261017100000).';
+  'The places of an article whose scope is a building or chosen places. An article on a house shows in its rooms and parts (20261029100000).';
 
 create table public.kb_article_translations (
   article_id  uuid not null,
@@ -133,7 +133,7 @@ create table public.kb_article_translations (
 );
 
 comment on table public.kb_article_translations is
-  'An article in a language other than its original''s; each optional (20261017100000).';
+  'An article in a language other than its original''s; each optional (20261029100000).';
 
 create table public.kb_article_revisions (
   article_id    uuid not null,
@@ -151,7 +151,7 @@ create table public.kb_article_revisions (
 );
 
 comment on table public.kb_article_revisions is
-  'The text of an article after each saved change, with its translations; kept by triggers, read by the office (20261017100000).';
+  'The text of an article after each saved change, with its translations; kept by triggers, read by the office (20261029100000).';
 
 -- ---------- versions ----------
 
@@ -181,7 +181,7 @@ as $$
 $$;
 
 comment on function public.kb_snapshot(uuid) is
-  'Writes the article''s current version into kb_article_revisions (20261017100000). Called by the triggers only.';
+  'Writes the article''s current version into kb_article_revisions (20261029100000). Called by the triggers only.';
 
 -- Which version a write of the article is. The text changed, or a
 -- translation asked for a version by stamping the article: the next number,
@@ -327,7 +327,7 @@ as $$
 $$;
 
 comment on function public.kb_reader_property_ids() is
-  'Places whose knowledge base articles a cleaner (by link, or by the work she holds now on a place not archived) or a technician (by the work he holds now) reads, with the house above, and the rooms under a house of hers (decision 5 of 2026-10-16 and decision 1 of 2026-10-17, 20261017100000).';
+  'Places whose knowledge base articles a cleaner (by link, or by the work she holds now on a place not archived) or a technician (by the work he holds now) reads, with the house above, and the rooms under a house of hers (decision 5 of 2026-10-16 and decision 1 of 2026-10-17, 20261029100000).';
 
 -- The published articles a cleaner or a technician reads: the company's, and
 -- those of her places.
@@ -353,7 +353,7 @@ as $$
 $$;
 
 comment on function public.kb_staff_article_ids() is
-  'Published articles a cleaner or a technician reads: the whole company''s and those of kb_reader_property_ids() (20261017100000).';
+  'Published articles a cleaner or a technician reads: the whole company''s and those of kb_reader_property_ids() (20261029100000).';
 
 -- ---------- rights ----------
 
@@ -447,7 +447,7 @@ end;
 $$;
 
 comment on function public.kb_article_for_writer(uuid) is
-  'The caller''s company''s article, locked for update, for a manager or the head technician; refuses anybody else (20261017100000). Called by the write RPCs only.';
+  'The caller''s company''s article, locked for update, for a manager or the head technician; refuses anybody else (20261029100000). Called by the write RPCs only.';
 
 -- The text and its translations a version is made of, checked as a save
 -- checks them.
@@ -511,7 +511,7 @@ end;
 $$;
 
 comment on function public.kb_checked_translations(public.app_language, jsonb) is
-  'The translations of a save, checked and trimmed: {"cs": {"title", "body"}, …}; an empty one dropped (20261017100000). Called by the write RPCs only.';
+  'The translations of a save, checked and trimmed: {"cs": {"title", "body"}, …}; an empty one dropped (20261029100000). Called by the write RPCs only.';
 
 -- Writes the article's translations as given: the others go, the changed
 -- ones are rewritten, the same ones are left alone (no version for them).
@@ -533,7 +533,7 @@ as $$
 $$;
 
 comment on function public.kb_write_translations(uuid, uuid, jsonb) is
-  'Replaces an article''s translations with the checked set (20261017100000). Called by the write RPCs only.';
+  'Replaces an article''s translations with the checked set (20261029100000). Called by the write RPCs only.';
 
 -- What a published article must have, asked on publishing and on every save
 -- while it is out.
@@ -556,7 +556,7 @@ end;
 $$;
 
 comment on function public.kb_assert_publishable(text, public.kb_scope, integer) is
-  'Refuses a published article without a text, or one that names no place where it must (20261017100000). Called by the write RPCs only.';
+  'Refuses a published article without a text, or one that names no place where it must (20261029100000). Called by the write RPCs only.';
 
 create function public.save_kb_article(
   p_id            uuid,
@@ -696,7 +696,7 @@ end;
 $$;
 
 comment on function public.save_kb_article(uuid, public.app_language, text, text, jsonb, public.kb_scope, bigint[], timestamptz) is
-  'Creates (as a draft) or rewrites a knowledge base article: its original, translations and places. A manager or the head technician; idempotent by the id the panel minted; p_expected_updated_at null asks nothing (20261017100000).';
+  'Creates (as a draft) or rewrites a knowledge base article: its original, translations and places. A manager or the head technician; idempotent by the id the panel minted; p_expected_updated_at null asks nothing (20261029100000).';
 
 create function public.set_kb_article_status(p_id uuid, p_status public.kb_status)
 returns public.kb_articles
@@ -735,7 +735,7 @@ end;
 $$;
 
 comment on function public.set_kb_article_status(uuid, public.kb_status) is
-  'Publishes, takes back to a draft or archives a knowledge base article; a manager or the head technician (20261017100000).';
+  'Publishes, takes back to a draft or archives a knowledge base article; a manager or the head technician (20261029100000).';
 
 create function public.restore_kb_revision(
   p_article_id    uuid,
@@ -788,7 +788,7 @@ end;
 $$;
 
 comment on function public.restore_kb_revision(uuid, integer, timestamptz) is
-  'Brings a version of a knowledge base article back as its newest version, text and translations; a manager or the head technician; p_expected_updated_at null asks nothing (20261017100000).';
+  'Brings a version of a knowledge base article back as its newest version, text and translations; a manager or the head technician; p_expected_updated_at null asks nothing (20261029100000).';
 
 -- ---------- who may call what ----------
 

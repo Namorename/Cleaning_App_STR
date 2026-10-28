@@ -22,7 +22,7 @@ interface RevisionHistoryProps {
 /**
  * Every saved version of the text, newest first, with who and when. A version
  * is brought back as the newest one; the versions in between stay
- * (restore_kb_revision, 20261017100000).
+ * (restore_kb_revision, 20261029100000).
  */
 export function RevisionHistory({
   articleId,
