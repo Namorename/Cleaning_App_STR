@@ -1,0 +1,3393 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "woom API",
+    "version": "1.0.0",
+    "summary": "Cleanings, tasks, properties, staff and bookings of a woom company, for scripts and AI agents.",
+    "contact": {
+      "name": "woom"
+    },
+    "description": "The woom API gives your scripts, AI agents and integrations the same view of\nthe work that the woom panel has: properties, cleanings, tasks reported by\nthe team, staff, bookings and the photos and videos of a cleaning — and lets\nthem create tasks and assign people through the same rules the panel uses.\n\nEvery key belongs to one company and sees that company only. What a key may\ndo is chosen when it is made, scope by scope.\n\n**Words.** *Tasks* are what the team reports (a broken tap, missing towels).\n*Cleanings* are the jobs on a property: cleanings, inspections, mid-stay\ncleanings and the repair work done for a task (`type: maintenance`).\n\n## Quick start (5 minutes)\n\n1. An **admin** opens **Settings → API** in the woom panel, presses\n   **Create key**, keeps the **Read only** preset and copies the key. It is\n   shown once: keep it in a password manager or a secret store, never in code.\n2. Put it in your environment:\n\n   ```bash\n   export WOOM_API_KEY='woom_…'\n   export WOOM_API='https://<project-ref>.supabase.co/functions/v1/api'\n   ```\n\n3. Ask who you are:\n\n   ```bash\n   curl -s \"$WOOM_API/v1/me\" -H \"Authorization: Bearer $WOOM_API_KEY\"\n   ```\n\n   The answer names the key, its scopes and its company.\n4. List next week's cleanings:\n\n   ```bash\n   curl -s \"$WOOM_API/v1/cleanings?date_from=2026-11-02&date_to=2026-11-08\" \\\n     -H \"Authorization: Bearer $WOOM_API_KEY\"\n   ```\n\n5. With an **Operator** key, create a task for a technician. Every POST needs\n   an `Idempotency-Key`: repeat a request after a lost answer with the same\n   key and you get the first answer back, not a second task.\n\n   ```bash\n   curl -s -X POST \"$WOOM_API/v1/tasks\" \\\n     -H \"Authorization: Bearer $WOOM_API_KEY\" \\\n     -H \"Content-Type: application/json\" \\\n     -H \"Idempotency-Key: $(uuidgen)\" \\\n     -d '{\"title\": \"Dripping tap in the bathroom\", \"property_id\": 123456, \"priority\": \"high\"}'\n   ```\n\n## Authentication\n\nSend the key in the `Authorization` header, and only there:\n`Authorization: Bearer woom_…`. A key in the URL (`?key=`, `?api_key=`,\n`?access_token=`, `?token=`) is refused with `400 key-in-url` — URLs end up\nin logs. Keys are stored by woom only as a keyed hash; nobody, woom included,\ncan show a key again. Lost a key? Revoke it and make a new one.\n\nA key stops working when it is revoked, when it expires, and while the admin\nwho made it is no longer an active admin of the company (`key-suspended`; it\nworks again once she is). Writes are recorded in woom's journals in her name.\n\n## Scopes\n\nEach operation needs one scope; the table of operations below names it, and\nso does each operation's description. A scope is *normal* or *sensitive*:\nsensitive scopes carry personal data of staff or the addresses of\nproperties, are never part of the **Read only** or **Operator** presets, and\nare switched on by hand.\n\n| Scope | Group | Action | Level | Status | Used by |\n| --- | --- | --- | --- | --- | --- |\n| `properties:read` | properties | read | normal | available | `listProperties`, `getProperty` |\n| `properties:read_address` | properties | read | **sensitive** | available | `Property.address` |\n| `properties:write` | properties | write | **sensitive** | reserved | — |\n| `cleanings:read` | cleanings | read | normal | available | `listCleanings`, `getCleaning` |\n| `cleanings:assign` | cleanings | write | normal | available | `assignCleaning` |\n| `cleanings:create` | cleanings | write | normal | reserved | — |\n| `cleanings:cancel` | cleanings | write | normal | reserved | — |\n| `cleanings:read_steps` | cleanings | read | normal | reserved | — |\n| `tasks:read` | tasks | read | normal | available | `listTasks`, `getTask` |\n| `tasks:create` | tasks | write | normal | available | `createTask` |\n| `tasks:assign` | tasks | write | normal | available | `assignTask` |\n| `tasks:update` | tasks | write | normal | reserved | — |\n| `tasks:resolve` | tasks | write | normal | reserved | — |\n| `tasks:cancel` | tasks | write | normal | reserved | — |\n| `staff:read` | staff | read | normal | available | `listStaff`, `getStaffMember` |\n| `staff:read_names` | staff | read | **sensitive** | available | `StaffMember.full_name` |\n| `staff:write` | staff | write | **sensitive** | reserved | — |\n| `bookings:read` | bookings | read | normal | available | `listBookings`, `getBooking` |\n| `bookings:read_prices` | bookings | read | **sensitive** | reserved | — |\n| `media:read` | media | read | normal | available | `listCleaningMedia`, `listTaskMedia` |\n| `media:download` | media | read | **sensitive** | reserved | — |\n| `settings:read` | settings | read | normal | available | `getSettings` |\n| `settings:write` | settings | write | **sensitive** | reserved | — |\n| `checklists:read` | checklists | read | normal | reserved | — |\n| `checklists:write` | checklists | write | **sensitive** | reserved | — |\n| `supplies:read` | supplies | read | normal | reserved | — |\n| `supplies:write` | supplies | write | normal | reserved | — |\n| `analytics:read` | analytics | read | normal | reserved | — |\n| `chat:read` | chat | read | **sensitive** | reserved | — |\n| `chat:write` | chat | write | **sensitive** | reserved | — |\n| `webhooks:manage` | webhooks | write | **sensitive** | reserved | — |\n\nReserved scopes are listed so that integrations can plan for them; a key\ncannot hold them until their operations exist.\n\n## Presets\n\nA key keeps its preset, not a list: the preset is worked out again at every\nrequest, so a scope added to the API later joins every preset whose rule it\nmeets.\n\n| Preset | Gives | Today | Scopes added later |\n| --- | --- | --- | --- |\n| **Read only** (`read_only`) | every *normal* scope that reads | `bookings:read`, `cleanings:read`, `media:read`, `properties:read`, `settings:read`, `staff:read`, `tasks:read` | a new normal read scope joins it; sensitive and writing scopes never do |\n| **Operator** (`operator`) | Read only, plus creating and assigning tasks and cleanings | `bookings:read`, `cleanings:assign`, `cleanings:read`, `media:read`, `properties:read`, `settings:read`, `staff:read`, `tasks:assign`, `tasks:create`, `tasks:read` | new normal read scopes and new scopes marked for operators join it |\n| **Full access** (`full`) | every available scope, sensitive ones included — treat the key like an admin password | `bookings:read`, `cleanings:assign`, `cleanings:read`, `media:read`, `properties:read`, `properties:read_address`, `settings:read`, `staff:read`, `staff:read_names`, `tasks:assign`, `tasks:create`, `tasks:read` | every scope added later joins it; the forbidden list never does |\n| **Custom** (`custom`) | exactly the scopes ticked | — | nothing joins it by itself |\n\n## What the API never does\n\nThese rights cannot be given to any key, **Full access** included.\n\n| Never granted | Why |\n| --- | --- |\n| `api_keys:manage` | A key that issues keys outlives its own revocation: one leak would become permanent. |\n| `staff:manage_privileged` | Credentials and roles of admins and managers: a key could make itself an admin or take over the owner's account. |\n| `staff:read_contacts` | E-mails and phone numbers of staff are personal data; the API identifies people by id. |\n| `guests:read_personal` | Guest names, contacts and messages are personal data; bookings are served without them. |\n| `access_codes:read` | Door, lockbox and keypad codes give physical access to a property. |\n| `integrations:read_secrets` | Secrets and tokens of Hostaway, webhooks and push devices are someone else's credentials. |\n| `hostaway:write` | Hostaway is the source of truth; the API only reads woom's copy of it. |\n| `data:destroy` | Irreversible deletion cannot be undone if a key leaks; v1 only cancels and archives. |\n| `security:write` | A key must not weaken the security settings that restrict it. |\n| `tenants:cross` | Each company sees only its own data; the company always comes from the key. |\n\nThe answers never carry guests' names, contacts or messages, booking\nprices, staff e-mails or phone numbers, door codes (a code written into a\nproperty's name is masked, and `name_masked` says so), free-text notes, or\nlinks to media files.\n\n## Operations\n\n| Method | Path | Scope | What it does |\n| --- | --- | --- | --- |\n| GET | `/v1/me` | any working key | The key and its company |\n| GET | `/v1/properties` | `properties:read` | List properties |\n| GET | `/v1/properties/{id}` | `properties:read` | Get a property |\n| GET | `/v1/cleanings` | `cleanings:read` | List cleanings |\n| GET | `/v1/cleanings/{id}` | `cleanings:read` | Get a cleaning |\n| POST | `/v1/cleanings/{id}/assign` | `cleanings:assign` | Assign a cleaning |\n| GET | `/v1/cleanings/{id}/media` | `media:read` | List a cleaning's media |\n| GET | `/v1/tasks` | `tasks:read` | List tasks |\n| POST | `/v1/tasks` | `tasks:create` | Create a task |\n| GET | `/v1/tasks/{id}` | `tasks:read` | Get a task |\n| POST | `/v1/tasks/{id}/assign` | `tasks:assign` | Assign a task |\n| GET | `/v1/tasks/{id}/media` | `media:read` | List a task's media |\n| GET | `/v1/staff` | `staff:read` | List staff |\n| GET | `/v1/staff/{id}` | `staff:read` | Get a member of staff |\n| GET | `/v1/bookings` | `bookings:read` | List bookings |\n| GET | `/v1/bookings/{id}` | `bookings:read` | Get a booking |\n| GET | `/v1/settings` | `settings:read` | Get the company's settings |\n\n## Errors\n\nErrors are [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem\ndetails, `Content-Type: application/problem+json`:\n\n```json\n{\n  \"type\": \"urn:woom:problem:insufficient-scope\",\n  \"title\": \"The key lacks the scope this operation needs\",\n  \"status\": 403,\n  \"code\": \"insufficient-scope\",\n  \"detail\": \"This operation needs cleanings:read\",\n  \"required_scope\": \"cleanings:read\",\n  \"request_id\": \"1b4e…\"\n}\n```\n\nSwitch on `code`. `reason` and `params` come with a refusal of woom's\nbusiness rules (`rejected`, `conflict`): `reason` is a stable key such as\n`serverErrors.taskAssigneeInvalid`. `errors` lists the fields of an\n`invalid-request`. Quote `request_id` when you write to us.\n\n| Status | `code` | When |\n| --- | --- | --- |\n| 400 | `invalid-request` | a parameter or field has the wrong form, or is unknown |\n| 400 | `invalid-cursor` | the cursor is damaged or belongs to other filters |\n| 400 | `key-in-url` | a key was sent in the URL |\n| 400 | `idempotency-key-required` | a POST without `Idempotency-Key` |\n| 401 | `missing-key`, `invalid-key`, `key-expired`, `key-revoked`, `key-suspended` | the key cannot be used |\n| 403 | `insufficient-scope` | the key lacks the scope named in `required_scope` |\n| 403 | `property-not-allowed` | the key is limited to other properties |\n| 404 | `not-found` | no such object in your company (or in the key's properties) |\n| 405 | `method-not-allowed` | see the `Allow` header |\n| 409 | `conflict` | the object's state does not allow it now (a closed cleaning, a resolved task) |\n| 413 | `payload-too-large` | the body is over 16 KB |\n| 415 | `unsupported-media-type` | a POST body that is not `application/json` |\n| 422 | `rejected` | a business rule refused it (`reason`, `params`) |\n| 422 | `idempotency-key-reused` | the same `Idempotency-Key` with another request |\n| 429 | `rate-limited` | slow down; see `Retry-After` |\n| 500 | `internal` | our fault; nothing about it is in the answer |\n\n## Rate limits\n\n120 requests a minute per key. Every answer says where you stand:\n\n```\nRateLimit-Policy: \"default\";q=120;w=60\nRateLimit: \"default\";r=117;t=42\nX-RateLimit-Limit: 120\nX-RateLimit-Remaining: 117\nX-RateLimit-Reset: 42\n```\n\n`r` is what is left, `t` the seconds until the window resets. Over the\nlimit: `429` with `Retry-After`. After 20 failed authentications from one\naddress in ten minutes, that address gets `429` until the ten minutes pass.\n\n## Conventions\n\n- **Timestamps** are ISO 8601 in UTC with `Z`, to the second:\n  `2026-10-28T09:15:00Z`. Parameters that take a timestamp accept any zone.\n- **Days** (a cleaning's day, arrival, departure) are plain dates,\n  `YYYY-MM-DD`, in the property's own time zone (`timezone`). Hours of a\n  cleaning's window are `HH:MM`, local to the property.\n- **Lists** answer `{\"data\": [...], \"next_cursor\": \"…\"}`. Pass `next_cursor`\n  back as `cursor`, with the same filters, until it is `null`. `limit` is 1\n  to 200, 50 by default. The order is fixed per list and stated on it.\n- **Filters** that take several values take them comma-separated:\n  `status=assigned,accepted`. An unknown parameter is an error, not ignored.\n- **Idempotency.** Every POST needs `Idempotency-Key` (1 to 255 visible ASCII\n  characters; a UUID is ideal). The first answer is kept for 24 hours and\n  replayed, with `Idempotent-Replayed: true`, to a repeat with the same body;\n  the same key with another body is `422 idempotency-key-reused`. A request\n  that failed is not kept: fix it and send it again with the same key.\n- **Unknown fields and values.** New fields, operations and values of an\n  enumeration may appear in v1 at any time. Ignore what you do not know.\n\n## Versions and changes\n\nThe version is in the path: `/v1`. Within v1 changes only add — fields,\noperations, optional parameters, enumeration values, scopes. Anything that\nwould break a client (a field renamed or removed, a type or meaning changed,\na parameter made required) goes to `/v2`; v1 then lives on for at least\ntwelve months, and its answers carry `Deprecation` and `Sunset` headers\nwith the date and a `Link` to the migration notes.\n\n### Changelog\n\n- **1.0.0** (2026-10-28) — the first version: properties, cleanings, tasks,\n  staff, bookings, media metadata and settings to read; creating a task and\n  assigning a task or a cleaning to write.\n"
+  },
+  "servers": [
+    {
+      "url": "https://{project_ref}.supabase.co/functions/v1/api",
+      "description": "Production",
+      "variables": {
+        "project_ref": {
+          "default": "your-project-ref",
+          "description": "The woom project's reference; the /developers page fills it in."
+        }
+      }
+    },
+    {
+      "url": "http://127.0.0.1:8787",
+      "description": "A local stand (scripts/api-stand-server.ts)"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Key",
+      "description": "The key itself."
+    },
+    {
+      "name": "Properties",
+      "description": "Listings and the rooms they hold, with codes masked out of their names."
+    },
+    {
+      "name": "Cleanings",
+      "description": "Cleanings, inspections, mid-stay cleanings and repair work."
+    },
+    {
+      "name": "Tasks",
+      "description": "What the team reports, and the repair work done for it."
+    },
+    {
+      "name": "Staff",
+      "description": "The people of the company, by id and role."
+    },
+    {
+      "name": "Bookings",
+      "description": "Bookings as woom copied them from the channel manager, without the guest."
+    },
+    {
+      "name": "Media",
+      "description": "What was photographed and filmed, as metadata."
+    },
+    {
+      "name": "Settings",
+      "description": "The company's settings."
+    }
+  ],
+  "paths": {
+    "/v1/me": {
+      "get": {
+        "operationId": "getMe",
+        "tags": [
+          "Key"
+        ],
+        "summary": "The key and its company",
+        "description": "**Scope:** none — any working key\n\nWhat this key is, what it may do now and which company it belongs to.",
+        "x-woom-scope": null,
+        "responses": {
+          "200": {
+            "description": "The key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Me"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Shell",
+            "label": "curl",
+            "source": "# Needs: any working key\ncurl -s \"$WOOM_API/v1/me\" \\\n  -H \"Authorization: Bearer $WOOM_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "label": "JavaScript",
+            "source": "// Needs: any working key\nconst response = await fetch(`${process.env.WOOM_API}/v1/me`, {\n  headers: {\n    Authorization: `Bearer ${process.env.WOOM_API_KEY}`,\n  },\n});\nconst answer = await response.json();\nif (!response.ok) {\n  throw new Error(`${answer.code}: ${answer.title}`);\n}\nconsole.log(answer.data);"
+          },
+          {
+            "lang": "Python",
+            "label": "Python",
+            "source": "# Needs: any working key\nimport os\nimport requests\n\nresponse = requests.get(\n    f\"{os.environ['WOOM_API']}/v1/me\",\n    headers={\n        \"Authorization\": f\"Bearer {os.environ['WOOM_API_KEY']}\",\n    },\n    timeout=30,\n)\nanswer = response.json()\nif not response.ok:\n    raise RuntimeError(f\"{answer['code']}: {answer['title']}\")\nprint(answer[\"data\"])"
+          }
+        ]
+      }
+    },
+    "/v1/properties": {
+      "get": {
+        "operationId": "listProperties",
+        "tags": [
+          "Properties"
+        ],
+        "summary": "List properties",
+        "description": "**Scope:** `properties:read`\n\nListings and their rooms, ordered by `id`. A key limited to some properties sees those and their rooms.",
+        "x-woom-scope": "properties:read",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "One or more of `active`, `maintenance`, `archived`, comma-separated.",
+            "schema": {
+              "type": "string",
+              "example": "active"
+            }
+          },
+          {
+            "name": "parent_id",
+            "in": "query",
+            "description": "The rooms of this listing.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "$ref": "#/components/parameters/UpdatedSince"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of properties.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "next_cursor"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Property"
+                      }
+                    },
+                    "next_cursor": {
+                      "$ref": "#/components/schemas/NextCursor"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": [
+              "properties:read"
+            ]
+          }
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Shell",
+            "label": "curl",
+            "source": "# Needs: properties:read\ncurl -s \"$WOOM_API/v1/properties?status=active\" \\\n  -H \"Authorization: Bearer $WOOM_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "label": "JavaScript",
+            "source": "// Needs: properties:read\nconst response = await fetch(`${process.env.WOOM_API}/v1/properties?status=active`, {\n  headers: {\n    Authorization: `Bearer ${process.env.WOOM_API_KEY}`,\n  },\n});\nconst answer = await response.json();\nif (!response.ok) {\n  throw new Error(`${answer.code}: ${answer.title}`);\n}\nconsole.log(answer.data);"
+          },
+          {
+            "lang": "Python",
+            "label": "Python",
+            "source": "# Needs: properties:read\nimport os\nimport requests\n\nresponse = requests.get(\n    f\"{os.environ['WOOM_API']}/v1/properties?status=active\",\n    headers={\n        \"Authorization\": f\"Bearer {os.environ['WOOM_API_KEY']}\",\n    },\n    timeout=30,\n)\nanswer = response.json()\nif not response.ok:\n    raise RuntimeError(f\"{answer['code']}: {answer['title']}\")\nprint(answer[\"data\"])"
+          }
+        ]
+      }
+    },
+    "/v1/properties/{id}": {
+      "get": {
+        "operationId": "getProperty",
+        "tags": [
+          "Properties"
+        ],
+        "summary": "Get a property",
+        "x-woom-scope": "properties:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The property's id.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The property.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Property"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": [
+              "properties:read"
+            ]
+          }
+        ],
+        "description": "**Scope:** `properties:read`",
+        "x-codeSamples": [
+          {
+            "lang": "Shell",
+            "label": "curl",
+            "source": "# Needs: properties:read\ncurl -s \"$WOOM_API/v1/properties/123456\" \\\n  -H \"Authorization: Bearer $WOOM_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "label": "JavaScript",
+            "source": "// Needs: properties:read\nconst response = await fetch(`${process.env.WOOM_API}/v1/properties/123456`, {\n  headers: {\n    Authorization: `Bearer ${process.env.WOOM_API_KEY}`,\n  },\n});\nconst answer = await response.json();\nif (!response.ok) {\n  throw new Error(`${answer.code}: ${answer.title}`);\n}\nconsole.log(answer.data);"
+          },
+          {
+            "lang": "Python",
+            "label": "Python",
+            "source": "# Needs: properties:read\nimport os\nimport requests\n\nresponse = requests.get(\n    f\"{os.environ['WOOM_API']}/v1/properties/123456\",\n    headers={\n        \"Authorization\": f\"Bearer {os.environ['WOOM_API_KEY']}\",\n    },\n    timeout=30,\n)\nanswer = response.json()\nif not response.ok:\n    raise RuntimeError(f\"{answer['code']}: {answer['title']}\")\nprint(answer[\"data\"])"
+          }
+        ]
+      }
+    },
+    "/v1/cleanings": {
+      "get": {
+        "operationId": "listCleanings",
+        "tags": [
+          "Cleanings"
+        ],
+        "summary": "List cleanings",
+        "description": "**Scope:** `cleanings:read`\n\nCleanings, inspections, mid-stay cleanings and repair work, ordered by `scheduled_date`, then `id`.",
+        "x-woom-scope": "cleanings:read",
+        "parameters": [
+          {
+            "name": "date_from",
+            "in": "query",
+            "description": "The first day, inclusive (the cleaning's `scheduled_date`).",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "description": "The last day, inclusive; at most 366 days after `date_from`.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "property_id",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "assignee_id",
+            "in": "query",
+            "description": "The person doing it.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "One or more of `unassigned`, `assigned`, `accepted`, `in_progress`, `paused`, `blocked`, `done`, `cancelled`, `expired`.",
+            "schema": {
+              "type": "string",
+              "example": "assigned,accepted"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "One or more of `cleaning`, `maintenance`, `inspection`, `midstay`.",
+            "schema": {
+              "type": "string",
+              "example": "cleaning"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/UpdatedSince"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of cleanings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "next_cursor"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Cleaning"
+                      }
+                    },
+                    "next_cursor": {
+                      "$ref": "#/components/schemas/NextCursor"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": [
+              "cleanings:read"
+            ]
+          }
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Shell",
+            "label": "curl",
+            "source": "# Needs: cleanings:read\ncurl -s \"$WOOM_API/v1/cleanings?status=assigned,accepted&type=cleaning\" \\\n  -H \"Authorization: Bearer $WOOM_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "label": "JavaScript",
+            "source": "// Needs: cleanings:read\nconst response = await fetch(`${process.env.WOOM_API}/v1/cleanings?status=assigned,accepted&type=cleaning`, {\n  headers: {\n    Authorization: `Bearer ${process.env.WOOM_API_KEY}`,\n  },\n});\nconst answer = await response.json();\nif (!response.ok) {\n  throw new Error(`${answer.code}: ${answer.title}`);\n}\nconsole.log(answer.data);"
+          },
+          {
+            "lang": "Python",
+            "label": "Python",
+            "source": "# Needs: cleanings:read\nimport os\nimport requests\n\nresponse = requests.get(\n    f\"{os.environ['WOOM_API']}/v1/cleanings?status=assigned,accepted&type=cleaning\",\n    headers={\n        \"Authorization\": f\"Bearer {os.environ['WOOM_API_KEY']}\",\n    },\n    timeout=30,\n)\nanswer = response.json()\nif not response.ok:\n    raise RuntimeError(f\"{answer['code']}: {answer['title']}\")\nprint(answer[\"data\"])"
+          }
+        ]
+      }
+    },
+    "/v1/cleanings/{id}": {
+      "get": {
+        "operationId": "getCleaning",
+        "tags": [
+          "Cleanings"
+        ],
+        "summary": "Get a cleaning",
+        "x-woom-scope": "cleanings:read",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/UuidId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The cleaning.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Cleaning"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": [
+              "cleanings:read"
+            ]
+          }
+        ],
+        "description": "**Scope:** `cleanings:read`",
+        "x-codeSamples": [
+          {
+            "lang": "Shell",
+            "label": "curl",
+            "source": "# Needs: cleanings:read\ncurl -s \"$WOOM_API/v1/cleanings/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12\" \\\n  -H \"Authorization: Bearer $WOOM_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "label": "JavaScript",
+            "source": "// Needs: cleanings:read\nconst response = await fetch(`${process.env.WOOM_API}/v1/cleanings/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12`, {\n  headers: {\n    Authorization: `Bearer ${process.env.WOOM_API_KEY}`,\n  },\n});\nconst answer = await response.json();\nif (!response.ok) {\n  throw new Error(`${answer.code}: ${answer.title}`);\n}\nconsole.log(answer.data);"
+          },
+          {
+            "lang": "Python",
+            "label": "Python",
+            "source": "# Needs: cleanings:read\nimport os\nimport requests\n\nresponse = requests.get(\n    f\"{os.environ['WOOM_API']}/v1/cleanings/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12\",\n    headers={\n        \"Authorization\": f\"Bearer {os.environ['WOOM_API_KEY']}\",\n    },\n    timeout=30,\n)\nanswer = response.json()\nif not response.ok:\n    raise RuntimeError(f\"{answer['code']}: {answer['title']}\")\nprint(answer[\"data\"])"
+          }
+        ]
+      }
+    },
+    "/v1/cleanings/{id}/assign": {
+      "post": {
+        "operationId": "assignCleaning",
+        "tags": [
+          "Cleanings"
+        ],
+        "summary": "Assign a cleaning",
+        "description": "**Scope:** `cleanings:assign`\n\nHands the cleaning to a person, or takes it off them with `null`. Only the\nexecutor changes; the panel's rules apply (a cleaning is never handed to\na technician, a closed one cannot be changed). Recorded in the\ncleaning's history in the name of the admin who made the key.",
+        "x-woom-scope": "cleanings:assign",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/UuidId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "assignee_id"
+                ],
+                "properties": {
+                  "assignee_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "uuid",
+                    "description": "The person, or null to take the current one off."
+                  }
+                }
+              },
+              "example": {
+                "assignee_id": "6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The cleaning as it is now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Cleaning"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/Idempotent-Replayed"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": [
+              "cleanings:assign"
+            ]
+          }
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Shell",
+            "label": "curl",
+            "source": "# Needs: cleanings:assign\ncurl -s -X POST \"$WOOM_API/v1/cleanings/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12/assign\" \\\n  -H \"Authorization: Bearer $WOOM_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -H \"Idempotency-Key: $(uuidgen)\" \\\n  -d '{\"assignee_id\":\"6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12\"}'"
+          },
+          {
+            "lang": "JavaScript",
+            "label": "JavaScript",
+            "source": "// Needs: cleanings:assign\nconst response = await fetch(`${process.env.WOOM_API}/v1/cleanings/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12/assign`, {\n  method: 'POST',\n  headers: {\n    Authorization: `Bearer ${process.env.WOOM_API_KEY}`,\n    'Content-Type': 'application/json',\n    'Idempotency-Key': crypto.randomUUID(),\n  },\n  body: JSON.stringify({\n    \"assignee_id\": \"6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12\"\n  }),\n});\nconst answer = await response.json();\nif (!response.ok) {\n  throw new Error(`${answer.code}: ${answer.title}`);\n}\nconsole.log(answer.data);"
+          },
+          {
+            "lang": "Python",
+            "label": "Python",
+            "source": "# Needs: cleanings:assign\nimport os\nimport uuid\nimport requests\n\nresponse = requests.post(\n    f\"{os.environ['WOOM_API']}/v1/cleanings/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12/assign\",\n    headers={\n        \"Authorization\": f\"Bearer {os.environ['WOOM_API_KEY']}\",\n        \"Idempotency-Key\": str(uuid.uuid4()),\n    },\n    json={\n        \"assignee_id\": \"6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12\",\n    },\n    timeout=30,\n)\nanswer = response.json()\nif not response.ok:\n    raise RuntimeError(f\"{answer['code']}: {answer['title']}\")\nprint(answer[\"data\"])"
+          }
+        ]
+      }
+    },
+    "/v1/cleanings/{id}/media": {
+      "get": {
+        "operationId": "listCleaningMedia",
+        "tags": [
+          "Media"
+        ],
+        "summary": "List a cleaning's media",
+        "description": "**Scope:** `media:read`\n\nThe photos and videos of a cleaning as metadata, oldest first; at most 500, so `next_cursor` is always null. Removed media are left out.",
+        "x-woom-scope": "media:read",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/UuidId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The media.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "next_cursor"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Media"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": [
+              "media:read"
+            ]
+          }
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Shell",
+            "label": "curl",
+            "source": "# Needs: media:read\ncurl -s \"$WOOM_API/v1/cleanings/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12/media\" \\\n  -H \"Authorization: Bearer $WOOM_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "label": "JavaScript",
+            "source": "// Needs: media:read\nconst response = await fetch(`${process.env.WOOM_API}/v1/cleanings/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12/media`, {\n  headers: {\n    Authorization: `Bearer ${process.env.WOOM_API_KEY}`,\n  },\n});\nconst answer = await response.json();\nif (!response.ok) {\n  throw new Error(`${answer.code}: ${answer.title}`);\n}\nconsole.log(answer.data);"
+          },
+          {
+            "lang": "Python",
+            "label": "Python",
+            "source": "# Needs: media:read\nimport os\nimport requests\n\nresponse = requests.get(\n    f\"{os.environ['WOOM_API']}/v1/cleanings/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12/media\",\n    headers={\n        \"Authorization\": f\"Bearer {os.environ['WOOM_API_KEY']}\",\n    },\n    timeout=30,\n)\nanswer = response.json()\nif not response.ok:\n    raise RuntimeError(f\"{answer['code']}: {answer['title']}\")\nprint(answer[\"data\"])"
+          }
+        ]
+      }
+    },
+    "/v1/tasks": {
+      "get": {
+        "operationId": "listTasks",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "List tasks",
+        "description": "**Scope:** `tasks:read`\n\nTasks, oldest first (`created_at`, then `id`). Archived tasks only with `include_archived=true`. A key limited to some properties does not see tasks of no property.",
+        "x-woom-scope": "tasks:read",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "One or more of `open`, `assigned`, `in_progress`, `resolved`, `cancelled`.",
+            "schema": {
+              "type": "string",
+              "example": "open"
+            }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "description": "One or more of `low`, `normal`, `high`.",
+            "schema": {
+              "type": "string",
+              "example": "high"
+            }
+          },
+          {
+            "name": "property_id",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "assignee_id",
+            "in": "query",
+            "description": "The person on the task's latest repair work.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "created_from",
+            "in": "query",
+            "description": "Created at or after.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "created_to",
+            "in": "query",
+            "description": "Created before.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "include_archived",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "$ref": "#/components/parameters/UpdatedSince"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of tasks.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "next_cursor"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Task"
+                      }
+                    },
+                    "next_cursor": {
+                      "$ref": "#/components/schemas/NextCursor"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": [
+              "tasks:read"
+            ]
+          }
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Shell",
+            "label": "curl",
+            "source": "# Needs: tasks:read\ncurl -s \"$WOOM_API/v1/tasks?status=open&priority=high\" \\\n  -H \"Authorization: Bearer $WOOM_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "label": "JavaScript",
+            "source": "// Needs: tasks:read\nconst response = await fetch(`${process.env.WOOM_API}/v1/tasks?status=open&priority=high`, {\n  headers: {\n    Authorization: `Bearer ${process.env.WOOM_API_KEY}`,\n  },\n});\nconst answer = await response.json();\nif (!response.ok) {\n  throw new Error(`${answer.code}: ${answer.title}`);\n}\nconsole.log(answer.data);"
+          },
+          {
+            "lang": "Python",
+            "label": "Python",
+            "source": "# Needs: tasks:read\nimport os\nimport requests\n\nresponse = requests.get(\n    f\"{os.environ['WOOM_API']}/v1/tasks?status=open&priority=high\",\n    headers={\n        \"Authorization\": f\"Bearer {os.environ['WOOM_API_KEY']}\",\n    },\n    timeout=30,\n)\nanswer = response.json()\nif not response.ok:\n    raise RuntimeError(f\"{answer['code']}: {answer['title']}\")\nprint(answer[\"data\"])"
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createTask",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Create a task",
+        "description": "**Scope:** `tasks:create`\n\nWrites a task the way the panel does, in the name of the admin who made\nthe key — so it has an author, appears in the task's history and pushes\nthe people the panel would push. With `assignee_id` it is handed out at\nonce (that needs `tasks:assign` as well); a day or hours without an\nassignee are refused. A key limited to some properties must name one of\nthem.",
+        "x-woom-scope": "tasks:create",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTaskRequest"
+              },
+              "example": {
+                "title": "Dripping tap in the bathroom",
+                "description": "Second bathroom, cold water side.",
+                "priority": "high",
+                "property_id": 123456
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The task.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Task"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/Idempotent-Replayed"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": [
+              "tasks:create"
+            ]
+          }
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Shell",
+            "label": "curl",
+            "source": "# Needs: tasks:create\ncurl -s -X POST \"$WOOM_API/v1/tasks\" \\\n  -H \"Authorization: Bearer $WOOM_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -H \"Idempotency-Key: $(uuidgen)\" \\\n  -d '{\"title\":\"Dripping tap in the bathroom\",\"description\":\"Second bathroom, cold water side.\",\"priority\":\"high\",\"property_id\":123456}'"
+          },
+          {
+            "lang": "JavaScript",
+            "label": "JavaScript",
+            "source": "// Needs: tasks:create\nconst response = await fetch(`${process.env.WOOM_API}/v1/tasks`, {\n  method: 'POST',\n  headers: {\n    Authorization: `Bearer ${process.env.WOOM_API_KEY}`,\n    'Content-Type': 'application/json',\n    'Idempotency-Key': crypto.randomUUID(),\n  },\n  body: JSON.stringify({\n    \"title\": \"Dripping tap in the bathroom\",\n    \"description\": \"Second bathroom, cold water side.\",\n    \"priority\": \"high\",\n    \"property_id\": 123456\n  }),\n});\nconst answer = await response.json();\nif (!response.ok) {\n  throw new Error(`${answer.code}: ${answer.title}`);\n}\nconsole.log(answer.data);"
+          },
+          {
+            "lang": "Python",
+            "label": "Python",
+            "source": "# Needs: tasks:create\nimport os\nimport uuid\nimport requests\n\nresponse = requests.post(\n    f\"{os.environ['WOOM_API']}/v1/tasks\",\n    headers={\n        \"Authorization\": f\"Bearer {os.environ['WOOM_API_KEY']}\",\n        \"Idempotency-Key\": str(uuid.uuid4()),\n    },\n    json={\n        \"title\": \"Dripping tap in the bathroom\",\n        \"description\": \"Second bathroom, cold water side.\",\n        \"priority\": \"high\",\n        \"property_id\": 123456,\n    },\n    timeout=30,\n)\nanswer = response.json()\nif not response.ok:\n    raise RuntimeError(f\"{answer['code']}: {answer['title']}\")\nprint(answer[\"data\"])"
+          }
+        ]
+      }
+    },
+    "/v1/tasks/{id}": {
+      "get": {
+        "operationId": "getTask",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Get a task",
+        "x-woom-scope": "tasks:read",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/UuidId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The task.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Task"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": [
+              "tasks:read"
+            ]
+          }
+        ],
+        "description": "**Scope:** `tasks:read`",
+        "x-codeSamples": [
+          {
+            "lang": "Shell",
+            "label": "curl",
+            "source": "# Needs: tasks:read\ncurl -s \"$WOOM_API/v1/tasks/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12\" \\\n  -H \"Authorization: Bearer $WOOM_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "label": "JavaScript",
+            "source": "// Needs: tasks:read\nconst response = await fetch(`${process.env.WOOM_API}/v1/tasks/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12`, {\n  headers: {\n    Authorization: `Bearer ${process.env.WOOM_API_KEY}`,\n  },\n});\nconst answer = await response.json();\nif (!response.ok) {\n  throw new Error(`${answer.code}: ${answer.title}`);\n}\nconsole.log(answer.data);"
+          },
+          {
+            "lang": "Python",
+            "label": "Python",
+            "source": "# Needs: tasks:read\nimport os\nimport requests\n\nresponse = requests.get(\n    f\"{os.environ['WOOM_API']}/v1/tasks/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12\",\n    headers={\n        \"Authorization\": f\"Bearer {os.environ['WOOM_API_KEY']}\",\n    },\n    timeout=30,\n)\nanswer = response.json()\nif not response.ok:\n    raise RuntimeError(f\"{answer['code']}: {answer['title']}\")\nprint(answer[\"data\"])"
+          }
+        ]
+      }
+    },
+    "/v1/tasks/{id}/assign": {
+      "post": {
+        "operationId": "assignTask",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Assign a task",
+        "description": "**Scope:** `tasks:assign`\n\nHands the task's repair to a person for a day (today, in the property's\ntime zone, when `scheduled_date` is not given), the way the panel does.\nThe task must have a property and be open or assigned.",
+        "x-woom-scope": "tasks:assign",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/UuidId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignTaskRequest"
+              },
+              "example": {
+                "assignee_id": "6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12",
+                "scheduled_date": "2026-11-05",
+                "time_from": "09:00",
+                "time_to": "11:00"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The task as it is now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Task"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "Idempotent-Replayed": {
+                "$ref": "#/components/headers/Idempotent-Replayed"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": [
+              "tasks:assign"
+            ]
+          }
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Shell",
+            "label": "curl",
+            "source": "# Needs: tasks:assign\ncurl -s -X POST \"$WOOM_API/v1/tasks/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12/assign\" \\\n  -H \"Authorization: Bearer $WOOM_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -H \"Idempotency-Key: $(uuidgen)\" \\\n  -d '{\"assignee_id\":\"6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12\",\"scheduled_date\":\"2026-11-05\",\"time_from\":\"09:00\",\"time_to\":\"11:00\"}'"
+          },
+          {
+            "lang": "JavaScript",
+            "label": "JavaScript",
+            "source": "// Needs: tasks:assign\nconst response = await fetch(`${process.env.WOOM_API}/v1/tasks/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12/assign`, {\n  method: 'POST',\n  headers: {\n    Authorization: `Bearer ${process.env.WOOM_API_KEY}`,\n    'Content-Type': 'application/json',\n    'Idempotency-Key': crypto.randomUUID(),\n  },\n  body: JSON.stringify({\n    \"assignee_id\": \"6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12\",\n    \"scheduled_date\": \"2026-11-05\",\n    \"time_from\": \"09:00\",\n    \"time_to\": \"11:00\"\n  }),\n});\nconst answer = await response.json();\nif (!response.ok) {\n  throw new Error(`${answer.code}: ${answer.title}`);\n}\nconsole.log(answer.data);"
+          },
+          {
+            "lang": "Python",
+            "label": "Python",
+            "source": "# Needs: tasks:assign\nimport os\nimport uuid\nimport requests\n\nresponse = requests.post(\n    f\"{os.environ['WOOM_API']}/v1/tasks/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12/assign\",\n    headers={\n        \"Authorization\": f\"Bearer {os.environ['WOOM_API_KEY']}\",\n        \"Idempotency-Key\": str(uuid.uuid4()),\n    },\n    json={\n        \"assignee_id\": \"6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12\",\n        \"scheduled_date\": \"2026-11-05\",\n        \"time_from\": \"09:00\",\n        \"time_to\": \"11:00\",\n    },\n    timeout=30,\n)\nanswer = response.json()\nif not response.ok:\n    raise RuntimeError(f\"{answer['code']}: {answer['title']}\")\nprint(answer[\"data\"])"
+          }
+        ]
+      }
+    },
+    "/v1/tasks/{id}/media": {
+      "get": {
+        "operationId": "listTaskMedia",
+        "tags": [
+          "Media"
+        ],
+        "summary": "List a task's media",
+        "description": "**Scope:** `media:read`\n\nThe photos and videos attached to a task as metadata, oldest first; at most 500, so `next_cursor` is always null.",
+        "x-woom-scope": "media:read",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/UuidId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The media.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "next_cursor"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Media"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": [
+              "media:read"
+            ]
+          }
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Shell",
+            "label": "curl",
+            "source": "# Needs: media:read\ncurl -s \"$WOOM_API/v1/tasks/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12/media\" \\\n  -H \"Authorization: Bearer $WOOM_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "label": "JavaScript",
+            "source": "// Needs: media:read\nconst response = await fetch(`${process.env.WOOM_API}/v1/tasks/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12/media`, {\n  headers: {\n    Authorization: `Bearer ${process.env.WOOM_API_KEY}`,\n  },\n});\nconst answer = await response.json();\nif (!response.ok) {\n  throw new Error(`${answer.code}: ${answer.title}`);\n}\nconsole.log(answer.data);"
+          },
+          {
+            "lang": "Python",
+            "label": "Python",
+            "source": "# Needs: media:read\nimport os\nimport requests\n\nresponse = requests.get(\n    f\"{os.environ['WOOM_API']}/v1/tasks/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12/media\",\n    headers={\n        \"Authorization\": f\"Bearer {os.environ['WOOM_API_KEY']}\",\n    },\n    timeout=30,\n)\nanswer = response.json()\nif not response.ok:\n    raise RuntimeError(f\"{answer['code']}: {answer['title']}\")\nprint(answer[\"data\"])"
+          }
+        ]
+      }
+    },
+    "/v1/staff": {
+      "get": {
+        "operationId": "listStaff",
+        "tags": [
+          "Staff"
+        ],
+        "summary": "List staff",
+        "description": "**Scope:** `staff:read`\n\nThe company's people by id and role, ordered by `id`. Names need `staff:read_names` too; e-mails and phone numbers are never served.",
+        "x-woom-scope": "staff:read",
+        "parameters": [
+          {
+            "name": "role",
+            "in": "query",
+            "description": "One or more of `cleaner`, `tech`, `head_tech`, `manager`, `admin`.",
+            "schema": {
+              "type": "string",
+              "example": "cleaner"
+            }
+          },
+          {
+            "name": "active",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of people.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "next_cursor"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/StaffMember"
+                      }
+                    },
+                    "next_cursor": {
+                      "$ref": "#/components/schemas/NextCursor"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": [
+              "staff:read"
+            ]
+          }
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Shell",
+            "label": "curl",
+            "source": "# Needs: staff:read\ncurl -s \"$WOOM_API/v1/staff?role=cleaner\" \\\n  -H \"Authorization: Bearer $WOOM_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "label": "JavaScript",
+            "source": "// Needs: staff:read\nconst response = await fetch(`${process.env.WOOM_API}/v1/staff?role=cleaner`, {\n  headers: {\n    Authorization: `Bearer ${process.env.WOOM_API_KEY}`,\n  },\n});\nconst answer = await response.json();\nif (!response.ok) {\n  throw new Error(`${answer.code}: ${answer.title}`);\n}\nconsole.log(answer.data);"
+          },
+          {
+            "lang": "Python",
+            "label": "Python",
+            "source": "# Needs: staff:read\nimport os\nimport requests\n\nresponse = requests.get(\n    f\"{os.environ['WOOM_API']}/v1/staff?role=cleaner\",\n    headers={\n        \"Authorization\": f\"Bearer {os.environ['WOOM_API_KEY']}\",\n    },\n    timeout=30,\n)\nanswer = response.json()\nif not response.ok:\n    raise RuntimeError(f\"{answer['code']}: {answer['title']}\")\nprint(answer[\"data\"])"
+          }
+        ]
+      }
+    },
+    "/v1/staff/{id}": {
+      "get": {
+        "operationId": "getStaffMember",
+        "tags": [
+          "Staff"
+        ],
+        "summary": "Get a member of staff",
+        "x-woom-scope": "staff:read",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/UuidId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The person.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/StaffMember"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": [
+              "staff:read"
+            ]
+          }
+        ],
+        "description": "**Scope:** `staff:read`",
+        "x-codeSamples": [
+          {
+            "lang": "Shell",
+            "label": "curl",
+            "source": "# Needs: staff:read\ncurl -s \"$WOOM_API/v1/staff/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12\" \\\n  -H \"Authorization: Bearer $WOOM_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "label": "JavaScript",
+            "source": "// Needs: staff:read\nconst response = await fetch(`${process.env.WOOM_API}/v1/staff/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12`, {\n  headers: {\n    Authorization: `Bearer ${process.env.WOOM_API_KEY}`,\n  },\n});\nconst answer = await response.json();\nif (!response.ok) {\n  throw new Error(`${answer.code}: ${answer.title}`);\n}\nconsole.log(answer.data);"
+          },
+          {
+            "lang": "Python",
+            "label": "Python",
+            "source": "# Needs: staff:read\nimport os\nimport requests\n\nresponse = requests.get(\n    f\"{os.environ['WOOM_API']}/v1/staff/6f8d2c1e-5b7a-4e3f-9a10-2b4c6d8e0f12\",\n    headers={\n        \"Authorization\": f\"Bearer {os.environ['WOOM_API_KEY']}\",\n    },\n    timeout=30,\n)\nanswer = response.json()\nif not response.ok:\n    raise RuntimeError(f\"{answer['code']}: {answer['title']}\")\nprint(answer[\"data\"])"
+          }
+        ]
+      }
+    },
+    "/v1/bookings": {
+      "get": {
+        "operationId": "listBookings",
+        "tags": [
+          "Bookings"
+        ],
+        "summary": "List bookings",
+        "description": "**Scope:** `bookings:read`\n\nBookings ordered by `arrival_date`, then `id`, without the guest's name, contacts or the price. A booking is in a date range when it overlaps it (departure on or after `date_from`, arrival on or before `date_to`).",
+        "x-woom-scope": "bookings:read",
+        "parameters": [
+          {
+            "name": "date_from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "description": "At most 366 days after `date_from`.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "property_id",
+            "in": "query",
+            "description": "The listing, or one of the rooms the booking took.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "description": "One or more of `airbnb`, `booking`, `vrbo`, `direct`, `google`, `other`.",
+            "schema": {
+              "type": "string",
+              "example": "airbnb"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "One or more of the channel manager's statuses, e.g. `new`, `modified`, `cancelled`.",
+            "schema": {
+              "type": "string",
+              "example": "new,modified"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/UpdatedSince"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of bookings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data",
+                    "next_cursor"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Booking"
+                      }
+                    },
+                    "next_cursor": {
+                      "$ref": "#/components/schemas/NextCursor"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": [
+              "bookings:read"
+            ]
+          }
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "Shell",
+            "label": "curl",
+            "source": "# Needs: bookings:read\ncurl -s \"$WOOM_API/v1/bookings?channel=airbnb&status=new,modified\" \\\n  -H \"Authorization: Bearer $WOOM_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "label": "JavaScript",
+            "source": "// Needs: bookings:read\nconst response = await fetch(`${process.env.WOOM_API}/v1/bookings?channel=airbnb&status=new,modified`, {\n  headers: {\n    Authorization: `Bearer ${process.env.WOOM_API_KEY}`,\n  },\n});\nconst answer = await response.json();\nif (!response.ok) {\n  throw new Error(`${answer.code}: ${answer.title}`);\n}\nconsole.log(answer.data);"
+          },
+          {
+            "lang": "Python",
+            "label": "Python",
+            "source": "# Needs: bookings:read\nimport os\nimport requests\n\nresponse = requests.get(\n    f\"{os.environ['WOOM_API']}/v1/bookings?channel=airbnb&status=new,modified\",\n    headers={\n        \"Authorization\": f\"Bearer {os.environ['WOOM_API_KEY']}\",\n    },\n    timeout=30,\n)\nanswer = response.json()\nif not response.ok:\n    raise RuntimeError(f\"{answer['code']}: {answer['title']}\")\nprint(answer[\"data\"])"
+          }
+        ]
+      }
+    },
+    "/v1/bookings/{id}": {
+      "get": {
+        "operationId": "getBooking",
+        "tags": [
+          "Bookings"
+        ],
+        "summary": "Get a booking",
+        "x-woom-scope": "bookings:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The booking.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Booking"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": [
+              "bookings:read"
+            ]
+          }
+        ],
+        "description": "**Scope:** `bookings:read`",
+        "x-codeSamples": [
+          {
+            "lang": "Shell",
+            "label": "curl",
+            "source": "# Needs: bookings:read\ncurl -s \"$WOOM_API/v1/bookings/123456\" \\\n  -H \"Authorization: Bearer $WOOM_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "label": "JavaScript",
+            "source": "// Needs: bookings:read\nconst response = await fetch(`${process.env.WOOM_API}/v1/bookings/123456`, {\n  headers: {\n    Authorization: `Bearer ${process.env.WOOM_API_KEY}`,\n  },\n});\nconst answer = await response.json();\nif (!response.ok) {\n  throw new Error(`${answer.code}: ${answer.title}`);\n}\nconsole.log(answer.data);"
+          },
+          {
+            "lang": "Python",
+            "label": "Python",
+            "source": "# Needs: bookings:read\nimport os\nimport requests\n\nresponse = requests.get(\n    f\"{os.environ['WOOM_API']}/v1/bookings/123456\",\n    headers={\n        \"Authorization\": f\"Bearer {os.environ['WOOM_API_KEY']}\",\n    },\n    timeout=30,\n)\nanswer = response.json()\nif not response.ok:\n    raise RuntimeError(f\"{answer['code']}: {answer['title']}\")\nprint(answer[\"data\"])"
+          }
+        ]
+      }
+    },
+    "/v1/settings": {
+      "get": {
+        "operationId": "getSettings",
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get the company's settings",
+        "x-woom-scope": "settings:read",
+        "responses": {
+          "200": {
+            "description": "The settings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Settings"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/X-Request-Id"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": [
+              "settings:read"
+            ]
+          }
+        ],
+        "description": "**Scope:** `settings:read`",
+        "x-codeSamples": [
+          {
+            "lang": "Shell",
+            "label": "curl",
+            "source": "# Needs: settings:read\ncurl -s \"$WOOM_API/v1/settings\" \\\n  -H \"Authorization: Bearer $WOOM_API_KEY\""
+          },
+          {
+            "lang": "JavaScript",
+            "label": "JavaScript",
+            "source": "// Needs: settings:read\nconst response = await fetch(`${process.env.WOOM_API}/v1/settings`, {\n  headers: {\n    Authorization: `Bearer ${process.env.WOOM_API_KEY}`,\n  },\n});\nconst answer = await response.json();\nif (!response.ok) {\n  throw new Error(`${answer.code}: ${answer.title}`);\n}\nconsole.log(answer.data);"
+          },
+          {
+            "lang": "Python",
+            "label": "Python",
+            "source": "# Needs: settings:read\nimport os\nimport requests\n\nresponse = requests.get(\n    f\"{os.environ['WOOM_API']}/v1/settings\",\n    headers={\n        \"Authorization\": f\"Bearer {os.environ['WOOM_API_KEY']}\",\n    },\n    timeout=30,\n)\nanswer = response.json()\nif not response.ok:\n    raise RuntimeError(f\"{answer['code']}: {answer['title']}\")\nprint(answer[\"data\"])"
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "woom API key",
+        "description": "An API key made by an admin in Settings → API: `Authorization: Bearer woom_…`."
+      }
+    },
+    "parameters": {
+      "UuidId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "description": "Items per page, 1 to 200.",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "default": 50
+        }
+      },
+      "Cursor": {
+        "name": "cursor",
+        "in": "query",
+        "description": "The `next_cursor` of the previous page, with the same filters.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "UpdatedSince": {
+        "name": "updated_since",
+        "in": "query",
+        "description": "Changed at or after this moment.",
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "description": "Any 1 to 255 visible ASCII characters, unique per intended write; a UUID is ideal.",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        }
+      }
+    },
+    "headers": {
+      "X-Request-Id": {
+        "description": "This request's id; quote it when you write to us.",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "RateLimit": {
+        "description": "What is left of the window and when it resets, e.g. `\"default\";r=117;t=42`.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "RateLimit-Policy": {
+        "description": "The limit, e.g. `\"default\";q=120;w=60`.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "X-RateLimit-Limit": {
+        "description": "Requests per minute.",
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "X-RateLimit-Remaining": {
+        "description": "Requests left in this minute.",
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "X-RateLimit-Reset": {
+        "description": "Seconds until the window resets.",
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "Retry-After": {
+        "description": "Seconds to wait.",
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "Idempotent-Replayed": {
+        "description": "`true` when this is the kept answer of an earlier request with the same Idempotency-Key.",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "true"
+          ]
+        }
+      },
+      "WWW-Authenticate": {
+        "description": "Bearer realm=\"woom\".",
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "The request is not valid (`invalid-request`, `invalid-cursor`, `key-in-url`, `idempotency-key-required`).",
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/X-Request-Id"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            },
+            "example": {
+              "type": "urn:woom:problem:invalid-request",
+              "title": "The request is not valid",
+              "status": 400,
+              "code": "invalid-request",
+              "errors": [
+                {
+                  "name": "date_from",
+                  "message": "must be a date, YYYY-MM-DD"
+                }
+              ],
+              "request_id": "1b4e28ba-2fa1-41d2-883f-0016d3cca427"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "The key cannot be used (`missing-key`, `invalid-key`, `key-expired`, `key-revoked`, `key-suspended`).",
+        "headers": {
+          "WWW-Authenticate": {
+            "$ref": "#/components/headers/WWW-Authenticate"
+          },
+          "X-Request-Id": {
+            "$ref": "#/components/headers/X-Request-Id"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            },
+            "example": {
+              "type": "urn:woom:problem:missing-key",
+              "title": "No API key was sent",
+              "status": 401,
+              "code": "missing-key",
+              "request_id": "1b4e28ba-2fa1-41d2-883f-0016d3cca427"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "The key lacks the scope (`insufficient-scope`, with `required_scope`), or may not act on this property (`property-not-allowed`).",
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/X-Request-Id"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            },
+            "example": {
+              "type": "urn:woom:problem:insufficient-scope",
+              "title": "The key lacks the scope this operation needs",
+              "status": 403,
+              "code": "insufficient-scope",
+              "detail": "This operation needs cleanings:read",
+              "required_scope": "cleanings:read",
+              "request_id": "1b4e28ba-2fa1-41d2-883f-0016d3cca427"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "No such object in the key's company or properties (`not-found`).",
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/X-Request-Id"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "The object's state does not allow this now (`conflict`, with `reason`).",
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/X-Request-Id"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            },
+            "example": {
+              "type": "urn:woom:problem:conflict",
+              "title": "The object's state does not allow this",
+              "status": 409,
+              "code": "conflict",
+              "reason": "serverErrors.taskClosed",
+              "params": {
+                "status": "done"
+              },
+              "request_id": "1b4e28ba-2fa1-41d2-883f-0016d3cca427"
+            }
+          }
+        }
+      },
+      "PayloadTooLarge": {
+        "description": "The body is over 16 KB (`payload-too-large`).",
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/X-Request-Id"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "UnsupportedMediaType": {
+        "description": "The body is not `application/json` (`unsupported-media-type`).",
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/X-Request-Id"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "Unprocessable": {
+        "description": "A business rule refused it (`rejected`, with `reason` and `params`), or the Idempotency-Key was used with another request (`idempotency-key-reused`).",
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/X-Request-Id"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            },
+            "example": {
+              "type": "urn:woom:problem:rejected",
+              "title": "The request breaks a business rule",
+              "status": 422,
+              "code": "rejected",
+              "reason": "serverErrors.cleaningNotForTech",
+              "params": {
+                "type": "cleaning"
+              },
+              "request_id": "1b4e28ba-2fa1-41d2-883f-0016d3cca427"
+            }
+          }
+        }
+      },
+      "TooManyRequests": {
+        "description": "Over the rate limit (`rate-limited`).",
+        "headers": {
+          "Retry-After": {
+            "$ref": "#/components/headers/Retry-After"
+          },
+          "X-Request-Id": {
+            "$ref": "#/components/headers/X-Request-Id"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Our fault (`internal`).",
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/X-Request-Id"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "description": "ISO 8601 in UTC, to the second.",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+        "example": "2026-10-28T09:15:00Z"
+      },
+      "NullableTimestamp": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "date-time",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+      },
+      "Day": {
+        "type": "string",
+        "format": "date",
+        "example": "2026-11-02"
+      },
+      "NullableDay": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "date"
+      },
+      "HourMinute": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+        "example": "11:00"
+      },
+      "NextCursor": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Pass back as `cursor` for the next page; null at the end."
+      },
+      "Problem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "title",
+          "status",
+          "code"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "pattern": "^urn:woom:problem:[a-z-]+$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "minimum": 400,
+            "maximum": 599
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "invalid-request",
+              "invalid-cursor",
+              "key-in-url",
+              "idempotency-key-required",
+              "missing-key",
+              "invalid-key",
+              "key-expired",
+              "key-revoked",
+              "key-suspended",
+              "insufficient-scope",
+              "property-not-allowed",
+              "forbidden",
+              "not-found",
+              "method-not-allowed",
+              "conflict",
+              "payload-too-large",
+              "unsupported-media-type",
+              "rejected",
+              "idempotency-key-reused",
+              "rate-limited",
+              "internal"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "required_scope": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "description": "A stable key of woom's business rules, e.g. serverErrors.taskClosed."
+          },
+          "params": {
+            "type": "object",
+            "description": "The values the refusal names."
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "message"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Me": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "company"
+        ],
+        "properties": {
+          "key": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "name",
+              "prefix",
+              "preset",
+              "scopes",
+              "property_ids",
+              "expires_at",
+              "created_at"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string"
+              },
+              "prefix": {
+                "type": "string",
+                "description": "The first 12 characters of the key."
+              },
+              "preset": {
+                "type": "string",
+                "enum": [
+                  "read_only",
+                  "operator",
+                  "full",
+                  "custom"
+                ]
+              },
+              "scopes": {
+                "type": "array",
+                "description": "What the key may do right now.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "property_ids": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "description": "The properties the key is limited to (their rooms included); null for all.",
+                "items": {
+                  "type": "integer"
+                }
+              },
+              "expires_at": {
+                "$ref": "#/components/schemas/NullableTimestamp"
+              },
+              "created_at": {
+                "$ref": "#/components/schemas/Timestamp"
+              }
+            }
+          },
+          "company": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "name"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "Property": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "name_masked",
+          "parent_id",
+          "status",
+          "city",
+          "country_code",
+          "timezone",
+          "bedrooms",
+          "bathrooms",
+          "max_guests",
+          "check_in_time",
+          "check_out_time",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "The listing's id in the channel manager; a room's own id."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name with any door code masked out (`••••`)."
+          },
+          "name_masked": {
+            "type": "boolean",
+            "description": "True when a code was taken out of the name."
+          },
+          "parent_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "For a room, the listing it belongs to."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "maintenance",
+              "archived"
+            ]
+          },
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "country_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timezone": {
+            "type": "string",
+            "example": "Europe/Prague"
+          },
+          "bedrooms": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "bathrooms": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "max_guests": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "check_in_time": {
+            "$ref": "#/components/schemas/HourMinute"
+          },
+          "check_out_time": {
+            "$ref": "#/components/schemas/HourMinute"
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Only with the sensitive scope `properties:read_address`.",
+            "x-woom-scope": "properties:read_address"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "Cleaning": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "type",
+          "status",
+          "property_id",
+          "booking_id",
+          "task_id",
+          "scheduled_date",
+          "time_from",
+          "time_to",
+          "due_at",
+          "priority",
+          "assignee_id",
+          "title",
+          "guests_count",
+          "is_parallel",
+          "started_at",
+          "completed_at",
+          "completed_by",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "cleaning",
+              "maintenance",
+              "inspection",
+              "midstay"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unassigned",
+              "assigned",
+              "accepted",
+              "in_progress",
+              "paused",
+              "blocked",
+              "done",
+              "cancelled",
+              "expired"
+            ]
+          },
+          "property_id": {
+            "type": "integer"
+          },
+          "booking_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "The booking whose departure it follows."
+          },
+          "task_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "For repair work, the task it is done for."
+          },
+          "scheduled_date": {
+            "$ref": "#/components/schemas/Day"
+          },
+          "time_from": {
+            "$ref": "#/components/schemas/HourMinute"
+          },
+          "time_to": {
+            "$ref": "#/components/schemas/HourMinute"
+          },
+          "due_at": {
+            "$ref": "#/components/schemas/NullableTimestamp"
+          },
+          "priority": {
+            "type": "integer",
+            "description": "Higher comes first; a same-day turnover is 1."
+          },
+          "assignee_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A title written by hand; null means the type is its name."
+          },
+          "guests_count": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "is_parallel": {
+            "type": "boolean"
+          },
+          "started_at": {
+            "$ref": "#/components/schemas/NullableTimestamp"
+          },
+          "completed_at": {
+            "$ref": "#/components/schemas/NullableTimestamp"
+          },
+          "completed_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "TaskWork": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "additionalProperties": false,
+        "required": [
+          "cleaning_id",
+          "status",
+          "assignee_id",
+          "scheduled_date",
+          "time_from",
+          "time_to"
+        ],
+        "description": "The task's latest repair work (a cleaning of type maintenance), or null when nobody was given it yet.",
+        "properties": {
+          "cleaning_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unassigned",
+              "assigned",
+              "accepted",
+              "in_progress",
+              "paused",
+              "blocked",
+              "done",
+              "cancelled",
+              "expired"
+            ]
+          },
+          "assignee_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "scheduled_date": {
+            "$ref": "#/components/schemas/Day"
+          },
+          "time_from": {
+            "$ref": "#/components/schemas/HourMinute"
+          },
+          "time_to": {
+            "$ref": "#/components/schemas/HourMinute"
+          }
+        }
+      },
+      "Task": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "description",
+          "priority",
+          "status",
+          "property_id",
+          "cleaning_id",
+          "reported_by",
+          "archived",
+          "cancel_reason",
+          "work",
+          "created_at",
+          "updated_at",
+          "resolved_at",
+          "cancelled_at",
+          "archived_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "normal",
+              "high"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "assigned",
+              "in_progress",
+              "resolved",
+              "cancelled"
+            ]
+          },
+          "property_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "cleaning_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "The cleaning during which it was reported."
+          },
+          "reported_by": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Who reported it; for a task made through the API, the admin who made the key."
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "cancel_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "work": {
+            "$ref": "#/components/schemas/TaskWork"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "resolved_at": {
+            "$ref": "#/components/schemas/NullableTimestamp"
+          },
+          "cancelled_at": {
+            "$ref": "#/components/schemas/NullableTimestamp"
+          },
+          "archived_at": {
+            "$ref": "#/components/schemas/NullableTimestamp"
+          }
+        }
+      },
+      "StaffMember": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "role",
+          "is_active",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "cleaner",
+              "tech",
+              "head_tech",
+              "manager",
+              "admin"
+            ]
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "full_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Only with the sensitive scope `staff:read_names`.",
+            "x-woom-scope": "staff:read_names"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "Booking": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "property_id",
+          "room_ids",
+          "arrival_date",
+          "departure_date",
+          "check_in_time",
+          "check_out_time",
+          "status",
+          "channel",
+          "channel_id",
+          "guests_count",
+          "is_block",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "The booking's id in the channel manager."
+          },
+          "property_id": {
+            "type": "integer",
+            "description": "The listing."
+          },
+          "room_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "The rooms of the listing the booking took."
+          },
+          "arrival_date": {
+            "$ref": "#/components/schemas/Day"
+          },
+          "departure_date": {
+            "$ref": "#/components/schemas/Day"
+          },
+          "check_in_time": {
+            "$ref": "#/components/schemas/HourMinute"
+          },
+          "check_out_time": {
+            "$ref": "#/components/schemas/HourMinute"
+          },
+          "status": {
+            "type": "string",
+            "description": "The channel manager's status, e.g. new, modified, cancelled."
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "airbnb",
+              "booking",
+              "vrbo",
+              "direct",
+              "google",
+              "other"
+            ]
+          },
+          "channel_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "guests_count": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "is_block": {
+            "type": "boolean",
+            "description": "A block of the calendar rather than a guest's stay."
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "Media": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "source",
+          "mime_type",
+          "byte_size",
+          "width",
+          "height",
+          "duration_sec",
+          "step_id",
+          "step_type",
+          "status",
+          "created_by",
+          "device_taken_at",
+          "uploaded_at",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "photo",
+              "video"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "camera",
+              "gallery",
+              "unknown"
+            ]
+          },
+          "mime_type": {
+            "type": "string"
+          },
+          "byte_size": {
+            "type": "integer"
+          },
+          "width": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "height": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "duration_sec": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "step_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "step_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The step of the cleaning, e.g. photos_before, photos_after, video."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "registered",
+              "uploaded",
+              "purged"
+            ],
+            "description": "registered: the file is on its way; purged: removed by retention."
+          },
+          "created_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "device_taken_at": {
+            "$ref": "#/components/schemas/NullableTimestamp"
+          },
+          "uploaded_at": {
+            "$ref": "#/components/schemas/NullableTimestamp"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "Settings": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "company_id",
+          "company_name",
+          "default_language",
+          "video_max_sec",
+          "video_max_mb",
+          "video_bitrate_kbps",
+          "gallery_allowed",
+          "parallel_start_allowed",
+          "updated_at"
+        ],
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "company_name": {
+            "type": "string"
+          },
+          "default_language": {
+            "type": "string",
+            "enum": [
+              "en",
+              "cs",
+              "ru"
+            ]
+          },
+          "video_max_sec": {
+            "type": "integer"
+          },
+          "video_max_mb": {
+            "type": "integer"
+          },
+          "video_bitrate_kbps": {
+            "type": "integer"
+          },
+          "gallery_allowed": {
+            "type": "boolean"
+          },
+          "parallel_start_allowed": {
+            "type": "boolean"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "CreateTaskRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "normal",
+              "high"
+            ],
+            "default": "normal"
+          },
+          "property_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "description": "Required for a key limited to some properties."
+          },
+          "assignee_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Hand it out at once (needs tasks:assign as well)."
+          },
+          "scheduled_date": {
+            "$ref": "#/components/schemas/NullableDay"
+          },
+          "time_from": {
+            "$ref": "#/components/schemas/HourMinute"
+          },
+          "time_to": {
+            "$ref": "#/components/schemas/HourMinute"
+          }
+        }
+      },
+      "AssignTaskRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "assignee_id"
+        ],
+        "properties": {
+          "assignee_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scheduled_date": {
+            "$ref": "#/components/schemas/NullableDay"
+          },
+          "time_from": {
+            "$ref": "#/components/schemas/HourMinute"
+          },
+          "time_to": {
+            "$ref": "#/components/schemas/HourMinute"
+          }
+        }
+      }
+    }
+  }
+}
