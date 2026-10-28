@@ -105,7 +105,7 @@ Deno.test("no key: 401 missing-key with WWW-Authenticate, the gate asked with no
 
 Deno.test("the key itself never reaches the database or the log, only its HMAC", async () => {
   const { handler, calls, logs, digest } = await setup({ api_v1_get_me: () => ({ data: { key: {}, company: {} }, error: null }) });
-  await handler(get("/v1/me", { Authorization: `Bearer ${KEY}`, "x-forwarded-for": "203.0.113.7, 10.0.0.1" }));
+  await handler(get("/v1/me", { Authorization: `Bearer ${KEY}`, "cf-connecting-ip": "203.0.113.7" }));
   assertEquals(calls[0].args.p_digest, digest);
   assertEquals(calls[0].args.p_ip_hash, await hmacHex(PEPPER, "ip:203.0.113.7"));
   const everything = JSON.stringify(calls) + logs.join("\n");
@@ -330,4 +330,48 @@ Deno.test("a request that never had a key is not logged", async () => {
   await handler(get("/v1/me", {}));
   await Promise.all(deferred);
   assertEquals(calls.filter((c) => c.fn === "api_log_request").length, 0);
+});
+
+Deno.test("only the edge's own header names the address; a forged one is ignored", async () => {
+  const { handler, calls } = await setup({ api_v1_get_me: () => ({ data: {}, error: null }) });
+  await handler(get("/v1/me", { Authorization: `Bearer ${KEY}`, "x-forwarded-for": "198.51.100.9", "x-real-ip": "198.51.100.9" }));
+  assertEquals(calls[0].args.p_ip_hash, null);
+});
+
+Deno.test("an IPv6 address counts by its /64", async () => {
+  const { handler, calls } = await setup({ api_v1_get_me: () => ({ data: {}, error: null }) });
+  await handler(get("/v1/me", { Authorization: `Bearer ${KEY}`, "cf-connecting-ip": "2a02:8308:a084:4b00:1111:2222:3333:4444" }));
+  await handler(get("/v1/me", { Authorization: `Bearer ${KEY}`, "cf-connecting-ip": "2a02:8308:a084:4b00:9999:8888:7777:6666" }));
+  const gates = calls.filter((c) => c.fn === "api_gate");
+  assertEquals(gates[0].args.p_ip_hash, await hmacHex(PEPPER, "ip:2a02:8308:a084:4b00"));
+  assertEquals(gates[0].args.p_ip_hash, gates[1].args.p_ip_hash);
+});
+
+Deno.test("no credentials: Bearer realm only, no error code (RFC 6750 §3.1)", async () => {
+  const { handler } = await setup();
+  assertEquals((await handler(get("/v1/me", {}))).headers.get("WWW-Authenticate"), 'Bearer realm="woom"');
+});
+
+Deno.test("a NUL in text, an id past 15 digits, a path value given again in the query: 400", async () => {
+  const { handler } = await setup();
+  assertEquals((await handler(post("/v1/tasks", { title: "a b" }))).status, 400);
+  assertEquals((await handler(get("/v1/properties/1234567890123456"))).status, 400);
+  assertEquals((await handler(get("/v1/properties/5?id=6"))).status, 400);
+});
+
+Deno.test("a body that says it is too large is refused before it is read", async () => {
+  const { handler } = await setup();
+  const request = new Request(`${BASE}/v1/tasks`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json", "Idempotency-Key": "k", "Content-Length": "999999" },
+    body: "{}",
+  });
+  assertEquals((await handler(request)).status, 413);
+});
+
+Deno.test("a value Postgres could not take (any class 22 state) is a 400, not a 500", async () => {
+  const { handler } = await setup({
+    api_v1_get_settings: () => ({ data: null, error: { code: "22P05", message: "unsupported Unicode escape sequence" } }),
+  });
+  assertEquals((await handler(get("/v1/settings"))).status, 400);
 });

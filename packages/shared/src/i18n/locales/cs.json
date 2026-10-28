@@ -234,6 +234,7 @@
           "hint": "Zobrazí se jen jednou. woom uchovává jen jeho otisk a znovu ho ukázat nedokáže.",
           "copy": "Kopírovat",
           "copied": "Zkopírováno",
+          "copyFailed": "Kopírování se nepovedlo: označte klíč a zkopírujte ho ručně.",
           "done": "Klíč mám uložený"
         },
         "groups": {

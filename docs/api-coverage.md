@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 32 | 165 | 217 |
+| Функции | 20 | 32 | 166 | 218 |
 | Таблицы и представления | 8 | 14 | 11 | 33 |
-| Всего | 28 | 46 | 176 | 250 |
+| Всего | 28 | 46 | 177 | 251 |
 
 ## Функции
 
@@ -78,7 +78,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 165
+### Внутреннее — 166
 
 | Имя | Причина |
 | --- | --- |
@@ -107,6 +107,7 @@
 | `api_key_public_json` | API plumbing: what the panel shows of a key. |
 | `api_key_state` | API plumbing: active, revoked, expired or suspended. |
 | `api_log_request` | API plumbing: the request log, without bodies or personal data. |
+| `api_mask_codes` | API plumbing: masks door codes in names and free text (F27). |
 | `api_media_json` | API plumbing: what media metadata looks like in the API. |
 | `api_not_found` | API plumbing: the not-found refusal. |
 | `api_property_json` | API plumbing: what a property looks like in the API, codes masked. |

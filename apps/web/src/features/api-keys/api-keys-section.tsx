@@ -171,22 +171,24 @@ interface CreatedKeyDialogProps {
 /**
  * The key's one showing. It lives in this dialog's props and nowhere else —
  * not in the query cache, not in storage — and is gone when the dialog closes.
+ * Only «I have saved it» closes it: a stray click outside or Escape would throw
+ * away the only copy.
  */
 function CreatedKeyDialog({ created, onClose }: CreatedKeyDialogProps) {
   const { t } = useTranslation();
-  const [isCopied, setIsCopied] = useState(false);
+  const [copyState, setCopy] = useState<'idle' | 'copied' | 'failed'>('idle');
 
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(created.key);
-      setIsCopied(true);
+      setCopy('copied');
     } catch {
-      setIsCopied(false);
+      setCopy('failed');
     }
   };
 
   return (
-    <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
+    <Dialog open disablePointerDismissal onOpenChange={() => undefined}>
       <DialogContent showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>{t('panel.settings.api.created.title')}</DialogTitle>
@@ -199,9 +201,16 @@ function CreatedKeyDialog({ created, onClose }: CreatedKeyDialogProps) {
           className="font-mono text-xs"
           onFocus={(event) => event.target.select()}
         />
+        {copyState === 'failed' ? (
+          <p role="alert" className="text-sm text-destructive">
+            {t('panel.settings.api.created.copyFailed')}
+          </p>
+        ) : null}
         <DialogFooter>
           <Button type="button" variant="outline" className="h-11" onClick={() => void copy()}>
-            {isCopied ? t('panel.settings.api.created.copied') : t('panel.settings.api.created.copy')}
+            {copyState === 'copied'
+              ? t('panel.settings.api.created.copied')
+              : t('panel.settings.api.created.copy')}
           </Button>
           <Button type="button" className="h-11" onClick={onClose}>
             {t('panel.settings.api.created.done')}

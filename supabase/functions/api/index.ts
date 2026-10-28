@@ -18,6 +18,9 @@ import { type ApiDeps, createApiHandler, type RpcResult } from "./handler.ts";
 
 declare const EdgeRuntime: { waitUntil(work: Promise<unknown>): void } | undefined;
 
+/** A stalled database call must not hold the worker to the platform's limit. */
+const RPC_TIMEOUT_MS = 10_000;
+
 /**
  * Built once per cold start. A missing secret is a deployment mistake: the
  * handler then answers 500 with the reason in the log, rather than the module
@@ -33,7 +36,7 @@ function buildDeps(): ApiDeps {
     return {
       pepper,
       rpc: async (fn, args): Promise<RpcResult> => {
-        const { data, error } = await client.rpc(fn, args);
+        const { data, error } = await client.rpc(fn, args).abortSignal(AbortSignal.timeout(RPC_TIMEOUT_MS));
         return { data, error };
       },
       defer: (work) => {

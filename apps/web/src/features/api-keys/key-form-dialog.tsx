@@ -80,7 +80,9 @@ export function KeyFormDialog({ apiKey, onClose, onCreated }: KeyFormDialogProps
   };
 
   return (
-    <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
+    // While a key is being made the form stays: closing it then would lose the
+    // key's one showing, with the key already saved.
+    <Dialog open onOpenChange={(open) => (open || mutation.isPending ? undefined : onClose())}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <form className="flex flex-col gap-4" onSubmit={submit}>
           <DialogHeader>
@@ -190,7 +192,14 @@ export function KeyFormDialog({ apiKey, onClose, onCreated }: KeyFormDialogProps
           {mutation.isError ? <ErrorState error={mutation.error} /> : null}
 
           <DialogFooter>
-            <Button type="button" variant="outline" className="h-11" onClick={onClose}>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11"
+              disabled={mutation.isPending}
+              focusableWhenDisabled
+              onClick={onClose}
+            >
               {t('panel.cancel')}
             </Button>
             <Button type="submit" className="h-11" disabled={!canSave} focusableWhenDisabled>

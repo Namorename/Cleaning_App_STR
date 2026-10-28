@@ -27,6 +27,8 @@ export const CORS_HEADERS: Readonly<Record<string, string>> = {
 export const EXPIRY_DAYS: readonly (number | null)[] = [30, 90, 365, null];
 
 const MAX_SCOPES = 64;
+/** The form is a few hundred bytes; anything this large is not the panel. */
+const MAX_BODY_BYTES = 16 * 1024;
 const MAX_PROPERTIES = 500;
 
 export interface CreateKeyInput {
@@ -147,9 +149,17 @@ export function createKeysHandler(deps: KeysDeps): (request: Request) => Promise
       return refusal(401, "Sign in again", "serverErrors.adminOnly");
     }
 
+    const declared = Number(request.headers.get("Content-Length") ?? "");
+    if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+      return refusal(413, "The body is too large", "serverErrors.unknown");
+    }
     let body: unknown;
     try {
-      body = await request.json();
+      const text = await request.text();
+      if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) {
+        return refusal(413, "The body is too large", "serverErrors.unknown");
+      }
+      body = JSON.parse(text);
     } catch {
       return refusal(400, "The body is not JSON", "serverErrors.unknown");
     }

@@ -107,13 +107,16 @@ insert into public.properties (id, host_id, name, timezone, address) values
   (900281003, 'a2800000-0000-4000-8000-00000000000a', 'Flat Two', 'Europe/Prague', 'Street 2'),
   (900281901, 'a2800000-0000-4000-8000-00000000000b', 'Other Co Flat', 'Europe/Prague', 'Street 9');
 insert into public.properties (id, host_id, name, timezone, parent_id) values
-  (900281002, 'a2800000-0000-4000-8000-00000000000a', 'Unit 3 - 5678', 'Europe/Prague', 900281001);
+  (900281002, 'a2800000-0000-4000-8000-00000000000a', 'Unit 3 - 5678', 'Europe/Prague', 900281001),
+  (900281004, 'a2800000-0000-4000-8000-00000000000a', 'Unit 4 - keypad 1234 2BR', 'Europe/Prague', 900281001);
 
 insert into public.tasks (id, host_id, property_id, type, status, scheduled_date, notes) values
   ('a2810000-0000-4000-8000-000000000001', 'a2800000-0000-4000-8000-00000000000a', 900281003,
    'cleaning', 'unassigned', '2026-11-02', 'door code 9999'),
   ('a2810000-0000-4000-8000-000000000002', 'a2800000-0000-4000-8000-00000000000a', 900281002,
    'cleaning', 'unassigned', '2026-11-03', null),
+  ('a2810000-0000-4000-8000-000000000003', 'a2800000-0000-4000-8000-00000000000a', 900281003,
+   'inspection', 'unassigned', '2026-11-02', null),
   ('a2810000-0000-4000-8000-000000000009', 'a2800000-0000-4000-8000-00000000000b', 900281901,
    'cleaning', 'unassigned', '2026-11-02', null);
 
@@ -122,6 +125,8 @@ insert into public.problems (id, host_id, property_id, reported_by, title, descr
    'a2800005-0000-4000-8000-000000000005', 'Leaking tap', 'Kitchen'),
   ('a2820000-0000-4000-8000-000000000002', 'a2800000-0000-4000-8000-00000000000a', null,
    'a2800003-0000-4000-8000-000000000003', 'Office thing', null),
+  ('a2820000-0000-4000-8000-000000000003', 'a2800000-0000-4000-8000-00000000000a', 900281003,
+   'a2800005-0000-4000-8000-000000000005', 'Lockbox code 4821 broken', 'the lockbox code 4821 does not open, try door 7731'),
   ('a2820000-0000-4000-8000-000000000009', 'a2800000-0000-4000-8000-00000000000b', 900281901,
    'a2800006-0000-4000-8000-000000000006', 'B problem', null);
 
@@ -134,7 +139,8 @@ insert into public.reservations (id, host_id, property_id, arrival_date, departu
   (900281591, 'a2800000-0000-4000-8000-00000000000b', 900281901, '2026-11-01', '2026-11-03', 'new',
    2018, 'B Guest', 2, 100, false);
 insert into public.reservation_units (host_id, reservation_id, property_id) values
-  ('a2800000-0000-4000-8000-00000000000a', 900281501, 900281002);
+  ('a2800000-0000-4000-8000-00000000000a', 900281501, 900281002),
+  ('a2800000-0000-4000-8000-00000000000a', 900281501, 900281004);
 
 insert into public.task_steps (id, task_id, host_id, sort_order, type, required) values
   ('a2830000-0000-4000-8000-000000000001', 'a2810000-0000-4000-8000-000000000001',
@@ -167,6 +173,8 @@ select (public.create_api_key('a2800001-0000-4000-8000-000000000001', 'Sensitive
           null, now() + interval '30 days')) ->> 'id' as k_sens \gset
 select (public.create_api_key('a2800001-0000-4000-8000-000000000001', 'Create-only key', 'woom_tcreAAA',
           pg_temp.d('key-tc'), 'custom', '{tasks:create}')) ->> 'id' as k_tc \gset
+select (public.create_api_key('a2800001-0000-4000-8000-000000000001', 'Room key', 'woom_roomAAA',
+          pg_temp.d('key-room'), 'read_only', '{}', '{900281002}')) ->> 'id' as k_room \gset
 select (public.create_api_key('a2800006-0000-4000-8000-000000000006', 'B key', 'woom_bbbbAAA',
           pg_temp.d('key-b'), 'full', '{}', null, null, 'B key')) ->> 'id' as k_b \gset
 
@@ -307,9 +315,11 @@ select pg_temp.check('failed attempts count against the IP',
    where w.bucket = 'ip:' || pg_temp.d('ip-1')), 2);
 
 select public.api_gate(pg_temp.d('nope-' || n), pg_temp.d('ip-2')) from generate_series(1, 20) n;
-select pg_temp.check('twenty failures in ten minutes close the IP, even to a good key',
-  (select g ->> 'code' from public.api_gate(pg_temp.d('key-read'), pg_temp.d('ip-2')) g),
+select pg_temp.check('the twenty-first failure in ten minutes is turned away',
+  (select g ->> 'code' from public.api_gate(pg_temp.d('nope-21'), pg_temp.d('ip-2')) g),
   'rate-limited');
+select pg_temp.check('but a good key from the same address is never held up by it',
+  (select g ->> 'ok' from public.api_gate(pg_temp.d('key-read'), pg_temp.d('ip-2')) g), 'true');
 select pg_temp.check('other IPs stay open',
   (select g ->> 'ok' from public.api_gate(pg_temp.d('key-read'), pg_temp.d('ip-3')) g), 'true');
 
@@ -359,7 +369,7 @@ select pg_temp.check('a key lists its own company''s properties only',
   (select string_agg(p ->> 'id', ',' order by (p ->> 'id')::bigint)
    from jsonb_array_elements(public.api_v1_list_properties(pg_temp.d('key-full'))) p
    where (p ->> 'id')::bigint between 900281000 and 900281999),
-  '900281001,900281002,900281003');
+  '900281001,900281002,900281003,900281004');
 
 select pg_temp.raises('another company''s property is not found',
   format('select public.api_v1_get_property(%L, 900281901)', pg_temp.d('key-full')), 'api:not-found');
@@ -394,7 +404,7 @@ select pg_temp.check('settings are the key''s company''s',
 select pg_temp.check('the house key sees the house and its room, not the flat',
   (select string_agg(p ->> 'id', ',' order by (p ->> 'id')::bigint)
    from jsonb_array_elements(public.api_v1_list_properties(pg_temp.d('key-house'))) p),
-  '900281001,900281002');
+  '900281001,900281002,900281004');
 select pg_temp.check('the house key sees the room''s cleaning, not the flat''s',
   (select string_agg(c ->> 'id', ',')
    from jsonb_array_elements(public.api_v1_list_cleanings(pg_temp.d('key-house'), p_limit => 200)) c
@@ -481,7 +491,7 @@ select pg_temp.check('no guest name and no price in a booking',
 select pg_temp.check('a booking names its channel and the rooms it took',
   (select (b ->> 'channel') || ' ' || (b -> 'room_ids')::text
    from public.api_v1_get_booking(pg_temp.d('key-full'), 900281501) b),
-  'airbnb [900281002]');
+  'airbnb [900281002, 900281004]');
 
 select pg_temp.check('no free-text note of a cleaning',
   (select (c ? 'notes')::text || ' ' || (c::text like '%9999%')::text
@@ -614,7 +624,7 @@ select pg_temp.raises('a manager may not list keys', 'select public.list_api_key
 
 select pg_temp.as_user('a2800002-0000-4000-8000-000000000002');
 select pg_temp.check('an admin lists his company''s keys, every admin''s',
-  (select count(*)::int from jsonb_array_elements(public.list_api_keys())), 7);
+  (select count(*)::int from jsonb_array_elements(public.list_api_keys())), 8);
 select pg_temp.check('the list never carries a digest',
   (select public.list_api_keys()::text like '%' || pg_temp.d('key-full') || '%'), false);
 
@@ -685,7 +695,96 @@ select pg_temp.check('the log has no column for a body, a query string or an IP'
      and column_name ~ '(body|query|ip|header|key_digest|email)'),
   0);
 
+-- ---------- 11b. what the review asked for ----------
+
+select pg_temp.as_server();
+select pg_temp.check('a code typed into what was reported is masked, and said so',
+  (select (t ->> 'description') || ' / ' || (t ->> 'title') || ' / ' || (t ->> 'text_masked')
+   from public.api_v1_get_task(pg_temp.d('key-full'), 'a2820000-0000-4000-8000-000000000003') t),
+  'the lockbox does not open, try / Lockbox broken / true');
+select pg_temp.check('a code beside other numbers takes only itself away',
+  (select p ->> 'name' from public.api_v1_get_property(pg_temp.d('key-full'), 900281004) p),
+  'Unit 4 - 2BR');
+select pg_temp.check('a task with no code says so too',
+  (select t ->> 'text_masked' from public.api_v1_get_task(pg_temp.d('key-full'), 'a2820000-0000-4000-8000-000000000001') t),
+  'false');
+
+select (:'created_2'::jsonb -> 'body' -> 'work' ->> 'cleaning_id') as repair_id \gset
+select pg_temp.raises('cleanings:assign does not reach the repair of a task',
+  format($$select public.api_v1_assign_cleaning(%L, 'idem-r1', %L, %L::uuid, 'a2800005-0000-4000-8000-000000000005')$$,
+         pg_temp.d('key-full'), pg_temp.d('body-r1'), :'repair_id'),
+  'api:rejected');
+
+select pg_temp.check('a key limited to one room sees only that room of a booking',
+  (select b -> 'room_ids' from public.api_v1_get_booking(pg_temp.d('key-room'), 900281501) b)::text,
+  '[900281002]');
+select pg_temp.check('an unlimited key sees every room of it',
+  (select b -> 'room_ids' from public.api_v1_get_booking(pg_temp.d('key-full'), 900281501) b)::text,
+  '[900281002, 900281004]');
+
+select pg_temp.raises('the house key reads no media of the flat',
+  format($$select public.api_v1_list_cleaning_media(%L, 'a2810000-0000-4000-8000-000000000001')$$,
+         pg_temp.d('key-house')),
+  'api:not-found');
+select pg_temp.raises('nor assigns a task of the flat',
+  format($$select public.api_v1_assign_task(%L, 'h-3', %L, 'a2820000-0000-4000-8000-000000000001',
+           'a2800004-0000-4000-8000-000000000004')$$,
+         pg_temp.d('key-house'), pg_temp.d('body-h3')),
+  'api:not-found');
+
+select pg_temp.raises('a null among the properties is refused',
+  $$select public.create_api_key('a2800001-0000-4000-8000-000000000001', 'N', 'woom_nullAAA',
+      pg_temp.d('key-n'), 'read_only', '{}', array[900281001, null]::bigint[])$$,
+  'serverErrors.apiPropertiesEmpty');
+
+select pg_temp.check('updated_at moves with a change of the key, not with its use',
+  (select pg_get_triggerdef(t.oid) like '%UPDATE OF name, preset, scopes, property_ids, expires_at, revoked_at, revoked_by%'
+   from pg_trigger t where t.tgname = 'api_keys_touch_updated_at'),
+  true);
+
+select pg_temp.as_server();
+select pg_temp.check('one idempotency key under two API keys: two separate requests',
+  (select r ->> 'status' from public.api_v1_create_task(pg_temp.d('key-full'), 'idem-1',
+          pg_temp.d('body-other-key'), 'Another key, same idempotency key') r),
+  '201');
+
+select pg_temp.check('a day with two cleanings: the first page holds one and says there is more',
+  (select string_agg(c ->> 'id', ',')
+   from jsonb_array_elements(public.api_v1_list_cleanings(pg_temp.d('key-full'), p_date_from => '2026-11-02',
+          p_date_to => '2026-11-02', p_property_id => 900281003, p_limit => 1)) c),
+  'a2810000-0000-4000-8000-000000000001,a2810000-0000-4000-8000-000000000003');
+select pg_temp.check('the next page starts after the same day''s first id',
+  (select string_agg(c ->> 'id', ',')
+   from jsonb_array_elements(public.api_v1_list_cleanings(pg_temp.d('key-full'), p_date_from => '2026-11-02',
+          p_date_to => '2026-11-02', p_property_id => 900281003, p_after_date => '2026-11-02',
+          p_after_id => 'a2810000-0000-4000-8000-000000000001', p_limit => 1)) c),
+  'a2810000-0000-4000-8000-000000000003');
+
+select pg_temp.raises('the gate refuses an address hash that is not one',
+  $$select public.api_gate(null, 'not-hex')$$, null);
+select pg_temp.check('no address, no bucket: the key is still checked',
+  (select g ->> 'ok' from public.api_gate(pg_temp.d('key-full'), null) g), 'true');
+
+select pg_temp.check('the nightly purge of API records is scheduled',
+  (select count(*)::int from cron.job where jobname = 'purge-api-records'
+     and command like '%api_request_log%' and command like '%api_idempotency%'),
+  1);
+
 -- ---------- 12. who may call what ----------
+
+select pg_temp.check('service_role may call exactly the gate, the log, the operations and key making',
+  (select string_agg(p.proname, ',' order by p.proname)
+   from pg_proc p
+   where p.pronamespace = 'public'::regnamespace
+     and (p.proname like 'api\_%' or p.proname in ('create_api_key', 'list_api_keys', 'update_api_key',
+          'revoke_api_key', 'list_api_key_events'))
+     and has_function_privilege('service_role', p.oid, 'execute')),
+  (select string_agg(n, ',' order by n) from unnest(array[
+     'api_gate', 'api_log_request', 'create_api_key', 'api_v1_assign_cleaning', 'api_v1_assign_task',
+     'api_v1_create_task', 'api_v1_get_booking', 'api_v1_get_cleaning', 'api_v1_get_me', 'api_v1_get_property',
+     'api_v1_get_settings', 'api_v1_get_staff_member', 'api_v1_get_task', 'api_v1_list_bookings',
+     'api_v1_list_cleaning_media', 'api_v1_list_cleanings', 'api_v1_list_properties', 'api_v1_list_staff',
+     'api_v1_list_task_media', 'api_v1_list_tasks']) n));
 
 select pg_temp.check('neither client role may call an operation or the gate',
   (select count(*)::int from pg_proc p, unnest(array['anon', 'authenticated']) r

@@ -208,7 +208,9 @@ export function problemFromDatabase(error: RpcError): ApiProblem | null {
     return new ApiProblem(CONFLICT_REASONS.has(hint) ? "conflict" : "rejected", extras);
   }
 
-  if (error.code !== null && error.code !== undefined && BAD_INPUT_STATES.has(error.code)) {
+  // Class 22 is a value Postgres could not take (bad text, out of range, NUL):
+  // the caller sent it, so it is a 400 whichever exact state it is.
+  if (typeof error.code === "string" && (BAD_INPUT_STATES.has(error.code) || error.code.startsWith("22"))) {
     return new ApiProblem("invalid-request", { detail: "A value could not be read" });
   }
   return null;

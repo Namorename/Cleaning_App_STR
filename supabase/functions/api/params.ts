@@ -35,7 +35,8 @@ export interface ParamSpec {
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ID = /^[1-9][0-9]{0,15}$/;
+// Fifteen digits at most: a JavaScript number is exact to 2^53, and an id is passed as one.
+const ID = /^[1-9][0-9]{0,14}$/;
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const DATETIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}:\d{2})$/;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -64,6 +65,10 @@ function bad(message: string): Parsed {
 
 /** One scalar from the query string or the path, as text. */
 function parseText(spec: ParamSpec, raw: string): Parsed {
+  // Postgres takes no NUL in text; let it be the caller's 400, not our 500.
+  if (raw.includes("\u0000")) {
+    return bad("must not contain a NUL character");
+  }
   switch (spec.kind) {
     case "uuid":
       return UUID.test(raw) ? { ok: true, value: raw.toLowerCase() } : bad("must be a UUID");
@@ -128,6 +133,8 @@ export function parseQuery(
   for (const name of new Set(query.keys())) {
     if (!known.has(name)) {
       errors.push({ name, message: "is not a parameter of this operation" });
+    } else if (pathValues[name] !== undefined) {
+      errors.push({ name, message: "is given in the path" });
     } else if (query.getAll(name).length > 1) {
       errors.push({ name, message: "is given more than once" });
     }

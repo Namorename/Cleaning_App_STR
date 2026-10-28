@@ -232,6 +232,7 @@
           "hint": "It is shown once. woom keeps only a hash of it and cannot show it again.",
           "copy": "Copy",
           "copied": "Copied",
+          "copyFailed": "Could not copy: select the key and copy it by hand.",
           "done": "I have saved it"
         },
         "groups": {

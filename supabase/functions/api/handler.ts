@@ -93,19 +93,21 @@ function readBearer(request: Request): string | null {
   return match === null ? "" : match[1];
 }
 
-function clientIp(request: Request): string | null {
-  const candidates = [
-    request.headers.get("cf-connecting-ip"),
-    request.headers.get("x-real-ip"),
-    request.headers.get("x-forwarded-for")?.split(",")[0] ?? null,
-  ];
-  for (const candidate of candidates) {
-    const ip = candidate?.trim() ?? "";
-    if (IP.test(ip)) {
-      return ip;
-    }
+/**
+ * The caller's address, for the failed-authentication bucket only.
+ *
+ * Only the header the platform's edge sets: X-Real-IP and the left end of
+ * X-Forwarded-For are whatever the caller wrote, and trusting them would let
+ * anyone fill another address's bucket. An IPv6 address counts by its /64,
+ * the block one customer usually holds, so rotating within it buys nothing.
+ * No header, no bucket: the key is still checked.
+ */
+export function clientIp(request: Request): string | null {
+  const ip = request.headers.get("cf-connecting-ip")?.trim() ?? "";
+  if (!IP.test(ip)) {
+    return null;
   }
-  return null;
+  return ip.includes(":") ? ip.split(":").slice(0, 4).join(":") : ip;
 }
 
 function stripPrefix(pathname: string): string {
@@ -190,8 +192,9 @@ export function createApiHandler(deps: ApiDeps): (request: Request) => Promise<R
       });
     }
     if (AUTH_CODES.has(code)) {
+      // RFC 6750 §3.1: no error code when no credentials were sent.
       throw new ApiProblem(code as ProblemCode, {}, {
-        "WWW-Authenticate": `Bearer realm="woom", error="invalid_token"`,
+        "WWW-Authenticate": code === "missing-key" ? 'Bearer realm="woom"' : 'Bearer realm="woom", error="invalid_token"',
       });
     }
     logError(`api: api_gate answered an unknown code`);
@@ -256,6 +259,11 @@ export function createApiHandler(deps: ApiDeps): (request: Request) => Promise<R
     const contentType = request.headers.get("Content-Type") ?? "";
     if (!/^application\/json(\s*;.*)?$/i.test(contentType.trim())) {
       throw new ApiProblem("unsupported-media-type");
+    }
+    // Refused before it is read when it says its size; checked again after.
+    const declared = Number(request.headers.get("Content-Length") ?? "");
+    if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+      throw new ApiProblem("payload-too-large");
     }
     const text = await request.text();
     if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) {

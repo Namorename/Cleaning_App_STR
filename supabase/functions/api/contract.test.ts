@@ -135,11 +135,11 @@ const TS = "2026-10-28T09:15:00Z";
 const CLEANING = {
   id: UUID, type: "cleaning", status: "assigned", property_id: 123456, booking_id: 987654, task_id: null,
   scheduled_date: "2026-11-02", time_from: "11:00", time_to: "15:00", due_at: TS, priority: 1,
-  assignee_id: UUID, title: null, guests_count: 2, is_parallel: false, started_at: null, completed_at: null,
+  assignee_id: UUID, title: null, text_masked: false, guests_count: 2, is_parallel: false, started_at: null, completed_at: null,
   completed_by: null, created_at: TS, updated_at: TS,
 };
 const TASK = {
-  id: UUID, title: "Dripping tap", description: null, priority: "high", status: "assigned", property_id: 123456,
+  id: UUID, title: "Dripping tap", description: null, text_masked: false, priority: "high", status: "assigned", property_id: 123456,
   cleaning_id: null, reported_by: UUID, archived: false, cancel_reason: null,
   work: { cleaning_id: UUID, status: "assigned", assignee_id: UUID, scheduled_date: "2026-11-05", time_from: "09:00", time_to: null },
   created_at: TS, updated_at: TS, resolved_at: null, cancelled_at: null, archived_at: null,

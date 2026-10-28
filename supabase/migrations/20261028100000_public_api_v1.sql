@@ -112,14 +112,17 @@ create table public.api_keys (
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now(),
   revoked_at   timestamptz,
-  revoked_by   uuid references public.profiles (id),
+  revoked_by   uuid references public.profiles (id) on delete set null,
   last_used_at timestamptz
 );
 
 create index api_keys_host_idx on public.api_keys (host_id, created_at);
+create index api_keys_created_by_idx on public.api_keys (created_by);
 
+-- Not on last_used_at: updated_at says when the key was changed, not used.
 create trigger api_keys_touch_updated_at
-  before update on public.api_keys
+  before update of name, preset, scopes, property_ids, expires_at, revoked_at, revoked_by
+  on public.api_keys
   for each row execute function public.touch_updated_at();
 
 comment on table public.api_keys is
@@ -130,7 +133,7 @@ create table public.api_key_events (
   id         bigint generated always as identity primary key,
   key_id     uuid not null references public.api_keys (id),
   host_id    uuid not null references public.hosts (id),
-  actor_id   uuid references public.profiles (id),
+  actor_id   uuid references public.profiles (id) on delete set null,
   kind       text not null check (kind in ('created', 'updated', 'revoked')),
   before     jsonb,
   after      jsonb,
@@ -196,6 +199,13 @@ revoke all on table public.api_scopes, public.api_keys, public.api_key_events,
 revoke all on sequence public.api_key_events_id_seq, public.api_request_log_id_seq
   from public, anon, authenticated;
 
+-- The reads of the API: a task's repair work, a company's bookings and tasks
+-- in their order.
+create index tasks_problem_work_idx on public.tasks (problem_id, created_at desc, id desc)
+  where problem_id is not null;
+create index reservations_host_arrival_idx on public.reservations (host_id, arrival_date, id);
+create index problems_host_created_idx on public.problems (host_id, created_at, id);
+
 -- ---------- 3. helpers ----------
 
 create type public.api_context as (
@@ -244,12 +254,42 @@ as $$
 $$;
 
 /**
- * A property's name with door codes taken out (docs/api-v1.md §6.4, F27).
+ * Text with door codes taken out (docs/api-v1.md §6.4, F27).
  *
  * Codes were written into listing and unit names in Hostaway ("|code - 1234|",
- * "lockbox 1234", "Unit 3 - 1234"). A segment that names a code goes with its
- * number and its |frame|; any other run of four or more digits becomes ••••.
- * A name with neither comes back exactly as it was.
+ * "lockbox 1234", "Unit 3 - 1234"), and people type them into what they report
+ * ("the lockbox code 4821 does not open"). A word that names a code goes with
+ * the number after it and its |frame|; any other run of four or more digits
+ * becomes ••••. Text with neither comes back exactly as it was. Codes shorter
+ * than four digits with no such word are not caught — the rule is a guard,
+ * not a promise (F27 moves codes into fields of their own).
+ */
+create or replace function public.api_mask_codes(p_text text)
+returns text
+language plpgsql
+immutable
+set search_path = ''
+as $$
+declare
+  c_keyword constant text :=
+    '\|?\s*\m(code|door|lock\s?box|keypad|pin|k[oó]d|код|dve[rř]e?|gate|intercom|домофон)\M\s*[-:#=]?\s*[0-9]+(-[0-9]+)*\s*\|?';
+  v_text text := p_text;
+begin
+  if p_text is null or (p_text !~* c_keyword and p_text !~ '[0-9]{4,}') then
+    return p_text;
+  end if;
+
+  v_text := regexp_replace(v_text, c_keyword, ' ', 'gi');
+  v_text := regexp_replace(v_text, '(^|[^0-9])[0-9]{4,}(?![0-9])', '\1••••', 'g');
+  v_text := regexp_replace(v_text, '[ \t]{2,}', ' ', 'g');
+  v_text := regexp_replace(v_text, '[ \t]*-[ \t]*(-[ \t]*)+', ' - ', 'g');
+  return btrim(v_text);
+end;
+$$;
+
+/**
+ * A property's name through the mask, with what is left of its separators
+ * trimmed; a name that was nothing but a code becomes ••••.
  */
 create or replace function public.api_safe_property_name(p_name text)
 returns text
@@ -258,23 +298,12 @@ immutable
 set search_path = ''
 as $$
 declare
-  c_keyword constant text :=
-    '\|?\s*\m(code|door|lock\s?box|keypad|pin|k[oó]d|код|dve[rř]e?)\M\s*[-:#=]?\s*[0-9][0-9 -]*[0-9]?\s*\|?';
-  v_name text := p_name;
+  v_masked text := public.api_mask_codes(p_name);
 begin
-  if p_name is null then
-    return null;
-  end if;
-  if p_name !~* c_keyword and p_name !~ '[0-9]{4,}' then
+  if v_masked is not distinct from p_name then
     return p_name;
   end if;
-
-  v_name := regexp_replace(v_name, c_keyword, ' ', 'gi');
-  v_name := regexp_replace(v_name, '(^|[^0-9])[0-9]{4,}(?![0-9])', '\1••••', 'g');
-  v_name := regexp_replace(v_name, '\s{2,}', ' ', 'g');
-  v_name := regexp_replace(v_name, '\s*-\s*(-\s*)+', ' - ', 'g');
-  v_name := regexp_replace(v_name, '^[\s|-]+|[\s|-]+$', '', 'g');
-  return coalesce(nullif(v_name, ''), '••••');
+  return coalesce(nullif(regexp_replace(v_masked, '^[\s|-]+|[\s|-]+$', '', 'g'), ''), '••••');
 end;
 $$;
 
@@ -424,6 +453,10 @@ $$;
  *
  * Answers {ok: false, code, retry_after?} rather than raising: a failed
  * authentication counts against the IP, and a raise would roll the count back.
+ * The key is looked up first: a working key is never held up by its address —
+ * a shared NAT, or somebody sending bad keys under a forged header, must not
+ * lock it out. Only failures count, and they are counted before they are
+ * compared, so a burst of them cannot slip past the check together.
  * On success: the key's id and digest (compared again in the function in
  * constant time) and the key's rate window.
  */
@@ -449,17 +482,6 @@ begin
     raise exception 'The IP hash is malformed' using errcode = 'invalid_parameter_value';
   end if;
 
-  if p_ip_hash is not null then
-    select w.hits into v_ip_hits
-    from public.api_rate_windows w
-    where w.bucket = 'ip:' || p_ip_hash and w.window_start = v_ip_window;
-    if coalesce(v_ip_hits, 0) >= c_ip_limit then
-      return jsonb_build_object(
-        'ok', false, 'code', 'rate-limited',
-        'retry_after', greatest(1, ceil(extract(epoch from v_ip_window + interval '10 minutes' - now()))::integer));
-    end if;
-  end if;
-
   if p_digest is not null then
     select k.* into v_key from public.api_keys k where k.key_digest = p_digest;
   end if;
@@ -469,7 +491,13 @@ begin
     if p_ip_hash is not null then
       insert into public.api_rate_windows as w (bucket, window_start, hits)
       values ('ip:' || p_ip_hash, v_ip_window, 1)
-      on conflict (bucket, window_start) do update set hits = w.hits + 1;
+      on conflict (bucket, window_start) do update set hits = w.hits + 1
+      returning w.hits into v_ip_hits;
+      if v_ip_hits > c_ip_limit then
+        return jsonb_build_object(
+          'ok', false, 'code', 'rate-limited',
+          'retry_after', greatest(1, ceil(extract(epoch from v_ip_window + interval '10 minutes' - now()))::integer));
+      end if;
     end if;
     return jsonb_build_object('ok', false, 'code', case v_state
       when 'missing' then 'missing-key'
@@ -530,8 +558,8 @@ set search_path = ''
 as $$
   select jsonb_build_object(
       'id', p.id,
-      'name', public.api_safe_property_name(p.name),
-      'name_masked', public.api_safe_property_name(p.name) is distinct from p.name,
+      'name', m.safe,
+      'name_masked', m.safe is distinct from p.name,
       'parent_id', p.parent_id,
       'status', p.status,
       'city', p.city,
@@ -546,6 +574,7 @@ as $$
       'updated_at', public.api_ts(p.updated_at))
     || case when 'properties:read_address' = any(p_scopes)
             then jsonb_build_object('address', p.address) else '{}'::jsonb end
+  from (select public.api_safe_property_name(p.name) as safe) m
 $$;
 
 create or replace function public.api_cleaning_json(t public.tasks)
@@ -567,7 +596,8 @@ as $$
     'due_at', public.api_ts(t.due_at),
     'priority', t.priority,
     'assignee_id', t.assignee_id,
-    'title', t.title,
+    'title', public.api_mask_codes(t.title),
+    'text_masked', public.api_mask_codes(t.title) is distinct from t.title,
     'guests_count', t.guests_count,
     'is_parallel', t.is_parallel,
     'started_at', public.api_ts(t.started_at),
@@ -587,15 +617,18 @@ set search_path = ''
 as $$
   select jsonb_build_object(
     'id', p.id,
-    'title', p.title,
-    'description', p.description,
+    'title', public.api_mask_codes(p.title),
+    'description', public.api_mask_codes(p.description),
+    'text_masked', public.api_mask_codes(p.title) is distinct from p.title
+                   or public.api_mask_codes(p.description) is distinct from p.description
+                   or public.api_mask_codes(p.cancel_reason) is distinct from p.cancel_reason,
     'priority', p.priority,
     'status', p.status,
     'property_id', p.property_id,
     'cleaning_id', p.task_id,
     'reported_by', p.reported_by,
     'archived', p.archived_at is not null,
-    'cancel_reason', p.cancel_reason,
+    'cancel_reason', public.api_mask_codes(p.cancel_reason),
     'work', (select jsonb_build_object(
                       'cleaning_id', w.id,
                       'status', w.status,
@@ -604,7 +637,7 @@ as $$
                       'time_from', public.api_hm(w.time_from),
                       'time_to', public.api_hm(w.time_to))
              from public.tasks w
-             where w.problem_id = p.id and w.type = 'maintenance'
+             where w.problem_id = p.id and w.host_id = p.host_id and w.type = 'maintenance'
              order by w.created_at desc, w.id desc
              limit 1),
     'created_at', public.api_ts(p.created_at),
@@ -630,7 +663,8 @@ as $$
             then jsonb_build_object('full_name', pr.full_name) else '{}'::jsonb end
 $$;
 
-create or replace function public.api_booking_json(r public.reservations)
+-- The rooms the booking took that the key may see (all of them for an unrestricted key).
+create or replace function public.api_booking_json(r public.reservations, p_allowed bigint[])
 returns jsonb
 language sql
 stable
@@ -642,7 +676,8 @@ as $$
     'property_id', r.property_id,
     'room_ids', coalesce((select jsonb_agg(u.property_id order by u.property_id)
                           from public.reservation_units u
-                          where u.reservation_id = r.id), '[]'::jsonb),
+                          where u.reservation_id = r.id
+                            and (p_allowed is null or u.property_id = any(p_allowed))), '[]'::jsonb),
     'arrival_date', r.arrival_date,
     'departure_date', r.departure_date,
     'check_in_time', public.api_hm(r.check_in_time),
@@ -974,10 +1009,10 @@ declare
   v_ctx public.api_context := public.api_authorize(p_digest, 'bookings:read');
 begin
   return (
-    select coalesce(jsonb_agg(public.api_booking_json(b) order by b.arrival_date, b.id), '[]'::jsonb)
+    select coalesce(jsonb_agg(public.api_booking_json(b, v_ctx.allowed) order by b.arrival_date, b.id), '[]'::jsonb)
     from (select r.* from public.reservations r
           where r.host_id = v_ctx.host_id
-            and public.api_allows_booking(v_ctx, r)
+            and (v_ctx.allowed is null or public.api_allows_booking(v_ctx, r))
             and (p_date_from is null or r.departure_date >= p_date_from)
             and (p_date_to is null or r.arrival_date <= p_date_to)
             and (p_property_id is null
@@ -1008,7 +1043,7 @@ begin
   if not found or not public.api_allows_booking(v_ctx, v_row) then
     perform public.api_not_found('Booking');
   end if;
-  return public.api_booking_json(v_row);
+  return public.api_booking_json(v_row, v_ctx.allowed);
 end;
 $$;
 
@@ -1130,6 +1165,10 @@ begin
 
   select i.* into v_row from public.api_idempotency i
   where i.key_id = p_key_id and i.idem_key = p_idem_key;
+  if not found then
+    -- Gone between the insert and the read (the nightly purge): claim it anew.
+    return public.api_idempotency_claim(p_key_id, p_idem_key, p_operation, p_hash);
+  end if;
   if v_row.operation <> p_operation or v_row.request_hash <> p_hash then
     raise exception 'Idempotency-Key was used with another request'
       using errcode = 'invalid_parameter_value', hint = 'api:idempotency-key-reused';
@@ -1291,9 +1330,16 @@ begin
 
   select tk.* into v_task from public.tasks tk
   where tk.id = p_cleaning_id and tk.host_id = v_ctx.host_id
-    and public.api_allows_property(v_ctx, tk.property_id);
+    and public.api_allows_property(v_ctx, tk.property_id)
+  for update;
   if not found then
     perform public.api_not_found('Cleaning');
+  end if;
+  -- The repair of a task is handed out by assign_problem, under tasks:assign.
+  if v_task.problem_id is not null then
+    raise exception 'Cleaning % is the repair of a task; assign the task', p_cleaning_id
+      using errcode = 'check_violation', hint = 'api:rejected',
+            detail = jsonb_build_object('reason', 'repair-of-task', 'task_id', v_task.problem_id)::text;
   end if;
 
   perform public.api_act_as(v_ctx.owner_id);
@@ -1380,7 +1426,7 @@ begin
       using errcode = 'check_violation', hint = 'serverErrors.apiScopesEmpty';
   end if;
   if p_property_ids is not null then
-    if cardinality(p_property_ids) = 0 then
+    if cardinality(p_property_ids) = 0 or array_position(p_property_ids, null) is not null then
       raise exception 'An empty list of properties would allow nothing'
         using errcode = 'check_violation', hint = 'serverErrors.apiPropertiesEmpty';
     end if;

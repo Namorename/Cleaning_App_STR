@@ -107,6 +107,40 @@ describe('API parity', () => {
     ]);
     expect([...objects.functions, ...objects.tables]).toEqual([]);
   });
+
+  test('a line comment holding /* hides nothing, nor does a string holding --', () => {
+    const objects = schemaObjects([
+      {
+        name: 'a.sql',
+        sql:
+          "-- see docs/*.md\ncreate function public.zz_hidden() returns void language sql as $$ select 1 $$;\n/** doc */\n" +
+          "select '-- not a comment'; create function public.zz_after() returns void language sql as $$ select 1 $$;\n" +
+          'create table "public"."zz_quoted" (x int);',
+      },
+    ]);
+    expect([...objects.functions].sort()).toEqual(['zz_after', 'zz_hidden']);
+    expect([...objects.tables]).toEqual(['zz_quoted']);
+  });
+
+  test('overloads are tracked by signature; renames and moves out of public count', () => {
+    const objects = schemaObjects([
+      {
+        name: 'a.sql',
+        sql:
+          'create function public.zz_f(p text) returns void language sql as $$ select 1 $$;\n' +
+          'create function public.zz_f(p int) returns void language sql as $$ select 1 $$;\n' +
+          'drop function public.zz_f(integer);\n' +
+          'create function public.zz_g(p_at timestamptz default now()) returns void language sql as $$ select 1 $$;\n' +
+          'drop function if exists public.zz_g(timestamp with time zone);\n' +
+          'create table public.zz_a (x int);\nalter table public.zz_a rename to zz_b;\n' +
+          'create table public.zz_c (x int);\nalter table public.zz_c set schema raw;\n' +
+          'create function public.zz_h() returns void language sql as $$ select 1 $$;\n' +
+          'alter function public.zz_h() rename to zz_i;',
+      },
+    ]);
+    expect([...objects.functions].sort()).toEqual(['zz_f', 'zz_i']);
+    expect([...objects.tables].sort()).toEqual(['zz_b']);
+  });
 });
 
 describe('preset rule of the panel = the database rule (supabase/tests/api_v1.sql §2)', () => {

@@ -39,58 +39,229 @@ export interface SchemaObjects {
   readonly tables: ReadonlySet<string>;
 }
 
-/** Comments out, so that prose about a function does not create it. Dollar-quoted bodies stay. */
-function withoutComments(sql: string): string {
-  return sql.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/--[^\n]*/g, ' ');
+/**
+ * The SQL with every comment blanked and the inside of every string literal
+ * blanked, in one pass, so that neither prose nor data can create or hide a
+ * function: a `--` line holding `/*` does not open a block, a string holding
+ * `--` does not end the line early, block comments nest as Postgres nests them.
+ * Dollar-quoted bodies are scanned as code (their own comments and strings are
+ * handled the same way); quoted identifiers are kept. Positions are preserved.
+ */
+export function scrubSql(sql: string): string {
+  const out: string[] = [];
+  let i = 0;
+  const blank = (text: string) => text.replace(/[^\n]/g, ' ');
+  while (i < sql.length) {
+    const two = sql.slice(i, i + 2);
+    if (two === '--') {
+      const end = sql.indexOf('\n', i);
+      const stop = end < 0 ? sql.length : end;
+      out.push(blank(sql.slice(i, stop)));
+      i = stop;
+    } else if (two === '/*') {
+      let depth = 0;
+      let j = i;
+      while (j < sql.length) {
+        if (sql.startsWith('/*', j)) {
+          depth += 1;
+          j += 2;
+        } else if (sql.startsWith('*/', j)) {
+          depth -= 1;
+          j += 2;
+          if (depth === 0) break;
+        } else {
+          j += 1;
+        }
+      }
+      out.push(blank(sql.slice(i, j)));
+      i = j;
+    } else if (sql[i] === "'") {
+      const escapes = i > 0 && /[eE]/.test(sql[i - 1]) && !/\w/.test(sql[i - 2] ?? ' ');
+      let j = i + 1;
+      while (j < sql.length) {
+        if (escapes && sql[j] === '\\') {
+          j += 2;
+        } else if (sql[j] === "'" && sql[j + 1] === "'") {
+          j += 2;
+        } else if (sql[j] === "'") {
+          break;
+        } else {
+          j += 1;
+        }
+      }
+      out.push("'", blank(sql.slice(i + 1, j)), j < sql.length ? "'" : '');
+      i = j + 1;
+    } else if (sql[i] === '"') {
+      const end = sql.indexOf('"', i + 1);
+      const stop = end < 0 ? sql.length : end + 1;
+      out.push(sql.slice(i, stop));
+      i = stop;
+    } else {
+      out.push(sql[i]);
+      i += 1;
+    }
+  }
+  return out.join('');
 }
 
-const STATEMENTS: readonly { readonly kind: 'functions' | 'tables'; readonly add: boolean; readonly re: RegExp }[] = [
-  { kind: 'functions', add: true, re: /\bcreate\s+(?:or\s+replace\s+)?function\s+(?:(\w+)\.)?"?(\w+)"?\s*\(/gi },
-  { kind: 'functions', add: false, re: /\bdrop\s+function\s+(?:if\s+exists\s+)?(?:(\w+)\.)?"?(\w+)"?/gi },
-  {
-    kind: 'tables',
-    add: true,
-    re: /\bcreate\s+(?:unlogged\s+)?table\s+(?:if\s+not\s+exists\s+)?(?:(\w+)\.)?"?(\w+)"?/gi,
-  },
-  {
-    kind: 'tables',
-    add: true,
-    re: /\bcreate\s+(?:or\s+replace\s+)?(?:materialized\s+)?view\s+(?:if\s+not\s+exists\s+)?(?:(\w+)\.)?"?(\w+)"?/gi,
-  },
-  { kind: 'tables', add: false, re: /\bdrop\s+(?:materialized\s+)?(?:table|view)\s+(?:if\s+exists\s+)?(?:(\w+)\.)?"?(\w+)"?/gi },
+const NAME = String.raw`(?:"?(\w+)"?\s*\.\s*)?"?(\w+)"?`;
+
+/** A type as Postgres prints it in a signature, near enough to compare a create with a drop. */
+function normalizeType(raw: string): string {
+  const type = raw.trim().toLowerCase().replace(/\s+/g, ' ').replace(/^public\./, '').replace(/"/g, '');
+  const aliases: Readonly<Record<string, string>> = {
+    int: 'integer', int4: 'integer', int8: 'bigint', int2: 'smallint', bool: 'boolean',
+    timestamptz: 'timestamp with time zone', timestamp: 'timestamp without time zone',
+    timetz: 'time with time zone', time: 'time without time zone', varchar: 'character varying',
+    float8: 'double precision', float4: 'real', decimal: 'numeric',
+  };
+  const array = type.endsWith('[]') ? '[]' : '';
+  const base = array ? type.slice(0, -2).trim() : type;
+  return `${aliases[base] ?? base.replace(/\(.*\)$/, '')}${array}`;
+}
+
+const TYPE_WORDS = /^(public\.)?(int|int2|int4|int8|integer|bigint|smallint|text|uuid|bool|boolean|date|time|timetz|timestamp|timestamptz|numeric|decimal|jsonb|json|double|real|float4|float8|character|varchar|interval|bytea|regclass|regprocedure|anyelement|record|void|name|oid|cidr|inet)(\[\])?$/i;
+
+/** The argument types of a signature, for telling overloads apart; OUT arguments are not part of it. */
+function signatureOf(args: string): string {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = '';
+  for (const char of args) {
+    if (char === '(') depth += 1;
+    if (char === ')') depth -= 1;
+    if (char === ',' && depth === 0) {
+      parts.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  if (current.trim() !== '') parts.push(current);
+  return parts
+    .map((part) => part.replace(/\s+(default\b|=)[\s\S]*$/i, '').trim())
+    .filter((part) => part !== '' && !/^out\s/i.test(part))
+    .map((part) => {
+      const tokens = part.replace(/^(in|inout|variadic)\s+/i, '').split(/\s+/);
+      const typeTokens = tokens.length > 1 && !TYPE_WORDS.test(tokens[0]) ? tokens.slice(1) : tokens;
+      return normalizeType(typeTokens.join(' '));
+    })
+    .join(',');
+}
+
+/** The text between the parenthesis at `open` and its partner. */
+function balanced(sql: string, open: number): string | null {
+  let depth = 0;
+  for (let i = open; i < sql.length; i += 1) {
+    if (sql[i] === '(') depth += 1;
+    if (sql[i] === ')') {
+      depth -= 1;
+      if (depth === 0) return sql.slice(open + 1, i);
+    }
+  }
+  return null;
+}
+
+type Kind = 'functions' | 'tables';
+
+interface SchemaEvent {
+  readonly index: number;
+  readonly kind: Kind;
+  readonly op: 'add' | 'drop' | 'rename' | 'leave';
+  readonly name: string;
+  /** Functions: the signature; null drops every overload. */
+  readonly signature: string | null;
+  readonly to?: string;
+}
+
+const PATTERNS: readonly { kind: Kind; op: SchemaEvent['op']; re: RegExp; hasArgs: boolean }[] = [
+  { kind: 'functions', op: 'add', hasArgs: true, re: new RegExp(String.raw`\bcreate\s+(?:or\s+replace\s+)?(?:function|procedure)\s+${NAME}\s*\(`, 'gi') },
+  { kind: 'functions', op: 'drop', hasArgs: true, re: new RegExp(String.raw`\bdrop\s+(?:function|procedure)\s+(?:if\s+exists\s+)?${NAME}\s*(\()?`, 'gi') },
+  { kind: 'functions', op: 'rename', hasArgs: true, re: new RegExp(String.raw`\balter\s+(?:function|procedure)\s+${NAME}\s*(\()?`, 'gi') },
+  { kind: 'tables', op: 'add', hasArgs: false, re: new RegExp(String.raw`\bcreate\s+(?:unlogged\s+)?table\s+(?:if\s+not\s+exists\s+)?${NAME}`, 'gi') },
+  { kind: 'tables', op: 'add', hasArgs: false, re: new RegExp(String.raw`\bcreate\s+(?:or\s+replace\s+)?(?:materialized\s+)?view\s+(?:if\s+not\s+exists\s+)?${NAME}`, 'gi') },
+  { kind: 'tables', op: 'drop', hasArgs: false, re: new RegExp(String.raw`\bdrop\s+(?:materialized\s+)?(?:table|view)\s+(?:if\s+exists\s+)?${NAME}`, 'gi') },
+  { kind: 'tables', op: 'rename', hasArgs: false, re: new RegExp(String.raw`\balter\s+(?:materialized\s+)?(?:table|view)\s+(?:if\s+exists\s+)?(?:only\s+)?${NAME}`, 'gi') },
 ];
+
+/** What an ALTER does to the object's place: renames it, moves it out of public, or nothing. */
+function alteration(sql: string, from: number): { op: 'rename' | 'leave' | null; to?: string } {
+  const end = sql.indexOf(';', from);
+  const statement = sql.slice(from, end < 0 ? sql.length : end);
+  const rename = /^\s*rename\s+to\s+"?(\w+)"?/i.exec(statement);
+  if (rename !== null) return { op: 'rename', to: rename[1].toLowerCase() };
+  const schema = /^\s*set\s+schema\s+"?(\w+)"?/i.exec(statement);
+  if (schema !== null) return schema[1].toLowerCase() === 'public' ? { op: null } : { op: 'leave' };
+  return { op: null };
+}
+
+function eventsOf(sql: string): SchemaEvent[] {
+  const events: SchemaEvent[] = [];
+  for (const pattern of PATTERNS) {
+    for (const match of sql.matchAll(pattern.re)) {
+      const index = match.index ?? 0;
+      const schema = (match[1] ?? 'public').toLowerCase();
+      if (schema !== 'public') {
+        continue;
+      }
+      const name = match[2].toLowerCase();
+      let signature: string | null = null;
+      let after = index + match[0].length;
+      if (pattern.kind === 'functions' && (pattern.op === 'add' || match[3] === '(')) {
+        const args = balanced(sql, index + match[0].lastIndexOf('('));
+        signature = args === null ? null : signatureOf(args);
+        after = index + match[0].lastIndexOf('(') + (args?.length ?? 0) + 2;
+      }
+      if (pattern.op === 'rename') {
+        const change = alteration(sql, after);
+        if (change.op !== null) {
+          events.push({ index, kind: pattern.kind, op: change.op, name, signature, to: change.to });
+        }
+        continue;
+      }
+      events.push({ index, kind: pattern.kind, op: pattern.op, name, signature });
+    }
+  }
+  return events.sort((a, b) => a.index - b.index);
+}
 
 /**
  * The functions, tables and views of schema `public` after every migration,
  * in order. A name without a schema is public's, as the migrations' search
- * path makes it; temporary tables of a migration's own work are not.
+ * path makes it. Functions are tracked by signature, so dropping one overload
+ * leaves the others; a name counts while any overload of it remains.
  */
 export function schemaObjects(migrations: readonly Migration[]): SchemaObjects {
-  const functions = new Set<string>();
+  const functions = new Map<string, Set<string>>();
   const tables = new Set<string>();
   for (const migration of [...migrations].sort((a, b) => a.name.localeCompare(b.name))) {
-    const sql = withoutComments(migration.sql);
-    const events: { index: number; kind: 'functions' | 'tables'; add: boolean; name: string }[] = [];
-    for (const statement of STATEMENTS) {
-      for (const match of sql.matchAll(statement.re)) {
-        const schema = (match[1] ?? 'public').toLowerCase();
-        const before = sql.slice(Math.max(0, (match.index ?? 0) - 20), match.index).toLowerCase();
-        if (schema !== 'public' || /\btemp(orary)?\s+$/.test(before)) {
-          continue;
-        }
-        events.push({ index: match.index ?? 0, kind: statement.kind, add: statement.add, name: match[2].toLowerCase() });
+    for (const event of eventsOf(scrubSql(migration.sql))) {
+      if (event.kind === 'tables') {
+        if (event.op === 'add') tables.add(event.name);
+        if (event.op === 'drop' || event.op === 'leave' || event.op === 'rename') tables.delete(event.name);
+        if (event.op === 'rename' && event.to !== undefined) tables.add(event.to);
+        continue;
       }
-    }
-    for (const event of events.sort((a, b) => a.index - b.index)) {
-      const set = event.kind === 'functions' ? functions : tables;
-      if (event.add) {
-        set.add(event.name);
+      const overloads = functions.get(event.name) ?? new Set<string>();
+      const signature = event.signature ?? '';
+      if (event.op === 'add') {
+        functions.set(event.name, overloads.add(signature));
+        continue;
+      }
+      if (event.signature === null) {
+        overloads.clear();
       } else {
-        set.delete(event.name);
+        overloads.delete(signature);
+      }
+      if (overloads.size === 0) {
+        functions.delete(event.name);
+      }
+      if (event.op === 'rename' && event.to !== undefined) {
+        functions.set(event.to, (functions.get(event.to) ?? new Set<string>()).add(signature));
       }
     }
   }
-  return { functions, tables };
+  return { functions: new Set(functions.keys()), tables };
 }
 
 export interface ScopeRow {

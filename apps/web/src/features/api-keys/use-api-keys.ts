@@ -17,11 +17,16 @@ export function useApiKeys() {
   return useQuery({ queryKey: apiKeysKeys.list(), queryFn: () => fetchApiKeys(client) });
 }
 
-/** The key the answer carries is handed to the caller and kept nowhere else — not in the query cache. */
+/**
+ * The key the answer carries is handed to the caller and kept nowhere else:
+ * not in the query cache, and not in the mutation cache either (gcTime 0 drops
+ * the mutation, key and all, as soon as nothing observes it).
+ */
 export function useCreateApiKey() {
   const client = useSupabase();
   const queryClient = useQueryClient();
   return useMutation({
+    gcTime: 0,
     mutationFn: (draft: KeyDraft) => createApiKey(client, draft),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: apiKeysKeys.all }),
   });

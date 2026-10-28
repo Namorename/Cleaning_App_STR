@@ -112,7 +112,8 @@ info:
 
     The answers never carry guests' names, contacts or messages, booking
     prices, staff e-mails or phone numbers, door codes (a code written into a
-    property's name is masked, and `name_masked` says so), free-text notes, or
+    property's name or into what somebody reported is masked, and `name_masked` or
+    `text_masked` says so), free-text notes, or
     links to media files.
 
     ## Operations
@@ -174,7 +175,8 @@ info:
 
     `r` is what is left, `t` the seconds until the window resets. Over the
     limit: `429` with `Retry-After`. After 20 failed authentications from one
-    address in ten minutes, that address gets `429` until the ten minutes pass.
+    address in ten minutes, further failed attempts from it get `429` until the
+    ten minutes pass; a working key is never held up by its address.
 
     ## Conventions
 
@@ -415,7 +417,9 @@ paths:
         Hands the cleaning to a person, or takes it off them with `null`. Only the
         executor changes; the panel's rules apply (a cleaning is never handed to
         a technician, a closed one cannot be changed). Recorded in the
-        cleaning's history in the name of the admin who made the key.
+        cleaning's history in the name of the admin who made the key. The repair
+        work of a task is handed out through `assignTask` (scope `tasks:assign`):
+        here it is refused with `422 rejected` and `params.reason: repair-of-task`.
       x-woom-scope: cleanings:assign
       parameters:
         - $ref: "#/components/parameters/UuidId"
@@ -1146,7 +1150,7 @@ components:
     Cleaning:
       type: object
       additionalProperties: false
-      required: [id, type, status, property_id, booking_id, task_id, scheduled_date, time_from, time_to, due_at, priority, assignee_id, title, guests_count, is_parallel, started_at, completed_at, completed_by, created_at, updated_at]
+      required: [id, type, status, property_id, booking_id, task_id, scheduled_date, time_from, time_to, due_at, priority, assignee_id, title, text_masked, guests_count, is_parallel, started_at, completed_at, completed_by, created_at, updated_at]
       properties:
         id: { type: string, format: uuid }
         type: { type: string, enum: [cleaning, maintenance, inspection, midstay] }
@@ -1160,7 +1164,8 @@ components:
         due_at: { $ref: "#/components/schemas/NullableTimestamp" }
         priority: { type: integer, description: "Higher comes first; a same-day turnover is 1." }
         assignee_id: { type: [string, "null"], format: uuid }
-        title: { type: [string, "null"], description: "A title written by hand; null means the type is its name." }
+        title: { type: [string, "null"], description: "A title written by hand, door codes masked; null means the type is its name." }
+        text_masked: { type: boolean, description: "True when a code was taken out of the title." }
         guests_count: { type: [integer, "null"] }
         is_parallel: { type: boolean }
         started_at: { $ref: "#/components/schemas/NullableTimestamp" }
@@ -1183,11 +1188,12 @@ components:
     Task:
       type: object
       additionalProperties: false
-      required: [id, title, description, priority, status, property_id, cleaning_id, reported_by, archived, cancel_reason, work, created_at, updated_at, resolved_at, cancelled_at, archived_at]
+      required: [id, title, description, text_masked, priority, status, property_id, cleaning_id, reported_by, archived, cancel_reason, work, created_at, updated_at, resolved_at, cancelled_at, archived_at]
       properties:
         id: { type: string, format: uuid }
-        title: { type: string }
-        description: { type: [string, "null"] }
+        title: { type: string, description: "Door codes masked (••••)." }
+        description: { type: [string, "null"], description: "What was reported, door codes masked (••••)." }
+        text_masked: { type: boolean, description: "True when a code was taken out of the title, the description or the cancel reason." }
         priority: { type: string, enum: [low, normal, high] }
         status: { type: string, enum: [open, assigned, in_progress, resolved, cancelled] }
         property_id: { type: [integer, "null"] }
