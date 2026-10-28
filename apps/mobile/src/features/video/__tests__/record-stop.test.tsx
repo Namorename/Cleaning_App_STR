@@ -61,15 +61,18 @@ describe('the countdown', () => {
     expect(screen.getByText('1:30', HIDDEN_TOO)).toBeTruthy();
   });
 
-  test('a step shorter than the company’s limit counts down from its own', async () => {
+  // 22.10: the length a step copied when the cleaning started held started
+  // cleanings below the company's new number. The camera counts down from
+  // the company's.
+  test('the camera counts down from the company’s length, not the step’s copy', async () => {
     mockSteps.data = [videoStep({ max_video_sec: 45 })];
 
     await render(<RecordRoute />);
     await fireEvent.press(screen.getByRole('button', { name: 'Записать' }));
 
-    expect(screen.getByText('0:45', HIDDEN_TOO)).toBeTruthy();
+    expect(screen.getByText('1:30', HIDDEN_TOO)).toBeTruthy();
     expect(mockCamera.recordAsync).toHaveBeenCalledWith(
-      expect.objectContaining({ maxDuration: 45 }),
+      expect.objectContaining({ maxDuration: 90 }),
     );
   });
 });

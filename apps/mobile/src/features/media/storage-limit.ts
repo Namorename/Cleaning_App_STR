@@ -6,13 +6,17 @@ const BYTES_PER_MB = 1_000_000;
 /**
  * The largest file the project's storage takes in one upload, in megabytes.
  *
- * Supabase Free refuses anything bigger with 413, whatever the bucket's own
- * limit and the company's `video_max_mb` say (on 09.10 the company allowed 140
- * and a 105.9 MB video never got in). Counted in 10^6 bytes like the company's
- * setting: should the storage mean 50 MiB, this is 2.4 MB on the safe side.
- * The camera stops here too (`videoLimits`). Raise it with the plan.
+ * The storage refuses anything bigger with 413, whatever the bucket's own
+ * limit and the company's `video_max_mb` say (on 09.10, on Supabase Free, the
+ * company allowed 140 and a 105.9 MB video never got in). 50 while the project
+ * was on Free; 150 from the update after the project's global limit was raised
+ * to 150 MiB on Pro — the bucket's own (docs/video-upload-1022.md): at 50, a
+ * gallery video of 16 Mbit/s (seen 20–22.10) fits 25 seconds. Not to go out before
+ * that setting: a file over the project's limit is refused after she has left
+ * the step. Counted in 10^6 bytes like the company's setting, so 150 is 7 MB
+ * under 150 MiB. The camera stops here too (`videoLimits`).
  */
-export const STORAGE_FILE_LIMIT_MB = 50;
+export const STORAGE_FILE_LIMIT_MB = 150;
 
 const REFUSAL_KEY = 'video.tooLargeForStorage';
 

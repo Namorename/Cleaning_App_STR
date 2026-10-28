@@ -205,7 +205,7 @@ export default function StepRoute() {
   };
 
   const mediaKind = mediaKindOfStep(step.type);
-  const maxVideoSec = videoSettings === null ? null : videoLimits(step, videoSettings).seconds;
+  const maxVideoSec = videoSettings === null ? null : videoLimits(videoSettings).seconds;
 
   /** A video is recorded on its own screen, which hands it to the same queue. */
   const openVideo = (from: 'camera' | 'gallery') => {

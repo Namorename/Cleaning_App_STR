@@ -55,8 +55,8 @@ interface StepScreenProps {
   /** The photos or video of a media step, and what can be done with them. */
   media?: readonly MediaItemView[];
   /**
-   * A video step's length, worked out by the route from the company and the
-   * step (`videoLimits`); null while the company's settings are unknown.
+   * A video step's length, worked out by the route from the company's
+   * settings (`videoLimits`); null while they are unknown.
    */
   maxVideoSec?: number | null;
   isCapturing?: boolean;

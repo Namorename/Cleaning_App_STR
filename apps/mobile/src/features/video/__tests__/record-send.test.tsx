@@ -168,10 +168,10 @@ describe('the preview before sending', () => {
 
 describe('a recording larger than the storage takes', () => {
   test('is refused before the queue, says why in her language, and «Переснять» stays', async () => {
-    // Arrange: the company allows 140 MB, the storage on its plan takes 50.
+    // Arrange: a recording over the 150 MB the storage takes in one upload.
     keep.mockImplementation(async ({ durationSec }) => ({
       ...kept(durationSec),
-      byteSize: 105_900_000,
+      byteSize: 160_400_000,
     }));
     await render(<RecordRoute />);
     await recordFor(5_000);
@@ -182,7 +182,7 @@ describe('a recording larger than the storage takes', () => {
     // Assert
     expect(
       screen.getByText(
-        'Видео весит 106 МБ, а хранилище принимает файлы не больше 50 МБ. Нажмите «Переснять» и запишите видео короче.',
+        'Видео весит 161 МБ, а хранилище принимает файлы не больше 150 МБ. Нажмите «Переснять» и запишите видео короче.',
       ),
     ).toBeTruthy();
     expect(mockRemember).not.toHaveBeenCalled();
@@ -196,7 +196,7 @@ describe('a recording larger than the storage takes', () => {
   test('is not reported as a crash', async () => {
     keep.mockImplementation(async ({ durationSec }) => ({
       ...kept(durationSec),
-      byteSize: 105_900_000,
+      byteSize: 160_400_000,
     }));
     await render(<RecordRoute />);
     await recordFor(5_000);
@@ -208,17 +208,39 @@ describe('a recording larger than the storage takes', () => {
     expect(discardFile).not.toHaveBeenCalled();
   });
 
+  // 22.10: maids said "the video does not upload", and nothing of this refusal
+  // reached anyone but her. Told once per file, with the numbers that decided it.
+  test('is reported once as a refusal, with its size and length', async () => {
+    keep.mockImplementation(async ({ durationSec }) => ({
+      ...kept(durationSec),
+      byteSize: 160_400_000,
+    }));
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    expect(Sentry.captureMessage).toHaveBeenCalledTimes(1);
+    expect(Sentry.captureMessage).toHaveBeenCalledWith('Video too large for the storage', {
+      level: 'warning',
+      tags: { reason: 'video.tooLargeForStorage', kind: 'video', source: 'camera' },
+      extra: expect.objectContaining({ byteSize: 160_400_000, limitBytes: 45_000_000 }),
+      fingerprint: ['media-trouble', 'Video too large for the storage', 'video.tooLargeForStorage'],
+    });
+  });
+
   test('a file right at the storage limit goes to the queue', async () => {
     keep.mockImplementation(async ({ durationSec }) => ({
       ...kept(durationSec),
-      byteSize: 50_000_000,
+      byteSize: 150_000_000,
     }));
     await render(<RecordRoute />);
     await recordFor(5_000);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
 
-    expect(mockAttach).toHaveBeenCalledWith(expect.objectContaining({ byteSize: 50_000_000 }));
+    expect(mockAttach).toHaveBeenCalledWith(expect.objectContaining({ byteSize: 150_000_000 }));
     expect(router.back).toHaveBeenCalled();
   });
 });

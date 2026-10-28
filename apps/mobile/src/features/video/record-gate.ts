@@ -83,7 +83,7 @@ export function recordGate(input: RecordGateInput): RecordGate {
   if (input.videoSettings === null) {
     return refused(i18n.t('steps.videoSettingsUnknown'));
   }
-  return { kind: 'open', limits: videoLimits(step, input.videoSettings) };
+  return { kind: 'open', limits: videoLimits(input.videoSettings) };
 }
 
 function refused(text: string): RecordGate {

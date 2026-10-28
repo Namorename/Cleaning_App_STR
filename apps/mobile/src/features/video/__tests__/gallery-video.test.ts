@@ -3,8 +3,8 @@ import type { VideoLimits } from '@/features/media/schema';
 import { galleryVideoRefusal, type PickedVideo } from '../gallery-video';
 
 /**
- * A video chosen from the gallery, held to the step before anything is
- * registered (night of 2026-10-10, block 6): what the server would refuse is
+ * A video chosen from the gallery, held to the company's numbers before
+ * anything is registered (night of 2026-10-10, block 6): what the server would refuse is
  * said on the phone, in her words, with the number she has to meet.
  */
 
@@ -31,10 +31,10 @@ function picked(overrides: Partial<PickedVideo> = {}): PickedVideo {
 test.each([
   ['an MP4 within the limits', picked(), null],
   ['a MOV from an iPhone', picked({ mimeType: 'video/quicktime' }), null],
-  ['exactly the step’s length', picked({ durationSec: 90 }), null],
+  ['exactly the company’s length', picked({ durationSec: 90 }), null],
   ['exactly the company’s size', picked({ byteSize: 45_000_000 }), null],
   [
-    'longer than the step and the company allow',
+    'longer than the company allows',
     picked({ durationSec: 90.5 }),
     { key: 'video.galleryTooLong', limit: 90 },
   ],
@@ -79,7 +79,7 @@ describe('a video the gallery already compressed', () => {
     ).toEqual({ key: 'video.galleryFormat' });
   });
 
-  test('the size is the smaller of the company’s and the storage’s 50 MB', () => {
+  test('the size is the limit it is given: the smaller of the company’s and the storage’s', () => {
     const generous: VideoLimits = { ...LIMITS, maxBytes: 50_000_000 };
 
     expect(
