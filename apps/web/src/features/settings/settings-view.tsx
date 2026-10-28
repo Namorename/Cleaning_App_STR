@@ -8,11 +8,13 @@ import { PageHeader } from '@/components/page-header';
 import { SignOut } from '@/components/sign-out';
 import { ApiKeysSection } from '@/features/api-keys/api-keys-section';
 import { ProcessSection } from '@/features/workflow/process-section';
+import type { PanelAccess } from '@/lib/session';
 import type { ThemeChoice } from '@/lib/theme';
 import { useAddressState } from '@/lib/use-address-state';
 import { cn } from '@/lib/utils';
 
 import {
+  DEFAULT_SETTINGS_ADDRESS,
   readSettingsAddress,
   SETTINGS_SECTIONS,
   writeSettingsAddress,
@@ -25,6 +27,11 @@ import { VideoSettings } from './video-settings';
 
 interface SettingsViewProps {
   email: string;
+  /**
+   * The office sees every section; the head technician, who reaches the panel
+   * for the knowledge base (the owner's decision of 2026-10-16), his own two.
+   */
+  access: PanelAccess;
   /** The signed-in person: her profile keeps the panel's language. */
   userId: string;
   /** The theme this browser keeps (the cookie, read by the page). */
@@ -42,6 +49,9 @@ const SECTION_TITLE_KEY: Record<SettingsSection, string> = {
   process: 'panel.settings.workflow.title',
   api: 'panel.settings.api.title',
 };
+
+/** A person's own sections: what the head technician's settings hold. */
+const PERSONAL_SECTIONS: readonly SettingsSection[] = ['account', 'appearance'];
 
 /** The address of a section, as its link carries it. */
 function sectionHref(section: SettingsSection): string {
@@ -63,12 +73,26 @@ function sectionHref(section: SettingsSection): string {
  * editor holds a draft until it is saved, and a look at «Компания» in the
  * middle of an edit must not throw it away.
  */
-export function SettingsView({ email, userId, theme, onSignOut, isAdmin = false }: SettingsViewProps) {
+export function SettingsView({
+  email,
+  access,
+  userId,
+  theme,
+  onSignOut,
+  isAdmin = false,
+}: SettingsViewProps) {
   const { t } = useTranslation();
-  const [stored, setAddress] = useAddressState(readSettingsAddress, writeSettingsAddress);
-  const visible = SETTINGS_SECTIONS.filter((section) => section !== 'api' || isAdmin);
-  // A manager who follows an admin's link to «API» lands on the account.
-  const address = visible.includes(stored.section) ? stored : { section: visible[0] };
+  const [address, setAddress] = useAddressState(readSettingsAddress, writeSettingsAddress);
+  // The office sees every section but «API», which is an admin's; the head
+  // technician his own two.
+  const shown: readonly SettingsSection[] =
+    access === 'full'
+      ? SETTINGS_SECTIONS.filter((section) => section !== 'api' || isAdmin)
+      : PERSONAL_SECTIONS;
+  // A link to a section that is not theirs opens the account.
+  const current = shown.includes(address.section)
+    ? address.section
+    : DEFAULT_SETTINGS_ADDRESS.section;
 
   const open = (section: SettingsSection) => {
     if (section !== address.section) {
@@ -115,8 +139,8 @@ export function SettingsView({ email, userId, theme, onSignOut, isAdmin = false 
         <nav aria-label={t('panel.settings.sections')} className="lg:sticky lg:top-4">
           {/* On a phone the four sit in a row and wrap; from lg, a column. */}
           <ul className="flex flex-wrap gap-1 lg:flex-col">
-            {visible.map((section) => {
-              const isCurrent = section === address.section;
+            {shown.map((section) => {
+              const isCurrent = section === current;
               return (
                 <li key={section}>
                   <InPlaceLink
@@ -138,12 +162,12 @@ export function SettingsView({ email, userId, theme, onSignOut, isAdmin = false 
         </nav>
 
         <div className="min-w-0">
-          {visible.map((section) => (
+          {shown.map((section) => (
             <SettingsPanel
               key={section}
               title={t(SECTION_TITLE_KEY[section])}
               description={sections[section].description}
-              isHidden={section !== address.section}
+              isHidden={section !== current}
             >
               {sections[section].body}
             </SettingsPanel>

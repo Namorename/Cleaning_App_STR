@@ -5,8 +5,9 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
  * on «Уборки» and «Новое задание» on «Задания». Neither button asks for a
  * role: the shell decides who is let in, from `app_metadata` (CLAUDE.md), and
  * row level security decides what a write may do. The head technician works in
- * the phone (docs/tech-plan.md §10, answer 2: «Работает в телефоне»), so the
- * panel has no view for him.
+ * the phone (docs/tech-plan.md §10, answer 2: «Работает в телефоне»); since the
+ * owner's decision of 2026-10-16 the panel opens to him for the knowledge base
+ * alone, and the proxy keeps him off these pages.
  */
 let signedIn: { email: string; app_metadata: Record<string, unknown> } | null = null;
 
@@ -28,6 +29,8 @@ const redirect = vi.fn((url: string) => {
 vi.mock('next/navigation', () => ({ redirect: (url: string) => redirect(url) }));
 
 import { LanguageSync } from '@/components/language-sync';
+import { MobileNav } from '@/components/mobile-nav';
+import { Sidebar } from '@/components/sidebar';
 
 import PanelLayout from '../(panel)/layout';
 
@@ -83,10 +86,36 @@ describe('the panel’s shell', () => {
     },
   );
 
-  test.each(['cleaner', 'tech', 'head_tech'])('sends a %s to the sign-in', async (role) => {
+  test.each(['cleaner', 'tech'])('sends a %s to the sign-in', async (role) => {
     signedIn = { email: 'field@test.local', app_metadata: { role } };
 
     await expect(PanelLayout({ children: null })).rejects.toThrow('redirect:/login');
+  });
+
+  // The owner's decision of 2026-10-16: the head technician writes the
+  // knowledge base here. The shell lets him in with a menu of that section and
+  // his settings; the proxy keeps him off every other page.
+  test('lets the head technician in to the knowledge base alone', async () => {
+    signedIn = { email: 'head@test.local', app_metadata: { role: 'head_tech' } };
+
+    const shell = await PanelLayout({ children: null });
+
+    expect(redirect).not.toHaveBeenCalled();
+    const menus = elementsOf(shell).filter(
+      (element) => element.type === Sidebar || element.type === MobileNav,
+    );
+    expect(menus.map((menu) => menu.props.access)).toEqual(['knowledge', 'knowledge']);
+  });
+
+  test.each(['manager', 'admin'])('hands a %s the whole menu', async (role) => {
+    signedIn = { email: 'office@test.local', app_metadata: { role } };
+
+    const shell = await PanelLayout({ children: null });
+
+    const menus = elementsOf(shell).filter(
+      (element) => element.type === Sidebar || element.type === MobileNav,
+    );
+    expect(menus.map((menu) => menu.props.access)).toEqual(['full', 'full']);
   });
 
   test('a role written by the client itself opens nothing', async () => {

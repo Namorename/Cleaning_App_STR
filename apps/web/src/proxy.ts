@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { privacyLanguageOf } from '@/app/privacy/language';
 import { publicEnv } from '@/lib/env';
 import { PAGE_LANGUAGE_HEADER } from '@/lib/page-language';
-import { isPanelRole, roleOf } from '@/lib/session';
+import { homeOf, isPathOpenTo, panelAccessOf, roleOf } from '@/lib/session';
 
 const PUBLIC_PATHS = ['/login'];
 
@@ -48,6 +48,7 @@ function redirectKeepingCookies(url: URL, from: NextResponse): NextResponse {
 /**
  * Runs before every page: keeps the Supabase session fresh and sends anyone
  * who is not a manager to the sign-in page — every page but the open ones.
+ * The head technician reaches the knowledge base and his settings alone.
  *
  * The guard here is convenience, not security — row level security decides
  * what the browser may read either way. The redirect keeps a cleaner who
@@ -89,9 +90,9 @@ export async function proxy(request: NextRequest) {
 
   const { pathname, search } = request.nextUrl;
   const isPublic = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
-  const isManager = isPanelRole(roleOf(user));
+  const access = panelAccessOf(roleOf(user));
 
-  if (!isManager && !isPublic) {
+  if (access === null && !isPublic) {
     // The way back is the whole address: a bookmarked `/calendar?assignee=nobody`
     // must open filtered after the sign-in. The sign-in page itself keeps
     // nothing of the query but that; `safeNext` checks it on the way out.
@@ -102,9 +103,11 @@ export async function proxy(request: NextRequest) {
     return redirectKeepingCookies(url, response);
   }
 
-  if (isManager && isPublic) {
+  // Signed in on the sign-in page, or the head technician on a page that is
+  // not his (the owner's decision of 2026-10-16): to where the access lands.
+  if (access !== null && (isPublic || !isPathOpenTo(access, pathname))) {
     const url = request.nextUrl.clone();
-    url.pathname = '/dashboard';
+    url.pathname = homeOf(access);
     url.search = '';
     return redirectKeepingCookies(url, response);
   }

@@ -430,6 +430,7 @@
       "supplies": "Žádosti o materiál",
       "tasks": "Úklidy",
       "team": "Tým",
+      "knowledge": "Znalostní báze",
       "apartments": "Objekty",
       "settings": "Nastavení",
       "calendar": "Kalendář",
@@ -1439,6 +1440,115 @@
         "limit_many": "Minulost nejvýše {{count}} dne zpět",
         "limit_other": "Minulost nejvýše {{count}} dní zpět"
       }
+    },
+    "knowledge": {
+      "new": "Nový článek",
+      "loading": "Načítáme články…",
+      "loadError": "Články se nepodařilo načíst.",
+      "empty": "Zatím žádné články.",
+      "emptyFiltered": "Filtrům neodpovídá žádný článek.",
+      "filters": {
+        "status": "Stav",
+        "place": "Místo",
+        "anyPlace": "Všechna místa",
+        "company": "Celá firma"
+      },
+      "statusFilter": {
+        "current": "Koncepty a zveřejněné",
+        "draft": "Koncepty",
+        "published": "Zveřejněné",
+        "archived": "Archiv"
+      },
+      "status": {
+        "draft": "Koncept",
+        "published": "Zveřejněno",
+        "archived": "Archivováno"
+      },
+      "columns": {
+        "title": "Název",
+        "status": "Stav",
+        "where": "Kde",
+        "languages": "Jazyky",
+        "updated": "Upraveno"
+      },
+      "where": {
+        "company": "Celá firma",
+        "none": "Místo zatím nevybráno",
+        "more": "a další {{count}}",
+        "hidden": "Míst mimo váš přístup: {{count}}"
+      },
+      "languages": {
+        "en": "Angličtina",
+        "ru": "Ruština",
+        "cs": "Čeština"
+      },
+      "originalMark": "originál",
+      "editor": {
+        "back": "Všechny články",
+        "loading": "Načítáme článek…",
+        "loadError": "Článek se nepodařilo načíst.",
+        "notFound": "Takový článek neexistuje nebo ho nevidíte.",
+        "version": "Verze {{rev}}",
+        "language": "Jazyk originálu",
+        "languageHint": "Jazyk, ve kterém autor píše. Další dva jsou překlady, každý nepovinný.",
+        "languageTabs": "Jazyky",
+        "noTranslation": "bez překladu",
+        "title": "Název",
+        "body": "Text",
+        "translationHint": "Nepovinné. Když jsou obě pole prázdná, překlad není a čtenář uvidí angličtinu nebo originál.",
+        "formatHelp": "Značky: **tučně**, „- “ seznam, „1. “ číslovaný seznam, „1) “ krok, „> “ důležité, [text](https://…) odkaz. HTML zůstane prostým textem.",
+        "codeWarning": "Nepište sem přístupové kódy — kódy dveří, schránek na klíče ani Wi-Fi. Viděl by je každý, kdo článek čte.",
+        "codeWarningLabel": "Žádné přístupové kódy v článcích",
+        "toolbar": {
+          "label": "Formátování",
+          "bold": "Tučně",
+          "bullets": "Odrážky",
+          "numbered": "Číslovaný seznam",
+          "steps": "Kroky",
+          "link": "Odkaz",
+          "linkText": "text odkazu",
+          "important": "Důležité"
+        },
+        "preview": "Náhled: jako v telefonu",
+        "previewEmpty": "Tady se zobrazí text.",
+        "placement": "Kde se zobrazí",
+        "scope": {
+          "company": "Celá firma",
+          "building": "Jedna budova",
+          "properties": "Vybrané objekty"
+        },
+        "scopeHint": {
+          "company": "Čtou ho všechny uklízečky a všichni technici firmy.",
+          "building": "Zobrazí se v budově a ve všech jejích pokojích.",
+          "properties": "Zobrazí se na zaškrtnutých objektech; u zaškrtnuté budovy i ve všech jejích pokojích."
+        },
+        "building": "Budova",
+        "chooseBuilding": "Vyberte budovu",
+        "noBuildings": "Firma nemá žádnou budovu s pokoji.",
+        "hiddenPlaces": "Místa mimo váš přístup, zůstanou beze změny: {{count}}",
+        "save": "Uložit",
+        "saved": "Uloženo",
+        "unsaved": "Neuložené změny",
+        "leaveConfirm": "Máte neuložené změny. Odejít a přijít o ně?",
+        "discard": "Zahodit změny",
+        "reload": "Načíst poslední verzi",
+        "publish": "Zveřejnit",
+        "unpublish": "Zrušit zveřejnění",
+        "archive": "Do archivu",
+        "unarchive": "Vrátit z archivu",
+        "publishHint": "Zveřejněný článek se dostane do telefonů lidí, kteří tam pracují."
+      },
+      "history": {
+        "title": "Verze",
+        "loadError": "Verze se nepodařilo načíst.",
+        "empty": "Zatím žádné verze: uložte článek.",
+        "current": "aktuální",
+        "unknownAuthor": "neznámý autor",
+        "restore": "Obnovit",
+        "restoreLabel": "Obnovit verzi {{rev}}",
+        "restoreHint": "Obnovená verze se stane nejnovější; verze mezi tím zůstanou v historii.",
+        "saveFirst": "Nejdřív uložte nebo zahoďte změny."
+      }
     }
   },
   "tabs": {
@@ -2018,6 +2128,10 @@
     "unread": "Nová zpráva",
     "refreshFailed": "Nepodařilo se obnovit, zobrazují se uložené zprávy."
   },
+  "knowledge": {
+    "important": "Důležité",
+    "step": "Krok {{number}}"
+  },
   "serverErrors": {
     "checklistCopySameProperty": "Zdroj a cíl jsou tentýž apartmán",
     "checklistItemsLeft": "Nejsou odškrtnuty všechny povinné položky kontrolního seznamu",
@@ -2158,7 +2272,19 @@
     "mailTooSoon": "Na tuhle adresu právě odešel e-mail. Zkuste to za minutu.",
     "mailNotConfigured": "Odesílání e-mailů není nastavené.",
     "hostNotFound": "Společnost nebyla nalezena.",
-    "analyticsPeriodInvalid": "Období musí začínat dřív, než končí, a trvat nejvýše {{maxDays}} dní."
+    "analyticsPeriodInvalid": "Období musí začínat dřív, než končí, a trvat nejvýše {{maxDays}} dní.",
+    "kbArticleNotFound": "Článek nenalezen",
+    "kbArticleChanged": "Článek mezitím uložil někdo jiný. Načtěte poslední verzi a změnu proveďte znovu.",
+    "kbArticleInvalid": "Článek byl odeslán v nesprávném tvaru",
+    "kbTitleRequired": "Článek musí mít název",
+    "kbTitleTooLong": "Název může mít nejvýše {{max}} znaků",
+    "kbBodyTooLong": "Text může mít nejvýše {{max}} znaků",
+    "kbBodyRequired": "Zveřejněný článek musí mít text",
+    "kbTranslationTitleMissing": "Překlad ({{language}}) má text, ale nemá název",
+    "kbTargetsInvalid": "Článek pro celou firmu se k objektům nepřiřazuje",
+    "kbTargetsMissing": "Před zveřejněním vyberte, kde se článek zobrazí",
+    "kbBuildingInvalid": "Vyberte jednu budovu — objekt s pokoji",
+    "kbRevisionNotFound": "Taková verze neexistuje"
   },
   "push": {
     "cleaning_new": {
