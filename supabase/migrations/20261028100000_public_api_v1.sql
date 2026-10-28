@@ -19,6 +19,14 @@
 -- (apps/web/src/features/api-keys/__tests__/api-parity.test.ts). A later
 -- migration that adds or changes a scope repeats the marker block with the
 -- same row format.
+--
+-- The three read indexes below are built on tasks, reservations and problems,
+-- which the phones and the nightly sync write: the build blocks their writes
+-- while it runs (milliseconds at today's size), and a lock wait behind a long
+-- transaction would queue every writer after it. So the migration gives up
+-- after three seconds instead, as the others of this rollout do.
+
+set local lock_timeout = '3s';
 
 -- ---------- 1. the scope registry ----------
 
