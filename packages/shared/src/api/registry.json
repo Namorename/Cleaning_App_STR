@@ -12,6 +12,8 @@
     "supplies",
     "analytics",
     "chat",
+    "knowledge",
+    "reviews",
     "webhooks"
   ],
   "presets": ["read_only", "operator", "full", "custom"],
@@ -46,6 +48,10 @@
     { "id": "analytics:read", "group": "analytics", "action": "read", "sensitivity": "normal", "status": "planned", "operator": false },
     { "id": "chat:read", "group": "chat", "action": "read", "sensitivity": "sensitive", "status": "planned", "operator": false },
     { "id": "chat:write", "group": "chat", "action": "write", "sensitivity": "sensitive", "status": "planned", "operator": false },
+    { "id": "knowledge:read", "group": "knowledge", "action": "read", "sensitivity": "sensitive", "status": "planned", "operator": false },
+    { "id": "knowledge:write", "group": "knowledge", "action": "write", "sensitivity": "sensitive", "status": "planned", "operator": false },
+    { "id": "reviews:read", "group": "reviews", "action": "read", "sensitivity": "sensitive", "status": "planned", "operator": false },
+    { "id": "reviews:decide", "group": "reviews", "action": "write", "sensitivity": "normal", "status": "planned", "operator": true },
     { "id": "webhooks:manage", "group": "webhooks", "action": "write", "sensitivity": "sensitive", "status": "planned", "operator": false }
   ],
   "forbidden": [

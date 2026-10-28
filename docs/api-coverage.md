@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 32 | 166 | 218 |
-| Таблицы и представления | 8 | 14 | 11 | 33 |
-| Всего | 28 | 46 | 177 | 251 |
+| Функции | 20 | 40 | 204 | 264 |
+| Таблицы и представления | 8 | 20 | 12 | 40 |
+| Всего | 28 | 60 | 216 | 304 |
 
 ## Функции
 
@@ -41,11 +41,12 @@
 | `report_problem` | `tasks:create` | `createTask` |
 | `save_task` | `cleanings:assign` | `assignCleaning` |
 
-### Запланировано (право зарезервировано) — 32
+### Запланировано (право зарезервировано) — 40
 
 | Имя | Право | Что это |
 | --- | --- | --- |
 | `add_message_media` | `chat:write` | registers a photo slot on a chat message (row before file) |
+| `add_review_finding` | `reviews:decide` | the manager files a finding on a review by hand and approves it at once (makes a task; an assignee also needs tasks:assign) |
 | `analytics_checkouts_by_property` | `analytics:read` | Analytics table: check-outs, released rooms and occupancy per listing |
 | `analytics_cleanings_by_cleaner` | `analytics:read` | Analytics table: cleanings per cleaner (returns full_name; gate it with staff:read_names) |
 | `analytics_cleanings_by_property` | `analytics:read` | Analytics table: planned/done/expired/cancelled cleanings and durations per listing |
@@ -53,6 +54,7 @@
 | `analytics_problems_by_technician` | `analytics:read` | Analytics table: repairs and resolved tasks per technician (returns full_name; gate it with staff:read_names) |
 | `analytics_series` | `analytics:read` | Analytics figures day by day or week by week |
 | `analytics_summary` | `analytics:read` | Analytics key figures for one period |
+| `approve_review_finding` | `reviews:decide` | the manager's yes: a finding becomes a task (problem) or joins an open or solved one; may send a technician at once (tasks:assign) |
 | `archive_problem` | `tasks:update` | moves a task (problem) to the archive and cancels its live repair; reversible by unarchive_problem |
 | `archive_supply_catalog_item` | `supplies:write` | takes a supply catalogue entry off the phone list or puts it back |
 | `cancel_problem` | `tasks:cancel` | closes a task (problem) without a fix; its live repair is cancelled |
@@ -61,24 +63,30 @@
 | `mark_thread_read` | `chat:write` | moves the caller's read marker of a thread (a write, so not under chat:read) |
 | `open_thread` | `chat:write` | finds or opens the chat thread of a cleaning, task or staff member (replayable) |
 | `property_checklist_snapshot` | `checklists:read` | a listing's checklist shaped as a step config |
+| `reject_review_finding` | `reviews:decide` | the manager's no, with a reason; a task the finding made is called off while nobody has been sent |
 | `reopen_problem` | `tasks:resolve` | puts a closed task (problem) back on the board (undo of resolve) |
 | `resolve_checklist_property` | `checklists:read` | the listing whose checklist applies (own or parent) |
 | `resolve_problem` | `tasks:resolve` | closes a task (problem) as fixed |
 | `resolve_workflow_template` | `checklists:read` | the process template a cleaning on this listing follows |
+| `restore_kb_revision` | `knowledge:write` | brings an earlier version of an article (text and translations) back as its newest; history is not rewritten |
+| `review_place_problems` | `reviews:read` | a finding's neighbours: tasks on its place, open or since the guest left, and which ones approve may link |
+| `review_run_status` | `reviews:read` | when the review load and the classification last ran and last ran clean (times only) |
 | `review_supply_request` | `supplies:write` | moves a supply request along new/accepted/ordered/fulfilled or rejects it |
+| `save_kb_article` | `knowledge:write` | creates (as a draft) or rewrites an article: original, translations and places; replayable by the id the caller mints |
 | `save_property_checklist` | `checklists:write` | saves a listing's whole checklist (modules and items) |
 | `save_property_cleaner` | `staff:write` | links a cleaner to a listing or changes the link mode (property_cleaners) |
 | `save_supply_catalog_item` | `supplies:write` | creates or rewrites a supply catalogue entry (replayable) |
 | `save_supply_request` | `supplies:write` | creates or rewrites a new supply request (replayable) |
 | `save_workflow_template` | `checklists:write` | saves a whole process template, header and steps |
 | `send_message` | `chat:write` | sends a chat message (replayable) |
+| `set_kb_article_status` | `knowledge:write` | publishes an article, takes it back to a draft or archives it |
 | `set_property_status` | `properties:write` | takes a listing out of service or back; cascades to its open cleanings |
 | `unarchive_problem` | `tasks:update` | brings an archived task (problem) back |
 | `unassign_problem` | `tasks:update` | takes the person off a repair; the task waits again |
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 166
+### Внутреннее — 204
 
 | Имя | Причина |
 | --- | --- |
@@ -117,6 +125,7 @@
 | `api_staff_json` | API plumbing: what a member of staff looks like in the API. |
 | `api_task_json` | API plumbing: what a task looks like in the API. |
 | `api_ts` | API plumbing: ISO 8601 UTC timestamps. |
+| `apply_review_findings` | classify-reviews job: stores and decides one review's reading (rules or model), service_role only |
 | `auth_role` | auth/RLS helper: role of the active caller from profiles |
 | `can_read_task_media` | Storage policy helper of the task-media bucket (read) |
 | `can_upload_task_media` | Storage policy helper of the task-media bucket (upload onto a waiting row) |
@@ -137,11 +146,15 @@
 | `complete_task_step` | phone-only flow of the cleaner at work (task steps): completes a step |
 | `confirm_task_media` | phone upload pipeline: registers, confirms or withdraws a Storage slot (row before file); the API only reads media |
 | `create_api_key` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |
+| `create_review_problem` | helper of approve_review_finding/decide_review_finding: inserts the task (problem) a finding asks for; execute revoked from every role |
 | `current_host_id` | auth/RLS helper: tenant of the caller |
+| `cut_review_stay_links` | privacy cut: a settled review keeps only the month of its stay and loses the booking link (89-day rule); called inside the review functions, execute revoked from every role |
+| `decide_review_finding` | decision rules of the classify job (no task, dropped, duplicate, already fixed, auto); called inside apply_review_findings, execute revoked from every role |
 | `default_host_id` | tenant default of host_id columns (single-company phase A); internal plumbing |
 | `delete_supply_request` | forbidden: irreversible delete (hard delete of a new supply request by its author) |
 | `effective_cleaner_notes` | forbidden: door/access codes (computed cleaner note of a listing carries key-box and access codes) |
 | `enqueue_daily_digest` | scheduler job: queues the 07:00 push summary |
+| `erase_review_texts` | forbidden: data:destroy - irreversibly erases review texts and what was drawn from them (evidence, model wording); execute revoked from every role, called by the purge and the texts-off switch |
 | `expire_stale_tasks` | scheduler job: closes cleanings the day has passed by, service_role only |
 | `forget_push_token` | forbidden: push tokens (drops a device token reported gone by Expo) |
 | `generate_cleaning_tasks` | Hostaway sync, Hostaway stays the source of truth: generator of cleanings from bookings, service_role only |
@@ -155,9 +168,11 @@
 | `guard_task_fields` | trigger function: which task fields each role may change |
 | `guard_task_transitions` | trigger function: allowed task status transitions |
 | `guard_tech_role_change` | trigger function: no role change to technician while holding links or open cleanings |
+| `guest_reviews_touch` | trigger function: stamps updated_at of a review, only its month once the stay is cut |
 | `handle_new_user` | trigger function: creates the profile of a new auth.users row |
 | `head_tech_dispatching` | guard helper: marks a head-technician dispatch inside assign_problem/unassign_problem |
 | `head_tech_property_ids` | auth/RLS helper: listings the head technician may read |
+| `ingest_guest_reviews` | Hostaway sync, Hostaway stays the source of truth (sync-reviews): upserts a portion of reviews by their HMAC key, service_role only |
 | `invoke_edge_function` | scheduler plumbing: pg_cron calls an Edge Function with the service key read from Vault, service_role only |
 | `is_active_user` | auth/RLS helper: caller is an active profile |
 | `is_head_tech` | auth/RLS helper: caller is the active head technician |
@@ -167,8 +182,20 @@
 | `journal_problem_change` | trigger function: writes problem_events for a task (problem) |
 | `journal_repair_change` | trigger function: writes problem_events for repairs |
 | `journal_task_change` | trigger function: writes task_events for cleanings |
+| `kb_article_for_writer` | lock-and-check helper of set_kb_article_status/restore_kb_revision (manager or head technician, own company); execute revoked from clients |
+| `kb_articles_snapshot` | trigger function: stores the version an article write made in kb_article_revisions |
+| `kb_articles_version` | trigger function: numbers the version of an article write (one write, one version; rev is never the writer's) |
+| `kb_assert_publishable` | validation helper of the article write RPCs: a published article needs a text and, unless company-wide, a place; execute revoked from clients |
+| `kb_checked_translations` | validation helper of save_kb_article: checks and trims the translations of a save; execute revoked from clients |
+| `kb_reader_property_ids` | auth/RLS helper: places whose articles a cleaner or technician reads (links and work held now) |
+| `kb_snapshot` | version helper of the article triggers: writes the current version into kb_article_revisions; execute revoked from clients, service_role only for service scripts |
+| `kb_staff_article_ids` | auth/RLS helper: published articles a cleaner or technician reads |
+| `kb_translations_version` | trigger function: a translation written or removed makes a version of its article |
+| `kb_write_translations` | write helper of save_kb_article/restore_kb_revision: replaces an article's translations; execute revoked from clients |
 | `list_api_key_events` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |
 | `list_api_keys` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |
+| `log_review_run` | run journal of classify-reviews into raw.review_runs, service_role only |
+| `mark_review_analysis_failed` | classify-reviews job: counts a failed model reading of a review, service_role only |
 | `mark_task_media_purged` | retention job (purge-task-media): marks purged files, service_role only |
 | `mark_webhook_events` | Hostaway webhook processing (process-webhook-events), service_role only |
 | `mirror_problem_status` | trigger function: mirrors the repair state onto its problem |
@@ -184,6 +211,8 @@
 | `property_open_cleanings` | panel confirmation figure before set_property_status; derivable from GET /v1/cleanings |
 | `property_problems` | panel listing-card read of reports; the same rows come from GET /v1/tasks filtered by property |
 | `purge_push_history` | scheduler job: nightly purge of the push queue and tickets |
+| `purge_review_data` | scheduler job: nightly retention purge (purge-review-data) of review texts and keys, irreversible; service_role only |
+| `purge_review_stays` | scheduler job: nightly privacy sweep (purge-review-stays) cutting settled stays to their month; service_role only |
 | `push_digest_hour` | push plumbing: constant of the push queue and sender |
 | `push_history_kept` | push plumbing: constant of the push queue and sender |
 | `push_lease` | push plumbing: constant of the push queue and sender |
@@ -203,13 +232,28 @@
 | `record_push_results` | push plumbing: send-push settles sent groups and tickets, service_role only |
 | `record_webhook_event` | Hostaway webhook intake (hostaway-webhook), service_role only |
 | `register_push_token` | forbidden: push tokens (the signed-in phone registers its Expo token) |
+| `release_push_token` | forbidden: integrations:read_secrets - push device tokens; a signed-out phone lets go of its token without a session (the one anon grant) |
 | `release_work_of_inactive` | staff-deactivation cascade called by the profiles trigger; execute revoked from clients |
 | `release_work_on_deactivation` | trigger function: takes a switched-off person off unstarted work |
 | `remove_task_media` | phone upload pipeline: registers, confirms or withdraws a Storage slot (row before file); the API only reads media |
 | `reopen_task_step` | phone-only flow of the cleaner at work (task steps): takes a step back to not done |
 | `reservation_cleaning_window` | cleaning generator helper; cleanings come from Hostaway bookings (cleaning window of a booking); revoked from authenticated |
 | `reservation_rooms` | cleaning generator helper; cleanings come from Hostaway bookings (rooms a booking took) |
+| `reserve_review_model_calls` | model spending fence of classify-reviews: books model calls under the daily ceiling, service_role only |
 | `resolve_report_property` | helper of report_problem: resolves the listing and checks the reporter may report there |
+| `review_findings_dates` | trigger function: a finding's dates, kept to the month once its review's stay is cut |
+| `review_kind_gives_task` | constant predicate of the review RPCs: finding kinds that make a task (repair, safety, pests, access); no client calls it |
+| `review_kind_record` | helper of update_review_settings: the record (decisions, approvals in 60 days) a kind needs for auto; execute revoked from every role |
+| `review_load_state` | Hostaway sync (sync-reviews): which parts of the reviews read are still missing, flags only, service_role only |
+| `review_model_calls_left` | model spending fence of classify-reviews: calls left today under the ceiling, service_role only |
+| `review_month_of` | privacy helper: the first moment of the month (Prague) a cut review keeps of any time; execute revoked from every role |
+| `review_open_twin` | duplicate lookup of decide_review_finding/approve_review_finding: the open task from a review about the same; execute revoked from every role |
+| `review_place_family` | helper of the review decision: a room's listing or the listing itself, where duplicates are looked for; execute revoked from every role |
+| `review_retention_ends` | retention constant: the day a review's text and key go (18 months, whole months); execute revoked from every role |
+| `review_stay_link_ends` | privacy constant: the last day a review keeps its exact stay and booking link (89 days, by month); execute revoked from every role |
+| `review_subjects` | constant list of finding subjects checked by review_findings; the apps name them from the locales and do not call it |
+| `review_sync_watermark` | Hostaway sync (sync-reviews): where the next daily load starts, service_role only |
+| `review_text_allowed` | privacy rule: whether a review may keep a text (guest notice, hidden, archive, 18 months); execute revoked from every role |
 | `revoke_api_key` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |
 | `set_push_preference` | push plumbing: the signed-in person switches one of her own push events on or off |
 | `short_cleaning_threshold` | constant of a generated column (too-short cleaning duration) |
@@ -218,6 +262,7 @@
 | `staff_directory` | phone board people picker for the head technician; the API reads profiles under staff:read/staff:read_names |
 | `staff_property_ids` | auth/RLS helper: listings an active non-manager may read |
 | `stamp_task_author` | trigger function: stamps created_by on a task |
+| `store_review_texts` | Hostaway sync (sync-reviews): helper of ingest_guest_reviews writing the anonymised texts while they may be kept; execute revoked from every role |
 | `supply_item_name_max_length` | validation limit constant of save_supply_request |
 | `supply_note_max_length` | validation limit constant of save_supply_request |
 | `sync_hostaway_listings` | Hostaway sync, Hostaway stays the source of truth (sync-listings), service_role only |
@@ -243,6 +288,7 @@
 | `touch_updated_at` | trigger function: stamps updated_at |
 | `unregister_push_token` | forbidden: push tokens (the signed-in phone lets go of its token) |
 | `update_api_key` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |
+| `update_review_settings` | forbidden: data:destroy - texts off erases every kept review text at once; the other gates (guest notice date, texts, model spend, auto work orders) are admin levers kept in the panel |
 | `validate_problem_text` | validation helper of the problem writes; execute revoked from clients |
 | `validate_task_step_payload` | phone-only flow of the cleaner at work (task steps): validates a step answer, service_role only |
 | `waive_task_step` | manager waiver of a required step inside the step flow; no client calls it and no planned scope writes steps |
@@ -264,7 +310,7 @@
 | `task_media` | `media:read` | `listCleaningMedia`, `listTaskMedia` |
 | `tasks` | `cleanings:read` | `listCleanings`, `getCleaning`, `assignCleaning` |
 
-### Запланировано (право зарезервировано) — 14
+### Запланировано (право зарезервировано) — 20
 
 | Имя | Право | Что это |
 | --- | --- | --- |
@@ -273,8 +319,14 @@
 | `chat_threads` | `chat:read` | chat threads, one per cleaning, task or staff member |
 | `checklist_items` | `checklists:read` | items of a listing checklist (with translations) |
 | `checklist_modules` | `checklists:read` | modules of a listing checklist (with translations) |
+| `guest_reviews` | `reviews:read` | guest reviews: rating, categories, channel, place, month and anonymised texts; serve without the PMS ids and booking link (guests:read_personal) |
+| `kb_article_revisions` | `knowledge:read` | versions of an article's text with its translations, kept by triggers (office-only history) |
+| `kb_article_targets` | `knowledge:read` | the places an article shows on (a building or chosen places) |
+| `kb_article_translations` | `knowledge:read` | an article in the other languages, each optional; free text, mask codes as api_mask_codes does (F27) |
+| `kb_articles` | `knowledge:read` | knowledge base articles: original text, status, scope; free text, mask codes as api_mask_codes does (F27) |
 | `problem_events` | `analytics:read` | history journal of a task (problem) and its repairs, written by triggers |
 | `property_cleaners` | `staff:write` | which cleaners work a listing and in which mode |
+| `review_findings` | `reviews:read` | what the rules or the model found in a guest review and what was decided about it |
 | `supply_catalog_items` | `supplies:read` | supply catalogue shown on the phone |
 | `supply_request_items` | `supplies:read` | lines of a supply request |
 | `supply_requests` | `supplies:read` | supply requests from cleaners |
@@ -283,7 +335,7 @@
 | `workflow_steps` | `checklists:read` | steps of a process template |
 | `workflow_templates` | `checklists:read` | process templates a cleaning follows |
 
-### Внутреннее — 11
+### Внутреннее — 12
 
 | Имя | Причина |
 | --- | --- |
@@ -298,3 +350,4 @@
 | `push_preferences` | push plumbing: a person's own muted push events, read only by herself |
 | `push_tokens` | forbidden: push tokens of devices |
 | `report_properties` | A view for the phone: the properties a person may report on; GET /v1/properties serves a key. |
+| `review_settings` | admin gates of tasks-from-reviews (guest notice date, texts, model ceiling, auto kinds); read only by the panel card that writes it through update_review_settings, forbidden: data:destroy |

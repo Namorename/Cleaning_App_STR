@@ -249,6 +249,8 @@
           "supplies": "Spotřební materiál",
           "analytics": "Analytika",
           "chat": "Chat",
+          "knowledge": "Znalostní báze",
+          "reviews": "Recenze hostů",
           "webhooks": "Webhooky"
         },
         "scopes": {

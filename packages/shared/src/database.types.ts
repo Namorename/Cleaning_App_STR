@@ -34,6 +34,274 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_idempotency: {
+        Row: {
+          created_at: string
+          idem_key: string
+          key_id: string
+          operation: string
+          request_hash: string
+          response: Json | null
+          status: number | null
+        }
+        Insert: {
+          created_at?: string
+          idem_key: string
+          key_id: string
+          operation: string
+          request_hash: string
+          response?: Json | null
+          status?: number | null
+        }
+        Update: {
+          created_at?: string
+          idem_key?: string
+          key_id?: string
+          operation?: string
+          request_hash?: string
+          response?: Json | null
+          status?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_idempotency_key_id_fkey"
+            columns: ["key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_key_events: {
+        Row: {
+          actor_id: string | null
+          after: Json | null
+          before: Json | null
+          created_at: string
+          host_id: string
+          id: number
+          key_id: string
+          kind: string
+        }
+        Insert: {
+          actor_id?: string | null
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          host_id: string
+          id?: never
+          key_id: string
+          kind: string
+        }
+        Update: {
+          actor_id?: string | null
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          host_id?: string
+          id?: never
+          key_id?: string
+          kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_key_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_key_events_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_key_events_key_id_fkey"
+            columns: ["key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_keys: {
+        Row: {
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          host_id: string
+          id: string
+          key_digest: string
+          last_used_at: string | null
+          name: string
+          prefix: string
+          preset: string
+          property_ids: number[] | null
+          revoked_at: string | null
+          revoked_by: string | null
+          scopes: string[]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          host_id: string
+          id?: string
+          key_digest: string
+          last_used_at?: string | null
+          name: string
+          prefix: string
+          preset: string
+          property_ids?: number[] | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          scopes?: string[]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          host_id?: string
+          id?: string
+          key_digest?: string
+          last_used_at?: string | null
+          name?: string
+          prefix?: string
+          preset?: string
+          property_ids?: number[] | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          scopes?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_keys_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_keys_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_keys_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_rate_windows: {
+        Row: {
+          bucket: string
+          hits: number
+          window_start: string
+        }
+        Insert: {
+          bucket: string
+          hits?: number
+          window_start: string
+        }
+        Update: {
+          bucket?: string
+          hits?: number
+          window_start?: string
+        }
+        Relationships: []
+      }
+      api_request_log: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          host_id: string | null
+          id: number
+          key_id: string | null
+          method: string
+          object_id: string | null
+          operation: string
+          request_id: string | null
+          status: number
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          host_id?: string | null
+          id?: never
+          key_id?: string | null
+          method: string
+          object_id?: string | null
+          operation: string
+          request_id?: string | null
+          status: number
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          host_id?: string | null
+          id?: never
+          key_id?: string | null
+          method?: string
+          object_id?: string | null
+          operation?: string
+          request_id?: string | null
+          status?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_request_log_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_request_log_key_id_fkey"
+            columns: ["key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_scopes: {
+        Row: {
+          action: string
+          id: string
+          operator: boolean
+          scope_group: string
+          sensitivity: string
+          status: string
+        }
+        Insert: {
+          action: string
+          id: string
+          operator?: boolean
+          scope_group: string
+          sensitivity: string
+          status: string
+        }
+        Update: {
+          action?: string
+          id?: string
+          operator?: boolean
+          scope_group?: string
+          sensitivity?: string
+          status?: string
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           author_id: string | null
@@ -1347,7 +1615,9 @@ export type Database = {
           kind: Database["public"]["Enums"]["review_finding_kind"]
           problem_id: string | null
           property_id: number | null
-          reject_reason: Database["public"]["Enums"]["review_reject_reason"] | null
+          reject_reason:
+            | Database["public"]["Enums"]["review_reject_reason"]
+            | null
           review_id: string
           status: Database["public"]["Enums"]["review_finding_status"]
           still_relevant: string
@@ -1371,7 +1641,9 @@ export type Database = {
           kind: Database["public"]["Enums"]["review_finding_kind"]
           problem_id?: string | null
           property_id?: number | null
-          reject_reason?: Database["public"]["Enums"]["review_reject_reason"] | null
+          reject_reason?:
+            | Database["public"]["Enums"]["review_reject_reason"]
+            | null
           review_id: string
           status?: Database["public"]["Enums"]["review_finding_status"]
           still_relevant?: string
@@ -1395,7 +1667,9 @@ export type Database = {
           kind?: Database["public"]["Enums"]["review_finding_kind"]
           problem_id?: string | null
           property_id?: number | null
-          reject_reason?: Database["public"]["Enums"]["review_reject_reason"] | null
+          reject_reason?:
+            | Database["public"]["Enums"]["review_reject_reason"]
+            | null
           review_id?: string
           status?: Database["public"]["Enums"]["review_finding_status"]
           still_relevant?: string
@@ -1497,7 +1771,7 @@ export type Database = {
           {
             foreignKeyName: "review_settings_host_id_fkey"
             columns: ["host_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "hosts"
             referencedColumns: ["id"]
           },
@@ -2503,7 +2777,9 @@ export type Database = {
           kind: Database["public"]["Enums"]["review_finding_kind"]
           problem_id: string | null
           property_id: number | null
-          reject_reason: Database["public"]["Enums"]["review_reject_reason"] | null
+          reject_reason:
+            | Database["public"]["Enums"]["review_reject_reason"]
+            | null
           review_id: string
           status: Database["public"]["Enums"]["review_finding_status"]
           still_relevant: string
@@ -2812,6 +3088,282 @@ export type Database = {
         }
         Returns: Json
       }
+      api_act_as: { Args: { p_profile: string }; Returns: undefined }
+      api_allows_booking: {
+        Args: {
+          p_booking: Database["public"]["Tables"]["reservations"]["Row"]
+          p_ctx: Database["public"]["CompositeTypes"]["api_context"]
+        }
+        Returns: boolean
+      }
+      api_allows_property: {
+        Args: {
+          p_ctx: Database["public"]["CompositeTypes"]["api_context"]
+          p_property: number
+        }
+        Returns: boolean
+      }
+      api_authorize: {
+        Args: { p_digest: string; p_scope: string }
+        Returns: Database["public"]["CompositeTypes"]["api_context"]
+        SetofOptions: {
+          from: "*"
+          to: "api_context"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      api_booking_json: {
+        Args: {
+          p_allowed: number[]
+          r: Database["public"]["Tables"]["reservations"]["Row"]
+        }
+        Returns: Json
+      }
+      api_channel: { Args: { p_channel_id: number }; Returns: string }
+      api_check_key_fields: {
+        Args: {
+          p_host: string
+          p_name: string
+          p_preset: string
+          p_property_ids: number[]
+          p_scopes: string[]
+        }
+        Returns: undefined
+      }
+      api_cleaning_json: {
+        Args: { t: Database["public"]["Tables"]["tasks"]["Row"] }
+        Returns: Json
+      }
+      api_effective_scopes: {
+        Args: { p_preset: string; p_scopes: string[] }
+        Returns: string[]
+      }
+      api_gate: { Args: { p_digest: string; p_ip_hash: string }; Returns: Json }
+      api_hm: { Args: { p_at: string }; Returns: string }
+      api_idempotency_claim: {
+        Args: {
+          p_hash: string
+          p_idem_key: string
+          p_key_id: string
+          p_operation: string
+        }
+        Returns: Json
+      }
+      api_idempotency_store: {
+        Args: {
+          p_body: Json
+          p_idem_key: string
+          p_key_id: string
+          p_status: number
+        }
+        Returns: Json
+      }
+      api_key_fields_json: {
+        Args: { k: Database["public"]["Tables"]["api_keys"]["Row"] }
+        Returns: Json
+      }
+      api_key_public_json: {
+        Args: { k: Database["public"]["Tables"]["api_keys"]["Row"] }
+        Returns: Json
+      }
+      api_key_state: {
+        Args: { p_key: Database["public"]["Tables"]["api_keys"]["Row"] }
+        Returns: string
+      }
+      api_log_request: {
+        Args: {
+          p_duration_ms: number
+          p_key_id: string
+          p_method: string
+          p_object_id?: string
+          p_operation: string
+          p_request_id?: string
+          p_status: number
+        }
+        Returns: undefined
+      }
+      api_mask_codes: { Args: { p_text: string }; Returns: string }
+      api_media_json: {
+        Args: { m: Database["public"]["Tables"]["task_media"]["Row"] }
+        Returns: Json
+      }
+      api_not_found: { Args: { p_what: string }; Returns: undefined }
+      api_property_json: {
+        Args: {
+          p: Database["public"]["Tables"]["properties"]["Row"]
+          p_scopes: string[]
+        }
+        Returns: Json
+      }
+      api_require: {
+        Args: {
+          p_ctx: Database["public"]["CompositeTypes"]["api_context"]
+          p_scope: string
+        }
+        Returns: undefined
+      }
+      api_require_admin: { Args: never; Returns: string }
+      api_safe_property_name: { Args: { p_name: string }; Returns: string }
+      api_staff_json: {
+        Args: {
+          p_scopes: string[]
+          pr: Database["public"]["Tables"]["profiles"]["Row"]
+        }
+        Returns: Json
+      }
+      api_task_json: {
+        Args: { p: Database["public"]["Tables"]["problems"]["Row"] }
+        Returns: Json
+      }
+      api_ts: { Args: { p_at: string }; Returns: string }
+      api_v1_assign_cleaning: {
+        Args: {
+          p_assignee_id: string
+          p_cleaning_id: string
+          p_digest: string
+          p_idempotency_key: string
+          p_request_hash: string
+        }
+        Returns: Json
+      }
+      api_v1_assign_task: {
+        Args: {
+          p_assignee_id: string
+          p_digest: string
+          p_idempotency_key: string
+          p_request_hash: string
+          p_scheduled_date?: string
+          p_task_id: string
+          p_time_from?: string
+          p_time_to?: string
+        }
+        Returns: Json
+      }
+      api_v1_create_task: {
+        Args: {
+          p_assignee_id?: string
+          p_description?: string
+          p_digest: string
+          p_idempotency_key: string
+          p_priority?: string
+          p_property_id?: number
+          p_request_hash: string
+          p_scheduled_date?: string
+          p_time_from?: string
+          p_time_to?: string
+          p_title: string
+        }
+        Returns: Json
+      }
+      api_v1_get_booking: {
+        Args: { p_digest: string; p_id: number }
+        Returns: Json
+      }
+      api_v1_get_cleaning: {
+        Args: { p_digest: string; p_id: string }
+        Returns: Json
+      }
+      api_v1_get_me: { Args: { p_digest: string }; Returns: Json }
+      api_v1_get_property: {
+        Args: { p_digest: string; p_id: number }
+        Returns: Json
+      }
+      api_v1_get_settings: { Args: { p_digest: string }; Returns: Json }
+      api_v1_get_staff_member: {
+        Args: { p_digest: string; p_id: string }
+        Returns: Json
+      }
+      api_v1_get_task: {
+        Args: { p_digest: string; p_id: string }
+        Returns: Json
+      }
+      api_v1_list_bookings: {
+        Args: {
+          p_after_date?: string
+          p_after_id?: number
+          p_channel?: string[]
+          p_date_from?: string
+          p_date_to?: string
+          p_digest: string
+          p_limit?: number
+          p_property_id?: number
+          p_status?: string[]
+          p_updated_since?: string
+        }
+        Returns: Json
+      }
+      api_v1_list_cleaning_media: {
+        Args: { p_cleaning_id: string; p_digest: string }
+        Returns: Json
+      }
+      api_v1_list_cleanings: {
+        Args: {
+          p_after_date?: string
+          p_after_id?: string
+          p_assignee_id?: string
+          p_date_from?: string
+          p_date_to?: string
+          p_digest: string
+          p_limit?: number
+          p_property_id?: number
+          p_status?: string[]
+          p_type?: string[]
+          p_updated_since?: string
+        }
+        Returns: Json
+      }
+      api_v1_list_properties: {
+        Args: {
+          p_after_id?: number
+          p_digest: string
+          p_limit?: number
+          p_parent_id?: number
+          p_status?: string[]
+          p_updated_since?: string
+        }
+        Returns: Json
+      }
+      api_v1_list_staff: {
+        Args: {
+          p_active?: boolean
+          p_after_id?: string
+          p_digest: string
+          p_limit?: number
+          p_role?: string[]
+        }
+        Returns: Json
+      }
+      api_v1_list_task_media: {
+        Args: { p_digest: string; p_task_id: string }
+        Returns: Json
+      }
+      api_v1_list_tasks: {
+        Args: {
+          p_after_created?: string
+          p_after_id?: string
+          p_assignee_id?: string
+          p_created_from?: string
+          p_created_to?: string
+          p_digest: string
+          p_include_archived?: boolean
+          p_limit?: number
+          p_priority?: string[]
+          p_property_id?: number
+          p_status?: string[]
+          p_updated_since?: string
+        }
+        Returns: Json
+      }
+      apply_review_findings: {
+        Args: {
+          p_detector: string
+          p_findings: Json
+          p_language: string
+          p_review_id: string
+        }
+        Returns: Json
+      }
       approve_review_finding: {
         Args: {
           p_assignee_id?: string
@@ -2836,7 +3388,9 @@ export type Database = {
           kind: Database["public"]["Enums"]["review_finding_kind"]
           problem_id: string | null
           property_id: number | null
-          reject_reason: Database["public"]["Enums"]["review_reject_reason"] | null
+          reject_reason:
+            | Database["public"]["Enums"]["review_reject_reason"]
+            | null
           review_id: string
           status: Database["public"]["Enums"]["review_finding_status"]
           still_relevant: string
@@ -3141,7 +3695,40 @@ export type Database = {
         Args: { p_source_property_id: number; p_target_property_id: number }
         Returns: Json
       }
+      create_api_key: {
+        Args: {
+          p_actor: string
+          p_confirmation?: string
+          p_digest: string
+          p_expires_at?: string
+          p_name: string
+          p_prefix: string
+          p_preset: string
+          p_property_ids?: number[]
+          p_scopes?: string[]
+        }
+        Returns: Json
+      }
+      create_review_problem: {
+        Args: {
+          p_description?: string
+          p_finding_id: string
+          p_mode: string
+          p_priority: Database["public"]["Enums"]["problem_priority"]
+          p_title: string
+          p_title_i18n: Json
+        }
+        Returns: string
+      }
       current_host_id: { Args: never; Returns: string }
+      cut_review_stay_links: {
+        Args: { p_review_ids: string[] }
+        Returns: number
+      }
+      decide_review_finding: {
+        Args: { p_finding_id: string }
+        Returns: Database["public"]["Enums"]["review_finding_status"]
+      }
       default_host_id: { Args: never; Returns: string }
       delete_supply_request: { Args: { p_id: string }; Returns: boolean }
       effective_cleaner_notes: {
@@ -3149,6 +3736,7 @@ export type Database = {
         Returns: string
       }
       enqueue_daily_digest: { Args: { p_at?: string }; Returns: number }
+      erase_review_texts: { Args: { p_review_ids: string[] }; Returns: Json }
       expire_stale_tasks: { Args: never; Returns: Json }
       forget_push_token: {
         Args: { p_seen_at: string; p_token: string }
@@ -3160,6 +3748,17 @@ export type Database = {
       }
       head_tech_dispatching: { Args: never; Returns: boolean }
       head_tech_property_ids: { Args: never; Returns: number[] }
+      ingest_guest_reviews: {
+        Args: {
+          p_counts?: Json
+          p_errors?: Json
+          p_host_id?: string
+          p_rows: Json
+          p_source: Database["public"]["Enums"]["review_source"]
+          p_watermark?: string
+        }
+        Returns: Json
+      }
       invoke_edge_function: { Args: { function_name: string }; Returns: number }
       is_active_user: { Args: never; Returns: boolean }
       is_head_tech: { Args: never; Returns: boolean }
@@ -3219,6 +3818,23 @@ export type Database = {
       kb_write_translations: {
         Args: { p_article: string; p_host: string; p_translations: Json }
         Returns: undefined
+      }
+      list_api_key_events: { Args: { p_key_id: string }; Returns: Json }
+      list_api_keys: { Args: never; Returns: Json }
+      log_review_run: {
+        Args: {
+          p_counts?: Json
+          p_errors?: Json
+          p_host_id?: string
+          p_is_ok: boolean
+          p_source: Database["public"]["Enums"]["review_source"]
+          p_stage: string
+        }
+        Returns: undefined
+      }
+      mark_review_analysis_failed: {
+        Args: { p_error: string; p_review_id: string }
+        Returns: number
       }
       mark_task_media_purged: { Args: { p_ids: string[] }; Returns: number }
       mark_thread_read: {
@@ -3408,75 +4024,9 @@ export type Database = {
           unit_name: string
         }[]
       }
-      reject_review_finding: {
-        Args: {
-          p_finding_id: string
-          p_reason: Database["public"]["Enums"]["review_reject_reason"]
-        }
-        Returns: {
-          confidence: number | null
-          created_at: string
-          decided_at: string | null
-          decided_by: string | null
-          decided_mode: string | null
-          detector: string
-          evidence: string | null
-          evidence_source: string | null
-          host_id: string
-          id: string
-          kind: Database["public"]["Enums"]["review_finding_kind"]
-          problem_id: string | null
-          property_id: number | null
-          reject_reason: Database["public"]["Enums"]["review_reject_reason"] | null
-          review_id: string
-          status: Database["public"]["Enums"]["review_finding_status"]
-          still_relevant: string
-          subject: string
-          summary: string
-          summary_i18n: Json
-          updated_at: string
-          urgency: Database["public"]["Enums"]["problem_priority"]
-        }
-        SetofOptions: {
-          from: "*"
-          to: "review_findings"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      review_kind_gives_task: {
-        Args: { p_kind: Database["public"]["Enums"]["review_finding_kind"] }
-        Returns: boolean
-      }
-      review_place_problems: {
-        Args: { p_finding_id: string }
-        Returns: {
-          can_link: boolean
-          created_at: string
-          id: string
-          is_open: boolean
-          priority: Database["public"]["Enums"]["problem_priority"]
-          property_id: number
-          resolved_at: string
-          source: Database["public"]["Enums"]["problem_source"]
-          status: Database["public"]["Enums"]["problem_status"]
-          title: string
-          title_i18n: Json
-        }[]
-      }
-      review_run_status: {
-        Args: never
-        Returns: {
-          last_ok_at: string
-          last_run_at: string
-          stage: string
-        }[]
-      }
-      review_subjects: {
-        Args: never
-        Returns: string[]
-      }
       purge_push_history: { Args: never; Returns: undefined }
+      purge_review_data: { Args: never; Returns: Json }
+      purge_review_stays: { Args: never; Returns: number }
       push_digest_hour: { Args: never; Returns: number }
       push_history_kept: { Args: never; Returns: string }
       push_lease: { Args: never; Returns: string }
@@ -3505,6 +4055,44 @@ export type Database = {
           p_token: string
         }
         Returns: undefined
+      }
+      reject_review_finding: {
+        Args: {
+          p_finding_id: string
+          p_reason: Database["public"]["Enums"]["review_reject_reason"]
+        }
+        Returns: {
+          confidence: number | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decided_mode: string | null
+          detector: string
+          evidence: string | null
+          evidence_source: string | null
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["review_finding_kind"]
+          problem_id: string | null
+          property_id: number | null
+          reject_reason:
+            | Database["public"]["Enums"]["review_reject_reason"]
+            | null
+          review_id: string
+          status: Database["public"]["Enums"]["review_finding_status"]
+          still_relevant: string
+          subject: string
+          summary: string
+          summary_i18n: Json
+          updated_at: string
+          urgency: Database["public"]["Enums"]["problem_priority"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "review_findings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       release_push_token: {
         Args: { p_profile_id: string; p_token: string }
@@ -3658,6 +4246,14 @@ export type Database = {
         Args: { target_reservation_id: number }
         Returns: number[]
       }
+      reserve_review_model_calls: {
+        Args: {
+          p_host_id?: string
+          p_source: Database["public"]["Enums"]["review_source"]
+          p_wanted: number
+        }
+        Returns: number
+      }
       resolve_checklist_property: {
         Args: { p_property_id: number }
         Returns: number
@@ -3731,6 +4327,79 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      review_kind_gives_task: {
+        Args: { p_kind: Database["public"]["Enums"]["review_finding_kind"] }
+        Returns: boolean
+      }
+      review_kind_record: {
+        Args: {
+          p_host_id: string
+          p_kind: Database["public"]["Enums"]["review_finding_kind"]
+        }
+        Returns: {
+          approved: number
+          decisions: number
+        }[]
+      }
+      review_load_state: {
+        Args: {
+          p_host_id?: string
+          p_keys: string[]
+          p_source: Database["public"]["Enums"]["review_source"]
+        }
+        Returns: {
+          comments_kept: boolean
+          external_key: string
+          private_kept: boolean
+          public_kept: boolean
+          room_known: boolean
+          stay_exact: boolean
+          text_allowed: boolean
+        }[]
+      }
+      review_model_calls_left: {
+        Args: {
+          p_host_id?: string
+          p_source: Database["public"]["Enums"]["review_source"]
+        }
+        Returns: number
+      }
+      review_month_of: { Args: { p_at: string }; Returns: string }
+      review_open_twin: { Args: { p_finding_id: string }; Returns: string }
+      review_place_family: { Args: { p_property_id: number }; Returns: number }
+      review_place_problems: {
+        Args: { p_finding_id: string }
+        Returns: {
+          can_link: boolean
+          created_at: string
+          id: string
+          is_open: boolean
+          priority: Database["public"]["Enums"]["problem_priority"]
+          property_id: number
+          resolved_at: string
+          source: Database["public"]["Enums"]["problem_source"]
+          status: Database["public"]["Enums"]["problem_status"]
+          title: string
+          title_i18n: Json
+        }[]
+      }
+      review_retention_ends: {
+        Args: { p_submitted_at: string }
+        Returns: string
+      }
+      review_run_status: {
+        Args: never
+        Returns: {
+          last_ok_at: string
+          last_run_at: string
+          stage: string
+        }[]
+      }
+      review_stay_link_ends: {
+        Args: { p_submitted_at: string }
+        Returns: string
+      }
+      review_subjects: { Args: never; Returns: string[] }
       review_supply_request: {
         Args: {
           p_id: string
@@ -3761,6 +4430,21 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      review_sync_watermark: {
+        Args: {
+          p_host_id?: string
+          p_source: Database["public"]["Enums"]["review_source"]
+        }
+        Returns: string
+      }
+      review_text_allowed: {
+        Args: {
+          p_review: Database["public"]["Tables"]["guest_reviews"]["Row"]
+          p_settings: Database["public"]["Tables"]["review_settings"]["Row"]
+        }
+        Returns: boolean
+      }
+      revoke_api_key: { Args: { p_id: string }; Returns: Json }
       save_kb_article: {
         Args: {
           p_body: string
@@ -4114,6 +4798,14 @@ export type Database = {
         }[]
       }
       staff_property_ids: { Args: never; Returns: number[] }
+      store_review_texts: {
+        Args: {
+          p_host_id: string
+          p_rows: Json
+          p_source: Database["public"]["Enums"]["review_source"]
+        }
+        Returns: undefined
+      }
       supply_item_name_max_length: { Args: never; Returns: number }
       supply_note_max_length: { Args: never; Returns: number }
       sync_hostaway_listings: {
@@ -4316,6 +5008,17 @@ export type Database = {
         }
       }
       unregister_push_token: { Args: { p_token: string }; Returns: undefined }
+      update_api_key: {
+        Args: {
+          p_confirmation?: string
+          p_id: string
+          p_name: string
+          p_preset: string
+          p_property_ids: number[]
+          p_scopes: string[]
+        }
+        Returns: Json
+      }
       update_host_settings: {
         Args: {
           p_gallery_allowed?: boolean
@@ -4496,13 +5199,13 @@ export type Database = {
         | "archived"
         | "unarchived"
       problem_priority: "low" | "normal" | "high"
+      problem_source: "staff" | "review"
       problem_status:
         | "open"
         | "assigned"
         | "in_progress"
         | "resolved"
         | "cancelled"
-      problem_source: "staff" | "review"
       property_status: "active" | "maintenance" | "archived"
       push_kind:
         | "cleaning_new"
@@ -4516,7 +5219,6 @@ export type Database = {
         | "problem_new"
         | "chat_message"
         | "daily_digest"
-      supply_priority: "normal" | "urgent"
       review_channel:
         | "airbnb"
         | "booking"
@@ -4550,6 +5252,7 @@ export type Database = {
         | "duplicate"
         | "not_worth"
       review_source: "hostaway"
+      supply_priority: "normal" | "urgent"
       supply_request_status:
         | "new"
         | "accepted"
@@ -4594,7 +5297,13 @@ export type Database = {
         | "confirmation"
     }
     CompositeTypes: {
-      [_ in never]: never
+      api_context: {
+        key_id: string | null
+        host_id: string | null
+        owner_id: string | null
+        allowed: number[] | null
+        scopes: string[] | null
+      }
     }
   }
 }
@@ -4749,6 +5458,7 @@ export const Constants = {
         "unarchived",
       ],
       problem_priority: ["low", "normal", "high"],
+      problem_source: ["staff", "review"],
       problem_status: [
         "open",
         "assigned",
@@ -4756,7 +5466,6 @@ export const Constants = {
         "resolved",
         "cancelled",
       ],
-      problem_source: ["staff", "review"],
       property_status: ["active", "maintenance", "archived"],
       push_kind: [
         "cleaning_new",
@@ -4771,8 +5480,14 @@ export const Constants = {
         "chat_message",
         "daily_digest",
       ],
-      supply_priority: ["normal", "urgent"],
-      review_channel: ["airbnb", "booking", "vrbo", "direct", "google", "other"],
+      review_channel: [
+        "airbnb",
+        "booking",
+        "vrbo",
+        "direct",
+        "google",
+        "other",
+      ],
       review_finding_kind: [
         "repair",
         "safety",
@@ -4802,6 +5517,7 @@ export const Constants = {
         "not_worth",
       ],
       review_source: ["hostaway"],
+      supply_priority: ["normal", "urgent"],
       supply_request_status: [
         "new",
         "accepted",

@@ -247,6 +247,8 @@
           "supplies": "Supplies",
           "analytics": "Analytics",
           "chat": "Chat",
+          "knowledge": "Knowledge base",
+          "reviews": "Guest reviews",
           "webhooks": "Webhooks"
         },
         "scopes": {
