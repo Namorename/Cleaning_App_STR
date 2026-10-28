@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { router } from 'expo-router';
 
 import SupplyFormRoute from '@/app/supply/new';
 
@@ -21,19 +22,31 @@ const MINTED_ID = 'f1a2b3c4-1111-4111-8111-f1a2b3c40001';
 
 jest.mock('expo-crypto', () => ({ randomUUID: () => 'f1a2b3c4-1111-4111-8111-f1a2b3c40001' }));
 
-/** The title the screen gives itself, if any; the root layout names it otherwise. */
+/** The titles the screen gave its header, if any; the root layout names it otherwise. */
 const mockTitles: unknown[] = [];
 let mockParams: Record<string, string> = {};
 
-jest.mock('expo-router', () => ({
-  Stack: {
-    Screen: ({ options }: { options?: { title?: string } }) => {
-      mockTitles.push(options?.title);
-      return null;
-    },
+/**
+ * The screen's place in the stack. expo-router queues a back and runs it after
+ * the draw, so `router.back` here tells no listener: `beforeRemove` comes late.
+ */
+type Listener = () => void;
+const mockNavigation = {
+  listeners: new Map<string, Set<Listener>>(),
+  setOptions: (options: { title?: string }) => mockTitles.push(options.title),
+  isFocused: () => true,
+  addListener: (event: string, listener: Listener) => {
+    const listeners = mockNavigation.listeners.get(event) ?? new Set<Listener>();
+    listeners.add(listener);
+    mockNavigation.listeners.set(event, listeners);
+    return () => listeners.delete(listener);
   },
+};
+
+jest.mock('expo-router', () => ({
   router: { back: jest.fn(), replace: jest.fn() },
   useLocalSearchParams: () => mockParams,
+  useNavigation: () => mockNavigation,
 }));
 
 const mockSession: { userId: string | null } = { userId: ME };
@@ -48,6 +61,8 @@ jest.mock('@/features/tasks/use-tasks', () => ({
 
 const mockMutate = jest.fn();
 let mockCatalog: CatalogItem[] = [];
+/** Whether the server has taken the request; a test turns it on. */
+const mockSave = { isSuccess: false };
 
 jest.mock('../use-supplies', () => ({
   useSupplyRequest: jest.fn(),
@@ -56,7 +71,7 @@ jest.mock('../use-supplies', () => ({
     mutate: mockMutate,
     isPending: false,
     isPaused: false,
-    isSuccess: false,
+    isSuccess: mockSave.isSuccess,
     error: null,
   }),
 }));
@@ -107,6 +122,9 @@ beforeEach(() => {
   mockSession.userId = ME;
   mockCatalog = [];
   mockMutate.mockClear();
+  mockSave.isSuccess = false;
+  mockTitles.length = 0;
+  mockNavigation.listeners.clear();
 });
 
 describe('a rewrite that cannot start from its request', () => {
@@ -164,6 +182,27 @@ test('a rewrite is titled «Изменить заявку», while it loads as w
   // Assert: said as loading, by the label of the skeleton that stands in.
   expect(screen.getByRole('progressbar', { name: 'Загружаем заявки…' })).toBeTruthy();
   expect(mockTitles.at(-1)).toBe('Изменить заявку');
+});
+
+// A saved rewrite goes back by itself, and the answers that come in during
+// the way back redraw the screen. On Android a header touched in the pop's
+// moment brings the app down (Sentry, 2026-10-09 and 10-10): the title is set
+// once, and not again once the screen is leaving.
+test('a rewrite saved, back first: the redraws of the way back leave the header alone', async () => {
+  // Arrange
+  answer(request('Мешки'));
+  const view = await render(<SupplyFormRoute />);
+  expect(mockTitles).toEqual(['Изменить заявку']);
+
+  // Act: the server takes it, the screen goes back, the request comes in again.
+  mockSave.isSuccess = true;
+  await view.rerender(<SupplyFormRoute />);
+  expect(router.back).toHaveBeenCalledTimes(1);
+  answer(request('Мешки для мусора'));
+  await view.rerender(<SupplyFormRoute />);
+
+  // Assert
+  expect(mockTitles).toEqual(['Изменить заявку']);
 });
 
 test('a request that arrives after the screen opened fills the form', async () => {

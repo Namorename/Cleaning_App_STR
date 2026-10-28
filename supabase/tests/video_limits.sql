@@ -6,7 +6,8 @@
 -- bitrate, the size of a file — with defaults of the free plan (120 s, 2000
 -- kbit/s, 45 MB) and bounds a typo cannot pass; every person of the company
 -- reads them, only a manager writes them, and the old panel's call leaves
--- them alone. add_task_media holds a video to them: never from the gallery,
+-- them alone. add_task_media holds a video to them: from the gallery only
+-- where the company opened the gallery (20261010100000),
 -- no larger than the company allows, no longer than the step or the company
 -- allows with a small tolerance — and a phone on 1.1.0, which sends exactly
 -- today's arguments, is held by the new rules without changing anything.
@@ -184,8 +185,14 @@ select pg_temp.check('and ours is untouched',
 select pg_temp.as_anna();
 select pg_temp.check('a camera video inside the limits goes in, as 1.1.0 sends it',
   pg_temp.video(1, 2, 30000000, 100), 'no refusal');
-select pg_temp.check('a video from the gallery never does, though the gallery is open for photos',
-  pg_temp.video(2, 3, 30000000, 100, 'gallery'), 'serverErrors.videoCameraOnly');
+select pg_temp.check('a video from the gallery goes in where the company opened the gallery',
+  pg_temp.video(13, 7, 30000000, 100, 'gallery'), 'no refusal');
+select pg_temp.check('and is recorded as from the gallery',
+  (select source::text from public.task_media where id = pg_temp.mid(13)), 'gallery');
+select pg_temp.check('held to the company''s length like a camera one',
+  pg_temp.video(14, 8, 30000000, 123, 'gallery'), 'serverErrors.videoTooLong {"limit": 120}');
+select pg_temp.check('and to its size',
+  pg_temp.video(16, 8, 45000001, 100, 'gallery'), 'serverErrors.mediaTooLarge {"limit_mb": 45}');
 select pg_temp.check('while a photo from it still does: photos are as they were',
   pg_temp.refusal(format(
     'select public.add_task_media(p_id => %L, p_step_id => %L, p_kind => %L, '
@@ -214,6 +221,8 @@ select pg_temp.check('a build that says nothing of the source is taken as before
   pg_temp.video(9, 4, 30000000, 60, null), 'no refusal');
 select pg_temp.check('and recorded as unknown',
   (select source::text from public.task_media where id = pg_temp.mid(9)), 'unknown');
+select pg_temp.check('while a video from the gallery is refused once the gallery is closed',
+  pg_temp.video(15, 9, 30000000, 60, 'gallery'), 'serverErrors.galleryNotAllowed');
 
 -- On Pro, the same phone sends longer and larger files with no build and no OTA.
 select pg_temp.as_boss();

@@ -44,6 +44,31 @@ function asAuthFailure(error: unknown): AuthFailure {
   return typeof error === 'object' && error !== null ? (error as AuthFailure) : {};
 }
 
+/** What the report of a refused sign-in may say about it. */
+export interface RefusalTags {
+  code: string;
+  status: string;
+}
+
+const UNKNOWN_TAG = 'none';
+
+/** Auth's codes are snake_case words; anything else is not passed on. */
+const CODE_SHAPE = /^[a-z0-9_]{1,64}$/;
+
+/**
+ * The refusal named by auth's code and the HTTP status alone, for the crash
+ * reports (App Review could not sign in on 2026-10-13, and nothing said why).
+ * Never what was typed, and never the server's own words: a message can echo
+ * the address back.
+ */
+export function refusalTags(error: unknown): RefusalTags {
+  const { code, status } = asAuthFailure(error);
+  return {
+    code: typeof code === 'string' && CODE_SHAPE.test(code) ? code : UNKNOWN_TAG,
+    status: typeof status === 'number' && Number.isInteger(status) ? String(status) : UNKNOWN_TAG,
+  };
+}
+
 /**
  * What to put on the screen.
  *

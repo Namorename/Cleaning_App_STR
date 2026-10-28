@@ -45,8 +45,8 @@ describe('when a photograph says it was taken', () => {
   });
 });
 
-// A video never comes from the gallery (docs/tech-plan.md §7.1): the server
-// refuses one (`videoCameraOnly`), so there is no picker for it to test.
+// A video from the gallery has a picker of its own (`pickVideoFromGallery`),
+// tested in capture.test.ts, «a video from the gallery» (20261010100000).
 
 describe('telling the cleaner why nothing was attached', () => {
   const t = ((key: string, params?: Record<string, unknown>) =>

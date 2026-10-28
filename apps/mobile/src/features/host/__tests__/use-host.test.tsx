@@ -7,7 +7,7 @@ import { restoredFromDisk, withClient } from '@/testing/restored-cache';
 import { fetchHostSettings } from '../api';
 import { hostKeys } from '../keys';
 import type { HostSettings } from '../schema';
-import { useGalleryAllowed, useVideoSettings } from '../use-host';
+import { ON_OPEN_FRESH_MS, useGalleryAllowed, useVideoSettings } from '../use-host';
 
 jest.mock('../api', () => ({ fetchHostSettings: jest.fn() }));
 
@@ -175,6 +175,56 @@ describe('the video settings', () => {
       video_bitrate_kbps: 2000,
       video_max_mb: 45,
     });
+    expect(fetchSettings).not.toHaveBeenCalled();
+  });
+});
+
+// The gallery switch reaches a phone already signed in within the hour; a
+// media step asks again on its opening when its copy is older than a few
+// minutes (owner, 2026-10-10: «обновление при входе и при открытии шага»).
+describe('a media step opening', () => {
+  const OLDER = ON_OPEN_FRESH_MS + 60 * 1000;
+
+  function clientWith(settings: HostSettings, age: number): QueryClient {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+    });
+    client.setQueryData(hostKeys.settings(), settings, { updatedAt: Date.now() - age });
+    return client;
+  }
+
+  test('reads the company again when its copy is older than a few minutes', async () => {
+    fetchSettings.mockResolvedValue(company({ gallery_allowed: true }));
+    const client = clientWith(company({ gallery_allowed: false }), OLDER);
+
+    const { result } = await renderHook(() => useGalleryAllowed(ON_OPEN_FRESH_MS), {
+      wrapper: withClient(client),
+    });
+
+    expect(result.current).toBe(false);
+    await waitFor(() => expect(result.current).toBe(true));
+    expect(fetchSettings).toHaveBeenCalledTimes(1);
+  });
+
+  test('a copy from a minute ago is not read again', async () => {
+    fetchSettings.mockResolvedValue(company({ gallery_allowed: true }));
+    const client = clientWith(company({ gallery_allowed: false }), 60 * 1000);
+
+    const { result } = await renderHook(() => useGalleryAllowed(ON_OPEN_FRESH_MS), {
+      wrapper: withClient(client),
+    });
+
+    expect(result.current).toBe(false);
+    expect(fetchSettings).not.toHaveBeenCalled();
+  });
+
+  test('elsewhere the copy stays good for the hour', async () => {
+    fetchSettings.mockResolvedValue(company({ gallery_allowed: true }));
+    const client = clientWith(company({ gallery_allowed: false }), OLDER);
+
+    const { result } = await renderHook(() => useGalleryAllowed(), { wrapper: withClient(client) });
+
+    expect(result.current).toBe(false);
     expect(fetchSettings).not.toHaveBeenCalled();
   });
 });

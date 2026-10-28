@@ -12,6 +12,22 @@
 -- or priority had changed.
 begin;
 
+-- The days are counted from today, not written out: a written date drifts
+-- into the past, where the generator rightly makes no cleaning (2026-10-12:
+-- «same-day turnover gets priority 1» failed once 2026-10-10 had gone by).
+-- The first turnover lands ten days out; later blocks stand further on, each
+-- in a window of its own.
+create or replace function pg_temp.day(n int)
+returns date language sql as $$
+  select current_date + 10 + n
+$$;
+
+-- A wall-clock time of a day in Prague, as a moment: CEST or CET, as the day falls.
+create or replace function pg_temp.at_local(d date, t time)
+returns timestamptz language sql as $$
+  select (d + t) at time zone 'Europe/Prague'
+$$;
+
 insert into public.properties (id, name, timezone, check_in_time, check_out_time) values
   (900000201, 'Deadline follows check-in', 'Europe/Prague', '15:00', '10:00'),
   (900000202, 'Check-in unknown at first', 'Europe/Prague', null,    '10:00'),
@@ -20,12 +36,12 @@ insert into public.properties (id, name, timezone, check_in_time, check_out_time
 -- Each pair is a same-day turnover: one guest leaves, the next arrives the
 -- same day, so the cleaning gets priority 1 and a hard deadline.
 insert into public.reservations (id, property_id, arrival_date, departure_date, status, guest_name) values
-  (900000301, 900000201, '2026-10-07', '2026-10-10', 'new', 'Departing A'),
-  (900000302, 900000201, '2026-10-10', '2026-10-12', 'new', 'Arriving A'),
-  (900000303, 900000202, '2026-10-12', '2026-10-15', 'new', 'Departing B'),
-  (900000304, 900000202, '2026-10-15', '2026-10-18', 'new', 'Arriving B'),
-  (900000305, 900000203, '2026-10-17', '2026-10-20', 'new', 'Departing C'),
-  (900000306, 900000203, '2026-10-20', '2026-10-22', 'new', 'Arriving C');
+  (900000301, 900000201, pg_temp.day(-3), pg_temp.day(0),  'new', 'Departing A'),
+  (900000302, 900000201, pg_temp.day(0),  pg_temp.day(2),  'new', 'Arriving A'),
+  (900000303, 900000202, pg_temp.day(2),  pg_temp.day(5),  'new', 'Departing B'),
+  (900000304, 900000202, pg_temp.day(5),  pg_temp.day(8),  'new', 'Arriving B'),
+  (900000305, 900000203, pg_temp.day(7),  pg_temp.day(10), 'new', 'Departing C'),
+  (900000306, 900000203, pg_temp.day(10), pg_temp.day(12), 'new', 'Arriving C');
 
 create or replace function pg_temp.check(label text, got anyelement, want anyelement)
 returns void language plpgsql as $$
@@ -43,14 +59,14 @@ returns timestamptz language sql as $$
 $$;
 
 -- ---------- first run: deadlines come from the property ----------
-select public.generate_cleaning_tasks('2026-10-01', '2026-10-31');
+select public.generate_cleaning_tasks(pg_temp.day(-9), pg_temp.day(21));
 
 select pg_temp.check('same-day turnover gets priority 1',
   (select priority::int from public.tasks where reservation_id = 900000301), 1);
 
--- Prague is on CEST (UTC+2) on this date, so 15:00 local is 13:00 UTC.
+-- 15:00 in Prague, in summer time or winter time as the day falls.
 select pg_temp.check('deadline is the next guest check-in, in property timezone',
-  pg_temp.due_at(900000301), '2026-10-10 13:00+00'::timestamptz);
+  pg_temp.due_at(900000301), pg_temp.at_local(pg_temp.day(0), '15:00'));
 
 select pg_temp.check('no check-in time means no deadline yet',
   pg_temp.due_at(900000303), null::timestamptz);
@@ -64,23 +80,23 @@ update public.properties set check_in_time = '15:00' where id = 900000202;
 update public.tasks set status = 'done'
 where reservation_id = 900000305 and type = 'cleaning';
 
-select public.generate_cleaning_tasks('2026-10-01', '2026-10-31');
+select public.generate_cleaning_tasks(pg_temp.day(-9), pg_temp.day(21));
 
 select pg_temp.check('deadline follows a changed check-in time',
-  pg_temp.due_at(900000301), '2026-10-10 15:00+00'::timestamptz);
+  pg_temp.due_at(900000301), pg_temp.at_local(pg_temp.day(0), '17:00'));
 
 select pg_temp.check('deadline is filled in once check-in time becomes known',
-  pg_temp.due_at(900000303), '2026-10-15 13:00+00'::timestamptz);
+  pg_temp.due_at(900000303), pg_temp.at_local(pg_temp.day(5), '15:00'));
 
 select pg_temp.check('finished work keeps its status',
   (select status::text from public.tasks where reservation_id = 900000305), 'done');
 
 select pg_temp.check('finished work keeps its original deadline',
-  pg_temp.due_at(900000305), '2026-10-20 13:00+00'::timestamptz);
+  pg_temp.due_at(900000305), pg_temp.at_local(pg_temp.day(10), '15:00'));
 
 -- ---------- nothing left to change ----------
 select pg_temp.check('a third run reports no changes',
-  (select public.generate_cleaning_tasks('2026-10-01', '2026-10-31')
+  (select public.generate_cleaning_tasks(pg_temp.day(-9), pg_temp.day(21))
      - 'window_from' - 'window_to'),
   '{"created": 0, "rescheduled": 0, "assigned": 0, "cancelled": 0, "relocated": 0,
     "past_bound": 0}'::jsonb);
@@ -94,10 +110,11 @@ select pg_temp.check('a third run reports no changes',
 insert into public.properties (id, name, timezone, check_in_time, check_out_time) values
   (900000204, 'Cancellations', 'Europe/Prague', '15:00', '10:00');
 
+-- A month on from the turnovers above, in a window of its own.
 insert into public.reservations (id, property_id, arrival_date, departure_date, status, guest_name) values
-  (900000307, 900000204, '2026-11-01', '2026-11-03', 'new', 'Cancels while untouched'),
-  (900000308, 900000204, '2026-11-05', '2026-11-07', 'new', 'Cancels while in progress'),
-  (900000309, 900000204, '2026-11-09', '2026-11-11', 'new', 'Cancels after the cleaning');
+  (900000307, 900000204, pg_temp.day(22), pg_temp.day(24), 'new', 'Cancels while untouched'),
+  (900000308, 900000204, pg_temp.day(26), pg_temp.day(28), 'new', 'Cancels while in progress'),
+  (900000309, 900000204, pg_temp.day(30), pg_temp.day(32), 'new', 'Cancels after the cleaning');
 
 create or replace function pg_temp.task_statuses(res_id bigint)
 returns text language sql as $$
@@ -105,8 +122,8 @@ returns text language sql as $$
   from public.tasks where reservation_id = res_id and type = 'cleaning'
 $$;
 
-select pg_temp.check('three November tasks are created',
-  (select (public.generate_cleaning_tasks('2026-11-01', '2026-11-30') ->> 'created')::int), 3);
+select pg_temp.check('three tasks a month on are created',
+  (select (public.generate_cleaning_tasks(pg_temp.day(22), pg_temp.day(51)) ->> 'created')::int), 3);
 
 -- The cleaner has started one and finished another before the guests cancel.
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
@@ -127,7 +144,7 @@ update public.reservations set status = 'cancelled'
 where id in (900000307, 900000308, 900000309);
 
 select pg_temp.check('the run reports one cancellation, the untouched task',
-  (select (public.generate_cleaning_tasks('2026-11-01', '2026-11-30') ->> 'cancelled')::int), 1);
+  (select (public.generate_cleaning_tasks(pg_temp.day(22), pg_temp.day(51)) ->> 'cancelled')::int), 1);
 
 select pg_temp.check('an untouched task is marked cancelled, not deleted',
   pg_temp.task_statuses(900000307), 'cancelled');
@@ -142,7 +159,7 @@ select pg_temp.check('a finished task stays done',
 update public.reservations set status = 'modified' where id in (900000307, 900000308);
 
 select pg_temp.check('a reinstated booking gets a task again',
-  (select (public.generate_cleaning_tasks('2026-11-01', '2026-11-30') ->> 'created')::int), 1);
+  (select (public.generate_cleaning_tasks(pg_temp.day(22), pg_temp.day(51)) ->> 'created')::int), 1);
 select pg_temp.check('the cancelled task stays as history next to the new one',
   pg_temp.task_statuses(900000307), 'cancelled,unassigned');
 select pg_temp.check('a booking whose cleaning is under way does not get a second task',
@@ -157,30 +174,30 @@ insert into public.properties (id, name, timezone, check_in_time, check_out_time
   (900000205, 'Goes under repair', 'Europe/Prague', '15:00', '10:00');
 
 insert into public.reservations (id, property_id, arrival_date, departure_date, status, guest_name) values
-  (900000310, 900000205, '2026-12-01', '2026-12-04', 'new', 'Leaves mid-renovation');
+  (900000310, 900000205, pg_temp.day(52), pg_temp.day(55), 'new', 'Leaves mid-renovation');
 
 update public.properties set status = 'maintenance' where id = 900000205;
 
 select pg_temp.check('a listing under maintenance earns no cleaning',
-  (select (public.generate_cleaning_tasks('2026-12-01', '2026-12-31') ->> 'created')::int), 0);
+  (select (public.generate_cleaning_tasks(pg_temp.day(52), pg_temp.day(82)) ->> 'created')::int), 0);
 
 update public.properties set status = 'archived' where id = 900000205;
 
 select pg_temp.check('and neither does an archived one',
-  (select (public.generate_cleaning_tasks('2026-12-01', '2026-12-31') ->> 'created')::int), 0);
+  (select (public.generate_cleaning_tasks(pg_temp.day(52), pg_temp.day(82)) ->> 'created')::int), 0);
 
 -- Back in service, and the booking that waited through the repair is served.
 update public.properties set status = 'active' where id = 900000205;
 
 select pg_temp.check('back in service, the booking finally gets its cleaning',
-  (select (public.generate_cleaning_tasks('2026-12-01', '2026-12-31') ->> 'created')::int), 1);
+  (select (public.generate_cleaning_tasks(pg_temp.day(52), pg_temp.day(82)) ->> 'created')::int), 1);
 
 -- A listing pulled out of service after the task exists: the same pass that
 -- cancels a withdrawn booking takes this one down too.
 update public.properties set status = 'maintenance' where id = 900000205;
 
 select pg_temp.check('a listing pulled out of service cancels the task it had',
-  (select (public.generate_cleaning_tasks('2026-12-01', '2026-12-31') ->> 'cancelled')::int), 1);
+  (select (public.generate_cleaning_tasks(pg_temp.day(52), pg_temp.day(82)) ->> 'cancelled')::int), 1);
 select pg_temp.check('cancelled, not deleted — it stays as history',
   pg_temp.task_statuses(900000310), 'cancelled');
 
@@ -206,8 +223,9 @@ insert into public.properties (id, name, timezone, check_in_time, check_out_time
 insert into public.reservations (id, property_id, arrival_date, departure_date, status, guest_name)
 values (900000311, 900000206, current_date - 4, current_date - 1, 'new', 'Left five days ago');
 
--- The window a night uses, cut short at the top so the October and November
--- fixtures above stay out of reach and the counts below are about this booking.
+-- The window a night uses, cut short at the top so the fixtures of the blocks
+-- above (ten days out and further) stay out of reach and the counts below are
+-- about this booking.
 create or replace function pg_temp.nightly() returns int language sql as $$
   select (public.generate_cleaning_tasks(current_date - 7, current_date + 5) ->> 'created')::int
 $$;
@@ -393,24 +411,26 @@ insert into public.properties (id, name, timezone, check_in_time, check_out_time
   (900000208, 'Service bookings', 'UTC', '15:00', '10:00'),
   (900000209, 'Renamed into service', 'UTC', '15:00', '10:00');
 
+-- Counted from today as well, past the blocks above (review of 0ed1980: a
+-- written March 2027 would have gone stale as the October dates did).
 insert into public.reservations
   (id, property_id, arrival_date, departure_date, status, guest_name, is_block)
 values
-  (900000316, 900000208, '2027-03-01', '2027-03-03', 'new', '#Boiler - ремонт', false),
-  (900000317, 900000208, '2027-03-03', '2027-03-05', 'new', '   #Plumber', false),
-  (900000318, 900000208, '2027-03-05', '2027-03-06', 'new', E'\u00a0#Owner', false),
-  (900000319, 900000208, '2027-03-07', '2027-03-09', 'new', 'Guest #2', false),
-  (900000320, 900000208, '2027-03-09', '2027-03-11', 'new', null, false),
+  (900000316, 900000208, pg_temp.day(100), pg_temp.day(102), 'new', '#Boiler - ремонт', false),
+  (900000317, 900000208, pg_temp.day(102), pg_temp.day(104), 'new', '   #Plumber', false),
+  (900000318, 900000208, pg_temp.day(104), pg_temp.day(105), 'new', E'\u00a0#Owner', false),
+  (900000319, 900000208, pg_temp.day(106), pg_temp.day(108), 'new', 'Guest #2', false),
+  (900000320, 900000208, pg_temp.day(108), pg_temp.day(110), 'new', null, false),
   -- Leaves on the day a service booking arrives...
-  (900000321, 900000208, '2027-03-12', '2027-03-14', 'new', 'Leaves before the repair', false),
-  (900000322, 900000208, '2027-03-14', '2027-03-15', 'new', '#Boiler check', false),
+  (900000321, 900000208, pg_temp.day(111), pg_temp.day(113), 'new', 'Leaves before the repair', false),
+  (900000322, 900000208, pg_temp.day(113), pg_temp.day(114), 'new', '#Boiler check', false),
   -- ...and, for comparison, on the day a block arrives.
-  (900000323, 900000208, '2027-03-17', '2027-03-19', 'new', 'Leaves before the owner', false),
-  (900000324, 900000208, '2027-03-19', '2027-03-21', 'new', 'Owner', true),
+  (900000323, 900000208, pg_temp.day(116), pg_temp.day(118), 'new', 'Leaves before the owner', false),
+  (900000324, 900000208, pg_temp.day(118), pg_temp.day(120), 'new', 'Owner', true),
   -- Live bookings the next run will see renamed, started, or turned into a block.
-  (900000325, 900000209, '2027-03-01', '2027-03-03', 'new', 'Real guest', false),
-  (900000326, 900000209, '2027-03-05', '2027-03-07', 'new', 'Real guest too', false),
-  (900000327, 900000209, '2027-03-09', '2027-03-11', 'new', 'Becomes a block', false);
+  (900000325, 900000209, pg_temp.day(100), pg_temp.day(102), 'new', 'Real guest', false),
+  (900000326, 900000209, pg_temp.day(104), pg_temp.day(106), 'new', 'Real guest too', false),
+  (900000327, 900000209, pg_temp.day(108), pg_temp.day(110), 'new', 'Becomes a block', false);
 
 create or replace function pg_temp.turnover(res_id bigint) returns text language sql as $$
   select priority::text || ' ' || coalesce(due_at::text, 'no deadline')
@@ -418,7 +438,7 @@ create or replace function pg_temp.turnover(res_id bigint) returns text language
   where reservation_id = res_id and type = 'cleaning' and status <> 'cancelled'
 $$;
 
-select public.generate_cleaning_tasks('2027-03-01', '2027-03-31');
+select public.generate_cleaning_tasks(pg_temp.day(100), pg_temp.day(130));
 
 select pg_temp.check('a booking named "#Boiler - ремонт" earns no cleaning',
   pg_temp.rows_of(900000316), 0);
@@ -449,7 +469,7 @@ update public.reservations set guest_name = ' #Inspection' where id = 900000326;
 update public.reservations set is_block = true where id = 900000327;
 
 select pg_temp.check('renamed into a service booking and turned into a block: two cancelled',
-  (public.generate_cleaning_tasks('2027-03-01', '2027-03-31') ->> 'cancelled')::int, 2);
+  (public.generate_cleaning_tasks(pg_temp.day(100), pg_temp.day(130)) ->> 'cancelled')::int, 2);
 select pg_temp.check('the renamed booking''s untouched cleaning is cancelled',
   pg_temp.task_statuses(900000325), 'cancelled');
 select pg_temp.check('exactly as the block''s is',
@@ -459,7 +479,7 @@ select pg_temp.check('a cleaning under way is left running',
 
 update public.reservations set guest_name = 'Real guest' where id = 900000325;
 select pg_temp.check('named back, the booking gets a cleaning again',
-  (public.generate_cleaning_tasks('2027-03-01', '2027-03-31') ->> 'created')::int, 1);
+  (public.generate_cleaning_tasks(pg_temp.day(100), pg_temp.day(130)) ->> 'created')::int, 1);
 select pg_temp.check('beside the cancelled one, as a reinstated booking does',
   (select string_agg(status::text, ',' order by status::text) from public.tasks
     where reservation_id = 900000325 and type = 'cleaning'),

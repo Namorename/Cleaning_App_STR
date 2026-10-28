@@ -1,7 +1,9 @@
+import { useIsRestoring } from '@tanstack/react-query';
 import { Redirect, Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { tabBarIcon } from '@/components/icon';
+import { LoadingState } from '@/components/loading-state';
 import { renderTabBar } from '@/components/tab-bar';
 import { isTechnician, wordContextOf } from '@/features/auth/role';
 import { useSession } from '@/features/auth/session';
@@ -29,6 +31,7 @@ const HIDDEN = { href: null } as const;
 export default function TabsLayout() {
   const { t } = useTranslation();
   const { userId, isLoading } = useSession();
+  const isRestoring = useIsRestoring();
   const role = useRole();
 
   // Here rather than at the root: the navigator is up and her session has
@@ -46,6 +49,14 @@ export default function TabsLayout() {
   // protected by the server either way.
   if (userId === null) {
     return <Redirect href="/sign-in" />;
+  }
+
+  // Not before the lists brought back from disk have been checked against
+  // whose they are (the root's `RestoreGate.checked`): a session known in
+  // between drew the last person's lists for a frame. The wait is said, in
+  // the entry screen's words a moment before (app/index.tsx), not left blank.
+  if (isRestoring) {
+    return <LoadingState label={t('auth.signingIn')} />;
   }
 
   // The technician and the head technician have nothing to do with cleanings

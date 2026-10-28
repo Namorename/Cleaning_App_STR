@@ -2,7 +2,10 @@ import * as Sentry from '@sentry/react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert, StyleSheet, type ViewStyle } from 'react-native';
 
+import { Spacing } from '@/constants/theme';
 import type { CapturedMedia } from '@/features/media/capture';
+import { mediaFileUri } from '@/features/media/media-path';
+import { BOTTOM_INSETS, scrollEndPadding, withBottomInset } from '@/testing/insets';
 import {
   KEPT_URI,
   RECORDED_URI,
@@ -18,14 +21,17 @@ import {
   mockAttach,
   mockHeader,
   mockLeaveGuard,
+  mockMedia,
   mockNavigation,
   mockPlayer,
   mockPreview,
   mockRemember,
+  mockUploading,
   pressInAlert,
   recordFor,
   router,
   setUpRecordRoute,
+  stepVideo,
   wait,
 } from '@/testing/record-route';
 
@@ -69,7 +75,8 @@ describe('the preview before sending', () => {
     expect(mockAttach).toHaveBeenCalledWith({
       taskId: TASK_ID,
       stepId: STEP_ID,
-      uri: 'file:///documents/task-media/kept-id.mp4',
+      // The queue is handed its place in the documents (iPhone risk 1).
+      uri: 'task-media/kept-id.mp4',
       mediaId: 'kept-id',
       kind: 'video',
       mimeType: 'video/mp4',
@@ -134,15 +141,18 @@ describe('the preview before sending', () => {
     expect(router.back).not.toHaveBeenCalled();
   });
 
-  test('the header says the recording is being watched, and recording again on «Переснять»', async () => {
+  test('its own header says the recording is being watched, and recording again on «Переснять»', async () => {
     await render(<RecordRoute />);
-    expect(mockHeader.title).toBe('Запись видео');
+    expect(screen.getByRole('header', { name: 'Запись видео' })).toBeTruthy();
 
     await recordFor(5_000);
-    expect(mockHeader.title).toBe('Просмотр видео');
+    expect(screen.getByRole('header', { name: 'Просмотр видео' })).toBeTruthy();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Переснять' }));
-    expect(mockHeader.title).toBe('Запись видео');
+    expect(screen.getByRole('header', { name: 'Запись видео' })).toBeTruthy();
+    // The system's header is never touched (Sentry, 2026-10-09 and 10-10).
+    expect(mockHeader.title).toBeUndefined();
+    expect(mockNavigation.setOptions).not.toHaveBeenCalled();
   });
 
   test('a sent recording, the screen left after it, deletes nothing', async () => {
@@ -153,6 +163,63 @@ describe('the preview before sending', () => {
     await unmount();
 
     expect(discardFile).not.toHaveBeenCalled();
+  });
+});
+
+describe('a recording larger than the storage takes', () => {
+  test('is refused before the queue, says why in her language, and «Переснять» stays', async () => {
+    // Arrange: the company allows 140 MB, the storage on its plan takes 50.
+    keep.mockImplementation(async ({ durationSec }) => ({
+      ...kept(durationSec),
+      byteSize: 105_900_000,
+    }));
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    // Act
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    // Assert
+    expect(
+      screen.getByText(
+        'Видео весит 106 МБ, а хранилище принимает файлы не больше 50 МБ. Нажмите «Переснять» и запишите видео короче.',
+      ),
+    ).toBeTruthy();
+    expect(mockRemember).not.toHaveBeenCalled();
+    expect(mockAttach).not.toHaveBeenCalled();
+    expect(router.back).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Переснять' })).toBeTruthy();
+  });
+
+  // A refusal she can act on is not a crash: each press would otherwise send
+  // the same event again.
+  test('is not reported as a crash', async () => {
+    keep.mockImplementation(async ({ durationSec }) => ({
+      ...kept(durationSec),
+      byteSize: 105_900_000,
+    }));
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+    expect(discardFile).not.toHaveBeenCalled();
+  });
+
+  test('a file right at the storage limit goes to the queue', async () => {
+    keep.mockImplementation(async ({ durationSec }) => ({
+      ...kept(durationSec),
+      byteSize: 50_000_000,
+    }));
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    expect(mockAttach).toHaveBeenCalledWith(expect.objectContaining({ byteSize: 50_000_000 }));
+    expect(router.back).toHaveBeenCalled();
   });
 });
 
@@ -322,7 +389,8 @@ describe('the hand-over, made sure', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
 
     expect(screen.getByText('disk I/O error')).toBeTruthy();
-    expect(mockPreview.source).toBe(KEPT_URI);
+    // Played from the documents of this run.
+    expect(mockPreview.source).toBe(mediaFileUri(KEPT_URI));
   });
 
   test('sent, the screen says the video is queued and offers the way back itself', async () => {
@@ -344,6 +412,23 @@ describe('the hand-over, made sure', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Вернуться к шагу' }));
     expect(router.back).toHaveBeenCalledTimes(2);
   });
+
+  // At the largest font on a 320 dp phone the notice and its button can be
+  // taller than the screen: they scroll rather than being cut at either end,
+  // and the button stops clear of the system's bar (components/bottom-inset.ts).
+  test.each(BOTTOM_INSETS)(
+    'the notice scrolls, «Вернуться к шагу» clear of a bottom bar of %i dp',
+    async (bottom) => {
+      await render(withBottomInset(bottom, <RecordRoute />));
+      await recordFor(5_000);
+
+      await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+      await wait(1_500);
+
+      expect(screen.getByRole('button', { name: 'Вернуться к шагу' })).toBeTruthy();
+      expect(scrollEndPadding()).toBe(Spacing.xl + bottom);
+    },
+  );
 
   test('the file is moved only once the player is gone from the screen', async () => {
     // Arrange: what was on screen the moment the file began to move.
@@ -428,5 +513,40 @@ describe('the hand-over, made sure', () => {
 
   test('the recording screen has a boundary of its own, with «Назад»', () => {
     expect(RecordErrorBoundary).toBe(RouteError);
+  });
+});
+
+// On Android a header touched while its screen is being taken off the stack
+// brings the app down: «ScreenStackFragment added into a non-stack
+// container», 58 ms after «leaving» (Sentry, 2026-10-09 and 10-10). The
+// screen goes on drawing during the pop — the queue lists the video, starts
+// it — so its header is its own and nothing it draws reaches the system's.
+describe('back first, then the screen draws again', () => {
+  test('after «Отправить» the queue’s answers redraw it, and no header is touched', async () => {
+    // Arrange
+    const { rerender } = await render(<RecordRoute />);
+    await recordFor(5_000);
+
+    // Act: back, then the redraws of the pop's moment.
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+    expect(router.back).toHaveBeenCalledTimes(1);
+    mockMedia.data = [stepVideo({ id: 'kept-id' })];
+    mockUploading.ids = new Set(['kept-id']);
+    await rerender(<RecordRoute />);
+    await wait(2_000);
+
+    // Assert
+    expect(mockNavigation.setOptions).not.toHaveBeenCalled();
+    expect(mockHeader.title).toBeUndefined();
+  });
+
+  test('the header’s «Назад» leaves the way the system’s did, through the same guard', async () => {
+    await render(<RecordRoute />);
+    await recordFor(5_000);
+    expect(mockLeaveGuard.isOn).toBe(true);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Назад' }));
+
+    expect(router.back).toHaveBeenCalledTimes(1);
   });
 });

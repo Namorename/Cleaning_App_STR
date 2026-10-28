@@ -249,9 +249,6 @@ test.each([
   ['problem/[id]/history', 'История задания'],
   ['supply/new', 'Новая заявка'],
   ['supply/[id]', 'Заявка на расходники'],
-  // A video step's camera: titled by the root, since the screen may draw a
-  // permission question or a failure before the camera.
-  ['task/[id]/step/[stepId]/record', 'Запись видео'],
 ])('%s has a header titled «%s» and a way back', async (name, title) => {
   // Arrange
   readiness.mockReturnValue({ isReady: true, areFontsLoaded: true });
@@ -262,5 +259,18 @@ test.each([
   // Assert
   expect(mockScreenOptions.get(name)).toEqual(
     expect.objectContaining({ headerShown: true, headerBackTitle: 'Назад', title }),
+  );
+});
+
+// A video step's camera draws its own header (features/video/record-header):
+// the system's one, updated in the moment «Отправить» takes the screen off
+// the stack, brought the app down on Android (Sentry, 2026-10-09 and 10-10).
+test('the camera of a video step has no header of the system’s', async () => {
+  readiness.mockReturnValue({ isReady: true, areFontsLoaded: true });
+
+  await render(<RootLayout />);
+
+  expect(mockScreenOptions.get('task/[id]/step/[stepId]/record')).toEqual(
+    expect.objectContaining({ headerShown: false }),
   );
 });

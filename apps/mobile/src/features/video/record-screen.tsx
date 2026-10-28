@@ -1,20 +1,30 @@
-import { Stack, useNavigation } from 'expo-router';
+import { useNavigation } from 'expo-router';
 import { usePreventRemove } from 'expo-router/react-navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 
+import { useScreenEdgePadding } from '@/components/bottom-inset';
 import { Button } from '@/components/button';
 import { LoadingState } from '@/components/loading-state';
 import { Text } from '@/components/text';
 import { Spacing, type Theme } from '@/constants/theme';
-import { keepRecording, type CapturedMedia, type Recording } from '@/features/media/capture';
+import {
+  keepRecording,
+  type CapturedMedia,
+  type MediaSource,
+  type PickedVideo,
+  type Recording,
+} from '@/features/media/capture';
 import { discardFile } from '@/features/media/file';
 import type { VideoLimits } from '@/features/media/schema';
+import { assertStorageTakes, TooLargeForStorageError } from '@/features/media/storage-limit';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { noteStep, reportError } from '@/lib/sentry';
 
+import { GalleryPhase } from './gallery-phase';
 import { PermissionScreen } from './permission-screen';
+import { RecordHeader } from './record-header';
 import type { RecordingEnd } from './recording';
 import { useRecordingPermissions } from './use-recording-permissions';
 import { VideoPreview } from './video-preview';
@@ -24,17 +34,35 @@ export interface RecordScreenProps {
   limits: VideoLimits;
   /** Remember the kept recording and hand it to the upload queue; throws when it could not. */
   onSend: (captured: CapturedMedia) => Promise<void>;
-  /** Leave the screen, once the recording is the queue's. */
+  /** Leave the screen: once the recording is the queue's, or on the header's «Назад». */
   onDone: () => void;
+  /**
+   * Where the video comes from: the app's own camera, or — where the company
+   * allows the gallery — a file chosen from it (night of 2026-10-10, block 6).
+   */
+  source?: MediaSource;
 }
 
-type Phase = { kind: 'camera' } | { kind: 'preview'; recording: Recording; end: RecordingEnd };
+type Phase =
+  | { kind: 'camera' }
+  | {
+      kind: 'preview';
+      recording: Recording;
+      end: RecordingEnd;
+      /** A gallery file's own type; a recording's is read from its name. */
+      mimeType?: string;
+    };
 
 /** The recording not yet handed over: where its file is, and what was kept of it. */
 interface Unsent {
   uri: string;
   /** Kept under a name of ours by an «Отправить» that went no further. */
   kept: CapturedMedia | null;
+  /**
+   * The picker's other copies of a gallery choice: they go with the video —
+   * once it is kept, or with it when it is let go (owner's word of 2026-10-11, 00:40).
+   */
+  pickerCopies: readonly string[];
 }
 
 /**
@@ -42,7 +70,10 @@ interface Unsent {
  *
  * Nothing is drawn over the camera until the phone has granted both it and
  * the microphone; what it refuses is said on a screen of its own. A finished
- * recording is watched before it is sent, under a header that says so.
+ * recording is watched before it is sent, under a header that says so — the
+ * screen's own (`RecordHeader`): nothing it draws reaches the system's header,
+ * which on Android brought the app down when touched during the way back
+ * after «Отправить».
  *
  * The file lives in the camera's cache until «Отправить» moves it under a
  * name of ours; from then on that kept file is the recording, and an
@@ -53,10 +84,11 @@ interface Unsent {
  * screen going: the queue keeps it, or, when the send fails with nobody left
  * to try again, the send deletes it.
  */
-export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
+export function RecordScreen({ limits, onSend, onDone, source = 'camera' }: RecordScreenProps) {
   const { t } = useTranslation();
+  const styles = useThemedStyles(createStyles);
   const navigation = useNavigation();
-  const permissions = useRecordingPermissions();
+  const isFromGallery = source === 'gallery';
   const [phase, setPhase] = useState<Phase>({ kind: 'camera' });
   const [isSending, setSending] = useState(false);
   const [isSent, setSent] = useState(false);
@@ -109,7 +141,7 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
     }
     Alert.alert(
       t('video.leaveTitle'),
-      t('video.leaveBody'),
+      t(isFromGallery ? 'video.leaveBodyGallery' : 'video.leaveBody'),
       [
         { text: t('video.stay'), style: 'cancel' },
         {
@@ -123,43 +155,45 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
   });
 
   const titled = (body: ReactNode) => (
-    <>
-      <Stack.Screen
-        options={{
-          title: t(phase.kind === 'preview' ? 'video.previewTitle' : 'video.recordTitle'),
-        }}
+    <View style={styles.screen}>
+      <RecordHeader
+        title={t(
+          phase.kind === 'preview'
+            ? 'video.previewTitle'
+            : isFromGallery
+              ? 'video.galleryTitle'
+              : 'video.recordTitle',
+        )}
+        onBack={isSent ? undefined : onDone}
       />
       {body}
-    </>
+    </View>
   );
 
-  if (permissions.isChecking) {
-    return titled(<LoadingState label={t('video.starting')} />);
-  }
-
-  if (permissions.missing.length > 0) {
-    return titled(
-      <PermissionScreen
-        missing={permissions.missing}
-        canAsk={permissions.canAsk}
-        onAsk={() => {
-          permissions.ask().catch(reportError);
-        }}
-      />,
-    );
-  }
-
   if (phase.kind === 'camera') {
+    const toPreview = (
+      recording: Recording,
+      end: RecordingEnd,
+      mimeType?: string,
+      pickerCopies?: readonly string[],
+    ) => {
+      unsent.current = { uri: recording.uri, kept: null, pickerCopies: pickerCopies ?? [] };
+      setKeptUri(null);
+      setSendError(null);
+      setPhase({ kind: 'preview', recording, end, mimeType });
+    };
     return titled(
-      <VideoRecorder
-        limits={limits}
-        onRecorded={(recording, end) => {
-          unsent.current = { uri: recording.uri, kept: null };
-          setKeptUri(null);
-          setSendError(null);
-          setPhase({ kind: 'preview', recording, end });
-        }}
-      />,
+      isFromGallery ? (
+        <GalleryPhase
+          limits={limits}
+          onPicked={(video: PickedVideo) =>
+            toPreview(video, 'stop', video.mimeType, video.pickerCopies)
+          }
+          onLeave={onDone}
+        />
+      ) : (
+        <CameraPhase limits={limits} onRecorded={(recording, end) => toPreview(recording, end)} />
+      ),
     );
   }
 
@@ -183,8 +217,17 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
     noteStep('video.send', 'pressed');
     try {
       await isPlayerGone;
-      const captured = unsent.current?.kept ?? (await keepRecording(phase.recording));
-      unsent.current = { uri: captured.uri, kept: captured };
+      const wasKept = unsent.current?.kept ?? null;
+      const captured =
+        wasKept ??
+        (await (isFromGallery
+          ? keepRecording(phase.recording, 'gallery', phase.mimeType)
+          : keepRecording(phase.recording)));
+      // Kept under a name of ours: the picker's other copies of this choice
+      // go now, those and nothing else (owner's word of 2026-10-10, 23:45),
+      // and nothing is left of them to go again.
+      unsent.current?.pickerCopies.forEach((copy) => discardFile(copy));
+      unsent.current = { uri: captured.uri, kept: captured, pickerCopies: [] };
       if (isMounted.current) {
         setKeptUri(captured.uri);
       }
@@ -193,6 +236,9 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
         byteSize: captured.byteSize,
         durationSec: captured.durationSec,
       });
+      // Refused here, with «Переснять» at hand, rather than by the storage
+      // after the person has left the step.
+      assertStorageTakes(captured.byteSize);
       await onSend(captured);
       // The queue's now: kept on the phone until the server has it.
       unsent.current = null;
@@ -203,7 +249,10 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
       const type = error instanceof Error ? error.name : typeof error;
       noteStep('video.send', 'failed', { type });
       // A caught failure is an event of its own: the marks above go with it.
-      reportError(error);
+      // A file too big for the storage is a refusal she acts on, not a crash.
+      if (!(error instanceof TooLargeForStorageError)) {
+        reportError(error);
+      }
       if (isMounted.current) {
         // Moved and found empty: there is no file left to play or to send.
         setFileLost(type === 'EmptyCaptureError');
@@ -235,10 +284,43 @@ export function RecordScreen({ limits, onSend, onDone }: RecordScreenProps) {
       end={phase.end}
       isSending={isSending}
       sendError={sendError}
+      retakeLabel={t(isFromGallery ? 'video.pickAnother' : 'video.retake')}
       onRetake={retake}
       onSend={() => void send()}
     />,
   );
+}
+
+/**
+ * The app's own camera: nothing is drawn over it until the phone has granted
+ * both it and the microphone, and what it refuses is said on a screen of its
+ * own. Asked only on this way in — never for a video from the gallery.
+ */
+function CameraPhase({
+  limits,
+  onRecorded,
+}: {
+  limits: VideoLimits;
+  onRecorded: (recording: Recording, end: RecordingEnd) => void;
+}) {
+  const { t } = useTranslation();
+  const permissions = useRecordingPermissions();
+
+  if (permissions.isChecking) {
+    return <LoadingState label={t('video.starting')} />;
+  }
+  if (permissions.missing.length > 0) {
+    return (
+      <PermissionScreen
+        missing={permissions.missing}
+        canAsk={permissions.canAsk}
+        onAsk={() => {
+          permissions.ask().catch(reportError);
+        }}
+      />
+    );
+  }
+  return <VideoRecorder limits={limits} onRecorded={onRecorded} />;
 }
 
 /** How long the screen may take to leave by itself before it offers the way back. */
@@ -248,10 +330,15 @@ const BACK_FALLBACK_MS = 1_500;
  * The recording is the queue's: what happens to it now, and — only if the
  * screen is still here a moment later — the way back. Offered at once, a tap
  * during the way out would go back a second time, past the step.
+ *
+ * Centred, and scrolling when taller than the screen — at the largest font on
+ * a small phone — rather than cut at either end; the button stops clear of
+ * the system's bar (components/bottom-inset.ts).
  */
 function SentNotice({ onBack }: { onBack: () => void }) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const end = useScreenEdgePadding(Spacing.xl);
   const [isStillHere, setStillHere] = useState(false);
 
   useEffect(() => {
@@ -260,30 +347,38 @@ function SentNotice({ onBack }: { onBack: () => void }) {
   }, []);
 
   return (
-    <View style={styles.sent}>
+    <ScrollView style={styles.sent} contentContainerStyle={[layout.sentContent, end]}>
       <Text align="center" accessibilityRole="alert">
         {t('video.queued')}
       </Text>
       {isStillHere ? <Button label={t('video.backToStep')} onPress={onBack} /> : null}
-    </View>
+    </ScrollView>
   );
 }
 
+/** Sizes only: nothing here depends on the colour scheme. */
+const layout = StyleSheet.create({
+  sentContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    gap: Spacing.md,
+    padding: Spacing.xl,
+  },
+});
+
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
-    sent: {
-      flex: 1,
-      justifyContent: 'center',
-      gap: Spacing.md,
-      padding: Spacing.xl,
-      backgroundColor: theme.background,
-    },
+    screen: { flex: 1, backgroundColor: theme.background },
+    sent: { flex: 1, backgroundColor: theme.background },
   });
 
 /** Delete the recording not handed over, wherever its file is now. */
 function forget(unsent: { current: Unsent | null }): void {
   if (unsent.current !== null) {
     discardFile(unsent.current.uri);
+    // A gallery choice let go of takes the picker's copies of it along
+    // (owner's word of 2026-10-11, 00:40).
+    unsent.current.pickerCopies.forEach((copy) => discardFile(copy));
   }
   unsent.current = null;
 }

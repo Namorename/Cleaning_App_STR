@@ -12,6 +12,12 @@ import * as SecureStore from 'expo-secure-store';
  * to let go of (docs/f11-native-review.md, Т-1).
  */
 const TOKEN_KEY = 'push-token';
+/**
+ * Whom the token was registered for — the person the server binds it to. A
+ * release after a sign-out nobody heard names her (pending-release.ts), and a
+ * session that ends without the button has no session left to ask.
+ */
+const OWNER_KEY = 'push-token-owner';
 
 /** Who the phone was registered for in this run, so coming back to the app does not ask again. */
 let registeredFor: string | null = null;
@@ -26,8 +32,25 @@ export function signOutsSoFar(): number {
   return signOuts;
 }
 
-export async function rememberToken(token: string): Promise<void> {
+/** The button's own sign-outs under way: it lets go of the phone itself (session.tsx). */
+let signingOut = 0;
+
+export function beginSignOut(): void {
+  signingOut += 1;
+}
+
+export function endSignOut(): void {
+  signingOut = Math.max(0, signingOut - 1);
+}
+
+/** A sign-out by the button is under way: a session ending meanwhile is its doing. */
+export function isSigningOut(): boolean {
+  return signingOut > 0;
+}
+
+export async function rememberToken(token: string, owner: string): Promise<void> {
   await SecureStore.setItemAsync(TOKEN_KEY, token);
+  await SecureStore.setItemAsync(OWNER_KEY, owner);
 }
 
 /** The server has the phone for her: coming back to the app asks nothing more in this run. */
@@ -51,6 +74,11 @@ export function registrant(): string | null {
 
 export async function rememberedToken(): Promise<string | null> {
   return SecureStore.getItemAsync(TOKEN_KEY);
+}
+
+/** Whom the remembered token was registered for; null for one kept by a build that did not say. */
+export async function rememberedOwner(): Promise<string | null> {
+  return SecureStore.getItemAsync(OWNER_KEY);
 }
 
 export function trackRegistration(person: string, registration: Promise<boolean>): void {
@@ -77,4 +105,5 @@ export async function forgetRegistration(): Promise<void> {
   signOuts += 1;
   registeredFor = null;
   await SecureStore.deleteItemAsync(TOKEN_KEY);
+  await SecureStore.deleteItemAsync(OWNER_KEY);
 }

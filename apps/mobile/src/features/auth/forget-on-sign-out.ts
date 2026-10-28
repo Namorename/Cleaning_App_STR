@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { QueryClient } from '@tanstack/react-query';
 
+import { letGoAfterSessionEnded } from '@/features/push/pending-release';
 import { adoptMovesWithoutAuthor, noteSignedIn } from '@/lib/move-queue';
 import { settleQueueFor } from '@/lib/parked-moves';
 import { QUERY_CACHE_KEY, forgetSavedListsOfSignedOut } from '@/lib/query-client';
@@ -195,6 +196,9 @@ export function forgetListsOnSignOut(
 
   const { data } = supabase.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT') {
+      // Whatever ended the session lets go of the phone's push token too
+      // (owner's word of 2026-10-11, 00:40); the button does it itself.
+      void letGoAfterSessionEnded();
       noteSignedIn(null);
       inTurn(() => {
         forgetLists();
