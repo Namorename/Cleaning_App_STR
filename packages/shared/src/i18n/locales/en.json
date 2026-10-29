@@ -692,7 +692,9 @@
       "note": "Note for the executor: {{text}}",
       "window": {
         "from": "from {{time}}",
-        "until": "until {{time}}"
+        "until": "until {{time}}",
+        "manual": "by hand",
+        "manualLost": "hours reset: the day changed"
       },
       "origin": {
         "booking": "From a booking",
@@ -735,6 +737,13 @@
         "duplicateSave": "Save it anyway",
         "generatedHint": "This cleaning came from a booking or a task: its listing and kind cannot be changed.",
         "windowFromBooking": "The server sets the time of a cleaning from a booking: from the check-out to the next check-in.",
+        "manualTimeSet": "Set the hours by hand",
+        "manualTimeOn": "The hours are set by hand. Booking changes and the nightly check leave them alone while the cleaning stays on this day.",
+        "manualTimeNew": "These hours will hold while the cleaning stays on this day. Save to keep them.",
+        "manualTimeBack": "Back to the booking's hours",
+        "manualTimeCancel": "Do not set by hand",
+        "manualTimeLost": "The hours were set by hand for {{date}}, but the cleaning's day changed — the hours follow the booking again.",
+        "manualTimeLostOk": "Got it",
         "guest": "Departing guest",
         "reservation": "Hostaway booking",
         "guestUnknown": "not given",
@@ -1836,6 +1845,9 @@
     "techNotLinkable": "A technician is not linked to listings: cleanings are not their work.",
     "techRoleBlocked": "Take this person off their listings ({{links}} links) and open cleanings ({{cleanings}}) first: a technician has no cleanings.",
     "cleaningNotForTech": "Cleanings and inspections go to cleaners, not to technicians.",
+    "cleaningTimeNotFromBooking": "Hours are set by hand only on a cleaning from a booking.",
+    "cleaningTimeStarted": "The cleaning is already under way: its hours no longer change.",
+    "cleaningTimeInvalid": "Give both hours, the start before the end.",
     "managerOrHeadTechOnly": "Only a manager or the head technician may do this",
     "repairNeedsTech": "The head technician hands work to technicians only",
     "videoCameraOnly": "A video is recorded with the app's camera, not taken from the gallery.",

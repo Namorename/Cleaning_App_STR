@@ -64,6 +64,11 @@ export const taskSchema = z.object({
   // (20260926160000). Null on anything not moved.
   pinned_arrival: z.string().nullable().default(null),
   pinned_departure: z.string().nullable().default(null),
+  // A booking's cleaning whose hours the manager set by hand: the day they
+  // were set for, null while the hours follow the booking; and the day of
+  // hand-set hours a change of the cleaning's day undid (20261027120000).
+  manual_time_on: z.string().nullable().default(null),
+  manual_time_lost_on: z.string().nullable().default(null),
   property: z
     .object({
       name: z.string(),
@@ -578,6 +583,13 @@ export interface TaskDraft {
    * while the form is open, and the old day sent back would then hold.
    */
   expectedDate: string | null;
+  /**
+   * The hours of a booking's cleaning set by hand (20261027120000): saved with
+   * set_cleaning_time after the task itself, and held against the booking
+   * while the cleaning keeps its day. Absent or false: the hours are the
+   * booking's, or — on a task not from a booking — simply the ones typed.
+   */
+  manualTime?: boolean;
 }
 
 export function draftFromTask(task: Task): TaskDraft {
@@ -592,7 +604,35 @@ export function draftFromTask(task: Task): TaskDraft {
     timeTo: task.time_to === null ? null : task.time_to.slice(0, 5),
     notes: task.notes ?? '',
     expectedDate: task.scheduled_date,
+    // Hand-set hours of work under way are history: the form shows them and
+    // saves nothing about them (the server would refuse, cleaningTimeStarted).
+    manualTime: task.manual_time_on !== null && canSetCleaningTime(task),
   };
+}
+
+/** Where the manager may set a cleaning's hours by hand: what a run would rewrite (20261027120000). */
+const HAND_TIME_STATUSES: readonly TaskStatus[] = ['unassigned', 'assigned', 'accepted'];
+
+/**
+ * A booking's cleaning nobody has started: the one whose hours the server
+ * writes from the booking, and the one whose hours a manager may set by hand
+ * instead (set_cleaning_time). Work under way keeps the hours it started with.
+ */
+export function canSetCleaningTime(task: Task | null): boolean {
+  return (
+    task !== null &&
+    task.reservation_id !== null &&
+    task.type === 'cleaning' &&
+    HAND_TIME_STATUSES.includes(task.status)
+  );
+}
+
+/** Hours set by hand need both ends, the start before the end — as the server asks. */
+export function hasManualTimeGap(draft: TaskDraft): boolean {
+  if (draft.manualTime !== true) {
+    return false;
+  }
+  return draft.timeFrom === null || draft.timeTo === null || draft.timeFrom >= draft.timeTo;
 }
 
 /**
@@ -638,6 +678,7 @@ export function isDraftReady(draft: TaskDraft, activeStaff?: readonly string[]):
   return (
     draft.propertyId !== null &&
     draft.scheduledDate.trim() !== '' &&
-    !isAssigneeMissing(draft, activeStaff)
+    !isAssigneeMissing(draft, activeStaff) &&
+    !hasManualTimeGap(draft)
   );
 }

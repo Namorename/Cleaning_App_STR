@@ -692,7 +692,9 @@
       "note": "Poznámka pro vykonavatele: {{text}}",
       "window": {
         "from": "od {{time}}",
-        "until": "do {{time}}"
+        "until": "do {{time}}",
+        "manual": "ručně",
+        "manualLost": "čas zrušen: změnilo se datum"
       },
       "origin": {
         "booking": "Z rezervace",
@@ -735,6 +737,13 @@
         "duplicateSave": "Přesto uložit",
         "generatedHint": "Úklid vznikl z rezervace nebo z úkolu: byt ani druh nelze změnit.",
         "windowFromBooking": "Čas úklidu z rezervace určuje server: od odjezdu do dalšího příjezdu.",
+        "manualTimeSet": "Nastavit čas ručně",
+        "manualTimeOn": "Čas je nastaven ručně. Změny rezervace ani noční kontrola ho nemění, dokud úklid zůstává na tomto dni.",
+        "manualTimeNew": "Tento čas bude platit, dokud úklid zůstává na tomto dni. Uložte ho, aby začal platit.",
+        "manualTimeBack": "Vrátit čas podle rezervace",
+        "manualTimeCancel": "Nenastavovat ručně",
+        "manualTimeLost": "Čas byl ručně nastaven na {{date}}, ale datum úklidu se změnilo — čas se znovu řídí rezervací.",
+        "manualTimeLostOk": "Rozumím",
         "guest": "Odjíždějící host",
         "reservation": "Rezervace v Hostaway",
         "guestUnknown": "neuvedeno",
@@ -1870,6 +1879,9 @@
     "techNotLinkable": "Technik se k objektům nepřiřazuje: úklidy nejsou jeho práce.",
     "techRoleBlocked": "Nejdřív toho člověka odeberte z objektů (přiřazení: {{links}}) a z otevřených úklidů ({{cleanings}}): technik úklidy nemá.",
     "cleaningNotForTech": "Úklidy a kontroly se přidělují uklízečkám, ne technikům.",
+    "cleaningTimeNotFromBooking": "Ručně se čas nastavuje jen u úklidu z rezervace.",
+    "cleaningTimeStarted": "Úklid už probíhá: jeho čas se už nemění.",
+    "cleaningTimeInvalid": "Zadejte oba časy, začátek před koncem.",
     "managerOrHeadTechOnly": "Tuto akci může provést jen manažer nebo hlavní technik",
     "repairNeedsTech": "Hlavní technik přiděluje práci jen technikům",
     "videoCameraOnly": "Video se natáčí kamerou aplikace, ne z galerie.",
