@@ -36,13 +36,37 @@
     1.2.0; бандлы Android и iOS байт в байт равны `c509d6c8`. До: preview `c509d6c8`, field
     `b9fa5aaf`; после: preview `c509d6c8` (без изменений), field `e6d58921`. Откат — republish
     `b9fa5aaf` (№7) в field.
+- **Шаг 2 (ручное время уборки) выполнен 29.10: подшаги 2a–2b.** Слово владельца продлило окно
+  разово до 01:30 UTC 30.10; тексты политики конфиденциальности утверждены им же.
+  - 2a: слияние `3cce46b` (дерево = ветка `2627231`) и `770c2e6` — страж снят, набор
+    `manual_cleaning_time.sql` из `tests/draft` в `tests`; тела функций не тронуты. Проверки на
+    `770c2e6`: vitest 167 / 2076, jest 197 / 3335, `next build` собрался, tsc 0 / 0, eslint чисто (у
+    телефона 3 старых предупреждения); SQL на временной базе — 114 миграций, 47 наборов, 1967
+    проверок, красных 0.
+  - Застава и `db push` в 22:35:13 UTC: сухой прогон назвал ровно
+    `20261027120000_manual_cleaning_time.sql`. Пробы до → после: голова `20261023100000` →
+    `20261027120000`; `generate_cleaning_tasks` / `save_task` / `guard_task_fields` `948052e6` /
+    `cb867170` / `086fd1ec` → `31e0dad8` / `19aefc89` / `0cba3e93`, `cleaning_turnover_on`
+    `eb21e064` без изменений; новые `set_cleaning_time` `5cb8e589`, `clear_cleaning_time`
+    `a48ba2bd`, `lock_cleaning_for_time` `544fd243`, `journal_cleaning_time` `fc0a0f79`; крон 10,
+    `client_grants []`, видео без изменений.
+  - Сверка времени открытых уборок из броней: до — 846 из 846 совпадают с генератором, сразу после
+    и после трёх циклов вебхуков (22:36, 22:38, 22:40) — тоже 846 из 846, расхождений 0, ручного
+    времени 0. Генератор за эти минуты не вызывался (новых событий Hostaway не было): новое тело
+    впервые сработает на ближайшем вебхуке с событиями или на ночной сверке.
+  - 2b: `main` = `770c2e6` (22:43:12 UTC), Vercel `woom-k02y1qa8z` READY, `/login` и `/privacy` —
+    200, на `/privacy` (en) — «hours set by hand or given back to the booking». OTA не нужна.
+  - Порядок сохраняется: шаг 3 (API) — после шага 2, с `HEAD_WANT=20261027120000` и
+    классификацией четырёх функций ручного времени в `coverage.json` (§5, 3b).
+  - Откат: панель (2b), затем `manual-cleaning-time-rollback.sql`, `migration repair --status
+    reverted 20261027120000`, проба.
 
 ## 0. Коротко
 
 **Порядок:**
 - шаг 0: `phone-1-2-0` в `main`;
 - шаг 1: видео (миграция и OTA №8);
-- шаг 2: ручное время уборки — ветки нет;
+- шаг 2: ручное время уборки (ветка `manual-time-1029`, миграция `20261027120000`) — раньше шага 3;
 - шаг 3: API;
 - шаг 4: база знаний;
 - шаг 5: отзывы.
@@ -95,7 +119,7 @@
 | `reviews-to-tasks-1017` | 05175af | 804ac7a | 16 / 3 | 20261017110000 | функции `sync-reviews`, `classify-reviews`, `_shared/reviews/*` (новые); панель 16, телефон 10 (за выключателем), `package.json` | миграция (перенумеровать), секреты, деплой двух функций, `main`, OTA, выключатели |
 | `public-api-v1-1028` | c3eac69 | 9bedd62 | 5 / 0 | 20261028100000 | функции `api`, `api-keys`, `_shared/api-key.ts` (новые), раздел «Настройки → API», `/developers`, `config.toml` | секрет, миграция, деплой двух функций, `main` |
 | `launch-reset-1016` | 0fb6221 | 804ac7a | 4 / 3 | — | только доки (11 файлов) | слияние в `main` |
-| ручное время уборки | — | — | — | — | **ветки нет**: ни на `origin`, ни локально, ни в деревьях `.claude/worktrees` | — |
+| `manual-time-1029` (появилась 29.10) | 2627231 | a167849 | 6 / 0 | 20261027120000 (со стражем в ветке) | ручное время уборки: генератор, `save_task`, две RPC, журнал; панель 8 файлов, общие `locales` (с текстом политики) и `database.types.ts`; телефон — только тест | миграция, `main`; OTA не нужна |
 
 Ни одна ветка не правит нативную часть телефона: нет изменений в `app.json`, `package.json`
 приложения, `eas.json`, плагинах; `version` 1.2.0 везде. Значит, телефону хватит OTA, сборка не нужна.
@@ -232,7 +256,12 @@ npx supabase db push --linked --skip-vault
      горничные сейчас получают число компании.
    - Миграция убирает саму возможность снова застрять, если поле кто-то заполнит. Поэтому видео
      первым: оно готово, мало и не зависит от остального.
-3. **Шаг 2 — ручное время уборки:** ветки нет. Когда появится — §5, шаг 2.
+3. **Шаг 2 — ручное время уборки** (`manual-time-1029`, `docs/manual-cleaning-time.md`). Идёт
+   **раньше шага 3**, порядок сохраняется:
+   - номер миграции `20261027120000` меньше номера API (`20261028100000`), а `--include-all` не берём
+     (§3);
+   - слияние API в `main` обязано классифицировать четыре новые функции (§5, 3b), иначе тест
+     паритета API упадёт.
 4. **Шаг 3 — API.** Независим от базы знаний и отзывов. Его правило паритета задевает их, а не
    наоборот: идя раньше, API получает на своём слиянии только `release_push_token`. Нужны секрет,
    миграция, две новые функции и раздел панели.
@@ -282,9 +311,10 @@ reverted <версия>`. Обе команды пишут в облако — �
 | 1b — **выполнен 29.10, 17:08 UTC** (`a167849`) | `git push origin main` | «Шаг 1: main» | — | Vercel READY (кода панели в ветке нет) | `git revert -m 1` | нет |
 | 1c — **выполнен 29.10, 18:08 UTC** (`c509d6c8`) | OTA №8 на preview из `main` (`apps/mobile`, `npx eas update --branch preview`); перед ним `migration list --linked` или `remote_head.sql` (CLAUDE.md) | «OTA №8 preview» | проверка бандла против живого (как №7) | запись видео 150 с из галереи и съёмка на Android и iOS | republish `36bac4d9` (№7) на preview | проверка на телефоне |
 | 1d — **выполнен 29.10, 19:11 UTC** (`e6d58921`) | OTA №8 на field (republish группы preview) | «OTA №8 field» | — | Sentry без новых ошибок видео за сутки | republish `b9fa5aaf` (№7 на field) | слово |
-| 2 | ручное время уборки | — | — | — | — | ветки нет (§8) |
+| 2a — **выполнен 29.10, 22:35 UTC** | локальное слияние `manual-time-1029` в `main` (`3cce46b`) и снятие стража с переносом набора из `tests/draft` в `tests` (`770c2e6`), из него — миграция `20261027120000_manual_cleaning_time` | «Шаг 2: пушим» | `HEAD_WANT=20261023100000`, `LIST_WANT="20261027120000_manual_cleaning_time.sql"` | `manual_cleaning_time_probe.sql`: тела `31e0dad8` / `19aefc89` / `0cba3e93`, четыре новые функции, колонки 2, триггеры 2, виды событий 3, `execute` у `authenticated` да, у `anon` нет; `postpush_1028.sql`: `since_1023 [20261023100000, 20261027120000]`, крон 10, `client_grants []`; сверка времени открытых уборок из броней — расхождений 0 | панель первой (2b), затем `docs/one-off-writes/manual-cleaning-time-rollback.sql`, `migration repair --status reverted 20261027120000`, проба: тела снова `948052e6` / `cb867170` / `086fd1ec` | нет |
+| 2b — **выполнен 29.10, 22:43 UTC** (`770c2e6`) | `git push origin main` (только после 2a) | «Шаг 2» | — | Vercel READY, `/login` и `/privacy` — 200, на `/privacy` новая фраза о времени уборки | `git revert --no-edit 770c2e6`, `git revert --no-edit -m 1 3cce46b`, `git push origin HEAD:main` | ручная проверка в панели (`docs/manual-cleaning-time.md` §10) |
 | 3a | секрет `API_KEY_PEPPER` | «Шаг 3» | — | `npx supabase secrets list` показывает имя (не значение) | `secrets unset` | **владелец сам**, из своего окна: `$s = node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))"; npx supabase secrets set "API_KEY_PEPPER=$s"; Remove-Variable s`; копия — в менеджер паролей |
-| 3b | локальное слияние API в `main` с правками слияния (§6.3: `release_push_token`, `defined_in` видео, `lock_timeout`, типы), из него — миграция `20261028100000_public_api_v1` | «Шаг 3: push API» | `HEAD_WANT=20261023100000`, `LIST_WANT="20261028100000_public_api_v1.sql"` | `postpush_1028.sql`: крон 11 (`purge-api-records` 5 4), `client_grants []` (таблицы API — только `service_role`); `postpush_api_scopes_1028.sql`: 41 строка (12 exposed, 19 planned, 10 forbidden), ключей 0 | `docs/one-off-writes/api-v1-rollback.sql`, `migration repair --status reverted 20261028100000` | нет |
+| 3b | локальное слияние API в `main` с правками слияния (§6.3: `release_push_token`, `defined_in` видео, `lock_timeout`, типы), из него — миграция `20261028100000_public_api_v1`. **Обязательно перед слиянием в `main`** (после шага 2): добавить в `packages/shared/src/api/coverage.json` и реестр API четыре функции ручного времени — `set_cleaning_time` и `clear_cleaning_time` как планируемые права (например `cleanings:write`), `lock_cleaning_for_time` и триггер `journal_cleaning_time` как запрещённые, поля `tasks.manual_time_on` и `manual_time_lost_on` — в паритет полей уборки; иначе `api-parity.test.ts` упадёт («a new function nobody classified»). Новое право меняет счёт `postpush_api_scopes_1028.sql` — пересчитать | «Шаг 3: push API» | `HEAD_WANT=20261027120000` (голова после шага 2), `LIST_WANT="20261028100000_public_api_v1.sql"` | `postpush_1028.sql`: крон 11 (`purge-api-records` 5 4), `client_grants []` (таблицы API — только `service_role`); `postpush_api_scopes_1028.sql`: 41 строка (12 exposed, 19 planned, 10 forbidden), ключей 0 | `docs/one-off-writes/api-v1-rollback.sql`, `migration repair --status reverted 20261028100000` | нет |
 | 3c | деплой `npx supabase functions deploy api api-keys` (`verify_jwt = false` для обеих — из `config.toml`) | «Шаг 3: функции» | — | `curl …/functions/v1/api/v1/me` без ключа → 401 `missing-key` | `npx supabase functions delete api api-keys` | нет |
 | 3d | `git push origin main` | «Шаг 3: main» | — | `/developers` открывается; админ создаёт ключ «Только чтение», `curl /v1/me` → 200 | `git revert -m 1` | первый ключ — сам |
 | 4a | локальное слияние `knowledge-base-phone-1017` (в ней шаг 1) в `main` с правками слияния (§6.3) и `ae3c658`, перенумеровка (§3), из него — миграция | «Шаг 4: push базы знаний» | `HEAD_WANT=20261028100000`, `LIST_WANT="<метка дня>_knowledge_base.sql"` | `postpush_knowledge_base.sql`; `postpush_1028.sql`: `kb_*` — только `SELECT` у `authenticated`; `postpush_api_scopes_1028.sql`: 43 | `docs/one-off-writes/knowledge-base-step1-rollback.sql`, `repair` | нет |
