@@ -8,6 +8,18 @@
 - План — ветка `rollout-plan-1028` (этот файл, две пробы и скрипт временной базы в `docs/rollout/`).
 - Каждый шаг ниже идёт только по слову владельца. Слово нужно на каждый шаг отдельно.
 
+**Ход выката:**
+- **Шаг 0 выполнен 28.10 в 22:53:50 UTC.** Слово владельца продлило окно этого push до 02:00 UTC.
+  - `main` = `e775922`: слияния `5d82d30` (`launch-reset-1016`) и `e775922` (`phone-1-2-0`); дерево
+    байт в байт равно `e80d987` репетиции.
+  - Проверки на этом дереве: tsc 0 / 0, eslint чисто (у телефона 3 старых предупреждения), vitest
+    2045 из 2045, jest 3321 из 3321, `next build` собрался.
+  - Vercel `woom-g1pyt2qmo` READY в 22:54:32 UTC.
+  - Проба `postpush_1028.sql` после push байт в байт равна пробе до. Каталог `main` = облако,
+    112 = 112 (сверка всех версий через `cloud-read` вместо `db push --dry-run`).
+  - Откат — только `git revert -m 1` слияния `e775922`, затем `5d82d30`; не promote (слово
+    владельца 28.10).
+
 ## 0. Коротко
 
 **Порядок:**
@@ -248,7 +260,7 @@ reverted <версия>`. Обе команды пишут в облако — �
 
 | Шаг | Что выкатывается | Слово владельца | Сухой прогон / застава | Проверка после | Откат | Действия владельца |
 |---|---|---|---|---|---|---|
-| 0 | слияние `phone-1-2-0` и `launch-reset-1016` в `main` (конфликт `docs/ios-launch-checklist.md` — как в `e80d987`) | «Шаг 0: слей в main» | `db push --dry-run` из `main` должен сказать «нечего применять»; каталог 112 = облако 112 | Vercel READY; `postpush_1028.sql` без изменений | `git revert -m 1 <merge>` в `main` (панель вернётся сама) или promote прежнего деплоя Vercel | нет |
+| 0 — **выполнен 28.10, 22:53 UTC** (`e775922`) | слияние `phone-1-2-0` и `launch-reset-1016` в `main` (конфликт `docs/ios-launch-checklist.md` — как в `e80d987`) | «Шаг 0: слей в main» | `db push --dry-run` из `main` должен сказать «нечего применять»; каталог 112 = облако 112 | Vercel READY; `postpush_1028.sql` без изменений | `git revert -m 1 e775922`, затем `5d82d30`, в `main` (панель вернётся сама); не promote — слово владельца 28.10 | нет |
 | 1a | локальное слияние `video-upload-1022` в `main` (страж снят, наборы из `tests/draft` на месте, как в `e4c6fe0`), из него — миграция `20261023100000_video_limits_live` | «Шаг 1: push видео» | `HEAD_WANT=20261015120000`, `LIST_WANT="20261023100000_video_limits_live.sql"` | `video_limits_1023_probe.sql`: md5 `bf208d8c` / `dd81ff14`, `draft_recorded 1`; `postpush_1028.sql`: `since_1023 [20261023100000]`, крон 10, `client_grants []` | сначала откат OTA (1c), потом `docs/one-off-writes/video-limits-1023-migration-rollback.sql` и `migration repair --status reverted 20261023100000`; тела возвращаются байт в байт | нет |
 | 1b | `git push origin main` | «Шаг 1: main» | — | Vercel READY (кода панели в ветке нет) | `git revert -m 1` | нет |
 | 1c | OTA №8 на preview из `main` (`apps/mobile`, `npx eas update --branch preview`); перед ним `migration list --linked` или `remote_head.sql` (CLAUDE.md) | «OTA №8 preview» | проверка бандла против живого (как №7) | запись видео 150 с из галереи и съёмка на Android и iOS | republish `36bac4d9` (№7) на preview | проверка на телефоне |
