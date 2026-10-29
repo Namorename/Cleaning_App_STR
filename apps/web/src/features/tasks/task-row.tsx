@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 import { formatWindow } from './format';
 import { TaskNote } from './task-note';
 import {
+  canSetCleaningTime,
   isManualTask,
   isTaskClosed,
   isTechnicianJob,
@@ -147,6 +148,16 @@ export function TaskRow({
         )}
       >
         {timeWindow ?? <Nothing label={t('panel.tasks.groups.anytime')} />}
+        {/* Hours the manager set by hand, and hand-set hours a change of day undid (20261027120000). */}
+        {task.manual_time_on !== null ? (
+          <span className="ml-1 text-xs text-muted-foreground">
+            {t('panel.tasks.window.manual')}
+          </span>
+        ) : canSetCleaningTime(task) && task.manual_time_lost_on !== null ? (
+          <span className="block text-xs font-medium text-destructive">
+            {t('panel.tasks.window.manualLost')}
+          </span>
+        ) : null}
       </TableCell>
       <TableCell className="py-1">
         {taskPropertyName(task) ?? t('panel.tasks.noProperty')}

@@ -1505,6 +1505,8 @@ export type Database = {
           id: string
           is_parallel: boolean
           is_short_measurement: boolean | null
+          manual_time_lost_on: string | null
+          manual_time_on: string | null
           measured_minutes: number | null
           notes: string | null
           pinned_arrival: string | null
@@ -1537,6 +1539,8 @@ export type Database = {
           id?: string
           is_parallel?: boolean
           is_short_measurement?: boolean | null
+          manual_time_lost_on?: string | null
+          manual_time_on?: string | null
           measured_minutes?: number | null
           notes?: string | null
           pinned_arrival?: string | null
@@ -1569,6 +1573,8 @@ export type Database = {
           id?: string
           is_parallel?: boolean
           is_short_measurement?: boolean | null
+          manual_time_lost_on?: string | null
+          manual_time_on?: string | null
           measured_minutes?: number | null
           notes?: string | null
           pinned_arrival?: string | null
@@ -2433,6 +2439,49 @@ export type Database = {
         Args: { p_person_id: string; target_property_id: number }
         Returns: boolean
       }
+      clear_cleaning_time: {
+        Args: { p_expected_date?: string; p_task_id: string }
+        Returns: {
+          assignee_id: string | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          created_by: string | null
+          due_at: string | null
+          duration_override_min: number | null
+          guests_count: number | null
+          host_id: string
+          id: string
+          is_parallel: boolean
+          is_short_measurement: boolean | null
+          manual_time_lost_on: string | null
+          manual_time_on: string | null
+          measured_minutes: number | null
+          notes: string | null
+          pinned_arrival: string | null
+          pinned_departure: string | null
+          pinned_rooms: number[] | null
+          priority: number
+          problem_id: string | null
+          property_id: number
+          reservation_id: number | null
+          scheduled_date: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["task_status"]
+          time_from: string | null
+          time_to: string | null
+          title: string | null
+          title_i18n: Json
+          type: Database["public"]["Enums"]["task_type"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       complete_task_step: {
         Args: {
           p_device_completed_at?: string
@@ -2542,6 +2591,49 @@ export type Database = {
             Returns: boolean
           }
         | { Args: { guest_name: string }; Returns: boolean }
+      lock_cleaning_for_time: {
+        Args: { p_expected_date: string; p_task_id: string }
+        Returns: {
+          assignee_id: string | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          created_by: string | null
+          due_at: string | null
+          duration_override_min: number | null
+          guests_count: number | null
+          host_id: string
+          id: string
+          is_parallel: boolean
+          is_short_measurement: boolean | null
+          manual_time_lost_on: string | null
+          manual_time_on: string | null
+          measured_minutes: number | null
+          notes: string | null
+          pinned_arrival: string | null
+          pinned_departure: string | null
+          pinned_rooms: number[] | null
+          priority: number
+          problem_id: string | null
+          property_id: number
+          reservation_id: number | null
+          scheduled_date: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["task_status"]
+          time_from: string | null
+          time_to: string | null
+          title: string | null
+          title_i18n: Json
+          type: Database["public"]["Enums"]["task_type"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       mark_task_media_purged: { Args: { p_ids: string[] }; Returns: number }
       mark_thread_read: {
         Args: { p_thread_id: string; p_up_to?: string }
@@ -3087,6 +3179,8 @@ export type Database = {
           id: string
           is_parallel: boolean
           is_short_measurement: boolean | null
+          manual_time_lost_on: string | null
+          manual_time_on: string | null
           measured_minutes: number | null
           notes: string | null
           pinned_arrival: string | null
@@ -3157,6 +3251,54 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "chat_messages"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_cleaning_time: {
+        Args: {
+          p_expected_date?: string
+          p_task_id: string
+          p_time_from: string
+          p_time_to: string
+        }
+        Returns: {
+          assignee_id: string | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          created_by: string | null
+          due_at: string | null
+          duration_override_min: number | null
+          guests_count: number | null
+          host_id: string
+          id: string
+          is_parallel: boolean
+          is_short_measurement: boolean | null
+          manual_time_lost_on: string | null
+          manual_time_on: string | null
+          measured_minutes: number | null
+          notes: string | null
+          pinned_arrival: string | null
+          pinned_departure: string | null
+          pinned_rooms: number[] | null
+          priority: number
+          problem_id: string | null
+          property_id: number
+          reservation_id: number | null
+          scheduled_date: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["task_status"]
+          time_from: string | null
+          time_to: string | null
+          title: string | null
+          title_i18n: Json
+          type: Database["public"]["Enums"]["task_type"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tasks"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -3641,6 +3783,9 @@ export type Database = {
         | "moved"
         | "reopened"
         | "status_changed"
+        | "time_set"
+        | "time_auto"
+        | "time_dropped"
       task_status:
         | "unassigned"
         | "assigned"
@@ -3861,6 +4006,9 @@ export const Constants = {
         "moved",
         "reopened",
         "status_changed",
+        "time_set",
+        "time_auto",
+        "time_dropped",
       ],
       task_status: [
         "unassigned",

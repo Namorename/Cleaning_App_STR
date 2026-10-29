@@ -332,6 +332,8 @@ export function expiredAsTask(
     title: null,
     title_i18n: null,
     created_at: row.scheduled_date,
+    manual_time_on: null,
+    manual_time_lost_on: null,
     pinned_arrival: null,
     pinned_departure: null,
     property:

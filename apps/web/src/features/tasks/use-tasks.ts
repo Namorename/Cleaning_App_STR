@@ -7,6 +7,7 @@ import { useSupabase } from '@/lib/supabase/use-client';
 
 import {
   cancelTask,
+  clearCleaningTime,
   fetchProperties,
   fetchReservationGuest,
   fetchStaff,
@@ -14,8 +15,11 @@ import {
   fetchTaskProblems,
   fetchTaskWork,
   fetchTasks,
+  handHoursOf,
   saveTask,
+  setCleaningTime,
   setDurationOverride,
+  type ClearCleaningTimeVariables,
   type SaveTaskVariables,
 } from './api';
 import { taskKeys } from './keys';
@@ -97,7 +101,14 @@ export function useSaveTask() {
   const queryClient = useQueryClient();
   const invalidate = useInvalidateTasks();
   return useMutation({
-    mutationFn: (variables: SaveTaskVariables) => saveTask(client, variables),
+    // The task, then the hours a manager set by hand (20261027120000): two
+    // calls, the second after the first. Saving again repeats both, and both
+    // replay.
+    mutationFn: async (variables: SaveTaskVariables) => {
+      const saved = await saveTask(client, variables);
+      const hours = handHoursOf(variables.draft);
+      return hours === null ? saved : setCleaningTime(client, hours);
+    },
     onSuccess: invalidate,
     // A booking moved the task while the form was open: the list, the
     // calendar's chips and the bookings that moved it are all behind, and the
@@ -106,6 +117,20 @@ export function useSaveTask() {
       serverErrorHint(error) === MOVED_HINT
         ? Promise.all([invalidate(), queryClient.invalidateQueries({ queryKey: CALENDAR_LAYERS })])
         : undefined,
+  });
+}
+
+/**
+ * A booking's cleaning back to its booking's hours, or the mark of hand-set
+ * hours a change of day undid taken off (20261027120000). A refusal means the
+ * cleaning changed meanwhile: refresh either way, as a cancel does.
+ */
+export function useClearCleaningTime() {
+  const client = useSupabase();
+  const invalidate = useInvalidateTasks();
+  return useMutation({
+    mutationFn: (variables: ClearCleaningTimeVariables) => clearCleaningTime(client, variables),
+    onSettled: invalidate,
   });
 }
 

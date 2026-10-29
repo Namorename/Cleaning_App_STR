@@ -10,7 +10,7 @@ import { taskStatusTone, type Language } from '@str-ops/shared';
 import { isTaskUnread, NO_UNREAD, type UnreadSubjects } from '@/features/chat/schema';
 import { formatClock } from '@/features/tasks/format';
 import { isRepairOverdue } from '@/features/tasks/repairs';
-import { localizedTitle, type CalendarTask } from '@/features/tasks/schema';
+import { canSetCleaningTime, localizedTitle, type CalendarTask } from '@/features/tasks/schema';
 import { hatchImage } from '@/lib/design/hatch';
 import { TONE_MARK_BG } from '@/lib/design/tone-classes';
 import { cn } from '@/lib/utils';
@@ -104,7 +104,7 @@ export function useChipText(language: Language, unread: UnreadSubjects = NO_UNRE
     const person = isNobody
       ? t('panel.calendar.nobody')
       : (task.assignee?.full_name ?? t('panel.apartments.bookings.noName'));
-    const window =
+    const hours =
       task.time_from !== null && task.time_to !== null
         ? `${formatClock(task.time_from)}–${formatClock(task.time_to)}`
         : task.time_from !== null
@@ -112,6 +112,14 @@ export function useChipText(language: Language, unread: UnreadSubjects = NO_UNRE
           : task.time_to !== null
             ? t('panel.tasks.window.until', { time: formatClock(task.time_to) })
             : null;
+    // Hours the manager set by hand say so wherever the hours are shown, and
+    // hand-set hours a change of day undid are named in the label
+    // (20261027120000).
+    const window =
+      hours !== null && task.manual_time_on !== null
+        ? `${hours} · ${t('panel.tasks.window.manual')}`
+        : hours;
+    const isHandTimeLost = canSetCleaningTime(task) && task.manual_time_lost_on !== null;
     // SDT: the next guest arrives the same day, into the same room (§4).
     const isSdt = task.type === 'cleaning' && task.priority === 1;
     const isOverdue = task.problem_id !== null && isRepairOverdue(task);
@@ -132,6 +140,7 @@ export function useChipText(language: Language, unread: UnreadSubjects = NO_UNRE
       task.problem?.priority === 'high' ? t('problems.priorities.high') : null,
       isOverdue ? t('panel.calendar.overdue') : null,
       isChanged ? t('panel.calendar.bookingChanged') : null,
+      isHandTimeLost ? t('panel.tasks.window.manualLost') : null,
       hasUnread ? t('panel.chat.unread') : null,
     ]
       .filter((part): part is string => part !== null && part !== '')

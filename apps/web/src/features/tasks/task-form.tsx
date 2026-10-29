@@ -18,8 +18,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { todayIso } from '@/lib/format-date';
 import { serverErrorHint, serverErrorText } from '@/lib/server-error';
 
+import { ManualTimeNote } from './manual-time-note';
 import {
+  canSetCleaningTime,
   draftFromTask,
+  hasManualTimeGap,
   isAssigneeMissing,
   isDraftReady,
   isManualTask,
@@ -49,7 +52,9 @@ const READ_ONLY_CLASS = 'bg-muted';
  * the listing's check-out to the next check-in, on whatever day it stands,
  * moved or not. A move writes it for the new day, every generator run
  * rewrites it, and a save that keeps the day keeps it whatever times it sends
- * (20260927120000) — times typed here would not hold.
+ * (20260927120000) — times typed here would not hold. Unless the manager sets
+ * them by hand (20261027120000): then set_cleaning_time holds them while the
+ * cleaning keeps its day.
  */
 function hasServerWindow(task: Task | null): boolean {
   return task !== null && task.reservation_id !== null && task.type === 'cleaning';
@@ -106,7 +111,8 @@ export function TaskForm({ task, initial, onClose }: TaskFormProps) {
   const activeStaff = useMemo(() => staff.data?.map((person) => person.id), [staff.data]);
 
   const isGenerated = task !== null && !isManualTask(task);
-  const isWindowFixed = hasServerWindow(task);
+  const isHandTime = draft.manualTime === true && canSetCleaningTime(task);
+  const isWindowFixed = hasServerWindow(task) && !isHandTime;
   const windowFieldProps = isWindowFixed
     ? { readOnly: true, className: READ_ONLY_CLASS, 'aria-describedby': WINDOW_HINT_ID }
     : {};
@@ -256,10 +262,24 @@ export function TaskForm({ task, initial, onClose }: TaskFormProps) {
                 />
               </div>
             </div>
-            {isWindowFixed ? (
-              <p id={WINDOW_HINT_ID} className="text-xs text-muted-foreground">
-                {t('panel.tasks.form.windowFromBooking')}
-              </p>
+            {task !== null && hasServerWindow(task) ? (
+              <ManualTimeNote
+                task={task}
+                isManual={isHandTime}
+                hasGap={hasManualTimeGap(draft)}
+                hintId={WINDOW_HINT_ID}
+                onStart={() => setDraft({ ...draft, manualTime: true })}
+                // Not set after all: the booking's hours, as the form opened.
+                onCancel={() =>
+                  setDraft({
+                    ...draft,
+                    manualTime: false,
+                    timeFrom: draftFromTask(task).timeFrom,
+                    timeTo: draftFromTask(task).timeTo,
+                  })
+                }
+                onCleared={onClose}
+              />
             ) : null}
           </div>
 

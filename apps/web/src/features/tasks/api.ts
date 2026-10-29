@@ -57,6 +57,9 @@ const TASK_COLUMNS =
   // The booking's dates when the manager moved its cleaning, null unless moved
   // (20260926160000): the calendar judges a moved cleaning's booking by them.
   'pinned_arrival, pinned_departure, ' +
+  // The hours a manager set by hand, and the mark of hand-set hours a change
+  // of day undid (20261027120000): the form, the row and the chip say so.
+  'manual_time_on, manual_time_lost_on, ' +
   // The room a cleaning stands on is named "1 - 2109" and names no building,
   // so the building comes along: `taskPropertyName` composes the two, the card
   // shows it and the search looks through it. The hint is the foreign key
@@ -407,6 +410,80 @@ export async function saveTask(client: Client, variables: SaveTaskVariables): Pr
     p_notes: draft.notes.trim() === '' ? undefined : draft.notes.trim(),
     p_allow_duplicate: variables.allowDuplicate ?? false,
     p_expected_date: draft.expectedDate ?? undefined,
+  });
+  if (error) {
+    throw error;
+  }
+  return taskSchema.parse(data);
+}
+
+export interface CleaningTimeVariables {
+  taskId: string;
+  /** `HH:MM`, both: the form does not send a half-set window (hasManualTimeGap). */
+  timeFrom: string;
+  timeTo: string;
+  /** The day the cleaning stands on after the save: the hours are for that day. */
+  expectedDate: string;
+}
+
+/**
+ * The manager's hours for a booking's cleaning (20261027120000). The server
+ * holds them against the generator and every save while the cleaning keeps
+ * `expectedDate`, and refuses them on a day it no longer stands on
+ * (serverErrors.taskMovedMeanwhile). The same hours again change nothing.
+ */
+export async function setCleaningTime(
+  client: Client,
+  variables: CleaningTimeVariables,
+): Promise<Task> {
+  const { data, error } = await client.rpc('set_cleaning_time', {
+    p_task_id: variables.taskId,
+    p_time_from: variables.timeFrom,
+    p_time_to: variables.timeTo,
+    p_expected_date: variables.expectedDate,
+  });
+  if (error) {
+    throw error;
+  }
+  return taskSchema.parse(data);
+}
+
+/**
+ * The hours a save sets by hand after the task itself (20261027120000), or null:
+ * only a draft that holds them, with both ends. They are for the day the save
+ * leaves the cleaning on — a save that moves the day drops the old hand-set
+ * hours, and the new ones land on the new day.
+ */
+export function handHoursOf(draft: TaskDraft): CleaningTimeVariables | null {
+  if (draft.manualTime !== true || draft.timeFrom === null || draft.timeTo === null) {
+    return null;
+  }
+  return {
+    taskId: draft.id,
+    timeFrom: draft.timeFrom,
+    timeTo: draft.timeTo,
+    expectedDate: draft.scheduledDate,
+  };
+}
+
+export interface ClearCleaningTimeVariables {
+  taskId: string;
+  /** The day the form showed the cleaning on. */
+  expectedDate: string;
+}
+
+/**
+ * A booking's cleaning back to its booking's hours, both marks off
+ * (20261027120000): the «back to the booking» button, and the «got it» of a
+ * mark left by a change of day.
+ */
+export async function clearCleaningTime(
+  client: Client,
+  variables: ClearCleaningTimeVariables,
+): Promise<Task> {
+  const { data, error } = await client.rpc('clear_cleaning_time', {
+    p_task_id: variables.taskId,
+    p_expected_date: variables.expectedDate,
   });
   if (error) {
     throw error;

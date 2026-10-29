@@ -53,7 +53,15 @@ interface SaveState {
 }
 const saveState = vi.fn<() => SaveState>(() => ({ isError: false, error: null }));
 
+const clearMutate = vi.fn();
+
 vi.mock('../use-tasks', () => ({
+  useClearCleaningTime: () => ({
+    isPending: false,
+    isError: false,
+    error: null,
+    mutate: (...args: unknown[]) => clearMutate(...args),
+  }),
   useReservationGuest: (reservationId: number) => guest(reservationId),
   useProperties: () => ({ data: properties, isPending: false, isError: false }),
   useStaff: () => ({ data: staff, isPending: false, isError: false }),
@@ -565,5 +573,135 @@ describe('the window of a cleaning from a booking', () => {
     expect(fromField().readOnly).toBe(false);
     expect(toField().readOnly).toBe(false);
     expect(screen.queryByText(HINT)).toBeNull();
+  });
+});
+
+/**
+ * Hours set by hand (20261027120000): the manager may set the hours of a
+ * booking's cleaning nobody has started, the server holds them while the
+ * cleaning keeps its day, one button gives them back to the booking, and hours
+ * a change of day undid are said where they cannot be missed.
+ */
+describe('hours of a booking’s cleaning set by hand', () => {
+  const fromField = () => screen.getByLabelText('Начать не раньше') as HTMLInputElement;
+  const toField = () => screen.getByLabelText('Закончить до') as HTMLInputElement;
+  const saveButton = () => screen.getByRole('button', { name: 'Сохранить' });
+  const ID = 'aaaaaaaa-aaaa-4aaa-8aaa-000000000041';
+  const booking = (overrides: Record<string, unknown> = {}) =>
+    task({ id: ID, reservation_id: JAN.id, ...overrides });
+
+  test('a booking’s cleaning offers it, and the fields open', async () => {
+    render(<TaskForm task={booking()} onClose={() => {}} />);
+
+    expect(fromField().readOnly).toBe(true);
+    await userEvent.click(screen.getByRole('button', { name: 'Задать время вручную' }));
+
+    expect(fromField().readOnly).toBe(false);
+    expect(toField().readOnly).toBe(false);
+    expect(
+      screen.getByText(
+        'Это время будет держаться, пока уборка стоит на этом дне. Сохраните, чтобы оно вступило в силу.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  test('the save carries the hours and says they are set by hand', async () => {
+    mutate.mockClear();
+    render(<TaskForm task={booking()} onClose={() => {}} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Задать время вручную' }));
+    fireEvent.change(fromField(), { target: { value: '12:00' } });
+    fireEvent.change(toField(), { target: { value: '14:30' } });
+    await userEvent.click(saveButton());
+
+    expect(mutate.mock.calls[0][0].draft).toMatchObject({
+      manualTime: true,
+      timeFrom: '12:00',
+      timeTo: '14:30',
+      expectedDate: '2026-09-14',
+    });
+  });
+
+  test('hours without both ends, or the start after the end, are not saved', async () => {
+    mutate.mockClear();
+    render(<TaskForm task={booking()} onClose={() => {}} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Задать время вручную' }));
+    fireEvent.change(fromField(), { target: { value: '16:00' } });
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Укажите оба времени: начало раньше конца.',
+    );
+    expect(saveButton()).toBeDisabled();
+  });
+
+  test('not set after all, the booking’s hours come back', async () => {
+    render(<TaskForm task={booking()} onClose={() => {}} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Задать время вручную' }));
+    fireEvent.change(fromField(), { target: { value: '12:00' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Не задавать вручную' }));
+
+    expect(fromField().value).toBe('10:00');
+    expect(fromField().readOnly).toBe(true);
+  });
+
+  test('hours set by hand say so, and one button gives the booking’s back', async () => {
+    clearMutate.mockClear();
+    render(
+      <TaskForm
+        task={booking({ time_from: '12:00:00', time_to: '14:30:00', manual_time_on: '2026-09-14' })}
+        onClose={() => {}}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        'Время задано вручную. Изменения брони и ночная сверка его не трогают, пока уборка стоит на этом дне.',
+      ),
+    ).toBeInTheDocument();
+    expect(fromField().value).toBe('12:00');
+    expect(fromField().readOnly).toBe(false);
+    await userEvent.click(screen.getByRole('button', { name: 'Вернуть время по брони' }));
+
+    expect(clearMutate.mock.calls[0][0]).toEqual({ taskId: ID, expectedDate: '2026-09-14' });
+  });
+
+  test('hours a change of day undid are said where they cannot be missed', async () => {
+    clearMutate.mockClear();
+    render(<TaskForm task={booking({ manual_time_lost_on: '2026-09-13' })} onClose={() => {}} />);
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      `Время было задано вручную на ${formatDay('2026-09-13', 'ru')}, но дата уборки изменилась — время снова считается по брони.`,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Понятно' }));
+
+    expect(clearMutate.mock.calls[0][0]).toEqual({ taskId: ID, expectedDate: '2026-09-14' });
+  });
+
+  test('work under way keeps its hours: no buttons, nothing saved about them', () => {
+    mutate.mockClear();
+    render(
+      <TaskForm
+        task={booking({
+          status: 'in_progress',
+          assignee_id: PETR.id,
+          manual_time_on: '2026-09-14',
+        })}
+        onClose={() => {}}
+      />,
+    );
+
+    expect(fromField().readOnly).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Вернуть время по брони' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Задать время вручную' })).toBeNull();
+  });
+
+  test('a cleaning written by hand has nothing of it', () => {
+    render(
+      <TaskForm task={task({ id: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000042' })} onClose={() => {}} />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Задать время вручную' })).toBeNull();
   });
 });
