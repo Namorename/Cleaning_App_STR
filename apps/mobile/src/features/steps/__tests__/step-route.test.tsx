@@ -367,13 +367,15 @@ describe('a video step of her task under way', () => {
     });
   });
 
-  test('a step shorter than the company’s limit says its own', async () => {
+  // 22.10: a step copies the process's length when the cleaning starts, and
+  // that copy held started cleanings below the company's new number.
+  test('the company’s length of now, not the one the step copied at the start', async () => {
     mockSteps.data = [videoStep({ max_video_sec: 45 })];
     mockVideo.settings = { video_max_sec: 120, video_bitrate_kbps: 2000, video_max_mb: 45 };
 
     await render(<StepRoute />);
 
-    expect(screen.getByText('Запишите одно видео до 45 с')).toBeTruthy();
+    expect(screen.getByText('Запишите одно видео до 120 с')).toBeTruthy();
   });
 
   // The owner did not find the gallery for a video (2026-10-10, 19:55): it was

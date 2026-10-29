@@ -80,6 +80,31 @@ export function noteStep(category: string, message: string, data?: StepData): vo
   Sentry.addBreadcrumb({ category, message, data, level: 'info' });
 }
 
+/**
+ * A file the phone would not send, or gave up sending — as a message, with the
+ * numbers that decide it. Until 22.10 these were marks only (`noteStep`), and a
+ * mark reaches Sentry only with some later error of the same run: maids said
+ * "the video does not upload" and the reports held nothing but two iPhones
+ * refused the photos (docs/video-upload-1022.md). Grouped by what happened and
+ * why — and by `detail`, where one reason covers several causes (a server's
+ * refusal, say, by its key) — so each cause is one issue with its own count.
+ * Tags are kinds and codes, facts are sizes, lengths and limits — never a
+ * path, a name or a text.
+ */
+export function reportMediaTrouble(
+  what: string,
+  tags: Readonly<Record<string, string>>,
+  facts: StepData,
+  detail: readonly string[] = [],
+): void {
+  Sentry.captureMessage(what, {
+    level: 'warning',
+    tags,
+    extra: facts,
+    fingerprint: ['media-trouble', what, tags.reason ?? '', ...detail],
+  });
+}
+
 /** The same, except no signal: that is the stairwell, not a fault — the next try goes through. */
 export function reportUnlessOffline(error: unknown): void {
   if (!isNetworkError(error)) {

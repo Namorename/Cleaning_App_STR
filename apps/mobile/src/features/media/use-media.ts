@@ -16,7 +16,7 @@ import type { OwnMediaState, OwnMediaStates } from '@/features/chat/media-tiles'
 import { stepKeys } from '@/features/steps/keys';
 import { backoffDelay } from '@/lib/move-retry';
 import { serverErrorKey } from '@/lib/server-error';
-import { noteStep, reportError } from '@/lib/sentry';
+import { noteStep, reportError, reportMediaTrouble } from '@/lib/sentry';
 
 import {
   addMedia,
@@ -35,6 +35,7 @@ import {
   beginAttachAttempt,
   countAttachFailure,
   forgetAttachCount,
+  isFinalAttachFailure,
   noteAttachProgress,
   retryAttach,
 } from './attach-retry';
@@ -225,11 +226,75 @@ async function attachAttempt(
     const kept = countAttachFailure(variables.mediaId, error);
     const { key, status } = uploadFailureOf(kept);
     noteStep('media.attach', 'failed', { ...mark, reason: key, status: status ?? null });
+    if (isFinalAttachFailure(kept)) {
+      reportGaveUp(variables, kept, key, status ?? answeredStatus(kept));
+    }
     throw kept;
   }
   forgetAttachCount(variables.mediaId);
   noteStep('media.attach', 'in', mark);
   return row;
+}
+
+/**
+ * The HTTP status an answer carried — the resumable client's errors keep it
+ * as `status`, supabase-js's storage errors as `statusCode` — or null. The
+ * tile's reason folds some of them into a word (413 is `tooLarge`); the report
+ * keeps the number.
+ */
+function answeredStatus(error: unknown): number | null {
+  if (typeof error !== 'object' || error === null) {
+    return null;
+  }
+  const { status, statusCode } = error as { status?: unknown; statusCode?: unknown };
+  const value = typeof status === 'number' ? status : Number(statusCode);
+  return Number.isInteger(value) && value > 0 ? value : null;
+}
+
+/** Whose file it is, as a word: a step's, a problem report's or a chat message's. */
+function ownerKind(owner: MediaOwnerRef): 'chat' | 'problem' | 'step' {
+  if (owner.messageId !== undefined) {
+    return 'chat';
+  }
+  return owner.problemId !== undefined ? 'problem' : 'step';
+}
+
+/**
+ * The queue gave up on a file: told to Sentry once, with what it was and why
+ * (lib/sentry.ts, reportMediaTrouble). The server's refusal goes as its key
+ * (`serverErrors.videoTooLong`, say), never as its text; the storage's answer
+ * as its HTTP status. The tile's reason folds causes together — every refusal
+ * of the server is `server`, every status but 413 `refused` — so the key, the
+ * status and the error's name are tags too, and part of the issue's identity.
+ */
+function reportGaveUp(
+  variables: AttachMediaVariables,
+  error: unknown,
+  reason: string,
+  status: number | null,
+): void {
+  const serverKey = serverErrorKey(error) ?? 'none';
+  const statusTag = status === null ? 'none' : String(status);
+  const errorName = error instanceof Error ? error.name : typeof error;
+  reportMediaTrouble(
+    'Media upload gave up',
+    {
+      reason,
+      kind: variables.kind,
+      source: variables.source ?? 'unknown',
+      owner: ownerKind(variables),
+      status: statusTag,
+      serverKey,
+      error: errorName,
+    },
+    {
+      byteSize: variables.byteSize,
+      durationSec: variables.durationSec,
+      mimeType: variables.mimeType,
+      isOnline: onlineManager.isOnline(),
+    },
+    [serverKey, statusTag, errorName],
+  );
 }
 
 /** The file and its record, gone once the server has the video. Twice is not an error. */

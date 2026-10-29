@@ -562,8 +562,8 @@ describe('photos', () => {
 describe('video', () => {
   const video = step({ type: 'video', title: null, instructions: null, max_video_sec: 300 });
 
-  // The route works the length out from the company and the step; the screen
-  // says what it is handed, not the step's own number.
+  // The route works the length out from the company; the screen says what it
+  // is handed, not the number the step copied when the cleaning started.
   test('says the length the route worked out, not the step’s own number', async () => {
     await render(
       <StepScreen

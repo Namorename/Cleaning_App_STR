@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert, Platform } from 'react-native';
 
@@ -15,18 +16,20 @@ import {
   mockParams,
   mockPermissions,
   mockPreview,
+  mockSteps,
   mockVideo,
   pick,
   pressInAlert,
   router,
   setUpRecordRoute,
+  videoStep,
 } from '@/testing/record-route';
 
 /**
  * A video step's video chosen from the gallery, where the company allows the
  * gallery (night of 2026-10-10, block 6): the gallery opens instead of the
- * camera, the file is held to the step's length and the company's size
- * before anything is registered, then watched and sent like a recording —
+ * camera, the file is held to the company's length and size before
+ * anything is registered, then watched and sent like a recording —
  * declared as from the gallery.
  */
 
@@ -241,7 +244,7 @@ describe('a video the iPhone could not compress', () => {
   });
 });
 
-test('a video longer than the step allows is refused in her words, with another try and the way back', async () => {
+test('a video longer than the company allows is refused in her words, with another try and the way back', async () => {
   pick.mockResolvedValueOnce(picked({ durationSec: 120 })).mockResolvedValueOnce(picked());
   await render(<RecordRoute />);
 
@@ -255,6 +258,104 @@ test('a video longer than the step allows is refused in her words, with another 
 
   expect(pick).toHaveBeenCalledTimes(2);
   expect(screen.getByTestId('video-preview')).toBeTruthy();
+});
+
+// 22.10: the company went to 180 s, 140 MB, while 25 started cleanings kept
+// the 90 or 120 s their step copied from the process when they started. Her
+// video was within the company's numbers and the phone still said «длиннее
+// 120 с». The company's numbers of now are the only limit of an unfinished
+// cleaning; the step's copy is what the process said that morning.
+describe('a cleaning started before the company changed its numbers', () => {
+  const pro = { video_max_sec: 180, video_bitrate_kbps: 2500, video_max_mb: 140 };
+
+  test('takes a video the company allows now, whatever its step copied at the start', async () => {
+    mockSteps.data = [videoStep({ max_video_sec: 90 })];
+    mockVideo.settings = pro;
+    pick.mockResolvedValue(picked({ durationSec: 150, byteSize: 40_000_000 }));
+
+    await render(<RecordRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    expect(screen.queryByText(/Это видео длиннее/)).toBeNull();
+    expect(mockAttach).toHaveBeenCalledTimes(1);
+  });
+
+  test('a copy asking for more than the company allows now gives no more', async () => {
+    mockSteps.data = [videoStep({ max_video_sec: 300 })];
+    mockVideo.settings = pro;
+    pick.mockResolvedValue(picked({ durationSec: 200 }));
+
+    await render(<RecordRoute />);
+
+    expect(
+      screen.getByText('Это видео длиннее 180 с. Выберите покороче или снимите на камеру.'),
+    ).toBeTruthy();
+    expect(mockAttach).not.toHaveBeenCalled();
+  });
+
+  // A manager who lowers the length is obeyed as well: the server refuses by
+  // the company's number of the moment, so the phone says it first.
+  test('a company that lowered its length since the start is held to the lower one', async () => {
+    mockSteps.data = [videoStep({ max_video_sec: 120 })];
+    mockVideo.settings = { ...pro, video_max_sec: 60 };
+    pick.mockResolvedValue(picked({ durationSec: 90 }));
+
+    await render(<RecordRoute />);
+
+    expect(
+      screen.getByText('Это видео длиннее 60 с. Выберите покороче или снимите на камеру.'),
+    ).toBeTruthy();
+    expect(mockAttach).not.toHaveBeenCalled();
+  });
+
+  test('a finished step is left as it was, whatever the company allows now', async () => {
+    mockSteps.data = [
+      videoStep({ max_video_sec: 90, completed_at: '2026-10-09T08:05:00+00:00' }),
+    ];
+    mockVideo.settings = pro;
+
+    await render(<RecordRoute />);
+
+    expect(screen.getByText(/^Выполнен в /)).toBeTruthy();
+    expect(pick).not.toHaveBeenCalled();
+  });
+
+  // The step's copy is no stand-in for numbers not read yet: a guess longer
+  // than the company's is a video the server refuses after the wait.
+  test('with the company’s numbers not read yet, nothing opens and it says why', async () => {
+    mockSteps.data = [videoStep({ max_video_sec: 90 })];
+    mockVideo.settings = null;
+
+    await render(<RecordRoute />);
+
+    expect(
+      screen.getByText('Настройки видео ещё не получены. Нужна связь — попробуйте позже.'),
+    ).toBeTruthy();
+    expect(pick).not.toHaveBeenCalled();
+  });
+});
+
+// 22.10: a refusal she read on her own screen reached nobody else. It goes to
+// Sentry as a refusal, with the file's numbers and the step's.
+test('a refused video is reported with its size, length and the limits it missed', async () => {
+  pick.mockResolvedValueOnce(picked({ durationSec: 120, byteSize: 30_000_000 }));
+
+  await render(<RecordRoute />);
+
+  expect(Sentry.captureMessage).toHaveBeenCalledWith('Gallery video refused', {
+    level: 'warning',
+    tags: { reason: 'video.galleryTooLong', kind: 'video', source: 'gallery' },
+    extra: {
+      byteSize: 30_000_000,
+      durationSec: 120,
+      mimeType: 'video/mp4',
+      isCompressed: false,
+      limitSec: 90,
+      limitBytes: 45_000_000,
+    },
+    fingerprint: ['media-trouble', 'Gallery video refused', 'video.galleryTooLong'],
+  });
+  expect(Sentry.captureException).not.toHaveBeenCalled();
 });
 
 test('larger than the company allows, it says the size to meet', async () => {
