@@ -114,6 +114,18 @@ const CLEANING_KINDS: Record<string, Record<Language, string>> = {
   },
   reopened: { en: 'reopened', cs: 'znovuotevření', ru: 'возвращена в работу' },
   status_changed: { en: 'statuses', cs: 'stavy', ru: 'статусы' },
+  // The hours of a booking's cleaning a manager sets by hand (20261027120000).
+  time_set: { en: 'hours set by hand', cs: 'ruční nastavení času', ru: 'время задано вручную' },
+  time_auto: {
+    en: 'given back to the booking',
+    cs: 'vrácení podle rezervace',
+    ru: 'или возвращено по брони',
+  },
+  time_dropped: {
+    en: 'given back to the booking',
+    cs: 'vrácení podle rezervace',
+    ru: 'или возвращено по брони',
+  },
 };
 
 const TASK_KINDS: Record<string, Record<Language, string>> = {
@@ -178,7 +190,8 @@ const CLAIMS: Record<
       'Each entry records who made the change (your account, a colleague’s, a manager’s or the head technician’s, or the system)',
     cause:
       'depending on the change, who held the work or whom it was given to or taken from, the reason for a cancellation, a take-off or a move (for example, that an account was switched off or a booking was cancelled)',
-    hours: 'the dates, repair visit hours, properties, urgency and statuses involved.',
+    hours:
+      'the dates, cleaning hours set by hand and repair visit hours, properties, urgency and statuses involved.',
     noText: 'It records no text you write, no photos or videos and no geolocation of your phone.',
     readers:
       'The managers of your company see the whole log; the head technician sees only the part about tasks and the repairs done on them. Other staff cannot see it, and nobody can change it in the app.',
@@ -193,7 +206,8 @@ const CLAIMS: Record<
       'Každý záznam obsahuje, kdo změnu provedl (váš účet, účet kolegy, manažera nebo hlavního technika, nebo systém)',
     cause:
       'podle druhu změny i to, kdo práci měl nebo komu byla přidělena či odebrána, důvod zrušení, odebrání nebo přesunu (například že byl účet deaktivován nebo rezervace zrušena)',
-    hours: 'dotčená data, hodiny návštěvy opravy, objekty, naléhavost a stavy.',
+    hours:
+      'dotčená data, ručně nastavené hodiny úklidu a hodiny návštěvy opravy, objekty, naléhavost a stavy.',
     noText:
       'Nezaznamenává žádný text, který píšete, žádné fotografie ani videa a žádnou geolokaci telefonu.',
     readers:
@@ -209,7 +223,8 @@ const CLAIMS: Record<
       'В каждой записи — кто внёс изменение (ваша учётная запись, учётная запись коллеги, менеджера или главного техника либо система)',
     cause:
       'в зависимости от изменения — у кого была работа или кому её дали либо у кого сняли, причина отмены, снятия или переноса (например, что учётную запись отключили или бронь отменили)',
-    hours: 'а также даты, часы визита по ремонту, объекты, срочность и статусы.',
+    hours:
+      'а также даты, часы уборки, заданные вручную, и часы визита по ремонту, объекты, срочность и статусы.',
     noText: 'Тексты, которые вы пишете, фото, видео и геолокация телефона в журнал не попадают.',
     readers:
       'Менеджеры вашей компании видят весь журнал; главный техник — только часть о заданиях и ремонтах по ним. Другие сотрудники его не видят, и изменить его в приложении нельзя никому.',
@@ -399,13 +414,19 @@ describe('the rest of the page agrees with the paragraph', () => {
 /** The facts of the schema the paragraph stands on; a change here is a change of the text. */
 describe('the work log text matches the journals in the schema', () => {
   test('the paragraph names every kind of each journal, and no other', () => {
-    expect(enumLabels(TASK_EVENTS_SQL, 'task_event_kind').sort()).toEqual(
+    // A kind of cleaning event arrives in the type's own file or added to it
+    // later (20261027120000) — both are read here.
+    const SQL = withoutComments(ALL_SQL);
+    const ADDED = /alter type public\.task_event_kind add value if not exists '([a-z_]+)';/g;
+    const added = [...SQL.matchAll(ADDED)].map((match) => match[1]);
+    expect([...enumLabels(TASK_EVENTS_SQL, 'task_event_kind'), ...added].sort()).toEqual(
       Object.keys(CLEANING_KINDS).sort(),
     );
     expect(enumLabels(PROBLEM_EVENTS_SQL, 'problem_event_kind').sort()).toEqual(
       Object.keys(TASK_KINDS).sort(),
     );
-    expect(ALL_SQL).not.toMatch(/alter type public\.(task|problem)_event_kind/);
+    // Nothing else changes them: no rename, no kind that skips the list above.
+    expect(SQL.replace(ADDED, '')).not.toMatch(/alter type public\.(task|problem)_event_kind/);
   });
 
   test('cleanings are every task without a task of the board; repairs go to the tasks journal', () => {
@@ -482,6 +503,7 @@ describe('the work log text matches the journals in the schema', () => {
       .map(([name]) => name)
       .sort();
     expect(writers).toEqual([
+      'journal_cleaning_time',
       'journal_problem_change',
       'journal_repair_change',
       'journal_task_change',
@@ -493,6 +515,9 @@ describe('the work log text matches the journals in the schema', () => {
       'assignee_id',
       'host_id',
       'id',
+      // The days a manager's hours were set for, or undone on (20261027120000).
+      'manual_time_lost_on',
+      'manual_time_on',
       'priority',
       'problem_id',
       'property_id',
