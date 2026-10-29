@@ -15,7 +15,7 @@
     "add_task_media": {
       "status": "internal",
       "reason": "phone-only flow of the cleaner at work (task steps): photo/video of a step, row before file",
-      "defined_in": "20261003170000_video_limits.sql"
+      "defined_in": "20261023100000_video_limits_live.sql"
     },
     "analytics_checkout_rows": {
       "status": "internal",
@@ -495,6 +495,12 @@
       "reason": "push plumbing: listing link check for a given person, service_role only",
       "defined_in": "20260928120000_participation_core.sql"
     },
+    "clear_cleaning_time": {
+      "status": "planned",
+      "scope": "cleanings:update",
+      "reason": "gives a booking's cleaning its booking's hours back, both marks off (undo of set_cleaning_time)",
+      "defined_in": "20261027120000_manual_cleaning_time.sql"
+    },
     "complete_task_step": {
       "status": "internal",
       "reason": "phone-only flow of the cleaner at work (task steps): completes a step",
@@ -554,7 +560,7 @@
     "generate_cleaning_tasks": {
       "status": "internal",
       "reason": "Hostaway sync, Hostaway stays the source of truth: generator of cleanings from bookings, service_role only",
-      "defined_in": "20260927120000_pinned_rooms.sql"
+      "defined_in": "20261027120000_manual_cleaning_time.sql"
     },
     "guard_cleaning_assignee": {
       "status": "internal",
@@ -594,7 +600,7 @@
     "guard_task_fields": {
       "status": "internal",
       "reason": "trigger function: which task fields each role may change",
-      "defined_in": "20261003130000_head_tech_dispatch.sql"
+      "defined_in": "20261027120000_manual_cleaning_time.sql"
     },
     "guard_task_transitions": {
       "status": "internal",
@@ -651,6 +657,11 @@
       "reason": "PostgREST computed field: the \"#\" service-booking flag derived from the guest name (guest names are forbidden); the flag may ride on bookings:read, the function is not called",
       "defined_in": "20260926140000_service_booking_field.sql"
     },
+    "journal_cleaning_time": {
+      "status": "internal",
+      "reason": "trigger function: journals a manager's hours of a booking's cleaning in task_events (time_set, time_auto, time_dropped)",
+      "defined_in": "20261027120000_manual_cleaning_time.sql"
+    },
     "journal_problem_change": {
       "status": "internal",
       "reason": "trigger function: writes problem_events for a task (problem)",
@@ -675,6 +686,11 @@
       "status": "internal",
       "reason": "forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API.",
       "defined_in": "20261028100000_public_api_v1.sql"
+    },
+    "lock_cleaning_for_time": {
+      "status": "internal",
+      "reason": "helper of set_cleaning_time and clear_cleaning_time: their checks and the row lock; execute revoked from clients",
+      "defined_in": "20261027120000_manual_cleaning_time.sql"
     },
     "mark_task_media_purged": {
       "status": "internal",
@@ -864,6 +880,11 @@
       "reason": "forbidden: push tokens (the signed-in phone registers its Expo token)",
       "defined_in": "20260928100000_push_recipients.sql"
     },
+    "release_push_token": {
+      "status": "internal",
+      "reason": "forbidden: integrations:read_secrets - push device tokens; a signed-out phone lets go of its token without a session (the one anon grant)",
+      "defined_in": "20261011100000_push_release.sql"
+    },
     "release_work_of_inactive": {
       "status": "internal",
       "reason": "staff-deactivation cascade called by the profiles trigger; execute revoked from clients",
@@ -971,7 +992,7 @@
       "status": "exposed",
       "scope": "cleanings:assign",
       "reason": "creates or edits a cleaning (tasks row); the API calls it to assign one (also the future cleanings:create path)",
-      "defined_in": "20261003110000_tech_rules.sql",
+      "defined_in": "20261027120000_manual_cleaning_time.sql",
       "operations": [
         "assignCleaning"
       ]
@@ -987,6 +1008,12 @@
       "scope": "chat:write",
       "reason": "sends a chat message (replayable)",
       "defined_in": "20260924110000_chat_rpc_race.sql"
+    },
+    "set_cleaning_time": {
+      "status": "planned",
+      "scope": "cleanings:update",
+      "reason": "a manager's hours for one booking's cleaning, held against the generator while it keeps its day; the API already reads them in time_from/time_to",
+      "defined_in": "20261027120000_manual_cleaning_time.sql"
     },
     "set_property_status": {
       "status": "planned",
@@ -1012,7 +1039,7 @@
     "snapshot_task_steps": {
       "status": "internal",
       "reason": "trigger function: copies the process template into a task when it starts",
-      "defined_in": "20260907130000_workflow_step_translations.sql"
+      "defined_in": "20261023100000_video_limits_live.sql"
     },
     "staff_directory": {
       "status": "internal",

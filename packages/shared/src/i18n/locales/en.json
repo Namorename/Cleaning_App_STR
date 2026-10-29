@@ -277,6 +277,10 @@
               "label": "Create cleanings",
               "hint": "Write a cleaning by hand. Coming later."
             },
+            "update": {
+              "label": "Change cleaning hours",
+              "hint": "Set a cleaning's hours by hand or give it its booking's hours back. Coming later."
+            },
             "cancel": {
               "label": "Cancel cleanings",
               "hint": "Call a cleaning off. Coming later."

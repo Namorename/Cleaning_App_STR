@@ -22,6 +22,7 @@
     { "id": "cleanings:read", "group": "cleanings", "action": "read", "sensitivity": "normal", "status": "exposed", "operator": false },
     { "id": "cleanings:assign", "group": "cleanings", "action": "write", "sensitivity": "normal", "status": "exposed", "operator": true },
     { "id": "cleanings:create", "group": "cleanings", "action": "write", "sensitivity": "normal", "status": "planned", "operator": true },
+    { "id": "cleanings:update", "group": "cleanings", "action": "write", "sensitivity": "normal", "status": "planned", "operator": true },
     { "id": "cleanings:cancel", "group": "cleanings", "action": "write", "sensitivity": "normal", "status": "planned", "operator": true },
     { "id": "cleanings:read_steps", "group": "cleanings", "action": "read", "sensitivity": "normal", "status": "planned", "operator": false },
     { "id": "tasks:read", "group": "tasks", "action": "read", "sensitivity": "normal", "status": "exposed", "operator": false },

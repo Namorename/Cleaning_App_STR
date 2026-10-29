@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 32 | 166 | 218 |
+| Функции | 20 | 34 | 169 | 223 |
 | Таблицы и представления | 8 | 14 | 11 | 33 |
-| Всего | 28 | 46 | 177 | 251 |
+| Всего | 28 | 48 | 180 | 256 |
 
 ## Функции
 
@@ -41,7 +41,7 @@
 | `report_problem` | `tasks:create` | `createTask` |
 | `save_task` | `cleanings:assign` | `assignCleaning` |
 
-### Запланировано (право зарезервировано) — 32
+### Запланировано (право зарезервировано) — 34
 
 | Имя | Право | Что это |
 | --- | --- | --- |
@@ -57,6 +57,7 @@
 | `archive_supply_catalog_item` | `supplies:write` | takes a supply catalogue entry off the phone list or puts it back |
 | `cancel_problem` | `tasks:cancel` | closes a task (problem) without a fix; its live repair is cancelled |
 | `chat_unread_threads` | `chat:read` | threads with messages the caller has not read |
+| `clear_cleaning_time` | `cleanings:update` | gives a booking's cleaning its booking's hours back, both marks off (undo of set_cleaning_time) |
 | `copy_property_checklist` | `checklists:write` | replaces a listing's checklist with a copy of another listing's |
 | `mark_thread_read` | `chat:write` | moves the caller's read marker of a thread (a write, so not under chat:read) |
 | `open_thread` | `chat:write` | finds or opens the chat thread of a cleaning, task or staff member (replayable) |
@@ -72,13 +73,14 @@
 | `save_supply_request` | `supplies:write` | creates or rewrites a new supply request (replayable) |
 | `save_workflow_template` | `checklists:write` | saves a whole process template, header and steps |
 | `send_message` | `chat:write` | sends a chat message (replayable) |
+| `set_cleaning_time` | `cleanings:update` | a manager's hours for one booking's cleaning, held against the generator while it keeps its day; the API already reads them in time_from/time_to |
 | `set_property_status` | `properties:write` | takes a listing out of service or back; cascades to its open cleanings |
 | `unarchive_problem` | `tasks:update` | brings an archived task (problem) back |
 | `unassign_problem` | `tasks:update` | takes the person off a repair; the task waits again |
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 166
+### Внутреннее — 169
 
 | Имя | Причина |
 | --- | --- |
@@ -164,11 +166,13 @@
 | `is_localized_text` | validation helper of translated names (x_i18n) used by write RPCs |
 | `is_manager` | auth/RLS helper: caller is an active manager or admin |
 | `is_service_booking` | PostgREST computed field: the "#" service-booking flag derived from the guest name (guest names are forbidden); the flag may ride on bookings:read, the function is not called |
+| `journal_cleaning_time` | trigger function: journals a manager's hours of a booking's cleaning in task_events (time_set, time_auto, time_dropped) |
 | `journal_problem_change` | trigger function: writes problem_events for a task (problem) |
 | `journal_repair_change` | trigger function: writes problem_events for repairs |
 | `journal_task_change` | trigger function: writes task_events for cleanings |
 | `list_api_key_events` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |
 | `list_api_keys` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |
+| `lock_cleaning_for_time` | helper of set_cleaning_time and clear_cleaning_time: their checks and the row lock; execute revoked from clients |
 | `mark_task_media_purged` | retention job (purge-task-media): marks purged files, service_role only |
 | `mark_webhook_events` | Hostaway webhook processing (process-webhook-events), service_role only |
 | `mirror_problem_status` | trigger function: mirrors the repair state onto its problem |
@@ -203,6 +207,7 @@
 | `record_push_results` | push plumbing: send-push settles sent groups and tickets, service_role only |
 | `record_webhook_event` | Hostaway webhook intake (hostaway-webhook), service_role only |
 | `register_push_token` | forbidden: push tokens (the signed-in phone registers its Expo token) |
+| `release_push_token` | forbidden: integrations:read_secrets - push device tokens; a signed-out phone lets go of its token without a session (the one anon grant) |
 | `release_work_of_inactive` | staff-deactivation cascade called by the profiles trigger; execute revoked from clients |
 | `release_work_on_deactivation` | trigger function: takes a switched-off person off unstarted work |
 | `remove_task_media` | phone upload pipeline: registers, confirms or withdraws a Storage slot (row before file); the API only reads media |

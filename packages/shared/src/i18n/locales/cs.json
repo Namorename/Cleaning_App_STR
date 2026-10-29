@@ -279,6 +279,10 @@
               "label": "Vytváření úklidů",
               "hint": "Zapsat úklid ručně. Přibude později."
             },
+            "update": {
+              "label": "Změna času úklidů",
+              "hint": "Nastavit čas úklidu ručně nebo mu vrátit čas podle rezervace. Přibude později."
+            },
             "cancel": {
               "label": "Rušení úklidů",
               "hint": "Zrušit úklid. Přibude později."
