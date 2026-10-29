@@ -47,7 +47,7 @@ export function buildingsOf(places: readonly Place[]): Place[] {
 /**
  * Whether an article with these places is about a place: names it, names the
  * house it is a room of, or names a room of it — the way the phone will show
- * a house's article in its rooms (20261017100000).
+ * a house's article in its rooms (20261030100000).
  */
 export function articleTouchesPlace(
   targetIds: readonly number[],

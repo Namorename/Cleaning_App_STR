@@ -1,7 +1,7 @@
 import { SUPPORTED_LANGUAGES, type Language } from '@str-ops/shared';
 import { z } from 'zod';
 
-/** An article's life (20261017100000): written, out for the staff, put away. */
+/** An article's life (20261030100000): written, out for the staff, put away. */
 export const KB_STATUSES = ['draft', 'published', 'archived'] as const;
 export type KbStatus = (typeof KB_STATUSES)[number];
 

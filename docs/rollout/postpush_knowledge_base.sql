@@ -1,4 +1,4 @@
--- Check of the knowledge base, step 1: 20261017100000_knowledge_base
+-- Check of the knowledge base, step 1: 20261030100000_knowledge_base
 -- (docs/knowledge-base-step1.md, «Выкат»). Read-only, one statement, catalog and counts
 -- only — no titles, no texts, no names. Run before the push (everything empty) and right after:
 --
@@ -9,7 +9,7 @@
 -- read-only role nothing, and a check built on it passes without checking (CLAUDE.md).
 --
 -- Expected after the push, label by label:
---   head        20261017100000.
+--   head        20261030100000.
 --   types       kb_scope [company, building, properties]; kb_status [draft, published, archived].
 --   tables      the four kb_* tables, each: rls true; grants {"authenticated": "SELECT"} — nothing
 --               for anon or PUBLIC; policies, all SELECT:
