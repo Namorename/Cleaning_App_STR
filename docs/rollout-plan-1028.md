@@ -19,8 +19,7 @@
     112 = 112 (сверка всех версий через `cloud-read` вместо `db push --dry-run`).
   - Откат — только `git revert -m 1` слияния `e775922`, затем `5d82d30`; не promote (слово
     владельца 28.10).
-- **Шаг 1 (видео), 29.10: подшаги 1a–1c выполнены, 1d (field) ждёт слова после проверки на
-  телефоне.**
+- **Шаг 1 (видео) выполнен 29.10: видео выкачено в field в 19:11:50 UTC (подшаги 1a–1d).**
   - 1a: слияние `c031d2c` (дерево `fc78284` = репетиция `3895cbe`) и правка `a167849` — видео-часть
     `e4c6fe0` (страж миграции снят, наборы из `tests/draft` в `tests`, две правки тестов);
     перенумеровки базы знаний и отзывов нет. Проверки на `a167849`: vitest 165 / 2045, jest 197 /
@@ -32,6 +31,11 @@
   - 1c: OTA №8 на preview в 18:08 UTC — группа `c509d6c8-aa43-4c71-af97-290d4345eb26`, runtime
     1.2.0, коммит `a167849`; бандл сверен с №7 (адрес, ключ, DSN те же). Field — `b9fa5aaf` (№7),
     не тронут.
+  - 1d: слово владельца после проверки на Android. В 19:11:50 UTC republish группы `c509d6c8` в
+    field — новая группа `e6d58921-8e4f-46de-8332-0ee938ebe1a7`, коммит `a167849`, runtime
+    1.2.0; бандлы Android и iOS байт в байт равны `c509d6c8`. До: preview `c509d6c8`, field
+    `b9fa5aaf`; после: preview `c509d6c8` (без изменений), field `e6d58921`. Откат — republish
+    `b9fa5aaf` (№7) в field.
 
 ## 0. Коротко
 
@@ -277,7 +281,7 @@ reverted <версия>`. Обе команды пишут в облако — �
 | 1a — **выполнен 29.10, 17:06 UTC** | локальное слияние `video-upload-1022` в `main` (страж снят, наборы из `tests/draft` на месте, как в `e4c6fe0`), из него — миграция `20261023100000_video_limits_live` | «Шаг 1: push видео» | `HEAD_WANT=20261015120000`, `LIST_WANT="20261023100000_video_limits_live.sql"` | `video_limits_1023_probe.sql`: md5 `bf208d8c` / `dd81ff14`, `draft_recorded 1`; `postpush_1028.sql`: `since_1023 [20261023100000]`, крон 10, `client_grants []` | сначала откат OTA (1c), потом `docs/one-off-writes/video-limits-1023-migration-rollback.sql` и `migration repair --status reverted 20261023100000`; тела возвращаются байт в байт | нет |
 | 1b — **выполнен 29.10, 17:08 UTC** (`a167849`) | `git push origin main` | «Шаг 1: main» | — | Vercel READY (кода панели в ветке нет) | `git revert -m 1` | нет |
 | 1c — **выполнен 29.10, 18:08 UTC** (`c509d6c8`) | OTA №8 на preview из `main` (`apps/mobile`, `npx eas update --branch preview`); перед ним `migration list --linked` или `remote_head.sql` (CLAUDE.md) | «OTA №8 preview» | проверка бандла против живого (как №7) | запись видео 150 с из галереи и съёмка на Android и iOS | republish `36bac4d9` (№7) на preview | проверка на телефоне |
-| 1d | OTA №8 на field (republish группы preview) | «OTA №8 field» | — | Sentry без новых ошибок видео за сутки | republish `b9fa5aaf` (№7 на field) | слово |
+| 1d — **выполнен 29.10, 19:11 UTC** (`e6d58921`) | OTA №8 на field (republish группы preview) | «OTA №8 field» | — | Sentry без новых ошибок видео за сутки | republish `b9fa5aaf` (№7 на field) | слово |
 | 2 | ручное время уборки | — | — | — | — | ветки нет (§8) |
 | 3a | секрет `API_KEY_PEPPER` | «Шаг 3» | — | `npx supabase secrets list` показывает имя (не значение) | `secrets unset` | **владелец сам**, из своего окна: `$s = node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))"; npx supabase secrets set "API_KEY_PEPPER=$s"; Remove-Variable s`; копия — в менеджер паролей |
 | 3b | локальное слияние API в `main` с правками слияния (§6.3: `release_push_token`, `defined_in` видео, `lock_timeout`, типы), из него — миграция `20261028100000_public_api_v1` | «Шаг 3: push API» | `HEAD_WANT=20261023100000`, `LIST_WANT="20261028100000_public_api_v1.sql"` | `postpush_1028.sql`: крон 11 (`purge-api-records` 5 4), `client_grants []` (таблицы API — только `service_role`); `postpush_api_scopes_1028.sql`: 41 строка (12 exposed, 19 planned, 10 forbidden), ключей 0 | `docs/one-off-writes/api-v1-rollback.sql`, `migration repair --status reverted 20261028100000` | нет |
