@@ -1,12 +1,3 @@
--- >>> draft guard: remove at rollout
-do $$
-begin
-  raise exception 'Draft migration 20261027120000_manual_cleaning_time is not for db push'
-    using hint = 'docs/manual-cleaning-time.md: the owner''s word first, then the guard goes';
-end;
-$$;
--- <<< draft guard
-
 -- A manager's time of a booking's cleaning (docs/manual-cleaning-time.md;
 -- the rollout plan of 2026-10-28, step 2).
 --
@@ -76,8 +67,7 @@ $$;
 -- read of tasks behind it. If it fires, nothing of this file is applied and
 -- the push is repeated as it is.
 --
--- Tests: supabase/tests/draft/manual_cleaning_time.sql (it moves up to
--- supabase/tests with the guard). Rollback:
+-- Tests: supabase/tests/manual_cleaning_time.sql. Rollback:
 -- docs/one-off-writes/manual-cleaning-time-rollback.sql.
 
 set local lock_timeout = '5s';

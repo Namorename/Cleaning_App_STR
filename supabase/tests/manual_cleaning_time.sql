@@ -1,9 +1,6 @@
 -- A manager's time of a booking's cleaning holds against every automatic run while the
 -- cleaning keeps its day (20261027120000, docs/manual-cleaning-time.md).
--- A draft suite: the migration carries a guard until the owner's word, so neither db:reset
--- nor test:rls applies it; this file moves up to supabase/tests with the guard's removal.
--- Until then it runs against a throwaway database with the guard cut out
--- (docs/manual-cleaning-time.md, «Проверки»). Runs inside a transaction and rolls back.
+-- Run: npm run test:rls. Runs inside a transaction and rolls back.
 --
 --   * set_cleaning_time: the hours hold against the generator — a webhook's run and the
 --     night's, a change of the booking's hours, the next guest moving — and against a save
