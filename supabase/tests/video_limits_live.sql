@@ -1,8 +1,5 @@
 -- A video is held to the company's numbers of now (20261023100000,
--- docs/video-limits-1023.md). A suite of the draft: run it with
--- node supabase/tests/draft/run.mjs, which applies the draft without its
--- guard first in the same transaction. At rollout it moves up to
--- supabase/tests and runs with npm run test:rls. Rolls back; the database
+-- docs/video-limits-1023.md). Run: npm run test:rls. Rolls back; the database
 -- stays clean.
 --
 -- What is being protected: on 22.10 the company went to 180 s / 140 MB while

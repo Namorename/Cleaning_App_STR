@@ -296,10 +296,12 @@ select pg_temp.check('a video without a duration',
   pg_temp.refusal($q$select public.add_task_media(pg_temp.media_id(90),
     (pg_temp.step(1, 'video')).id, 'video', 'video/mp4', 5000000)$q$),
   'serverErrors.videoDurationMissing');
-select pg_temp.check('a video longer than the step allows',
+-- The process's 30 s is not copied and holds nothing (20261023100000): the
+-- company's length is the limit.
+select pg_temp.check('a video longer than the company allows',
   pg_temp.refusal($q$select public.add_task_media(pg_temp.media_id(90),
-    (pg_temp.step(1, 'video')).id, 'video', 'video/mp4', 5000000, null, null, 45)$q$),
-  'serverErrors.videoTooLong {"limit": 30}');
+    (pg_temp.step(1, 'video')).id, 'video', 'video/mp4', 5000000, null, null, 125)$q$),
+  'serverErrors.videoTooLong {"limit": 120}');
 select public.add_task_media(pg_temp.media_id(5), (pg_temp.step(1, 'video')).id,
   'video', 'video/quicktime', 5000000, 1280, 720, 20.5, now());
 select pg_temp.check('one video per step',

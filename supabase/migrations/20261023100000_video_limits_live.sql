@@ -1,7 +1,7 @@
--- DRAFT — a video is held to the company's numbers of now (docs/video-limits-1023.md).
--- NOT FOR db push until the owner's word: the guard below raises first, so db push and a
--- local reset stop on it. At rollout the guard goes, the stamp is checked against the cloud
--- head (docs/rollout/remote_head.sql) and the dry run names this one file.
+-- A video is held to the company's numbers of now (docs/video-limits-1023.md).
+-- The draft guard was taken off at the rollout rehearsal (docs/rollout-plan-1028.md); the
+-- stamp is checked against the cloud head (docs/rollout/remote_head.sql) and the dry run
+-- names this one file.
 --
 -- On 22.10 the company went to 180 s / 140 MB while 25 started cleanings kept the 90 or
 -- 120 s their video step had copied from the process when they started
@@ -30,17 +30,9 @@
 -- 20261010100000 (add_task_media) and 20260907130000 (snapshot_task_steps) but for the
 -- marked statements. Order of the rollout: this migration, then the phone over the air —
 -- the phone that drops the copy must not reach a server that still applies it.
--- Rollback: docs/one-off-writes/video-limits-1023-migration-rollback.sql. Its tests are in
--- supabase/tests/draft (run there with the draft applied); at rollout they move up.
+-- Rollback: docs/one-off-writes/video-limits-1023-migration-rollback.sql. Its tests are
+-- supabase/tests/video_limits_live.sql, video_limits.sql and task_media.sql.
 
--- >>> draft guard: remove at rollout
-do $$
-begin
-  raise exception 'Draft migration 20261023100000_video_limits_live is not for db push'
-    using hint = 'docs/video-limits-1023.md: the owner''s word first, then the guard goes';
-end;
-$$;
--- <<< draft guard
 
 set local lock_timeout = '3s';
 
