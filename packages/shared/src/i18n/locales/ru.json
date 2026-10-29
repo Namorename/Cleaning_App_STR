@@ -249,6 +249,7 @@
           "supplies": "Расходники",
           "analytics": "Аналитика",
           "chat": "Чат",
+          "knowledge": "База знаний",
           "webhooks": "Вебхуки"
         },
         "scopes": {

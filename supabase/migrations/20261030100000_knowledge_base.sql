@@ -822,3 +822,18 @@ grant execute on function public.set_kb_article_status(uuid, public.kb_status)
   to authenticated, service_role;
 grant execute on function public.restore_kb_revision(uuid, integer, timestamptz)
   to authenticated, service_role;
+
+-- The public API's registry (packages/shared/src/api/registry.json) reserves
+-- the scopes this feature will be served under; no key may hold a planned
+-- scope (20261028100000).
+-- api-scopes:begin
+insert into public.api_scopes (id, scope_group, action, sensitivity, status, operator) values
+  ('knowledge:read', 'knowledge', 'read', 'sensitive', 'planned', false),
+  ('knowledge:write', 'knowledge', 'write', 'sensitive', 'planned', false)
+on conflict (id) do update
+  set scope_group = excluded.scope_group,
+      action      = excluded.action,
+      sensitivity = excluded.sensitivity,
+      status      = excluded.status,
+      operator    = excluded.operator;
+-- api-scopes:end

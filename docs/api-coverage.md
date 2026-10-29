@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 34 | 169 | 223 |
-| Таблицы и представления | 8 | 14 | 11 | 33 |
-| Всего | 28 | 48 | 180 | 256 |
+| Функции | 20 | 37 | 179 | 236 |
+| Таблицы и представления | 8 | 18 | 11 | 37 |
+| Всего | 28 | 55 | 190 | 273 |
 
 ## Функции
 
@@ -41,7 +41,7 @@
 | `report_problem` | `tasks:create` | `createTask` |
 | `save_task` | `cleanings:assign` | `assignCleaning` |
 
-### Запланировано (право зарезервировано) — 34
+### Запланировано (право зарезервировано) — 37
 
 | Имя | Право | Что это |
 | --- | --- | --- |
@@ -66,7 +66,9 @@
 | `resolve_checklist_property` | `checklists:read` | the listing whose checklist applies (own or parent) |
 | `resolve_problem` | `tasks:resolve` | closes a task (problem) as fixed |
 | `resolve_workflow_template` | `checklists:read` | the process template a cleaning on this listing follows |
+| `restore_kb_revision` | `knowledge:write` | brings an earlier version of an article (text and translations) back as its newest; history is not rewritten |
 | `review_supply_request` | `supplies:write` | moves a supply request along new/accepted/ordered/fulfilled or rejects it |
+| `save_kb_article` | `knowledge:write` | creates (as a draft) or rewrites an article: original, translations and places; replayable by the id the caller mints |
 | `save_property_checklist` | `checklists:write` | saves a listing's whole checklist (modules and items) |
 | `save_property_cleaner` | `staff:write` | links a cleaner to a listing or changes the link mode (property_cleaners) |
 | `save_supply_catalog_item` | `supplies:write` | creates or rewrites a supply catalogue entry (replayable) |
@@ -74,13 +76,14 @@
 | `save_workflow_template` | `checklists:write` | saves a whole process template, header and steps |
 | `send_message` | `chat:write` | sends a chat message (replayable) |
 | `set_cleaning_time` | `cleanings:update` | a manager's hours for one booking's cleaning, held against the generator while it keeps its day; the API already reads them in time_from/time_to |
+| `set_kb_article_status` | `knowledge:write` | publishes an article, takes it back to a draft or archives it |
 | `set_property_status` | `properties:write` | takes a listing out of service or back; cascades to its open cleanings |
 | `unarchive_problem` | `tasks:update` | brings an archived task (problem) back |
 | `unassign_problem` | `tasks:update` | takes the person off a repair; the task waits again |
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 169
+### Внутреннее — 179
 
 | Имя | Причина |
 | --- | --- |
@@ -170,6 +173,16 @@
 | `journal_problem_change` | trigger function: writes problem_events for a task (problem) |
 | `journal_repair_change` | trigger function: writes problem_events for repairs |
 | `journal_task_change` | trigger function: writes task_events for cleanings |
+| `kb_article_for_writer` | lock-and-check helper of set_kb_article_status/restore_kb_revision (manager or head technician, own company); execute revoked from clients |
+| `kb_articles_snapshot` | trigger function: stores the version an article write made in kb_article_revisions |
+| `kb_articles_version` | trigger function: numbers the version of an article write (one write, one version; rev is never the writer's) |
+| `kb_assert_publishable` | validation helper of the article write RPCs: a published article needs a text and, unless company-wide, a place; execute revoked from clients |
+| `kb_checked_translations` | validation helper of save_kb_article: checks and trims the translations of a save; execute revoked from clients |
+| `kb_reader_property_ids` | auth/RLS helper: places whose articles a cleaner or technician reads (links and work held now) |
+| `kb_snapshot` | version helper of the article triggers: writes the current version into kb_article_revisions; execute revoked from clients, service_role only for service scripts |
+| `kb_staff_article_ids` | auth/RLS helper: published articles a cleaner or technician reads |
+| `kb_translations_version` | trigger function: a translation written or removed makes a version of its article |
+| `kb_write_translations` | write helper of save_kb_article/restore_kb_revision: replaces an article's translations; execute revoked from clients |
 | `list_api_key_events` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |
 | `list_api_keys` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |
 | `lock_cleaning_for_time` | helper of set_cleaning_time and clear_cleaning_time: their checks and the row lock; execute revoked from clients |
@@ -269,7 +282,7 @@
 | `task_media` | `media:read` | `listCleaningMedia`, `listTaskMedia` |
 | `tasks` | `cleanings:read` | `listCleanings`, `getCleaning`, `assignCleaning` |
 
-### Запланировано (право зарезервировано) — 14
+### Запланировано (право зарезервировано) — 18
 
 | Имя | Право | Что это |
 | --- | --- | --- |
@@ -278,6 +291,10 @@
 | `chat_threads` | `chat:read` | chat threads, one per cleaning, task or staff member |
 | `checklist_items` | `checklists:read` | items of a listing checklist (with translations) |
 | `checklist_modules` | `checklists:read` | modules of a listing checklist (with translations) |
+| `kb_article_revisions` | `knowledge:read` | versions of an article's text with its translations, kept by triggers (office-only history) |
+| `kb_article_targets` | `knowledge:read` | the places an article shows on (a building or chosen places) |
+| `kb_article_translations` | `knowledge:read` | an article in the other languages, each optional; free text, mask codes as api_mask_codes does (F27) |
+| `kb_articles` | `knowledge:read` | knowledge base articles: original text, status, scope; free text, mask codes as api_mask_codes does (F27) |
 | `problem_events` | `analytics:read` | history journal of a task (problem) and its repairs, written by triggers |
 | `property_cleaners` | `staff:write` | which cleaners work a listing and in which mode |
 | `supply_catalog_items` | `supplies:read` | supply catalogue shown on the phone |
