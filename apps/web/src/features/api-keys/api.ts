@@ -26,10 +26,10 @@ type KeyRpc = (
 /**
  * The key RPCs, by name.
  *
- * database.types.ts is generated from the local stand, and these functions
- * arrive with 20261028100000: until `npm run db:types` runs on a stand that
- * has it, their names are not in the types. The answers are parsed by zod
- * either way; when the types know them, this cast can go.
+ * The generated types know these functions, but they type every argument as
+ * non-null: p_property_ids is number[] there, while null is how a key says
+ * «every property», and p_confirmation is string | undefined, while null says
+ * «no confirmation». The answers are parsed by zod either way.
  */
 function keyRpc(client: Client): KeyRpc {
   return client.rpc.bind(client) as unknown as KeyRpc;

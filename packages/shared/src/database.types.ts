@@ -34,6 +34,274 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_idempotency: {
+        Row: {
+          created_at: string
+          idem_key: string
+          key_id: string
+          operation: string
+          request_hash: string
+          response: Json | null
+          status: number | null
+        }
+        Insert: {
+          created_at?: string
+          idem_key: string
+          key_id: string
+          operation: string
+          request_hash: string
+          response?: Json | null
+          status?: number | null
+        }
+        Update: {
+          created_at?: string
+          idem_key?: string
+          key_id?: string
+          operation?: string
+          request_hash?: string
+          response?: Json | null
+          status?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_idempotency_key_id_fkey"
+            columns: ["key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_key_events: {
+        Row: {
+          actor_id: string | null
+          after: Json | null
+          before: Json | null
+          created_at: string
+          host_id: string
+          id: number
+          key_id: string
+          kind: string
+        }
+        Insert: {
+          actor_id?: string | null
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          host_id: string
+          id?: never
+          key_id: string
+          kind: string
+        }
+        Update: {
+          actor_id?: string | null
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          host_id?: string
+          id?: never
+          key_id?: string
+          kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_key_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_key_events_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_key_events_key_id_fkey"
+            columns: ["key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_keys: {
+        Row: {
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          host_id: string
+          id: string
+          key_digest: string
+          last_used_at: string | null
+          name: string
+          prefix: string
+          preset: string
+          property_ids: number[] | null
+          revoked_at: string | null
+          revoked_by: string | null
+          scopes: string[]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          host_id: string
+          id?: string
+          key_digest: string
+          last_used_at?: string | null
+          name: string
+          prefix: string
+          preset: string
+          property_ids?: number[] | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          scopes?: string[]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          host_id?: string
+          id?: string
+          key_digest?: string
+          last_used_at?: string | null
+          name?: string
+          prefix?: string
+          preset?: string
+          property_ids?: number[] | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          scopes?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_keys_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_keys_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_keys_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_rate_windows: {
+        Row: {
+          bucket: string
+          hits: number
+          window_start: string
+        }
+        Insert: {
+          bucket: string
+          hits?: number
+          window_start: string
+        }
+        Update: {
+          bucket?: string
+          hits?: number
+          window_start?: string
+        }
+        Relationships: []
+      }
+      api_request_log: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          host_id: string | null
+          id: number
+          key_id: string | null
+          method: string
+          object_id: string | null
+          operation: string
+          request_id: string | null
+          status: number
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          host_id?: string | null
+          id?: never
+          key_id?: string | null
+          method: string
+          object_id?: string | null
+          operation: string
+          request_id?: string | null
+          status: number
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          host_id?: string | null
+          id?: never
+          key_id?: string | null
+          method?: string
+          object_id?: string | null
+          operation?: string
+          request_id?: string | null
+          status?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_request_log_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_request_log_key_id_fkey"
+            columns: ["key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_scopes: {
+        Row: {
+          action: string
+          id: string
+          operator: boolean
+          scope_group: string
+          sensitivity: string
+          status: string
+        }
+        Insert: {
+          action: string
+          id: string
+          operator?: boolean
+          scope_group: string
+          sensitivity: string
+          status: string
+        }
+        Update: {
+          action?: string
+          id?: string
+          operator?: boolean
+          scope_group?: string
+          sensitivity?: string
+          status?: string
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           author_id: string | null
@@ -2237,6 +2505,273 @@ export type Database = {
         }
         Returns: Json
       }
+      api_act_as: { Args: { p_profile: string }; Returns: undefined }
+      api_allows_booking: {
+        Args: {
+          p_booking: Database["public"]["Tables"]["reservations"]["Row"]
+          p_ctx: Database["public"]["CompositeTypes"]["api_context"]
+        }
+        Returns: boolean
+      }
+      api_allows_property: {
+        Args: {
+          p_ctx: Database["public"]["CompositeTypes"]["api_context"]
+          p_property: number
+        }
+        Returns: boolean
+      }
+      api_authorize: {
+        Args: { p_digest: string; p_scope: string }
+        Returns: Database["public"]["CompositeTypes"]["api_context"]
+        SetofOptions: {
+          from: "*"
+          to: "api_context"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      api_booking_json: {
+        Args: {
+          p_allowed: number[]
+          r: Database["public"]["Tables"]["reservations"]["Row"]
+        }
+        Returns: Json
+      }
+      api_channel: { Args: { p_channel_id: number }; Returns: string }
+      api_check_key_fields: {
+        Args: {
+          p_host: string
+          p_name: string
+          p_preset: string
+          p_property_ids: number[]
+          p_scopes: string[]
+        }
+        Returns: undefined
+      }
+      api_cleaning_json: {
+        Args: { t: Database["public"]["Tables"]["tasks"]["Row"] }
+        Returns: Json
+      }
+      api_effective_scopes: {
+        Args: { p_preset: string; p_scopes: string[] }
+        Returns: string[]
+      }
+      api_gate: { Args: { p_digest: string; p_ip_hash: string }; Returns: Json }
+      api_hm: { Args: { p_at: string }; Returns: string }
+      api_idempotency_claim: {
+        Args: {
+          p_hash: string
+          p_idem_key: string
+          p_key_id: string
+          p_operation: string
+        }
+        Returns: Json
+      }
+      api_idempotency_store: {
+        Args: {
+          p_body: Json
+          p_idem_key: string
+          p_key_id: string
+          p_status: number
+        }
+        Returns: Json
+      }
+      api_key_fields_json: {
+        Args: { k: Database["public"]["Tables"]["api_keys"]["Row"] }
+        Returns: Json
+      }
+      api_key_public_json: {
+        Args: { k: Database["public"]["Tables"]["api_keys"]["Row"] }
+        Returns: Json
+      }
+      api_key_state: {
+        Args: { p_key: Database["public"]["Tables"]["api_keys"]["Row"] }
+        Returns: string
+      }
+      api_log_request: {
+        Args: {
+          p_duration_ms: number
+          p_key_id: string
+          p_method: string
+          p_object_id?: string
+          p_operation: string
+          p_request_id?: string
+          p_status: number
+        }
+        Returns: undefined
+      }
+      api_mask_codes: { Args: { p_text: string }; Returns: string }
+      api_media_json: {
+        Args: { m: Database["public"]["Tables"]["task_media"]["Row"] }
+        Returns: Json
+      }
+      api_not_found: { Args: { p_what: string }; Returns: undefined }
+      api_property_json: {
+        Args: {
+          p: Database["public"]["Tables"]["properties"]["Row"]
+          p_scopes: string[]
+        }
+        Returns: Json
+      }
+      api_require: {
+        Args: {
+          p_ctx: Database["public"]["CompositeTypes"]["api_context"]
+          p_scope: string
+        }
+        Returns: undefined
+      }
+      api_require_admin: { Args: never; Returns: string }
+      api_safe_property_name: { Args: { p_name: string }; Returns: string }
+      api_staff_json: {
+        Args: {
+          p_scopes: string[]
+          pr: Database["public"]["Tables"]["profiles"]["Row"]
+        }
+        Returns: Json
+      }
+      api_task_json: {
+        Args: { p: Database["public"]["Tables"]["problems"]["Row"] }
+        Returns: Json
+      }
+      api_ts: { Args: { p_at: string }; Returns: string }
+      api_v1_assign_cleaning: {
+        Args: {
+          p_assignee_id: string
+          p_cleaning_id: string
+          p_digest: string
+          p_idempotency_key: string
+          p_request_hash: string
+        }
+        Returns: Json
+      }
+      api_v1_assign_task: {
+        Args: {
+          p_assignee_id: string
+          p_digest: string
+          p_idempotency_key: string
+          p_request_hash: string
+          p_scheduled_date?: string
+          p_task_id: string
+          p_time_from?: string
+          p_time_to?: string
+        }
+        Returns: Json
+      }
+      api_v1_create_task: {
+        Args: {
+          p_assignee_id?: string
+          p_description?: string
+          p_digest: string
+          p_idempotency_key: string
+          p_priority?: string
+          p_property_id?: number
+          p_request_hash: string
+          p_scheduled_date?: string
+          p_time_from?: string
+          p_time_to?: string
+          p_title: string
+        }
+        Returns: Json
+      }
+      api_v1_get_booking: {
+        Args: { p_digest: string; p_id: number }
+        Returns: Json
+      }
+      api_v1_get_cleaning: {
+        Args: { p_digest: string; p_id: string }
+        Returns: Json
+      }
+      api_v1_get_me: { Args: { p_digest: string }; Returns: Json }
+      api_v1_get_property: {
+        Args: { p_digest: string; p_id: number }
+        Returns: Json
+      }
+      api_v1_get_settings: { Args: { p_digest: string }; Returns: Json }
+      api_v1_get_staff_member: {
+        Args: { p_digest: string; p_id: string }
+        Returns: Json
+      }
+      api_v1_get_task: {
+        Args: { p_digest: string; p_id: string }
+        Returns: Json
+      }
+      api_v1_list_bookings: {
+        Args: {
+          p_after_date?: string
+          p_after_id?: number
+          p_channel?: string[]
+          p_date_from?: string
+          p_date_to?: string
+          p_digest: string
+          p_limit?: number
+          p_property_id?: number
+          p_status?: string[]
+          p_updated_since?: string
+        }
+        Returns: Json
+      }
+      api_v1_list_cleaning_media: {
+        Args: { p_cleaning_id: string; p_digest: string }
+        Returns: Json
+      }
+      api_v1_list_cleanings: {
+        Args: {
+          p_after_date?: string
+          p_after_id?: string
+          p_assignee_id?: string
+          p_date_from?: string
+          p_date_to?: string
+          p_digest: string
+          p_limit?: number
+          p_property_id?: number
+          p_status?: string[]
+          p_type?: string[]
+          p_updated_since?: string
+        }
+        Returns: Json
+      }
+      api_v1_list_properties: {
+        Args: {
+          p_after_id?: number
+          p_digest: string
+          p_limit?: number
+          p_parent_id?: number
+          p_status?: string[]
+          p_updated_since?: string
+        }
+        Returns: Json
+      }
+      api_v1_list_staff: {
+        Args: {
+          p_active?: boolean
+          p_after_id?: string
+          p_digest: string
+          p_limit?: number
+          p_role?: string[]
+        }
+        Returns: Json
+      }
+      api_v1_list_task_media: {
+        Args: { p_digest: string; p_task_id: string }
+        Returns: Json
+      }
+      api_v1_list_tasks: {
+        Args: {
+          p_after_created?: string
+          p_after_id?: string
+          p_assignee_id?: string
+          p_created_from?: string
+          p_created_to?: string
+          p_digest: string
+          p_include_archived?: boolean
+          p_limit?: number
+          p_priority?: string[]
+          p_property_id?: number
+          p_status?: string[]
+          p_updated_since?: string
+        }
+        Returns: Json
+      }
       archive_problem: {
         Args: { p_id: string }
         Returns: {
@@ -2559,6 +3094,20 @@ export type Database = {
         Args: { p_source_property_id: number; p_target_property_id: number }
         Returns: Json
       }
+      create_api_key: {
+        Args: {
+          p_actor: string
+          p_confirmation?: string
+          p_digest: string
+          p_expires_at?: string
+          p_name: string
+          p_prefix: string
+          p_preset: string
+          p_property_ids?: number[]
+          p_scopes?: string[]
+        }
+        Returns: Json
+      }
       current_host_id: { Args: never; Returns: string }
       default_host_id: { Args: never; Returns: string }
       delete_supply_request: { Args: { p_id: string }; Returns: boolean }
@@ -2591,6 +3140,8 @@ export type Database = {
             Returns: boolean
           }
         | { Args: { guest_name: string }; Returns: boolean }
+      list_api_key_events: { Args: { p_key_id: string }; Returns: Json }
+      list_api_keys: { Args: never; Returns: Json }
       lock_cleaning_for_time: {
         Args: { p_expected_date: string; p_task_id: string }
         Returns: {
@@ -3063,6 +3614,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      revoke_api_key: { Args: { p_id: string }; Returns: Json }
       save_property_checklist: {
         Args: { p_modules: Json; p_property_id: number }
         Returns: Json
@@ -3600,6 +4152,17 @@ export type Database = {
         }
       }
       unregister_push_token: { Args: { p_token: string }; Returns: undefined }
+      update_api_key: {
+        Args: {
+          p_confirmation?: string
+          p_id: string
+          p_name: string
+          p_preset: string
+          p_property_ids: number[]
+          p_scopes: string[]
+        }
+        Returns: Json
+      }
       update_host_settings: {
         Args: {
           p_gallery_allowed?: boolean
@@ -3810,7 +4373,13 @@ export type Database = {
         | "confirmation"
     }
     CompositeTypes: {
-      [_ in never]: never
+      api_context: {
+        key_id: string | null
+        host_id: string | null
+        owner_id: string | null
+        allowed: number[] | null
+        scopes: string[] | null
+      }
     }
   }
 }
