@@ -236,6 +236,35 @@ export default function RootLayout() {
                     }}
                   />
                   {/*
+                    The knowledge base (docs/knowledge-base-step2.md): titled here,
+                    so a list still loading or failed has its header, and an
+                    article's own title is its heading on the screen.
+                  */}
+                  <Stack.Screen
+                    name="knowledge/index"
+                    options={{
+                      headerShown: true,
+                      headerBackTitle: t('common.back'),
+                      title: t('knowledge.title'),
+                    }}
+                  />
+                  <Stack.Screen
+                    name="knowledge/place/[id]"
+                    options={{
+                      headerShown: true,
+                      headerBackTitle: t('common.back'),
+                      title: t('knowledge.placeBlock'),
+                    }}
+                  />
+                  <Stack.Screen
+                    name="knowledge/article/[id]"
+                    options={{
+                      headerShown: true,
+                      headerBackTitle: t('common.back'),
+                      title: t('knowledge.title'),
+                    }}
+                  />
+                  {/*
                     The title is set here, not by the screen: a thread that fails
                     on its first render never draws its own, and the header would
                     show the route's file name above the error.

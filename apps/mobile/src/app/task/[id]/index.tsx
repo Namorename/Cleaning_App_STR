@@ -10,6 +10,7 @@ import { isTechnician } from '@/features/auth/role';
 import { useSession } from '@/features/auth/session';
 import { SignedInRoute } from '@/features/auth/signed-in-route';
 import { useRole } from '@/features/auth/use-role';
+import { PlaceInstructions } from '@/features/knowledge/place-instructions';
 import { useTaskSteps } from '@/features/steps/use-steps';
 import { propertyName } from '@/features/tasks/format';
 import { latestMoveError } from '@/features/tasks/moves';
@@ -134,6 +135,7 @@ function TaskScreen() {
         onOpenChat={(id) =>
           router.push({ pathname: '/chat/[subject]/[id]', params: { subject: 'task', id } })
         }
+        instructions={<PlaceInstructions propertyId={query.data.property_id} />}
       />
     </>
   );

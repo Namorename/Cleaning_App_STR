@@ -2,12 +2,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import {
   QueryClient,
+  defaultShouldDehydrateQuery,
   dehydrate,
   notifyManager,
   onlineManager,
   type DehydratedState,
   type Mutation,
   type MutationOptions,
+  type Query,
   type QueryKey,
 } from '@tanstack/react-query';
 import type { PersistedClient, Persister } from '@tanstack/react-query-persist-client';
@@ -277,6 +279,17 @@ export function shouldSaveMove(mutation: Mutation): boolean {
   );
 }
 
+/**
+ * Which lists the disk keeps: every one that loaded, as TanStack keeps them,
+ * except a list that asks not to be (`meta: { persist: false }`) — the
+ * knowledge base's articles, long texts in three languages read with signal
+ * only until its offline step (docs/knowledge-base-step2.md). The whole cache
+ * is one value in AsyncStorage, and they would make it the largest thing in it.
+ */
+export function shouldSaveList(query: Query): boolean {
+  return defaultShouldDehydrateQuery(query) && query.meta?.persist !== false;
+}
+
 type SavedMoves = DehydratedState['mutations'];
 
 /**
@@ -335,7 +348,10 @@ export const persistOptions = {
   persister: queryPersister,
   maxAge: CACHE_LIFETIME,
   buster: CACHE_BUSTER,
-  dehydrateOptions: { shouldDehydrateMutation: shouldSaveMove },
+  dehydrateOptions: {
+    shouldDehydrateMutation: shouldSaveMove,
+    shouldDehydrateQuery: shouldSaveList,
+  },
 };
 
 /**

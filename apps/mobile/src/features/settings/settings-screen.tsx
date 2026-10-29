@@ -6,6 +6,7 @@ import { SignOutButton } from '@/features/auth/sign-out-button';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 import { AboutSection } from './about-section';
+import { KnowledgeSection } from './knowledge-section';
 import { LanguageSection } from './language-section';
 import { PasswordSection } from './password-section';
 import { PushSection } from './push-section';
@@ -35,6 +36,7 @@ export function SettingsScreen() {
       automaticallyAdjustKeyboardInsets
       keyboardShouldPersistTaps="handled"
     >
+      <KnowledgeSection />
       <PushSection />
       <LanguageSection />
       <ThemeSection />

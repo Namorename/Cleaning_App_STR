@@ -2119,7 +2119,25 @@
   },
   "knowledge": {
     "important": "Important",
-    "step": "Step {{number}}"
+    "step": "Step {{number}}",
+    "title": "Knowledge base",
+    "placeBlock": "Property instructions",
+    "articleCount_one": "{{count}} article",
+    "articleCount_other": "{{count}} articles",
+    "openPlaceHint": "Opens the list of articles",
+    "allArticles": "All knowledge base articles",
+    "sectionHint": "Property instructions and the company's general rules",
+    "search": "Search articles",
+    "searchHint": "Looks in titles and text",
+    "loading": "Loading articles…",
+    "loadError": "Could not load the articles. Check the connection and try again.",
+    "empty": "No articles yet",
+    "emptyHint": "When a manager publishes instructions, they appear here.",
+    "noMatches": "Nothing found",
+    "placeEmpty": "No articles for this property",
+    "notFound": "This article is gone or no longer available to you",
+    "originalOnly": "No translation into your language — showing the original",
+    "opensInBrowser": "Opens in the browser"
   },
   "serverErrors": {
     "checklistCopySameProperty": "Source and target are the same apartment",

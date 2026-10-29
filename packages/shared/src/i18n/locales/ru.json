@@ -2143,7 +2143,27 @@
   },
   "knowledge": {
     "important": "Важно",
-    "step": "Шаг {{number}}"
+    "step": "Шаг {{number}}",
+    "title": "База знаний",
+    "placeBlock": "Инструкции объекта",
+    "articleCount_one": "{{count}} статья",
+    "articleCount_few": "{{count}} статьи",
+    "articleCount_many": "{{count}} статей",
+    "articleCount_other": "{{count}} статьи",
+    "openPlaceHint": "Откроет список статей",
+    "allArticles": "Все статьи базы знаний",
+    "sectionHint": "Инструкции по объектам и общие правила компании",
+    "search": "Поиск по статьям",
+    "searchHint": "Ищет в заголовках и тексте",
+    "loading": "Загружаем статьи…",
+    "loadError": "Не удалось загрузить статьи. Проверьте связь и попробуйте ещё раз.",
+    "empty": "Статей пока нет",
+    "emptyHint": "Когда менеджер опубликует инструкции, они появятся здесь.",
+    "noMatches": "Ничего не нашлось",
+    "placeEmpty": "Для этого объекта статей нет",
+    "notFound": "Статья не найдена или больше вам недоступна",
+    "originalOnly": "Перевода на ваш язык нет — показан оригинал",
+    "opensInBrowser": "Откроется в браузере"
   },
   "serverErrors": {
     "checklistCopySameProperty": "Источник и получатель — один и тот же апартамент",
