@@ -36,6 +36,7 @@ const ROUTES = [
   '/supplies',
   '/apartments',
   '/team',
+  '/knowledge',
   '/settings',
 ];
 

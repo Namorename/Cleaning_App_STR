@@ -56,7 +56,13 @@ import { SettingsView } from '../settings-view';
 const USER = '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b';
 
 const view = () => (
-  <SettingsView email="manager.test@example.com" userId={USER} theme="system" onSignOut={vi.fn()} />
+  <SettingsView
+    email="manager.test@example.com"
+    access="full"
+    userId={USER}
+    theme="system"
+    onSignOut={vi.fn()}
+  />
 );
 
 /** The query of the page's address, without its `?`. */
@@ -77,6 +83,40 @@ const section = (name: string) => screen.queryByRole('region', { name });
 
 beforeEach(() => {
   window.history.replaceState(null, '', '/settings');
+});
+
+// The owner's decision of 2026-10-16: the head technician reaches the panel
+// for the knowledge base; of the settings, only his own are his.
+describe('the head technician’s settings', () => {
+  const headView = () => (
+    <SettingsView
+      email="head.test@example.com"
+      userId={USER}
+      theme="system"
+      access="knowledge"
+      onSignOut={vi.fn()}
+    />
+  );
+
+  test('lists his account and the look, not the company’s', () => {
+    render(headView());
+
+    expect(within(submenu()).getAllByRole('link').map((link) => link.textContent)).toEqual([
+      'Аккаунт',
+      'Оформление',
+    ]);
+    expect(screen.queryByText('Переключатели компании')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Черновик процесса')).not.toBeInTheDocument();
+  });
+
+  test('a link to a company section opens his account instead', () => {
+    window.history.replaceState(null, '', '/settings?section=company');
+
+    render(headView());
+
+    expect(section('Аккаунт')).toHaveTextContent('Вы вошли как head.test@example.com.');
+    expect(section('Компания')).toBeNull();
+  });
 });
 
 describe('the page', () => {
@@ -232,7 +272,7 @@ describe('the layout', () => {
 
 describe('the API section (docs/api-v1.md §11)', () => {
   const adminView = () => (
-    <SettingsView email="admin.test@example.com" userId={USER} theme="system" onSignOut={vi.fn()} isAdmin />
+    <SettingsView email="admin.test@example.com" access="full" userId={USER} theme="system" onSignOut={vi.fn()} isAdmin />
   );
 
   test('a manager has no API section, and its address opens the account', () => {

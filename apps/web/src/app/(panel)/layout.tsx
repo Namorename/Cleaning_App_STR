@@ -6,7 +6,7 @@ import { LanguageSync } from '@/components/language-sync';
 import { MobileNav } from '@/components/mobile-nav';
 import { Sidebar } from '@/components/sidebar';
 import { LANGUAGE_COOKIE, languageFromCookie } from '@/lib/language';
-import { isPanelRole, roleOf } from '@/lib/session';
+import { panelAccessOf, roleOf } from '@/lib/session';
 import { SIDEBAR_COOKIE, sidebarFromCookie } from '@/lib/sidebar-state';
 import { THEME_COOKIE, themeFromCookie } from '@/lib/theme';
 import { createClient } from '@/lib/supabase/server';
@@ -15,7 +15,11 @@ import { createClient } from '@/lib/supabase/server';
  * The shell every manager page sits in.
  *
  * Checks the role a second time, after the proxy: a page rendered on the
- * server must not depend on a request filter it cannot see. Reads the menu's
+ * server must not depend on a request filter it cannot see. The head
+ * technician gets the menu of the knowledge base alone (the owner's decision
+ * of 2026-10-16); which page he may open is the proxy's to say, so for him
+ * this check is not a second one — `app/__tests__/panel-routes.test.ts` makes
+ * every new page a decision about him instead. Reads the menu's
  * width from its cookie, so the first paint has the menu as it was left.
  *
  * Below `md` (768 px — a phone, a tablet upright) the side menu gives way to
@@ -33,7 +37,8 @@ export default async function PanelLayout({ children }: { children: ReactNode })
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!isPanelRole(roleOf(user))) {
+  const access = panelAccessOf(roleOf(user));
+  if (access === null) {
     redirect('/login');
   }
 
@@ -45,11 +50,12 @@ export default async function PanelLayout({ children }: { children: ReactNode })
   return (
     <div className="flex min-h-full flex-1 flex-col md:flex-row">
       <LanguageSync language={language} />
-      <MobileNav email={user?.email ?? ''} theme={theme} />
+      <MobileNav email={user?.email ?? ''} theme={theme} access={access} />
       <Sidebar
         email={user?.email ?? ''}
         isInitiallyCollapsed={sidebar === 'collapsed'}
         theme={theme}
+        access={access}
       />
       <main className="min-h-0 min-w-0 flex-1 p-4 [--page-chrome:5.5rem] md:p-6 md:[--page-chrome:3rem]">
         {children}

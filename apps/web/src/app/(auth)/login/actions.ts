@@ -8,7 +8,7 @@ import { fetchMyLanguage, type Client } from '@/features/settings/api';
 import { YEAR_SECONDS } from '@/lib/cookie';
 import { LANGUAGE_COOKIE } from '@/lib/language';
 import { safeNext } from '@/lib/safe-next';
-import { isPanelRole, roleOf } from '@/lib/session';
+import { homeOf, isPathOpenTo, panelAccessOf, roleOf } from '@/lib/session';
 import { createClient } from '@/lib/supabase/server';
 
 export type SignInIssue = 'invalid' | 'notManager' | 'missing';
@@ -71,13 +71,18 @@ export async function signIn(_previous: SignInState, formData: FormData): Promis
     return { issue: 'invalid', email: typed };
   }
 
-  if (!isPanelRole(roleOf(data.user))) {
+  const access = panelAccessOf(roleOf(data.user));
+  if (access === null) {
     await supabase.auth.signOut();
     return { issue: 'notManager', email: typed };
   }
 
   await applyProfileLanguage(supabase, data.user.id);
-  redirect(safeNext(formData.get('next')));
+  // The way back when it is a page this person reaches; the head technician's
+  // otherwise is the knowledge base (the owner's decision of 2026-10-16).
+  const next = safeNext(formData.get('next'));
+  const nextPath = next.split(/[?#]/, 1)[0];
+  redirect(isPathOpenTo(access, nextPath) ? next : homeOf(access));
 }
 
 export async function signOut(): Promise<void> {

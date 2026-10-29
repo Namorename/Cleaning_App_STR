@@ -9,6 +9,7 @@ import {
   LayoutGrid,
   Package,
   Settings,
+  StickyNote,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -20,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
+import type { PanelAccess } from '@/lib/session';
 import { cn } from '@/lib/utils';
 
 type NavKey =
@@ -31,6 +33,7 @@ type NavKey =
   | 'supplies'
   | 'apartments'
   | 'team'
+  | 'knowledge'
   | 'settings';
 
 interface NavItem {
@@ -70,9 +73,18 @@ const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { href: '/apartments', key: 'apartments', icon: Building2 },
       { href: '/team', key: 'team', icon: Users },
+      { href: '/knowledge', key: 'knowledge', icon: StickyNote },
     ],
   },
 ];
+
+/**
+ * The head technician's menu (the owner's decision of 2026-10-16): the
+ * knowledge base he writes, and his settings below it.
+ */
+const KNOWLEDGE_ONLY: readonly NavItem[] = NAV_GROUPS.flatMap((group) => group.items).filter(
+  (item) => item.key === 'knowledge',
+);
 
 /** On its own at the bottom of the menu, in neither group. */
 const SETTINGS: NavItem = { href: '/settings', key: 'settings', icon: Settings };
@@ -217,6 +229,8 @@ function NavSection({ label, isCollapsed, children }: NavSectionProps) {
 }
 
 interface NavMenuProps {
+  /** How much of the panel the person reaches: the office's whole menu, or the knowledge base. */
+  access?: PanelAccess;
   /** Folded to the strip of icons: names in tooltips, a separator between the groups. */
   isCollapsed?: boolean;
   /** After a section is chosen: the phone's sheet closes on it. */
@@ -229,7 +243,13 @@ interface NavMenuProps {
  * The panel's sections in the owner's groups, Settings apart at the bottom —
  * the one menu of the side panel and of the phone's sheet.
  */
-export function NavMenu({ isCollapsed = false, onNavigate, id, className }: NavMenuProps) {
+export function NavMenu({
+  access = 'full',
+  isCollapsed = false,
+  onNavigate,
+  id,
+  className,
+}: NavMenuProps) {
   const { t } = useTranslation();
   const pathname = usePathname();
   const unread = useUnreadSubjects();
@@ -247,14 +267,18 @@ export function NavMenu({ isCollapsed = false, onNavigate, id, className }: NavM
       aria-label={t('panel.nav.label')}
       className={cn('flex flex-1 flex-col gap-4', className)}
     >
-      {NAV_GROUPS.map((group, index) => (
-        <Fragment key={group.key}>
-          {isCollapsed && index > 0 ? <Separator /> : null}
-          <NavSection label={t(`panel.nav.groups.${group.key}`)} isCollapsed={isCollapsed}>
-            <NavList items={group.items} {...rows} />
-          </NavSection>
-        </Fragment>
-      ))}
+      {access === 'knowledge' ? (
+        <NavList items={KNOWLEDGE_ONLY} {...rows} />
+      ) : (
+        NAV_GROUPS.map((group, index) => (
+          <Fragment key={group.key}>
+            {isCollapsed && index > 0 ? <Separator /> : null}
+            <NavSection label={t(`panel.nav.groups.${group.key}`)} isCollapsed={isCollapsed}>
+              <NavList items={group.items} {...rows} />
+            </NavSection>
+          </Fragment>
+        ))
+      )}
       <NavList items={[SETTINGS]} {...rows} className="mt-auto" />
     </nav>
   );

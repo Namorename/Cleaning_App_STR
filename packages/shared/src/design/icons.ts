@@ -26,6 +26,12 @@ export const ICONS = {
   /** «Объекты». */
   'nav.apartments': 'building-2',
   'nav.team': 'users',
+  /**
+   * «База знаний» in the panel (the owner's decision of 2026-10-16). The
+   * phone's note glyph for now: a new picture would need the phone's own
+   * import (`LUCIDE_GLYPHS`) and the phone stays untouched in step 1.
+   */
+  'nav.knowledge': 'sticky-note',
   'nav.settings': 'settings',
   /** The phone: «Мои уборки». */
   'nav.myTasks': 'house',

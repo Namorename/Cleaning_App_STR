@@ -75,6 +75,7 @@ describe('Sidebar', () => {
     expect(linkTexts(within(nav).getByRole('group', { name: 'Справочники' }))).toEqual([
       'Объекты',
       'Команда',
+      'База знаний',
     ]);
 
     const settings = within(nav).getByRole('link', { name: 'Настройки' });
@@ -98,8 +99,19 @@ describe('Sidebar', () => {
       '/supplies',
       '/apartments',
       '/team',
+      '/knowledge',
       '/settings',
     ]);
+  });
+
+  // The owner's decision of 2026-10-16: the head technician writes the
+  // knowledge base, and the rest of the panel is not his.
+  test('shows the head technician the knowledge base and his settings, nothing else', () => {
+    render(<Sidebar email="head.test@example.com" access="knowledge" />);
+    const nav = screen.getByRole('navigation', { name: 'Разделы' });
+
+    expect(linkTexts(nav)).toEqual(['База знаний', 'Настройки']);
+    expect(within(nav).queryByRole('group', { name: 'Работа' })).not.toBeInTheDocument();
   });
 
   test('draws each section’s icon from the shared map, out of the screen reader’s way', () => {
@@ -189,6 +201,7 @@ describe('Sidebar folded to a strip of icons', () => {
       'Заявки',
       'Объекты',
       'Команда',
+      'База знаний',
     ];
     for (const name of [...names, 'Настройки']) {
       const link = screen.getByRole('link', { name });
@@ -219,6 +232,7 @@ describe('Sidebar folded to a strip of icons', () => {
       'Заявки',
       'Объекты',
       'Команда',
+      'База знаний',
       'Настройки',
       // The theme lever (night of 2026-10-10), above the toggle.
       'Тёмная тема',
@@ -253,8 +267,8 @@ describe('Sidebar folded to a strip of icons', () => {
     render(<Sidebar email="manager.test@example.com" />);
     const toggle = screen.getByRole('button', { name: 'Свернуть меню' });
 
-    // Through the nine sections and the theme lever, then the toggle under them.
-    for (let step = 0; step < 11 && document.activeElement !== toggle; step += 1) {
+    // Through the ten sections and the theme lever, then the toggle under them.
+    for (let step = 0; step < 12 && document.activeElement !== toggle; step += 1) {
       await userEvent.tab();
     }
     expect(toggle).toHaveFocus();
