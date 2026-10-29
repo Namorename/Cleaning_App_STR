@@ -260,6 +260,9 @@ describe('words shared by every kind of job', () => {
     'serverErrors.techNotLinkable',
     'serverErrors.cleaningNotForTech',
     'serverErrors.techRoleBlocked',
+    // set_cleaning_time, clear_cleaning_time: a manager's hours, the panel's (20261027120000).
+    'serverErrors.cleaningTimeNotFromBooking',
+    'serverErrors.cleaningTimeStarted',
   ];
 
   /**
