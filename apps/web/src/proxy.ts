@@ -1,3 +1,4 @@
+import type { Language } from '@str-ops/shared';
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
@@ -8,17 +9,25 @@ import { isPanelRole, roleOf } from '@/lib/session';
 
 const PUBLIC_PATHS = ['/login'];
 
+/** The public API's reference and its spec file are English only, the product's language. */
+function englishOnly(): Language {
+  return 'en';
+}
+
 /**
  * Pages for everyone, signed in or not, and nobody is sent away from them
  * (decision 17, docs/f11-plan.md: the privacy policy App Store Connect links
- * to). Unlike the sign-in page, a manager stays on them too. Exact paths only:
- * `/privacyx` and `/privacy/x` are the panel's like any other address.
+ * to; docs/api-v1.md §9: the public API's reference and its spec file). Unlike
+ * the sign-in page, a manager stays on them too. Exact paths only: `/privacyx`
+ * and `/privacy/x` are the panel's like any other address.
  *
  * Each speaks the language of its own address, not the panel's cookie: the
  * reader here is the page's own, so <html lang> and the page cannot disagree.
  */
 const OPEN_PATHS: ReadonlyMap<string, (searchParams: URLSearchParams) => string> = new Map([
   ['/privacy', privacyLanguageOf],
+  ['/developers', englishOnly],
+  ['/developers/openapi.json', englishOnly],
 ]);
 
 /**

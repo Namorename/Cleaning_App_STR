@@ -23,6 +23,9 @@
     "test:rls": "node scripts/test-rls.mjs",
     "test:fn": "deno test --allow-read supabase/functions/",
     "test:scripts": "node --test \"scripts/__tests__/*.test.mjs\"",
+    "api:docs": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/api-docs.mts",
+    "api:lint": "spectral lint packages/shared/src/api/openapi.v1.json --ruleset .spectral.yaml --fail-severity=warn",
+    "api:stand": "node scripts/api-stand.mjs check",
     "test:mobile": "npm run test -w @str-ops/mobile",
     "typecheck:mobile": "npm run typecheck -w @str-ops/mobile",
     "mobile": "npm run start -w @str-ops/mobile",
@@ -32,7 +35,9 @@
     "typecheck:web": "npm run typecheck -w @str-ops/web"
   },
   "devDependencies": {
+    "@stoplight/spectral-cli": "6.17.0",
     "deno": "2.9.5",
-    "supabase": "2.115.0"
+    "supabase": "2.115.0",
+    "yaml": "2.9.0"
   }
 }

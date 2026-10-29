@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { InPlaceLink } from '@/components/in-place-link';
 import { PageHeader } from '@/components/page-header';
 import { SignOut } from '@/components/sign-out';
+import { ApiKeysSection } from '@/features/api-keys/api-keys-section';
 import { ProcessSection } from '@/features/workflow/process-section';
 import type { ThemeChoice } from '@/lib/theme';
 import { useAddressState } from '@/lib/use-address-state';
@@ -29,6 +30,8 @@ interface SettingsViewProps {
   /** The theme this browser keeps (the cookie, read by the page). */
   theme: ThemeChoice;
   onSignOut: () => Promise<void>;
+  /** Read from app_metadata by the page: «API» is an admin's section only. */
+  isAdmin?: boolean;
 }
 
 /** Each section's name: in the submenu and over the section itself. */
@@ -37,6 +40,7 @@ const SECTION_TITLE_KEY: Record<SettingsSection, string> = {
   appearance: 'panel.settings.appearance',
   company: 'panel.settings.company',
   process: 'panel.settings.workflow.title',
+  api: 'panel.settings.api.title',
 };
 
 /** The address of a section, as its link carries it. */
@@ -59,9 +63,12 @@ function sectionHref(section: SettingsSection): string {
  * editor holds a draft until it is saved, and a look at «Компания» in the
  * middle of an edit must not throw it away.
  */
-export function SettingsView({ email, userId, theme, onSignOut }: SettingsViewProps) {
+export function SettingsView({ email, userId, theme, onSignOut, isAdmin = false }: SettingsViewProps) {
   const { t } = useTranslation();
-  const [address, setAddress] = useAddressState(readSettingsAddress, writeSettingsAddress);
+  const [stored, setAddress] = useAddressState(readSettingsAddress, writeSettingsAddress);
+  const visible = SETTINGS_SECTIONS.filter((section) => section !== 'api' || isAdmin);
+  // A manager who follows an admin's link to «API» lands on the account.
+  const address = visible.includes(stored.section) ? stored : { section: visible[0] };
 
   const open = (section: SettingsSection) => {
     if (section !== address.section) {
@@ -97,6 +104,7 @@ export function SettingsView({ email, userId, theme, onSignOut }: SettingsViewPr
         </>
       ),
     },
+    api: { description: t('panel.settings.api.description'), body: isAdmin ? <ApiKeysSection /> : null },
   };
 
   return (
@@ -107,7 +115,7 @@ export function SettingsView({ email, userId, theme, onSignOut }: SettingsViewPr
         <nav aria-label={t('panel.settings.sections')} className="lg:sticky lg:top-4">
           {/* On a phone the four sit in a row and wrap; from lg, a column. */}
           <ul className="flex flex-wrap gap-1 lg:flex-col">
-            {SETTINGS_SECTIONS.map((section) => {
+            {visible.map((section) => {
               const isCurrent = section === address.section;
               return (
                 <li key={section}>
@@ -130,7 +138,7 @@ export function SettingsView({ email, userId, theme, onSignOut }: SettingsViewPr
         </nav>
 
         <div className="min-w-0">
-          {SETTINGS_SECTIONS.map((section) => (
+          {visible.map((section) => (
             <SettingsPanel
               key={section}
               title={t(SECTION_TITLE_KEY[section])}
