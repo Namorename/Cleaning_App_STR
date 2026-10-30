@@ -5,7 +5,9 @@
 запускали. Облако читалось только через `node scripts/cloud-read.mjs`.
 
 - Репетиция — ветка `integration-rehearsal-1028` (от `origin/main` 9bedd62).
-- План — ветка `rollout-plan-1028` (этот файл, две пробы и скрипт временной базы в `docs/rollout/`).
+- Репетиция шагов 3–5 на текущем `main` — ветка `integration-rehearsal-1030` (от `origin/main`
+  770c2e6, 30.10), §9.
+- План — ветка `rollout-plan-1028` (этот файл, пробы и скрипты временной базы в `docs/rollout/`).
 - Каждый шаг ниже идёт только по слову владельца. Слово нужно на каждый шаг отдельно.
 
 **Ход выката:**
@@ -60,6 +62,10 @@
     классификацией четырёх функций ручного времени в `coverage.json` (§5, 3b).
   - Откат: панель (2b), затем `manual-cleaning-time-rollback.sql`, `migration repair --status
     reverted 20261027120000`, проба.
+- **Шаги 3–5 перерепетированы 30.10** на `main` 770c2e6 (ветка `integration-rehearsal-1030`, §9);
+  ничего не выкачено. Итоговые номера: API `20261028100000`, база знаний `20261030100000`, отзывы
+  `20261030110000`. Концы шагов для `main`: `093cc63`, `d10f0dd`, `7e30c96`, 5d — `69fd4b0`. Красная
+  проверка прежняя — вопрос 1 (§8); найдены и исправлены три отката.
 
 ## 0. Коротко
 
@@ -90,6 +96,18 @@
 **Что ещё нужно:**
 - найдено десять правок, которые слияние требует от веток, — все сделаны в репетиции (§6.3);
 - красная проверка — одно решение владельца (§8, вопрос 1).
+
+**Репетиция 30.10 (шаги 3–5 на `main` после шагов 0–2, §9):**
+
+| Прогон | Итог |
+|---|---|
+| SQL | шаг 3: 48 наборов / 2090 проверок; шаг 4: 49 / 2190; все 117 миграций: 50 / 2290, красная та же одна (`table_grants.sql`) |
+| облако ↔ временная база на голове | совпали по всему отпечатку каталога и по каждой из 175 функций |
+| откаты | каждый возвращает каталог ровно к прошлому шагу; три исправлены (§9.6) |
+| vitest / jest | 2302 из 2302 / 3436 из 3436 |
+| tsc | 0 у обоих приложений на шагах 3, 4, 5 и 5d |
+| паритет API / Deno / Spectral | 16 из 16 на каждом шаге / 357 из 357 / чисто |
+| eslint / `next build` | чисто (у телефона те же старые предупреждения, что на `main`) / собралось |
 
 ## 1. Что в проде сейчас (28.10, только чтение)
 
@@ -196,8 +214,12 @@
 **Перенумеровка (шаги 4 и 5)** — по рецепту `docs/chat-plan.md` («Рецепт выката окна 2», шаг 0):
 - номер — метка дня выката, новее головы облака на тот момент; взаимный порядок «база знаний →
   отзывы» сохранить;
-- те же номера во всех ссылках. Репетиция поставила `20261029100000` и `20261029110000`; список ссылок —
-  коммит `e4c6fe0`:
+- те же номера во всех ссылках. Репетиция 28.10 ставила временные `20261029100000` и
+  `20261029110000`. **Репетиция 30.10 выдала итоговые: база знаний — `20261030100000`, отзывы —
+  `20261030110000`** (новее API `20261028100000` и друг друга; свободны во всех ветках, на `origin` и
+  в рабочих деревьях; повторов версий в каталоге нет, 117 файлов). Они годны, пока перед ними в облако
+  не уйдёт миграция с бо́льшим номером (§8, вопрос 6). Список ссылок — коммит `e4c6fe0`, на 30.10 —
+  3a3c478 и c65aa91:
   - `apps/mobile/src/features/problems/review-source.ts`;
   - `apps/web/src/features/knowledge/{places.ts, revision-history.tsx, schema.ts}`;
   - `docs/one-off-writes/{knowledge-base-step1-rollback.sql, reviews-to-tasks-rollback.sql}`;
@@ -301,6 +323,9 @@ npx supabase db push --linked --skip-vault
 5. `git push origin main` — это деплой панели Vercel; до push миграции он запрещён (CLAUDE.md);
 6. OTA — только из этого `main`.
 
+Для шагов 3–5 пункт 1 — это fast-forward `main` до конца шага в ветке `integration-rehearsal-1030`:
+слияния, правки слияния и сгенерированные типы уже в её коммитах (§9.1).
+
 Откат миграции — файл отката одной командой `db query --linked`, затем `migration repair --status
 reverted <версия>`. Обе команды пишут в облако — только словом владельца.
 
@@ -313,17 +338,17 @@ reverted <версия>`. Обе команды пишут в облако — �
 | 1d — **выполнен 29.10, 19:11 UTC** (`e6d58921`) | OTA №8 на field (republish группы preview) | «OTA №8 field» | — | Sentry без новых ошибок видео за сутки | republish `b9fa5aaf` (№7 на field) | слово |
 | 2a — **выполнен 29.10, 22:35 UTC** | локальное слияние `manual-time-1029` в `main` (`3cce46b`) и снятие стража с переносом набора из `tests/draft` в `tests` (`770c2e6`), из него — миграция `20261027120000_manual_cleaning_time` | «Шаг 2: пушим» | `HEAD_WANT=20261023100000`, `LIST_WANT="20261027120000_manual_cleaning_time.sql"` | `manual_cleaning_time_probe.sql`: тела `31e0dad8` / `19aefc89` / `0cba3e93`, четыре новые функции, колонки 2, триггеры 2, виды событий 3, `execute` у `authenticated` да, у `anon` нет; `postpush_1028.sql`: `since_1023 [20261023100000, 20261027120000]`, крон 10, `client_grants []`; сверка времени открытых уборок из броней — расхождений 0 | панель первой (2b), затем `docs/one-off-writes/manual-cleaning-time-rollback.sql`, `migration repair --status reverted 20261027120000`, проба: тела снова `948052e6` / `cb867170` / `086fd1ec` | нет |
 | 2b — **выполнен 29.10, 22:43 UTC** (`770c2e6`) | `git push origin main` (только после 2a) | «Шаг 2» | — | Vercel READY, `/login` и `/privacy` — 200, на `/privacy` новая фраза о времени уборки | `git revert --no-edit 770c2e6`, `git revert --no-edit -m 1 3cce46b`, `git push origin HEAD:main` | ручная проверка в панели (`docs/manual-cleaning-time.md` §10) |
-| 3a | секрет `API_KEY_PEPPER` | «Шаг 3» | — | `npx supabase secrets list` показывает имя (не значение) | `secrets unset` | **владелец сам**, из своего окна: `$s = node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))"; npx supabase secrets set "API_KEY_PEPPER=$s"; Remove-Variable s`; копия — в менеджер паролей |
-| 3b | локальное слияние API в `main` с правками слияния (§6.3: `release_push_token`, `defined_in` видео, `lock_timeout`, типы), из него — миграция `20261028100000_public_api_v1`. **Обязательно перед слиянием в `main`** (после шага 2): добавить в `packages/shared/src/api/coverage.json` и реестр API четыре функции ручного времени — `set_cleaning_time` и `clear_cleaning_time` как планируемые права (например `cleanings:write`), `lock_cleaning_for_time` и триггер `journal_cleaning_time` как запрещённые, поля `tasks.manual_time_on` и `manual_time_lost_on` — в паритет полей уборки; иначе `api-parity.test.ts` упадёт («a new function nobody classified»). Новое право меняет счёт `postpush_api_scopes_1028.sql` — пересчитать | «Шаг 3: push API» | `HEAD_WANT=20261027120000` (голова после шага 2), `LIST_WANT="20261028100000_public_api_v1.sql"` | `postpush_1028.sql`: крон 11 (`purge-api-records` 5 4), `client_grants []` (таблицы API — только `service_role`); `postpush_api_scopes_1028.sql`: 41 строка (12 exposed, 19 planned, 10 forbidden), ключей 0 | `docs/one-off-writes/api-v1-rollback.sql`, `migration repair --status reverted 20261028100000` | нет |
+| 3a | секрет `API_KEY_PEPPER` — по словам владельца уже задан; только проверка | «Шаг 3» | — | `npx supabase secrets list` показывает имя (не значение) | — (соль не менять: смена гасит все ключи) | подтвердить, что секрет задан; если нет — **сам**, из своего окна: `$s = node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))"; npx supabase secrets set "API_KEY_PEPPER=$s"; Remove-Variable s`; копия — в менеджер паролей |
+| 3b | FF `main` до `093cc63` репетиции 30.10 (§9.1, §9.3: слияние API, паритет с `release_push_token` и четырьмя функциями ручного времени, право `cleanings:update`, `defined_in`, `lock_timeout`, типы, откат с индексами), из него — миграция `20261028100000_public_api_v1` | «Шаг 3: push API» | `HEAD_WANT=20261027120000`, `LIST_WANT="20261028100000_public_api_v1.sql"`; проба до — `EQUAL head` (§9.2) | `EQUAL step3`; `postpush_1028.sql`: крон 11 (`purge-api-records` 5 4), `client_grants []` (таблицы API — только `service_role`); `postpush_api_scopes_1028.sql`: 42 строки (12 exposed, 20 planned, 10 forbidden), ключей 0 | `docs/one-off-writes/api-v1-rollback.sql` (с 30.10 снимает и три индекса), `migration repair --status reverted 20261028100000`; проба — `EQUAL head` | нет |
 | 3c | деплой `npx supabase functions deploy api api-keys` (`verify_jwt = false` для обеих — из `config.toml`) | «Шаг 3: функции» | — | `curl …/functions/v1/api/v1/me` без ключа → 401 `missing-key` | `npx supabase functions delete api api-keys` | нет |
-| 3d | `git push origin main` | «Шаг 3: main» | — | `/developers` открывается; админ создаёт ключ «Только чтение», `curl /v1/me` → 200 | `git revert -m 1` | первый ключ — сам |
-| 4a | локальное слияние `knowledge-base-phone-1017` (в ней шаг 1) в `main` с правками слияния (§6.3) и `ae3c658`, перенумеровка (§3), из него — миграция | «Шаг 4: push базы знаний» | `HEAD_WANT=20261028100000`, `LIST_WANT="<метка дня>_knowledge_base.sql"` | `postpush_knowledge_base.sql`; `postpush_1028.sql`: `kb_*` — только `SELECT` у `authenticated`; `postpush_api_scopes_1028.sql`: 43 | `docs/one-off-writes/knowledge-base-step1-rollback.sql`, `repair` | нет |
-| 4b | `git push origin main` | «Шаг 4: main» | — | раздел «База знаний», старший техник видит только её и настройки | `git revert -m 1` | нет |
+| 3d | `git push origin main` | «Шаг 3: main» | — | `/developers` открывается; админ создаёт ключ «Только чтение», `curl /v1/me` → 200 | `git revert` четырёх коммитов шага (§9.3) | первый ключ — сам |
+| 4a | FF `main` до `d10f0dd` (§9.1, §9.4: обе ветки базы знаний, `ae3c658`, номер `20261030100000`, паритет, типы, откат со строками прав), из него — миграция | «Шаг 4: push базы знаний» | `HEAD_WANT=20261028100000`, `LIST_WANT="20261030100000_knowledge_base.sql"`; проба до — `EQUAL step3` | `EQUAL step4`; `postpush_knowledge_base.sql` (13 функций — как в её шапке); `postpush_1028.sql`: `kb_*` — только `SELECT` у `authenticated`; `postpush_api_scopes_1028.sql`: 44 | `docs/one-off-writes/knowledge-base-step1-rollback.sql`, `repair --status reverted 20261030100000`; проба — `EQUAL step3`, прав 42 | нет |
+| 4b | `git push origin main` | «Шаг 4: main» | — | раздел «База знаний», старший техник видит только её и настройки | `git revert` коммитов шага (§9.4) | нет |
 | 4c | OTA №9 из `main` (видео + база знаний + терпимость к пустому автору): preview, потом field | «OTA №9 preview» / «field» | проверка бандла | статьи открываются у горничной и техника | republish №8 | проверка на телефоне |
 | 5a | решение по красной проверке (§6.4, §8 вопрос 1) | ответ на вопрос 1 | — | `table_grants.sql` зелёный | — | ответ |
-| 5b | локальное слияние `reviews-to-tasks-1017` в `main` с правками слияния (§6.3) и решением 5a, перенумеровка, из него — миграция | «Шаг 5: push отзывов» | `HEAD_WANT=<метка базы знаний>`, `LIST_WANT="<метка дня>_reviews_to_tasks.sql"` | `postpush_1028.sql`: крон 16, `review_cron` оба `false`; `guest_reviews`, `review_findings`, `review_settings` — только `SELECT` у `authenticated`; `postpush_api_scopes_1028.sql`: 45 | `docs/one-off-writes/reviews-to-tasks-rollback.sql`, `repair` | нет |
+| 5b | FF `main` до `7e30c96` (§9.1, §9.5: слияние отзывов, номер `20261030110000`, паритет, панель, `test:fn`, типы, откат со строками прав) плюс коммит решения 5a, из него — миграция | «Шаг 5: push отзывов» | `HEAD_WANT=20261030100000`, `LIST_WANT="20261030110000_reviews_to_tasks.sql"`; проба до — `EQUAL step4` | `EQUAL step5` (из прежних функций меняется одна: `push_on_problem_reported` → `627710e7`); `postpush_1028.sql`: крон 16, `review_cron` оба `false`; `guest_reviews`, `review_findings`, `review_settings` — только `SELECT` у `authenticated`; `postpush_api_scopes_1028.sql`: 46 | `docs/one-off-writes/reviews-to-tasks-rollback.sql`, `repair --status reverted 20261030110000`; проба — `EQUAL step4`, прав 44 | нет |
 | 5c | секреты `REVIEW_ID_HMAC_SECRET` и `ANTHROPIC_API_KEY`, деплой `sync-reviews classify-reviews` | «Шаг 5: функции» | — | функции в списке; без секрета `sync-reviews` отвечает 500 `ConfigError` — так и задумано | `functions delete` | **владелец сам**: секрет HMAC — один раз и навсегда (`docs/reviews-to-tasks.md` §10, п. 3), ключ модели |
-| 5d | `git push origin main`, затем OTA №10 из `main` с `REVIEW_SOURCE_ENABLED = true` | «Шаг 5: main», «OTA №10» | — | «Отзывы» в меню, счётчик кандидатов | `git revert`, republish №9 | нет |
+| 5d | FF `main` до `69fd4b0` (`REVIEW_SOURCE_ENABLED = true`), `git push origin main`, затем `migration list --linked` и OTA №10 из этого `main` | «Шаг 5: main», «OTA №10» | — | «Отзывы» в меню, счётчик кандидатов | `git revert` коммитов шага (§9.5), republish №9 | нет |
 | 5e | выключатели «Отзывы → Настройки», задания крона | «Шаг 5: включай» | — | первый прогон `sync-reviews` в журнале | выключить там же; `cron.alter_job(…, active => false)` | дата уведомления гостей, выключатели (админ) |
 
 После каждого слияния в `main` — `npm run db:types` на стенде, где каталог равен облаку. Можно и без
@@ -426,20 +451,299 @@ by a client role» ловит `public.review_run_status()`. Это definer-фу�
 | Правка `_shared` | не правится ни один существующий модуль; деплоятся только 4 новые функции |
 | Смысловые конфликты без текстовых | пойманы тестами (§6.3); при новых ветках репетировать на копии `integration-rehearsal-1028` |
 | Таймаут vitest под нагрузкой | известен; перед слиянием в `main` — прогон файла отдельно |
+| Откат API оставлял три индекса — повторный push после отката падал | исправлено (093cc63), откаты всех трёх шагов прогнаны на временной базе (§9.6) |
+| Номера 20261030… выданы заранее | годны, пока в облако перед ними не уйдёт миграция новее; иначе — перенумеровать и повторить репетицию (§8, вопрос 6) |
+| `main` уйдёт вперёд между шагами — FF невозможен | слить ветку фичи заново, перенести коммиты шага, перегенерировать типы, повторить проверки (§9.1) |
+| `REVIEW_SOURCE_ENABLED = true` в `main` раньше миграции отзывов | 69fd4b0 — только после 5b; выборка колонок без миграции даёт `42703` и пустые экраны |
+| Проба «до» не совпала с ожидаемым | стоп до push: облако ушло от репетиции; `rollout_1030_functions.sql` покажет, какая функция |
 
-## 8. Вопросы владельцу
+## 8. Вопросы владельцу (обновлено 30.10)
 
-1. **`review_run_status()` и правило `raw`.**
+1. **`review_run_status()` и правило `raw`** — открыт, без ответа шаг 5 не идёт (5a). Репетиция
+   30.10 даёт ту же одну красную проверку; без неё `table_grants.sql` — 26 из 26.
    - (а) Узкое исключение в `table_grants.sql`: функция названа, причина записана. Самое малое
      изменение, функция прошла обзор.
    - (б) Таблица состояния прогонов в `public` с RLS «менеджер своей компании», которую пишет
-     `log_review_run`. Правило остаётся без исключений, но это ещё код и миграция.
+     `log_review_run`. Правило остаётся без исключений, но это ещё код и миграция, и репетицию шага 5
+     придётся повторить.
 
    Я бы взял (а), но правило — ваше.
-2. **Ручное время уборки:** ветки нет. Если она есть где-то ещё (другой компьютер, неотправленная
-   ветка), её нужно отправить. Её миграция получит номер новее головы на день выката, а слияние
-   стоит прогнать на копии `integration-rehearsal-1028`.
+2. ~~Ручное время уборки: ветки нет~~ — закрыт: ветка нашлась, шаг 2 выкачен 29.10.
 3. **Полный доступ API с чувствительными правами** (вопрос из ветки API): оставить как есть
-   («все, кроме запрещённых») или без чувствительных?
-4. **Окно** 17:00–21:00 UTC подходит? И можно ли шаги 0 и 1 в один вечер (шаг 0 ничего не пишет в
-   облако)?
+   («все, кроме запрещённых») или без чувствительных? Открыт.
+4. **Окно** — для шагов 3–5 то же: 17:00–21:00 UTC. Ночные задания отзывов (05:00–05:10 UTC, и
+   выключенные 06:00 / 06:20) его не задевают.
+5. **Новое право `cleanings:update`** (шаг 3; планируемое, запись, оператор): под ним записаны
+   `set_cleaning_time` и `clear_cleaning_time`. Годится имя — или вписать их под существующее
+   `cleanings:assign`? Тогда счёт прав на шагах 3–5 — 41 / 43 / 45, как в плане 28.10.
+6. **Номера 20261030100000 и 20261030110000** выданы сейчас, а не в день выката: они годны, пока
+   перед ними в облако не уйдёт миграция с бо́льшим номером. Иначе — перенумеровать заново (коммиты
+   «out of draft» шагов 4 и 5) и повторить репетицию.
+7. **Подшаг 5d:** включение `REVIEW_SOURCE_ENABLED` — отдельным коммитом `69fd4b0` в `main` после
+   push миграции и перед OTA №10. Так?
+
+## 9. Шаги 3–5 по репетиции 30.10
+
+Ветка `integration-rehearsal-1030` (от `origin/main` 770c2e6, шаги 0–2 в нём), запушена; ничего не
+выкачено: в облако, на прод и в `main` ничего не уходило, облако читалось только `cloud-read`. Каждый
+шаг — группа коммитов; конец группы — то, до чего доводится `main` в день шага.
+
+### 9.1 Как применять
+
+| Шаг | Коммиты по порядку | Конец | Что в нём |
+|---|---|---|---|
+| 3 | 8c7ed84, 70b59b1, 6f138e3, 093cc63 | `093cc63` | слияние API; паритет: `release_push_token`, четыре функции ручного времени, `defined_in` пяти функций, право `cleanings:update`, `lock_timeout 3s`; типы; откат API снимает и три индекса |
+| 4 | 316468f, 130e159, 644fa7d, 3a3c478, 8b96e18, 9b77bac, d10f0dd | `d10f0dd` | слияния базы знаний (панель, телефон); `ae3c658` — задание без автора читается; номер 20261030100000; паритет и блок `api-scopes`; типы; откат убирает строки прав |
+| 5 (5b–5c) | 5582e5f, c65aa91, d4f253c, 731293e, 7e30c96 | `7e30c96` | слияние отзывов; номер 20261030110000; паритет, блок `api-scopes`, меню и тесты панели, `test:fn`; типы; откат убирает строки прав |
+| 5d | 69fd4b0 | `69fd4b0` | `REVIEW_SOURCE_ENABLED = true`: телефон спрашивает три колонки отзывов |
+
+В день шага, в дереве `main` (например `.claude/worktrees/main-step0-1028`):
+1. `git fetch origin`; `git rev-parse --short origin/main` — конец прошлого шага: `770c2e6` перед
+   шагом 3, `093cc63` перед 4, `d10f0dd` перед 5, `7e30c96` перед 5d.
+2. `git merge --ff-only <конец шага>` — локально, на `origin` не уходит до подшага «main». Если
+   `main` ушёл вперёд и FF невозможен — слить ветку фичи заново, перенести коммиты шага
+   (`cherry-pick` всех, кроме слияний), перегенерировать типы (§9.6) и повторить проверки: за такое
+   дерево репетиция не отвечает.
+3. Файл миграции тот же, что прошёл репетицию (`sha256sum -c` по строке своего шага):
+   ```
+   d966dd7f64143d8c034320b07e596a7766a92a22cfd24aca49cd986e95499344  supabase/migrations/20261028100000_public_api_v1.sql
+   1f66629c3e7b67ee359803372a0d663d3ab1e3d867be1359036fbeb0d65457f3  supabase/migrations/20261030100000_knowledge_base.sql
+   d28c0f16d3e124c2fe6264f4bd062accd7d8c4b6526bcfd5d2578444f229c805  supabase/migrations/20261030110000_reviews_to_tasks.sql
+   ```
+4. Проба «до» (§9.2) — `EQUAL` для состояния до шага; иначе стоп.
+5. Застава и `db push` (§3) с `HEAD_WANT` / `LIST_WANT` шага.
+6. Проба «после» — `EQUAL` для состояния после шага, плюс пробы шага.
+7. Функции и секреты, `git push origin main`, OTA — по подшагам шага.
+
+### 9.2 Пробы и ожидаемые значения
+
+Новые файлы этой ветки, `docs/rollout/`:
+- `rollout_1030_fingerprint.sql` — отпечаток каталога: голова и число миграций; функции (md5 тела
+  без `\r`, `security definer`, `proconfig`, тип результата); `execute` у клиентских ролей; таблицы,
+  колонки, права клиентов на таблицы, политики, триггеры, индексы, значения enum, крон. Только
+  каталог, данных не читает.
+- `rollout_1030_functions.sql` — та же сверка по каждой функции, чтобы найти расхождение.
+- `rollout_1030_expected.json` — ожидаемое для четырёх состояний: `head`, `step3`, `step4`, `step5`.
+- `rollout-1030-compare.mjs <состояние> <вывод cloud-read>` — печатает `EQUAL` или различия (код 1).
+- `rehearsal-db-1030.mjs` — временные базы, как `rehearsal-db-1028.mjs`, плюс `create --until
+  <версия>`, `apply <версия>…` и `sql <файл>`.
+
+Запуск из дерева `main` (в нём есть `supabase/.temp`):
+```bash
+P=../rollout-plan-1028/docs/rollout
+node scripts/cloud-read.mjs $P/rollout_1030_fingerprint.sql > fp.json && node $P/rollout-1030-compare.mjs head fp.json
+node scripts/cloud-read.mjs $P/rollout_1030_functions.sql > fn.json && node $P/rollout-1030-compare.mjs head fn.json
+```
+
+**Калибровка 29.10, около 23:40 UTC:** облако (голова `20261027120000`) совпало с временной базой из
+`main` 770c2e6 по всем частям отпечатка и по каждой из 175 функций. Одно различие проба гасит сама:
+тело `touch_updated_at` в облаке хранит переводы строк CRLF (давний push из Windows), без `\r` текст
+тот же.
+
+Отпечаток (число / md5):
+
+| Часть | до шага 3 (`head`) | после 3 | после 4 | после 5 |
+|---|---|---|---|---|
+| голова | 20261027120000 | 20261028100000 | 20261030100000 | 20261030110000 |
+| миграций | 114 | 115 | 116 | 117 |
+| функции | 175 / b27dc6dc | 224 / 61fba26d | 237 / 2f59d728 | 269 / 68ab5e0f |
+| `execute` у клиентов | 121 / eb6dc1d4 | 125 / e054505c | 130 / 635d6500 | 138 / 58648b1b |
+| таблицы и вью | 33 / 00da6aa5 | 39 / bf3e2af6 | 43 / a11a854b | 47 / 0ebc9930 |
+| колонки | 363 / f0076644 | 412 / 52bc2a7c | 444 / 3735f3ca | 526 / 0d57b27a |
+| права клиентов на таблицы | 44 / 37c01918 | 44 / 37c01918 | 48 / 5324f99f | 51 / 1840f030 |
+| политики | 53 / e53890b9 | 53 / e53890b9 | 60 / 93993288 | 63 / f381b1c6 |
+| триггеры | 44 / e9fa2d13 | 45 / 1fd533be | 49 / 7882c58f | 52 / d3443b01 |
+| индексы | 108 / 5fb8a52d | 125 / b11c99e3 | 131 / 70907e28 | 148 / 42220418 |
+| значения enum | 113 / ef11de15 | 113 / ef11de15 | 119 / ff590d30 | 150 / 216e2d99 |
+| крон | 10 / 13cb7018 | 11 / 7ced9a3e | 11 / 7ced9a3e | 16 / cfe09704; выключены `classify-reviews-daily`, `sync-reviews-daily` |
+
+Функции по шагам: шаг 3 — плюс 49, прежние не меняются; шаг 4 — плюс 13, прежние не меняются; шаг 5 —
+плюс 32 и одна прежняя меняется: `push_on_problem_reported` `ef9de429` → `627710e7`. Тела ручного
+времени (`manual_cleaning_time_probe.sql`) и видео (`bf208d8c` / `dd81ff14`) после всех трёх шагов
+прежние.
+
+Прежние пробы:
+
+| Проба | до шага 3 | после 3 | после 4 | после 5 |
+|---|---|---|---|---|
+| `postpush_1028.sql`: `since_1023` | 20261023100000, 20261027120000 | + 20261028100000 | + 20261030100000 | + 20261030110000 |
+| `postpush_1028.sql`: `cron` | 10 | 11: + `purge-api-records` `5 4 * * *` | 11 | 16: + `purge-review-stays` `0 5`, `purge-review-data` `5 5`, `purge-review-runs` `10 5` (включены), `sync-reviews-daily` `0 6`, `classify-reviews-daily` `20 6` (выключены) |
+| `postpush_1028.sql`: `client_grants` | `[]` | `[]` (таблицы API — только `service_role`) | 4: `kb_*` — `authenticated SELECT` | 7: + `guest_reviews`, `review_findings`, `review_settings` — `authenticated SELECT` |
+| `postpush_1028.sql`: `review_cron` | `null` | `null` | `null` | оба `false` |
+| `postpush_api_scopes_1028.sql` | таблицы нет, не запускать | 42: 12 exposed, 20 planned, 10 forbidden; ключей 0 | 44: 12 / 22 / 10 | 46: 12 / 24 / 10 |
+
+Счёт прав на одну строку больше, чем в плане 28.10 (41 / 43 / 45): новое планируемое право
+`cleanings:update` (§9.3, вопрос 5).
+
+### 9.3 Шаг 3 — API
+
+- **Миграция** `20261028100000_public_api_v1.sql`, номер прежний. **Застава:**
+  `HEAD_WANT=20261027120000`, `LIST_WANT="20261028100000_public_api_v1.sql"`.
+- **Что добавила репетиция:**
+  - `coverage.json` (70b59b1):
+    - `release_push_token` — внутренняя («forbidden: integrations:read_secrets»);
+    - `set_cleaning_time` и `clear_cleaning_time` — планируемые под новым правом `cleanings:update`
+      (запись, обычное, оператор; подписи в трёх языках — «Coming later», как у других планируемых);
+    - `lock_cleaning_for_time` (помощник, `execute` у клиентов снят) и триггер `journal_cleaning_time` —
+      внутренние. Слово плана «запрещённые» для этих двух было неточным: «forbidden» в реестре —
+      право, которое ключ не получит никогда, а это просто внутренние функции.
+  - `defined_in` пяти функций — по последней миграции, которая их переопределяет:
+    `add_task_media`, `snapshot_task_steps` → видео; `generate_cleaning_tasks`, `guard_task_fields`,
+    `save_task` → ручное время.
+  - «Поля `manual_time_*` в паритет полей уборки» — делать нечего. Проверки паритета по колонкам нет,
+    ответ API об уборке собирается из явного списка полей, а ручные часы API уже отдаёт в `time_from` /
+    `time_to`. Метки `manual_time_on` / `manual_time_lost_on` в v1 не отдаются.
+  - `lock_timeout 3s` (как f8ca08d); типы (6f138e3); откат снимает три индекса на старых таблицах
+    (093cc63, §9.6).
+- **Пробы:** до — `head`, после — `step3` и таблица §9.2. `execute` получают 4 функции, только у
+  `authenticated`: `list_api_keys`, `update_api_key`, `revoke_api_key`, `list_api_key_events`.
+- **Секрет** `API_KEY_PEPPER` — по словам владельца уже задан. Проверка (3a): `npx supabase secrets
+  list` показывает имя (значение не печатается). Не менять: смена соли гасит все ключи.
+- **Переключателей нет.**
+- **Подшаги:**
+  - 3a — проверка секрета;
+  - 3b — FF `main` до `093cc63` (локально), проба `head`, застава и `db push`, проба `step3`;
+  - 3c — `npx supabase functions deploy api api-keys` (`verify_jwt = false` из `config.toml`);
+    `curl …/functions/v1/api/v1/me` без ключа → 401 `missing-key`;
+  - 3d — `git push origin main` (Vercel); `/developers` открывается; админ создаёт ключ «Только
+    чтение», `curl …/v1/me` → 200.
+- **Откаты** — в обратном порядке, каждый словом:
+  - 3d — `git revert --no-edit 093cc63 6f138e3 70b59b1 && git revert --no-edit -m 1 8c7ed84 && git
+    push origin HEAD:main`;
+  - 3c — `npx supabase functions delete api api-keys`;
+  - 3b — `npx supabase db query --linked -f docs/one-off-writes/api-v1-rollback.sql`, затем `npx
+    supabase migration repair --status reverted 20261028100000 --linked`; проба — `EQUAL head`.
+- **Слово владельца:** «Шаг 3: push API» (3a–3b), «Шаг 3: функции» (3c), «Шаг 3: main» (3d); первый
+  ключ — сам.
+
+### 9.4 Шаг 4 — база знаний
+
+- **Миграция** `20261030100000_knowledge_base.sql` (была `20261017100000`). **Застава:**
+  `HEAD_WANT=20261028100000`, `LIST_WANT="20261030100000_knowledge_base.sql"`.
+- **Что добавила репетиция:**
+  - слияния — по решениям 28.10 (§6.2): в настройках `access` + `isAdmin`, чек-лист iOS — сторона
+    `main`;
+  - `ae3c658` перенесён сюда (`cherry-pick -x`, 644fa7d), как предлагал §4 (б);
+  - номер и ссылки (3a3c478): комментарии панели, откат, проба, `table_grants.sql`; в телах функций
+    номера нет;
+  - паритет (8b96e18): 13 функций и 4 таблицы, права `knowledge:read`, `knowledge:write`, группа
+    `knowledge`;
+  - типы (9b77bac); откат убирает строки прав (d10f0dd).
+- **Пробы:** до — `step3`, после — `step4`, таблица §9.2 и `docs/rollout/postpush_knowledge_base.sql`.
+  Все 13 функций совпали с md5 и длинами в её шапке (от `kb_article_for_writer dd0dd9eb 610` до
+  `set_kb_article_status ab5058b0 800`); `execute` у `authenticated` — 5 функций; таблицы `kb_*` —
+  RLS, `authenticated SELECT`; политики и 4 триггера — как в шапке. sha256 файла в шапке пробы
+  (`40b50301…`) устарел: его сменили номер и блок `api-scopes`. md5 пересчитаны на временной базе и
+  совпали.
+- **Секретов и переключателей нет.**
+- **Подшаги:**
+  - 4a — FF `main` до `d10f0dd`, проба `step3`, застава и `db push`, проба `step4` и
+    `postpush_knowledge_base.sql`;
+  - 4b — `git push origin main`: раздел «База знаний»; главный техник видит только её и настройки;
+  - 4c — `npx supabase migration list --linked`, затем OTA №9 из этого `main` (видео + база знаний +
+    задание без автора): preview, проверка на телефоне, field.
+- **Откаты:**
+  - 4c — republish №8 (preview `c509d6c8`, field `e6d58921`);
+  - 4b — `git revert --no-edit d10f0dd 9b77bac 8b96e18 3a3c478 644fa7d && git revert --no-edit -m 1
+    130e159 && git revert --no-edit -m 1 316468f && git push origin HEAD:main`;
+  - 4a — `npx supabase db query --linked -f docs/one-off-writes/knowledge-base-step1-rollback.sql`,
+    `npx supabase migration repair --status reverted 20261030100000 --linked`; проба — `EQUAL step3`,
+    прав 42.
+- **Слово владельца:** «Шаг 4: push базы знаний», «Шаг 4: main», «OTA №9 preview», «OTA №9 field»
+  (после проверки на телефоне).
+
+### 9.5 Шаг 5 — отзывы
+
+- **Миграция** `20261030110000_reviews_to_tasks.sql` (была `20261017110000`). **Застава:**
+  `HEAD_WANT=20261030100000`, `LIST_WANT="20261030110000_reviews_to_tasks.sql"`.
+- **Прежде всего — ответ на вопрос 1 (§8):** без него `table_grants.sql` красный, и шаг не идёт.
+  Вариант (а) — одна правка набора; (б) — новая миграция и код, репетицию шага повторить.
+- **Что добавила репетиция:**
+  - слияние; новый конфликт — тест `problem-detail.test.tsx`: `ae3c658` уже в шаге 4, а ветка
+    добавляет к его тесту свой; взята её версия;
+  - номер и ссылки (c65aa91): телефон, откат, демо, комментарий `_shared/reviews/db.ts` (модуль новый,
+    его импортируют только две новые функции), `table_grants.sql`, шапка миграции;
+  - паритет (d4f253c): 32 функции и 3 таблицы, права `reviews:read`, `reviews:decide`, группа
+    `reviews`; меню и тесты панели (как ac78c8d); `test:fn` (как f8ca08d);
+  - типы (731293e) — впервые сгенерированные (в ветке их писали руками); из прежних строк меняется
+    только `reported_by`, он становится nullable;
+  - откат убирает строки прав (7e30c96); 5d — 69fd4b0.
+- **Пробы:** до — `step4`, после — `step5` и таблица §9.2. Меняется одна прежняя функция —
+  `push_on_problem_reported` → `627710e7`. `execute` у `authenticated` — 8 новых функций.
+  `review_settings` после push пуста: строку компании заводит первое сохранение настроек.
+- **Секреты** — владелец ставит сам, из своего окна, не печатая:
+  - `REVIEW_ID_HMAC_SECRET` — не меньше 32 случайных знаков, один раз и навсегда: с другим секретом все
+    загруженные отзывы придут снова как новые. Копия — в менеджер паролей. Без него `sync-reviews`
+    отвечает 500 `ConfigError` — так задумано.
+  - `ANTHROPIC_API_KEY` — ключ модели. Без него разбор идёт одними правилами, и `model_enabled`
+    включать нельзя.
+  - Hostaway (`HOSTAWAY_ACCOUNT_ID`, `HOSTAWAY_API_KEY`) и `SUPABASE_*` уже есть у нынешних функций.
+- **Переключатели:**
+  - телефон — `REVIEW_SOURCE_ENABLED` (код, 69fd4b0): `true` только в `main` после 5b и только с
+    OTA №10;
+  - «Отзывы → Настройки» (только админ, по умолчанию всё выключено):
+    - `sync_enabled` — ежедневная загрузка оценок;
+    - `texts_enabled` — тексты; требует даты уведомления гостей `notice_published_at`;
+    - `tasks_enabled` — задания; только после того, как OTA №9 и №10 дошли до телефонов;
+    - `model_enabled` — модель; требует `texts_enabled` и ключ; при включении `model_since` ставится на
+      14 дней назад;
+    - `daily_model_cap` 50, `min_confidence` 0,60;
+  - режимы по виду находки: «На одобрение» — по умолчанию; «Сразу» (`auto_kinds`) — только админ,
+    только если у вида за 60 дней не меньше 50 решений и не меньше 90 % одобренных, и не больше 5
+    авто-заданий в сутки; виды — `repair`, `safety`, `pests`, `access`;
+  - крон: `sync-reviews-daily` (06:00 UTC) и `classify-reviews-daily` (06:20 UTC) выключены до `select
+    cron.alter_job(jobid, active => true) from cron.job where jobname in ('sync-reviews-daily',
+    'classify-reviews-daily')`.
+- **Подшаги:**
+  - 5a — ответ на вопрос 1; при (а) — правка `table_grants.sql` коммитом в ветку и прогон наборов на
+    временной базе;
+  - 5b — FF `main` до `7e30c96` (плюс коммит 5a), проба `step4`, застава и `db push`, проба `step5`;
+  - 5c — владелец ставит секреты; `npx supabase functions deploy sync-reviews classify-reviews`;
+    функции в списке; вызов без секрета — 500 `ConfigError`;
+  - 5d — `git merge --ff-only 69fd4b0`, `git push origin main` (Vercel: «Отзывы» в меню, счётчик
+    кандидатов), `npx supabase migration list --linked`, OTA №10 из этого `main`: preview, проверка,
+    field;
+  - 5e — выключатели и крон.
+- **Откаты:**
+  - 5e — выключить там же; `cron.alter_job(…, active => false)`;
+  - 5d — republish №9; `git revert --no-edit 69fd4b0 7e30c96 731293e d4f253c c65aa91 && git revert
+    --no-edit -m 1 5582e5f && git push origin HEAD:main`;
+  - 5c — `npx supabase functions delete sync-reviews classify-reviews`;
+  - 5b — `npx supabase db query --linked -f docs/one-off-writes/reviews-to-tasks-rollback.sql` (отказывает,
+    пока есть задания из отзывов: что с ними делать — решение владельца), `npx supabase migration
+    repair --status reverted 20261030110000 --linked`; проба — `EQUAL step4`, прав 44.
+- **Слово владельца:** ответ на вопрос 1; «Шаг 5: push отзывов»; секреты — сам; «Шаг 5: функции»; «Шаг
+  5: main»; «OTA №10 preview» / «field»; «Шаг 5: включай» — дата уведомления гостей и выключатели
+  (админ).
+
+### 9.6 Репетиция 30.10: как и что проверено
+
+- **Временные базы** в контейнере стенда; стенд не тронут, `db:reset` не запускался:
+  - пошаговая — до `20261027120000`, дальше по одной миграции, как `db push`;
+  - чистая — все 117 файлов по порядку.
+
+  Обе в конце совпали по отпечатку и по каждой функции. Типы на голове байт в байт равны типам `main`;
+  у каждого шага — свои сгенерированные типы.
+- **Откаты** прогнаны там же: после шага 5 → `step4`, после 4 → `step3`, после 3 → `head` (отпечаток и
+  функции `EQUAL`, прав 44 и 42), затем повторный накат всех трёх → снова `step5`. Найдено и
+  исправлено:
+  - откат API оставлял три индекса на `tasks`, `reservations`, `problems` (111 против 108), а миграция
+    строит их без `if not exists`: повторный push после отката упал бы;
+  - откаты базы знаний и отзывов оставляли свои строки прав (46 вместо 44 и 42).
+
+| Прогон | Итог |
+|---|---|
+| SQL, состояние шага 3 | 48 наборов, 2090 проверок, красных 0 |
+| SQL, состояние шага 4 | 49 наборов, 2190 проверок, красных 0 |
+| SQL, все 117 миграций | 50 наборов, 2290 проверок; красный один — `table_grants.sql` (`review_run_status()`, вопрос 1); без этой проверки набор 26 из 26 |
+| паритет API | 16 из 16 на каждом шаге |
+| tsc | 0 ошибок у панели и телефона в состояниях шагов 3, 4, 5 и 5d |
+| vitest панели (2 воркера) | 177 файлов, 2302 из 2302 |
+| jest телефона (2 воркера, `--forceExit`) | 206 файлов, 3436 из 3436; с 5d — то же |
+| `next build` | собрался: компиляция 22,3 с, TypeScript 20,2 с, 19 страниц, `/developers`, `/knowledge`, `/reviews` на месте (заглушки `NEXT_PUBLIC_*`) |
+| eslint | панель чисто; телефон (`npx eslint .`) — 0 ошибок и 9 предупреждений, те же 9 — на `main` 770c2e6 (`expo lint` показывает из них 3) |
+| Deno (`npm run test:fn`) | 357 из 357, `deno.lock` не тронут |
+| Spectral (`npm run api:lint`) | чисто |
+| `deno check`, HTTP-контракт API | не повторялись: код функций с 28.10 отличается одной строкой комментария; контракту нужны данные стенда |
+
+vitest, jest и сборка шли на итоговом дереве; в промежуточных состояниях — tsc, SQL и паритет.
