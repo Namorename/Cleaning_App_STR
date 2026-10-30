@@ -18,6 +18,7 @@ import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 import { formatReportedAt, problemPlace, problemPriorityText, problemStatusText } from './format';
 import { MAX_PROBLEM_PHOTOS, type Problem } from './schema';
+import { reviewLabel, shownTitle } from './review-source';
 
 interface ProblemDetailProps {
   problem: Problem;
@@ -83,8 +84,9 @@ export function ProblemDetail({
   dispatch,
   instructions,
 }: ProblemDetailProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const fromReview = reviewLabel(problem, t);
   // Its buttons are last: scrolled to the end they stop clear of the system's
   // bar, which the screen is drawn under (components/bottom-inset.ts).
   const end = useScreenEdgePadding(Spacing.lg);
@@ -97,7 +99,8 @@ export function ProblemDetail({
         <ErrorBanner title={t('common.refreshFailedSaved')} error={refreshError} />
       ) : null}
 
-      <Text variant="heading">{problem.title}</Text>
+      <Text variant="heading">{shownTitle(problem, i18n.language)}</Text>
+      {fromReview === null ? null : <Text tone="secondary">{fromReview}</Text>}
       <Text tone="secondary">
         {problemPlace(problem)} · {formatReportedAt(problem.created_at)}
       </Text>

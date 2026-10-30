@@ -14,6 +14,8 @@ vi.mock('next/navigation', () => ({
 // test fills by hand.
 const unread = { tasks: new Set<string>(), problems: new Set<string>() };
 vi.mock('@/features/chat/use-chat', () => ({ useUnreadSubjects: () => unread }));
+// The reviews' count is a query of its own; here it says nothing waits.
+vi.mock('@/features/reviews/use-reviews', () => ({ useCandidateCount: () => ({ data: 0 }) }));
 
 afterEach(() => {
   unread.tasks.clear();
@@ -70,6 +72,7 @@ describe('Sidebar', () => {
       'Календарь',
       'Уборки',
       'Задания',
+      'Отзывы',
       'Заявки',
     ]);
     expect(linkTexts(within(nav).getByRole('group', { name: 'Справочники' }))).toEqual([
@@ -96,6 +99,7 @@ describe('Sidebar', () => {
       '/calendar',
       '/tasks',
       '/problems',
+      '/reviews',
       '/supplies',
       '/apartments',
       '/team',
@@ -198,6 +202,7 @@ describe('Sidebar folded to a strip of icons', () => {
       'Календарь',
       'Уборки',
       'Задания',
+      'Отзывы',
       'Заявки',
       'Объекты',
       'Команда',
@@ -229,6 +234,7 @@ describe('Sidebar folded to a strip of icons', () => {
       'Календарь',
       'Уборки',
       'Задания',
+      'Отзывы',
       'Заявки',
       'Объекты',
       'Команда',

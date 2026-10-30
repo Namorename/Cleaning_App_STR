@@ -211,6 +211,23 @@ describe('ProblemDetail', () => {
     expect(screen.getByText('Сообщил:')).toHaveTextContent('Неизвестно');
   });
 
+  test('a task from a guest review says so, with its channel and the month the guest left', () => {
+    queries.problem.mockReturnValue(
+      loaded(
+        problemSchema.parse({
+          ...assigned,
+          reported_by: null,
+          reporter: null,
+          source: 'review',
+          review_facts: { kind: 'repair', subject: 'hot_water', channel: 'airbnb', departure_month: '2026-10' },
+        }),
+      ),
+    );
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    expect(screen.getByText('Из отзыва гостя · Airbnb · Гость выехал: 2026-10')).toBeInTheDocument();
+  });
+
   test('«К списку заданий» returns to the view the task was opened from', () => {
     window.history.replaceState(null, '', `/problems/${PROBLEM_ID}?view=list`);
     render(<ProblemDetail problemId={PROBLEM_ID} />);
