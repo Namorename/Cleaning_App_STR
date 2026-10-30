@@ -143,5 +143,11 @@ $fn$;
     drop column if exists source,
     alter column reported_by set not null;
   drop type if exists public.problem_source;
+
+  -- The API's scope rows the migration added (its api-scopes block); the
+  -- API's table exists once 20261028100000 is in, which comes first.
+  if to_regclass('public.api_scopes') is not null then
+    delete from public.api_scopes where id in ('reviews:read', 'reviews:decide');
+  end if;
 end;
 $$;
