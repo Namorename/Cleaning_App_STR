@@ -2455,3 +2455,18 @@ select cron.schedule(
   '10 5 * * *',
   $$delete from raw.review_runs where ran_at < now() - interval '180 days'$$
 );
+
+-- The public API's registry (packages/shared/src/api/registry.json) reserves
+-- the scopes this feature will be served under; no key may hold a planned
+-- scope (20261028100000).
+-- api-scopes:begin
+insert into public.api_scopes (id, scope_group, action, sensitivity, status, operator) values
+  ('reviews:read', 'reviews', 'read', 'sensitive', 'planned', false),
+  ('reviews:decide', 'reviews', 'write', 'normal', 'planned', true)
+on conflict (id) do update
+  set scope_group = excluded.scope_group,
+      action      = excluded.action,
+      sensitivity = excluded.sensitivity,
+      status      = excluded.status,
+      operator    = excluded.operator;
+-- api-scopes:end

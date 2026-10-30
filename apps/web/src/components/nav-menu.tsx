@@ -266,7 +266,8 @@ export function NavMenu({
   const pathname = usePathname();
   const unread = useUnreadSubjects();
   // The candidates from guest reviews: a count in the menu instead of a push (the owner's decision 7).
-  const candidates = useCandidateCount();
+  // The head technician's menu has no «Reviews», so his panel does not ask.
+  const candidates = useCandidateCount(access === 'full');
   // How many conversations wait under each section. Threads hang off jobs
   // and breakages, so the count sits on the section that lists them.
   const unreadBy: UnreadCounts = {

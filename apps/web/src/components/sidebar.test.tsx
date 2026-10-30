@@ -273,8 +273,8 @@ describe('Sidebar folded to a strip of icons', () => {
     render(<Sidebar email="manager.test@example.com" />);
     const toggle = screen.getByRole('button', { name: 'Свернуть меню' });
 
-    // Through the ten sections and the theme lever, then the toggle under them.
-    for (let step = 0; step < 12 && document.activeElement !== toggle; step += 1) {
+    // Through the eleven sections and the theme lever, then the toggle under them.
+    for (let step = 0; step < 13 && document.activeElement !== toggle; step += 1) {
       await userEvent.tab();
     }
     expect(toggle).toHaveFocus();

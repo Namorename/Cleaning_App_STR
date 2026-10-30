@@ -12,6 +12,12 @@
       "reason": "phone upload pipeline: registers, confirms or withdraws a Storage slot (row before file); the API only reads media (photo of a reported task)",
       "defined_in": "20260926101000_media_rpc_one_owner.sql"
     },
+    "add_review_finding": {
+      "status": "planned",
+      "scope": "reviews:decide",
+      "reason": "the manager files a finding on a review by hand and approves it at once (makes a task; an assignee also needs tasks:assign)",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
     "add_task_media": {
       "status": "internal",
       "reason": "phone-only flow of the cleaner at work (task steps): photo/video of a step, row before file",
@@ -376,6 +382,17 @@
       "reason": "The listTasks operation of API v1.",
       "defined_in": "20261028100000_public_api_v1.sql"
     },
+    "apply_review_findings": {
+      "status": "internal",
+      "reason": "classify-reviews job: stores and decides one review's reading (rules or model), service_role only",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "approve_review_finding": {
+      "status": "planned",
+      "scope": "reviews:decide",
+      "reason": "the manager's yes: a finding becomes a task (problem) or joins an open or solved one; may send a technician at once (tasks:assign)",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
     "archive_problem": {
       "status": "planned",
       "scope": "tasks:update",
@@ -522,10 +539,25 @@
       "reason": "forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API.",
       "defined_in": "20261028100000_public_api_v1.sql"
     },
+    "create_review_problem": {
+      "status": "internal",
+      "reason": "helper of approve_review_finding/decide_review_finding: inserts the task (problem) a finding asks for; execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
     "current_host_id": {
       "status": "internal",
       "reason": "auth/RLS helper: tenant of the caller",
       "defined_in": "20260905094000_tenant_host_id.sql"
+    },
+    "cut_review_stay_links": {
+      "status": "internal",
+      "reason": "privacy cut: a settled review keeps only the month of its stay and loses the booking link (89-day rule); called inside the review functions, execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "decide_review_finding": {
+      "status": "internal",
+      "reason": "decision rules of the classify job (no task, dropped, duplicate, already fixed, auto); called inside apply_review_findings, execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
     "default_host_id": {
       "status": "internal",
@@ -546,6 +578,11 @@
       "status": "internal",
       "reason": "scheduler job: queues the 07:00 push summary",
       "defined_in": "20261003160000_head_tech_push.sql"
+    },
+    "erase_review_texts": {
+      "status": "internal",
+      "reason": "forbidden: data:destroy - irreversibly erases review texts and what was drawn from them (evidence, model wording); execute revoked from every role, called by the purge and the texts-off switch",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
     "expire_stale_tasks": {
       "status": "internal",
@@ -612,6 +649,11 @@
       "reason": "trigger function: no role change to technician while holding links or open cleanings",
       "defined_in": "20261003110000_tech_rules.sql"
     },
+    "guest_reviews_touch": {
+      "status": "internal",
+      "reason": "trigger function: stamps updated_at of a review, only its month once the stay is cut",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
     "handle_new_user": {
       "status": "internal",
       "reason": "trigger function: creates the profile of a new auth.users row",
@@ -626,6 +668,11 @@
       "status": "internal",
       "reason": "auth/RLS helper: listings the head technician may read",
       "defined_in": "20261003120000_head_tech_read.sql"
+    },
+    "ingest_guest_reviews": {
+      "status": "internal",
+      "reason": "Hostaway sync, Hostaway stays the source of truth (sync-reviews): upserts a portion of reviews by their HMAC key, service_role only",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
     "invoke_edge_function": {
       "status": "internal",
@@ -742,6 +789,16 @@
       "reason": "helper of set_cleaning_time and clear_cleaning_time: their checks and the row lock; execute revoked from clients",
       "defined_in": "20261027120000_manual_cleaning_time.sql"
     },
+    "log_review_run": {
+      "status": "internal",
+      "reason": "run journal of classify-reviews into raw.review_runs, service_role only",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "mark_review_analysis_failed": {
+      "status": "internal",
+      "reason": "classify-reviews job: counts a failed model reading of a review, service_role only",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
     "mark_task_media_purged": {
       "status": "internal",
       "reason": "retention job (purge-task-media): marks purged files, service_role only",
@@ -835,6 +892,16 @@
       "reason": "scheduler job: nightly purge of the push queue and tickets",
       "defined_in": "20260928140000_push_sender.sql"
     },
+    "purge_review_data": {
+      "status": "internal",
+      "reason": "scheduler job: nightly retention purge (purge-review-data) of review texts and keys, irreversible; service_role only",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "purge_review_stays": {
+      "status": "internal",
+      "reason": "scheduler job: nightly privacy sweep (purge-review-stays) cutting settled stays to their month; service_role only",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
     "push_digest_hour": {
       "status": "internal",
       "reason": "push plumbing: constant of the push queue and sender",
@@ -868,7 +935,7 @@
     "push_on_problem_reported": {
       "status": "internal",
       "reason": "trigger function: queues problem_new pushes for head technicians",
-      "defined_in": "20261003160000_head_tech_push.sql"
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
     "push_on_task_change": {
       "status": "internal",
@@ -930,6 +997,12 @@
       "reason": "forbidden: push tokens (the signed-in phone registers its Expo token)",
       "defined_in": "20260928100000_push_recipients.sql"
     },
+    "reject_review_finding": {
+      "status": "planned",
+      "scope": "reviews:decide",
+      "reason": "the manager's no, with a reason; a task the finding made is called off while nobody has been sent",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
     "release_push_token": {
       "status": "internal",
       "reason": "forbidden: integrations:read_secrets - push device tokens; a signed-out phone lets go of its token without a session (the one anon grant)",
@@ -980,6 +1053,11 @@
       "reason": "cleaning generator helper; cleanings come from Hostaway bookings (rooms a booking took)",
       "defined_in": "20260927120000_pinned_rooms.sql"
     },
+    "reserve_review_model_calls": {
+      "status": "internal",
+      "reason": "model spending fence of classify-reviews: books model calls under the daily ceiling, service_role only",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
     "resolve_checklist_property": {
       "status": "planned",
       "scope": "checklists:read",
@@ -1009,11 +1087,88 @@
       "reason": "brings an earlier version of an article (text and translations) back as its newest; history is not rewritten",
       "defined_in": "20261030100000_knowledge_base.sql"
     },
+    "review_findings_dates": {
+      "status": "internal",
+      "reason": "trigger function: a finding's dates, kept to the month once its review's stay is cut",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "review_kind_gives_task": {
+      "status": "internal",
+      "reason": "constant predicate of the review RPCs: finding kinds that make a task (repair, safety, pests, access); no client calls it",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "review_kind_record": {
+      "status": "internal",
+      "reason": "helper of update_review_settings: the record (decisions, approvals in 60 days) a kind needs for auto; execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "review_load_state": {
+      "status": "internal",
+      "reason": "Hostaway sync (sync-reviews): which parts of the reviews read are still missing, flags only, service_role only",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "review_model_calls_left": {
+      "status": "internal",
+      "reason": "model spending fence of classify-reviews: calls left today under the ceiling, service_role only",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "review_month_of": {
+      "status": "internal",
+      "reason": "privacy helper: the first moment of the month (Prague) a cut review keeps of any time; execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "review_open_twin": {
+      "status": "internal",
+      "reason": "duplicate lookup of decide_review_finding/approve_review_finding: the open task from a review about the same; execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "review_place_family": {
+      "status": "internal",
+      "reason": "helper of the review decision: a room's listing or the listing itself, where duplicates are looked for; execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "review_place_problems": {
+      "status": "planned",
+      "scope": "reviews:read",
+      "reason": "a finding's neighbours: tasks on its place, open or since the guest left, and which ones approve may link",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "review_retention_ends": {
+      "status": "internal",
+      "reason": "retention constant: the day a review's text and key go (18 months, whole months); execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "review_run_status": {
+      "status": "planned",
+      "scope": "reviews:read",
+      "reason": "when the review load and the classification last ran and last ran clean (times only)",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "review_stay_link_ends": {
+      "status": "internal",
+      "reason": "privacy constant: the last day a review keeps its exact stay and booking link (89 days, by month); execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "review_subjects": {
+      "status": "internal",
+      "reason": "constant list of finding subjects checked by review_findings; the apps name them from the locales and do not call it",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
     "review_supply_request": {
       "status": "planned",
       "scope": "supplies:write",
       "reason": "moves a supply request along new/accepted/ordered/fulfilled or rejects it",
       "defined_in": "20260908130200_supply_requests.sql"
+    },
+    "review_sync_watermark": {
+      "status": "internal",
+      "reason": "Hostaway sync (sync-reviews): where the next daily load starts, service_role only",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "review_text_allowed": {
+      "status": "internal",
+      "reason": "privacy rule: whether a review may keep a text (guest notice, hidden, archive, 18 months); execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
     "revoke_api_key": {
       "status": "internal",
@@ -1123,6 +1278,11 @@
       "status": "internal",
       "reason": "trigger function: stamps created_by on a task",
       "defined_in": "20260910140000_task_title_author.sql"
+    },
+    "store_review_texts": {
+      "status": "internal",
+      "reason": "Hostaway sync (sync-reviews): helper of ingest_guest_reviews writing the anonymised texts while they may be kept; execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
     "supply_item_name_max_length": {
       "status": "internal",
@@ -1273,6 +1433,11 @@
       "reason": "the reporter corrects her own open task (problem)",
       "defined_in": "20260908130000_problems.sql"
     },
+    "update_review_settings": {
+      "status": "internal",
+      "reason": "forbidden: data:destroy - texts off erases every kept review text at once; the other gates (guest notice date, texts, model spend, auto work orders) are admin levers kept in the panel",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
     "validate_problem_text": {
       "status": "internal",
       "reason": "validation helper of the problem writes; execute revoked from clients",
@@ -1364,6 +1529,12 @@
       "status": "internal",
       "reason": "A view for the panel's review of expired cleanings; GET /v1/cleanings?status=expired serves the same rows.",
       "defined_in": "20260917140000_expired_review_place.sql"
+    },
+    "guest_reviews": {
+      "status": "planned",
+      "scope": "reviews:read",
+      "reason": "guest reviews: rating, categories, channel, place, month and anonymised texts; serve without the PMS ids and booking link (guests:read_personal)",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
     "hosts": {
       "status": "exposed",
@@ -1481,6 +1652,17 @@
         "listBookings",
         "getBooking"
       ]
+    },
+    "review_findings": {
+      "status": "planned",
+      "scope": "reviews:read",
+      "reason": "what the rules or the model found in a guest review and what was decided about it",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "review_settings": {
+      "status": "internal",
+      "reason": "admin gates of tasks-from-reviews (guest notice date, texts, model ceiling, auto kinds); read only by the panel card that writes it through update_review_settings, forbidden: data:destroy",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
     "supply_catalog_items": {
       "status": "planned",

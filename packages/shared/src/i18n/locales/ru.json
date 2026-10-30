@@ -250,6 +250,7 @@
           "analytics": "Аналитика",
           "chat": "Чат",
           "knowledge": "База знаний",
+          "reviews": "Отзывы гостей",
           "webhooks": "Вебхуки"
         },
         "scopes": {
