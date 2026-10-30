@@ -61,7 +61,7 @@ insert into wanted values
   ('checklist_items',      'SELECT'),
   ('task_media',           'SELECT'),
   ('problems',             'SELECT'),
-  -- Guest reviews and what was found in them (20261017110000): the jobs
+  -- Guest reviews and what was found in them (20261030110000): the jobs
   -- write through ingest_guest_reviews and apply_review_findings, the office
   -- through approve/reject/add_review_finding and update_review_settings.
   ('guest_reviews',        'SELECT'),

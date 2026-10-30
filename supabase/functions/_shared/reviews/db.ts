@@ -2,7 +2,7 @@
  * The runs' stores over supabase-js, as the service role (the jobs'
  * functions are granted to it alone, docs/reviews-to-tasks.md §2.2). Reads go
  * to the tables the service role may select; every write is an RPC of
- * 20261017110000_reviews_to_tasks.sql. One company: the one there is
+ * 20261030110000_reviews_to_tasks.sql. One company: the one there is
  * (default_host_id) until F25 phase B passes its own.
  */
 

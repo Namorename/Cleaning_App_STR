@@ -10,7 +10,7 @@
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
-const MIGRATION = 'supabase/migrations/20261017110000_reviews_to_tasks.sql';
+const MIGRATION = 'supabase/migrations/20261030110000_reviews_to_tasks.sql';
 const DEMO = 'supabase/demo/reviews-demo.sql';
 const ROLLBACK = 'docs/one-off-writes/reviews-to-tasks-rollback.sql';
 

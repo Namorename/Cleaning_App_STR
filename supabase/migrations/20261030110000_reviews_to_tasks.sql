@@ -4,7 +4,7 @@
 -- switches it on: every review_settings switch is off by default, and the two
 -- jobs that call the Edge Functions are scheduled inactive. The steps of the
 -- design (§7) are the order the switches go on, not separate migrations.
--- 20261017100000 is the knowledge base's (an unmerged branch); this stamp
+-- 20261030100000 is the knowledge base's (rollout step 4); this stamp
 -- keeps the migration after it.
 --
 -- The exact days of a stay and the link to its booking live only while the
