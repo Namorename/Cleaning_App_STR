@@ -106,6 +106,55 @@
     - На `woom-bnb.vercel.app` отвечают 200: `/login`, `/privacy`, `/developers` и
       `/developers/openapi.json` (OpenAPI 3.1.0, 16 путей).
   - Откаты — §9.3.
+- **Шаг 4 (база знаний) 30.10: подшаги 4a–4b выполнены, 4c — OTA №9 на preview; field ждёт слова
+  владельца после проверки на телефоне.**
+  - Проверки перед шагом:
+    - диск 281,2 ГБ, память 5,31 ГБ;
+    - `origin/main` 093cc63, голова облака `20261028100000`;
+    - `d10f0dd` есть в `integration-rehearsal-1030`;
+    - sha256 миграции `1f66629c…` = §9.1.
+  - `main` доведён до `d10f0dd` fast-forward. Манифесты панели, телефона и `shared` с `093cc63` не
+    менялись, `npm ci` не нужен. Проверки на `d10f0dd`:
+
+    | Проверка | Итог | В репетиции (дерево шага 5) |
+    |---|---|---|
+    | vitest | 176 / 2293 | 177 / 2302 |
+    | jest | 205 / 3429 | 206 / 3436 |
+    | Deno | 300 / 300 | 357 |
+    | паритет | 16 / 16 | 16 / 16 |
+    | `next build` | 18 страниц, с `/knowledge` | 19 |
+
+    Также tsc 0 / 0, eslint чисто (у телефона 9 старых предупреждений). Разница с репетицией — ровно
+    файлы шага 5: тест экрана отзывов панели, `review-source.test.ts` телефона, 7 файлов Deno в
+    `_shared/reviews`, страница `/reviews`.
+  - 4a — застава и `db push` в 19:47:00 UTC. Сухой прогон назвал ровно
+    `20261030100000_knowledge_base.sql`.
+    - Пробы: до — `EQUAL step3`, после — `EQUAL step4` (отпечаток и функции).
+    - `postpush_1028.sql`: голова `20261030100000`, крон 11, `client_grants` — 4 таблицы `kb_*`,
+      только `SELECT` у `authenticated`; видео без изменений.
+    - `postpush_api_scopes_1028.sql`: 44 права (12 / 22 / 10), ключей 1 (владельца).
+    - `postpush_knowledge_base.sql`: 13 функций из 13 — как в шапке, `execute` у `authenticated` — 5,
+      таблицы с RLS, политики и 4 триггера — как в шапке.
+    - Тела ручного времени без изменений; каталог = облако, 116.
+  - 4b — `git push origin HEAD:main` из дерева `main-step2-1029`: `093cc63..d10f0dd`, 19:48:01 UTC.
+    - Vercel `woom-cyuw19025` READY.
+    - На `woom-bnb.vercel.app` отвечают 200: `/login`, `/privacy`, `/developers`,
+      `/developers/openapi.json`; `/knowledge` и `/settings` без входа — 307 на `/login`.
+  - 4c — OTA №9 на preview в 21:59:40 UTC: группа `e004af6d-9252-43fe-a79f-e2792422d432`, runtime
+    1.2.0, коммит `d10f0dd`.
+    - Нативных правок нет: с `a167849` менялись только корневые `package.json` и lock (инструменты
+      панели и API); `CACHE_BUSTER` прежний, откат на №8 двусторонний.
+    - Первый экспорт (20:31 UTC) упал: `hermesc.exe` вышел с кодом 0xC0000142, затем задачу снял
+      харнесс из-за нехватки памяти. Ничего не опубликовано.
+    - Второй экспорт (21:48–21:50 UTC) — тем же `.cmd`, что №8, на переднем плане, после выхода
+      OneDrive (память 5,52 → 5,88 ГБ; Docker Desktop не закрыт — `docker ps` не пуст). Hermes
+      собрал обе платформы.
+    - Бандл сверен с №8: адрес Supabase (привязанный проект), публичный ключ и DSN Sentry те же на
+      обеих платформах; JWT, токенов и приватных ключей нет. Одно совпадение шаблона `sb_secret_` на
+      платформу — склейка строк Hermes без цифр, как в №8.
+    - `migration list --linked` перед публикацией: 116 = 116.
+    - До: preview `c509d6c8`, field `e6d58921`; после: preview `e004af6d`, field `e6d58921` (не тронут).
+    - Откат preview — republish `c509d6c8` (№8). Field — по слову владельца, republish `e004af6d`.
 - **Шаги 3–5 перерепетированы 30.10** на `main` 770c2e6 (ветка `integration-rehearsal-1030`, §9);
   ничего не выкачено. Итоговые номера: API `20261028100000`, база знаний `20261030100000`, отзывы
   `20261030110000`. Концы шагов для `main`: `093cc63`, `d10f0dd`, `7e30c96`, 5d — `69fd4b0`. Красная
@@ -386,9 +435,9 @@ reverted <версия>`. Обе команды пишут в облако — �
 | 3b — **выполнен 30.10, 15:27 UTC** | FF `main` до `093cc63` репетиции 30.10 (§9.1, §9.3: слияние API, паритет с `release_push_token` и четырьмя функциями ручного времени, право `cleanings:update`, `defined_in`, `lock_timeout`, типы, откат с индексами), из него — миграция `20261028100000_public_api_v1` | «Шаг 3: push API» | `HEAD_WANT=20261027120000`, `LIST_WANT="20261028100000_public_api_v1.sql"`; проба до — `EQUAL head` (§9.2) | `EQUAL step3`; `postpush_1028.sql`: крон 11 (`purge-api-records` 5 4), `client_grants []` (таблицы API — только `service_role`); `postpush_api_scopes_1028.sql`: 42 строки (12 exposed, 20 planned, 10 forbidden), ключей 0 | `docs/one-off-writes/api-v1-rollback.sql` (с 30.10 снимает и три индекса), `migration repair --status reverted 20261028100000`; проба — `EQUAL head` | нет |
 | 3c — **выполнен 30.10, 15:29 UTC** | деплой `npx supabase functions deploy api api-keys` (`verify_jwt = false` для обеих — из `config.toml`) | «Шаг 3: функции» | — | `curl …/functions/v1/api/v1/me` без ключа → 401 `missing-key` | `npx supabase functions delete api api-keys` | нет |
 | 3d — **выполнен 30.10, 15:51 UTC** (`093cc63`; первый ключ — владелец) | `git push origin main` | «Шаг 3: main» | — | `/developers` открывается; админ создаёт ключ «Только чтение», `curl /v1/me` → 200 | `git revert` четырёх коммитов шага (§9.3) | первый ключ — сам |
-| 4a | FF `main` до `d10f0dd` (§9.1, §9.4: обе ветки базы знаний, `ae3c658`, номер `20261030100000`, паритет, типы, откат со строками прав), из него — миграция | «Шаг 4: push базы знаний» | `HEAD_WANT=20261028100000`, `LIST_WANT="20261030100000_knowledge_base.sql"`; проба до — `EQUAL step3` | `EQUAL step4`; `postpush_knowledge_base.sql` (13 функций — как в её шапке); `postpush_1028.sql`: `kb_*` — только `SELECT` у `authenticated`; `postpush_api_scopes_1028.sql`: 44 | `docs/one-off-writes/knowledge-base-step1-rollback.sql`, `repair --status reverted 20261030100000`; проба — `EQUAL step3`, прав 42 | нет |
-| 4b | `git push origin main` | «Шаг 4: main» | — | раздел «База знаний», старший техник видит только её и настройки | `git revert` коммитов шага (§9.4) | нет |
-| 4c | OTA №9 из `main` (видео + база знаний + терпимость к пустому автору): preview, потом field | «OTA №9 preview» / «field» | проверка бандла | статьи открываются у горничной и техника | republish №8 | проверка на телефоне |
+| 4a — **выполнен 30.10, 19:47 UTC** | FF `main` до `d10f0dd` (§9.1, §9.4: обе ветки базы знаний, `ae3c658`, номер `20261030100000`, паритет, типы, откат со строками прав), из него — миграция | «Шаг 4: push базы знаний» | `HEAD_WANT=20261028100000`, `LIST_WANT="20261030100000_knowledge_base.sql"`; проба до — `EQUAL step3` | `EQUAL step4`; `postpush_knowledge_base.sql` (13 функций — как в её шапке); `postpush_1028.sql`: `kb_*` — только `SELECT` у `authenticated`; `postpush_api_scopes_1028.sql`: 44 | `docs/one-off-writes/knowledge-base-step1-rollback.sql`, `repair --status reverted 20261030100000`; проба — `EQUAL step3`, прав 42 | нет |
+| 4b — **выполнен 30.10, 19:48 UTC** (`d10f0dd`) | `git push origin main` | «Шаг 4: main» | — | раздел «База знаний», старший техник видит только её и настройки | `git revert` коммитов шага (§9.4) | нет |
+| 4c — **preview выполнен 30.10, 21:59 UTC** (`e004af6d`); field — слово | OTA №9 из `main` (видео + база знаний + терпимость к пустому автору): preview, потом field | «OTA №9 preview» / «field» | проверка бандла | статьи открываются у горничной и техника | republish №8 | проверка на телефоне |
 | 5a | решение по красной проверке (§6.4, §8 вопрос 1) | ответ на вопрос 1 | — | `table_grants.sql` зелёный | — | ответ |
 | 5b | FF `main` до `7e30c96` (§9.1, §9.5: слияние отзывов, номер `20261030110000`, паритет, панель, `test:fn`, типы, откат со строками прав) плюс коммит решения 5a, из него — миграция | «Шаг 5: push отзывов» | `HEAD_WANT=20261030100000`, `LIST_WANT="20261030110000_reviews_to_tasks.sql"`; проба до — `EQUAL step4` | `EQUAL step5` (из прежних функций меняется одна: `push_on_problem_reported` → `627710e7`); `postpush_1028.sql`: крон 16, `review_cron` оба `false`; `guest_reviews`, `review_findings`, `review_settings` — только `SELECT` у `authenticated`; `postpush_api_scopes_1028.sql`: 46 | `docs/one-off-writes/reviews-to-tasks-rollback.sql`, `repair --status reverted 20261030110000`; проба — `EQUAL step4`, прав 44 | нет |
 | 5c | секреты `REVIEW_ID_HMAC_SECRET` и `ANTHROPIC_API_KEY`, деплой `sync-reviews classify-reviews` | «Шаг 5: функции» | — | функции в списке; без секрета `sync-reviews` отвечает 500 `ConfigError` — так и задумано | `functions delete` | **владелец сам**: секрет HMAC — один раз и навсегда (`docs/reviews-to-tasks.md` §10, п. 3), ключ модели |
