@@ -62,6 +62,50 @@
     классификацией четырёх функций ручного времени в `coverage.json` (§5, 3b).
   - Откат: панель (2b), затем `manual-cleaning-time-rollback.sql`, `migration repair --status
     reverted 20261027120000`, проба.
+- **Шаг 3 (публичный API v1) выполнен 30.10: подшаги 3a–3d.** Первый ключ создаёт владелец в
+  панели.
+  - Проверки перед шагом:
+    - Node 22.13.1 — по слову владельца, на ней прошла репетиция;
+    - диск 282,8 ГБ, память 5,36 ГБ;
+    - `origin/main` 770c2e6, голова облака `20261027120000`;
+    - `API_KEY_PEPPER` есть среди 13 имён секретов (3a);
+    - sha256 миграции `d966dd7f…` = §9.1.
+  - `main` доведён до `093cc63` fast-forward, затем `npm ci`. Проверки на `093cc63`:
+
+    | Проверка | Итог | В репетиции (дерево шага 5) |
+    |---|---|---|
+    | vitest | 171 / 2136 | 177 / 2302 |
+    | jest | 197 / 3335 | 206 / 3436 |
+    | Deno | 300 / 300 | 357 |
+    | паритет | 16 / 16 | 16 / 16 |
+    | `next build` | 17 страниц, с `/developers` | — |
+
+    Также tsc 0 / 0, eslint чисто (у телефона 9 старых предупреждений, как на `main`), Spectral чисто.
+    Числа меньше репетиции на тесты базы знаний и отзывов: файлов vitest на 6 меньше, jest на 9,
+    Deno на 7.
+  - 3b — застава и `db push` в 15:27:41 UTC. Сухой прогон назвал ровно
+    `20261028100000_public_api_v1.sql`.
+    - Пробы: до — `EQUAL head` (отпечаток и функции), после — `EQUAL step3`.
+    - `postpush_1028.sql`: голова `20261028100000`, крон 11 (+ `purge-api-records` `5 4 * * *`),
+      `client_grants []`, видео без изменений.
+    - `postpush_api_scopes_1028.sql`: 42 права (12 / 20 / 10), ключей 0.
+    - Тела ручного времени без изменений.
+  - 3c — `functions deploy api api-keys` в 15:29:37 UTC. Обе функции в версии 1, `verify_jwt`
+    false; остальные семь не тронуты.
+    - Без ключа — 401 `missing-key`; с неверным ключом — 401 `invalid-key`, без подробностей.
+  - Лимит по IP:
+    - в окне 15:50 запросы 1–20 с неверным ключом получили 401, 21-й и 22-й — 429 `rate-limited`,
+      `Retry-After` 584 с (до конца окна, 16:00);
+    - в `api_rate_windows` по одной корзине IP на окно: 4 попадания в 15:30, 22 в 15:50. Значит,
+      `cf-connecting-ip` до функции доходит.
+    - Доказательство частичное. С компьютера один адрес (IPv4), у адреса проекта нет записи AAAA,
+      поэтому `curl -6` до API невозможен. Что два разных клиента получают разные корзины, не
+      проверено.
+  - 3d — `git push origin HEAD:main` из дерева `main-step2-1029`: `770c2e6..093cc63`, 15:51:33 UTC.
+    - Vercel `woom-hjhy28n7v` READY.
+    - На `woom-bnb.vercel.app` отвечают 200: `/login`, `/privacy`, `/developers` и
+      `/developers/openapi.json` (OpenAPI 3.1.0, 16 путей).
+  - Откаты — §9.3.
 - **Шаги 3–5 перерепетированы 30.10** на `main` 770c2e6 (ветка `integration-rehearsal-1030`, §9);
   ничего не выкачено. Итоговые номера: API `20261028100000`, база знаний `20261030100000`, отзывы
   `20261030110000`. Концы шагов для `main`: `093cc63`, `d10f0dd`, `7e30c96`, 5d — `69fd4b0`. Красная
@@ -338,10 +382,10 @@ reverted <версия>`. Обе команды пишут в облако — �
 | 1d — **выполнен 29.10, 19:11 UTC** (`e6d58921`) | OTA №8 на field (republish группы preview) | «OTA №8 field» | — | Sentry без новых ошибок видео за сутки | republish `b9fa5aaf` (№7 на field) | слово |
 | 2a — **выполнен 29.10, 22:35 UTC** | локальное слияние `manual-time-1029` в `main` (`3cce46b`) и снятие стража с переносом набора из `tests/draft` в `tests` (`770c2e6`), из него — миграция `20261027120000_manual_cleaning_time` | «Шаг 2: пушим» | `HEAD_WANT=20261023100000`, `LIST_WANT="20261027120000_manual_cleaning_time.sql"` | `manual_cleaning_time_probe.sql`: тела `31e0dad8` / `19aefc89` / `0cba3e93`, четыре новые функции, колонки 2, триггеры 2, виды событий 3, `execute` у `authenticated` да, у `anon` нет; `postpush_1028.sql`: `since_1023 [20261023100000, 20261027120000]`, крон 10, `client_grants []`; сверка времени открытых уборок из броней — расхождений 0 | панель первой (2b), затем `docs/one-off-writes/manual-cleaning-time-rollback.sql`, `migration repair --status reverted 20261027120000`, проба: тела снова `948052e6` / `cb867170` / `086fd1ec` | нет |
 | 2b — **выполнен 29.10, 22:43 UTC** (`770c2e6`) | `git push origin main` (только после 2a) | «Шаг 2» | — | Vercel READY, `/login` и `/privacy` — 200, на `/privacy` новая фраза о времени уборки | `git revert --no-edit 770c2e6`, `git revert --no-edit -m 1 3cce46b`, `git push origin HEAD:main` | ручная проверка в панели (`docs/manual-cleaning-time.md` §10) |
-| 3a | секрет `API_KEY_PEPPER` — по словам владельца уже задан; только проверка | «Шаг 3» | — | `npx supabase secrets list` показывает имя (не значение) | — (соль не менять: смена гасит все ключи) | подтвердить, что секрет задан; если нет — **сам**, из своего окна: `$s = node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))"; npx supabase secrets set "API_KEY_PEPPER=$s"; Remove-Variable s`; копия — в менеджер паролей |
-| 3b | FF `main` до `093cc63` репетиции 30.10 (§9.1, §9.3: слияние API, паритет с `release_push_token` и четырьмя функциями ручного времени, право `cleanings:update`, `defined_in`, `lock_timeout`, типы, откат с индексами), из него — миграция `20261028100000_public_api_v1` | «Шаг 3: push API» | `HEAD_WANT=20261027120000`, `LIST_WANT="20261028100000_public_api_v1.sql"`; проба до — `EQUAL head` (§9.2) | `EQUAL step3`; `postpush_1028.sql`: крон 11 (`purge-api-records` 5 4), `client_grants []` (таблицы API — только `service_role`); `postpush_api_scopes_1028.sql`: 42 строки (12 exposed, 20 planned, 10 forbidden), ключей 0 | `docs/one-off-writes/api-v1-rollback.sql` (с 30.10 снимает и три индекса), `migration repair --status reverted 20261028100000`; проба — `EQUAL head` | нет |
-| 3c | деплой `npx supabase functions deploy api api-keys` (`verify_jwt = false` для обеих — из `config.toml`) | «Шаг 3: функции» | — | `curl …/functions/v1/api/v1/me` без ключа → 401 `missing-key` | `npx supabase functions delete api api-keys` | нет |
-| 3d | `git push origin main` | «Шаг 3: main» | — | `/developers` открывается; админ создаёт ключ «Только чтение», `curl /v1/me` → 200 | `git revert` четырёх коммитов шага (§9.3) | первый ключ — сам |
+| 3a — **выполнен 30.10, 14:16 UTC** | секрет `API_KEY_PEPPER` — по словам владельца уже задан; только проверка | «Шаг 3» | — | `npx supabase secrets list` показывает имя (не значение) | — (соль не менять: смена гасит все ключи) | подтвердить, что секрет задан; если нет — **сам**, из своего окна: `$s = node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))"; npx supabase secrets set "API_KEY_PEPPER=$s"; Remove-Variable s`; копия — в менеджер паролей |
+| 3b — **выполнен 30.10, 15:27 UTC** | FF `main` до `093cc63` репетиции 30.10 (§9.1, §9.3: слияние API, паритет с `release_push_token` и четырьмя функциями ручного времени, право `cleanings:update`, `defined_in`, `lock_timeout`, типы, откат с индексами), из него — миграция `20261028100000_public_api_v1` | «Шаг 3: push API» | `HEAD_WANT=20261027120000`, `LIST_WANT="20261028100000_public_api_v1.sql"`; проба до — `EQUAL head` (§9.2) | `EQUAL step3`; `postpush_1028.sql`: крон 11 (`purge-api-records` 5 4), `client_grants []` (таблицы API — только `service_role`); `postpush_api_scopes_1028.sql`: 42 строки (12 exposed, 20 planned, 10 forbidden), ключей 0 | `docs/one-off-writes/api-v1-rollback.sql` (с 30.10 снимает и три индекса), `migration repair --status reverted 20261028100000`; проба — `EQUAL head` | нет |
+| 3c — **выполнен 30.10, 15:29 UTC** | деплой `npx supabase functions deploy api api-keys` (`verify_jwt = false` для обеих — из `config.toml`) | «Шаг 3: функции» | — | `curl …/functions/v1/api/v1/me` без ключа → 401 `missing-key` | `npx supabase functions delete api api-keys` | нет |
+| 3d — **выполнен 30.10, 15:51 UTC** (`093cc63`; первый ключ — владелец) | `git push origin main` | «Шаг 3: main» | — | `/developers` открывается; админ создаёт ключ «Только чтение», `curl /v1/me` → 200 | `git revert` четырёх коммитов шага (§9.3) | первый ключ — сам |
 | 4a | FF `main` до `d10f0dd` (§9.1, §9.4: обе ветки базы знаний, `ae3c658`, номер `20261030100000`, паритет, типы, откат со строками прав), из него — миграция | «Шаг 4: push базы знаний» | `HEAD_WANT=20261028100000`, `LIST_WANT="20261030100000_knowledge_base.sql"`; проба до — `EQUAL step3` | `EQUAL step4`; `postpush_knowledge_base.sql` (13 функций — как в её шапке); `postpush_1028.sql`: `kb_*` — только `SELECT` у `authenticated`; `postpush_api_scopes_1028.sql`: 44 | `docs/one-off-writes/knowledge-base-step1-rollback.sql`, `repair --status reverted 20261030100000`; проба — `EQUAL step3`, прав 42 | нет |
 | 4b | `git push origin main` | «Шаг 4: main» | — | раздел «База знаний», старший техник видит только её и настройки | `git revert` коммитов шага (§9.4) | нет |
 | 4c | OTA №9 из `main` (видео + база знаний + терпимость к пустому автору): preview, потом field | «OTA №9 preview» / «field» | проверка бандла | статьи открываются у горничной и техника | republish №8 | проверка на телефоне |
