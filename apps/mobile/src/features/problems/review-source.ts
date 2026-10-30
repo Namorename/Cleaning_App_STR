@@ -10,7 +10,7 @@ import type { TFunction } from 'i18next';
  * follows the migration turns it on; review_settings.tasks_enabled goes on
  * only after that OTA has reached the phones (docs §7).
  */
-export const REVIEW_SOURCE_ENABLED = false;
+export const REVIEW_SOURCE_ENABLED = true;
 
 /** The columns a task from a review adds to a select, or nothing while the switch is off. */
 export const REVIEW_SOURCE_COLUMNS = REVIEW_SOURCE_ENABLED

@@ -49,9 +49,9 @@ const fromReview = problemSchema.parse({
 });
 
 describe('the switch', () => {
-  test('is off until the migration is in the cloud: no new column is asked for', () => {
-    expect(REVIEW_SOURCE_ENABLED).toBe(false);
-    expect(REVIEW_SOURCE_COLUMNS).toBe('');
+  test('is on once the migration is in the cloud: the selects ask for the three columns', () => {
+    expect(REVIEW_SOURCE_ENABLED).toBe(true);
+    expect(REVIEW_SOURCE_COLUMNS).toBe('source, title_i18n, review_facts, ');
   });
 
   test('a task saved by an older build reads as somebody reported it', () => {
