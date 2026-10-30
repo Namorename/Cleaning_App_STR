@@ -36,6 +36,14 @@ drop table public.api_keys;
 drop table public.api_scopes;
 drop type public.api_context;
 
+-- The three read indexes the migration built on older tables outlive the
+-- drops above, and a re-apply of 20261028100000 would refuse them as
+-- existing. Dropping one locks its table, hence the bound on the wait.
+set local lock_timeout = '3s';
+drop index public.tasks_problem_work_idx;
+drop index public.reservations_host_arrival_idx;
+drop index public.problems_host_created_idx;
+
 notify pgrst, 'reload schema';
 
 commit;
