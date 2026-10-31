@@ -19,6 +19,10 @@ vi.mock('next/link', () => ({
 
 const unread = { tasks: new Set<string>(), problems: new Set<string>() };
 vi.mock('@/features/chat/use-chat', () => ({ useUnreadSubjects: () => unread }));
+// The guests' count is a query of its own; here it says nothing waits.
+vi.mock('@/features/guest-signals/use-guest-signals', () => ({
+  useCandidateCount: () => ({ data: 0 }),
+}));
 
 afterEach(() => {
   unread.tasks.clear();
@@ -33,6 +37,7 @@ const ROUTES = [
   '/calendar',
   '/tasks',
   '/problems',
+  '/guests',
   '/supplies',
   '/apartments',
   '/team',

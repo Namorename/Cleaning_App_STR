@@ -12,6 +12,7 @@ import { NO_FILTERS } from '../analytics/schema';
 import * as apartments from '../apartments/api';
 import * as calendar from '../calendar/api';
 import * as chat from '../chat/api';
+import * as guestSignals from '../guest-signals/api';
 import * as knowledge from '../knowledge/api';
 import * as problems from '../problems/api';
 import * as settings from '../settings/api';
@@ -114,6 +115,13 @@ const READERS: readonly ((client: never) => Promise<unknown>)[] = [
   (client) => problems.fetchProblemPhotos(client, ANY_ID),
   (client) => problems.fetchFixTaskSteps(client, ANY_ID),
   (client) => problems.fetchStaff(client),
+  (client) => guestSignals.fetchFindings(client, ['candidate']),
+  (client) => guestSignals.fetchCandidateCount(client),
+  (client) => guestSignals.fetchReviews(client),
+  (client) => guestSignals.fetchSettings(client),
+  // The tasks on a finding's place and the runs come through RPCs: no select string.
+  (client) => guestSignals.fetchPlaceProblems(client, ANY_ID),
+  (client) => guestSignals.fetchRunStatus(client),
   (client) => settings.fetchHostSettings(client),
   (client) => settings.fetchMyLanguage(client, ANY_ID),
   // A write, but it asks its row back: the select it sends is guarded too.
@@ -215,6 +223,23 @@ describe('every read the panel makes', () => {
           entry.select.includes('kb_article_translations'),
       ),
     ).toBe(true);
+  });
+
+  // The core of guest signals never reads a PMS's column (docs/guest-signals.md §2.4,
+  // P6): a room is a place with a parent, so its embeds ask for parent_id.
+  test('includes the guest signals, their places read without a PMS column', () => {
+    const signals = recorded.filter((entry) =>
+      ['signal_findings', 'guest_signals', 'signal_settings'].includes(entry.table),
+    );
+
+    expect(signals.map((entry) => entry.table).sort()).toEqual([
+      'guest_signals',
+      'signal_findings',
+      'signal_findings',
+      'signal_settings',
+    ]);
+    expect(signals.some((entry) => entry.select.includes('parent_id'))).toBe(true);
+    expect(signals.filter((entry) => entry.select.includes('hostaway_unit_id'))).toEqual([]);
   });
 
   test('names one relationship per embed and only columns the schema has', () => {

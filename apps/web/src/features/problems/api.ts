@@ -25,7 +25,7 @@ import {
 export type Client = SupabaseClient<Database>;
 
 const PROBLEM_COLUMNS =
-  'id, property_id, task_id, reported_by, title, description, priority, status, ' +
+  'id, property_id, task_id, reported_by, title, source, title_i18n, source_facts, description, priority, status, ' +
   'resolved_at, cancelled_at, cancel_reason, archived_at, created_at, ' +
   'property:properties(name, hostaway_unit_id, parent:parent_id(name)), ' +
   'reporter:profiles!problems_reported_by_fkey(full_name, role), ' +
@@ -255,6 +255,33 @@ export async function archiveProblem(client: Client, problemId: string): Promise
     throw error;
   }
   return problemSchema.parse(data);
+}
+
+export interface FalsePositiveVariables {
+  problemId: string;
+  /** Delete the task instead of archiving it; the server allows it only while nobody worked on it. */
+  isDelete: boolean;
+}
+
+/**
+ * «Ложное срабатывание» on a task a guest's review or message brought in
+ * (mark_signal_false_positive; the owner's decision 8 of 2026-10-31). The
+ * finding that made it is rejected as a false positive — a verdict the
+ * readers learn from — and the task goes to the archive, cancelled with its
+ * live repair, or is deleted while nobody has worked on it. A delete the
+ * server finds work on is refused (serverErrors.signalProblemHasWork).
+ */
+export async function markFalsePositive(
+  client: Client,
+  variables: FalsePositiveVariables,
+): Promise<void> {
+  const { error } = await client.rpc('mark_signal_false_positive', {
+    p_problem_id: variables.problemId,
+    p_delete: variables.isDelete,
+  });
+  if (error) {
+    throw error;
+  }
 }
 
 export async function unarchiveProblem(client: Client, problemId: string): Promise<Problem> {

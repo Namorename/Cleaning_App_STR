@@ -7,6 +7,7 @@ import {
   ChartColumn,
   ClipboardList,
   LayoutGrid,
+  MessageSquare,
   Package,
   Settings,
   StickyNote,
@@ -23,10 +24,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useUnreadSubjects } from '@/features/chat/use-chat';
 import type { PanelAccess } from '@/lib/session';
 import { cn } from '@/lib/utils';
+import { useCandidateCount } from '@/features/guest-signals/use-guest-signals';
 
 type NavKey =
   | 'dashboard'
   | 'analytics'
+  | 'guests'
   | 'calendar'
   | 'tasks'
   | 'problems'
@@ -65,6 +68,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
       { href: '/calendar', key: 'calendar', icon: Calendar },
       { href: '/tasks', key: 'tasks', icon: BrushCleaning },
       { href: '/problems', key: 'problems', icon: ClipboardList },
+      { href: '/guests', key: 'guests', icon: MessageSquare },
       { href: '/supplies', key: 'supplies', icon: Package },
     ],
   },
@@ -129,15 +133,17 @@ export function StripTooltip({ label, isCollapsed, render, children }: StripTool
 interface UnreadCountProps {
   count: number;
   isCollapsed: boolean;
+  /** What the number counts: waiting conversations, or findings waiting for a decision. */
+  labelKey: string;
 }
 
 /** How many conversations wait under a section; on a folded icon, a small badge at its corner. */
-function UnreadCount({ count, isCollapsed }: UnreadCountProps) {
+function UnreadCount({ count, isCollapsed, labelKey }: UnreadCountProps) {
   const { t } = useTranslation();
 
   return (
     <span
-      aria-label={t('panel.nav.unread', { count })}
+      aria-label={t(labelKey, { count })}
       className={cn(
         'rounded-full bg-primary font-medium text-primary-foreground',
         isCollapsed
@@ -187,7 +193,13 @@ function NavList({ items, pathname, unreadBy, isCollapsed, onNavigate, className
                 aria-hidden="true"
               />
               <span className={cn('min-w-0 truncate', isCollapsed && 'sr-only')}>{label}</span>
-              {count > 0 ? <UnreadCount count={count} isCollapsed={isCollapsed} /> : null}
+              {count > 0 ? (
+                <UnreadCount
+                  count={count}
+                  isCollapsed={isCollapsed}
+                  labelKey={key === 'guests' ? 'panel.nav.toReview' : 'panel.nav.unread'}
+                />
+              ) : null}
             </StripTooltip>
           </li>
         );
@@ -253,11 +265,15 @@ export function NavMenu({
   const { t } = useTranslation();
   const pathname = usePathname();
   const unread = useUnreadSubjects();
+  // The candidates from what guests wrote: a count in the menu instead of a push (the owner's
+  // decision 7). The head technician's menu has no «Гости», so his panel does not ask.
+  const candidates = useCandidateCount(access === 'full');
   // How many conversations wait under each section. Threads hang off jobs
   // and breakages, so the count sits on the section that lists them.
   const unreadBy: UnreadCounts = {
     tasks: unread.tasks.size,
     problems: unread.problems.size,
+    guests: candidates.data ?? 0,
   };
   const rows = { pathname, unreadBy, isCollapsed, onNavigate };
 

@@ -22,6 +22,7 @@ const DECIDED = [
   'apartments',
   'calendar',
   'dashboard',
+  'guests',
   'knowledge',
   'problems',
   'settings',

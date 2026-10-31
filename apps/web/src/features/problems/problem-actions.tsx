@@ -24,17 +24,31 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { serverErrorText } from '@/lib/server-error';
 
-import { isProblemArchived, isProblemClosed, type Problem } from './schema';
+import { FalsePositiveDialog } from './false-positive-dialog';
+import {
+  isFromGuestSignal,
+  isProblemArchived,
+  isProblemClosed,
+  mayDeleteFalsePositive,
+  type Problem,
+} from './schema';
 import {
   useArchiveProblem,
   useCancelProblem,
+  useMarkFalsePositive,
   useReopenProblem,
   useResolveProblem,
   useUnarchiveProblem,
 } from './use-problems';
 
 /** Which question, if any, is waiting for the manager's word. */
-type PendingAction = 'cancel' | 'archive' | null;
+type PendingAction = 'cancel' | 'archive' | 'falsePositive' | null;
+
+interface ProblemActionsProps {
+  problem: Problem;
+  /** After «Ложное срабатывание» deleted the task: there is no page left to stay on. */
+  onDeleted?: () => void;
+}
 
 /**
  * The manager's levers, in the page's header (5.4, variant A): one plain
@@ -44,18 +58,21 @@ type PendingAction = 'cancel' | 'archive' | null;
  * after a separator, «Удалить в архив». Closed: «Вернуть в работу», and the
  * archive in the menu. Archived: «Восстановить из архива» only — everything
  * else waits until the problem is back. Cancelling asks for a reason and
- * archiving for confirmation, each in a dialog of its own.
+ * archiving for confirmation, each in a dialog of its own. A task a guest's
+ * review or message brought in has «Ложное срабатывание» in the menu too
+ * (the owner's decision 8), live or closed.
  */
-export function ProblemActions({ problem }: { problem: Problem }) {
+export function ProblemActions({ problem, onDeleted }: ProblemActionsProps) {
   const { t } = useTranslation();
   const resolve = useResolveProblem();
   const cancel = useCancelProblem();
   const reopen = useReopenProblem();
   const archive = useArchiveProblem();
   const unarchive = useUnarchiveProblem();
+  const falsePositive = useMarkFalsePositive();
   const [pending, setPending] = useState<PendingAction>(null);
 
-  const mutations = [resolve, cancel, reopen, archive, unarchive];
+  const mutations = [resolve, cancel, reopen, archive, unarchive, falsePositive];
   const failed = mutations.find((mutation) => mutation.isError);
   const failure = failed === undefined ? null : serverErrorText(failed.error);
   const isBusy = mutations.some((mutation) => mutation.isPending);
@@ -124,6 +141,11 @@ export function ProblemActions({ problem }: { problem: Problem }) {
                   <DropdownMenuSeparator />
                 </>
               )}
+              {isFromGuestSignal(problem) ? (
+                <DropdownMenuItem variant="destructive" onClick={() => setPending('falsePositive')}>
+                  {t('panel.problems.falsePositive.action')}
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuItem variant="destructive" onClick={() => setPending('archive')}>
                 {t('panel.problems.actions.archive')}
               </DropdownMenuItem>
@@ -173,6 +195,23 @@ export function ProblemActions({ problem }: { problem: Problem }) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      ) : null}
+      {pending === 'falsePositive' ? (
+        <FalsePositiveDialog
+          mayDelete={mayDeleteFalsePositive(problem)}
+          isBusy={isBusy}
+          onConfirm={(isDelete) => {
+            clearOutcome();
+            falsePositive.mutate(
+              { problemId: problem.id, isDelete },
+              {
+                onSuccess: () => (isDelete ? onDeleted?.() : undefined),
+                onSettled: close,
+              },
+            );
+          }}
+          onClose={close}
+        />
       ) : null}
     </div>
   );

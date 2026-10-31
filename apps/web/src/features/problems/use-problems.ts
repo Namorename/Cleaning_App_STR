@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { signalKeys } from '@/features/guest-signals/keys';
 import { taskKeys } from '@/features/tasks/keys';
 import { useSupabase } from '@/lib/supabase/use-client';
 
@@ -14,12 +15,14 @@ import {
   fetchProblemPhotos,
   fetchProblems,
   fetchStaff,
+  markFalsePositive,
   reopenProblem,
   reportProblem,
   resolveProblem,
   unarchiveProblem,
   unassignProblem,
   type AssignProblemVariables,
+  type FalsePositiveVariables,
   type ReportProblemVariables,
 } from './api';
 import { problemKeys } from './keys';
@@ -143,6 +146,21 @@ export function useArchiveProblem() {
   return useMutation({
     mutationFn: (problemId: string) => archiveProblem(client, problemId),
     onSuccess: invalidate,
+  });
+}
+
+/**
+ * «Ложное срабатывание»: besides the task and its repair, the finding moved to
+ * «Отклонённые» of «Гости» and left the menu's count.
+ */
+export function useMarkFalsePositive() {
+  const client = useSupabase();
+  const queryClient = useQueryClient();
+  const invalidate = useInvalidateProblems();
+  return useMutation({
+    mutationFn: (variables: FalsePositiveVariables) => markFalsePositive(client, variables),
+    onSuccess: () =>
+      Promise.all([invalidate(), queryClient.invalidateQueries({ queryKey: signalKeys.all })]),
   });
 }
 

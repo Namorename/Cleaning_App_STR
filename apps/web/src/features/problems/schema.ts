@@ -10,12 +10,22 @@ export type ProblemPriority = (typeof PROBLEM_PRIORITIES)[number];
 export const MAX_PROBLEM_TITLE = 200;
 export const MAX_PROBLEM_DESCRIPTION = 4000;
 
-export const PROBLEM_STATUSES = ['open', 'assigned', 'in_progress', 'resolved', 'cancelled'] as const;
+export const PROBLEM_STATUSES = [
+  'open',
+  'assigned',
+  'in_progress',
+  'resolved',
+  'cancelled',
+] as const;
 export type ProblemStatus = (typeof PROBLEM_STATUSES)[number];
 
 /** The board's columns, left to right; cancelled problems live in the list only. */
 export const BOARD_STATUSES = ['open', 'assigned', 'in_progress', 'resolved'] as const;
 export type BoardStatus = (typeof BOARD_STATUSES)[number];
+
+/** public.problem_source: a report of the staff, or a guest's review or message. */
+export const PROBLEM_SOURCES = ['staff', 'review', 'message'] as const;
+export type ProblemSource = (typeof PROBLEM_SOURCES)[number];
 
 /** Task statuses that no longer count as an attempt at the fix. */
 const CLOSED_TASK_STATUSES = ['done', 'cancelled', 'expired'] as const;
@@ -44,10 +54,31 @@ export const problemSchema = z.object({
   id: z.uuid(),
   property_id: z.number().nullable(),
   task_id: z.uuid().nullable(),
-  // Null for a task found in a guest review: nobody on the staff reported it
-  // (docs/reviews-to-tasks.md §2.5). The reporter's name then shows as unknown.
+  // Null for a task found in what a guest wrote: nobody on the staff reported
+  // it (docs/reviews-to-tasks.md §2.5). The reporter's name then shows as unknown.
   reported_by: z.uuid().nullable(),
   title: z.string(),
+  /**
+   * Who brought the task in: the staff, or a guest's review or message. A
+   * source this build does not know reads as the staff's, without a line about
+   * it (docs/guest-signals.md §7.1).
+   */
+  source: z.enum(PROBLEM_SOURCES).catch('staff').default('staff'),
+  title_i18n: z.record(z.string(), z.string()).nullable().catch(null).default(null),
+  /** What a technician may know of a guest's signal, never a quote (docs/reviews-to-tasks.md §2.6). */
+  source_facts: z
+    .object({
+      kind: z.string(),
+      subject: z.string(),
+      channel: z.string().nullable().default(null),
+      /** The month the guest left (a review) or wrote (a message). */
+      period_month: z.string().nullable().default(null),
+      /** Made by auto, or by a manager's yes; null when the task does not say. */
+      mode: z.enum(['manager', 'auto']).nullable().catch(null).default(null),
+    })
+    .nullable()
+    .catch(null)
+    .default(null),
   description: z.string().nullable(),
   priority: z.enum(PROBLEM_PRIORITIES),
   status: z.enum(PROBLEM_STATUSES),
@@ -133,6 +164,21 @@ export function isProblemClosed(problem: Pick<Problem, 'status'>): boolean {
 
 export function isProblemArchived(problem: Pick<Problem, 'archived_at'>): boolean {
   return problem.archived_at !== null;
+}
+
+/** A task a guest's review or message brought in: «Ложное срабатывание» applies to it. */
+export function isFromGuestSignal(problem: Pick<Problem, 'source'>): boolean {
+  return problem.source !== 'staff';
+}
+
+/**
+ * Whether a false positive may be deleted rather than archived: still open,
+ * and no repair was ever made for it. The server checks the rest — a photo, a
+ * conversation, another finding joined — and refuses with
+ * serverErrors.signalProblemHasWork (mark_signal_false_positive).
+ */
+export function mayDeleteFalsePositive(problem: Pick<Problem, 'status' | 'fix_tasks'>): boolean {
+  return problem.status === 'open' && problem.fix_tasks.length === 0;
 }
 
 /** Title or listing name contains the query, case-insensitively; an empty query keeps everything. */

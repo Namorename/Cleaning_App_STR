@@ -21,6 +21,8 @@ export const ICONS = {
   'nav.tasks': 'brush-cleaning',
   /** «Задания» (`/problems`). */
   'nav.problems': 'clipboard-list',
+  /** «Гости» (`/guests`): what guests wrote — reviews, later messages — and what was found in it. */
+  'nav.guests': 'message-square',
   /** «Заявки» in the panel, «Расходники» on the phone. */
   'nav.supplies': 'package',
   /** «Объекты». */

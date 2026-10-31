@@ -50,7 +50,10 @@ const mutations = {
   reopen: vi.fn(),
   archive: vi.fn(),
   unarchive: vi.fn(),
+  falsePositive: vi.fn(),
 };
+/** Where the page sends the manager after a delete. */
+const router = { replace: vi.fn() };
 const idle = {
   mutate: vi.fn(),
   reset: vi.fn(),
@@ -60,13 +63,27 @@ const idle = {
   error: null,
 };
 
-/** A refused cancel, kept until the mutation is reset — as TanStack keeps it. */
-const refusal = { cancel: false };
+/** A refused cancel or false positive, kept until the mutation is reset — as TanStack keeps it. */
+const refusal = { cancel: false, falsePositive: false };
 const cancelOutcome = () => ({
   isError: refusal.cancel,
   error: refusal.cancel ? { hint: 'serverErrors.taskChangedMeanwhile' } : null,
   reset: () => {
     refusal.cancel = false;
+  },
+});
+// What the server raises for a delete it finds work on: an English message for
+// the logs, the key the panel translates.
+const falsePositiveOutcome = () => ({
+  isError: refusal.falsePositive,
+  error: refusal.falsePositive
+    ? {
+        message: 'Problem has work on it; it can only be archived',
+        hint: 'serverErrors.signalProblemHasWork',
+      }
+    : null,
+  reset: () => {
+    refusal.falsePositive = false;
   },
 });
 
@@ -81,6 +98,11 @@ vi.mock('../use-problems', () => ({
   useReopenProblem: () => ({ ...idle, mutate: mutations.reopen }),
   useArchiveProblem: () => ({ ...idle, mutate: mutations.archive }),
   useUnarchiveProblem: () => ({ ...idle, mutate: mutations.unarchive }),
+  useMarkFalsePositive: () => ({
+    ...idle,
+    ...falsePositiveOutcome(),
+    mutate: mutations.falsePositive,
+  }),
 }));
 
 // The conversation has its own tests; here it only has to open, say what it
@@ -114,6 +136,7 @@ vi.mock('next/navigation', async () => {
     useSearchParams: () =>
       new URLSearchParams(useSyncExternalStore(subscribe, () => window.location.search)),
     usePathname: () => window.location.pathname,
+    useRouter: () => router,
   };
 });
 
@@ -141,6 +164,7 @@ beforeEach(() => {
   window.history.replaceState(null, '', `/problems/${PROBLEM_ID}`);
   unread.problems.clear();
   refusal.cancel = false;
+  refusal.falsePositive = false;
   queries.problem.mockReturnValue(loaded(assigned));
   queries.photos.mockReturnValue(
     loaded([
@@ -209,6 +233,87 @@ describe('ProblemDetail', () => {
 
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Течёт кран');
     expect(screen.getByText('Сообщил:')).toHaveTextContent('Неизвестно');
+  });
+
+  test('a task from a guest review says so, with its channel and the month the guest left', () => {
+    queries.problem.mockReturnValue(
+      loaded(
+        problemSchema.parse({
+          ...assigned,
+          reported_by: null,
+          reporter: null,
+          source: 'review',
+          source_facts: { kind: 'repair', subject: 'hot_water', channel: 'airbnb', period_month: '2026-10' },
+        }),
+      ),
+    );
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    expect(screen.getByText('Из отзыва гостя · Airbnb · Гость выехал: 2026-10')).toBeInTheDocument();
+  });
+
+  // The owner's decision 7 (docs/guest-signals.md §7.1): who said yes is on every such task.
+  test('a task from a review a manager approved says who confirmed it', () => {
+    queries.problem.mockReturnValue(
+      loaded(
+        problemSchema.parse({
+          ...assigned,
+          reported_by: null,
+          reporter: null,
+          source: 'review',
+          source_facts: {
+            kind: 'repair',
+            subject: 'hot_water',
+            channel: 'airbnb',
+            period_month: '2026-10',
+            mode: 'manager',
+          },
+        }),
+      ),
+    );
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    expect(
+      screen.getByText('Из отзыва гостя · Airbnb · Гость выехал: 2026-10 · Подтвердил менеджер'),
+    ).toBeInTheDocument();
+  });
+
+  test('a task auto made from a guest message says so, with the month it was sent', () => {
+    queries.problem.mockReturnValue(
+      loaded(
+        problemSchema.parse({
+          ...assigned,
+          reported_by: null,
+          reporter: null,
+          source: 'message',
+          source_facts: {
+            kind: 'repair',
+            subject: 'heating',
+            channel: 'booking',
+            period_month: '2026-10',
+            mode: 'auto',
+          },
+        }),
+      ),
+    );
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    expect(
+      screen.getByText(
+        'Из сообщения гостя · Booking.com · Отправлено: 2026-10 · Создано автоматически',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  test('a source this build does not know reads as the staff’s, with no line about a guest', () => {
+    queries.problem.mockReturnValue(
+      loaded(
+        problemSchema.parse({ ...assigned, source: 'email', source_facts: { mode: 'robot' } }),
+      ),
+    );
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    expect(screen.queryByText(/гостя/)).not.toBeInTheDocument();
   });
 
   test('«К списку заданий» returns to the view the task was opened from', () => {
@@ -543,4 +648,120 @@ describe('the conversation of a task', () => {
     expect(chatButton()).toHaveAccessibleName('Чат Новое сообщение');
     expect(within(chatButton()).getByText('Новое сообщение')).toHaveClass('bg-tone-unread-mark');
   });
+});
+
+// The owner's decision 8 (docs/guest-signals.md §7.3): a task a guest's
+// signal brought in can be called a false positive at any time — to the
+// archive by default, deleted only while nobody has worked on it.
+describe('«Ложное срабатывание»', () => {
+  const fromReview = (overrides: Record<string, unknown> = {}): Problem =>
+    problemSchema.parse({
+      ...assigned,
+      reported_by: null,
+      reporter: null,
+      source: 'review',
+      source_facts: {
+        kind: 'repair',
+        subject: 'hot_water',
+        channel: 'airbnb',
+        period_month: '2026-10',
+      },
+      ...overrides,
+    });
+  const untouched = () => fromReview({ status: 'open', fix_tasks: [] });
+
+  async function openFalsePositive(): Promise<HTMLElement> {
+    const menu = await openMoreActions();
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Ложное срабатывание' }));
+    return screen.findByRole('dialog', { name: 'Ложное срабатывание' });
+  }
+
+  test('stands in the menu of a task from a guest, beside the archive', async () => {
+    queries.problem.mockReturnValue(loaded(fromReview()));
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    const menu = await openMoreActions();
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Отменить задание', 'Ложное срабатывание', 'Удалить в архив']);
+  }, 20000);
+
+  test('goes to the archive by default, saying the verdict teaches the readers', async () => {
+    queries.problem.mockReturnValue(loaded(untouched()));
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    const question = await openFalsePositive();
+    expect(question).toHaveTextContent(/учит правила и модель/);
+    expect(within(question).getByRole('radio', { name: /^В архив/ })).toBeChecked();
+    expect(mutations.falsePositive).not.toHaveBeenCalled();
+
+    await userEvent.click(within(question).getByRole('button', { name: 'Да, в архив' }));
+    expect(mutations.falsePositive).toHaveBeenCalledWith(
+      { problemId: PROBLEM_ID, isDelete: false },
+      expect.anything(),
+    );
+    expect(router.replace).not.toHaveBeenCalled();
+  }, 20000);
+
+  test('deletes a task nobody worked on, and leaves its page for the list', async () => {
+    mutations.falsePositive.mockImplementationOnce(
+      (_variables: unknown, options: { onSuccess?: () => void; onSettled?: () => void }) => {
+        options.onSuccess?.();
+        options.onSettled?.();
+      },
+    );
+    window.history.replaceState(null, '', `/problems/${PROBLEM_ID}?view=list`);
+    queries.problem.mockReturnValue(loaded(untouched()));
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    const question = await openFalsePositive();
+    await userEvent.click(within(question).getByRole('radio', { name: /^Удалить/ }));
+    await userEvent.click(within(question).getByRole('button', { name: 'Да, удалить' }));
+
+    expect(mutations.falsePositive).toHaveBeenCalledWith(
+      { problemId: PROBLEM_ID, isDelete: true },
+      expect.anything(),
+    );
+    expect(router.replace).toHaveBeenCalledWith('/problems?view=list');
+  }, 20000);
+
+  test('offers no delete once the task was sent to a technician', async () => {
+    queries.problem.mockReturnValue(loaded(fromReview()));
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    const question = await openFalsePositive();
+    expect(within(question).queryByRole('radio')).not.toBeInTheDocument();
+    expect(question).toHaveTextContent('Удалить нельзя');
+    expect(within(question).queryByRole('button', { name: 'Да, удалить' })).toBeNull();
+
+    await userEvent.click(within(question).getByRole('button', { name: 'Да, в архив' }));
+    expect(mutations.falsePositive).toHaveBeenCalledWith(
+      { problemId: PROBLEM_ID, isDelete: false },
+      expect.anything(),
+    );
+  }, 20000);
+
+  test('a refusal is said in the manager’s words, never the server’s', () => {
+    refusal.falsePositive = true;
+    queries.problem.mockReturnValue(loaded(untouched()));
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'По этому заданию уже была работа: его можно только убрать в архив.',
+    );
+    expect(screen.getByRole('alert')).not.toHaveTextContent('it can only be archived');
+  });
+
+  test('«Оставить» closes the question and marks nothing', async () => {
+    queries.problem.mockReturnValue(loaded(untouched()));
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    const question = await openFalsePositive();
+    await userEvent.click(within(question).getByRole('button', { name: 'Оставить' }));
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(mutations.falsePositive).not.toHaveBeenCalled();
+  }, 20000);
 });

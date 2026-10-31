@@ -1,6 +1,7 @@
 'use client';
 
 import { MessageSquare } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -154,6 +155,7 @@ interface ProblemPageProps {
  */
 function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
   const { t } = useTranslation();
+  const router = useRouter();
   const hasUnread = useUnreadSubjects().problems.has(problem.id);
   const fixTask = liveFixTask(problem);
   // Nothing to assign on a closed or archived problem; the header's levers still apply.
@@ -184,7 +186,7 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
                 {t('panel.chat.open')}
                 {hasUnread ? <UnreadBadge /> : null}
               </Button>
-              <ProblemActions problem={problem} />
+              <ProblemActions problem={problem} onDeleted={() => router.replace(backHref)} />
             </>
           }
         />
@@ -242,9 +244,48 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
   );
 }
 
+/** The words of each guest source: where the task came from, and what its month means. */
+const SIGNAL_SOURCE_KEYS = {
+  review: { origin: 'problems.source.review', month: 'problems.source.reviewLeft' },
+  message: { origin: 'problems.source.message', month: 'problems.source.messageSent' },
+} as const;
+
+const MODE_KEYS = {
+  auto: 'problems.source.auto',
+  manager: 'problems.source.confirmed',
+} as const;
+
+/**
+ * «Из отзыва гостя · Airbnb · Гость выехал: 2026-10 · Подтвердил менеджер» —
+ * the facts a task from a guest's review or message carries, never a quote
+ * (docs/guest-signals.md §7.1). Null for a report of the staff.
+ */
+function signalSourceLine(
+  problem: Pick<Problem, 'source' | 'source_facts'>,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string | null {
+  if (problem.source === 'staff') {
+    return null;
+  }
+  const keys = SIGNAL_SOURCE_KEYS[problem.source];
+  const facts = problem.source_facts;
+  const parts = [t(keys.origin)];
+  if (facts?.channel) {
+    parts.push(t(`panel.guests.channel.${facts.channel}`));
+  }
+  if (facts?.period_month) {
+    parts.push(t(keys.month, { month: facts.period_month }));
+  }
+  if (facts?.mode) {
+    parts.push(t(MODE_KEYS[facts.mode]));
+  }
+  return parts.join(' · ');
+}
+
 function ReportMeta({ problem }: { problem: Problem }) {
   const { t } = useTranslation();
   const language = useLanguage();
+  const sourceLine = signalSourceLine(problem, t);
 
   return (
     <dl className="flex flex-col gap-1 text-muted-foreground">
@@ -262,6 +303,7 @@ function ReportMeta({ problem }: { problem: Problem }) {
         })}
       </dd>
       {problem.task_id !== null ? <dd>{t('panel.problems.detail.fromTask')}</dd> : null}
+      {sourceLine === null ? null : <dd>{sourceLine}</dd>}
       {problem.resolved_at !== null ? (
         <dd>
           {t('panel.problems.detail.resolvedAt', {
