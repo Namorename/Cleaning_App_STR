@@ -352,11 +352,36 @@ select pg_temp.check('no object in raw is usable by a client role, schema aside'
    ) leaks),
   '');
 
-select pg_temp.check('no function that touches raw is callable by a client role',
+-- The one door a client may use (rollout step 5a; the owner's answer of
+-- 2026-10-30 to question 1 of the rollout plan): public.signal_run_status(),
+-- the «Гости» screen's "updated at" line (20261030110000). It reads
+-- raw.signal_runs as its owner and hands a manager of the company the kind of
+-- signal, the job's stage and two times — no counts, no codes, nothing of a
+-- guest. Only that exact function passes: no argument, security definer, an
+-- empty search_path, closed to anon, and exactly these four result columns of
+-- these types. A fifth column, an argument or another body that widens the
+-- answer drops it from this list, and the check below names it again; the
+-- guest signals suite calls it and checks the answer (check 38). Before the
+-- migration the function does not exist and the list is empty.
+create temp table raw_door (oid oid primary key);
+insert into raw_door
+select p.oid
+from pg_proc p
+where p.oid = to_regprocedure('public.signal_run_status()')
+  and p.prosecdef
+  and p.proconfig = array['search_path=""']
+  and p.proargnames = array['kind', 'stage', 'last_run_at', 'last_ok_at']
+  and p.proargmodes = array['t', 't', 't', 't']::"char"[]
+  and p.proallargtypes = array[to_regtype('public.guest_signal_kind'), 'text'::regtype,
+                               'timestamptz'::regtype, 'timestamptz'::regtype]::oid[]
+  and not has_function_privilege('anon', p.oid, 'EXECUTE');
+
+select pg_temp.check('no function that touches raw is callable by a client role, but the one door',
   (select coalesce(string_agg(p.oid::regprocedure::text, ', ' order by 1), '')
    from pg_proc p
    where p.pronamespace not in ('pg_catalog'::regnamespace, 'information_schema'::regnamespace)
      and p.prosrc ~ '\mraw\.'
+     and p.oid not in (select d.oid from raw_door d)
      and (has_function_privilege('anon', p.oid, 'EXECUTE')
           or has_function_privilege('authenticated', p.oid, 'EXECUTE'))),
   '');
