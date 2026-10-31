@@ -106,8 +106,8 @@
     - На `woom-bnb.vercel.app` отвечают 200: `/login`, `/privacy`, `/developers` и
       `/developers/openapi.json` (OpenAPI 3.1.0, 16 путей).
   - Откаты — §9.3.
-- **Шаг 4 (база знаний) 30.10: подшаги 4a–4b выполнены, 4c — OTA №9 на preview; field ждёт слова
-  владельца после проверки на телефоне.**
+- **Шаг 4 (база знаний) выполнен: база знаний выкачена в field 31.10 в 12:15:08 UTC (подшаги
+  4a–4d); 4e — техники читают всю базу (31.10, вне плана).**
   - Проверки перед шагом:
     - диск 281,2 ГБ, память 5,31 ГБ;
     - `origin/main` 093cc63, голова облака `20261028100000`;
@@ -155,6 +155,15 @@
     - `migration list --linked` перед публикацией: 116 = 116.
     - До: preview `c509d6c8`, field `e6d58921`; после: preview `e004af6d`, field `e6d58921` (не тронут).
     - Откат preview — republish `c509d6c8` (№8). Field — по слову владельца, republish `e004af6d`.
+  - 4d — слово владельца 31.10 после проверки на Android. В 12:15:08 UTC republish группы `e004af6d`
+    в field — новая группа `2284c0b4-a31c-4724-8b44-2ec83e4da85c` (Android `01a191e2-93ea-78c2…`,
+    iOS `01a191e2-93ea-7470…`), коммит `d10f0dd`, runtime 1.2.0.
+    - Бандлы Android и iOS байт в байт равны `dist-e004af6d` (sha256 `launchAsset` = файлы `.hbc`).
+    - До: preview `e004af6d`, field `e6d58921`; после: preview `e004af6d` (без изменений), field
+      `2284c0b4`. Привязка канал → ветка прежняя, паузы нет.
+    - Откат — republish `e6d58921` (№8) в field.
+    - iPhone получает №9 только теперь: обновление применяется со второго запуска, нужен интернет.
+  - 4e — 31.10, вне плана: техники читают всю базу знаний (строка 4e таблицы §5).
 - **Шаги 3–5 перерепетированы 30.10** на `main` 770c2e6 (ветка `integration-rehearsal-1030`, §9);
   ничего не выкачено. Итоговые номера: API `20261028100000`, база знаний `20261030100000`, отзывы
   `20261030110000`. Концы шагов для `main`: `093cc63`, `d10f0dd`, `7e30c96`, 5d — `69fd4b0`. Красная
@@ -437,8 +446,9 @@ reverted <версия>`. Обе команды пишут в облако — �
 | 3d — **выполнен 30.10, 15:51 UTC** (`093cc63`; первый ключ — владелец) | `git push origin main` | «Шаг 3: main» | — | `/developers` открывается; админ создаёт ключ «Только чтение», `curl /v1/me` → 200 | `git revert` четырёх коммитов шага (§9.3) | первый ключ — сам |
 | 4a — **выполнен 30.10, 19:47 UTC** | FF `main` до `d10f0dd` (§9.1, §9.4: обе ветки базы знаний, `ae3c658`, номер `20261030100000`, паритет, типы, откат со строками прав), из него — миграция | «Шаг 4: push базы знаний» | `HEAD_WANT=20261028100000`, `LIST_WANT="20261030100000_knowledge_base.sql"`; проба до — `EQUAL step3` | `EQUAL step4`; `postpush_knowledge_base.sql` (13 функций — как в её шапке); `postpush_1028.sql`: `kb_*` — только `SELECT` у `authenticated`; `postpush_api_scopes_1028.sql`: 44 | `docs/one-off-writes/knowledge-base-step1-rollback.sql`, `repair --status reverted 20261030100000`; проба — `EQUAL step3`, прав 42 | нет |
 | 4b — **выполнен 30.10, 19:48 UTC** (`d10f0dd`) | `git push origin main` | «Шаг 4: main» | — | раздел «База знаний», старший техник видит только её и настройки | `git revert` коммитов шага (§9.4) | нет |
-| 4c — **preview выполнен 30.10, 21:59 UTC** (`e004af6d`); field — слово | OTA №9 из `main` (видео + база знаний + терпимость к пустому автору): preview, потом field | «OTA №9 preview» / «field» | проверка бандла | статьи открываются у горничной и техника | republish №8 | проверка на телефоне |
-| 4d — **выполнен 31.10, 11:40 UTC** (`8087f14`; вне плана, слово владельца 31.10) | техники читают всю базу знаний: ветка `kb-techs-read-all-1031` от `d10f0dd`, миграция `20261030103000_kb_techs_read_all` (переключатель `hosts.kb_techs_read_all`, прежнее правило в `kb_reader_property_ids` не тронуто), затем FF `main` `d10f0dd..8087f14` в 11:41 (Vercel `woom-906tdiobh` READY 11:42) | «Пушим» | `HEAD_WANT=20261030100000`, `LIST_WANT="20261030103000_kb_techs_read_all.sql"` | `postpush_kb_techs_read_all.sql`: голова `20261030103000`, колонка `boolean not null default true`, `kb_reader_property_ids` `0977521f`/1009, `kb_staff_article_ids` `3e0b38e3`/482, `kb_tech_reads_all` `c436849a`/208, политики `a5dda625`/`48241cec`/`bc59ee21`; переключатель `true` у 1 компании; оба активных техника читают единственную опубликованную статью | прежнее правило — `update public.hosts set kb_techs_read_all = false where id = '<компания>'`; схема — `docs/one-off-writes/kb-techs-read-all-rollback.sql` (шаги в его шапке) | нет, OTA не нужна |
+| 4c — **preview выполнен 30.10, 21:59 UTC** (`e004af6d`); field — 4d | OTA №9 из `main` (видео + база знаний + терпимость к пустому автору): preview, потом field | «OTA №9 preview» / «field» | проверка бандла | статьи открываются у горничной и техника | republish №8 | проверка на телефоне |
+| 4d — **выполнен 31.10, 12:15 UTC** (`2284c0b4`) | `update:republish` группы `e004af6d` в field (из `apps/mobile`) | «в field» после проверки на Android | группы до: preview `e004af6d`, field `e6d58921` | field `2284c0b4`: коммит `d10f0dd`, runtime 1.2.0, бандлы обеих платформ = `dist-e004af6d`; preview без изменений | republish `e6d58921` (№8) в field | iPhone: второй запуск с интернетом |
+| 4e — **выполнен 31.10, 11:40 UTC** (`8087f14`; вне плана, слово владельца 31.10) | техники читают всю базу знаний: ветка `kb-techs-read-all-1031` от `d10f0dd`, миграция `20261030103000_kb_techs_read_all` (переключатель `hosts.kb_techs_read_all`, прежнее правило в `kb_reader_property_ids` не тронуто), затем FF `main` `d10f0dd..8087f14` в 11:41 (Vercel `woom-906tdiobh` READY 11:42) | «Пушим» | `HEAD_WANT=20261030100000`, `LIST_WANT="20261030103000_kb_techs_read_all.sql"` | `postpush_kb_techs_read_all.sql`: голова `20261030103000`, колонка `boolean not null default true`, `kb_reader_property_ids` `0977521f`/1009, `kb_staff_article_ids` `3e0b38e3`/482, `kb_tech_reads_all` `c436849a`/208, политики `a5dda625`/`48241cec`/`bc59ee21`; переключатель `true` у 1 компании; оба активных техника читают единственную опубликованную статью | прежнее правило — `update public.hosts set kb_techs_read_all = false where id = '<компания>'`; схема — `docs/one-off-writes/kb-techs-read-all-rollback.sql` (шаги в его шапке) | нет, OTA не нужна |
 | 5a | решение по красной проверке (§6.4, §8 вопрос 1) | ответ на вопрос 1 | — | `table_grants.sql` зелёный | — | ответ |
 | 5b | FF `main` до `7e30c96` (§9.1, §9.5: слияние отзывов, номер `20261030110000`, паритет, панель, `test:fn`, типы, откат со строками прав) плюс коммит решения 5a, из него — миграция | «Шаг 5: push отзывов» | `HEAD_WANT=20261030100000`, `LIST_WANT="20261030110000_reviews_to_tasks.sql"`; проба до — `EQUAL step4` | `EQUAL step5` (из прежних функций меняется одна: `push_on_problem_reported` → `627710e7`); `postpush_1028.sql`: крон 16, `review_cron` оба `false`; `guest_reviews`, `review_findings`, `review_settings` — только `SELECT` у `authenticated`; `postpush_api_scopes_1028.sql`: 46 | `docs/one-off-writes/reviews-to-tasks-rollback.sql`, `repair --status reverted 20261030110000`; проба — `EQUAL step4`, прав 44 | нет |
 | 5c | секреты `REVIEW_ID_HMAC_SECRET` и `ANTHROPIC_API_KEY`, деплой `sync-reviews classify-reviews` | «Шаг 5: функции» | — | функции в списке; без секрета `sync-reviews` отвечает 500 `ConfigError` — так и задумано | `functions delete` | **владелец сам**: секрет HMAC — один раз и навсегда (`docs/reviews-to-tasks.md` §10, п. 3), ключ модели |
@@ -746,6 +756,7 @@ node scripts/cloud-read.mjs $P/rollout_1030_functions.sql > fn.json && node $P/r
   - 4c — `npx supabase migration list --linked`, затем OTA №9 из этого `main` (видео + база знаний +
     задание без автора): preview, проверка на телефоне, field.
 - **Откаты:**
+  - 4d — republish `e6d58921` (№8) в field;
   - 4c — republish №8 (preview `c509d6c8`, field `e6d58921`);
   - 4b — `git revert --no-edit d10f0dd 9b77bac 8b96e18 3a3c478 644fa7d && git revert --no-edit -m 1
     130e159 && git revert --no-edit -m 1 316468f && git push origin HEAD:main`;
@@ -759,7 +770,7 @@ node scripts/cloud-read.mjs $P/rollout_1030_functions.sql > fn.json && node $P/r
 
 - **Миграция** `20261030110000_reviews_to_tasks.sql` (была `20261017110000`). **Застава:**
   `HEAD_WANT=20261030100000`, `LIST_WANT="20261030110000_reviews_to_tasks.sql"`.
-- **После 4d (31.10) шаг 5 в таком виде не идёт** — отказ безопасный, но строки 5b и 5d устарели:
+- **После 4e (31.10) шаг 5 в таком виде не идёт** — отказ безопасный, но строки 5b и 5d устарели:
   - `main` = `8087f14`, а `7e30c96` и `69fd4b0` растут от `d10f0dd`: FF невозможен. Коммиты шага 5
     переносятся на `8087f14` (слияние; возможные конфликты — `database.types.ts`, `coverage.json`,
     `docs/api-coverage.md`, `knowledge_base.sql` не трогается шагом 5);
