@@ -600,6 +600,7 @@ export type Database = {
           default_language: Database["public"]["Enums"]["app_language"]
           gallery_allowed: boolean
           id: string
+          kb_techs_read_all: boolean
           name: string
           parallel_start_allowed: boolean
           updated_at: string
@@ -612,6 +613,7 @@ export type Database = {
           default_language?: Database["public"]["Enums"]["app_language"]
           gallery_allowed?: boolean
           id?: string
+          kb_techs_read_all?: boolean
           name: string
           parallel_start_allowed?: boolean
           updated_at?: string
@@ -624,6 +626,7 @@ export type Database = {
           default_language?: Database["public"]["Enums"]["app_language"]
           gallery_allowed?: boolean
           id?: string
+          kb_techs_read_all?: boolean
           name?: string
           parallel_start_allowed?: boolean
           updated_at?: string
@@ -3375,6 +3378,7 @@ export type Database = {
       kb_reader_property_ids: { Args: never; Returns: number[] }
       kb_snapshot: { Args: { p_article: string }; Returns: undefined }
       kb_staff_article_ids: { Args: never; Returns: string[] }
+      kb_tech_reads_all: { Args: never; Returns: boolean }
       kb_write_translations: {
         Args: { p_article: string; p_host: string; p_translations: Json }
         Returns: undefined
@@ -4506,6 +4510,7 @@ export type Database = {
           default_language: Database["public"]["Enums"]["app_language"]
           gallery_allowed: boolean
           id: string
+          kb_techs_read_all: boolean
           name: string
           parallel_start_allowed: boolean
           updated_at: string

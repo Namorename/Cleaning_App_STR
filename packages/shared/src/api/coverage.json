@@ -714,8 +714,13 @@
     },
     "kb_staff_article_ids": {
       "status": "internal",
-      "reason": "auth/RLS helper: published articles a cleaner or technician reads",
-      "defined_in": "20261030100000_knowledge_base.sql"
+      "reason": "auth/RLS helper: published articles a cleaner or technician reads (every one for a technician while kb_tech_reads_all)",
+      "defined_in": "20261030103000_kb_techs_read_all.sql"
+    },
+    "kb_tech_reads_all": {
+      "status": "internal",
+      "reason": "auth/RLS helper: caller is an active technician of a company whose technicians read the whole knowledge base (hosts.kb_techs_read_all)",
+      "defined_in": "20261030103000_kb_techs_read_all.sql"
     },
     "kb_translations_version": {
       "status": "internal",

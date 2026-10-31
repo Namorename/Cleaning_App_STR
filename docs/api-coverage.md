@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 37 | 179 | 236 |
+| Функции | 20 | 37 | 180 | 237 |
 | Таблицы и представления | 8 | 18 | 11 | 37 |
-| Всего | 28 | 55 | 190 | 273 |
+| Всего | 28 | 55 | 191 | 274 |
 
 ## Функции
 
@@ -83,7 +83,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 179
+### Внутреннее — 180
 
 | Имя | Причина |
 | --- | --- |
@@ -180,7 +180,8 @@
 | `kb_checked_translations` | validation helper of save_kb_article: checks and trims the translations of a save; execute revoked from clients |
 | `kb_reader_property_ids` | auth/RLS helper: places whose articles a cleaner or technician reads (links and work held now) |
 | `kb_snapshot` | version helper of the article triggers: writes the current version into kb_article_revisions; execute revoked from clients, service_role only for service scripts |
-| `kb_staff_article_ids` | auth/RLS helper: published articles a cleaner or technician reads |
+| `kb_staff_article_ids` | auth/RLS helper: published articles a cleaner or technician reads (every one for a technician while kb_tech_reads_all) |
+| `kb_tech_reads_all` | auth/RLS helper: caller is an active technician of a company whose technicians read the whole knowledge base (hosts.kb_techs_read_all) |
 | `kb_translations_version` | trigger function: a translation written or removed makes a version of its article |
 | `kb_write_translations` | write helper of save_kb_article/restore_kb_revision: replaces an article's translations; execute revoked from clients |
 | `list_api_key_events` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |

@@ -7,7 +7,9 @@
 -- place, and it reaches only the people the owner named (2026-10-16, decision
 -- 5, widened on 2026-10-17): a cleaner reads the articles of the places she is
 -- linked to and of those where she holds work right now (a stand-in shift), a
--- technician those of the places where he holds work right now, the head
+-- technician every published article of his company (2026-10-31; the rule of
+-- 2026-10-16 — the places where he holds work right now — is kept behind the
+-- company's switch, hosts.kb_techs_read_all), the head
 -- technician and the managers read everything of their company. Only the
 -- managers and the head technician write and publish. Drafts and the archive
 -- stay in the office. Another company sees nothing, and nobody reads without
@@ -78,13 +80,21 @@ values
    '{"full_name":"House Stand-in"}'::jsonb, '{"role":"cleaner"}'::jsonb),
   ('d6600015-0000-4000-8000-0000000000df','00000000-0000-0000-0000-000000000000',
    'authenticated','authenticated','archived.tech.kb@test.local','x',now(),now(),
-   '{"full_name":"Archived Tech"}'::jsonb, '{"role":"tech"}'::jsonb);
+   '{"full_name":"Archived Tech"}'::jsonb, '{"role":"tech"}'::jsonb),
+  ('d6600016-0000-4000-8000-0000000000e0','00000000-0000-0000-0000-000000000000',
+   'authenticated','authenticated','off.tech.kb@test.local','x',now(),now(),
+   '{"full_name":"Off Tech"}'::jsonb, '{"role":"tech"}'::jsonb),
+  ('d6600017-0000-4000-8000-0000000000e1','00000000-0000-0000-0000-000000000000',
+   'authenticated','authenticated','tech.b.kb@test.local','x',now(),now(),
+   '{"full_name":"Tech B"}'::jsonb, '{"role":"tech"}'::jsonb);
 
 update public.profiles set host_id = 'b6600000-0000-4000-8000-00000000000a'
 where id::text like 'd66000%' and id not in ('d6600010-0000-4000-8000-0000000000da',
-                                              'd6600011-0000-4000-8000-0000000000db');
+                                              'd6600011-0000-4000-8000-0000000000db',
+                                              'd6600017-0000-4000-8000-0000000000e1');
 update public.profiles set host_id = 'b6600000-0000-4000-8000-00000000000b'
-where id in ('d6600010-0000-4000-8000-0000000000da', 'd6600011-0000-4000-8000-0000000000db');
+where id in ('d6600010-0000-4000-8000-0000000000da', 'd6600011-0000-4000-8000-0000000000db',
+             'd6600017-0000-4000-8000-0000000000e1');
 
 -- Company A: three flats, a house of two rooms, and four flats where the
 -- stand-in's work is over or never counted (flat seven is archived). Company
@@ -167,7 +177,8 @@ insert into public.tasks (host_id, property_id, type, status, assignee_id, sched
    'd6600008-0000-4000-8000-0000000000d8', current_date);
 
 update public.profiles set is_active = false
-where id in ('d6600008-0000-4000-8000-0000000000d8', 'd6600009-0000-4000-8000-0000000000d9');
+where id in ('d6600008-0000-4000-8000-0000000000d8', 'd6600009-0000-4000-8000-0000000000d9',
+             'd6600016-0000-4000-8000-0000000000e0');
 
 create or replace function pg_temp.check(label text, got anyelement, want anyelement)
 returns void language plpgsql as $fn$
@@ -264,13 +275,20 @@ select pg_temp.check('the three writes are a signed-in client''s to call, not an
 select pg_temp.check('the readers'' rules run inside every policy, for every reader',
   (select coalesce(string_agg(r || ' ' || f, ', ' order by r, f), '')
    from unnest(array['authenticated', 'service_role']) r
-   cross join unnest(array['public.kb_reader_property_ids()', 'public.kb_staff_article_ids()']) f
+   cross join unnest(array['public.kb_reader_property_ids()', 'public.kb_staff_article_ids()',
+                           'public.kb_tech_reads_all()']) f
    where not has_function_privilege(r, f, 'execute')), '');
 
 select pg_temp.check('and are nobody''s from outside',
   (select coalesce(string_agg(f, ', ' order by f), '')
-   from unnest(array['public.kb_reader_property_ids()', 'public.kb_staff_article_ids()']) f
+   from unnest(array['public.kb_reader_property_ids()', 'public.kb_staff_article_ids()',
+                     'public.kb_tech_reads_all()']) f
    where has_function_privilege('anon', f, 'execute')), '');
+
+select pg_temp.check('a company''s technicians read the whole base unless it is switched off',
+  (select string_agg(name || '=' || kb_techs_read_all, ', ' order by name)
+   from public.hosts where id::text like 'b66000%'),
+  'KB host A=true, KB host B=true');
 
 -- What keeps the versions and what the writes are built of runs inside the
 -- triggers and the three RPCs; called from outside, it would skip their gate.
@@ -348,6 +366,9 @@ select pg_temp.as_user('d6600010-0000-4000-8000-0000000000da');
 select pg_temp.save('a6600010-0000-4000-8000-0000000000aa', 'company of B', 'B rules.',
                     'company', '{}');
 select pg_temp.publish('a6600010-0000-4000-8000-0000000000aa');
+select pg_temp.save('a6600012-0000-4000-8000-0000000000ac', 'flat of B', 'B flat.',
+                    'properties', '{900066020}');
+select pg_temp.publish('a6600012-0000-4000-8000-0000000000ac');
 
 -- ---------- who reads what ----------
 
@@ -385,6 +406,53 @@ select pg_temp.check('and no version of anything',
 select pg_temp.as_user('d6600004-0000-4000-8000-0000000000d4');
 select pg_temp.check('a cleaner linked to one room reads the house above it, not the other room',
   pg_temp.titles(), 'building, company');
+
+-- Technicians read the whole knowledge base (the owner's word of 2026-10-31):
+-- every published article of the company, whatever work they hold, with every
+-- place and translation of it. Drafts, the archive and the versions stay in
+-- the office.
+select pg_temp.as_user('d6600006-0000-4000-8000-0000000000d6');
+select pg_temp.check('a technician reads every published article of his company',
+  pg_temp.titles(), 'building, company, f1, f2, f3, multi f1 f3, r2');
+select pg_temp.check('with every place and translation of them, and no version',
+  (select count(*)::int from public.kb_article_targets) || ' '
+  || (select string_agg(title, ', ' order by title collate "C") from public.kb_article_translations)
+  || ' ' || (select count(*)::int from public.kb_article_revisions), '7 f1 cs, компания 0');
+
+select pg_temp.as_user('d6600007-0000-4000-8000-0000000000d7');
+select pg_temp.check('so does one whose work is done',
+  pg_temp.titles(), 'building, company, f1, f2, f3, multi f1 f3, r2');
+
+select pg_temp.as_user('d6600016-0000-4000-8000-0000000000e0');
+select pg_temp.check('a technician switched off reads nothing',
+  pg_temp.titles() || '|' || (select count(*)::int from public.kb_article_targets)
+  || '|' || (select count(*)::int from public.kb_article_translations), '|0|0');
+select pg_temp.check('the switch is not his',
+  public.kb_tech_reads_all(), false);
+
+-- The switch is the technicians' alone: the cleaners above read by their
+-- places with it on, and the office reads by its own rule.
+select pg_temp.as_user('d6600003-0000-4000-8000-0000000000d3');
+select pg_temp.check('a cleaner does not read by the switch',
+  public.kb_tech_reads_all(), false);
+select pg_temp.as_user('d6600002-0000-4000-8000-0000000000d2');
+select pg_temp.check('nor does the head technician',
+  public.kb_tech_reads_all(), false);
+select pg_temp.as_user('d6600001-0000-4000-8000-0000000000d1');
+select pg_temp.check('nor a manager',
+  public.kb_tech_reads_all(), false);
+
+-- The rule of 2026-10-16 is kept, switched off. With the company's switch off,
+-- a technician reads the places of the work he holds now, and only those.
+select pg_temp.as_owner();
+update public.hosts set kb_techs_read_all = false where id = 'b6600000-0000-4000-8000-00000000000a';
+
+-- The switch is each company's own: company B keeps it on, and its technician,
+-- who holds no work, still reads all of B — the place of its flat included.
+select pg_temp.as_user('d6600017-0000-4000-8000-0000000000e1');
+select pg_temp.check('a technician of a company with the switch on reads all of it, whatever another company says',
+  pg_temp.titles() || '|' || (select count(*)::int from public.kb_article_targets),
+  'company of B, flat of B|1');
 
 select pg_temp.as_user('d6600006-0000-4000-8000-0000000000d6');
 select pg_temp.check('a technician reads the place of the work he holds, not of a cancelled one',
@@ -447,6 +515,18 @@ select pg_temp.check('and his work on a whole house opens the house, never its r
   (select string_agg(x::text, ', ' order by x) from public.kb_reader_property_ids() as x),
   '900066007, 900066010');
 
+-- Switched on again, he reads all of it once more: what is published, not the
+-- draft or the archive of flat two.
+select pg_temp.as_owner();
+update public.hosts set kb_techs_read_all = true where id = 'b6600000-0000-4000-8000-00000000000a';
+select pg_temp.as_user('d6600015-0000-4000-8000-0000000000df');
+select pg_temp.check('switched on again, a technician reads every published article, no draft or archive',
+  pg_temp.titles(), 'building, company, f1, f2, f3, f4 f5 f6 f7, multi f1 f3, r2');
+select pg_temp.check('nor their places or translations',
+  (select count(*)::int from public.kb_article_targets) || ' '
+  || (select string_agg(title, ', ' order by title collate "C") from public.kb_article_translations),
+  '11 f1 cs, компания');
+
 -- The shift over, the place closes again at once.
 select pg_temp.as_owner();
 update public.tasks set status = 'done', completed_at = now()
@@ -476,12 +556,12 @@ select pg_temp.check('a manager switched off reads nothing',
 
 select pg_temp.as_user('d6600011-0000-4000-8000-0000000000db');
 select pg_temp.check('a cleaner of another company reads her company''s only',
-  pg_temp.titles(), 'company of B');
+  pg_temp.titles(), 'company of B, flat of B');
 
 select pg_temp.as_user('d6600010-0000-4000-8000-0000000000da');
 select pg_temp.check('a manager of another company too',
   pg_temp.titles() || '|' || (select count(*)::int from public.kb_article_targets)
-  || '|' || (select count(*)::int from public.kb_article_revisions), 'company of B|0|1');
+  || '|' || (select count(*)::int from public.kb_article_revisions), 'company of B, flat of B|1|2');
 
 -- As anon the pg_temp helpers are out of reach too, so the refusals are
 -- caught in place.
@@ -533,8 +613,7 @@ select pg_temp.check('a version',
 select pg_temp.check('a place',
   pg_temp.refusal($$delete from public.kb_article_targets$$), '42501');
 
--- The head technician writes and publishes, and the technician of the flat
--- reads it at once.
+-- The head technician writes and publishes, and a technician reads it at once.
 select pg_temp.as_user('d6600002-0000-4000-8000-0000000000d2');
 select pg_temp.save('a6600011-0000-4000-8000-0000000000ab', 'head note', 'Valve under the sink.',
                     'properties', '{900066002}');
@@ -545,8 +624,8 @@ select pg_temp.check('the head technician''s article is his and published',
   'published d6600002-0000-4000-8000-0000000000d2');
 
 select pg_temp.as_user('d6600006-0000-4000-8000-0000000000d6');
-select pg_temp.check('and the technician of the flat reads it',
-  pg_temp.titles(), 'company, f2, head note');
+select pg_temp.check('and a technician reads it',
+  pg_temp.titles(), 'building, company, f1, f2, f3, f4 f5 f6 f7, head note, multi f1 f3, r2');
 
 -- Company B's manager reaches nothing of company A.
 select pg_temp.as_user('d6600010-0000-4000-8000-0000000000da');
