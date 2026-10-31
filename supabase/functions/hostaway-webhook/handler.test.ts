@@ -1,4 +1,4 @@
-import { assertEquals, assertStringIncludes } from "jsr:@std/assert@1";
+import { assertEquals, assertFalse, assertStringIncludes } from "jsr:@std/assert@1";
 import { buildBasicAuthHeader } from "../_shared/basic-auth.ts";
 import { ConfigError } from "../_shared/env.ts";
 import { createWebhookHandler } from "./handler.ts";
@@ -40,10 +40,10 @@ function request(body: unknown, headers: Record<string, string> = {}): Request {
 }
 
 // ---------------------------------------------------------------------------
-//  Успешный путь
+//  The happy path
 // ---------------------------------------------------------------------------
 
-Deno.test("верные данные: 200 и событие в журнале", async () => {
+Deno.test("valid request: 200 and the event in the journal", async () => {
   const { handler, recorded } = makeHandler();
 
   const response = await handler(request(RESERVATION_EVENT, { Authorization: AUTH }));
@@ -53,9 +53,9 @@ Deno.test("верные данные: 200 и событие в журнале", 
   assertEquals(recorded[0], RESERVATION_EVENT);
 });
 
-Deno.test("неизвестный тип события всё равно принимается", async () => {
-  // Документация Hostaway: «if you receive a webhook with an event that you
-  // don't support yet, just return a 200 response».
+Deno.test("an unknown event type is still accepted", async () => {
+  // Hostaway's documentation: "if you receive a webhook with an event that you
+  // don't support yet, just return a 200 response".
   const { handler, recorded } = makeHandler();
 
   const response = await handler(
@@ -63,25 +63,98 @@ Deno.test("неизвестный тип события всё равно при
   );
 
   assertEquals(response.status, 200);
-  assertEquals(recorded.length, 1, "неизвестное событие тоже нужно сохранить");
+  assertEquals(recorded.length, 1, "an unknown event has to be kept as well");
 });
 
 // ---------------------------------------------------------------------------
-//  Отказы авторизации: 401, повтора не будет — и это правильно
+//  Guest messages: kept without text or contacts; everything else as it came
 // ---------------------------------------------------------------------------
 
-Deno.test("без заголовка: 401 и ничего не записано", async () => {
+const GUEST_TEXT = "Synthetic text: no hot water, write to guest@example.test";
+
+Deno.test("a guest message reaches the journal without its text and contacts", async () => {
+  const { handler, recorded } = makeHandler();
+  const delivery = {
+    object: "conversationMessage",
+    event: "message.received",
+    accountId: 10001,
+    data: {
+      id: 900001,
+      conversationId: 800001,
+      reservationId: 700001,
+      listingMapId: 600001,
+      isIncoming: 1,
+      communicationType: "channel",
+      channelId: 2005,
+      date: "2026-10-31 12:00:00",
+      insertedOn: "2026-10-31 12:00:01",
+      body: GUEST_TEXT,
+      attachments: [],
+      recipientName: "Testing Guestname",
+    },
+  };
+
+  const response = await handler(request(delivery, { Authorization: AUTH }));
+
+  assertEquals(response.status, 200);
+  assertEquals(recorded[0], {
+    object: "conversationMessage",
+    event: "message.received",
+    accountId: 10001,
+    data: {
+      id: 900001,
+      conversationId: 800001,
+      reservationId: 700001,
+      listingMapId: 600001,
+      isIncoming: 1,
+      communicationType: "channel",
+      channelId: 2005,
+      date: "2026-10-31 12:00:00",
+      insertedOn: "2026-10-31 12:00:01",
+    },
+  });
+});
+
+Deno.test("a reservation with guest details is kept whole: its processing reads it as before", async () => {
+  const { handler, recorded } = makeHandler();
+  const delivery = {
+    object: "reservation",
+    event: "reservation.updated",
+    accountId: 10001,
+    data: { id: 700001, guestName: "Testing Guestname", guestEmail: "guest@example.test", status: "new" },
+  };
+
+  await handler(request(delivery, { Authorization: AUTH }));
+
+  assertEquals(recorded[0], delivery);
+});
+
+Deno.test("an unparsed guest message keeps only its length", async () => {
+  const { handler, recorded } = makeHandler();
+  const broken = `{"object":"conversationMessage","event":"message.received","data":{"body":"${GUEST_TEXT}"`;
+
+  const response = await handler(request(broken, { Authorization: AUTH }));
+
+  assertEquals(response.status, 200);
+  assertFalse(JSON.stringify(recorded[0]).includes(GUEST_TEXT), "the text must not reach the journal");
+});
+
+// ---------------------------------------------------------------------------
+//  Authorisation refusals: 401, never retried — and rightly so
+// ---------------------------------------------------------------------------
+
+Deno.test("no header: 401 and nothing recorded", async () => {
   const { handler, recorded } = makeHandler();
 
   const response = await handler(request(RESERVATION_EVENT));
 
   assertEquals(response.status, 401);
-  assertEquals(recorded.length, 0, "неавторизованное событие в журнал попадать не должно");
+  assertEquals(recorded.length, 0, "an unauthorised event must not reach the journal");
 });
 
-Deno.test("неверный пароль: 401", async () => {
+Deno.test("wrong password: 401", async () => {
   const { handler, recorded } = makeHandler();
-  const wrong = buildBasicAuthHeader(CREDENTIALS.login, "neverniy");
+  const wrong = buildBasicAuthHeader(CREDENTIALS.login, "wrong-password");
 
   const response = await handler(request(RESERVATION_EVENT, { Authorization: wrong }));
 
@@ -89,7 +162,7 @@ Deno.test("неверный пароль: 401", async () => {
   assertEquals(recorded.length, 0);
 });
 
-Deno.test("битый заголовок: 401", async () => {
+Deno.test("broken header: 401", async () => {
   const { handler } = makeHandler();
 
   const response = await handler(request(RESERVATION_EVENT, { Authorization: "Bearer abc" }));
@@ -97,7 +170,7 @@ Deno.test("битый заголовок: 401", async () => {
   assertEquals(response.status, 401);
 });
 
-Deno.test("ответ 401 несёт WWW-Authenticate", async () => {
+Deno.test("a 401 answer carries WWW-Authenticate", async () => {
   const { handler } = makeHandler();
 
   const response = await handler(request(RESERVATION_EVENT));
@@ -106,15 +179,15 @@ Deno.test("ответ 401 несёт WWW-Authenticate", async () => {
 });
 
 // ---------------------------------------------------------------------------
-//  Наши собственные сбои: 500, потому что 5xx Hostaway повторяет
+//  Our own failures: 500, because Hostaway retries a 5xx
 // ---------------------------------------------------------------------------
 
-Deno.test("секреты не настроены: 500, а НЕ 401", async () => {
-  // Ключевое место. Забытый секрет при развёртывании — наша ошибка, и она
-  // обязана быть повторяемой: 5xx Hostaway переспросит в течение часа,
-  // 4xx выбросил бы бронь навсегда.
+Deno.test("secrets not configured: 500, NOT 401", async () => {
+  // The key case. A secret forgotten at deployment is our fault and has to be
+  // retryable: Hostaway asks again within the hour after a 5xx, while a 4xx
+  // would drop the reservation for good.
   const { handler, recorded } = makeHandler({
-    credentialsError: new ConfigError("Не заданы переменные окружения: HOSTAWAY_WEBHOOK_LOGIN"),
+    credentialsError: new ConfigError("Environment variables are not set: HOSTAWAY_WEBHOOK_LOGIN"),
   });
 
   const response = await handler(request(RESERVATION_EVENT, { Authorization: AUTH }));
@@ -123,18 +196,18 @@ Deno.test("секреты не настроены: 500, а НЕ 401", async () =
   assertEquals(recorded.length, 0);
 });
 
-Deno.test("секреты не настроены и заголовка нет: всё равно 500", async () => {
-  // Проверка конфигурации идёт ДО проверки заголовка, иначе развёртывание
-  // без секретов маскировалось бы под неавторизованный запрос.
-  const { handler } = makeHandler({ credentialsError: new ConfigError("нет секретов") });
+Deno.test("secrets not configured and no header: still 500", async () => {
+  // The configuration is checked BEFORE the header, otherwise a deployment
+  // without secrets would pass for an unauthorised request.
+  const { handler } = makeHandler({ credentialsError: new ConfigError("no secrets") });
 
   const response = await handler(request(RESERVATION_EVENT));
 
   assertEquals(response.status, 500);
 });
 
-Deno.test("запись в журнал упала: 500", async () => {
-  // Транзиентный сбой базы. Hostaway повторит — событие не потеряется.
+Deno.test("the journal write failed: 500", async () => {
+  // A transient database failure. Hostaway retries — the event is not lost.
   const { handler } = makeHandler({ recordError: new Error("connection reset") });
 
   const response = await handler(request(RESERVATION_EVENT, { Authorization: AUTH }));
@@ -143,24 +216,24 @@ Deno.test("запись в журнал упала: 500", async () => {
 });
 
 // ---------------------------------------------------------------------------
-//  Нечитаемое тело: принимаем и сохраняем как есть
+//  An unreadable body: accepted and kept as it is
 // ---------------------------------------------------------------------------
 
-Deno.test("невалидный JSON: 200 и сырой текст в журнале", async () => {
-  // Повтор такого не исправит, но и терять нельзя: сохраняем как есть,
-  // чтобы разобраться вручную.
+Deno.test("invalid JSON: 200 and the raw text in the journal", async () => {
+  // A retry would not fix it, but it must not be lost either: kept as it is,
+  // to be looked into by hand.
   const { handler, recorded } = makeHandler();
 
-  const response = await handler(request("{это не json", { Authorization: AUTH }));
+  const response = await handler(request("{this is not json", { Authorization: AUTH }));
 
   assertEquals(response.status, 200);
   assertEquals(recorded.length, 1);
   const payload = recorded[0] as Record<string, unknown>;
   assertEquals(typeof payload.unparsed, "string");
-  assertStringIncludes(payload.unparsed as string, "это не json");
+  assertStringIncludes(payload.unparsed as string, "this is not json");
 });
 
-Deno.test("пустое тело: 200 и отметка в журнале", async () => {
+Deno.test("empty body: 200 and a mark in the journal", async () => {
   const { handler, recorded } = makeHandler();
 
   const response = await handler(request("", { Authorization: AUTH }));
@@ -170,10 +243,10 @@ Deno.test("пустое тело: 200 и отметка в журнале", asyn
 });
 
 // ---------------------------------------------------------------------------
-//  Прочее
+//  The rest
 // ---------------------------------------------------------------------------
 
-Deno.test("не-POST отвергается с 405", async () => {
+Deno.test("a non-POST is refused with 405", async () => {
   const { handler, recorded } = makeHandler();
 
   const response = await handler(
@@ -187,9 +260,9 @@ Deno.test("не-POST отвергается с 405", async () => {
   assertEquals(recorded.length, 0);
 });
 
-Deno.test("ответ короткий: подтверждение и номер записи", async () => {
-  // Hostaway ждёт подтверждения 20 секунд; разбор идёт отдельно, поэтому
-  // ответ должен быть коротким.
+Deno.test("the answer is short: an acknowledgement and the record number", async () => {
+  // Hostaway waits 20 seconds for the acknowledgement; processing runs
+  // separately, so the answer must be short.
   const { handler } = makeHandler();
 
   const response = await handler(request(RESERVATION_EVENT, { Authorization: AUTH }));

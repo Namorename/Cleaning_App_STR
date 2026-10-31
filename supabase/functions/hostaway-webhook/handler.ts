@@ -1,36 +1,39 @@
 /**
- * Приём вебхука Hostaway.
+ * Hostaway webhook intake.
  *
- * КОДЫ ОТВЕТА — самое важное здесь. По документации Hostaway:
- *   - любой ответ 2xx означает «принято»;
- *   - сетевая ошибка, 5xx и 429 считаются временным сбоем: доставка
- *     повторяется до трёх раз в течение примерно часа;
- *   - остальные 4xx (400, 401, 403, 404) считаются ПОСТОЯННЫМ отказом,
- *     повтора не будет — событие пропадает навсегда;
- *   - пять суток подряд неудач, и Hostaway отключит вебхук.
+ * RESPONSE CODES matter most here. Per Hostaway's documentation:
+ *   - any 2xx means "accepted";
+ *   - a network error, 5xx and 429 are a transient failure: the delivery is
+ *     retried up to three times within about an hour;
+ *   - any other 4xx (400, 401, 403, 404) is a PERMANENT refusal: there is no
+ *     retry, and the event is lost for good;
+ *   - five days of failures in a row, and Hostaway disables the webhook.
  *
- * Отсюда правило: всё, в чём виноваты мы, отвечает 5xx, чтобы Hostaway
- * переспросил; 4xx остаётся только для случаев, когда запрос действительно
- * не должен приниматься.
+ * Hence the rule: whatever is our fault answers 5xx, so that Hostaway asks
+ * again; 4xx is left for requests that really must not be accepted.
  *
- *   не прочитались секреты      -> 500  наша ошибка развёртывания, повторяемо
- *   ошибка записи в журнал      -> 500  транзиентный сбой базы, повторяемо
- *   нет/битый/неверный пароль   -> 401  подделку принимать нельзя
- *   тело не разобралось         -> 200  повтор не поможет, сохраняем как есть
- *   неизвестное событие         -> 200  прямая рекомендация документации
+ *   secrets not readable       -> 500  our deployment error, retryable
+ *   journal write failed       -> 500  a transient database failure, retryable
+ *   no/broken/wrong password   -> 401  a forgery must not be accepted
+ *   body did not parse         -> 200  a retry will not help; stored as it is
+ *   unknown event              -> 200  the documentation's own advice
  *
- * Проверка конфигурации идёт ДО проверки заголовка: иначе развёртывание
- * с забытым секретом маскировалось бы под неавторизованный запрос и
- * тихо выбрасывало брони.
+ * The configuration is checked BEFORE the header: otherwise a deployment with
+ * a forgotten secret would pass for an unauthorised request and quietly drop
+ * reservations.
+ *
+ * A guest message is stored without its text and contact details
+ * (guest-message.ts); every other notification is stored as it came.
  */
 
 import { type BasicCredentials, verifyBasicAuth } from "../_shared/basic-auth.ts";
 import { ConfigError } from "../_shared/env.ts";
+import { journalPayload, journalUnparsed } from "./guest-message.ts";
 
 export interface WebhookDeps {
-  /** Может бросить ConfigError, если секреты не заданы. */
+  /** May throw ConfigError when the secrets are not set. */
   readonly loadCredentials: () => BasicCredentials;
-  /** Пишет уведомление в журнал и возвращает его номер. */
+  /** Writes the notification to the journal and returns its number. */
   readonly recordEvent: (payload: unknown) => Promise<number>;
 }
 
@@ -48,21 +51,19 @@ function getErrorMessage(error: unknown): string {
 }
 
 /**
- * Разбор тела.
+ * The body as the journal keeps it.
  *
- * Нечитаемое тело не отбрасывается: оно заворачивается в объект и всё равно
- * попадает в журнал. Потерять уведомление хуже, чем сохранить его в сыром виде.
+ * An unreadable body is not thrown away: it is wrapped in an object and still
+ * reaches the journal. Losing a notification is worse than keeping it raw. A
+ * guest message, parsed or not, keeps no text (guest-message.ts).
  */
 async function readPayload(request: Request): Promise<unknown> {
   const text = await request.text();
 
   try {
-    return JSON.parse(text) as unknown;
+    return journalPayload(JSON.parse(text) as unknown);
   } catch {
-    return {
-      unparsed: text,
-      contentType: request.headers.get("Content-Type"),
-    };
+    return journalUnparsed(text, request.headers.get("Content-Type"));
   }
 }
 
@@ -72,8 +73,8 @@ export function createWebhookHandler(deps: WebhookDeps): (request: Request) => P
       return json({ error: "POST expected" }, 405);
     }
 
-    // 1. Конфигурация. Проверяется первой: её отсутствие — наша вина,
-    //    и ответ обязан быть повторяемым.
+    // 1. Configuration. Checked first: its absence is our fault, and the
+    //    answer has to be retryable.
     let credentials: BasicCredentials;
     try {
       credentials = deps.loadCredentials();
@@ -86,12 +87,12 @@ export function createWebhookHandler(deps: WebhookDeps): (request: Request) => P
       );
     }
 
-    // 2. Авторизация. Единственная защита: подписи Hostaway не присылает.
+    // 2. Authorisation. The only protection: Hostaway sends no signatures.
     const auth = await verifyBasicAuth(request.headers.get("Authorization"), credentials);
     if (!auth.ok) {
-      // Причина пишется в журнал, потому что 401 повторяться не будет:
-      // если это была настоящая доставка, бронь потеряна, и разбираться
-      // придётся по этой записи и по суточной сверке.
+      // The reason goes to the log because a 401 is never retried: if this
+      // was a real delivery, the reservation is lost, and this line and the
+      // daily reconciliation are all there is to go on.
       console.error(
         `Webhook rejected (${auth.reason}). Hostaway will NOT retry. ` +
           (auth.reason === "missing"
@@ -104,11 +105,11 @@ export function createWebhookHandler(deps: WebhookDeps): (request: Request) => P
       });
     }
 
-    // 3. Тело. Читается уже после авторизации — неавторизованный запрос
-    //    не должен попадать в журнал.
+    // 3. The body. Read only after authorisation: an unauthorised request
+    //    must not reach the journal.
     const payload = await readPayload(request);
 
-    // 4. Запись. Сбой здесь транзиентный, поэтому 500: Hostaway переспросит.
+    // 4. The write. A failure here is transient, hence 500: Hostaway asks again.
     try {
       const eventId = await deps.recordEvent(payload);
       return json({ accepted: true, eventId }, 200);
