@@ -7,6 +7,8 @@
 - Репетиция — ветка `integration-rehearsal-1028` (от `origin/main` 9bedd62).
 - Репетиция шагов 3–5 на текущем `main` — ветка `integration-rehearsal-1030` (от `origin/main`
   770c2e6, 30.10), §9.
+- Репетиция шага 5 (сигналы гостей) поверх `main` `0522296` — ветка `integration-rehearsal-1031`
+  (31.10), §9.7; по ней шаг 5 и идёт.
 - План — ветка `rollout-plan-1028` (этот файл, пробы и скрипты временной базы в `docs/rollout/`).
 - Каждый шаг ниже идёт только по слову владельца. Слово нужно на каждый шаг отдельно.
 
@@ -187,6 +189,12 @@
   ничего не выкачено. Итоговые номера: API `20261028100000`, база знаний `20261030100000`, отзывы
   `20261030110000`. Концы шагов для `main`: `093cc63`, `d10f0dd`, `7e30c96`, 5d — `69fd4b0`. Красная
   проверка прежняя — вопрос 1 (§8); найдены и исправлены три отката.
+- **Шаг 5 перерепетирован 31.10** поверх `main` `0522296` (ветка `integration-rehearsal-1031`, §9.7);
+  ничего не выкачено, §9.5 — история. Отзывы стали первым видом ядра «сигналов гостей» (правки
+  П1–П12, `docs/guest-signals.md` §2.5); номер прежний — `20261030110000`, sha256 `68b8fed5…`.
+  Концы подшагов: 5a `7cabc3d`, 5b `c37f9ab`, 5c `d90136f`, 5d `09d6664`; застава
+  `HEAD_WANT=20261030103000`. Красной проверки больше нет: решение 5a — коммит. Облако на
+  `20261030103000` прочитано вечером 31.10 — `EQUAL head`.
 
 ## 0. Коротко
 
@@ -468,11 +476,11 @@ reverted <версия>`. Обе команды пишут в облако — �
 | 4c — **preview выполнен 30.10, 21:59 UTC** (`e004af6d`); field — 4d | OTA №9 из `main` (видео + база знаний + терпимость к пустому автору): preview, потом field | «OTA №9 preview» / «field» | проверка бандла | статьи открываются у горничной и техника | republish №8 | проверка на телефоне |
 | 4d — **выполнен 31.10, 12:15 UTC** (`2284c0b4`) | `update:republish` группы `e004af6d` в field (из `apps/mobile`) | «в field» после проверки на Android | группы до: preview `e004af6d`, field `e6d58921` | field `2284c0b4`: коммит `d10f0dd`, runtime 1.2.0, бандлы обеих платформ = `dist-e004af6d`; preview без изменений | republish `e6d58921` (№8) в field | iPhone: второй запуск с интернетом |
 | 4e — **выполнен 31.10, 11:40 UTC** (`8087f14`; вне плана, слово владельца 31.10) | техники читают всю базу знаний: ветка `kb-techs-read-all-1031` от `d10f0dd`, миграция `20261030103000_kb_techs_read_all` (переключатель `hosts.kb_techs_read_all`, прежнее правило в `kb_reader_property_ids` не тронуто), затем FF `main` `d10f0dd..8087f14` в 11:41 (Vercel `woom-906tdiobh` READY 11:42) | «Пушим» | `HEAD_WANT=20261030100000`, `LIST_WANT="20261030103000_kb_techs_read_all.sql"` | `postpush_kb_techs_read_all.sql`: голова `20261030103000`, колонка `boolean not null default true`, `kb_reader_property_ids` `0977521f`/1009, `kb_staff_article_ids` `3e0b38e3`/482, `kb_tech_reads_all` `c436849a`/208, политики `a5dda625`/`48241cec`/`bc59ee21`; переключатель `true` у 1 компании; оба активных техника читают единственную опубликованную статью | прежнее правило — `update public.hosts set kb_techs_read_all = false where id = '<компания>'`; схема — `docs/one-off-writes/kb-techs-read-all-rollback.sql` (шаги в его шапке) | нет, OTA не нужна |
-| 5a | решение по красной проверке (§6.4, §8 вопрос 1) | ответ на вопрос 1 | — | `table_grants.sql` зелёный | — | ответ |
-| 5b | FF `main` до `7e30c96` (§9.1, §9.5: слияние отзывов, номер `20261030110000`, паритет, панель, `test:fn`, типы, откат со строками прав) плюс коммит решения 5a, из него — миграция | «Шаг 5: push отзывов» | `HEAD_WANT=20261030100000`, `LIST_WANT="20261030110000_reviews_to_tasks.sql"`; проба до — `EQUAL step4` | `EQUAL step5` (из прежних функций меняется одна: `push_on_problem_reported` → `627710e7`); `postpush_1028.sql`: крон 16, `review_cron` оба `false`; `guest_reviews`, `review_findings`, `review_settings` — только `SELECT` у `authenticated`; `postpush_api_scopes_1028.sql`: 46 | `docs/one-off-writes/reviews-to-tasks-rollback.sql`, `repair --status reverted 20261030110000`; проба — `EQUAL step4`, прав 44 | нет |
-| 5c | секреты `REVIEW_ID_HMAC_SECRET` и `ANTHROPIC_API_KEY`, деплой `sync-reviews classify-reviews` | «Шаг 5: функции» | — | функции в списке; без секрета `sync-reviews` отвечает 500 `ConfigError` — так и задумано | `functions delete` | **владелец сам**: секрет HMAC — один раз и навсегда (`docs/reviews-to-tasks.md` §10, п. 3), ключ модели |
-| 5d | FF `main` до `69fd4b0` (`REVIEW_SOURCE_ENABLED = true`), `git push origin main`, затем `migration list --linked` и OTA №10 из этого `main` | «Шаг 5: main», «OTA №10» | — | «Отзывы» в меню, счётчик кандидатов | `git revert` коммитов шага (§9.5), republish №9 | нет |
-| 5e | выключатели «Отзывы → Настройки», задания крона | «Шаг 5: включай» | — | первый прогон `sync-reviews` в журнале | выключить там же; `cron.alter_job(…, active => false)` | дата уведомления гостей, выключатели (админ) |
+| 5a | коммит `7cabc3d` (§9.7): в `table_grants.sql` одна дверь клиента в `raw` — `signal_run_status()` фиксированной формы | — (ответ на вопрос 1 дан 30.10) | — | `table_grants.sql` зелёный на голове облака и после миграции | — | нет |
+| 5b | FF `main` до `d90136f` (§9.7: 5a; миграция `20261030110000` ядра сигналов гостей, набор, откат, типы, реестр API; функции, панель «Гости», телефон за выключателем, демо), из него — миграция | «Шаг 5: push сигналов гостей» | `HEAD_WANT=20261030103000`, `LIST_WANT="20261030110000_reviews_to_tasks.sql"`; проба до — `EQUAL head` (`rollout-1031-compare.mjs`) | `EQUAL step5` (из прежних функций меняется одна: `push_on_problem_reported` → `31d9c3d6`); `postpush_guest_signals_1031.sql` — ровно как в §9.7: крон 16, `sync-guest-signals-daily` и `classify-guest-signals-daily` выключены; `guest_signals`, `signal_findings`, `signal_settings` — только `SELECT` у `authenticated`; прав 46 | `docs/one-off-writes/guest-signals-rollback.sql`, `repair --status reverted 20261030110000`; проба — `EQUAL head`, прав 44 | нет |
+| 5c | секреты `GUEST_SIGNAL_KEY_SECRET` (был `REVIEW_ID_HMAC_SECRET`) и `ANTHROPIC_API_KEY`, деплой `sync-guest-signals classify-guest-signals` | «Шаг 5: функции» | — | функции в списке; без секрета `sync-guest-signals` отвечает 500 `ConfigError` — так и задумано | `functions delete` | **владелец сам**: секрет HMAC — один раз и навсегда (§9.7), ключ модели |
+| 5d | FF `main` до `09d6664` (`GUEST_SIGNAL_SOURCE_ENABLED = true`), `git push origin main`, затем `migration list --linked` и OTA №10 из этого `main` | «Шаг 5: main», «OTA №10» | — | «Гости» в меню, счётчик кандидатов | `git revert` коммитов шага (§9.7), republish №9 | нет |
+| 5e | выключатели «Гости → Настройки», задания крона | «Шаг 5: включай» | — | первый прогон `sync-guest-signals` в журнале | выключить там же; `cron.alter_job(…, active => false)` | дата уведомления гостей, выключатели (админ) |
 
 После каждого слияния в `main` — `npm run db:types` на стенде, где каталог равен облаку. Можно и без
 стенда: временная база, как в репетиции (`docs/rollout/rehearsal-db-1028.mjs`, §6.1). Иначе тест
@@ -570,14 +578,14 @@ by a client role» ловит `public.review_run_status()`. Это definer-фу�
 | Панель в `main` раньше схемы (`PGRST200`, пустые экраны) | порядок каждого шага: push → проверка → `main` |
 | Индексы API за длинной транзакцией | `lock_timeout 3s` (f8ca08d); окно вне ночи |
 | Отзывы правят `problems` (`not null` снят, колонки) и триггер push | `lock_timeout 3s` в миграции; `ae3c658` в панели и телефоне раньше `tasks_enabled` |
-| Секреты | только владелец, из своего окна, без печати; `REVIEW_ID_HMAC_SECRET` — один раз навсегда |
+| Секреты | только владелец, из своего окна, без печати; `GUEST_SIGNAL_KEY_SECRET` (был `REVIEW_ID_HMAC_SECRET`) — один раз навсегда |
 | Правка `_shared` | не правится ни один существующий модуль; деплоятся только 4 новые функции |
 | Смысловые конфликты без текстовых | пойманы тестами (§6.3); при новых ветках репетировать на копии `integration-rehearsal-1028` |
 | Таймаут vitest под нагрузкой | известен; перед слиянием в `main` — прогон файла отдельно |
 | Откат API оставлял три индекса — повторный push после отката падал | исправлено (093cc63), откаты всех трёх шагов прогнаны на временной базе (§9.6) |
 | Номера 20261030… выданы заранее | годны, пока в облако перед ними не уйдёт миграция новее; иначе — перенумеровать и повторить репетицию (§8, вопрос 6) |
 | `main` уйдёт вперёд между шагами — FF невозможен | слить ветку фичи заново, перенести коммиты шага, перегенерировать типы, повторить проверки (§9.1) |
-| `REVIEW_SOURCE_ENABLED = true` в `main` раньше миграции отзывов | 69fd4b0 — только после 5b; выборка колонок без миграции даёт `42703` и пустые экраны |
+| `GUEST_SIGNAL_SOURCE_ENABLED = true` в `main` раньше миграции сигналов (было `REVIEW_SOURCE_ENABLED`) | `09d6664` — только после 5b; выборка колонок без миграции даёт `42703` и пустые экраны |
 | Проба «до» не совпала с ожидаемым | стоп до push: облако ушло от репетиции; `rollout_1030_functions.sql` покажет, какая функция |
 
 ## 8. Вопросы владельцу (обновлено 30.10: все решены)
@@ -594,6 +602,11 @@ by a client role» ловит `public.review_run_status()`. Это definer-фу�
    ветке. Его делает подшаг 5a (§9.5): коммит в ветку поверх `7e30c96` и прогон наборов на временной
    базе; `table_grants.sql` должен стать зелёным. Коммит 5d (`69fd4b0`) тогда переносится поверх 5a,
    поэтому концы 5b и 5d получают новые хеши. До 5a шаг 5 не идёт.
+
+   **31.10 сделано:** функция теперь `signal_run_status()` (ядро сигналов гостей), исключение — коммит
+   `7cabc3d` ветки `integration-rehearsal-1031` (§9.7). Тест формы ответа — проверка 38 набора
+   `guest_signals.sql`. Функция, расширенная на колонку или на аргумент, выпадает из исключения, и
+   набор краснеет: проверено на временной базе.
 2. ~~Ручное время уборки: ветки нет~~ — закрыт: ветка нашлась, шаг 2 выкачен 29.10.
 3. ~~Полный доступ API с чувствительными правами~~ — **закрыт: включает.**
    - Полный доступ даёт все открытые права, в том числе чувствительные (`api_effective_scopes`:
@@ -626,12 +639,12 @@ by a client role» ловит `public.review_run_status()`. Это definer-фу�
 |---|---|---|---|
 | 3 | 8c7ed84, 70b59b1, 6f138e3, 093cc63 | `093cc63` | слияние API; паритет: `release_push_token`, четыре функции ручного времени, `defined_in` пяти функций, право `cleanings:update`, `lock_timeout 3s`; типы; откат API снимает и три индекса |
 | 4 | 316468f, 130e159, 644fa7d, 3a3c478, 8b96e18, 9b77bac, d10f0dd | `d10f0dd` | слияния базы знаний (панель, телефон); `ae3c658` — задание без автора читается; номер 20261030100000; паритет и блок `api-scopes`; типы; откат убирает строки прав |
-| 5 (5b–5c) | 5582e5f, c65aa91, d4f253c, 731293e, 7e30c96 | `7e30c96` | слияние отзывов; номер 20261030110000; паритет, блок `api-scopes`, меню и тесты панели, `test:fn`; типы; откат убирает строки прав |
-| 5d | 69fd4b0 | `69fd4b0` | `REVIEW_SOURCE_ENABLED = true`: телефон спрашивает три колонки отзывов |
+| 5 (5a–5c) | 7cabc3d, c37f9ab, 390bd8e, fb330d2, 0daf63c, d90136f | `d90136f` | с 31.10 — ветка `integration-rehearsal-1031` от `0522296` (§9.7): дверь 5a; ядро сигналов гостей `20261030110000`; функции, панель, телефон за выключателем, демо. Прежние 5582e5f…7e30c96 — история |
+| 5d | 09d6664 | `09d6664` | `GUEST_SIGNAL_SOURCE_ENABLED = true`: телефон спрашивает три колонки сигнала (прежний 69fd4b0 — история) |
 
 В день шага, в дереве `main` (например `.claude/worktrees/main-step0-1028`):
 1. `git fetch origin`; `git rev-parse --short origin/main` — конец прошлого шага: `770c2e6` перед
-   шагом 3, `093cc63` перед 4, `d10f0dd` перед 5, `7e30c96` перед 5d.
+   шагом 3, `093cc63` перед 4, `0522296` перед 5 (с 31.10, §9.7), `d90136f` перед 5d.
 2. `git merge --ff-only <конец шага>` — локально, на `origin` не уходит до подшага «main». Если
    `main` ушёл вперёд и FF невозможен — слить ветку фичи заново, перенести коммиты шага
    (`cherry-pick` всех, кроме слияний), перегенерировать типы (§9.6) и повторить проверки: за такое
@@ -640,7 +653,7 @@ by a client role» ловит `public.review_run_status()`. Это definer-фу�
    ```
    d966dd7f64143d8c034320b07e596a7766a92a22cfd24aca49cd986e95499344  supabase/migrations/20261028100000_public_api_v1.sql
    1f66629c3e7b67ee359803372a0d663d3ab1e3d867be1359036fbeb0d65457f3  supabase/migrations/20261030100000_knowledge_base.sql
-   d28c0f16d3e124c2fe6264f4bd062accd7d8c4b6526bcfd5d2578444f229c805  supabase/migrations/20261030110000_reviews_to_tasks.sql
+   68b8fed5ba75e2fdfbb28bdba051acf378613a3f90b5402386366513c8f7f064  supabase/migrations/20261030110000_reviews_to_tasks.sql
    ```
 4. Проба «до» (§9.2) — `EQUAL` для состояния до шага; иначе стоп.
 5. Застава и `db push` (§3) с `HEAD_WANT` / `LIST_WANT` шага.
@@ -785,7 +798,10 @@ node scripts/cloud-read.mjs $P/rollout_1030_functions.sql > fn.json && node $P/r
 - **Слово владельца:** «Шаг 4: push базы знаний», «Шаг 4: main», «OTA №9 preview», «OTA №9 field»
   (после проверки на телефоне).
 
-### 9.5 Шаг 5 — отзывы
+### 9.5 Шаг 5 — отзывы (история: шаг идёт по §9.7)
+
+**Заменён §9.7 (31.10).** Ниже — план по репетиции 30.10: коммиты, имена, застава, пробы и откаты в
+нём устарели.
 
 - **Миграция** `20261030110000_reviews_to_tasks.sql` (была `20261017110000`). **Застава:**
   `HEAD_WANT=20261030100000`, `LIST_WANT="20261030110000_reviews_to_tasks.sql"`.
@@ -891,3 +907,151 @@ node scripts/cloud-read.mjs $P/rollout_1030_functions.sql > fn.json && node $P/r
 | `deno check`, HTTP-контракт API | не повторялись: код функций с 28.10 отличается одной строкой комментария; контракту нужны данные стенда |
 
 vitest, jest и сборка шли на итоговом дереве; в промежуточных состояниях — tsc, SQL и паритет.
+
+### 9.7 Шаг 5 — сигналы гостей по репетиции 31.10 (заменяет §9.5)
+
+Ветка `integration-rehearsal-1031` от `origin/main` `0522296` (после 4e и этапа 2 приёма сообщений),
+запушена; ничего не выкачено: в облако, на прод и в `main` ничего не уходило, облако читалось только
+`cloud-read`. Шаг 5 перенесён с `integration-rehearsal-1030` и переделан по решению владельца 1 от
+31.10: отзывы стали первым видом общего ядра «сигналов гостей» (правки П1–П12,
+`docs/guest-signals.md` §2.4–§2.5 в ветке `guest-signals-design-1031`). §9.5 — история, по нему шаг не
+идёт.
+
+**Коммиты по подшагам** (конец каждого — то, до чего доводится `main`):
+
+| Подшаг | Коммиты | Конец | Что в нём |
+|---|---|---|---|
+| 5a | 7cabc3d | `7cabc3d` | `table_grants.sql`: одна дверь клиента в `raw` — `signal_run_status()` фиксированной формы (без аргументов, `security definer`, пустой `search_path`, закрыта для `anon`, ровно четыре колонки: вид, этап, два времени); пятая колонка или аргумент — набор снова красный (проверено на временной базе в откатываемой транзакции) |
+| 5b | c37f9ab | `c37f9ab` | миграция `20261030110000` (П1–П12), набор `guest_signals.sql`, строки матрицы `table_grants.sql`, откат, `database.types.ts`, реестр API (`coverage.json`, `registry.json`, `openapi.v1.json`, `docs/api-coverage.md`), переводы, `.env.example` |
+| 5c | 390bd8e, fb330d2, 0daf63c, d90136f | `d90136f` | функции `sync-guest-signals` и `classify-guest-signals` с ядром `_shared/signals`, контрактом адаптера, фальшивым PMS и адаптером Hostaway, флаги `test:fn`; панель «Гости» и «Ложное срабатывание»; телефон за выключателем (`GUEST_SIGNAL_SOURCE_ENABLED = false`); демо |
+| 5d | 09d6664 | `09d6664` | `GUEST_SIGNAL_SOURCE_ENABLED = true`: телефон спрашивает `source, title_i18n, source_facts` |
+
+**Миграция** `20261030110000_reviews_to_tasks.sql` (номер и имя файла прежние):
+
+```
+68b8fed5ba75e2fdfbb28bdba051acf378613a3f90b5402386366513c8f7f064  supabase/migrations/20261030110000_reviews_to_tasks.sql
+```
+
+**Застава:** `HEAD_WANT=20261030103000`, `LIST_WANT="20261030110000_reviews_to_tasks.sql"` (номер
+старше головы, `--include-all` не нужен).
+
+**Пробы** (`docs/rollout/` этой ветки плана):
+- до и после — отпечаток каталога и функций (`rollout_1030_fingerprint.sql`, `rollout_1030_functions.sql`)
+  со сравнением `node docs/rollout/rollout-1031-compare.mjs <head|step5> <вывод>`; эталоны —
+  `rollout_1031_expected.json`. **31.10 облако на `20261030103000` прочитано `cloud-read` и совпало с
+  временной базой этой ветки до той же версии по всем частям и по каждой из 238 функций.**
+- после — `postpush_guest_signals_1031.sql` (старый `postpush_1028.sql` ищет `guest_reviews` и
+  `sync-reviews-daily` и для шага 5 больше не годится).
+
+| Часть отпечатка | до (`head`, облако 31.10) | после (`step5`) |
+|---|---|---|
+| голова / миграций | 20261030103000 / 117 | 20261030110000 / 118 |
+| функции | 238 / 4e478623 | 277 / ac02f2d5 |
+| `execute` у клиентов | 131 / 7835729f | 140 / 9c9fcc47 |
+| таблицы и вью | 43 / a11a854b | 48 / 062ecf48 |
+| колонки | 445 / facd1f2d | 546 / 1b32f954 |
+| права клиентов на таблицы | 48 / 5324f99f | 51 / 2bc6cf53 |
+| политики | 61 / b6493bd4 | 64 / dd4b6ac5 |
+| триггеры | 49 / 7882c58f | 52 / 681b940b |
+| индексы | 131 / 70907e28 | 152 / 6e12a8b6 |
+| значения enum | 119 / ff590d30 | 160 / 0e748c09 |
+| крон | 11 / 7ced9a3e | 16 / 6b853b2d, выключены `classify-guest-signals-daily`, `sync-guest-signals-daily` |
+
+Функции: плюс 39, из прежних меняется одна — `push_on_problem_reported` `ef9de429` → `31d9c3d6`.
+
+`postpush_guest_signals_1031.sql` после push должна дать ровно:
+
+```json
+{
+  "head": "20261030110000",
+  "since_1030": ["20261030100000","20261030103000","20261030110000"],
+  "jobs": [{"job":"classify-guest-signals-daily","at":"20 6 * * *","on":false},{"job":"purge-signal-data","at":"5 5 * * *","on":true},{"job":"purge-signal-runs","at":"10 5 * * *","on":true},{"job":"purge-signal-stays","at":"0 5 * * *","on":true},{"job":"sync-guest-signals-daily","at":"0 6 * * *","on":false}],
+  "client_grants": ["guest_signals authenticated SELECT","signal_findings authenticated SELECT","signal_settings authenticated SELECT"],
+  "door": {"args":"","columns":["kind","stage","last_run_at","last_ok_at"],"types":["guest_signal_kind","text","timestamp with time zone","timestamp with time zone"],"definer":true,"anon":false,"authenticated":true},
+  "push_md5": "31d9c3d6",
+  "scopes": {"total":46,"exposed":12,"planned":24,"forbidden":10,"step":["guest_signals:decide planned","guest_signals:read planned"]},
+  "rows": {"signals":0,"findings":0,"settings":0,"verdicts":0}
+}
+```
+
+**Секреты** — владелец ставит сам, из своего окна, не печатая (имена изменились с 30.10):
+- `GUEST_SIGNAL_KEY_SECRET` (был `REVIEW_ID_HMAC_SECRET`) — не меньше 32 случайных знаков, один раз и
+  навсегда: ключ каждого сигнала — HMAC `<провайдер>:<вид>:<id>` (`hostaway:review:<id>`), с другим
+  секретом все загруженные отзывы придут снова как новые. Копия — в менеджер паролей. Без него
+  `sync-guest-signals` отвечает 500 `ConfigError` — так задумано.
+- `ANTHROPIC_API_KEY` — ключ модели. Без него разбор идёт одними правилами, `model_enabled` не включать.
+- Hostaway и `SUPABASE_*` уже есть у нынешних функций.
+
+**Переключатели:**
+- телефон — `GUEST_SIGNAL_SOURCE_ENABLED` (код, 5d): `true` только в `main` после 5b и только с OTA №10;
+- «Гости → Настройки» (только админ, по умолчанию всё выключено; строка настроек — по виду сигнала, на
+  push заводится первым сохранением для отзывов): `sync_enabled`, `texts_enabled` (требует
+  `notice_published_at`), `tasks_enabled` (только после того, как OTA №10 дошла до телефонов),
+  `model_enabled` (требует текстов и ключа; `model_since` — 14 дней назад), `daily_model_cap` 50,
+  **`daily_auto_cap` 5** (новое: потолок «сразу» в сутки, раньше константа), `min_confidence` 0,60;
+- «сразу» (`auto_kinds`) — только админ, по виду находки и по виду сигнала, при ≥ 50 решениях и ≥ 90 %
+  за 60 дней у этого вида сигнала; «Ложное срабатывание» считается отказом;
+- крон `sync-guest-signals-daily` (06:00 UTC) и `classify-guest-signals-daily` (06:20 UTC) выключены до
+  `select cron.alter_job(jobid, active => true) from cron.job where jobname in
+  ('sync-guest-signals-daily', 'classify-guest-signals-daily')`.
+
+**Подшаги:**
+- 5a — решение уже коммитом в ветке; `table_grants.sql` зелёный на голове облака и после миграции;
+- 5b — `git merge --ff-only d90136f` в дереве `main` (локально), проба `head`, застава и `db push`, проба
+  `step5` и `postpush_guest_signals_1031.sql`;
+- 5c — владелец ставит секреты; `npx supabase functions deploy sync-guest-signals classify-guest-signals`;
+  функции в списке; вызов без секрета — 500 `ConfigError`;
+- 5d — `git merge --ff-only 09d6664`, `git push origin main` (Vercel: «Гости» в меню, счётчик кандидатов),
+  `npx supabase migration list --linked`, OTA №10 из этого `main`: preview, проверка, field;
+- 5e — выключатели и крон (словом владельца, дата уведомления гостей).
+
+**OTA №10** — только JS (нативной правки нет): телефон читает `source, title_i18n, source_facts`
+задания и показывает «Из отзыва гостя · Гость выехал: …» или «Из сообщения гостя · Отправлено: …» и
+плашки «Создано автоматически» / «Подтвердил менеджер» (решение 7 от 31.10).
+
+**Откаты** — в обратном порядке, каждый словом; откат 5b проверен на временной базе, `git revert` 5d —
+на отсоединённой копии ветки: семь откатов без конфликтов, дерево снова равно `0522296`:
+- 5e — выключить там же; `cron.alter_job(…, active => false)`;
+- 5d — republish №9; `git revert --no-edit 09d6664 d90136f 0daf63c fb330d2 390bd8e c37f9ab 7cabc3d && git push origin HEAD:main`;
+- 5c — `npx supabase functions delete sync-guest-signals classify-guest-signals`;
+- 5b — `npx supabase db query --linked -f docs/one-off-writes/guest-signals-rollback.sql` (отказывает,
+  пока есть задания из отзывов или сообщений), `npx supabase migration repair --status reverted
+  20261030110000 --linked`; проба — `EQUAL head`, прав 44.
+
+  На временной базе: после отката отпечаток и все 238 функций `EQUAL head`, прав 44; повторный запуск
+  отката ничего не ломает; повторный накат — снова `EQUAL step5`, прав 46 (12 / 24 / 10).
+
+**Слово владельца:** «Шаг 5: push сигналов гостей» (5b); секреты — сам; «Шаг 5: функции» (5c); «Шаг 5:
+main», «OTA №10 preview» / «field» (5d); «Шаг 5: включай» (5e) — дата уведомления гостей и выключатели.
+
+#### 9.7.1 Репетиция 31.10: что проверено
+
+| Прогон | 31.10 | 30.10 |
+|---|---|---|
+| облако на `20261030103000` (`cloud-read`, днём и ещё раз вечером 31.10) | `EQUAL head`: отпечаток и все 238 функций | — |
+| SQL, голова облака, `table_grants.sql` из 5a | 26 из 26 | красный (`review_run_status()`) |
+| SQL, все 118 миграций с чистого листа | 50 наборов, 2337 проверок, красных 0 (`guest_signals.sql` — 135) | 50 наборов, 2290 проверок, красный один |
+| пошаговая (`20261030103000` + миграция шага) против чистой | отпечаток и все 277 функций совпали | совпали |
+| откат | `EQUAL head` и 238 функций, прав 44; второй запуск — снова `EQUAL head`; повторный накат — `EQUAL step5`, 277 функций, прав 46, проба после push байт в байт та же | `EQUAL step4`, прав 44 |
+| паритет API | 16 из 16 в 5b и на итоговом дереве | 16 из 16 |
+| tsc | 0 ошибок у панели и телефона в 5b, в конце 5c и в 5d | 0 |
+| vitest панели (2 воркера) | 177 файлов, 2314 из 2314 | 177, 2302 |
+| jest телефона (2 воркера, `--forceExit`) | 206 файлов, 3455 из 3455; с 5d — то же | 206, 3436 |
+| `next build` | собрался, 19 страниц, `/guests` на месте (`/reviews` больше нет) | 19, `/reviews` |
+| eslint | панель чисто; телефон 0 ошибок, те же 9 предупреждений | то же |
+| Deno (`npm run test:fn`) | 424 из 424, `deno.lock` не тронут; в них тест контракта — 9 проверок на каждом из двух адаптеров (фальшивый PMS и Hostaway поверх фальшивого API) | 357 из 357 |
+| `deno check` | обе точки входа (`sync-guest-signals`, `classify-guest-signals`) | не повторялся |
+| Spectral (`npm run api:lint`) | чисто | чисто |
+| `test:scripts` | 70 из 70 | — |
+| демо (`scripts/reviews-demo.mjs`, `supabase/demo/reviews-demo.sql`) | на временной базе: 7 отзывов; находки — кандидатов 3, задание 1, дубль 1, «без задания» 1, отложена 1; вердиктов 1 | — |
+
+vitest, jest, сборка, eslint и Deno шли на итоговом дереве (телефон — с выключателем, как в конце 5c);
+в 5b — tsc и паритет, в 5d — tsc и jest целиком. Демо гонялось до последней правки миграции (обрезка
+пробелов во внешних id), на его данные она не влияет.
+
+**Что нашла репетиция 31.10.** Пересборка с чистого листа поймала правку, которой в 30.10 не было: «Ложное
+срабатывание» с удалением стирало неотправленные push о задании из `raw.push_outbox` — и
+`table_grants.sql` покраснел: функция, которую зовёт менеджер, трогала `raw`. Правка снята:
+задание из сигнала ставит в очередь только `problem_new`, а `claim_push_batch` (20261003160000) сам
+гасит такой push, если задания нет (`skipped`); набор проверяет, что push остаётся в очереди
+неотправленным. Эталон `step5` снят заново после этой правки.
