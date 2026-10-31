@@ -8,13 +8,13 @@ import { localizedText } from '@/features/steps/schema';
  * Tasks made from what a guest sent — a review or a message — on the phone
  * (docs/guest-signals.md §7.1), behind one switch.
  *
- * Off until migration 20261030110000 is in the cloud: a select of a column the
- * server does not have answers 42703 and empties the screen, so while this is
- * false the phone asks for nothing new and shows nothing new. The OTA that
- * follows the migration turns it on; signal_settings.tasks_enabled goes on
- * only after that OTA has reached the phones.
+ * On once migration 20261030110000 is in the cloud (rollout step 5d): a select
+ * of a column the server does not have answers 42703 and empties the screen,
+ * so while this was false the phone asked for nothing new and showed nothing
+ * new. This build goes to the phones with the OTA that follows the migration;
+ * signal_settings.tasks_enabled goes on only after that OTA has reached them.
  */
-export const GUEST_SIGNAL_SOURCE_ENABLED = false;
+export const GUEST_SIGNAL_SOURCE_ENABLED = true;
 
 /**
  * The columns a task from a guest signal adds to a select, whatever the switch

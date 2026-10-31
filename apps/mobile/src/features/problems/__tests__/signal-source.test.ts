@@ -66,9 +66,9 @@ const fromMessage = problemSchema.parse({
 });
 
 describe('the switch', () => {
-  test('is off until the migration is in the cloud (rollout 5c): no new column is asked for', () => {
-    expect(GUEST_SIGNAL_SOURCE_ENABLED).toBe(false);
-    expect(GUEST_SIGNAL_SOURCE_COLUMNS).toBe('');
+  test('is on once the migration is in the cloud (rollout 5d): the three columns are asked for', () => {
+    expect(GUEST_SIGNAL_SOURCE_ENABLED).toBe(true);
+    expect(GUEST_SIGNAL_SOURCE_COLUMNS).toBe(GUEST_SIGNAL_COLUMN_LIST);
   });
 
   test('on, the selects ask for the three columns, and only for them', () => {
