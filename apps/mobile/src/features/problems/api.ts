@@ -1,9 +1,12 @@
 import { supabase } from '@/lib/supabase';
 
+import { GUEST_SIGNAL_SOURCE_COLUMNS } from './signal-source';
 import { problemListSchema, problemSchema, type Problem, type ProblemPriority } from './schema';
 
 const PROBLEM_COLUMNS =
-  'id, property_id, task_id, reported_by, title, description, priority, status, ' +
+  'id, property_id, task_id, reported_by, title, ' +
+  GUEST_SIGNAL_SOURCE_COLUMNS +
+  'description, priority, status, ' +
   'resolved_at, cancelled_at, cancel_reason, created_at, property:properties(name, hostaway_unit_id, parent:parent_id(name)), ' +
   'fix_tasks:tasks!tasks_problem_id_fkey(id, assignee_id, status)';
 

@@ -18,6 +18,7 @@ import { useThemedStyles } from '@/hooks/use-themed-styles';
 
 import { formatReportedAt, problemPlace, problemPriorityText, problemStatusText } from './format';
 import { MAX_PROBLEM_PHOTOS, type Problem } from './schema';
+import { SIGNAL_BADGE_TONE, shownTitle, signalBadges, signalLabel } from './signal-source';
 
 interface ProblemDetailProps {
   problem: Problem;
@@ -83,8 +84,10 @@ export function ProblemDetail({
   dispatch,
   instructions,
 }: ProblemDetailProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const signal = signalLabel(problem, t);
+  const plaques = signalBadges(problem, t);
   // Its buttons are last: scrolled to the end they stop clear of the system's
   // bar, which the screen is drawn under (components/bottom-inset.ts).
   const end = useScreenEdgePadding(Spacing.lg);
@@ -97,7 +100,15 @@ export function ProblemDetail({
         <ErrorBanner title={t('common.refreshFailedSaved')} error={refreshError} />
       ) : null}
 
-      <Text variant="heading">{problem.title}</Text>
+      <Text variant="heading">{shownTitle(problem, i18n.language)}</Text>
+      {signal === null ? null : <Text tone="secondary">{signal}</Text>}
+      {plaques.length === 0 ? null : (
+        <View testID="problem-signal-marks" style={layout.marks}>
+          {plaques.map((plaque) => (
+            <Badge key={plaque} label={plaque} tone={SIGNAL_BADGE_TONE} />
+          ))}
+        </View>
+      )}
       <Text tone="secondary">
         {problemPlace(problem)} · {formatReportedAt(problem.created_at)}
       </Text>
@@ -256,6 +267,8 @@ const layout = StyleSheet.create({
   shrink: { flexShrink: 1 },
   value: { flexShrink: 1 },
   block: { gap: Spacing.xs },
+  // The plaques of a task from a guest signal, wrapping as the cards' pills do.
+  marks: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
 });
 
 const createStyles = (theme: Theme) =>

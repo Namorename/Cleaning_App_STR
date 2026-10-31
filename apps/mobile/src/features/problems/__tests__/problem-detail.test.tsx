@@ -1,5 +1,5 @@
 import { problemStatusTone } from '@str-ops/shared';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import type { ComponentProps } from 'react';
 import { StyleSheet, View, type TextStyle, type ViewStyle } from 'react-native';
 
@@ -200,6 +200,59 @@ describe('today’s screen', () => {
 
     expect(screen.getByText('В сообщении не больше 4000 символов')).toBeTruthy();
     expect(screen.getByText('Нет доступа к камере')).toBeTruthy();
+  });
+});
+
+// The owner's decision 7 of 2026-10-31: every task from a guest signal says it
+// was made automatically, and a manager's confirmation beside it.
+describe('a task from a guest signal', () => {
+  const facts = {
+    kind: 'repair',
+    subject: 'hot_water',
+    channel: null,
+    period_month: '2026-10',
+    mode: 'manager',
+  } as const;
+
+  test('a review a manager confirmed: where it came from and both plaques', async () => {
+    await render(
+      <ProblemDetail
+        {...props({
+          problem: problem({ reported_by: null, source: 'review', source_facts: facts }),
+        })}
+      />,
+    );
+
+    expect(screen.getByText('Из отзыва гостя · Гость выехал: 2026-10')).toBeTruthy();
+    const marks = screen.getByTestId('problem-signal-marks');
+    expect(within(marks).getByText('Создано автоматически')).toBeTruthy();
+    expect(within(marks).getByText('Подтвердил менеджер')).toBeTruthy();
+    expect(styleOf(marks)).toMatchObject({ flexDirection: 'row', flexWrap: 'wrap' });
+  });
+
+  test('a message made on its own carries only «Создано автоматически»', async () => {
+    await render(
+      <ProblemDetail
+        {...props({
+          problem: problem({
+            reported_by: null,
+            source: 'message',
+            source_facts: { ...facts, mode: 'auto' },
+          }),
+        })}
+      />,
+    );
+
+    expect(screen.getByText('Из сообщения гостя · Отправлено: 2026-10')).toBeTruthy();
+    expect(screen.getByText('Создано автоматически')).toBeTruthy();
+    expect(screen.queryByText('Подтвердил менеджер')).toBeNull();
+  });
+
+  test('a report somebody filed carries neither', async () => {
+    await render(<ProblemDetail {...props()} />);
+
+    expect(screen.queryByTestId('problem-signal-marks')).toBeNull();
+    expect(screen.queryByText(/Из отзыва гостя|Из сообщения гостя/)).toBeNull();
   });
 });
 

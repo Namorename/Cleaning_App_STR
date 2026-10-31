@@ -9,6 +9,12 @@ import { Icon } from '@/components/icon';
 import { Text } from '@/components/text';
 import { Spacing } from '@/constants/theme';
 import { problemPlace, problemStatusText } from '@/features/problems/format';
+import {
+  SIGNAL_BADGE_TONE,
+  shownTitle,
+  signalBadges,
+  signalLabel,
+} from '@/features/problems/signal-source';
 import { calendarDay } from '@/features/tasks/schema';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -42,7 +48,10 @@ interface BoardCardProps {
  * One card, one button, as her own list has it.
  */
 function BoardCardComponent({ problem, names, onPress, hasUnread = false }: BoardCardProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const title = shownTitle(problem, i18n.language);
+  const signal = signalLabel(problem, t);
+  const plaques = signalBadges(problem, t);
   const repair = liveRepair(problem);
   const holder = repair?.assignee_id ?? null;
   const status = problemStatusText(problem.status);
@@ -57,7 +66,9 @@ function BoardCardComponent({ problem, names, onPress, hasUnread = false }: Boar
     isLive(problem) && isOverdue(repair, new Date()) ? t('problems.board.overdue') : null;
   const archived = problem.archived_at === null ? null : t('problems.board.archived');
   const label = [
-    problem.title,
+    title,
+    signal,
+    ...plaques,
     place,
     status,
     overdue,
@@ -73,8 +84,9 @@ function BoardCardComponent({ problem, names, onPress, hasUnread = false }: Boar
   return (
     <Card accessibilityLabel={label} onPress={() => onPress(problem.id)}>
       <Text variant="title" numberOfLines={2}>
-        {problem.title}
+        {title}
       </Text>
+      {signal === null ? null : <Text tone="secondary">{signal}</Text>}
       <View style={styles.marks}>
         {hasUnread ? <Badge label={t('chat.unread')} tone={STATUS_TONE['chat.unread']} /> : null}
         <Badge label={status} tone={problemStatusTone(problem.status)} />
@@ -93,6 +105,9 @@ function BoardCardComponent({ problem, names, onPress, hasUnread = false }: Boar
             left={<Icon name="status.archived" size="small" tone="secondary" />}
           />
         )}
+        {plaques.map((plaque) => (
+          <Badge key={plaque} label={plaque} tone={SIGNAL_BADGE_TONE} />
+        ))}
       </View>
       <Text tone="secondary">{place}</Text>
       {person !== null ? <Holder name={person} /> : null}

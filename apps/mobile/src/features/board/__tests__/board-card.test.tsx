@@ -124,6 +124,48 @@ test.each([
   expect(screen.queryByText('Срочно')).toBeNull();
 });
 
+// The owner's decision 7 of 2026-10-31: every task from a guest signal says it
+// was made automatically, and a manager's confirmation beside it.
+describe('a task from a guest signal', () => {
+  const facts = {
+    kind: 'repair',
+    subject: 'hot_water',
+    channel: 'airbnb',
+    period_month: '2026-10',
+    mode: 'manager',
+  } as const;
+
+  test('a review a manager confirmed: where it came from and both plaques, all heard', async () => {
+    const problem = boardProblem({ source: 'review', source_facts: facts });
+
+    await render(<BoardCard problem={problem} names={NAMES} onPress={jest.fn()} />);
+
+    expect(screen.getByText('Из отзыва гостя · Гость выехал: 2026-10')).toBeTruthy();
+    expect(screen.getByText('Создано автоматически')).toBeTruthy();
+    expect(screen.getByText('Подтвердил менеджер')).toBeTruthy();
+    expect(
+      screen.getByRole('button', {
+        name:
+          'Кран течёт. Из отзыва гостя · Гость выехал: 2026-10. Создано автоматически. ' +
+          'Подтвердил менеджер. CZ - Nadrazni Apt 6. Открыто. Без исполнителя',
+      }),
+    ).toBeTruthy();
+  });
+
+  test('a message made on its own carries only «Создано автоматически»', async () => {
+    const problem = boardProblem({
+      source: 'message',
+      source_facts: { ...facts, mode: 'auto' },
+    });
+
+    await render(<BoardCard problem={problem} names={NAMES} onPress={jest.fn()} />);
+
+    expect(screen.getByText('Из сообщения гостя · Отправлено: 2026-10')).toBeTruthy();
+    expect(screen.getByText('Создано автоматически')).toBeTruthy();
+    expect(screen.queryByText('Подтвердил менеджер')).toBeNull();
+  });
+});
+
 test('an archived task carries its pill', async () => {
   const problem = boardProblem({ archived_at: '2026-10-06T08:00:00+00:00' });
 

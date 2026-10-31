@@ -10,6 +10,7 @@ import { Spacing } from '@/constants/theme';
 
 import { formatReportedAt, problemPlace, problemPriorityText, problemStatusText } from './format';
 import type { Problem } from './schema';
+import { SIGNAL_BADGE_TONE, shownTitle, signalBadges, signalLabel } from './signal-source';
 
 interface ProblemCardProps {
   problem: Problem;
@@ -26,15 +27,20 @@ interface ProblemCardProps {
  * supply request use for the same flag.
  */
 function ProblemCardComponent({ problem, onPress, hasUnread = false }: ProblemCardProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const status = problemStatusText(problem.status);
   const isUrgent = problem.priority === 'high';
   const urgent = t('supplies.priorities.urgent');
   const place = problemPlace(problem);
+  const title = shownTitle(problem, i18n.language);
+  const signal = signalLabel(problem, t);
+  const plaques = signalBadges(problem, t);
   const when = formatReportedAt(problem.created_at);
   // The marks are facts of the card, so the reader hears them with the rest.
   const label = [
-    t('problems.cardAccessibility', { title: problem.title, place, status }),
+    t('problems.cardAccessibility', { title, place, status }),
+    signal,
+    ...plaques,
     isUrgent ? urgent : null,
     hasUnread ? t('chat.unread') : null,
   ]
@@ -44,14 +50,18 @@ function ProblemCardComponent({ problem, onPress, hasUnread = false }: ProblemCa
   return (
     <Card accessibilityLabel={label} onPress={() => onPress(problem.id)}>
       <Text variant="title" numberOfLines={2}>
-        {problem.title}
+        {title}
       </Text>
+      {signal === null ? null : <Text tone="secondary">{signal}</Text>}
       <View testID="problem-marks" style={styles.marks}>
         {hasUnread ? <Badge label={t('chat.unread')} tone={STATUS_TONE['chat.unread']} /> : null}
         <Badge testID="problem-status" label={status} tone={problemStatusTone(problem.status)} />
         {isUrgent ? (
           <Badge testID="problem-urgent" label={urgent} tone={problemPriorityTone('high')} />
         ) : null}
+        {plaques.map((plaque) => (
+          <Badge key={plaque} label={plaque} tone={SIGNAL_BADGE_TONE} />
+        ))}
       </View>
       <Text tone="secondary">
         {place} · {when}

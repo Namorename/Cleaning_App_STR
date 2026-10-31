@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { isTechnician, knownRole } from '@/features/auth/role';
 import { PROBLEM_PRIORITIES, PROBLEM_STATUSES } from '@/features/problems/schema';
+import { signalSourceFields } from '@/features/problems/signal-source';
 
 /**
  * The head technician's board (docs/tech-plan.md §3.4, §4): every task
@@ -33,6 +34,9 @@ export const boardProblemSchema = z.object({
   id: z.string().uuid(),
   property_id: z.number().nullable(),
   title: z.string(),
+  // A task from a guest review or message (problems/signal-source.ts): absent
+  // while its switch is off, and from a phone's saved copy of an older build.
+  ...signalSourceFields,
   priority: z.enum(PROBLEM_PRIORITIES),
   status: z.enum(PROBLEM_STATUSES),
   archived_at: z.string().nullable().default(null),

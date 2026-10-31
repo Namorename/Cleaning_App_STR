@@ -93,6 +93,61 @@ describe('today’s card', () => {
   });
 });
 
+describe('a task from a guest signal (the owner’s decision 7)', () => {
+  const facts = {
+    kind: 'repair',
+    subject: 'hot_water',
+    channel: null,
+    period_month: '2026-10',
+    mode: 'manager',
+  } as const;
+
+  test('a review a manager confirmed: where it came from, both plaques, all heard', async () => {
+    await render(
+      <ProblemCard
+        problem={problem({ reported_by: null, source: 'review', source_facts: facts })}
+        onPress={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Из отзыва гостя · Гость выехал: 2026-10')).toBeTruthy();
+    const marks = screen.getByTestId('problem-marks');
+    expect(within(marks).getByText('Создано автоматически')).toBeTruthy();
+    expect(within(marks).getByText('Подтвердил менеджер')).toBeTruthy();
+    expect(
+      screen.getByRole('button', {
+        name:
+          'Кран течёт. CZ - Nadrazni Apt 6. Открыто. Из отзыва гостя · Гость выехал: 2026-10. ' +
+          'Создано автоматически. Подтвердил менеджер',
+      }),
+    ).toBeTruthy();
+  });
+
+  test('a message made on its own carries only «Создано автоматически»', async () => {
+    await render(
+      <ProblemCard
+        problem={problem({
+          reported_by: null,
+          source: 'message',
+          source_facts: { ...facts, mode: 'auto' },
+        })}
+        onPress={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Из сообщения гостя · Отправлено: 2026-10')).toBeTruthy();
+    expect(screen.getByText('Создано автоматически')).toBeTruthy();
+    expect(screen.queryByText('Подтвердил менеджер')).toBeNull();
+  });
+
+  test('a report somebody filed carries neither', async () => {
+    await render(<ProblemCard problem={problem({ source: 'staff' })} onPress={jest.fn()} />);
+
+    expect(screen.queryByText('Создано автоматически')).toBeNull();
+    expect(screen.queryByText(/Из отзыва гостя|Из сообщения гостя/)).toBeNull();
+  });
+});
+
 describe('on the «Абрикос» components', () => {
   test('is a card: the surface, rounded 20', async () => {
     await render(<ProblemCard problem={problem()} onPress={jest.fn()} />);

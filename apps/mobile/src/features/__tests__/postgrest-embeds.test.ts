@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import type * as BoardApi from '@/features/board/api';
 import { fetchArchivePage, fetchBoardProblem, fetchBoardProblems } from '@/features/board/api';
 import { fetchMessages } from '@/features/chat/api';
 import { fetchProblemEvents } from '@/features/history/api';
@@ -8,7 +9,9 @@ import { fetchHostSettings } from '@/features/host/api';
 import { fetchKbArticles, fetchKbPlace } from '@/features/knowledge/api';
 import { fetchProblemMedia, fetchTaskMedia } from '@/features/media/api';
 import { fetchReportProperties } from '@/features/properties/api';
+import type * as ProblemsApi from '@/features/problems/api';
 import { fetchMyProblems, fetchProblem } from '@/features/problems/api';
+import type * as SignalSource from '@/features/problems/signal-source';
 import { fetchMyLanguage } from '@/features/profile/api';
 import { fetchMyPushPreferences } from '@/features/settings/api';
 import { fetchTaskSteps } from '@/features/steps/api';
@@ -199,5 +202,77 @@ describe('every read the cleaner makes', () => {
       expect(entry.select).toContain('parent:parent_id(name)');
       expect(entry.select).toContain('hostaway_unit_id');
     }
+  });
+});
+
+const SIGNAL_SOURCE = '@/features/problems/signal-source';
+
+interface TaskReaders {
+  problems: typeof ProblemsApi;
+  board: typeof BoardApi;
+}
+
+/**
+ * The readers of tasks as the commit that turns the guest-signal switch on
+ * (problems/signal-source.ts, rollout 5d) builds them: loaded afresh with the
+ * switch on, so the columns it adds are checked against the schema while the
+ * switch is still off, and the flip needs no other proof.
+ */
+function readersWithGuestSignals(): TaskReaders {
+  let loaded: TaskReaders | undefined;
+  jest.isolateModules(() => {
+    jest.doMock(SIGNAL_SOURCE, () => {
+      const actual = jest.requireActual<typeof SignalSource>(SIGNAL_SOURCE);
+      return {
+        ...actual,
+        GUEST_SIGNAL_SOURCE_ENABLED: true,
+        GUEST_SIGNAL_SOURCE_COLUMNS: actual.GUEST_SIGNAL_COLUMN_LIST,
+      };
+    });
+    loaded = {
+      problems: jest.requireActual<typeof ProblemsApi>('@/features/problems/api'),
+      board: jest.requireActual<typeof BoardApi>('@/features/board/api'),
+    };
+  });
+  jest.dontMock(SIGNAL_SOURCE);
+  if (loaded === undefined) {
+    throw new Error('The readers of tasks were not loaded');
+  }
+  return loaded;
+}
+
+describe('with the guest-signal switch on', () => {
+  let switchedOn: { table: string; select: string }[] = [];
+
+  beforeAll(async () => {
+    const { problems, board } = readersWithGuestSignals();
+    const before = mockRecorded.length;
+    const reads: readonly (() => Promise<unknown>)[] = [
+      () => problems.fetchMyProblems(),
+      () => problems.fetchProblem(ANY_ID),
+      () => board.fetchBoardProblems(),
+      () => board.fetchBoardProblem(ANY_ID),
+      () => board.fetchArchivePage(0),
+    ];
+    for (const read of reads) {
+      await read().catch(() => undefined);
+    }
+    switchedOn = mockRecorded.slice(before);
+  });
+
+  test('every read of tasks asks for where the task came from', () => {
+    expect(switchedOn.length).toBeGreaterThanOrEqual(5);
+    for (const entry of switchedOn) {
+      expect([entry.table, entry.select]).toEqual([
+        'problems',
+        expect.stringContaining('source, title_i18n, source_facts, '),
+      ]);
+    }
+  });
+
+  test('and still names only columns the schema has', () => {
+    const complaints = switchedOn.flatMap(entry => complaintsIn(schema, entry.table, entry.select));
+
+    expect(complaints).toEqual([]);
   });
 });
