@@ -12,6 +12,12 @@
       "reason": "phone upload pipeline: registers, confirms or withdraws a Storage slot (row before file); the API only reads media (photo of a reported task)",
       "defined_in": "20260926101000_media_rpc_one_owner.sql"
     },
+    "add_signal_finding": {
+      "status": "planned",
+      "scope": "guest_signals:decide",
+      "reason": "the manager files a finding on a review by hand and approves it at once (makes a task; an assignee also needs tasks:assign)",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
     "add_task_media": {
       "status": "internal",
       "reason": "phone-only flow of the cleaner at work (task steps): photo/video of a step, row before file",
@@ -376,6 +382,17 @@
       "reason": "The listTasks operation of API v1.",
       "defined_in": "20261028100000_public_api_v1.sql"
     },
+    "apply_signal_findings": {
+      "status": "internal",
+      "reason": "classify-guest-signals job: stores and decides one review's reading (rules or model), service_role only",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "approve_signal_finding": {
+      "status": "planned",
+      "scope": "guest_signals:decide",
+      "reason": "the manager's yes: a finding becomes a task (problem) or joins an open or solved one; may send a technician at once (tasks:assign)",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
     "archive_problem": {
       "status": "planned",
       "scope": "tasks:update",
@@ -522,10 +539,25 @@
       "reason": "forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API.",
       "defined_in": "20261028100000_public_api_v1.sql"
     },
+    "create_signal_problem": {
+      "status": "internal",
+      "reason": "helper of approve_signal_finding/decide_signal_finding: inserts the task (problem) a finding asks for; execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
     "current_host_id": {
       "status": "internal",
       "reason": "auth/RLS helper: tenant of the caller",
       "defined_in": "20260905094000_tenant_host_id.sql"
+    },
+    "cut_signal_stay_links": {
+      "status": "internal",
+      "reason": "privacy cut: a settled review keeps only the month of its stay and loses the booking link (89-day rule); called inside the review functions, execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "decide_signal_finding": {
+      "status": "internal",
+      "reason": "decision rules of the classify job (no task, dropped, duplicate, already fixed, auto); called inside apply_signal_findings, execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
     "default_host_id": {
       "status": "internal",
@@ -546,6 +578,11 @@
       "status": "internal",
       "reason": "scheduler job: queues the 07:00 push summary",
       "defined_in": "20261003160000_head_tech_push.sql"
+    },
+    "erase_signal_texts": {
+      "status": "internal",
+      "reason": "forbidden: data:destroy - irreversibly erases review texts and what was drawn from them (evidence, model wording); execute revoked from every role, called by the purge and the texts-off switch",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
     "expire_stale_tasks": {
       "status": "internal",
@@ -612,6 +649,11 @@
       "reason": "trigger function: no role change to technician while holding links or open cleanings",
       "defined_in": "20261003110000_tech_rules.sql"
     },
+    "guest_signals_touch": {
+      "status": "internal",
+      "reason": "trigger function: stamps updated_at of a review, only its month once the stay is cut",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
     "handle_new_user": {
       "status": "internal",
       "reason": "trigger function: creates the profile of a new auth.users row",
@@ -626,6 +668,11 @@
       "status": "internal",
       "reason": "auth/RLS helper: listings the head technician may read",
       "defined_in": "20261003120000_head_tech_read.sql"
+    },
+    "ingest_guest_reviews": {
+      "status": "internal",
+      "reason": "PMS sync (sync-guest-signals; the PMS stays the source of truth): upserts a portion of reviews by their HMAC key (provider:review:id) from the PMS's ids, service_role only",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
     "invoke_edge_function": {
       "status": "internal",
@@ -747,6 +794,22 @@
       "reason": "helper of set_cleaning_time and clear_cleaning_time: their checks and the row lock; execute revoked from clients",
       "defined_in": "20261027120000_manual_cleaning_time.sql"
     },
+    "log_signal_run": {
+      "status": "internal",
+      "reason": "run journal of classify-guest-signals into raw.signal_runs, service_role only",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "mark_signal_analysis_failed": {
+      "status": "internal",
+      "reason": "classify-guest-signals job: counts a failed model reading of a review, service_role only",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "mark_signal_false_positive": {
+      "status": "planned",
+      "scope": "guest_signals:decide",
+      "reason": "the manager calls a task made from a guest signal a false positive: archives it (or deletes it while nobody worked on it) and records the verdict",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
     "mark_task_media_purged": {
       "status": "internal",
       "reason": "retention job (purge-task-media): marks purged files, service_role only",
@@ -840,6 +903,16 @@
       "reason": "scheduler job: nightly purge of the push queue and tickets",
       "defined_in": "20260928140000_push_sender.sql"
     },
+    "purge_signal_data": {
+      "status": "internal",
+      "reason": "scheduler job: nightly retention purge (purge-signal-data) of review texts and keys, irreversible; service_role only",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "purge_signal_stays": {
+      "status": "internal",
+      "reason": "scheduler job: nightly privacy sweep (purge-signal-stays) cutting settled stays to their month; service_role only",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
     "push_digest_hour": {
       "status": "internal",
       "reason": "push plumbing: constant of the push queue and sender",
@@ -873,7 +946,7 @@
     "push_on_problem_reported": {
       "status": "internal",
       "reason": "trigger function: queues problem_new pushes for head technicians",
-      "defined_in": "20261003160000_head_tech_push.sql"
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
     "push_on_task_change": {
       "status": "internal",
@@ -925,6 +998,11 @@
       "reason": "push plumbing: send-push settles sent groups and tickets, service_role only",
       "defined_in": "20260928140000_push_sender.sql"
     },
+    "record_signal_feedback": {
+      "status": "internal",
+      "reason": "helper of the manager's levers: writes one verdict on a finding to signal_feedback, no text; execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
     "record_webhook_event": {
       "status": "internal",
       "reason": "Hostaway webhook intake (hostaway-webhook), service_role only",
@@ -934,6 +1012,12 @@
       "status": "internal",
       "reason": "forbidden: push tokens (the signed-in phone registers its Expo token)",
       "defined_in": "20260928100000_push_recipients.sql"
+    },
+    "reject_signal_finding": {
+      "status": "planned",
+      "scope": "guest_signals:decide",
+      "reason": "the manager's no, with a reason; a task the finding made is called off while nobody has been sent",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
     "release_push_token": {
       "status": "internal",
@@ -985,6 +1069,11 @@
       "reason": "cleaning generator helper; cleanings come from Hostaway bookings (rooms a booking took)",
       "defined_in": "20260927120000_pinned_rooms.sql"
     },
+    "reserve_signal_model_calls": {
+      "status": "internal",
+      "reason": "model spending fence of classify-guest-signals: books model calls under the daily ceiling, service_role only",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
     "resolve_checklist_property": {
       "status": "planned",
       "scope": "checklists:read",
@@ -1002,6 +1091,16 @@
       "reason": "helper of report_problem: resolves the listing and checks the reporter may report there",
       "defined_in": "20260908130000_problems.sql"
     },
+    "resolve_signal_place": {
+      "status": "internal",
+      "reason": "the place of a guest signal from the PMS's ids, inside the company (one branch a provider); execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "resolve_signal_reservation": {
+      "status": "internal",
+      "reason": "the booking of a guest signal from the PMS's id, inside the company (one branch a provider); execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
     "resolve_workflow_template": {
       "status": "planned",
       "scope": "checklists:read",
@@ -1014,11 +1113,21 @@
       "reason": "brings an earlier version of an article (text and translations) back as its newest; history is not rewritten",
       "defined_in": "20261030100000_knowledge_base.sql"
     },
+    "review_load_state": {
+      "status": "internal",
+      "reason": "PMS sync (sync-guest-signals): which parts of the reviews read are still missing, flags only, service_role only",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
     "review_supply_request": {
       "status": "planned",
       "scope": "supplies:write",
       "reason": "moves a supply request along new/accepted/ordered/fulfilled or rejects it",
       "defined_in": "20260908130200_supply_requests.sql"
+    },
+    "review_text_allowed": {
+      "status": "internal",
+      "reason": "privacy rule: whether a review may keep a text (guest notice, hidden, archive, 18 months); execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
     "revoke_api_key": {
       "status": "internal",
@@ -1104,6 +1213,88 @@
       "reason": "constant of a generated column (too-short cleaning duration)",
       "defined_in": "20260905100000_task_lifecycle.sql"
     },
+    "signal_buildings": {
+      "status": "internal",
+      "reason": "PMS sync (sync-guest-signals): the PMS's ids of the listings that have rooms, service_role only",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "signal_finding_gives_task": {
+      "status": "internal",
+      "reason": "constant predicate of the review RPCs: finding kinds that make a task (repair, safety, pests, access); no client calls it",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "signal_finding_record": {
+      "status": "internal",
+      "reason": "helper of update_signal_settings: the record (decisions, approvals in 60 days) a kind needs for auto; execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "signal_findings_dates": {
+      "status": "internal",
+      "reason": "trigger function: a finding's dates, kept to the month once its review's stay is cut",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "signal_model_calls_left": {
+      "status": "internal",
+      "reason": "model spending fence of classify-guest-signals: calls left today under the ceiling, service_role only",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "signal_month_of": {
+      "status": "internal",
+      "reason": "privacy helper: the first moment of the month (Prague) a cut review keeps of any time; execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "signal_open_twin": {
+      "status": "internal",
+      "reason": "duplicate lookup of decide_signal_finding/approve_signal_finding: the open task from a review about the same; execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "signal_place_family": {
+      "status": "internal",
+      "reason": "helper of the review decision: a room's listing or the listing itself, where duplicates are looked for; execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "signal_place_id": {
+      "status": "internal",
+      "reason": "how a PMS numbers places in our tables (Hostaway: the listing's id, a room 10^12 + its unit); execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "signal_place_problems": {
+      "status": "planned",
+      "scope": "guest_signals:read",
+      "reason": "a finding's neighbours: tasks on its place, open or since the guest left, and which ones approve may link",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "signal_retention_ends": {
+      "status": "internal",
+      "reason": "retention constant by kind: the day a signal's key goes (a review's text and key 18 months, whole months; a message's key 90 days); execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "signal_run_status": {
+      "status": "planned",
+      "scope": "guest_signals:read",
+      "reason": "when the load and the classification of each kind of signal last ran and last ran clean (kind, stage, times only)",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "signal_since": {
+      "status": "internal",
+      "reason": "helper of the decision: the day a guest signal looks back to (the guest's departure, or the message's day); execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "signal_stay_link_ends": {
+      "status": "internal",
+      "reason": "privacy constant: the last day a signal keeps its exact stay and booking link (89 days, by month); execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "signal_subjects": {
+      "status": "internal",
+      "reason": "constant list of finding subjects checked by signal_findings; the apps name them from the locales and do not call it",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "signal_sync_watermark": {
+      "status": "internal",
+      "reason": "PMS sync (sync-guest-signals): where the next load of a provider's signals of one kind starts, service_role only",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
     "skip_task_step": {
       "status": "internal",
       "reason": "phone-only flow of the cleaner at work (task steps): skips an optional step",
@@ -1128,6 +1319,11 @@
       "status": "internal",
       "reason": "trigger function: stamps created_by on a task",
       "defined_in": "20260910140000_task_title_author.sql"
+    },
+    "store_review_texts": {
+      "status": "internal",
+      "reason": "PMS sync (sync-guest-signals): helper of ingest_guest_reviews writing the anonymised texts while they may be kept; execute revoked from every role",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
     "supply_item_name_max_length": {
       "status": "internal",
@@ -1278,6 +1474,11 @@
       "reason": "the reporter corrects her own open task (problem)",
       "defined_in": "20260908130000_problems.sql"
     },
+    "update_signal_settings": {
+      "status": "internal",
+      "reason": "forbidden: data:destroy - texts off erases every kept review text at once; the other gates (guest notice date, texts, model spend, auto work orders) are admin levers kept in the panel",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
     "validate_problem_text": {
       "status": "internal",
       "reason": "validation helper of the problem writes; execute revoked from clients",
@@ -1369,6 +1570,12 @@
       "status": "internal",
       "reason": "A view for the panel's review of expired cleanings; GET /v1/cleanings?status=expired serves the same rows.",
       "defined_in": "20260917140000_expired_review_place.sql"
+    },
+    "guest_signals": {
+      "status": "planned",
+      "scope": "guest_signals:read",
+      "reason": "what guests sent through the PMS (reviews; messages from stage 3): rating, categories, channel, place, month and a review's anonymised texts; serve without the PMS ids and booking link (guests:read_personal)",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
     "hosts": {
       "status": "exposed",
@@ -1486,6 +1693,22 @@
         "listBookings",
         "getBooking"
       ]
+    },
+    "signal_feedback": {
+      "status": "internal",
+      "reason": "the managers' verdicts on the readers' findings, without text: the readers' calibration; no client grants",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "signal_findings": {
+      "status": "planned",
+      "scope": "guest_signals:read",
+      "reason": "what the rules or the model found in a guest signal and what was decided about it",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "signal_settings": {
+      "status": "internal",
+      "reason": "admin gates of tasks-from-guest-signals by kind (guest notice date, texts, model ceiling, auto kinds and ceiling); read only by the panel card that writes it through update_signal_settings, forbidden: data:destroy",
+      "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
     "supply_catalog_items": {
       "status": "planned",

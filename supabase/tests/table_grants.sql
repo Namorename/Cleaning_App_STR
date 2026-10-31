@@ -61,6 +61,15 @@ insert into wanted values
   ('checklist_items',      'SELECT'),
   ('task_media',           'SELECT'),
   ('problems',             'SELECT'),
+  -- Guest signals and what was found in them (20261030110000): the jobs
+  -- write through ingest_guest_reviews and apply_signal_findings, the office
+  -- through approve/reject/add_signal_finding, mark_signal_false_positive
+  -- and update_signal_settings. The verdicts are written by those levers and
+  -- read by no screen yet.
+  ('guest_signals',        'SELECT'),
+  ('signal_findings',      'SELECT'),
+  ('signal_settings',      'SELECT'),
+  ('signal_feedback',      ''),
   -- The history of a task (20261003140000): triggers write it, the manager
   -- and the head technician read it, nobody edits it.
   ('problem_events',       'SELECT'),

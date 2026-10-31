@@ -594,6 +594,175 @@ export type Database = {
           },
         ]
       }
+      guest_signals: {
+        Row: {
+          analysed_at: string | null
+          analysed_version: string | null
+          analysis_attempts: number
+          analysis_error: string | null
+          arrival_date: string | null
+          category_comments: Json | null
+          category_ratings: Json
+          channel: Database["public"]["Enums"]["signal_channel"]
+          conversation_key: string | null
+          created_at: string
+          departure_date: string | null
+          external_id: string | null
+          external_key: string
+          external_listing_id: string
+          external_reservation_id: string | null
+          external_unit_id: string | null
+          external_updated_at: string | null
+          has_host_reply: boolean
+          has_private_text: boolean
+          has_public_text: boolean
+          host_id: string
+          id: string
+          is_hidden: boolean
+          kind: Database["public"]["Enums"]["guest_signal_kind"]
+          language: string | null
+          private_text: string | null
+          property_id: number | null
+          provider: Database["public"]["Enums"]["signal_provider"]
+          public_text: string | null
+          rating: number | null
+          reservation_id: number | null
+          room_id: number | null
+          rules_version: string | null
+          stay_after_notice: boolean | null
+          stay_exact: boolean
+          submitted_at: string
+          text_purge_after: string | null
+          text_truncated: boolean
+          updated_at: string
+        }
+        Insert: {
+          analysed_at?: string | null
+          analysed_version?: string | null
+          analysis_attempts?: number
+          analysis_error?: string | null
+          arrival_date?: string | null
+          category_comments?: Json | null
+          category_ratings?: Json
+          channel: Database["public"]["Enums"]["signal_channel"]
+          conversation_key?: string | null
+          created_at?: string
+          departure_date?: string | null
+          external_id?: string | null
+          external_key: string
+          external_listing_id: string
+          external_reservation_id?: string | null
+          external_unit_id?: string | null
+          external_updated_at?: string | null
+          has_host_reply?: boolean
+          has_private_text?: boolean
+          has_public_text?: boolean
+          host_id: string
+          id?: string
+          is_hidden?: boolean
+          kind: Database["public"]["Enums"]["guest_signal_kind"]
+          language?: string | null
+          private_text?: string | null
+          property_id?: number | null
+          provider: Database["public"]["Enums"]["signal_provider"]
+          public_text?: string | null
+          rating?: number | null
+          reservation_id?: number | null
+          room_id?: number | null
+          rules_version?: string | null
+          stay_after_notice?: boolean | null
+          stay_exact?: boolean
+          submitted_at: string
+          text_purge_after?: string | null
+          text_truncated?: boolean
+          updated_at?: string
+        }
+        Update: {
+          analysed_at?: string | null
+          analysed_version?: string | null
+          analysis_attempts?: number
+          analysis_error?: string | null
+          arrival_date?: string | null
+          category_comments?: Json | null
+          category_ratings?: Json
+          channel?: Database["public"]["Enums"]["signal_channel"]
+          conversation_key?: string | null
+          created_at?: string
+          departure_date?: string | null
+          external_id?: string | null
+          external_key?: string
+          external_listing_id?: string
+          external_reservation_id?: string | null
+          external_unit_id?: string | null
+          external_updated_at?: string | null
+          has_host_reply?: boolean
+          has_private_text?: boolean
+          has_public_text?: boolean
+          host_id?: string
+          id?: string
+          is_hidden?: boolean
+          kind?: Database["public"]["Enums"]["guest_signal_kind"]
+          language?: string | null
+          private_text?: string | null
+          property_id?: number | null
+          provider?: Database["public"]["Enums"]["signal_provider"]
+          public_text?: string | null
+          rating?: number | null
+          reservation_id?: number | null
+          room_id?: number | null
+          rules_version?: string | null
+          stay_after_notice?: boolean | null
+          stay_exact?: boolean
+          submitted_at?: string
+          text_purge_after?: string | null
+          text_truncated?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_signals_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_signals_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_signals_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "report_properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_signals_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_signals_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_signals_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "report_properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hosts: {
         Row: {
           created_at: string
@@ -908,11 +1077,14 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          source: Database["public"]["Enums"]["problem_source"]
+          source_facts: Json | null
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         Insert: {
@@ -925,11 +1097,14 @@ export type Database = {
           id: string
           priority?: Database["public"]["Enums"]["problem_priority"]
           property_id?: number | null
-          reported_by: string
+          reported_by?: string | null
           resolved_at?: string | null
+          source?: Database["public"]["Enums"]["problem_source"]
+          source_facts?: Json | null
           status?: Database["public"]["Enums"]["problem_status"]
           task_id?: string | null
           title: string
+          title_i18n?: Json | null
           updated_at?: string
         }
         Update: {
@@ -942,11 +1117,14 @@ export type Database = {
           id?: string
           priority?: Database["public"]["Enums"]["problem_priority"]
           property_id?: number | null
-          reported_by?: string
+          reported_by?: string | null
           resolved_at?: string | null
+          source?: Database["public"]["Enums"]["problem_source"]
+          source_facts?: Json | null
           status?: Database["public"]["Enums"]["problem_status"]
           task_id?: string | null
           title?: string
+          title_i18n?: Json | null
           updated_at?: string
         }
         Relationships: [
@@ -1430,6 +1608,266 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "report_properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signal_feedback: {
+        Row: {
+          confidence: number | null
+          decided_at: string
+          decided_by: string | null
+          detector: string
+          finding_id: string | null
+          host_id: string
+          id: number
+          kind: Database["public"]["Enums"]["signal_finding_kind"]
+          problem_action: string | null
+          provider: Database["public"]["Enums"]["signal_provider"]
+          signal_kind: Database["public"]["Enums"]["guest_signal_kind"]
+          subject: string
+          verdict: Database["public"]["Enums"]["signal_verdict"]
+        }
+        Insert: {
+          confidence?: number | null
+          decided_at?: string
+          decided_by?: string | null
+          detector: string
+          finding_id?: string | null
+          host_id: string
+          id?: never
+          kind: Database["public"]["Enums"]["signal_finding_kind"]
+          problem_action?: string | null
+          provider: Database["public"]["Enums"]["signal_provider"]
+          signal_kind: Database["public"]["Enums"]["guest_signal_kind"]
+          subject: string
+          verdict: Database["public"]["Enums"]["signal_verdict"]
+        }
+        Update: {
+          confidence?: number | null
+          decided_at?: string
+          decided_by?: string | null
+          detector?: string
+          finding_id?: string | null
+          host_id?: string
+          id?: never
+          kind?: Database["public"]["Enums"]["signal_finding_kind"]
+          problem_action?: string | null
+          provider?: Database["public"]["Enums"]["signal_provider"]
+          signal_kind?: Database["public"]["Enums"]["guest_signal_kind"]
+          subject?: string
+          verdict?: Database["public"]["Enums"]["signal_verdict"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_feedback_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_feedback_finding_id_fkey"
+            columns: ["finding_id"]
+            isOneToOne: false
+            referencedRelation: "signal_findings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_feedback_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signal_findings: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decided_mode: string | null
+          detector: string
+          evidence: string | null
+          evidence_source: string | null
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["signal_finding_kind"]
+          problem_id: string | null
+          property_id: number | null
+          reject_reason:
+            | Database["public"]["Enums"]["signal_reject_reason"]
+            | null
+          signal_id: string
+          status: Database["public"]["Enums"]["signal_finding_status"]
+          still_relevant: string
+          subject: string
+          summary: string
+          summary_i18n: Json
+          updated_at: string
+          urgency: Database["public"]["Enums"]["problem_priority"]
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decided_mode?: string | null
+          detector: string
+          evidence?: string | null
+          evidence_source?: string | null
+          host_id: string
+          id?: string
+          kind: Database["public"]["Enums"]["signal_finding_kind"]
+          problem_id?: string | null
+          property_id?: number | null
+          reject_reason?:
+            | Database["public"]["Enums"]["signal_reject_reason"]
+            | null
+          signal_id: string
+          status?: Database["public"]["Enums"]["signal_finding_status"]
+          still_relevant?: string
+          subject: string
+          summary: string
+          summary_i18n: Json
+          updated_at?: string
+          urgency?: Database["public"]["Enums"]["problem_priority"]
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decided_mode?: string | null
+          detector?: string
+          evidence?: string | null
+          evidence_source?: string | null
+          host_id?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["signal_finding_kind"]
+          problem_id?: string | null
+          property_id?: number | null
+          reject_reason?:
+            | Database["public"]["Enums"]["signal_reject_reason"]
+            | null
+          signal_id?: string
+          status?: Database["public"]["Enums"]["signal_finding_status"]
+          still_relevant?: string
+          subject?: string
+          summary?: string
+          summary_i18n?: Json
+          updated_at?: string
+          urgency?: Database["public"]["Enums"]["problem_priority"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_findings_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_findings_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_findings_problem_id_fkey"
+            columns: ["problem_id"]
+            isOneToOne: false
+            referencedRelation: "problems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_findings_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_findings_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "report_properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_findings_signal_id_fkey"
+            columns: ["signal_id"]
+            isOneToOne: false
+            referencedRelation: "guest_signals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signal_settings: {
+        Row: {
+          auto_kinds: string[]
+          daily_auto_cap: number
+          daily_model_cap: number
+          host_id: string
+          kind: Database["public"]["Enums"]["guest_signal_kind"]
+          min_confidence: number
+          model_enabled: boolean
+          model_since: string | null
+          notice_published_at: string | null
+          sync_enabled: boolean
+          tasks_enabled: boolean
+          texts_enabled: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          auto_kinds?: string[]
+          daily_auto_cap?: number
+          daily_model_cap?: number
+          host_id: string
+          kind: Database["public"]["Enums"]["guest_signal_kind"]
+          min_confidence?: number
+          model_enabled?: boolean
+          model_since?: string | null
+          notice_published_at?: string | null
+          sync_enabled?: boolean
+          tasks_enabled?: boolean
+          texts_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          auto_kinds?: string[]
+          daily_auto_cap?: number
+          daily_model_cap?: number
+          host_id?: string
+          kind?: Database["public"]["Enums"]["guest_signal_kind"]
+          min_confidence?: number
+          model_enabled?: boolean
+          model_since?: string | null
+          notice_published_at?: string | null
+          sync_enabled?: boolean
+          tasks_enabled?: boolean
+          texts_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_settings_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2408,6 +2846,50 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      add_signal_finding: {
+        Args: {
+          p_assignee_id?: string
+          p_description?: string
+          p_kind: Database["public"]["Enums"]["signal_finding_kind"]
+          p_priority?: Database["public"]["Enums"]["problem_priority"]
+          p_scheduled_date?: string
+          p_signal_id: string
+          p_subject: string
+          p_title: string
+        }
+        Returns: {
+          confidence: number | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decided_mode: string | null
+          detector: string
+          evidence: string | null
+          evidence_source: string | null
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["signal_finding_kind"]
+          problem_id: string | null
+          property_id: number | null
+          reject_reason:
+            | Database["public"]["Enums"]["signal_reject_reason"]
+            | null
+          signal_id: string
+          status: Database["public"]["Enums"]["signal_finding_status"]
+          still_relevant: string
+          subject: string
+          summary: string
+          summary_i18n: Json
+          updated_at: string
+          urgency: Database["public"]["Enums"]["problem_priority"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "signal_findings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       add_task_media: {
         Args: {
           p_byte_size: number
@@ -2967,6 +3449,58 @@ export type Database = {
         }
         Returns: Json
       }
+      apply_signal_findings: {
+        Args: {
+          p_detector: string
+          p_findings: Json
+          p_language: string
+          p_signal_id: string
+        }
+        Returns: Json
+      }
+      approve_signal_finding: {
+        Args: {
+          p_assignee_id?: string
+          p_description?: string
+          p_finding_id: string
+          p_link_problem_id?: string
+          p_priority?: Database["public"]["Enums"]["problem_priority"]
+          p_scheduled_date?: string
+          p_title?: string
+        }
+        Returns: {
+          confidence: number | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decided_mode: string | null
+          detector: string
+          evidence: string | null
+          evidence_source: string | null
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["signal_finding_kind"]
+          problem_id: string | null
+          property_id: number | null
+          reject_reason:
+            | Database["public"]["Enums"]["signal_reject_reason"]
+            | null
+          signal_id: string
+          status: Database["public"]["Enums"]["signal_finding_status"]
+          still_relevant: string
+          subject: string
+          summary: string
+          summary_i18n: Json
+          updated_at: string
+          urgency: Database["public"]["Enums"]["problem_priority"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "signal_findings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       archive_problem: {
         Args: { p_id: string }
         Returns: {
@@ -2979,11 +3513,14 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          source: Database["public"]["Enums"]["problem_source"]
+          source_facts: Json | null
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         SetofOptions: {
@@ -3031,11 +3568,14 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          source: Database["public"]["Enums"]["problem_source"]
+          source_facts: Json | null
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         SetofOptions: {
@@ -3063,11 +3603,14 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          source: Database["public"]["Enums"]["problem_source"]
+          source_facts: Json | null
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         SetofOptions: {
@@ -3303,7 +3846,26 @@ export type Database = {
         }
         Returns: Json
       }
+      create_signal_problem: {
+        Args: {
+          p_description?: string
+          p_finding_id: string
+          p_mode: string
+          p_priority: Database["public"]["Enums"]["problem_priority"]
+          p_title: string
+          p_title_i18n: Json
+        }
+        Returns: string
+      }
       current_host_id: { Args: never; Returns: string }
+      cut_signal_stay_links: {
+        Args: { p_signal_ids: string[] }
+        Returns: number
+      }
+      decide_signal_finding: {
+        Args: { p_finding_id: string }
+        Returns: Database["public"]["Enums"]["signal_finding_status"]
+      }
       default_host_id: { Args: never; Returns: string }
       delete_supply_request: { Args: { p_id: string }; Returns: boolean }
       effective_cleaner_notes: {
@@ -3311,6 +3873,7 @@ export type Database = {
         Returns: string
       }
       enqueue_daily_digest: { Args: { p_at?: string }; Returns: number }
+      erase_signal_texts: { Args: { p_signal_ids: string[] }; Returns: Json }
       expire_stale_tasks: { Args: never; Returns: Json }
       forget_push_token: {
         Args: { p_seen_at: string; p_token: string }
@@ -3322,6 +3885,17 @@ export type Database = {
       }
       head_tech_dispatching: { Args: never; Returns: boolean }
       head_tech_property_ids: { Args: never; Returns: number[] }
+      ingest_guest_reviews: {
+        Args: {
+          p_counts?: Json
+          p_errors?: Json
+          p_host_id?: string
+          p_provider: Database["public"]["Enums"]["signal_provider"]
+          p_rows: Json
+          p_watermark?: string
+        }
+        Returns: Json
+      }
       invoke_edge_function: { Args: { function_name: string }; Returns: number }
       is_active_user: { Args: never; Returns: boolean }
       is_head_tech: { Args: never; Returns: boolean }
@@ -3424,6 +3998,57 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      log_signal_run: {
+        Args: {
+          p_counts?: Json
+          p_errors?: Json
+          p_host_id?: string
+          p_is_ok: boolean
+          p_kind: Database["public"]["Enums"]["guest_signal_kind"]
+          p_provider: Database["public"]["Enums"]["signal_provider"]
+          p_stage: string
+        }
+        Returns: undefined
+      }
+      mark_signal_analysis_failed: {
+        Args: { p_error: string; p_signal_id: string }
+        Returns: number
+      }
+      mark_signal_false_positive: {
+        Args: { p_delete?: boolean; p_problem_id: string }
+        Returns: {
+          confidence: number | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decided_mode: string | null
+          detector: string
+          evidence: string | null
+          evidence_source: string | null
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["signal_finding_kind"]
+          problem_id: string | null
+          property_id: number | null
+          reject_reason:
+            | Database["public"]["Enums"]["signal_reject_reason"]
+            | null
+          signal_id: string
+          status: Database["public"]["Enums"]["signal_finding_status"]
+          still_relevant: string
+          subject: string
+          summary: string
+          summary_i18n: Json
+          updated_at: string
+          urgency: Database["public"]["Enums"]["problem_priority"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "signal_findings"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -3532,11 +4157,14 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          source: Database["public"]["Enums"]["problem_source"]
+          source_facts: Json | null
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         SetofOptions: {
@@ -3558,11 +4186,14 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          source: Database["public"]["Enums"]["problem_source"]
+          source_facts: Json | null
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         SetofOptions: {
@@ -3611,6 +4242,8 @@ export type Database = {
         }[]
       }
       purge_push_history: { Args: never; Returns: undefined }
+      purge_signal_data: { Args: never; Returns: Json }
+      purge_signal_stays: { Args: never; Returns: number }
       push_digest_hour: { Args: never; Returns: number }
       push_history_kept: { Args: never; Returns: string }
       push_lease: { Args: never; Returns: string }
@@ -3627,6 +4260,14 @@ export type Database = {
       push_tokens_per_person: { Args: never; Returns: number }
       record_push_receipts: { Args: { p_receipts: Json }; Returns: undefined }
       record_push_results: { Args: { p_results: Json }; Returns: undefined }
+      record_signal_feedback: {
+        Args: {
+          p_finding_id: string
+          p_problem_action?: string
+          p_verdict: Database["public"]["Enums"]["signal_verdict"]
+        }
+        Returns: undefined
+      }
       record_webhook_event: {
         Args: { event_payload: Json; event_source?: string }
         Returns: number
@@ -3639,6 +4280,44 @@ export type Database = {
           p_token: string
         }
         Returns: undefined
+      }
+      reject_signal_finding: {
+        Args: {
+          p_finding_id: string
+          p_reason: Database["public"]["Enums"]["signal_reject_reason"]
+        }
+        Returns: {
+          confidence: number | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decided_mode: string | null
+          detector: string
+          evidence: string | null
+          evidence_source: string | null
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["signal_finding_kind"]
+          problem_id: string | null
+          property_id: number | null
+          reject_reason:
+            | Database["public"]["Enums"]["signal_reject_reason"]
+            | null
+          signal_id: string
+          status: Database["public"]["Enums"]["signal_finding_status"]
+          still_relevant: string
+          subject: string
+          summary: string
+          summary_i18n: Json
+          updated_at: string
+          urgency: Database["public"]["Enums"]["problem_priority"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "signal_findings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       release_push_token: {
         Args: { p_profile_id: string; p_token: string }
@@ -3688,11 +4367,14 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          source: Database["public"]["Enums"]["problem_source"]
+          source_facts: Json | null
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         SetofOptions: {
@@ -3759,11 +4441,14 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          source: Database["public"]["Enums"]["problem_source"]
+          source_facts: Json | null
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         SetofOptions: {
@@ -3786,6 +4471,15 @@ export type Database = {
         Args: { target_reservation_id: number }
         Returns: number[]
       }
+      reserve_signal_model_calls: {
+        Args: {
+          p_host_id?: string
+          p_kind: Database["public"]["Enums"]["guest_signal_kind"]
+          p_provider: Database["public"]["Enums"]["signal_provider"]
+          p_wanted: number
+        }
+        Returns: number
+      }
       resolve_checklist_property: {
         Args: { p_property_id: number }
         Returns: number
@@ -3802,11 +4496,14 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          source: Database["public"]["Enums"]["problem_source"]
+          source_facts: Json | null
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         SetofOptions: {
@@ -3818,6 +4515,23 @@ export type Database = {
       }
       resolve_report_property: {
         Args: { p_property_id: number; p_task_id: string }
+        Returns: number
+      }
+      resolve_signal_place: {
+        Args: {
+          p_external_listing_id: string
+          p_external_unit_id?: string
+          p_host_id: string
+          p_provider: Database["public"]["Enums"]["signal_provider"]
+        }
+        Returns: number
+      }
+      resolve_signal_reservation: {
+        Args: {
+          p_external_reservation_id: string
+          p_host_id: string
+          p_provider: Database["public"]["Enums"]["signal_provider"]
+        }
         Returns: number
       }
       resolve_workflow_template: {
@@ -3856,6 +4570,22 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      review_load_state: {
+        Args: {
+          p_host_id?: string
+          p_keys: string[]
+          p_provider: Database["public"]["Enums"]["signal_provider"]
+        }
+        Returns: {
+          comments_kept: boolean
+          external_key: string
+          private_kept: boolean
+          public_kept: boolean
+          room_known: boolean
+          stay_exact: boolean
+          text_allowed: boolean
+        }[]
+      }
       review_supply_request: {
         Args: {
           p_id: string
@@ -3885,6 +4615,13 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      review_text_allowed: {
+        Args: {
+          p_review: Database["public"]["Tables"]["guest_signals"]["Row"]
+          p_settings: Database["public"]["Tables"]["signal_settings"]["Row"]
+        }
+        Returns: boolean
       }
       revoke_api_key: { Args: { p_id: string }; Returns: Json }
       save_kb_article: {
@@ -4242,6 +4979,98 @@ export type Database = {
         }
       }
       short_cleaning_threshold: { Args: never; Returns: string }
+      signal_buildings: {
+        Args: {
+          p_host_id?: string
+          p_provider: Database["public"]["Enums"]["signal_provider"]
+        }
+        Returns: string[]
+      }
+      signal_finding_gives_task: {
+        Args: { p_kind: Database["public"]["Enums"]["signal_finding_kind"] }
+        Returns: boolean
+      }
+      signal_finding_record: {
+        Args: {
+          p_host_id: string
+          p_kind: Database["public"]["Enums"]["signal_finding_kind"]
+          p_signal_kind: Database["public"]["Enums"]["guest_signal_kind"]
+        }
+        Returns: {
+          approved: number
+          decisions: number
+        }[]
+      }
+      signal_model_calls_left: {
+        Args: {
+          p_host_id?: string
+          p_kind: Database["public"]["Enums"]["guest_signal_kind"]
+        }
+        Returns: number
+      }
+      signal_month_of: { Args: { p_at: string }; Returns: string }
+      signal_open_twin: { Args: { p_finding_id: string }; Returns: string }
+      signal_place_family: { Args: { p_property_id: number }; Returns: number }
+      signal_place_id: {
+        Args: {
+          p_external_listing_id: string
+          p_external_unit_id?: string
+          p_provider: Database["public"]["Enums"]["signal_provider"]
+        }
+        Returns: number
+      }
+      signal_place_problems: {
+        Args: { p_finding_id: string }
+        Returns: {
+          can_link: boolean
+          created_at: string
+          id: string
+          is_open: boolean
+          priority: Database["public"]["Enums"]["problem_priority"]
+          property_id: number
+          resolved_at: string
+          source: Database["public"]["Enums"]["problem_source"]
+          status: Database["public"]["Enums"]["problem_status"]
+          title: string
+          title_i18n: Json
+        }[]
+      }
+      signal_retention_ends: {
+        Args: {
+          p_kind: Database["public"]["Enums"]["guest_signal_kind"]
+          p_submitted_at: string
+        }
+        Returns: string
+      }
+      signal_run_status: {
+        Args: never
+        Returns: {
+          kind: Database["public"]["Enums"]["guest_signal_kind"]
+          last_ok_at: string
+          last_run_at: string
+          stage: string
+        }[]
+      }
+      signal_since: {
+        Args: { p_signal: Database["public"]["Tables"]["guest_signals"]["Row"] }
+        Returns: string
+      }
+      signal_stay_link_ends: {
+        Args: {
+          p_kind: Database["public"]["Enums"]["guest_signal_kind"]
+          p_submitted_at: string
+        }
+        Returns: string
+      }
+      signal_subjects: { Args: never; Returns: string[] }
+      signal_sync_watermark: {
+        Args: {
+          p_host_id?: string
+          p_kind: Database["public"]["Enums"]["guest_signal_kind"]
+          p_provider: Database["public"]["Enums"]["signal_provider"]
+        }
+        Returns: string
+      }
       skip_task_step: {
         Args: { p_reason?: string; p_step_id: string }
         Returns: {
@@ -4290,6 +5119,14 @@ export type Database = {
         }[]
       }
       staff_property_ids: { Args: never; Returns: number[] }
+      store_review_texts: {
+        Args: {
+          p_host_id: string
+          p_provider: Database["public"]["Enums"]["signal_provider"]
+          p_rows: Json
+        }
+        Returns: undefined
+      }
       supply_item_name_max_length: { Args: never; Returns: number }
       supply_note_max_length: { Args: never; Returns: number }
       sync_hostaway_listings: {
@@ -4445,11 +5282,14 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          source: Database["public"]["Enums"]["problem_source"]
+          source_facts: Json | null
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         SetofOptions: {
@@ -4471,11 +5311,14 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          source: Database["public"]["Enums"]["problem_source"]
+          source_facts: Json | null
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         SetofOptions: {
@@ -4542,16 +5385,55 @@ export type Database = {
           id: string
           priority: Database["public"]["Enums"]["problem_priority"]
           property_id: number | null
-          reported_by: string
+          reported_by: string | null
           resolved_at: string | null
+          source: Database["public"]["Enums"]["problem_source"]
+          source_facts: Json | null
           status: Database["public"]["Enums"]["problem_status"]
           task_id: string | null
           title: string
+          title_i18n: Json | null
           updated_at: string
         }
         SetofOptions: {
           from: "*"
           to: "problems"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      update_signal_settings: {
+        Args: {
+          p_auto_kinds?: string[]
+          p_daily_auto_cap?: number
+          p_daily_model_cap?: number
+          p_kind?: Database["public"]["Enums"]["guest_signal_kind"]
+          p_min_confidence?: number
+          p_model_enabled?: boolean
+          p_notice_published_at?: string
+          p_sync_enabled?: boolean
+          p_tasks_enabled?: boolean
+          p_texts_enabled?: boolean
+        }
+        Returns: {
+          auto_kinds: string[]
+          daily_auto_cap: number
+          daily_model_cap: number
+          host_id: string
+          kind: Database["public"]["Enums"]["guest_signal_kind"]
+          min_confidence: number
+          model_enabled: boolean
+          model_since: string | null
+          notice_published_at: string | null
+          sync_enabled: boolean
+          tasks_enabled: boolean
+          texts_enabled: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "signal_settings"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -4621,6 +5503,7 @@ export type Database = {
       app_role: "cleaner" | "tech" | "head_tech" | "manager" | "admin"
       assignment_mode: "auto" | "claim"
       chat_thread_kind: "task" | "problem" | "direct"
+      guest_signal_kind: "review" | "message"
       kb_scope: "company" | "building" | "properties"
       kb_status: "draft" | "published" | "archived"
       media_kind: "photo" | "video"
@@ -4643,6 +5526,7 @@ export type Database = {
         | "archived"
         | "unarchived"
       problem_priority: "low" | "normal" | "high"
+      problem_source: "staff" | "review" | "message"
       problem_status:
         | "open"
         | "assigned"
@@ -4662,6 +5546,47 @@ export type Database = {
         | "problem_new"
         | "chat_message"
         | "daily_digest"
+      signal_channel:
+        | "airbnb"
+        | "booking"
+        | "vrbo"
+        | "direct"
+        | "google"
+        | "other"
+      signal_finding_kind:
+        | "repair"
+        | "safety"
+        | "pests"
+        | "access"
+        | "cleaning"
+        | "supplies"
+        | "noise"
+        | "neighbourhood"
+        | "wish"
+        | "other"
+      signal_finding_status:
+        | "candidate"
+        | "task_created"
+        | "duplicate"
+        | "already_fixed"
+        | "rejected"
+        | "no_task"
+        | "dropped"
+      signal_provider: "hostaway"
+      signal_reject_reason:
+        | "false_positive"
+        | "not_property"
+        | "already_fixed"
+        | "duplicate"
+        | "not_worth"
+      signal_verdict:
+        | "confirmed"
+        | "false_positive"
+        | "wrong_kind"
+        | "not_property"
+        | "already_fixed"
+        | "duplicate"
+        | "not_worth"
       supply_priority: "normal" | "urgent"
       supply_request_status:
         | "new"
@@ -4848,6 +5773,7 @@ export const Constants = {
       app_role: ["cleaner", "tech", "head_tech", "manager", "admin"],
       assignment_mode: ["auto", "claim"],
       chat_thread_kind: ["task", "problem", "direct"],
+      guest_signal_kind: ["review", "message"],
       kb_scope: ["company", "building", "properties"],
       kb_status: ["draft", "published", "archived"],
       media_kind: ["photo", "video"],
@@ -4871,6 +5797,7 @@ export const Constants = {
         "unarchived",
       ],
       problem_priority: ["low", "normal", "high"],
+      problem_source: ["staff", "review", "message"],
       problem_status: [
         "open",
         "assigned",
@@ -4891,6 +5818,52 @@ export const Constants = {
         "problem_new",
         "chat_message",
         "daily_digest",
+      ],
+      signal_channel: [
+        "airbnb",
+        "booking",
+        "vrbo",
+        "direct",
+        "google",
+        "other",
+      ],
+      signal_finding_kind: [
+        "repair",
+        "safety",
+        "pests",
+        "access",
+        "cleaning",
+        "supplies",
+        "noise",
+        "neighbourhood",
+        "wish",
+        "other",
+      ],
+      signal_finding_status: [
+        "candidate",
+        "task_created",
+        "duplicate",
+        "already_fixed",
+        "rejected",
+        "no_task",
+        "dropped",
+      ],
+      signal_provider: ["hostaway"],
+      signal_reject_reason: [
+        "false_positive",
+        "not_property",
+        "already_fixed",
+        "duplicate",
+        "not_worth",
+      ],
+      signal_verdict: [
+        "confirmed",
+        "false_positive",
+        "wrong_kind",
+        "not_property",
+        "already_fixed",
+        "duplicate",
+        "not_worth",
       ],
       supply_priority: ["normal", "urgent"],
       supply_request_status: [
