@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { formatDateTime } from '@/lib/format-date';
+import { formatDateTime, formatDay } from '@/lib/format-date';
 import { useLanguage } from '@/lib/use-language';
 
 import { FindingCard } from './finding-card';
@@ -24,6 +24,7 @@ import {
   placePathOf,
   SUBJECTS,
   TASK_KINDS,
+  textsFromDay,
   type FindingKind,
   type FindingTab,
   type Review,
@@ -264,6 +265,7 @@ function SettingsPanel({ isAdmin }: { isAdmin: boolean }) {
     return <ErrorState error={settings.error} />;
   }
   const value: SignalSettings = settings.data;
+  const textsDay = textsFromDay(value);
 
   return (
     <div className="flex max-w-xl flex-col gap-4 text-sm">
@@ -281,11 +283,16 @@ function SettingsPanel({ isAdmin }: { isAdmin: boolean }) {
         </label>
       ))}
       <p>
-        {value.notice_published_at === null
-          ? t('panel.guests.settings.noNotice')
-          : t('panel.guests.settings.notice', {
-              at: formatDateTime(value.notice_published_at, language),
-            })}
+        {textsDay === null
+          ? t('panel.guests.settings.noTextsFrom')
+          : t(
+              value.texts_enabled
+                ? 'panel.guests.settings.textsFrom'
+                : 'panel.guests.settings.textsOffFrom',
+              {
+                day: formatDay(textsDay, language),
+              },
+            )}
       </p>
       <p>
         {t('panel.guests.settings.cap', {

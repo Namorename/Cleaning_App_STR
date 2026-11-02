@@ -2,7 +2,9 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { findingSchema, freshness, type Finding } from '../schema';
+import { formatDay } from '@/lib/format-date';
+
+import { findingSchema, freshness, textsFromDay, type Finding } from '../schema';
 
 // Synthetic findings only. The hooks are mocked: what is tested is what the
 // manager sees and what each lever sends (docs/reviews-to-tasks.md §4.4–4.7,
@@ -67,7 +69,8 @@ const state = {
     daily_model_cap: 50,
     daily_auto_cap: 5,
     min_confidence: 0.6,
-    notice_published_at: null,
+    notice_published_at: null as string | null,
+    texts_enabled_at: null as string | null,
   },
 };
 const approve = vi.fn();
@@ -106,6 +109,12 @@ beforeEach(() => {
   vi.clearAllMocks();
   state.findings = [finding()];
   state.place = [];
+  state.settings = {
+    ...state.settings,
+    texts_enabled: false,
+    notice_published_at: null,
+    texts_enabled_at: null,
+  };
 });
 
 describe('the «Гости» screen', () => {
@@ -234,6 +243,51 @@ describe('the «Гости» screen', () => {
     expect(screen.getByRole('article')).toHaveTextContent('Royal House — 1 - 2109');
   });
 
+  // The owner's decisions of 2026-11-01 and 2026-11-02 (20261102100000): texts
+  // go on without the guest notice; the card shows the day they are kept from.
+  test('the texts switch asks for no guest notice, and the card names the day texts are kept from', async () => {
+    const { unmount } = render(<GuestSignalsView isAdmin />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Настройки' }));
+    expect(screen.getByText('Хранить тексты отзывов')).toBeInTheDocument();
+    expect(screen.queryByText(/уведомлен/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Тексты будут храниться по проживаниям с заездом не раньше дня, когда их впервые включат',
+      ),
+    ).toBeInTheDocument();
+    unmount();
+
+    state.settings = {
+      ...state.settings,
+      texts_enabled: true,
+      texts_enabled_at: '2026-11-02T09:30:00Z',
+    };
+    const { unmount: unmount2 } = render(<GuestSignalsView isAdmin />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Настройки' }));
+    expect(
+      screen.getByText(
+        `Тексты хранятся по проживаниям с заездом не раньше ${formatDay('2026-11-02', 'ru')}`,
+      ),
+    ).toBeInTheDocument();
+    unmount2();
+  });
+
+  test('texts switched off keep their day, and the card does not claim texts are kept', async () => {
+    state.settings = {
+      ...state.settings,
+      texts_enabled: false,
+      texts_enabled_at: '2026-11-02T09:30:00Z',
+    };
+    render(<GuestSignalsView isAdmin />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Настройки' }));
+    expect(
+      screen.getByText(
+        `Тексты выключены; если включить снова — по проживаниям с заездом не раньше ${formatDay('2026-11-02', 'ru')}`,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/^Тексты хранятся/)).not.toBeInTheDocument();
+  });
+
   test('the ceiling of auto’s tasks a day is the admin’s to change, within its bounds', async () => {
     const { unmount } = render(<GuestSignalsView isAdmin={false} />);
     await userEvent.click(screen.getByRole('tab', { name: 'Настройки' }));
@@ -255,6 +309,28 @@ describe('the «Гости» screen', () => {
     await userEvent.type(cap, '3');
     await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
     expect(update).toHaveBeenCalledWith({ dailyAutoCap: 3 });
+  });
+});
+
+describe('textsFromDay', () => {
+  test('the Prague day of the texts’ first day while there is no notice; none before texts went on', () => {
+    expect(textsFromDay({ notice_published_at: null, texts_enabled_at: null })).toBeNull();
+    expect(
+      textsFromDay({ notice_published_at: null, texts_enabled_at: '2026-11-02T09:30:00Z' }),
+    ).toBe('2026-11-02');
+    // 23:30 UTC is already the next day in Prague, as the database reads it.
+    expect(
+      textsFromDay({ notice_published_at: null, texts_enabled_at: '2026-11-01T23:30:00Z' }),
+    ).toBe('2026-11-02');
+  });
+
+  test('a notice with a date draws the line instead', () => {
+    expect(
+      textsFromDay({
+        notice_published_at: '2026-11-20T08:00:00Z',
+        texts_enabled_at: '2026-11-02T09:30:00Z',
+      }),
+    ).toBe('2026-11-20');
   });
 });
 

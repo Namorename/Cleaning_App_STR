@@ -112,7 +112,7 @@ export async function fetchSettings(client: Client): Promise<SignalSettings> {
     .from('signal_settings')
     .select(
       'sync_enabled, texts_enabled, tasks_enabled, model_enabled, auto_kinds, daily_model_cap, ' +
-        'daily_auto_cap, min_confidence, notice_published_at',
+        'daily_auto_cap, min_confidence, notice_published_at, texts_enabled_at',
     )
     .eq('kind', SIGNAL_KIND)
     .maybeSingle();

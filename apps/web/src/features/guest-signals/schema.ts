@@ -1,6 +1,8 @@
 import { propertyPath, type Language } from '@str-ops/shared';
 import { z } from 'zod';
 
+import { todayIn } from '@/lib/format-date';
+
 /**
  * The kind of guest signal the section shows. Messages are not loaded yet
  * (docs/guest-signals.md §8.1, stages 3–4): until they are, every read of the
@@ -179,6 +181,7 @@ export const settingsSchema = z.object({
   daily_auto_cap: z.number(),
   min_confidence: z.number(),
   notice_published_at: z.string().nullable(),
+  texts_enabled_at: z.string().nullable(),
 });
 export type SignalSettings = z.infer<typeof settingsSchema>;
 
@@ -193,7 +196,24 @@ export const SETTINGS_OFF: SignalSettings = {
   daily_auto_cap: 5,
   min_confidence: 0.6,
   notice_published_at: null,
+  texts_enabled_at: null,
 };
+
+/** The database reads the texts' line as a day in Prague (review_text_allowed). */
+export const TEXTS_LINE_TIME_ZONE = 'Europe/Prague';
+
+/**
+ * The day texts are kept from, as the database draws the line
+ * (20261102100000): the guest notice's day, or, while there is none (it is
+ * deferred, the owner's decision of 2026-11-01), the day texts first went on.
+ * Null while texts never went on. A stay that began before it keeps its rating only.
+ */
+export function textsFromDay(
+  settings: Pick<SignalSettings, 'notice_published_at' | 'texts_enabled_at'>,
+): string | null {
+  const from = settings.notice_published_at ?? settings.texts_enabled_at;
+  return from === null ? null : todayIn(TEXTS_LINE_TIME_ZONE, new Date(from));
+}
 
 /** The bounds the database checks on the ceiling of auto's tasks a day (signal_settings). */
 export const DAILY_AUTO_CAP_MIN = 0;
