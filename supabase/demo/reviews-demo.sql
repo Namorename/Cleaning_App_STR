@@ -41,11 +41,13 @@ begin
     raise exception 'The demo needs a manager on the stand';
   end if;
 
-  insert into public.signal_settings (host_id, kind, sync_enabled, texts_enabled, tasks_enabled, notice_published_at)
+  -- Texts as they go on without the guest notice (20261102100000): the line is
+  -- the day texts first went on, here 60 days back, so every demo stay is after it.
+  insert into public.signal_settings (host_id, kind, sync_enabled, texts_enabled, tasks_enabled, texts_enabled_at)
   values (v_host, 'review', true, true, true, now() - interval '60 days')
   on conflict (host_id, kind) do update
     set sync_enabled = true, texts_enabled = true, tasks_enabled = true,
-        notice_published_at = coalesce(signal_settings.notice_published_at, now() - interval '60 days');
+        texts_enabled_at = coalesce(signal_settings.texts_enabled_at, now() - interval '60 days');
 
   perform public.ingest_guest_reviews('hostaway', jsonb_build_array(
     jsonb_build_object('external_key', pg_temp.demo_review_key('demo-review-1'), 'external_id', 'demo-review-1', 'external_listing_id', v_places[1]::text,

@@ -15,9 +15,14 @@
 --   deletes it while nobody worked on it, and counts as a "no";
 -- - signal_run_status, the one client door into raw (rollout step 5a): its
 --   answer is the kind, the stage and two times, nothing else;
--- - the load: a review is stored once by its PMS id, a stay before the guest
---   notice keeps its rating and never its text, the test band is skipped, a
+-- - the load: a review is stored once by its PMS id, a stay before the texts'
+--   line keeps its rating and never its text, the test band is skipped, a
 --   hidden review keeps its rating only, a long text keeps its beginning;
+-- - the texts' line (the owner's decisions of 2026-11-01 and 2026-11-02,
+--   20261102100000): texts go on without the guest notice; the line is the
+--   day they first went on, set once and never moved, or the notice's day
+--   once it has one; the cut keeps which side of the line a stay began on,
+--   and forgets it when the notice moves the line;
 -- - the stay (the owner's decision of 2026-10-17, late): the exact days and
 --   the booking live only while the review is unsettled — not yet read, or a
 --   finding waiting for a manager — and never past its last day; then the
@@ -173,8 +178,9 @@ insert into public.push_tokens (token, profile_id, host_id, platform)
 values ('ExponentPushToken[reviews-suite]', 'b6100004-0000-4000-8000-000000000004',
         'b6100000-0000-4000-8000-00000000000a', 'android');
 
--- Texts may be kept for stays that began on or after the notice, 60 days ago.
-insert into public.signal_settings (host_id, kind, tasks_enabled, texts_enabled, notice_published_at)
+-- Texts may be kept for stays that began on or after the day texts first went
+-- on, 60 days ago; there is no guest notice (deferred, 20261102100000).
+insert into public.signal_settings (host_id, kind, tasks_enabled, texts_enabled, texts_enabled_at)
 values ('b6100000-0000-4000-8000-00000000000a', 'review', true, true, now() - interval '60 days');
 
 do $$
@@ -242,7 +248,7 @@ begin
      and public.signal_stay_link_ends('review', timestamptz '2026-02-01 00:30 Europe/Prague') = date '2026-05-01'
   then raise notice 'ok the last day comes before day 90, on the first of a month, by the Prague day'; else raise exception 'FAIL last day (% out of bounds)', v_n; end if;
 
-  -- 0. a stay from before the notice keeps its rating, never its text; with
+  -- 0. a stay from before the texts' line keeps its rating, never its text; with
   -- nothing to read, it is cut to its month at once.
   perform pg_temp.ingest('hostaway', jsonb_build_array(
     jsonb_build_object('external_id', 'suite-old', 'external_listing_id', v_l1::text,
@@ -253,7 +259,7 @@ begin
     p_host_id => v_host);
   select * into v_review from public.guest_signals where external_key = pg_temp.review_key('suite-old');
   if v_review.public_text is null and v_review.rating = 4
-  then raise notice 'ok a stay before the notice keeps the rating, not the text'; else raise exception 'FAIL history text'; end if;
+  then raise notice 'ok a stay before the texts'' line keeps the rating, not the text'; else raise exception 'FAIL history text'; end if;
   if not v_review.stay_exact and v_review.reservation_id is null and v_review.external_reservation_id is null
      and extract(day from v_review.arrival_date) = 1 and extract(day from v_review.departure_date) = 1
      and extract(day from v_review.submitted_at at time zone 'Europe/Prague') = 1
@@ -1095,7 +1101,7 @@ begin
   then raise notice 'ok a rules card set aside by a rule is taken over by the model, not lost'; else raise exception 'FAIL dropped rules card %', v_out; end if;
 
   -- 27. read with nothing found: cut at once; a part that comes later still
-  -- sends the review back to the model (the notice is remembered past the cut).
+  -- sends the review back to the model (the texts' line is remembered past the cut).
   perform pg_temp.ingest('hostaway', jsonb_build_array(
     jsonb_build_object('external_id', 'suite-late', 'external_listing_id', v_l6::text,
       'listing_id', v_l6, 'channel', 'airbnb', 'rating', 8, 'arrival_date', current_date - 4,
@@ -1578,6 +1584,227 @@ begin
        and not has_function_privilege('anon', 'public.signal_run_status()', 'execute')
     then raise notice 'ok the verdicts and the place lookups are closed to clients; the false-positive lever is the office''s'; else raise exception 'FAIL new grants'; end if;
   end;
+end;
+$$;
+
+-- 42. Texts without the guest notice (the owner's decisions of 2026-11-01 and
+-- 2026-11-02, 20261102100000). The company above switched texts off in 30;
+-- here it starts again as one that never kept texts: no notice, no first day.
+do $$
+declare
+  v_host    uuid := 'b6100000-0000-4000-8000-00000000000a';
+  v_manager uuid := 'b6100001-0000-4000-8000-000000000001';
+  v_admin   uuid := 'b6100002-0000-4000-8000-000000000002';
+  v_l3      bigint := 900061003;
+  v_first   timestamptz := now() - interval '10 days';
+  v_day     date := ((now() - interval '10 days') at time zone 'Europe/Prague')::date;
+  v_notice  timestamptz := now() - interval '3 days';
+  v_nday    date := ((now() - interval '3 days') at time zone 'Europe/Prague')::date;
+  v_update  constant regprocedure := 'public.update_signal_settings(boolean, boolean, boolean, boolean, text[], integer, numeric, timestamptz, integer, public.guest_signal_kind)';
+  v_set     public.signal_settings;
+  v_failed  boolean;
+  v_hint    text;
+  v_r       uuid;
+begin
+  perform set_config('request.jwt.claims', '{}', true);
+  update public.signal_settings
+  set texts_enabled = false, model_enabled = false, notice_published_at = null, texts_enabled_at = null
+  where host_id = v_host and kind = 'review';
+
+  -- 42a. before texts go on: the table keeps no texts switched on without a line.
+  v_failed := false;
+  begin
+    update public.signal_settings set texts_enabled = true where host_id = v_host and kind = 'review';
+  exception when check_violation then v_failed := true;
+  end;
+  if v_failed then raise notice 'ok before texts go on the table refuses texts without a line'; else raise exception 'FAIL texts without a line'; end if;
+
+  -- 42b. other switches draw no line, and a stay keeps no text while texts are off.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
+  v_set := public.update_signal_settings(p_sync_enabled => true);
+  perform set_config('request.jwt.claims', '{}', true);
+  perform pg_temp.ingest('hostaway', jsonb_build_array(
+    jsonb_build_object('external_id', 'suite-line-off', 'external_listing_id', v_l3::text,
+      'channel', 'airbnb', 'rating', 9, 'arrival_date', current_date - 4, 'departure_date', current_date - 2,
+      'submitted_at', now(), 'has_public_text', true, 'public_text', 'Texts are off: not stored.')), now(), v_host);
+  if v_set.texts_enabled_at is null and not v_set.texts_enabled
+     and (select public_text is null and not stay_exact and stay_after_notice is null
+          from public.guest_signals where external_key = pg_temp.review_key('suite-line-off'))
+  then raise notice 'ok while texts are off nothing draws the line and no text is kept'; else raise exception 'FAIL texts off line %', row_to_json(v_set); end if;
+
+  -- 42c. a manager still cannot switch texts on; the admin can, without the notice.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_manager, 'role', 'authenticated')::text, true);
+  v_failed := false;
+  begin
+    perform public.update_signal_settings(p_texts_enabled => true);
+  exception when insufficient_privilege then v_failed := true;
+  end;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
+  v_hint := null;
+  begin
+    v_set := public.update_signal_settings(p_texts_enabled => true);
+  exception when others then get stacked diagnostics v_hint = pg_exception_hint;
+  end;
+  if v_failed and v_hint is null and v_set.texts_enabled and v_set.notice_published_at is null
+     and v_set.texts_enabled_at = now()
+  then raise notice 'ok texts go on without the guest notice, and their first day is set now'; else raise exception 'FAIL texts on % %', v_hint, row_to_json(v_set); end if;
+
+  -- 42d. the first day stays: another call, texts off and on again never move it.
+  perform set_config('request.jwt.claims', '{}', true);
+  update public.signal_settings set texts_enabled_at = v_first where host_id = v_host and kind = 'review';
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
+  perform public.update_signal_settings(p_daily_auto_cap => 5);
+  perform public.update_signal_settings(p_texts_enabled => false);
+  v_set := public.update_signal_settings(p_texts_enabled => true);
+  if v_set.texts_enabled and v_set.texts_enabled_at = v_first
+  then raise notice 'ok the first day stays: texts off and on again never move the line'; else raise exception 'FAIL first day moved %', row_to_json(v_set); end if;
+
+  -- 42e. the line, by the Prague day: the history keeps its rating, a stay from
+  -- that day on its text; review_load_state says the same.
+  perform set_config('request.jwt.claims', '{}', true);
+  perform pg_temp.ingest('hostaway', jsonb_build_array(
+    jsonb_build_object('external_id', 'suite-line-before', 'external_listing_id', v_l3::text,
+      'channel', 'airbnb', 'rating', 7, 'arrival_date', v_day - 1, 'departure_date', v_day + 2,
+      'submitted_at', now() - interval '1 day', 'has_public_text', true,
+      'public_text', 'History: a text that must not be stored.'),
+    jsonb_build_object('external_id', 'suite-line-first', 'external_listing_id', v_l3::text,
+      'channel', 'airbnb', 'rating', 7, 'arrival_date', v_day, 'departure_date', v_day + 2,
+      'submitted_at', now() - interval '1 day', 'has_public_text', true,
+      'public_text', 'First day: the kettle is broken.'),
+    jsonb_build_object('external_id', 'suite-line-after', 'external_listing_id', v_l3::text,
+      'channel', 'booking', 'rating', 8, 'arrival_date', v_day + 3, 'departure_date', v_day + 5,
+      'submitted_at', now() - interval '1 day', 'has_public_text', true,
+      'public_text', 'After the line: all fine.')), now(), v_host);
+  if (select public_text is null and rating = 7 and not stay_exact and stay_after_notice is false
+      from public.guest_signals where external_key = pg_temp.review_key('suite-line-before'))
+     and (select public_text = 'First day: the kettle is broken.' and stay_exact
+          from public.guest_signals where external_key = pg_temp.review_key('suite-line-first'))
+     and (select public_text is not null from public.guest_signals where external_key = pg_temp.review_key('suite-line-after'))
+     and (select count(*) = 3 and count(*) filter (where text_allowed) = 2
+                 and not bool_or(text_allowed) filter (where external_key = pg_temp.review_key('suite-line-before'))
+          from public.review_load_state('hostaway', array[pg_temp.review_key('suite-line-before'),
+                                                          pg_temp.review_key('suite-line-first'),
+                                                          pg_temp.review_key('suite-line-after')], v_host))
+  then raise notice 'ok the line: a stay from before the texts'' first day keeps its rating, from that day on its text'; else raise exception 'FAIL texts line'; end if;
+
+  -- 42f. the cut keeps which side of the line the stay began on; a later part follows it.
+  select id into v_r from public.guest_signals where external_key = pg_temp.review_key('suite-line-first');
+  perform public.apply_signal_findings(v_r, 'rules-v1', null, '[]'::jsonb);
+  if (select not stay_exact and stay_after_notice and extract(day from arrival_date) = 1
+      from public.guest_signals where id = v_r)
+  then raise notice 'ok the cut keeps that the stay began after the texts'' first day'; else raise exception 'FAIL cut line'; end if;
+  perform pg_temp.ingest('hostaway', jsonb_build_array(
+    jsonb_build_object('external_id', 'suite-line-first', 'external_listing_id', v_l3::text,
+      'channel', 'airbnb', 'rating', 7, 'arrival_date', v_day, 'departure_date', v_day + 2,
+      'submitted_at', now() - interval '1 day', 'has_public_text', true, 'has_private_text', true,
+      'private_text', 'Private: the hall light is out.'),
+    jsonb_build_object('external_id', 'suite-line-before', 'external_listing_id', v_l3::text,
+      'channel', 'airbnb', 'rating', 7, 'arrival_date', v_day - 1, 'departure_date', v_day + 2,
+      'submitted_at', now() - interval '1 day', 'has_public_text', true, 'has_private_text', true,
+      'private_text', 'Private: must not be stored either.')), now(), v_host);
+  if (select private_text = 'Private: the hall light is out.' from public.guest_signals where id = v_r)
+     and (select private_text is null and public_text is null
+          from public.guest_signals where external_key = pg_temp.review_key('suite-line-before'))
+  then raise notice 'ok past the cut a later part follows the side the cut kept'; else raise exception 'FAIL late part by the line'; end if;
+
+  -- 42g. a notice dated after the first day takes the line over: a cut stay
+  -- that began after the old line forgets it (its month answers alone), one
+  -- that began before keeps its answer, and every text the new line no
+  -- longer allows goes at once — the exact stay's and the cut one's.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
+  v_set := public.update_signal_settings(p_notice_published_at => v_notice);
+  perform set_config('request.jwt.claims', '{}', true);
+  if v_set.notice_published_at = v_notice and v_set.texts_enabled_at = v_first
+     and (select stay_after_notice is null and public_text is null and private_text is null
+          from public.guest_signals where id = v_r)
+     and (select stay_after_notice is false from public.guest_signals where external_key = pg_temp.review_key('suite-line-before'))
+     and (select stay_after_notice is null from public.guest_signals where external_key = pg_temp.review_key('suite-late'))
+     and (select public_text is null and rating = 8
+          from public.guest_signals where external_key = pg_temp.review_key('suite-line-after'))
+  then raise notice 'ok a notice dated after the first day takes the line over and the texts before it go'; else raise exception 'FAIL notice line %', row_to_json(v_set); end if;
+  perform pg_temp.ingest('hostaway', jsonb_build_array(
+    jsonb_build_object('external_id', 'suite-line-mid', 'external_listing_id', v_l3::text,
+      'channel', 'airbnb', 'rating', 6, 'arrival_date', v_nday - 1, 'departure_date', v_nday + 1,
+      'submitted_at', now(), 'has_public_text', true, 'public_text', 'Between the two days: not stored.'),
+    jsonb_build_object('external_id', 'suite-line-notice', 'external_listing_id', v_l3::text,
+      'channel', 'airbnb', 'rating', 6, 'arrival_date', v_nday, 'departure_date', v_nday + 1,
+      'submitted_at', now(), 'has_public_text', true, 'public_text', 'From the notice''s day: stored.'),
+    jsonb_build_object('external_id', 'suite-line-first', 'external_listing_id', v_l3::text,
+      'channel', 'airbnb', 'rating', 7, 'arrival_date', v_day, 'departure_date', v_day + 2,
+      'submitted_at', now() - interval '1 day', 'has_public_text', true, 'has_private_text', true,
+      'category_comments', '{"cleanliness": "A later comment."}'::jsonb)), now(), v_host);
+  if (select public_text is null from public.guest_signals where external_key = pg_temp.review_key('suite-line-mid'))
+     and (select public_text is not null from public.guest_signals where external_key = pg_temp.review_key('suite-line-notice'))
+     and (select category_comments is null and private_text is null from public.guest_signals where id = v_r)
+  then raise notice 'ok from the notice''s day on: a stay before it keeps no new text, one after it does'; else raise exception 'FAIL texts by the notice''s line'; end if;
+
+  -- 42i. a notice dated before the first day widens the line: a cut stay that
+  -- began before the old line forgets it, one that began after keeps it, and
+  -- nothing kept goes. (The company is set back to "no notice" by hand.)
+  update public.signal_settings set notice_published_at = null, texts_enabled_at = v_first
+  where host_id = v_host and kind = 'review';
+  update public.guest_signals set stay_after_notice = true where id = v_r;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
+  v_set := public.update_signal_settings(p_notice_published_at => now() - interval '20 days');
+  perform set_config('request.jwt.claims', '{}', true);
+  if v_set.notice_published_at = now() - interval '20 days'
+     and (select stay_after_notice from public.guest_signals where id = v_r)
+     and (select stay_after_notice is null from public.guest_signals where external_key = pg_temp.review_key('suite-line-before'))
+     and (select public_text is not null from public.guest_signals where external_key = pg_temp.review_key('suite-line-notice'))
+  then raise notice 'ok a notice dated before the first day widens the line: only the "before" answers go, no text goes'; else raise exception 'FAIL earlier notice %', row_to_json(v_set); end if;
+
+  -- 42j. a notice on the texts' first day moves nothing.
+  update public.signal_settings set notice_published_at = null, texts_enabled_at = v_first
+  where host_id = v_host and kind = 'review';
+  update public.guest_signals set stay_after_notice = false
+  where external_key = pg_temp.review_key('suite-line-before');
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
+  v_set := public.update_signal_settings(p_notice_published_at => v_first);
+  perform set_config('request.jwt.claims', '{}', true);
+  if v_set.notice_published_at = v_first
+     and (select stay_after_notice from public.guest_signals where id = v_r)
+     and (select stay_after_notice is false from public.guest_signals where external_key = pg_temp.review_key('suite-line-before'))
+     and (select public_text is not null from public.guest_signals where external_key = pg_temp.review_key('suite-line-notice'))
+  then raise notice 'ok a notice on the texts'' first day moves nothing'; else raise exception 'FAIL same-day notice %', row_to_json(v_set); end if;
+
+  -- 42k. messages keep their gate: their texts still need the notice, in the
+  -- function and in the table, and get no first day.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
+  v_hint := null;
+  begin
+    perform public.update_signal_settings(p_texts_enabled => true, p_kind => 'message');
+  exception when check_violation then get stacked diagnostics v_hint = pg_exception_hint;
+  end;
+  perform set_config('request.jwt.claims', '{}', true);
+  v_failed := false;
+  begin
+    update public.signal_settings set texts_enabled = true, texts_enabled_at = now()
+    where host_id = v_host and kind = 'message';
+  exception when check_violation then v_failed := true;
+  end;
+  if v_hint = 'serverErrors.signalTextsNeedNotice' and v_failed
+     and (select not texts_enabled and texts_enabled_at is null
+          from public.signal_settings where host_id = v_host and kind = 'message')
+  then raise notice 'ok messages keep their gate: their texts still need the notice'; else raise exception 'FAIL message gate %', v_hint; end if;
+
+  -- 42h. the reviews' refusal is gone (the messages' stays), the check is the
+  -- new one, the rights are step 5's.
+  if position('Texts need the published guest notice' in (select prosrc from pg_proc where oid = v_update)) = 0
+     and position('Texts of messages need the published guest notice' in (select prosrc from pg_proc where oid = v_update)) > 0
+     and not exists (select 1 from pg_constraint where conname = 'signal_settings_texts_need_notice')
+     and exists (select 1 from pg_constraint
+                 where conname = 'signal_settings_texts_have_a_line'
+                   and conrelid = 'public.signal_settings'::regclass and contype = 'c')
+     and not has_function_privilege('authenticated', 'public.review_text_allowed(public.guest_signals, public.signal_settings)', 'execute')
+     and not has_function_privilege('service_role', 'public.review_text_allowed(public.guest_signals, public.signal_settings)', 'execute')
+     and not has_function_privilege('authenticated', 'public.cut_signal_stay_links(uuid[])', 'execute')
+     and not has_function_privilege('service_role', 'public.cut_signal_stay_links(uuid[])', 'execute')
+     and has_function_privilege('authenticated', v_update, 'execute')
+     and not has_function_privilege('anon', v_update, 'execute')
+     and has_column_privilege('authenticated', 'public.signal_settings', 'texts_enabled_at', 'select')
+     and not has_table_privilege('authenticated', 'public.signal_settings', 'update')
+     and not has_table_privilege('anon', 'public.signal_settings', 'select')
+  then raise notice 'ok the reviews'' refusal is gone; the line has its check; the rights are those of step 5'; else raise exception 'FAIL texts line rights'; end if;
 end;
 $$;
 

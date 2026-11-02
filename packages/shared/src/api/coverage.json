@@ -552,7 +552,7 @@
     "cut_signal_stay_links": {
       "status": "internal",
       "reason": "privacy cut: a settled review keeps only the month of its stay and loses the booking link (89-day rule); called inside the review functions, execute revoked from every role",
-      "defined_in": "20261030110000_reviews_to_tasks.sql"
+      "defined_in": "20261102100000_guest_signal_texts_boundary.sql"
     },
     "decide_signal_finding": {
       "status": "internal",
@@ -1126,8 +1126,8 @@
     },
     "review_text_allowed": {
       "status": "internal",
-      "reason": "privacy rule: whether a review may keep a text (guest notice, hidden, archive, 18 months); execute revoked from every role",
-      "defined_in": "20261030110000_reviews_to_tasks.sql"
+      "reason": "privacy rule: whether a review may keep a text (stay from the texts' line - the guest notice's day or the day texts first went on - hidden, archive, 18 months); execute revoked from every role",
+      "defined_in": "20261102100000_guest_signal_texts_boundary.sql"
     },
     "revoke_api_key": {
       "status": "internal",
@@ -1476,8 +1476,8 @@
     },
     "update_signal_settings": {
       "status": "internal",
-      "reason": "forbidden: data:destroy - texts off erases every kept review text at once; the other gates (guest notice date, texts, model spend, auto work orders) are admin levers kept in the panel",
-      "defined_in": "20261030110000_reviews_to_tasks.sql"
+      "reason": "forbidden: data:destroy - texts off erases every kept review text at once; the other gates (texts and their first day, the deferred guest notice date, model spend, auto work orders) are admin levers kept in the panel",
+      "defined_in": "20261102100000_guest_signal_texts_boundary.sql"
     },
     "validate_problem_text": {
       "status": "internal",
@@ -1707,7 +1707,7 @@
     },
     "signal_settings": {
       "status": "internal",
-      "reason": "admin gates of tasks-from-guest-signals by kind (guest notice date, texts, model ceiling, auto kinds and ceiling); read only by the panel card that writes it through update_signal_settings, forbidden: data:destroy",
+      "reason": "admin gates of tasks-from-guest-signals by kind (texts and their first day, the deferred guest notice date, model ceiling, auto kinds and ceiling); read only by the panel card that writes it through update_signal_settings, forbidden: data:destroy",
       "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
     "supply_catalog_items": {

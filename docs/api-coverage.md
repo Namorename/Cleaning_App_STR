@@ -251,7 +251,7 @@
 | `resolve_signal_place` | the place of a guest signal from the PMS's ids, inside the company (one branch a provider); execute revoked from every role |
 | `resolve_signal_reservation` | the booking of a guest signal from the PMS's id, inside the company (one branch a provider); execute revoked from every role |
 | `review_load_state` | PMS sync (sync-guest-signals): which parts of the reviews read are still missing, flags only, service_role only |
-| `review_text_allowed` | privacy rule: whether a review may keep a text (guest notice, hidden, archive, 18 months); execute revoked from every role |
+| `review_text_allowed` | privacy rule: whether a review may keep a text (stay from the texts' line - the guest notice's day or the day texts first went on - hidden, archive, 18 months); execute revoked from every role |
 | `revoke_api_key` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |
 | `set_push_preference` | push plumbing: the signed-in person switches one of her own push events on or off |
 | `short_cleaning_threshold` | constant of a generated column (too-short cleaning duration) |
@@ -300,7 +300,7 @@
 | `touch_updated_at` | trigger function: stamps updated_at |
 | `unregister_push_token` | forbidden: push tokens (the signed-in phone lets go of its token) |
 | `update_api_key` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |
-| `update_signal_settings` | forbidden: data:destroy - texts off erases every kept review text at once; the other gates (guest notice date, texts, model spend, auto work orders) are admin levers kept in the panel |
+| `update_signal_settings` | forbidden: data:destroy - texts off erases every kept review text at once; the other gates (texts and their first day, the deferred guest notice date, model spend, auto work orders) are admin levers kept in the panel |
 | `validate_problem_text` | validation helper of the problem writes; execute revoked from clients |
 | `validate_task_step_payload` | phone-only flow of the cleaner at work (task steps): validates a step answer, service_role only |
 | `waive_task_step` | manager waiver of a required step inside the step flow; no client calls it and no planned scope writes steps |
@@ -363,4 +363,4 @@
 | `push_tokens` | forbidden: push tokens of devices |
 | `report_properties` | A view for the phone: the properties a person may report on; GET /v1/properties serves a key. |
 | `signal_feedback` | the managers' verdicts on the readers' findings, without text: the readers' calibration; no client grants |
-| `signal_settings` | admin gates of tasks-from-guest-signals by kind (guest notice date, texts, model ceiling, auto kinds and ceiling); read only by the panel card that writes it through update_signal_settings, forbidden: data:destroy |
+| `signal_settings` | admin gates of tasks-from-guest-signals by kind (texts and their first day, the deferred guest notice date, model ceiling, auto kinds and ceiling); read only by the panel card that writes it through update_signal_settings, forbidden: data:destroy |

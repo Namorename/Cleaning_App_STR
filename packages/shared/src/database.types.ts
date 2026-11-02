@@ -1820,6 +1820,7 @@ export type Database = {
           sync_enabled: boolean
           tasks_enabled: boolean
           texts_enabled: boolean
+          texts_enabled_at: string | null
           updated_at: string
           updated_by: string | null
         }
@@ -1836,6 +1837,7 @@ export type Database = {
           sync_enabled?: boolean
           tasks_enabled?: boolean
           texts_enabled?: boolean
+          texts_enabled_at?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -1852,6 +1854,7 @@ export type Database = {
           sync_enabled?: boolean
           tasks_enabled?: boolean
           texts_enabled?: boolean
+          texts_enabled_at?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -5428,6 +5431,7 @@ export type Database = {
           sync_enabled: boolean
           tasks_enabled: boolean
           texts_enabled: boolean
+          texts_enabled_at: string | null
           updated_at: string
           updated_by: string | null
         }
