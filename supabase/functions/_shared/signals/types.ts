@@ -91,7 +91,25 @@ export interface SignalSettings {
   /** The oldest signal the model reads (14 days before it went on); null while it never was. */
   readonly model_since: string | null;
   readonly daily_model_cap: number;
+  /** The guest notice went live (deferred since 2026-11-01: none yet); its day draws the texts' line. */
   readonly notice_published_at: string | null;
+  /** Texts first went on; the line while there is no notice (20261102100000). */
+  readonly texts_enabled_at: string | null;
+}
+
+/**
+ * The moment the texts' line is drawn from: the guest notice's, or, while
+ * there is none, the first time texts went on (the owner's decisions of
+ * 2026-11-01 and 2026-11-02). Null while texts never went on. The database
+ * reads it as a Prague day (review_text_allowed).
+ */
+export function textsFrom(settings: SignalSettings): string | null {
+  return settings.notice_published_at ?? settings.texts_enabled_at;
+}
+
+/** The company keeps texts: switched on, with the line they are kept from. */
+export function keepsTexts(settings: SignalSettings): boolean {
+  return settings.texts_enabled && textsFrom(settings) !== null;
 }
 
 /** A finding as apply_signal_findings() takes it. Rules leave summary_i18n empty. */

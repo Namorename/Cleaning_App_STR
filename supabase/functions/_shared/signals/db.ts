@@ -18,7 +18,7 @@ export const REVIEW_KIND: SignalKind = "review";
 
 const SETTINGS_COLUMNS =
   "sync_enabled, texts_enabled, tasks_enabled, model_enabled, model_since, daily_model_cap, " +
-  "notice_published_at";
+  "notice_published_at, texts_enabled_at";
 
 /** Keys asked of review_load_state at once: a run reads ≈ 30 a day, a Sunday ≈ 1 000. */
 const STATE_PORTION = 500;

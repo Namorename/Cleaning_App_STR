@@ -34,6 +34,7 @@ import { readByRules, RULES_DETECTOR } from "./rules.ts";
 import {
   countErrors,
   type FindingInput,
+  keepsTexts,
   type ReviewTexts,
   type RunError,
   type SignalChannel,
@@ -151,7 +152,8 @@ const OFF: ClassifySummary = {
 export async function runReviewClassify(deps: ReviewClassifyDeps): Promise<ClassifySummary> {
   const { store, model } = deps;
   const settings = await store.settings();
-  if (settings === null || !settings.texts_enabled) {
+  // Only texts kept by their line are read; without one there is none to read.
+  if (settings === null || !keepsTexts(settings)) {
     return OFF;
   }
 

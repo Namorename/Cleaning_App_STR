@@ -38,6 +38,7 @@ const SETTINGS: SignalSettings = {
   model_since: "2026-10-01T06:00:00Z",
   daily_model_cap: 50,
   notice_published_at: "2026-09-01T00:00:00Z",
+  texts_enabled_at: null,
 };
 
 const NOW = new Date("2026-10-15T06:00:00Z"); // a Thursday
@@ -220,6 +221,66 @@ Deno.test("texts off: ratings only, nothing of the text leaves, no booking asked
   await runReviewSync({ store, adapter: src.value, keyOf, now: () => NOW });
   assertEquals(calls[0].rows[0].public_text, undefined);
   assertEquals(src.bookingCalls, []);
+});
+
+// The owner's decisions of 2026-11-01 and 2026-11-02: no guest notice; the
+// texts' line is the day texts first went on (20261102100000).
+const FIRST_ON = { ...SETTINGS, notice_published_at: null, texts_enabled_at: "2026-10-05T08:00:00Z" };
+const REDACTED = "No hot water. Thanks [GUEST]! Mr [GUEST] said hi.";
+
+Deno.test("without the guest notice the line is the day texts first went on: the history keeps its rating only", async () => {
+  const { store, calls } = syncStore(FIRST_ON, new Date("2026-10-14T00:00:00Z"));
+  const src = adapter([
+    source("first-day", { arrival_date: "2026-10-05" }),
+    source("later", { arrival_date: "2026-10-10" }),
+    source("history", { arrival_date: "2026-10-04" }),
+  ]);
+  await runReviewSync({ store, adapter: src.value, keyOf, now: () => NOW });
+
+  const [firstDay, later, history] = calls[0].rows;
+  assertEquals(firstDay.public_text, REDACTED);
+  assertEquals(later.public_text, REDACTED);
+  assertEquals(history.public_text, undefined);
+  assertEquals(history.rating, 6);
+  // No booking is read for a text that may not be kept.
+  assertEquals(src.bookingCalls, ["first-day", "later"]);
+});
+
+Deno.test("a line drawn late in the UTC evening is the next Prague day: a stay from that day keeps its text", async () => {
+  // 23:30Z on 4 October is 01:30 on 5 October in Prague, the day the database compares with.
+  const { store, calls } = syncStore(
+    { ...FIRST_ON, texts_enabled_at: "2026-10-04T23:30:00Z" },
+    new Date("2026-10-14T00:00:00Z"),
+  );
+  const src = adapter([source("prague-day", { arrival_date: "2026-10-05" })]);
+  await runReviewSync({ store, adapter: src.value, keyOf, now: () => NOW });
+  assertEquals(calls[0].rows[0].public_text, REDACTED);
+});
+
+Deno.test("the notice, once it has a date, draws the line instead of the texts' first day", async () => {
+  const { store, calls } = syncStore(
+    { ...FIRST_ON, notice_published_at: "2026-10-08T00:00:00Z" },
+    new Date("2026-10-14T00:00:00Z"),
+  );
+  const src = adapter([source("after-first-day", { arrival_date: "2026-10-05" }), source("after-notice")]);
+  await runReviewSync({ store, adapter: src.value, keyOf, now: () => NOW });
+
+  assertEquals(calls[0].rows.map((row) => row.public_text), [undefined, REDACTED]);
+  assertEquals(src.bookingCalls, ["after-notice"]);
+});
+
+Deno.test("texts on without either date (a row the database refuses) send no text and ask no booking", async () => {
+  const { store, calls } = syncStore({ ...FIRST_ON, texts_enabled_at: null }, new Date("2026-10-14T00:00:00Z"));
+  const kept = new Map([[await keyOf("known"), { ...FULL_STORED, publicKept: false }]]);
+  const known = syncStore({ ...FIRST_ON, texts_enabled_at: null }, new Date("2026-10-14T00:00:00Z"), { stored: kept });
+  const src = adapter([source("new")]);
+  await runReviewSync({ store, adapter: src.value, keyOf, now: () => NOW });
+  const knownSrc = adapter([source("known")]);
+  await runReviewSync({ store: known.store, adapter: knownSrc.value, keyOf, now: () => NOW });
+
+  assertEquals(calls[0].rows[0].public_text, undefined);
+  assertEquals(known.calls[0].rows[0].public_text, undefined);
+  assertEquals([...src.bookingCalls, ...knownSrc.bookingCalls], []);
 });
 
 Deno.test("a text the database already keeps is not sent again and asks no booking; a late part is", async () => {

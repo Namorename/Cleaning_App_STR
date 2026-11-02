@@ -4,7 +4,8 @@
  * watermark, through its adapter, into ingest_guest_reviews() in portions.
  * The core knows no PMS: the adapter hands the PMS's ids as strings, the
  * database finds our place and booking. The database decides what is kept —
- * texts only for stays after the guest notice, never for hidden reviews or
+ * texts only for stays from the texts' line (the guest notice's day, or the
+ * day texts first went on: types.ts textsFrom), never for hidden reviews or
  * places in the archive, the stay cut to its month once nothing waits on it;
  * this run only sends.
  *
@@ -47,7 +48,14 @@ import {
 } from "./adapter.ts";
 import type { SignalKeyer } from "./key.ts";
 import { hasUsableName, redactText, type RedactionNames } from "./redact.ts";
-import { countErrors, type ReviewTexts, type RunError, type SignalSettings } from "./types.ts";
+import {
+  countErrors,
+  keepsTexts,
+  type ReviewTexts,
+  type RunError,
+  type SignalSettings,
+  textsFrom,
+} from "./types.ts";
 
 export const SYNC_OVERLAP_DAYS = 3;
 export const HISTORY_DAYS = 365;
@@ -90,7 +98,7 @@ export interface StoredReview {
   readonly publicKept: boolean;
   readonly privateKept: boolean;
   readonly commentsKept: boolean;
-  /** The switches, the notice, a hiding, the archive and the 18 months still allow a text. */
+  /** The switches, the texts' line, a hiding, the archive and the 18 months still allow a text. */
   readonly textAllowed: boolean;
   readonly stayExact: boolean;
   readonly roomKnown: boolean;
@@ -165,20 +173,21 @@ export function syncWindowStart(watermark: Date | null, now: Date): Date {
 
 /** The texts may go to the database at all: the company keeps texts and the review is not hidden. */
 function sendsTexts(settings: SignalSettings, review: NeutralReview): boolean {
-  return settings.texts_enabled && settings.notice_published_at !== null && !review.row.is_hidden;
+  return keepsTexts(settings) && !review.row.is_hidden;
 }
 
 /**
  * A new review's stay may keep its text: began no earlier than the day before
- * the notice (a day of slack for time zones — the database draws the line
- * exactly, and says so for a review it knows: StoredReview.textAllowed).
+ * the texts' line (a day of slack for time zones — the database draws the
+ * line exactly, by the Prague day, and says so for a review it knows:
+ * StoredReview.textAllowed).
  */
 function mayKeepText(settings: SignalSettings, review: NeutralReview): boolean {
-  if (!sendsTexts(settings, review) || review.row.arrival_date === null) {
+  const from = textsFrom(settings);
+  if (from === null || !sendsTexts(settings, review) || review.row.arrival_date === null) {
     return false;
   }
-  const notice = Date.parse(settings.notice_published_at as string);
-  return Date.parse(`${review.row.arrival_date}T00:00:00Z`) >= notice - DAY_MS;
+  return Date.parse(`${review.row.arrival_date}T00:00:00Z`) >= Date.parse(from) - DAY_MS;
 }
 
 function hasText(texts: ReviewTexts): boolean {

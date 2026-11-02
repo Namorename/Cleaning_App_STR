@@ -22,7 +22,9 @@ const SETTINGS: SignalSettings = {
   model_enabled: true,
   model_since: "2026-10-01T06:00:00Z",
   daily_model_cap: 50,
-  notice_published_at: "2026-09-01T00:00:00Z",
+  // No guest notice (deferred, the owner's decision of 2026-11-01): the texts' line is their first day.
+  notice_published_at: null,
+  texts_enabled_at: "2026-09-01T00:00:00Z",
 };
 /** In the review, in its booking, in the text — in every case the text uses. */
 const NAMES = ["Kateřina", "Kateřino", "Dvořáková", "Dvořákové", "Dvorakova", "Bookerson", "Bookersonová"];

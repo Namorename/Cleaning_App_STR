@@ -15,6 +15,7 @@ const SETTINGS: SignalSettings = {
   model_since: "2026-10-01T06:00:00Z",
   daily_model_cap: 50,
   notice_published_at: "2026-09-01T00:00:00Z",
+  texts_enabled_at: null,
 };
 
 function queued(id: string, overrides: Partial<QueuedReview> = {}): QueuedReview {
@@ -142,6 +143,24 @@ Deno.test("with the model off the queue is asked for the rules' reviews only", a
 Deno.test("texts off: nothing to read", async () => {
   const run = classifyStore([queued("a")], { ...SETTINGS, texts_enabled: false });
   const summary = await runReviewClassify({ store: run.store, model: scriptedModel([]) });
+  assertEquals(summary.status, "off");
+  assertEquals(run.applied, []);
+});
+
+Deno.test("without the guest notice the texts' first day is enough: the kept texts are read", async () => {
+  const run = classifyStore([queued("a")], {
+    ...SETTINGS,
+    notice_published_at: null,
+    texts_enabled_at: "2026-10-05T08:00:00Z",
+  });
+  const summary = await runReviewClassify({ store: run.store, model: scriptedModel([GOOD_ANSWER]) });
+  assertEquals(summary.status, "done");
+  assertEquals(run.applied, [["a", MODEL_DETECTOR], ["a", RULES_DETECTOR]]);
+});
+
+Deno.test("texts on without either date (a row the database refuses): nothing to read", async () => {
+  const run = classifyStore([queued("a")], { ...SETTINGS, notice_published_at: null, texts_enabled_at: null });
+  const summary = await runReviewClassify({ store: run.store, model: scriptedModel([GOOD_ANSWER]) });
   assertEquals(summary.status, "off");
   assertEquals(run.applied, []);
 });
