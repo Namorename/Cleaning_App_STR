@@ -350,6 +350,43 @@ Deno.test("the limit the panel is told is the counter's own", async () => {
   const limit = /c_limit\s+constant integer := (\d+);/.exec(migration)?.[1];
   assertEquals(Number(limit), READS_PER_WINDOW);
   assertEquals(READS_PER_WINDOW, 120);
+  // And the window the panel names (10 minutes) is the counter's own.
+  const window = /extract\(epoch from now\(\)\) \/ (\d+)\)/.exec(migration)?.[1];
+  assertEquals(Number(window), 10 * 60);
+});
+
+Deno.test("a page that cannot be kept never fails the read it came with", async () => {
+  const { deps } = world({
+    pages: {
+      get: () => undefined,
+      set: () => {
+        throw new TypeError("no timers here");
+      },
+    },
+  });
+
+  const response = await createReviewTextHandler(deps)(post());
+
+  assertEquals(response.status, 200);
+});
+
+Deno.test("the panel's pages are its addresses only: a short look-alike hash is not a deployment", async () => {
+  const cases: [string, number][] = [
+    ["http://localhost:8090", 200],
+    ["http://127.0.0.1:8096", 200],
+    ["https://woom-x-namorename.vercel.app", 403],
+    ["https://woom-git-main-namorename.vercel.app", 403],
+    ["http://woom-bnb.vercel.app", 403],
+  ];
+  for (const [origin, status] of cases) {
+    const { deps } = world();
+    const request = new Request("http://x/guest-review-text", {
+      method: "POST",
+      headers: { Origin: origin, Authorization: "Bearer session", "Content-Type": "application/json" },
+      body: JSON.stringify({ signal_id: SIGNAL_ID }),
+    });
+    assertEquals((await createReviewTextHandler(deps)(request)).status, status, origin);
+  }
 });
 
 Deno.test("a month read once is answered from the instance's memory, not asked again", async () => {

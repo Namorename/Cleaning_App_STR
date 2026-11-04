@@ -1,6 +1,13 @@
 import { assertEquals } from "jsr:@std/assert@1";
 
-import { MAX_PAGES, PAGE_TTL_MS, pageKey, ReviewPageCache, type Schedule } from "./cache.ts";
+import {
+  MAX_PAGE_ITEMS,
+  MAX_PAGES,
+  PAGE_TTL_MS,
+  pageKey,
+  ReviewPageCache,
+  type Schedule,
+} from "./cache.ts";
 
 const HOST = "11111111-1111-4111-8111-111111111111";
 const OCTOBER = { start: "2026-09-30", end: "2026-11-01" };
@@ -46,6 +53,14 @@ Deno.test("the timer drops a page at its time, and a newer page of the key outli
   assertEquals(cache.get("k", 1000), ["new"]);
   drops[1].run();
   assertEquals(cache.size, 0);
+});
+
+Deno.test("a page longer than a month's is read and let go, not kept", () => {
+  const cache = new ReviewPageCache({ schedule: () => () => {} });
+  cache.set("k", Array.from({ length: MAX_PAGE_ITEMS + 1 }, (_, i) => i), 0);
+
+  assertEquals(cache.size, 0);
+  assertEquals(cache.get("k", 1), undefined);
 });
 
 Deno.test("at most a dozen pages are held; the oldest goes first", () => {

@@ -1,9 +1,10 @@
 /**
  * A guest review's own words, read from the PMS on the fly for the panel's
  * «Все отзывы» (docs/guest-review-text.md). The manager sees the original,
- * as in Hostaway; nothing of it is kept: the text passes through this
- * function's memory into the answer and goes nowhere else — not into the
- * database, not into a log, not into an error.
+ * as in Hostaway; nothing of it is written: the text passes through this
+ * function's memory into the answer — the month's page stays there at most
+ * ten minutes (cache.ts) — and goes nowhere else: not into the database, not
+ * into a log, not into an error.
  *
  * - Who: an active manager or admin of the company, by the session token,
  *   with the role and the company read from the database (profiles), not
@@ -31,11 +32,15 @@
 import { normalizeHostawayReview } from "../_shared/signals/hostaway.ts";
 import { pageKey } from "./cache.ts";
 
-/** The panel's pages: the production address, the project's Vercel deployments, a local panel. */
+/**
+ * The panel's pages: the production address, the project's Vercel
+ * deployments (their nine-letter hash), a panel on this machine (the local
+ * stands use several ports). A custom domain needs its line here.
+ */
 const PANEL_ORIGINS: readonly RegExp[] = [
   /^https:\/\/woom-bnb\.vercel\.app$/,
-  /^https:\/\/woom-[a-z0-9]+-namorename\.vercel\.app$/,
-  /^http:\/\/(localhost|127\.0\.0\.1):3000$/,
+  /^https:\/\/woom-[a-z0-9]{9}-namorename\.vercel\.app$/,
+  /^http:\/\/(localhost|127\.0\.0\.1):\d{2,5}$/,
 ];
 
 export function isPanelOrigin(origin: string): boolean {
@@ -342,7 +347,11 @@ async function answer(request: Request, deps: ReviewTextDeps): Promise<Outcome> 
       // Only the code: the PMS's error may quote its answer. Nothing is kept.
       return refusal("source_unavailable", 502, "The PMS did not answer", "serverErrors.reviewTextUnavailable");
     }
-    deps.pages?.set(key, items, now());
+    try {
+      deps.pages?.set(key, items, now());
+    } catch {
+      // The page is kept for the next read only: failing to keep it never fails this one.
+    }
     texts = await findTexts(items, review.externalKey, deps.keyOf);
   }
   if (texts === null) {
