@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 43 | 213 | 276 |
+| Функции | 20 | 43 | 214 | 277 |
 | Таблицы и представления | 8 | 20 | 13 | 41 |
-| Всего | 28 | 63 | 226 | 317 |
+| Всего | 28 | 63 | 227 | 318 |
 
 ## Функции
 
@@ -89,7 +89,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 213
+### Внутреннее — 214
 
 | Имя | Причина |
 | --- | --- |
@@ -281,6 +281,7 @@
 | `sync_hostaway_reservations` | Hostaway sync, Hostaway stays the source of truth (sync-reservations), service_role only |
 | `sync_profile_email` | trigger function: mirrors the auth.users email into profiles |
 | `take_off_repairs` | helper of unassign_problem and of the deactivation cascade; execute revoked from clients |
+| `take_review_text_read` | guest-review-text: counts one person's reads of review texts from the PMS per ten minutes (counts only, no text), service_role only |
 | `task_grace_days` | constant of the cleaner's time window (grace after the day) |
 | `task_horizon_days` | constant of the cleaner's time window (days ahead) |
 | `task_is_beyond_horizon` | auth/RLS helper: task is beyond the cleaner's horizon |
