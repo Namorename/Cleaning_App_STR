@@ -68,7 +68,7 @@ const handlers = {
   onRetry: jest.fn(),
 };
 
-function renderStep(kind: 'photo' | 'video', items: MediaItemView[]) {
+function renderStep(kind: 'photo' | 'video', items: MediaItemView[], disabled = false) {
   return render(
     <StepMedia
       kind={kind}
@@ -76,7 +76,7 @@ function renderStep(kind: 'photo' | 'video', items: MediaItemView[]) {
       limits={{ min: 1, max: 4 }}
       maxVideoSec={90}
       isCapturing={false}
-      disabled={false}
+      disabled={disabled}
       {...handlers}
     />,
   );
@@ -140,6 +140,30 @@ test('the step’s video opens too, and says so on its tile', async () => {
     expect.objectContaining({
       openId: 'v1',
       items: [{ id: 'v1', kind: 'video', uri: 'file:///kept/v1.mp4', number: 1 }],
+    }),
+  );
+});
+
+// A finished cleaning's video lives on the server only: the phone let its
+// copy go once the video was in. It opens from its signed link all the same
+// (owner, 2026-11-04), and a closed step offers no removal beside it.
+test('a finished step’s video kept on the server only opens from its signed link', async () => {
+  const signed = 'https://example.supabase.co/storage/v1/object/sign/task-media/v1.mp4?token=t';
+  await renderStep(
+    'video',
+    [item({ id: 'v1', kind: 'video', uri: signed, durationSec: 12 })],
+    true,
+  );
+
+  expect(screen.getByText('Смотреть')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: /Удалить/ })).toBeNull();
+
+  await fireEvent.press(screen.getByRole('button', { name: 'Открыть видео' }));
+
+  expect(mockViewer.props).toEqual(
+    expect.objectContaining({
+      openId: 'v1',
+      items: [{ id: 'v1', kind: 'video', uri: signed, number: 1 }],
     }),
   );
 });

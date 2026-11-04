@@ -533,6 +533,31 @@ describe('mediaItemViews', () => {
     expect(mediaItemViews([base], {}, {}, new Set())[0].uri).toBeNull();
   });
 
+  // The phone lets its copy of a video go once the server has it: the video
+  // a finished cleaning shows plays from its signed link (2026-11-04).
+  test('a video in that the phone no longer keeps plays from its signed link', () => {
+    const video: TaskMedia = {
+      ...base,
+      id: 'v1',
+      kind: 'video',
+      storage_path: 'host/task/v1.mp4',
+      mime_type: 'video/mp4',
+      duration_sec: 12,
+      uploaded_at: '2026-11-03T10:00:05+00:00',
+    };
+
+    const [view] = mediaItemViews(
+      [video],
+      {},
+      { 'host/task/v1.mp4': 'https://signed/v1' },
+      new Set(),
+    );
+
+    expect(view).toEqual(
+      expect.objectContaining({ kind: 'video', uri: 'https://signed/v1', status: 'uploaded' }),
+    );
+  });
+
   test('tells a file on its way from one that was stranded', () => {
     const uploaded = { ...base, uploaded_at: '2026-09-07T10:00:05+00:00' };
 

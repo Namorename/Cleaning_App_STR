@@ -558,33 +558,38 @@ describe('a video step of her task under way', () => {
     expect(mockAttach.photo.mutate).not.toHaveBeenCalled();
   });
 
-  // A confirmed video draws no picture on its tile: a signed link for it is
-  // a request for nothing. A photo no longer on the phone still needs one.
-  test('asks for signed links of photos only', async () => {
+  // The phone lets its copy of a video go once the server has it, so a
+  // confirmed video opens from a signed link, as a photo no longer on the
+  // phone draws from one (owner, 2026-11-04: a finished cleaning's videos
+  // did not open). A file still on the phone, or not in yet, needs none.
+  test('asks for a signed link for every file in that the phone no longer has, a video too', async () => {
     mockSteps.data = [videoStep()];
     mockVideo.settings = { video_max_sec: 90, video_bitrate_kbps: 2000, video_max_mb: 45 };
-    const row = (id: string, kind: 'photo' | 'video', path: string) => ({
+    const row = (id: string, kind: 'photo' | 'video', isIn = true) => ({
       id,
       task_id: TASK_ID,
       step_id: STEP_ID,
       problem_id: null,
       kind,
-      storage_path: path,
+      storage_path: `host/task/${id}.${kind === 'video' ? 'mp4' : 'jpg'}`,
       mime_type: kind === 'video' ? 'video/mp4' : 'image/jpeg',
       duration_sec: kind === 'video' ? 12.3 : null,
       device_taken_at: '2026-10-09T08:01:00+00:00',
       created_at: '2026-10-09T08:01:00+00:00',
-      uploaded_at: '2026-10-09T08:02:00+00:00',
+      uploaded_at: isIn ? '2026-10-09T08:02:00+00:00' : null,
       deleted_at: null,
     });
     mockTaskMedia.data = [
-      row('v1', 'video', 'host/task/v1.mp4'),
-      row('p1', 'photo', 'host/task/p1.jpg'),
+      row('v1', 'video'),
+      row('v2', 'video'),
+      row('v3', 'video', false),
+      row('p1', 'photo'),
     ];
+    mockLocal.data = { v2: { id: 'v2', uri: 'task-media/v2.mp4' } };
 
     await render(<StepRoute />);
 
-    expect(mockMediaUrls).toHaveBeenLastCalledWith(['host/task/p1.jpg']);
+    expect(mockMediaUrls).toHaveBeenLastCalledWith(['host/task/p1.jpg', 'host/task/v1.mp4']);
   });
 
   test('without the company’s settings the camera waits and nothing opens', async () => {

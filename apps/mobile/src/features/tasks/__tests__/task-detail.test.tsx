@@ -953,6 +953,58 @@ describe('read by a technician', () => {
     expect(screen.getByText('Работа закрыта')).toBeTruthy();
   });
 
+  // The owner's screenshot of 2026-11-04: a repair the office set no time
+  // for, not started yet, showed an empty white card under its kind.
+  describe('the card of facts', () => {
+    const PROBLEM = {
+      id: 'c1d2e3f4-1111-4111-8111-c1d2e3f40001',
+      title: 'Сломана',
+      priority: 'normal' as const,
+    };
+    const untimed = (overrides: Partial<CleaningTask> = {}) =>
+      repair({
+        time_from: null,
+        time_to: null,
+        guests_count: null,
+        problem: PROBLEM,
+        ...overrides,
+      });
+
+    async function renderRepair(job: CleaningTask): Promise<void> {
+      await render(
+        <TaskDetail task={job} userId={ME} now={NOW} isBusy={false} error={null} {...actions} />,
+      );
+    }
+
+    test('a repair with no time, no guests and no start yet draws no card at all', async () => {
+      await renderRepair(untimed());
+
+      expect(screen.queryByTestId('task-facts')).toBeNull();
+      // The rest of the screen is as it was: the kind, the report, the job.
+      expect(screen.getByTestId('task-urgency')).toBeTruthy();
+      expect(screen.getByText('Сломана')).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Начать работу' })).toBeTruthy();
+    });
+
+    test('the card is there with the window the office gave', async () => {
+      await renderRepair(untimed({ time_from: '09:00:00' }));
+
+      const card = screen.getByTestId('task-facts');
+      expect(within(card).getByText('Окно работы')).toBeTruthy();
+      expect(within(card).getByText('09:00–')).toBeTruthy();
+    });
+
+    test('the card is there once the repair has started', async () => {
+      await renderRepair(
+        untimed({ status: 'in_progress', started_at: '2026-11-10T08:05:00+00:00' }),
+      );
+
+      const card = screen.getByTestId('task-facts');
+      expect(within(card).getByText('Начата')).toBeTruthy();
+      expect(within(card).queryByText('Окно работы')).toBeNull();
+    });
+  });
+
   // A cleaning closed while he was still a cleaner stays in his list (§2.4):
   // a word that has no variant of its own still says what the job was.
   test('an old cleaning of his, closed before he became a technician, is still a cleaning', async () => {

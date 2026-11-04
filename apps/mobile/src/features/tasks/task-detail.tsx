@@ -119,6 +119,11 @@ export function TaskDetail({
   const action = actions.find((move) => move !== 'accept') ?? null;
   const isAccepted = task.status === 'accepted' && task.assignee_id === userId;
   const window = formatWindow(task);
+  const hasFacts =
+    window !== null ||
+    task.guests_count !== null ||
+    task.started_at !== null ||
+    task.completed_at !== null;
   const place = taskPlace(task);
   // Blank as good as absent: a listing synced without a street would otherwise
   // leave an empty line where the address belongs.
@@ -214,20 +219,28 @@ export function TaskDetail({
 
       <TaskFlags task={task} isUrgentFix={fix?.priority === 'high'} />
 
-      <Card>
-        {window !== null ? (
-          <Fact label={t(jobWordKey(task.type, 'window'), { context })} value={window} />
-        ) : null}
-        {task.guests_count !== null ? (
-          <Fact label={t('tasks.detail.guests')} value={String(task.guests_count)} />
-        ) : null}
-        {task.started_at !== null ? (
-          <Fact label={t('tasks.detail.startedAt')} value={formatClockTime(task.started_at)} />
-        ) : null}
-        {task.completed_at !== null ? (
-          <Fact label={t('tasks.detail.completedAt')} value={formatClockTime(task.completed_at)} />
-        ) : null}
-      </Card>
+      {/* A repair the office set no time for has none of these facts until it
+          starts, and an empty card is a white box on its own (owner's
+          screenshot, 2026-11-04): drawn only with something in it. */}
+      {hasFacts ? (
+        <Card testID="task-facts">
+          {window !== null ? (
+            <Fact label={t(jobWordKey(task.type, 'window'), { context })} value={window} />
+          ) : null}
+          {task.guests_count !== null ? (
+            <Fact label={t('tasks.detail.guests')} value={String(task.guests_count)} />
+          ) : null}
+          {task.started_at !== null ? (
+            <Fact label={t('tasks.detail.startedAt')} value={formatClockTime(task.started_at)} />
+          ) : null}
+          {task.completed_at !== null ? (
+            <Fact
+              label={t('tasks.detail.completedAt')}
+              value={formatClockTime(task.completed_at)}
+            />
+          ) : null}
+        </Card>
+      ) : null}
 
       {fix !== null ? (
         // Heard with its facts, as the report's card in her list is.

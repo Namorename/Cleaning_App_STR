@@ -113,16 +113,14 @@ export default function StepRoute() {
   const [notice, setNotice] = useState<string | null>(null);
 
   const stepMedia = useMemo(() => mediaOfStep(media.data ?? [], stepId), [media.data, stepId]);
-  // A signed link is only worth asking for when the phone no longer has the file.
+  // A signed link is only worth asking for when the phone no longer has the
+  // file: a photo's draws its tile, a video's opens it on the whole screen.
+  // The phone lets its own copy of a video go once the server has confirmed
+  // it (use-media.ts, releaseVideo), so a video in is a video on the server.
   const remotePaths = useMemo(
     () =>
       stepMedia
-        .filter(
-          (item) =>
-            item.kind === 'photo' &&
-            item.uploaded_at !== null &&
-            local.data?.[item.id] === undefined,
-        )
+        .filter((item) => item.uploaded_at !== null && local.data?.[item.id] === undefined)
         .map((item) => item.storage_path),
     [stepMedia, local.data],
   );
