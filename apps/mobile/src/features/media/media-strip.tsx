@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -8,8 +8,11 @@ import { Text } from '@/components/text';
 import { MIN_TOUCH_TARGET, Radius, Spacing, type Theme } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
+import { reportMediaNotShown } from './display-failure';
 import { mediaFileUri } from './media-path';
+import { PhotoViewerHost } from './photo-viewer-host';
 import type { MediaItemView } from './schema';
+import { viewerItemsOf } from './viewer-items';
 
 /** A tile of the strip: a server-tracked file, or a capture not yet handed over. */
 export interface StripItem {
@@ -68,6 +71,10 @@ export function MediaStrip({
   const removingNumber = items.findIndex((item) => item.id === removingId) + 1;
   const canCapture =
     onCapture !== undefined && !disabled && !isCapturing && items.length < maxCount;
+  // The photo opened on the whole screen; the viewer turns through the rest.
+  const [openId, setOpenId] = useState<string | null>(null);
+  const viewerItems = useMemo(() => viewerItemsOf(items), [items]);
+  const closeViewer = useCallback(() => setOpenId(null), []);
 
   return (
     <ScrollView
@@ -80,6 +87,8 @@ export function MediaStrip({
           key={item.id}
           item={item}
           number={index + 1}
+          total={items.length}
+          onOpen={setOpenId}
           onRemove={disabled ? undefined : askRemove}
           onRetry={disabled || item.status !== 'failed' ? undefined : onRetry}
           styles={styles}
@@ -134,6 +143,15 @@ export function MediaStrip({
         }}
         onCancel={() => setAsking(false)}
       />
+
+      {openId !== null ? (
+        <PhotoViewerHost
+          items={viewerItems}
+          total={items.length}
+          openId={openId}
+          onClose={closeViewer}
+        />
+      ) : null}
     </ScrollView>
   );
 }
@@ -142,6 +160,10 @@ interface StripTileProps {
   item: StripItem;
   /** Counted from one, as she counts them and as the reader says them. */
   number: number;
+  /** How many photos the strip has: «Открыть фото 2 из 3». */
+  total: number;
+  /** The photo tapped, to open on the whole screen. */
+  onOpen: (mediaId: string) => void;
   onRemove?: (mediaId: string) => void;
   onRetry?: (mediaId: string) => void;
   styles: ReturnType<typeof createStyles>;
@@ -149,36 +171,65 @@ interface StripTileProps {
 
 /**
  * One photo and what can be done to it. The photo is one element for the
- * reader — its number and its state — and each action a button of its own
- * beside it: inside an element read as one, a button cannot be reached.
+ * reader — a button that opens it, with its state — and each action a button
+ * of its own beside it: inside an element read as one, a button cannot be
+ * reached. A photo with nothing to draw from yet is a picture, not a button.
  */
-function StripTile({ item, number, onRemove, onRetry, styles }: StripTileProps) {
+function StripTile({ item, number, total, onOpen, onRemove, onRetry, styles }: StripTileProps) {
   const { t } = useTranslation();
   const status = t(`media.status.${item.status}`);
+  const uri = item.uri === null ? null : mediaFileUri(item.uri);
+
+  const content = (
+    <>
+      {uri !== null ? (
+        <Image
+          source={{ uri }}
+          contentFit="cover"
+          style={styles.picture}
+          onError={(event) =>
+            reportMediaNotShown({
+              mediaId: item.id,
+              kind: 'photo',
+              surface: 'strip',
+              uri,
+              message: event.error,
+            })
+          }
+        />
+      ) : (
+        <View style={[styles.picture, styles.placeholder]} />
+      )}
+      {item.status !== 'uploaded' ? (
+        <Text variant="caption" tone={item.status === 'failed' ? 'danger' : 'secondary'}>
+          {status}
+        </Text>
+      ) : null}
+    </>
+  );
 
   return (
     <View style={styles.tile}>
-      <View
-        accessible
-        accessibilityRole="image"
-        accessibilityLabel={t('media.photoAccessibility', { index: number, status })}
-        style={styles.photo}
-      >
-        {item.uri !== null ? (
-          <Image
-            source={{ uri: mediaFileUri(item.uri) }}
-            contentFit="cover"
-            style={styles.picture}
-          />
-        ) : (
-          <View style={[styles.picture, styles.placeholder]} />
-        )}
-        {item.status !== 'uploaded' ? (
-          <Text variant="caption" tone={item.status === 'failed' ? 'danger' : 'secondary'}>
-            {status}
-          </Text>
-        ) : null}
-      </View>
+      {uri !== null ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('media.openPhoto', { index: number, total })}
+          accessibilityValue={{ text: status }}
+          onPress={() => onOpen(item.id)}
+          style={({ pressed }) => [styles.photo, pressed && styles.actionPressed]}
+        >
+          {content}
+        </Pressable>
+      ) : (
+        <View
+          accessible
+          accessibilityRole="image"
+          accessibilityLabel={t('media.photoAccessibility', { index: number, status })}
+          style={styles.photo}
+        >
+          {content}
+        </View>
+      )}
       {onRetry !== undefined ? (
         <TileAction
           label={t('media.retry')}

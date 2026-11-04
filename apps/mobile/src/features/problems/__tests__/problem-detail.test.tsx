@@ -151,7 +151,8 @@ describe('today’s screen', () => {
     );
 
     expect(screen.queryByText('Фото нет')).toBeNull();
-    expect(screen.getByLabelText('Фото 1. Загружено')).toBeTruthy();
+    const photo = screen.getByRole('button', { name: 'Открыть фото 1 из 1' });
+    expect(photo.props.accessibilityValue).toEqual({ text: 'Загружено' });
   });
 
   test('the chat is offered when the route hands it over, and opens', async () => {

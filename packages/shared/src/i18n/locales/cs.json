@@ -2278,6 +2278,16 @@
     "retryPhoto": "Zkusit nahrát znovu fotku {{index}}",
     "count": "{{taken}} z {{max}}",
     "photoAccessibility": "Fotka {{index}}. {{status}}",
+    "openPhoto": "Otevřít fotku {{index}} z {{total}}",
+    "openVideo": "Otevřít video",
+    "watchVideo": "Přehrát",
+    "viewer": {
+      "photo": "Fotka {{index}} z {{total}}",
+      "previous": "Předchozí fotka",
+      "next": "Další fotka",
+      "photoFailed": "Fotku se nepodařilo zobrazit",
+      "videoFailed": "Video se nepodařilo zobrazit"
+    },
     "status": {
       "uploaded": "Nahráno",
       "uploading": "Nahrává se",

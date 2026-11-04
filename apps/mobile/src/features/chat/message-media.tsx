@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Icon } from '@/components/icon';
@@ -9,7 +10,10 @@ import { Radius, Spacing, type Theme } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
+import { reportMediaNotShown } from '@/features/media/display-failure';
 import { mediaFileUri } from '@/features/media/media-path';
+import { PhotoViewerHost } from '@/features/media/photo-viewer-host';
+import { viewerItemsOf } from '@/features/media/viewer-items';
 
 import type { MessageTile } from './media-tiles';
 
@@ -33,6 +37,11 @@ export function MessageMedia({ tiles, onRetry, onRemove }: MessageMediaProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useThemedStyles(createStyles);
+  // The photo opened on the whole screen; the viewer turns through the
+  // message's others.
+  const [openId, setOpenId] = useState<string | null>(null);
+  const viewerItems = useMemo(() => viewerItemsOf(tiles), [tiles]);
+  const closeViewer = useCallback(() => setOpenId(null), []);
 
   if (tiles.length === 0) {
     return null;
@@ -46,32 +55,59 @@ export function MessageMedia({ tiles, onRetry, onRemove }: MessageMediaProps) {
         const canRetry = tile.status === 'failed' && onRetry !== undefined;
         const canRemove = isStranded && tile.canRemove && onRemove !== undefined;
         const size = canRetry || canRemove ? layout.wide : layout.small;
+        const uri = tile.uri === null ? null : mediaFileUri(tile.uri);
+        const body = (
+          <>
+            {uri !== null ? (
+              <Image
+                source={{ uri }}
+                contentFit="cover"
+                style={[styles.picture, size]}
+                onError={(event) =>
+                  reportMediaNotShown({
+                    mediaId: tile.id,
+                    kind: 'photo',
+                    surface: 'chat',
+                    uri,
+                    message: event.error,
+                  })
+                }
+              />
+            ) : (
+              <View style={[styles.picture, styles.placeholder, size]}>
+                {tile.status === 'uploading' || tile.status === 'awaited' ? (
+                  <ActivityIndicator size="small" color={theme.textSecondary} />
+                ) : null}
+              </View>
+            )}
+            {tile.status !== 'uploaded' ? (
+              <Text variant="caption" tone={isStranded ? 'danger' : 'secondary'}>
+                {status}
+              </Text>
+            ) : null}
+          </>
+        );
 
         return (
           <View key={tile.id} style={[layout.tile, size]}>
-            <View
-              accessible
-              accessibilityLabel={t('media.photoAccessibility', { index: index + 1, status })}
-            >
-              {tile.uri !== null ? (
-                <Image
-                  source={{ uri: mediaFileUri(tile.uri) }}
-                  contentFit="cover"
-                  style={[styles.picture, size]}
-                />
-              ) : (
-                <View style={[styles.picture, styles.placeholder, size]}>
-                  {tile.status === 'uploading' || tile.status === 'awaited' ? (
-                    <ActivityIndicator size="small" color={theme.textSecondary} />
-                  ) : null}
-                </View>
-              )}
-              {tile.status !== 'uploaded' ? (
-                <Text variant="caption" tone={isStranded ? 'danger' : 'secondary'}>
-                  {status}
-                </Text>
-              ) : null}
-            </View>
+            {uri !== null ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('media.openPhoto', { index: index + 1, total: tiles.length })}
+                accessibilityValue={{ text: status }}
+                onPress={() => setOpenId(tile.id)}
+                style={({ pressed }) => pressed && layout.pressed}
+              >
+                {body}
+              </Pressable>
+            ) : (
+              <View
+                accessible
+                accessibilityLabel={t('media.photoAccessibility', { index: index + 1, status })}
+              >
+                {body}
+              </View>
+            )}
             {/* Her bubble is the tonal `secondary` fill, so neither button can
                 be: retry is the main move in the cta fill, remove is framed. */}
             {canRetry ? (
@@ -94,6 +130,15 @@ export function MessageMedia({ tiles, onRetry, onRemove }: MessageMediaProps) {
           </View>
         );
       })}
+
+      {openId !== null ? (
+        <PhotoViewerHost
+          items={viewerItems}
+          total={tiles.length}
+          openId={openId}
+          onClose={closeViewer}
+        />
+      ) : null}
     </View>
   );
 }
@@ -116,6 +161,7 @@ const layout = StyleSheet.create({
   wide: { width: WIDE_TILE_SIZE },
   // Narrower than a screen's button: it shares a tile's width.
   tileButton: { paddingHorizontal: Spacing.sm },
+  pressed: { opacity: 0.7 },
 });
 
 const createStyles = (theme: Theme) =>

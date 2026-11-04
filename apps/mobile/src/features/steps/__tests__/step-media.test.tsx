@@ -67,8 +67,15 @@ test('says where each photo stands and counts them', async () => {
     />,
   );
 
-  expect(screen.getByLabelText('Фото 1. Загружено')).toBeTruthy();
-  expect(screen.getByLabelText('Фото 2. Загружается…')).toBeTruthy();
+  // A photo there is a picture of opens on the whole screen (2026-11-03): a
+  // button, its state read after its name. One with nothing to draw from yet
+  // stays a picture with its state.
+  expect(
+    screen.getByRole('button', { name: 'Открыть фото 1 из 3' }).props.accessibilityValue,
+  ).toEqual({ text: 'Загружено' });
+  expect(
+    screen.getByRole('button', { name: 'Открыть фото 2 из 3' }).props.accessibilityValue,
+  ).toEqual({ text: 'Загружается…' });
   expect(screen.getByLabelText('Фото 3. Не загрузилось')).toBeTruthy();
   expect(screen.getByText('Снято 3 из 4')).toBeTruthy();
 
@@ -152,8 +159,8 @@ test('a stranded tile says why, to the eye and to the reader', async () => {
   expect(screen.getByText('Ошибка: RangeError')).toBeTruthy();
   expect(screen.getByText('Загрузка прервалась')).toBeTruthy();
   expect(
-    screen.getByLabelText('Фото 1. Не загрузилось. Файл больше, чем принимает хранилище (413)'),
-  ).toBeTruthy();
+    screen.getByRole('button', { name: 'Открыть фото 1 из 4' }).props.accessibilityValue,
+  ).toEqual({ text: 'Не загрузилось. Файл больше, чем принимает хранилище (413)' });
 });
 
 // At the largest font the tile, 150 dp wide, grows downward: its reason
@@ -369,6 +376,7 @@ describe('a video on its way', () => {
   });
 });
 
+// Looking is not changing: a closed step's photo still opens on the whole screen.
 test('offers nothing to change once the step is closed', async () => {
   await render(
     <StepMedia
@@ -382,8 +390,10 @@ test('offers nothing to change once the step is closed', async () => {
     />,
   );
 
-  expect(screen.queryByRole('button')).toBeNull();
-  expect(screen.getByLabelText('Фото 1. Загружено')).toBeTruthy();
+  const buttons = screen.getAllByRole('button');
+  expect(buttons).toHaveLength(1);
+  expect(buttons[0]?.props.accessibilityLabel).toBe('Открыть фото 1 из 1');
+  expect(buttons[0]?.props.accessibilityValue).toEqual({ text: 'Загружено' });
 });
 
 // The gallery is the company's decision, not the phone's: a build that
@@ -626,9 +636,9 @@ describe('the look: «Абрикос» on the old layout', () => {
       />,
     );
 
-    expect(glyphIn(screen.getByLabelText('Фото 1. Загружено'), 'media-status-icon')).toContain(
-      'lucide-check',
-    );
+    expect(
+      glyphIn(screen.getByRole('button', { name: 'Открыть фото 1 из 2' }), 'media-status-icon'),
+    ).toContain('lucide-check');
     expect(glyphIn(screen.getByLabelText('Фото 2. Не загрузилось'), 'media-status-icon')).toContain(
       'lucide-triangle-alert',
     );

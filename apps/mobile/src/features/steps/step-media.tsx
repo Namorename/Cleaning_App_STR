@@ -1,17 +1,20 @@
 import { STATUS_TONE, statusIcon } from '@str-ops/shared';
 import { Image } from 'expo-image';
 import type { TFunction } from 'i18next';
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Icon } from '@/components/icon';
 import { Text } from '@/components/text';
 import { Radius, Spacing, type Theme } from '@/constants/theme';
+import { reportMediaNotShown } from '@/features/media/display-failure';
 import { mediaFileUri } from '@/features/media/media-path';
+import { PhotoViewerHost } from '@/features/media/photo-viewer-host';
 import type { MediaItemView, MediaKind, PhotoLimits } from '@/features/media/schema';
+import { viewerItemsOf } from '@/features/media/viewer-items';
 import { useTheme } from '@/hooks/use-theme';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
@@ -68,6 +71,10 @@ export function StepMedia({
   // while the question fades out, so its words do not go before it does.
   const [removing, setRemoving] = useState<{ id: string; name: string } | null>(null);
   const [isAsking, setAsking] = useState(false);
+  // The file opened on the whole screen; the viewer turns through the rest.
+  const [openId, setOpenId] = useState<string | null>(null);
+  const viewerItems = useMemo(() => viewerItemsOf(items), [items]);
+  const closeViewer = useCallback(() => setOpenId(null), []);
 
   const max = kind === 'video' ? 1 : limits.max;
   const isWaitingForSettings = kind === 'video' && maxVideoSec === null;
@@ -94,7 +101,9 @@ export function StepMedia({
               key={item.id}
               item={item}
               index={index}
+              total={items.length}
               disabled={disabled}
+              onOpen={setOpenId}
               onAskRemove={(id, name) => {
                 setRemoving({ id, name });
                 setAsking(true);
@@ -155,6 +164,15 @@ export function StepMedia({
         }}
         onCancel={() => setAsking(false)}
       />
+
+      {openId !== null ? (
+        <PhotoViewerHost
+          items={viewerItems}
+          total={items.length}
+          openId={openId}
+          onClose={closeViewer}
+        />
+      ) : null}
     </View>
   );
 }
@@ -162,7 +180,11 @@ export function StepMedia({
 interface MediaTileProps {
   item: MediaItemView;
   index: number;
+  /** How many files the step has: «Открыть фото 2 из 3». */
+  total: number;
   disabled: boolean;
+  /** The file tapped, to open on the whole screen. */
+  onOpen: (mediaId: string) => void;
   /** «Удалить» pressed: the screen asks first, naming the tile. */
   onAskRemove: (mediaId: string, tileName: string) => void;
   onRetry: (mediaId: string) => void;
@@ -203,7 +225,7 @@ function failureTextOf(item: MediaItemView, t: TFunction): string | null {
   return t(`steps.uploadReason.${key}`, { status, type });
 }
 
-function MediaTile({ item, index, disabled, onAskRemove, onRetry }: MediaTileProps) {
+function MediaTile({ item, index, total, disabled, onOpen, onAskRemove, onRetry }: MediaTileProps) {
   const { t } = useTranslation();
   const styles = useThemedStyles(createStyles);
   // A video goes up in pieces and says how far it has got: in words to the
@@ -226,42 +248,82 @@ function MediaTile({ item, index, disabled, onAskRemove, onRetry }: MediaTilePro
   // A video's upload runs on in the queue whatever the screen says; removed
   // under it, the row would go and the upload fail. It can go once it is in.
   const canRemove = !(item.kind === 'video' && item.status === 'uploading');
+  // A file there is something to draw from opens on the whole screen: the
+  // tile is then a button, its state read after its name.
+  const uri = item.uri === null ? null : mediaFileUri(item.uri);
+  const openLabel =
+    item.kind === 'video'
+      ? t('media.openVideo')
+      : t('media.openPhoto', { index: index + 1, total });
+
+  const body = (
+    <>
+      {item.kind === 'photo' && uri !== null ? (
+        <Image
+          source={{ uri }}
+          contentFit="cover"
+          style={layout.picture}
+          onError={(event) =>
+            reportMediaNotShown({
+              mediaId: item.id,
+              kind: 'photo',
+              surface: 'step',
+              uri,
+              message: event.error,
+            })
+          }
+        />
+      ) : (
+        <View style={styles.placeholder}>
+          <Text align="center">
+            {item.kind === 'video'
+              ? t('steps.videoLength', { seconds: item.durationSec ?? 0 })
+              : t('steps.photoPlaceholder')}
+          </Text>
+          {/* A video has no picture of its own here: the word says it opens. */}
+          {item.kind === 'video' && uri !== null ? (
+            <Text tone="primary" weight={600} align="center">
+              {t('media.watchVideo')}
+            </Text>
+          ) : null}
+        </View>
+      )}
+
+      <View style={layout.tileFooter}>
+        <TileStatus status={item.status} isWaiting={item.isWaitingForNetwork === true} />
+        <Text
+          variant="caption"
+          tone={item.status === 'failed' ? 'danger' : 'secondary'}
+          style={layout.shrink}
+        >
+          {statusText}
+        </Text>
+      </View>
+      {reason !== null ? (
+        <Text variant="caption" tone="danger" style={layout.reason}>
+          {reason}
+        </Text>
+      ) : null}
+    </>
+  );
 
   return (
     <View style={styles.tile}>
-      <View accessible accessibilityLabel={label}>
-        {item.kind === 'photo' && item.uri !== null ? (
-          <Image
-            source={{ uri: mediaFileUri(item.uri) }}
-            contentFit="cover"
-            style={layout.picture}
-          />
-        ) : (
-          <View style={styles.placeholder}>
-            <Text align="center">
-              {item.kind === 'video'
-                ? t('steps.videoLength', { seconds: item.durationSec ?? 0 })
-                : t('steps.photoPlaceholder')}
-            </Text>
-          </View>
-        )}
-
-        <View style={layout.tileFooter}>
-          <TileStatus status={item.status} isWaiting={item.isWaitingForNetwork === true} />
-          <Text
-            variant="caption"
-            tone={item.status === 'failed' ? 'danger' : 'secondary'}
-            style={layout.shrink}
-          >
-            {statusText}
-          </Text>
+      {uri !== null ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={openLabel}
+          accessibilityValue={{ text: spokenStatus }}
+          onPress={() => onOpen(item.id)}
+          style={({ pressed }) => pressed && layout.pressed}
+        >
+          {body}
+        </Pressable>
+      ) : (
+        <View accessible accessibilityLabel={label}>
+          {body}
         </View>
-        {reason !== null ? (
-          <Text variant="caption" tone="danger" style={layout.reason}>
-            {reason}
-          </Text>
-        ) : null}
-      </View>
+      )}
 
       {/* Outside the tile's words, so the reader can reach it as a bar of its own. */}
       {percent !== null ? (
@@ -362,6 +424,7 @@ const layout = StyleSheet.create({
   tileActions: { gap: Spacing.xs, padding: Spacing.xs },
   // Narrower than a screen's button: two of them share a tile.
   tileButton: { paddingHorizontal: Spacing.sm },
+  pressed: { opacity: 0.7 },
 });
 
 const createStyles = (theme: Theme) =>

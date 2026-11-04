@@ -2278,6 +2278,16 @@
     "retryPhoto": "Повторить загрузку фото {{index}}",
     "count": "{{taken}} из {{max}}",
     "photoAccessibility": "Фото {{index}}. {{status}}",
+    "openPhoto": "Открыть фото {{index}} из {{total}}",
+    "openVideo": "Открыть видео",
+    "watchVideo": "Смотреть",
+    "viewer": {
+      "photo": "Фото {{index}} из {{total}}",
+      "previous": "Предыдущее фото",
+      "next": "Следующее фото",
+      "photoFailed": "Не удалось показать фото",
+      "videoFailed": "Не удалось показать видео"
+    },
     "status": {
       "uploaded": "Загружено",
       "uploading": "Загружается",

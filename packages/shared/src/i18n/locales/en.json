@@ -2254,6 +2254,16 @@
     "retryPhoto": "Retry the upload of photo {{index}}",
     "count": "{{taken}} of {{max}}",
     "photoAccessibility": "Photo {{index}}. {{status}}",
+    "openPhoto": "Open photo {{index}} of {{total}}",
+    "openVideo": "Open the video",
+    "watchVideo": "Watch",
+    "viewer": {
+      "photo": "Photo {{index}} of {{total}}",
+      "previous": "Previous photo",
+      "next": "Next photo",
+      "photoFailed": "The photo could not be shown",
+      "videoFailed": "The video could not be shown"
+    },
     "status": {
       "uploaded": "Uploaded",
       "uploading": "Uploading",
