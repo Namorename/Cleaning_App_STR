@@ -180,7 +180,7 @@ export function StepMedia({
 interface MediaTileProps {
   item: MediaItemView;
   index: number;
-  /** How many files the step has: «Открыть фото 2 из 3». */
+  /** How many files the step has: "Open photo 2 of 3". */
   total: number;
   disabled: boolean;
   /** The file tapped, to open on the whole screen. */

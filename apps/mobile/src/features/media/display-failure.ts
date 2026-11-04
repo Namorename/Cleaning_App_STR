@@ -29,7 +29,7 @@ export interface DisplayFailure {
 
 const HTTP_STATUS = /\b(?:status|response)\s*code\D{0,24}([45]\d\d)\b/i;
 const NETWORK =
-  /unknownhost|unable to resolve|not connected to the internet|network connection was lost|failed to connect|could not connect|offline|\bENOTFOUND\b|\bECONN(?:REFUSED|RESET)\b/i;
+  /unknownhost|unable to resolve|not connected to the internet|network connection was lost|failed to connect|could not connect|offline|connection reset|connection abort|unexpected end of stream|SSLException|\bENOTFOUND\b|\bECONN(?:REFUSED|RESET)\b/i;
 const TIMEOUT = /timed?\s?out/i;
 const NO_FILE = /no such file|ENOENT|FileNotFound|does not exist|not found/i;
 const DECODE = /decod|unsupported|corrupt|format/i;

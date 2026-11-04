@@ -55,6 +55,8 @@ describe('the word for why', () => {
     ['Download marked as failed because of invalid response status code 404', 'http-404'],
     ['java.net.UnknownHostException: Unable to resolve host', 'network'],
     ['The Internet connection appears to be offline.', 'network'],
+    ['javax.net.ssl.SSLException: Read error: Connection reset by peer', 'network'],
+    ['java.io.IOException: unexpected end of stream on https://x.example/...', 'network'],
     ['The request timed out.', 'timeout'],
     ['java.io.FileNotFoundException: open failed: ENOENT (No such file or directory)', 'no-file'],
     ['Failed to decode image', 'decode'],

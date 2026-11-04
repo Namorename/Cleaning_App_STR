@@ -1,5 +1,4 @@
 import type { IconMeaning } from '@str-ops/shared';
-import { StatusBar } from 'expo-status-bar';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -28,7 +27,7 @@ import { ZoomablePhoto, type PageRow } from './zoomable-photo';
 export interface PhotoViewerProps {
   /** The files of one row that have something to show (`viewerItemsOf`). */
   items: readonly ViewerItem[];
-  /** The row's tiles, those with nothing to show included: «Фото 2 из 5». */
+  /** The row's tiles, those with nothing to show included: "Photo 2 of 5". */
   total: number;
   /** The file tapped: the viewer opens on it. */
   openId: string;
@@ -44,6 +43,31 @@ const DRAWN_NEIGHBOURS = 1;
 interface Size {
   width: number;
   height: number;
+}
+
+/**
+ * The files the viewer turns through, as they were when it opened, with the
+ * row's fresh links brought in by id. The row redraws under the viewer: a
+ * link fetched again is null for a moment, and a file can leave the row.
+ * Taken as it comes, that closed the viewer or put another photo under her
+ * thumb; kept, each page stays the file it was, and a renewed link replaces
+ * an old one.
+ */
+export function keptItems(
+  kept: readonly ViewerItem[],
+  fresh: readonly ViewerItem[],
+): readonly ViewerItem[] {
+  const freshById = new Map(fresh.map((item) => [item.id, item]));
+  let hasChanged = false;
+  const next = kept.map((item) => {
+    const update = freshById.get(item.id);
+    if (update === undefined || update.uri === item.uri) {
+      return item;
+    }
+    hasChanged = true;
+    return { ...item, uri: update.uri };
+  });
+  return hasChanged ? next : kept;
 }
 
 /**
@@ -64,25 +88,54 @@ export function PhotoViewer({ items, total, openId, onClose }: PhotoViewerProps)
   const { t } = useTranslation();
   const isReduced = useReducedMotion();
   const insets = useContext(SafeAreaInsetsContext);
-  const window = useWindowDimensions();
+  const screen = useWindowDimensions();
   const [measured, setMeasured] = useState<Size | null>(null);
-  const size: Size = measured ?? { width: window.width, height: window.height };
+  const size: Size = measured ?? { width: screen.width, height: screen.height };
+  // The pages, kept from the opening (keptItems): never fewer, never
+  // reordered; and the count they were numbered against.
+  const [kept, setKept] = useState(items);
+  const [keptTotal] = useState(total);
+  const [seenItems, setSeenItems] = useState(items);
+  if (seenItems !== items) {
+    setSeenItems(items);
+    setKept(keptItems(kept, items));
+  }
   const [index, setIndex] = useState(() =>
     Math.max(
       0,
       items.findIndex((item) => item.id === openId),
     ),
   );
-  // A file taken away under the viewer leaves it on the last one there is.
-  const current = Math.min(index, items.length - 1);
+  const current = Math.min(index, kept.length - 1);
   const position = useSharedValue(-current * size.width);
   const titleRef = useRef<View>(null);
 
+  const shown = kept[current];
+  const title =
+    shown === undefined
+      ? ''
+      : shown.kind === 'video'
+        ? t('steps.videoName')
+        : t('media.viewer.photo', { index: shown.number, total: keptTotal });
+
   useEffect(() => {
-    if (items.length === 0) {
+    if (kept.length === 0) {
       onClose();
     }
-  }, [items.length, onClose]);
+  }, [kept.length, onClose]);
+
+  // A page turned is said: Android reads the title's live region, iOS has
+  // none and is told.
+  const saidTitle = useRef(title);
+  useEffect(() => {
+    if (saidTitle.current === title) {
+      return;
+    }
+    saidTitle.current = title;
+    if (Platform.OS === 'ios') {
+      AccessibilityInfo.announceForAccessibility(title);
+    }
+  }, [title]);
 
   const onLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -103,13 +156,13 @@ export function PhotoViewer({ items, total, openId, onClose }: PhotoViewerProps)
   const row = useMemo<PageRow>(
     () => ({
       position,
-      count: items.length,
+      count: kept.length,
       width: size.width,
       height: size.height,
       isReduced,
       onTurn,
     }),
-    [position, items.length, size.width, size.height, isReduced, onTurn],
+    [position, kept.length, size.width, size.height, isReduced, onTurn],
   );
 
   const rowStyle = useAnimatedStyle(() => ({ transform: [{ translateX: position.get() }] }));
@@ -125,14 +178,9 @@ export function PhotoViewer({ items, total, openId, onClose }: PhotoViewerProps)
     }
   };
 
-  const shown = items[current];
   if (shown === undefined) {
     return null;
   }
-  const title =
-    shown.kind === 'video'
-      ? t('steps.videoName')
-      : t('media.viewer.photo', { index: shown.number, total });
   const top = (insets?.top ?? 0) + Spacing.sm;
   const bottom = (insets?.bottom ?? 0) + Spacing.md;
 
@@ -147,11 +195,18 @@ export function PhotoViewer({ items, total, openId, onClose }: PhotoViewerProps)
       statusBarTranslucent
       navigationBarTranslucent
     >
-      <StatusBar style="light" />
-      <GestureHandlerRootView style={layout.screen} onLayout={onLayout}>
-        <View style={layout.screen} accessibilityViewIsModal>
-          <Animated.View style={[layout.row, { width: size.width * items.length }, rowStyle]}>
-            {items.map((item, at) => {
+      <GestureHandlerRootView style={layout.screen}>
+        <View
+          testID="viewer-screen"
+          style={layout.screen}
+          onLayout={onLayout}
+          accessibilityViewIsModal
+        >
+          <Animated.View
+            testID="viewer-row"
+            style={[layout.row, { width: size.width * kept.length }, rowStyle]}
+          >
+            {kept.map((item, at) => {
               const isCurrent = at === current;
               const isDrawn = Math.abs(at - current) <= DRAWN_NEIGHBOURS;
               return (
@@ -171,7 +226,7 @@ export function PhotoViewer({ items, total, openId, onClose }: PhotoViewerProps)
                       item={item}
                       index={at}
                       isCurrent={isCurrent}
-                      total={total}
+                      total={keptTotal}
                       row={row}
                     />
                   ) : null}
@@ -181,7 +236,13 @@ export function PhotoViewer({ items, total, openId, onClose }: PhotoViewerProps)
           </Animated.View>
 
           <View style={[layout.top, { paddingTop: top }]} pointerEvents="box-none">
-            <View ref={titleRef} accessible accessibilityRole="header" style={layout.title}>
+            <View
+              ref={titleRef}
+              accessible
+              accessibilityRole="header"
+              accessibilityLiveRegion="polite"
+              style={layout.title}
+            >
               <Text color={VIEWER.onScrim} weight={600}>
                 {title}
               </Text>
@@ -189,7 +250,7 @@ export function PhotoViewer({ items, total, openId, onClose }: PhotoViewerProps)
             <ViewerButton icon="action.close" label={t('common.close')} onPress={onClose} />
           </View>
 
-          {items.length > 1 ? (
+          {kept.length > 1 ? (
             <View style={[layout.bottom, { paddingBottom: bottom }]} pointerEvents="box-none">
               <ViewerButton
                 icon="action.back"
@@ -200,7 +261,7 @@ export function PhotoViewer({ items, total, openId, onClose }: PhotoViewerProps)
               <ViewerButton
                 icon="action.next"
                 label={t('media.viewer.next')}
-                isDisabled={current === items.length - 1}
+                isDisabled={current === kept.length - 1}
                 onPress={() => turn(current + 1)}
               />
             </View>

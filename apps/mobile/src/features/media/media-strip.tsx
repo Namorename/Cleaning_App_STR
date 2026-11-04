@@ -160,7 +160,7 @@ interface StripTileProps {
   item: StripItem;
   /** Counted from one, as she counts them and as the reader says them. */
   number: number;
-  /** How many photos the strip has: «Открыть фото 2 из 3». */
+  /** How many photos the strip has: "Open photo 2 of 3". */
   total: number;
   /** The photo tapped, to open on the whole screen. */
   onOpen: (mediaId: string) => void;

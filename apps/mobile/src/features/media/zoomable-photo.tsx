@@ -35,7 +35,11 @@ const EDGE_RESISTANCE = 3;
 const SETTLE_MS = 200;
 /** Between the two taps of a double tap. */
 const DOUBLE_TAP_DELAY_MS = 250;
-/** The picture is decoded for a box this many times the screen's, then drawn at the screen's size. */
+/**
+ * The photo on screen is decoded for a box this many times the screen's,
+ * then drawn at the screen's size: sharp up to 2×, softer beyond. Its
+ * neighbours, there only for a swipe to find, are decoded at the screen's.
+ */
 const RENDER_SCALE = 2;
 
 /** The row of pages the viewer slides, and where it stands. */
@@ -78,7 +82,8 @@ function clamp(value: number, min: number, max: number): number {
  */
 export function ZoomablePhoto({ item, index, isCurrent, total, row }: ZoomablePhotoProps) {
   const { t } = useTranslation();
-  const [hasFailed, setFailed] = useState(false);
+  // The source that would not show: a renewed link is tried again.
+  const [failedUri, setFailedUri] = useState<string | null>(null);
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
   const offsetX = useSharedValue(0);
@@ -91,6 +96,7 @@ export function ZoomablePhoto({ item, index, isCurrent, total, row }: ZoomablePh
   /** Width over height of the picture, once it has loaded; 0 until then. */
   const aspect = useSharedValue(0);
   const uri = mediaFileUri(item.uri);
+  const hasFailed = failedUri === uri;
 
   // A page that is no longer on screen comes back at its own size.
   useEffect(() => {
@@ -271,68 +277,70 @@ export function ZoomablePhoto({ item, index, isCurrent, total, row }: ZoomablePh
     ],
   }));
 
+  const renderScale = isCurrent ? RENDER_SCALE : 1;
   const canvas = useMemo(
     () => ({
-      width: width * RENDER_SCALE,
-      height: height * RENDER_SCALE,
-      left: (width - width * RENDER_SCALE) / 2,
-      top: (height - height * RENDER_SCALE) / 2,
-      transform: [{ scale: 1 / RENDER_SCALE }],
+      width: width * renderScale,
+      height: height * renderScale,
+      left: (width - width * renderScale) / 2,
+      top: (height - height * renderScale) / 2,
+      transform: [{ scale: 1 / renderScale }],
     }),
-    [width, height],
+    [width, height, renderScale],
   );
 
   const label = t('media.viewer.photo', { index: item.number, total });
 
-  if (hasFailed) {
-    return (
-      <View style={layout.page} accessible accessibilityLabel={label}>
-        <Text align="center" color={Colors.dark.text} style={layout.failed}>
-          {t('media.viewer.photoFailed')}
-        </Text>
-      </View>
-    );
-  }
-
+  // Under the same gestures either way: a page that would not show is still
+  // swiped past.
   return (
     <GestureDetector gesture={gesture}>
       <View
         style={layout.page}
         accessible
-        accessibilityRole="image"
+        accessibilityRole={hasFailed ? undefined : 'image'}
         accessibilityLabel={label}
         collapsable={false}
       >
-        {/* Under the picture: covered the moment the picture is drawn. */}
-        <ActivityIndicator color={Colors.dark.textSecondary} style={layout.spinner} />
-        <Animated.View style={[StyleSheet.absoluteFill, photoStyle]}>
-          {/* Decoded at twice the screen and shown at half: a closer look
-              stays sharp, and a manager's 48-megapixel photo in the chat is
-              still cut down to a size the phone can draw. */}
-          <View style={[layout.canvas, canvas]}>
-            <Image
-              testID="viewer-photo"
-              source={{ uri }}
-              contentFit="contain"
-              recyclingKey={item.id}
-              style={StyleSheet.absoluteFill}
-              onLoad={(event) => {
-                const { width, height } = event.source;
-                aspect.set(height > 0 ? width / height : 0);
-              }}
-              onError={(event) => {
-                setFailed(true);
-                reportMediaNotShown({
-                  mediaId: item.id,
-                  kind: 'photo',
-                  surface: 'viewer',
-                  uri,
-                  message: event.error,
-                });
-              }}
-            />
-          </View>
-        </Animated.View>
+        {hasFailed ? (
+          <Text align="center" color={Colors.dark.text} style={layout.failed}>
+            {t('media.viewer.photoFailed')}
+          </Text>
+        ) : (
+          <>
+            {/* Under the picture: covered the moment the picture is drawn. */}
+            <ActivityIndicator color={Colors.dark.textSecondary} style={layout.spinner} />
+            <Animated.View style={[StyleSheet.absoluteFill, photoStyle]}>
+              {/* Decoded for a box larger than the screen and drawn at its
+                  size: a closer look stays sharp, and a manager's
+                  48-megapixel photo in the chat is still cut down to a size
+                  the phone can draw. */}
+              <View testID={`viewer-canvas-${item.id}`} style={[layout.canvas, canvas]}>
+                <Image
+                  testID="viewer-photo"
+                  source={{ uri }}
+                  contentFit="contain"
+                  recyclingKey={item.id}
+                  style={StyleSheet.absoluteFill}
+                  onLoad={(event) => {
+                    const { source } = event;
+                    aspect.set(source.height > 0 ? source.width / source.height : 0);
+                  }}
+                  onError={(event) => {
+                    setFailedUri(uri);
+                    reportMediaNotShown({
+                      mediaId: item.id,
+                      kind: 'photo',
+                      surface: 'viewer',
+                      uri,
+                      message: event.error,
+                    });
+                  }}
+                />
+              </View>
+            </Animated.View>
+          </>
+        )}
       </View>
     </GestureDetector>
   );

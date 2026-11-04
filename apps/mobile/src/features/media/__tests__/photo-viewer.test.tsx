@@ -2,11 +2,11 @@ import 'react-native-gesture-handler/jestSetup';
 
 import * as Sentry from '@sentry/react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, StyleSheet, type ViewStyle } from 'react-native';
 import { State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
-import { PhotoViewer } from '../photo-viewer';
+import { keptItems, PhotoViewer } from '../photo-viewer';
 import { PhotoViewerHost } from '../photo-viewer-host';
 import type { ViewerItem } from '../viewer-items';
 
@@ -103,7 +103,25 @@ async function renderViewer(items: readonly ViewerItem[], openId: string, total 
   await render(<PhotoViewer items={items} total={total} openId={openId} onClose={onClose} />);
   // The phone's answer about motion comes after the first frame.
   await waitFor(() => expect(screen.getByTestId('photo-viewer').props.animationType).toBe('none'));
-  return { onClose };
+  /** The row redrawn by its owner with other tiles, as the screen would. */
+  const redraw = async (next: readonly ViewerItem[], nextTotal = total) => {
+    await screen.rerender(
+      <PhotoViewer items={next} total={nextTotal} openId={openId} onClose={onClose} />,
+    );
+  };
+  return { onClose, redraw };
+}
+
+/** The window under Jest is 750 points wide. */
+const WIDTH = 750;
+
+/** Where the row of pages stands: −index × width at rest (the first page's −0 read as 0). */
+function rowOffset(): number | undefined {
+  const style = StyleSheet.flatten(screen.getByTestId('viewer-row').props.style) as ViewStyle;
+  const move = (style.transform as { translateX?: number }[] | undefined)?.find(
+    (step) => step.translateX !== undefined,
+  );
+  return move?.translateX === undefined ? undefined : move.translateX + 0;
 }
 
 beforeEach(() => {
@@ -271,6 +289,129 @@ test('a photo that will not show says so, and the report carries no link', async
   const sent = JSON.stringify((Sentry.captureMessage as jest.Mock).mock.calls);
   expect(sent).not.toContain('token');
   expect(sent).not.toContain('supabase');
+});
+
+describe('the row under the viewer', () => {
+  test('the row stands where the page is: after the arrows, after a swipe', async () => {
+    await renderViewer(photos, 'p1');
+    expect(rowOffset()).toBe(0);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Следующее фото' }));
+    expect(rowOffset()).toBe(-WIDTH);
+
+    await act(async () => swipe('p2'));
+    await waitFor(() => expect(screen.getByRole('header')).toHaveTextContent('Фото 3 из 3'));
+    expect(rowOffset()).toBe(-2 * WIDTH);
+  });
+
+  test('a screen of another width moves the row with it', async () => {
+    await renderViewer(photos, 'p2');
+
+    await fireEvent(screen.getByTestId('viewer-screen'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 400, height: 800 } },
+    });
+
+    expect(rowOffset()).toBe(-400);
+  });
+
+  // Found in review: a link fetched again is null for a moment, which took
+  // the photo out of the row and closed the viewer.
+  test('a link fetched again under the viewer keeps the photo open, from its old link', async () => {
+    const remote = photos.map((photo) => ({ ...photo, uri: `https://x.example/${photo.id}.jpg` }));
+    const { onClose, redraw } = await renderViewer(remote, 'p2');
+
+    await redraw([]);
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('header')).toHaveTextContent('Фото 2 из 3');
+    expect(mockImages.at(-1)?.source.uri).toMatch(/^https:\/\/x\.example\//);
+  });
+
+  test('a file that leaves the row keeps its page, and the page under the thumb stays', async () => {
+    const { redraw } = await renderViewer(photos, 'p3');
+
+    await redraw(photos.slice(0, 2), 2);
+
+    expect(screen.getByRole('image', { name: 'Фото 3 из 3' })).toBeTruthy();
+    expect(rowOffset()).toBe(-2 * WIDTH);
+  });
+
+  test('a renewed link replaces the old one', async () => {
+    const { redraw } = await renderViewer(photos, 'p1');
+
+    await redraw([
+      { ...(photos[0] as ViewerItem), uri: 'https://x.example/new-p1.jpg' },
+      ...photos.slice(1),
+    ]);
+
+    expect(mockImages.map((image) => image.source.uri)).toContain('https://x.example/new-p1.jpg');
+  });
+
+  test('keptItems brings fresh links in by id and leaves the rest as they were', () => {
+    const fresh = [{ ...(photos[1] as ViewerItem), uri: 'https://x.example/p2.jpg' }];
+
+    const kept = keptItems(photos, fresh);
+
+    expect(kept.map((item) => item.uri)).toEqual([
+      'file:///kept/p1.jpg',
+      'https://x.example/p2.jpg',
+      'file:///kept/p3.jpg',
+    ]);
+    expect(keptItems(photos, photos)).toBe(photos);
+  });
+});
+
+test('a drag cut short by a second finger stays on the photo', async () => {
+  await renderViewer(photos, 'p1');
+
+  await act(async () =>
+    fireGestureHandler(getByGestureTestId('viewer-pan-p1'), [
+      { state: State.BEGAN, translationX: 0, velocityX: 0 },
+      { state: State.ACTIVE, translationX: 0, velocityX: 0 },
+      { state: State.ACTIVE, translationX: -400, velocityX: 0 },
+      { state: State.CANCELLED, translationX: -400, velocityX: 0 },
+    ]),
+  );
+
+  expect(screen.getByRole('header')).toHaveTextContent('Фото 1 из 3');
+  expect(rowOffset()).toBe(0);
+});
+
+test('the photo on screen is decoded for twice the screen, its neighbours for the screen', async () => {
+  await renderViewer(photos, 'p1');
+
+  const sizeOf = (id: string) =>
+    StyleSheet.flatten(
+      screen.getByTestId(`viewer-canvas-${id}`, { includeHiddenElements: true }).props.style,
+    ) as ViewStyle;
+  expect(sizeOf('p1').width).toBe(2 * WIDTH);
+  expect(sizeOf('p2').width).toBe(WIDTH);
+});
+
+test('the title is a live region, so a page turned is read', async () => {
+  await renderViewer(photos, 'p1');
+
+  expect(screen.getByRole('header').props.accessibilityLiveRegion).toBe('polite');
+});
+
+// Found in review: a page that would not show had no gestures, and a link
+// renewed after the failure was never tried.
+test('a photo that will not show is still swiped past, and a renewed link is tried again', async () => {
+  const { redraw } = await renderViewer(photos, 'p1');
+  const first = mockImages.find((drawn) => drawn.source.uri === 'file:///kept/p1.jpg');
+  await act(async () => first?.onError?.({ error: 'Failed to decode image' }));
+  expect(screen.getByText('Не удалось показать фото')).toBeTruthy();
+
+  await redraw([
+    { ...(photos[0] as ViewerItem), uri: 'file:///kept/p1-again.jpg' },
+    ...photos.slice(1),
+  ]);
+  expect(screen.queryByText('Не удалось показать фото')).toBeNull();
+
+  const again = mockImages.find((drawn) => drawn.source.uri === 'file:///kept/p1-again.jpg');
+  await act(async () => again?.onError?.({ error: 'Failed to decode image' }));
+  await act(async () => swipe('p1'));
+  await waitFor(() => expect(screen.getByRole('header')).toHaveTextContent('Фото 2 из 3'));
 });
 
 describe('a video', () => {

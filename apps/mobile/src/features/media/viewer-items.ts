@@ -23,7 +23,7 @@ export interface ViewerItem {
  * The files of a row the viewer can open, numbered as the row numbers them.
  * A tile with nothing to draw from — a photo on its way to another phone, or
  * a link not fetched yet — has nothing to open and is left out; the files
- * after it keep their numbers, so «Фото 3 из 4» is the third tile.
+ * after it keep their numbers, so "Photo 3 of 4" is the third tile.
  */
 export function viewerItemsOf(tiles: readonly ViewerTile[]): ViewerItem[] {
   return tiles.flatMap((tile, index) =>

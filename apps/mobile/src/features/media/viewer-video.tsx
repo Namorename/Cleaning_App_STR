@@ -24,7 +24,9 @@ interface ViewerVideoProps {
 export function ViewerVideo({ item }: ViewerVideoProps) {
   const { t } = useTranslation();
   const uri = mediaFileUri(item.uri);
-  const [hasFailed, setFailed] = useState(false);
+  // The source that would not play: a renewed link is tried again.
+  const [failedUri, setFailedUri] = useState<string | null>(null);
+  const hasFailed = failedUri === uri;
   const player = useVideoPlayer(uri, (created) => {
     created.loop = false;
   });
@@ -34,7 +36,7 @@ export function ViewerVideo({ item }: ViewerVideoProps) {
       if (status !== 'error') {
         return;
       }
-      setFailed(true);
+      setFailedUri(uri);
       reportMediaNotShown({
         mediaId: item.id,
         kind: 'video',
