@@ -2809,5 +2809,40 @@
       "heading": "9. Změny",
       "text": "Tyto zásady aktualizujeme, když se změní zpracování údajů. Datum poslední verze je nahoře na stránce."
     }
+  },
+  "developers": {
+    "mcp": {
+      "metaTitle": "MCP server woom",
+      "title": "MCP server",
+      "intro": "Asistenti s umělou inteligencí, například Claude Code nebo Cursor, mohou s woom pracovat přes Model Context Protocol (MCP). MCP server je API v1 v jiné podobě: stejné klíče API, oprávnění a objekty, stejný limit požadavků a stejný záznam požadavků.",
+      "otherLanguages": "Další jazyky",
+      "apiReference": "Reference API",
+      "endpointHeading": "Adresa",
+      "endpointText": "Streamable HTTP, jedna adresa, jen POST, verze protokolu 2026-07-28 a 2025-03-26 až 2025-11-25. Každý požadavek nese klíč v hlavičce Authorization: Bearer, mezera a klíč.",
+      "keyHeading": "Co klíč dovoluje",
+      "keyText": "Asistent smí všechno, co dovoluje jeho klíč, a nic víc. Založte mu vlastní klíč v části Nastavení → API: „Jen čtení“ pro dotazy a přehledy, „Operátor“ jen tehdy, když má zakládat a přidělovat úkoly a úklidy. Klíč omezený na některé objekty vidí jen je. Klíč zůstává v nastavení asistenta na tom počítači: zrušte ho, až nebude potřeba.",
+      "dataHeading": "Data, ne pokyny",
+      "dataText": "Názvy, nadpisy, popisy a důvody v odpovědích napsali lidé nebo přišly z rezervačních kanálů. Každý nástroj asistentovi říká, ať je bere jako data, nikdy jako pokyny. Jména, kontakty a zprávy hostů se nevydávají vůbec, stejně jako klíče a přístupové kódy.",
+      "writesHeading": "Změny",
+      "writesText": "Data mění tři nástroje: založit úkol, přidělit úkol, přidělit úklid. Jsou tak označené, žádají asistenta, ať se vás nejdřív zeptá, a berou klíč idempotence, aby opakování nezaložilo druhý úkol. Žádný nástroj nic nemaže.",
+      "clientsHeading": "Připojení",
+      "claudeCodeText": "V terminálu. Klíč držte v proměnné prostředí, ne v historii příkazů.",
+      "claudeCodeProject": "Nebo pro jeden projekt v .mcp.json (Claude Code proměnnou čte při spuštění):",
+      "cursorText": "V .cursor/mcp.json projektu, nebo v ~/.cursor/mcp.json pro všechny:",
+      "desktopText": "Claude Desktop přidává vzdálené servery přes Konektory, které se přihlašují přes OAuth; to woom zatím nenabízí. Do té doby klíč předá most mcp-remote (Node.js, balíček třetí strany), v claude_desktop_config.json:",
+      "claudeAiText": "Vlastní konektor v claude.ai a aplikacích Claude potřebuje přihlášení přes OAuth, které woom zatím nenabízí.",
+      "toolsHeading": "Nástroje",
+      "toolsText": "Jeden nástroj na každou operaci API v1, sestavený z vlastního popisu API. Klíč vidí jen nástroje, které otevírají jeho oprávnění.",
+      "toolColumn": "Nástroj",
+      "scopeColumn": "Oprávnění",
+      "kindColumn": "Co dělá",
+      "kindRead": "Čte",
+      "kindWrite": "Mění data",
+      "anyKey": "Jakýkoli klíč",
+      "examplesHeading": "Příklady",
+      "example1": "Které úklidy jsou naplánované na zítřek a kdo je dělá?",
+      "example2": "Které naléhavé úkoly jsou ještě otevřené a kde?",
+      "example3": "Založ úkol: v bytě 4 se rozbila sušička. (Asistent se vás zeptá, než něco zapíše.)"
+    }
   }
 }

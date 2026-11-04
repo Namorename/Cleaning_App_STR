@@ -16,6 +16,10 @@
 //     — the same, then every operation and its errors over HTTP, each answer
 //       checked against openapi.v1.json; exits 0 when all fit
 //
+// Both modes also serve the MCP server (supabase/functions/mcp/handler.ts) on
+// http://127.0.0.1:8788/mcp, over this same API handler (docs/mcp-server.md §8):
+// scripts/mcp-stand-client.ts drives it with the official MCP clients.
+//
 // The pepper is made fresh for each run and dies with it.
 
 import postgres from "npm:postgres@3.4.5";
@@ -23,12 +27,14 @@ import postgres from "npm:postgres@3.4.5";
 import { checkSchema } from "../packages/shared/src/api/schema-check.ts";
 import { generateApiKey, hmacHex } from "../supabase/functions/_shared/api-key.ts";
 import { createApiHandler, type RpcResult } from "../supabase/functions/api/handler.ts";
+import { createMcpHandler } from "../supabase/functions/mcp/handler.ts";
 
 type Json = Record<string, unknown>;
 
 const MIGRATION = "supabase/migrations/20261028100000_public_api_v1.sql";
 const SPEC = "packages/shared/src/api/openapi.v1.json";
 const PORT = 8787;
+const MCP_PORT = 8788;
 const DEMO_ADMIN = "a2899999-0000-4000-8000-000000000001";
 const OTHER_HOST = "a2899999-0000-4000-8000-00000000000b";
 const OTHER_ADMIN = "a2899999-0000-4000-8000-000000000002";
@@ -223,7 +229,12 @@ const timer = setTimeout(() => {
 Deno.addSignalListener("SIGINT", () => void rollbackAndExit(0));
 
 const server = Deno.serve({ hostname: "127.0.0.1", port: PORT, onListen: () => {} }, handler);
+const mcpServer = Deno.serve(
+  { hostname: "127.0.0.1", port: MCP_PORT, onListen: () => {} },
+  createMcpHandler({ api: handler, logError: (line) => console.error(line) }),
+);
 console.log(`API on http://127.0.0.1:${PORT}/v1 — company of the stand, nothing committed`);
+console.log(`MCP on http://127.0.0.1:${MCP_PORT}/mcp — the same keys, over the same API handler`);
 
 if (mode === "serve") {
   const out = argOf("--keys-out");
@@ -238,6 +249,7 @@ if (mode === "serve") {
   const failures = await contract(keys);
   clearTimeout(timer);
   await server.shutdown();
+  await mcpServer.shutdown();
   await rollbackAndExit(failures === 0 ? 0 : 1);
 }
 

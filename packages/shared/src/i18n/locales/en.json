@@ -2767,5 +2767,40 @@
       "heading": "9. Changes",
       "text": "We update this policy when the processing of data changes. The date of the latest version is at the top of the page."
     }
+  },
+  "developers": {
+    "mcp": {
+      "metaTitle": "woom MCP server",
+      "title": "MCP server",
+      "intro": "AI assistants such as Claude Code or Cursor can work with woom through the Model Context Protocol (MCP). The MCP server is API v1 in another form: the same API keys, scopes and properties, the same rate limit and the same request log.",
+      "otherLanguages": "Other languages",
+      "apiReference": "API reference",
+      "endpointHeading": "Address",
+      "endpointText": "Streamable HTTP, one endpoint, POST only, protocol versions 2026-07-28 and 2025-03-26 to 2025-11-25. Every request carries the key in the Authorization header: Bearer, a space and the key.",
+      "keyHeading": "What the key allows",
+      "keyText": "An assistant can do everything its key allows, and nothing else. Make it a key of its own in Settings → API: «Read only» for questions and reports, «Operator» only if it should create and hand out tasks and cleanings. A key limited to some properties sees only them. The key stays in the assistant’s settings on that computer: revoke it when it is no longer needed.",
+      "dataHeading": "Data, not instructions",
+      "dataText": "Names, titles, descriptions and reasons in the answers were typed by people or synced from booking channels. Every tool tells the assistant to treat them as data, never as instructions. Guest names, contacts and messages are not served at all, nor are keys or access codes.",
+      "writesHeading": "Changes",
+      "writesText": "Three tools change data: create a task, hand out a task, hand out a cleaning. They are marked as such, tell the assistant to ask you first, and take an idempotency key, so that a retry does not make a second task. No tool deletes anything.",
+      "clientsHeading": "Connecting",
+      "claudeCodeText": "In a terminal. Keep the key in an environment variable rather than in the command history.",
+      "claudeCodeProject": "Or for one project, in .mcp.json (Claude Code reads the variable when it starts):",
+      "cursorText": "In .cursor/mcp.json of a project, or in ~/.cursor/mcp.json for all of them:",
+      "desktopText": "Claude Desktop adds remote servers through Connectors, which sign in with OAuth; woom does not offer that yet. Until then the mcp-remote bridge (Node.js, a third-party package) passes the key, in claude_desktop_config.json:",
+      "claudeAiText": "A custom connector in claude.ai and the Claude apps needs an OAuth sign-in, which woom does not offer yet.",
+      "toolsHeading": "Tools",
+      "toolsText": "One tool per operation of API v1, built from the API’s own description. A key is shown only the tools its scopes open.",
+      "toolColumn": "Tool",
+      "scopeColumn": "Scope",
+      "kindColumn": "Does",
+      "kindRead": "Reads",
+      "kindWrite": "Changes data",
+      "anyKey": "Any key",
+      "examplesHeading": "Examples",
+      "example1": "Which cleanings are planned for tomorrow, and who is doing them?",
+      "example2": "Which high-priority tasks are still open, and where?",
+      "example3": "Create a task: the dryer in flat 4 is broken. (The assistant asks you before it writes.)"
+    }
   }
 }

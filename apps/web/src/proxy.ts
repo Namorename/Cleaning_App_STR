@@ -2,6 +2,7 @@ import type { Language } from '@str-ops/shared';
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+import { mcpPageLanguageOf } from '@/app/developers/mcp/language';
 import { privacyLanguageOf } from '@/app/privacy/language';
 import { publicEnv } from '@/lib/env';
 import { PAGE_LANGUAGE_HEADER } from '@/lib/page-language';
@@ -28,6 +29,8 @@ const OPEN_PATHS: ReadonlyMap<string, (searchParams: URLSearchParams) => string>
   ['/privacy', privacyLanguageOf],
   ['/developers', englishOnly],
   ['/developers/openapi.json', englishOnly],
+  // docs/mcp-server.md §9: how assistants connect, in the address's language.
+  ['/developers/mcp', mcpPageLanguageOf],
 ]);
 
 /**

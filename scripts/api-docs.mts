@@ -1,7 +1,9 @@
 // Builds the public API's generated documentation (docs/api-v1.md §9–10):
 //   packages/shared/src/api/openapi.v1.json — from the hand-written YAML and the
 //     scope registry (tables, security, headers, code samples);
-//   docs/api-coverage.md — from packages/shared/src/api/coverage.json.
+//   docs/api-coverage.md — from packages/shared/src/api/coverage.json;
+//   supabase/functions/mcp/catalog.ts — the MCP server's tools, from the built
+//     spec, the registry and the coverage (docs/mcp-server.md §3).
 //
 //   npm run api:docs             — write both
 //   npm run api:docs -- --check  — fail when either is stale
@@ -12,6 +14,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 
 import { buildSpec, renderSpec } from '../packages/shared/src/api/build-spec.ts';
 import { renderCoverageDoc } from '../packages/shared/src/api/coverage-doc.ts';
+import { buildMcpCatalog, renderMcpCatalog } from '../packages/shared/src/api/mcp-tools.ts';
 import type { Coverage } from '../packages/shared/src/api/parity.ts';
 import { type ApiRegistry, effectiveScopes } from '../packages/shared/src/api/registry.ts';
 
@@ -19,13 +22,12 @@ const DIR = 'packages/shared/src/api';
 const yaml = readFileSync(`${DIR}/openapi.v1.yaml`, 'utf8');
 const registry = JSON.parse(readFileSync(`${DIR}/registry.json`, 'utf8')) as ApiRegistry;
 const coverage = JSON.parse(readFileSync(`${DIR}/coverage.json`, 'utf8')) as Coverage;
+const spec = buildSpec({ yaml, registry, effective: (preset) => effectiveScopes(preset, [], registry) });
 
 const outputs: readonly [string, string][] = [
-  [
-    `${DIR}/openapi.v1.json`,
-    renderSpec(buildSpec({ yaml, registry, effective: (preset) => effectiveScopes(preset, [], registry) })),
-  ],
+  [`${DIR}/openapi.v1.json`, renderSpec(spec)],
   ['docs/api-coverage.md', renderCoverageDoc(coverage)],
+  ['supabase/functions/mcp/catalog.ts', renderMcpCatalog(buildMcpCatalog({ spec, registry, coverage }))],
 ];
 
 const isCheck = process.argv.includes('--check');

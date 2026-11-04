@@ -114,6 +114,8 @@
   общего модуля. 01.09 из коммита с правкой `_shared/listing.ts` задеплоили две
   функции, старый `sync-listings` записал NULL поверх времён заезда у всех
   объектов. Список к деплою — по импортам `_shared/`, не по изменённым файлам.
+  Так же с `supabase/functions/api/`: функция `mcp` бандлит обработчик API, и
+  правка в `api/` — передеплой и `api`, и `mcp` (`docs/mcp-server.md` §7).
 - **Чтение облака — `node scripts/cloud-read.mjs <файл.sql>`**, без вопросов:
   Management API `database/query/read-only`, роль `supabase_read_only_user`
   без прав на запись, транзакция read only — запись отклоняет сама база

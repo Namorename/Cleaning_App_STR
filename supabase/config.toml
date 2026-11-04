@@ -445,6 +445,12 @@ verify_jwt = false
 # database (api_gate) before anything else (supabase/functions/api/handler.ts).
 verify_jwt = false
 
+[functions.mcp]
+# The MCP server over API v1 (docs/mcp-server.md). It takes the same API keys,
+# which are not Supabase tokens; every request that reads or writes goes
+# through the API's own handler and its gate (supabase/functions/mcp/handler.ts).
+verify_jwt = false
+
 [functions.api-keys]
 # Issues API keys for the panel. Off for the reason manage-staff gives: a
 # browser preflight carries no Authorization header. The function checks the

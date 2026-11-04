@@ -282,6 +282,33 @@ describe('the public API reference', () => {
   });
 });
 
+/** docs/mcp-server.md §9: the MCP server's page is open like the reference, in its address's language. */
+describe('the MCP server page', () => {
+  test('opens to a visitor who is not signed in, without asking Auth', async () => {
+    expect(await redirectOf('/developers/mcp?lang=cs')).toBeNull();
+    expect(getUser).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    ['/developers/mcp', 'en'],
+    ['/developers/mcp?lang=ru', 'ru'],
+    ['/developers/mcp?lang=cs', 'cs'],
+    ['/developers/mcp?lang=xx', 'en'],
+  ])('%s is read as %s, whatever the browser asks', async (path, language) => {
+    const response = await proxy(
+      new NextRequest(`${ORIGIN}${path}`, { headers: { 'accept-language': 'cs-CZ' } }),
+    );
+
+    expect(response.headers.get(`x-middleware-request-${PAGE_LANGUAGE_HEADER}`)).toBe(language);
+  });
+
+  test('a path under it still asks for the sign-in', async () => {
+    const target = await redirectOf('/developers/mcp/x');
+
+    expect(target?.pathname).toMatch(/^\/login\/?$/);
+  });
+});
+
 /**
  * Which requests the sign-in guard sees at all, by Next's own reading of the
  * matcher. The logo sits on the sign-in card, so its files must reach a
