@@ -268,10 +268,11 @@ describe('words shared by every kind of job', () => {
 
   /**
    * Not the phone's screens: the panel's words, the public privacy policy the
-   * panel serves at /privacy, and the copy `send-push` keeps of `push.*`, which
-   * names a repair by its own `titleWork`.
+   * panel serves at /privacy, the public developer pages it serves under
+   * /developers (the MCP server's, docs/mcp-server.md §9), and the copy
+   * `send-push` keeps of `push.*`, which names a repair by its own `titleWork`.
    */
-  const NOT_THE_PHONES_SCREENS = /^(panel|privacy|push)\./;
+  const NOT_THE_PHONES_SCREENS = /^(panel|privacy|developers|push)\./;
 
   /** The phrases of Russian that name a cleaning in any of their forms. */
   function namesACleaning(phrase: string): boolean {
