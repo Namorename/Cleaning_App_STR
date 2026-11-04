@@ -1355,6 +1355,11 @@
       "reason": "helper of unassign_problem and of the deactivation cascade; execute revoked from clients",
       "defined_in": "20261004100000_staff_disable.sql"
     },
+    "take_review_text_read": {
+      "status": "internal",
+      "reason": "guest-review-text: counts one person's reads of review texts from the PMS per ten minutes (counts only, no text), service_role only",
+      "defined_in": "20261104200000_review_text_reads.sql"
+    },
     "task_grace_days": {
       "status": "internal",
       "reason": "constant of the cleaner's time window (grace after the day)",

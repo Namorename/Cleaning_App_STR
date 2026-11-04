@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { formatDay } from '@/lib/format-date';
+import { ServerRefusal } from '@/lib/function-error';
 
 import { EMPTY_REVIEW_FILTERS, type ReviewFilters } from '../review-filters';
 import {
@@ -89,6 +90,9 @@ const loaded = <T,>(data: T) => ({ data, isPending: false, isError: false, error
 
 /** What «Все отзывы» asked for, in order: the filters and the page of every read. */
 const reviewReads: { filters: ReviewFilters; page: number }[] = [];
+/** The texts asked of the PMS on the fly, and what the function answers. */
+const textReads: { signalId: string; enabled: boolean }[] = [];
+const liveText: { data: unknown; error: Error | null } = { data: null, error: null };
 const reviews = { rows: [] as Review[], total: 0 };
 
 vi.mock('../use-guest-signals', () => ({
@@ -100,6 +104,15 @@ vi.mock('../use-guest-signals', () => ({
       ...loaded({ reviews: reviews.rows, total: reviews.total, page }),
       isPlaceholderData: false,
     };
+  },
+  useReviewText: (signalId: string, enabled: boolean) => {
+    textReads.push({ signalId, enabled });
+    if (!enabled) {
+      return { data: undefined, isPending: true, isError: false, error: null };
+    }
+    return liveText.error === null
+      ? loaded(liveText.data)
+      : { data: undefined, isPending: false, isError: true, error: liveText.error };
   },
   usePlaceProblems: () => loaded(state.place),
   useSignalSettings: () => loaded(state.settings),
@@ -173,6 +186,9 @@ beforeEach(() => {
   reviewReads.length = 0;
   reviews.rows = [];
   reviews.total = 0;
+  textReads.length = 0;
+  liveText.data = null;
+  liveText.error = null;
   state.findings = [finding()];
   state.place = [];
   state.settings = {
@@ -480,6 +496,67 @@ describe('«Все отзывы»', () => {
       'aria-disabled',
       'true',
     );
+  });
+});
+
+describe('the text of a review read from Hostaway on the fly', () => {
+  test('is asked only on the manager’s word, and shown as Hostaway has it, with what it is', async () => {
+    reviews.rows = [review({ has_private_text: true })];
+    reviews.total = 1;
+    liveText.data = {
+      public_text: 'The shower had no hot water.',
+      private_text: 'The door code worked once.',
+      category_comments: { checkin: 'Keys were late.' },
+    };
+    window.history.replaceState(null, '', '/guests?tab=all');
+    render(<GuestSignalsView isAdmin={false} />);
+
+    expect(textReads.every((read) => !read.enabled)).toBe(true);
+    await userEvent.click(screen.getByRole('button', { name: 'Показать текст из Hostaway' }));
+
+    expect(textReads.at(-1)).toEqual({ signalId: REVIEW_ID, enabled: true });
+    const row = screen.getByRole('listitem');
+    expect(row).toHaveTextContent('Прочитано из Hostaway сейчас; в woom не хранится.');
+    expect(row).toHaveTextContent('The shower had no hot water.');
+    expect(row).toHaveTextContent('Приватно, только хозяину: The door code worked once.');
+    expect(row).toHaveTextContent('заселение: Keys were late.');
+  });
+
+  test('a review the guest wrote no words for offers nothing to read; a kept text is shown as before', () => {
+    reviews.rows = [
+      review({ has_public_text: false, has_private_text: false }),
+      review({
+        id: '55555555-5555-4555-8555-555555555555',
+        stay_exact: true,
+        public_text: 'Kept text. [GUEST] was told.',
+      }),
+    ];
+    reviews.total = 2;
+    window.history.replaceState(null, '', '/guests?tab=all');
+    render(<GuestSignalsView isAdmin={false} />);
+
+    expect(
+      screen.queryByRole('button', { name: 'Показать текст из Hostaway' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('Kept text. [GUEST] was told.')).toBeInTheDocument();
+  });
+
+  test('a refusal of the function is told in the panel’s words', async () => {
+    reviews.rows = [review()];
+    reviews.total = 1;
+    liveText.error = new ServerRefusal(
+      'Too many review texts read in ten minutes',
+      'serverErrors.reviewTextLimit',
+    );
+    window.history.replaceState(null, '', '/guests?tab=all');
+    render(<GuestSignalsView isAdmin={false} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Показать текст из Hostaway' }));
+
+    expect(
+      screen.getByText(
+        'За 10 минут прочитано слишком много текстов отзывов. Подождите немного и попробуйте снова.',
+      ),
+    ).toBeInTheDocument();
   });
 });
 

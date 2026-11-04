@@ -951,6 +951,12 @@
         "firstPage": "Back to the first page",
         "total_one": "{{total}} review",
         "total_other": "{{total}} reviews"
+      },
+      "liveText": {
+        "show": "Show the text from Hostaway",
+        "loading": "Reading the review in Hostaway…",
+        "note": "Read from Hostaway just now; woom keeps none of it.",
+        "empty": "The review has no text in Hostaway."
       }
     },
     "supplies": {
@@ -2496,7 +2502,11 @@
     "kbTargetsInvalid": "An article for the whole company names no places",
     "kbTargetsMissing": "Choose where the article shows before publishing it",
     "kbBuildingInvalid": "Choose one building: a listing with rooms under it",
-    "kbRevisionNotFound": "That version is not there"
+    "kbRevisionNotFound": "That version is not there",
+    "reviewTextLimit": "Too many review texts read in ten minutes. Wait a little and try again.",
+    "reviewTextNotFound": "Hostaway no longer has this review.",
+    "reviewTextGone": "The review’s time is over: its text can no longer be read.",
+    "reviewTextUnavailable": "Hostaway is not answering right now. Try again later."
   },
   "push": {
     "cleaning_new": {

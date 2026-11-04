@@ -456,3 +456,11 @@ verify_jwt = false
 # browser preflight carries no Authorization header. The function checks the
 # admin's token itself (supabase/functions/api-keys/handler.ts).
 verify_jwt = false
+
+[functions.guest-review-text]
+# Reads one guest review's text from Hostaway for the panel, kept nowhere
+# (docs/guest-review-text.md). Off for the reason manage-staff gives: a browser
+# preflight carries no Authorization header. The function checks the token,
+# the role and the company itself, and counts the reads before anything is
+# read (supabase/functions/guest-review-text/handler.ts).
+verify_jwt = false

@@ -955,6 +955,12 @@
         "total_few": "{{total}} отзыва",
         "total_many": "{{total}} отзывов",
         "total_other": "{{total}} отзыва"
+      },
+      "liveText": {
+        "show": "Показать текст из Hostaway",
+        "loading": "Читаю отзыв в Hostaway…",
+        "note": "Прочитано из Hostaway сейчас; в woom не хранится.",
+        "empty": "У отзыва нет текста в Hostaway."
       }
     },
     "supplies": {
@@ -2536,7 +2542,11 @@
     "kbTargetsInvalid": "Статья для всей компании не привязывается к объектам",
     "kbTargetsMissing": "Перед публикацией выберите, где показывать статью",
     "kbBuildingInvalid": "Выберите одно здание — объект с комнатами",
-    "kbRevisionNotFound": "Такой версии нет"
+    "kbRevisionNotFound": "Такой версии нет",
+    "reviewTextLimit": "За 10 минут прочитано слишком много текстов отзывов. Подождите немного и попробуйте снова.",
+    "reviewTextNotFound": "Этого отзыва больше нет в Hostaway.",
+    "reviewTextGone": "Срок хранения отзыва истёк: его текст больше не читается.",
+    "reviewTextUnavailable": "Hostaway сейчас не отвечает. Попробуйте позже."
   },
   "push": {
     "cleaning_new": {

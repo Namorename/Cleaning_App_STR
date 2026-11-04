@@ -52,6 +52,7 @@ import {
   useCandidateCount,
   useFindings,
   useReviewPage,
+  useReviewText,
   useRunStatus,
   useSignalSettings,
   useUpdateSettings,
@@ -339,8 +340,71 @@ function ReviewRow({ review }: { review: Review }) {
           )}
         </details>
       ) : null}
+      {!hasText && (review.has_public_text || review.has_private_text) ? (
+        <TextFromPms signalId={review.id} />
+      ) : null}
       {review.property_id === null ? null : <AddByHand signalId={review.id} />}
     </li>
+  );
+}
+
+/**
+ * The words of a review woom does not keep (a stay before the texts' line,
+ * or texts off), read from Hostaway when the manager asks — the original, as
+ * in Hostaway — and held by this page alone (docs/guest-review-text.md).
+ */
+function TextFromPms({ signalId }: { signalId: string }) {
+  const { t } = useTranslation();
+  const [asked, setAsked] = useState(false);
+  const text = useReviewText(signalId, asked);
+  if (!asked) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="mt-2"
+        onClick={() => setAsked(true)}
+      >
+        {t('panel.guests.liveText.show')}
+      </Button>
+    );
+  }
+  if (text.isPending) {
+    return (
+      <p className="mt-2 text-muted-foreground" aria-live="polite">
+        {t('panel.guests.liveText.loading')}
+      </p>
+    );
+  }
+  if (text.isError) {
+    return <ErrorState error={text.error} />;
+  }
+  const { public_text: publicText, private_text: privateText } = text.data;
+  const comments = Object.entries(text.data.category_comments);
+  const isEmpty = publicText === null && privateText === null && comments.length === 0;
+  return (
+    <div className="mt-2 flex flex-col gap-1" aria-live="polite">
+      <p className="text-xs text-muted-foreground">{t('panel.guests.liveText.note')}</p>
+      {isEmpty ? <p>{t('panel.guests.liveText.empty')}</p> : null}
+      {publicText === null ? null : <p className="whitespace-pre-line">{publicText}</p>}
+      {privateText === null ? null : (
+        <p className="whitespace-pre-line">
+          <span className="text-xs text-muted-foreground">
+            {t('panel.guests.card.privateOnly')}{' '}
+          </span>
+          {privateText}
+        </p>
+      )}
+      {comments.map(([category, comment]) => (
+        <p key={category} className="whitespace-pre-line">
+          <span className="text-xs text-muted-foreground">
+            {t(`panel.guests.category.${category}`)}:{' '}
+          </span>
+          {comment}
+        </p>
+      ))}
+    </div>
   );
 }
 

@@ -15,3 +15,10 @@ export const signalKeys = {
   settings: () => ['guest-signals', 'settings'] as const,
   runs: () => ['guest-signals', 'runs'] as const,
 };
+
+/**
+ * A review's text read from the PMS on the fly. Not under `signalKeys.all`:
+ * a decision refreshes the section, and that must not read every opened
+ * text again — each read counts against the person's limit.
+ */
+export const reviewTextKey = (signalId: string) => ['guest-review-text', signalId] as const;

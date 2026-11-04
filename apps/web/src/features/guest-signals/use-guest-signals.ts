@@ -12,6 +12,7 @@ import {
   fetchFindings,
   fetchPlaceProblems,
   fetchReviewPage,
+  fetchReviewText,
   fetchRunStatus,
   fetchSettings,
   rejectFinding,
@@ -20,7 +21,7 @@ import {
   type ApproveVariables,
   type SettingsChange,
 } from './api';
-import { signalKeys } from './keys';
+import { reviewTextKey, signalKeys } from './keys';
 import { reviewFiltersKey, type ReviewFilters } from './review-filters';
 import { FINDING_TABS, type FindingTab, type RejectReason } from './schema';
 
@@ -56,6 +57,28 @@ export function useReviewPage(filters: ReviewFilters, page: number) {
     queryKey: signalKeys.reviews(reviewFiltersKey(filters), page),
     queryFn: () => fetchReviewPage(client, filters, page),
     placeholderData: keepPreviousData,
+  });
+}
+
+/** How long a text read from the PMS stays in the page's memory after its row is gone. */
+const REVIEW_TEXT_KEEP_MS = 10 * 60 * 1000;
+
+/**
+ * A review's words from the PMS, asked once on the manager's word (`enabled`)
+ * and held in this page's memory only — never persisted, never retried by
+ * itself (each read counts against the limit).
+ */
+export function useReviewText(signalId: string, enabled: boolean) {
+  const client = useSupabase();
+  return useQuery({
+    queryKey: reviewTextKey(signalId),
+    queryFn: () => fetchReviewText(client, signalId),
+    enabled,
+    staleTime: Infinity,
+    gcTime: REVIEW_TEXT_KEEP_MS,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 }
 

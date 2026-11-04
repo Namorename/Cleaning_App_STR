@@ -955,6 +955,12 @@
         "total_few": "{{total}} recenze",
         "total_many": "{{total}} recenze",
         "total_other": "{{total}} recenzí"
+      },
+      "liveText": {
+        "show": "Zobrazit text z Hostaway",
+        "loading": "Čtu recenzi v Hostaway…",
+        "note": "Přečteno z Hostaway právě teď; woom si z toho nic neukládá.",
+        "empty": "Recenze nemá v Hostaway žádný text."
       }
     },
     "supplies": {
@@ -2536,7 +2542,11 @@
     "kbTargetsInvalid": "Článek pro celou firmu se k objektům nepřiřazuje",
     "kbTargetsMissing": "Před zveřejněním vyberte, kde se článek zobrazí",
     "kbBuildingInvalid": "Vyberte jednu budovu — objekt s pokoji",
-    "kbRevisionNotFound": "Taková verze neexistuje"
+    "kbRevisionNotFound": "Taková verze neexistuje",
+    "reviewTextLimit": "Za 10 minut přečteno příliš mnoho textů recenzí. Chvíli počkejte a zkuste to znovu.",
+    "reviewTextNotFound": "Tuto recenzi už Hostaway nemá.",
+    "reviewTextGone": "Doba uchování recenze uplynula: její text už nelze číst.",
+    "reviewTextUnavailable": "Hostaway teď neodpovídá. Zkuste to později."
   },
   "push": {
     "cleaning_new": {

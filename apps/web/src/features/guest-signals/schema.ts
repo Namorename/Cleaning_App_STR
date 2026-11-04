@@ -132,6 +132,14 @@ export const reviewSchema = z.object({
 export type Review = z.infer<typeof reviewSchema>;
 export const reviewListSchema = z.array(reviewSchema);
 
+/** A review's words read from the PMS on the fly (guest-review-text): kept in the page's memory only. */
+export const reviewTextSchema = z.object({
+  public_text: z.string().nullable(),
+  private_text: z.string().nullable(),
+  category_comments: z.record(z.string(), z.string()).catch({}),
+});
+export type ReviewText = z.infer<typeof reviewTextSchema>;
+
 /** A finding with its signal alongside — the card has all it shows from one read. */
 export const findingSchema = z.object({
   id: z.uuid(),

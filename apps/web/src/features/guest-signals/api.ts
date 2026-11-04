@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@str-ops/shared';
 
+import { functionError } from '@/lib/function-error';
+
 import {
   findingListSchema,
   type FindingKind,
@@ -9,7 +11,9 @@ import {
   type PlaceProblem,
   type RejectReason,
   reviewListSchema,
+  reviewTextSchema,
   type Review,
+  type ReviewText,
   runStatusSchema,
   type RunStatus,
   SETTINGS_OFF,
@@ -176,6 +180,24 @@ export async function fetchReviewPage(
     throw error;
   }
   return { reviews: reviewListSchema.parse(data ?? []), total: count ?? 0, page };
+}
+
+/** The function that reads a review's words from the PMS on the fly, keeping none of them. */
+const REVIEW_TEXT_FUNCTION = 'guest-review-text';
+
+/**
+ * A review's own words as Hostaway has them now (docs/guest-review-text.md):
+ * read on the manager's word, for a review whose text woom does not keep.
+ * Nothing of it is written anywhere; the page holds it in memory only.
+ */
+export async function fetchReviewText(client: Client, signalId: string): Promise<ReviewText> {
+  const { data, error } = await client.functions.invoke(REVIEW_TEXT_FUNCTION, {
+    body: { signal_id: signalId },
+  });
+  if (error) {
+    throw await functionError(error);
+  }
+  return reviewTextSchema.parse((data as { data?: unknown } | null)?.data);
 }
 
 /** The tasks on a finding's place, open and since the guest left (signal_place_problems). */

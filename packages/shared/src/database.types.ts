@@ -5144,6 +5144,7 @@ export type Database = {
         Args: { p_cause?: string; p_task_ids: string[] }
         Returns: number
       }
+      take_review_text_read: { Args: { p_user_id: string }; Returns: boolean }
       task_grace_days: { Args: never; Returns: number }
       task_horizon_days: { Args: never; Returns: number }
       task_is_beyond_horizon: {
