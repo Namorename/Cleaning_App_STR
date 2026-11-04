@@ -96,7 +96,10 @@ vi.mock('../use-guest-signals', () => ({
   useCandidateCount: () => loaded(state.findings.length),
   useReviewPage: (filters: ReviewFilters, page: number) => {
     reviewReads.push({ filters, page });
-    return { ...loaded({ reviews: reviews.rows, total: reviews.total }), isPlaceholderData: false };
+    return {
+      ...loaded({ reviews: reviews.rows, total: reviews.total, page }),
+      isPlaceholderData: false,
+    };
   },
   usePlaceProblems: () => loaded(state.place),
   useSignalSettings: () => loaded(state.settings),
@@ -122,6 +125,8 @@ vi.mock('@/features/analytics/use-analytics', () => ({
     loaded([
       { id: 7, name: 'Vinohrady 12', status: 'active' },
       { id: 9, name: 'Old Town 3', status: 'archived' },
+      // More than a short list: «all ticked» means «all» only for a long one.
+      ...[21, 22, 23, 24, 25, 26, 27].map((id) => ({ id, name: `Flat ${id}`, status: 'active' })),
     ]),
 }));
 
@@ -443,6 +448,20 @@ describe('«Все отзывы»', () => {
     });
   });
 
+  test('every listing ticked narrows nothing: a review of an unknown listing stays in the list', () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/guests?tab=all&place=7,9,21,22,23,24,25,26,27&channel=airbnb',
+    );
+    render(<GuestSignalsView isAdmin={false} />);
+
+    expect(reviewReads.at(-1)?.filters).toEqual({
+      ...EMPTY_REVIEW_FILTERS,
+      channels: ['airbnb'],
+    });
+  });
+
   test('nothing through the filters says so, and offers to clear them', async () => {
     window.history.replaceState(null, '', '/guests?tab=all&hidden=1');
     render(<GuestSignalsView isAdmin={false} />);
@@ -457,7 +476,10 @@ describe('«Все отзывы»', () => {
     render(<GuestSignalsView isAdmin={false} />);
 
     expect(screen.getByText('Отзывы ещё не загружены.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Сбросить фильтры' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Сбросить фильтры' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
   });
 });
 

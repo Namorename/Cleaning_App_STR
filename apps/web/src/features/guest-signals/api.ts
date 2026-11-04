@@ -102,6 +102,8 @@ export interface ReviewPage {
   reviews: Review[];
   /** All the reviews the filters let through, not only this page's. */
   total: number;
+  /** The page these rows are: the screen may still show it while the next one loads. */
+  page: number;
 }
 
 /**
@@ -169,11 +171,11 @@ export async function fetchReviewPage(
     .range(from, from + REVIEWS_PAGE_SIZE - 1);
   if (error) {
     if (error.code === RANGE_NOT_SATISFIABLE) {
-      return { reviews: [], total: count ?? 0 };
+      return { reviews: [], total: count ?? 0, page };
     }
     throw error;
   }
-  return { reviews: reviewListSchema.parse(data ?? []), total: count ?? 0 };
+  return { reviews: reviewListSchema.parse(data ?? []), total: count ?? 0, page };
 }
 
 /** The tasks on a finding's place, open and since the guest left (signal_place_problems). */

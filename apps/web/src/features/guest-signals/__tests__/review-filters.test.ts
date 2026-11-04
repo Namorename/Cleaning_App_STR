@@ -54,7 +54,7 @@ describe('the address of «Гости»', () => {
   test('a hand-edited link loses what makes no sense and keeps the rest', () => {
     const read = readGuestsAddress(
       new URLSearchParams(
-        'tab=nope&channel=airbnb,google,airbnb&place=7,-1,x&rmin=11&rmax=6&from=2026-13&low=dust&finding=found,dropped&text=yes',
+        'tab=nope&channel=airbnb,google,airbnb&place=7,-1,x&rmin=11&rmax=6&from=2026-13&to=0000-05&low=dust&finding=found,dropped&text=yes',
       ),
     );
 
@@ -156,7 +156,7 @@ describe('one page of «Все отзывы» is asked of the server', () => {
 
     const page = await fetchReviewPage(client, EMPTY_REVIEW_FILTERS, 0);
 
-    expect(page).toEqual({ reviews: [], total: 5123 });
+    expect(page).toEqual({ reviews: [], total: 5123, page: 0 });
     expect(calls[0]).toEqual(['from', 'guest_signals']);
     const select = calls.find(([name]) => name === 'select');
     expect(select?.[1]).not.toContain('signal_findings');
@@ -214,6 +214,7 @@ describe('one page of «Все отзывы» is asked of the server', () => {
     await expect(fetchReviewPage(client, EMPTY_REVIEW_FILTERS, 5)).resolves.toEqual({
       reviews: [],
       total: 10,
+      page: 5,
     });
   });
 

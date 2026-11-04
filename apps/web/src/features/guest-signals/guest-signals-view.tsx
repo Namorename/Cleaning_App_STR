@@ -13,6 +13,7 @@ import { NativeSelect } from '@/components/ui/native-select';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAnalyticsListings } from '@/features/analytics/use-analytics';
+import { wholeAsAll } from '@/features/analytics/whole-lists';
 import { formatDateTime, formatDay } from '@/lib/format-date';
 import { useAddressState } from '@/lib/use-address-state';
 import { useLanguage } from '@/lib/use-language';
@@ -167,7 +168,17 @@ function AllReviews({ filters, onFiltersChange }: AllReviewsProps) {
         ? t('panel.analytics.filters.archivedListing', { name: listing.name })
         : listing.name,
   }));
-  const ordered = withOrderedBounds(filters);
+  // Every listing ticked narrows nothing (as on «Аналитика»): a review whose
+  // listing is unknown stays in the list instead of dropping out of it.
+  const ordered = withOrderedBounds({
+    ...filters,
+    placeIds: [
+      ...wholeAsAll(
+        filters.placeIds,
+        places.map((place) => Number(place.id)),
+      ),
+    ],
+  });
 
   return (
     <div className="flex flex-col gap-3">
@@ -232,8 +243,10 @@ function ReviewList({ filters, onReset }: ReviewListProps) {
     );
   }
 
-  const first = page * REVIEWS_PAGE_SIZE + 1;
-  const last = page * REVIEWS_PAGE_SIZE + shown.length;
+  // The range of the rows on screen: while the next page loads, the previous
+  // one stays shown (keepPreviousData), and so does its range.
+  const first = reviews.data.page * REVIEWS_PAGE_SIZE + 1;
+  const last = reviews.data.page * REVIEWS_PAGE_SIZE + shown.length;
   return (
     <div className="flex flex-col gap-2">
       <p className="text-sm text-muted-foreground" aria-live="polite">

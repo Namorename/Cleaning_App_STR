@@ -177,7 +177,8 @@ const tabSchema = z.enum(GUEST_TABS);
 const channelSchema = z.enum(REVIEW_CHANNELS);
 const placeSchema = z.coerce.number().int().positive();
 const ratingSchema = z.coerce.number().min(RATING_MIN).max(RATING_MAX);
-const monthSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
+/** This century's months only: a hand-edited year 0000 would be a date the database refuses. */
+const monthSchema = z.string().regex(/^20\d{2}-(0[1-9]|1[0-2])$/);
 const lowSchema = z.enum([...REVIEW_CATEGORIES, 'any']);
 const findingSchema = z.enum(REVIEW_FINDING_FILTERS);
 const FLAG_ON = '1';

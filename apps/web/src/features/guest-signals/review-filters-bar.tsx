@@ -74,7 +74,15 @@ export function ReviewFiltersBar({ filters, onChange, places, language }: Review
   const id = useId();
   const field = (name: string) => `${id}-${name}`;
   const set = (patch: Partial<ReviewFilters>) => onChange({ ...filters, ...patch });
-  const months = recentMonths(todayIn(TEXTS_LINE_TIME_ZONE), PERIOD_MONTHS);
+  // A link may name a month older than the list: it is offered too, so the
+  // field shows what the list is filtered by.
+  const months = [
+    ...new Set([
+      ...recentMonths(todayIn(TEXTS_LINE_TIME_ZONE), PERIOD_MONTHS),
+      ...[filters.monthFrom, filters.monthTo].filter((month): month is string => month !== null),
+    ]),
+  ].sort((a, b) => b.localeCompare(a));
+  const isFiltered = hasReviewFilters(filters);
   const isLowOnly = filters.ratingMin === null && filters.ratingMax === LOW_RATING_MAX;
 
   const channels = REVIEW_CHANNELS.map((channel) => ({
@@ -220,16 +228,20 @@ export function ReviewFiltersBar({ filters, onChange, places, language }: Review
             {t(label)}
           </label>
         ))}
-        {hasReviewFilters(filters) ? (
-          <Button
-            type="button"
-            variant="ghost"
-            className="h-11"
-            onClick={() => onChange(EMPTY_REVIEW_FILTERS)}
-          >
-            {t('panel.guests.filters.reset')}
-          </Button>
-        ) : null}
+        {/* Always in place, so the focus stays on it once it has cleared the filters. */}
+        <Button
+          type="button"
+          variant="ghost"
+          className="h-11 aria-disabled:opacity-50"
+          aria-disabled={!isFiltered}
+          onClick={() => {
+            if (isFiltered) {
+              onChange(EMPTY_REVIEW_FILTERS);
+            }
+          }}
+        >
+          {t('panel.guests.filters.reset')}
+        </Button>
       </div>
     </div>
   );
