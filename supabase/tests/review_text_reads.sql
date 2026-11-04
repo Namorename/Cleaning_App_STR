@@ -3,7 +3,7 @@
 -- Runs inside a transaction and rolls back — the database stays clean.
 --
 -- What is being protected:
--- - a person reads at most 30 texts in ten minutes; the 31st is refused and
+-- - a person reads at most 120 texts in ten minutes; the 121st is refused and
 --   still counted; another person has a limit of their own;
 -- - the count is all that is kept: a person, a window and a number — the
 --   table has no column for a review or a text;
@@ -33,21 +33,21 @@ begin
 end;
 $fn$;
 
--- 30 reads go through, the 31st is refused; within one transaction now() is
+-- 120 reads go through, the 121st is refused; within one transaction now() is
 -- one instant, so every read falls into the same window.
 do $$
 declare
   v_allowed integer := 0;
   v_last boolean;
 begin
-  for i in 1..31 loop
+  for i in 1..121 loop
     v_last := public.take_review_text_read('b6200001-0000-4000-8000-000000000001');
     if v_last then
       v_allowed := v_allowed + 1;
     end if;
   end loop;
-  perform pg_temp.check('thirty reads in ten minutes go through', v_allowed, 30);
-  perform pg_temp.check('the thirty-first is refused', v_last, false);
+  perform pg_temp.check('120 reads in ten minutes go through', v_allowed, 120);
+  perform pg_temp.check('the 121st is refused', v_last, false);
 end;
 $$;
 
@@ -55,7 +55,7 @@ select pg_temp.check(
   'the refused read is counted too',
   (select reads from raw.review_text_reads
     where user_id = 'b6200001-0000-4000-8000-000000000001'),
-  31);
+  121);
 
 select pg_temp.check(
   'another person has a limit of their own',

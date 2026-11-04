@@ -7,10 +7,12 @@ import {
   hostawayReview,
 } from "../_shared/signals/hostaway-fake-api.ts";
 import { createSignalKeyer } from "../_shared/signals/key.ts";
+import { PAGE_TTL_MS, ReviewPageCache } from "./cache.ts";
 import {
   type Caller,
   createReviewTextHandler,
   findTexts,
+  READS_PER_WINDOW,
   type ReviewTextDeps,
   searchWindow,
   type StoredReview,
@@ -20,6 +22,9 @@ import { listHostawayReviews } from "./pms.ts";
 // Synthetic only: the reviews are the fake PMS's, the key secret is the tests'.
 const SECRET = "test-only-signal-key-secret-0123456789abcdef";
 const keyOf = await createSignalKeyer("hostaway", "review", SECRET);
+
+/** The panel's production address. */
+const PANEL = "https://woom-bnb.vercel.app";
 
 const SIGNAL_ID = "22222222-2222-4222-8222-222222222222";
 const HOST_ID = "11111111-1111-4111-8111-111111111111";
@@ -242,7 +247,10 @@ Deno.test("past the limit the reader waits for the window's end, and the PMS is 
   const response = await createReviewTextHandler(deps)(post());
 
   assertEquals(response.status, 429);
-  assertEquals(await hintOf(response), "serverErrors.reviewTextLimit");
+  const refusal = (await response.json()).error;
+  assertEquals(refusal.hint, "serverErrors.reviewTextLimit");
+  // The panel words the limit from these, not from a number of its own.
+  assertEquals(JSON.parse(refusal.details), { limit: 120, minutes: 10 });
   // 10:03:20 → the window of ten minutes ends at 10:10:00.
   assertEquals(response.headers.get("Retry-After"), "400");
   assertEquals(calls, [`take ${MANAGER.id}`]);
@@ -294,13 +302,157 @@ Deno.test("an unexpected failure is answered and logged by its name only", async
   assertEquals(logs, ["guest-review-text failed:TypeError in 0 ms"]);
 });
 
+Deno.test("a page other than the panel is refused before anything, and given no CORS header", async () => {
+  for (const origin of ["https://example.invalid", "null", "https://woom-bnb.vercel.app.evil.test"]) {
+    const { deps, calls, logs } = world();
+    const request = new Request("http://x/guest-review-text", {
+      method: "POST",
+      headers: { Origin: origin, Authorization: "Bearer session", "Content-Type": "application/json" },
+      body: JSON.stringify({ signal_id: SIGNAL_ID }),
+    });
+
+    const response = await createReviewTextHandler(deps)(request);
+
+    assertEquals(response.status, 403, origin);
+    assertEquals(response.headers.get("Access-Control-Allow-Origin"), null);
+    assertEquals(calls, []);
+    assertEquals(logs, ["guest-review-text foreign_origin in 0 ms"]);
+  }
+
+  const { deps } = world();
+  const preflight = await createReviewTextHandler(deps)(
+    new Request("http://x/guest-review-text", { method: "OPTIONS", headers: { Origin: "https://example.invalid" } }),
+  );
+  assertEquals(preflight.status, 403);
+});
+
+Deno.test("the panel's pages are answered with their own origin, never «*»", async () => {
+  for (const origin of [PANEL, "https://woom-3d4llddbc-namorename.vercel.app", "http://localhost:3000"]) {
+    const { deps } = world();
+    const request = new Request("http://x/guest-review-text", {
+      method: "POST",
+      headers: { Origin: origin, Authorization: "Bearer session", "Content-Type": "application/json" },
+      body: JSON.stringify({ signal_id: SIGNAL_ID }),
+    });
+
+    const response = await createReviewTextHandler(deps)(request);
+
+    assertEquals(response.status, 200, origin);
+    assertEquals(response.headers.get("Access-Control-Allow-Origin"), origin);
+    assertEquals(response.headers.get("Vary"), "Origin");
+  }
+});
+
+Deno.test("the limit the panel is told is the counter's own", async () => {
+  const migration = await Deno.readTextFile(
+    new URL("../../migrations/20261104200000_review_text_reads.sql", import.meta.url),
+  );
+  const limit = /c_limit\s+constant integer := (\d+);/.exec(migration)?.[1];
+  assertEquals(Number(limit), READS_PER_WINDOW);
+  assertEquals(READS_PER_WINDOW, 120);
+});
+
+Deno.test("a month read once is answered from the instance's memory, not asked again", async () => {
+  const pages = new ReviewPageCache({ schedule: () => () => {} });
+  const { deps, calls } = world({ pages });
+  const handler = createReviewTextHandler(deps);
+
+  const first = await handler(post());
+  const second = await handler(post());
+
+  assertEquals(first.status, 200);
+  assertEquals(second.status, 200);
+  assertEquals(await second.json(), await first.json());
+  assertEquals(calls.filter((call) => call.startsWith("list")).length, 1);
+  assertEquals(calls.filter((call) => call.startsWith("take")).length, 2, "every read is still counted");
+});
+
+Deno.test("after ten minutes the month is asked of the PMS again", async () => {
+  let clock = Date.parse("2026-11-04T10:00:00Z");
+  const pages = new ReviewPageCache({ schedule: () => () => {} });
+  const { deps, calls } = world({ pages, now: () => clock });
+  const handler = createReviewTextHandler(deps);
+
+  await handler(post());
+  clock += PAGE_TTL_MS - 1;
+  await handler(post());
+  assertEquals(calls.filter((call) => call.startsWith("list")).length, 1);
+
+  clock += 1;
+  await handler(post());
+  assertEquals(calls.filter((call) => call.startsWith("list")).length, 2);
+});
+
+Deno.test("two companies never share a page", async () => {
+  const OTHER_HOST = "66666666-6666-4666-8666-666666666666";
+  const pages = new ReviewPageCache({ schedule: () => () => {} });
+  const calls: string[] = [];
+  const hostOf: Record<string, string> = { one: HOST_ID, two: OTHER_HOST };
+  const { deps } = world({
+    pages,
+    identify: (token) => Promise.resolve(token in hostOf ? { ...MANAGER, hostId: hostOf[token] } : null),
+    findReview: () => Promise.resolve(STORED),
+    listReviews: (window) => {
+      calls.push(`list ${window.start}`);
+      return Promise.resolve([OTHER, WANTED]);
+    },
+  });
+  const handler = createReviewTextHandler(deps);
+
+  await handler(post(undefined, "one"));
+  await handler(post(undefined, "two"));
+
+  assertEquals(calls.length, 2, "the second company's read asked the PMS itself");
+  assertEquals(pages.size, 2);
+});
+
+Deno.test("a failed read of the PMS leaves nothing kept", async () => {
+  const pages = new ReviewPageCache({ schedule: () => () => {} });
+  let fail = true;
+  const { deps, calls } = world({
+    pages,
+    listReviews: (window) => {
+      calls.push(`list ${window.start}`);
+      return fail ? Promise.reject(new HostawayError("SYNTH-REVIEW-TEXT")) : Promise.resolve([WANTED]);
+    },
+  });
+  const handler = createReviewTextHandler(deps);
+
+  assertEquals((await handler(post())).status, 502);
+  assertEquals(pages.size, 0);
+  fail = false;
+  assertEquals((await handler(post())).status, 200);
+  assertEquals(calls.filter((call) => call.startsWith("list")).length, 2);
+});
+
+Deno.test("a review that came in after the month was kept is still found: the PMS is asked again", async () => {
+  const pages = new ReviewPageCache({ schedule: () => () => {} });
+  let page: unknown[] = [OTHER];
+  const { deps, calls } = world({
+    pages,
+    listReviews: (window) => {
+      calls.push(`list ${window.start}`);
+      return Promise.resolve(page);
+    },
+  });
+  const handler = createReviewTextHandler(deps);
+
+  assertEquals((await handler(post())).status, 404);
+  page = [OTHER, WANTED];
+  assertEquals((await handler(post())).status, 200);
+  assertEquals(calls.filter((call) => call.startsWith("list")).length, 2);
+});
+
 Deno.test("the browser's preflight is answered, and only POST is served", async () => {
   const { deps } = world();
   const handler = createReviewTextHandler(deps);
 
-  const preflight = await handler(new Request("http://x/guest-review-text", { method: "OPTIONS" }));
+  const preflight = await handler(
+    new Request("http://x/guest-review-text", { method: "OPTIONS", headers: { Origin: PANEL } }),
+  );
   assertEquals(preflight.status, 204);
   assertEquals(preflight.headers.get("Access-Control-Allow-Methods"), "POST, OPTIONS");
+  assertEquals(preflight.headers.get("Access-Control-Allow-Origin"), PANEL);
 
   const get = await handler(new Request("http://x/guest-review-text", { method: "GET" }));
   assertEquals(get.status, 405);

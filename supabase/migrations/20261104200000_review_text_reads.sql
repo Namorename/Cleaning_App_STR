@@ -26,9 +26,10 @@ comment on table raw.review_text_reads is
 
 /**
  * Takes one read of a review's text for a person and says whether it stays
- * within the limit: 30 in the current ten minutes (a manager reading a
- * morning's reviews one by one is far below it; Hostaway's own pace is 15
- * requests in 10 s, and one read costs one or two). The read is counted
+ * within the limit: 120 in the current ten minutes (a manager reading
+ * through a month of reviews, quickly, stays below it; the function keeps a
+ * month's page of the PMS for ten minutes, so most reads cost Hostaway
+ * nothing, and the rest one request or two). The read is counted
  * either way, so a loop keeps failing until its window is over. Windows older
  * than a day go on the way.
  *
@@ -42,7 +43,7 @@ security definer
 set search_path = ''
 as $$
 declare
-  c_limit  constant integer := 30;
+  c_limit  constant integer := 120;
   v_window timestamptz := to_timestamp(floor(extract(epoch from now()) / 600) * 600);
   v_reads  integer;
 begin

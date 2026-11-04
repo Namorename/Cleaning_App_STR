@@ -16,6 +16,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { readConfig } from "../_shared/env.ts";
 import { HostawayClient } from "../_shared/hostaway.ts";
 import { createSignalKeyer, readSignalKeySecret } from "../_shared/signals/key.ts";
+import { ReviewPageCache } from "./cache.ts";
 import { createReviewTextHandler, READABLE_PROVIDER, type ReviewTextDeps } from "./handler.ts";
 import { listHostawayReviews } from "./pms.ts";
 
@@ -75,6 +76,8 @@ async function buildDeps(): Promise<ReviewTextDeps> {
     },
     listReviews: (window) => listHostawayReviews(hostaway, window),
     keyOf,
+    // One per instance, in memory only: a month's page for ten minutes (cache.ts).
+    pages: new ReviewPageCache(),
   };
 }
 

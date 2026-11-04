@@ -2504,7 +2504,7 @@
     "kbTargetsMissing": "Choose where the article shows before publishing it",
     "kbBuildingInvalid": "Choose one building: a listing with rooms under it",
     "kbRevisionNotFound": "That version is not there",
-    "reviewTextLimit": "Too many review texts read in ten minutes. Wait a little and try again.",
+    "reviewTextLimit": "More than {{limit}} review texts read in {{minutes}} minutes. Wait a little and try again.",
     "reviewTextNotFound": "Hostaway no longer has this review.",
     "reviewTextGone": "The review’s time is over: its text can no longer be read.",
     "reviewTextUnavailable": "Hostaway is not answering right now. Try again later."

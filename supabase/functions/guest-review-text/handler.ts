@@ -13,8 +13,13 @@
  *   2026-10-18), so the review is found again by its key: the reviews the PMS
  *   sent in the stored month (or day, while the stay is exact) are keyed one
  *   by one with GUEST_SIGNAL_KEY_SECRET until one matches the stored HMAC.
- * - How often: 30 reads a person in ten minutes (take_review_text_read),
- *   counted before anything is looked up.
+ * - How often: 120 reads a person in ten minutes (take_review_text_read),
+ *   counted before anything is looked up. The month's page of the PMS is
+ *   kept by the instance for ten minutes (cache.ts), so reading through a
+ *   month asks Hostaway once.
+ * - From where: the panel's own pages. A request from any other page (its
+ *   Origin) is refused, and no CORS header lets that page read an answer; a
+ *   request without an Origin is no page's and goes on to the token.
  * - What goes back: the public review, the private feedback and the comments
  *   by category. Never the guest's name, the booking, the listing's name or
  *   any id of the PMS. `Cache-Control: no-store`.
@@ -24,12 +29,28 @@
  */
 
 import { normalizeHostawayReview } from "../_shared/signals/hostaway.ts";
+import { pageKey } from "./cache.ts";
 
-export const CORS_HEADERS: Readonly<Record<string, string>> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+/** The panel's pages: the production address, the project's Vercel deployments, a local panel. */
+const PANEL_ORIGINS: readonly RegExp[] = [
+  /^https:\/\/woom-bnb\.vercel\.app$/,
+  /^https:\/\/woom-[a-z0-9]+-namorename\.vercel\.app$/,
+  /^http:\/\/(localhost|127\.0\.0\.1):3000$/,
+];
+
+export function isPanelOrigin(origin: string): boolean {
+  return PANEL_ORIGINS.some((pattern) => pattern.test(origin));
+}
+
+/** CORS for one of the panel's pages: its own origin, never "*". */
+function corsHeaders(origin: string): Record<string, string> {
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    Vary: "Origin",
+  };
+}
 
 /** The panel's roles: the office reads the reviews (row level security says the same). */
 export const READER_ROLES: readonly string[] = ["manager", "admin"];
@@ -40,6 +61,12 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const READABLE_PROVIDER = "hostaway";
 /** The ten minutes the reads are counted in (take_review_text_read). */
 const READ_WINDOW_S = 600;
+/**
+ * Reads a person may make in those ten minutes: take_review_text_read's own
+ * c_limit (20261104200000), told to the panel with the refusal; a test holds
+ * the two equal.
+ */
+export const READS_PER_WINDOW = 120;
 const DAY_MS = 86_400_000;
 /** The company's day and month, as the database cuts a stay (signal_month_of). */
 const COMPANY_TIME_ZONE = "Europe/Prague";
@@ -84,16 +111,21 @@ export interface ReviewTextDeps {
   readonly listReviews: (window: SearchWindow) => Promise<readonly unknown[]>;
   /** The key of a PMS review id, as sync-guest-signals makes it. */
   readonly keyOf: (externalId: string) => Promise<string>;
+  /** The instance's pages of the PMS by company and window (cache.ts); none, and every read asks. */
+  readonly pages?: {
+    get(key: string, now: number): readonly unknown[] | undefined;
+    set(key: string, items: readonly unknown[], now: number): void;
+  };
   readonly now?: () => number;
   /** One line per request: the outcome's code and the time — never a text, a name or an id. */
   readonly log?: (line: string) => void;
 }
 
+/** An answer without CORS: the handler adds it for the panel's pages only. */
 function json(body: unknown, status: number, extra: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
-      ...CORS_HEADERS,
       "Content-Type": "application/json",
       "Cache-Control": "no-store",
       ...extra,
@@ -113,8 +145,10 @@ function refusal(
   message: string,
   hint: string,
   extra: Record<string, string> = {},
+  details: Readonly<Record<string, number>> | null = null,
 ): Outcome {
-  return { code, response: json({ error: { message, hint, details: null } }, status, extra) };
+  const body = { error: { message, hint, details: details === null ? null : JSON.stringify(details) } };
+  return { code, response: json(body, status, extra) };
 }
 
 function readBearer(request: Request): string | null {
@@ -274,9 +308,14 @@ async function answer(request: Request, deps: ReviewTextDeps): Promise<Outcome> 
   }
   if (!allowed) {
     const left = READ_WINDOW_S - (Math.floor(now() / 1000) % READ_WINDOW_S);
-    return refusal("limited", 429, "Too many review texts read in ten minutes", "serverErrors.reviewTextLimit", {
-      "Retry-After": String(left),
-    });
+    return refusal(
+      "limited",
+      429,
+      "Too many review texts read in ten minutes",
+      "serverErrors.reviewTextLimit",
+      { "Retry-After": String(left) },
+      { limit: READS_PER_WINDOW, minutes: READ_WINDOW_S / 60 },
+    );
   }
 
   const review = await deps.findReview(caller.hostId, signalId);
@@ -287,18 +326,29 @@ async function answer(request: Request, deps: ReviewTextDeps): Promise<Outcome> 
     return refusal("purged", 410, "The review's time is over", "serverErrors.reviewTextGone");
   }
 
-  let items: readonly unknown[];
-  try {
-    items = await deps.listReviews(searchWindow(review));
-  } catch {
-    // Only the code: the PMS's error may quote its answer.
-    return refusal("source_unavailable", 502, "The PMS did not answer", "serverErrors.reviewTextUnavailable");
+  const window = searchWindow(review);
+  const key = pageKey(caller.hostId, window);
+  const kept = deps.pages?.get(key, now());
+  let texts = kept === undefined ? null : await findTexts(kept, review.externalKey, deps.keyOf);
+  const isFromKept = texts !== null;
+  // Not in the page kept from earlier (or none kept): the PMS is asked, and a
+  // whole answer is kept for the next read of the month. A review that came
+  // in after the page was kept is found this way too.
+  if (texts === null) {
+    let items: readonly unknown[];
+    try {
+      items = await deps.listReviews(window);
+    } catch {
+      // Only the code: the PMS's error may quote its answer. Nothing is kept.
+      return refusal("source_unavailable", 502, "The PMS did not answer", "serverErrors.reviewTextUnavailable");
+    }
+    deps.pages?.set(key, items, now());
+    texts = await findTexts(items, review.externalKey, deps.keyOf);
   }
-  const texts = await findTexts(items, review.externalKey, deps.keyOf);
   if (texts === null) {
     return refusal("not_in_pms", 404, "The PMS no longer has the review", "serverErrors.reviewTextNotFound");
   }
-  return { code: "ok", response: json({ data: texts }, 200) };
+  return { code: isFromKept ? "ok_kept" : "ok", response: json({ data: texts }, 200) };
 }
 
 /** The function itself: one answer per request, one line of log per answer. */
@@ -306,10 +356,19 @@ export function createReviewTextHandler(deps: ReviewTextDeps): (request: Request
   const now = deps.now ?? Date.now;
   const log = deps.log ?? ((line: string) => console.info(line));
   return async (request: Request) => {
-    if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: CORS_HEADERS });
-    }
     const started = now();
+    const origin = request.headers.get("Origin");
+    if (origin !== null && !isPanelOrigin(origin)) {
+      // Another page: refused before anything is read, with no CORS header,
+      // so even the refusal stays unreadable to it.
+      const outcome = refusal("foreign_origin", 403, "Only the panel's pages may ask", "serverErrors.unknown");
+      log(`guest-review-text ${outcome.code} in ${now() - started} ms`);
+      return outcome.response;
+    }
+    const cors = origin === null ? {} : corsHeaders(origin);
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: cors });
+    }
     let outcome: Outcome;
     try {
       outcome = await answer(request, deps);
@@ -319,6 +378,9 @@ export function createReviewTextHandler(deps: ReviewTextDeps): (request: Request
       outcome = refusal(`failed:${kind}`, 500, "The review text could not be read", "serverErrors.unknown");
     }
     log(`guest-review-text ${outcome.code} in ${now() - started} ms`);
+    for (const [name, value] of Object.entries(cors)) {
+      outcome.response.headers.set(name, value);
+    }
     return outcome.response;
   };
 }

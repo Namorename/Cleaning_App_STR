@@ -556,6 +556,7 @@ describe('the text of a review read from Hostaway on the fly', () => {
     liveText.error = new ServerRefusal(
       'Too many review texts read in ten minutes',
       'serverErrors.reviewTextLimit',
+      JSON.stringify({ limit: 120, minutes: 10 }),
     );
     window.history.replaceState(null, '', '/guests?tab=all');
     render(<GuestSignalsView isAdmin={false} />);
@@ -563,7 +564,7 @@ describe('the text of a review read from Hostaway on the fly', () => {
 
     expect(
       screen.getByText(
-        'За 10 минут прочитано слишком много текстов отзывов. Подождите немного и попробуйте снова.',
+        'За 10 минут прочитано больше 120 текстов отзывов. Подождите немного и попробуйте снова.',
       ),
     ).toBeInTheDocument();
     // The manager may read again in place, on their own word.
