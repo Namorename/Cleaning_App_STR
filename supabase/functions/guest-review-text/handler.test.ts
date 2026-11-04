@@ -207,6 +207,30 @@ Deno.test("only our id of a review of the company is taken: not another company'
   assert(!elsewhere.calls.some((call) => call.startsWith("list")), "the PMS is not asked for another company's review");
 });
 
+Deno.test("a body sent in chunks without its length is not read past the cap", async () => {
+  const { deps, calls } = world();
+  const chunk = new TextEncoder().encode(`{"signal_id":"${SIGNAL_ID}","pad":"${"x".repeat(600)}`);
+  let pulled = 0;
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      pulled += 1;
+      // A body that would never end: only the cap stops the reading.
+      controller.enqueue(chunk);
+    },
+  });
+  const request = new Request("http://x/guest-review-text", {
+    method: "POST",
+    headers: { Authorization: "Bearer session", "Content-Type": "application/json" },
+    body,
+  });
+
+  const response = await createReviewTextHandler(deps)(request);
+
+  assertEquals(response.status, 400);
+  assert(pulled <= 3, `read ${pulled} chunks`);
+  assertEquals(calls, []);
+});
+
 Deno.test("past the limit the reader waits for the window's end, and the PMS is not asked", async () => {
   const { deps, calls } = world({
     takeRead: (userId) => {

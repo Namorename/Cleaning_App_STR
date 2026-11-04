@@ -7,9 +7,13 @@
 -- window and a number, gone after a day.
 --
 -- Nothing else changes: no table a client reads, no grant to a client role.
+-- The person is a profile, as in the other raw queues (raw.push_outbox): a
+-- key to auth.users would lock the table every sign-in writes.
+
+set local lock_timeout = '3s';
 
 create table raw.review_text_reads (
-  user_id      uuid not null references auth.users (id) on delete cascade,
+  user_id      uuid not null references public.profiles (id) on delete cascade,
   window_start timestamptz not null,
   reads        integer not null default 0 check (reads >= 0),
   primary key (user_id, window_start)

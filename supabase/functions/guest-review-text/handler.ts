@@ -122,14 +122,46 @@ function readBearer(request: Request): string | null {
   return match === null ? null : match[1];
 }
 
-/** The body's review id, or null when the body is not the panel's. Read no further than the cap. */
-async function readSignalId(request: Request): Promise<string | null> {
-  const declared = Number(request.headers.get("Content-Length") ?? "0");
-  if (declared > MAX_BODY_BYTES) {
+/**
+ * The body, read no further than the cap (as mcp reads its own): a chunked
+ * upload without a length is never buffered whole.
+ */
+async function readBody(request: Request): Promise<string | null> {
+  const declared = Number(request.headers.get("Content-Length") ?? "");
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
     return null;
   }
-  const text = await request.text();
-  if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) {
+  if (request.body === null) {
+    return "";
+  }
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    size += value.byteLength;
+    if (size > MAX_BODY_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+/** The body's review id, or null when the body is not the panel's. */
+async function readSignalId(request: Request): Promise<string | null> {
+  const text = await readBody(request);
+  if (text === null) {
     return null;
   }
   let body: unknown;

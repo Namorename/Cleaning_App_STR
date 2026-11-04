@@ -956,7 +956,8 @@
         "show": "Show the text from Hostaway",
         "loading": "Reading the review in Hostaway…",
         "note": "Read from Hostaway just now; woom keeps none of it.",
-        "empty": "The review has no text in Hostaway."
+        "empty": "The review has no text in Hostaway.",
+        "retry": "Try again"
       }
     },
     "supplies": {

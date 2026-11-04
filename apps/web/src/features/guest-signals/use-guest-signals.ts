@@ -82,6 +82,12 @@ export function useReviewText(signalId: string, enabled: boolean) {
   });
 }
 
+/** Whether this page already holds the review's text: a row back on screen shows it without a click. */
+export function useHasReviewText(signalId: string): boolean {
+  const queryClient = useQueryClient();
+  return queryClient.getQueryData(reviewTextKey(signalId)) !== undefined;
+}
+
 export function usePlaceProblems(findingId: string) {
   const client = useSupabase();
   return useQuery({

@@ -960,7 +960,8 @@
         "show": "Показать текст из Hostaway",
         "loading": "Читаю отзыв в Hostaway…",
         "note": "Прочитано из Hostaway сейчас; в woom не хранится.",
-        "empty": "У отзыва нет текста в Hostaway."
+        "empty": "У отзыва нет текста в Hostaway.",
+        "retry": "Попробовать снова"
       }
     },
     "supplies": {

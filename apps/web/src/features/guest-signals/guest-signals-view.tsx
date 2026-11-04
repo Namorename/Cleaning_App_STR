@@ -51,6 +51,7 @@ import {
   useAddFinding,
   useCandidateCount,
   useFindings,
+  useHasReviewText,
   useReviewPage,
   useReviewText,
   useRunStatus,
@@ -355,7 +356,9 @@ function ReviewRow({ review }: { review: Review }) {
  */
 function TextFromPms({ signalId }: { signalId: string }) {
   const { t } = useTranslation();
-  const [asked, setAsked] = useState(false);
+  // A row back on screen (another page, another tab) shows what this page read.
+  const isRead = useHasReviewText(signalId);
+  const [asked, setAsked] = useState(isRead);
   const text = useReviewText(signalId, asked);
   if (!asked) {
     return (
@@ -378,7 +381,22 @@ function TextFromPms({ signalId }: { signalId: string }) {
     );
   }
   if (text.isError) {
-    return <ErrorState error={text.error} />;
+    // The limit and the PMS both say «try again»: the button is here, the
+    // read is the manager's to repeat (each one is counted).
+    return (
+      <div className="mt-2 flex flex-col items-start gap-2">
+        <ErrorState error={text.error} />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={text.isFetching}
+          onClick={() => void text.refetch()}
+        >
+          {t('panel.guests.liveText.retry')}
+        </Button>
+      </div>
+    );
   }
   const { public_text: publicText, private_text: privateText } = text.data;
   const comments = Object.entries(text.data.category_comments);

@@ -960,7 +960,8 @@
         "show": "Zobrazit text z Hostaway",
         "loading": "Čtu recenzi v Hostaway…",
         "note": "Přečteno z Hostaway právě teď; woom si z toho nic neukládá.",
-        "empty": "Recenze nemá v Hostaway žádný text."
+        "empty": "Recenze nemá v Hostaway žádný text.",
+        "retry": "Zkusit znovu"
       }
     },
     "supplies": {

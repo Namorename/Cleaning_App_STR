@@ -93,6 +93,7 @@ const reviewReads: { filters: ReviewFilters; page: number }[] = [];
 /** The texts asked of the PMS on the fly, and what the function answers. */
 const textReads: { signalId: string; enabled: boolean }[] = [];
 const liveText: { data: unknown; error: Error | null } = { data: null, error: null };
+const refetchText = vi.fn();
 const reviews = { rows: [] as Review[], total: 0 };
 
 vi.mock('../use-guest-signals', () => ({
@@ -105,6 +106,7 @@ vi.mock('../use-guest-signals', () => ({
       isPlaceholderData: false,
     };
   },
+  useHasReviewText: () => false,
   useReviewText: (signalId: string, enabled: boolean) => {
     textReads.push({ signalId, enabled });
     if (!enabled) {
@@ -112,7 +114,14 @@ vi.mock('../use-guest-signals', () => ({
     }
     return liveText.error === null
       ? loaded(liveText.data)
-      : { data: undefined, isPending: false, isError: true, error: liveText.error };
+      : {
+          data: undefined,
+          isPending: false,
+          isError: true,
+          error: liveText.error,
+          isFetching: false,
+          refetch: refetchText,
+        };
   },
   usePlaceProblems: () => loaded(state.place),
   useSignalSettings: () => loaded(state.settings),
@@ -557,6 +566,9 @@ describe('the text of a review read from Hostaway on the fly', () => {
         'За 10 минут прочитано слишком много текстов отзывов. Подождите немного и попробуйте снова.',
       ),
     ).toBeInTheDocument();
+    // The manager may read again in place, on their own word.
+    await userEvent.click(screen.getByRole('button', { name: 'Попробовать снова' }));
+    expect(refetchText).toHaveBeenCalledTimes(1);
   });
 });
 
