@@ -561,7 +561,8 @@ describe('a video step of her task under way', () => {
   // The phone lets its copy of a video go once the server has it, so a
   // confirmed video opens from a signed link, as a photo no longer on the
   // phone draws from one (owner, 2026-11-04: a finished cleaning's videos
-  // did not open). A file still on the phone, or not in yet, needs none.
+  // did not open). A video in is asked for even when a record of its copy
+  // outlived the file; a photo still on the phone, or a file not in, needs none.
   test('asks for a signed link for every file in that the phone no longer has, a video too', async () => {
     mockSteps.data = [videoStep()];
     mockVideo.settings = { video_max_sec: 90, video_bitrate_kbps: 2000, video_max_mb: 45 };
@@ -584,12 +585,20 @@ describe('a video step of her task under way', () => {
       row('v2', 'video'),
       row('v3', 'video', false),
       row('p1', 'photo'),
+      row('p2', 'photo'),
     ];
-    mockLocal.data = { v2: { id: 'v2', uri: 'task-media/v2.mp4' } };
+    mockLocal.data = {
+      v2: { id: 'v2', uri: 'task-media/v2.mp4' },
+      p2: { id: 'p2', uri: 'task-media/p2.jpg' },
+    };
 
     await render(<StepRoute />);
 
-    expect(mockMediaUrls).toHaveBeenLastCalledWith(['host/task/p1.jpg', 'host/task/v1.mp4']);
+    expect(mockMediaUrls).toHaveBeenLastCalledWith([
+      'host/task/p1.jpg',
+      'host/task/v1.mp4',
+      'host/task/v2.mp4',
+    ]);
   });
 
   test('without the company’s settings the camera waits and nothing opens', async () => {

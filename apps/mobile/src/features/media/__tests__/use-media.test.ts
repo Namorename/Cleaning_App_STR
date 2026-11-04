@@ -558,6 +558,29 @@ describe('mediaItemViews', () => {
     );
   });
 
+  // A record of the copy can outlive the file (the app closed between the
+  // file going and the record going): the video in plays from its link, and
+  // only a video still travelling plays from the phone.
+  test('a video in plays from its signed link even when a record of its copy is left', () => {
+    const video: TaskMedia = {
+      ...base,
+      id: 'v1',
+      kind: 'video',
+      storage_path: 'host/task/v1.mp4',
+      mime_type: 'video/mp4',
+      duration_sec: 12,
+    };
+    const kept = {
+      v1: { ...local.m1, id: 'v1', kind: 'video' as const, uri: 'file:///kept/v1.mp4' },
+    };
+    const urls = { 'host/task/v1.mp4': 'https://signed/v1' };
+    const confirmed = { ...video, uploaded_at: '2026-11-03T10:00:05+00:00' };
+
+    expect(mediaItemViews([confirmed], kept, urls, new Set())[0].uri).toBe('https://signed/v1');
+    expect(mediaItemViews([confirmed], kept, {}, new Set())[0].uri).toBe('file:///kept/v1.mp4');
+    expect(mediaItemViews([video], kept, urls, new Set(['v1']))[0].uri).toBe('file:///kept/v1.mp4');
+  });
+
   test('tells a file on its way from one that was stranded', () => {
     const uploaded = { ...base, uploaded_at: '2026-09-07T10:00:05+00:00' };
 

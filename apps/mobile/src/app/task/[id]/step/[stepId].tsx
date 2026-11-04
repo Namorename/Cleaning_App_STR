@@ -116,11 +116,17 @@ export default function StepRoute() {
   // A signed link is only worth asking for when the phone no longer has the
   // file: a photo's draws its tile, a video's opens it on the whole screen.
   // The phone lets its own copy of a video go once the server has confirmed
-  // it (use-media.ts, releaseVideo), so a video in is a video on the server.
+  // it (use-media.ts, releaseVideo), so a video in is asked for whatever the
+  // record of copies says: a record that outlived its file (the app closed
+  // between the two) would otherwise leave the video with nothing to play.
   const remotePaths = useMemo(
     () =>
       stepMedia
-        .filter((item) => item.uploaded_at !== null && local.data?.[item.id] === undefined)
+        .filter(
+          (item) =>
+            item.uploaded_at !== null &&
+            (item.kind === 'video' || local.data?.[item.id] === undefined),
+        )
         .map((item) => item.storage_path),
     [stepMedia, local.data],
   );

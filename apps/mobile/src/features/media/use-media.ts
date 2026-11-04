@@ -687,7 +687,8 @@ export function useAttachFailures(): ReadonlyMap<string, UploadFailure> {
  * The tiles of one step, in the order the photos were taken.
  *
  * Where the picture comes from: the file on the phone when we still have it,
- * otherwise a signed link. Where the item stands: confirmed by the server,
+ * otherwise a signed link — for a video in, the link first, as the phone has
+ * let its copy go. Where the item stands: confirmed by the server,
  * still travelling, or stranded — a row without a file and no upload running
  * for it, which happens when the app was killed mid-upload. A file still
  * travelling also says, when the queue knows, whether it waits for signal and
@@ -701,10 +702,15 @@ export function mediaItemViews(
   transfers: MediaTransfers = {},
 ): MediaItemView[] {
   return media.map((item) => {
+    const kept = local[item.id]?.uri;
+    const signed = urls[item.storage_path];
+    // A confirmed video's copy is deleted (releaseVideo): a record of it that
+    // outlived the file points at nothing, so its signed link comes first.
+    const isVideoIn = item.kind === 'video' && item.uploaded_at !== null;
     const view: MediaItemView = {
       id: item.id,
       kind: item.kind,
-      uri: local[item.id]?.uri ?? urls[item.storage_path] ?? null,
+      uri: (isVideoIn ? (signed ?? kept) : (kept ?? signed)) ?? null,
       status:
         item.uploaded_at !== null ? 'uploaded' : uploading.has(item.id) ? 'uploading' : 'failed',
       durationSec: item.duration_sec,
