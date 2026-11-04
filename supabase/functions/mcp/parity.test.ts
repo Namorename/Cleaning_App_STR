@@ -2,7 +2,7 @@ import { assert, assertEquals } from "jsr:@std/assert@1";
 
 import { ROUTES } from "../api/routes.ts";
 import { CATALOG } from "./catalog.ts";
-import { listTools } from "./tools.ts";
+import { KNOWN_TYPES, listTools } from "./tools.ts";
 
 /**
  * The MCP tools and the API's operations are one list (docs/mcp-server.md §3):
@@ -66,6 +66,19 @@ Deno.test("a key sees exactly the tools of the operations its scopes open", () =
     assertEquals(listed, expected, scope);
   }
   assertEquals(listTools([]).map((tool) => tool.name), ["get_me"]);
+});
+
+Deno.test("every argument's type is one the server checks, or its tool could not be called", () => {
+  for (const tool of CATALOG.tools) {
+    const properties = (tool.inputSchema.properties ?? {}) as Record<string, { type?: string | string[] }>;
+    for (const [name, schema] of Object.entries(properties)) {
+      const types = schema.type === undefined ? [] : Array.isArray(schema.type) ? schema.type : [schema.type];
+      assert(types.length > 0, `${tool.name}.${name} has no type`);
+      for (const type of types) {
+        assert(KNOWN_TYPES.has(type), `${tool.name}.${name}: ${type}`);
+      }
+    }
+  }
 });
 
 Deno.test("a tool's input schema is plain JSON Schema: an object, no references, no OpenAPI words", () => {

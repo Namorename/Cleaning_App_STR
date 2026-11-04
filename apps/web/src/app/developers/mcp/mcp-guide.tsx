@@ -55,9 +55,10 @@ function Section({ id, heading, children }: { id: string; heading: string; child
   );
 }
 
-function Code({ children }: { children: string }) {
+/** A block that scrolls sideways on a phone: focusable, so a keyboard can scroll it too. */
+function Code({ label, children }: { label: string; children: string }) {
   return (
-    <pre className={CODE_CLASS}>
+    <pre tabIndex={0} aria-label={label} className={CODE_CLASS}>
       <code>{children}</code>
     </pre>
   );
@@ -119,8 +120,9 @@ function clientConfigs(url: string) {
 
 function ToolsTable({ language, texts }: { language: Language; texts: Texts }) {
   return (
-    <div className="overflow-x-auto">
+    <div tabIndex={0} role="region" aria-label={texts.toolsHeading} className="overflow-x-auto">
       <table className="w-full border-collapse text-left text-sm">
+        <caption className="sr-only">{texts.toolsHeading}</caption>
         <thead>
           <tr className="border-b">
             <th scope="col" className="py-2 pr-4 font-semibold">
@@ -189,7 +191,7 @@ export function McpGuide({ language, supabaseUrl }: McpGuideProps) {
       </div>
 
       <Section id="mcp-endpoint" heading={texts.endpointHeading}>
-        <Code>{url}</Code>
+        <Code label={texts.endpointHeading}>{url}</Code>
         <p>{texts.endpointText}</p>
       </Section>
 
@@ -202,15 +204,15 @@ export function McpGuide({ language, supabaseUrl }: McpGuideProps) {
       <Section id="mcp-clients" heading={texts.clientsHeading}>
         <h3 className="font-semibold">Claude Code</h3>
         <p>{texts.claudeCodeText}</p>
-        <Code>{configs.claudeCode}</Code>
+        <Code label="Claude Code">{configs.claudeCode}</Code>
         <p>{texts.claudeCodeProject}</p>
-        <Code>{configs.mcpJson}</Code>
+        <Code label=".mcp.json">{configs.mcpJson}</Code>
         <h3 className="font-semibold">Cursor</h3>
         <p>{texts.cursorText}</p>
-        <Code>{configs.cursor}</Code>
+        <Code label="Cursor">{configs.cursor}</Code>
         <h3 className="font-semibold">Claude Desktop</h3>
         <p>{texts.desktopText}</p>
-        <Code>{configs.desktop}</Code>
+        <Code label="Claude Desktop">{configs.desktop}</Code>
         <h3 className="font-semibold">claude.ai</h3>
         <p>{texts.claudeAiText}</p>
       </Section>

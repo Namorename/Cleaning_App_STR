@@ -22,7 +22,12 @@ declare const EdgeRuntime: { waitUntil(work: Promise<unknown>): void } | undefin
 /** A stalled database call must not hold the worker to the platform's limit (as in api). */
 const RPC_TIMEOUT_MS = 10_000;
 
-/** As api/index.ts builds it: a missing secret answers 500 with the reason in the log. */
+/**
+ * As api/index.ts builds it: a missing secret answers 500 with the reason in
+ * the log. A copy, not a shared module: moving it out of api/index.ts would
+ * make this step a redeploy of api as well; when api changes next, both take
+ * it from _shared/ (docs/mcp-server.md §7).
+ */
 function buildApiDeps(): ApiDeps {
   const pepper = readPepper(Deno.env);
   try {
@@ -52,13 +57,5 @@ function buildApiDeps(): ApiDeps {
   }
 }
 
-/** MCP_ALLOWED_ORIGINS: browser origins allowed to call, comma-separated; unset is none. */
-function allowedOrigins(): string[] {
-  return (Deno.env.get("MCP_ALLOWED_ORIGINS") ?? "")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter((origin) => origin !== "");
-}
-
 const api = createApiHandler(buildApiDeps());
-Deno.serve(createMcpHandler({ api, allowedOrigins: allowedOrigins() }));
+Deno.serve(createMcpHandler({ api }));

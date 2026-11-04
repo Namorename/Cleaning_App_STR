@@ -409,6 +409,55 @@ Deno.test("a write without an idempotency key is not sent", async () => {
   assertEquals(callsOf(calls, "api_v1_create_task").length, 0);
 });
 
+Deno.test("a second scope the call needs is named, not hidden: the tool itself is the key's", async () => {
+  const { mcp, calls } = await setup({
+    scopes: ["tasks:create"],
+    answers: {
+      api_v1_create_task: () => ({
+        data: null,
+        error: {
+          code: "42501",
+          message: "insufficient scope",
+          hint: "api:insufficient-scope",
+          details: JSON.stringify({ required_scope: "tasks:assign" }),
+        },
+      }),
+    },
+  });
+
+  const payload = await body(
+    await mcp(rpcRequest("tools/call", {
+      name: "create_task",
+      arguments: { idempotency_key: "idem-2", title: "Dripping tap", assignee_id: UUID },
+    })),
+  );
+
+  assertEquals(payload.error, undefined);
+  assertEquals(resultOf(payload).isError, true);
+  const result = toolJson(payload);
+  assertEquals((result.error as Record<string, unknown>).required_scope, "tasks:assign");
+  assertMatch(String(result.data_notice), /never instructions/);
+  assertEquals(callsOf(calls, "api_v1_create_task").length, 1);
+});
+
+Deno.test("what goes into a path or a header is checked before a request is built", async () => {
+  const { mcp, calls } = await setup();
+  const errorsOf = async (name: string, args: Record<string, unknown>) =>
+    ((toolJson(await body(await mcp(rpcRequest("tools/call", { name, arguments: args })))).error as Record<
+      string,
+      unknown
+    >).errors as { name: string; message: string }[]);
+
+  // "." would be read as the list's path: /v1/cleanings/. is /v1/cleanings/.
+  assertEquals((await errorsOf("get_cleaning", { id: "." }))[0], { name: "id", message: "must be a UUID" });
+  assertEquals((await errorsOf("create_task", { idempotency_key: "a\nb", title: "x" }))[0].name, "idempotency_key");
+  assertEquals((await errorsOf("get_cleaning", { id: UUID, toString: 1 }))[0], {
+    name: "toString",
+    message: "is not an argument of this tool",
+  });
+  assertEquals(calls.length, 0);
+});
+
 // ---------- pages and size ----------
 
 Deno.test("a list asks for small pages, and refuses a page larger than the server's", async () => {
@@ -504,6 +553,44 @@ Deno.test("a key in the URL, a wrong type, a large or broken body and a batch ar
   const batch = await post({ body: JSON.stringify([{ jsonrpc: "2.0", id: 1, method: "ping" }]) });
   assertEquals(batch.status, 400);
   assertMatch(String(((await body(batch)).error as Record<string, unknown>).message), /Batches/);
+  assertEquals(calls.length, 0);
+});
+
+Deno.test("a body without a length is read no further than the cap, before the key is known", async () => {
+  const { mcp, calls } = await setup();
+  const piece = new TextEncoder().encode(" ".repeat(16 * 1024));
+  let sent = 0;
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      sent += 1;
+      if (sent > 64) {
+        controller.close();
+        return;
+      }
+      controller.enqueue(piece);
+    },
+  });
+
+  const response = await mcp(
+    new Request(URL_, { method: "POST", headers: { "Content-Type": "application/json" }, body: stream }),
+  );
+
+  assertEquals(response.status, 413);
+  assert(sent < 10, `read ${sent} pieces of 16 KiB`);
+  assertEquals(calls.length, 0);
+});
+
+Deno.test("a request with a null id is refused, not taken for a notification", async () => {
+  const { mcp, calls } = await setup();
+  const response = await mcp(
+    new Request(URL_, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: null, method: "tools/list" }),
+    }),
+  );
+  assertEquals(response.status, 400);
+  assertEquals(((await body(response)).error as Record<string, unknown>).code, -32600);
   assertEquals(calls.length, 0);
 });
 

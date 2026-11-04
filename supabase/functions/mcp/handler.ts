@@ -37,8 +37,6 @@ import { type ApiFetch, type CallContext, type CallOutcome, callTool, keyScopes,
 export interface McpDeps {
   /** The API v1 handler (supabase/functions/api/handler.ts). */
   readonly api: ApiFetch;
-  /** Origins a browser page may call from (MCP_ALLOWED_ORIGINS); none by default. */
-  readonly allowedOrigins?: readonly string[];
   /** Where an internal failure's kind goes; never a value. */
   readonly logError?: (line: string) => void;
 }
@@ -69,13 +67,40 @@ function empty(status: number, headers: Readonly<Record<string, string>> = {}): 
   return new Response(null, { status, headers: { ...BASE_HEADERS, ...headers } });
 }
 
+/**
+ * The body, read no further than the cap: this runs before the key is
+ * known, so a chunked upload without a length must not be buffered whole.
+ */
 async function readBody(request: Request): Promise<string | null> {
   const declared = Number(request.headers.get("Content-Length") ?? "");
   if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
     return null;
   }
-  const text = await request.text();
-  return new TextEncoder().encode(text).length > MAX_BODY_BYTES ? null : text;
+  if (request.body === null) {
+    return "";
+  }
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    size += value.byteLength;
+    if (size > MAX_BODY_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
 }
 
 function paramsOf(message: JsonRpcMessage): Record<string, unknown> {
@@ -86,7 +111,6 @@ function paramsOf(message: JsonRpcMessage): Record<string, unknown> {
 }
 
 export function createMcpHandler(deps: McpDeps): (request: Request) => Promise<Response> {
-  const allowedOrigins = new Set(deps.allowedOrigins ?? []);
   const logError = deps.logError ?? ((line: string) => console.error(line));
 
   /** A call's outcome as the client gets it. */
@@ -226,9 +250,10 @@ export function createMcpHandler(deps: McpDeps): (request: Request) => Promise<R
       if (request.method !== "POST") {
         return empty(405, { Allow: "POST" });
       }
-      const origin = request.headers.get("Origin");
-      if (origin !== null && !allowedOrigins.has(origin)) {
-        return json(403, errorOf(null, ERRORS.invalidRequest, "This origin may not call the MCP server"));
+      // The clients are programs, not pages: a browser's request (it carries an
+      // Origin) is refused, and no CORS header would let a page read an answer.
+      if (request.headers.get("Origin") !== null) {
+        return json(403, errorOf(null, ERRORS.invalidRequest, "Browser pages may not call the MCP server"));
       }
       if (KEY_PARAMS.some((name) => url.searchParams.has(name))) {
         return json(400, errorOf(null, ERRORS.invalidRequest, "An API key must not be sent in the URL"));
@@ -251,6 +276,10 @@ export function createMcpHandler(deps: McpDeps): (request: Request) => Promise<R
         return json(400, errorOf(null, ERRORS.invalidRequest, parsed.reason));
       }
       const message = parsed.message;
+      if (message.method !== undefined && message.id === null) {
+        // MCP forbids a null id: answering it as a notification would leave the client waiting.
+        return json(400, errorOf(null, ERRORS.invalidRequest, "A request's id must not be null"));
+      }
       id = isRequest(message) ? (message.id as RequestId) : null;
 
       const version = request.headers.get("MCP-Protocol-Version") ?? HEADERLESS_VERSION;

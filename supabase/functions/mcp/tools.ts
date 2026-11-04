@@ -97,6 +97,11 @@ interface ArgError {
   readonly message: string;
 }
 
+/** The JSON types checkArguments knows; the parity test holds every tool's schema to them. */
+export const KNOWN_TYPES: ReadonlySet<string> = new Set(["null", "string", "integer", "number", "boolean"]);
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function typeFits(value: unknown, type: string): boolean {
   switch (type) {
     case "null":
@@ -114,33 +119,64 @@ function typeFits(value: unknown, type: string): boolean {
   }
 }
 
+interface PropertySchema {
+  readonly type?: string | string[];
+  readonly format?: string;
+  readonly pattern?: string;
+}
+
 /**
- * The arguments against the tool's schema: names, presence and JSON types.
- * Formats, lengths and business rules are the API's to judge, and its answer
- * names the field, so the assistant can correct itself either way.
+ * What goes into a path or a header must be what its schema says before it
+ * is built into a request: a path segment of "." would be read as another
+ * operation's path, and a header with a line break cannot be sent at all.
+ */
+function wireError(tool: McpTool, name: string, value: unknown, schema: PropertySchema): string | null {
+  const place = tool.args.find((arg) => arg.name === name)?.place;
+  if (typeof value !== "string" || (place !== "path" && place !== "header")) {
+    return null;
+  }
+  if (schema.format === "uuid" && !UUID.test(value)) {
+    return "must be a UUID";
+  }
+  if (schema.pattern !== undefined && !new RegExp(schema.pattern).test(value)) {
+    return "must be 1 to 255 visible ASCII characters";
+  }
+  return null;
+}
+
+/**
+ * The arguments against the tool's schema: names, presence and JSON types,
+ * and the form of what goes into a path or a header. Other formats, lengths
+ * and business rules are the API's to judge, and its answer names the
+ * field, so the assistant can correct itself either way.
  */
 export function checkArguments(tool: McpTool, args: Record<string, unknown>): ArgError[] {
-  const properties = (tool.inputSchema.properties ?? {}) as Record<string, { type?: string | string[] }>;
+  const properties = (tool.inputSchema.properties ?? {}) as Record<string, PropertySchema>;
   const required = (tool.inputSchema.required ?? []) as string[];
   const errors: ArgError[] = [];
   for (const name of Object.keys(args)) {
-    if (!(name in properties)) {
+    if (!Object.hasOwn(properties, name)) {
       errors.push({ name, message: "is not an argument of this tool" });
     }
   }
   for (const name of required) {
-    if (!(name in args)) {
+    if (!Object.hasOwn(args, name)) {
       errors.push({ name, message: "is required" });
     }
   }
   for (const [name, value] of Object.entries(args)) {
-    const declared = properties[name]?.type;
-    if (declared === undefined) {
+    if (!Object.hasOwn(properties, name)) {
       continue;
     }
-    const types = Array.isArray(declared) ? declared : [declared];
-    if (!types.some((type) => typeFits(value, type))) {
+    const declared = properties[name].type;
+    const types = declared === undefined ? [] : Array.isArray(declared) ? declared : [declared];
+    if (types.length > 0 && !types.some((type) => typeFits(value, type))) {
       errors.push({ name, message: `must be ${types.join(" or ")}` });
+      continue;
+    }
+    const wire = wireError(tool, name, value, properties[name]);
+    if (wire !== null) {
+      errors.push({ name, message: wire });
     }
   }
   const limit = args.limit;
@@ -162,7 +198,7 @@ export function apiRequestOf(
   const headers = new Headers();
   const body: Record<string, unknown> = {};
   for (const arg of tool.args) {
-    if (!(arg.name in args) || (arg.name === "limit" && limit !== null)) {
+    if (!Object.hasOwn(args, arg.name) || (arg.name === "limit" && limit !== null)) {
       continue;
     }
     const value = args[arg.name];
@@ -209,8 +245,9 @@ function textResult(payload: Record<string, unknown>, isError: boolean): ToolRes
   };
 }
 
+/** A failure the assistant can act on; its words may quote the API or the arguments, so the notice holds too. */
 function toolError(error: Record<string, unknown>): CallOutcome {
-  return { kind: "result", result: textResult({ error }, true) };
+  return { kind: "result", result: textResult({ error, data_notice: DATA_NOTICE }, true) };
 }
 
 function byteLength(text: string): number {
@@ -256,13 +293,24 @@ function passedHeaders(response: Response): Record<string, string> {
   return headers;
 }
 
-/** An API problem as the assistant sees it: what went wrong and which field, nothing more. */
-function problemOutcome(status: number, problem: Record<string, unknown>, response: Response): CallOutcome {
+/**
+ * An API problem as the assistant sees it: what went wrong and which field,
+ * nothing more. A key without the tool's own scope is told the tool does not
+ * exist, as tools/list does not show it; a key that holds it but lacks a
+ * second one for what it asked (create_task with an assignee needs
+ * tasks:assign) is told which, so it can ask for less.
+ */
+function problemOutcome(
+  tool: McpTool,
+  status: number,
+  problem: Record<string, unknown>,
+  response: Response,
+): CallOutcome {
   const code = String(problem.code ?? "");
   if (status === 401 || status === 429) {
     return { kind: "http", status, code, headers: passedHeaders(response) };
   }
-  if (code === "insufficient-scope") {
+  if (code === "insufficient-scope" && (problem.required_scope ?? tool.scope) === tool.scope) {
     return { kind: "unknown-tool" };
   }
   if (status >= 500) {
@@ -289,13 +337,20 @@ export async function callTool(name: string, rawArgs: unknown, ctx: CallContext)
 
   let limit = tool.paged ? (typeof args.limit === "number" ? args.limit : CATALOG.defaultLimit) : null;
   for (let attempt = 0; ; attempt += 1) {
-    const response = await ctx.api(apiRequestOf(tool, args, ctx, limit));
+    let request: Request;
+    try {
+      request = apiRequestOf(tool, args, ctx, limit);
+    } catch {
+      // A value the checks above let through and fetch's own rules do not.
+      return toolError({ code: "invalid-arguments", title: "An argument cannot be sent as given" });
+    }
+    const response = await ctx.api(request);
     const body = await readJson(response);
     if (body === null) {
       return { kind: "internal" };
     }
     if (response.status >= 400) {
-      return problemOutcome(response.status, body, response);
+      return problemOutcome(tool, response.status, body, response);
     }
     const payload: Record<string, unknown> = {
       ...redacted(tool, body),
@@ -334,7 +389,7 @@ export async function keyScopes(
     return { ok: false, outcome: { kind: "internal" } };
   }
   if (response.status >= 400) {
-    return { ok: false, outcome: problemOutcome(response.status, body, response) };
+    return { ok: false, outcome: problemOutcome(me, response.status, body, response) };
   }
   const scopes = ((body.data as Record<string, unknown> | undefined)?.key as Record<string, unknown> | undefined)
     ?.scopes;
