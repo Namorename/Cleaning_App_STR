@@ -9,7 +9,8 @@ export const signalKeys = {
   all: ['guest-signals'] as const,
   findings: (tab: FindingTab) => ['guest-signals', 'findings', tab] as const,
   count: () => ['guest-signals', 'count'] as const,
-  list: () => ['guest-signals', 'list'] as const,
+  /** A page of «Все отзывы» under one set of filters (`reviewFiltersKey`). */
+  reviews: (filters: string, page: number) => ['guest-signals', 'reviews', filters, page] as const,
   place: (findingId: string) => ['guest-signals', 'place', findingId] as const,
   settings: () => ['guest-signals', 'settings'] as const,
   runs: () => ['guest-signals', 'runs'] as const,

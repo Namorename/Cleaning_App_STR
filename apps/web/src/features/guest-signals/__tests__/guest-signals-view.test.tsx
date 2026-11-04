@@ -4,7 +4,15 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { formatDay } from '@/lib/format-date';
 
-import { findingSchema, freshness, textsFromDay, type Finding } from '../schema';
+import { EMPTY_REVIEW_FILTERS, type ReviewFilters } from '../review-filters';
+import {
+  findingSchema,
+  freshness,
+  reviewSchema,
+  textsFromDay,
+  type Finding,
+  type Review,
+} from '../schema';
 
 // Synthetic findings only. The hooks are mocked: what is tested is what the
 // manager sees and what each lever sends (docs/reviews-to-tasks.md §4.4–4.7,
@@ -79,10 +87,17 @@ const update = vi.fn();
 const idle = { isPending: false, isError: false, error: null };
 const loaded = <T,>(data: T) => ({ data, isPending: false, isError: false, error: null });
 
+/** What «Все отзывы» asked for, in order: the filters and the page of every read. */
+const reviewReads: { filters: ReviewFilters; page: number }[] = [];
+const reviews = { rows: [] as Review[], total: 0 };
+
 vi.mock('../use-guest-signals', () => ({
   useFindings: () => loaded(state.findings),
   useCandidateCount: () => loaded(state.findings.length),
-  useReviewList: () => loaded([]),
+  useReviewPage: (filters: ReviewFilters, page: number) => {
+    reviewReads.push({ filters, page });
+    return { ...loaded({ reviews: reviews.rows, total: reviews.total }), isPlaceholderData: false };
+  },
   usePlaceProblems: () => loaded(state.place),
   useSignalSettings: () => loaded(state.settings),
   useRunStatus: () =>
@@ -102,11 +117,57 @@ vi.mock('../use-guest-signals', () => ({
 vi.mock('@/features/problems/use-problems', () => ({
   useStaff: () => loaded([{ id: TECH_ID, full_name: 'Petr Fixer', role: 'tech' }]),
 }));
+vi.mock('@/features/analytics/use-analytics', () => ({
+  useAnalyticsListings: () =>
+    loaded([
+      { id: 7, name: 'Vinohrady 12', status: 'active' },
+      { id: 9, name: 'Old Town 3', status: 'archived' },
+    ]),
+}));
+
+// The router reads the address jsdom holds; the screen writes it through
+// history, as on «Уборки» (tasks-view.test.tsx).
+vi.mock('next/navigation', async () => {
+  const { useSyncExternalStore } = await import('react');
+  const subscribe = (onChange: () => void) => {
+    window.addEventListener('popstate', onChange);
+    return () => window.removeEventListener('popstate', onChange);
+  };
+  return {
+    useSearchParams: () =>
+      new URLSearchParams(useSyncExternalStore(subscribe, () => window.location.search)),
+    usePathname: () => window.location.pathname,
+  };
+});
 
 import { GuestSignalsView } from '../guest-signals-view';
 
+/** The query of the page's address, without its `?`. */
+const query = () => window.location.search.slice(1);
+
+function review(overrides: Record<string, unknown> = {}): Review {
+  return reviewSchema.parse({
+    id: REVIEW_ID,
+    channel: 'booking',
+    rating: 5,
+    category_ratings: { cleanliness: 5, location: 10 },
+    arrival_date: '2026-09-01',
+    departure_date: '2026-09-01',
+    submitted_at: '2026-08-31T22:00:00Z',
+    stay_exact: false,
+    property_id: 7,
+    has_public_text: true,
+    place: { name: 'Vinohrady 12' },
+    ...overrides,
+  });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
+  window.history.replaceState(null, '', '/guests');
+  reviewReads.length = 0;
+  reviews.rows = [];
+  reviews.total = 0;
   state.findings = [finding()];
   state.place = [];
   state.settings = {
@@ -309,6 +370,94 @@ describe('the «Гости» screen', () => {
     await userEvent.type(cap, '3');
     await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
     expect(update).toHaveBeenCalledWith({ dailyAutoCap: 3 });
+  });
+});
+
+describe('«Все отзывы»', () => {
+  test('lists a page with the number of reviews found, the ratings by category and the place', async () => {
+    reviews.rows = [review()];
+    reviews.total = 1234;
+    render(<GuestSignalsView isAdmin={false} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Все отзывы' }));
+
+    expect(query()).toBe('tab=all');
+    // 1 234 is a "few" in Russian; the number is spelled as the panel's language spells it.
+    expect(screen.getByText(/^1\s234 отзыва$/)).toBeInTheDocument();
+    const row = screen.getByRole('listitem');
+    expect(row).toHaveTextContent('Vinohrady 12');
+    expect(row).toHaveTextContent('5/10');
+    expect(row).toHaveTextContent('Booking.com');
+    expect(row).toHaveTextContent('чистота 5 · расположение 10');
+    expect(reviewReads.at(-1)).toEqual({ filters: EMPTY_REVIEW_FILTERS, page: 0 });
+    expect(screen.getByRole('button', { name: 'Следующая страница' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Предыдущая страница' })).toBeDisabled();
+  });
+
+  test('the filters go into the address and to the server, and one button clears them all', async () => {
+    reviews.rows = [review()];
+    reviews.total = 1;
+    render(<GuestSignalsView isAdmin={false} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Все отзывы' }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Низкие (6 и ниже)' }));
+    await userEvent.click(screen.getByLabelText('Есть приватный комментарий'));
+    await userEvent.selectOptions(
+      screen.getByLabelText('Низкая оценка по категории'),
+      'cleanliness',
+    );
+
+    expect(new URLSearchParams(query()).get('rmax')).toBe('6');
+    expect(new URLSearchParams(query()).get('private')).toBe('1');
+    expect(new URLSearchParams(query()).get('low')).toBe('cleanliness');
+    expect(reviewReads.at(-1)?.filters).toEqual({
+      ...EMPTY_REVIEW_FILTERS,
+      ratingMax: 6,
+      withPrivate: true,
+      lowCategory: 'cleanliness',
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Сбросить фильтры' }));
+    expect(query()).toBe('tab=all');
+    expect(reviewReads.at(-1)?.filters).toEqual(EMPTY_REVIEW_FILTERS);
+  });
+
+  test('a link with filters opens the tab as it was left; a range typed backwards is read forwards', () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/guests?tab=all&rmin=8&rmax=2&from=2026-10&to=2026-01&channel=airbnb,nope',
+    );
+    render(<GuestSignalsView isAdmin={false} />);
+
+    expect(screen.getByRole('tab', { name: 'Все отзывы' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(reviewReads.at(-1)?.filters).toEqual({
+      ...EMPTY_REVIEW_FILTERS,
+      channels: ['airbnb'],
+      ratingMin: 2,
+      ratingMax: 8,
+      monthFrom: '2026-01',
+      monthTo: '2026-10',
+    });
+  });
+
+  test('nothing through the filters says so, and offers to clear them', async () => {
+    window.history.replaceState(null, '', '/guests?tab=all&hidden=1');
+    render(<GuestSignalsView isAdmin={false} />);
+
+    expect(screen.getByText('По этим фильтрам отзывов нет.')).toBeInTheDocument();
+    await userEvent.click(screen.getAllByRole('button', { name: 'Сбросить фильтры' }).at(-1)!);
+    expect(query()).toBe('tab=all');
+  });
+
+  test('with no filters and no reviews, the old words: nothing is loaded yet', () => {
+    window.history.replaceState(null, '', '/guests?tab=all');
+    render(<GuestSignalsView isAdmin={false} />);
+
+    expect(screen.getByText('Отзывы ещё не загружены.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Сбросить фильтры' })).not.toBeInTheDocument();
   });
 });
 

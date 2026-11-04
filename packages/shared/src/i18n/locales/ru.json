@@ -931,6 +931,30 @@
         "furniture": "мебель",
         "mould_damp": "плесень, сырость",
         "other": "другое"
+      },
+      "filters": {
+        "channel": "Канал",
+        "place": "Объект",
+        "findings": "Находки",
+        "ratingFrom": "Оценка от",
+        "ratingTo": "Оценка до",
+        "low": "Низкие ({{max}} и ниже)",
+        "monthFrom": "Выезд с",
+        "monthTo": "Выезд по",
+        "anyMonth": "Любой месяц",
+        "lowCategory": "Низкая оценка по категории",
+        "lowCategoryNone": "Любые оценки",
+        "lowCategoryAny": "Любая категория",
+        "withText": "Есть текст отзыва",
+        "withPrivate": "Есть приватный комментарий",
+        "hiddenOnly": "Только скрытые",
+        "reset": "Сбросить фильтры",
+        "empty": "По этим фильтрам отзывов нет.",
+        "firstPage": "К первой странице",
+        "total_one": "{{total}} отзыв",
+        "total_few": "{{total}} отзыва",
+        "total_many": "{{total}} отзывов",
+        "total_other": "{{total}} отзыва"
       }
     },
     "supplies": {

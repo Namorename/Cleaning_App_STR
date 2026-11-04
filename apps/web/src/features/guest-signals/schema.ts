@@ -120,6 +120,9 @@ export const reviewSchema = z.object({
   property_id: z.number().nullable(),
   room_id: z.number().nullable().default(null),
   is_hidden: z.boolean().default(false),
+  /** The guest wrote a public review, or private feedback: the PMS says so, whatever is kept here. */
+  has_public_text: z.boolean().default(false),
+  has_private_text: z.boolean().default(false),
   public_text: z.string().nullable().default(null),
   private_text: z.string().nullable().default(null),
   category_comments: commentsSchema.default(null),

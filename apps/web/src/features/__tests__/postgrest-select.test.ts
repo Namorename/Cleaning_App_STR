@@ -13,6 +13,7 @@ import * as apartments from '../apartments/api';
 import * as calendar from '../calendar/api';
 import * as chat from '../chat/api';
 import * as guestSignals from '../guest-signals/api';
+import { EMPTY_REVIEW_FILTERS } from '../guest-signals/review-filters';
 import * as knowledge from '../knowledge/api';
 import * as problems from '../problems/api';
 import * as settings from '../settings/api';
@@ -117,7 +118,14 @@ const READERS: readonly ((client: never) => Promise<unknown>)[] = [
   (client) => problems.fetchStaff(client),
   (client) => guestSignals.fetchFindings(client, ['candidate']),
   (client) => guestSignals.fetchCandidateCount(client),
-  (client) => guestSignals.fetchReviews(client),
+  // «Все отзывы» ask two ways: without the findings, and with them joined when filtered by them.
+  (client) => guestSignals.fetchReviewPage(client, EMPTY_REVIEW_FILTERS, 0),
+  (client) =>
+    guestSignals.fetchReviewPage(
+      client,
+      { ...EMPTY_REVIEW_FILTERS, findings: ['found'], lowCategory: 'any' },
+      1,
+    ),
   (client) => guestSignals.fetchSettings(client),
   // The tasks on a finding's place and the runs come through RPCs: no select string.
   (client) => guestSignals.fetchPlaceProblems(client, ANY_ID),
@@ -233,6 +241,7 @@ describe('every read the panel makes', () => {
     );
 
     expect(signals.map((entry) => entry.table).sort()).toEqual([
+      'guest_signals',
       'guest_signals',
       'signal_findings',
       'signal_findings',

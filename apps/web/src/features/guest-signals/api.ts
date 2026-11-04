@@ -18,6 +18,13 @@ import {
   type Finding,
   type SignalSettings,
 } from './schema';
+import {
+  anyCategoryLow,
+  departureBounds,
+  findingStatusesOf,
+  LOW_RATING_MAX,
+  type ReviewFilters,
+} from './review-filters';
 
 export type Client = SupabaseClient<Database>;
 type Priority = Database['public']['Enums']['problem_priority'];
@@ -25,8 +32,8 @@ type Priority = Database['public']['Enums']['problem_priority'];
 /** The office reads signals and findings through row level security: manager and admin only. */
 const REVIEW_COLUMNS =
   'id, channel, rating, category_ratings, arrival_date, departure_date, submitted_at, stay_exact, ' +
-  'external_reservation_id, property_id, room_id, is_hidden, public_text, private_text, ' +
-  'category_comments, text_truncated';
+  'external_reservation_id, property_id, room_id, is_hidden, has_public_text, has_private_text, ' +
+  'public_text, private_text, category_comments, text_truncated';
 
 /** A place and its house: a room is a place with a parent (the core never reads a PMS's column). */
 const PLACE_COLUMNS = 'name, parent_id, parent:parent_id(name)';
@@ -46,7 +53,6 @@ const FINDING_COLUMNS =
 
 /** How many findings one tab lists; the queue is small (≈ 1–3 a day, docs §5.1). */
 export const FINDINGS_LIMIT = 200;
-export const REVIEWS_LIMIT = 200;
 
 /** The findings of a tab, urgent first, newest first. */
 export async function fetchFindings(
@@ -80,18 +86,94 @@ export async function fetchCandidateCount(client: Client): Promise<number> {
   return count ?? 0;
 }
 
-/** «Все отзывы»: the newest reviews, rating and text. */
-export async function fetchReviews(client: Client): Promise<Review[]> {
-  const { data, error } = await client
+/** «Все отзывы» by the page: a year of reviews is thousands (5 123 on 04.11), never all at once. */
+export const REVIEWS_PAGE_SIZE = 50;
+
+/**
+ * The findings a review has, joined `!inner` only while the filter asks for
+ * some: then a review without one of those findings is not listed.
+ */
+const REVIEW_FINDINGS = 'findings:signal_findings!inner(status)';
+
+/** PostgREST answers a page past the end with 416 (the rows went away under the pager). */
+const RANGE_NOT_SATISFIABLE = 'PGRST103';
+
+export interface ReviewPage {
+  reviews: Review[];
+  /** All the reviews the filters let through, not only this page's. */
+  total: number;
+}
+
+/**
+ * One page of «Все отзывы», newest first, filtered on the server (the filters
+ * in review-filters.ts). The order has the id after the time: a cut stay's
+ * time is its month, shared by hundreds of reviews, and a page must not
+ * shuffle them.
+ */
+export async function fetchReviewPage(
+  client: Client,
+  filters: ReviewFilters,
+  page: number,
+): Promise<ReviewPage> {
+  const statuses = findingStatusesOf(filters);
+  const columns =
+    statuses.length === 0
+      ? `${REVIEW_COLUMNS}, ${REVIEW_PLACE}`
+      : `${REVIEW_COLUMNS}, ${REVIEW_PLACE}, ${REVIEW_FINDINGS}`;
+  let query = client
     .from('guest_signals')
-    .select(`${REVIEW_COLUMNS}, ${REVIEW_PLACE}`)
-    .eq('kind', SIGNAL_KIND)
+    .select(columns, { count: 'exact' })
+    .eq('kind', SIGNAL_KIND);
+
+  if (filters.channels.length > 0) {
+    query = query.in('channel', filters.channels);
+  }
+  if (filters.placeIds.length > 0) {
+    query = query.in('property_id', filters.placeIds);
+  }
+  if (filters.ratingMin !== null) {
+    query = query.gte('rating', filters.ratingMin);
+  }
+  if (filters.ratingMax !== null) {
+    query = query.lte('rating', filters.ratingMax);
+  }
+  const departure = departureBounds(filters);
+  if (departure.from !== null) {
+    query = query.gte('departure_date', departure.from);
+  }
+  if (departure.before !== null) {
+    query = query.lt('departure_date', departure.before);
+  }
+  if (filters.withText) {
+    query = query.eq('has_public_text', true);
+  }
+  if (filters.withPrivate) {
+    query = query.eq('has_private_text', true);
+  }
+  if (filters.hiddenOnly) {
+    query = query.eq('is_hidden', true);
+  }
+  if (filters.lowCategory === 'any') {
+    query = query.or(anyCategoryLow());
+  } else if (filters.lowCategory !== null) {
+    query = query.lte(`category_ratings->${filters.lowCategory}`, LOW_RATING_MAX);
+  }
+  if (statuses.length > 0) {
+    query = query.in('findings.status', statuses);
+  }
+
+  const from = page * REVIEWS_PAGE_SIZE;
+  const { data, error, count } = await query
     .order('submitted_at', { ascending: false })
-    .limit(REVIEWS_LIMIT);
+    .order('id', { ascending: false })
+    .range(from, from + REVIEWS_PAGE_SIZE - 1);
   if (error) {
+    if (error.code === RANGE_NOT_SATISFIABLE) {
+      return { reviews: [], total: count ?? 0 };
+    }
     throw error;
   }
-  return reviewListSchema.parse(data ?? []);
+  return { reviews: reviewListSchema.parse(data ?? []), total: count ?? 0 };
 }
 
 /** The tasks on a finding's place, open and since the guest left (signal_place_problems). */

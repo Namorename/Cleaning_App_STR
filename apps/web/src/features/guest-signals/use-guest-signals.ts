@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { problemKeys } from '@/features/problems/keys';
 import { useSupabase } from '@/lib/supabase/use-client';
@@ -11,7 +11,7 @@ import {
   fetchCandidateCount,
   fetchFindings,
   fetchPlaceProblems,
-  fetchReviews,
+  fetchReviewPage,
   fetchRunStatus,
   fetchSettings,
   rejectFinding,
@@ -21,6 +21,7 @@ import {
   type SettingsChange,
 } from './api';
 import { signalKeys } from './keys';
+import { reviewFiltersKey, type ReviewFilters } from './review-filters';
 import { FINDING_TABS, type FindingTab, type RejectReason } from './schema';
 
 /** The menu's count reads this every few minutes; the screen refreshes it on every decision. */
@@ -45,10 +46,17 @@ export function useCandidateCount(enabled = true) {
   });
 }
 
-/** «Все отзывы»: the reviews themselves, newest first. */
-export function useReviewList() {
+/**
+ * «Все отзывы»: one page under the filters, newest first. The page shown
+ * stays while the next one loads, so the pager does not jump.
+ */
+export function useReviewPage(filters: ReviewFilters, page: number) {
   const client = useSupabase();
-  return useQuery({ queryKey: signalKeys.list(), queryFn: () => fetchReviews(client) });
+  return useQuery({
+    queryKey: signalKeys.reviews(reviewFiltersKey(filters), page),
+    queryFn: () => fetchReviewPage(client, filters, page),
+    placeholderData: keepPreviousData,
+  });
 }
 
 export function usePlaceProblems(findingId: string) {

@@ -929,6 +929,28 @@
         "furniture": "furniture",
         "mould_damp": "mould, damp",
         "other": "other"
+      },
+      "filters": {
+        "channel": "Channel",
+        "place": "Listing",
+        "findings": "Findings",
+        "ratingFrom": "Rating from",
+        "ratingTo": "Rating to",
+        "low": "Low ({{max}} or less)",
+        "monthFrom": "Left from",
+        "monthTo": "Left until",
+        "anyMonth": "Any month",
+        "lowCategory": "Low rating in a category",
+        "lowCategoryNone": "Any ratings",
+        "lowCategoryAny": "Any category",
+        "withText": "With a review text",
+        "withPrivate": "With a private comment",
+        "hiddenOnly": "Hidden only",
+        "reset": "Clear the filters",
+        "empty": "No reviews match these filters.",
+        "firstPage": "Back to the first page",
+        "total_one": "{{total}} review",
+        "total_other": "{{total}} reviews"
       }
     },
     "supplies": {

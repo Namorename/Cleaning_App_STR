@@ -931,6 +931,30 @@
         "furniture": "nábytek",
         "mould_damp": "plíseň, vlhkost",
         "other": "jiné"
+      },
+      "filters": {
+        "channel": "Kanál",
+        "place": "Objekt",
+        "findings": "Nálezy",
+        "ratingFrom": "Hodnocení od",
+        "ratingTo": "Hodnocení do",
+        "low": "Nízké ({{max}} a méně)",
+        "monthFrom": "Odjezd od",
+        "monthTo": "Odjezd do",
+        "anyMonth": "Jakýkoli měsíc",
+        "lowCategory": "Nízké hodnocení kategorie",
+        "lowCategoryNone": "Jakákoli hodnocení",
+        "lowCategoryAny": "Jakákoli kategorie",
+        "withText": "S textem recenze",
+        "withPrivate": "Se soukromým komentářem",
+        "hiddenOnly": "Jen skryté",
+        "reset": "Zrušit filtry",
+        "empty": "Těmto filtrům neodpovídá žádná recenze.",
+        "firstPage": "Zpět na první stránku",
+        "total_one": "{{total}} recenze",
+        "total_few": "{{total}} recenze",
+        "total_many": "{{total}} recenze",
+        "total_other": "{{total}} recenzí"
       }
     },
     "supplies": {

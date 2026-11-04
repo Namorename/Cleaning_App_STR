@@ -1,5 +1,6 @@
 'use client';
 
+import { INTL_LOCALES } from '@str-ops/shared';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -11,10 +12,25 @@ import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAnalyticsListings } from '@/features/analytics/use-analytics';
 import { formatDateTime, formatDay } from '@/lib/format-date';
+import { useAddressState } from '@/lib/use-address-state';
 import { useLanguage } from '@/lib/use-language';
 
+import { REVIEWS_PAGE_SIZE } from './api';
 import { FindingCard } from './finding-card';
+import {
+  EMPTY_REVIEW_FILTERS,
+  GUEST_TABS,
+  hasReviewFilters,
+  readGuestsAddress,
+  reviewFiltersKey,
+  withOrderedBounds,
+  writeGuestsAddress,
+  type GuestTab,
+  type ReviewFilters,
+} from './review-filters';
+import { ReviewFiltersBar } from './review-filters-bar';
 import {
   DAILY_AUTO_CAP_MAX,
   DAILY_AUTO_CAP_MIN,
@@ -34,14 +50,11 @@ import {
   useAddFinding,
   useCandidateCount,
   useFindings,
-  useReviewList,
+  useReviewPage,
   useRunStatus,
   useSignalSettings,
   useUpdateSettings,
 } from './use-guest-signals';
-
-type Tab = FindingTab | 'all' | 'settings';
-const TABS: readonly Tab[] = [...(Object.keys(FINDING_TABS) as FindingTab[]), 'all', 'settings'];
 
 interface GuestSignalsViewProps {
   /** The switches are the admin's (the owner's decisions of 2026-10-17); the server says so too. */
@@ -52,18 +65,25 @@ interface GuestSignalsViewProps {
  * «Гости» (docs/guest-signals.md §7.2, the owner's decision 2): what the readers
  * found in what guests wrote, every review, the switches. Reviews only until
  * messages are loaded (stages 3–4), so there is no «Отзывы / Сообщения» filter yet.
+ *
+ * The tab and the filters of «Все отзывы» live in the address, as on the
+ * other screens: a reload, a forwarded link or «Назад» find the screen as it
+ * was. A new tab is a step of the history; a filter is changed in place.
  */
 export function GuestSignalsView({ isAdmin }: GuestSignalsViewProps) {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>('found');
+  const [address, setAddress] = useAddressState(readGuestsAddress, writeGuestsAddress);
+  const { tab } = address;
+  const setTab = (next: GuestTab) => setAddress({ ...address, tab: next }, 'push');
+  const setReviewFilters = (next: ReviewFilters) => setAddress({ ...address, reviews: next });
   const count = useCandidateCount();
 
   return (
     <div className="flex flex-col gap-4">
       <PageHeader title={t('panel.guests.title')} meta={<RunLine />} />
-      <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)}>
+      <Tabs value={tab} onValueChange={(value) => setTab(value as GuestTab)}>
         <TabsList>
-          {TABS.map((key) => (
+          {GUEST_TABS.map((key) => (
             <TabsTrigger key={key} value={key}>
               {t(`panel.guests.tabs.${key}`)}
               {key === 'found' && (count.data ?? 0) > 0 ? ` ${count.data}` : ''}
@@ -75,7 +95,11 @@ export function GuestSignalsView({ isAdmin }: GuestSignalsViewProps) {
             {tab === key ? <FindingList tab={key} /> : null}
           </TabsContent>
         ))}
-        <TabsContent value="all">{tab === 'all' ? <AllReviews /> : null}</TabsContent>
+        <TabsContent value="all">
+          {tab === 'all' ? (
+            <AllReviews filters={address.reviews} onFiltersChange={setReviewFilters} />
+          ) : null}
+        </TabsContent>
         <TabsContent value="settings">
           {tab === 'settings' ? <SettingsPanel isAdmin={isAdmin} /> : null}
         </TabsContent>
@@ -126,30 +150,144 @@ function FindingList({ tab }: { tab: FindingTab }) {
   );
 }
 
-function AllReviews() {
+interface AllReviewsProps {
+  filters: ReviewFilters;
+  onFiltersChange: (filters: ReviewFilters) => void;
+}
+
+/** «Все отзывы»: the filters, and the reviews they let through a page at a time. */
+function AllReviews({ filters, onFiltersChange }: AllReviewsProps) {
+  const language = useLanguage();
   const { t } = useTranslation();
-  const reviews = useReviewList();
+  const listings = useAnalyticsListings();
+  const places = (listings.data ?? []).map((listing) => ({
+    id: String(listing.id),
+    label:
+      listing.status === 'archived'
+        ? t('panel.analytics.filters.archivedListing', { name: listing.name })
+        : listing.name,
+  }));
+  const ordered = withOrderedBounds(filters);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <ReviewFiltersBar
+        filters={filters}
+        onChange={onFiltersChange}
+        places={places}
+        language={language}
+      />
+      {/* A new set of filters starts the pager over: the list is keyed by them. */}
+      <ReviewList
+        key={reviewFiltersKey(ordered)}
+        filters={ordered}
+        onReset={() => onFiltersChange(EMPTY_REVIEW_FILTERS)}
+      />
+    </div>
+  );
+}
+
+interface ReviewListProps {
+  filters: ReviewFilters;
+  onReset: () => void;
+}
+
+function ReviewList({ filters, onReset }: ReviewListProps) {
+  const { t } = useTranslation();
+  const language = useLanguage();
+  const [page, setPage] = useState(0);
+  const reviews = useReviewPage(filters, page);
   if (reviews.isPending) {
     return <LoadingState />;
   }
   if (reviews.isError) {
     return <ErrorState error={reviews.error} />;
   }
-  if (reviews.data.length === 0) {
-    return <EmptyState>{t('panel.guests.empty.all')}</EmptyState>;
+  const { total } = reviews.data;
+  const shown = reviews.data.reviews;
+  const number = (value: number) => value.toLocaleString(INTL_LOCALES[language]);
+
+  if (shown.length === 0) {
+    if (page > 0) {
+      return (
+        <EmptyState>
+          <Button type="button" variant="outline" className="h-11" onClick={() => setPage(0)}>
+            {t('panel.guests.filters.firstPage')}
+          </Button>
+        </EmptyState>
+      );
+    }
+    if (!hasReviewFilters(filters)) {
+      return <EmptyState>{t('panel.guests.empty.all')}</EmptyState>;
+    }
+    return (
+      <EmptyState>
+        <span className="flex flex-col items-center gap-2">
+          {t('panel.guests.filters.empty')}
+          <Button type="button" variant="outline" className="h-11" onClick={onReset}>
+            {t('panel.guests.filters.reset')}
+          </Button>
+        </span>
+      </EmptyState>
+    );
   }
+
+  const first = page * REVIEWS_PAGE_SIZE + 1;
+  const last = page * REVIEWS_PAGE_SIZE + shown.length;
   return (
-    <ul className="flex flex-col gap-2">
-      {reviews.data.map((review) => (
-        <ReviewRow key={review.id} review={review} />
-      ))}
-    </ul>
+    <div className="flex flex-col gap-2">
+      <p className="text-sm text-muted-foreground" aria-live="polite">
+        {t('panel.guests.filters.total', { count: total, total: number(total) })}
+      </p>
+      <ul className="flex flex-col gap-2">
+        {shown.map((review) => (
+          <ReviewRow key={review.id} review={review} />
+        ))}
+      </ul>
+      {total > REVIEWS_PAGE_SIZE ? (
+        <nav
+          aria-label={t('panel.guests.tabs.all')}
+          className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground"
+        >
+          <span>
+            {t('panel.analytics.pagination.range', {
+              from: number(first),
+              to: number(last),
+              total: number(total),
+            })}
+          </span>
+          <span className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11"
+              disabled={page === 0 || reviews.isPlaceholderData}
+              onClick={() => setPage(page - 1)}
+            >
+              {t('panel.analytics.pagination.previous')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11"
+              disabled={last >= total || reviews.isPlaceholderData}
+              onClick={() => setPage(page + 1)}
+            >
+              {t('panel.analytics.pagination.next')}
+            </Button>
+          </span>
+        </nav>
+      ) : null}
+    </div>
   );
 }
 
 function ReviewRow({ review }: { review: Review }) {
   const { t } = useTranslation();
   const hasText = review.public_text !== null || review.private_text !== null;
+  const categories = Object.entries(review.category_ratings)
+    .map(([key, value]) => `${t(`panel.guests.category.${key}`)} ${value}`)
+    .join(' · ');
   return (
     <li className="rounded-md border p-3 text-sm">
       <div className="flex flex-wrap gap-x-4 gap-y-1">
@@ -167,6 +305,9 @@ function ReviewRow({ review }: { review: Review }) {
           <span className="text-muted-foreground">{t('panel.guests.hidden')}</span>
         ) : null}
       </div>
+      {categories === '' ? null : (
+        <p className="mt-1 text-xs text-muted-foreground">{categories}</p>
+      )}
       {hasText ? (
         <details className="mt-1">
           <summary className="cursor-pointer text-muted-foreground">
