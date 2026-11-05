@@ -460,6 +460,7 @@
         "unassignedWeek": "na 7 dní dopředu",
         "unassignedToday": "dnes {{number}}",
         "unassignedTomorrow": "zítra {{number}}",
+        "unassignedRepairs": "Opravy bez technika",
         "openProblems": "Otevřených úkolů",
         "newSupplies": "Nových žádostí o materiál",
         "overdueRepairs": "Oprav po termínu",
@@ -1609,7 +1610,9 @@
         "open": "Otevřené",
         "inWork": "Probíhá",
         "done": "Hotovo",
-        "nobody": "Nepřiřazeno"
+        "nobody": "Nepřiřazeno",
+        "cleaningsOnly": "Jen úklidy",
+        "showRepairs": "Jen úklidy — zobrazit i opravy"
       },
       "stand": {
         "title": "Stand: zápis je vypnutý",
@@ -1953,6 +1956,9 @@
       "loadFailed": "Dokončené se nepodařilo načíst",
       "completedAt": "Dokončeno {{date}}, {{time}}",
       "completedOn": "Dokončeno {{date}}"
+    },
+    "repairs": {
+      "heading": "Opravy"
     },
     "pushNotice": {
       "unassigned": "Tento úklid vám byl odebrán.",

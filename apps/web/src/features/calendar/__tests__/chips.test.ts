@@ -5,6 +5,9 @@ import { buildPropertyTree } from '@/lib/property-tree';
 
 import {
   assigneeFromAddress,
+  cleaningsOnlyFromAddress,
+  matchesWorkFilter,
+  UNASSIGNED_CLEANINGS_HREF,
   cellTasks,
   collapseExpired,
   chipCapacity,
@@ -126,6 +129,24 @@ describe('the filters', () => {
     expect(assigneeFromAddress(ANNA)).toBe('all');
     expect(assigneeFromAddress('Nobody')).toBe('all');
     expect(assigneeFromAddress(['nobody', 'nobody'])).toBe('all');
+  });
+
+  // The dashboard's «Без исполнителя» counts the cleanings alone, and the
+  // calendar it opens shows them alone (owner, 2026-11-05).
+  test('the address can open the calendar on the cleanings alone, and on nothing else', () => {
+    expect(cleaningsOnlyFromAddress('cleanings')).toBe(true);
+    expect(cleaningsOnlyFromAddress(undefined)).toBe(false);
+    expect(cleaningsOnlyFromAddress('repairs')).toBe(false);
+    expect(cleaningsOnlyFromAddress(['cleanings', 'cleanings'])).toBe(false);
+    expect(UNASSIGNED_CLEANINGS_HREF).toBe('/calendar?assignee=nobody&work=cleanings');
+  });
+
+  test('the cleanings alone keep every kind but a technician’s job', () => {
+    for (const type of ['cleaning', 'midstay', 'inspection'] as const) {
+      expect(matchesWorkFilter({ type }, true)).toBe(true);
+    }
+    expect(matchesWorkFilter({ type: 'maintenance' }, true)).toBe(false);
+    expect(matchesWorkFilter({ type: 'maintenance' }, false)).toBe(true);
   });
 });
 

@@ -1,9 +1,13 @@
 import { CalendarView } from '@/features/calendar/calendar-view';
-import { assigneeFromAddress, NO_ASSIGNEE } from '@/features/calendar/chips';
+import {
+  assigneeFromAddress,
+  cleaningsOnlyFromAddress,
+  NO_ASSIGNEE,
+} from '@/features/calendar/chips';
 import { UNASSIGNED_DAYS } from '@/features/dashboard/counts';
 
 interface CalendarPageProps {
-  searchParams: Promise<{ assignee?: string | string[] }>;
+  searchParams: Promise<{ assignee?: string | string[]; work?: string | string[] }>;
 }
 
 /**
@@ -23,13 +27,16 @@ interface CalendarPageProps {
  */
 export default async function CalendarPage({ searchParams }: CalendarPageProps) {
   const fixture = process.env.CALENDAR_FIXTURE;
-  const assignee = assigneeFromAddress((await searchParams).assignee);
+  const params = await searchParams;
+  const assignee = assigneeFromAddress(params.assignee);
+  const isCleaningsOnly = cleaningsOnlyFromAddress(params.work);
   return (
     <CalendarView
-      key={assignee}
+      key={`${assignee} ${isCleaningsOnly}`}
       fixture={fixture === '1' || fixture === '3'}
       scale={fixture === '3' ? 3 : 1}
       initialAssignee={assignee}
+      initialCleaningsOnly={isCleaningsOnly}
       openAheadDays={assignee === NO_ASSIGNEE ? UNASSIGNED_DAYS : undefined}
     />
   );

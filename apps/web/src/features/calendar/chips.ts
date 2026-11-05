@@ -1,4 +1,10 @@
-import type { CalendarTask, ExpiredTask, Staff, TaskStatus } from '@/features/tasks/schema';
+import {
+  isTechnicianJob,
+  type CalendarTask,
+  type ExpiredTask,
+  type Staff,
+  type TaskStatus,
+} from '@/features/tasks/schema';
 import type { PropertyNode, TreeRow } from '@/lib/property-tree';
 
 import { barKind } from './bars';
@@ -33,6 +39,29 @@ export const NO_ASSIGNEE = 'nobody';
  */
 export function assigneeFromAddress(value: string | string[] | undefined): AssigneeFilter {
   return value === NO_ASSIGNEE ? NO_ASSIGNEE : ANY_ASSIGNEE;
+}
+
+/**
+ * `?work=cleanings`: the calendar the dashboard's «Без исполнителя» opens
+ * shows the cleanings alone (owner, 2026-11-05) — no technician's job, no
+ * repair mark on a row — as that tile counts them, until the manager takes
+ * the filter off. Anything else, or nothing, shows all the work.
+ */
+export const CLEANINGS_ONLY = 'cleanings';
+
+export function cleaningsOnlyFromAddress(value: string | string[] | undefined): boolean {
+  return value === CLEANINGS_ONLY;
+}
+
+/** Where the dashboard's «Без исполнителя» leads: the cleanings nobody holds. */
+export const UNASSIGNED_CLEANINGS_HREF = `/calendar?assignee=${NO_ASSIGNEE}&work=${CLEANINGS_ONLY}`;
+
+/** Kept by the «only cleanings» filter: anything but a technician's job. */
+export function matchesWorkFilter(
+  task: Pick<CalendarTask, 'type'>,
+  isCleaningsOnly: boolean,
+): boolean {
+  return !isCleaningsOnly || !isTechnicianJob(task);
 }
 
 const GROUP_STATUSES: Readonly<Record<ChipGroup, readonly TaskStatus[]>> = {

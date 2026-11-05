@@ -1,5 +1,6 @@
 'use client';
 
+import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,12 @@ interface CalendarFiltersProps {
   /** The cancelled are hidden until this is on (§2); «Статус» does not reach them. */
   showCancelled: boolean;
   onShowCancelled: (next: boolean) => void;
+  /**
+   * The cleanings alone, as the dashboard's «Без исполнителя» opens the
+   * calendar (`?work=cleanings`): said while on, and taken off in one press.
+   */
+  isCleaningsOnly: boolean;
+  onCleaningsOnly: (next: boolean) => void;
   /** In full, or compact: the status dot and the person alone. */
   chipView: ChipView;
   onChipView: (next: ChipView) => void;
@@ -51,6 +58,8 @@ export function CalendarFilters({
   offList,
   showCancelled,
   onShowCancelled,
+  isCleaningsOnly,
+  onCleaningsOnly,
   chipView,
   onChipView,
   onNewTask,
@@ -98,6 +107,19 @@ export function CalendarFilters({
           </option>
         ))}
       </NativeSelect>
+
+      {isCleaningsOnly ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          aria-label={t('panel.calendar.filters.showRepairs')}
+          onClick={() => onCleaningsOnly(false)}
+        >
+          {t('panel.calendar.filters.cleaningsOnly')}
+          <X aria-hidden="true" />
+        </Button>
+      ) : null}
 
       <label className="flex items-center gap-1 text-sm">
         <input

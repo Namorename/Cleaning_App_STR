@@ -59,6 +59,8 @@ interface CalendarViewProps {
   scale?: number;
   /** The assignee filter the address opens on (`assigneeFromAddress`). */
   initialAssignee?: AssigneeFilter;
+  /** Open on the cleanings alone (`cleaningsOnlyFromAddress`); not remembered. */
+  initialCleaningsOnly?: boolean;
   /** Open on today and at least this many days (`openingWindow`); not remembered. */
   openAheadDays?: number;
 }
@@ -78,6 +80,7 @@ export function CalendarView({
   fixture = false,
   scale = 1,
   initialAssignee,
+  initialCleaningsOnly,
   openAheadDays,
 }: CalendarViewProps) {
   const { t } = useTranslation();
@@ -95,6 +98,7 @@ export function CalendarView({
       isStand={fixture}
       scale={scale}
       initialAssignee={initialAssignee}
+      initialCleaningsOnly={initialCleaningsOnly}
       openAheadDays={openAheadDays}
     />
   );
@@ -117,10 +121,17 @@ interface CalendarBodyProps {
   isStand: boolean;
   scale: number;
   initialAssignee?: AssigneeFilter;
+  initialCleaningsOnly?: boolean;
   openAheadDays?: number;
 }
 
-function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: CalendarBodyProps) {
+function CalendarBody({
+  isStand,
+  scale,
+  initialAssignee,
+  initialCleaningsOnly,
+  openAheadDays,
+}: CalendarBodyProps) {
   const { t, i18n } = useTranslation();
   const client = useCalendarClient(isStand, scale);
   const rowsQuery = useCalendarRows(client, isStand);
@@ -191,6 +202,7 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
     pastDays: past.days,
     byId,
     initialAssignee,
+    initialCleaningsOnly,
   });
   // What somebody wrote about is marked on its chip (5.4, «Чат»): the same
   // company-wide answer the menu counts, polled while the tab is in front.
@@ -200,7 +212,10 @@ function CalendarBody({ isStand, scale, initialAssignee, openAheadDays }: Calend
   // A repair left behind shows in its row's first column, whatever the window (§6).
   const repairs = useLiveRepairs(client, isStand);
   // Judged now, like the chips: a memo would keep yesterday's today (a handful of rows).
-  const repairAlerts = overdueRepairsByProperty(repairs.data ?? []);
+  // Not while the calendar shows the cleanings alone: a repair is no cleaning.
+  const repairAlerts = overdueRepairsByProperty(
+    chips.filters.isCleaningsOnly ? [] : (repairs.data ?? []),
+  );
 
   // The stand's measurement (7.6): the first drawing with every layer in.
   useStandPaintMark(

@@ -330,6 +330,16 @@ export function isTechnicianJob(task: Pick<Task, 'type'>): boolean {
   return task.type === 'maintenance';
 }
 
+/**
+ * The kinds the form offers (owner, 2026-11-05): a technician is booked
+ * through «Задания» alone, so «Обслуживание» is not offered for a new job. A
+ * job already of that kind — a repair of a task, or one booked by hand
+ * before — keeps it, so the form still shows it as it is and saves it so.
+ */
+export function bookableTypes(current: TaskType | null): TaskType[] {
+  return TASK_TYPES.filter((type) => type !== 'maintenance' || type === current);
+}
+
 /** Written by a person, rather than generated from a booking or a report. */
 export function isManualTask(task: Pick<Task, 'reservation_id' | 'problem_id'>): boolean {
   return task.reservation_id === null && task.problem_id === null;

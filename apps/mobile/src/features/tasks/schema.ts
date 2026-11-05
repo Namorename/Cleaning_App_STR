@@ -151,7 +151,21 @@ export type TaskGroup =
   | { readonly kind: 'running'; readonly key: 'running'; readonly data: CleaningTask[] }
   | { readonly kind: 'day'; readonly key: string; readonly data: CleaningTask[] }
   // «Выполненные» below her open list (owner, 2026-10-10): read on demand.
-  | { readonly kind: 'done'; readonly key: 'done'; readonly data: CleaningTask[] };
+  | { readonly kind: 'done'; readonly key: 'done'; readonly data: CleaningTask[] }
+  // «Ремонт» (owner, 2026-11-05): a repair given to a cleaner, apart from her
+  // cleanings — the open ones, and under «Выполненные» the finished ones.
+  | { readonly kind: 'repair'; readonly key: 'repair'; readonly data: CleaningTask[] }
+  | { readonly kind: 'doneRepair'; readonly key: 'doneRepair'; readonly data: CleaningTask[] };
+
+/** A technician's job: the repair of a task, or one booked by hand. */
+export function isRepairJob(task: Pick<CleaningTask, 'type'>): boolean {
+  return task.type === 'maintenance';
+}
+
+/** The sections of finished work: what «Выполненные» draws. */
+export function isDoneGroup(group: Pick<TaskGroup, 'kind'>): boolean {
+  return group.kind === 'done' || group.kind === 'doneRepair';
+}
 
 /**
  * One section per planned day, the nearest first.
@@ -180,14 +194,49 @@ export function groupByDay(tasks: readonly CleaningTask[]): TaskGroup[] {
  * the top, whatever day they were planned for, never one highlighted row.
  * Nothing under way, no such section: a heading with nothing under it reads
  * as something missing.
+ *
+ * With `isRepairApart` — a cleaner's list (owner, 2026-11-05) — a repair she
+ * was given is not one of her cleanings: it is the block «Ремонт» right under
+ * the work under way, whatever its day and state, so she sees it without
+ * scrolling past her days. A technician's list is all repairs, and stays as
+ * it was.
  */
-export function groupMyTasks(tasks: readonly CleaningTask[]): TaskGroup[] {
-  const running = tasks.filter(isRunning);
-  const days = groupByDay(tasks.filter((task) => !isRunning(task)));
+export function groupMyTasks(tasks: readonly CleaningTask[], isRepairApart = false): TaskGroup[] {
+  const repairs = isRepairApart ? tasks.filter(isRepairJob) : [];
+  const cleanings = isRepairApart ? tasks.filter((task) => !isRepairJob(task)) : tasks;
+  const running = cleanings.filter(isRunning);
+  const days = groupByDay(cleanings.filter((task) => !isRunning(task)));
 
-  return running.length === 0
-    ? days
-    : [{ kind: 'running' as const, key: 'running' as const, data: running }, ...days];
+  return [
+    ...(running.length === 0
+      ? []
+      : [{ kind: 'running' as const, key: 'running' as const, data: running }]),
+    ...(repairs.length === 0
+      ? []
+      : [{ kind: 'repair' as const, key: 'repair' as const, data: repairs }]),
+    ...days,
+  ];
+}
+
+/**
+ * «Выполненные», once she has opened them: her finished cleanings, then —
+ * with `isRepairApart`, a cleaner's list — the repairs she finished, as a
+ * block «Ремонт» of their own (owner, 2026-11-05). The heading «Выполненные»
+ * stands over both, so it is kept even when only repairs were finished.
+ */
+export function groupMyDone(finished: readonly CleaningTask[], isRepairApart = false): TaskGroup[] {
+  if (finished.length === 0) {
+    return [];
+  }
+  const repairs = isRepairApart ? finished.filter(isRepairJob) : [];
+  const cleanings = isRepairApart ? finished.filter((task) => !isRepairJob(task)) : [...finished];
+
+  return [
+    { kind: 'done' as const, key: 'done' as const, data: cleanings },
+    ...(repairs.length === 0
+      ? []
+      : [{ kind: 'doneRepair' as const, key: 'doneRepair' as const, data: repairs }]),
+  ];
 }
 
 /**

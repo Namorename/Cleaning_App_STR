@@ -460,6 +460,7 @@
         "unassignedWeek": "на 7 дней вперёд",
         "unassignedToday": "сегодня {{number}}",
         "unassignedTomorrow": "завтра {{number}}",
+        "unassignedRepairs": "Ремонт без техника",
         "openProblems": "Открытых заданий",
         "newSupplies": "Новых заявок",
         "overdueRepairs": "Ремонтов просрочено",
@@ -1609,7 +1610,9 @@
         "open": "Открыта",
         "inWork": "В работе",
         "done": "Выполнена",
-        "nobody": "Не назначено"
+        "nobody": "Не назначено",
+        "cleaningsOnly": "Только уборки",
+        "showRepairs": "Только уборки — показать и ремонты"
       },
       "stand": {
         "title": "Стенд: запись выключена",
@@ -1953,6 +1956,9 @@
       "loadFailed": "Не удалось загрузить выполненные",
       "completedAt": "Завершена {{date}}, {{time}}",
       "completedOn": "Завершена {{date}}"
+    },
+    "repairs": {
+      "heading": "Ремонт"
     },
     "pushNotice": {
       "unassigned": "Эту уборку с вас сняли.",

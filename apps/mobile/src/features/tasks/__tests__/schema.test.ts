@@ -5,6 +5,7 @@ import {
   cleaningTaskSchema,
   earliestClaimableDate,
   groupByDay,
+  groupMyDone,
   groupMyTasks,
   isFree,
   isRunning,
@@ -275,6 +276,63 @@ describe('groupMyTasks', () => {
     const groups = groupMyTasks([task({ status: 'assigned' })]);
 
     expect(groups.map((group) => group.kind)).toEqual(['day']);
+  });
+
+  // A repair given to a cleaner is its own block (owner, 2026-11-05).
+  test('sets a cleaner’s repairs apart, running or not, under the work under way', () => {
+    const running = task({ id: 'a1b2c3d4-1111-4111-8111-a1b2c3d40001', status: 'in_progress' });
+    const today = task({ id: 'a1b2c3d4-2222-4222-8222-a1b2c3d40002' });
+    const fixing = task({
+      id: 'a1b2c3d4-3333-4333-8333-a1b2c3d40003',
+      type: 'maintenance',
+      status: 'in_progress',
+    });
+    const fixLater = task({
+      id: 'a1b2c3d4-4444-4444-8444-a1b2c3d40004',
+      type: 'maintenance',
+      scheduled_date: '2026-11-12',
+    });
+
+    const groups = groupMyTasks([running, today, fixing, fixLater], true);
+
+    expect(groups.map((group) => [group.kind, group.data.map((item) => item.id)])).toEqual([
+      ['running', [running.id]],
+      ['repair', [fixing.id, fixLater.id]],
+      ['day', [today.id]],
+    ]);
+  });
+
+  test('without the flag a repair is one of the days, as a technician reads his list', () => {
+    const fix = task({ type: 'maintenance' });
+
+    expect(groupMyTasks([fix]).map((group) => group.kind)).toEqual(['day']);
+  });
+});
+
+describe('groupMyDone', () => {
+  const cleaning = task({ id: 'a1b2c3d4-5555-4555-8555-a1b2c3d40005', status: 'done' });
+  const repair = task({
+    id: 'a1b2c3d4-6666-4666-8666-a1b2c3d40006',
+    type: 'maintenance',
+    status: 'done',
+  });
+
+  test('a cleaner’s finished repairs follow her finished cleanings, under «Выполненные»', () => {
+    const groups = groupMyDone([repair, cleaning], true);
+
+    expect(groups.map((group) => [group.kind, group.data.map((item) => item.id)])).toEqual([
+      ['done', [cleaning.id]],
+      ['doneRepair', [repair.id]],
+    ]);
+  });
+
+  test('keeps the «Выполненные» heading when only a repair was finished', () => {
+    expect(groupMyDone([repair], true).map((group) => group.kind)).toEqual(['done', 'doneRepair']);
+  });
+
+  test('nothing finished, no section; without the flag, one section for all', () => {
+    expect(groupMyDone([], true)).toEqual([]);
+    expect(groupMyDone([repair, cleaning]).map((group) => group.kind)).toEqual(['done']);
   });
 });
 

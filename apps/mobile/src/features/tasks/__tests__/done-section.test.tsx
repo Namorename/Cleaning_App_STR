@@ -19,8 +19,14 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({}),
 }));
 
+/** The role her token carries; none reads as a cleaner's screens (`useRole`). */
+let mockRole: string | null = null;
+
 jest.mock('@/features/auth/session', () => ({
-  useSession: () => ({ userId: '7c9e6679-7425-40de-944b-e07fc1f90ae7' }),
+  useSession: () => ({
+    userId: '7c9e6679-7425-40de-944b-e07fc1f90ae7',
+    session: mockRole === null ? null : { user: { app_metadata: { role: mockRole } } },
+  }),
 }));
 
 jest.mock('@/features/chat/use-chat', () => ({
@@ -122,6 +128,7 @@ async function openDone(): Promise<void> {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockRole = null;
   mockOpen.splice(0, mockOpen.length, OPEN_JOB);
   mockDone.data = [job()];
   mockDone.error = null;
@@ -252,6 +259,7 @@ test('with nothing open, her empty list still says so above what she finished', 
 });
 
 test('a technician’s finished repair is named by what was fixed, never as a cleaning', async () => {
+  mockRole = 'tech';
   await setWordContext('tech');
   try {
     mockOpen.splice(0, mockOpen.length);
@@ -274,7 +282,48 @@ test('a technician’s finished repair is named by what was fixed, never as a cl
       screen.getByRole('button', { name: /^Течёт смеситель\. CZ - Nadrazni Apt 6\. Завершена/ }),
     ).toBeTruthy();
     expect(screen.queryByText(/уборк/i)).toBeNull();
+    // His list is all repairs: no block of its own for them.
+    expect(screen.queryByRole('header', { name: 'Ремонт' })).toBeNull();
   } finally {
     await setWordContext(undefined);
   }
+});
+
+/**
+ * A repair a cleaner finished (owner, 2026-11-05): under «Выполненные», as a
+ * block «Ремонт» of its own after her cleanings — never one of them.
+ */
+describe('a repair she finished', () => {
+  const FIX_ID = 'b2c3d4e5-6f70-4a81-9b2c-3d4e5f607182';
+  const fixed = job({
+    id: FIX_ID,
+    type: 'maintenance',
+    reservation_id: null,
+    problem: {
+      id: 'd1e2f3a4-1111-4111-8111-d1e2f3a40101',
+      title: 'Течёт смеситель',
+      priority: 'normal',
+    },
+  });
+  const headings = () =>
+    screen.getAllByRole('header').map((heading) => heading.props.children as string);
+
+  test('is a block «Ремонт» after her finished cleanings', async () => {
+    mockDone.data = [fixed, job()];
+    await render(<MyTasksScreen />);
+
+    await openDone();
+
+    expect(headings().slice(-2)).toEqual([HEADING, 'Ремонт']);
+    expect(screen.getByRole('button', { name: /^Течёт смеситель/ })).toBeTruthy();
+  });
+
+  test('with only a repair finished, «Выполненные» still heads it', async () => {
+    mockDone.data = [fixed];
+    await render(<MyTasksScreen />);
+
+    await openDone();
+
+    expect(headings().slice(-2)).toEqual([HEADING, 'Ремонт']);
+  });
 });

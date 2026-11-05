@@ -757,6 +757,36 @@ describe('task chips', () => {
     expect(screen.queryByRole('button', { name: /Anna/ })).toBeNull();
   });
 
+  // The tile counts the cleanings alone and opens
+  // /calendar?assignee=nobody&work=cleanings (owner, 2026-11-05).
+  test('opened on the cleanings alone, draws no repair until the filter is taken off', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    tasksState.data = [
+      calendarTask(1, '2026-09-26', { status: 'unassigned' }),
+      calendarTask(1, '2026-09-27', {
+        type: 'maintenance',
+        status: 'unassigned',
+        problem_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        problem: { title: 'Broken boiler', priority: 'normal' },
+      }),
+    ];
+    render(<CalendarView initialAssignee="nobody" initialCleaningsOnly />);
+
+    expect(screen.getByRole('button', { name: /Никто/ })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Broken boiler/ })).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Только уборки — показать и ремонты' }));
+
+    expect(screen.getByRole('link', { name: /Broken boiler/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Только уборки/ })).toBeNull();
+  });
+
+  test('opened as usual, says nothing of the cleanings alone', () => {
+    render(<CalendarView initialAssignee="nobody" />);
+
+    expect(screen.queryByRole('button', { name: /Только уборки/ })).toBeNull();
+  });
+
   // The tile counts today and the six days on; the calendar it opens shows them
   // all, whatever depth was kept, and keeps that depth for the next visit.
   test('opened for the week ahead, starts on today at a week, and remembers nothing of it', () => {
@@ -1077,6 +1107,17 @@ describe('what never happened, the cancelled, the repairs', () => {
     expect(badge).toHaveAttribute('title', expect.stringContaining('20.09'));
     expect(badge).toHaveAttribute('title', expect.stringContaining('Iva'));
     expect(badge).not.toHaveAttribute('data-off');
+  });
+
+  // The calendar «Без исполнителя» opens shows the cleanings alone (owner, 2026-11-05).
+  test('the calendar on the cleanings alone draws no repair badge', () => {
+    repairsState.data = [liveRepair()];
+    render(<CalendarView initialCleaningsOnly />);
+
+    const row = screen
+      .getAllByRole('rowheader')
+      .find((one) => one.getAttribute('aria-label') === 'Anglicka 7')!;
+    expect(within(row).queryByText('Просрочен')).toBeNull();
   });
 
   test('the badge turns red when the technician no longer works here', () => {

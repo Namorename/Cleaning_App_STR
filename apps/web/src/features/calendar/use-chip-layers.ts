@@ -10,6 +10,7 @@ import {
   collapseExpired,
   expiredAsTask,
   matchesChipFilters,
+  matchesWorkFilter,
   offListAssignees,
   tasksByRowDay,
   type AssigneeFilter,
@@ -42,6 +43,8 @@ interface ChipLayersOptions {
   byId: ReadonlyMap<number, Property>;
   /** What the assignee filter opens on: the address's, or everybody. */
   initialAssignee?: AssigneeFilter;
+  /** Open on the cleanings alone (`?work=cleanings`, `cleaningsOnlyFromAddress`). */
+  initialCleaningsOnly?: boolean;
 }
 
 /**
@@ -60,6 +63,7 @@ export function useChipLayers({
   pastDays = NO_DAYS,
   byId,
   initialAssignee = ANY_ASSIGNEE,
+  initialCleaningsOnly = false,
 }: ChipLayersOptions) {
   const tasks = useCalendarTasks(client, isStand, days, windowDays);
   const expired = useCalendarExpired(client, isStand, days);
@@ -77,6 +81,7 @@ export function useChipLayers({
 
   const [status, setStatus] = useState<StatusFilter>('all');
   const [assignee, setAssignee] = useState<AssigneeFilter>(initialAssignee);
+  const [isCleaningsOnly, setCleaningsOnly] = useState(initialCleaningsOnly);
 
   // A mark is read narrow: its person's name comes from what is already held.
   const names = useMemo(() => {
@@ -109,11 +114,16 @@ export function useChipLayers({
   const marks = useMemo(
     () =>
       collapseExpired(
-        (expired.data ?? []).filter((row) =>
-          matchesChipFilters({ status: 'expired', assignee_id: row.assignee_id }, 'all', assignee),
+        (expired.data ?? []).filter(
+          (row) =>
+            matchesChipFilters(
+              { status: 'expired', assignee_id: row.assignee_id },
+              'all',
+              assignee,
+            ) && matchesWorkFilter(row, isCleaningsOnly),
         ),
       ).map(asChip),
-    [expired.data, assignee, asChip],
+    [expired.data, assignee, isCleaningsOnly, asChip],
   );
 
   // The layers are read apart, and a task that just closed can sit in two of
@@ -140,10 +150,13 @@ export function useChipLayers({
   const byRowDay = useMemo(
     () =>
       tasksByRowDay([
-        ...live.filter((task) => matchesChipFilters(task, status, assignee)),
+        ...live.filter(
+          (task) =>
+            matchesChipFilters(task, status, assignee) && matchesWorkFilter(task, isCleaningsOnly),
+        ),
         ...marks,
       ]),
-    [live, marks, status, assignee],
+    [live, marks, status, assignee, isCleaningsOnly],
   );
 
   // Everybody on any chip of the window, every copy of a mark included.
@@ -200,6 +213,8 @@ export function useChipLayers({
       offList: shownOffList,
       showCancelled,
       onShowCancelled: setShowCancelled,
+      isCleaningsOnly,
+      onCleaningsOnly: setCleaningsOnly,
     },
   };
 }

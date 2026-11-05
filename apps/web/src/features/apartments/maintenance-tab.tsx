@@ -30,9 +30,9 @@ interface MaintenanceTabProps {
  * it is where the state is changed, and it shows what there is to fix, which
  * is the evidence for changing it.
  *
- * Both lists are read-only here. A technician's job is booked from Tasks and a
- * report is handled from Problems; repeating either would be a second place to
- * keep in step with the first. What somebody wrote about carries «Новое
+ * Both lists are read-only here. A technician is booked, and a report is
+ * handled, in «Задания» alone (owner, 2026-11-05); repeating either would be a
+ * second place to keep in step with the first. What somebody wrote about carries «Новое
  * сообщение» (5.4, «Чат»); a report's mark leads to its conversation. A job
  * fixing a report speaks in the report's thread, so its mark is the report's.
  */

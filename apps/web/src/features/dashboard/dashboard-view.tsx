@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { PageHeader } from '@/components/page-header';
 import { ErrorState } from '@/components/states';
+import { UNASSIGNED_CLEANINGS_HREF } from '@/features/calendar/chips';
 import { cn } from '@/lib/utils';
 
 import {
@@ -16,7 +17,9 @@ import {
   REFRESH_MS,
   repairCounts,
   stuckRepairs,
+  UNASSIGNED_REPAIRS_HREF,
   unassignedAhead,
+  unassignedRepairCount,
 } from './counts';
 import { OFF_STAFF_WORK_ID, OffStaffWork } from './off-staff-work';
 import { OffWorkForm } from './off-work-form';
@@ -101,9 +104,12 @@ function UnassignedDays({ today, tomorrow }: { today: number; tomorrow: number }
 }
 
 /**
- * The basic dashboard (docs/dashboard-plan.md): seven figures, the repairs
+ * The basic dashboard (docs/dashboard-plan.md): eight figures, the repairs
  * left behind and the work people switched off had started
  * (docs/staff-disable-plan.md), each tile leading to its section or list.
+ * The cleanings and the repairs nobody holds are two tiles (owner,
+ * 2026-11-05): «Без исполнителя» counts the cleanings and opens the calendar
+ * on them alone, «Ремонт без техника» leads to its list in «Задания».
  * Read by the sections' readers, judged again every minute at the listing's
  * own today.
  */
@@ -150,7 +156,7 @@ export function DashboardView() {
           )}
         />
         <Tile
-          href="/calendar?assignee=nobody"
+          href={UNASSIGNED_CLEANINGS_HREF}
           label={t('panel.dashboard.tiles.unassigned')}
           value={shown(unassigned && String(unassigned.week), [tasks, rows])}
         >
@@ -158,6 +164,11 @@ export function DashboardView() {
             <UnassignedDays today={unassigned.today} tomorrow={unassigned.tomorrow} />
           )}
         </Tile>
+        <Tile
+          href={UNASSIGNED_REPAIRS_HREF}
+          label={t('panel.dashboard.tiles.unassignedRepairs')}
+          value={shown(problems.data && String(unassignedRepairCount(problems.data)), [problems])}
+        />
         <Tile
           href="/problems"
           label={t('panel.dashboard.tiles.openProblems')}

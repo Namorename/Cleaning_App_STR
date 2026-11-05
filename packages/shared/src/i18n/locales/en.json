@@ -458,6 +458,7 @@
         "unassignedWeek": "next 7 days",
         "unassignedToday": "today {{number}}",
         "unassignedTomorrow": "tomorrow {{number}}",
+        "unassignedRepairs": "Repairs without a technician",
         "openProblems": "Open tasks",
         "newSupplies": "New supply requests",
         "overdueRepairs": "Overdue repairs",
@@ -1591,7 +1592,9 @@
         "open": "Open",
         "inWork": "In progress",
         "done": "Done",
-        "nobody": "Unassigned"
+        "nobody": "Unassigned",
+        "cleaningsOnly": "Cleanings only",
+        "showRepairs": "Cleanings only — show repairs too"
       },
       "stand": {
         "title": "Stand: writing is off",
@@ -1931,6 +1934,9 @@
       "loadFailed": "Could not load finished jobs",
       "completedAt": "Finished {{date}}, {{time}}",
       "completedOn": "Finished {{date}}"
+    },
+    "repairs": {
+      "heading": "Repairs"
     },
     "pushNotice": {
       "unassigned": "This cleaning was taken off you.",

@@ -20,6 +20,7 @@ import { serverErrorHint, serverErrorText } from '@/lib/server-error';
 
 import { ManualTimeNote } from './manual-time-note';
 import {
+  bookableTypes,
   canSetCleaningTime,
   draftFromTask,
   hasManualTimeGap,
@@ -28,7 +29,6 @@ import {
   isManualTask,
   needsAssignee,
   propertyOptions,
-  TASK_TYPES,
   type Task,
   type TaskDraft,
 } from './schema';
@@ -194,7 +194,7 @@ export function TaskForm({ task, initial, onClose }: TaskFormProps) {
                   setDraft({ ...draft, type: event.target.value as TaskDraft['type'] })
                 }
               >
-                {TASK_TYPES.map((type) => (
+                {bookableTypes(task?.type ?? null).map((type) => (
                   <option key={type} value={type}>
                     {t(`panel.tasks.types.${type}`)}
                   </option>

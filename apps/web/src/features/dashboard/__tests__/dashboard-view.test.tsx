@@ -114,8 +114,27 @@ const offTask = (day: string, extra: Record<string, unknown> = {}): OffStaffTask
   });
 
 // The counts read the status and the archive mark alone.
-const problem = (status: string, archived_at: string | null = null) =>
-  ({ status, archived_at }) as unknown as Problem;
+/** A task, its live repair held by `holder` — or by nobody, or none made yet. */
+const problem = (status: string, archived_at: string | null = null, holder: string | null = null) =>
+  ({
+    status,
+    archived_at,
+    title: 'Течёт кран',
+    property: null,
+    fix_tasks:
+      holder === null
+        ? []
+        : [
+            {
+              id: '33333333-3333-4333-8333-333333333333',
+              assignee_id: holder,
+              status: 'assigned',
+              scheduled_date: '2026-09-30',
+              time_from: null,
+              time_to: null,
+            },
+          ],
+  }) as unknown as Problem;
 const supply = (status: string) => ({ status }) as unknown as SupplyRequest;
 // The calendar's rows: the tile counts only what it can draw.
 const row = (id: number) => ({ id }) as unknown as Property;
@@ -139,8 +158,8 @@ beforeEach(() => {
   state.rows = read([row(1)]);
   state.problems = read([
     problem('open'),
-    problem('assigned'),
-    problem('in_progress'),
+    problem('assigned', null, IVA),
+    problem('in_progress', null, IVA),
     problem('resolved'),
     problem('open', '2026-09-29T08:00:00+00:00'),
   ]);
@@ -175,11 +194,18 @@ describe('the tiles', () => {
     expect(tile(/Уборок сегодня/)).toHaveTextContent('4 · готово 1');
     expect(tile(/Уборок сегодня/)).toHaveAttribute('href', '/tasks');
 
+    // The cleanings nobody holds, inspections included: tomorrow's repair is
+    // the next tile's, and the calendar opens on the cleanings alone (owner, 2026-11-05).
     const unassigned = tile(/Без исполнителя/);
-    expect(unassigned).toHaveTextContent('4');
+    expect(unassigned).toHaveTextContent('3');
     expect(unassigned).toHaveTextContent('сегодня 2');
-    expect(unassigned).toHaveTextContent('завтра 1');
-    expect(unassigned).toHaveAttribute('href', '/calendar?assignee=nobody');
+    expect(unassigned).toHaveTextContent('завтра 0');
+    expect(unassigned).toHaveAttribute('href', '/calendar?assignee=nobody&work=cleanings');
+
+    // The live tasks whose repair nobody holds; the archived one is not on the list it opens.
+    const repairsNobody = tile(/Ремонт без техника/);
+    expect(repairsNobody).toHaveTextContent('1');
+    expect(repairsNobody).toHaveAttribute('href', '/problems?view=list&assignee=nobody');
 
     expect(tile(/Открытых заданий/)).toHaveTextContent('3');
     expect(tile(/Открытых заданий/)).toHaveAttribute('href', '/problems');

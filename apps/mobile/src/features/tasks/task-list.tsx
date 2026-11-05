@@ -21,7 +21,7 @@ import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { wordContext } from '@/i18n';
 
 import { DoneCard } from './done-card';
-import type { CleaningTask, TaskGroup } from './schema';
+import { isDoneGroup, isRunning, type CleaningTask, type TaskGroup } from './schema';
 import { SectionHeading } from './section-heading';
 import { TaskCard } from './task-card';
 
@@ -87,7 +87,7 @@ export function TaskList({
 
   const renderItem = useCallback(
     ({ item, section }: SectionListRenderItemInfo<CleaningTask, TaskGroup>) =>
-      section.kind === 'done' ? (
+      isDoneGroup(section) ? (
         <DoneCard task={item} onPress={onPress ?? noop} />
       ) : (
         <TaskCard
@@ -101,7 +101,7 @@ export function TaskList({
             (unreadTaskIds?.has(item.id) ?? false) ||
             (item.problem != null && (unreadProblemIds?.has(item.problem.id) ?? false))
           }
-          isNow={section.kind === 'running'}
+          isNow={section.kind === 'running' || (section.kind === 'repair' && isRunning(item))}
         />
       ),
     [
@@ -158,10 +158,7 @@ export function TaskList({
   // Nothing open, and only what she finished below: the empty list still
   // says so, above it — the list's own empty state is drawn only when no
   // section is.
-  const isOnlyDone =
-    sections !== undefined &&
-    sections.length > 0 &&
-    sections.every((section) => section.kind === 'done');
+  const isOnlyDone = sections !== undefined && sections.length > 0 && sections.every(isDoneGroup);
   const listHeader =
     error === null && header === undefined && !isOnlyDone ? undefined : (
       <View style={layout.listHeader}>

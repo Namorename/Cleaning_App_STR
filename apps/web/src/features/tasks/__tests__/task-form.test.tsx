@@ -279,23 +279,47 @@ describe('an inspection or a maintenance job always has an executor', () => {
   const saveButton = () => screen.getByRole('button', { name: 'Сохранить' });
   const submitForm = () => fireEvent.submit(saveButton().closest('form') as HTMLFormElement);
 
-  test.each(['inspection', 'maintenance'])(
-    'switching a new task to %s with nobody says why and does not send',
-    async (type) => {
-      mutate.mockClear();
-      render(<TaskForm task={null} onClose={() => {}} />);
+  test('switching a new task to an inspection with nobody says why and does not send', async () => {
+    mutate.mockClear();
+    render(<TaskForm task={null} onClose={() => {}} />);
 
-      await userEvent.selectOptions(listingField(), String(ANGLICKA));
-      await userEvent.selectOptions(typeField(), type);
+    await userEvent.selectOptions(listingField(), String(ANGLICKA));
+    await userEvent.selectOptions(typeField(), 'inspection');
 
-      expect(screen.getByText(REQUIRED)).toBeInTheDocument();
-      expect(assigneeField()).toHaveAttribute('aria-invalid', 'true');
-      expect(nobody().disabled).toBe(true);
-      expect(saveButton()).toBeDisabled();
-      submitForm();
-      expect(mutate).not.toHaveBeenCalled();
-    },
-  );
+    expect(screen.getByText(REQUIRED)).toBeInTheDocument();
+    expect(assigneeField()).toHaveAttribute('aria-invalid', 'true');
+    expect(nobody().disabled).toBe(true);
+    expect(saveButton()).toBeDisabled();
+    submitForm();
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  // A technician is booked through «Задания» alone (owner, 2026-11-05).
+  test('a new task offers no «Обслуживание»', () => {
+    render(<TaskForm task={null} onClose={() => {}} />);
+
+    const kinds = Array.from(typeField().options).map((option) => option.value);
+    expect(kinds).toEqual(['cleaning', 'midstay', 'inspection']);
+  });
+
+  // A job of that kind booked by hand before stays one: shown as it is, saved so.
+  test('an existing maintenance job keeps its kind, and saves as it is', async () => {
+    mutate.mockClear();
+    render(
+      <TaskForm
+        task={task({
+          id: 'aaaaaaaa-aaaa-4aaa-8aaa-000000000021',
+          type: 'maintenance',
+          assignee_id: PETR.id,
+        })}
+        onClose={() => {}}
+      />,
+    );
+
+    expect(typeField().value).toBe('maintenance');
+    await userEvent.click(saveButton());
+    expect(mutate.mock.calls[0][0].draft).toMatchObject({ type: 'maintenance' });
+  });
 
   test('picking somebody clears the error, and the save carries them', async () => {
     mutate.mockClear();

@@ -4,11 +4,13 @@ import { useTranslation } from 'react-i18next';
 import { Alert } from 'react-native';
 import { z } from 'zod';
 
+import { isTechnician } from '@/features/auth/role';
+import { useRole } from '@/features/auth/use-role';
 import { useUnreadSubjects } from '@/features/chat/use-chat';
 import { PUSH_NOTICES } from '@/features/push/destination';
 import { DoneFooter } from '@/features/tasks/done-footer';
 import { PushNotice } from '@/features/tasks/push-notice';
-import { groupMyTasks, type CleaningTask, type TaskGroup } from '@/features/tasks/schema';
+import { groupMyDone, groupMyTasks, type CleaningTask } from '@/features/tasks/schema';
 import { TaskList } from '@/features/tasks/task-list';
 import {
   acceptVariables,
@@ -36,6 +38,10 @@ export default function MyTasksScreen() {
   const [isDoneOpen, setDoneOpen] = useState(false);
   const done = useMyDoneTasks(isDoneOpen);
 
+  // A repair given to a cleaner is a block «Ремонт» of its own, never one of
+  // her cleanings (owner, 2026-11-05); a technician's list is all repairs.
+  const isRepairApart = !isTechnician(useRole());
+
   // Work under way first, as its own section: several cleanings run at once
   // on a floor, and this list is how she switches between them. Then a section
   // per day, grouped here from the rows already fetched — and, once she has
@@ -45,15 +51,11 @@ export default function MyTasksScreen() {
     if (data === undefined) {
       return undefined;
     }
-    const open = groupMyTasks(data);
+    const open = groupMyTasks(data, isRepairApart);
     const openIds = new Set(data.map((task) => task.id));
     const finished = (done.data ?? []).filter((task) => !openIds.has(task.id));
-    if (!isDoneOpen || finished.length === 0) {
-      return open;
-    }
-    const doneSection: TaskGroup = { kind: 'done', key: 'done', data: finished };
-    return [...open, doneSection];
-  }, [data, done.data, isDoneOpen]);
+    return isDoneOpen ? [...open, ...groupMyDone(finished, isRepairApart)] : open;
+  }, [data, done.data, isDoneOpen, isRepairApart]);
 
   // The marks are asked for exactly the jobs on this screen. A repair speaks
   // in its report's thread, so its report is asked about too.

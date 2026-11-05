@@ -22,8 +22,14 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockParams,
 }));
 
+/** The role her token carries; none reads as a cleaner's screens (`useRole`). */
+let mockRole: string | null = null;
+
 jest.mock('@/features/auth/session', () => ({
-  useSession: () => ({ userId: '7c9e6679-7425-40de-944b-e07fc1f90ae7' }),
+  useSession: () => ({
+    userId: '7c9e6679-7425-40de-944b-e07fc1f90ae7',
+    session: mockRole === null ? null : { user: { app_metadata: { role: mockRole } } },
+  }),
 }));
 
 jest.mock('@/features/chat/use-chat', () => ({
@@ -94,6 +100,7 @@ const THIRD_ID = 'c1d2e3f4-5a6b-4c7d-8e9f-0a1b2c3d4e5f';
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockRole = null;
   mockTasks.splice(0, mockTasks.length, mockTask);
   mutateAsync.mockResolvedValue(undefined);
   jest
@@ -228,6 +235,66 @@ test('her day: the work under way first, as the current work, then a section per
     'Завтра',
   ]);
   expect(screen.getAllByRole('button', { name: /^Сейчас\./ })).toHaveLength(1);
+});
+
+/**
+ * A repair given to a cleaner (owner, 2026-11-05): its own block «Ремонт»,
+ * right under the work under way — never one of her cleanings, never hidden.
+ */
+describe('a repair given to her', () => {
+  const REPAIR_ID = 'a7b8c9d0-1e2f-4a3b-8c4d-5e6f7a8b9c0d';
+
+  function herWeek(): void {
+    const now = new Date();
+    mockTasks.splice(
+      0,
+      mockTasks.length,
+      { ...mockTask, scheduled_date: calendarDay(now) },
+      { ...mockTask, id: SECOND_ID, status: 'in_progress', scheduled_date: calendarDay(now) },
+      {
+        ...mockTask,
+        id: REPAIR_ID,
+        type: 'maintenance',
+        scheduled_date: calendarDay(now, 1),
+        problem: {
+          id: 'd1e2f3a4-1111-4111-8111-d1e2f3a40101',
+          title: 'Течёт смеситель',
+          priority: 'normal',
+        },
+      },
+    );
+  }
+
+  test('is a block «Ремонт» of its own, under the work under way and over her days', async () => {
+    herWeek();
+
+    await render(<MyTasksScreen />);
+
+    expect(screen.getAllByRole('header').map((heading) => heading.props.children)).toEqual([
+      'В работе',
+      'Ремонт',
+      'Сегодня',
+    ]);
+    expect(screen.getByRole('button', { name: /^Течёт смеситель/ })).toBeTruthy();
+  });
+
+  test('a technician’s list is all repairs, and keeps its days', async () => {
+    mockRole = 'tech';
+    await setWordContext('tech');
+    try {
+      herWeek();
+
+      await render(<MyTasksScreen />);
+
+      expect(screen.getAllByRole('header').map((heading) => heading.props.children)).toEqual([
+        'В работе',
+        'Сегодня',
+        'Завтра',
+      ]);
+    } finally {
+      await setWordContext(undefined);
+    }
+  });
 });
 
 test('while an accept runs, its button says so and a second tap sends nothing', async () => {

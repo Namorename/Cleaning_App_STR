@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import { addDays, DEPTHS, openingWindow, windowDays } from '@/features/calendar/dates';
+import { problemSchema } from '@/features/problems/schema';
 import {
   calendarTaskSchema,
   liveRepairSchema,
@@ -19,7 +20,9 @@ import {
   repairCounts,
   stuckRepairs,
   UNASSIGNED_DAYS,
+  UNASSIGNED_REPAIRS_HREF,
   unassignedAhead,
+  unassignedRepairCount,
 } from '../counts';
 
 /** The listings the calendar draws a row for: the fixture's one. */
@@ -138,16 +141,23 @@ describe('cleaningsToday', () => {
 });
 
 describe('unassignedAhead', () => {
-  test('counts the live tasks of every kind nobody holds, from today through the sixth day on', () => {
+  test('counts the live cleanings nobody holds, from today through the sixth day on', () => {
     const tasks = [
       free('2026-09-30'),
       free('2026-09-30', { type: 'inspection' }),
-      free('2026-10-01', { type: 'maintenance' }),
+      free('2026-10-01'),
       free('2026-10-04', { type: 'midstay' }),
       free('2026-10-06'),
     ];
 
     expect(unassignedAhead(tasks, DRAWN, NOW)).toEqual({ week: 5, today: 2, tomorrow: 1 });
+  });
+
+  // A repair nobody holds is «Ремонт без техника» (owner, 2026-11-05), never one of these.
+  test('leaves out a technician’s job', () => {
+    const tasks = [free('2026-09-30'), free('2026-10-01', { type: 'maintenance' })];
+
+    expect(unassignedAhead(tasks, DRAWN, NOW)).toEqual({ week: 1, today: 1, tomorrow: 0 });
   });
 
   test('leaves out what somebody holds, what is closed, and what lies outside the week', () => {
@@ -199,6 +209,66 @@ describe('the calendar the «Без исполнителя» tile opens', () => 
     for (let ahead = 0; ahead < UNASSIGNED_DAYS; ahead += 1) {
       expect(shown).toContain(addDays(today, ahead));
     }
+  });
+});
+
+/**
+ * «Ремонт без техника» (owner, 2026-11-05): the live tasks whose repair nobody
+ * holds — exactly what «Задания» list under «без исполнителя».
+ */
+describe('unassignedRepairCount', () => {
+  const TECH = '44444444-4444-4444-8444-444444444444';
+  const problem = (
+    status: string,
+    fixTasks: { assignee_id: string | null; status: string }[] = [],
+    archivedAt: string | null = null,
+  ) =>
+    problemSchema.parse({
+      id: crypto.randomUUID(),
+      property_id: 1,
+      task_id: null,
+      reported_by: null,
+      title: 'Течёт кран',
+      description: null,
+      priority: 'normal',
+      status,
+      resolved_at: null,
+      cancelled_at: null,
+      cancel_reason: null,
+      archived_at: archivedAt,
+      created_at: '2026-09-29T10:00:00+00:00',
+      fix_tasks: fixTasks.map((fix) => ({
+        id: crypto.randomUUID(),
+        scheduled_date: '2026-09-30',
+        time_from: null,
+        time_to: null,
+        ...fix,
+      })),
+    });
+
+  test('counts a task never given to a technician, and one whose repair was taken off him', () => {
+    const problems = [
+      problem('open'),
+      problem('assigned', [{ assignee_id: null, status: 'unassigned' }]),
+      problem('assigned', [{ assignee_id: TECH, status: 'assigned' }]),
+      problem('in_progress', [{ assignee_id: TECH, status: 'in_progress' }]),
+    ];
+
+    expect(unassignedRepairCount(problems)).toBe(2);
+  });
+
+  test('leaves out what is closed, and what is archived', () => {
+    const problems = [
+      problem('resolved', [{ assignee_id: TECH, status: 'done' }]),
+      problem('cancelled'),
+      problem('open', [], '2026-09-29T12:00:00+00:00'),
+    ];
+
+    expect(unassignedRepairCount(problems)).toBe(0);
+  });
+
+  test('leads to «Задания» as a list, filtered to the tasks nobody holds', () => {
+    expect(UNASSIGNED_REPAIRS_HREF).toBe('/problems?view=list&assignee=nobody');
   });
 });
 
