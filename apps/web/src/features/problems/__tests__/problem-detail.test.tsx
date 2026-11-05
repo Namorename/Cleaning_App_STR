@@ -384,7 +384,9 @@ describe('ProblemDetail', () => {
   ])('on %s the technician’s job says «%s», overdue: %s', (now, hanging, isOverdue) => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(now));
-    onTestFinished(() => vi.useRealTimers());
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
 
     render(<ProblemDetail problemId={PROBLEM_ID} />);
 
