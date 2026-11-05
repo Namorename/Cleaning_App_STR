@@ -1,4 +1,12 @@
-import { STATUS_TONE, problemPriorityTone, problemStatusTone, statusIcon } from '@str-ops/shared';
+import {
+  STATUS_TONE,
+  jobTail,
+  problemPriorityTone,
+  problemStatusTone,
+  statusIcon,
+  todayInZone,
+  type JobTail,
+} from '@str-ops/shared';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
@@ -15,17 +23,22 @@ import {
   signalBadges,
   signalLabel,
 } from '@/features/problems/signal-source';
-import { calendarDay } from '@/features/tasks/schema';
 import { useTheme } from '@/hooks/use-theme';
 
 import { personName, repairWhen } from './format';
 import { isLive, liveRepair, type BoardProblem, type BoardRepair } from './schema';
 
-/** A live repair whose day is behind the phone's today: still undone, and late. */
-function isOverdue(repair: BoardRepair | null, now: Date): boolean {
-  return (
-    repair !== null && repair.scheduled_date !== null && repair.scheduled_date < calendarDay(now)
-  );
+/**
+ * How long a live task's repair has hung past its day, or null (owner,
+ * 2026-11-05). The days are counted in the listing's own zone and the line is
+ * OVERDUE_AFTER_DAYS — the panel's rule, from the same place (packages/shared,
+ * schedule/job-tail.ts), so the board and «Задания» never disagree.
+ */
+function repairTail(problem: BoardProblem, repair: BoardRepair | null, now: Date): JobTail | null {
+  if (repair === null || repair.scheduled_date === null || !isLive(problem)) {
+    return null;
+  }
+  return jobTail(repair.scheduled_date, todayInZone(problem.property?.timezone, now));
 }
 
 interface BoardCardProps {
@@ -43,8 +56,10 @@ interface BoardCardProps {
  * nobody holds while it still waits says «Без исполнителя» in the unassigned
  * tone — dashed, with the dashed person (decision 3) — and a closed one says
  * nothing of a person: it waits for nobody. Red is for what still needs doing
- * (decision 3): «Срочно» and «Просрочено» — a live repair whose day has
- * passed — only while the task is live, never on a closed or archived one.
+ * (decision 3): «Срочно» and «Просрочено» — a live repair OVERDUE_AFTER_DAYS
+ * days or more past its day — only while the task is live, never on a closed
+ * or archived one. Before that a repair past its day says, neutral, how many
+ * days it hangs («Висит N дней», owner 2026-11-05).
  * One card, one button, as her own list has it.
  */
 function BoardCardComponent({ problem, names, onPress, hasUnread = false }: BoardCardProps) {
@@ -62,8 +77,9 @@ function BoardCardComponent({ problem, names, onPress, hasUnread = false }: Boar
   const when = repair === null ? null : repairWhen(repair);
   const isUrgent = problem.priority === 'high' && isLive(problem);
   const urgent = t('supplies.priorities.urgent');
-  const overdue =
-    isLive(problem) && isOverdue(repair, new Date()) ? t('problems.board.overdue') : null;
+  const tail = repairTail(problem, repair, new Date());
+  const overdue = tail?.isOverdue === true ? t('problems.board.overdue') : null;
+  const hanging = tail === null ? null : t('problems.board.hanging', { count: tail.days });
   const archived = problem.archived_at === null ? null : t('problems.board.archived');
   const label = [
     title,
@@ -72,6 +88,7 @@ function BoardCardComponent({ problem, names, onPress, hasUnread = false }: Boar
     place,
     status,
     overdue,
+    hanging,
     person ?? (isWaiting ? nobody : null),
     when,
     isUrgent ? urgent : null,
@@ -96,6 +113,9 @@ function BoardCardComponent({ problem, names, onPress, hasUnread = false }: Boar
             label={overdue}
             tone={STATUS_TONE['calendar.overdueRepair']}
           />
+        )}
+        {hanging === null ? null : (
+          <Badge testID="board-hanging" label={hanging} tone={STATUS_TONE['tasks.hanging']} />
         )}
         {isUrgent ? <Badge label={urgent} tone={problemPriorityTone('high')} /> : null}
         {archived === null ? null : (

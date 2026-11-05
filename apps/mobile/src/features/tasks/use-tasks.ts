@@ -34,8 +34,16 @@ import { cleaningTaskListSchema, cleaningTaskSchema, type CleaningTask } from '.
  */
 const oneOrNoTaskSchema = cleaningTaskSchema.nullable();
 
+/**
+ * Her lists never show a cancelled job (owner, 2026-11-05). The server leaves
+ * them out of every list it sends; a row that reaches a list some other way
+ * already marked cancelled — a copy saved on the phone, a patch from the
+ * task's own read — is dropped here.
+ */
 function readTasks(data: unknown): CleaningTask[] {
-  return readCached(cleaningTaskListSchema, data, 'tasks');
+  return readCached(cleaningTaskListSchema, data, 'tasks').filter(
+    (task) => task.status !== 'cancelled',
+  );
 }
 
 function readTask(data: unknown): CleaningTask | null {

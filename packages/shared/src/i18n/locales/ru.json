@@ -570,7 +570,7 @@
         "planned": "Запланировано",
         "done": "Выполнено",
         "doneMidstay": "Во время проживания",
-        "expired": "Просрочено",
+        "expired": "Не состоялась",
         "cancelled": "Отменено",
         "minutesMedian": "Медиана, мин",
         "minutesAvg": "Среднее, мин",
@@ -1100,7 +1100,7 @@
         "blocked": "Заблокирована",
         "done": "Выполнена",
         "cancelled": "Отменена",
-        "expired": "Просрочена"
+        "expired": "Не состоялась"
       },
       "filters": {
         "search": "Поиск по названию, объекту, исполнителю",
@@ -2181,6 +2181,10 @@
       "hoursFrom": "с {{time}}",
       "hoursUntil": "до {{time}}",
       "overdue": "Просрочено",
+      "hanging_one": "Висит {{count}} день",
+      "hanging_few": "Висит {{count}} дня",
+      "hanging_many": "Висит {{count}} дней",
+      "hanging_other": "Висит {{count}} дня",
       "more": "Ещё",
       "limited": "Показаны последние {{limit}}",
       "limitedOpen": "Незакрытые: показаны последние {{limit}}",

@@ -21,7 +21,15 @@ import { useLanguage } from '@/lib/use-language';
 import { cn } from '@/lib/utils';
 
 import { problemHref, type ProblemsFrom } from './address';
-import { isDraggable, liveFixTask, problemPlace, type BoardStatus, type Problem } from './schema';
+import { RepairTail } from './repair-tail';
+import {
+  isDraggable,
+  liveFixTask,
+  problemPlace,
+  repairTail,
+  type BoardStatus,
+  type Problem,
+} from './schema';
 
 interface ProblemCardProps {
   problem: Problem;
@@ -60,6 +68,7 @@ export function ProblemCard({
   const language = useLanguage();
   const titleId = useId();
   const fixTask = liveFixTask(problem);
+  const tail = repairTail(problem);
   const draggable = onDragStart !== undefined && isDraggable(problem);
 
   const handleDragStart = (event: DragEvent<HTMLElement>) => {
@@ -125,13 +134,14 @@ export function ProblemCard({
           · {formatShortDay(fixTask.scheduled_date, language)}
         </span>
       )}
-      {hasUnread || problem.priority !== 'normal' ? (
+      {hasUnread || problem.priority !== 'normal' || tail !== null ? (
         <div className="flex flex-wrap items-center gap-1">
           {problem.priority === 'normal' ? null : (
             <StatusBadge status={`problems.priority.${problem.priority}`}>
               {t(`problems.priorities.${problem.priority}`)}
             </StatusBadge>
           )}
+          <RepairTail tail={tail} />
           {hasUnread ? (
             <Badge tone={STATUS_TONE['chat.unread']}>{t('panel.chat.unread')}</Badge>
           ) : null}

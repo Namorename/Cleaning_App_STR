@@ -570,7 +570,7 @@
         "planned": "Naplánováno",
         "done": "Hotovo",
         "doneMidstay": "Během pobytu",
-        "expired": "Propadlé",
+        "expired": "Neproběhlo",
         "cancelled": "Zrušeno",
         "minutesMedian": "Medián, min",
         "minutesAvg": "Průměr, min",
@@ -1100,7 +1100,7 @@
         "blocked": "Blokováno",
         "done": "Hotovo",
         "cancelled": "Zrušeno",
-        "expired": "Propadlo"
+        "expired": "Neproběhlo"
       },
       "filters": {
         "search": "Hledat podle názvu, bytu nebo osoby",
@@ -2181,6 +2181,10 @@
       "hoursFrom": "od {{time}}",
       "hoursUntil": "do {{time}}",
       "overdue": "Po termínu",
+      "hanging_one": "Čeká {{count}} den",
+      "hanging_few": "Čeká {{count}} dny",
+      "hanging_many": "Čeká {{count}} dne",
+      "hanging_other": "Čeká {{count}} dní",
       "more": "Další",
       "limited": "Zobrazeno posledních {{limit}}",
       "limitedOpen": "Neuzavřené: zobrazeno posledních {{limit}}",

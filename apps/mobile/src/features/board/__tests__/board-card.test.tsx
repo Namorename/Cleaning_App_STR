@@ -174,28 +174,54 @@ test('an archived task carries its pill', async () => {
   expect(screen.getByText('В архиве')).toBeTruthy();
 });
 
+/**
+ * The panel's rule, from the same place (owner, 2026-11-05): a repair past its
+ * day says, neutral, how many days it hangs, and is «Просрочено» from
+ * OVERDUE_AFTER_DAYS on — the days counted in the listing's zone.
+ */
 describe('a repair whose day has passed', () => {
-  const yesterday = calendarDay(new Date(), -1);
+  /** `days` days before the phone's today, as `scheduled_date` writes it. */
+  const daysAgo = (days: number) => calendarDay(new Date(), -days);
 
-  test('is «Просрочено» in the overdue tone — solid, not the dashed «Без исполнителя»', async () => {
+  test.each([
+    [1, 'Висит 1 день'],
+    [2, 'Висит 2 дня'],
+  ])('%i day(s) on it hangs, neutral — not yet «Просрочено»', async (days, words) => {
     const problem = boardProblem({
       status: 'assigned',
-      fix_tasks: [repair({ scheduled_date: yesterday })],
+      fix_tasks: [repair({ scheduled_date: daysAgo(days) })],
+    });
+
+    await render(<BoardCard problem={problem} names={NAMES} onPress={jest.fn()} />);
+
+    expect(screen.getByText(words)).toBeTruthy();
+    expect(screen.queryByText('Просрочено')).toBeNull();
+    expect(chipFrame('board-hanging').borderColor).not.toBe(Colors.light.tone.overdue.border);
+    expect(screen.getByRole('button').props.accessibilityLabel).toContain(words);
+  });
+
+  test('is «Просрочено» from the third day in the overdue tone — solid, not the dashed «Без исполнителя»', async () => {
+    const problem = boardProblem({
+      status: 'assigned',
+      fix_tasks: [repair({ scheduled_date: daysAgo(3) })],
     });
 
     await render(<BoardCard problem={problem} names={NAMES} onPress={jest.fn()} />);
 
     expect(screen.getByText('Просрочено')).toBeTruthy();
+    expect(screen.getByText('Висит 3 дня')).toBeTruthy();
     expect(chipFrame('board-overdue')).toMatchObject({
       borderStyle: 'solid',
       borderColor: Colors.light.tone.overdue.border,
     });
-    expect(screen.getByRole('button').props.accessibilityLabel).toContain('Просрочено');
+    const label = screen.getByRole('button').props.accessibilityLabel;
+    expect(label).toContain('Просрочено');
+    expect(label).toContain('Висит 3 дня');
   });
 
-  test('waiting for nobody since then is overdue too', async () => {
+  test('waiting for nobody three days on is overdue too', async () => {
     const problem = boardProblem({
-      fix_tasks: [repair({ assignee_id: null, status: 'unassigned', scheduled_date: yesterday })],
+      fix_tasks: [repair({ assignee_id: null, status: 'unassigned', scheduled_date: daysAgo(3) })],
     });
 
     await render(<BoardCard problem={problem} names={NAMES} onPress={jest.fn()} />);
@@ -209,13 +235,60 @@ describe('a repair whose day has passed', () => {
       'done',
       boardProblem({
         status: 'resolved',
-        fix_tasks: [repair({ status: 'done', scheduled_date: yesterday })],
+        fix_tasks: [repair({ status: 'done', scheduled_date: calendarDay(new Date(), -5) })],
       }),
     ],
-  ])('is not overdue when it is %s', async (_when, problem) => {
+  ])('says nothing of days when it is %s', async (_when, problem) => {
     await render(<BoardCard problem={problem} names={NAMES} onPress={jest.fn()} />);
 
     expect(screen.queryByText('Просрочено')).toBeNull();
+    expect(screen.queryByText(/Висит/)).toBeNull();
+  });
+
+  describe("counted by the listing's calendar, not the phone's", () => {
+    beforeEach(() => {
+      // Only the clock is faked: the render still waits on real timers.
+      jest.useFakeTimers({
+        doNotFake: [
+          'hrtime',
+          'nextTick',
+          'performance',
+          'queueMicrotask',
+          'requestAnimationFrame',
+          'cancelAnimationFrame',
+          'requestIdleCallback',
+          'cancelIdleCallback',
+          'setImmediate',
+          'clearImmediate',
+          'setInterval',
+          'clearInterval',
+          'setTimeout',
+          'clearTimeout',
+        ],
+      });
+      // 11:00 UTC on 04.11 is already 01:00 on 05.11 on Kiritimati (UTC+14),
+      // while a phone anywhere from UTC-11 to UTC+12 still has 04.11.
+      jest.setSystemTime(new Date('2026-11-04T11:00:00Z'));
+    });
+    afterEach(() => jest.useRealTimers());
+
+    test('a repair of 02.11 on a listing whose today is 05.11 is overdue', async () => {
+      const problem = boardProblem({
+        status: 'assigned',
+        property: {
+          name: 'CZ - Nadrazni Apt 6',
+          hostaway_unit_id: null,
+          timezone: 'Pacific/Kiritimati',
+          parent: null,
+        },
+        fix_tasks: [repair({ scheduled_date: '2026-11-02' })],
+      });
+
+      await render(<BoardCard problem={problem} names={NAMES} onPress={jest.fn()} />);
+
+      expect(screen.getByText('Просрочено')).toBeTruthy();
+      expect(screen.getByText('Висит 3 дня')).toBeTruthy();
+    });
   });
 });
 

@@ -29,6 +29,8 @@ export const STATUS_TONE = {
   'tasks.expired': 'notHappened',
   /** «Просрочено»: a job still open three days or more after its day. */
   'tasks.tail': 'overdue',
+  /** «Висит N дней»: a job still open after its day, before it is overdue. */
+  'tasks.hanging': 'neutral',
   'tasks.flags.tooShort': 'urgent',
   'tasks.flags.parallel': 'neutral',
   'tasks.type.cleaning': 'neutral',

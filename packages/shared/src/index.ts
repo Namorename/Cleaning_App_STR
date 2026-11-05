@@ -24,6 +24,13 @@ export {
   type PlaceParts,
   type PlaceRow,
 } from './property-path';
+export {
+  OVERDUE_AFTER_DAYS,
+  jobTail,
+  localDay,
+  todayInZone,
+  type JobTail,
+} from './schedule/job-tail';
 export { foldForSearch, matchesAllTokens } from './search';
 export {
   STALE_CLOCK_MESSAGE,

@@ -58,7 +58,12 @@ describe('the reader', () => {
 
     // Assert
     expect(row.archived_at).toBeNull();
-    expect(row.property).toEqual({ name: '1 - 2109', hostaway_unit_id: null, parent: null });
+    expect(row.property).toEqual({
+      name: '1 - 2109',
+      hostaway_unit_id: null,
+      timezone: null,
+      parent: null,
+    });
     expect(row.fix_tasks[0]).toEqual({
       id: 'b1c2d3e4-2222-4222-8222-b1c2d3e40009',
       type: 'maintenance',

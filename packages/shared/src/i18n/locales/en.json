@@ -568,7 +568,7 @@
         "planned": "Planned",
         "done": "Done",
         "doneMidstay": "Mid-stay done",
-        "expired": "Expired",
+        "expired": "Did not happen",
         "cancelled": "Cancelled",
         "minutesMedian": "Median, min",
         "minutesAvg": "Mean, min",
@@ -1096,7 +1096,7 @@
         "blocked": "Blocked",
         "done": "Done",
         "cancelled": "Cancelled",
-        "expired": "Expired"
+        "expired": "Did not happen"
       },
       "filters": {
         "search": "Search by title, listing or person",
@@ -2155,6 +2155,8 @@
       "hoursFrom": "from {{time}}",
       "hoursUntil": "until {{time}}",
       "overdue": "Overdue",
+      "hanging_one": "Pending for {{count}} day",
+      "hanging_other": "Pending for {{count}} days",
       "more": "More",
       "limited": "Showing the latest {{limit}}",
       "limitedOpen": "Not closed: showing the latest {{limit}}",

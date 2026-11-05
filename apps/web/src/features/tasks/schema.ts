@@ -1,4 +1,12 @@
-import { propertyPath, propertyPathOf, splitPlace, type PlaceParts } from '@str-ops/shared';
+import {
+  jobTail,
+  OVERDUE_AFTER_DAYS,
+  propertyPath,
+  propertyPathOf,
+  splitPlace,
+  type JobTail,
+  type PlaceParts,
+} from '@str-ops/shared';
 import { z } from 'zod';
 
 import { todayIn } from '@/lib/format-date';
@@ -328,20 +336,14 @@ export function isManualTask(task: Pick<Task, 'reservation_id' | 'problem_id'>):
   return task.reservation_id === null && task.problem_id === null;
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function dayNumber(day: string): number {
-  const [year, month, date] = day.split('-').map(Number);
-  return Date.UTC(year, month - 1, date) / DAY_MS;
-}
-
 /**
  * How many days a live job may hang undone past its day before it is overdue
- * (owner, 2026-11-05). Until then a row only counts the days; from this one
- * on it is «Просрочено» — in «Уборки», on the calendar's repair marks and on
- * the dashboard's repair tiles alike, which all ask `isOverdue`.
+ * (owner, 2026-11-05), shared with the phone's board. Until then a row only
+ * counts the days; from this one on it is «Просрочено» — a cleaning in
+ * «Уборки», a repair in «Задания», on the calendar's repair marks and on the
+ * dashboard's repair tiles, which all ask `tailOf` or `isOverdue`.
  */
-export const OVERDUE_AFTER_DAYS = 3;
+export { OVERDUE_AFTER_DAYS };
 
 /** What the day rule reads of a job: its status, its day, its listing's zone. */
 export interface DatedJob {
@@ -351,12 +353,7 @@ export interface DatedJob {
 }
 
 /** How long a live task has been hanging past its own day. */
-export interface TaskTail {
-  /** Whole days since its day, in its listing's zone: 1 on the day after. */
-  days: number;
-  /** Hanging OVERDUE_AFTER_DAYS days or more. */
-  isOverdue: boolean;
-}
+export type TaskTail = JobTail;
 
 /**
  * A live task whose day is already behind the property's own today. The
@@ -374,12 +371,7 @@ export function tailOf(task: DatedJob, now: Date = new Date()): TaskTail | null 
   if (isTaskClosed(task)) {
     return null;
   }
-  const today = todayIn(task.property?.timezone, now);
-  if (task.scheduled_date >= today) {
-    return null;
-  }
-  const days = dayNumber(today) - dayNumber(task.scheduled_date);
-  return { days, isOverdue: days >= OVERDUE_AFTER_DAYS };
+  return jobTail(task.scheduled_date, todayIn(task.property?.timezone, now));
 }
 
 /** Live and hanging OVERDUE_AFTER_DAYS days or more past its day. */

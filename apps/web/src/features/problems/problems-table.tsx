@@ -22,7 +22,8 @@ import { useLanguage } from '@/lib/use-language';
 
 import { problemChatHref, problemHref, type ProblemsAddress } from './address';
 import { EMPTY_PROBLEM_FILTERS, filtersKey, type ProblemFilters } from './filters';
-import { liveFixTask, problemPlace, type Problem } from './schema';
+import { RepairTail } from './repair-tail';
+import { liveFixTask, problemPlace, repairTail, type Problem } from './schema';
 import { LIST_PAGE, ShowMoreButton, useShowMore } from './show-more';
 
 interface ProblemsTableProps {
@@ -44,6 +45,8 @@ export function ProblemsTable({ problems, filters = EMPTY_PROBLEM_FILTERS }: Pro
   const language = useLanguage();
   const unread = useUnreadSubjects();
   const from: ProblemsAddress = { view: 'list', filters };
+  // One instant for the whole table, so every row agrees on a repair's days.
+  const now = new Date();
   const tableRef = useRef<HTMLDivElement>(null);
   const paging = useShowMore({
     total: problems.length,
@@ -104,11 +107,14 @@ export function ProblemsTable({ problems, filters = EMPTY_PROBLEM_FILTERS }: Pro
                     {fixTask === null ? (
                       t('panel.problems.noAssignee')
                     ) : (
-                      <Person
-                        name={fixTask.assignee?.full_name}
-                        role={fixTask.assignee?.role}
-                        fallback={t('panel.problems.unknownPerson')}
-                      />
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Person
+                          name={fixTask.assignee?.full_name}
+                          role={fixTask.assignee?.role}
+                          fallback={t('panel.problems.unknownPerson')}
+                        />
+                        <RepairTail tail={repairTail(problem, now)} />
+                      </div>
                     )}
                   </TableCell>
                   <TableCell>

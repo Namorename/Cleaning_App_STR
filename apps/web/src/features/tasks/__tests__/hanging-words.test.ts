@@ -34,4 +34,40 @@ describe('how long a job has hung, in words', () => {
     expect(t('panel.tasks.overdue')).toBe(overdue);
     expect(t('panel.tasks.filters.showCancelled')).toBe(show);
   });
+
+  // The phone's board says it in the same words as the panel (owner, 2026-11-05).
+  test.each([
+    ['ru', 1],
+    ['ru', 3],
+    ['ru', 5],
+    ['ru', 21],
+    ['en', 1],
+    ['en', 4],
+    ['cs', 1],
+    ['cs', 3],
+    ['cs', 5],
+  ])('%s: the head technician board reads %i days as the panel does', (language, count) => {
+    const t = i18n.getFixedT(language);
+
+    expect(t('problems.board.hanging', { count })).toBe(t('panel.tasks.tail.hanging', { count }));
+  });
+});
+
+/**
+ * A cleaning the night sweep closed never happened (owner, 2026-11-05): the
+ * list and the analytics column call it what the calendar's mark does, not
+ * «Просрочена», which now means a job still hanging three days on.
+ */
+describe('the cleaning that never happened', () => {
+  test.each([
+    ['ru', 'Не состоялась'],
+    ['en', 'Did not happen'],
+    ['cs', 'Neproběhlo'],
+  ])('%s calls it «%s» in the list, the analytics and the calendar alike', (language, words) => {
+    const t = i18n.getFixedT(language);
+
+    expect(t('panel.tasks.statuses.expired')).toBe(words);
+    expect(t('panel.analytics.columns.expired')).toBe(words);
+    expect(t('panel.calendar.expiredMark')).toBe(words);
+  });
 });

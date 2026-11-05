@@ -94,13 +94,16 @@ function taskRow(index: number): Record<string, unknown> {
 function cappedServer(total: number) {
   const all = Array.from({ length: total }, (_, index) => taskRow(index));
   const orders: string[][] = [];
+  const nulls: string[][] = [];
 
   const builder = () => {
     let from = 0;
     let to = Number.POSITIVE_INFINITY;
     let withCount = false;
     const order: string[] = [];
+    const isNull: string[] = [];
     orders.push(order);
+    nulls.push(isNull);
 
     const run = () => {
       const size = Math.min(to - from + 1, SERVER_CAP);
@@ -120,6 +123,12 @@ function cappedServer(total: number) {
       return self;
     };
     self.gte = () => self;
+    self.is = (column: string, value: unknown) => {
+      if (value === null) {
+        isNull.push(column);
+      }
+      return self;
+    };
     self.order = (column: string) => {
       order.push(column);
       return self;
@@ -132,7 +141,7 @@ function cappedServer(total: number) {
     return self;
   };
 
-  return { client: { from: () => builder() } as never, orders };
+  return { client: { from: () => builder() } as never, orders, nulls };
 }
 
 describe('the list is read to its end, not to the server cap', () => {
@@ -156,6 +165,22 @@ describe('the list is read to its end, not to the server cap', () => {
     expect(server.orders.length).toBeGreaterThan(1);
     for (const order of server.orders) {
       expect(order.at(-1)).toBe('id');
+    }
+  });
+});
+
+describe('«Уборки» read no repairs (owner, 2026-11-05)', () => {
+  // A repair is «Задания»' work: in the list it filled the tabs, their counts
+  // and the search with jobs no cleaner does. Every page asks without them,
+  // so no page brings one back.
+  test('every page leaves out the tasks that repair a problem', async () => {
+    const server = cappedServer(2500);
+
+    await fetchTasks(server.client);
+
+    expect(server.nulls.length).toBeGreaterThan(1);
+    for (const isNull of server.nulls) {
+      expect(isNull).toContain('problem_id');
     }
   });
 });

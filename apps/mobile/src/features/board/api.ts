@@ -20,7 +20,7 @@ const BOARD_COLUMNS =
   'id, property_id, title, ' +
   GUEST_SIGNAL_SOURCE_COLUMNS +
   'priority, status, archived_at, created_at, ' +
-  'property:properties(name, hostaway_unit_id, parent:parent_id(name)), ' +
+  'property:properties(name, hostaway_unit_id, timezone, parent:parent_id(name)), ' +
   'fix_tasks:tasks!tasks_problem_id_fkey(id, type, assignee_id, status, scheduled_date, time_from, time_to)';
 
 /** How long a closed task stays on the board: the last month's work. */

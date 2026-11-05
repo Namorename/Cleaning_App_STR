@@ -79,8 +79,14 @@ function daysAgo(days: number, now: Date = new Date()): string {
 }
 
 /**
- * The company's schedule from HISTORY_DAYS ago onward. Row level security
- * draws the line.
+ * The company's schedule from HISTORY_DAYS ago onward, for «Уборки». Row
+ * level security draws the line.
+ *
+ * The repairs of tasks are not read (owner, 2026-11-05): a repair is
+ * «Задания»' work, shown and counted there and on the dashboard's repair
+ * tiles, and mixed in here it filled the tabs, their counts and the search
+ * with jobs no cleaner does. The calendar reads them on its own
+ * (fetchTasksBetween, fetchLiveRepairs).
  *
  * Read page by page: one response stops at the server's max-rows, and a month
  * back is thousands of rows (most of them expired duplicates until the
@@ -93,6 +99,7 @@ export async function fetchTasks(client: Client): Promise<Task[]> {
     client
       .from('tasks')
       .select(TASK_COLUMNS, withCount ? { count: 'exact' } : undefined)
+      .is('problem_id', null)
       .gte('scheduled_date', since)
       .order('scheduled_date', { ascending: true })
       .order('time_from', { ascending: true, nullsFirst: false })

@@ -86,7 +86,12 @@ describe('read through the schema on the way out', () => {
 
     const [row] = result.current.board.data ?? [];
     expect(row.archived_at).toBeNull();
-    expect(row.property).toEqual({ name: '1 - 2109', hostaway_unit_id: null, parent: null });
+    expect(row.property).toEqual({
+      name: '1 - 2109',
+      hostaway_unit_id: null,
+      timezone: null,
+      parent: null,
+    });
     expect(row.fix_tasks[0].scheduled_date).toBeNull();
     expect(result.current.cut).toEqual({ isOpenCut: false, isClosedCut: false });
   });
@@ -328,7 +333,12 @@ describe('the archive, read on demand, a page at a time', () => {
     });
 
     const [row] = result.current.data ?? [];
-    expect(row.property).toEqual({ name: '1 - 2109', hostaway_unit_id: null, parent: null });
+    expect(row.property).toEqual({
+      name: '1 - 2109',
+      hostaway_unit_id: null,
+      timezone: null,
+      parent: null,
+    });
     expect(row.fix_tasks[0].scheduled_date).toBeNull();
   });
 });

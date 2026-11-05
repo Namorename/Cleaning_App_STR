@@ -57,7 +57,7 @@ export function StuckRepairs({ stuck, isError }: StuckRepairsProps) {
 function StuckRepairRow({ stuck }: { stuck: StuckRepair }) {
   const { t } = useTranslation();
   const language = useLanguage();
-  const { repair, isOverdue, isTechnicianOff } = stuck;
+  const { repair, days, isOverdue, isTechnicianOff } = stuck;
   const technician =
     repair.assignee_id === null
       ? t('panel.dashboard.repairs.nobody')
@@ -75,6 +75,11 @@ function StuckRepairRow({ stuck }: { stuck: StuckRepair }) {
       ) : null}
       {isOverdue ? (
         <span className="font-medium text-destructive">{t('panel.dashboard.repairs.overdue')}</span>
+      ) : null}
+      {days > 0 ? (
+        <span className="text-muted-foreground">
+          {t('panel.tasks.tail.hanging', { count: days })}
+        </span>
       ) : null}
       <Link
         href={`/problems/${repair.problem_id}`}

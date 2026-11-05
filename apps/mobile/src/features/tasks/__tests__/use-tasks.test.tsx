@@ -78,6 +78,24 @@ test('her list saved by an older build reads with no note rather than an undefin
   expect(result.current.data?.[0].notes).toBeNull();
 });
 
+// The server leaves the cancelled out of her lists (owner, 2026-11-05); a copy
+// on the phone that still holds one draws none.
+test('a cancelled cleaning in her saved list is not drawn', async () => {
+  // Arrange
+  const cancelled = {
+    ...TASK_WITHOUT_NOTE,
+    id: '4a3b2d5f-6c7e-4f90-8a1b-2c3d4e5f6a7b',
+    status: 'cancelled',
+  };
+  const client = restoredFromDisk(taskKeys.mine(ME), [TASK_WITHOUT_NOTE, cancelled]);
+
+  // Act
+  const { result } = await renderHook(() => useMyTasks(), { wrapper: withClient(client) });
+
+  // Assert
+  expect(result.current.data?.map((task) => task.id)).toEqual([TASK_WITHOUT_NOTE.id]);
+});
+
 test('a task that is no longer hers reads as none, not as an unreadable cache', async () => {
   // Arrange: nothing cached, and the server says there is no such task for her.
   const client = new QueryClient({

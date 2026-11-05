@@ -26,7 +26,7 @@ function recordingClient(single: unknown = null) {
       catch: answer.catch.bind(answer),
       finally: answer.finally.bind(answer),
     };
-    for (const name of ['select', 'eq', 'neq', 'gte', 'lt', 'in', 'not', 'order', 'range']) {
+    for (const name of ['select', 'eq', 'neq', 'gte', 'lt', 'in', 'is', 'not', 'order', 'range']) {
       self[name] = (...args: unknown[]) => {
         calls.push({ name, args });
         return self;

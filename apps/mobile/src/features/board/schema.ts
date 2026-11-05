@@ -46,6 +46,10 @@ export const boardProblemSchema = z.object({
     .object({
       name: z.string(),
       hostaway_unit_id: z.number().nullable().default(null),
+      // The listing's zone: a repair's days are counted by its calendar, not
+      // the phone's (board-card.tsx). Missing from a board an older build
+      // saved; the phone's day stands in until the next read.
+      timezone: z.string().nullable().default(null),
       parent: z.object({ name: z.string() }).nullable().default(null),
     })
     .nullable()

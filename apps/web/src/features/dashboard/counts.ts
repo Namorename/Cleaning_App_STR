@@ -4,6 +4,7 @@ import { isInTab, type SupplyRequest } from '@/features/supplies/schema';
 import { isRepairOverdue, isTechnicianOff } from '@/features/tasks/repairs';
 import {
   isTaskClosed,
+  tailOf,
   UNDER_WAY_STATUSES,
   type CalendarTask,
   type LiveRepair,
@@ -89,7 +90,7 @@ export interface UnassignedAhead {
  * and a repair without a technician counts nowhere else until its day passes.
  * What is already past its day is not here: a repair left behind is the
  * repair tiles' once it is overdue (OVERDUE_AFTER_DAYS), and the days before
- * that it is counted in «Уборки» alone (owner, 2026-11-05).
+ * that «Задания» say how long it hangs (owner, 2026-11-05).
  *
  * Only on the listings the calendar draws (`drawn`, the ids of its rows): the
  * tile leads there, and an inspection or a repair stays live on a listing
@@ -129,6 +130,8 @@ export function newSupplyCount(requests: readonly Pick<SupplyRequest, 'status'>[
 /** A repair left behind, and which of the two signals it gives — one or both. */
 export interface StuckRepair {
   repair: LiveRepair;
+  /** Whole days past its day in its listing's zone; 0 while its day has not passed. */
+  days: number;
   isOverdue: boolean;
   isTechnicianOff: boolean;
 }
@@ -154,6 +157,7 @@ export function stuckRepairs(
   return repairs
     .map((repair) => ({
       repair,
+      days: tailOf(repair, now)?.days ?? 0,
       isOverdue: isRepairOverdue(repair, now),
       isTechnicianOff: isTechnicianOff(repair),
     }))

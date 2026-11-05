@@ -265,6 +265,21 @@ describe('stuckRepairs', () => {
   test('a repair two days past its day is not stuck yet', () => {
     expect(stuckRepairs([repair('2026-09-28')], NOW)).toEqual([]);
   });
+
+  // The list says how long each hangs, as «Задания» do (owner, 2026-11-05).
+  test('each carries its days past its day; one not yet due carries none', () => {
+    const off = { assignee: { full_name: 'Iva', is_active: false } };
+    const stuck = stuckRepairs(
+      [repair('2026-09-20', off), repair('2026-09-29', off), repair('2026-10-05', off)],
+      NOW,
+    );
+
+    expect(stuck.map(({ days, isOverdue }) => [days, isOverdue])).toEqual([
+      [10, true],
+      [1, false],
+      [0, false],
+    ]);
+  });
 });
 
 describe('repairCounts', () => {

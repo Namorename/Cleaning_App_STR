@@ -1,5 +1,6 @@
 'use client';
 
+import type { JobTail } from '@str-ops/shared';
 import { MessageSquare } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -29,6 +30,7 @@ import { FixTaskSteps } from './fix-task-steps';
 import { formatClock } from './format';
 import { ProblemActions } from './problem-actions';
 import { ProblemPhotos } from './problem-photos';
+import { RepairTail } from './repair-tail';
 import {
   isProblemArchived,
   isProblemClosed,
@@ -36,6 +38,7 @@ import {
   type FixTask,
   type Problem,
   problemPlace,
+  repairTail,
 } from './schema';
 import { useProblem, useProblemPhotos } from './use-problems';
 
@@ -220,7 +223,7 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
             {fixTask === null ? (
               <p className="text-muted-foreground">{t('panel.problems.detail.noFixTask')}</p>
             ) : (
-              <FixTaskSummary fixTask={fixTask} />
+              <FixTaskSummary fixTask={fixTask} tail={repairTail(problem)} />
             )}
             {isClosed ? null : (
               <AssignForm key={fixTask?.id ?? 'new'} problem={problem} fixTask={fixTask} />
@@ -364,7 +367,13 @@ function windowText(fixTask: FixTask, t: Translate): string {
   return t('panel.problems.detail.anyTime');
 }
 
-function FixTaskSummary({ fixTask }: { fixTask: FixTask }) {
+interface FixTaskSummaryProps {
+  fixTask: FixTask;
+  /** How long it has hung past its day (repairTail), null while it has not. */
+  tail: JobTail | null;
+}
+
+function FixTaskSummary({ fixTask, tail }: FixTaskSummaryProps) {
   const { t } = useTranslation();
   const language = useLanguage();
 
@@ -382,6 +391,11 @@ function FixTaskSummary({ fixTask }: { fixTask: FixTask }) {
           window: windowText(fixTask, t),
         })}
       </span>
+      {tail === null ? null : (
+        <div className="flex flex-wrap items-center gap-1">
+          <RepairTail tail={tail} />
+        </div>
+      )}
       <span className="text-muted-foreground">
         {t('panel.problems.detail.taskStatus', {
           status: t(`panel.tasks.statuses.${fixTask.status}`),

@@ -1,6 +1,7 @@
-import { propertyPathOf } from '@str-ops/shared';
+import { jobTail, propertyPathOf, type JobTail } from '@str-ops/shared';
 import { z } from 'zod';
 
+import { todayIn } from '@/lib/format-date';
 import { matchesAllTokens } from '@/lib/search';
 
 export const PROBLEM_PRIORITIES = ['low', 'normal', 'high'] as const;
@@ -97,6 +98,9 @@ export const problemSchema = z.object({
     .object({
       name: z.string(),
       hostaway_unit_id: z.number().nullable().default(null),
+      // The listing's zone: a repair's days are counted by its calendar
+      // (repairTail), as the cleanings' are in «Уборки».
+      timezone: z.string().nullable().default(null),
       parent: z.object({ name: z.string() }).nullable().default(null),
     })
     .nullable()
@@ -160,6 +164,23 @@ export function liveFixTask(problem: Pick<Problem, 'fix_tasks'>): FixTask | null
 
 export function isProblemClosed(problem: Pick<Problem, 'status'>): boolean {
   return problem.status === 'resolved' || problem.status === 'cancelled';
+}
+
+/**
+ * How long the live repair has hung past its day, in its listing's zone, or
+ * null (owner, 2026-11-05): «Висит N дней», and «Просрочено» from
+ * OVERDUE_AFTER_DAYS on. The rule «Уборки» applies to a cleaning, here for
+ * the repairs «Уборки» no longer lists. A closed task waits for nothing.
+ */
+export function repairTail(
+  problem: Pick<Problem, 'status' | 'fix_tasks' | 'property'>,
+  now: Date = new Date(),
+): JobTail | null {
+  const repair = liveFixTask(problem);
+  if (repair === null || isProblemClosed(problem)) {
+    return null;
+  }
+  return jobTail(repair.scheduled_date, todayIn(problem.property?.timezone, now));
 }
 
 export function isProblemArchived(problem: Pick<Problem, 'archived_at'>): boolean {

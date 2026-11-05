@@ -1,4 +1,4 @@
-import { INTL_LOCALES, type Language } from '@str-ops/shared';
+import { INTL_LOCALES, todayInZone, type Language } from '@str-ops/shared';
 
 const formats = new Map<string, Intl.DateTimeFormat>();
 
@@ -56,27 +56,9 @@ export function todayIso(now: Date = new Date()): string {
 /**
  * Today's calendar day in a property's own time zone, as `YYYY-MM-DD` — the
  * day the server's staleness and grace rules count by. A property with no
- * zone, or one the browser does not know, falls back to the browser's day:
- * a wrong zone must not blank a label, and every property today is in
- * Central Europe, where the two agree.
+ * zone, or one the browser does not know, falls back to the browser's day.
+ * The rule is shared with the phone (`todayInZone`), so the two apps agree.
  */
 export function todayIn(timeZone: string | null | undefined, now: Date = new Date()): string {
-  if (!timeZone) {
-    return todayIso(now);
-  }
-  let parts: Intl.DateTimeFormatPart[];
-  try {
-    parts = dateFormat('en-GB', {
-      timeZone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).formatToParts(now);
-  } catch {
-    // RangeError: the zone is unknown to this browser. Fall back, as above.
-    return todayIso(now);
-  }
-  const part = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((one) => one.type === type)?.value ?? '';
-  return `${part('year')}-${part('month')}-${part('day')}`;
+  return todayInZone(timeZone, now);
 }
