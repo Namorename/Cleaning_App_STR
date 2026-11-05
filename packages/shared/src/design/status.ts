@@ -27,7 +27,7 @@ export const STATUS_TONE = {
   'tasks.done': 'done',
   'tasks.cancelled': 'cancelled',
   'tasks.expired': 'notHappened',
-  /** «Просрочена · 21.09»: a cleaning still open after its day. */
+  /** «Просрочено»: a job still open three days or more after its day. */
   'tasks.tail': 'overdue',
   'tasks.flags.tooShort': 'urgent',
   'tasks.flags.parallel': 'neutral',

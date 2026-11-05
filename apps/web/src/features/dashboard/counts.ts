@@ -87,7 +87,9 @@ export interface UnassignedAhead {
  * The live tasks of every kind nobody holds, from today through the sixth day
  * on (owner, 2026-09-30): an inspection nobody was given is noticed by nobody,
  * and a repair without a technician counts nowhere else until its day passes.
- * What is already past its day is not here: a repair of that kind is overdue.
+ * What is already past its day is not here: a repair left behind is the
+ * repair tiles' once it is overdue (OVERDUE_AFTER_DAYS), and the days before
+ * that it is counted in «Уборки» alone (owner, 2026-11-05).
  *
  * Only on the listings the calendar draws (`drawn`, the ids of its rows): the
  * tile leads there, and an inspection or a repair stays live on a listing

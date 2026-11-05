@@ -222,7 +222,8 @@ export function fixtureTasks(
       }),
     ),
     // Three repairs left behind: one plain, one whose technician left, one on a room.
-    overdueRepair(OVERDUE_ROW, -3, 'Leaking tap', TECHNICIAN.id),
+    // Each a day past OVERDUE_AFTER_DAYS, so no machine's zone puts one on the line.
+    overdueRepair(OVERDUE_ROW, -4, 'Leaking tap', TECHNICIAN.id),
     overdueRepair(OFF_TECHNICIAN_ROW, -10, 'Broken lock', FORMER_TECHNICIAN.id),
     overdueRepair(OVERDUE_ROOM, -5, 'No hot water', TECHNICIAN.id),
   ];

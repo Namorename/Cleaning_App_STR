@@ -124,8 +124,8 @@ export function useChipText(language: Language, unread: UnreadSubjects = NO_UNRE
     const isSdt = task.type === 'cleaning' && task.priority === 1;
     const isOverdue = task.problem_id !== null && isRepairOverdue(task);
     const hasUnread = isTaskUnread(task, unread);
-    // «Просрочена» already names the status and the overdue badge of the
-    // Cleanings screen; the calendar's legend needs both words apart (§2).
+    // «Просрочена» already names the status on the Cleanings screen, beside
+    // its «Просрочено» badge; the calendar's legend needs the two apart (§2).
     const status =
       task.status === 'expired'
         ? t('panel.calendar.expiredMark')
