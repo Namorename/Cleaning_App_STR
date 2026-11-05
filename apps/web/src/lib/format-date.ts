@@ -1,4 +1,4 @@
-import { INTL_LOCALES, todayInZone, type Language } from '@str-ops/shared';
+import { INTL_LOCALES, localDay, todayInZone, type Language } from '@str-ops/shared';
 
 const formats = new Map<string, Intl.DateTimeFormat>();
 
@@ -49,8 +49,7 @@ export function formatShortDay(day: string, language: Language): string {
 
 /** Today's calendar day as `YYYY-MM-DD`: what a date input and a file name want. */
 export function todayIso(now: Date = new Date()): string {
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  return localDay(now);
 }
 
 /**

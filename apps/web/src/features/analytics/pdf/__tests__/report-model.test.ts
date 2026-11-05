@@ -78,7 +78,7 @@ describe('describeFilters', () => {
     expect(lines).toEqual([
       { label: 'Listings', value: 'Gone flat (archived), Old Town flat, 99' },
       { label: 'People', value: 'Anna Novak, Former employee' },
-      { label: 'Cleaning status', value: 'Done, Expired' },
+      { label: 'Cleaning status', value: 'Done, Did not happen' },
       { label: 'Task status', value: 'Open' },
       { label: 'Urgency', value: 'High' },
       { label: 'Archived listings', value: 'hidden' },

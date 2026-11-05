@@ -13,7 +13,6 @@ import {
   matchesFilters,
   matchesQuery,
   needsAssignee,
-  OVERDUE_AFTER_DAYS,
   propertyOptions,
   tabOf,
   tailOf,
@@ -104,7 +103,6 @@ describe('tailOf', () => {
 
   // The owner's threshold (2026-11-05): two days behind is a count, three is «Просрочено».
   test('is overdue from the third day past its day, not before', () => {
-    expect(OVERDUE_AFTER_DAYS).toBe(3);
     expect(tailOf(on('2026-09-21'), midMorning)).toEqual({ days: 2, isOverdue: false });
     expect(tailOf(on('2026-09-20'), midMorning)).toEqual({ days: 3, isOverdue: true });
     expect(isOverdue(on('2026-09-21'), midMorning)).toBe(false);

@@ -1,6 +1,5 @@
 import {
   jobTail,
-  OVERDUE_AFTER_DAYS,
   propertyPath,
   propertyPathOf,
   splitPlace,
@@ -336,15 +335,6 @@ export function isManualTask(task: Pick<Task, 'reservation_id' | 'problem_id'>):
   return task.reservation_id === null && task.problem_id === null;
 }
 
-/**
- * How many days a live job may hang undone past its day before it is overdue
- * (owner, 2026-11-05), shared with the phone's board. Until then a row only
- * counts the days; from this one on it is «Просрочено» — a cleaning in
- * «Уборки», a repair in «Задания», on the calendar's repair marks and on the
- * dashboard's repair tiles, which all ask `tailOf` or `isOverdue`.
- */
-export { OVERDUE_AFTER_DAYS };
-
 /** What the day rule reads of a job: its status, its day, its listing's zone. */
 export interface DatedJob {
   status: TaskStatus;
@@ -361,6 +351,12 @@ export type TaskTail = JobTail;
  * the manager's to chase — and it stays in the Today tab, marked. The day is
  * counted in the property's zone, as the server's grace rule counts it: a
  * manager elsewhere must not see a tail the server does not.
+ *
+ * The rule is the one shared with the phone's board (packages/shared,
+ * schedule/job-tail.ts, owner 2026-11-05): a row counts the days, and from
+ * OVERDUE_AFTER_DAYS on it is «Просрочено» — a cleaning in «Уборки», a repair
+ * in «Задания», on the calendar's repair marks and the dashboard's repair
+ * tiles, which all ask here or `isOverdue`.
  *
  * The days run from the task's own day. A row keeps no time of assignment;
  * a repair's day is the one its assignment wrote (assign_problem: the day

@@ -376,6 +376,22 @@ describe('ProblemDetail', () => {
     expect(screen.queryByText(/: assigned$/)).toBeNull();
   });
 
+  // The repair's days past its day are «Задания»' since «Уборки» stopped
+  // listing repairs (owner, 2026-11-05): counted, and overdue from the third.
+  test.each([
+    ['2026-09-12T10:00:00Z', 'Висит 2 дня', false],
+    ['2026-09-14T10:00:00Z', 'Висит 4 дня', true],
+  ])('on %s the technician’s job says «%s», overdue: %s', (now, hanging, isOverdue) => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(now));
+    onTestFinished(() => vi.useRealTimers());
+
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    expect(screen.getByText(hanging)).toBeInTheDocument();
+    expect(screen.queryAllByText('Просрочено')).toHaveLength(isOverdue ? 1 : 0);
+  });
+
   // 5.4, variant A (docs/design/decisions.md §2): the levers were at the foot
   // of the right card, under the steps; now they head the page and stay there.
   test('keeps the title, the status and the actions in a header that stays on screen', () => {

@@ -29,7 +29,10 @@ export const STATUS_TONE = {
   'tasks.expired': 'notHappened',
   /** «Просрочено»: a job still open three days or more after its day. */
   'tasks.tail': 'overdue',
-  /** «Висит N дней»: a job still open after its day, before it is overdue. */
+  /**
+   * «Висит N дней»: a job still open after its day, before it is overdue. The
+   * phone's chip; the panel draws the same count as an outlined badge.
+   */
   'tasks.hanging': 'neutral',
   'tasks.flags.tooShort': 'urgent',
   'tasks.flags.parallel': 'neutral',
