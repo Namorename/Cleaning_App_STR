@@ -329,8 +329,75 @@ describe('TasksView', () => {
             ),
       ),
     ).toBe(true);
-    // Labelled in words, not by its stripe alone.
-    expect(rowOf('Уборка со вчера')).toHaveTextContent('со вчера');
+    // Labelled in words: how long it has hung (owner, 2026-11-05).
+    expect(rowOf('Уборка со вчера')).toHaveTextContent('Висит 1 день');
+    expect(rowOf('Уборка со вчера')).not.toHaveTextContent('Просрочено');
+  });
+
+  // Owner, 2026-11-05: the cleaning of a cancelled booking is nobody's work —
+  // out of the list and out of the counts until the manager asks for it.
+  describe('the cancelled', () => {
+    const cancelled = task({ id: id(6), title: 'Отменённая уборка', status: 'cancelled' });
+    const closedTab = () => screen.getByRole('tab', { name: /Завершённые/ });
+    const showCancelled = () => screen.getByRole('checkbox', { name: 'Показать отменённые' });
+
+    beforeEach(() => {
+      useTasks.mockReturnValue({
+        data: [morning, evening, upcoming, finished, cancelled],
+        isPending: false,
+        isError: false,
+      });
+    });
+
+    test('are left out of the closed tab and of its count by default', async () => {
+      render(<TasksView />);
+
+      expect(showCancelled()).not.toBeChecked();
+      expect(closedTab()).toHaveTextContent(/1$/);
+      await userEvent.click(closedTab());
+
+      expect(screen.getByText('Вчерашняя уборка')).toBeInTheDocument();
+      expect(screen.queryByText('Отменённая уборка')).not.toBeInTheDocument();
+    });
+
+    test('a search does not find one while they are hidden', async () => {
+      window.history.replaceState(null, '', '/tasks?tab=closed');
+      render(<TasksView />);
+
+      await userEvent.type(
+        screen.getByRole('searchbox', { name: 'Поиск по названию, объекту, исполнителю' }),
+        'Отменённая',
+      );
+
+      expect(screen.queryByText('Отменённая уборка')).not.toBeInTheDocument();
+    });
+
+    test('the switch shows them, muted and named, and the address keeps it', async () => {
+      window.history.replaceState(null, '', '/tasks?tab=closed');
+      render(<TasksView />);
+
+      await userEvent.click(showCancelled());
+
+      expect(showCancelled()).toBeChecked();
+      expect(query()).toBe('tab=closed&cancelled=1');
+      expect(closedTab()).toHaveTextContent(/2$/);
+      const row = rowOf('Отменённая уборка');
+      expect(row).toHaveAttribute('data-cancelled');
+      expect(within(row).getByText('Отменена')).toBeInTheDocument();
+    });
+
+    test('a link with cancelled=1 opens with them shown, and «Сбросить» hides them again', async () => {
+      window.history.replaceState(null, '', '/tasks?tab=closed&cancelled=1');
+      render(<TasksView />);
+
+      expect(showCancelled()).toBeChecked();
+      expect(screen.getByText('Отменённая уборка')).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Сбросить фильтры' }));
+
+      expect(showCancelled()).not.toBeChecked();
+      expect(screen.queryByText('Отменённая уборка')).not.toBeInTheDocument();
+    });
   });
 
   test('a cleaning of a room is labelled by its house, and found by it', async () => {

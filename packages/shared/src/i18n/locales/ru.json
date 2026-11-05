@@ -1111,7 +1111,8 @@
         "anyType": "Любой тип",
         "dateFrom": "Дата с",
         "dateTo": "Дата по",
-        "reset": "Сбросить фильтры"
+        "reset": "Сбросить фильтры",
+        "showCancelled": "Показать отменённые"
       },
       "columns": {
         "window": "Время",
@@ -1123,9 +1124,12 @@
         "marks": "Метки",
         "actions": "Действия"
       },
-      "overdue": "Просрочена",
+      "overdue": "Просрочено",
       "tail": {
-        "yesterday": "со вчера",
+        "hanging_one": "Висит {{count}} день",
+        "hanging_few": "Висит {{count}} дня",
+        "hanging_many": "Висит {{count}} дней",
+        "hanging_other": "Висит {{count}} дня",
         "departure": "выезд {{date}}"
       },
       "noAssignee": "Без исполнителя",

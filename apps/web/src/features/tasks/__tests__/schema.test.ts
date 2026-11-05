@@ -8,10 +8,12 @@ import {
   isAssigneeMissing,
   isDraftReady,
   isManualTask,
+  isOverdue,
   localizedTitle,
   matchesFilters,
   matchesQuery,
   needsAssignee,
+  OVERDUE_AFTER_DAYS,
   propertyOptions,
   tabOf,
   tailOf,
@@ -88,16 +90,31 @@ describe('tailOf', () => {
     property: prague,
   });
 
-  test('a live cleaning from yesterday is a one-day tail', () => {
+  test('a live cleaning from yesterday is a one-day tail, not overdue', () => {
     expect(
       tailOf({ status: 'unassigned', scheduled_date: '2026-09-22', property: prague }, midMorning),
-    ).toEqual({ days: 1 });
+    ).toEqual({ days: 1, isOverdue: false });
   });
 
   test('an older live task counts its days', () => {
     expect(
       tailOf({ status: 'assigned', scheduled_date: '2026-09-19', property: prague }, midMorning),
-    ).toEqual({ days: 4 });
+    ).toEqual({ days: 4, isOverdue: true });
+  });
+
+  // The owner's threshold (2026-11-05): two days behind is a count, three is «Просрочено».
+  test('is overdue from the third day past its day, not before', () => {
+    expect(OVERDUE_AFTER_DAYS).toBe(3);
+    expect(tailOf(on('2026-09-21'), midMorning)).toEqual({ days: 2, isOverdue: false });
+    expect(tailOf(on('2026-09-20'), midMorning)).toEqual({ days: 3, isOverdue: true });
+    expect(isOverdue(on('2026-09-21'), midMorning)).toBe(false);
+    expect(isOverdue(on('2026-09-20'), midMorning)).toBe(true);
+  });
+
+  test('a closed task is never overdue, however old its day', () => {
+    expect(isOverdue(on('2026-09-01', 'done'), midMorning)).toBe(false);
+    expect(isOverdue(on('2026-09-01', 'cancelled'), midMorning)).toBe(false);
+    expect(isOverdue(on('2026-09-01', 'expired'), midMorning)).toBe(false);
   });
 
   test('today and later are not a tail', () => {
@@ -117,7 +134,7 @@ describe('tailOf', () => {
 
     expect(
       tailOf({ status: 'assigned', scheduled_date: '2026-09-23', property: prague }, lateEvening),
-    ).toEqual({ days: 1 });
+    ).toEqual({ days: 1, isOverdue: false });
     expect(
       tailOf({ status: 'assigned', scheduled_date: '2026-09-23', property: utc }, lateEvening),
     ).toBeNull();
@@ -322,11 +339,34 @@ describe('matchesFilters', () => {
     expect(hasFilters({ ...EMPTY_FILTERS, dateFrom: '2026-09-11' })).toBe(true);
     expect(hasFilters({ ...EMPTY_FILTERS, query: '  ' })).toBe(false);
     expect(hasFilters({ ...EMPTY_FILTERS, assigneeId: 'nobody' })).toBe(true);
+    expect(hasFilters({ ...EMPTY_FILTERS, showCancelled: true })).toBe(true);
   });
 
   test('the kind filters by kind', () => {
     expect(matchesFilters(cleaning, { ...EMPTY_FILTERS, type: 'inspection' })).toBe(false);
     expect(matchesFilters(inspection, { ...EMPTY_FILTERS, type: 'inspection' })).toBe(true);
+  });
+
+  // Owner, 2026-11-05: the cleaning of a cancelled booking is nobody's work.
+  test('leaves the cancelled out by default, the other closed ones in', () => {
+    const cancelled = task({ id: id(5), status: 'cancelled', title: 'Генеральная уборка' });
+    const done = task({ id: id(6), status: 'done' });
+    const expired = task({ id: id(7), status: 'expired' });
+
+    expect(EMPTY_FILTERS.showCancelled).toBe(false);
+    expect(matchesFilters(cancelled, EMPTY_FILTERS)).toBe(false);
+    expect(matchesFilters(cancelled, { ...EMPTY_FILTERS, query: 'генеральная' })).toBe(false);
+    expect(matchesFilters(done, EMPTY_FILTERS)).toBe(true);
+    expect(matchesFilters(expired, EMPTY_FILTERS)).toBe(true);
+  });
+
+  test('the switch brings the cancelled back, and the other filters still act on them', () => {
+    const cancelled = task({ id: id(5), status: 'cancelled', type: 'inspection' });
+    const shown = { ...EMPTY_FILTERS, showCancelled: true };
+
+    expect(matchesFilters(cancelled, shown)).toBe(true);
+    expect(matchesFilters(cancelled, { ...shown, type: 'inspection' })).toBe(true);
+    expect(matchesFilters(cancelled, { ...shown, type: 'cleaning' })).toBe(false);
   });
 });
 

@@ -1111,7 +1111,8 @@
         "anyType": "Jakýkoli druh",
         "dateFrom": "Datum od",
         "dateTo": "Datum do",
-        "reset": "Zrušit filtry"
+        "reset": "Zrušit filtry",
+        "showCancelled": "Zobrazit zrušené"
       },
       "columns": {
         "window": "Čas",
@@ -1123,9 +1124,12 @@
         "marks": "Štítky",
         "actions": "Akce"
       },
-      "overdue": "Propadlo",
+      "overdue": "Po termínu",
       "tail": {
-        "yesterday": "od včera",
+        "hanging_one": "Čeká {{count}} den",
+        "hanging_few": "Čeká {{count}} dny",
+        "hanging_many": "Čeká {{count}} dne",
+        "hanging_other": "Čeká {{count}} dní",
         "departure": "odjezd {{date}}"
       },
       "noAssignee": "Zatím nikdo",

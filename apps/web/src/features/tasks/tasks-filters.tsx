@@ -19,8 +19,9 @@ interface TasksFiltersProps {
 }
 
 /**
- * The filter bar of «Уборки» (5.4, variant A): a search, who, what, and a
- * date range whose two ends say which is which. Each control is 44 px high
+ * The filter bar of «Уборки» (5.4, variant A): a search, who, what, a date
+ * range whose two ends say which is which, and the switch that brings the
+ * cancelled back (owner, 2026-11-05). Each control is 44 px high
  * (`TOUCH_TARGET.panelMin`). On a wide screen the bar stays at the top while
  * the table scrolls under it; on a phone it would take half the screen, so
  * there it scrolls away with the rest.
@@ -101,6 +102,16 @@ export function TasksFilters({ filters, onChange, staff }: TasksFiltersProps) {
           onChange={(event) => set({ dateTo: event.target.value })}
         />
       </LabelledField>
+      {/* Off by default (owner, 2026-11-05): a cancelled cleaning is nobody's work. */}
+      <label className="flex h-11 items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          className="size-4"
+          checked={filters.showCancelled}
+          onChange={(event) => set({ showCancelled: event.target.checked })}
+        />
+        {t('panel.tasks.filters.showCancelled')}
+      </label>
       {hasFilters(filters) ? (
         <Button
           type="button"

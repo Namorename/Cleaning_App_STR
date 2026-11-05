@@ -31,12 +31,13 @@ describe('a repair is overdue', () => {
   // 23:30 in London on the 26th is already the 27th in Prague.
   const lateEvening = new Date('2026-09-26T23:30:00Z');
 
-  test('when its day is before the listing’s own today', () => {
-    expect(isRepairOverdue(repair({ scheduled_date: '2026-09-26' }), lateEvening)).toBe(true);
+  // Three days behind in Prague (the 27th), two in UTC (the 26th).
+  test('from the third day past its day, counted by the listing’s own today', () => {
+    expect(isRepairOverdue(repair({ scheduled_date: '2026-09-24' }), lateEvening)).toBe(true);
     expect(
       isRepairOverdue(
         repair({
-          scheduled_date: '2026-09-26',
+          scheduled_date: '2026-09-24',
           property: { name: 'Anglicka 7', status: 'active', timezone: 'UTC' },
         }),
         lateEvening,
@@ -44,11 +45,13 @@ describe('a repair is overdue', () => {
     ).toBe(false);
   });
 
-  test('not on its day, not after, and never once it is closed', () => {
+  test('not before its day, not on it, not two days after, and never once it is closed', () => {
     const now = new Date('2026-09-26T10:00:00Z');
 
-    expect(isRepairOverdue(repair({ scheduled_date: '2026-09-26' }), now)).toBe(false);
     expect(isRepairOverdue(repair({ scheduled_date: '2026-09-30' }), now)).toBe(false);
+    expect(isRepairOverdue(repair({ scheduled_date: '2026-09-26' }), now)).toBe(false);
+    expect(isRepairOverdue(repair({ scheduled_date: '2026-09-24' }), now)).toBe(false);
+    expect(isRepairOverdue(repair({ scheduled_date: '2026-09-23' }), now)).toBe(true);
     expect(isRepairOverdue({ ...repair(), status: 'done' }, now)).toBe(false);
   });
 });
@@ -75,7 +78,9 @@ describe('the overdue repairs of each listing', () => {
           assignee: { full_name: 'Iva', is_active: false },
         }),
         repair({ scheduled_date: '2026-09-28' }),
-        repair({ property_id: 2, scheduled_date: '2026-09-25', assignee_id: null, assignee: null }),
+        repair({ property_id: 2, scheduled_date: '2026-09-23', assignee_id: null, assignee: null }),
+        // Two days behind: not overdue yet, so the listing carries no badge.
+        repair({ property_id: 3, scheduled_date: '2026-09-24' }),
       ],
       now,
     );
@@ -88,7 +93,7 @@ describe('the overdue repairs of each listing', () => {
       ],
       isTechnicianOff: true,
     });
-    expect(alerts.get(2)).toEqual({ since: '2026-09-25', technicians: [], isTechnicianOff: false });
+    expect(alerts.get(2)).toEqual({ since: '2026-09-23', technicians: [], isTechnicianOff: false });
     expect(alerts.has(3)).toBe(false);
   });
 

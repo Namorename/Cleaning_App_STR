@@ -141,8 +141,9 @@ function byDayThenId(a: StuckRepair, b: StuckRepair): number {
 /**
  * The live repairs somebody has to chase, oldest first. The sweep no longer
  * closes a repair (20260923130000), so these two signals replace the one that
- * went: the day has passed, or the technician on it no longer works here. The
- * rule is `repairs.ts`, the calendar's own — there is no second copy of it.
+ * went: it has hung OVERDUE_AFTER_DAYS days past its day, or the technician on
+ * it no longer works here. The rule is `repairs.ts`, the calendar's own —
+ * there is no second copy of it.
  */
 export function stuckRepairs(
   repairs: readonly LiveRepair[],

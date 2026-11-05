@@ -1035,8 +1035,9 @@ describe('what never happened, the cancelled, the repairs', () => {
     );
   });
 
-  // §6: overdue by the listing's own day; the chip stays on its day.
-  test('a repair past its day says «Просрочен» on its chip', () => {
+  // §6: overdue by the listing's own day, from the third day past it on
+  // (owner, 2026-11-05); the chip stays on its day.
+  test('a repair one day past its day is not called overdue yet', () => {
     tasksState.data = [
       calendarTask(1, '2026-09-25', {
         type: 'maintenance',
@@ -1047,7 +1048,7 @@ describe('what never happened, the cancelled, the repairs', () => {
     ];
     render(<CalendarView />);
 
-    expect(screen.getByRole('link', { name: /Leak/ })).toHaveAccessibleName(/Просрочен/);
+    expect(screen.getByRole('link', { name: /Leak/ })).not.toHaveAccessibleName(/Просрочен/);
   });
 
   const liveRepair = (extra: Record<string, unknown> = {}): LiveRepair =>
@@ -1129,9 +1130,11 @@ describe('what never happened and the repairs, after review', () => {
     expect(screen.getByRole('button', { name: /Не состоялась/ })).toHaveAccessibleName(/Iva/);
   });
 
-  test('an overdue repair says «Просрочен» on the chip itself, not only in its tooltip', () => {
+  // The window opens on yesterday, so a repair three days behind is a step back.
+  test('an overdue repair says «Просрочен» on the chip itself, not only in its tooltip', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     tasksState.data = [
-      calendarTask(1, '2026-09-25', {
+      calendarTask(1, '2026-09-23', {
         type: 'maintenance',
         problem_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
         problem: { title: 'Leak', priority: 'normal' },
@@ -1139,10 +1142,11 @@ describe('what never happened and the repairs, after review', () => {
       }),
     ];
     render(<CalendarView />);
+    await user.click(screen.getByRole('button', { name: 'Предыдущий период' }));
 
-    expect(
-      within(screen.getByRole('link', { name: /Leak/ })).getByText(/Просрочен/),
-    ).toBeInTheDocument();
+    const chip = screen.getByRole('link', { name: /Leak/ });
+    expect(chip).toHaveAccessibleName(/Просрочен/);
+    expect(within(chip).getByText(/Просрочен/)).toBeInTheDocument();
   });
 
   test('while the whole task is read, its card says so', async () => {

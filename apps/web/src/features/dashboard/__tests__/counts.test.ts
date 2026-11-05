@@ -233,8 +233,8 @@ describe('newSupplyCount', () => {
 });
 
 describe('stuckRepairs', () => {
-  test('keeps a repair past its day and one whose technician left, oldest first', () => {
-    const late = repair('2026-09-28');
+  test('keeps a repair three days past its day and one whose technician left, oldest first', () => {
+    const late = repair('2026-09-27');
     const leftAhead = repair('2026-10-05', { assignee: { full_name: 'Iva', is_active: false } });
     const both = repair('2026-09-20', { assignee: { full_name: 'Iva', is_active: false } });
     const fine = repair('2026-10-02');
@@ -260,13 +260,18 @@ describe('stuckRepairs', () => {
   test('a repair of today is not overdue yet', () => {
     expect(stuckRepairs([repair('2026-09-30')], NOW)).toEqual([]);
   });
+
+  // Overdue from OVERDUE_AFTER_DAYS on (owner, 2026-11-05): two days behind is still not stuck.
+  test('a repair two days past its day is not stuck yet', () => {
+    expect(stuckRepairs([repair('2026-09-28')], NOW)).toEqual([]);
+  });
 });
 
 describe('repairCounts', () => {
   test('counts each of the two signals; one repair can be in both', () => {
     const stuck = stuckRepairs(
       [
-        repair('2026-09-28'),
+        repair('2026-09-27'),
         repair('2026-10-05', { assignee: { full_name: 'Iva', is_active: false } }),
         repair('2026-09-20', { assignee: { full_name: 'Iva', is_active: false } }),
       ],

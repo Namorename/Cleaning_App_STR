@@ -26,9 +26,20 @@ describe('the address of «Уборки»', () => {
         type: 'inspection',
         dateFrom: '2026-10-01',
         dateTo: '2026-10-07',
+        showCancelled: false,
       },
     });
     expect(read('assignee=nobody').filters.assigneeId).toBe('nobody');
+  });
+
+  // Owner, 2026-11-05: off by default, kept in the address like every filter.
+  test('shows the cancelled only when the address says cancelled=1', () => {
+    expect(read('').filters.showCancelled).toBe(false);
+    expect(read('cancelled=1').filters.showCancelled).toBe(true);
+    expect(read('cancelled=yes').filters.showCancelled).toBe(false);
+    expect(
+      writeTasksAddress({ tab: 'closed', filters: { ...EMPTY_FILTERS, showCancelled: true } }),
+    ).toBe('tab=closed&cancelled=1');
   });
 
   // A hand-edited or old link must open the screen, not break it.
@@ -50,6 +61,7 @@ describe('the address of «Уборки»', () => {
           type: 'cleaning',
           dateFrom: '2026-10-01',
           dateTo: '',
+          showCancelled: false,
         },
       }),
     ).toBe('tab=upcoming&q=vinohrady+2109&assignee=nobody&type=cleaning&from=2026-10-01');
@@ -70,6 +82,7 @@ describe('the address of «Уборки»', () => {
         type: 'midstay' as const,
         dateFrom: '',
         dateTo: '2026-10-31',
+        showCancelled: true,
       },
     };
 

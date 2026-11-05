@@ -75,58 +75,58 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe('a live cleaning left over from yesterday', () => {
-  test('says since when and which check-out it belongs to, in words', () => {
-    renderRow(task({ scheduled_date: '2026-09-22' }));
-
-    expect(screen.getByText('со вчера · выезд 22.09')).toBeInTheDocument();
+/** A repair of a task, hanging since `day`. */
+const repairOn = (day: string) =>
+  task({
+    scheduled_date: day,
+    status: 'assigned',
+    type: 'maintenance',
+    reservation_id: null,
+    problem_id: 'cccccccc-cccc-4ccc-8ccc-000000000001',
+    assignee_id: 'bbbbbbbb-bbbb-4bbb-8bbb-000000000001',
   });
 
-  // The stripe is the overdue tone's (STATUS_TONE['tasks.tail']): red is
-  // «Просрочено» and «Срочно» only, in their own shades.
-  test('is striped in the overdue tone, so it stands out among the day', () => {
+/** The stripe of an overdue row is on its first cell. */
+const isStriped = (row: HTMLElement) =>
+  within(row).getAllByRole('cell')[0].classList.contains('border-tone-overdue-mark');
+
+describe('a live cleaning left over from yesterday', () => {
+  test('says how long it has hung and which check-out it belongs to, in words', () => {
+    renderRow(task({ scheduled_date: '2026-09-22' }));
+
+    expect(screen.getByText('Висит 1 день · выезд 22.09')).toBeInTheDocument();
+  });
+
+  // Owner, 2026-11-05: a day or two behind is counted, not called overdue.
+  test('is not overdue: neither «Просрочено» nor the stripe', () => {
     const row = renderRow(task({ scheduled_date: '2026-09-22' }));
 
     expect(row).toHaveAttribute('data-tail');
-    expect(within(row).getAllByRole('cell')[0]).toHaveClass('border-tone-overdue-mark');
+    expect(row).not.toHaveAttribute('data-overdue');
+    expect(screen.queryByText('Просрочено')).not.toBeInTheDocument();
+    expect(isStriped(row)).toBe(false);
   });
 });
 
 describe('a task that is not a tail', () => {
-  test("today's cleaning carries neither the label nor the stripe", () => {
+  test("today's cleaning carries neither the count nor the stripe", () => {
     const row = renderRow(task({}));
 
-    expect(screen.queryByText(/со вчера/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Висит/)).not.toBeInTheDocument();
     expect(row).not.toHaveAttribute('data-tail');
-    expect(within(row).getAllByRole('cell')[0]).not.toHaveClass('border-tone-overdue-mark');
+    expect(isStriped(row)).toBe(false);
   });
 
   test('a finished one from yesterday is history, not a tail', () => {
     renderRow(task({ scheduled_date: '2026-09-22', status: 'done' }));
 
-    expect(screen.queryByText(/со вчера/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Висит/)).not.toBeInTheDocument();
   });
 });
 
 describe('an older tail', () => {
-  test('a repair days behind is called overdue, with its planned day', () => {
-    renderRow(
-      task({
-        scheduled_date: '2026-09-19',
-        status: 'assigned',
-        type: 'maintenance',
-        reservation_id: null,
-        problem_id: 'cccccccc-cccc-4ccc-8ccc-000000000001',
-        assignee_id: 'bbbbbbbb-bbbb-4bbb-8bbb-000000000001',
-      }),
-    );
-
-    expect(screen.getByText('Просрочена · 19.09')).toBeInTheDocument();
-    expect(screen.getByText('Из задания')).toBeInTheDocument();
-  });
-
-  test('an older booking cleaning names its check-out', () => {
-    renderRow(
+  test('two days behind is still only counted, with its check-out', () => {
+    const row = renderRow(
       task({
         scheduled_date: '2026-09-21',
         status: 'assigned',
@@ -134,7 +134,55 @@ describe('an older tail', () => {
       }),
     );
 
-    expect(screen.getByText('Просрочена · выезд 21.09')).toBeInTheDocument();
+    expect(screen.getByText('Висит 2 дня · выезд 21.09')).toBeInTheDocument();
+    expect(screen.queryByText('Просрочено')).not.toBeInTheDocument();
+    expect(isStriped(row)).toBe(false);
+  });
+
+  // The stripe and the badge are the overdue tone's (STATUS_TONE['tasks.tail']):
+  // red is «Просрочено» and «Срочно» only, in their own shades.
+  test('from the third day it is «Просрочено» in words, and striped', () => {
+    const row = renderRow(repairOn('2026-09-20'));
+
+    expect(screen.getByText('Просрочено')).toBeInTheDocument();
+    expect(screen.getByText('Висит 3 дня · 20.09')).toBeInTheDocument();
+    expect(row).toHaveAttribute('data-overdue');
+    expect(isStriped(row)).toBe(true);
+  });
+
+  test('a repair days behind keeps its planned day and where it came from', () => {
+    renderRow(repairOn('2026-09-19'));
+
+    expect(screen.getByText('Просрочено')).toBeInTheDocument();
+    expect(screen.getByText('Висит 4 дня · 19.09')).toBeInTheDocument();
+    expect(screen.getByText('Из задания')).toBeInTheDocument();
+  });
+
+  test.each([
+    ['2026-09-18', 'Висит 5 дней · 18.09'],
+    ['2026-09-12', 'Висит 11 дней · 12.09'],
+    ['2026-09-02', 'Висит 21 день · 02.09'],
+    ['2026-09-01', 'Висит 22 дня · 01.09'],
+  ])('since %s the days read in their own Russian form: «%s»', (day, words) => {
+    renderRow(repairOn(day));
+
+    expect(screen.getByText(words)).toBeInTheDocument();
+  });
+});
+
+describe('a cancelled job, when the manager shows the cancelled', () => {
+  test('is muted, says «Отменена», and is never a tail however old its day', () => {
+    const row = renderRow(task({ scheduled_date: '2026-09-15', status: 'cancelled' }));
+
+    expect(row).toHaveAttribute('data-cancelled');
+    expect(row).toHaveClass('text-muted-foreground');
+    expect(within(row).getByText('Отменена')).toBeInTheDocument();
+    expect(row).not.toHaveAttribute('data-tail');
+    expect(screen.queryByText(/Висит|Просрочено/)).not.toBeInTheDocument();
+  });
+
+  test('a live job is not muted', () => {
+    expect(renderRow(task({}))).not.toHaveAttribute('data-cancelled');
   });
 });
 

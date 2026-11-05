@@ -1,37 +1,19 @@
-import { todayIn } from '@/lib/format-date';
-
-import type { LiveRepair, TaskStatus } from './schema';
+import { isOverdue, type DatedJob, type LiveRepair } from './schema';
 
 /**
  * The one rule of a repair left behind (docs/f10-plan.md, §6). The calendar's
  * badge and chip, and stage 8's dashboard counters, count by these functions,
- * so the rule has no second copy.
+ * so the rule has no second copy. Its day rule is the section's own
+ * (`isOverdue`): a repair is overdue when any job of «Уборки» would be.
  */
-
-const LIVE: readonly TaskStatus[] = [
-  'unassigned',
-  'assigned',
-  'accepted',
-  'in_progress',
-  'paused',
-  'blocked',
-];
-
-interface RepairDay {
-  status: TaskStatus;
-  scheduled_date: string;
-  property?: { timezone?: string | null } | null;
-}
 
 /**
- * Live and dated before the listing's own today. The sweep no longer closes a
- * repair (20260923130000), so one left behind stays live and keeps its day.
+ * Live and hanging OVERDUE_AFTER_DAYS days or more past its day, counted in
+ * the listing's own zone. The sweep no longer closes a repair
+ * (20260923130000), so one left behind stays live and keeps its day.
  */
-export function isRepairOverdue(repair: RepairDay, now: Date = new Date()): boolean {
-  return (
-    LIVE.includes(repair.status) &&
-    repair.scheduled_date < todayIn(repair.property?.timezone ?? null, now)
-  );
+export function isRepairOverdue(repair: DatedJob, now: Date = new Date()): boolean {
+  return isOverdue(repair, now);
 }
 
 /** The person on it no longer works here; nobody on it is not that. */

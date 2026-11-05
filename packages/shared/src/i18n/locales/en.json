@@ -1107,7 +1107,8 @@
         "anyType": "Any kind",
         "dateFrom": "From",
         "dateTo": "Until",
-        "reset": "Clear the filters"
+        "reset": "Clear the filters",
+        "showCancelled": "Show cancelled"
       },
       "columns": {
         "window": "Time",
@@ -1121,7 +1122,8 @@
       },
       "overdue": "Overdue",
       "tail": {
-        "yesterday": "since yesterday",
+        "hanging_one": "Pending for {{count}} day",
+        "hanging_other": "Pending for {{count}} days",
         "departure": "check-out {{date}}"
       },
       "noAssignee": "Nobody yet",

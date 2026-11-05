@@ -22,7 +22,11 @@ const PARAM = {
   type: 'type',
   dateFrom: 'from',
   dateTo: 'to',
+  cancelled: 'cancelled',
 } as const;
+
+/** The one value that turns the cancelled on; anything else leaves them out. */
+const SHOWN = '1';
 
 const tabSchema = z.enum(TASK_TABS);
 const typeSchema = z.enum(TASK_TYPES);
@@ -48,6 +52,7 @@ export function readTasksAddress(params: URLSearchParams): TasksAddress {
       type: valid(typeSchema, PARAM.type, EMPTY_FILTERS.type),
       dateFrom: valid(daySchema, PARAM.dateFrom, EMPTY_FILTERS.dateFrom),
       dateTo: valid(daySchema, PARAM.dateTo, EMPTY_FILTERS.dateTo),
+      showCancelled: params.get(PARAM.cancelled) === SHOWN,
     },
   };
 }
@@ -61,6 +66,7 @@ export function writeTasksAddress({ tab, filters }: TasksAddress): string {
     [PARAM.type, filters.type === EMPTY_FILTERS.type ? '' : filters.type],
     [PARAM.dateFrom, filters.dateFrom],
     [PARAM.dateTo, filters.dateTo],
+    [PARAM.cancelled, filters.showCancelled ? SHOWN : ''],
   ];
   return new URLSearchParams(entries.filter(([, value]) => value !== '')).toString();
 }

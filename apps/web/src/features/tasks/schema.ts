@@ -335,9 +335,27 @@ function dayNumber(day: string): number {
   return Date.UTC(year, month - 1, date) / DAY_MS;
 }
 
-/** How many days a live task has been hanging past its own day. */
+/**
+ * How many days a live job may hang undone past its day before it is overdue
+ * (owner, 2026-11-05). Until then a row only counts the days; from this one
+ * on it is «Просрочено» — in «Уборки», on the calendar's repair marks and on
+ * the dashboard's repair tiles alike, which all ask `isOverdue`.
+ */
+export const OVERDUE_AFTER_DAYS = 3;
+
+/** What the day rule reads of a job: its status, its day, its listing's zone. */
+export interface DatedJob {
+  status: TaskStatus;
+  scheduled_date: string;
+  property?: { timezone?: string | null } | null;
+}
+
+/** How long a live task has been hanging past its own day. */
 export interface TaskTail {
+  /** Whole days since its day, in its listing's zone: 1 on the day after. */
   days: number;
+  /** Hanging OVERDUE_AFTER_DAYS days or more. */
+  isOverdue: boolean;
 }
 
 /**
@@ -346,11 +364,13 @@ export interface TaskTail {
  * the manager's to chase — and it stays in the Today tab, marked. The day is
  * counted in the property's zone, as the server's grace rule counts it: a
  * manager elsewhere must not see a tail the server does not.
+ *
+ * The days run from the task's own day. A row keeps no time of assignment;
+ * a repair's day is the one its assignment wrote (assign_problem: the day
+ * picked, or the day it was given), and a cleaning is given out before its
+ * day and closed by the sweep the day after it, so its tail never gets far.
  */
-export function tailOf(
-  task: Pick<Task, 'status' | 'scheduled_date' | 'property'>,
-  now: Date = new Date(),
-): TaskTail | null {
+export function tailOf(task: DatedJob, now: Date = new Date()): TaskTail | null {
   if (isTaskClosed(task)) {
     return null;
   }
@@ -358,7 +378,13 @@ export function tailOf(
   if (task.scheduled_date >= today) {
     return null;
   }
-  return { days: dayNumber(today) - dayNumber(task.scheduled_date) };
+  const days = dayNumber(today) - dayNumber(task.scheduled_date);
+  return { days, isOverdue: days >= OVERDUE_AFTER_DAYS };
+}
+
+/** Live and hanging OVERDUE_AFTER_DAYS days or more past its day. */
+export function isOverdue(job: DatedJob, now: Date = new Date()): boolean {
+  return tailOf(job, now)?.isOverdue ?? false;
 }
 
 /** How long it took, the manager's correction winning over the measurement. */
@@ -384,6 +410,12 @@ export interface TaskFilters {
   /** `YYYY-MM-DD`, both ends inclusive; an empty string is an open end. */
   dateFrom: string;
   dateTo: string;
+  /**
+   * The cancelled are left out unless this is on (owner, 2026-11-05): the
+   * cleaning of a booking that was cancelled is nobody's work, and mixed in
+   * with the rest it filled the closed tab.
+   */
+  showCancelled: boolean;
 }
 
 export const EMPTY_FILTERS: TaskFilters = {
@@ -392,6 +424,7 @@ export const EMPTY_FILTERS: TaskFilters = {
   type: 'all',
   dateFrom: '',
   dateTo: '',
+  showCancelled: false,
 };
 
 /** Is any filter on? What an empty list should say depends on it. */
@@ -401,7 +434,8 @@ export function hasFilters(filters: TaskFilters): boolean {
     filters.assigneeId !== 'all' ||
     filters.type !== 'all' ||
     filters.dateFrom !== '' ||
-    filters.dateTo !== ''
+    filters.dateTo !== '' ||
+    filters.showCancelled
   );
 }
 
@@ -426,6 +460,9 @@ export function matchesQuery(task: Task, query: string): boolean {
 }
 
 export function matchesFilters(task: Task, filters: TaskFilters): boolean {
+  if (!filters.showCancelled && task.status === 'cancelled') {
+    return false;
+  }
   if (filters.type !== 'all' && task.type !== filters.type) {
     return false;
   }

@@ -48,12 +48,13 @@ export const TASK_COLUMNS = [
 ] as const;
 
 /**
- * The words on a task left behind its day: "since yesterday · check-out
- * 22.09" for a one-day tail, "Overdue · check-out 21.09" for an older one;
- * a task that is not from a booking names just the day.
+ * The words on a task left behind its day: how long it has hung undone, and
+ * the check-out it belongs to — "Висит 2 дня · выезд 22.09"; a task that is
+ * not from a booking names just the day. Whether it is overdue as well is a
+ * badge of its own (owner, 2026-11-05).
  */
 function tailLabel(task: Task, tail: TaskTail, language: Language, t: TFunction): string {
-  const lead = tail.days === 1 ? t('panel.tasks.tail.yesterday') : t('panel.tasks.overdue');
+  const lead = t('panel.tasks.tail.hanging', { count: tail.days });
   const day = formatShortDay(task.scheduled_date, language);
   const detail =
     task.reservation_id === null ? day : t('panel.tasks.tail.departure', { date: day });
@@ -134,17 +135,26 @@ export function TaskRow({
     until: (time) => t('panel.tasks.window.until', { time }),
   });
   const closed = isTaskClosed(task);
-  // A live task left behind its day is labelled in words and striped in the
-  // overdue tone, not marked by colour alone.
+  // A live task left behind its day says in words how long it has hung; an
+  // overdue one is also striped in the overdue tone, not marked by colour alone.
   const tail = tailOf(task, now);
+  const isOverdue = tail?.isOverdue ?? false;
+  // Shown only when the manager asked for them, and then muted: their status
+  // says «Отменена» in words.
+  const isCancelled = task.status === 'cancelled';
   const canCancel = !closed && isManualTask(task);
 
   return (
-    <TableRow data-tail={tail === null ? undefined : ''}>
+    <TableRow
+      data-tail={tail === null ? undefined : ''}
+      data-overdue={isOverdue ? '' : undefined}
+      data-cancelled={isCancelled ? '' : undefined}
+      className={isCancelled ? 'bg-muted/40 text-muted-foreground' : undefined}
+    >
       <TableCell
         className={cn(
           'py-1 tabular-nums',
-          tail === null ? null : 'border-l-[3px] border-tone-overdue-mark',
+          isOverdue ? 'border-l-[3px] border-tone-overdue-mark' : null,
         )}
       >
         {timeWindow ?? <Nothing label={t('panel.tasks.groups.anytime')} />}
@@ -239,8 +249,9 @@ interface TaskMarksProps {
 }
 
 /**
- * What stands out about a job: left behind, written about — then, quietly,
- * where it came from. «Новое сообщение» opens the conversation it is about.
+ * What stands out about a job: overdue, how long it has hung, written about —
+ * then, quietly, where it came from. «Новое сообщение» opens the conversation
+ * it is about.
  */
 function TaskMarks({ task, tail, hasUnread, onOpenChat }: TaskMarksProps) {
   const { t } = useTranslation();
@@ -248,8 +259,11 @@ function TaskMarks({ task, tail, hasUnread, onOpenChat }: TaskMarksProps) {
 
   return (
     <div className="flex items-center gap-1.5">
+      {tail?.isOverdue === true ? (
+        <Badge tone={STATUS_TONE['tasks.tail']}>{t('panel.tasks.overdue')}</Badge>
+      ) : null}
       {tail === null ? null : (
-        <Badge tone={STATUS_TONE['tasks.tail']}>{tailLabel(task, tail, language, t)}</Badge>
+        <Badge variant="outline">{tailLabel(task, tail, language, t)}</Badge>
       )}
       {hasUnread ? (
         <UnreadChatButton onOpen={onOpenChat} about={taskSummary(task, language, t)} />

@@ -164,7 +164,7 @@ describe('the page', () => {
 describe('the tiles', () => {
   test('count the day, the week ahead, the sections and the repairs, each leading where it counts', () => {
     state.repairs = read([
-      repair('2026-09-28'),
+      repair('2026-09-26'),
       repair('2026-10-05', { assignee_id: IVA, assignee: { full_name: 'Iva', is_active: false } }),
       repair('2026-09-20', { assignee_id: IVA, assignee: { full_name: 'Iva', is_active: false } }),
     ]);
@@ -294,7 +294,7 @@ describe('the tiles', () => {
 
 describe('the stuck repairs', () => {
   test('are listed oldest first, with the place, the day, who is on it, and the task they fix', () => {
-    const late = repair('2026-09-28');
+    const late = repair('2026-09-26');
     const both = repair('2026-09-20', {
       assignee_id: IVA,
       assignee: { full_name: 'Iva', is_active: false },
@@ -306,7 +306,7 @@ describe('the stuck repairs', () => {
         parent: { name: 'Royal Cerna' },
       },
     });
-    const nobody = repair('2026-09-29', { assignee_id: null, assignee: null });
+    const nobody = repair('2026-09-27', { assignee_id: null, assignee: null });
     state.repairs = read([late, both, nobody, repair('2026-10-02')]);
 
     render(<DashboardView />);
@@ -325,7 +325,7 @@ describe('the stuck repairs', () => {
       `/problems/${both.problem_id}`,
     );
 
-    expect(rows[1]).toHaveTextContent(formatDay('2026-09-28', 'ru'));
+    expect(rows[1]).toHaveTextContent(formatDay('2026-09-26', 'ru'));
     expect(rows[1]).toHaveTextContent('Anna');
     expect(rows[1]).not.toHaveTextContent('Не работает');
 
@@ -336,7 +336,7 @@ describe('the stuck repairs', () => {
   test('each link names the place and the day of its repair', () => {
     state.repairs = read([
       repair('2026-09-20', { assignee: { full_name: 'Iva', is_active: false } }),
-      repair('2026-09-28'),
+      repair('2026-09-26'),
     ]);
 
     render(<DashboardView />);
@@ -346,7 +346,7 @@ describe('the stuck repairs', () => {
       .map((link) => link.textContent);
     expect(names).toEqual([
       `Открыть задание: Anglicka 7, ${formatDay('2026-09-20', 'ru')}`,
-      `Открыть задание: Anglicka 7, ${formatDay('2026-09-28', 'ru')}`,
+      `Открыть задание: Anglicka 7, ${formatDay('2026-09-26', 'ru')}`,
     ]);
   });
 
