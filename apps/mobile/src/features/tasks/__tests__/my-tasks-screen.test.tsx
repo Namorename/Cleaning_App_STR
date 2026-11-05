@@ -278,6 +278,27 @@ describe('a repair given to her', () => {
     expect(screen.getByRole('button', { name: /^Течёт смеситель/ })).toBeTruthy();
   });
 
+  test('a repair she has started is the current work in its block', async () => {
+    mockTasks.splice(0, mockTasks.length, mockTask, {
+      ...mockTask,
+      id: REPAIR_ID,
+      type: 'maintenance',
+      status: 'in_progress',
+      problem: {
+        id: 'd1e2f3a4-1111-4111-8111-d1e2f3a40101',
+        title: 'Течёт смеситель',
+        priority: 'normal',
+      },
+    });
+
+    await render(<MyTasksScreen />);
+
+    expect(screen.getAllByRole('header').map((heading) => heading.props.children)).toContain(
+      'Ремонт',
+    );
+    expect(screen.getByRole('button', { name: /^Сейчас\. Течёт смеситель/ })).toBeTruthy();
+  });
+
   test('a technician’s list is all repairs, and keeps its days', async () => {
     mockRole = 'tech';
     await setWordContext('tech');

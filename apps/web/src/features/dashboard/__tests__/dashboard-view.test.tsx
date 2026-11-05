@@ -113,8 +113,11 @@ const offTask = (day: string, extra: Record<string, unknown> = {}): OffStaffTask
     ...extra,
   });
 
-// The counts read the status and the archive mark alone.
-/** A task, its live repair held by `holder` — or by nobody, or none made yet. */
+/**
+ * A task as the counts read it: its status, its archive mark, and — for
+ * «Ремонт без техника» — its live repair, held by `holder`, by nobody, or none
+ * made yet; the title and place for the filter that list shares.
+ */
 const problem = (status: string, archived_at: string | null = null, holder: string | null = null) =>
   ({
     status,

@@ -33,9 +33,10 @@ export const ANY_ASSIGNEE = 'all';
 export const NO_ASSIGNEE = 'nobody';
 
 /**
- * The filter the address opens the calendar on: `?assignee=nobody`, the
- * dashboard's «Без исполнителя». Nothing else is taken from the address — an
- * id there would be nobody's check — and anything else opens on everybody.
+ * The assignee filter the address opens the calendar on: `?assignee=nobody`,
+ * the dashboard's «Без исполнителя». No other person is taken from the
+ * address — an id there would be nobody's check — and anything else opens on
+ * everybody. The tile's other word, `work`, is `cleaningsOnlyFromAddress`'s.
  */
 export function assigneeFromAddress(value: string | string[] | undefined): AssigneeFilter {
   return value === NO_ASSIGNEE ? NO_ASSIGNEE : ANY_ASSIGNEE;

@@ -1033,6 +1033,21 @@ describe('what never happened, the cancelled, the repairs', () => {
     expect(screen.queryByRole('button', { name: /Не состоялась/ })).toBeNull();
   });
 
+  // A technician's job that never happened is no cleaning (owner, 2026-11-05).
+  test('on the cleanings alone, a technician’s job that never happened has no mark', () => {
+    expiredState.data = [
+      lapsed(),
+      lapsed({ type: 'maintenance', reservation_id: null, scheduled_date: '2026-09-26' }),
+    ];
+    const { unmount } = render(<CalendarView />);
+    expect(screen.getAllByRole('button', { name: /Не состоялась/ })).toHaveLength(2);
+    unmount();
+
+    render(<CalendarView initialCleaningsOnly />);
+
+    expect(screen.getAllByRole('button', { name: /Не состоялась/ })).toHaveLength(1);
+  });
+
   test('a mark opens the drawer on the whole task', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const mark = lapsed();

@@ -20,10 +20,11 @@ interface CalendarPageProps {
  *
  * `?assignee=nobody` opens it on the chips nobody holds: the dashboard's
  * «Без исполнителя» leads here, and it opens on the days that tile counts —
- * today and the six on — so the figure and the chips agree. Read on the
- * server, so a client-side navigation hands the filter over with the page;
- * the key makes a new address a new calendar rather than one that keeps the
- * filter it had.
+ * today and the six on — so the figure and the chips agree. `&work=cleanings`
+ * opens it on the cleanings alone, as that tile counts them (owner,
+ * 2026-11-05). Read on the server, so a client-side navigation hands the
+ * filters over with the page; the key makes a new address a new calendar
+ * rather than one that keeps the filters it had.
  */
 export default async function CalendarPage({ searchParams }: CalendarPageProps) {
   const fixture = process.env.CALENDAR_FIXTURE;
