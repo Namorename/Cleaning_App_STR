@@ -51,6 +51,16 @@ const SIGN_IN_BLOCK = "876000h";
 /** Auth's own word for "lift the block". */
 const NO_BLOCK = "none";
 
+/**
+ * The key in app_metadata that says a block is this function's own, and its value.
+ *
+ * A ban can also be set by hand in the Auth dashboard, and `banned_until` looks
+ * the same either way. Only the marker lets this function lift what it set and
+ * leave alone what it did not.
+ */
+const BLOCK_MARKER = "sign_in_block";
+const BLOCK_MARKER_OURS = "staff";
+
 /** Light shape check only. Auth is the authority on what an address is. */
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -78,9 +88,19 @@ export interface StaffMember {
   readonly isActive: boolean;
 }
 
-/** What Auth holds about a person's sign-in, as it answered the last write. */
+/** What Auth holds about a person, as it answered the account write. */
 export interface AccountState {
-  readonly signInBlocked: boolean;
+  readonly appMetadata: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * The block or the lift, in Auth's own field names: one Admin API call, so a block
+ * is never written without its marker. The role goes with it, so this call leaves
+ * the role as the row has it, whatever else happened to app_metadata.
+ */
+export interface SignInBlockWrite {
+  readonly ban_duration: string;
+  readonly app_metadata: Readonly<Record<string, unknown>>;
 }
 
 /** The part of a person the manager fills in. */
@@ -121,9 +141,9 @@ export interface StaffDeps {
   }) => Promise<CreatedStaff>;
   /** The profile row: what row security reads, and the switch that closes access. */
   readonly updateStaff: (input: { id: string; profile: StaffProfile }) => Promise<void>;
-  /** The role and the name in Auth. Its answer says what Auth holds about the sign-in. */
+  /** The role and the name in Auth. Its answer says whether a block of ours is in place. */
   readonly updateAccount: (input: { id: string; profile: StaffProfile }) => Promise<AccountState>;
-  readonly setSignInBlock: (input: { id: string; blocked: boolean }) => Promise<void>;
+  readonly setSignInBlock: (input: { id: string; attributes: SignInBlockWrite }) => Promise<void>;
   readonly setPassword: (input: {
     id: string;
     email: string;
@@ -159,16 +179,6 @@ function refuse(
   params: Record<string, unknown> | null = null,
 ): never {
   throw new StaffRefusal(status, message, hint, params);
-}
-
-/** What to ask Auth for: a block, or an end to one. */
-export function banDuration(blocked: boolean): string {
-  return blocked ? SIGN_IN_BLOCK : NO_BLOCK;
-}
-
-/** Whether a `banned_until` still holds. Auth keeps a date that has passed, and lets it in. */
-export function isBanned(bannedUntil: string | null | undefined, now: Date): boolean {
-  return typeof bannedUntil === "string" && Date.parse(bannedUntil) > now.getTime();
 }
 
 /** A failed database call, as supabase-js hands it over. */
@@ -433,11 +443,18 @@ async function update(
  *
  * The price is that a repeat cannot look at the row: after a block that failed
  * the row already says "off", and comparing the request with it would find
- * nothing to do, for ever. So the block follows Auth instead, which answers the
- * account write with what it holds: a save where Auth agrees asks nothing more,
- * and a save that finds the two apart puts it right — the same save again, or an
- * edit of somebody switched off before this rule. Blocking twice only moves the
- * date, so a repeat is safe wherever the last one stopped.
+ * nothing to do, for ever. So neither direction asks what changed.
+ *
+ * Somebody who should be blocked is blocked, on every save, whatever Auth holds.
+ * A second long block is harmless, and it leaves nothing to judge: a short ban
+ * set by hand cannot pass for ours and run out with her still off.
+ *
+ * Somebody who should not be blocked is lifted only if the marker says the block
+ * is ours, and the marker goes in the same call. No marker, nothing is sent: a
+ * ban somebody set by hand stays, against a manager saving a name and against the
+ * banned person herself, whose access token still opens this door. `banned_until`
+ * is not read at all. Auth merges app_metadata key by key, so the role written by
+ * the account write leaves the marker in place for its answer to show.
  *
  * A failure is reported, never swallowed: the manager is told what stands and to
  * save again. A plain edit of somebody working has no sign-in at stake, and its
@@ -448,8 +465,6 @@ async function settleAccount(
   target: StaffMember,
   profile: StaffProfile,
 ): Promise<void> {
-  const shouldBlock = !profile.isActive;
-
   let account: AccountState;
   try {
     account = await deps.updateAccount({ id: target.id, profile });
@@ -457,15 +472,28 @@ async function settleAccount(
     throw profile.isActive && target.isActive ? error : signInNotSettled(target.id, profile, error);
   }
 
-  if (account.signInBlocked === shouldBlock) {
+  if (profile.isActive && account.appMetadata[BLOCK_MARKER] !== BLOCK_MARKER_OURS) {
     return;
   }
 
   try {
-    await deps.setSignInBlock({ id: target.id, blocked: shouldBlock });
+    await deps.setSignInBlock({ id: target.id, attributes: signInBlockWrite(profile) });
   } catch (error: unknown) {
     throw signInNotSettled(target.id, profile, error);
   }
+}
+
+/** A null takes the key out of app_metadata; only our value ever counts as a marker. */
+function signInBlockWrite(profile: StaffProfile): SignInBlockWrite {
+  return profile.isActive
+    ? {
+      ban_duration: NO_BLOCK,
+      app_metadata: { role: profile.role, [BLOCK_MARKER]: null },
+    }
+    : {
+      ban_duration: SIGN_IN_BLOCK,
+      app_metadata: { role: profile.role, [BLOCK_MARKER]: BLOCK_MARKER_OURS },
+    };
 }
 
 /**
