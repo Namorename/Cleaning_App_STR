@@ -183,6 +183,13 @@ export function themesInLivePlans(
   return new Map(live.flatMap((plan) => plan.themes.map((theme) => [theme, plan.id] as const)));
 }
 
+const WORK_NOT_DONE: readonly (string | null)[] = ['cancelled', 'expired', 'rejected', 'archived', null];
+
+/** Closed with nothing done: a task archived, an inspection expired, a request rejected. */
+export function isStepDropped(step: Pick<PlanStep, 'kind' | 'state' | 'work_status'>): boolean {
+  return step.state === 'closed' && step.kind !== 'decision' && WORK_NOT_DONE.includes(step.work_status);
+}
+
 /** A plan's themes merged with a theme or two more, each once. */
 export function themesToAdd(
   wanted: readonly string[],

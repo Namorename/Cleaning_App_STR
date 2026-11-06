@@ -994,6 +994,7 @@
         "loadError": "Could not load the plan",
         "notFound": "Plan not found",
         "closedOn": "Done on {{day}}",
+      "droppedNote": "Closed with nothing done: {{n}}",
         "status": {
           "draft": "Draft",
           "launched": "In progress",
@@ -1026,6 +1027,7 @@
           "draft": "Draft",
           "open": "In progress",
           "closed": "Closed",
+        "dropped": "Not done",
           "openWork": "Open",
           "decide": "Decision made",
           "undecide": "Undo"
@@ -1034,7 +1036,8 @@
           "assignee_inactive": "The assignee is disabled",
           "assignee_role": "This kind of step is not for this person",
           "date_missing": "A due date is needed",
-          "task_closed": "The task is already closed"
+          "task_closed": "The task is already closed",
+        "text_too_long": "The text is too long for this kind of step"
         }
       },
     "quality": {
