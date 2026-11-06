@@ -121,7 +121,7 @@ function positiveInteger(value: unknown): number | null {
 }
 
 /** A Hostaway id (a positive integer, or one written as text) as the string the core takes. */
-function idText(value: unknown): string | null {
+export function idText(value: unknown): string | null {
   const n = positiveInteger(value);
   return n === null ? null : String(n);
 }
@@ -132,7 +132,7 @@ function rating(value: unknown): number | null {
     : null;
 }
 
-function channelOf(value: unknown): SignalChannel {
+export function channelOf(value: unknown): SignalChannel {
   const id = positiveInteger(value);
   return (id !== null ? CHANNEL_BY_ID[id] : undefined) ?? "other";
 }
@@ -164,7 +164,7 @@ export function utcDay(at: Date): string {
   return at.toISOString().slice(0, 10);
 }
 
-function names(...values: unknown[]): string[] {
+export function names(...values: unknown[]): string[] {
   return values.map(text).filter((value): value is string => value !== null);
 }
 
