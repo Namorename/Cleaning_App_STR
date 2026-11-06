@@ -774,6 +774,7 @@ export type Database = {
           parallel_start_allowed: boolean
           quality_areas_on: string | null
           quality_city_groups: boolean
+          quality_comments_on: boolean
           updated_at: string
           video_bitrate_kbps: number
           video_max_mb: number
@@ -789,6 +790,7 @@ export type Database = {
           parallel_start_allowed?: boolean
           quality_areas_on?: string | null
           quality_city_groups?: boolean
+          quality_comments_on?: boolean
           updated_at?: string
           video_bitrate_kbps?: number
           video_max_mb?: number
@@ -804,6 +806,7 @@ export type Database = {
           parallel_start_allowed?: boolean
           quality_areas_on?: string | null
           quality_city_groups?: boolean
+          quality_comments_on?: boolean
           updated_at?: string
           video_bitrate_kbps?: number
           video_max_mb?: number
@@ -828,6 +831,7 @@ export type Database = {
           property_id: number
           severity: Database["public"]["Enums"]["problem_priority"]
           signal_id: string | null
+          task_step_id: string | null
           theme: string
           week: string | null
         }
@@ -847,6 +851,7 @@ export type Database = {
           property_id: number
           severity?: Database["public"]["Enums"]["problem_priority"]
           signal_id?: string | null
+          task_step_id?: string | null
           theme: string
           week?: string | null
         }
@@ -866,6 +871,7 @@ export type Database = {
           property_id?: number
           severity?: Database["public"]["Enums"]["problem_priority"]
           signal_id?: string | null
+          task_step_id?: string | null
           theme?: string
           week?: string | null
         }
@@ -910,6 +916,13 @@ export type Database = {
             columns: ["signal_id"]
             isOneToOne: false
             referencedRelation: "guest_signals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_facts_task_step_id_fkey"
+            columns: ["task_step_id"]
+            isOneToOne: false
+            referencedRelation: "task_steps"
             referencedColumns: ["id"]
           },
           {
@@ -5836,6 +5849,7 @@ export type Database = {
           parallel_start_allowed: boolean
           quality_areas_on: string | null
           quality_city_groups: boolean
+          quality_comments_on: boolean
           updated_at: string
           video_bitrate_kbps: number
           video_max_mb: number
