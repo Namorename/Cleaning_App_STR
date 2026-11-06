@@ -34,6 +34,7 @@ function ChannelsTable({ channels }: { channels: readonly QualityChannel[] }) {
   return (
     <section className="flex min-w-0 flex-col gap-2">
       <h3 className="text-sm font-medium">{t('panel.quality.ratings.channels')}</h3>
+      <p className="text-xs text-muted-foreground">{t('panel.quality.ratings.channelsNote')}</p>
       <Table>
         <TableHeader>
           <TableRow>
@@ -54,7 +55,6 @@ function ChannelsTable({ channels }: { channels: readonly QualityChannel[] }) {
           ))}
         </TableBody>
       </Table>
-      <p className="text-xs text-muted-foreground">{t('panel.quality.ratings.channelsNote')}</p>
     </section>
   );
 }

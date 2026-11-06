@@ -19,6 +19,7 @@ import { ReadingBand, ShortWindowBand, StaysBand } from './bands';
 import { PlacesTable } from './places-table';
 import type { QualityOverview } from './schema';
 import { ScopeBlock } from './scope-block';
+import { staysFromOf } from './theme-model';
 import { PortfolioTiles } from './tiles';
 import { useQualityOverview } from './use-quality';
 import { overviewOf, type OverviewView } from './view-model';
@@ -108,7 +109,7 @@ function Overview({ data, address, onChange }: OverviewProps) {
     <>
       <WindowCaption from={data.from} today={data.today} />
       <ReadingBand reading={view.reading} />
-      <StaysBand coverage={view.coverage} loadedFrom={data.history.stays_from} />
+      <StaysBand coverage={view.coverage} loadedFrom={staysFromOf(data)} />
       <ShortWindowBand grain={data.grain} />
       <Filters address={address} cities={view.cities} city={city} onChange={onChange} />
       <PortfolioTiles tiles={view.tiles} ratingNote={ratingNote} />

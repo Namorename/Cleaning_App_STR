@@ -132,6 +132,7 @@ export function MonthChart({ bars }: MonthChartProps) {
           })}
         </svg>
       </div>
+      <p className="text-xs text-muted-foreground">{t('panel.quality.months.note')}</p>
       <ul
         aria-hidden="true"
         className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"

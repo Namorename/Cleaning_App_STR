@@ -1050,8 +1050,15 @@
         "too_little": "Málo dat",
         "tooLittleHint": "méně než {{min}} pobytů aspoň v jednom období",
         "seasonal": "sezónní: zatím není s čím porovnat",
+        "seasonalScope": "sezónní téma: změna může souviset se sezónou",
         "no_base": "Zatím není s čím porovnat",
-        "hidden": "Trend je skrytý do konce označování"
+        "hidden": "Trend je skrytý do konce označování",
+        "reviews_settling": "Recenze ještě přicházejí: na porovnání je brzy",
+        "reviews_seam": "Recenze před {{date}} a po něm se četly jinak: na porovnání je brzy",
+        "basis": {
+          "reviews": "podle stížností",
+          "staff": "podle záznamů personálu"
+        }
       },
       "state": {
         "new": "Nové",
@@ -1116,6 +1123,7 @@
       "months": {
         "title": "Po měsících, posledních 12 měsíců",
         "empty": "Za posledních 12 měsíců žádné zmínky.",
+        "note": "Jsou to počty, ne míry: měsíce mají různý počet pobytů, takže je nelze přímo porovnávat.",
         "month": "Měsíc",
         "layer": {
           "reviews": "Stížnosti",
@@ -1132,7 +1140,7 @@
         "category": "Kategorie",
         "place": "Tento objekt",
         "city": "Ostatní objekty",
-        "channelsNote": "Kanály se mezi sebou neprůměrují: mají různé stupnice.",
+        "channelsNote": "Níže jsou kanály zvlášť, protože mají různé stupnice. Hodnocení v záhlaví karty je napříč všemi kanály.",
         "categoriesNote": "Vedle jsou ostatní objekty téhož města. Kategorie jsou sečtené napříč kanály.",
         "none": "Za toto období žádná hodnocení."
       },

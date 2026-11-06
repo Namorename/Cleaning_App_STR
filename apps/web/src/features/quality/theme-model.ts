@@ -40,12 +40,17 @@ export function readingOf({ enabled, weeks_done, weeks_total }: QualityHistory):
 /** Whether the stays of a window are all there: a rate on a part of them would be too high. */
 export type StaysCoverage = 'whole' | 'partial' | 'none';
 
-/** Short windows count bookings we hold; long ones the months read from the PMS. */
-export function staysLoaded(meta: QualityMeta): StaysCoverage {
-  if (meta.grain === 'week') {
-    return 'whole';
-  }
-  const loadedFrom = meta.history.stays_from;
+/** From this day a window's stays are whole: short windows count bookings, long ones months read. */
+export function staysFromOf(meta: QualityMeta): string | null {
+  return meta.grain === 'week' ? meta.held_from : meta.history.stays_from;
+}
+
+/**
+ * The one rule of both screens. Stays never read are unknown, not zero; once they are
+ * read to the start of the window, a place with none really stood empty.
+ */
+export function coverageOf(meta: QualityMeta): StaysCoverage {
+  const loadedFrom = staysFromOf(meta);
   if (loadedFrom === null) {
     return 'none';
   }
@@ -54,7 +59,6 @@ export function staysLoaded(meta: QualityMeta): StaysCoverage {
 
 export type QualityLayer = 'reviews' | 'found' | 'reported';
 export const QUALITY_LAYERS: readonly QualityLayer[] = ['reviews', 'found', 'reported'];
-const STAFF_LAYERS = ['found', 'reported'] as const;
 
 /** One number per layer: they are never summed into one on a screen (§2.3). */
 export type LayerCounts = Readonly<Record<QualityLayer, number>>;
@@ -70,8 +74,21 @@ export interface LayerRate {
 /** Why a theme shows its count alone. */
 export type RateGap = 'stays_unknown' | 'few_stays' | 'short_window';
 
+/** Who a theme's trend is read from. */
+export type TrendBasis = 'reviews' | 'staff';
+
+/** Why reviews are not compared, though there are two windows of them. */
+type WithheldTrend = 'reviews_settling' | 'reviews_seam';
+
 /** `hidden`: the reading of past reviews is not finished, so a window before is not whole. */
-export type ThemeTrend = TrendLabel | 'hidden';
+export type ThemeTrend = TrendLabel | WithheldTrend | 'hidden';
+
+export type ComparedTrend = Extract<ThemeTrend, 'rising' | 'falling' | 'steady'>;
+
+/** The trends that do hold one window against the other. */
+export function isCompared(trend: ThemeTrend): trend is ComparedTrend {
+  return trend === 'rising' || trend === 'falling' || trend === 'steady';
+}
 
 export interface ThemeLine {
   theme: QualityTheme;
@@ -80,7 +97,10 @@ export interface ThemeLine {
   /** A rate per layer it is read from; empty when `rateGap` says why, or nothing was said. */
   rates: readonly LayerRate[];
   rateGap: RateGap | null;
+  basis: TrendBasis;
   trend: ThemeTrend;
+  /** The day the two readers meet, while `trend` is `reviews_seam`. */
+  seam: string | null;
 }
 
 export interface PlaceThemeLine extends ThemeLine {
@@ -100,10 +120,24 @@ export interface Frame {
   staysBeforeWhole: boolean;
   /** The window before is inside our record of staff episodes (§7.1, point 8). */
   staffBeforeWhole: boolean;
+  /** A short window: its reviews are still arriving, while the window before has settled. */
+  reviewsArriving: boolean;
+  /** The day reviews change readers, when these windows compare across it. */
+  seam: string | null;
+}
+
+/**
+ * Before the texts' line a review is labelled by the reading, after it by the
+ * stream's narrower reader, so a comparison across the line reads low whatever
+ * happened. The owner's decision of 2026-11-06, for every scope: to lift it,
+ * return null here.
+ */
+function readersSeam({ line, prev_from, today }: QualityMeta): string | null {
+  return line !== null && prev_from < line && today >= line ? line : null;
 }
 
 export function frameOf(meta: QualityMeta, coverage: StaysCoverage): Frame {
-  const loadedFrom = meta.history.stays_from;
+  const loadedFrom = staysFromOf(meta);
   return {
     window: meta.window,
     workFrom: meta.work_from,
@@ -111,9 +145,10 @@ export function frameOf(meta: QualityMeta, coverage: StaysCoverage): Frame {
     // way and a reading never started are the same case here.
     showsTrends: readingOf(meta.history).kind === 'done',
     coverage,
-    staysBeforeWhole:
-      meta.grain === 'week' || (loadedFrom !== null && loadedFrom <= meta.prev_from),
+    staysBeforeWhole: loadedFrom !== null && loadedFrom <= meta.prev_from,
     staffBeforeWhole: meta.work_from !== null && meta.work_from <= meta.prev_from,
+    reviewsArriving: meta.grain === 'week',
+    seam: readersSeam(meta),
   };
 }
 
@@ -136,9 +171,15 @@ export function hasEpisodes(row: Episodes): boolean {
   return weightOf(row) > 0;
 }
 
-/** Guests speak for a theme once they have said anything of it; until then, staff do. */
-function isFromReviews(row: Episodes): boolean {
-  return row.reviews > 0 || row.reviews_prev > 0;
+/** Whoever said more of a theme over both windows speaks for it; guests on a tie. */
+function basisOf(row: Episodes): TrendBasis {
+  const fromGuests = row.reviews + row.reviews_prev;
+  const fromStaff = row.found + row.found_prev + row.reported + row.reported_prev;
+  return fromGuests >= fromStaff ? 'reviews' : 'staff';
+}
+
+function isOfBasis(layer: QualityLayer, basis: TrendBasis): boolean {
+  return (layer === 'reviews') === (basis === 'reviews');
 }
 
 function ratesOf(
@@ -156,15 +197,24 @@ function ratesOf(
   if (!showsRate(scope, frame.window, stays)) {
     return { rates: [], rateGap: stays < RATE_MIN_STAYS ? 'few_stays' : 'short_window' };
   }
-  // Each layer on its own: a rate names one layer, so the staff's two get a line each.
-  const layers: readonly QualityLayer[] = isFromReviews(row)
-    ? ['reviews']
-    : STAFF_LAYERS.filter((layer) => row[layer] > 0);
-  const rates = layers.flatMap((layer) => {
+  // Each layer on its own: a rate names one layer, so the staff's two get a line
+  // each. The basis speaks for both windows: when it said nothing in this one,
+  // the layers that did have the rate.
+  const said = QUALITY_LAYERS.filter((layer) => row[layer] > 0);
+  const ofBasis = said.filter((layer) => isOfBasis(layer, basisOf(row)));
+  const rates = (ofBasis.length > 0 ? ofBasis : said).flatMap((layer) => {
     const rate = ratePer100(row[layer], stays);
     return rate === null ? [] : [{ layer, episodes: row[layer], stays, rate }];
   });
   return { rates, rateGap: null };
+}
+
+/** Why reviews may not be compared in these windows; staff are not held to it. */
+function withheldReviews(frame: Frame): WithheldTrend | null {
+  if (frame.reviewsArriving) {
+    return 'reviews_settling';
+  }
+  return frame.seam === null ? null : 'reviews_seam';
 }
 
 function trendIn(
@@ -176,7 +226,11 @@ function trendIn(
   if (!frame.showsTrends) {
     return 'hidden';
   }
-  const fromReviews = isFromReviews(row);
+  const fromReviews = basisOf(row) === 'reviews';
+  const withheld = fromReviews ? withheldReviews(frame) : null;
+  if (withheld !== null) {
+    return withheld;
+  }
   const hasBase = frame.staysBeforeWhole && (fromReviews || frame.staffBeforeWhole);
   return trendOf({
     scope,
@@ -195,12 +249,15 @@ export function lineOf(
   row: Episodes & Pick<QualityThemeRow, 'theme' | 'seasonal'>,
   stays: Stays,
 ): ThemeLine {
+  const trend = trendIn(frame, scope, row, stays);
   return {
     theme: row.theme,
     seasonal: row.seasonal,
     layers: { reviews: row.reviews, found: row.found, reported: row.reported },
     ...ratesOf(frame, scope, row, stays.current),
-    trend: trendIn(frame, scope, row, stays),
+    basis: basisOf(row),
+    trend,
+    seam: trend === 'reviews_seam' ? frame.seam : null,
   };
 }
 

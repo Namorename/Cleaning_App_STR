@@ -5,6 +5,7 @@ import { monthBarsOf, overviewOf, placeCardOf, type OverviewFilters } from '../v
 import {
   cardOf,
   FOURTEEN_DAYS,
+  NOT_READ,
   META,
   overviewOfRows,
   placeOf,
@@ -218,17 +219,17 @@ describe('overviewOf: the rate', () => {
 });
 
 describe('overviewOf: the trend', () => {
-  test('reads the reviews of a theme guests spoke of in either window', () => {
+  test('reads the reviews when guests said more over both windows', () => {
     const view = overviewOf(
       overviewOfRows(
         [placeOf()],
-        [themeOf({ reviews: 20, reviews_prev: 5, found: 0, found_prev: 40 })],
+        [themeOf({ reviews: 20, reviews_prev: 5, found: 1, found_prev: 2 })],
         SIX_MONTHS,
       ),
       ALL,
     );
 
-    expect(view.rows[0].themes[0].trend).toBe('rising');
+    expect(view.rows[0].themes[0]).toMatchObject({ basis: 'reviews', trend: 'rising' });
   });
 
   test('reads the staff when no guest spoke of the theme', () => {
@@ -369,10 +370,164 @@ describe('overviewOf: the trend', () => {
   });
 });
 
+describe('overviewOf: who speaks for a theme', () => {
+  test('staff, when they said more, though a guest once said something', () => {
+    const view = overviewOf(
+      overviewOfRows(
+        [placeOf()],
+        [themeOf({ theme: 'heating', reviews_prev: 1, found: 30, found_prev: 5 })],
+        SIX_MONTHS,
+      ),
+      ALL,
+    );
+
+    expect(view.rows[0].themes[0]).toMatchObject({ basis: 'staff', trend: 'rising' });
+    expect(view.rows[0].themes[0].rates).toEqual([
+      { layer: 'found', episodes: 30, stays: 100, rate: 30 },
+    ]);
+  });
+
+  test('guests, on a tie', () => {
+    const view = overviewOf(
+      overviewOfRows(
+        [placeOf()],
+        [themeOf({ reviews: 2, reviews_prev: 1, found: 2, found_prev: 1 })],
+      ),
+      ALL,
+    );
+
+    expect(view.rows[0].themes[0].basis).toBe('reviews');
+  });
+
+  test('the rate stays per layer whoever speaks', () => {
+    const view = overviewOf(
+      overviewOfRows([placeOf()], [themeOf({ reviews: 1, found: 4, reported: 3 })]),
+      ALL,
+    );
+
+    expect(view.rows[0].themes[0].rates.map((rate) => rate.layer)).toEqual(['found', 'reported']);
+  });
+
+  test('when the basis said nothing in the window, the layers that did keep a rate', () => {
+    const view = overviewOf(
+      overviewOfRows([placeOf()], [themeOf({ reviews: 2, found_prev: 40 })]),
+      ALL,
+    );
+
+    expect(view.rows[0].themes[0].basis).toBe('staff');
+    expect(view.rows[0].themes[0].rates.map((rate) => rate.layer)).toEqual(['reviews']);
+  });
+
+  test('reviews held back are not swapped for the staff’s trend', () => {
+    const view = overviewOf(
+      overviewOfRows(
+        [placeOf()],
+        [themeOf({ reviews: 20, reviews_prev: 10, found: 20, found_prev: 2 })],
+        FOURTEEN_DAYS,
+      ),
+      ALL,
+    );
+
+    expect(view.rows[0].themes[0]).toMatchObject({ basis: 'reviews', trend: 'reviews_settling' });
+  });
+});
+
+describe('overviewOf: reviews in a short window', () => {
+  test('are not compared at any scope: they are still arriving', () => {
+    const view = overviewOf(
+      overviewOfRows(
+        FIVE_FLATS,
+        FIVE_FLATS.map((flat) => themeOf({ property_id: flat.id, reviews: 2, reviews_prev: 30 })),
+        FOURTEEN_DAYS,
+      ),
+      { ...ALL, city: 'Prague' },
+    );
+
+    expect(view.rows[0].themes[0].trend).toBe('reviews_settling');
+    expect(view.group?.themes[0].trend).toBe('reviews_settling');
+    expect(view.portfolio.themes[0].trend).toBe('reviews_settling');
+  });
+
+  test('leave the staff’s trend alone', () => {
+    const view = overviewOf(
+      overviewOfRows([placeOf()], [themeOf({ found: 20, found_prev: 5 })], FOURTEEN_DAYS),
+      ALL,
+    );
+
+    expect(view.rows[0].themes[0]).toMatchObject({ basis: 'staff', trend: 'rising' });
+  });
+
+  test('a long window still compares them', () => {
+    const view = overviewOf(
+      overviewOfRows([placeOf()], [themeOf({ reviews: 20, reviews_prev: 5 })], SIX_MONTHS),
+      ALL,
+    );
+
+    expect(view.rows[0].themes[0].trend).toBe('rising');
+  });
+});
+
+describe('overviewOf: the texts’ line', () => {
+  const rising = themeOf({ reviews: 20, reviews_prev: 5 });
+  const crossing = { ...SIX_MONTHS, line: '2026-11-04' };
+
+  test('holds back a comparison of reviews across it, at every scope, and names the day', () => {
+    const view = overviewOf(
+      overviewOfRows(
+        FIVE_FLATS,
+        FIVE_FLATS.map((flat) => themeOf({ property_id: flat.id, reviews: 20, reviews_prev: 5 })),
+        crossing,
+      ),
+      { ...ALL, city: 'Prague' },
+    );
+
+    for (const line of [view.rows[0].themes[0], view.group?.themes[0], view.portfolio.themes[0]]) {
+      expect(line).toMatchObject({ trend: 'reviews_seam', seam: '2026-11-04' });
+    }
+  });
+
+  test('counts from the day itself', () => {
+    const view = overviewOf(
+      overviewOfRows([placeOf()], [rising], { ...crossing, today: '2026-11-04' }),
+      ALL,
+    );
+
+    expect(view.rows[0].themes[0].trend).toBe('reviews_seam');
+  });
+
+  test('leaves the staff’s trend alone', () => {
+    const view = overviewOf(
+      overviewOfRows([placeOf()], [themeOf({ found: 20, found_prev: 5 })], crossing),
+      ALL,
+    );
+
+    expect(view.rows[0]?.themes[0]).toMatchObject({ trend: 'rising', seam: null });
+  });
+
+  test.each([
+    ['no line at all', null],
+    ['a line older than the window before', '2025-06-01'],
+    ['a line still to come', '2026-12-01'],
+  ])('%s leaves reviews compared', (_case, line) => {
+    const view = overviewOf(overviewOfRows([placeOf()], [rising], { ...SIX_MONTHS, line }), ALL);
+
+    expect(view.rows[0].themes[0]).toMatchObject({ trend: 'rising', seam: null });
+  });
+
+  test('a short window keeps its own reason', () => {
+    const view = overviewOf(
+      overviewOfRows([placeOf()], [rising], { ...FOURTEEN_DAYS, line: '2026-10-10' }),
+      ALL,
+    );
+
+    expect(view.rows[0].themes[0].trend).toBe('reviews_settling');
+  });
+});
+
 describe('overviewOf: stays that are not there', () => {
   test('a long window with no stays anywhere has them unloaded, not zero', () => {
     const view = overviewOf(
-      overviewOfRows([placeOf({ stays: 0, stays_prev: 0 })], [themeOf({ reviews: 3 })]),
+      overviewOfRows([placeOf({ stays: 0, stays_prev: 0 })], [themeOf({ reviews: 3 })], NOT_READ),
       ALL,
     );
 
@@ -391,6 +546,44 @@ describe('overviewOf: stays that are not there', () => {
 
     expect(view.coverage).toBe('whole');
     expect(view.tiles.stays).toBe(0);
+  });
+
+  test('a short window with no bookings held has its stays unknown', () => {
+    const view = overviewOf(
+      overviewOfRows([placeOf()], [themeOf({ found: 3 })], { ...FOURTEEN_DAYS, held_from: null }),
+      ALL,
+    );
+
+    expect(view.coverage).toBe('none');
+    expect(view.tiles.stays).toBeNull();
+    expect(view.rows[0].themes[0].rateGap).toBe('stays_unknown');
+  });
+
+  test('bookings held from inside a short window are a part of it', () => {
+    const view = overviewOf(
+      overviewOfRows([placeOf()], [themeOf({ found: 3 })], {
+        ...FOURTEEN_DAYS,
+        held_from: '2026-10-25',
+      }),
+      ALL,
+    );
+
+    expect(view.coverage).toBe('partial');
+    expect(view.tiles.stays).toBeNull();
+  });
+
+  test('bookings held from inside the window before: the window stands, its trend does not', () => {
+    const view = overviewOf(
+      overviewOfRows([placeOf()], [themeOf({ found: 20, found_prev: 5 })], {
+        ...FOURTEEN_DAYS,
+        held_from: '2026-10-10',
+      }),
+      ALL,
+    );
+
+    expect(view.coverage).toBe('whole');
+    expect(view.tiles.stays).toBe(100);
+    expect(view.rows[0].themes[0].trend).toBe('no_base');
   });
 
   test('stays loaded from inside the window are a part of it: no rate on a part', () => {
@@ -539,9 +732,19 @@ describe('overviewOf: what the window has not got', () => {
     const data = overviewOfRows(
       [placeOf({ stays: 0, stays_prev: 0, rating_n: 0, rating_avg: null })],
       [],
+      FOURTEEN_DAYS,
     );
 
     expect(overviewOf(data, ALL).empty).toBe('no_data');
+  });
+
+  test('stays not read are no proof of nothing at all', () => {
+    const blank = placeOf({ stays: 0, stays_prev: 0, rating_n: 0, rating_avg: null });
+
+    expect(overviewOf(overviewOfRows([blank], [], NOT_READ), ALL).empty).toBe('no_themes');
+    expect(
+      overviewOf(overviewOfRows([blank], [], { ...FOURTEEN_DAYS, held_from: null }), ALL).empty,
+    ).toBe('no_themes');
   });
 
   test('has themes: nothing to explain', () => {
@@ -615,6 +818,7 @@ describe('placeCardOf', () => {
   test('tells no themes on stays from no data at all', () => {
     const quiet = cardOf();
     const blank = cardOf({
+      ...FOURTEEN_DAYS,
       place: placeOf({ stays: 0, stays_prev: 0, rating_n: 0, rating_avg: null }),
     });
 
@@ -622,12 +826,60 @@ describe('placeCardOf', () => {
     expect(placeCardOf(blank).empty).toBe('no_data');
   });
 
-  test('a place with no stays where they are loaded has zero, not an unknown', () => {
+  test('stays not read are no proof of nothing at all', () => {
+    const view = placeCardOf(
+      cardOf({ ...NOT_READ, place: placeOf({ stays: 0, stays_prev: 0, rating_n: 0, rating_avg: null }) }),
+    );
+
+    expect(view.empty).toBe('no_themes');
+  });
+
+  test('a place that really stood empty, once stays are read, shows its zero', () => {
     const view = placeCardOf(cardOf({ place: placeOf({ stays: 0, stays_prev: 0 }) }));
 
     expect(view.coverage).toBe('whole');
     expect(view.stays).toBe(0);
+  });
+
+  test('a year of episodes is something, though the window has no theme', () => {
+    const view = placeCardOf(
+      cardOf({
+        ...FOURTEEN_DAYS,
+        place: placeOf({ stays: 0, stays_prev: 0, rating_n: 0, rating_avg: null }),
+        months: [{ month: '2026-03-01', theme: 'wifi', layer: 'guest_review', n: 1 }],
+      }),
+    );
+
+    expect(view.empty).toBe('no_themes');
+  });
+
+  test('reads a long window’s zero as the overview does: not loaded, never «0»', () => {
+    const place = placeOf({ stays: 0, stays_prev: 0 });
+
+    const card = placeCardOf(cardOf({ ...NOT_READ, place }));
+    const overview = overviewOf(overviewOfRows([place], [], NOT_READ), ALL);
+
+    expect(card.coverage).toBe('none');
+    expect(card.coverage).toBe(overview.coverage);
+    expect(card.stays).toBeNull();
+    expect(card.trust).toBeNull();
+  });
+
+  test('a short window’s zero is a fact on the card too', () => {
+    const view = placeCardOf(
+      cardOf({ ...FOURTEEN_DAYS, place: placeOf({ stays: 0, stays_prev: 0 }) }),
+    );
+
+    expect(view.coverage).toBe('whole');
+    expect(view.stays).toBe(0);
     expect(view.trust).toBe('low');
+  });
+
+  test('a short window with no bookings held is unknown on the card too', () => {
+    const view = placeCardOf(cardOf({ ...FOURTEEN_DAYS, held_from: null }));
+
+    expect(view.coverage).toBe('none');
+    expect(view.stays).toBeNull();
   });
 
   test('no month read at all leaves the stays unknown', () => {
@@ -645,17 +897,52 @@ describe('placeCardOf', () => {
 });
 
 describe('monthBarsOf', () => {
-  test('counts the themes of a month by layer, the months present, oldest first', () => {
-    expect(
-      monthBarsOf([
-        { month: '2026-10-01', theme: 'wifi', layer: 'guest_review', n: 2 },
-        { month: '2026-10-01', theme: 'tv', layer: 'guest_review', n: 1 },
-        { month: '2026-10-01', theme: 'tv', layer: 'staff_report', n: 4 },
-        { month: '2026-03-01', theme: 'wifi', layer: 'found_at_work', n: 3 },
-      ]),
-    ).toEqual([
-      { month: '2026-03-01', reviews: 0, found: 3, reported: 0 },
-      { month: '2026-10-01', reviews: 3, found: 0, reported: 4 },
-    ]);
+  const rows = [
+    { month: '2026-10-01', theme: 'wifi', layer: 'guest_review', n: 2 },
+    { month: '2026-10-01', theme: 'tv', layer: 'guest_review', n: 1 },
+    { month: '2026-10-01', theme: 'tv', layer: 'staff_report', n: 4 },
+    { month: '2026-03-01', theme: 'wifi', layer: 'found_at_work', n: 3 },
+  ] as const;
+
+  test('counts the themes of a month by layer', () => {
+    const bars = monthBarsOf(rows, '2026-11-06');
+
+    expect(bars.find((bar) => bar.month === '2026-10-01')).toEqual({
+      month: '2026-10-01',
+      reviews: 3,
+      found: 0,
+      reported: 4,
+    });
+    expect(bars.find((bar) => bar.month === '2026-03-01')).toEqual({
+      month: '2026-03-01',
+      reviews: 0,
+      found: 3,
+      reported: 0,
+    });
+  });
+
+  test('stands the twelve months ending at today in order, a quiet one at zero', () => {
+    const bars = monthBarsOf(rows, '2026-11-06');
+
+    expect(bars).toHaveLength(12);
+    expect(bars[0].month).toBe('2025-12-01');
+    expect(bars.at(-1)?.month).toBe('2026-11-01');
+    expect(bars.find((bar) => bar.month === '2026-05-01')).toEqual({
+      month: '2026-05-01',
+      reviews: 0,
+      found: 0,
+      reported: 0,
+    });
+  });
+
+  test('goes back across a new year', () => {
+    const bars = monthBarsOf(rows, '2026-01-15');
+
+    expect(bars[0].month).toBe('2025-02-01');
+    expect(bars.at(-1)?.month).toBe('2026-01-01');
+  });
+
+  test('a year with no episode has no bars to draw', () => {
+    expect(monthBarsOf([], '2026-11-06')).toEqual([]);
   });
 });

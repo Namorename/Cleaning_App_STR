@@ -201,6 +201,8 @@ export function themeStateOf(input: ThemeStateInput): ThemeState {
     return 'in_work';
   }
   if (closedOn !== null && lastOn !== null) {
+    // `lastOn` is cut to its week or month, `closedOn` is a day. Most repairs close
+    // in the week of their complaint: read the other way, each would be «Вернулось».
     return closedOn >= lastOn ? 'fixed' : 'returned';
   }
   if (recent > 0 && work180 === 0) {

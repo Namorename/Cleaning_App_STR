@@ -18,12 +18,12 @@ import type {
 } from './schema';
 import {
   byWeight,
+  coverageOf,
   frameOf,
   hasEpisodes,
   lineOf,
   placeLines,
   readingOf,
-  staysLoaded,
   weightOf,
   type Episodes,
   type Frame,
@@ -180,7 +180,7 @@ export interface OverviewTiles {
   returnedThemes: number;
 }
 
-export type OverviewEmpty = 'no_places' | 'no_data' | 'no_themes';
+export type OverviewEmpty = 'no_places' | NothingSaid;
 
 export interface OverviewFilters {
   city: string | null;
@@ -208,24 +208,31 @@ function citiesOf(places: readonly QualityPlace[]): string[] {
   );
 }
 
-/** Zero stays in a long window for everybody means they were not read, not that nobody came. */
-function overviewCoverage(data: QualityOverview): StaysCoverage {
-  const noStays = data.places.every((place) => place.stays === 0);
-  return data.grain === 'month' && noStays ? 'none' : staysLoaded(data);
+export type NothingSaid = 'no_data' | 'no_themes';
+
+/**
+ * Why no theme stands in the window, from the numbers beside it. Coverage comes
+ * first: stays that were not read say nothing of a window, least of all that
+ * nothing happened in it.
+ */
+function nothingSaid(coverage: StaysCoverage, numbers: readonly number[]): NothingSaid {
+  return coverage === 'whole' && numbers.every((number) => number === 0) ? 'no_data' : 'no_themes';
 }
 
-function emptyOf(portfolio: ScopeView, tiles: OverviewTiles, places: number): OverviewEmpty | null {
+function emptyOf(
+  portfolio: ScopeView,
+  coverage: StaysCoverage,
+  tiles: OverviewTiles,
+  places: number,
+): OverviewEmpty | null {
   if (places === 0) {
     return 'no_places';
   }
-  if (portfolio.hasThemes) {
-    return null;
-  }
-  return (tiles.stays ?? 0) > 0 || tiles.rated > 0 ? 'no_themes' : 'no_data';
+  return portfolio.hasThemes ? null : nothingSaid(coverage, [tiles.stays ?? 0, tiles.rated]);
 }
 
 export function overviewOf(data: QualityOverview, filters: OverviewFilters): OverviewView {
-  const coverage = overviewCoverage(data);
+  const coverage = coverageOf(data);
   const frame = frameOf(data, coverage);
   const cities = citiesOf(data.places);
   const city = filters.city !== null && cities.includes(filters.city) ? filters.city : null;
@@ -256,7 +263,7 @@ export function overviewOf(data: QualityOverview, filters: OverviewFilters): Ove
       .filter((row) => city === null || row.place.city === city)
       .filter((row) => !filters.onlyNew || row.newThemes > 0)
       .sort(byNews),
-    empty: emptyOf(portfolio, tiles, data.places.length),
+    empty: emptyOf(portfolio, coverage, tiles, data.places.length),
   };
 }
 
@@ -268,10 +275,26 @@ const LAYER_OF: Readonly<Record<QualityLayer, QualityEpisodeLayer>> = {
   reported: 'staff_report',
 };
 
-/** The months present, oldest first, with the themes of each month counted by layer. */
-export function monthBarsOf(rows: readonly QualityMonthRow[]): MonthBar[] {
-  const months = [...new Set(rows.map((row) => row.month))].sort();
-  return months.map((month) => {
+/** What the server reads of a place's year: the month of `today` and the eleven before. */
+const MONTHS_SHOWN = 12;
+
+function yearEndingAt(today: string): string[] {
+  const [year, month] = today.split('-').map(Number);
+  return Array.from({ length: MONTHS_SHOWN }, (_, at) =>
+    new Date(Date.UTC(year, month - MONTHS_SHOWN + at, 1)).toISOString().slice(0, 10),
+  );
+}
+
+/**
+ * The year ending at `today`, oldest first, the themes of each month counted by
+ * layer: a quiet month stands as a zero, or the bars would close up over it. A
+ * year with no episode at all has no bars: the screen says so instead.
+ */
+export function monthBarsOf(rows: readonly QualityMonthRow[], today: string): MonthBar[] {
+  if (rows.length === 0) {
+    return [];
+  }
+  return yearEndingAt(today).map((month) => {
     const inLayer = (layer: QualityLayer) =>
       total(
         rows
@@ -287,8 +310,6 @@ export function monthBarsOf(rows: readonly QualityMonthRow[]): MonthBar[] {
   });
 }
 
-export type PlaceEmpty = 'no_data' | 'no_themes';
-
 export interface PlaceCardView {
   reading: ReadingState;
   coverage: StaysCoverage;
@@ -300,7 +321,7 @@ export interface PlaceCardView {
   /** A theme's last episode is older than our record of repairs. */
   hasOldEpisodes: boolean;
   months: readonly MonthBar[];
-  empty: PlaceEmpty | null;
+  empty: NothingSaid | null;
 }
 
 function isImportant(line: PlaceThemeLine): boolean {
@@ -312,22 +333,21 @@ function isOlderThanRepairs(line: PlaceThemeLine, workFrom: string | null): bool
 }
 
 export function placeCardOf(card: QualityPlaceCard): PlaceCardView {
-  const coverage = staysLoaded(card);
+  const coverage = coverageOf(card);
   const frame = frameOf(card, coverage);
   const lines = placeLines(frame, card.place, card.themes);
   const important = lines.filter(isImportant).slice(0, TOP_THEMES);
-  const months = monthBarsOf(card.months);
-  const hasNothing = card.place.stays === 0 && card.place.rating_n === 0 && months.length === 0;
+  const { stays, rating_n: rated } = card.place;
 
   return {
     reading: readingOf(card.history),
     coverage,
-    stays: knownStays(frame, card.place.stays),
-    trust: coverage === 'whole' ? trustOf(card.place.stays, card.place.rating_n) : null,
+    stays: knownStays(frame, stays),
+    trust: coverage === 'whole' ? trustOf(stays, rated) : null,
     important,
     others: lines.filter((line) => !important.includes(line)),
     hasOldEpisodes: lines.some((line) => isOlderThanRepairs(line, card.work_from)),
-    months,
-    empty: lines.length > 0 ? null : hasNothing ? 'no_data' : 'no_themes',
+    months: monthBarsOf(card.months, card.today),
+    empty: lines.length > 0 ? null : nothingSaid(coverage, [stays, rated, card.months.length]),
   };
 }

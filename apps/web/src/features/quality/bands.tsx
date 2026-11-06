@@ -37,7 +37,7 @@ export function ReadingBand({ reading }: { reading: ReadingState }) {
 
 interface StaysBandProps {
   coverage: StaysCoverage;
-  /** The first month read; null when none was. */
+  /** The first day the window's stays are whole from; null when they are not held at all. */
   loadedFrom: string | null;
 }
 

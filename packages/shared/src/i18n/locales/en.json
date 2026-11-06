@@ -1038,8 +1038,15 @@
         "too_little": "Too little data",
         "tooLittleHint": "under {{min}} stays in at least one period",
         "seasonal": "seasonal: nothing to compare with yet",
+        "seasonalScope": "seasonal theme: the change may be the season",
         "no_base": "Nothing to compare with yet",
-        "hidden": "Trend hidden until labelling is done"
+        "hidden": "Trend hidden until labelling is done",
+        "reviews_settling": "Reviews are still arriving: too early to compare",
+        "reviews_seam": "Reviews before and after {{date}} were read differently: too early to compare",
+        "basis": {
+          "reviews": "by complaints",
+          "staff": "by staff records"
+        }
       },
       "state": {
         "new": "New",
@@ -1102,6 +1109,7 @@
       "months": {
         "title": "By month, last 12 months",
         "empty": "Nothing said in the last 12 months.",
+        "note": "These are counts, not rates: months have different stays, so they do not compare directly.",
         "month": "Month",
         "layer": {
           "reviews": "Complaints",
@@ -1118,7 +1126,7 @@
         "category": "Category",
         "place": "This property",
         "city": "Other properties",
-        "channelsNote": "Channels are not averaged together: their scales differ.",
+        "channelsNote": "Channels are shown apart below because their scales differ. The rating in the card’s header is across all channels.",
         "categoriesNote": "Beside it, the other properties of the same city. Categories are collected across all channels.",
         "none": "No ratings in this period."
       },

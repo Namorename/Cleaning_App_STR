@@ -7,6 +7,7 @@ import { i18n } from '@/lib/i18n';
 import { overviewSchema, type QualityOverview } from '../schema';
 import {
   FOURTEEN_DAYS,
+  NOT_READ,
   META,
   overviewOfRows,
   placeOf,
@@ -144,7 +145,7 @@ describe('QualityView: the portfolio', () => {
     expect(document.body.textContent).not.toContain('teleport');
   });
 
-  test('a seasonal theme keeps its words beside the portfolio’s trend', () => {
+  test('a seasonal theme beside a trend that does compare says the season may be it', () => {
     answering(
       overviewOfRows(
         [placeOf()],
@@ -156,7 +157,80 @@ describe('QualityView: the portfolio', () => {
 
     const block = screen.getByRole('region', { name: 'Главные темы портфеля' });
     expect(within(block).getByText('Растёт')).toBeInTheDocument();
-    expect(within(block).getByText('сезонная: сравнить пока не с чем')).toBeInTheDocument();
+    expect(
+      within(block).getByText('сезонная тема: перемена может быть от сезона'),
+    ).toBeInTheDocument();
+    expect(within(block).queryByText('сезонная: сравнить пока не с чем')).not.toBeInTheDocument();
+  });
+
+  test('a seasonal theme with nothing compared has no word about a change', () => {
+    answering(
+      overviewOfRows(
+        [placeOf({ stays_prev: 0 })],
+        [themeOf({ theme: 'heating', seasonal: true, reviews: 20 })],
+        SIX_MONTHS,
+      ),
+    );
+    render(<QualityView />);
+
+    const block = screen.getByRole('region', { name: 'Главные темы портфеля' });
+    expect(within(block).getByText('Сравнить пока не с чем')).toBeInTheDocument();
+    expect(within(block).queryByText(/перемена может быть/)).not.toBeInTheDocument();
+  });
+
+  test('a short window does not compare reviews, and says why', () => {
+    answering(
+      overviewOfRows(
+        [placeOf({ stays: 60, stays_prev: 60 })],
+        [themeOf({ reviews: 2, reviews_prev: 30 })],
+        FOURTEEN_DAYS,
+      ),
+    );
+    render(<QualityView />);
+
+    const block = screen.getByRole('region', { name: 'Главные темы портфеля' });
+    expect(within(block).getByText('Отзывы ещё приходят: сравнивать рано')).toBeInTheDocument();
+    expect(screen.queryByText('Снижается')).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toContain('↓');
+  });
+
+  test('a short window still shows the staff’s trend, and names whose it is', () => {
+    answering(
+      overviewOfRows(
+        [placeOf({ stays: 60, stays_prev: 60 })],
+        [themeOf({ found: 20, found_prev: 5 })],
+        FOURTEEN_DAYS,
+      ),
+    );
+    render(<QualityView />);
+
+    const block = screen.getByRole('region', { name: 'Главные темы портфеля' });
+    expect(within(block).getByText('Растёт')).toBeInTheDocument();
+    expect(within(block).getByText('по заданиям')).toHaveClass('sr-only');
+  });
+
+  test('a trend from reviews names its basis for a screen reader', () => {
+    answering(overviewOfRows([placeOf()], [themeOf({ reviews: 20, reviews_prev: 5 })], SIX_MONTHS));
+    render(<QualityView />);
+
+    const block = screen.getByRole('region', { name: 'Главные темы портфеля' });
+    expect(within(block).getByText('по жалобам')).toHaveClass('sr-only');
+  });
+
+  test('a comparison across the texts’ line is held back, with the day', () => {
+    answering(
+      overviewOfRows([placeOf()], [themeOf({ reviews: 20, reviews_prev: 5 })], {
+        ...SIX_MONTHS,
+        line: '2026-11-04',
+      }),
+    );
+    render(<QualityView />);
+
+    const block = screen.getByRole('region', { name: 'Главные темы портфеля' });
+    expect(
+      within(block).getByText('Отзывы до и после 04.11 читали по-разному: сравнивать рано'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Растёт')).not.toBeInTheDocument();
   });
 
   test('says a short window’s ratings are of three months', () => {
@@ -218,8 +292,49 @@ describe('QualityView: the table', () => {
     const row = screen.getByRole('row', { name: /Old Town flat/ });
     expect(within(row).getAllByRole('listitem')).toHaveLength(3);
     expect(within(row).getByText('Wi-Fi').textContent).toContain('↑');
-    expect(within(row).getByText('Растёт')).toHaveClass('sr-only');
+    expect(within(row).getByText('Растёт по жалобам')).toHaveClass('sr-only');
     expect(within(row).queryByText('Парковка')).not.toBeInTheDocument();
+  });
+
+  test('writes out the states that ask for an answer: colour is not the only sign', () => {
+    answering(
+      overviewOfRows(
+        [placeOf()],
+        [
+          themeOf({ theme: 'wifi', reviews: 2, recent: 2 }),
+          themeOf({
+            theme: 'tv',
+            reviews: 1,
+            recent: 1,
+            last_on: '2026-10-19',
+            closed_on: '2026-10-01',
+          }),
+          themeOf({ theme: 'kettle', reviews: 1, open_work: 1 }),
+        ],
+      ),
+    );
+    render(<QualityView />);
+
+    const row = screen.getByRole('row', { name: /Old Town flat/ });
+    for (const state of ['· Новое', '· Вернулось', '· В работе']) {
+      expect(within(row).getByText(state)).not.toHaveClass('sr-only');
+    }
+  });
+
+  test('keeps a quiet state for the reader alone, every word apart', () => {
+    answering(
+      overviewOfRows(
+        [placeOf()],
+        [themeOf({ reviews: 20, reviews_prev: 5, recent: 1, work_180: 1 })],
+        SIX_MONTHS,
+      ),
+    );
+    render(<QualityView />);
+
+    const row = screen.getByRole('row', { name: /Old Town flat/ });
+    const chip = within(row).getByText('Wi-Fi');
+    expect(within(chip).getByText('Тихо')).toHaveClass('sr-only');
+    expect(chip.textContent).toBe('Wi-Fi Тихо↑ Растёт по жалобам');
   });
 
   test('«только новое» leaves the places with a new theme, and says when there are none', () => {
@@ -342,7 +457,7 @@ describe('QualityView: the reading of past reviews', () => {
 
 describe('QualityView: stays that are not loaded', () => {
   test('are said, and no zero stands in for them', () => {
-    answering(overviewOfRows([placeOf({ stays: 0, stays_prev: 0 })], [themeOf({ reviews: 3 })]));
+    answering(overviewOfRows([placeOf({ stays: 0, stays_prev: 0 })], [themeOf({ reviews: 3 })], NOT_READ));
     render(<QualityView />);
 
     expect(screen.getByRole('status')).toHaveTextContent('Заезды за этот период ещё не загружены');
@@ -375,6 +490,30 @@ describe('QualityView: stays that are not loaded', () => {
     expect(screen.getByRole('status')).toHaveTextContent('В коротких окнах');
     expect(screen.getByText('Тем за этот период нет. Заездов: 0.')).toBeInTheDocument();
   });
+
+  test('a short window with no bookings held says so, and shows no zero', () => {
+    answering(
+      overviewOfRows([placeOf()], [themeOf({ found: 3 })], { ...FOURTEEN_DAYS, held_from: null }),
+    );
+    render(<QualityView />);
+
+    expect(screen.getByText(/Заезды за этот период ещё не загружены/)).toBeInTheDocument();
+    const tiles = screen.getByRole('region', { name: 'Портфель за период' });
+    const staysTile = within(tiles).getByText('Заезды').parentElement as HTMLElement;
+    expect(within(staysTile).getByText('—')).toBeInTheDocument();
+  });
+
+  test('bookings held from inside a short window name that day', () => {
+    answering(
+      overviewOfRows([placeOf()], [themeOf({ found: 3 })], {
+        ...FOURTEEN_DAYS,
+        held_from: '2026-10-25',
+      }),
+    );
+    render(<QualityView />);
+
+    expect(screen.getByText(/Заезды загружены только с 25 окт\. 2026/)).toBeInTheDocument();
+  });
 });
 
 describe('QualityView: a short window', () => {
@@ -404,12 +543,34 @@ describe('QualityView: nothing to show', () => {
   });
 
   test('no themes on stays not loaded does not count them', () => {
-    answering(overviewOfRows([placeOf({ stays: 0, stays_prev: 0 })], []));
+    answering(overviewOfRows([placeOf({ stays: 0, stays_prev: 0 })], [], NOT_READ));
     render(<QualityView />);
 
     expect(
       screen.getByText('Тем за этот период нет. Заезды ещё не загружены.'),
     ).toBeInTheDocument();
+  });
+
+  test('stays not loaded are not «nothing at all»', () => {
+    answering(
+      overviewOfRows([placeOf({ stays: 0, stays_prev: 0, rating_n: 0, rating_avg: null })], [], NOT_READ),
+    );
+    render(<QualityView />);
+
+    expect(screen.getByText('Тем за этот период нет. Заезды ещё не загружены.')).toBeVisible();
+    expect(screen.queryByText(/ни заездов, ни оценок/)).not.toBeInTheDocument();
+  });
+
+  test('a wrong shape leads with the screen’s words and dumps nothing', () => {
+    state.read = {
+      isError: true,
+      error: new Error('The answer has an unexpected shape'),
+    };
+    render(<QualityView />);
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('Не удалось загрузить качество объектов');
+    expect(within(alert).getByText('The answer has an unexpected shape')).toHaveClass('text-xs');
   });
 
   test('no data at all', () => {

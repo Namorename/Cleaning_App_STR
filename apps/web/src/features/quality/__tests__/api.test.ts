@@ -53,6 +53,27 @@ describe('fetchQualityOverview', () => {
     await expect(fetchQualityOverview(client, '12m')).rejects.toThrow();
   });
 
+  it('says a wrong shape in plain words, not as a dump of every path', async () => {
+    const data = { ...OVERVIEW, places: [{ ...placeOf(), stays: 'many' }] };
+    const { client } = clientAnswering(data);
+
+    const failure: unknown = await fetchQualityOverview(client, '12m').catch(
+      (error: unknown) => error,
+    );
+
+    expect(failure).toBeInstanceOf(Error);
+    expect((failure as Error).message).toBe('The answer has an unexpected shape');
+  });
+
+  it('takes an answer with neither bookings held nor a line', async () => {
+    const data = { ...OVERVIEW, held_from: null, line: null };
+    const { client } = clientAnswering(data);
+
+    const read = await fetchQualityOverview(client, '12m');
+
+    expect(read).toMatchObject({ held_from: null, line: null });
+  });
+
   it('hands a refusal over as it came', async () => {
     const refusal = {
       message: 'A quality window is one of',
@@ -77,6 +98,14 @@ describe('fetchQualityPlace', () => {
     const { client } = clientAnswering(null);
 
     await expect(fetchQualityPlace(client, 7, '12m')).resolves.toBeNull();
+  });
+
+  it('says a wrong shape in plain words here too', async () => {
+    const { client } = clientAnswering({ ...cardOf(), place: { name: 'Old Town flat' } });
+
+    await expect(fetchQualityPlace(client, 7, '12m')).rejects.toThrow(
+      /^The answer has an unexpected shape$/,
+    );
   });
 
   it('drops what this build cannot name, in every list', async () => {

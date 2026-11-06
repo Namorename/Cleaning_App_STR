@@ -30,7 +30,7 @@
 ```bash
 HEAD_WANT=20261104200000
 LIST_WANT="20261106120000_property_quality.sql"
-SHA_WANT=@@SHA@@
+SHA_WANT=4bf7c467090edd07a078ac165b6d814d7fdd5de1d07f22a52beb596b637efe9d
 [ "$(sha256sum supabase/migrations/20261106120000_property_quality.sql | cut -d' ' -f1)" = "$SHA_WANT" ] &&
 [ "$(node scripts/cloud-read.mjs docs/rollout/remote_head.sql |
      node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(String(JSON.parse(s)[0].head))}catch{}})")" = "$HEAD_WANT" ] &&

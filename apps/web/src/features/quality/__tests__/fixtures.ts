@@ -27,7 +27,15 @@ export const META: QualityMeta = {
   prev_to: '2025-11-30',
   rating_from: '2025-12-01',
   work_from: '2024-01-01',
+  held_from: '2026-01-01',
+  line: null,
   history: READ_HISTORY,
+};
+
+/** Twelve months with no month of stays read yet: zero means unknown here. */
+export const NOT_READ: QualityMeta = {
+  ...META,
+  history: { ...READ_HISTORY, stay_months: 0, stays_from: null },
 };
 
 /** Six months: the window before is inside what is loaded. */

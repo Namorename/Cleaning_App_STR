@@ -17,8 +17,8 @@ import { MonthChart } from './month-chart';
 import { RatingsBlock } from './ratings-block';
 import type { QualityPlaceCard } from './schema';
 import { PlaceThemeItem } from './theme-line';
+import { staysFromOf, type PlaceThemeLine } from './theme-model';
 import { useQualityPlace } from './use-quality';
-import type { PlaceThemeLine } from './theme-model';
 import { placeCardOf, type PlaceCardView } from './view-model';
 import { WindowBar, WindowCaption } from './window-bar';
 
@@ -146,7 +146,7 @@ function PlaceCard({ card }: { card: QualityPlaceCard }) {
       <WindowCaption from={card.from} today={card.today} />
       {ratingNote === null ? null : <p className="text-sm text-muted-foreground">{ratingNote}</p>}
       <ReadingBand reading={view.reading} />
-      <StaysBand coverage={view.coverage} loadedFrom={card.history.stays_from} />
+      <StaysBand coverage={view.coverage} loadedFrom={staysFromOf(card)} />
       <ShortWindowBand grain={card.grain} />
       {view.empty === null ? (
         <>

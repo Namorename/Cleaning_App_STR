@@ -10,7 +10,7 @@ import { useLanguage } from '@/lib/use-language';
 
 import { StateChip, TrendMark } from './chips';
 import { formatRate } from './format';
-import { QUALITY_LAYERS, type PlaceThemeLine, type ThemeLine } from './theme-model';
+import { isCompared, QUALITY_LAYERS, type PlaceThemeLine, type ThemeLine } from './theme-model';
 
 /** «3 жалобы · 2 находки · 1 заведено»: each layer on its own, never one sum (§2.3). */
 function LayersText({ layers }: Pick<ThemeLine, 'layers'>) {
@@ -57,18 +57,20 @@ interface ThemeFrameProps {
 
 function ThemeFrame({ line, lead, children }: ThemeFrameProps) {
   const { t } = useTranslation();
-  // A group's and the portfolio's trend reads the window before, with the same
-  // words a place shows instead of one (§3.3).
-  const isSeasonalAside = line.seasonal && line.trend !== 'seasonal' && line.trend !== 'hidden';
+  // Only a group and the portfolio compare a seasonal theme (§3.3): a place says
+  // it cannot, and there the trend's own words are the caption.
+  const isSeasonalAside = line.seasonal && isCompared(line.trend);
 
   return (
     <li className="flex min-w-0 flex-col gap-1 rounded-lg border p-3 text-sm">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         {lead}
         <h3 className="font-medium break-words">{t(`panel.quality.themes.${line.theme}`)}</h3>
-        <TrendMark trend={line.trend} />
+        <TrendMark line={line} />
         {isSeasonalAside ? (
-          <span className="text-xs text-muted-foreground">{t('panel.quality.trend.seasonal')}</span>
+          <span className="text-xs text-muted-foreground">
+            {t('panel.quality.trend.seasonalScope')}
+          </span>
         ) : null}
       </div>
       <LayersText layers={line.layers} />

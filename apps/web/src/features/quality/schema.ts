@@ -37,6 +37,10 @@ const metaSchema = z.object({
   rating_from: day,
   /** The first day repairs are on record for the company. */
   work_from: day.nullable(),
+  /** From this day the bookings we hold are whole: what a short window's stays rest on. */
+  held_from: day.nullable(),
+  /** The texts' line: the reading labels reviews before it, the stream after it. */
+  line: day.nullable(),
   history: historySchema,
 });
 export type QualityMeta = z.infer<typeof metaSchema>;

@@ -3,7 +3,15 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import type { QualityPlaceCard } from '../schema';
-import { cardOf, FOURTEEN_DAYS, placeOf, READ_HISTORY, SIX_MONTHS, themeOf } from './fixtures';
+import {
+  cardOf,
+  FOURTEEN_DAYS,
+  NOT_READ,
+  placeOf,
+  READ_HISTORY,
+  SIX_MONTHS,
+  themeOf,
+} from './fixtures';
 
 const state: {
   read: { data?: QualityPlaceCard | null; isError: boolean; error: unknown };
@@ -182,6 +190,53 @@ describe('QualityPlaceView: a theme', () => {
     expect(within(important()).getByText('сезонная: сравнить пока не с чем')).toBeInTheDocument();
   });
 
+  test('reviews of a short window are not compared, and the card says why', () => {
+    answering(
+      cardOf({
+        ...FOURTEEN_DAYS,
+        place: placeOf({ stays: 60, stays_prev: 60 }),
+        themes: [themeOf({ reviews: 2, reviews_prev: 30, recent: 2 })],
+      }),
+    );
+    openCard();
+
+    expect(screen.getByText('Отзывы ещё приходят: сравнивать рано')).toBeInTheDocument();
+    expect(screen.queryByText('Снижается')).not.toBeInTheDocument();
+  });
+
+  test('a comparison across the texts’ line is held back on the card too', () => {
+    answering(
+      cardOf({
+        ...SIX_MONTHS,
+        line: '2026-11-04',
+        themes: [themeOf({ reviews: 20, reviews_prev: 5, recent: 2 })],
+      }),
+    );
+    openCard();
+
+    expect(
+      screen.getByText('Отзывы до и после 04.11 читали по-разному: сравнивать рано'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Растёт')).not.toBeInTheDocument();
+  });
+
+  test('staff who said more speak for a theme, beside their own number', () => {
+    answering(
+      cardOf({
+        ...SIX_MONTHS,
+        themes: [
+          themeOf({ theme: 'heating', reviews_prev: 1, found: 30, found_prev: 5, recent: 30 }),
+        ],
+      }),
+    );
+    openCard();
+
+    expect(screen.getByText('30 находок')).toBeInTheDocument();
+    expect(screen.getByText('Растёт')).toBeInTheDocument();
+    expect(screen.getByText('по заданиям')).toHaveClass('sr-only');
+    expect(screen.queryByText('Без явных перемен')).not.toBeInTheDocument();
+  });
+
   test('twelve months have no window before yet, and the card says so', () => {
     answering(
       cardOf({
@@ -284,7 +339,38 @@ describe('QualityPlaceView: the months', () => {
         .map((cell) => cell.textContent),
     ).toEqual(['4', '0', '0']);
     expect(document.querySelector('figure svg')).toHaveAttribute('aria-hidden', 'true');
-    expect(document.querySelectorAll('figure svg title')).toHaveLength(2);
+  });
+
+  test('draws the whole year, a quiet month too, in the figure and in the words', () => {
+    answering(
+      cardOf({ months: [{ month: '2026-09-01', theme: 'wifi', layer: 'guest_review', n: 3 }] }),
+    );
+    openCard();
+
+    const table = screen.getByRole('table', { name: 'По месяцам, последние 12 месяцев' });
+    const months = within(within(table).getAllByRole('rowgroup')[1]).getAllByRole('row');
+    expect(months).toHaveLength(12);
+    expect(months[0]).toHaveTextContent('декабрь 2025');
+    expect(months[11]).toHaveTextContent('ноябрь 2026');
+    expect(
+      within(months[8])
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent),
+    ).toEqual(['0', '0', '0']);
+    expect(document.querySelectorAll('figure svg title')).toHaveLength(12);
+  });
+
+  test('says these are counts, and that months do not compare directly', () => {
+    answering(
+      cardOf({ months: [{ month: '2026-09-01', theme: 'wifi', layer: 'guest_review', n: 3 }] }),
+    );
+    openCard();
+
+    expect(
+      screen.getByText(
+        'Это счётчики, а не ставки: заездов в месяцах разное число, напрямую месяцы не сравниваются.',
+      ),
+    ).toBeVisible();
   });
 
   test('says so when the year is silent', () => {
@@ -317,8 +403,19 @@ describe('QualityPlaceView: the ratings', () => {
       '8,1/10 (5)',
     );
     expect(
-      within(block()).getByText('Каналы не усредняются между собой: шкалы у них разные.'),
+      within(block()).getByText(
+        'Ниже каналы показаны отдельно: шкалы у них разные. Оценка в шапке карточки считается по всем каналам вместе.',
+      ),
     ).toBeVisible();
+  });
+
+  test('the note about channels stands above them, as it says', () => {
+    answering(rated);
+    openCard();
+
+    const note = within(block()).getByText(/^Ниже каналы показаны отдельно/);
+    const table = within(block()).getByRole('row', { name: /Airbnb/ });
+    expect(note.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   test('sets a category beside the city, with n on both sides', () => {
@@ -383,6 +480,18 @@ describe('QualityPlaceView: nothing to show', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Заезды за этот период ещё не загружены');
     expect(screen.getByText('Тем за этот период нет. Заезды ещё не загружены.')).toBeVisible();
     expect(screen.getByText('Заезды:').nextSibling).toHaveTextContent('—');
+  });
+
+  test('a long window’s zero stays read as not loaded, never as «Заезды: 0»', () => {
+    answering(
+      cardOf({ ...NOT_READ, place: placeOf({ stays: 0, stays_prev: 0, rating_n: 0, rating_avg: null }) }),
+    );
+    openCard();
+
+    expect(screen.getByText('Заезды:').nextSibling).toHaveTextContent('—');
+    expect(screen.getByRole('status')).toHaveTextContent('Заезды за этот период ещё не загружены');
+    expect(screen.getByText('Тем за этот период нет. Заезды ещё не загружены.')).toBeVisible();
+    expect(screen.queryByText(/за этот период данных нет/)).not.toBeInTheDocument();
   });
 
   test('no data at all', () => {
