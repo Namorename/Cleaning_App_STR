@@ -107,6 +107,8 @@ vi.mock('../use-problems', () => ({
 
 // The conversation has its own tests; here it only has to open, say what it
 // is about and close.
+vi.mock('../problem-theme', () => ({ ProblemThemeBlock: () => null }));
+
 vi.mock('@/features/chat/chat-sheet', () => ({
   ChatSheet: (props: { subject: Record<string, string>; about: string; onClose: () => void }) => (
     <div role="dialog" aria-label="Чат">

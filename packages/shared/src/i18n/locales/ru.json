@@ -705,6 +705,18 @@
       "noAssignee": "Не назначен",
       "unknownPerson": "Неизвестно",
       "detail": {
+        "theme": {
+          "title": "Тема",
+          "none": "Без темы",
+          "source": {
+            "dict": "Определена по словарю",
+            "signal": "Из отзыва гостя",
+            "manual": "Задана вручную"
+          },
+          "reset": "Вернуть автоматическую",
+          "hint": "В «Качестве объектов» изменится к утру",
+          "loadError": "Не удалось загрузить тему"
+        },
         "back": "К списку заданий",
         "description": "Описание",
         "noDescription": "Без описания",
@@ -2647,6 +2659,7 @@
     "requiredStepsLeft": "Обязательных шагов осталось: {{count}}",
     "startTooEarly": "Уборку нельзя начать раньше {{time}} ({{date}})",
     "startTooEarly_tech": "Работу нельзя начать раньше {{time}} ({{date}})",
+    "problemThemeUnknown": "Такой темы нет",
     "problemNotFound": "Задание не найдено",
     "forbidden": "Это действие вам недоступно.",
     "localizedTextInvalid": "Переводы заданы неверно.",

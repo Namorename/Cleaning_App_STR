@@ -30,6 +30,7 @@ import { FixTaskSteps } from './fix-task-steps';
 import { formatClock } from './format';
 import { ProblemActions } from './problem-actions';
 import { ProblemPhotos } from './problem-photos';
+import { ProblemThemeBlock } from './problem-theme';
 import { RepairTail } from './repair-tail';
 import {
   isProblemArchived,
@@ -202,6 +203,7 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
           </CardHeader>
           <CardContent className="flex flex-col gap-3 text-sm">
             <ReportMeta problem={problem} />
+            <ProblemThemeBlock problemId={problem.id} />
             <section className="flex flex-col gap-1">
               <h2 className="font-medium">{t('panel.problems.detail.description')}</h2>
               <p className="whitespace-pre-wrap text-muted-foreground">

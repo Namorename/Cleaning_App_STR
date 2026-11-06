@@ -705,6 +705,18 @@
       "noAssignee": "Nepřiřazeno",
       "unknownPerson": "Neznámý",
       "detail": {
+        "theme": {
+          "title": "Téma",
+          "none": "Bez tématu",
+          "source": {
+            "dict": "Určeno slovníkem",
+            "signal": "Z recenze hosta",
+            "manual": "Nastaveno ručně"
+          },
+          "reset": "Zpět na automatické",
+          "hint": "V Kvalitě objektů se změní do rána",
+          "loadError": "Téma se nepodařilo načíst"
+        },
         "back": "Zpět na úkoly",
         "description": "Popis",
         "noDescription": "Bez popisu",
@@ -2647,6 +2659,7 @@
     "requiredStepsLeft": "Zbývá povinných kroků: {{count}}",
     "startTooEarly": "Úklid nelze začít dříve než v {{time}} ({{date}})",
     "startTooEarly_tech": "Práci nelze začít dříve než v {{time}} ({{date}})",
+    "problemThemeUnknown": "Takové téma neexistuje",
     "problemNotFound": "Úkol nenalezen",
     "forbidden": "Na tuto akci nemáte oprávnění.",
     "localizedTextInvalid": "Překlady nejsou platné.",
