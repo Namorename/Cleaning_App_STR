@@ -159,13 +159,48 @@ Deno.test("agreement counts themes in common, one side only, and whole sets", ()
   assertAlmostEquals(result.weighted.sameSet, 0.375);
 });
 
-Deno.test("a frequent theme below 85 % fails the agreement, a rare one cannot", () => {
-  const row = (n: number, working: ProbeRow["themes"], reference: ProbeRow["themes"]) =>
-    ({ n, band: "low" as const, language: "en", working, reference });
-  const rows = Array.from({ length: 10 }, (_, n) => row(n, ["wifi"], ["wifi"]));
-  assertEquals(agreementOf([...rows, row(90, ["smell"], [])], { low: 1, mid: 0, high: 0 }).passes, true);
-  const worse = [...rows, row(91, ["wifi"], []), row(92, ["wifi"], [])];
-  assertEquals(agreementOf(worse, { low: 1, mid: 0, high: 0 }).passes, false);
+const agreed = (n: number, working: ProbeRow["themes"], reference: ProbeRow["themes"]) =>
+  ({ n, band: "low" as const, language: "en", working, reference });
+const manyAgreed = (count: number) => Array.from({ length: count }, (_, n) => agreed(n, ["wifi"], ["wifi"]));
+const lowOnly = { low: 1, mid: 0, high: 0 };
+
+Deno.test("agreement holds at the owner's thresholds, and a rare theme cannot fail it", () => {
+  const result = agreementOf([...manyAgreed(30), agreed(90, ["wifi", "smell"], ["wifi"])], lowOnly);
+  assertEquals(result.passes, true);
+});
+
+Deno.test("a frequent theme under 70 % fails the agreement though the whole is fine", () => {
+  const hit = Array.from({ length: 7 }, (_, n) => agreed(100 + n, ["wifi", "tv"], ["wifi", "tv"]));
+  const missed = Array.from({ length: 5 }, (_, n) => agreed(200 + n, ["wifi"], ["wifi", "tv"]));
+  const result = agreementOf([...manyAgreed(40), ...hit, ...missed], lowOnly);
+  assertEquals(result.low.map((one) => one.theme), ["tv"]);
+  assertEquals(result.passes, false);
+});
+
+Deno.test("a frequent theme at 75 % no longer fails the agreement", () => {
+  const hit = Array.from({ length: 9 }, (_, n) => agreed(100 + n, ["wifi", "tv"], ["wifi", "tv"]));
+  const extra = Array.from({ length: 3 }, (_, n) => agreed(200 + n, ["wifi", "tv"], ["wifi"]));
+  const reference = Array.from({ length: 1 }, (_, n) => agreed(300 + n, ["wifi"], ["wifi", "tv"]));
+  const result = agreementOf([...manyAgreed(40), ...hit, ...extra, ...reference], lowOnly);
+  assertEquals(result.byTheme.tv.precision, 0.75);
+  assertEquals(result.passes, true);
+});
+
+Deno.test("complaints found by one reader alone fail the agreement", () => {
+  const silent = Array.from({ length: 6 }, (_, n) => agreed(100 + n, [], ["other"]));
+  const result = agreementOf([...manyAgreed(94), ...silent], lowOnly);
+  assertEquals(result.overall.recall !== null && result.overall.recall >= 0.85, true);
+  assertEquals(result.passes, false);
+});
+
+Deno.test("whole sets matching too rarely fail the agreement", () => {
+  const five: ProbeRow["themes"] = ["wifi", "tv", "smell", "cleanliness", "parking"];
+  const same = Array.from({ length: 75 }, (_, n) => agreed(n, five, five));
+  const extra = Array.from({ length: 25 }, (_, n) => agreed(100 + n, [...five, "pests"], five));
+  const result = agreementOf([...same, ...extra], lowOnly);
+  assertEquals(result.overall.precision !== null && result.overall.precision >= 0.85, true);
+  assertEquals(result.weighted.sameSet, 0.75);
+  assertEquals(result.passes, false);
 });
 
 Deno.test("nothing checked passes nothing", () => {

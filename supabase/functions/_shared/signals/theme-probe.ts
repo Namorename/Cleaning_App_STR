@@ -259,8 +259,12 @@ export interface AgreementPart extends AgreementCounts {
 
 /** A theme counts as frequent, and can fail the check, from this many labels of the reference. */
 export const AGREEMENT_FREQUENT_MIN = 10;
-/** Below this a frequent theme is listed as low agreement. */
+/** Below this, on precision or recall, a frequent theme is low and fails the check. */
 export const AGREEMENT_LOW = 0.7;
+/** The owner's acceptance of 2026-11-06, for two models: 85 % a theme is noise at 10–40 labels. */
+export const AGREEMENT_OVERALL_MIN = 0.85;
+export const AGREEMENT_VERDICT_MIN = 0.95;
+export const AGREEMENT_SET_MIN = 0.8;
 
 function counted(both: number, onlyWorking: number, onlyReference: number): AgreementCounts {
   return {
@@ -323,18 +327,21 @@ export function agreementOf(rows: readonly AgreementRow[], population: Readonly<
     .filter(([, one]) => one.both + one.onlyReference >= AGREEMENT_FREQUENT_MIN)
     .map(([theme, one]) => ({ theme, ...one }));
   const labels = rows.flatMap((row) => row.reference);
+  const overall = partOf(rows);
+  const sameSet = weighted((part) => part.sameSet);
+  const sameVerdict = weighted((part) => part.sameVerdict);
+  const low = frequent.filter((one) => (one.precision ?? 1) < AGREEMENT_LOW || (one.recall ?? 1) < AGREEMENT_LOW);
   return {
-    overall: partOf(rows),
-    weighted: {
-      sameSet: weighted((part) => part.sameSet),
-      sameVerdict: weighted((part) => part.sameVerdict),
-    },
+    overall,
+    weighted: { sameSet, sameVerdict },
     byBand: byKey(rows, (row) => row.band),
     byLanguage: byKey(rows, (row) => row.language),
     byTheme,
     frequent,
-    low: frequent.filter((one) => (one.precision ?? 1) < AGREEMENT_LOW || (one.recall ?? 1) < AGREEMENT_LOW),
+    low,
     referenceOtherShare: labels.length === 0 ? 0 : labels.filter((theme) => theme === "other").length / labels.length,
-    passes: frequent.length > 0 && frequent.every((one) => (one.precision ?? 0) >= PRECISION_MIN),
+    passes: frequent.length > 0 && low.length === 0 &&
+      (overall.precision ?? 0) >= AGREEMENT_OVERALL_MIN && (overall.recall ?? 0) >= AGREEMENT_OVERALL_MIN &&
+      sameVerdict >= AGREEMENT_VERDICT_MIN && sameSet >= AGREEMENT_SET_MIN,
   };
 }

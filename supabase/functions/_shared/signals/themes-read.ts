@@ -18,7 +18,7 @@ import { MODEL_ID, MODEL_TIMEOUT_MS, ModelError, toModelError } from "./classify
 import { ISSUE_THEMES, type IssueTheme } from "./themes.ts";
 import { isOneOf, URGENCIES, type Urgency } from "./types.ts";
 
-export const THEMES_PROMPT_VERSION = "themes-v1";
+export const THEMES_PROMPT_VERSION = "themes-v2";
 /** issue_facts.detector and the journal's version of a reading. */
 export const THEMES_DETECTOR = `${MODEL_ID}@${THEMES_PROMPT_VERSION}`;
 
@@ -96,17 +96,17 @@ A complaint is something the guest found wrong, missing, broken, dirty, noisy or
 Themes:
 - heating: radiators, heating that fails or is too weak
 - hot_water: no hot water, or too little of it
-- air_conditioning: air conditioning missing or not working
-- plumbing: leaks, taps, pipes, water pressure
+- air_conditioning: air conditioning or a cooling unit missing, weak, noisy or not working
+- plumbing: leaks, dripping taps, pipes, low water pressure, anywhere in the place, the shower too
 - drain_toilet: a blocked drain, the toilet
-- shower_bath: the shower or bath itself
+- shower_bath: the shower or bath as a fitting: cabin, screen, curtain, shower head, tub, their size or state. Hot water, leaks, pressure and blocked drains have themes of their own
 - electric_light: power, sockets, lamps, light in the rooms
 - wifi: the internet
 - tv: the television
 - kettle: the kettle
-- kitchen_appliance: fridge, oven, hob, dishwasher, coffee machine, kitchen equipment
+- kitchen_appliance: fridge, freezer, oven, hob, microwave, dishwasher, toaster, coffee machine, and kitchen equipment that lasts: pots, pans, knives, plates, glasses, cutlery, broken or missing
 - laundry_appliance: washing machine, dryer
-- appliance_other: any other device
+- appliance_other: a device with no theme of its own, broken or missing: hair dryer, iron, vacuum cleaner, fan and the like, wherever it stands
 - checkin_access: getting in: instructions, key boxes, codes, arrival
 - lock_door: a lock or door that does not work
 - lift_stairs: no lift, a broken lift, steep or many stairs
@@ -118,15 +118,15 @@ Themes:
 - bed_comfort: the bed, mattress, pillows
 - linen_towels: bed linen, towels
 - furniture: furniture worn, broken or missing
-- window_blind: windows, blinds, curtains, too much light at night
-- room_temperature: too hot or too cold, not because a device failed
-- supplies_amenities: toiletries, toilet paper, kitchen basics missing
+- window_blind: a window, blind or curtain that is broken, missing, will not close or lets in too much light. Not the view, and not noise or cold coming through a window
+- room_temperature: too hot or too cold, not because a device failed. A missing fan is appliance_other
+- supplies_amenities: toiletries, toilet paper, coffee, tea, salt, oil, dish soap, bin bags and other things provided for the stay that are missing or run out. Pots, pans and plates are kitchen_appliance, small devices appliance_other
 - noise_outside: noise from the street, bars, traffic, building works
 - noise_neighbours: noise from neighbours or other guests, thin walls
 - location: the area, distance, safety of the neighbourhood
 - accuracy: the place is not as listed or pictured
 - communication: replies from the host or staff, the way they behaved
-- value: the price for what was given
+- value: the guest brings up money: the price, a fee or a deposit too high for what was given. Disappointment with no word about money is not this theme
 - safety: a risk of injury, gas, smoke, fire, an electric hazard
 - other: a complaint no theme above fits. Use it rarely.
 

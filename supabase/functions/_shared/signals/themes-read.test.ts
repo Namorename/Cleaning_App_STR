@@ -44,7 +44,7 @@ function message(text: string, stopReason = "end_turn") {
 const INPUT = { rating: 6, publicText: "The wifi kept dropping.", privateText: null };
 
 Deno.test("the detector names the model and the prompt's version", () => {
-  assertEquals(THEMES_DETECTOR, "claude-haiku-5-5@themes-v1");
+  assertEquals(THEMES_DETECTOR, "claude-haiku-5-5@themes-v2");
 });
 
 Deno.test("the prompt describes every theme, and the schema allows no other", () => {
