@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 43 | 248 | 311 |
+| Функции | 20 | 43 | 250 | 313 |
 | Таблицы и представления | 8 | 20 | 21 | 49 |
-| Всего | 28 | 63 | 269 | 360 |
+| Всего | 28 | 63 | 271 | 362 |
 
 ## Функции
 
@@ -89,7 +89,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 248
+### Внутреннее — 250
 
 | Имя | Причина |
 | --- | --- |
@@ -219,6 +219,7 @@
 | `problem_for_dispatch` | lock-and-check helper of assign_problem/unassign_problem; execute revoked from clients |
 | `problem_for_manager` | lock-and-check helper of the manager problem RPCs; execute revoked from clients |
 | `problem_max_photos` | validation limit constant of add_problem_media |
+| `problem_theme` | the panel read of a task theme; the public resource comes with stage 6 of the plan |
 | `problem_title_max_length` | validation limit constant of report_problem/update_problem |
 | `property_id_for_unit` | Hostaway sync, Hostaway stays the source of truth: maps a listingUnit to its properties.id |
 | `property_maintenance_tasks` | panel listing-card read of repairs; the same rows come from GET /v1/cleanings filtered by property |
@@ -282,6 +283,7 @@
 | `review_text_allowed` | privacy rule: whether a review may keep a text (stay from the texts' line - the guest notice's day or the day texts first went on - hidden, archive, 18 months); execute revoked from every role |
 | `revoke_api_key` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |
 | `save_resolution_plan` | the manager saves a draft in the panel; the public resource comes with stage 6 of the plan |
+| `set_problem_theme` | the manager corrects a task theme in the panel; the public resource comes with stage 6 of the plan |
 | `set_push_preference` | push plumbing: the signed-in person switches one of her own push events on or off |
 | `set_resolution_step_decided` | the manager closes a decision step in the panel; the public resource comes with stage 6 of the plan |
 | `short_cleaning_threshold` | constant of a generated column (too-short cleaning duration) |
