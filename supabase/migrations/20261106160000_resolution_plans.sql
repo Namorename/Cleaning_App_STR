@@ -104,18 +104,23 @@ as $$
              when s.launched_at is null then 'draft'
              when s.kind = 'decision' then case when s.decided_at is null then 'open' else 'closed' end
              when s.kind = 'repair' then
-               case when pr.id is null or pr.status in ('resolved', 'cancelled') then 'closed' else 'open' end
+               case when pr.id is null or pr.status in ('resolved', 'cancelled') or pr.archived_at is not null
+                    then 'closed' else 'open' end
              when s.kind = 'inspection' then
                case when t.id is null or t.status in ('done', 'cancelled', 'expired') then 'closed' else 'open' end
              else
                case when r.id is null or r.status in ('fulfilled', 'rejected') then 'closed' else 'open' end
            end as state,
-           coalesce(pr.status::text, t.status::text, r.status::text) as work_status,
+           -- A task archived unfinished, an inspection expired, a request rejected: closed, and
+           -- nothing was done. The panel says so; a plan is done with them all the same.
+           coalesce(case when pr.archived_at is not null and pr.status <> 'resolved' then 'archived'
+                         else pr.status::text end,
+                    t.status::text, r.status::text) as work_status,
            case s.kind
              when 'decision' then s.decided_at
-             when 'repair' then coalesce(pr.resolved_at, pr.cancelled_at)
+             when 'repair' then coalesce(pr.resolved_at, pr.cancelled_at, pr.archived_at)
              when 'inspection' then coalesce(t.completed_at, t.updated_at)
-             else coalesce(r.fulfilled_at, r.reviewed_at)
+             else coalesce(r.fulfilled_at, r.updated_at)
            end as closed_at
     from public.resolution_plan_steps s
     left join public.problems pr on s.kind = 'repair' and pr.id = coalesce(s.linked_problem_id, s.id)
@@ -389,7 +394,10 @@ begin
        or (v_who is not null
            and not exists (select 1 from public.profiles f where f.id = v_who and f.host_id = v_host))
        or (v_link is not null
-           and not exists (select 1 from public.problems pr where pr.id = v_link and pr.host_id = v_host))
+           and not exists (select 1 from public.problems pr
+                           join public.properties l on l.id = pr.property_id
+                           where pr.id = v_link and pr.host_id = v_host
+                             and coalesce(l.parent_id, l.id) = v_plan.property_id))
        or exists (select 1 from public.resolution_plan_steps s
                   where s.id = v_id and (s.plan_id <> p_id or s.launched_at is not null)) then
       raise exception 'Step % is not valid', v_index
@@ -515,6 +523,7 @@ declare
   v_plan    public.resolution_plans;
   v_step    public.resolution_plan_steps;
   v_refused jsonb;
+  v_fresh   jsonb;
   v_now     timestamptz := now();
 begin
   if not coalesce((select public.is_manager()), false) then
@@ -570,7 +579,14 @@ begin
                              else f.role in ('manager', 'admin')
                            end) then 'assignee_role'
              when s.kind = 'inspection' and s.due_on is null then 'date_missing'
-             when s.linked_problem_id is not null and pr.status in ('resolved', 'cancelled') then 'task_closed'
+             when s.linked_problem_id is not null
+                  and (pr.status in ('resolved', 'cancelled') or pr.archived_at is not null) then 'task_closed'
+             when s.kind = 'repair' and s.linked_problem_id is null
+                  and (char_length(s.title) > public.problem_title_max_length()
+                       or char_length(coalesce(s.description, '')) > public.problem_description_max_length())
+                  then 'text_too_long'
+             when s.kind = 'inspection' and char_length(s.title) > public.task_title_max_length()
+                  then 'text_too_long'
            end as reason
     from public.resolution_plan_steps s
     left join public.profiles f on f.id = s.assignee_id
@@ -636,13 +652,22 @@ begin
     where s.id = v_step.id;
   end loop;
 
+  v_fresh := public.resolution_plan_baseline(
+    v_host, v_plan.property_id,
+    (select array_agg(distinct s.theme) from public.resolution_plan_steps s where s.plan_id = p_id));
+
+  -- A theme added later takes the numbers of its own launch; those of the first stand.
   update public.resolution_plans p
   set status = 'launched',
       launched_by = coalesce(p.launched_by, (select auth.uid())),
       launched_at = coalesce(p.launched_at, v_now),
-      baseline = coalesce(p.baseline, public.resolution_plan_baseline(
-        v_host, p.property_id,
-        (select array_agg(distinct s.theme) from public.resolution_plan_steps s where s.plan_id = p_id))),
+      baseline = case
+        when p.baseline is null then v_fresh
+        else jsonb_set(
+               jsonb_set(p.baseline, '{12m,themes}',
+                         (v_fresh #> '{12m,themes}') || (p.baseline #> '{12m,themes}')),
+               '{3m,themes}', (v_fresh #> '{3m,themes}') || (p.baseline #> '{3m,themes}'))
+      end,
       rev = p.rev + 1,
       updated_at = v_now
   where p.id = p_id;

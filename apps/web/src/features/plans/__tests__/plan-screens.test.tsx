@@ -314,6 +314,41 @@ describe('PlanLaunched', () => {
     expect(state.cancel.mutate).toHaveBeenCalledWith({ planId: PLAN_ID, rev: 4 });
   });
 
+  test('a step closed with nothing done says so, and the plan counts it', () => {
+    render(
+      <PlanLaunched
+        plan={launched({
+          steps: [
+            step({ launched_at: 'x', state: 'closed', work_status: 'resolved' }),
+            step({
+              id: CHECK_ID,
+              kind: 'inspection',
+              launched_at: 'x',
+              state: 'closed',
+              work_status: 'expired',
+            }),
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText('Не выполнен')).toBeInTheDocument();
+    expect(screen.getByText('Закрыто без результата: 1')).toBeInTheDocument();
+  });
+
+  test('a new step taken back can be saved away, so it does not hold the plan open', async () => {
+    const pending = step({ id: DECISION_ID, title: 'Лишний шаг', state: 'draft' });
+    render(
+      <PlanLaunched plan={launched({ steps: [step({ launched_at: 'x', state: 'open' }), pending] })} />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Убрать шаг «Лишний шаг»' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    const [variables] = state.save.mutate.mock.calls[0] as [{ steps: unknown[] }];
+    expect(variables.steps).toEqual([]);
+  });
+
   test('a finished plan says when, and offers no cancel', () => {
     render(
       <PlanLaunched plan={launched({ status: 'done', closed_at: '2026-11-20T09:00:00+00:00' })} />,
@@ -336,8 +371,9 @@ describe('PlanLaunched', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Запустить новые шаги' }));
 
-    const sent = state.launch.mutate.mock.calls[0][0] as { save: { steps: { id: string }[] } };
-    expect(sent.save.steps.map((one) => one.id)).toEqual([DECISION_ID]);
+    const sent = state.launch.mutate.mock.calls[0][0] as { planId: string; save: unknown };
+    expect(sent.planId).toBe(PLAN_ID);
+    expect(sent.save).toBeNull();
   });
 });
 
@@ -374,6 +410,13 @@ describe('the card', () => {
     await userEvent.click(screen.getByRole('button', { name: 'В план' }));
 
     expect(state.gather.mutate).toHaveBeenCalledWith(['wifi']);
+  });
+
+  test('a refusal on the button is said, not swallowed', () => {
+    state.gather = { ...mutation(), isError: true, error: { hint: 'serverErrors.planChanged' } };
+    render(<ThemePlanButton placeId={7} placeName="Vinohrady 12" theme="wifi" />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent('План изменился');
   });
 
   test('a theme already in a plan leads there', () => {

@@ -1016,6 +1016,7 @@
       "loadError": "Plán se nepodařilo načíst",
       "notFound": "Plán nebyl nalezen",
       "closedOn": "Hotovo {{day}}",
+    "droppedNote": "Uzavřeno bez výsledku: {{n}}",
       "status": {
         "draft": "Koncept",
         "launched": "Probíhá",
@@ -1048,6 +1049,7 @@
         "draft": "Koncept",
         "open": "Probíhá",
         "closed": "Uzavřeno",
+      "dropped": "Neprovedeno",
         "openWork": "Otevřít",
         "decide": "Rozhodnuto",
         "undecide": "Vrátit"
@@ -1056,7 +1058,8 @@
         "assignee_inactive": "Řešitel je deaktivován",
         "assignee_role": "Tento druh kroku není pro tohoto člověka",
         "date_missing": "Je potřeba termín",
-        "task_closed": "Úkol už je uzavřený"
+        "task_closed": "Úkol už je uzavřený",
+      "text_too_long": "Text je pro tento druh kroku příliš dlouhý"
       }
     },
     "quality": {

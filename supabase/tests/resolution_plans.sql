@@ -271,7 +271,9 @@ begin
       pg_temp.step('b6420013-0000-4000-8000-000000000013', 'inspection'),
       pg_temp.step('b6420014-0000-4000-8000-000000000014', 'decision',
                    '{"assignee_id": "b6400004-0000-4000-8000-000000000004"}'),
-      pg_temp.step('b6420015-0000-4000-8000-000000000015', 'repair')));
+      pg_temp.step('b6420015-0000-4000-8000-000000000015', 'repair'),
+      pg_temp.step('b6420016-0000-4000-8000-000000000016', 'inspection', jsonb_build_object(
+        'due_on', current_date + 1, 'title', repeat('x', 130)))));
 end $$;
 
 select pg_temp.check('a launch with a bad step is refused',
@@ -280,7 +282,7 @@ select pg_temp.check('a launch with a bad step is refused',
 select pg_temp.check('and says of each step why',
   (select jsonb_agg(x ->> 'reason') from jsonb_array_elements(pg_temp.refusal_detail(
      $q$select public.launch_resolution_plan('b6410003-0000-4000-8000-000000000003', 2)$q$) -> 'steps') x),
-  '["assignee_inactive", "assignee_role", "date_missing", "assignee_role"]'::jsonb);
+  '["assignee_inactive", "assignee_role", "date_missing", "assignee_role", "text_too_long"]'::jsonb);
 
 select pg_temp.office();
 select pg_temp.check('a refused launch leaves nothing',
@@ -374,6 +376,12 @@ insert into public.problem_themes (problem_id, theme, source, detector)
 values ('b6430001-0000-4000-8000-000000000001', 'wifi', 'dict', 'dict-v1');
 
 select pg_temp.boss();
+select pg_temp.check('a step leans on a task of its own place alone',
+  pg_temp.refusal(format('select public.save_resolution_plan(%L, 900064001, %L, %L::jsonb)',
+    'b6410007-0000-4000-8000-000000000007', 'x',
+    jsonb_build_array(pg_temp.step('b6420041-0000-4000-8000-000000000041', 'repair',
+      '{"linked_problem_id": "b6430001-0000-4000-8000-000000000001"}'))::text)),
+  'serverErrors.planStepInvalid');
 select pg_temp.check('a place''s live work is offered with its theme',
   public.resolution_plan_place_work(900064002) -> 0 ->> 'theme', 'wifi');
 
@@ -416,6 +424,19 @@ begin
   perform public.resolve_problem('b6430001-0000-4000-8000-000000000001');
 end $$;
 
+select pg_temp.office();
+update public.problems set status = 'open', resolved_at = null, archived_at = now()
+where id = 'b6430001-0000-4000-8000-000000000001';
+select pg_temp.boss();
+select pg_temp.check('a task archived unfinished closes its step',
+  public.resolution_plan('b6410003-0000-4000-8000-000000000003') ->> 'status', 'done');
+select pg_temp.check('and says that nothing was done',
+  public.resolution_plan('b6410003-0000-4000-8000-000000000003') -> 'steps' -> 0 ->> 'work_status', 'archived');
+select pg_temp.office();
+update public.problems set status = 'resolved', resolved_at = now(), archived_at = null
+where id = 'b6430001-0000-4000-8000-000000000001';
+select pg_temp.boss();
+
 select pg_temp.check('a repair is closed where it lives, not here',
   pg_temp.refusal($q$select public.set_resolution_step_decided('b6420001-0000-4000-8000-000000000001', true)$q$),
   'serverErrors.planStepInvalid');
@@ -440,7 +461,7 @@ declare
   v_rev  integer := (public.resolution_plan('b6410001-0000-4000-8000-000000000001') ->> 'rev')::integer;
   v_plan jsonb := public.save_resolution_plan(
     'b6410001-0000-4000-8000-000000000001', 900064001, 'Heating first',
-    jsonb_build_array(pg_temp.step('b6420031-0000-4000-8000-000000000031', 'repair')), v_rev);
+    jsonb_build_array(pg_temp.step('b6420031-0000-4000-8000-000000000031', 'repair', '{"theme": "smell"}')), v_rev);
 begin
   perform pg_temp.check('what was launched is out of a save''s reach',
     jsonb_array_length(v_plan -> 'steps'), 5);
@@ -453,6 +474,10 @@ select pg_temp.office();
 select pg_temp.check('and reaches nobody yet',
   (select count(*)::integer from public.problems where id = 'b6420031-0000-4000-8000-000000000031'), 0);
 
+insert into public.issue_facts (host_id, property_id, theme, layer, month, origin, detector)
+values (pg_temp.host(), 900064001, 'smell', 'staff_report', date_trunc('month', current_date)::date,
+        'stream', 'dict-v1');
+
 select pg_temp.boss();
 do $$
 declare
@@ -464,6 +489,12 @@ end $$;
 select pg_temp.office();
 select pg_temp.check('a second launch makes the new step alone',
   (select count(*)::integer from public.problems where host_id = pg_temp.host() and source = 'plan'), 2);
+select pg_temp.check('a theme added later has its numbers kept too',
+  (select (baseline #>> '{12m,themes,smell,reported}')::integer from public.resolution_plans
+   where id = 'b6410001-0000-4000-8000-000000000001'), 1);
+select pg_temp.check('and the first launch keeps its day',
+  (select baseline ->> 'on' from public.resolution_plans
+   where id = 'b6410001-0000-4000-8000-000000000001'), (now() at time zone 'Europe/Prague')::date::text);
 
 -- ---------- what followed (20261106170000) ----------
 

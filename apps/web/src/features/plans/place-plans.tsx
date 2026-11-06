@@ -97,6 +97,7 @@ export function ThemePlanButton({ placeId, placeName, theme }: ThemePlanButtonPr
   const plans = usePlacePlans(placeId);
   const gather = useGatherPlan({ placeId, placeName });
   const planId = themesInLivePlans(plans.data ?? []).get(theme);
+  const failure = gather.isError ? serverErrorText(gather.error) : null;
 
   if (planId !== undefined) {
     return (
@@ -106,14 +107,21 @@ export function ThemePlanButton({ placeId, placeName, theme }: ThemePlanButtonPr
     );
   }
   return (
-    <Button
-      type="button"
-      variant="outline"
-      className="h-11 self-start"
-      disabled={gather.isPending || plans.isPending}
-      onClick={() => gather.mutate([theme])}
-    >
-      {t('panel.plans.addTheme')}
-    </Button>
+    <div className="flex flex-col gap-1">
+      <Button
+        type="button"
+        variant="outline"
+        className="h-11 self-start"
+        disabled={gather.isPending || plans.isPending}
+        onClick={() => gather.mutate([theme])}
+      >
+        {t('panel.plans.addTheme')}
+      </Button>
+      {failure === null ? null : (
+        <p role="alert" className="text-sm text-destructive">
+          {failure.text}
+        </p>
+      )}
+    </div>
   );
 }

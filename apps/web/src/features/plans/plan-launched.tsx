@@ -20,7 +20,13 @@ import { formatDay } from '@/lib/format-date';
 import { serverErrorText } from '@/lib/server-error';
 import { useLanguage } from '@/lib/use-language';
 
-import { draftFromStep, groupByTheme, refusalsOf, type DraftStep } from './draft-model';
+import {
+  draftFromStep,
+  groupByTheme,
+  isStepDropped,
+  refusalsOf,
+  type DraftStep,
+} from './draft-model';
 import { EffectBlock } from './effect-block';
 import { PlanStepsEditor } from './plan-steps-editor';
 import { PLAN_STATUS_TONE, type Plan, type PlanStep } from './schema';
@@ -48,6 +54,7 @@ function StepLine({ step, isOpenPlan }: StepLineProps) {
   const decide = useSetStepDecided();
   const href = workHref(step);
   const isClosed = step.state === 'closed';
+  const isDropped = isStepDropped(step);
 
   return (
     <li className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm">
@@ -64,7 +71,9 @@ function StepLine({ step, isOpenPlan }: StepLineProps) {
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Badge tone={isClosed ? 'done' : 'inProgress'}>{t(`panel.plans.step.${step.state}`)}</Badge>
+        <Badge tone={isDropped ? 'cancelled' : isClosed ? 'done' : 'inProgress'}>
+          {t(`panel.plans.step.${isDropped ? 'dropped' : step.state}`)}
+        </Badge>
         {href === null ? null : (
           <Link href={href} className="text-sm underline underline-offset-4">
             {t('panel.plans.step.openWork')}
@@ -99,6 +108,8 @@ function NewSteps({ plan, pending }: NewStepsProps) {
   const launch = useLaunchPlan();
   const [steps, setSteps] = useState<DraftStep[]>(pending.map(draftFromStep));
   const [rev, setRev] = useState(plan.rev);
+  const [saved, setSaved] = useState(steps);
+  const isDirty = JSON.stringify(steps) !== JSON.stringify(saved);
   const failure = save.error ?? launch.error;
   const failureText = failure === null ? null : serverErrorText(failure);
   const variables = {
@@ -107,6 +118,11 @@ function NewSteps({ plan, pending }: NewStepsProps) {
     title: plan.title,
     steps,
     rev,
+  };
+
+  const remember = (next: Plan) => {
+    setRev(next.rev);
+    setSaved(next.steps.filter((step) => step.launched_at === null).map(draftFromStep));
   };
 
   return (
@@ -124,21 +140,33 @@ function NewSteps({ plan, pending }: NewStepsProps) {
           {failureText.text}
         </p>
       )}
-      <Button
-        type="button"
-        className="h-11 self-start"
-        disabled={steps.length === 0 || launch.isPending || save.isPending}
-        onClick={() =>
-          launch.mutate({
-            planId: plan.id,
-            rev,
-            save: variables,
-            onSaved: (next) => setRev(next.rev),
-          })
-        }
-      >
-        {t('panel.plans.launchNew')}
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          className="h-11"
+          disabled={steps.length === 0 || launch.isPending || save.isPending}
+          onClick={() =>
+            launch.mutate({
+              planId: plan.id,
+              rev,
+              save: isDirty ? variables : null,
+              onSaved: remember,
+            })
+          }
+        >
+          {t('panel.plans.launchNew')}
+        </Button>
+        {/* A step taken back after a refused launch is gone only once it is saved. */}
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11"
+          disabled={!isDirty || launch.isPending || save.isPending}
+          onClick={() => save.mutate(variables, { onSuccess: remember })}
+        >
+          {t('panel.plans.save')}
+        </Button>
+      </div>
     </section>
   );
 }
@@ -152,6 +180,7 @@ export function PlanLaunched({ plan }: { plan: Plan }) {
   const launched = plan.steps.filter((step) => step.launched_at !== null);
   const pending = plan.steps.filter((step) => step.launched_at === null);
   const closed = launched.filter((step) => step.state === 'closed').length;
+  const dropped = launched.filter(isStepDropped).length;
   const isOpenPlan = plan.status !== 'cancelled';
   const failure = cancel.isError ? serverErrorText(cancel.error) : null;
 
@@ -181,6 +210,11 @@ export function PlanLaunched({ plan }: { plan: Plan }) {
         </p>
       )}
       {plan.status === 'done' ? <EffectBlock planId={plan.id} /> : null}
+      {dropped === 0 ? null : (
+        <p className="text-sm text-muted-foreground">
+          {t('panel.plans.droppedNote', { n: dropped })}
+        </p>
+      )}
       {groupByTheme(launched).map(({ theme, steps }) => {
         const name = t(`panel.quality.themes.${theme}`, { defaultValue: theme });
         return (
@@ -198,7 +232,7 @@ export function PlanLaunched({ plan }: { plan: Plan }) {
           </section>
         );
       })}
-      {isOpenPlan ? <NewSteps key={plan.rev} plan={plan} pending={pending} /> : null}
+      {isOpenPlan ? <NewSteps key={launched.length} plan={plan} pending={pending} /> : null}
       {failure === null ? null : (
         <p role="alert" className="text-sm text-destructive">
           {failure.text}
