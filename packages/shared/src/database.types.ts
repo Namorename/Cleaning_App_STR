@@ -2144,6 +2144,7 @@ export type Database = {
           history_enabled: boolean
           history_follow: boolean
           history_include_private: boolean
+          history_shown_detector: string | null
           host_id: string
           kind: Database["public"]["Enums"]["guest_signal_kind"]
           min_confidence: number
@@ -2167,6 +2168,7 @@ export type Database = {
           history_enabled?: boolean
           history_follow?: boolean
           history_include_private?: boolean
+          history_shown_detector?: string | null
           host_id: string
           kind: Database["public"]["Enums"]["guest_signal_kind"]
           min_confidence?: number
@@ -2190,6 +2192,7 @@ export type Database = {
           history_enabled?: boolean
           history_follow?: boolean
           history_include_private?: boolean
+          history_shown_detector?: string | null
           host_id?: string
           kind?: Database["public"]["Enums"]["guest_signal_kind"]
           min_confidence?: number
@@ -5905,6 +5908,7 @@ export type Database = {
           history_enabled: boolean
           history_follow: boolean
           history_include_private: boolean
+          history_shown_detector: string | null
           host_id: string
           kind: Database["public"]["Enums"]["guest_signal_kind"]
           min_confidence: number

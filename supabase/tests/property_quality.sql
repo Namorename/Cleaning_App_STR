@@ -624,6 +624,79 @@ select pg_temp.check('another company sees none of it',
 
 select pg_temp.office();
 
+-- ---------- two readings side by side (20261106130000) ----------
+
+create or replace function pg_temp.noise_reviews() returns integer language sql as $fn$
+  select (t ->> 'reviews')::integer
+  from jsonb_array_elements(public.quality_overview('12m') -> 'themes') t
+  where (t ->> 'property_id')::bigint = 900063001 and t ->> 'theme' = 'noise_outside'
+$fn$;
+create or replace function pg_temp.noise_months() returns integer language sql as $fn$
+  select coalesce(sum((m ->> 'n')::integer), 0)::integer
+  from jsonb_array_elements(public.quality_place(900063001, '12m') -> 'months') m
+  where m ->> 'theme' = 'noise_outside'
+$fn$;
+create or replace function pg_temp.weeks_done() returns integer language sql as $fn$
+  select (public.quality_overview('12m') -> 'history' ->> 'weeks_done')::integer
+$fn$;
+create or replace function pg_temp.parking_reported() returns integer language sql as $fn$
+  select (t ->> 'reported')::integer
+  from jsonb_array_elements(public.quality_overview('12m') -> 'themes') t
+  where (t ->> 'property_id')::bigint = 900063001 and t ->> 'theme' = 'parking'
+$fn$;
+
+create temp table first_reading on commit drop as
+select detector from public.issue_facts
+where host_id = pg_temp.host() and theme = 'noise_outside' and origin = 'history' limit 1;
+
+insert into public.issue_facts (host_id, property_id, theme, layer, severity, confidence, month, week,
+                                channel, signal_id, origin, history_slice, detector)
+select host_id, property_id, theme, layer, severity, confidence, month, week, channel, signal_id,
+       origin, history_slice, 'claude-haiku-5-5@themes-v2'
+from public.issue_facts
+where host_id = pg_temp.host() and theme = 'noise_outside' and origin = 'history';
+insert into public.issue_facts (host_id, property_id, theme, layer, month, origin, detector)
+values (pg_temp.host(), 900063001, 'parking', 'staff_report', pg_temp.m(), 'stream', 'dict-v1');
+insert into raw.signal_history_runs (host_id, provider, detector, part, slice_start, slice_end,
+                                     status, finished_at)
+select pg_temp.host(), 'hostaway', 'claude-haiku-5-5@themes-v2', 'reviews',
+       date_trunc('week', current_date)::date - 7, date_trunc('week', current_date)::date - 1,
+       'done', now();
+
+select pg_temp.as_user('b6300001-0000-4000-8000-000000000001');
+select pg_temp.check('with no reading named, every reading counts, as before',
+  pg_temp.noise_reviews(), 2);
+select pg_temp.check('and the months count them all', pg_temp.noise_months(), 2);
+select pg_temp.check('and the weeks of both', pg_temp.weeks_done(), 2);
+
+select pg_temp.office();
+update public.signal_settings set history_shown_detector = (select detector from first_reading)
+where host_id = pg_temp.host() and kind = 'review';
+select pg_temp.as_user('b6300001-0000-4000-8000-000000000001');
+select pg_temp.check('the reading shown speaks once', pg_temp.noise_reviews(), 1);
+select pg_temp.check('the months of the reading shown', pg_temp.noise_months(), 1);
+select pg_temp.check('a new reading under way moves no week of the one shown', pg_temp.weeks_done(), 1);
+
+select pg_temp.office();
+update public.signal_settings set history_shown_detector = 'claude-haiku-5-5@themes-v2'
+where host_id = pg_temp.host() and kind = 'review';
+select pg_temp.as_user('b6300001-0000-4000-8000-000000000001');
+select pg_temp.check('the switch shows the new reading, once', pg_temp.noise_reviews(), 1);
+select pg_temp.check('what staff said is no reading and stays counted', pg_temp.parking_reported(), 1);
+
+select pg_temp.office();
+select pg_temp.check('the old labels stay in the table',
+  (select count(*)::integer from public.issue_facts f
+   where f.theme = 'noise_outside' and f.detector = (select detector from first_reading)), 1);
+select pg_temp.check('a reading is named as a detector is',
+  pg_temp.refusal($q$update public.signal_settings set history_shown_detector = 'Not A Name'$q$), '23514');
+update public.signal_settings set history_shown_detector = null
+where host_id = pg_temp.host() and kind = 'review';
+delete from public.issue_facts
+where host_id = pg_temp.host() and (detector = 'claude-haiku-5-5@themes-v2' or theme = 'parking');
+delete from raw.signal_history_runs
+where host_id = pg_temp.host() and detector = 'claude-haiku-5-5@themes-v2';
+
 -- ---------- settled months, the reading that follows ----------
 
 select pg_temp.check('a month is settled when its last week has been read',
