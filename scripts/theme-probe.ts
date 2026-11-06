@@ -115,7 +115,7 @@ export async function companyNames(): Promise<{ staff: string[]; places: string[
 }
 
 /** Live public reviews of the last twelve months, read in memory. */
-async function publicReviews(today: string): Promise<NeutralReview[]> {
+export async function publicReviews(today: string): Promise<NeutralReview[]> {
   const from = monthStart(today, DEPTH_MONTHS - 1);
   const rows = await listAll(
     `reviews?type=guest-to-host&sortBy=departureDate&sortOrder=asc&departureDateStart=${from}&departureDateEnd=${today}`,
@@ -133,7 +133,7 @@ async function publicReviews(today: string): Promise<NeutralReview[]> {
 }
 
 /** Booking id → the guest's names, month by month. In memory only. */
-async function bookingNames(today: string): Promise<Map<string, string[]>> {
+export async function bookingNames(today: string): Promise<Map<string, string[]>> {
   const names = new Map<string, string[]>();
   for (let back = 0; back < DEPTH_MONTHS; back += 1) {
     const start = monthStart(today, back);

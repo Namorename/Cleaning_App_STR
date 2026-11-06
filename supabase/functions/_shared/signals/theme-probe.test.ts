@@ -2,6 +2,7 @@ import { assert, assertAlmostEquals, assertEquals } from "jsr:@std/assert@1";
 
 import {
   accuracyOf,
+  agreementOf,
   bandOf,
   drawSample,
   pickForCheck,
@@ -137,6 +138,34 @@ Deno.test("a rare theme cannot fail the probe alone", () => {
 
 Deno.test("too much other fails the probe", () => {
   assertEquals(accuracyOf([{ n: 1, right: ["wifi"], wrong: [], missed: [] }], 0.11).passes, false);
+});
+
+Deno.test("agreement counts themes in common, one side only, and whole sets", () => {
+  const result = agreementOf([
+    { n: 1, band: "low", language: "en", working: ["wifi", "smell"], reference: ["wifi"] },
+    { n: 2, band: "low", language: "cs", working: ["wifi"], reference: ["wifi", "tv"] },
+    { n: 3, band: "high", language: "en", working: [], reference: [] },
+    { n: 4, band: "high", language: "en", working: [], reference: ["tv"] },
+  ], { low: 1, mid: 0, high: 3 });
+  assertEquals(result.overall.both, 2);
+  assertEquals(result.overall.onlyWorking, 1);
+  assertEquals(result.overall.onlyReference, 2);
+  assertEquals(result.overall.sameSet, 1);
+  assertEquals(result.overall.sameVerdict, 3);
+  assertEquals(result.byTheme.wifi.precision, 1);
+  assertEquals(result.byTheme.tv.recall, 0);
+  assertEquals(result.byBand.high.reviews, 2);
+  assertEquals(result.byLanguage.cs.reviews, 1);
+  assertAlmostEquals(result.weighted.sameSet, 0.375);
+});
+
+Deno.test("a frequent theme below 85 % fails the agreement, a rare one cannot", () => {
+  const row = (n: number, working: ProbeRow["themes"], reference: ProbeRow["themes"]) =>
+    ({ n, band: "low" as const, language: "en", working, reference });
+  const rows = Array.from({ length: 10 }, (_, n) => row(n, ["wifi"], ["wifi"]));
+  assertEquals(agreementOf([...rows, row(90, ["smell"], [])], { low: 1, mid: 0, high: 0 }).passes, true);
+  const worse = [...rows, row(91, ["wifi"], []), row(92, ["wifi"], [])];
+  assertEquals(agreementOf(worse, { low: 1, mid: 0, high: 0 }).passes, false);
 });
 
 Deno.test("nothing checked passes nothing", () => {

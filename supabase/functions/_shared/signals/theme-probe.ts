@@ -228,3 +228,113 @@ export function accuracyOf(verdicts: readonly ProbeVerdict[], otherShare: number
       frequent.every((one) => one.precision >= PRECISION_MIN),
   };
 }
+
+/** One review as two readers saw it: labels above the confidence floor, no text. */
+export interface AgreementRow {
+  readonly n: number;
+  readonly band: Band;
+  readonly language: string;
+  readonly working: readonly IssueTheme[];
+  readonly reference: readonly IssueTheme[];
+}
+
+export interface AgreementCounts {
+  /** Themes both named, only the working model named, only the reference named. */
+  readonly both: number;
+  readonly onlyWorking: number;
+  readonly onlyReference: number;
+  /** Of what the working model named, how much the reference named too. */
+  readonly precision: number | null;
+  /** Of what the reference named, how much the working model named too. */
+  readonly recall: number | null;
+}
+
+export interface AgreementPart extends AgreementCounts {
+  readonly reviews: number;
+  /** Reviews where the two sets of themes are exactly the same. */
+  readonly sameSet: number;
+  /** Reviews where both found a complaint, or neither did. */
+  readonly sameVerdict: number;
+}
+
+/** A theme counts as frequent, and can fail the check, from this many labels of the reference. */
+export const AGREEMENT_FREQUENT_MIN = 10;
+/** Below this a frequent theme is listed as low agreement. */
+export const AGREEMENT_LOW = 0.7;
+
+function counted(both: number, onlyWorking: number, onlyReference: number): AgreementCounts {
+  return {
+    both,
+    onlyWorking,
+    onlyReference,
+    precision: both + onlyWorking === 0 ? null : both / (both + onlyWorking),
+    recall: both + onlyReference === 0 ? null : both / (both + onlyReference),
+  };
+}
+
+function partOf(rows: readonly AgreementRow[]): AgreementPart {
+  let both = 0;
+  let onlyWorking = 0;
+  let onlyReference = 0;
+  let sameSet = 0;
+  let sameVerdict = 0;
+  for (const row of rows) {
+    const reference = new Set(row.reference);
+    const working = new Set(row.working);
+    const shared = [...working].filter((theme) => reference.has(theme)).length;
+    both += shared;
+    onlyWorking += working.size - shared;
+    onlyReference += reference.size - shared;
+    sameSet += shared === working.size && shared === reference.size ? 1 : 0;
+    sameVerdict += (working.size > 0) === (reference.size > 0) ? 1 : 0;
+  }
+  return { reviews: rows.length, sameSet, sameVerdict, ...counted(both, onlyWorking, onlyReference) };
+}
+
+function byKey(
+  rows: readonly AgreementRow[],
+  keyOf: (row: AgreementRow) => string,
+): Record<string, AgreementPart> {
+  const keys = [...new Set(rows.map(keyOf))];
+  return Object.fromEntries(keys.map((key) => [key, partOf(rows.filter((row) => keyOf(row) === key))]));
+}
+
+/**
+ * How far the working model agrees with a stronger reader. The reference is no truth:
+ * it is the better of two readers, so a precision here is agreement, not accuracy.
+ * `weighted` brings the sample's even bands back to the real sizes of the bands.
+ */
+export function agreementOf(rows: readonly AgreementRow[], population: Readonly<Record<Band, number>>) {
+  const byTheme: Record<string, AgreementCounts> = {};
+  const themes = [...new Set(rows.flatMap((row) => [...row.working, ...row.reference]))].sort();
+  for (const theme of themes) {
+    const working = rows.filter((row) => row.working.includes(theme));
+    const reference = rows.filter((row) => row.reference.includes(theme));
+    const both = working.filter((row) => row.reference.includes(theme)).length;
+    byTheme[theme] = counted(both, working.length - both, reference.length - both);
+  }
+  const total = BANDS.reduce((sum, band) => sum + population[band], 0);
+  const weighted = (pick: (part: AgreementPart) => number): number =>
+    BANDS.reduce((sum, band) => {
+      const part = partOf(rows.filter((row) => row.band === band));
+      return sum + (part.reviews === 0 ? 0 : (pick(part) / part.reviews) * (population[band] / total));
+    }, 0);
+  const frequent = Object.entries(byTheme)
+    .filter(([, one]) => one.both + one.onlyReference >= AGREEMENT_FREQUENT_MIN)
+    .map(([theme, one]) => ({ theme, ...one }));
+  const labels = rows.flatMap((row) => row.reference);
+  return {
+    overall: partOf(rows),
+    weighted: {
+      sameSet: weighted((part) => part.sameSet),
+      sameVerdict: weighted((part) => part.sameVerdict),
+    },
+    byBand: byKey(rows, (row) => row.band),
+    byLanguage: byKey(rows, (row) => row.language),
+    byTheme,
+    frequent,
+    low: frequent.filter((one) => (one.precision ?? 1) < AGREEMENT_LOW || (one.recall ?? 1) < AGREEMENT_LOW),
+    referenceOtherShare: labels.length === 0 ? 0 : labels.filter((theme) => theme === "other").length / labels.length,
+    passes: frequent.length > 0 && frequent.every((one) => (one.precision ?? 0) >= PRECISION_MIN),
+  };
+}
