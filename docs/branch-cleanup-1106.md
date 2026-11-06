@@ -3,19 +3,92 @@
 Решение владельца 06.11: удалить только полностью влитые, про остальные спросить. `main` — `a0fc67a`.
 Удалённые ветки — предки `main`, их коммиты никуда не делись. Вернуть любую: `git branch <имя> <хеш>`.
 
-## Ждут решения владельца
+## Состояние после второй уборки (06.11)
 
-**Влиты, но заняты рабочим деревом (30).** Ветку нельзя удалить, пока есть дерево, а дерево — это папка на диске. `chore-docs-remote-control`, `dashboard-stage2-1015`, `docs-post-launch`, `docs-woom-domain`, `guest-signals-intake-1031`, `guest-signals-texts-boundary-1102`, `integration-rehearsal-1031`, `kb-techs-read-all-1031`, `knowledge-base-phone-1017`, `knowledge-base-step1-1017`, `launch-prep-1015`, `launch-reset-1016`, `main-filter-search-1021`, `main-pdf-1016`, `main-privacy-1016`, `main-wording-1010`, `manual-time-1029`, `media-fixes-1104`, `ops-1010`, `panel-filter-search-1021`, `panel-fixes-1010`, `phone-1-2-0`, `photo-viewer-1103`, `privacy-page`, `privacy-wording-1010`, `public-api-v1-1028`, `push-release-1010`, `video-gallery-setting`, `video-upload-1022`, `web-layout-1012`.
+Владелец отменил часть удалений 06.11: невлитые ветки не удалять, рабочие папки убирать только там, где
+нет ничего, чего нет в `main`. Папки `guest-signals-design-1031`, `integration-rehearsal-1028`,
+`integration-rehearsal-1030`, `knowledge-base-1015`, `mcp-server-1104`, `reviews-tasks-1015`,
+`reviews-to-tasks-1017`, `rollout-plan-1028`, `dashboard-1014` удалены, ветки остались. Незакоммиченных
+правок в них не было; две неотслеживаемые миграции `dashboard-1014` совпали с `main` байт в байт.
 
-**Не влиты: содержимое уже в `main`.** Документы перенесены 06.11: `guest-signals-design-1031`, `rollout-plan-1028`, `guest-texts-line-1102`, `reviews-tasks-1015`.
+**Не удалять, слово владельца.** `guest-signals-design-1031`, `guest-texts-line-1102` (дерево
+`mcp-server-1104`), `integration-rehearsal-1028`, `integration-rehearsal-1030`, `knowledge-base-1015`,
+`reviews-tasks-1015`, `reviews-to-tasks-1017`, `rollout-plan-1028`, `dashboard-1014`,
+`dashboard-stage2-1015`, `property-quality-1106` на origin. Копий этих веток на origin нет, кроме последней.
+`dashboard-1014` восстановлена локально на `1a20c2e` после второй уборки.
 
-**Не влиты: старый код, заменён ядром сигналов.** `reviews-to-tasks-1017`, `integration-rehearsal-1028`, `integration-rehearsal-1030`.
+**Держать.** `ios-build-1-2-0`, `ios-build-signin-1014`: дерево установленной iOS-сборки, до новой сборки.
 
-**Не влиты: уникальных файлов нет, содержимое в `main` другими хешами.** `dashboard-1014`, `dashboard-pdf-1015`, `dashboard-pdf-main-1016`, `knowledge-base-1015`, `merge-check-1-2-0`, `merge-check-panel`, `merge-main-1-2-0`. У `dashboard-pdf-main-1016` локальная копия влита, а на origin есть 3 коммита вне `main`.
+**Текущая работа.** `staff-sign-in-block-1106`, `phone-banned-text-1106`, `theme-agreement-1106`,
+`themes-v2-1106`.
 
-**Резервные копии.** `backup/video-upload-1022-pre-reorder-1023`, `backup/video-upload-1022-pre-reorder-1023b`.
+Журналы с хешами: `%USERPROFILE%\.str-ops\branch-cleanup-1106\`. Невлитую ветку вернуть по хешу можно,
+пока git не убрал недостижимые объекты.
 
-**Держать.** `ios-build-1-2-0`, `ios-build-signin-1014`: дерево установленной iOS-сборки, до новой сборки. `property-quality-1106`, `property-intelligence-plan-1106`, `staff-sign-in-block-1106`: текущая работа.
+## Удалено во второй уборке локально: названные владельцем и из удалённых деревьев (17)
+
+| Ветка | Хеш |
+|---|---|
+| `backup/video-upload-1022-pre-reorder-1023` | `6a4e336` |
+| `backup/video-upload-1022-pre-reorder-1023b` | `004c873` |
+| `chore-docs-remote-control` | `bea8ed1` |
+| `dashboard-pdf-1015` | `f3eda7d` |
+| `dashboard-pdf-main-1016` | `0e0aee2` |
+| `docs-post-launch` | `9e8206c` |
+| `docs-tail-1106` | `94486cd` |
+| `docs-woom-domain` | `39be42a` |
+| `guest-signals-intake-1031` | `0522296` |
+| `launch-prep-1015` | `8c81082` |
+| `launch-reset-1016` | `0fb6221` |
+| `main-filter-search-1021` | `9bedd62` |
+| `main-wording-1010` | `34f8511` |
+| `merge-check-1-2-0` | `8dfa993` |
+| `merge-check-panel` | `a2319e1` |
+| `merge-main-1-2-0` | `3877dc1` |
+| `ops-1010` | `8d800f2` |
+
+## Удалено во второй уборке локально: влитые без дерева (22)
+
+| Ветка | Хеш |
+|---|---|
+| `guest-signals-texts-boundary-1102` | `5fae648` |
+| `integration-rehearsal-1031` | `09d6664` |
+| `kb-techs-read-all-1031` | `8087f14` |
+| `knowledge-base-phone-1017` | `cd39831` |
+| `knowledge-base-step1-1017` | `db42d9e` |
+| `main-pdf-1016` | `804ac7a` |
+| `main-privacy-1016` | `b7fcc0f` |
+| `manual-time-1029` | `2627231` |
+| `media-fixes-1104` | `4fe2133` |
+| `panel-filter-search-1021` | `f40fadd` |
+| `panel-fixes-1010` | `3410516` |
+| `phone-1-2-0` | `e820308` |
+| `photo-viewer-1103` | `848a6c5` |
+| `privacy-page` | `8aab6f2` |
+| `privacy-wording-1010` | `4a3fa13` |
+| `property-intelligence-plan-1106` | `bdf1e95` |
+| `property-quality-1106` | `424c86e` |
+| `public-api-v1-1028` | `c3eac69` |
+| `push-release-1010` | `3da0414` |
+| `video-gallery-setting` | `16bb5f6` |
+| `video-upload-1022` | `3c8df45` |
+| `web-layout-1012` | `7d9b597` |
+
+## Удалено во второй уборке на origin (11)
+
+| Ветка | Хеш |
+|---|---|
+| `dashboard-1014` | `1a20c2e` |
+| `dashboard-pdf-1015` | `f3eda7d` |
+| `dashboard-pdf-main-1016` | `b62abd9` |
+| `guest-signals-design-1031` | `46bf205` |
+| `guest-texts-line-1102` | `0adb654` |
+| `integration-rehearsal-1028` | `f3815d6` |
+| `integration-rehearsal-1030` | `69fd4b0` |
+| `knowledge-base-1015` | `331788b` |
+| `reviews-tasks-1015` | `93ba0e0` |
+| `reviews-to-tasks-1017` | `05175af` |
+| `rollout-plan-1028` | `c3abb72` |
 
 ## Удалено локально (27)
 
