@@ -436,6 +436,11 @@
       "reason": "closes a task (problem) without a fix; its live repair is cancelled",
       "defined_in": "20260908130000_problems.sql"
     },
+    "cancel_resolution_plan": {
+      "status": "internal",
+      "reason": "the manager closes a launched plan in the panel; the public resource comes with stage 6 of the plan",
+      "defined_in": "20261106160000_resolution_plans.sql"
+    },
     "cascade_delete_property_units": {
       "status": "internal",
       "reason": "trigger function: deletes the rooms of a deleted listing",
@@ -568,6 +573,11 @@
       "status": "internal",
       "reason": "tenant default of host_id columns (single-company phase A); internal plumbing",
       "defined_in": "20260905094000_tenant_host_id.sql"
+    },
+    "delete_resolution_plan": {
+      "status": "internal",
+      "reason": "the manager deletes a draft in the panel; the public resource comes with stage 6 of the plan",
+      "defined_in": "20261106160000_resolution_plans.sql"
     },
     "delete_supply_request": {
       "status": "internal",
@@ -804,6 +814,11 @@
       "reason": "write helper of save_kb_article/restore_kb_revision: replaces an article's translations; execute revoked from clients",
       "defined_in": "20261030100000_knowledge_base.sql"
     },
+    "launch_resolution_plan": {
+      "status": "internal",
+      "reason": "the manager launches a plan in the panel; the public resource comes with stage 6 of the plan",
+      "defined_in": "20261106160000_resolution_plans.sql"
+    },
     "list_api_key_events": {
       "status": "internal",
       "reason": "forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API.",
@@ -922,6 +937,11 @@
       "status": "internal",
       "reason": "panel listing-card read of reports; the same rows come from GET /v1/tasks filtered by property",
       "defined_in": "20260917160000_listing_card_rooms.sql"
+    },
+    "property_resolution_plans": {
+      "status": "internal",
+      "reason": "the panel read of a place's plans; the public resource comes with stage 6 of the plan",
+      "defined_in": "20261106160000_resolution_plans.sql"
     },
     "purge_push_history": {
       "status": "internal",
@@ -1169,6 +1189,26 @@
       "reason": "model spending fence of classify-guest-signals: books model calls under the daily ceiling, service_role only",
       "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
+    "resolution_plan": {
+      "status": "internal",
+      "reason": "the panel read of one plan; the public resource comes with stage 6 of the plan",
+      "defined_in": "20261106160000_resolution_plans.sql"
+    },
+    "resolution_plan_baseline": {
+      "status": "internal",
+      "reason": "building block of the launch; execute revoked from clients",
+      "defined_in": "20261106160000_resolution_plans.sql"
+    },
+    "resolution_plan_place_work": {
+      "status": "internal",
+      "reason": "the panel read of a place's live tasks for a draft; the public resource comes with stage 6 of the plan",
+      "defined_in": "20261106160000_resolution_plans.sql"
+    },
+    "resolution_step_states": {
+      "status": "internal",
+      "reason": "building block of the plan reads; execute revoked from clients",
+      "defined_in": "20261106160000_resolution_plans.sql"
+    },
     "resolve_checklist_property": {
       "status": "planned",
       "scope": "checklists:read",
@@ -1247,6 +1287,11 @@
       "reason": "links a cleaner to a listing or changes the link mode (property_cleaners)",
       "defined_in": "20260911120000_staff_accounts.sql"
     },
+    "save_resolution_plan": {
+      "status": "internal",
+      "reason": "the manager saves a draft in the panel; the public resource comes with stage 6 of the plan",
+      "defined_in": "20261106160000_resolution_plans.sql"
+    },
     "save_supply_catalog_item": {
       "status": "planned",
       "scope": "supplies:write",
@@ -1302,6 +1347,11 @@
       "status": "internal",
       "reason": "push plumbing: the signed-in person switches one of her own push events on or off",
       "defined_in": "20260928100000_push_recipients.sql"
+    },
+    "set_resolution_step_decided": {
+      "status": "internal",
+      "reason": "the manager closes a decision step in the panel; the public resource comes with stage 6 of the plan",
+      "defined_in": "20261106160000_resolution_plans.sql"
     },
     "short_cleaning_threshold": {
       "status": "internal",
@@ -1843,6 +1893,16 @@
         "listBookings",
         "getBooking"
       ]
+    },
+    "resolution_plan_steps": {
+      "status": "internal",
+      "reason": "steps of a plan; the panel reads through functions; the public resource comes with stage 6 of the plan",
+      "defined_in": "20261106160000_resolution_plans.sql"
+    },
+    "resolution_plans": {
+      "status": "internal",
+      "reason": "plans of resolution; the panel reads through functions; the public resource comes with stage 6 of the plan",
+      "defined_in": "20261106160000_resolution_plans.sql"
     },
     "signal_feedback": {
       "status": "internal",
