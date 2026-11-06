@@ -432,6 +432,7 @@
       "analytics": "Analytics",
       "problems": "Tasks",
       "guests": "Guests",
+      "quality": "Property quality",
       "toReview": "To review: {{count}}",
       "supplies": "Supply requests",
       "tasks": "Cleanings",
@@ -959,6 +960,204 @@
         "note": "Read from Hostaway just now; woom keeps none of it.",
         "empty": "The review has no text in Hostaway.",
         "retry": "Try again"
+      }
+    },
+    "quality": {
+      "subtitle": "What guests and staff say about your properties, by theme and beside the number of stays.",
+      "errors": {
+        "overview": "Could not load property quality",
+        "place": "Could not load this property’s card"
+      },
+      "window": {
+        "label": "Period",
+        "options": {
+          "14d": "14 days",
+          "1m": "1 month",
+          "3m": "3 months",
+          "6m": "6 months",
+          "12m": "12 months"
+        },
+        "range": "{{from}} to {{to}}",
+        "bookingTail": "Booking.com reviews may still arrive"
+      },
+      "filters": {
+        "city": "City",
+        "allCities": "All cities",
+        "onlyNew": "New only"
+      },
+      "history": {
+        "shortWindow": "Short windows miss some reviews: for most of them only the month of the stay is kept.",
+        "reading_one": "Labelled {{done}} of {{count}} week. Trends stay hidden until labelling is done.",
+        "reading_other": "Labelled {{done}} of {{count}} weeks. Trends stay hidden until labelling is done.",
+        "readingOpen": "Weeks labelled: {{done}}. Trends stay hidden until labelling is done.",
+        "unread": "Past reviews have not been read yet: themes come only from what staff found and filed. Trends stay hidden until there is something to compare with."
+      },
+      "stays": {
+        "notLoaded": "Stays for this period have not been loaded yet. Only counts are shown.",
+        "partly": "Stays are loaded only from {{from}}, so only counts are shown for this period."
+      },
+      "tiles": {
+        "label": "The portfolio in this period",
+        "stays": "Stays",
+        "rated": "Rated reviews",
+        "average": "average {{average}}",
+        "noRatings": "no ratings",
+        "newThemes": "New themes",
+        "returned": "Returned themes"
+      },
+      "rating": {
+        "value": "{{average}}/10 ({{n}})",
+        "threeMonths": "Ratings of 3 months, from {{from}}"
+      },
+      "layers": {
+        "reviews_one": "{{count}} complaint",
+        "reviews_other": "{{count}} complaints",
+        "found_one": "{{count}} found",
+        "found_other": "{{count}} found",
+        "reported_one": "{{count}} filed",
+        "reported_other": "{{count}} filed",
+        "none": "Nothing said in this period"
+      },
+      "rate": {
+        "value": "{{rate}} per 100 stays ({{n}} of {{stays}})",
+        "layer": {
+          "reviews": "Complaints:",
+          "found": "Found:",
+          "reported": "Filed:"
+        },
+        "gap": {
+          "stays_unknown": "Stays not loaded: count only",
+          "few_stays": "Few stays: under {{min}}, count only",
+          "short_window": "Short period: count only"
+        }
+      },
+      "trend": {
+        "rising": "Rising",
+        "falling": "Falling",
+        "steady": "No clear change",
+        "too_little": "Too little data",
+        "tooLittleHint": "under {{min}} stays in at least one period",
+        "seasonal": "seasonal: nothing to compare with yet",
+        "no_base": "Nothing to compare with yet",
+        "hidden": "Trend hidden until labelling is done"
+      },
+      "state": {
+        "new": "New",
+        "returned": "Returned",
+        "in_work": "In progress",
+        "fixed": "Fixed, watching",
+        "single": "Single case",
+        "no_repair_data": "No repair records",
+        "quiet": "Quiet"
+      },
+      "trust": {
+        "high": "High",
+        "medium": "Medium",
+        "low": "Too little data"
+      },
+      "scope": {
+        "portfolio": "Top themes of the portfolio",
+        "group": "Group: {{city}}",
+        "groupTooSmall": "{{city}} has fewer than {{min}} properties: no group is shown.",
+        "summary_one": "{{count}} property, stays: {{stays}}",
+        "summary_other": "{{count}} properties, stays: {{stays}}",
+        "noThemes": "No themes in this period."
+      },
+      "places": {
+        "title": "Properties",
+        "name": "Property",
+        "city": "City",
+        "rating": "Rating",
+        "stays": "Stays",
+        "themes": "Themes",
+        "trust": "Trust",
+        "noThemes": "No themes",
+        "noNew": "No new themes in this period",
+        "ratingNote": "Rating: the average across all channels, with the number of rated reviews in brackets. Each channel on its own is on the property’s card."
+      },
+      "empty": {
+        "noPlaces": "No properties yet.",
+        "noData": "Nothing for this period: no stays, ratings or themes.",
+        "noThemes": "No themes in this period. Stays: {{stays}}.",
+        "noThemesNoStays": "No themes in this period. Stays have not been loaded yet.",
+        "placeNoData": "Nothing for this property in this period."
+      },
+      "card": {
+        "stays": "Stays",
+        "rated": "Rated reviews",
+        "rating": "Rating",
+        "trust": "Trust",
+        "important": "What matters now",
+        "others": "Other themes",
+        "noImportant": "Nothing new, returned or rising.",
+        "notFoundTitle": "Property not found",
+        "notFoundText": "There is no such property, or it is not counted in this section.",
+        "repairsFrom": "No repair records before {{day}}",
+        "noRepairs": "No repair records yet"
+      },
+      "work": {
+        "open": "In progress: {{n}}",
+        "closed": "Work closed {{day}}"
+      },
+      "months": {
+        "title": "By month, last 12 months",
+        "empty": "Nothing said in the last 12 months.",
+        "month": "Month",
+        "layer": {
+          "reviews": "Complaints",
+          "found": "Found",
+          "reported": "Filed"
+        }
+      },
+      "ratings": {
+        "title": "Ratings",
+        "channels": "By channel",
+        "channel": "Channel",
+        "rating": "Rating (reviews)",
+        "categories": "By category",
+        "category": "Category",
+        "place": "This property",
+        "city": "Other properties",
+        "channelsNote": "Channels are not averaged together: their scales differ.",
+        "categoriesNote": "Beside it, the other properties of the same city. Categories are collected across all channels.",
+        "none": "No ratings in this period."
+      },
+      "themes": {
+        "heating": "Heating",
+        "hot_water": "Hot water",
+        "air_conditioning": "Air conditioning",
+        "plumbing": "Plumbing",
+        "drain_toilet": "Drain and toilet",
+        "shower_bath": "Shower and bath",
+        "electric_light": "Electrics and lighting",
+        "wifi": "Wi-Fi",
+        "tv": "TV",
+        "kettle": "Kettle",
+        "kitchen_appliance": "Kitchen appliances",
+        "laundry_appliance": "Washer and dryer",
+        "appliance_other": "Other appliances",
+        "checkin_access": "Check-in and access",
+        "lock_door": "Locks and doors",
+        "lift_stairs": "Lift and stairs",
+        "parking": "Parking",
+        "cleanliness": "Cleanliness",
+        "smell": "Smell",
+        "pests": "Pests",
+        "mould_damp": "Mould and damp",
+        "bed_comfort": "Bed comfort",
+        "linen_towels": "Linen and towels",
+        "furniture": "Furniture",
+        "window_blind": "Windows and blinds",
+        "room_temperature": "Room temperature",
+        "supplies_amenities": "Supplies and amenities",
+        "noise_outside": "Street noise",
+        "noise_neighbours": "Noisy neighbours",
+        "location": "Location",
+        "accuracy": "Accuracy of the listing",
+        "communication": "Communication",
+        "value": "Value for money",
+        "safety": "Safety",
+        "other": "Other"
       }
     },
     "supplies": {
@@ -2515,6 +2714,7 @@
     "kbBuildingInvalid": "Choose one building: a listing with rooms under it",
     "kbRevisionNotFound": "That version is not there",
     "reviewTextLimit": "More than {{limit}} review texts read in {{minutes}} minutes. Wait a little and try again.",
+    "qualityWindowInvalid": "This section has no such period",
     "reviewTextNotFound": "Hostaway no longer has this review.",
     "reviewTextGone": "The review’s time is over: its text can no longer be read.",
     "reviewTextUnavailable": "Hostaway is not answering right now. Try again later."

@@ -6,6 +6,7 @@ import {
   Calendar,
   ChartColumn,
   ClipboardList,
+  Gauge,
   LayoutGrid,
   MessageSquare,
   Package,
@@ -30,6 +31,7 @@ type NavKey =
   | 'dashboard'
   | 'analytics'
   | 'guests'
+  | 'quality'
   | 'calendar'
   | 'tasks'
   | 'problems'
@@ -43,9 +45,9 @@ interface NavItem {
   href: string;
   key: NavKey;
   /**
-   * The picture of `ICONS['nav.<key>']` (@str-ops/shared), imported by name:
-   * the whole Lucide set does not belong in the bundle. The sidebar's test
-   * holds each one to the map.
+   * The picture of `ICONS['nav.<key>']` (@str-ops/shared), or `PANEL_ICONS` for
+   * a section the phone has not got, imported by name: the whole Lucide set
+   * does not belong in the bundle. The sidebar's test holds each one to the map.
    */
   icon: LucideIcon;
 }
@@ -69,6 +71,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
       { href: '/tasks', key: 'tasks', icon: BrushCleaning },
       { href: '/problems', key: 'problems', icon: ClipboardList },
       { href: '/guests', key: 'guests', icon: MessageSquare },
+      { href: '/quality', key: 'quality', icon: Gauge },
       { href: '/supplies', key: 'supplies', icon: Package },
     ],
   },

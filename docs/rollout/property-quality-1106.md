@@ -113,7 +113,7 @@ npx supabase db query --linked -f docs/one-off-writes/property-quality-history-o
 | Остановить чтение, метки оставить | `property-quality-history-off.sql` | «стоп истории» |
 | Стереть метки истории, схема остаётся | `property-quality-labels-wipe.sql`. Деньги не возвращаются в лимит: журнал сохраняет расход, недели открываются заново | «стирай метки истории» |
 | Убрать панель | `git revert` слияния в `main`, push | «откати панель качества» |
-| Убрать всё | Сначала панель, затем `property-quality-rollback.sql`, `migration repair --status reverted 20261106120000 --linked`, `functions delete read-signal-history`, проба | «откатывай качество целиком» |
+| Убрать всё | Сначала панель, затем `property-quality-rollback.sql`, `migration repair --status reverted 20261106120000 --linked`, `functions delete read-signal-history`, проба. Журнал с расходом остаётся, если чтение что-то потратило: лимит $5 откатом не возвращается | «откатывай качество целиком» |
 
 Тексты стирать не нужно ни в одном случае: история их не хранит. Тексты потока с 02.11 откат не трогает.
 
@@ -127,5 +127,6 @@ npx supabase db query --linked -f docs/one-off-writes/property-quality-history-o
 3. Миграция применена. Проба после: всё по таблице шага 1.
 4. Посев, `property-quality-labels-wipe.sql`: меток истории 0, эпизоды потока на месте, переключатели
    выключены, недели открыты, расход сохранён.
-5. `property-quality-rollback.sql`: отпечаток равен снятому на шаге 1.
-6. Миграция применена повторно, набор `property_quality.sql` зелёный.
+5. `property-quality-rollback.sql` на базе с журналом: журнал остался, расход цел.
+6. Журнал очищен, откат на чистой базе: отпечаток равен снятому на шаге 1.
+7. Миграция применена повторно, набор `property_quality.sql` зелёный.

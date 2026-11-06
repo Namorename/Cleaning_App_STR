@@ -92,6 +92,16 @@ export type IconMeaning = keyof typeof ICONS;
 export type LucideIconName = (typeof ICONS)[IconMeaning];
 
 /**
+ * The pictures of what only the panel has. Apart from `ICONS` because the phone
+ * must import every name of that map (`LUCIDE_GLYPHS`): a section of the panel
+ * does not change the phone's build.
+ */
+export const PANEL_ICONS = {
+  /** «Качество объектов» (`/quality`). */
+  'nav.quality': 'gauge',
+} as const;
+
+/**
  * How an icon is drawn where the outline alone would not tell it apart: the
  * person of «Назначено» is filled and the one of «Без исполнителя» dashed
  * (the page's glyph: `stroke-dasharray` 2.4 2 on the 24-unit grid), «В работе»

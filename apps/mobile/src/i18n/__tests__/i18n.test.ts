@@ -17,8 +17,11 @@ function keyPaths(dictionary: Dictionary, prefix = ''): string[] {
 
 const dictionaries: Record<string, Dictionary> = { en, ru, cs };
 
-/** i18next's plural suffixes: a key ending in one is a form of a counted phrase. */
-const PLURAL_SUFFIX = /_(zero|one|two|few|many|other)$/;
+/**
+ * i18next's plural suffixes: a key ending in one is a form of a counted phrase.
+ * The theme `appliance_other` only looks like one: its key is its database code.
+ */
+const PLURAL_SUFFIX = /(?<!\.themes\.appliance)_(zero|one|two|few|many|other)$/;
 
 /** The phrase a key belongs to: `x_few` is a form of `x`, anything else is itself. */
 function phraseOf(path: string): string {

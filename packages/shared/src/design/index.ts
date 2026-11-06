@@ -43,4 +43,4 @@ export {
   type StatusKey,
   type StepCircle,
 } from './status';
-export { ICONS, ICON_STYLE, type IconMeaning, type LucideIconName } from './icons';
+export { ICONS, ICON_STYLE, PANEL_ICONS, type IconMeaning, type LucideIconName } from './icons';

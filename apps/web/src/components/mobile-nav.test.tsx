@@ -38,6 +38,7 @@ const ROUTES = [
   '/tasks',
   '/problems',
   '/guests',
+  '/quality',
   '/supplies',
   '/apartments',
   '/team',

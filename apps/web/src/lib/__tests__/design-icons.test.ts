@@ -1,4 +1,4 @@
-import { ICONS } from '@str-ops/shared';
+import { ICONS, PANEL_ICONS } from '@str-ops/shared';
 import { icons } from 'lucide-react';
 import { describe, expect, test } from 'vitest';
 
@@ -23,7 +23,10 @@ function componentName(name: string): string {
 }
 
 describe('the icon map', () => {
-  test.each(Object.entries(ICONS))('%s → %s is a canonical Lucide icon', (_meaning, name) => {
-    expect(Object.hasOwn(icons, componentName(name))).toBe(true);
-  });
+  test.each(Object.entries({ ...ICONS, ...PANEL_ICONS }))(
+    '%s → %s is a canonical Lucide icon',
+    (_meaning, name) => {
+      expect(Object.hasOwn(icons, componentName(name))).toBe(true);
+    },
+  );
 });

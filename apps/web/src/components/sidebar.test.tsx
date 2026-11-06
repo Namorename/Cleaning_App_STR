@@ -1,4 +1,4 @@
-import { ICONS, type IconMeaning } from '@str-ops/shared';
+import { ICONS, PANEL_ICONS } from '@str-ops/shared';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement, ReactNode } from 'react';
@@ -75,6 +75,7 @@ describe('Sidebar', () => {
       'Уборки',
       'Задания',
       'Гости',
+      'Качество объектов',
       'Заявки',
     ]);
     expect(linkTexts(within(nav).getByRole('group', { name: 'Справочники' }))).toEqual([
@@ -102,6 +103,7 @@ describe('Sidebar', () => {
       '/tasks',
       '/problems',
       '/guests',
+      '/quality',
       '/supplies',
       '/apartments',
       '/team',
@@ -122,13 +124,14 @@ describe('Sidebar', () => {
 
   test('draws each section’s icon from the shared map, out of the screen reader’s way', () => {
     render(<Sidebar email="manager.test@example.com" />);
+    const pictures: Record<string, string> = { ...ICONS, ...PANEL_ICONS };
 
     for (const link of screen.getAllByRole('link')) {
       // `/tasks` → `nav.tasks`: the routes are the meanings' names.
-      const meaning = `nav.${link.getAttribute('href')?.slice(1)}` as IconMeaning;
+      const meaning = `nav.${link.getAttribute('href')?.slice(1)}`;
       const icon = link.querySelector('svg');
 
-      expect(icon).toHaveClass(`lucide-${ICONS[meaning]}`);
+      expect(icon).toHaveClass(`lucide-${pictures[meaning]}`);
       expect(icon).toHaveAttribute('aria-hidden', 'true');
     }
   });
@@ -205,6 +208,7 @@ describe('Sidebar folded to a strip of icons', () => {
       'Уборки',
       'Задания',
       'Гости',
+      'Качество объектов',
       'Заявки',
       'Объекты',
       'Команда',
@@ -237,6 +241,7 @@ describe('Sidebar folded to a strip of icons', () => {
       'Уборки',
       'Задания',
       'Гости',
+      'Качество объектов',
       'Заявки',
       'Объекты',
       'Команда',
@@ -275,8 +280,8 @@ describe('Sidebar folded to a strip of icons', () => {
     render(<Sidebar email="manager.test@example.com" />);
     const toggle = screen.getByRole('button', { name: 'Свернуть меню' });
 
-    // Through the eleven sections and the theme lever, then the toggle under them.
-    for (let step = 0; step < 13 && document.activeElement !== toggle; step += 1) {
+    // Through the twelve sections and the theme lever, then the toggle under them.
+    for (let step = 0; step < 14 && document.activeElement !== toggle; step += 1) {
       await userEvent.tab();
     }
     expect(toggle).toHaveFocus();

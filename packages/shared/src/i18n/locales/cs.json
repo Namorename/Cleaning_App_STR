@@ -434,6 +434,7 @@
       "analytics": "Analytika",
       "problems": "Úkoly",
       "guests": "Hosté",
+      "quality": "Kvalita objektů",
       "toReview": "K posouzení: {{count}}",
       "supplies": "Žádosti o materiál",
       "tasks": "Úklidy",
@@ -963,6 +964,214 @@
         "note": "Přečteno z Hostaway právě teď; woom si z toho nic neukládá.",
         "empty": "Recenze nemá v Hostaway žádný text.",
         "retry": "Zkusit znovu"
+      }
+    },
+    "quality": {
+      "subtitle": "Co o objektech říkají hosté a personál: podle témat a vedle počtu pobytů.",
+      "errors": {
+        "overview": "Kvalitu objektů se nepodařilo načíst",
+        "place": "Kartu objektu se nepodařilo načíst"
+      },
+      "window": {
+        "label": "Období",
+        "options": {
+          "14d": "14 dní",
+          "1m": "1 měsíc",
+          "3m": "3 měsíce",
+          "6m": "6 měsíců",
+          "12m": "12 měsíců"
+        },
+        "range": "Od {{from}} do {{to}}",
+        "bookingTail": "recenze z Booking.com mohou ještě přijít"
+      },
+      "filters": {
+        "city": "Město",
+        "allCities": "Všechna města",
+        "onlyNew": "Jen nové"
+      },
+      "history": {
+        "shortWindow": "V krátkých obdobích nejsou vidět všechny recenze: u většiny se uchovává jen měsíc pobytu.",
+        "reading_one": "Označeno {{done}} z {{count}} týdne. Trendy jsou skryté do konce označování.",
+        "reading_few": "Označeno {{done}} z {{count}} týdnů. Trendy jsou skryté do konce označování.",
+        "reading_many": "Označeno {{done}} z {{count}} týdne. Trendy jsou skryté do konce označování.",
+        "reading_other": "Označeno {{done}} z {{count}} týdnů. Trendy jsou skryté do konce označování.",
+        "readingOpen": "Označených týdnů: {{done}}. Trendy jsou skryté do konce označování.",
+        "unread": "Starší recenze ještě nebyly přečteny: témata pocházejí jen z nálezů a záznamů personálu. Trendy jsou skryté, dokud není s čím porovnávat."
+      },
+      "stays": {
+        "notLoaded": "Pobyty za toto období ještě nejsou načtené. Zobrazují se jen počty.",
+        "partly": "Pobyty jsou načtené až od {{from}}, proto se za toto období zobrazují jen počty."
+      },
+      "tiles": {
+        "label": "Portfolio za období",
+        "stays": "Pobyty",
+        "rated": "Recenze s hodnocením",
+        "average": "průměr {{average}}",
+        "noRatings": "bez hodnocení",
+        "newThemes": "Nová témata",
+        "returned": "Vrácená témata"
+      },
+      "rating": {
+        "value": "{{average}}/10 ({{n}})",
+        "threeMonths": "Hodnocení za 3 měsíce, od {{from}}"
+      },
+      "layers": {
+        "reviews_one": "{{count}} stížnost",
+        "reviews_few": "{{count}} stížnosti",
+        "reviews_many": "{{count}} stížnosti",
+        "reviews_other": "{{count}} stížností",
+        "found_one": "{{count}} nález",
+        "found_few": "{{count}} nálezy",
+        "found_many": "{{count}} nálezu",
+        "found_other": "{{count}} nálezů",
+        "reported_one": "{{count}} záznam",
+        "reported_few": "{{count}} záznamy",
+        "reported_many": "{{count}} záznamu",
+        "reported_other": "{{count}} záznamů",
+        "none": "Za toto období žádné zmínky"
+      },
+      "rate": {
+        "value": "{{rate}} na 100 pobytů ({{n}} z {{stays}})",
+        "layer": {
+          "reviews": "Stížnosti:",
+          "found": "Nálezy:",
+          "reported": "Záznamy:"
+        },
+        "gap": {
+          "stays_unknown": "Pobyty nejsou načtené: jen počet",
+          "few_stays": "Málo pobytů: méně než {{min}}, jen počet",
+          "short_window": "Krátké období: jen počet"
+        }
+      },
+      "trend": {
+        "rising": "Roste",
+        "falling": "Klesá",
+        "steady": "Bez zjevné změny",
+        "too_little": "Málo dat",
+        "tooLittleHint": "méně než {{min}} pobytů aspoň v jednom období",
+        "seasonal": "sezónní: zatím není s čím porovnat",
+        "no_base": "Zatím není s čím porovnat",
+        "hidden": "Trend je skrytý do konce označování"
+      },
+      "state": {
+        "new": "Nové",
+        "returned": "Vrátilo se",
+        "in_work": "V řešení",
+        "fixed": "Opraveno, sledujeme",
+        "single": "Ojedinělý případ",
+        "no_repair_data": "Bez záznamů o opravách",
+        "quiet": "Klid"
+      },
+      "trust": {
+        "high": "Vysoká",
+        "medium": "Střední",
+        "low": "Málo dat"
+      },
+      "scope": {
+        "portfolio": "Hlavní témata portfolia",
+        "group": "Skupina: {{city}}",
+        "groupTooSmall": "Město {{city}} má méně než {{min}} objektů: skupina se nezobrazuje.",
+        "summary_one": "{{count}} objekt, pobyty: {{stays}}",
+        "summary_few": "{{count}} objekty, pobyty: {{stays}}",
+        "summary_many": "{{count}} objektu, pobyty: {{stays}}",
+        "summary_other": "{{count}} objektů, pobyty: {{stays}}",
+        "noThemes": "Za toto období žádná témata."
+      },
+      "places": {
+        "title": "Objekty",
+        "name": "Objekt",
+        "city": "Město",
+        "rating": "Hodnocení",
+        "stays": "Pobyty",
+        "themes": "Témata",
+        "trust": "Důvěra",
+        "noThemes": "Žádná témata",
+        "noNew": "Za toto období žádná nová témata",
+        "ratingNote": "Hodnocení: průměr napříč kanály, v závorce počet recenzí s hodnocením. Každý kanál zvlášť je na kartě objektu."
+      },
+      "empty": {
+        "noPlaces": "Zatím žádné objekty.",
+        "noData": "Za toto období nic: žádné pobyty, hodnocení ani témata.",
+        "noThemes": "Za toto období žádná témata. Pobyty: {{stays}}.",
+        "noThemesNoStays": "Za toto období žádná témata. Pobyty ještě nejsou načtené.",
+        "placeNoData": "U tohoto objektu za toto období nic není."
+      },
+      "card": {
+        "stays": "Pobyty",
+        "rated": "Recenze s hodnocením",
+        "rating": "Hodnocení",
+        "trust": "Důvěra",
+        "important": "Co je teď důležité",
+        "others": "Ostatní témata",
+        "noImportant": "Nic nového, vráceného ani rostoucího.",
+        "notFoundTitle": "Objekt nenalezen",
+        "notFoundText": "Takový objekt neexistuje, nebo se v této sekci nepočítá.",
+        "repairsFrom": "Před {{day}} záznamy o opravách nejsou",
+        "noRepairs": "Záznamy o opravách zatím nejsou"
+      },
+      "work": {
+        "open": "V řešení: {{n}}",
+        "closed": "Práce uzavřena {{day}}"
+      },
+      "months": {
+        "title": "Po měsících, posledních 12 měsíců",
+        "empty": "Za posledních 12 měsíců žádné zmínky.",
+        "month": "Měsíc",
+        "layer": {
+          "reviews": "Stížnosti",
+          "found": "Nálezy",
+          "reported": "Záznamy"
+        }
+      },
+      "ratings": {
+        "title": "Hodnocení",
+        "channels": "Podle kanálů",
+        "channel": "Kanál",
+        "rating": "Hodnocení (recenze)",
+        "categories": "Podle kategorií",
+        "category": "Kategorie",
+        "place": "Tento objekt",
+        "city": "Ostatní objekty",
+        "channelsNote": "Kanály se mezi sebou neprůměrují: mají různé stupnice.",
+        "categoriesNote": "Vedle jsou ostatní objekty téhož města. Kategorie jsou sečtené napříč kanály.",
+        "none": "Za toto období žádná hodnocení."
+      },
+      "themes": {
+        "heating": "Topení",
+        "hot_water": "Teplá voda",
+        "air_conditioning": "Klimatizace",
+        "plumbing": "Vodoinstalace",
+        "drain_toilet": "Odpad a toaleta",
+        "shower_bath": "Sprcha a vana",
+        "electric_light": "Elektřina a světla",
+        "wifi": "Wi-Fi",
+        "tv": "Televize",
+        "kettle": "Konvice",
+        "kitchen_appliance": "Kuchyňské spotřebiče",
+        "laundry_appliance": "Pračka a sušička",
+        "appliance_other": "Ostatní spotřebiče",
+        "checkin_access": "Příjezd a přístup",
+        "lock_door": "Zámky a dveře",
+        "lift_stairs": "Výtah a schody",
+        "parking": "Parkování",
+        "cleanliness": "Čistota",
+        "smell": "Zápach",
+        "pests": "Škůdci",
+        "mould_damp": "Plíseň a vlhkost",
+        "bed_comfort": "Pohodlí postele",
+        "linen_towels": "Povlečení a ručníky",
+        "furniture": "Nábytek",
+        "window_blind": "Okna a žaluzie",
+        "room_temperature": "Teplota v pokoji",
+        "supplies_amenities": "Spotřební materiál a vybavení",
+        "noise_outside": "Hluk z ulice",
+        "noise_neighbours": "Hluk od sousedů",
+        "location": "Poloha",
+        "accuracy": "Soulad s popisem",
+        "communication": "Komunikace",
+        "value": "Poměr ceny a kvality",
+        "safety": "Bezpečnost",
+        "other": "Ostatní"
       }
     },
     "supplies": {
@@ -2559,6 +2768,7 @@
     "kbBuildingInvalid": "Vyberte jednu budovu — objekt s pokoji",
     "kbRevisionNotFound": "Taková verze neexistuje",
     "reviewTextLimit": "Za {{minutes}} minut přečteno více než {{limit}} textů recenzí. Chvíli počkejte a zkuste to znovu.",
+    "qualityWindowInvalid": "Takové období tato sekce nemá",
     "reviewTextNotFound": "Tuto recenzi už Hostaway nemá.",
     "reviewTextGone": "Doba uchování recenze uplynula: její text už nelze číst.",
     "reviewTextUnavailable": "Hostaway teď neodpovídá. Zkuste to později."

@@ -8,7 +8,7 @@ import { describe, expect, test } from 'vitest';
  * decision of 2026-10-16), and only the proxy keeps him there: the shell lets
  * him in, and no page asks the role itself. The proxy's matcher passes a path
  * ending in .png and the like without the check, so a page whose dynamic
- * segment takes any text would open to him that way. Today's two dynamic
+ * segment takes any text would open to him that way. Today's three dynamic
  * pages take an id (a UUID, a number) and answer such a path with «not
  * found».
  *
@@ -25,6 +25,8 @@ const DECIDED = [
   'guests',
   'knowledge',
   'problems',
+  // The office's alone, as «Гости»: the proxy keeps him out, and its card takes digits only.
+  'quality',
   'settings',
   'supplies',
   'tasks',
