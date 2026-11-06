@@ -1,7 +1,9 @@
 import { assert, assertEquals, assertStringIncludes } from "jsr:@std/assert@1";
 import {
+  banDuration,
   type Caller,
   createStaffHandler,
+  isBanned,
   refusalFromDatabase,
   type StaffDeps,
   type StaffMember,
@@ -18,6 +20,7 @@ const MARIA: StaffMember = {
   fullName: "Мария",
   hostId: "host-1",
   role: "cleaner",
+  isActive: true,
 };
 
 /** Everything succeeds and nothing is recorded, unless a test says otherwise. */
@@ -27,6 +30,8 @@ function deps(overrides: Partial<StaffDeps> = {}): StaffDeps {
     findStaff: (id) => Promise.resolve(id === MARIA.id ? MARIA : null),
     createStaff: () => Promise.resolve({ id: "new-1", sent: true, failureKey: null }),
     updateStaff: () => Promise.resolve(),
+    updateAccount: () => Promise.resolve({ signInBlocked: false }),
+    setSignInBlock: () => Promise.resolve(),
     setPassword: () => Promise.resolve({ sent: true, failureKey: null }),
     makePassword: () => "Anna-abcde",
     ...overrides,
@@ -426,6 +431,7 @@ Deno.test("a manager cannot demote herself or switch herself off", async () => {
     fullName: "Boss",
     hostId: "host-1",
     role: "manager",
+    isActive: true,
   };
   const handler = createStaffHandler(deps({ findStaff: () => Promise.resolve(self) }));
 
@@ -449,6 +455,7 @@ Deno.test("but she may correct her own name and language", async () => {
     fullName: "Boss",
     hostId: "host-1",
     role: "manager",
+    isActive: true,
   };
   const handler = createStaffHandler(deps({ findStaff: () => Promise.resolve(self) }));
   const response = await handler(
@@ -578,4 +585,310 @@ Deno.test("an unexpected failure answers 500 and says so in the log, not in a ke
   const refusal = await refusalOf(response);
   assertEquals(refusal.error.hint, "serverErrors.unknown");
   assertStringIncludes(refusal.error.message, "connection reset");
+});
+
+// ---------------------------------------------------------------------------
+//  The block on signing in
+// ---------------------------------------------------------------------------
+
+/** A row and an account that remember what the last save left them with. */
+interface World {
+  isActive: boolean;
+  signInBlocked: boolean;
+  /** What was asked of them, in order: "row", "account", "block", "lift". */
+  readonly calls: string[];
+}
+
+function world(isActive: boolean, signInBlocked: boolean): World {
+  return { isActive, signInBlocked, calls: [] };
+}
+
+function wired(state: World, overrides: Partial<StaffDeps> = {}): StaffDeps {
+  return deps({
+    findStaff: (id) =>
+      Promise.resolve(id === MARIA.id ? { ...MARIA, isActive: state.isActive } : null),
+    updateStaff: ({ profile }) => {
+      state.calls.push("row");
+      state.isActive = profile.isActive;
+      return Promise.resolve();
+    },
+    updateAccount: () => {
+      state.calls.push("account");
+      return Promise.resolve({ signInBlocked: state.signInBlocked });
+    },
+    setSignInBlock: ({ blocked }) => {
+      state.calls.push(blocked ? "block" : "lift");
+      state.signInBlocked = blocked;
+      return Promise.resolve();
+    },
+    ...overrides,
+  });
+}
+
+const authDown = () => Promise.reject(new Error("auth is down"));
+
+const SWITCH_OFF = { action: "update", id: "s-1", staff: { ...EDIT, isActive: false } };
+const SWITCH_ON = { action: "update", id: "s-1", staff: { ...EDIT, isActive: true } };
+
+const BLOCK_FAILED = "serverErrors.staffSignInBlockFailed";
+const UNBLOCK_FAILED = "serverErrors.staffSignInUnblockFailed";
+
+Deno.test("switching somebody off blocks her sign-in, after the row", async () => {
+  const state = world(true, false);
+  const response = await createStaffHandler(wired(state))(post(SWITCH_OFF));
+
+  assertEquals(response.status, 200);
+  assertEquals(state.calls, ["row", "account", "block"]);
+  assertEquals([state.isActive, state.signInBlocked], [false, true]);
+});
+
+Deno.test("switching somebody back on lifts the block, after the row", async () => {
+  const state = world(false, true);
+  const response = await createStaffHandler(wired(state))(post(SWITCH_ON));
+
+  assertEquals(response.status, 200);
+  assertEquals(state.calls, ["row", "account", "lift"]);
+  assertEquals([state.isActive, state.signInBlocked], [true, false]);
+});
+
+Deno.test("a save of somebody working calls nothing for the block", async () => {
+  const state = world(true, false);
+  const response = await createStaffHandler(wired(state))(post(SWITCH_ON));
+
+  assertEquals(response.status, 200);
+  assertEquals(state.calls, ["row", "account"]);
+});
+
+Deno.test("a save of somebody off and blocked calls nothing for the block", async () => {
+  const state = world(false, true);
+  const response = await createStaffHandler(wired(state))(post(SWITCH_OFF));
+
+  assertEquals(response.status, 200);
+  assertEquals(state.calls, ["row", "account"]);
+});
+
+Deno.test("a new account gets no block and no lift", async () => {
+  const state = world(true, false);
+  const response = await createStaffHandler(wired(state))(
+    post({ action: "create", staff: { ...NEW_STAFF, isActive: false } }),
+  );
+
+  assertEquals(response.status, 200);
+  assertEquals(state.calls, []);
+});
+
+// The row stays written: an outage of Auth must not keep somebody who was let go
+// inside the company's data. What it must not do is pass in silence.
+Deno.test("a block Auth refuses tells the manager, and the row stays off", async () => {
+  const state = world(true, false);
+  const handler = createStaffHandler(wired(state, { setSignInBlock: authDown }));
+
+  const response = await handler(post(SWITCH_OFF));
+
+  assertEquals(response.status, 500);
+  const refusal = await refusalOf(response);
+  assertEquals(refusal.success, false);
+  assertEquals(refusal.error.hint, BLOCK_FAILED);
+  assertEquals([state.isActive, state.signInBlocked], [false, false]);
+});
+
+// Auth being down fails at its first call, the account write, not at the block.
+Deno.test("an account write Auth refuses on a switch-off tells the manager too", async () => {
+  const state = world(true, false);
+  const handler = createStaffHandler(wired(state, { updateAccount: authDown }));
+
+  const response = await handler(post(SWITCH_OFF));
+
+  assertEquals(response.status, 500);
+  assertEquals((await refusalOf(response)).error.hint, BLOCK_FAILED);
+  assertEquals(state.calls, ["row"]);
+});
+
+Deno.test("a lift Auth refuses tells the manager, and the row stays on", async () => {
+  const state = world(false, true);
+  const handler = createStaffHandler(wired(state, { setSignInBlock: authDown }));
+
+  const response = await handler(post(SWITCH_ON));
+
+  assertEquals(response.status, 500);
+  assertEquals((await refusalOf(response)).error.hint, UNBLOCK_FAILED);
+  assertEquals([state.isActive, state.signInBlocked], [true, true]);
+});
+
+Deno.test("an account write Auth refuses on a switch-on tells the manager too", async () => {
+  const state = world(false, true);
+  const handler = createStaffHandler(wired(state, { updateAccount: authDown }));
+
+  const response = await handler(post(SWITCH_ON));
+
+  assertEquals(response.status, 500);
+  assertEquals((await refusalOf(response)).error.hint, UNBLOCK_FAILED);
+  assertEquals(state.calls, ["row"]);
+});
+
+Deno.test("an account write Auth refuses on a plain edit stays a general failure", async () => {
+  const state = world(true, false);
+  const handler = createStaffHandler(wired(state, { updateAccount: authDown }));
+
+  const response = await handler(post(SWITCH_ON));
+
+  assertEquals(response.status, 500);
+  assertEquals((await refusalOf(response)).error.hint, "serverErrors.unknown");
+});
+
+// After the failed block the row already says "off", so this save changes
+// nothing in the row: only Auth can say that the work is not finished.
+Deno.test("the same save again repairs a block that failed, and then rests", async () => {
+  const state = world(true, false);
+  const healthy = wired(state);
+  let isAuthDown = true;
+  const handler = createStaffHandler({
+    ...healthy,
+    setSignInBlock: (input) => isAuthDown ? authDown() : healthy.setSignInBlock(input),
+  });
+
+  assertEquals((await handler(post(SWITCH_OFF))).status, 500);
+  isAuthDown = false;
+  const repaired = await handler(post(SWITCH_OFF));
+
+  assertEquals(repaired.status, 200);
+  assertEquals([state.isActive, state.signInBlocked], [false, true]);
+
+  const callsBefore = state.calls.length;
+  assertEquals((await handler(post(SWITCH_OFF))).status, 200);
+  assertEquals(state.calls.slice(callsBefore), ["row", "account"]);
+});
+
+Deno.test("the same save again repairs a lift that failed, and then rests", async () => {
+  const state = world(false, true);
+  const healthy = wired(state);
+  let isAuthDown = true;
+  const handler = createStaffHandler({
+    ...healthy,
+    setSignInBlock: (input) => isAuthDown ? authDown() : healthy.setSignInBlock(input),
+  });
+
+  assertEquals((await handler(post(SWITCH_ON))).status, 500);
+  isAuthDown = false;
+  const repaired = await handler(post(SWITCH_ON));
+
+  assertEquals(repaired.status, 200);
+  assertEquals([state.isActive, state.signInBlocked], [true, false]);
+
+  const callsBefore = state.calls.length;
+  assertEquals((await handler(post(SWITCH_ON))).status, 200);
+  assertEquals(state.calls.slice(callsBefore), ["row", "account"]);
+});
+
+Deno.test("a repeat also repairs what an account write left undone", async () => {
+  const state = world(true, false);
+  const healthy = wired(state);
+  let isAuthDown = true;
+  const handler = createStaffHandler({
+    ...healthy,
+    updateAccount: (input) => isAuthDown ? authDown() : healthy.updateAccount(input),
+  });
+
+  assertEquals((await handler(post(SWITCH_OFF))).status, 500);
+  isAuthDown = false;
+
+  assertEquals((await handler(post(SWITCH_OFF))).status, 200);
+  assertEquals([state.isActive, state.signInBlocked], [false, true]);
+});
+
+// Everybody switched off before this rule, until the one-off backfill reaches them.
+Deno.test("an edit of somebody switched off who was never blocked blocks her", async () => {
+  const state = world(false, false);
+  const response = await createStaffHandler(wired(state))(post(SWITCH_OFF));
+
+  assertEquals(response.status, 200);
+  assertEquals(state.calls, ["row", "account", "block"]);
+});
+
+Deno.test("a switch-off the database refuses leaves Auth alone", async () => {
+  const state = world(true, false);
+  const handler = createStaffHandler(
+    wired(state, { updateStaff: () => Promise.reject(refusalFromDatabase(ROLE_BLOCKED)) }),
+  );
+
+  const response = await handler(post(SWITCH_OFF));
+
+  assertEquals(response.status, 409);
+  assertEquals((await refusalOf(response)).error.hint, "serverErrors.techRoleBlocked");
+  assertEquals(state.calls, []);
+});
+
+Deno.test("every guard refuses before the row and before Auth", async () => {
+  const self: StaffMember = { ...MARIA, id: MANAGER.id, role: "manager" };
+  const cases: readonly [string, Partial<StaffDeps>, unknown, string][] = [
+    [
+      "a cleaner",
+      { identify: () => Promise.resolve({ ...MANAGER, role: "cleaner" }) },
+      SWITCH_OFF,
+      "serverErrors.managerOnly",
+    ],
+    [
+      "a manager switched off",
+      { identify: () => Promise.resolve({ ...MANAGER, isActive: false }) },
+      SWITCH_OFF,
+      "serverErrors.managerOnly",
+    ],
+    [
+      "no flag",
+      {},
+      { ...SWITCH_OFF, staff: { ...EDIT, isActive: undefined } },
+      "serverErrors.staffPayloadInvalid",
+    ],
+    [
+      "another company",
+      { findStaff: () => Promise.resolve({ ...MARIA, hostId: "host-2" }) },
+      SWITCH_OFF,
+      "serverErrors.staffNotFound",
+    ],
+    [
+      "an admin, by a manager",
+      { findStaff: () => Promise.resolve({ ...MARIA, role: "admin" }) },
+      SWITCH_OFF,
+      "serverErrors.adminRoleForbidden",
+    ],
+    [
+      "the admin role, by a manager",
+      {},
+      { ...SWITCH_OFF, staff: { ...EDIT, role: "admin", isActive: false } },
+      "serverErrors.adminRoleForbidden",
+    ],
+    [
+      "herself",
+      { findStaff: () => Promise.resolve(self) },
+      { action: "update", id: MANAGER.id, staff: { ...EDIT, role: "manager", isActive: false } },
+      "serverErrors.staffSelfChange",
+    ],
+  ];
+
+  for (const [who, overrides, body, hint] of cases) {
+    const state = world(true, false);
+    const response = await createStaffHandler(wired(state, overrides))(post(body));
+
+    assertEquals((await refusalOf(response)).error.hint, hint, who);
+    assertEquals(state.calls, [], who);
+  }
+});
+
+Deno.test("the block lasts until somebody lifts it, in words Auth reads", () => {
+  assertEquals(banDuration(false), "none");
+
+  const hours = Number(/^(\d+)h$/.exec(banDuration(true))?.[1]);
+  assert(hours >= 50 * 365 * 24, `${hours} hours is not "until enabled again"`);
+  // Auth parses this as a Go duration, which ends at about 292 years.
+  assert(hours < 2_562_047, `${hours} hours does not fit a Go duration`);
+});
+
+Deno.test("only a date still ahead is a block", () => {
+  const now = new Date("2026-11-06T12:00:00Z");
+
+  assertEquals(isBanned(undefined, now), false);
+  assertEquals(isBanned(null, now), false);
+  assertEquals(isBanned("2026-11-06T11:59:59Z", now), false);
+  assertEquals(isBanned("2026-11-06T12:00:00Z", now), false);
+  assertEquals(isBanned("2126-01-01T00:00:00Z", now), true);
 });
