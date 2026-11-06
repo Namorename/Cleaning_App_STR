@@ -10,6 +10,13 @@ import { refusalTags, signInFailureText } from '../failure';
  * Tests read Russian: that is the language jest.setup fixes for the app.
  */
 
+test('a blocked account shows no word of the server under the sentence', () => {
+  const failure = signInFailureText({ code: 'user_banned', status: 400, message: 'User is banned' });
+
+  expect(failure.detail).toBeNull();
+  expect(failure.text).not.toContain('banned');
+});
+
 test('a wrong pair is reported without saying which half was wrong', () => {
   const failure = signInFailureText({ code: 'invalid_credentials', status: 400 });
 

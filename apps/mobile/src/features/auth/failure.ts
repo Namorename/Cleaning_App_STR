@@ -20,6 +20,9 @@ import { serverErrorText, type ServerErrorText } from '@/lib/server-error';
  * the request, not about the account.
  */
 
+/** The sign-in block of a disabled account (manage-staff). */
+const ACCOUNT_BLOCKED = 'user_banned';
+
 /** Auth answers this when the pair does not match. Either half. Never says which. */
 const WRONG_PAIR = ['invalid_credentials', 'invalid_grant'];
 
@@ -94,6 +97,11 @@ export function signInFailureText(error: unknown): ServerErrorText {
 
   if (status === WRONG_PAIR_STATUS && code === undefined) {
     return { text: i18n.t('auth.invalidCredentials'), detail: null };
+  }
+
+  // The server's own words would tell whoever typed the address that the account is disabled.
+  if (code === ACCOUNT_BLOCKED) {
+    return { ...serverErrorText(error), detail: null };
   }
 
   return serverErrorText(error);
