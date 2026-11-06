@@ -52,6 +52,8 @@ export {
 } from './i18n';
 // The design system; its own index lists what it exports.
 export * from './design';
+// Property quality: its themes and what its numbers are allowed to say.
+export * from './quality';
 // The knowledge base's text format and which language a reader sees.
 export * from './knowledge';
 

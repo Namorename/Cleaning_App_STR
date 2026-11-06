@@ -805,6 +805,174 @@ export type Database = {
         }
         Relationships: []
       }
+      issue_facts: {
+        Row: {
+          channel: Database["public"]["Enums"]["signal_channel"] | null
+          confidence: number | null
+          created_at: string
+          detector: string
+          finding_id: string | null
+          history_slice: string | null
+          host_id: string
+          id: string
+          layer: Database["public"]["Enums"]["issue_layer"]
+          month: string
+          origin: string
+          problem_id: string | null
+          property_id: number
+          severity: Database["public"]["Enums"]["problem_priority"]
+          signal_id: string | null
+          theme: string
+          week: string | null
+        }
+        Insert: {
+          channel?: Database["public"]["Enums"]["signal_channel"] | null
+          confidence?: number | null
+          created_at?: string
+          detector: string
+          finding_id?: string | null
+          history_slice?: string | null
+          host_id: string
+          id?: string
+          layer: Database["public"]["Enums"]["issue_layer"]
+          month: string
+          origin: string
+          problem_id?: string | null
+          property_id: number
+          severity?: Database["public"]["Enums"]["problem_priority"]
+          signal_id?: string | null
+          theme: string
+          week?: string | null
+        }
+        Update: {
+          channel?: Database["public"]["Enums"]["signal_channel"] | null
+          confidence?: number | null
+          created_at?: string
+          detector?: string
+          finding_id?: string | null
+          history_slice?: string | null
+          host_id?: string
+          id?: string
+          layer?: Database["public"]["Enums"]["issue_layer"]
+          month?: string
+          origin?: string
+          problem_id?: string | null
+          property_id?: number
+          severity?: Database["public"]["Enums"]["problem_priority"]
+          signal_id?: string | null
+          theme?: string
+          week?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "issue_facts_finding_id_fkey"
+            columns: ["finding_id"]
+            isOneToOne: false
+            referencedRelation: "signal_findings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_facts_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_facts_problem_id_fkey"
+            columns: ["problem_id"]
+            isOneToOne: false
+            referencedRelation: "problems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_facts_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_facts_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "report_properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_facts_signal_id_fkey"
+            columns: ["signal_id"]
+            isOneToOne: false
+            referencedRelation: "guest_signals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_facts_theme_fkey"
+            columns: ["theme"]
+            isOneToOne: false
+            referencedRelation: "issue_themes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      issue_theme_words: {
+        Row: {
+          pattern: string
+          rank: number
+          theme: string
+        }
+        Insert: {
+          pattern: string
+          rank: number
+          theme: string
+        }
+        Update: {
+          pattern?: string
+          rank?: number
+          theme?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "issue_theme_words_theme_fkey"
+            columns: ["theme"]
+            isOneToOne: false
+            referencedRelation: "issue_themes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      issue_themes: {
+        Row: {
+          code: string
+          is_seasonal: boolean
+          replaced_by: string | null
+          sort_order: number
+          theme_group: string
+        }
+        Insert: {
+          code: string
+          is_seasonal?: boolean
+          replaced_by?: string | null
+          sort_order: number
+          theme_group: string
+        }
+        Update: {
+          code?: string
+          is_seasonal?: boolean
+          replaced_by?: string | null
+          sort_order?: number
+          theme_group?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "issue_themes_replaced_by_fkey"
+            columns: ["replaced_by"]
+            isOneToOne: false
+            referencedRelation: "issue_themes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       kb_article_revisions: {
         Row: {
           article_id: string
@@ -1063,6 +1231,45 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tasks"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      problem_themes: {
+        Row: {
+          detector: string
+          problem_id: string
+          source: string
+          theme: string
+          updated_at: string
+        }
+        Insert: {
+          detector: string
+          problem_id: string
+          source: string
+          theme: string
+          updated_at?: string
+        }
+        Update: {
+          detector?: string
+          problem_id?: string
+          source?: string
+          theme?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "problem_themes_problem_id_fkey"
+            columns: ["problem_id"]
+            isOneToOne: true
+            referencedRelation: "problems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "problem_themes_theme_fkey"
+            columns: ["theme"]
+            isOneToOne: false
+            referencedRelation: "issue_themes"
+            referencedColumns: ["code"]
           },
         ]
       }
@@ -1403,6 +1610,58 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "properties"
             referencedColumns: ["host_id", "id"]
+          },
+        ]
+      }
+      property_month_stats: {
+        Row: {
+          channel: Database["public"]["Enums"]["signal_channel"]
+          host_id: string
+          month: string
+          nights: number
+          property_id: number
+          stays: number
+          updated_at: string
+        }
+        Insert: {
+          channel: Database["public"]["Enums"]["signal_channel"]
+          host_id: string
+          month: string
+          nights: number
+          property_id: number
+          stays: number
+          updated_at?: string
+        }
+        Update: {
+          channel?: Database["public"]["Enums"]["signal_channel"]
+          host_id?: string
+          month?: string
+          nights?: number
+          property_id?: number
+          stays?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_month_stats_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_month_stats_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_month_stats_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "report_properties"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1811,6 +2070,11 @@ export type Database = {
           auto_kinds: string[]
           daily_auto_cap: number
           daily_model_cap: number
+          history_budget_micro_usd: number
+          history_daily_cap: number
+          history_depth_months: number
+          history_enabled: boolean
+          history_include_private: boolean
           host_id: string
           kind: Database["public"]["Enums"]["guest_signal_kind"]
           min_confidence: number
@@ -1828,6 +2092,11 @@ export type Database = {
           auto_kinds?: string[]
           daily_auto_cap?: number
           daily_model_cap?: number
+          history_budget_micro_usd?: number
+          history_daily_cap?: number
+          history_depth_months?: number
+          history_enabled?: boolean
+          history_include_private?: boolean
           host_id: string
           kind: Database["public"]["Enums"]["guest_signal_kind"]
           min_confidence?: number
@@ -1845,6 +2114,11 @@ export type Database = {
           auto_kinds?: string[]
           daily_auto_cap?: number
           daily_model_cap?: number
+          history_budget_micro_usd?: number
+          history_daily_cap?: number
+          history_depth_months?: number
+          history_enabled?: boolean
+          history_include_private?: boolean
           host_id?: string
           kind?: Database["public"]["Enums"]["guest_signal_kind"]
           min_confidence?: number
@@ -3758,6 +4032,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      complete_signal_history: {
+        Args: {
+          p_counts?: Json
+          p_facts: Json
+          p_run_id: number
+          p_spent_micro_usd: number
+        }
+        Returns: Json
+      }
       complete_task_step: {
         Args: {
           p_device_completed_at?: string
@@ -3878,6 +4161,15 @@ export type Database = {
       enqueue_daily_digest: { Args: { p_at?: string }; Returns: number }
       erase_signal_texts: { Args: { p_signal_ids: string[] }; Returns: Json }
       expire_stale_tasks: { Args: never; Returns: Json }
+      fail_signal_history: {
+        Args: {
+          p_counts?: Json
+          p_errors?: Json
+          p_run_id: number
+          p_spent_micro_usd: number
+        }
+        Returns: undefined
+      }
       forget_push_token: {
         Args: { p_seen_at: string; p_token: string }
         Returns: undefined
@@ -3912,6 +4204,14 @@ export type Database = {
             Returns: boolean
           }
         | { Args: { guest_name: string }; Returns: boolean }
+      issue_theme_of_finding: {
+        Args: {
+          p_kind: Database["public"]["Enums"]["signal_finding_kind"]
+          p_subject: string
+        }
+        Returns: string
+      }
+      issue_theme_of_text: { Args: { p_text: string }; Returns: string }
       kb_article_for_writer: {
         Args: { p_id: string }
         Returns: {
@@ -4261,6 +4561,62 @@ export type Database = {
       push_settle: { Args: never; Returns: string }
       push_timezone: { Args: never; Returns: string }
       push_tokens_per_person: { Args: never; Returns: number }
+      quality_bounds: {
+        Args: { p_today: string; p_window: string }
+        Returns: {
+          from_day: string
+          grain: string
+          prev_from: string
+          prev_to: string
+        }[]
+      }
+      quality_guard: { Args: { p_window: string }; Returns: string }
+      quality_history_state: { Args: { p_host: string }; Returns: Json }
+      quality_meta: {
+        Args: {
+          p_b_from: string
+          p_b_grain: string
+          p_b_prev_from: string
+          p_b_prev_to: string
+          p_host: string
+          p_rate_from: string
+          p_today: string
+          p_window: string
+        }
+        Returns: Json
+      }
+      quality_overview: { Args: { p_window: string }; Returns: Json }
+      quality_place: {
+        Args: { p_property_id: number; p_window: string }
+        Returns: Json
+      }
+      quality_place_rows: {
+        Args: {
+          p_from: string
+          p_grain: string
+          p_host: string
+          p_prev_from: string
+          p_prev_to: string
+          p_property: number
+          p_rate_from: string
+          p_rate_prev_from: string
+          p_rate_prev_to: string
+          p_today: string
+        }
+        Returns: Json
+      }
+      quality_theme_rows: {
+        Args: {
+          p_from: string
+          p_grain: string
+          p_host: string
+          p_prev_from: string
+          p_prev_to: string
+          p_property: number
+          p_today: string
+        }
+        Returns: Json
+      }
       record_push_receipts: { Args: { p_receipts: Json }; Returns: undefined }
       record_push_results: { Args: { p_results: Json }; Returns: undefined }
       record_signal_feedback: {
@@ -4275,6 +4631,7 @@ export type Database = {
         Args: { event_payload: Json; event_source?: string }
         Returns: number
       }
+      refresh_property_quality: { Args: { p_host_id?: string }; Returns: Json }
       register_push_token: {
         Args: {
           p_app_version?: string
@@ -4425,6 +4782,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      replace_property_month_stays: {
+        Args: {
+          p_host_id?: string
+          p_month: string
+          p_provider: Database["public"]["Enums"]["signal_provider"]
+          p_rows: Json
+        }
+        Returns: number
+      }
       report_problem: {
         Args: {
           p_description?: string
@@ -4473,6 +4839,18 @@ export type Database = {
       reservation_rooms: {
         Args: { target_reservation_id: number }
         Returns: number[]
+      }
+      reserve_signal_history: {
+        Args: {
+          p_calls: number
+          p_detector: string
+          p_host_id?: string
+          p_provider: Database["public"]["Enums"]["signal_provider"]
+          p_slice_end: string
+          p_slice_start: string
+          p_worst_micro_usd: number
+        }
+        Returns: Json
       }
       reserve_signal_model_calls: {
         Args: {
@@ -5004,6 +5382,16 @@ export type Database = {
           decisions: number
         }[]
       }
+      signal_history_day_start: { Args: never; Returns: string }
+      signal_history_spent: { Args: { p_host: string }; Returns: number }
+      signal_history_state: {
+        Args: {
+          p_detector: string
+          p_host_id?: string
+          p_provider: Database["public"]["Enums"]["signal_provider"]
+        }
+        Returns: Json
+      }
       signal_model_calls_left: {
         Args: {
           p_host_id?: string
@@ -5423,6 +5811,11 @@ export type Database = {
           auto_kinds: string[]
           daily_auto_cap: number
           daily_model_cap: number
+          history_budget_micro_usd: number
+          history_daily_cap: number
+          history_depth_months: number
+          history_enabled: boolean
+          history_include_private: boolean
           host_id: string
           kind: Database["public"]["Enums"]["guest_signal_kind"]
           min_confidence: number
@@ -5509,6 +5902,11 @@ export type Database = {
       assignment_mode: "auto" | "claim"
       chat_thread_kind: "task" | "problem" | "direct"
       guest_signal_kind: "review" | "message"
+      issue_layer:
+        | "guest_review"
+        | "guest_message"
+        | "found_at_work"
+        | "staff_report"
       kb_scope: "company" | "building" | "properties"
       kb_status: "draft" | "published" | "archived"
       media_kind: "photo" | "video"
@@ -5779,6 +6177,12 @@ export const Constants = {
       assignment_mode: ["auto", "claim"],
       chat_thread_kind: ["task", "problem", "direct"],
       guest_signal_kind: ["review", "message"],
+      issue_layer: [
+        "guest_review",
+        "guest_message",
+        "found_at_work",
+        "staff_report",
+      ],
       kb_scope: ["company", "building", "properties"],
       kb_status: ["draft", "published", "archived"],
       media_kind: ["photo", "video"],

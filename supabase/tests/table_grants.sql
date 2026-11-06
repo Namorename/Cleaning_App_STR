@@ -70,6 +70,13 @@ insert into wanted values
   ('signal_findings',      'SELECT'),
   ('signal_settings',      'SELECT'),
   ('signal_feedback',      ''),
+  -- Property quality (20261106120000): the jobs write, and the panel reads
+  -- through quality_overview and quality_place, which check the role.
+  ('issue_themes',         ''),
+  ('issue_theme_words',    ''),
+  ('issue_facts',          ''),
+  ('problem_themes',       ''),
+  ('property_month_stats', ''),
   -- The history of a task (20261003140000): triggers write it, the manager
   -- and the head technician read it, nobody edits it.
   ('problem_events',       'SELECT'),
