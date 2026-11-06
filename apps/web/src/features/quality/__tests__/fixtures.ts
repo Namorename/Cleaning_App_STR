@@ -29,6 +29,8 @@ export const META: QualityMeta = {
   work_from: '2024-01-01',
   held_from: '2026-01-01',
   line: null,
+  settled_to: '2026-09-30',
+  city_groups: false,
   history: READ_HISTORY,
 };
 
@@ -59,6 +61,11 @@ export const FOURTEEN_DAYS: QualityMeta = {
   rating_from: '2026-09-01',
 };
 
+/** The same window at a company that groups its places by city. */
+export function byCity(meta: QualityMeta): QualityMeta {
+  return { ...meta, city_groups: true };
+}
+
 export function placeOf(over: Partial<QualityPlace> = {}): QualityPlace {
   return {
     id: 1,
@@ -66,6 +73,8 @@ export function placeOf(over: Partial<QualityPlace> = {}): QualityPlace {
     city: 'Prague',
     stays: 100,
     stays_prev: 100,
+    // All of the window settled, unless a test says a month is still filling.
+    stays_settled: over.stays ?? 100,
     rating_n: 30,
     rating_avg: 8.75,
     rating_n_prev: 20,
@@ -81,6 +90,7 @@ export function themeOf(over: Partial<QualityThemeRow> = {}): QualityThemeRow {
     seasonal: false,
     reviews: 0,
     reviews_prev: 0,
+    reviews_settled: over.reviews ?? 0,
     found: 0,
     found_prev: 0,
     reported: 0,

@@ -1,12 +1,14 @@
 'use client';
 
 import { GROUP_MIN_PLACES } from '@str-ops/shared';
+import Link from 'next/link';
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { LabelledField } from '@/components/labelled-field';
 import { PageHeader } from '@/components/page-header';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
+import { buttonVariants } from '@/components/ui/button';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Switch } from '@/components/ui/switch';
 import { formatNumber } from '@/features/analytics/format';
@@ -14,7 +16,12 @@ import { formatDay } from '@/lib/format-date';
 import { useAddressState } from '@/lib/use-address-state';
 import { useLanguage } from '@/lib/use-language';
 
-import { readQualityAddress, writeQualityAddress, type QualityAddress } from './address';
+import {
+  qualityAreasHref,
+  readQualityAddress,
+  writeQualityAddress,
+  type QualityAddress,
+} from './address';
 import { ReadingBand, ShortWindowBand, StaysBand } from './bands';
 import { PlacesTable } from './places-table';
 import type { QualityOverview } from './schema';
@@ -39,21 +46,23 @@ function Filters({ address, cities, city, onChange }: FiltersProps) {
 
   return (
     <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
-      <LabelledField id={id} label={t('panel.quality.filters.city')}>
-        <NativeSelect
-          id={id}
-          className="h-11 max-w-full"
-          value={city ?? ''}
-          onChange={(event) => onChange({ ...address, city: event.target.value || null })}
-        >
-          <option value="">{t('panel.quality.filters.allCities')}</option>
-          {cities.map((one) => (
-            <option key={one} value={one}>
-              {one}
-            </option>
-          ))}
-        </NativeSelect>
-      </LabelledField>
+      {cities.length === 0 ? null : (
+        <LabelledField id={id} label={t('panel.quality.filters.city')}>
+          <NativeSelect
+            id={id}
+            className="h-11 max-w-full"
+            value={city ?? ''}
+            onChange={(event) => onChange({ ...address, city: event.target.value || null })}
+          >
+            <option value="">{t('panel.quality.filters.allCities')}</option>
+            {cities.map((one) => (
+              <option key={one} value={one}>
+                {one}
+              </option>
+            ))}
+          </NativeSelect>
+        </LabelledField>
+      )}
       <label className="flex min-h-11 items-center gap-2 text-sm">
         <Switch
           checked={address.onlyNew}
@@ -125,7 +134,9 @@ function Overview({ data, address, onChange }: OverviewProps) {
           {t('panel.quality.scope.groupTooSmall', { city, min: GROUP_MIN_PLACES })}
         </EmptyState>
       ) : null}
-      {view.empty === 'no_places' ? null : <PlacesTable rows={view.rows} window={data.window} />}
+      {view.empty === 'no_places' ? null : (
+        <PlacesTable rows={view.rows} window={data.window} showsCity={data.city_groups} />
+      )}
     </>
   );
 }
@@ -142,7 +153,18 @@ export function QualityView() {
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title={t('panel.nav.quality')} description={t('panel.quality.subtitle')} />
+      <PageHeader
+        title={t('panel.nav.quality')}
+        description={t('panel.quality.subtitle')}
+        actions={
+          <Link
+            href={qualityAreasHref(address.window)}
+            className={buttonVariants({ variant: 'outline' })}
+          >
+            {t('panel.quality.areas.title')}
+          </Link>
+        }
+      />
       <WindowBar value={address.window} onChange={(window) => setAddress({ ...address, window })} />
       {read.isError ? (
         <ErrorState message={t('panel.quality.errors.overview')} error={read.error} />

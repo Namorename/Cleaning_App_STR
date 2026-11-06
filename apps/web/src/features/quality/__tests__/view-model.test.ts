@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import { readingOf } from '../theme-model';
 import { monthBarsOf, overviewOf, placeCardOf, type OverviewFilters } from '../view-model';
 import {
+  byCity,
   cardOf,
   FOURTEEN_DAYS,
   NOT_READ,
@@ -190,10 +191,10 @@ describe('overviewOf: the rate', () => {
   });
 
   test('the portfolio has one in a short window, where a group has not', () => {
-    const view = overviewOf(overviewOfRows(FIVE_FLATS, [themeOf({ reviews: 3 })], FOURTEEN_DAYS), {
-      ...ALL,
-      city: 'Prague',
-    });
+    const view = overviewOf(
+      overviewOfRows(FIVE_FLATS, [themeOf({ reviews: 3 })], byCity(FOURTEEN_DAYS)),
+      { ...ALL, city: 'Prague' },
+    );
 
     expect(view.portfolio.themes[0].rates).toHaveLength(1);
     expect(view.group?.themes[0].rateGap).toBe('short_window');
@@ -259,12 +260,17 @@ describe('overviewOf: the trend', () => {
   });
 
   test('a group of such places says it all the same', () => {
-    const flats = FIVE_FLATS.map((flat) => ({ ...flat, stays: 30, stays_prev: 30 }));
+    const flats = FIVE_FLATS.map((flat) => ({
+      ...flat,
+      stays: 30,
+      stays_prev: 30,
+      stays_settled: 30,
+    }));
     const view = overviewOf(
       overviewOfRows(
         flats,
         flats.map((flat) => themeOf({ property_id: flat.id, reviews: 6, reviews_prev: 1 })),
-        SIX_MONTHS,
+        byCity(SIX_MONTHS),
       ),
       { ...ALL, city: 'Prague' },
     );
@@ -287,7 +293,7 @@ describe('overviewOf: the trend', () => {
             reviews_prev: 1,
           }),
         ),
-        SIX_MONTHS,
+        byCity(SIX_MONTHS),
       ),
       { ...ALL, city: 'Prague' },
     );
@@ -438,7 +444,7 @@ describe('overviewOf: reviews in a short window', () => {
       overviewOfRows(
         FIVE_FLATS,
         FIVE_FLATS.map((flat) => themeOf({ property_id: flat.id, reviews: 2, reviews_prev: 30 })),
-        FOURTEEN_DAYS,
+        byCity(FOURTEEN_DAYS),
       ),
       { ...ALL, city: 'Prague' },
     );
@@ -467,9 +473,127 @@ describe('overviewOf: reviews in a short window', () => {
   });
 });
 
+describe('overviewOf: reviews compare settled months only', () => {
+  test('a month still filling cannot read as a fall', () => {
+    const view = overviewOf(
+      overviewOfRows(
+        [placeOf({ stays: 200, stays_settled: 100, stays_prev: 100 })],
+        [themeOf({ reviews: 30, reviews_settled: 30, reviews_prev: 30 })],
+        SIX_MONTHS,
+      ),
+      ALL,
+    );
+
+    expect(view.rows[0].themes[0].trend).toBe('steady');
+  });
+
+  test('a fall in the settled months still reads as one', () => {
+    const view = overviewOf(
+      overviewOfRows(
+        [placeOf({ stays: 200, stays_settled: 100, stays_prev: 100 })],
+        [themeOf({ reviews: 30, reviews_settled: 5, reviews_prev: 30 })],
+        SIX_MONTHS,
+      ),
+      ALL,
+    );
+
+    expect(view.rows[0].themes[0].trend).toBe('falling');
+  });
+
+  test('no settled stays is no base', () => {
+    const view = overviewOf(
+      overviewOfRows(
+        [placeOf({ stays: 60, stays_settled: 0, stays_prev: 100 })],
+        [themeOf({ reviews: 20, reviews_settled: 0, reviews_prev: 5 })],
+        SIX_MONTHS,
+      ),
+      ALL,
+    );
+
+    expect(view.rows[0].themes[0].trend).toBe('no_base');
+  });
+
+  test('a place is held to forty settled stays, not forty stays', () => {
+    const view = overviewOf(
+      overviewOfRows(
+        [placeOf({ stays: 100, stays_settled: 39, stays_prev: 100 })],
+        [themeOf({ reviews: 20, reviews_prev: 5 })],
+        SIX_MONTHS,
+      ),
+      ALL,
+    );
+
+    expect(view.rows[0].themes[0].trend).toBe('too_little');
+  });
+
+  test('counts and rates stay on the whole window', () => {
+    const view = overviewOf(
+      overviewOfRows(
+        [placeOf({ stays: 200, stays_settled: 100, stays_prev: 100 })],
+        [themeOf({ reviews: 30, reviews_settled: 10, reviews_prev: 30 })],
+        SIX_MONTHS,
+      ),
+      ALL,
+    );
+    const [line] = view.rows[0].themes;
+
+    expect(line.layers.reviews).toBe(30);
+    expect(line.rates).toEqual([{ layer: 'reviews', episodes: 30, stays: 200, rate: 15 }]);
+  });
+
+  test('a group and the portfolio add the settled numbers up as well', () => {
+    const flats = FIVE_FLATS.map((flat) => ({
+      ...flat,
+      stays: 40,
+      stays_settled: 20,
+      stays_prev: 20,
+    }));
+    const view = overviewOf(
+      overviewOfRows(
+        flats,
+        flats.map((flat) =>
+          themeOf({ property_id: flat.id, reviews: 6, reviews_settled: 6, reviews_prev: 6 }),
+        ),
+        byCity(SIX_MONTHS),
+      ),
+      { ...ALL, city: 'Prague' },
+    );
+
+    expect(view.group?.themes[0].trend).toBe('steady');
+    expect(view.portfolio.themes[0].trend).toBe('steady');
+  });
+
+  test('staff are not held to settled months', () => {
+    const view = overviewOf(
+      overviewOfRows(
+        [placeOf({ stays_settled: 0 })],
+        [themeOf({ found: 20, found_prev: 5 })],
+        SIX_MONTHS,
+      ),
+      ALL,
+    );
+
+    expect(view.rows[0].themes[0].trend).toBe('rising');
+  });
+
+  test('a compared trend from reviews says how far it reaches, and nothing else does', () => {
+    const view = (theme: ReturnType<typeof themeOf>, meta = SIX_MONTHS) =>
+      overviewOf(overviewOfRows([placeOf()], [theme], meta), ALL).rows[0].themes[0];
+
+    expect(view(themeOf({ reviews: 20, reviews_prev: 5 })).settledTo).toBe('2026-09-30');
+    expect(view(themeOf({ found: 20, found_prev: 5 })).settledTo).toBeNull();
+    expect(view(themeOf({ reviews: 20, reviews_prev: 5 }), FOURTEEN_DAYS).settledTo).toBeNull();
+  });
+});
+
 describe('overviewOf: the texts’ line', () => {
   const rising = themeOf({ reviews: 20, reviews_prev: 5 });
-  const crossing = { ...SIX_MONTHS, line: '2026-11-04' };
+  const crossing = {
+    ...byCity(SIX_MONTHS),
+    today: '2027-01-05',
+    settled_to: '2026-11-30',
+    line: '2026-11-04',
+  };
 
   test('holds back a comparison of reviews across it, at every scope, and names the day', () => {
     const view = overviewOf(
@@ -488,7 +612,7 @@ describe('overviewOf: the texts’ line', () => {
 
   test('counts from the day itself', () => {
     const view = overviewOf(
-      overviewOfRows([placeOf()], [rising], { ...crossing, today: '2026-11-04' }),
+      overviewOfRows([placeOf()], [rising], { ...crossing, settled_to: '2026-11-04' }),
       ALL,
     );
 
@@ -507,6 +631,7 @@ describe('overviewOf: the texts’ line', () => {
   test.each([
     ['no line at all', null],
     ['a line older than the window before', '2025-06-01'],
+    ['a line the settled months have not reached: one reader on both sides', '2026-11-04'],
     ['a line still to come', '2026-12-01'],
   ])('%s leaves reviews compared', (_case, line) => {
     const view = overviewOf(overviewOfRows([placeOf()], [rising], { ...SIX_MONTHS, line }), ALL);
@@ -685,11 +810,14 @@ describe('overviewOf: the city', () => {
   ];
 
   test('offers the cities the places have, sorted', () => {
-    expect(overviewOf(overviewOfRows(mixed, []), ALL).cities).toEqual(['Brno', 'Prague']);
+    expect(overviewOf(overviewOfRows(mixed, [], byCity(META)), ALL).cities).toEqual([
+      'Brno',
+      'Prague',
+    ]);
   });
 
   test('narrows the table, not the portfolio, and makes a group of five places', () => {
-    const view = overviewOf(overviewOfRows(mixed, []), { ...ALL, city: 'Prague' });
+    const view = overviewOf(overviewOfRows(mixed, [], byCity(META)), { ...ALL, city: 'Prague' });
 
     expect(view.rows).toHaveLength(5);
     expect(view.portfolio.places).toBe(7);
@@ -698,15 +826,24 @@ describe('overviewOf: the city', () => {
   });
 
   test('makes no group of fewer', () => {
-    const view = overviewOf(overviewOfRows(mixed, []), { ...ALL, city: 'Brno' });
+    const view = overviewOf(overviewOfRows(mixed, [], byCity(META)), { ...ALL, city: 'Brno' });
 
     expect(view.city).toBe('Brno');
     expect(view.rows).toHaveLength(1);
     expect(view.group).toBeNull();
   });
 
+  test('a company that does not group by city has no cities, whatever the address says', () => {
+    const view = overviewOf(overviewOfRows(mixed, []), { ...ALL, city: 'Prague' });
+
+    expect(view.cities).toEqual([]);
+    expect(view.city).toBeNull();
+    expect(view.group).toBeNull();
+    expect(view.rows).toHaveLength(7);
+  });
+
   test('forgets a city the answer no longer has', () => {
-    const view = overviewOf(overviewOfRows(mixed, []), { ...ALL, city: 'Ostrava' });
+    const view = overviewOf(overviewOfRows(mixed, [], byCity(META)), { ...ALL, city: 'Ostrava' });
 
     expect(view.city).toBeNull();
     expect(view.rows).toHaveLength(7);
@@ -828,7 +965,10 @@ describe('placeCardOf', () => {
 
   test('stays not read are no proof of nothing at all', () => {
     const view = placeCardOf(
-      cardOf({ ...NOT_READ, place: placeOf({ stays: 0, stays_prev: 0, rating_n: 0, rating_avg: null }) }),
+      cardOf({
+        ...NOT_READ,
+        place: placeOf({ stays: 0, stays_prev: 0, rating_n: 0, rating_avg: null }),
+      }),
     );
 
     expect(view.empty).toBe('no_themes');

@@ -24,9 +24,15 @@ import type { PlaceRowView } from './view-model';
 interface PlacesTableProps {
   rows: readonly PlaceRowView[];
   window: QualityWindow;
+  /** A city is a column only where the company groups by it. */
+  showsCity: boolean;
 }
 
-function PlaceRow({ row, window }: { row: PlaceRowView; window: QualityWindow }) {
+interface PlaceRowProps extends Omit<PlacesTableProps, 'rows'> {
+  row: PlaceRowView;
+}
+
+function PlaceRow({ row, window, showsCity }: PlaceRowProps) {
   const { t } = useTranslation();
   const language = useLanguage();
   const { place, stays, themes, trust } = row;
@@ -41,7 +47,7 @@ function PlaceRow({ row, window }: { row: PlaceRowView; window: QualityWindow })
           {place.name}
         </Link>
       </TableCell>
-      <TableCell>{place.city ?? NO_VALUE}</TableCell>
+      {showsCity ? <TableCell>{place.city ?? NO_VALUE}</TableCell> : null}
       <TableCell>
         {place.rating_avg === null || place.rating_n === 0
           ? NO_VALUE
@@ -75,7 +81,7 @@ function PlaceRow({ row, window }: { row: PlaceRowView; window: QualityWindow })
  * The places in their order. On a phone the table scrolls inside its own frame.
  * A city always has a place, so only «только новое» can leave the table empty.
  */
-export function PlacesTable({ rows, window }: PlacesTableProps) {
+export function PlacesTable({ rows, window, showsCity }: PlacesTableProps) {
   const { t } = useTranslation();
 
   return (
@@ -92,7 +98,7 @@ export function PlacesTable({ rows, window }: PlacesTableProps) {
             <TableHeader>
               <TableRow>
                 <TableHead>{t('panel.quality.places.name')}</TableHead>
-                <TableHead>{t('panel.quality.places.city')}</TableHead>
+                {showsCity ? <TableHead>{t('panel.quality.places.city')}</TableHead> : null}
                 <TableHead>{t('panel.quality.places.rating')}</TableHead>
                 <TableHead>{t('panel.quality.places.stays')}</TableHead>
                 <TableHead>{t('panel.quality.places.themes')}</TableHead>
@@ -101,7 +107,7 @@ export function PlacesTable({ rows, window }: PlacesTableProps) {
             </TableHeader>
             <TableBody>
               {rows.map((row) => (
-                <PlaceRow key={row.place.id} row={row} window={window} />
+                <PlaceRow key={row.place.id} row={row} window={window} showsCity={showsCity} />
               ))}
             </TableBody>
           </Table>

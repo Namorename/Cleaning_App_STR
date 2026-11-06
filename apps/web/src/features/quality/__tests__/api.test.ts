@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { fetchQualityOverview, fetchQualityPlace } from '../api';
+import { fetchQualityAreas, fetchQualityOverview, fetchQualityPlace } from '../api';
 import { cardOf, overviewOfRows, placeOf, themeOf } from './fixtures';
 
 function clientAnswering(data: unknown, error: unknown = null) {
@@ -85,6 +85,62 @@ describe('fetchQualityOverview', () => {
   });
 });
 
+describe('fetchQualityAreas', () => {
+  const member = {
+    theme: 'wifi',
+    property_id: 7,
+    name: 'Old Town flat',
+    basis: 'guest',
+    episodes: 3,
+    stays: 40,
+  };
+
+  it('asks for the window and hands the answer over', async () => {
+    const answer = { window: '3m', computed_on: '2026-11-05', members: [member] };
+    const { client, rpc } = clientAnswering(answer);
+
+    await expect(fetchQualityAreas(client, '3m')).resolves.toEqual(answer);
+    expect(rpc).toHaveBeenCalledWith('quality_areas', { p_window: '3m' });
+  });
+
+  it('takes a night that has not come yet', async () => {
+    const { client } = clientAnswering({ window: '12m', computed_on: null, members: [] });
+
+    await expect(fetchQualityAreas(client, '12m')).resolves.toMatchObject({ computed_on: null });
+  });
+
+  it('drops a theme this build does not know and keeps the rest', async () => {
+    const { client } = clientAnswering({
+      window: '12m',
+      computed_on: '2026-11-05',
+      members: [member, { ...member, theme: 'teleport' }],
+    });
+
+    const read = await fetchQualityAreas(client, '12m');
+
+    expect(read.members.map((row) => row.theme)).toEqual(['wifi']);
+  });
+
+  it('says a wrong shape in plain words, not as a dump of every path', async () => {
+    const { client } = clientAnswering({
+      window: '12m',
+      computed_on: '2026-11-05',
+      members: [{ ...member, basis: 'owner' }],
+    });
+
+    await expect(fetchQualityAreas(client, '12m')).rejects.toThrow(
+      /^The answer has an unexpected shape$/,
+    );
+  });
+
+  it('hands a refusal over as it came', async () => {
+    const refusal = { message: 'Property quality is for managers only' };
+    const { client } = clientAnswering(null, refusal);
+
+    await expect(fetchQualityAreas(client, '12m')).rejects.toBe(refusal);
+  });
+});
+
 describe('fetchQualityPlace', () => {
   it('asks for the place in the window', async () => {
     const card = cardOf();
@@ -118,8 +174,8 @@ describe('fetchQualityPlace', () => {
         { month: '2026-10-01', theme: 'wifi', layer: 'guest_review', n: 2 },
       ],
       categories: [
-        { key: 'scent', n: 1, average: 9, city_n: 0, city_average: null },
-        { key: 'cleanliness', n: 1, average: 9, city_n: 0, city_average: null },
+        { key: 'scent', n: 1, average: 9, peers_n: 0, peers_average: null },
+        { key: 'cleanliness', n: 1, average: 9, peers_n: 0, peers_average: null },
       ],
     };
     const { client } = clientAnswering(data);

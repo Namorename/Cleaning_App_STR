@@ -47,6 +47,37 @@ function RateText({ rates, rateGap }: Pick<ThemeLine, 'rates' | 'rateGap'>) {
   ));
 }
 
+/** The trend of a line and, beside it, what a reader must not take it for. */
+export function ThemeTrendMarks({ line }: { line: ThemeLine }) {
+  const { t } = useTranslation();
+  // Only a group and the portfolio compare a seasonal theme (§3.3): a place says
+  // it cannot, and there the trend's own words are the caption.
+  const isSeasonalAside = line.seasonal && isCompared(line.trend);
+
+  return (
+    <>
+      <TrendMark line={line} />
+      {isSeasonalAside ? (
+        <span className="text-xs text-muted-foreground">
+          {t('panel.quality.trend.seasonalScope')}
+        </span>
+      ) : null}
+    </>
+  );
+}
+
+/** How far a trend read from reviews reaches: the counts beside it reach further. */
+export function SettledCaption({ settledTo }: Pick<ThemeLine, 'settledTo'>) {
+  const { t } = useTranslation();
+  const language = useLanguage();
+
+  return settledTo === null ? null : (
+    <p className="text-xs text-muted-foreground">
+      {t('panel.quality.trend.settledCaption', { date: formatShortDay(settledTo, language) })}
+    </p>
+  );
+}
+
 interface ThemeFrameProps {
   line: ThemeLine;
   /** Before the theme's name: a place's state. */
@@ -57,22 +88,15 @@ interface ThemeFrameProps {
 
 function ThemeFrame({ line, lead, children }: ThemeFrameProps) {
   const { t } = useTranslation();
-  // Only a group and the portfolio compare a seasonal theme (§3.3): a place says
-  // it cannot, and there the trend's own words are the caption.
-  const isSeasonalAside = line.seasonal && isCompared(line.trend);
 
   return (
     <li className="flex min-w-0 flex-col gap-1 rounded-lg border p-3 text-sm">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         {lead}
         <h3 className="font-medium break-words">{t(`panel.quality.themes.${line.theme}`)}</h3>
-        <TrendMark line={line} />
-        {isSeasonalAside ? (
-          <span className="text-xs text-muted-foreground">
-            {t('panel.quality.trend.seasonalScope')}
-          </span>
-        ) : null}
+        <ThemeTrendMarks line={line} />
       </div>
+      <SettledCaption settledTo={line.settledTo} />
       <LayersText layers={line.layers} />
       <RateText rates={line.rates} rateGap={line.rateGap} />
       {children}

@@ -57,6 +57,11 @@ export function qualityHref(window: QualityWindow): string {
   return withQuery('/quality', writeQualityWindow(window));
 }
 
+/** The areas in a window: the overview's link keeps the one it stands in. */
+export function qualityAreasHref(window: QualityWindow): string {
+  return withQuery('/quality/areas', writeQualityWindow(window));
+}
+
 /** A place's card in the window it was opened from. */
 export function qualityPlaceHref(placeId: number, window: QualityWindow): string {
   return withQuery(`/quality/${placeId}`, writeQualityWindow(window));

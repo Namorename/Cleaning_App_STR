@@ -101,6 +101,8 @@ export interface ThemeLine {
   trend: ThemeTrend;
   /** The day the two readers meet, while `trend` is `reviews_seam`. */
   seam: string | null;
+  /** The last day a trend read from reviews counts, while such a trend stands. */
+  settledTo: string | null;
 }
 
 export interface PlaceThemeLine extends ThemeLine {
@@ -124,16 +126,19 @@ export interface Frame {
   reviewsArriving: boolean;
   /** The day reviews change readers, when these windows compare across it. */
   seam: string | null;
+  /** Reviews are compared up to this day: later ones are still arriving. */
+  settledTo: string;
 }
 
 /**
  * Before the texts' line a review is labelled by the reading, after it by the
  * stream's narrower reader, so a comparison across the line reads low whatever
- * happened. The owner's decision of 2026-11-06, for every scope: to lift it,
- * return null here.
+ * happened. Reviews are compared only up to `settled_to`: while that lies before
+ * the line, both windows are one reader's. The owner's decision of 2026-11-06, for
+ * every scope: to lift it, return null here.
  */
-function readersSeam({ line, prev_from, today }: QualityMeta): string | null {
-  return line !== null && prev_from < line && today >= line ? line : null;
+function readersSeam({ line, prev_from, settled_to }: QualityMeta): string | null {
+  return line !== null && settled_to >= line && prev_from < line ? line : null;
 }
 
 export function frameOf(meta: QualityMeta, coverage: StaysCoverage): Frame {
@@ -149,17 +154,26 @@ export function frameOf(meta: QualityMeta, coverage: StaysCoverage): Frame {
     staffBeforeWhole: meta.work_from !== null && meta.work_from <= meta.prev_from,
     reviewsArriving: meta.grain === 'week',
     seam: readersSeam(meta),
+    settledTo: meta.settled_to,
   };
 }
 
 export type Episodes = Pick<
   QualityThemeRow,
-  'reviews' | 'reviews_prev' | 'found' | 'found_prev' | 'reported' | 'reported_prev'
+  | 'reviews'
+  | 'reviews_prev'
+  | 'reviews_settled'
+  | 'found'
+  | 'found_prev'
+  | 'reported'
+  | 'reported_prev'
 >;
 
 interface Stays {
   current: number;
   previous: number;
+  /** The part of `current` a trend by reviews may stand on. */
+  settled: number;
 }
 
 /** For the order of things only: no screen shows this number. */
@@ -235,9 +249,11 @@ function trendIn(
   return trendOf({
     scope,
     seasonal: row.seasonal,
-    current: fromReviews ? row.reviews : row.found + row.reported,
+    // Settled months alone: a month still filling has its stays and not yet its
+    // reviews, and would read as a fall. No settled stays is no base.
+    current: fromReviews ? row.reviews_settled : row.found + row.reported,
     previous: fromReviews ? row.reviews_prev : row.found_prev + row.reported_prev,
-    stays: stays.current,
+    stays: fromReviews ? stays.settled : stays.current,
     // No stays before: `trendOf`'s own way of saying there is nothing to compare with.
     staysPrevious: hasBase ? stays.previous : 0,
   });
@@ -258,6 +274,7 @@ export function lineOf(
     basis: basisOf(row),
     trend,
     seam: trend === 'reviews_seam' ? frame.seam : null,
+    settledTo: isCompared(trend) && basisOf(row) === 'reviews' ? frame.settledTo : null,
   };
 }
 
@@ -289,7 +306,11 @@ export function placeLines(
   place: QualityPlace,
   rows: readonly QualityThemeRow[],
 ): PlaceThemeLine[] {
-  const stays = { current: place.stays, previous: place.stays_prev };
+  const stays = {
+    current: place.stays,
+    previous: place.stays_prev,
+    settled: place.stays_settled,
+  };
   return rows
     .filter((row) => row.property_id === place.id && isInWindow(row))
     .map((row) => ({

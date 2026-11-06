@@ -204,10 +204,28 @@ describe('QualityPlaceView: a theme', () => {
     expect(screen.queryByText('Снижается')).not.toBeInTheDocument();
   });
 
+  test('a month still filling reads as no fall on the card, and says how far the trend reaches', () => {
+    answering(
+      cardOf({
+        ...SIX_MONTHS,
+        place: placeOf({ stays: 200, stays_settled: 100, stays_prev: 100 }),
+        themes: [themeOf({ reviews: 30, reviews_settled: 30, reviews_prev: 30, recent: 2 })],
+      }),
+    );
+    openCard();
+
+    expect(screen.queryByText('Снижается')).not.toBeInTheDocument();
+    expect(screen.getByText('Без явных перемен')).toBeInTheDocument();
+    expect(
+      screen.getByText('Тренд по отзывам считается по 30.09: позже отзывы ещё приходят'),
+    ).toBeInTheDocument();
+  });
+
   test('a comparison across the texts’ line is held back on the card too', () => {
     answering(
       cardOf({
         ...SIX_MONTHS,
+        settled_to: '2026-11-30',
         line: '2026-11-04',
         themes: [themeOf({ reviews: 20, reviews_prev: 5, recent: 2 })],
       }),
@@ -388,8 +406,8 @@ describe('QualityPlaceView: the ratings', () => {
       { channel: 'booking', n: 5, average: 8.1 },
     ],
     categories: [
-      { key: 'cleanliness', n: 12, average: 9, city_n: 40, city_average: 8.8 },
-      { key: 'location', n: 3, average: 7.5, city_n: 0, city_average: null },
+      { key: 'cleanliness', n: 12, average: 9, peers_n: 40, peers_average: 8.8 },
+      { key: 'location', n: 3, average: 7.5, peers_n: 0, peers_average: null },
     ],
   });
   const block = () => screen.getByRole('region', { name: 'Оценки' });
@@ -418,17 +436,37 @@ describe('QualityPlaceView: the ratings', () => {
     expect(note.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  test('sets a category beside the city, with n on both sides', () => {
+  test('sets a category beside the other places, with n on both sides', () => {
     answering(rated);
     openCard();
 
     const row = within(block()).getByRole('row', { name: /cleanliness|чистота/i });
     expect(row).toHaveTextContent('9/10 (12)');
     expect(row).toHaveTextContent('8,8/10 (40)');
-    expect(within(block()).getByRole('columnheader', { name: 'Prague' })).toBeInTheDocument();
+    expect(
+      within(block()).getByRole('columnheader', { name: 'Остальные объекты' }),
+    ).toBeInTheDocument();
+    expect(within(block()).queryByRole('columnheader', { name: 'Prague' })).not.toBeInTheDocument();
+    expect(
+      within(block()).getByText(
+        'Рядом остальные объекты компании. Категории собраны по всем каналам.',
+      ),
+    ).toBeVisible();
   });
 
-  test('has nothing to say of a city nobody rated', () => {
+  test('a company that groups by city sets a category beside the city', () => {
+    answering({ ...rated, city_groups: true });
+    openCard();
+
+    expect(within(block()).getByRole('columnheader', { name: 'Prague' })).toBeInTheDocument();
+    expect(
+      within(block()).getByText(
+        'Рядом другие объекты того же города. Категории собраны по всем каналам.',
+      ),
+    ).toBeVisible();
+  });
+
+  test('has nothing to say of other places nobody rated', () => {
     answering(rated);
     openCard();
 
@@ -484,7 +522,10 @@ describe('QualityPlaceView: nothing to show', () => {
 
   test('a long window’s zero stays read as not loaded, never as «Заезды: 0»', () => {
     answering(
-      cardOf({ ...NOT_READ, place: placeOf({ stays: 0, stays_prev: 0, rating_n: 0, rating_avg: null }) }),
+      cardOf({
+        ...NOT_READ,
+        place: placeOf({ stays: 0, stays_prev: 0, rating_n: 0, rating_avg: null }),
+      }),
     );
     openCard();
 

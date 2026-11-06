@@ -966,7 +966,8 @@
       "subtitle": "What guests and staff say about your properties, by theme and beside the number of stays.",
       "errors": {
         "overview": "Could not load property quality",
-        "place": "Could not load this property’s card"
+        "place": "Could not load this property’s card",
+        "areas": "Could not load the theme areas"
       },
       "window": {
         "label": "Period",
@@ -1041,6 +1042,7 @@
         "seasonalScope": "seasonal theme: the change may be the season",
         "no_base": "Nothing to compare with yet",
         "hidden": "Trend hidden until labelling is done",
+        "settledCaption": "The review trend runs to {{date}}: later reviews are still arriving",
         "reviews_settling": "Reviews are still arriving: too early to compare",
         "reviews_seam": "Reviews before and after {{date}} were read differently: too early to compare",
         "basis": {
@@ -1125,10 +1127,30 @@
         "categories": "By category",
         "category": "Category",
         "place": "This property",
-        "city": "Other properties",
+        "peers": "Other properties",
         "channelsNote": "Channels are shown apart below because their scales differ. The rating in the card’s header is across all channels.",
-        "categoriesNote": "Beside it, the other properties of the same city. Categories are collected across all channels.",
+        "categoriesNote": "Beside it, the company’s other properties. Categories are collected across all channels.",
+        "categoriesNoteCity": "Beside it, the other properties of the same city. Categories are collected across all channels.",
         "none": "No ratings in this period."
+      },
+      "areas": {
+        "title": "Theme areas",
+        "rule": "A property joins an area when a theme comes up there clearly more often than at the others: at least two mentions on enough stays. The list is recalculated overnight and depends on the period.",
+        "dynamicsNote": "Trend across all properties, not only those in the area",
+        "computedOn": "Calculated {{day}}",
+        "places_one": "{{count}} property",
+        "places_other": "{{count}} properties",
+        "member_one": "{{n}} of {{count}} stay",
+        "member_other": "{{n}} of {{count}} stays",
+        "basis": {
+          "guest": "guests",
+          "staff": "staff"
+        },
+        "empty": {
+          "notComputed": "Areas have not been calculated yet: this happens overnight",
+          "noStays": "Stays for this period have not been loaded yet: there is nothing to calculate areas on",
+          "none": "No theme stands out in this period. Stays: {{stays}}."
+        }
       },
       "themes": {
         "heating": "Heating",

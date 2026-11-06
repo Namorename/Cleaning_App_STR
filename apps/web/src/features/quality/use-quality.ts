@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { useSupabase } from '@/lib/supabase/use-client';
 
-import { fetchQualityOverview, fetchQualityPlace } from './api';
+import { fetchQualityAreas, fetchQualityOverview, fetchQualityPlace } from './api';
 import { qualityKeys } from './keys';
 
 /**
@@ -20,6 +20,15 @@ export function useQualityOverview(window: QualityWindow) {
   return useQuery({
     queryKey: qualityKeys.overview(window),
     queryFn: () => fetchQualityOverview(client, window),
+    staleTime: STALE_MS,
+  });
+}
+
+export function useQualityAreas(window: QualityWindow) {
+  const client = useSupabase();
+  return useQuery({
+    queryKey: qualityKeys.areas(window),
+    queryFn: () => fetchQualityAreas(client, window),
     staleTime: STALE_MS,
   });
 }

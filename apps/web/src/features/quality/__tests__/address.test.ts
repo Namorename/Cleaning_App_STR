@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 
 import {
   DEFAULT_QUALITY_ADDRESS,
+  qualityAreasHref,
   qualityHref,
   qualityPlaceHref,
   readQualityAddress,
@@ -45,5 +46,7 @@ describe('the address of a card', () => {
     expect(qualityPlaceHref(7, '12m')).toBe('/quality/7');
     expect(qualityHref('3m')).toBe('/quality?w=3m');
     expect(qualityHref('12m')).toBe('/quality');
+    expect(qualityAreasHref('3m')).toBe('/quality/areas?w=3m');
+    expect(qualityAreasHref('12m')).toBe('/quality/areas');
   });
 });

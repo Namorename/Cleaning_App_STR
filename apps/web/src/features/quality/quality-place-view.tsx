@@ -167,7 +167,7 @@ function PlaceCard({ card }: { card: QualityPlaceCard }) {
       <RatingsBlock
         channels={card.channels}
         categories={card.categories}
-        city={card.place.city}
+        peersCity={card.city_groups ? card.place.city : null}
         note={ratingNote}
       />
     </>

@@ -47,6 +47,7 @@ export const THEMES_IN_ROW = 3;
 const NO_EPISODES: Episodes = {
   reviews: 0,
   reviews_prev: 0,
+  reviews_settled: 0,
   found: 0,
   found_prev: 0,
   reported: 0,
@@ -58,6 +59,7 @@ function sumEpisodes(rows: readonly Episodes[]): Episodes {
     (sum, row) => ({
       reviews: sum.reviews + row.reviews,
       reviews_prev: sum.reviews_prev + row.reviews_prev,
+      reviews_settled: sum.reviews_settled + row.reviews_settled,
       found: sum.found + row.found,
       found_prev: sum.found_prev + row.found_prev,
       reported: sum.reported + row.reported,
@@ -87,33 +89,49 @@ function knownStays(frame: Frame, stays: number): number | null {
 }
 
 /**
- * Places up to a group or the portfolio. A theme's rows are read only for these
- * places: the themes come for an archived place too, and its stays do not.
+ * Places up to a group or the portfolio, the themes said most first. A theme's rows
+ * are read only for these places: the themes come for an archived place too, and
+ * its stays do not.
  */
-function scopeOf(
+function scopeLines(
   frame: Frame,
   scope: ScopeView['scope'],
   places: readonly QualityPlace[],
   rows: readonly QualityThemeRow[],
-): ScopeView {
+): ThemeLine[] {
   const ids = new Set(places.map((place) => place.id));
   const own = rows.filter((row) => ids.has(row.property_id));
   const stays = {
     current: total(places.map((place) => place.stays)),
     previous: total(places.map((place) => place.stays_prev)),
+    settled: total(places.map((place) => place.stays_settled)),
   };
-  const lines = QUALITY_THEME_CODES.flatMap((theme) => {
+  return QUALITY_THEME_CODES.flatMap((theme) => {
     const ofTheme = own.filter((row) => row.theme === theme);
     const sum = sumEpisodes(ofTheme);
     return hasEpisodes(sum)
       ? [lineOf(frame, scope, { ...sum, theme, seasonal: ofTheme[0].seasonal }, stays)]
       : [];
   }).sort(byWeight);
+}
+
+/** Every theme of the portfolio, not only the ones its block lifts. */
+export function portfolioLinesOf(data: QualityOverview): readonly ThemeLine[] {
+  return scopeLines(frameOf(data, coverageOf(data)), 'portfolio', data.places, data.themes);
+}
+
+function scopeOf(
+  frame: Frame,
+  scope: ScopeView['scope'],
+  places: readonly QualityPlace[],
+  rows: readonly QualityThemeRow[],
+): ScopeView {
+  const lines = scopeLines(frame, scope, places, rows);
 
   return {
     scope,
     places: places.length,
-    stays: knownStays(frame, stays.current),
+    stays: knownStays(frame, total(places.map((place) => place.stays))),
     themes: lines.slice(0, TOP_THEMES),
     hasThemes: lines.length > 0,
   };
@@ -190,6 +208,7 @@ export interface OverviewFilters {
 export interface OverviewView {
   reading: ReadingState;
   coverage: StaysCoverage;
+  /** Empty unless the company groups its places by city (`city_groups`). */
   cities: readonly string[];
   /** The city the screen is narrowed to: one the answer no longer has is none. */
   city: string | null;
@@ -234,7 +253,7 @@ function emptyOf(
 export function overviewOf(data: QualityOverview, filters: OverviewFilters): OverviewView {
   const coverage = coverageOf(data);
   const frame = frameOf(data, coverage);
-  const cities = citiesOf(data.places);
+  const cities = data.city_groups ? citiesOf(data.places) : [];
   const city = filters.city !== null && cities.includes(filters.city) ? filters.city : null;
   const inCity = data.places.filter((place) => place.city === city);
 

@@ -41,6 +41,10 @@ const metaSchema = z.object({
   held_from: day.nullable(),
   /** The texts' line: the reading labels reviews before it, the stream after it. */
   line: day.nullable(),
+  /** The last day of the last month whose reviews have all come. */
+  settled_to: day,
+  /** Whether the company groups its places by city; the other places stand in otherwise. */
+  city_groups: z.boolean(),
   history: historySchema,
 });
 export type QualityMeta = z.infer<typeof metaSchema>;
@@ -51,6 +55,8 @@ const placeSchema = z.object({
   city: z.string().nullable(),
   stays: count,
   stays_prev: count,
+  /** The window's stays up to `settled_to`. */
+  stays_settled: count,
   rating_n: count,
   rating_avg: average,
   rating_n_prev: count,
@@ -64,6 +70,8 @@ const themeRowSchema = z.object({
   seasonal: z.boolean(),
   reviews: count,
   reviews_prev: count,
+  /** The window's reviews up to `settled_to`. */
+  reviews_settled: count,
   found: count,
   found_prev: count,
   reported: count,
@@ -125,8 +133,9 @@ const categorySchema = z.object({
   key: z.string(),
   n: count,
   average,
-  city_n: count,
-  city_average: average,
+  /** The other places of the company, or of its city where it groups by city. */
+  peers_n: count,
+  peers_average: average,
 });
 export type QualityCategory = Omit<z.infer<typeof categorySchema>, 'key'> & { key: ReviewCategory };
 
@@ -152,3 +161,27 @@ export const placeCardSchema = metaSchema.extend({
   categories: categoryRows,
 });
 export type QualityPlaceCard = z.infer<typeof placeCardSchema>;
+
+/** Who says a place stands out. Never summed. */
+export const AREA_BASES = ['guest', 'staff'] as const;
+export type AreaBasis = (typeof AREA_BASES)[number];
+
+const areaMemberSchema = z.object({
+  theme: z.string(),
+  property_id: z.number(),
+  name: z.string(),
+  basis: z.enum(AREA_BASES),
+  episodes: count,
+  stays: count,
+});
+export type QualityAreaMember = KnownTheme<z.infer<typeof areaMemberSchema>>;
+
+export const areasSchema = z.object({
+  window: z.enum(QUALITY_WINDOWS),
+  /** Null until the nightly job has run. */
+  computed_on: day.nullable(),
+  members: areaMemberSchema
+    .array()
+    .transform((rows): QualityAreaMember[] => rows.filter(hasKnownTheme)),
+});
+export type QualityAreas = z.infer<typeof areasSchema>;

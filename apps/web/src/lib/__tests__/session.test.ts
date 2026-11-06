@@ -66,6 +66,7 @@ describe('isPathOpenTo', () => {
       '/guests',
       '/quality',
       '/quality/7',
+      '/quality/areas',
       '/knowledgebase',
       '/KNOWLEDGE',
       '/settings/company',

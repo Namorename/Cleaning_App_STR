@@ -3,8 +3,10 @@ import type { Database, QualityWindow } from '@str-ops/shared';
 import type { z } from 'zod';
 
 import {
+  areasSchema,
   overviewSchema,
   placeCardSchema,
+  type QualityAreas,
   type QualityOverview,
   type QualityPlaceCard,
 } from './schema';
@@ -35,6 +37,18 @@ export async function fetchQualityOverview(
     throw error;
   }
   return checked(overviewSchema, data);
+}
+
+/** Who stands in the areas of one window, as the night counted them. */
+export async function fetchQualityAreas(
+  client: Client,
+  window: QualityWindow,
+): Promise<QualityAreas> {
+  const { data, error } = await client.rpc('quality_areas', { p_window: window });
+  if (error) {
+    throw error;
+  }
+  return checked(areasSchema, data);
 }
 
 /** One place in one window; null when the company has no such place. */

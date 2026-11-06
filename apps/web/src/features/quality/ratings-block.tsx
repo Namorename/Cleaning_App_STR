@@ -61,10 +61,11 @@ function ChannelsTable({ channels }: { channels: readonly QualityChannel[] }) {
 
 interface CategoriesTableProps {
   categories: readonly QualityCategory[];
-  city: string | null;
+  /** The city the others are of; null: the rest of the company. */
+  peersCity: string | null;
 }
 
-function CategoriesTable({ categories, city }: CategoriesTableProps) {
+function CategoriesTable({ categories, peersCity }: CategoriesTableProps) {
   const { t } = useTranslation();
   return (
     <section className="flex min-w-0 flex-col gap-2">
@@ -74,7 +75,7 @@ function CategoriesTable({ categories, city }: CategoriesTableProps) {
           <TableRow>
             <TableHead>{t('panel.quality.ratings.category')}</TableHead>
             <TableHead>{t('panel.quality.ratings.place')}</TableHead>
-            <TableHead>{city ?? t('panel.quality.ratings.city')}</TableHead>
+            <TableHead>{peersCity ?? t('panel.quality.ratings.peers')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -88,13 +89,17 @@ function CategoriesTable({ categories, city }: CategoriesTableProps) {
                 <RatedCell average={category.average} n={category.n} />
               </TableCell>
               <TableCell>
-                <RatedCell average={category.city_average} n={category.city_n} />
+                <RatedCell average={category.peers_average} n={category.peers_n} />
               </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
-      <p className="text-xs text-muted-foreground">{t('panel.quality.ratings.categoriesNote')}</p>
+      <p className="text-xs text-muted-foreground">
+        {peersCity === null
+          ? t('panel.quality.ratings.categoriesNote')
+          : t('panel.quality.ratings.categoriesNoteCity')}
+      </p>
     </section>
   );
 }
@@ -102,13 +107,14 @@ function CategoriesTable({ categories, city }: CategoriesTableProps) {
 interface RatingsBlockProps {
   channels: readonly QualityChannel[];
   categories: readonly QualityCategory[];
-  city: string | null;
+  /** The city the others are of; null: the rest of the company. */
+  peersCity: string | null;
   /** A short window reads three months of ratings: said here. */
   note: string | null;
 }
 
-/** «Оценки»: the channels apart, since their scales differ (§7.1), and the city beside each category. */
-export function RatingsBlock({ channels, categories, city, note }: RatingsBlockProps) {
+/** «Оценки»: the channels apart, since their scales differ (§7.1), the others beside each category. */
+export function RatingsBlock({ channels, categories, peersCity, note }: RatingsBlockProps) {
   const { t } = useTranslation();
   const hasRatings = channels.length > 0 || categories.length > 0;
 
@@ -122,7 +128,9 @@ export function RatingsBlock({ channels, categories, city, note }: RatingsBlockP
       {hasRatings ? null : <EmptyState>{t('panel.quality.ratings.none')}</EmptyState>}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {channels.length === 0 ? null : <ChannelsTable channels={channels} />}
-        {categories.length === 0 ? null : <CategoriesTable categories={categories} city={city} />}
+        {categories.length === 0 ? null : (
+          <CategoriesTable categories={categories} peersCity={peersCity} />
+        )}
       </div>
     </section>
   );

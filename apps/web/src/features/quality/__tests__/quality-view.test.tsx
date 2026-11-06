@@ -6,6 +6,7 @@ import { i18n } from '@/lib/i18n';
 
 import { overviewSchema, type QualityOverview } from '../schema';
 import {
+  byCity,
   FOURTEEN_DAYS,
   NOT_READ,
   META,
@@ -217,10 +218,74 @@ describe('QualityView: the portfolio', () => {
     expect(within(block).getByText('по жалобам')).toHaveClass('sr-only');
   });
 
+  test('a line the settled months have not reached holds nothing back', () => {
+    answering(
+      overviewOfRows([placeOf()], [themeOf({ reviews: 20, reviews_prev: 5 })], {
+        ...SIX_MONTHS,
+        line: '2026-11-04',
+      }),
+    );
+    render(<QualityView />);
+
+    const block = screen.getByRole('region', { name: 'Главные темы портфеля' });
+    expect(within(block).getByText('Растёт')).toBeInTheDocument();
+  });
+
+  test('a month still filling reads as no fall, and the trend says how far it reaches', () => {
+    answering(
+      overviewOfRows(
+        [placeOf({ stays: 200, stays_settled: 100, stays_prev: 100 })],
+        [themeOf({ reviews: 30, reviews_settled: 30, reviews_prev: 30 })],
+        SIX_MONTHS,
+      ),
+    );
+    render(<QualityView />);
+
+    const block = screen.getByRole('region', { name: 'Главные темы портфеля' });
+    expect(screen.queryByText('Снижается')).not.toBeInTheDocument();
+    expect(within(block).getByText('Без явных перемен')).toBeInTheDocument();
+    expect(
+      within(block).getByText('Тренд по отзывам считается по 30.09: позже отзывы ещё приходят'),
+    ).toBeInTheDocument();
+  });
+
+  test('counts and rates beside such a trend stay on the whole window', () => {
+    answering(
+      overviewOfRows(
+        [placeOf({ stays: 200, stays_settled: 100, stays_prev: 100 })],
+        [themeOf({ reviews: 30, reviews_settled: 10, reviews_prev: 30 })],
+        SIX_MONTHS,
+      ),
+    );
+    render(<QualityView />);
+
+    const block = screen.getByRole('region', { name: 'Главные темы портфеля' });
+    expect(within(block).getByText('30 жалоб')).toBeInTheDocument();
+    expect(within(block).getByText('15 на 100 заездов (30 из 200)')).toBeInTheDocument();
+  });
+
+  test('a staff trend has no word about reviews still arriving', () => {
+    answering(overviewOfRows([placeOf()], [themeOf({ found: 20, found_prev: 5 })], SIX_MONTHS));
+    render(<QualityView />);
+
+    expect(screen.queryByText(/Тренд по отзывам считается/)).not.toBeInTheDocument();
+  });
+
+  test('leads to the areas in the same window', () => {
+    window.history.replaceState(null, '', '/quality?w=3m');
+    render(<QualityView />);
+
+    expect(screen.getByRole('link', { name: 'Области' })).toHaveAttribute(
+      'href',
+      '/quality/areas?w=3m',
+    );
+  });
+
   test('a comparison across the texts’ line is held back, with the day', () => {
     answering(
       overviewOfRows([placeOf()], [themeOf({ reviews: 20, reviews_prev: 5 })], {
         ...SIX_MONTHS,
+        settled_to: '2026-11-30',
         line: '2026-11-04',
       }),
     );
@@ -362,14 +427,39 @@ describe('QualityView: the table', () => {
 });
 
 describe('QualityView: a city', () => {
+  test('a company that does not group by city sees no filter, no group, no column', () => {
+    window.history.replaceState(null, '', '/quality?city=Prague');
+    answering(overviewOfRows(FIVE_FLATS, [themeOf({ property_id: 1, reviews: 3 })]));
+    render(<QualityView />);
+
+    expect(screen.queryByLabelText('Город')).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Город' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /Группа/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/группа не показывается/)).not.toBeInTheDocument();
+    expect(screen.getAllByRole('row')).toHaveLength(FIVE_FLATS.length + 1);
+  });
+
+  test('a company that does shows the filter and the column', () => {
+    answering(overviewOfRows(FIVE_FLATS, [], byCity(META)));
+    render(<QualityView />);
+
+    expect(screen.getByLabelText('Город')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Город' })).toBeInTheDocument();
+  });
+
   test('five places make a group, with its trend', () => {
     window.history.replaceState(null, '', '/quality?city=Prague');
-    const flats = FIVE_FLATS.map((flat) => ({ ...flat, stays: 30, stays_prev: 30 }));
+    const flats = FIVE_FLATS.map((flat) => ({
+      ...flat,
+      stays: 30,
+      stays_prev: 30,
+      stays_settled: 30,
+    }));
     answering(
       overviewOfRows(
         flats,
         flats.map((flat) => themeOf({ property_id: flat.id, reviews: 6, reviews_prev: 1 })),
-        SIX_MONTHS,
+        byCity(SIX_MONTHS),
       ),
     );
     render(<QualityView />);
@@ -384,6 +474,7 @@ describe('QualityView: a city', () => {
       overviewOfRows(
         [placeOf(), placeOf({ id: 2, name: 'Brno flat', city: 'Brno' })],
         [themeOf({ reviews: 3 })],
+        byCity(META),
       ),
     );
     render(<QualityView />);
@@ -457,7 +548,9 @@ describe('QualityView: the reading of past reviews', () => {
 
 describe('QualityView: stays that are not loaded', () => {
   test('are said, and no zero stands in for them', () => {
-    answering(overviewOfRows([placeOf({ stays: 0, stays_prev: 0 })], [themeOf({ reviews: 3 })], NOT_READ));
+    answering(
+      overviewOfRows([placeOf({ stays: 0, stays_prev: 0 })], [themeOf({ reviews: 3 })], NOT_READ),
+    );
     render(<QualityView />);
 
     expect(screen.getByRole('status')).toHaveTextContent('Заезды за этот период ещё не загружены');
@@ -487,7 +580,7 @@ describe('QualityView: stays that are not loaded', () => {
     render(<QualityView />);
 
     // The one band is the short window's own: nothing says the stays are not loaded.
-    expect(screen.getByRole('status')).toHaveTextContent('В коротких окнах');
+    expect(screen.getByRole('status')).toHaveTextContent('В коротких периодах');
     expect(screen.getByText('Тем за этот период нет. Заездов: 0.')).toBeInTheDocument();
   });
 
@@ -521,14 +614,14 @@ describe('QualityView: a short window', () => {
     answering({ ...overviewOfRows([placeOf()], []), ...FOURTEEN_DAYS });
     render(<QualityView />);
 
-    expect(screen.getByText(/В коротких окнах видны не все отзывы/)).toBeInTheDocument();
+    expect(screen.getByText(/В коротких периодах видны не все отзывы/)).toBeInTheDocument();
   });
 
   test('a long window has nothing of the kind to say', () => {
     answering(overviewOfRows([placeOf()], []));
     render(<QualityView />);
 
-    expect(screen.queryByText(/В коротких окнах видны не все отзывы/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/В коротких периодах видны не все отзывы/)).not.toBeInTheDocument();
   });
 });
 
@@ -553,7 +646,11 @@ describe('QualityView: nothing to show', () => {
 
   test('stays not loaded are not «nothing at all»', () => {
     answering(
-      overviewOfRows([placeOf({ stays: 0, stays_prev: 0, rating_n: 0, rating_avg: null })], [], NOT_READ),
+      overviewOfRows(
+        [placeOf({ stays: 0, stays_prev: 0, rating_n: 0, rating_avg: null })],
+        [],
+        NOT_READ,
+      ),
     );
     render(<QualityView />);
 

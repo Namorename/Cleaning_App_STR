@@ -970,7 +970,8 @@
       "subtitle": "Co o objektech říkají hosté a personál: podle témat a vedle počtu pobytů.",
       "errors": {
         "overview": "Kvalitu objektů se nepodařilo načíst",
-        "place": "Kartu objektu se nepodařilo načíst"
+        "place": "Kartu objektu se nepodařilo načíst",
+        "areas": "Oblasti témat se nepodařilo načíst"
       },
       "window": {
         "label": "Období",
@@ -1053,6 +1054,7 @@
         "seasonalScope": "sezónní téma: změna může souviset se sezónou",
         "no_base": "Zatím není s čím porovnat",
         "hidden": "Trend je skrytý do konce označování",
+        "settledCaption": "Trend podle recenzí se počítá do {{date}}: pozdější recenze ještě přicházejí",
         "reviews_settling": "Recenze ještě přicházejí: na porovnání je brzy",
         "reviews_seam": "Recenze před {{date}} a po něm se četly jinak: na porovnání je brzy",
         "basis": {
@@ -1139,10 +1141,34 @@
         "categories": "Podle kategorií",
         "category": "Kategorie",
         "place": "Tento objekt",
-        "city": "Ostatní objekty",
+        "peers": "Ostatní objekty",
         "channelsNote": "Níže jsou kanály zvlášť, protože mají různé stupnice. Hodnocení v záhlaví karty je napříč všemi kanály.",
-        "categoriesNote": "Vedle jsou ostatní objekty téhož města. Kategorie jsou sečtené napříč kanály.",
+        "categoriesNote": "Vedle jsou ostatní objekty firmy. Kategorie jsou sečtené napříč kanály.",
+        "categoriesNoteCity": "Vedle jsou ostatní objekty téhož města. Kategorie jsou sečtené napříč kanály.",
         "none": "Za toto období žádná hodnocení."
+      },
+      "areas": {
+        "title": "Oblasti témat",
+        "rule": "Objekt patří do oblasti, pokud se téma u něj objevuje výrazně častěji než u ostatních: aspoň dvě zmínky při dostatečném počtu pobytů. Složení se přepočítává v noci a závisí na období.",
+        "dynamicsNote": "Vývoj za všechny objekty, nejen za složení oblasti",
+        "computedOn": "Spočítáno {{day}}",
+        "places_one": "{{count}} objekt",
+        "places_few": "{{count}} objekty",
+        "places_many": "{{count}} objektu",
+        "places_other": "{{count}} objektů",
+        "member_one": "{{n}} z {{count}} pobytu",
+        "member_few": "{{n}} z {{count}} pobytů",
+        "member_many": "{{n}} z {{count}} pobytu",
+        "member_other": "{{n}} z {{count}} pobytů",
+        "basis": {
+          "guest": "hosté",
+          "staff": "personál"
+        },
+        "empty": {
+          "notComputed": "Oblasti se ještě nepočítaly: počítají se v noci",
+          "noStays": "Pobyty za toto období ještě nejsou načtené: oblasti není z čeho počítat",
+          "none": "V tomto období žádné téma nevyniká. Pobyty: {{stays}}."
+        }
       },
       "themes": {
         "heating": "Topení",
