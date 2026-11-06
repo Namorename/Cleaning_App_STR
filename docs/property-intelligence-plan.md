@@ -404,19 +404,17 @@ Booking 4 702, прямые и прочие ≈ 137; CZK 8 491, EUR 1 913. На 
 ### 4.1 Ядро и адаптеры
 
 Та же форма, что у сигналов гостей: ядро не знает PMS, адаптер отдаёт нейтральные записи, поддельный
-PMS проходит тот же контракт. Новая возможность `history` и необязательные методы при ней:
+PMS проходит тот же контракт. История — отдельный контракт `history-source.ts` рядом с `adapter.ts`, а
+не новые поля в нём: уже выкаченные функции бандлят `adapter.ts`, и эта работа их не меняет.
 
 ```ts
-// What a PMS can give of its past; a PMS without it leaves the layers empty.
-interface Capabilities {
-  history: false | { maxDepthMonths: number };   // how far back this PMS can be read
-}
-
-interface GuestSignalAdapter {
-  fetchReviewsByStay?(window: TimeWindow): Promise<FetchedReviews>;      // by the day the guest left
-  fetchStayFacts?(window: TimeWindow): Promise<readonly NeutralStayFact[]>;  // no guest field
-  stayGuestNames?(window: TimeWindow): Promise<ReadonlyMap<string, readonly string[]>>; // memory only
-  fetchListingBirths?(): Promise<readonly ListingBirth[]>;               // when a listing appeared
+// What a PMS gives of its past. The depth is the PMS's to say, never a constant of the core.
+interface HistorySource {
+  readonly history: { maxDepthMonths: number };                          // how far back it can be read
+  fetchReviewsByStay(window: TimeWindow): Promise<FetchedReviews>;       // by the day the guest left
+  fetchStayFacts(window: TimeWindow): Promise<readonly NeutralStayFact[]>;   // no guest field
+  stayGuestNames(window: TimeWindow): Promise<ReadonlyMap<string, readonly string[]>>; // memory only
+  fetchListingBirths(): Promise<readonly ListingBirth[]>;                // when a listing appeared
 }
 ```
 
@@ -445,7 +443,7 @@ create table public.issue_facts (
   month         date not null,                  -- the first of the month the guest left in
   week          date,                           -- its Monday, only while it is 90 days young
   channel       public.signal_channel,
-  signal_id     uuid references public.guest_signals (id) on delete set null,
+  signal_id     uuid references public.guest_signals (id) on delete cascade,
   problem_id    uuid references public.problems (id) on delete cascade,
   finding_id    uuid references public.signal_findings (id) on delete cascade,
   origin        text not null check (origin in ('stream', 'history')),
@@ -465,7 +463,7 @@ create table public.issue_facts (
 | `property_tags`, `property_groups`, `property_group_members` | Этап 3: теги из PMS и группы менеджера. До него группа — город | нет |
 | `property_facts` | Этап 3: тип, спальни, координаты, удобства | нет |
 | `raw.signal_history_runs` | Журнал чтения: неделя, версия, резерв и расход, счётчики | нет |
-| `problems.theme`, `problems.theme_source` | Тема задания и откуда она (`signal`, `dict`, `manual`). Модель сюда не пишет | нет |
+| `problem_themes` | Тема задания и откуда она (`signal`, `dict`, `manual`). Отдельная таблица, а не колонка `problems`: ночная запись двигала бы `updated_at`, который читают `updated_since` и панель. Модель сюда не пишет | нет |
 
 **Почему не материализованные представления.** Строк будет тысячи, объектов 83, тем 35: сводка
 считается SQL-функцией над индексом за миллисекунды. Материализация — если функция станет дольше
@@ -556,7 +554,7 @@ alter table public.signal_settings
 | Глубина | 12 месяцев на листинг, параметр адаптера |
 | Приватный отзыв | Не читается. Флаг `history_include_private` выключен, в панели его нет |
 | Скрытый отзыв | Не читается; эпизод уже скрытого не показывается |
-| Срок | Эпизод живёт, пока объект работает, и 12 месяцев после архива; `signal_id` снимается вместе с ключом на 18-м месяце |
+| Срок | Эпизод живёт, пока объект работает. Метка уходит вместе со строкой отзыва (`on delete cascade`) и не показывается, если отзыв скрыт |
 | Право гостя | В пределах 18 месяцев запись находится по ключу; старше эпизод не связан с человеком |
 
 **Откат:** выключить `history_enabled` и задание, удалить `issue_facts where origin = 'history'` и журнал.
