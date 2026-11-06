@@ -6,6 +6,9 @@
 --
 -- The refresh goes back to its body of 20261106120000 first: it must not read columns that are
 -- about to go. No panel depends on this part.
+-- One statement: db query takes one.
+do $rollback$
+begin
 create or replace function public.refresh_property_quality(p_host_id uuid default null)
 returns jsonb
 language plpgsql
@@ -104,8 +107,10 @@ begin
 end;
 $$;
 
-delete from public.issue_facts where task_step_id is not null;
+  delete from public.issue_facts where task_step_id is not null;
 
-drop index public.issue_facts_task_step_idx;
-alter table public.issue_facts drop column task_step_id;
-alter table public.hosts drop column quality_comments_on;
+  drop index public.issue_facts_task_step_idx;
+  alter table public.issue_facts drop column task_step_id;
+  alter table public.hosts drop column quality_comments_on;
+end;
+$rollback$;

@@ -830,7 +830,10 @@ values
    current_date - 5, 'b6300002-0000-4000-8000-000000000002', null, null, null),
   ('b6340003-0000-4000-8000-000000000003', pg_temp.host(), 900063001, 'cleaning', 'done',
    current_date - 4, 'b6300002-0000-4000-8000-000000000002', now() - interval '4 days',
-   now() - interval '4 days', 'b6300002-0000-4000-8000-000000000002');
+   now() - interval '4 days', 'b6300002-0000-4000-8000-000000000002'),
+  ('b6340004-0000-4000-8000-000000000004', pg_temp.host(), 900063001, 'maintenance', 'done',
+   current_date - 4, 'b6300003-0000-4000-8000-000000000003', now() - interval '4 days',
+   now() - interval '4 days', 'b6300003-0000-4000-8000-000000000003');
 insert into public.task_steps (id, host_id, task_id, type, sort_order, required, completed_at, payload)
 values
   ('b6350001-0000-4000-8000-000000000001', pg_temp.host(), 'b6340001-0000-4000-8000-000000000001',
@@ -844,7 +847,9 @@ values
   ('b6350005-0000-4000-8000-000000000005', pg_temp.host(), 'b6340003-0000-4000-8000-000000000003',
    'cleaner_comment', 1, false, now() - interval '4 days', '{"text": "Не работает Wi-Fi"}'),
   ('b6350006-0000-4000-8000-000000000006', pg_temp.host(), 'b6340003-0000-4000-8000-000000000003',
-   'task_note', 2, false, now() - interval '4 days', '{"text": "Не работает телевизор"}');
+   'task_note', 2, false, now() - interval '4 days', '{"text": "Не работает телевизор"}'),
+  ('b6350007-0000-4000-8000-000000000007', pg_temp.host(), 'b6340004-0000-4000-8000-000000000004',
+   'cleaner_comment', 1, false, now() - interval '4 days', '{"text": "Починил телевизор"}');
 update public.problems set task_id = 'b6340003-0000-4000-8000-000000000003'
 where id = 'b6320001-0000-4000-8000-000000000001';
 
@@ -878,6 +883,9 @@ begin
   perform pg_temp.check('another kind of step is no comment',
     (select count(*)::integer from public.issue_facts
      where task_step_id = 'b6350006-0000-4000-8000-000000000006'), 0);
+  perform pg_temp.check('what a technician says of a repair is an answer, no episode',
+    (select count(*)::integer from public.issue_facts
+     where task_step_id = 'b6350007-0000-4000-8000-000000000007'), 0);
   perform pg_temp.check('the night counts what it wrote', (v_res ->> 'comments')::integer, 1);
 
   v_res := public.refresh_property_quality(pg_temp.host());

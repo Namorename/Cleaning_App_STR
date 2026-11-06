@@ -135,6 +135,8 @@ begin
       and c.theme is not null
       and tk.property_id is not null
       and tk.status <> 'cancelled'
+      -- A repair asks «what was done?» in this same step: an answer, never an episode.
+      and tk.type in ('cleaning', 'midstay')
       -- What the same cleaning filed as a task speaks through that task, once.
       and not exists (select 1 from public.problems pr
                       join public.problem_themes t on t.problem_id = pr.id
