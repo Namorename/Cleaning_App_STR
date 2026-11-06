@@ -6,6 +6,9 @@
 -- history_shown_detector names the one reading the panel counts. Null counts them all, which is
 -- what the reads did before. Stream episodes and the themes of staff are no reading: they stay
 -- counted whatever is shown.
+--
+-- A review speaks through its labels instead of its finding only when those labels are shown: a
+-- label the panel does not count must not silence the review.
 
 alter table public.signal_settings
   add column history_shown_detector text
@@ -227,5 +230,183 @@ begin
                        >= v_rate.from_day
                  group by c.key
                  having count(*) filter (where o.id = p_property_id) > 0) x));
+end;
+$$;
+
+create or replace function public.complete_signal_history(
+  p_run_id          bigint,
+  p_facts           jsonb,
+  p_spent_micro_usd bigint,
+  p_counts          jsonb default '{}'::jsonb
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_run      raw.signal_history_runs;
+  v_inserted integer;
+  v_given    integer := coalesce(jsonb_array_length(p_facts), 0);
+begin
+  select * into v_run from raw.signal_history_runs r where r.id = p_run_id for update;
+  if not found or v_run.status <> 'running' then
+    raise exception 'History run % is not running', p_run_id
+      using errcode = 'invalid_parameter_value';
+  end if;
+
+  delete from public.issue_facts f
+  where f.host_id = v_run.host_id and f.origin = 'history'
+    and f.detector = v_run.detector and f.history_slice = v_run.slice_start;
+
+  insert into public.issue_facts (host_id, property_id, theme, layer, severity, confidence, month,
+                                  week, channel, signal_id, origin, history_slice, detector)
+  select v_run.host_id,
+         public.signal_place_family(p.id),
+         x.theme,
+         'guest_review',
+         coalesce(x.severity, 'normal')::public.problem_priority,
+         x.confidence,
+         date_trunc('month', x.departure_date::timestamp)::date,
+         case when x.departure_date >= current_date - 90
+              then date_trunc('week', x.departure_date::timestamp)::date end,
+         x.channel::public.signal_channel,
+         (select g.id from public.guest_signals g
+          where g.host_id = v_run.host_id and g.provider = v_run.provider and g.kind = 'review'
+            and g.external_key = x.external_key),
+         'history',
+         v_run.slice_start,
+         v_run.detector
+  from jsonb_to_recordset(coalesce(p_facts, '[]'::jsonb)) as x (
+    external_listing_id text, external_key text, theme text, severity text,
+    confidence numeric, channel text, departure_date date
+  )
+  join public.issue_themes t on t.code = x.theme
+  join lateral (
+    select public.resolve_signal_place(v_run.provider, v_run.host_id, x.external_listing_id) as id
+  ) p on p.id is not null
+  where x.departure_date is not null
+    and not public.analytics_is_test_listing(p.id);
+  get diagnostics v_inserted = row_count;
+
+  -- A review now labelled stops speaking through its finding at once, not next morning.
+  delete from public.issue_facts f
+  where f.host_id = v_run.host_id and f.origin = 'stream' and f.layer = 'guest_review'
+    and v_run.detector = coalesce((select s.history_shown_detector from public.signal_settings s
+                                       where s.host_id = v_run.host_id and s.kind = 'review'), v_run.detector)
+    and f.signal_id in (select h.signal_id from public.issue_facts h
+                        where h.host_id = v_run.host_id and h.origin = 'history'
+                          and h.detector = v_run.detector and h.history_slice = v_run.slice_start
+                          and h.signal_id is not null);
+
+  update raw.signal_history_runs r
+  set status = 'done',
+      spent_micro_usd = greatest(coalesce(p_spent_micro_usd, r.reserved_micro_usd), 0),
+      counts = coalesce(p_counts, '{}'::jsonb)
+               || jsonb_build_object('labels', v_inserted, 'labels_left_out', v_given - v_inserted),
+      finished_at = now()
+  where r.id = p_run_id;
+
+  return jsonb_build_object('labels', v_inserted, 'labels_left_out', v_given - v_inserted);
+end;
+$$;
+
+create or replace function public.refresh_property_quality(p_host_id uuid default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_host     uuid := coalesce(p_host_id, public.default_host_id());
+  v_themed   integer;
+  v_facts    integer;
+  v_staff    integer;
+  v_folded   integer;
+begin
+  insert into public.problem_themes (problem_id, theme, source, detector)
+  select x.id, x.theme, x.source, x.detector
+  from (
+    select pr.id,
+           coalesce(public.issue_theme_of_finding(f.kind, f.subject),
+                    public.issue_theme_of_text(pr.title || ' ' || coalesce(pr.description, ''))) as theme,
+           case when public.issue_theme_of_finding(f.kind, f.subject) is not null
+                then 'signal' else 'dict' end as source,
+           case when public.issue_theme_of_finding(f.kind, f.subject) is not null
+                then f.detector else 'dict-v1' end as detector
+    from public.problems pr
+    left join public.signal_findings f on f.problem_id = pr.id
+    where pr.host_id = v_host
+      and not exists (select 1 from public.problem_themes t where t.problem_id = pr.id)
+  ) x
+  where x.theme is not null
+  on conflict (problem_id) do nothing;
+  get diagnostics v_themed = row_count;
+
+  delete from public.issue_facts f where f.host_id = v_host and f.origin = 'stream';
+
+  insert into public.issue_facts (host_id, property_id, theme, layer, severity, confidence, month,
+                                  week, channel, signal_id, finding_id, origin, detector)
+  select v_host,
+         public.signal_place_family(f.property_id),
+         public.issue_theme_refined(public.issue_theme_of_finding(f.kind, f.subject),
+                                    f.summary || ' ' || coalesce(f.summary_i18n ->> 'en', '')),
+         'guest_review',
+         f.urgency,
+         f.confidence,
+         date_trunc('month', d.day::timestamp)::date,
+         case when g.stay_exact and d.day >= current_date - 90
+              then date_trunc('week', d.day::timestamp)::date end,
+         g.channel,
+         g.id,
+         f.id,
+         'stream',
+         f.detector
+  from public.signal_findings f
+  join public.guest_signals g on g.id = f.signal_id
+  cross join lateral (
+    select coalesce(g.departure_date, (g.submitted_at at time zone 'Europe/Prague')::date) as day
+  ) d
+  where f.host_id = v_host
+    and f.property_id is not null
+    and g.kind = 'review'
+    and f.status not in ('rejected', 'dropped')
+    and public.issue_theme_of_finding(f.kind, f.subject) is not null
+    -- A review the reading has labelled speaks through its labels: one episode, not two.
+    and not exists (select 1 from public.issue_facts h
+                    where h.signal_id = f.signal_id and h.origin = 'history'
+                      and h.detector = coalesce((select s.history_shown_detector from public.signal_settings s
+                                       where s.host_id = v_host and s.kind = 'review'), h.detector));
+  get diagnostics v_facts = row_count;
+
+  insert into public.issue_facts (host_id, property_id, theme, layer, severity, month, week,
+                                  problem_id, origin, detector)
+  select v_host,
+         public.signal_place_family(pr.property_id),
+         t.theme,
+         case when pr.task_id is not null then 'found_at_work' else 'staff_report' end::public.issue_layer,
+         pr.priority,
+         date_trunc('month', d.day::timestamp)::date,
+         case when d.day >= current_date - 90 then date_trunc('week', d.day::timestamp)::date end,
+         pr.id,
+         'stream',
+         t.detector
+  from public.problems pr
+  join public.problem_themes t on t.problem_id = pr.id
+  cross join lateral (select (pr.created_at at time zone 'Europe/Prague')::date as day) d
+  where pr.host_id = v_host
+    and pr.property_id is not null
+    -- What a guest said is the finding's episode; the problem made of it is the answer.
+    and pr.source = 'staff'
+    and pr.status <> 'cancelled'
+    and (pr.archived_at is null or (pr.status = 'resolved' and pr.resolved_at <= pr.archived_at));
+  get diagnostics v_staff = row_count;
+
+  update public.issue_facts f set week = null
+  where f.host_id = v_host and f.week is not null and f.week < current_date - 90;
+  get diagnostics v_folded = row_count;
+
+  return jsonb_build_object('themed', v_themed, 'facts', v_facts + v_staff, 'folded', v_folded,
+                            'area_members', public.refresh_quality_areas(v_host));
 end;
 $$;

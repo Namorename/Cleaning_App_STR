@@ -690,12 +690,52 @@ select pg_temp.check('the old labels stay in the table',
    where f.theme = 'noise_outside' and f.detector = (select detector from first_reading)), 1);
 select pg_temp.check('a reading is named as a detector is',
   pg_temp.refusal($q$update public.signal_settings set history_shown_detector = 'Not A Name'$q$), '23514');
+
+create or replace function pg_temp.finding_speaks() returns integer language sql as $fn$
+  select count(*)::integer from public.issue_facts
+  where finding_id = 'b6330001-0000-4000-8000-000000000001'
+$fn$;
+
+update public.signal_settings set history_shown_detector = (select detector from first_reading)
+where host_id = pg_temp.host() and kind = 'review';
+do $$
+declare
+  v_run bigint;
+begin
+  perform public.refresh_property_quality(pg_temp.host());
+  perform pg_temp.check('a review with no label shown speaks through its finding',
+    pg_temp.finding_speaks(), 1);
+
+  insert into raw.signal_history_runs (host_id, provider, detector, part, slice_start, slice_end, status)
+  values (pg_temp.host(), 'hostaway', 'claude-haiku-5-5@themes-v2', 'reviews',
+          date_trunc('week', current_date)::date - 14, date_trunc('week', current_date)::date - 8, 'running')
+  returning id into v_run;
+  perform public.complete_signal_history(v_run, jsonb_build_array(
+    jsonb_build_object('external_listing_id', '900063001', 'external_key', pg_temp.key('b'),
+                       'theme', 'hot_water', 'severity', 'normal', 'confidence', 0.9,
+                       'channel', 'booking', 'departure_date', pg_temp.m() + 7)), 0, '{}'::jsonb);
+  perform pg_temp.check('the new reading wrote its label',
+    (select count(*)::integer from public.issue_facts
+     where detector = 'claude-haiku-5-5@themes-v2' and theme = 'hot_water'), 1);
+  perform pg_temp.check('a reading not shown silences nothing when it closes a week',
+    pg_temp.finding_speaks(), 1);
+
+  perform public.refresh_property_quality(pg_temp.host());
+  perform pg_temp.check('nor when the night comes', pg_temp.finding_speaks(), 1);
+
+  update public.signal_settings set history_shown_detector = 'claude-haiku-5-5@themes-v2'
+  where host_id = pg_temp.host() and kind = 'review';
+  perform public.refresh_property_quality(pg_temp.host());
+  perform pg_temp.check('a label shown speaks in place of the finding', pg_temp.finding_speaks(), 0);
+end $$;
+
 update public.signal_settings set history_shown_detector = null
 where host_id = pg_temp.host() and kind = 'review';
 delete from public.issue_facts
 where host_id = pg_temp.host() and (detector = 'claude-haiku-5-5@themes-v2' or theme = 'parking');
 delete from raw.signal_history_runs
 where host_id = pg_temp.host() and detector = 'claude-haiku-5-5@themes-v2';
+do $$ begin perform public.refresh_property_quality(pg_temp.host()); end $$;
 
 -- ---------- settled months, the reading that follows ----------
 

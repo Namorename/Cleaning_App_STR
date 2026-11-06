@@ -170,10 +170,29 @@ Deno.test("agreement holds at the owner's thresholds, and a rare theme cannot fa
 });
 
 Deno.test("a frequent theme under 70 % fails the agreement though the whole is fine", () => {
-  const hit = Array.from({ length: 7 }, (_, n) => agreed(100 + n, ["wifi", "tv"], ["wifi", "tv"]));
-  const missed = Array.from({ length: 5 }, (_, n) => agreed(200 + n, ["wifi"], ["wifi", "tv"]));
+  const hit = Array.from({ length: 9 }, (_, n) => agreed(100 + n, ["wifi", "tv"], ["wifi", "tv"]));
+  const missed = Array.from({ length: 4 }, (_, n) => agreed(200 + n, ["wifi"], ["wifi", "tv"]));
   const result = agreementOf([...manyAgreed(40), ...hit, ...missed], lowOnly);
   assertEquals(result.low.map((one) => one.theme), ["tv"]);
+  assertEquals(result.passes, false);
+});
+
+Deno.test("an overall precision under 85 % fails the agreement on its own", () => {
+  const rare: ProbeRow["themes"] = ["wifi", "pests", "tv", "kettle", "parking", "smell"];
+  const extra = Array.from({ length: 15 }, (_, n) => agreed(100 + n, rare, ["wifi"]));
+  const result = agreementOf([...manyAgreed(85), ...extra], lowOnly);
+  assertEquals(result.low, []);
+  assertEquals(result.weighted.sameSet, 0.85);
+  assertEquals(result.overall.precision !== null && result.overall.precision < 0.85, true);
+  assertEquals(result.passes, false);
+});
+
+Deno.test("an overall recall under 85 % fails the agreement on its own", () => {
+  const rare: ProbeRow["themes"] = ["wifi", "pests", "tv", "kettle", "parking", "smell"];
+  const missed = Array.from({ length: 15 }, (_, n) => agreed(100 + n, ["wifi"], rare));
+  const result = agreementOf([...manyAgreed(85), ...missed], lowOnly);
+  assertEquals(result.weighted.sameSet, 0.85);
+  assertEquals(result.overall.recall !== null && result.overall.recall < 0.85, true);
   assertEquals(result.passes, false);
 });
 

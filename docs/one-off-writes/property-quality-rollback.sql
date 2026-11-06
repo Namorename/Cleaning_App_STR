@@ -68,6 +68,7 @@ begin
 
   alter table public.signal_settings
     drop constraint signal_settings_history_is_reviews,
+    drop column if exists history_shown_detector,
     drop column history_follow,
     drop column history_budget_micro_usd,
     drop column history_daily_cap,
