@@ -3,9 +3,9 @@
 --
 -- This reads and concludes nothing. The panel holds the rules: no conclusion under 30 stays after
 -- the close, a seasonal theme against the same months of the year before, and words of
--- coincidence only (§3.4). A week counts from its Monday, so an episode from the week of the close
--- counts as after only if the week began after it: the close is never credited with what came
--- just before it.
+-- coincidence only (§3.4). An episode keeps its week for 90 days and its month after that, so the
+-- whole week of the close, or the whole month once the week is folded, counts as after. That errs
+-- against the plan and never for it, and the number does not move as the episodes age.
 
 create or replace function public.resolution_plan_effect(p_id uuid)
 returns jsonb
@@ -69,7 +69,8 @@ begin
         left join public.guest_signals g on g.id = f.signal_id
         where f.host_id = v_host and f.property_id = v_plan.property_id and f.theme = th.code
           and f.layer <> 'guest_message' and not coalesce(g.is_hidden, false)
-          and coalesce(f.week, f.month) >= v_closed
+          and case when f.week is not null then f.week >= date_trunc('week', v_closed::timestamp)::date
+                   else f.month >= date_trunc('month', v_closed::timestamp)::date end
       ) a
       cross join lateral (
         select count(*)::integer as n

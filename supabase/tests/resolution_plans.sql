@@ -517,6 +517,9 @@ values
    date_trunc('week', current_date)::date, 'stream', 'dict-v1'),
   (pg_temp.host(), 900064002, 'wifi', 'staff_report', date_trunc('month', current_date - 60)::date,
    date_trunc('week', current_date - 60)::date, 'stream', 'dict-v1');
+insert into public.issue_facts (host_id, property_id, theme, layer, month, origin, detector)
+values (pg_temp.host(), 900064002, 'wifi', 'found_at_work',
+        date_trunc('month', (now() - interval '30 days') at time zone 'Europe/Prague')::date, 'stream', 'dict-v1');
 insert into public.reservations
   (id, host_id, property_id, arrival_date, departure_date, status, is_block, guest_name, check_out_time)
 select 900064100 + g, pg_temp.host(), 900064002, current_date - 12, current_date - 10, 'new', false,
@@ -547,6 +550,8 @@ begin
   perform pg_temp.check('the theme of the plan, before', (v_theme -> 'before' ->> 'reviews')::integer, 6);
   perform pg_temp.check('an episode after the close counts, one before it does not',
     (v_theme -> 'after' ->> 'reported')::integer, 1);
+  perform pg_temp.check('an episode folded to its month counts as after in the month of the close',
+    (v_theme -> 'after' ->> 'found')::integer, 1);
   perform pg_temp.check('new tasks stand on their own line', (v_theme ->> 'work_after')::integer, 1);
   perform pg_temp.check('a theme out of season has no last year', v_theme -> 'last_year', 'null'::jsonb);
 end $$;
