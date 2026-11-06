@@ -122,6 +122,23 @@ describe('QualityPlaceView: a theme', () => {
     expect(within(block).getByText('Работа закрыта 01.10')).toBeInTheDocument();
   });
 
+  test('a theme whose boundaries are being refined says so, and only that one', () => {
+    const said = { reviews: 16, reviews_prev: 3, recent: 3, last_on: '2026-10-19' };
+    answering(
+      cardOf({
+        ...SIX_MONTHS,
+        place: placeOf({ stays: 76, stays_prev: 80 }),
+        themes: [themeOf({ ...said, theme: 'shower_bath' }), themeOf(said)],
+      }),
+    );
+    openCard();
+
+    const item = screen.getByRole('heading', { name: 'Душ и ванна' }).closest('li');
+    expect(item).not.toBeNull();
+    expect(within(item as HTMLElement).getByText('уточняется')).toBeInTheDocument();
+    expect(screen.getAllByText('уточняется')).toHaveLength(1);
+  });
+
   test('no rate below twenty stays: the count, and why', () => {
     answering(
       cardOf({

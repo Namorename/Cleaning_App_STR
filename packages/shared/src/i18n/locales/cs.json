@@ -1170,6 +1170,7 @@
           "none": "V tomto období žádné téma nevyniká. Pobyty: {{stays}}."
         }
       },
+      "themeRefining": "upřesňuje se",
       "themes": {
         "heating": "Topení",
         "hot_water": "Teplá voda",

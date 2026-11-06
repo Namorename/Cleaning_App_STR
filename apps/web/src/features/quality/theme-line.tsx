@@ -10,7 +10,13 @@ import { useLanguage } from '@/lib/use-language';
 
 import { StateChip, TrendMark } from './chips';
 import { formatRate } from './format';
-import { isCompared, QUALITY_LAYERS, type PlaceThemeLine, type ThemeLine } from './theme-model';
+import {
+  isCompared,
+  QUALITY_LAYERS,
+  REFINING_THEMES,
+  type PlaceThemeLine,
+  type ThemeLine,
+} from './theme-model';
 
 /** «3 жалобы · 2 находки · 1 заведено»: each layer on its own, never one sum (§2.3). */
 function LayersText({ layers }: Pick<ThemeLine, 'layers'>) {
@@ -94,6 +100,11 @@ function ThemeFrame({ line, lead, children }: ThemeFrameProps) {
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         {lead}
         <h3 className="font-medium break-words">{t(`panel.quality.themes.${line.theme}`)}</h3>
+        {REFINING_THEMES.has(line.theme) ? (
+          <span className="text-xs text-muted-foreground">
+            {t('panel.quality.themeRefining')}
+          </span>
+        ) : null}
         <ThemeTrendMarks line={line} />
       </div>
       <SettledCaption settledTo={line.settledTo} />

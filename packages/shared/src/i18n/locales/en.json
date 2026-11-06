@@ -1152,6 +1152,7 @@
           "none": "No theme stands out in this period. Stays: {{stays}}."
         }
       },
+      "themeRefining": "being refined",
       "themes": {
         "heating": "Heating",
         "hot_water": "Hot water",

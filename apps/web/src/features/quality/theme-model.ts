@@ -90,6 +90,17 @@ export function isCompared(trend: ThemeTrend): trend is ComparedTrend {
   return trend === 'rising' || trend === 'falling' || trend === 'steady';
 }
 
+/**
+ * Themes whose boundaries are still being refined (docs/property-intelligence-plan.md §11): the
+ * two readers split them differently, so a count may move to a neighbour.
+ */
+export const REFINING_THEMES: ReadonlySet<QualityTheme> = new Set<QualityTheme>([
+  'shower_bath',
+  'supplies_amenities',
+  'kitchen_appliance',
+  'appliance_other',
+]);
+
 export interface ThemeLine {
   theme: QualityTheme;
   seasonal: boolean;
