@@ -276,7 +276,10 @@ alter table public.signal_settings
 -- City as a way to group places: for a company whose places sit in several towns.
 -- Off here, where they do not. The screen's main grouping is by theme
 -- (quality_area_members).
-alter table public.hosts add column quality_city_groups boolean not null default false;
+alter table public.hosts
+  add column quality_city_groups boolean not null default false,
+  -- The day the areas were last counted, whether anything stood out or not.
+  add column quality_areas_on date;
 
 -- Each attempt at one week of reviews or one month of stays. An attempt is
 -- never rewritten by the next: the sum over this table is the money spent. It
@@ -556,6 +559,14 @@ begin
   where x.departure_date is not null
     and not public.analytics_is_test_listing(p.id);
   get diagnostics v_inserted = row_count;
+
+  -- A review now labelled stops speaking through its finding at once, not next morning.
+  delete from public.issue_facts f
+  where f.host_id = v_run.host_id and f.origin = 'stream' and f.layer = 'guest_review'
+    and f.signal_id in (select h.signal_id from public.issue_facts h
+                        where h.host_id = v_run.host_id and h.origin = 'history'
+                          and h.detector = v_run.detector and h.history_slice = v_run.slice_start
+                          and h.signal_id is not null);
 
   update raw.signal_history_runs r
   set status = 'done',
@@ -867,10 +878,10 @@ as $$
 $$;
 
 /**
- * The last day of the last month whose reviews have all come: Booking's p90 lag is
- * 27 days, so a month is settled 30 days after its end. A trend by reviews compares
- * only up to here: the window before is whole, and a month still filling would read
- * as a fall.
+ * The last day of the last month whose reviews have all been read: Booking's p90 lag
+ * is 27 days, a week is read 30 days after its end, and a month's last week can end
+ * six days into the next month. A trend by reviews compares only up to here: the
+ * window before is whole, and a month still filling would read as a fall.
  */
 create or replace function public.quality_settled_to(p_today date)
 returns date
@@ -878,7 +889,7 @@ language sql
 immutable
 set search_path = ''
 as $$
-  select date_trunc('month', (p_today - 29)::timestamp)::date - 1
+  select date_trunc('month', (p_today - 36)::timestamp)::date - 1
 $$;
 
 /** The manager of the company alone, and a window we know. Returns the company. */
@@ -1098,6 +1109,7 @@ declare
   v_count integer;
 begin
   delete from public.quality_area_members m where m.host_id = p_host;
+  update public.hosts h set quality_areas_on = v_today where h.id = p_host;
 
   foreach v_code in array array['14d', '1m', '3m', '6m', '12m'] loop
     select * into v_b from public.quality_bounds(v_code, v_today);
@@ -1125,7 +1137,7 @@ begin
              sum(s.episodes) over (partition by s.theme, s.basis) as all_episodes,
              (select sum(q.stays) from places q) as all_stays
       from said s
-      join places p on p.id = s.property_id
+      join places p on p.id = s.property_id and p.stays > 0
     )
     select p_host, v_code, r.theme, r.property_id, r.basis, r.episodes, r.stays, v_today
     from rows r
@@ -1136,8 +1148,9 @@ begin
     ) e
     where r.stays >= case v_code when '14d' then 5 when '1m' then 10 else 20 end
       and r.episodes >= 2
-      and (coalesce(e.expected, 0) = 0
-           or (r.episodes - e.expected) / sqrt(e.expected) >= 1.65);
+      -- No other place has stays: nothing to stand out from.
+      and e.expected is not null
+      and (e.expected = 0 or (r.episodes - e.expected) / sqrt(e.expected) >= 1.65);
     get diagnostics v_count = row_count;
     v_total := v_total + v_count;
   end loop;
@@ -1159,8 +1172,7 @@ declare
 begin
   return jsonb_build_object(
     'window', p_window,
-    'computed_on', (select max(m.computed_on) from public.quality_area_members m
-                    where m.host_id = v_host),
+    'computed_on', (select h.quality_areas_on from public.hosts h where h.id = v_host),
     'members', (
       select coalesce(jsonb_agg(jsonb_build_object(
                'theme', m.theme, 'property_id', m.property_id, 'name', p.name,
@@ -1185,13 +1197,19 @@ as $$
   select jsonb_build_object(
     'enabled', coalesce((select s.history_enabled from public.signal_settings s
                          where s.host_id = p_host and s.kind = 'review'), false),
-    -- Weeks of the window as it stands now: it moves forward once the reading follows.
+    -- The weeks closed of the window the last run counted its total on: a window that
+    -- moved on since must not make a finished reading look unfinished.
     'weeks_done', (select count(distinct r.slice_start) from raw.signal_history_runs r
                    where r.host_id = p_host and r.part = 'reviews' and r.status = 'done'
                      and r.slice_start >= (
-                       select date_trunc('week', date_trunc('month', current_date::timestamp)
+                       select date_trunc('week', date_trunc('month', l.started_at at time zone 'UTC')
                                                  - make_interval(months => s.history_depth_months - 1))::date
                        from public.signal_settings s
+                       cross join lateral (
+                         select x.started_at from raw.signal_history_runs x
+                         where x.host_id = p_host and x.part = 'reviews' and x.counts ? 'weeks_total'
+                         order by x.finished_at desc nulls last limit 1
+                       ) l
                        where s.host_id = p_host and s.kind = 'review')),
     'weeks_total', (select (r.counts ->> 'weeks_total')::integer from raw.signal_history_runs r
                     where r.host_id = p_host and r.part = 'reviews' and r.counts ? 'weeks_total'
@@ -1242,9 +1260,9 @@ as $$
     -- Reviews are compared only up to here (quality_settled_to).
     'settled_to', public.quality_settled_to(p_today),
     -- The texts' line: before it the reading labels a review, after it the stream's
-    -- findings do, and a comparison across it compares two readers. Null once the
-    -- reading follows the new reviews: then one reader stands on both sides.
-    'line', (select case when not s.history_follow
+    -- findings do, and a comparison across it compares two readers. Null while the
+    -- reading is on and follows the new reviews: then one reader stands on both sides.
+    'line', (select case when not (s.history_follow and s.history_enabled)
                          then (coalesce(s.notice_published_at, s.texts_enabled_at)
                                at time zone 'Europe/Prague')::date end
              from public.signal_settings s

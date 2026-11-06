@@ -216,10 +216,14 @@ export function QualityPlaceView({ placeId }: { placeId: number }) {
     );
   }
 
-  const { place } = read.data;
+  const { place, city_groups: byCity } = read.data;
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader back={back} title={place.name} description={place.city ?? undefined} />
+      <PageHeader
+        back={back}
+        title={place.name}
+        description={byCity ? (place.city ?? undefined) : undefined}
+      />
       {bar}
       <PlaceCard card={read.data} />
     </div>

@@ -53,7 +53,7 @@ describe('QualityPlaceView: the head of the card', () => {
     openCard();
 
     expect(screen.getByRole('heading', { level: 1, name: 'Old Town flat' })).toBeInTheDocument();
-    expect(screen.getByText('Prague')).toBeInTheDocument();
+    expect(screen.queryByText('Prague')).not.toBeInTheDocument();
     expect(screen.getByText('Заезды:').nextSibling).toHaveTextContent('76');
     expect(screen.getByText('Отзывы с оценкой:').nextSibling).toHaveTextContent('41');
     expect(screen.getByText('Оценка:').nextSibling).toHaveTextContent('8,7');

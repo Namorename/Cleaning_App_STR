@@ -772,6 +772,7 @@ export type Database = {
           kb_techs_read_all: boolean
           name: string
           parallel_start_allowed: boolean
+          quality_areas_on: string | null
           quality_city_groups: boolean
           updated_at: string
           video_bitrate_kbps: number
@@ -786,6 +787,7 @@ export type Database = {
           kb_techs_read_all?: boolean
           name: string
           parallel_start_allowed?: boolean
+          quality_areas_on?: string | null
           quality_city_groups?: boolean
           updated_at?: string
           video_bitrate_kbps?: number
@@ -800,6 +802,7 @@ export type Database = {
           kb_techs_read_all?: boolean
           name?: string
           parallel_start_allowed?: boolean
+          quality_areas_on?: string | null
           quality_city_groups?: boolean
           updated_at?: string
           video_bitrate_kbps?: number
@@ -5831,6 +5834,7 @@ export type Database = {
           kb_techs_read_all: boolean
           name: string
           parallel_start_allowed: boolean
+          quality_areas_on: string | null
           quality_city_groups: boolean
           updated_at: string
           video_bitrate_kbps: number

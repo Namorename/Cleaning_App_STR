@@ -626,10 +626,10 @@ select pg_temp.office();
 
 -- ---------- settled months, the reading that follows ----------
 
-select pg_temp.check('a month is settled 30 days after its end',
-  public.quality_settled_to('2026-11-29'), '2026-09-30'::date);
+select pg_temp.check('a month is settled when its last week has been read',
+  public.quality_settled_to('2026-12-06'), '2026-09-30'::date);
 select pg_temp.check('the day it is, the month counts',
-  public.quality_settled_to('2026-11-30'), '2026-10-31'::date);
+  public.quality_settled_to('2026-12-07'), '2026-10-31'::date);
 
 insert into public.issue_facts (host_id, property_id, theme, layer, month, origin, history_slice, detector)
 values (pg_temp.host(), 900063001, 'tv', 'guest_review', (pg_temp.m() - interval '1 month')::date,
@@ -658,7 +658,7 @@ begin
     (v_place ->> 'stays')::integer - (v_place ->> 'stays_settled')::integer >= 3, true);
   perform pg_temp.check('the answer says up to when reviews have come',
     (v_all ->> 'settled_to')::date,
-    (date_trunc('month', (now() at time zone 'Europe/Prague')::date - 29))::date - 1);
+    (date_trunc('month', (now() at time zone 'Europe/Prague')::date - 36))::date - 1);
   perform pg_temp.check('the line divides two readers while the reading stops at it',
     v_all ->> 'line', '2026-11-04');
 end $$;
@@ -670,7 +670,13 @@ select pg_temp.as_user('b6300001-0000-4000-8000-000000000001');
 select pg_temp.check('once the reading follows, one reader stands on both sides',
   public.quality_overview('12m') ->> 'line', null::text);
 select pg_temp.office();
-update public.signal_settings set history_follow = false
+update public.signal_settings set history_enabled = false
+where host_id = pg_temp.host() and kind = 'review';
+select pg_temp.as_user('b6300001-0000-4000-8000-000000000001');
+select pg_temp.check('a reading switched off follows nothing, whatever its switch says',
+  public.quality_overview('12m') ->> 'line', '2026-11-04');
+select pg_temp.office();
+update public.signal_settings set history_enabled = true, history_follow = false
 where host_id = pg_temp.host() and kind = 'review';
 select pg_temp.check('the state tells the run whether it follows',
   public.signal_history_state('hostaway', 'claude-haiku-5-5@themes-v1', pg_temp.host()) ->> 'follow', 'false');
@@ -688,6 +694,30 @@ select pg_temp.check('a labelled review leaves no episode from its finding',
   (select count(*) from public.issue_facts where finding_id = 'b6330001-0000-4000-8000-000000000001'),
   0::bigint);
 
+-- It need not wait for the night: labelling a week takes the finding's episode away at once.
+delete from public.issue_facts where signal_id = 'b6310002-0000-4000-8000-000000000002' and origin = 'history';
+select public.refresh_property_quality(pg_temp.host());
+select pg_temp.check('a finding speaks while nothing labelled its review',
+  (select count(*) from public.issue_facts where finding_id = 'b6330001-0000-4000-8000-000000000001'),
+  1::bigint);
+do $$
+declare
+  v_run bigint;
+begin
+  update raw.signal_history_runs set status = 'failed', finished_at = now(), spent_micro_usd = 0
+  where host_id = pg_temp.host() and status = 'running';
+  update public.signal_settings set history_daily_cap = 1000, history_budget_micro_usd = 5000000
+  where host_id = pg_temp.host() and kind = 'review';
+  v_run := (pg_temp.reserve(1, pg_temp.w() + 21) ->> 'run_id')::bigint;
+  perform public.complete_signal_history(v_run, jsonb_build_array(
+    jsonb_build_object('external_listing_id', '900063001', 'external_key', pg_temp.key('b'),
+                       'theme', 'hot_water', 'severity', 'normal', 'confidence', 0.9,
+                       'channel', 'booking', 'departure_date', pg_temp.m() + 7)), 100, '{}'::jsonb);
+  perform pg_temp.check('a week labelled takes the finding away at once',
+    (select count(*) from public.issue_facts where finding_id = 'b6330001-0000-4000-8000-000000000001'),
+    0::bigint);
+end $$;
+
 -- ---------- problem areas ----------
 
 delete from public.issue_facts where host_id = pg_temp.host();
@@ -703,6 +733,12 @@ returns void language sql as $fn$
   select pg_temp.host(), p_place, p_theme, p_layer, pg_temp.m(), 'history', '2026-01-19', 'x-1'
   from generate_series(1, p_n)
 $fn$;
+
+select public.refresh_quality_areas(pg_temp.host());
+select pg_temp.as_user('b6300001-0000-4000-8000-000000000001');
+select pg_temp.check('a night with nothing standing out is still a night that counted',
+  (public.quality_areas('3m') ->> 'computed_on')::date, (now() at time zone 'Europe/Prague')::date);
+select pg_temp.office();
 
 -- Stands out: three here, nothing elsewhere.
 select pg_temp.fact(900063001, 'smell', 'guest_review', 3);
@@ -731,6 +767,18 @@ select pg_temp.check('a window with its own numbers has its own areas',
   pg_temp.members('12m'), pg_temp.members('3m'));
 select pg_temp.check('a window without enough stays or episodes has none',
   pg_temp.members('14d'), '');
+
+-- The only place with stays has nothing to stand out from.
+update public.property_month_stats set stays = 0, nights = 0
+where host_id = pg_temp.host() and property_id <> 900063001;
+select public.refresh_quality_areas(pg_temp.host());
+select pg_temp.check('a place alone with stays stands in no area',
+  pg_temp.members('3m'), '');
+update public.property_month_stats set stays = 10, nights = 20
+where host_id = pg_temp.host() and property_id = 900063002;
+update public.property_month_stats set stays = 40, nights = 80
+where host_id = pg_temp.host() and property_id = 900063010;
+select public.refresh_quality_areas(pg_temp.host());
 
 select pg_temp.as_user('b6300001-0000-4000-8000-000000000001');
 do $$

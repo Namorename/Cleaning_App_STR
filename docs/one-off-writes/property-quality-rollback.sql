@@ -16,7 +16,7 @@
 --      head 20261104200000, none of the new tables, columns, jobs or functions.
 --
 -- What it does, in one transaction: drops the two jobs, the functions, the six tables, the
--- enum, the six switches of signal_settings and hosts.quality_city_groups. Labels and stays go with their tables: they
+-- enum, the six switches of signal_settings and the two columns of hosts. Labels and stays go with their tables: they
 -- are derived, and no guest text was ever in them. The journal goes only if the reading never
 -- spent anything: once it did, it stays, and a second push finds it (if not exists), so a
 -- rollback cannot hand the one-off budget back. Nothing of the texts' line is
@@ -75,6 +75,6 @@ begin
     drop column history_depth_months,
     drop column history_enabled;
 
-  alter table public.hosts drop column quality_city_groups;
+  alter table public.hosts drop column quality_areas_on, drop column quality_city_groups;
 end;
 $rollback$;

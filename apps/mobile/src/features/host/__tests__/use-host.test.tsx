@@ -194,7 +194,13 @@ describe('a media step opening', () => {
   }
 
   test('reads the company again when its copy is older than a few minutes', async () => {
-    fetchSettings.mockResolvedValue(company({ gallery_allowed: true }));
+    // The answer waits for the test: a resolved mock could land before the first look.
+    let answer: (settings: HostSettings) => void = () => {};
+    fetchSettings.mockReturnValue(
+      new Promise<HostSettings>((resolve) => {
+        answer = resolve;
+      }),
+    );
     const client = clientWith(company({ gallery_allowed: false }), OLDER);
 
     const { result } = await renderHook(() => useGalleryAllowed(ON_OPEN_FRESH_MS), {
@@ -202,6 +208,7 @@ describe('a media step opening', () => {
     });
 
     expect(result.current).toBe(false);
+    answer(company({ gallery_allowed: true }));
     await waitFor(() => expect(result.current).toBe(true));
     expect(fetchSettings).toHaveBeenCalledTimes(1);
   });
