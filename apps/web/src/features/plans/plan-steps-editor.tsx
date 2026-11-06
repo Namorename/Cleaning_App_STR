@@ -45,20 +45,12 @@ function StepRow({ step, staff, refusal, onChange, onRemove }: StepRowProps) {
 
   return (
     <li className="flex min-w-0 flex-col gap-2 rounded-lg border p-3 text-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {isLinked ? <Badge tone="assigned">{t('panel.plans.step.linked')}</Badge> : <span />}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="size-11"
-          aria-label={t('panel.plans.step.remove', { title: step.title })}
-          onClick={onRemove}
-        >
-          <Trash2 aria-hidden="true" />
-        </Button>
-      </div>
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-[10rem_1fr]">
+      {isLinked ? (
+        <Badge tone="assigned" className="self-start">
+          {t('panel.plans.step.linked')}
+        </Badge>
+      ) : null}
+      <div className="grid grid-cols-1 items-end gap-2 md:grid-cols-[10rem_1fr_auto]">
         <div className="flex flex-col gap-1">
           <Label htmlFor={`${baseId}-kind`}>{t('panel.plans.step.kind')}</Label>
           <NativeSelect
@@ -86,6 +78,16 @@ function StepRow({ step, staff, refusal, onChange, onRemove }: StepRowProps) {
             onChange={(event) => onChange({ title: event.target.value })}
           />
         </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-11 justify-self-end"
+          aria-label={t('panel.plans.step.remove', { title: step.title })}
+          onClick={onRemove}
+        >
+          <Trash2 aria-hidden="true" />
+        </Button>
       </div>
       {isLinked ? null : (
         <>
@@ -93,6 +95,7 @@ function StepRow({ step, staff, refusal, onChange, onRemove }: StepRowProps) {
             <Label htmlFor={`${baseId}-notes`}>{t('panel.plans.step.description')}</Label>
             <Textarea
               id={`${baseId}-notes`}
+              className="min-h-11"
               maxLength={2000}
               value={step.description}
               onChange={(event) => onChange({ description: event.target.value })}
