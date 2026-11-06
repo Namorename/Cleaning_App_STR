@@ -3040,6 +3040,8 @@
     "staffEmailTaken": "Na tuhle adresu už účet existuje.",
     "staffPayloadInvalid": "Panel poslal požadavek, kterému server nerozumí.",
     "staffSelfChange": "Vlastní roli ani vlastní přístup měnit nelze — požádejte kolegu.",
+    "staffSignInBlockFailed": "Účet je vypnutý a data společnosti nevidí, ale přihlásit se do něj možná ještě lze. Uložte znovu.",
+    "staffSignInUnblockFailed": "Účet je zapnutý, ale přihlášení může být ještě zablokované. Uložte znovu.",
     "adminRoleForbidden": "Roli administrátora může udělit jen administrátor.",
     "adminOnly": "Klíče API spravuje jen administrátor.",
     "apiKeyNameInvalid": "Klíč potřebuje název o 1 až 80 znacích.",

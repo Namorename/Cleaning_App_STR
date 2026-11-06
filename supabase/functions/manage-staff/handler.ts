@@ -41,6 +41,16 @@ const PANEL_ROLES: readonly string[] = ["manager", "admin"];
 const MAX_NAME = 80;
 const MAX_PHONE = 32;
 
+/**
+ * How long a block on signing in lasts: about a hundred years, which is to say
+ * until somebody switches the person back on. Auth has no "for ever", it takes a
+ * Go duration, and those end at about 292 years.
+ */
+const SIGN_IN_BLOCK = "876000h";
+
+/** Auth's own word for "lift the block". */
+const NO_BLOCK = "none";
+
 /** Light shape check only. Auth is the authority on what an address is. */
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -65,6 +75,12 @@ export interface StaffMember {
   readonly fullName: string | null;
   readonly hostId: string;
   readonly role: string;
+  readonly isActive: boolean;
+}
+
+/** What Auth holds about a person's sign-in, as it answered the last write. */
+export interface AccountState {
+  readonly signInBlocked: boolean;
 }
 
 /** The part of a person the manager fills in. */
@@ -103,7 +119,11 @@ export interface StaffDeps {
     hostId: string;
     profile: StaffProfile;
   }) => Promise<CreatedStaff>;
+  /** The profile row: what row security reads, and the switch that closes access. */
   readonly updateStaff: (input: { id: string; profile: StaffProfile }) => Promise<void>;
+  /** The role and the name in Auth. Its answer says what Auth holds about the sign-in. */
+  readonly updateAccount: (input: { id: string; profile: StaffProfile }) => Promise<AccountState>;
+  readonly setSignInBlock: (input: { id: string; blocked: boolean }) => Promise<void>;
   readonly setPassword: (input: {
     id: string;
     email: string;
@@ -139,6 +159,16 @@ function refuse(
   params: Record<string, unknown> | null = null,
 ): never {
   throw new StaffRefusal(status, message, hint, params);
+}
+
+/** What to ask Auth for: a block, or an end to one. */
+export function banDuration(blocked: boolean): string {
+  return blocked ? SIGN_IN_BLOCK : NO_BLOCK;
+}
+
+/** Whether a `banned_until` still holds. Auth keeps a date that has passed, and lets it in. */
+export function isBanned(bannedUntil: string | null | undefined, now: Date): boolean {
+  return typeof bannedUntil === "string" && Date.parse(bannedUntil) > now.getTime();
 }
 
 /** A failed database call, as supabase-js hands it over. */
@@ -387,7 +417,82 @@ async function update(
   guardSelf(caller, target, profile);
 
   await deps.updateStaff({ id: target.id, profile });
+  await settleAccount(deps, target, profile);
   return json({ success: true, data: { id: target.id } }, 200);
+}
+
+/**
+ * Auth brought into line with the row, which has already been written.
+ *
+ * The row goes first. Row security is what actually guards the data, and
+ * `is_active` — the switch that closes access and takes a person off her work —
+ * lives only in the row, so if the second step fails the half-done change is the
+ * one the manager asked for rather than its opposite: an outage of Auth does not
+ * keep somebody who was let go inside the company's data. And the database may
+ * refuse the save, which has to leave her sign-in as it was.
+ *
+ * The price is that a repeat cannot look at the row: after a block that failed
+ * the row already says "off", and comparing the request with it would find
+ * nothing to do, for ever. So the block follows Auth instead, which answers the
+ * account write with what it holds: a save where Auth agrees asks nothing more,
+ * and a save that finds the two apart puts it right — the same save again, or an
+ * edit of somebody switched off before this rule. Blocking twice only moves the
+ * date, so a repeat is safe wherever the last one stopped.
+ *
+ * A failure is reported, never swallowed: the manager is told what stands and to
+ * save again. A plain edit of somebody working has no sign-in at stake, and its
+ * failed account write stays the general failure it always was.
+ */
+async function settleAccount(
+  deps: StaffDeps,
+  target: StaffMember,
+  profile: StaffProfile,
+): Promise<void> {
+  const shouldBlock = !profile.isActive;
+
+  let account: AccountState;
+  try {
+    account = await deps.updateAccount({ id: target.id, profile });
+  } catch (error: unknown) {
+    throw profile.isActive && target.isActive ? error : signInNotSettled(target.id, profile, error);
+  }
+
+  if (account.signInBlocked === shouldBlock) {
+    return;
+  }
+
+  try {
+    await deps.setSignInBlock({ id: target.id, blocked: shouldBlock });
+  } catch (error: unknown) {
+    throw signInNotSettled(target.id, profile, error);
+  }
+}
+
+/**
+ * The row stands and Auth has not confirmed it: the refusal that says so.
+ *
+ * "Not confirmed" and not "failed": when the account write is what broke, nobody
+ * has heard what Auth holds, and the person may already be as she should be.
+ */
+function signInNotSettled(id: string, profile: StaffProfile, cause: unknown): StaffRefusal {
+  // A refusal is not logged on its way out, and this one's cause is the only
+  // trace of why Auth said no.
+  console.error(
+    `manage-staff could not settle the sign-in of ${id}: ${
+      cause instanceof Error ? cause.message : String(cause)
+    }`,
+  );
+  return profile.isActive
+    ? new StaffRefusal(
+      500,
+      `Person ${id} is switched on and Auth has not confirmed the block is lifted`,
+      "serverErrors.staffSignInUnblockFailed",
+    )
+    : new StaffRefusal(
+      500,
+      `Person ${id} is switched off and Auth has not confirmed the block`,
+      "serverErrors.staffSignInBlockFailed",
+    );
 }
 
 /**

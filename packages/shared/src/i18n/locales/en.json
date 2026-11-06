@@ -2978,6 +2978,8 @@
     "staffEmailTaken": "That address already has an account.",
     "staffPayloadInvalid": "The panel sent a request the server did not understand.",
     "staffSelfChange": "You cannot change your own role or switch yourself off — ask a colleague.",
+    "staffSignInBlockFailed": "The account is switched off and sees no company data, but it may still be able to sign in. Save again.",
+    "staffSignInUnblockFailed": "The account is switched on, but signing in may still be blocked. Save again.",
     "adminRoleForbidden": "Only an admin can hand out the admin role.",
     "adminOnly": "Only an admin may manage API keys.",
     "apiKeyNameInvalid": "A key needs a name of 1 to 80 characters.",

@@ -43,9 +43,12 @@ import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { readPublishableKey, readSupabaseCredentials } from "../_shared/env.ts";
 import { generatePassword, STAGED_PASSWORD } from "../_shared/staff-password.ts";
 import {
+  type AccountState,
+  banDuration,
   type Caller,
   type CreatedStaff,
   createStaffHandler,
+  isBanned,
   type MailOutcome,
   refusalFromDatabase,
   type StaffMember,
@@ -161,6 +164,7 @@ async function findStaff(id: string): Promise<StaffMember | null> {
     fullName: profile.full_name,
     hostId: profile.host_id,
     role: profile.role,
+    isActive: profile.is_active,
   };
 }
 
@@ -234,24 +238,37 @@ async function createStaff(input: {
   return { id: data.user.id, ...outcome };
 }
 
-/**
- * The profile row is written before app_metadata.
- *
- * Row security is what actually guards the data, and `is_active` — the switch
- * that closes access — lives only in the row. If the second write fails, the
- * half-done change is the one the manager asked for rather than its opposite:
- * somebody switched off in the panel is switched off in the database, whatever
- * their token still says.
- */
+/** The row, before anything in Auth: why, and what follows it, is `settleAccount` in handler.ts. */
 async function updateStaff(input: { id: string; profile: StaffProfile }): Promise<void> {
   await writeProfile(input.id, input.profile);
+}
 
-  const { error } = await admin().auth.admin.updateUserById(input.id, {
+/**
+ * The role and the name, and what Auth answers with: the whole user, so its
+ * `banned_until` costs no second call on a save that has nothing to block.
+ */
+async function updateAccount(input: { id: string; profile: StaffProfile }): Promise<AccountState> {
+  const { data, error } = await admin().auth.admin.updateUserById(input.id, {
     app_metadata: { role: input.profile.role },
     user_metadata: { full_name: input.profile.fullName },
   });
   if (error !== null) {
     throw new Error(`updateUserById: ${error.message}`);
+  }
+  return { signInBlocked: isBanned(data.user.banned_until, new Date()) };
+}
+
+/**
+ * A separate call on purpose: `ban_duration` restarts the clock, so it is only
+ * sent when the two sides disagree. An access token she already holds runs until
+ * it expires; the refresh after it is what Auth refuses.
+ */
+async function setSignInBlock(input: { id: string; blocked: boolean }): Promise<void> {
+  const { error } = await admin().auth.admin.updateUserById(input.id, {
+    ban_duration: banDuration(input.blocked),
+  });
+  if (error !== null) {
+    throw new Error(`updateUserById(ban_duration): ${error.message}`);
   }
 }
 
@@ -324,6 +341,8 @@ Deno.serve(
     findStaff,
     createStaff,
     updateStaff,
+    updateAccount,
+    setSignInBlock,
     setPassword,
     makePassword: (fullName, email) => generatePassword(fullName, email),
   }),
