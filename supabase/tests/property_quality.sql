@@ -599,7 +599,26 @@ begin
   perform pg_temp.check('another company''s place is no place here', public.quality_place(900063009, '12m'), null::jsonb);
 end $$;
 
+select pg_temp.office();
+insert into public.reservations
+  (id, host_id, property_id, arrival_date, departure_date, status, is_block, guest_name, check_out_time)
+select 900063100 + g, pg_temp.host(), 900063001, current_date - 22, current_date - 20 + (g % 15),
+       'new', false, 'Guest', '10:00'
+from generate_series(1, 150) g;
+insert into public.reservations
+  (id, host_id, property_id, arrival_date, departure_date, status, is_block, guest_name, check_out_time)
+values (900063099, pg_temp.host(), 900063001, current_date - 720, current_date - 700,
+        'new', false, 'Guest', '10:00');
+
+select pg_temp.as_user('b6300001-0000-4000-8000-000000000001');
+select pg_temp.check('a stray old booking does not read as a year of bookings',
+  (public.quality_overview('1m') ->> 'held_from')::date >= current_date - 20, true);
+select pg_temp.check('the answer names the texts'' line',
+  public.quality_overview('12m') ->> 'line', '2026-11-04');
+
 select pg_temp.as_user('b6300009-0000-4000-8000-000000000009');
+select pg_temp.check('another company has no line and no bookings',
+  public.quality_overview('12m') ->> 'held_from', null::text);
 select pg_temp.check('another company sees none of it',
   jsonb_array_length(public.quality_overview('12m') -> 'themes'), 0);
 

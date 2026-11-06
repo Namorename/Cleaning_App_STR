@@ -15,7 +15,7 @@
 -- exec          who of PUBLIC, anon, authenticated may execute the new functions: only
 --               authenticated, only quality_overview and quality_place;
 -- line_bodies   md5 of the three bodies of the texts' line: unchanged by this migration;
--- counts        rows in the new tables and how much the reading has spent.
+-- How far the reading got: postpush_property_quality_counts_1106.sql, valid after the push.
 select json_build_object(
   'head', (select max(version) from supabase_migrations.schema_migrations),
   'tables', (select coalesce(json_agg(n.nspname || '.' || c.relname order by c.relname), '[]'::json)
@@ -66,15 +66,5 @@ select json_build_object(
   'line_bodies', (select json_object_agg(p.proname, left(md5(replace(p.prosrc, chr(13), '')), 8) order by p.proname)
                   from pg_proc p
                   where p.pronamespace = 'public'::regnamespace
-                    and p.proname in ('review_text_allowed', 'store_review_texts', 'review_load_state')),
-  'counts', case when to_regclass('public.issue_facts') is null then null else (
-      select json_build_object(
-        'themes', (xpath('/row/c/text()', query_to_xml('select count(*) as c from public.issue_themes', false, true, '')))[1]::text::integer,
-        'facts', (xpath('/row/c/text()', query_to_xml('select count(*) as c from public.issue_facts', false, true, '')))[1]::text::integer,
-        'facts_history', (xpath('/row/c/text()', query_to_xml($q$select count(*) as c from public.issue_facts where origin = 'history'$q$, false, true, '')))[1]::text::integer,
-        'stay_months', (xpath('/row/c/text()', query_to_xml('select count(distinct month) as c from public.property_month_stats', false, true, '')))[1]::text::integer,
-        'problem_themes', (xpath('/row/c/text()', query_to_xml('select count(*) as c from public.problem_themes', false, true, '')))[1]::text::integer,
-        'weeks_done', (xpath('/row/c/text()', query_to_xml($q$select count(distinct slice_start) as c from raw.signal_history_runs where part = 'reviews' and status = 'done'$q$, false, true, '')))[1]::text::integer,
-        'spent_micro_usd', (xpath('/row/c/text()', query_to_xml($q$select coalesce(sum(coalesce(spent_micro_usd, reserved_micro_usd)), 0) as c from raw.signal_history_runs where part = 'reviews'$q$, false, true, '')))[1]::text::bigint)
-    ) end
+                    and p.proname in ('review_text_allowed', 'store_review_texts', 'review_load_state'))
 ) as out;

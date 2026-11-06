@@ -371,7 +371,8 @@ describe('QualityView: stays that are not loaded', () => {
     answering(overviewOfRows([placeOf({ stays: 0, stays_prev: 0 })], [], FOURTEEN_DAYS));
     render(<QualityView />);
 
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    // The one band is the short window's own: nothing says the stays are not loaded.
+    expect(screen.getByRole('status')).toHaveTextContent('В коротких окнах');
     expect(screen.getByText('Тем за этот период нет. Заездов: 0.')).toBeInTheDocument();
   });
 });

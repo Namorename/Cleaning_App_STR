@@ -518,6 +518,11 @@
       "reason": "gives a booking's cleaning its booking's hours back, both marks off (undo of set_cleaning_time)",
       "defined_in": "20261027120000_manual_cleaning_time.sql"
     },
+    "complete_signal_history": {
+      "status": "internal",
+      "reason": "the reading of past reviews: the job writes it, no client calls it",
+      "defined_in": "20261106120000_property_quality.sql"
+    },
     "complete_task_step": {
       "status": "internal",
       "reason": "phone-only flow of the cleaner at work (task steps): completes a step",
@@ -588,6 +593,11 @@
       "status": "internal",
       "reason": "scheduler job: closes cleanings the day has passed by, service_role only",
       "defined_in": "20260923130000_problem_mirror_current_attempt.sql"
+    },
+    "fail_signal_history": {
+      "status": "internal",
+      "reason": "the reading of past reviews: the job writes it, no client calls it",
+      "defined_in": "20261106120000_property_quality.sql"
     },
     "forget_push_token": {
       "status": "internal",
@@ -703,6 +713,21 @@
       "status": "internal",
       "reason": "PostgREST computed field: the \"#\" service-booking flag derived from the guest name (guest names are forbidden); the flag may ride on bookings:read, the function is not called",
       "defined_in": "20260926140000_service_booking_field.sql"
+    },
+    "issue_theme_of_finding": {
+      "status": "internal",
+      "reason": "internal helper of the nightly refresh",
+      "defined_in": "20261106120000_property_quality.sql"
+    },
+    "issue_theme_of_text": {
+      "status": "internal",
+      "reason": "internal helper of the nightly refresh: the dictionary",
+      "defined_in": "20261106120000_property_quality.sql"
+    },
+    "issue_theme_refined": {
+      "status": "internal",
+      "reason": "internal helper of the nightly refresh",
+      "defined_in": "20261106120000_property_quality.sql"
     },
     "journal_cleaning_time": {
       "status": "internal",
@@ -988,6 +1013,46 @@
       "reason": "push plumbing: constant of the push queue and sender",
       "defined_in": "20260928100000_push_recipients.sql"
     },
+    "quality_bounds": {
+      "status": "internal",
+      "reason": "internal helper of the panel reads: a window as days",
+      "defined_in": "20261106120000_property_quality.sql"
+    },
+    "quality_guard": {
+      "status": "internal",
+      "reason": "internal helper of the panel reads: the role and the window",
+      "defined_in": "20261106120000_property_quality.sql"
+    },
+    "quality_history_state": {
+      "status": "internal",
+      "reason": "internal helper of the panel reads",
+      "defined_in": "20261106120000_property_quality.sql"
+    },
+    "quality_meta": {
+      "status": "internal",
+      "reason": "internal helper of the panel reads",
+      "defined_in": "20261106120000_property_quality.sql"
+    },
+    "quality_overview": {
+      "status": "internal",
+      "reason": "the panel read of property quality; the public resource comes with stage 6 of the plan",
+      "defined_in": "20261106120000_property_quality.sql"
+    },
+    "quality_place": {
+      "status": "internal",
+      "reason": "the panel read of property quality; the public resource comes with stage 6 of the plan",
+      "defined_in": "20261106120000_property_quality.sql"
+    },
+    "quality_place_rows": {
+      "status": "internal",
+      "reason": "internal helper of the panel reads",
+      "defined_in": "20261106120000_property_quality.sql"
+    },
+    "quality_theme_rows": {
+      "status": "internal",
+      "reason": "internal helper of the panel reads",
+      "defined_in": "20261106120000_property_quality.sql"
+    },
     "record_push_receipts": {
       "status": "internal",
       "reason": "push plumbing: send-push stores Expo receipts, service_role only",
@@ -1007,6 +1072,11 @@
       "status": "internal",
       "reason": "Hostaway webhook intake (hostaway-webhook), service_role only",
       "defined_in": "20260828090000_webhook_event_id_from_data.sql"
+    },
+    "refresh_property_quality": {
+      "status": "internal",
+      "reason": "the nightly job of property quality",
+      "defined_in": "20261106120000_property_quality.sql"
     },
     "register_push_token": {
       "status": "internal",
@@ -1050,6 +1120,11 @@
       "reason": "phone-only flow of the cleaner at work (task steps): takes a step back to not done",
       "defined_in": "20260905110300_task_steps.sql"
     },
+    "replace_property_month_stays": {
+      "status": "internal",
+      "reason": "the reading of past reviews: the job writes it, no client calls it",
+      "defined_in": "20261106120000_property_quality.sql"
+    },
     "report_problem": {
       "status": "exposed",
       "scope": "tasks:create",
@@ -1068,6 +1143,11 @@
       "status": "internal",
       "reason": "cleaning generator helper; cleanings come from Hostaway bookings (rooms a booking took)",
       "defined_in": "20260927120000_pinned_rooms.sql"
+    },
+    "reserve_signal_history": {
+      "status": "internal",
+      "reason": "the reading of past reviews: the job writes it, no client calls it",
+      "defined_in": "20261106120000_property_quality.sql"
     },
     "reserve_signal_model_calls": {
       "status": "internal",
@@ -1232,6 +1312,26 @@
       "status": "internal",
       "reason": "trigger function: a finding's dates, kept to the month once its review's stay is cut",
       "defined_in": "20261030110000_reviews_to_tasks.sql"
+    },
+    "signal_history_day_start": {
+      "status": "internal",
+      "reason": "the reading of past reviews: the job writes it, no client calls it",
+      "defined_in": "20261106120000_property_quality.sql"
+    },
+    "signal_history_readable": {
+      "status": "internal",
+      "reason": "the reading of past reviews: the job writes it, no client calls it",
+      "defined_in": "20261106120000_property_quality.sql"
+    },
+    "signal_history_spent": {
+      "status": "internal",
+      "reason": "the reading of past reviews: the job writes it, no client calls it",
+      "defined_in": "20261106120000_property_quality.sql"
+    },
+    "signal_history_state": {
+      "status": "internal",
+      "reason": "the reading of past reviews: the job writes it, no client calls it",
+      "defined_in": "20261106120000_property_quality.sql"
     },
     "signal_model_calls_left": {
       "status": "internal",
@@ -1591,6 +1691,21 @@
         "getSettings"
       ]
     },
+    "issue_facts": {
+      "status": "internal",
+      "reason": "episodes without guest text; the public API will serve aggregates only, from stage 6",
+      "defined_in": "20261106120000_property_quality.sql"
+    },
+    "issue_theme_words": {
+      "status": "internal",
+      "reason": "the dictionary for staff texts",
+      "defined_in": "20261106120000_property_quality.sql"
+    },
+    "issue_themes": {
+      "status": "internal",
+      "reason": "the closed list of themes; the public resource comes with stage 6",
+      "defined_in": "20261106120000_property_quality.sql"
+    },
     "kb_article_revisions": {
       "status": "planned",
       "scope": "knowledge:read",
@@ -1620,6 +1735,11 @@
       "scope": "analytics:read",
       "reason": "history journal of a task (problem) and its repairs, written by triggers",
       "defined_in": "20261003140000_problem_events.sql"
+    },
+    "problem_themes": {
+      "status": "internal",
+      "reason": "the theme of a problem, beside it",
+      "defined_in": "20261106120000_property_quality.sql"
     },
     "problems": {
       "status": "exposed",
@@ -1663,6 +1783,11 @@
       "status": "internal",
       "reason": "office-only note of a listing (\"never leaves the manager panel\"); free text that may hold access details",
       "defined_in": "20260924130000_property_internal_notes.sql"
+    },
+    "property_month_stats": {
+      "status": "internal",
+      "reason": "stays and nights by month, read from the PMS",
+      "defined_in": "20261106120000_property_quality.sql"
     },
     "push_preferences": {
       "status": "internal",

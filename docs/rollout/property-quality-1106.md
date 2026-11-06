@@ -53,7 +53,9 @@ npx supabase db push --linked --skip-vault
 | `client_grants`, `raw_grants` | Пусто. Хостинг раздаёт новым таблицам больше локального стека: непустое — стоп и `revoke` |
 | `exec` | Только `quality_overview authenticated`, `quality_place authenticated` |
 | `line_bodies` | `review_load_state` `7a02bc4a`, `review_text_allowed` `1d073853`, `store_review_texts` `0e8ea5b2`: граница текстов не тронута |
-| `counts` | `themes` 35, остальное 0 |
+
+Вторая проба, только после push: `node scripts/cloud-read.mjs docs/rollout/postpush_property_quality_counts_1106.sql`.
+Должно быть `themes` 35, остальное 0.
 
 Старая панель с новой базой работает как раньше: миграция только добавляет.
 
@@ -86,7 +88,7 @@ Vercel выкатывает сам. Проба: сборка Ready, `/quality` �
 npx supabase db query --linked -f docs/one-off-writes/property-quality-refresh-on.sql
 ```
 
-Проба: `counts.problem_themes` больше 0, в `jobs` задание `refresh-property-quality` `active=true`.
+Проба: `problem_themes` больше 0 в пробе счётчиков, в `jobs` задание `refresh-property-quality` `active=true`.
 
 ## Шаг 5. История
 
@@ -100,7 +102,7 @@ npx supabase db query --linked -f docs/one-off-writes/property-quality-history-o
 дня, около $1. Заезды прошлых месяцев подтянутся за первые два часа. Последние четыре недели до границы
 дозреют к 04.12: так задумано, у Booking отзыв приходит до 27 дней.
 
-**Смотреть:** `counts.weeks_done` и `counts.spent_micro_usd` той же пробой, только чтение. Стоп:
+**Смотреть:** `weeks_done`, `attempts_failed` и `spent_micro_usd` пробой счётчиков, только чтение. Стоп:
 
 ```bash
 npx supabase db query --linked -f docs/one-off-writes/property-quality-history-off.sql

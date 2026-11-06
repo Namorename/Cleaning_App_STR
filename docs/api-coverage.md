@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 43 | 214 | 277 |
-| Таблицы и представления | 8 | 20 | 13 | 41 |
-| Всего | 28 | 63 | 227 | 318 |
+| Функции | 20 | 43 | 234 | 297 |
+| Таблицы и представления | 8 | 20 | 18 | 46 |
+| Всего | 28 | 63 | 252 | 343 |
 
 ## Функции
 
@@ -89,7 +89,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 214
+### Внутреннее — 234
 
 | Имя | Причина |
 | --- | --- |
@@ -146,6 +146,7 @@
 | `cleaning_turnover_on` | cleaning generator helper; cleanings come from Hostaway bookings (next check-in, deadline and window) |
 | `cleans_property` | auth/RLS helper: does the caller clean this listing |
 | `cleans_property_as` | push plumbing: listing link check for a given person, service_role only |
+| `complete_signal_history` | the reading of past reviews: the job writes it, no client calls it |
 | `complete_task_step` | phone-only flow of the cleaner at work (task steps): completes a step |
 | `confirm_task_media` | phone upload pipeline: registers, confirms or withdraws a Storage slot (row before file); the API only reads media |
 | `create_api_key` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |
@@ -159,6 +160,7 @@
 | `enqueue_daily_digest` | scheduler job: queues the 07:00 push summary |
 | `erase_signal_texts` | forbidden: data:destroy - irreversibly erases review texts and what was drawn from them (evidence, model wording); execute revoked from every role, called by the purge and the texts-off switch |
 | `expire_stale_tasks` | scheduler job: closes cleanings the day has passed by, service_role only |
+| `fail_signal_history` | the reading of past reviews: the job writes it, no client calls it |
 | `forget_push_token` | forbidden: push tokens (drops a device token reported gone by Expo) |
 | `generate_cleaning_tasks` | Hostaway sync, Hostaway stays the source of truth: generator of cleanings from bookings, service_role only |
 | `guard_cleaning_assignee` | trigger function: no technician on a cleaning, mid-stay or inspection |
@@ -182,6 +184,9 @@
 | `is_localized_text` | validation helper of translated names (x_i18n) used by write RPCs |
 | `is_manager` | auth/RLS helper: caller is an active manager or admin |
 | `is_service_booking` | PostgREST computed field: the "#" service-booking flag derived from the guest name (guest names are forbidden); the flag may ride on bookings:read, the function is not called |
+| `issue_theme_of_finding` | internal helper of the nightly refresh |
+| `issue_theme_of_text` | internal helper of the nightly refresh: the dictionary |
+| `issue_theme_refined` | internal helper of the nightly refresh |
 | `journal_cleaning_time` | trigger function: journals a manager's hours of a booking's cleaning in task_events (time_set, time_auto, time_dropped) |
 | `journal_problem_change` | trigger function: writes problem_events for a task (problem) |
 | `journal_repair_change` | trigger function: writes problem_events for repairs |
@@ -234,18 +239,29 @@
 | `push_settle` | push plumbing: constant of the push queue and sender |
 | `push_timezone` | push plumbing: constant of the push queue and sender |
 | `push_tokens_per_person` | push plumbing: constant of the push queue and sender |
+| `quality_bounds` | internal helper of the panel reads: a window as days |
+| `quality_guard` | internal helper of the panel reads: the role and the window |
+| `quality_history_state` | internal helper of the panel reads |
+| `quality_meta` | internal helper of the panel reads |
+| `quality_overview` | the panel read of property quality; the public resource comes with stage 6 of the plan |
+| `quality_place` | the panel read of property quality; the public resource comes with stage 6 of the plan |
+| `quality_place_rows` | internal helper of the panel reads |
+| `quality_theme_rows` | internal helper of the panel reads |
 | `record_push_receipts` | push plumbing: send-push stores Expo receipts, service_role only |
 | `record_push_results` | push plumbing: send-push settles sent groups and tickets, service_role only |
 | `record_signal_feedback` | helper of the manager's levers: writes one verdict on a finding to signal_feedback, no text; execute revoked from every role |
 | `record_webhook_event` | Hostaway webhook intake (hostaway-webhook), service_role only |
+| `refresh_property_quality` | the nightly job of property quality |
 | `register_push_token` | forbidden: push tokens (the signed-in phone registers its Expo token) |
 | `release_push_token` | forbidden: integrations:read_secrets - push device tokens; a signed-out phone lets go of its token without a session (the one anon grant) |
 | `release_work_of_inactive` | staff-deactivation cascade called by the profiles trigger; execute revoked from clients |
 | `release_work_on_deactivation` | trigger function: takes a switched-off person off unstarted work |
 | `remove_task_media` | phone upload pipeline: registers, confirms or withdraws a Storage slot (row before file); the API only reads media |
 | `reopen_task_step` | phone-only flow of the cleaner at work (task steps): takes a step back to not done |
+| `replace_property_month_stays` | the reading of past reviews: the job writes it, no client calls it |
 | `reservation_cleaning_window` | cleaning generator helper; cleanings come from Hostaway bookings (cleaning window of a booking); revoked from authenticated |
 | `reservation_rooms` | cleaning generator helper; cleanings come from Hostaway bookings (rooms a booking took) |
+| `reserve_signal_history` | the reading of past reviews: the job writes it, no client calls it |
 | `reserve_signal_model_calls` | model spending fence of classify-guest-signals: books model calls under the daily ceiling, service_role only |
 | `resolve_report_property` | helper of report_problem: resolves the listing and checks the reporter may report there |
 | `resolve_signal_place` | the place of a guest signal from the PMS's ids, inside the company (one branch a provider); execute revoked from every role |
@@ -259,6 +275,10 @@
 | `signal_finding_gives_task` | constant predicate of the review RPCs: finding kinds that make a task (repair, safety, pests, access); no client calls it |
 | `signal_finding_record` | helper of update_signal_settings: the record (decisions, approvals in 60 days) a kind needs for auto; execute revoked from every role |
 | `signal_findings_dates` | trigger function: a finding's dates, kept to the month once its review's stay is cut |
+| `signal_history_day_start` | the reading of past reviews: the job writes it, no client calls it |
+| `signal_history_readable` | the reading of past reviews: the job writes it, no client calls it |
+| `signal_history_spent` | the reading of past reviews: the job writes it, no client calls it |
+| `signal_history_state` | the reading of past reviews: the job writes it, no client calls it |
 | `signal_model_calls_left` | model spending fence of classify-guest-signals: calls left today under the ceiling, service_role only |
 | `signal_month_of` | privacy helper: the first moment of the month (Prague) a cut review keeps of any time; execute revoked from every role |
 | `signal_open_twin` | duplicate lookup of decide_signal_finding/approve_signal_finding: the open task from a review about the same; execute revoked from every role |
@@ -348,7 +368,7 @@
 | `workflow_steps` | `checklists:read` | steps of a process template |
 | `workflow_templates` | `checklists:read` | process templates a cleaning follows |
 
-### Внутреннее — 13
+### Внутреннее — 18
 
 | Имя | Причина |
 | --- | --- |
@@ -359,7 +379,12 @@
 | `api_request_log` | API plumbing: the request log. |
 | `api_scopes` | API plumbing: the database's copy of the scope registry. |
 | `expired_tasks_review` | A view for the panel's review of expired cleanings; GET /v1/cleanings?status=expired serves the same rows. |
+| `issue_facts` | episodes without guest text; the public API will serve aggregates only, from stage 6 |
+| `issue_theme_words` | the dictionary for staff texts |
+| `issue_themes` | the closed list of themes; the public resource comes with stage 6 |
+| `problem_themes` | the theme of a problem, beside it |
 | `property_internal_notes` | office-only note of a listing ("never leaves the manager panel"); free text that may hold access details |
+| `property_month_stats` | stays and nights by month, read from the PMS |
 | `push_preferences` | push plumbing: a person's own muted push events, read only by herself |
 | `push_tokens` | forbidden: push tokens of devices |
 | `report_properties` | A view for the phone: the properties a person may report on; GET /v1/properties serves a key. |

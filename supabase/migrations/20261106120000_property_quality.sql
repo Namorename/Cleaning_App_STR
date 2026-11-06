@@ -1071,6 +1071,18 @@ as $$
     -- called unanswered.
     'work_from', (select (min(pr.created_at) at time zone 'Europe/Prague')::date
                   from public.problems pr where pr.host_id = p_host),
+    -- From this day the bookings we hold are whole: the short windows count stays
+    -- from them, and the table keeps the sync window. A percentile, because a few
+    -- stray old rows must not read as a year of bookings.
+    'held_from', (select percentile_disc(0.01) within group (order by r.departure_date)
+                  from public.reservations r
+                  where r.host_id = p_host and r.departure_date <= p_today
+                    and r.status in ('new', 'modified') and not r.is_block),
+    -- The texts' line: before it the reading labels a review, after it the stream's
+    -- findings do, and a comparison across it compares two readers.
+    'line', (select (coalesce(s.notice_published_at, s.texts_enabled_at) at time zone 'Europe/Prague')::date
+             from public.signal_settings s
+             where s.host_id = p_host and s.kind = 'review'),
     'history', public.quality_history_state(p_host)
   )
 $$;
