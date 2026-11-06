@@ -1,10 +1,9 @@
 import { assert, assertEquals, assertStringIncludes } from "jsr:@std/assert@1";
 import {
-  banDuration,
   type Caller,
   createStaffHandler,
-  isBanned,
   refusalFromDatabase,
+  type SignInBlockWrite,
   type StaffDeps,
   type StaffMember,
   type StaffProfile,
@@ -30,7 +29,7 @@ function deps(overrides: Partial<StaffDeps> = {}): StaffDeps {
     findStaff: (id) => Promise.resolve(id === MARIA.id ? MARIA : null),
     createStaff: () => Promise.resolve({ id: "new-1", sent: true, failureKey: null }),
     updateStaff: () => Promise.resolve(),
-    updateAccount: () => Promise.resolve({ signInBlocked: false }),
+    updateAccount: () => Promise.resolve({ appMetadata: {} }),
     setSignInBlock: () => Promise.resolve(),
     setPassword: () => Promise.resolve({ sent: true, failureKey: null }),
     makePassword: () => "Anna-abcde",
@@ -591,16 +590,50 @@ Deno.test("an unexpected failure answers 500 and says so in the log, not in a ke
 //  The block on signing in
 // ---------------------------------------------------------------------------
 
+/** What this function leaves in app_metadata beside a block of its own. */
+const OUR_MARKER = { sign_in_block: "staff" } as const;
+
+/** What `banned_until` holds, by how it got there. The handler never reads it. */
+const OUR_BAN = "876000h";
+const BAN_BY_HAND = "banned by hand in the Auth dashboard";
+const SHORT_BAN_BY_HAND = "24h, by hand";
+
 /** A row and an account that remember what the last save left them with. */
 interface World {
   isActive: boolean;
-  signInBlocked: boolean;
+  ban: string | null;
+  appMetadata: Record<string, unknown>;
   /** What was asked of them, in order: "row", "account", "block", "lift". */
   readonly calls: string[];
+  /** Everything the block and the lift carried to Auth. */
+  readonly sent: SignInBlockWrite[];
 }
 
-function world(isActive: boolean, signInBlocked: boolean): World {
-  return { isActive, signInBlocked, calls: [] };
+function world(
+  isActive: boolean,
+  ban: string | null,
+  marker: Record<string, unknown> = {},
+): World {
+  return {
+    isActive,
+    ban,
+    appMetadata: { provider: "email", role: "cleaner", ...marker },
+    calls: [],
+    sent: [],
+  };
+}
+
+/**
+ * Auth's rule, models.(*User).UpdateAppMetaData: key by key, a null takes the key
+ * out, and whatever the write does not name stays.
+ */
+function merged(
+  held: Record<string, unknown>,
+  updates: Readonly<Record<string, unknown>>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries({ ...held, ...updates }).filter(([, value]) => value !== null),
+  );
 }
 
 function wired(state: World, overrides: Partial<StaffDeps> = {}): StaffDeps {
@@ -612,13 +645,17 @@ function wired(state: World, overrides: Partial<StaffDeps> = {}): StaffDeps {
       state.isActive = profile.isActive;
       return Promise.resolve();
     },
-    updateAccount: () => {
+    updateAccount: ({ profile }) => {
       state.calls.push("account");
-      return Promise.resolve({ signInBlocked: state.signInBlocked });
+      state.appMetadata = merged(state.appMetadata, { role: profile.role });
+      return Promise.resolve({ appMetadata: state.appMetadata });
     },
-    setSignInBlock: ({ blocked }) => {
-      state.calls.push(blocked ? "block" : "lift");
-      state.signInBlocked = blocked;
+    setSignInBlock: ({ attributes }) => {
+      const isLift = attributes.ban_duration === "none";
+      state.calls.push(isLift ? "lift" : "block");
+      state.sent.push(attributes);
+      state.ban = isLift ? null : attributes.ban_duration;
+      state.appMetadata = merged(state.appMetadata, attributes.app_metadata);
       return Promise.resolve();
     },
     ...overrides,
@@ -633,42 +670,119 @@ const SWITCH_ON = { action: "update", id: "s-1", staff: { ...EDIT, isActive: tru
 const BLOCK_FAILED = "serverErrors.staffSignInBlockFailed";
 const UNBLOCK_FAILED = "serverErrors.staffSignInUnblockFailed";
 
-Deno.test("switching somebody off blocks her sign-in, after the row", async () => {
-  const state = world(true, false);
+Deno.test("switching somebody off blocks her sign-in and marks it, after the row", async () => {
+  const state = world(true, null);
   const response = await createStaffHandler(wired(state))(post(SWITCH_OFF));
 
   assertEquals(response.status, 200);
   assertEquals(state.calls, ["row", "account", "block"]);
-  assertEquals([state.isActive, state.signInBlocked], [false, true]);
+  assertEquals([state.isActive, state.ban], [false, OUR_BAN]);
+  assertEquals(state.appMetadata.sign_in_block, "staff");
 });
 
-Deno.test("switching somebody back on lifts the block, after the row", async () => {
-  const state = world(false, true);
+Deno.test("switching somebody back on lifts our block and clears the marker", async () => {
+  const state = world(false, OUR_BAN, OUR_MARKER);
   const response = await createStaffHandler(wired(state))(post(SWITCH_ON));
 
   assertEquals(response.status, 200);
   assertEquals(state.calls, ["row", "account", "lift"]);
-  assertEquals([state.isActive, state.signInBlocked], [true, false]);
+  assertEquals([state.isActive, state.ban], [true, null]);
+  assertEquals("sign_in_block" in state.appMetadata, false);
 });
 
-Deno.test("a save of somebody working calls nothing for the block", async () => {
-  const state = world(true, false);
+Deno.test("a save of somebody working and unblocked asks Auth for nothing more", async () => {
+  const state = world(true, null);
   const response = await createStaffHandler(wired(state))(post(SWITCH_ON));
 
   assertEquals(response.status, 200);
   assertEquals(state.calls, ["row", "account"]);
 });
 
-Deno.test("a save of somebody off and blocked calls nothing for the block", async () => {
-  const state = world(false, true);
-  const response = await createStaffHandler(wired(state))(post(SWITCH_OFF));
+// The hole of f739306: a block is lifted only if this function set it.
+Deno.test("a manager's save of a name does not lift a ban set by hand", async () => {
+  const state = world(true, BAN_BY_HAND);
+  const response = await createStaffHandler(wired(state))(post(SWITCH_ON));
 
   assertEquals(response.status, 200);
   assertEquals(state.calls, ["row", "account"]);
+  assertEquals(state.sent, []);
+  assertEquals(state.ban, BAN_BY_HAND);
+});
+
+// Her access token outlives the ban, so she can still reach this door.
+Deno.test("somebody banned by hand cannot lift the ban by saving herself", async () => {
+  const state = world(true, BAN_BY_HAND);
+  const herself = { ...MARIA, id: MANAGER.id, role: "manager" };
+  const handler = createStaffHandler(
+    wired(state, { findStaff: () => Promise.resolve(herself) }),
+  );
+
+  const response = await handler(
+    post({ action: "update", id: MANAGER.id, staff: { ...EDIT, role: "manager" } }),
+  );
+
+  assertEquals(response.status, 200);
+  assertEquals(state.calls, ["row", "account"]);
+  assertEquals(state.sent, []);
+  assertEquals(state.ban, BAN_BY_HAND);
+});
+
+Deno.test("somebody working who carries our marker is lifted and the marker cleared", async () => {
+  const state = world(true, OUR_BAN, OUR_MARKER);
+  const response = await createStaffHandler(wired(state))(post(SWITCH_ON));
+
+  assertEquals(response.status, 200);
+  assertEquals(state.calls, ["row", "account", "lift"]);
+  assertEquals(state.ban, null);
+  assertEquals("sign_in_block" in state.appMetadata, false);
+});
+
+Deno.test("somebody off gets the block and the marker on every save", async () => {
+  const state = world(false, OUR_BAN, OUR_MARKER);
+  const response = await createStaffHandler(wired(state))(post(SWITCH_OFF));
+
+  assertEquals(response.status, 200);
+  assertEquals(state.calls, ["row", "account", "block"]);
+  assertEquals(state.ban, OUR_BAN);
+  assertEquals(state.appMetadata.sign_in_block, "staff");
+});
+
+// A short ban by hand must not pass for ours: it would run out with her still off.
+Deno.test("somebody off with a short ban by hand gets the long block and the marker", async () => {
+  const state = world(false, SHORT_BAN_BY_HAND);
+  const response = await createStaffHandler(wired(state))(post(SWITCH_OFF));
+
+  assertEquals(response.status, 200);
+  assertEquals(state.ban, OUR_BAN);
+  assertEquals(state.appMetadata.sign_in_block, "staff");
+});
+
+// The accepted limit of "always block": a switch-off makes the block ours.
+Deno.test("a ban by hand does not outlive a switch-off and a switch-on", async () => {
+  const state = world(true, BAN_BY_HAND);
+  const handler = createStaffHandler(wired(state));
+
+  await handler(post(SWITCH_OFF));
+  await handler(post(SWITCH_ON));
+
+  assertEquals(state.ban, null);
+});
+
+Deno.test("the role goes with the block and with the lift, and the rest stays", async () => {
+  const state = world(true, null);
+  const handler = createStaffHandler(wired(state));
+
+  await handler(post(SWITCH_OFF));
+  assertEquals(state.sent[0].app_metadata, { role: "tech", sign_in_block: "staff" });
+  assertEquals(state.appMetadata, { provider: "email", role: "tech", sign_in_block: "staff" });
+
+  await handler(post(SWITCH_ON));
+  assertEquals(state.sent[1].app_metadata, { role: "tech", sign_in_block: null });
+  assertEquals(state.appMetadata, { provider: "email", role: "tech" });
 });
 
 Deno.test("a new account gets no block and no lift", async () => {
-  const state = world(true, false);
+  const state = world(true, null);
   const response = await createStaffHandler(wired(state))(
     post({ action: "create", staff: { ...NEW_STAFF, isActive: false } }),
   );
@@ -680,7 +794,7 @@ Deno.test("a new account gets no block and no lift", async () => {
 // The row stays written: an outage of Auth must not keep somebody who was let go
 // inside the company's data. What it must not do is pass in silence.
 Deno.test("a block Auth refuses tells the manager, and the row stays off", async () => {
-  const state = world(true, false);
+  const state = world(true, null);
   const handler = createStaffHandler(wired(state, { setSignInBlock: authDown }));
 
   const response = await handler(post(SWITCH_OFF));
@@ -689,12 +803,12 @@ Deno.test("a block Auth refuses tells the manager, and the row stays off", async
   const refusal = await refusalOf(response);
   assertEquals(refusal.success, false);
   assertEquals(refusal.error.hint, BLOCK_FAILED);
-  assertEquals([state.isActive, state.signInBlocked], [false, false]);
+  assertEquals([state.isActive, state.ban], [false, null]);
 });
 
 // Auth being down fails at its first call, the account write, not at the block.
 Deno.test("an account write Auth refuses on a switch-off tells the manager too", async () => {
-  const state = world(true, false);
+  const state = world(true, null);
   const handler = createStaffHandler(wired(state, { updateAccount: authDown }));
 
   const response = await handler(post(SWITCH_OFF));
@@ -705,18 +819,19 @@ Deno.test("an account write Auth refuses on a switch-off tells the manager too",
 });
 
 Deno.test("a lift Auth refuses tells the manager, and the row stays on", async () => {
-  const state = world(false, true);
+  const state = world(false, OUR_BAN, OUR_MARKER);
   const handler = createStaffHandler(wired(state, { setSignInBlock: authDown }));
 
   const response = await handler(post(SWITCH_ON));
 
   assertEquals(response.status, 500);
   assertEquals((await refusalOf(response)).error.hint, UNBLOCK_FAILED);
-  assertEquals([state.isActive, state.signInBlocked], [true, true]);
+  assertEquals([state.isActive, state.ban], [true, OUR_BAN]);
+  assertEquals(state.appMetadata.sign_in_block, "staff");
 });
 
 Deno.test("an account write Auth refuses on a switch-on tells the manager too", async () => {
-  const state = world(false, true);
+  const state = world(false, OUR_BAN, OUR_MARKER);
   const handler = createStaffHandler(wired(state, { updateAccount: authDown }));
 
   const response = await handler(post(SWITCH_ON));
@@ -727,7 +842,7 @@ Deno.test("an account write Auth refuses on a switch-on tells the manager too", 
 });
 
 Deno.test("an account write Auth refuses on a plain edit stays a general failure", async () => {
-  const state = world(true, false);
+  const state = world(true, null);
   const handler = createStaffHandler(wired(state, { updateAccount: authDown }));
 
   const response = await handler(post(SWITCH_ON));
@@ -737,9 +852,9 @@ Deno.test("an account write Auth refuses on a plain edit stays a general failure
 });
 
 // After the failed block the row already says "off", so this save changes
-// nothing in the row: only Auth can say that the work is not finished.
-Deno.test("the same save again repairs a block that failed, and then rests", async () => {
-  const state = world(true, false);
+// nothing in the row and still has to finish the work.
+Deno.test("the same save again repairs a block that failed", async () => {
+  const state = world(true, null);
   const healthy = wired(state);
   let isAuthDown = true;
   const handler = createStaffHandler({
@@ -752,15 +867,14 @@ Deno.test("the same save again repairs a block that failed, and then rests", asy
   const repaired = await handler(post(SWITCH_OFF));
 
   assertEquals(repaired.status, 200);
-  assertEquals([state.isActive, state.signInBlocked], [false, true]);
-
-  const callsBefore = state.calls.length;
-  assertEquals((await handler(post(SWITCH_OFF))).status, 200);
-  assertEquals(state.calls.slice(callsBefore), ["row", "account"]);
+  assertEquals([state.isActive, state.ban], [false, OUR_BAN]);
+  assertEquals(state.appMetadata.sign_in_block, "staff");
 });
 
+// The marker is what a failed lift leaves behind, so the repeat knows the block
+// is ours, and once it is gone the next save has nothing left to do.
 Deno.test("the same save again repairs a lift that failed, and then rests", async () => {
-  const state = world(false, true);
+  const state = world(false, OUR_BAN, OUR_MARKER);
   const healthy = wired(state);
   let isAuthDown = true;
   const handler = createStaffHandler({
@@ -773,7 +887,7 @@ Deno.test("the same save again repairs a lift that failed, and then rests", asyn
   const repaired = await handler(post(SWITCH_ON));
 
   assertEquals(repaired.status, 200);
-  assertEquals([state.isActive, state.signInBlocked], [true, false]);
+  assertEquals([state.isActive, state.ban], [true, null]);
 
   const callsBefore = state.calls.length;
   assertEquals((await handler(post(SWITCH_ON))).status, 200);
@@ -781,7 +895,7 @@ Deno.test("the same save again repairs a lift that failed, and then rests", asyn
 });
 
 Deno.test("a repeat also repairs what an account write left undone", async () => {
-  const state = world(true, false);
+  const state = world(true, null);
   const healthy = wired(state);
   let isAuthDown = true;
   const handler = createStaffHandler({
@@ -793,12 +907,12 @@ Deno.test("a repeat also repairs what an account write left undone", async () =>
   isAuthDown = false;
 
   assertEquals((await handler(post(SWITCH_OFF))).status, 200);
-  assertEquals([state.isActive, state.signInBlocked], [false, true]);
+  assertEquals([state.isActive, state.ban], [false, OUR_BAN]);
 });
 
 // Everybody switched off before this rule, until the one-off backfill reaches them.
 Deno.test("an edit of somebody switched off who was never blocked blocks her", async () => {
-  const state = world(false, false);
+  const state = world(false, null);
   const response = await createStaffHandler(wired(state))(post(SWITCH_OFF));
 
   assertEquals(response.status, 200);
@@ -806,7 +920,7 @@ Deno.test("an edit of somebody switched off who was never blocked blocks her", a
 });
 
 Deno.test("a switch-off the database refuses leaves Auth alone", async () => {
-  const state = world(true, false);
+  const state = world(true, null);
   const handler = createStaffHandler(
     wired(state, { updateStaff: () => Promise.reject(refusalFromDatabase(ROLE_BLOCKED)) }),
   );
@@ -866,7 +980,7 @@ Deno.test("every guard refuses before the row and before Auth", async () => {
   ];
 
   for (const [who, overrides, body, hint] of cases) {
-    const state = world(true, false);
+    const state = world(true, null);
     const response = await createStaffHandler(wired(state, overrides))(post(body));
 
     assertEquals((await refusalOf(response)).error.hint, hint, who);
@@ -874,21 +988,17 @@ Deno.test("every guard refuses before the row and before Auth", async () => {
   }
 });
 
-Deno.test("the block lasts until somebody lifts it, in words Auth reads", () => {
-  assertEquals(banDuration(false), "none");
+Deno.test("the block lasts until somebody lifts it, in words Auth reads", async () => {
+  const state = world(true, null);
+  const handler = createStaffHandler(wired(state));
 
-  const hours = Number(/^(\d+)h$/.exec(banDuration(true))?.[1]);
+  await handler(post(SWITCH_OFF));
+  await handler(post(SWITCH_ON));
+
+  assertEquals(state.sent[1].ban_duration, "none");
+
+  const hours = Number(/^(\d+)h$/.exec(state.sent[0].ban_duration)?.[1]);
   assert(hours >= 50 * 365 * 24, `${hours} hours is not "until enabled again"`);
   // Auth parses this as a Go duration, which ends at about 292 years.
   assert(hours < 2_562_047, `${hours} hours does not fit a Go duration`);
-});
-
-Deno.test("only a date still ahead is a block", () => {
-  const now = new Date("2026-11-06T12:00:00Z");
-
-  assertEquals(isBanned(undefined, now), false);
-  assertEquals(isBanned(null, now), false);
-  assertEquals(isBanned("2026-11-06T11:59:59Z", now), false);
-  assertEquals(isBanned("2026-11-06T12:00:00Z", now), false);
-  assertEquals(isBanned("2126-01-01T00:00:00Z", now), true);
 });

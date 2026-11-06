@@ -44,13 +44,12 @@ import { readPublishableKey, readSupabaseCredentials } from "../_shared/env.ts";
 import { generatePassword, STAGED_PASSWORD } from "../_shared/staff-password.ts";
 import {
   type AccountState,
-  banDuration,
   type Caller,
   type CreatedStaff,
   createStaffHandler,
-  isBanned,
   type MailOutcome,
   refusalFromDatabase,
+  type SignInBlockWrite,
   type StaffMember,
   type StaffProfile,
   StaffRefusal,
@@ -244,8 +243,11 @@ async function updateStaff(input: { id: string; profile: StaffProfile }): Promis
 }
 
 /**
- * The role and the name, and what Auth answers with: the whole user, so its
- * `banned_until` costs no second call on a save that has nothing to block.
+ * The role and the name, and what Auth answers with: the whole user, so the marker
+ * of a block costs no second call on a save that has nothing to lift.
+ *
+ * Only the keys named here change: Auth merges app_metadata key by key
+ * (models.(*User).UpdateAppMetaData, read off the v2.195 binary on 2026-11-06).
  */
 async function updateAccount(input: { id: string; profile: StaffProfile }): Promise<AccountState> {
   const { data, error } = await admin().auth.admin.updateUserById(input.id, {
@@ -255,18 +257,17 @@ async function updateAccount(input: { id: string; profile: StaffProfile }): Prom
   if (error !== null) {
     throw new Error(`updateUserById: ${error.message}`);
   }
-  return { signInBlocked: isBanned(data.user.banned_until, new Date()) };
+  return { appMetadata: data.user.app_metadata };
 }
 
 /**
- * A separate call on purpose: `ban_duration` restarts the clock, so it is only
- * sent when the two sides disagree. An access token she already holds runs until
- * it expires; the refresh after it is what Auth refuses.
+ * The block and its marker, or the lift and the end of the marker, in one call.
+ *
+ * It ends no session: Auth only sets the date. An access token she already holds
+ * runs until it expires; the refresh after it is what Auth refuses.
  */
-async function setSignInBlock(input: { id: string; blocked: boolean }): Promise<void> {
-  const { error } = await admin().auth.admin.updateUserById(input.id, {
-    ban_duration: banDuration(input.blocked),
-  });
+async function setSignInBlock(input: { id: string; attributes: SignInBlockWrite }): Promise<void> {
+  const { error } = await admin().auth.admin.updateUserById(input.id, input.attributes);
   if (error !== null) {
     throw new Error(`updateUserById(ban_duration): ${error.message}`);
   }
