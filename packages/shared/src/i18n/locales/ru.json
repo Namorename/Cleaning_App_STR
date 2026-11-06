@@ -705,6 +705,18 @@
       "noAssignee": "Не назначен",
       "unknownPerson": "Неизвестно",
       "detail": {
+        "theme": {
+          "title": "Тема",
+          "none": "Без темы",
+          "source": {
+            "dict": "Определена по словарю",
+            "signal": "Из отзыва гостя",
+            "manual": "Задана вручную"
+          },
+          "reset": "Вернуть автоматическую",
+          "hint": "В «Качестве объектов» изменится к утру",
+          "loadError": "Не удалось загрузить тему"
+        },
         "back": "К списку заданий",
         "description": "Описание",
         "noDescription": "Без описания",
@@ -2755,6 +2767,7 @@
     "planPlaceArchived": "Объект в архиве",
     "planNotDraft": "Это уже не черновик",
     "planNotLaunched": "Черновик удаляют, а не отменяют",
+    "problemThemeUnknown": "Такой темы нет",
     "problemNotFound": "Задание не найдено",
     "forbidden": "Это действие вам недоступно.",
     "localizedTextInvalid": "Переводы заданы неверно.",

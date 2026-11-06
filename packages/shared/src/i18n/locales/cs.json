@@ -705,6 +705,18 @@
       "noAssignee": "Nepřiřazeno",
       "unknownPerson": "Neznámý",
       "detail": {
+        "theme": {
+          "title": "Téma",
+          "none": "Bez tématu",
+          "source": {
+            "dict": "Určeno slovníkem",
+            "signal": "Z recenze hosta",
+            "manual": "Nastaveno ručně"
+          },
+          "reset": "Zpět na automatické",
+          "hint": "V Kvalitě objektů se změní do rána",
+          "loadError": "Téma se nepodařilo načíst"
+        },
         "back": "Zpět na úkoly",
         "description": "Popis",
         "noDescription": "Bez popisu",
@@ -2755,6 +2767,7 @@
     "planPlaceArchived": "Objekt je v archivu",
     "planNotDraft": "Toto už není koncept",
     "planNotLaunched": "Koncept se maže, neruší",
+    "problemThemeUnknown": "Takové téma neexistuje",
     "problemNotFound": "Úkol nenalezen",
     "forbidden": "Na tuto akci nemáte oprávnění.",
     "localizedTextInvalid": "Překlady nejsou platné.",

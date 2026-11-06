@@ -4784,6 +4784,7 @@ export type Database = {
         }
       }
       problem_max_photos: { Args: never; Returns: number }
+      problem_theme: { Args: { p_problem_id: string }; Returns: Json }
       problem_title_max_length: { Args: never; Returns: number }
       property_checklist_snapshot: {
         Args: { p_property_id: number }
@@ -5619,6 +5620,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      set_problem_theme: {
+        Args: { p_problem_id: string; p_theme: string }
+        Returns: Json
       }
       set_property_status: {
         Args: {
