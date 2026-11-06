@@ -966,6 +966,81 @@
         "retry": "Zkusit znovu"
       }
     },
+      "plans": {
+        "defaultTitle": "Plán: {{place}}",
+        "draftTitle": "Koncept plánu",
+        "planTitle": "Název plánu",
+        "draftHint": "Toto je koncept: zaměstnanci ho nevidí. Kroky se jim zobrazí až po spuštění.",
+        "gather": "Sestavit plán",
+        "addTheme": "Do plánu",
+        "inPlan": "V plánu",
+        "blockTitle": "Plány řešení",
+        "none": "Zatím žádné plány",
+        "progress": "Uzavřené kroky: {{closed}} z {{total}}",
+        "addThemeLabel": "Další téma",
+        "addThemeAction": "Přidat téma",
+        "chooseTheme": "Vyberte téma",
+        "summary": "Vytvoří se úkoly: {{tasks}}, kontroly: {{inspections}}, žádosti: {{requests}}, rozhodnutí: {{decisions}}. Propojeno s prací, která už běží: {{linked}}.",
+        "save": "Uložit",
+        "launch": "Spustit plán",
+        "launchNew": "Spustit nové kroky",
+        "launchConfirm": "Spustit plán?",
+        "launchText": "Kroky se zaměstnancům zobrazí hned.",
+        "abort": "Zpět",
+        "delete": "Smazat koncept",
+        "deleteConfirm": "Smazat koncept?",
+        "deleteText": "Koncept nikdo neviděl, zmizí beze stopy.",
+        "cancel": "Zrušit plán",
+        "cancelConfirm": "Zrušit plán?",
+        "cancelText": "Vytvořené úkoly zůstanou: rozhodněte o nich zvlášť.",
+        "newSteps": "Nové kroky",
+        "reload": "Otevřít znovu",
+        "loadError": "Plán se nepodařilo načíst",
+        "notFound": "Plán nebyl nalezen",
+        "closedOn": "Hotovo {{day}}",
+        "status": {
+          "draft": "Koncept",
+          "launched": "Probíhá",
+          "done": "Hotovo",
+          "cancelled": "Zrušeno"
+        },
+        "kinds": {
+          "repair": "Oprava",
+          "inspection": "Kontrola",
+          "purchase": "Nákup",
+          "decision": "Rozhodnutí"
+        },
+        "templates": {
+          "repair": "Opravit: {{theme}}",
+          "inspection": "Zkontrolovat po práci: {{theme}}",
+          "purchase": "Koupit: {{theme}}",
+          "decision": "Rozhodnout: {{theme}}"
+        },
+        "step": {
+          "kind": "Druh",
+          "title": "Krok",
+          "description": "Podrobnosti",
+          "assignee": "Řešitel",
+          "due": "Termín",
+          "priority": "Priorita",
+          "nobody": "Nepřiřazeno",
+          "remove": "Odebrat krok «{{title}}»",
+          "linked": "Už se řeší",
+          "add": "Přidat krok",
+          "draft": "Koncept",
+          "open": "Probíhá",
+          "closed": "Uzavřeno",
+          "openWork": "Otevřít",
+          "decide": "Rozhodnuto",
+          "undecide": "Vrátit"
+        },
+        "refusal": {
+          "assignee_inactive": "Řešitel je deaktivován",
+          "assignee_role": "Tento druh kroku není pro tohoto člověka",
+          "date_missing": "Je potřeba termín",
+          "task_closed": "Úkol už je uzavřený"
+        }
+      },
     "quality": {
       "subtitle": "Co o objektech říkají hosté a personál: podle témat a vedle počtu pobytů.",
       "errors": {
