@@ -19,6 +19,8 @@ import { type ThemeInput, type ThemeModelClient, type ThemeReading, WORST_CALL_M
 // A fake PMS, database and model: synthetic words, nothing leaves the process.
 
 const NOW = new Date("2026-11-06T08:00:00Z");
+/** A listing the company archived or never held. */
+const UNREADABLE = new Set(["999"]);
 const WEEK = "2026-09-28";
 
 const STATE: HistoryState = {
@@ -32,6 +34,7 @@ const STATE: HistoryState = {
   calls_today: 0,
   line: "2026-11-04",
   reviews_done: [],
+  reviews_stuck: {},
   // Every month read today: a test about reviews reads no stays.
   stays_done: Object.fromEntries(
     Array.from({ length: 12 }, (_, back) => {
@@ -114,6 +117,7 @@ function fakeStore(state: HistoryState | null = STATE, grant: HistoryGrant = { g
   const store: HistoryStore = {
     state: () => Promise.resolve(state),
     redactionNames: () => Promise.resolve({ staff: ["Petra Staffname"], places: ["Our Place"] }),
+    readableListings: (listings) => Promise.resolve(listings.filter((id) => !UNREADABLE.has(id))),
     reserve: (slice, calls, worst) => {
       log.reserved.push({ start: slice.start, calls, worst });
       return Promise.resolve(grant);
@@ -511,9 +515,61 @@ Deno.test("stays of a month add up by listing and channel, before a listing appe
     ],
     "2025-12-01",
     new Map([["200", "2026-05-05"]]),
+    "2026-05-31",
   );
   assertEquals(rows, [
     { external_listing_id: "100", channel: "airbnb", stays: 2, nights: 5 },
     { external_listing_id: "100", channel: "booking", stays: 1, nights: 2 },
   ]);
+});
+
+Deno.test("a stay that has not ended is not counted yet", () => {
+  const stay = (departure: string): NeutralStayFact => ({
+    external_listing_id: "100",
+    channel: "airbnb",
+    departure_date: departure,
+    nights: 2,
+  });
+  const rows = monthRows(
+    [stay("2026-11-05"), stay("2026-11-06"), stay("2026-11-07"), stay("2026-11-30")],
+    "2025-12-01",
+    new Map(),
+    "2026-11-06",
+  );
+  assertEquals(rows, [{ external_listing_id: "100", channel: "airbnb", stays: 2, nights: 4 }]);
+});
+
+Deno.test("a text of a listing the company does not work never reaches the model", async () => {
+  const { source } = fakeSource({}, [review("1"), review("2", { external_listing_id: "999" })]);
+  const { store, log } = fakeStore();
+  const { model, inputs } = fakeModel(() => WIFI);
+
+  await runHistory({ store, source, model, keyOf, now });
+
+  assertEquals(inputs.length, 1);
+  assertEquals(log.reserved[0].calls, 1);
+  assertEquals(log.completed[0].counts.not_ours, 1);
+});
+
+Deno.test("a week that keeps failing is left for the next one", async () => {
+  const { source } = fakeSource();
+  const { store } = fakeStore({ ...STATE, reviews_stuck: { [WEEK]: 3 } });
+  const { model } = fakeModel(() => WIFI);
+
+  const summary = await runHistory({ store, source, model, keyOf, now });
+
+  assertEquals(summary.week, "2026-09-21");
+});
+
+Deno.test("a month of stays that cannot be read does not hold the reviews back", async () => {
+  const { source } = fakeSource({
+    fetchStayFacts: () => Promise.reject(new SignalSourceError("unavailable", "Down")),
+  });
+  const { store, log } = fakeStore({ ...STATE, stays_done: {} });
+  const { model } = fakeModel(() => WIFI);
+
+  const summary = await runHistory({ store, source, model, keyOf, now });
+
+  assertEquals(log.completed.length, 1);
+  assertEquals(summary.errors, [{ code: "source_unavailable", count: 1 }]);
 });

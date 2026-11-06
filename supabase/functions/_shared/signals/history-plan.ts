@@ -12,6 +12,8 @@
  */
 
 export const HISTORY_SETTLE_DAYS = 30;
+/** Failed attempts at a week in two days after which the reading moves on: money must not go round in a circle. */
+export const HISTORY_MAX_ATTEMPTS = 3;
 const SLICE_DAYS = 7;
 const DAY_MS = 86_400_000;
 
@@ -36,6 +38,8 @@ export interface HistoryPlanInput {
   readonly line: string | null;
   /** The weeks this version has closed. */
   readonly done: readonly string[];
+  /** A week → its attempts of the last two days that did not close it. */
+  readonly stuck?: Readonly<Record<string, number>>;
 }
 
 export interface HistoryPlan {
@@ -44,7 +48,7 @@ export interface HistoryPlan {
   readonly weeksTotal: number;
   /** Open weeks, those still settling among them. */
   readonly weeksLeft: number;
-  /** The newest settled open week, or null. */
+  /** The newest settled open week not stuck, or null. */
   readonly next: HistorySlice | null;
   /** The window's months, newest first. */
   readonly months: readonly HistoryMonth[];
@@ -101,12 +105,14 @@ function weeksOf(from: string, today: string, line: string | null): HistorySlice
 }
 
 export function planHistory(input: HistoryPlanInput): HistoryPlan {
-  const { today, depthMonths, line, done } = input;
+  const { today, depthMonths, line, done, stuck = {} } = input;
   const from = historyFrom(today, depthMonths);
   const closed = new Set(done);
   const weeks = weeksOf(from, today, line);
   const open = weeks.filter((week) => !closed.has(week.start));
-  const settled = open.filter((week) => addDays(week.end, HISTORY_SETTLE_DAYS) <= today);
+  const settled = open.filter((week) =>
+    addDays(week.end, HISTORY_SETTLE_DAYS) <= today && (stuck[week.start] ?? 0) < HISTORY_MAX_ATTEMPTS
+  );
 
   const months: HistoryMonth[] = [];
   for (let back = 0; monthStart(today, back) >= from; back += 1) {

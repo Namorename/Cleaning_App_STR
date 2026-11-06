@@ -14,7 +14,7 @@
 
 import Anthropic from "npm:@anthropic-ai/sdk@0.131.0";
 
-import { MODEL_ID, MODEL_MAX_RETRIES, MODEL_TIMEOUT_MS, ModelError, toModelError } from "./classify.ts";
+import { MODEL_ID, MODEL_TIMEOUT_MS, ModelError, toModelError } from "./classify.ts";
 import { ISSUE_THEMES, type IssueTheme } from "./themes.ts";
 import { isOneOf, URGENCIES, type Urgency } from "./types.ts";
 
@@ -208,7 +208,9 @@ export class AnthropicThemeClient implements ThemeModelClient {
       baseURL: ANTHROPIC_API_URL,
       authToken: null,
       timeout: options.timeoutMs ?? MODEL_TIMEOUT_MS,
-      maxRetries: options.maxRetries ?? MODEL_MAX_RETRIES,
+      // None: a retry the SDK makes on its own is a request the budget never sees. The next
+      // tick reads the week again, and that one is booked.
+      maxRetries: options.maxRetries ?? 0,
       ...(options.fetch !== undefined ? { fetch: options.fetch } : {}),
     });
   }

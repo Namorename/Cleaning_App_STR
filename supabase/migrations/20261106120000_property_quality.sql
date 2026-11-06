@@ -134,7 +134,9 @@ insert into public.issue_theme_words (theme, rank, pattern) values
   ('window_blind',      230, '\yокн[оаеу]|\yштор|жалюз|\yokn[oa]|žaluzi|závěs|\ywindow|\yblind|curtain'),
   ('furniture',         240, 'мебел|\yстул|\yстол\y|\yстол[аеу]\y|\yшкаф|\yдиван|\yполк[аиу]\y|židl|\ystůl|skřín|gauč|pohovk|\ychair|\ysofa|wardrobe'),
   ('supplies_amenities',250, 'шампун|\yмыло|туалетн\w* бумаг|toaletní papír|mýdl|šampon|toilet paper|\ysoap|shampoo'),
-  ('safety',            260, 'пожар|\yдым|\yгаз\y|детектор|požár|\ykouř|\yplyn\y|smoke|\ygas\y');
+  ('safety',            260, 'пожар|\yдым|\yгаз\y|детектор|požár|\ykouř|\yplyn\y|smoke|\ygas\y'),
+  ('noise_neighbours',  270, 'сосед|soused|neighbo|тонк\w* стен|thin wall'),
+  ('noise_outside',     280, '\yшум|\yhluk|\ynois');
 
 -- ===================================================================
 -- Episodes
@@ -164,8 +166,8 @@ create table public.issue_facts (
   origin        text not null check (origin in ('stream', 'history')),
   -- The week of the reading that wrote it: what a repeated reading replaces.
   history_slice date,
-  -- 'claude-haiku-5-5@themes-v1', 'dict-v1', 'manual': a series lives inside
-  -- one version.
+  -- 'claude-haiku-5-5@themes-v1', 'dict-v1', 'manual': who said it, so a window
+  -- that crosses the texts' line can be told apart.
   detector      text not null check (detector ~ '^[a-z0-9.@_-]{3,80}$'),
   created_at    timestamptz not null default now(),
   constraint issue_facts_history_has_a_slice check ((origin = 'history') = (history_slice is not null))
@@ -248,8 +250,10 @@ alter table public.signal_settings
     check (kind = 'review' or not (history_enabled or history_include_private));
 
 -- Each attempt at one week of reviews or one month of stays. An attempt is
--- never rewritten by the next: the sum over this table is the money spent.
-create table raw.signal_history_runs (
+-- never rewritten by the next: the sum over this table is the money spent. It
+-- outlives a rollback once money was spent (if not exists), so a rollback and
+-- a second push cannot hand the one-off budget back.
+create table if not exists raw.signal_history_runs (
   id                 bigint generated always as identity primary key,
   host_id            uuid not null,
   provider           public.signal_provider not null,
@@ -270,9 +274,9 @@ create table raw.signal_history_runs (
   finished_at        timestamptz
 );
 
-create index signal_history_runs_slice_idx
+create index if not exists signal_history_runs_slice_idx
   on raw.signal_history_runs (host_id, provider, part, detector, slice_start);
-create index signal_history_runs_started_idx on raw.signal_history_runs (host_id, started_at);
+create index if not exists signal_history_runs_started_idx on raw.signal_history_runs (host_id, started_at);
 revoke all on raw.signal_history_runs from public, anon, authenticated;
 
 /**
@@ -338,6 +342,16 @@ as $$
                          where r.host_id = s.host_id and r.provider = p_provider
                            and r.part = 'reviews' and r.detector = p_detector
                            and r.status = 'done'),
+    -- Attempts of two days that closed nothing, killed ones too: a week that keeps
+    -- failing is left for the next, or money goes round in a circle.
+    'reviews_stuck',    (select coalesce(jsonb_object_agg(x.slice_start, x.attempts), '{}'::jsonb)
+                         from (select r.slice_start, count(*) as attempts
+                               from raw.signal_history_runs r
+                               where r.host_id = s.host_id and r.provider = p_provider
+                                 and r.part = 'reviews' and r.detector = p_detector
+                                 and r.status <> 'done'
+                                 and r.started_at > now() - interval '2 days'
+                               group by r.slice_start) x),
     'stays_done',       (select coalesce(jsonb_object_agg(x.slice_start, x.at), '{}'::jsonb)
                          from (select r.slice_start, max(r.finished_at) as at
                                from raw.signal_history_runs r
@@ -351,10 +365,36 @@ as $$
 $$;
 
 /**
+ * Of the PMS's listings, the ones the company holds and still works. A text of any
+ * other goes nowhere: the stream keeps no text of a place in the archive either
+ * (review_text_allowed), and a listing we never loaded would be paid for and
+ * dropped. The test band stays out as everywhere.
+ */
+create or replace function public.signal_history_readable(
+  p_provider public.signal_provider,
+  p_listings text[],
+  p_host_id  uuid default null
+)
+returns text[]
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce(array_agg(l.listing), '{}')
+  from unnest(p_listings) as l (listing)
+  join public.properties p
+    on p.id = public.resolve_signal_place(p_provider, coalesce(p_host_id, public.default_host_id()), l.listing)
+  where p.status <> 'archived'
+    and not public.analytics_is_test_listing(p.id)
+$$;
+
+/**
  * Take the calls of one week before making them. One lock a company: two runs
  * never read the same week or both see the whole budget, and a run the
  * platform kills has already counted what it took. The whole week or nothing:
- * a week half read cannot be closed. The reason says what stopped it.
+ * a week half read cannot be closed, and a week this version closed is not paid
+ * for twice. The reason says what stopped it.
  *
  * `p_worst_micro_usd` is the worst case of one call, the caller's to know:
  * it knows the model's price and its max_tokens.
@@ -391,6 +431,12 @@ begin
              where r.host_id = v_host and r.part = 'reviews' and r.status = 'running'
                and r.started_at > now() - interval '15 minutes') then
     return jsonb_build_object('granted', false, 'reason', 'busy');
+  end if;
+
+  if exists (select 1 from raw.signal_history_runs r
+             where r.host_id = v_host and r.provider = p_provider and r.part = 'reviews'
+               and r.detector = p_detector and r.slice_start = p_slice_start and r.status = 'done') then
+    return jsonb_build_object('granted', false, 'reason', 'closed');
   end if;
 
   select coalesce(sum(r.reserved_calls), 0) into v_today
@@ -623,6 +669,28 @@ as $$
 $$;
 
 /**
+ * A finding's subject is coarser than a theme: one for the internet and the TV, one
+ * for every device, one kind for all noise. Its summary is the model's own neutral
+ * words, never the guest's, and the dictionary narrows the theme by them, so the
+ * themes of the stream meet the themes of the reading at the texts' line.
+ */
+create or replace function public.issue_theme_refined(p_theme text, p_words text)
+returns text
+language sql
+stable
+set search_path = ''
+as $$
+  select case
+           when p_theme = 'wifi' and w.theme = 'tv' then 'tv'
+           when p_theme = 'appliance_other'
+                and w.theme in ('kettle', 'kitchen_appliance', 'laundry_appliance') then w.theme
+           when p_theme = 'noise_outside' and w.theme = 'noise_neighbours' then w.theme
+           else p_theme
+         end
+  from (select public.issue_theme_of_text(p_words) as theme) w
+$$;
+
+/**
  * The nightly job (06:40 UTC, scheduled inactive): new problems get their theme,
  * the stream's episodes are rebuilt from what findings and problems say now — a
  * rejected finding or a cancelled problem is gone from them by the next morning
@@ -639,6 +707,7 @@ declare
   v_host     uuid := coalesce(p_host_id, public.default_host_id());
   v_themed   integer;
   v_facts    integer;
+  v_staff    integer;
   v_folded   integer;
 begin
   insert into public.problem_themes (problem_id, theme, source, detector)
@@ -666,7 +735,8 @@ begin
                                   week, channel, signal_id, finding_id, origin, detector)
   select v_host,
          public.signal_place_family(f.property_id),
-         public.issue_theme_of_finding(f.kind, f.subject),
+         public.issue_theme_refined(public.issue_theme_of_finding(f.kind, f.subject),
+                                    f.summary || ' ' || coalesce(f.summary_i18n ->> 'en', '')),
          'guest_review',
          f.urgency,
          f.confidence,
@@ -711,14 +781,13 @@ begin
     and pr.source = 'staff'
     and pr.status <> 'cancelled'
     and (pr.archived_at is null or (pr.status = 'resolved' and pr.resolved_at <= pr.archived_at));
-  get diagnostics v_folded = row_count;
-  v_facts := v_facts + v_folded;
+  get diagnostics v_staff = row_count;
 
   update public.issue_facts f set week = null
   where f.host_id = v_host and f.week is not null and f.week < current_date - 90;
   get diagnostics v_folded = row_count;
 
-  return jsonb_build_object('themed', v_themed, 'facts', v_facts, 'folded', v_folded);
+  return jsonb_build_object('themed', v_themed, 'facts', v_facts + v_staff, 'folded', v_folded);
 end;
 $$;
 
@@ -730,7 +799,8 @@ $$;
  * A window as what is stored can answer it. The short windows are counted in
  * weeks, from the Monday of the week their first day falls in; the long ones in
  * calendar months with the present one, so twelve months never need more
- * history than the twelve months read. The window before has the same length.
+ * history than the twelve months read. The window before has about the same
+ * length: rates are what is compared, and stays count the same days.
  */
 create or replace function public.quality_bounds(p_window text, p_today date)
 returns table (grain text, from_day date, prev_from date, prev_to date)
@@ -963,9 +1033,8 @@ as $$
     'weeks_done', (select count(distinct r.slice_start) from raw.signal_history_runs r
                    where r.host_id = p_host and r.part = 'reviews' and r.status = 'done'),
     'weeks_total', (select (r.counts ->> 'weeks_total')::integer from raw.signal_history_runs r
-                    where r.host_id = p_host and r.part = 'reviews' and r.status = 'done'
-                      and r.counts ? 'weeks_total'
-                    order by r.finished_at desc limit 1),
+                    where r.host_id = p_host and r.part = 'reviews' and r.counts ? 'weeks_total'
+                    order by r.finished_at desc nulls last limit 1),
     'stay_months', (select count(distinct s.month) from public.property_month_stats s
                     where s.host_id = p_host),
     'stays_from', (select min(s.month) from public.property_month_stats s where s.host_id = p_host),
@@ -1129,12 +1198,14 @@ $$;
 revoke all on function public.signal_history_spent(uuid) from public, anon, authenticated, service_role;
 revoke all on function public.signal_history_day_start() from public, anon, authenticated, service_role;
 revoke all on function public.signal_history_state(public.signal_provider, text, uuid) from public, anon, authenticated;
+revoke all on function public.signal_history_readable(public.signal_provider, text[], uuid) from public, anon, authenticated;
 revoke all on function public.reserve_signal_history(public.signal_provider, text, date, date, integer, bigint, uuid) from public, anon, authenticated;
 revoke all on function public.complete_signal_history(bigint, jsonb, bigint, jsonb) from public, anon, authenticated;
 revoke all on function public.fail_signal_history(bigint, bigint, jsonb, jsonb) from public, anon, authenticated;
 revoke all on function public.replace_property_month_stays(public.signal_provider, date, jsonb, uuid) from public, anon, authenticated;
 revoke all on function public.refresh_property_quality(uuid) from public, anon, authenticated;
 grant execute on function public.signal_history_state(public.signal_provider, text, uuid) to service_role;
+grant execute on function public.signal_history_readable(public.signal_provider, text[], uuid) to service_role;
 grant execute on function public.reserve_signal_history(public.signal_provider, text, date, date, integer, bigint, uuid) to service_role;
 grant execute on function public.complete_signal_history(bigint, jsonb, bigint, jsonb) to service_role;
 grant execute on function public.fail_signal_history(bigint, bigint, jsonb, jsonb) to service_role;
@@ -1144,6 +1215,7 @@ grant execute on function public.refresh_property_quality(uuid) to service_role;
 -- Internal: no grants.
 revoke all on function public.issue_theme_of_finding(public.signal_finding_kind, text) from public, anon, authenticated, service_role;
 revoke all on function public.issue_theme_of_text(text) from public, anon, authenticated, service_role;
+revoke all on function public.issue_theme_refined(text, text) from public, anon, authenticated, service_role;
 revoke all on function public.quality_bounds(text, date) from public, anon, authenticated, service_role;
 revoke all on function public.quality_guard(text) from public, anon, authenticated, service_role;
 revoke all on function public.quality_place_rows(uuid, date, text, date, date, date, date, date, date, bigint) from public, anon, authenticated, service_role;

@@ -123,3 +123,15 @@ Deno.test("a window ends the moment after its last day", () => {
   assertEquals(since.toISOString(), "2026-09-28T00:00:00.000Z");
   assertEquals(until.toISOString(), "2026-10-05T00:00:00.000Z");
 });
+
+Deno.test("a week failed three times in two days gives way to the next", () => {
+  const plan = planHistory({
+    today: TODAY,
+    depthMonths: 12,
+    line: LINE,
+    done: [],
+    stuck: { "2026-09-28": 3, "2026-09-21": 2 },
+  });
+  assertEquals(plan.next?.start, "2026-09-21");
+  assertEquals(plan.weeksLeft, 49);
+});

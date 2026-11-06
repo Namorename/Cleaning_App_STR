@@ -154,6 +154,17 @@ Deno.test("the client asks by schema within its tokens and reports what it cost"
   assertEquals(requests[0].system, THEMES_SYSTEM_PROMPT);
 });
 
+Deno.test("the client never retries behind the budget", async () => {
+  let calls = 0;
+  const fetchImpl = (): Promise<Response> => {
+    calls += 1;
+    return Promise.resolve(new Response("{}", { status: 500 }));
+  };
+  const plain = new AnthropicThemeClient("test-key", { fetch: fetchImpl as typeof fetch });
+  await assertRejects(() => plain.read(INPUT), ModelError);
+  assertEquals(calls, 1);
+});
+
 Deno.test("an answer that did not fit is the review's failure", async () => {
   const error = await assertRejects(
     () => client(message('{"complaints":[', "max_tokens")).read(INPUT),

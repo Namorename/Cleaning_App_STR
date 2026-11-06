@@ -63,6 +63,8 @@ export interface HistoryState {
   /** The texts' line as a Prague day. */
   readonly line: string | null;
   readonly reviews_done: readonly string[];
+  /** A week → its attempts of the last two days that did not close it. */
+  readonly reviews_stuck: Readonly<Record<string, number>>;
   /** A month's first day → when its stays were last read. */
   readonly stays_done: Readonly<Record<string, string>>;
 }
@@ -93,6 +95,8 @@ export interface MonthStayRow {
 export interface HistoryStore {
   state(detector: string): Promise<HistoryState | null>;
   redactionNames(): Promise<Pick<RedactionNames, "staff" | "places">>;
+  /** Of these PMS listings, the ones the company holds and works: no other text goes to the model. */
+  readableListings(listings: readonly string[]): Promise<readonly string[]>;
   reserve(slice: HistorySlice, calls: number, worstMicroUsd: number): Promise<HistoryGrant>;
   complete(
     runId: number,
@@ -147,15 +151,23 @@ function birthsOf(births: readonly ListingBirth[]): ReadonlyMap<string, string |
   return new Map(births.map((birth) => [birth.external_listing_id, birth.born_on]));
 }
 
-/** Stays of a month as lines: one a listing and channel, before a floor counts as nothing. */
+/**
+ * Stays of a month as lines, one a listing and channel. A stay before a floor counts as nothing,
+ * and so does one that has not ended: an episode can only come from a stay that is over, and a
+ * booking of next week in the sum would make the present month look better than it is.
+ */
 export function monthRows(
   facts: readonly NeutralStayFact[],
   from: string,
   births: ReadonlyMap<string, string | null>,
+  today: string,
 ): MonthStayRow[] {
   const rows = new Map<string, MonthStayRow>();
   for (const fact of facts) {
-    if (fact.departure_date < floorOf(from, births.get(fact.external_listing_id))) {
+    if (
+      fact.departure_date > today ||
+      fact.departure_date < floorOf(from, births.get(fact.external_listing_id))
+    ) {
       continue;
     }
     const key = `${fact.external_listing_id}:${fact.channel}`;
@@ -302,9 +314,10 @@ async function readStays(
   month: HistoryMonth,
   from: string,
   births: ReadonlyMap<string, string | null>,
+  today: string,
 ): Promise<number> {
   const facts = await deps.source.fetchStayFacts(windowOf(month));
-  return await deps.store.replaceMonthStays(month.start, monthRows(facts, from, births));
+  return await deps.store.replaceMonthStays(month.start, monthRows(facts, from, births, today));
 }
 
 async function readReviews(
@@ -321,7 +334,11 @@ async function readReviews(
     deps.source.stayGuestNames(window),
     deps.store.redactionNames(),
   ]);
-  const { chosen, counts } = selectReviews(fetched.reviews, state, plan.from, births);
+  const { chosen: selected, counts } = selectReviews(fetched.reviews, state, plan.from, births);
+  const readable = new Set(
+    await deps.store.readableListings([...new Set(selected.map((review) => review.row.external_listing_id))]),
+  );
+  const chosen = selected.filter((review) => readable.has(review.row.external_listing_id));
 
   const inputs: { readonly review: NeutralReview; readonly input: ThemeInput }[] = [];
   let noNames = 0;
@@ -357,6 +374,7 @@ async function readReviews(
     fetched: fetched.reviews.length,
     skipped_rows: fetched.skipped,
     no_names: noNames,
+    not_ours: selected.length - chosen.length,
     read: outcome.read,
     failed: outcome.failed,
     invalid: outcome.invalid,
@@ -399,6 +417,7 @@ export async function runHistory(deps: HistoryDeps): Promise<HistorySummary> {
     depthMonths: Math.min(deps.source.history.maxDepthMonths, state.depth_months),
     line: state.line,
     done: state.reviews_done,
+    stuck: state.reviews_stuck,
   });
   const month = nextStayMonth(plan.months, state.stays_done, today);
   const week = deps.model !== null ? plan.next : null;
@@ -413,12 +432,14 @@ export async function runHistory(deps: HistoryDeps): Promise<HistorySummary> {
     return failedOnSource(error, plan);
   }
 
+  // A month that cannot be read does not hold the reviews back: each part fails on its own.
   let stayRows = 0;
+  let stayError: readonly RunError[] = [];
   if (month !== null) {
     try {
-      stayRows = await readStays(deps, month, plan.from, births);
+      stayRows = await readStays(deps, month, plan.from, births, today);
     } catch (error: unknown) {
-      return failedOnSource(error, plan);
+      stayError = countErrors([sourceErrorCode(error)]);
     }
   }
 
@@ -429,12 +450,21 @@ export async function runHistory(deps: HistoryDeps): Promise<HistorySummary> {
     week: week?.start ?? null,
   };
   if (week === null || deps.model === null) {
-    return { ...base, labels: 0, counts: {}, stopped: null, errors: [], weeksLeft: plan.weeksLeft };
+    return {
+      ...base,
+      labels: 0,
+      counts: {},
+      stopped: stayError[0]?.code ?? null,
+      errors: stayError,
+      weeksLeft: plan.weeksLeft,
+    };
   }
   try {
-    return { ...base, ...await readReviews(deps, deps.model, state, plan, week, births) };
+    const read = await readReviews(deps, deps.model, state, plan, week, births);
+    return { ...base, ...read, errors: [...stayError, ...read.errors] };
   } catch (error: unknown) {
-    return { ...failedOnSource(error, plan), ...base };
+    const failed = failedOnSource(error, plan);
+    return { ...failed, ...base, errors: [...stayError, ...failed.errors] };
   }
 }
 

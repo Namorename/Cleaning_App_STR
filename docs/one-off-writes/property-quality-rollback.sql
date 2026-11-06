@@ -16,8 +16,10 @@
 --      head 20261104200000, none of the new tables, columns, jobs or functions.
 --
 -- What it does, in one transaction: drops the two jobs, the functions, the five tables, the
--- journal, the enum, and the five switches of signal_settings. Labels and stays go with their
--- tables: they are derived, and no guest text was ever in them. Nothing of the texts' line is
+-- enum, and the five switches of signal_settings. Labels and stays go with their tables: they
+-- are derived, and no guest text was ever in them. The journal goes only if the reading never
+-- spent anything: once it did, it stays, and a second push finds it (if not exists), so a
+-- rollback cannot hand the one-off budget back. Nothing of the texts' line is
 -- touched: review_text_allowed, store_review_texts, review_load_state and the texts kept since
 -- 02.11 stay as they are, and so does every row of problems and guest_signals.
 --
@@ -38,17 +40,21 @@ begin
   drop function public.quality_guard(text);
   drop function public.quality_bounds(text, date);
   drop function public.refresh_property_quality(uuid);
+  drop function public.issue_theme_refined(text, text);
   drop function public.issue_theme_of_text(text);
   drop function public.issue_theme_of_finding(public.signal_finding_kind, text);
   drop function public.replace_property_month_stays(public.signal_provider, date, jsonb, uuid);
   drop function public.fail_signal_history(bigint, bigint, jsonb, jsonb);
   drop function public.complete_signal_history(bigint, jsonb, bigint, jsonb);
   drop function public.reserve_signal_history(public.signal_provider, text, date, date, integer, bigint, uuid);
+  drop function public.signal_history_readable(public.signal_provider, text[], uuid);
   drop function public.signal_history_state(public.signal_provider, text, uuid);
   drop function public.signal_history_day_start();
   drop function public.signal_history_spent(uuid);
 
-  drop table raw.signal_history_runs;
+  if not exists (select 1 from raw.signal_history_runs r where r.part = 'reviews') then
+    drop table raw.signal_history_runs;
+  end if;
   drop table public.property_month_stats;
   drop table public.problem_themes;
   drop table public.issue_facts;

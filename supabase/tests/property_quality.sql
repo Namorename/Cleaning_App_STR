@@ -142,12 +142,21 @@ select pg_temp.check('capitals do not matter', public.issue_theme_of_text('ЗА�
 select pg_temp.check('a screen is no tap', public.issue_theme_of_text('Разбит экран'), null::text);
 select pg_temp.check('a code is no lock', public.issue_theme_of_text('Сменить код'), null::text);
 select pg_temp.check('an unknown text has no theme', public.issue_theme_of_text('Просто заметка'), null::text);
+select pg_temp.check('neighbours are their own noise', public.issue_theme_of_text('Шум от соседей'), 'noise_neighbours');
 
 select pg_temp.check('a finding speaks by its subject',
   public.issue_theme_of_finding('repair', 'plumbing_leak'), 'plumbing');
 select pg_temp.check('a finding with no subject speaks by its kind',
   public.issue_theme_of_finding('noise', 'other'), 'noise_outside');
 select pg_temp.check('a wish is no complaint', public.issue_theme_of_finding('wish', 'other'), null::text);
+select pg_temp.check('a summary narrows the internet down to the TV',
+  public.issue_theme_refined('wifi', 'Televize nefunguje TV remote missing'), 'tv');
+select pg_temp.check('a summary narrows a device down to the kettle',
+  public.issue_theme_refined('appliance_other', 'Kettle does not work'), 'kettle');
+select pg_temp.check('a summary narrows noise down to the neighbours',
+  public.issue_theme_refined('noise_outside', 'Loud neighbours at night'), 'noise_neighbours');
+select pg_temp.check('a summary never turns a theme into another family',
+  public.issue_theme_refined('wifi', 'Kettle does not work'), 'wifi');
 
 -- ---------- windows ----------
 
@@ -309,6 +318,9 @@ declare
 begin
   update raw.signal_history_runs set status = 'failed', finished_at = now(), spent_micro_usd = 0
   where host_id = pg_temp.host() and status = 'running';
+  -- The week closed empty above: the labels come on a week reopened as a wipe reopens it.
+  update raw.signal_history_runs set status = 'failed'
+  where host_id = pg_temp.host() and status = 'done';
   v_run := (pg_temp.reserve(6, pg_temp.w()) ->> 'run_id')::bigint;
   v_res := public.complete_signal_history(v_run, pg_temp.labels(), 1200,
                                           '{"weeks_total": 49, "weeks_left": 47}'::jsonb);
@@ -326,6 +338,17 @@ begin
       is not distinct from
     pg_temp.w(), true);
 
+  perform pg_temp.check('a closed week is not paid for twice',
+    pg_temp.reserve(6, pg_temp.w()) ->> 'reason', 'closed');
+  perform pg_temp.check('another version may read the same week',
+    public.reserve_signal_history('hostaway', 'claude-haiku-5-5@themes-v2', pg_temp.w(), pg_temp.w() + 6,
+                                  0, 1100, pg_temp.host()) ->> 'granted', 'true');
+  update raw.signal_history_runs set status = 'failed', finished_at = now(), spent_micro_usd = 0
+  where host_id = pg_temp.host() and status = 'running';
+
+  -- A wipe opens the week again.
+  update raw.signal_history_runs set status = 'failed'
+  where host_id = pg_temp.host() and status = 'done' and slice_start = pg_temp.w();
   v_run := (pg_temp.reserve(6, pg_temp.w()) ->> 'run_id')::bigint;
   v_res := public.complete_signal_history(v_run, pg_temp.labels(), 1200, '{}'::jsonb);
   perform pg_temp.check('a week read twice adds nothing',
@@ -338,6 +361,18 @@ end $$;
 select pg_temp.check('the week is closed for its version',
   (public.signal_history_state('hostaway', 'claude-haiku-5-5@themes-v1', pg_temp.host())
      -> 'reviews_done') @> jsonb_build_array(pg_temp.w()), true);
+select pg_temp.check('a week that failed is counted for two days',
+  (public.signal_history_state('hostaway', 'claude-haiku-5-5@themes-v1', pg_temp.host())
+     -> 'reviews_stuck' ->> (pg_temp.w() + 7)::text)::integer >= 1, true);
+select pg_temp.check('a listing we work is readable',
+  public.signal_history_readable('hostaway', array['900063001', '900063002'], pg_temp.host()),
+  array['900063001', '900063002']);
+update public.properties set status = 'archived' where id = 900063002;
+select pg_temp.check('an archived, a foreign and a test listing are not',
+  public.signal_history_readable('hostaway', array['900063001', '900063002', '900063009', '900000000763', 'x'],
+                                 pg_temp.host()),
+  array['900063001']);
+update public.properties set status = 'active' where id = 900063002;
 select pg_temp.check('another version has closed nothing',
   (public.signal_history_state('hostaway', 'claude-haiku-5-5@themes-v2', pg_temp.host())
      -> 'reviews_done'), '[]'::jsonb);
@@ -495,6 +530,8 @@ select pg_temp.check('a manager writes nothing directly',
 select pg_temp.check('a manager cannot reserve',
   pg_temp.refusal($q$select public.reserve_signal_history('hostaway', 'x-1', '2026-10-05', '2026-10-11', 1, 1)$q$),
   '42501');
+select pg_temp.check('a manager cannot ask what is readable',
+  pg_temp.refusal($q$select public.signal_history_readable('hostaway', array['1'])$q$), '42501');
 select pg_temp.check('a manager cannot refresh',
   pg_temp.refusal($q$select public.refresh_property_quality()$q$), '42501');
 select pg_temp.check('a window must be known',

@@ -4212,6 +4212,10 @@ export type Database = {
         Returns: string
       }
       issue_theme_of_text: { Args: { p_text: string }; Returns: string }
+      issue_theme_refined: {
+        Args: { p_theme: string; p_words: string }
+        Returns: string
+      }
       kb_article_for_writer: {
         Args: { p_id: string }
         Returns: {
@@ -5383,6 +5387,14 @@ export type Database = {
         }[]
       }
       signal_history_day_start: { Args: never; Returns: string }
+      signal_history_readable: {
+        Args: {
+          p_host_id?: string
+          p_listings: string[]
+          p_provider: Database["public"]["Enums"]["signal_provider"]
+        }
+        Returns: string[]
+      }
       signal_history_spent: { Args: { p_host: string }; Returns: number }
       signal_history_state: {
         Args: {

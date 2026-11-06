@@ -37,6 +37,16 @@ export function createHistoryStore(
 
     redactionNames: () => readNames(client, hostId),
 
+    async readableListings(listings: readonly string[]) {
+      const { data, error } = await client.rpc("signal_history_readable", {
+        p_provider: provider,
+        p_listings: listings,
+        p_host_id: hostId,
+      });
+      if (error) fail("signal_history_readable", error);
+      return (data ?? []) as string[];
+    },
+
     async reserve(slice: HistorySlice, calls: number, worstMicroUsd: number) {
       const { data, error } = await client.rpc("reserve_signal_history", {
         p_provider: provider,
