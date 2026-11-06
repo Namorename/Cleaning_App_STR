@@ -1013,6 +1013,11 @@
       "reason": "push plumbing: constant of the push queue and sender",
       "defined_in": "20260928100000_push_recipients.sql"
     },
+    "quality_areas": {
+      "status": "internal",
+      "reason": "the panel read of problem areas; the public resource comes with stage 6 of the plan",
+      "defined_in": "20261106120000_property_quality.sql"
+    },
     "quality_bounds": {
       "status": "internal",
       "reason": "internal helper of the panel reads: a window as days",
@@ -1048,6 +1053,11 @@
       "reason": "internal helper of the panel reads",
       "defined_in": "20261106120000_property_quality.sql"
     },
+    "quality_settled_to": {
+      "status": "internal",
+      "reason": "internal helper of the panel reads",
+      "defined_in": "20261106120000_property_quality.sql"
+    },
     "quality_theme_rows": {
       "status": "internal",
       "reason": "internal helper of the panel reads",
@@ -1074,6 +1084,11 @@
       "defined_in": "20260828090000_webhook_event_id_from_data.sql"
     },
     "refresh_property_quality": {
+      "status": "internal",
+      "reason": "the nightly job of property quality",
+      "defined_in": "20261106120000_property_quality.sql"
+    },
+    "refresh_quality_areas": {
       "status": "internal",
       "reason": "the nightly job of property quality",
       "defined_in": "20261106120000_property_quality.sql"
@@ -1798,6 +1813,11 @@
       "status": "internal",
       "reason": "forbidden: push tokens of devices",
       "defined_in": "20260928100000_push_recipients.sql"
+    },
+    "quality_area_members": {
+      "status": "internal",
+      "reason": "problem areas by window, rebuilt each night",
+      "defined_in": "20261106120000_property_quality.sql"
     },
     "report_properties": {
       "status": "internal",

@@ -589,8 +589,8 @@ begin
   perform pg_temp.check('a card names its place', v_card -> 'place' ->> 'name', 'Quality flat');
   perform pg_temp.check('a card shows channels apart',
     jsonb_array_length(v_card -> 'channels'), 2);
-  perform pg_temp.check('a card sets a category beside its city',
-    (select (c ->> 'city_n')::integer from jsonb_array_elements(v_card -> 'categories') c
+  perform pg_temp.check('a card sets a category beside the other places',
+    (select (c ->> 'peers_n')::integer from jsonb_array_elements(v_card -> 'categories') c
      where c ->> 'key' = 'cleanliness'), 1);
   perform pg_temp.check('a card lists the months of its themes',
     jsonb_array_length(v_card -> 'months') > 0, true);
@@ -623,6 +623,152 @@ select pg_temp.check('another company sees none of it',
   jsonb_array_length(public.quality_overview('12m') -> 'themes'), 0);
 
 select pg_temp.office();
+
+-- ---------- settled months, the reading that follows ----------
+
+select pg_temp.check('a month is settled 30 days after its end',
+  public.quality_settled_to('2026-11-29'), '2026-09-30'::date);
+select pg_temp.check('the day it is, the month counts',
+  public.quality_settled_to('2026-11-30'), '2026-10-31'::date);
+
+insert into public.issue_facts (host_id, property_id, theme, layer, month, origin, history_slice, detector)
+values (pg_temp.host(), 900063001, 'tv', 'guest_review', (pg_temp.m() - interval '1 month')::date,
+        'history', '2026-01-05', 'x-1'),
+       (pg_temp.host(), 900063001, 'tv', 'guest_review', date_trunc('month', current_date)::date,
+        'history', '2026-01-05', 'x-1');
+insert into public.property_month_stats (host_id, property_id, month, channel, stays, nights)
+values (pg_temp.host(), 900063001, (pg_temp.m() - interval '1 month')::date, 'airbnb', 7, 9),
+       (pg_temp.host(), 900063001, date_trunc('month', current_date)::date, 'airbnb', 3, 4);
+
+select pg_temp.as_user('b6300001-0000-4000-8000-000000000001');
+do $$
+declare
+  v_all jsonb := public.quality_overview('12m');
+  v_theme jsonb;
+  v_place jsonb;
+begin
+  select t into v_theme from jsonb_array_elements(v_all -> 'themes') t
+  where (t ->> 'property_id')::bigint = 900063001 and t ->> 'theme' = 'tv';
+  perform pg_temp.check('a window counts every review it holds', (v_theme ->> 'reviews')::integer, 2);
+  perform pg_temp.check('a trend counts only what has all come',
+    (v_theme ->> 'reviews_settled')::integer, 1);
+  select p into v_place from jsonb_array_elements(v_all -> 'places') p
+  where (p ->> 'id')::bigint = 900063001;
+  perform pg_temp.check('stays are held back the same way',
+    (v_place ->> 'stays')::integer - (v_place ->> 'stays_settled')::integer >= 3, true);
+  perform pg_temp.check('the answer says up to when reviews have come',
+    (v_all ->> 'settled_to')::date,
+    (date_trunc('month', (now() at time zone 'Europe/Prague')::date - 29))::date - 1);
+  perform pg_temp.check('the line divides two readers while the reading stops at it',
+    v_all ->> 'line', '2026-11-04');
+end $$;
+
+select pg_temp.office();
+update public.signal_settings set history_follow = true
+where host_id = pg_temp.host() and kind = 'review';
+select pg_temp.as_user('b6300001-0000-4000-8000-000000000001');
+select pg_temp.check('once the reading follows, one reader stands on both sides',
+  public.quality_overview('12m') ->> 'line', null::text);
+select pg_temp.office();
+update public.signal_settings set history_follow = false
+where host_id = pg_temp.host() and kind = 'review';
+select pg_temp.check('the state tells the run whether it follows',
+  public.signal_history_state('hostaway', 'claude-haiku-5-5@themes-v1', pg_temp.host()) ->> 'follow', 'false');
+select pg_temp.check('a message never follows',
+  pg_temp.refusal($q$update public.signal_settings set history_follow = true
+                     where host_id = 'b6300000-0000-4000-8000-00000000000a' and kind = 'message'$q$),
+  '23514');
+
+-- A review the reading labelled speaks through its labels, not through its finding too.
+insert into public.issue_facts (host_id, property_id, theme, layer, month, signal_id, origin, history_slice, detector)
+values (pg_temp.host(), 900063001, 'hot_water', 'guest_review', pg_temp.m(),
+        'b6310002-0000-4000-8000-000000000002', 'history', '2026-01-12', 'x-1');
+select public.refresh_property_quality(pg_temp.host());
+select pg_temp.check('a labelled review leaves no episode from its finding',
+  (select count(*) from public.issue_facts where finding_id = 'b6330001-0000-4000-8000-000000000001'),
+  0::bigint);
+
+-- ---------- problem areas ----------
+
+delete from public.issue_facts where host_id = pg_temp.host();
+delete from public.property_month_stats where host_id = pg_temp.host();
+insert into public.property_month_stats (host_id, property_id, month, channel, stays, nights)
+values (pg_temp.host(), 900063001, pg_temp.m(), 'airbnb', 40, 80),
+       (pg_temp.host(), 900063002, pg_temp.m(), 'airbnb', 10, 20),
+       (pg_temp.host(), 900063010, pg_temp.m(), 'airbnb', 40, 80);
+
+create or replace function pg_temp.fact(p_place bigint, p_theme text, p_layer public.issue_layer, p_n integer)
+returns void language sql as $fn$
+  insert into public.issue_facts (host_id, property_id, theme, layer, month, origin, history_slice, detector)
+  select pg_temp.host(), p_place, p_theme, p_layer, pg_temp.m(), 'history', '2026-01-19', 'x-1'
+  from generate_series(1, p_n)
+$fn$;
+
+-- Stands out: three here, nothing elsewhere.
+select pg_temp.fact(900063001, 'smell', 'guest_review', 3);
+-- One episode is a single case.
+select pg_temp.fact(900063001, 'wifi', 'guest_review', 1);
+-- Too few stays, however many episodes.
+select pg_temp.fact(900063002, 'parking', 'guest_review', 4);
+-- As common everywhere: nothing stands out.
+select pg_temp.fact(900063001, 'tv', 'guest_review', 5);
+select pg_temp.fact(900063010, 'tv', 'guest_review', 5);
+-- A place in two areas, one of them by staff.
+select pg_temp.fact(900063010, 'lock_door', 'found_at_work', 2);
+select pg_temp.fact(900063010, 'lock_door', 'staff_report', 1);
+select pg_temp.fact(900063010, 'pests', 'guest_review', 2);
+
+create or replace function pg_temp.members(p_window text) returns text language sql as $fn$
+  select coalesce(string_agg(property_id || ':' || theme || ':' || basis, ' ' order by theme, property_id), '')
+  from public.quality_area_members
+  where host_id = pg_temp.host() and window_code = p_window
+$fn$;
+
+select public.refresh_quality_areas(pg_temp.host());
+select pg_temp.check('an area holds who stands out, by whom, and a place may stand in two',
+  pg_temp.members('3m'), '900063010:lock_door:staff 900063010:pests:guest 900063001:smell:guest');
+select pg_temp.check('a window with its own numbers has its own areas',
+  pg_temp.members('12m'), pg_temp.members('3m'));
+select pg_temp.check('a window without enough stays or episodes has none',
+  pg_temp.members('14d'), '');
+
+select pg_temp.as_user('b6300001-0000-4000-8000-000000000001');
+do $$
+declare
+  v_areas jsonb := public.quality_areas('3m');
+begin
+  perform pg_temp.check('the panel reads the members of a window',
+    jsonb_array_length(v_areas -> 'members'), 3);
+  perform pg_temp.check('a member carries its name and its numbers',
+    (select m ->> 'name' || ':' || (m ->> 'episodes') || ':' || (m ->> 'stays')
+     from jsonb_array_elements(v_areas -> 'members') m where m ->> 'theme' = 'smell'),
+    'Quality flat:3:40');
+  perform pg_temp.check('the answer says when the areas were counted',
+    (v_areas ->> 'computed_on')::date, (now() at time zone 'Europe/Prague')::date);
+end $$;
+select pg_temp.check('a window must be known here too',
+  pg_temp.refusal($q$select public.quality_areas('2y')$q$), 'serverErrors.qualityWindowInvalid');
+select pg_temp.check('a manager reads no member directly',
+  pg_temp.refusal('select * from public.quality_area_members'), '42501');
+
+select pg_temp.as_user('b6300002-0000-4000-8000-000000000002');
+select pg_temp.check('a cleaner has no areas',
+  pg_temp.refusal($q$select public.quality_areas('3m')$q$), 'serverErrors.managerOnly');
+select pg_temp.as_user('b6300009-0000-4000-8000-000000000009');
+select pg_temp.check('another company has no areas of ours',
+  jsonb_array_length(public.quality_areas('3m') -> 'members'), 0);
+
+select pg_temp.office();
+update public.properties set status = 'archived' where id = 900063001;
+select pg_temp.as_user('b6300001-0000-4000-8000-000000000001');
+select pg_temp.check('an archived place leaves its area',
+  jsonb_array_length(public.quality_areas('3m') -> 'members'), 2);
+select pg_temp.office();
+update public.properties set status = 'active' where id = 900063001;
+select pg_temp.check('the nightly job counts the areas',
+  (public.refresh_property_quality(pg_temp.host()) ->> 'area_members')::integer >= 0, true);
+select pg_temp.check('the city is no grouping here by default',
+  (select quality_city_groups from public.hosts where id = pg_temp.host()), false);
 
 -- ---------- jobs ----------
 

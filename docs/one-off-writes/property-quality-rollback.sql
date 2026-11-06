@@ -15,8 +15,8 @@
 --   6. the probe: node scripts/cloud-read.mjs docs/rollout/postpush_property_quality_1106.sql —
 --      head 20261104200000, none of the new tables, columns, jobs or functions.
 --
--- What it does, in one transaction: drops the two jobs, the functions, the five tables, the
--- enum, and the five switches of signal_settings. Labels and stays go with their tables: they
+-- What it does, in one transaction: drops the two jobs, the functions, the six tables, the
+-- enum, the six switches of signal_settings and hosts.quality_city_groups. Labels and stays go with their tables: they
 -- are derived, and no guest text was ever in them. The journal goes only if the reading never
 -- spent anything: once it did, it stays, and a second push finds it (if not exists), so a
 -- rollback cannot hand the one-off budget back. Nothing of the texts' line is
@@ -31,6 +31,7 @@ begin
   from cron.job j
   where j.jobname in ('refresh-property-quality', 'read-signal-history-tick');
 
+  drop function public.quality_areas(text);
   drop function public.quality_place(bigint, text);
   drop function public.quality_overview(text);
   drop function public.quality_meta(uuid, text, date, text, date, date, date, date);
@@ -38,8 +39,10 @@ begin
   drop function public.quality_theme_rows(uuid, date, text, date, date, date, bigint);
   drop function public.quality_place_rows(uuid, date, text, date, date, date, date, date, date, bigint);
   drop function public.quality_guard(text);
+  drop function public.quality_settled_to(date);
   drop function public.quality_bounds(text, date);
   drop function public.refresh_property_quality(uuid);
+  drop function public.refresh_quality_areas(uuid);
   drop function public.issue_theme_refined(text, text);
   drop function public.issue_theme_of_text(text);
   drop function public.issue_theme_of_finding(public.signal_finding_kind, text);
@@ -55,6 +58,7 @@ begin
   if not exists (select 1 from raw.signal_history_runs r where r.part = 'reviews') then
     drop table raw.signal_history_runs;
   end if;
+  drop table public.quality_area_members;
   drop table public.property_month_stats;
   drop table public.problem_themes;
   drop table public.issue_facts;
@@ -64,10 +68,13 @@ begin
 
   alter table public.signal_settings
     drop constraint signal_settings_history_is_reviews,
+    drop column history_follow,
     drop column history_budget_micro_usd,
     drop column history_daily_cap,
     drop column history_include_private,
     drop column history_depth_months,
     drop column history_enabled;
+
+  alter table public.hosts drop column quality_city_groups;
 end;
 $rollback$;

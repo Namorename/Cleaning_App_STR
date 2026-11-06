@@ -215,6 +215,25 @@ create table public.property_month_stats (
 comment on table public.property_month_stats is
   'Stays and nights per place, month and channel, read from the PMS. Aggregates only.';
 
+-- The problem areas: a dynamic group per theme and window. Rebuilt whole by the
+-- nightly job (refresh_quality_areas); a place may stand in many.
+create table public.quality_area_members (
+  host_id     uuid not null references public.hosts (id) on delete restrict,
+  window_code text not null check (window_code in ('14d', '1m', '3m', '6m', '12m')),
+  theme       text not null references public.issue_themes (code) on delete restrict,
+  property_id bigint not null references public.properties (id) on delete cascade,
+  -- Who says so: guests in reviews, or staff. Never summed.
+  basis       text not null check (basis in ('guest', 'staff')),
+  episodes    integer not null check (episodes > 0),
+  stays       integer not null check (stays > 0),
+  computed_on date not null,
+  primary key (host_id, window_code, theme, property_id, basis)
+);
+
+comment on table public.quality_area_members is
+  'Which places a theme stands out at, per window. Derived, rebuilt each night.';
+
+alter table public.quality_area_members enable row level security;
 alter table public.issue_themes enable row level security;
 alter table public.issue_theme_words enable row level security;
 alter table public.issue_facts enable row level security;
@@ -224,7 +243,8 @@ alter table public.property_month_stats enable row level security;
 -- No client reads these directly: the panel goes through quality_overview and
 -- quality_place, which check the role and the company.
 revoke all on public.issue_themes, public.issue_theme_words, public.issue_facts,
-  public.problem_themes, public.property_month_stats from public, anon, authenticated, service_role;
+  public.problem_themes, public.property_month_stats, public.quality_area_members
+  from public, anon, authenticated, service_role;
 
 -- ===================================================================
 -- The reading of past reviews: switches and journal
@@ -246,8 +266,17 @@ alter table public.signal_settings
   -- it takes a migration.
   add column history_budget_micro_usd bigint not null default 5000000
                                       check (history_budget_micro_usd between 0 and 5000000),
+  -- The reading goes on past the texts' line, week by week, under the same budget
+  -- and ceiling: one reader on both sides, so a comparison across the line holds.
+  -- Off: the stream's findings speak for the reviews after the line.
+  add column history_follow           boolean not null default false,
   add constraint signal_settings_history_is_reviews
-    check (kind = 'review' or not (history_enabled or history_include_private));
+    check (kind = 'review' or not (history_enabled or history_include_private or history_follow));
+
+-- City as a way to group places: for a company whose places sit in several towns.
+-- Off here, where they do not. The screen's main grouping is by theme
+-- (quality_area_members).
+alter table public.hosts add column quality_city_groups boolean not null default false;
 
 -- Each attempt at one week of reviews or one month of stays. An attempt is
 -- never rewritten by the next: the sum over this table is the money spent. It
@@ -327,6 +356,7 @@ as $$
     'enabled',          s.history_enabled,
     'depth_months',     s.history_depth_months,
     'include_private',  s.history_include_private,
+    'follow',           s.history_follow,
     'daily_cap',        s.history_daily_cap,
     'budget_micro_usd', s.history_budget_micro_usd,
     'min_confidence',   s.min_confidence,
@@ -757,7 +787,10 @@ begin
     and f.property_id is not null
     and g.kind = 'review'
     and f.status not in ('rejected', 'dropped')
-    and public.issue_theme_of_finding(f.kind, f.subject) is not null;
+    and public.issue_theme_of_finding(f.kind, f.subject) is not null
+    -- A review the reading has labelled speaks through its labels: one episode, not two.
+    and not exists (select 1 from public.issue_facts h
+                    where h.signal_id = f.signal_id and h.origin = 'history');
   get diagnostics v_facts = row_count;
 
   insert into public.issue_facts (host_id, property_id, theme, layer, severity, month, week,
@@ -787,7 +820,8 @@ begin
   where f.host_id = v_host and f.week is not null and f.week < current_date - 90;
   get diagnostics v_folded = row_count;
 
-  return jsonb_build_object('themed', v_themed, 'facts', v_facts + v_staff, 'folded', v_folded);
+  return jsonb_build_object('themed', v_themed, 'facts', v_facts + v_staff, 'folded', v_folded,
+                            'area_members', public.refresh_quality_areas(v_host));
 end;
 $$;
 
@@ -830,6 +864,21 @@ as $$
          end,
          f.from_day - 1
   from f
+$$;
+
+/**
+ * The last day of the last month whose reviews have all come: Booking's p90 lag is
+ * 27 days, so a month is settled 30 days after its end. A trend by reviews compares
+ * only up to here: the window before is whole, and a month still filling would read
+ * as a fall.
+ */
+create or replace function public.quality_settled_to(p_today date)
+returns date
+language sql
+immutable
+set search_path = ''
+as $$
+  select date_trunc('month', (p_today - 29)::timestamp)::date - 1
 $$;
 
 /** The manager of the company alone, and a window we know. Returns the company. */
@@ -889,14 +938,17 @@ as $$
   stays as (
     select s.property_id,
            sum(s.stays) filter (where s.month >= p_from) as cur,
-           sum(s.stays) filter (where s.month between p_prev_from and p_prev_to) as prev
+           sum(s.stays) filter (where s.month between p_prev_from and p_prev_to) as prev,
+           sum(s.stays) filter (where s.month >= p_from
+                                  and s.month <= public.quality_settled_to(p_today)) as settled
     from public.property_month_stats s
     where s.host_id = p_host and p_grain = 'month'
     group by s.property_id
     union all
     select c.listing_id,
            count(*) filter (where c.departure_date >= p_from),
-           count(*) filter (where c.departure_date <= p_prev_to)
+           count(*) filter (where c.departure_date <= p_prev_to),
+           0
     from public.analytics_checkout_rows(p_host, p_prev_from, p_today, null, false, false) c
     where p_grain = 'week'
     group by c.listing_id
@@ -922,6 +974,7 @@ as $$
            'city', p.city,
            'stays', coalesce(s.cur, 0),
            'stays_prev', coalesce(s.prev, 0),
+           'stays_settled', coalesce(s.settled, 0),
            'rating_n', coalesce(r.n, 0),
            'rating_avg', round(r.average, 2),
            'rating_n_prev', coalesce(r.n_prev, 0),
@@ -956,7 +1009,7 @@ stable
 set search_path = ''
 as $$
   with facts as (
-    select f.property_id, f.theme, f.layer,
+    select f.property_id, f.theme, f.layer, f.month,
            coalesce(f.week, f.month) as day,
            case when p_grain = 'week' then f.week >= p_from else f.month >= p_from end as is_cur,
            case when p_grain = 'week' then f.week between p_prev_from and p_prev_to
@@ -973,6 +1026,8 @@ as $$
     select x.property_id, x.theme,
            count(*) filter (where x.is_cur and x.layer = 'guest_review') as reviews,
            count(*) filter (where x.is_prev and x.layer = 'guest_review') as reviews_prev,
+           count(*) filter (where x.is_cur and x.layer = 'guest_review'
+                              and x.month <= public.quality_settled_to(p_today)) as reviews_settled,
            count(*) filter (where x.is_cur and x.layer = 'found_at_work') as found,
            count(*) filter (where x.is_prev and x.layer = 'found_at_work') as found_prev,
            count(*) filter (where x.is_cur and x.layer = 'staff_report') as reported,
@@ -1003,6 +1058,7 @@ as $$
            'seasonal', th.is_seasonal,
            'reviews', s.reviews,
            'reviews_prev', s.reviews_prev,
+           'reviews_settled', s.reviews_settled,
            'found', s.found,
            'found_prev', s.found_prev,
            'reported', s.reported,
@@ -1019,6 +1075,105 @@ as $$
   left join work w on w.property_id = s.property_id and w.theme = s.theme
 $$;
 
+/**
+ * The problem areas of every window, rebuilt by the nightly job. A place belongs to
+ * the area of a theme when the theme stands out there: at least two episodes on
+ * enough stays, and more of them than the other places' rate would give by chance
+ * (the same 1.65 as a trend). Guests and staff are read apart, so a place can be in
+ * an area by either, and in many areas at once. Which places belong depends on the
+ * window. A window without stays read has no members.
+ */
+create or replace function public.refresh_quality_areas(p_host uuid)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_today date := (now() at time zone 'Europe/Prague')::date;
+  v_b     record;
+  v_rate  record;
+  v_code  text;
+  v_total integer := 0;
+  v_count integer;
+begin
+  delete from public.quality_area_members m where m.host_id = p_host;
+
+  foreach v_code in array array['14d', '1m', '3m', '6m', '12m'] loop
+    select * into v_b from public.quality_bounds(v_code, v_today);
+    select * into v_rate
+    from public.quality_bounds(case when v_b.grain = 'week' then '3m' else v_code end, v_today);
+
+    insert into public.quality_area_members (host_id, window_code, theme, property_id, basis,
+                                             episodes, stays, computed_on)
+    with places as (
+      select x.id, x.stays
+      from jsonb_to_recordset(public.quality_place_rows(
+             p_host, v_today, v_b.grain, v_b.from_day, v_b.prev_from, v_b.prev_to,
+             v_rate.from_day, v_rate.prev_from, v_rate.prev_to, null)) as x (id bigint, stays integer)
+    ),
+    said as (
+      select t.property_id, t.theme, b.basis, b.episodes
+      from jsonb_to_recordset(public.quality_theme_rows(
+             p_host, v_today, v_b.grain, v_b.from_day, v_b.prev_from, v_b.prev_to, null))
+           as t (property_id bigint, theme text, reviews integer, found integer, reported integer)
+      cross join lateral (values ('guest', t.reviews), ('staff', t.found + t.reported)) as b (basis, episodes)
+      where b.episodes > 0
+    ),
+    rows as (
+      select s.property_id, s.theme, s.basis, s.episodes, p.stays,
+             sum(s.episodes) over (partition by s.theme, s.basis) as all_episodes,
+             (select sum(q.stays) from places q) as all_stays
+      from said s
+      join places p on p.id = s.property_id
+    )
+    select p_host, v_code, r.theme, r.property_id, r.basis, r.episodes, r.stays, v_today
+    from rows r
+    cross join lateral (
+      -- What the other places' rate would give here.
+      select r.stays * (r.all_episodes - r.episodes)::numeric
+             / nullif(r.all_stays - r.stays, 0) as expected
+    ) e
+    where r.stays >= case v_code when '14d' then 5 when '1m' then 10 else 20 end
+      and r.episodes >= 2
+      and (coalesce(e.expected, 0) = 0
+           or (r.episodes - e.expected) / sqrt(e.expected) >= 1.65);
+    get diagnostics v_count = row_count;
+    v_total := v_total + v_count;
+  end loop;
+
+  return v_total;
+end;
+$$;
+
+/** The members of the areas of one window, with their names. The trend is the overview's. */
+create or replace function public.quality_areas(p_window text)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_host uuid := public.quality_guard(p_window);
+begin
+  return jsonb_build_object(
+    'window', p_window,
+    'computed_on', (select max(m.computed_on) from public.quality_area_members m
+                    where m.host_id = v_host),
+    'members', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+               'theme', m.theme, 'property_id', m.property_id, 'name', p.name,
+               'basis', m.basis, 'episodes', m.episodes, 'stays', m.stays
+             ) order by th.sort_order, m.episodes desc, p.name), '[]'::jsonb)
+      from public.quality_area_members m
+      join public.properties p on p.id = m.property_id
+      join public.issue_themes th on th.code = m.theme
+      where m.host_id = v_host and m.window_code = p_window
+        and p.status <> 'archived'));
+end;
+$$;
+
 /** Where the reading of past reviews stands, for the panel's band. No money, no codes. */
 create or replace function public.quality_history_state(p_host uuid)
 returns jsonb
@@ -1030,8 +1185,14 @@ as $$
   select jsonb_build_object(
     'enabled', coalesce((select s.history_enabled from public.signal_settings s
                          where s.host_id = p_host and s.kind = 'review'), false),
+    -- Weeks of the window as it stands now: it moves forward once the reading follows.
     'weeks_done', (select count(distinct r.slice_start) from raw.signal_history_runs r
-                   where r.host_id = p_host and r.part = 'reviews' and r.status = 'done'),
+                   where r.host_id = p_host and r.part = 'reviews' and r.status = 'done'
+                     and r.slice_start >= (
+                       select date_trunc('week', date_trunc('month', current_date::timestamp)
+                                                 - make_interval(months => s.history_depth_months - 1))::date
+                       from public.signal_settings s
+                       where s.host_id = p_host and s.kind = 'review')),
     'weeks_total', (select (r.counts ->> 'weeks_total')::integer from raw.signal_history_runs r
                     where r.host_id = p_host and r.part = 'reviews' and r.counts ? 'weeks_total'
                     order by r.finished_at desc nulls last limit 1),
@@ -1078,11 +1239,17 @@ as $$
                   from public.reservations r
                   where r.host_id = p_host and r.departure_date <= p_today
                     and r.status in ('new', 'modified') and not r.is_block),
+    -- Reviews are compared only up to here (quality_settled_to).
+    'settled_to', public.quality_settled_to(p_today),
     -- The texts' line: before it the reading labels a review, after it the stream's
-    -- findings do, and a comparison across it compares two readers.
-    'line', (select (coalesce(s.notice_published_at, s.texts_enabled_at) at time zone 'Europe/Prague')::date
+    -- findings do, and a comparison across it compares two readers. Null once the
+    -- reading follows the new reviews: then one reader stands on both sides.
+    'line', (select case when not s.history_follow
+                         then (coalesce(s.notice_published_at, s.texts_enabled_at)
+                               at time zone 'Europe/Prague')::date end
              from public.signal_settings s
              where s.host_id = p_host and s.kind = 'review'),
+    'city_groups', (select h.quality_city_groups from public.hosts h where h.id = p_host),
     'history', public.quality_history_state(p_host)
   )
 $$;
@@ -1118,7 +1285,8 @@ $$;
 
 /**
  * One place in one window: what quality_overview says of it, the months of its
- * themes, and its ratings by channel and category beside those of its city. A
+ * themes, and its ratings by channel and category beside those of the other places
+ * (of its city where the company groups by city: hosts.quality_city_groups). A
  * place of another company, a room or a test listing is no place here: null.
  */
 create or replace function public.quality_place(p_property_id bigint, p_window text)
@@ -1132,6 +1300,8 @@ declare
   v_host  uuid := public.quality_guard(p_window);
   v_today date := (now() at time zone 'Europe/Prague')::date;
   v_city  text;
+  v_peers boolean := (select h.quality_city_groups from public.hosts h
+                      where h.id = public.current_host_id());
   v_b     record;
   v_rate  record;
   v_year  date := (date_trunc('month', v_today::timestamp) - interval '11 months')::date;
@@ -1182,19 +1352,19 @@ begin
          'categories', (
            select coalesce(jsonb_agg(jsonb_build_object(
                     'key', x.key, 'n', x.n, 'average', x.average,
-                    'city_n', x.city_n, 'city_average', x.city_average
+                    'peers_n', x.peers_n, 'peers_average', x.peers_average
                   ) order by x.key), '[]'::jsonb)
            from (select c.key,
                         count(*) filter (where o.id = p_property_id) as n,
                         round(avg(c.value::numeric) filter (where o.id = p_property_id), 2) as average,
-                        count(*) filter (where o.id <> p_property_id) as city_n,
-                        round(avg(c.value::numeric) filter (where o.id <> p_property_id), 2) as city_average
+                        count(*) filter (where o.id <> p_property_id) as peers_n,
+                        round(avg(c.value::numeric) filter (where o.id <> p_property_id), 2) as peers_average
                  from public.guest_signals g
                  join public.properties l on l.id = g.property_id
                  join public.properties o on o.id = coalesce(l.parent_id, l.id)
                  cross join lateral jsonb_each_text(g.category_ratings) c
                  where g.host_id = v_host and g.kind = 'review' and not g.is_hidden
-                   and (o.id = p_property_id or o.city is not distinct from v_city)
+                   and (o.id = p_property_id or not v_peers or o.city is not distinct from v_city)
                    and not public.analytics_is_test_listing(o.id)
                    and coalesce(g.departure_date, (g.submitted_at at time zone 'Europe/Prague')::date)
                        >= v_rate.from_day
@@ -1229,6 +1399,8 @@ revoke all on function public.issue_theme_of_finding(public.signal_finding_kind,
 revoke all on function public.issue_theme_of_text(text) from public, anon, authenticated, service_role;
 revoke all on function public.issue_theme_refined(text, text) from public, anon, authenticated, service_role;
 revoke all on function public.quality_bounds(text, date) from public, anon, authenticated, service_role;
+revoke all on function public.quality_settled_to(date) from public, anon, authenticated, service_role;
+revoke all on function public.refresh_quality_areas(uuid) from public, anon, authenticated, service_role;
 revoke all on function public.quality_guard(text) from public, anon, authenticated, service_role;
 revoke all on function public.quality_place_rows(uuid, date, text, date, date, date, date, date, date, bigint) from public, anon, authenticated, service_role;
 revoke all on function public.quality_theme_rows(uuid, date, text, date, date, date, bigint) from public, anon, authenticated, service_role;
@@ -1236,8 +1408,10 @@ revoke all on function public.quality_history_state(uuid) from public, anon, aut
 revoke all on function public.quality_meta(uuid, text, date, text, date, date, date, date) from public, anon, authenticated, service_role;
 
 revoke all on function public.quality_overview(text) from public, anon;
+revoke all on function public.quality_areas(text) from public, anon;
 revoke all on function public.quality_place(bigint, text) from public, anon;
 grant execute on function public.quality_overview(text) to authenticated;
+grant execute on function public.quality_areas(text) to authenticated;
 grant execute on function public.quality_place(bigint, text) to authenticated;
 
 -- ===================================================================

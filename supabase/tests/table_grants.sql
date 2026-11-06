@@ -77,6 +77,7 @@ insert into wanted values
   ('issue_facts',          ''),
   ('problem_themes',       ''),
   ('property_month_stats', ''),
+  ('quality_area_members', ''),
   -- The history of a task (20261003140000): triggers write it, the manager
   -- and the head technician read it, nobody edits it.
   ('problem_events',       'SELECT'),

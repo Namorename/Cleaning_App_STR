@@ -1,6 +1,7 @@
 import { assertEquals } from "jsr:@std/assert@1";
 
 import {
+  addDays,
   floorOf,
   historyFrom,
   mondayOf,
@@ -134,4 +135,24 @@ Deno.test("a week failed three times in two days gives way to the next", () => {
   });
   assertEquals(plan.next?.start, "2026-09-21");
   assertEquals(plan.weeksLeft, 49);
+});
+
+Deno.test("a reading that follows goes past the line", () => {
+  const plan = planHistory({ today: "2026-12-20", depthMonths: 12, line: LINE, done: [], follow: true });
+  assertEquals(plan.next, { start: "2026-11-09", end: "2026-11-15" });
+});
+
+Deno.test("a reading that follows owes only what has settled, so it can be done", () => {
+  const stopped = planHistory({ today: "2026-12-20", depthMonths: 12, line: LINE, done: [] });
+  const open = planHistory({ today: "2026-12-20", depthMonths: 12, line: LINE, done: [], follow: true });
+  const done: string[] = [];
+  for (let start = "2025-12-29"; start <= "2026-11-09"; start = addDays(start, 7)) {
+    done.push(start);
+  }
+  const caught = planHistory({ today: "2026-12-20", depthMonths: 12, line: LINE, done, follow: true });
+
+  assertEquals(stopped.next?.start, "2026-11-02");
+  assertEquals(open.weeksLeft, open.weeksTotal);
+  assertEquals(caught.weeksLeft, 0);
+  assertEquals(caught.next, null);
 });

@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 43 | 234 | 297 |
-| Таблицы и представления | 8 | 20 | 18 | 46 |
-| Всего | 28 | 63 | 252 | 343 |
+| Функции | 20 | 43 | 237 | 300 |
+| Таблицы и представления | 8 | 20 | 19 | 47 |
+| Всего | 28 | 63 | 256 | 347 |
 
 ## Функции
 
@@ -89,7 +89,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 234
+### Внутреннее — 237
 
 | Имя | Причина |
 | --- | --- |
@@ -239,6 +239,7 @@
 | `push_settle` | push plumbing: constant of the push queue and sender |
 | `push_timezone` | push plumbing: constant of the push queue and sender |
 | `push_tokens_per_person` | push plumbing: constant of the push queue and sender |
+| `quality_areas` | the panel read of problem areas; the public resource comes with stage 6 of the plan |
 | `quality_bounds` | internal helper of the panel reads: a window as days |
 | `quality_guard` | internal helper of the panel reads: the role and the window |
 | `quality_history_state` | internal helper of the panel reads |
@@ -246,12 +247,14 @@
 | `quality_overview` | the panel read of property quality; the public resource comes with stage 6 of the plan |
 | `quality_place` | the panel read of property quality; the public resource comes with stage 6 of the plan |
 | `quality_place_rows` | internal helper of the panel reads |
+| `quality_settled_to` | internal helper of the panel reads |
 | `quality_theme_rows` | internal helper of the panel reads |
 | `record_push_receipts` | push plumbing: send-push stores Expo receipts, service_role only |
 | `record_push_results` | push plumbing: send-push settles sent groups and tickets, service_role only |
 | `record_signal_feedback` | helper of the manager's levers: writes one verdict on a finding to signal_feedback, no text; execute revoked from every role |
 | `record_webhook_event` | Hostaway webhook intake (hostaway-webhook), service_role only |
 | `refresh_property_quality` | the nightly job of property quality |
+| `refresh_quality_areas` | the nightly job of property quality |
 | `register_push_token` | forbidden: push tokens (the signed-in phone registers its Expo token) |
 | `release_push_token` | forbidden: integrations:read_secrets - push device tokens; a signed-out phone lets go of its token without a session (the one anon grant) |
 | `release_work_of_inactive` | staff-deactivation cascade called by the profiles trigger; execute revoked from clients |
@@ -368,7 +371,7 @@
 | `workflow_steps` | `checklists:read` | steps of a process template |
 | `workflow_templates` | `checklists:read` | process templates a cleaning follows |
 
-### Внутреннее — 18
+### Внутреннее — 19
 
 | Имя | Причина |
 | --- | --- |
@@ -387,6 +390,7 @@
 | `property_month_stats` | stays and nights by month, read from the PMS |
 | `push_preferences` | push plumbing: a person's own muted push events, read only by herself |
 | `push_tokens` | forbidden: push tokens of devices |
+| `quality_area_members` | problem areas by window, rebuilt each night |
 | `report_properties` | A view for the phone: the properties a person may report on; GET /v1/properties serves a key. |
 | `signal_feedback` | the managers' verdicts on the readers' findings, without text: the readers' calibration; no client grants |
 | `signal_settings` | admin gates of tasks-from-guest-signals by kind (texts and their first day, the deferred guest notice date, model ceiling, auto kinds and ceiling); read only by the panel card that writes it through update_signal_settings, forbidden: data:destroy |

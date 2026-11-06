@@ -47,11 +47,11 @@ npx supabase db push --linked --skip-vault
 | Поле | Должно быть |
 |---|---|
 | `head` | `20261106120000` |
-| `tables` | 6 таблиц |
+| `tables` | 7 таблиц |
 | `settings` | `history_enabled` false, `history_daily_cap` 0, `history_budget_micro_usd` 5000000, `history_depth_months` 12, `history_include_private` false |
 | `jobs` | 2 задания, оба `active=false` |
 | `client_grants`, `raw_grants` | Пусто. Хостинг раздаёт новым таблицам больше локального стека: непустое — стоп и `revoke` |
-| `exec` | Только `quality_overview authenticated`, `quality_place authenticated` |
+| `exec` | Только `quality_areas`, `quality_overview`, `quality_place`, все для `authenticated` |
 | `line_bodies` | `review_load_state` `7a02bc4a`, `review_text_allowed` `1d073853`, `store_review_texts` `0e8ea5b2`: граница текстов не тронута |
 
 Вторая проба, только после push: `node scripts/cloud-read.mjs docs/rollout/postpush_property_quality_counts_1106.sql`.

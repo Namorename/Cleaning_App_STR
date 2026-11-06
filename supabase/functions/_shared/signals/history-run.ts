@@ -55,6 +55,8 @@ export interface HistoryState {
   readonly enabled: boolean;
   readonly depth_months: number;
   readonly include_private: boolean;
+  /** The reading goes on past the texts' line, under the same limits. */
+  readonly follow: boolean;
   readonly daily_cap: number;
   readonly budget_micro_usd: number;
   readonly min_confidence: number;
@@ -334,7 +336,12 @@ async function readReviews(
     deps.source.stayGuestNames(window),
     deps.store.redactionNames(),
   ]);
-  const { chosen: selected, counts } = selectReviews(fetched.reviews, state, plan.from, births);
+  const { chosen: selected, counts } = selectReviews(
+    fetched.reviews,
+    { line: state.follow ? null : state.line, include_private: state.include_private },
+    plan.from,
+    births,
+  );
   const readable = new Set(
     await deps.store.readableListings([...new Set(selected.map((review) => review.row.external_listing_id))]),
   );
@@ -418,6 +425,7 @@ export async function runHistory(deps: HistoryDeps): Promise<HistorySummary> {
     line: state.line,
     done: state.reviews_done,
     stuck: state.reviews_stuck,
+    follow: state.follow,
   });
   const month = nextStayMonth(plan.months, state.stays_done, today);
   const week = deps.model !== null ? plan.next : null;

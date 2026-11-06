@@ -5,7 +5,7 @@
 --   node scripts/cloud-read.mjs docs/rollout/postpush_property_quality_1106.sql
 --
 -- head          the newest migration applied;
--- tables        the five tables and the journal that exist;
+-- tables        the six tables and the journal that exist;
 -- settings      the switches of the review row (all off before the owner's word);
 -- checks        the checks of the new switches: the five dollars and the twelve months;
 -- jobs          the two jobs and whether they are active (none before the owner's word);
@@ -13,7 +13,7 @@
 --               must be empty, the hosting hands out more than the local stack;
 -- raw_grants    the same for the journal: must be empty;
 -- exec          who of PUBLIC, anon, authenticated may execute the new functions: only
---               authenticated, only quality_overview and quality_place;
+--               authenticated, only quality_overview, quality_place and quality_areas;
 -- line_bodies   md5 of the three bodies of the texts' line: unchanged by this migration;
 -- How far the reading got: postpush_property_quality_counts_1106.sql, valid after the push.
 select json_build_object(
@@ -23,6 +23,7 @@ select json_build_object(
              where c.relkind = 'r' and (n.nspname, c.relname) in (
                ('public', 'issue_themes'), ('public', 'issue_theme_words'), ('public', 'issue_facts'),
                ('public', 'problem_themes'), ('public', 'property_month_stats'),
+               ('public', 'quality_area_members'),
                ('raw', 'signal_history_runs'))),
   'settings', (select to_jsonb(s) - 'host_id' - 'kind' - 'updated_by' - 'updated_at' - 'auto_kinds'
                  - 'min_confidence' - 'daily_auto_cap' - 'notice_published_at' - 'texts_enabled_at'
@@ -43,7 +44,7 @@ select json_build_object(
       cross join lateral aclexplode(c.relacl) g
       where n.nspname = 'public'
         and c.relname in ('issue_themes', 'issue_theme_words', 'issue_facts', 'problem_themes',
-                          'property_month_stats')
+                          'property_month_stats', 'quality_area_members')
         and (g.grantee = 0 or g.grantee in ('anon'::regrole, 'authenticated'::regrole))) t),
   'raw_grants', (select coalesce(json_agg(x order by x), '[]'::json) from (
       select case when g.grantee = 0 then 'PUBLIC' else g.grantee::regrole::text end
@@ -60,7 +61,8 @@ select json_build_object(
       where p.pronamespace = 'public'::regnamespace
         and (p.proname like 'quality\_%' or p.proname like '%signal\_history%'
              or p.proname like 'issue\_theme\_%'
-             or p.proname in ('refresh_property_quality', 'replace_property_month_stays'))
+             or p.proname in ('refresh_property_quality', 'refresh_quality_areas',
+                              'replace_property_month_stays'))
         and a.privilege_type = 'EXECUTE'
         and (a.grantee = 0 or a.grantee in ('anon'::regrole, 'authenticated'::regrole))) t),
   'line_bodies', (select json_object_agg(p.proname, left(md5(replace(p.prosrc, chr(13), '')), 8) order by p.proname)

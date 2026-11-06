@@ -772,6 +772,7 @@ export type Database = {
           kb_techs_read_all: boolean
           name: string
           parallel_start_allowed: boolean
+          quality_city_groups: boolean
           updated_at: string
           video_bitrate_kbps: number
           video_max_mb: number
@@ -785,6 +786,7 @@ export type Database = {
           kb_techs_read_all?: boolean
           name: string
           parallel_start_allowed?: boolean
+          quality_city_groups?: boolean
           updated_at?: string
           video_bitrate_kbps?: number
           video_max_mb?: number
@@ -798,6 +800,7 @@ export type Database = {
           kb_techs_read_all?: boolean
           name?: string
           parallel_start_allowed?: boolean
+          quality_city_groups?: boolean
           updated_at?: string
           video_bitrate_kbps?: number
           video_max_mb?: number
@@ -1749,6 +1752,68 @@ export type Database = {
           },
         ]
       }
+      quality_area_members: {
+        Row: {
+          basis: string
+          computed_on: string
+          episodes: number
+          host_id: string
+          property_id: number
+          stays: number
+          theme: string
+          window_code: string
+        }
+        Insert: {
+          basis: string
+          computed_on: string
+          episodes: number
+          host_id: string
+          property_id: number
+          stays: number
+          theme: string
+          window_code: string
+        }
+        Update: {
+          basis?: string
+          computed_on?: string
+          episodes?: number
+          host_id?: string
+          property_id?: number
+          stays?: number
+          theme?: string
+          window_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quality_area_members_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_area_members_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_area_members_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "report_properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_area_members_theme_fkey"
+            columns: ["theme"]
+            isOneToOne: false
+            referencedRelation: "issue_themes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       reservation_units: {
         Row: {
           created_at: string
@@ -2074,6 +2139,7 @@ export type Database = {
           history_daily_cap: number
           history_depth_months: number
           history_enabled: boolean
+          history_follow: boolean
           history_include_private: boolean
           host_id: string
           kind: Database["public"]["Enums"]["guest_signal_kind"]
@@ -2096,6 +2162,7 @@ export type Database = {
           history_daily_cap?: number
           history_depth_months?: number
           history_enabled?: boolean
+          history_follow?: boolean
           history_include_private?: boolean
           host_id: string
           kind: Database["public"]["Enums"]["guest_signal_kind"]
@@ -2118,6 +2185,7 @@ export type Database = {
           history_daily_cap?: number
           history_depth_months?: number
           history_enabled?: boolean
+          history_follow?: boolean
           history_include_private?: boolean
           host_id?: string
           kind?: Database["public"]["Enums"]["guest_signal_kind"]
@@ -4565,6 +4633,7 @@ export type Database = {
       push_settle: { Args: never; Returns: string }
       push_timezone: { Args: never; Returns: string }
       push_tokens_per_person: { Args: never; Returns: number }
+      quality_areas: { Args: { p_window: string }; Returns: Json }
       quality_bounds: {
         Args: { p_today: string; p_window: string }
         Returns: {
@@ -4609,6 +4678,7 @@ export type Database = {
         }
         Returns: Json
       }
+      quality_settled_to: { Args: { p_today: string }; Returns: string }
       quality_theme_rows: {
         Args: {
           p_from: string
@@ -4636,6 +4706,7 @@ export type Database = {
         Returns: number
       }
       refresh_property_quality: { Args: { p_host_id?: string }; Returns: Json }
+      refresh_quality_areas: { Args: { p_host: string }; Returns: number }
       register_push_token: {
         Args: {
           p_app_version?: string
@@ -5760,6 +5831,7 @@ export type Database = {
           kb_techs_read_all: boolean
           name: string
           parallel_start_allowed: boolean
+          quality_city_groups: boolean
           updated_at: string
           video_bitrate_kbps: number
           video_max_mb: number
@@ -5827,6 +5899,7 @@ export type Database = {
           history_daily_cap: number
           history_depth_months: number
           history_enabled: boolean
+          history_follow: boolean
           history_include_private: boolean
           host_id: string
           kind: Database["public"]["Enums"]["guest_signal_kind"]

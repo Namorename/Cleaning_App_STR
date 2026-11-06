@@ -7,7 +7,9 @@
  * - A week is a Monday to a Sunday by the day the guest left. It is read newest
  *   first, once 30 days have passed since its end: Booking's p90 of a review's
  *   lag is 27 days, and a week read earlier would stay short for good.
- * - Past the texts' line there is nothing to read: from there the stream reads.
+ * - Past the texts' line there is nothing to read: from there the stream reads. Unless
+ *   the reading follows (history_follow): then the weeks go on, and only what has
+ *   settled is owed, so a reading that has caught up counts as done.
  * - A listing younger than the window starts at its own birth.
  */
 
@@ -40,6 +42,8 @@ export interface HistoryPlanInput {
   readonly done: readonly string[];
   /** A week → its attempts of the last two days that did not close it. */
   readonly stuck?: Readonly<Record<string, number>>;
+  /** The reading goes on past the line, week by week. */
+  readonly follow?: boolean;
 }
 
 export interface HistoryPlan {
@@ -105,13 +109,15 @@ function weeksOf(from: string, today: string, line: string | null): HistorySlice
 }
 
 export function planHistory(input: HistoryPlanInput): HistoryPlan {
-  const { today, depthMonths, line, done, stuck = {} } = input;
+  const { today, depthMonths, line, done, stuck = {}, follow = false } = input;
   const from = historyFrom(today, depthMonths);
   const closed = new Set(done);
-  const weeks = weeksOf(from, today, line);
+  const isSettled = (week: HistorySlice): boolean => addDays(week.end, HISTORY_SETTLE_DAYS) <= today;
+  const all = weeksOf(from, today, follow ? null : line);
+  const weeks = follow ? all.filter(isSettled) : all;
   const open = weeks.filter((week) => !closed.has(week.start));
   const settled = open.filter((week) =>
-    addDays(week.end, HISTORY_SETTLE_DAYS) <= today && (stuck[week.start] ?? 0) < HISTORY_MAX_ATTEMPTS
+    isSettled(week) && (stuck[week.start] ?? 0) < HISTORY_MAX_ATTEMPTS
   );
 
   const months: HistoryMonth[] = [];

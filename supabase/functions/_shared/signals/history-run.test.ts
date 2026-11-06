@@ -27,6 +27,7 @@ const STATE: HistoryState = {
   enabled: true,
   depth_months: 12,
   include_private: false,
+  follow: false,
   daily_cap: 1500,
   budget_micro_usd: 5_000_000,
   min_confidence: 0.6,
@@ -572,4 +573,20 @@ Deno.test("a month of stays that cannot be read does not hold the reviews back",
 
   assertEquals(log.completed.length, 1);
   assertEquals(summary.errors, [{ code: "source_unavailable", count: 1 }]);
+});
+
+Deno.test("past the line the stream reads, unless the reading follows", async () => {
+  const late = review("7", { arrival_date: "2026-11-05", departure_date: "2026-11-08" });
+
+  const stopped = fakeSource({}, [late]);
+  const before = fakeStore(STATE);
+  const a = fakeModel(() => WIFI);
+  await runHistory({ store: before.store, source: stopped.source, model: a.model, keyOf, now: () => new Date("2026-12-20T08:00:00Z") });
+  assertEquals(a.inputs.length, 0);
+
+  const followed = fakeSource({}, [late]);
+  const after = fakeStore({ ...STATE, follow: true });
+  const b = fakeModel(() => WIFI);
+  await runHistory({ store: after.store, source: followed.source, model: b.model, keyOf, now: () => new Date("2026-12-20T08:00:00Z") });
+  assertEquals(b.inputs.length, 1);
 });

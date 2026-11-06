@@ -9,6 +9,7 @@ select json_build_object(
   'facts_history', (select count(*) from public.issue_facts where origin = 'history'),
   'stay_months', (select count(distinct month) from public.property_month_stats),
   'problem_themes', (select count(*) from public.problem_themes),
+  'area_members', (select count(*) from public.quality_area_members),
   'weeks_done', (select count(distinct slice_start) from raw.signal_history_runs
                  where part = 'reviews' and status = 'done'),
   'attempts_failed', (select count(*) from raw.signal_history_runs

@@ -1,0 +1,13 @@
+-- The reading goes on past the texts' line (docs/rollout/property-quality-1106.md).
+-- A WRITE to the cloud: only on the owner's word, after the reading of the past has finished,
+-- never in 03:00–04:40 UTC.
+--
+--   npx supabase db query --linked -f docs/one-off-writes/property-quality-follow-on.sql
+--
+-- One switch. New reviews get their themes from the same reader, a settled week at a time, under
+-- the same five dollars and the same day's ceiling: about $0.10 a month. Their findings stop
+-- speaking for them, one episode a review. quality_meta stops naming the line, so review trends
+-- appear in the 3, 6 and 12 month windows. The tick must stay active. The texts' line itself
+-- does not move: nothing here changes what is stored.
+-- The stop: docs/one-off-writes/property-quality-follow-off.sql.
+update public.signal_settings set history_follow = true where kind = 'review';
