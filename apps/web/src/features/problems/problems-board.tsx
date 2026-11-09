@@ -8,6 +8,7 @@ import type { ProblemsAddress } from './address';
 import { BoardColumn } from './board-column';
 import { AssignMoveDialog, ConfirmMoveDialog } from './board-dialogs';
 import { isDragMove } from './board-moves';
+import { ResolveDialog } from './resolve-dialog';
 import { EMPTY_PROBLEM_FILTERS, type ProblemFilters } from './filters';
 import { BOARD_STATUSES, liveFixTask, type BoardStatus, type Problem } from './schema';
 import { RESOLVED_PAGE } from './show-more';
@@ -144,12 +145,9 @@ function BoardQuestions({ moves }: { moves: BoardMoves }) {
         problem={asked('assign')}
         onClose={moves.closePending}
       />
-      <ConfirmMoveDialog
+      <ResolveDialog
         open={pending?.kind === 'resolve'}
-        title={t('panel.problems.board.resolveTitle')}
-        description={t('panel.problems.board.resolveText', { title: resolving?.title ?? '' })}
-        confirmLabel={t('panel.problems.board.resolveConfirm')}
-        abortLabel={t('panel.problems.board.resolveAbort')}
+        problem={resolving}
         isBusy={moves.isResolving}
         onConfirm={moves.confirmResolve}
         onClose={moves.closePending}

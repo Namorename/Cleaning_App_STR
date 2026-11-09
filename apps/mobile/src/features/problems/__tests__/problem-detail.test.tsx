@@ -108,6 +108,33 @@ describe('today’s screen', () => {
     expect(screen.getByText('Дубль')).toBeTruthy();
   });
 
+  test('a closed task says who did it and who closed it', async () => {
+    await render(
+      <ProblemDetail
+        {...props({
+          problem: problem({
+            status: 'resolved',
+            completed_by: FIX_TASK,
+            closed_how: 'manager_for',
+            closing: {
+              completed_by: { name: 'Иван', role: 'tech' },
+              closed_by: { name: 'Пётр', role: 'manager' },
+            },
+          }),
+        })}
+      />,
+    );
+
+    expect(screen.getByText('Выполнил: Иван')).toBeTruthy();
+    expect(screen.getByText('Закрыл: менеджер Пётр')).toBeTruthy();
+  });
+
+  test('an open task, or a copy saved before the names, says nothing of a closing', async () => {
+    await render(<ProblemDetail {...props()} />);
+
+    expect(screen.queryByTestId('problem-closing')).toBeNull();
+  });
+
   test('the reporter of an open report may change it and add photos', async () => {
     // Arrange
     const onEdit = jest.fn();

@@ -1188,7 +1188,7 @@ components:
     Task:
       type: object
       additionalProperties: false
-      required: [id, title, description, text_masked, priority, status, property_id, cleaning_id, reported_by, archived, cancel_reason, work, created_at, updated_at, resolved_at, cancelled_at, archived_at]
+      required: [id, title, description, text_masked, priority, status, property_id, cleaning_id, reported_by, archived, cancel_reason, work, created_at, updated_at, resolved_at, cancelled_at, archived_at, completed_by, closed_by, closed_how, closed_cause, closed_at]
       properties:
         id: { type: string, format: uuid }
         title: { type: string, description: "Door codes masked (••••)." }
@@ -1207,6 +1207,28 @@ components:
         resolved_at: { $ref: "#/components/schemas/NullableTimestamp" }
         cancelled_at: { $ref: "#/components/schemas/NullableTimestamp" }
         archived_at: { $ref: "#/components/schemas/NullableTimestamp" }
+        completed_by: { $ref: "#/components/schemas/TaskPerson" }
+        closed_by:
+          $ref: "#/components/schemas/TaskPerson"
+          description: Who closed the task. Null while it is open, when the system closed it, or for a closing from before 2026-11-09 whose person is not known.
+        closed_how:
+          type: [string, "null"]
+          enum: [worker, manager, manager_for, manager_self, auto, null]
+          description: "How it was closed: worker — finished by the person doing the work; manager — closed by a manager (cancelled, archived, or the worker not stated); manager_for — closed by a manager on behalf of completed_by; manager_self — closed by a manager who did it alone; auto — by the system. Null while open, or when not known."
+        closed_cause: { type: [string, "null"], description: "For closed_how auto: a code of the reason, when the system names one." }
+        closed_at: { $ref: "#/components/schemas/NullableTimestamp" }
+    TaskPerson:
+      type: [object, "null"]
+      additionalProperties: false
+      required: [id, role]
+      description: A member of staff on a task. Null when nobody is known.
+      properties:
+        id: { type: string, format: uuid }
+        role: { type: [string, "null"], enum: [cleaner, tech, head_tech, manager, admin, null] }
+        full_name:
+          type: [string, "null"]
+          description: Only with the sensitive scope `staff:read_names`.
+          x-woom-scope: staff:read_names
     StaffMember:
       type: object
       additionalProperties: false

@@ -88,6 +88,11 @@ vi.mock('../use-problems', () => ({
     isPending: false,
     isError: false,
   }),
+  useWorkers: () => ({
+    data: [{ id: TECH_ID, full_name: 'Petr Fixer', role: 'tech', is_active: true }],
+    isPending: false,
+    isError: false,
+  }),
 }));
 
 // The marks come from one company-wide answer; here it is a pair of sets the
@@ -574,7 +579,10 @@ describe('ProblemsBoard card menu', () => {
     const question = await screen.findByRole('dialog', { name: 'Отметить выполненным?' });
     expect(mutations.resolve).not.toHaveBeenCalled();
     await userEvent.click(within(question).getByRole('button', { name: 'Да, выполнено' }));
-    expect(mutations.resolve).toHaveBeenCalledWith(OPEN_ID, expect.anything());
+    expect(mutations.resolve).toHaveBeenCalledWith(
+      { problemId: OPEN_ID, completedBy: null },
+      expect.anything(),
+    );
   }, 20000);
 
   test('a resolved card goes back to «Открыто» through its menu', async () => {
@@ -662,9 +670,11 @@ describe('ProblemsBoard after the review', () => {
 
   test('the answer to an earlier question does not close the next one', async () => {
     let settleResolve: (() => void) | undefined;
-    mutations.resolve.mockImplementation((_id: string, options: { onSettled?: () => void }) => {
-      settleResolve = options.onSettled;
-    });
+    mutations.resolve.mockImplementation(
+      (_variables: unknown, options: { onSettled?: () => void }) => {
+        settleResolve = options.onSettled;
+      },
+    );
     render(<ProblemsBoard problems={problems} />);
 
     let menu = await openCardMenu('Течёт кран');

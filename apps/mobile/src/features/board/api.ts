@@ -1,3 +1,4 @@
+import { CLOSING_COLUMNS } from '@/features/problems/closing';
 import { GUEST_SIGNAL_SOURCE_COLUMNS } from '@/features/problems/signal-source';
 import { calendarDay } from '@/features/tasks/schema';
 import { supabase } from '@/lib/supabase';
@@ -20,6 +21,7 @@ const BOARD_COLUMNS =
   'id, property_id, title, ' +
   GUEST_SIGNAL_SOURCE_COLUMNS +
   'priority, status, archived_at, created_at, ' +
+  CLOSING_COLUMNS +
   'property:properties(name, hostaway_unit_id, timezone, parent:parent_id(name)), ' +
   'fix_tasks:tasks!tasks_problem_id_fkey(id, type, assignee_id, status, scheduled_date, time_from, time_to)';
 

@@ -225,6 +225,11 @@
       "reason": "API plumbing: what a task looks like in the API.",
       "defined_in": "20261028100000_public_api_v1.sql"
     },
+    "api_task_person_json": {
+      "status": "internal",
+      "reason": "API plumbing: a person on a task, the name only with staff:read_names.",
+      "defined_in": "20261106125000_problem_closing.sql"
+    },
     "api_ts": {
       "status": "internal",
       "reason": "API plumbing: ISO 8601 UTC timestamps.",
@@ -517,6 +522,11 @@
       "scope": "cleanings:update",
       "reason": "gives a booking's cleaning its booking's hours back, both marks off (undo of set_cleaning_time)",
       "defined_in": "20261027120000_manual_cleaning_time.sql"
+    },
+    "closing_people": {
+      "status": "internal",
+      "reason": "computed field for the panel and the phone: the names behind completed_by and closed_by; the API gives them in the task under staff:read_names",
+      "defined_in": "20261106125000_problem_closing.sql"
     },
     "complete_signal_history": {
       "status": "internal",
@@ -1429,6 +1439,11 @@
       "status": "internal",
       "reason": "auth/RLS helper: listings an active non-manager may read",
       "defined_in": "20260924140000_staff_property_ids.sql"
+    },
+    "stamp_problem_closing": {
+      "status": "internal",
+      "reason": "trigger function: stamps who did the work and who closed a task (problem)",
+      "defined_in": "20261106125000_problem_closing.sql"
     },
     "stamp_task_author": {
       "status": "internal",

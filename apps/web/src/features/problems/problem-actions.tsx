@@ -25,6 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { serverErrorText } from '@/lib/server-error';
 
 import { FalsePositiveDialog } from './false-positive-dialog';
+import { ResolveDialog } from './resolve-dialog';
 import {
   isFromGuestSignal,
   isProblemArchived,
@@ -42,7 +43,7 @@ import {
 } from './use-problems';
 
 /** Which question, if any, is waiting for the manager's word. */
-type PendingAction = 'cancel' | 'archive' | 'falsePositive' | null;
+type PendingAction = 'resolve' | 'cancel' | 'archive' | 'falsePositive' | null;
 
 interface ProblemActionsProps {
   problem: Problem;
@@ -54,7 +55,7 @@ interface ProblemActionsProps {
  * The manager's levers, in the page's header (5.4, variant A): one plain
  * action at hand, the dangerous ones apart.
  *
- * Live: «Отметить выполненным», and in the menu «⋯» «Отменить задание» and,
+ * Live: «Отметить выполненным» (asking who did it), and in the menu «⋯» «Отменить задание» and,
  * after a separator, «Удалить в архив». Closed: «Вернуть в работу», and the
  * archive in the menu. Archived: «Восстановить из архива» only — everything
  * else waits until the problem is back. Cancelling asks for a reason and
@@ -118,7 +119,7 @@ export function ProblemActions({ problem, onDeleted }: ProblemActionsProps) {
             type="button"
             className="h-11"
             disabled={isBusy}
-            onClick={afresh(() => resolve.mutate(problem.id))}
+            onClick={afresh(() => setPending('resolve'))}
           >
             {t('panel.problems.actions.resolve')}
           </Button>
@@ -162,6 +163,15 @@ export function ProblemActions({ problem, onDeleted }: ProblemActionsProps) {
         </p>
       ) : null}
 
+      <ResolveDialog
+        open={pending === 'resolve'}
+        problem={problem}
+        isBusy={isBusy}
+        onConfirm={(completedBy) =>
+          resolve.mutate({ problemId: problem.id, completedBy }, { onSettled: close })
+        }
+        onClose={close}
+      />
       {pending === 'cancel' ? (
         <CancelDialog
           isBusy={isBusy}

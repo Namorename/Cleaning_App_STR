@@ -21,6 +21,7 @@ import { useLanguage } from '@/lib/use-language';
 import { cn } from '@/lib/utils';
 
 import { problemHref, type ProblemsFrom } from './address';
+import { ProblemClosing } from './problem-closing';
 import { RepairTail } from './repair-tail';
 import {
   isDraggable,
@@ -124,7 +125,9 @@ export function ProblemCard({
       <span className="text-muted-foreground">
         {problemPlace(problem) ?? t('problems.noProperty')}
       </span>
-      {fixTask === null ? null : (
+      {fixTask === null ? (
+        <ProblemClosing problem={problem} className="text-xs text-muted-foreground" />
+      ) : (
         <span className="text-xs text-muted-foreground">
           <Person
             name={fixTask.assignee?.full_name}

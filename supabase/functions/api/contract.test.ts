@@ -139,10 +139,13 @@ const CLEANING = {
   completed_by: null, created_at: TS, updated_at: TS,
 };
 const TASK = {
-  id: UUID, title: "Dripping tap", description: null, text_masked: false, priority: "high", status: "assigned", property_id: 123456,
+  id: UUID, title: "Dripping tap", description: null, text_masked: false, priority: "high", status: "resolved", property_id: 123456,
   cleaning_id: null, reported_by: UUID, archived: false, cancel_reason: null,
-  work: { cleaning_id: UUID, status: "assigned", assignee_id: UUID, scheduled_date: "2026-11-05", time_from: "09:00", time_to: null },
-  created_at: TS, updated_at: TS, resolved_at: null, cancelled_at: null, archived_at: null,
+  work: { cleaning_id: UUID, status: "done", assignee_id: UUID, scheduled_date: "2026-11-05", time_from: "09:00", time_to: null },
+  created_at: TS, updated_at: TS, resolved_at: TS, cancelled_at: null, archived_at: null,
+  // Closed by a manager for the technician; the name only under staff:read_names.
+  completed_by: { id: UUID, role: "tech", full_name: "Tom Tech" }, closed_by: { id: UUID, role: "manager" },
+  closed_how: "manager_for", closed_cause: null, closed_at: TS,
 };
 const PROPERTY = {
   id: 123456, name: "Main House 4G", name_masked: true, parent_id: null, status: "active", city: "Prague",

@@ -478,6 +478,25 @@ select pg_temp.check('a name of staff only with staff:read_names',
        || ' ' || (public.api_v1_get_staff_member(pg_temp.d('key-sens'), 'a2800005-0000-4000-8000-000000000005') ->> 'full_name')),
   'false Cleo Cleaner');
 
+-- Who did a task and who closed it (20261106125000): ids and roles, names by the same scope.
+-- Closed first, then stamped by hand: the trigger stamps the closing write itself.
+update public.problems set status = 'resolved' where id = 'a2820000-0000-4000-8000-000000000002';
+update public.problems
+set completed_by = 'a2800005-0000-4000-8000-000000000005',
+    closed_by = 'a2800003-0000-4000-8000-000000000003', closed_how = 'manager_for', closed_at = now()
+where id = 'a2820000-0000-4000-8000-000000000002';
+select pg_temp.check('a task''s worker and closer, named only with staff:read_names',
+  (select (t #>> '{completed_by,role}') || ' ' || (t -> 'completed_by' ? 'full_name')::text || ' '
+          || (t #>> '{closed_by,id}') || ' ' || (t ->> 'closed_how')
+   from public.api_v1_get_task(pg_temp.d('key-read'), 'a2820000-0000-4000-8000-000000000002') t)
+  || ' / ' ||
+  (select (t #>> '{completed_by,full_name}') || ' ' || (t #>> '{closed_by,full_name}')
+   from public.api_v1_get_task(pg_temp.d('key-sens'), 'a2820000-0000-4000-8000-000000000002') t)
+  || ' / ' ||
+  (select string_agg(coalesce(t #>> '{closed_by,full_name}', '-'), ',' order by t ->> 'id')
+   from jsonb_array_elements(public.api_v1_list_tasks(pg_temp.d('key-sens'))) t),
+  'cleaner false a2800003-0000-4000-8000-000000000003 manager_for / Cleo Cleaner Mia Manager / -,Mia Manager,-');
+
 select pg_temp.check('no staff e-mail or phone, at any scope',
   (select count(*)::int from jsonb_array_elements(public.api_v1_list_staff(pg_temp.d('key-full'), p_limit => 200)) s
    where s ? 'email' or s ? 'phone' or s::text like '%@test.local%' or s::text like '%+420%'),

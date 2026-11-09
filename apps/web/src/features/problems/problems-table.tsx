@@ -1,6 +1,6 @@
 'use client';
 
-import { problemPriorityTone, problemStatusTone } from '@str-ops/shared';
+import { isTaskClosed, problemPriorityTone, problemStatusTone } from '@str-ops/shared';
 import Link from 'next/link';
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -22,6 +22,7 @@ import { useLanguage } from '@/lib/use-language';
 
 import { problemChatHref, problemHref, type ProblemsAddress } from './address';
 import { EMPTY_PROBLEM_FILTERS, filtersKey, type ProblemFilters } from './filters';
+import { ProblemClosing } from './problem-closing';
 import { RepairTail } from './repair-tail';
 import { liveFixTask, problemPlace, repairTail, type Problem } from './schema';
 import { LIST_PAGE, ShowMoreButton, useShowMore } from './show-more';
@@ -104,7 +105,9 @@ export function ProblemsTable({ problems, filters = EMPTY_PROBLEM_FILTERS }: Pro
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {fixTask === null ? (
+                    {fixTask === null && isTaskClosed(problem) ? (
+                      <ProblemClosing problem={problem} className="text-sm" />
+                    ) : fixTask === null ? (
                       t('panel.problems.noAssignee')
                     ) : (
                       <div className="flex flex-wrap items-center gap-1">

@@ -16,6 +16,7 @@ import { useLanguage } from '@/lib/use-language';
 
 import { problemChatHref, problemHref, type ProblemsAddress } from './address';
 import { EMPTY_PROBLEM_FILTERS, filtersKey, type ProblemFilters } from './filters';
+import { ProblemClosing } from './problem-closing';
 import { problemPlace, type Problem } from './schema';
 import { ARCHIVE_PAGE, ShowMoreButton, useShowMore } from './show-more';
 import { useUnarchiveProblem } from './use-problems';
@@ -94,6 +95,7 @@ export function ProblemsArchive({
                     })}`
                   : ''}
               </span>
+              <ProblemClosing problem={problem} className="text-muted-foreground" />
             </div>
             <Button
               type="button"

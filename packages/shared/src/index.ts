@@ -31,6 +31,15 @@ export {
   todayInZone,
   type JobTail,
 } from './schedule/job-tail';
+export {
+  CLOSED_HOWS,
+  closingLines,
+  isTaskClosed,
+  type ClosedHow,
+  type ClosingPeople,
+  type ClosingPerson,
+  type ClosingRow,
+} from './problems/closing';
 export { foldForSearch, matchesAllTokens } from './search';
 export {
   STALE_CLOCK_MESSAGE,

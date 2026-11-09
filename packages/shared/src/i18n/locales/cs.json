@@ -623,6 +623,7 @@
           "done": "Hotové úklidy se počítají podle dne dokončení v časovém pásmu objektu; plánované podle dne úklidu.",
           "checkout": "Odjezd se počítá podle dne odjezdu hosta, ať byla rezervace vytvořena kdykoli; byt uvolní jeden pokoj.",
           "cancelled": "Zrušené úkoly jsou uvedeny zvlášť a nejsou v žádném jiném čísle; úkol z archivu se počítá, jen pokud byl vyřešen dřív.",
+          "closedFor": "Úkol, který manažer uzavřel za zaměstnance, se mu započítá, ale ne do času práce ani do doby vyřešení; úkol, který manažer uzavřel sám, se nezapočítá nikomu.",
           "demo": "Ukázkové a testovací objekty nejsou zahrnuty.",
           "change": "Změna porovnává číslo s předchozím obdobím; podíl se mění v procentních bodech."
         }
@@ -752,6 +753,13 @@
         "archiveConfirm": "Ano, do archivu",
         "archiveAbort": "Ponechat",
         "unarchive": "Obnovit z archivu"
+      },
+      "resolveDialog": {
+        "who": "Kdo to provedl",
+        "alone": "Nikdo, manažer sám",
+        "holder": "současný řešitel",
+        "switchedOff": "Vypnutí",
+        "hint": "Zaměstnanec nedostane upozornění. Úkol se mu započítá, ale bez času práce."
       },
       "falsePositive": {
         "action": "Planý poplach",
@@ -2415,6 +2423,23 @@
     "openChat": "Chat",
     "cardAccessibility": "{{title}}. {{place}}. {{status}}",
     "unknownPerson": "Člen týmu",
+    "closing": {
+      "worker": "Provedl: {{name}}",
+      "closer": "Uzavřel: {{role}} {{name}}",
+      "alone": "Uzavřel manažer sám: {{name}}",
+      "auto": "Uzavřeno automaticky",
+      "autoCause": "Uzavřeno automaticky: {{cause}}",
+      "notStatedWorker": "Provedl: neuvedeno",
+      "notStatedCloser": "Uzavřel: neuvedeno",
+      "someone": "zaměstnanec",
+      "roles": {
+        "cleaner": "uklízečka",
+        "tech": "technik",
+        "head_tech": "hlavní technik",
+        "manager": "manažer",
+        "admin": "administrátor"
+      }
+    },
     "board": {
       "statusFilter": "Stav",
       "all": "Vše",
@@ -2680,6 +2705,7 @@
     "taskChangedMeanwhile": "Mezitím se to změnilo — obrazovka byla obnovena",
     "problemNoProperty": "Úkol nemá objekt — nelze ho přidělit",
     "problemAssigneeInvalid": "Řešitel není mezi aktivními členy týmu",
+    "problemCompleterInvalid": "Vyberte technika této firmy, nebo «Nikdo, manažer sám»",
     "taskNotFound": "Úklid nenalezen",
     "taskNotFound_tech": "Práce nenalezena",
     "supplyNotFound": "Žádost nenalezena",

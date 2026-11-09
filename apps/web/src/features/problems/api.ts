@@ -15,11 +15,13 @@ import {
   problemSchema,
   staffListSchema,
   taskStepListSchema,
+  workerListSchema,
   type Media,
   type Problem,
   type ProblemPriority,
   type Staff,
   type TaskStep,
+  type Worker,
 } from './schema';
 
 export type Client = SupabaseClient<Database>;
@@ -27,6 +29,7 @@ export type Client = SupabaseClient<Database>;
 const PROBLEM_COLUMNS =
   'id, property_id, task_id, reported_by, title, source, title_i18n, source_facts, description, priority, status, ' +
   'resolved_at, cancelled_at, cancel_reason, archived_at, created_at, ' +
+  'completed_by, closed_by, closed_how, closed_cause, closed_at, closing:closing_people, ' +
   'property:properties(name, hostaway_unit_id, timezone, parent:parent_id(name)), ' +
   'reporter:profiles!problems_reported_by_fkey(full_name, role), ' +
   'fix_tasks:tasks!tasks_problem_id_fkey(id, assignee_id, status, scheduled_date, time_from, time_to, ' +
@@ -130,6 +133,19 @@ export async function fetchStaff(client: Client): Promise<Staff[]> {
   return staffListSchema.parse(data ?? []);
 }
 
+/** Everyone who may have done a task's work: technicians, those switched off too. */
+export async function fetchWorkers(client: Client): Promise<Worker[]> {
+  const { data, error } = await client
+    .from('profiles')
+    .select('id, full_name, role, is_active')
+    .in('role', ['tech', 'head_tech'])
+    .order('full_name', { ascending: true });
+  if (error) {
+    throw error;
+  }
+  return workerListSchema.parse(data ?? []);
+}
+
 export interface AssignProblemVariables {
   problemId: string;
   assigneeId: string;
@@ -231,8 +247,23 @@ export async function unassignProblem(
   }
 }
 
-export async function resolveProblem(client: Client, problemId: string): Promise<Problem> {
-  const { data, error } = await client.rpc('resolve_problem', { p_id: problemId });
+export interface ResolveProblemVariables {
+  problemId: string;
+  /** Who did the work; null: nobody, the manager did it alone. */
+  completedBy: string | null;
+}
+
+/** Close as fixed by hand, naming who did the work or saying nobody did. No push goes out. */
+export async function resolveProblem(
+  client: Client,
+  { problemId, completedBy }: ResolveProblemVariables,
+): Promise<Problem> {
+  const { data, error } = await client.rpc(
+    'resolve_problem',
+    completedBy === null
+      ? { p_id: problemId, p_alone: true }
+      : { p_id: problemId, p_completed_by: completedBy },
+  );
   if (error) {
     throw error;
   }

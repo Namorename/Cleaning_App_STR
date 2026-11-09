@@ -15,6 +15,7 @@ import {
   fetchProblemPhotos,
   fetchProblems,
   fetchStaff,
+  fetchWorkers,
   markFalsePositive,
   reopenProblem,
   reportProblem,
@@ -24,6 +25,7 @@ import {
   type AssignProblemVariables,
   type FalsePositiveVariables,
   type ReportProblemVariables,
+  type ResolveProblemVariables,
 } from './api';
 import { problemKeys } from './keys';
 
@@ -66,6 +68,12 @@ export function useFixTaskSteps(taskId: string | null) {
 export function useStaff() {
   const client = useSupabase();
   return useQuery({ queryKey: problemKeys.staff(), queryFn: () => fetchStaff(client) });
+}
+
+/** The technicians a manager may name as the one who did a task, those switched off too. */
+export function useWorkers() {
+  const client = useSupabase();
+  return useQuery({ queryKey: problemKeys.workers(), queryFn: () => fetchWorkers(client) });
 }
 
 /**
@@ -126,7 +134,7 @@ export function useResolveProblem() {
   const client = useSupabase();
   const invalidate = useInvalidateProblems();
   return useMutation({
-    mutationFn: (problemId: string) => resolveProblem(client, problemId),
+    mutationFn: (variables: ResolveProblemVariables) => resolveProblem(client, variables),
     onSuccess: invalidate,
   });
 }

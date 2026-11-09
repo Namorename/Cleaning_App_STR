@@ -8,6 +8,7 @@ const PROBLEM_ID = '11111111-1111-4111-8111-111111111111';
 const TASK_ID = '44444444-4444-4444-8444-444444444444';
 const TECH_ID = '55555555-5555-4555-8555-555555555555';
 const STEP_ID = '66666666-6666-4666-8666-666666666666';
+const GONE_ID = '77777777-7777-4777-8777-777777777777';
 
 const assigned: Problem = problemSchema.parse({
   id: PROBLEM_ID,
@@ -42,6 +43,7 @@ const queries = {
   photos: vi.fn(),
   steps: vi.fn(),
   staff: vi.fn(),
+  workers: vi.fn(),
 };
 const mutations = {
   assign: vi.fn(),
@@ -92,6 +94,7 @@ vi.mock('../use-problems', () => ({
   useProblemPhotos: () => queries.photos(),
   useFixTaskSteps: () => queries.steps(),
   useStaff: () => queries.staff(),
+  useWorkers: () => queries.workers(),
   useAssignProblem: () => ({ ...idle, mutate: mutations.assign }),
   useCancelProblem: () => ({ ...idle, ...cancelOutcome(), mutate: mutations.cancel }),
   useResolveProblem: () => ({ ...idle, mutate: mutations.resolve }),
@@ -210,6 +213,12 @@ beforeEach(() => {
     loaded([
       { id: TECH_ID, full_name: 'Petr Fixer', role: 'cleaner' },
       { id: '99999999-9999-4999-8999-999999999999', full_name: 'Anna Test', role: 'cleaner' },
+    ]),
+  );
+  queries.workers.mockReturnValue(
+    loaded([
+      { id: TECH_ID, full_name: 'Petr Fixer', role: 'tech', is_active: true },
+      { id: GONE_ID, full_name: 'Ivan Gone', role: 'tech', is_active: false },
     ]),
   );
 });
@@ -448,11 +457,21 @@ describe('ProblemDetail', () => {
     expect(items[1]).toHaveAttribute('data-variant', 'destructive');
   });
 
-  test('resolves at once and cancels only after a confirmation with a reason', async () => {
+  test('resolves after asking who did it, and cancels only after a confirmation with a reason', async () => {
+    // The dialog closes once the server has answered.
+    mutations.resolve.mockImplementation((_variables, options?: { onSettled?: () => void }) =>
+      options?.onSettled?.(),
+    );
     render(<ProblemDetail problemId={PROBLEM_ID} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Отметить выполненным' }));
-    expect(mutations.resolve).toHaveBeenCalledWith(PROBLEM_ID);
+    const asked = await screen.findByRole('dialog', { name: 'Отметить выполненным?' });
+    expect(within(asked).getByLabelText('Кто выполнил')).toHaveValue('');
+    await userEvent.click(within(asked).getByRole('button', { name: 'Да, выполнено' }));
+    expect(mutations.resolve).toHaveBeenCalledWith(
+      { problemId: PROBLEM_ID, completedBy: null },
+      expect.anything(),
+    );
 
     const menu = await openMoreActions();
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Отменить задание' }));
@@ -465,6 +484,52 @@ describe('ProblemDetail', () => {
       expect.anything(),
     );
   }, 20000);
+
+  test('closing for a technician names her; one switched off is offered last', async () => {
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Отметить выполненным' }));
+    const asked = await screen.findByRole('dialog', { name: 'Отметить выполненным?' });
+    const who = within(asked).getByLabelText('Кто выполнил');
+    expect(within(who).getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'Никто, менеджер сам',
+      'Petr Fixer · текущий исполнитель',
+      'Ivan Gone',
+    ]);
+    expect(within(who).getByRole('group', { name: 'Отключённые' })).toBeInTheDocument();
+    await userEvent.selectOptions(who, TECH_ID);
+    expect(within(asked).getByText(/Уведомление сотруднику не придёт/)).toBeInTheDocument();
+    await userEvent.click(within(asked).getByRole('button', { name: 'Да, выполнено' }));
+
+    expect(mutations.resolve).toHaveBeenCalledWith(
+      { problemId: PROBLEM_ID, completedBy: TECH_ID },
+      expect.anything(),
+    );
+  }, 20000);
+
+  test('a closed task says who did it and who closed it', () => {
+    queries.problem.mockReturnValue(
+      loaded({
+        ...assigned,
+        status: 'resolved',
+        resolved_at: '2026-09-11T10:00:00+00:00',
+        fix_tasks: [{ ...assigned.fix_tasks[0], status: 'done' }],
+        completed_by: TECH_ID,
+        closed_by: '33333333-3333-4333-8333-333333333333',
+        closed_how: 'manager_for',
+        closed_at: '2026-09-11T10:00:00+00:00',
+        closing: {
+          completed_by: { name: 'Petr Fixer', role: 'tech' },
+          closed_by: { name: 'Olga Boss', role: 'manager' },
+        },
+      }),
+    );
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    expect(screen.getByText('Выполнил: Petr Fixer')).toBeInTheDocument();
+    expect(screen.getByText('Закрыл: менеджер Olga Boss')).toBeInTheDocument();
+    expect(screen.queryByText('Техник ещё не назначен')).not.toBeInTheDocument();
+  });
 
   test('«Не отменять» closes the question and cancels nothing', async () => {
     render(<ProblemDetail problemId={PROBLEM_ID} />);
@@ -540,8 +605,8 @@ describe('ProblemDetail', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Отметить выполненным' }));
     rerender(<ProblemDetail problemId={PROBLEM_ID} />);
 
-    expect(mutations.resolve).toHaveBeenCalledWith(PROBLEM_ID);
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(await screen.findByRole('dialog', { name: 'Отметить выполненным?' })).toBeInTheDocument();
+    expect(screen.queryByText('Это уже изменилось — экран обновлён')).not.toBeInTheDocument();
   });
 
   test('every control of the page is a 44 px target', () => {

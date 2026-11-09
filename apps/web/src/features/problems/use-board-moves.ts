@@ -39,7 +39,8 @@ export interface BoardMoves {
   /** A drag that may not go where it went: the line says where it is done. */
   refuse: () => void;
   closePending: () => void;
-  confirmResolve: () => void;
+  /** Who did the work; null: nobody, the manager did it alone. */
+  confirmResolve: (completedBy: string | null) => void;
   confirmUnassign: () => void;
 }
 
@@ -99,9 +100,12 @@ export function useBoardMoves(): BoardMoves {
     closePending: () => setPending(null),
     // The dialog closes once the server has answered: a refusal is shown in
     // the line under the board, which the open dialog would cover.
-    confirmResolve: () => {
+    confirmResolve: (completedBy) => {
       if (pending?.kind === 'resolve') {
-        resolve.mutate(pending.problem.id, { onSettled: closeIf(pending) });
+        resolve.mutate(
+          { problemId: pending.problem.id, completedBy },
+          { onSettled: closeIf(pending) },
+        );
       }
     },
     // unassign_problem with the person the card showed (f969563): if the job

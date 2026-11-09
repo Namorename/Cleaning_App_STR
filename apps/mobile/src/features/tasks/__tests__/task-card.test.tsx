@@ -12,6 +12,34 @@ import { calendarDay, type CleaningTask } from '../schema';
  * right. The day is the section's heading, not the row's.
  */
 
+// The fixtures stand on 2026-11-10. «Today» is pinned before it, so that day never reads
+// «Сегодня» or «Завтра» whatever day the suite runs on; only Date is faked.
+beforeAll(() => {
+  jest.useFakeTimers({
+    now: new Date('2026-11-01T09:00:00Z'),
+    doNotFake: [
+      'hrtime',
+      'nextTick',
+      'performance',
+      'queueMicrotask',
+      'requestAnimationFrame',
+      'cancelAnimationFrame',
+      'requestIdleCallback',
+      'cancelIdleCallback',
+      'setImmediate',
+      'clearImmediate',
+      'setInterval',
+      'clearInterval',
+      'setTimeout',
+      'clearTimeout',
+    ],
+  });
+});
+
+afterAll(() => {
+  jest.useRealTimers();
+});
+
 function task(overrides: Partial<CleaningTask> = {}): CleaningTask {
   return {
     id: '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b',

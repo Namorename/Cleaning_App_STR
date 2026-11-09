@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { isTechnician, knownRole } from '@/features/auth/role';
 import { PROBLEM_PRIORITIES, PROBLEM_STATUSES } from '@/features/problems/schema';
+import { closingFields } from '@/features/problems/closing';
 import { signalSourceFields } from '@/features/problems/signal-source';
 
 /**
@@ -40,6 +41,8 @@ export const boardProblemSchema = z.object({
   priority: z.enum(PROBLEM_PRIORITIES),
   status: z.enum(PROBLEM_STATUSES),
   archived_at: z.string().nullable().default(null),
+  // Who did the work and who closed it, with the names (problems/closing.ts).
+  ...closingFields,
   created_at: z.string(),
   // The house rides along, as on every place the phone names (problems/schema.ts).
   property: z

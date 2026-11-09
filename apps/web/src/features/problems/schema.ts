@@ -1,4 +1,4 @@
-import { jobTail, propertyPathOf, type JobTail } from '@str-ops/shared';
+import { CLOSED_HOWS, jobTail, propertyPathOf, type JobTail } from '@str-ops/shared';
 import { z } from 'zod';
 
 import { todayIn } from '@/lib/format-date';
@@ -34,6 +34,17 @@ const CLOSED_TASK_STATUSES = ['done', 'cancelled', 'expired'] as const;
 const personSchema = z
   .object({ full_name: z.string().nullable(), role: z.string().nullable().default(null) })
   .nullable();
+
+const closingPersonSchema = z
+  .object({ name: z.string().nullable().default(null), role: z.string().nullable().default(null) })
+  .nullable()
+  .default(null);
+
+/** The computed field closing_people: the names behind completed_by and closed_by. */
+const closingSchema = z.object({
+  completed_by: closingPersonSchema,
+  closed_by: closingPersonSchema,
+});
 
 /** The fix task as the manager reads it, with the technician's name along. */
 export const fixTaskSchema = z.object({
@@ -107,6 +118,14 @@ export const problemSchema = z.object({
     .optional(),
   reporter: personSchema.optional(),
   fix_tasks: z.array(fixTaskSchema).default([]),
+  /** Who did the work and who closed the task (20261106125000); null while open or not known. */
+  completed_by: z.uuid().nullable().default(null),
+  closed_by: z.uuid().nullable().default(null),
+  closed_how: z.enum(CLOSED_HOWS).nullable().catch(null).default(null),
+  closed_cause: z.string().nullable().default(null),
+  closed_at: z.string().nullable().default(null),
+  /** Their names: a computed field, absent from the bare row an RPC returns. */
+  closing: closingSchema.nullable().catch(null).default(null),
 });
 export type Problem = z.infer<typeof problemSchema>;
 export const problemListSchema = z.array(problemSchema);
@@ -143,6 +162,16 @@ export const taskStepSchema = z.object({
 });
 export type TaskStep = z.infer<typeof taskStepSchema>;
 export const taskStepListSchema = z.array(taskStepSchema);
+
+/** Somebody who may have done a task's work: a technician, switched off or not. */
+export const workerSchema = z.object({
+  id: z.uuid(),
+  full_name: z.string().nullable(),
+  role: z.string(),
+  is_active: z.boolean(),
+});
+export type Worker = z.infer<typeof workerSchema>;
+export const workerListSchema = z.array(workerSchema);
 
 /** Somebody a problem can be handed to. */
 export const staffSchema = z.object({

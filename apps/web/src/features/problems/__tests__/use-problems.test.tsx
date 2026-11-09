@@ -69,14 +69,16 @@ describe('a write on a problem', () => {
   });
 
   test('resolving and archiving it do too', async () => {
-    for (const useWrite of [useResolveProblem, useArchiveProblem]) {
-      const { result, invalidate } = renderWithCache(() => useWrite());
+    const resolving = renderWithCache(() => useResolveProblem());
+    await act(async () => {
+      await resolving.result.current.mutateAsync({ problemId: PROBLEM, completedBy: null });
+    });
+    expect(resolving.invalidate).toHaveBeenCalledWith({ queryKey: taskKeys.all });
 
-      await act(async () => {
-        await result.current.mutateAsync(PROBLEM);
-      });
-
-      expect(invalidate).toHaveBeenCalledWith({ queryKey: taskKeys.all });
-    }
+    const archiving = renderWithCache(() => useArchiveProblem());
+    await act(async () => {
+      await archiving.result.current.mutateAsync(PROBLEM);
+    });
+    expect(archiving.invalidate).toHaveBeenCalledWith({ queryKey: taskKeys.all });
   });
 });

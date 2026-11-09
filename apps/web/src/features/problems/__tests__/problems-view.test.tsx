@@ -74,6 +74,7 @@ const reportState: { isPending: boolean; isError: boolean; error: unknown } = {
 vi.mock('../use-problems', () => ({
   useProblems: () => useProblems(),
   useResolveProblem: () => idle,
+  useWorkers: () => ({ data: [], isPending: false, isError: false }),
   useUnassignProblem: () => idle,
   useReopenProblem: () => idle,
   useUnarchiveProblem: () => ({ ...idle, mutate: unarchive }),

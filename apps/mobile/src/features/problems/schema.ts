@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { closingFields } from './closing';
 import { signalSourceFields } from './signal-source';
 
 export const PROBLEM_PRIORITIES = ['low', 'normal', 'high'] as const;
@@ -40,6 +41,8 @@ export const problemSchema = z.object({
   resolved_at: z.string().nullable(),
   cancelled_at: z.string().nullable(),
   cancel_reason: z.string().nullable(),
+  // Who did the work and who closed it, with the names (closing.ts).
+  ...closingFields,
   created_at: z.string(),
   // `name` is `text not null` on the table and has always been in the
   // select, so the old `.nullable()` was never real — and the shared

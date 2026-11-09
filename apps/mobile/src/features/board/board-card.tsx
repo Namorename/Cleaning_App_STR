@@ -1,5 +1,6 @@
 import {
   STATUS_TONE,
+  closingLines,
   jobTail,
   problemPriorityTone,
   problemStatusTone,
@@ -16,6 +17,7 @@ import { Card } from '@/components/card';
 import { Icon } from '@/components/icon';
 import { Text } from '@/components/text';
 import { Spacing } from '@/constants/theme';
+import { closingRowOf } from '@/features/problems/closing';
 import { problemPlace, problemStatusText } from '@/features/problems/format';
 import {
   SIGNAL_BADGE_TONE,
@@ -132,6 +134,11 @@ function BoardCardComponent({ problem, names, onPress, hasUnread = false }: Boar
       <Text tone="secondary">{place}</Text>
       {person !== null ? <Holder name={person} /> : null}
       {isWaiting ? <Nobody label={nobody} /> : null}
+      {closingLines(closingRowOf(problem), t).map((line) => (
+        <Text key={line} variant="caption" tone="secondary">
+          {line}
+        </Text>
+      ))}
       {when !== null ? (
         <Text variant="caption" tone="secondary">
           {when}

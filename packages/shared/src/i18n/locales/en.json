@@ -621,6 +621,7 @@
           "done": "Cleanings done count on the day they were finished, in the listing's own time zone; cleanings planned, on the day of the cleaning.",
           "checkout": "A checkout counts on the guest's day of departure, whenever the booking was made; a flat frees one room.",
           "cancelled": "Cancelled tasks are shown apart and are in no other figure; a task put in the archive counts only if it was resolved before.",
+          "closedFor": "A task a manager closed for a staff member counts as theirs, but not in the work time or the time to resolve; one the manager closed alone counts for nobody.",
           "demo": "Demo and test listings are not included.",
           "change": "A change compares a figure with the period before; a share moves in percentage points."
         }
@@ -750,6 +751,13 @@
         "archiveConfirm": "Yes, archive it",
         "archiveAbort": "Keep it",
         "unarchive": "Restore from the archive"
+      },
+      "resolveDialog": {
+        "who": "Who did it",
+        "alone": "Nobody, the manager did it",
+        "holder": "current assignee",
+        "switchedOff": "Switched off",
+        "hint": "The person gets no notification. The task counts as theirs, without the work time."
       },
       "falsePositive": {
         "action": "False positive",
@@ -2375,6 +2383,23 @@
     "openChat": "Chat",
     "cardAccessibility": "{{title}}. {{place}}. {{status}}",
     "unknownPerson": "Team member",
+    "closing": {
+      "worker": "Done by: {{name}}",
+      "closer": "Closed by: {{role}} {{name}}",
+      "alone": "Closed by the manager alone: {{name}}",
+      "auto": "Closed automatically",
+      "autoCause": "Closed automatically: {{cause}}",
+      "notStatedWorker": "Done by: not stated",
+      "notStatedCloser": "Closed by: not stated",
+      "someone": "a staff member",
+      "roles": {
+        "cleaner": "cleaner",
+        "tech": "technician",
+        "head_tech": "head technician",
+        "manager": "manager",
+        "admin": "administrator"
+      }
+    },
     "board": {
       "statusFilter": "Status",
       "all": "All",
@@ -2632,6 +2657,7 @@
     "taskChangedMeanwhile": "This has changed in the meantime — the screen has been refreshed",
     "problemNoProperty": "The task has no listing — it cannot be assigned",
     "problemAssigneeInvalid": "The assignee is not an active member of the team",
+    "problemCompleterInvalid": "Choose a technician of this company, or «Nobody, the manager did it»",
     "taskNotFound": "Cleaning not found",
     "taskNotFound_tech": "Job not found",
     "supplyNotFound": "Request not found",

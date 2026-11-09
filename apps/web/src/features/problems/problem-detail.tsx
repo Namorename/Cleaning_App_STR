@@ -29,6 +29,7 @@ import { AssignForm } from './assign-form';
 import { FixTaskSteps } from './fix-task-steps';
 import { formatClock } from './format';
 import { ProblemActions } from './problem-actions';
+import { ProblemClosing } from './problem-closing';
 import { ProblemPhotos } from './problem-photos';
 import { RepairTail } from './repair-tail';
 import {
@@ -220,7 +221,9 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
             <CardTitle>{t('panel.problems.detail.fixTask')}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4 text-sm">
-            {fixTask === null ? (
+            {fixTask === null && isClosed ? (
+              <ProblemClosing problem={problem} className="gap-1 font-medium" />
+            ) : fixTask === null ? (
               <p className="text-muted-foreground">{t('panel.problems.detail.noFixTask')}</p>
             ) : (
               <FixTaskSummary fixTask={fixTask} tail={repairTail(problem)} />

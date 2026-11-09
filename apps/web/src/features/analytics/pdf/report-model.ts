@@ -455,7 +455,14 @@ export function buildReportModel(input: ReportInput): ReportModel {
   const empty = isEmptySummary(input.summary)
     ? { title: t('panel.analytics.empty.title'), body: t('panel.analytics.empty.body') }
     : null;
-  const notes = ['done', 'checkout', 'cancelled', 'demo', ...(previous === null ? [] : ['change'])].map(
+  const notes = [
+    'done',
+    'checkout',
+    'cancelled',
+    'closedFor',
+    'demo',
+    ...(previous === null ? [] : ['change']),
+  ].map(
     (note) => t(`${PDF}notes.${note}`),
   );
   const content =

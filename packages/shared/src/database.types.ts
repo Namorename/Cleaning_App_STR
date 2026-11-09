@@ -1284,6 +1284,11 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          closed_at: string | null
+          closed_by: string | null
+          closed_cause: string | null
+          closed_how: string | null
+          completed_by: string | null
           created_at: string
           description: string | null
           host_id: string
@@ -1304,6 +1309,11 @@ export type Database = {
           archived_at?: string | null
           cancel_reason?: string | null
           cancelled_at?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          closed_cause?: string | null
+          closed_how?: string | null
+          completed_by?: string | null
           created_at?: string
           description?: string | null
           host_id?: string
@@ -1324,6 +1334,11 @@ export type Database = {
           archived_at?: string | null
           cancel_reason?: string | null
           cancelled_at?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          closed_cause?: string | null
+          closed_how?: string | null
+          completed_by?: string | null
           created_at?: string
           description?: string | null
           host_id?: string
@@ -3654,8 +3669,20 @@ export type Database = {
         }
         Returns: Json
       }
-      api_task_json: {
-        Args: { p: Database["public"]["Tables"]["problems"]["Row"] }
+      api_task_json:
+        | {
+            Args: { p: Database["public"]["Tables"]["problems"]["Row"] }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p: Database["public"]["Tables"]["problems"]["Row"]
+              p_scopes: string[]
+            }
+            Returns: Json
+          }
+      api_task_person_json: {
+        Args: { p_host: string; p_person: string; p_scopes: string[] }
         Returns: Json
       }
       api_ts: { Args: { p_at: string }; Returns: string }
@@ -3855,6 +3882,11 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          closed_at: string | null
+          closed_by: string | null
+          closed_cause: string | null
+          closed_how: string | null
+          completed_by: string | null
           created_at: string
           description: string | null
           host_id: string
@@ -3910,6 +3942,11 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          closed_at: string | null
+          closed_by: string | null
+          closed_cause: string | null
+          closed_how: string | null
+          completed_by: string | null
           created_at: string
           description: string | null
           host_id: string
@@ -3945,6 +3982,11 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          closed_at: string | null
+          closed_by: string | null
+          closed_cause: string | null
+          closed_how: string | null
+          completed_by: string | null
           created_at: string
           description: string | null
           host_id: string
@@ -4102,6 +4144,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      closing_people: {
+        Args: { p: Database["public"]["Tables"]["problems"]["Row"] }
+        Returns: Json
       }
       complete_signal_history: {
         Args: {
@@ -4529,6 +4575,11 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          closed_at: string | null
+          closed_by: string | null
+          closed_cause: string | null
+          closed_how: string | null
+          completed_by: string | null
           created_at: string
           description: string | null
           host_id: string
@@ -4558,6 +4609,11 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          closed_at: string | null
+          closed_by: string | null
+          closed_cause: string | null
+          closed_how: string | null
+          completed_by: string | null
           created_at: string
           description: string | null
           host_id: string
@@ -4799,6 +4855,11 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          closed_at: string | null
+          closed_by: string | null
+          closed_cause: string | null
+          closed_how: string | null
+          completed_by: string | null
           created_at: string
           description: string | null
           host_id: string
@@ -4882,6 +4943,11 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          closed_at: string | null
+          closed_by: string | null
+          closed_cause: string | null
+          closed_how: string | null
+          completed_by: string | null
           created_at: string
           description: string | null
           host_id: string
@@ -4944,11 +5010,16 @@ export type Database = {
         Returns: number
       }
       resolve_problem: {
-        Args: { p_id: string }
+        Args: { p_alone?: boolean; p_completed_by?: string; p_id: string }
         Returns: {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          closed_at: string | null
+          closed_by: string | null
+          closed_cause: string | null
+          closed_how: string | null
+          completed_by: string | null
           created_at: string
           description: string | null
           host_id: string
@@ -5754,6 +5825,11 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          closed_at: string | null
+          closed_by: string | null
+          closed_cause: string | null
+          closed_how: string | null
+          completed_by: string | null
           created_at: string
           description: string | null
           host_id: string
@@ -5783,6 +5859,11 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          closed_at: string | null
+          closed_by: string | null
+          closed_cause: string | null
+          closed_how: string | null
+          completed_by: string | null
           created_at: string
           description: string | null
           host_id: string
@@ -5859,6 +5940,11 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          closed_at: string | null
+          closed_by: string | null
+          closed_cause: string | null
+          closed_how: string | null
+          completed_by: string | null
           created_at: string
           description: string | null
           host_id: string

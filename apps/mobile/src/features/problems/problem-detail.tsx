@@ -1,4 +1,4 @@
-import { problemPriorityTone, problemStatusTone } from '@str-ops/shared';
+import { closingLines, problemPriorityTone, problemStatusTone } from '@str-ops/shared';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -16,6 +16,7 @@ import { BUTTON_HEIGHT, Radius, Spacing, type Theme } from '@/constants/theme';
 import { MediaStrip, type StripItem } from '@/features/media/media-strip';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
+import { closingRowOf } from './closing';
 import { formatReportedAt, problemPlace, problemPriorityText, problemStatusText } from './format';
 import { MAX_PROBLEM_PHOTOS, type Problem } from './schema';
 import { SIGNAL_BADGE_TONE, shownTitle, signalBadges, signalLabel } from './signal-source';
@@ -142,6 +143,12 @@ export function ProblemDetail({
             </Text>
           </Fact>
         ) : null}
+        {/* Who did it and who closed it: «Выполнил: Иван», «Закрыл: менеджер Пётр». */}
+        {closingLines(closingRowOf(problem), t).map((line) => (
+          <Text key={line} testID="problem-closing" tone="secondary">
+            {line}
+          </Text>
+        ))}
       </Card>
 
       {dispatch}

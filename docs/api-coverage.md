@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 43 | 237 | 300 |
+| Функции | 20 | 43 | 240 | 303 |
 | Таблицы и представления | 8 | 20 | 19 | 47 |
-| Всего | 28 | 63 | 256 | 347 |
+| Всего | 28 | 63 | 259 | 350 |
 
 ## Функции
 
@@ -89,7 +89,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 237
+### Внутреннее — 240
 
 | Имя | Причина |
 | --- | --- |
@@ -127,6 +127,7 @@
 | `api_safe_property_name` | API plumbing: masks door codes in property names (F27). |
 | `api_staff_json` | API plumbing: what a member of staff looks like in the API. |
 | `api_task_json` | API plumbing: what a task looks like in the API. |
+| `api_task_person_json` | API plumbing: a person on a task, the name only with staff:read_names. |
 | `api_ts` | API plumbing: ISO 8601 UTC timestamps. |
 | `apply_signal_findings` | classify-guest-signals job: stores and decides one review's reading (rules or model), service_role only |
 | `auth_role` | auth/RLS helper: role of the active caller from profiles |
@@ -146,6 +147,7 @@
 | `cleaning_turnover_on` | cleaning generator helper; cleanings come from Hostaway bookings (next check-in, deadline and window) |
 | `cleans_property` | auth/RLS helper: does the caller clean this listing |
 | `cleans_property_as` | push plumbing: listing link check for a given person, service_role only |
+| `closing_people` | computed field for the panel and the phone: the names behind completed_by and closed_by; the API gives them in the task under staff:read_names |
 | `complete_signal_history` | the reading of past reviews: the job writes it, no client calls it |
 | `complete_task_step` | phone-only flow of the cleaner at work (task steps): completes a step |
 | `confirm_task_media` | phone upload pipeline: registers, confirms or withdraws a Storage slot (row before file); the API only reads media |
@@ -296,6 +298,7 @@
 | `snapshot_task_steps` | trigger function: copies the process template into a task when it starts |
 | `staff_directory` | phone board people picker for the head technician; the API reads profiles under staff:read/staff:read_names |
 | `staff_property_ids` | auth/RLS helper: listings an active non-manager may read |
+| `stamp_problem_closing` | trigger function: stamps who did the work and who closed a task (problem) |
 | `stamp_task_author` | trigger function: stamps created_by on a task |
 | `store_review_texts` | PMS sync (sync-guest-signals): helper of ingest_guest_reviews writing the anonymised texts while they may be kept; execute revoked from every role |
 | `supply_item_name_max_length` | validation limit constant of save_supply_request |
