@@ -30,6 +30,7 @@ begin
   drop function public.oauth_store_tokens(public.api_keys, text, text);
   drop function public.oauth_end_connection(uuid, text);
   drop function public.oauth_redirect_allowed(text[], text);
+  drop function public.oauth_redirect_safe(text);
 
   drop function public.api_gate(text, text, text);
 

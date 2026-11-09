@@ -46,9 +46,16 @@ const REGISTRATION_RETRY_SECONDS = 3600;
 /** The function is reached as /oauth/… on the platform and /functions/v1/oauth/… through the gateway. */
 const PREFIXES = ["/functions/v1/oauth", "/oauth"];
 const IP = /^[0-9A-Fa-f.:]{2,45}$/;
-const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
-/** Schemes a browser would run or read rather than hand to a program. */
-const UNSAFE_SCHEMES = new Set(["javascript:", "data:", "file:", "vbscript:", "about:", "blob:", "ftp:", "ws:", "wss:"]);
+/**
+ * The redirects a browser may be sent to, as the database's oauth_redirect_safe
+ * and the panel's isSafeRedirectUri say them: https, plain http to this
+ * computer, or a program's own scheme — reverse-domain, or an editor's short one.
+ */
+const HTTPS = /^https:\/\/[^/?:]+/;
+const LOOPBACK = /^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:[0-9]{1,5})?(\/|$)/;
+const PROGRAM_SCHEME = /^((cursor|vscode|vscode-insiders):\/\/|[a-z][a-z0-9+-]*(\.[a-z0-9+-]+)+:)/;
+/** Control and format characters (bidi overrides among them): a name is shown to an admin. */
+const HIDDEN_CHARACTERS = /[\p{Cc}\p{Cf}]/gu;
 const GRANT_TYPES = ["authorization_code", "refresh_token"];
 
 export const CORS_HEADERS: Readonly<Record<string, string>> = {
@@ -130,7 +137,8 @@ function endpointOf(pathname: string): string | null {
 /**
  * Why a redirect URI cannot be registered, or null when it can: https
  * anywhere, plain http to this computer only (RFC 8252 §7.3), or a program's
- * own scheme (§7.1) — never one a browser would run itself. No fragment.
+ * own scheme (§7.1) — never one a browser would run or read itself
+ * (javascript:, data:, file:, mailto: …). No fragment, no credentials.
  */
 export function redirectUriProblem(value: unknown): string | null {
   if (typeof value !== "string" || value.length === 0 || value.length > MAX_URI_LENGTH) {
@@ -145,16 +153,21 @@ export function redirectUriProblem(value: unknown): string | null {
   if (url.hash !== "" || value.includes("#")) {
     return "a redirect URI has no fragment";
   }
-  if (url.username !== "" || url.password !== "") {
+  if (url.username !== "" || url.password !== "" || /^[a-z][a-z0-9+.-]*:\/\/[^/?]*@/.test(value)) {
     return "a redirect URI carries no credentials";
   }
-  if (url.protocol === "https:") {
+  if (HTTPS.test(value) || LOOPBACK.test(value) || PROGRAM_SCHEME.test(value)) {
     return null;
   }
-  if (url.protocol === "http:") {
-    return LOOPBACK_HOSTS.has(url.hostname) ? null : "plain http is allowed for this computer only (localhost)";
-  }
-  return UNSAFE_SCHEMES.has(url.protocol) ? `the ${url.protocol} scheme is not allowed` : null;
+  return url.protocol === "http:"
+    ? "plain http is allowed for this computer only (localhost)"
+    : "a redirect URI is https, http to this computer, or a program's own scheme";
+}
+
+/** A name as the admin will read it: no control or bidi characters, at most 100 long. */
+export function cleanClientName(value: string): string | null {
+  const name = value.replace(HIDDEN_CHARACTERS, "").trim();
+  return name === "" ? null : name.slice(0, MAX_CLIENT_NAME);
 }
 
 interface Registration {
@@ -186,15 +199,12 @@ export function readRegistration(body: unknown): Registration | RegistrationRefu
       return refuse("invalid_redirect_uri", problem);
     }
   }
-  const method = body.token_endpoint_auth_method;
-  if (method !== undefined && method !== "none") {
-    return refuse("invalid_client_metadata", "only public clients register: token_endpoint_auth_method must be none");
-  }
+  // RFC 7591 §3.2.1 lets the server replace what it does not offer: every
+  // client is public (the answer says "none"), extra grant types are dropped.
+  // Without the code grant, though, there is nothing to register for.
   const grants = body.grant_types;
-  if (grants !== undefined &&
-      (!Array.isArray(grants) || !grants.includes("authorization_code") ||
-       grants.some((grant) => !GRANT_TYPES.includes(grant)))) {
-    return refuse("invalid_client_metadata", "grant_types may be authorization_code and refresh_token");
+  if (grants !== undefined && (!Array.isArray(grants) || !grants.includes("authorization_code"))) {
+    return refuse("invalid_client_metadata", "grant_types must include authorization_code");
   }
   const responses = body.response_types;
   if (responses !== undefined && (!Array.isArray(responses) || responses.some((type) => type !== "code"))) {
@@ -205,7 +215,7 @@ export function readRegistration(body: unknown): Registration | RegistrationRefu
     return refuse("invalid_client_metadata", "client_name is a string of at most 100 characters");
   }
   return {
-    clientName: typeof name === "string" && name.trim() !== "" ? name.trim() : null,
+    clientName: typeof name === "string" ? cleanClientName(name) : null,
     redirectUris: [...new Set(uris as string[])],
   };
 }

@@ -4971,6 +4971,7 @@ export type Database = {
         Args: { p_redirect: string; p_registered: string[] }
         Returns: boolean
       }
+      oauth_redirect_safe: { Args: { p_uri: string }; Returns: boolean }
       oauth_refresh_tokens: {
         Args: {
           p_access_digest: string

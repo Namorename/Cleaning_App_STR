@@ -348,6 +348,29 @@ as $$
                         from unnest(p_registered) r))))
 $$;
 
+/**
+ * Where a browser may be sent back at all, whatever a client declares: https,
+ * plain http to this computer only, or a program's own scheme (RFC 8252 §7.1) —
+ * reverse-domain, or one of the editors that use a short one. Never a scheme a
+ * browser would run itself (javascript:, data:), no fragment, no credentials.
+ * The page and the Edge Function hold the same rule; this is the last of the three.
+ */
+create or replace function public.oauth_redirect_safe(p_uri text)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select p_uri is not null
+    and length(p_uri) between 1 and 2048
+    and p_uri !~ '#'
+    and p_uri !~ '^[a-z][a-z0-9+.-]*://[^/?]*@'
+    and (p_uri ~ '^https://[^/?:]+'
+         or p_uri ~ '^http://(localhost|127\.0\.0\.1|\[::1\])(:[0-9]{1,5})?(/|$)'
+         or p_uri ~ '^(cursor|vscode|vscode-insiders)://'
+         or p_uri ~ '^[a-z][a-z0-9+-]*(\.[a-z0-9+-]+)+:')
+$$;
+
 /** A dynamically registered client, for the consent page and the token endpoint. Nothing secret. */
 create or replace function public.oauth_client(p_client_id text)
 returns jsonb
@@ -388,8 +411,9 @@ begin
     raise exception 'The IP hash is malformed' using errcode = 'invalid_parameter_value';
   end if;
   if p_redirect_uris is null or cardinality(p_redirect_uris) not between 1 and 5
-     or exists (select 1 from unnest(p_redirect_uris) r where r is null or length(r) not between 1 and 2048) then
-    raise exception 'A client registers one to five redirect URIs' using errcode = 'invalid_parameter_value';
+     or exists (select 1 from unnest(p_redirect_uris) r where not public.oauth_redirect_safe(r)) then
+    raise exception 'A client registers one to five safe redirect URIs'
+      using errcode = 'invalid_parameter_value', hint = 'serverErrors.oauthRedirectInvalid';
   end if;
 
   if (select count(*) from public.oauth_clients c where c.created_at > now() - interval '1 hour') >= c_all
@@ -456,6 +480,10 @@ begin
     raise exception 'The authorization request is malformed'
       using errcode = 'invalid_parameter_value', hint = 'serverErrors.oauthRequestInvalid';
   end if;
+  if not public.oauth_redirect_safe(p_redirect_uri) then
+    raise exception 'The redirect URI is not one a browser may be sent to'
+      using errcode = 'check_violation', hint = 'serverErrors.oauthRedirectInvalid';
+  end if;
 
   if p_client_id like 'woomc\_%' then
     select c.* into v_client from public.oauth_clients c where c.client_id = p_client_id;
@@ -500,6 +528,11 @@ begin
   delete from public.oauth_codes c
   where c.code_digest in (select o.code_digest from public.oauth_codes o
                           where o.expires_at < now() - interval '1 day' limit 500);
+
+  -- An admin has seen this client: it is no longer one nobody used.
+  if v_client.client_id is not null then
+    update public.oauth_clients set last_used_at = now() where client_id = v_client.client_id;
+  end if;
 
   return jsonb_build_object('code', v_code);
 end;
@@ -591,16 +624,20 @@ begin
   if not found then
     return jsonb_build_object('ok', false, 'error', 'invalid_grant');
   end if;
+  -- Bound first: whoever lacks the client, its redirect and the verifier
+  -- cannot end a connection by sending a spent code back.
+  if p_client_id is distinct from v_code.client_id
+     or p_redirect_uri is distinct from v_code.redirect_uri
+     or p_challenge is distinct from v_code.code_challenge then
+    return jsonb_build_object('ok', false, 'error', 'invalid_grant');
+  end if;
   if v_code.used_at is not null then
     if v_code.key_id is not null then
       perform public.oauth_end_connection(v_code.key_id, 'code_reused');
     end if;
     return jsonb_build_object('ok', false, 'error', 'invalid_grant');
   end if;
-  if v_code.expires_at <= now()
-     or p_client_id is distinct from v_code.client_id
-     or p_redirect_uri is distinct from v_code.redirect_uri
-     or p_challenge is distinct from v_code.code_challenge then
+  if v_code.expires_at <= now() then
     return jsonb_build_object('ok', false, 'error', 'invalid_grant');
   end if;
   if p_resource is not null and p_resource <> v_code.resource then

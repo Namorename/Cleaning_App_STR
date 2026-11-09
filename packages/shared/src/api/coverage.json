@@ -924,6 +924,11 @@
       "reason": "MCP sign-in: whether a redirect is one the client registered.",
       "defined_in": "20261109120000_mcp_oauth.sql"
     },
+    "oauth_redirect_safe": {
+      "status": "internal",
+      "reason": "MCP sign-in: whether a browser may be sent to a redirect at all (https, loopback http, a program scheme).",
+      "defined_in": "20261109120000_mcp_oauth.sql"
+    },
     "oauth_refresh_tokens": {
       "status": "internal",
       "reason": "MCP sign-in: the token endpoint rotates a refresh token (Edge Function oauth).",

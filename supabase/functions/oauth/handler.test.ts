@@ -290,7 +290,6 @@ Deno.test("a refused registration says which part, before the database is asked"
     [{ redirect_uris: ["javascript:alert(1)"] }, "invalid_redirect_uri"],
     [{ redirect_uris: ["https://a.example/cb#frag"] }, "invalid_redirect_uri"],
     [{ redirect_uris: [] }, "invalid_redirect_uri"],
-    [{ redirect_uris: ["https://a.example/cb"], token_endpoint_auth_method: "client_secret_basic" }, "invalid_client_metadata"],
     [{ redirect_uris: ["https://a.example/cb"], grant_types: ["client_credentials"] }, "invalid_client_metadata"],
     [{ redirect_uris: ["https://a.example/cb"], client_name: "x".repeat(101) }, "invalid_client_metadata"],
     [["https://a.example/cb"], "invalid_client_metadata"],
@@ -312,16 +311,34 @@ Deno.test("too many registrations from one address wait an hour", async () => {
 
 Deno.test("redirects: https anywhere, http to this computer, a program's own scheme; nothing a browser runs", () => {
   for (const ok of ["https://claude.ai/api/mcp/auth_callback", "http://localhost:3118/callback", "http://127.0.0.1/cb",
-                    "http://[::1]:8080/cb", "cursor://anysphere.cursor-mcp/oauth/callback", "vscode://x/y"]) {
+                    "http://[::1]:8080/cb", "cursor://anysphere.cursor-mcp/oauth/callback", "vscode://x/y",
+                    "com.example.app:/oauth/cb"]) {
     assertEquals(redirectUriProblem(ok), null, ok);
   }
   for (const bad of ["http://claude.ai/cb", "javascript:alert(1)", "data:text/html,x", "file:///etc/passwd",
-                     "https://a.example/cb#x", "https://user:pw@a.example/cb", "/relative", "", 42]) {
+                     "https://a.example/cb#x", "https://user:pw@a.example/cb", "/relative", "", 42,
+                     "mailto:x@y.z", "ms-msdt:id", "intent://x", "HTTP://localhost/cb", "javascript://x.y/%0Aalert(1)"]) {
     assert(redirectUriProblem(bad) !== null, String(bad));
   }
 });
 
 Deno.test("a registration keeps each redirect once and an empty name as none", () => {
   const read = readRegistration({ client_name: "  ", redirect_uris: ["https://a.example/cb", "https://a.example/cb"] });
+  assertEquals(read, { clientName: null, redirectUris: ["https://a.example/cb"] });
+});
+
+Deno.test("a name keeps no control or bidi character, so it reads as it is", () => {
+  const override = String.fromCharCode(0x202e);
+  const newline = String.fromCharCode(10);
+  const read = readRegistration({ client_name: `Cla${override}ude${newline}`, redirect_uris: ["https://a.example/cb"] });
+  assertEquals("clientName" in read ? read.clientName : undefined, "Claude");
+});
+
+Deno.test("what the server does not offer is replaced, not refused (RFC 7591 §3.2.1)", () => {
+  const read = readRegistration({
+    redirect_uris: ["https://a.example/cb"],
+    token_endpoint_auth_method: "client_secret_post",
+    grant_types: ["authorization_code", "refresh_token", "client_credentials"],
+  });
   assertEquals(read, { clientName: null, redirectUris: ["https://a.example/cb"] });
 });

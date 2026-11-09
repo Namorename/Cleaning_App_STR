@@ -24,6 +24,8 @@ import { ConsentFailed, ConsentForm } from '../consent-form';
 const REQUEST: ConsentRequest = {
   clientId: 'https://claude.ai/oauth/mcp-oauth-client-metadata',
   clientName: 'Claude',
+  isVerified: true,
+  clientHost: null,
   redirectUri: 'https://claude.ai/api/mcp/auth_callback',
   redirectLabel: 'claude.ai',
   isLoopback: false,
@@ -151,6 +153,29 @@ describe('the consent page', () => {
       },
     });
     expect(screen.getByText(/Ответ уйдёт программе на этом компьютере/)).toBeInTheDocument();
+  });
+
+  test('a program woom cannot vouch for is named as such, and its name is not the connection’s', async () => {
+    renderForm({
+      request: {
+        ...REQUEST,
+        clientId: 'https://evil.example/c.json',
+        isVerified: false,
+        clientHost: 'evil.example',
+        redirectUri: 'https://evil.example/cb',
+        redirectLabel: 'evil.example',
+      },
+    });
+    expect(
+      screen.getByText(/Программа, которая называет себя «Claude», просит доступ/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Её описание опубликовано на evil.example/)).toBeInTheDocument();
+    expect(screen.getByText(/woom не знает эту программу/)).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Название' })).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'Разрешить' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
   });
 
   test('a request the page will not answer is explained, with nowhere to go', () => {

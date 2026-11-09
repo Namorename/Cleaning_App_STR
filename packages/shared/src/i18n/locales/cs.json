@@ -2025,6 +2025,9 @@
     "oauth": {
       "title": "Připojení k woom",
       "asks": "{{client}} žádá o přístup k datům vaší firmy ve woom.",
+      "unverifiedAsks": "Program, který si říká „{{client}}“, žádá o přístup k datům vaší firmy ve woom.",
+      "publishedAt": "Jeho popis je zveřejněn na {{host}}.",
+      "unverifiedWarning": "woom tento program nezná a nemůže ověřit jeho název. Povolte ho, jen pokud jste připojení spustili sami a důvěřujete adrese, na kterou se prohlížeč vrátí.",
       "unnamedClient": "Program bez názvu",
       "returnsTo": "Po odpovědi se prohlížeč vrátí na {{target}}.",
       "loopbackWarning": "Odpověď půjde programu na tomto počítači. Povolte ji, jen pokud jste připojení spustili sami.",

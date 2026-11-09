@@ -1991,6 +1991,9 @@
     "oauth": {
       "title": "Connect to woom",
       "asks": "{{client}} is asking for access to your company’s data in woom.",
+      "unverifiedAsks": "A program that calls itself “{{client}}” is asking for access to your company’s data in woom.",
+      "publishedAt": "Its description is published at {{host}}.",
+      "unverifiedWarning": "woom does not know this program and cannot check its name. Allow it only if you started this connection yourself and trust the address the browser goes back to.",
       "unnamedClient": "An unnamed program",
       "returnsTo": "After you answer, the browser goes back to {{target}}.",
       "loopbackWarning": "The answer goes to a program on this computer. Allow it only if you started this connection yourself.",

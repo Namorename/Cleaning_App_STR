@@ -27,7 +27,7 @@ import { useSupabase } from '@/lib/supabase/use-client';
 
 import { approveConnection } from './api';
 import type { ConsentRequest } from './authorize-request';
-import { redirectBack } from './redirect';
+import { isSafeRedirectUri, redirectBack } from './redirect';
 
 /** A new connection starts as one of these; full access or a custom set is a change in Settings → API. */
 const CONSENT_PRESETS: readonly Preset[] = ['read_only', 'operator'];
@@ -47,8 +47,11 @@ interface ConsentFormProps {
   navigate?: (url: string) => void;
 }
 
+/** The last guard: the browser is never sent to a scheme it would run itself. */
 function goTo(url: string) {
-  window.location.assign(url);
+  if (isSafeRedirectUri(url)) {
+    window.location.assign(url);
+  }
 }
 
 /**
@@ -62,7 +65,12 @@ export function ConsentForm({ request, isAdmin, navigate = goTo }: ConsentFormPr
   const baseId = useId();
   const client = useSupabase();
   const clientName = request.clientName ?? t('panel.oauth.unnamedClient');
-  const [draft, setDraft] = useState<KeyDraft>({ ...EMPTY_DRAFT, name: clientName.slice(0, 80) });
+  // A name a program gave itself is not proof of who it is: only a verified
+  // client's name becomes the connection's; for any other the admin names it.
+  const [draft, setDraft] = useState<KeyDraft>({
+    ...EMPTY_DRAFT,
+    name: request.isVerified ? clientName.slice(0, 80) : '',
+  });
   const patch = (next: Partial<KeyDraft>) => setDraft((current) => ({ ...current, ...next }));
 
   const approve = useMutation({
@@ -97,13 +105,25 @@ export function ConsentForm({ request, isAdmin, navigate = goTo }: ConsentFormPr
       <PageHeader title={t('panel.oauth.title')} />
       <Card>
         <CardHeader>
-          <CardTitle>{t('panel.oauth.asks', { client: clientName })}</CardTitle>
+          <CardTitle>
+            {request.isVerified
+              ? t('panel.oauth.asks', { client: clientName })
+              : t('panel.oauth.unverifiedAsks', { client: clientName })}
+          </CardTitle>
           <CardDescription>
+            {request.clientHost === null
+              ? null
+              : `${t('panel.oauth.publishedAt', { host: request.clientHost })} `}
             {t('panel.oauth.returnsTo', { target: request.redirectLabel })}
           </CardDescription>
         </CardHeader>
         <form onSubmit={submit}>
           <CardContent className="flex flex-col gap-4">
+            {request.isVerified ? null : (
+              <Alert variant="destructive">
+                <AlertDescription>{t('panel.oauth.unverifiedWarning')}</AlertDescription>
+              </Alert>
+            )}
             {request.isLoopback ? (
               <Alert>
                 <AlertDescription>{t('panel.oauth.loopbackWarning')}</AlertDescription>

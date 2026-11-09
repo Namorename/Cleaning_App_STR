@@ -7,8 +7,10 @@ import { isLoopback, isRedirectAllowed, redirectBack, redirectLabel } from './re
  *
  * Until the client and its redirect are known good, a problem is shown on the
  * page and the browser goes nowhere: redirecting to an unchecked address is an
- * open redirect (RFC 6749 §4.1.2.1). After that, a problem goes back to the
- * client as an error on its redirect, with the issuer (RFC 9207).
+ * open redirect (RFC 6749 §4.1.2.1). Only a verified client (Claude's own
+ * documents) gets a problem back on its redirect, with the issuer (RFC 9207):
+ * anyone can publish a document whose redirect is a page of their choosing,
+ * and the panel's address must not send a browser there unasked.
  */
 
 export type SearchParams = Readonly<Record<string, string | string[] | undefined>>;
@@ -17,6 +19,10 @@ export interface ConsentRequest {
   readonly clientId: string;
   /** As the client names itself; null when it gives no name. */
   readonly clientName: string | null;
+  /** One of Claude's own documents; any other client is shown as one woom cannot vouch for. */
+  readonly isVerified: boolean;
+  /** Where the client's document is published (a client named by a URL), or null. */
+  readonly clientHost: string | null;
   readonly redirectUri: string;
   /** The host (or a program's scheme) the browser goes back to, for the page to show. */
   readonly redirectLabel: string;
@@ -101,17 +107,20 @@ export async function readAuthorizeRequest(
     return { kind: 'invalid', reason: 'badRedirect' };
   }
 
-  // From here the redirect is the client's own: errors go back to it.
+  // From here the redirect is the client's own: a verified client's errors go back to it.
   const state = typeof values.state === 'string' ? values.state : null;
-  const back = (error: string, description: string): AuthorizeOutcome => ({
-    kind: 'redirect',
-    to: redirectBack(redirectUri, {
-      error,
-      error_description: description,
-      state,
-      iss: deps.issuer,
-    }),
-  });
+  const back = (error: string, description: string): AuthorizeOutcome =>
+    client.verified
+      ? {
+          kind: 'redirect',
+          to: redirectBack(redirectUri, {
+            error,
+            error_description: description,
+            state,
+            iss: deps.issuer,
+          }),
+        }
+      : { kind: 'invalid', reason: 'badRequest' };
   if (Object.values(values).some((value) => value === undefined)) {
     return back('invalid_request', 'A parameter was sent more than once');
   }
@@ -141,6 +150,9 @@ export async function readAuthorizeRequest(
     request: {
       clientId,
       clientName: client.name,
+      isVerified: client.verified,
+      clientHost:
+        client.verified || !clientId.startsWith('https://') ? null : new URL(clientId).host,
       redirectUri,
       redirectLabel: redirectLabel(redirectUri),
       isLoopback: isLoopback(redirectUri),

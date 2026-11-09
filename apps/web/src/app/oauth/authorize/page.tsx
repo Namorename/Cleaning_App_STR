@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { fetchRegisteredClient } from '@/features/oauth/api';
@@ -10,7 +9,7 @@ import {
   type OAuthClient,
 } from '@/features/oauth/client-metadata';
 import { ConsentFailed, ConsentForm } from '@/features/oauth/consent-form';
-import { mcpResource, requestOrigin } from '@/features/oauth/metadata';
+import { mcpResource, oauthIssuer } from '@/features/oauth/metadata';
 import { publicEnv } from '@/lib/env';
 import { roleOf } from '@/lib/session';
 import { createClient } from '@/lib/supabase/server';
@@ -38,7 +37,7 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const issuer = requestOrigin(await headers(), 'https://woom-bnb.vercel.app');
+  const issuer = oauthIssuer();
 
   const lookupClient = async (clientId: string): Promise<OAuthClient | null> => {
     if (isClientIdUrl(clientId)) {

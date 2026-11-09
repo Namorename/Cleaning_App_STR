@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 46 | 253 | 319 |
+| Функции | 20 | 46 | 254 | 320 |
 | Таблицы и представления | 9 | 21 | 22 | 52 |
-| Всего | 29 | 67 | 275 | 371 |
+| Всего | 29 | 67 | 276 | 372 |
 
 ## Функции
 
@@ -92,7 +92,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 253
+### Внутреннее — 254
 
 | Имя | Причина |
 | --- | --- |
@@ -223,6 +223,7 @@
 | `oauth_end_connection` | MCP sign-in: ends a connection whose code or refresh token came back twice. |
 | `oauth_issue_tokens` | MCP sign-in: the token endpoint trades a code for tokens (Edge Function oauth). |
 | `oauth_redirect_allowed` | MCP sign-in: whether a redirect is one the client registered. |
+| `oauth_redirect_safe` | MCP sign-in: whether a browser may be sent to a redirect at all (https, loopback http, a program scheme). |
 | `oauth_refresh_tokens` | MCP sign-in: the token endpoint rotates a refresh token (Edge Function oauth). |
 | `oauth_register_client` | MCP sign-in: dynamic client registration (Edge Function oauth). |
 | `oauth_store_tokens` | MCP sign-in: keeps the digests of a connection's new tokens. |

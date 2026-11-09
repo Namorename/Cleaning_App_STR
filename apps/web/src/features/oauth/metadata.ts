@@ -41,16 +41,17 @@ export function authorizationServerMetadata(
   };
 }
 
+/** The panel's production address: the issuer the MCP server names (supabase/functions/_shared/mcp-oauth.ts). */
+export const PANEL_ISSUER = 'https://woom-bnb.vercel.app';
+
 /**
- * The panel's own origin as the request reached it: the issuer must be the
- * address the client fetched the metadata from (RFC 8414 §3.3), whichever of
- * the deployment's addresses that was.
+ * The issuer, fixed rather than read from the request: a forged Host header
+ * must not make the metadata name another server. OAUTH_ISSUER (server-side
+ * only) moves it for a stand; production needs nothing set.
  */
-export function requestOrigin(headers: Pick<Headers, 'get'>, fallback: string): string {
-  const host = headers.get('x-forwarded-host') ?? headers.get('host');
-  if (host === null || !/^[A-Za-z0-9.-]+(:\d{1,5})?$/.test(host)) {
-    return fallback;
-  }
-  const proto = headers.get('x-forwarded-proto') === 'http' ? 'http' : 'https';
-  return `${proto}://${host.toLowerCase()}`;
+export function oauthIssuer(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): string {
+  const override = env.OAUTH_ISSUER?.trim() ?? '';
+  return (override === '' ? PANEL_ISSUER : override).replace(/\/+$/, '');
 }

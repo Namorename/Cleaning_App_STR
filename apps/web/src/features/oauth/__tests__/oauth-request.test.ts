@@ -1,9 +1,14 @@
 import { describe, expect, test, vi } from 'vitest';
 
 import { readAuthorizeRequest, type AuthorizeDeps, type SearchParams } from '../authorize-request';
-import { fetchClientMetadata, isClientIdUrl, KNOWN_CLIENTS } from '../client-metadata';
-import { authorizationServerMetadata, mcpResource, requestOrigin } from '../metadata';
-import { isRedirectAllowed, redirectBack, redirectLabel } from '../redirect';
+import {
+  fetchClientMetadata,
+  isClientIdUrl,
+  KNOWN_CLIENTS,
+  type OAuthClient,
+} from '../client-metadata';
+import { authorizationServerMetadata, mcpResource, oauthIssuer } from '../metadata';
+import { isRedirectAllowed, isSafeRedirectUri, redirectBack, redirectLabel } from '../redirect';
 
 const ISSUER = 'https://woom-bnb.vercel.app';
 const MCP = 'https://project.supabase.co/functions/v1/mcp';
@@ -48,6 +53,8 @@ describe('the authorization request', () => {
       request: {
         clientId: CLAUDE,
         clientName: 'Claude',
+        isVerified: true,
+        clientHost: null,
         redirectUri: CALLBACK,
         redirectLabel: 'claude.ai',
         isLoopback: false,
@@ -190,6 +197,7 @@ describe('the client document', () => {
       id: document.client_id,
       name: 'Tool',
       redirectUris: ['https://tool.example/cb'],
+      verified: false,
     });
     expect(fetchImpl).toHaveBeenCalledWith(
       document.client_id,
@@ -250,14 +258,134 @@ describe('the authorization server metadata', () => {
     expect(mcpResource('https://project.supabase.co/')).toBe(MCP);
   });
 
-  test('the issuer is the address the request came to', () => {
-    const headers = new Headers({ host: 'woom-bnb.vercel.app', 'x-forwarded-proto': 'https' });
-    expect(requestOrigin(headers, 'https://fallback.example')).toBe(ISSUER);
-    expect(
-      requestOrigin(new Headers({ host: '127.0.0.1:8096', 'x-forwarded-proto': 'http' }), 'x'),
-    ).toBe('http://127.0.0.1:8096');
-    expect(
-      requestOrigin(new Headers({ host: 'evil.example/path' }), 'https://fallback.example'),
-    ).toBe('https://fallback.example');
+  test('the issuer is fixed, never read from the request; a stand may move it', () => {
+    expect(oauthIssuer({})).toBe(ISSUER);
+    expect(oauthIssuer({ OAUTH_ISSUER: 'http://127.0.0.1:8097/' })).toBe('http://127.0.0.1:8097');
   });
+});
+
+// docs/mcp-oauth.md: the security review of 10.11 — a client's own document is not to be trusted.
+describe('a program woom cannot vouch for', () => {
+  const EVIL = 'https://evil.example/c.json';
+  const evil = (redirectUris: string[], name = 'Claude'): AuthorizeDeps => ({
+    ...deps,
+    lookupClient: (clientId) =>
+      Promise.resolve<OAuthClient | null>(
+        clientId === EVIL ? { id: EVIL, name, redirectUris, verified: false } : null,
+      ),
+  });
+
+  test('may never send the browser to javascript:, whatever its document declares', async () => {
+    const payload = 'javascript:location=1//';
+    expect(
+      await readAuthorizeRequest(
+        params({ client_id: EVIL, redirect_uri: payload }),
+        evil([payload]),
+      ),
+    ).toEqual({ kind: 'invalid', reason: 'badRedirect' });
+    expect(() => redirectBack(payload, { error: 'access_denied', state: null })).toThrow();
+  });
+
+  test('gets its errors shown, not sent back: the panel is no open redirect', async () => {
+    const outcome = await readAuthorizeRequest(
+      params({
+        client_id: EVIL,
+        redirect_uri: 'https://phish.example/relogin',
+        response_type: 'token',
+      }),
+      evil(['https://phish.example/relogin']),
+    );
+    expect(outcome).toEqual({ kind: 'invalid', reason: 'badRequest' });
+  });
+
+  test('is shown as unverified, with where its description lives', async () => {
+    const outcome = await readAuthorizeRequest(
+      params({ client_id: EVIL, redirect_uri: 'https://evil.example/cb' }),
+      evil(['https://evil.example/cb']),
+    );
+    expect(outcome.kind).toBe('ok');
+    if (outcome.kind === 'ok') {
+      expect(outcome.request.isVerified).toBe(false);
+      expect(outcome.request.clientHost).toBe('evil.example');
+    }
+  });
+
+  test('its document drops a redirect a browser would run, and loses its hidden characters', async () => {
+    const override = String.fromCharCode(0x202e);
+    const body = {
+      client_id: 'https://tool.example/oauth/client',
+      client_name: `Cla${override}ude`,
+      redirect_uris: ['javascript:alert(1)', 'https://tool.example/cb'],
+    };
+    const fetchImpl = vi.fn(() => Promise.resolve(new Response(JSON.stringify(body))));
+    expect(await fetchClientMetadata(body.client_id, fetchImpl as unknown as typeof fetch)).toEqual(
+      {
+        id: body.client_id,
+        name: 'Claude',
+        redirectUris: ['https://tool.example/cb'],
+        verified: false,
+      },
+    );
+  });
+
+  test('a document at an IP, at localhost or on another port is not fetched at all', async () => {
+    const fetchImpl = vi.fn();
+    for (const url of [
+      'https://10.0.0.1/meta',
+      'https://[::1]/meta',
+      'https://app.localhost/meta',
+      'https://tool.example:8443/meta',
+      'https://intranet/meta',
+    ]) {
+      expect(isClientIdUrl(url), url).toBe(false);
+      expect(await fetchClientMetadata(url, fetchImpl as unknown as typeof fetch)).toBeNull();
+    }
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  test('safe redirects: https, loopback http, a program own scheme', () => {
+    for (const ok of [
+      'https://claude.ai/api/mcp/auth_callback',
+      'http://localhost:3118/callback',
+      'cursor://anysphere.cursor-mcp/oauth/callback',
+      'com.example.app:/cb',
+    ]) {
+      expect(isSafeRedirectUri(ok), ok).toBe(true);
+    }
+    for (const bad of [
+      'javascript:alert(1)',
+      'data:text/html,x',
+      'http://claude.ai/cb',
+      'mailto:x@y.z',
+      'https://u:p@claude.ai/cb',
+      'https://claude.ai/cb#x',
+      'vbscript:x',
+      'JAVASCRIPT:alert(1)',
+    ]) {
+      expect(isSafeRedirectUri(bad), bad).toBe(false);
+    }
+  });
+});
+
+test('a document streamed past 16 KiB without a length is cut off, not read whole', async () => {
+  const chunk = new TextEncoder().encode('x'.repeat(4096));
+  let sent = 0;
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      sent += 1;
+      if (sent > 64) {
+        controller.close();
+        return;
+      }
+      controller.enqueue(chunk);
+    },
+  });
+  const fetchImpl = vi.fn(() => Promise.resolve(new Response(body)));
+  expect(
+    await fetchClientMetadata(
+      'https://tool.example/oauth/client',
+      fetchImpl as unknown as typeof fetch,
+    ),
+  ).toBeNull();
+  expect(sent).toBeLessThan(10);
 });

@@ -5,7 +5,7 @@ import { z } from 'zod';
 import type { KeyDraft } from '@/features/api-keys/schema';
 
 import type { ConsentRequest } from './authorize-request';
-import type { OAuthClient } from './client-metadata';
+import { cleanClientName, type OAuthClient } from './client-metadata';
 
 export type Client = SupabaseClient<Database>;
 
@@ -42,7 +42,13 @@ export async function fetchRegisteredClient(
     return null;
   }
   const row = registeredSchema.parse(data);
-  return { id: row.client_id, name: row.client_name, redirectUris: row.redirect_uris };
+  // Registration proves nothing about who a client is: never verified.
+  return {
+    id: row.client_id,
+    name: cleanClientName(row.client_name),
+    redirectUris: row.redirect_uris,
+    verified: false,
+  };
 }
 
 /**

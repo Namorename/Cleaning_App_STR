@@ -4,7 +4,7 @@ import { hmacHex } from "../_shared/api-key.ts";
 import { type ApiDeps, createApiHandler, type RpcResult } from "../api/handler.ts";
 import { CATALOG } from "./catalog.ts";
 import type { OAuthConfig } from "../_shared/mcp-oauth.ts";
-import { createMcpHandler } from "./handler.ts";
+import { challengeOf, createMcpHandler } from "./handler.ts";
 import { MAX_RESULT_BYTES } from "./tools.ts";
 
 /**
@@ -735,4 +735,14 @@ Deno.test("a server without OAuth has no metadata and points nowhere", async () 
   assertEquals(response.status, 404);
   const refused = await mcp(rpcRequest("tools/list", {}, { Authorization: "" }));
   assertEquals(refused.headers.get("WWW-Authenticate"), 'Bearer realm="woom"');
+});
+
+Deno.test("a revoked or suspended connection is told its token is invalid, and where to sign in again", () => {
+  for (const code of ["invalid-key", "key-revoked", "key-suspended", "key-expired"]) {
+    assertEquals(
+      challengeOf(code, OAUTH),
+      `Bearer realm="woom", error="invalid_token", resource_metadata="${METADATA_URL}"`,
+    );
+  }
+  assertEquals(challengeOf("missing-key", undefined), 'Bearer realm="woom"');
 });

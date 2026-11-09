@@ -140,9 +140,11 @@ select pg_temp.check('its registration reads back, nothing secret in it',
   (select public.oauth_client(:'dcr') ->> 'client_name'), 'Cursor');
 select pg_temp.check('an unknown client reads as nothing',
   public.oauth_client('woomc_00000000000000000000000000000000'), null::jsonb);
+select pg_temp.raises('a registration may not name a scheme a browser runs',
+  $$select public.oauth_register_client('x', '{javascript:alert(1)}')$$, 'serverErrors.oauthRedirectInvalid');
 select pg_temp.raises('six redirect URIs are too many',
   $$select public.oauth_register_client('x', '{https://a/1,https://a/2,https://a/3,https://a/4,https://a/5,https://a/6}')$$,
-  null);
+  'serverErrors.oauthRedirectInvalid');
 select public.oauth_register_client('Spam ' || n, '{https://spam.example/cb}', pg_temp.d('ip-spam'))
 from generate_series(1, 20) n;
 select pg_temp.check('the 21st registration from one address in an hour waits',
@@ -193,6 +195,21 @@ select pg_temp.raises('a client named by a plain-http URL is refused',
            'https://claude.ai/api/mcp/auth_callback', %L, 'https://project.supabase.co/functions/v1/mcp',
            'X', 'read_only')$$, pg_temp.ch('x')),
   'serverErrors.oauthClientUnknown');
+select pg_temp.raises('a client named by a URL may not send the browser to javascript:',
+  format($$select public.oauth_authorize('https://evil.example/c.json', 'Claude',
+           'javascript:location=1//', %L, 'https://project.supabase.co/functions/v1/mcp', 'X', 'read_only')$$,
+         pg_temp.ch('x')),
+  'serverErrors.oauthRedirectInvalid');
+select pg_temp.check('safe redirects: https, loopback http, a program''s own scheme — nothing a browser runs',
+  (select string_agg(u || '=' || public.oauth_redirect_safe(u)::text, ' ' order by n)
+   from unnest(array['https://claude.ai/api/mcp/auth_callback', 'http://localhost:3118/callback',
+                     'cursor://anysphere.cursor-mcp/oauth/callback', 'com.example.app:/cb',
+                     'javascript:alert(1)', 'data:text/html,x', 'http://claude.ai/cb',
+                     'https://u:p@claude.ai/cb', 'https://claude.ai/cb#x', 'mailto:x@y.z']) with ordinality t(u, n)),
+  'https://claude.ai/api/mcp/auth_callback=true http://localhost:3118/callback=true '
+  'cursor://anysphere.cursor-mcp/oauth/callback=true com.example.app:/cb=true javascript:alert(1)=false '
+  'data:text/html,x=false http://claude.ai/cb=false https://u:p@claude.ai/cb=false https://claude.ai/cb#x=false '
+  'mailto:x@y.z=false');
 select pg_temp.raises('a challenge that is not S256-shaped is refused',
   $$select public.oauth_authorize('https://claude.ai/oauth/mcp-oauth-client-metadata', 'Claude',
       'https://claude.ai/api/mcp/auth_callback', 'plain', 'https://project.supabase.co/functions/v1/mcp',
@@ -346,6 +363,12 @@ select pg_temp.allow_claude('Claude two') as code2 \gset
 select pg_temp.as_server();
 select pg_temp.redeem(:'code2', 'Claude two', 'access-b1', 'refresh-b1') ->> 'ok' as ok2 \gset
 select pg_temp.check('a second connection is made', :'ok2'::text, 'true');
+select pg_temp.check('a spent code without its verifier gets nothing and ends nothing',
+  (public.oauth_issue_tokens(pg_temp.d(:'code2'), 'https://claude.ai/oauth/mcp-oauth-client-metadata',
+     'https://claude.ai/api/mcp/auth_callback', pg_temp.ch('a guess'),
+     'https://project.supabase.co/functions/v1/mcp', pg_temp.d('a-x'), pg_temp.d('r-x')) ->> 'error')
+  || ' ' || (select public.api_key_state(k) from public.api_keys k where k.name = 'Claude two'),
+  'invalid_grant active');
 select pg_temp.check('the same code again gets nothing',
   pg_temp.redeem(:'code2', 'Claude two', 'access-b2', 'refresh-b2') ->> 'error', 'invalid_grant');
 select pg_temp.check('and the connection made with it ends',
