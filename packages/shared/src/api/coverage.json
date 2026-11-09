@@ -165,6 +165,11 @@
       "reason": "API plumbing: keeps the answer of a write for its Idempotency-Key.",
       "defined_in": "20261028100000_public_api_v1.sql"
     },
+    "api_key_by_digest": {
+      "status": "internal",
+      "reason": "API plumbing: the key behind a digest, or the connection behind a live OAuth access token.",
+      "defined_in": "20261109120000_mcp_oauth.sql"
+    },
     "api_key_fields_json": {
       "status": "internal",
       "reason": "API plumbing: a key's journalled fields.",
@@ -893,6 +898,46 @@
       "scope": "tasks:update",
       "reason": "a manager names the worker of a resolved task (problem) afterwards",
       "defined_in": "20261106125500_cleaning_closing.sql"
+    },
+    "oauth_authorize": {
+      "status": "internal",
+      "reason": "MCP sign-in (docs/mcp-oauth.md): the admin allows a connection on the consent page; the panel calls it as the admin.",
+      "defined_in": "20261109120000_mcp_oauth.sql"
+    },
+    "oauth_client": {
+      "status": "internal",
+      "reason": "MCP sign-in: a dynamically registered client, read by the consent page and the token endpoint.",
+      "defined_in": "20261109120000_mcp_oauth.sql"
+    },
+    "oauth_end_connection": {
+      "status": "internal",
+      "reason": "MCP sign-in: ends a connection whose code or refresh token came back twice.",
+      "defined_in": "20261109120000_mcp_oauth.sql"
+    },
+    "oauth_issue_tokens": {
+      "status": "internal",
+      "reason": "MCP sign-in: the token endpoint trades a code for tokens (Edge Function oauth).",
+      "defined_in": "20261109120000_mcp_oauth.sql"
+    },
+    "oauth_redirect_allowed": {
+      "status": "internal",
+      "reason": "MCP sign-in: whether a redirect is one the client registered.",
+      "defined_in": "20261109120000_mcp_oauth.sql"
+    },
+    "oauth_refresh_tokens": {
+      "status": "internal",
+      "reason": "MCP sign-in: the token endpoint rotates a refresh token (Edge Function oauth).",
+      "defined_in": "20261109120000_mcp_oauth.sql"
+    },
+    "oauth_register_client": {
+      "status": "internal",
+      "reason": "MCP sign-in: dynamic client registration (Edge Function oauth).",
+      "defined_in": "20261109120000_mcp_oauth.sql"
+    },
+    "oauth_store_tokens": {
+      "status": "internal",
+      "reason": "MCP sign-in: keeps the digests of a connection's new tokens.",
+      "defined_in": "20261109120000_mcp_oauth.sql"
     },
     "open_cleanings_by_listing": {
       "status": "internal",
@@ -1803,6 +1848,21 @@
       "scope": "knowledge:read",
       "reason": "knowledge base articles: original text, status, scope; free text, mask codes as api_mask_codes does (F27)",
       "defined_in": "20261030100000_knowledge_base.sql"
+    },
+    "oauth_clients": {
+      "status": "internal",
+      "reason": "MCP sign-in: dynamically registered OAuth clients.",
+      "defined_in": "20261109120000_mcp_oauth.sql"
+    },
+    "oauth_codes": {
+      "status": "internal",
+      "reason": "MCP sign-in: authorization codes, as digests.",
+      "defined_in": "20261109120000_mcp_oauth.sql"
+    },
+    "oauth_tokens": {
+      "status": "internal",
+      "reason": "MCP sign-in: access and refresh tokens of connections, as digests.",
+      "defined_in": "20261109120000_mcp_oauth.sql"
     },
     "problem_events": {
       "status": "planned",

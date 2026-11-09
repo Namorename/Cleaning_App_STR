@@ -32,9 +32,11 @@ describe('the MCP server page', () => {
     for (const client of ['Claude Code', 'Cursor', 'Claude Desktop', 'claude.ai']) {
       expect(within(clients).getByRole('heading', { level: 3, name: client })).toBeInTheDocument();
     }
-    expect(within(clients).getByText(/claude mcp add --transport http woom/)).toHaveTextContent(
-      MCP_URL,
-    );
+    const [signIn, withKey] = within(clients).getAllByText(/claude mcp add --transport http woom/);
+    expect(signIn).toHaveTextContent(`claude mcp add --transport http woom ${MCP_URL}`);
+    expect(signIn).not.toHaveTextContent('Authorization');
+    expect(withKey).toHaveTextContent(MCP_URL);
+    expect(withKey).toHaveTextContent('Bearer $WOOM_API_KEY');
     expect(within(clients).getByText(/\$\{env:WOOM_API_KEY\}/)).toHaveTextContent(MCP_URL);
   });
 
@@ -49,8 +51,16 @@ describe('the MCP server page', () => {
     await renderPage();
 
     const note = screen.getByRole('note');
-    expect(note).toHaveTextContent('An assistant can do everything its key allows');
+    expect(note).toHaveTextContent('An assistant can do everything its connection or its key allows');
     expect(note).toHaveTextContent('«Read only»');
+  });
+
+  test('tells the Claude apps to connect through Connectors and sign in, with no key', async () => {
+    await renderPage();
+
+    const clients = screen.getByRole('region', { name: 'Connecting' });
+    expect(within(clients).getByText(/add a custom connector with the address above/)).toBeInTheDocument();
+    expect(within(clients).getByText(/sign in as a company admin/)).toBeInTheDocument();
   });
 
   test('lists every tool with its scope, and marks the three that change data', async () => {

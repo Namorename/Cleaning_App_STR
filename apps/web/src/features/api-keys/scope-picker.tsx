@@ -26,6 +26,8 @@ export interface ScopeChoice {
 interface ScopePickerProps {
   value: ScopeChoice;
   onChange: (next: ScopeChoice) => void;
+  /** The presets offered; all by default. A new OAuth connection starts from two (docs/mcp-oauth.md). */
+  presets?: readonly Preset[];
 }
 
 const PRESETS: readonly Preset[] = API_REGISTRY.presets;
@@ -51,7 +53,7 @@ function givenByPreset(preset: Preset, scope: ScopeEntry): boolean {
  *
  * The search hides rows, it never unticks them.
  */
-export function ScopePicker({ value, onChange }: ScopePickerProps) {
+export function ScopePicker({ value, onChange, presets = PRESETS }: ScopePickerProps) {
   const { t } = useTranslation();
   const baseId = useId();
   const [query, setQuery] = useState('');
@@ -84,7 +86,7 @@ export function ScopePicker({ value, onChange }: ScopePickerProps) {
     <div className="flex flex-col gap-4">
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-1 text-sm font-medium">{t('panel.settings.api.form.preset')}</legend>
-        {PRESETS.map((preset) => {
+        {presets.map((preset) => {
           const id = `${baseId}-preset-${preset}`;
           return (
             <div key={preset} className="flex items-start gap-2">

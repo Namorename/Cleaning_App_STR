@@ -33,10 +33,17 @@ import {
   SUPPORTED_VERSIONS,
 } from "./protocol.ts";
 import { type ApiFetch, type CallContext, type CallOutcome, callTool, keyScopes, listTools } from "./tools.ts";
+import { type OAuthConfig, RESOURCE_METADATA_SUFFIX, resourceMetadataUrl } from "../_shared/mcp-oauth.ts";
 
 export interface McpDeps {
   /** The API v1 handler (supabase/functions/api/handler.ts). */
   readonly api: ApiFetch;
+  /**
+   * Sign-in by OAuth (docs/mcp-oauth.md): the server's canonical URL and the
+   * authorization server's issuer. With it a refusal points the client at the
+   * Protected Resource Metadata (RFC 9728), which this function serves.
+   */
+  readonly oauth?: OAuthConfig;
   /** Where an internal failure's kind goes; never a value. */
   readonly logError?: (line: string) => void;
 }
@@ -49,7 +56,8 @@ const KEY_PARAMS = ["key", "api_key", "apikey", "access_token", "token"];
 const TOOLS_TTL_MS = 5 * 60_000;
 const DISCOVER_TTL_MS = 60 * 60_000;
 const BEARER = /^Bearer\s+\S+\s*$/i;
-const WWW_AUTHENTICATE = 'Bearer realm="woom"';
+/** How long a client may keep the Protected Resource Metadata. */
+const METADATA_MAX_AGE_SECONDS = 300;
 
 const BASE_HEADERS: Readonly<Record<string, string>> = {
   "Cache-Control": "no-store",
@@ -110,8 +118,54 @@ function paramsOf(message: JsonRpcMessage): Record<string, unknown> {
     : {};
 }
 
+/**
+ * The 401's challenge (RFC 6750 §3): no error code when nothing was sent, and
+ * — with OAuth — where the Protected Resource Metadata is (RFC 9728 §5.1), the
+ * only way a client learns where to sign in: the platform cannot serve
+ * /.well-known at the project's root.
+ */
+export function challengeOf(code: string, oauth: OAuthConfig | undefined): string {
+  const parts = ['Bearer realm="woom"'];
+  if (code !== "missing-key") {
+    parts.push('error="invalid_token"');
+  }
+  if (oauth !== undefined) {
+    parts.push(`resource_metadata="${resourceMetadataUrl(oauth.resource)}"`);
+  }
+  return parts.join(", ");
+}
+
+/** RFC 9728 §2: the server, who signs clients in for it, how tokens travel. */
+export function protectedResourceMetadata(oauth: OAuthConfig): Record<string, unknown> {
+  return {
+    resource: oauth.resource,
+    authorization_servers: [oauth.issuer],
+    bearer_methods_supported: ["header"],
+    resource_name: "woom",
+    resource_documentation: `${oauth.issuer}/developers/mcp`,
+  };
+}
+
 export function createMcpHandler(deps: McpDeps): (request: Request) => Promise<Response> {
   const logError = deps.logError ?? ((line: string) => console.error(line));
+
+  /** The metadata, for anyone and any page: it says nothing secret. */
+  function metadata(request: Request): Response {
+    const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, OPTIONS" };
+    if (deps.oauth === undefined) {
+      return json(404, errorOf(null, ERRORS.invalidRequest, "This server takes API keys only"), cors);
+    }
+    if (request.method === "OPTIONS") {
+      return empty(204, { ...cors, "Access-Control-Max-Age": "600" });
+    }
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      return empty(405, { ...cors, Allow: "GET, OPTIONS" });
+    }
+    return json(200, protectedResourceMetadata(deps.oauth), {
+      ...cors,
+      "Cache-Control": `public, max-age=${METADATA_MAX_AGE_SECONDS}`,
+    });
+  }
 
   /** A call's outcome as the client gets it. */
   function answer(id: RequestId, era: Era, outcome: CallOutcome, toolName?: string): Response {
@@ -128,7 +182,7 @@ export function createMcpHandler(deps: McpDeps): (request: Request) => Promise<R
           : json(
             401,
             errorOf(id, ERRORS.unauthorized, "The API key was refused", { code: outcome.code }),
-            { "WWW-Authenticate": WWW_AUTHENTICATE, ...outcome.headers },
+            { ...outcome.headers, "WWW-Authenticate": challengeOf(outcome.code, deps.oauth) },
           );
       case "internal":
         return json(500, errorOf(id, ERRORS.internal, "Internal error"));
@@ -244,6 +298,9 @@ export function createMcpHandler(deps: McpDeps): (request: Request) => Promise<R
     let id: RequestId | null = null;
     try {
       const url = new URL(request.url);
+      if (PATHS.some((path) => url.pathname === `${path}${RESOURCE_METADATA_SUFFIX}`)) {
+        return metadata(request);
+      }
       if (!PATHS.some((path) => url.pathname === path || url.pathname === `${path}/`)) {
         return json(404, errorOf(null, ERRORS.invalidRequest, "No MCP endpoint at this path"));
       }
@@ -308,7 +365,7 @@ export function createMcpHandler(deps: McpDeps): (request: Request) => Promise<R
           return json(
             401,
             errorOf(null, ERRORS.unauthorized, "The API key was refused", { code: "missing-key" }),
-            { "WWW-Authenticate": WWW_AUTHENTICATE },
+            { "WWW-Authenticate": challengeOf("missing-key", deps.oauth) },
           );
         }
         return empty(202);

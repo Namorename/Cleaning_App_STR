@@ -14,6 +14,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 import { readPepper } from "../_shared/api-key.ts";
 import { readSupabaseCredentials } from "../_shared/env.ts";
+import { type OAuthConfig, readOAuthConfig } from "../_shared/mcp-oauth.ts";
 import { type ApiDeps, createApiHandler, type RpcResult } from "../api/handler.ts";
 import { createMcpHandler } from "./handler.ts";
 
@@ -37,6 +38,8 @@ function buildApiDeps(): ApiDeps {
     });
     return {
       pepper,
+      // The MCP server takes OAuth access tokens as well as keys (docs/mcp-oauth.md).
+      channel: "mcp",
       rpc: async (fn, args): Promise<RpcResult> => {
         const { data, error } = await client.rpc(fn, args).abortSignal(AbortSignal.timeout(RPC_TIMEOUT_MS));
         return { data, error };
@@ -57,5 +60,14 @@ function buildApiDeps(): ApiDeps {
   }
 }
 
+/** Where clients sign in (docs/mcp-oauth.md); without the project's URL, keys only. */
+function oauthConfig(): OAuthConfig | undefined {
+  try {
+    return readOAuthConfig(Deno.env, readSupabaseCredentials(Deno.env).supabaseUrl);
+  } catch {
+    return undefined;
+  }
+}
+
 const api = createApiHandler(buildApiDeps());
-Deno.serve(createMcpHandler({ api }));
+Deno.serve(createMcpHandler({ api, oauth: oauthConfig() }));

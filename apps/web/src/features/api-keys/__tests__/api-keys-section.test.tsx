@@ -11,6 +11,9 @@ function apiKey(overrides: Partial<ApiKey> = {}): ApiKey {
     id: 'k-1',
     name: 'Weekly report',
     prefix: 'woom_AAAAAAA',
+    kind: 'key',
+    clientName: null,
+    redirectUri: null,
     preset: 'read_only',
     scopes: [],
     effectiveScopes: ['cleanings:read', 'tasks:read'],
@@ -215,5 +218,32 @@ describe('Settings → API: a change', () => {
       { id: 'k-1', draft: expect.objectContaining({ preset: 'operator', propertyIds: [102], restrict: true }) },
       expect.anything(),
     );
+  });
+});
+
+describe('Settings → API: an OAuth connection', () => {
+  test('shows whom it was given to instead of a key prefix', () => {
+    listState.data = [
+      apiKey({
+        id: 'c-1',
+        name: 'Claude',
+        prefix: null,
+        kind: 'oauth',
+        clientName: 'Claude',
+        redirectUri: 'https://claude.ai/api/mcp/auth_callback',
+      }),
+    ];
+    render(<ApiKeysSection />);
+    const row = screen.getByRole('listitem');
+    expect(within(row).getByText('OAuth · Claude')).toBeInTheDocument();
+    expect(within(row).queryByText(/…$/)).not.toBeInTheDocument();
+  });
+
+  test('a client with no name is still named', () => {
+    listState.data = [
+      apiKey({ id: 'c-2', name: 'Tool', prefix: null, kind: 'oauth', clientName: null, redirectUri: 'http://127.0.0.1/cb' }),
+    ];
+    render(<ApiKeysSection />);
+    expect(screen.getByText('OAuth · Программа без названия')).toBeInTheDocument();
   });
 });

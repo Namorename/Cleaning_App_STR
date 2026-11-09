@@ -187,7 +187,7 @@ select pg_temp.check('a key is kept as its digest, never as the key',
 select pg_temp.check('no column of api_keys could hold a raw key',
   (select string_agg(column_name, ',' order by column_name) from information_schema.columns
    where table_schema = 'public' and table_name = 'api_keys'),
-  'created_at,created_by,expires_at,host_id,id,key_digest,last_used_at,name,prefix,preset,property_ids,revoked_at,revoked_by,scopes,updated_at');
+  'created_at,created_by,expires_at,host_id,id,key_digest,kind,last_used_at,name,oauth_client_id,oauth_client_name,oauth_redirect_uri,prefix,preset,property_ids,revoked_at,revoked_by,scopes,updated_at');
 
 select pg_temp.raises('a digest that is not a hex sha256 is refused',
   $$select public.create_api_key('a2800001-0000-4000-8000-000000000001', 'Bad', 'woom_badAAAA',

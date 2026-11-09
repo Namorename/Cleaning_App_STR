@@ -375,3 +375,14 @@ Deno.test("a value Postgres could not take (any class 22 state) is a 400, not a 
   });
   assertEquals((await handler(get("/v1/settings"))).status, 400);
 });
+
+Deno.test("the REST API asks the gate about keys only; the MCP server names its channel", async () => {
+  const rest = await setup();
+  await rest.handler(get("/v1/me"));
+  const restGate = rest.calls.find((call) => call.fn === "api_gate");
+  assertEquals(Object.keys(restGate?.args ?? {}).sort(), ["p_digest", "p_ip_hash"]);
+
+  const mcp = await setup({}, { channel: "mcp" });
+  await mcp.handler(get("/v1/me"));
+  assertEquals(mcp.calls.find((call) => call.fn === "api_gate")?.args.p_channel, "mcp");
+});

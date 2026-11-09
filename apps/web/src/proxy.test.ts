@@ -354,3 +354,25 @@ describe('the proxy matcher', () => {
     expect(unstable_doesMiddlewareMatch({ config, url: `${ORIGIN}${pathname}` })).toBe(true);
   });
 });
+
+/** docs/mcp-oauth.md: the authorization server's metadata is open; its consent page is not. */
+describe('the OAuth sign-in of the MCP server', () => {
+  test('the metadata opens to any client, without asking Auth', async () => {
+    expect(await redirectOf('/.well-known/oauth-authorization-server')).toBeNull();
+    expect(getUser).not.toHaveBeenCalled();
+  });
+
+  test('the consent page asks for the sign-in and comes back to the whole request', async () => {
+    const request = '/oauth/authorize?client_id=https%3A%2F%2Fclaude.ai%2Fm&state=s';
+    const target = await redirectOf(request);
+
+    expect(target?.pathname).toMatch(/^\/login\/?$/);
+    expect(target?.searchParams.get('next')).toBe(request);
+  });
+
+  test('an admin reaches the consent page', async () => {
+    auth.user = { app_metadata: { role: 'admin' } };
+
+    expect(await redirectOf('/oauth/authorize?client_id=x')).toBeNull();
+  });
+});

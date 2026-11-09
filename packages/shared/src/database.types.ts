@@ -134,10 +134,14 @@ export type Database = {
           expires_at: string | null
           host_id: string
           id: string
-          key_digest: string
+          key_digest: string | null
+          kind: string
           last_used_at: string | null
           name: string
-          prefix: string
+          oauth_client_id: string | null
+          oauth_client_name: string | null
+          oauth_redirect_uri: string | null
+          prefix: string | null
           preset: string
           property_ids: number[] | null
           revoked_at: string | null
@@ -151,10 +155,14 @@ export type Database = {
           expires_at?: string | null
           host_id: string
           id?: string
-          key_digest: string
+          key_digest?: string | null
+          kind?: string
           last_used_at?: string | null
           name: string
-          prefix: string
+          oauth_client_id?: string | null
+          oauth_client_name?: string | null
+          oauth_redirect_uri?: string | null
+          prefix?: string | null
           preset: string
           property_ids?: number[] | null
           revoked_at?: string | null
@@ -168,10 +176,14 @@ export type Database = {
           expires_at?: string | null
           host_id?: string
           id?: string
-          key_digest?: string
+          key_digest?: string | null
+          kind?: string
           last_used_at?: string | null
           name?: string
-          prefix?: string
+          oauth_client_id?: string | null
+          oauth_client_name?: string | null
+          oauth_redirect_uri?: string | null
+          prefix?: string | null
           preset?: string
           property_ids?: number[] | null
           revoked_at?: string | null
@@ -1226,6 +1238,150 @@ export type Database = {
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      oauth_clients: {
+        Row: {
+          client_id: string
+          client_name: string | null
+          created_at: string
+          ip_hash: string | null
+          last_used_at: string | null
+          redirect_uris: string[]
+        }
+        Insert: {
+          client_id: string
+          client_name?: string | null
+          created_at?: string
+          ip_hash?: string | null
+          last_used_at?: string | null
+          redirect_uris: string[]
+        }
+        Update: {
+          client_id?: string
+          client_name?: string | null
+          created_at?: string
+          ip_hash?: string | null
+          last_used_at?: string | null
+          redirect_uris?: string[]
+        }
+        Relationships: []
+      }
+      oauth_codes: {
+        Row: {
+          client_id: string
+          client_name: string | null
+          code_challenge: string
+          code_digest: string
+          created_at: string
+          created_by: string
+          expires_at: string
+          host_id: string
+          key_expires_at: string | null
+          key_id: string | null
+          name: string
+          preset: string
+          property_ids: number[] | null
+          redirect_uri: string
+          resource: string
+          scopes: string[]
+          used_at: string | null
+        }
+        Insert: {
+          client_id: string
+          client_name?: string | null
+          code_challenge: string
+          code_digest: string
+          created_at?: string
+          created_by: string
+          expires_at: string
+          host_id: string
+          key_expires_at?: string | null
+          key_id?: string | null
+          name: string
+          preset: string
+          property_ids?: number[] | null
+          redirect_uri: string
+          resource: string
+          scopes: string[]
+          used_at?: string | null
+        }
+        Update: {
+          client_id?: string
+          client_name?: string | null
+          code_challenge?: string
+          code_digest?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          host_id?: string
+          key_expires_at?: string | null
+          key_id?: string | null
+          name?: string
+          preset?: string
+          property_ids?: number[] | null
+          redirect_uri?: string
+          resource?: string
+          scopes?: string[]
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oauth_codes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oauth_codes_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oauth_codes_key_id_fkey"
+            columns: ["key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      oauth_tokens: {
+        Row: {
+          created_at: string
+          digest: string
+          expires_at: string
+          key_id: string
+          kind: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          digest: string
+          expires_at: string
+          key_id: string
+          kind: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          digest?: string
+          expires_at?: string
+          key_id?: string
+          kind?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oauth_tokens_key_id_fkey"
+            columns: ["key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
             referencedColumns: ["id"]
           },
         ]
@@ -3737,7 +3893,10 @@ export type Database = {
         Args: { p_preset: string; p_scopes: string[] }
         Returns: string[]
       }
-      api_gate: { Args: { p_digest: string; p_ip_hash: string }; Returns: Json }
+      api_gate: {
+        Args: { p_channel?: string; p_digest: string; p_ip_hash: string }
+        Returns: Json
+      }
       api_hm: { Args: { p_at: string }; Returns: string }
       api_idempotency_claim: {
         Args: {
@@ -3756,6 +3915,36 @@ export type Database = {
           p_status: number
         }
         Returns: Json
+      }
+      api_key_by_digest: {
+        Args: { p_digest: string; p_oauth: boolean }
+        Returns: {
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          host_id: string
+          id: string
+          key_digest: string | null
+          kind: string
+          last_used_at: string | null
+          name: string
+          oauth_client_id: string | null
+          oauth_client_name: string | null
+          oauth_redirect_uri: string | null
+          prefix: string | null
+          preset: string
+          property_ids: number[] | null
+          revoked_at: string | null
+          revoked_by: string | null
+          scopes: string[]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "api_keys"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       api_key_fields_json: {
         Args: { k: Database["public"]["Tables"]["api_keys"]["Row"] }
@@ -4745,6 +4934,67 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      oauth_authorize: {
+        Args: {
+          p_client_id: string
+          p_client_name: string
+          p_code_challenge: string
+          p_expires_at?: string
+          p_name: string
+          p_preset: string
+          p_property_ids?: number[]
+          p_redirect_uri: string
+          p_resource: string
+          p_scopes?: string[]
+        }
+        Returns: Json
+      }
+      oauth_client: { Args: { p_client_id: string }; Returns: Json }
+      oauth_end_connection: {
+        Args: { p_key: string; p_reason: string }
+        Returns: undefined
+      }
+      oauth_issue_tokens: {
+        Args: {
+          p_access_digest: string
+          p_challenge: string
+          p_client_id: string
+          p_code_digest: string
+          p_redirect_uri: string
+          p_refresh_digest: string
+          p_resource: string
+        }
+        Returns: Json
+      }
+      oauth_redirect_allowed: {
+        Args: { p_redirect: string; p_registered: string[] }
+        Returns: boolean
+      }
+      oauth_refresh_tokens: {
+        Args: {
+          p_access_digest: string
+          p_client_id: string
+          p_new_refresh_digest: string
+          p_refresh_digest: string
+        }
+        Returns: Json
+      }
+      oauth_register_client: {
+        Args: {
+          p_client_name: string
+          p_ip_hash?: string
+          p_redirect_uris: string[]
+        }
+        Returns: Json
+      }
+      oauth_store_tokens: {
+        Args: {
+          p_access_digest: string
+          p_key: Database["public"]["Tables"]["api_keys"]["Row"]
+          p_refresh_digest: string
+        }
+        Returns: Json
       }
       open_cleanings_by_listing: {
         Args: never

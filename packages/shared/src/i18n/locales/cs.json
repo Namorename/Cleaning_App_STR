@@ -406,7 +406,8 @@
               "hint": "Kam woom posílá události jako «úkol vytvořen». Přibude později."
             }
           }
-        }
+        },
+        "oauthBadge": "OAuth · {{client}}"
       },
       "language": {
         "label": "Jazyk",
@@ -2020,6 +2021,26 @@
       "choose": "Vyberte zaměstnance",
       "save": "Uložit",
       "switchedOff": "Vypnutí"
+    },
+    "oauth": {
+      "title": "Připojení k woom",
+      "asks": "{{client}} žádá o přístup k datům vaší firmy ve woom.",
+      "unnamedClient": "Program bez názvu",
+      "returnsTo": "Po odpovědi se prohlížeč vrátí na {{target}}.",
+      "loopbackWarning": "Odpověď půjde programu na tomto počítači. Povolte ji, jen pokud jste připojení spustili sami.",
+      "nameHint": "Pod tímto názvem se připojení objeví v Nastavení → API.",
+      "presetHint": "„Jen čtení“ je pro dotazy a přehledy. „Operátor“ je pro asistenta, který má vytvářet a přidělovat úkoly a úklidy.",
+      "manageHint": "Přístup můžete kdykoli změnit nebo připojení zrušit v Nastavení → API.",
+      "allow": "Povolit",
+      "allowing": "Povolujeme…",
+      "deny": "Odmítnout",
+      "adminOnly": "Asistenty může připojit jen administrátor firmy. Požádejte administrátora, nebo připojení odmítněte.",
+      "failedTitle": "Připojení se nepodařilo zahájit",
+      "reasons": {
+        "badRequest": "Odkaz je neúplný nebo poškozený. Začněte připojení v programu znovu.",
+        "unknownClient": "Program, který žádá o přístup, woom nezná nebo neodpovídá. Začněte připojení v programu znovu.",
+        "badRedirect": "Program žádá, aby odpověď šla na adresu, kterou nikdy neohlásil. To woom neudělá."
+      }
     }
   },
   "tabs": {
@@ -2895,7 +2916,10 @@
     "qualityWindowInvalid": "Takové období tato sekce nemá",
     "reviewTextNotFound": "Tuto recenzi už Hostaway nemá.",
     "reviewTextGone": "Doba uchování recenze uplynula: její text už nelze číst.",
-    "reviewTextUnavailable": "Hostaway teď neodpovídá. Zkuste to později."
+    "reviewTextUnavailable": "Hostaway teď neodpovídá. Zkuste to později.",
+    "oauthRequestInvalid": "Žádost o připojení je neúplná nebo poškozená. Začněte připojení v programu znovu.",
+    "oauthClientUnknown": "Program, který žádá o přístup, woom nezná.",
+    "oauthRedirectInvalid": "Program žádá, aby odpověď šla na adresu, kterou nikdy neohlásil."
   },
   "push": {
     "cleaning_new": {
@@ -3201,19 +3225,20 @@
       "otherLanguages": "Další jazyky",
       "apiReference": "Reference API",
       "endpointHeading": "Adresa",
-      "endpointText": "Streamable HTTP, jedna adresa, jen POST, verze protokolu 2026-07-28 a 2025-03-26 až 2025-11-25. Každý požadavek nese klíč v hlavičce Authorization: Bearer, mezera a klíč.",
+      "endpointText": "Streamable HTTP, jedna adresa, jen POST, verze protokolu 2026-07-28 a 2025-03-26 až 2025-11-25. Každý požadavek nese token OAuth nebo klíč v hlavičce Authorization: Bearer, mezera a token. Bez něj server odpoví 401 a řekne, kde se přihlásit (OAuth 2.1 s PKCE).",
       "keyHeading": "Co klíč dovoluje",
-      "keyText": "Asistent smí všechno, co dovoluje jeho klíč, a nic víc. Založte mu vlastní klíč v části Nastavení → API: „Jen čtení“ pro dotazy a přehledy, „Operátor“ jen tehdy, když má zakládat a přidělovat úkoly a úklidy. Klíč omezený na některé objekty vidí jen je. Klíč zůstává v nastavení asistenta na tom počítači: zrušte ho, až nebude potřeba.",
+      "keyText": "Asistent smí všechno, co dovoluje jeho připojení nebo klíč, a nic víc. Připojení vzniká na stránce woom, kde se administrátor firmy přihlásí a vybere, co smí; klíč v části Nastavení → API. V obou případech „Jen čtení“ pro dotazy a přehledy, „Operátor“ jen tehdy, když má zakládat a přidělovat úkoly a úklidy. Omezené na některé objekty vidí jen je. Připojení i klíče jsou v Nastavení → API: zrušte, co už není potřeba.",
       "dataHeading": "Data, ne pokyny",
       "dataText": "Názvy, nadpisy, popisy a důvody v odpovědích napsali lidé nebo přišly z rezervačních kanálů. Každý nástroj asistentovi říká, ať je bere jako data, nikdy jako pokyny. Jména, kontakty a zprávy hostů se nevydávají vůbec, stejně jako klíče a přístupové kódy.",
       "writesHeading": "Změny",
       "writesText": "Data mění tři nástroje: založit úkol, přidělit úkol, přidělit úklid. Jsou tak označené, žádají asistenta, ať se vás nejdřív zeptá, a berou klíč idempotence, aby opakování nezaložilo druhý úkol. Žádný nástroj nic nemaže.",
       "clientsHeading": "Připojení",
-      "claudeCodeText": "V terminálu. Klíč držte v proměnné prostředí, ne v historii příkazů.",
+      "claudeCodeText": "V terminálu, bez klíče: přidejte server, pak v Claude Code spusťte /mcp a zvolte přihlášení — v prohlížeči se otevře stránka woom.",
+      "claudeCodeKeyText": "Nebo s klíčem: držte ho v proměnné prostředí, ne v historii příkazů.",
       "claudeCodeProject": "Nebo pro jeden projekt v .mcp.json (Claude Code proměnnou čte při spuštění):",
       "cursorText": "V .cursor/mcp.json projektu, nebo v ~/.cursor/mcp.json pro všechny:",
-      "desktopText": "Claude Desktop přidává vzdálené servery přes Konektory, které se přihlašují přes OAuth; to woom zatím nenabízí. Do té doby klíč předá most mcp-remote (Node.js, balíček třetí strany), v claude_desktop_config.json:",
-      "claudeAiText": "Vlastní konektor v claude.ai a aplikacích Claude potřebuje přihlášení přes OAuth, které woom zatím nenabízí.",
+      "desktopText": "Claude Desktop se připojuje stejně, přes Connectors. Pokud vám přihlášení přes OAuth nevyhovuje, klíč předá most mcp-remote (Node.js, balíček třetí strany), v claude_desktop_config.json:",
+      "claudeAiText": "V claude.ai, Claude Desktop a mobilní aplikaci Claude, bez klíče: v Customize → Connectors přidejte vlastní konektor (Add custom connector) s adresou výše a stiskněte Connect. Otevře se stránka woom: přihlaste se jako administrátor firmy, vyberte přístup a objekty a stiskněte Povolit. Vlastní konektory jsou v tarifech Pro, Max, Team a Enterprise.",
       "toolsHeading": "Nástroje",
       "toolsText": "Jeden nástroj na každou operaci API v1, sestavený z vlastního popisu API. Klíč vidí jen nástroje, které otevírají jeho oprávnění.",
       "toolColumn": "Nástroj",

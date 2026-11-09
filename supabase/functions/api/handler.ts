@@ -35,6 +35,12 @@ export interface ApiDeps {
   readonly logError?: (line: string) => void;
   /** Work that may finish after the answer (the request log). */
   readonly defer?: (work: Promise<unknown>) => void;
+  /**
+   * The MCP server, when it builds this handler: the gate then takes OAuth
+   * access tokens as well as keys (docs/mcp-oauth.md). The REST API leaves it
+   * out and the gate is called as before, keys only.
+   */
+  readonly channel?: "mcp";
 }
 
 const MAX_BODY_BYTES = 16 * 1024;
@@ -172,7 +178,11 @@ export function createApiHandler(deps: ApiDeps): (request: Request) => Promise<R
 
   /** The gate: who is calling, and may they call now. Its counters commit on their own. */
   async function passGate(digest: string | null, ipHash: string | null): Promise<Record<string, unknown>> {
-    const gate = await call(null, "api_gate", { p_digest: digest, p_ip_hash: ipHash });
+    const gate = await call(null, "api_gate", {
+      p_digest: digest,
+      p_ip_hash: ipHash,
+      ...(deps.channel === "mcp" ? { p_channel: "mcp" } : {}),
+    });
     if (typeof gate !== "object" || gate === null) {
       logError("api: api_gate answered no object");
       throw new ApiProblem("internal");

@@ -6,7 +6,11 @@ export const apiKeySchema = z
   .object({
     id: z.string(),
     name: z.string(),
-    prefix: z.string(),
+    /** Null for an OAuth connection: it has no secret of its own (docs/mcp-oauth.md). */
+    prefix: z.string().nullable(),
+    kind: z.enum(['key', 'oauth']).default('key'),
+    client_name: z.string().nullable().default(null),
+    redirect_uri: z.string().nullable().default(null),
     preset: z.enum(['read_only', 'operator', 'full', 'custom']),
     scopes: z.array(z.string()),
     effective_scopes: z.array(z.string()),
@@ -22,6 +26,9 @@ export const apiKeySchema = z
     id: row.id,
     name: row.name,
     prefix: row.prefix,
+    kind: row.kind,
+    clientName: row.client_name,
+    redirectUri: row.redirect_uri,
     preset: row.preset as Preset,
     scopes: row.scopes,
     effectiveScopes: row.effective_scopes,

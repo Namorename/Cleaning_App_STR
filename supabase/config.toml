@@ -451,6 +451,13 @@ verify_jwt = false
 # through the API's own handler and its gate (supabase/functions/mcp/handler.ts).
 verify_jwt = false
 
+[functions.oauth]
+# The token and registration endpoints of the MCP server's sign-in
+# (docs/mcp-oauth.md). An OAuth client holds no Supabase token, and a browser
+# preflight carries no Authorization header; codes and refresh tokens are
+# checked by the database (supabase/functions/oauth/handler.ts).
+verify_jwt = false
+
 [functions.api-keys]
 # Issues API keys for the panel. Off for the reason manage-staff gives: a
 # browser preflight carries no Authorization header. The function checks the

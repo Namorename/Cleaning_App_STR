@@ -78,7 +78,15 @@ export function ApiKeysSection() {
             <li key={apiKey.id} className="flex flex-col gap-2 rounded-md border p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{apiKey.name}</span>
-                <code className="text-xs text-muted-foreground">{apiKey.prefix}…</code>
+                {apiKey.kind === 'oauth' ? (
+                  <Badge variant="outline">
+                    {t('panel.settings.api.oauthBadge', {
+                      client: apiKey.clientName ?? t('panel.oauth.unnamedClient'),
+                    })}
+                  </Badge>
+                ) : (
+                  <code className="text-xs text-muted-foreground">{apiKey.prefix}…</code>
+                )}
                 <Badge variant={STATE_VARIANT[apiKey.state]}>
                   {t(`panel.settings.api.state.${apiKey.state === 'invalid' ? 'revoked' : apiKey.state}`)}
                 </Badge>

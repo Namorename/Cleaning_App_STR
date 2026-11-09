@@ -13,6 +13,20 @@ const nextConfig: NextConfig = {
   // The repository's own CLAUDE.md is the instruction set; a generated one
   // inside apps/web would compete with it.
   agentRules: false,
+  // The OAuth consent page (docs/mcp-oauth.md) is never framed: «Allow» under
+  // someone else's page would be clickjacking. Its query leaks to no referrer.
+  async headers() {
+    return [
+      {
+        source: "/oauth/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

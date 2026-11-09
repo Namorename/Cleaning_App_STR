@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 46 | 244 | 310 |
-| Таблицы и представления | 9 | 21 | 19 | 49 |
-| Всего | 29 | 67 | 263 | 359 |
+| Функции | 20 | 46 | 253 | 319 |
+| Таблицы и представления | 9 | 21 | 22 | 52 |
+| Всего | 29 | 67 | 275 | 371 |
 
 ## Функции
 
@@ -92,7 +92,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 244
+### Внутреннее — 253
 
 | Имя | Причина |
 | --- | --- |
@@ -118,6 +118,7 @@
 | `api_hm` | API plumbing: HH:MM. |
 | `api_idempotency_claim` | API plumbing: claims or replays an Idempotency-Key. |
 | `api_idempotency_store` | API plumbing: keeps the answer of a write for its Idempotency-Key. |
+| `api_key_by_digest` | API plumbing: the key behind a digest, or the connection behind a live OAuth access token. |
 | `api_key_fields_json` | API plumbing: a key's journalled fields. |
 | `api_key_public_json` | API plumbing: what the panel shows of a key. |
 | `api_key_state` | API plumbing: active, revoked, expired or suspended. |
@@ -217,6 +218,14 @@
 | `mark_task_media_purged` | retention job (purge-task-media): marks purged files, service_role only |
 | `mark_webhook_events` | Hostaway webhook processing (process-webhook-events), service_role only |
 | `mirror_problem_status` | trigger function: mirrors the repair state onto its problem |
+| `oauth_authorize` | MCP sign-in (docs/mcp-oauth.md): the admin allows a connection on the consent page; the panel calls it as the admin. |
+| `oauth_client` | MCP sign-in: a dynamically registered client, read by the consent page and the token endpoint. |
+| `oauth_end_connection` | MCP sign-in: ends a connection whose code or refresh token came back twice. |
+| `oauth_issue_tokens` | MCP sign-in: the token endpoint trades a code for tokens (Edge Function oauth). |
+| `oauth_redirect_allowed` | MCP sign-in: whether a redirect is one the client registered. |
+| `oauth_refresh_tokens` | MCP sign-in: the token endpoint rotates a refresh token (Edge Function oauth). |
+| `oauth_register_client` | MCP sign-in: dynamic client registration (Edge Function oauth). |
+| `oauth_store_tokens` | MCP sign-in: keeps the digests of a connection's new tokens. |
 | `open_cleanings_by_listing` | panel registry counter of open cleanings per listing; derivable from GET /v1/cleanings |
 | `open_task_step` | phone-only flow of the cleaner at work (task steps): stamps the first opening of a step |
 | `problem_description_max_length` | validation limit constant of report_problem/update_problem |
@@ -383,7 +392,7 @@
 | `workflow_steps` | `checklists:read` | steps of a process template |
 | `workflow_templates` | `checklists:read` | process templates a cleaning follows |
 
-### Внутреннее — 19
+### Внутреннее — 22
 
 | Имя | Причина |
 | --- | --- |
@@ -397,6 +406,9 @@
 | `issue_facts` | episodes without guest text; the public API will serve aggregates only, from stage 6 |
 | `issue_theme_words` | the dictionary for staff texts |
 | `issue_themes` | the closed list of themes; the public resource comes with stage 6 |
+| `oauth_clients` | MCP sign-in: dynamically registered OAuth clients. |
+| `oauth_codes` | MCP sign-in: authorization codes, as digests. |
+| `oauth_tokens` | MCP sign-in: access and refresh tokens of connections, as digests. |
 | `problem_themes` | the theme of a problem, beside it |
 | `property_internal_notes` | office-only note of a listing ("never leaves the manager panel"); free text that may hold access details |
 | `property_month_stats` | stays and nights by month, read from the PMS |

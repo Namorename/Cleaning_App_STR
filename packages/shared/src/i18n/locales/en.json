@@ -404,7 +404,8 @@
               "hint": "Where woom sends events such as «task created». Coming later."
             }
           }
-        }
+        },
+        "oauthBadge": "OAuth · {{client}}"
       },
       "language": {
         "label": "Language",
@@ -1986,6 +1987,26 @@
       "choose": "Choose a staff member",
       "save": "Save",
       "switchedOff": "Switched off"
+    },
+    "oauth": {
+      "title": "Connect to woom",
+      "asks": "{{client}} is asking for access to your company’s data in woom.",
+      "unnamedClient": "An unnamed program",
+      "returnsTo": "After you answer, the browser goes back to {{target}}.",
+      "loopbackWarning": "The answer goes to a program on this computer. Allow it only if you started this connection yourself.",
+      "nameHint": "The connection appears under this name in Settings → API.",
+      "presetHint": "“Read only” is for questions and reports. “Operator” is for an assistant that should create and assign tasks and cleanings.",
+      "manageHint": "You can change its access or revoke it at any time in Settings → API.",
+      "allow": "Allow",
+      "allowing": "Allowing…",
+      "deny": "Deny",
+      "adminOnly": "Only a company admin can connect assistants. Ask an admin, or deny the connection.",
+      "failedTitle": "The connection could not start",
+      "reasons": {
+        "badRequest": "The link is incomplete or damaged. Start the connection again in the program.",
+        "unknownClient": "woom does not know the program asking for access, or it does not answer. Start the connection again in the program.",
+        "badRedirect": "The program asks for the answer to go to an address it never declared. woom does not do that."
+      }
     }
   },
   "tabs": {
@@ -2837,7 +2858,10 @@
     "qualityWindowInvalid": "This section has no such period",
     "reviewTextNotFound": "Hostaway no longer has this review.",
     "reviewTextGone": "The review’s time is over: its text can no longer be read.",
-    "reviewTextUnavailable": "Hostaway is not answering right now. Try again later."
+    "reviewTextUnavailable": "Hostaway is not answering right now. Try again later.",
+    "oauthRequestInvalid": "The connection request is incomplete or damaged. Start the connection again in the program.",
+    "oauthClientUnknown": "woom does not know the program asking for access.",
+    "oauthRedirectInvalid": "The program asks for the answer to go to an address it never declared."
   },
   "push": {
     "cleaning_new": {
@@ -3139,19 +3163,20 @@
       "otherLanguages": "Other languages",
       "apiReference": "API reference",
       "endpointHeading": "Address",
-      "endpointText": "Streamable HTTP, one endpoint, POST only, protocol versions 2026-07-28 and 2025-03-26 to 2025-11-25. Every request carries the key in the Authorization header: Bearer, a space and the key.",
+      "endpointText": "Streamable HTTP, one endpoint, POST only, protocol versions 2026-07-28 and 2025-03-26 to 2025-11-25. Every request carries an OAuth access token or a key in the Authorization header: Bearer, a space and the token. Without one the server answers 401 and says where to sign in (OAuth 2.1 with PKCE).",
       "keyHeading": "What the key allows",
-      "keyText": "An assistant can do everything its key allows, and nothing else. Make it a key of its own in Settings → API: «Read only» for questions and reports, «Operator» only if it should create and hand out tasks and cleanings. A key limited to some properties sees only them. The key stays in the assistant’s settings on that computer: revoke it when it is no longer needed.",
+      "keyText": "An assistant can do everything its connection or its key allows, and nothing else. A connection is made on woom’s own page, where a company admin signs in and chooses what it may do; a key, in Settings → API. Either way: «Read only» for questions and reports, «Operator» only if it should create and hand out tasks and cleanings. Limited to some properties, it sees only them. Both are listed in Settings → API: revoke one when it is no longer needed.",
       "dataHeading": "Data, not instructions",
       "dataText": "Names, titles, descriptions and reasons in the answers were typed by people or synced from booking channels. Every tool tells the assistant to treat them as data, never as instructions. Guest names, contacts and messages are not served at all, nor are keys or access codes.",
       "writesHeading": "Changes",
       "writesText": "Three tools change data: create a task, hand out a task, hand out a cleaning. They are marked as such, tell the assistant to ask you first, and take an idempotency key, so that a retry does not make a second task. No tool deletes anything.",
       "clientsHeading": "Connecting",
-      "claudeCodeText": "In a terminal. Keep the key in an environment variable rather than in the command history.",
+      "claudeCodeText": "In a terminal, without a key: add the server, then run /mcp in Claude Code and choose to authenticate — woom’s page opens in the browser.",
+      "claudeCodeKeyText": "Or with a key: keep it in an environment variable rather than in the command history.",
       "claudeCodeProject": "Or for one project, in .mcp.json (Claude Code reads the variable when it starts):",
       "cursorText": "In .cursor/mcp.json of a project, or in ~/.cursor/mcp.json for all of them:",
-      "desktopText": "Claude Desktop adds remote servers through Connectors, which sign in with OAuth; woom does not offer that yet. Until then the mcp-remote bridge (Node.js, a third-party package) passes the key, in claude_desktop_config.json:",
-      "claudeAiText": "A custom connector in claude.ai and the Claude apps needs an OAuth sign-in, which woom does not offer yet.",
+      "desktopText": "Claude Desktop connects the same way, through Connectors. If the OAuth sign-in does not suit you, the mcp-remote bridge (Node.js, a third-party package) passes a key instead, in claude_desktop_config.json:",
+      "claudeAiText": "In claude.ai, Claude Desktop and the Claude mobile app, without a key: in Customize → Connectors, add a custom connector with the address above and press Connect. woom’s page opens: sign in as a company admin, choose the access and the properties, and press Allow. Custom connectors come with the Pro, Max, Team and Enterprise plans.",
       "toolsHeading": "Tools",
       "toolsText": "One tool per operation of API v1, built from the API’s own description. A key is shown only the tools its scopes open.",
       "toolColumn": "Tool",

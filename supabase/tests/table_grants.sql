@@ -113,6 +113,11 @@ insert into wanted values
   ('api_request_log',      ''),
   ('api_rate_windows',     ''),
   ('api_idempotency',      ''),
+  -- MCP sign-in by OAuth (20261109120000): clients, codes and tokens are the
+  -- database functions' alone; the consent page calls oauth_authorize.
+  ('oauth_clients',        ''),
+  ('oauth_codes',          ''),
+  ('oauth_tokens',         ''),
   -- Which pushes a person switched off: she reads her own row for the settings
   -- screen and writes it through set_push_preference.
   ('push_preferences',     'SELECT');

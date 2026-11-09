@@ -3,6 +3,7 @@ import { assert, assertEquals, assertMatch } from "jsr:@std/assert@1";
 import { hmacHex } from "../_shared/api-key.ts";
 import { type ApiDeps, createApiHandler, type RpcResult } from "../api/handler.ts";
 import { CATALOG } from "./catalog.ts";
+import type { OAuthConfig } from "../_shared/mcp-oauth.ts";
 import { createMcpHandler } from "./handler.ts";
 import { MAX_RESULT_BYTES } from "./tools.ts";
 
@@ -51,9 +52,10 @@ interface Setup {
   readonly scopes?: readonly string[];
   readonly answers?: Record<string, Rpc>;
   readonly gate?: Rpc;
+  readonly oauth?: OAuthConfig;
 }
 
-async function setup({ scopes = ALL_SCOPES, answers = {}, gate }: Setup = {}) {
+async function setup({ scopes = ALL_SCOPES, answers = {}, gate, oauth }: Setup = {}) {
   const digest = await hmacHex(PEPPER, KEY);
   const calls: Call[] = [];
   const logs: string[] = [];
@@ -105,7 +107,7 @@ async function setup({ scopes = ALL_SCOPES, answers = {}, gate }: Setup = {}) {
       return Promise.resolve(answer === undefined ? { data: null, error: null } : answer(args));
     },
   };
-  const mcp = createMcpHandler({ api: createApiHandler(deps), logError: (line) => logs.push(line) });
+  const mcp = createMcpHandler({ api: createApiHandler(deps), oauth, logError: (line) => logs.push(line) });
   return { mcp, calls, logs, digest };
 }
 
@@ -674,4 +676,63 @@ Deno.test("the modern era has no initialize: a 404 with -32601", async () => {
   const response = await mcp(modernRequest("initialize", { protocolVersion: MODERN }));
   assertEquals(response.status, 404);
   assertEquals(((await body(response)).error as Record<string, unknown>).code, -32601);
+});
+
+// ---------- sign-in by OAuth (docs/mcp-oauth.md) ----------
+
+const OAUTH: OAuthConfig = {
+  issuer: "https://woom-bnb.vercel.app",
+  resource: "https://project.supabase.co/functions/v1/mcp",
+};
+const METADATA_URL = "https://project.supabase.co/functions/v1/mcp/.well-known/oauth-protected-resource";
+
+Deno.test("with OAuth, a refusal points the client at the server's metadata", async () => {
+  const { mcp } = await setup({ oauth: OAUTH });
+  const none = await mcp(rpcRequest("initialize", { protocolVersion: "2025-11-25" }, { Authorization: "" }));
+  assertEquals(none.status, 401);
+  assertEquals(none.headers.get("WWW-Authenticate"), `Bearer realm="woom", resource_metadata="${METADATA_URL}"`);
+
+  const stale = await mcp(rpcRequest("tools/list", {}, { Authorization: `Bearer woomat_${"C".repeat(43)}` }));
+  assertEquals(stale.status, 401);
+  assertEquals(
+    stale.headers.get("WWW-Authenticate"),
+    `Bearer realm="woom", error="invalid_token", resource_metadata="${METADATA_URL}"`,
+  );
+
+  const notification = await mcp(rpcRequest("notifications/initialized", {}, { Authorization: "" }, true));
+  assertEquals(notification.status, 401);
+  assertMatch(notification.headers.get("WWW-Authenticate") ?? "", /resource_metadata=/);
+});
+
+Deno.test("the metadata names the server and the panel that signs clients in, for any page to read", async () => {
+  const { mcp, calls } = await setup({ oauth: OAUTH });
+  for (const path of ["/functions/v1/mcp", "/mcp"]) {
+    const response = await mcp(
+      new Request(`http://localhost${path}/.well-known/oauth-protected-resource`, {
+        headers: { Origin: "https://x.example" },
+      }),
+    );
+    assertEquals(response.status, 200);
+    assertEquals(response.headers.get("Access-Control-Allow-Origin"), "*");
+    assertEquals(await body(response), {
+      resource: OAUTH.resource,
+      authorization_servers: [OAUTH.issuer],
+      bearer_methods_supported: ["header"],
+      resource_name: "woom",
+      resource_documentation: "https://woom-bnb.vercel.app/developers/mcp",
+    });
+  }
+  const post = await mcp(
+    new Request("http://localhost/functions/v1/mcp/.well-known/oauth-protected-resource", { method: "POST" }),
+  );
+  assertEquals(post.status, 405);
+  assertEquals(calls.length, 0);
+});
+
+Deno.test("a server without OAuth has no metadata and points nowhere", async () => {
+  const { mcp } = await setup();
+  const response = await mcp(new Request("http://localhost/functions/v1/mcp/.well-known/oauth-protected-resource"));
+  assertEquals(response.status, 404);
+  const refused = await mcp(rpcRequest("tools/list", {}, { Authorization: "" }));
+  assertEquals(refused.headers.get("WWW-Authenticate"), 'Bearer realm="woom"');
 });

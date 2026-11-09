@@ -31,6 +31,9 @@ const OPEN_PATHS: ReadonlyMap<string, (searchParams: URLSearchParams) => string>
   ['/developers/openapi.json', englishOnly],
   // docs/mcp-server.md §9: how assistants connect, in the address's language.
   ['/developers/mcp', mcpPageLanguageOf],
+  // docs/mcp-oauth.md: the authorization server's metadata, for any client.
+  // Its consent page (/oauth/authorize) is not open: the admin signs in first.
+  ['/.well-known/oauth-authorization-server', englishOnly],
 ]);
 
 /**

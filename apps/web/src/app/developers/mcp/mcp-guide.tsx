@@ -87,6 +87,7 @@ function OtherLanguages({ language }: { language: Language }) {
 
 function clientConfigs(url: string) {
   return {
+    claudeCodeOAuth: `claude mcp add --transport http woom ${url}`,
     claudeCode: `claude mcp add --transport http woom ${url} \\\n  --header "Authorization: Bearer $WOOM_API_KEY"`,
     mcpJson: JSON.stringify(
       {
@@ -201,20 +202,23 @@ export function McpGuide({ language, supabaseUrl }: McpGuideProps) {
         </p>
       </Section>
 
+      {/* docs/mcp-oauth.md: the Claude apps sign in by OAuth, no key; a key stays the way for the rest. */}
       <Section id="mcp-clients" heading={texts.clientsHeading}>
+        <h3 className="font-semibold">claude.ai</h3>
+        <p>{texts.claudeAiText}</p>
+        <h3 className="font-semibold">Claude Desktop</h3>
+        <p>{texts.desktopText}</p>
+        <Code label="Claude Desktop">{configs.desktop}</Code>
         <h3 className="font-semibold">Claude Code</h3>
         <p>{texts.claudeCodeText}</p>
-        <Code label="Claude Code">{configs.claudeCode}</Code>
+        <Code label="Claude Code (OAuth)">{configs.claudeCodeOAuth}</Code>
+        <p>{texts.claudeCodeKeyText}</p>
+        <Code label="Claude Code (API key)">{configs.claudeCode}</Code>
         <p>{texts.claudeCodeProject}</p>
         <Code label=".mcp.json">{configs.mcpJson}</Code>
         <h3 className="font-semibold">Cursor</h3>
         <p>{texts.cursorText}</p>
         <Code label="Cursor">{configs.cursor}</Code>
-        <h3 className="font-semibold">Claude Desktop</h3>
-        <p>{texts.desktopText}</p>
-        <Code label="Claude Desktop">{configs.desktop}</Code>
-        <h3 className="font-semibold">claude.ai</h3>
-        <p>{texts.claudeAiText}</p>
       </Section>
 
       <Section id="mcp-tools" heading={texts.toolsHeading}>
