@@ -370,5 +370,7 @@ export function expiredAsTask(
       name === undefined ? null : { name, hostaway_unit_id: null, timezone: null, parent: null },
     assignee: person === undefined ? null : { full_name: person, role: null },
     problem: null,
+    // The drawer re-reads the cleaning whole (fetchTask), closing and all.
+    closing: null,
   };
 }

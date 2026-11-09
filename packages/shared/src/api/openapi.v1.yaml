@@ -1150,7 +1150,7 @@ components:
     Cleaning:
       type: object
       additionalProperties: false
-      required: [id, type, status, property_id, booking_id, task_id, scheduled_date, time_from, time_to, due_at, priority, assignee_id, title, text_masked, guests_count, is_parallel, started_at, completed_at, completed_by, created_at, updated_at]
+      required: [id, type, status, property_id, booking_id, task_id, scheduled_date, time_from, time_to, due_at, priority, assignee_id, title, text_masked, guests_count, is_parallel, started_at, completed_at, completed_by, created_at, updated_at, worker, worker_source, closed_by, closed_how, closed_cause, closed_at]
       properties:
         id: { type: string, format: uuid }
         type: { type: string, enum: [cleaning, maintenance, inspection, midstay] }
@@ -1170,9 +1170,27 @@ components:
         is_parallel: { type: boolean }
         started_at: { $ref: "#/components/schemas/NullableTimestamp" }
         completed_at: { $ref: "#/components/schemas/NullableTimestamp" }
-        completed_by: { type: [string, "null"], format: uuid }
+        completed_by: { type: [string, "null"], format: uuid, description: "Who marked it done in the app (a manager when he closed it by hand); who did the work is `worker`." }
         created_at: { $ref: "#/components/schemas/Timestamp" }
         updated_at: { $ref: "#/components/schemas/Timestamp" }
+        worker:
+          $ref: "#/components/schemas/TaskPerson"
+          description: Who did the work of a done cleaning. Null when nobody is stated.
+        worker_source:
+          type: [string, "null"]
+          enum: [recorded, derived, assigned, manager, null]
+          description: "How the worker is known: recorded — her own finish in the app; derived — the steps and photos of one person; assigned — only the assignment; manager — a manager named her."
+        closed_by:
+          $ref: "#/components/schemas/TaskPerson"
+          description: Who closed it. Null while it is live, when the system closed it, or when not known.
+        closed_how:
+          type: [string, "null"]
+          enum: [worker, manager, manager_for, manager_self, auto, null]
+          description: "How it was closed: worker — by the person doing it; manager — by a manager (a cancel, or the worker not stated); manager_for — by a manager on behalf of the worker; manager_self — by a manager who did it alone; auto — by the system."
+        closed_cause:
+          type: [string, "null"]
+          description: "For closed_how auto: night_pass (it lapsed overnight), booking_cancelled, booking_changed, property_unavailable, or system (no booking)."
+        closed_at: { $ref: "#/components/schemas/NullableTimestamp" }
     TaskWork:
       type: [object, "null"]
       additionalProperties: false
@@ -1188,7 +1206,7 @@ components:
     Task:
       type: object
       additionalProperties: false
-      required: [id, title, description, text_masked, priority, status, property_id, cleaning_id, reported_by, archived, cancel_reason, work, created_at, updated_at, resolved_at, cancelled_at, archived_at, completed_by, closed_by, closed_how, closed_cause, closed_at]
+      required: [id, title, description, text_masked, priority, status, property_id, cleaning_id, reported_by, archived, cancel_reason, work, created_at, updated_at, resolved_at, cancelled_at, archived_at, completed_by, completed_by_source, closed_by, closed_how, closed_cause, closed_at]
       properties:
         id: { type: string, format: uuid }
         title: { type: string, description: "Door codes masked (••••)." }
@@ -1208,6 +1226,10 @@ components:
         cancelled_at: { $ref: "#/components/schemas/NullableTimestamp" }
         archived_at: { $ref: "#/components/schemas/NullableTimestamp" }
         completed_by: { $ref: "#/components/schemas/TaskPerson" }
+        completed_by_source:
+          type: [string, "null"]
+          enum: [recorded, derived, assigned, manager, null]
+          description: "How the worker is known: recorded — the finish of the person doing the work; manager — a manager named her, closing it or afterwards."
         closed_by:
           $ref: "#/components/schemas/TaskPerson"
           description: Who closed the task. Null while it is open, when the system closed it, or for a closing from before 2026-11-09 whose person is not known.

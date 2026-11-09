@@ -624,6 +624,7 @@
           "checkout": "Odjezd se počítá podle dne odjezdu hosta, ať byla rezervace vytvořena kdykoli; byt uvolní jeden pokoj.",
           "cancelled": "Zrušené úkoly jsou uvedeny zvlášť a nejsou v žádném jiném čísle; úkol z archivu se počítá, jen pokud byl vyřešen dřív.",
           "closedFor": "Úkol, který manažer uzavřel za zaměstnance, se mu započítá, ale ne do času práce ani do doby vyřešení; úkol, který manažer uzavřel sám, se nezapočítá nikomu.",
+          "closedForCleaning": "Úklid, který manažer uzavřel za uklízečku, se jí započítá, ale ne do času ani podílu s fotkami; úklid, který manažer uzavřel sám, se nezapočítá nikomu.",
           "demo": "Ukázkové a testovací objekty nejsou zahrnuty.",
           "change": "Změna porovnává číslo s předchozím obdobím; podíl se mění v procentních bodech."
         }
@@ -1411,6 +1412,18 @@
         "openRepairWorkLive": "Jak práce probíhá",
         "menu": "Akce: {{name}}"
       },
+      "complete": {
+        "action": "Označit jako hotový",
+        "title": "Označit jako hotový?",
+        "text": "«{{name}}» se uzavře jako hotový.",
+        "who": "Kdo to provedl",
+        "alone": "Nikdo, manažer sám",
+        "holder": "současný řešitel",
+        "switchedOff": "Vypnutí",
+        "hint": "Upozornění nepřijde. Započítá se jí, ale bez času a podílu s fotkami.",
+        "confirm": "Ano, hotovo",
+        "abort": "Ne"
+      },
       "form": {
         "titleNew": "Nový úklid",
         "titleEdit": "Upravit úklid",
@@ -2001,6 +2014,12 @@
         "restoreHint": "Obnovená verze se stane nejnovější; verze mezi tím zůstanou v historii.",
         "saveFirst": "Nejdřív uložte nebo zahoďte změny."
       }
+    },
+    "workerMark": {
+      "label": "Uvést, kdo to provedl",
+      "choose": "Vyberte zaměstnance",
+      "save": "Uložit",
+      "switchedOff": "Vypnutí"
     }
   },
   "tabs": {
@@ -2207,6 +2226,42 @@
       "loadFailed": "Dokončené se nepodařilo načíst",
       "completedAt": "Dokončeno {{date}}, {{time}}",
       "completedOn": "Dokončeno {{date}}"
+    },
+    "closing": {
+      "worker": "Provedla: {{name}}",
+      "notStatedWorker": "Provedla: neuvedeno",
+      "closer": "Uzavřel: {{role}} {{name}}",
+      "alone": "Uzavřel manažer sám: {{name}}",
+      "auto": "Uzavřeno automaticky",
+      "notStatedCloser": "Uzavřel: neuvedeno",
+      "cancelledBy": "Zrušil: {{role}} {{name}}",
+      "cancelledAuto": "Zrušeno automaticky",
+      "cancelledAutoCause": "Zrušeno automaticky: {{cause}}",
+      "cancelledUnknown": "Zrušeno: neuvedeno",
+      "lapsedAuto": "Neproběhlo: uzavřeno automaticky (noční průchod)",
+      "lapsedBy": "Neproběhlo: uzavřel {{role}} {{name}}",
+      "lapsedUnknown": "Neproběhlo: neuvedeno",
+      "someone": "zaměstnanec",
+      "derivedCloser": "odvozeno z dat",
+      "causes": {
+        "booking_cancelled": "rezervace zrušena",
+        "booking_changed": "rezervace změněna",
+        "property_unavailable": "objekt nedostupný",
+        "system": "bez rezervace"
+      },
+      "sources": {
+        "recorded": "zaznamenáno v aplikaci",
+        "derived": "podle kroků a fotek",
+        "assigned": "podle přidělení",
+        "manager": "uvedl manažer"
+      },
+      "roles": {
+        "cleaner": "uklízečka",
+        "tech": "technik",
+        "head_tech": "hlavní technik",
+        "manager": "manažer",
+        "admin": "administrátor"
+      }
     },
     "repairs": {
       "heading": "Opravy"
@@ -2438,6 +2493,12 @@
         "head_tech": "hlavní technik",
         "manager": "manažer",
         "admin": "administrátor"
+      },
+      "sources": {
+        "recorded": "zaznamenáno v aplikaci",
+        "derived": "podle kroků a fotek",
+        "assigned": "podle přidělení",
+        "manager": "uvedl manažer"
       }
     },
     "board": {
@@ -2706,6 +2767,9 @@
     "problemNoProperty": "Úkol nemá objekt — nelze ho přidělit",
     "problemAssigneeInvalid": "Řešitel není mezi aktivními členy týmu",
     "problemCompleterInvalid": "Vyberte technika této firmy, nebo «Nikdo, manažer sám»",
+    "workerNotNameable": "Kdo to provedl, lze uvést jen u hotového",
+    "workerAlreadyNamed": "Kdo to provedl, už je uvedeno — obrazovka je obnovena",
+    "cleaningWorkerInvalid": "Vyberte zaměstnance této firmy",
     "taskNotFound": "Úklid nenalezen",
     "taskNotFound_tech": "Práce nenalezena",
     "supplyNotFound": "Žádost nenalezena",

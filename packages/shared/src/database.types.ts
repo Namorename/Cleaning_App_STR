@@ -594,6 +594,65 @@ export type Database = {
           },
         ]
       }
+      closing_marks: {
+        Row: {
+          host_id: string
+          id: number
+          marked_at: string
+          marked_by: string
+          person_id: string
+          problem_id: string | null
+          task_id: string | null
+        }
+        Insert: {
+          host_id: string
+          id?: never
+          marked_at?: string
+          marked_by: string
+          person_id: string
+          problem_id?: string | null
+          task_id?: string | null
+        }
+        Update: {
+          host_id?: string
+          id?: never
+          marked_at?: string
+          marked_by?: string
+          person_id?: string
+          problem_id?: string | null
+          task_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "closing_marks_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "closing_marks_problem_id_fkey"
+            columns: ["problem_id"]
+            isOneToOne: false
+            referencedRelation: "problems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "closing_marks_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "expired_tasks_review"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "closing_marks_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guest_signals: {
         Row: {
           analysed_at: string | null
@@ -1289,6 +1348,7 @@ export type Database = {
           closed_cause: string | null
           closed_how: string | null
           completed_by: string | null
+          completed_by_source: string | null
           created_at: string
           description: string | null
           host_id: string
@@ -1314,6 +1374,7 @@ export type Database = {
           closed_cause?: string | null
           closed_how?: string | null
           completed_by?: string | null
+          completed_by_source?: string | null
           created_at?: string
           description?: string | null
           host_id?: string
@@ -1339,6 +1400,7 @@ export type Database = {
           closed_cause?: string | null
           closed_how?: string | null
           completed_by?: string | null
+          completed_by_source?: string | null
           created_at?: string
           description?: string | null
           host_id?: string
@@ -2436,6 +2498,70 @@ export type Database = {
             foreignKeyName: "supply_requests_task_id_fkey"
             columns: ["task_id"]
             isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_closings: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          closed_cause: string | null
+          closed_how: string | null
+          closer_source: string | null
+          completed_by: string | null
+          host_id: string
+          marked_at: string | null
+          marked_by: string | null
+          task_id: string
+          worker_source: string | null
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          closed_cause?: string | null
+          closed_how?: string | null
+          closer_source?: string | null
+          completed_by?: string | null
+          host_id: string
+          marked_at?: string | null
+          marked_by?: string | null
+          task_id: string
+          worker_source?: string | null
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          closed_cause?: string | null
+          closed_how?: string | null
+          closer_source?: string | null
+          completed_by?: string | null
+          host_id?: string
+          marked_at?: string | null
+          marked_by?: string | null
+          task_id?: string
+          worker_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_closings_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_closings_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: true
+            referencedRelation: "expired_tasks_review"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_closings_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: true
             referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
@@ -3588,10 +3714,25 @@ export type Database = {
         }
         Returns: undefined
       }
-      api_cleaning_json: {
-        Args: { t: Database["public"]["Tables"]["tasks"]["Row"] }
+      api_cleaning_closing_json: {
+        Args: {
+          p_scopes: string[]
+          t: Database["public"]["Tables"]["tasks"]["Row"]
+        }
         Returns: Json
       }
+      api_cleaning_json:
+        | {
+            Args: { t: Database["public"]["Tables"]["tasks"]["Row"] }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_scopes: string[]
+              t: Database["public"]["Tables"]["tasks"]["Row"]
+            }
+            Returns: Json
+          }
       api_effective_scopes: {
         Args: { p_preset: string; p_scopes: string[] }
         Returns: string[]
@@ -3887,6 +4028,7 @@ export type Database = {
           closed_cause: string | null
           closed_how: string | null
           completed_by: string | null
+          completed_by_source: string | null
           created_at: string
           description: string | null
           host_id: string
@@ -3947,6 +4089,7 @@ export type Database = {
           closed_cause: string | null
           closed_how: string | null
           completed_by: string | null
+          completed_by_source: string | null
           created_at: string
           description: string | null
           host_id: string
@@ -3987,6 +4130,7 @@ export type Database = {
           closed_cause: string | null
           closed_how: string | null
           completed_by: string | null
+          completed_by_source: string | null
           created_at: string
           description: string | null
           host_id: string
@@ -4148,6 +4292,53 @@ export type Database = {
       closing_people: {
         Args: { p: Database["public"]["Tables"]["problems"]["Row"] }
         Returns: Json
+      }
+      closing_worker_check: {
+        Args: { p_host: string; p_person: string }
+        Returns: undefined
+      }
+      complete_cleaning: {
+        Args: { p_completed_by?: string; p_id: string }
+        Returns: {
+          assignee_id: string | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          created_by: string | null
+          due_at: string | null
+          duration_override_min: number | null
+          guests_count: number | null
+          host_id: string
+          id: string
+          is_parallel: boolean
+          is_short_measurement: boolean | null
+          manual_time_lost_on: string | null
+          manual_time_on: string | null
+          measured_minutes: number | null
+          notes: string | null
+          pinned_arrival: string | null
+          pinned_departure: string | null
+          pinned_rooms: number[] | null
+          priority: number
+          problem_id: string | null
+          property_id: number
+          reservation_id: number | null
+          scheduled_date: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["task_status"]
+          time_from: string | null
+          time_to: string | null
+          title: string | null
+          title_i18n: Json
+          type: Database["public"]["Enums"]["task_type"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       complete_signal_history: {
         Args: {
@@ -4498,6 +4689,63 @@ export type Database = {
         Args: { error_text?: string; event_ids: number[]; new_status: string }
         Returns: number
       }
+      name_cleaning_worker: {
+        Args: { p_completed_by: string; p_id: string }
+        Returns: {
+          closed_at: string | null
+          closed_by: string | null
+          closed_cause: string | null
+          closed_how: string | null
+          closer_source: string | null
+          completed_by: string | null
+          host_id: string
+          marked_at: string | null
+          marked_by: string | null
+          task_id: string
+          worker_source: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "task_closings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      name_problem_worker: {
+        Args: { p_completed_by: string; p_id: string }
+        Returns: {
+          archived_at: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          closed_at: string | null
+          closed_by: string | null
+          closed_cause: string | null
+          closed_how: string | null
+          completed_by: string | null
+          completed_by_source: string | null
+          created_at: string
+          description: string | null
+          host_id: string
+          id: string
+          priority: Database["public"]["Enums"]["problem_priority"]
+          property_id: number | null
+          reported_by: string | null
+          resolved_at: string | null
+          source: Database["public"]["Enums"]["problem_source"]
+          source_facts: Json | null
+          status: Database["public"]["Enums"]["problem_status"]
+          task_id: string | null
+          title: string
+          title_i18n: Json | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "problems"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       open_cleanings_by_listing: {
         Args: never
         Returns: {
@@ -4580,6 +4828,7 @@ export type Database = {
           closed_cause: string | null
           closed_how: string | null
           completed_by: string | null
+          completed_by_source: string | null
           created_at: string
           description: string | null
           host_id: string
@@ -4614,6 +4863,7 @@ export type Database = {
           closed_cause: string | null
           closed_how: string | null
           completed_by: string | null
+          completed_by_source: string | null
           created_at: string
           description: string | null
           host_id: string
@@ -4860,6 +5110,7 @@ export type Database = {
           closed_cause: string | null
           closed_how: string | null
           completed_by: string | null
+          completed_by_source: string | null
           created_at: string
           description: string | null
           host_id: string
@@ -4948,6 +5199,7 @@ export type Database = {
           closed_cause: string | null
           closed_how: string | null
           completed_by: string | null
+          completed_by_source: string | null
           created_at: string
           description: string | null
           host_id: string
@@ -5020,6 +5272,7 @@ export type Database = {
           closed_cause: string | null
           closed_how: string | null
           completed_by: string | null
+          completed_by_source: string | null
           created_at: string
           description: string | null
           host_id: string
@@ -5690,6 +5943,10 @@ export type Database = {
         Returns: number
       }
       take_review_text_read: { Args: { p_user_id: string }; Returns: boolean }
+      task_closing: {
+        Args: { t: Database["public"]["Tables"]["tasks"]["Row"] }
+        Returns: Json
+      }
       task_grace_days: { Args: never; Returns: number }
       task_horizon_days: { Args: never; Returns: number }
       task_is_beyond_horizon: {
@@ -5830,6 +6087,7 @@ export type Database = {
           closed_cause: string | null
           closed_how: string | null
           completed_by: string | null
+          completed_by_source: string | null
           created_at: string
           description: string | null
           host_id: string
@@ -5864,6 +6122,7 @@ export type Database = {
           closed_cause: string | null
           closed_how: string | null
           completed_by: string | null
+          completed_by_source: string | null
           created_at: string
           description: string | null
           host_id: string
@@ -5945,6 +6204,7 @@ export type Database = {
           closed_cause: string | null
           closed_how: string | null
           completed_by: string | null
+          completed_by_source: string | null
           created_at: string
           description: string | null
           host_id: string

@@ -22,6 +22,7 @@ import { useLanguage } from '@/lib/use-language';
 import { cn } from '@/lib/utils';
 
 import { formatWindow } from './format';
+import { TaskClosing } from './task-closing';
 import { TaskNote } from './task-note';
 import {
   canSetCleaningTime,
@@ -93,6 +94,8 @@ interface TaskRowProps {
   onOpenChat: (task: Task) => void;
   /** Ask whether to call the job off; the view asks, and owns the write. */
   onCancel: (task: Task) => void;
+  /** «Отметить выполненной»: the manager closes a live cleaning, naming who did it. */
+  onComplete?: (task: Task) => void;
   /** Somebody said something in the conversation about this job that the manager has not read. */
   hasUnread?: boolean;
 }
@@ -125,6 +128,7 @@ export function TaskRow({
   onOpenWork,
   onOpenChat,
   onCancel,
+  onComplete,
   hasUnread = false,
 }: TaskRowProps) {
   const { t } = useTranslation();
@@ -190,6 +194,8 @@ export function TaskRow({
         ) : (
           <Person name={task.assignee.full_name} role={task.assignee.role} />
         )}
+        {/* Who did it and who closed it, under the person it was given to (20261106125500). */}
+        {closed ? <TaskClosing task={task} className="text-xs text-muted-foreground" /> : null}
       </TableCell>
       <TableCell className="py-1">
         <TaskMarks
@@ -218,7 +224,13 @@ export function TaskRow({
             {/* The drawer is the work's: there is some once the job has been
                 started, and the item is named after what it will show. The
                 conversation has its own sheet («Чат», variant B), every job. */}
-            {task.started_at === null ? null : (
+            {closed || task.problem_id !== null || onComplete === undefined ? null : (
+              <DropdownMenuItem onClick={() => onComplete(task)}>
+                {t('panel.tasks.complete.action')}
+              </DropdownMenuItem>
+            )}
+            {/* A finished one opens too: who did it can be named there. */}
+            {task.started_at === null && task.status !== 'done' ? null : (
               <DropdownMenuItem onClick={() => onOpenWork(task)}>
                 {t(workItemKey(task))}
               </DropdownMenuItem>

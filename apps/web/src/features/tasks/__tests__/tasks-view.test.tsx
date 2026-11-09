@@ -71,6 +71,16 @@ const finished = task({
   completed_at: '2026-09-10T09:35:00+00:00',
   measured_minutes: 95,
   assignee: { full_name: 'Maria Test', role: 'cleaner' },
+  // Her own finish, as the app recorded it (20261106125500).
+  closing: {
+    completed_by: { id: MARIA, name: 'Maria Test', role: 'cleaner' },
+    worker_source: 'recorded',
+    closed_by: { id: MARIA, name: 'Maria Test', role: 'cleaner' },
+    closed_how: 'worker',
+    closed_cause: null,
+    closer_source: 'recorded',
+    closed_at: '2026-09-10T09:35:00+00:00',
+  },
 });
 
 const staff = [{ id: MARIA, full_name: 'Maria Test', role: 'cleaner' }];
@@ -89,7 +99,14 @@ const cancelState = {
 };
 const idle = { isPending: false, isError: false, error: null, reset: vi.fn() };
 
+/** «Отметить выполненной»: what the manager's choice sends. */
+const complete = { isPending: false, isError: false, error: null, mutate: vi.fn(), reset: vi.fn() };
+
 vi.mock('../use-tasks', () => ({
+  useCleaners: () => ({ data: [], isPending: false, isError: false }),
+  useTask: () => ({ data: undefined, isPending: false, isError: false }),
+  useCompleteCleaning: () => complete,
+  useNameCleaningWorker: () => ({ isPending: false, isError: false, error: null, mutate: vi.fn() }),
   useTasks: () => useTasks(),
   useStaff: () => ({ data: staff, isPending: false, isError: false }),
   useProperties: () => ({ data: properties, isPending: false, isError: false }),
@@ -432,8 +449,8 @@ describe('TasksView', () => {
     await userEvent.click(screen.getByRole('tab', { name: /Ближайшие/ }));
     const row = rowOf('Уборка завтра');
     expect(row).toHaveTextContent('Из брони');
-    // A task from a booking is not the manager's to call off.
-    expect(await menuItems(row)).toEqual(['Изменить', 'Чат']);
+    // A task from a booking is not the manager's to call off; he may close it as done.
+    expect(await menuItems(row)).toEqual(['Изменить', 'Отметить выполненной', 'Чат']);
   });
 
   test('a job the manager wrote is the one the menu offers to call off', async () => {
@@ -441,6 +458,7 @@ describe('TasksView', () => {
 
     expect(await menuItems(rowOf('Вечерний осмотр'))).toEqual([
       'Изменить',
+      'Отметить выполненной',
       'Чат',
       'Отменить уборку',
     ]);
@@ -667,6 +685,32 @@ describe('TasksView', () => {
     await userEvent.type(within(drawer).getByLabelText('Корректировка, минут'), '80');
     await userEvent.click(within(drawer).getByRole('button', { name: 'Сохранить' }));
     expect(setDuration).toHaveBeenCalledWith({ taskId: id(4), minutes: 80 });
+  }, 20000);
+
+  test('a finished cleaning says who did it, and how that is known', async () => {
+    render(<TasksView />);
+
+    await userEvent.click(screen.getByRole('tab', { name: /Завершённые/ }));
+    const row = rowOf('Вчерашняя уборка');
+    expect(row).toHaveTextContent('Выполнила: Maria Test');
+    expect(row).toHaveTextContent('отмечено в приложении');
+  });
+
+  test('«Отметить выполненной» asks who did it, «Никто, менеджер сам» by default', async () => {
+    complete.mutate.mockClear();
+    render(<TasksView />);
+
+    await userEvent.click(
+      within(await openMenu(rowOf('Вечерний осмотр'))).getByRole('menuitem', {
+        name: 'Отметить выполненной',
+      }),
+    );
+    const asked = await screen.findByRole('dialog', { name: 'Отметить выполненной?' });
+    expect(within(asked).getByLabelText('Кто выполнил')).toHaveValue('');
+    await userEvent.click(within(asked).getByRole('button', { name: 'Да, выполнена' }));
+
+    const [variables] = complete.mutate.mock.calls[0] as [{ completedBy: string | null }];
+    expect(variables.completedBy).toBeNull();
   }, 20000);
 
   test('the drawer’s «Чат» puts the drawer away and opens the job’s conversation', async () => {

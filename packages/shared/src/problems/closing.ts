@@ -28,6 +28,8 @@ export interface ClosingRow {
   readonly closed_how: ClosedHow | null;
   readonly closed_cause: string | null;
   readonly closing: ClosingPeople | null;
+  /** How completed_by is known (20261106125500); absent from a row read before it. */
+  readonly completed_by_source?: string | null;
 }
 
 export type Translate = (key: string, options?: Record<string, string>) => string;
@@ -83,6 +85,25 @@ function closerLine(row: ClosingRow, t: Translate): string | null {
     default:
       return t('problems.closing.notStatedCloser');
   }
+}
+
+const SOURCES = ['recorded', 'derived', 'assigned', 'manager'] as const;
+
+/** How the worker is known, in small print under her line; null when no worker is named. */
+export function closingSourceNote(row: ClosingRow, t: Translate): string | null {
+  const source = row.completed_by_source ?? null;
+  return row.completed_by !== null &&
+    source !== null &&
+    (SOURCES as readonly string[]).includes(source)
+    ? t(`problems.closing.sources.${source}`)
+    : null;
+}
+
+/** A resolved task that says «не указано» can have its worker named afterwards. */
+export function isProblemWorkerNameable(row: ClosingRow): boolean {
+  return (
+    row.status === 'resolved' && row.completed_by === null && row.closed_how !== 'manager_self'
+  );
 }
 
 /** The lines for a closed task, worker first; none for an open one. */

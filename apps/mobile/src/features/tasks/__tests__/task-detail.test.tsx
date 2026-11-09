@@ -473,6 +473,61 @@ test('does not fire twice while an action is in flight', async () => {
   expect(actions.onStart).not.toHaveBeenCalled();
 });
 
+describe('who did it and who closed it', () => {
+  test('a cleaning a manager closed for her says who closed it', async () => {
+    await render(
+      <TaskDetail
+        task={task({
+          status: 'done',
+          closing: {
+            completed_by: { id: ME, name: 'Анна', role: 'cleaner' },
+            worker_source: 'manager',
+            closed_by: { id: 'b1c2d3e4-9999-4999-8999-b1c2d3e40009', name: 'Пётр', role: 'manager' },
+            closed_how: 'manager_for',
+            closed_cause: null,
+            closer_source: 'recorded',
+            closed_at: '2026-11-10T10:00:00+00:00',
+          },
+        })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    expect(screen.getByText('Выполнила: Анна (указано менеджером)')).toBeTruthy();
+    expect(screen.getByText('Закрыл: менеджер Пётр')).toBeTruthy();
+  });
+
+  test('one that lapsed says it was the night', async () => {
+    await render(
+      <TaskDetail
+        task={task({
+          status: 'expired',
+          closing: {
+            completed_by: null,
+            worker_source: null,
+            closed_by: null,
+            closed_how: 'auto',
+            closed_cause: 'night_pass',
+            closer_source: 'recorded',
+            closed_at: '2026-11-11T03:30:00+00:00',
+          },
+        })}
+        userId={ME}
+        now={NOW}
+        isBusy={false}
+        error={null}
+        {...actions}
+      />,
+    );
+
+    expect(screen.getByText('Не состоялась: закрыта автоматически (ночной проход)')).toBeTruthy();
+  });
+});
+
 describe('the process', () => {
   const running = task({ status: 'in_progress', started_at: '2026-11-10T08:05:00+00:00' });
 

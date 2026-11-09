@@ -27,12 +27,13 @@ import {
   type TaskFilters,
   type TaskTab,
 } from './schema';
+import { CompleteCleaningDialog } from './task-closing';
 import { TaskDrawer } from './task-drawer';
 import { TaskForm } from './task-form';
 import { taskSummary } from './task-row';
 import { TasksFilters } from './tasks-filters';
 import { TasksTable } from './tasks-table';
-import { useCancelTask, useStaff, useTasks } from './use-tasks';
+import { useCancelTask, useCompleteCleaning, useStaff, useTasks } from './use-tasks';
 
 /**
  * The section's page (5.4, variant A): the filters, three tabs, and the work
@@ -52,7 +53,12 @@ export function TasksView() {
   // The cancel lives here, not in the row: its refusal arrives after the
   // list has refreshed, and the row that asked may have left the tab.
   const cancel = useCancelTask();
-  const cancelFailure = cancel.isError ? serverErrorText(cancel.error) : null;
+  const complete = useCompleteCleaning();
+  const cancelFailure = cancel.isError
+    ? serverErrorText(cancel.error)
+    : complete.isError
+      ? serverErrorText(complete.error)
+      : null;
   const [address, setAddress] = useAddressState(readTasksAddress, writeTasksAddress);
   const { tab, filters } = address;
   // A tab is a step «Назад» walks back; a filter is changed in place (owner, 04.10).
@@ -66,6 +72,9 @@ export function TasksView() {
   const [reading, setReading] = useState<Task | null>(null);
   const [talking, setTalking] = useState<Task | null>(null);
   const [confirming, setConfirming] = useState<Task | null>(null);
+  const [completing, setCompleting] = useState<Task | null>(null);
+  // The last one asked about: its words stay while the dialog fades out.
+  const [completingShown, setCompletingShown] = useState<Task | null>(null);
 
   // One instant for the whole render, so every row agrees on what a tail is.
   const now = new Date();
@@ -140,6 +149,11 @@ export function TasksView() {
                 onOpenWork={setReading}
                 onOpenChat={openChat}
                 onCancel={setConfirming}
+                onComplete={(task) => {
+                  complete.reset();
+                  setCompleting(task);
+                  setCompletingShown(task);
+                }}
               />
             )}
           </TabsContent>
@@ -163,6 +177,20 @@ export function TasksView() {
           returnFocus={() => rowMenuOf(talking.id)}
         />
       )}
+      <CompleteCleaningDialog
+        open={completing !== null}
+        task={completingShown}
+        isBusy={complete.isPending}
+        onConfirm={(completedBy) => {
+          if (completing !== null) {
+            complete.mutate(
+              { taskId: completing.id, completedBy },
+              { onSettled: () => setCompleting(null) },
+            );
+          }
+        }}
+        onClose={() => setCompleting(null)}
+      />
       {confirming === null ? null : (
         <CancelTaskDialog
           task={confirming}

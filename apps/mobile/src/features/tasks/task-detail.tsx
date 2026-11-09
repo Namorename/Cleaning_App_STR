@@ -1,4 +1,4 @@
-import { STATUS_TONE, problemPriorityTone } from '@str-ops/shared';
+import { STATUS_TONE, cleaningClosingLines, problemPriorityTone } from '@str-ops/shared';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -247,6 +247,15 @@ export function TaskDetail({
           ))}
         </Card>
       ) : null}
+
+      {/* Who did it and who closed it (20261106125500): a cleaning's own, not a repair's. */}
+      {fix === null && task.closing != null
+        ? cleaningClosingLines(task.status, task.closing, t).map((line) => (
+            <Text key={line.text} testID="task-closing" tone="secondary">
+              {line.note === null ? line.text : `${line.text} (${line.note})`}
+            </Text>
+          ))
+        : null}
 
       {fix !== null ? (
         // Heard with its facts, as the report's card in her list is.

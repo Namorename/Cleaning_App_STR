@@ -120,6 +120,8 @@ export const problemSchema = z.object({
   fix_tasks: z.array(fixTaskSchema).default([]),
   /** Who did the work and who closed the task (20261106125000); null while open or not known. */
   completed_by: z.uuid().nullable().default(null),
+  /** How completed_by is known (20261106125500): recorded | derived | assigned | manager. */
+  completed_by_source: z.string().nullable().default(null),
   closed_by: z.uuid().nullable().default(null),
   closed_how: z.enum(CLOSED_HOWS).nullable().catch(null).default(null),
   closed_cause: z.string().nullable().default(null),

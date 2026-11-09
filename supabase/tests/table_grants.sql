@@ -84,6 +84,10 @@ insert into wanted values
   -- The history of a cleaning (20261015100000): triggers write it, the
   -- manager reads it, nobody edits it.
   ('task_events',          'SELECT'),
+  -- Who did a cleaning and who closed it, and the workers named afterwards
+  -- (20261106125500): triggers and RPCs write them, the manager reads them.
+  ('task_closings',        'SELECT'),
+  ('closing_marks',        'SELECT'),
   -- The knowledge base (20261030100000): the managers and the head
   -- technician write through save_kb_article, set_kb_article_status and
   -- restore_kb_revision; the versions are kept by triggers.

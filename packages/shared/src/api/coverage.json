@@ -130,6 +130,11 @@
       "reason": "API plumbing: checks a key's name, preset, scopes and properties.",
       "defined_in": "20261028100000_public_api_v1.sql"
     },
+    "api_cleaning_closing_json": {
+      "status": "internal",
+      "reason": "API plumbing: who did a cleaning and who closed it, the names only with staff:read_names.",
+      "defined_in": "20261106125500_cleaning_closing.sql"
+    },
     "api_cleaning_json": {
       "status": "internal",
       "reason": "API plumbing: what a cleaning looks like in the API.",
@@ -528,6 +533,17 @@
       "reason": "computed field for the panel and the phone: the names behind completed_by and closed_by; the API gives them in the task under staff:read_names",
       "defined_in": "20261106125000_problem_closing.sql"
     },
+    "closing_worker_check": {
+      "status": "internal",
+      "reason": "helper: the person named as a worker is of the company's staff who work",
+      "defined_in": "20261106125500_cleaning_closing.sql"
+    },
+    "complete_cleaning": {
+      "status": "planned",
+      "scope": "cleanings:update",
+      "reason": "a manager closes a cleaning as done, naming who did it",
+      "defined_in": "20261106125500_cleaning_closing.sql"
+    },
     "complete_signal_history": {
       "status": "internal",
       "reason": "the reading of past reviews: the job writes it, no client calls it",
@@ -865,6 +881,18 @@
       "status": "internal",
       "reason": "trigger function: mirrors the repair state onto its problem",
       "defined_in": "20260923130000_problem_mirror_current_attempt.sql"
+    },
+    "name_cleaning_worker": {
+      "status": "planned",
+      "scope": "cleanings:update",
+      "reason": "a manager names the worker of a finished cleaning afterwards",
+      "defined_in": "20261106125500_cleaning_closing.sql"
+    },
+    "name_problem_worker": {
+      "status": "planned",
+      "scope": "tasks:update",
+      "reason": "a manager names the worker of a resolved task (problem) afterwards",
+      "defined_in": "20261106125500_cleaning_closing.sql"
     },
     "open_cleanings_by_listing": {
       "status": "internal",
@@ -1450,6 +1478,11 @@
       "reason": "trigger function: stamps created_by on a task",
       "defined_in": "20260910140000_task_title_author.sql"
     },
+    "stamp_task_closing": {
+      "status": "internal",
+      "reason": "trigger function: stamps who did a cleaning and who closed it",
+      "defined_in": "20261106125500_cleaning_closing.sql"
+    },
     "store_review_texts": {
       "status": "internal",
       "reason": "PMS sync (sync-guest-signals): helper of ingest_guest_reviews writing the anonymised texts while they may be kept; execute revoked from every role",
@@ -1489,6 +1522,11 @@
       "status": "internal",
       "reason": "guest-review-text: counts one person's reads of review texts from the PMS per ten minutes (counts only, no text), service_role only",
       "defined_in": "20261104200000_review_text_reads.sql"
+    },
+    "task_closing": {
+      "status": "internal",
+      "reason": "computed field for the panel and the phone; the API gives the closing in the cleaning",
+      "defined_in": "20261106125500_cleaning_closing.sql"
     },
     "task_grace_days": {
       "status": "internal",
@@ -1701,6 +1739,12 @@
       "reason": "modules of a listing checklist (with translations)",
       "defined_in": "20260907120000_property_checklists.sql"
     },
+    "closing_marks": {
+      "status": "planned",
+      "scope": "analytics:read",
+      "reason": "journal of workers named afterwards, written by the naming RPCs",
+      "defined_in": "20261106125500_cleaning_closing.sql"
+    },
     "expired_tasks_review": {
       "status": "internal",
       "reason": "A view for the panel's review of expired cleanings; GET /v1/cleanings?status=expired serves the same rows.",
@@ -1892,6 +1936,17 @@
       "scope": "supplies:read",
       "reason": "supply requests from cleaners",
       "defined_in": "20260908130200_supply_requests.sql"
+    },
+    "task_closings": {
+      "status": "exposed",
+      "scope": "cleanings:read",
+      "reason": "who did a cleaning and who closed it, inside the cleaning",
+      "defined_in": "20261106125500_cleaning_closing.sql",
+      "operations": [
+        "listCleanings",
+        "getCleaning",
+        "assignCleaning"
+      ]
     },
     "task_events": {
       "status": "planned",

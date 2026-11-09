@@ -9,7 +9,8 @@ import { z } from 'zod';
  * Read only once that migration is in the cloud: a select of a column the server does not
  * have answers 42703 and empties the screen. This build goes out with the OTA that follows it.
  */
-export const CLOSING_COLUMNS = 'completed_by, closed_how, closed_cause, closing:closing_people, ';
+export const CLOSING_COLUMNS =
+  'completed_by, completed_by_source, closed_how, closed_cause, closing:closing_people, ';
 
 const personSchema = z
   .object({
@@ -23,6 +24,8 @@ const personSchema = z
 /** Absent from a phone's saved copy of an older build, as the guest signal's fields are. */
 export const closingFields = {
   completed_by: z.string().uuid().nullable().catch(null).optional(),
+  // How the worker is known (20261106125500).
+  completed_by_source: z.string().nullable().catch(null).optional(),
   closed_how: z.enum(CLOSED_HOWS).nullable().catch(null).optional(),
   closed_cause: z.string().nullable().catch(null).optional(),
   closing: z
@@ -36,6 +39,7 @@ interface ClosingFields {
   readonly status: string;
   readonly archived_at?: string | null;
   readonly completed_by?: string | null;
+  readonly completed_by_source?: string | null;
   readonly closed_how?: ClosingRow['closed_how'];
   readonly closed_cause?: string | null;
   readonly closing?: ClosingRow['closing'];
@@ -47,6 +51,7 @@ export function closingRowOf(problem: ClosingFields): ClosingRow {
     status: problem.status,
     archived_at: problem.archived_at ?? null,
     completed_by: problem.completed_by ?? null,
+    completed_by_source: problem.completed_by_source ?? null,
     closed_how: problem.closed_how ?? null,
     closed_cause: problem.closed_cause ?? null,
     closing: problem.closing ?? null,

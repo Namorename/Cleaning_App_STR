@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 43 | 240 | 303 |
-| Таблицы и представления | 8 | 20 | 19 | 47 |
-| Всего | 28 | 63 | 259 | 350 |
+| Функции | 20 | 46 | 244 | 310 |
+| Таблицы и представления | 9 | 21 | 19 | 49 |
+| Всего | 29 | 67 | 263 | 359 |
 
 ## Функции
 
@@ -41,7 +41,7 @@
 | `report_problem` | `tasks:create` | `createTask` |
 | `save_task` | `cleanings:assign` | `assignCleaning` |
 
-### Запланировано (право зарезервировано) — 43
+### Запланировано (право зарезервировано) — 46
 
 | Имя | Право | Что это |
 | --- | --- | --- |
@@ -60,9 +60,12 @@
 | `cancel_problem` | `tasks:cancel` | closes a task (problem) without a fix; its live repair is cancelled |
 | `chat_unread_threads` | `chat:read` | threads with messages the caller has not read |
 | `clear_cleaning_time` | `cleanings:update` | gives a booking's cleaning its booking's hours back, both marks off (undo of set_cleaning_time) |
+| `complete_cleaning` | `cleanings:update` | a manager closes a cleaning as done, naming who did it |
 | `copy_property_checklist` | `checklists:write` | replaces a listing's checklist with a copy of another listing's |
 | `mark_signal_false_positive` | `guest_signals:decide` | the manager calls a task made from a guest signal a false positive: archives it (or deletes it while nobody worked on it) and records the verdict |
 | `mark_thread_read` | `chat:write` | moves the caller's read marker of a thread (a write, so not under chat:read) |
+| `name_cleaning_worker` | `cleanings:update` | a manager names the worker of a finished cleaning afterwards |
+| `name_problem_worker` | `tasks:update` | a manager names the worker of a resolved task (problem) afterwards |
 | `open_thread` | `chat:write` | finds or opens the chat thread of a cleaning, task or staff member (replayable) |
 | `property_checklist_snapshot` | `checklists:read` | a listing's checklist shaped as a step config |
 | `reject_signal_finding` | `guest_signals:decide` | the manager's no, with a reason; a task the finding made is called off while nobody has been sent |
@@ -89,7 +92,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 240
+### Внутреннее — 244
 
 | Имя | Причина |
 | --- | --- |
@@ -108,6 +111,7 @@
 | `api_booking_json` | API plumbing: what a booking looks like in the API. |
 | `api_channel` | API plumbing: names Hostaway's channel numbers. |
 | `api_check_key_fields` | API plumbing: checks a key's name, preset, scopes and properties. |
+| `api_cleaning_closing_json` | API plumbing: who did a cleaning and who closed it, the names only with staff:read_names. |
 | `api_cleaning_json` | API plumbing: what a cleaning looks like in the API. |
 | `api_effective_scopes` | API plumbing: the scopes a preset gives today. |
 | `api_gate` | API plumbing: authenticates a request and counts it against the rate limits. |
@@ -148,6 +152,7 @@
 | `cleans_property` | auth/RLS helper: does the caller clean this listing |
 | `cleans_property_as` | push plumbing: listing link check for a given person, service_role only |
 | `closing_people` | computed field for the panel and the phone: the names behind completed_by and closed_by; the API gives them in the task under staff:read_names |
+| `closing_worker_check` | helper: the person named as a worker is of the company's staff who work |
 | `complete_signal_history` | the reading of past reviews: the job writes it, no client calls it |
 | `complete_task_step` | phone-only flow of the cleaner at work (task steps): completes a step |
 | `confirm_task_media` | phone upload pipeline: registers, confirms or withdraws a Storage slot (row before file); the API only reads media |
@@ -300,6 +305,7 @@
 | `staff_property_ids` | auth/RLS helper: listings an active non-manager may read |
 | `stamp_problem_closing` | trigger function: stamps who did the work and who closed a task (problem) |
 | `stamp_task_author` | trigger function: stamps created_by on a task |
+| `stamp_task_closing` | trigger function: stamps who did a cleaning and who closed it |
 | `store_review_texts` | PMS sync (sync-guest-signals): helper of ingest_guest_reviews writing the anonymised texts while they may be kept; execute revoked from every role |
 | `supply_item_name_max_length` | validation limit constant of save_supply_request |
 | `supply_note_max_length` | validation limit constant of save_supply_request |
@@ -308,6 +314,7 @@
 | `sync_profile_email` | trigger function: mirrors the auth.users email into profiles |
 | `take_off_repairs` | helper of unassign_problem and of the deactivation cascade; execute revoked from clients |
 | `take_review_text_read` | guest-review-text: counts one person's reads of review texts from the PMS per ten minutes (counts only, no text), service_role only |
+| `task_closing` | computed field for the panel and the phone; the API gives the closing in the cleaning |
 | `task_grace_days` | constant of the cleaner's time window (grace after the day) |
 | `task_horizon_days` | constant of the cleaner's time window (days ahead) |
 | `task_is_beyond_horizon` | auth/RLS helper: task is beyond the cleaner's horizon |
@@ -336,7 +343,7 @@
 
 ## Таблицы и представления
 
-### Выставлено в API v1 — 8
+### Выставлено в API v1 — 9
 
 | Имя | Право | Операции |
 | --- | --- | --- |
@@ -346,10 +353,11 @@
 | `properties` | `properties:read` | `listProperties`, `getProperty` |
 | `reservation_units` | `bookings:read` | `listBookings`, `getBooking` |
 | `reservations` | `bookings:read` | `listBookings`, `getBooking` |
+| `task_closings` | `cleanings:read` | `listCleanings`, `getCleaning`, `assignCleaning` |
 | `task_media` | `media:read` | `listCleaningMedia`, `listTaskMedia` |
 | `tasks` | `cleanings:read` | `listCleanings`, `getCleaning`, `assignCleaning` |
 
-### Запланировано (право зарезервировано) — 20
+### Запланировано (право зарезервировано) — 21
 
 | Имя | Право | Что это |
 | --- | --- | --- |
@@ -358,6 +366,7 @@
 | `chat_threads` | `chat:read` | chat threads, one per cleaning, task or staff member |
 | `checklist_items` | `checklists:read` | items of a listing checklist (with translations) |
 | `checklist_modules` | `checklists:read` | modules of a listing checklist (with translations) |
+| `closing_marks` | `analytics:read` | journal of workers named afterwards, written by the naming RPCs |
 | `guest_signals` | `guest_signals:read` | what guests sent through the PMS (reviews; messages from stage 3): rating, categories, channel, place, month and a review's anonymised texts; serve without the PMS ids and booking link (guests:read_personal) |
 | `kb_article_revisions` | `knowledge:read` | versions of an article's text with its translations, kept by triggers (office-only history) |
 | `kb_article_targets` | `knowledge:read` | the places an article shows on (a building or chosen places) |

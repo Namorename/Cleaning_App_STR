@@ -460,6 +460,7 @@ export function buildReportModel(input: ReportInput): ReportModel {
     'checkout',
     'cancelled',
     'closedFor',
+    'closedForCleaning',
     'demo',
     ...(previous === null ? [] : ['change']),
   ].map(

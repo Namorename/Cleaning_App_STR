@@ -8,6 +8,8 @@ import { useSupabase } from '@/lib/supabase/use-client';
 import {
   cancelTask,
   clearCleaningTime,
+  completeCleaning,
+  fetchCleaners,
   fetchProperties,
   fetchReservationGuest,
   fetchStaff,
@@ -16,10 +18,13 @@ import {
   fetchTaskWork,
   fetchTasks,
   handHoursOf,
+  nameCleaningWorker,
   saveTask,
   setCleaningTime,
   setDurationOverride,
   type ClearCleaningTimeVariables,
+  type CompleteCleaningVariables,
+  type NameWorkerVariables,
   type SaveTaskVariables,
 } from './api';
 import { taskKeys } from './keys';
@@ -140,6 +145,31 @@ export function useCancelTask() {
   return useMutation({
     mutationFn: (taskId: string) => cancelTask(client, taskId),
     // A refusal means the task changed meanwhile: refresh either way.
+    onSettled: invalidate,
+  });
+}
+
+/** The cleaners to name as the one who did it, those switched off too. */
+export function useCleaners() {
+  const client = useSupabase();
+  return useQuery({ queryKey: taskKeys.cleaners(), queryFn: () => fetchCleaners(client) });
+}
+
+export function useCompleteCleaning() {
+  const client = useSupabase();
+  const invalidate = useInvalidateTasks();
+  return useMutation({
+    mutationFn: (variables: CompleteCleaningVariables) => completeCleaning(client, variables),
+    // A refusal means the cleaning changed meanwhile: refresh either way.
+    onSettled: invalidate,
+  });
+}
+
+export function useNameCleaningWorker() {
+  const client = useSupabase();
+  const invalidate = useInvalidateTasks();
+  return useMutation({
+    mutationFn: (variables: NameWorkerVariables) => nameCleaningWorker(client, variables),
     onSettled: invalidate,
   });
 }

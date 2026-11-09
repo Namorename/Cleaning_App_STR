@@ -71,6 +71,9 @@ beforeEach(() => {
 });
 
 vi.mock('../use-tasks', () => ({
+  useCleaners: () => ({ data: [], isPending: false, isError: false }),
+  useTask: () => ({ data: undefined, isPending: false, isError: false }),
+  useNameCleaningWorker: () => ({ isPending: false, isError: false, error: null, mutate: vi.fn() }),
   useTaskWork: () => work,
   useTaskProblems: () => ({ data: [], isPending: false, isError: false }),
   useSetDuration: () => ({ isPending: false, isError: false, error: null, mutate: vi.fn() }),

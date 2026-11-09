@@ -16,6 +16,7 @@ import {
   fetchProblems,
   fetchStaff,
   fetchWorkers,
+  nameProblemWorker,
   markFalsePositive,
   reopenProblem,
   reportProblem,
@@ -68,6 +69,16 @@ export function useFixTaskSteps(taskId: string | null) {
 export function useStaff() {
   const client = useSupabase();
   return useQuery({ queryKey: problemKeys.staff(), queryFn: () => fetchStaff(client) });
+}
+
+export function useNameProblemWorker() {
+  const client = useSupabase();
+  const invalidate = useInvalidateProblems();
+  return useMutation({
+    mutationFn: (variables: { problemId: string; personId: string }) =>
+      nameProblemWorker(client, variables),
+    onSettled: invalidate,
+  });
 }
 
 /** The technicians a manager may name as the one who did a task, those switched off too. */

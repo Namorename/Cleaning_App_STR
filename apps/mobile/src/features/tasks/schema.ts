@@ -1,5 +1,15 @@
-import { Constants } from '@str-ops/shared';
+import { CLOSED_HOWS, Constants, WORKER_SOURCES } from '@str-ops/shared';
 import { z } from 'zod';
+
+const closingPersonSchema = z
+  .object({
+    id: z.string().uuid(),
+    name: z.string().nullable().default(null),
+    role: z.string().nullable().default(null),
+  })
+  .nullable()
+  .catch(null)
+  .default(null);
 
 /**
  * Shape of a cleaning task as the app reads it.
@@ -93,6 +103,21 @@ export const cleaningTaskSchema = z.object({
   // Overlapped another of her cleanings. Shown so a long measurement is not
   // mistaken for a slow one.
   is_parallel: z.boolean(),
+  // Who did it and who closed it (20261106125500). Optional, every key caught:
+  // a row cached before it was asked for has none, and that means not known.
+  closing: z
+    .object({
+      completed_by: closingPersonSchema,
+      worker_source: z.enum(WORKER_SOURCES).nullable().catch(null).default(null),
+      closed_by: closingPersonSchema,
+      closed_how: z.enum(CLOSED_HOWS).nullable().catch(null).default(null),
+      closed_cause: z.string().nullable().catch(null).default(null),
+      closer_source: z.enum(['recorded', 'derived']).nullable().catch(null).default(null),
+      closed_at: z.string().nullable().catch(null).default(null),
+    })
+    .nullable()
+    .catch(null)
+    .optional(),
 });
 
 export type CleaningTask = z.infer<typeof cleaningTaskSchema>;

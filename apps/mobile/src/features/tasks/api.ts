@@ -49,7 +49,9 @@ const TASK_COLUMNS =
   'time_from, time_to, guests_count, started_at, completed_at, is_parallel, ' +
   'notes, title, title_i18n, ' +
   'property:properties(name, address, hostaway_unit_id, effective_cleaner_notes, parent:parent_id(name)), ' +
-  'problem:problem_id(id, title, priority)';
+  'problem:problem_id(id, title, priority), ' +
+  // Who did it and who closed it, with the names (20261106125500).
+  'closing:task_closing';
 
 // Whatever the office assigned to her is hers to see: a technician's
 // maintenance, a cleaner's cleaning, and the inspections and mid-stay

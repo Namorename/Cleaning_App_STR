@@ -137,6 +137,8 @@ const CLEANING = {
   scheduled_date: "2026-11-02", time_from: "11:00", time_to: "15:00", due_at: TS, priority: 1,
   assignee_id: UUID, title: null, text_masked: false, guests_count: 2, is_parallel: false, started_at: null, completed_at: null,
   completed_by: null, created_at: TS, updated_at: TS,
+  // A live cleaning: nobody did it yet, nobody closed it.
+  worker: null, worker_source: null, closed_by: null, closed_how: null, closed_cause: null, closed_at: null,
 };
 const TASK = {
   id: UUID, title: "Dripping tap", description: null, text_masked: false, priority: "high", status: "resolved", property_id: 123456,
@@ -144,7 +146,7 @@ const TASK = {
   work: { cleaning_id: UUID, status: "done", assignee_id: UUID, scheduled_date: "2026-11-05", time_from: "09:00", time_to: null },
   created_at: TS, updated_at: TS, resolved_at: TS, cancelled_at: null, archived_at: null,
   // Closed by a manager for the technician; the name only under staff:read_names.
-  completed_by: { id: UUID, role: "tech", full_name: "Tom Tech" }, closed_by: { id: UUID, role: "manager" },
+  completed_by: { id: UUID, role: "tech", full_name: "Tom Tech" }, completed_by_source: "manager", closed_by: { id: UUID, role: "manager" },
   closed_how: "manager_for", closed_cause: null, closed_at: TS,
 };
 const PROPERTY = {

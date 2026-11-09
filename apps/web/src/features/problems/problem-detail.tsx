@@ -29,7 +29,7 @@ import { AssignForm } from './assign-form';
 import { FixTaskSteps } from './fix-task-steps';
 import { formatClock } from './format';
 import { ProblemActions } from './problem-actions';
-import { ProblemClosing } from './problem-closing';
+import { ProblemClosing, ProblemWorkerMark } from './problem-closing';
 import { ProblemPhotos } from './problem-photos';
 import { RepairTail } from './repair-tail';
 import {
@@ -222,7 +222,10 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
           </CardHeader>
           <CardContent className="flex flex-col gap-4 text-sm">
             {fixTask === null && isClosed ? (
-              <ProblemClosing problem={problem} className="gap-1 font-medium" />
+              <>
+                <ProblemClosing problem={problem} className="gap-1 font-medium" />
+                <ProblemWorkerMark problem={problem} />
+              </>
             ) : fixTask === null ? (
               <p className="text-muted-foreground">{t('panel.problems.detail.noFixTask')}</p>
             ) : (

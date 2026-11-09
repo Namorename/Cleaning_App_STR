@@ -14,6 +14,7 @@ import { withSignedUrls, type WithUrl } from '@/lib/media';
 
 import {
   calendarTaskListSchema,
+  cleanerListSchema,
   departureGuestSchema,
   expiredTaskListSchema,
   liveRepairListSchema,
@@ -25,6 +26,7 @@ import {
   taskSchema,
   UNDER_WAY_STATUSES,
   type CalendarTask,
+  type Cleaner,
   type DepartureGuest,
   type ExpiredTask,
   type LiveRepair,
@@ -69,7 +71,9 @@ const TASK_COLUMNS =
   // yesterday, as the grace rule counts it (`tailOf`).
   'property:properties(name, hostaway_unit_id, timezone, parent:parent_id(name)), ' +
   'assignee:profiles!tasks_assignee_id_fkey(full_name, role), ' +
-  'author:profiles!tasks_created_by_fkey(full_name, role)';
+  'author:profiles!tasks_created_by_fkey(full_name, role), ' +
+  // Who did it and who closed it, with the names (20261106125500).
+  'closing:task_closing';
 
 /** A calendar day `days` before today, as `YYYY-MM-DD`. */
 function daysAgo(days: number, now: Date = new Date()): string {
@@ -505,6 +509,58 @@ export async function clearCleaningTime(
  */
 export async function cancelTask(client: Client, taskId: string): Promise<void> {
   await cancelLiveTask(client, taskId);
+}
+
+/** The cleaners a manager may name as the one who did a cleaning, those switched off too. */
+export async function fetchCleaners(client: Client): Promise<Cleaner[]> {
+  const { data, error } = await client
+    .from('profiles')
+    .select('id, full_name, role, is_active')
+    .eq('role', 'cleaner')
+    .order('full_name', { ascending: true });
+  if (error) {
+    throw error;
+  }
+  return cleanerListSchema.parse(data ?? []);
+}
+
+export interface CompleteCleaningVariables {
+  taskId: string;
+  /** Who did it; null: nobody, the manager did it alone. */
+  completedBy: string | null;
+}
+
+/** The manager closes a live cleaning as done, naming who did it. No push goes out. */
+export async function completeCleaning(
+  client: Client,
+  { taskId, completedBy }: CompleteCleaningVariables,
+): Promise<void> {
+  const { error } = await client.rpc('complete_cleaning', {
+    p_id: taskId,
+    ...(completedBy === null ? {} : { p_completed_by: completedBy }),
+  });
+  if (error) {
+    throw error;
+  }
+}
+
+export interface NameWorkerVariables {
+  taskId: string;
+  personId: string;
+}
+
+/** A finished cleaning that says «не указано»: the manager names who did it. */
+export async function nameCleaningWorker(
+  client: Client,
+  { taskId, personId }: NameWorkerVariables,
+): Promise<void> {
+  const { error } = await client.rpc('name_cleaning_worker', {
+    p_id: taskId,
+    p_completed_by: personId,
+  });
+  if (error) {
+    throw error;
+  }
 }
 
 /**

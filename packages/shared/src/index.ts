@@ -34,12 +34,24 @@ export {
 export {
   CLOSED_HOWS,
   closingLines,
+  closingSourceNote,
+  isProblemWorkerNameable,
   isTaskClosed,
   type ClosedHow,
   type ClosingPeople,
   type ClosingPerson,
   type ClosingRow,
+  type Translate,
 } from './problems/closing';
+export {
+  WORKER_SOURCES,
+  cleaningClosingLines,
+  isWorkerNameable,
+  type CleaningClosing,
+  type CleaningPerson,
+  type ClosingLine,
+  type WorkerSource,
+} from './cleanings/closing';
 export { foldForSearch, matchesAllTokens } from './search';
 export {
   STALE_CLOCK_MESSAGE,

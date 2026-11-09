@@ -1,4 +1,9 @@
-import { closingLines, problemPriorityTone, problemStatusTone } from '@str-ops/shared';
+import {
+  closingLines,
+  closingSourceNote,
+  problemPriorityTone,
+  problemStatusTone,
+} from '@str-ops/shared';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -144,11 +149,14 @@ export function ProblemDetail({
           </Fact>
         ) : null}
         {/* Who did it and who closed it: «Выполнил: Иван», «Закрыл: менеджер Пётр». */}
-        {closingLines(closingRowOf(problem), t).map((line) => (
-          <Text key={line} testID="problem-closing" tone="secondary">
-            {line}
-          </Text>
-        ))}
+        {closingLines(closingRowOf(problem), t).map((line, index) => {
+          const note = index === 0 ? closingSourceNote(closingRowOf(problem), t) : null;
+          return (
+            <Text key={line} testID="problem-closing" tone="secondary">
+              {note === null ? line : line + ' (' + note + ')'}
+            </Text>
+          );
+        })}
       </Card>
 
       {dispatch}

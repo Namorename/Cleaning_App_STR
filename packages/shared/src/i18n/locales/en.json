@@ -622,6 +622,7 @@
           "checkout": "A checkout counts on the guest's day of departure, whenever the booking was made; a flat frees one room.",
           "cancelled": "Cancelled tasks are shown apart and are in no other figure; a task put in the archive counts only if it was resolved before.",
           "closedFor": "A task a manager closed for a staff member counts as theirs, but not in the work time or the time to resolve; one the manager closed alone counts for nobody.",
+          "closedForCleaning": "A cleaning a manager closed for a cleaner counts as hers, but not in the time or the photo share; one the manager closed alone counts for nobody.",
           "demo": "Demo and test listings are not included.",
           "change": "A change compares a figure with the period before; a share moves in percentage points."
         }
@@ -1391,6 +1392,18 @@
         "openRepairWorkLive": "How the job is going",
         "menu": "Actions: {{name}}"
       },
+      "complete": {
+        "action": "Mark as done",
+        "title": "Mark as done?",
+        "text": "«{{name}}» will close as done.",
+        "who": "Who did it",
+        "alone": "Nobody, the manager did it",
+        "holder": "current assignee",
+        "switchedOff": "Switched off",
+        "hint": "No notification goes out. It counts as hers, without the time and the photo share.",
+        "confirm": "Yes, done",
+        "abort": "No"
+      },
       "form": {
         "titleNew": "New cleaning",
         "titleEdit": "Edit the cleaning",
@@ -1967,6 +1980,12 @@
         "restoreHint": "A version brought back becomes the newest one; the versions in between stay.",
         "saveFirst": "Save or drop your changes first."
       }
+    },
+    "workerMark": {
+      "label": "Name who did it",
+      "choose": "Choose a staff member",
+      "save": "Save",
+      "switchedOff": "Switched off"
     }
   },
   "tabs": {
@@ -2171,6 +2190,42 @@
       "loadFailed": "Could not load finished jobs",
       "completedAt": "Finished {{date}}, {{time}}",
       "completedOn": "Finished {{date}}"
+    },
+    "closing": {
+      "worker": "Done by: {{name}}",
+      "notStatedWorker": "Done by: not stated",
+      "closer": "Closed by: {{role}} {{name}}",
+      "alone": "Closed by the manager alone: {{name}}",
+      "auto": "Closed automatically",
+      "notStatedCloser": "Closed by: not stated",
+      "cancelledBy": "Cancelled by: {{role}} {{name}}",
+      "cancelledAuto": "Cancelled automatically",
+      "cancelledAutoCause": "Cancelled automatically: {{cause}}",
+      "cancelledUnknown": "Cancelled: not stated",
+      "lapsedAuto": "Did not happen: closed automatically (night pass)",
+      "lapsedBy": "Did not happen: closed by {{role}} {{name}}",
+      "lapsedUnknown": "Did not happen: not stated",
+      "someone": "a staff member",
+      "derivedCloser": "derived from the data",
+      "causes": {
+        "booking_cancelled": "booking cancelled",
+        "booking_changed": "booking changed",
+        "property_unavailable": "listing unavailable",
+        "system": "no booking"
+      },
+      "sources": {
+        "recorded": "recorded in the app",
+        "derived": "from steps and photos",
+        "assigned": "from the assignment",
+        "manager": "named by a manager"
+      },
+      "roles": {
+        "cleaner": "cleaner",
+        "tech": "technician",
+        "head_tech": "head technician",
+        "manager": "manager",
+        "admin": "administrator"
+      }
     },
     "repairs": {
       "heading": "Repairs"
@@ -2398,6 +2453,12 @@
         "head_tech": "head technician",
         "manager": "manager",
         "admin": "administrator"
+      },
+      "sources": {
+        "recorded": "recorded in the app",
+        "derived": "from steps and photos",
+        "assigned": "from the assignment",
+        "manager": "named by a manager"
       }
     },
     "board": {
@@ -2658,6 +2719,9 @@
     "problemNoProperty": "The task has no listing — it cannot be assigned",
     "problemAssigneeInvalid": "The assignee is not an active member of the team",
     "problemCompleterInvalid": "Choose a technician of this company, or «Nobody, the manager did it»",
+    "workerNotNameable": "Who did it can be named only once it is done",
+    "workerAlreadyNamed": "Who did it is already stated — the screen was refreshed",
+    "cleaningWorkerInvalid": "Choose a staff member of this company",
     "taskNotFound": "Cleaning not found",
     "taskNotFound_tech": "Job not found",
     "supplyNotFound": "Request not found",

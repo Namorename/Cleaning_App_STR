@@ -29,7 +29,7 @@ export type Client = SupabaseClient<Database>;
 const PROBLEM_COLUMNS =
   'id, property_id, task_id, reported_by, title, source, title_i18n, source_facts, description, priority, status, ' +
   'resolved_at, cancelled_at, cancel_reason, archived_at, created_at, ' +
-  'completed_by, closed_by, closed_how, closed_cause, closed_at, closing:closing_people, ' +
+  'completed_by, completed_by_source, closed_by, closed_how, closed_cause, closed_at, closing:closing_people, ' +
   'property:properties(name, hostaway_unit_id, timezone, parent:parent_id(name)), ' +
   'reporter:profiles!problems_reported_by_fkey(full_name, role), ' +
   'fix_tasks:tasks!tasks_problem_id_fkey(id, assignee_id, status, scheduled_date, time_from, time_to, ' +
@@ -144,6 +144,20 @@ export async function fetchWorkers(client: Client): Promise<Worker[]> {
     throw error;
   }
   return workerListSchema.parse(data ?? []);
+}
+
+/** A resolved task that says «не указано»: the manager names who did it. */
+export async function nameProblemWorker(
+  client: Client,
+  { problemId, personId }: { problemId: string; personId: string },
+): Promise<void> {
+  const { error } = await client.rpc('name_problem_worker', {
+    p_id: problemId,
+    p_completed_by: personId,
+  });
+  if (error) {
+    throw error;
+  }
 }
 
 export interface AssignProblemVariables {

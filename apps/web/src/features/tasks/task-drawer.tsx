@@ -27,7 +27,8 @@ import {
   taskPropertyName,
   type Task,
 } from './schema';
-import { useSetDuration, useTaskProblems, useTaskWork } from './use-tasks';
+import { CleaningWorkerMark, TaskClosing } from './task-closing';
+import { useSetDuration, useTask, useTaskProblems, useTaskWork } from './use-tasks';
 
 interface TaskDrawerProps {
   /** The task being read; finished or not. */
@@ -81,6 +82,9 @@ export function TaskDrawer({ task, onClose, onOpenChat }: TaskDrawerProps) {
   const work = useTaskWork(task.id);
   const problems = useTaskProblems(task.id);
   const setDuration = useSetDuration();
+  // The closing as the server has it now: the drawer opens on a row's snapshot, and a worker
+  // named here must show at once (useTask refreshes with every write of the section).
+  const fresh = useTask(task.id).data ?? task;
   const [correction, setCorrection] = useState(() =>
     task.duration_override_min === null ? '' : task.duration_override_min.toString(),
   );
@@ -128,6 +132,9 @@ export function TaskDrawer({ task, onClose, onOpenChat }: TaskDrawerProps) {
           <span className="font-medium">{title}</span>
           <span className="text-muted-foreground">{taskPropertyName(task) ?? ''}</span>
           <span className="text-muted-foreground">{task.assignee?.full_name ?? ''}</span>
+          {/* Who did it and who closed it; «Указать исполнителя» where it says «не указано». */}
+          <TaskClosing task={fresh} className="gap-1" />
+          <CleaningWorkerMark task={fresh} />
         </div>
 
         <div className="flex flex-col gap-1">

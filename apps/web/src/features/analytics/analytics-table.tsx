@@ -124,6 +124,12 @@ export function AnalyticsTable({ table, query, period, names, listingName }: Ana
         <ErrorState message={t('panel.analytics.export.failed')} error={exportError} />
       )}
 
+      {table === 'cleaningsByCleaner' ? (
+        // A cleaning a manager closed for somebody keeps out of her time and photos (20261106125500).
+        <p className="text-sm text-muted-foreground">
+          {t('panel.analytics.pdf.notes.closedForCleaning')}
+        </p>
+      ) : null}
       {table === 'problemsByTechnician' ? (
         // A task a manager closed for somebody keeps out of her times (20261106125000).
         <p className="text-sm text-muted-foreground">{t('panel.analytics.pdf.notes.closedFor')}</p>

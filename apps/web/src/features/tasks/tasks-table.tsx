@@ -26,6 +26,7 @@ interface TasksTableProps {
   onOpenWork: (task: Task) => void;
   onOpenChat: (task: Task) => void;
   onCancel: (task: Task) => void;
+  onComplete?: (task: Task) => void;
 }
 
 /**
@@ -45,6 +46,7 @@ export function TasksTable({
   onOpenWork,
   onOpenChat,
   onCancel,
+  onComplete,
 }: TasksTableProps) {
   const { t } = useTranslation();
   const language = useLanguage();
@@ -88,6 +90,7 @@ export function TasksTable({
                 onOpenWork={onOpenWork}
                 onOpenChat={onOpenChat}
                 onCancel={onCancel}
+                onComplete={onComplete}
                 hasUnread={unread.has(task.id)}
               />
             ))}

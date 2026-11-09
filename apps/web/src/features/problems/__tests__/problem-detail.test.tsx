@@ -53,6 +53,7 @@ const mutations = {
   archive: vi.fn(),
   unarchive: vi.fn(),
   falsePositive: vi.fn(),
+  nameWorker: vi.fn(),
 };
 /** Where the page sends the manager after a delete. */
 const router = { replace: vi.fn() };
@@ -95,6 +96,7 @@ vi.mock('../use-problems', () => ({
   useFixTaskSteps: () => queries.steps(),
   useStaff: () => queries.staff(),
   useWorkers: () => queries.workers(),
+  useNameProblemWorker: () => ({ ...idle, mutate: mutations.nameWorker }),
   useAssignProblem: () => ({ ...idle, mutate: mutations.assign }),
   useCancelProblem: () => ({ ...idle, ...cancelOutcome(), mutate: mutations.cancel }),
   useResolveProblem: () => ({ ...idle, mutate: mutations.resolve }),
@@ -529,6 +531,27 @@ describe('ProblemDetail', () => {
     expect(screen.getByText('Выполнил: Petr Fixer')).toBeInTheDocument();
     expect(screen.getByText('Закрыл: менеджер Olga Boss')).toBeInTheDocument();
     expect(screen.queryByText('Техник ещё не назначен')).not.toBeInTheDocument();
+  });
+
+  test('a resolved task with the worker not stated takes one named afterwards', async () => {
+    queries.problem.mockReturnValue(
+      loaded({
+        ...assigned,
+        status: 'resolved',
+        resolved_at: '2026-09-11T10:00:00+00:00',
+        fix_tasks: [{ ...assigned.fix_tasks[0], status: 'done' }],
+        closed_by: '33333333-3333-4333-8333-333333333333',
+        closed_how: 'manager',
+        closed_at: '2026-09-11T10:00:00+00:00',
+        closing: { completed_by: null, closed_by: { name: 'Olga Boss', role: 'manager' } },
+      }),
+    );
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    expect(screen.getByText('Выполнил: не указано')).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText('Указать исполнителя'), TECH_ID);
+    await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(mutations.nameWorker).toHaveBeenCalledWith({ problemId: PROBLEM_ID, personId: TECH_ID });
   });
 
   test('«Не отменять» closes the question and cancels nothing', async () => {

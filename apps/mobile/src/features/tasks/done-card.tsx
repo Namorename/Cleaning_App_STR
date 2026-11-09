@@ -1,3 +1,4 @@
+import { cleaningClosingLines } from '@str-ops/shared';
 import type { TFunction } from 'i18next';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -39,8 +40,14 @@ function DoneCardComponent({ task, onPress }: DoneCardProps) {
   const fix = task.type === 'maintenance' ? (task.problem ?? null) : null;
   const name = fix === null ? propertyName(task) : fix.title;
   const finished = finishedLine(task, t);
+  // Who closed it, when it was not her own finish: a manager closing it for her, or alone.
+  const closing =
+    fix !== null || task.closing == null || task.closing.closed_how === 'worker'
+      ? []
+      : cleaningClosingLines(task.status, task.closing, t).map((line) => line.text);
   // A repair is said with its flat: the label replaces the lines drawn on the row.
-  const spoken = fix === null ? [name, finished] : [name, propertyName(task), finished];
+  const spoken =
+    fix === null ? [name, finished, ...closing] : [name, propertyName(task), finished];
 
   return (
     <Pressable
@@ -61,6 +68,11 @@ function DoneCardComponent({ task, onPress }: DoneCardProps) {
       <Text variant="caption" tone="secondary">
         {finished}
       </Text>
+      {closing.map((line) => (
+        <Text key={line} variant="caption" tone="secondary">
+          {line}
+        </Text>
+      ))}
     </Pressable>
   );
 }

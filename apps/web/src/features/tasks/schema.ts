@@ -1,4 +1,6 @@
 import {
+  CLOSED_HOWS,
+  WORKER_SOURCES,
   jobTail,
   propertyPath,
   propertyPathOf,
@@ -41,6 +43,27 @@ export type TaskTab = (typeof TASK_TABS)[number];
 const personSchema = z
   .object({ full_name: z.string().nullable(), role: z.string().nullable().default(null) })
   .nullable();
+
+const closingPersonSchema = z
+  .object({
+    id: z.uuid(),
+    name: z.string().nullable().default(null),
+    role: z.string().nullable().default(null),
+  })
+  .nullable()
+  .catch(null)
+  .default(null);
+
+/** A cleaning's closing (task_closing): who did it, who closed it, how each is known. */
+export const cleaningClosingSchema = z.object({
+  completed_by: closingPersonSchema,
+  worker_source: z.enum(WORKER_SOURCES).nullable().catch(null).default(null),
+  closed_by: closingPersonSchema,
+  closed_how: z.enum(CLOSED_HOWS).nullable().catch(null).default(null),
+  closed_cause: z.string().nullable().default(null),
+  closer_source: z.enum(['recorded', 'derived']).nullable().catch(null).default(null),
+  closed_at: z.string().nullable().default(null),
+});
 
 /** A task as the panel reads it: the row plus the names it needs to show. */
 export const taskSchema = z.object({
@@ -96,6 +119,11 @@ export const taskSchema = z.object({
     .optional(),
   assignee: personSchema.optional(),
   author: personSchema.optional(),
+  /**
+   * Who did it and who closed it, with the names (the computed field task_closing,
+   * 20261106125500). Absent from the bare row an RPC returns; null while it is live.
+   */
+  closing: cleaningClosingSchema.nullable().catch(null).default(null),
 });
 export type Task = z.infer<typeof taskSchema>;
 export const taskListSchema = z.array(taskSchema);
@@ -185,6 +213,16 @@ export const offStaffTaskSchema = z.object({
 });
 export type OffStaffTask = z.infer<typeof offStaffTaskSchema>;
 export const offStaffTaskListSchema = z.array(offStaffTaskSchema);
+
+/** A cleaner who may have done a cleaning, switched off or not. */
+export const cleanerSchema = z.object({
+  id: z.uuid(),
+  full_name: z.string().nullable(),
+  role: z.string(),
+  is_active: z.boolean(),
+});
+export type Cleaner = z.infer<typeof cleanerSchema>;
+export const cleanerListSchema = z.array(cleanerSchema);
 
 /** Somebody a task can be handed to. */
 export const staffSchema = z.object({

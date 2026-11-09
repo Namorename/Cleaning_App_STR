@@ -117,6 +117,7 @@ const READERS: readonly ((client: never) => Promise<unknown>)[] = [
   (client) => problems.fetchFixTaskSteps(client, ANY_ID),
   (client) => problems.fetchStaff(client),
   (client) => problems.fetchWorkers(client),
+  (client) => tasks.fetchCleaners(client),
   (client) => guestSignals.fetchFindings(client, ['candidate']),
   (client) => guestSignals.fetchCandidateCount(client),
   // «Все отзывы» ask two ways: without the findings, and with them joined when filtered by them.
