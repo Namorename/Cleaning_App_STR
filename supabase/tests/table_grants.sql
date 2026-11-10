@@ -78,6 +78,10 @@ insert into wanted values
   ('problem_themes',       ''),
   ('property_month_stats', ''),
   ('quality_area_members', ''),
+  -- Plans of resolution (20261110220000): the panel reads and writes through functions that
+  -- check the role, and what a launch makes lives in its own tables.
+  ('resolution_plans',      ''),
+  ('resolution_plan_steps', ''),
   -- The history of a task (20261003140000): triggers write it, the manager
   -- and the head technician read it, nobody edits it.
   ('problem_events',       'SELECT'),

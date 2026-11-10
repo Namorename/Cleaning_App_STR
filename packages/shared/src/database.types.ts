@@ -2191,6 +2191,196 @@ export type Database = {
           },
         ]
       }
+      resolution_plan_steps: {
+        Row: {
+          assignee_id: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          description: string | null
+          due_on: string | null
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["plan_step_kind"]
+          launched_at: string | null
+          linked_problem_id: string | null
+          plan_id: string
+          priority: Database["public"]["Enums"]["problem_priority"]
+          sort_order: number
+          theme: string
+          title: string
+          title_i18n: Json
+          updated_at: string
+        }
+        Insert: {
+          assignee_id?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          description?: string | null
+          due_on?: string | null
+          host_id: string
+          id: string
+          kind: Database["public"]["Enums"]["plan_step_kind"]
+          launched_at?: string | null
+          linked_problem_id?: string | null
+          plan_id: string
+          priority?: Database["public"]["Enums"]["problem_priority"]
+          sort_order: number
+          theme: string
+          title: string
+          title_i18n?: Json
+          updated_at?: string
+        }
+        Update: {
+          assignee_id?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          description?: string | null
+          due_on?: string | null
+          host_id?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["plan_step_kind"]
+          launched_at?: string | null
+          linked_problem_id?: string | null
+          plan_id?: string
+          priority?: Database["public"]["Enums"]["problem_priority"]
+          sort_order?: number
+          theme?: string
+          title?: string
+          title_i18n?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resolution_plan_steps_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resolution_plan_steps_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resolution_plan_steps_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resolution_plan_steps_linked_problem_id_fkey"
+            columns: ["linked_problem_id"]
+            isOneToOne: false
+            referencedRelation: "problems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resolution_plan_steps_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "resolution_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resolution_plan_steps_theme_fkey"
+            columns: ["theme"]
+            isOneToOne: false
+            referencedRelation: "issue_themes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      resolution_plans: {
+        Row: {
+          baseline: Json | null
+          cancelled_at: string | null
+          created_at: string
+          created_by: string
+          host_id: string
+          id: string
+          launched_at: string | null
+          launched_by: string | null
+          property_id: number
+          rev: number
+          status: Database["public"]["Enums"]["plan_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          baseline?: Json | null
+          cancelled_at?: string | null
+          created_at?: string
+          created_by: string
+          host_id: string
+          id: string
+          launched_at?: string | null
+          launched_by?: string | null
+          property_id: number
+          rev?: number
+          status?: Database["public"]["Enums"]["plan_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          baseline?: Json | null
+          cancelled_at?: string | null
+          created_at?: string
+          created_by?: string
+          host_id?: string
+          id?: string
+          launched_at?: string | null
+          launched_by?: string | null
+          property_id?: number
+          rev?: number
+          status?: Database["public"]["Enums"]["plan_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resolution_plans_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resolution_plans_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resolution_plans_launched_by_fkey"
+            columns: ["launched_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resolution_plans_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resolution_plans_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "report_properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       signal_feedback: {
         Row: {
           confidence: number | null
@@ -4399,6 +4589,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      cancel_resolution_plan: {
+        Args: { p_id: string; p_rev: number }
+        Returns: Json
+      }
       chat_body_max_length: { Args: never; Returns: number }
       chat_max_photos: { Args: never; Returns: number }
       chat_media_upload_window: { Args: never; Returns: string }
@@ -4721,6 +4915,10 @@ export type Database = {
         Returns: Database["public"]["Enums"]["signal_finding_status"]
       }
       default_host_id: { Args: never; Returns: string }
+      delete_resolution_plan: {
+        Args: { p_id: string; p_rev: number }
+        Returns: undefined
+      }
       delete_supply_request: { Args: { p_id: string }; Returns: boolean }
       effective_cleaner_notes: {
         Args: { p: Database["public"]["Tables"]["properties"]["Row"] }
@@ -4876,6 +5074,10 @@ export type Database = {
       kb_write_translations: {
         Args: { p_article: string; p_host: string; p_translations: Json }
         Returns: undefined
+      }
+      launch_resolution_plan: {
+        Args: { p_id: string; p_rev: number }
+        Returns: Json
       }
       list_api_key_events: { Args: { p_key_id: string }; Returns: Json }
       list_api_keys: { Args: never; Returns: Json }
@@ -5296,6 +5498,10 @@ export type Database = {
           unit_name: string
         }[]
       }
+      property_resolution_plans: {
+        Args: { p_property_id: number }
+        Returns: Json
+      }
       purge_guest_message_links: { Args: never; Returns: Json }
       purge_push_history: { Args: never; Returns: undefined }
       purge_signal_data: { Args: never; Returns: Json }
@@ -5648,6 +5854,24 @@ export type Database = {
         }
         Returns: number
       }
+      resolution_plan: { Args: { p_id: string }; Returns: Json }
+      resolution_plan_baseline: {
+        Args: { p_host: string; p_property: number; p_themes: string[] }
+        Returns: Json
+      }
+      resolution_plan_place_work: {
+        Args: { p_property_id: number }
+        Returns: Json
+      }
+      resolution_step_states: {
+        Args: { p_plan_id: string }
+        Returns: {
+          closed_at: string
+          state: string
+          step_id: string
+          work_status: string
+        }[]
+      }
       resolve_checklist_property: {
         Args: { p_property_id: number }
         Returns: number
@@ -5858,6 +6082,16 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      save_resolution_plan: {
+        Args: {
+          p_id: string
+          p_property_id: number
+          p_rev?: number
+          p_steps: Json
+          p_title: string
+        }
+        Returns: Json
       }
       save_supply_catalog_item: {
         Args: {
@@ -6155,6 +6389,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      set_resolution_step_decided: {
+        Args: { p_decided: boolean; p_step_id: string }
+        Returns: Json
       }
       short_cleaning_threshold: { Args: never; Returns: string }
       signal_buildings: {
@@ -6747,6 +6985,8 @@ export type Database = {
       kb_status: "draft" | "published" | "archived"
       media_kind: "photo" | "video"
       media_source: "camera" | "gallery" | "unknown"
+      plan_status: "draft" | "launched" | "cancelled"
+      plan_step_kind: "repair" | "inspection" | "purchase" | "decision"
       problem_event_kind:
         | "reported"
         | "assigned"
@@ -6765,7 +7005,7 @@ export type Database = {
         | "archived"
         | "unarchived"
       problem_priority: "low" | "normal" | "high"
-      problem_source: "staff" | "review" | "message"
+      problem_source: "staff" | "review" | "message" | "plan"
       problem_status:
         | "open"
         | "assigned"
@@ -7023,6 +7263,8 @@ export const Constants = {
       kb_status: ["draft", "published", "archived"],
       media_kind: ["photo", "video"],
       media_source: ["camera", "gallery", "unknown"],
+      plan_status: ["draft", "launched", "cancelled"],
+      plan_step_kind: ["repair", "inspection", "purchase", "decision"],
       problem_event_kind: [
         "reported",
         "assigned",
@@ -7042,7 +7284,7 @@ export const Constants = {
         "unarchived",
       ],
       problem_priority: ["low", "normal", "high"],
-      problem_source: ["staff", "review", "message"],
+      problem_source: ["staff", "review", "message", "plan"],
       problem_status: [
         "open",
         "assigned",
