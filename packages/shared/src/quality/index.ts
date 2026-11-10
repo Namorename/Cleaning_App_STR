@@ -238,3 +238,5 @@ export function trustOf(stays: number, rated: number): TrustLevel {
   }
   return stays >= RATE_MIN_STAYS ? 'medium' : 'low';
 }
+
+export * from './plans';
