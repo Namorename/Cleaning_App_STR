@@ -41,6 +41,7 @@ select json_build_object(
                           'reserve_guest_message_reading', 'fail_guest_message_reading',
                           'finish_guest_conversation', 'apply_guest_message_reading',
                           'purge_guest_message_links', 'message_theme_finding', 'guest_message_place',
+                          'guest_message_failure_passes',
                           'guest_messages_shown', 'signal_message_month_start')
       group by p.oid, p.proname) s),
   'jobs', (select coalesce(json_object_agg(j.jobname, j.active), '{}'::json)

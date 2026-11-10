@@ -124,10 +124,12 @@ export function renderMessageThemeInput(input: MessageThemeInput): string {
 
 // ------------------------------------------------------------ redaction
 
-/** Thirteen to nineteen digits in groups: a card's number. Before the rule of four digits. */
-const CARD_RE = /(?<![\p{L}\p{N}])\d(?:[ -]?\d){12,18}(?![\p{L}\p{N}])/gu;
-/** An IBAN: two letters, two digits, then groups of letters and digits. */
-const IBAN_RE = /(?<![\p{L}\p{N}])[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){3,7}(?: ?[A-Z0-9]{1,4})?(?![\p{L}\p{N}])/gu;
+/**
+ * An IBAN: two letters, two digits, then groups of capitals and digits. Never
+ * part of an address (no "@" or "." after it), so it cannot break one before the
+ * reviews' rules take the address out whole.
+ */
+const IBAN_RE = /(?<![\p{L}\p{N}.@])[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){3,7}(?: ?[A-Z0-9]{1,4})?(?![\p{L}\p{N}@.])/gu;
 /** The words that announce a secret. */
 const SECRET_WORDS = "code|codes|kód|kódy|kod|код|pin|heslo|hesla|password|passwort|kennwort|пароль|wifi|wi-fi";
 /** The secret after its word and a colon: "heslo: kocka", "code=AB#". */
@@ -135,29 +137,37 @@ const SECRET_AFTER_COLON_RE = new RegExp(
   `(?<![\\p{L}\\p{N}])(${SECRET_WORDS})(\\s*[:=]\\s*)([^\\s,;!?]+)`,
   "giu",
 );
-/** The secret after its word, when it has a digit: "code 4B7#". "wifi doesn't work" keeps its words. */
+/**
+ * The secret after its word, when it has a digit (or four, already [NUMBER]):
+ * "code 4B7#". "wifi doesn't work" keeps its words.
+ */
 const SECRET_WITH_DIGIT_RE = new RegExp(
-  `(?<![\\p{L}\\p{N}])(${SECRET_WORDS})(\\s+)([^\\s,;!?]*\\d[^\\s,;!?]*)`,
+  `(?<![\\p{L}\\p{N}])(${SECRET_WORDS})(\\s+)([^\\s,;!?]*(?:\\d|\\[NUMBER\\])[^\\s,;!?]*)`,
   "giu",
 );
 /** A token of letters and three digits or more: a door or Wi-Fi code more often than not. */
 const MIXED_CODE_RE = /(?<![\p{L}\p{N}])(?=[\p{L}\p{N}]*\p{L})(?=(?:[\p{L}]*\p{N}){3})[\p{L}\p{N}]{4,}(?![\p{L}\p{N}])/gu;
+/** Letters joined to four digits the reviews' rule already took ("Prague[NUMBER]"): the rest of a code. */
+const LETTERS_AT_NUMBER_RE =
+  /(?<![\p{L}\p{N}\]])[\p{L}\p{N}]+\[NUMBER\][\p{L}\p{N}]*|(?<![\p{L}\p{N}])\[NUMBER\][\p{L}\p{N}]+/gu;
 
 /**
- * A chat's text, redacted: the reviews' rules (redactText) and, because a chat
- * carries what a review rarely does, cards, IBANs and codes first — a code after
- * the word that announces it, and any token of letters and three digits.
- * Stricter, never looser than the reviews'.
+ * A chat's text, redacted: the reviews' rules first and whole (redactText:
+ * links, addresses, handles, phones, names, four digits and more — a card's
+ * number goes with them), then what a chat carries more often than a review —
+ * an account (IBAN, taken before, as it never touches an address), a code after
+ * the word that announces it, any token of letters and three digits. Each rule
+ * only takes more away: never looser than the reviews'. The order matters: a
+ * code rule run first would split an address ("novak1985@…") before the
+ * address rule saw it whole.
  */
 export function redactMessage(text: string, names: RedactionNames): string {
-  let out = text.normalize("NFC");
-  // The account first: its digits would read as a card's.
-  out = out.replace(IBAN_RE, "[ID]");
-  out = out.replace(CARD_RE, "[CARD]");
+  let out = text.normalize("NFC").replace(IBAN_RE, "[ID]");
+  out = redactText(out, names);
   out = out.replace(SECRET_AFTER_COLON_RE, (_m, word: string, gap: string) => `${word}${gap}[CODE]`);
   out = out.replace(SECRET_WITH_DIGIT_RE, (_m, word: string, gap: string) => `${word}${gap}[CODE]`);
-  out = out.replace(MIXED_CODE_RE, (token: string) => (token.startsWith("[") ? token : "[CODE]"));
-  return redactText(out, names);
+  out = out.replace(LETTERS_AT_NUMBER_RE, "[CODE]");
+  return out.replace(MIXED_CODE_RE, (token: string) => (token.startsWith("[") ? token : "[CODE]"));
 }
 
 /**

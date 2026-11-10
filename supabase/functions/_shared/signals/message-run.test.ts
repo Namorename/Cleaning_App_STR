@@ -293,6 +293,33 @@ Deno.test("a quiet tick writes nothing to the journal but once an hour", async (
   assertEquals(onTheHour.logs.length, 1);
 });
 
+Deno.test("a reading that stopped is journaled as not clean, once an hour", async () => {
+  const store = new FakeStore({ queue: [claimed(FAKE_IDS.stay)] });
+  await runMessages({ ...deps(store, null), now: () => new Date("2026-10-15T13:00:30Z") });
+  assertEquals(store.logs.length, 1);
+  assertEquals(store.logs[0].isOk, false);
+  assertEquals(store.logs[0].errors, [{ code: "stopped_no_model", count: 1 }]);
+  const quietAndStopped = new FakeStore({ state: { ...STATE, calls_today: 150 } });
+  await runMessages({ ...deps(quietAndStopped, new FakeModel()), now: () => new Date("2026-10-15T13:20:00Z") });
+  assertEquals(quietAndStopped.logs.length, 0);
+});
+
+Deno.test("the first tick after the night's pause writes its line too", async () => {
+  const store = new FakeStore();
+  await runMessages({ ...deps(store, new FakeModel()), now: () => new Date("2026-10-15T04:40:10Z") });
+  assertEquals(store.logs.length, 1);
+  assertEquals(store.logs[0].isOk, true);
+});
+
+Deno.test("a poll the PMS refuses waits its hour instead of asking every tick", async () => {
+  const world = fakeWorld({ failures: { listActiveConversations: "unavailable" } });
+  const store = new FakeStore({ state: { ...STATE, poll_due: true } });
+  const summary = await runMessages(deps(store, new FakeModel(), world));
+  assertEquals(summary.errors, [{ code: "poll_source_unavailable", count: 1 }]);
+  // An empty answer still marks the poll as done for the hour.
+  assertEquals(store.polled, [[]]);
+});
+
 Deno.test("the phase of a message is its Prague day against the stay's", () => {
   assertEquals(phaseOf(new Date("2026-10-12T23:30:00Z"), "2026-10-13", "2026-10-16"), "arrival_day");
   assertEquals(phaseOf(new Date("2026-10-12T21:30:00Z"), "2026-10-13", "2026-10-16"), null);

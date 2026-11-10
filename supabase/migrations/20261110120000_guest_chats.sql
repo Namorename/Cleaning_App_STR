@@ -615,10 +615,32 @@ as $$
 $$;
 
 /**
+ * A failure that is nobody's in this conversation: the model's service, a
+ * ceiling, the tick's time, the PMS down or busy. It never spends one of the
+ * conversation's five attempts, as mark_signal_analysis_failed never counts a
+ * service_ code: an outage of hours must not leave messages unread for good.
+ *
+ * Internal: no grants.
+ */
+create or replace function public.guest_message_failure_passes(p_error text)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select p_error like 'service\_%'
+      or p_error in ('deferred', 'off', 'no_model', 'ceiling', 'daily_cap', 'daily_budget', 'month_budget',
+                     'source_unavailable', 'source_rate_limited', 'source_names_unavailable',
+                     'model_timeout', 'model_unreachable', 'model_server_error')
+$$;
+
+/**
  * A conversation done with for now: read up to `p_read_to` (null — nothing new
  * was read), or failed with a code. A guest who wrote again while it was read
- * puts it back in the queue; a failure waits five quiet minutes and gives up
- * after five attempts (idle, with its code).
+ * puts it back in the queue. A failure waits five quiet minutes; one of the
+ * conversation's own (a bad row, an answer the model could not give) counts,
+ * and five of them leave it idle with its code. A passing one
+ * (guest_message_failure_passes) gives the claim's attempt back.
  */
 create or replace function public.finish_guest_conversation(
   p_provider        public.signal_provider,
@@ -634,21 +656,24 @@ set search_path = ''
 as $$
   update raw.signal_message_queue q
   set read_to = case when p_read_to is null then q.read_to else greatest(coalesce(q.read_to, p_read_to), p_read_to) end,
-      state = case when p_error is not null and q.attempts >= 5 then 'idle'
+      state = case when p_error is not null and not f.passes and q.attempts >= 5 then 'idle'
                    when p_error is not null then 'waiting'
                    when q.last_event_at > coalesce(q.claimed_at, q.last_event_at) then 'waiting'
                    else 'idle' end,
       -- A failure starts its wait again: five quiet minutes before the next try.
-      first_waiting_at = case when p_error is not null and q.attempts < 5 then now()
+      first_waiting_at = case when p_error is not null and (f.passes or q.attempts < 5) then now()
                               when p_error is null and q.last_event_at > coalesce(q.claimed_at, q.last_event_at)
                                 then q.last_event_at
                               end,
       last_event_at = case when p_error is not null then greatest(q.last_event_at, now()) else q.last_event_at end,
-      attempts = case when p_error is null then 0 else q.attempts end,
+      attempts = case when p_error is null then 0
+                      when f.passes then greatest(q.attempts - 1, 0)
+                      else q.attempts end,
       last_error = case when p_error ~ '^[a-z0-9_.:-]{1,80}$' then p_error
                         when p_error is not null then 'unknown' end,
       claimed_at = null,
       updated_at = now()
+  from (select coalesce(public.guest_message_failure_passes(p_error), false) as passes) f
   where q.host_id = coalesce(p_host_id, public.default_host_id())
     and q.provider = p_provider
     and q.external_conversation_id = p_conversation_id
@@ -878,7 +903,9 @@ $$;
  * goes with the message's key (90 days, purge_signal_data) and from an episode
  * after 90 days; the PMS's id of a conversation on a card 30 days after the
  * decision, never past its 89th day; the queue of conversations nobody wrote in
- * for two weeks. The episodes stay: a theme, a place, a month.
+ * for 90 days — its line of what was read must outlive any stay, or a guest who
+ * writes again after weeks would have the whole stay read as new. The episodes
+ * stay: a theme, a place, a month.
  */
 create or replace function public.purge_guest_message_links()
 returns jsonb
@@ -916,7 +943,7 @@ begin
   get diagnostics v_links = row_count;
 
   delete from raw.signal_message_queue q
-  where q.state = 'idle' and q.updated_at < now() - interval '14 days';
+  where q.state = 'idle' and q.updated_at < now() - interval '90 days';
   get diagnostics v_queue = row_count;
 
   return jsonb_build_object('signals', v_signals, 'facts', v_facts, 'links', v_links, 'queue', v_queue);
@@ -1025,8 +1052,8 @@ as $$
            'messages_prev', s.messages_prev,
            'recent', s.recent,
            'older', s.older,
-           'last_on', coalesce(s.last_on, (select max(x.day) from facts x
-                                            where x.property_id = s.property_id and x.theme = s.theme)),
+           -- Reviews' and staff's only: a chat must not turn a theme to «Вернулось».
+           'last_on', s.last_on,
            'open_work', coalesce(w.open_work, 0),
            'work_180', coalesce(w.work_180, 0),
            'closed_on', w.closed_on
@@ -1093,6 +1120,7 @@ $$;
 -- ===================================================================
 
 revoke all on function public.message_theme_finding(text) from public, anon, authenticated, service_role;
+revoke all on function public.guest_message_failure_passes(text) from public, anon, authenticated, service_role;
 revoke all on function public.signal_message_month_start() from public, anon, authenticated, service_role;
 revoke all on function public.guest_message_place(public.signal_provider, uuid, text) from public, anon, authenticated, service_role;
 revoke all on function public.guest_messages_shown(uuid) from public, anon, authenticated, service_role;

@@ -14,6 +14,7 @@ import {
   THEMES_BLOCK,
 } from "./message-read.ts";
 import { ISSUE_THEMES } from "./themes.ts";
+import { redactText } from "./redact.ts";
 import { THEMES_DETECTOR, THEMES_SYSTEM_PROMPT } from "./themes-read.ts";
 
 const NAMES = { guest: ["Fakeguest Synthova"], staff: ["Tomas Technik"], places: ["Fake Flat One"] };
@@ -50,12 +51,31 @@ Deno.test("a chat's codes, cards and accounts never reach the model", () => {
       "Pay to CZ65 0800 0000 1920 0014 5399 or card 4111 1111 1111 1111. Fakeguest, call 777 123 456.",
     NAMES,
   );
-  for (const secret of ["4B7X", "Prague2024", "CZ65", "4111", "777", "Fakeguest"]) {
+  for (const secret of ["4B7X", "Prague2024", "Prague", "CZ65", "4111", "777", "Fakeguest"]) {
     assert(!out.includes(secret), `${secret} left in: ${out}`);
   }
   assert(out.includes("[CODE]"));
-  assert(out.includes("[CARD]"));
   assert(out.includes("[ID]"));
+  // A card's number goes by the reviews' own rules (here the phone's: sixteen digits in groups).
+  assert(/card \[(PHONE|NUMBER)\]/.test(out), out);
+});
+
+Deno.test("an address with digits in it goes whole, as in a review: the code rules come after", () => {
+  for (
+    const [text, left] of [
+      ["mail me at anna.novak1985@gmail.com please", ["novak", "1985", "gmail"]],
+      ["mail petr.svoboda@mail2023.cz", ["petr", "svoboda", "mail2023"]],
+      ["jan.dvorak.77a9@seznam.cz", ["dvorak", "77a9", "seznam"]],
+    ] as const
+  ) {
+    const out = redactMessage(text, NAMES);
+    assert(out.includes("[EMAIL]"), out);
+    for (const piece of left) {
+      assert(!out.includes(piece), `${piece} left in: ${out}`);
+    }
+    // Never looser than a review's: what the reviews' rules take, a chat's take too.
+    assertEquals(out, redactText(text, { guest: NAMES.guest, staff: NAMES.staff, places: NAMES.places }));
+  }
 });
 
 Deno.test("the redaction of a chat is the reviews' and more, never less", () => {

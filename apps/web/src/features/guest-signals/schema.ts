@@ -208,10 +208,10 @@ export function kindsOf(source: SignalSource, chatsOn: boolean): SignalKind[] {
 /**
  * The chats' line (read-guest-messages journals its ticks as the classify stage
  * of messages, at least once an hour): failed when the last tick went wrong,
- * stale when no clean tick came for two hours and a half — the reading pauses
- * 03:00–04:40 UTC, never longer.
+ * stale when no clean tick came for three hours — the reading pauses 03:00–04:40
+ * UTC, and its last line before the pause is at 02:00, its first after at 04:40.
  */
-export const CHATS_STALE_AFTER_MS = 2.5 * 60 * 60 * 1000;
+export const CHATS_STALE_AFTER_MS = 3 * 60 * 60 * 1000;
 
 export function chatFreshness(
   status: RunStatus,

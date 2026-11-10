@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 46 | 268 | 334 |
+| Функции | 20 | 46 | 269 | 335 |
 | Таблицы и представления | 9 | 21 | 22 | 52 |
-| Всего | 29 | 67 | 290 | 386 |
+| Всего | 29 | 67 | 291 | 387 |
 
 ## Функции
 
@@ -92,7 +92,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 268
+### Внутреннее — 269
 
 | Имя | Причина |
 | --- | --- |
@@ -187,6 +187,7 @@
 | `guard_task_transitions` | trigger function: allowed task status transitions |
 | `guard_tech_role_change` | trigger function: no role change to technician while holding links or open cleanings |
 | `guest_conversation_stay` | Guest chats (docs/guest-chats.md), behind a switch: the stay a conversation belongs to, for the job to read only inside it. |
+| `guest_message_failure_passes` | Guest chats (docs/guest-chats.md), behind a switch: whether a failure is nobody's in the conversation and spends no attempt; a helper of the job. |
 | `guest_message_place` | Guest chats (docs/guest-chats.md), behind a switch: whether a listing is the company's to read; a helper of the job. |
 | `guest_message_state` | Guest chats (docs/guest-chats.md), behind a switch: the switch and the ceilings the job asks first; money and counts are no API matter. |
 | `guest_messages_shown` | Guest chats (docs/guest-chats.md), behind a switch: whether chats are shown on «Качество объектов»; a helper of the panel's reads. |

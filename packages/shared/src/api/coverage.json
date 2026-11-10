@@ -720,6 +720,11 @@
       "reason": "Guest chats (docs/guest-chats.md), behind a switch: the stay a conversation belongs to, for the job to read only inside it.",
       "defined_in": "20261110120000_guest_chats.sql"
     },
+    "guest_message_failure_passes": {
+      "status": "internal",
+      "reason": "Guest chats (docs/guest-chats.md), behind a switch: whether a failure is nobody's in the conversation and spends no attempt; a helper of the job.",
+      "defined_in": "20261110120000_guest_chats.sql"
+    },
     "guest_message_place": {
       "status": "internal",
       "reason": "Guest chats (docs/guest-chats.md), behind a switch: whether a listing is the company's to read; a helper of the job.",

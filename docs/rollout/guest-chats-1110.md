@@ -13,7 +13,7 @@
 
 | Часть | Что | Как проверено |
 |---|---|---|
-| Миграция | `20261110120000_guest_chats.sql`, sha256 `52142a0594dfb2c36d047edd0f269840b5972bda71feb6222d6fa5762214068f` | `guest_chats.sql` 68; временная база: 56 наборов, 2 740 проверок; откат и повторный накат |
+| Миграция | `20261110120000_guest_chats.sql`, sha256 `f50014f9d9e41fc4222c187d36d0afa2bb1fa2d2645c56ee16bbf387115a66c9` | `guest_chats.sql` 70; временная база: 56 наборов, 2 742 проверки; откат и повторный накат |
 | Функции | `read-guest-messages` (новая; задания создаются выключенными), `classify-guest-signals` (правка `426d857`: сбой разбора отдельного отзыва — `is_ok = false`) | `test:fn`, `deno check` |
 | Панель | `main` fast-forward, Vercel | tsc, eslint, vitest, `next build` |
 | Телефон | не едет | код телефона не менялся, в общих переводах только ключи панели |
@@ -38,7 +38,7 @@
 ```bash
 HEAD_WANT=20261109120000
 LIST_WANT="20261110120000_guest_chats.sql"
-SHA_WANT=52142a0594dfb2c36d047edd0f269840b5972bda71feb6222d6fa5762214068f
+SHA_WANT=f50014f9d9e41fc4222c187d36d0afa2bb1fa2d2645c56ee16bbf387115a66c9
 [ "$(sha256sum supabase/migrations/20261110120000_guest_chats.sql | cut -d' ' -f1)" = "$SHA_WANT" ] &&
 [ "$(node scripts/cloud-read.mjs docs/rollout/remote_head.sql |
      node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(String(JSON.parse(s)[0].head))}catch{}})")" = "$HEAD_WANT" ] &&
@@ -56,7 +56,7 @@ npx supabase db push --linked --skip-vault
 | `head` | `20261109120000` | `20261110120000` |
 | `raw` | пусто | `signal_message_queue`, `signal_message_runs`, `signal_message_state` |
 | `raw_grants` | пусто | пусто |
-| `exec` | пусто | 10 функций — `service_role`; `guest_message_place`, `guest_messages_shown`, `message_theme_finding`, `signal_message_month_start` — `-` |
+| `exec` | пусто | 10 функций — `service_role`; `guest_message_place`, `guest_messages_shown`, `message_theme_finding`, `guest_message_failure_passes`, `signal_message_month_start` — `-` |
 | `jobs` | `{}` | `read-guest-messages` и `-0440` — `false`, `purge-guest-message-links` — `true` |
 | `switch` | `null` | `null` (строки `message` нет) |
 | `facts` | `history 2877, stream 161` | те же (история растёт сама по тикам) |

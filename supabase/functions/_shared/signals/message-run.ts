@@ -201,6 +201,16 @@ function bump(into: Record<string, number>, key: string): void {
   into[key] = (into[key] ?? 0) + 1;
 }
 
+/**
+ * A tick with nothing to do writes nothing, but one an hour does, and the first
+ * after the night's pause (the jobs skip 03:00–04:40 UTC): the panel's line tells
+ * a quiet hour from a stopped job.
+ */
+export function isHeartbeat(at: Date): boolean {
+  const minute = at.getUTCMinutes();
+  return minute < 2 || (at.getUTCHours() === 4 && minute >= 40 && minute < 42);
+}
+
 /** A failure as a code for the journal: the PMS's, the model's, or ours. Never its words. */
 function failureCode(error: unknown): string {
   if (error instanceof SignalSourceError) {
@@ -255,6 +265,9 @@ export async function runMessages(deps: MessageRunDeps): Promise<MessageRunSumma
       counts.webhook_missed = result.missed;
     } catch (error: unknown) {
       codes.push(`poll_${sourceErrorCode(error)}`);
+      // The poll is due again in an hour, not at the next tick: a PMS that refuses
+      // the list must not be asked thirty times an hour.
+      await store.queuePolled([]);
     }
   }
 
@@ -308,12 +321,13 @@ export async function runMessages(deps: MessageRunDeps): Promise<MessageRunSumma
     }
   }
 
-  const errors = countErrors(codes);
+  // A reading that stopped — no key for the model, a ceiling reached — is not a
+  // clean tick: the panel must not say «read at» while nothing is read.
+  const errors = countErrors(stopped === null ? codes : [...codes, `stopped_${stopped}`]);
+  const isOk = codes.length === 0 && stopModel === null && stopped === null;
   const didSomething = collected > 0 || polled > 0 || claimed.length > 0 || codes.length > 0;
-  // A tick with nothing to do writes nothing, but one an hour does: the panel's
-  // line tells a quiet hour from a stopped job.
-  if (didSomething || now().getUTCMinutes() < 2) {
-    await store.log(codes.length === 0 && stopModel === null, {
+  if (didSomething || isHeartbeat(now())) {
+    await store.log(isOk, {
       collected,
       polled,
       claimed: claimed.length,

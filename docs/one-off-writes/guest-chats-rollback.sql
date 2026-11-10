@@ -25,6 +25,7 @@ begin
 
   drop function if exists public.apply_guest_message_reading(public.signal_provider, jsonb, jsonb, jsonb, text, timestamptz, bigint, bigint, jsonb, uuid);
   drop function if exists public.finish_guest_conversation(public.signal_provider, text, timestamptz, text, uuid);
+  drop function if exists public.guest_message_failure_passes(text);
   drop function if exists public.fail_guest_message_reading(bigint, bigint, jsonb, jsonb);
   drop function if exists public.reserve_guest_message_reading(public.signal_provider, text, bigint, uuid);
   drop function if exists public.guest_conversation_stay(public.signal_provider, text, text, text, uuid);

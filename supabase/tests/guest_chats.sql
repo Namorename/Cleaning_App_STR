@@ -327,13 +327,17 @@ begin
   where host_id = v_host and external_conversation_id = '7007';
   perform public.claim_guest_conversations('hostaway', 5, v_host);
   perform public.finish_guest_conversation('hostaway', '7007', null, 'source_rate_limited', v_host);
-  perform pg_temp.check('a failure waits five quiet minutes',
-    (select state || '/' || last_error || '/' || (last_event_at > now() - interval '1 minute')
+  perform pg_temp.check('a failure waits five quiet minutes, and a passing one spends no attempt',
+    (select state || '/' || last_error || '/' || (last_event_at > now() - interval '1 minute') || '/' || attempts
      from raw.signal_message_queue where host_id = v_host and external_conversation_id = '7007'),
-    'waiting/source_rate_limited/true');
+    'waiting/source_rate_limited/true/0');
   update raw.signal_message_queue set attempts = 5 where host_id = v_host and external_conversation_id = '7007';
-  perform public.finish_guest_conversation('hostaway', '7007', null, 'source_rate_limited', v_host);
-  perform pg_temp.check('five failures and it rests',
+  perform public.finish_guest_conversation('hostaway', '7007', null, 'service_overloaded', v_host);
+  perform pg_temp.check('an outage of the model never leaves a conversation for good',
+    (select state from raw.signal_message_queue where host_id = v_host and external_conversation_id = '7007'), 'waiting');
+  update raw.signal_message_queue set attempts = 5 where host_id = v_host and external_conversation_id = '7007';
+  perform public.finish_guest_conversation('hostaway', '7007', null, 'source_bad_row', v_host);
+  perform pg_temp.check('five failures of its own and it rests',
     (select state from raw.signal_message_queue where host_id = v_host and external_conversation_id = '7007'), 'idle');
 
   -- ---------------------------------------------------------------- quality
@@ -344,6 +348,9 @@ begin
   perform pg_temp.check('chats count apart from reviews',
     (select x ->> 'messages' || '/' || (x ->> 'reviews') || '/' || (x ->> 'recent')
      from jsonb_array_elements(v_out) x where x ->> 'theme' = 'hot_water'), '2/0/0');
+  perform pg_temp.check('a theme said only in chats has no day to turn its state by',
+    (select coalesce(x ->> 'last_on', 'none') from jsonb_array_elements(v_out) x
+     where x ->> 'theme' = 'noise_outside'), 'none');
   perform pg_temp.check('the meta says chats are shown',
     (public.quality_meta(v_host, '3m', current_date, 'month', current_date, current_date, current_date, current_date)
       ->> 'messages_on')::boolean, true);
@@ -364,7 +371,7 @@ begin
   update public.signal_findings set decided_at = now() - interval '40 days'
   where host_id = v_host and external_conversation_id is not null and status <> 'candidate';
   update public.issue_facts set created_at = now() - interval '91 days' where host_id = v_host and origin = 'message';
-  update raw.signal_message_queue set updated_at = now() - interval '15 days' where host_id = v_host and state = 'idle';
+  update raw.signal_message_queue set updated_at = now() - interval '91 days' where host_id = v_host and state = 'idle';
   v_out := public.purge_guest_message_links();
   perform pg_temp.check('a decided card forgets the conversation after 30 days',
     (select count(*)::integer from public.signal_findings

@@ -935,8 +935,8 @@ describe('chatFreshness', () => {
     );
   });
 
-  test('no clean tick for two hours and a half is stale; nothing ran yet says nothing', () => {
-    expect(chatFreshness(row('2026-11-10T09:00:00Z', '2026-11-10T09:00:00Z'), now).problem).toBe(
+  test('no clean tick for three hours is stale; nothing ran yet says nothing', () => {
+    expect(chatFreshness(row('2026-11-10T08:30:00Z', '2026-11-10T08:30:00Z'), now).problem).toBe(
       'stale',
     );
     expect(chatFreshness([], now)).toEqual({ updatedAt: null, problem: null, at: null });
