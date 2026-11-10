@@ -32,6 +32,7 @@ export const META: QualityMeta = {
   settled_to: '2026-09-30',
   city_groups: false,
   history: READ_HISTORY,
+  messages_on: false,
 };
 
 /** Twelve months with no month of stays read yet: zero means unknown here. */
@@ -95,6 +96,8 @@ export function themeOf(over: Partial<QualityThemeRow> = {}): QualityThemeRow {
     found_prev: 0,
     reported: 0,
     reported_prev: 0,
+    messages: 0,
+    messages_prev: 0,
     recent: 0,
     older: 0,
     last_on: '2026-10-01',

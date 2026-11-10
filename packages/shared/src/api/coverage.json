@@ -397,6 +397,11 @@
       "reason": "The listTasks operation of API v1.",
       "defined_in": "20261028100000_public_api_v1.sql"
     },
+    "apply_guest_message_reading": {
+      "status": "internal",
+      "reason": "Guest chats (docs/guest-chats.md), behind a switch: read-guest-messages stores one conversation's keys, labels and cards; texts never reach the database, and the API serves no guest signal yet (guest_signals:read is planned).",
+      "defined_in": "20261110120000_guest_chats.sql"
+    },
     "apply_signal_findings": {
       "status": "internal",
       "reason": "classify-guest-signals job: stores and decides one review's reading (rules or model), service_role only",
@@ -497,6 +502,11 @@
       "reason": "threads with messages the caller has not read",
       "defined_in": "20261003160000_head_tech_push.sql"
     },
+    "claim_guest_conversations": {
+      "status": "internal",
+      "reason": "Guest chats (docs/guest-chats.md), behind a switch: read-guest-messages takes the conversations due for reading; a queue of the job.",
+      "defined_in": "20261110120000_guest_chats.sql"
+    },
     "claim_push_batch": {
       "status": "internal",
       "reason": "push plumbing: send-push leases due outbox groups, service_role only",
@@ -542,6 +552,11 @@
       "status": "internal",
       "reason": "helper: the person named as a worker is of the company's staff who work",
       "defined_in": "20261106125500_cleaning_closing.sql"
+    },
+    "collect_guest_message_events": {
+      "status": "internal",
+      "reason": "Guest chats (docs/guest-chats.md), behind a switch: read-guest-messages turns the webhook journal's guest messages into conversations to read.",
+      "defined_in": "20261110120000_guest_chats.sql"
     },
     "complete_cleaning": {
       "status": "planned",
@@ -625,10 +640,20 @@
       "reason": "scheduler job: closes cleanings the day has passed by, service_role only",
       "defined_in": "20260923130000_problem_mirror_current_attempt.sql"
     },
+    "fail_guest_message_reading": {
+      "status": "internal",
+      "reason": "Guest chats (docs/guest-chats.md), behind a switch: a reading that failed stays counted in the money journal; the job's own.",
+      "defined_in": "20261110120000_guest_chats.sql"
+    },
     "fail_signal_history": {
       "status": "internal",
       "reason": "the reading of past reviews: the job writes it, no client calls it",
       "defined_in": "20261106120000_property_quality.sql"
+    },
+    "finish_guest_conversation": {
+      "status": "internal",
+      "reason": "Guest chats (docs/guest-chats.md), behind a switch: the queue moves on after a conversation is read or failed; the job's own.",
+      "defined_in": "20261110120000_guest_chats.sql"
     },
     "forget_push_token": {
       "status": "internal",
@@ -689,6 +714,26 @@
       "status": "internal",
       "reason": "trigger function: no role change to technician while holding links or open cleanings",
       "defined_in": "20261003110000_tech_rules.sql"
+    },
+    "guest_conversation_stay": {
+      "status": "internal",
+      "reason": "Guest chats (docs/guest-chats.md), behind a switch: the stay a conversation belongs to, for the job to read only inside it.",
+      "defined_in": "20261110120000_guest_chats.sql"
+    },
+    "guest_message_place": {
+      "status": "internal",
+      "reason": "Guest chats (docs/guest-chats.md), behind a switch: whether a listing is the company's to read; a helper of the job.",
+      "defined_in": "20261110120000_guest_chats.sql"
+    },
+    "guest_message_state": {
+      "status": "internal",
+      "reason": "Guest chats (docs/guest-chats.md), behind a switch: the switch and the ceilings the job asks first; money and counts are no API matter.",
+      "defined_in": "20261110120000_guest_chats.sql"
+    },
+    "guest_messages_shown": {
+      "status": "internal",
+      "reason": "Guest chats (docs/guest-chats.md), behind a switch: whether chats are shown on «Качество объектов»; a helper of the panel's reads.",
+      "defined_in": "20261110120000_guest_chats.sql"
     },
     "guest_signals_touch": {
       "status": "internal",
@@ -882,6 +927,11 @@
       "reason": "Hostaway webhook processing (process-webhook-events), service_role only",
       "defined_in": "20260827200000_reservations_rpc.sql"
     },
+    "message_theme_finding": {
+      "status": "internal",
+      "reason": "Guest chats (docs/guest-chats.md), behind a switch: the card a theme makes; a helper of the job.",
+      "defined_in": "20261110120000_guest_chats.sql"
+    },
     "mirror_problem_status": {
       "status": "internal",
       "reason": "trigger function: mirrors the repair state onto its problem",
@@ -1010,6 +1060,11 @@
       "status": "internal",
       "reason": "panel listing-card read of reports; the same rows come from GET /v1/tasks filtered by property",
       "defined_in": "20260917160000_listing_card_rooms.sql"
+    },
+    "purge_guest_message_links": {
+      "status": "internal",
+      "reason": "Guest chats (docs/guest-chats.md), behind a switch: the nightly ageing of conversation keys and links; a scheduled job.",
+      "defined_in": "20261110120000_guest_chats.sql"
     },
     "purge_push_history": {
       "status": "internal",
@@ -1151,6 +1206,11 @@
       "reason": "internal helper of the panel reads",
       "defined_in": "20261106120000_property_quality.sql"
     },
+    "queue_polled_conversations": {
+      "status": "internal",
+      "reason": "Guest chats (docs/guest-chats.md), behind a switch: the hourly poll's conversations join the queue; the job's own.",
+      "defined_in": "20261110120000_guest_chats.sql"
+    },
     "record_push_receipts": {
       "status": "internal",
       "reason": "push plumbing: send-push stores Expo receipts, service_role only",
@@ -1246,6 +1306,11 @@
       "status": "internal",
       "reason": "cleaning generator helper; cleanings come from Hostaway bookings (rooms a booking took)",
       "defined_in": "20260927120000_pinned_rooms.sql"
+    },
+    "reserve_guest_message_reading": {
+      "status": "internal",
+      "reason": "Guest chats (docs/guest-chats.md), behind a switch: one model call booked under the day's and month's ceilings; the job's own.",
+      "defined_in": "20261110120000_guest_chats.sql"
     },
     "reserve_signal_history": {
       "status": "internal",
@@ -1435,6 +1500,11 @@
       "status": "internal",
       "reason": "the reading of past reviews: the job writes it, no client calls it",
       "defined_in": "20261106120000_property_quality.sql"
+    },
+    "signal_message_month_start": {
+      "status": "internal",
+      "reason": "Guest chats (docs/guest-chats.md), behind a switch: the start of the Prague month the money ceiling counts from; a helper.",
+      "defined_in": "20261110120000_guest_chats.sql"
     },
     "signal_model_calls_left": {
       "status": "internal",

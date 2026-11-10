@@ -33,12 +33,14 @@ import {
 } from './review-filters';
 import { ReviewFiltersBar } from './review-filters-bar';
 import {
+  chatFreshness,
   DAILY_AUTO_CAP_MAX,
   DAILY_AUTO_CAP_MIN,
   EVERY_STAGE,
   expectedStages,
   FINDING_TABS,
   freshness,
+  kindsOf,
   monthOf,
   placePathOf,
   SUBJECTS,
@@ -48,10 +50,12 @@ import {
   type FindingTab,
   type Review,
   type SignalSettings,
+  type SignalSource,
 } from './schema';
 import {
   useAddFinding,
   useCandidateCount,
+  useChatsOn,
   useFindings,
   useHasReviewText,
   useReviewPage,
@@ -68,8 +72,9 @@ interface GuestSignalsViewProps {
 
 /**
  * «Гости» (docs/guest-signals.md §7.2, the owner's decision 2): what the readers
- * found in what guests wrote, every review, the switches. Reviews only until
- * messages are loaded (stages 3–4), so there is no «Отзывы / Сообщения» filter yet.
+ * found in what guests wrote, every review, the switches. While chats are on
+ * (docs/guest-chats.md) the cards of messages stand beside the reviews' with a
+ * «Отзывы / Сообщения» filter; off, they are not shown at all.
  *
  * The tab and the filters of «Все отзывы» live in the address, as on the
  * other screens: a reload, a forwarded link or «Назад» find the screen as it
@@ -82,10 +87,13 @@ export function GuestSignalsView({ isAdmin }: GuestSignalsViewProps) {
   const setTab = (next: GuestTab) => setAddress({ ...address, tab: next }, 'push');
   const setReviewFilters = (next: ReviewFilters) => setAddress({ ...address, reviews: next });
   const count = useCandidateCount();
+  const chats = useChatsOn();
+  const chatsOn = chats.data === true;
+  const [source, setSource] = useState<SignalSource>('all');
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title={t('panel.guests.title')} meta={<RunLine />} />
+      <PageHeader title={t('panel.guests.title')} meta={<RunLine chatsOn={chatsOn} />} />
       <Tabs value={tab} onValueChange={(value) => setTab(value as GuestTab)}>
         <TabsList>
           {GUEST_TABS.map((key) => (
@@ -97,7 +105,12 @@ export function GuestSignalsView({ isAdmin }: GuestSignalsViewProps) {
         </TabsList>
         {(Object.keys(FINDING_TABS) as FindingTab[]).map((key) => (
           <TabsContent key={key} value={key}>
-            {tab === key ? <FindingList tab={key} /> : null}
+            {tab === key ? (
+              <div className="flex flex-col gap-3">
+                {chatsOn ? <SourcePicker value={source} onChange={setSource} /> : null}
+                <FindingList tab={key} kinds={kindsOf(source, chatsOn)} />
+              </div>
+            ) : null}
           </TabsContent>
         ))}
         <TabsContent value="all">
@@ -118,10 +131,11 @@ export function GuestSignalsView({ isAdmin }: GuestSignalsViewProps) {
  * not come after the load, or has had no clean run for over a day — the load
  * and the reading judged apart, so one's clean run never hides the other.
  */
-function RunLine() {
+function RunLine({ chatsOn }: { chatsOn: boolean }) {
   const { t } = useTranslation();
   const language = useLanguage();
   const status = useRunStatus();
+  const chats = useRunStatus('message', chatsOn);
   const settings = useSignalSettings();
   if (status.isError) {
     return <ErrorState message={t('panel.guests.runs.unknown')} error={status.error} />;
@@ -143,14 +157,59 @@ function RunLine() {
           {t(`panel.guests.runs.${problem.kind}`, { at: formatDateTime(problem.at, language) })}
         </span>
       ))}
+      {chatsOn && chats.data !== undefined ? <ChatLine status={chats.data} /> : null}
     </div>
   );
 }
 
-function FindingList({ tab }: { tab: FindingTab }) {
+/** The chats' own line: read every few minutes, so a tick that failed or stopped shows the same day. */
+function ChatLine({ status }: { status: Parameters<typeof chatFreshness>[0] }) {
   const { t } = useTranslation();
   const language = useLanguage();
-  const findings = useFindings(tab);
+  const { updatedAt, problem, at } = chatFreshness(status);
+  return (
+    <>
+      <span className="text-muted-foreground">
+        {updatedAt === null
+          ? t('panel.guests.chats.neverRan')
+          : t('panel.guests.chats.updated', { at: formatDateTime(updatedAt, language) })}
+      </span>
+      {problem === null || at === null ? null : (
+        <span className="text-destructive">
+          {t(`panel.guests.chats.${problem}`, { at: formatDateTime(at, language) })}
+        </span>
+      )}
+    </>
+  );
+}
+
+/** «Все / Отзывы / Сообщения»: shown only while chats are on. */
+function SourcePicker({
+  value,
+  onChange,
+}: {
+  value: SignalSource;
+  onChange: (next: SignalSource) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Label className="flex w-full flex-col items-start gap-1 sm:w-64">
+      {t('panel.guests.source.label')}
+      <NativeSelect value={value} onChange={(e) => onChange(e.target.value as SignalSource)}>
+        {(['all', 'review', 'message'] as const).map((option) => (
+          <option key={option} value={option}>
+            {t(`panel.guests.source.${option}`)}
+          </option>
+        ))}
+      </NativeSelect>
+    </Label>
+  );
+}
+
+function FindingList({ tab, kinds }: { tab: FindingTab; kinds: ReturnType<typeof kindsOf> }) {
+  const { t } = useTranslation();
+  const language = useLanguage();
+  const findings = useFindings(tab, kinds);
   if (findings.isPending) {
     return <LoadingState />;
   }

@@ -12,13 +12,18 @@ import { StateChip, TrendMark } from './chips';
 import { formatRate } from './format';
 import { isCompared, QUALITY_LAYERS, type PlaceThemeLine, type ThemeLine } from './theme-model';
 
-/** «3 жалобы · 2 находки · 1 заведено»: each layer on its own, never one sum (§2.3). */
-function LayersText({ layers }: Pick<ThemeLine, 'layers'>) {
+/**
+ * «3 жалобы · 2 находки · 1 заведено»: each layer on its own, never one sum (§2.3).
+ * Chats stand apart and say so («в чатах: 2»), never mixed into the reviews.
+ */
+function LayersText({ layers, messages }: Pick<ThemeLine, 'layers' | 'messages'>) {
   const { t } = useTranslation();
   const said = QUALITY_LAYERS.filter((layer) => layers[layer] > 0).map((layer) =>
     t(`panel.quality.layers.${layer}`, { count: layers[layer] }),
   );
-  return <p>{said.length === 0 ? t('panel.quality.layers.none') : said.join(' · ')}</p>;
+  const chats = messages > 0 ? [t('panel.quality.layers.messages', { count: messages })] : [];
+  const all = [...said, ...chats];
+  return <p>{all.length === 0 ? t('panel.quality.layers.none') : all.join(' · ')}</p>;
 }
 
 /** A rate always beside the numbers it is made of; or why the count stands alone. */
@@ -97,7 +102,7 @@ function ThemeFrame({ line, lead, children }: ThemeFrameProps) {
         <ThemeTrendMarks line={line} />
       </div>
       <SettledCaption settledTo={line.settledTo} />
-      <LayersText layers={line.layers} />
+      <LayersText layers={line.layers} messages={line.messages} />
       <RateText rates={line.rates} rateGap={line.rateGap} />
       {children}
     </li>

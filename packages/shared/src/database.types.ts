@@ -702,6 +702,7 @@ export type Database = {
           rules_version: string | null
           stay_after_notice: boolean | null
           stay_exact: boolean
+          stay_phase: string | null
           submitted_at: string
           text_purge_after: string | null
           text_truncated: boolean
@@ -743,6 +744,7 @@ export type Database = {
           rules_version?: string | null
           stay_after_notice?: boolean | null
           stay_exact?: boolean
+          stay_phase?: string | null
           submitted_at: string
           text_purge_after?: string | null
           text_truncated?: boolean
@@ -784,6 +786,7 @@ export type Database = {
           rules_version?: string | null
           stay_after_notice?: boolean | null
           stay_exact?: boolean
+          stay_phase?: string | null
           submitted_at?: string
           text_purge_after?: string | null
           text_truncated?: boolean
@@ -886,6 +889,7 @@ export type Database = {
         Row: {
           channel: Database["public"]["Enums"]["signal_channel"] | null
           confidence: number | null
+          conversation_key: string | null
           created_at: string
           detector: string
           finding_id: string | null
@@ -905,6 +909,7 @@ export type Database = {
         Insert: {
           channel?: Database["public"]["Enums"]["signal_channel"] | null
           confidence?: number | null
+          conversation_key?: string | null
           created_at?: string
           detector: string
           finding_id?: string | null
@@ -924,6 +929,7 @@ export type Database = {
         Update: {
           channel?: Database["public"]["Enums"]["signal_channel"] | null
           confidence?: number | null
+          conversation_key?: string | null
           created_at?: string
           detector?: string
           finding_id?: string | null
@@ -2245,6 +2251,7 @@ export type Database = {
       signal_findings: {
         Row: {
           confidence: number | null
+          conversation_link_ends: string | null
           created_at: string
           decided_at: string | null
           decided_by: string | null
@@ -2252,6 +2259,7 @@ export type Database = {
           detector: string
           evidence: string | null
           evidence_source: string | null
+          external_conversation_id: string | null
           host_id: string
           id: string
           kind: Database["public"]["Enums"]["signal_finding_kind"]
@@ -2271,6 +2279,7 @@ export type Database = {
         }
         Insert: {
           confidence?: number | null
+          conversation_link_ends?: string | null
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
@@ -2278,6 +2287,7 @@ export type Database = {
           detector: string
           evidence?: string | null
           evidence_source?: string | null
+          external_conversation_id?: string | null
           host_id: string
           id?: string
           kind: Database["public"]["Enums"]["signal_finding_kind"]
@@ -2297,6 +2307,7 @@ export type Database = {
         }
         Update: {
           confidence?: number | null
+          conversation_link_ends?: string | null
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
@@ -2304,6 +2315,7 @@ export type Database = {
           detector?: string
           evidence?: string | null
           evidence_source?: string | null
+          external_conversation_id?: string | null
           host_id?: string
           id?: string
           kind?: Database["public"]["Enums"]["signal_finding_kind"]
@@ -2379,6 +2391,10 @@ export type Database = {
           history_include_private: boolean
           host_id: string
           kind: Database["public"]["Enums"]["guest_signal_kind"]
+          message_daily_budget_micro_usd: number
+          message_month_budget_micro_usd: number
+          messages_enabled: boolean
+          messages_enabled_at: string | null
           min_confidence: number
           model_enabled: boolean
           model_since: string | null
@@ -2402,6 +2418,10 @@ export type Database = {
           history_include_private?: boolean
           host_id: string
           kind: Database["public"]["Enums"]["guest_signal_kind"]
+          message_daily_budget_micro_usd?: number
+          message_month_budget_micro_usd?: number
+          messages_enabled?: boolean
+          messages_enabled_at?: string | null
           min_confidence?: number
           model_enabled?: boolean
           model_since?: string | null
@@ -2425,6 +2445,10 @@ export type Database = {
           history_include_private?: boolean
           host_id?: string
           kind?: Database["public"]["Enums"]["guest_signal_kind"]
+          message_daily_budget_micro_usd?: number
+          message_month_budget_micro_usd?: number
+          messages_enabled?: boolean
+          messages_enabled_at?: string | null
           min_confidence?: number
           model_enabled?: boolean
           model_since?: string | null
@@ -3504,6 +3528,7 @@ export type Database = {
         }
         Returns: {
           confidence: number | null
+          conversation_link_ends: string | null
           created_at: string
           decided_at: string | null
           decided_by: string | null
@@ -3511,6 +3536,7 @@ export type Database = {
           detector: string
           evidence: string | null
           evidence_source: string | null
+          external_conversation_id: string | null
           host_id: string
           id: string
           kind: Database["public"]["Enums"]["signal_finding_kind"]
@@ -4154,6 +4180,21 @@ export type Database = {
         }
         Returns: Json
       }
+      apply_guest_message_reading: {
+        Args: {
+          p_conversation: Json
+          p_counts?: Json
+          p_detector: string
+          p_host_id?: string
+          p_labels: Json
+          p_messages: Json
+          p_provider: Database["public"]["Enums"]["signal_provider"]
+          p_read_to: string
+          p_run_id?: number
+          p_spent_micro_usd?: number
+        }
+        Returns: Json
+      }
       apply_signal_findings: {
         Args: {
           p_detector: string
@@ -4175,6 +4216,7 @@ export type Database = {
         }
         Returns: {
           confidence: number | null
+          conversation_link_ends: string | null
           created_at: string
           decided_at: string | null
           decided_by: string | null
@@ -4182,6 +4224,7 @@ export type Database = {
           detector: string
           evidence: string | null
           evidence_source: string | null
+          external_conversation_id: string | null
           host_id: string
           id: string
           kind: Database["public"]["Enums"]["signal_finding_kind"]
@@ -4407,6 +4450,14 @@ export type Database = {
           thread_id: string
         }[]
       }
+      claim_guest_conversations: {
+        Args: {
+          p_host_id?: string
+          p_limit: number
+          p_provider: Database["public"]["Enums"]["signal_provider"]
+        }
+        Returns: Json
+      }
       claim_push_batch: { Args: { p_limit?: number }; Returns: Json }
       claim_push_receipts: { Args: { p_limit?: number }; Returns: Json }
       claim_webhook_events: {
@@ -4485,6 +4536,13 @@ export type Database = {
       closing_worker_check: {
         Args: { p_host: string; p_person: string }
         Returns: undefined
+      }
+      collect_guest_message_events: {
+        Args: {
+          p_host_id?: string
+          p_provider: Database["public"]["Enums"]["signal_provider"]
+        }
+        Returns: number
       }
       complete_cleaning: {
         Args: { p_completed_by?: string; p_id: string }
@@ -4658,12 +4716,31 @@ export type Database = {
       enqueue_daily_digest: { Args: { p_at?: string }; Returns: number }
       erase_signal_texts: { Args: { p_signal_ids: string[] }; Returns: Json }
       expire_stale_tasks: { Args: never; Returns: Json }
+      fail_guest_message_reading: {
+        Args: {
+          p_counts?: Json
+          p_errors?: Json
+          p_run_id: number
+          p_spent_micro_usd: number
+        }
+        Returns: undefined
+      }
       fail_signal_history: {
         Args: {
           p_counts?: Json
           p_errors?: Json
           p_run_id: number
           p_spent_micro_usd: number
+        }
+        Returns: undefined
+      }
+      finish_guest_conversation: {
+        Args: {
+          p_conversation_id: string
+          p_error?: string
+          p_host_id?: string
+          p_provider: Database["public"]["Enums"]["signal_provider"]
+          p_read_to: string
         }
         Returns: undefined
       }
@@ -4675,6 +4752,32 @@ export type Database = {
         Args: { from_date: string; to_date: string }
         Returns: Json
       }
+      guest_conversation_stay: {
+        Args: {
+          p_host_id?: string
+          p_listing: string
+          p_provider: Database["public"]["Enums"]["signal_provider"]
+          p_reservation: string
+          p_unit: string
+        }
+        Returns: Json
+      }
+      guest_message_place: {
+        Args: {
+          p_host_id: string
+          p_listing: string
+          p_provider: Database["public"]["Enums"]["signal_provider"]
+        }
+        Returns: number
+      }
+      guest_message_state: {
+        Args: {
+          p_host_id?: string
+          p_provider: Database["public"]["Enums"]["signal_provider"]
+        }
+        Returns: Json
+      }
+      guest_messages_shown: { Args: { p_host: string }; Returns: boolean }
       head_tech_dispatching: { Args: never; Returns: boolean }
       head_tech_property_ids: { Args: never; Returns: number[] }
       ingest_guest_reviews: {
@@ -4826,6 +4929,7 @@ export type Database = {
         Args: { p_delete?: boolean; p_problem_id: string }
         Returns: {
           confidence: number | null
+          conversation_link_ends: string | null
           created_at: string
           decided_at: string | null
           decided_by: string | null
@@ -4833,6 +4937,7 @@ export type Database = {
           detector: string
           evidence: string | null
           evidence_source: string | null
+          external_conversation_id: string | null
           host_id: string
           id: string
           kind: Database["public"]["Enums"]["signal_finding_kind"]
@@ -4878,6 +4983,7 @@ export type Database = {
         Args: { error_text?: string; event_ids: number[]; new_status: string }
         Returns: number
       }
+      message_theme_finding: { Args: { p_theme: string }; Returns: string[] }
       name_cleaning_worker: {
         Args: { p_completed_by: string; p_id: string }
         Returns: {
@@ -5176,6 +5282,7 @@ export type Database = {
           unit_name: string
         }[]
       }
+      purge_guest_message_links: { Args: never; Returns: Json }
       purge_push_history: { Args: never; Returns: undefined }
       purge_signal_data: { Args: never; Returns: Json }
       purge_signal_stays: { Args: never; Returns: number }
@@ -5251,6 +5358,14 @@ export type Database = {
         }
         Returns: Json
       }
+      queue_polled_conversations: {
+        Args: {
+          p_host_id?: string
+          p_provider: Database["public"]["Enums"]["signal_provider"]
+          p_rows: Json
+        }
+        Returns: Json
+      }
       record_push_receipts: { Args: { p_receipts: Json }; Returns: undefined }
       record_push_results: { Args: { p_results: Json }; Returns: undefined }
       record_signal_feedback: {
@@ -5283,6 +5398,7 @@ export type Database = {
         }
         Returns: {
           confidence: number | null
+          conversation_link_ends: string | null
           created_at: string
           decided_at: string | null
           decided_by: string | null
@@ -5290,6 +5406,7 @@ export type Database = {
           detector: string
           evidence: string | null
           evidence_source: string | null
+          external_conversation_id: string | null
           host_id: string
           id: string
           kind: Database["public"]["Enums"]["signal_finding_kind"]
@@ -5486,6 +5603,15 @@ export type Database = {
       reservation_rooms: {
         Args: { target_reservation_id: number }
         Returns: number[]
+      }
+      reserve_guest_message_reading: {
+        Args: {
+          p_detector: string
+          p_host_id?: string
+          p_provider: Database["public"]["Enums"]["signal_provider"]
+          p_worst_micro_usd: number
+        }
+        Returns: Json
       }
       reserve_signal_history: {
         Args: {
@@ -6053,6 +6179,7 @@ export type Database = {
         }
         Returns: Json
       }
+      signal_message_month_start: { Args: never; Returns: string }
       signal_model_calls_left: {
         Args: {
           p_host_id?: string
@@ -6504,6 +6631,10 @@ export type Database = {
           history_include_private: boolean
           host_id: string
           kind: Database["public"]["Enums"]["guest_signal_kind"]
+          message_daily_budget_micro_usd: number
+          message_month_budget_micro_usd: number
+          messages_enabled: boolean
+          messages_enabled_at: string | null
           min_confidence: number
           model_enabled: boolean
           model_since: string | null

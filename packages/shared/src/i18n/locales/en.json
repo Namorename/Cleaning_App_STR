@@ -864,7 +864,14 @@
           "public": "public review",
           "private": "private, to the host only",
           "category_comment": "category comment"
-        }
+        },
+        "fromMessage": "From a guest message",
+        "phase": {
+          "arrival_day": "on the day of arrival",
+          "stay": "during the stay",
+          "departure_day": "on the day of departure"
+        },
+        "conversation": "Conversation in the PMS no. {{id}}"
       },
       "decide": {
         "title": "Task title",
@@ -980,6 +987,18 @@
         "note": "Read from Hostaway just now; woom keeps none of it.",
         "empty": "The review has no text in Hostaway.",
         "retry": "Try again"
+      },
+      "source": {
+        "label": "Shown",
+        "all": "Reviews and messages",
+        "review": "Reviews",
+        "message": "Guest messages"
+      },
+      "chats": {
+        "updated": "Messages read {{at}}",
+        "neverRan": "Messages: nothing read yet",
+        "failed": "Reading messages failed at {{at}}",
+        "stale": "Messages have not been read since {{at}}"
       }
     },
     "quality": {
@@ -1037,6 +1056,8 @@
         "found_other": "{{count}} found",
         "reported_one": "{{count}} filed",
         "reported_other": "{{count}} filed",
+        "messages_one": "{{count}} in chats",
+        "messages_other": "{{count}} in chats",
         "none": "Nothing said in this period"
       },
       "rate": {
@@ -2874,7 +2895,8 @@
     "reviewTextUnavailable": "Hostaway is not answering right now. Try again later.",
     "oauthRequestInvalid": "The connection request is incomplete or damaged. Start the connection again in the program.",
     "oauthClientUnknown": "woom does not know the program asking for access.",
-    "oauthRedirectInvalid": "The program asks for the answer to go to an address it never declared."
+    "oauthRedirectInvalid": "The program asks for the answer to go to an address it never declared.",
+    "signalMessagesOff": "Guest messages are switched off."
   },
   "push": {
     "cleaning_new": {

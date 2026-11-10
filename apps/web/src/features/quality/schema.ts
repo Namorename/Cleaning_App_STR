@@ -46,6 +46,8 @@ const metaSchema = z.object({
   /** Whether the company groups its places by city; the other places stand in otherwise. */
   city_groups: z.boolean(),
   history: historySchema,
+  /** Chats are on (docs/guest-chats.md): their episodes come apart, as chats. */
+  messages_on: z.boolean().default(false),
 });
 export type QualityMeta = z.infer<typeof metaSchema>;
 
@@ -76,6 +78,9 @@ const themeRowSchema = z.object({
   found_prev: count,
   reported: count,
   reported_prev: count,
+  /** Episodes from guests' chats, counted apart and never in a trend; zero while chats are off. */
+  messages: count.default(0),
+  messages_prev: count.default(0),
   recent: count,
   older: count,
   last_on: day.nullable(),

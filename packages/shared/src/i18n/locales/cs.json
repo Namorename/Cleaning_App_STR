@@ -868,7 +868,14 @@
           "public": "veřejná recenze",
           "private": "soukromé, jen pro hostitele",
           "category_comment": "komentář ke kategorii"
-        }
+        },
+        "fromMessage": "Ze zprávy hosta",
+        "phase": {
+          "arrival_day": "v den příjezdu",
+          "stay": "během pobytu",
+          "departure_day": "v den odjezdu"
+        },
+        "conversation": "Konverzace v PMS č. {{id}}"
       },
       "decide": {
         "title": "Název úkolu",
@@ -986,6 +993,18 @@
         "note": "Přečteno z Hostaway právě teď; woom si z toho nic neukládá.",
         "empty": "Recenze nemá v Hostaway žádný text.",
         "retry": "Zkusit znovu"
+      },
+      "source": {
+        "label": "Zobrazit",
+        "all": "Recenze a zprávy",
+        "review": "Recenze",
+        "message": "Zprávy hostů"
+      },
+      "chats": {
+        "updated": "Zprávy přečteny {{at}}",
+        "neverRan": "Zprávy: zatím nic nepřečteno",
+        "failed": "Čtení zpráv selhalo {{at}}",
+        "stale": "Zprávy nebyly přečteny od {{at}}"
       }
     },
     "quality": {
@@ -1051,6 +1070,10 @@
         "reported_few": "{{count}} záznamy",
         "reported_many": "{{count}} záznamu",
         "reported_other": "{{count}} záznamů",
+        "messages_one": "{{count}} v chatech",
+        "messages_few": "{{count}} v chatech",
+        "messages_many": "{{count}} v chatech",
+        "messages_other": "{{count}} v chatech",
         "none": "Za toto období žádné zmínky"
       },
       "rate": {
@@ -2934,7 +2957,8 @@
     "reviewTextUnavailable": "Hostaway teď neodpovídá. Zkuste to později.",
     "oauthRequestInvalid": "Žádost o připojení je neúplná nebo poškozená. Začněte připojení v programu znovu.",
     "oauthClientUnknown": "Program, který žádá o přístup, woom nezná.",
-    "oauthRedirectInvalid": "Program žádá, aby odpověď šla na adresu, kterou nikdy neohlásil."
+    "oauthRedirectInvalid": "Program žádá, aby odpověď šla na adresu, kterou nikdy neohlásil.",
+    "signalMessagesOff": "Zprávy hostů jsou vypnuté."
   },
   "push": {
     "cleaning_new": {

@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 46 | 254 | 320 |
+| Функции | 20 | 46 | 268 | 334 |
 | Таблицы и представления | 9 | 21 | 22 | 52 |
-| Всего | 29 | 67 | 276 | 372 |
+| Всего | 29 | 67 | 290 | 386 |
 
 ## Функции
 
@@ -92,7 +92,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 254
+### Внутреннее — 268
 
 | Имя | Причина |
 | --- | --- |
@@ -134,6 +134,7 @@
 | `api_task_json` | API plumbing: what a task looks like in the API. |
 | `api_task_person_json` | API plumbing: a person on a task, the name only with staff:read_names. |
 | `api_ts` | API plumbing: ISO 8601 UTC timestamps. |
+| `apply_guest_message_reading` | Guest chats (docs/guest-chats.md), behind a switch: read-guest-messages stores one conversation's keys, labels and cards; texts never reach the database, and the API serves no guest signal yet (guest_signals:read is planned). |
 | `apply_signal_findings` | classify-guest-signals job: stores and decides one review's reading (rules or model), service_role only |
 | `auth_role` | auth/RLS helper: role of the active caller from profiles |
 | `can_read_task_media` | Storage policy helper of the task-media bucket (read) |
@@ -146,6 +147,7 @@
 | `chat_participates` | auth/RLS helper: is the caller in the audience of a thread |
 | `chat_participates_as` | push plumbing: chat audience check for a given person, service_role only |
 | `chat_touch_thread` | trigger function: moves the tail of a thread on a new message |
+| `claim_guest_conversations` | Guest chats (docs/guest-chats.md), behind a switch: read-guest-messages takes the conversations due for reading; a queue of the job. |
 | `claim_push_batch` | push plumbing: send-push leases due outbox groups, service_role only |
 | `claim_push_receipts` | push plumbing: send-push picks tickets due for Expo receipts, service_role only |
 | `claim_webhook_events` | Hostaway webhook processing (process-webhook-events), service_role only |
@@ -154,6 +156,7 @@
 | `cleans_property_as` | push plumbing: listing link check for a given person, service_role only |
 | `closing_people` | computed field for the panel and the phone: the names behind completed_by and closed_by; the API gives them in the task under staff:read_names |
 | `closing_worker_check` | helper: the person named as a worker is of the company's staff who work |
+| `collect_guest_message_events` | Guest chats (docs/guest-chats.md), behind a switch: read-guest-messages turns the webhook journal's guest messages into conversations to read. |
 | `complete_signal_history` | the reading of past reviews: the job writes it, no client calls it |
 | `complete_task_step` | phone-only flow of the cleaner at work (task steps): completes a step |
 | `confirm_task_media` | phone upload pipeline: registers, confirms or withdraws a Storage slot (row before file); the API only reads media |
@@ -168,7 +171,9 @@
 | `enqueue_daily_digest` | scheduler job: queues the 07:00 push summary |
 | `erase_signal_texts` | forbidden: data:destroy - irreversibly erases review texts and what was drawn from them (evidence, model wording); execute revoked from every role, called by the purge and the texts-off switch |
 | `expire_stale_tasks` | scheduler job: closes cleanings the day has passed by, service_role only |
+| `fail_guest_message_reading` | Guest chats (docs/guest-chats.md), behind a switch: a reading that failed stays counted in the money journal; the job's own. |
 | `fail_signal_history` | the reading of past reviews: the job writes it, no client calls it |
+| `finish_guest_conversation` | Guest chats (docs/guest-chats.md), behind a switch: the queue moves on after a conversation is read or failed; the job's own. |
 | `forget_push_token` | forbidden: push tokens (drops a device token reported gone by Expo) |
 | `generate_cleaning_tasks` | Hostaway sync, Hostaway stays the source of truth: generator of cleanings from bookings, service_role only |
 | `guard_cleaning_assignee` | trigger function: no technician on a cleaning, mid-stay or inspection |
@@ -181,6 +186,10 @@
 | `guard_task_fields` | trigger function: which task fields each role may change |
 | `guard_task_transitions` | trigger function: allowed task status transitions |
 | `guard_tech_role_change` | trigger function: no role change to technician while holding links or open cleanings |
+| `guest_conversation_stay` | Guest chats (docs/guest-chats.md), behind a switch: the stay a conversation belongs to, for the job to read only inside it. |
+| `guest_message_place` | Guest chats (docs/guest-chats.md), behind a switch: whether a listing is the company's to read; a helper of the job. |
+| `guest_message_state` | Guest chats (docs/guest-chats.md), behind a switch: the switch and the ceilings the job asks first; money and counts are no API matter. |
+| `guest_messages_shown` | Guest chats (docs/guest-chats.md), behind a switch: whether chats are shown on «Качество объектов»; a helper of the panel's reads. |
 | `guest_signals_touch` | trigger function: stamps updated_at of a review, only its month once the stay is cut |
 | `handle_new_user` | trigger function: creates the profile of a new auth.users row |
 | `head_tech_dispatching` | guard helper: marks a head-technician dispatch inside assign_problem/unassign_problem |
@@ -217,6 +226,7 @@
 | `mark_signal_analysis_failed` | classify-guest-signals job: counts a failed model reading of a review, service_role only |
 | `mark_task_media_purged` | retention job (purge-task-media): marks purged files, service_role only |
 | `mark_webhook_events` | Hostaway webhook processing (process-webhook-events), service_role only |
+| `message_theme_finding` | Guest chats (docs/guest-chats.md), behind a switch: the card a theme makes; a helper of the job. |
 | `mirror_problem_status` | trigger function: mirrors the repair state onto its problem |
 | `oauth_authorize` | MCP sign-in (docs/mcp-oauth.md): the admin allows a connection on the consent page; the panel calls it as the admin. |
 | `oauth_client` | MCP sign-in: a dynamically registered client, read by the consent page and the token endpoint. |
@@ -238,6 +248,7 @@
 | `property_maintenance_tasks` | panel listing-card read of repairs; the same rows come from GET /v1/cleanings filtered by property |
 | `property_open_cleanings` | panel confirmation figure before set_property_status; derivable from GET /v1/cleanings |
 | `property_problems` | panel listing-card read of reports; the same rows come from GET /v1/tasks filtered by property |
+| `purge_guest_message_links` | Guest chats (docs/guest-chats.md), behind a switch: the nightly ageing of conversation keys and links; a scheduled job. |
 | `purge_push_history` | scheduler job: nightly purge of the push queue and tickets |
 | `purge_signal_data` | scheduler job: nightly retention purge (purge-signal-data) of review texts and keys, irreversible; service_role only |
 | `purge_signal_stays` | scheduler job: nightly privacy sweep (purge-signal-stays) cutting settled stays to their month; service_role only |
@@ -266,6 +277,7 @@
 | `quality_place_rows` | internal helper of the panel reads |
 | `quality_settled_to` | internal helper of the panel reads |
 | `quality_theme_rows` | internal helper of the panel reads |
+| `queue_polled_conversations` | Guest chats (docs/guest-chats.md), behind a switch: the hourly poll's conversations join the queue; the job's own. |
 | `record_push_receipts` | push plumbing: send-push stores Expo receipts, service_role only |
 | `record_push_results` | push plumbing: send-push settles sent groups and tickets, service_role only |
 | `record_signal_feedback` | helper of the manager's levers: writes one verdict on a finding to signal_feedback, no text; execute revoked from every role |
@@ -281,6 +293,7 @@
 | `replace_property_month_stays` | the reading of past reviews: the job writes it, no client calls it |
 | `reservation_cleaning_window` | cleaning generator helper; cleanings come from Hostaway bookings (cleaning window of a booking); revoked from authenticated |
 | `reservation_rooms` | cleaning generator helper; cleanings come from Hostaway bookings (rooms a booking took) |
+| `reserve_guest_message_reading` | Guest chats (docs/guest-chats.md), behind a switch: one model call booked under the day's and month's ceilings; the job's own. |
 | `reserve_signal_history` | the reading of past reviews: the job writes it, no client calls it |
 | `reserve_signal_model_calls` | model spending fence of classify-guest-signals: books model calls under the daily ceiling, service_role only |
 | `resolve_report_property` | helper of report_problem: resolves the listing and checks the reporter may report there |
@@ -299,6 +312,7 @@
 | `signal_history_readable` | the reading of past reviews: the job writes it, no client calls it |
 | `signal_history_spent` | the reading of past reviews: the job writes it, no client calls it |
 | `signal_history_state` | the reading of past reviews: the job writes it, no client calls it |
+| `signal_message_month_start` | Guest chats (docs/guest-chats.md), behind a switch: the start of the Prague month the money ceiling counts from; a helper. |
 | `signal_model_calls_left` | model spending fence of classify-guest-signals: calls left today under the ceiling, service_role only |
 | `signal_month_of` | privacy helper: the first moment of the month (Prague) a cut review keeps of any time; execute revoked from every role |
 | `signal_open_twin` | duplicate lookup of decide_signal_finding/approve_signal_finding: the open task from a review about the same; execute revoked from every role |

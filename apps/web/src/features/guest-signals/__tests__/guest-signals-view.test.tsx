@@ -7,6 +7,7 @@ import { ServerRefusal } from '@/lib/function-error';
 
 import { EMPTY_REVIEW_FILTERS, type ReviewFilters } from '../review-filters';
 import {
+  chatFreshness,
   expectedStages,
   findingAge,
   findingSchema,
@@ -100,10 +101,13 @@ const refetchText = vi.fn();
 const reviews = { rows: [] as Review[], total: 0 };
 /** What signal_run_status() answers, or how its read failed. */
 const runs: { rows: RunStatus; error: Error | null } = { rows: [], error: null };
+/** Whether chats are on, and what signal_run_status() answers for them. */
+const chats: { on: boolean; rows: RunStatus } = { on: false, rows: [] };
 
 vi.mock('../use-guest-signals', () => ({
   useFindings: () => loaded(state.findings),
   useCandidateCount: () => loaded(state.findings.length),
+  useChatsOn: () => loaded(chats.on),
   useReviewPage: (filters: ReviewFilters, page: number) => {
     reviewReads.push({ filters, page });
     return {
@@ -130,10 +134,12 @@ vi.mock('../use-guest-signals', () => ({
   },
   usePlaceProblems: () => loaded(state.place),
   useSignalSettings: () => loaded(state.settings),
-  useRunStatus: () =>
-    runs.error === null
-      ? loaded(runs.rows)
-      : { data: undefined, isPending: false, isError: true, error: runs.error },
+  useRunStatus: (kind = 'review') =>
+    kind === 'message'
+      ? loaded(chats.rows)
+      : runs.error === null
+        ? loaded(runs.rows)
+        : { data: undefined, isPending: false, isError: true, error: runs.error },
   useApproveFinding: () => ({ ...idle, mutate: approve }),
   useRejectFinding: () => ({ ...idle, mutate: reject }),
   useAddFinding: () => ({ ...idle, mutate: vi.fn() }),
@@ -191,6 +197,8 @@ function review(overrides: Record<string, unknown> = {}): Review {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  chats.on = false;
+  chats.rows = [];
   window.history.replaceState(null, '', '/guests');
   reviewReads.length = 0;
   reviews.rows = [];
@@ -825,5 +833,96 @@ describe('the status line of «Гости»', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Не удалось узнать, когда отзывы обновлялись в последний раз',
     );
+  });
+});
+
+describe('chats behind their switch (docs/guest-chats.md)', () => {
+  const MESSAGE_ID = '55555555-5555-4555-8555-555555555555';
+  const chatCard = () =>
+    finding({
+      summary: 'hot_water',
+      summary_i18n: {},
+      evidence: null,
+      evidence_source: 'message',
+      confidence: 0.9,
+      detector: 'claude-haiku-5-5@themes-v1-msg',
+      external_conversation_id: '7001',
+      signal: {
+        id: MESSAGE_ID,
+        kind: 'message',
+        stay_phase: 'stay',
+        channel: 'booking',
+        rating: null,
+        category_ratings: {},
+        arrival_date: '2026-10-13',
+        departure_date: '2026-10-16',
+        submitted_at: '2026-10-14T09:00:00Z',
+        stay_exact: true,
+        external_reservation_id: '80000002',
+        property_id: 7,
+      },
+    });
+
+  test('off: no filter and no line of chats', () => {
+    render(<GuestSignalsView isAdmin={false} />);
+    expect(screen.queryByLabelText('Показывать')).toBeNull();
+    expect(screen.queryByText(/Сообщения/)).toBeNull();
+  });
+
+  test('on: the filter, and a chat card says where it came from, when, and which conversation, with no text', () => {
+    chats.on = true;
+    state.findings = [chatCard()];
+    render(<GuestSignalsView isAdmin={false} />);
+    expect(screen.getByLabelText('Показывать')).toBeTruthy();
+    const card = screen.getByRole('article');
+    expect(within(card).getByText('Из сообщения гостя')).toBeTruthy();
+    expect(within(card).getByText('во время проживания')).toBeTruthy();
+    expect(within(card).getByText('Разговор в PMS № 7001')).toBeTruthy();
+    expect(within(card).queryByText(/Отзыв целиком/)).toBeNull();
+    expect(within(card).queryByText(/без оценки/)).toBeNull();
+    expect(within(card).getByText(/Формулировки нет/)).toBeTruthy();
+  });
+
+  test('on: the chats’ line says when messages were read, and a failed tick in red', () => {
+    chats.on = true;
+    chats.rows = [
+      {
+        kind: 'message',
+        stage: 'classify',
+        last_run_at: '2026-11-10T10:04:00Z',
+        last_ok_at: '2026-11-10T10:02:00Z',
+      },
+    ];
+    render(<GuestSignalsView isAdmin={false} />);
+    expect(screen.getByText(/Сообщения прочитаны/)).toBeTruthy();
+    expect(screen.getByText(/Чтение сообщений не удалось/)).toBeTruthy();
+  });
+});
+
+describe('chatFreshness', () => {
+  const now = Date.parse('2026-11-10T12:00:00Z');
+  const row = (run: string | null, ok: string | null): RunStatus => [
+    { kind: 'message', stage: 'classify', last_run_at: run, last_ok_at: ok },
+  ];
+
+  test('a clean tick within the hours: the time and nothing to warn of', () => {
+    expect(chatFreshness(row('2026-11-10T11:58:00Z', '2026-11-10T11:58:00Z'), now)).toEqual({
+      updatedAt: '2026-11-10T11:58:00Z',
+      problem: null,
+      at: null,
+    });
+  });
+
+  test('a tick after the last clean one failed', () => {
+    expect(chatFreshness(row('2026-11-10T11:58:00Z', '2026-11-10T11:00:00Z'), now).problem).toBe(
+      'failed',
+    );
+  });
+
+  test('no clean tick for two hours and a half is stale; nothing ran yet says nothing', () => {
+    expect(chatFreshness(row('2026-11-10T09:00:00Z', '2026-11-10T09:00:00Z'), now).problem).toBe(
+      'stale',
+    );
+    expect(chatFreshness([], now)).toEqual({ updatedAt: null, problem: null, at: null });
   });
 });

@@ -17,6 +17,7 @@ import type { Language } from '@str-ops/shared';
 import {
   findingAge,
   findingWords,
+  isFromMessage,
   isModelReading,
   isTaskKind,
   monthOf,
@@ -33,13 +34,19 @@ interface FindingCardProps {
   language: Language;
 }
 
-/** What the manager decides on: the finding, the review it came from, the place, and the levers (§4.6–4.7). */
+/**
+ * What the manager decides on: the finding, the review or the chat it came from,
+ * the place, and the levers (§4.6–4.7). A chat's card has no words of the guest
+ * or the model: the kind, the subject, when in the stay, and the conversation to
+ * open in the PMS (docs/guest-chats.md).
+ */
 export function FindingCard({ finding, language }: FindingCardProps) {
   const { t } = useTranslation();
   const review = finding.signal;
   const words = findingWords(finding, language);
   const what = `${t(`panel.guests.kind.${finding.kind}`)} · ${t(`panel.guests.subject.${finding.subject}`)}`;
   const isOpenToDecide = ['candidate', 'dropped', 'already_fixed'].includes(finding.status);
+  const isChat = isFromMessage(finding);
 
   return (
     <article
@@ -51,6 +58,7 @@ export function FindingCard({ finding, language }: FindingCardProps) {
         {finding.urgency === 'high' ? (
           <Badge variant="destructive">{t('panel.guests.card.urgent')}</Badge>
         ) : null}
+        {isChat ? <Badge variant="outline">{t('panel.guests.card.fromMessage')}</Badge> : null}
         <h3 className="font-medium">{what}</h3>
         <span className="text-sm text-muted-foreground">
           {placePathOf(finding.place) ?? t('panel.guests.card.noPlace')}
@@ -72,7 +80,11 @@ export function FindingCard({ finding, language }: FindingCardProps) {
         </span>
       </p>
 
-      {review === null ? null : <ReviewFacts finding={finding} language={language} />}
+      {review === null ? null : isChat ? (
+        <MessageFacts finding={finding} language={language} />
+      ) : (
+        <ReviewFacts finding={finding} language={language} />
+      )}
       {finding.evidence === null ? null : (
         <blockquote className="border-l-2 pl-3 text-sm italic">
           {finding.evidence}{' '}
@@ -81,7 +93,7 @@ export function FindingCard({ finding, language }: FindingCardProps) {
           </span>
         </blockquote>
       )}
-      {review === null ? null : <FullReview review={review} />}
+      {review === null || isChat ? null : <FullReview review={review} />}
       <PlaceProblems findingId={finding.id} language={language} />
 
       {isOpenToDecide && isTaskKind(finding.kind) ? (
@@ -108,6 +120,30 @@ function FoundAge({ finding, language }: FindingCardProps) {
         ? t('panel.guests.card.foundToday')
         : t('panel.guests.card.foundAgo', { count: days })}
     </time>
+  );
+}
+
+/** A chat's facts: the channel, when in the stay, the day (the month once settled), the conversation. */
+function MessageFacts({ finding, language }: FindingCardProps) {
+  const { t } = useTranslation();
+  const message = finding.signal;
+  if (message === null) {
+    return null;
+  }
+  const when = message.stay_exact
+    ? formatDateTime(message.submitted_at, language)
+    : t('panel.guests.card.monthOnly', { month: monthOf(message.submitted_at) });
+  return (
+    <dl className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+      <dd>{t(`panel.guests.channel.${message.channel}`)}</dd>
+      {message.stay_phase === null ? null : (
+        <dd>{t(`panel.guests.card.phase.${message.stay_phase}`)}</dd>
+      )}
+      <dd>{when}</dd>
+      {finding.external_conversation_id === null ? null : (
+        <dd>{t('panel.guests.card.conversation', { id: finding.external_conversation_id })}</dd>
+      )}
+    </dl>
   );
 }
 

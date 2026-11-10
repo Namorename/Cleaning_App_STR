@@ -72,6 +72,27 @@ describe('overviewOf: from places up to the portfolio', () => {
     expect(view.portfolio.themes[0].layers).toEqual({ reviews: 3, found: 1, reported: 3 });
   });
 
+  test('chats stand apart: counted as chats, never in the reviews, and a theme said only in chats still shows', () => {
+    const view = overviewOf(
+      overviewOfRows(
+        [placeOf({ id: 1 }), placeOf({ id: 2 })],
+        [
+          themeOf({ property_id: 1, theme: 'wifi', reviews: 2, messages: 1 }),
+          themeOf({ property_id: 2, theme: 'hot_water', messages: 3 }),
+        ],
+        { ...META, messages_on: true },
+      ),
+      ALL,
+    );
+
+    const wifi = view.portfolio.themes.find((line) => line.theme === 'wifi');
+    const water = view.portfolio.themes.find((line) => line.theme === 'hot_water');
+    expect(wifi?.layers).toEqual({ reviews: 2, found: 0, reported: 0 });
+    expect(wifi?.messages).toBe(1);
+    expect(water?.layers).toEqual({ reviews: 0, found: 0, reported: 0 });
+    expect(water?.messages).toBe(3);
+  });
+
   test('counts stays and episodes of the same places: an archived place has themes, no stays', () => {
     const view = overviewOf(
       overviewOfRows(

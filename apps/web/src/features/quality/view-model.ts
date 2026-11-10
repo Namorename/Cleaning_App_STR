@@ -52,6 +52,7 @@ const NO_EPISODES: Episodes = {
   found_prev: 0,
   reported: 0,
   reported_prev: 0,
+  messages: 0,
 };
 
 function sumEpisodes(rows: readonly Episodes[]): Episodes {
@@ -64,6 +65,7 @@ function sumEpisodes(rows: readonly Episodes[]): Episodes {
       found_prev: sum.found_prev + row.found_prev,
       reported: sum.reported + row.reported,
       reported_prev: sum.reported_prev + row.reported_prev,
+      messages: sum.messages + row.messages,
     }),
     NO_EPISODES,
   );
@@ -109,7 +111,7 @@ function scopeLines(
   return QUALITY_THEME_CODES.flatMap((theme) => {
     const ofTheme = own.filter((row) => row.theme === theme);
     const sum = sumEpisodes(ofTheme);
-    return hasEpisodes(sum)
+    return hasEpisodes(sum) || sum.messages > 0
       ? [lineOf(frame, scope, { ...sum, theme, seasonal: ofTheme[0].seasonal }, stays)]
       : [];
   }).sort(byWeight);

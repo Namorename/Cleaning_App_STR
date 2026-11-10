@@ -20,6 +20,7 @@ import {
   settingsSchema,
   SIGNAL_KIND,
   type Finding,
+  type SignalKind,
   type SignalSettings,
 } from './schema';
 import {
@@ -51,22 +52,23 @@ const REVIEW_PLACE = `place:properties!guest_signals_property_id_fkey(${PLACE_CO
 const FINDING_COLUMNS =
   'id, signal_id, property_id, kind, subject, urgency, summary, summary_i18n, evidence, ' +
   'evidence_source, confidence, detector, status, reject_reason, problem_id, decided_mode, ' +
-  'decided_at, created_at, ' +
+  'decided_at, created_at, external_conversation_id, ' +
   `place:properties(${PLACE_COLUMNS}), ` +
-  `signal:guest_signals!inner(kind, ${REVIEW_COLUMNS})`;
+  `signal:guest_signals!inner(kind, stay_phase, ${REVIEW_COLUMNS})`;
 
 /** How many findings one tab lists; the queue is small (≈ 1–3 a day, docs §5.1). */
 export const FINDINGS_LIMIT = 200;
 
-/** The findings of a tab, urgent first, newest first. */
+/** The findings of a tab, urgent first, newest first: reviews, and chats while they are on. */
 export async function fetchFindings(
   client: Client,
   statuses: readonly FindingStatus[],
+  kinds: readonly SignalKind[] = [SIGNAL_KIND],
 ): Promise<Finding[]> {
   const { data, error } = await client
     .from('signal_findings')
     .select(FINDING_COLUMNS)
-    .eq('signal.kind', SIGNAL_KIND)
+    .in('signal.kind', [...kinds])
     .in('status', [...statuses])
     .order('urgency', { ascending: false })
     .order('created_at', { ascending: false })
@@ -77,12 +79,15 @@ export async function fetchFindings(
   return findingListSchema.parse(data ?? []);
 }
 
-/** The number of candidates waiting: the menu's count (the owner's decision 7). */
-export async function fetchCandidateCount(client: Client): Promise<number> {
+/** The number of candidates waiting: the menu's count (the owner's decision 7), chats in it while on. */
+export async function fetchCandidateCount(
+  client: Client,
+  kinds: readonly SignalKind[] = [SIGNAL_KIND],
+): Promise<number> {
   const { count, error } = await client
     .from('signal_findings')
     .select('id, signal:guest_signals!inner(kind)', { count: 'exact', head: true })
-    .eq('signal.kind', SIGNAL_KIND)
+    .in('signal.kind', [...kinds])
     .eq('status', 'candidate');
   if (error) {
     throw error;
@@ -228,9 +233,29 @@ export async function fetchSettings(client: Client): Promise<SignalSettings> {
   return data === null ? SETTINGS_OFF : settingsSchema.parse(data);
 }
 
-/** The last runs of the section's kind of signal: one row per stage (sync, classify). */
-export async function fetchRunStatus(client: Client): Promise<RunStatus> {
-  const { data, error } = await client.rpc('signal_run_status').eq('kind', SIGNAL_KIND);
+/**
+ * Whether chats are on (signal_settings.messages_enabled of the 'message' row,
+ * 20261110120000): their cards and counts are shown only then. Off while the
+ * company has no row.
+ */
+export async function fetchChatsOn(client: Client): Promise<boolean> {
+  const { data, error } = await client
+    .from('signal_settings')
+    .select('messages_enabled')
+    .eq('kind', 'message')
+    .maybeSingle();
+  if (error) {
+    throw error;
+  }
+  return data?.messages_enabled === true;
+}
+
+/** The last runs of a kind of signal: one row per stage (sync, classify); chats journal classify. */
+export async function fetchRunStatus(
+  client: Client,
+  kind: SignalKind = SIGNAL_KIND,
+): Promise<RunStatus> {
+  const { data, error } = await client.rpc('signal_run_status').eq('kind', kind);
   if (error) {
     throw error;
   }

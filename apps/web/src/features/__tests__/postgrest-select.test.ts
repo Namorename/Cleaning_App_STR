@@ -119,7 +119,11 @@ const READERS: readonly ((client: never) => Promise<unknown>)[] = [
   (client) => problems.fetchWorkers(client),
   (client) => tasks.fetchCleaners(client),
   (client) => guestSignals.fetchFindings(client, ['candidate']),
+  // Chats on: the cards of messages beside the reviews', their count, the switch (20261110120000).
+  (client) => guestSignals.fetchFindings(client, ['candidate'], ['review', 'message']),
   (client) => guestSignals.fetchCandidateCount(client),
+  (client) => guestSignals.fetchCandidateCount(client, ['review', 'message']),
+  (client) => guestSignals.fetchChatsOn(client),
   // «Все отзывы» ask two ways: without the findings, and with them joined when filtered by them.
   (client) => guestSignals.fetchReviewPage(client, EMPTY_REVIEW_FILTERS, 0),
   (client) =>
@@ -132,6 +136,7 @@ const READERS: readonly ((client: never) => Promise<unknown>)[] = [
   // The tasks on a finding's place and the runs come through RPCs: no select string.
   (client) => guestSignals.fetchPlaceProblems(client, ANY_ID),
   (client) => guestSignals.fetchRunStatus(client),
+  (client) => guestSignals.fetchRunStatus(client, 'message'),
   (client) => settings.fetchHostSettings(client),
   (client) => settings.fetchMyLanguage(client, ANY_ID),
   // A write, but it asks its row back: the select it sends is guarded too.
@@ -242,11 +247,16 @@ describe('every read the panel makes', () => {
       ['signal_findings', 'guest_signals', 'signal_settings'].includes(entry.table),
     );
 
+    // Findings and the count twice each (reviews, and reviews with chats); the
+    // settings twice (the reviews' switches, and whether chats are on).
     expect(signals.map((entry) => entry.table).sort()).toEqual([
       'guest_signals',
       'guest_signals',
       'signal_findings',
       'signal_findings',
+      'signal_findings',
+      'signal_findings',
+      'signal_settings',
       'signal_settings',
     ]);
     expect(signals.some((entry) => entry.select.includes('parent_id'))).toBe(true);

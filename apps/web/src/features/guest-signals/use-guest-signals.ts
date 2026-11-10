@@ -9,6 +9,7 @@ import {
   addFinding,
   approveFinding,
   fetchCandidateCount,
+  fetchChatsOn,
   fetchFindings,
   fetchPlaceProblems,
   fetchReviewPage,
@@ -23,26 +24,41 @@ import {
 } from './api';
 import { reviewTextKey, signalKeys } from './keys';
 import { reviewFiltersKey, type ReviewFilters } from './review-filters';
-import { FINDING_TABS, type FindingTab, type RejectReason } from './schema';
+import { FINDING_TABS, type FindingTab, type RejectReason, type SignalKind } from './schema';
 
 /** The menu's count reads this every few minutes; the screen refreshes it on every decision. */
 const COUNT_REFRESH_MS = 5 * 60 * 1000;
+/** With chats on, a guest's trouble during the stay should reach the menu within minutes. */
+const CHATS_REFRESH_MS = 2 * 60 * 1000;
 
-export function useFindings(tab: FindingTab) {
+/** Whether chats are on; off for a person the section is not for (`enabled`). */
+export function useChatsOn(enabled = true) {
   const client = useSupabase();
   return useQuery({
-    queryKey: signalKeys.findings(tab),
-    queryFn: () => fetchFindings(client, FINDING_TABS[tab]),
+    queryKey: signalKeys.chats(),
+    queryFn: () => fetchChatsOn(client),
+    staleTime: 60 * 1000,
+    enabled,
   });
 }
 
-/** Candidates waiting; off for a person the section is not for (`enabled`). */
-export function useCandidateCount(enabled = true) {
+export function useFindings(tab: FindingTab, kinds: readonly SignalKind[] = ['review']) {
   const client = useSupabase();
   return useQuery({
-    queryKey: signalKeys.count(),
-    queryFn: () => fetchCandidateCount(client),
-    refetchInterval: COUNT_REFRESH_MS,
+    queryKey: signalKeys.findings(tab, kinds),
+    queryFn: () => fetchFindings(client, FINDING_TABS[tab], kinds),
+  });
+}
+
+/** Candidates waiting, chats among them while they are on; off for a person the section is not for. */
+export function useCandidateCount(enabled = true) {
+  const client = useSupabase();
+  const chats = useChatsOn(enabled);
+  const kinds: SignalKind[] = chats.data === true ? ['review', 'message'] : ['review'];
+  return useQuery({
+    queryKey: signalKeys.count(kinds),
+    queryFn: () => fetchCandidateCount(client, kinds),
+    refetchInterval: chats.data === true ? CHATS_REFRESH_MS : COUNT_REFRESH_MS,
     enabled,
   });
 }
@@ -101,9 +117,13 @@ export function useSignalSettings() {
   return useQuery({ queryKey: signalKeys.settings(), queryFn: () => fetchSettings(client) });
 }
 
-export function useRunStatus() {
+export function useRunStatus(kind: SignalKind = 'review', enabled = true) {
   const client = useSupabase();
-  return useQuery({ queryKey: signalKeys.runs(), queryFn: () => fetchRunStatus(client) });
+  return useQuery({
+    queryKey: signalKeys.runs(kind),
+    queryFn: () => fetchRunStatus(client, kind),
+    enabled,
+  });
 }
 
 /** After a decision: the findings, the count and the tasks board all moved. */

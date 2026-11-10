@@ -94,6 +94,8 @@ export interface ThemeLine {
   theme: QualityTheme;
   seasonal: boolean;
   layers: LayerCounts;
+  /** Episodes from guests' chats in the window: shown apart, never in a rate, a trend or the order. */
+  messages: number;
   /** A rate per layer it is read from; empty when `rateGap` says why, or nothing was said. */
   rates: readonly LayerRate[];
   rateGap: RateGap | null;
@@ -167,6 +169,7 @@ export type Episodes = Pick<
   | 'found_prev'
   | 'reported'
   | 'reported_prev'
+  | 'messages'
 >;
 
 interface Stays {
@@ -270,6 +273,7 @@ export function lineOf(
     theme: row.theme,
     seasonal: row.seasonal,
     layers: { reviews: row.reviews, found: row.found, reported: row.reported },
+    messages: row.messages,
     ...ratesOf(frame, scope, row, stays.current),
     basis: basisOf(row),
     trend,
@@ -295,9 +299,9 @@ function byImportance(a: PlaceThemeLine, b: PlaceThemeLine): number {
   );
 }
 
-/** A theme stands in a window when it was said there, or live work is on it. */
+/** A theme stands in a window when it was said there — in a chat too — or live work is on it. */
 function isInWindow(row: QualityThemeRow): boolean {
-  return hasEpisodes(row) || row.open_work > 0;
+  return hasEpisodes(row) || row.messages > 0 || row.open_work > 0;
 }
 
 /** The themes of a place in the window, the most important first. */

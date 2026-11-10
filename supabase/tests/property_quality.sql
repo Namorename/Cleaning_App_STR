@@ -385,7 +385,8 @@ select pg_temp.check('no column of an episode can hold a guest or a text',
    where table_schema = 'public' and table_name = 'issue_facts'),
   array['id', 'host_id', 'property_id', 'theme', 'layer', 'severity', 'confidence', 'month', 'week',
         'channel', 'signal_id', 'problem_id', 'finding_id', 'origin', 'history_slice', 'detector',
-        'created_at']);
+        -- A chat's conversation as an HMAC, for 90 days (20261110120000): no guest, no text.
+        'created_at', 'conversation_key']);
 select pg_temp.check('a history label needs its week of reading',
   pg_temp.refusal(format($q$insert into public.issue_facts (host_id, property_id, theme, layer, month,
                                                             origin, detector)

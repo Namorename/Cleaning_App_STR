@@ -141,6 +141,19 @@ export const reviewTextSchema = z.object({
 });
 export type ReviewText = z.infer<typeof reviewTextSchema>;
 
+/** The kinds of guest signal (public.guest_signal_kind): reviews, and chats once they are on. */
+export const SIGNAL_KINDS = ['review', 'message'] as const;
+export type SignalKind = (typeof SIGNAL_KINDS)[number];
+
+/** When in the stay a guest wrote (guest_signals.stay_phase, chats only). */
+export const STAY_PHASES = ['arrival_day', 'stay', 'departure_day'] as const;
+
+/** A finding's signal: a review, or a message of a chat (no rating, no text — keys and the phase). */
+const findingSignalSchema = reviewSchema.omit({ place: true }).extend({
+  kind: z.enum(SIGNAL_KINDS).catch('review').default('review'),
+  stay_phase: z.enum(STAY_PHASES).nullable().catch(null).default(null),
+});
+
 /** A finding with its signal alongside — the card has all it shows from one read. */
 export const findingSchema = z.object({
   id: z.uuid(),
@@ -161,10 +174,51 @@ export const findingSchema = z.object({
   decided_mode: z.string().nullable(),
   decided_at: z.string().nullable(),
   created_at: z.string(),
+  /** A chat's conversation in the PMS, for the manager to find it; gone 30 days after the decision. */
+  external_conversation_id: z.string().nullable().default(null),
   place: placeSchema,
-  /** The review it was found in (a message once they are loaded). */
-  signal: reviewSchema.omit({ place: true }).nullable().default(null),
+  /** The review or the message it was found in. */
+  signal: findingSignalSchema.nullable().default(null),
 });
+
+/** A card of a chat: no rating, no text, a conversation to open in the PMS. */
+export function isFromMessage(finding: Pick<Finding, 'signal'>): boolean {
+  return finding.signal?.kind === 'message';
+}
+
+/** Which kinds of signal a list shows: chats only while their switch is on. */
+export type SignalSource = 'all' | 'review' | 'message';
+
+export function kindsOf(source: SignalSource, chatsOn: boolean): SignalKind[] {
+  if (!chatsOn) {
+    return ['review'];
+  }
+  return source === 'all' ? [...SIGNAL_KINDS] : [source];
+}
+
+/**
+ * The chats' line (read-guest-messages journals its ticks as the classify stage
+ * of messages, at least once an hour): failed when the last tick went wrong,
+ * stale when no clean tick came for two hours and a half — the reading pauses
+ * 03:00–04:40 UTC, never longer.
+ */
+export const CHATS_STALE_AFTER_MS = 2.5 * 60 * 60 * 1000;
+
+export function chatFreshness(
+  status: RunStatus,
+  now: number = Date.now(),
+): { updatedAt: string | null; problem: 'failed' | 'stale' | null; at: string | null } {
+  const run = status.find((row) => row.kind === 'message' && row.stage === 'classify') ?? NEVER_RAN;
+  const failed = failedAt(run);
+  if (failed !== null) {
+    return { updatedAt: run.last_ok_at, problem: 'failed', at: failed };
+  }
+  const ok = timeOf(run.last_ok_at);
+  if (ok !== null && now - ok > CHATS_STALE_AFTER_MS) {
+    return { updatedAt: run.last_ok_at, problem: 'stale', at: run.last_ok_at };
+  }
+  return { updatedAt: run.last_ok_at, problem: null, at: null };
+}
 export type Finding = z.infer<typeof findingSchema>;
 export const findingListSchema = z.array(findingSchema);
 
