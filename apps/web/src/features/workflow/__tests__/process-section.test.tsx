@@ -177,9 +177,10 @@ describe('what the fields show', () => {
     await chooseListing('Vinohrady 12');
 
     // Three pickers, the name, «Добавить шаг», and the fields of three steps:
-    // photos (title, instructions, two counts), a confirmation, a video (seconds).
+    // photos (title, instructions, two counts), a confirmation, a video (no length of
+    // its own since 20261023100000: the company's limit holds).
     const fields = container.querySelectorAll('select, textarea, input:not([type="checkbox"])');
-    expect(fields.length).toBe(14);
+    expect(fields.length).toBe(13);
     for (const field of fields) {
       expect(field.closest('.text-muted-foreground')).toBeNull();
     }
@@ -320,7 +321,7 @@ describe('the length of a video step', () => {
   test("an empty box is the company's limit, named in seconds", () => {
     render(<ProcessSection />);
 
-    expect(screen.getByText(/видео — предел компании \(120 с\)/)).toBeInTheDocument();
+    expect(screen.getByText(/видео ограничивает предел компании \(120 с\)/)).toBeInTheDocument();
     // The constant 30 s the server no longer reads (20261003170000).
     expect(screen.queryByText(/30 с/)).toBeNull();
   });
@@ -330,7 +331,7 @@ describe('the length of a video step', () => {
 
     render(<ProcessSection />);
 
-    expect(screen.getByText(/видео — предел компании \(90 с\)/)).toBeInTheDocument();
+    expect(screen.getByText(/видео ограничивает предел компании \(90 с\)/)).toBeInTheDocument();
   });
 
   test('before the company settings are in, the hint names no number rather than a wrong one', () => {
@@ -339,10 +340,10 @@ describe('the length of a video step', () => {
 
     render(<ProcessSection />);
 
-    expect(screen.getByText(/видео — предел компании\./)).toBeInTheDocument();
+    expect(screen.getByText(/видео ограничивает предел компании\./)).toBeInTheDocument();
   });
 
-  test('a step of its own is still held to 1..600 seconds', async () => {
+  test('a video step offers no length of its own: the server reads only the company’s', () => {
     processState.data = {
       template: template(),
       steps: [step({ id: 's1', type: 'video', title: 'Обход на видео' })],
@@ -350,10 +351,8 @@ describe('the length of a video step', () => {
     render(<ProcessSection />);
 
     // A card is found by its type, as the editor names it in the card's header.
-    await userEvent.type(within(stepCard('Видео')).getByLabelText(/Макс\. секунд/), '601');
-
-    expect(screen.getByRole('alert')).toHaveTextContent('Длительность видео — от 1 до 600 секунд.');
-    expect(screen.getByRole('button', { name: 'Сохранить процесс' })).toBeDisabled();
+    expect(within(stepCard('Видео')).queryByLabelText(/Макс\. секунд/)).toBeNull();
+    expect(within(stepCard('Видео')).queryByRole('spinbutton')).toBeNull();
   });
 });
 

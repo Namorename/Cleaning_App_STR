@@ -123,9 +123,8 @@
         "instructions": "Instructions",
         "minPhotos": "Min photos",
         "maxPhotos": "Max photos",
-        "maxVideoSec": "Max seconds",
-        "limitsHint": "An empty box means the default: {{min}}–{{max}} photos; for video, the company's limit ({{sec}} s). A step's own limit holds only when it is shorter.",
-        "limitsHintNoCompany": "An empty box means the default: {{min}}–{{max}} photos; for video, the company's limit. A step's own limit holds only when it is shorter.",
+        "limitsHint": "An empty box means the default: {{min}}–{{max}} photos. A video is held to the company's limit ({{sec}} s).",
+        "limitsHintNoCompany": "An empty box means the default: {{min}}–{{max}} photos. A video is held to the company's limit.",
         "save": "Save the process",
         "cancel": "Discard changes",
         "problems": {

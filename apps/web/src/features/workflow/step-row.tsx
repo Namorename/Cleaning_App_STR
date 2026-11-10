@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 
-import { isLiveStep, isPhotoStep, isVideoStep, type StepDraft } from './schema';
+import { isLiveStep, isPhotoStep, type StepDraft } from './schema';
 
 /** An empty box is the server's default, not a zero. */
 function toLimit(raw: string): number | null {
@@ -141,20 +141,6 @@ export function StepRow({ step, at, onChange, onMove, onRemove }: StepRowProps) 
             />
           </LabelledField>
         </div>
-      ) : null}
-
-      {isVideoStep(step.type) ? (
-        <LabelledField id={`${id}-video`} label={t('panel.settings.workflow.maxVideoSec')}>
-          <Input
-            id={`${id}-video`}
-            type="number"
-            min={1}
-            className="w-32"
-            aria-label={`${t('panel.settings.workflow.maxVideoSec')} — ${stepLabel}`}
-            value={step.maxVideoSec ?? ''}
-            onChange={(event) => onChange({ ...step, maxVideoSec: toLimit(event.target.value) })}
-          />
-        </LabelledField>
       ) : null}
     </li>
   );
