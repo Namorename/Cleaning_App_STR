@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 46 | 280 | 346 |
+| Функции | 20 | 46 | 281 | 347 |
 | Таблицы и представления | 9 | 21 | 24 | 54 |
-| Всего | 29 | 67 | 304 | 400 |
+| Всего | 29 | 67 | 305 | 401 |
 
 ## Функции
 
@@ -92,7 +92,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 280
+### Внутреннее — 281
 
 | Имя | Причина |
 | --- | --- |
@@ -303,6 +303,7 @@
 | `reserve_signal_model_calls` | model spending fence of classify-guest-signals: books model calls under the daily ceiling, service_role only |
 | `resolution_plan` | the panel read of one plan; the public resource comes with stage 6 of the plan |
 | `resolution_plan_baseline` | building block of the launch; execute revoked from clients |
+| `resolution_plan_effect` | the panel read of what followed a finished plan; the public resource comes with stage 6 of the plan |
 | `resolution_plan_place_work` | the panel read of a place's live tasks for a draft; the public resource comes with stage 6 of the plan |
 | `resolution_step_states` | building block of the plan reads; execute revoked from clients |
 | `resolve_report_property` | helper of report_problem: resolves the listing and checks the reporter may report there |

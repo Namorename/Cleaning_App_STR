@@ -5859,6 +5859,7 @@ export type Database = {
         Args: { p_host: string; p_property: number; p_themes: string[] }
         Returns: Json
       }
+      resolution_plan_effect: { Args: { p_id: string }; Returns: Json }
       resolution_plan_place_work: {
         Args: { p_property_id: number }
         Returns: Json

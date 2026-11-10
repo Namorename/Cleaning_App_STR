@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Json } from '@str-ops/shared';
 
 import { wireStep, type DraftStep } from './draft-model';
+import { planEffectSchema, type PlanEffect } from './effect-model';
 import {
   placePlanListSchema,
   placeWorkListSchema,
@@ -20,6 +21,15 @@ export async function fetchPlan(client: Client, planId: string): Promise<Plan | 
     throw error;
   }
   return data === null ? null : planSchema.parse(data);
+}
+
+/** What followed a finished plan; null while it is not finished. */
+export async function fetchPlanEffect(client: Client, planId: string): Promise<PlanEffect> {
+  const { data, error } = await client.rpc('resolution_plan_effect', { p_id: planId });
+  if (error) {
+    throw error;
+  }
+  return planEffectSchema.parse(data);
 }
 
 export async function fetchPlacePlans(client: Client, placeId: number): Promise<PlacePlan[]> {

@@ -1021,6 +1021,24 @@
       }
     },
     "plans": {
+      "effect": {
+        "title": "Co následovalo po plánu",
+        "since": "Plán uzavřen {{day}}. Pobytů od té doby: {{stays}}",
+        "few": "Zatím málo pobytů: {{stays}} z {{min}}. Na závěry je brzy.",
+        "before": "před",
+        "after": "po",
+        "work": "Nové úkoly k tématu: {{n}}",
+        "silent": "K tématu nejsou epizody před ani po",
+        "seasonal": "Sezónní téma: skutečnou zkouškou je stejná sezóna. Před rokem ve stejných měsících: {{rate}} na 100 pobytů.",
+        "seasonalNoData": "Sezónní téma bez dat za loňský rok: na závěr je brzy.",
+        "note": "Jde o časovou shodu, ne o důkaz: témata ovlivňuje i sezóna, ceny a další práce.",
+        "loadError": "Data po plánu se nepodařilo načíst",
+        "layer": {
+          "reviews": "Stížnosti",
+          "found": "Nálezy",
+          "reported": "Založeno"
+        }
+      },
       "defaultTitle": "Plán: {{place}}",
       "draftTitle": "Koncept plánu",
       "planTitle": "Název plánu",

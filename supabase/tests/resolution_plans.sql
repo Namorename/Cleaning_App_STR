@@ -496,6 +496,70 @@ select pg_temp.check('and the first launch keeps its day',
   (select baseline ->> 'on' from public.resolution_plans
    where id = 'b6410001-0000-4000-8000-000000000001'), (now() at time zone 'Europe/Prague')::date::text);
 
+-- ---------- what followed (20261110230000) ----------
+
+select pg_temp.boss();
+select pg_temp.check('a plan at work has no effect to show',
+  public.resolution_plan_effect('b6410001-0000-4000-8000-000000000001'), null::jsonb);
+
+select pg_temp.office();
+update public.problems set resolved_at = now() - interval '30 days', created_at = now() - interval '45 days'
+where id = 'b6430001-0000-4000-8000-000000000001';
+update public.resolution_plans
+set baseline = jsonb_build_object('on', current_date - 40,
+                                  '12m', jsonb_build_object('stays', 120, 'themes',
+                                    jsonb_build_object('wifi', jsonb_build_object(
+                                      'reviews', 6, 'found', 1, 'reported', 0))))
+where id = 'b6410003-0000-4000-8000-000000000003';
+insert into public.issue_facts (host_id, property_id, theme, layer, month, week, origin, detector)
+values
+  (pg_temp.host(), 900064002, 'wifi', 'staff_report', date_trunc('month', current_date)::date,
+   date_trunc('week', current_date)::date, 'stream', 'dict-v1'),
+  (pg_temp.host(), 900064002, 'wifi', 'staff_report', date_trunc('month', current_date - 60)::date,
+   date_trunc('week', current_date - 60)::date, 'stream', 'dict-v1');
+insert into public.issue_facts (host_id, property_id, theme, layer, month, origin, detector)
+values (pg_temp.host(), 900064002, 'wifi', 'found_at_work',
+        date_trunc('month', (now() - interval '30 days') at time zone 'Europe/Prague')::date, 'stream', 'dict-v1');
+insert into public.reservations
+  (id, host_id, property_id, arrival_date, departure_date, status, is_block, guest_name, check_out_time)
+select 900064100 + g, pg_temp.host(), 900064002, current_date - 12, current_date - 10, 'new', false,
+       'Guest', '10:00'
+from generate_series(1, 3) g;
+insert into public.problems (id, host_id, reported_by, title, property_id, priority, status)
+values ('b6430002-0000-4000-8000-000000000002', pg_temp.host(), 'b6400002-0000-4000-8000-000000000002',
+        'Снова Wi-Fi', 900064002, 'normal', 'open');
+insert into public.problem_themes (problem_id, theme, source, detector)
+values ('b6430002-0000-4000-8000-000000000002', 'wifi', 'dict', 'dict-v1');
+
+select pg_temp.as_user('b6400004-0000-4000-8000-000000000004');
+select pg_temp.check('only a manager reads what followed',
+  pg_temp.refusal($q$select public.resolution_plan_effect('b6410003-0000-4000-8000-000000000003')$q$),
+  'serverErrors.managerOnly');
+
+select pg_temp.boss();
+do $$
+declare
+  v_effect jsonb := public.resolution_plan_effect('b6410003-0000-4000-8000-000000000003');
+  v_theme  jsonb := v_effect -> 'themes' -> 0;
+begin
+  perform pg_temp.check('it starts on the day the last step closed',
+    (v_effect ->> 'closed_on')::date, ((now() - interval '30 days') at time zone 'Europe/Prague')::date);
+  perform pg_temp.check('stays are counted from there', (v_effect ->> 'stays_after')::integer, 3);
+  perform pg_temp.check('the number of the launch stands beside them',
+    (v_effect ->> 'stays_before')::integer, 120);
+  perform pg_temp.check('the theme of the plan, before', (v_theme -> 'before' ->> 'reviews')::integer, 6);
+  perform pg_temp.check('an episode after the close counts, one before it does not',
+    (v_theme -> 'after' ->> 'reported')::integer, 1);
+  perform pg_temp.check('an episode folded to its month counts as after in the month of the close',
+    (v_theme -> 'after' ->> 'found')::integer, 1);
+  perform pg_temp.check('new tasks stand on their own line', (v_theme ->> 'work_after')::integer, 1);
+  perform pg_temp.check('a theme out of season has no last year', v_theme -> 'last_year', 'null'::jsonb);
+end $$;
+
+select pg_temp.as_user('b6400009-0000-4000-8000-000000000009');
+select pg_temp.check('another company reads nothing of it',
+  public.resolution_plan_effect('b6410003-0000-4000-8000-000000000003'), null::jsonb);
+
 -- ---------- ends ----------
 
 select pg_temp.boss();

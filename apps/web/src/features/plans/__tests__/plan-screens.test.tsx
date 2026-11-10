@@ -50,6 +50,8 @@ vi.mock('@/features/quality/use-quality', () => ({
   }),
 }));
 
+vi.mock('../effect-block', () => ({ EffectBlock: () => <p>effect</p> }));
+
 const router = { replace: vi.fn(), push: vi.fn() };
 vi.mock('next/navigation', () => ({ useRouter: () => router }));
 

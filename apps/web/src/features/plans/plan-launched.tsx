@@ -27,6 +27,7 @@ import {
   refusalsOf,
   type DraftStep,
 } from './draft-model';
+import { EffectBlock } from './effect-block';
 import { PlanStepsEditor } from './plan-steps-editor';
 import { PLAN_STATUS_TONE, type Plan, type PlanStep } from './schema';
 import { useCancelPlan, useLaunchPlan, useSavePlan, useSetStepDecided } from './use-plans';
@@ -208,6 +209,7 @@ export function PlanLaunched({ plan }: { plan: Plan }) {
           {t('panel.plans.closedOn', { day: formatDay(plan.closed_at.slice(0, 10), language) })}
         </p>
       )}
+      {plan.status === 'done' ? <EffectBlock planId={plan.id} /> : null}
       {dropped === 0 ? null : (
         <p className="text-sm text-muted-foreground">
           {t('panel.plans.droppedNote', { n: dropped })}

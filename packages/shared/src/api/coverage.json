@@ -1357,6 +1357,11 @@
       "reason": "building block of the launch; execute revoked from clients",
       "defined_in": "20261110220000_resolution_plans.sql"
     },
+    "resolution_plan_effect": {
+      "status": "internal",
+      "reason": "the panel read of what followed a finished plan; the public resource comes with stage 6 of the plan",
+      "defined_in": "20261110230000_resolution_plan_effect.sql"
+    },
     "resolution_plan_place_work": {
       "status": "internal",
       "reason": "the panel read of a place's live tasks for a draft; the public resource comes with stage 6 of the plan",
