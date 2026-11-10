@@ -29,6 +29,11 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(window.location.search),
 }));
 
+vi.mock('@/features/plans/place-plans', () => ({
+  PlacePlans: () => null,
+  ThemePlanButton: () => null,
+}));
+
 import { QualityPlaceView } from '../quality-place-view';
 
 function answering(data: QualityPlaceCard | null): void {

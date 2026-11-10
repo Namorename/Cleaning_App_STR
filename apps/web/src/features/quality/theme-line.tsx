@@ -115,7 +115,7 @@ export function ScopeThemeItem({ line }: { line: ThemeLine }) {
 }
 
 /** A theme of a place, with what was done about it (§2.3: the fourth layer, an answer). */
-export function PlaceThemeItem({ line }: { line: PlaceThemeLine }) {
+export function PlaceThemeItem({ line, action }: { line: PlaceThemeLine; action?: ReactNode }) {
   const { t } = useTranslation();
   const language = useLanguage();
   const { openWork, closedOn } = line;
@@ -132,6 +132,7 @@ export function PlaceThemeItem({ line }: { line: PlaceThemeLine }) {
           {t('panel.quality.work.closed', { day: formatShortDay(closedOn, language) })}
         </p>
       )}
+      {action}
     </ThemeFrame>
   );
 }

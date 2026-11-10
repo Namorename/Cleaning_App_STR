@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { PageBackLink, PageHeader } from '@/components/page-header';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { formatNumber, NO_VALUE } from '@/features/analytics/format';
+import { PlacePlans, ThemePlanButton } from '@/features/plans/place-plans';
 import { formatDay, formatShortDay } from '@/lib/format-date';
 import { useAddressState } from '@/lib/use-address-state';
 import { useLanguage } from '@/lib/use-language';
@@ -67,12 +68,13 @@ function PlaceFacts({ card, view }: PlaceFactsProps) {
 
 interface ThemesBlockProps {
   title: string;
+  place: QualityPlaceCard['place'];
   lines: readonly PlaceThemeLine[];
   /** Said in place of the list when there is nothing in it. */
   emptyText?: string;
 }
 
-function ThemesBlock({ title, lines, emptyText }: ThemesBlockProps) {
+function ThemesBlock({ title, place, lines, emptyText }: ThemesBlockProps) {
   return (
     <section
       aria-label={title}
@@ -84,7 +86,13 @@ function ThemesBlock({ title, lines, emptyText }: ThemesBlockProps) {
       ) : (
         <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
           {lines.map((line) => (
-            <PlaceThemeItem key={line.theme} line={line} />
+            <PlaceThemeItem
+              key={line.theme}
+              line={line}
+              action={
+                <ThemePlanButton placeId={place.id} placeName={place.name} theme={line.theme} />
+              }
+            />
           ))}
         </ul>
       )}
@@ -151,13 +159,23 @@ function PlaceCard({ card }: { card: QualityPlaceCard }) {
       {view.empty === null ? (
         <>
           {view.hasOldEpisodes ? <RepairsNote workFrom={card.work_from} /> : null}
+          <PlacePlans
+            placeId={card.place.id}
+            placeName={card.place.name}
+            themes={view.important.map((line) => line.theme)}
+          />
           <ThemesBlock
             title={t('panel.quality.card.important')}
+            place={card.place}
             lines={view.important}
             emptyText={t('panel.quality.card.noImportant')}
           />
           {view.others.length === 0 ? null : (
-            <ThemesBlock title={t('panel.quality.card.others')} lines={view.others} />
+            <ThemesBlock
+              title={t('panel.quality.card.others')}
+              place={card.place}
+              lines={view.others}
+            />
           )}
         </>
       ) : (
