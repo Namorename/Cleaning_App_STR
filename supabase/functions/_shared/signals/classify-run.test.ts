@@ -212,3 +212,32 @@ Deno.test("an answer that does not parse is the review's: an attempt spent, the 
   assertEquals(run.failed, [["a", "model_bad_shape"]]);
   assert(run.applied.some(([id, d]) => id === "b" && d === MODEL_DETECTOR));
 });
+
+// The run is journaled clean only when nothing failed: a review the model
+// could not read must not hide behind the reviews it could (the «Гости»
+// screen reads last_ok_at).
+Deno.test("a review's own failure is journaled as not clean, though the model went on", async () => {
+  // An answer that does not parse; an unknown failure the next review shows
+  // to be the first one's; an unknown failure on the last review.
+  const scripts: Array<Array<unknown | ModelError>> = [
+    [{ garbage: true }, GOOD_ANSWER],
+    [new ModelError("model_timeout", "unknown", "x"), GOOD_ANSWER],
+    [GOOD_ANSWER, new ModelError("model_timeout", "unknown", "x")],
+  ];
+  for (const script of scripts) {
+    const run = classifyStore([queued("a"), queued("b")]);
+    const summary = await runReviewClassify({ store: run.store, model: scriptedModel(script) });
+
+    assertEquals(summary.stoppedModel, null);
+    assertEquals(run.failed.length, 1);
+    assertEquals(run.logs.map((log) => log.isOk), [false]);
+  }
+});
+
+Deno.test("a run of the rules alone, with nothing failed, is journaled clean", async () => {
+  const run = classifyStore([queued("a"), queued("b")]);
+  await runReviewClassify({ store: run.store, model: null });
+
+  assertEquals(run.failed, []);
+  assertEquals(run.logs.map((log) => log.isOk), [true]);
+});

@@ -1,18 +1,21 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { formatDay } from '@/lib/format-date';
+import { formatDateTime, formatDay } from '@/lib/format-date';
 import { ServerRefusal } from '@/lib/function-error';
 
 import { EMPTY_REVIEW_FILTERS, type ReviewFilters } from '../review-filters';
 import {
+  expectedStages,
+  findingAge,
   findingSchema,
   freshness,
   reviewSchema,
   textsFromDay,
   type Finding,
   type Review,
+  type RunStatus,
 } from '../schema';
 
 // Synthetic findings only. The hooks are mocked: what is tested is what the
@@ -95,6 +98,8 @@ const textReads: { signalId: string; enabled: boolean }[] = [];
 const liveText: { data: unknown; error: Error | null } = { data: null, error: null };
 const refetchText = vi.fn();
 const reviews = { rows: [] as Review[], total: 0 };
+/** What signal_run_status() answers, or how its read failed. */
+const runs: { rows: RunStatus; error: Error | null } = { rows: [], error: null };
 
 vi.mock('../use-guest-signals', () => ({
   useFindings: () => loaded(state.findings),
@@ -126,14 +131,9 @@ vi.mock('../use-guest-signals', () => ({
   usePlaceProblems: () => loaded(state.place),
   useSignalSettings: () => loaded(state.settings),
   useRunStatus: () =>
-    loaded([
-      {
-        kind: 'review',
-        stage: 'sync',
-        last_run_at: '2026-10-17T06:00:00Z',
-        last_ok_at: '2026-10-17T06:00:00Z',
-      },
-    ]),
+    runs.error === null
+      ? loaded(runs.rows)
+      : { data: undefined, isPending: false, isError: true, error: runs.error },
   useApproveFinding: () => ({ ...idle, mutate: approve }),
   useRejectFinding: () => ({ ...idle, mutate: reject }),
   useAddFinding: () => ({ ...idle, mutate: vi.fn() }),
@@ -198,6 +198,8 @@ beforeEach(() => {
   textReads.length = 0;
   liveText.data = null;
   liveText.error = null;
+  runs.rows = [];
+  runs.error = null;
   state.findings = [finding()];
   state.place = [];
   state.settings = {
@@ -206,6 +208,10 @@ beforeEach(() => {
     notice_published_at: null,
     texts_enabled_at: null,
   };
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe('the «Гости» screen', () => {
@@ -241,6 +247,27 @@ describe('the «Гости» screen', () => {
     const card = screen.getByRole('article');
     expect(card).toHaveTextContent('Проживание: 2026-10 (точных дат уже нет)');
     expect(card).not.toHaveTextContent('Бронь в PMS');
+  });
+
+  test('a candidate tells how long it has waited; a decided card, or one cut to its month, does not', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-17T12:00:00Z'));
+    const { unmount } = render(<GuestSignalsView isAdmin={false} />);
+    expect(screen.getByRole('article')).toHaveTextContent('Найдено 3 дня назад');
+    unmount();
+
+    state.findings = [
+      finding({ status: 'task_created' }),
+      finding({
+        id: '66666666-6666-4666-8666-666666666666',
+        created_at: '2026-09-30T22:00:00Z',
+        signal: { ...finding().signal, stay_exact: false, external_reservation_id: null },
+      }),
+    ];
+    render(<GuestSignalsView isAdmin={false} />);
+    for (const card of screen.getAllByRole('article')) {
+      expect(card).not.toHaveTextContent('Найдено');
+    }
   });
 
   test('«Создать и отправить» sends the technician the manager picked, with the model’s own words', async () => {
@@ -595,40 +622,208 @@ describe('textsFromDay', () => {
   });
 });
 
+/** One row of signal_run_status() for reviews. */
+function stage(
+  name: 'sync' | 'classify',
+  lastRunAt: string | null,
+  lastOkAt: string | null = lastRunAt,
+): RunStatus[number] {
+  return { kind: 'review', stage: name, last_run_at: lastRunAt, last_ok_at: lastOkAt };
+}
+
+const BOTH = { sync: true, classify: true };
+
 describe('freshness', () => {
-  test('warns when two days went by without a clean run', () => {
-    const now = Date.parse('2026-10-17T12:00:00Z');
+  const now = Date.parse('2026-10-17T12:00:00Z');
+
+  test('two clean runs: updated at the newest, nothing to warn of', () => {
+    const run = freshness(
+      [stage('sync', '2026-10-17T06:00:00Z'), stage('classify', '2026-10-17T06:20:00Z')],
+      BOTH,
+      now,
+    );
+    expect(run).toEqual({ updatedAt: '2026-10-17T06:20:00Z', problems: [] });
+  });
+
+  test('a clean load does not hide a reading that failed, nor the other way round', () => {
+    const morning = Date.parse('2026-10-17T07:00:00Z');
     expect(
       freshness(
         [
-          {
-            kind: 'review',
-            stage: 'sync',
-            last_run_at: '2026-10-17T06:00:00Z',
-            last_ok_at: '2026-10-17T06:00:00Z',
-          },
+          stage('sync', '2026-10-17T06:00:00Z'),
+          stage('classify', '2026-10-17T06:20:00Z', '2026-10-16T06:20:00Z'),
         ],
-        now,
-      ).isStale,
-    ).toBe(false);
-    expect(
-      freshness(
-        [
-          {
-            kind: 'review',
-            stage: 'sync',
-            last_run_at: '2026-10-17T06:00:00Z',
-            last_ok_at: '2026-10-14T06:00:00Z',
-          },
-        ],
-        now,
-      ).isStale,
-    ).toBe(true);
-    expect(
-      freshness([{ kind: 'review', stage: 'sync', last_run_at: null, last_ok_at: null }], now),
+        BOTH,
+        morning,
+      ),
     ).toEqual({
-      lastOk: null,
-      isStale: false,
+      updatedAt: '2026-10-17T06:00:00Z',
+      problems: [{ kind: 'classifyFailed', at: '2026-10-17T06:20:00Z' }],
     });
+    expect(
+      freshness(
+        [
+          stage('sync', '2026-10-17T06:00:00Z', '2026-10-16T06:00:00Z'),
+          stage('classify', '2026-10-17T06:20:00Z'),
+        ],
+        BOTH,
+        morning,
+      ).problems,
+    ).toEqual([{ kind: 'syncFailed', at: '2026-10-17T06:00:00Z' }]);
+  });
+
+  test('a job that ran and was never clean has failed', () => {
+    expect(freshness([stage('sync', '2026-10-17T06:00:00Z', null)], BOTH, now).problems).toEqual([
+      { kind: 'syncFailed', at: '2026-10-17T06:00:00Z' },
+    ]);
+  });
+
+  test('a reading that did not come after a clean load is missing, past the two hours’ grace only', () => {
+    const rows = [stage('sync', '2026-10-17T06:00:00Z'), stage('classify', '2026-10-16T06:20:00Z')];
+    expect(freshness(rows, BOTH, Date.parse('2026-10-17T06:10:00Z')).problems).toEqual([]);
+    expect(freshness(rows, BOTH, Date.parse('2026-10-17T08:10:00Z')).problems).toEqual([
+      { kind: 'classifyMissing', at: '2026-10-17T06:00:00Z' },
+    ]);
+    // A reading that never ran is the first night's to come, not a missed one.
+    expect(freshness([rows[0], stage('classify', null)], BOTH, now).problems).toEqual([]);
+  });
+
+  test('a job without a clean run for over a day is stale, each named with its own last one', () => {
+    expect(
+      freshness(
+        [stage('sync', '2026-10-16T06:00:00Z'), stage('classify', '2026-10-16T06:20:00Z')],
+        BOTH,
+        Date.parse('2026-10-17T07:30:00Z'),
+      ).problems,
+    ).toEqual([]);
+    expect(
+      freshness(
+        [stage('sync', '2026-10-14T06:00:00Z'), stage('classify', '2026-10-17T06:20:00Z')],
+        BOTH,
+        now,
+      ),
+    ).toEqual({
+      updatedAt: '2026-10-17T06:20:00Z',
+      problems: [{ kind: 'syncStale', at: '2026-10-14T06:00:00Z' }],
+    });
+    // Failing since the day before: the failed run, and the last clean one.
+    expect(
+      freshness(
+        [
+          stage('sync', '2026-10-17T06:00:00Z'),
+          stage('classify', '2026-10-17T06:20:00Z', '2026-10-16T06:20:00Z'),
+        ],
+        BOTH,
+        now,
+      ).problems,
+    ).toEqual([
+      { kind: 'classifyFailed', at: '2026-10-17T06:20:00Z' },
+      { kind: 'classifyStale', at: '2026-10-16T06:20:00Z' },
+    ]);
+  });
+
+  test('a job the switches have off is not judged', () => {
+    const rows = [
+      stage('sync', '2026-10-17T06:00:00Z', '2026-10-10T06:00:00Z'),
+      stage('classify', '2026-10-17T06:20:00Z', null),
+    ];
+    expect(freshness(rows, { sync: false, classify: false }, now).problems).toEqual([]);
+    expect(
+      freshness(rows, { sync: true, classify: false }, now).problems.map((p) => p.kind),
+    ).toEqual(['syncFailed', 'syncStale']);
+  });
+
+  test('nothing ran yet: no time and no warning', () => {
+    expect(freshness([stage('sync', null), stage('classify', null)], BOTH, now)).toEqual({
+      updatedAt: null,
+      problems: [],
+    });
+    expect(freshness([], BOTH, now)).toEqual({ updatedAt: null, problems: [] });
+  });
+});
+
+describe('expectedStages', () => {
+  const off = {
+    sync_enabled: false,
+    texts_enabled: false,
+    notice_published_at: null,
+    texts_enabled_at: null,
+  };
+
+  test('the load while it is on; the reading only while texts are kept, with their day', () => {
+    expect(expectedStages(off)).toEqual({ sync: false, classify: false });
+    expect(expectedStages({ ...off, sync_enabled: true })).toEqual({ sync: true, classify: false });
+    expect(expectedStages({ ...off, texts_enabled: true })).toEqual({
+      sync: false,
+      classify: false,
+    });
+    expect(
+      expectedStages({ ...off, texts_enabled: true, texts_enabled_at: '2026-11-02T09:30:00Z' }),
+    ).toEqual({ sync: false, classify: true });
+    expect(
+      expectedStages({ ...off, texts_enabled: false, texts_enabled_at: '2026-11-02T09:30:00Z' }),
+    ).toEqual({ sync: false, classify: false });
+  });
+});
+
+describe('findingAge', () => {
+  const now = new Date('2026-10-17T12:00:00Z');
+
+  test('a candidate whose stay is still exact: whole calendar days, never below zero', () => {
+    expect(findingAge(finding(), now)).toBe(3);
+    expect(findingAge(finding({ created_at: '2026-10-17T10:00:00Z' }), now)).toBe(0);
+    expect(findingAge(finding({ created_at: '2026-10-19T10:00:00Z' }), now)).toBe(0);
+  });
+
+  test('no age once decided, once its stay is cut to the month, or without its review', () => {
+    expect(findingAge(finding({ status: 'rejected' }), now)).toBeNull();
+    expect(
+      findingAge(finding({ signal: { ...finding().signal, stay_exact: false } }), now),
+    ).toBeNull();
+    expect(findingAge(finding({ signal: null }), now)).toBeNull();
+  });
+});
+
+describe('the status line of «Гости»', () => {
+  const HOUR = 60 * 60 * 1000;
+  const ago = (hours: number) => new Date(Date.now() - hours * HOUR).toISOString();
+
+  test('a clean load and a failed reading: the time, and a red line for the reading', () => {
+    state.settings = {
+      ...state.settings,
+      texts_enabled: true,
+      texts_enabled_at: '2026-11-02T09:30:00Z',
+    };
+    const loadedAt = ago(3);
+    const readAt = ago(2.5);
+    runs.rows = [stage('sync', loadedAt), stage('classify', readAt, ago(24.5))];
+    render(<GuestSignalsView isAdmin={false} />);
+
+    expect(screen.getByText(`Обновлено ${formatDateTime(loadedAt, 'ru')}`)).toBeInTheDocument();
+    expect(
+      screen.getByText(`Чтение отзывов прошло с ошибками (${formatDateTime(readAt, 'ru')})`),
+    ).toHaveClass('text-destructive');
+  });
+
+  test('with texts off the reading is not judged, and the load alone speaks', () => {
+    const loadedAt = ago(30);
+    runs.rows = [stage('sync', loadedAt), stage('classify', ago(29), null)];
+    render(<GuestSignalsView isAdmin={false} />);
+
+    expect(screen.queryByText(/Чтение отзывов/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        `Больше суток без удачной загрузки отзывов (последняя — ${formatDateTime(loadedAt, 'ru')})`,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  test('a status that cannot be read says so instead of saying nothing', () => {
+    runs.error = new Error('permission denied for function signal_run_status');
+    render(<GuestSignalsView isAdmin={false} />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Не удалось узнать, когда отзывы обновлялись в последний раз',
+    );
   });
 });

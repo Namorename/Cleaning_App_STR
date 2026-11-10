@@ -231,7 +231,11 @@ export async function runReviewClassify(deps: ReviewClassifyDeps): Promise<Class
   }
 
   const errors = countErrors(codes);
-  await store.log(stoppedModel === null, {
+  // Clean only when nothing failed, as a sync's run is (ingest_guest_reviews):
+  // a review the model could not read is a failure the «Гости» screen must
+  // see, not only a stopped service.
+  const isOk = stoppedModel === null && codes.length === 0;
+  await store.log(isOk, {
     read: queue.length,
     model_read: modelRead,
     rules_read: rulesRead,

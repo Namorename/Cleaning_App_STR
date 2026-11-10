@@ -15,6 +15,7 @@ import { formatDateTime, formatDay, todayIso } from '@/lib/format-date';
 import type { Language } from '@str-ops/shared';
 
 import {
+  findingAge,
   findingWords,
   isModelReading,
   isTaskKind,
@@ -54,6 +55,7 @@ export function FindingCard({ finding, language }: FindingCardProps) {
         <span className="text-sm text-muted-foreground">
           {placePathOf(finding.place) ?? t('panel.guests.card.noPlace')}
         </span>
+        <FoundAge finding={finding} language={language} />
       </header>
 
       <p className="text-sm">
@@ -86,6 +88,26 @@ export function FindingCard({ finding, language }: FindingCardProps) {
         <Decide finding={finding} words={words} />
       ) : null}
     </article>
+  );
+}
+
+/** How long a candidate has waited for a decision; nothing once its time is only a month. */
+function FoundAge({ finding, language }: FindingCardProps) {
+  const { t } = useTranslation();
+  const days = findingAge(finding);
+  if (days === null) {
+    return null;
+  }
+  return (
+    <time
+      dateTime={finding.created_at}
+      title={formatDateTime(finding.created_at, language)}
+      className="text-sm text-muted-foreground"
+    >
+      {days === 0
+        ? t('panel.guests.card.foundToday')
+        : t('panel.guests.card.foundAgo', { count: days })}
+    </time>
   );
 }
 

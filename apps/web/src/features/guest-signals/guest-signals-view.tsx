@@ -35,6 +35,8 @@ import { ReviewFiltersBar } from './review-filters-bar';
 import {
   DAILY_AUTO_CAP_MAX,
   DAILY_AUTO_CAP_MIN,
+  EVERY_STAGE,
+  expectedStages,
   FINDING_TABS,
   freshness,
   monthOf,
@@ -111,23 +113,37 @@ export function GuestSignalsView({ isAdmin }: GuestSignalsViewProps) {
   );
 }
 
-/** «Обновлено 07:21», and a warning when two days went by without a clean run. */
+/**
+ * «Обновлено 07:21», and under it a red line for each job that failed, did
+ * not come after the load, or has had no clean run for over a day — the load
+ * and the reading judged apart, so one's clean run never hides the other.
+ */
 function RunLine() {
   const { t } = useTranslation();
   const language = useLanguage();
   const status = useRunStatus();
-  if (status.data === undefined) {
+  const settings = useSignalSettings();
+  if (status.isError) {
+    return <ErrorState message={t('panel.guests.runs.unknown')} error={status.error} />;
+  }
+  if (status.data === undefined || settings.isPending) {
     return null;
   }
-  const { lastOk, isStale } = freshness(status.data);
+  const expected = settings.data === undefined ? EVERY_STAGE : expectedStages(settings.data);
+  const { updatedAt, problems } = freshness(status.data, expected);
   return (
-    <span className={isStale ? 'text-sm text-destructive' : 'text-sm text-muted-foreground'}>
-      {lastOk === null
-        ? t('panel.guests.neverRan')
-        : t(isStale ? 'panel.guests.stale' : 'panel.guests.updated', {
-            at: formatDateTime(lastOk, language),
-          })}
-    </span>
+    <div className="flex flex-col text-sm">
+      <span className="text-muted-foreground">
+        {updatedAt === null
+          ? t('panel.guests.neverRan')
+          : t('panel.guests.updated', { at: formatDateTime(updatedAt, language) })}
+      </span>
+      {problems.map((problem) => (
+        <span key={problem.kind} className="text-destructive">
+          {t(`panel.guests.runs.${problem.kind}`, { at: formatDateTime(problem.at, language) })}
+        </span>
+      ))}
+    </div>
   );
 }
 

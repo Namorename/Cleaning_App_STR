@@ -813,8 +813,15 @@
     "guests": {
       "title": "Guests",
       "updated": "Updated {{at}}",
-      "stale": "No clean run since {{at}}",
       "neverRan": "Not loaded yet",
+      "runs": {
+        "unknown": "Could not check when the reviews were last updated",
+        "syncFailed": "Loading the reviews ran with errors ({{at}})",
+        "syncStale": "No clean load of the reviews for over a day (last {{at}})",
+        "classifyFailed": "Reading the reviews ran with errors ({{at}})",
+        "classifyMissing": "The reviews of the last load are not read yet ({{at}})",
+        "classifyStale": "No clean reading of the reviews for over a day (last {{at}})"
+      },
       "hidden": "hidden on the channel",
       "addByHand": "Create a task from this review",
       "kindLabel": "Kind",
@@ -838,6 +845,9 @@
       },
       "card": {
         "urgent": "Urgent",
+        "foundToday": "Found today",
+        "foundAgo_one": "Found {{count}} day ago",
+        "foundAgo_other": "Found {{count}} days ago",
         "noPlace": "No place",
         "noWords": "No wording — write the title yourself",
         "byModel": "model",

@@ -1,6 +1,7 @@
-import { propertyPath, type Language } from '@str-ops/shared';
+import { localDay, propertyPath, type Language } from '@str-ops/shared';
 import { z } from 'zod';
 
+import { daysBetween } from '@/features/calendar/dates';
 import { todayIn } from '@/lib/format-date';
 
 /**
@@ -241,8 +242,52 @@ export const runStatusSchema = z.array(
 );
 export type RunStatus = z.infer<typeof runStatusSchema>;
 
-/** How long without a clean run before the screen warns (docs §3.3). */
-export const STALE_AFTER_MS = 48 * 60 * 60 * 1000;
+/** The two daily jobs, as signal_run_status() names them: the load (06:00 UTC), then the reading (06:20). */
+export type RunStage = 'sync' | 'classify';
+
+const HOUR_MS = 60 * 60 * 1000;
+
+/** Both jobs run once a day: a clean run older than a day and a little means one was missed (docs §3.3). */
+export const STALE_AFTER_MS = 26 * HOUR_MS;
+
+/** The reading follows the load by twenty minutes; two hours after a clean load it is overdue. */
+export const CLASSIFY_GRACE_MS = 2 * HOUR_MS;
+
+export type RunProblemKind =
+  'syncFailed' | 'syncStale' | 'classifyFailed' | 'classifyMissing' | 'classifyStale';
+
+export interface RunProblem {
+  kind: RunProblemKind;
+  /** The moment the line names: the failed run, or the last clean one. */
+  at: string;
+}
+
+export interface RunFreshness {
+  /** The newest clean run of either job; null before the first one. */
+  updatedAt: string | null;
+  problems: readonly RunProblem[];
+}
+
+/** Which jobs the switches have on: a job that is off runs nothing, and nothing is said about it. */
+export type ExpectedStages = Readonly<Record<RunStage, boolean>>;
+
+/** Until the switches are known, both jobs count as on: one warning too many, never one too few. */
+export const EVERY_STAGE: ExpectedStages = { sync: true, classify: true };
+
+/**
+ * The load runs while it is switched on; the reading only while texts are
+ * kept, with the day they are kept from (keepsTexts in the Edge Functions):
+ * without texts classify-guest-signals returns before it journals a run.
+ */
+export function expectedStages(
+  settings: Pick<
+    SignalSettings,
+    'sync_enabled' | 'texts_enabled' | 'notice_published_at' | 'texts_enabled_at'
+  >,
+): ExpectedStages {
+  const textsFrom = settings.notice_published_at ?? settings.texts_enabled_at;
+  return { sync: settings.sync_enabled, classify: settings.texts_enabled && textsFrom !== null };
+}
 
 export function isTaskKind(kind: FindingKind): boolean {
   return (TASK_KINDS as readonly string[]).includes(kind);
@@ -268,19 +313,88 @@ export function monthOf(day: string | null): string | null {
   return day === null ? null : day.slice(0, 7);
 }
 
-/** The latest clean run of either job, and whether it is older than the warning allows. */
+type StageRun = Pick<RunStatus[number], 'last_run_at' | 'last_ok_at'>;
+
+const NEVER_RAN: StageRun = { last_run_at: null, last_ok_at: null };
+
+function stageRun(status: RunStatus, stage: RunStage): StageRun {
+  return status.find((row) => row.stage === stage) ?? NEVER_RAN;
+}
+
+const timeOf = (iso: string | null): number | null => (iso === null ? null : Date.parse(iso));
+
+/** The last run went wrong: it came after the last clean one, or no run was ever clean. */
+function failedAt(run: StageRun): string | null {
+  const ran = timeOf(run.last_run_at);
+  const ok = timeOf(run.last_ok_at);
+  return ran !== null && (ok === null || ran > ok) ? run.last_run_at : null;
+}
+
+/** The last clean run is older than a daily job allows. */
+function staleSince(run: StageRun, now: number): string | null {
+  const ok = timeOf(run.last_ok_at);
+  return ok !== null && now - ok > STALE_AFTER_MS ? run.last_ok_at : null;
+}
+
+/**
+ * The load came clean more than the grace ago, and the reading has not run
+ * since: what it loaded waits unread. A reading that never ran is not called
+ * missing — texts switched on today are first read the next morning.
+ */
+function unreadSince(sync: StageRun, classify: StageRun, now: number): string | null {
+  const loaded = timeOf(sync.last_ok_at);
+  const read = timeOf(classify.last_run_at);
+  const isMissing =
+    loaded !== null && read !== null && read < loaded && now - loaded > CLASSIFY_GRACE_MS;
+  return isMissing ? sync.last_ok_at : null;
+}
+
+/**
+ * The «Гости» status line, each job judged on its own: a clean load must not
+ * hide a reading that failed or never came, nor the other way round. A job
+ * the switches have off is not judged.
+ */
 export function freshness(
   status: RunStatus,
+  expected: ExpectedStages = EVERY_STAGE,
   now: number = Date.now(),
-): { lastOk: string | null; isStale: boolean } {
-  const times = status
-    .map((row) => row.last_ok_at)
-    .filter((time): time is string => time !== null)
-    .sort();
-  const lastOk = times.length > 0 ? times[times.length - 1] : null;
-  const anyRun = status.some((row) => row.last_run_at !== null);
-  return {
-    lastOk,
-    isStale: anyRun && (lastOk === null || now - Date.parse(lastOk) > STALE_AFTER_MS),
-  };
+): RunFreshness {
+  const sync = stageRun(status, 'sync');
+  const classify = stageRun(status, 'classify');
+  const checks: ReadonlyArray<readonly [RunProblemKind, boolean, string | null]> = [
+    ['syncFailed', expected.sync, failedAt(sync)],
+    ['syncStale', expected.sync, staleSince(sync, now)],
+    ['classifyFailed', expected.classify, failedAt(classify)],
+    ['classifyMissing', expected.classify, unreadSince(sync, classify, now)],
+    ['classifyStale', expected.classify, staleSince(classify, now)],
+  ];
+  const problems = checks.flatMap(([kind, isExpected, at]) =>
+    isExpected && at !== null ? [{ kind, at }] : [],
+  );
+  const cleanRuns = [sync.last_ok_at, classify.last_ok_at].filter(
+    (time): time is string => time !== null,
+  );
+  const updatedAt = cleanRuns.reduce<string | null>(
+    (newest, time) => (newest === null || Date.parse(time) > Date.parse(newest) ? time : newest),
+    null,
+  );
+  return { updatedAt, problems };
+}
+
+/**
+ * How many calendar days a candidate has waited, on the manager's clock;
+ * null when its time cannot be trusted to the day. A finding's created_at is
+ * cut to the first of its month together with its review's stay
+ * (cut_signal_stay_links) — a decided one at once, a waiting one at the
+ * latest ~90 days after the review — so the age is shown only while the
+ * review's stay is still exact.
+ */
+export function findingAge(
+  finding: Pick<Finding, 'status' | 'created_at' | 'signal'>,
+  now: Date = new Date(),
+): number | null {
+  if (finding.status !== 'candidate' || finding.signal?.stay_exact !== true) {
+    return null;
+  }
+  return Math.max(0, daysBetween(localDay(new Date(finding.created_at)), localDay(now)));
 }

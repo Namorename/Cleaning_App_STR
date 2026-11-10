@@ -815,8 +815,15 @@
     "guests": {
       "title": "Hosté",
       "updated": "Aktualizováno {{at}}",
-      "stale": "Bez úspěšného běhu od {{at}}",
       "neverRan": "Zatím nenačteno",
+      "runs": {
+        "unknown": "Nepodařilo se zjistit, kdy se recenze naposledy aktualizovaly",
+        "syncFailed": "Načítání recenzí proběhlo s chybami ({{at}})",
+        "syncStale": "Déle než den bez úspěšného načtení recenzí (naposledy {{at}})",
+        "classifyFailed": "Čtení recenzí proběhlo s chybami ({{at}})",
+        "classifyMissing": "Recenze z posledního načtení ještě nejsou přečtené ({{at}})",
+        "classifyStale": "Déle než den bez úspěšného čtení recenzí (naposledy {{at}})"
+      },
       "hidden": "skryto na kanálu",
       "addByHand": "Vytvořit úkol z této recenze",
       "kindLabel": "Druh",
@@ -840,6 +847,11 @@
       },
       "card": {
         "urgent": "Naléhavé",
+        "foundToday": "Nalezeno dnes",
+        "foundAgo_one": "Nalezeno před {{count}} dnem",
+        "foundAgo_few": "Nalezeno před {{count}} dny",
+        "foundAgo_many": "Nalezeno před {{count}} dne",
+        "foundAgo_other": "Nalezeno před {{count}} dny",
         "noPlace": "Bez objektu",
         "noWords": "Bez znění — název napište sami",
         "byModel": "model",
