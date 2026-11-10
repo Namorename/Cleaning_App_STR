@@ -4762,6 +4762,10 @@ export type Database = {
         }
         Returns: Json
       }
+      guest_message_failure_passes: {
+        Args: { p_error: string }
+        Returns: boolean
+      }
       guest_message_place: {
         Args: {
           p_host_id: string
