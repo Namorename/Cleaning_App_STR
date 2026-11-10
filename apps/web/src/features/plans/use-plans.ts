@@ -13,6 +13,7 @@ import {
   fetchPlacePlans,
   fetchPlaceWork,
   fetchPlan,
+  fetchPlanEffect,
   launchPlan,
   savePlan,
   setStepDecided,
@@ -26,6 +27,14 @@ import { useStepWords } from './step-words';
 export function usePlan(planId: string) {
   const client = useSupabase();
   return useQuery({ queryKey: planKeys.plan(planId), queryFn: () => fetchPlan(client, planId) });
+}
+
+export function usePlanEffect(planId: string) {
+  const client = useSupabase();
+  return useQuery({
+    queryKey: planKeys.effect(planId),
+    queryFn: () => fetchPlanEffect(client, planId),
+  });
 }
 
 export function usePlacePlans(placeId: number) {

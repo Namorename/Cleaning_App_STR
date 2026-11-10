@@ -1015,6 +1015,24 @@
       }
     },
     "plans": {
+      "effect": {
+        "title": "What followed the plan",
+        "since": "Plan closed on {{day}}. Stays since then: {{stays}}",
+        "few": "Too few stays so far: {{stays}} of {{min}}. It is too early to conclude anything.",
+        "before": "before",
+        "after": "after",
+        "work": "New tasks on the theme: {{n}}",
+        "silent": "No episodes of the theme before or after",
+        "seasonal": "A seasonal theme: the real test is the same season. A year ago, in the same months: {{rate}} per 100 stays.",
+        "seasonalNoData": "A seasonal theme with no data for last year: too early to judge.",
+        "note": "This is a coincidence in time, not proof: season, prices and other work affect themes too.",
+        "loadError": "Could not load what followed the plan",
+        "layer": {
+          "reviews": "Complaints",
+          "found": "Found",
+          "reported": "Reported"
+        }
+      },
       "defaultTitle": "Plan: {{place}}",
       "draftTitle": "Draft plan",
       "planTitle": "Plan title",
