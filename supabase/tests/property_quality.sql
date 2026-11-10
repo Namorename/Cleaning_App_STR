@@ -386,7 +386,7 @@ select pg_temp.check('no column of an episode can hold a guest or a text',
   array['id', 'host_id', 'property_id', 'theme', 'layer', 'severity', 'confidence', 'month', 'week',
         'channel', 'signal_id', 'problem_id', 'finding_id', 'origin', 'history_slice', 'detector',
         -- A chat's conversation as an HMAC, for 90 days (20261110120000): no guest, no text.
-        'created_at', 'conversation_key']);
+        'created_at', 'conversation_key', 'task_step_id']);
 select pg_temp.check('a history label needs its week of reading',
   pg_temp.refusal(format($q$insert into public.issue_facts (host_id, property_id, theme, layer, month,
                                                             origin, detector)
@@ -885,6 +885,88 @@ select pg_temp.check('taking away what no hand wrote changes nothing',
   public.set_problem_theme('b6320001-0000-4000-8000-000000000001', null),
   '{"theme": "wifi", "source": "dict"}'::jsonb);
 select pg_temp.office();
+
+-- ---------- cleaning comments (20261110210000) ----------
+
+insert into public.tasks (id, host_id, property_id, type, status, scheduled_date, assignee_id,
+                          started_at, completed_at, completed_by)
+values
+  ('b6340001-0000-4000-8000-000000000001', pg_temp.host(), 900063001, 'cleaning', 'done',
+   current_date - 5, 'b6300002-0000-4000-8000-000000000002', now() - interval '5 days',
+   now() - interval '5 days', 'b6300002-0000-4000-8000-000000000002'),
+  ('b6340002-0000-4000-8000-000000000002', pg_temp.host(), 900063001, 'cleaning', 'cancelled',
+   current_date - 5, 'b6300002-0000-4000-8000-000000000002', null, null, null),
+  ('b6340003-0000-4000-8000-000000000003', pg_temp.host(), 900063001, 'cleaning', 'done',
+   current_date - 4, 'b6300002-0000-4000-8000-000000000002', now() - interval '4 days',
+   now() - interval '4 days', 'b6300002-0000-4000-8000-000000000002'),
+  ('b6340004-0000-4000-8000-000000000004', pg_temp.host(), 900063001, 'maintenance', 'done',
+   current_date - 4, 'b6300003-0000-4000-8000-000000000003', now() - interval '4 days',
+   now() - interval '4 days', 'b6300003-0000-4000-8000-000000000003');
+insert into public.task_steps (id, host_id, task_id, type, sort_order, required, completed_at, payload)
+values
+  ('b6350001-0000-4000-8000-000000000001', pg_temp.host(), 'b6340001-0000-4000-8000-000000000001',
+   'cleaner_comment', 1, false, now() - interval '5 days', '{"text": "Не работает телевизор"}'),
+  ('b6350002-0000-4000-8000-000000000002', pg_temp.host(), 'b6340001-0000-4000-8000-000000000001',
+   'cleaner_comment', 2, false, now() - interval '5 days', '{"text": "Всё хорошо"}'),
+  ('b6350003-0000-4000-8000-000000000003', pg_temp.host(), 'b6340001-0000-4000-8000-000000000001',
+   'cleaner_comment', 3, false, null, '{"text": "Не работает телевизор"}'),
+  ('b6350004-0000-4000-8000-000000000004', pg_temp.host(), 'b6340002-0000-4000-8000-000000000002',
+   'cleaner_comment', 1, false, now() - interval '5 days', '{"text": "Не работает телевизор"}'),
+  ('b6350005-0000-4000-8000-000000000005', pg_temp.host(), 'b6340003-0000-4000-8000-000000000003',
+   'cleaner_comment', 1, false, now() - interval '4 days', '{"text": "Не работает Wi-Fi"}'),
+  ('b6350006-0000-4000-8000-000000000006', pg_temp.host(), 'b6340003-0000-4000-8000-000000000003',
+   'task_note', 2, false, now() - interval '4 days', '{"text": "Не работает телевизор"}'),
+  ('b6350007-0000-4000-8000-000000000007', pg_temp.host(), 'b6340004-0000-4000-8000-000000000004',
+   'cleaner_comment', 1, false, now() - interval '4 days', '{"text": "Починил телевизор"}');
+update public.problems set task_id = 'b6340003-0000-4000-8000-000000000003'
+where id = 'b6320001-0000-4000-8000-000000000001';
+
+do $$
+declare
+  v_res jsonb;
+begin
+  v_res := public.refresh_property_quality(pg_temp.host());
+  perform pg_temp.check('comments say nothing until the company asks',
+    (select count(*)::integer from public.issue_facts where task_step_id is not null), 0);
+  perform pg_temp.check('and the night reports none', (v_res ->> 'comments')::integer, 0);
+
+  update public.hosts set quality_comments_on = true where id = pg_temp.host();
+  v_res := public.refresh_property_quality(pg_temp.host());
+  perform pg_temp.check('a comment the dictionary reads is an episode found at work',
+    (select theme || ':' || layer || ':' || detector from public.issue_facts
+     where task_step_id = 'b6350001-0000-4000-8000-000000000001'),
+    'tv:found_at_work:dict-v1');
+  perform pg_temp.check('a comment with no word of it is nothing',
+    (select count(*)::integer from public.issue_facts
+     where task_step_id = 'b6350002-0000-4000-8000-000000000002'), 0);
+  perform pg_temp.check('a step not finished says nothing',
+    (select count(*)::integer from public.issue_facts
+     where task_step_id = 'b6350003-0000-4000-8000-000000000003'), 0);
+  perform pg_temp.check('a cancelled cleaning says nothing',
+    (select count(*)::integer from public.issue_facts
+     where task_step_id = 'b6350004-0000-4000-8000-000000000004'), 0);
+  perform pg_temp.check('what the same cleaning filed as a task speaks once',
+    (select count(*)::integer from public.issue_facts
+     where task_step_id = 'b6350005-0000-4000-8000-000000000005'), 0);
+  perform pg_temp.check('another kind of step is no comment',
+    (select count(*)::integer from public.issue_facts
+     where task_step_id = 'b6350006-0000-4000-8000-000000000006'), 0);
+  perform pg_temp.check('what a technician says of a repair is an answer, no episode',
+    (select count(*)::integer from public.issue_facts
+     where task_step_id = 'b6350007-0000-4000-8000-000000000007'), 0);
+  perform pg_temp.check('the night counts what it wrote', (v_res ->> 'comments')::integer, 1);
+
+  v_res := public.refresh_property_quality(pg_temp.host());
+  perform pg_temp.check('a night repeated adds nothing',
+    (select count(*)::integer from public.issue_facts where task_step_id is not null), 1);
+
+  update public.hosts set quality_comments_on = false where id = pg_temp.host();
+  v_res := public.refresh_property_quality(pg_temp.host());
+  perform pg_temp.check('turned off, the night takes the episodes back',
+    (select count(*)::integer from public.issue_facts where task_step_id is not null), 0);
+end $$;
+
+update public.problems set task_id = null where id = 'b6320001-0000-4000-8000-000000000001';
 
 -- ---------- jobs ----------
 
