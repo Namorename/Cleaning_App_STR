@@ -113,7 +113,10 @@ npx supabase db query --linked -f docs/one-off-writes/property-quality-history-o
 ## Шаг 6. Темы новых отзывов
 
 Только когда история дочитана: `weeks_done` в пробе счётчиков сравнялся с числом недель, а задание тика
-оставлено активным.
+оставлено активным. Одной строкой это говорит проба готовности (10.11):
+`node scripts/cloud-read.mjs docs/rollout/follow_readiness.sql` — слово давать, когда `ready: true`. На
+10.11 18:41 UTC: `weeks_left 3`, неделя линии 02.11 ещё не прочитана (`open`, следование прочтёт её
+целиком), потрачено $0,74 из $5.
 
 ```bash
 npx supabase db query --linked -f docs/one-off-writes/property-quality-follow-on.sql
