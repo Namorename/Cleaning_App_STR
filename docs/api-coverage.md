@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 46 | 271 | 337 |
-| Таблицы и представления | 9 | 21 | 22 | 52 |
-| Всего | 29 | 67 | 293 | 389 |
+| Функции | 20 | 46 | 281 | 347 |
+| Таблицы и представления | 9 | 21 | 24 | 54 |
+| Всего | 29 | 67 | 305 | 401 |
 
 ## Функции
 
@@ -92,7 +92,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 271
+### Внутреннее — 281
 
 | Имя | Причина |
 | --- | --- |
@@ -139,6 +139,7 @@
 | `auth_role` | auth/RLS helper: role of the active caller from profiles |
 | `can_read_task_media` | Storage policy helper of the task-media bucket (read) |
 | `can_upload_task_media` | Storage policy helper of the task-media bucket (upload onto a waiting row) |
+| `cancel_resolution_plan` | the manager closes a launched plan in the panel; the public resource comes with stage 6 of the plan |
 | `cascade_delete_property_units` | trigger function: deletes the rooms of a deleted listing |
 | `chat_body_max_length` | chat limit constant used by send_message |
 | `chat_max_photos` | chat limit constant used by add_message_media |
@@ -166,6 +167,7 @@
 | `cut_signal_stay_links` | privacy cut: a settled review keeps only the month of its stay and loses the booking link (89-day rule); called inside the review functions, execute revoked from every role |
 | `decide_signal_finding` | decision rules of the classify job (no task, dropped, duplicate, already fixed, auto); called inside apply_signal_findings, execute revoked from every role |
 | `default_host_id` | tenant default of host_id columns (single-company phase A); internal plumbing |
+| `delete_resolution_plan` | the manager deletes a draft in the panel; the public resource comes with stage 6 of the plan |
 | `delete_supply_request` | forbidden: irreversible delete (hard delete of a new supply request by its author) |
 | `effective_cleaner_notes` | forbidden: door/access codes (computed cleaner note of a listing carries key-box and access codes) |
 | `enqueue_daily_digest` | scheduler job: queues the 07:00 push summary |
@@ -220,6 +222,7 @@
 | `kb_tech_reads_all` | auth/RLS helper: caller is an active technician of a company whose technicians read the whole knowledge base (hosts.kb_techs_read_all) |
 | `kb_translations_version` | trigger function: a translation written or removed makes a version of its article |
 | `kb_write_translations` | write helper of save_kb_article/restore_kb_revision: replaces an article's translations; execute revoked from clients |
+| `launch_resolution_plan` | the manager launches a plan in the panel; the public resource comes with stage 6 of the plan |
 | `list_api_key_events` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |
 | `list_api_keys` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |
 | `lock_cleaning_for_time` | helper of set_cleaning_time and clear_cleaning_time: their checks and the row lock; execute revoked from clients |
@@ -250,6 +253,7 @@
 | `property_maintenance_tasks` | panel listing-card read of repairs; the same rows come from GET /v1/cleanings filtered by property |
 | `property_open_cleanings` | panel confirmation figure before set_property_status; derivable from GET /v1/cleanings |
 | `property_problems` | panel listing-card read of reports; the same rows come from GET /v1/tasks filtered by property |
+| `property_resolution_plans` | the panel read of a place's plans; the public resource comes with stage 6 of the plan |
 | `purge_guest_message_links` | Guest chats (docs/guest-chats.md), behind a switch: the nightly ageing of conversation keys and links; a scheduled job. |
 | `purge_push_history` | scheduler job: nightly purge of the push queue and tickets |
 | `purge_signal_data` | scheduler job: nightly retention purge (purge-signal-data) of review texts and keys, irreversible; service_role only |
@@ -298,14 +302,20 @@
 | `reserve_guest_message_reading` | Guest chats (docs/guest-chats.md), behind a switch: one model call booked under the day's and month's ceilings; the job's own. |
 | `reserve_signal_history` | the reading of past reviews: the job writes it, no client calls it |
 | `reserve_signal_model_calls` | model spending fence of classify-guest-signals: books model calls under the daily ceiling, service_role only |
+| `resolution_plan` | the panel read of one plan; the public resource comes with stage 6 of the plan |
+| `resolution_plan_baseline` | building block of the launch; execute revoked from clients |
+| `resolution_plan_place_work` | the panel read of a place's live tasks for a draft; the public resource comes with stage 6 of the plan |
+| `resolution_step_states` | building block of the plan reads; execute revoked from clients |
 | `resolve_report_property` | helper of report_problem: resolves the listing and checks the reporter may report there |
 | `resolve_signal_place` | the place of a guest signal from the PMS's ids, inside the company (one branch a provider); execute revoked from every role |
 | `resolve_signal_reservation` | the booking of a guest signal from the PMS's id, inside the company (one branch a provider); execute revoked from every role |
 | `review_load_state` | PMS sync (sync-guest-signals): which parts of the reviews read are still missing, flags only, service_role only |
 | `review_text_allowed` | privacy rule: whether a review may keep a text (stay from the texts' line - the guest notice's day or the day texts first went on - hidden, archive, 18 months); execute revoked from every role |
 | `revoke_api_key` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |
+| `save_resolution_plan` | the manager saves a draft in the panel; the public resource comes with stage 6 of the plan |
 | `set_problem_theme` | the manager corrects a task theme in the panel; the public resource comes with stage 6 of the plan |
 | `set_push_preference` | push plumbing: the signed-in person switches one of her own push events on or off |
+| `set_resolution_step_decided` | the manager closes a decision step in the panel; the public resource comes with stage 6 of the plan |
 | `short_cleaning_threshold` | constant of a generated column (too-short cleaning duration) |
 | `signal_buildings` | PMS sync (sync-guest-signals): the PMS's ids of the listings that have rooms, service_role only |
 | `signal_finding_gives_task` | constant predicate of the review RPCs: finding kinds that make a task (repair, safety, pests, access); no client calls it |
@@ -410,7 +420,7 @@
 | `workflow_steps` | `checklists:read` | steps of a process template |
 | `workflow_templates` | `checklists:read` | process templates a cleaning follows |
 
-### Внутреннее — 22
+### Внутреннее — 24
 
 | Имя | Причина |
 | --- | --- |
@@ -434,5 +444,7 @@
 | `push_tokens` | forbidden: push tokens of devices |
 | `quality_area_members` | problem areas by window, rebuilt each night |
 | `report_properties` | A view for the phone: the properties a person may report on; GET /v1/properties serves a key. |
+| `resolution_plan_steps` | steps of a plan; the panel reads through functions; the public resource comes with stage 6 of the plan |
+| `resolution_plans` | plans of resolution; the panel reads through functions; the public resource comes with stage 6 of the plan |
 | `signal_feedback` | the managers' verdicts on the readers' findings, without text: the readers' calibration; no client grants |
 | `signal_settings` | admin gates of tasks-from-guest-signals by kind (texts and their first day, the deferred guest notice date, model ceiling, auto kinds and ceiling); read only by the panel card that writes it through update_signal_settings, forbidden: data:destroy |
