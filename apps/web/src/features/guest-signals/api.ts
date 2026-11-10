@@ -38,7 +38,7 @@ type Priority = Database['public']['Enums']['problem_priority'];
 const REVIEW_COLUMNS =
   'id, channel, rating, category_ratings, arrival_date, departure_date, submitted_at, stay_exact, ' +
   'external_reservation_id, property_id, room_id, is_hidden, has_public_text, has_private_text, ' +
-  'public_text, private_text, category_comments, text_truncated';
+  'public_text, private_text, category_comments, text_truncated, analysis_error, analysis_attempts';
 
 /** A place and its house: a room is a place with a parent (the core never reads a PMS's column). */
 const PLACE_COLUMNS = 'name, parent_id, parent:parent_id(name)';

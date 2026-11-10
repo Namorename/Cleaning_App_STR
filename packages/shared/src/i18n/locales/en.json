@@ -870,7 +870,9 @@
           "stay": "during the stay",
           "departure_day": "on the day of departure"
         },
-        "conversation": "Conversation in the PMS no. {{id}}"
+        "conversation": "Conversation in the PMS no. {{id}}",
+        "modelFailed": "The model could not read this review yet ({{code}}); it will try again.",
+        "modelGaveUp": "The model has stopped trying this review after three failures ({{code}}); only the rules read it."
       },
       "decide": {
         "title": "Task title",

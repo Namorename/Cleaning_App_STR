@@ -458,6 +458,22 @@ describe('«Все отзывы»', () => {
     expect(screen.getByRole('button', { name: 'Предыдущая страница' })).toBeDisabled();
   });
 
+  test('a review the model failed on says so, and says when the model gave it up', async () => {
+    reviews.rows = [
+      review({ id: REVIEW_ID, analysis_error: 'model_bad_json', analysis_attempts: 1 }),
+      review({ id: OPEN_ID, analysis_error: 'model_timeout', analysis_attempts: 3 }),
+    ];
+    reviews.total = 2;
+    render(<GuestSignalsView isAdmin={false} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Все отзывы' }));
+
+    const [first, second] = screen.getAllByRole('listitem');
+    expect(first).toHaveTextContent('Модель пока не разобрала этот отзыв (model_bad_json)');
+    expect(second).toHaveTextContent(
+      'Модель перестала разбирать этот отзыв после трёх сбоев (model_timeout)',
+    );
+  });
+
   test('the filters go into the address and to the server, and one button clears them all', async () => {
     reviews.rows = [review()];
     reviews.total = 1;

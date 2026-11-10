@@ -41,6 +41,7 @@ import {
   FINDING_TABS,
   freshness,
   kindsOf,
+  MODEL_ATTEMPTS,
   monthOf,
   placePathOf,
   SUBJECTS,
@@ -395,6 +396,13 @@ function ReviewRow({ review }: { review: Review }) {
           <span className="text-muted-foreground">{t('panel.guests.hidden')}</span>
         ) : null}
       </div>
+      {review.analysis_error === null ? null : (
+        <p className="mt-1 text-xs text-destructive">
+          {review.analysis_attempts >= MODEL_ATTEMPTS
+            ? t('panel.guests.card.modelGaveUp', { code: review.analysis_error })
+            : t('panel.guests.card.modelFailed', { code: review.analysis_error })}
+        </p>
+      )}
       {categories === '' ? null : (
         <p className="mt-1 text-xs text-muted-foreground">{categories}</p>
       )}

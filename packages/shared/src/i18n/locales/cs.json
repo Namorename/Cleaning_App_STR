@@ -874,7 +874,9 @@
           "stay": "během pobytu",
           "departure_day": "v den odjezdu"
         },
-        "conversation": "Konverzace v PMS č. {{id}}"
+        "conversation": "Konverzace v PMS č. {{id}}",
+        "modelFailed": "Model tuto recenzi zatím nepřečetl ({{code}}); zkusí to znovu.",
+        "modelGaveUp": "Model tuto recenzi po třech neúspěších přestal zkoušet ({{code}}); čtou ji jen pravidla."
       },
       "decide": {
         "title": "Název úkolu",

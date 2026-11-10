@@ -128,8 +128,17 @@ export const reviewSchema = z.object({
   private_text: z.string().nullable().default(null),
   category_comments: commentsSchema.default(null),
   text_truncated: z.boolean().default(false),
+  /**
+   * The model's last failure on this text, as a code (mark_signal_analysis_failed);
+   * null once it read it. Three failures of the text's own and the model leaves it.
+   */
+  analysis_error: z.string().nullable().default(null),
+  analysis_attempts: z.number().default(0),
   place: placeSchema,
 });
+
+/** The model tries a text three times, then leaves it to the rules (classify-run.ts). */
+export const MODEL_ATTEMPTS = 3;
 export type Review = z.infer<typeof reviewSchema>;
 export const reviewListSchema = z.array(reviewSchema);
 
