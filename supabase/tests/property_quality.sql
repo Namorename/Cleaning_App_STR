@@ -819,6 +819,73 @@ select pg_temp.check('the nightly job counts the areas',
 select pg_temp.check('the city is no grouping here by default',
   (select quality_city_groups from public.hosts where id = pg_temp.host()), false);
 
+-- ---------- the manager's hand on a task's theme (20261110200000) ----------
+
+select pg_temp.as_user('b6300002-0000-4000-8000-000000000002');
+select pg_temp.check('only a manager reads the theme of a task',
+  pg_temp.refusal($q$select public.problem_theme('b6320001-0000-4000-8000-000000000001')$q$),
+  'serverErrors.managerOnly');
+select pg_temp.check('only a manager sets it',
+  pg_temp.refusal($q$select public.set_problem_theme('b6320001-0000-4000-8000-000000000001', 'tv')$q$),
+  'serverErrors.managerOnly');
+
+select pg_temp.as_user('b6300009-0000-4000-8000-000000000009');
+select pg_temp.check('another company''s task reads as nothing',
+  public.problem_theme('b6320001-0000-4000-8000-000000000001'), null::jsonb);
+select pg_temp.check('another company''s task cannot be set',
+  pg_temp.refusal($q$select public.set_problem_theme('b6320001-0000-4000-8000-000000000001', 'tv')$q$),
+  'serverErrors.problemNotFound');
+
+select pg_temp.as_user('b6300001-0000-4000-8000-000000000001');
+select pg_temp.check('the theme of a task says where it came from',
+  public.problem_theme('b6320001-0000-4000-8000-000000000001'),
+  '{"theme": "wifi", "source": "dict"}'::jsonb);
+select pg_temp.check('an unknown task is refused',
+  pg_temp.refusal($q$select public.set_problem_theme('b6329999-0000-4000-8000-000000000009', 'tv')$q$),
+  'serverErrors.problemNotFound');
+select pg_temp.check('an unknown theme is refused',
+  pg_temp.refusal($q$select public.set_problem_theme('b6320001-0000-4000-8000-000000000001', 'nope')$q$),
+  'serverErrors.problemThemeUnknown');
+select pg_temp.check('a hand replaces the dictionary',
+  public.set_problem_theme('b6320001-0000-4000-8000-000000000001', 'tv'),
+  '{"theme": "tv", "source": "manual"}'::jsonb);
+
+select pg_temp.office();
+select pg_temp.check('the episode follows the hand at once',
+  (select theme || ':' || detector from public.issue_facts
+   where problem_id = 'b6320001-0000-4000-8000-000000000001'), 'tv:manual');
+do $$
+begin
+  perform public.refresh_property_quality(pg_temp.host());
+  perform pg_temp.check('the night keeps the hand',
+    (select theme || ':' || source from public.problem_themes
+     where problem_id = 'b6320001-0000-4000-8000-000000000001'), 'tv:manual');
+  perform pg_temp.check('and its episode',
+    (select theme from public.issue_facts where problem_id = 'b6320001-0000-4000-8000-000000000001'), 'tv');
+end $$;
+
+select pg_temp.as_user('b6300001-0000-4000-8000-000000000001');
+select pg_temp.check('a hand taken away leaves no theme until the night',
+  public.set_problem_theme('b6320001-0000-4000-8000-000000000001', null), null::jsonb);
+
+select pg_temp.office();
+select pg_temp.check('and no episode',
+  (select count(*)::integer from public.issue_facts
+   where problem_id = 'b6320001-0000-4000-8000-000000000001'), 0);
+do $$
+begin
+  perform public.refresh_property_quality(pg_temp.host());
+  perform pg_temp.check('the dictionary speaks again at night',
+    (select theme || ':' || source from public.problem_themes
+     where problem_id = 'b6320001-0000-4000-8000-000000000001'), 'wifi:dict');
+end $$;
+
+select pg_temp.as_user('b6300001-0000-4000-8000-000000000001');
+select pg_temp.check('taking away what no hand wrote changes nothing',
+  public.set_problem_theme('b6320001-0000-4000-8000-000000000001', null),
+  '{"theme": "wifi", "source": "dict"}'::jsonb);
+select pg_temp.office();
+
 -- ---------- jobs ----------
 
 select pg_temp.check('both jobs exist and are inactive',

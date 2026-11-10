@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 46 | 269 | 335 |
+| Функции | 20 | 46 | 271 | 337 |
 | Таблицы и представления | 9 | 21 | 22 | 52 |
-| Всего | 29 | 67 | 291 | 387 |
+| Всего | 29 | 67 | 293 | 389 |
 
 ## Функции
 
@@ -92,7 +92,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 269
+### Внутреннее — 271
 
 | Имя | Причина |
 | --- | --- |
@@ -244,6 +244,7 @@
 | `problem_for_dispatch` | lock-and-check helper of assign_problem/unassign_problem; execute revoked from clients |
 | `problem_for_manager` | lock-and-check helper of the manager problem RPCs; execute revoked from clients |
 | `problem_max_photos` | validation limit constant of add_problem_media |
+| `problem_theme` | the panel read of a task theme; the public resource comes with stage 6 of the plan |
 | `problem_title_max_length` | validation limit constant of report_problem/update_problem |
 | `property_id_for_unit` | Hostaway sync, Hostaway stays the source of truth: maps a listingUnit to its properties.id |
 | `property_maintenance_tasks` | panel listing-card read of repairs; the same rows come from GET /v1/cleanings filtered by property |
@@ -303,6 +304,7 @@
 | `review_load_state` | PMS sync (sync-guest-signals): which parts of the reviews read are still missing, flags only, service_role only |
 | `review_text_allowed` | privacy rule: whether a review may keep a text (stay from the texts' line - the guest notice's day or the day texts first went on - hidden, archive, 18 months); execute revoked from every role |
 | `revoke_api_key` | forbidden: api_keys:manage - keys are made, changed and revoked by an admin in the panel, never through the API. |
+| `set_problem_theme` | the manager corrects a task theme in the panel; the public resource comes with stage 6 of the plan |
 | `set_push_preference` | push plumbing: the signed-in person switches one of her own push events on or off |
 | `short_cleaning_threshold` | constant of a generated column (too-short cleaning duration) |
 | `signal_buildings` | PMS sync (sync-guest-signals): the PMS's ids of the listings that have rooms, service_role only |

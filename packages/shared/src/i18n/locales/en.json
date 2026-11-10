@@ -705,6 +705,18 @@
       "noAssignee": "Unassigned",
       "unknownPerson": "Unknown",
       "detail": {
+        "theme": {
+          "title": "Theme",
+          "none": "No theme",
+          "source": {
+            "dict": "Found by the dictionary",
+            "signal": "From a guest review",
+            "manual": "Set by hand"
+          },
+          "reset": "Back to automatic",
+          "hint": "Property quality updates by the morning",
+          "loadError": "Could not load the theme"
+        },
         "back": "Back to tasks",
         "description": "Description",
         "noDescription": "No description",
@@ -2741,6 +2753,7 @@
     "requiredStepsLeft": "Required steps left: {{count}}",
     "startTooEarly": "The cleaning cannot start before {{time}} ({{date}})",
     "startTooEarly_tech": "The job cannot start before {{time}} ({{date}})",
+    "problemThemeUnknown": "There is no such theme",
     "problemNotFound": "Task not found",
     "forbidden": "You are not allowed to do this.",
     "localizedTextInvalid": "The translations are not valid.",

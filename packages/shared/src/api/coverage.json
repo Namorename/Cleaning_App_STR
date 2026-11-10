@@ -1035,6 +1035,11 @@
       "reason": "validation limit constant of add_problem_media",
       "defined_in": "20260908130100_problem_media.sql"
     },
+    "problem_theme": {
+      "status": "internal",
+      "reason": "the panel read of a task theme; the public resource comes with stage 6 of the plan",
+      "defined_in": "20261110200000_problem_theme_by_hand.sql"
+    },
     "problem_title_max_length": {
       "status": "internal",
       "reason": "validation limit constant of report_problem/update_problem",
@@ -1449,6 +1454,11 @@
       "scope": "knowledge:write",
       "reason": "publishes an article, takes it back to a draft or archives it",
       "defined_in": "20261030100000_knowledge_base.sql"
+    },
+    "set_problem_theme": {
+      "status": "internal",
+      "reason": "the manager corrects a task theme in the panel; the public resource comes with stage 6 of the plan",
+      "defined_in": "20261110200000_problem_theme_by_hand.sql"
     },
     "set_property_status": {
       "status": "planned",
