@@ -15,8 +15,9 @@
 --      - While it lives, the signal keeps its booking, its days, its time and its id in the PMS
 --        (cut_signal_stay_links), its key (purge_signal_data), the conversation's key
 --        (purge_guest_message_links); the card keeps the conversation's number; the conversation's
---        line in the queue of chats stays. The night it ends, each of them goes by its own job as
---        before.
+--        line in the queue of chats stays. The night it ends — or the night the booking's name goes,
+--        if the stay was shortened since — each of them goes by its own job as before, and the cut
+--        erases task_link_ends too: kept, the date would tell the departure's day.
 --      - A card with no task is cut as before. A card whose task is undone («ложное срабатывание»)
 --        loses its date and is cut by the next night's sweep.
 --
@@ -152,7 +153,12 @@ begin
     where g.id = any (p_signal_ids)
       and g.stay_exact
       and case
+            -- A task's link: its night, or the night the booking's name goes if the stay was
+            -- shortened since (the very test of raw.purge_guest_data).
             when t.ends is not null then t.ends <= current_date
+                                         or exists (select 1 from public.reservations r
+                                                    where r.id = g.reservation_id
+                                                      and r.departure_date < current_date - 90)
             else public.signal_stay_link_ends(g.kind, g.submitted_at) <= current_date
                  or (not exists (select 1 from public.signal_findings f
                                  where f.signal_id = g.id and f.status = 'candidate')
@@ -185,7 +191,10 @@ begin
 
   if cardinality(v_cut) > 0 then
     update public.signal_findings f
-    set created_at = public.signal_month_of(f.created_at)
+    set created_at = public.signal_month_of(f.created_at),
+        -- The link's night is the departure's day + 91: kept past the cut it would tell the day the
+        -- cut took. Gone, the purges of the same night take the rest (signal_task_link_ends is null).
+        task_link_ends = null
     where f.signal_id = any (v_cut);
   end if;
 

@@ -320,8 +320,33 @@ select pg_temp.check('4.3 no conversation''s number',
 -- 5. The night the link ends: everything goes by its own job
 -- ===========================================================================
 
+-- A stay shortened after its task was made: its link was counted from the old departure (30 days
+-- ahead), but the booking now left 95 days ago and its name goes tonight — the link goes with it.
+insert into public.reservations (id, host_id, property_id, arrival_date, departure_date, status, guest_name, is_block)
+values (900112013, pg_temp.host(), 900112002, current_date - 98, current_date - 95, 'new', 'Synthetic Guest Three', false);
+insert into public.guest_signals (id, host_id, provider, kind, external_key, conversation_key, external_id,
+                                  external_listing_id, property_id, external_reservation_id, reservation_id,
+                                  channel, arrival_date, departure_date, submitted_at, stay_exact, stay_phase)
+values (pg_temp.gid(6), pg_temp.host(), 'hostaway', 'message', repeat('b6', 32), repeat('c6', 32), '880006',
+        '900112002', 900112002, '900112013', 900112013, 'booking', current_date - 98, current_date - 95,
+        now() - interval '96 days', true, 'stay');
+insert into public.signal_findings (id, host_id, signal_id, property_id, kind, subject, summary, summary_i18n,
+                                    detector, evidence_source, status, decided_mode, decided_at)
+values (pg_temp.fid(6), pg_temp.host(), pg_temp.gid(6), 900112002, 'repair', 'heating', 'heating', '{}',
+        'claude-haiku-5-5@themes-v1-msg', 'message', 'task_created', 'manager', now() - interval '90 days');
+update public.signal_findings set task_link_ends = current_date + 30 where id = pg_temp.fid(6);
+
 update public.signal_findings set task_link_ends = current_date where id = pg_temp.fid(1);
 select pg_temp.night();
+
+select pg_temp.check('5.0 the cut erases the link''s date: kept, it would tell the departure''s day',
+  (select task_link_ends is null from public.signal_findings where id = pg_temp.fid(1)), true);
+
+select pg_temp.check('5.0b a stay shortened since its task: the link goes the night the name goes',
+  (select (not stay_exact and reservation_id is null)::text from public.guest_signals where id = pg_temp.gid(6))
+  || '/' || (select coalesce(task_link_ends::text, '-') from public.signal_findings where id = pg_temp.fid(6))
+  || '/' || (select coalesce(guest_name, '-') from public.reservations where id = 900112013),
+  'true/-/-');
 
 select pg_temp.check('5.1 the message is cut; its id, its key and the conversation''s key are gone',
   (select not stay_exact and reservation_id is null and external_id is null
