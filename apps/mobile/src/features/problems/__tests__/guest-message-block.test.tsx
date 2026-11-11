@@ -194,7 +194,7 @@ describe('the read', () => {
       wrapper: withClient(client),
     });
     fireEvent.press(screen.getByText(SHOW));
-    view.unmount();
+    await view.unmount();
     answer({ data: { data: { messages: MESSAGES } }, error: null });
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledTimes(1));
   });
