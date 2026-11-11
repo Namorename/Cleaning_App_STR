@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
+import { GuestMessageBlock } from '@/features/problems/guest-message';
 import { OriginLines } from '@/features/problems/guest-origin';
 import { SourceBadge } from '@/features/problems/source-badge';
 import { useStaff } from '@/features/problems/use-problems';
@@ -38,9 +39,10 @@ interface FindingCardProps {
 
 /**
  * What the manager decides on: the finding, the review or the chat it came from,
- * the place, and the levers (§4.6–4.7). A chat's card has no words of the guest
- * or the model: the kind, the subject, when in the stay, and the conversation to
- * open in the PMS (docs/guest-chats.md).
+ * the place, and the levers (§4.6–4.7). A chat's card keeps no words of the guest
+ * or the model: the kind, the subject, when in the stay, the conversation's
+ * number (docs/guest-chats.md), and the guest's message itself read from Hostaway
+ * on the manager's press, kept by nobody (docs/guest-message-text.md).
  */
 export function FindingCard({ finding, language }: FindingCardProps) {
   const { t } = useTranslation();
@@ -83,6 +85,9 @@ export function FindingCard({ finding, language }: FindingCardProps) {
       </p>
 
       <SignalFacts finding={finding} />
+      {isChat ? (
+        <GuestMessageBlock ask={{ findingId: finding.id }} className="text-sm" />
+      ) : null}
       {finding.evidence === null ? null : (
         <blockquote className="border-l-2 pl-3 text-sm italic">
           {finding.evidence}{' '}

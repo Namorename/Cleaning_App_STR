@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 46 | 286 | 352 |
+| Функции | 20 | 46 | 290 | 356 |
 | Таблицы и представления | 9 | 21 | 24 | 54 |
-| Всего | 29 | 67 | 310 | 406 |
+| Всего | 29 | 67 | 314 | 410 |
 
 ## Функции
 
@@ -92,7 +92,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 286
+### Внутреннее — 290
 
 | Имя | Причина |
 | --- | --- |
@@ -193,6 +193,7 @@
 | `guest_message_failure_passes` | Guest chats (docs/guest-chats.md), behind a switch: whether a failure is nobody's in the conversation and spends no attempt; a helper of the job. |
 | `guest_message_place` | Guest chats (docs/guest-chats.md), behind a switch: whether a listing is the company's to read; a helper of the job. |
 | `guest_message_state` | Guest chats (docs/guest-chats.md), behind a switch: the switch and the ceilings the job asks first; money and counts are no API matter. |
+| `guest_message_target` | guest-message-text: what the function may read from the PMS for a person (the conversation's and the message's ids of a chat task or card, by role); service_role only, never a text; a guest's words never go to the API (forbidden guests:read_personal) |
 | `guest_messages_shown` | Guest chats (docs/guest-chats.md), behind a switch: whether chats are shown on «Качество объектов»; a helper of the panel's reads. |
 | `guest_signals_touch` | trigger function: stamps updated_at of a review, only its month once the stay is cut |
 | `guest_stay_json` | helper: the stay of a guest signal as a task shows it (days while exact, months after the cut); execute revoked from every role |
@@ -326,6 +327,7 @@
 | `signal_finding_gives_task` | constant predicate of the review RPCs: finding kinds that make a task (repair, safety, pests, access); no client calls it |
 | `signal_finding_record` | helper of update_signal_settings: the record (decisions, approvals in 60 days) a kind needs for auto; execute revoked from every role |
 | `signal_findings_dates` | trigger function: a finding's dates, kept to the month once its review's stay is cut |
+| `signal_findings_task_link` | trigger function: a card made into a task keeps its signal's link until the night the guest's name goes (91 days after the departure); execute revoked from every role |
 | `signal_history_day_start` | the reading of past reviews: the job writes it, no client calls it |
 | `signal_history_readable` | the reading of past reviews: the job writes it, no client calls it |
 | `signal_history_spent` | the reading of past reviews: the job writes it, no client calls it |
@@ -341,6 +343,7 @@
 | `signal_stay_link_ends` | privacy constant: the last day a signal keeps its exact stay and booking link (89 days, by month); execute revoked from every role |
 | `signal_subjects` | constant list of finding subjects checked by signal_findings; the apps name them from the locales and do not call it |
 | `signal_sync_watermark` | PMS sync (sync-guest-signals): where the next load of a provider's signals of one kind starts, service_role only |
+| `signal_task_link_ends` | helper of the cut and the nightly purges: the night a task's link of a guest signal ends; execute revoked from every role |
 | `skip_task_step` | phone-only flow of the cleaner at work (task steps): skips an optional step |
 | `snapshot_task_steps` | trigger function: copies the process template into a task when it starts |
 | `staff_directory` | phone board people picker for the head technician; the API reads profiles under staff:read/staff:read_names |
@@ -354,6 +357,7 @@
 | `sync_hostaway_listings` | Hostaway sync, Hostaway stays the source of truth (sync-listings), service_role only |
 | `sync_hostaway_reservations` | Hostaway sync, Hostaway stays the source of truth (sync-reservations), service_role only |
 | `sync_profile_email` | trigger function: mirrors the auth.users email into profiles |
+| `take_message_text_read` | guest-message-text: counts one person's reads of guests' messages from the PMS per ten minutes (counts only, no text), service_role only |
 | `take_off_repairs` | helper of unassign_problem and of the deactivation cascade; execute revoked from clients |
 | `take_review_text_read` | guest-review-text: counts one person's reads of review texts from the PMS per ten minutes (counts only, no text), service_role only |
 | `task_closing` | computed field for the panel and the phone; the API gives the closing in the cleaning |

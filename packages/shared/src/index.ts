@@ -56,6 +56,18 @@ export {
   type GuestStay,
 } from './problems/guest-origin';
 export {
+  GUEST_MESSAGE_FAILURES,
+  GUEST_MESSAGE_FUNCTION,
+  canRetryGuestMessage,
+  formatGuestMessageTime,
+  guestMessageBody,
+  guestMessageFailure,
+  readGuestMessages,
+  type GuestMessage,
+  type GuestMessageAsk,
+  type GuestMessageFailure,
+} from './problems/guest-message';
+export {
   WORKER_SOURCES,
   cleaningClosingLines,
   isWorkerNameable,

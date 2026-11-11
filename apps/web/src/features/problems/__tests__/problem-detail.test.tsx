@@ -126,6 +126,13 @@ vi.mock('@/features/guest-signals/text-from-pms', () => ({
     <button type="button">{`Показать текст из Hostaway ${signalId}`}</button>
   ),
 }));
+// The guest's message reads Hostaway on a press and has its own tests (guest-message.test.tsx); here
+// the page only has to show it for a chat task, by the task.
+vi.mock('../guest-message', () => ({
+  GuestMessageBlock: ({ ask }: { ask: { problemId?: string } }) => (
+    <section aria-label="Сообщение гостя">{`message of ${ask.problemId}`}</section>
+  ),
+}));
 
 vi.mock('@/features/chat/chat-sheet', () => ({
   ChatSheet: (props: { subject: Record<string, string>; about: string; onClose: () => void }) => (
@@ -853,6 +860,22 @@ describe('«Гость и проживание»', () => {
     expect(within(block).getByText(`Сообщение от ${day('2026-11-10')}`)).toBeInTheDocument();
     expect(within(block).getByText('Разговор в PMS № 7001')).toBeInTheDocument();
     expect(within(block).queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  test('a chat task has «Сообщение гостя», by the task; a review’s and a report’s have none', () => {
+    queries.problem.mockReturnValue(loaded(fromGuest('message')));
+    const { unmount } = render(<ProblemDetail problemId={PROBLEM_ID} />);
+    expect(screen.getByRole('region', { name: 'Сообщение гостя' })).toHaveTextContent(
+      `message of ${PROBLEM_ID}`,
+    );
+    unmount();
+
+    for (const problem of [fromGuest('review'), assigned]) {
+      queries.problem.mockReturnValue(loaded(problem));
+      const page = render(<ProblemDetail problemId={PROBLEM_ID} />);
+      expect(screen.queryByRole('region', { name: 'Сообщение гостя' })).not.toBeInTheDocument();
+      page.unmount();
+    }
   });
 
   test('once the card was decided: the months, and why there is no name', () => {

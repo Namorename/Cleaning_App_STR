@@ -750,6 +750,11 @@
       "reason": "Guest chats (docs/guest-chats.md), behind a switch: the switch and the ceilings the job asks first; money and counts are no API matter.",
       "defined_in": "20261110120000_guest_chats.sql"
     },
+    "guest_message_target": {
+      "status": "internal",
+      "reason": "guest-message-text: what the function may read from the PMS for a person (the conversation's and the message's ids of a chat task or card, by role); service_role only, never a text; a guest's words never go to the API (forbidden guests:read_personal)",
+      "defined_in": "20261111140000_guest_message_text.sql"
+    },
     "guest_messages_shown": {
       "status": "internal",
       "reason": "Guest chats (docs/guest-chats.md), behind a switch: whether chats are shown on «Качество объектов»; a helper of the panel's reads.",
@@ -1571,6 +1576,11 @@
       "reason": "trigger function: a finding's dates, kept to the month once its review's stay is cut",
       "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
+    "signal_findings_task_link": {
+      "status": "internal",
+      "reason": "trigger function: a card made into a task keeps its signal's link until the night the guest's name goes (91 days after the departure); execute revoked from every role",
+      "defined_in": "20261111140000_guest_message_text.sql"
+    },
     "signal_history_day_start": {
       "status": "internal",
       "reason": "the reading of past reviews: the job writes it, no client calls it",
@@ -1658,6 +1668,11 @@
       "reason": "PMS sync (sync-guest-signals): where the next load of a provider's signals of one kind starts, service_role only",
       "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
+    "signal_task_link_ends": {
+      "status": "internal",
+      "reason": "helper of the cut and the nightly purges: the night a task's link of a guest signal ends; execute revoked from every role",
+      "defined_in": "20261111140000_guest_message_text.sql"
+    },
     "skip_task_step": {
       "status": "internal",
       "reason": "phone-only flow of the cleaner at work (task steps): skips an optional step",
@@ -1722,6 +1737,11 @@
       "status": "internal",
       "reason": "trigger function: mirrors the auth.users email into profiles",
       "defined_in": "20260911120000_staff_accounts.sql"
+    },
+    "take_message_text_read": {
+      "status": "internal",
+      "reason": "guest-message-text: counts one person's reads of guests' messages from the PMS per ten minutes (counts only, no text), service_role only",
+      "defined_in": "20261111140000_guest_message_text.sql"
     },
     "take_off_repairs": {
       "status": "internal",

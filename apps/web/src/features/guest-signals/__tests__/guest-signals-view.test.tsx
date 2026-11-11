@@ -151,6 +151,13 @@ vi.mock('../use-guest-signals', () => ({
 vi.mock('@/features/problems/use-problems', () => ({
   useStaff: () => loaded([{ id: TECH_ID, full_name: 'Petr Fixer', role: 'tech' }]),
 }));
+// The guest's message reads Hostaway on a press and has its own tests (guest-message.test.tsx); here
+// a chat's card only has to carry it, by the card.
+vi.mock('@/features/problems/guest-message', () => ({
+  GuestMessageBlock: ({ ask }: { ask: { findingId?: string } }) => (
+    <section aria-label="Сообщение гостя">{`message of ${ask.findingId}`}</section>
+  ),
+}));
 vi.mock('@/features/analytics/use-analytics', () => ({
   useAnalyticsListings: () =>
     loaded([
@@ -963,6 +970,21 @@ describe('chats behind their switch (docs/guest-chats.md)', () => {
     expect(within(card).queryByText(/Отзыв целиком/)).toBeNull();
     expect(within(card).queryByText(/без оценки/)).toBeNull();
     expect(within(card).getByText(/Формулировки нет/)).toBeTruthy();
+  });
+
+  test('a chat card carries «Сообщение гостя» by the card; a review card does not', () => {
+    chats.on = true;
+    const chat = chatCard();
+    state.findings = [chat];
+    const { unmount } = render(<GuestSignalsView isAdmin={false} />);
+    expect(
+      within(screen.getByRole('article')).getByRole('region', { name: 'Сообщение гостя' }),
+    ).toHaveTextContent(`message of ${chat.id}`);
+    unmount();
+
+    state.findings = [finding()];
+    render(<GuestSignalsView isAdmin={false} />);
+    expect(screen.queryByRole('region', { name: 'Сообщение гостя' })).toBeNull();
   });
 
   test('on: the chats’ line says when messages were read, and a failed tick in red', () => {

@@ -27,6 +27,7 @@ import {
 } from './address';
 import { AssignForm } from './assign-form';
 import { FixTaskSteps } from './fix-task-steps';
+import { GuestMessageBlock } from './guest-message';
 import { GuestOriginBlock } from './guest-origin';
 import { formatClock } from './format';
 import { ProblemActions } from './problem-actions';
@@ -208,6 +209,9 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
           <CardContent className="flex flex-col gap-3 text-sm">
             <ReportMeta problem={problem} />
             <GuestOriginBlock problem={problem} />
+            {problem.source === 'message' ? (
+              <GuestMessageBlock ask={{ problemId: problem.id }} />
+            ) : null}
             <ProblemThemeBlock problemId={problem.id} />
             <section className="flex flex-col gap-1">
               <h2 className="font-medium">{t('panel.problems.detail.description')}</h2>

@@ -2477,6 +2477,7 @@ export type Database = {
           subject: string
           summary: string
           summary_i18n: Json
+          task_link_ends: string | null
           updated_at: string
           urgency: Database["public"]["Enums"]["problem_priority"]
         }
@@ -2505,6 +2506,7 @@ export type Database = {
           subject: string
           summary: string
           summary_i18n: Json
+          task_link_ends?: string | null
           updated_at?: string
           urgency?: Database["public"]["Enums"]["problem_priority"]
         }
@@ -2533,6 +2535,7 @@ export type Database = {
           subject?: string
           summary?: string
           summary_i18n?: Json
+          task_link_ends?: string | null
           updated_at?: string
           urgency?: Database["public"]["Enums"]["problem_priority"]
         }
@@ -3754,6 +3757,7 @@ export type Database = {
           subject: string
           summary: string
           summary_i18n: Json
+          task_link_ends: string | null
           updated_at: string
           urgency: Database["public"]["Enums"]["problem_priority"]
         }
@@ -4446,6 +4450,7 @@ export type Database = {
           subject: string
           summary: string
           summary_i18n: Json
+          task_link_ends: string | null
           updated_at: string
           urgency: Database["public"]["Enums"]["problem_priority"]
         }
@@ -4996,6 +5001,14 @@ export type Database = {
         }
         Returns: Json
       }
+      guest_message_target: {
+        Args: {
+          p_finding_id?: string
+          p_problem_id?: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       guest_messages_shown: { Args: { p_host: string }; Returns: boolean }
       guest_stay_json: {
         Args: { p_signal: Database["public"]["Tables"]["guest_signals"]["Row"] }
@@ -5179,6 +5192,7 @@ export type Database = {
           subject: string
           summary: string
           summary_i18n: Json
+          task_link_ends: string | null
           updated_at: string
           urgency: Database["public"]["Enums"]["problem_priority"]
         }
@@ -5705,6 +5719,7 @@ export type Database = {
           subject: string
           summary: string
           summary_i18n: Json
+          task_link_ends: string | null
           updated_at: string
           urgency: Database["public"]["Enums"]["problem_priority"]
         }
@@ -6571,6 +6586,7 @@ export type Database = {
         }
         Returns: string
       }
+      signal_task_link_ends: { Args: { p_signal_id: string }; Returns: string }
       skip_task_step: {
         Args: { p_reason?: string; p_step_id: string }
         Returns: {
@@ -6637,6 +6653,7 @@ export type Database = {
         Args: { raw_rows: Json; reservation_rows: Json; unit_rows?: Json }
         Returns: Json
       }
+      take_message_text_read: { Args: { p_user_id: string }; Returns: boolean }
       take_off_repairs: {
         Args: { p_cause?: string; p_task_ids: string[] }
         Returns: number
