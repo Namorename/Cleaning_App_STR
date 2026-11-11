@@ -58,6 +58,8 @@ export type GuestMessageRead =
   | { readonly phase: 'shown'; readonly messages: readonly GuestMessage[] }
   | { readonly phase: 'failed'; readonly failure: GuestMessageFailure };
 
+const IDLE: GuestMessageRead = { phase: 'idle' };
+
 /**
  * The read, on the reader's press. Not a query on purpose: the phone keeps its queries on disk
  * (lib/query-client.ts), and a guest's words are not ours to keep anywhere — they live in this
@@ -68,35 +70,38 @@ export function useGuestMessage(problemId: string): {
   read: GuestMessageRead;
   ask: () => void;
 } {
-  const [read, setRead] = useState<GuestMessageRead>({ phase: 'idle' });
+  // The read remembers its task: another task on the same screen starts from «idle» at once.
+  const [state, setState] = useState<{ readonly problemId: string; readonly read: GuestMessageRead }>(
+    { problemId, read: IDLE },
+  );
   const latest = useRef(0);
 
-  useEffect(() => {
-    latest.current += 1;
-    setRead({ phase: 'idle' });
-    return () => {
+  // Another task, or the screen gone: a read still in flight is dropped when it answers.
+  useEffect(
+    () => () => {
       latest.current += 1;
-    };
-  }, [problemId]);
+    },
+    [problemId],
+  );
 
   const ask = useCallback(() => {
     latest.current += 1;
     const asked = latest.current;
-    setRead({ phase: 'loading' });
+    setState({ problemId, read: { phase: 'loading' } });
     fetchGuestMessage(problemId).then(
       (messages) => {
         if (latest.current === asked) {
-          setRead({ phase: 'shown', messages });
+          setState({ problemId, read: { phase: 'shown', messages } });
         }
       },
       (error: unknown) => {
         if (latest.current === asked) {
           const failure = error instanceof GuestMessageRefusal ? error.failure : 'failed';
-          setRead({ phase: 'failed', failure });
+          setState({ problemId, read: { phase: 'failed', failure } });
         }
       },
     );
   }, [problemId]);
 
-  return { read, ask };
+  return { read: state.problemId === problemId ? state.read : IDLE, ask };
 }
