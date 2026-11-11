@@ -1,8 +1,8 @@
--- Takes 20261110140000_guest_data_retention away. A WRITE to the cloud: only on
+-- Takes 20261111100000_guest_data_retention away. A WRITE to the cloud: only on
 -- the owner's word, never in 03:00–04:40 UTC.
 --
 --   npx supabase db query --linked -f rollback.sql
---   npx supabase migration repair --status reverted 20261110140000 --linked
+--   npx supabase migration repair --status reverted 20261111100000 --linked
 --
 -- and the migration file leaves supabase/migrations/ in the same change.
 --

@@ -1,4 +1,4 @@
--- Guest data retention (20261110140000).
+-- Guest data retention (20261111100000).
 -- Run: npm run test:rls
 -- Runs inside a transaction and rolls back — the database stays clean.
 --
@@ -40,7 +40,9 @@ insert into read_keys values
   ('listing', 'listingUnits'),
   -- Planned readers: F27 and step 6 of the knowledge base (docs/knowledge-base-plan.md §1.9).
   ('listing', 'customFieldValues'), ('listing', 'keyPickup'), ('listing', 'airbnbAccess'),
-  ('listing', 'airbnbNotes'), ('listing', 'houseRules');
+  ('listing', 'airbnbNotes'), ('listing', 'houseRules'),
+  -- The listing's codes stay (the owner's word of 2026-11-11): F27 reads them.
+  ('listing', 'wifiUsername'), ('listing', 'wifiPassword'), ('listing', 'doorSecurityCode');
 
 /** A Hostaway booking carrying every key the migration strips, and the ones it keeps. */
 create or replace function pg_temp.booking_payload(p_id bigint, p_departure date, p_guest text)
@@ -295,7 +297,8 @@ select (select jsonb_object_agg(k, to_jsonb('synthetic ' || k))
          'listingUnits', '[]'::jsonb,
          'customFieldValues', '[{"customFieldId": 91710, "value": "0000"}]'::jsonb,
          'keyPickup', 'synthetic', 'airbnbAccess', 'synthetic', 'airbnbNotes', 'synthetic',
-         'houseRules', 'synthetic', 'price', 100) as data;
+         'houseRules', 'synthetic', 'price', 100,
+         'wifiUsername', 'synthetic', 'wifiPassword', 'synthetic', 'doorSecurityCode', '0000') as data;
 
 select public.sync_hostaway_listings(
   jsonb_build_array(jsonb_build_object(
@@ -304,11 +307,11 @@ select public.sync_hostaway_listings(
     'id', 900070002, 'name', 'CZ - Synthetic 1', 'timezone', 'Europe/Prague', 'synced_at', now())),
   null);
 
-select pg_temp.check('30 the stored listing carries no contact and no Wi-Fi credential',
+select pg_temp.check('30 the stored listing carries no contact',
   pg_temp.carried((select data from raw.hostaway_listings where id = 900070002),
                   raw.hostaway_listing_personal_keys()), 0);
 
-select pg_temp.check('31 every field the listing normaliser and the planned imports read stays',
+select pg_temp.check('31 every field the listing normaliser and the planned imports read stays, its codes too',
   (select coalesce(string_agg(k.key, ', '), '')
    from read_keys k, listing_sent s
    where k.tbl = 'listing'

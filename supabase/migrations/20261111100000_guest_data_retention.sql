@@ -12,8 +12,11 @@
 --                              custom fields (2 591), the guest's names again
 --                              inside reservationUnit (778 rooms). No purge.
 --   raw.hostaway_listings      82 listings, overwritten daily: the listing
---                              contact's names, phones and e-mail (8), Wi-Fi
---                              credentials (2). No purge.
+--                              contact's names, phones and e-mail (8). No purge.
+--                              Its codes (Wi-Fi login and password, the door
+--                              security code) stay: the owner's word of
+--                              2026-11-11, F27 and step 6 of the knowledge
+--                              base read them from here.
 --   public.reservations        guest_name of every booking. No purge.
 --   raw.webhook_events         processed and skipped events go at 30 days
 --                              (purge-webhook-events, 20260924160000); failed
@@ -149,7 +152,7 @@ $$;
 
 comment on function raw.hostaway_reservation_personal_keys() is
   'Top-level keys of a Hostaway booking stripped from raw.hostaway_reservations on write: '
-  'a guest''s personal data that no code reads (20261110140000).';
+  'a guest''s personal data that no code reads (20261111100000).';
 
 /** The guest's names that Hostaway repeats inside each reservationUnit element (778 today). */
 create or replace function raw.hostaway_reservation_unit_personal_keys()
@@ -166,9 +169,12 @@ comment on function raw.hostaway_reservation_unit_personal_keys() is
   'Keys stripped from every reservationUnit element of a raw booking; listingUnitId stays.';
 
 /**
- * The top-level keys of a Hostaway listing that are a person's data or a
- * credential and that no code reads (non-empty / 82 today). The listing's
- * contact is the owner's or a caretaker's person, not a guest.
+ * The top-level keys of a Hostaway listing that are a person's data and that
+ * no code reads (non-empty / 82 today). The listing's contact is the owner's
+ * or a caretaker's person, not a guest. The listing's codes — wifiUsername,
+ * wifiPassword, doorSecurityCode — are not on the list (the owner's word of
+ * 2026-11-11): they are the property's, not a person's, and F27 and step 6 of
+ * the knowledge base will read them from raw.hostaway_listings.
  */
 create or replace function raw.hostaway_listing_personal_keys()
 returns text[]
@@ -194,16 +200,13 @@ as $$
     'invoicingContactCity',
     'invoicingContactZipcode',
     'invoicingContactCountry',
-    'invoicingContactLanguage',
-    'wifiUsername',            -- 2
-    'wifiPassword',            -- 2
-    'doorSecurityCode'
+    'invoicingContactLanguage'
   ]::text[]
 $$;
 
 comment on function raw.hostaway_listing_personal_keys() is
   'Top-level keys of a Hostaway listing stripped from raw.hostaway_listings on write: '
-  'a person''s data or a credential that no code reads (20261110140000).';
+  'a person''s data that no code reads; the listing''s codes stay (20261111100000).';
 
 /**
  * A booking as it may be stored. Only an object is touched. A missing

@@ -1,5 +1,5 @@
 -- One-off: strips the personal keys from the raw Hostaway rows stored before
--- 20261110140000_guest_data_retention. A WRITE to the cloud: only on the owner's
+-- 20261111100000_guest_data_retention. A WRITE to the cloud: only on the owner's
 -- word «чистка raw» (separate from «ретенция в raw»), after that migration is in,
 -- never in 03:00–04:40 UTC.
 --
@@ -9,7 +9,7 @@
 -- written again, so a run stopped by a lock wait is simply run again.
 --
 -- What it touches (cloud, 2026-11-10): up to 2 701 bookings and 8 listings
--- (the listings whose contact or Wi-Fi fields are filled). Without it, a stored
+-- (the listings whose contact fields are filled; their codes stay). Without it, a stored
 -- booking loses its keys only when the sync writes it again (every night for
 -- departures -7..+90 days, by webhook otherwise) or when the purge deletes it.
 --
@@ -26,7 +26,7 @@ declare
 begin
   if to_regprocedure('raw.strip_hostaway_reservation(jsonb)') is null
      or to_regprocedure('raw.strip_hostaway_listing(jsonb)') is null then
-    raise exception 'guest data backfill: 20261110140000_guest_data_retention is not applied';
+    raise exception 'guest data backfill: 20261111100000_guest_data_retention is not applied';
   end if;
 
   perform set_config('lock_timeout', '5s', true);
