@@ -183,6 +183,24 @@ describe('the read', () => {
     expect(client.getMutationCache().getAll()).toHaveLength(0);
   });
 
+  test.each([
+    [
+      'en',
+      'Show the message from Hostaway',
+      'The message is no longer available: its retention period is over',
+    ],
+    ['cs', 'Zobrazit zprávu z Hostaway', 'Zpráva už není dostupná: uplynula doba uchování'],
+  ])('%s', async (language, show, expired) => {
+    await i18n.changeLanguage(language);
+    mockInvoke.mockResolvedValue(refusal('serverErrors.guestMessageGone'));
+    await renderMessage();
+    fireEvent.press(screen.getByText(show));
+    expect(await screen.findByText(expired)).toBeTruthy();
+  });
+});
+
+// Last in the file: a screen torn down in the middle of a read leaves the renderer to the end.
+describe('the screen closed', () => {
   test('an answer that comes after the screen closed is dropped', async () => {
     let answer: (value: unknown) => void = () => {};
     mockInvoke.mockReturnValue(
@@ -197,20 +215,5 @@ describe('the read', () => {
     await view.unmount();
     answer({ data: { data: { messages: MESSAGES } }, error: null });
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledTimes(1));
-  });
-
-  test.each([
-    [
-      'en',
-      'Show the message from Hostaway',
-      'The message is no longer available: its retention period is over',
-    ],
-    ['cs', 'Zobrazit zprávu z Hostaway', 'Zpráva už není dostupná: uplynula doba uchování'],
-  ])('%s', async (language, show, expired) => {
-    await i18n.changeLanguage(language);
-    mockInvoke.mockResolvedValue(refusal('serverErrors.guestMessageGone'));
-    await renderMessage();
-    fireEvent.press(screen.getByText(show));
-    expect(await screen.findByText(expired)).toBeTruthy();
   });
 });
