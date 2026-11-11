@@ -36,7 +36,7 @@
 ```bash
 HEAD_WANT=20261111120000
 LIST_WANT="20261111140000_guest_message_text.sql"
-SHA_WANT=<sha256 файла, в отчёте выката ниже>
+SHA_WANT=7ae81fd8afd49b031101278f5d7b50636719859744d9c30a1a8063fbf5863fbe
 [ "$(sha256sum supabase/migrations/20261111140000_guest_message_text.sql | cut -d' ' -f1)" = "$SHA_WANT" ] &&
 [ "$(node scripts/cloud-read.mjs docs/rollout/remote_head.sql |
      node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(String(JSON.parse(s)[0].head))}catch{}})")" = "$HEAD_WANT" ] &&
@@ -97,8 +97,37 @@ npx supabase functions deploy guest-review-text
 - **Откат отрепетирован** на временной базе `rehearsal_msg1111`:
   - после отката красные только три набора нового правила (`guest_message_text`, `guest_signals`,
     `guest_chats`), остальные 58 зелёные;
-  - повторный накат — 61 из 61, 3005 проверок.
+  - повторный накат — 61 из 61, 3007 проверок.
 
-## 6. Выкачено
+## 6. Выкачено 11.11
 
-(заполняется по ходу)
+- **Проверки до записи в облако:**
+
+  | Проверка | Итог |
+  |---|---|
+  | панель | tsc и eslint чисто, vitest 204 файла / 2920 тестов, сборка с заглушками — 24 страницы |
+  | телефон | tsc чисто, eslint без ошибок (старые предупреждения), jest 215 наборов / 3599 тестов |
+  | функции | test:fn 706, `deno check` обеих точек входа |
+  | API | Spectral чисто, паритет — в vitest |
+  | SQL | 61 набор / 3007 проверок; мутации 7 из 7; откат отрепетирован |
+
+- **Независимый обзор безопасности:** критичных и серьёзных находок нет. Исправлено до выката:
+  - обрезка стирает `task_link_ends`;
+  - связь уходит вместе с именем, если проживание сократили.
+- **21:15 UTC — `db push`.** Застава прошла: sha `7ae81fd8…`, голова `20261111120000`, сухой прогон назвал
+  одну миграцию. Проба `postpush_guest_message_text_1111.sql`:
+  - голова `20261111140000`, колонка и триггер на месте;
+  - у `raw.message_text_reads` права только у `service_role`;
+  - `guest_message_target` и `take_message_text_read` вызывает только `service_role`;
+  - помощник, триггер и обрезку не вызывает никто;
+  - заданий из карточек 0.
+- **21:16 UTC — функции.** Выкачены `guest-message-text` и `guest-review-text`. Дым на обеих:
+  - без токена — 401 `serverErrors.notSignedIn`;
+  - чужой Origin — 403 без CORS;
+  - предзапрос панели — 204 со своим адресом.
+- **21:31 UTC — `main` = `bc0f58d`** (fast-forward с `1b9a37b`). Vercel: Production Ready.
+- **OTA №19 в preview:**
+  - группа `93191573-a27e-4505-b075-7fb2e15daaa1`, коммит `bc0f58d`, runtime 1.2.0;
+  - сверка бандла с живой №18 — `RESULT: OK` (адрес, ключ, DSN те же);
+  - `dist` — `~/dev-tools/str-ops/day-1111/dist-ota19`.
+- Field не тронут. Политика не опубликована.
