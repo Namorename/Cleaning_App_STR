@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from '@/components/text';
 import { Spacing } from '@/constants/theme';
 
+import { GuestMessageBlock } from './guest-message-block';
 import { useGuestOrigin } from './use-guest-origin';
 
 interface GuestOriginBlockProps {
@@ -48,17 +49,24 @@ function GuestOriginRead({ problemId, source }: GuestOriginReadProps) {
     return null;
   }
 
+  // The guest's own message of a chat task: for whom the server named the guest — the head
+  // technician and the office (problem_guest_origin); a technician and a maid get no button.
+  const mayReadMessage = source === 'message' && origin.data.guest !== undefined;
+
   return (
-    <View testID="problem-origin" style={styles.block}>
-      <Text variant="caption" tone="secondary" weight={700}>
-        {t('problems.origin.title')}
-      </Text>
-      {guestOriginLines(origin.data, t, i18n.language).map((line) => (
-        <Text key={line.key} tone={line.muted ? 'secondary' : 'default'}>
-          {line.text}
+    <>
+      <View testID="problem-origin" style={styles.block}>
+        <Text variant="caption" tone="secondary" weight={700}>
+          {t('problems.origin.title')}
         </Text>
-      ))}
-    </View>
+        {guestOriginLines(origin.data, t, i18n.language).map((line) => (
+          <Text key={line.key} tone={line.muted ? 'secondary' : 'default'}>
+            {line.text}
+          </Text>
+        ))}
+      </View>
+      {mayReadMessage ? <GuestMessageBlock problemId={problemId} /> : null}
+    </>
   );
 }
 
