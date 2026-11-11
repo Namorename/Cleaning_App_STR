@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { OriginLines } from '@/features/problems/guest-origin';
 import { SourceBadge } from '@/features/problems/source-badge';
 import { useStaff } from '@/features/problems/use-problems';
-import { formatDateTime, formatDay, todayIso } from '@/lib/format-date';
+import { formatDateTime, todayIso } from '@/lib/format-date';
 import type { Language } from '@str-ops/shared';
 
 import {
@@ -23,7 +23,6 @@ import {
   isFromMessage,
   isModelReading,
   isTaskKind,
-  monthOf,
   placePathOf,
   REJECT_REASONS,
   type Finding,
