@@ -97,9 +97,11 @@ Anthropic), чтобы находить неисправности в кварт
 рабочие данные, — и того, что вы пишете в приложении, она не читает. Сообщения компании гостям модели
 не отправляются. Модель лишь отмечает возможную неисправность (тему, срочность и уверенность); что
 делать, решает менеджер, а оценок отдельных сотрудников по текстам гостей система не строит. Тексты
-отзывов с заменёнными именами храним не дольше 18 месяцев, текст сообщений не храним вовсе. Anthropic
-удаляет полученные тексты в течение 30 дней; дольше — только если её системы безопасности отметят
-текст как нарушающий правила использования или этого требует закон.»
+отзывов с заменёнными именами храним не дольше 18 месяцев, текст сообщений не храним вовсе: если по
+сообщению создано задание, менеджер или главный техник может открыть его — текст читается из системы
+бронирования в момент просмотра и нигде у нас не сохраняется. Anthropic удаляет полученные тексты в
+течение 30 дней; дольше — только если её системы безопасности отметят текст как нарушающий правила
+использования или этого требует закон.»
 
 en: «<b>Guest reviews and messages.</b> Guests' reviews from the booking platforms, and the messages
 guests themselves write during their stay, are analysed by an AI language model (Anthropic's Claude) to
@@ -109,9 +111,11 @@ replaced by placeholders. The model gets only this text — never your account o
 does not read anything you write in the app. The company's messages to guests are not sent to the
 model. It only marks a possible fault (its theme, urgency and how sure it is); a manager decides what to
 do, and the system builds no ratings of individual employees from guests' texts. We keep review texts,
-with the names already replaced, for at most 18 months, and we do not keep the text of messages at all.
-Anthropic deletes the texts it receives within 30 days, longer only if its safety systems flag a text as
-breaking its usage policy or the law requires it.»
+with the names already replaced, for at most 18 months, and we do not keep the text of messages at all:
+when a task is made from a message, a manager or the head technician may open it — the text is read
+from the booking system at that moment and stored nowhere on our side. Anthropic deletes the texts it
+receives within 30 days, longer only if its safety systems flag a text as breaking its usage policy or
+the law requires it.»
 
 cs: «<b>Recenze a zprávy hostů.</b> Recenze hostů z rezervačních platforem a zprávy, které hosté sami
 napíší během pobytu, analyzuje jazykový model umělé inteligence (Claude od společnosti Anthropic), aby
@@ -120,14 +124,24 @@ hostů a pracovníků, kontakty, odkazy, kódy a čísla od čtyř číslic se n
 dostane jen tento text, nikdy váš účet ani vaše pracovní údaje, a nečte nic, co píšete v aplikaci.
 Zprávy společnosti hostům se modelu neodesílají. Model jen označí možnou poruchu (téma, naléhavost a
 jistotu); o dalším postupu rozhoduje manažer a systém z textů hostů nehodnotí jednotlivé pracovníky.
-Texty recenzí s nahrazenými jmény uchováváme nejvýše 18 měsíců, text zpráv neuchováváme vůbec.
-Anthropic přijaté texty maže do 30 dnů, déle jen tehdy, když je jeho bezpečnostní systémy označí za
-porušení pravidel používání nebo když to vyžaduje zákon.»
+Texty recenzí s nahrazenými jmény uchováváme nejvýše 18 měsíců, text zpráv neuchováváme vůbec: když
+ze zprávy vznikne úkol, manažer nebo hlavní technik si ji může otevřít — text se načte z rezervačního
+systému v okamžiku zobrazení a nikde u nás se neukládá. Anthropic přijaté texty maže do 30 dnů, déle
+jen tehdy, když je jeho bezpečnostní systémy označí za porušení pravidel používání nebo když to
+vyžaduje zákon.»
 
 **Строка срока хранения:** «Тексты отзывов гостей (имена заменены) — не дольше 18 месяцев; тексты
-сообщений гостей не хранятся» / «Guest review texts (names replaced) — at most 18 months; texts of
-guests' messages are not stored» / «Texty recenzí hostů (jména nahrazena) — nejvýše 18 měsíců; texty
-zpráv hostů se neukládají».
+сообщений гостей не хранятся (по заданию читаются из системы бронирования в момент просмотра)» /
+«Guest review texts (names replaced) — at most 18 months; texts of guests' messages are not stored
+(for a task they are read from the booking system when viewed)» / «Texty recenzí hostů (jména
+nahrazena) — nejvýše 18 měsíců; texty zpráv hostů se neukládají (u úkolu se načítají z rezervačního
+systému při zobrazení)».
+
+Правка 11.11 (вечер): задание из чата показывает сообщение, прочитанное из Hostaway по кнопке
+менеджера или главного техника (`docs/guest-message-text.md`). Текст по-прежнему нигде не хранится,
+поэтому фраза «текст сообщений не храним вовсе» остаётся верной; добавлено, как его видят. Связь
+задания с бронью теперь живёт до стирания имени гостя (выезд + 91 день) — в разделе о сроках брони
+политики для сотрудников это не меняет ничего: срок имени гостя тот же. Не опубликовано.
 
 **Строка реестра `privacy-dpa-links.md`:**
 
@@ -143,7 +157,8 @@ zpráv hostů se neukládají».
 - **Что храним:**
   - метки (тема, срочность, уверенность);
   - тексты новых отзывов — до 18 месяцев;
-  - текст сообщений — нигде.
+  - текст сообщений — нигде; по заданию его читает из Hostaway `guest-message-text` в момент
+    просмотра (менеджер, главный техник), ответ живёт только в памяти функции и экрана.
 - **Срок хранения у Anthropic:** удаление в течение 30 дней; отмеченное системами безопасности — входы и
   выходы до 2 лет, оценки до 7 лет; после окончания договора — 30 дней (DPA H.1).
 - **Субобработчики:** список https://trust.anthropic.com/subprocessors, изменения —
