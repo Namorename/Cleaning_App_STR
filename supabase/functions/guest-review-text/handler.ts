@@ -29,33 +29,12 @@
  * functionError() and serverErrorText() translate them like any other.
  */
 
+import { isPanelOrigin, panelCorsHeaders as corsHeaders } from "../_shared/panel-origin.ts";
 import { normalizeHostawayReview } from "../_shared/signals/hostaway.ts";
 import { pageKey } from "./cache.ts";
 
-/**
- * The panel's pages: the production address, the project's Vercel
- * deployments (their nine-letter hash), a panel on this machine (the local
- * stands use several ports). A custom domain needs its line here.
- */
-const PANEL_ORIGINS: readonly RegExp[] = [
-  /^https:\/\/woom-bnb\.vercel\.app$/,
-  /^https:\/\/woom-[a-z0-9]{9}-namorename\.vercel\.app$/,
-  /^http:\/\/(localhost|127\.0\.0\.1):\d{2,5}$/,
-];
-
-export function isPanelOrigin(origin: string): boolean {
-  return PANEL_ORIGINS.some((pattern) => pattern.test(origin));
-}
-
-/** CORS for one of the panel's pages: its own origin, never "*". */
-function corsHeaders(origin: string): Record<string, string> {
-  return {
-    "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    Vary: "Origin",
-  };
-}
+// The panel's pages (_shared/panel-origin.ts), shared with guest-message-text.
+export { isPanelOrigin };
 
 /** The panel's roles: the office reads the reviews (row level security says the same). */
 export const READER_ROLES: readonly string[] = ["manager", "admin"];

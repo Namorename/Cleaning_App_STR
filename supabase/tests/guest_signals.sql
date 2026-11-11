@@ -474,6 +474,15 @@ begin
   if v_problem.source_facts ->> 'period_month' = to_char(current_date - 3, 'YYYY-MM')
      and not (v_problem.source_facts ? 'departure_date')
   then raise notice 'ok the problem knows the month the guest left, never the day'; else raise exception 'FAIL facts %', v_problem.source_facts; end if;
+  -- A card made into a task keeps its days and its booking while the guest's name lives
+  -- (20261111140000); the night its link ends, the cut takes them as it took them at the decision before.
+  select * into v_review from public.guest_signals where id = v_r1;
+  if v_review.stay_exact and v_review.reservation_id = v_res
+     and (select f.task_link_ends from public.signal_findings f where f.id = v_f.id)
+         = (select r.departure_date from public.reservations r where r.id = v_res) + 91
+  then raise notice 'ok decided into a task: the days and the booking stay until the guest''s name goes'; else raise exception 'FAIL link at decision %', row_to_json(v_review); end if;
+  update public.signal_findings set task_link_ends = current_date where id = v_f.id;
+  perform public.cut_signal_stay_links(array[v_r1]);
   select * into v_review from public.guest_signals where id = v_r1;
   if not v_review.stay_exact and v_review.reservation_id is null and v_review.external_reservation_id is null
      and v_review.departure_date = date_trunc('month', (current_date - 3)::timestamp)::date
@@ -484,7 +493,7 @@ begin
      and extract(day from v_review.updated_at at time zone 'Europe/Prague') = 1
      and not exists (select 1 from public.signal_findings
                      where signal_id = v_r1 and extract(day from created_at at time zone 'Europe/Prague') <> 1)
-  then raise notice 'ok decided: the days and the booking go, the place, the month and the text stay'; else raise exception 'FAIL cut at decision %', row_to_json(v_review); end if;
+  then raise notice 'ok its link over: the days and the booking go, the place, the month and the text stay'; else raise exception 'FAIL cut at link end %', row_to_json(v_review); end if;
   select count(*) into v_n from raw.push_outbox where recipient_id = v_head and kind = 'problem_new'
     and params ->> 'problem_id' = v_problem.id::text;
   if v_n = 1 then raise notice 'ok the head technician is told although nobody reported it'; else raise exception 'FAIL push %', v_n; end if;
@@ -602,8 +611,9 @@ begin
      and (select stay_exact from public.guest_signals where id = v_r)
   then raise notice 'ok the model read it, the rules not yet: the days stay'; else raise exception 'FAIL exact before the rules %', v_out; end if;
   perform public.apply_signal_findings(v_r, 'rules-v1', null, '[]'::jsonb);
-  if (select not stay_exact from public.guest_signals where id = v_r)
-  then raise notice 'ok a fresh exact stay on a clean place makes its problem at once, and is cut after'; else raise exception 'FAIL auto %', v_out; end if;
+  if (select stay_exact from public.guest_signals where id = v_r)
+     and (select task_link_ends is not null from public.signal_findings where signal_id = v_r and status = 'task_created')
+  then raise notice 'ok a fresh exact stay on a clean place makes its problem at once, and keeps its days while its task''s link lives'; else raise exception 'FAIL auto %', v_out; end if;
   select id into v_r from public.guest_signals where external_key = pg_temp.review_key('suite-7');
   v_out := public.apply_signal_findings(v_r, 'claude-haiku-5-5@prompt-v1', 'en', jsonb_build_array(
     jsonb_build_object('kind', 'repair', 'subject', 'electric', 'confidence', 0.9,
@@ -1227,9 +1237,11 @@ begin
   if not exists (select 1 from public.guest_signals g
                  where g.host_id = v_host and g.stay_exact
                    and not exists (select 1 from public.signal_findings f
-                                   where f.signal_id = g.id and f.status = 'candidate'))
+                                   where f.signal_id = g.id
+                                     and (f.status = 'candidate'
+                                          or (f.status = 'task_created' and f.task_link_ends > current_date))))
      and exists (select 1 from public.guest_signals g where g.host_id = v_host and g.stay_exact)
-  then raise notice 'ok with the readers gone only a stay a candidate waits on keeps its days'; else raise exception 'FAIL cut at texts off'; end if;
+  then raise notice 'ok with the readers gone only a stay a candidate waits on, or a task''s link holds, keeps its days'; else raise exception 'FAIL cut at texts off'; end if;
 
   -- ===================================================================
   -- 31–41: the core without a PMS (docs/guest-signals.md §2.4, P1–P12).

@@ -373,7 +373,15 @@ begin
   update public.issue_facts set created_at = now() - interval '91 days' where host_id = v_host and origin = 'message';
   update raw.signal_message_queue set updated_at = now() - interval '91 days' where host_id = v_host and state = 'idle';
   v_out := public.purge_guest_message_links();
-  perform pg_temp.check('a decided card forgets the conversation after 30 days',
+  -- The card was made into a task: it keeps the conversation while the task's link lives
+  -- (20261111140000), and forgets it the night the link ends.
+  perform pg_temp.check('a task''s card keeps the conversation past 30 days while its link lives',
+    (select count(*)::integer from public.signal_findings
+     where host_id = v_host and status = 'task_created' and external_conversation_id is not null), 1);
+  update public.signal_findings set task_link_ends = current_date
+  where host_id = v_host and status = 'task_created';
+  v_out := public.purge_guest_message_links();
+  perform pg_temp.check('a decided card forgets the conversation after 30 days, a task''s at its link''s end',
     (select count(*)::integer from public.signal_findings
      where host_id = v_host and status <> 'candidate' and external_conversation_id is not null), 0);
   perform pg_temp.check('an episode forgets the conversation after 90 days',

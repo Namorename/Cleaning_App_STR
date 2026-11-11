@@ -471,3 +471,11 @@ verify_jwt = false
 # the role and the company itself, and counts the reads before anything is
 # read (supabase/functions/guest-review-text/handler.ts).
 verify_jwt = false
+
+[functions.guest-message-text]
+# Reads the guest's message of a chat task from Hostaway for the panel and the
+# head technician's phone, kept nowhere (docs/guest-message-text.md). Off for
+# the same reason: the function checks the token, the role and the company
+# itself, and counts the reads before anything is read
+# (supabase/functions/guest-message-text/handler.ts).
+verify_jwt = false
