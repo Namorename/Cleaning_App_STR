@@ -54,7 +54,8 @@ const FINDING_COLUMNS =
   'evidence_source, confidence, detector, status, reject_reason, problem_id, decided_mode, ' +
   'decided_at, created_at, external_conversation_id, ' +
   `place:properties(${PLACE_COLUMNS}), ` +
-  `signal:guest_signals!inner(kind, stay_phase, ${REVIEW_COLUMNS})`;
+  // The booking's name only, read now (owner, 2026-11-11): null once the cut unlinks it.
+  `signal:guest_signals!inner(kind, stay_phase, booking:reservations(guest_name), ${REVIEW_COLUMNS})`;
 
 /** How many findings one tab lists; the queue is small (≈ 1–3 a day, docs §5.1). */
 export const FINDINGS_LIMIT = 200;

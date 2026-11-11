@@ -1,5 +1,6 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { formatGuestDate } from '@str-ops/shared';
 import { beforeEach, describe, expect, onTestFinished, test, vi } from 'vitest';
 
 import { problemSchema, type Problem } from '../schema';
@@ -44,6 +45,7 @@ const queries = {
   steps: vi.fn(),
   staff: vi.fn(),
   workers: vi.fn(),
+  origin: vi.fn(),
 };
 const mutations = {
   assign: vi.fn(),
@@ -114,6 +116,17 @@ vi.mock('../use-problems', () => ({
 // is about and close.
 vi.mock('../problem-theme', () => ({ ProblemThemeBlock: () => null }));
 
+// Where a task from a guest came from: the server's answer is the test's to give, and whether the
+// page asked at all is recorded. The text button reads Hostaway and has its own tests.
+vi.mock('../use-guest-origin', () => ({
+  useGuestOrigin: (problemId: string, isFromGuest: boolean) => queries.origin(problemId, isFromGuest),
+}));
+vi.mock('@/features/guest-signals/text-from-pms', () => ({
+  TextFromPms: ({ signalId }: { signalId: string }) => (
+    <button type="button">{`Показать текст из Hostaway ${signalId}`}</button>
+  ),
+}));
+
 vi.mock('@/features/chat/chat-sheet', () => ({
   ChatSheet: (props: { subject: Record<string, string>; about: string; onClose: () => void }) => (
     <div role="dialog" aria-label="Чат">
@@ -173,6 +186,7 @@ beforeEach(() => {
   refusal.cancel = false;
   refusal.falsePositive = false;
   queries.problem.mockReturnValue(loaded(assigned));
+  queries.origin.mockReturnValue({ data: undefined, isPending: true, isError: false });
   queries.photos.mockReturnValue(
     loaded([
       {
@@ -248,7 +262,7 @@ describe('ProblemDetail', () => {
     expect(screen.getByText('Сообщил:')).toHaveTextContent('Неизвестно');
   });
 
-  test('a task from a guest review says so, with its channel and the month the guest left', () => {
+  test('a task from a guest review carries «Из отзыва» in its head, and the month the guest left', () => {
     queries.problem.mockReturnValue(
       loaded(
         problemSchema.parse({
@@ -262,7 +276,10 @@ describe('ProblemDetail', () => {
     );
     render(<ProblemDetail problemId={PROBLEM_ID} />);
 
-    expect(screen.getByText('Из отзыва гостя · Airbnb · Гость выехал: 2026-10')).toBeInTheDocument();
+    const chip = screen.getByText('Из отзыва');
+    expect(chip.closest('[data-source]')).toHaveAttribute('data-source', 'review');
+    expect(screen.getByText('Гость выехал: 2026-10')).toBeInTheDocument();
+    expect(screen.queryByText('Из чата')).not.toBeInTheDocument();
   });
 
   // The owner's decision 7 (docs/guest-signals.md §7.1): who said yes is on every such task.
@@ -286,12 +303,10 @@ describe('ProblemDetail', () => {
     );
     render(<ProblemDetail problemId={PROBLEM_ID} />);
 
-    expect(
-      screen.getByText('Из отзыва гостя · Airbnb · Гость выехал: 2026-10 · Подтвердил менеджер'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Гость выехал: 2026-10 · Подтвердил менеджер')).toBeInTheDocument();
   });
 
-  test('a task auto made from a guest message says so, with the month it was sent', () => {
+  test('a task auto made from a guest chat carries «Из чата», with the month it was sent', () => {
     queries.problem.mockReturnValue(
       loaded(
         problemSchema.parse({
@@ -311,11 +326,12 @@ describe('ProblemDetail', () => {
     );
     render(<ProblemDetail problemId={PROBLEM_ID} />);
 
-    expect(
-      screen.getByText(
-        'Из сообщения гостя · Booking.com · Отправлено: 2026-10 · Создано автоматически',
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Из чата').closest('[data-source]')).toHaveAttribute(
+      'data-source',
+      'message',
+    );
+    expect(screen.getByText('Отправлено: 2026-10 · Создано автоматически')).toBeInTheDocument();
+    expect(screen.queryByText('Из отзыва')).not.toBeInTheDocument();
   });
 
   test('a source this build does not know reads as the staff’s, with no line about a guest', () => {
@@ -327,6 +343,9 @@ describe('ProblemDetail', () => {
     render(<ProblemDetail problemId={PROBLEM_ID} />);
 
     expect(screen.queryByText(/гостя/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Из отзыва')).not.toBeInTheDocument();
+    expect(screen.queryByText('Из чата')).not.toBeInTheDocument();
+    expect(queries.origin).toHaveBeenCalledWith(PROBLEM_ID, false);
   });
 
   test('«К списку заданий» returns to the view the task was opened from', () => {
@@ -755,6 +774,133 @@ describe('the conversation of a task', () => {
 
     expect(chatButton()).toHaveAccessibleName('Чат Новое сообщение');
     expect(within(chatButton()).getByText('Новое сообщение')).toHaveClass('bg-tone-unread-mark');
+  });
+});
+
+// The owner's word of 2026-11-11: a task from a guest says which guest and which stay — the name read
+// from the booking when the page opens, kept nowhere, and why it is gone once it is.
+describe('«Гость и проживание»', () => {
+  const fromGuest = (source: 'review' | 'message'): Problem =>
+    problemSchema.parse({
+      ...assigned,
+      reported_by: null,
+      reporter: null,
+      source,
+      source_facts: { kind: 'repair', subject: 'hot_water', channel: 'airbnb', period_month: '2026-10' },
+    });
+  const day = (value: string) => formatGuestDate(value, 'day', 'ru');
+
+  test('the office reads the stay, the guest from the booking, the channel, the day and the numbers', () => {
+    queries.problem.mockReturnValue(loaded(fromGuest('review')));
+    queries.origin.mockReturnValue(
+      loaded({
+        source: 'review',
+        stay: { precision: 'day', arrival: '2026-10-03', departure: '2026-10-07' },
+        channel: 'airbnb',
+        guest: { state: 'shown', name: 'Synthetic Guest' },
+        rating: 6,
+        sent: { precision: 'day', on: '2026-10-09' },
+        booking_id: '900111011',
+        conversation_id: null,
+        signal_id: '88888888-8888-4888-8888-888888888888',
+        has_text: true,
+      }),
+    );
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    const block = screen.getByRole('region', { name: 'Гость и проживание' });
+    expect(queries.origin).toHaveBeenCalledWith(PROBLEM_ID, true);
+    expect(within(block).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+      `Проживание: ${day('2026-10-03')} – ${day('2026-10-07')}`,
+      'Гость: Synthetic Guest',
+      'Airbnb · оценка 6/10',
+      `Отзыв от ${day('2026-10-09')}`,
+      'Бронь в PMS № 900111011',
+    ]);
+    // No link is made up: the inbox address is not confirmed, the number is to search by.
+    expect(within(block).queryByRole('link')).not.toBeInTheDocument();
+    expect(
+      within(block).getByText('Ссылки на переписку нет: найдите её в Hostaway по номеру'),
+    ).toBeInTheDocument();
+    expect(
+      within(block).getByRole('button', {
+        name: 'Показать текст из Hostaway 88888888-8888-4888-8888-888888888888',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  test('a chat: the conversation’s number, no text button', () => {
+    queries.problem.mockReturnValue(loaded(fromGuest('message')));
+    queries.origin.mockReturnValue(
+      loaded({
+        source: 'message',
+        stay: { precision: 'day', arrival: '2026-11-08', departure: '2026-11-12' },
+        channel: 'booking',
+        guest: { state: 'erased', name: null },
+        rating: null,
+        sent: { precision: 'day', on: '2026-11-10' },
+        booking_id: null,
+        conversation_id: '7001',
+        signal_id: '88888888-8888-4888-8888-888888888888',
+        has_text: false,
+      }),
+    );
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    const block = screen.getByRole('region', { name: 'Гость и проживание' });
+    expect(within(block).getByText('Имя удалено по сроку хранения')).toBeInTheDocument();
+    expect(within(block).getByText('Booking.com')).toBeInTheDocument();
+    expect(within(block).getByText(`Сообщение от ${day('2026-11-10')}`)).toBeInTheDocument();
+    expect(within(block).getByText('Разговор в PMS № 7001')).toBeInTheDocument();
+    expect(within(block).queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  test('once the card was decided: the months, and why there is no name', () => {
+    queries.problem.mockReturnValue(loaded(fromGuest('review')));
+    queries.origin.mockReturnValue(
+      loaded({
+        source: 'review',
+        stay: { precision: 'month', arrival: '2026-10', departure: '2026-10' },
+        channel: 'airbnb',
+        guest: { state: 'cut', name: null },
+        rating: 9,
+        sent: { precision: 'month', on: '2026-10' },
+        booking_id: null,
+        conversation_id: null,
+        signal_id: null,
+        has_text: false,
+      }),
+    );
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    const block = screen.getByRole('region', { name: 'Гость и проживание' });
+    expect(within(block).getByText('Проживание: октябрь 2026 г.')).toBeInTheDocument();
+    expect(
+      within(block).getByText('Имя и точные даты не хранятся после решения по карточке'),
+    ).toBeInTheDocument();
+    expect(within(block).getByText('Отзыв от октябрь 2026 г.')).toBeInTheDocument();
+    expect(within(block).queryByText(/Hostaway/)).not.toBeInTheDocument();
+  });
+
+  test('a failed read says so, and the rest of the page stands', () => {
+    queries.problem.mockReturnValue(loaded(fromGuest('review')));
+    queries.origin.mockReturnValue({ data: undefined, isPending: false, isError: true });
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+
+    expect(screen.getByText('Не удалось загрузить сведения о госте')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Течёт кран');
+  });
+
+  test('no answer about a guest, no block; nothing while it loads', () => {
+    queries.problem.mockReturnValue(loaded(fromGuest('review')));
+    queries.origin.mockReturnValue(loaded(null));
+    const { unmount } = render(<ProblemDetail problemId={PROBLEM_ID} />);
+    expect(screen.queryByRole('region', { name: 'Гость и проживание' })).not.toBeInTheDocument();
+    unmount();
+
+    queries.origin.mockReturnValue({ data: undefined, isPending: true, isError: false });
+    render(<ProblemDetail problemId={PROBLEM_ID} />);
+    expect(screen.queryByRole('region', { name: 'Гость и проживание' })).not.toBeInTheDocument();
   });
 });
 

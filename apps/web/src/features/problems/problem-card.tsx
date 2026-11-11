@@ -1,6 +1,6 @@
 'use client';
 
-import { STATUS_TONE } from '@str-ops/shared';
+import { STATUS_TONE, isGuestSource } from '@str-ops/shared';
 import { Ellipsis } from 'lucide-react';
 import Link from 'next/link';
 import { useId, type DragEvent } from 'react';
@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { problemHref, type ProblemsFrom } from './address';
 import { ProblemClosing } from './problem-closing';
 import { RepairTail } from './repair-tail';
+import { SourceBadge } from './source-badge';
 import {
   isDraggable,
   liveFixTask,
@@ -137,8 +138,9 @@ export function ProblemCard({
           · {formatShortDay(fixTask.scheduled_date, language)}
         </span>
       )}
-      {hasUnread || problem.priority !== 'normal' || tail !== null ? (
+      {hasUnread || problem.priority !== 'normal' || tail !== null || isGuestSource(problem.source) ? (
         <div className="flex flex-wrap items-center gap-1">
+          <SourceBadge source={problem.source} />
           {problem.priority === 'normal' ? null : (
             <StatusBadge status={`problems.priority.${problem.priority}`}>
               {t(`problems.priorities.${problem.priority}`)}

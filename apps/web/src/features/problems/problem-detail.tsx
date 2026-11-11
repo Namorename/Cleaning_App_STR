@@ -27,6 +27,7 @@ import {
 } from './address';
 import { AssignForm } from './assign-form';
 import { FixTaskSteps } from './fix-task-steps';
+import { GuestOriginBlock } from './guest-origin';
 import { formatClock } from './format';
 import { ProblemActions } from './problem-actions';
 import { ProblemClosing, ProblemWorkerMark } from './problem-closing';
@@ -42,6 +43,7 @@ import {
   problemPlace,
   repairTail,
 } from './schema';
+import { SourceBadge } from './source-badge';
 import { useProblem, useProblemPhotos } from './use-problems';
 
 interface ProblemDetailProps {
@@ -176,6 +178,7 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
           title={problem.title}
           meta={
             <>
+              <SourceBadge source={problem.source} />
               <StatusBadge status={`problems.${problem.status}`}>
                 {t(`problems.statuses.${problem.status}`)}
               </StatusBadge>
@@ -204,6 +207,7 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
           </CardHeader>
           <CardContent className="flex flex-col gap-3 text-sm">
             <ReportMeta problem={problem} />
+            <GuestOriginBlock problem={problem} />
             <ProblemThemeBlock problemId={problem.id} />
             <section className="flex flex-col gap-1">
               <h2 className="font-medium">{t('panel.problems.detail.description')}</h2>
@@ -255,10 +259,10 @@ function ProblemPage({ problem, backHref, chat }: ProblemPageProps) {
   );
 }
 
-/** The words of each guest source: where the task came from, and what its month means. */
-const SIGNAL_SOURCE_KEYS = {
-  review: { origin: 'problems.source.review', month: 'problems.source.reviewLeft' },
-  message: { origin: 'problems.source.message', month: 'problems.source.messageSent' },
+/** What the month of each guest source means. */
+const SIGNAL_MONTH_KEYS = {
+  review: 'problems.source.reviewLeft',
+  message: 'problems.source.messageSent',
 } as const;
 
 const MODE_KEYS = {
@@ -267,9 +271,10 @@ const MODE_KEYS = {
 } as const;
 
 /**
- * «Из отзыва гостя · Airbnb · Гость выехал: 2026-10 · Подтвердил менеджер» —
- * the facts a task from a guest's review or message carries, never a quote
- * (docs/guest-signals.md §7.1). Null for a report of the staff.
+ * «Гость выехал: 2026-10 · Подтвердил менеджер» — what a task from a guest's
+ * review or message carries itself, never a quote (docs/guest-signals.md §7.1).
+ * Where it came from is the header's chip, the stay and the channel are the
+ * block «Гость и проживание» (owner, 2026-11-11). Null for a report of the staff.
  */
 function signalSourceLine(
   problem: Pick<Problem, 'source' | 'source_facts'>,
@@ -278,19 +283,15 @@ function signalSourceLine(
   if (problem.source === 'staff') {
     return null;
   }
-  const keys = SIGNAL_SOURCE_KEYS[problem.source];
   const facts = problem.source_facts;
-  const parts = [t(keys.origin)];
-  if (facts?.channel) {
-    parts.push(t(`panel.guests.channel.${facts.channel}`));
-  }
+  const parts: string[] = [];
   if (facts?.period_month) {
-    parts.push(t(keys.month, { month: facts.period_month }));
+    parts.push(t(SIGNAL_MONTH_KEYS[problem.source], { month: facts.period_month }));
   }
   if (facts?.mode) {
     parts.push(t(MODE_KEYS[facts.mode]));
   }
-  return parts.join(' · ');
+  return parts.length === 0 ? null : parts.join(' · ');
 }
 
 function ReportMeta({ problem }: { problem: Problem }) {

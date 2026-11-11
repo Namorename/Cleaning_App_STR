@@ -1,6 +1,6 @@
 'use client';
 
-import { isTaskClosed, problemPriorityTone, problemStatusTone } from '@str-ops/shared';
+import { isGuestSource, isTaskClosed, problemPriorityTone, problemStatusTone } from '@str-ops/shared';
 import Link from 'next/link';
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -25,6 +25,7 @@ import { EMPTY_PROBLEM_FILTERS, filtersKey, type ProblemFilters } from './filter
 import { ProblemClosing } from './problem-closing';
 import { RepairTail } from './repair-tail';
 import { liveFixTask, problemPlace, repairTail, type Problem } from './schema';
+import { SourceBadge } from './source-badge';
 import { LIST_PAGE, ShowMoreButton, useShowMore } from './show-more';
 
 interface ProblemsTableProps {
@@ -36,7 +37,9 @@ interface ProblemsTableProps {
 /**
  * Every problem in one table, cancelled ones included. A problem somebody
  * wrote about carries «Новое сообщение» beside its title — a link to its
- * page with the conversation open (5.4, «Чат»).
+ * page with the conversation open (5.4, «Чат»). A task from a guest opens its
+ * title with «Из отзыва» or «Из чата» (owner, 2026-11-11), and names the
+ * guest's review or chat where the reporter would stand.
  *
  * Newest reported first, a page at a time (owner, 10.10: the page must not
  * grow without end); «Показать ещё» under the table brings the older ones.
@@ -78,7 +81,8 @@ export function ProblemsTable({ problems, filters = EMPTY_PROBLEM_FILTERS }: Pro
               return (
                 <TableRow key={problem.id}>
                   <TableCell>
-                    <div className="flex flex-wrap items-center gap-x-2">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <SourceBadge source={problem.source} />
                       <Link
                         href={problemHref(problem.id, from)}
                         className="font-medium hover:underline"
@@ -121,11 +125,18 @@ export function ProblemsTable({ problems, filters = EMPTY_PROBLEM_FILTERS }: Pro
                     )}
                   </TableCell>
                   <TableCell>
-                    <Person
-                      name={problem.reporter?.full_name}
-                      role={problem.reporter?.role}
-                      fallback={t('panel.problems.unknownPerson')}
-                    />
+                    {isGuestSource(problem.source) ? (
+                      // Nobody of the staff reported it: the guest's review or chat did.
+                      <span className="text-muted-foreground">
+                        {t(`problems.source.${problem.source}`)}
+                      </span>
+                    ) : (
+                      <Person
+                        name={problem.reporter?.full_name}
+                        role={problem.reporter?.role}
+                        fallback={t('panel.problems.unknownPerson')}
+                      />
+                    )}
                   </TableCell>
                   <TableCell>{formatDateTime(problem.created_at, language)}</TableCell>
                 </TableRow>

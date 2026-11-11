@@ -10,12 +10,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
+import { OriginLines } from '@/features/problems/guest-origin';
+import { SourceBadge } from '@/features/problems/source-badge';
 import { useStaff } from '@/features/problems/use-problems';
 import { formatDateTime, formatDay, todayIso } from '@/lib/format-date';
 import type { Language } from '@str-ops/shared';
 
 import {
   findingAge,
+  findingOrigin,
   findingWords,
   isFromMessage,
   isModelReading,
@@ -58,7 +61,7 @@ export function FindingCard({ finding, language }: FindingCardProps) {
         {finding.urgency === 'high' ? (
           <Badge variant="destructive">{t('panel.guests.card.urgent')}</Badge>
         ) : null}
-        {isChat ? <Badge variant="outline">{t('panel.guests.card.fromMessage')}</Badge> : null}
+        <SourceBadge source={isChat ? 'message' : 'review'} />
         <h3 className="font-medium">{what}</h3>
         <span className="text-sm text-muted-foreground">
           {placePathOf(finding.place) ?? t('panel.guests.card.noPlace')}
@@ -80,11 +83,7 @@ export function FindingCard({ finding, language }: FindingCardProps) {
         </span>
       </p>
 
-      {review === null ? null : isChat ? (
-        <MessageFacts finding={finding} language={language} />
-      ) : (
-        <ReviewFacts finding={finding} language={language} />
-      )}
+      <SignalFacts finding={finding} />
       {finding.evidence === null ? null : (
         <blockquote className="border-l-2 pl-3 text-sm italic">
           {finding.evidence}{' '}
@@ -123,59 +122,30 @@ function FoundAge({ finding, language }: FindingCardProps) {
   );
 }
 
-/** A chat's facts: the channel, when in the stay, the day (the month once settled), the conversation. */
-function MessageFacts({ finding, language }: FindingCardProps) {
+/**
+ * The card's facts as its task tells them (`OriginLines`, owner 2026-11-11): the stay — the days
+ * while exact, the months after the cut — the guest's name read from the booking now, the channel
+ * and the rating, the day sent, the numbers to search Hostaway by. Beside them what only a card has:
+ * a review's ratings by category, the moment in the stay a chat was written.
+ */
+function SignalFacts({ finding }: { finding: Finding }) {
   const { t } = useTranslation();
-  const message = finding.signal;
-  if (message === null) {
+  const origin = findingOrigin(finding);
+  const signal = finding.signal;
+  if (origin === null || signal === null) {
     return null;
   }
-  const when = message.stay_exact
-    ? formatDateTime(message.submitted_at, language)
-    : t('panel.guests.card.monthOnly', { month: monthOf(message.submitted_at) });
-  return (
-    <dl className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-      <dd>{t(`panel.guests.channel.${message.channel}`)}</dd>
-      {message.stay_phase === null ? null : (
-        <dd>{t(`panel.guests.card.phase.${message.stay_phase}`)}</dd>
-      )}
-      <dd>{when}</dd>
-      {finding.external_conversation_id === null ? null : (
-        <dd>{t('panel.guests.card.conversation', { id: finding.external_conversation_id })}</dd>
-      )}
-    </dl>
-  );
-}
-
-function ReviewFacts({ finding, language }: FindingCardProps) {
-  const { t } = useTranslation();
-  const review = finding.signal;
-  if (review === null) {
-    return null;
-  }
-  const categories = Object.entries(review.category_ratings)
+  const categories = Object.entries(signal.category_ratings)
     .map(([key, value]) => `${t(`panel.guests.category.${key}`)} ${value}`)
     .join(', ');
-  const stay = review.stay_exact
-    ? [review.arrival_date, review.departure_date]
-        .map((day) => (day === null ? '—' : formatDay(day, language)))
-        .join(' – ')
-    : t('panel.guests.card.monthOnly', {
-        month: monthOf(review.departure_date) ?? monthOf(review.submitted_at),
-      });
-
   return (
-    <dl className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-      <dd>{t(`panel.guests.channel.${review.channel}`)}</dd>
-      <dd>
-        {review.rating === null ? t('panel.guests.card.noRating') : `${review.rating}/10`}
-        {categories === '' ? '' : ` (${categories})`}
-      </dd>
-      <dd>{stay}</dd>
-      {review.stay_exact && review.external_reservation_id !== null ? (
-        <dd>{t('panel.guests.card.booking', { id: review.external_reservation_id })}</dd>
-      ) : null}
-    </dl>
+    <div className="flex flex-col gap-0.5 text-sm text-muted-foreground">
+      <OriginLines origin={origin} />
+      {categories === '' ? null : <p>{categories}</p>}
+      {signal.stay_phase === null ? null : (
+        <p>{t(`panel.guests.card.phase.${signal.stay_phase}`)}</p>
+      )}
+    </div>
   );
 }
 

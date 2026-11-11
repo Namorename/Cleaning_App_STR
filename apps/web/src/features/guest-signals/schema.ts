@@ -1,4 +1,11 @@
-import { localDay, propertyPath, type Language } from '@str-ops/shared';
+import {
+  localDay,
+  propertyPath,
+  todayInZone,
+  type GuestNameState,
+  type GuestOrigin,
+  type Language,
+} from '@str-ops/shared';
 import { z } from 'zod';
 
 import { daysBetween } from '@/features/calendar/dates';
@@ -161,6 +168,15 @@ export const STAY_PHASES = ['arrival_day', 'stay', 'departure_day'] as const;
 const findingSignalSchema = reviewSchema.omit({ place: true }).extend({
   kind: z.enum(SIGNAL_KINDS).catch('review').default('review'),
   stay_phase: z.enum(STAY_PHASES).nullable().catch(null).default(null),
+  /**
+   * The booking while the stay is exact (owner, 2026-11-11): only its guest's name, read now and
+   * kept nowhere; null once the cut has unlinked it. Its name null once retention has cleared it.
+   */
+  booking: z
+    .object({ guest_name: z.string().nullable().catch(null) })
+    .nullable()
+    .catch(null)
+    .default(null),
 });
 
 /** A finding with its signal alongside — the card has all it shows from one read. */
@@ -374,6 +390,54 @@ export function isModelReading(finding: Pick<Finding, 'detector'>): boolean {
 /** "2026-10" of a stay's day: what is left of it once cut, and all a task keeps. */
 export function monthOf(day: string | null): string | null {
   return day === null ? null : day.slice(0, 7);
+}
+
+/** The zone the signals count their days in (signal_month_of, cut_signal_stay_links). */
+const SIGNAL_ZONE = 'Europe/Prague';
+
+function guestOf(signal: NonNullable<Finding['signal']>): { state: GuestNameState; name: string | null } {
+  const name = signal.booking?.guest_name?.trim() ?? '';
+  if (signal.booking !== null) {
+    return name === '' ? { state: 'erased', name: null } : { state: 'shown', name };
+  }
+  return { state: signal.stay_exact ? 'none' : 'cut', name: null };
+}
+
+/**
+ * A card of «Гости» told as its task tells it (problem_guest_origin, owner 2026-11-11): the same
+ * stay — the days while exact, the months after the cut — the guest's name from the booking, the
+ * channel and the rating, the day sent and the numbers to search Hostaway by. The office reads all
+ * of it here, as on the task's page. Null without the signal.
+ */
+export function findingOrigin(
+  finding: Pick<Finding, 'signal' | 'external_conversation_id'>,
+): GuestOrigin | null {
+  const signal = finding.signal;
+  if (signal === null) {
+    return null;
+  }
+  const exact = signal.stay_exact;
+  const day = (value: string | null) => (exact ? value : monthOf(value));
+  const sentDay = todayInZone(SIGNAL_ZONE, new Date(signal.submitted_at));
+  return {
+    source: signal.kind,
+    stay:
+      signal.arrival_date === null && signal.departure_date === null
+        ? null
+        : {
+            precision: exact ? 'day' : 'month',
+            arrival: day(signal.arrival_date),
+            departure: day(signal.departure_date),
+          },
+    channel: signal.channel,
+    guest: guestOf(signal),
+    rating: signal.rating,
+    sent: { precision: exact ? 'day' : 'month', on: exact ? sentDay : sentDay.slice(0, 7) },
+    booking_id: exact ? signal.external_reservation_id : null,
+    conversation_id: finding.external_conversation_id,
+    signal_id: signal.id,
+    has_text: signal.has_public_text || signal.has_private_text,
+  };
 }
 
 type StageRun = Pick<RunStatus[number], 'last_run_at' | 'last_ok_at'>;

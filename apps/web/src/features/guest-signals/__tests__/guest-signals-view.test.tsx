@@ -1,15 +1,18 @@
 import { render, screen, within } from '@testing-library/react';
+import { formatGuestDate, guestOriginLines } from '@str-ops/shared';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { formatDateTime, formatDay } from '@/lib/format-date';
 import { ServerRefusal } from '@/lib/function-error';
+import { i18n } from '@/lib/i18n';
 
 import { EMPTY_REVIEW_FILTERS, type ReviewFilters } from '../review-filters';
 import {
   chatFreshness,
   expectedStages,
   findingAge,
+  findingOrigin,
   findingSchema,
   freshness,
   reviewSchema,
@@ -253,8 +256,67 @@ describe('the «Гости» screen', () => {
     ];
     render(<GuestSignalsView isAdmin={false} />);
     const card = screen.getByRole('article');
-    expect(card).toHaveTextContent('Проживание: 2026-10 (точных дат уже нет)');
+    expect(card).toHaveTextContent('Проживание: октябрь 2026 г.');
+    expect(card).toHaveTextContent('Имя и точные даты не хранятся после решения по карточке');
     expect(card).not.toHaveTextContent('Бронь в PMS');
+  });
+
+  // The owner's word of 2026-11-11: a card says where it came from and whose stay it was, as its
+  // task does — the chip, the stay, the guest's name read from the booking now.
+  test('a review card carries «Из отзыва», the stay and the guest from the booking', () => {
+    state.findings = [
+      finding({
+        signal: {
+          ...finding().signal,
+          arrival_date: '2026-10-10',
+          departure_date: '2026-10-13',
+          booking: { guest_name: 'Synthetic Guest' },
+        },
+      }),
+    ];
+    render(<GuestSignalsView isAdmin={false} />);
+    const card = screen.getByRole('article');
+    expect(within(card).getByText('Из отзыва').closest('[data-source]')).toHaveAttribute(
+      'data-source',
+      'review',
+    );
+    expect(within(card).queryByText('Из чата')).toBeNull();
+    expect(card).toHaveTextContent(
+      `Проживание: ${formatGuestDate('2026-10-10', 'day', 'ru')} – ${formatGuestDate('2026-10-13', 'day', 'ru')}`,
+    );
+    expect(within(card).getByText('Гость: Synthetic Guest')).toBeTruthy();
+  });
+
+  test('a card whose booking lost its name to retention says so; one never linked says so too', () => {
+    state.findings = [
+      finding({ signal: { ...finding().signal, booking: { guest_name: null } } }),
+      finding({
+        id: '66666666-6666-4666-8666-666666666666',
+        signal: { ...finding().signal, booking: null },
+      }),
+    ];
+    render(<GuestSignalsView isAdmin={false} />);
+    const [erased, never] = screen.getAllByRole('article');
+    expect(within(erased).getByText('Имя удалено по сроку хранения')).toBeTruthy();
+    expect(within(never).getByText('Бронь не найдена, имени нет')).toBeTruthy();
+  });
+
+  test('a card and its task say the same lines (guestOriginLines of findingOrigin)', () => {
+    const card = finding({
+      signal: { ...finding().signal, booking: { guest_name: 'Synthetic Guest' } },
+    });
+    state.findings = [card];
+    render(<GuestSignalsView isAdmin={false} />);
+    const origin = findingOrigin(card);
+    expect(origin).not.toBeNull();
+    const t = (key: string, options?: Record<string, string>) => i18n.t(key, options);
+    const lines = guestOriginLines(origin!, t, 'ru').map((line) => line.text);
+    expect(
+      within(screen.getByRole('article'))
+        .getAllByRole('listitem')
+        .map((item) => item.textContent)
+        .slice(0, lines.length),
+    ).toEqual(lines);
   });
 
   test('a candidate tells how long it has waited; a decided card, or one cut to its month, does not', () => {
@@ -891,7 +953,11 @@ describe('chats behind their switch (docs/guest-chats.md)', () => {
     render(<GuestSignalsView isAdmin={false} />);
     expect(screen.getByLabelText('Показывать')).toBeTruthy();
     const card = screen.getByRole('article');
-    expect(within(card).getByText('Из сообщения гостя')).toBeTruthy();
+    expect(within(card).getByText('Из чата').closest('[data-source]')).toHaveAttribute(
+      'data-source',
+      'message',
+    );
+    expect(within(card).queryByText('Из отзыва')).toBeNull();
     expect(within(card).getByText('во время проживания')).toBeTruthy();
     expect(within(card).getByText('Разговор в PMS № 7001')).toBeTruthy();
     expect(within(card).queryByText(/Отзыв целиком/)).toBeNull();
