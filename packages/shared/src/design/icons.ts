@@ -82,6 +82,11 @@ export const ICONS = {
   'status.warning': 'triangle-alert',
   'status.archived': 'archive',
 
+  // Where a task from a guest came from (owner, 2026-11-11): the review's star, the chat's bubble —
+  // the bubble of «Гости» and of a conversation, so a chat reads as a chat everywhere.
+  'source.review': 'star',
+  'source.message': 'message-square',
+
   /** A problem's technician, beside his name. */
   'meta.technician': 'wrench',
   /** A cleaning's note for its executor, beside its name in the panel's list. */

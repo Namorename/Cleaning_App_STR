@@ -2588,7 +2588,25 @@
       "message": "From a guest message",
       "messageSent": "Sent in {{month}}",
       "auto": "Created automatically",
-      "confirmed": "Confirmed by a manager"
+      "confirmed": "Confirmed by a manager",
+      "chipReview": "From a review",
+      "chipMessage": "From a chat"
+    },
+    "origin": {
+      "title": "Guest and stay",
+      "stay": "Stay: {{from}} – {{to}}",
+      "stayIn": "Stay: {{month}}",
+      "stayUnknown": "Stay dates unknown",
+      "monthsOnly": "Exact dates are not kept once the card is decided",
+      "guest": "Guest: {{name}}",
+      "guestErased": "Name deleted after the retention period",
+      "guestCut": "The name and exact dates are not kept once the card is decided",
+      "guestNone": "No booking found, so no name",
+      "rating": "rating {{rating}}/10",
+      "reviewSent": "Review of {{date}}",
+      "messageSent": "Message of {{date}}",
+      "findInPms": "No link to the conversation: find it in Hostaway by its number",
+      "loadFailed": "Could not load the guest details"
     },
     "noProperty": "No listing",
     "place": "Where",

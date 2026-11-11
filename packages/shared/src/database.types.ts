@@ -4228,6 +4228,10 @@ export type Database = {
         }
         Returns: Json
       }
+      api_task_guest_stay: {
+        Args: { p: Database["public"]["Tables"]["problems"]["Row"] }
+        Returns: Json
+      }
       api_task_json:
         | {
             Args: { p: Database["public"]["Tables"]["problems"]["Row"] }
@@ -4993,6 +4997,10 @@ export type Database = {
         Returns: Json
       }
       guest_messages_shown: { Args: { p_host: string }; Returns: boolean }
+      guest_stay_json: {
+        Args: { p_signal: Database["public"]["Tables"]["guest_signals"]["Row"] }
+        Returns: Json
+      }
       head_tech_dispatching: { Args: never; Returns: boolean }
       head_tech_property_ids: { Args: never; Returns: number[] }
       ingest_guest_reviews: {
@@ -5463,7 +5471,59 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      problem_guest_origin: { Args: { p_problem_id: string }; Returns: Json }
       problem_max_photos: { Args: never; Returns: number }
+      problem_origin_signal: {
+        Args: { p_problem_id: string }
+        Returns: {
+          analysed_at: string | null
+          analysed_version: string | null
+          analysis_attempts: number
+          analysis_error: string | null
+          arrival_date: string | null
+          category_comments: Json | null
+          category_ratings: Json
+          channel: Database["public"]["Enums"]["signal_channel"]
+          conversation_key: string | null
+          created_at: string
+          departure_date: string | null
+          external_id: string | null
+          external_key: string
+          external_listing_id: string
+          external_reservation_id: string | null
+          external_unit_id: string | null
+          external_updated_at: string | null
+          has_host_reply: boolean
+          has_private_text: boolean
+          has_public_text: boolean
+          host_id: string
+          id: string
+          is_hidden: boolean
+          kind: Database["public"]["Enums"]["guest_signal_kind"]
+          language: string | null
+          private_text: string | null
+          property_id: number | null
+          provider: Database["public"]["Enums"]["signal_provider"]
+          public_text: string | null
+          rating: number | null
+          reservation_id: number | null
+          room_id: number | null
+          rules_version: string | null
+          stay_after_notice: boolean | null
+          stay_exact: boolean
+          stay_phase: string | null
+          submitted_at: string
+          text_purge_after: string | null
+          text_truncated: boolean
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "guest_signals"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       problem_theme: { Args: { p_problem_id: string }; Returns: Json }
       problem_title_max_length: { Args: never; Returns: number }
       property_checklist_snapshot: {

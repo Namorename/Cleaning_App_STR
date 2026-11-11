@@ -148,6 +148,13 @@ const TASK = {
   // Closed by a manager for the technician; the name only under staff:read_names.
   completed_by: { id: UUID, role: "tech", full_name: "Tom Tech" }, completed_by_source: "manager", closed_by: { id: UUID, role: "manager" },
   closed_how: "manager_for", closed_cause: null, closed_at: TS,
+  // Reported by the staff: no guest behind it.
+  source: "staff", guest_stay: null,
+};
+// A task found in a guest's review whose card was decided: the stay's months, never a name.
+const TASK_FROM_REVIEW = {
+  ...TASK, reported_by: null, source: "review",
+  guest_stay: { precision: "month", arrival: "2026-09", departure: "2026-10" },
 };
 const PROPERTY = {
   id: 123456, name: "Main House 4G", name_masked: true, parent_id: null, status: "active", city: "Prague",
@@ -177,7 +184,7 @@ const ANSWERS: Record<string, unknown> = {
   api_v1_assign_cleaning: { status: 200, body: CLEANING, replayed: false },
   api_v1_list_cleaning_media: [MEDIA],
   api_v1_list_tasks: [{ ...TASK, _sort: "2026-10-28T09:15:00.1+00:00" }],
-  api_v1_get_task: TASK,
+  api_v1_get_task: TASK_FROM_REVIEW,
   api_v1_create_task: { status: 201, body: TASK, replayed: false },
   api_v1_assign_task: { status: 200, body: TASK, replayed: false },
   api_v1_list_task_media: [MEDIA],

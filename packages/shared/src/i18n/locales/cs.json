@@ -2632,7 +2632,25 @@
       "message": "Ze zprávy hosta",
       "messageSent": "Odesláno v {{month}}",
       "auto": "Vytvořeno automaticky",
-      "confirmed": "Potvrdil manažer"
+      "confirmed": "Potvrdil manažer",
+      "chipReview": "Z recenze",
+      "chipMessage": "Z chatu"
+    },
+    "origin": {
+      "title": "Host a pobyt",
+      "stay": "Pobyt: {{from}} – {{to}}",
+      "stayIn": "Pobyt: {{month}}",
+      "stayUnknown": "Data pobytu nejsou známa",
+      "monthsOnly": "Přesná data se po rozhodnutí o kartě neuchovávají",
+      "guest": "Host: {{name}}",
+      "guestErased": "Jméno smazáno po uplynutí doby uchování",
+      "guestCut": "Jméno a přesná data se po rozhodnutí o kartě neuchovávají",
+      "guestNone": "Rezervace nenalezena, jméno chybí",
+      "rating": "hodnocení {{rating}}/10",
+      "reviewSent": "Recenze z {{date}}",
+      "messageSent": "Zpráva z {{date}}",
+      "findInPms": "Odkaz na konverzaci není: najděte ji v Hostaway podle čísla",
+      "loadFailed": "Údaje o hostovi se nepodařilo načíst"
     },
     "noProperty": "Bez objektu",
     "place": "Kde",

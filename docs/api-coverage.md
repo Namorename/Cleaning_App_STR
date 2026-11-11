@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 46 | 282 | 348 |
+| Функции | 20 | 46 | 286 | 352 |
 | Таблицы и представления | 9 | 21 | 24 | 54 |
-| Всего | 29 | 67 | 306 | 402 |
+| Всего | 29 | 67 | 310 | 406 |
 
 ## Функции
 
@@ -92,7 +92,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 282
+### Внутреннее — 286
 
 | Имя | Причина |
 | --- | --- |
@@ -131,6 +131,7 @@
 | `api_require_admin` | API plumbing: only an admin manages keys. |
 | `api_safe_property_name` | API plumbing: masks door codes in property names (F27). |
 | `api_staff_json` | API plumbing: what a member of staff looks like in the API. |
+| `api_task_guest_stay` | API plumbing: the stay a task from a guest speaks of (Task.guest_stay), days or months, never a name. |
 | `api_task_json` | API plumbing: what a task looks like in the API. |
 | `api_task_person_json` | API plumbing: a person on a task, the name only with staff:read_names. |
 | `api_ts` | API plumbing: ISO 8601 UTC timestamps. |
@@ -194,6 +195,7 @@
 | `guest_message_state` | Guest chats (docs/guest-chats.md), behind a switch: the switch and the ceilings the job asks first; money and counts are no API matter. |
 | `guest_messages_shown` | Guest chats (docs/guest-chats.md), behind a switch: whether chats are shown on «Качество объектов»; a helper of the panel's reads. |
 | `guest_signals_touch` | trigger function: stamps updated_at of a review, only its month once the stay is cut |
+| `guest_stay_json` | helper: the stay of a guest signal as a task shows it (days while exact, months after the cut); execute revoked from every role |
 | `handle_new_user` | trigger function: creates the profile of a new auth.users row |
 | `head_tech_dispatching` | guard helper: marks a head-technician dispatch inside assign_problem/unassign_problem |
 | `head_tech_property_ids` | auth/RLS helper: listings the head technician may read |
@@ -246,7 +248,9 @@
 | `problem_description_max_length` | validation limit constant of report_problem/update_problem |
 | `problem_for_dispatch` | lock-and-check helper of assign_problem/unassign_problem; execute revoked from clients |
 | `problem_for_manager` | lock-and-check helper of the manager problem RPCs; execute revoked from clients |
+| `problem_guest_origin` | the task page of the panel and the phone: where a task from a guest came from, by role (the name only to the head technician and the office, read from the booking); its public part is already in API v1 as Task.source and Task.guest_stay, and a guest's name never is (forbidden guests:read_personal) |
 | `problem_max_photos` | validation limit constant of add_problem_media |
+| `problem_origin_signal` | helper: the guest signal a task was made from, through its finding of origin; execute revoked from every role |
 | `problem_theme` | the panel read of a task theme; the public resource comes with stage 6 of the plan |
 | `problem_title_max_length` | validation limit constant of report_problem/update_problem |
 | `property_id_for_unit` | Hostaway sync, Hostaway stays the source of truth: maps a listingUnit to its properties.id |

@@ -52,6 +52,14 @@ export const STATUS_TONE = {
   'problems.priority.high': 'urgent',
   'problems.priority.normal': 'neutral',
   'problems.priority.low': 'neutral',
+  /**
+   * Where a task from a guest came from (owner, 2026-11-11), drawn filled with the tone's mark
+   * (`SIGNAL_SOURCE_LOOK`): gold for a review — the colour of its stars — and the booking's deep
+   * terracotta for a chat. Neither is a status of a task, so the chip is never taken for one; one is
+   * light and one dark, so they part in grey and under every colour blindness too.
+   */
+  'problems.source.review': 'today',
+  'problems.source.message': 'booking',
   'supplies.new': 'unassigned',
   'supplies.accepted': 'assigned',
   'supplies.ordered': 'inProgress',
@@ -153,6 +161,35 @@ export function supplyPriorityTone(priority: Enums<'supply_priority'>): Tone {
 
 export function propertyStatusTone(status: Enums<'property_status'>): Tone {
   return STATUS_TONE[`property.${status}` as const];
+}
+
+/** A source of a task that a guest sent: a review, or a chat message during the stay. */
+export type GuestSource = 'review' | 'message';
+
+/**
+ * How a task from a guest is marked wherever a task or a guest's card is shown — the board, the
+ * list, the task's page, «Гости», every phone (owner, 2026-11-11). Always the three together: the
+ * glyph, the word (`label`, an i18n key) and the chip filled with the tone's `mark`, its glyph and
+ * word in `onMark` — never colour alone. Filled, unlike every status chip, so it is not read as one.
+ */
+export const SIGNAL_SOURCE_LOOK = {
+  review: {
+    tone: STATUS_TONE['problems.source.review'],
+    icon: 'source.review',
+    label: 'problems.source.chipReview',
+  },
+  message: {
+    tone: STATUS_TONE['problems.source.message'],
+    icon: 'source.message',
+    label: 'problems.source.chipMessage',
+  },
+} as const satisfies Readonly<
+  Record<GuestSource, { tone: Tone; icon: IconMeaning; label: string }>
+>;
+
+/** True for a task's source that a guest sent: the ones `SIGNAL_SOURCE_LOOK` marks. */
+export function isGuestSource(source: string | null | undefined): source is GuestSource {
+  return source === 'review' || source === 'message';
 }
 
 /**

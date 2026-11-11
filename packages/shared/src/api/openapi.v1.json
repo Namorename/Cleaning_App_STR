@@ -3009,7 +3009,9 @@
           "closed_by",
           "closed_how",
           "closed_cause",
-          "closed_at"
+          "closed_at",
+          "source",
+          "guest_stay"
         ],
         "properties": {
           "id": {
@@ -3069,7 +3071,7 @@
               "null"
             ],
             "format": "uuid",
-            "description": "Who reported it; for a task made through the API, the admin who made the key. Null for a task woom raised itself (planned: tasks from guest reviews)."
+            "description": "Who reported it; for a task made through the API, the admin who made the key. Null for a task made from what a guest sent (source review or message)."
           },
           "archived": {
             "type": "boolean"
@@ -3143,6 +3145,55 @@
           },
           "closed_at": {
             "$ref": "#/components/schemas/NullableTimestamp"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "staff",
+              "review",
+              "message"
+            ],
+            "description": "Where the task came from: staff — somebody of the staff reported it (or it was made through the API); review — found in a guest's review; message — found in a guest's chat message during the stay."
+          },
+          "guest_stay": {
+            "$ref": "#/components/schemas/GuestStay"
+          }
+        }
+      },
+      "GuestStay": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "additionalProperties": false,
+        "required": [
+          "precision",
+          "arrival",
+          "departure"
+        ],
+        "description": "The stay a task from a guest speaks of — never the guest's name or contacts. The days while woom keeps them; once the guest's card has been decided, only the months. Null for a task of the staff, or when the booking channel named no stay.",
+        "properties": {
+          "precision": {
+            "type": "string",
+            "enum": [
+              "day",
+              "month"
+            ],
+            "description": "day — arrival and departure are dates (YYYY-MM-DD); month — they are months (YYYY-MM)."
+          },
+          "arrival": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The arrival: YYYY-MM-DD, or YYYY-MM when precision is month."
+          },
+          "departure": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The departure: YYYY-MM-DD, or YYYY-MM when precision is month."
           }
         }
       },

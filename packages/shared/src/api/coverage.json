@@ -230,6 +230,11 @@
       "reason": "API plumbing: what a member of staff looks like in the API.",
       "defined_in": "20261028100000_public_api_v1.sql"
     },
+    "api_task_guest_stay": {
+      "status": "internal",
+      "reason": "API plumbing: the stay a task from a guest speaks of (Task.guest_stay), days or months, never a name.",
+      "defined_in": "20261111120000_task_guest_origin.sql"
+    },
     "api_task_json": {
       "status": "internal",
       "reason": "API plumbing: what a task looks like in the API.",
@@ -755,6 +760,11 @@
       "reason": "trigger function: stamps updated_at of a review, only its month once the stay is cut",
       "defined_in": "20261030110000_reviews_to_tasks.sql"
     },
+    "guest_stay_json": {
+      "status": "internal",
+      "reason": "helper: the stay of a guest signal as a task shows it (days while exact, months after the cut); execute revoked from every role",
+      "defined_in": "20261111120000_task_guest_origin.sql"
+    },
     "handle_new_user": {
       "status": "internal",
       "reason": "trigger function: creates the profile of a new auth.users row",
@@ -1045,10 +1055,20 @@
       "reason": "lock-and-check helper of the manager problem RPCs; execute revoked from clients",
       "defined_in": "20261003130000_head_tech_dispatch.sql"
     },
+    "problem_guest_origin": {
+      "status": "internal",
+      "reason": "the task page of the panel and the phone: where a task from a guest came from, by role (the name only to the head technician and the office, read from the booking); its public part is already in API v1 as Task.source and Task.guest_stay, and a guest's name never is (forbidden guests:read_personal)",
+      "defined_in": "20261111120000_task_guest_origin.sql"
+    },
     "problem_max_photos": {
       "status": "internal",
       "reason": "validation limit constant of add_problem_media",
       "defined_in": "20260908130100_problem_media.sql"
+    },
+    "problem_origin_signal": {
+      "status": "internal",
+      "reason": "helper: the guest signal a task was made from, through its finding of origin; execute revoked from every role",
+      "defined_in": "20261111120000_task_guest_origin.sql"
     },
     "problem_theme": {
       "status": "internal",
