@@ -17,9 +17,9 @@ import { problemListSchema, problemSchema } from '../schema';
  * Tasks from what a guest sent — a review or a message — on the phone, behind
  * their switch (docs/guest-signals.md §7.1): off, the phone asks for no new
  * column; the cards read such a task the moment the server sends one, say
- * where it came from and the month, and carry «Создано автоматически», with
- * «Подтвердил менеджер» beside it when a manager confirmed it (the owner's
- * decision 7 of 2026-10-31).
+ * where it came from and the month, and carry «Подтвердил менеджер» when a
+ * manager confirmed it, «Создано автоматически» otherwise (the owner's word of
+ * 2026-11-11, replacing both plaques of decision 7 of 2026-10-31).
  */
 
 /** A task as a build before the guest signals saved it on the phone: none of the new keys. */
@@ -191,25 +191,16 @@ describe('a task from a guest signal', () => {
     expect(signalBadges(autoReview, i18n.t)).toEqual(['Создано автоматически']);
   });
 
-  test('confirmed by a manager carries both plaques, in either kind', async () => {
+  test('confirmed by a manager carries only «Подтвердил менеджер», in either kind', async () => {
     const confirmedMessage = {
       ...fromMessage,
       source_facts: { ...facts, mode: 'manager' as const },
     };
 
-    expect(signalBadges(fromReview, i18n.t)).toEqual([
-      'Создано автоматически',
-      'Подтвердил менеджер',
-    ]);
-    expect(signalBadges(confirmedMessage, i18n.t)).toEqual([
-      'Создано автоматически',
-      'Подтвердил менеджер',
-    ]);
+    expect(signalBadges(fromReview, i18n.t)).toEqual(['Подтвердил менеджер']);
+    expect(signalBadges(confirmedMessage, i18n.t)).toEqual(['Подтвердил менеджер']);
     await i18n.changeLanguage('en');
-    expect(signalBadges(fromReview, i18n.t)).toEqual([
-      'Created automatically',
-      'Confirmed by a manager',
-    ]);
+    expect(signalBadges(fromReview, i18n.t)).toEqual(['Confirmed by a manager']);
   });
 
   test('a task somebody on the staff reported carries no label and no plaque', () => {

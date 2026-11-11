@@ -242,7 +242,7 @@ describe('a task from a guest signal', () => {
     mode: 'manager',
   } as const;
 
-  test('a review a manager confirmed: where it came from and both plaques', async () => {
+  test('a review a manager confirmed: where it came from and only its plaque', async () => {
     await render(
       <ProblemDetail
         {...props({
@@ -253,8 +253,8 @@ describe('a task from a guest signal', () => {
 
     expect(screen.getByText('Из отзыва гостя · Гость выехал: 2026-10')).toBeTruthy();
     const marks = screen.getByTestId('problem-signal-marks');
-    expect(within(marks).getByText('Создано автоматически')).toBeTruthy();
     expect(within(marks).getByText('Подтвердил менеджер')).toBeTruthy();
+    expect(screen.queryByText('Создано автоматически')).toBeNull();
     expect(styleOf(marks)).toMatchObject({ flexDirection: 'row', flexWrap: 'wrap' });
   });
 

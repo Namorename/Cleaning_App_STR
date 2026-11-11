@@ -135,18 +135,18 @@ describe('a task from a guest signal', () => {
     mode: 'manager',
   } as const;
 
-  test('a review a manager confirmed: where it came from and both plaques, all heard', async () => {
+  test('a review a manager confirmed: where it came from and only its plaque, all heard', async () => {
     const problem = boardProblem({ source: 'review', source_facts: facts });
 
     await render(<BoardCard problem={problem} names={NAMES} onPress={jest.fn()} />);
 
     expect(screen.getByText('Из отзыва гостя · Гость выехал: 2026-10')).toBeTruthy();
-    expect(screen.getByText('Создано автоматически')).toBeTruthy();
     expect(screen.getByText('Подтвердил менеджер')).toBeTruthy();
+    expect(screen.queryByText('Создано автоматически')).toBeNull();
     expect(
       screen.getByRole('button', {
         name:
-          'Кран течёт. Из отзыва гостя · Гость выехал: 2026-10. Создано автоматически. ' +
+          'Кран течёт. Из отзыва гостя · Гость выехал: 2026-10. ' +
           'Подтвердил менеджер. CZ - Nadrazni Apt 6. Открыто. Без исполнителя',
       }),
     ).toBeTruthy();

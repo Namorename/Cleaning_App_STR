@@ -113,14 +113,16 @@ export function signalLabel(problem: SignalSourced, t: TFunction): string | null
 }
 
 /**
- * The plaques of a task from a guest signal (the owner's decision 7 of
- * 2026-10-31): «Создано автоматически» on every one, and «Подтвердил менеджер»
- * beside it when a manager confirmed it. None on a task somebody reported.
+ * The plaque of a task from a guest signal: «Подтвердил менеджер» when a
+ * manager confirmed it, «Создано автоматически» otherwise — one or the other,
+ * as the panel shows it (the owner's word of 2026-11-11, replacing both
+ * plaques of decision 7 of 2026-10-31). None on a task somebody reported.
  */
 export function signalBadges(problem: SignalSourced, t: TFunction): readonly string[] {
   if (!isFromSignal(problem)) {
     return [];
   }
-  const auto = t('problems.source.auto');
-  return problem.source_facts?.mode === 'manager' ? [auto, t('problems.source.confirmed')] : [auto];
+  return problem.source_facts?.mode === 'manager'
+    ? [t('problems.source.confirmed')]
+    : [t('problems.source.auto')];
 }

@@ -102,7 +102,7 @@ describe('a task from a guest signal (the owner’s decision 7)', () => {
     mode: 'manager',
   } as const;
 
-  test('a review a manager confirmed: where it came from, both plaques, all heard', async () => {
+  test('a review a manager confirmed: where it came from, only its plaque, all heard', async () => {
     await render(
       <ProblemCard
         problem={problem({ reported_by: null, source: 'review', source_facts: facts })}
@@ -112,13 +112,13 @@ describe('a task from a guest signal (the owner’s decision 7)', () => {
 
     expect(screen.getByText('Из отзыва гостя · Гость выехал: 2026-10')).toBeTruthy();
     const marks = screen.getByTestId('problem-marks');
-    expect(within(marks).getByText('Создано автоматически')).toBeTruthy();
     expect(within(marks).getByText('Подтвердил менеджер')).toBeTruthy();
+    expect(screen.queryByText('Создано автоматически')).toBeNull();
     expect(
       screen.getByRole('button', {
         name:
           'Кран течёт. CZ - Nadrazni Apt 6. Открыто. Из отзыва гостя · Гость выехал: 2026-10. ' +
-          'Создано автоматически. Подтвердил менеджер',
+          'Подтвердил менеджер',
       }),
     ).toBeTruthy();
   });
