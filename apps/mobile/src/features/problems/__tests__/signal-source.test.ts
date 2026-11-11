@@ -10,6 +10,8 @@ import {
   shownTitle,
   signalBadges,
   signalLabel,
+  signalSource,
+  signalSourceWord,
 } from '../signal-source';
 import { problemListSchema, problemSchema } from '../schema';
 
@@ -148,7 +150,8 @@ describe('what a newer server may send', () => {
     expect(unknownMode.source_facts?.mode).toBeNull();
     expect(signalBadges(unknownMode, i18n.t)).toEqual(['Создано автоматически']);
     expect(noFacts.source_facts).toBeNull();
-    expect(signalLabel(noFacts, i18n.t)).toBe('Из отзыва гостя');
+    expect(signalLabel(noFacts, i18n.t)).toBeNull();
+    expect(signalSourceWord(noFacts, i18n.t)).toBe('Из отзыва');
   });
 });
 
@@ -164,25 +167,34 @@ describe('a task from a guest signal', () => {
     expect(shownTitle(fromMessage, 'en')).toBe('Нет горячей воды');
   });
 
-  test('from a review says so and the month the guest left, never a quote', async () => {
-    expect(signalLabel(fromReview, i18n.t)).toBe('Из отзыва гостя · Гость выехал: 2026-10');
+  // The source is the chip's to say (owner, 2026-11-11): the line keeps the month alone.
+  test('from a review: the chip says «Из отзыва», the line the month the guest left', async () => {
+    expect(signalSource(fromReview)).toBe('review');
+    expect(signalSourceWord(fromReview, i18n.t)).toBe('Из отзыва');
+    expect(signalLabel(fromReview, i18n.t)).toBe('Гость выехал: 2026-10');
     await i18n.changeLanguage('en');
-    expect(signalLabel(fromReview, i18n.t)).toBe('From a guest review · Guest left in 2026-10');
+    expect(signalSourceWord(fromReview, i18n.t)).toBe('From a review');
+    expect(signalLabel(fromReview, i18n.t)).toBe('Guest left in 2026-10');
     await i18n.changeLanguage('cs');
-    expect(signalLabel(fromReview, i18n.t)).toBe('Z recenze hosta · Host odjel v 2026-10');
+    expect(signalSourceWord(fromReview, i18n.t)).toBe('Z recenze');
+    expect(signalLabel(fromReview, i18n.t)).toBe('Host odjel v 2026-10');
     await i18n.changeLanguage('ru');
-    expect(signalLabel({ ...fromReview, source_facts: null }, i18n.t)).toBe('Из отзыва гостя');
+    expect(signalLabel({ ...fromReview, source_facts: null }, i18n.t)).toBeNull();
   });
 
-  test('from a message says so and the month it was sent, never its text', async () => {
-    expect(signalLabel(fromMessage, i18n.t)).toBe('Из сообщения гостя · Отправлено: 2026-10');
+  test('from a message: the chip says «Из чата», the line the month it was sent', async () => {
+    expect(signalSource(fromMessage)).toBe('message');
+    expect(signalSourceWord(fromMessage, i18n.t)).toBe('Из чата');
+    expect(signalLabel(fromMessage, i18n.t)).toBe('Отправлено: 2026-10');
     await i18n.changeLanguage('en');
-    expect(signalLabel(fromMessage, i18n.t)).toBe('From a guest message · Sent in 2026-10');
+    expect(signalSourceWord(fromMessage, i18n.t)).toBe('From a chat');
+    expect(signalLabel(fromMessage, i18n.t)).toBe('Sent in 2026-10');
     await i18n.changeLanguage('cs');
-    expect(signalLabel(fromMessage, i18n.t)).toBe('Ze zprávy hosta · Odesláno v 2026-10');
+    expect(signalSourceWord(fromMessage, i18n.t)).toBe('Z chatu');
+    expect(signalLabel(fromMessage, i18n.t)).toBe('Odesláno v 2026-10');
     await i18n.changeLanguage('ru');
     const noMonth = { ...fromMessage, source_facts: { ...facts, period_month: null } };
-    expect(signalLabel(noMonth, i18n.t)).toBe('Из сообщения гостя');
+    expect(signalLabel(noMonth, i18n.t)).toBeNull();
   });
 
   test('made on its own carries «Создано автоматически» alone', () => {
@@ -208,5 +220,7 @@ describe('a task from a guest signal', () => {
 
     expect(signalLabel(reported, i18n.t)).toBeNull();
     expect(signalBadges(reported, i18n.t)).toEqual([]);
+    expect(signalSource(reported)).toBeNull();
+    expect(signalSourceWord(reported, i18n.t)).toBeNull();
   });
 });

@@ -1,4 +1,4 @@
-import type { Tone } from '@str-ops/shared';
+import { SIGNAL_SOURCE_LOOK, isGuestSource, type GuestSource, type Tone } from '@str-ops/shared';
 import type { TFunction } from 'i18next';
 import { z } from 'zod';
 
@@ -81,17 +81,29 @@ export const signalSourceFields = {
 /** The plaques are flags beside the status, like the archive: no colour of their own. */
 export const SIGNAL_BADGE_TONE: Tone = 'neutral';
 
-/** Where a task came from and the month it speaks of, per kind of signal. */
-const SIGNAL_WORDS = {
-  review: { from: 'problems.source.review', when: 'problems.source.reviewLeft' },
-  message: { from: 'problems.source.message', when: 'problems.source.messageSent' },
-} as const;
+/** The month a task from a guest speaks of, per kind of signal. */
+const MONTH_WORDS: Readonly<Record<GuestSource, string>> = {
+  review: 'problems.source.reviewLeft',
+  message: 'problems.source.messageSent',
+};
 
 /** True for a task found in what a guest sent. */
-function isFromSignal(
-  problem: SignalSourced,
-): problem is SignalSourced & { source: keyof typeof SIGNAL_WORDS } {
-  return problem.source === 'review' || problem.source === 'message';
+function isFromSignal(problem: SignalSourced): problem is SignalSourced & { source: GuestSource } {
+  return isGuestSource(problem.source);
+}
+
+/** «review» or «message» for a task a guest's words made, null for one somebody reported. */
+export function signalSource(problem: SignalSourced): GuestSource | null {
+  return isFromSignal(problem) ? problem.source : null;
+}
+
+/**
+ * The word of the source chip (`SourceBadge`): «Из отзыва», «Из чата», or null
+ * for a task somebody reported. The cards say it to the reader with the rest.
+ */
+export function signalSourceWord(problem: SignalSourced, t: TFunction): string | null {
+  const source = signalSource(problem);
+  return source === null ? null : t(SIGNAL_SOURCE_LOOK[source].label);
 }
 
 /** The title in the reader's language when the task has it, else as written. */
@@ -100,16 +112,17 @@ export function shownTitle(problem: SignalSourced, language: string): string {
 }
 
 /**
- * «Из отзыва гостя · Гость выехал: 2026-10», «Из сообщения гостя · Отправлено:
- * 2026-10», or null for a task somebody reported.
+ * «Гость выехал: 2026-10», «Отправлено: 2026-10», or null — for a task somebody
+ * reported, and for one whose month is not known. Where it came from is the
+ * source chip's to say (`SourceBadge`, owner 2026-11-11), so the line keeps the
+ * month alone.
  */
 export function signalLabel(problem: SignalSourced, t: TFunction): string | null {
   if (!isFromSignal(problem)) {
     return null;
   }
-  const words = SIGNAL_WORDS[problem.source];
   const month = problem.source_facts?.period_month;
-  return month ? `${t(words.from)} · ${t(words.when, { month })}` : t(words.from);
+  return month ? t(MONTH_WORDS[problem.source], { month }) : null;
 }
 
 /**

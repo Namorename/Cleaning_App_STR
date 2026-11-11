@@ -14,16 +14,27 @@ export interface BadgeProps {
   tone: Tone;
   /** Before the word: where the status icon goes once the icons arrive (build 1.2.0). */
   left?: ReactNode;
+  /**
+   * Filled with the tone's mark, its word in `onMark`, as the unread badge is:
+   * a flag that must not be read as a status, such as where a task from a
+   * guest came from (`SIGNAL_SOURCE_LOOK`).
+   */
+  isFilled?: boolean;
   testID?: string;
+}
+
+/** The chips filled with their mark: the unread badge, and any chip asked to be. */
+function isMarkFilled(tone: Tone, isFilled: boolean): boolean {
+  return isFilled || tone === 'unread';
 }
 
 /**
  * How each tone's chip is framed (tokens.ts, `ToneColors.border`): the
  * `unassigned` chip dashed and the `overdue` chip solid, so the two read apart
- * by their shape too; the unread badge is filled with its mark.
+ * by their shape too; a filled chip is its mark.
  */
-function chipBox(tone: Tone, colors: ToneColors): ViewStyle {
-  if (tone === 'unread') {
+function chipBox(tone: Tone, colors: ToneColors, isFilled: boolean): ViewStyle {
+  if (isMarkFilled(tone, isFilled)) {
     return { backgroundColor: colors.mark };
   }
   if (tone === 'unassigned' || tone === 'overdue') {
@@ -38,11 +49,11 @@ function chipBox(tone: Tone, colors: ToneColors): ViewStyle {
 }
 
 /** A status, or a flag such as `chat.unread`, as a pill in its tone. */
-export function Badge({ label, tone, left, testID }: BadgeProps) {
+export function Badge({ label, tone, left, isFilled = false, testID }: BadgeProps) {
   const theme = useTheme();
   const colors = theme.tone[tone];
-  const box = useMemo(() => chipBox(tone, colors), [tone, colors]);
-  const ink = tone === 'unread' ? (colors.onMark ?? colors.fg) : colors.fg;
+  const box = useMemo(() => chipBox(tone, colors, isFilled), [tone, colors, isFilled]);
+  const ink = isMarkFilled(tone, isFilled) ? (colors.onMark ?? colors.fg) : colors.fg;
 
   return (
     <View testID={testID} style={[styles.chip, box]}>

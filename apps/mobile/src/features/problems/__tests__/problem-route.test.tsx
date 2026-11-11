@@ -39,6 +39,16 @@ jest.mock('@/features/knowledge/place-instructions', () => {
     ),
   };
 });
+// The guest's block reads on its own, and has its own tests (guest-origin-block.test.tsx);
+// here it only says what it was given.
+jest.mock('@/features/problems/guest-origin-block', () => {
+  const { Text } = jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    GuestOriginBlock: ({ problemId, source }: { problemId: string; source: string | null }) => (
+      <Text>{`origin of ${problemId} from ${String(source)}`}</Text>
+    ),
+  };
+});
 jest.mock('expo-router', () => ({
   router: { push: jest.fn() },
   useLocalSearchParams: () => ({ id: 'd1e2f3a4-1111-4111-8111-d1e2f3a40001' }),
@@ -222,6 +232,16 @@ describe('who may do what', () => {
     mockProblemQuery.data = problem({ property_id: null, property: null });
     await view.rerender(<ProblemRoute />);
     expect(screen.getByText('instructions of null')).toBeTruthy();
+  });
+
+  test('the guest’s block is handed the task and where it came from, none for a staff report', async () => {
+    mockProblemQuery.data = problem({ reported_by: null, source: 'message', source_facts: null });
+    const view = await render(<ProblemRoute />);
+    expect(screen.getByText(`origin of ${PROBLEM_ID} from message`)).toBeTruthy();
+
+    mockProblemQuery.data = problem({ source: 'staff' });
+    await view.rerender(<ProblemRoute />);
+    expect(screen.getByText(`origin of ${PROBLEM_ID} from null`)).toBeTruthy();
   });
 });
 

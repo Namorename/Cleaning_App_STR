@@ -24,7 +24,10 @@ import {
   shownTitle,
   signalBadges,
   signalLabel,
+  signalSource,
+  signalSourceWord,
 } from '@/features/problems/signal-source';
+import { SourceBadge } from '@/features/problems/source-badge';
 import { useTheme } from '@/hooks/use-theme';
 
 import { personName, repairWhen } from './format';
@@ -61,12 +64,14 @@ interface BoardCardProps {
  * (decision 3): «Срочно» and «Просрочено» — a live repair OVERDUE_AFTER_DAYS
  * days or more past its day — only while the task is live, never on a closed
  * or archived one. Before that a repair past its day says, neutral, how many
- * days it hangs («Висит N дней», owner 2026-11-05).
- * One card, one button, as her own list has it.
+ * days it hangs («Висит N дней», owner 2026-11-05). A task a guest's review or
+ * chat made leads its pills with the source chip (`SourceBadge`, owner
+ * 2026-11-11). One card, one button, as her own list has it.
  */
 function BoardCardComponent({ problem, names, onPress, hasUnread = false }: BoardCardProps) {
   const { t, i18n } = useTranslation();
   const title = shownTitle(problem, i18n.language);
+  const source = signalSource(problem);
   const signal = signalLabel(problem, t);
   const plaques = signalBadges(problem, t);
   const repair = liveRepair(problem);
@@ -85,6 +90,7 @@ function BoardCardComponent({ problem, names, onPress, hasUnread = false }: Boar
   const archived = problem.archived_at === null ? null : t('problems.board.archived');
   const label = [
     title,
+    signalSourceWord(problem, t),
     signal,
     ...plaques,
     place,
@@ -106,7 +112,8 @@ function BoardCardComponent({ problem, names, onPress, hasUnread = false }: Boar
         {title}
       </Text>
       {signal === null ? null : <Text tone="secondary">{signal}</Text>}
-      <View style={styles.marks}>
+      <View testID="board-marks" style={styles.marks}>
+        {source === null ? null : <SourceBadge testID="board-source" source={source} />}
         {hasUnread ? <Badge label={t('chat.unread')} tone={STATUS_TONE['chat.unread']} /> : null}
         <Badge label={status} tone={problemStatusTone(problem.status)} />
         {overdue === null ? null : (

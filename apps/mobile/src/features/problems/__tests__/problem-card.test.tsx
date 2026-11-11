@@ -1,4 +1,4 @@
-import { problemStatusTone } from '@str-ops/shared';
+import { SIGNAL_SOURCE_LOOK, problemStatusTone } from '@str-ops/shared';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
@@ -102,28 +102,33 @@ describe('a task from a guest signal (the owner’s decision 7)', () => {
     mode: 'manager',
   } as const;
 
-  test('a review a manager confirmed: where it came from, only its plaque, all heard', async () => {
+  test('a review a manager confirmed: the «Из отзыва» chip first, the month, its plaque, all heard', async () => {
     await render(
       <ProblemCard
         problem={problem({ reported_by: null, source: 'review', source_facts: facts })}
         onPress={jest.fn()}
+        hasUnread
       />,
     );
 
-    expect(screen.getByText('Из отзыва гостя · Гость выехал: 2026-10')).toBeTruthy();
     const marks = screen.getByTestId('problem-marks');
+    expect(within(marks).getByText('Из отзыва')).toBeTruthy();
+    // First in the row, before the new-message mark and the status.
+    expect(marks.children[0]).toBe(screen.getByTestId('problem-source'));
+    expect(screen.getByText('Гость выехал: 2026-10')).toBeTruthy();
     expect(within(marks).getByText('Подтвердил менеджер')).toBeTruthy();
     expect(screen.queryByText('Создано автоматически')).toBeNull();
+    expect(screen.queryByText('Из чата')).toBeNull();
     expect(
       screen.getByRole('button', {
         name:
-          'Кран течёт. CZ - Nadrazni Apt 6. Открыто. Из отзыва гостя · Гость выехал: 2026-10. ' +
-          'Подтвердил менеджер',
+          'Кран течёт. CZ - Nadrazni Apt 6. Открыто. Из отзыва. Гость выехал: 2026-10. ' +
+          'Подтвердил менеджер. Новое сообщение',
       }),
     ).toBeTruthy();
   });
 
-  test('a message made on its own carries only «Создано автоматически»', async () => {
+  test('a chat message made on its own: the «Из чата» chip and «Создано автоматически»', async () => {
     await render(
       <ProblemCard
         problem={problem({
@@ -135,16 +140,68 @@ describe('a task from a guest signal (the owner’s decision 7)', () => {
       />,
     );
 
-    expect(screen.getByText('Из сообщения гостя · Отправлено: 2026-10')).toBeTruthy();
+    const marks = screen.getByTestId('problem-marks');
+    expect(within(marks).getByText('Из чата')).toBeTruthy();
+    expect(marks.children[0]).toBe(screen.getByTestId('problem-source'));
+    expect(screen.getByText('Отправлено: 2026-10')).toBeTruthy();
     expect(screen.getByText('Создано автоматически')).toBeTruthy();
     expect(screen.queryByText('Подтвердил менеджер')).toBeNull();
+    expect(screen.queryByText('Из отзыва')).toBeNull();
+    expect(
+      screen.getByRole('button', {
+        name:
+          'Кран течёт. CZ - Nadrazni Apt 6. Открыто. Из чата. Отправлено: 2026-10. ' +
+          'Создано автоматически',
+      }),
+    ).toBeTruthy();
   });
 
-  test('a report somebody filed carries neither', async () => {
+  test('without a month the chip still says where it came from, and no month line', async () => {
+    await render(
+      <ProblemCard
+        problem={problem({
+          reported_by: null,
+          source: 'review',
+          source_facts: { ...facts, period_month: null },
+        })}
+        onPress={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Из отзыва')).toBeTruthy();
+    expect(screen.queryByText(/Гость выехал/)).toBeNull();
+    expect(
+      screen.getByRole('button', {
+        name: 'Кран течёт. CZ - Nadrazni Apt 6. Открыто. Из отзыва. Подтвердил менеджер',
+      }),
+    ).toBeTruthy();
+  });
+
+  test('a report somebody filed carries no chip and no plaque', async () => {
     await render(<ProblemCard problem={problem({ source: 'staff' })} onPress={jest.fn()} />);
 
+    expect(screen.queryByTestId('problem-source')).toBeNull();
     expect(screen.queryByText('Создано автоматически')).toBeNull();
-    expect(screen.queryByText(/Из отзыва гостя|Из сообщения гостя/)).toBeNull();
+    expect(screen.queryByText(/Из отзыва|Из чата/)).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Кран течёт. CZ - Nadrazni Apt 6. Открыто' }),
+    ).toBeTruthy();
+  });
+
+  test('the chip is filled with its tone’s mark, unlike the status pill beside it', async () => {
+    await render(
+      <ProblemCard
+        problem={problem({ reported_by: null, source: 'review', source_facts: facts })}
+        onPress={jest.fn()}
+      />,
+    );
+
+    expect(styleOf(screen.getByTestId('problem-source')).backgroundColor).toBe(
+      light.tone[SIGNAL_SOURCE_LOOK.review.tone].mark,
+    );
+    expect(styleOf(screen.getByText('Из отзыва')).color).toBe(
+      light.tone[SIGNAL_SOURCE_LOOK.review.tone].onMark,
+    );
   });
 });
 

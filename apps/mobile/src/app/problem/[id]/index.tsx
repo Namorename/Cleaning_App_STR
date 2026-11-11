@@ -26,8 +26,10 @@ import {
   useRemoveMedia,
   useUploadingMediaIds,
 } from '@/features/media/use-media';
+import { GuestOriginBlock } from '@/features/problems/guest-origin-block';
 import { ProblemDetail, ProblemDetailSkeleton } from '@/features/problems/problem-detail';
 import { canEditProblem, ownFixTaskId } from '@/features/problems/schema';
+import { signalSource } from '@/features/problems/signal-source';
 import { useProblem } from '@/features/problems/use-problems';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 
@@ -175,6 +177,7 @@ export default function ProblemRoute() {
       refreshError={problem.error}
       dispatch={isDispatcher ? <ProblemDispatch problemId={problemId} /> : undefined}
       instructions={<PlaceInstructions propertyId={problem.data.property_id} />}
+      origin={<GuestOriginBlock problemId={problemId} source={signalSource(problem.data)} />}
     />
   );
 }

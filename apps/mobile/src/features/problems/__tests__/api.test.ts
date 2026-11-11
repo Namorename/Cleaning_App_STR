@@ -1,4 +1,4 @@
-import { reportProblem, updateProblem } from '../api';
+import { fetchGuestOrigin, reportProblem, updateProblem } from '../api';
 
 const mockRpc = jest.fn();
 
@@ -57,4 +57,57 @@ test('passes the server refusal through untouched, key and all', async () => {
   await expect(
     updateProblem({ problemId: row.id, title: ' ', description: '', priority: 'low' }),
   ).rejects.toBe(refusal);
+});
+
+describe('where a task from a guest came from', () => {
+  const stay = { precision: 'day', arrival: '2026-10-03', departure: '2026-10-07' };
+
+  test('asks the server for this task and reads the answer field by field', async () => {
+    mockRpc.mockResolvedValue({
+      data: { source: 'message', stay, guest: { state: 'shown', name: 'Jana' }, rating: 'x' },
+      error: null,
+    });
+
+    const origin = await fetchGuestOrigin(row.id);
+
+    expect(mockRpc).toHaveBeenCalledWith('problem_guest_origin', { p_problem_id: row.id });
+    expect(origin).toEqual({
+      source: 'message',
+      stay,
+      guest: { state: 'shown', name: 'Jana' },
+      rating: null,
+    });
+  });
+
+  test('keeps none of the office’s numbers, whoever asked', async () => {
+    mockRpc.mockResolvedValue({
+      data: {
+        source: 'review',
+        stay,
+        booking_id: '41750213',
+        conversation_id: '9917253',
+        signal_id: 'c8000001-0000-4000-8000-000000000009',
+        has_text: true,
+      },
+      error: null,
+    });
+
+    const origin = await fetchGuestOrigin(row.id);
+
+    expect(origin).toEqual({ source: 'review', stay });
+    expect(JSON.stringify(origin)).not.toMatch(/41750213|9917253|has_text|signal_id/);
+  });
+
+  test('a report of the staff, or a task not hers, is no answer', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null });
+
+    await expect(fetchGuestOrigin(row.id)).resolves.toBeNull();
+  });
+
+  test('a function the cloud does not have yet fails as itself', async () => {
+    const missing = { code: 'PGRST202', message: 'Could not find the function' };
+    mockRpc.mockResolvedValue({ data: null, error: missing });
+
+    await expect(fetchGuestOrigin(row.id)).rejects.toBe(missing);
+  });
 });

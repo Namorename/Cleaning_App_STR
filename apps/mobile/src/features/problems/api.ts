@@ -1,3 +1,5 @@
+import { readGuestOrigin, type GuestOrigin } from '@str-ops/shared';
+
 import { supabase } from '@/lib/supabase';
 
 import { CLOSING_COLUMNS } from './closing';
@@ -42,6 +44,36 @@ export async function fetchProblem(problemId: string): Promise<Problem | null> {
 
   const rows = problemListSchema.parse(data ?? []);
   return rows[0] ?? null;
+}
+
+/**
+ * The keys of the answer the phone shows. The PMS's numbers and the signal are
+ * the office's, for the panel: whoever is signed in, the phone draws none.
+ */
+function phoneOrigin(origin: GuestOrigin): GuestOrigin {
+  const { source, stay, channel, guest, rating, sent } = origin;
+  return { source, stay, channel, guest, rating, sent };
+}
+
+/**
+ * Where a task from a guest came from, as this person may know it
+ * (problem_guest_origin, 20261111120000): the stay for everybody who may read
+ * the task, the guest's name, the channel and the day it was sent for the head
+ * technician — the server decides by role. Null for a report of the staff and
+ * for a task that is not hers to read. Read field by field: an odd value costs
+ * its line, not the screen.
+ */
+export async function fetchGuestOrigin(problemId: string): Promise<GuestOrigin | null> {
+  const { data, error } = await supabase.rpc('problem_guest_origin', {
+    p_problem_id: problemId,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const origin = readGuestOrigin(data);
+  return origin === null ? null : phoneOrigin(origin);
 }
 
 export interface ReportProblemVariables {

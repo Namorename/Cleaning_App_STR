@@ -30,6 +30,13 @@ test('the unread badge is filled, its word on the mark', async () => {
   expect(inkOf('Новое сообщение').color).toBe(tones.unread.onMark);
 });
 
+test('a chip asked to be filled is its tone’s mark, its word in onMark', async () => {
+  await render(<Badge testID="chip" label="Из отзыва" tone="today" isFilled />);
+
+  expect(boxOf('chip').backgroundColor).toBe(tones.today.mark);
+  expect(inkOf('Из отзыва').color).toBe(tones.today.onMark);
+});
+
 test('«Без исполнителя» has a dashed frame, «Просрочено» a solid one: shape, not only colour', async () => {
   await render(
     <>

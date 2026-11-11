@@ -10,7 +10,15 @@ import { Spacing } from '@/constants/theme';
 
 import { formatReportedAt, problemPlace, problemPriorityText, problemStatusText } from './format';
 import type { Problem } from './schema';
-import { SIGNAL_BADGE_TONE, shownTitle, signalBadges, signalLabel } from './signal-source';
+import {
+  SIGNAL_BADGE_TONE,
+  shownTitle,
+  signalBadges,
+  signalLabel,
+  signalSource,
+  signalSourceWord,
+} from './signal-source';
+import { SourceBadge } from './source-badge';
 
 interface ProblemCardProps {
   problem: Problem;
@@ -24,7 +32,8 @@ interface ProblemCardProps {
  * tone (STATUS_TONE), where one green chip used to say every status; a report
  * the office must see first carries «Срочно» in the urgent tone instead of a
  * red line (docs/redesign-plan.md 2.4) — the word the task screen and the
- * supply request use for the same flag.
+ * supply request use for the same flag. A task a guest's review or chat made
+ * leads its pills with the source chip (`SourceBadge`, owner 2026-11-11).
  */
 function ProblemCardComponent({ problem, onPress, hasUnread = false }: ProblemCardProps) {
   const { t, i18n } = useTranslation();
@@ -33,12 +42,14 @@ function ProblemCardComponent({ problem, onPress, hasUnread = false }: ProblemCa
   const urgent = t('supplies.priorities.urgent');
   const place = problemPlace(problem);
   const title = shownTitle(problem, i18n.language);
+  const source = signalSource(problem);
   const signal = signalLabel(problem, t);
   const plaques = signalBadges(problem, t);
   const when = formatReportedAt(problem.created_at);
   // The marks are facts of the card, so the reader hears them with the rest.
   const label = [
     t('problems.cardAccessibility', { title, place, status }),
+    signalSourceWord(problem, t),
     signal,
     ...plaques,
     isUrgent ? urgent : null,
@@ -54,6 +65,7 @@ function ProblemCardComponent({ problem, onPress, hasUnread = false }: ProblemCa
       </Text>
       {signal === null ? null : <Text tone="secondary">{signal}</Text>}
       <View testID="problem-marks" style={styles.marks}>
+        {source === null ? null : <SourceBadge testID="problem-source" source={source} />}
         {hasUnread ? <Badge label={t('chat.unread')} tone={STATUS_TONE['chat.unread']} /> : null}
         <Badge testID="problem-status" label={status} tone={problemStatusTone(problem.status)} />
         {isUrgent ? (
@@ -79,8 +91,8 @@ export const ProblemCard = memo(ProblemCardComponent);
 
 /** Sizes only: the colours are the components'. */
 const styles = StyleSheet.create({
-  // The pills under the title, the new-message mark first as before, wrapping
-  // when they do not fit: beside it, at 320 dp and a large font, they left the
-  // title a sliver of the card.
+  // The pills under the title — where a guest's task came from first, then the
+  // new-message mark as before — wrapping when they do not fit: beside it, at
+  // 320 dp and a large font, they left the title a sliver of the card.
   marks: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
 });

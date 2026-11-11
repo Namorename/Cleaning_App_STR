@@ -1,7 +1,7 @@
-import { problemStatusTone } from '@str-ops/shared';
+import { SIGNAL_SOURCE_LOOK, problemStatusTone } from '@str-ops/shared';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import type { ComponentProps } from 'react';
-import { StyleSheet, View, type TextStyle, type ViewStyle } from 'react-native';
+import { StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native';
 
 import { BUTTON_HEIGHT, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -242,7 +242,7 @@ describe('a task from a guest signal', () => {
     mode: 'manager',
   } as const;
 
-  test('a review a manager confirmed: where it came from and only its plaque', async () => {
+  test('a review a manager confirmed: the «Из отзыва» chip first, its plaque, the month', async () => {
     await render(
       <ProblemDetail
         {...props({
@@ -251,14 +251,19 @@ describe('a task from a guest signal', () => {
       />,
     );
 
-    expect(screen.getByText('Из отзыва гостя · Гость выехал: 2026-10')).toBeTruthy();
     const marks = screen.getByTestId('problem-signal-marks');
+    expect(within(marks).getByText('Из отзыва')).toBeTruthy();
+    expect(marks.children[0]).toBe(screen.getByTestId('problem-source'));
     expect(within(marks).getByText('Подтвердил менеджер')).toBeTruthy();
+    expect(screen.getByText('Гость выехал: 2026-10')).toBeTruthy();
     expect(screen.queryByText('Создано автоматически')).toBeNull();
     expect(styleOf(marks)).toMatchObject({ flexDirection: 'row', flexWrap: 'wrap' });
+    expect(styleOf(screen.getByTestId('problem-source')).backgroundColor).toBe(
+      light.tone[SIGNAL_SOURCE_LOOK.review.tone].mark,
+    );
   });
 
-  test('a message made on its own carries only «Создано автоматически»', async () => {
+  test('a chat message made on its own: the «Из чата» chip and «Создано автоматически»', async () => {
     await render(
       <ProblemDetail
         {...props({
@@ -271,16 +276,41 @@ describe('a task from a guest signal', () => {
       />,
     );
 
-    expect(screen.getByText('Из сообщения гостя · Отправлено: 2026-10')).toBeTruthy();
+    const marks = screen.getByTestId('problem-signal-marks');
+    expect(within(marks).getByText('Из чата')).toBeTruthy();
+    expect(screen.getByText('Отправлено: 2026-10')).toBeTruthy();
     expect(screen.getByText('Создано автоматически')).toBeTruthy();
     expect(screen.queryByText('Подтвердил менеджер')).toBeNull();
   });
 
-  test('a report somebody filed carries neither', async () => {
+  test('a report somebody filed carries no chip and no plaque', async () => {
     await render(<ProblemDetail {...props()} />);
 
     expect(screen.queryByTestId('problem-signal-marks')).toBeNull();
-    expect(screen.queryByText(/Из отзыва гостя|Из сообщения гостя/)).toBeNull();
+    expect(screen.queryByTestId('problem-source')).toBeNull();
+    expect(screen.queryByText(/Из отзыва|Из чата/)).toBeNull();
+  });
+
+  test('carries the guest’s block the route hands it, above the facts', async () => {
+    await render(
+      <ProblemDetail
+        {...props({
+          problem: problem({ reported_by: null, source: 'review', source_facts: facts }),
+          origin: <Text testID="guest-origin">Гость и проживание</Text>,
+        })}
+      />,
+    );
+
+    // Under the title and the chips, before the card of the status.
+    const block = screen.getByTestId('guest-origin');
+    const rows = (block.parent?.children ?? []).filter((child) => typeof child !== 'string');
+    const statusCard = rows.findIndex(
+      (row) => within(row).queryByTestId('problem-status') !== null,
+    );
+    expect(rows.indexOf(block)).toBeGreaterThan(
+      rows.indexOf(screen.getByTestId('problem-signal-marks')),
+    );
+    expect(rows.indexOf(block)).toBeLessThan(statusCard);
   });
 });
 

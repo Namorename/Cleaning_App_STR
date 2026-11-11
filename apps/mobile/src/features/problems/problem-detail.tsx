@@ -24,7 +24,14 @@ import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { closingRowOf } from './closing';
 import { formatReportedAt, problemPlace, problemPriorityText, problemStatusText } from './format';
 import { MAX_PROBLEM_PHOTOS, type Problem } from './schema';
-import { SIGNAL_BADGE_TONE, shownTitle, signalBadges, signalLabel } from './signal-source';
+import {
+  SIGNAL_BADGE_TONE,
+  shownTitle,
+  signalBadges,
+  signalLabel,
+  signalSource,
+} from './signal-source';
+import { SourceBadge } from './source-badge';
 
 interface ProblemDetailProps {
   problem: Problem;
@@ -60,6 +67,12 @@ interface ProblemDetailProps {
    * they draw nothing until there is something to read.
    */
   instructions?: ReactNode;
+  /**
+   * «Гость и проживание» of a task a guest's review or chat made, under the
+   * title (`GuestOriginBlock`): the route builds it, and it draws nothing for
+   * a report of the staff.
+   */
+  origin?: ReactNode;
 }
 
 /**
@@ -89,9 +102,11 @@ export function ProblemDetail({
   refreshError = null,
   dispatch,
   instructions,
+  origin,
 }: ProblemDetailProps) {
   const { t, i18n } = useTranslation();
   const styles = useThemedStyles(createStyles);
+  const source = signalSource(problem);
   const signal = signalLabel(problem, t);
   const plaques = signalBadges(problem, t);
   // Its buttons are last: scrolled to the end they stop clear of the system's
@@ -107,14 +122,16 @@ export function ProblemDetail({
       ) : null}
 
       <Text variant="heading">{shownTitle(problem, i18n.language)}</Text>
-      {signal === null ? null : <Text tone="secondary">{signal}</Text>}
-      {plaques.length === 0 ? null : (
+      {/* Where a guest's task came from first, as on the cards; then who made it. */}
+      {source === null && plaques.length === 0 ? null : (
         <View testID="problem-signal-marks" style={layout.marks}>
+          {source === null ? null : <SourceBadge testID="problem-source" source={source} />}
           {plaques.map((plaque) => (
             <Badge key={plaque} label={plaque} tone={SIGNAL_BADGE_TONE} />
           ))}
         </View>
       )}
+      {signal === null ? null : <Text tone="secondary">{signal}</Text>}
       <Text tone="secondary">
         {problemPlace(problem)} · {formatReportedAt(problem.created_at)}
       </Text>
@@ -127,6 +144,8 @@ export function ProblemDetail({
           tone={problemPriorityTone('high')}
         />
       ) : null}
+
+      {origin}
 
       <Card>
         <Fact label={t('problems.statusLabel')}>
@@ -282,7 +301,7 @@ const layout = StyleSheet.create({
   shrink: { flexShrink: 1 },
   value: { flexShrink: 1 },
   block: { gap: Spacing.xs },
-  // The plaques of a task from a guest signal, wrapping as the cards' pills do.
+  // The source chip and the plaque of a task from a guest signal, wrapping as the cards' pills do.
   marks: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
 });
 

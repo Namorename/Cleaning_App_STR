@@ -33,6 +33,7 @@ import RotateCw from 'lucide-react-native/icons/rotate-cw';
 import Search from 'lucide-react-native/icons/search';
 import Send from 'lucide-react-native/icons/send';
 import Settings from 'lucide-react-native/icons/settings';
+import Star from 'lucide-react-native/icons/star';
 import StickyNote from 'lucide-react-native/icons/sticky-note';
 import Trash from 'lucide-react-native/icons/trash';
 import TriangleAlert from 'lucide-react-native/icons/triangle-alert';
@@ -97,6 +98,7 @@ export const LUCIDE_GLYPHS = {
   'circle-alert': CircleAlert,
   'triangle-alert': TriangleAlert,
   archive: Archive,
+  star: Star,
   'sticky-note': StickyNote,
 } as const satisfies Readonly<Record<LucideIconName, LucideIcon>>;
 

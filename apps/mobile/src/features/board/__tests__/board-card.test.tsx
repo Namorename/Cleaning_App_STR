@@ -1,8 +1,10 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
-import { StyleSheet, type ViewStyle } from 'react-native';
+import { SIGNAL_SOURCE_LOOK } from '@str-ops/shared';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 import { calendarDay } from '@/features/tasks/schema';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { i18n } from '@/i18n';
 import {
   CLEANER_ANNA,
@@ -22,6 +24,13 @@ import { staffNames } from '../format';
  * which day. Nobody on it is said in the «Без исполнителя» tone — the dashed
  * frame of decision 3 — and only while somebody still has to see to it.
  */
+
+jest.mock('@/hooks/use-color-scheme', () => ({ useColorScheme: jest.fn(() => 'light') }));
+const scheme = jest.mocked(useColorScheme);
+
+beforeEach(() => {
+  scheme.mockReturnValue('light');
+});
 
 const NAMES = staffNames(STAFF, i18n.t);
 
@@ -135,24 +144,29 @@ describe('a task from a guest signal', () => {
     mode: 'manager',
   } as const;
 
-  test('a review a manager confirmed: where it came from and only its plaque, all heard', async () => {
+  test('a review a manager confirmed: the «Из отзыва» chip first, the month, its plaque, all heard', async () => {
     const problem = boardProblem({ source: 'review', source_facts: facts });
 
-    await render(<BoardCard problem={problem} names={NAMES} onPress={jest.fn()} />);
+    await render(<BoardCard problem={problem} names={NAMES} onPress={jest.fn()} hasUnread />);
 
-    expect(screen.getByText('Из отзыва гостя · Гость выехал: 2026-10')).toBeTruthy();
+    const marks = screen.getByTestId('board-marks');
+    expect(within(marks).getByText('Из отзыва')).toBeTruthy();
+    // First in the row, before the new-message mark and the status.
+    expect(marks.children[0]).toBe(screen.getByTestId('board-source'));
+    expect(screen.getByText('Гость выехал: 2026-10')).toBeTruthy();
     expect(screen.getByText('Подтвердил менеджер')).toBeTruthy();
     expect(screen.queryByText('Создано автоматически')).toBeNull();
+    expect(screen.queryByText('Из чата')).toBeNull();
     expect(
       screen.getByRole('button', {
         name:
-          'Кран течёт. Из отзыва гостя · Гость выехал: 2026-10. ' +
-          'Подтвердил менеджер. CZ - Nadrazni Apt 6. Открыто. Без исполнителя',
+          'Кран течёт. Из отзыва. Гость выехал: 2026-10. ' +
+          'Подтвердил менеджер. CZ - Nadrazni Apt 6. Открыто. Без исполнителя. Новое сообщение',
       }),
     ).toBeTruthy();
   });
 
-  test('a message made on its own carries only «Создано автоматически»', async () => {
+  test('a chat message made on its own: the «Из чата» chip and «Создано автоматически»', async () => {
     const problem = boardProblem({
       source: 'message',
       source_facts: { ...facts, mode: 'auto' },
@@ -160,9 +174,46 @@ describe('a task from a guest signal', () => {
 
     await render(<BoardCard problem={problem} names={NAMES} onPress={jest.fn()} />);
 
-    expect(screen.getByText('Из сообщения гостя · Отправлено: 2026-10')).toBeTruthy();
+    const marks = screen.getByTestId('board-marks');
+    expect(within(marks).getByText('Из чата')).toBeTruthy();
+    expect(marks.children[0]).toBe(screen.getByTestId('board-source'));
+    expect(screen.getByText('Отправлено: 2026-10')).toBeTruthy();
     expect(screen.getByText('Создано автоматически')).toBeTruthy();
     expect(screen.queryByText('Подтвердил менеджер')).toBeNull();
+    expect(screen.queryByText('Из отзыва')).toBeNull();
+    expect(
+      screen.getByRole('button', {
+        name:
+          'Кран течёт. Из чата. Отправлено: 2026-10. Создано автоматически. ' +
+          'CZ - Nadrazni Apt 6. Открыто. Без исполнителя',
+      }),
+    ).toBeTruthy();
+  });
+
+  test('a task somebody on the staff reported carries no chip', async () => {
+    await render(
+      <BoardCard problem={boardProblem({ source: 'staff' })} names={NAMES} onPress={jest.fn()} />,
+    );
+
+    expect(screen.queryByTestId('board-source')).toBeNull();
+    expect(screen.queryByText(/Из отзыва|Из чата/)).toBeNull();
+    expect(
+      screen.getByRole('button', {
+        name: 'Кран течёт. CZ - Nadrazni Apt 6. Открыто. Без исполнителя',
+      }),
+    ).toBeTruthy();
+  });
+
+  test('dark theme: the chat chip is filled with the dark terracotta mark', async () => {
+    scheme.mockReturnValue('dark');
+    const problem = boardProblem({ source: 'message', source_facts: facts });
+
+    await render(<BoardCard problem={problem} names={NAMES} onPress={jest.fn()} />);
+
+    const tone = Colors.dark.tone[SIGNAL_SOURCE_LOOK.message.tone];
+    expect(chipFrame('board-source').backgroundColor).toBe(tone.mark);
+    const word = StyleSheet.flatten(screen.getByText('Из чата').props.style) as TextStyle;
+    expect(word.color).toBe(tone.onMark);
   });
 });
 

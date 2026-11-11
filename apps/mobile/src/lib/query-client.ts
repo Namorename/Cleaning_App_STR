@@ -285,6 +285,8 @@ export function shouldSaveMove(mutation: Mutation): boolean {
  * knowledge base's articles, long texts in three languages read with signal
  * only until its offline step (docs/knowledge-base-step2.md). The whole cache
  * is one value in AsyncStorage, and they would make it the largest thing in it.
+ * And where a task from a guest came from (features/problems/use-guest-origin.ts):
+ * the head technician's answer carries the guest's name, which the phone never keeps.
  */
 export function shouldSaveList(query: Query): boolean {
   return defaultShouldDehydrateQuery(query) && query.meta?.persist !== false;
