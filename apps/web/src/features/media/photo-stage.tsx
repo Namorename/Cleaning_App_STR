@@ -8,6 +8,7 @@ import {
   useState,
   type MouseEvent,
   type PointerEvent,
+  type ReactNode,
   type SyntheticEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -22,6 +23,8 @@ import {
   isZoomedIn,
   MAX_SCALE,
   panBy,
+  refitView,
+  wheelPixels,
   wheelScale,
   ZOOM_STEP,
   zoomTo,
@@ -34,6 +37,8 @@ interface PhotoStageProps {
   /** An object URL of the photo held in memory. */
   src: string;
   alt: string;
+  /** The bytes arrived but would not draw. */
+  onBroken: () => void;
 }
 
 /** A press that travels further than this is a drag, not a click. */
@@ -54,8 +59,41 @@ interface Pinch {
 const distanceOf = (a: Point, b: Point): number => Math.hypot(a.x - b.x, a.y - b.y);
 const middleOf = (a: Point, b: Point): Point => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 
-const ZOOM_BUTTON =
-  'inline-flex h-11 min-w-11 items-center justify-center rounded-full hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-40';
+/** A key pressed with a modifier is the browser's (Ctrl + zooms the page), not the photo's. */
+const isModified = (event: KeyboardEvent): boolean =>
+  event.ctrlKey || event.metaKey || event.altKey;
+
+interface ZoomButtonProps {
+  label: string;
+  /** Nothing to do from here: marked so, and the focus stays on it. */
+  isUnavailable: boolean;
+  onPress: () => void;
+  className?: string;
+  children: ReactNode;
+}
+
+/**
+ * One button of the zoom bar. Marked unavailable rather than disabled: a
+ * disabled button drops the focus it holds, and «По размеру окна» would throw
+ * the keyboard out of the viewer the moment it is pressed.
+ */
+function ZoomButton({ label, isUnavailable, onPress, className, children }: ZoomButtonProps) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      aria-disabled={isUnavailable || undefined}
+      onClick={isUnavailable ? undefined : onPress}
+      className={cn(
+        'inline-flex h-11 min-w-11 items-center justify-center rounded-full hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none aria-disabled:cursor-not-allowed aria-disabled:opacity-40',
+        className,
+      )}
+    >
+      {children}
+    </button>
+  );
+}
 
 /**
  * A photo that can be looked at closely: the wheel, «+» and «−», fitted and
@@ -63,16 +101,16 @@ const ZOOM_BUTTON =
  * fingers to pinch and one to drag. The keys `+`, `−` and `0` do the same.
  *
  * Fitted is not a zoom: until the manager zooms, the picture is laid out by
- * the browser (`object-contain`) and follows the window's size by itself.
- * Every zoom is measured against the stage at the moment it is asked for, so
- * a resize needs no watching.
+ * the browser (`object-contain`) and follows the window's size by itself. A
+ * zoom is measured against the stage when it is asked for, and kept on the
+ * stage when the window changes size.
  *
  * A press that began on the dark around the picture and did not travel is a
  * click outside it, and goes on to the viewer, which closes; every other
  * press keeps its click to itself — a drag that ends off the picture must not
  * close it.
  */
-export function PhotoStage({ src, alt }: PhotoStageProps) {
+export function PhotoStage({ src, alt, onBroken }: PhotoStageProps) {
   const { t } = useTranslation();
   const stageRef = useRef<HTMLDivElement>(null);
   const [image, setImage] = useState<Size | null>(null);
@@ -117,11 +155,15 @@ export function PhotoStage({ src, alt }: PhotoStageProps) {
     // Held, so a trackpad's pinch (a wheel with Ctrl) zooms the photo and not the page.
     event.preventDefault();
     const at = toLocal(event.clientX, event.clientY);
+    const travel = wheelPixels(event.deltaY, event.deltaMode, window.innerHeight);
     change((current, picture, room) =>
-      zoomTo(current, wheelScale(current.scale, event.deltaY), at, picture, room),
+      zoomTo(current, wheelScale(current.scale, travel), at, picture, room),
     );
   });
   const onKey = useEffectEvent((event: KeyboardEvent) => {
+    if (isModified(event)) {
+      return;
+    }
     if (event.key === '+' || event.key === '=') {
       zoomBy(ZOOM_STEP);
     } else if (event.key === '-') {
@@ -129,6 +171,14 @@ export function PhotoStage({ src, alt }: PhotoStageProps) {
     } else if (event.key === '0') {
       setView(null);
     }
+  });
+  const onResize = useEffectEvent(() => {
+    const room = measure();
+    if (image === null || room === null || room.width === 0 || room.height === 0) {
+      return;
+    }
+    setStage(room);
+    setView((current) => refitView(current, image, room));
   });
 
   useEffect(() => {
@@ -138,12 +188,15 @@ export function PhotoStage({ src, alt }: PhotoStageProps) {
     }
     const wheel = (event: WheelEvent) => onWheel(event);
     const key = (event: KeyboardEvent) => onKey(event);
+    const resize = () => onResize();
     element.addEventListener('wheel', wheel, { passive: false });
     // Capture, as the viewer's arrows: the dialog keeps keys from reaching the window.
     window.addEventListener('keydown', key, true);
+    window.addEventListener('resize', resize);
     return () => {
       element.removeEventListener('wheel', wheel);
       window.removeEventListener('keydown', key, true);
+      window.removeEventListener('resize', resize);
     };
   }, []);
 
@@ -261,6 +314,7 @@ export function PhotoStage({ src, alt }: PhotoStageProps) {
           alt={alt}
           draggable={false}
           onLoad={onLoad}
+          onError={onBroken}
           className={cn(
             view === null
               ? 'max-h-full max-w-full object-contain'
@@ -284,49 +338,38 @@ export function PhotoStage({ src, alt }: PhotoStageProps) {
         aria-label={t('panel.media.viewer.zoom')}
         className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full bg-popover/95 px-1 text-popover-foreground shadow ring-1 ring-foreground/10"
       >
-        <button
-          type="button"
-          className={ZOOM_BUTTON}
-          aria-label={t('panel.media.viewer.zoomOut')}
-          title={t('panel.media.viewer.zoomOut')}
-          disabled={!isReady || view === null}
-          onClick={() => zoomBy(1 / ZOOM_STEP)}
+        <ZoomButton
+          label={t('panel.media.viewer.zoomOut')}
+          isUnavailable={!isReady || view === null}
+          onPress={() => zoomBy(1 / ZOOM_STEP)}
         >
           <ZoomOut aria-hidden="true" className="size-5" />
-        </button>
+        </ZoomButton>
         <span className="min-w-14 text-center text-sm whitespace-nowrap tabular-nums">
           {t('panel.media.viewer.percent', { percent })}
         </span>
-        <button
-          type="button"
-          className={ZOOM_BUTTON}
-          aria-label={t('panel.media.viewer.zoomIn')}
-          title={t('panel.media.viewer.zoomIn')}
-          disabled={!isReady || scale >= Math.max(MAX_SCALE, fit)}
-          onClick={() => zoomBy(ZOOM_STEP)}
+        <ZoomButton
+          label={t('panel.media.viewer.zoomIn')}
+          isUnavailable={!isReady || scale >= Math.max(MAX_SCALE, fit)}
+          onPress={() => zoomBy(ZOOM_STEP)}
         >
           <ZoomIn aria-hidden="true" className="size-5" />
-        </button>
-        <button
-          type="button"
-          className={ZOOM_BUTTON}
-          aria-label={t('panel.media.viewer.fit')}
-          title={t('panel.media.viewer.fit')}
-          disabled={!isReady || view === null}
-          onClick={() => setView(null)}
+        </ZoomButton>
+        <ZoomButton
+          label={t('panel.media.viewer.fit')}
+          isUnavailable={!isReady || view === null}
+          onPress={() => setView(null)}
         >
           <Minimize2 aria-hidden="true" className="size-5" />
-        </button>
-        <button
-          type="button"
-          className={cn(ZOOM_BUTTON, 'px-3 text-sm font-medium')}
-          aria-label={t('panel.media.viewer.actualSize')}
-          title={t('panel.media.viewer.actualSize')}
-          disabled={!isReady || percent === 100}
-          onClick={zoomToActual}
+        </ZoomButton>
+        <ZoomButton
+          label={t('panel.media.viewer.actualSize')}
+          isUnavailable={!isReady || percent === 100}
+          onPress={zoomToActual}
+          className="px-3 text-sm font-medium"
         >
           {t('panel.media.viewer.percent', { percent: 100 })}
-        </button>
+        </ZoomButton>
       </div>
     </div>
   );

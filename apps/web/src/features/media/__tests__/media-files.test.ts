@@ -74,6 +74,23 @@ describe('MediaFiles', () => {
     expect(files.getSnapshot().size).toBe(0);
   });
 
+  test('a photo whose bytes would not draw fails, and lets the bytes go', async () => {
+    const revoke = vi.fn();
+    const files = new MediaFiles({
+      sign: async (path) => ({ status: 'signed', url: `https://signed/${path}` }),
+      fetchFile: vi.fn(async () => ({ ok: true, blob: async () => new Blob(['x']) }) as Response),
+      createObjectUrl: () => 'blob:cut-short',
+      revokeObjectUrl: revoke,
+    });
+    files.keep([photo('p1')]);
+    await flush();
+
+    files.photoBroken(photo('p1'), 'blob:cut-short');
+
+    expect(files.getSnapshot().get('p1')).toEqual({ status: 'failed' });
+    expect(revoke).toHaveBeenCalledWith('blob:cut-short');
+  });
+
   test('an error from a video link already replaced changes nothing', async () => {
     let signed = 0;
     const video: ViewerItem = { ...photo('v1'), kind: 'video', path: 'h/t/v1.mp4' };
@@ -107,7 +124,7 @@ describe('signFile', () => {
     };
   };
 
-  test('hands back a fresh link for an hour, or one that saves under a name', async () => {
+  test('hands back a fresh link for an hour', async () => {
     const { client, createSignedUrl } = clientAnswering({
       data: { signedUrl: 'https://signed/x' },
       error: null,
@@ -117,12 +134,7 @@ describe('signFile', () => {
       status: 'signed',
       url: 'https://signed/x',
     });
-    await signFile(client, 'h/t/x.jpg', 'photo-1.jpg');
-
-    expect(createSignedUrl).toHaveBeenNthCalledWith(1, 'h/t/x.jpg', 3600, undefined);
-    expect(createSignedUrl).toHaveBeenNthCalledWith(2, 'h/t/x.jpg', 3600, {
-      download: 'photo-1.jpg',
-    });
+    expect(createSignedUrl).toHaveBeenCalledWith('h/t/x.jpg', 3600);
   });
 
   test.each([

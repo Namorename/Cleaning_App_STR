@@ -123,7 +123,7 @@ describe('opening and closing', () => {
     expect(screen.getByRole('dialog', { name: 'Фото после уборки' })).toBeInTheDocument();
     expect(screen.getByText('1 из 4')).toBeInTheDocument();
     expect(await photoShown(1)).toHaveAttribute('src', 'blob:h/t/p1.jpg');
-    expect(mocks.createSignedUrl).toHaveBeenCalledWith('h/t/p1.jpg', 3600, undefined);
+    expect(mocks.createSignedUrl).toHaveBeenCalledWith('h/t/p1.jpg', 3600);
     expect(fetchFile).toHaveBeenCalledWith(
       expect.stringContaining('https://signed/h/t/p1.jpg'),
       expect.objectContaining({ cache: 'no-store' }),
@@ -339,50 +339,130 @@ describe('a link that does not open', () => {
     expect(
       await screen.findByText('Файл удалён по сроку хранения (90 дней).'),
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Скачать' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Скачать' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     expect(fetchFile).not.toHaveBeenCalled();
+  });
+
+  test('bytes that arrive but will not draw say so, and try again on request', async () => {
+    const user = renderGallery();
+    await user.click(thumbnail('Открыть фото 1 из 4'));
+    const photo = await photoShown(1);
+
+    fireEvent.error(photo);
+
+    expect(await screen.findByText('Не удалось загрузить файл.')).toBeInTheDocument();
+    expect(revoked).toContain('blob:h/t/p1.jpg');
+    await user.click(screen.getByRole('button', { name: 'Повторить' }));
+    expect(await photoShown(1)).toHaveAttribute('src', 'blob:h/t/p1.jpg');
   });
 });
 
 describe('downloading', () => {
-  test('saves the original file under a clear name, without leaving the page', async () => {
+  /** What the page's links were pressed with: never a signed link. */
+  const pressedLinks = () => {
     const clicks: { href: string; download: string }[] = [];
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
       this: HTMLAnchorElement,
     ) {
       clicks.push({ href: this.href, download: this.download });
     });
+    return clicks;
+  };
+
+  test('saves a photo from the bytes it holds, under a clear name, without leaving the page', async () => {
+    const clicks = pressedLinks();
     const here = window.location.href;
     const user = renderGallery();
     await user.click(thumbnail('Открыть фото 1 из 4'));
     await photoShown(1);
+    const signedBefore = mocks.createSignedUrl.mock.calls.length;
 
     await user.click(screen.getByRole('button', { name: 'Скачать' }));
 
     await waitFor(() => expect(clicks).toHaveLength(1));
-    const [, , options] = mocks.createSignedUrl.mock.calls.at(-1) as [
-      string,
-      number,
-      { download: string },
-    ];
-    expect(options.download).toMatch(/^photo-2026-10-09-\d{4}-1\.jpg$/);
-    expect(clicks[0].download).toBe(options.download);
-    expect(clicks[0].href).toContain(`download=${options.download}`);
+    expect(clicks[0].href).toBe('blob:h/t/p1.jpg');
+    expect(clicks[0].download).toMatch(/^photo-2026-10-09-\d{4}-1\.jpg$/);
+    expect(mocks.createSignedUrl).toHaveBeenCalledTimes(signedBefore);
     expect(document.querySelector('a[download]')).toBeNull();
     expect(window.location.href).toBe(here);
   });
 
-  test('says so when the file could not be had', async () => {
+  test('saves a video by fetching it into memory first, never by its link', async () => {
+    const clicks = pressedLinks();
     const user = renderGallery();
-    await user.click(thumbnail('Открыть фото 1 из 4'));
-    await photoShown(1);
-    mocks.createSignedUrl.mockRejectedValueOnce(new Error('offline'));
+    await user.click(thumbnail('Открыть видео 4 из 4'));
+    await screen.findByLabelText('Видео 4 из 4');
+
+    await user.click(screen.getByRole('button', { name: 'Скачать' }));
+
+    await waitFor(() => expect(clicks).toHaveLength(1));
+    expect(clicks[0].href).toBe('blob:h/t/v1.mp4');
+    expect(clicks[0].download).toMatch(/^video-2026-10-09-\d{4}-4\.mp4$/);
+    expect(fetchFile).toHaveBeenCalledWith(
+      expect.stringContaining('https://signed/h/t/v1.mp4'),
+      expect.objectContaining({ cache: 'no-store' }),
+    );
+  });
+
+  test('says so when storage will not hand the file over, and stays on the page', async () => {
+    const clicks = pressedLinks();
+    const user = renderGallery();
+    await user.click(thumbnail('Открыть видео 4 из 4'));
+    await screen.findByLabelText('Видео 4 из 4');
+    fetchFile.mockImplementation(async () => ({ ok: false, status: 500 }));
 
     await user.click(screen.getByRole('button', { name: 'Скачать' }));
 
     expect(
       await screen.findByText('Не удалось скачать файл. Попробуйте ещё раз.'),
     ).toBeInTheDocument();
+    expect(clicks).toEqual([]);
+  });
+});
+
+describe('the keys of the browser', () => {
+  test('a key pressed with Ctrl or Alt is left to the browser', async () => {
+    const user = renderGallery();
+    await user.click(thumbnail('Открыть фото 1 из 4'));
+    await photoShown(1);
+
+    await user.keyboard('{Alt>}{ArrowRight}{/Alt}');
+    await user.keyboard('{Control>}{ArrowRight}{/Control}');
+
+    expect(screen.getByText('1 из 4')).toBeInTheDocument();
+  });
+});
+
+describe('a list read again while the viewer is open', () => {
+  test('keeps the viewer on the same file when one is added before it', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<MediaGallery files={FILES} title="Фото после уборки" />);
+    await user.click(thumbnail('Открыть фото 2 из 4'));
+    await photoShown(2);
+
+    rerender(<MediaGallery files={[file('p0'), ...FILES]} title="Фото после уборки" />);
+
+    expect(screen.getByText('3 из 5')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Фото 3 из 5' })).toHaveAttribute(
+      'src',
+      'blob:h/t/p2.jpg',
+    );
+  });
+
+  test('closes when the file it showed is gone from the list', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<MediaGallery files={FILES} title="Фото после уборки" />);
+    await user.click(thumbnail('Открыть фото 2 из 4'));
+    await photoShown(2);
+
+    rerender(<MediaGallery files={FILES.filter((one) => one.id !== 'p2')} />);
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    rerender(<MediaGallery files={FILES} title="Фото после уборки" />);
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 });
 

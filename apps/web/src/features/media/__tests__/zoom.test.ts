@@ -8,6 +8,8 @@ import {
   isZoomedIn,
   MAX_SCALE,
   panBy,
+  refitView,
+  wheelPixels,
   wheelScale,
   zoomTo,
 } from '../zoom';
@@ -60,6 +62,13 @@ describe('zooming', () => {
     expect(wheelScale(1, 100)).toBeLessThan(1);
   });
 
+  // Firefox counts a notched mouse in lines (±3), Chrome in pixels (±100).
+  test('a notch counted in lines zooms about as far as one counted in pixels', () => {
+    expect(wheelPixels(-3, 1, 800)).toBe(-48);
+    expect(wheelPixels(-100, 0, 800)).toBe(-100);
+    expect(wheelPixels(1, 2, 800)).toBe(800);
+  });
+
   test('a double click goes to 100 % from fitted, and back to fitted from any zoom', () => {
     const fitted = fitView(PHOTO, STAGE);
     expect(doubleClickScale(fitted, PHOTO, STAGE)).toBe(1);
@@ -89,6 +98,18 @@ describe('dragging', () => {
     // 4000 × 0.25 = 1000 wide: exactly the stage; 3000 × 0.25 = 750 high: taller.
     expect(view.x).toBe(0);
     expect(view.y).toBe(-150);
+  });
+
+  test('a window resized keeps a zoom on the stage, and fits one that no longer reaches', () => {
+    const zoomed = zoomTo(fitView(PHOTO, STAGE), 1, { x: 500, y: 300 }, PHOTO, STAGE);
+    const wide = { width: 5000, height: 4000 };
+
+    expect(refitView(null, PHOTO, wide)).toBeNull();
+    expect(refitView({ ...zoomed, x: -3000 }, PHOTO, { width: 2000, height: 1200 })?.x).toBe(
+      -2000,
+    );
+    // On a stage the photo fits at 100 %, a 100 % view is simply fitted.
+    expect(refitView(zoomed, PHOTO, wide)).toBeNull();
   });
 
   test('a fitted picture is not zoomed in, a closer one is', () => {

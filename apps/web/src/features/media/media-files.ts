@@ -112,6 +112,19 @@ export class MediaFiles {
     void this.settle(next, this.signVideo(next));
   }
 
+  /**
+   * The bytes arrived but the browser could not draw them (a file cut short):
+   * failed, with the bytes let go of; «Повторить» starts it again.
+   */
+  photoBroken(item: ViewerItem, src: string): void {
+    const entry = this.entries.get(item.id);
+    if (entry === undefined || entry.state.status !== 'ready' || entry.state.src !== src) {
+      return;
+    }
+    this.release(entry);
+    this.update(entry, { state: FAILED });
+  }
+
   /** The player opened its link: a later failure may ask for a fresh one again. */
   videoPlayed(item: ViewerItem): void {
     const entry = this.entries.get(item.id);

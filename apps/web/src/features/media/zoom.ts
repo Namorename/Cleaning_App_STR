@@ -100,6 +100,24 @@ export function wheelScale(scale: number, deltaY: number): number {
   return scale * Math.exp(-deltaY * WHEEL_RATE);
 }
 
+/** `WheelEvent.deltaMode`: the travel in pixels, in lines, or in pages. */
+const DOM_DELTA_LINE = 1;
+const DOM_DELTA_PAGE = 2;
+/** A line of travel, as the browsers that count in pixels measure one. */
+const LINE_PX = 16;
+
+/**
+ * A wheel's travel in pixels. Firefox counts a notched mouse in lines (±3
+ * a notch) where Chrome counts pixels (±100): without this a notch zoomed
+ * Firefox by half a per cent.
+ */
+export function wheelPixels(deltaY: number, deltaMode: number, pageHeight: number): number {
+  if (deltaMode === DOM_DELTA_LINE) {
+    return deltaY * LINE_PX;
+  }
+  return deltaMode === DOM_DELTA_PAGE ? deltaY * pageHeight : deltaY;
+}
+
 /** Whether the picture is closer than fitted — and can be dragged. */
 export function isZoomedIn(view: ZoomView, image: Size, stage: Size): boolean {
   return view.scale > fitScale(image, stage) + EPSILON;
@@ -115,6 +133,18 @@ export function doubleClickScale(view: ZoomView, image: Size, stage: Size): numb
     return fit;
   }
   return fit < 1 ? 1 : fit * 2;
+}
+
+/**
+ * The view after the stage changed size (a window resized, a phone turned):
+ * kept on the stage, and fitted again when it no longer reaches past fitted.
+ */
+export function refitView(view: ZoomView | null, image: Size, stage: Size): ZoomView | null {
+  if (view === null) {
+    return null;
+  }
+  const kept = clampView(view, image, stage);
+  return isZoomedIn(kept, image, stage) ? kept : null;
 }
 
 /** The middle of the stage, for a zoom that has no cursor to keep still. */

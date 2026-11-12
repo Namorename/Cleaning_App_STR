@@ -86,18 +86,11 @@ function isMissingObject(error: unknown): boolean {
   );
 }
 
-/**
- * One link, asked for when the file is opened — or, with `download`, a link
- * that makes the browser save the file under that name instead of showing it.
- */
-export async function signFile(
-  client: Client,
-  path: string,
-  download?: string,
-): Promise<SignedFile> {
+/** One link, asked for when the file is opened or saved, not when a list is read. */
+export async function signFile(client: Client, path: string): Promise<SignedFile> {
   const { data, error } = await client.storage
     .from(MEDIA_BUCKET)
-    .createSignedUrl(path, SIGNED_URL_SECONDS, download === undefined ? undefined : { download });
+    .createSignedUrl(path, SIGNED_URL_SECONDS);
   if (error) {
     if (isMissingObject(error)) {
       return { status: 'missing' };

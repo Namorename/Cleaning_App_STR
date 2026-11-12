@@ -52,15 +52,19 @@ export function neighbourhood(items: readonly ViewerItem[], index: number): View
 
 type DownloadState = { itemId: string; status: 'pending' | 'failed' | 'missing' } | null;
 
+/** How long a downloaded file's bytes are kept for the browser to finish saving them. */
+const RELEASE_DOWNLOAD_MS = 60_000;
+
 /**
- * Save a file without leaving the page: the link asks storage to send it as
- * an attachment, so the browser saves it and the address bar never sees it.
+ * Save bytes held in memory under `name`. The link is the page's own object
+ * URL, so `download` is honoured and the browser saves without navigating —
+ * a signed link never reaches the address bar or the history, whatever
+ * storage answers.
  */
-function startDownload(url: string, name: string): void {
+function saveFromMemory(objectUrl: string, name: string): void {
   const link = document.createElement('a');
-  link.href = url;
+  link.href = objectUrl;
   link.download = name;
-  link.rel = 'noopener';
   document.body.append(link);
   link.click();
   link.remove();
@@ -79,8 +83,8 @@ const BAR_BUTTON = 'h-11 min-w-11';
  * keys and the buttons below go through the whole set, «3 из 8».
  *
  * Every file is signed when it is opened and held only in memory
- * (`MediaFiles`); «Скачать» signs it once more as an attachment named
- * `downloadName`.
+ * (`MediaFiles`); «Скачать» saves the original from memory under
+ * `downloadName`, so the page never navigates to a signed link.
  */
 export function MediaViewer({ items, index, onIndexChange, onClose, title }: MediaViewerProps) {
   const { t } = useTranslation();
@@ -116,8 +120,14 @@ export function MediaViewer({ items, index, onIndexChange, onClose, title }: Med
   // popup: wherever the focus stands — the page behind takes none while the
   // viewer is open — the arrows walk the set.
   const onKey = useEffectEvent((event: globalThis.KeyboardEvent) => {
-    // A focused player keeps its own arrows: they move through the video.
-    if (event.target instanceof HTMLVideoElement) {
+    // A focused player keeps its own arrows: they move through the video;
+    // Alt+← is the browser's «Back».
+    if (
+      event.target instanceof HTMLVideoElement ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.altKey
+    ) {
       return;
     }
     if (event.key === 'ArrowLeft') {
@@ -139,25 +149,46 @@ export function MediaViewer({ items, index, onIndexChange, onClose, title }: Med
     }
   };
 
+  /**
+   * The original file, saved under `downloadName`: a photo from the bytes the
+   * viewer already holds, anything else fetched now into memory first. An
+   * answer that comes late changes nothing about another file's download.
+   */
   const save = async () => {
     const file = item;
     const name = downloadName(file, position);
+    const held = states.get(file.id);
+    const settle = (next: DownloadState) =>
+      setDownload((current) => (current?.itemId === file.id ? next : current));
     setDownload({ itemId: file.id, status: 'pending' });
     try {
-      const signed = await signFile(client, file.path, name);
-      if (signed.status === 'missing') {
-        setDownload({ itemId: file.id, status: 'missing' });
+      if (file.kind === 'photo' && held?.status === 'ready') {
+        saveFromMemory(held.src, name);
+        settle(null);
         return;
       }
-      startDownload(signed.url, name);
-      setDownload(null);
+      const signed = await signFile(client, file.path);
+      if (signed.status === 'missing') {
+        settle({ itemId: file.id, status: 'missing' });
+        return;
+      }
+      const response = await fetch(signed.url, { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error(`storage answered ${response.status}`);
+      }
+      const objectUrl = URL.createObjectURL(await response.blob());
+      saveFromMemory(objectUrl, name);
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), RELEASE_DOWNLOAD_MS);
+      settle(null);
     } catch {
-      setDownload({ itemId: file.id, status: 'failed' });
+      settle({ itemId: file.id, status: 'failed' });
     }
   };
 
   const state = states.get(item.id) ?? LOADING;
   const shownDownload = download?.itemId === item.id ? download : null;
+  const isSaving = shownDownload?.status === 'pending';
+  const isDownloadUnavailable = isSaving || state.status === 'deleted';
   const counter = t('panel.media.viewer.counter', { index: position, count });
   const duration = item.kind === 'video' ? formatVideoDuration(item.durationSec ?? null) : null;
   const itemLabel = t(
@@ -185,16 +216,23 @@ export function MediaViewer({ items, index, onIndexChange, onClose, title }: Med
                 {counter}
               </p>
             </div>
+            {/* Unavailable rather than disabled while it works: a disabled button
+                drops the focus it holds out of the viewer. */}
             <Button
               type="button"
               variant="outline"
-              className={BAR_BUTTON}
+              className={`${BAR_BUTTON} aria-disabled:cursor-not-allowed aria-disabled:opacity-50`}
               aria-label={t('panel.media.viewer.download')}
               title={t('panel.media.viewer.download')}
-              disabled={shownDownload?.status === 'pending' || state.status === 'deleted'}
-              onClick={() => void save()}
+              aria-disabled={isDownloadUnavailable || undefined}
+              aria-busy={isSaving || undefined}
+              onClick={isDownloadUnavailable ? undefined : () => void save()}
             >
-              <Download aria-hidden="true" />
+              {isSaving ? (
+                <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin" />
+              ) : (
+                <Download aria-hidden="true" />
+              )}
               <span className="hidden sm:inline">{t('panel.media.viewer.download')}</span>
             </Button>
             <DialogPrimitive.Close
@@ -219,6 +257,7 @@ export function MediaViewer({ items, index, onIndexChange, onClose, title }: Med
             label={itemLabel}
             startAt={resumeAt.get(item.id) ?? 0}
             onRetry={() => files.retry(item)}
+            onPhotoBroken={(src) => files.photoBroken(item, src)}
             onVideoFailed={(src, at) => {
               setResumeAt((times) => new Map(times).set(item.id, at));
               files.videoFailed(item, src);
@@ -320,6 +359,7 @@ interface ViewerStageProps {
   label: string;
   startAt: number;
   onRetry: () => void;
+  onPhotoBroken: (src: string) => void;
   onVideoFailed: (src: string, at: number) => void;
   onVideoOpened: () => void;
 }
@@ -331,6 +371,7 @@ function ViewerStage({
   label,
   startAt,
   onRetry,
+  onPhotoBroken,
   onVideoFailed,
   onVideoOpened,
 }: ViewerStageProps) {
@@ -347,7 +388,12 @@ function ViewerStage({
         onOpened={onVideoOpened}
       />
     ) : (
-      <PhotoStage key={item.id} src={state.src} alt={label} />
+      <PhotoStage
+        key={item.id}
+        src={state.src}
+        alt={label}
+        onBroken={() => onPhotoBroken(state.src)}
+      />
     );
   }
 
