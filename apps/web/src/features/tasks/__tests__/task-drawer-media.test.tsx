@@ -1,18 +1,25 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { taskSchema } from '../schema';
 
 /**
- * What the drawer shows of a step's files: a photo as a picture, a video as a
- * player. Until 2026-10-09 every file was an <img>, and a video came out as a
- * broken picture.
+ * What the drawer shows of a step's files: a photo as a picture, a video as
+ * a tile, both opening the panel's viewer over the drawer. Until 2026-10-09
+ * every file was an <img>, and a video came out as a broken picture; until
+ * 2026-11-12 a photo opened in a new tab and a video played in the list.
  */
 
 const PHOTO_STEP = 'cccccccc-cccc-4ccc-8ccc-000000000001';
 const VIDEO_STEP = 'cccccccc-cccc-4ccc-8ccc-000000000002';
 const PHOTO_URL = 'https://signed/h/t/photo.jpg';
-const VIDEO_URL = 'https://signed/h/t/video.mp4';
+
+const mocks = vi.hoisted(() => ({ createSignedUrl: vi.fn() }));
+
+vi.mock('@/lib/supabase/use-client', () => ({
+  useSupabase: () => ({ storage: { from: () => ({ createSignedUrl: mocks.createSignedUrl }) } }),
+}));
 
 const step = (id: string, type: string, title: string, sortOrder: number) => ({
   id,
@@ -35,6 +42,7 @@ const media = (overrides: Record<string, unknown>) => ({
   ...overrides,
 });
 
+// The list signs no video: it is a tile until it is opened.
 const videoRows = [
   media({
     id: 'm2',
@@ -42,7 +50,7 @@ const videoRows = [
     storage_path: 'video.mp4',
     kind: 'video',
     duration_sec: 65,
-    url: VIDEO_URL,
+    url: null,
   }),
 ];
 
@@ -68,6 +76,17 @@ beforeEach(() => {
   work.data.mediaByStep[PHOTO_STEP] = [
     media({ id: 'm1', storage_path: 'photo.jpg', url: PHOTO_URL }),
   ];
+  mocks.createSignedUrl.mockImplementation(async (path: string) => ({
+    data: { signedUrl: `https://signed/fresh/${path}` },
+    error: null,
+  }));
+  // jsdom has no player: a viewer closing pauses one.
+  vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+});
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
 });
 
 vi.mock('../use-tasks', () => ({
@@ -113,16 +132,14 @@ const stepItem = (title: string): HTMLElement =>
   screen.getAllByRole('listitem').find((item) => item.textContent?.includes(title)) as HTMLElement;
 
 describe('the files of a step in the task drawer', () => {
-  test('a video plays in a player with controls, from its signed link', () => {
+  test('a video is a tile with its length, and nothing of it loads in the list', () => {
     render(<TaskDrawer task={finished} onClose={vi.fn()} onOpenChat={vi.fn()} />);
 
-    const video = within(stepItem('Видео после работы')).getByLabelText(
-      'Видео: Видео после работы',
-    );
-    expect(video.tagName).toBe('VIDEO');
-    expect(video).toHaveAttribute('src', VIDEO_URL);
-    expect(video).toHaveAttribute('controls');
-    expect(within(stepItem('Видео после работы')).getByText('Видео · 1:05')).toBeInTheDocument();
+    const item = stepItem('Видео после работы');
+    const tile = within(item).getByRole('button', { name: 'Открыть видео 1 из 1' });
+    expect(tile).toHaveTextContent('1:05');
+    expect(item.querySelector('video')).toBeNull();
+    expect(mocks.createSignedUrl).not.toHaveBeenCalled();
   });
 
   test('a video is not counted as a photo, and is never drawn as a picture', () => {
@@ -133,27 +150,15 @@ describe('the files of a step in the task drawer', () => {
     expect(item.querySelector('img')).toBeNull();
   });
 
-  test('a photo is still a picture that opens in a new tab', () => {
+  test('a photo is a picture that opens the viewer, not a new tab', () => {
     render(<TaskDrawer task={finished} onClose={vi.fn()} onOpenChat={vi.fn()} />);
 
     const item = stepItem('Фото после уборки');
     const image = item.querySelector('img');
     expect(image).toHaveAttribute('src', PHOTO_URL);
-    expect(image?.closest('a')).toHaveAttribute('href', PHOTO_URL);
+    expect(image?.closest('a')).toBeNull();
+    expect(image?.closest('button')).toHaveAccessibleName('Открыть фото 1 из 1');
     expect(item.querySelector('video')).toBeNull();
-  });
-
-  // Until the fix the drawer dropped such a video without a word, and the
-  // step looked as if nothing had been filmed on it.
-  test('a video storage would not sign says so, as on the problem card', () => {
-    work.data.mediaByStep[VIDEO_STEP] = [
-      media({ id: 'm3', step_id: VIDEO_STEP, kind: 'video', duration_sec: 30, url: null }),
-    ];
-    render(<TaskDrawer task={finished} onClose={vi.fn()} onOpenChat={vi.fn()} />);
-
-    const item = stepItem('Видео после работы');
-    expect(item.querySelector('video')).toBeNull();
-    expect(within(item).getByText('Видео недоступно')).toBeInTheDocument();
   });
 
   // Until the fix the drawer counted such a photo in «Фото: N» and then drew
@@ -171,18 +176,27 @@ describe('the files of a step in the task drawer', () => {
     expect(within(item).getByText('Фото недоступно')).toBeInTheDocument();
   });
 
-  // The link lives an hour; the drawer may stand open longer. Several videos
-  // failing at once share one read rather than cancel each other's.
-  test('a video whose link has expired has the work read again', () => {
-    render(<TaskDrawer task={finished} onClose={vi.fn()} onOpenChat={vi.fn()} />);
+  // The viewer stands over the drawer: Esc puts the viewer away and leaves
+  // the drawer where it was.
+  test('a video plays in the viewer over the drawer, and Esc closes the viewer only', async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<TaskDrawer task={finished} onClose={onClose} onOpenChat={vi.fn()} />);
 
-    const video = within(stepItem('Видео после работы')).getByLabelText(
-      'Видео: Видео после работы',
+    await user.click(
+      within(stepItem('Видео после работы')).getByRole('button', {
+        name: 'Открыть видео 1 из 1',
+      }),
     );
-    Object.defineProperty(video, 'error', { configurable: true, value: { code: 4 } });
-    fireEvent.error(video);
 
-    expect(work.refetch).toHaveBeenCalledTimes(1);
-    expect(work.refetch).toHaveBeenCalledWith({ cancelRefetch: false });
+    const video = await screen.findByLabelText('Видео 1 из 1');
+    expect(video).toHaveAttribute('src', 'https://signed/fresh/video.mp4');
+    expect(video).toHaveAttribute('controls');
+    expect(screen.getByRole('dialog', { name: 'Видео после работы' })).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => expect(screen.queryByLabelText('Видео 1 из 1')).toBeNull());
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

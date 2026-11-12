@@ -20,10 +20,7 @@ interface FixTaskStepsProps {
 export function FixTaskSteps({ taskId }: FixTaskStepsProps) {
   const { t } = useTranslation();
   const language = useLanguage();
-  const { data, isPending, isError, error, refetch } = useFixTaskSteps(taskId);
-  // A video's link may have expired: reading the steps again signs every file
-  // anew, and videos failing together share the read in flight.
-  const signAgain = () => refetch({ cancelRefetch: false });
+  const { data, isPending, isError, error } = useFixTaskSteps(taskId);
 
   if (isPending) {
     return <LoadingState>{t('panel.problems.loading')}</LoadingState>;
@@ -50,12 +47,7 @@ export function FixTaskSteps({ taskId }: FixTaskStepsProps) {
               <Badge tone={STATUS_TONE[`steps.${state}`]}>{t(`steps.state.${state}`)}</Badge>
             </div>
             {media.length > 0 ? (
-              <ProblemPhotos
-                media={media}
-                emptyText={t('problems.noPhotos')}
-                videoLabel={title}
-                onExpired={signAgain}
-              />
+              <ProblemPhotos media={media} emptyText={t('problems.noPhotos')} title={title} />
             ) : null}
           </li>
         );

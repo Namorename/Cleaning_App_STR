@@ -22,6 +22,13 @@ export interface MessageTile {
   id: string;
   /** Something an `img` can show: a local preview, or a signed link. */
   url: string | null;
+  /**
+   * Where the arrived file lies, for the viewer to sign when it is opened;
+   * null on a photo that has not arrived (or has no row).
+   */
+  path: string | null;
+  /** When the row was made; null where there is no row. */
+  createdAt: string | null;
   status: MessageTileStatus;
   /** Whether the server holds a row for it, which decides what "remove" means. */
   hasRow: boolean;
@@ -102,6 +109,8 @@ export function messageTiles({
     return {
       id: row.id,
       url: previews[row.id] ?? urls.get(row.storage_path) ?? null,
+      path: status === 'uploaded' ? row.storage_path : null,
+      createdAt: row.created_at,
       status,
       hasRow: true,
       canRetry: status === 'failed' && outgoing.has(row.id),
@@ -116,6 +125,8 @@ export function messageTiles({
         .map<MessageTile>(([id, state]) => ({
           id,
           url: previews[id] ?? null,
+          path: null,
+          createdAt: null,
           status: state.status,
           hasRow: false,
           canRetry: state.status === 'failed',
@@ -129,6 +140,8 @@ export function messageTiles({
       {
         id: `${messageId}:${unarrived}`,
         url: null,
+        path: null,
+        createdAt: null,
         status: unarrived,
         hasRow: false,
         canRetry: false,

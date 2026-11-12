@@ -1,7 +1,6 @@
 'use client';
 
-import { PhotoSource } from '@/features/media/photo-source';
-import { VideoTile } from '@/features/media/video-tile';
+import { MediaGallery } from '@/features/media/media-gallery';
 import { STATUS_TONE } from '@str-ops/shared';
 import { MessageSquare } from 'lucide-react';
 import Link from 'next/link';
@@ -112,11 +111,6 @@ export function TaskDrawer({ task, onClose, onOpenChat }: TaskDrawerProps) {
       taskId: task.id,
       minutes: correction.trim() === '' ? null : parsed,
     });
-  // A video's link has failed and may have expired: the work is read again,
-  // which signs every file anew. Several videos failing together share the
-  // read in flight rather than cancel it.
-  const signAgain = () => work.refetch({ cancelRefetch: false });
-
   return (
     <Sheet open onOpenChange={(next) => (next ? undefined : onClose())}>
       <SheetContent className="gap-4 overflow-y-auto p-4 sm:max-w-lg">
@@ -267,56 +261,15 @@ export function TaskDrawer({ task, onClose, onOpenChat }: TaskDrawerProps) {
                           </Badge>
                         </div>
                         {photos.length === 0 ? null : (
-                          <>
-                            <span className="text-xs text-muted-foreground">
-                              {t('panel.tasks.work.photos', { count: photos.length })}
-                            </span>
-                            {/* A photo without a link says so in its square, as a
-                                video does, so the count above is what is shown. */}
-                            <div className="flex flex-wrap gap-2">
-                              {photos.map((photo) =>
-                                photo.url === null ? (
-                                  <span
-                                    key={photo.id}
-                                    className="flex h-20 w-20 items-center justify-center rounded-md border p-1 text-center text-xs text-muted-foreground"
-                                  >
-                                    {t('panel.media.photoUnavailable')}
-                                  </span>
-                                ) : (
-                                  <a
-                                    key={photo.id}
-                                    href={photo.url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="relative block h-20 w-20"
-                                  >
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                      src={photo.url}
-                                      alt=""
-                                      className="h-20 w-20 rounded-md object-cover"
-                                    />
-                                    <PhotoSource source={photo.source} />
-                                  </a>
-                                ),
-                              )}
-                            </div>
-                          </>
+                          <span className="text-xs text-muted-foreground">
+                            {t('panel.tasks.work.photos', { count: photos.length })}
+                          </span>
                         )}
-                        {videos.length === 0 ? null : (
-                          <div className="flex flex-wrap gap-2">
-                            {/* A video without a link says so in its tile,
-                                rather than leaving the step looking unfilmed. */}
-                            {videos.map((video) => (
-                              <VideoTile
-                                key={video.id}
-                                url={video.url}
-                                durationSec={video.duration_sec}
-                                label={t('panel.media.videoOf', { step: stepTitle })}
-                                onExpired={signAgain}
-                              />
-                            ))}
-                          </div>
+                        {/* Photos, then videos: one set the viewer walks through. A
+                            photo without a link says so in its square, so the count
+                            above is what is shown. */}
+                        {media.length === 0 ? null : (
+                          <MediaGallery files={[...photos, ...videos]} title={stepTitle} />
                         )}
                       </li>
                     );

@@ -113,7 +113,12 @@ export async function fetchFixTaskSteps(client: Client, taskId: string): Promise
     throw mediaResult.error;
   }
 
-  const media = await withSignedUrls(client, stepMediaListSchema.parse(mediaResult.data ?? []));
+  // A video is a tile in the list and gets its link when it is opened.
+  const media = await withSignedUrls(
+    client,
+    stepMediaListSchema.parse(mediaResult.data ?? []),
+    (item) => item.kind === 'photo',
+  );
   return {
     steps: taskStepListSchema.parse(stepsResult.data ?? []),
     mediaByStep: groupByStep(media),

@@ -360,7 +360,13 @@ function ReportPhotos({ problemId }: { problemId: string }) {
   if (photos.isError) {
     return <ErrorState message={t('panel.problems.loadError')} error={photos.error} />;
   }
-  return <ProblemPhotos media={photos.data} emptyText={t('panel.problems.detail.noPhotos')} />;
+  return (
+    <ProblemPhotos
+      media={photos.data}
+      emptyText={t('panel.problems.detail.noPhotos')}
+      title={t('panel.problems.detail.photos')}
+    />
+  );
 }
 
 type Translate = (key: string, options?: Record<string, string>) => string;

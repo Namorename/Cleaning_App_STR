@@ -54,17 +54,20 @@ function fakeClient() {
     return self;
   };
 
+  const signed: string[][] = [];
   const storage = {
     from: () => ({
-      createSignedUrls: (paths: string[]) =>
-        Promise.resolve({
+      createSignedUrls: (paths: string[]) => {
+        signed.push(paths);
+        return Promise.resolve({
           data: paths.map((path) => ({ path, signedUrl: `https://signed/${path}`, error: null })),
           error: null,
-        }),
+        });
+      },
     }),
   };
 
-  return { client: { from: builder, storage } as never, selects };
+  return { client: { from: builder, storage } as never, selects, signed };
 }
 
 const mediaSelect = (selects: { table: string; select: string }[]): string =>
@@ -85,18 +88,17 @@ describe.each([
     expect(columns).toEqual(expect.arrayContaining(['kind', 'duration_sec']));
   });
 
-  test('keeps the files grouped by step, each with its kind and its signed link', async () => {
-    const { client } = fakeClient();
+  // A photo's link draws its thumbnail; a video is a tile in the list, and
+  // the viewer signs it when it is opened (2026-11-12).
+  test('keeps the files grouped by step with their kind; only a photo is signed', async () => {
+    const { client, signed } = fakeClient();
 
     const work = await read(client, TASK);
 
     expect(work.mediaByStep[STEP]).toEqual([
       expect.objectContaining({ kind: 'photo', url: 'https://signed/h/t/s/photo.jpg' }),
-      expect.objectContaining({
-        kind: 'video',
-        duration_sec: 65,
-        url: 'https://signed/h/t/s/video.mp4',
-      }),
+      expect.objectContaining({ kind: 'video', duration_sec: 65, url: null }),
     ]);
+    expect(signed).toEqual([['h/t/s/photo.jpg']]);
   });
 });

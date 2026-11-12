@@ -35,8 +35,29 @@ describe('a photo somebody else sent', () => {
     const drawn = tiles({ rows: [row(FIRST, null)] });
 
     expect(drawn).toEqual([
-      { id: FIRST, url: null, status: 'awaited', hasRow: true, canRetry: false, canRemove: true },
+      {
+        id: FIRST,
+        url: null,
+        path: null,
+        createdAt: '2026-09-18T10:00:00+00:00',
+        status: 'awaited',
+        hasRow: true,
+        canRetry: false,
+        canRemove: true,
+      },
     ]);
+  });
+
+  // The viewer signs the file when it is opened: a photo that arrived carries
+  // where it lies, one that has not has nothing to open.
+  test('once arrived, carries where the file lies for the viewer', () => {
+    const drawn = tiles({ rows: [row(FIRST, '2026-09-18T10:01:00+00:00')] });
+
+    expect(drawn[0]).toMatchObject({
+      status: 'uploaded',
+      path: `host/chat/thread/${FIRST}.jpg`,
+      createdAt: '2026-09-18T10:00:00+00:00',
+    });
   });
 
   test('is a picture once the file has arrived', () => {
@@ -107,6 +128,8 @@ describe('a photo this panel is sending', () => {
       {
         id: SECOND,
         url: 'blob:second',
+        path: null,
+        createdAt: null,
         status: 'failed',
         hasRow: false,
         canRetry: true,
@@ -143,6 +166,8 @@ describe('a message with no words at all', () => {
       {
         id: `${MESSAGE}:awaited`,
         url: null,
+        path: null,
+        createdAt: null,
         status: 'awaited',
         hasRow: false,
         canRetry: false,
@@ -190,6 +215,8 @@ describe('a message older than the upload window', () => {
       {
         id: `${MESSAGE}:expired`,
         url: null,
+        path: null,
+        createdAt: null,
         status: 'expired',
         hasRow: false,
         canRetry: false,

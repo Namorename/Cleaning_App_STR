@@ -40,17 +40,69 @@ export async function signedUrlsByPath(
   );
 }
 
-/** The same links, put back onto the rows that carry the paths. */
+/**
+ * The same links, put back onto the rows that carry the paths.
+ *
+ * `isShownInList` picks the rows a list draws a picture of; the others (a
+ * video, which a list draws as a tile) get no link until they are opened.
+ */
 export async function withSignedUrls<T extends { storage_path: string }>(
   client: Client,
   media: T[],
+  isShownInList: (item: T) => boolean = () => true,
 ): Promise<WithUrl<T>[]> {
-  if (media.length === 0) {
-    return [];
+  const shown = media.filter(isShownInList);
+  if (shown.length === 0) {
+    return media.map((item) => ({ ...item, url: null }));
   }
   const urls = await signedUrlsByPath(
     client,
-    media.map((item) => item.storage_path),
+    shown.map((item) => item.storage_path),
   );
   return media.map((item) => ({ ...item, url: urls.get(item.storage_path) ?? null }));
+}
+
+/** A fresh link to one file, or word that storage no longer has it. */
+export type SignedFile = { status: 'signed'; url: string } | { status: 'missing' };
+
+/**
+ * Storage's way of saying the object is not there: an answer of 400 whose
+ * body says 404 (`NoSuchKey`). The nightly retention removes a file 90 days
+ * after its job was closed, and that is the only way one goes missing.
+ */
+function isMissingObject(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+  const { statusCode, code, message } = error as {
+    statusCode?: unknown;
+    code?: unknown;
+    message?: unknown;
+  };
+  return (
+    statusCode === '404' ||
+    code === 'NoSuchKey' ||
+    (typeof message === 'string' && /object not found/i.test(message))
+  );
+}
+
+/**
+ * One link, asked for when the file is opened — or, with `download`, a link
+ * that makes the browser save the file under that name instead of showing it.
+ */
+export async function signFile(
+  client: Client,
+  path: string,
+  download?: string,
+): Promise<SignedFile> {
+  const { data, error } = await client.storage
+    .from(MEDIA_BUCKET)
+    .createSignedUrl(path, SIGNED_URL_SECONDS, download === undefined ? undefined : { download });
+  if (error) {
+    if (isMissingObject(error)) {
+      return { status: 'missing' };
+    }
+    throw error;
+  }
+  return { status: 'signed', url: data.signedUrl };
 }

@@ -395,10 +395,9 @@ describe('ProblemDetail', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'Течёт кран' })).toBeInTheDocument();
     expect(screen.getByText('На кухне, под мойкой')).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'Фото 1' })).toHaveAttribute(
-      'src',
-      'https://storage.example/1.jpg?token=x',
-    );
+    expect(
+      screen.getByRole('button', { name: 'Открыть фото 1 из 1' }).querySelector('img'),
+    ).toHaveAttribute('src', 'https://storage.example/1.jpg?token=x');
     expect(screen.getByText('Petr Fixer', { selector: 'span' })).toBeInTheDocument();
     expect(screen.getByText(/09:00–12:00/)).toBeInTheDocument();
     expect(screen.getByText('1. Фото проблемы')).toBeInTheDocument();

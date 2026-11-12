@@ -301,7 +301,7 @@ describe('ChatSheet', () => {
     expect(screen.queryByRole('button', { name: 'Убрать' })).not.toBeInTheDocument();
   });
 
-  test('a photo that arrived is a picture behind its signed link', () => {
+  test('a photo that arrived is a picture that opens the viewer, not a new tab', () => {
     queries.photoUrls.mockReturnValue(
       new Map([['host/chat/thread/99999999.jpg', 'https://signed/photo']]),
     );
@@ -325,10 +325,9 @@ describe('ChatSheet', () => {
 
     renderSheet();
 
-    expect(screen.getByRole('img', { name: /Фото 1\. Загружено/ })).toHaveAttribute(
-      'src',
-      'https://signed/photo',
-    );
+    const thumbnail = screen.getByRole('button', { name: 'Открыть фото 1 из 1' });
+    expect(thumbnail.querySelector('img')).toHaveAttribute('src', 'https://signed/photo');
+    expect(thumbnail.closest('a')).toBeNull();
   });
 
   test('declares the picked photos and sends them under the message id', async () => {
