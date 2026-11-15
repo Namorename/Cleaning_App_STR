@@ -2652,7 +2652,7 @@
     "noPlaceMatch": "Nothing matches",
     "categoryLabel": "Category",
     "pickCategory": "Choose a category",
-    "searchCategories": "Start typing its name",
+    "searchCategories": "Start typing a category name",
     "noCategoryMatch": "Nothing matches",
     "categoryOption": "{{name}}, priority: {{priority}}",
     "priorityFromCategory": "The category sets the priority",

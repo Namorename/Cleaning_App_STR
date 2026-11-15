@@ -32,13 +32,19 @@ function readHostSettings(data: unknown): HostSettings {
 }
 
 /**
- * Fresh for an hour — unless the row in the cache lacks the video numbers
- * this build needs, as one saved by the build before video does: that row is
- * read again at once, however recently it was saved.
+ * Fresh for an hour — unless the row in the cache lacks what this build needs:
+ * the video numbers (a row saved by the build before video), or how a cleaner
+ * names a task (a row saved before the catalogue, which would read as the typed
+ * title for a company that has switched). Such a row is read again at once,
+ * however recently it was saved.
  */
 function freshFor(query: { state: { data: unknown } }): number {
-  const parsed = hostSettingsSchema.safeParse(query.state.data);
-  return parsed.success && videoSettingsOf(parsed.data) !== null ? FRESH_FOR_MS : 0;
+  const data = query.state.data;
+  const parsed = hostSettingsSchema.safeParse(data);
+  const hasReportMode = typeof data === 'object' && data !== null && 'problem_report_mode' in data;
+  return parsed.success && videoSettingsOf(parsed.data) !== null && hasReportMode
+    ? FRESH_FOR_MS
+    : 0;
 }
 
 /**

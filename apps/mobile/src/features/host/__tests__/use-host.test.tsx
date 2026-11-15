@@ -6,7 +6,7 @@ import { restoredFromDisk, withClient } from '@/testing/restored-cache';
 
 import { fetchHostSettings } from '../api';
 import { hostKeys } from '../keys';
-import type { HostSettings } from '../schema';
+import { hostSettingsSchema, type HostSettings } from '../schema';
 import { ON_OPEN_FRESH_MS, useGalleryAllowed, useVideoSettings } from '../use-host';
 
 jest.mock('../api', () => ({ fetchHostSettings: jest.fn() }));
@@ -177,6 +177,35 @@ describe('the video settings', () => {
       video_max_mb: 45,
     });
     expect(fetchSettings).not.toHaveBeenCalled();
+  });
+});
+
+// How a cleaner names a task (hosts.problem_report_mode, 20261115100000).
+describe('the report mode', () => {
+  test('a mode this build does not know, or none at all, reads as the typed title', () => {
+    expect(hostSettingsSchema.parse({ ...company(), problem_report_mode: 'hybrid' })).toMatchObject(
+      {
+        problem_report_mode: 'free_text',
+      },
+    );
+    const { problem_report_mode: _absent, ...older } = company();
+    expect(hostSettingsSchema.parse(older).problem_report_mode).toBe('free_text');
+    expect(hostSettingsSchema.parse(company({ problem_report_mode: 'catalog' }))).toMatchObject({
+      problem_report_mode: 'catalog',
+    });
+  });
+
+  // A row saved a minute ago by the build before the catalogue would hold a
+  // switched company on the typed title for the hour: it is read again at once.
+  test('a company saved without the mode is read again at once', async () => {
+    fetchSettings.mockResolvedValue(company({ problem_report_mode: 'catalog' }));
+    const { problem_report_mode: _absent, ...older } = company();
+    const client = restoredFromDisk(hostKeys.settings(), older);
+
+    const { result } = await renderHook(() => useVideoSettings(), { wrapper: withClient(client) });
+
+    await waitFor(() => expect(fetchSettings).toHaveBeenCalledTimes(1));
+    expect(result.current).not.toBeNull();
   });
 });
 

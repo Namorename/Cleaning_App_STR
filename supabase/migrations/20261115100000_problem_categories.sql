@@ -105,11 +105,14 @@ create policy "staff read the categories"
 
 -- ---------- the category of a task ----------
 
+-- Restrict, not set null: a category a task was filed under is archived, never
+-- deleted, so the statistics keep the link and the task keeps the translations
+-- of its title in step with its category.
 alter table public.problems
-  add column category_id uuid references public.problem_categories(id) on delete set null;
+  add column category_id uuid references public.problem_categories(id) on delete restrict;
 
 comment on column public.problems.category_id is
-  'The category the task was filed under (problem_categories); null when its title was typed. Kept for the statistics; set by report_problem and update_problem only (20261115100000).';
+  'The category the task was filed under (problem_categories); null when its title was typed. Kept for the statistics; set by report_problem and update_problem only; a category a task points at cannot be deleted, only archived (20261115100000).';
 
 create index problems_category_idx
   on public.problems (category_id) where category_id is not null;

@@ -1,5 +1,5 @@
 import { HeaderHeightContext } from 'expo-router/react-navigation';
-import { use } from 'react';
+import { use, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -24,6 +24,7 @@ import {
   PROBLEM_PRIORITIES,
   asksForCategory,
   draftWithCategory,
+  hasTypedTitle,
   problemDraftIssue,
   type ProblemDraft,
   type ProblemPriority,
@@ -106,7 +107,10 @@ export function ProblemForm({
   // (components/bottom-inset.ts).
   const keyboardOffset = useKeyboardOffset(use(HeaderHeightContext) ?? 0);
   const failure = error === null ? null : serverErrorText(error);
-  const byCategory = asksForCategory(draft, categories);
+  // Hers for good from the first keystroke, or from the start for a typed report
+  // she corrects (`asksForCategory`).
+  const [titleIsHers, setTitleIsHers] = useState(() => hasTypedTitle(draft));
+  const byCategory = asksForCategory(draft, categories, titleIsHers);
 
   return (
     // Padding on both systems: the view measures how much of it the keyboard
@@ -173,7 +177,10 @@ export function ProblemForm({
             label={t('problems.titleLabel')}
             isDisabled={isSubmitting}
             maxLength={MAX_PROBLEM_TITLE}
-            onChangeText={(title) => onChange({ ...draft, title })}
+            onChangeText={(title) => {
+              setTitleIsHers(true);
+              onChange({ ...draft, title });
+            }}
             placeholder={t('problems.titlePlaceholder')}
             value={draft.title}
           />
@@ -266,7 +273,9 @@ function CategoryField({ categories, draft, onChange, isDisabled, styles }: Cate
         selectedId={draft.categoryId}
         fallbackName={draft.title}
         onSelect={(category, name) => onChange(draftWithCategory(draft, category, name))}
-        isDisabled={isDisabled}
+        // Nothing to pick from — a report filed under a category, corrected before
+        // the catalogue reached this phone: the field names it and does not open.
+        isDisabled={isDisabled || categories.length === 0}
       />
       {draft.categoryId !== null ? (
         <View style={styles.field} testID="problem-category-priority">

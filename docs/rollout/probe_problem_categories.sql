@@ -18,7 +18,8 @@ select
    where p.pronamespace = 'public'::regnamespace
      and p.proname in ('report_problem', 'update_problem', 'problem_category_for_report')
      and (a.grantee = 0 or r.rolname in ('anon', 'authenticated'))) as client_execute,
-  (select string_agg(a.attrelid::regclass::text || '.' || a.attname, ', ' order by 1)
+  (select string_agg(a.attrelid::regclass::text || '.' || a.attname, ', '
+                     order by a.attrelid::regclass::text, a.attname)
    from pg_attribute a
    where a.attrelid in ('public.hosts'::regclass, 'public.problems'::regclass)
      and a.attname in ('problem_report_mode', 'category_id') and not a.attisdropped) as columns,

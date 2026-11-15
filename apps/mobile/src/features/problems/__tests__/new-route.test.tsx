@@ -151,7 +151,7 @@ describe('a company that reports by catalogue (CLIENT:Wagnerstays)', () => {
 
     await render(<NewProblemRoute />);
     await fireEvent.press(screen.getByRole('button', { name: 'Категория' }));
-    await fireEvent.changeText(screen.getByLabelText('Начните вводить название'), 'вайф');
+    await fireEvent.changeText(screen.getByLabelText('Начните вводить название категории'), 'вайф');
     await fireEvent.press(screen.getByRole('button', { name: 'Wi-Fi, срочность: Высокая' }));
     await fireEvent.changeText(screen.getByLabelText('Подробности'), 'Роутер мигает');
     await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));

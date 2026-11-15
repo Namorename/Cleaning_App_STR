@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { useState } from 'react';
+import { Pressable, Text } from 'react-native';
 
 import type { ProblemCategory } from '../categories';
 import { ProblemForm } from '../problem-form';
@@ -125,7 +126,7 @@ describe('a company that reports by catalogue', () => {
     await render(<Harness initial={EMPTY_PROBLEM_DRAFT} categories={CATEGORIES} />);
     await openCategories();
 
-    await fireEvent.changeText(screen.getByLabelText('Начните вводить название'), 'элек');
+    await fireEvent.changeText(screen.getByLabelText('Начните вводить название категории'), 'элек');
 
     expect(screen.getByText('Электричество полностью')).toBeTruthy();
     expect(screen.getByText('Частичное отсутствие электричества')).toBeTruthy();
@@ -137,7 +138,7 @@ describe('a company that reports by catalogue', () => {
     await render(<Harness initial={EMPTY_PROBLEM_DRAFT} categories={CATEGORIES} />);
     await openCategories();
 
-    await fireEvent.changeText(screen.getByLabelText('Начните вводить название'), 'кран');
+    await fireEvent.changeText(screen.getByLabelText('Начните вводить название категории'), 'кран');
 
     expect(screen.getByText('Смесители')).toBeTruthy();
     expect(screen.queryByText('Горячая вода')).toBeNull();
@@ -147,7 +148,7 @@ describe('a company that reports by catalogue', () => {
     await render(<Harness initial={EMPTY_PROBLEM_DRAFT} categories={CATEGORIES} />);
     await openCategories();
 
-    await fireEvent.changeText(screen.getByLabelText('Начните вводить название'), 'zzz');
+    await fireEvent.changeText(screen.getByLabelText('Начните вводить название категории'), 'zzz');
 
     expect(screen.getByText('Ничего не найдено')).toBeTruthy();
   });
@@ -211,6 +212,8 @@ describe('a company that reports by catalogue', () => {
       within(screen.getByTestId('problem-category-priority')).getByText('Обычная'),
     ).toBeTruthy();
     expect(screen.queryByLabelText('Что случилось')).toBeNull();
+    // Nothing to pick from on this phone: the field names the category and does not open.
+    expect(screen.getByRole('button', { name: 'Категория' })).toBeDisabled();
   });
 });
 
@@ -221,6 +224,49 @@ describe('the typed title stays where the catalogue is not', () => {
     expect(screen.getByLabelText('Что случилось')).toBeTruthy();
     expect(screen.getAllByRole('radio')).toHaveLength(3);
     expect(screen.queryByRole('button', { name: 'Категория' })).toBeNull();
+  });
+
+  test('a title she typed and emptied again keeps the typed form', async () => {
+    const LateCatalogue = () => {
+      const [arrived, setArrived] = useState(false);
+      return (
+        <>
+          <Harness initial={EMPTY_PROBLEM_DRAFT} categories={arrived ? CATEGORIES : null} />
+          <Pressable accessibilityRole="button" onPress={() => setArrived(true)}>
+            <Text>arrive</Text>
+          </Pressable>
+        </>
+      );
+    };
+    await render(<LateCatalogue />);
+
+    await fireEvent.changeText(screen.getByLabelText('Что случилось'), 'Н');
+    await fireEvent.changeText(screen.getByLabelText('Что случилось'), '');
+    await fireEvent.press(screen.getByRole('button', { name: 'arrive' }));
+
+    expect(screen.getByLabelText('Что случилось')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Категория' })).toBeNull();
+  });
+
+  test("a catalogue that arrives before she typed anything takes the title's place", async () => {
+    const LateCatalogue = () => {
+      const [arrived, setArrived] = useState(false);
+      return (
+        <>
+          <Harness initial={EMPTY_PROBLEM_DRAFT} categories={arrived ? CATEGORIES : null} />
+          <Pressable accessibilityRole="button" onPress={() => setArrived(true)}>
+            <Text>arrive</Text>
+          </Pressable>
+        </>
+      );
+    };
+    await render(<LateCatalogue />);
+    expect(screen.getByLabelText('Что случилось')).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'arrive' }));
+
+    expect(screen.queryByLabelText('Что случилось')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Категория' })).toBeTruthy();
   });
 
   test('a title typed before the catalogue arrived is kept, and so is the form', async () => {

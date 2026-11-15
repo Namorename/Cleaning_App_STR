@@ -5,12 +5,17 @@
 --      run while the company still reports by catalogue);
 --   2. npx supabase db query --linked -f docs/one-off-writes/wagner-problem-categories-rollback.sql
 --   3. probe: node scripts/cloud-read.mjs docs/rollout/probe_wagner_problem_categories.sql —
---      live 0.
+--      live 0, archived 27.
 --
--- A category no task was filed under is deleted. One a task points at is archived instead:
--- the task keeps its link for the statistics, and no phone offers the category again.
--- After that the load script refuses to run a second time (the company has categories);
--- loading again means deleting the archived ones by hand first, on the owner's word.
+-- Every category is ARCHIVED, none deleted. No phone offers an archived category again, but
+-- one a cleaner picked without a connection may still be in her phone's queue: the server
+-- files such a report on the archived row (problem_category_for_report), and a deleted row
+-- would refuse it for good. A task filed under a category also keeps its link
+-- (problems.category_id is on delete restrict).
+--
+-- After this the load script refuses to run a second time (the company has categories).
+-- Deleting the archived rows is a later, separate step, on the owner's word, once no phone
+-- can hold a report picked before — and only of rows no task points at.
 do $$
 declare
   c_host constant uuid := 'ce77c272-c330-4b74-ac98-c7d36cba8b2a';
@@ -30,25 +35,23 @@ declare
     '550e8872-7829-4235-8016-9c1040d0c3ab', 'b1d15e3f-5d86-45ad-845d-e339b05a373a',
     '53254afb-447f-46df-ac19-e265389a9d9b'
   ]::uuid[];
+  v_mode     text;
   v_archived integer;
-  v_deleted  integer;
 begin
   perform set_config('lock_timeout', '3s', true);
 
-  if (select h.problem_report_mode from public.hosts h where h.id = c_host) = 'catalog' then
+  select h.problem_report_mode into v_mode from public.hosts h where h.id = c_host;
+  if not found then
+    raise exception 'The company % is not in this database', c_host;
+  end if;
+  if v_mode <> 'free_text' then
     raise exception 'The company still reports by catalogue: run wagner-problem-report-mode-free-text.sql first';
   end if;
 
   update public.problem_categories c
   set archived_at = now()
-  where c.host_id = c_host and c.id = any (c_ids) and c.archived_at is null
-    and exists (select 1 from public.problems p where p.category_id = c.id);
+  where c.host_id = c_host and c.id = any (c_ids) and c.archived_at is null;
   get diagnostics v_archived = row_count;
 
-  delete from public.problem_categories c
-  where c.host_id = c_host and c.id = any (c_ids)
-    and not exists (select 1 from public.problems p where p.category_id = c.id);
-  get diagnostics v_deleted = row_count;
-
-  raise notice 'categories deleted: %, archived (tasks point at them): %', v_deleted, v_archived;
+  raise notice 'categories archived: %', v_archived;
 end $$;

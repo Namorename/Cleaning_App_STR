@@ -6,6 +6,7 @@ import {
   draftOfProblem,
   draftWithCategory,
   groupProblems,
+  hasTypedTitle,
   ownFixTaskId,
   problemDraftIssue,
   problemSchema,
@@ -77,21 +78,29 @@ describe('problemDraftIssue', () => {
 });
 
 describe('the category in the draft', () => {
-  test('a form asks for a category while the catalogue is there and nothing is typed', () => {
-    expect(asksForCategory(EMPTY_PROBLEM_DRAFT, [HOT_WATER])).toBe(true);
+  test('a form asks for a category while the catalogue is there and the title is not hers', () => {
+    expect(asksForCategory(EMPTY_PROBLEM_DRAFT, [HOT_WATER], false)).toBe(true);
   });
 
   test('without a catalogue the title is typed, as before', () => {
-    expect(asksForCategory(EMPTY_PROBLEM_DRAFT, null)).toBe(false);
+    expect(asksForCategory(EMPTY_PROBLEM_DRAFT, null, false)).toBe(false);
   });
 
-  test('a catalogue that arrives after she started typing leaves her title alone', () => {
-    expect(asksForCategory({ ...EMPTY_PROBLEM_DRAFT, title: 'Кран' }, [HOT_WATER])).toBe(false);
+  test('once the title is hers the catalogue never takes it, not even emptied', () => {
+    const typed = { ...EMPTY_PROBLEM_DRAFT, title: 'Кран' };
+    expect(asksForCategory(typed, [HOT_WATER], true)).toBe(false);
+    expect(asksForCategory({ ...typed, title: '' }, [HOT_WATER], true)).toBe(false);
   });
 
   test('a picked category stays asked for, catalogue or not', () => {
     const picked = draftWithCategory(EMPTY_PROBLEM_DRAFT, HOT_WATER, 'Hot water');
-    expect(asksForCategory(picked, null)).toBe(true);
+    expect(asksForCategory(picked, null, false)).toBe(true);
+  });
+
+  test('a typed report she corrects starts with a title of her own; one under a category does not', () => {
+    expect(hasTypedTitle({ ...EMPTY_PROBLEM_DRAFT, title: 'Кран течёт' })).toBe(true);
+    expect(hasTypedTitle(EMPTY_PROBLEM_DRAFT)).toBe(false);
+    expect(hasTypedTitle(draftWithCategory(EMPTY_PROBLEM_DRAFT, HOT_WATER, 'Hot water'))).toBe(false);
   });
 
   test("picking takes the name she reads and the category's urgency", () => {

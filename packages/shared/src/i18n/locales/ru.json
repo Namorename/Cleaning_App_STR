@@ -2696,7 +2696,7 @@
     "noPlaceMatch": "Ничего не найдено",
     "categoryLabel": "Категория",
     "pickCategory": "Выберите категорию",
-    "searchCategories": "Начните вводить название",
+    "searchCategories": "Начните вводить название категории",
     "noCategoryMatch": "Ничего не найдено",
     "categoryOption": "{{name}}, срочность: {{priority}}",
     "priorityFromCategory": "Срочность задаётся категорией",

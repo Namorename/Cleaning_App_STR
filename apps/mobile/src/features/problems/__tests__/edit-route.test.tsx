@@ -2,7 +2,9 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import EditProblemRoute from '@/app/problem/[id]/edit';
 
+import type { ProblemCategory } from '../categories';
 import type { Problem } from '../schema';
+import { useReportCatalog } from '../use-problem-categories';
 import { useProblem } from '../use-problems';
 
 /**
@@ -33,13 +35,15 @@ beforeEach(() => {
   mockSession.userId = ME;
 });
 
-// The typed title: the catalogue's edit is pinned in category-form.test.tsx.
-jest.mock('../use-problem-categories', () => ({ useReportCatalog: () => null }));
+// The typed title, unless a test hands the cleaner a catalogue.
+jest.mock('../use-problem-categories', () => ({ useReportCatalog: jest.fn(() => null) }));
+
+const mockMutate = jest.fn();
 
 jest.mock('../use-problems', () => ({
   useProblem: jest.fn(),
   useUpdateProblem: () => ({
-    mutate: jest.fn(),
+    mutate: mockMutate,
     isPending: false,
     isPaused: false,
     isSuccess: false,
@@ -97,6 +101,81 @@ test('what she typed survives the report being fetched again under her', async (
 
   // Assert
   expect(screen.getByDisplayValue('Кран течёт сильно')).toBeTruthy();
+});
+
+describe('a company that reports by catalogue (CLIENT:Wagnerstays)', () => {
+  const HOT_WATER: ProblemCategory = {
+    id: '83ffda56-635c-4941-bedd-cb08b82e6675',
+    name: 'Горячая вода',
+    name_i18n: { en: 'Hot water' },
+    synonyms: [],
+    priority: 'high',
+  };
+  const TAPS: ProblemCategory = {
+    id: '7bed8f05-ae67-43c3-82d5-01bf1b4a26c6',
+    name: 'Смесители',
+    name_i18n: { en: 'Taps' },
+    synonyms: ['кран'],
+    priority: 'normal',
+  };
+
+  beforeEach(() => {
+    mockMutate.mockClear();
+    jest.mocked(useReportCatalog).mockReturnValue([HOT_WATER, TAPS]);
+  });
+
+  afterAll(() => {
+    jest.mocked(useReportCatalog).mockReturnValue(null);
+  });
+
+  test('a report filed under a category opens on it, and saving keeps it', async () => {
+    answer(problem({ title: 'Горячая вода', priority: 'high', category_id: HOT_WATER.id }));
+
+    await render(<EditProblemRoute />);
+    expect(screen.getByRole('button', { name: 'Категория' })).toHaveAccessibilityValue({
+      text: 'Горячая вода',
+    });
+    expect(screen.queryByLabelText('Что случилось')).toBeNull();
+    await fireEvent.changeText(screen.getByLabelText('Подробности'), 'Нет воды и в ванной');
+    await fireEvent.press(screen.getByRole('button', { name: 'Сохранить' }));
+
+    expect(mockMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        categoryId: HOT_WATER.id,
+        priority: 'high',
+        description: 'Нет воды и в ванной',
+      }),
+    );
+  });
+
+  test('another category picked moves the report to it', async () => {
+    answer(problem({ title: 'Горячая вода', priority: 'high', category_id: HOT_WATER.id }));
+
+    await render(<EditProblemRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Категория' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Смесители, срочность: Обычная' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Сохранить' }));
+
+    expect(mockMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ categoryId: TAPS.id, title: 'Смесители', priority: 'normal' }),
+    );
+  });
+
+  test('a report with a typed title keeps its form, even with the title emptied to retype', async () => {
+    answer(problem({ title: 'Кран течёт' }));
+
+    await render(<EditProblemRoute />);
+    await fireEvent.changeText(screen.getByDisplayValue('Кран течёт'), '');
+
+    expect(screen.getByLabelText('Что случилось')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Категория' })).toBeNull();
+    await fireEvent.changeText(screen.getByLabelText('Что случилось'), 'Кран капает');
+    await fireEvent.press(screen.getByRole('button', { name: 'Сохранить' }));
+
+    expect(mockMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Кран капает', categoryId: null }),
+    );
+  });
 });
 
 describe('the wrapper on the «Абрикос» components', () => {

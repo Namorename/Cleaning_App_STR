@@ -260,6 +260,11 @@ select pg_temp.check('and so is one that does not exist',
   pg_temp.refusal($q$select public.report_problem(pg_temp.pid(4), 'x', null, 'normal', 900002101,
                     null, 'f1150299-0000-4000-8000-000000000099')$q$),
   'serverErrors.problemCategoryNotFound');
+select pg_temp.as_olga();
+select pg_temp.check('nor may another company file under hers',
+  pg_temp.refusal($q$select public.report_problem(pg_temp.pid(8), 'x', null, 'normal', null,
+                    null, pg_temp.hot_water())$q$),
+  'serverErrors.problemCategoryNotFound');
 select pg_temp.as_office();
 
 select pg_temp.check('a high urgency sent by the phone does not lift a normal category',
@@ -284,9 +289,9 @@ select pg_temp.as_maria();
 select public.report_problem(p_id => pg_temp.pid(5), p_title => '  Кран течёт  ',
   p_description => 'Под раковиной лужа', p_priority => 'high',
   p_task_id => 'f1150101-0000-4000-8000-000000000001');
--- And as the API calls it (api_v1_create_task): six arguments by position.
+-- And as the API calls it (api_v1_create_task): five arguments by position.
 select public.report_problem(pg_temp.pid(6), 'Скрипит дверь', null, 'low'::public.problem_priority,
-  900002101::bigint, null::uuid);
+  900002101::bigint);
 select pg_temp.as_office();
 
 select pg_temp.check('an old caller''s report keeps its own title',
@@ -329,13 +334,18 @@ select pg_temp.check('a category of another company is refused on a correction t
   pg_temp.refusal($q$select public.update_problem(pg_temp.pid(2), 'x', null, 'normal',
                     pg_temp.foreign_category())$q$),
   'serverErrors.problemCategoryNotFound');
+select pg_temp.as_office();
+-- Whatever a typed title carries beside it stays as it was, as before.
+update public.problems set title_i18n = '{"en": "Tap"}' where id = pg_temp.pid(5);
+select pg_temp.as_maria();
 -- A typed report corrected as before.
 select public.update_problem(p_id => pg_temp.pid(5), p_title => 'Кран течёт сильно',
   p_description => null, p_priority => 'normal');
 select pg_temp.as_office();
 select pg_temp.check('a typed report is corrected as before',
-  ((pg_temp.problem(5)).title, (pg_temp.problem(5)).priority::text, (pg_temp.problem(5)).category_id),
-  ('Кран течёт сильно'::text, 'normal'::text, null::uuid));
+  ((pg_temp.problem(5)).title, (pg_temp.problem(5)).priority::text, (pg_temp.problem(5)).category_id,
+   (pg_temp.problem(5)).title_i18n),
+  ('Кран течёт сильно'::text, 'normal'::text, null::uuid, '{"en": "Tap"}'::jsonb));
 
 select pg_temp.as_maria();
 select public.update_problem(pg_temp.pid(6), 'whatever', null, 'low', pg_temp.hot_water());
@@ -344,16 +354,28 @@ select pg_temp.check('a typed report given a category takes it',
   ((pg_temp.problem(6)).title, (pg_temp.problem(6)).priority::text, (pg_temp.problem(6)).category_id),
   ('Горячая вода'::text, 'high'::text, pg_temp.hot_water()));
 
--- ---------- a category leaves, its tasks stay ----------
+-- ---------- a category leaves the list, its tasks keep it ----------
 
-delete from public.problem_categories where id = pg_temp.decor();
-select pg_temp.check('a deleted category leaves its task with its title and urgency',
-  ((pg_temp.problem(3)).title, (pg_temp.problem(3)).priority::text, (pg_temp.problem(3)).category_id),
-  ('Декор'::text, 'low'::text, null::uuid));
+select pg_temp.as_maria();
+select public.update_problem(pg_temp.pid(3), 'x', 'Картина упала', 'high');
+select pg_temp.as_office();
+select pg_temp.check('a report under an archived category is still corrected on it',
+  ((pg_temp.problem(3)).title, (pg_temp.problem(3)).priority::text, (pg_temp.problem(3)).category_id,
+   (pg_temp.problem(3)).description),
+  ('Декор'::text, 'low'::text, pg_temp.decor(), 'Картина упала'::text));
+
+select pg_temp.check('a category a task was filed under cannot be deleted, only archived',
+  pg_temp.sqlstate_of($q$delete from public.problem_categories where id = pg_temp.decor()$q$),
+  '23503');
+select pg_temp.check('one no task points at can',
+  pg_temp.sqlstate_of($q$delete from public.problem_categories
+                        where id = 'f1150209-0000-4000-8000-000000000009'$q$),
+  'ok');
 
 select pg_temp.check('tasks filed before the catalogue have no category',
   (select count(*)::int from public.problems
-   where category_id is not null and id not in (pg_temp.pid(1), pg_temp.pid(2), pg_temp.pid(6))),
+   where category_id is not null
+     and id not in (pg_temp.pid(1), pg_temp.pid(2), pg_temp.pid(3), pg_temp.pid(6))),
   0);
 
 rollback;

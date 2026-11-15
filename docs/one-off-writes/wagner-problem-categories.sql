@@ -30,6 +30,10 @@ begin
   if not exists (select 1 from public.hosts h where h.id = c_host) then
     raise exception 'The company % is not in this database', c_host;
   end if;
+  -- The names below are Russian: the company's language must be too.
+  if (select h.default_language::text from public.hosts h where h.id = c_host) <> 'ru' then
+    raise exception 'The company % does not speak Russian: the names would be in the wrong language', c_host;
+  end if;
   if exists (select 1 from public.problem_categories c where c.host_id = c_host) then
     raise exception 'The company % already has categories: this script runs once', c_host;
   end if;

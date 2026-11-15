@@ -109,17 +109,25 @@ export type ProblemDraftIssue =
 /**
  * Does the form ask for a category rather than a title?
  *
- * Yes once she has one, and while the catalogue is on the phone and she has not
- * typed a title. A catalogue that arrives after she started typing — a slow first
- * read — leaves her words and her form alone: the catalogue never takes away what
- * she already wrote. No catalogue (the company types titles, she is not a cleaner,
- * or it never reached this phone): the typed title, as before.
+ * Yes once she has one, and while the catalogue is on the phone and the title is
+ * not hers. `titleIsHers` is set by the form for good the moment she types into
+ * the title, and from the start for a report with a typed title she corrects: a
+ * catalogue that arrives late — a slow first read — never takes her form away,
+ * not even when she empties the field to type it again. No catalogue (the company
+ * types titles, she is not a cleaner, or it never reached this phone): the typed
+ * title, as before.
  */
 export function asksForCategory(
   draft: ProblemDraft,
   categories: readonly ProblemCategory[] | null,
+  titleIsHers: boolean,
 ): boolean {
-  return draft.categoryId !== null || (categories !== null && draft.title.trim() === '');
+  return draft.categoryId !== null || (categories !== null && !titleIsHers);
+}
+
+/** A draft whose title she typed: a report she corrects that was not filed under a category. */
+export function hasTypedTitle(draft: ProblemDraft): boolean {
+  return draft.categoryId === null && draft.title.trim() !== '';
 }
 
 /**

@@ -38,12 +38,22 @@ export function categoryName(
  * What separates the words of a name or of what she types: spaces and
  * punctuation. «Wi-Fi» is two words, «Доставка (бельё, химия…)» five.
  */
-const WORD_BREAK = /[\s\-‐‑‒–—―.,;:!?()[\]{}«»"'„“”/\\|+&*_#№@]+/;
+const WORD_BREAK = /[\s\-‐‑‒–—―.,;:!?()[\]{}«»"'‘’„“”…/\\|+&*_#№@<>=%$~]+/;
 
 function wordsOf(text: string): string[] {
   return foldForSearch(text)
     .split(WORD_BREAK)
     .filter((word) => word !== '');
+}
+
+/**
+ * The words of a name, and the name run together when it has more than one:
+ * «Wi-Fi» is found by «wi», «fi» and «wifi», whatever synonyms the company
+ * gave it.
+ */
+function indexWordsOf(text: string): string[] {
+  const words = wordsOf(text);
+  return words.length > 1 ? [...words, words.join('')] : words;
 }
 
 /** A category with the words the search compares, folded once rather than on every key. */
@@ -61,7 +71,7 @@ export function indexCategories(categories: readonly ProblemCategory[]): Indexed
   return categories.map((category) => ({
     category,
     words: [category.name, ...Object.values(category.name_i18n), ...category.synonyms].flatMap(
-      wordsOf,
+      indexWordsOf,
     ),
   }));
 }

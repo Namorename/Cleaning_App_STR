@@ -241,15 +241,19 @@ check('the head technician is woken for Wi-Fi, not for Taps',
 mustRefuse('the data rollback refuses while the switch is on', file('docs/one-off-writes/wagner-problem-categories-rollback.sql'), /free-text/);
 must('the switch off (wagner-problem-report-mode-free-text.sql)', file('docs/one-off-writes/wagner-problem-report-mode-free-text.sql'));
 const undone = must('the client rollback (wagner-problem-categories-rollback.sql)', file('docs/one-off-writes/wagner-problem-categories-rollback.sql'));
-console.log(`     ${(undone.out + undone.err).trim().split('\n').filter((line) => /deleted/.test(line)).join(' ')}`);
+console.log(`     ${(undone.out + undone.err).trim().split('\n').filter((line) => /archived/.test(line)).join(' ')}`);
 check('no live category of the client', `select count(*) from public.problem_categories where host_id = '${WAGNER}' and archived_at is null;`, 0);
-check('the two a task points at are archived, the rest gone', `select count(*) from public.problem_categories where host_id = '${WAGNER}';`, 2);
+check('all 27 archived, none deleted', `select count(*) from public.problem_categories where host_id = '${WAGNER}' and archived_at is not null;`, 27);
+check('a report queued on a phone before the rollback is still filed on its archived category', `${asVera}
+select priority || '/' || category_id from public.report_problem('f1149101-0000-4000-8000-000000000006', 'Wi-Fi', null, 'low',
+  900003101, null, '${WIFI}');`, `high/${WIFI}`);
+mustRefuse('a category a task points at cannot be deleted', `delete from public.problem_categories where id = '${WIFI}';`, /violates foreign key constraint/);
 must('core rollback again', file('docs/one-off-writes/problem-categories-rollback.sql'));
 must('migration repair --status reverted', `delete from supabase_migrations.schema_migrations where version = '${VERSION}';`);
 expectProbe('back to what the cloud read before', CLOUD_BEFORE);
 check('the tasks filed under a category keep their titles and urgencies',
   `select string_agg(title || '/' || priority, ', ' order by title) from public.problems where id::text like 'f1149101-%';`,
-  'Wi-Fi/high, Скрипит дверь/normal, Сломан стул/low, Смесители/normal, Течёт кран/high');
+  'Wi-Fi/high, Wi-Fi/high, Скрипит дверь/normal, Сломан стул/low, Смесители/normal, Течёт кран/high');
 must('a second push after the rollback',
   `${file(MIGRATION)}\ninsert into supabase_migrations.schema_migrations (version, name) values ('${VERSION}', 'problem_categories');`,
   ['--single-transaction']);

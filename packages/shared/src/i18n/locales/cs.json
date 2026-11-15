@@ -2696,7 +2696,7 @@
     "noPlaceMatch": "Nic nenalezeno",
     "categoryLabel": "Kategorie",
     "pickCategory": "Vyberte kategorii",
-    "searchCategories": "Začněte psát název",
+    "searchCategories": "Začněte psát název kategorie",
     "noCategoryMatch": "Nic nenalezeno",
     "categoryOption": "{{name}}, priorita: {{priority}}",
     "priorityFromCategory": "Prioritu určuje kategorie",
