@@ -15,7 +15,7 @@ import { OriginLines } from '@/features/problems/guest-origin';
 import { SourceBadge } from '@/features/problems/source-badge';
 import { useStaff } from '@/features/problems/use-problems';
 import { formatDateTime, todayIso } from '@/lib/format-date';
-import type { Language } from '@str-ops/shared';
+import { PROBLEM_LEVELS, storedUrgency, type Language, type ProblemLevel } from '@str-ops/shared';
 
 import {
   findingAge,
@@ -235,7 +235,8 @@ function Decide({ finding, words }: { finding: Finding; words: string | null }) 
     words ??
       `${t(`panel.guests.kind.${finding.kind}`)}: ${t(`panel.guests.subject.${finding.subject}`)}`,
   );
-  const [priority, setPriority] = useState(finding.urgency);
+  // The model's proposal to start from; the manager's choice is on the scale of four (20261115140000).
+  const [priority, setPriority] = useState<ProblemLevel>(finding.urgency);
   const [description, setDescription] = useState('');
   const [assigneeId, setAssigneeId] = useState('');
   const [date, setDate] = useState(todayIso());
@@ -250,7 +251,8 @@ function Decide({ finding, words }: { finding: Finding; words: string | null }) 
       findingId: finding.id,
       // The model's own words go with their translations; any other title is the manager's.
       title: title.trim() === words ? undefined : title.trim(),
-      priority,
+      // Critical goes as high with the flag (20261115090000).
+      ...storedUrgency(priority),
       description: description.trim() === '' ? undefined : description.trim(),
       assigneeId: assigneeId === '' ? undefined : assigneeId,
       scheduledDate: date,
@@ -273,9 +275,9 @@ function Decide({ finding, words }: { finding: Finding; words: string | null }) 
           {t('panel.guests.decide.priority')}
           <NativeSelect
             value={priority}
-            onChange={(e) => setPriority(e.target.value as typeof priority)}
+            onChange={(e) => setPriority(e.target.value as ProblemLevel)}
           >
-            {(['low', 'normal', 'high'] as const).map((p) => (
+            {PROBLEM_LEVELS.map((p) => (
               <option key={p} value={p}>
                 {t(`problems.priorities.${p}`)}
               </option>

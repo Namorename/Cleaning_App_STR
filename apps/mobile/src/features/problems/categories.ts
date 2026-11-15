@@ -1,4 +1,4 @@
-import { foldForSearch, problemLevel, type ProblemLevel } from '@str-ops/shared';
+import { foldForSearch, problemLevel, problemLevelRank, type ProblemLevel } from '@str-ops/shared';
 import { z } from 'zod';
 
 import { localizedText } from '@/features/steps/schema';
@@ -78,6 +78,19 @@ export interface IndexedCategory {
  * each translation and each synonym — a cleaner on an English screen may still
  * type «кран».
  */
+/**
+ * The order she picks from (owner, 2026-11-15): the least urgent on top — low, normal, high —
+ * and critical at the very bottom; within a level the catalogue's own order (the sort is stable).
+ * A category whose urgency could not be read leads, as one with none.
+ */
+export function inPickOrder(categories: readonly ProblemCategory[]): ProblemCategory[] {
+  const rank = (category: ProblemCategory) => {
+    const level = categoryLevel(category);
+    return level === null ? 0 : problemLevelRank(level);
+  };
+  return [...categories].sort((left, right) => rank(left) - rank(right));
+}
+
 export function indexCategories(categories: readonly ProblemCategory[]): IndexedCategory[] {
   return categories.map((category) => ({
     category,

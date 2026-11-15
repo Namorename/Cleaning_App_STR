@@ -367,6 +367,24 @@ describe('the «Гости» screen', () => {
     );
   });
 
+  // The manager's choice on the scale of four (20261115140000); the model's proposal is the start.
+  test('the manager may file it «Критическая»: high with the flag', async () => {
+    render(<GuestSignalsView isAdmin={false} />);
+    const levels = screen.getByLabelText('Срочность');
+    expect([...levels.querySelectorAll('option')].map((option) => option.textContent)).toEqual([
+      'Низкая',
+      'Обычная',
+      'Высокая',
+      'Критическая',
+    ]);
+    await userEvent.selectOptions(levels, 'Критическая');
+    await userEvent.click(screen.getByRole('button', { name: 'Создать задание' }));
+
+    expect(approve).toHaveBeenCalledWith(
+      expect.objectContaining({ findingId: FINDING_ID, priority: 'high', critical: true }),
+    );
+  });
+
   test('a rules card has no words: the manager writes the title, and it goes as written', async () => {
     state.findings = [
       finding({ summary: 'hot_water', summary_i18n: {}, detector: 'rules-v1', evidence: null }),

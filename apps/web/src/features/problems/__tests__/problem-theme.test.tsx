@@ -37,6 +37,24 @@ describe('ProblemThemeBlock', () => {
     expect(screen.queryByRole('button', { name: 'Вернуть автоматическую' })).not.toBeInTheDocument();
   });
 
+  // A task filed under a category (20261115150000).
+  test('a theme the category gives says so', () => {
+    open({ theme: 'plumbing', source: 'category' });
+
+    expect(screen.getByLabelText('Тема')).toHaveValue('plumbing');
+    expect(screen.getByText('Определена по категории')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Вернуть автоматическую' })).not.toBeInTheDocument();
+  });
+
+  test('«не проблема качества» by the category is shown as such, and a theme may still be chosen', async () => {
+    open({ theme: null, source: 'category', not_quality: true });
+
+    expect(screen.getByRole('option', { name: 'Не проблема качества', selected: true })).toBeInTheDocument();
+    expect(screen.getByText('Определена по категории')).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText('Тема'), 'wifi');
+    expect(state.write.mutate).toHaveBeenCalledWith('wifi');
+  });
+
   test('offers all the themes, and «без темы» only while there is none', () => {
     open(null);
 

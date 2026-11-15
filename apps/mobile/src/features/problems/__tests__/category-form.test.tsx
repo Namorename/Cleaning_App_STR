@@ -166,7 +166,8 @@ describe('a company that reports by catalogue', () => {
     });
     const urgency = screen.getByTestId('problem-category-priority');
     expect(within(urgency).getByText('Высокая')).toBeTruthy();
-    expect(within(urgency).getByText('Срочность задаётся категорией')).toBeTruthy();
+    // Only the chip: no caption under it (owner, 2026-11-15).
+    expect(within(urgency).queryByText('Срочность задаётся категорией')).toBeNull();
     expect(screen.queryAllByRole('radio')).toHaveLength(0);
 
     await fireEvent.changeText(screen.getByLabelText('Подробности'), 'Нет воды на кухне');

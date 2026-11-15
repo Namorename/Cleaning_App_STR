@@ -713,8 +713,10 @@
           "source": {
             "dict": "Určeno slovníkem",
             "signal": "Z recenze hosta",
-            "manual": "Nastaveno ručně"
+            "manual": "Nastaveno ručně",
+            "category": "Určeno kategorií"
           },
+          "notQuality": "Není problém kvality",
           "reset": "Zpět na automatické",
           "hint": "V Kvalitě objektů se změní do rána",
           "loadError": "Téma se nepodařilo načíst"
@@ -2700,7 +2702,6 @@
     "searchCategories": "Začněte psát název kategorie",
     "noCategoryMatch": "Nic nenalezeno",
     "categoryOption": "{{name}}, priorita: {{priority}}",
-    "priorityFromCategory": "Prioritu určuje kategorie",
     "cancelReason": "Důvod zrušení",
     "openFixTask": "Otevřít práci technika",
     "openChat": "Chat",

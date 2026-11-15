@@ -15,6 +15,7 @@ import { currentLanguage } from '@/i18n';
 import {
   categoryLevel,
   categoryName,
+  inPickOrder,
   indexCategories,
   matchCategories,
   type ProblemCategory,
@@ -52,7 +53,8 @@ export function CategoryPicker({
   const [query, setQuery] = useState('');
   const language = currentLanguage();
 
-  const index = useMemo(() => indexCategories(categories), [categories]);
+  // In the order she picks from, the search's answers too: low on top, critical last.
+  const index = useMemo(() => indexCategories(inPickOrder(categories)), [categories]);
   const shown = useMemo(() => matchCategories(index, query), [index, query]);
 
   const label = t('problems.categoryLabel');

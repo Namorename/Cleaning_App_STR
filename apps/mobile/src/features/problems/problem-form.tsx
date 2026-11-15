@@ -282,9 +282,6 @@ function CategoryField({ categories, draft, onChange, isDisabled, styles }: Cate
           <View style={styles.chips}>
             {priority !== null ? <PriorityChip priority={priority} /> : null}
           </View>
-          <Text variant="caption" tone="secondary">
-            {t('problems.priorityFromCategory')}
-          </Text>
         </View>
       ) : null}
     </>

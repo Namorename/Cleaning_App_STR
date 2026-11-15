@@ -267,6 +267,8 @@ export interface ApproveVariables {
   findingId: string;
   title?: string;
   priority?: Priority;
+  /** The level above high (20261115090000): priority high with this flag. */
+  critical?: boolean;
   description?: string;
   /** A technician to send at once; without one the task waits in «Открытые». */
   assigneeId?: string;
@@ -280,6 +282,7 @@ export async function approveFinding(client: Client, v: ApproveVariables): Promi
     p_finding_id: v.findingId,
     p_title: v.title,
     p_priority: v.priority,
+    p_critical: v.critical,
     p_description: v.description,
     p_assignee_id: v.assigneeId,
     p_scheduled_date: v.assigneeId === undefined ? undefined : v.scheduledDate,
@@ -310,6 +313,8 @@ export interface AddFindingVariables {
   subject: string;
   title: string;
   priority?: Priority;
+  /** The level above high (20261115090000): priority high with this flag. */
+  critical?: boolean;
   description?: string;
   assigneeId?: string;
   scheduledDate?: string;
@@ -323,6 +328,7 @@ export async function addFinding(client: Client, v: AddFindingVariables): Promis
     p_subject: v.subject,
     p_title: v.title,
     p_priority: v.priority,
+    p_critical: v.critical,
     p_description: v.description,
     p_assignee_id: v.assigneeId,
     p_scheduled_date: v.assigneeId === undefined ? undefined : v.scheduledDate,

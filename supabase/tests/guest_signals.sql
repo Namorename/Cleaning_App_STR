@@ -758,7 +758,7 @@ begin
      and not has_function_privilege('service_role', 'public.cut_signal_stay_links(uuid[])', 'execute')
      and not has_function_privilege('authenticated', 'public.purge_signal_data()', 'execute')
      and has_function_privilege('authenticated', 'public.signal_place_problems(uuid)', 'execute')
-     and has_function_privilege('authenticated', 'public.approve_signal_finding(uuid, text, public.problem_priority, uuid, text, uuid, date)', 'execute')
+     and has_function_privilege('authenticated', 'public.approve_signal_finding(uuid, text, public.problem_priority, uuid, text, uuid, date, boolean)', 'execute')
   then raise notice 'ok the job functions are closed to clients, the card''s list is open'; else raise exception 'FAIL grants'; end if;
 
   -- 16. the model ceiling: booked before the calls, under one lock.

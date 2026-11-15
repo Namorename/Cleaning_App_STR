@@ -13,7 +13,9 @@ const NO_THEME = '';
 
 /**
  * What the task is about (docs/property-intelligence-plan.md §4.5). The dictionary or the
- * finding names it; the manager's choice outranks both and the night leaves it alone.
+ * finding names it, or for a task filed under a category the category does — a theme, or «не
+ * проблема качества» (20261115150000); the manager's choice outranks them all and the night
+ * leaves it alone.
  */
 export function ProblemThemeBlock({ problemId }: { problemId: string }) {
   const { t } = useTranslation();
@@ -44,6 +46,9 @@ export function ProblemThemeBlock({ problemId }: { problemId: string }) {
       >
         {current === null ? (
           <option value={NO_THEME}>{t('panel.problems.detail.theme.none')}</option>
+        ) : null}
+        {current?.not_quality === true ? (
+          <option value={NO_THEME}>{t('panel.problems.detail.theme.notQuality')}</option>
         ) : null}
         {options.map(({ code, name }) => (
           <option key={code} value={code}>

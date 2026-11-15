@@ -1,5 +1,6 @@
 import {
   categoryName,
+  inPickOrder,
   indexCategories,
   matchCategories,
   problemCategoryListSchema,
@@ -153,5 +154,64 @@ describe('the schema of a category', () => {
     const [read] = problemCategoryListSchema.parse([{ ...raw, name_i18n: 3, synonyms: null }]);
     expect(read.name_i18n).toEqual({});
     expect(read.synonyms).toEqual([]);
+  });
+});
+
+describe('the order she picks from (owner, 2026-11-15)', () => {
+  const levelled = (
+    id: number,
+    name: string,
+    priority: ProblemCategory['priority'],
+    critical = false,
+  ): ProblemCategory => ({ ...category(id, name, {}), priority, critical });
+
+  // The catalogue's own order: P1 first, as the client wrote it.
+  const BY_CATALOGUE = [
+    levelled(1, 'Горячая вода', 'high', true),
+    levelled(2, 'Затопление', 'high', true),
+    levelled(3, 'Wi-Fi', 'high'),
+    levelled(4, 'Плита', 'high'),
+    levelled(5, 'Мебель', 'normal'),
+    levelled(6, 'Смесители', 'normal'),
+    levelled(7, 'Декор', 'low'),
+    levelled(8, 'Царапины', 'low'),
+  ];
+
+  test('low on top, then normal, high, and critical at the very bottom; the catalogue order within a level', () => {
+    expect(inPickOrder(BY_CATALOGUE).map((item) => item.name)).toEqual([
+      'Декор',
+      'Царапины',
+      'Мебель',
+      'Смесители',
+      'Wi-Fi',
+      'Плита',
+      'Горячая вода',
+      'Затопление',
+    ]);
+  });
+
+  test('the search answers in the same order, still by the start of a word', () => {
+    const withVase = BY_CATALOGUE.map((item) =>
+      item.name === 'Декор' ? { ...item, synonyms: ['ваза'] } : item,
+    );
+    const ordered = indexCategories(inPickOrder(withVase));
+    const hit = (query: string) => matchCategories(ordered, query).map((item) => item.name);
+
+    expect(hit('')).toEqual(inPickOrder(withVase).map((item) => item.name));
+    // «в»: «Декор» (low, by «ваза») before «Горячая вода» (critical), whatever the catalogue said.
+    expect(hit('в')).toEqual(['Декор', 'Горячая вода']);
+    // Still the start of a word only.
+    expect(hit('ода')).toEqual([]);
+  });
+
+  test('a category whose urgency could not be read leads, as one with none', () => {
+    const unknown = levelled(9, 'Новая', null);
+    expect(inPickOrder([...BY_CATALOGUE, unknown])[0].name).toBe('Новая');
+  });
+
+  test('the list is not reordered in place', () => {
+    const before = BY_CATALOGUE.map((item) => item.id);
+    inPickOrder(BY_CATALOGUE);
+    expect(BY_CATALOGUE.map((item) => item.id)).toEqual(before);
   });
 });

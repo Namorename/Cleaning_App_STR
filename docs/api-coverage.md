@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 46 | 292 | 358 |
+| Функции | 20 | 46 | 293 | 359 |
 | Таблицы и представления | 9 | 21 | 25 | 55 |
-| Всего | 29 | 67 | 317 | 413 |
+| Всего | 29 | 67 | 318 | 414 |
 
 ## Функции
 
@@ -92,7 +92,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 292
+### Внутреннее — 293
 
 | Имя | Причина |
 | --- | --- |
@@ -295,6 +295,7 @@
 | `record_push_results` | push plumbing: send-push settles sent groups and tickets, service_role only |
 | `record_signal_feedback` | helper of the manager's levers: writes one verdict on a finding to signal_feedback, no text; execute revoked from every role |
 | `record_webhook_event` | Hostaway webhook intake (hostaway-webhook), service_role only |
+| `refresh_category_themes` | the nightly quality refresh and a one-off binding script set the themes of catalogue tasks by their category; execute revoked from clients |
 | `refresh_property_quality` | the nightly job of property quality |
 | `refresh_quality_areas` | the nightly job of property quality |
 | `register_push_token` | forbidden: push tokens (the signed-in phone registers its Expo token) |

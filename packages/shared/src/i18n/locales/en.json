@@ -711,8 +711,10 @@
           "source": {
             "dict": "Found by the dictionary",
             "signal": "From a guest review",
-            "manual": "Set by hand"
+            "manual": "Set by hand",
+            "category": "Set by the category"
           },
+          "notQuality": "Not a quality issue",
           "reset": "Back to automatic",
           "hint": "Property quality updates by the morning",
           "loadError": "Could not load the theme"
@@ -2656,7 +2658,6 @@
     "searchCategories": "Start typing a category name",
     "noCategoryMatch": "Nothing matches",
     "categoryOption": "{{name}}, priority: {{priority}}",
-    "priorityFromCategory": "The category sets the priority",
     "cancelReason": "Reason for cancelling",
     "openFixTask": "Open the technician's job",
     "openChat": "Chat",

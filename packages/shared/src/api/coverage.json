@@ -1296,6 +1296,11 @@
       "reason": "Hostaway webhook intake (hostaway-webhook), service_role only",
       "defined_in": "20260828090000_webhook_event_id_from_data.sql"
     },
+    "refresh_category_themes": {
+      "status": "internal",
+      "reason": "the nightly quality refresh and a one-off binding script set the themes of catalogue tasks by their category; execute revoked from clients",
+      "defined_in": "20261115150000_category_themes.sql"
+    },
     "refresh_property_quality": {
       "status": "internal",
       "reason": "the nightly job of property quality",

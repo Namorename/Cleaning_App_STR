@@ -1,8 +1,15 @@
-import { PLAN_STEP_KINDS, type Tone } from '@str-ops/shared';
+import {
+  PLAN_STEP_KINDS,
+  PROBLEM_LEVELS,
+  problemLevel,
+  type ProblemLevel,
+  type Tone,
+} from '@str-ops/shared';
 import { z } from 'zod';
 
-export const PLAN_PRIORITIES = ['low', 'normal', 'high'] as const;
-export type PlanPriority = (typeof PLAN_PRIORITIES)[number];
+/** The manager's choice for a step: the scale of four, «Критическая» last (20261115140000). */
+export const PLAN_PRIORITIES = PROBLEM_LEVELS;
+export type PlanPriority = ProblemLevel;
 
 const planStepSchema = z.object({
   id: z.uuid(),
@@ -14,13 +21,18 @@ const planStepSchema = z.object({
   assignee_id: z.uuid().nullable(),
   assignee_name: z.string().nullable(),
   due_on: z.string().nullable(),
-  priority: z.enum(PLAN_PRIORITIES).catch('normal'),
+  priority: z.enum(['low', 'normal', 'high']).catch('normal'),
+  // The level above high, beside a priority that reads high (20261115140000); absent before it.
+  critical: z.boolean().catch(false).optional(),
   linked_problem_id: z.uuid().nullable(),
   launched_at: z.string().nullable(),
   state: z.enum(['draft', 'open', 'closed']),
   work_status: z.string().nullable(),
   closed_at: z.string().nullable(),
-});
+}).transform(({ critical, ...step }) => ({
+  ...step,
+  priority: problemLevel({ priority: step.priority, critical }) as PlanPriority,
+}));
 export type PlanStep = z.infer<typeof planStepSchema>;
 
 export const PLAN_STATUSES = ['draft', 'launched', 'done', 'cancelled'] as const;

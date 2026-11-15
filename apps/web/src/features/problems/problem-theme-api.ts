@@ -4,8 +4,10 @@ import type { Client } from './api';
 
 const problemThemeSchema = z
   .object({
-    theme: z.string(),
-    source: z.enum(['signal', 'dict', 'manual']),
+    // Null only where the category says «не проблема качества» (20261115150000).
+    theme: z.string().nullable(),
+    source: z.enum(['signal', 'dict', 'manual', 'category']),
+    not_quality: z.boolean().catch(false).default(false),
   })
   .nullable();
 

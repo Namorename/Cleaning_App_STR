@@ -1417,9 +1417,11 @@ export type Database = {
           id: string
           name: string
           name_i18n: Json
+          not_quality: boolean
           priority: Database["public"]["Enums"]["problem_priority"]
           sort_order: number
           synonyms: string[]
+          theme: string | null
           updated_at: string
         }
         Insert: {
@@ -1430,9 +1432,11 @@ export type Database = {
           id?: string
           name: string
           name_i18n?: Json
+          not_quality?: boolean
           priority: Database["public"]["Enums"]["problem_priority"]
           sort_order?: number
           synonyms?: string[]
+          theme?: string | null
           updated_at?: string
         }
         Update: {
@@ -1443,9 +1447,11 @@ export type Database = {
           id?: string
           name?: string
           name_i18n?: Json
+          not_quality?: boolean
           priority?: Database["public"]["Enums"]["problem_priority"]
           sort_order?: number
           synonyms?: string[]
+          theme?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1455,6 +1461,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hosts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "problem_categories_theme_fkey"
+            columns: ["theme"]
+            isOneToOne: false
+            referencedRelation: "issue_themes"
+            referencedColumns: ["code"]
           },
         ]
       }
@@ -2261,6 +2274,7 @@ export type Database = {
         Row: {
           assignee_id: string | null
           created_at: string
+          critical: boolean
           decided_at: string | null
           decided_by: string | null
           description: string | null
@@ -2281,6 +2295,7 @@ export type Database = {
         Insert: {
           assignee_id?: string | null
           created_at?: string
+          critical?: boolean
           decided_at?: string | null
           decided_by?: string | null
           description?: string | null
@@ -2301,6 +2316,7 @@ export type Database = {
         Update: {
           assignee_id?: string | null
           created_at?: string
+          critical?: boolean
           decided_at?: string | null
           decided_by?: string | null
           description?: string | null
@@ -3790,6 +3806,7 @@ export type Database = {
       add_signal_finding: {
         Args: {
           p_assignee_id?: string
+          p_critical?: boolean
           p_description?: string
           p_kind: Database["public"]["Enums"]["signal_finding_kind"]
           p_priority?: Database["public"]["Enums"]["problem_priority"]
@@ -4492,6 +4509,7 @@ export type Database = {
       approve_signal_finding: {
         Args: {
           p_assignee_id?: string
+          p_critical?: boolean
           p_description?: string
           p_finding_id: string
           p_link_problem_id?: string
@@ -5506,9 +5524,11 @@ export type Database = {
           id: string
           name: string
           name_i18n: Json
+          not_quality: boolean
           priority: Database["public"]["Enums"]["problem_priority"]
           sort_order: number
           synonyms: string[]
+          theme: string | null
           updated_at: string
         }
         SetofOptions: {
@@ -5786,6 +5806,7 @@ export type Database = {
         Args: { event_payload: Json; event_source?: string }
         Returns: number
       }
+      refresh_category_themes: { Args: { p_host: string }; Returns: number }
       refresh_property_quality: { Args: { p_host_id?: string }; Returns: Json }
       refresh_quality_areas: { Args: { p_host: string }; Returns: number }
       register_push_token: {

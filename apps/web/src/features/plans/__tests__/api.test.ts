@@ -3,7 +3,8 @@ import { describe, expect, test, vi } from 'vitest';
 import { problemSchema } from '@/features/problems/schema';
 
 import { fetchPlan, launchPlan, savePlan, type Client } from '../api';
-import type { DraftStep } from '../draft-model';
+import { wireStep, type DraftStep } from '../draft-model';
+import { PLAN_PRIORITIES, planSchema } from '../schema';
 
 const PLAN_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -70,6 +71,41 @@ describe('the plans API', () => {
     const { client } = clientAnswering(null, refusal);
 
     await expect(launchPlan(client, PLAN_ID, 2)).rejects.toBe(refusal);
+  });
+});
+
+describe('the level above high on a step (20261115140000)', () => {
+  test('a step that reads high with the flag is «Критическая»; without it, high', () => {
+    const answered = {
+      id: '33333333-3333-4333-8333-333333333333',
+      theme: 'plumbing',
+      kind: 'repair',
+      title: 'Fix the pipe',
+      title_i18n: {},
+      description: null,
+      assignee_id: null,
+      assignee_name: null,
+      due_on: null,
+      priority: 'high',
+      linked_problem_id: null,
+      launched_at: null,
+      state: 'draft',
+      work_status: null,
+      closed_at: null,
+    };
+    const read = planSchema.parse({
+      ...plan,
+      steps: [
+        { ...answered, critical: true },
+        { ...answered, id: '22222222-2222-4222-8222-222222222222' },
+      ],
+    });
+    expect(read.steps.map((item) => item.priority)).toEqual(['critical', 'high']);
+  });
+
+  test('the step goes out as the level: the server reads «critical» as high with the flag', () => {
+    expect(wireStep({ ...step, priority: 'critical' }).priority).toBe('critical');
+    expect(PLAN_PRIORITIES).toEqual(['low', 'normal', 'high', 'critical']);
   });
 });
 

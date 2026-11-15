@@ -402,6 +402,33 @@ Deno.test("a write takes its idempotency key from the arguments, and a replay sa
   assertEquals(call.args.p_priority, "high");
 });
 
+// The level above high (20261115090000): the tool takes "critical" as the API does, and refuses a
+// value outside the four before anything is sent.
+Deno.test("create_task files a critical task, and refuses a priority it does not know", async () => {
+  const task = { id: UUID, title: "Burst pipe", priority: "high", critical: true };
+  const { mcp, calls } = await setup({
+    answers: { api_v1_create_task: () => ({ data: { status: 201, body: task, replayed: false }, error: null }) },
+  });
+
+  const payload = await body(
+    await mcp(rpcRequest("tools/call", {
+      name: "create_task",
+      arguments: { idempotency_key: "idem-critical", title: "Burst pipe", priority: "critical" },
+    })),
+  );
+  assertEquals(toolJson(payload).data, task);
+  assertEquals(callsOf(calls, "api_v1_create_task")[0].args.p_priority, "critical");
+
+  const refused = await body(
+    await mcp(rpcRequest("tools/call", {
+      name: "create_task",
+      arguments: { idempotency_key: "idem-urgent", title: "Burst pipe", priority: "urgent" },
+    })),
+  );
+  assertEquals(resultOf(refused).isError, true);
+  assertEquals(callsOf(calls, "api_v1_create_task").length, 1);
+});
+
 Deno.test("a write without an idempotency key is not sent", async () => {
   const { mcp, calls } = await setup();
   const payload = await body(
