@@ -48,7 +48,7 @@
 ```bash
 HEAD_WANT=20261111140000
 LIST_WANT="20261115100000_problem_categories.sql"
-SHA_WANT=<sha256 файла миграции, см. «Проверки»>
+SHA_WANT=bf83d13dcdbd69090d954c6afbab814d059c7280a743c010d8a8db4414703a9a
 [ "$(sha256sum supabase/migrations/20261115100000_problem_categories.sql | cut -d' ' -f1)" = "$SHA_WANT" ] &&
 [ "$(node scripts/cloud-read.mjs docs/rollout/remote_head.sql |
      node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s)[0].head))')" = "$HEAD_WANT" ] &&
@@ -111,7 +111,7 @@ npx supabase db query --linked -f docs/one-off-writes/wagner-problem-report-mode
 **8. Пробы после выката:**
 - каталог читается с сервера: `probe_wagner_problem_categories.sql`, `live` 27;
 - сервер ставит срочность по категории, запрос без категории — как раньше:
-  `npx supabase db query --linked -f docs/rollout/probe_wagner_report_rolled_back.sql`.
+  `npx supabase db query --linked -f docs/one-off-writes/wagner-probe-report-rolled-back.sql`.
   Ответ — ошибка с текстом `PROBE OK: …`, транзакция откатывается целиком (отрепетировано: заданий и
   пушей после пробы столько же);
 - для компаний без настройки ничего не изменилось: `other_companies_not_free_text` 0, а набор
@@ -158,7 +158,7 @@ node docs/rollout/rehearsal-db-1028.mjs drop
 - отчёт, выбранный до отката, ложится на архивную категорию (Wi-Fi, `high`);
 - категорию, на которую есть задание, удалить нельзя;
 - откат ядра даёт облачную пробу «до»; повторный push снова даёт «после»;
-- проба `probe_wagner_report_rolled_back.sql` даёт `PROBE OK`, заданий и пушей после неё столько же.
+- проба `wagner-probe-report-rolled-back.sql` даёт `PROBE OK`, заданий и пушей после неё столько же.
 
 ## Независимый обзор (15.11)
 
@@ -189,4 +189,20 @@ node docs/rollout/rehearsal-db-1028.mjs drop
 
 ## Проверки ветки
 
-Заполняется по последнему коммиту — раздел «Итог» ниже.
+Коммит `1c9facc` (миграция не менялась и после него), sha256 миграции
+`bf83d13dcdbd69090d954c6afbab814d059c7280a743c010d8a8db4414703a9a`.
+
+| Проверка | Итог |
+|---|---|
+| SQL, `npm run test:rls` после `db:reset` | 62 набора, 3061 проверка (до ветки 61 / 3007); новый набор — 54 |
+| типы `db:types` | совпадают с коммитом |
+| телефон | `tsc` чисто; `expo lint` 0 ошибок (3 старых предупреждения); jest 219 наборов / 3680 тестов (до ветки 214 / 3586 на 11.11) |
+| панель | `tsc` чисто, `eslint` чисто, vitest 206 файлов / 2941 тест, включая паритет API |
+| скрипты | `test:scripts` 70 / 70 (откатываемая проба лежит в `docs/one-off-writes/`: `docs/rollout/*.sql` обязаны проходить заставу чтения) |
+| функции | `test:fn` 706 / 706; функции не менялись |
+| API | `npm run api:docs` меняет только `docs/api-coverage.md`; `openapi.v1.json` и каталог MCP те же |
+| репетиция | REHEARSAL GREEN (выше) |
+| облако | проба 10:05 UTC 15.11 = проба 01:39 UTC: ничего не тронуто |
+
+Сборка панели (`next build`) не запускалась: выката нет, а код панели не менялся. Перед выкатом —
+по рецепту с заглушками `NEXT_PUBLIC_*`.

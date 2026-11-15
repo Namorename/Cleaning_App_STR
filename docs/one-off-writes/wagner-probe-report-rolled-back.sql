@@ -3,7 +3,7 @@
 -- rolls back. Nothing it writes survives — not the two tasks, not the head technician's push in
 -- raw.push_outbox (send-push reads committed rows only).
 --
---   npx supabase db query --linked -f docs/rollout/probe_wagner_report_rolled_back.sql
+--   npx supabase db query --linked -f docs/one-off-writes/wagner-probe-report-rolled-back.sql
 --
 -- It runs on the write-capable connection, so only on the owner's word (named in the rollout
 -- prompt of 2026-11-14 as «пробы после выкатки»), never in 03:00–04:40 UTC. Its answer is an
