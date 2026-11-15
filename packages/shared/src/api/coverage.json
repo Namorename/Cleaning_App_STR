@@ -1045,6 +1045,11 @@
       "reason": "finds or opens the chat thread of a cleaning, task or staff member (replayable)",
       "defined_in": "20260918120000_chat.sql"
     },
+    "problem_category_for_report": {
+      "status": "internal",
+      "reason": "lookup helper of report_problem/update_problem: the caller's company's category, archived or not; execute revoked from clients",
+      "defined_in": "20261115100000_problem_categories.sql"
+    },
     "problem_description_max_length": {
       "status": "internal",
       "reason": "validation limit constant of report_problem/update_problem",
@@ -2048,6 +2053,11 @@
       "status": "internal",
       "reason": "MCP sign-in: access and refresh tokens of connections, as digests.",
       "defined_in": "20261109120000_mcp_oauth.sql"
+    },
+    "problem_categories": {
+      "status": "internal",
+      "reason": "CLIENT:Wagnerstays reporting aid (owner 2026-11-14): the catalogue a cleaner picks a task's category from on the phone when hosts.problem_report_mode is catalog; loaded by a one-off script, no screen or API write yet; a task's category reaches the API with Task when the catalogue gets an editor",
+      "defined_in": "20261115100000_problem_categories.sql"
     },
     "problem_events": {
       "status": "planned",

@@ -846,6 +846,7 @@ export type Database = {
           kb_techs_read_all: boolean
           name: string
           parallel_start_allowed: boolean
+          problem_report_mode: string
           quality_areas_on: string | null
           quality_city_groups: boolean
           quality_comments_on: boolean
@@ -862,6 +863,7 @@ export type Database = {
           kb_techs_read_all?: boolean
           name: string
           parallel_start_allowed?: boolean
+          problem_report_mode?: string
           quality_areas_on?: string | null
           quality_city_groups?: boolean
           quality_comments_on?: boolean
@@ -878,6 +880,7 @@ export type Database = {
           kb_techs_read_all?: boolean
           name?: string
           parallel_start_allowed?: boolean
+          problem_report_mode?: string
           quality_areas_on?: string | null
           quality_city_groups?: boolean
           quality_comments_on?: boolean
@@ -1405,6 +1408,53 @@ export type Database = {
           },
         ]
       }
+      problem_categories: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          host_id: string
+          id: string
+          name: string
+          name_i18n: Json
+          priority: Database["public"]["Enums"]["problem_priority"]
+          sort_order: number
+          synonyms: string[]
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          host_id?: string
+          id?: string
+          name: string
+          name_i18n?: Json
+          priority: Database["public"]["Enums"]["problem_priority"]
+          sort_order?: number
+          synonyms?: string[]
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          host_id?: string
+          id?: string
+          name?: string
+          name_i18n?: Json
+          priority?: Database["public"]["Enums"]["problem_priority"]
+          sort_order?: number
+          synonyms?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "problem_categories_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "hosts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       problem_events: {
         Row: {
           actor_id: string | null
@@ -1518,6 +1568,7 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          category_id: string | null
           closed_at: string | null
           closed_by: string | null
           closed_cause: string | null
@@ -1544,6 +1595,7 @@ export type Database = {
           archived_at?: string | null
           cancel_reason?: string | null
           cancelled_at?: string | null
+          category_id?: string | null
           closed_at?: string | null
           closed_by?: string | null
           closed_cause?: string | null
@@ -1570,6 +1622,7 @@ export type Database = {
           archived_at?: string | null
           cancel_reason?: string | null
           cancelled_at?: string | null
+          category_id?: string | null
           closed_at?: string | null
           closed_by?: string | null
           closed_cause?: string | null
@@ -1593,6 +1646,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "problems_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "problem_categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "problems_host_id_fkey"
             columns: ["host_id"]
@@ -4467,6 +4527,7 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          category_id: string | null
           closed_at: string | null
           closed_by: string | null
           closed_cause: string | null
@@ -4528,6 +4589,7 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          category_id: string | null
           closed_at: string | null
           closed_by: string | null
           closed_cause: string | null
@@ -4569,6 +4631,7 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          category_id: string | null
           closed_at: string | null
           closed_by: string | null
           closed_cause: string | null
@@ -5253,6 +5316,7 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          category_id: string | null
           closed_at: string | null
           closed_by: string | null
           closed_cause: string | null
@@ -5414,6 +5478,27 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      problem_category_for_report: {
+        Args: { p_category_id: string }
+        Returns: {
+          archived_at: string | null
+          created_at: string
+          host_id: string
+          id: string
+          name: string
+          name_i18n: Json
+          priority: Database["public"]["Enums"]["problem_priority"]
+          sort_order: number
+          synonyms: string[]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "problem_categories"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       problem_description_max_length: { Args: never; Returns: number }
       problem_for_dispatch: {
         Args: { p_id: string }
@@ -5421,6 +5506,7 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          category_id: string | null
           closed_at: string | null
           closed_by: string | null
           closed_cause: string | null
@@ -5456,6 +5542,7 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          category_id: string | null
           closed_at: string | null
           closed_by: string | null
           closed_cause: string | null
@@ -5772,6 +5859,7 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          category_id: string | null
           closed_at: string | null
           closed_by: string | null
           closed_cause: string | null
@@ -5850,6 +5938,7 @@ export type Database = {
       }
       report_problem: {
         Args: {
+          p_category_id?: string
           p_description?: string
           p_id: string
           p_priority?: Database["public"]["Enums"]["problem_priority"]
@@ -5861,6 +5950,7 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          category_id: string | null
           closed_at: string | null
           closed_by: string | null
           closed_cause: string | null
@@ -5962,6 +6052,7 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          category_id: string | null
           closed_at: string | null
           closed_by: string | null
           closed_cause: string | null
@@ -6798,6 +6889,7 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          category_id: string | null
           closed_at: string | null
           closed_by: string | null
           closed_cause: string | null
@@ -6833,6 +6925,7 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          category_id: string | null
           closed_at: string | null
           closed_by: string | null
           closed_cause: string | null
@@ -6890,6 +6983,7 @@ export type Database = {
           kb_techs_read_all: boolean
           name: string
           parallel_start_allowed: boolean
+          problem_report_mode: string
           quality_areas_on: string | null
           quality_city_groups: boolean
           quality_comments_on: boolean
@@ -6907,6 +7001,7 @@ export type Database = {
       }
       update_problem: {
         Args: {
+          p_category_id?: string
           p_description?: string
           p_id: string
           p_priority?: Database["public"]["Enums"]["problem_priority"]
@@ -6916,6 +7011,7 @@ export type Database = {
           archived_at: string | null
           cancel_reason: string | null
           cancelled_at: string | null
+          category_id: string | null
           closed_at: string | null
           closed_by: string | null
           closed_cause: string | null

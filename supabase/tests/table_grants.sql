@@ -61,6 +61,9 @@ insert into wanted values
   ('checklist_items',      'SELECT'),
   ('task_media',           'SELECT'),
   ('problems',             'SELECT'),
+  -- The catalogue a cleaner picks a task's category from (20261115100000):
+  -- read by the staff, written by no client — a one-off script loads it.
+  ('problem_categories',   'SELECT'),
   -- Guest signals and what was found in them (20261030110000): the jobs
   -- write through ingest_guest_reviews and apply_signal_findings, the office
   -- through approve/reject/add_signal_finding, mark_signal_false_positive

@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 46 | 290 | 356 |
-| Таблицы и представления | 9 | 21 | 24 | 54 |
-| Всего | 29 | 67 | 314 | 410 |
+| Функции | 20 | 46 | 291 | 357 |
+| Таблицы и представления | 9 | 21 | 25 | 55 |
+| Всего | 29 | 67 | 316 | 412 |
 
 ## Функции
 
@@ -92,7 +92,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 290
+### Внутреннее — 291
 
 | Имя | Причина |
 | --- | --- |
@@ -246,6 +246,7 @@
 | `oauth_store_tokens` | MCP sign-in: keeps the digests of a connection's new tokens. |
 | `open_cleanings_by_listing` | panel registry counter of open cleanings per listing; derivable from GET /v1/cleanings |
 | `open_task_step` | phone-only flow of the cleaner at work (task steps): stamps the first opening of a step |
+| `problem_category_for_report` | lookup helper of report_problem/update_problem: the caller's company's category, archived or not; execute revoked from clients |
 | `problem_description_max_length` | validation limit constant of report_problem/update_problem |
 | `problem_for_dispatch` | lock-and-check helper of assign_problem/unassign_problem; execute revoked from clients |
 | `problem_for_manager` | lock-and-check helper of the manager problem RPCs; execute revoked from clients |
@@ -429,7 +430,7 @@
 | `workflow_steps` | `checklists:read` | steps of a process template |
 | `workflow_templates` | `checklists:read` | process templates a cleaning follows |
 
-### Внутреннее — 24
+### Внутреннее — 25
 
 | Имя | Причина |
 | --- | --- |
@@ -446,6 +447,7 @@
 | `oauth_clients` | MCP sign-in: dynamically registered OAuth clients. |
 | `oauth_codes` | MCP sign-in: authorization codes, as digests. |
 | `oauth_tokens` | MCP sign-in: access and refresh tokens of connections, as digests. |
+| `problem_categories` | CLIENT:Wagnerstays reporting aid (owner 2026-11-14): the catalogue a cleaner picks a task's category from on the phone when hosts.problem_report_mode is catalog; loaded by a one-off script, no screen or API write yet; a task's category reaches the API with Task when the catalogue gets an editor |
 | `problem_themes` | the theme of a problem, beside it |
 | `property_internal_notes` | office-only note of a listing ("never leaves the manager panel"); free text that may hold access details |
 | `property_month_stats` | stays and nights by month, read from the PMS |
