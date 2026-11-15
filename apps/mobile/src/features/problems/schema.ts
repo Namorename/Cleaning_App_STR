@@ -1,7 +1,7 @@
 import { problemLevel, type ProblemLevel } from '@str-ops/shared';
 import { z } from 'zod';
 
-import { categoryLevel, type ProblemCategory } from './categories';
+import type { ProblemCategory } from './categories';
 import { closingFields } from './closing';
 import { shownTitle, signalSourceFields } from './signal-source';
 
@@ -171,7 +171,11 @@ export function draftWithCategory(
     ...draft,
     categoryId: category.id,
     title: name,
-    priority: categoryLevel(category) ?? draft.priority,
+    // The category's level (categories.ts `categoryLevel`, not imported: it imports this file).
+    priority:
+      category.priority === null
+        ? draft.priority
+        : problemLevel({ priority: category.priority, critical: category.critical }),
   };
 }
 

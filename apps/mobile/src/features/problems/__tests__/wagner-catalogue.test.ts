@@ -28,7 +28,7 @@ const ROW =
 
 /** The script's `levels` block: ('P1', 'high'::public.problem_priority, true) */
 const LEVEL =
-  /('(P[1-4])', '(low|normal|high)'::public.problem_priority, (true|false))/g;
+  /\('(P[1-4])', '(low|normal|high)'::public\.problem_priority, (true|false)\)/g;
 
 const levels = new Map(
   [...SCRIPT.matchAll(LEVEL)].map((match) => [

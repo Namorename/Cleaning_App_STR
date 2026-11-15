@@ -126,14 +126,15 @@ describe('the bars', () => {
     expect(cleanerBars(rows, 'initials', 'en')[0].label).toBe('A. N.');
   });
 
-  test('the urgency bars, low to high, in the page language', () => {
+  test('the urgency bars, low to critical, in the page language', () => {
     const bars = urgencyBars(SUMMARY, i18n.getFixedT('en'), 'en');
     expect(bars.map((bar) => [bar.id, bar.value])).toEqual([
       ['low', 1],
       ['normal', 0],
       ['high', 2],
+      ['critical', 1],
     ]);
-    expect(bars.map((bar) => bar.label)).toEqual(['Low', 'Normal', 'High']);
+    expect(bars.map((bar) => bar.label)).toEqual(['Low', 'Normal', 'High', 'Critical']);
     expect(urgencyBars(undefined, i18n.getFixedT('en'), 'en')).toEqual([]);
   });
 

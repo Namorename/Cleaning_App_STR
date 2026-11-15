@@ -222,7 +222,13 @@ describe('the typed title stays where the catalogue is not', () => {
     await render(<Harness initial={EMPTY_PROBLEM_DRAFT} categories={null} />);
 
     expect(screen.getByLabelText('Что случилось')).toBeTruthy();
-    expect(screen.getAllByRole('radio')).toHaveLength(3);
+    // The scale of four, «Критическая» last (20261115090000).
+    expect(screen.getAllByRole('radio').map((radio) => radio.props.accessibilityLabel)).toEqual([
+      'Низкая',
+      'Обычная',
+      'Высокая',
+      'Критическая',
+    ]);
     expect(screen.queryByRole('button', { name: 'Категория' })).toBeNull();
   });
 

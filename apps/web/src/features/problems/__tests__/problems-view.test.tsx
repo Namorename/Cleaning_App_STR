@@ -283,6 +283,7 @@ describe('a new task', () => {
       title: 'Сломан замок',
       description: 'Входная дверь',
       priority: 'high',
+      critical: false,
       propertyId: 2,
     });
     expect(push).toHaveBeenCalledWith(`/problems/${variables.problemId}`);
@@ -304,7 +305,12 @@ describe('a new task', () => {
     await userEvent.click(within(form).getByRole('button', { name: 'Создать' }));
 
     const [variables] = report.mock.calls[0];
-    expect(variables).toMatchObject({ description: '', priority: 'normal', propertyId: null });
+    expect(variables).toMatchObject({
+      description: '',
+      priority: 'normal',
+      critical: false,
+      propertyId: null,
+    });
     // The page returns to the view the task was created from.
     expect(push).toHaveBeenCalledWith(`/problems/${variables.problemId}?view=list`);
   });
@@ -803,5 +809,62 @@ describe('the mark of an unread message', () => {
       'href',
       `/problems/${archived.id}?view=archive`,
     );
+  });
+});
+
+describe('the level above high, «Критическая» (20261115090000)', () => {
+  const critical: Problem = problemSchema.parse({ ...problems[0], critical: true });
+
+  async function openForm() {
+    await userEvent.click(screen.getByRole('button', { name: 'Новое задание' }));
+    return screen.findByRole('dialog', { name: 'Новое задание' });
+  }
+
+  const badgeOf = (word: HTMLElement) => word.closest('[data-slot="badge"]') ?? word;
+
+  test('a critical task carries «Критическая» in the strongest tone on the board', () => {
+    useProblems.mockReturnValue({ data: [critical, problems[1]], isPending: false, isError: false });
+    render(<ProblemsView />);
+
+    expect(badgeOf(screen.getByText('Критическая'))).toHaveClass('bg-tone-critical-mark');
+    expect(screen.queryByText('Высокая')).not.toBeInTheDocument();
+  });
+
+  test('and in the list', () => {
+    useProblems.mockReturnValue({ data: [critical, problems[1]], isPending: false, isError: false });
+    window.history.pushState(null, '', '/problems?view=list');
+    render(<ProblemsView />);
+
+    expect(badgeOf(screen.getByText('Критическая'))).toHaveClass('bg-tone-critical-mark');
+  });
+
+  test('a high one stays «Высокая» in the urgent tone', () => {
+    useProblems.mockReturnValue({ data: problems, isPending: false, isError: false });
+    render(<ProblemsView />);
+
+    expect(badgeOf(screen.getByText('Высокая'))).toHaveClass('bg-tone-urgent-bg');
+  });
+
+  test('the new task offers four levels and files «Критическая» as high with the flag', async () => {
+    useProblems.mockReturnValue({ data: problems, isPending: false, isError: false });
+    report.mockImplementation((variables, options) =>
+      options?.onSuccess?.({ id: variables.problemId }),
+    );
+    render(<ProblemsView />);
+    const form = await openForm();
+
+    const levels = within(within(form).getByLabelText('Срочность')).getAllByRole('option');
+    expect(levels.map((option) => option.textContent)).toEqual([
+      'Низкая',
+      'Обычная',
+      'Высокая',
+      'Критическая',
+    ]);
+    await userEvent.selectOptions(within(form).getByLabelText('Объект'), 'Karlín 3');
+    await userEvent.type(within(form).getByLabelText('Что случилось'), 'Прорвало трубу');
+    await userEvent.selectOptions(within(form).getByLabelText('Срочность'), 'Критическая');
+    await userEvent.click(within(form).getByRole('button', { name: 'Создать' }));
+
+    expect(report.mock.calls[0][0]).toMatchObject({ priority: 'high', critical: true });
   });
 });

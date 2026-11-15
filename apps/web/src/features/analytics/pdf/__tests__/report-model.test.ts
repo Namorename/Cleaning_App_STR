@@ -153,7 +153,7 @@ describe('buildReportModel', () => {
     expect(model.barCharts[0].items).toEqual([
       { label: 'Old Town flat', value: 3, valueText: '3', selected: false },
     ]);
-    expect(model.barCharts[2].items.map((item) => item.label)).toEqual(['Low', 'Normal', 'High']);
+    expect(model.barCharts[2].items.map((item) => item.label)).toEqual(['Low', 'Normal', 'High', 'Critical']);
   });
 
   test('the bars the page is filtered to are marked, as the screen marks them', () => {
@@ -162,7 +162,7 @@ describe('buildReportModel', () => {
     );
     expect(model.barCharts[0].items.map((item) => item.selected)).toEqual([false]);
     expect(model.barCharts[1].items.map((item) => item.selected)).toEqual([true]);
-    expect(model.barCharts[2].items.map((item) => item.selected)).toEqual([false, false, true]);
+    expect(model.barCharts[2].items.map((item) => item.selected)).toEqual([false, false, true, false]);
   });
 
   test('a cleaner picked outside the busiest bars is added after them, marked; the rest dimmed', () => {

@@ -39,6 +39,8 @@ export const boardProblemSchema = z.object({
   // while its switch is off, and from a phone's saved copy of an older build.
   ...signalSourceFields,
   priority: z.enum(PROBLEM_PRIORITIES),
+  // The level above high (20261115090000); absent from a copy an older build saved.
+  critical: z.boolean().catch(false).optional(),
   status: z.enum(PROBLEM_STATUSES),
   archived_at: z.string().nullable().default(null),
   // Who did the work and who closed it, with the names (problems/closing.ts).

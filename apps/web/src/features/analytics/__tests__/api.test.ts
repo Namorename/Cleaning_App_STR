@@ -35,7 +35,7 @@ const SUMMARY = {
   problems_open: 2,
   problems_cancelled: 1,
   urgency_avg: 2,
-  problems_by_priority: { low: 1, normal: 1, high: 1 },
+  problems_by_priority: { low: 1, normal: 1, high: 1, critical: 0 },
 };
 
 function listingRow(id: number, total: number) {
@@ -93,7 +93,8 @@ describe('rpcArgs', () => {
       p_assignee_ids: ['a'],
       p_task_statuses: ['done'],
       p_problem_statuses: ['open'],
-      p_priorities: ['high'],
+      // The urgency filter on the scale of four (20261115090000), not the old p_priorities.
+      p_levels: ['high'],
     });
   });
 

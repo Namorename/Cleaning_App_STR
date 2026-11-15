@@ -81,7 +81,7 @@ describe('the tasks of a month', () => {
 
     await fetchTasksBetween(client, '2026-09-01', '2026-10-01', 'active');
 
-    expect(String(argsOf(calls, 'select')[0][0])).toContain('problem:problem_id(title, priority)');
+    expect(String(argsOf(calls, 'select')[0][0])).toContain('problem:problem_id(title, priority, critical)');
   });
 
   // Pages overlap and lose rows on ties unless the order ends on a unique column.

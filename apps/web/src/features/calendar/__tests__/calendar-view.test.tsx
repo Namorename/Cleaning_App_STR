@@ -684,6 +684,38 @@ describe('task chips', () => {
     );
   });
 
+  // The level above high (20261115090000): the chip says it, as it says «Высокая».
+  test.each([
+    ['Burst pipe', true, 'Критическая'],
+    ['Broken boiler', false, 'Высокая'],
+  ] as const)('a repair chip of %s says how urgent its problem is', (title, critical, word) => {
+    tasksState.data = [
+      calendarTask(1, '2026-09-28', {
+        type: 'maintenance',
+        problem_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        problem: { title, priority: 'high', critical },
+      }),
+    ];
+    render(<CalendarView />);
+
+    expect(screen.getByRole('link', { name: new RegExp(`${title}.*${word}`) })).toBeInTheDocument();
+  });
+
+  test('a repair chip below high says nothing of urgency', () => {
+    tasksState.data = [
+      calendarTask(1, '2026-09-28', {
+        type: 'maintenance',
+        problem_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        problem: { title: 'Squeaky door', priority: 'normal' },
+      }),
+    ];
+    render(<CalendarView />);
+
+    expect(screen.getByRole('link', { name: /Squeaky door/ })).not.toHaveAccessibleName(
+      /Высокая|Критическая/,
+    );
+  });
+
   test('«Новая уборка» opens an empty form', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     render(<CalendarView />);

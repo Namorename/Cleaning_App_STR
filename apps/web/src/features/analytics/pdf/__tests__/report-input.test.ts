@@ -78,8 +78,8 @@ describe('readReportInput', () => {
   });
 
   test('without a comparison one summary is read; urgency filtered, its bars get their own', async () => {
-    const urgency = { ...SUMMARY, problems_by_priority: { low: 9, normal: 9, high: 9 } };
-    const { client, calls } = recordingClient((args) => (args.p_priorities === undefined ? urgency : SUMMARY));
+    const urgency = { ...SUMMARY, problems_by_priority: { low: 9, normal: 9, high: 9, critical: 9 } };
+    const { client, calls } = recordingClient((args) => (args.p_levels === undefined ? urgency : SUMMARY));
     const input = await readReportInput(request(client, { ...NO_FILTERS, priorities: ['high'] }, false), NOW);
 
     expect(calls.filter((call) => call.name === 'analytics_summary')).toHaveLength(2);
