@@ -14,12 +14,20 @@ import { z } from 'zod';
  * read as null — unknown, never the server's defaults passed off as the
  * company's (`useVideoSettings`), until a fresh read brings them.
  */
+/** How a cleaner names a task: types a title, or picks a category of the company's catalogue. */
+export const PROBLEM_REPORT_MODES = ['free_text', 'catalog'] as const;
+export type ProblemReportMode = (typeof PROBLEM_REPORT_MODES)[number];
+
 export const hostSettingsSchema = z.object({
   id: z.string(),
   gallery_allowed: z.boolean(),
   video_max_sec: z.number().int().positive().nullable().default(null),
   video_bitrate_kbps: z.number().int().positive().nullable().default(null),
   video_max_mb: z.number().int().positive().nullable().default(null),
+  // hosts.problem_report_mode (20261115100000). A copy saved by a build that did
+  // not ask for it, and a mode a newer server invents, read as the typed title
+  // every company had before.
+  problem_report_mode: z.enum(PROBLEM_REPORT_MODES).catch('free_text'),
 });
 export type HostSettings = z.infer<typeof hostSettingsSchema>;
 

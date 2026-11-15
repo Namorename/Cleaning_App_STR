@@ -4,6 +4,8 @@ import NewProblemRoute from '@/app/problem/new';
 import type { ReportProperty } from '@/features/properties/schema';
 import { useReportProperties } from '@/features/properties/use-properties';
 
+import type { ProblemCategory } from '../categories';
+import { useReportCatalog } from '../use-problem-categories';
 import { useReportProblem } from '../use-problems';
 
 /**
@@ -36,6 +38,8 @@ jest.mock('@/features/host/use-host', () => ({ useGalleryAllowed: () => false })
 jest.mock('@/features/tasks/use-tasks', () => ({ useTask: () => ({ data: undefined }) }));
 jest.mock('@/features/properties/use-properties', () => ({ useReportProperties: jest.fn() }));
 jest.mock('../use-problems', () => ({ useReportProblem: jest.fn() }));
+// The typed title unless a test hands the cleaner a catalogue.
+jest.mock('../use-problem-categories', () => ({ useReportCatalog: jest.fn(() => null) }));
 
 const house: ReportProperty = {
   id: 1,
@@ -130,4 +134,50 @@ test('a report filed on a task sends the task, not a place', async () => {
   expect(mutate).toHaveBeenCalledWith(
     expect.objectContaining({ taskId: '3f2a1c4e-5b6d-4e8f-9a0b-1c2d3e4f5a6b', propertyId: null }),
   );
+});
+
+describe('a company that reports by catalogue (CLIENT:Wagnerstays)', () => {
+  const wifi: ProblemCategory = {
+    id: '2ca940fd-288f-43f5-a6df-93145e10cd67',
+    name: 'Wi-Fi',
+    name_i18n: { en: 'Wi-Fi', cs: 'Wi-Fi' },
+    synonyms: ['wifi', 'вайфай', 'интернет'],
+    priority: 'high',
+  };
+
+  test('the report carries the category she picked, its name and its urgency', async () => {
+    jest.mocked(useReportCatalog).mockReturnValue([wifi]);
+    placesAre([house]);
+
+    await render(<NewProblemRoute />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Категория' }));
+    await fireEvent.changeText(screen.getByLabelText('Начните вводить название'), 'вайф');
+    await fireEvent.press(screen.getByRole('button', { name: 'Wi-Fi, срочность: Высокая' }));
+    await fireEvent.changeText(screen.getByLabelText('Подробности'), 'Роутер мигает');
+    await fireEvent.press(screen.getByRole('button', { name: 'Отправить' }));
+
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        problemId: PROBLEM_ID,
+        categoryId: wifi.id,
+        title: 'Wi-Fi',
+        priority: 'high',
+        description: 'Роутер мигает',
+        propertyId: 1,
+      }),
+    );
+  });
+
+  test('without the catalogue on the phone she types the title, and no category goes', async () => {
+    jest.mocked(useReportCatalog).mockReturnValue(null);
+    placesAre([house]);
+
+    await render(<NewProblemRoute />);
+    expect(screen.queryByRole('button', { name: 'Категория' })).toBeNull();
+    await sendWithTitle('Нет интернета');
+
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Нет интернета', priority: 'normal', categoryId: null }),
+    );
+  });
 });

@@ -12,8 +12,10 @@ import { useSession } from '@/features/auth/session';
 import { problemPlace } from '@/features/problems/format';
 import { ProblemForm } from '@/features/problems/problem-form';
 import { canEditProblem, draftOfProblem, type ProblemDraft } from '@/features/problems/schema';
+import { useReportCatalog } from '@/features/problems/use-problem-categories';
 import { useProblem, useUpdateProblem } from '@/features/problems/use-problems';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
+import { currentLanguage } from '@/i18n';
 
 const Params = z.object({ id: z.string().uuid() });
 
@@ -27,14 +29,17 @@ export default function EditProblemRoute() {
 
   const problem = useProblem(problemId);
   const update = useUpdateProblem();
+  const categories = useReportCatalog();
   const [draft, setDraft] = useState<ProblemDraft | null>(null);
 
   // The draft starts from the row once, then belongs to her fingers. Set
   // while rendering rather than in an effect: React draws again at once with
   // the draft, before anything reaches the screen, and a later refetch finds
-  // the draft taken and leaves her typing alone.
+  // the draft taken and leaves her typing alone. A report filed under a
+  // category opens on its category (draftOfProblem); one with a typed title
+  // keeps its title, whatever the company's mode is now.
   if (draft === null && problem.data) {
-    setDraft(draftOfProblem(problem.data));
+    setDraft(draftOfProblem(problem.data, currentLanguage()));
   }
 
   const isLeaving = update.isSuccess || update.isPaused;
@@ -76,6 +81,7 @@ export default function EditProblemRoute() {
     <ProblemForm
       draft={draft}
       onChange={setDraft}
+      categories={categories}
       place={problemPlace(problem.data)}
       isSubmitting={update.isPending && !update.isPaused}
       submitLabel={t('problems.save')}
@@ -85,6 +91,7 @@ export default function EditProblemRoute() {
           title: draft.title.trim(),
           description: draft.description.trim(),
           priority: draft.priority,
+          categoryId: draft.categoryId,
         })
       }
       error={update.error}

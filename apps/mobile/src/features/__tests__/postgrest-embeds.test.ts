@@ -10,7 +10,7 @@ import { fetchKbArticles, fetchKbPlace } from '@/features/knowledge/api';
 import { fetchProblemMedia, fetchTaskMedia } from '@/features/media/api';
 import { fetchReportProperties } from '@/features/properties/api';
 import type * as ProblemsApi from '@/features/problems/api';
-import { fetchMyProblems, fetchProblem } from '@/features/problems/api';
+import { fetchMyProblems, fetchProblem, fetchProblemCategories } from '@/features/problems/api';
 import type * as SignalSource from '@/features/problems/signal-source';
 import { fetchMyLanguage } from '@/features/profile/api';
 import { fetchMyPushPreferences } from '@/features/settings/api';
@@ -105,6 +105,8 @@ const READERS: readonly (() => Promise<unknown>)[] = [
   () => fetchTask(ANY_ID),
   () => fetchMyProblems(),
   () => fetchProblem(ANY_ID),
+  // The catalogue a cleaner picks a task's category from (20261115100000).
+  () => fetchProblemCategories(),
   () => fetchMySupplyRequests(),
   () => fetchSupplyRequest(ANY_ID),
   () => fetchTaskMedia(ANY_ID),

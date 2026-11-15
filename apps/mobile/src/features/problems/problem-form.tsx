@@ -15,11 +15,15 @@ import type { ReportProperty } from '@/features/properties/schema';
 import { useThemedStyles } from '@/hooks/use-themed-styles';
 import { serverErrorText } from '@/lib/server-error';
 
+import type { ProblemCategory } from './categories';
+import { CategoryPicker, PriorityChip } from './category-picker';
 import {
   MAX_PROBLEM_DESCRIPTION,
   MAX_PROBLEM_PHOTOS,
   MAX_PROBLEM_TITLE,
   PROBLEM_PRIORITIES,
+  asksForCategory,
+  draftWithCategory,
   problemDraftIssue,
   type ProblemDraft,
   type ProblemPriority,
@@ -28,6 +32,12 @@ import {
 interface ProblemFormProps {
   draft: ProblemDraft;
   onChange: (draft: ProblemDraft) => void;
+  /**
+   * The company's catalogue when she picks a category instead of typing a title
+   * (`useReportCatalog`); absent or null, the typed title and the urgency chips
+   * as before.
+   */
+  categories?: readonly ProblemCategory[] | null;
   /** Where it is, when the report came from a task and cannot be moved. */
   place: string | null;
   /**
@@ -64,11 +74,14 @@ interface ProblemFormProps {
  *
  * Presentational: the route wires the camera and the queue in. The title is
  * the one thing the server insists on; the button stays grey until it is
- * there, mirroring the refusal rather than sending it to be refused.
+ * there, mirroring the refusal rather than sending it to be refused. Where the
+ * company reports by catalogue a category stands in for the title, and its
+ * urgency for the chips (`asksForCategory`, docs/problem-categories.md).
  */
 export function ProblemForm({
   draft,
   onChange,
+  categories = null,
   place,
   properties,
   selectedPropertyId = null,
@@ -93,6 +106,7 @@ export function ProblemForm({
   // (components/bottom-inset.ts).
   const keyboardOffset = useKeyboardOffset(use(HeaderHeightContext) ?? 0);
   const failure = error === null ? null : serverErrorText(error);
+  const byCategory = asksForCategory(draft, categories);
 
   return (
     // Padding on both systems: the view measures how much of it the keyboard
@@ -146,14 +160,24 @@ export function ProblemForm({
           </View>
         ) : null}
 
-        <TextField
-          label={t('problems.titleLabel')}
-          isDisabled={isSubmitting}
-          maxLength={MAX_PROBLEM_TITLE}
-          onChangeText={(title) => onChange({ ...draft, title })}
-          placeholder={t('problems.titlePlaceholder')}
-          value={draft.title}
-        />
+        {byCategory ? (
+          <CategoryField
+            categories={categories ?? []}
+            draft={draft}
+            onChange={onChange}
+            isDisabled={isSubmitting}
+            styles={styles}
+          />
+        ) : (
+          <TextField
+            label={t('problems.titleLabel')}
+            isDisabled={isSubmitting}
+            maxLength={MAX_PROBLEM_TITLE}
+            onChangeText={(title) => onChange({ ...draft, title })}
+            placeholder={t('problems.titlePlaceholder')}
+            value={draft.title}
+          />
+        )}
 
         <View style={styles.field}>
           <TextField
@@ -170,21 +194,23 @@ export function ProblemForm({
           </Text>
         </View>
 
-        <View style={styles.field}>
-          <Text tone="secondary">{t('problems.priorityLabel')}</Text>
-          <View style={styles.chips} accessibilityRole="radiogroup">
-            {PROBLEM_PRIORITIES.map((priority) => (
-              <PriorityChip
-                key={priority}
-                priority={priority}
-                selected={draft.priority === priority}
-                disabled={isSubmitting}
-                onSelect={() => onChange({ ...draft, priority })}
-                styles={styles}
-              />
-            ))}
+        {byCategory ? null : (
+          <View style={styles.field}>
+            <Text tone="secondary">{t('problems.priorityLabel')}</Text>
+            <View style={styles.chips} accessibilityRole="radiogroup">
+              {PROBLEM_PRIORITIES.map((priority) => (
+                <PriorityOption
+                  key={priority}
+                  priority={priority}
+                  selected={draft.priority === priority}
+                  disabled={isSubmitting}
+                  onSelect={() => onChange({ ...draft, priority })}
+                  styles={styles}
+                />
+              ))}
+            </View>
           </View>
-        </View>
+        )}
       </ScrollView>
 
       <ActionBar isAtScreenEdge testID="problem-form-actions">
@@ -205,7 +231,7 @@ export function ProblemForm({
         <Button
           label={submitLabel}
           onPress={onSubmit}
-          isDisabled={problemDraftIssue(draft) !== null}
+          isDisabled={problemDraftIssue(draft, byCategory) !== null}
           isBusy={isSubmitting}
         />
       </ActionBar>
@@ -213,7 +239,51 @@ export function ProblemForm({
   );
 }
 
-interface PriorityChipProps {
+interface CategoryFieldProps {
+  categories: readonly ProblemCategory[];
+  draft: ProblemDraft;
+  onChange: (draft: ProblemDraft) => void;
+  isDisabled: boolean;
+  styles: ReturnType<typeof createStyles>;
+}
+
+/**
+ * The category in place of the title, and below it the urgency it files the
+ * task with: a chip to read, not to choose (the server sets it from the
+ * category). Before she has picked one there is no urgency to show.
+ */
+function CategoryField({ categories, draft, onChange, isDisabled, styles }: CategoryFieldProps) {
+  const { t } = useTranslation();
+  const selected = categories.find((category) => category.id === draft.categoryId);
+  // Not in the list — an edit before the catalogue reached the phone — the
+  // urgency the task was filed with.
+  const priority = selected !== undefined ? selected.priority : draft.priority;
+
+  return (
+    <>
+      <CategoryPicker
+        categories={categories}
+        selectedId={draft.categoryId}
+        fallbackName={draft.title}
+        onSelect={(category, name) => onChange(draftWithCategory(draft, category, name))}
+        isDisabled={isDisabled}
+      />
+      {draft.categoryId !== null ? (
+        <View style={styles.field} testID="problem-category-priority">
+          <Text tone="secondary">{t('problems.priorityLabel')}</Text>
+          <View style={styles.chips}>
+            {priority !== null ? <PriorityChip priority={priority} /> : null}
+          </View>
+          <Text variant="caption" tone="secondary">
+            {t('problems.priorityFromCategory')}
+          </Text>
+        </View>
+      ) : null}
+    </>
+  );
+}
+
+interface PriorityOptionProps {
   priority: ProblemPriority;
   selected: boolean;
   disabled: boolean;
@@ -221,7 +291,7 @@ interface PriorityChipProps {
   styles: ReturnType<typeof createStyles>;
 }
 
-function PriorityChip({ priority, selected, disabled, onSelect, styles }: PriorityChipProps) {
+function PriorityOption({ priority, selected, disabled, onSelect, styles }: PriorityOptionProps) {
   const { t } = useTranslation();
   const label = t(`problems.priorities.${priority}`);
 

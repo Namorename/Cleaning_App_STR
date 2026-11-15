@@ -2,6 +2,7 @@ import { readGuestOrigin, type GuestOrigin } from '@str-ops/shared';
 
 import { supabase } from '@/lib/supabase';
 
+import { problemCategoryListSchema, type ProblemCategory } from './categories';
 import { CLOSING_COLUMNS } from './closing';
 import { GUEST_SIGNAL_SOURCE_COLUMNS } from './signal-source';
 import { problemListSchema, problemSchema, type Problem, type ProblemPriority } from './schema';
@@ -9,7 +10,7 @@ import { problemListSchema, problemSchema, type Problem, type ProblemPriority } 
 const PROBLEM_COLUMNS =
   'id, property_id, task_id, reported_by, title, ' +
   GUEST_SIGNAL_SOURCE_COLUMNS +
-  'description, priority, status, ' +
+  'description, priority, category_id, status, ' +
   CLOSING_COLUMNS +
   'resolved_at, cancelled_at, cancel_reason, created_at, property:properties(name, hostaway_unit_id, parent:parent_id(name)), ' +
   'fix_tasks:tasks!tasks_problem_id_fkey(id, assignee_id, status)';
@@ -76,6 +77,26 @@ export async function fetchGuestOrigin(problemId: string): Promise<GuestOrigin |
   return origin === null ? null : phoneOrigin(origin);
 }
 
+/**
+ * The company's catalogue of categories, in its own order (problem_categories,
+ * 20261115100000). The read policy answers with the reader's own company;
+ * archived categories are no longer offered.
+ */
+export async function fetchProblemCategories(): Promise<ProblemCategory[]> {
+  const { data, error } = await supabase
+    .from('problem_categories')
+    .select('id, name, name_i18n, synonyms, priority')
+    .is('archived_at', null)
+    .order('sort_order', { ascending: true })
+    .order('name', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return problemCategoryListSchema.parse(data ?? []);
+}
+
 export interface ReportProblemVariables {
   /** Made on the phone, so a retry after a lost connection is a replay, not a duplicate. */
   problemId: string;
@@ -84,6 +105,12 @@ export interface ReportProblemVariables {
   priority: ProblemPriority;
   taskId?: string | null;
   propertyId?: number | null;
+  /**
+   * The category she picked. The server then names the task and sets its
+   * urgency from the category, whatever title and priority say. Absent from a
+   * report a build before the catalogue queued on the phone.
+   */
+  categoryId?: string | null;
 }
 
 /** File the report. Replayable by id: the server hands the same row back. */
@@ -95,6 +122,7 @@ export async function reportProblem(variables: ReportProblemVariables): Promise<
     p_priority: variables.priority,
     p_property_id: variables.propertyId ?? undefined,
     p_task_id: variables.taskId ?? undefined,
+    p_category_id: variables.categoryId ?? undefined,
   });
 
   if (error) {
@@ -109,6 +137,8 @@ export interface UpdateProblemVariables {
   title: string;
   description: string;
   priority: ProblemPriority;
+  /** Another category she picked; absent keeps the one the task has, if any. */
+  categoryId?: string | null;
 }
 
 /** Correct the report while it is still open. */
@@ -118,6 +148,7 @@ export async function updateProblem(variables: UpdateProblemVariables): Promise<
     p_title: variables.title,
     p_description: variables.description === '' ? undefined : variables.description,
     p_priority: variables.priority,
+    p_category_id: variables.categoryId ?? undefined,
   });
 
   if (error) {

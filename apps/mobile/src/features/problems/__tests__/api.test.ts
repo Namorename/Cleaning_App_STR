@@ -48,6 +48,77 @@ test('files the report under the id made on the phone, from a task', async () =>
   expect(problem.fix_tasks).toEqual([]);
 });
 
+test('a report picked from the catalogue names its category for the server to file it by', async () => {
+  mockRpc.mockResolvedValue({ data: row, error: null });
+
+  await reportProblem({
+    problemId: row.id,
+    title: 'Wi-Fi',
+    description: 'Роутер мигает',
+    priority: 'high',
+    propertyId: 412432,
+    categoryId: '2ca940fd-288f-43f5-a6df-93145e10cd67',
+  });
+
+  expect(mockRpc).toHaveBeenCalledWith(
+    'report_problem',
+    expect.objectContaining({ p_category_id: '2ca940fd-288f-43f5-a6df-93145e10cd67' }),
+  );
+});
+
+test('a typed report sends the body it always sent: no category key at all', async () => {
+  mockRpc.mockResolvedValue({ data: row, error: null });
+
+  await reportProblem({ problemId: row.id, title: 'Кран течёт', description: '', priority: 'low' });
+  await reportProblem({
+    problemId: row.id,
+    title: 'Кран течёт',
+    description: '',
+    priority: 'low',
+    categoryId: null,
+  });
+
+  // What goes over the wire is the JSON of the arguments.
+  for (const [, args] of mockRpc.mock.calls) {
+    expect(JSON.parse(JSON.stringify(args))).not.toHaveProperty('p_category_id');
+  }
+});
+
+test('a correction names the category only when she picked another one', async () => {
+  mockRpc.mockResolvedValue({ data: row, error: null });
+
+  await updateProblem({
+    problemId: row.id,
+    title: 'Смесители',
+    description: '',
+    priority: 'normal',
+    categoryId: '7bed8f05-ae67-43c3-82d5-01bf1b4a26c6',
+  });
+  await updateProblem({ problemId: row.id, title: 'Кран', description: '', priority: 'low' });
+
+  expect(mockRpc.mock.calls[0][1]).toEqual(
+    expect.objectContaining({ p_category_id: '7bed8f05-ae67-43c3-82d5-01bf1b4a26c6' }),
+  );
+  expect(JSON.parse(JSON.stringify(mockRpc.mock.calls[1][1]))).not.toHaveProperty('p_category_id');
+});
+
+test('a row of the server carries its category', async () => {
+  mockRpc.mockResolvedValue({
+    data: { ...row, category_id: '2ca940fd-288f-43f5-a6df-93145e10cd67' },
+    error: null,
+  });
+
+  const problem = await reportProblem({
+    problemId: row.id,
+    title: 'Wi-Fi',
+    description: '',
+    priority: 'high',
+    categoryId: '2ca940fd-288f-43f5-a6df-93145e10cd67',
+  });
+
+  expect(problem.category_id).toBe('2ca940fd-288f-43f5-a6df-93145e10cd67');
+});
+
 test('passes the server refusal through untouched, key and all', async () => {
   const refusal = Object.assign(new Error('A problem needs a title'), {
     hint: 'serverErrors.problemTitleRequired',

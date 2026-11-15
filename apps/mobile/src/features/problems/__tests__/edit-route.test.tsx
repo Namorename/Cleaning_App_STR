@@ -33,6 +33,9 @@ beforeEach(() => {
   mockSession.userId = ME;
 });
 
+// The typed title: the catalogue's edit is pinned in category-form.test.tsx.
+jest.mock('../use-problem-categories', () => ({ useReportCatalog: () => null }));
+
 jest.mock('../use-problems', () => ({
   useProblem: jest.fn(),
   useUpdateProblem: () => ({

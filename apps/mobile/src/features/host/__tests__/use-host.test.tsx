@@ -21,6 +21,7 @@ function company(overrides: Partial<HostSettings> = {}): HostSettings {
     video_max_sec: 90,
     video_bitrate_kbps: 2000,
     video_max_mb: 45,
+    problem_report_mode: 'free_text',
     ...overrides,
   };
 }

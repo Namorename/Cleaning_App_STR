@@ -10,6 +10,15 @@ export const problemKeys = {
   origin: (userId: string, problemId: string) => ['problems', 'origin', userId, problemId] as const,
 };
 
+/**
+ * The company's catalogue of categories (`useReportCatalog`). Apart from
+ * `problemKeys.all` on purpose: every report invalidates the tasks, and the
+ * catalogue does not change with them.
+ */
+export const problemCategoryKeys = {
+  all: ['problem-categories'] as const,
+};
+
 /** Keys under which the two writes are queued and replayed after a restart. */
 export const problemMutationKeys = {
   report: ['problems', 'report'] as const,

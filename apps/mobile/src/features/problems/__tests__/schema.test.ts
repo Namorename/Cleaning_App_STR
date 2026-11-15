@@ -1,11 +1,25 @@
+import type { ProblemCategory } from '../categories';
 import {
+  EMPTY_PROBLEM_DRAFT,
+  asksForCategory,
   canEditProblem,
+  draftOfProblem,
+  draftWithCategory,
   groupProblems,
   ownFixTaskId,
   problemDraftIssue,
   problemSchema,
   type Problem,
+  type ProblemDraft,
 } from '../schema';
+
+const HOT_WATER: ProblemCategory = {
+  id: '83ffda56-635c-4941-bedd-cb08b82e6675',
+  name: 'Горячая вода',
+  name_i18n: { en: 'Hot water', cs: 'Teplá voda' },
+  synonyms: ['бойлер'],
+  priority: 'high',
+};
 
 const ME = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
 const TECH = 'a1b2c3d4-2222-4222-8222-a1b2c3d40002';
@@ -31,23 +45,98 @@ function problem(overrides: Partial<Problem> = {}): Problem {
 }
 
 describe('problemDraftIssue', () => {
+  const typed = (overrides: Partial<ProblemDraft>): ProblemDraft => ({
+    ...EMPTY_PROBLEM_DRAFT,
+    ...overrides,
+  });
+
   test('insists on a title, like the server', () => {
-    expect(problemDraftIssue({ title: '   ', description: '', priority: 'normal' })).toBe(
-      'titleRequired',
-    );
+    expect(problemDraftIssue(typed({ title: '   ' }))).toBe('titleRequired');
   });
 
   test('mirrors the server limits', () => {
-    expect(problemDraftIssue({ title: 'x'.repeat(201), description: '', priority: 'low' })).toBe(
+    expect(problemDraftIssue(typed({ title: 'x'.repeat(201), priority: 'low' }))).toBe(
       'titleTooLong',
     );
-    expect(
-      problemDraftIssue({ title: 'ok', description: 'y'.repeat(4001), priority: 'low' }),
-    ).toBe('descriptionTooLong');
+    expect(problemDraftIssue(typed({ title: 'ok', description: 'y'.repeat(4001) }))).toBe(
+      'descriptionTooLong',
+    );
   });
 
   test('accepts a plain report', () => {
-    expect(problemDraftIssue({ title: 'Кран течёт', description: '', priority: 'high' })).toBeNull();
+    expect(problemDraftIssue(typed({ title: 'Кран течёт', priority: 'high' }))).toBeNull();
+  });
+
+  test('a form that asks for a category needs one, and no title', () => {
+    expect(problemDraftIssue(typed({}), true)).toBe('categoryRequired');
+    expect(problemDraftIssue(typed({ categoryId: HOT_WATER.id, title: '' }), true)).toBeNull();
+    expect(
+      problemDraftIssue(typed({ categoryId: HOT_WATER.id, description: 'y'.repeat(4001) }), true),
+    ).toBe('descriptionTooLong');
+  });
+});
+
+describe('the category in the draft', () => {
+  test('a form asks for a category while the catalogue is there and nothing is typed', () => {
+    expect(asksForCategory(EMPTY_PROBLEM_DRAFT, [HOT_WATER])).toBe(true);
+  });
+
+  test('without a catalogue the title is typed, as before', () => {
+    expect(asksForCategory(EMPTY_PROBLEM_DRAFT, null)).toBe(false);
+  });
+
+  test('a catalogue that arrives after she started typing leaves her title alone', () => {
+    expect(asksForCategory({ ...EMPTY_PROBLEM_DRAFT, title: 'Кран' }, [HOT_WATER])).toBe(false);
+  });
+
+  test('a picked category stays asked for, catalogue or not', () => {
+    const picked = draftWithCategory(EMPTY_PROBLEM_DRAFT, HOT_WATER, 'Hot water');
+    expect(asksForCategory(picked, null)).toBe(true);
+  });
+
+  test("picking takes the name she reads and the category's urgency", () => {
+    const draft = { ...EMPTY_PROBLEM_DRAFT, description: 'кухня' };
+    expect(draftWithCategory(draft, HOT_WATER, 'Hot water')).toEqual({
+      title: 'Hot water',
+      description: 'кухня',
+      priority: 'high',
+      categoryId: HOT_WATER.id,
+    });
+  });
+
+  test("a category whose urgency this build does not know keeps the draft's, for the server", () => {
+    const unknown = { ...HOT_WATER, priority: null };
+    expect(draftWithCategory(EMPTY_PROBLEM_DRAFT, unknown, 'x').priority).toBe('normal');
+  });
+
+  test('a report filed under a category opens on it, named in her language', () => {
+    const filed = problem({
+      title: 'Горячая вода',
+      title_i18n: { en: 'Hot water' },
+      priority: 'high',
+      category_id: HOT_WATER.id,
+    });
+    expect(draftOfProblem(filed, 'en')).toEqual({
+      title: 'Hot water',
+      description: '',
+      priority: 'high',
+      categoryId: HOT_WATER.id,
+    });
+  });
+
+  test('a typed report opens as typed, with no category', () => {
+    expect(draftOfProblem(problem({ title: 'Кран течёт' }), 'en')).toEqual({
+      title: 'Кран течёт',
+      description: '',
+      priority: 'normal',
+      categoryId: null,
+    });
+  });
+
+  test('a saved row without the column reads as no category, a bad value as none', () => {
+    const older = problem();
+    expect(problemSchema.parse(older).category_id).toBeUndefined();
+    expect(problemSchema.parse({ ...older, category_id: 'not a uuid' }).category_id).toBeNull();
   });
 });
 

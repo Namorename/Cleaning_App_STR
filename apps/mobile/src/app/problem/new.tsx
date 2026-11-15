@@ -14,6 +14,7 @@ import { useRememberLocalMedia } from '@/features/media/use-media';
 import { ProblemForm } from '@/features/problems/problem-form';
 import { useReportProperties } from '@/features/properties/use-properties';
 import { EMPTY_PROBLEM_DRAFT, MAX_PROBLEM_PHOTOS } from '@/features/problems/schema';
+import { useReportCatalog } from '@/features/problems/use-problem-categories';
 import { useReportProblem } from '@/features/problems/use-problems';
 import { propertyName } from '@/features/tasks/format';
 import { useTask } from '@/features/tasks/use-tasks';
@@ -57,6 +58,8 @@ export default function NewProblemRoute() {
   const placeId = chosenPropertyId ?? onlyPlaceId;
   const report = useReportProblem();
   const rememberLocal = useRememberLocalMedia();
+  // The company's catalogue when she picks a category instead of typing a title.
+  const categories = useReportCatalog();
 
   const isLeaving = report.isSuccess || report.isPaused;
   useEffect(() => {
@@ -108,6 +111,9 @@ export default function NewProblemRoute() {
       priority: draft.priority,
       taskId,
       propertyId: taskId === null ? placeId : null,
+      // Set only by a pick from the catalogue; the server then names the task
+      // and sets its urgency from the category.
+      categoryId: draft.categoryId,
       photos,
     });
   };
@@ -117,6 +123,7 @@ export default function NewProblemRoute() {
     <ProblemForm
       draft={draft}
       onChange={setDraft}
+      categories={categories}
       place={task.data ? propertyName(task.data) : null}
       properties={places.data ?? []}
       selectedPropertyId={placeId}
