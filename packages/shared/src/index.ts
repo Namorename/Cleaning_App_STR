@@ -76,6 +76,16 @@ export {
   type ClosingLine,
   type WorkerSource,
 } from './cleanings/closing';
+export {
+  PROBLEM_LEVELS,
+  byUrgencyFirst,
+  isProblemLevel,
+  problemLevel,
+  problemLevelRank,
+  storedUrgency,
+  type ProblemLevel,
+  type StoredUrgency,
+} from './problems/level';
 export { foldForSearch, matchesAllTokens } from './search';
 export {
   STALE_CLOCK_MESSAGE,

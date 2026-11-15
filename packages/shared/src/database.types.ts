@@ -1412,6 +1412,7 @@ export type Database = {
         Row: {
           archived_at: string | null
           created_at: string
+          critical: boolean
           host_id: string
           id: string
           name: string
@@ -1424,6 +1425,7 @@ export type Database = {
         Insert: {
           archived_at?: string | null
           created_at?: string
+          critical?: boolean
           host_id?: string
           id?: string
           name: string
@@ -1436,6 +1438,7 @@ export type Database = {
         Update: {
           archived_at?: string | null
           created_at?: string
+          critical?: boolean
           host_id?: string
           id?: string
           name?: string
@@ -1576,6 +1579,7 @@ export type Database = {
           completed_by: string | null
           completed_by_source: string | null
           created_at: string
+          critical: boolean
           description: string | null
           host_id: string
           id: string
@@ -1603,6 +1607,7 @@ export type Database = {
           completed_by?: string | null
           completed_by_source?: string | null
           created_at?: string
+          critical?: boolean
           description?: string | null
           host_id?: string
           id: string
@@ -1630,6 +1635,7 @@ export type Database = {
           completed_by?: string | null
           completed_by_source?: string | null
           created_at?: string
+          critical?: boolean
           description?: string | null
           host_id?: string
           id?: string
@@ -3892,6 +3898,7 @@ export type Database = {
           p_from: string
           p_hide_archived?: boolean
           p_include_test?: boolean
+          p_levels?: string[]
           p_limit?: number
           p_offset?: number
           p_priorities?: Database["public"]["Enums"]["problem_priority"][]
@@ -3941,6 +3948,7 @@ export type Database = {
           p_from: string
           p_hide_archived?: boolean
           p_include_test?: boolean
+          p_levels?: string[]
           p_limit?: number
           p_offset?: number
           p_priorities?: Database["public"]["Enums"]["problem_priority"][]
@@ -3968,6 +3976,7 @@ export type Database = {
           p_from: string
           p_hide_archived?: boolean
           p_include_test?: boolean
+          p_levels?: string[]
           p_limit?: number
           p_offset?: number
           p_priorities?: Database["public"]["Enums"]["problem_priority"][]
@@ -4017,6 +4026,7 @@ export type Database = {
           p_hide_archived: boolean
           p_host: string
           p_include_test: boolean
+          p_levels?: string[]
           p_priorities: Database["public"]["Enums"]["problem_priority"][]
           p_problem_statuses: Database["public"]["Enums"]["problem_status"][]
           p_property_ids: number[]
@@ -4040,6 +4050,7 @@ export type Database = {
           p_from: string
           p_hide_archived?: boolean
           p_include_test?: boolean
+          p_levels?: string[]
           p_limit?: number
           p_offset?: number
           p_priorities?: Database["public"]["Enums"]["problem_priority"][]
@@ -4065,6 +4076,7 @@ export type Database = {
           p_from: string
           p_hide_archived?: boolean
           p_include_test?: boolean
+          p_levels?: string[]
           p_limit?: number
           p_offset?: number
           p_priorities?: Database["public"]["Enums"]["problem_priority"][]
@@ -4091,6 +4103,7 @@ export type Database = {
           p_from: string
           p_hide_archived?: boolean
           p_include_test?: boolean
+          p_levels?: string[]
           p_priorities?: Database["public"]["Enums"]["problem_priority"][]
           p_problem_statuses?: Database["public"]["Enums"]["problem_status"][]
           p_property_ids?: number[]
@@ -4112,6 +4125,7 @@ export type Database = {
           p_from: string
           p_hide_archived?: boolean
           p_include_test?: boolean
+          p_levels?: string[]
           p_priorities?: Database["public"]["Enums"]["problem_priority"][]
           p_problem_statuses?: Database["public"]["Enums"]["problem_status"][]
           p_property_ids?: number[]
@@ -4535,6 +4549,7 @@ export type Database = {
           completed_by: string | null
           completed_by_source: string | null
           created_at: string
+          critical: boolean
           description: string | null
           host_id: string
           id: string
@@ -4597,6 +4612,7 @@ export type Database = {
           completed_by: string | null
           completed_by_source: string | null
           created_at: string
+          critical: boolean
           description: string | null
           host_id: string
           id: string
@@ -4639,6 +4655,7 @@ export type Database = {
           completed_by: string | null
           completed_by_source: string | null
           created_at: string
+          critical: boolean
           description: string | null
           host_id: string
           id: string
@@ -5324,6 +5341,7 @@ export type Database = {
           completed_by: string | null
           completed_by_source: string | null
           created_at: string
+          critical: boolean
           description: string | null
           host_id: string
           id: string
@@ -5483,6 +5501,7 @@ export type Database = {
         Returns: {
           archived_at: string | null
           created_at: string
+          critical: boolean
           host_id: string
           id: string
           name: string
@@ -5514,6 +5533,7 @@ export type Database = {
           completed_by: string | null
           completed_by_source: string | null
           created_at: string
+          critical: boolean
           description: string | null
           host_id: string
           id: string
@@ -5550,6 +5570,7 @@ export type Database = {
           completed_by: string | null
           completed_by_source: string | null
           created_at: string
+          critical: boolean
           description: string | null
           host_id: string
           id: string
@@ -5867,6 +5888,7 @@ export type Database = {
           completed_by: string | null
           completed_by_source: string | null
           created_at: string
+          critical: boolean
           description: string | null
           host_id: string
           id: string
@@ -5939,6 +5961,7 @@ export type Database = {
       report_problem: {
         Args: {
           p_category_id?: string
+          p_critical?: boolean
           p_description?: string
           p_id: string
           p_priority?: Database["public"]["Enums"]["problem_priority"]
@@ -5958,6 +5981,7 @@ export type Database = {
           completed_by: string | null
           completed_by_source: string | null
           created_at: string
+          critical: boolean
           description: string | null
           host_id: string
           id: string
@@ -6060,6 +6084,7 @@ export type Database = {
           completed_by: string | null
           completed_by_source: string | null
           created_at: string
+          critical: boolean
           description: string | null
           host_id: string
           id: string
@@ -6897,6 +6922,7 @@ export type Database = {
           completed_by: string | null
           completed_by_source: string | null
           created_at: string
+          critical: boolean
           description: string | null
           host_id: string
           id: string
@@ -6933,6 +6959,7 @@ export type Database = {
           completed_by: string | null
           completed_by_source: string | null
           created_at: string
+          critical: boolean
           description: string | null
           host_id: string
           id: string
@@ -7002,6 +7029,7 @@ export type Database = {
       update_problem: {
         Args: {
           p_category_id?: string
+          p_critical?: boolean
           p_description?: string
           p_id: string
           p_priority?: Database["public"]["Enums"]["problem_priority"]
@@ -7019,6 +7047,7 @@ export type Database = {
           completed_by: string | null
           completed_by_source: string | null
           created_at: string
+          critical: boolean
           description: string | null
           host_id: string
           id: string

@@ -1,9 +1,10 @@
 import type { Enums } from '../database.types';
 import type { IconMeaning } from './icons';
+import type { ProblemLevel } from '../problems/level';
 import type { Tone } from './tokens';
 
 /**
- * The tone of every status either app shows: 92 values onto the 13 tones.
+ * The tone of every status either app shows: 93 values onto the 14 tones.
  *
  * Before the redesign each screen decided for itself — five local maps in the
  * panel, the calendar's own three dot colours, the phone's urgent/calm pair —
@@ -49,6 +50,8 @@ export const STATUS_TONE = {
   'problems.cancelled': 'cancelled',
   /** The archive is a flag beside the status chip (with the archive icon), not a status. */
   'problems.archived': 'neutral',
+  /** «Критическая» (owner, 2026-11-15): the level above high, in the strongest tone. */
+  'problems.priority.critical': 'critical',
   'problems.priority.high': 'urgent',
   'problems.priority.normal': 'neutral',
   'problems.priority.low': 'neutral',
@@ -151,6 +154,11 @@ export function problemPriorityTone(priority: Enums<'problem_priority'>): Tone {
   return STATUS_TONE[`problems.priority.${priority}` as const];
 }
 
+/** The tone of a task's level on the scale of four (`problemLevel`): critical above high. */
+export function problemLevelTone(level: ProblemLevel): Tone {
+  return STATUS_TONE[`problems.priority.${level}` as const];
+}
+
 export function supplyStatusTone(status: Enums<'supply_request_status'>): Tone {
   return STATUS_TONE[`supplies.${status}` as const];
 }
@@ -207,6 +215,8 @@ export const TONE_ICON = {
   notHappened: 'status.notHappened',
   cancelled: 'status.cancelled',
   urgent: 'status.urgent',
+  /** The glyph of «Срочно», on the stronger chip: the word and the fill tell the two apart. */
+  critical: 'status.urgent',
 } as const satisfies Partial<Readonly<Record<Tone, IconMeaning>>>;
 
 /** The statuses whose glyph is not their tone's: «Принята» adds ✓, «Пауза» is ‖, a failed upload ⚠. */

@@ -7,7 +7,7 @@ import type { HexColor, ThemeColors, ThemeName, Tone, ToneColors } from '@str-op
  * `text-muted-foreground`, `border-input`…); this module gives those names the
  * roles of «Абрикос» in both themes, adds the honey accent under a name of its
  * own (`--highlight`: shadcn's `--accent` is the hover and the active menu
- * item) and the thirteen status tones as `--tone-<tone>-<part>`, with Tailwind
+ * item) and the fourteen status tones as `--tone-<tone>-<part>`, with Tailwind
  * colours over them (`bg-tone-in-progress-mark`, `text-tone-unassigned-fg`).
  *
  * `npm run design:css` (`scripts/gen-theme-css.mts`) writes the result to

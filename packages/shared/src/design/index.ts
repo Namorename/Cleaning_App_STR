@@ -33,6 +33,7 @@ export {
   STEP_CIRCLE,
   TONE_ICON,
   isGuestSource,
+  problemLevelTone,
   problemPriorityTone,
   problemStatusTone,
   propertyStatusTone,

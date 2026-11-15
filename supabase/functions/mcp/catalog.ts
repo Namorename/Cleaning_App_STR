@@ -415,7 +415,7 @@ export const CATALOG: McpCatalog = {
           },
           "priority": {
             "type": "string",
-            "description": "One or more of `low`, `normal`, `high`."
+            "description": "One or more of `low`, `normal`, `high`, `critical`. `high` finds every task that reads high, the critical ones among them; `critical` finds those alone."
           },
           "property_id": {
             "type": "integer",
@@ -557,9 +557,11 @@ export const CATALOG: McpCatalog = {
             "enum": [
               "low",
               "normal",
-              "high"
+              "high",
+              "critical"
             ],
-            "default": "normal"
+            "default": "normal",
+            "description": "`critical` is the level above high: the task then reads priority high and critical true."
           },
           "property_id": {
             "type": [

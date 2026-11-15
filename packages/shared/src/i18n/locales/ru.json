@@ -542,7 +542,7 @@
         "problemsCancelled": "Заданий отменено",
         "problemsCancelledHint": "по дню отмены; в другие цифры не входят",
         "urgencyAvg": "Средняя срочность",
-        "urgencyHint": "низкая 1 · обычная 2 · высокая 3",
+        "urgencyHint": "низкая 1 · обычная 2 · высокая 3 · критическая 4",
         "cleaningMinutesMedian": "Медиана времени уборки",
         "cleaningMinutesHint": "среднее {{value}}",
         "photoShare": "Уборок с фото",
@@ -2632,7 +2632,8 @@
     "priorities": {
       "low": "Низкая",
       "normal": "Обычная",
-      "high": "Высокая"
+      "high": "Высокая",
+      "critical": "Критическая"
     },
     "photosLabel": "Фото",
     "photosHint": "До {{max}} фото, камерой",

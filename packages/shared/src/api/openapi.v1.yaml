@@ -502,7 +502,7 @@ paths:
           schema: { type: string, example: open }
         - name: priority
           in: query
-          description: One or more of `low`, `normal`, `high`.
+          description: One or more of `low`, `normal`, `high`, `critical`. `high` finds every task that reads high, the critical ones among them; `critical` finds those alone.
           schema: { type: string, example: high }
         - name: property_id
           in: query
@@ -1206,13 +1206,14 @@ components:
     Task:
       type: object
       additionalProperties: false
-      required: [id, title, description, text_masked, priority, status, property_id, cleaning_id, reported_by, archived, cancel_reason, work, created_at, updated_at, resolved_at, cancelled_at, archived_at, completed_by, completed_by_source, closed_by, closed_how, closed_cause, closed_at, source, guest_stay]
+      required: [id, title, description, text_masked, priority, critical, status, property_id, cleaning_id, reported_by, archived, cancel_reason, work, created_at, updated_at, resolved_at, cancelled_at, archived_at, completed_by, completed_by_source, closed_by, closed_how, closed_cause, closed_at, source, guest_stay]
       properties:
         id: { type: string, format: uuid }
         title: { type: string, description: "Door codes masked (••••)." }
         description: { type: [string, "null"], description: "What was reported, door codes masked (••••)." }
         text_masked: { type: boolean, description: "True when a code was taken out of the title, the description or the cancel reason." }
-        priority: { type: string, enum: [low, normal, high] }
+        priority: { type: string, enum: [low, normal, high], description: "A critical task reads high here: see critical." }
+        critical: { type: boolean, description: "The level above high (2026-11-15): true only with priority high. A client that knows three levels may read such a task as high." }
         status: { type: string, enum: [open, assigned, in_progress, resolved, cancelled] }
         property_id: { type: [integer, "null"] }
         cleaning_id: { type: [string, "null"], format: uuid, description: "The cleaning during which it was reported." }
@@ -1339,7 +1340,7 @@ components:
       properties:
         title: { type: string, minLength: 1, maxLength: 200 }
         description: { type: [string, "null"], minLength: 1, maxLength: 4000 }
-        priority: { type: string, enum: [low, normal, high], default: normal }
+        priority: { type: string, enum: [low, normal, high, critical], default: normal, description: "`critical` is the level above high: the task then reads priority high and critical true." }
         property_id: { type: [integer, "null"], minimum: 1, description: "Required for a key limited to some properties." }
         assignee_id: { type: [string, "null"], format: uuid, description: "Hand it out at once (needs tasks:assign as well)." }
         scheduled_date: { $ref: "#/components/schemas/NullableDay" }

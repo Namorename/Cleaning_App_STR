@@ -214,10 +214,12 @@ export const THEME_COLORS = {
 } as const satisfies Readonly<Record<ThemeName, ThemeColors>>;
 
 /**
- * The thirteen tones every status of both apps is drawn in (`STATUS_TONE`).
+ * The fourteen tones every status of both apps is drawn in (`STATUS_TONE`).
  * One shared set of meanings, tuned in lightness and chroma to the direction
  * (decisions, question 2): red is "not to plan", amber "going", green "done",
- * blue "assigned", violet "needs a person", wine "did not happen".
+ * blue "assigned", violet "needs a person", wine "did not happen". `critical`
+ * (owner, 2026-11-15) is the strongest: a deep red chip filled with its mark,
+ * for a task of the level above high.
  */
 export const TONE_NAMES = [
   'neutral',
@@ -233,6 +235,7 @@ export const TONE_NAMES = [
   'booking',
   'block',
   'unread',
+  'critical',
 ] as const;
 export type Tone = (typeof TONE_NAMES)[number];
 
@@ -279,6 +282,13 @@ export const TONE_COLORS = {
     },
     block: { fg: '#645651', bg: '#f9e9e3', border: '#8b7c76', mark: '#f9e9e3', hatch: '#8e7f7a' },
     unread: { fg: '#fffcfb', bg: '#983512', border: '#983512', mark: '#983512', onMark: '#fffcfb' },
+    critical: {
+      fg: '#8a1230',
+      bg: '#ffdde3',
+      border: '#b0103a',
+      mark: '#b0103a',
+      onMark: '#fffcfb',
+    },
   },
   dark: {
     neutral: { fg: '#b5a7a2', bg: '#392d29', border: '#887b76', mark: '#877a75' },
@@ -306,6 +316,13 @@ export const TONE_COLORS = {
     },
     block: { fg: '#b5a7a2', bg: '#392d29', border: '#887b76', mark: '#392d29', hatch: '#887b76' },
     unread: { fg: '#1e1511', bg: '#e78c70', border: '#e78c70', mark: '#e78c70', onMark: '#1e1511' },
+    critical: {
+      fg: '#ffadbb',
+      bg: '#4d1622',
+      border: '#ff7a90',
+      mark: '#ff7a90',
+      onMark: '#1e1511',
+    },
   },
 } as const satisfies Readonly<Record<ThemeName, Readonly<Record<Tone, ToneColors>>>>;
 

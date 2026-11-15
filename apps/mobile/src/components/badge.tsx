@@ -23,9 +23,12 @@ export interface BadgeProps {
   testID?: string;
 }
 
-/** The chips filled with their mark: the unread badge, and any chip asked to be. */
+/**
+ * The chips filled with their mark: the unread badge, «Критическая» — the
+ * strongest chip there is (owner, 2026-11-15) — and any chip asked to be.
+ */
 function isMarkFilled(tone: Tone, isFilled: boolean): boolean {
-  return isFilled || tone === 'unread';
+  return isFilled || tone === 'unread' || tone === 'critical';
 }
 
 /**

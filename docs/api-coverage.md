@@ -10,9 +10,9 @@
 
 | | Выставлено | Запланировано | Внутреннее | Всего |
 | --- | --- | --- | --- | --- |
-| Функции | 20 | 46 | 291 | 357 |
+| Функции | 20 | 46 | 292 | 358 |
 | Таблицы и представления | 9 | 21 | 25 | 55 |
-| Всего | 29 | 67 | 316 | 412 |
+| Всего | 29 | 67 | 317 | 413 |
 
 ## Функции
 
@@ -92,7 +92,7 @@
 | `update_host_settings` | `settings:write` | writes the company's switches and video limits |
 | `update_problem` | `tasks:update` | the reporter corrects her own open task (problem) |
 
-### Внутреннее — 291
+### Внутреннее — 292
 
 | Имя | Причина |
 | --- | --- |
@@ -255,6 +255,7 @@
 | `problem_origin_signal` | helper: the guest signal a task was made from, through its finding of origin; execute revoked from every role |
 | `problem_theme` | the panel read of a task theme; the public resource comes with stage 6 of the plan |
 | `problem_title_max_length` | validation limit constant of report_problem/update_problem |
+| `problems_critical_follows_priority` | trigger function: a task taken below high is no longer critical (the level above high) |
 | `property_id_for_unit` | Hostaway sync, Hostaway stays the source of truth: maps a listingUnit to its properties.id |
 | `property_maintenance_tasks` | panel listing-card read of repairs; the same rows come from GET /v1/cleanings filtered by property |
 | `property_open_cleanings` | panel confirmation figure before set_property_status; derivable from GET /v1/cleanings |

@@ -1,7 +1,7 @@
 import type { Tone } from '@str-ops/shared';
 
 /**
- * The Tailwind classes of the thirteen tones, written out whole: Tailwind
+ * The Tailwind classes of the fourteen tones, written out whole: Tailwind
  * finds a class only where its full name stands in the source, so a class
  * built as `bg-tone-${tone}-mark` would draw nothing. The colours behind them
  * are the generated `--tone-*` variables (`theme.generated.css`); a test holds
@@ -23,6 +23,7 @@ export const TONE_MARK_BG: Readonly<Record<Tone, string>> = {
   booking: 'bg-tone-booking-mark',
   block: 'bg-tone-block-mark',
   unread: 'bg-tone-unread-mark',
+  critical: 'bg-tone-critical-mark',
 };
 
 /**
@@ -46,4 +47,6 @@ export const TONE_BADGE: Readonly<Record<Tone, string>> = {
   booking: 'bg-tone-booking-bg text-tone-booking-fg',
   block: 'bg-tone-block-bg text-tone-block-fg',
   unread: 'bg-tone-unread-mark text-tone-unread-on-mark',
+  /** «Критическая»: filled with its mark like the unread badge, the strongest chip of the panel. */
+  critical: 'bg-tone-critical-mark text-tone-critical-on-mark',
 };

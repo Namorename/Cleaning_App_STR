@@ -66,6 +66,11 @@
   --color-tone-unread-border: var(--tone-unread-border);
   --color-tone-unread-mark: var(--tone-unread-mark);
   --color-tone-unread-on-mark: var(--tone-unread-on-mark);
+  --color-tone-critical-fg: var(--tone-critical-fg);
+  --color-tone-critical-bg: var(--tone-critical-bg);
+  --color-tone-critical-border: var(--tone-critical-border);
+  --color-tone-critical-mark: var(--tone-critical-mark);
+  --color-tone-critical-on-mark: var(--tone-critical-on-mark);
 }
 
 :root {
@@ -162,6 +167,11 @@
   --tone-unread-border: #983512;
   --tone-unread-mark: #983512;
   --tone-unread-on-mark: #fffcfb;
+  --tone-critical-fg: #8a1230;
+  --tone-critical-bg: #ffdde3;
+  --tone-critical-border: #b0103a;
+  --tone-critical-mark: #b0103a;
+  --tone-critical-on-mark: #fffcfb;
 }
 
 .dark {
@@ -257,6 +267,11 @@
   --tone-unread-border: #e78c70;
   --tone-unread-mark: #e78c70;
   --tone-unread-on-mark: #1e1511;
+  --tone-critical-fg: #ffadbb;
+  --tone-critical-bg: #4d1622;
+  --tone-critical-border: #ff7a90;
+  --tone-critical-mark: #ff7a90;
+  --tone-critical-on-mark: #1e1511;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -353,5 +368,10 @@
     --tone-unread-border: #e78c70;
     --tone-unread-mark: #e78c70;
     --tone-unread-on-mark: #1e1511;
+    --tone-critical-fg: #ffadbb;
+    --tone-critical-bg: #4d1622;
+    --tone-critical-border: #ff7a90;
+    --tone-critical-mark: #ff7a90;
+    --tone-critical-on-mark: #1e1511;
   }
 }

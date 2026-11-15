@@ -300,7 +300,7 @@ select pg_temp.check('a bucket it does not know is refused',
   'serverErrors.analyticsPeriodInvalid');
 select pg_temp.check('tasks created in the period by urgency: not the cancelled normal one',
   (pg_temp.cur()->'problems_by_priority'),
-  jsonb_build_object('low', 1, 'normal', 0, 'high', 1));
+  jsonb_build_object('low', 1, 'normal', 0, 'high', 1, 'critical', 0));
 reset role;
 
 select pg_temp.as_anna();

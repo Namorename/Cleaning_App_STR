@@ -914,7 +914,7 @@
           {
             "name": "priority",
             "in": "query",
-            "description": "One or more of `low`, `normal`, `high`.",
+            "description": "One or more of `low`, `normal`, `high`, `critical`. `high` finds every task that reads high, the critical ones among them; `critical` finds those alone.",
             "schema": {
               "type": "string",
               "example": "high"
@@ -2992,6 +2992,7 @@
           "description",
           "text_masked",
           "priority",
+          "critical",
           "status",
           "property_id",
           "cleaning_id",
@@ -3039,7 +3040,12 @@
               "low",
               "normal",
               "high"
-            ]
+            ],
+            "description": "A critical task reads high here: see critical."
+          },
+          "critical": {
+            "type": "boolean",
+            "description": "The level above high (2026-11-15): true only with priority high. A client that knows three levels may read such a task as high."
           },
           "status": {
             "type": "string",
@@ -3547,9 +3553,11 @@
             "enum": [
               "low",
               "normal",
-              "high"
+              "high",
+              "critical"
             ],
-            "default": "normal"
+            "default": "normal",
+            "description": "`critical` is the level above high: the task then reads priority high and critical true."
           },
           "property_id": {
             "type": [

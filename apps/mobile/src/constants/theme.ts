@@ -77,7 +77,7 @@ export interface Theme {
   readonly onScrim: HexColor;
   /** The soft shadow a card sits on, in place of a frame (decisions §1, the shape). */
   readonly shadow: string;
-  /** The thirteen tones every status is drawn in; read one through `statusTone`. */
+  /** The fourteen tones every status is drawn in; read one through `statusTone`. */
   readonly tone: Readonly<Record<Tone, ToneColors>>;
 }
 

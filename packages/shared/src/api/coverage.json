@@ -1090,6 +1090,11 @@
       "reason": "validation limit constant of report_problem/update_problem",
       "defined_in": "20260908130000_problems.sql"
     },
+    "problems_critical_follows_priority": {
+      "status": "internal",
+      "reason": "trigger function: a task taken below high is no longer critical (the level above high)",
+      "defined_in": "20261115090000_problem_critical.sql"
+    },
     "property_checklist_snapshot": {
       "status": "planned",
       "scope": "checklists:read",

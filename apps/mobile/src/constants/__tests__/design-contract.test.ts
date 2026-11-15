@@ -57,7 +57,7 @@ describe('both themes define the same tokens', () => {
     expect(sortedKeys(NEUTRALS.dark)).toEqual(sortedKeys(NEUTRALS.light));
   });
 
-  test('exactly the thirteen tones, no stray one', () => {
+  test('exactly the fourteen tones, no stray one', () => {
     expect(sortedKeys(TONE_COLORS.light)).toEqual([...TONE_NAMES].sort());
   });
 });
@@ -98,7 +98,7 @@ test.each(THEME_NAMES)('%s: «Срочно» shares the colours of «Проср�
 });
 
 describe('the tone contract', () => {
-  test('every status value has one of the thirteen tones', () => {
+  test('every status value has one of the fourteen tones', () => {
     const strays = Object.entries(STATUS_TONE).filter(([, tone]) => !toneSet.has(tone));
     expect(strays).toEqual([]);
   });

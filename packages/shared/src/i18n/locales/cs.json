@@ -542,7 +542,7 @@
         "problemsCancelled": "Zrušené úkoly",
         "problemsCancelledHint": "podle dne zrušení; v ostatních číslech nejsou",
         "urgencyAvg": "Průměrná naléhavost",
-        "urgencyHint": "nízká 1 · běžná 2 · vysoká 3",
+        "urgencyHint": "nízká 1 · běžná 2 · vysoká 3 · kritická 4",
         "cleaningMinutesMedian": "Medián doby úklidu",
         "cleaningMinutesHint": "průměr {{value}}",
         "photoShare": "Úklidy s fotkami",
@@ -2632,7 +2632,8 @@
     "priorities": {
       "low": "Nízká",
       "normal": "Běžná",
-      "high": "Vysoká"
+      "high": "Vysoká",
+      "critical": "Kritická"
     },
     "photosLabel": "Fotky",
     "photosHint": "Až {{max}} fotky, fotoaparátem",

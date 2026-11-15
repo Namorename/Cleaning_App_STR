@@ -41,7 +41,9 @@ const TASK_STATUS = ["unassigned", "assigned", "accepted", "in_progress", "pause
 const TASK_TYPE = ["cleaning", "maintenance", "inspection", "midstay"];
 const PROPERTY_STATUS = ["active", "maintenance", "archived"];
 const PROBLEM_STATUS = ["open", "assigned", "in_progress", "resolved", "cancelled"];
-const PROBLEM_PRIORITY = ["low", "normal", "high"];
+// "critical" is the level above high (20261115090000): a task filed with it
+// reads priority "high" and critical true; as a filter it finds those alone.
+const PROBLEM_PRIORITY = ["low", "normal", "high", "critical"];
 const STAFF_ROLE = ["cleaner", "tech", "head_tech", "manager", "admin"];
 const CHANNEL = ["airbnb", "booking", "vrbo", "direct", "google", "other"];
 

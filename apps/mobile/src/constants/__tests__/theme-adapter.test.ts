@@ -54,7 +54,7 @@ describe.each(THEME_NAMES)('%s theme', (name) => {
     expect(c.ctaPressed).toBe(tokens.ctaPressed);
   });
 
-  test('carries the thirteen tones of the contract', () => {
+  test('carries the fourteen tones of the contract', () => {
     expect(c.tone).toBe(TONE_COLORS[name]);
   });
 
