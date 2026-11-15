@@ -31,7 +31,7 @@ const planStepSchema = z.object({
   closed_at: z.string().nullable(),
 }).transform(({ critical, ...step }) => ({
   ...step,
-  priority: problemLevel({ priority: step.priority, critical }) as PlanPriority,
+  priority: problemLevel({ priority: step.priority, critical }),
 }));
 export type PlanStep = z.infer<typeof planStepSchema>;
 

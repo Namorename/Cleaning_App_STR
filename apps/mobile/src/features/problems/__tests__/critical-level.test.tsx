@@ -275,6 +275,39 @@ describe('her form and what it sends', () => {
     expect(screen.getByTestId('sent')).toHaveTextContent('high/true');
   });
 
+  test('the sheet lists low on top and critical at the bottom, and so does its search (owner, 2026-11-15)', async () => {
+    const at = (name: string, priority: ProblemCategory['priority'], synonyms: string[] = []) => ({
+      ...FLOOD,
+      id: `00000000-0000-4000-8000-0000000000${String(name.length).padStart(2, '0')}`,
+      name,
+      name_i18n: {},
+      synonyms,
+      priority,
+      critical: false,
+    });
+    // The catalogue's own order: critical first, as the client wrote it.
+    const catalogue = [
+      { ...FLOOD, synonyms: ['потоп'] },
+      at('Wi-Fi', 'high'),
+      at('Мебель!', 'normal'),
+      at('Декор', 'low', ['подставка']),
+    ];
+    await render(<Harness categories={catalogue} />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Категория' }));
+    const rows = () =>
+      screen.getAllByRole('button', { name: /срочность:/ }).map((row) => row.props.accessibilityLabel);
+
+    expect(rows()).toEqual([
+      'Декор, срочность: Низкая',
+      'Мебель!, срочность: Обычная',
+      'Wi-Fi, срочность: Высокая',
+      'Затопление, срочность: Критическая',
+    ]);
+
+    await fireEvent.changeText(screen.getByLabelText('Начните вводить название категории'), 'по');
+    expect(rows()).toEqual(['Декор, срочность: Низкая', 'Затопление, срочность: Критическая']);
+  });
+
   test('a critical task she corrects opens at «Критическая»', () => {
     expect(draftOfProblem(problem()).priority).toBe('critical');
     expect(draftOfProblem(problem({ critical: false })).priority).toBe('high');

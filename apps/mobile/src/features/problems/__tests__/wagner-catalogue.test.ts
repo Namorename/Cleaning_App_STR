@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import {
   categoryLevel,
+  inPickOrder,
   indexCategories,
   matchCategories,
   problemCategoryListSchema,
@@ -84,6 +85,13 @@ describe("the client's catalogue as the script loads it", () => {
       ['normal'],
       ['low'],
     ]);
+  });
+
+  test('she picks from P4 on top down to P1 at the bottom, as the owner ordered each level', () => {
+    const picked = inPickOrder(catalogue).map((category) => category.name);
+    expect(picked.slice(0, 2)).toEqual(['Косметические дефекты', 'Царапины']);
+    expect(picked.slice(-2)).toEqual(['Прорыв труб', 'Затопление']);
+    expect(picked.indexOf('Декор')).toBeLessThan(picked.indexOf('Горячая вода'));
   });
 
   test('six critical, seven high, six normal, eight low', () => {

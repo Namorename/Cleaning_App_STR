@@ -3,7 +3,7 @@ import { describe, expect, test, vi } from 'vitest';
 import { problemSchema } from '@/features/problems/schema';
 
 import { fetchPlan, launchPlan, savePlan, type Client } from '../api';
-import { wireStep, type DraftStep } from '../draft-model';
+import { draftFromStep, wireStep, type DraftStep } from '../draft-model';
 import { PLAN_PRIORITIES, planSchema } from '../schema';
 
 const PLAN_ID = '11111111-1111-4111-8111-111111111111';
@@ -101,6 +101,11 @@ describe('the level above high on a step (20261115140000)', () => {
       ],
     });
     expect(read.steps.map((item) => item.priority)).toEqual(['critical', 'high']);
+    // Read, edited as a draft, saved: the level goes back as it came, never lost or made up.
+    expect(read.steps.map((item) => wireStep(draftFromStep(item)).priority)).toEqual(['critical', 'high']);
+    // A flag the panel cannot read is no flag.
+    const odd = planSchema.parse({ ...plan, steps: [{ ...answered, critical: 'yes' }] });
+    expect(odd.steps[0].priority).toBe('high');
   });
 
   test('the step goes out as the level: the server reads «critical» as high with the flag', () => {

@@ -74,23 +74,27 @@ export interface IndexedCategory {
 }
 
 /**
- * Every word a category may be found by: its name in the company's language,
- * each translation and each synonym — a cleaner on an English screen may still
- * type «кран».
- */
-/**
  * The order she picks from (owner, 2026-11-15): the least urgent on top — low, normal, high —
- * and critical at the very bottom; within a level the catalogue's own order (the sort is stable).
- * A category whose urgency could not be read leads, as one with none.
+ * and critical at the very bottom; within a level the catalogue's own order, kept by the index
+ * rather than left to the engine's sort. A category whose urgency could not be read leads, as one
+ * with none.
  */
 export function inPickOrder(categories: readonly ProblemCategory[]): ProblemCategory[] {
   const rank = (category: ProblemCategory) => {
     const level = categoryLevel(category);
     return level === null ? 0 : problemLevelRank(level);
   };
-  return [...categories].sort((left, right) => rank(left) - rank(right));
+  return categories
+    .map((category, at) => ({ category, at, rank: rank(category) }))
+    .sort((left, right) => left.rank - right.rank || left.at - right.at)
+    .map(({ category }) => category);
 }
 
+/**
+ * Every word a category may be found by: its name in the company's language,
+ * each translation and each synonym — a cleaner on an English screen may still
+ * type «кран».
+ */
 export function indexCategories(categories: readonly ProblemCategory[]): IndexedCategory[] {
   return categories.map((category) => ({
     category,
@@ -101,7 +105,7 @@ export function indexCategories(categories: readonly ProblemCategory[]): Indexed
 }
 
 /**
- * The categories she means, in the catalogue's order: each word she typed is
+ * The categories she means, in the index's order (the picker's, `inPickOrder`): each word she typed is
  * the beginning of some word of the category, case aside and ё read as е
  * (`foldForSearch`). «элек» finds «Электричество полностью» and «Частичное
  * отсутствие электричества»; «гор вод» finds «Горячая вода»; «кран» finds

@@ -716,7 +716,7 @@
             "manual": "Nastaveno ručně",
             "category": "Určeno kategorií"
           },
-          "notQuality": "Není problém kvality",
+          "notQuality": "Nesouvisí s kvalitou",
           "reset": "Zpět na automatické",
           "hint": "V Kvalitě objektů se změní do rána",
           "loadError": "Téma se nepodařilo načíst"

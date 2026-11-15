@@ -46,10 +46,12 @@ describe('ProblemThemeBlock', () => {
     expect(screen.queryByRole('button', { name: 'Вернуть автоматическую' })).not.toBeInTheDocument();
   });
 
-  test('«не проблема качества» by the category is shown as such, and a theme may still be chosen', async () => {
+  test('«no quality issue» by the category is shown as such, and a theme may still be chosen', async () => {
     open({ theme: null, source: 'category', not_quality: true });
 
-    expect(screen.getByRole('option', { name: 'Не проблема качества', selected: true })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Не относится к качеству', selected: true })).toBeInTheDocument();
+    expect(screen.getAllByRole('option')).toHaveLength(36);
+    expect(screen.queryByRole('button', { name: 'Вернуть автоматическую' })).not.toBeInTheDocument();
     expect(screen.getByText('Определена по категории')).toBeInTheDocument();
     await userEvent.selectOptions(screen.getByLabelText('Тема'), 'wifi');
     expect(state.write.mutate).toHaveBeenCalledWith('wifi');

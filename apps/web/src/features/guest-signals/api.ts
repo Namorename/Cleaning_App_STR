@@ -282,7 +282,8 @@ export async function approveFinding(client: Client, v: ApproveVariables): Promi
     p_finding_id: v.findingId,
     p_title: v.title,
     p_priority: v.priority,
-    p_critical: v.critical,
+    // Only when it says something: a panel that met the server before 20261115140000 still works.
+    p_critical: v.critical === true ? true : undefined,
     p_description: v.description,
     p_assignee_id: v.assigneeId,
     p_scheduled_date: v.assigneeId === undefined ? undefined : v.scheduledDate,
@@ -328,7 +329,8 @@ export async function addFinding(client: Client, v: AddFindingVariables): Promis
     p_subject: v.subject,
     p_title: v.title,
     p_priority: v.priority,
-    p_critical: v.critical,
+    // Only when it says something: a panel that met the server before 20261115140000 still works.
+    p_critical: v.critical === true ? true : undefined,
     p_description: v.description,
     p_assignee_id: v.assigneeId,
     p_scheduled_date: v.assigneeId === undefined ? undefined : v.scheduledDate,
